@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session, Tray, Menu, globalShortcut } from 'electron'
 import { join } from 'path'
 import path from 'path'
 import fs from 'fs'
@@ -24,9 +24,13 @@ const setupYoutubeFix = () => {
   )
 }
 
+let mainWindow = null
+let tray = null
+let isQuiting = false
+
 function createWindow() {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
@@ -56,7 +60,14 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
-  // mainWindow.webContents.openDevTools()
+  
+  // Sembunyikan window saat tombol close diklik (masuk tray)
+  mainWindow.on('close', function (event) {
+    if (!isQuiting) {
+      event.preventDefault()
+      mainWindow.hide()
+    }
+  })
 }
 
 // This method will be called when Electron has finished
@@ -66,7 +77,48 @@ function createWindow() {
 app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.mark.agent')
+  
+  // Run on startup background
+  app.setLoginItemSettings({
+    openAtLogin: true,
+    openAsHidden: true
+  })
+
   setupYoutubeFix()
+  createWindow()
+
+  // Setup System Tray
+  tray = new Tray(icon)
+  tray.setToolTip('Mark AI Assistant')
+  const contextMenu = Menu.buildFromTemplate([
+    { label: 'Buka Mark', click: () => mainWindow.show() },
+    { 
+      label: 'Ngobrol Sekarang (Live Audio)', 
+      click: () => {
+        mainWindow.show()
+        mainWindow.webContents.send('trigger-live-audio')
+      }
+    },
+    { type: 'separator' },
+    { 
+      label: 'Keluar', 
+      click: () => {
+        isQuiting = true
+        app.quit()
+      } 
+    }
+  ])
+  tray.setContextMenu(contextMenu)
+  tray.on('click', () => mainWindow.show())
+
+  // Global Shortcut (One-way)
+  globalShortcut.register('CommandOrControl+Shift+M', () => {
+    if (mainWindow) {
+      mainWindow.show()
+      mainWindow.webContents.send('trigger-live-audio')
+    }
+  })
+
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
@@ -170,23 +222,17 @@ app.whenReady().then(async () => {
       return []
     }
   })
-
-  createWindow()
-
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
+})
+
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  // Abaikan event ini agar aplikasi tetap hidup di background tray
 })
 
 // In this file you can include the rest of your app's specific main process

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { getAllConfig } from '../api/db'
 import { transcribeAudioGroq } from '../api/groq'
@@ -21,6 +21,7 @@ const LiveAudio = () => {
   } = useChat()
   const chatEndRef = useRef(null)
   const navigate = useNavigate()
+  const location = useLocation()
   const [isActive, setIsActive] = useState(false)
   const [status, setStatus] = useState('idle')
   const timeoutsRef = useRef(null)
@@ -64,6 +65,17 @@ const LiveAudio = () => {
     return () => stopRecordingCleanup()
   }, [])
 
+  // Auto-start dari Global Shortcut / System Tray
+  useEffect(() => {
+    if (location.state?.autoStart) {
+      if (!isActive) {
+        handleMicToggle()
+      }
+      // Hapus state dari React Router secara benar agar tidak loop
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location.state, isActive, navigate])
+
   // Refs untuk mengatasi stale closure pada event listener STT
   const isActiveRef = useRef(isActive)
   const statusRef = useRef(status)
@@ -79,6 +91,8 @@ const LiveAudio = () => {
     setIsSpeak(false)
   }, [setIsSpeak])
 
+  const isStartingRef = useRef(false)
+
   const handleMicToggle = async () => {
     if (isActive) {
       stopRecordingCleanup()
@@ -89,7 +103,12 @@ const LiveAudio = () => {
       setIsActive(false)
       setStatus('idle')
     } else {
+      if (isStartingRef.current) return
+      isStartingRef.current = true
+
       try {
+        stopRecordingCleanup()
+        
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         streamRef.current = stream
 
@@ -188,11 +207,13 @@ const LiveAudio = () => {
 
         setIsActive(true)
         setStatus('listening')
+        isStartingRef.current = false
       } catch (error) {
         console.error('Error starting mic:', error)
         alert('Gagal mengakses mikrofon. Pastikan Anda telah memberikan izin.')
         setIsActive(false)
         setStatus('idle')
+        isStartingRef.current = false
       }
     }
   }

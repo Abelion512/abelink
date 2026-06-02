@@ -39,6 +39,10 @@ Mencari video di youtube sesuai dengan permintaan user dengan `yt search`, dan m
 
 Pemutar musik terintegrasi berbasis **YouTube Music** via Electron Webview. Cukup minta Mark untuk memutar lagu — ia akan mencari via `ytmusic-api` dan menampilkan daftar hasil langsung di chat. Dilengkapi dengan **Ad-Blaster** otomatis (auto-mute, 16x speed, auto-skip iklan) dan floating player yang bisa di-minimize.
 
+### Voice Interaction (Live Audio Beta)
+
+Interaksi suara real-time terintegrasi menggunakan **Groq API** untuk Speech-to-Text (STT) super cepat dan **Edge-TTS** (Text-to-Speech) lokal. Memungkinkan percakapan dua arah secara natural (Voice-to-Voice) tanpa jeda yang signifikan, lengkap dengan deteksi VAD (Voice Activity Detection) dan Barge-in otomatis.
+
 ### Context & Time Awareness
 
 Mark memahami konteks percakapan sebelumnya dan sadar waktu (tanggal & jam saat ini) untuk menentukan relevansi informasi.
@@ -59,6 +63,11 @@ Desain menggunakan **Tailwind CSS 4** dan **DaisyUI 5** dengan fitur:
 - External link handling otomatis
 - GitHub Flavored Markdown support
 - Animasi halus dan mode interaksi dinamis
+
+### Global Shortcut & System Tray
+
+Aplikasi berjalan secara tersembunyi di latar belakang (System Tray) dan dapat dipanggil kapan saja menggunakan *Global Shortcut*.
+- **`Ctrl + Shift + M`** (atau `Cmd + Shift + M` di Mac): Membuka aplikasi secara instan dan langsung mengaktifkan mode **Live Audio** untuk mulai berbicara dengan Mark.
 
 ## Arsitektur Proyek
 
@@ -96,6 +105,7 @@ mark/
 | **Styling**      | Tailwind CSS 4, DaisyUI 5                                                   |
 | **AI Backend**   | LM Studio (Local Inference & Embeddings via OpenAI-compatible API)          |
 | **Web Scraping** | Electron Webview (Google Search & Deep Research)                            |
+| **Audio & Voice**| Groq API (STT), Edge-TTS, Web Audio API (VAD)                               |
 | **YouTube**      | `youtube-transcript-plus`, `ytmusic-api`, `yt-search`                       |
 | **Database**     | Dexie.js (IndexedDB wrapper)                                                |
 | **Markdown**     | React Markdown, React Syntax Highlighter, remark-gfm, rehype-external-links |
@@ -162,7 +172,7 @@ Output installer akan tersedia di folder `dist/`.
 - [x] Session Persistence (Menyimpan & memuat riwayat sesi chat)
 - [x] Configuration Page (Halaman pengaturan untuk model, API URL, dll.)
 - [x] YouTube Music Player (Pemutar musik terintegrasi dengan Ad-Blaster)
-- [ ] Voice Interaction (Antarmuka berbasis suara) (WIP)
+- [x] Voice Interaction (Antarmuka berbasis suara) (Live Audio Beta)
 - [ ] Vision Capability (Analisis gambar secara lokal)
 - [ ] Export/Import Memory (Backup & restore memori pengguna)
 
