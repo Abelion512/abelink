@@ -8,7 +8,8 @@ const Configuration = () => {
     temperature: 0,
     context: 10,
     ttsRate: 0,
-    ttsPitch: 0
+    ttsPitch: 0,
+    groqApiKey: ''
   })
   const [memories, setMemories] = useState([])
   const [loadingMemory, setLoadingMemory] = useState(true)
@@ -121,6 +122,21 @@ const Configuration = () => {
             />
             <p className="text-xs opacity-40">
               Nama model yang aktif di LM Studio. Pastikan sudah ter-load.
+            </p>
+          </div>
+
+          {/* Groq API Key */}
+          <div className="space-y-1.5">
+            <p className="text-sm font-semibold">Groq API Key (Untuk Voice STT)</p>
+            <input
+              type="password"
+              placeholder="Contoh: gsk_xxxxxxxxxxxxxxxxx"
+              className="input input-bordered w-full"
+              value={config.groqApiKey || ''}
+              onChange={(e) => setConfig((prev) => ({ ...prev, groqApiKey: e.target.value }))}
+            />
+            <p className="text-xs opacity-40">
+              API Key gratis dari <a href="https://console.groq.com/" target="_blank" rel="noreferrer" className="text-primary hover:underline">console.groq.com</a> untuk mentranskripsi suara (STT).
             </p>
           </div>
 

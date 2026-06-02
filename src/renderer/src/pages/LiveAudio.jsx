@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { getAllConfig } from '../api/db'
+import { transcribeAudioGroq } from '../api/groq'
 
 const LiveAudio = () => {
   const {
@@ -27,8 +28,9 @@ const LiveAudio = () => {
   const audioRef = useRef(null)
   const prevChatLengthRef = useRef(chatData.length)
   
-  // Local Whisper STT Refs
-  const workerRef = useRef(null)
+  const [toastMessage, setToastMessage] = useState('')
+
+  // Local Whisper STT Refs (Now used for Audio Context VAD)
   const streamRef = useRef(null)
   const audioContextRef = useRef(null)
   const processorRef = useRef(null)
@@ -36,48 +38,6 @@ const LiveAudio = () => {
   const audioChunksRef = useRef([])
   const silenceTimerRef = useRef(null)
   const lastSpokenMessageContentRef = useRef(null)
-
-  const [isModelReady, setIsModelReady] = useState(false)
-  const [modelProgress, setModelProgress] = useState(0)
-
-  // Inisialisasi Web Worker untuk Whisper
-  useEffect(() => {
-    workerRef.current = new Worker(new URL('../workers/whisper.worker.js', import.meta.url), {
-      type: 'module'
-    })
-
-    workerRef.current.onmessage = (event) => {
-      const { type, text, data, error } = event.data
-      
-      if (type === 'ready') {
-        console.log('Whisper Worker is ready!')
-        setIsModelReady(true)
-      } else if (type === 'progress') {
-        if (data.status === 'progress') {
-          setModelProgress(Math.round(data.progress))
-        }
-      } else if (type === 'result') {
-        if (text && text.trim() !== '') {
-          setMessage(text.trim())
-          handleAIResponse(text.trim())
-          setMessage('')
-        } else {
-          // Jika tidak ada suara / noise saja, kembali listening
-          setStatus('listening')
-        }
-      } else if (type === 'error') {
-        console.error('Whisper Worker Error:', error)
-        setStatus('listening')
-      }
-    }
-
-    workerRef.current.postMessage({ type: 'init' })
-
-    return () => {
-      if (workerRef.current) workerRef.current.terminate()
-      stopRecordingCleanup()
-    }
-  }, [])
 
   const stopRecordingCleanup = () => {
     if (processorRef.current) {
@@ -98,6 +58,11 @@ const LiveAudio = () => {
     isSpeakingRef.current = false
     audioChunksRef.current = []
   }
+
+  // Bersihkan mic saat unmount
+  useEffect(() => {
+    return () => stopRecordingCleanup()
+  }, [])
 
   // Refs untuk mengatasi stale closure pada event listener STT
   const isActiveRef = useRef(isActive)
@@ -124,8 +89,6 @@ const LiveAudio = () => {
       setIsActive(false)
       setStatus('idle')
     } else {
-      if (!isModelReady) return alert('Tunggu sebentar, model AI STT sedang di-download/disiapkan!')
-      
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         streamRef.current = stream
@@ -194,10 +157,28 @@ const LiveAudio = () => {
               }
               
               setStatus('thinking')
-              if (workerRef.current) {
-                workerRef.current.postMessage({ type: 'transcribe', audio: merged })
-              }
-            }, 1200) // Diam 1.2 detik = kirim ke Whisper
+              
+              // Transkripsi ke Groq Cloud API
+              transcribeAudioGroq(merged)
+                .then(text => {
+                  if (text && text.trim() !== '') {
+                    setMessage(text.trim())
+                    handleAIResponse(text.trim())
+                    setMessage('')
+                  } else {
+                    setStatus('listening')
+                  }
+                })
+                .catch(err => {
+                  console.error('Groq Error:', err)
+                  if (err.message.includes('Key')) {
+                    setToastMessage(err.message)
+                    setTimeout(() => setToastMessage(''), 5000)
+                  }
+                  setStatus('listening')
+                })
+              
+            }, 1200) // Diam 1.2 detik = kirim ke Groq
           }
 
           if (isSpeakingRef.current) {
@@ -427,13 +408,10 @@ const LiveAudio = () => {
       <div className="relative z-10 flex flex-col items-center">
         <button
           onClick={handleMicToggle}
-          disabled={!isModelReady && status === 'idle'}
           className={`relative w-18 h-18 rounded-full flex items-center justify-center transition-all duration-500 active:scale-95 ${
             isActive
               ? 'bg-error shadow-lg hover:bg-error/90'
-              : !isModelReady
-                ? 'bg-base-300 opacity-50 cursor-not-allowed'
-                : 'bg-primary shadow-lg hover:bg-primary/90'
+              : 'bg-primary shadow-lg hover:bg-primary/90'
           }`}
         >
           {isActive ? (
@@ -456,7 +434,7 @@ const LiveAudio = () => {
               height="1.8em"
               fill="currentColor"
               viewBox="0 0 24 24"
-              className={!isModelReady ? "text-base-content/50" : "text-white"}
+              className="text-white"
             >
               <path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4Z" />
               <path d="M17 11a1 1 0 0 1 1 1 6 6 0 0 1-12 0 1 1 0 0 1 2 0 4 4 0 0 0 8 0 1 1 0 0 1 1-1Z" />
@@ -464,14 +442,6 @@ const LiveAudio = () => {
             </svg>
           )}
         </button>
-
-        {/* Loading Progress */}
-        {!isModelReady && status === 'idle' && (
-          <div className="mt-4 text-xs opacity-60 flex flex-col items-center gap-1">
-            <span className="loading loading-spinner loading-xs"></span>
-            Mengunduh model AI Suara: {modelProgress}%
-          </div>
-        )}
 
         {/* Active ring animation around mic button */}
         {isActive && (
@@ -483,6 +453,16 @@ const LiveAudio = () => {
       <p className="relative z-10 mt-8 text-xs opacity-30 select-none">
         {isActive ? 'Tekan tombol untuk menghentikan' : 'Pastikan mikrofon sudah tersambung'}
       </p>
+
+      {/* Floating Toast Error */}
+      {toastMessage && (
+        <div className="toast toast-top toast-center z-50 animate-bounce">
+          <div className="alert alert-error text-sm font-semibold shadow-2xl flex gap-2 items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>{toastMessage}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

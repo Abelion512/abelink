@@ -10,9 +10,8 @@ self.onmessage = async (event) => {
 
   if (type === 'init') {
     try {
-      // Kita gunakan model Xenova/whisper-tiny yang sangat cepat dan ringan (sekitar 75MB)
-      // Bisa diganti ke whisper-small jika butuh akurasi lebih tinggi, tapi memakan waktu lebih lama
-      transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', {
+      // Menggunakan whisper-small untuk akurasi yang lebih baik (sekitar 400MB)
+      transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small', {
         progress_callback: (data) => {
           self.postMessage({ type: 'progress', data });
         },
