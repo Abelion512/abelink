@@ -33,6 +33,9 @@ export const YoutubeMusicProvider = ({ children }) => {
   const playUrl = useCallback((url) => {
     setMusicUrl(url)
     setIsPlayerOpen(true)
+    if (webviewRef.current) {
+      webviewRef.current.loadURL(url)
+    }
   }, [])
 
   const togglePlayer = useCallback(() => {

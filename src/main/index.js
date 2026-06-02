@@ -154,15 +154,16 @@ app.whenReady().then(async () => {
       const ytmusic = new YTMusic()
       await ytmusic.initialize()
 
-      const songs = await ytmusic.searchSongs(query)
+      const results = await ytmusic.search(query)
+      const validSongs = results.filter(item => item.videoId)
 
-      return songs.slice(0, 5).map((song) => ({
+      return validSongs.slice(0, 5).map((song) => ({
         id: song.videoId,
         title: song.name,
-        artist: song.artist.name,
+        artist: song.artist?.name || 'Unknown',
         album: song.album?.name || 'Single',
         duration: song.duration,
-        thumbnail: song.thumbnails[song.thumbnails.length - 1].url
+        thumbnail: song.thumbnails?.[song.thumbnails.length - 1]?.url
       }))
     } catch (error) {
       console.error('Mark gagal mencari lagu:', error.message)
