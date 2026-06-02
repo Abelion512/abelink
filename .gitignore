@@ -7,4 +7,5 @@ build
 *.log*
 .env
 .vscode
+workflow
 mark_chrome_profile
