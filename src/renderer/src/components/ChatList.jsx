@@ -75,6 +75,11 @@ const ChatList = ({
     return match ? match[1] : null
   }
 
+  const youtubeVideoId = getYouTubeID(youtubeLink)
+  const youtubeEmbedUrl = youtubeVideoId
+    ? `https://www.youtube.com/embed/${youtubeVideoId}?rel=0`
+    : null
+
   // Determine style and metadata
   let containerClass = isUser
     ? 'chat-bubble-primary chat-bubble'
@@ -270,16 +275,29 @@ const ChatList = ({
         ) : (
           <div className="flex flex-col gap-3">
             {isYoutubeSummary && (
-              <div className="p-3 bg-base-300 rounded-2xl my-2">
-                <iframe
-                  className="w-full aspect-video"
-                  src={`https://www.youtube-nocookie.com/embed/${getYouTubeID(youtubeLink)}`}
-                  title="YouTube video player"
-                  frameborder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                  allowfullscreen
-                ></iframe>
+              <div className="p-3 bg-base-300 rounded-2xl my-2 space-y-3">
+                {youtubeEmbedUrl ? (
+                  <iframe
+                    className="w-full aspect-video rounded-xl"
+                    src={youtubeEmbedUrl}
+                    title="YouTube video player"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                  ></iframe>
+                ) : (
+                  <div className="aspect-video rounded-xl bg-base-200 flex items-center justify-center text-sm text-base-content/70 text-center px-4">
+                    Tidak bisa memuat pemutar YouTube untuk tautan ini.
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => window.api.openExternal(youtubeLink)}
+                  className="btn btn-sm btn-neutral w-full normal-case"
+                >
+                  Watch on YouTube
+                </button>
               </div>
             )}
             {!isMusic && (

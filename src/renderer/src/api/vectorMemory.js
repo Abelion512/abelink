@@ -19,18 +19,27 @@ export const generateVector = async (text) => {
 
 // SEARCH: Rumus matematika buat ngukur kemiripan (0 sampai 1)
 export const cosineSimilarity = (vecA, vecB) => {
+  if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length === 0 || vecB.length === 0) {
+    return 0
+  }
+
   return vecA.reduce((sum, a, i) => sum + a * vecB[i], 0)
 }
 
 export const getRelevantMemory = async (userInput, memoryList) => {
-
   // 1. Ubah input user jadi koordinat (Vector)
   const output = await await generateVector(userInput);
+  if (!output) return []
+
   const userVector = Array.from(output)
 
   // 2. Bandingkan dengan setiap memori di list
   const scored = memoryList.map((mem) => {
     // Pastikan data memori lo udah ada field 'vector'-nya (hasil generate pas simpan)
+    if (!Array.isArray(mem.vector) || mem.vector.length === 0) {
+      return { ...mem, score: 0 }
+    }
+
     const score = cosineSimilarity(userVector, mem.vector)
     return { ...mem, score }
   })

@@ -1,34 +1,61 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useChat } from '../contexts/ChatContext'
 
 const LiveAudio = () => {
+  const {
+    chatData,
+    setChatData,
+    isAction,
+    setIsAction,
+    isLoading,
+    isSpeak,
+    setIsSpeak,
+    message,
+    setMessage,
+    handleSubmit,
+    config
+  } = useChat()
+  const chatEndRef = useRef(null)
   const navigate = useNavigate()
   const [isActive, setIsActive] = useState(false)
-  const [status, setStatus] = useState('idle') // idle, listening, speaking
-  const timeoutsRef = useRef([])
-
-  const clearAllTimeouts = () => {
-    timeoutsRef.current.forEach(clearTimeout)
-    timeoutsRef.current = []
-  }
+  const [status, setStatus] = useState('idle')
+  const timeoutsRef = useRef(null)
+  const recognitionRef = useRef(null)
 
   const handleMicToggle = () => {
     if (isActive) {
+      if (timeoutsRef.current) clearTimeout(timeoutsRef.current)
+      if (recognitionRef.current) recognitionRef.current.stop()
       setIsActive(false)
       setStatus('idle')
-      clearAllTimeouts()
     } else {
-      setIsActive(true)
-      setStatus('listening')
-      // Simulate Mark speaking after 3 seconds (placeholder)
-      const t1 = setTimeout(() => {
-        setStatus('speaking')
-        const t2 = setTimeout(() => {
-          setStatus('listening')
-        }, 2000)
-        timeoutsRef.current.push(t2)
-      }, 3000)
-      timeoutsRef.current.push(t1)
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      if (!SpeechRecognition) return alert('Browser/Electron lo gak support STT ini.')
+      const recognition = new SpeechRecognition()
+      recognitionRef.current = recognition
+      recognition.lang = 'id-ID'
+      recognition.continous = true
+      recognition.interimResults = true
+      recognition.onstart(() => {
+        setIsActive(true)
+        setStatus('listening')
+      })
+      recognition.onresult = (event) => {
+        if (timeoutsRef.current) clearTimeout(timeoutsRef.current)
+        let interimTranscript = ''
+        let finalTranscript = ''
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript
+          } else {
+            interimTranscript += event.results[i][0].transcript
+          }
+        }
+        setMessage(finalTranscript || interimTranscript)
+        
+        timeoutsRef.current = setTimeout(() => {}, 1500)
+      }
     }
   }
 

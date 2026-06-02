@@ -340,6 +340,15 @@ export const ChatProvider = ({ children }) => {
       if (error.name === 'AbortError') {
         setChatData((prev) => [...prev.filter((item) => !item.isThinking)])
         setChatData((prev) => prev.slice(0, -1))
+      } else if (error?.code === 'LM_STUDIO_OFFLINE' || error?.message?.includes('LM Studio mati')) {
+        setChatData((prev) => [
+          ...prev.filter((item) => !item.isThinking),
+          {
+            role: 'ai',
+            content:
+              'LM Studio lagi mati bro. Nyalain dulu server-nya di port 1234, baru gue lanjut jawab.'
+          }
+        ])
       } else {
         console.error('AI Response Error:', error)
         setChatData((prev) => [

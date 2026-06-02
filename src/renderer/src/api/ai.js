@@ -2,6 +2,24 @@ import axios from 'axios'
 import { getAllConfig } from './db'
 const config = await getAllConfig()
 
+const LM_STUDIO_OFFLINE_MESSAGE = 'LM Studio mati atau belum jalan. Nyalakan dulu di port 1234.'
+
+const createLMStudioOfflineError = (cause) => {
+  const error = new Error(LM_STUDIO_OFFLINE_MESSAGE)
+  error.code = 'LM_STUDIO_OFFLINE'
+  if (cause) error.cause = cause
+  return error
+}
+
+const isLMStudioOfflineError = (error) => {
+  return (
+    error?.code === 'LM_STUDIO_OFFLINE' ||
+    error?.name === 'TypeError' ||
+    error?.message?.includes('Failed to fetch') ||
+    error?.message?.includes('fetch')
+  )
+}
+
 export const fetchAI = async (messages, signal) => {
   try {
     const response = await fetch('http://localhost:1234/v1/chat/completions', {
@@ -25,6 +43,10 @@ export const fetchAI = async (messages, signal) => {
     console.log(data.choices[0].message.content)
     return data.choices[0].message.content
   } catch (error) {
+    if (isLMStudioOfflineError(error)) {
+      throw createLMStudioOfflineError(error)
+    }
+
     throw error
   }
 }
