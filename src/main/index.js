@@ -74,6 +74,26 @@ function createWindow() {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 
+// Gunakan folder terpisah untuk development agar terhindar dari error Cache Lock
+if (is.dev) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'mark-dev'))
+}
+
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+  process.exit(0)
+}
+
+app.on('second-instance', (event, commandLine, workingDirectory) => {
+  // Jika pengguna mencoba membuka aplikasi lagi, tampilkan window yang sudah ada
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  }
+})
+
 app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.mark.agent')
