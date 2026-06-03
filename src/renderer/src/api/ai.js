@@ -28,28 +28,45 @@ const getCurrentTimeInfo = () => {
 
 export const fetchAI = async (messages, signal) => {
   try {
-    const response = await fetch('http://localhost:1234/v1/chat/completions', {
+    const currentConfig = await getAllConfig()
+    const conf = currentConfig[0] || {}
+
+    let endpoint = 'http://localhost:1234/v1/chat/completions'
+    let headers = {
+      'Content-Type': 'application/json'
+    }
+    let body = {
+      temperature: Number(conf.temperature) || 0,
+      messages: messages
+    }
+    
+    if (conf.aiProvider === 'groq') {
+      endpoint = 'https://api.groq.com/openai/v1/chat/completions'
+      headers['Authorization'] = `Bearer ${conf.groqApiKey}`
+      body.model = conf.groqModel || 'llama-3.1-8b-instant'
+    } else {
+      body.model = conf.model || 'google/gemma-3-4b'
+    }
+
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: config[0]?.model || 'google/gemma-3-4b',
-        temperature: config[0]?.temperature || 0,
-        messages: messages
-      }),
+      headers: headers,
+      body: JSON.stringify(body),
       signal: signal
     })
 
     if (!response.ok) {
-      throw new Error(`Error LM Studio: ${response.statusText}`)
+      const errorProvider = conf.aiProvider === 'groq' ? 'Groq API' : 'LM Studio'
+      throw new Error(`Error ${errorProvider}: ${response.statusText}`)
     }
 
     const data = await response.json()
     console.log(data.choices[0].message.content)
     return data.choices[0].message.content
   } catch (error) {
-    if (isLMStudioOfflineError(error)) {
+    const currentConfig = await getAllConfig()
+    const conf = currentConfig[0] || {}
+    if (conf.aiProvider !== 'groq' && isLMStudioOfflineError(error)) {
       throw createLMStudioOfflineError(error)
     }
 
@@ -258,9 +275,11 @@ export const getAnswer = async (
   isYoutube
 ) => {
   try {
+    const currentConfig = await getAllConfig()
+    const conf = currentConfig[0] || {}
     const systemPrompt = `
 Kamu adalah Mark, asisten lokal yang cerdas, asertif, dan lugas. Panggil user "bro".
-Kepribadian dan Gaya Bahasa: ${config[0]?.personality || 'Santai layaknya seorang teman dan suka bercanda.'}
+Kepribadian dan Gaya Bahasa: ${conf.personality || 'Santai layaknya seorang teman dan suka bercanda.'}
 
 # IDENTITY
 - Nama kamu adalah **Mark**.
@@ -544,7 +563,7 @@ export const playVoice = async (text) => {
 // PLANNING (AGENTIC) FUNCTIONS
 // ==========================================
 
-export const getPlan = async (userInput, isWebSearch, isYoutube, signal) => {
+export const getPlan = async (userInput, isWebSearch, isYoutube, signal, chatSession = []) => {
   try {
     const systemPrompt = `
 Kamu adalah Mark, asisten AI cerdas.
@@ -569,6 +588,7 @@ Rancanglah rencana yang logis dan *memungkinkan* dieksekusi menggunakan kombinas
 3. Untuk SEMUA instruksi/pertanyaan yang membutuhkan pemikiran, riset, atau pencarian, buatlah rencana (planning) menggunakan tool yang ada (seperti Web Search & Analisis).
 4. JANGAN MENEBAK SINGKATAN/ISTILAH. Jika instruksi mengandung singkatan (seperti MBG) atau istilah yang artinya tidak kamu yakini 100%, langkah pertama WAJIB mencari tahu arti singkatan/istilah tersebut di internet (Web Search).
 5. KECUALIAN: JIKA DAN HANYA JIKA instruksi user sangat sederhana (seperti sapaan "halo", "makasih", atau obrolan basa-basi singkat) yang SAMA SEKALI tidak butuh tool, maka KEMBALIKAN array kosong: []
+6. BACA KONTEKS PERCAKAPAN SEBELUMNYA. Jika user bilang "cariin satu aja", lihat percakapan sebelumnya untuk memahami apa yang dimaksud "satu". Jangan berhalusinasi membuat rencana pencarian acak jika kamu bisa menemukan konteksnya.
 
 # CONTOH SKENARIO & OUTPUT
 User: "Putarin lagu galau dong"
@@ -595,9 +615,13 @@ Output:
 ["Mencari kepanjangan dan pengertian MBG di Web Search", "Menganalisis hasil pencarian untuk menjelaskannya"]
 \`\`\`
 `
+    const previousTurns = chatSession.length > 0 ? chatSession.slice(0, -1) : [];
+    const lastUserMsg = chatSession.length > 0 ? chatSession[chatSession.length - 1] : { role: 'user', content: userInput };
+
     const messages = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: userInput }
+      ...previousTurns,
+      lastUserMsg
     ]
     const response = await fetchAI(messages, signal)
     const data = cleanAndParse(response)

@@ -9,7 +9,9 @@ const Configuration = () => {
     context: 10,
     ttsRate: 0,
     ttsPitch: 0,
-    groqApiKey: ''
+    groqApiKey: '',
+    aiProvider: 'lm-studio',
+    groqModel: 'llama-3.1-8b-instant'
   })
   const [memories, setMemories] = useState([])
   const [loadingMemory, setLoadingMemory] = useState(true)
@@ -110,24 +112,54 @@ const Configuration = () => {
             AI Engine & Tools
           </h2>
 
-          {/* Model Selector */}
+          {/* AI Provider Selector */}
           <div className="space-y-1.5">
-            <p className="text-sm font-semibold">Model Selector</p>
-            <input
-              type="text"
-              placeholder="Contoh: google/gemma-3-4b"
-              className="input input-bordered w-full"
-              value={config.model}
-              onChange={(e) => setConfig((prev) => ({ ...prev, model: e.target.value }))}
-            />
-            <p className="text-xs opacity-40">
-              Nama model yang aktif di LM Studio. Pastikan sudah ter-load.
-            </p>
+            <p className="text-sm font-semibold">AI Provider</p>
+            <div className="flex gap-4">
+              <label className="label cursor-pointer justify-start gap-2">
+                <input type="radio" name="aiProvider" className="radio radio-primary radio-sm" value="lm-studio" checked={config.aiProvider === 'lm-studio'} onChange={() => setConfig((prev) => ({ ...prev, aiProvider: 'lm-studio' }))} />
+                <span className="label-text">LM Studio (Local)</span>
+              </label>
+              <label className="label cursor-pointer justify-start gap-2">
+                <input type="radio" name="aiProvider" className="radio radio-primary radio-sm" value="groq" checked={config.aiProvider === 'groq'} onChange={() => setConfig((prev) => ({ ...prev, aiProvider: 'groq' }))} />
+                <span className="label-text">Groq API</span>
+              </label>
+            </div>
           </div>
+
+          {config.aiProvider === 'lm-studio' || !config.aiProvider ? (
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold">Model Selector (LM Studio)</p>
+              <input
+                type="text"
+                placeholder="Contoh: google/gemma-3-4b"
+                className="input input-bordered w-full"
+                value={config.model}
+                onChange={(e) => setConfig((prev) => ({ ...prev, model: e.target.value }))}
+              />
+              <p className="text-xs opacity-40">
+                Nama model yang aktif di LM Studio. Pastikan sudah ter-load.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold">Groq Model</p>
+              <input
+                type="text"
+                placeholder="Contoh: llama-3.1-8b-instant"
+                className="input input-bordered w-full"
+                value={config.groqModel || 'llama-3.1-8b-instant'}
+                onChange={(e) => setConfig((prev) => ({ ...prev, groqModel: e.target.value }))}
+              />
+              <p className="text-xs opacity-40">
+                Model Groq yang ingin digunakan. (Pastikan API Key Groq di bawah diisi).
+              </p>
+            </div>
+          )}
 
           {/* Groq API Key */}
           <div className="space-y-1.5">
-            <p className="text-sm font-semibold">Groq API Key (Untuk Voice STT)</p>
+            <p className="text-sm font-semibold">Groq API Key (Untuk AI Chat & Voice STT)</p>
             <input
               type="password"
               placeholder="Contoh: gsk_xxxxxxxxxxxxxxxxx"
@@ -136,7 +168,7 @@ const Configuration = () => {
               onChange={(e) => setConfig((prev) => ({ ...prev, groqApiKey: e.target.value }))}
             />
             <p className="text-xs opacity-40">
-              API Key gratis dari <a href="https://console.groq.com/" target="_blank" rel="noreferrer" className="text-primary hover:underline">console.groq.com</a> untuk mentranskripsi suara (STT).
+              API Key gratis dari <a href="https://console.groq.com/" target="_blank" rel="noreferrer" className="text-primary hover:underline">console.groq.com</a> untuk Chat & STT.
             </p>
           </div>
 

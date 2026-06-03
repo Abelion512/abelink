@@ -371,13 +371,36 @@ export const ChatProvider = ({ children }) => {
     if (!userInput) return
     setIsLoading(true)
     const userMessage = { role: 'user', content: userInput }
+    
+    const rawSession = [
+      ...chatData
+        .filter(
+          (item) =>
+            item.role !== 'command' && !item.isThinking && !item.isSearching && !item.isSummarizing
+        )
+        .map((item) => ({ role: item.role === 'ai' ? 'assistant' : 'user', content: item.content }))
+    ]
+
+    let chatSession = []
+    rawSession.forEach((item, index) => {
+      if (index > 0 && item.role === chatSession[chatSession.length - 1].role) {
+        chatSession[chatSession.length - 1].content =
+          chatSession[chatSession.length - 1].content + `\n ${item.content}`
+      } else {
+        chatSession.push(item)
+      }
+    })
+
+    chatSession = [...chatSession].slice(-1 * (config[0]?.context || 10))
+    chatSession = [...chatSession, userMessage]
+
     setChatData((prev) => [...prev, userMessage])
     abortControllerRef.current = new AbortController()
     
     try {
       // 1. Get Plan
       setChatData((prev) => [...prev, { role: 'ai', content: 'Menganalisis instruksi dan membuat rencana...', isThinking: true }])
-      const plan = await getPlan(userInput, isAction.web, isAction.youtube, abortControllerRef.current.signal)
+      const plan = await getPlan(userInput, isAction.web, isAction.youtube, abortControllerRef.current.signal, chatSession)
       
       setChatData((prev) => {
          const filtered = prev.filter(item => !item.isThinking);
