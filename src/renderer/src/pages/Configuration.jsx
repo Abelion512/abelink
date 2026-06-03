@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getAllMemory, getAllConfig, saveConfiguration, deleteMemory, db } from '../api/db'
+import { getExtractor } from '../api/vectorMemory'
 
 const Configuration = () => {
   const [config, setConfig] = useState({
@@ -11,11 +12,15 @@ const Configuration = () => {
     ttsPitch: 0,
     groqApiKey: '',
     aiProvider: 'lm-studio',
-    groqModel: 'llama-3.1-8b-instant'
+    groqModel: 'llama-3.1-8b-instant',
+    embedProvider: 'lm-studio',
+    lmStudioEmbedModel: 'embeddinggemma-300m-qat'
   })
   const [memories, setMemories] = useState([])
   const [loadingMemory, setLoadingMemory] = useState(true)
   const [playingTest, setPlayingTest] = useState(false)
+  const [isDownloadingModel, setIsDownloadingModel] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState(0)
 
   const handleTestVoice = async () => {
     setPlayingTest(true)
@@ -47,7 +52,9 @@ const Configuration = () => {
       setConfig((prev) => ({ 
         ...prev, 
         ...data[0],
-        aiProvider: data[0].aiProvider || 'lm-studio'
+        aiProvider: data[0].aiProvider || 'lm-studio',
+        embedProvider: data[0].embedProvider || 'lm-studio',
+        lmStudioEmbedModel: data[0].lmStudioEmbedModel || 'embeddinggemma-300m-qat'
       }))
     }
   }
@@ -82,6 +89,27 @@ const Configuration = () => {
     a.download = `mark-chat-export-${Date.now()}.json`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const handleSaveConfiguration = async () => {
+    if (config.embedProvider === 'transformers') {
+      setIsDownloadingModel(true)
+      setDownloadProgress(0)
+      
+      try {
+        await getExtractor((info) => {
+          if (info.status === 'progress' && info.total > 0) {
+            setDownloadProgress(Math.round((info.loaded / info.total) * 100))
+          } else if (info.status === 'done' || info.status === 'ready') {
+            setDownloadProgress(100)
+          }
+        })
+      } catch (e) {
+        console.error(e)
+      }
+      setIsDownloadingModel(false)
+    }
+    await saveConfiguration(config)
   }
 
   const groupedMemories = memories.reduce((acc, mem) => {
@@ -162,6 +190,42 @@ const Configuration = () => {
               </p>
             </div>
           )}
+
+          {/* Embed Provider Selector */}
+          <div className="space-y-1.5">
+            <p className="text-sm font-semibold">Memori Embeddings Provider</p>
+            <div className="flex gap-4">
+              <label className="label cursor-pointer justify-start gap-2">
+                <input type="radio" name="embedProvider" className="radio radio-primary radio-sm" value="lm-studio" checked={config.embedProvider === 'lm-studio'} onChange={() => setConfig((prev) => ({ ...prev, embedProvider: 'lm-studio' }))} />
+                <span className="label-text">LM Studio (Local Server)</span>
+              </label>
+              <label className="label cursor-pointer justify-start gap-2">
+                <input type="radio" name="embedProvider" className="radio radio-primary radio-sm" value="transformers" checked={config.embedProvider === 'transformers'} onChange={() => setConfig((prev) => ({ ...prev, embedProvider: 'transformers' }))} />
+                <span className="label-text">Transformers.js (Fully Local - Tanpa Server)</span>
+              </label>
+            </div>
+            {config.embedProvider === 'transformers' && (
+               <p className="text-xs text-warning">
+                 Jika baru pertama kali memilih opsi ini, model sebesar ~22MB akan di-download saat menyimpan pengaturan.
+               </p>
+            )}
+            
+            {config.embedProvider === 'lm-studio' && (
+              <div className="mt-2 space-y-1.5">
+                <p className="text-sm font-semibold">Model Embeddings (LM Studio)</p>
+                <input
+                  type="text"
+                  placeholder="Contoh: embeddinggemma-300m-qat"
+                  className="input input-bordered w-full"
+                  value={config.lmStudioEmbedModel || 'embeddinggemma-300m-qat'}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, lmStudioEmbedModel: e.target.value }))}
+                />
+                <p className="text-xs opacity-40">
+                  Pastikan model text-embedding ini dalam status "Loaded" di LM Studio.
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Groq API Key */}
           <div className="space-y-1.5">
@@ -415,15 +479,22 @@ const Configuration = () => {
           </div>
         </section>
 
-        {/* Save */}
-        <div className="flex justify-end pt-2">
+        <div className="flex flex-col items-end pt-2">
+          {isDownloadingModel && (
+            <div className="w-full max-w-xs mb-4">
+              <div className="flex justify-between text-xs mb-1">
+                <span>Mengunduh Model Embeddings...</span>
+                <span>{downloadProgress}%</span>
+              </div>
+              <progress className="progress progress-primary w-full" value={downloadProgress} max="100"></progress>
+            </div>
+          )}
           <button
-            onClick={async () => {
-              saveConfiguration(config)
-            }}
+            onClick={handleSaveConfiguration}
+            disabled={isDownloadingModel}
             className="btn btn-primary px-8"
           >
-            Simpan Pengaturan
+            {isDownloadingModel ? 'Menyimpan...' : 'Simpan Pengaturan'}
           </button>
         </div>
       </div>

@@ -14,6 +14,14 @@ db.version(2).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel'
 })
 
+db.version(3).stores({
+  config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider'
+})
+
+db.version(4).stores({
+  config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel'
+})
+
 // --- CREATE ---
 export async function insertMemory(data) {
   const memoryText = data.memory.trim()

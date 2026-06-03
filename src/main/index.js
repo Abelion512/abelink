@@ -153,6 +153,12 @@ app.whenReady().then(async () => {
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
+    window.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12' || (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+        window.webContents.toggleDevTools()
+        event.preventDefault()
+      }
+    })
   })
 
   // IPC test
