@@ -39,7 +39,8 @@ function createWindow() {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       webviewTag: true,
-      sandbox: false
+      sandbox: false,
+      webSecurity: false
     }
   })
 
