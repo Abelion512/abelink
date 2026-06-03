@@ -166,7 +166,7 @@ const Chat = () => {
                 <li>
                   <a className={isAction.plan ? 'bg-info/20 text-info' : ''} onClick={() => setIsAction((prev) => ({ ...prev, plan: !prev.plan }))}>
                     <div className="flex w-full justify-between items-center">
-                      <span>Agentic Planning</span>
+                      <span>Agentic Planning (Beta)</span>
                       {isAction.plan && <span className="font-bold">✓</span>}
                     </div>
                   </a>
