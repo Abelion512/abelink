@@ -403,6 +403,16 @@ export const ChatProvider = ({ children }) => {
         // Execute Action
         if (actionData.action === 'search') {
            actionResult = await new Promise((resolve, reject) => {
+               const onAbort = () => {
+                   clearTimeout(timeoutId);
+                   reject(new Error('AbortError'));
+               };
+               
+               if (abortControllerRef.current.signal.aborted) {
+                   return onAbort();
+               }
+               abortControllerRef.current.signal.addEventListener('abort', onAbort);
+
                setChatData((prev) => [
                    ...prev.filter(item => !item.isThinking), 
                    { 
@@ -410,14 +420,25 @@ export const ChatProvider = ({ children }) => {
                        content: '...', 
                        isSearching: true, 
                        query: actionData.query, 
-                       sendDataWebSearch: (search, result) => resolve({ search, result }) 
+                       sendDataWebSearch: (search, result) => {
+                           abortControllerRef.current.signal.removeEventListener('abort', onAbort);
+                           clearTimeout(timeoutId);
+                           resolve({ search, result });
+                       } 
                    }
                ]);
                
-               // Optional timeout just in case it hangs (Ditingkatkan ke 45 detik karena deep search bisa lama)
-               setTimeout(() => resolve({ search: [], result: [] }), 45000)
+               const timeoutId = setTimeout(() => {
+                   abortControllerRef.current.signal.removeEventListener('abort', onAbort);
+                   resolve({ search: [], result: [] });
+               }, 45000);
            });
-           summary = await getTaskSummary(task, actionResult.search, previousContext, abortControllerRef.current.signal);
+           console.log("Hasil Search:", actionResult);
+           const chatSession = chatData.filter((item) => item.role !== 'command' && !item.isThinking && !item.isSearching && !item.isSummarizing)
+                                       .map((item) => ({ role: item.role === 'ai' ? 'assistant' : 'user', content: item.content }))
+                                       .slice(-10);
+           const searchSumObj = await getSearchResult(actionResult.search, actionResult.result, task, abortControllerRef.current.signal, chatSession);
+           summary = searchSumObj.answer;
         } else if (actionData.action === 'yt-search') {
            actionResult = await window.api.searchYoutube(actionData.query);
            summary = await getTaskSummary(task, actionResult, previousContext, abortControllerRef.current.signal);
@@ -440,10 +461,14 @@ export const ChatProvider = ({ children }) => {
               if (actionData.action === 'music-play' && actionResult.length > 0) {
                  playUrl(`https://music.youtube.com/watch?v=${actionResult[0].id}`);
               }
-              summary = await getTaskSummary(task, actionResult.slice(0,3), previousContext, abortControllerRef.current.signal);
+              summary = await getTaskSummary(task, actionResult.slice(0,5), previousContext, abortControllerRef.current.signal);
            }
         } else {
-           summary = await getTaskSummary(task, { note: "internal thought / done" }, previousContext, abortControllerRef.current.signal);
+           const chatSession = chatData.filter((item) => item.role !== 'command' && !item.isThinking && !item.isSearching && !item.isSummarizing)
+                                       .map((item) => ({ role: item.role === 'ai' ? 'assistant' : 'user', content: item.content }))
+                                       .slice(-10);
+           const searchSumObj = await getSearchResult([], previousContext, task, abortControllerRef.current.signal, chatSession);
+           summary = searchSumObj.answer;
         }
         
         contextSummaries.push(summary);
