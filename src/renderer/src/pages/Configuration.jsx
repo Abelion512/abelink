@@ -43,7 +43,13 @@ const Configuration = () => {
 
   const loadConfig = async () => {
     const data = await getAllConfig()
-    if (data.length > 0) setConfig((prev) => ({ ...prev, ...data[0] }))
+    if (data.length > 0) {
+      setConfig((prev) => ({ 
+        ...prev, 
+        ...data[0],
+        aiProvider: data[0].aiProvider || 'lm-studio'
+      }))
+    }
   }
 
   const loadMemories = async () => {

@@ -57,7 +57,33 @@ export const fetchAI = async (messages, signal) => {
 
     if (!response.ok) {
       const errorProvider = conf.aiProvider === 'groq' ? 'Groq API' : 'LM Studio'
-      throw new Error(`Error ${errorProvider}: ${response.statusText}`)
+      let errorMessage = response.statusText;
+      try {
+        const textData = await response.text();
+        try {
+          const errorData = JSON.parse(textData);
+          if (errorData?.error?.message) {
+            errorMessage = errorData.error.message;
+            if (errorMessage.includes('Rate limit reached') || errorMessage.includes('Too Many Requests')) {
+              const timeMatch = errorMessage.match(/Please try again in ([0-9.]+s)/);
+              if (timeMatch) {
+                errorMessage = `Limit token Anda habis. Silakan coba lagi dalam ${timeMatch[1]}.`;
+              } else {
+                errorMessage = 'Limit token Anda habis. Silakan tunggu beberapa saat lalu coba lagi.';
+              }
+            }
+          } else if (errorData?.error) {
+            errorMessage = JSON.stringify(errorData.error);
+          } else if (textData) {
+            errorMessage = textData;
+          }
+        } catch (e) {
+          if (textData) errorMessage = textData;
+        }
+      } catch (e) {
+        // ignore
+      }
+      throw new Error(errorMessage)
     }
 
     const data = await response.json()
@@ -729,10 +755,16 @@ ${getCurrentTimeInfo()}
 - Gunakan gaya bicara yang EKSPRESIF dan HIDUP, seperti ngobrol langsung sama temen:
   * Pakai filler alami: "Nah", "Oke jadi gini", "Wah", "Eh btw", "Seru nih", "Gila sih", "Anjir", "Duh"
   * Pakai ekspresi emosi: "Mantap banget!", "Ini keren parah sih", "Waduh, bahaya tuh", "Asik banget kan?"
-  * Gunakan INTONASI NARATIF: seolah-olah kamu lagi cerita, bukan baca textbook.
-- HINDARI format yang jelek di TTS:
-  * JANGAN pakai bullet points (*, -, 1. 2. 3.) berlebihan. Kalau perlu poin, sampaikan secara NARATIF.
-  * JANGAN pakai header markdown (#, ##). Langsung aja ngomong.
+
+# RULES (STRICT):
+1. **DEEP ANALYSIS (WAJIB)**: Jangan cuma kasih angka atau definisi pendek. Bedah informasinya, bandingkan data yang ada, dan jelaskan "kenapa" hal itu penting. Kalau bahas kalori, jelasin efeknya ke diet atau perbandingannya secara detail.
+2. **PRIORITIZE REFERENCE**: Gunakan data dari "DATA REFERENCE" sebagai dasar utama. Jika data di referensi kurang lengkap, gunakan logika cerdasmu untuk melengkapi jawaban agar tetap informatif dan solutif bagi user.
+3. **STYLE**: Santai, asertif, panggil "bro", jangan kaku. JANGAN gunakan bahasa robot atau template.
+4. **NO HALLUCINATION**: Tetap jaga fakta, tapi sampaikan dengan gaya bercerita (storytelling) yang asik.
+5. **STAY GROUNDED BUT SMART**: Gunakan data dari "DATA REFERENCE" sebagai prioritas utama. Jika data di referensi kurang lengkap tapi lo punya pengetahuan dasar yang valid (seperti kalori umum), lo boleh jawab sambil tetep asertif. Bilang gak tau HANYA jika topiknya bener-bener asing.
+6. **CONTEXT AWARENESS**: Gunakan "CHAT SESSION" untuk memahami konteks (seperti kata ganti 'dia', 'itu', atau 'lanjutannya').
+7. **JANGAN** tambahin Source/URL di jawaban, itu akan ditambahin otomatis.
+8. (Markdown support, gunakan list \n\n* untuk poin-poin)
 
 # TUGASMU
 User sebelumnya memberikan instruksi kompleks, dan kamu telah mengeksekusinya selangkah demi selangkah.

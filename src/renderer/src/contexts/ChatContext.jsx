@@ -409,6 +409,7 @@ export const ChatProvider = ({ children }) => {
 
       let contextSummaries = [];
       let previousContext = [];
+      let allSources = [];
 
       // 2. Loop
       for (let i = 0; i < plan.length; i++) {
@@ -462,6 +463,9 @@ export const ChatProvider = ({ children }) => {
                                        .slice(-10);
            const searchSumObj = await getSearchResult(actionResult.search, actionResult.result, task, abortControllerRef.current.signal, chatSession);
            summary = searchSumObj.answer;
+           if (searchSumObj.sources && searchSumObj.sources.length > 0) {
+               allSources = [...allSources, ...searchSumObj.sources];
+           }
         } else if (actionData.action === 'yt-search') {
            actionResult = await window.api.searchYoutube(actionData.query);
            summary = await getTaskSummary(task, actionResult, previousContext, abortControllerRef.current.signal);
@@ -492,6 +496,9 @@ export const ChatProvider = ({ children }) => {
                                        .slice(-10);
            const searchSumObj = await getSearchResult([], previousContext, task, abortControllerRef.current.signal, chatSession);
            summary = searchSumObj.answer;
+           if (searchSumObj.sources && searchSumObj.sources.length > 0) {
+               allSources = [...allSources, ...searchSumObj.sources];
+           }
         }
         
         contextSummaries.push(summary);
@@ -507,9 +514,23 @@ export const ChatProvider = ({ children }) => {
       setChatData((prev) => [...prev, { role: 'ai', content: 'Merangkum hasil akhir...', isThinking: true }]);
       const finalAnswer = await getPlanConclusion(userInput, contextSummaries, abortControllerRef.current.signal);
       
+      const uniqueSources = [];
+      const seenLinks = new Set();
+      allSources.forEach(source => {
+          const identifier = source.link || source.url || JSON.stringify(source);
+          if (!seenLinks.has(identifier)) {
+              seenLinks.add(identifier);
+              uniqueSources.push(source);
+          }
+      });
+
       setChatData((prev) => {
          const filtered = prev.filter(item => !item.isThinking);
-         return [...filtered, { role: 'ai', content: finalAnswer }]
+         const newAiMsg = { role: 'ai', content: finalAnswer };
+         if (uniqueSources.length > 0) {
+             newAiMsg.sources = uniqueSources;
+         }
+         return [...filtered, newAiMsg];
       });
       
       if (isSpeak) {
