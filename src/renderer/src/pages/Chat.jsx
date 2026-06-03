@@ -139,79 +139,40 @@ const Chat = () => {
                 />
               </svg>
             </button>
-            <button
-              type="button"
-              className={`btn btn-sm rounded-lg gap-1.5 ${isAction.web ? 'btn-primary' : 'btn-ghost opacity-60 hover:opacity-100'}`}
-              onClick={() => {
-                setIsAction((prev) => ({ ...prev, web: !prev.web }))
-              }}
-              data-tip="Pencarian Web"
-            >
-              <svg
-                ariaHidden="true"
-                xmlns="http://www.w3.org/2000/svg"
-                width="1em"
-                height="1em"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeWidth="2"
-                  d="m21 21-3.5-3.5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
-                />
-              </svg>
-              Web
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm rounded-lg gap-1.5 ${isAction.youtube ? 'btn-error' : 'btn-ghost opacity-60 hover:opacity-100'}`}
-              onClick={() => {
-                setIsAction((prev) => ({ ...prev, youtube: !prev.youtube }))
-              }}
-              data-tip="Meringkas Youtube"
-            >
-              <svg
-                aria-hidden="true"
-                xmlns="http://www.w3.org/2000/svg"
-                width="1em"
-                height="1em"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M21.7 8.037a4.26 4.26 0 0 0-.789-1.964 2.84 2.84 0 0 0-1.984-.839c-2.767-.2-6.926-.2-6.926-.2s-4.157 0-6.928.2a2.836 2.836 0 0 0-1.983.839 4.225 4.225 0 0 0-.79 1.965 30.146 30.146 0 0 0-.2 3.206v1.5a30.12 30.12 0 0 0 .2 3.206c.094.712.364 1.39.784 1.972.604.536 1.38.837 2.187.848 1.583.151 6.731.2 6.731.2s4.161 0 6.928-.2a2.844 2.844 0 0 0 1.985-.84 4.27 4.27 0 0 0 .787-1.965 30.12 30.12 0 0 0 .2-3.206v-1.516a30.672 30.672 0 0 0-.202-3.206Zm-11.692 6.554v-5.62l5.4 2.819-5.4 2.801Z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              YouTube
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm rounded-lg gap-1.5 ${isAction.plan ? 'btn-info' : 'btn-ghost opacity-60 hover:opacity-100'}`}
-              onClick={() => {
-                setIsAction((prev) => ({ ...prev, plan: !prev.plan }))
-              }}
-              data-tip="Agentic Planning"
-            >
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="1em" height="1em" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-              >
-                <path d="M12 16v-4"></path>
-                <path d="M12 8h.01"></path>
-                <circle cx="12" cy="12" r="10"></circle>
-              </svg>
-              Planning
-            </button>
+            <div className="dropdown dropdown-top">
+              <div tabIndex={0} role="button" className={`btn btn-sm rounded-lg gap-2 ${
+                (isAction.web || isAction.youtube || isAction.plan) ? 'btn-neutral text-white' : 'btn-ghost opacity-60 hover:opacity-100'
+              }`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                Tools {(isAction.web || isAction.youtube || isAction.plan) && <span className="badge badge-xs badge-primary badge-outline ml-1">On</span>}
+              </div>
+              <ul tabIndex={0} className="dropdown-content menu bg-base-300 rounded-box z-[1] w-52 p-2 shadow-xl mb-2 gap-1 border border-white/10">
+                <li>
+                  <a className={isAction.web ? 'bg-primary/20 text-primary' : ''} onClick={() => setIsAction((prev) => ({ ...prev, web: !prev.web }))}>
+                    <div className="flex w-full justify-between items-center">
+                      <span>Web Search</span>
+                      {isAction.web && <span className="font-bold">✓</span>}
+                    </div>
+                  </a>
+                </li>
+                <li>
+                  <a className={isAction.youtube ? 'bg-error/20 text-error' : ''} onClick={() => setIsAction((prev) => ({ ...prev, youtube: !prev.youtube }))}>
+                    <div className="flex w-full justify-between items-center">
+                      <span>YouTube Summary</span>
+                      {isAction.youtube && <span className="font-bold">✓</span>}
+                    </div>
+                  </a>
+                </li>
+                <li>
+                  <a className={isAction.plan ? 'bg-info/20 text-info' : ''} onClick={() => setIsAction((prev) => ({ ...prev, plan: !prev.plan }))}>
+                    <div className="flex w-full justify-between items-center">
+                      <span>Agentic Planning</span>
+                      {isAction.plan && <span className="font-bold">✓</span>}
+                    </div>
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
           <button type="submit" className="btn btn-circle btn-sm btn-primary text-base">
             {isLoading ? (

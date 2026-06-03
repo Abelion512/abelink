@@ -11,6 +11,10 @@
 
 Integrasi penuh dengan model open-source (Gemma 3, Llama, Mistral) melalui **LM Studio**. Semua inferensi berjalan lokal — tanpa data yang dikirim ke server eksternal.
 
+### Agentic Planning & Autonomous Execution
+
+Mark mampu memecah instruksi yang kompleks menjadi langkah-langkah logis (planning) dan mengeksekusinya satu per satu. Ia mengevaluasi hasil dari setiap langkah untuk menentukan aksi secara real-time, seperti mencari di web, memutar lagu, atau sekadar merangkum informasi tanpa intervensi pengguna tambahan. Ketersediaan tool (kapabilitas) bagi Mark secara cerdas disesuaikan secara dinamis berdasarkan fitur yang diaktifkan oleh pengguna (Web Search, YouTube Summary, dll).
+
 ### Multi-Turn Conversation
 
 Riwayat percakapan dikirim sebagai **native multi-turn messages** ke LLM (bukan text dump), menghasilkan pemahaman konteks yang jauh lebih baik — terutama untuk model kecil.
@@ -59,6 +63,7 @@ System prompt dilengkapi contoh output (few-shot examples) untuk meningkatkan ko
 
 Desain menggunakan **Tailwind CSS 4** dan **DaisyUI 5** dengan fitur:
 
+- Antarmuka *chat* yang minimalis dan luas berkat desain *Tools Dropdown* yang dinamis.
 - Markdown rendering lengkap (React Markdown + Syntax Highlighter)
 - External link handling otomatis
 - GitHub Flavored Markdown support
@@ -173,6 +178,7 @@ Output installer akan tersedia di folder `dist/`.
 - [x] Configuration Page (Halaman pengaturan untuk model, API URL, dll.)
 - [x] YouTube Music Player (Pemutar musik terintegrasi dengan Ad-Blaster)
 - [x] Voice Interaction (Antarmuka berbasis suara) (Live Audio Beta)
+- [x] Agentic Planning (Perencanaan otomatis dan eksekusi tugas berurutan)
 - [ ] Vision Capability (Analisis gambar secara lokal)
 - [ ] Export/Import Memory (Backup & restore memori pengguna)
 

@@ -377,7 +377,7 @@ export const ChatProvider = ({ children }) => {
     try {
       // 1. Get Plan
       setChatData((prev) => [...prev, { role: 'ai', content: 'Menganalisis instruksi dan membuat rencana...', isThinking: true }])
-      const plan = await getPlan(userInput, abortControllerRef.current.signal)
+      const plan = await getPlan(userInput, isAction.web, isAction.youtube, abortControllerRef.current.signal)
       
       setChatData((prev) => {
          const filtered = prev.filter(item => !item.isThinking);
@@ -394,7 +394,7 @@ export const ChatProvider = ({ children }) => {
         // UI update for running task - UPDATE currentStep instead of adding new thinking message
         setChatData((prev) => prev.map(item => item.isPlanSteps ? { ...item, currentStep: i } : item));
         
-        const actionData = await getTaskAction(task, previousContext, abortControllerRef.current.signal);
+        const actionData = await getTaskAction(task, previousContext, isAction.web, isAction.youtube, abortControllerRef.current.signal);
 
         
         let actionResult = null;
@@ -417,10 +417,10 @@ export const ChatProvider = ({ children }) => {
                // Optional timeout just in case it hangs (Ditingkatkan ke 45 detik karena deep search bisa lama)
                setTimeout(() => resolve({ search: [], result: [] }), 45000)
            });
-           summary = await getTaskSummary(task, actionResult.search, abortControllerRef.current.signal);
+           summary = await getTaskSummary(task, actionResult.search, previousContext, abortControllerRef.current.signal);
         } else if (actionData.action === 'yt-search') {
            actionResult = await window.api.searchYoutube(actionData.query);
-           summary = await getTaskSummary(task, actionResult, abortControllerRef.current.signal);
+           summary = await getTaskSummary(task, actionResult, previousContext, abortControllerRef.current.signal);
         } else if (actionData.action === 'yt-summary') {
            const yData = await getYoutubeData(actionData.query);
            const sum = await getYoutubeSummary(actionData.query, yData, abortControllerRef.current.signal);
@@ -440,10 +440,10 @@ export const ChatProvider = ({ children }) => {
               if (actionData.action === 'music-play' && actionResult.length > 0) {
                  playUrl(`https://music.youtube.com/watch?v=${actionResult[0].id}`);
               }
-              summary = await getTaskSummary(task, actionResult.slice(0,3), abortControllerRef.current.signal);
+              summary = await getTaskSummary(task, actionResult.slice(0,3), previousContext, abortControllerRef.current.signal);
            }
         } else {
-           summary = await getTaskSummary(task, { note: "internal thought / done" }, abortControllerRef.current.signal);
+           summary = await getTaskSummary(task, { note: "internal thought / done" }, previousContext, abortControllerRef.current.signal);
         }
         
         contextSummaries.push(summary);

@@ -20,6 +20,12 @@ const isLMStudioOfflineError = (error) => {
   )
 }
 
+const getCurrentTimeInfo = () => {
+  const now = new Date();
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' };
+  return now.toLocaleDateString('id-ID', options);
+};
+
 export const fetchAI = async (messages, signal) => {
   try {
     const response = await fetch('http://localhost:1234/v1/chat/completions', {
@@ -169,6 +175,9 @@ Kamu adalah Mark, asisten cerdas yang HANYA boleh menjawab berdasarkan data yang
 Berikut adalah data hasil search internet terbaru:
 ${JSON.stringify(deepDataArray)}
 
+# WAKTU & TANGGAL SAAT INI
+${getCurrentTimeInfo()}
+
 # CHAT SESSION (RIWAYAT):
 ${JSON.stringify(chatSession)}
 
@@ -259,6 +268,9 @@ Kepribadian dan Gaya Bahasa: ${config[0]?.personality || 'Santai layaknya seoran
 - Berlakulah seperti teman yang ahli di bidangnya. Gunakan analogi sehari-hari yang relevan.
 - Hindari kalimat kaku seperti "Berdasarkan data yang saya temukan". Mark harus punya "pendapat" sendiri yang didasari logika kuat.
 - Jika user bertanya tentang suatu masalah, berikan solusi langkah-demi-langkah, jangan cuma jawab "ya" atau "tidak".
+
+# WAKTU & TANGGAL SAAT INI
+${getCurrentTimeInfo()}
 
 # VOICE-EXPRESSIVE STYLE (CRITICAL - Jawaban akan dibacakan lewat TTS)
 - Jawabanmu AKAN DIBACAKAN SUARA (Text-to-Speech), jadi tulis jawaban yang ENAK DIDENGAR, bukan cuma enak dibaca.
@@ -532,12 +544,24 @@ export const playVoice = async (text) => {
 // PLANNING (AGENTIC) FUNCTIONS
 // ==========================================
 
-export const getPlan = async (userInput, signal) => {
+export const getPlan = async (userInput, isWebSearch, isYoutube, signal) => {
   try {
     const systemPrompt = `
 Kamu adalah Mark, asisten AI cerdas.
 Tugasmu adalah merancang (planning) langkah-langkah sistematis untuk mengeksekusi instruksi dari user.
 Pecah instruksi menjadi array tugas-tugas kecil yang berurutan.
+
+# WAKTU & TANGGAL SAAT INI
+${getCurrentTimeInfo()}
+
+# KAPABILITAS / TOOL YANG TERSEDIA
+Sistem memiliki kemampuan berikut:
+${isWebSearch ? '- Web Search: Mencari info umum di Google.' : ''}
+- YouTube Search: Mencari video di YouTube.
+${isYoutube ? '- YouTube Summary: Merangkum isi video dari link YouTube.' : ''}
+- Music Player: Memutar lagu di YouTube Music.
+- Summary/Analisis: Mengidentifikasi, memfilter, atau menyimpulkan data dari langkah sebelumnya.
+Rancanglah rencana yang logis dan *memungkinkan* dieksekusi menggunakan kombinasi kapabilitas di atas.
 
 # ATURAN
 1. Output HANYA boleh valid JSON array of strings.
@@ -561,18 +585,22 @@ Pecah instruksi menjadi array tugas-tugas kecil yang berurutan.
   }
 }
 
-export const getTaskAction = async (task, previousContext, signal) => {
+export const getTaskAction = async (task, previousContext, isWebSearch, isYoutube, signal) => {
   try {
     const systemPrompt = `
 Kamu adalah Mark, asisten AI cerdas. 
 Tugasmu adalah menentukan SATU aksi yang harus dieksekusi oleh sistem untuk menyelesaikan tugas saat ini, berdasarkan riwayat konteks sebelumnya (jika ada).
 
+# WAKTU & TANGGAL SAAT INI
+${getCurrentTimeInfo()}
+
 # ACTION LIST
-- search: Melakukan pencarian web.
+${isWebSearch ? '- search: Melakukan pencarian web.' : ''}
 - music-play: Memutar lagu.
 - yt-search: Mencari video YouTube.
-- yt-summary: Merangkum YouTube.
-- none: Tidak perlu aksi khusus / hanya mikir.
+${isYoutube ? '- yt-summary: Merangkum YouTube.' : ''}
+- summary: Menyimpulkan/mengidentifikasi informasi dari konteks sebelumnya tanpa melakukan pencarian baru.
+- none: Tidak perlu aksi khusus.
 
 # ATURAN
 1. Output WAJIB valid JSON dengan format { "action": "nama-action", "query": "string" }.
@@ -601,7 +629,7 @@ Tentukan action dan query-nya.
   }
 }
 
-export const getTaskSummary = async (task, actionResult, signal) => {
+export const getTaskSummary = async (task, actionResult, previousContext, signal) => {
   try {
     const systemPrompt = `
 Kamu adalah asisten perangkum.
@@ -610,10 +638,16 @@ Ringkasan ini akan digunakan sebagai ingatan untuk tugas selanjutnya.
 Tulis dengan lugas dan informatif. Output HANYA ringkasan, tanpa basa-basi.
 `
     const userPrompt = `
-Tugas: ${task}
-Hasil dari sistem: ${JSON.stringify(actionResult)}
+# KONTEKS SEBELUMNYA
+${previousContext && previousContext.length > 0 ? previousContext.join("\\n") : "Belum ada."}
 
-Buat ringkasan 1 kalimat.
+# TUGAS SAAT INI
+${task}
+
+# HASIL DARI SISTEM / TOOL
+${JSON.stringify(actionResult)}
+
+Buat ringkasan 1 kalimat yang informatif dari hasil sistem tersebut untuk menjawab tugas saat ini. Jika hasil sistem hanya berupa pemikiran internal (internal thought), gunakan Konteks Sebelumnya untuk merangkum dan menjawab tugas.
 `
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -634,6 +668,9 @@ Kamu adalah Mark.
 User sebelumnya memberikan instruksi kompleks, dan kamu telah memecahnya serta mengeksekusinya selangkah demi selangkah.
 Sekarang, berikan kesimpulan atau jawaban akhir kepada user berdasarkan ringkasan eksekusi yang telah dilakukan.
 Gaya bahasa: Santai, asertif, panggil "bro", EKSPRESIF seperti voice note, jangan kaku.
+
+# WAKTU & TANGGAL SAAT INI
+${getCurrentTimeInfo()}
 `
     const userPrompt = `
 Instruksi Awal User: "${userInput}"
