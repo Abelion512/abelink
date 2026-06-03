@@ -46,7 +46,7 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    mainWindow.webContents.openDevTools()
+    // mainWindow.webContents.openDevTools()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -149,16 +149,6 @@ app.whenReady().then(async () => {
       mainWindow.show()
       mainWindow.webContents.send('trigger-live-audio')
     }
-  })
-
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-    window.webContents.on('before-input-event', (event, input) => {
-      if (input.key === 'F12' || (input.control && input.shift && input.key.toLowerCase() === 'i')) {
-        window.webContents.toggleDevTools()
-        event.preventDefault()
-      }
-    })
   })
 
   // IPC test
