@@ -482,7 +482,7 @@ export const ChatProvider = ({ children }) => {
            } else {
               actionResult = await window.api.searchMusic(actionData.query);
               if (actionData.action === 'music-play' && actionResult.length > 0) {
-                 playUrl(`https://music.youtube.com/watch?v=${actionResult[0].id}`);
+                 await handleMusic('music-play', actionData.query);
               }
               summary = await getTaskSummary(task, actionResult.slice(0,5), previousContext, abortControllerRef.current.signal);
            }

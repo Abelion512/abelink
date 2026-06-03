@@ -1,14 +1,16 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 
 export const YoutubeMusicPlayer = () => {
   const { musicUrl, isPlayerOpen, setIsPlayerOpen, togglePlayer, webviewRef } = useYoutubeMusic()
+  const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
     const webview = webviewRef.current
     if (!webview) return
 
     const handleDomReady = () => {
+      setIsReady(true)
       // 1. Suntik CSS buat ngilangin visual iklan & promo premium
       webview.insertCSS(`
         /* Sembunyikan iklan video/audio player */
@@ -88,6 +90,30 @@ export const YoutubeMusicPlayer = () => {
     return () => webview.removeEventListener('dom-ready', handleDomReady)
   }, [])
 
+  useEffect(() => {
+    if (isReady && webviewRef.current && musicUrl) {
+      try {
+        if (webviewRef.current.getURL() === musicUrl) return; // Skip if already there
+      } catch (e) {
+        console.error('Error getting webview URL:', e)
+      }
+
+      const load = async () => {
+        try {
+          await webviewRef.current.loadURL(musicUrl)
+        } catch (e) {
+          // Abaikan error ERR_ABORTED (-3) karena ini wajar saat double navigation terjadi
+          if (e.message && e.message.includes('ERR_ABORTED')) {
+            console.log('Navigasi webview diaborsi (biasanya karena ditimpa navigasi baru)');
+          } else {
+            console.error('Failed to load URL into webview:', e)
+          }
+        }
+      }
+      load()
+    }
+  }, [musicUrl, isReady])
+
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
       {/* Player Panel */}
@@ -131,7 +157,7 @@ export const YoutubeMusicPlayer = () => {
           {/* Webview */}
           <webview
             ref={webviewRef}
-            src={musicUrl}
+            src="https://music.youtube.com/"
             style={{ zoom: '0.65', width: '420px', height: '560px' }}
             className="no-scrollbar"
             allowpopups="false"
