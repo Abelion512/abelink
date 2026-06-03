@@ -7,99 +7,77 @@
 
 ## Fitur Utama
 
-### Local LLM Support
-
-Integrasi penuh dengan model open-source (Gemma 3, Llama, Mistral) melalui **LM Studio**. Semua inferensi berjalan lokal — tanpa data yang dikirim ke server eksternal.
+### Hybrid AI Engine (Local & Cloud)
+Integrasi fleksibel antara **Local LLM** (Gemma 3, Llama, Mistral) melalui **LM Studio** untuk privasi penuh tanpa internet, maupun **Groq API** untuk respons cloud yang super cepat. Pilihan dapat diubah langsung melalui halaman pengaturan.
 
 ### Agentic Planning & Autonomous Execution
-
-Mark mampu memecah instruksi yang kompleks menjadi langkah-langkah logis (planning) dan mengeksekusinya satu per satu. Ia mengevaluasi hasil dari setiap langkah untuk menentukan aksi secara real-time, seperti mencari di web, memutar lagu, atau sekadar merangkum informasi tanpa intervensi pengguna tambahan. Ketersediaan tool (kapabilitas) bagi Mark secara cerdas disesuaikan secara dinamis berdasarkan fitur yang diaktifkan oleh pengguna (Web Search, YouTube Summary, dll).
+Mark mampu memecah instruksi yang kompleks menjadi langkah-langkah logis (planning) dan mengeksekusinya satu per satu. Ia mengevaluasi hasil dari setiap langkah untuk menentukan aksi secara real-time, seperti mencari di web, memutar lagu, atau sekadar merangkum informasi tanpa intervensi pengguna. Hasil dari riset otomatis (web search) akan dirangkum beserta *source/citation* langsung pada kesimpulan akhir. Ketersediaan tool secara cerdas disesuaikan berdasarkan fitur yang diaktifkan pengguna.
 
 ### Multi-Turn Conversation
-
 Riwayat percakapan dikirim sebagai **native multi-turn messages** ke LLM (bukan text dump), menghasilkan pemahaman konteks yang jauh lebih baik — terutama untuk model kecil.
 
 ### Vector Memory Management System (MMS)
+Memori cerdas yang bekerja layaknya otak manusia. Mark kini mendukung dua provider **Vector Embeddings**:
+- **Transformers.js (Fully Local)**: Berjalan 100% di memori aplikasi tanpa perlu server tambahan atau LM Studio. Menggunakan model kecil (~22MB) seperti `all-MiniLM-L6-v2`.
+- **LM Studio**: Opsi bagi pengguna yang ingin menggunakan model embeddings kustom via local server.
 
-Memori cerdas menggunakan **Local Vector Embeddings** via LM Studio (`embeddinggemma-300m-qat`). Mark menyimpan memori dalam kategori:
-
+Mark menyimpan memori dalam kategori:
 - `profile`, `preference`, `skill`, `project`, `transaction`, `goal`, `relationship`, `fact`, `other`
 
-Operasi memori lengkap: **insert**, **update**, dan **delete** — semuanya dikelola secara otomatis oleh AI berdasarkan konteks percakapan.
+Operasi memori lengkap: **insert**, **update**, dan **delete** — semuanya dikelola secara otomatis oleh AI berdasarkan konteks percakapan. Pencarian memori berbasis **cosine similarity** secara dinamis menyesuaikan *threshold* antar-provider.
 
-### Semantic Search
-
-Pencarian memori berbasis **cosine similarity** dengan threshold relevansi 0.6. Memastikan hanya memori yang benar-benar relevan yang dipanggil.
+### Semantic Search & Smart Fallback
+Pencarian memori membandingkan pertanyaan pengguna dengan data memori sebelumnya. Jika dimensi vektor berubah (karena pergantian provider embeddings), memori akan di-generate ulang otomatis secara *seamless* di latar belakang.
 
 ### Web Search & Deep Research
-
 Mencari data real-time melalui **Google Search** dan melakukan riset mendalam langsung via **Electron Webview** terintegrasi. Termasuk scraping **AI Overview dari Google**. Tanpa Puppeteer, tanpa instalasi Chrome tambahan.
 
 ### YouTube Accessible
-
-Mencari video di youtube sesuai dengan permintaan user dengan `yt search`, dan merangkum isi video YouTube hanya dengan mengirimkan link. Mark mengambil transkrip via `youtube-transcript-plus`, menganalisis, dan memberikan poin-poin penting lengkap dengan timestamp.
+Mencari video di YouTube dengan `yt search`, dan merangkum isi video YouTube hanya dengan mengirimkan link. Mark mengambil transkrip via `youtube-transcript-plus`, menganalisis, dan memberikan poin-poin penting lengkap dengan *timestamp*.
 
 ### YouTube Music Player
-
-Pemutar musik terintegrasi berbasis **YouTube Music** via Electron Webview. Cukup minta Mark untuk memutar lagu — ia akan mencari via `ytmusic-api` dan menampilkan daftar hasil langsung di chat. Dilengkapi dengan **Ad-Blaster** otomatis (auto-mute, 16x speed, auto-skip iklan) dan floating player yang bisa di-minimize.
+Pemutar musik terintegrasi berbasis **YouTube Music** via Electron Webview. Cukup minta Mark untuk memutar lagu — ia akan mencari via `ytmusic-api` dan menampilkan daftar hasil langsung di chat. Dilengkapi dengan **Ad-Blaster** otomatis (auto-mute, 16x speed, auto-skip iklan) dan *floating player* yang bisa di-minimize.
 
 ### Voice Interaction (Live Audio Beta)
-
-Interaksi suara real-time terintegrasi menggunakan **Groq API** untuk Speech-to-Text (STT) super cepat dan **Edge-TTS** (Text-to-Speech) lokal. Memungkinkan percakapan dua arah secara natural (Voice-to-Voice) tanpa jeda yang signifikan, lengkap dengan deteksi VAD (Voice Activity Detection) dan Barge-in otomatis.
+Interaksi suara real-time menggunakan **Groq API** untuk Speech-to-Text (STT) super cepat dan **Edge-TTS** (Text-to-Speech) lokal. Memungkinkan percakapan dua arah secara natural (Voice-to-Voice) tanpa jeda yang signifikan, lengkap dengan deteksi VAD (Voice Activity Detection) dan Barge-in otomatis.
 
 ### Context & Time Awareness
-
 Mark memahami konteks percakapan sebelumnya dan sadar waktu (tanggal & jam saat ini) untuk menentukan relevansi informasi.
 
-### Session Persistence
-
-Menyimpan dan memuat riwayat sesi chat. Pengguna bisa melanjutkan percakapan sebelumnya melalui sidebar session history.
+### Session Persistence & Robust Error Handling
+Menyimpan dan memuat riwayat sesi chat. Mark juga dilengkapi penanganan *Rate Limit* secara manusiawi (misal ketika Token API habis).
 
 ### Few-Shot Prompt Engineering
-
-System prompt dilengkapi contoh output (few-shot examples) untuk meningkatkan konsistensi respons **JSON** dari model kecil.
+System prompt dilengkapi contoh output (*few-shot examples*) untuk meningkatkan konsistensi respons **JSON** dari model kecil.
 
 ### Modern & Premium UI
-
 Desain menggunakan **Tailwind CSS 4** dan **DaisyUI 5** dengan fitur:
-
 - Antarmuka *chat* yang minimalis dan luas berkat desain *Tools Dropdown* yang dinamis.
 - Markdown rendering lengkap (React Markdown + Syntax Highlighter)
-- External link handling otomatis
 - GitHub Flavored Markdown support
 - Animasi halus dan mode interaksi dinamis
 
 ### Global Shortcut & System Tray
-
 Aplikasi berjalan secara tersembunyi di latar belakang (System Tray) dan dapat dipanggil kapan saja menggunakan *Global Shortcut*.
 - **`Ctrl + Alt + M`** (atau `Cmd + Alt + M` di Mac): Membuka aplikasi secara instan dan langsung mengaktifkan mode **Live Audio** untuk mulai berbicara dengan Mark.
 
 ## Arsitektur Proyek
 
-```
+```text
 mark/
 ├── src/
-│   ├── main/              # Electron Main Process
-│   │   └── index.js        # Window management, IPC handlers, YouTube transcript
-│   ├── preload/            # Preload scripts (Electron bridge)
-│   └── renderer/           # React Frontend
+│   ├── main/              # Electron Main Process (Window management, IPC, TTS, Tray)
+│   ├── preload/           # Preload scripts (Electron bridge)
+│   └── renderer/          # React Frontend
 │       └── src/
 │           ├── api/
-│           │   ├── ai.js           # LLM integration, prompt engineering, response parsing
-│           │   ├── db.js           # Dexie (IndexedDB) CRUD operations
+│           │   ├── ai.js           # LLM integration (LM Studio & Groq)
+│           │   ├── db.js           # Dexie (IndexedDB) schemas & migrations
 │           │   ├── scraping.js     # Google search & deep web scraping
-│           │   └── vectorMemory.js # Vector embedding & cosine similarity
-│           ├── components/
-│           │   ├── ChatList.jsx            # Chat message rendering & command UI
-│           │   ├── Drawer.jsx              # Sidebar with session history
-│           │   ├── Navbar.jsx              # Navigation bar
-│           │   └── YoutubeMusicPlayer.jsx  # Floating YouTube Music player
-│           ├── contexts/
-│           │   ├── ChatContext             # Global chat state management
-│           │   └── YoutubeMusicContext     # Music player state & webview control
-│           └── pages/
-│               ├── Chat.jsx        # Main chat interface
-│               └── Configuration.jsx # Settings page (WIP)
+│           │   └── vectorMemory.js # Vector embeddings (Transformers.js / LM Studio)
+│           ├── components/         # Reusable UI components
+│           ├── contexts/           # Global states (ChatContext, YoutubeMusicContext)
+│           └── pages/              # Chat, Configuration UI
 ```
 
 ## Teknologi yang Digunakan
@@ -108,84 +86,68 @@ mark/
 | ---------------- | --------------------------------------------------------------------------- |
 | **Framework**    | Electron 39, React 19, Vite 7                                               |
 | **Styling**      | Tailwind CSS 4, DaisyUI 5                                                   |
-| **AI Backend**   | LM Studio (Local Inference & Embeddings via OpenAI-compatible API)          |
+| **AI Backend**   | LM Studio / Groq API (Inference)                                            |
+| **Embeddings**   | Transformers.js (`@huggingface/transformers`), LM Studio                    |
 | **Web Scraping** | Electron Webview (Google Search & Deep Research)                            |
 | **Audio & Voice**| Groq API (STT), Edge-TTS, Web Audio API (VAD)                               |
 | **YouTube**      | `youtube-transcript-plus`, `ytmusic-api`, `yt-search`                       |
 | **Database**     | Dexie.js (IndexedDB wrapper)                                                |
 | **Markdown**     | React Markdown, React Syntax Highlighter, remark-gfm, rehype-external-links |
-| **HTTP**         | Axios, OpenAI SDK                                                           |
-| **Routing**      | React Router DOM v7                                                         |
-| **Build**        | electron-vite, electron-builder                                             |
 
 ## Persiapan & Instalasi
 
 ### Prasyarat
-
 - **Operating System**: Windows 10/11
 - **Node.js**: v18+
-- **LM Studio**: Berjalan pada `http://localhost:1234` dengan model bahasa dan embedding model ter-load.
-
-### Model yang Direkomendasikan
-
-| Fungsi             | Model                     | Catatan                                                 |
-| ------------------ | ------------------------- | ------------------------------------------------------- |
-| **Chat/Inference** | `google/gemma-3-4b`       | Bisa diganti model lain di `src/renderer/src/api/ai.js` |
-| **Embedding**      | `embeddinggemma-300m-qat` | Untuk vector memory & semantic search                   |
+- (Opsional) **LM Studio** jika ingin menjalankan model secara offline.
+- (Opsional) **Groq API Key** jika ingin menggunakan model cloud super cepat.
 
 ### Langkah Instalasi
 
 1.  **Clone repository ini:**
-
     ```bash
     git clone https://github.com/username/mark-project.git
     cd mark-project/mark
     ```
 
 2.  **Install dependensi:**
-
     ```bash
     npm install
     ```
 
-3.  **Jalankan LM Studio** dan load kedua model (chat + embedding).
-
-4.  **Jalankan aplikasi:**
+3.  **Jalankan aplikasi:**
     ```bash
     npm run dev
     ```
 
+4.  **Konfigurasi Awal:**
+    Buka menu **Pengaturan** di dalam aplikasi, pilih provider AI (LM Studio atau Groq), masukkan API Key (jika memakai Groq), dan atur provider Vector Embeddings (disarankan menggunakan **Transformers.js** agar berjalan 100% lokal tanpa instalasi eksternal).
+
 ## Build Aplikasi
 
-Untuk membuat executable file (Windows):
-
+Untuk membuat *executable file* (Windows):
 ```bash
 npm run build:win
 ```
-
-Output installer akan tersedia di folder `dist/`.
+Output installer (`.exe`) akan tersedia di folder `dist/`.
 
 ## Roadmap
 
-- [x] Web Search Integration (Google Search + AI Overview scraping)
-- [x] Deep Research (Scraping & perangkuman konten web via Webview)
-- [x] Vector MMS (Pencarian memori berbasis semantik dengan Local Embedding)
-- [x] YouTube Summary (Merangkum video via transkrip & metadata)
-- [x] Multi-Turn Conversation (Native multi-turn messages)
-- [x] Time Awareness (Kesadaran waktu untuk relevansi informasi)
-- [x] Few-Shot Examples (Contoh output di prompt untuk konsistensi respons)
-- [x] Session Persistence (Menyimpan & memuat riwayat sesi chat)
-- [x] Configuration Page (Halaman pengaturan untuk model, API URL, dll.)
-- [x] YouTube Music Player (Pemutar musik terintegrasi dengan Ad-Blaster)
-- [x] Voice Interaction (Antarmuka berbasis suara) (Live Audio Beta)
-- [x] Agentic Planning (Perencanaan otomatis dan eksekusi tugas berurutan)
+- [x] Web Search Integration & Deep Research
+- [x] Vector MMS (Semantic memory search dengan Transformers.js & LM Studio)
+- [x] YouTube Summary (Transkrip & metada video)
+- [x] Multi-Turn Conversation & Time Awareness
+- [x] Few-Shot Examples untuk konsistensi JSON
+- [x] Configuration Page (Halaman pengaturan dinamis untuk AI Engine & Provider)
+- [x] YouTube Music Player & Ad-Blaster
+- [x] Voice Interaction (Live Audio Beta & STT Groq)
+- [x] Agentic Planning dengan sumber/source citations
 - [ ] Vision Capability (Analisis gambar secara lokal)
 - [ ] Export/Import Memory (Backup & restore memori pengguna)
 
 ## Lisensi
 
-Proyek ini menggunakan lisensi **MIT**, namun dengan ketentuan tambahan: **Dilarang keras memperjualbelikan perangkat lunak ini untuk keuntungan komersial.**
+Proyek ini menggunakan lisensi **MIT**, namun dengan ketentuan tambahan: **Dilarang keras memperjualbelikan perangkat lunak ini untuk keuntungan komersial tanpa izin.**
 
 ---
-
-> Dibuat untuk masa depan AI yang lebih privat dan terbuka.
+> Dibuat untuk masa depan AI yang lebih privat dan cerdas.
