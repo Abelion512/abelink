@@ -8,13 +8,16 @@
 ## Fitur Utama
 
 ### Hybrid AI Engine (Local & Cloud)
-Integrasi fleksibel antara **Local LLM** (Gemma 3, Llama, Mistral) melalui **LM Studio** untuk privasi penuh tanpa internet, maupun **Groq API** untuk respons cloud yang super cepat. Pilihan dapat diubah langsung melalui halaman pengaturan.
+Integrasi fleksibel antara **Local LLM** (Gemma 3, Llama, Mistral) melalui **LM Studio** untuk privasi penuh tanpa internet, maupun **Groq API** untuk respons cloud yang super cepat. Pilihan dapat diubah langsung melalui halaman pengaturan. Dilengkapi juga dengan fitur **Secondary Model**, yang secara otomatis mendelegasikan tugas-tugas *background* (seperti *JSON parsing*, *action logic*, dan *summarizing*) ke API cloud berkecepatan tinggi, sehingga tidak membebani komputasi Llama lokalmu saat mengobrol.
 
 ### Agentic Planning & Autonomous Execution
 Mark mampu memecah instruksi yang kompleks menjadi langkah-langkah logis (planning) dan mengeksekusinya satu per satu. Ia mengevaluasi hasil dari setiap langkah untuk menentukan aksi secara real-time, seperti mencari di web, memutar lagu, atau sekadar merangkum informasi tanpa intervensi pengguna. Hasil dari riset otomatis (web search) akan dirangkum beserta *source/citation* langsung pada kesimpulan akhir. Ketersediaan tool secara cerdas disesuaikan berdasarkan fitur yang diaktifkan pengguna.
 
 ### Multi-Turn Conversation
 Riwayat percakapan dikirim sebagai **native multi-turn messages** ke LLM (bukan text dump), menghasilkan pemahaman konteks yang jauh lebih baik — terutama untuk model kecil.
+
+### Transparent Reasoning UI
+Mark secara native mendukung model LLM dengan kapabilitas *reasoning* (seperti keluarga model DeepSeek-R1). Proses pemikiran AI (di dalam tag `<think>`) akan diekstrak dan ditampilkan secara elegan dalam bentuk *collapsible dropdown* pada antarmuka *chat*, baik saat menyusun rencana (*planning*) maupun menjawab.
 
 ### Vector Memory Management System (MMS)
 Memori cerdas yang bekerja layaknya otak manusia. Mark kini mendukung dua provider **Vector Embeddings**:
