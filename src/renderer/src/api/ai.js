@@ -605,6 +605,9 @@ ${isWebSearch ? '- Web Search: Mencari info umum di Google.' : ''}
 - YouTube Search: Mencari video di YouTube.
 ${isYoutube ? '- YouTube Summary: Merangkum isi video dari link YouTube.' : ''}
 - Music Player: Memutar lagu di YouTube Music.
+- Music Next: Memutar Lagu Selanjutnya
+- Music Toogle: Mematikan Atau Memutar Lagu Yang Ada
+- Music Search : Mencari Lagu Tertentu di YT Music
 - Summary/Analisis: Mengidentifikasi, memfilter, atau menyimpulkan data dari langkah sebelumnya.
 Rancanglah rencana yang logis dan *memungkinkan* dieksekusi menggunakan kombinasi kapabilitas di atas.
 
@@ -671,6 +674,10 @@ ${getCurrentTimeInfo()}
 # ACTION LIST
 ${isWebSearch ? '- search: Melakukan pencarian web.' : ''}
 - music-play: Memutar lagu.
+- music-search: Mencari atau melihat daftar lagu.
+- music-next: Lanjut ke lagu berikutnya.
+- music-prev: Kembali ke lagu sebelumnya.
+- music-toggle: Pause atau resume lagu.
 - yt-search: Mencari video YouTube.
 ${isYoutube ? '- yt-summary: Merangkum YouTube.' : ''}
 - summary: Menyimpulkan/mengidentifikasi informasi dari konteks sebelumnya tanpa melakukan pencarian baru.
@@ -734,7 +741,7 @@ Buat ringkasan 1 kalimat yang informatif dari hasil sistem tersebut untuk menjaw
   }
 }
 
-export const getPlanConclusion = async (userInput, taskSummaries, signal) => {
+export const getPlanConclusion = async (userInput, taskSummaries, signal, chatSession = []) => {
   try {
     const config = await getAllConfig();
     const systemPrompt = `
@@ -778,8 +785,10 @@ ${taskSummaries.map((s, i) => `${i + 1}. ${s}`).join('\n')}
 
 Berikan respons akhirmu (HANYA teks respons, tanpa JSON).
 `
+    const previousTurns = chatSession.length > 0 ? chatSession.slice(0, -1) : [];
     const messages = [
       { role: 'system', content: systemPrompt },
+      ...previousTurns,
       { role: 'user', content: userPrompt }
     ]
     const response = await fetchAI(messages, signal)

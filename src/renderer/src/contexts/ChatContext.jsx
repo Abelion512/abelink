@@ -344,7 +344,10 @@ export const ChatProvider = ({ children }) => {
       if (error.name === 'AbortError') {
         setChatData((prev) => [...prev.filter((item) => !item.isThinking)])
         setChatData((prev) => prev.slice(0, -1))
-      } else if (error?.code === 'LM_STUDIO_OFFLINE' || error?.message?.includes('LM Studio mati')) {
+      } else if (
+        error?.code === 'LM_STUDIO_OFFLINE' ||
+        error?.message?.includes('LM Studio mati')
+      ) {
         setChatData((prev) => [
           ...prev.filter((item) => !item.isThinking),
           {
@@ -371,7 +374,7 @@ export const ChatProvider = ({ children }) => {
     if (!userInput) return
     setIsLoading(true)
     const userMessage = { role: 'user', content: userInput }
-    
+
     const rawSession = [
       ...chatData
         .filter(
@@ -396,162 +399,227 @@ export const ChatProvider = ({ children }) => {
 
     setChatData((prev) => [...prev, userMessage])
     abortControllerRef.current = new AbortController()
-    
+
     try {
       // 1. Get Plan
-      setChatData((prev) => [...prev, { role: 'ai', content: 'Menganalisis instruksi dan membuat rencana...', isThinking: true }])
-      const plan = await getPlan(userInput, isAction.web, isAction.youtube, abortControllerRef.current.signal, chatSession)
-      
+      setChatData((prev) => [
+        ...prev,
+        { role: 'ai', content: 'Menganalisis instruksi dan membuat rencana...', isThinking: true }
+      ])
+      const plan = await getPlan(
+        userInput,
+        isAction.web,
+        isAction.youtube,
+        abortControllerRef.current.signal,
+        chatSession
+      )
+
       setChatData((prev) => {
-         const filtered = prev.filter(item => !item.isThinking);
-         return [...filtered, { role: 'ai', content: '', isPlanSteps: true, plan: plan, currentStep: 0 }];
+        const filtered = prev.filter((item) => !item.isThinking)
+        return [
+          ...filtered,
+          { role: 'ai', content: '', isPlanSteps: true, plan: plan, currentStep: 0 }
+        ]
       })
 
-      let contextSummaries = [];
-      let previousContext = [];
-      let allSources = [];
+      let contextSummaries = []
+      let previousContext = []
+      let allSources = []
 
       // 2. Loop
       for (let i = 0; i < plan.length; i++) {
-        const task = plan[i];
-        
-        // UI update for running task - UPDATE currentStep instead of adding new thinking message
-        setChatData((prev) => prev.map(item => item.isPlanSteps ? { ...item, currentStep: i } : item));
-        
-        const actionData = await getTaskAction(task, previousContext, isAction.web, isAction.youtube, abortControllerRef.current.signal);
+        const task = plan[i]
 
-        
-        let actionResult = null;
-        let summary = "Tidak ada hasil";
-        
+        // UI update for running task - UPDATE currentStep instead of adding new thinking message
+        setChatData((prev) =>
+          prev.map((item) => (item.isPlanSteps ? { ...item, currentStep: i } : item))
+        )
+
+        const actionData = await getTaskAction(
+          task,
+          previousContext,
+          isAction.web,
+          isAction.youtube,
+          abortControllerRef.current.signal
+        )
+
+        let actionResult = null
+        let summary = 'Tidak ada hasil'
+
         // Execute Action
         if (actionData.action === 'search') {
-           actionResult = await new Promise((resolve, reject) => {
-               const onAbort = () => {
-                   clearTimeout(timeoutId);
-                   reject(new Error('AbortError'));
-               };
-               
-               if (abortControllerRef.current.signal.aborted) {
-                   return onAbort();
-               }
-               abortControllerRef.current.signal.addEventListener('abort', onAbort);
+          actionResult = await new Promise((resolve, reject) => {
+            const onAbort = () => {
+              clearTimeout(timeoutId)
+              reject(new Error('AbortError'))
+            }
 
-               setChatData((prev) => [
-                   ...prev.filter(item => !item.isThinking), 
-                   { 
-                       role: 'ai', 
-                       content: '...', 
-                       isSearching: true, 
-                       query: actionData.query, 
-                       sendDataWebSearch: (search, result) => {
-                           abortControllerRef.current.signal.removeEventListener('abort', onAbort);
-                           clearTimeout(timeoutId);
-                           resolve({ search, result });
-                       } 
-                   }
-               ]);
-               
-               const timeoutId = setTimeout(() => {
-                   abortControllerRef.current.signal.removeEventListener('abort', onAbort);
-                   resolve({ search: [], result: [] });
-               }, 45000);
-           });
-           console.log("Hasil Search:", actionResult);
-           const chatSession = chatData.filter((item) => item.role !== 'command' && !item.isThinking && !item.isSearching && !item.isSummarizing)
-                                       .map((item) => ({ role: item.role === 'ai' ? 'assistant' : 'user', content: item.content }))
-                                       .slice(-10);
-           const searchSumObj = await getSearchResult(actionResult.search, actionResult.result, task, abortControllerRef.current.signal, chatSession);
-           summary = searchSumObj.answer;
-           if (searchSumObj.sources && searchSumObj.sources.length > 0) {
-               allSources = [...allSources, ...searchSumObj.sources];
-           }
-        } else if (actionData.action === 'yt-search') {
-           actionResult = await window.api.searchYoutube(actionData.query);
-           summary = await getTaskSummary(task, actionResult, previousContext, abortControllerRef.current.signal);
-        } else if (actionData.action === 'yt-summary') {
-           const yData = await getYoutubeData(actionData.query);
-           const sum = await getYoutubeSummary(actionData.query, yData, abortControllerRef.current.signal);
-           summary = sum;
-        } else if (actionData.action?.startsWith('music')) {
-           if (actionData.action === 'music-next') {
-              nextTrack();
-              summary = "Memutar lagu selanjutnya.";
-           } else if (actionData.action === 'music-prev') {
-              prevTrack();
-              summary = "Memutar lagu sebelumnya.";
-           } else if (actionData.action === 'music-toggle') {
-              playPause();
-              summary = "Pause/Resume lagu.";
-           } else {
-              actionResult = await window.api.searchMusic(actionData.query);
-              if (actionData.action === 'music-play' && actionResult.length > 0) {
-                 await handleMusic('music-play', actionData.query);
+            if (abortControllerRef.current.signal.aborted) {
+              return onAbort()
+            }
+            abortControllerRef.current.signal.addEventListener('abort', onAbort)
+
+            setChatData((prev) => [
+              ...prev.filter((item) => !item.isThinking),
+              {
+                role: 'ai',
+                content: '...',
+                isSearching: true,
+                query: actionData.query,
+                sendDataWebSearch: (search, result) => {
+                  abortControllerRef.current.signal.removeEventListener('abort', onAbort)
+                  clearTimeout(timeoutId)
+                  resolve({ search, result })
+                }
               }
-              summary = await getTaskSummary(task, actionResult.slice(0,5), previousContext, abortControllerRef.current.signal);
-           }
-        } else {
-           const chatSession = chatData.filter((item) => item.role !== 'command' && !item.isThinking && !item.isSearching && !item.isSummarizing)
-                                       .map((item) => ({ role: item.role === 'ai' ? 'assistant' : 'user', content: item.content }))
-                                       .slice(-10);
-           const searchSumObj = await getSearchResult([], previousContext, task, abortControllerRef.current.signal, chatSession);
-           summary = searchSumObj.answer;
-           if (searchSumObj.sources && searchSumObj.sources.length > 0) {
-               allSources = [...allSources, ...searchSumObj.sources];
-           }
-        }
-        
-        contextSummaries.push(summary);
-        previousContext.push(`Task: ${task} -> Hasil: ${summary}`);
-        
-        setChatData((prev) => prev.filter((item) => !item.isSearching));
-      }
-      
-      // All steps done
-      setChatData((prev) => prev.map(item => item.isPlanSteps ? { ...item, currentStep: plan.length } : item));
-      
-      // 3. Conclusion
-      setChatData((prev) => [...prev, { role: 'ai', content: 'Merangkum hasil akhir...', isThinking: true }]);
-      const finalAnswer = await getPlanConclusion(userInput, contextSummaries, abortControllerRef.current.signal);
-      
-      const uniqueSources = [];
-      const seenLinks = new Set();
-      allSources.forEach(source => {
-          const identifier = source.link || source.url || JSON.stringify(source);
-          if (!seenLinks.has(identifier)) {
-              seenLinks.add(identifier);
-              uniqueSources.push(source);
+            ])
+
+            const timeoutId = setTimeout(() => {
+              abortControllerRef.current.signal.removeEventListener('abort', onAbort)
+              resolve({ search: [], result: [] })
+            }, 45000)
+          })
+          console.log('Hasil Search:', actionResult)
+          const chatSession = chatData
+            .filter(
+              (item) =>
+                item.role !== 'command' &&
+                !item.isThinking &&
+                !item.isSearching &&
+                !item.isSummarizing
+            )
+            .map((item) => ({
+              role: item.role === 'ai' ? 'assistant' : 'user',
+              content: item.content
+            }))
+            .slice(-10)
+          const searchSumObj = await getSearchResult(
+            actionResult.search,
+            actionResult.result,
+            task,
+            abortControllerRef.current.signal,
+            chatSession
+          )
+          summary = searchSumObj.answer
+          if (searchSumObj.sources && searchSumObj.sources.length > 0) {
+            allSources = [...allSources, ...searchSumObj.sources]
           }
-      });
+        } else if (actionData.action === 'yt-search') {
+          actionResult = await window.api.searchYoutube(actionData.query)
+          summary = await getTaskSummary(
+            task,
+            actionResult,
+            previousContext,
+            abortControllerRef.current.signal
+          )
+        } else if (actionData.action === 'yt-summary') {
+          const yData = await getYoutubeData(actionData.query)
+          const sum = await getYoutubeSummary(
+            actionData.query,
+            yData,
+            abortControllerRef.current.signal
+          )
+          summary = sum
+        } else if (actionData.action?.startsWith('music')) {
+          await handleMusic(actionData.action, actionData.query)
+          if (actionData.action === 'music-next') {
+            summary = 'Memutar lagu selanjutnya.'
+          } else if (actionData.action === 'music-prev') {
+            summary = 'Memutar lagu sebelumnya.'
+          } else if (actionData.action === 'music-toggle') {
+            summary = 'Pause/Resume lagu.'
+          } else if (actionData.action === 'music-play') {
+            summary = `Memutar lagu dari hasil pencarian: "${actionData.query}".`
+          } else {
+            summary = `Menampilkan hasil pencarian lagu untuk: "${actionData.query}".`
+          }
+        } else {
+          const chatSession = chatData
+            .filter(
+              (item) =>
+                item.role !== 'command' &&
+                !item.isThinking &&
+                !item.isSearching &&
+                !item.isSummarizing
+            )
+            .map((item) => ({
+              role: item.role === 'ai' ? 'assistant' : 'user',
+              content: item.content
+            }))
+            .slice(-10)
+          const searchSumObj = await getSearchResult(
+            [],
+            previousContext,
+            task,
+            abortControllerRef.current.signal,
+            chatSession
+          )
+          summary = searchSumObj.answer
+          if (searchSumObj.sources && searchSumObj.sources.length > 0) {
+            allSources = [...allSources, ...searchSumObj.sources]
+          }
+        }
+
+        contextSummaries.push(summary)
+        previousContext.push(`Task: ${task} -> Hasil: ${summary}`)
+
+        setChatData((prev) => prev.filter((item) => !item.isSearching))
+      }
+
+      // All steps done
+      setChatData((prev) =>
+        prev.map((item) => (item.isPlanSteps ? { ...item, currentStep: plan.length } : item))
+      )
+
+      // 3. Conclusion
+      setChatData((prev) => [
+        ...prev,
+        { role: 'ai', content: 'Merangkum hasil akhir...', isThinking: true }
+      ])
+      const finalAnswer = await getPlanConclusion(
+        userInput,
+        contextSummaries,
+        abortControllerRef.current.signal,
+        chatSession
+      )
+
+      const uniqueSources = []
+      const seenLinks = new Set()
+      allSources.forEach((source) => {
+        const identifier = source.link || source.url || JSON.stringify(source)
+        if (!seenLinks.has(identifier)) {
+          seenLinks.add(identifier)
+          uniqueSources.push(source)
+        }
+      })
 
       setChatData((prev) => {
-         const filtered = prev.filter(item => !item.isThinking);
-         const newAiMsg = { role: 'ai', content: finalAnswer };
-         if (uniqueSources.length > 0) {
-             newAiMsg.sources = uniqueSources;
-         }
-         return [...filtered, newAiMsg];
-      });
-      
-      if (isSpeak) {
-        playVoice(finalAnswer);
-      }
-      
-      setMessage('');
-      setIsLoading(false);
+        const filtered = prev.filter((item) => !item.isThinking)
+        const newAiMsg = { role: 'ai', content: finalAnswer }
+        if (uniqueSources.length > 0) {
+          newAiMsg.sources = uniqueSources
+        }
+        return [...filtered, newAiMsg]
+      })
 
+      if (isSpeak) {
+        playVoice(finalAnswer)
+      }
+
+      setMessage('')
+      setIsLoading(false)
     } catch (error) {
-       console.error("Planning Error:", error);
-       setIsLoading(false);
-       if (error.name === 'AbortError') {
-          setChatData((prev) => [...prev.filter((item) => !item.isThinking && !item.isSearching)]);
-          setChatData((prev) => prev.slice(0, -1));
-       } else {
-          setChatData((prev) => [
-            ...prev.filter((item) => !item.isThinking && !item.isSearching),
-            { role: 'ai', content: `Maaf, terjadi kesalahan di proses planning: ${error.message}` }
-          ]);
-       }
+      console.error('Planning Error:', error)
+      setIsLoading(false)
+      if (error.name === 'AbortError') {
+        setChatData((prev) => [...prev.filter((item) => !item.isThinking && !item.isSearching)])
+        setChatData((prev) => prev.slice(0, -1))
+      } else {
+        setChatData((prev) => [
+          ...prev.filter((item) => !item.isThinking && !item.isSearching),
+          { role: 'ai', content: `Maaf, terjadi kesalahan di proses planning: ${error.message}` }
+        ])
+      }
     }
   }
 
@@ -561,9 +629,9 @@ export const ChatProvider = ({ children }) => {
       handleStop()
     } else {
       if (isAction.plan) {
-         handlePlanningCommand(message.trim())
+        handlePlanningCommand(message.trim())
       } else {
-         handleAIResponse(message.trim())
+        handleAIResponse(message.trim())
       }
     }
   }

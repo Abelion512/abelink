@@ -46,7 +46,7 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    // mainWindow.webContents.openDevTools()
+    mainWindow.webContents.openDevTools()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -209,7 +209,7 @@ app.whenReady().then(async () => {
       console.log(formattedPitch)
 
       await tts.setMetadata('id-ID-ArdiNeural', OUTPUT_FORMAT.WEBM_24KHZ_16BIT_MONO_OPUS)
-      const tmpPath = './tts-folder'
+      const tmpPath = path.join(app.getPath('temp'), 'mark-tts-folder')
       if (!fs.existsSync(tmpPath)) {
         fs.mkdirSync(tmpPath, { recursive: true })
       }
