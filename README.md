@@ -35,8 +35,8 @@ Mencari data real-time melalui **Google Search** dan melakukan riset mendalam la
 ### YouTube Accessible
 Mencari video di YouTube dengan `yt search`, dan merangkum isi video YouTube hanya dengan mengirimkan link. Mark mengambil transkrip via `youtube-transcript-plus`, menganalisis, dan memberikan poin-poin penting lengkap dengan *timestamp*.
 
-### YouTube Music Player
-Pemutar musik terintegrasi berbasis **YouTube Music** via Electron Webview. Cukup minta Mark untuk memutar lagu — ia akan mencari via `ytmusic-api` dan menampilkan daftar hasil langsung di chat. Dilengkapi dengan **Ad-Blaster** otomatis (auto-mute, 16x speed, auto-skip iklan) dan *floating player* yang bisa di-minimize.
+### YouTube Music Player (AI Curated)
+Pemutar musik terintegrasi berbasis **YouTube Music** via Electron Webview. Cukup minta Mark untuk memutar lagu — ia akan mencari via `ytmusic-api`, menganalisis daftar 10 hasil pencarian teratas menggunakan logika AI (memilih antara versi *original*, *live*, atau *cover* secara dinamis menyesuaikan niat/konteks pengguna), lalu otomatis memutarkan lagu yang paling tepat. Dilengkapi dengan **Ad-Blaster** otomatis (auto-mute, 16x speed, auto-skip iklan) dan *floating player* yang bisa di-minimize.
 
 ### Voice Interaction (Live Audio Beta)
 Interaksi suara real-time menggunakan **Groq API** untuk Speech-to-Text (STT) super cepat dan **Edge-TTS** (Text-to-Speech) lokal. Memungkinkan percakapan dua arah secara natural (Voice-to-Voice) tanpa jeda yang signifikan, lengkap dengan deteksi VAD (Voice Activity Detection) dan Barge-in otomatis.

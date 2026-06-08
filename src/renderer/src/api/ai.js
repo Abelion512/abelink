@@ -741,6 +741,40 @@ Buat ringkasan 1 kalimat yang informatif dari hasil sistem tersebut untuk menjaw
   }
 }
 
+export const getBestMusicMatch = async (userInput, musicList, signal) => {
+  try {
+    const systemPrompt = `
+Kamu adalah asisten kurator musik. Tugasmu adalah memilih SATU lagu yang paling sesuai dengan niat pengguna dari daftar hasil pencarian YouTube Music.
+Gunakan logikamu:
+- Jika user meminta lagu secara spesifik (misal versi cover, live, atau karaoke), carilah judul yang mengandung unsur tersebut.
+- Jika user menyebutkan nama artis, prioritaskan artis tersebut.
+- Jika user hanya menyebutkan judul secara umum, pilih versi original atau official track yang paling populer/masuk akal (hindari live/cover/karaoke jika tidak diminta).
+
+# OUTPUT RULES
+Output HANYA boleh berupa valid JSON berisi ID lagu terpilih:
+\`\`\`json
+{ "selectedId": "id_lagu_pilihan" }
+\`\`\`
+`
+    const userPrompt = `
+Instruksi User: "${userInput}"
+
+Daftar Hasil Pencarian:
+${JSON.stringify(musicList.map(m => ({ id: m.id, title: m.title, artist: m.artist, duration: m.duration })), null, 2)}
+`
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ]
+    const response = await fetchAI(messages, signal)
+    const data = cleanAndParse(response)
+    return data
+  } catch (error) {
+    console.error('Error in getBestMusicMatch:', error)
+    return { selectedId: musicList[0]?.id }
+  }
+}
+
 export const getPlanConclusion = async (userInput, taskSummaries, signal, chatSession = []) => {
   try {
     const config = await getAllConfig();
