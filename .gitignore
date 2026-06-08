@@ -9,3 +9,4 @@ build
 .vscode
 workflow
 mark_chrome_profile
+AGENTS.md
