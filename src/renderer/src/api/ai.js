@@ -26,7 +26,7 @@ const getCurrentTimeInfo = () => {
   return now.toLocaleDateString('id-ID', options);
 };
 
-export const fetchAI = async (messages, signal) => {
+export const fetchAI = async (messages, signal, isSmallTask = false) => {
   try {
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
@@ -40,7 +40,13 @@ export const fetchAI = async (messages, signal) => {
       messages: messages
     }
     
-    if (conf.aiProvider === 'groq') {
+    const useSecondary = isSmallTask && conf.useSecondaryModel && conf.groqApiKey
+
+    if (useSecondary) {
+      endpoint = 'https://api.groq.com/openai/v1/chat/completions'
+      headers['Authorization'] = `Bearer ${conf.groqApiKey}`
+      body.model = 'llama-3.1-8b-instant'
+    } else if (conf.aiProvider === 'groq') {
       endpoint = 'https://api.groq.com/openai/v1/chat/completions'
       headers['Authorization'] = `Bearer ${conf.groqApiKey}`
       body.model = conf.groqModel || 'llama-3.1-8b-instant'
@@ -87,8 +93,21 @@ export const fetchAI = async (messages, signal) => {
     }
 
     const data = await response.json()
-    console.log(data.choices[0].message.content)
-    return data.choices[0].message.content
+    const message = data.choices[0].message
+    
+    let content = message.content || ''
+    let reasoning = message.reasoning || null
+
+    if (!reasoning && content.includes('<think>')) {
+      const match = content.match(/<think>([\s\S]*?)<\/think>/)
+      if (match) {
+        reasoning = match[1].trim()
+        content = content.replace(/<think>[\s\S]*?<\/think>/, '').trim()
+      }
+    }
+
+    console.log(content)
+    return { content, reasoning }
   } catch (error) {
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
@@ -193,9 +212,10 @@ Pesan User: "${message}"
     `
       }
     ],
-    signal
+    signal,
+    true
   )
-  return data
+  return data.content
 }
 
 export const getSearchResult = async (search, data, userInput, signal, chatSession) => {
@@ -242,9 +262,8 @@ User: ${userInput}
 `
     console.log(prompts)
     const response = await fetchAI([{ role: 'user', content: prompts }], signal)
-
     return {
-      answer: response,
+      answer: cleanAndParse(response.content),
       sources: search
     }
   } catch (error) {
@@ -283,9 +302,8 @@ author: ${data.author}
 ${transcript}
 `
     console.log(prompts)
-    const response = await fetchAI([{ role: 'user', content: prompts }], signal)
-
-    return response
+    const response = await fetchAI([{ role: 'user', content: prompts }], signal, true)
+    return response.content
   } catch (error) {
     console.error('Error in youtubeSummary:', error)
     throw error
@@ -555,8 +573,8 @@ Output: {
       messages.filter((msg) => !msg.content.includes('Error LM Studio:'))
     )
     const response = await fetchAI(messages, signal)
-    const data = cleanAndParse(response)
-    return data
+    const data = cleanAndParse(response.content)
+    return { ...data, reasoning: response.reasoning }
   } catch (error) {
     console.error('Error in getAnswer:', error)
     throw error
@@ -653,8 +671,8 @@ Output:
       lastUserMsg
     ]
     const response = await fetchAI(messages, signal)
-    const data = cleanAndParse(response)
-    if (Array.isArray(data)) return data
+    const data = cleanAndParse(response.content)
+    if (Array.isArray(data)) return { plan: data, reasoning: response.reasoning }
     throw new Error("Format plan tidak valid (bukan array).")
   } catch (error) {
     console.error('Error in getPlan:', error)
@@ -701,8 +719,8 @@ Tentukan action dan query-nya.
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ]
-    const response = await fetchAI(messages, signal)
-    const data = cleanAndParse(response)
+    const response = await fetchAI(messages, signal, true)
+    const data = cleanAndParse(response.content)
     return data
   } catch (error) {
     console.error('Error in getTaskAction:', error)
@@ -733,8 +751,8 @@ Buat ringkasan 1 kalimat yang informatif dari hasil sistem tersebut untuk menjaw
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ]
-    const response = await fetchAI(messages, signal)
-    return response.trim()
+    const response = await fetchAI(messages, signal, true)
+    return response.content.trim()
   } catch (error) {
     console.error('Error in getTaskSummary:', error)
     return "Tugas selesai dijalankan."
@@ -766,8 +784,8 @@ ${JSON.stringify(musicList.map(m => ({ id: m.id, title: m.title, artist: m.artis
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ]
-    const response = await fetchAI(messages, signal)
-    const data = cleanAndParse(response)
+    const response = await fetchAI(messages, signal, true)
+    const data = cleanAndParse(response.content)
     return data
   } catch (error) {
     console.error('Error in getBestMusicMatch:', error)
@@ -826,7 +844,7 @@ Berikan respons akhirmu (HANYA teks respons, tanpa JSON).
       { role: 'user', content: userPrompt }
     ]
     const response = await fetchAI(messages, signal)
-    return response
+    return { answer: response.content, reasoning: response.reasoning }
   } catch (error) {
     console.error('Error in getPlanConclusion:', error)
     return "Oke bro, instruksi lu udah gue kerjain semuanya ya!"

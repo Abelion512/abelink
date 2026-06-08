@@ -191,6 +191,31 @@ const Configuration = () => {
             </div>
           )}
 
+          {/* Secondary Model Toggle */}
+          <div className="space-y-1.5 pt-2">
+            <label className="label cursor-pointer justify-start gap-2 max-w-fit">
+              <input
+                type="checkbox"
+                className="checkbox checkbox-sm checkbox-primary"
+                checked={config.useSecondaryModel || false}
+                onChange={(e) =>
+                  setConfig((prev) => ({ ...prev, useSecondaryModel: e.target.checked }))
+                }
+              />
+              <span className="label-text text-sm">
+                Gunakan Model Ringan untuk Tugas Latar Belakang (Lebih Cepat)
+              </span>
+            </label>
+            
+            {config.useSecondaryModel && (
+              <div className="pl-6 pt-1 mb-4 border-l-2 border-white/10 ml-2">
+                <p className="text-xs opacity-40 leading-relaxed">
+                  Semua tugas belakang layar (action, parsing, merangkum) akan otomatis dialihkan ke model <b>llama-3.1-8b-instant</b> via Groq API.
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Embed Provider Selector */}
           <div className="space-y-1.5">
             <p className="text-sm font-semibold">Memori Embeddings Provider</p>

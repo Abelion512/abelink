@@ -334,6 +334,7 @@ export const ChatProvider = ({ children }) => {
           const aiResponse = {
             role: 'ai',
             content: answer.answer,
+            reasoning: answer.reasoning,
             isMemorySaved:
               answer.memory?.action === 'insert' && answer.command?.action !== 'search',
             isMemoryUpdated: answer.memory?.action === 'update',
@@ -433,7 +434,7 @@ export const ChatProvider = ({ children }) => {
         ...prev,
         { role: 'ai', content: 'Menganalisis instruksi dan membuat rencana...', isThinking: true }
       ])
-      const plan = await getPlan(
+      const planData = await getPlan(
         userInput,
         isAction.web,
         isAction.youtube,
@@ -445,7 +446,7 @@ export const ChatProvider = ({ children }) => {
         const filtered = prev.filter((item) => !item.isThinking)
         return [
           ...filtered,
-          { role: 'ai', content: '', isPlanSteps: true, plan: plan, currentStep: 0 }
+          { role: 'ai', content: '', reasoning: planData.reasoning, isPlanSteps: true, plan: planData.plan, currentStep: 0 }
         ]
       })
 
@@ -454,8 +455,8 @@ export const ChatProvider = ({ children }) => {
       let allSources = []
 
       // 2. Loop
-      for (let i = 0; i < plan.length; i++) {
-        const task = plan[i]
+      for (let i = 0; i < planData.plan.length; i++) {
+        const task = planData.plan[i]
 
         // UI update for running task - UPDATE currentStep instead of adding new thinking message
         setChatData((prev) =>
@@ -595,7 +596,7 @@ export const ChatProvider = ({ children }) => {
 
       // All steps done
       setChatData((prev) =>
-        prev.map((item) => (item.isPlanSteps ? { ...item, currentStep: plan.length } : item))
+        prev.map((item) => (item.isPlanSteps ? { ...item, currentStep: planData.plan.length } : item))
       )
 
       // 3. Conclusion
@@ -603,7 +604,7 @@ export const ChatProvider = ({ children }) => {
         ...prev,
         { role: 'ai', content: 'Merangkum hasil akhir...', isThinking: true }
       ])
-      const finalAnswer = await getPlanConclusion(
+      const { answer: finalAnswer, reasoning: finalReasoning } = await getPlanConclusion(
         userInput,
         contextSummaries,
         abortControllerRef.current.signal,
@@ -622,7 +623,7 @@ export const ChatProvider = ({ children }) => {
 
       setChatData((prev) => {
         const filtered = prev.filter((item) => !item.isThinking)
-        const newAiMsg = { role: 'ai', content: finalAnswer }
+        const newAiMsg = { role: 'ai', content: finalAnswer, reasoning: finalReasoning }
         if (uniqueSources.length > 0) {
           newAiMsg.sources = uniqueSources
         }
