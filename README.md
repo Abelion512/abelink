@@ -147,6 +147,8 @@ Output installer (`.exe`) akan tersedia di folder `dist/`.
 - [x] Agentic Planning dengan sumber/source citations
 - [ ] Vision Capability (Analisis gambar secara lokal)
 - [ ] Export/Import Memory (Backup & restore memori pengguna)
+- [ ] Custom Tools (Code Interpreter): Fitur untuk mengeksekusi *custom script* (JavaScript/Node) secara dinamis oleh AI, memberikan kebebasan kustomisasi *action* tanpa batas.
+- [ ] Prompt Templates / Custom Commands: Fitur untuk menyimpan *template prompt* panjang atau persona khusus (misal: spesialis pembuat PRD). Pengguna cukup mengetik `@nama-template` di kolom *chat* untuk memanggil instruksi kompleks tanpa perlu mengetik ulang setiap saat.
 
 ## Lisensi
 

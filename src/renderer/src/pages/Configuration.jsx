@@ -276,9 +276,6 @@ const Configuration = () => {
               value={config.personality}
               onChange={(e) => setConfig((prev) => ({ ...prev, personality: e.target.value }))}
             />
-            <p className="text-xs opacity-40">
-              Tentukan gaya bicara dan karakter Mark di system prompt.
-            </p>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -302,10 +299,6 @@ const Configuration = () => {
               <span>0.8</span>
               <span>1.0</span>
             </div>
-            <p className="text-xs opacity-40">
-              Semakin tinggi temperature, semakin kreatif dan variatif jawaban Mark, tapi bisa jadi
-              kurang
-            </p>
           </div>
 
           {/* Context Window */}
@@ -331,10 +324,6 @@ const Configuration = () => {
               <span>18</span>
               <span>22</span>
             </div>
-            <p className="text-xs opacity-40">
-              Jumlah pesan yang dikirim ke AI sebagai konteks. Makin banyak = makin pintar tapi
-              makin berat.
-            </p>
           </div>
 
           <div className="divider"></div>
@@ -366,7 +355,6 @@ const Configuration = () => {
               <span>25%</span>
               <span>50%</span>
             </div>
-            <p className="text-xs opacity-40">Seberapa cepat Mark berbicara (Standard 0-100%).</p>
           </div>
 
           {/* TTS Pitch */}
@@ -393,9 +381,6 @@ const Configuration = () => {
               <span>25hz</span>
               <span>50hz</span>
             </div>
-            <p className="text-xs opacity-40">
-              Seberapa rendah atau tinggi nada suara Mark (Standard 0-100%).
-            </p>
           </div>
 
           {/* Test TTS Button */}

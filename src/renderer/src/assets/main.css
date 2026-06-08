@@ -11,6 +11,10 @@
   --font-sans: 'Poppins', sans-serif;
 }
 
+html {
+  font-size: 14px;
+}
+
 * {
   font-family: 'Poppins', sans-serif;
 }
