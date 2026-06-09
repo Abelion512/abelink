@@ -19,14 +19,23 @@ const isLMStudioOfflineError = (error) => {
   )
 }
 
-const getCurrentTimeInfo = () => {
-  const now = new Date();
-  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' };
-  return now.toLocaleDateString('id-ID', options);
-};
+export const getCurrentTimeInfo = () => {
+  const now = new Date()
+  const options = {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short'
+  }
+  return now.toLocaleDateString('id-ID', options)
+}
 
-let lastGroqFetchTime = 0;
-const GROQ_DELAY_MS = 5000; // 10 seconds delay between requests
+let lastCloudFetchTime = 0
+const CLOUD_DELAY_MS = 5000 // 5 seconds delay between requests
 
 export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema = null) => {
   try {
@@ -37,15 +46,16 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
     let headers = {
       'Content-Type': 'application/json'
     }
-    
+
     // Only use secondary model if primary provider is Groq
-    const useSecondary = isSmallTask && conf.useSecondaryModel && conf.aiProvider === 'groq' && conf.groqApiKey
+    const useSecondary =
+      isSmallTask && conf.useSecondaryModel && conf.aiProvider === 'groq' && conf.groqApiKey
 
     let body = {
       temperature: Number(conf.temperature) || 0,
       messages: messages
     }
-    
+
     if (useSecondary) {
       endpoint = 'https://api.groq.com/openai/v1/chat/completions'
       headers['Authorization'] = `Bearer ${conf.groqApiKey}`
@@ -64,16 +74,16 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
     }
 
     const executeFetch = async (currentBody, isRetry = false) => {
-      // --- RATE LIMIT THROTLLING LOGIC (Khusus Groq) ---
-      if (endpoint.includes('groq.com')) {
-        const now = Date.now();
-        const timeSinceLastFetch = now - lastGroqFetchTime;
-        if (timeSinceLastFetch < GROQ_DELAY_MS) {
-          const delay = GROQ_DELAY_MS - timeSinceLastFetch;
-          console.log(`[Rate Limit Guard] Waiting ${delay}ms before next Groq request...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+      // --- RATE LIMIT THROTLLING LOGIC (Khusus Cloud) ---
+      if (endpoint.includes('groq.com') || endpoint.includes('cerebras.ai')) {
+        const now = Date.now()
+        const timeSinceLastFetch = now - lastCloudFetchTime
+        if (timeSinceLastFetch < CLOUD_DELAY_MS) {
+          const delay = CLOUD_DELAY_MS - timeSinceLastFetch
+          console.log(`[Rate Limit Guard] Waiting ${delay}ms before next Cloud request...`)
+          await new Promise((resolve) => setTimeout(resolve, delay))
         }
-        lastGroqFetchTime = Date.now();
+        lastCloudFetchTime = Date.now()
       }
 
       const response = await fetch(endpoint, {
@@ -84,70 +94,88 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
       })
 
       if (!response.ok) {
-        const textData = await response.text();
-        let errorData = null;
-        try { errorData = JSON.parse(textData); } catch (e) {}
+        const textData = await response.text()
+        let errorData = null
+        try {
+          errorData = JSON.parse(textData)
+        } catch (e) {}
 
-        const errorMsg = errorData?.error?.message || errorData?.message || response.statusText || textData;
+        const errorMsg =
+          errorData?.error?.message || errorData?.message || response.statusText || textData
 
         // Auto-retry fallback jika JSON Schema tidak di-support oleh model
-        if (!isRetry && currentBody.response_format?.type === 'json_schema' && 
-            (String(errorMsg).toLowerCase().includes('schema') || String(errorMsg).toLowerCase().includes('json') || response.status === 400 || response.status === 422)) {
-          console.log('[Auto-Retry] Model tidak support json_schema, fallback ke json_object...');
-          
-          let fallbackBody = { ...currentBody };
-          fallbackBody.response_format = { type: "json_object" };
-          
+        if (
+          !isRetry &&
+          currentBody.response_format?.type === 'json_schema' &&
+          (String(errorMsg).toLowerCase().includes('schema') ||
+            String(errorMsg).toLowerCase().includes('json') ||
+            response.status === 400 ||
+            response.status === 422)
+        ) {
+          console.log('[Auto-Retry] Model tidak support json_schema, fallback ke json_object...')
+
+          let fallbackBody = { ...currentBody }
+          fallbackBody.response_format = { type: 'json_object' }
+
           // Inject schema ke prompt
-          let fallbackMessages = fallbackBody.messages.map(m => ({ ...m }));
-          const sysIdx = fallbackMessages.findIndex(m => m.role === 'system');
-          const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`;
-          
+          let fallbackMessages = fallbackBody.messages.map((m) => ({ ...m }))
+          const sysIdx = fallbackMessages.findIndex((m) => m.role === 'system')
+          const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
+
           if (sysIdx >= 0) {
-            fallbackMessages[sysIdx].content += instruction;
+            fallbackMessages[sysIdx].content += instruction
           } else {
-            fallbackMessages.unshift({ role: 'system', content: instruction });
+            fallbackMessages.unshift({ role: 'system', content: instruction })
           }
-          fallbackBody.messages = fallbackMessages;
-          
-          return executeFetch(fallbackBody, true); // Retry sekali dengan json_object
+          fallbackBody.messages = fallbackMessages
+
+          return executeFetch(fallbackBody, true) // Retry sekali dengan json_object
         }
 
-        const errorProvider = conf.aiProvider === 'groq' ? 'Groq API' : conf.aiProvider === 'cerebras' ? 'Cerebras API' : 'LM Studio'
-        let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg);
+        const errorProvider =
+          conf.aiProvider === 'groq'
+            ? 'Groq API'
+            : conf.aiProvider === 'cerebras'
+              ? 'Cerebras API'
+              : 'LM Studio'
+        let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
 
-        if (finalErrorMessage.includes('Rate limit reached') || finalErrorMessage.includes('Too Many Requests') || finalErrorMessage.includes('limit exceeded')) {
-          const timeMatch = finalErrorMessage.match(/Please try again in ([0-9.]+s)/);
+        if (
+          finalErrorMessage.includes('Rate limit reached') ||
+          finalErrorMessage.includes('Too Many Requests') ||
+          finalErrorMessage.includes('limit exceeded')
+        ) {
+          const timeMatch = finalErrorMessage.match(/Please try again in ([0-9.]+s)/)
           if (timeMatch) {
-            finalErrorMessage = `Limit token Anda habis. Silakan coba lagi dalam ${timeMatch[1]}.`;
+            finalErrorMessage = `Limit token Anda habis. Silakan coba lagi dalam ${timeMatch[1]}.`
           } else {
-            finalErrorMessage = `Limit token ${errorProvider} Anda habis. Silakan tunggu beberapa saat.`;
+            finalErrorMessage = `Limit token ${errorProvider} Anda habis. Silakan tunggu beberapa saat.`
           }
         }
 
-        const err = new Error(`Gagal memuat AI (${errorProvider}): ${finalErrorMessage}`);
-        err.status = response.status;
-        throw err;
+        const err = new Error(`Gagal memuat AI (${errorProvider}): ${finalErrorMessage}`)
+        err.status = response.status
+        throw err
       }
 
-      return response.json();
+      return response.json()
     }
 
     if (jsonSchema) {
       // Selalu coba json_schema dulu, kalau error bakal di-retry otomatis
       body.response_format = {
-        type: "json_schema",
+        type: 'json_schema',
         json_schema: {
-          name: "mark_schema",
+          name: 'mark_schema',
           strict: true,
           schema: jsonSchema
         }
-      };
+      }
     }
 
-    const data = await executeFetch(body);
+    const data = await executeFetch(body)
     const message = data.choices[0].message
-    
+
     let content = message.content || ''
     let reasoning = message.reasoning || null
 
@@ -164,7 +192,11 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
   } catch (error) {
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
-    if (conf.aiProvider !== 'groq' && conf.aiProvider !== 'cerebras' && isLMStudioOfflineError(error)) {
+    if (
+      conf.aiProvider !== 'groq' &&
+      conf.aiProvider !== 'cerebras' &&
+      isLMStudioOfflineError(error)
+    ) {
       throw createLMStudioOfflineError(error)
     }
 
@@ -176,7 +208,10 @@ const cleanAndParse = (rawResponse) => {
     if (!rawResponse) return null
 
     // Bersihkan format markdown (```json dan ```) jika ada
-    let text = rawResponse.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
+    let text = rawResponse
+      .replace(/```json\s*/gi, '')
+      .replace(/```\s*/g, '')
+      .trim()
 
     // 1. Cari batas JSON (Bisa Object {} atau Array [])
     const firstBrace = text.indexOf('{')
@@ -454,6 +489,10 @@ Type dan key yang valid:
 5. DILARANG menyimpan basa-basi ("halo", "oke", "siap", "makasih").
 6. Jika tidak ada data baru yang perlu disimpan, set memory = null.
 7. Jika user memberikan konteks waktu seperti besok, kemaren, bulan depan, tambahkan tanggalnya ke memori.
+8. WAJIB HANYA menyimpan memori tentang PENGGUNA (hobi, preferensi, sifat, rutinitas, kehidupan pribadi) ATAU catatan/pengingat jadwal/to-do list yang diminta secara eksplisit. DILARANG KERAS menyimpan fakta umum dari internet, pelajaran, tutorial, resep, lirik lagu, berita, atau kode pemrograman. Jika tidak yakin, set memory = null.
+9. WAJIB tulis isi string 'memory' dalam BAHASA INDONESIA yang jelas. Jangan gunakan bahasa Inggris agar cocok dengan pencarian vektor pengguna lokal.
+10. WAJIB tulis isi 'memory' sebagai KALIMAT DESKRIPTIF LENGKAP. (Contoh salah: "Mada". Contoh benar: "Nama user adalah Mada"). Ini sangat penting agar sistem vektor bisa mencocokkan kata kunci konteks (seperti kata "nama").
+11. Jika memori berupa catatan (note), kejadian, atau info yang butuh konteks waktu, WAJIB sertakan Waktu & Tanggal saat ini di dalam kalimat memori tersebut.
 ${
   isWebSearch
     ? `
@@ -599,7 +638,7 @@ Output: {
   "command": null
 }
 `
-
+    console.log(systemPrompt)
     const date = new Date()
     const infoWaktu = date.toLocaleString(undefined, {
       timeZoneName: 'short',
@@ -626,38 +665,39 @@ Output: {
       messages.filter((msg) => !msg.content.includes('Error LM Studio:'))
     )
     const schema = {
-      type: "object",
+      type: 'object',
       properties: {
-        answer: { type: "string" },
+        answer: { type: 'string' },
         memory: {
-          type: ["object", "null"],
+          type: ['object', 'null'],
           properties: {
-            action: { type: "string" },
-            key: { type: "string" },
-            memory: { type: "string" },
-            oldKey: { type: "string" }
+            action: { type: 'string' },
+            key: { type: 'string' },
+            memory: { type: 'string' },
+            oldKey: { type: 'string' }
           },
-          required: ["action", "key", "memory", "oldKey"],
+          required: ['action', 'key', 'memory', 'oldKey'],
           additionalProperties: false
         },
         command: {
-          type: ["object", "null"],
+          type: ['object', 'null'],
           properties: {
-            action: { type: "string" },
-            query: { type: "string" },
-            run: { type: "string" },
-            risk: { type: "string" }
+            action: { type: 'string' },
+            query: { type: 'string' },
+            run: { type: 'string' },
+            risk: { type: 'string' }
           },
-          required: ["action", "query", "run", "risk"],
+          required: ['action', 'query', 'run', 'risk'],
           additionalProperties: false
         }
       },
-      required: ["answer", "memory", "command"],
+      required: ['answer', 'memory', 'command'],
       additionalProperties: false
-    };
+    }
 
     const response = await fetchAI(messages, signal, false, schema)
     const data = cleanAndParse(response.content)
+    console.log(data)
     return { ...data, reasoning: response.reasoning }
   } catch (error) {
     console.error('Error in getAnswer:', error)
@@ -691,7 +731,14 @@ export const playVoice = async (text) => {
 // PLANNING (AGENTIC) FUNCTIONS
 // ==========================================
 
-export const getPlan = async (userInput, isWebSearch, isYoutube, signal, chatSession = [], memoryReference = []) => {
+export const getPlan = async (
+  userInput,
+  isWebSearch,
+  isYoutube,
+  signal,
+  chatSession = [],
+  memoryReference = []
+) => {
   try {
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
@@ -729,7 +776,8 @@ Rancanglah rencana yang logis dan *memungkinkan* dieksekusi menggunakan kombinas
 3. Set "is_dynamic" ke true JIKA DAN HANYA JIKA "query" bergantung secara mutlak pada teks hasil dari tugas sebelumnya yang belum diketahui saat ini. Jika true, biarkan "query" berisi string kosong.
 4. Jika tugas bisa langsung dieksekusi tanpa menunggu hasil sebelumnya (misal mencari cuaca, memutar lagu spesifik, atau mencari di web), rumuskan "query" dengan keyword yang tepat dan set "is_dynamic" ke false.
 5. PENGGUNAAN WEB SEARCH: Gunakan Web Search ("search") HANYA untuk mencari informasi real-time, berita, harga barang, atau fakta publik terbaru. JANGAN gunakan untuk hal coding/teori dasar, cukup gunakan "summary".
-6. KECUALIAN: JIKA instruksi sangat sederhana (halo, makasih), KEMBALIKAN array kosong: {"plan": []}
+6. KECUALIAN: JIKA instruksi HANYA butuh 1 kali penggunaan tool (misal: hanya mencari 1 hal di web, atau hanya memutar musik, atau ngobrol, atau mencatat memori), KEMBALIKAN array kosong HANYA format berikut: {"plan": []}.
+7. KAPAN HARUS PLANNING? Kamu WAJIB merancang array plan jika instruksi mengharuskan: (a) Penggunaan 2 tool yang berbeda secara berurutan (contoh: search web lalu music-play), ATAU (b) Mencari 2 topik berbeda untuk dibandingkan (contoh: search harga A lalu search harga B). Jangan memecah 1 pencarian web menjadi beberapa tugas ('search' lalu 'summary'). Gunakan tool secukupnya!
 
 # CONTOH OUTPUT
 Output: 
@@ -742,49 +790,56 @@ Output:
 }
 \`\`\`
 `
-    const previousTurns = chatSession.length > 0 ? chatSession.slice(0, -1) : [];
-    const lastUserMsg = chatSession.length > 0 ? chatSession[chatSession.length - 1] : { role: 'user', content: userInput };
+    console.log(systemPrompt)
+    const previousTurns = chatSession.length > 0 ? chatSession.slice(0, -1) : []
+    const lastUserMsg =
+      chatSession.length > 0
+        ? chatSession[chatSession.length - 1]
+        : { role: 'user', content: userInput }
 
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      ...previousTurns,
-      lastUserMsg
-    ]
+    const messages = [{ role: 'system', content: systemPrompt }, ...previousTurns, lastUserMsg]
     const schema = {
-      type: "object",
+      type: 'object',
       properties: {
         plan: {
-          type: "array",
-          items: { 
-            type: "object",
+          type: 'array',
+          items: {
+            type: 'object',
             properties: {
-              task: { type: "string" },
+              task: { type: 'string' },
               action: {
-                type: "string",
+                type: 'string',
                 enum: [
-                  "search", "music-play", "music-search", "music-next", 
-                  "music-prev", "music-toggle", "yt-search", "yt-summary", 
-                  "summary", "none"
+                  'search',
+                  'music-play',
+                  'music-search',
+                  'music-next',
+                  'music-prev',
+                  'music-toggle',
+                  'yt-search',
+                  'yt-summary',
+                  'summary',
+                  'none'
                 ]
               },
-              query: { type: "string" },
-              is_dynamic: { type: "boolean" }
+              query: { type: 'string' },
+              is_dynamic: { type: 'boolean' }
             },
-            required: ["task", "action", "query", "is_dynamic"],
+            required: ['task', 'action', 'query', 'is_dynamic'],
             additionalProperties: false
           }
         }
       },
-      required: ["plan"],
+      required: ['plan'],
       additionalProperties: false
-    };
+    }
 
     const response = await fetchAI(messages, signal, false, schema)
     const data = cleanAndParse(response.content)
     if (data && Array.isArray(data.plan)) return { plan: data.plan, reasoning: response.reasoning }
     // Fallback if data is raw array
     if (Array.isArray(data)) return { plan: data, reasoning: response.reasoning }
-    throw new Error("Format plan tidak valid (bukan array).")
+    throw new Error('Format plan tidak valid (bukan array).')
   } catch (error) {
     console.error('Error in getPlan:', error)
     throw error
@@ -818,7 +873,7 @@ ${isYoutube ? '- yt-summary: Merangkum isi video YouTube.' : ''}
 `
     const userPrompt = `
 # PREVIOUS CONTEXT (Ringkasan dari tugas-tugas sebelumnya)
-${previousContext.length > 0 ? previousContext.join("\\n") : "Belum ada."}
+${previousContext.length > 0 ? previousContext.join('\\n') : 'Belum ada.'}
 
 # TUGAS SAAT INI
 ${task}
@@ -832,21 +887,28 @@ Tentukan action dan query-nya.
     ]
 
     const schema = {
-      type: "object",
+      type: 'object',
       properties: {
-        action: { 
-          type: "string",
+        action: {
+          type: 'string',
           enum: [
-            "search", "music-play", "music-search", "music-next", 
-            "music-prev", "music-toggle", "yt-search", "yt-summary", 
-            "summary", "none"
+            'search',
+            'music-play',
+            'music-search',
+            'music-next',
+            'music-prev',
+            'music-toggle',
+            'yt-search',
+            'yt-summary',
+            'summary',
+            'none'
           ]
         },
-        query: { type: "string" }
+        query: { type: 'string' }
       },
-      required: ["action", "query"],
+      required: ['action', 'query'],
       additionalProperties: false
-    };
+    }
 
     const response = await fetchAI(messages, signal, true, schema)
     const data = cleanAndParse(response.content)
@@ -866,7 +928,7 @@ Output HANYA berupa ringkasan/jawaban yang SANGAT MENDALAM dan KOMPREHENSIF (bol
 `
     const userPrompt = `
 # KONTEKS SEBELUMNYA
-${previousContext && previousContext.length > 0 ? previousContext.join("\\n") : "Belum ada."}
+${previousContext && previousContext.length > 0 ? previousContext.join('\\n') : 'Belum ada.'}
 
 # TUGAS SAAT INI
 ${task}
@@ -884,7 +946,7 @@ Buat ringkasan 1 kalimat yang informatif dari hasil sistem tersebut untuk menjaw
     return response.content.trim()
   } catch (error) {
     console.error('Error in getTaskSummary:', error)
-    return "Tugas selesai dijalankan."
+    return 'Tugas selesai dijalankan.'
   }
 }
 
@@ -907,7 +969,11 @@ Output HANYA boleh berupa valid JSON berisi ID lagu terpilih:
 Instruksi User: "${userInput}"
 
 Daftar Hasil Pencarian:
-${JSON.stringify(musicList.map(m => ({ id: m.id, title: m.title, artist: m.artist, duration: m.duration })), null, 2)}
+${JSON.stringify(
+  musicList.map((m) => ({ id: m.id, title: m.title, artist: m.artist, duration: m.duration })),
+  null,
+  2
+)}
 `
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -915,13 +981,13 @@ ${JSON.stringify(musicList.map(m => ({ id: m.id, title: m.title, artist: m.artis
     ]
 
     const schema = {
-      type: "object",
+      type: 'object',
       properties: {
-        selectedId: { type: "string" }
+        selectedId: { type: 'string' }
       },
-      required: ["selectedId"],
+      required: ['selectedId'],
       additionalProperties: false
-    };
+    }
 
     const response = await fetchAI(messages, signal, true, schema)
     const data = cleanAndParse(response.content)
@@ -932,32 +998,47 @@ ${JSON.stringify(musicList.map(m => ({ id: m.id, title: m.title, artist: m.artis
   }
 }
 
-export const getPlanConclusion = async (userInput, taskSummaries, signal, chatSession = []) => {
+export const getPlanConclusion = async (
+  userInput,
+  taskSummaries,
+  signal,
+  chatSession = [],
+  memoryReference = []
+) => {
   try {
-    const config = await getAllConfig();
+    const config = await getAllConfig()
     const systemPrompt = `
 Kamu adalah Mark, asisten lokal yang cerdas, asertif, dan lugas. Panggil user "bro".
 Kepribadian dan Gaya Bahasa: ${config[0]?.personality || 'Santai layaknya seorang teman dan suka bercanda.'}
 
-# IDENTITY
-- Nama kamu adalah **Mark**.
-- JANGAN PERNAH tertukar antara identitasmu dan identitas user.
-- Berlakulah seperti teman yang ahli di bidangnya. Gunakan analogi sehari-hari yang relevan.
-- Hindari kalimat kaku seperti "Berdasarkan riwayat eksekusi...". Langsung masuk ke inti pembicaraan.
-
 # WAKTU & TANGGAL SAAT INI
 ${getCurrentTimeInfo()}
 
-# ATURAN PENULISAN & GAYA BAHASA
-1. **DEEP ANALYSIS (WAJIB)**: Jangan cuma kasih rangkuman 1 paragraf pendek. Bedah informasinya, jelaskan prosesnya, dan berikan jawaban yang **panjang, jelas, dan komprehensif**. Kalau topiknya berat, jelaskan "kenapa" dan dampaknya secara mendetail.
-2. **PROFESIONAL TAPI SANTAI**: Pertahankan gaya bahasamu (panggil "bro", asertif), tapi **JANGAN** terlalu banyak basa-basi gaul atau asik-asikan yang berlebihan (kurangi pemakaian kata "gila sih", "anjir", "bro" yang diulang-ulang). Tetap fokus pada bobot informasi.
-3. **FORMATTING**: Gunakan paragraf yang rapi dan list poin-poin (markdown \`-\` atau \`*\`) agar penjelasan panjangmu mudah dibaca.
-4. **PRIORITAS SUMBER**: Gunakan data dari "Riwayat Eksekusi" sebagai acuan utama. Tambahkan wawasan pribadimu untuk memperkaya penjelasan agar tidak terkesan kaku.
-5. **CONTEXT AWARENESS**: Perhatikan "CHAT SESSION" sebelumnya agar jawabanmu nyambung dengan obrolan yang sedang berlangsung.
+# MEMORY REFERENCE (Memori yang sudah ada)
+${memoryReference.length > 0 ? JSON.stringify(memoryReference) : 'Kosong.'}
 
-# TUGASMU
-Sistem baru saja selesai menjalankan beberapa tugas (Task) di latar belakang untuk user.
-Berikan JAWABAN AKHIR yang **berbobot, mendetail, dan panjang** berdasarkan "Riwayat Eksekusi" tersebut. Jawab seolah-olah kamu baru saja meneliti hal itu dan sekarang menjelaskannya secara lengkap ke temanmu.
+# ATURAN PENULISAN & GAYA BAHASA
+1. **DEEP ANALYSIS (WAJIB)**: Bedah informasi dari riwayat eksekusi, jelaskan prosesnya, dan berikan jawaban yang panjang, jelas, dan komprehensif.
+2. **PROFESIONAL TAPI SANTAI**: Pertahankan gaya bahasamu (panggil "bro", asertif), tapi jangan terlalu banyak basa-basi gaul. Tetap fokus pada bobot informasi.
+3. **FORMATTING**: Gunakan paragraf yang rapi dan list poin-poin (markdown \`-\` atau \`*\`).
+4. **PRIORITAS SUMBER**: Gunakan data dari "Riwayat Eksekusi" sebagai acuan utama. Tambahkan wawasan pribadimu untuk memperkaya penjelasan.
+5. **VOICE-EXPRESSIVE**: Tulis "answer" seakan-akan kamu sedang berbicara (akan dibacakan TTS).
+
+# AUTO-MEMORY EVALUATION (CRITICAL)
+Tugas utamamu adalah merangkum hasil kerja sistem, TETAPI kamu juga harus melakukan evaluasi diri: "Apakah dari percakapan atau hasil kerja ini ada informasi penting tentang user yang layak disimpan?"
+1. WAJIB HANYA menyimpan memori tentang PENGGUNA (hobi, preferensi, sifat, rutinitas, kehidupan pribadi) ATAU catatan/pengingat jadwal/to-do list yang diminta secara eksplisit.
+2. DILARANG KERAS menyimpan fakta umum dari internet, pelajaran, tutorial, resep, lirik lagu, berita, atau kode pemrograman.
+3. DILARANG menyimpan jika info sudah ada/mirip di Memory Reference.
+4. Jika ADA info user yang layak disimpan/diupdate, isi properti "memory". WAJIB tulis isi 'memory' dalam BAHASA INDONESIA.
+5. Jika TIDAK ADA, wajib isi "memory" dengan null.
+6. WAJIB tulis isi 'memory' sebagai KALIMAT DESKRIPTIF LENGKAP. (Contoh salah: "Mada". Contoh benar: "Nama user adalah Mada"). Ini sangat penting agar sistem vektor bisa mencocokkan kata kunci konteks (seperti kata "nama").
+7. Jika memori berupa catatan (note), kejadian, atau info yang butuh konteks waktu, WAJIB sertakan Waktu & Tanggal saat ini di dalam kalimat memori tersebut. (Contoh: "Pada 9 Juni 2026, user mengatakan bahwa...")
+
+# OUTPUT WAJIB JSON
+{
+  "answer": "string (Penjelasan panjang, berbobot, dan komprehensif)",
+  "memory": { "id": number|null, "type": "profile|preference|skill|project|transaction|goal|relationship|fact|other", "key": "string", "memory": "string", "action": "insert|update|delete" } atau null
+}
 `
     const userPrompt = `
 Instruksi Awal User: "${userInput}"
@@ -965,18 +1046,49 @@ Instruksi Awal User: "${userInput}"
 Riwayat Eksekusi (Summary):
 ${taskSummaries.map((s, i) => `${i + 1}. ${s}`).join('\n')}
 
-Berikan respons akhirmu (HANYA teks respons, tanpa JSON).
+Berikan respons akhirmu dalam format JSON sesuai schema.
 `
-    const previousTurns = chatSession.length > 0 ? chatSession.slice(0, -1) : [];
+    const previousTurns = chatSession.length > 0 ? chatSession.slice(0, -1) : []
     const messages = [
       { role: 'system', content: systemPrompt },
       ...previousTurns,
       { role: 'user', content: userPrompt }
     ]
-    const response = await fetchAI(messages, signal)
-    return { answer: response.content, reasoning: response.reasoning }
+
+    const schema = {
+      type: 'object',
+      properties: {
+        answer: { type: 'string' },
+        memory: {
+          type: ['object', 'null'],
+          properties: {
+            action: { type: 'string' },
+            key: { type: 'string' },
+            memory: { type: 'string' },
+            oldKey: { type: 'string' }
+          },
+          required: ['action', 'key', 'memory', 'oldKey'],
+          additionalProperties: false
+        }
+      },
+      required: ['answer', 'memory'],
+      additionalProperties: false
+    }
+
+    const response = await fetchAI(messages, signal, false, schema)
+    const data = cleanAndParse(response.content)
+    if (!data) throw new Error('Gagal mengurai respon AI menjadi JSON yang valid.')
+    return {
+      answer: data.answer || 'Tugas selesai bro!',
+      memory: data.memory || null,
+      reasoning: response.reasoning
+    }
   } catch (error) {
     console.error('Error in getPlanConclusion:', error)
-    return "Oke bro, instruksi lu udah gue kerjain semuanya ya!"
+    return {
+      answer: 'Oke bro, instruksi lu udah gue kerjain semuanya ya!',
+      memory: null,
+      reasoning: null
+    }
   }
 }

@@ -9,7 +9,8 @@ import {
   getTaskAction,
   getTaskSummary,
   getPlanConclusion,
-  getBestMusicMatch
+  getBestMusicMatch,
+  getCurrentTimeInfo
 } from '../api/ai'
 import {
   createSession,
@@ -467,6 +468,8 @@ export const ChatProvider = ({ children }) => {
           if (actions[answer.memory.action]) {
             const memoryData = { ...answer.memory }
             memoryData.memory = memoryData.memory.trim().replace(/^[\\"]+|[\\"]+$/g, '').replace(/\\n/g, '\n')
+            const dateStr = getCurrentTimeInfo()
+            memoryData.memory = `[${dateStr}] ${memoryData.memory}`
             await actions[answer.memory.action](memoryData)
           }
         }
@@ -675,11 +678,12 @@ export const ChatProvider = ({ children }) => {
         ...prev,
         { role: 'ai', content: 'Merangkum hasil akhir...', isThinking: true }
       ])
-      const { answer: finalAnswer, reasoning: finalReasoning } = await getPlanConclusion(
+      const { answer: finalAnswer, reasoning: finalReasoning, memory: finalMemory } = await getPlanConclusion(
         userInput,
         contextSummaries,
         abortControllerRef.current.signal,
-        chatSession
+        chatSession,
+        memoryReference
       )
 
       const uniqueSources = []
@@ -694,12 +698,30 @@ export const ChatProvider = ({ children }) => {
 
       setChatData((prev) => {
         const filtered = prev.filter((item) => !item.isThinking)
-        const newAiMsg = { role: 'ai', content: finalAnswer, reasoning: finalReasoning }
+        const newAiMsg = { 
+          role: 'ai', 
+          content: finalAnswer, 
+          reasoning: finalReasoning,
+          isMemorySaved: finalMemory?.action === 'insert',
+          isMemoryUpdated: finalMemory?.action === 'update',
+          isMemoryDeleted: finalMemory?.action === 'delete'
+        }
         if (uniqueSources.length > 0) {
           newAiMsg.sources = uniqueSources
         }
         return [...filtered, newAiMsg]
       })
+
+      if (finalMemory) {
+        const actions = { insert: insertMemory, update: updateMemory, delete: deleteMemory }
+        if (actions[finalMemory.action]) {
+          const memoryData = { ...finalMemory }
+          memoryData.memory = memoryData.memory.trim().replace(/^[\\"]+|[\\"]+$/g, '').replace(/\\n/g, '\n')
+          const dateStr = new Date().toLocaleString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute:'2-digit' })
+          memoryData.memory = `[${dateStr}] ${memoryData.memory}`
+          await actions[finalMemory.action](memoryData)
+        }
+      }
 
       if (isSpeak) {
         playVoice(finalAnswer)
