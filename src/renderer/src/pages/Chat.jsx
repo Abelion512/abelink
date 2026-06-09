@@ -140,15 +140,42 @@ const Chat = () => {
               </svg>
             </button>
             <div className="dropdown dropdown-top">
-              <div tabIndex={0} role="button" className={`btn btn-sm rounded-lg gap-2 ${
-                (isAction.web || isAction.youtube || isAction.plan) ? 'btn-neutral text-white' : 'btn-ghost opacity-60 hover:opacity-100'
-              }`}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                Tools {(isAction.web || isAction.youtube || isAction.plan) && <span className="badge badge-xs badge-primary badge-outline ml-1">On</span>}
+              <div
+                tabIndex={0}
+                role="button"
+                className={`btn btn-sm rounded-lg gap-2 ${
+                  isAction.web || isAction.youtube || isAction.plan
+                    ? 'btn-neutral text-white'
+                    : 'btn-ghost opacity-60 hover:opacity-100'
+                }`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="1em"
+                  height="1em"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                </svg>
+                Tools{' '}
+                {(isAction.web || isAction.youtube || isAction.plan) && (
+                  <span className="badge badge-xs badge-primary badge-outline ml-1">On</span>
+                )}
               </div>
-              <ul tabIndex={0} className="dropdown-content menu bg-base-300 rounded-box z-[1] w-52 p-2 shadow-xl mb-2 gap-1 border border-white/10">
+              <ul
+                tabIndex={0}
+                className="dropdown-content menu bg-base-300 rounded-box z-[1] w-52 p-2 shadow-xl mb-2 gap-1 border border-white/10"
+              >
                 <li>
-                  <a className={isAction.web ? 'bg-primary/20 text-primary' : ''} onClick={() => setIsAction((prev) => ({ ...prev, web: !prev.web }))}>
+                  <a
+                    className={isAction.web ? 'bg-primary/20 text-primary' : ''}
+                    onClick={() => setIsAction((prev) => ({ ...prev, web: !prev.web }))}
+                  >
                     <div className="flex w-full justify-between items-center">
                       <span>Web Search</span>
                       {isAction.web && <span className="font-bold">✓</span>}
@@ -156,7 +183,10 @@ const Chat = () => {
                   </a>
                 </li>
                 <li>
-                  <a className={isAction.youtube ? 'bg-error/20 text-error' : ''} onClick={() => setIsAction((prev) => ({ ...prev, youtube: !prev.youtube }))}>
+                  <a
+                    className={isAction.youtube ? 'bg-error/20 text-error' : ''}
+                    onClick={() => setIsAction((prev) => ({ ...prev, youtube: !prev.youtube }))}
+                  >
                     <div className="flex w-full justify-between items-center">
                       <span>YouTube Summary</span>
                       {isAction.youtube && <span className="font-bold">✓</span>}
@@ -164,9 +194,12 @@ const Chat = () => {
                   </a>
                 </li>
                 <li>
-                  <a className={isAction.plan ? 'bg-info/20 text-info' : ''} onClick={() => setIsAction((prev) => ({ ...prev, plan: !prev.plan }))}>
-                    <div className="flex w-full justify-between items-center">
-                      <span>Agentic Planning (Beta)</span>
+                  <a
+                    className={isAction.plan ? 'bg-info/20 text-info' : ''}
+                    onClick={() => setIsAction((prev) => ({ ...prev, plan: !prev.plan }))}
+                  >
+                    <div className="flex w-full justify-between items-center whitespace-nowrap">
+                      <span className="whitespace-nowrap">Agentic Planning (Beta)</span>
                       {isAction.plan && <span className="font-bold">✓</span>}
                     </div>
                   </a>

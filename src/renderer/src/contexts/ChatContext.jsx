@@ -429,6 +429,9 @@ export const ChatProvider = ({ children }) => {
     abortControllerRef.current = new AbortController()
 
     try {
+      const allMemory = await getAllMemory()
+      const memoryReference = await getRelevantMemory(userInput, allMemory)
+
       // 1. Get Plan
       setChatData((prev) => [
         ...prev,
@@ -439,8 +442,68 @@ export const ChatProvider = ({ children }) => {
         isAction.web,
         isAction.youtube,
         abortControllerRef.current.signal,
-        chatSession
+        chatSession,
+        memoryReference
       )
+
+      if (!planData.plan || planData.plan.length === 0) {
+        // Fallback to normal conversation if plan is empty
+        const answer = await getAnswer(
+          userInput,
+          memoryReference,
+          chatSession,
+          abortControllerRef.current.signal,
+          isAction.web,
+          isAction.youtube
+        )
+        if (!answer) throw new Error('Gagal mengurai jawaban dari Mark menjadi format JSON.')
+
+        if (isSpeak) {
+          playVoice(answer.answer)
+        }
+
+        if (answer.memory && answer.command?.action !== 'search') {
+          const actions = { insert: insertMemory, update: updateMemory, delete: deleteMemory }
+          if (actions[answer.memory.action]) {
+            const memoryData = { ...answer.memory }
+            memoryData.memory = memoryData.memory.trim().replace(/^[\\"]+|[\\"]+$/g, '').replace(/\\n/g, '\n')
+            await actions[answer.memory.action](memoryData)
+          }
+        }
+
+        if (answer.command?.action === 'yt-search') {
+          handleYoutubeSearch(answer, abortControllerRef.current.signal)
+        } else {
+          setChatData((prev) => {
+            const filtered = prev.filter((item) => !item.isThinking)
+            const aiResponse = {
+              role: 'ai',
+              content: answer.answer,
+              reasoning: planData.reasoning,
+              isMemorySaved: answer.memory?.action === 'insert' && answer.command?.action !== 'search',
+              isMemoryUpdated: answer.memory?.action === 'update',
+              isMemoryDeleted: answer.memory?.action === 'delete'
+            }
+            if (answer.command?.run) {
+              return [...filtered, aiResponse, { role: 'command', content: answer.command.run, risk: answer.command.risk }]
+            }
+            return [...filtered, aiResponse]
+          })
+        }
+
+        if (answer.command?.action === 'search') {
+          await handleSearchCommand(userInput, answer.command.query, abortControllerRef.current.signal, chatSession)
+        }
+        if (answer.command?.action === 'yt-summary') {
+          await handleYoutubeSummary(answer.command.query, abortControllerRef.current.signal)
+        }
+        if (answer.command?.action?.startsWith('music')) {
+          await handleMusic(answer.command.action, answer.command?.query)
+        }
+        setMessage('')
+        setIsLoading(false)
+        return
+      }
 
       setChatData((prev) => {
         const filtered = prev.filter((item) => !item.isThinking)

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import { scrapeGoogle } from '../api/scraping'
 import { deepSearch } from '../api/scraping'
@@ -113,10 +114,13 @@ const ChatList = ({
 
   const waitForLoad = (webview) => {
     return new Promise((resolve) => {
+      let timeoutId
       const onDone = () => {
+        clearTimeout(timeoutId)
         webview.removeEventListener('did-stop-loading', onDone)
         resolve()
       }
+      timeoutId = setTimeout(onDone, 10000) // 10 second timeout for each page load
       webview.addEventListener('did-stop-loading', onDone)
     })
   }
@@ -140,7 +144,7 @@ const ChatList = ({
     scrapingActive.current = false
   }
 
-  if (isPlanSteps) {
+  if (isPlanSteps && plan.length > 0) {
     return (
       <div className="chat chat-start mb-1 mt-2 opacity-70 ml-10">
         <div className="chat-bubble bg-transparent text-white p-0 shadow-none flex flex-col gap-1">
@@ -420,6 +424,7 @@ const ChatList = ({
                   </details>
                 )}
                 <Markdown
+                  remarkPlugins={[remarkGfm]}
                   rehypePlugins={[
                     [rehypeExternalLinks, { target: '_blank', rel: ['noopener', 'noreferrer'] }]
                   ]}

@@ -85,6 +85,18 @@ html {
   @apply text-primary underline hover:opacity-80 cursor-pointer;
 }
 
+.custom-markdown table {
+  @apply table table-sm w-full bg-base-200/50 rounded-xl my-4 overflow-hidden border border-base-300;
+}
+
+.custom-markdown th {
+  @apply bg-base-300 text-left font-bold;
+}
+
+.custom-markdown td, .custom-markdown th {
+  @apply border-b border-base-300 px-4 py-2;
+}
+
 /* ===== Live Audio Page Animations ===== */
 
 /* Pulse ring expanding outward */
