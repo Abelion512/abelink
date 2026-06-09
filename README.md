@@ -8,10 +8,10 @@
 ## Fitur Utama
 
 ### Hybrid AI Engine (Local & Cloud)
-Integrasi fleksibel antara **Local LLM** (Gemma 3, Llama, Mistral) melalui **LM Studio** untuk privasi penuh tanpa internet, maupun **Groq API** untuk respons cloud yang super cepat. Pilihan dapat diubah langsung melalui halaman pengaturan. Dilengkapi juga dengan fitur **Secondary Model**, yang secara otomatis mendelegasikan tugas-tugas *background* (seperti *JSON parsing*, *action logic*, dan *summarizing*) ke API cloud berkecepatan tinggi, sehingga tidak membebani komputasi Llama lokalmu saat mengobrol.
+Integrasi fleksibel antara **Local LLM** (Gemma 3, Llama, Mistral) melalui **LM Studio** untuk privasi penuh tanpa internet, maupun API cloud super cepat melalui **Groq API** dan **Cerebras API**. Pilihan dapat diubah langsung melalui halaman pengaturan dengan *UI dinamis* yang menyesuaikan form input berdasarkan *provider* yang dipilih. Dilengkapi juga dengan fitur **Secondary Model**, yang secara otomatis mendelegasikan tugas-tugas *background* (seperti *JSON parsing*, *action logic*, dan *summarizing*) ke Groq API untuk mempercepat performa tanpa membebani komputasi Llama lokalmu.
 
 ### Agentic Planning & Autonomous Execution
-Mark mampu memecah instruksi yang kompleks menjadi langkah-langkah logis (planning) dan mengeksekusinya satu per satu. Ia mengevaluasi hasil dari setiap langkah untuk menentukan aksi secara real-time, seperti mencari di web, memutar lagu, atau sekadar merangkum informasi tanpa intervensi pengguna. Hasil dari riset otomatis (web search) akan dirangkum beserta *source/citation* langsung pada kesimpulan akhir. Ketersediaan tool secara cerdas disesuaikan berdasarkan fitur yang diaktifkan pengguna.
+Mark mampu memecah instruksi yang kompleks menjadi langkah-langkah logis (planning) dan mengeksekusinya satu per satu. Ia mengevaluasi hasil dari setiap langkah untuk menentukan aksi secara real-time, seperti mencari di web, memutar lagu, atau sekadar merangkum informasi tanpa intervensi pengguna. Hasil dari riset otomatis (web search) akan dirangkum beserta *source/citation* langsung pada kesimpulan akhir. Dilengkapi mekanisme **Auto-Retry Fallback JSON Schema**, di mana sistem otomatis memulihkan dan memperbaiki format *output* LLM yang rusak (terutama pada model lokal kecil) ke bentuk JSON valid, memastikan alur *agentic* berjalan tanpa henti.
 
 ### Multi-Turn Conversation
 Riwayat percakapan dikirim sebagai **native multi-turn messages** ke LLM (bukan text dump), menghasilkan pemahaman konteks yang jauh lebih baik — terutama untuk model kecil.
@@ -74,7 +74,7 @@ mark/
 │   └── renderer/          # React Frontend
 │       └── src/
 │           ├── api/
-│           │   ├── ai.js           # LLM integration (LM Studio & Groq)
+│           │   ├── ai.js           # LLM integration (LM Studio, Groq & Cerebras + JSON Schema Auto-Retry)
 │           │   ├── db.js           # Dexie (IndexedDB) schemas & migrations
 │           │   ├── scraping.js     # Google search & deep web scraping
 │           │   └── vectorMemory.js # Vector embeddings (Transformers.js / LM Studio)
@@ -89,7 +89,7 @@ mark/
 | ---------------- | --------------------------------------------------------------------------- |
 | **Framework**    | Electron 39, React 19, Vite 7                                               |
 | **Styling**      | Tailwind CSS 4, DaisyUI 5                                                   |
-| **AI Backend**   | LM Studio / Groq API (Inference)                                            |
+| **AI Backend**   | LM Studio / Groq API / Cerebras API (Inference)                             |
 | **Embeddings**   | Transformers.js (`@huggingface/transformers`), LM Studio                    |
 | **Web Scraping** | Electron Webview (Google Search & Deep Research)                            |
 | **Audio & Voice**| Groq API (STT), Edge-TTS, Web Audio API (VAD)                               |
