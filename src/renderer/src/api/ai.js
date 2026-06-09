@@ -1,4 +1,3 @@
-import axios from 'axios'
 import { getAllConfig } from './db'
 const config = await getAllConfig()
 

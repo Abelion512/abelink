@@ -32,7 +32,7 @@ export const ChatProvider = ({ children }) => {
 
   const [chatData, setChatData] = useState([])
   const [sessionId, setSessionId] = useState(null)
-  const [isAction, setIsAction] = useState({ web: false, youtube: false, plan: false })
+  const [isAction, setIsAction] = useState({ web: false, youtube: false, plan: true })
   const [config, setConfig] = useState([])
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
