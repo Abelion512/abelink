@@ -7,62 +7,14 @@
 
 ## Fitur Utama
 
-### Hybrid AI Engine (Local & Cloud)
-Integrasi fleksibel antara **Local LLM** (Gemma 3, Llama, Mistral) melalui **LM Studio** untuk privasi penuh tanpa internet, maupun API cloud super cepat melalui **Groq API** dan **Cerebras API**. Pilihan dapat diubah langsung melalui halaman pengaturan dengan *UI dinamis* yang menyesuaikan form input berdasarkan *provider* yang dipilih. Dilengkapi juga dengan fitur **Secondary Model**, yang secara otomatis mendelegasikan tugas-tugas *background* (seperti *JSON parsing*, *action logic*, dan *summarizing*) ke Groq API untuk mempercepat performa tanpa membebani komputasi Llama lokalmu.
-
-### Agentic Planning & Autonomous Execution
-Mark mampu memecah instruksi yang kompleks menjadi langkah-langkah logis (planning) dan mengeksekusinya satu per satu. Ia mengevaluasi hasil dari setiap langkah untuk menentukan aksi secara real-time, seperti mencari di web, memutar lagu, atau sekadar merangkum informasi tanpa intervensi pengguna. Hasil dari riset otomatis (web search) akan dirangkum beserta *source/citation* langsung pada kesimpulan akhir. Dilengkapi mekanisme **Auto-Retry Fallback JSON Schema**, di mana sistem otomatis memulihkan dan memperbaiki format *output* LLM yang rusak (terutama pada model lokal kecil) ke bentuk JSON valid, memastikan alur *agentic* berjalan tanpa henti.
-
-### Multi-Turn Conversation
-Riwayat percakapan dikirim sebagai **native multi-turn messages** ke LLM (bukan text dump), menghasilkan pemahaman konteks yang jauh lebih baik — terutama untuk model kecil.
-
-### Transparent Reasoning UI
-Mark secara native mendukung model LLM dengan kapabilitas *reasoning* (seperti keluarga model DeepSeek-R1). Proses pemikiran AI (di dalam tag `<think>`) akan diekstrak dan ditampilkan secara elegan dalam bentuk *collapsible dropdown* pada antarmuka *chat*, baik saat menyusun rencana (*planning*) maupun menjawab.
-
-### Vector Memory Management System (MMS)
-Memori cerdas yang bekerja layaknya otak manusia. Mark kini mendukung dua provider **Vector Embeddings**:
-- **Transformers.js (Fully Local)**: Berjalan 100% di memori aplikasi tanpa perlu server tambahan atau LM Studio. Menggunakan model kecil (~22MB) seperti `all-MiniLM-L6-v2`.
-- **LM Studio**: Opsi bagi pengguna yang ingin menggunakan model embeddings kustom via local server.
-
-Mark menyimpan memori dalam kategori:
-- `profile`, `preference`, `skill`, `project`, `transaction`, `goal`, `relationship`, `fact`, `other`
-
-Operasi memori lengkap: **insert**, **update**, dan **delete** — semuanya dikelola secara otomatis oleh AI berdasarkan konteks percakapan. Pencarian memori berbasis **cosine similarity** secara dinamis menyesuaikan *threshold* antar-provider.
-
-### Semantic Search & Smart Fallback
-Pencarian memori membandingkan pertanyaan pengguna dengan data memori sebelumnya. Jika dimensi vektor berubah (karena pergantian provider embeddings), memori akan di-generate ulang otomatis secara *seamless* di latar belakang.
-
-### Web Search & Deep Research
-Mencari data real-time melalui **Google Search** dan melakukan riset mendalam langsung via **Electron Webview** terintegrasi. Termasuk scraping **AI Overview dari Google**. Tanpa Puppeteer, tanpa instalasi Chrome tambahan.
-
-### YouTube Accessible
-Mencari video di YouTube dengan `yt search`, dan merangkum isi video YouTube hanya dengan mengirimkan link. Mark mengambil transkrip via `youtube-transcript-plus`, menganalisis, dan memberikan poin-poin penting lengkap dengan *timestamp*.
-
-### YouTube Music Player (AI Curated)
-Pemutar musik terintegrasi berbasis **YouTube Music** via Electron Webview. Cukup minta Mark untuk memutar lagu — ia akan mencari via `ytmusic-api`, menganalisis daftar 10 hasil pencarian teratas menggunakan logika AI (memilih antara versi *original*, *live*, atau *cover* secara dinamis menyesuaikan niat/konteks pengguna), lalu otomatis memutarkan lagu yang paling tepat. Dilengkapi dengan **Ad-Blaster** otomatis (auto-mute, 16x speed, auto-skip iklan) dan *floating player* yang bisa di-minimize.
-
-### Voice Interaction (Live Audio Beta)
-Interaksi suara real-time menggunakan **Groq API** untuk Speech-to-Text (STT) super cepat dan **Edge-TTS** (Text-to-Speech) lokal. Memungkinkan percakapan dua arah secara natural (Voice-to-Voice) tanpa jeda yang signifikan, lengkap dengan deteksi VAD (Voice Activity Detection) dan Barge-in otomatis.
-
-### Context & Time Awareness
-Mark memahami konteks percakapan sebelumnya dan sadar waktu (tanggal & jam saat ini) untuk menentukan relevansi informasi.
-
-### Session Persistence & Robust Error Handling
-Menyimpan dan memuat riwayat sesi chat. Mark juga dilengkapi penanganan *Rate Limit* secara manusiawi (misal ketika Token API habis).
-
-### Few-Shot Prompt Engineering
-System prompt dilengkapi contoh output (*few-shot examples*) untuk meningkatkan konsistensi respons **JSON** dari model kecil.
-
-### Modern & Premium UI
-Desain menggunakan **Tailwind CSS 4** dan **DaisyUI 5** dengan fitur:
-- Antarmuka *chat* yang minimalis dan luas berkat desain *Tools Dropdown* yang dinamis.
-- Markdown rendering lengkap (React Markdown + Syntax Highlighter)
-- GitHub Flavored Markdown support
-- Animasi halus dan mode interaksi dinamis
-
-### Global Shortcut & System Tray
-Aplikasi berjalan secara tersembunyi di latar belakang (System Tray) dan dapat dipanggil kapan saja menggunakan *Global Shortcut*.
-- **`Ctrl + Alt + M`** (atau `Cmd + Alt + M` di Mac): Membuka aplikasi secara instan dan langsung mengaktifkan mode **Live Audio** untuk mulai berbicara dengan Mark.
+- **Hybrid AI Engine:** Kombinasi **Local LLM** (LM Studio) untuk privasi 100% offline dan **Cloud API** (Groq/Cerebras) untuk kecepatan tinggi. Dilengkapi **Secondary Model** yang mendelegasikan tugas *background* (JSON parsing, summarizing) ke cloud agar tidak membebani komputasi lokal.
+- **Agentic Planning:** Memecah instruksi kompleks menjadi aksi otonom (web search, music, memory). Menggunakan arsitektur **JIT Query Generation** untuk menghemat kuota *Requests Per Minute* (RPM) hingga 80%, serta dilengkapi **Auto-Retry Fallback** yang otomatis memperbaiki format output LLM yang rusak.
+- **Vector Memory Management System (MMS):** Memori jangka panjang cerdas menggunakan *embeddings* dari **Transformers.js** (berjalan 100% lokal di memori) atau LM Studio. Operasi *insert*, *update*, dan *delete* memori dikelola otomatis oleh AI dengan pencarian *semantic* berbasis *cosine similarity*.
+- **Web Search & Deep Research:** AI dapat menelusuri web secara real-time dan melakukan riset mendalam melalui Electron Webview tersembunyi tanpa instalasi browser tambahan.
+- **YouTube Ecosystem:** Terintegrasi langsung untuk merangkum isi video YouTube dari *transkrip* otomatis, serta memutar lagu via YouTube Music dengan logika kurasi AI (memilih versi terbaik antara *original*, *live*, atau *cover*).
+- **Live Voice Interaction:** Interaksi suara real-time (Voice-to-Voice) menggunakan Groq API (STT) dan Edge-TTS lokal, dilengkapi dengan *Voice Activity Detection* (VAD).
+- **Transparent Reasoning:** Mengekstrak dan menampilkan proses pemikiran AI (seperti DeepSeek-R1) secara native di antarmuka.
+- **System Tray & Global Shortcut:** Selalu sedia di latar belakang dan dapat dipanggil kapan saja dengan `Ctrl + Alt + M`.
 
 ## Arsitektur Proyek
 

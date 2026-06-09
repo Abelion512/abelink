@@ -88,11 +88,11 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
         let errorData = null;
         try { errorData = JSON.parse(textData); } catch (e) {}
 
-        const errorMsg = errorData?.error?.message || response.statusText || textData;
+        const errorMsg = errorData?.error?.message || errorData?.message || response.statusText || textData;
 
         // Auto-retry fallback jika JSON Schema tidak di-support oleh model
         if (!isRetry && currentBody.response_format?.type === 'json_schema' && 
-            (errorMsg.toLowerCase().includes('schema') || errorMsg.toLowerCase().includes('json') || response.status === 400 || response.status === 422)) {
+            (String(errorMsg).toLowerCase().includes('schema') || String(errorMsg).toLowerCase().includes('json') || response.status === 400 || response.status === 422)) {
           console.log('[Auto-Retry] Model tidak support json_schema, fallback ke json_object...');
           
           let fallbackBody = { ...currentBody };
@@ -114,9 +114,9 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
         }
 
         const errorProvider = conf.aiProvider === 'groq' ? 'Groq API' : conf.aiProvider === 'cerebras' ? 'Cerebras API' : 'LM Studio'
-        let finalErrorMessage = conf.aiProvider === 'cerebras' ? errorMsg?.message : errorMsg;
+        let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg);
 
-        if (finalErrorMessage.includes('Rate limit reached') || finalErrorMessage.includes('Too Many Requests') && conf.aiProvider !== 'cerebras') {
+        if (finalErrorMessage.includes('Rate limit reached') || finalErrorMessage.includes('Too Many Requests') || finalErrorMessage.includes('limit exceeded')) {
           const timeMatch = finalErrorMessage.match(/Please try again in ([0-9.]+s)/);
           if (timeMatch) {
             finalErrorMessage = `Limit token Anda habis. Silakan coba lagi dalam ${timeMatch[1]}.`;
