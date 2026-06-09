@@ -25,7 +25,7 @@ const getCurrentTimeInfo = () => {
   return now.toLocaleDateString('id-ID', options);
 };
 
-export const fetchAI = async (messages, signal, isSmallTask = false) => {
+export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema = null) => {
   try {
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
@@ -51,6 +51,37 @@ export const fetchAI = async (messages, signal, isSmallTask = false) => {
       body.model = conf.groqModel || 'llama-3.1-8b-instant'
     } else {
       body.model = conf.model || 'google/gemma-3-4b'
+    }
+
+    let finalMessages = messages;
+
+    if (jsonSchema) {
+      const isSchemaSupported = body.model.includes('gpt-oss') || body.model.includes('gpt-4');
+
+      if (isSchemaSupported) {
+        body.response_format = {
+          type: "json_schema",
+          json_schema: {
+            name: "mark_schema",
+            strict: true,
+            schema: jsonSchema
+          }
+        };
+      } else {
+        // Fallback untuk model yang cuma support json_object (kayak Llama)
+        body.response_format = { type: "json_object" };
+        
+        // Suntik schema ke system prompt supaya model tetep tau struktur persisnya
+        finalMessages = messages.map(m => ({ ...m }));
+        const sysIdx = finalMessages.findIndex(m => m.role === 'system');
+        const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`;
+        if (sysIdx >= 0) {
+          finalMessages[sysIdx].content += instruction;
+        } else {
+          finalMessages.unshift({ role: 'system', content: instruction });
+        }
+      }
+      body.messages = finalMessages;
     }
 
     const response = await fetch(endpoint, {
@@ -571,7 +602,38 @@ Output: {
       'Messages to LLM:',
       messages.filter((msg) => !msg.content.includes('Error LM Studio:'))
     )
-    const response = await fetchAI(messages, signal)
+    const schema = {
+      type: "object",
+      properties: {
+        answer: { type: "string" },
+        memory: {
+          type: ["object", "null"],
+          properties: {
+            action: { type: "string" },
+            key: { type: "string" },
+            memory: { type: "string" },
+            oldKey: { type: "string" }
+          },
+          required: ["action", "key", "memory", "oldKey"],
+          additionalProperties: false
+        },
+        command: {
+          type: ["object", "null"],
+          properties: {
+            action: { type: "string" },
+            query: { type: "string" },
+            run: { type: "string" },
+            risk: { type: "string" }
+          },
+          required: ["action", "query", "run", "risk"],
+          additionalProperties: false
+        }
+      },
+      required: ["answer", "memory", "command"],
+      additionalProperties: false
+    };
+
+    const response = await fetchAI(messages, signal, false, schema)
     const data = cleanAndParse(response.content)
     return { ...data, reasoning: response.reasoning }
   } catch (error) {
@@ -628,7 +690,7 @@ Gunakan data memori di atas sebagai acuan jika instruksi user menyebutkan kata g
 
 # KAPABILITAS / TOOL YANG TERSEDIA
 Sistem memiliki kemampuan berikut:
-${isWebSearch ? '- Web Search: Mencari info umum di Google.' : ''}
+${isWebSearch ? '- Web Search: Mencari info umum di Google. Tools ini bakal menjelajah google search dengan membuka 5 web teratas dan hasil summary ai google, dari ke 5 web dan ai summary google akand disimpulkan. namun tools ini tidak dapat membuka halaman tertentu secara explisit secara langsung' : ''}
 - YouTube Search: Mencari video di YouTube.
 ${isYoutube ? '- YouTube Summary: Merangkum isi video dari link YouTube.' : ''}
 - Music Player: Memutar lagu di YouTube Music.
@@ -639,36 +701,44 @@ ${isYoutube ? '- YouTube Summary: Merangkum isi video dari link YouTube.' : ''}
 Rancanglah rencana yang logis dan *memungkinkan* dieksekusi menggunakan kombinasi kapabilitas di atas.
 
 # ATURAN
-1. Output MUTLAK HANYA sebuah valid JSON array of strings, dibungkus dalam markdown \`\`\`json ... \`\`\`.
+1. Output MUTLAK HANYA sebuah JSON valid dengan properti "plan" yang berisi array of strings, dibungkus dalam markdown \`\`\`json ... \`\`\`.
 2. Tidak ada maksimal angka. DILARANG KERAS mengulang elemen yang sama atau memasukkan parameter/data berulang. Array HANYA boleh berisi kalimat instruksi tugas yang pendek dan jelas.
 3. PENGGUNAAN WEB SEARCH: Gunakan Web Search HANYA untuk mencari informasi real-time, berita, harga barang, atau fakta publik terbaru. JANGAN gunakan Web Search untuk pertanyaan pemrograman (coding), error log, menerjemahkan, atau ilmu pasti yang sudah kamu ketahui. Untuk hal-hal tersebut, cukup rencanakan tugas seperti "Menganalisis log error" atau "Merumuskan solusi" (yang akan di-handle oleh Summary/Analisis).
 4. JANGAN MENEBAK SINGKATAN/ISTILAH. Jika instruksi mengandung singkatan (seperti MBG) atau istilah yang artinya tidak kamu yakini 100%, cari tahu arti singkatan/istilah tersebut di internet (Web Search).
-5. KECUALIAN: JIKA DAN HANYA JIKA instruksi user sangat sederhana (seperti sapaan "halo", "makasih", "ingat ini ya", atau obrolan basa-basi singkat) yang SAMA SEKALI tidak butuh pemikiran kompleks atau *tools*, maka KEMBALIKAN array kosong: []
+5. KECUALIAN: JIKA DAN HANYA JIKA instruksi user sangat sederhana (seperti sapaan "halo", "makasih", "ingat ini ya", atau obrolan basa-basi singkat) yang SAMA SEKALI tidak butuh pemikiran kompleks atau *tools*, maka KEMBALIKAN array kosong: {"plan": []}
 6. BACA KONTEKS PERCAKAPAN SEBELUMNYA. Jika user bilang "cariin satu aja", lihat percakapan sebelumnya untuk memahami apa yang dimaksud "satu". Jangan berhalusinasi membuat rencana pencarian acak jika kamu bisa menemukan konteksnya.
 
 # CONTOH SKENARIO & OUTPUT
 User: "Putarin lagu galau dong"
 Output: 
 \`\`\`json
-["Cari lagu pop galau indonesia di YouTube Music", "Putar lagu tersebut"]
+{
+  "plan": ["Cari lagu pop galau indonesia di YouTube Music", "Putar lagu tersebut"]
+}
 \`\`\`
 
 User: "Jelasin dong apa itu fenomena aurora?" (Jika Web Search aktif)
 Output: 
 \`\`\`json
-["Mencari informasi ilmiah tentang fenomena aurora dengan Web Search", "Menganalisis dan merangkum hasil pencarian tersebut"]
+{
+  "plan": ["Mencari informasi ilmiah tentang fenomena aurora dengan Web Search", "Menganalisis dan merangkum hasil pencarian tersebut"]
+}
 \`\`\`
 
 User: "Halo mark, apa kabar?"
 Output: 
 \`\`\`json
-[]
+{
+  "plan": []
+}
 \`\`\`
 
 User: "Apa itu MBG?"
 Output:
 \`\`\`json
-["Mencari kepanjangan dan pengertian MBG di Web Search", "Menganalisis hasil pencarian untuk menjelaskannya"]
+{
+  "plan": ["Mencari kepanjangan dan pengertian MBG di Web Search", "Menganalisis hasil pencarian untuk menjelaskannya"]
+}
 \`\`\`
 `
     const previousTurns = chatSession.length > 0 ? chatSession.slice(0, -1) : [];
@@ -679,8 +749,22 @@ Output:
       ...previousTurns,
       lastUserMsg
     ]
-    const response = await fetchAI(messages, signal)
+    const schema = {
+      type: "object",
+      properties: {
+        plan: {
+          type: "array",
+          items: { type: "string" }
+        }
+      },
+      required: ["plan"],
+      additionalProperties: false
+    };
+
+    const response = await fetchAI(messages, signal, false, schema)
     const data = cleanAndParse(response.content)
+    if (data && Array.isArray(data.plan)) return { plan: data.plan, reasoning: response.reasoning }
+    // Fallback if data is raw array
     if (Array.isArray(data)) return { plan: data, reasoning: response.reasoning }
     throw new Error("Format plan tidak valid (bukan array).")
   } catch (error) {
@@ -728,7 +812,18 @@ Tentukan action dan query-nya.
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ]
-    const response = await fetchAI(messages, signal, true)
+
+    const schema = {
+      type: "object",
+      properties: {
+        action: { type: "string" },
+        query: { type: "string" }
+      },
+      required: ["action", "query"],
+      additionalProperties: false
+    };
+
+    const response = await fetchAI(messages, signal, true, schema)
     const data = cleanAndParse(response.content)
     return data
   } catch (error) {
@@ -793,7 +888,17 @@ ${JSON.stringify(musicList.map(m => ({ id: m.id, title: m.title, artist: m.artis
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ]
-    const response = await fetchAI(messages, signal, true)
+
+    const schema = {
+      type: "object",
+      properties: {
+        selectedId: { type: "string" }
+      },
+      required: ["selectedId"],
+      additionalProperties: false
+    };
+
+    const response = await fetchAI(messages, signal, true, schema)
     const data = cleanAndParse(response.content)
     return data
   } catch (error) {
