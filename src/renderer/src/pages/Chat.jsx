@@ -69,7 +69,7 @@ const Chat = () => {
             <p className="text-sm">Ketik pesan di bawah untuk memulai.</p>
           </div>
         ) : (
-          <ul className="flex-1 h-full w-full max-w-2xl no-scrollbar overflow-y-auto px-4 pt-4 pb-2">
+          <ul className="flex-1 h-full w-full max-w-4xl no-scrollbar overflow-y-auto px-4 pt-4 pb-2">
             {chatData.map((item, index) => {
               if (item.role === 'command') {
                 return (

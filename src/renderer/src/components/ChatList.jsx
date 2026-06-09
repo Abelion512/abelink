@@ -98,7 +98,7 @@ const ChatList = ({
   // Determine style and metadata
   let containerClass = isUser
     ? 'chat-bubble-primary chat-bubble'
-    : 'bg-neutral text-white chat-bubble'
+    : 'bg-neutral text-white chat-bubble overflow-x-auto w-full border border-base-300 p-3 rounded-xl'
 
   if (isCommand) {
     containerClass = 'bg-base-200 p-3 rounded-xl w-full text-base-content border border-base-300'
@@ -212,7 +212,7 @@ const ChatList = ({
                     <span className={`${opacity} mr-1 font-bold inline-block w-3 text-center`}>
                       {prefix}
                     </span>
-                    {step}
+                    {typeof step === 'object' ? step.task : step}
                     {suffix}
                   </div>
                 )

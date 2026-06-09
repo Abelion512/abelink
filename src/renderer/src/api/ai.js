@@ -114,9 +114,9 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
         }
 
         const errorProvider = conf.aiProvider === 'groq' ? 'Groq API' : conf.aiProvider === 'cerebras' ? 'Cerebras API' : 'LM Studio'
-        let finalErrorMessage = errorMsg;
+        let finalErrorMessage = conf.aiProvider === 'cerebras' ? errorMsg?.message : errorMsg;
 
-        if (finalErrorMessage.includes('Rate limit reached') || finalErrorMessage.includes('Too Many Requests')) {
+        if (finalErrorMessage.includes('Rate limit reached') || finalErrorMessage.includes('Too Many Requests') && conf.aiProvider !== 'cerebras') {
           const timeMatch = finalErrorMessage.match(/Please try again in ([0-9.]+s)/);
           if (timeMatch) {
             finalErrorMessage = `Limit token Anda habis. Silakan coba lagi dalam ${timeMatch[1]}.`;
@@ -723,19 +723,22 @@ ${isYoutube ? '- YouTube Summary: Merangkum isi video dari link YouTube.' : ''}
 - Summary/Analisis: Mengidentifikasi, memfilter, atau menyimpulkan data dari langkah sebelumnya.
 Rancanglah rencana yang logis dan *memungkinkan* dieksekusi menggunakan kombinasi kapabilitas di atas.
 
-# ATURAN
-1. Output MUTLAK HANYA sebuah JSON valid dengan properti "plan" yang berisi array of strings, dibungkus dalam markdown \`\`\`json ... \`\`\`.
-2. Tidak ada maksimal angka. DILARANG KERAS mengulang elemen yang sama atau memasukkan parameter/data berulang. Array HANYA boleh berisi kalimat instruksi tugas yang pendek dan jelas.
-3. PENGGUNAAN WEB SEARCH: Gunakan Web Search HANYA untuk mencari informasi real-time, berita, harga barang, atau fakta publik terbaru. JANGAN gunakan Web Search untuk pertanyaan pemrograman (coding), error log, menerjemahkan, atau ilmu pasti yang sudah kamu ketahui. Untuk hal-hal tersebut, cukup rencanakan tugas seperti "Menganalisis log error" atau "Merumuskan solusi" (yang akan di-handle oleh Summary/Analisis).
-4. JANGAN MENEBAK SINGKATAN/ISTILAH. Jika instruksi mengandung singkatan (seperti MBG) atau istilah yang artinya tidak kamu yakini 100%, cari tahu arti singkatan/istilah tersebut di internet (Web Search).
-5. KECUALIAN: JIKA DAN HANYA JIKA instruksi user sangat sederhana (seperti sapaan "halo", "makasih", "ingat ini ya", atau obrolan basa-basi singkat) yang SAMA SEKALI tidak butuh pemikiran kompleks atau *tools*, maka KEMBALIKAN array kosong: {"plan": []}
-6. BACA KONTEKS PERCAKAPAN SEBELUMNYA. Jika user bilang "cariin satu aja", lihat percakapan sebelumnya untuk memahami apa yang dimaksud "satu". Jangan berhalusinasi membuat rencana pencarian acak jika kamu bisa menemukan konteksnya.
+# ATURAN JIT QUERY GENERATION
+1. Output MUTLAK HANYA sebuah JSON valid dengan properti "plan" yang berisi array of objects.
+2. Setiap object harus memiliki "task" (deskripsi kalimat pendek), "action" (nama tool dari list di atas), "query" (parameter teks untuk tool), dan "is_dynamic" (boolean).
+3. Set "is_dynamic" ke true JIKA DAN HANYA JIKA "query" bergantung secara mutlak pada teks hasil dari tugas sebelumnya yang belum diketahui saat ini. Jika true, biarkan "query" berisi string kosong.
+4. Jika tugas bisa langsung dieksekusi tanpa menunggu hasil sebelumnya (misal mencari cuaca, memutar lagu spesifik, atau mencari di web), rumuskan "query" dengan keyword yang tepat dan set "is_dynamic" ke false.
+5. PENGGUNAAN WEB SEARCH: Gunakan Web Search ("search") HANYA untuk mencari informasi real-time, berita, harga barang, atau fakta publik terbaru. JANGAN gunakan untuk hal coding/teori dasar, cukup gunakan "summary".
+6. KECUALIAN: JIKA instruksi sangat sederhana (halo, makasih), KEMBALIKAN array kosong: {"plan": []}
 
 # CONTOH OUTPUT
 Output: 
 \`\`\`json
 {
-  "plan": ["plan 1", "plan 2"]
+  "plan": [
+    { "task": "Cari pemenang piala dunia 2022", "action": "search", "query": "pemenang piala dunia 2022", "is_dynamic": false },
+    { "task": "Putar lagu kebangsaan negara pemenang", "action": "music-play", "query": "", "is_dynamic": true }
+  ]
 }
 \`\`\`
 `
@@ -752,7 +755,24 @@ Output:
       properties: {
         plan: {
           type: "array",
-          items: { type: "string" }
+          items: { 
+            type: "object",
+            properties: {
+              task: { type: "string" },
+              action: {
+                type: "string",
+                enum: [
+                  "search", "music-play", "music-search", "music-next", 
+                  "music-prev", "music-toggle", "yt-search", "yt-summary", 
+                  "summary", "none"
+                ]
+              },
+              query: { type: "string" },
+              is_dynamic: { type: "boolean" }
+            },
+            required: ["task", "action", "query", "is_dynamic"],
+            additionalProperties: false
+          }
         }
       },
       required: ["plan"],

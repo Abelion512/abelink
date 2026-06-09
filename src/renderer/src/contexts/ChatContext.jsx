@@ -519,20 +519,28 @@ export const ChatProvider = ({ children }) => {
 
       // 2. Loop
       for (let i = 0; i < planData.plan.length; i++) {
-        const task = planData.plan[i]
+        const planItem = planData.plan[i]
+        const task = typeof planItem === 'object' ? planItem.task : planItem
 
         // UI update for running task - UPDATE currentStep instead of adding new thinking message
         setChatData((prev) =>
           prev.map((item) => (item.isPlanSteps ? { ...item, currentStep: i } : item))
         )
 
-        const actionData = await getTaskAction(
-          task,
-          previousContext,
-          isAction.web,
-          isAction.youtube,
-          abortControllerRef.current.signal
-        )
+        let actionData;
+        if (typeof planItem === 'object' && planItem.action && !planItem.is_dynamic) {
+          // Gunakan query dari plan karena is_dynamic false
+          actionData = { action: planItem.action, query: planItem.query || '' }
+        } else {
+          // JIT Query Resolution: fallback ke getTaskAction jika is_dynamic true atau format lama
+          actionData = await getTaskAction(
+            task,
+            previousContext,
+            isAction.web,
+            isAction.youtube,
+            abortControllerRef.current.signal
+          )
+        }
 
         let actionResult = null
         let summary = 'Tidak ada hasil'
