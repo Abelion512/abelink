@@ -35,7 +35,7 @@ export const getCurrentTimeInfo = () => {
 }
 
 let lastCloudFetchTime = 0
-const CLOUD_DELAY_MS = 5000 // 5 seconds delay between requests
+const CLOUD_DELAY_MS = 2500 // 2.5 seconds delay (di-back-up oleh auto-retry kalau jebol)
 
 export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema = null) => {
   try {
@@ -502,15 +502,9 @@ Type dan key yang valid:
 9. WAJIB tulis isi string 'memory' dalam BAHASA INDONESIA yang jelas. Jangan gunakan bahasa Inggris agar cocok dengan pencarian vektor pengguna lokal.
 10. WAJIB tulis isi 'memory' sebagai KALIMAT DESKRIPTIF LENGKAP. (Contoh salah: "Mada". Contoh benar: "Nama user adalah Mada"). Ini sangat penting agar sistem vektor bisa mencocokkan kata kunci konteks (seperti kata "nama").
 11. Jika memori berupa catatan (note), kejadian, atau info yang butuh konteks waktu, WAJIB sertakan Waktu & Tanggal saat ini di dalam kalimat memori tersebut.
-${
-  isWebSearch
-    ? `
 # WEB SEARCH RULES
 - Untuk info dinamis setelah 2023, WAJIB gunakan action: "search".
 - Trigger: versi library terbaru, harga barang, berita 2024-2026, fakta yang mungkin berubah, atau ketika user meminta untuk cari di internet.
-`
-    : ''
-}
 ${
   isYoutube
     ? `
@@ -526,13 +520,10 @@ Jangan ada teks di luar JSON. Field 'answer' berisi respon natural YANG EKSPRESI
 {
   "answer": "string (tulis seperti ngomong langsung, ekspresif, minim markdown formatting)",
   "memory": { "id": number|null, "type": "string", "key": "string", "memory": "string", "action": "insert|update|delete" } atau null,
-  "command": { "action": "search | yt-summary | yt-search | music-play | music-search | music-next | music-prev | music-toggle | none", "query": "string atau null" } atau null
+  "command": { "action": "search | ${isYoutube ? 'yt-summary | yt-search | ' : ''}music-play | music-search | music-next | music-prev | music-toggle | none", "query": "string atau null" } atau null
 }
 
 # EXAMPLES FOR CONSISTENCY (Perhatikan gaya ekspresif di field "answer")
-${
-  isWebSearch
-    ? `
 ## Example: Web Search / Informasi Publik (Data Terbaru)
 User: "Mark, siapa presiden terpilih 2026?"
 Output: {
@@ -543,9 +534,6 @@ Output: {
     "query": "Siapa Presiden Indonesia terpilih tahun 2026"
   }
 }  
-`
-    : ''
-}
 ${
   isYoutube
     ? `
@@ -769,7 +757,7 @@ Gunakan data memori di atas sebagai acuan jika instruksi user menyebutkan kata g
 
 # KAPABILITAS / TOOL YANG TERSEDIA
 Sistem memiliki kemampuan berikut:
-${isWebSearch ? '- Web Search: Mencari info umum di Google. Tools ini bakal menjelajah google search dengan membuka 5 web teratas dan hasil summary ai google, dari ke 5 web dan ai summary google akand disimpulkan. namun tools ini tidak dapat membuka halaman tertentu secara explisit secara langsung' : ''}
+- Web Search: Mencari info umum di Google. Tools ini bakal menjelajah google search dengan membuka 5 web teratas dan hasil summary ai google, dari ke 5 web dan ai summary google akand disimpulkan. namun tools ini tidak dapat membuka halaman tertentu secara explisit secara langsung
 - YouTube Search: Mencari video di YouTube, fitur ini akan mendapatkan judul, id, dan time tidak dapat membaca isi video.
 ${isYoutube ? '- YouTube Summary: Merangkum isi video dari link YouTube.' : ''}
 - Music Player: Memutar lagu di YouTube Music.
@@ -786,7 +774,7 @@ Rancanglah rencana yang logis dan *memungkinkan* dieksekusi menggunakan kombinas
 4. Jika tugas bisa langsung dieksekusi tanpa menunggu hasil sebelumnya (misal mencari cuaca, memutar lagu spesifik, atau mencari di web), rumuskan "query" dengan keyword yang tepat dan set "is_dynamic" ke false.
 5. PENGGUNAAN WEB SEARCH: Gunakan Web Search ("search") HANYA untuk mencari informasi real-time, berita, harga barang, atau fakta publik terbaru. JANGAN gunakan untuk hal coding/teori dasar, cukup gunakan "summary".
 6. KECUALIAN: JIKA instruksi HANYA butuh 1 kali penggunaan tool (misal: hanya mencari 1 hal di web, atau hanya memutar musik, atau ngobrol, atau mencatat memori), KEMBALIKAN array kosong HANYA format berikut: {"plan": []}.
-7. KAPAN HARUS PLANNING? Kamu WAJIB merancang array plan jika instruksi mengharuskan: (a) Penggunaan 2 tool yang berbeda secara berurutan (contoh: search web lalu music-play), ATAU (b) Mencari 2 topik berbeda untuk dibandingkan (contoh: search harga A lalu search harga B). Jangan memecah 1 pencarian web menjadi beberapa tugas ('search' lalu 'summary'). Gunakan tool secukupnya!
+7. KAPAN HARUS PLANNING? Kamu WAJIB merancang array plan jika instruksi mengharuskan: (a) Penggunaan 2 tool yang berbeda secara berurutan (contoh: search web lalu music-play), ATAU (b) Mencari 2 topik berbeda untuk dibandingkan. Gunakan tool secukupnya!
 
 # CONTOH OUTPUT
 Output: 
