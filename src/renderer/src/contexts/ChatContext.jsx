@@ -341,7 +341,7 @@ export const ChatProvider = ({ children }) => {
             isMemoryUpdated: answer.memory?.action === 'update',
             isMemoryDeleted: answer.memory?.action === 'delete'
           }
-          if (answer.command?.run) {
+          if (answer.command?.run && String(answer.command.run).toLowerCase() !== 'null') {
             return [
               ...filtered,
               aiResponse,
@@ -487,7 +487,7 @@ export const ChatProvider = ({ children }) => {
               isMemoryUpdated: answer.memory?.action === 'update',
               isMemoryDeleted: answer.memory?.action === 'delete'
             }
-            if (answer.command?.run) {
+            if (answer.command?.run && String(answer.command.run).toLowerCase() !== 'null') {
               return [...filtered, aiResponse, { role: 'command', content: answer.command.run, risk: answer.command.risk }]
             }
             return [...filtered, aiResponse]

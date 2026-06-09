@@ -73,7 +73,7 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
       body.model = conf.model || 'google/gemma-3-4b'
     }
 
-    const executeFetch = async (currentBody, isRetry = false) => {
+    const executeFetch = async (currentBody, isRetry = false, trafficRetryCount = 0) => {
       // --- RATE LIMIT THROTLLING LOGIC (Khusus Cloud) ---
       if (endpoint.includes('groq.com') || endpoint.includes('cerebras.ai')) {
         const now = Date.now()
@@ -129,7 +129,7 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
           }
           fallbackBody.messages = fallbackMessages
 
-          return executeFetch(fallbackBody, true) // Retry sekali dengan json_object
+          return executeFetch(fallbackBody, true, trafficRetryCount) // Retry sekali dengan json_object
         }
 
         const errorProvider =
@@ -139,6 +139,15 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
               ? 'Cerebras API'
               : 'LM Studio'
         let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
+
+        // Auto-retry fallback untuk High Traffic / Rate Limits (503, 429, 500)
+        const isHighTraffic = response.status === 429 || response.status >= 500 || finalErrorMessage.toLowerCase().includes('high traffic') || finalErrorMessage.toLowerCase().includes('rate limit');
+        if (isHighTraffic && trafficRetryCount < 3 && (endpoint.includes('cerebras.ai') || endpoint.includes('groq.com'))) {
+           const backoffDelay = (trafficRetryCount + 1) * 3000; // 3s, 6s, 9s
+           console.log(`[High Traffic Auto-Retry] Server sibuk (${response.status}). Mencoba lagi dalam ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/3)`);
+           await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+           return executeFetch(currentBody, isRetry, trafficRetryCount + 1);
+        }
 
         if (
           finalErrorMessage.includes('Rate limit reached') ||
