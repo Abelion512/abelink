@@ -37,13 +37,15 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
     let headers = {
       'Content-Type': 'application/json'
     }
+    
+    // Only use secondary model if primary provider is Groq
+    const useSecondary = isSmallTask && conf.useSecondaryModel && conf.aiProvider === 'groq' && conf.groqApiKey
+
     let body = {
       temperature: Number(conf.temperature) || 0,
       messages: messages
     }
     
-    const useSecondary = isSmallTask && conf.useSecondaryModel && conf.groqApiKey
-
     if (useSecondary) {
       endpoint = 'https://api.groq.com/openai/v1/chat/completions'
       headers['Authorization'] = `Bearer ${conf.groqApiKey}`
@@ -52,93 +54,98 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
       endpoint = 'https://api.groq.com/openai/v1/chat/completions'
       headers['Authorization'] = `Bearer ${conf.groqApiKey}`
       body.model = conf.groqModel || 'llama-3.1-8b-instant'
+    } else if (conf.aiProvider === 'cerebras') {
+      endpoint = 'https://api.cerebras.ai/v1/chat/completions'
+      headers['Authorization'] = `Bearer ${conf.cerebrasApiKey}`
+      body.model = conf.cerebrasModel || 'llama3.1-8b'
+      body.max_completion_tokens = 2048 // Fix for Cerebras TPM assuming 8k/128k tokens
     } else {
       body.model = conf.model || 'google/gemma-3-4b'
     }
 
-    let finalMessages = messages;
+    const executeFetch = async (currentBody, isRetry = false) => {
+      // --- RATE LIMIT THROTLLING LOGIC (Khusus Groq) ---
+      if (endpoint.includes('groq.com')) {
+        const now = Date.now();
+        const timeSinceLastFetch = now - lastGroqFetchTime;
+        if (timeSinceLastFetch < GROQ_DELAY_MS) {
+          const delay = GROQ_DELAY_MS - timeSinceLastFetch;
+          console.log(`[Rate Limit Guard] Waiting ${delay}ms before next Groq request...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        lastGroqFetchTime = Date.now();
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(currentBody),
+        signal: signal
+      })
+
+      if (!response.ok) {
+        const textData = await response.text();
+        let errorData = null;
+        try { errorData = JSON.parse(textData); } catch (e) {}
+
+        const errorMsg = errorData?.error?.message || response.statusText || textData;
+
+        // Auto-retry fallback jika JSON Schema tidak di-support oleh model
+        if (!isRetry && currentBody.response_format?.type === 'json_schema' && 
+            (errorMsg.toLowerCase().includes('schema') || errorMsg.toLowerCase().includes('json') || response.status === 400 || response.status === 422)) {
+          console.log('[Auto-Retry] Model tidak support json_schema, fallback ke json_object...');
+          
+          let fallbackBody = { ...currentBody };
+          fallbackBody.response_format = { type: "json_object" };
+          
+          // Inject schema ke prompt
+          let fallbackMessages = fallbackBody.messages.map(m => ({ ...m }));
+          const sysIdx = fallbackMessages.findIndex(m => m.role === 'system');
+          const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`;
+          
+          if (sysIdx >= 0) {
+            fallbackMessages[sysIdx].content += instruction;
+          } else {
+            fallbackMessages.unshift({ role: 'system', content: instruction });
+          }
+          fallbackBody.messages = fallbackMessages;
+          
+          return executeFetch(fallbackBody, true); // Retry sekali dengan json_object
+        }
+
+        const errorProvider = conf.aiProvider === 'groq' ? 'Groq API' : conf.aiProvider === 'cerebras' ? 'Cerebras API' : 'LM Studio'
+        let finalErrorMessage = errorMsg;
+
+        if (finalErrorMessage.includes('Rate limit reached') || finalErrorMessage.includes('Too Many Requests')) {
+          const timeMatch = finalErrorMessage.match(/Please try again in ([0-9.]+s)/);
+          if (timeMatch) {
+            finalErrorMessage = `Limit token Anda habis. Silakan coba lagi dalam ${timeMatch[1]}.`;
+          } else {
+            finalErrorMessage = `Limit token ${errorProvider} Anda habis. Silakan tunggu beberapa saat.`;
+          }
+        }
+
+        const err = new Error(`Gagal memuat AI (${errorProvider}): ${finalErrorMessage}`);
+        err.status = response.status;
+        throw err;
+      }
+
+      return response.json();
+    }
 
     if (jsonSchema) {
-      const isSchemaSupported = body.model.includes('gpt-oss') || body.model.includes('gpt-4');
-
-      if (isSchemaSupported) {
-        body.response_format = {
-          type: "json_schema",
-          json_schema: {
-            name: "mark_schema",
-            strict: true,
-            schema: jsonSchema
-          }
-        };
-      } else {
-        // Fallback untuk model yang cuma support json_object (kayak Llama)
-        body.response_format = { type: "json_object" };
-        
-        // Suntik schema ke system prompt supaya model tetep tau struktur persisnya
-        finalMessages = messages.map(m => ({ ...m }));
-        const sysIdx = finalMessages.findIndex(m => m.role === 'system');
-        const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`;
-        if (sysIdx >= 0) {
-          finalMessages[sysIdx].content += instruction;
-        } else {
-          finalMessages.unshift({ role: 'system', content: instruction });
+      // Selalu coba json_schema dulu, kalau error bakal di-retry otomatis
+      body.response_format = {
+        type: "json_schema",
+        json_schema: {
+          name: "mark_schema",
+          strict: true,
+          schema: jsonSchema
         }
-      }
-      body.messages = finalMessages;
+      };
     }
 
-    // --- RATE LIMIT THROTLLING LOGIC ---
-    if (endpoint.includes('groq.com')) {
-      const now = Date.now();
-      const timeSinceLastFetch = now - lastGroqFetchTime;
-      if (timeSinceLastFetch < GROQ_DELAY_MS) {
-        const delay = GROQ_DELAY_MS - timeSinceLastFetch;
-        console.log(`[Rate Limit Guard] Waiting ${delay}ms before next Groq request...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-      // Update time AFTER waiting, right before fetching
-      lastGroqFetchTime = Date.now();
-    }
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(body),
-      signal: signal
-    })
-
-    if (!response.ok) {
-      const errorProvider = conf.aiProvider === 'groq' ? 'Groq API' : 'LM Studio'
-      let errorMessage = response.statusText;
-      try {
-        const textData = await response.text();
-        try {
-          const errorData = JSON.parse(textData);
-          if (errorData?.error?.message) {
-            errorMessage = errorData.error.message;
-            if (errorMessage.includes('Rate limit reached') || errorMessage.includes('Too Many Requests')) {
-              const timeMatch = errorMessage.match(/Please try again in ([0-9.]+s)/);
-              if (timeMatch) {
-                errorMessage = `Limit token Anda habis. Silakan coba lagi dalam ${timeMatch[1]}.`;
-              } else {
-                errorMessage = 'Limit token Anda habis. Silakan tunggu beberapa saat lalu coba lagi.';
-              }
-            }
-          } else if (errorData?.error) {
-            errorMessage = JSON.stringify(errorData.error);
-          } else if (textData) {
-            errorMessage = textData;
-          }
-        } catch (e) {
-          if (textData) errorMessage = textData;
-        }
-      } catch (e) {
-        // ignore
-      }
-      throw new Error(errorMessage)
-    }
-
-    const data = await response.json()
+    const data = await executeFetch(body);
     const message = data.choices[0].message
     
     let content = message.content || ''
@@ -157,7 +164,7 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
   } catch (error) {
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
-    if (conf.aiProvider !== 'groq' && isLMStudioOfflineError(error)) {
+    if (conf.aiProvider !== 'groq' && conf.aiProvider !== 'cerebras' && isLMStudioOfflineError(error)) {
       throw createLMStudioOfflineError(error)
     }
 

@@ -21,6 +21,9 @@ const Configuration = () => {
   const [playingTest, setPlayingTest] = useState(false)
   const [isDownloadingModel, setIsDownloadingModel] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState(0)
+  
+  const [showGroqKey, setShowGroqKey] = useState(false)
+  const [showCerebrasKey, setShowCerebrasKey] = useState(false)
 
   const handleTestVoice = async () => {
     setPlayingTest(true)
@@ -151,12 +154,16 @@ const Configuration = () => {
             <p className="text-sm font-semibold">AI Provider</p>
             <div className="flex gap-4">
               <label className="label cursor-pointer justify-start gap-2">
-                <input type="radio" name="aiProvider" className="radio radio-primary radio-sm" value="lm-studio" checked={config.aiProvider === 'lm-studio'} onChange={() => setConfig((prev) => ({ ...prev, aiProvider: 'lm-studio' }))} />
+                <input type="radio" name="aiProvider" className="radio radio-primary radio-sm" value="lm-studio" checked={config.aiProvider === 'lm-studio' || !config.aiProvider} onChange={() => setConfig((prev) => ({ ...prev, aiProvider: 'lm-studio' }))} />
                 <span className="label-text">LM Studio (Local)</span>
               </label>
               <label className="label cursor-pointer justify-start gap-2">
                 <input type="radio" name="aiProvider" className="radio radio-primary radio-sm" value="groq" checked={config.aiProvider === 'groq'} onChange={() => setConfig((prev) => ({ ...prev, aiProvider: 'groq' }))} />
                 <span className="label-text">Groq API</span>
+              </label>
+              <label className="label cursor-pointer justify-start gap-2">
+                <input type="radio" name="aiProvider" className="radio radio-primary radio-sm" value="cerebras" checked={config.aiProvider === 'cerebras'} onChange={() => setConfig((prev) => ({ ...prev, aiProvider: 'cerebras' }))} />
+                <span className="label-text">Cerebras API</span>
               </label>
             </div>
           </div>
@@ -168,14 +175,14 @@ const Configuration = () => {
                 type="text"
                 placeholder="Contoh: google/gemma-3-4b"
                 className="input input-bordered w-full"
-                value={config.model}
+                value={config.model || ''}
                 onChange={(e) => setConfig((prev) => ({ ...prev, model: e.target.value }))}
               />
               <p className="text-xs opacity-40">
                 Nama model yang aktif di LM Studio. Pastikan sudah ter-load.
               </p>
             </div>
-          ) : (
+          ) : config.aiProvider === 'groq' ? (
             <div className="space-y-1.5">
               <p className="text-sm font-semibold">Groq Model</p>
               <input
@@ -189,32 +196,48 @@ const Configuration = () => {
                 Model Groq yang ingin digunakan. (Pastikan API Key Groq di bawah diisi).
               </p>
             </div>
+          ) : (
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold">Cerebras Model</p>
+              <input
+                type="text"
+                placeholder="Contoh: llama3.1-8b"
+                className="input input-bordered w-full"
+                value={config.cerebrasModel || 'llama3.1-8b'}
+                onChange={(e) => setConfig((prev) => ({ ...prev, cerebrasModel: e.target.value }))}
+              />
+              <p className="text-xs opacity-40">
+                Model Cerebras yang ingin digunakan. (Pastikan API Key Cerebras di bawah diisi).
+              </p>
+            </div>
           )}
 
           {/* Secondary Model Toggle */}
-          <div className="space-y-1.5 pt-2">
-            <label className="label cursor-pointer justify-start gap-2 max-w-fit">
-              <input
-                type="checkbox"
-                className="checkbox checkbox-sm checkbox-primary"
-                checked={config.useSecondaryModel || false}
-                onChange={(e) =>
-                  setConfig((prev) => ({ ...prev, useSecondaryModel: e.target.checked }))
-                }
-              />
-              <span className="label-text text-sm">
-                Gunakan Model Ringan untuk Tugas Latar Belakang (Lebih Cepat)
-              </span>
-            </label>
-            
-            {config.useSecondaryModel && (
-              <div className="pl-6 pt-1 mb-4 border-l-2 border-white/10 ml-2">
-                <p className="text-xs opacity-40 leading-relaxed">
-                  Semua tugas belakang layar (action, parsing, merangkum) akan otomatis dialihkan ke model <b>llama-3.1-8b-instant</b> via Groq API.
-                </p>
-              </div>
-            )}
-          </div>
+          {config.aiProvider === 'groq' && (
+            <div className="space-y-1.5 pt-2">
+              <label className="label cursor-pointer justify-start gap-2 max-w-fit">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-sm checkbox-primary"
+                  checked={config.useSecondaryModel || false}
+                  onChange={(e) =>
+                    setConfig((prev) => ({ ...prev, useSecondaryModel: e.target.checked }))
+                  }
+                />
+                <span className="label-text text-sm">
+                  Gunakan Model Ringan untuk Tugas Latar Belakang (Lebih Cepat)
+                </span>
+              </label>
+              
+              {config.useSecondaryModel && (
+                <div className="pl-6 pt-1 mb-4 border-l-2 border-white/10 ml-2">
+                  <p className="text-xs opacity-40 leading-relaxed">
+                    Semua tugas belakang layar (action, parsing, merangkum) akan otomatis dialihkan ke model <b>llama-3.1-8b-instant</b> via Groq API.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Embed Provider Selector */}
           <div className="space-y-1.5">
@@ -253,19 +276,70 @@ const Configuration = () => {
           </div>
 
           {/* Groq API Key */}
-          <div className="space-y-1.5">
-            <p className="text-sm font-semibold">Groq API Key (Untuk AI Chat & Voice STT)</p>
-            <input
-              type="password"
-              placeholder="Contoh: gsk_xxxxxxxxxxxxxxxxx"
-              className="input input-bordered w-full"
-              value={config.groqApiKey || ''}
-              onChange={(e) => setConfig((prev) => ({ ...prev, groqApiKey: e.target.value }))}
-            />
-            <p className="text-xs opacity-40">
-              API Key gratis dari <a href="https://console.groq.com/" target="_blank" rel="noreferrer" className="text-primary hover:underline">console.groq.com</a> untuk Chat & STT.
-            </p>
-          </div>
+          {config.aiProvider === 'groq' && (
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center">
+                <p className="text-sm font-semibold">Groq API Key (Untuk AI Chat & Voice STT)</p>
+                <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="btn btn-xs btn-outline btn-primary">
+                  Ambil API Key
+                </a>
+              </div>
+              <div className="relative w-full">
+                <input
+                  type={showGroqKey ? "text" : "password"}
+                  placeholder="Contoh: gsk_xxxxxxxxxxxxxxxxx"
+                  className="input input-bordered w-full pr-10"
+                  value={config.groqApiKey || ''}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, groqApiKey: e.target.value }))}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+                  onClick={() => setShowGroqKey(!showGroqKey)}
+                  title={showGroqKey ? "Sembunyikan API Key" : "Tampilkan API Key"}
+                >
+                  {showGroqKey ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Cerebras API Key */}
+          {config.aiProvider === 'cerebras' && (
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center">
+                <p className="text-sm font-semibold">Cerebras API Key</p>
+                <a href="https://cloud.cerebras.ai/platform/org_5y4rkhf62v2mvwyvd6kwm9yx/get-started?onboarding=true" target="_blank" rel="noreferrer" className="btn btn-xs btn-outline btn-primary">
+                  Ambil API Key
+                </a>
+              </div>
+              <div className="relative w-full">
+                <input
+                  type={showCerebrasKey ? "text" : "password"}
+                  placeholder="Contoh: c-xxxxxxxxxxxxxxxxx"
+                  className="input input-bordered w-full pr-10"
+                  value={config.cerebrasApiKey || ''}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, cerebrasApiKey: e.target.value }))}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+                  onClick={() => setShowCerebrasKey(!showCerebrasKey)}
+                  title={showCerebrasKey ? "Sembunyikan API Key" : "Tampilkan API Key"}
+                >
+                  {showCerebrasKey ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* System Persona */}
           <div className="space-y-1.5">
