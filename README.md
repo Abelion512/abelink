@@ -1,69 +1,69 @@
 # MARK - Memory Adaptive Response Knowledge
 
-> **Mark adalah *Privacy-First Personal AI Assistant* (Asisten AI Pribadi yang Mengutamakan Privasi).** Bukan sekadar *chatbot* biasa, Mark adalah entitas asisten pintar yang hidup di laptop Anda—dilengkapi dengan "ingatan jangka panjang" berbasis *Vector Memory* lokal yang mempelajari kebiasaan Anda tanpa mengorbankan privasi data. Didukung oleh *Hybrid AI Engine*, Mark bisa berjalan 100% *offline* secara rahasia maupun berakselerasi dengan *Cloud API* untuk mengeksekusi tugas kompleks secara mandiri (*Agentic Planning*), merangkum video YouTube, menelusuri web secara *deep research*, hingga berinteraksi langsung melalui komunikasi suara *real-time* layaknya J.A.R.V.I.S pribadi Anda.
+> **Mark adalah *Privacy-First Personal AI Assistant* (Asisten AI Pribadi yang Mengutamakan Privasi).** Bukan sekadar *chatbot* biasa, Mark adalah entitas asisten pintar yang hidup di laptop Anda—dilengkapi dengan "ingatan jangka panjang" berbasis *Vector Memory* lokal yang mempelajari kebiasaan Anda tanpa mengorbankan privasi data. Didukung oleh *Hybrid AI Engine*, Mark bisa berjalan 100% *offline* secara rahasia maupun berakselerasi dengan *Cloud API* untuk mengeksekusi tugas kompleks secara mandiri (*Agentic Planning*), merangkum video YouTube, menelusuri web secara riset mendalam (*deep research*), hingga berinteraksi langsung melalui komunikasi suara seketika (*real-time*) layaknya J.A.R.V.I.S pribadi Anda.
 
 > [!IMPORTANT]
 > Proyek ini dioptimalkan khusus untuk **Windows** (Windows 10/11).
 
-## Core Capabilities
+## Kemampuan Utama
 
-- **Hybrid AI Engine:** Seamlessly toggle between **Local LLM** (LM Studio) for absolute offline privacy and **Cloud API** (Groq/Cerebras) for lightning-fast inference. Includes a **Secondary Model** pipeline that offloads background tasks (like JSON parsing and planning) to the cloud, preventing local machine bottlenecks.
-- **Agentic Planning (JIT Query Generation):** The engine doesn't just chat; it executes multi-step plans autonomously. Using Just-In-Time (JIT) Query Generation, it drastically reduces unnecessary API calls (saving up to 80% RPM) and strictly differentiates between 1-step tasks (*fast lane*) and complex orchestrations (*slow lane*).
-- **Implicit Learning & Vector MMS:** Mark acts as a true companion. It features an Auto-Memory evaluation system that silently profiles user preferences and schedules from casual conversations. Memories are stored via **Transformers.js** (running 100% locally in-memory via WASM) and retrieved using Cosine Similarity semantic search.
-- **Native Integrations:** Directly integrated with Electron Webview for Deep Web Search, YouTube Music API for seamless audio playback, and Edge-TTS + Groq STT for live Voice-to-Voice interactions.
+- **Provider AI Ganda (Hybrid):** Anda bebas memilih! Gunakan **AI Lokal** (berjalan langsung di laptop tanpa butuh internet) untuk privasi 100%, atau beralih ke **AI Cloud** untuk kecepatan respons yang kilat. Sistem ini juga cukup pintar untuk membagi tugas-tugas berat di latar belakang ke internet agar laptop Anda tidak menjadi lambat.
+- **Berpikir dan Bertindak Mandiri:** Mark bukan sekadar robot obrolan biasa. Jika Anda memberikan tugas yang rumit, Mark bisa menyusun rencana langkah demi langkah dan mengeksekusinya sendiri secara otomatis (misalnya: mencari data di internet, membacanya, lalu merangkumnya untuk Anda).
+- **Smart AI:** Layaknya asisten manusia sungguhan, Mark diam-diam mempelajari dan mengingat preferensi, jadwal, serta kebiasaan Anda dari obrolan sehari-hari. Semua "ingatan" ini disimpan secara super aman **di dalam laptop Anda sendiri**, bukan di server milik perusahaan lain.
+- **Fitur Lengkap Bawaan:** Mark sudah tersambung langsung dengan berbagai kemampuan canggih. Ia bisa menelusuri internet secara mendalam, memutar lagu favorit Anda dari YouTube Music, merangkum video panjang secara otomatis, hingga diajak mengobrol langsung menggunakan suara (*Voice-to-Voice*).
 
 ## Arsitektur Proyek
 
 ```text
 mark/
 ├── src/
-│   ├── main/              # Electron Main Process (Window management, IPC, TTS, Tray)
-│   ├── preload/           # Preload scripts (Electron bridge)
-│   └── renderer/          # React Frontend
+│   ├── main/              # Proses Utama Electron (Manajemen Jendela, IPC, Suara TTS, Tray)
+│   ├── preload/           # Skrip Preload (Jembatan keamanan Electron)
+│   └── renderer/          # Tampilan Depan (React Frontend)
 │       └── src/
 │           ├── api/
-│           │   ├── ai/             # Modular LLM Integration (core, chat, planning, tools, utils)
-│           │   ├── db.js           # Dexie (IndexedDB) schemas & migrations
-│           │   ├── scraping.js     # Google search & deep web scraping
-│           │   └── vectorMemory.js # Vector embeddings (Transformers.js / LM Studio)
-│           ├── components/         # Reusable UI components (Modular Chat Bubbles)
-│           ├── contexts/           # Global states (ChatContext, YoutubeMusicContext)
-│           ├── hooks/              # Custom Hooks
-│           │   └── agent/          # Micro-Hooks system (useMarkPlan, useMarkSearch, dll)
-│           └── pages/              # Chat, Configuration UI
+│           │   ├── ai/             # Modul Integrasi AI (inti, obrolan, perencanaan, alat, utilitas)
+│           │   ├── db.js           # Skema & migrasi Basis Data Lokal (Dexie/IndexedDB)
+│           │   ├── scraping.js     # Modul pencarian Google & penelusuran web mendalam
+│           │   └── vectorMemory.js # Sistem Vektor Ingatan (Transformers.js / LM Studio)
+│           ├── components/         # Komponen Antarmuka (Gelembung Obrolan Modular)
+│           ├── contexts/           # Manajemen State Global (ChatContext, YoutubeMusicContext)
+│           ├── hooks/              # Custom Hooks React
+│           │   └── agent/          # Sistem Micro-Hooks (useMarkPlan, useMarkSearch, dll)
+│           └── pages/              # Halaman Antarmuka (Obrolan, Pengaturan)
 ```
 
 ## Teknologi yang Digunakan
 
 | Kategori         | Teknologi                                                                   |
 | ---------------- | --------------------------------------------------------------------------- |
-| **Framework**    | Electron 39, React 19, Vite 7                                               |
-| **Styling**      | Tailwind CSS 4, DaisyUI 5                                                   |
-| **AI Backend**   | LM Studio / Groq API / Cerebras API (Inference)                             |
-| **Embeddings**   | Transformers.js (`@huggingface/transformers`), LM Studio                    |
-| **Web Scraping** | Electron Webview (Google Search & Deep Research)                            |
-| **Audio & Voice**| Groq API (STT), Edge-TTS, Web Audio API (VAD)                               |
-| **YouTube**      | `youtube-transcript-plus`, `ytmusic-api`, `yt-search`                       |
-| **Database**     | Dexie.js (IndexedDB wrapper)                                                |
-| **Markdown**     | React Markdown, React Syntax Highlighter, remark-gfm, rehype-external-links |
+| **Kerangka Kerja** | Electron 39, React 19, Vite 7                                               |
+| **Desain/Styling** | Tailwind CSS 4, DaisyUI 5                                                   |
+| **Mesin AI**     | LM Studio / Groq API / Cerebras API (Untuk Inferensi)                       |
+| **Vektor Memori**  | Transformers.js (`@huggingface/transformers`), LM Studio                    |
+| **Pencarian Web**  | Electron Webview (Google Search & Riset Mendalam)                           |
+| **Suara & Audio**  | Groq API (STT), Edge-TTS, Web Audio API (Deteksi Suara)                     |
+| **Integrasi YouTube**| `youtube-transcript-plus`, `ytmusic-api`, `yt-search`                       |
+| **Basis Data**     | Dexie.js (Pembungkus IndexedDB)                                                |
+| **Teks Markdown**  | React Markdown, React Syntax Highlighter, remark-gfm, rehype-external-links |
 
 ## Persiapan & Instalasi
 
-### Prasyarat
-- **Operating System**: Windows 10/11
-- **Node.js**: v18+
-- (Opsional) **LM Studio** jika ingin menjalankan model secara offline.
-- (Opsional) **Groq API Key** jika ingin menggunakan model cloud super cepat.
+### Prasyarat Pendukung
+- **Sistem Operasi**: Windows 10/11
+- **Node.js**: Versi 18 atau lebih baru
+- (Opsional) **LM Studio** jika Anda ingin menjalankan model secara luring (*offline*).
+- (Opsional) **Groq API Key** jika Anda ingin menggunakan model *cloud* super cepat.
 
-### Langkah Instalasi
+### Langkah-Langkah Instalasi
 
-1.  **Clone repository ini:**
+1.  **Unduh (Clone) repositori ini:**
     ```bash
     git clone https://github.com/username/mark-project.git
     cd mark-project/mark
     ```
 
-2.  **Install dependensi:**
+2.  **Pasang dependensi yang dibutuhkan:**
     ```bash
     npm install
     ```
@@ -74,35 +74,40 @@ mark/
     ```
 
 4.  **Konfigurasi Awal:**
-    Buka menu **Pengaturan** di dalam aplikasi, pilih provider AI (LM Studio atau Groq), masukkan API Key (jika memakai Groq), dan atur provider Vector Embeddings (disarankan menggunakan **Transformers.js** agar berjalan 100% lokal tanpa instalasi eksternal).
+    Buka menu **Pengaturan** di dalam aplikasi, pilih penyedia AI (LM Studio atau Groq), masukkan Kunci API (jika menggunakan Groq), dan atur penyedia Vektor Ingatan (disarankan menggunakan **Transformers.js** agar berjalan 100% lokal tanpa perlu instalasi aplikasi tambahan).
 
-## Build Aplikasi
+## Membangun Aplikasi (Build)
 
-Untuk membuat *executable file* (Windows):
+Untuk membuat *file* instalasi (*executable* Windows):
 ```bash
 npm run build:win
 ```
-Output installer (`.exe`) akan tersedia di folder `dist/`.
+Hasil *file* installer (`.exe`) akan tersedia secara otomatis di dalam folder `dist/`.
 
-## Roadmap
+## Peta Jalan (Roadmap)
 
-- [x] Web Search Integration & Deep Research
-- [x] Vector MMS (Semantic memory search dengan Transformers.js & LM Studio)
-- [x] YouTube Summary (Transkrip & metada video)
-- [x] Multi-Turn Conversation & Time Awareness
-- [x] Few-Shot Examples untuk konsistensi JSON
-- [x] Configuration Page (Halaman pengaturan dinamis untuk AI Engine & Provider)
-- [x] YouTube Music Player & Ad-Blaster
-- [x] Voice Interaction (Live Audio Beta & STT Groq)
-- [x] Agentic Planning dengan sumber/source citations
-- [ ] Vision Capability (Analisis gambar secara lokal)
-- [ ] Export/Import Memory (Backup & restore memori pengguna)
-- [ ] Custom Tools (Code Interpreter): Fitur untuk mengeksekusi *custom script* (JavaScript/Node) secara dinamis oleh AI, memberikan kebebasan kustomisasi *action* tanpa batas.
-- [ ] Prompt Templates / Custom Commands: Fitur untuk menyimpan *template prompt* panjang atau persona khusus (misal: spesialis pembuat PRD). Pengguna cukup mengetik `@nama-template` di kolom *chat* untuk memanggil instruksi kompleks tanpa perlu mengetik ulang setiap saat.
+- [x] Integrasi Pencarian Web & Riset Mendalam
+- [x] Vector MMS (Pencarian memori berbasis makna dengan Transformers.js & LM Studio)
+- [x] Ringkasan YouTube (Penarikan transkrip & data video)
+- [x] Percakapan Berkelanjutan & Kesadaran Waktu
+- [x] Penggunaan Contoh (Few-Shot) untuk konsistensi respons AI
+- [x] Halaman Pengaturan (Pengaturan dinamis untuk Mesin AI & Penyedia Vektor)
+- [x] Pemutar Musik YouTube & Pemblokir Iklan Otomatis
+- [x] Interaksi Suara Langsung (Audio Beta & Perintah Suara Groq)
+- [x] Perencanaan Mandiri (Agentic Planning) dilengkapi dengan sumber referensi tautan
+- [ ] Analisis Gambar (Vision): Fitur untuk AI dapat membaca gambar secara lokal
+- [ ] Ekspor/Impor Memori: Fitur cadangan (*backup*) & pemulihan memori pengguna
+- [ ] Alat Khusus (Code Interpreter): Fitur yang memungkinkan AI menjalankan kode program (*script*) secara dinamis, memberikan kebebasan tanpa batas.
+- [ ] Templat Perintah (Prompt Templates): Fitur untuk menyimpan perintah panjang atau persona khusus (misal: "spesialis marketing"). Pengguna cukup mengetik `@nama-template` di kolom obrolan.
+
+## Changelog (Terbaru)
+
+**v1.1.0**
+- ✨ **Otomatisasi YouTube Summary**: Fitur `yt-summary` kini berjalan sepenuhnya secara otomatis dan mandiri (Agentic). Mark bisa langsung menelusuri, mengekstrak, memecah (chunking) transkrip, hingga menyimpulkan isi video YouTube ke dalam *Plan Conclusion* yang rapi tanpa perlu instruksi lanjutan.
 
 ## Lisensi
 
-Proyek ini menggunakan lisensi **MIT**, namun dengan ketentuan tambahan: **Dilarang keras memperjualbelikan perangkat lunak ini untuk keuntungan komersial tanpa izin.**
+Proyek ini menggunakan lisensi **MIT**, namun dengan ketentuan tambahan: **Dilarang keras memperjualbelikan perangkat lunak ini untuk keuntungan komersial tanpa izin tertulis.**
 
 ---
 > Dibuat untuk masa depan AI yang lebih privat dan cerdas.
