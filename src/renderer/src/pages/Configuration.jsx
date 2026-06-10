@@ -62,10 +62,18 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           doneBtnText: 'Paham!',
           steps: [
             {
+              popover: {
+                title: 'Halo, Selamat Datang di Mark! 👋',
+                description: 'Mark adalah asisten AI pribadimu. Sebelum mulai ngobrol, ayo kita kenalan dulu sama pengaturan utamanya biar Mark bisa kerja maksimal buat kamu!',
+                side: 'top',
+                align: 'center'
+              }
+            },
+            {
               element: '#tour-ai-provider',
               popover: {
-                title: 'Pilih Mesin AI',
-                description: 'Kamu bisa milih mau pakai AI lokal (gratis & privat) atau API Cloud kayak Groq buat yang lebih kencang.',
+                title: '1. Pilih Mesin AI',
+                description: 'Kamu bisa milih mau pakai AI lokal (gratis & privat pakai LM Studio) atau API Cloud kayak Groq buat respons yang jauh lebih kencang.',
                 side: 'bottom',
                 align: 'start'
               }
@@ -73,8 +81,53 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-embed-provider',
               popover: {
-                title: 'Memori AI',
-                description: 'Ini otak memori Mark. Pilih Transformers.js kalau mau memori jalan 100% lokal tanpa ribet setup tambahan.',
+                title: '2. Memori AI',
+                description: 'Ini otak tempat Mark mengingat semuanya. Pilih Transformers.js kalau mau memori jalan 100% lokal tanpa ribet setup tambahan.',
+                side: 'top',
+                align: 'start'
+              }
+            },
+            {
+              element: '#tour-groq-key',
+              popover: {
+                title: '3. Wajib: Groq API Key',
+                description: 'Nah ini penting! Karena fitur ngobrol pakai suara (Speech-to-Text) eksklusif pakai Groq, bagian ini WAJIB kamu isi walaupun pakai AI lokal.',
+                side: 'top',
+                align: 'start'
+              }
+            },
+            {
+              element: '#tour-persona',
+              popover: {
+                title: '4. Kepribadian Mark',
+                description: 'Di sini kamu bebas nentuin gaya bicara Mark. Mau dia formal kayak asisten pro, atau santai kayak temen nongkrong? Tulis aja di sini!',
+                side: 'top',
+                align: 'start'
+              }
+            },
+            {
+              element: '#tour-temperature',
+              popover: {
+                title: '5. Kreativitas AI',
+                description: 'Temperature nentuin seberapa kreatif Mark. Angka kecil (0-0.3) bikin dia kaku tapi akurat, angka besar (0.7-1.0) bikin dia imajinatif dan luwes.',
+                side: 'top',
+                align: 'start'
+              }
+            },
+            {
+              element: '#tour-context',
+              popover: {
+                title: '6. Konteks Obrolan',
+                description: 'Ini batas seberapa jauh Mark bisa mengingat riwayat chat dalam satu sesi. Makin besar angkanya, makin panjang ingatan dia, tapi makin berat juga kerjanya.',
+                side: 'top',
+                align: 'start'
+              }
+            },
+            {
+              element: '#tour-tts',
+              popover: {
+                title: '7. Pengaturan Suara',
+                description: 'Atur kecepatan (Rate) dan tinggi-rendahnya nada suara (Pitch) Mark. Kamu bisa klik "Test Suara Mark" buat dengerin hasil racikanmu!',
                 side: 'top',
                 align: 'start'
               }
@@ -142,8 +195,8 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
 
   const handleSaveConfiguration = async () => {
     // Validasi API Key
-    if (config.aiProvider === 'groq' && !config.groqApiKey?.trim()) {
-      alert('Tolong isi Groq API Key terlebih dahulu untuk menggunakan provider Groq!')
+    if (!config.groqApiKey?.trim()) {
+      alert('Tolong isi Groq API Key terlebih dahulu! API Key ini wajib untuk fitur Voice STT.')
       return
     }
     if (config.aiProvider === 'cerebras' && !config.cerebrasApiKey?.trim()) {
@@ -171,6 +224,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     await saveConfiguration(config)
     if (isFirstSetup && onSetupComplete) {
       onSetupComplete()
+    } else {
+      // Kembali ke halaman chat setelah simpan
+      window.location.hash = '#/'
     }
   }
 
@@ -341,7 +397,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           </div>
 
           {/* Groq API Key (Always visible for STT) */}
-          <div className="space-y-1.5">
+          <div id="tour-groq-key" className="space-y-1.5 p-2 -mx-2 rounded-lg">
             <div className="flex justify-between items-center">
               <p className="text-sm font-semibold">
                 Groq API Key {config.aiProvider !== 'groq' && '(Khusus untuk fitur Voice/STT)'}
@@ -412,7 +468,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           )}
 
           {/* System Persona */}
-          <div className="space-y-1.5">
+          <div id="tour-persona" className="space-y-1.5 p-2 -mx-2 rounded-lg">
             <p className="text-sm font-semibold">Gaya Bicara dan Kepribadian</p>
             <textarea
               className="textarea w-full h-72 leading-relaxed no-scrollbar resize-none"
@@ -421,7 +477,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               onChange={(e) => setConfig((prev) => ({ ...prev, personality: e.target.value }))}
             />
           </div>
-          <div className="space-y-2">
+          <div id="tour-temperature" className="space-y-2 p-2 -mx-2 rounded-lg">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold">Temperature</p>
               <span className="font-mono text-sm text-primary font-bold">{config.temperature}</span>
@@ -446,7 +502,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           </div>
 
           {/* Context Window */}
-          <div className="space-y-2">
+          <div id="tour-context" className="space-y-2 p-2 -mx-2 rounded-lg">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold">Context Window</p>
               <span className="font-mono text-sm text-primary font-bold">{config.context}</span>
@@ -473,9 +529,10 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           <div className="divider"></div>
 
           {/* TTS Settings */}
-          <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-            Audio & Voice Engine
-          </h2>
+          <div id="tour-tts" className="p-2 -mx-2 rounded-lg">
+            <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5">
+              Audio & Voice Engine
+            </h2>
 
           {/* TTS Rate */}
           <div className="space-y-2">
@@ -552,6 +609,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             <p className="text-[10px] opacity-30 mt-1.5 px-1">
               *Klik untuk mendengar suara Mark dengan settingan di atas tanpa perlu simpan dulu.
             </p>
+          </div>
           </div>
         </section>
 

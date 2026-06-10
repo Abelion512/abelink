@@ -197,3 +197,109 @@ html {
 .audio-bar-speaking {
   animation: bar-speaking 0.8s ease-in-out infinite;
 }
+
+/* Ultra Modern Driver.js Theme matching DaisyUI Forest */
+.driver-popover {
+  @apply border border-white/10 rounded-2xl p-6;
+  background-color: #2a303c !important; /* Kontras dari hitam */
+  color: #ffffff !important;
+  max-width: 320px !important;
+  min-width: 300px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+}
+
+.driver-popover-title {
+  font-size: 1.125rem !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin-bottom: 0.5rem !important;
+  font-family: 'Poppins', sans-serif !important;
+}
+
+.driver-popover-description {
+  font-size: 0.875rem !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  line-height: 1.5 !important;
+  margin: 0 !important;
+  font-family: 'Poppins', sans-serif !important;
+}
+
+.driver-popover-footer {
+  margin-top: 1.25rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.5rem !important;
+}
+
+.driver-popover-footer button {
+  height: 2rem !important;
+  min-height: 2rem !important;
+  padding: 0 1rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  border-radius: 0.5rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-family: 'Poppins', sans-serif !important;
+  text-shadow: none !important;
+  border: none !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.driver-popover-footer .driver-popover-next-btn,
+.driver-popover-footer .driver-popover-done-btn {
+  background-color: #1eb854 !important; /* DaisyUI Primary */
+  color: #000000 !important;
+}
+
+.driver-popover-footer .driver-popover-next-btn:hover,
+.driver-popover-footer .driver-popover-done-btn:hover {
+  background-color: #1aa049 !important;
+  transform: scale(1.05);
+}
+
+.driver-popover-footer .driver-popover-prev-btn {
+  background-color: rgba(255, 255, 255, 0.05) !important; /* DaisyUI Ghost */
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.driver-popover-footer .driver-popover-prev-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.driver-popover-progress-text {
+  font-size: 0.75rem !important;
+  font-family: monospace !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  margin: 0 !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.driver-popover-close-btn {
+  position: absolute !important;
+  top: 1rem !important;
+  right: 1rem !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  transition: color 0.2s !important;
+}
+
+.driver-popover-close-btn:hover {
+  color: #ff5252 !important; /* Error red */
+}
+
+/* Hide the old-school arrow completely for a cleaner floating card look */
+.driver-popover-arrow {
+  display: none !important;
+}
+
+/* Modern backdrop */
+.driver-overlay {
+  backdrop-filter: blur(4px) !important;
+  opacity: 0.7 !important;
+  background-color: #000000 !important;
+}
