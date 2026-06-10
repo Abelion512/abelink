@@ -1,6 +1,6 @@
 # MARK - Memory Adaptive Response Knowledge
 
-> Asisten AI virtual berbasis lokal yang dirancang untuk membantu produktivitas pengguna dengan privasi penuh. Mark bukan sekadar chatbot — ia bisa mengingat, meriset, dan memahami konteks percakapan secara mendalam.
+> **Mark adalah *Privacy-First Personal AI Assistant* (Asisten AI Pribadi yang Mengutamakan Privasi).** Bukan sekadar *chatbot* biasa, Mark adalah entitas asisten pintar yang hidup di laptop Anda—dilengkapi dengan "ingatan jangka panjang" berbasis *Vector Memory* lokal yang mempelajari kebiasaan Anda tanpa mengorbankan privasi data. Didukung oleh *Hybrid AI Engine*, Mark bisa berjalan 100% *offline* secara rahasia maupun berakselerasi dengan *Cloud API* untuk mengeksekusi tugas kompleks secara mandiri (*Agentic Planning*), merangkum video YouTube, menelusuri web secara *deep research*, hingga berinteraksi langsung melalui komunikasi suara *real-time* layaknya J.A.R.V.I.S pribadi Anda.
 
 > [!IMPORTANT]
 > Proyek ini dioptimalkan khusus untuk **Windows** (Windows 10/11).

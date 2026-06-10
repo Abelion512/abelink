@@ -190,7 +190,7 @@ app.whenReady().then(async () => {
     try {
       const ytData = await yts(query)
       const video = ytData.videos.slice(0, 4)
-      return video.map((item) => ({ videoId: item.videoId, title: item.title, author: item.author.name }))
+      return video.map((item) => ({ url: `https://www.youtube.com/watch?v=${item.videoId}`, title: item.title, author: item.author.name }))
     } catch (error) {
       console.error('Gagal search YT:', error.message)
       return []

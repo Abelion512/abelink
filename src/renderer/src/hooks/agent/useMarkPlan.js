@@ -51,7 +51,6 @@ export const useMarkPlan = ({
       const planData = await getPlan(
         userInput,
         isAction.web,
-        isAction.youtube,
         abortControllerRef.current.signal,
         chatSession,
         memoryReference
@@ -64,8 +63,7 @@ export const useMarkPlan = ({
           memoryReference,
           chatSession,
           abortControllerRef.current.signal,
-          isAction.web,
-          isAction.youtube
+          isAction.web
         )
         if (!answer) throw new Error('Gagal mengurai jawaban dari Mark menjadi format JSON.')
 
@@ -150,7 +148,6 @@ export const useMarkPlan = ({
             task,
             previousContext,
             isAction.web,
-            isAction.youtube,
             abortControllerRef.current.signal
           )
         }

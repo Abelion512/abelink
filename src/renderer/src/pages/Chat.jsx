@@ -54,19 +54,10 @@ const Chat = () => {
             {
               element: '#tour-voice-btn',
               popover: {
-                title: 'Live Audio Mode',
-                description: 'Lagi malas ngetik? Aktifin mode ini buat ngobrol langsung pakai suara kayak teleponan!',
+                title: 'Bacakan Balasan (TTS)',
+                description: 'Nyalakan tombol ini kalau kamu mau Mark otomatis ngomong ngebacain balasannya. Cocok buat yang lagi malas baca teks!',
                 side: 'top',
                 align: 'center'
-              }
-            },
-            {
-              element: '#tour-tools-menu',
-              popover: {
-                title: 'Tools & Integrasi',
-                description: 'Mark udah otomatis mikir sendiri (Agentic Planning). Tapi di sini kamu bisa nyalain tool spesifik kayak YouTube Summary.',
-                side: 'top',
-                align: 'end'
               }
             }
           ],
@@ -195,52 +186,6 @@ const Chat = () => {
                 />
               </svg>
             </button>
-            <div className="dropdown dropdown-top" id="tour-tools-menu">
-              <div
-                tabIndex={0}
-                role="button"
-                className={`btn btn-sm rounded-lg gap-2 ${
-                  isAction.web || isAction.youtube
-                    ? 'btn-neutral text-white'
-                    : 'btn-ghost opacity-60 hover:opacity-100'
-                }`}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="1em"
-                  height="1em"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-                </svg>
-                Tools{' '}
-                {(isAction.web || isAction.youtube) && (
-                  <span className="badge badge-xs badge-primary badge-outline ml-1">On</span>
-                )}
-              </div>
-              <ul
-                tabIndex={0}
-                className="dropdown-content menu bg-base-300 rounded-box z-[1] w-52 p-2 shadow-xl mb-2 gap-1 border border-white/10"
-              >
-                <li>
-                  <a
-                    className={isAction.youtube ? 'bg-error/20 text-error' : ''}
-                    onClick={() => setIsAction((prev) => ({ ...prev, youtube: !prev.youtube }))}
-                  >
-                    <div className="flex w-full justify-between items-center">
-                      <span>YouTube Summary</span>
-                      {isAction.youtube && <span className="font-bold">✓</span>}
-                    </div>
-                  </a>
-                </li>
-
-              </ul>
-            </div>
           </div>
           <button type="submit" className="btn btn-circle btn-sm btn-primary text-base">
             {isLoading ? (

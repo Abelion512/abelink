@@ -58,7 +58,13 @@ User: ${userInput}
 
 export const getYoutubeSummary = async (url, data, signal) => {
   try {
-    const transcript = await window.api.getYoutubeTranscript(url)
+    let transcript = await window.api.getYoutubeTranscript(url)
+
+    // Truncate transcript to avoid Token Per Minute limit on free tier APIs
+    const MAX_CHARS = 12000
+    if (transcript && transcript.length > MAX_CHARS) {
+      transcript = transcript.substring(0, MAX_CHARS) + '\\n\\n[TRANSKRIP DIPOTONG KARENA TERLALU PANJANG...]'
+    }
 
     const prompts = `
 # ROLE

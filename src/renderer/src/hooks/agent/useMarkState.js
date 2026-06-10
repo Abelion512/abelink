@@ -5,7 +5,7 @@ import { getTitleSession } from '../../api/ai/chat'
 export const useMarkState = () => {
   const [chatData, setChatData] = useState([])
   const [sessionId, setSessionId] = useState(null)
-  const [isAction, setIsAction] = useState({ web: false, youtube: false, plan: true })
+  const [isAction, setIsAction] = useState({ web: false, plan: true })
   const [config, setConfig] = useState([])
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)

@@ -34,8 +34,7 @@ export const getAnswer = async (
   memoryReference,
   chatSession,
   signal,
-  isWebSearch,
-  isYoutube
+  isWebSearch
 ) => {
   try {
     const currentConfig = await getAllConfig()
@@ -92,7 +91,7 @@ SEARCH AS LAST RESORT: Gunakan search hanya jika user bertanya fakta/berita yang
 - **Music Prev**: Ketika user minta lagu sebelumnya/prev, gunakan command.action "music-prev" (query null).
 - **Music Toggle**: Ketika user minta pause/stop/resume/lanjut musik, gunakan command.action "music-toggle" (query null).
 - **Web Search**: ${isWebSearch ? 'AKTIF. Gunakan command "search" jika butuh info terbaru.' : 'NONAKTIF. JANGAN gunakan command "search". Beritahu user untuk mengaktifkan fitur ini.'}
-- **YouTube Summary**: ${isYoutube ? 'AKTIF. Gunakan command "youtube" untuk mengakses youtube.' : 'NONAKTIF. Cukup jawab: "Bro, nyalain dulu fitur YouTube." dan set command null.'}
+- **YouTube Summary**: AKTIF. Gunakan command "youtube" untuk mengakses youtube.
 - **Memory Management**: Bisa menyimpan, update, dan hapus memori user. Gunakan field 'memory' di output JSON.
 - **Deep Research**: Saat web search aktif, bisa menggali konten web secara mendalam.
 
@@ -127,22 +126,18 @@ Type dan key yang valid:
 # WEB SEARCH RULES
 - Untuk info dinamis setelah 2023, WAJIB gunakan action: "search".
 - Trigger: versi library terbaru, harga barang, berita 2024-2026, fakta yang mungkin berubah, atau ketika user meminta untuk cari di internet.
-${
-  isYoutube
-    ? `
+
 # YOUTUBE RULES
 - Jika user minta rangkum atau jelaskan sebuah video youtube, gunakan action: "yt-summary" dan isi query dengan URL, Maksimal 1 video per request, jika tidak ada link, minta user kirimkan link. Set command null.
 - Jika user minta dicarikan video atau kamu perlu mencari suatu video youtube, gunakan action: "yt-search" dan isi query dengan pencarian yang akan kamu lakukan di youtube.
-`
-    : ''
-}
+
 # OUTPUT (JSON ONLY)
 Output WAJIB valid JSON. Diawali '{' dan diakhiri '}'.
 Jangan ada teks di luar JSON. Field 'answer' berisi respon natural YANG EKSPRESIF (ingat akan dibacakan TTS), jangan bahas internal JSON.
 {
   "answer": "string (tulis seperti ngomong langsung, ekspresif, minim markdown formatting)",
   "memory": { "id": number|null, "type": "string", "key": "string", "memory": "string", "action": "insert|update|delete" } atau null,
-  "command": { "action": "search | ${isYoutube ? 'yt-summary | yt-search | ' : ''}music-play | music-search | music-next | music-prev | music-toggle | none", "query": "string atau null" } atau null
+  "command": { "action": "search | yt-summary | yt-search | music-play | music-search | music-next | music-prev | music-toggle | none", "query": "string atau null" } atau null
 }
 
 # EXAMPLES FOR CONSISTENCY (Perhatikan gaya ekspresif di field "answer")
@@ -156,9 +151,7 @@ Output: {
     "query": "Siapa Presiden Indonesia terpilih tahun 2026"
   }
 }  
-${
-  isYoutube
-    ? `
+
 ## Example: Youtube Summary
 User: "Mark, tolong rangkumin atau jelasin video ini dong https://www.youtube.com/watch?v=uJbbtrx5M_E"
 Output: {
@@ -169,6 +162,7 @@ Output: {
     "query": "https://www.youtube.com/watch?v=uJbbtrx5M_E"
   }
 }
+
 ## Example: Youtube Search
 User: "cariin video tutorial React dong"
 Output: {
@@ -178,9 +172,6 @@ Output: {
     "action": "yt-search",
     "query": "tutorial dasar React JS bahasa Indonesia"
   }
-}
-`
-    : ''
 }
 
 ## Example: Music Play (Langsung Putar)

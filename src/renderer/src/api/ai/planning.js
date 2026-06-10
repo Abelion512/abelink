@@ -5,7 +5,6 @@ import { getCurrentTimeInfo } from './utils'
 export const getPlan = async (
   userInput,
   isWebSearch,
-  isYoutube,
   signal,
   chatSession = [],
   memoryReference = []
@@ -33,7 +32,7 @@ Gunakan data memori di atas sebagai acuan jika instruksi user menyebutkan kata g
 Sistem memiliki kemampuan berikut:
 - Web Search: Mencari info umum di Google. Tools ini bakal menjelajah google search dengan membuka 5 web teratas dan hasil summary ai google, dari ke 5 web dan ai summary google akand disimpulkan. namun tools ini tidak dapat membuka halaman tertentu secara explisit secara langsung
 - YouTube Search: Mencari video di YouTube, fitur ini akan mendapatkan judul, id, dan time tidak dapat membaca isi video.
-${isYoutube ? '- YouTube Summary: Merangkum isi video dari link YouTube.' : ''}
+- YouTube Summary: Merangkum isi video dari link YouTube.
 - Music Player: Memutar lagu di YouTube Music.
 - Music Next: Memutar Lagu Selanjutnya
 - Music Toogle: Mematikan Atau Memutar Lagu Yang Ada
@@ -118,7 +117,7 @@ Output:
 }
 
 
-export const getTaskAction = async (task, previousContext, isWebSearch, isYoutube, signal) => {
+export const getTaskAction = async (task, previousContext, isWebSearch, signal) => {
   try {
     const systemPrompt = `
 Kamu adalah Mark, asisten AI cerdas. 
@@ -135,13 +134,14 @@ ${isWebSearch ? '- search: Melakukan pencarian web umum (Google) untuk mencari i
 - music-prev: Kembali ke lagu sebelumnya.
 - music-toggle: Pause atau resume lagu.
 - yt-search: Mencari video tutorial atau hiburan di YouTube.
-${isYoutube ? '- yt-summary: Merangkum isi video YouTube.' : ''}
+- yt-summary: Merangkum isi video YouTube.
 - summary: Menyimpulkan/menjawab tugas langsung menggunakan otakmu (tanpa nge-search), berguna untuk coding atau teori dasar.
 - none: Tidak ada aksi yang relevan.
 
 # ATURAN
 1. Output WAJIB valid JSON dengan format { "action": "nama-action", "query": "string" }.
 2. Gunakan "previousContext" untuk melengkapi "query". Contoh: jika previousContext bilang "Lagu hits adalah Kangen", dan tugas adalah "Putar lagu", maka query harus "Kangen Dewa 19", bukan sekedar "lagu".
+3. KHUSUS untuk action "yt-summary", query WAJIB berisi URL/Link YouTube yang ada di previousContext. Jangan isi dengan judul video atau kata kunci pencarian.
 `
     const userPrompt = `
 # PREVIOUS CONTEXT (Ringkasan dari tugas-tugas sebelumnya)
@@ -209,7 +209,9 @@ ${task}
 # HASIL DARI SISTEM / TOOL
 ${JSON.stringify(actionResult)}
 
-Buat ringkasan 1 kalimat yang informatif dari hasil sistem tersebut untuk menjawab tugas saat ini. Jika hasil sistem hanya berupa pemikiran internal (internal thought), gunakan Konteks Sebelumnya untuk merangkum dan menjawab tugas.
+Buat ringkasan 1 kalimat yang informatif dari hasil sistem tersebut untuk menjawab tugas saat ini. 
+Jika hasil sistem memberikan daftar URL/Link (seperti hasil youtube atau web), WAJIB pilih dan tuliskan minimal 1 URL terbaik di dalam ringkasanmu agar URL tersebut bisa digunakan di langkah selanjutnya. Jangan sampai URL-nya hilang!
+Jika hasil sistem hanya berupa pemikiran internal (internal thought), gunakan Konteks Sebelumnya untuk merangkum dan menjawab tugas.
 `
     const messages = [
       { role: 'system', content: systemPrompt },

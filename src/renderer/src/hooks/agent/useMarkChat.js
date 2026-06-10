@@ -45,8 +45,7 @@ export const useMarkChat = ({
         memoryReference,
         chatSession,
         abortControllerRef.current.signal,
-        isAction.web,
-        isAction.youtube
+        isAction.web
       )
 
       if (!answer) throw new Error('Gagal mengurai jawaban dari Mark menjadi format JSON.')
