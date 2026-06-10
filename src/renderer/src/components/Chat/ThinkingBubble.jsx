@@ -43,13 +43,13 @@ export const ThinkingBubble = ({ isThinking, isSummarizing, isSearchingMusic, yo
       {isSummarizing && videoId && (
         <button 
           onClick={() => window.api.openExternal(youtubeLink)}
-          className="rounded-xl overflow-hidden w-80 sm:w-96 aspect-video opacity-90 border border-base-300 ml-1 mt-1 bg-base-300 shadow-sm relative hover:opacity-100 transition-all hover:scale-[1.02] cursor-pointer group/vid"
+          className="rounded-xl overflow-hidden w-full overflow-hidden aspect-video opacity-90 border border-base-300 mt-1 bg-base-300 shadow-sm relative hover:opacity-100 transition-all group cursor-pointer group/vid"
           title="Buka video di YouTube"
         >
           <img 
             src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`} 
             alt="Youtube Preview"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover group-hover:scale-[1.02] transition-all "
           />
           <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover/vid:bg-black/0 transition-colors">
             <svg

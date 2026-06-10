@@ -71,9 +71,7 @@ Kamu adalah Mark, asisten AI yang ahli dalam menganalisis konten video. Tugasmu 
 
 # FORMAT OUTPUT (WAJIB)
 1. **Ringkasan Singkat**: 1-2 kalimat tentang inti video.
-2. **Poin-Poin Penting**: Daftar 3-5 poin utama yang dibahas. 
-   - WAJIB sertakan timestamp [MM:SS] di setiap awal poin agar user bisa navigasi.
-   - Contoh: "[02:43] Mior menjelaskan cara ganti gigi di ETS2."
+2. **Poin-Poin Penting**: Daftar 3-5 poin utama yang dibahas (ceritakan dengan mengalir dan informatif).
 3. **Kesimpulan**: Penutup dan kesimpulan dari seluruh video.
 4. Gunakan bahasa indonesia, jangan gunakan bahasa inggris atau bahasa lainnya
 
@@ -131,14 +129,14 @@ ${transcript}
 
       const chunkPrompt = `
 # ROLE
-Kamu adalah Mark, asisten AI yang ahli menganalisis konten video. Ini adalah instruksi langsung, BUKAN percakapan. DILARANG meminta input tambahan. LANGSUNG berikan ringkasan dari teks transkrip di bawah ini!
+Kamu adalah Mark, asisten AI yang ahli merangkum konten video secara naratif dan mengalir layaknya sebuah artikel atau cerita. Ini adalah instruksi langsung, BUKAN percakapan. DILARANG meminta input tambahan. LANGSUNG berikan ringkasan dari teks transkrip di bawah ini!
 
-Ini adalah BAGIAN ${i + 1} DARI ${chunks.length} dari transkrip video YouTube yang panjang.
+Ini adalah bagian ${i + 1} dari ${chunks.length} dari transkrip video YouTube yang panjang.
 
 # FORMAT OUTPUT (WAJIB)
-Berikan ringkasan padat berupa poin-poin penting yang dibahas KHUSUS pada BAGIAN INI SAJA.
-- WAJIB sertakan timestamp [MM:SS] di setiap awal poin.
-- Gunakan bahasa indonesia yang santai tapi informatif.
+- Berikan ringkasan isi video secara kreatif, bebas, dan asik (boleh menggunakan paragraf naratif atau poin-poin penting yang mengalir).
+- DILARANG KERAS menyertakan atau menggunakan [timestamp] dalam bentuk apapun! Cukup ceritakan saja isi informasinya.
+- Gunakan bahasa Indonesia yang santai tapi tetap padat dan informatif.
 
 # VIDEO META DATA
 judul: ${data.judul || 'Tidak diketahui'},
@@ -151,11 +149,12 @@ ${chunks[i]}
       console.log(chunkPrompt);
 
       const response = await fetchAI([{ role: 'user', content: chunkPrompt }], signal, true)
-      finalSummary += `\\n\\n### Bagian ${i + 1}\\n${response.content}`
+      finalSummary += `${response.content}\n\n`
 
-      // Cooldown 25 detik jika bukan chunk terakhir (Menghindari TPM limit Groq)
+      // Cooldown 12 detik jika bukan chunk terakhir (Menghindari TPM limit Groq)
       if (i < chunks.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 25000))
+        // Delay 12 detik untuk bypass Groq TPM limit (karena 1 menit = 60 detik, 12 detik = 5 request/menit, sangat aman untuk limit 6000 TPM)
+        await new Promise(resolve => setTimeout(resolve, 12000))
       }
     }
 
