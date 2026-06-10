@@ -1,18 +1,10 @@
-import React, { useState } from 'react'
+import React from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import { CodeBlock } from './CodeBlock'
 
 export const MessageBubble = ({ isUser, content, reasoning, sources, isPlanConclusion }) => {
-  const [isCopied, setIsCopied] = useState(false)
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(content)
-    setIsCopied(true)
-    setTimeout(() => setIsCopied(false), 2000)
-  }
-
   return (
     <div className="text-sm leading-relaxed custom-markdown flex flex-col gap-1 relative group">
       {isPlanConclusion && (
@@ -85,26 +77,6 @@ export const MessageBubble = ({ isUser, content, reasoning, sources, isPlanConcl
           ))}
         </div>
       )}
-
-      <div className="flex justify-end mt-1 -mb-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button 
-          onClick={handleCopy}
-          className="btn btn-ghost btn-xs text-[10px] p-1 h-auto min-h-0 font-normal opacity-70 hover:opacity-100 hover:bg-transparent"
-          title="Copy text"
-        >
-          {isCopied ? (
-            <span className="text-success flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              Copied!
-            </span>
-          ) : (
-            <span className="flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-              Copy
-            </span>
-          )}
-        </button>
-      </div>
     </div>
   )
 }
