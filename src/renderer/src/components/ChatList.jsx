@@ -38,7 +38,8 @@ const ChatList = ({
   plan = [],
   currentStep,
   sendDataWebSearch,
-  onRun
+  onRun,
+  isPlanConclusion = false
 }) => {
   const resolvedCurrentStep = currentStep !== undefined ? currentStep : plan.length
   const { playUrl } = useYoutubeMusic()
@@ -64,20 +65,24 @@ const ChatList = ({
     ? 'chat-bubble-primary chat-bubble'
     : 'bg-neutral text-white chat-bubble overflow-x-auto w-full border border-base-300 p-3 rounded-xl'
 
+
+
   return (
     <div
       className={`chat ${isUser ? 'chat-end' : 'chat-start'} ${isSearching && 'flex flex-col'} mb-4 `}
     >
       {!isSearching && !isMusic && (
         <>
-          <div className="chat-image avatar">
+          <div className={`chat-image avatar ${isPlanConclusion ? 'opacity-0 pointer-events-none select-none' : ''}`}>
             <div className="w-10 rounded-full bg-neutral text-white flex items-center justify-center border border-primary/20">
               <span className="text-xs font-bold uppercase">{isUser ? 'U' : 'M'}</span>
             </div>
           </div>
-          <div className="chat-header opacity-50 text-[10px] uppercase font-bold mb-1 px-1">
-            {isUser ? 'You' : 'Mark AI'}
-          </div>
+          {!isPlanConclusion && (
+            <div className="chat-header opacity-50 text-[10px] uppercase font-bold mb-1 px-1">
+              {isUser ? 'You' : 'Mark'}
+            </div>
+          )}
         </>
       )}
       
@@ -97,6 +102,7 @@ const ChatList = ({
               isThinking={isThinking} 
               isSummarizing={isSummarizing} 
               isSearchingMusic={isSearchingMusic} 
+              youtubeLink={youtubeLink}
             />
           ) : (
             <div className="flex flex-col gap-3">
@@ -111,6 +117,7 @@ const ChatList = ({
                 content={content}
                 reasoning={reasoning}
                 sources={sources}
+                isPlanConclusion={isPlanConclusion}
               />
             </div>
           )}

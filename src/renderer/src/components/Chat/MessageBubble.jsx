@@ -1,12 +1,29 @@
-import React from 'react'
+import React, { useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import { CodeBlock } from './CodeBlock'
 
-export const MessageBubble = ({ isUser, content, reasoning, sources }) => {
+export const MessageBubble = ({ isUser, content, reasoning, sources, isPlanConclusion }) => {
+  const [isCopied, setIsCopied] = useState(false)
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(content)
+    setIsCopied(true)
+    setTimeout(() => setIsCopied(false), 2000)
+  }
+
   return (
-    <div className="text-sm leading-relaxed custom-markdown flex flex-col gap-1">
+    <div className="text-sm leading-relaxed custom-markdown flex flex-col gap-1 relative group">
+      {isPlanConclusion && (
+        <div className="flex items-center gap-1.5 text-[11px] font-bold text-primary uppercase tracking-wider mb-2 border-b border-primary/20 pb-1.5 w-max">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+            <path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
+          </svg>
+          Plan Conclusion
+        </div>
+      )}
       {reasoning && (
         <details className="group mb-2">
           <summary className="list-none flex items-center gap-1.5 cursor-pointer text-[12px] font-semibold opacity-70 hover:opacity-100 transition-opacity">
@@ -68,6 +85,26 @@ export const MessageBubble = ({ isUser, content, reasoning, sources }) => {
           ))}
         </div>
       )}
+
+      <div className="flex justify-end mt-1 -mb-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button 
+          onClick={handleCopy}
+          className="btn btn-ghost btn-xs text-[10px] p-1 h-auto min-h-0 font-normal opacity-70 hover:opacity-100 hover:bg-transparent"
+          title="Copy text"
+        >
+          {isCopied ? (
+            <span className="text-success flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Copied!
+            </span>
+          ) : (
+            <span className="flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              Copy
+            </span>
+          )}
+        </button>
+      </div>
     </div>
   )
 }

@@ -58,17 +58,16 @@ User: ${userInput}
 
 export const getYoutubeSummary = async (url, data, signal) => {
   try {
-    let transcript = await window.api.getYoutubeTranscript(url)
+    const transcript = await window.api.getYoutubeTranscript(url)
+    if (!transcript) return 'Gagal mengambil transkrip video.'
 
-    // Truncate transcript to avoid Token Per Minute limit on free tier APIs
-    const MAX_CHARS = 12000
-    if (transcript && transcript.length > MAX_CHARS) {
-      transcript = transcript.substring(0, MAX_CHARS) + '\\n\\n[TRANSKRIP DIPOTONG KARENA TERLALU PANJANG...]'
-    }
-
-    const prompts = `
+    const MAX_CHARS = 4000
+    
+    // Jika transkrip pendek, langsung proses tanpa chunking
+    if (transcript.length <= MAX_CHARS) {
+      const prompts = `
 # ROLE
-Kamu adalah Mark, asisten AI yang ahli dalam menganalisis konten video. Tugasmu adalah memberikan ringkasan yang akurat, padat, dan mudah dipahami dari transkrip video YouTube yang diberikan.
+Kamu adalah Mark, asisten AI yang ahli dalam menganalisis konten video. Tugasmu adalah memberikan ringkasan yang akurat, padat, dan mudah dipahami dari transkrip video YouTube yang diberikan. Langsung berikan hasil ringkasannya tanpa basa-basi!
 
 # FORMAT OUTPUT (WAJIB)
 1. **Ringkasan Singkat**: 1-2 kalimat tentang inti video.
@@ -91,9 +90,76 @@ author: ${data.author}
 # TRANSCRIPT
 ${transcript}
 `
-    console.log(prompts)
-    const response = await fetchAI([{ role: 'user', content: prompts }], signal, true)
-    return response.content
+      console.log('--- PROMPT YOUTUBE SHORT ---');
+      console.log(prompts);
+      
+      const response = await fetchAI([{ role: 'user', content: prompts }], signal, true)
+      return response.content
+    }
+
+    // --- SISTEM CHUNKING UNTUK VIDEO PANJANG ---
+    const chunks = []
+    let currentChunk = ''
+    const lines = transcript.split('\\n')
+    
+    for (let line of lines) {
+      // Jika ada satu baris yang sangat panjang melebihi batas (misal tidak ada newline)
+      while (line.length > MAX_CHARS) {
+        if (currentChunk.length > 0) {
+          chunks.push(currentChunk)
+          currentChunk = ''
+        }
+        chunks.push(line.substring(0, MAX_CHARS))
+        line = line.substring(MAX_CHARS)
+      }
+
+      if (currentChunk.length + line.length > MAX_CHARS) {
+        if (currentChunk.length > 0) chunks.push(currentChunk)
+        currentChunk = line + '\\n'
+      } else {
+        currentChunk += line + '\\n'
+      }
+    }
+    if (currentChunk.trim().length > 0) {
+      chunks.push(currentChunk)
+    }
+
+    let finalSummary = ''
+    // Mulai proses tiap chunk
+    for (let i = 0; i < chunks.length; i++) {
+      if (signal?.aborted) throw new Error('AbortError')
+
+      const chunkPrompt = `
+# ROLE
+Kamu adalah Mark, asisten AI yang ahli menganalisis konten video. Ini adalah instruksi langsung, BUKAN percakapan. DILARANG meminta input tambahan. LANGSUNG berikan ringkasan dari teks transkrip di bawah ini!
+
+Ini adalah BAGIAN ${i + 1} DARI ${chunks.length} dari transkrip video YouTube yang panjang.
+
+# FORMAT OUTPUT (WAJIB)
+Berikan ringkasan padat berupa poin-poin penting yang dibahas KHUSUS pada BAGIAN INI SAJA.
+- WAJIB sertakan timestamp [MM:SS] di setiap awal poin.
+- Gunakan bahasa indonesia yang santai tapi informatif.
+
+# VIDEO META DATA
+judul: ${data.judul || 'Tidak diketahui'},
+author: ${data.author || 'Tidak diketahui'}
+
+# TRANSCRIPT BAGIAN ${i + 1}
+${chunks[i]}
+`
+      console.log(`--- PROMPT YOUTUBE CHUNK ${i + 1}/${chunks.length} ---`);
+      console.log(chunkPrompt);
+
+      const response = await fetchAI([{ role: 'user', content: chunkPrompt }], signal, true)
+      finalSummary += `\\n\\n### Bagian ${i + 1}\\n${response.content}`
+
+      // Cooldown 25 detik jika bukan chunk terakhir (Menghindari TPM limit Groq)
+      if (i < chunks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 25000))
+      }
+    }
+
+    return finalSummary.trim()
   } catch (error) {
     console.error('Error in youtubeSummary:', error)
     throw error

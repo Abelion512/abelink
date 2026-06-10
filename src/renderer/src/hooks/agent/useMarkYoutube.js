@@ -50,7 +50,7 @@ export const useMarkYoutube = (setChatData) => {
   }
 
   const handleYoutubeSummary = async (url, signal) => {
-    setChatData((prev) => [...prev, { role: 'ai', content: '...', isSummarizing: true }])
+    setChatData((prev) => [...prev, { role: 'ai', content: 'Sedang menonton video youtube (hal ini akan membutuhkan waktu beberapa saat mohon ditunggu)...', isSummarizing: true, youtubeLink: url }])
     try {
       const data = await getYoutubeData(url)
       const searchResults = await getYoutubeSummary(url, data, signal)

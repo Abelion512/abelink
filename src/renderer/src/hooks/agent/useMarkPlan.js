@@ -223,6 +223,7 @@ export const useMarkPlan = ({
             abortControllerRef.current.signal
           )
         } else if (actionData.action === 'yt-summary') {
+          setChatData((prev) => [...prev, { role: 'ai', content: 'Sedang menonton video youtube (hal ini akan membutuhkan waktu beberapa saat mohon ditunggu)...', isSummarizing: true, youtubeLink: actionData.query }])
           const yData = await getYoutubeData(actionData.query)
           const sum = await getYoutubeSummary(
             actionData.query,
@@ -230,6 +231,14 @@ export const useMarkPlan = ({
             abortControllerRef.current.signal
           )
           summary = sum
+          if (i === planData.plan.length - 1) {
+            setChatData((prev) => [
+              ...prev.filter((item) => !item.isSummarizing),
+              { role: 'ai', content: sum, isYoutubeSummary: true, youtubeLink: actionData.query }
+            ])
+          } else {
+            setChatData((prev) => prev.filter((item) => !item.isSummarizing))
+          }
         } else if (actionData.action?.startsWith('music')) {
           await handleMusic(actionData.action, actionData.query)
           if (actionData.action === 'music-next') {
@@ -317,6 +326,18 @@ export const useMarkPlan = ({
         if (uniqueSources.length > 0) {
           newAiMsg.sources = uniqueSources
         }
+        
+        // Cek apakah step terakhir adalah yt-summary
+        let lastStepAction = ''
+        if (planData.plan && planData.plan.length > 0) {
+          const lastItem = planData.plan[planData.plan.length - 1]
+          lastStepAction = typeof lastItem === 'object' ? lastItem.action : ''
+        }
+        
+        if (lastStepAction === 'yt-summary') {
+          newAiMsg.isPlanConclusion = true
+        }
+
         return [...filtered, newAiMsg]
       })
 
