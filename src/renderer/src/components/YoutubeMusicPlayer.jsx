@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 
 export const YoutubeMusicPlayer = () => {
   const { musicUrl, isPlayerOpen, setIsPlayerOpen, togglePlayer, webviewRef } = useYoutubeMusic()
   const [isReady, setIsReady] = useState(false)
+  const lastLoadedUrl = useRef(null)
 
   useEffect(() => {
     const webview = webviewRef.current
@@ -92,11 +93,9 @@ export const YoutubeMusicPlayer = () => {
 
   useEffect(() => {
     if (isReady && webviewRef.current && musicUrl) {
-      try {
-        if (webviewRef.current.getURL() === musicUrl) return; // Skip if already there
-      } catch (e) {
-        console.error('Error getting webview URL:', e)
-      }
+      if (lastLoadedUrl.current === musicUrl) return; // Mencegah double navigation
+
+      lastLoadedUrl.current = musicUrl; // Simpan status URL yang sedang diload
 
       const load = async () => {
         try {
