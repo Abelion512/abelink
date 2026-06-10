@@ -22,12 +22,14 @@ mark/
 │   └── renderer/          # React Frontend
 │       └── src/
 │           ├── api/
-│           │   ├── ai.js           # LLM integration (LM Studio, Groq & Cerebras + JSON Schema Auto-Retry)
+│           │   ├── ai/             # Modular LLM Integration (core, chat, planning, tools, utils)
 │           │   ├── db.js           # Dexie (IndexedDB) schemas & migrations
 │           │   ├── scraping.js     # Google search & deep web scraping
 │           │   └── vectorMemory.js # Vector embeddings (Transformers.js / LM Studio)
-│           ├── components/         # Reusable UI components
+│           ├── components/         # Reusable UI components (Modular Chat Bubbles)
 │           ├── contexts/           # Global states (ChatContext, YoutubeMusicContext)
+│           ├── hooks/              # Custom Hooks
+│           │   └── agent/          # Micro-Hooks system (useMarkPlan, useMarkSearch, dll)
 │           └── pages/              # Chat, Configuration UI
 ```
 
