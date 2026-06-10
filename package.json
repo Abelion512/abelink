@@ -28,6 +28,7 @@
     "axios": "^1.13.4",
     "dexie": "^4.3.0",
     "dexie-export-import": "^4.1.4",
+    "driver.js": "^1.4.0",
     "duck-duck-scrape": "^2.2.7",
     "electron-updater": "^6.3.9",
     "face-api.js": "^0.22.2",

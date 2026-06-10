@@ -3,11 +3,11 @@ import Navbar from './components/Navbar'
 import Chat from './pages/Chat'
 import Configuration from './pages/Configuration'
 import LiveAudio from './pages/LiveAudio'
-import { HashRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
 import { YoutubeMusicPlayer } from './components/YoutubeMusicPlayer'
-import { useNavigate } from 'react-router-dom'
+import { getAllConfig } from './api/db'
 
 const GlobalListener = () => {
   const navigate = useNavigate()
@@ -33,6 +33,42 @@ const GlobalListener = () => {
 }
 
 function App() {
+  const [hasConfig, setHasConfig] = useState(true)
+  const [isChecking, setIsChecking] = useState(true)
+
+  useEffect(() => {
+    const checkConfig = async () => {
+      const data = await getAllConfig()
+      if (!data || data.length === 0) {
+        setHasConfig(false)
+      } else {
+        setHasConfig(true)
+      }
+      setIsChecking(false)
+    }
+    checkConfig()
+  }, [])
+
+  if (isChecking) {
+    return (
+      <div className="h-screen w-screen bg-base-300 flex flex-col items-center justify-center gap-5">
+        <span className="loading loading-infinity w-16 text-primary"></span>
+        <p className="text-sm font-semibold tracking-[0.2em] text-white/40 uppercase animate-pulse">
+          Membangunkan Mark...
+        </p>
+      </div>
+    )
+  }
+
+  if (!hasConfig) {
+    return (
+      <Configuration 
+        isFirstSetup={true} 
+        onSetupComplete={() => setHasConfig(true)} 
+      />
+    )
+  }
+
   return (
     <YoutubeMusicProvider>
       <ChatProvider>

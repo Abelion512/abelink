@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { getAllMemory, getAllConfig, saveConfiguration, deleteMemory, db } from '../api/db'
 import { getExtractor } from '../api/vectorMemory'
+import { driver } from 'driver.js'
+import 'driver.js/dist/driver.css'
 
-const Configuration = () => {
+const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const [config, setConfig] = useState({
     personality: 'Santai layaknya seorang teman dan suka bercanda.',
     model: 'google/gemma-3-4b',
@@ -48,6 +50,50 @@ const Configuration = () => {
     loadConfig()
     loadMemories()
   }, [])
+
+  useEffect(() => {
+    if (isFirstSetup) {
+      setTimeout(() => {
+        const driverObj = driver({
+          showProgress: true,
+          animate: true,
+          nextBtnText: 'Lanjut',
+          prevBtnText: 'Kembali',
+          doneBtnText: 'Paham!',
+          steps: [
+            {
+              element: '#tour-ai-provider',
+              popover: {
+                title: 'Pilih Mesin AI',
+                description: 'Kamu bisa milih mau pakai AI lokal (gratis & privat) atau API Cloud kayak Groq buat yang lebih kencang.',
+                side: 'bottom',
+                align: 'start'
+              }
+            },
+            {
+              element: '#tour-embed-provider',
+              popover: {
+                title: 'Memori AI',
+                description: 'Ini otak memori Mark. Pilih Transformers.js kalau mau memori jalan 100% lokal tanpa ribet setup tambahan.',
+                side: 'top',
+                align: 'start'
+              }
+            },
+            {
+              element: '#tour-save-btn',
+              popover: {
+                title: 'Simpan & Mulai',
+                description: 'Kalau udah diisi semua (termasuk API key kalau pakai Cloud), klik di sini buat mulai ngobrol sama Mark!',
+                side: 'top',
+                align: 'center'
+              }
+            }
+          ]
+        })
+        driverObj.drive()
+      }, 500) // Delay sedikit biar render beres
+    }
+  }, [isFirstSetup])
 
   const loadConfig = async () => {
     const data = await getAllConfig()
@@ -95,6 +141,16 @@ const Configuration = () => {
   }
 
   const handleSaveConfiguration = async () => {
+    // Validasi API Key
+    if (config.aiProvider === 'groq' && !config.groqApiKey?.trim()) {
+      alert('Tolong isi Groq API Key terlebih dahulu untuk menggunakan provider Groq!')
+      return
+    }
+    if (config.aiProvider === 'cerebras' && !config.cerebrasApiKey?.trim()) {
+      alert('Tolong isi Cerebras API Key terlebih dahulu untuk menggunakan provider Cerebras!')
+      return
+    }
+
     if (config.embedProvider === 'transformers') {
       setIsDownloadingModel(true)
       setDownloadProgress(0)
@@ -113,6 +169,9 @@ const Configuration = () => {
       setIsDownloadingModel(false)
     }
     await saveConfiguration(config)
+    if (isFirstSetup && onSetupComplete) {
+      onSetupComplete()
+    }
   }
 
   const groupedMemories = memories.reduce((acc, mem) => {
@@ -139,8 +198,14 @@ const Configuration = () => {
       <div className="max-w-2xl mx-auto px-4 py-6 pb-24 space-y-8">
         {/* Page Header */}
         <div>
-          <h1 className="text-2xl font-bold">Setup Mark!</h1>
-          <p className="opacity-50 text-sm mt-1">Atur perilaku Mark sesuai kebutuhanmu.</p>
+          <h1 className="text-2xl font-bold">
+            {isFirstSetup ? 'Selamat Datang di Mark!' : 'Setup Mark!'}
+          </h1>
+          <p className="opacity-50 text-sm mt-1">
+            {isFirstSetup 
+              ? 'Sebelum mulai ngobrol, atur provider AI dan pengaturan dasar lainnya di bawah ini.' 
+              : 'Atur perilaku Mark sesuai kebutuhanmu.'}
+          </p>
         </div>
 
         {/* ── AI Engine & Tools ── */}
@@ -150,7 +215,7 @@ const Configuration = () => {
           </h2>
 
           {/* AI Provider Selector */}
-          <div className="space-y-1.5">
+          <div id="tour-ai-provider" className="space-y-1.5 p-2 -mx-2 rounded-lg">
             <p className="text-sm font-semibold">AI Provider</p>
             <div className="flex gap-4">
               <label className="label cursor-pointer justify-start gap-2">
@@ -240,7 +305,7 @@ const Configuration = () => {
           )}
 
           {/* Embed Provider Selector */}
-          <div className="space-y-1.5">
+          <div id="tour-embed-provider" className="space-y-1.5 p-2 -mx-2 rounded-lg">
             <p className="text-sm font-semibold">Memori Embeddings Provider</p>
             <div className="flex gap-4">
               <label className="label cursor-pointer justify-start gap-2">
@@ -275,38 +340,43 @@ const Configuration = () => {
             )}
           </div>
 
-          {/* Groq API Key */}
-          {config.aiProvider === 'groq' && (
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center">
-                <p className="text-sm font-semibold">Groq API Key (Untuk AI Chat & Voice STT)</p>
-                <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="btn btn-xs btn-outline btn-primary">
-                  Ambil API Key
-                </a>
-              </div>
-              <div className="relative w-full">
-                <input
-                  type={showGroqKey ? "text" : "password"}
-                  placeholder="Contoh: gsk_xxxxxxxxxxxxxxxxx"
-                  className="input input-bordered w-full pr-10"
-                  value={config.groqApiKey || ''}
-                  onChange={(e) => setConfig((prev) => ({ ...prev, groqApiKey: e.target.value }))}
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                  onClick={() => setShowGroqKey(!showGroqKey)}
-                  title={showGroqKey ? "Sembunyikan API Key" : "Tampilkan API Key"}
-                >
-                  {showGroqKey ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                  )}
-                </button>
-              </div>
+          {/* Groq API Key (Always visible for STT) */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center">
+              <p className="text-sm font-semibold">
+                Groq API Key {config.aiProvider !== 'groq' && '(Khusus untuk fitur Voice/STT)'}
+              </p>
+              <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="btn btn-xs btn-outline btn-primary">
+                Ambil API Key
+              </a>
             </div>
-          )}
+            <div className="relative w-full">
+              <input
+                type={showGroqKey ? "text" : "password"}
+                placeholder="Contoh: gsk_xxxxxxxxxxxxxxxxx"
+                className="input input-bordered w-full pr-10"
+                value={config.groqApiKey || ''}
+                onChange={(e) => setConfig((prev) => ({ ...prev, groqApiKey: e.target.value }))}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+                onClick={() => setShowGroqKey(!showGroqKey)}
+                title={showGroqKey ? "Sembunyikan API Key" : "Tampilkan API Key"}
+              >
+                {showGroqKey ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                )}
+              </button>
+            </div>
+            {config.aiProvider !== 'groq' && (
+              <p className="text-xs opacity-40">
+                Karena kamu memakai {config.aiProvider === 'lm-studio' ? 'LM Studio' : 'Cerebras'}, API Key Groq ini hanya akan dipakai saat kamu ngobrol via suara (Speech-to-Text).
+              </p>
+            )}
+          </div>
 
           {/* Cerebras API Key */}
           {config.aiProvider === 'cerebras' && (
@@ -485,83 +555,89 @@ const Configuration = () => {
           </div>
         </section>
 
-        <div className="divider"></div>
+        {!isFirstSetup && (
+          <>
+            <div className="divider"></div>
 
-        {/* ── Memory & Data ── */}
-        <section className="space-y-5">
-          <h2 className="text-base font-bold uppercase tracking-wider opacity-70">Memory & Data</h2>
+            {/* ── Memory & Data ── */}
+            <section className="space-y-5">
+              <h2 className="text-base font-bold uppercase tracking-wider opacity-70">Memory & Data</h2>
 
-          {/* Chat History */}
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">Chat History</p>
-            <div className="flex flex-wrap gap-2">
-              <button className="btn btn-soft btn-error btn-sm" onClick={handleClearAllChat}>
-                Hapus Semua Chat
-              </button>
-              <button className="btn btn-soft btn-info btn-sm" onClick={handleExportChat}>
-                Export Chat ke JSON
-              </button>
-            </div>
-          </div>
-
-          {/* Memory & Knowledge Base */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold">Memory & Knowledge Base</p>
-              <span className="badge badge-sm badge-outline badge-primary">
-                {memories.length} item
-              </span>
-            </div>
-
-            {loadingMemory ? (
-              <div className="flex justify-center py-10">
-                <span className="loading loading-spinner loading-md"></span>
+              {/* Chat History */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">Chat History</p>
+                <div className="flex flex-wrap gap-2">
+                  <button className="btn btn-soft btn-error btn-sm" onClick={handleClearAllChat}>
+                    Hapus Semua Chat
+                  </button>
+                  <button className="btn btn-soft btn-info btn-sm" onClick={handleExportChat}>
+                    Export Chat ke JSON
+                  </button>
+                </div>
               </div>
-            ) : memories.length === 0 ? (
-              <div className="text-center py-10 opacity-30">
-                <p className="text-sm">Belum ada memori tersimpan.</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-100 overflow-y-auto no-scrollbar">
-                {Object.entries(groupedMemories)
-                  .sort(([a], [b]) => a.localeCompare(b))
-                  .map(([type, mems]) => (
-                    <div key={type} className="collapse collapse-arrow bg-base-200 rounded-xl">
-                      <input type="checkbox" />
-                      <div className="collapse-title text-sm font-semibold min-h-0 py-3">
-                        <span
-                          className={`badge badge-xs mr-2 ${typeBadgeColor[type] || 'badge-ghost'}`}
-                        >
-                          {type}
-                        </span>
-                        <span className="opacity-40 text-xs">({mems.length})</span>
-                      </div>
-                      <div className="collapse-content space-y-1.5 px-4 pb-3">
-                        {mems.map((mem) => (
-                          <div
-                            key={mem.id}
-                            className="flex items-start justify-between gap-3 bg-base-300 rounded-lg p-3"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-bold text-primary truncate">{mem.key}</p>
-                              <p className="text-xs opacity-60 mt-0.5 line-clamp-2">{mem.memory}</p>
-                            </div>
-                            <button
-                              className="btn btn-ghost btn-xs text-error shrink-0"
-                              onClick={() => handleDeleteMemory(mem)}
-                              title="Hapus memori ini"
+
+              {/* Memory & Knowledge Base */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">Memory & Knowledge Base</p>
+                  <span className="badge badge-sm badge-outline badge-primary">
+                    {memories.length} item
+                  </span>
+                </div>
+
+                {loadingMemory ? (
+                  <div className="flex justify-center py-10">
+                    <span className="loading loading-spinner loading-md"></span>
+                  </div>
+                ) : memories.length === 0 ? (
+                  <div className="text-center py-10 opacity-30">
+                    <p className="text-sm">Belum ada memori tersimpan.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-100 overflow-y-auto no-scrollbar">
+                    {Object.entries(groupedMemories)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([type, mems]) => (
+                        <div key={type} className="collapse collapse-arrow bg-base-200 rounded-xl">
+                          <input type="checkbox" />
+                          <div className="collapse-title text-sm font-semibold min-h-0 py-3">
+                            <span
+                              className={`badge badge-xs mr-2 ${typeBadgeColor[type] || 'badge-ghost'}`}
                             >
-                              ✕
-                            </button>
+                              {type}
+                            </span>
+                            <span className="opacity-40 text-xs">({mems.length})</span>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                          <div className="collapse-content space-y-1.5 px-4 pb-3">
+                            {mems.map((mem) => (
+                              <div
+                                key={mem.id}
+                                className="bg-base-300 p-2.5 rounded-lg flex justify-between items-start gap-3"
+                              >
+                                <div>
+                                  <p className="text-sm font-medium">{mem.key}</p>
+                                  <p className="text-xs opacity-60 mt-0.5 leading-relaxed">
+                                    {mem.summary || mem.memory}
+                                  </p>
+                                </div>
+                                <button
+                                  className="btn btn-ghost btn-xs text-error shrink-0"
+                                  onClick={() => handleDeleteMemory(mem)}
+                                  title="Hapus memori ini"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </section>
+            </section>
+          </>
+        )}
 
         <div className="flex flex-col items-end pt-2">
           {isDownloadingModel && (
@@ -574,11 +650,16 @@ const Configuration = () => {
             </div>
           )}
           <button
+            id="tour-save-btn"
             onClick={handleSaveConfiguration}
             disabled={isDownloadingModel}
             className="btn btn-primary px-8"
           >
-            {isDownloadingModel ? 'Menyimpan...' : 'Simpan Pengaturan'}
+            {isDownloadingModel 
+              ? 'Menyimpan...' 
+              : isFirstSetup 
+                ? 'Simpan & Mulai Gunakan Mark' 
+                : 'Simpan Pengaturan'}
           </button>
         </div>
       </div>

@@ -3,6 +3,8 @@ import { useChat } from '../contexts/ChatContext'
 import { useRef, useEffect } from 'react'
 import DotGrid from '../components/DotGrid'
 import icon from '../assets/icon.svg'
+import { driver } from 'driver.js'
+import 'driver.js/dist/driver.css'
 
 const Chat = () => {
   const {
@@ -27,6 +29,58 @@ const Chat = () => {
   useEffect(() => {
     scrollToBottom()
   }, [chatData])
+
+  useEffect(() => {
+    // Cek apakah user baru pertama kali masuk halaman Chat
+    const hasSeenTour = localStorage.getItem('mark_has_seen_chat_tour')
+    if (!hasSeenTour) {
+      setTimeout(() => {
+        const driverObj = driver({
+          showProgress: true,
+          animate: true,
+          nextBtnText: 'Lanjut',
+          prevBtnText: 'Kembali',
+          doneBtnText: 'Mulai Ngobrol!',
+          steps: [
+            {
+              element: '#tour-chat-input',
+              popover: {
+                title: 'Tanya Apapun!',
+                description: 'Ketik pesan, tugas, atau pertanyaanmu di sini. Mark siap membantu.',
+                side: 'top',
+                align: 'start'
+              }
+            },
+            {
+              element: '#tour-voice-btn',
+              popover: {
+                title: 'Live Audio Mode',
+                description: 'Lagi malas ngetik? Aktifin mode ini buat ngobrol langsung pakai suara kayak teleponan!',
+                side: 'top',
+                align: 'center'
+              }
+            },
+            {
+              element: '#tour-tools-menu',
+              popover: {
+                title: 'Tools & Integrasi',
+                description: 'Mark udah otomatis mikir sendiri (Agentic Planning). Tapi di sini kamu bisa nyalain tool spesifik kayak YouTube Summary.',
+                side: 'top',
+                align: 'end'
+              }
+            }
+          ],
+          onDestroyStarted: () => {
+            if (!driverObj.hasNextStep() || confirm('Yakin mau skip tutorial ini?')) {
+              localStorage.setItem('mark_has_seen_chat_tour', 'true')
+              driverObj.destroy()
+            }
+          }
+        })
+        driverObj.drive()
+      }, 1000) // Kasih jeda dikit biar rendering selesai
+    }
+  }, [])
 
   return (
     <div className="relative w-full h-full flex flex-col items-center justify-end overflow-hidden">
@@ -96,6 +150,7 @@ const Chat = () => {
         className="relative z-10 w-[70%] lg:w-1/2 mb-6 p-4 rounded-2xl flex flex-col gap-3 bg-base-200/60 backdrop-blur-xl border border-white/5 shadow-lg"
       >
         <textarea
+          id="tour-chat-input"
           value={message}
           disabled={isLoading}
           onKeyDown={(e) => {
@@ -112,6 +167,7 @@ const Chat = () => {
         <div className="w-full flex justify-between items-center">
           <div className="flex flex-wrap gap-2">
             <button
+              id="tour-voice-btn"
               type="button"
               className={`btn btn-sm gap-1.5 text-lg btn-circle ${isSpeak ? 'btn-primary' : 'btn-ghost opacity-60 hover:opacity-100'}`}
               onClick={() => {
@@ -139,7 +195,7 @@ const Chat = () => {
                 />
               </svg>
             </button>
-            <div className="dropdown dropdown-top">
+            <div className="dropdown dropdown-top" id="tour-tools-menu">
               <div
                 tabIndex={0}
                 role="button"
