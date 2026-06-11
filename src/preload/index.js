@@ -10,7 +10,14 @@ const api = {
   searchMusic: (query) => ipcRenderer.invoke('search-music', query),
   textToSpeech: (text, rate, pitch) => ipcRenderer.invoke('tts-speak', text, rate, pitch),
   onLiveAudioShortcut: (callback) => ipcRenderer.on('trigger-live-audio', () => callback()),
-  removeLiveAudioShortcut: () => ipcRenderer.removeAllListeners('trigger-live-audio')
+  removeLiveAudioShortcut: () => ipcRenderer.removeAllListeners('trigger-live-audio'),
+  getPreloadPath: (filename) => {
+    const path = require('path')
+    const url = require('url')
+    return url.pathToFileURL(path.join(__dirname, filename)).href
+  },
+  onWaNewMessage: (callback) => ipcRenderer.on('wa-new-message-forward', (event, data) => callback(data)),
+  sendWaReply: (text) => ipcRenderer.send('wa-send-reply', text)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
