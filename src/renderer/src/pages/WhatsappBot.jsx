@@ -7,12 +7,14 @@ import Drawer from '../components/Drawer'
 export default function WhatsappBot() {
   const ytMusic = useYoutubeMusic()
   const webviewRef = useRef(null)
+  const searchWebviewRef = useRef(null)
   
   const {
     isThinking,
     currentSender,
-    history
-  } = useWhatsappBot(webviewRef, ytMusic)
+    history,
+    searchQuery
+  } = useWhatsappBot(webviewRef, ytMusic, searchWebviewRef)
 
   return (
     <div className="flex flex-col h-full w-full bg-base-100 overflow-hidden relative">
@@ -55,8 +57,6 @@ export default function WhatsappBot() {
             className="w-full h-full border-none"
             webpreferences="contextIsolation=no, nodeIntegration=yes"
           ></webview>
-            
-            {/* Overlay peringatan mode preview dihapus sementara biar bisa klik manual */}
           </div>
 
           {/* Riwayat Balasan (Kanan) */}
@@ -69,7 +69,7 @@ export default function WhatsappBot() {
               <p className="text-xs text-base-content/60 mt-1">Log aktivitas Mark membalas pesan.</p>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 relative">
               {history.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-base-content/40">
                   <FaRobot className="text-4xl mb-3 opacity-20" />
@@ -83,7 +83,10 @@ export default function WhatsappBot() {
                         <span className="font-bold text-primary flex items-center gap-1">
                           <FaPaperPlane size={12} /> {log.to}
                         </span>
-                        <span className="text-xs opacity-50">{log.time}</span>
+                        <div className="flex items-center gap-2">
+                          {log.isWebSearch && <span className="badge badge-outline badge-primary text-[10px]">Web Search</span>}
+                          <span className="text-xs opacity-50">{log.time}</span>
+                        </div>
                       </div>
                       <div className="bg-base-300 p-2 rounded-md mb-2 border-l-2 border-base-content/20 italic">
                         <span className="opacity-70 line-clamp-2">"{log.msg}"</span>
@@ -98,8 +101,15 @@ export default function WhatsappBot() {
               )}
             </div>
           </div>
-
         </div>
-      </div>
+
+        {/* Headless Webview for Web Search Scraping */}
+        <webview
+            ref={searchWebviewRef}
+            src="about:blank"
+            className="w-0 h-0 opacity-0 pointer-events-none absolute"
+            useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        />
+        </div>
   )
 }

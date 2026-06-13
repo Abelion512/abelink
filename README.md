@@ -10,10 +10,15 @@
 - **Provider AI Ganda (Hybrid):** Anda bebas memilih! Gunakan **AI Lokal** (berjalan langsung di laptop tanpa butuh internet) untuk privasi 100%, atau beralih ke **AI Cloud** untuk kecepatan respons yang kilat. Sistem ini juga cukup pintar untuk membagi tugas-tugas berat di latar belakang ke internet agar laptop Anda tidak menjadi lambat.
 - **Berpikir dan Bertindak Mandiri:** Mark bukan sekadar robot obrolan biasa. Jika Anda memberikan tugas yang rumit, Mark bisa menyusun rencana langkah demi langkah dan mengeksekusinya sendiri secara otomatis (misalnya: mencari data di internet, membacanya, lalu merangkumnya untuk Anda).
 - **Smart AI:** Layaknya asisten manusia sungguhan, Mark diam-diam mempelajari dan mengingat preferensi, jadwal, serta kebiasaan Anda dari obrolan sehari-hari. Semua "ingatan" ini disimpan secara super aman **di dalam laptop Anda sendiri**, bukan di server milik perusahaan lain.
-- **Fitur Lengkap Bawaan:** Mark sudah tersambung langsung dengan berbagai kemampuan canggih. Ia bisa menelusuri internet secara mendalam, memutar lagu favorit Anda dari YouTube Music, merangkum video panjang secara otomatis, hingga diajak mengobrol langsung menggunakan suara (*Voice-to-Voice*).
 
-- **Otomatisasi WhatsApp (WhatsApp Bot):** Mark dapat bertindak sebagai bot asisten pribadi di WhatsApp Anda. Dilengkapi kesadaran konteks percakapan (*Context Awareness*), Mark bisa membaca riwayat obrolan, mendeteksi penyebutan (*mention*) di grup, hingga mengontrol pemutar musik di laptop langsung lewat perintah WhatsApp.
+## Tools
 
+Mark sudah tersambung langsung dengan berbagai kemampuan canggih yang memungkinkannya bertindak jauh melebihi sekadar *chatbot* teks:
+- **Pencarian Web Mendalam (*Deep Web Search*):** Mark bisa menjelajahi internet secara mandiri untuk meriset topik dan menyajikan rangkuman akurat beserta sumber (*citations*).
+- **Peringkas YouTube (*YouTube Summarizer*):** Cukup berikan tautan video YouTube, Mark akan secara otomatis menarik transkrip, memecah (*chunking*) teks, dan memberikan kesimpulan padat.
+- **Pemutar Musik YouTube:** Terintegrasi dengan YouTube Music (bebas iklan), Mark dapat dikendalikan untuk mencari dan memutar lagu favorit Anda langsung dari antarmuka obrolan.
+- **Bot WhatsApp Pribadi:** Mark dapat bertindak sebagai asisten pribadi cerdas langsung di WhatsApp Web Anda (berjalan tanpa henti di latar belakang dengan optimasi memori anti-lag *Zero-Preload*). Mark bisa membaca riwayat obrolan secara adaptif, membalas panggilan (*mention*) di grup, melakukan pencarian web rahasia (*headless web search*), hingga mengontrol pemutar musik laptop Anda langsung lewat pesan chat!
+- **Suara & Audio (*Voice-to-Voice*):** Mark bisa diajak mengobrol secara langsung menggunakan mikrofon (menggunakan Groq Whisper STT) dan ia akan membalas dengan suara yang natural (didukung oleh Edge-TTS).
 ## Arsitektur Proyek
 
 ```text
@@ -104,15 +109,6 @@ Hasil *file* installer (`.exe`) akan tersedia secara otomatis di dalam folder `d
 - [ ] Ekspor/Impor Memori: Fitur cadangan (*backup*) & pemulihan memori pengguna
 - [ ] Alat Khusus (Code Interpreter): Fitur yang memungkinkan AI menjalankan kode program (*script*) secara dinamis, memberikan kebebasan tanpa batas.
 - [ ] Templat Perintah (Prompt Templates): Fitur untuk menyimpan perintah panjang atau persona khusus (misal: "spesialis marketing"). Pengguna cukup mengetik `@nama-template` di kolom obrolan.
-
-## Changelog (Terbaru)
-
-**v1.2.0**
-- ✨ **Otomatisasi WhatsApp Bot**: Mark kini bisa dihubungkan langsung ke WhatsApp Web sebagai *personal assistant* yang berjalan di latar belakang! Fitur ini bisa membalas obrolan pribadi & grup dengan *context-awareness* (membaca riwayat 4 pesan terakhir), hingga kemampuan memutar lagu di PC langsung dari perintah chat WhatsApp!
-- 🛠️ **Refactor Arsitektur Webview (Zero-Preload)**: Seluruh logika penyadapan dan injeksi DOM WhatsApp telah dipindahkan ke pendekatan React murni menggunakan *custom hooks* (`useWhatsappBot`) dan `executeJavaScript`. Beban memori (*Memory Leak*) dari `wa-preload.js` berhasil dihilangkan sepenuhnya, membuat performa jauh lebih ringan dan antarmuka anti-beku (*freeze-free*).
-
-**v1.1.0**
-- ✨ **Otomatisasi YouTube Summary**: Fitur `yt-summary` kini berjalan sepenuhnya secara otomatis dan mandiri (Agentic). Mark bisa langsung menelusuri, mengekstrak, memecah (chunking) transkrip, hingga menyimpulkan isi video YouTube ke dalam *Plan Conclusion* yang rapi tanpa perlu instruksi lanjutan.
 
 ## Lisensi
 

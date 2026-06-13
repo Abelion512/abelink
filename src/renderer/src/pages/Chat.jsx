@@ -59,6 +59,15 @@ const Chat = () => {
                 side: 'top',
                 align: 'center'
               }
+            },
+            {
+              element: '#tour-drawer-btn',
+              popover: {
+                title: 'Menu Navigasi & Konfigurasi',
+                description: 'Buka menu ini untuk mengakses WhatsApp Bot dan Konfigurasi. Jangan lupa isi "Nama Admin WhatsApp" di Konfigurasi agar fitur pengontrol Musik via WA bisa berfungsi!',
+                side: 'bottom',
+                align: 'start'
+              }
             }
           ],
           onDestroyStarted: () => {

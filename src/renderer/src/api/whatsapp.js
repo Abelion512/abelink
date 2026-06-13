@@ -48,18 +48,51 @@ export const extractLatestMessage = async (webviewRef) => {
         const messageBlocks = document.querySelectorAll('[data-pre-plain-text]') || document.querySelectorAll('.message-in, .message-out');
         if (messageBlocks.length === 0) return null;
 
-        const lastMessageBlock = messageBlocks[messageBlocks.length - 1];
+        let lastMessageBlock = messageBlocks[messageBlocks.length - 1];
+        let isOutgoing = true;
+
+        for (let i = messageBlocks.length - 1; i >= 0; i--) {
+          const block = messageBlocks[i];
+          const out = block.closest('.message-out') !== null ||
+                      (block.getAttribute('data-pre-plain-text') || '').toLowerCase().includes('anda:');
+          
+          if (!out) {
+            lastMessageBlock = block;
+            isOutgoing = false;
+            break;
+          }
+        }
+
         const preText = lastMessageBlock.getAttribute('data-pre-plain-text') || '';
-        const textElement = lastMessageBlock.querySelector('span[data-testid="selectable-text"]') || lastMessageBlock.querySelector('.copyable-text') || lastMessageBlock.querySelector('span[dir="ltr"]');
-        const text = textElement ? textElement.innerText.trim() : '[Media/Sticker]';
         
-        if (!text) return null;
+        let text = '';
+        try {
+          const clone = lastMessageBlock.cloneNode(true);
+          
+          // Hapus blok quote agar tidak ikut terbaca
+          const quotedEls = clone.querySelectorAll('[data-testid="quoted-message"], div[aria-label="Quoted message"]');
+          quotedEls.forEach(el => el.remove());
+          
+          // Hapus waktu di pojok kanan bawah agar tidak bocor ke teks
+          const timeEls = clone.querySelectorAll('span[dir="auto"].l7jjieqr, div[data-testid="msg-meta"]');
+          timeEls.forEach(el => el.remove());
+
+          // Hapus nama pengirim di grup agar tidak bocor
+          const senderNameEls = clone.querySelectorAll('div[data-testid="author"]');
+          senderNameEls.forEach(el => el.remove());
+
+          // Ambil elemen teks utama
+          const textContainer = clone.querySelector('span.selectable-text') || clone.querySelector('.copyable-text') || clone;
+          text = textContainer.textContent.trim();
+        } catch (e) {
+          console.error('Gagal ekstrak teks:', e);
+        }
+        
+        if (!text) {
+           text = '[Media/Sticker]';
+        }
         
         const currentMessageId = preText + text;
-
-        const isOutgoing = lastMessageBlock.closest('[data-testid^="conv-msg-"]')?.querySelector('[data-testid="tail-out"]') !== null ||
-                           lastMessageBlock.closest('[data-testid^="conv-msg-"]')?.querySelector('svg title')?.textContent.toLowerCase().includes('read') ||
-                           lastMessageBlock.className.includes('message-out');
 
         let sender = 'Teman';
         if (preText) {
@@ -83,17 +116,36 @@ export const extractLatestMessage = async (webviewRef) => {
         const chatTitleElement = document.querySelector('[data-testid="conversation-info-header-chat-title"]') || document.querySelector('header span[dir="auto"]');
         const chatTitle = chatTitleElement ? chatTitleElement.innerText.trim() : sender;
 
-        const isGroup = (sender !== chatTitle && chatTitle !== 'Teman');
+        let isGroup = false;
+        const subtitleEl = document.querySelector('header span[title]') || document.querySelector('header .enqfvcbf');
+        if (subtitleEl) {
+          const subText = subtitleEl.innerText.toLowerCase();
+          if (subText.includes(',') || subText.includes('klik') || subText.includes('click') || subText.includes('anggota') || subText.includes('members')) {
+            isGroup = true;
+          }
+        }
+        if (!isGroup) {
+          isGroup = (sender !== chatTitle && chatTitle !== 'Teman' && !chatTitle.includes(sender) && !sender.includes(chatTitle));
+        }
 
         // Ekstrak 4 pesan terakhir sebagai konteks
         const recentHistory = [];
         const recentBlocks = Array.from(messageBlocks).slice(-4);
         for (let block of recentBlocks) {
           const bPreText = block.getAttribute('data-pre-plain-text') || '';
-          const bTextEl = block.querySelector('span[data-testid="selectable-text"]') || block.querySelector('.copyable-text') || block.querySelector('span[dir="ltr"]');
-          const bText = bTextEl ? bTextEl.innerText.trim() : '[Media/Sticker]';
-          
-          if (!bText) continue;
+          let bText = '';
+          try {
+            const clone = block.cloneNode(true);
+            const qEls = clone.querySelectorAll('[data-testid="quoted-message"], div[aria-label="Quoted message"]');
+            qEls.forEach(el => el.remove());
+            const tEls = clone.querySelectorAll('span[dir="auto"].l7jjieqr, div[data-testid="msg-meta"]');
+            tEls.forEach(el => el.remove());
+            const sEls = clone.querySelectorAll('div[data-testid="author"]');
+            sEls.forEach(el => el.remove());
+            const txtCont = clone.querySelector('span.selectable-text') || clone.querySelector('.copyable-text') || clone;
+            bText = txtCont.textContent.trim();
+          } catch (e) { }
+          if (!bText) bText = '[Media/Sticker]';
           
           let bSender = 'Teman';
           if (bPreText) {
@@ -101,10 +153,7 @@ export const extractLatestMessage = async (webviewRef) => {
             if (match && match[1]) bSender = match[1].trim();
           }
           
-          const isBOutgoing = block.closest('[data-testid^="conv-msg-"]')?.querySelector('[data-testid="tail-out"]') !== null ||
-                             block.closest('[data-testid^="conv-msg-"]')?.querySelector('svg title')?.textContent.toLowerCase().includes('read') ||
-                             block.className.includes('message-out') || bSender === 'Anda';
-                             
+          const isBOutgoing = block.closest('.message-out') !== null || bSender === 'Anda' || bPreText.toLowerCase().includes('anda:');
           if (isBOutgoing) bSender = 'Mark (Kamu)';
           
           recentHistory.push({ sender: bSender, text: bText });

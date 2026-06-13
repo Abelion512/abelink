@@ -16,7 +16,8 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     aiProvider: 'lm-studio',
     groqModel: 'llama-3.1-8b-instant',
     embedProvider: 'lm-studio',
-    lmStudioEmbedModel: 'embeddinggemma-300m-qat'
+    lmStudioEmbedModel: 'embeddinggemma-300m-qat',
+    waAdminName: 'My Developer'
   })
   const [memories, setMemories] = useState([])
   const [loadingMemory, setLoadingMemory] = useState(true)
@@ -610,6 +611,27 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               *Klik untuk mendengar suara Mark dengan settingan di atas tanpa perlu simpan dulu.
             </p>
           </div>
+          </div>
+        </section>
+
+        <div className="divider"></div>
+
+        {/* ── WhatsApp Settings ── */}
+        <section className="space-y-5">
+          <h2 className="text-base font-bold uppercase tracking-wider opacity-70">WhatsApp Bot Settings</h2>
+
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">Nama Kontak Admin (Akses Tool Musik)</p>
+            <input
+              type="text"
+              placeholder="Contoh: My Developer"
+              className="input input-bordered w-full text-sm"
+              value={config.waAdminName || ''}
+              onChange={(e) => setConfig((prev) => ({ ...prev, waAdminName: e.target.value }))}
+            />
+            <p className="text-[10px] opacity-50 mt-1">
+              Mark hanya akan mematuhi perintah memutar musik dari kontak WhatsApp dengan nama ini (Harus sama persis dengan nama kontak di HP-mu).
+            </p>
           </div>
         </section>
 
