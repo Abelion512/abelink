@@ -17,7 +17,10 @@ const api = {
     return url.pathToFileURL(path.join(__dirname, filename)).href
   },
   onWaNewMessage: (callback) => ipcRenderer.on('wa-new-message-forward', (event, data) => callback(data)),
-  sendWaReply: (text) => ipcRenderer.send('wa-send-reply', text)
+  sendWaReply: (text) => ipcRenderer.send('wa-send-reply', text),
+  openWhatsappWindow: () => ipcRenderer.send('open-whatsapp-window'),
+  sendRemoteMusicCommand: (command, payload) => ipcRenderer.send('remote-music-command', command, payload),
+  onExecuteMusicCommand: (callback) => ipcRenderer.on('execute-music-command', (event, command, payload) => callback(command, payload))
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

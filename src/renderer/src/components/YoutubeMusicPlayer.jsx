@@ -2,9 +2,20 @@ import { useEffect, useState, useRef } from 'react'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 
 export const YoutubeMusicPlayer = () => {
-  const { musicUrl, isPlayerOpen, setIsPlayerOpen, togglePlayer, webviewRef } = useYoutubeMusic()
+  const { musicUrl, isPlayerOpen, setIsPlayerOpen, togglePlayer, webviewRef, playUrl, nextTrack, prevTrack, playPause } = useYoutubeMusic()
   const [isReady, setIsReady] = useState(false)
   const lastLoadedUrl = useRef(null)
+
+  useEffect(() => {
+    if (window.api?.onExecuteMusicCommand) {
+      window.api.onExecuteMusicCommand((command, payload) => {
+        if (command === 'play' && payload) playUrl(payload)
+        else if (command === 'next') nextTrack()
+        else if (command === 'prev') prevTrack()
+        else if (command === 'toggle') playPause()
+      })
+    }
+  }, [playUrl, nextTrack, prevTrack, playPause])
 
   useEffect(() => {
     const webview = webviewRef.current

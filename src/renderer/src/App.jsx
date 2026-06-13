@@ -70,14 +70,16 @@ function App() {
     )
   }
 
+  const isStandalone = window.location.hash.includes('whatsapp-bot')
+
   return (
     <YoutubeMusicProvider>
       <ChatProvider>
         <HashRouter>
           <GlobalListener />
-          <div className="h-screen flex flex-col">
-            <Navbar />
-            <div className="h-[calc(100vh-4rem)] mt-16">
+          <div className="h-screen flex flex-col overflow-hidden">
+            {!isStandalone && <Navbar />}
+            <div className={!isStandalone ? "h-[calc(100vh-4rem)] mt-16" : "h-screen w-full"}>
               <Routes>
                 <Route path="/" element={<Chat />} />
                 <Route path="/config" element={<Configuration />} />
@@ -86,7 +88,7 @@ function App() {
               </Routes>
             </div>
           </div>
-          <YoutubeMusicPlayer />
+          {!isStandalone && <YoutubeMusicPlayer />}
         </HashRouter>
       </ChatProvider>
     </YoutubeMusicProvider>

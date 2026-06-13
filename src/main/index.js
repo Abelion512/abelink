@@ -72,6 +72,58 @@ function createWindow() {
   })
 }
 
+let whatsappWindow = null
+
+function openWhatsappWindow() {
+  if (whatsappWindow) {
+    if (whatsappWindow.isMinimized()) whatsappWindow.restore()
+    whatsappWindow.show()
+    whatsappWindow.focus()
+    return
+  }
+  
+  whatsappWindow = new BrowserWindow({
+    width: 1000,
+    height: 700,
+    show: true,
+    autoHideMenuBar: true,
+    icon: icon,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      webviewTag: true,
+      sandbox: false,
+      webSecurity: false
+    }
+  })
+
+  // Buka rute khusus whatsapp-bot
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    whatsappWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#/whatsapp-bot')
+  } else {
+    whatsappWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/whatsapp-bot' })
+  }
+
+  // Sembunyikan window saat disilang (masuk tray)
+  whatsappWindow.on('close', function (event) {
+    if (!isQuiting) {
+      event.preventDefault()
+      whatsappWindow.hide()
+    }
+  })
+
+  whatsappWindow.on('closed', () => {
+    whatsappWindow = null
+  })
+}
+
+ipcMain.on('open-whatsapp-window', () => openWhatsappWindow())
+
+ipcMain.on('remote-music-command', (event, command, payload) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('execute-music-command', command, payload)
+  }
+})
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -118,6 +170,16 @@ app.whenReady().then(async () => {
     
     const contextMenu = Menu.buildFromTemplate([
       { label: 'Buka Mark', click: () => mainWindow.show() },
+      { label: 'Buka WhatsApp Bot', click: () => openWhatsappWindow() },
+      { 
+        label: 'Matikan WhatsApp Bot', 
+        click: () => {
+          if (whatsappWindow) {
+            whatsappWindow.destroy()
+            whatsappWindow = null
+          }
+        }
+      },
       { 
         label: 'Ngobrol Sekarang (Live Audio)', 
         click: () => {

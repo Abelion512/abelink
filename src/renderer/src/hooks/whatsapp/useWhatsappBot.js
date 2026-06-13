@@ -118,19 +118,32 @@ Output WAJIB berupa JSON yang valid dengan struktur:
           if (action.startsWith('music-')) {
             if (sender === adminName) {
               console.log('[Mark WhatsApp Bridge] Mengeksekusi Tool Musik:', response.command)
+              
+              const isStandalone = window.location.hash.includes('whatsapp-bot')
+              
               if (action === 'music-play' && response.command.query) {
                 replyText = `Merespons perintah musik: Memutar lagu "${response.command.query}" di sistem laptop... 🎵\n\n${replyText}`
                 window.api.searchMusic(response.command.query).then(music => {
-                  if (music && music.length > 0) ytMusic.playUrl(`https://music.youtube.com/watch?v=${music[0].id}`)
+                  if (music && music.length > 0) {
+                    const url = `https://music.youtube.com/watch?v=${music[0].id}`
+                    if (isStandalone && window.api.sendRemoteMusicCommand) {
+                      window.api.sendRemoteMusicCommand('play', url)
+                    } else {
+                      ytMusic.playUrl(url)
+                    }
+                  }
                 }).catch(e => console.error("Gagal cari musik:", e))
               } else if (action === 'music-next') {
-                ytMusic.nextTrack()
+                if (isStandalone && window.api.sendRemoteMusicCommand) window.api.sendRemoteMusicCommand('next')
+                else ytMusic.nextTrack()
                 replyText = `Sip, lagu dilanjut (next track) di laptop! ⏭️\n\n${replyText}`
               } else if (action === 'music-prev') {
-                ytMusic.prevTrack()
+                if (isStandalone && window.api.sendRemoteMusicCommand) window.api.sendRemoteMusicCommand('prev')
+                else ytMusic.prevTrack()
                 replyText = `Oke, balik ke lagu sebelumnya ya! ⏮️\n\n${replyText}`
               } else if (action === 'music-toggle') {
-                ytMusic.playPause()
+                if (isStandalone && window.api.sendRemoteMusicCommand) window.api.sendRemoteMusicCommand('toggle')
+                else ytMusic.playPause()
                 replyText = `Siap bos, lagu di-pause/play! ⏯️\n\n${replyText}`
               }
             } else {
