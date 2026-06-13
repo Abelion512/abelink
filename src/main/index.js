@@ -40,7 +40,8 @@ function createWindow() {
       preload: join(__dirname, '../preload/index.js'),
       webviewTag: true,
       sandbox: false,
-      webSecurity: false
+      webSecurity: false,
+      backgroundThrottling: false
     }
   })
 
@@ -74,25 +75,28 @@ function createWindow() {
 
 let whatsappWindow = null
 
-function openWhatsappWindow() {
+function openWhatsappWindow(startHidden = false) {
   if (whatsappWindow) {
     if (whatsappWindow.isMinimized()) whatsappWindow.restore()
-    whatsappWindow.show()
-    whatsappWindow.focus()
+    if (!startHidden) {
+      whatsappWindow.show()
+      whatsappWindow.focus()
+    }
     return
   }
   
   whatsappWindow = new BrowserWindow({
     width: 1000,
     height: 700,
-    show: true,
+    show: !startHidden,
     autoHideMenuBar: true,
     icon: icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       webviewTag: true,
       sandbox: false,
-      webSecurity: false
+      webSecurity: false,
+      backgroundThrottling: false
     }
   })
 
@@ -160,6 +164,9 @@ app.whenReady().then(async () => {
 
   setupYoutubeFix()
   createWindow()
+  
+  // Langsung jalankan WhatsApp Bot di background secara rahasia (Tray Mode) saat aplikasi utama dibuka
+  openWhatsappWindow(true)
 
   // Setup System Tray
   // Cara paling aman dan ampuh di Windows: Ekstrak icon 16x16 langsung dari file .exe aplikasi!

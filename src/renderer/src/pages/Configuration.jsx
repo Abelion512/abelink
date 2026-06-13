@@ -134,6 +134,15 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               }
             },
             {
+              element: '#tour-wa-admin',
+              popover: {
+                title: '8. WhatsApp Admin (Penting!)',
+                description: 'Isi bagian ini dengan namamu (persis seperti nama kontakmu di HP). Mark cuma bakal nurut perintah muterin musik dari admin ini!',
+                side: 'top',
+                align: 'start'
+              }
+            },
+            {
               element: '#tour-save-btn',
               popover: {
                 title: 'Simpan & Mulai',
@@ -617,7 +626,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
         <div className="divider"></div>
 
         {/* ── WhatsApp Settings ── */}
-        <section className="space-y-5">
+        <section id="tour-wa-admin" className="space-y-5 p-2 -mx-2 rounded-lg">
           <h2 className="text-base font-bold uppercase tracking-wider opacity-70">WhatsApp Bot Settings</h2>
 
           <div className="space-y-2">
