@@ -51,7 +51,7 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    // mainWindow.webContents.openDevTools()
+    mainWindow.webContents.openDevTools()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -77,63 +77,26 @@ function createWindow() {
   })
 }
 
-let whatsappWindow = null
+// Removed old WA logic
 
-function openWhatsappWindow() {
-  if (whatsappWindow) {
-    if (whatsappWindow.isMinimized()) whatsappWindow.restore()
-    whatsappWindow.show()
-    whatsappWindow.focus()
-    return
-  }
-
-  whatsappWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
-    show: true,
-    autoHideMenuBar: true,
-    icon: icon,
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      webviewTag: true,
-      sandbox: false,
-      webSecurity: false,
-      backgroundThrottling: false
-    }
-  })
-
-  // Buka rute khusus whatsapp-bot
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    whatsappWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#/whatsapp-bot')
-  } else {
-    whatsappWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/whatsapp-bot' })
-  }
-
-  // Sembunyikan window saat disilang (masuk tray)
-  whatsappWindow.on('close', function (event) {
-    if (!isQuiting) {
-      event.preventDefault()
-      whatsappWindow.hide()
-    }
-  })
-
-  whatsappWindow.on('closed', () => {
-    whatsappWindow = null
-  })
-}
-
-ipcMain.on('wa-ready-to-hide', () => {
-  if (whatsappWindow && !whatsappWindow.isDestroyed()) {
-    console.log('[Main] WhatsApp Web is ready. Hiding window to tray.')
-    whatsappWindow.hide()
-  }
-})
-
-ipcMain.on('open-whatsapp-window', () => openWhatsappWindow())
 
 ipcMain.on('remote-music-command', (event, command, payload) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('execute-music-command', command, payload)
+  }
+})
+
+import { fetchAI, setGlobalConfig } from './ai-bridge.js'
+
+ipcMain.on('sync-config', (event, config) => {
+  setGlobalConfig(config)
+})
+
+ipcMain.handle('ai:fetch', async (event, { messages, config, isSmallTask, jsonSchema }) => {
+  try {
+    return await fetchAI(messages, config, isSmallTask, jsonSchema)
+  } catch (error) {
+    return { error: { message: error.message, code: error.code } }
   }
 })
 
@@ -161,6 +124,13 @@ app.on('second-instance', (event, commandLine, workingDirectory) => {
   }
 })
 
+import { startWhatsappBot, stopWhatsappBot, getConnectionStatus, logoutWhatsapp } from './whatsapp/baileys-service.js'
+
+ipcMain.on('wa:start', () => startWhatsappBot(mainWindow))
+ipcMain.on('wa:stop', () => stopWhatsappBot())
+ipcMain.handle('wa:get-status', () => getConnectionStatus())
+ipcMain.handle('wa:logout', async () => await logoutWhatsapp())
+
 app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.mark.agent')
@@ -175,7 +145,7 @@ app.whenReady().then(async () => {
   createWindow()
   
   // Langsung jalankan WhatsApp Bot di background secara rahasia (Tray Mode) saat aplikasi utama dibuka
-  openWhatsappWindow(true)
+  startWhatsappBot(mainWindow)
 
   // Setup System Tray
   // Cara paling aman dan ampuh di Windows: Ekstrak icon 16x16 langsung dari file .exe aplikasi!
@@ -186,14 +156,11 @@ app.whenReady().then(async () => {
     
     const contextMenu = Menu.buildFromTemplate([
       { label: 'Buka Mark', click: () => mainWindow.show() },
-      { label: 'Buka WhatsApp Bot', click: () => openWhatsappWindow() },
+      { label: 'Monitor WhatsApp', click: () => { mainWindow.show(); mainWindow.webContents.send('navigate', '/whatsapp-bot') } },
       { 
         label: 'Matikan WhatsApp Bot', 
         click: () => {
-          if (whatsappWindow) {
-            whatsappWindow.destroy()
-            whatsappWindow = null
-          }
+          stopWhatsappBot()
         }
       },
       { 

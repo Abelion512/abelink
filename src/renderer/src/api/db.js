@@ -127,6 +127,9 @@ export async function getAllConfig() {
 export async function saveConfiguration(data) {
   try {
     await db.config.put({ ...data, id: 1 })
+    if (window.api && window.api.syncConfig) {
+      window.api.syncConfig(data)
+    }
     console.log('Configuration saved:', data)
   } catch (error) {
     console.error('Error in saveConfiguration logic:', error)

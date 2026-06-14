@@ -25,6 +25,10 @@ Mark sudah tersambung langsung dengan berbagai kemampuan canggih yang memungkink
 mark/
 ├── src/
 │   ├── main/              # Proses Utama Electron (Manajemen Jendela, IPC, Suara TTS, Tray)
+│   │   ├── whatsapp/      # Layanan WhatsApp Native WebSocket (@whiskeysockets/baileys)
+│   │   │   ├── baileys-service.js # Integrasi Baileys & Penanganan Perintah (/register)
+│   │   │   └── message-store.js   # Penyimpanan riwayat obrolan dalam memori
+│   │   └── ai-bridge.js   # Jembatan AI terpusat untuk Groq/Cerebras/LM Studio
 │   ├── preload/           # Skrip Preload (Jembatan keamanan Electron)
 │   └── renderer/          # Tampilan Depan (React Frontend)
 │       └── src/
@@ -32,13 +36,12 @@ mark/
 │           │   ├── ai/             # Modul Integrasi AI (inti, obrolan, perencanaan, alat, utilitas)
 │           │   ├── db.js           # Skema & migrasi Basis Data Lokal (Dexie/IndexedDB)
 │           │   ├── scraping.js     # Modul pencarian Google & penelusuran web mendalam
-│           │   ├── vectorMemory.js # Sistem Vektor Ingatan (Transformers.js / LM Studio)
-│           │   └── whatsapp.js     # Logika Injeksi & Ekstraksi DOM Web WhatsApp (Tanpa Preload)
+│           │   └── vectorMemory.js # Sistem Vektor Ingatan (Transformers.js / LM Studio)
 │           ├── components/         # Komponen Antarmuka (Gelembung Obrolan Modular)
 │           ├── contexts/           # Manajemen State Global (ChatContext, YoutubeMusicContext)
 │           ├── hooks/              # Custom Hooks React
 │           │   ├── agent/          # Sistem Micro-Hooks (useMarkPlan, useMarkSearch, dll)
-│           │   └── whatsapp/       # Logika Otomatisasi WhatsApp (useWhatsappBot)
+│           │   └── whatsapp/       # Logika Otomatisasi WhatsApp UI
 │           └── pages/              # Halaman Antarmuka (Obrolan, Pengaturan, Bot WhatsApp)
 ```
 

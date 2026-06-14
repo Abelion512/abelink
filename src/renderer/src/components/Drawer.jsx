@@ -80,16 +80,14 @@ const Drawer = ({ isOpen = true, onChange }) => {
             </NavLink>
           </li>
           <li>
-            <button
+            <NavLink 
+              to="/whatsapp-bot"
               className="btn btn-outline btn-success gap-2 mt-2"
-              onClick={() => {
-                window.api.openWhatsappWindow()
-                onChange()
-              }}
+              onClick={() => onChange()}
             >
               <FaWhatsapp size={16} />
-              Buka WhatsApp Bot
-            </button>
+              Monitor WhatsApp
+            </NavLink>
           </li>
           <li>
             <NavLink className="btn justify-start" to="/config" onClick={() => onChange()}>

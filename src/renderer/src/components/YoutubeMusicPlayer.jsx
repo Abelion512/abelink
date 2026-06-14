@@ -15,6 +15,21 @@ export const YoutubeMusicPlayer = () => {
         else if (command === 'toggle') playPause()
       })
     }
+    if (window.api?.onExecuteMusicCommandWa) {
+      window.api.onExecuteMusicCommandWa((command, payload) => {
+        if (command === 'play' && payload) {
+          window.api.searchMusic(payload).then(music => {
+            if (music && music.length > 0) {
+              const url = `https://music.youtube.com/watch?v=${music[0].id}`
+              playUrl(url)
+            }
+          })
+        }
+        else if (command === 'next') nextTrack()
+        else if (command === 'prev') prevTrack()
+        else if (command === 'toggle') playPause()
+      })
+    }
   }, [playUrl, nextTrack, prevTrack, playPause])
 
   useEffect(() => {

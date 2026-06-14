@@ -3,6 +3,8 @@ import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
 const api = {
+  fetchAI: (params) => ipcRenderer.invoke('ai:fetch', params),
+  syncConfig: (config) => ipcRenderer.send('sync-config', config),
   runNodeFunction: (data) => ipcRenderer.invoke('execute-node-task', data),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   getYoutubeTranscript: (url) => ipcRenderer.invoke('get-youtube-transcript', url),
@@ -16,12 +18,30 @@ const api = {
     const url = require('url')
     return url.pathToFileURL(path.join(__dirname, filename)).href
   },
-  onWaNewMessage: (callback) => ipcRenderer.on('wa-new-message-forward', (event, data) => callback(data)),
-  sendWaReply: (text) => ipcRenderer.send('wa-send-reply', text),
-  openWhatsappWindow: () => ipcRenderer.send('open-whatsapp-window'),
+  onWaNewMessage: undefined, // Removed
+  sendWaReply: undefined, // Removed
+  openWhatsappWindow: undefined, // Removed
   sendRemoteMusicCommand: (command, payload) => ipcRenderer.send('remote-music-command', command, payload),
   onExecuteMusicCommand: (callback) => ipcRenderer.on('execute-music-command', (event, command, payload) => callback(command, payload)),
-  sendWaReady: () => ipcRenderer.send('wa-ready-to-hide')
+  onExecuteMusicCommandWa: (callback) => ipcRenderer.on('execute-music-command-wa', (event, command, payload) => callback(command, payload)),
+  sendWaReady: undefined, // Removed
+  waStart: () => ipcRenderer.send('wa:start'),
+  waStop: () => ipcRenderer.send('wa:stop'),
+  waGetStatus: () => ipcRenderer.invoke('wa:get-status'),
+  waLogout: () => ipcRenderer.invoke('wa:logout'),
+  onWaQr: (cb) => ipcRenderer.on('wa:qr', (_, data) => cb(data)),
+  onWaConnection: (cb) => ipcRenderer.on('wa:connection', (_, status) => cb(status)),
+  onWaMessage: (cb) => ipcRenderer.on('wa:message', (_, data) => cb(data)),
+  onWaReplySent: (cb) => ipcRenderer.on('wa:reply-sent', (_, data) => cb(data)),
+  onWaThinking: (cb) => ipcRenderer.on('wa:thinking', (_, data) => cb(data)),
+  onWaRequestWebSearch: (cb) => ipcRenderer.on('wa:request-web-search', (_, data) => cb(data)),
+  sendWaSearchResult: (id, result) => ipcRenderer.send('wa:web-search-result', { id, result }),
+  onWaAdminRequest: (cb) => ipcRenderer.on('wa:admin-request', (_, data) => cb(data)),
+  sendWaMessage: (jid, text) => ipcRenderer.send('wa:send-message', { jid, text }),
+  removeWaListeners: () => {
+    ['wa:qr', 'wa:connection', 'wa:message', 'wa:reply-sent', 'wa:thinking', 'wa:request-web-search', 'wa:admin-request']
+      .forEach(ch => ipcRenderer.removeAllListeners(ch))
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

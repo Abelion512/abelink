@@ -17,7 +17,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     groqModel: 'llama-3.1-8b-instant',
     embedProvider: 'lm-studio',
     lmStudioEmbedModel: 'embeddinggemma-300m-qat',
-    waAdminName: 'My Developer'
+    waAdminNumber: ''
   })
   const [memories, setMemories] = useState([])
   const [loadingMemory, setLoadingMemory] = useState(true)
@@ -50,6 +50,31 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   useEffect(() => {
     loadConfig()
     loadMemories()
+  }, [])
+
+  useEffect(() => {
+    if (location.state?.highlightAdmin) {
+      loadConfig()
+      setTimeout(() => {
+        const el = document.getElementById('tour-wa-admin')
+        if (el) el.scrollIntoView({ behavior: 'smooth' })
+      }, 500)
+    }
+  }, [location.state])
+
+  useEffect(() => {
+    if (window.api?.onWaAdminRequest) {
+      window.api.onWaAdminRequest((data) => {
+        // Langsung munculin ke UI tanpa nunggu reload
+        setConfig(prev => {
+          const pending = prev.waPendingAdmins || []
+          if (!pending.find(p => p.id === data.id)) {
+            return { ...prev, waPendingAdmins: [...pending, data] }
+          }
+          return prev
+        })
+      })
+    }
   }, [])
 
   useEffect(() => {
@@ -137,7 +162,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               element: '#tour-wa-admin',
               popover: {
                 title: '8. WhatsApp Admin (Penting!)',
-                description: 'Isi bagian ini dengan namamu (persis seperti nama kontakmu di HP). Mark cuma bakal nurut perintah muterin musik dari admin ini!',
+                description: 'Untuk mendaftarkan Admin (agar bisa memerintahkan putar musik), buka WhatsApp lalu ketik perintah /register ke nomor bot ini. Nanti daftarnya akan muncul di sini untuk disetujui.',
                 side: 'top',
                 align: 'start'
               }
@@ -629,18 +654,162 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
         <section id="tour-wa-admin" className="space-y-5 p-2 -mx-2 rounded-lg">
           <h2 className="text-base font-bold uppercase tracking-wider opacity-70">WhatsApp Bot Settings</h2>
 
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">Nama Kontak Admin (Akses Tool Musik)</p>
-            <input
-              type="text"
-              placeholder="Contoh: My Developer"
-              className="input input-bordered w-full text-sm"
-              value={config.waAdminName || ''}
-              onChange={(e) => setConfig((prev) => ({ ...prev, waAdminName: e.target.value }))}
-            />
-            <p className="text-[10px] opacity-50 mt-1">
-              Mark hanya akan mematuhi perintah memutar musik dari kontak WhatsApp dengan nama ini (Harus sama persis dengan nama kontak di HP-mu).
-            </p>
+          {/* Pending Admin Requests */}
+          {config.waPendingAdmins && config.waPendingAdmins.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-warning">Permintaan Akses Admin Baru</p>
+              <div className="space-y-2">
+                {config.waPendingAdmins.map((admin, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-base-200 p-3 rounded-lg border border-warning/30">
+                    <div>
+                      <p className="font-bold text-sm">{admin.name}</p>
+                      <p className="text-xs opacity-50">{admin.id}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        className="btn btn-xs btn-success text-white"
+                        onClick={async () => {
+                          const currentAdmins = config.waAdminNumber ? config.waAdminNumber.split(',').map(n=>n.trim()) : []
+                          if (!currentAdmins.includes(admin.id)) {
+                            currentAdmins.push(admin.id)
+                          }
+                          const newPending = config.waPendingAdmins.filter(p => p.id !== admin.id)
+                          const newApproved = [...(config.waApprovedAdmins || []), admin]
+                          
+                          const newConfig = {
+                            ...config,
+                            waAdminNumber: currentAdmins.join(', '),
+                            waPendingAdmins: newPending,
+                            waApprovedAdmins: newApproved
+                          }
+                          
+                          setConfig(newConfig)
+                          
+                          // Simpan langsung ke DB biar gak usah nunggu tombol Save utama
+                          const { saveConfiguration } = await import('../api/db')
+                          await saveConfiguration(newConfig)
+                          if (window.api && window.api.syncConfig) {
+                            window.api.syncConfig(newConfig)
+                          }
+
+                          // Notify WA
+                          if (window.api && window.api.sendWaMessage) {
+                            window.api.sendWaMessage(admin.jid, `🎉 Selamat *${admin.name}*! Akses Admin kamu telah disetujui. Sekarang kamu bisa memerintahkan Mark untuk memutar musik.`)
+                          }
+                        }}
+                      >
+                        Setujui
+                      </button>
+                      <button 
+                        className="btn btn-xs btn-error text-white"
+                        onClick={async () => {
+                          const newPending = config.waPendingAdmins.filter(p => p.id !== admin.id)
+                          const newConfig = { ...config, waPendingAdmins: newPending }
+                          
+                          setConfig(newConfig)
+                          
+                          // Simpan langsung ke DB
+                          const { saveConfiguration } = await import('../api/db')
+                          await saveConfiguration(newConfig)
+
+                          if (window.api && window.api.sendWaMessage) {
+                            window.api.sendWaMessage(admin.jid, `Maaf *${admin.name}*, permintaan akses Admin kamu ditolak oleh Owner.`)
+                          }
+                        }}
+                      >
+                        Tolak
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2 mt-4">
+            <p className="text-sm font-semibold">Daftar Admin Aktif</p>
+            {(!config.waAdminNumber || config.waAdminNumber.trim() === '') && (!config.waApprovedAdmins || config.waApprovedAdmins.length === 0) ? (
+              <div className="text-xs opacity-50 italic">Belum ada admin yang terdaftar. Ketik /register di WA.</div>
+            ) : (
+              <div className="space-y-2">
+                {/* Tampilkan data dari waApprovedAdmins (yang ada nama kontaknya) */}
+                {(config.waApprovedAdmins || []).map((admin, idx) => (
+                  <div key={`appr-${idx}`} className="flex items-center justify-between bg-base-200 p-3 rounded-lg border border-success/30">
+                    <div>
+                      <p className="font-bold text-sm text-success">{admin.name}</p>
+                      <p className="text-xs opacity-50">{admin.id}</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const currentAdmins = config.waAdminNumber ? config.waAdminNumber.split(',').map(n => n.trim()).filter(Boolean) : []
+                        const newAdmins = currentAdmins.filter(a => a !== admin.id)
+                        const newApproved = (config.waApprovedAdmins || []).filter(a => a.id !== admin.id)
+                        
+                        const newConfig = { 
+                          ...config, 
+                          waAdminNumber: newAdmins.join(', '),
+                          waApprovedAdmins: newApproved
+                        }
+                        setConfig(newConfig)
+                        
+                        const { saveConfiguration } = await import('../api/db')
+                        await saveConfiguration(newConfig)
+                        if (window.api && window.api.syncConfig) {
+                          window.api.syncConfig(newConfig)
+                        }
+
+                        if (window.api && window.api.sendWaMessage && admin.jid) {
+                          window.api.sendWaMessage(admin.jid, `⚠️ *Pemberitahuan:* Akses Admin kamu telah dicabut oleh Owner. Kamu tidak bisa lagi mengontrol musik.`)
+                        }
+                      }}
+                      className="btn btn-xs btn-error text-white"
+                    >
+                      Hapus
+                    </button>
+                  </div>
+                ))}
+
+                {/* Tampilkan data legacy dari waAdminNumber yang gak ada di waApprovedAdmins */}
+                {config.waAdminNumber && config.waAdminNumber.split(',').map((id, idx) => {
+                  const cleanId = id.trim()
+                  if (!cleanId) return null
+                  const isAlreadyShown = (config.waApprovedAdmins || []).find(a => a.id === cleanId)
+                  if (isAlreadyShown) return null
+
+                  return (
+                    <div key={`leg-${idx}`} className="flex items-center justify-between bg-base-200 p-3 rounded-lg border border-success/30">
+                      <div>
+                        <p className="font-bold text-sm text-success">Admin (Manual)</p>
+                        <p className="text-xs opacity-50">{cleanId}</p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const currentAdmins = config.waAdminNumber.split(',').map(n => n.trim()).filter(Boolean)
+                          const newAdmins = currentAdmins.filter(a => a !== cleanId)
+                          
+                          const newConfig = { ...config, waAdminNumber: newAdmins.join(', ') }
+                          setConfig(newConfig)
+                          
+                          const { saveConfiguration } = await import('../api/db')
+                          await saveConfiguration(newConfig)
+                          if (window.api && window.api.syncConfig) {
+                            window.api.syncConfig(newConfig)
+                          }
+
+                          if (window.api && window.api.sendWaMessage) {
+                            const guessedJid = cleanId.length > 14 ? `${cleanId}@lid` : `${cleanId}@s.whatsapp.net`
+                            window.api.sendWaMessage(guessedJid, `⚠️ *Pemberitahuan:* Akses Admin kamu telah dicabut oleh Owner. Kamu tidak bisa lagi mengontrol musik.`)
+                          }
+                        }}
+                        className="btn btn-xs btn-error text-white"
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </section>
 
