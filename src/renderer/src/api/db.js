@@ -26,6 +26,10 @@ db.version(5).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel'
 })
 
+db.version(6).stores({
+  config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, waAdminNumber, waPendingAdmins, waApprovedAdmins'
+})
+
 // --- CREATE ---
 export async function insertMemory(data) {
   const memoryText = data.memory.trim()

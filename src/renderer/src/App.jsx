@@ -31,17 +31,19 @@ const GlobalListener = () => {
         if (configs && configs[0]) {
           const cfg = configs[0]
           const pending = cfg.waPendingAdmins || []
-          // Hindari duplikat
-          if (!pending.find(p => p.id === data.id)) {
+          const existingIdx = pending.findIndex(p => p.id === data.id)
+          if (existingIdx !== -1) {
+            pending[existingIdx] = data
+          } else {
             pending.push(data)
-            await saveConfiguration({ ...cfg, waPendingAdmins: pending })
           }
+          await saveConfiguration({ ...cfg, waPendingAdmins: pending })
         }
       })
     }
 
     const handleRouteToConfig = () => {
-      navigate('/configuration', { state: { highlightAdmin: true } })
+      navigate('/config', { state: { highlightAdmin: true } })
     }
 
     if (window.electron?.ipcRenderer) {

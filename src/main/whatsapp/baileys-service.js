@@ -286,8 +286,8 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
     console.log(`Apakah Admin? : ${isAdmin}`)
     console.log(`=================\n`)
 
-    // Untuk prompt kita tampilkan saja admin pertama sebagai referensi
-    const adminDisplay = adminNumbers.length > 0 ? adminNumbers[0] : ''
+    // Untuk prompt kita tampilkan semua admin
+    const adminDisplay = adminNumbers.length > 0 ? adminNumbers.join(', ') : 'Tidak ada admin'
 
     const chatTitle = isGroup ? (await sock.groupMetadata(jid).catch(()=>({subject: jid}))).subject : senderName
     const contextMsg = isGroup 

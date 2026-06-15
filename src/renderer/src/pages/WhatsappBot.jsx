@@ -1,6 +1,10 @@
 import React, { useRef, useEffect } from 'react'
 import { useWhatsappBot } from '../hooks/whatsapp/useWhatsappBot'
 import { FaWhatsapp, FaQrcode, FaPlug, FaSignOutAlt } from 'react-icons/fa'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeExternalLinks from 'rehype-external-links'
+import { CodeBlock } from '../components/Chat/CodeBlock'
 
 const WhatsappBot = () => {
   const { status, qrCode, messages, isThinking, currentSender, startBot, logout } = useWhatsappBot()
@@ -93,7 +97,19 @@ const WhatsappBot = () => {
                   {msg.quotedText}
                 </div>
               )}
-              <span className="text-sm">{msg.type === 'outgoing' ? msg.reply : msg.text}</span>
+              <div className="text-sm custom-markdown overflow-x-hidden">
+                <Markdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[
+                    [rehypeExternalLinks, { target: '_blank', rel: ['noopener', 'noreferrer'] }]
+                  ]}
+                  components={{
+                    code: CodeBlock
+                  }}
+                >
+                  {msg.type === 'outgoing' ? msg.reply : msg.text}
+                </Markdown>
+              </div>
             </div>
             {msg.type === 'outgoing' && (
               <div className="chat-footer opacity-50 text-xs mt-1 max-w-[200px] truncate">
