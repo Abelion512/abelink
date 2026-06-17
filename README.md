@@ -17,7 +17,7 @@ Mark sudah tersambung langsung dengan berbagai kemampuan canggih yang memungkink
 - **Pencarian Web Mendalam (*Deep Web Search*):** Mark bisa menjelajahi internet secara mandiri untuk meriset topik dan menyajikan rangkuman akurat beserta sumber (*citations*).
 - **Peringkas YouTube (*YouTube Summarizer*):** Cukup berikan tautan video YouTube, Mark akan secara otomatis menarik transkrip, memecah (*chunking*) teks, dan memberikan kesimpulan padat.
 - **Pemutar Musik YouTube:** Terintegrasi dengan YouTube Music (bebas iklan), Mark dapat dikendalikan untuk mencari dan memutar lagu favorit Anda langsung dari antarmuka obrolan.
-- **Bot WhatsApp Pribadi:** Mark dapat bertindak sebagai asisten pribadi cerdas langsung di WhatsApp Web Anda (berjalan tanpa henti di latar belakang dengan optimasi memori anti-lag *Zero-Preload*). Mark bisa membaca riwayat obrolan secara adaptif, membalas panggilan (*mention*) di grup, melakukan pencarian web rahasia (*headless web search*), hingga mengontrol pemutar musik laptop Anda langsung lewat pesan chat!
+- **Bot WhatsApp Pribadi:** Mark dapat bertindak sebagai asisten pribadi cerdas langsung di WhatsApp Anda (menggunakan library Baileys). Mark bisa membaca riwayat obrolan secara adaptif, membalas panggilan (*mention*) di grup, melakukan pencarian web, memutar lagu di laptop jika diminta oleh Admin, untuk user selain admin mark juga bisa secara otomatis men-download lagu YouTube menjadi file MP3 dan mengirimkannya langsung ke dalam obrolan!
 - **Suara & Audio (*Voice-to-Voice*):** Mark bisa diajak mengobrol secara langsung menggunakan mikrofon (menggunakan Groq Whisper STT) dan ia akan membalas dengan suara yang natural (didukung oleh Edge-TTS).
 ## Arsitektur Proyek
 
@@ -28,7 +28,7 @@ mark/
 │   │   ├── whatsapp/      # Layanan WhatsApp Native WebSocket (@whiskeysockets/baileys)
 │   │   │   ├── baileys-service.js # Integrasi Baileys & Penanganan Perintah (/register)
 │   │   │   └── message-store.js   # Penyimpanan riwayat obrolan dalam memori
-│   │   └── ai-bridge.js   # Jembatan AI terpusat untuk Groq/Cerebras/LM Studio
+│   │   └── ai-bridge.js   # Jembatan AI terpusat untuk model, rate limits, & Auto-Repair JSON (jsonrepair)
 │   ├── preload/           # Skrip Preload (Jembatan keamanan Electron)
 │   └── renderer/          # Tampilan Depan (React Frontend)
 │       └── src/
@@ -55,7 +55,7 @@ mark/
 | **Vektor Memori**  | Transformers.js (`@huggingface/transformers`), LM Studio                    |
 | **Pencarian Web**  | Electron Webview (Google Search & Riset Mendalam)                           |
 | **Suara & Audio**  | Groq API (STT), Edge-TTS, Web Audio API (Deteksi Suara)                     |
-| **Integrasi Ekstra** | `youtube-transcript-plus`, `ytmusic-api`, Injeksi Web WhatsApp (Bot)        |
+| **Integrasi Ekstra** | `youtube-transcript-plus`, `youtube-dl-exec` & `ffmpeg-static` (Audio), WhatsApp Baileys |
 | **Basis Data**     | Dexie.js (Pembungkus IndexedDB)                                                |
 | **Teks Markdown**  | React Markdown, React Syntax Highlighter, remark-gfm, rehype-external-links |
 
