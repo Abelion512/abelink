@@ -10,6 +10,8 @@ files:
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
 asarUnpack:
   - resources/**
+  - "node_modules/ffmpeg-static/**/*"
+  - "node_modules/youtube-dl-exec/**/*"
 win:
   executableName: 'Mark Agent'
 nsis:

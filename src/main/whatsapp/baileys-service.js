@@ -9,6 +9,7 @@ import { addMessage, getMessages, clearChat } from './message-store.js'
 import yts from 'yt-search'
 import youtubedl from 'youtube-dl-exec'
 import ffmpeg from 'ffmpeg-static'
+import { execFile } from 'child_process'
 
 let sock = null
 let currentStatus = 'disconnected'
@@ -495,7 +496,26 @@ CONTOH 2 (Jika ngobrol biasa tanpa tools):
                   return
                 }
                 const tempPath = path.join(app.getPath('temp'), `wa-audio-${Date.now()}.mp3`)
-                await youtubedl(video.url, { extractAudio: true, audioFormat: 'mp3', ffmpegLocation: `"${ffmpeg}"`, output: `"${tempPath}"` })
+                const unpackFfmpeg = ffmpeg.replace('app.asar', 'app.asar.unpacked')
+                const unpackYtdl = unpackFfmpeg.replace(/ffmpeg-static[\\/]ffmpeg\.exe/i, 'youtube-dl-exec\\bin\\yt-dlp.exe')
+                
+                await new Promise((resolve, reject) => {
+                  execFile(unpackYtdl, [
+                    video.url,
+                    '--extract-audio',
+                    '--audio-format', 'mp3',
+                    '--ffmpeg-location', unpackFfmpeg,
+                    '--output', tempPath
+                  ], (err, stdout, stderr) => {
+                    if (err) {
+                      err.message += `\n${stderr}`
+                      reject(err)
+                    } else {
+                      resolve()
+                    }
+                  })
+                })
+
                 await sock.sendMessage(jid, { audio: { url: tempPath }, mimetype: 'audio/mpeg', ptt: false }, { quoted: msg })
                 fs.unlink(tempPath, () => {})
               } catch (e) {
