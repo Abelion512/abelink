@@ -6,6 +6,9 @@ import fs from 'fs'
 import path from 'path'
 import { fetchAI, cleanAndParse, getGlobalConfig } from '../ai-bridge.js'
 import { addMessage, getMessages, clearChat } from './message-store.js'
+import yts from 'yt-search'
+import youtubedl from 'youtube-dl-exec'
+import ffmpeg from 'ffmpeg-static'
 
 let sock = null
 let currentStatus = 'disconnected'
@@ -228,6 +231,56 @@ export const startWhatsappBot = async (mainWindow) => {
         continue
       }
 
+      if (cmd.startsWith('/play ') || cmd.startsWith('/lagu ')) {
+        const query = text.substring(text.indexOf(' ') + 1).trim()
+        if (!query) {
+          await sock.sendMessage(jid, { text: 'Judul lagunya apa bos?' }, { quoted: msg })
+          continue
+        }
+
+        await sock.sendMessage(jid, { text: `⏳ Sedang mencari dan mendownload lagu "${query}"...` }, { quoted: msg })
+
+        try {
+          const searchResult = await yts(query)
+          const video = searchResult.videos[0]
+          
+          if (!video) {
+            await sock.sendMessage(jid, { text: `❌ Aduh, lagu "${query}" nggak ketemu di YouTube.` }, { quoted: msg })
+            continue
+          }
+
+          const tempPath = path.join(app.getPath('temp'), `wa-audio-${Date.now()}.mp3`)
+          
+          await youtubedl(video.url, {
+            extractAudio: true,
+            audioFormat: 'mp3',
+            ffmpegLocation: `"${ffmpeg}"`,
+            output: `"${tempPath}"`
+          })
+
+          await sock.sendMessage(
+            jid, 
+            { 
+              audio: { url: tempPath }, 
+              mimetype: 'audio/mpeg',
+              ptt: false 
+            }, 
+            { quoted: msg }
+          )
+
+          // Cleanup
+          fs.unlink(tempPath, (err) => {
+            if (err) console.error('[Baileys] Gagal menghapus file temp lagu:', err)
+          })
+
+        } catch (err) {
+          console.error('[Baileys] Error download lagu:', err)
+          await sock.sendMessage(jid, { text: `❌ Gagal mendownload lagu. Error: ${err.message}` }, { quoted: msg })
+        }
+        
+        continue
+      }
+
       if (!text) continue
 
       if (isGroup) {
@@ -369,13 +422,9 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
 - Jawab singkat, padat, dan seperlunya. Jangan bertele-tele.
 
 # KEMAMPUAN TOOLS:
-1. MUSIK: Kamu bisa mengontrol pemutar musik di laptop.
-PENTING: Fitur musik INI HANYA BOLEH DIGUNAKAN JIKA DIMINTA OLEH ADMIN TERTENTU (Salah satunya Nomor ${adminDisplay}).
-- Jika Admin meminta memutar lagu: gunakan action "music-play".
-- Jika Admin meminta pause/lanjutkan lagu: gunakan action "music-toggle".
-- Jika Admin meminta lagu selanjutnya: gunakan action "music-next".
-- Jika Admin meminta lagu sebelumnya: gunakan action "music-prev".
-- Jika YANG MEMINTA BUKAN ADMIN: TOLAK dengan santai.
+1. MUSIK: Kamu bisa memutar lagu di laptop atau mengirimkan file MP3.
+- JIKA ADA YANG MEMINTA LAGU (siapapun itu, contoh: "mark putar lagu", "lagu naruto dong"): gunakan action "music-play" dan isi query dengan judul lagunya. Nanti sistem yang akan otomatis memutar di laptop (jika dia Admin) atau mendownload & mengirim MP3-nya (jika bukan Admin).
+- JIKA ADMIN MEMINTA PAUSE/NEXT/PREV (hanya Admin ${adminDisplay}): gunakan action "music-toggle", "music-next", "music-prev". Jika bukan admin yang minta fitur ini, tolak dengan santai.
 
 2. WEB SEARCH: Kamu bisa mencari informasi di internet (Google).
 - JIKA DAN HANYA JIKA lawan bicara SECARA EKSPLISIT menyuruhmu mencari di internet/google/web (contoh: "coba cariin di google", "browsing dong", "search di web"): gunakan action "web-search" dan isi query dengan kata kunci pencariannya.
@@ -428,11 +477,35 @@ CONTOH 2 (Jika ngobrol biasa tanpa tools):
     if (response?.command && response.command.action) {
       const action = response.command.action
       if (action.startsWith('music-')) {
-        if (isAdmin) {
-          if (action === 'music-play' && response.command.query) {
+        if (action === 'music-play' && response.command.query) {
+          if (isAdmin) {
             replyText = `Merespons perintah musik: Memutar lagu "${response.command.query}" di sistem laptop... 🎵\n\n${replyText}`
             botWindow.webContents.send('execute-music-command-wa', 'play', response.command.query)
-          } else if (action === 'music-next') {
+          } else {
+            const query = response.command.query;
+            replyText = `${replyText}\n\n_(⏳ MP3 lagunya lagi didownload ya, tunggu bentar...)_`
+            
+            // Asynchronous download
+            ;(async () => {
+              try {
+                const searchResult = await yts(query)
+                const video = searchResult.videos[0]
+                if (!video) {
+                  await sock.sendMessage(jid, { text: `❌ Bro, lagu "${query}" nggak nemu nih di YouTube.` })
+                  return
+                }
+                const tempPath = path.join(app.getPath('temp'), `wa-audio-${Date.now()}.mp3`)
+                await youtubedl(video.url, { extractAudio: true, audioFormat: 'mp3', ffmpegLocation: `"${ffmpeg}"`, output: `"${tempPath}"` })
+                await sock.sendMessage(jid, { audio: { url: tempPath }, mimetype: 'audio/mpeg', ptt: false }, { quoted: msg })
+                fs.unlink(tempPath, () => {})
+              } catch (e) {
+                console.error('[Baileys] Error download lagu asinkron:', e)
+                await sock.sendMessage(jid, { text: `❌ Wah error pas donlot lagunya: ${e.message}` })
+              }
+            })()
+          }
+        } else if (isAdmin) {
+          if (action === 'music-next') {
             botWindow.webContents.send('execute-music-command-wa', 'next')
             replyText = `Sip, lagu dilanjut (next track) di laptop! ⏭️\n\n${replyText}`
           } else if (action === 'music-prev') {
@@ -443,7 +516,7 @@ CONTOH 2 (Jika ngobrol biasa tanpa tools):
             replyText = `Siap bos, lagu di-pause/play! ⏯️\n\n${replyText}`
           }
         } else {
-          replyText = `Maaf ya, gue dikunci cuma boleh muterin musik buat Owner doang 🙏😅`
+          replyText = `Maaf ya, fitur remote DJ laptop (pause/next/prev) cuma khusus Owner 🙏😅 Kalo mau request mp3, suruh putar/kirim lagunya aja.`
         }
       } else if (action === 'web-search' && response.command.query) {
         replyText = `🔍 _Sedang mencari "${response.command.query}" di web..._\n\n_Tunggu sebentar ya..._`

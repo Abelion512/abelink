@@ -162,7 +162,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               element: '#tour-wa-admin',
               popover: {
                 title: '8. WhatsApp Admin (Penting!)',
-                description: 'Untuk mendaftarkan Admin (agar bisa memerintahkan putar musik), buka WhatsApp lalu ketik perintah /register ke nomor bot ini. Nanti daftarnya akan muncul di sini untuk disetujui.',
+                description: 'Untuk mendaftarkan Admin (agar bisa mengakses fitur khusus tertentu), buka WhatsApp lalu ketik perintah /register ke nomor bot ini. Nanti daftarnya akan muncul di sini untuk disetujui.',
                 side: 'top',
                 align: 'start'
               }
@@ -694,7 +694,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
 
                           // Notify WA
                           if (window.api && window.api.sendWaMessage) {
-                            window.api.sendWaMessage(admin.jid, `🎉 Selamat *${admin.name}*! Akses Admin kamu telah disetujui. Sekarang kamu bisa memerintahkan Mark untuk memutar musik.`)
+                            window.api.sendWaMessage(admin.jid, `🎉 Selamat *${admin.name}*! Akses Admin kamu telah disetujui. Sekarang kamu bisa memiliki akses pada fitur khusus tertentu.`)
                           }
                         }}
                       >
@@ -759,7 +759,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                         }
 
                         if (window.api && window.api.sendWaMessage && admin.jid) {
-                          window.api.sendWaMessage(admin.jid, `⚠️ *Pemberitahuan:* Akses Admin kamu telah dicabut oleh Owner. Kamu tidak bisa lagi mengontrol musik.`)
+                          window.api.sendWaMessage(admin.jid, `⚠️ *Pemberitahuan:* Akses Admin kamu telah dicabut oleh Owner.`)
                         }
                       }}
                       className="btn btn-xs btn-error text-white"
@@ -798,7 +798,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
 
                           if (window.api && window.api.sendWaMessage) {
                             const guessedJid = cleanId.length > 14 ? `${cleanId}@lid` : `${cleanId}@s.whatsapp.net`
-                            window.api.sendWaMessage(guessedJid, `⚠️ *Pemberitahuan:* Akses Admin kamu telah dicabut oleh Owner. Kamu tidak bisa lagi mengontrol musik.`)
+                            window.api.sendWaMessage(guessedJid, `⚠️ *Pemberitahuan:* Akses Admin kamu telah dicabut oleh Owner. Kamu tidak bisa lagi mengakses fitur khusus tertentu.`)
                           }
                         }}
                         className="btn btn-xs btn-error text-white"
