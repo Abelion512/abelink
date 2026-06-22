@@ -4,6 +4,7 @@ import Chat from './pages/Chat'
 import Configuration from './pages/Configuration'
 import LiveAudio from './pages/LiveAudio'
 import WhatsappBot from './pages/WhatsappBot'
+import Plugins from './pages/Plugins'
 import { HashRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
@@ -178,6 +179,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<Chat />} />
                 <Route path="/config" element={<Configuration />} />
+                <Route path="/plugins" element={<Plugins />} />
                 <Route path="/live-audio" element={<LiveAudio />} />
                 <Route path="/whatsapp-bot" element={<WhatsappBot />} />
               </Routes>

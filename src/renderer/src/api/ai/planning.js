@@ -1,6 +1,7 @@
 import { fetchAI, cleanAndParse } from './core'
 import { getAllConfig } from '../db'
 import { getCurrentTimeInfo } from './utils'
+import { getPluginPromptStr } from './pluginHelper'
 
 export const getPlan = async (
   userInput,
@@ -119,6 +120,7 @@ Output:
 
 export const getTaskAction = async (task, previousContext, isWebSearch, signal) => {
   try {
+    const pluginPrompt = await getPluginPromptStr()
     const systemPrompt = `
 You are Mark, a smart AI assistant.
 Your task is to determine ONE action that the system must execute to complete the current task, based on previous context history (if available).
@@ -137,6 +139,7 @@ ${isWebSearch ? '- search: Perform a general web search (Google) to find info, t
 - yt-summary: Summarize YouTube video content.
 - summary: Summarize/answer the task directly using your knowledge (without searching), useful for coding or basic theory.
 - none: No relevant action.
+${pluginPrompt}
 
 # RULES
 1. Output MUST be valid JSON with the format { "action": "action-name", "query": "string" }.

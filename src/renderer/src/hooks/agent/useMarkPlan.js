@@ -252,6 +252,24 @@ export const useMarkPlan = ({
           } else {
             summary = `Menampilkan hasil pencarian lagu untuk: "${actionData.query}".`
           }
+        } else if (actionData.action && actionData.action !== 'none' && actionData.action !== 'summary') {
+          const act = actionData.action
+          const qry = actionData.query
+          
+          setChatData((prev) => [
+            ...prev,
+            { role: 'ai', content: `⚙️ Mengeksekusi plugin: ${act}...`, isThinking: true }
+          ])
+          
+          const res = await window.api.executePlugin(act, qry)
+          
+          setChatData((prev) => prev.filter((item) => !item.isThinking))
+          
+          if (res.success) {
+            summary = `Hasil Eksekusi Plugin ${act}: ${res.data}`
+          } else {
+            summary = `Gagal mengeksekusi plugin ${act}: ${res.error}`
+          }
         } else {
           const chatSessionSlice = chatData
             .filter(

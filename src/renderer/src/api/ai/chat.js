@@ -1,6 +1,7 @@
 import { fetchAI, cleanAndParse } from './core'
 import { getAllConfig } from '../db'
 import { getCurrentTimeInfo } from './utils'
+import { getPluginPromptStr } from './pluginHelper'
 
 export const getTitleSession = async (message, signal) => {
   const data = await fetchAI(
@@ -37,6 +38,7 @@ export const getAnswer = async (
   isWebSearch
 ) => {
   try {
+    const pluginPrompt = await getPluginPromptStr()
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
     const systemPrompt = `
@@ -131,6 +133,7 @@ Valid types and keys:
 # YOUTUBE RULES
 - If the user asks to summarize or explain a YouTube video, use action: "yt-summary" and fill query with the URL. Maximum 1 video per request; if there is no link, ask the user to send the link. Set command null.
 - If the user asks to find a video or you need to search for a YouTube video, use action: "yt-search" and fill query with the search you would perform on YouTube.
+${pluginPrompt}
 
 # OUTPUT (JSON ONLY)
 Output MUST be valid JSON. Starting with '{' and ending with '}'.
@@ -294,11 +297,9 @@ Output: {
           type: ['object', 'null'],
           properties: {
             action: { type: 'string' },
-            query: { type: 'string' },
-            run: { type: 'string' },
-            risk: { type: 'string' }
+            query: { type: 'string' }
           },
-          required: ['action', 'query', 'run', 'risk'],
+          required: ['action', 'query'],
           additionalProperties: false
         }
       },

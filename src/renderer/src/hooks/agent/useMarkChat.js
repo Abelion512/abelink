@@ -80,7 +80,7 @@ export const useMarkChat = ({
             isMemoryUpdated: answer.memory?.action === 'update',
             isMemoryDeleted: answer.memory?.action === 'delete'
           }
-          if (answer.command?.run && String(answer.command.run).toLowerCase() !== 'null') {
+          if (answer.command?.run && String(answer.command.run).toLowerCase() !== 'null' && String(answer.command.run).trim() !== '' && (!answer.command.action || answer.command.action === 'none')) {
             return [
               ...filtered,
               aiResponse,
@@ -101,9 +101,52 @@ export const useMarkChat = ({
       }
       if (answer.command?.action === 'yt-summary') {
         await handleYoutubeSummary(answer.command.query, abortControllerRef.current.signal)
-      }
-      if (answer.command?.action?.startsWith('music')) {
+      } else if (answer.command?.action?.startsWith('music')) {
         await handleMusic(answer.command.action, answer.command?.query)
+      } else if (answer.command?.action && answer.command.action !== 'none' && answer.command.action !== 'search' && answer.command.action !== 'yt-search') {
+        const act = answer.command.action
+        const qry = answer.command.query
+
+        setChatData((prev) => [
+          ...prev,
+          { role: 'ai', content: `Mengeksekusi plugin: ${act}...`, isThinking: true }
+        ])
+
+        const res = await window.api.executePlugin(act, qry)
+        
+        setChatData((prev) => prev.filter(item => !item.isThinking))
+
+        if (res.success) {
+          const summary = res.data
+          const summaryStr = typeof summary === 'string' ? summary : JSON.stringify(summary)
+          
+          setChatData((prev) => [
+            ...prev,
+            { role: 'ai', content: 'Membaca hasil eksekusi...', isThinking: true }
+          ])
+
+          const finalChatSession = [
+            ...chatSession,
+            { role: 'user', content: userInput },
+            { role: 'assistant', content: answer.answer }
+          ]
+
+          const followUpInput = `[SYSTEM: HASIL PLUGIN ${act}]\nBerikut hasil dari eksekusi plugin:\n${summaryStr}\n\nTolong jawab kembali pertanyaanku sebelumnya berdasarkan hasil plugin ini secara natural.`
+          
+          const followUp = await getAnswer(followUpInput, null, finalChatSession, abortControllerRef.current.signal, false)
+
+          setChatData((prev) => [
+            ...prev.filter(item => !item.isThinking),
+            { role: 'ai', content: `[Plugin digunakan: ${act}]\n\n${followUp.answer}`, command: followUp.command }
+          ])
+
+          if (isSpeak && config[0]?.voiceMode === 'ON' && followUp.answer) {
+            playVoice(followUp.answer)
+          }
+
+        } else {
+           console.log("Plugin action not found or failed:", res.error)
+        }
       }
       setMessage('')
       setIsLoading(false)

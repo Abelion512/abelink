@@ -10,6 +10,7 @@ import yts from 'yt-search'
 import youtubedl from 'youtube-dl-exec'
 import ffmpeg from 'ffmpeg-static'
 import { execFile } from 'child_process'
+import { getLoadedPlugins, getPluginHandlers } from '../plugins/plugin-loader.js'
 
 let sock = null
 let currentStatus = 'disconnected'
@@ -344,13 +345,6 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
     const adminNumbers = (config.waAdminNumber || '').split(',').map(n => n.trim()).filter(Boolean)
     const isAdmin = adminNumbers.includes(senderNumber)
     
-    console.log(`\n=== CEK ADMIN ===`)
-    console.log(`Sender Number Terdeteksi : "${senderNumber}"`)
-    console.log(`Daftar Admin di Config :`, adminNumbers)
-    console.log(`Apakah Admin? : ${isAdmin}`)
-    console.log(`=================\n`)
-
-    // Untuk prompt kita tampilkan semua admin
     const adminDisplay = adminNumbers.length > 0 ? adminNumbers.join(', ') : 'Tidak ada admin'
 
     const chatTitle = isGroup ? (await sock.groupMetadata(jid).catch(()=>({subject: jid}))).subject : senderName
@@ -391,13 +385,10 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
       ? `\nSebagai konteks tambahan, pesan "${senderName}" adalah balasan untuk pesan milik ${quotedParticipant} yang bunyinya: "${quotedText}". Nyambungkan balasanmu dengan konteks tersebut.`
       : ''
 
-    // MINTA BAILEYS UNTUK CENTANG 2 / CENTANG BIRU (READ RECEIPT)
     try {
-      // Jeda 1-3 detik sebelum centang biru biar natural
       await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 2000) + 1000))
       await sock.readMessages([msg.key])
 
-      // Jeda 500ms - 1.5 detik sebelum mulai ngetik
       await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 1000) + 500))
       await sock.sendPresenceUpdate('composing', jid)
     } catch (readErr) {
@@ -405,7 +396,6 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
     }
 
     const conversationHistory = []
-    // Loop sampai sebelum pesan terakhir (karena pesan terakhir adalah pesan saat ini)
     for (let i = 0; i < recentMessages.length - 1; i++) {
       const m = recentMessages[i]
       if (m.isFromMe) {
@@ -414,6 +404,10 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
         conversationHistory.push({ role: 'user', content: isGroup ? `${m.sender}: ${m.text}` : m.text })
       }
     }
+
+    const pluginsPrompt = isAdmin && getLoadedPlugins().length > 0 
+      ? `\n3. KEMAMPUAN TOOLS TAMBAHAN (PLUGINS):\nKamu JUGA BISA menggunakan action dari plugin berikut jika sesuai dengan permintaan user:\n${getLoadedPlugins().map(p => p.actions?.map(a => `- JIKA ${a.triggerHint || 'dibutuhkan'}, gunakan action "${a.name}". Deskripsi: ${a.description}`).join('\n') || '').join('\n')}\n`
+      : ''
 
     const messages = [
       {
@@ -433,7 +427,7 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
 
 2. WEB SEARCH: Kamu bisa mencari informasi di internet (Google).
 - JIKA DAN HANYA JIKA lawan bicara SECARA EKSPLISIT menyuruhmu mencari di internet/google/web (contoh: "coba cariin di google", "browsing dong", "search di web"): gunakan action "web-search" dan isi query dengan kata kunci pencariannya.
-- Jika lawan bicara HANYA bertanya biasa tanpa menyuruh mencari di web: JANGAN gunakan web-search, jawab saja sebisamu secara natural. Gunakan web-search seminimal mungkin!
+- Jika lawan bicara HANYA bertanya biasa tanpa menyuruh mencari di web: JANGAN gunakan web-search, jawab saja sebisamu secara natural. Gunakan web-search seminimal mungkin!${pluginsPrompt}
 
 # FORMAT OUTPUT WAJIB (STRICT JSON):
 Kamu WAJIB mengembalikan HANYA JSON murni tanpa markdown, tanpa backtick (\`\`\`), dan tanpa komentar di dalam JSON.
@@ -582,6 +576,35 @@ CONTOH 2 (Jika ngobrol biasa tanpa tools):
           replyText = finalResponse?.answer || finalResponseRaw.content
         } else {
           replyText = `Duh sori banget, fitur pencarian web-nya lagi error atau timeout. 🥲 Nggak nemu hasil apa-apa nih.`
+        }
+      } else if (action !== 'none') {
+        if (isAdmin) {
+          const pluginHandlers = getPluginHandlers()
+          if (pluginHandlers[action]) {
+            try {
+              const res = await pluginHandlers[action]({ query: response.command.query })
+              const resTxt = typeof res === 'string' ? res : JSON.stringify(res)
+              
+              if (botWindow && !botWindow.isDestroyed()) {
+                botWindow.webContents.send('wa:reply-sent', {
+                   id: Date.now(), sender: 'Mark', text: `(Menjalankan plugin ${action}...)`, reply: `✅ Plugin: ${resTxt}`, isGroup, chatTitle, time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }), type: 'outgoing'
+                })
+              }
+              
+              const followUpMessages = [...messages, { role: 'assistant', content: `[SYSTEM] Eksekusi plugin '${action}' sukses. Hasilnya:\n${resTxt}\nSilakan jawab kembali ke user (dalam format JSON) berdasarkan hasil ini.` }]
+              
+              const followUpRaw = await fetchAI(followUpMessages, null, true, markSchema)
+              const followUpData = cleanAndParse(followUpRaw.content)
+              if (followUpData?.answer) {
+                replyText = followUpData.answer
+              }
+            } catch (e) {
+              console.error('[Baileys] Error executing plugin:', e)
+              replyText = `❌ Maaf bro, gagal ngejalanin tool tambahan (${action}): ` + e.message
+            }
+          } else {
+             console.log('[Baileys] Perintah tidak dikenali:', action)
+          }
         }
       }
     }

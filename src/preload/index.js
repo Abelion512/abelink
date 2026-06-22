@@ -42,6 +42,11 @@ const api = {
   sendWaSearchResult: (id, result) => ipcRenderer.send('wa:web-search-result', { id, result }),
   onWaAdminRequest: (cb) => ipcRenderer.on('wa:admin-request', (_, data) => cb(data)),
   sendWaMessage: (jid, text) => ipcRenderer.send('wa:send-message', { jid, text }),
+  getPlugins: () => ipcRenderer.invoke('plugin:get-list'),
+  executePlugin: (action, query) => ipcRenderer.invoke('plugin:execute', action, query),
+  openPluginFolder: () => ipcRenderer.invoke('plugin:open-folder'),
+  reloadPlugins: () => ipcRenderer.invoke('plugin:reload'),
+  createPlugin: (payload) => ipcRenderer.invoke('plugin:create', payload),
   removeWaListeners: () => {
     ['wa:qr', 'wa:connection', 'wa:message', 'wa:reply-sent', 'wa:thinking', 'wa:request-web-search', 'wa:admin-request']
       .forEach(ch => ipcRenderer.removeAllListeners(ch))

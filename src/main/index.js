@@ -131,6 +131,8 @@ ipcMain.on('wa:stop', () => stopWhatsappBot())
 ipcMain.handle('wa:get-status', () => getConnectionStatus())
 ipcMain.handle('wa:logout', async () => await logoutWhatsapp())
 
+import { loadPlugins, initPluginIPC } from './plugins/plugin-loader.js'
+
 app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.mark.agent')
@@ -140,6 +142,10 @@ app.whenReady().then(async () => {
     openAtLogin: true,
     openAsHidden: true
   })
+
+  // Load plugin & Inisialisasi IPC Bridge
+  await loadPlugins()
+  initPluginIPC()
 
   setupYoutubeFix()
   createWindow()
