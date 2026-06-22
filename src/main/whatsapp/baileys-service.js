@@ -320,14 +320,7 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
   }
 
   try {
-    const recentMessages = getMessages(jid, 10)
-    let historyContext = ''
-    if (recentMessages && recentMessages.length > 0) {
-      historyContext =
-        '\n\n=== RIWAYAT 5 CHAT TERAKHIR ===\n' +
-        recentMessages.map((m) => `${m.sender}: ${m.text}`).join('\n') +
-        '\n==============================\n'
-    }
+    const recentMessages = getMessages(jid, 5)
 
     let rawSenderJid = isGroup ? msg.key.participant : jid
     let senderNumber = ''
@@ -373,8 +366,8 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
     }
 
     const contextMsg = isGroup 
-      ? `Kamu sedang berada di obrolan Grup WhatsApp bernama "${chatTitle}". Kamu menerima pesan dari salah satu anggota grup bernama "${senderName}" (Nomor WA: ${senderNumber}). Balas pesan tersebut secara santai layaknya teman grup.${historyContext}`
-      : `Kamu sedang mengobrol Private di WhatsApp dengan "${senderName}" (Nomor WA: ${senderNumber}). Jawab pesan tersebut secara personal dan santai.${historyContext}`
+      ? `Kamu sedang berada di obrolan Grup WhatsApp bernama "${chatTitle}". Kamu menerima pesan dari salah satu anggota grup bernama "${senderName}" (Nomor WA: ${senderNumber}). Balas pesan tersebut secara santai layaknya teman grup.`
+      : `Kamu sedang mengobrol Private di WhatsApp dengan "${senderName}" (Nomor WA: ${senderNumber}). Jawab pesan tersebut secara personal dan santai.`
 
     const quotedText =
       msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation ||
@@ -409,6 +402,17 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
       await sock.sendPresenceUpdate('composing', jid)
     } catch (readErr) {
       console.log('[Baileys] Gagal ngebaca/read/typing pesan:', readErr.message)
+    }
+
+    const conversationHistory = []
+    // Loop sampai sebelum pesan terakhir (karena pesan terakhir adalah pesan saat ini)
+    for (let i = 0; i < recentMessages.length - 1; i++) {
+      const m = recentMessages[i]
+      if (m.isFromMe) {
+        conversationHistory.push({ role: 'assistant', content: m.text })
+      } else {
+        conversationHistory.push({ role: 'user', content: isGroup ? `${m.sender}: ${m.text}` : m.text })
+      }
     }
 
     const messages = [
@@ -452,7 +456,8 @@ CONTOH 2 (Jika ngobrol biasa tanpa tools):
   }
 }`
       },
-      { role: 'user', content: processedText }
+      ...conversationHistory,
+      { role: 'user', content: isGroup ? `${senderName}: ${processedText}` : processedText }
     ]
 
     const markSchema = {
