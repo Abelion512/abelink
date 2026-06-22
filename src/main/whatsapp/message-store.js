@@ -10,7 +10,10 @@ export const addMessage = (jid, msgObject) => {
   
   // Hanya simpan pesan yang ada text-nya atau media
   const text = msgObject.message?.conversation || msgObject.message?.extendedTextMessage?.text || '[Media]'
-  const senderName = msgObject.pushName || msgObject.key.participant || jid
+  let senderName = msgObject.pushName || msgObject.key.participant || jid
+  if (msgObject.key.fromMe) {
+    senderName = 'Mark'
+  }
   
   const simplifiedMsg = {
     id: msgObject.key.id,

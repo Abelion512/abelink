@@ -320,11 +320,11 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
   }
 
   try {
-    const recentMessages = getMessages(jid, 10)
+    const recentMessages = getMessages(jid, 5)
     let historyContext = ''
     if (recentMessages && recentMessages.length > 0) {
       historyContext =
-        '\n\n=== RIWAYAT 10 CHAT TERAKHIR ===\n' +
+        '\n\n=== RIWAYAT 5 CHAT TERAKHIR ===\n' +
         recentMessages.map((m) => `${m.sender}: ${m.text}`).join('\n') +
         '\n==============================\n'
     }
@@ -611,6 +611,8 @@ CONTOH 2 (Jika ngobrol biasa tanpa tools):
     console.error('[Baileys] Error processing message:', e)
     sock?.sendPresenceUpdate('paused', jid).catch(() => {})
     
+    await sock?.sendMessage(jid, { text: `❌ Maaf bro, terjadi kesalahan: ${e.message}` }).catch(() => {})
+
     const uiErrorPayload = {
       id: Date.now(),
       sender: senderName,
