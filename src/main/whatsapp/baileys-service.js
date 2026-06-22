@@ -320,7 +320,7 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
   }
 
   try {
-    const recentMessages = getMessages(jid, 5)
+    const recentMessages = getMessages(jid, 10)
     let historyContext = ''
     if (recentMessages && recentMessages.length > 0) {
       historyContext =
