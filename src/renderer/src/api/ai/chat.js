@@ -1,7 +1,7 @@
 import { fetchAI, cleanAndParse } from './core'
 import { getAllConfig } from '../db'
 import { getCurrentTimeInfo } from './utils'
-import { getPluginPromptStr } from './pluginHelper'
+import { getPluginPromptStr, getPluginActionsArray } from './pluginHelper.js'
 
 export const getTitleSession = async (message, signal) => {
   const data = await fetchAI(
@@ -35,10 +35,16 @@ export const getAnswer = async (
   memoryReference,
   chatSession,
   signal,
-  isWebSearch
+  isWebSearch = false,
+  disableTools = false
 ) => {
   try {
-    const pluginPrompt = await getPluginPromptStr()
+    const pluginPrompt = disableTools ? '' : await getPluginPromptStr()
+    const pluginActions = disableTools ? [] : await getPluginActionsArray()
+    const validActionsStr = disableTools 
+      ? 'none' 
+      : ['search', 'yt-summary', 'yt-search', 'music-play', 'music-search', 'music-next', 'music-prev', 'music-toggle', 'none', ...pluginActions].join(' | ')
+
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
     const systemPrompt = `
@@ -141,7 +147,7 @@ No text outside of JSON. The 'answer' field contains a natural EXPRESSIVE respon
 {
   "answer": "string (write as if speaking directly, expressive, minimal markdown formatting)",
   "memory": { "id": number|null, "type": "string", "key": "string", "memory": "string", "action": "insert|update|delete" } or null,
-  "command": { "action": "search | yt-summary | yt-search | music-play | music-search | music-next | music-prev | music-toggle | none", "query": "string or null" } or null
+  "command": { "action": "${validActionsStr}", "query": "string or null" } or null
 }
 
 # EXAMPLES FOR CONSISTENCY (Pay attention to the expressive style in the "answer" field)

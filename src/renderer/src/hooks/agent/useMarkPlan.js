@@ -107,9 +107,46 @@ export const useMarkPlan = ({
         }
         if (answer.command?.action === 'yt-summary') {
           await handleYoutubeSummary(answer.command.query, abortControllerRef.current.signal)
-        }
-        if (answer.command?.action?.startsWith('music')) {
+        } else if (answer.command?.action?.startsWith('music')) {
           await handleMusic(answer.command.action, answer.command?.query)
+        } else if (answer.command?.action && answer.command.action !== 'none' && answer.command.action !== 'search' && answer.command.action !== 'yt-search') {
+          const act = answer.command.action
+          const qry = answer.command.query
+
+          setChatData((prev) => [
+            ...prev,
+            { role: 'ai', content: `Mengeksekusi plugin: ${act}...`, isThinking: true }
+          ])
+
+          await new Promise(resolve => setTimeout(resolve, 500))
+
+          try {
+            const res = await window.api.executePlugin(act, qry)
+            setChatData((prev) => prev.filter(item => !item.isThinking))
+
+            if (res.success) {
+              const summaryStr = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
+              setChatData((prev) => [ ...prev, { role: 'ai', content: 'Membaca hasil eksekusi...', isThinking: true } ])
+              await new Promise(resolve => setTimeout(resolve, 500))
+
+              const followUpInput = `Pertanyaan user: "${userInput}"\n\nInfo dari sistem:\n${summaryStr}\n\nCRITICAL RULE: Jawab pertanyaan user MENGGUNAKAN info di atas secara natural. DILARANG KERAS menggunakan action/plugin/tool apapun lagi. Set field "command" menjadi null.`
+              const followUpSession = [
+                ...chatSession,
+                { role: 'assistant', content: `[SYSTEM LOG] Memulai plugin ${act}...` },
+                { role: 'user', content: followUpInput }
+              ]
+              const followUp = await getAnswer(followUpInput, [], followUpSession, abortControllerRef.current.signal, false, true)
+
+              setChatData((prev) => [
+                ...prev.filter(item => !item.isThinking),
+                { role: 'ai', content: `[Plugin digunakan: ${act}]\n\n${followUp.answer}`, command: followUp.command }
+              ])
+            } else {
+               setChatData((prev) => [ ...prev, { role: 'ai', content: `[Error eksekusi plugin ${act}]: ${res.error}` } ])
+            }
+          } catch (err) {
+            setChatData((prev) => [ ...prev.filter(item => !item.isThinking), { role: 'ai', content: `[Crash eksekusi plugin ${act}]: ${err.message}` } ])
+          }
         }
         setMessage('')
         setIsLoading(false)

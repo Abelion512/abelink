@@ -1,7 +1,7 @@
 import { fetchAI, cleanAndParse } from './core'
 import { getAllConfig } from '../db'
 import { getCurrentTimeInfo } from './utils'
-import { getPluginPromptStr } from './pluginHelper'
+import { getPluginPromptStr, getPluginActionsArray } from './pluginHelper.js'
 
 export const getPlan = async (
   userInput,
@@ -121,6 +121,7 @@ Output:
 export const getTaskAction = async (task, previousContext, isWebSearch, signal) => {
   try {
     const pluginPrompt = await getPluginPromptStr()
+    const pluginActions = await getPluginActionsArray()
     const systemPrompt = `
 You are Mark, a smart AI assistant.
 Your task is to determine ONE action that the system must execute to complete the current task, based on previous context history (if available).
@@ -176,7 +177,8 @@ Determine the action and its query.
             'yt-search',
             'yt-summary',
             'summary',
-            'none'
+            'none',
+            ...pluginActions
           ]
         },
         query: { type: 'string' }

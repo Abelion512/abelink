@@ -75,17 +75,9 @@ export const useMarkChat = ({
             role: 'ai',
             content: answer.answer,
             reasoning: answer.reasoning,
-            isMemorySaved:
-              answer.memory?.action === 'insert' && answer.command?.action !== 'search',
+            isMemorySaved: answer.memory?.action === 'insert' && answer.command?.action !== 'search',
             isMemoryUpdated: answer.memory?.action === 'update',
             isMemoryDeleted: answer.memory?.action === 'delete'
-          }
-          if (answer.command?.run && String(answer.command.run).toLowerCase() !== 'null' && String(answer.command.run).trim() !== '' && (!answer.command.action || answer.command.action === 'none')) {
-            return [
-              ...filtered,
-              aiResponse,
-              { role: 'command', content: answer.command.run, risk: answer.command.risk }
-            ]
           }
           return [...filtered, aiResponse]
         })
@@ -107,45 +99,68 @@ export const useMarkChat = ({
         const act = answer.command.action
         const qry = answer.command.query
 
+        console.log(`[DEBUG] Executing plugin: ${act} with query: ${qry}`)
+
         setChatData((prev) => [
           ...prev,
           { role: 'ai', content: `Mengeksekusi plugin: ${act}...`, isThinking: true }
         ])
 
-        const res = await window.api.executePlugin(act, qry)
-        
-        setChatData((prev) => prev.filter(item => !item.isThinking))
+        // Kasih delay 500ms biar kelihatan di UI
+        await new Promise(resolve => setTimeout(resolve, 500))
 
-        if (res.success) {
-          const summary = res.data
-          const summaryStr = typeof summary === 'string' ? summary : JSON.stringify(summary)
+        try {
+          const res = await window.api.executePlugin(act, qry)
+          console.log(`[DEBUG] executePlugin result:`, res)
           
-          setChatData((prev) => [
-            ...prev,
-            { role: 'ai', content: 'Membaca hasil eksekusi...', isThinking: true }
-          ])
+          setChatData((prev) => prev.filter(item => !item.isThinking))
 
-          const finalChatSession = [
-            ...chatSession,
-            { role: 'user', content: userInput },
-            { role: 'assistant', content: answer.answer }
-          ]
+          if (res.success) {
+            const summary = res.data
+            const summaryStr = typeof summary === 'string' ? summary : JSON.stringify(summary)
+            
+            console.log(`[DEBUG] Plugin success, summary:`, summaryStr)
+            
+            setChatData((prev) => [
+              ...prev,
+              { role: 'ai', content: 'Membaca hasil eksekusi...', isThinking: true }
+            ])
 
-          const followUpInput = `[SYSTEM: HASIL PLUGIN ${act}]\nBerikut hasil dari eksekusi plugin:\n${summaryStr}\n\nTolong jawab kembali pertanyaanku sebelumnya berdasarkan hasil plugin ini secara natural.`
-          
-          const followUp = await getAnswer(followUpInput, null, finalChatSession, abortControllerRef.current.signal, false)
+            // Kasih delay biar kelihatan juga
+            await new Promise(resolve => setTimeout(resolve, 500))
 
+            const followUpInput = `Pertanyaan user: "${userInput}"\n\nInfo dari sistem:\n${summaryStr}\n\nCRITICAL RULE: Jawab pertanyaan user MENGGUNAKAN info di atas secara natural. DILARANG KERAS menggunakan action/plugin/tool apapun lagi. Set field "command" menjadi null.`
+            
+            const followUpSession = [
+              ...chatSession,
+              { role: 'assistant', content: `[SYSTEM LOG] Memulai plugin ${act}...` },
+              { role: 'user', content: followUpInput }
+            ]
+            const followUp = await getAnswer(followUpInput, [], followUpSession, abortControllerRef.current.signal, false, true)
+            console.log(`[DEBUG] Follow up answer:`, followUp)
+
+            setChatData((prev) => [
+              ...prev.filter(item => !item.isThinking),
+              { role: 'ai', content: `[Plugin digunakan: ${act}]\n\n${followUp.answer}`, command: followUp.command }
+            ])
+
+            if (isSpeak && config[0]?.voiceMode === 'ON' && followUp.answer) {
+              playVoice(followUp.answer)
+            }
+
+          } else {
+             console.log("[DEBUG] Plugin execution returned false:", res.error)
+             setChatData((prev) => [
+               ...prev,
+               { role: 'ai', content: `[Error eksekusi plugin ${act}]: ${res.error}` }
+             ])
+          }
+        } catch (err) {
+          console.error("[DEBUG] Exception during executePlugin:", err)
           setChatData((prev) => [
             ...prev.filter(item => !item.isThinking),
-            { role: 'ai', content: `[Plugin digunakan: ${act}]\n\n${followUp.answer}`, command: followUp.command }
+            { role: 'ai', content: `[Crash eksekusi plugin ${act}]: ${err.message}` }
           ])
-
-          if (isSpeak && config[0]?.voiceMode === 'ON' && followUp.answer) {
-            playVoice(followUp.answer)
-          }
-
-        } else {
-           console.log("Plugin action not found or failed:", res.error)
         }
       }
       setMessage('')

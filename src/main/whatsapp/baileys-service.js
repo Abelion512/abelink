@@ -583,6 +583,10 @@ CONTOH 2 (Jika ngobrol biasa tanpa tools):
           if (pluginHandlers[action]) {
             try {
               const res = await pluginHandlers[action]({ query: response.command.query })
+              console.log(`\n=== PLUGIN RETURN VALUE (${action}) ===`)
+              console.log(res)
+              console.log(`===================================\n`)
+              
               const resTxt = typeof res === 'string' ? res : JSON.stringify(res)
               
               if (botWindow && !botWindow.isDestroyed()) {
@@ -591,9 +595,13 @@ CONTOH 2 (Jika ngobrol biasa tanpa tools):
                 })
               }
               
-              const followUpMessages = [...messages, { role: 'assistant', content: `[SYSTEM] Eksekusi plugin '${action}' sukses. Hasilnya:\n${resTxt}\nSilakan jawab kembali ke user (dalam format JSON) berdasarkan hasil ini.` }]
+              const followUpMessages = [
+                ...messages,
+                { role: 'assistant', content: `[SYSTEM LOG] Memulai eksekusi plugin ${action}...` },
+                { role: 'user', content: `[SISTEM INTERNAL: HASIL PLUGIN '${action}']\nBerikut adalah hasil eksekusi plugin:\n${resTxt}\n\nTugasmu sekarang: Berikan jawaban akhir kepada user berdasarkan data di atas. WAJIB balas dalam format JSON murni dengan schema yang sama.` }
+              ]
               
-              const followUpRaw = await fetchAI(followUpMessages, null, true, markSchema)
+              const followUpRaw = await fetchAI(followUpMessages, null, false, markSchema)
               const followUpData = cleanAndParse(followUpRaw.content)
               if (followUpData?.answer) {
                 replyText = followUpData.answer

@@ -35,18 +35,48 @@ export const loadPlugins = async () => {
         const moduleUrl = require('url').pathToFileURL(indexPath).href
         const handler = await import(moduleUrl)
         
-        manifest.folderPath = pluginPath
-        loadedPlugins.push(manifest)
+        const indexContent = fs.readFileSync(indexPath, 'utf8')
         
-        // Daftarkan semua action ke dictionary global
+        manifest.folderPath = pluginPath
+        
+        // Daftarkan semua action ke dictionary global & extract code
         if (manifest.actions && Array.isArray(manifest.actions)) {
           manifest.actions.forEach(act => {
              // asumsikan handler di-export secara default
              if (handler.default && handler.default[act.name]) {
                pluginHandlers[act.name] = handler.default[act.name]
              }
+             
+             // Extract code from index.js for UI Editor
+             const searchStr1 = `'${act.name}': async ({ query }) => {`
+             const searchStr2 = `"${act.name}": async ({ query }) => {`
+             const searchStr3 = `${act.name}: async ({ query }) => {`
+             
+             let startIdx = indexContent.indexOf(searchStr1)
+             if (startIdx === -1) startIdx = indexContent.indexOf(searchStr2)
+             if (startIdx === -1) startIdx = indexContent.indexOf(searchStr3)
+             
+             if (startIdx !== -1) {
+               const len = startIdx === indexContent.indexOf(searchStr1) ? searchStr1.length : 
+                           startIdx === indexContent.indexOf(searchStr2) ? searchStr2.length : searchStr3.length
+               let i = startIdx + len
+               let openBrackets = 1
+               for (; i < indexContent.length; i++) {
+                 if (indexContent[i] === '{') openBrackets++
+                 if (indexContent[i] === '}') {
+                   openBrackets--
+                   if (openBrackets === 0) break
+                 }
+               }
+               
+               let rawCode = indexContent.substring(startIdx + len, i)
+               // remove 4 spaces indentation if present
+               act.code = rawCode.split('\n').map(l => l.startsWith('    ') ? l.substring(4) : l).join('\n').trim()
+             }
           })
         }
+        
+        loadedPlugins.push(manifest)
       } catch (err) {
         console.error(`Gagal load plugin ${folder}:`, err)
       }
@@ -84,13 +114,13 @@ export const initPluginIPC = () => {
 
   ipcMain.handle('plugin:create', async (event, payload) => {
     try {
-      const { name, description, actions } = payload
+      const { name, description, actions, isEdit } = payload
       const kebabPluginName = name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
       
       const pDir = getPluginsDir()
       const newPluginDir = path.join(pDir, kebabPluginName)
       
-      if (fs.existsSync(newPluginDir)) {
+      if (!isEdit && fs.existsSync(newPluginDir)) {
         return { success: false, error: 'Plugin dengan nama tersebut sudah ada' }
       }
       
@@ -99,7 +129,8 @@ export const initPluginIPC = () => {
       const manifestActions = actions.map(act => ({
         name: act.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase(),
         description: act.description,
-        triggerHint: act.triggerHint
+        triggerHint: act.triggerHint,
+        code: act.code
       }))
 
       const manifest = {
@@ -111,7 +142,7 @@ export const initPluginIPC = () => {
       
       fs.writeFileSync(path.join(newPluginDir, 'plugin.json'), JSON.stringify(manifest, null, 2))
       
-      let codeTemplate = `export default {\n`
+      let codeTemplate = `module.exports = {\n`
       actions.forEach((act, index) => {
         const actionKebabName = act.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
         codeTemplate += `  '${actionKebabName}': async ({ query }) => {\n${act.code.split('\\n').map(line => '    ' + line).join('\\n')}\n  }`

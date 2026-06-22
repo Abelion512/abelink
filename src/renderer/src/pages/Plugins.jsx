@@ -11,7 +11,8 @@ export default function Plugins() {
   const [formData, setFormData] = useState({ 
     name: '', 
     description: '', 
-    actions: [{ name: '', description: '', triggerHint: '', code: '' }] 
+    actions: [{ name: '', description: '', triggerHint: '', code: '' }],
+    isEdit: false
   })
   const [formStatus, setFormStatus] = useState(null)
   const [syntaxErrors, setSyntaxErrors] = useState([])
@@ -65,6 +66,33 @@ export default function Plugins() {
     loadData()
   }
 
+  const openCreateForm = () => {
+    setFormData({ 
+      name: '', 
+      description: '', 
+      actions: [{ name: '', description: '', triggerHint: '', code: '' }],
+      isEdit: false
+    })
+    setFormStatus(null)
+    setIsFormOpen(true)
+  }
+
+  const openEditForm = (plugin) => {
+    setFormData({
+      name: plugin.name,
+      description: plugin.description,
+      actions: plugin.actions.map(act => ({
+        name: act.name,
+        description: act.description,
+        triggerHint: act.triggerHint,
+        code: act.code || '// Kode tidak ditemukan\nreturn "Hello";'
+      })),
+      isEdit: true
+    })
+    setFormStatus(null)
+    setIsFormOpen(true)
+  }
+
   return (
     <div className="p-8 w-full max-w-5xl mx-auto h-full overflow-y-auto pt-20 pb-40">
       <style>{`
@@ -78,11 +106,11 @@ export default function Plugins() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Plugin Manager</h1>
-          <p className="opacity-60">Tambahkan fitur baru ke Mark tanpa memodifikasi kode inti.</p>
+          <p className="opacity-70 mt-1">Buat dan kelola custom skill lokal buat Mark</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setIsFormOpen(!isFormOpen)} className="btn btn-outline btn-success">
-            {isFormOpen ? 'Batal' : '+ Tambah Plugin'}
+          <button onClick={openCreateForm} className="btn btn-primary">
+            + Tambah Plugin
           </button>
           <button onClick={handleOpenFolder} className="btn btn-outline border-base-content/20 hover:border-primary hover:bg-primary/10 hover:text-primary">
             Buka Folder
@@ -94,18 +122,14 @@ export default function Plugins() {
       </div>
 
       {isFormOpen && (
-        <dialog className="modal modal-open bg-black/60 backdrop-blur-sm">
-          <div className="modal-box w-11/12 max-w-4xl bg-base-100 border border-base-content/10">
-            <button 
-              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-              onClick={() => setIsFormOpen(false)}
-            >
-              ✕
-            </button>
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-              Buat Plugin Baru
-            </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-base-100 w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-base-content/10">
+            <div className="p-6 border-b border-base-content/10 flex justify-between items-center bg-base-200/50">
+              <h2 className="text-2xl font-bold">{formData.isEdit ? 'Edit Plugin' : 'Buat Plugin Baru'}</h2>
+              <button className="btn btn-sm btn-circle btn-ghost" onClick={() => setIsFormOpen(false)}>✕</button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
             
             {formStatus && <div className={`alert mb-6 py-3 shadow-sm ${formStatus.success ? 'alert-success' : 'alert-error'}`}>{formStatus.message}</div>}
             
@@ -113,7 +137,8 @@ export default function Plugins() {
               <div className="flex gap-4 p-4 bg-base-200/30 rounded-xl border border-base-content/10">
                 <div className="form-control flex-1">
                   <label className="label font-semibold"><span className="label-text">Nama Plugin</span></label>
-                  <input type="text" className="input input-bordered w-full bg-base-200/50 focus:bg-base-100 transition-colors" placeholder="Cth: Kalkulator" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                  <input type="text" className="input input-bordered w-full bg-base-200/50 focus:bg-base-100 transition-colors" placeholder="Cth: Kalkulator" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} disabled={formData.isEdit} />
+                  {formData.isEdit && <span className="text-xs opacity-50 mt-1">Nama plugin tidak bisa diubah saat edit</span>}
                 </div>
                 <div className="form-control flex-1">
                   <label className="label font-semibold"><span className="label-text">Deskripsi Plugin</span></label>
@@ -240,11 +265,9 @@ export default function Plugins() {
                 Simpan Plugin
               </button>
             </div>
+            </div>
           </div>
-          <div className="modal-backdrop" onClick={() => setIsFormOpen(false)}>
-            <button className="cursor-default">close</button>
-          </div>
-        </dialog>
+        </div>
       )}
 
       {plugins.length === 0 && !isFormOpen ? (
@@ -252,10 +275,10 @@ export default function Plugins() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {plugins.map((pl, i) => (
-            <div key={i} className="card bg-base-200/50 shadow-xl border border-base-content/10 backdrop-blur-md">
-              <div className="card-body">
+            <div key={i} className="card bg-base-200/50 shadow-xl border border-base-content/10 backdrop-blur-md flex flex-col">
+              <div className="card-body flex flex-col h-full">
                 <h2 className="card-title text-primary">{pl.name} <span className="text-xs opacity-50 bg-base-300 px-2 py-1 rounded-full">v{pl.version || '1.0.0'}</span></h2>
-                <p className="text-sm opacity-80">{pl.description}</p>
+                <p className="text-sm opacity-80 flex-1">{pl.description}</p>
                 <div className="mt-4">
                   <span className="text-xs font-bold uppercase opacity-50">Available Actions:</span>
                   <ul className="list-disc ml-4 text-xs mt-1 space-y-1">
@@ -263,6 +286,10 @@ export default function Plugins() {
                       <li key={act.name}><span className="font-mono text-accent bg-accent/10 px-1 rounded">{act.name}</span> <span className="opacity-70">- {act.description}</span></li>
                     ))}
                   </ul>
+                </div>
+                <div className="flex gap-2 w-full mt-6 pt-4 border-t border-base-content/10">
+                  <button className="btn btn-sm btn-outline flex-1" onClick={() => window.api.openFolder(pl.folderPath)}>Buka Folder</button>
+                  <button className="btn btn-sm btn-primary flex-1" onClick={() => openEditForm(pl)}>Edit Plugin</button>
                 </div>
               </div>
             </div>
