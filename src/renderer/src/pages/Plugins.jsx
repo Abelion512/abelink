@@ -70,6 +70,7 @@ export default function Plugins() {
     setFormData({ 
       name: '', 
       description: '', 
+      dependencies: '',
       actions: [{ name: '', description: '', triggerHint: '', code: '' }],
       isEdit: false
     })
@@ -81,6 +82,7 @@ export default function Plugins() {
     setFormData({
       name: plugin.name,
       description: plugin.description,
+      dependencies: plugin.dependencies ? plugin.dependencies.join(', ') : '',
       actions: plugin.actions.map(act => ({
         name: act.name,
         description: act.description,
@@ -144,6 +146,11 @@ export default function Plugins() {
                   <label className="label font-semibold"><span className="label-text">Deskripsi Plugin</span></label>
                   <input type="text" className="input input-bordered w-full bg-base-200/50 focus:bg-base-100 transition-colors" placeholder="Cth: Kumpulan alat matematika" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                 </div>
+              </div>
+              <div className="form-control w-full p-4 bg-base-200/30 rounded-xl border border-base-content/10">
+                <label className="label font-semibold"><span className="label-text">Dependencies (Library NPM)</span><span className="label-text-alt opacity-70">Opsional</span></label>
+                <input type="text" className="input input-bordered w-full bg-base-200/50 focus:bg-base-100 transition-colors" placeholder="Cth: axios, cheerio, moment" value={formData.dependencies} onChange={e => setFormData({...formData, dependencies: e.target.value})} />
+                <span className="text-xs opacity-50 mt-2">Pisahkan dengan koma. Library akan otomatis di-install (npm install) saat disimpan.</span>
               </div>
 
               <div className="flex items-center justify-between mt-4">
@@ -236,11 +243,12 @@ export default function Plugins() {
             </div>
 
             <div className="modal-action mt-8 pt-4 border-t border-base-content/10">
-              <button className="btn btn-ghost" onClick={() => setIsFormOpen(false)}>Batal</button>
+              <button className="btn btn-ghost" onClick={() => setIsFormOpen(false)} disabled={formStatus?.loading}>Batal</button>
               <button 
                 className="btn btn-primary px-8" 
+                disabled={formStatus?.loading}
                 onClick={async () => {
-                  setFormStatus(null)
+                  setFormStatus({loading: true, message: "Menyimpan dan menginstall library (jika ada)..."})
                   if(!formData.name) return setFormStatus({success:false, message: "Nama Plugin wajib diisi"})
                   for (let i=0; i<formData.actions.length; i++) {
                     if (!formData.actions[i].name || !formData.actions[i].code) {
@@ -262,7 +270,7 @@ export default function Plugins() {
                   }
                 }}
               >
-                Simpan Plugin
+                {formStatus?.loading ? <span className="loading loading-spinner"></span> : "Simpan Plugin"}
               </button>
             </div>
             </div>

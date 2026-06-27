@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { app, ipcMain, shell } from 'electron'
+import { execSync } from 'child_process'
 
 let loadedPlugins = []
 let pluginHandlers = {}
@@ -137,6 +138,7 @@ export const initPluginIPC = () => {
         name: kebabPluginName,
         version: "1.0.0",
         description: description,
+        dependencies: payload.dependencies ? payload.dependencies.split(',').map(d => d.trim()).filter(d => d) : [],
         actions: manifestActions
       }
       
@@ -152,6 +154,19 @@ export const initPluginIPC = () => {
       codeTemplate += `}`
       
       fs.writeFileSync(path.join(newPluginDir, 'index.js'), codeTemplate)
+
+      // Install dependencies if specified
+      if (manifest.dependencies.length > 0) {
+        try {
+          if (!fs.existsSync(path.join(newPluginDir, 'package.json'))) {
+            execSync('npm init -y', { cwd: newPluginDir, stdio: 'ignore' })
+          }
+          execSync(`npm install ${manifest.dependencies.join(' ')}`, { cwd: newPluginDir, stdio: 'ignore' })
+        } catch (npmErr) {
+          console.error('Gagal install dependencies:', npmErr)
+          return { success: false, error: 'Gagal menginstall dependencies npm: ' + npmErr.message }
+        }
+      }
       
       await loadPlugins()
       return { success: true }

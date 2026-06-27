@@ -1,7 +1,26 @@
 import { fetchAI, cleanAndParse } from './core'
 import { getAllConfig } from '../db'
 import { getCurrentTimeInfo } from './utils'
-import { getPluginPromptStr, getPluginActionsArray } from './pluginHelper.js'
+
+// Inline helper to get plugin actions (replaces pluginHelper.js)
+const getPluginActions = async () => {
+  try {
+    const plugins = await window.api.getPlugins()
+    if (!plugins || plugins.length === 0) return []
+    const actions = []
+    plugins.forEach((plugin) => {
+      if (plugin.actions) {
+        plugin.actions.forEach((act) => {
+          actions.push({ name: act.name, description: act.description, triggerHint: act.triggerHint })
+        })
+      }
+    })
+    return actions
+  } catch (e) {
+    console.error(e)
+    return []
+  }
+}
 
 export const getTitleSession = async (message, signal) => {
   const data = await fetchAI(
@@ -39,11 +58,16 @@ export const getAnswer = async (
   disableTools = false
 ) => {
   try {
-    const pluginPrompt = disableTools ? '' : await getPluginPromptStr()
-    const pluginActions = disableTools ? [] : await getPluginActionsArray()
+    const pluginActions = disableTools ? [] : await getPluginActions()
+    const pluginActionNames = pluginActions.map(a => a.name)
     const validActionsStr = disableTools 
       ? 'none' 
-      : ['search', 'yt-summary', 'yt-search', 'music-play', 'music-search', 'music-next', 'music-prev', 'music-toggle', 'none', ...pluginActions].join(' | ')
+      : ['search', 'yt-summary', 'yt-search', 'music-play', 'music-search', 'music-next', 'music-prev', 'music-toggle', 'none', ...pluginActionNames].join(' | ')
+
+    // Build plugin capabilities string for prompt
+    const pluginSkills = pluginActions.length > 0
+      ? pluginActions.map(a => `- **${a.name}**: ${a.description}${a.triggerHint ? ` (Use when: ${a.triggerHint})` : ''}. Use command.action "${a.name}" with the appropriate query.`).join('\n')
+      : ''
 
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
@@ -139,7 +163,11 @@ Valid types and keys:
 # YOUTUBE RULES
 - If the user asks to summarize or explain a YouTube video, use action: "yt-summary" and fill query with the URL. Maximum 1 video per request; if there is no link, ask the user to send the link. Set command null.
 - If the user asks to find a video or you need to search for a YouTube video, use action: "yt-search" and fill query with the search you would perform on YouTube.
-${pluginPrompt}
+${pluginSkills ? `
+# ADDITIONAL PLUGINS / TOOLS
+${pluginSkills}
+CRITICAL RULE FOR PLUGINS: Only use tools/plugins when EXPLICITLY requested in the user's LAST message. Previous messages are ONLY conversation context. If the LAST message is casual, you MUST use action "none"!
+` : ''}
 
 # OUTPUT (JSON ONLY)
 Output MUST be valid JSON. Starting with '{' and ending with '}'.

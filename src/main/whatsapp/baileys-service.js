@@ -406,7 +406,7 @@ const processMessage = async (msg, isGroup, senderName, text, jid) => {
     }
 
     const pluginsPrompt = isAdmin && getLoadedPlugins().length > 0 
-      ? `\n3. KEMAMPUAN TOOLS TAMBAHAN (PLUGINS):\nKamu JUGA BISA menggunakan action dari plugin berikut jika sesuai dengan permintaan user:\n${getLoadedPlugins().map(p => p.actions?.map(a => `- JIKA ${a.triggerHint || 'dibutuhkan'}, gunakan action "${a.name}". Deskripsi: ${a.description}`).join('\n') || '').join('\n')}\n`
+      ? `\n3. KEMAMPUAN TOOLS TAMBAHAN (PLUGINS):\nKamu JUGA BISA menggunakan action dari plugin berikut jika sesuai dengan permintaan user:\n${getLoadedPlugins().map(p => p.actions?.map(a => `- JIKA ${a.triggerHint || 'dibutuhkan'}, gunakan action "${a.name}". Deskripsi: ${a.description}`).join('\n') || '').join('\n')}\nCRITICAL RULE UNTUK PLUGINS: Gunakan tools/plugins HANYA BILA diminta secara EKSPLISIT pada PESAN TERAKHIR user. Pesan-pesan sebelumnya HANYA sebagai konteks obrolan masa lalu. Jika pesan TERAKHIR user hanya merespons santai, menanggapi obrolan masa lalu, atau tidak memberikan instruksi baru, WAJIB gunakan action "none"!\n`
       : ''
 
     const messages = [

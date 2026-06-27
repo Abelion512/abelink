@@ -1,7 +1,26 @@
 import { fetchAI, cleanAndParse } from './core'
 import { getAllConfig } from '../db'
 import { getCurrentTimeInfo } from './utils'
-import { getPluginPromptStr, getPluginActionsArray } from './pluginHelper.js'
+
+// Inline helper to get plugin actions (replaces pluginHelper.js)
+const getPluginActions = async () => {
+  try {
+    const plugins = await window.api.getPlugins()
+    if (!plugins || plugins.length === 0) return []
+    const actions = []
+    plugins.forEach((plugin) => {
+      if (plugin.actions) {
+        plugin.actions.forEach((act) => {
+          actions.push({ name: act.name, description: act.description, triggerHint: act.triggerHint })
+        })
+      }
+    })
+    return actions
+  } catch (e) {
+    console.error(e)
+    return []
+  }
+}
 
 export const getPlan = async (
   userInput,
@@ -13,6 +32,12 @@ export const getPlan = async (
   try {
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
+    const pluginActions = await getPluginActions()
+
+    // Build plugin capabilities string for the prompt
+    const pluginCapabilities = pluginActions.length > 0
+      ? pluginActions.map(a => `- ${a.name}: ${a.description}${a.triggerHint ? ` (Use when: ${a.triggerHint})` : ''}`).join('\n')
+      : ''
 
     const systemPrompt = `
 You are Mark, a smart, assertive, and straightforward local assistant. Address the user as "bro".
@@ -31,14 +56,16 @@ Use the memory data above as a reference if the user's instructions mention pron
 
 # AVAILABLE CAPABILITIES / TOOLS
 The system has the following capabilities:
-- Web Search: Search for general information on Google. This tool will browse Google search by opening the top 5 websites and Google's AI summary, then summarize findings from all 5 sites and the AI summary. However, this tool cannot explicitly open a specific page directly.
-- YouTube Search: Search for videos on YouTube. This feature retrieves titles, IDs, and duration but cannot read video content.
-- YouTube Summary: Summarize video content from a YouTube link.
-- Music Player: Play songs on YouTube Music.
-- Music Next: Play the next song.
-- Music Toggle: Pause or resume the current song.
-- Music Search: Search for a specific song on YT Music.
-- Summary/Analysis: Identify, filter, or summarize data from a previous step.
+- search: Search for general information on Google. This tool will browse Google search by opening the top 5 websites and Google's AI summary, then summarize findings from all 5 sites and the AI summary. However, this tool cannot explicitly open a specific page directly.
+- yt-search: Search for videos on YouTube. This feature retrieves titles, IDs, and duration but cannot read video content.
+- yt-summary: Summarize video content from a YouTube link.
+- music-play: Play songs on YouTube Music.
+- music-next: Play the next song.
+- music-toggle: Pause or resume the current song.
+- music-search: Search for a specific song on YT Music.
+- summary: Identify, filter, or summarize data from a previous step.
+${pluginCapabilities ? pluginCapabilities + '\n' : ''}
+CRITICAL RULE FOR PLUGINS: Only use tools/plugins when EXPLICITLY requested in the user's LAST message. Previous messages are ONLY conversation context. If the LAST message is casual or does not give a new instruction, you MUST use action "none".
 Design a logical plan that *can be* executed using a combination of the capabilities above.
 
 # JIT QUERY GENERATION RULES
@@ -90,7 +117,8 @@ Output:
                   'yt-search',
                   'yt-summary',
                   'summary',
-                  'none'
+                  'none',
+                  ...pluginActions.map(a => a.name)
                 ]
               },
               query: { type: 'string' },
@@ -120,8 +148,13 @@ Output:
 
 export const getTaskAction = async (task, previousContext, isWebSearch, signal) => {
   try {
-    const pluginPrompt = await getPluginPromptStr()
-    const pluginActions = await getPluginActionsArray()
+    const pluginActions = await getPluginActions()
+
+    // Build plugin actions string for the ACTION LIST
+    const pluginActionsList = pluginActions.length > 0
+      ? pluginActions.map(a => `- ${a.name}: ${a.description}${a.triggerHint ? ` (Use when: ${a.triggerHint})` : ''}`).join('\n')
+      : ''
+
     const systemPrompt = `
 You are Mark, a smart AI assistant.
 Your task is to determine ONE action that the system must execute to complete the current task, based on previous context history (if available).
@@ -140,7 +173,9 @@ ${isWebSearch ? '- search: Perform a general web search (Google) to find info, t
 - yt-summary: Summarize YouTube video content.
 - summary: Summarize/answer the task directly using your knowledge (without searching), useful for coding or basic theory.
 - none: No relevant action.
-${pluginPrompt}
+${pluginActionsList}
+
+CRITICAL RULE FOR PLUGINS: Only use tools/plugins when EXPLICITLY requested in the user's LAST message. Previous messages are ONLY conversation context.
 
 # RULES
 1. Output MUST be valid JSON with the format { "action": "action-name", "query": "string" }.
@@ -178,7 +213,7 @@ Determine the action and its query.
             'yt-summary',
             'summary',
             'none',
-            ...pluginActions
+            ...pluginActions.map(a => a.name)
           ]
         },
         query: { type: 'string' }
