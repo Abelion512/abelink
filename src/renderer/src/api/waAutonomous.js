@@ -2,6 +2,71 @@ import { getPlan, getTaskAction, getTaskSummary, getPlanConclusion } from './ai/
 import { getAnswer } from './ai/chat'
 import { getRelevantMemory } from './vectorMemory'
 import { getAllMemory } from './db'
+import { scrapeGoogle, deepSearch } from './scraping'
+
+const performWebSearch = async (query) => {
+  console.log('WA Web Search Requested (Local):', query)
+  const webview = document.getElementById('global-ai-search-webview')
+  if (!webview) return null
+  
+  try {
+    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`
+    webview.src = googleUrl
+    
+    await new Promise((resolve) => {
+      let timeoutId
+      const loadStop = () => {
+        clearTimeout(timeoutId)
+        webview.removeEventListener('dom-ready', loadStop)
+        resolve()
+      }
+      timeoutId = setTimeout(loadStop, 10000)
+      webview.addEventListener('dom-ready', loadStop)
+    })
+
+    const waitForLoad = (wv) => {
+      return new Promise((resolve) => {
+        let tId
+        const onDone = () => {
+          clearTimeout(tId)
+          wv.removeEventListener('dom-ready', onDone)
+          resolve()
+        }
+        tId = setTimeout(onDone, 10000)
+        wv.addEventListener('dom-ready', onDone)
+      })
+    }
+
+    const source = await scrapeGoogle(webview, googleUrl, (isCaptcha) => {
+      if(isCaptcha) console.log('WA Web Search: Captcha Detected!')
+    })
+
+    const links = []
+    // Batasi maksimal 2 link saja yang di deep-search untuk menghemat token TPM Groq
+    const maxLinks = 3
+    for (let i = 0; i < Math.min(source.length, maxLinks); i++) {
+      const urlItem = source[i]
+      let link = null
+      if (urlItem.title === 'AI Google Summary') {
+        link = { source: urlItem.title, url: urlItem.link, text: urlItem.snippet }
+      } else {
+        webview.src = urlItem.link
+        await waitForLoad(webview)
+        link = await deepSearch(webview, urlItem)
+      }
+      if (link) links.push(link)
+    }
+
+    console.log('WA Web Search Result:', links)
+    // Bersihkan webview agar tidak memakan RAM/CPU dari script background website yang berat
+    webview.src = 'about:blank'
+    return links
+  } catch (e) {
+    console.error('WA Web Search Error:', e)
+    webview.src = 'about:blank'
+    return null
+  }
+}
 
 export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGroup, msgId, chatSessionHistory = []) => {
   try {
@@ -16,11 +81,25 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
     const memory = await getRelevantMemory(userInput, memoryList)
 
     // 2. Buat Planning
-    const contextMsg = (isGroup ? `Kamu di grup WA. Pengirim: ${senderName}.` : `Kamu di chat pribadi dengan ${senderName}.`) + `\n\nFITUR KHUSUS WA: Kamu punya tambahan action "screenshot" (tanpa parameter query) untuk mengambil tangkapan layar monitor PC/laptop jika user memintanya. Gunakan action "screenshot" dan BUKAN "system-command" jika user meminta screenshot.`
+    const waPersonality = `\n\nWHATSAPP SPECIFIC PERSONA RULES:\n1. Act like a normal human friend, NOT an AI, NOT a virtual assistant, and NOT a rigid robot.\n2. Respond as casually, naturally, and coolly as possible, like hanging out with friends.\n3. STRICTLY PROHIBITED from offering help (e.g., "Is there anything I can help you with?", "What can I do for you?"). Just reply casually and only as necessary.`
+    const contextMsg = (isGroup ? `Kamu di grup WA. Pengirim: ${senderName}.` : `Kamu di chat pribadi dengan ${senderName}.`) + waPersonality + `\n\nFITUR KHUSUS WA: Kamu punya tambahan action "screenshot" (tanpa parameter query) untuk mengambil tangkapan layar monitor PC/laptop jika user memintanya. Gunakan action "screenshot" dan BUKAN "system-command" jika user meminta screenshot.`
     console.log('[waAutonomous] Calling getPlan...')
     const planResult = await getPlan(userInput, true, null, chatSessionHistory, memory, contextMsg)
     console.log('[waAutonomous] getPlan finished:', planResult)
-    const planArray = planResult?.plan || []
+    let planArray = planResult?.plan || []
+
+    // Pencegahan Fast Bypass untuk perintah yang butuh balasan data (misal: search, baca dokumen, dll)
+    const dataFetchingActions = ['search', 'summary', 'yt-summary', 'yt-search', 'read_file']
+    if (planArray.length === 0 && planResult?.command && dataFetchingActions.includes(planResult.command.action)) {
+      console.log('[waAutonomous] Data-fetching command detected in Fast Bypass. Converting to Multi-Step Plan.')
+      planArray.push({
+        task: `Execute ${planResult.command.action} for "${planResult.command.query}"`,
+        action: planResult.command.action,
+        query: planResult.command.query,
+        is_dynamic: false
+      })
+      planResult.direct_answer = null // Batalin Fast Bypass agar hasil search dirangkum oleh getAnswer
+    }
 
     // Optimisasi Jalur Cepat (Direct Answer)
     if (planArray.length === 0 && planResult?.direct_answer) {
@@ -56,7 +135,8 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
           executedTools.push(qry ? `${cmdAction} ("${qry}")` : cmdAction)
         } else if (cmdAction === 'search' || cmdAction === 'yt-summary' || cmdAction === 'yt-search') {
           if (cmdAction === 'search') {
-            window.api.waRequestWebSearch({ id: Date.now(), query: qry })
+            window.api.sendWaMessage(jid, `🔍 _Sedang mencari "${qry}" di web..._\n_Tunggu sebentar ya..._`)
+            performWebSearch(qry).catch(console.error)
             executedTools.push(`${cmdAction} ("${qry}")`)
           }
         } else if (isAdmin) {
@@ -101,17 +181,13 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
       // window.api.sendWaProgress({ jid, message: `⏳ ${step.task}...` })
 
       if (step.action === 'search') {
-        // Panggil web search via hidden webview (menggunakan jembatan Global AI Search yang sudah ada di App.jsx)
-        // Karena ini berjalan async dan butuh sinkronisasi, lebih baik menggunakan IPC request ke Main dan Main meneruskan ke Webview
-        stepResult = await new Promise((resolve) => {
-           window.api.waRequestWebSearch({ id: Date.now() + i, query: queryToExecute })
-           const handler = (data) => {
-             resolve(JSON.stringify(data.result)) // asumsikan data result ditarik lewat ipc
-           }
-           // Simplifikasi sementara: Asumsikan Main memproses dan mengembalikan hasil (nanti diimplementasikan)
-           // Untuk saat ini kita pakai dummy resolve timeout agar tidak hang jika belum ada IPC nya
-           setTimeout(() => resolve(`Hasil pencarian: ${queryToExecute}`), 2000)
-        })
+        window.api.sendWaMessage(jid, `🔍 _Sedang mencari "${queryToExecute}" di web..._\n_Tunggu sebentar ya..._`)
+        try {
+          const result = await performWebSearch(queryToExecute)
+          stepResult = JSON.stringify(result)
+        } catch (e) {
+          stepResult = `Error pencarian: ${e.message}`
+        }
       } else if (step.action === 'summary') {
         stepResult = await getTaskSummary(
           step.task,
@@ -162,12 +238,11 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
     let chatSession = []
     
     if (planArray.length === 0) {
-      chatSession = [...chatSessionHistory, { role: 'user', content: userInput }]
+      chatSession = [...chatSessionHistory]
     } else {
       const synthesisData = executionResults.map((r, idx) => `[Task ${idx + 1}: ${r.task}]\nResult: ${r.result}`).join('\n\n')
       chatSession = [
         ...chatSessionHistory,
-        { role: 'user', content: userInput },
         { role: 'assistant', content: `[SYSTEM LOG] Menjalankan perintah dan berikut hasilnya:\n${synthesisData}` },
         { role: 'user', content: "Berdasarkan hasil di atas, tolong berikan balasan akhirnya ke saya." }
       ]
@@ -177,7 +252,7 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
     console.log('[waAutonomous] Executing Fallback getAnswer...')
     let finalAnswerObj = null
     try {
-      finalAnswerObj = await getAnswer(userInput, [], chatSessionHistory, false, false, false, contextMsg)
+      finalAnswerObj = await getAnswer(userInput, [], chatSession, false, false, false, contextMsg)
       console.log('[waAutonomous] Fallback getAnswer finished:', finalAnswerObj)
     } catch (e) {
       console.error('[waAutonomous] Fallback getAnswer error:', e)
@@ -232,7 +307,8 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
         // Asynchronous tasks requiring feedback are better handled by Planner.
         // However, if getAnswer outputs this, we can optionally trigger them.
         if (cmdAction === 'search') {
-          window.api.waRequestWebSearch({ id: Date.now(), query: qry })
+          window.api.sendWaMessage(jid, `🔍 _Sedang mencari "${qry}" di web..._\n_Tunggu sebentar ya..._`)
+          performWebSearch(qry).catch(console.error)
         }
       } else if (isAdmin) {
         // Execute plugin

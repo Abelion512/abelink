@@ -179,8 +179,8 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
         let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
 
         // Auto-retry fallback untuk High Traffic / Rate Limits (503, 429, 500)
-        const isHighTraffic = response.status === 429 || response.status >= 500 || finalErrorMessage.toLowerCase().includes('high traffic') || finalErrorMessage.toLowerCase().includes('rate limit');
-        if (isHighTraffic && trafficRetryCount < 4 && (endpoint.includes('cerebras.ai') || endpoint.includes('groq.com'))) {
+        const isHighTraffic = response.status === 429 || response.status >= 500 || finalErrorMessage.toLowerCase().includes('high traffic') || finalErrorMessage.toLowerCase().includes('rate limit') || finalErrorMessage.toLowerCase().includes('tpm');
+        if (isHighTraffic && trafficRetryCount < 20 && (endpoint.includes('cerebras.ai') || endpoint.includes('groq.com'))) {
            
            // Cek apakah server ngasih tau harus nunggu berapa detik (khusus Groq 429)
            let backoffDelay = (trafficRetryCount + 1) * 3000; 
@@ -194,7 +194,7 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
            // Rate limit Groq itu per-model. Jadi kalau kita langsung ganti model, kita bisa bypass rate limit tanpa harus nunggu puluhan detik!
            let retryBody = { ...currentBody };
            if (endpoint.includes('groq.com')) {
-             const backupModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it', 'mixtral-8x7b-32768'];
+             const backupModels = ['openai/gpt-oss-20b'];
              const nextModel = backupModels[trafficRetryCount % backupModels.length];
              retryBody.model = nextModel;
              console.log(`[Model Swap] Model utama sibuk/rate limit, Mark ganti haluan instan ke ${nextModel}`);
@@ -203,14 +203,11 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
              // Bypass backoffDelay sepenuhnya karena kita udah pindah model!
              backoffDelay = 1000; // Cuma jeda 1 detik biar aman
            } else {
-             if (backoffDelay > 10000) {
-               console.log(`[Rate Limit] Server minta tunggu ${backoffDelay}ms. Terlalu lama! Skip auto-retry.`);
-               throw new Error(`Rate limit reached: Server terlalu sibuk. Coba lagi nanti.`);
-             }
+             // Tunggu berapapun lamanya sesuai permintaan user ("rebound terus sampek dapet")
              if (onStatus) onStatus(`Server sibuk, mencoba ulang dalam ${Math.round(backoffDelay/1000)}s...`);
            }
            
-           console.log(`[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/4)`);
+           console.log(`[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/20)`);
            await new Promise((resolve) => setTimeout(resolve, backoffDelay));
            return executeFetch(retryBody, isRetry, trafficRetryCount + 1);
         }

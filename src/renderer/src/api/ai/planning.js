@@ -76,14 +76,54 @@ Design a logical plan that *can be* executed using a combination of the capabili
 4. If the task can be executed directly without waiting for previous results (e.g., searching for weather, playing a specific song, or searching the web), formulate "query" with the correct keywords and set "is_dynamic" to false.
 5. WEB SEARCH USAGE: Use Web Search ("search") ONLY for searching real-time information, news, product prices, or latest public facts. DO NOT use it for coding/basic theory, just use "summary".
 6. FAST BYPASS (SINGLE TOOL): If the user's instruction ONLY requires 1 tool usage (e.g., just setting volume, just playing music), RETURN an empty plan array '{"plan": []}', AND fill the 'command' field with the tool details, AND fill 'direct_answer' with the textual response!
-# OUTPUT EXAMPLE
+7. CASUAL CHAT / REACTIONS: If the user is just chatting casually, agreeing, reacting, or NOT explicitly asking you to perform a new action (e.g., "mantap", "oke", "jos"), you MUST set 'command' to null! DO NOT repeat the previous tool.
+8. SEARCH LANGUAGE: Ensure the search query ("query" field) is written in the SAME LANGUAGE as the user's prompt to get accurate local results.
+# EXAMPLES
+
+## Example 1: Multi-Step Plan (Complex Task)
+User: "Cari pemenang piala dunia 2022 terus puter lagu kebangsaannya"
 Output: 
 \`\`\`json
 {
   "plan": [
     { "task": "Cari pemenang piala dunia 2022", "action": "search", "query": "pemenang piala dunia 2022", "is_dynamic": false },
     { "task": "Putar lagu kebangsaan negara pemenang", "action": "music-play", "query": "", "is_dynamic": true }
-  ]
+  ],
+  "command": null,
+  "direct_answer": null
+}
+\`\`\`
+
+## Example 2: Fast Bypass (Single Task - EXPRESSIVE)
+User: "Mark puterin lagu jkt48 dong"
+Output: 
+\`\`\`json
+{
+  "plan": [],
+  "command": { "action": "music-play", "query": "jkt48" },
+  "direct_answer": "Wah mantap seleranya bro! Gas, gue puterin JKT48 sekarang juga ya!"
+}
+\`\`\`
+
+## Example 3: Fast Bypass (Expressive)
+User: "Matiin pc 10 detik"
+Output: 
+\`\`\`json
+{
+  "plan": [],
+  "command": { "action": "shutdown-pc", "query": "10" },
+  "direct_answer": "Siap laksanakan bro! PC lu bakal mati dalam 10 detik, siap-siap ya!"
+}
+\`\`\`
+
+## Example 4: Casual Chat (No Command)
+User: "Mantap bro makasih ya"
+Output: 
+\`\`\`json
+{
+  "plan": [],
+  "command": null,
+  "direct_answer": "Yoi bro, santai aja! Kalo ada apa-apa lagi bilang aja."
 }
 \`\`\`
 `
@@ -134,7 +174,7 @@ Output:
         },
         command: {
           type: ['object', 'null'],
-          description: 'Jika kamu menggunakan FAST BYPASS (plan kosong tapi butuh 1 tool), isi nama tool di action dan parameter di query.',
+          description: 'CRITICAL: JIKA USER HANYA BEREAKSI/NGOBROL (seperti "oke", "mantap", "kok tau") ATAU TIDAK MEMBERIKAN PERINTAH BARU, KAMU WAJIB ISI INI DENGAN NULL! DILARANG mengulang perintah tool sebelumnya! Hanya isi jika user secara eksplisit meminta aksi.',
           properties: {
             action: { type: 'string' },
             query: { type: 'string' }

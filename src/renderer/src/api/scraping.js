@@ -74,7 +74,7 @@ export const deepSearch = async (webview, url) => {
               let hasil = kontenUtama.innerText || '';
               wadah.remove();
               
-              return hasil.replace(/\\n{3,}/g, '\\n\\n').replace(/\\s{2,}/g, ' ').trim().substring(0, 3000);
+              return hasil.replace(/\\n{3,}/g, '\\n\\n').replace(/\\s{2,}/g, ' ').trim().substring(0, 1500);
             })()
           `)
     return {

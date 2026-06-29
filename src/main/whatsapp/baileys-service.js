@@ -217,7 +217,7 @@ const processMessage = async (msg, isGroup, senderName, text, jid, senderNumber)
     try {
       await new Promise((r) => setTimeout(r, 500))
       await sock.readMessages([msg.key])
-      await sock.sendPresenceUpdate('composing', jid)
+      // Dihapus sendPresenceUpdate('composing') dari sini biar WA nggak timeout nungguin AI kelamaan!
     } catch (readErr) {
       console.log('[Baileys] Gagal read pesan:', readErr.message)
     }
@@ -301,6 +301,9 @@ ipcMain.on('wa:agent-execution-done', async (event, data) => {
 
   let replyText = result?.answer || "Selesai diproses."
   
+  // Baru kirim status 'composing' (ngetik) di sini, biar aman dan nggak kena timeout dari WhatsApp!
+  if (sock) await sock.sendPresenceUpdate('composing', jid).catch(() => {})
+
   // Kurangi delay ngetik jadi maksimal 1.5 detik biar nggak kelamaan
   const typingSpeed = 10
   const delayNgetik = Math.min(replyText.length * typingSpeed, 1500)
