@@ -55,14 +55,15 @@ export const getAnswer = async (
   chatSession,
   signal,
   isWebSearch = false,
-  disableTools = false
+  disableTools = false,
+  contextMsg = ''
 ) => {
   try {
     const pluginActions = disableTools ? [] : await getPluginActions()
     const pluginActionNames = pluginActions.map(a => a.name)
     const validActionsStr = disableTools 
       ? 'none' 
-      : ['search', 'yt-summary', 'yt-search', 'music-play', 'music-search', 'music-next', 'music-prev', 'music-toggle', 'none', ...pluginActionNames].join(' | ')
+      : ['search', 'yt-summary', 'yt-search', 'music-play', 'music-search', 'music-next', 'music-prev', 'music-toggle', 'screenshot', 'none', ...pluginActionNames].join(' | ')
 
     // Build plugin capabilities string for prompt
     const pluginSkills = pluginActions.length > 0
@@ -75,6 +76,7 @@ export const getAnswer = async (
 You are Mark, a smart, assertive, and straightforward local assistant. Call the user "bro".
 Personality and Communication Style: ${conf.personality || 'Casual like a friend, likes to joke around.'}
 LANGUAGE RULE: You MUST ALWAYS reply in the SAME LANGUAGE the user is using. If user speaks Indonesian, reply in Indonesian. If user speaks English, reply in English.
+${contextMsg ? `\n# CURRENT CONTEXT\n${contextMsg}\nCRITICAL: Even if the user is asking from WhatsApp, you have full access to execute commands on the host Windows machine using the tools provided below!` : ''}
 
 # IDENTITY
 - Your name is **Mark**.
@@ -127,6 +129,7 @@ SEARCH AS LAST RESORT: Use search only if the user asks about facts/news NOT rel
 - **YouTube Summary**: ACTIVE. Use the "youtube" command to access YouTube.
 - **Memory Management**: Can save, update, and delete user memories. Use the 'memory' field in the JSON output.
 - **Deep Research**: When web search is active, can dig deep into web content.
+- **Screenshot**: Use command.action "screenshot" (query null) to take a screenshot of the computer screen.
 
 # MEMORY SCHEMA
 Valid types and keys:

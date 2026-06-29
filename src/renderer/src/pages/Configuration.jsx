@@ -388,7 +388,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               {config.useSecondaryModel && (
                 <div className="pl-6 pt-1 mb-4 border-l-2 border-white/10 ml-2">
                   <p className="text-xs opacity-40 leading-relaxed">
-                    Semua tugas belakang layar (action, parsing, merangkum) akan otomatis dialihkan ke model <b>llama-3.1-8b-instant</b> via Groq API.
+                    Semua tugas belakang layar (action, parsing, merangkum) akan otomatis dialihkan ke model <b>openai/gpt-oss-20b</b> via Groq API.
                   </p>
                 </div>
               )}

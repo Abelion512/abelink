@@ -27,7 +27,8 @@ export const getPlan = async (
   isWebSearch,
   signal,
   chatSession = [],
-  memoryReference = []
+  memoryReference = [],
+  contextMsg = ''
 ) => {
   try {
     const currentConfig = await getAllConfig()
@@ -42,6 +43,7 @@ export const getPlan = async (
     const systemPrompt = `
 You are Mark, a smart, assertive, and straightforward local assistant. Address the user as "bro".
 Personality and Communication Style: ${conf.personality || 'Casual like a friend, likes to joke around.'}
+${contextMsg ? `\n# CURRENT CONTEXT\n${contextMsg}\nCRITICAL: Even if the user is asking from WhatsApp, you have full access to execute commands on the host Windows machine using the tools provided below!` : ''}
 
 Your main task here is to design (plan) systematic steps to execute the user's instructions.
 Break instructions into an ordered array of small tasks. If your model has reasoning capabilities (<think>), think in accordance with your personality and communication style!
@@ -60,10 +62,10 @@ The system has the following capabilities:
 - yt-search: Search for videos on YouTube. This feature retrieves titles, IDs, and duration but cannot read video content.
 - yt-summary: Summarize video content from a YouTube link.
 - music-play: Play songs on YouTube Music.
-- music-next: Play the next song.
 - music-toggle: Pause or resume the current song.
 - music-search: Search for a specific song on YT Music.
 - summary: Identify, filter, or summarize data from a previous step.
+- screenshot: Take a screenshot of the computer screen (returns image directly).
 ${pluginCapabilities ? pluginCapabilities + '\n' : ''}
 CRITICAL RULE FOR PLUGINS: Only use tools/plugins when EXPLICITLY requested in the user's LAST message. Previous messages are ONLY conversation context. If the LAST message is casual or does not give a new instruction, you MUST use action "none".
 Design a logical plan that *can be* executed using a combination of the capabilities above.
@@ -117,6 +119,7 @@ Output:
                   'yt-search',
                   'yt-summary',
                   'summary',
+                  'screenshot',
                   'none',
                   ...pluginActions.map(a => a.name)
                 ]
@@ -127,18 +130,24 @@ Output:
             required: ['task', 'action', 'query', 'is_dynamic'],
             additionalProperties: false
           }
+        },
+        direct_answer: {
+          type: ['string', 'null'],
+          description: 'Berikan balasan/jawaban natural secara langsung kepada user JIKA plan kosong (kamu tidak butuh action/tools apa-apa). Jika plan TIDAK kosong, isi dengan null.'
         }
       },
-      required: ['plan'],
+      required: ['plan', 'direct_answer'],
       additionalProperties: false
     }
 
+    console.log('\n=== GETPLAN SYSTEM PROMPT ===')
+    console.log(systemPrompt)
+    console.log('=============================\n')
+
     const response = await fetchAI(messages, signal, false, schema)
     const data = cleanAndParse(response.content)
-    if (data && Array.isArray(data.plan)) return { plan: data.plan, reasoning: response.reasoning }
-    // Fallback if data is raw array
-    if (Array.isArray(data)) return { plan: data, reasoning: response.reasoning }
-    throw new Error('Invalid plan format (not an array).')
+    if (data && Array.isArray(data.plan)) return { plan: data.plan, direct_answer: data.direct_answer, reasoning: response.reasoning }
+    return { plan: [], direct_answer: null }
   } catch (error) {
     console.error('Error in getPlan:', error)
     throw error

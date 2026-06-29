@@ -1,15 +1,26 @@
-import { makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys'
-import { app, ipcMain } from 'electron'
+import {
+  makeWASocket,
+  useMultiFileAuthState,
+  DisconnectReason,
+  jidNormalizedUser
+} from '@whiskeysockets/baileys'
+import { app, ipcMain, Notification } from 'electron'
 import qrcode from 'qrcode'
 import fs from 'fs'
 import path from 'path'
-import { clearChat } from './message-store.js'
-import { handleIncomingMessage, uiMessageHistory } from './wa-flow.js'
+import { sendScreenshotToWA } from './screenshot.js'
+import { downloadAndSendMusicWA } from './media-downloader.js'
+import { getGlobalConfig } from '../ai-bridge.js'
 
 let sock = null
 let currentStatus = 'disconnected'
 let qrDataUrl = null
 let botWindow = null
+const contactCache = {}
+export const uiMessageHistory = []
+const MAX_UI_HISTORY = 100
+
+const messageStoreMap = new Map()
 
 const updateStatus = (status, qr = null) => {
   currentStatus = status
@@ -18,6 +29,22 @@ const updateStatus = (status, qr = null) => {
     botWindow.webContents.send('wa:connection', status)
     if (qr) botWindow.webContents.send('wa:qr', qr)
   }
+}
+
+export const safeSendMessage = async (jid, content, options = {}, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    if (!sock) {
+      await new Promise((r) => setTimeout(r, 2000))
+      continue
+    }
+    try {
+      return await sock.sendMessage(jid, content, options)
+    } catch (err) {
+      console.log(`[Baileys] Retry send message ${i + 1}/${retries} due to:`, err.message || err)
+      await new Promise((r) => setTimeout(r, 3000))
+    }
+  }
+  console.error('[Baileys] Gagal mengirim pesan setelah maksimal percobaan.')
 }
 
 export const getConnectionStatus = () => {
@@ -44,42 +71,175 @@ export const stopWhatsappBot = () => {
   updateStatus('disconnected')
 }
 
-export const startWhatsappBot = async (mainWindow) => {
-  botWindow = mainWindow
+const handleIncomingMessage = async (messages, type) => {
+  if (type !== 'notify') return
 
-  // Register IPC listener for sending WA messages
-  try { ipcMain.removeHandler('wa:get-history') } catch (e) {}
-  ipcMain.handle('wa:get-history', () => uiMessageHistory)
+  for (const msg of messages) {
+    if (!msg.message) continue
+    const jid = msg.key.remoteJid
+    if (jid === 'status@broadcast') continue
+    if (msg.key.fromMe) continue
 
-  if (!ipcMain.listenerCount('wa:send-message')) {
-    ipcMain.on('wa:send-message', async (event, { jid, text }) => {
-      if (sock) {
-        try {
-          await sock.sendMessage(jid, { text })
-        } catch (e) {
-          console.error('[Baileys] Gagal mengirim pesan WA manual:', e)
+    messageStoreMap.set(msg.key.id, msg)
+    setTimeout(() => messageStoreMap.delete(msg.key.id), 60000)
+
+    const isGroup = jid.endsWith('@g.us')
+    const senderJid = isGroup ? msg.key.participant : jid
+    const senderName = msg.pushName || msg.key.participant || jid
+
+    if (msg.pushName && senderJid) {
+      contactCache[senderJid] = msg.pushName
+    }
+
+    const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || ''
+    const quotedText =
+      msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation ||
+      msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.extendedTextMessage?.text ||
+      null
+
+    const uiMsgPayload = {
+      id: msg.key.id,
+      sender: senderName,
+      text: text || '[Media]',
+      quotedText: quotedText,
+      isGroup,
+      chatTitle: isGroup
+        ? (await sock.groupMetadata(jid).catch(() => ({ subject: jid }))).subject
+        : senderName,
+      time: new Date(msg.messageTimestamp * 1000).toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      type: 'incoming'
+    }
+
+    uiMessageHistory.push(uiMsgPayload)
+    if (uiMessageHistory.length > MAX_UI_HISTORY) uiMessageHistory.shift()
+
+    if (botWindow && !botWindow.isDestroyed()) {
+      botWindow.webContents.send('wa:message', uiMsgPayload)
+    }
+
+    let senderNumber
+    let rawSenderJid = isGroup ? msg.key.participant : msg.key.remoteJid
+
+    if (rawSenderJid && rawSenderJid.includes('@lid')) {
+      const phoneNumber = msg.participant || msg.senderPhoneNumber || rawSenderJid
+      senderNumber = jidNormalizedUser(phoneNumber).split('@')[0]
+    } else {
+      senderNumber = jidNormalizedUser(rawSenderJid).split('@')[0]
+    }
+
+    const cmd = text.trim().toLowerCase()
+    if (cmd === '/register' || cmd === '/registrasi') {
+      const reqText = `⏳ Permintaan akses Admin atas nama *${senderName}* telah dikirim ke layar komputer. Mohon tunggu persetujuan Owner.`
+      await safeSendMessage(jid, { text: reqText }, { quoted: msg })
+
+      if (botWindow && !botWindow.isDestroyed()) {
+        botWindow.webContents.send('wa:admin-request', {
+          id: senderNumber,
+          name: senderName,
+          jid: jid,
+          timestamp: Date.now()
+        })
+        if (Notification.isSupported()) {
+          const notif = new Notification({
+            title: 'Mark WhatsApp',
+            body: `Permintaan akses Admin baru dari ${senderName}! Klik untuk menyetujui.`
+          })
+          notif.on('click', () => {
+            if (botWindow) {
+              botWindow.show()
+              botWindow.webContents.send('route-to-config')
+            }
+          })
+          notif.show()
         }
       }
-    })
+      continue
+    }
+
+    if (!text) continue
+
+    if (isGroup) {
+      const myPn = sock.user?.id?.split(':')[0] || sock.authState?.creds?.me?.id?.split(':')[0]
+      const myLid = sock.user?.lid?.split(':')[0] || sock.authState?.creds?.me?.lid?.split(':')[0]
+      const botJid = myPn ? myPn + '@s.whatsapp.net' : ''
+      const botLid = myLid ? myLid + '@lid' : ''
+      const mentionedJidList = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || []
+      const isMentioned =
+        mentionedJidList.includes(botJid) || (botLid && mentionedJidList.includes(botLid))
+      const lowerText = text.toLowerCase()
+      const isCalled =
+        lowerText.includes('mark') || lowerText.includes('@mark') || lowerText.includes('bot')
+      const quotedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant || null
+      const isReplyToBot = quotedParticipant === botJid || (botLid && quotedParticipant === botLid)
+
+      if (!isMentioned && !isCalled && !isReplyToBot) continue
+    }
+
+    await processMessage(msg, isGroup, senderName, text, jid, senderNumber)
+  }
+}
+
+const processMessage = async (msg, isGroup, senderName, text, jid, senderNumber) => {
+  if (botWindow && !botWindow.isDestroyed()) {
+    botWindow.webContents.send('wa:thinking', { sender: senderName, isGroup, jid })
   }
 
-  if (sock) return // already started
-
-  updateStatus('connecting')
-
-  const authFolder = path.join(app.getPath('userData'), 'wa-auth')
-  let state, saveCreds
   try {
-    const auth = await useMultiFileAuthState(authFolder)
-    state = auth.state
-    saveCreds = auth.saveCreds
+    const myLid = sock.user?.lid?.split(':')[0] || sock.authState?.creds?.me?.lid?.split(':')[0]
+    const myPn = sock.user?.id?.split(':')[0] || sock.authState?.creds?.me?.id?.split(':')[0]
+
+    if (myLid && myPn && senderNumber === myLid) {
+      senderNumber = myPn
+    }
+
+    const config = getGlobalConfig()
+    const adminNumbers = (config.waAdminNumber || '')
+      .split(',')
+      .map((n) => n.trim())
+      .filter(Boolean)
+    const isAdmin = adminNumbers.includes(senderNumber)
+
+    let processedText = text
+    const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || []
+    for (const mJid of mentionedJids) {
+      const num = mJid.split('@')[0]
+      const cachedName = contactCache[mJid]
+      if (cachedName) {
+        processedText = processedText.replace(new RegExp(`@${num}`, 'g'), `@${cachedName}`)
+      }
+    }
+
+    try {
+      await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 2000) + 1000))
+      await sock.readMessages([msg.key])
+      await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 1000) + 500))
+      await sock.sendPresenceUpdate('composing', jid)
+    } catch (readErr) {
+      console.log('[Baileys] Gagal read pesan:', readErr.message)
+    }
+
+    if (botWindow && !botWindow.isDestroyed()) {
+      botWindow.webContents.send('wa:request-agent-execution', {
+        text: processedText,
+        isAdmin,
+        senderName,
+        msgId: msg.key.id,
+        jid,
+        isGroup
+      })
+    }
   } catch (err) {
-    console.error('[Baileys] Error loading auth state, wiping folder...', err)
-    if (fs.existsSync(authFolder)) fs.rmSync(authFolder, { recursive: true, force: true })
-    const auth = await useMultiFileAuthState(authFolder)
-    state = auth.state
-    saveCreds = auth.saveCreds
+    console.error('Error processing message:', err)
   }
+}
+
+export const startWhatsappBot = async (mainWindow) => {
+  botWindow = mainWindow
+  const authFolder = path.join(app.getPath('userData'), 'wa-auth')
+  const { state, saveCreds } = await useMultiFileAuthState(authFolder)
 
   sock = makeWASocket({
     auth: state,
@@ -91,45 +251,96 @@ export const startWhatsappBot = async (mainWindow) => {
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update
+
     if (qr) {
-      const url = await qrcode.toDataURL(qr)
-      updateStatus('qr', url)
+      const qrDataUrl = await qrcode.toDataURL(qr)
+      updateStatus('qr', qrDataUrl)
     }
 
     if (connection === 'close') {
       const statusCode = lastDisconnect?.error?.output?.statusCode
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut
-      console.log(
-        '[Baileys] Connection closed. Reconnecting:',
-        shouldReconnect,
-        'Reason:',
-        statusCode
-      )
-
-      // MENGHAPUS INSTANCE SOCKET LAMA
-      sock = null
+      updateStatus('disconnected')
 
       if (shouldReconnect) {
         updateStatus('connecting')
-        // Jika karena 515 (restart required), kita bisa langsung restart
         const delayMs = statusCode === DisconnectReason.restartRequired ? 1000 : 5000
         setTimeout(() => startWhatsappBot(mainWindow), delayMs)
       } else {
-        // Jika status code = loggedOut (401), hapus sesi lama biar nggak stuck
-        if (statusCode === DisconnectReason.loggedOut) {
-          console.log('[Baileys] Logged out. Wiping old auth data...')
-          const authFolder = path.join(app.getPath('userData'), 'wa-auth')
-          if (fs.existsSync(authFolder)) fs.rmSync(authFolder, { recursive: true, force: true })
+        sock = null
+        if (fs.existsSync(authFolder)) {
+          fs.rmSync(authFolder, { recursive: true, force: true })
         }
-        updateStatus('disconnected')
       }
     } else if (connection === 'open') {
-      console.log('[Baileys] Connected')
       updateStatus('connected')
     }
   })
 
-  sock.ev.on('messages.upsert', async ({ messages, type }) => {
-    await handleIncomingMessage(messages, type, sock, botWindow)
+  sock.ev.on('messages.upsert', async (m) => {
+    await handleIncomingMessage(m.messages, m.type)
   })
 }
+
+// IPC Handlers
+ipcMain.removeAllListeners('wa:agent-execution-done')
+ipcMain.on('wa:agent-execution-done', async (event, data) => {
+  const { jid, result, msgId } = data
+  const msg = messageStoreMap.get(msgId)
+  if (!msg) return
+
+  let replyText = result?.answer || 'Selesai diproses.'
+  const typingSpeed = Math.floor(Math.random() * 20) + 30
+  const delayNgetik = Math.min(replyText.length * typingSpeed, 6000)
+  await new Promise((r) => setTimeout(r, delayNgetik))
+  await safeSendMessage(jid, { text: replyText }, { quoted: msg })
+  if (sock) await sock.sendPresenceUpdate('paused', jid).catch(() => {})
+
+  // Update UI
+  const isGroup = jid.endsWith('@g.us')
+  const chatTitle = isGroup
+    ? (await sock?.groupMetadata(jid).catch(() => ({ subject: jid }))).subject
+    : 'Chat'
+  const uiReplyPayload = {
+    id: Date.now(),
+    sender: 'Mark',
+    text: '',
+    reply: replyText,
+    isGroup,
+    chatTitle,
+    time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+    type: 'outgoing'
+  }
+  uiMessageHistory.push(uiReplyPayload)
+  if (uiMessageHistory.length > MAX_UI_HISTORY) uiMessageHistory.shift()
+  if (botWindow && !botWindow.isDestroyed()) {
+    botWindow.webContents.send('wa:reply-sent', uiReplyPayload)
+  }
+})
+
+ipcMain.removeAllListeners('wa:send-message')
+ipcMain.on('wa:send-message', async (event, { jid, text }) => {
+  await safeSendMessage(jid, { text })
+})
+
+ipcMain.removeAllListeners('wa:trigger-screenshot')
+ipcMain.on('wa:trigger-screenshot', async (event, { jid, msgId }) => {
+  const msg = messageStoreMap.get(msgId)
+  if (!sock || !msg) return
+  const replyText = await sendScreenshotToWA(sock, jid, msg)
+  await safeSendMessage(jid, { text: replyText }, { quoted: msg })
+})
+
+ipcMain.removeAllListeners('wa:trigger-music-download')
+ipcMain.on('wa:trigger-music-download', async (event, { jid, msgId, query }) => {
+  const msg = messageStoreMap.get(msgId)
+  if (!sock || !msg) return
+  await downloadAndSendMusicWA(sock, jid, msg, query)
+})
+
+ipcMain.removeAllListeners('wa:trigger-music-ui')
+ipcMain.on('wa:trigger-music-ui', (event, { command, query }) => {
+  if (botWindow && !botWindow.isDestroyed()) {
+    botWindow.webContents.send('execute-music-command-wa', command, query)
+  }
+})

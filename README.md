@@ -18,6 +18,7 @@ Mark is directly connected to a variety of powerful capabilities that allow it t
 - **YouTube Summarizer:** Just provide a YouTube video link, and Mark will automatically pull the transcript, chunk the text, and deliver a concise summary.
 - **YouTube Music Player:** Integrated with YouTube Music (ad-free), Mark can be controlled to search and play your favorite songs directly from the chat interface.
 - **Personal WhatsApp Bot:** Mark can act as a smart personal assistant right in your WhatsApp (using the Baileys library). Mark can adaptively read chat history, respond to mentions in groups, perform web searches, play songs on the laptop when requested by an Admin, and for non-admin users, Mark can automatically download YouTube songs as MP3 files and send them directly into the chat!
+- **Screenshot:** Mark has built-in native integration to take screenshots of your active monitors directly from WhatsApp, allowing you to remotely check your PC's screen from.
 - **Voice & Audio (Voice-to-Voice):** Mark can be spoken to directly using a microphone (powered by Groq Whisper STT) and will respond with a natural-sounding voice (powered by Edge-TTS).
 
 ## Project Architecture
@@ -27,9 +28,11 @@ mark/
 ├── src/
 │   ├── main/              # Electron Main Process (Window Management, IPC, TTS, Tray)
 │   │   ├── whatsapp/      # Native WhatsApp WebSocket Service (@whiskeysockets/baileys)
-│   │   │   ├── baileys-service.js # Baileys Integration & Command Handling (/register)
-│   │   │   └── message-store.js   # In-memory chat history storage
-│   │   └── ai-bridge.js   # Centralized AI bridge for models, rate limits, & Auto-Repair JSON (jsonrepair)
+│   │   │   ├── baileys-service.js     # Connection, Msg Parsing, IPC Routing & Commands
+│   │   │   ├── message-store.js       # In-memory chat history storage
+│   │   │   ├── screenshot.js          # Native module (desktopCapturer) for WA screenshots
+│   │   │   └── media-downloader.js    # Native module (ytdl-exec) for MP3 WA downloads
+│   │   └── ai-bridge.js   # Centralized AI bridge for models, rate limits, & Auto-Repair JSON
 │   ├── preload/           # Preload Scripts (Electron security bridge)
 │   └── renderer/          # Frontend (React)
 │       └── src/
@@ -37,7 +40,8 @@ mark/
 │           │   ├── ai/             # AI Integration Modules (core, chat, planning, tools, utilities)
 │           │   ├── db.js           # Local Database Schema & Migrations (Dexie/IndexedDB)
 │           │   ├── scraping.js     # Google search & deep web research module
-│           │   └── vectorMemory.js # Vector Memory System (Transformers.js / LM Studio)
+│           │   ├── vectorMemory.js # Vector Memory System (Transformers.js / LM Studio)
+│           │   └── waAutonomous.js # Brain logic & Plugin execution for WhatsApp AI
 │           ├── components/         # UI Components (Modular Chat Bubbles)
 │           ├── contexts/           # Global State Management (ChatContext, YoutubeMusicContext)
 │           ├── hooks/              # Custom React Hooks

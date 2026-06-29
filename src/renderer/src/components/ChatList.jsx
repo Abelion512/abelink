@@ -9,7 +9,8 @@ import {
   YoutubeSearchBubble,
   MessageBubble,
   ThinkingBubble,
-  MemoryFooterBubble
+  MemoryFooterBubble,
+  PluginExecutionBubble
 } from './Chat'
 
 const ChatList = ({
@@ -39,7 +40,8 @@ const ChatList = ({
   currentStep,
   sendDataWebSearch,
   onRun,
-  isPlanConclusion = false
+  isPlanConclusion = false,
+  pluginExecution = null
 }) => {
   const resolvedCurrentStep = currentStep !== undefined ? currentStep : plan.length
   const { playUrl } = useYoutubeMusic()
@@ -120,6 +122,9 @@ const ChatList = ({
               )}
               {isYoutubeSearch && (
                 <YoutubeSearchBubble queryYoutube={queryYoutube} youtubeLink={youtubeLink} />
+              )}
+              {pluginExecution && (
+                <PluginExecutionBubble pluginExecution={pluginExecution} />
               )}
               <MessageBubble 
                 isUser={isUser}

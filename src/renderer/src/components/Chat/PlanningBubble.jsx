@@ -71,12 +71,29 @@ export const PlanningBubble = ({ plan, resolvedCurrentStep, reasoning }) => {
               return (
                 <div
                   key={idx}
-                  className={`text-[11px] font-mono transition-opacity ${idx === resolvedCurrentStep ? 'animate-pulse text-white' : 'text-white/70'}`}
+                  className={`flex items-start text-[11px] font-mono transition-opacity ${idx === resolvedCurrentStep ? 'animate-pulse text-white' : 'text-white/70'}`}
                 >
                   <span className={`${opacity} mr-1 font-bold inline-block w-3 text-center`}>
                     {prefix}
                   </span>
-                  {typeof step === 'object' ? step.task : step}
+                  {typeof step === 'object' 
+                    ? (
+                      <div className="flex-1 w-full overflow-hidden">
+                        <div>
+                          {step.task}
+                          {step.query && step.action !== 'none' && (
+                            <span className="opacity-50 ml-1 italic">: {step.query}</span>
+                          )}
+                        </div>
+                        {step.result && (
+                          <div className="mt-1.5 mb-1 opacity-80 text-[10px] text-info bg-info/10 p-2 rounded-md border border-info/20 whitespace-pre-wrap font-sans leading-relaxed break-words">
+                            {step.result}
+                          </div>
+                        )}
+                      </div>
+                    )
+                    : step
+                  }
                   {suffix}
                 </div>
               )

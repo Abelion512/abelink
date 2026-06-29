@@ -10,6 +10,7 @@ import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
 import { YoutubeMusicPlayer } from './components/YoutubeMusicPlayer'
 import { getAllConfig } from './api/db'
+import { runWhatsappAgent } from './api/waAutonomous'
 
 const GlobalListener = () => {
   const navigate = useNavigate()
@@ -49,6 +50,14 @@ const GlobalListener = () => {
 
     if (window.electron?.ipcRenderer) {
       window.electron.ipcRenderer.on('route-to-config', handleRouteToConfig)
+    }
+
+    if (window.api?.onWaRequestAgentExecution) {
+      window.api.onWaRequestAgentExecution(async (data) => {
+        const { text, isAdmin, senderName, jid, isGroup, msgId } = data
+        const result = await runWhatsappAgent(text, isAdmin, senderName, jid, isGroup, msgId)
+        window.api.sendWaAgentExecutionDone({ jid, result, msgId })
+      })
     }
 
     if (window.api?.onWaRequestWebSearch) {

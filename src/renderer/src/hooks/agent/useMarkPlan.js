@@ -155,7 +155,16 @@ export const useMarkPlan = ({
 
               setChatData((prev) => [
                 ...prev.filter(item => !item.isThinking),
-                { role: 'ai', content: `[Plugin digunakan: ${act}]\n\n${followUp.answer}`, command: followUp.command }
+                { 
+                  role: 'ai', 
+                  content: followUp.answer, 
+                  command: followUp.command,
+                  pluginExecution: {
+                    action: act,
+                    query: qry,
+                    result: summaryStr
+                  }
+                }
               ])
             } else {
                setChatData((prev) => [ ...prev, { role: 'ai', content: `[Error eksekusi plugin ${act}]: ${res.error}` } ])
@@ -353,7 +362,20 @@ export const useMarkPlan = ({
         contextSummaries.push(summary)
         previousContext.push(`Task: ${task} -> Hasil: ${summary}`)
 
-        setChatData((prev) => prev.filter((item) => !item.isSearching))
+        setChatData((prev) => 
+          prev.map((item) => {
+            if (item.isPlanSteps) {
+              const updatedPlan = [...item.plan]
+              if (typeof updatedPlan[i] === 'object') {
+                updatedPlan[i] = { ...updatedPlan[i], result: summary }
+              } else {
+                updatedPlan[i] = { task: updatedPlan[i], result: summary }
+              }
+              return { ...item, plan: updatedPlan }
+            }
+            return item
+          }).filter((item) => !item.isSearching)
+        )
       }
 
       // All steps done

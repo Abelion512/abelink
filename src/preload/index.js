@@ -44,8 +44,19 @@ const api = {
   onWaThinking: (cb) => ipcRenderer.on('wa:thinking', (_, data) => cb(data)),
   onWaRequestWebSearch: (cb) => ipcRenderer.on('wa:request-web-search', (_, data) => cb(data)),
   sendWaSearchResult: (id, result) => ipcRenderer.send('wa:web-search-result', { id, result }),
-  onWaAdminRequest: (cb) => ipcRenderer.on('wa:admin-request', (_, data) => cb(data)),
+  onWaAdminRequest: (cb) => {
+    ipcRenderer.removeAllListeners('wa:admin-request')
+    ipcRenderer.on('wa:admin-request', (_, data) => cb(data))
+  },
+  onWaRequestAgentExecution: (cb) => {
+    ipcRenderer.removeAllListeners('wa:request-agent-execution')
+    ipcRenderer.on('wa:request-agent-execution', (_, data) => cb(data))
+  },
+  sendWaAgentExecutionDone: (data) => ipcRenderer.send('wa:agent-execution-done', data),
   sendWaMessage: (jid, text) => ipcRenderer.send('wa:send-message', { jid, text }),
+  waTakeScreenshot: (jid, msgId) => ipcRenderer.send('wa:trigger-screenshot', { jid, msgId }),
+  waDownloadMusic: (jid, msgId, query) => ipcRenderer.send('wa:trigger-music-download', { jid, msgId, query }),
+  waPlayMusicUi: (command, query) => ipcRenderer.send('wa:trigger-music-ui', { command, query }),
   getPlugins: () => ipcRenderer.invoke('plugin:get-list'),
   executePlugin: (action, query) => ipcRenderer.invoke('plugin:execute', action, query),
   openPluginFolder: () => ipcRenderer.invoke('plugin:open-folder'),
@@ -53,7 +64,7 @@ const api = {
   reloadPlugins: () => ipcRenderer.invoke('plugin:reload'),
   createPlugin: (payload) => ipcRenderer.invoke('plugin:create', payload),
   removeWaListeners: () => {
-    ['wa:qr', 'wa:connection', 'wa:message', 'wa:reply-sent', 'wa:thinking', 'wa:request-web-search', 'wa:admin-request']
+    ['wa:qr', 'wa:connection', 'wa:message', 'wa:reply-sent', 'wa:thinking', 'wa:request-web-search', 'wa:admin-request', 'wa:request-agent-execution']
       .forEach(ch => ipcRenderer.removeAllListeners(ch))
   }
 }

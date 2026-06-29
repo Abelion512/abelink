@@ -141,7 +141,16 @@ export const useMarkChat = ({
 
             setChatData((prev) => [
               ...prev.filter(item => !item.isThinking),
-              { role: 'ai', content: `[Plugin digunakan: ${act}]\n\n${followUp.answer}`, command: followUp.command }
+              { 
+                role: 'ai', 
+                content: followUp.answer, 
+                command: followUp.command,
+                pluginExecution: {
+                  action: act,
+                  query: qry,
+                  result: summaryStr
+                }
+              }
             ])
 
             if (isSpeak && config[0]?.voiceMode === 'ON' && followUp.answer) {

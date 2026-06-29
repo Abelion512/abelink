@@ -1,0 +1,134 @@
+import { getPlan, getTaskAction, getTaskSummary, getPlanConclusion } from './ai/planning'
+import { getAnswer } from './ai/chat'
+import { getRelevantMemory } from './vectorMemory'
+import { getAllMemory } from './db'
+
+export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGroup, msgId) => {
+  try {
+    const plugins = await window.api.getPlugins()
+    console.log('=== DEBUG: LOADED PLUGINS ===', plugins)
+
+    // 1. Dapatkan Context / Memory (simulasi)
+    const memoryList = await getAllMemory()
+    const memory = await getRelevantMemory(userInput, memoryList)
+
+    // 2. Buat Planning
+    const contextMsg = (isGroup ? `Kamu di grup WA. Pengirim: ${senderName}.` : `Kamu di chat pribadi dengan ${senderName}.`) + `\n\nFITUR KHUSUS WA: Kamu punya tambahan action "screenshot" (tanpa parameter query) untuk mengambil tangkapan layar monitor PC/laptop jika user memintanya. Gunakan action "screenshot" dan BUKAN "system-command" jika user meminta screenshot.`
+    const planResult = await getPlan(userInput, true, null, [], memory, contextMsg)
+    const planArray = planResult?.plan || []
+    
+    // Optimisasi: Jika plan kosong (tidak butuh tools), dan AI sudah memberikan direct_answer di getPlan,
+    // kita tidak perlu membuang 1 API call lagi ke getAnswer! Langsung kirim balasannya.
+    if (planArray.length === 0 && planResult?.direct_answer) {
+      return {
+        answer: planResult.direct_answer,
+        command: { action: 'none', query: '' }
+      }
+    }
+
+    // 3. Eksekusi Plan (jika ada)
+    const executionResults = []
+
+    for (let i = 0; i < planArray.length; i++) {
+      const step = planArray[i]
+      let queryToExecute = step.query
+
+      // Dynamic task
+      if (step.is_dynamic && i > 0) {
+        queryToExecute = await getTaskAction(
+          step.task,
+          [{ role: 'user', content: userInput }],
+          executionResults[i - 1]?.result || ''
+        )
+      }
+
+      // Execute based on Action
+      let stepResult = ''
+      
+      // Kirim progress update ke WA via IPC (opsional)
+      // window.api.sendWaProgress({ jid, message: `⏳ ${step.task}...` })
+
+      if (step.action === 'search') {
+        // Panggil web search via hidden webview (menggunakan jembatan Global AI Search yang sudah ada di App.jsx)
+        // Karena ini berjalan async dan butuh sinkronisasi, lebih baik menggunakan IPC request ke Main dan Main meneruskan ke Webview
+        stepResult = await new Promise((resolve) => {
+           window.api.waRequestWebSearch({ id: Date.now() + i, query: queryToExecute })
+           const handler = (data) => {
+             resolve(JSON.stringify(data.result)) // asumsikan data result ditarik lewat ipc
+           }
+           // Simplifikasi sementara: Asumsikan Main memproses dan mengembalikan hasil (nanti diimplementasikan)
+           // Untuk saat ini kita pakai dummy resolve timeout agar tidak hang jika belum ada IPC nya
+           setTimeout(() => resolve(`Hasil pencarian: ${queryToExecute}`), 2000)
+        })
+      } else if (step.action === 'summary') {
+        stepResult = await getTaskSummary(
+          step.task,
+          [{ role: 'user', content: userInput }],
+          executionResults[i - 1]?.result || ''
+        )
+      } else if (step.action !== 'none') {
+        if (step.action === 'screenshot') {
+          if (isAdmin) {
+            window.api.sendWaMessage(jid, "📸 _Siap bos, lagi motret layar laptop..._")
+            window.api.waTakeScreenshot(jid, msgId)
+            stepResult = `Aksi screenshot dijalankan dan akan dikirim ke WA.`
+          } else {
+            stepResult = `Aksi screenshot ditolak karena privasi (bukan admin).`
+          }
+        } else if (step.action.startsWith('music-')) {
+          if (step.action === 'music-play' && queryToExecute) {
+            if (isAdmin) {
+              window.api.waPlayMusicUi('play', queryToExecute)
+              stepResult = `Lagu "${queryToExecute}" diputar di UI laptop.`
+            } else {
+              window.api.sendWaMessage(jid, "_(⏳ MP3 lagunya lagi didownload ya, tunggu bentar...)_")
+              window.api.waDownloadMusic(jid, msgId, queryToExecute)
+              stepResult = `Lagu "${queryToExecute}" sedang didownload sebagai MP3.`
+            }
+          } else if (isAdmin) {
+            const cmd = step.action.replace('music-', '')
+            window.api.waPlayMusicUi(cmd, queryToExecute)
+            stepResult = `Perintah kontrol musik "${cmd}" dikirim.`
+          } else {
+            stepResult = `Perintah musik "${step.action}" ditolak karena bukan admin.`
+          }
+        } else {
+          // Plugin eksekusi via IPC
+          try {
+            const res = await window.api.executePlugin(step.action, queryToExecute)
+            stepResult = res.success ? `Plugin dijalankan: ${JSON.stringify(res.data)}` : `Gagal eksekusi plugin: ${res.error}`
+          } catch (err) {
+            stepResult = `Error eksekusi plugin: ${err.message}`
+          }
+        }
+      }
+
+      executionResults.push({ task: step.task, result: stepResult })
+    }
+
+    // 4. Generate Final Answer
+    let chatSession = []
+    
+    if (planArray.length === 0) {
+      chatSession = [{ role: 'user', content: userInput }]
+    } else {
+      const synthesisData = executionResults.map((r, idx) => `[Task ${idx + 1}: ${r.task}]\nResult: ${r.result}`).join('\n\n')
+      chatSession = [
+        { role: 'user', content: userInput },
+        { role: 'assistant', content: `[SYSTEM LOG] Menjalankan perintah dan berikut hasilnya:\n${synthesisData}` },
+        { role: 'user', content: "Berdasarkan hasil di atas, tolong berikan balasan akhirnya ke saya." }
+      ]
+    }
+    
+    // Panggil getAnswer dari chat.js
+    const finalAnswerObj = await getAnswer(userInput, [], chatSession, false, false, false, contextMsg)
+    
+    return {
+      answer: finalAnswerObj?.answer || "Selesai diproses."
+    }
+
+  } catch (err) {
+    console.error('WA Autonomous Error:', err.stack || err)
+    return { answer: 'Terjadi kesalahan saat memproses rencana: ' + err.message + '\n\nStack: ' + (err.stack || 'No stack trace') }
+  }
+}

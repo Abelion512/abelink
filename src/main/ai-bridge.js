@@ -51,11 +51,11 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
     if (useSecondary) {
       endpoint = 'https://api.groq.com/openai/v1/chat/completions'
       headers['Authorization'] = `Bearer ${conf.groqApiKey}`
-      body.model = 'llama-3.1-8b-instant'
+      body.model = 'openai/gpt-oss-20b'
     } else if (conf.aiProvider === 'groq') {
       endpoint = 'https://api.groq.com/openai/v1/chat/completions'
       headers['Authorization'] = `Bearer ${conf.groqApiKey}`
-      body.model = conf.groqModel || 'llama-3.1-8b-instant'
+      body.model = conf.groqModel || 'openai/gpt-oss-20b'
     } else if (conf.aiProvider === 'cerebras') {
       endpoint = 'https://api.cerebras.ai/v1/chat/completions'
       headers['Authorization'] = `Bearer ${conf.cerebrasApiKey}`
@@ -193,7 +193,7 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
            // Trik Rahasia: Kalau Groq lagi sibuk, kita ganti/swap modelnya ke server cadangan mereka!
            let retryBody = { ...currentBody };
            if (endpoint.includes('groq.com') && trafficRetryCount >= 1) {
-             const backupModels = ['llama3-8b-8192', 'gemma2-9b-it', 'mixtral-8x7b-32768', 'llama-3.3-70b-versatile'];
+             const backupModels = ['openai/gpt-oss-20b', 'gemma2-9b-it', 'mixtral-8x7b-32768', 'llama-3.3-70b-versatile'];
              const nextModel = backupModels[(trafficRetryCount - 1) % backupModels.length];
              retryBody.model = nextModel;
              console.log(`[Model Swap] Model utama sibuk, Mark ganti haluan ke ${nextModel}`);
