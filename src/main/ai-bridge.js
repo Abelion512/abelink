@@ -190,23 +190,26 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
              backoffDelay = Math.ceil(parseFloat(timeMatch[1]) * 1000) + 500; 
            }
 
-           if (backoffDelay > 10000) {
-             console.log(`[Rate Limit] Server minta tunggu ${backoffDelay}ms. Terlalu lama! Skip auto-retry.`);
-             throw new Error(`Rate limit reached: Server terlalu sibuk. Coba lagi nanti.`);
-           }
-           
            // Trik Rahasia: Kalau Groq lagi sibuk, kita ganti/swap modelnya ke server cadangan mereka!
+           // Rate limit Groq itu per-model. Jadi kalau kita langsung ganti model, kita bisa bypass rate limit tanpa harus nunggu puluhan detik!
            let retryBody = { ...currentBody };
-           if (endpoint.includes('groq.com') && trafficRetryCount >= 1) {
-             const backupModels = ['openai/gpt-oss-20b', 'gemma2-9b-it', 'mixtral-8x7b-32768', 'llama-3.3-70b-versatile'];
-             const nextModel = backupModels[(trafficRetryCount - 1) % backupModels.length];
+           if (endpoint.includes('groq.com')) {
+             const backupModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it', 'mixtral-8x7b-32768'];
+             const nextModel = backupModels[trafficRetryCount % backupModels.length];
              retryBody.model = nextModel;
-             console.log(`[Model Swap] Model utama sibuk, Mark ganti haluan ke ${nextModel}`);
-             if (onStatus) onStatus(`Server sibuk, ganti jalur ke model cadangan (${nextModel})...`);
+             console.log(`[Model Swap] Model utama sibuk/rate limit, Mark ganti haluan instan ke ${nextModel}`);
+             if (onStatus) onStatus(`Server sibuk, ganti jalur instan ke model cadangan (${nextModel})...`);
+             
+             // Bypass backoffDelay sepenuhnya karena kita udah pindah model!
+             backoffDelay = 1000; // Cuma jeda 1 detik biar aman
            } else {
+             if (backoffDelay > 10000) {
+               console.log(`[Rate Limit] Server minta tunggu ${backoffDelay}ms. Terlalu lama! Skip auto-retry.`);
+               throw new Error(`Rate limit reached: Server terlalu sibuk. Coba lagi nanti.`);
+             }
              if (onStatus) onStatus(`Server sibuk, mencoba ulang dalam ${Math.round(backoffDelay/1000)}s...`);
            }
-
+           
            console.log(`[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/4)`);
            await new Promise((resolve) => setTimeout(resolve, backoffDelay));
            return executeFetch(retryBody, isRetry, trafficRetryCount + 1);

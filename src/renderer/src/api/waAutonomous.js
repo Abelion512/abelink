@@ -5,22 +5,26 @@ import { getAllMemory } from './db'
 
 export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGroup, msgId, chatSessionHistory = []) => {
   try {
+    console.log('[waAutonomous] Starting runWhatsappAgent for user:', senderName)
     const plugins = await window.api.getPlugins()
-    console.log('=== DEBUG: LOADED PLUGINS ===', plugins)
+    console.log('[waAutonomous] Plugins loaded')
 
     // 1. Dapatkan Context / Memory (simulasi)
+    console.log('[waAutonomous] Getting memory list...')
     const memoryList = await getAllMemory()
+    console.log('[waAutonomous] Getting relevant memory...')
     const memory = await getRelevantMemory(userInput, memoryList)
 
     // 2. Buat Planning
     const contextMsg = (isGroup ? `Kamu di grup WA. Pengirim: ${senderName}.` : `Kamu di chat pribadi dengan ${senderName}.`) + `\n\nFITUR KHUSUS WA: Kamu punya tambahan action "screenshot" (tanpa parameter query) untuk mengambil tangkapan layar monitor PC/laptop jika user memintanya. Gunakan action "screenshot" dan BUKAN "system-command" jika user meminta screenshot.`
+    console.log('[waAutonomous] Calling getPlan...')
     const planResult = await getPlan(userInput, true, null, chatSessionHistory, memory, contextMsg)
+    console.log('[waAutonomous] getPlan finished:', planResult)
     const planArray = planResult?.plan || []
 
     // Optimisasi Jalur Cepat (Direct Answer)
-    // Jika plan kosong (tidak butuh tools) DAN AI memutuskan untuk langsung membalas santai tanpa save memori,
-    // langsung return balasan tanpa harus hit API getAnswer kedua kalinya!
     if (planArray.length === 0 && planResult?.direct_answer) {
+      console.log('[waAutonomous] Entering Fast Bypass!')
       let executedTools = []
       let finalCommand = { action: 'none', query: '' }
 
@@ -65,12 +69,14 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
         }
       }
 
+      console.log('[waAutonomous] Fast Bypass returning')
       return {
         answer: planResult.direct_answer,
         command: finalCommand,
         toolsUsed: executedTools
       }
     }
+    console.log('[waAutonomous] Fast Bypass skipped, executing plan array of length:', planArray.length)
 
     // 3. Eksekusi Plan (jika ada)
     const executionResults = []
@@ -167,11 +173,14 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
       ]
     }
     
-    // Panggil getAnswer dari chat.js
+    // 5. Generate Jawaban Akhir (Fallback chat.js)
+    console.log('[waAutonomous] Executing Fallback getAnswer...')
     let finalAnswerObj = null
     try {
-      finalAnswerObj = await getAnswer(userInput, [], chatSession, false, false, false, contextMsg)
+      finalAnswerObj = await getAnswer(userInput, [], chatSessionHistory, false, false, false, contextMsg)
+      console.log('[waAutonomous] Fallback getAnswer finished:', finalAnswerObj)
     } catch (e) {
+      console.error('[waAutonomous] Fallback getAnswer error:', e)
       if (planArray.length > 0) {
         const executedNames = planArray.map(p => p.action).join(', ')
         finalAnswerObj = {

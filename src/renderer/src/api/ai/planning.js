@@ -34,11 +34,10 @@ export const getPlan = async (
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
     const pluginActions = await getPluginActions()
-
-    // Build plugin capabilities string for the prompt
     const pluginCapabilities = pluginActions.length > 0
       ? pluginActions.map(a => `- ${a.name}: ${a.description}${a.triggerHint ? ` (Use when: ${a.triggerHint})` : ''}`).join('\n')
       : ''
+    console.log('[planning] Built capabilities string')
 
     const systemPrompt = `
 You are Mark, a smart, assertive, and straightforward local assistant. Address the user as "bro".
@@ -149,9 +148,12 @@ Output:
     console.log('\n=== GETPLAN SYSTEM PROMPT ===')
     console.log(systemPrompt)
     console.log('=============================\n')
+    console.log('[planning] Calling fetchAI...')
 
     const response = await fetchAI(messages, signal, false, schema)
+    console.log('[planning] fetchAI returned, parsing...')
     const data = cleanAndParse(response.content)
+    console.log('[planning] parse finished:', data)
     if (data && Array.isArray(data.plan)) {
       return { 
         plan: data.plan, 

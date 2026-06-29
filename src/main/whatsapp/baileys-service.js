@@ -82,7 +82,7 @@ const handleIncomingMessage = async (messages, type) => {
     if (msg.key.fromMe) continue
 
     messageStoreMap.set(msg.key.id, msg)
-    setTimeout(() => messageStoreMap.delete(msg.key.id), 60000)
+    setTimeout(() => messageStoreMap.delete(msg.key.id), 300000) // 5 minutes
 
     const isGroup = jid.endsWith('@g.us')
     const senderJid = isGroup ? msg.key.participant : jid
@@ -297,7 +297,7 @@ ipcMain.removeAllListeners('wa:agent-execution-done')
 ipcMain.on('wa:agent-execution-done', async (event, data) => {
   const { jid, result, msgId } = data
   const msg = messageStoreMap.get(msgId)
-  if (!msg) return
+  if (!msg) console.warn(`[Baileys] Warning: msgId ${msgId} not found in map, reply will not be quoted.`)
 
   let replyText = result?.answer || "Selesai diproses."
   
@@ -311,7 +311,7 @@ ipcMain.on('wa:agent-execution-done', async (event, data) => {
   const chatTitle = isGroup
     ? (await sock?.groupMetadata(jid).catch(() => ({ subject: jid }))).subject
     : 'Chat'
-  const originalText = msg.message?.conversation || msg.message?.extendedTextMessage?.text || ''
+  const originalText = msg?.message?.conversation || msg?.message?.extendedTextMessage?.text || ''
 
   const uiReplyPayload = {
     id: Date.now(),
@@ -332,7 +332,7 @@ ipcMain.on('wa:agent-execution-done', async (event, data) => {
   }
 
   // Baru deh kirim via WA (kalau error 1006 tetep aman karena UI udah ke-update)
-  await safeSendMessage(jid, { text: replyText }, { quoted: msg })
+  await safeSendMessage(jid, { text: replyText }, msg ? { quoted: msg } : undefined)
   if (sock) await sock.sendPresenceUpdate('paused', jid).catch(() => {})
 })
 
