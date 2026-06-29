@@ -31,17 +31,18 @@ const updateStatus = (status, qr = null) => {
   }
 }
 
-export const safeSendMessage = async (jid, content, options = {}, retries = 3) => {
+export const safeSendMessage = async (jid, content, options = {}, retries = 6) => {
   for (let i = 0; i < retries; i++) {
-    if (!sock) {
+    if (!sock || currentStatus !== 'connected') {
+      console.log(`[Baileys] Socket belum ready (Status: ${currentStatus}). Menunggu 2 detik... (${i+1}/${retries})`)
       await new Promise((r) => setTimeout(r, 2000))
       continue
     }
     try {
       return await sock.sendMessage(jid, content, options)
     } catch (err) {
-      console.log(`[Baileys] Retry send message ${i + 1}/${retries} due to:`, err.message || err)
-      await new Promise((r) => setTimeout(r, 3000))
+      console.log(`[Baileys] Retry send message ${i+1}/${retries} due to:`, err.message || err)
+      await new Promise(r => setTimeout(r, 3000))
     }
   }
   console.error('[Baileys] Gagal mengirim pesan setelah maksimal percobaan.')
@@ -99,6 +100,7 @@ const handleIncomingMessage = async (messages, type) => {
 
     const uiMsgPayload = {
       id: msg.key.id,
+      jid: jid,
       sender: senderName,
       text: text || '[Media]',
       quotedText: quotedText,
@@ -213,13 +215,20 @@ const processMessage = async (msg, isGroup, senderName, text, jid, senderNumber)
     }
 
     try {
-      await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 2000) + 1000))
+      await new Promise((r) => setTimeout(r, 500))
       await sock.readMessages([msg.key])
-      await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 1000) + 500))
       await sock.sendPresenceUpdate('composing', jid)
     } catch (readErr) {
       console.log('[Baileys] Gagal read pesan:', readErr.message)
     }
+
+    const recentHistory = uiMessageHistory
+      .filter(m => m.jid === jid)
+      .slice(-10)
+      .map(m => ({
+        role: m.type === 'incoming' ? 'user' : 'assistant',
+        content: m.type === 'incoming' ? m.text : m.reply
+      }))
 
     if (botWindow && !botWindow.isDestroyed()) {
       botWindow.webContents.send('wa:request-agent-execution', {
@@ -228,7 +237,8 @@ const processMessage = async (msg, isGroup, senderName, text, jid, senderNumber)
         senderName,
         msgId: msg.key.id,
         jid,
-        isGroup
+        isGroup,
+        chatSession: recentHistory
       })
     }
   } catch (err) {
@@ -289,10 +299,13 @@ ipcMain.on('wa:agent-execution-done', async (event, data) => {
   const msg = messageStoreMap.get(msgId)
   if (!msg) return
 
-  let replyText = result?.answer || 'Selesai diproses.'
-  const typingSpeed = Math.floor(Math.random() * 20) + 30
-  const delayNgetik = Math.min(replyText.length * typingSpeed, 6000)
+  let replyText = result?.answer || "Selesai diproses."
+  
+  // Kurangi delay ngetik jadi maksimal 1.5 detik biar nggak kelamaan
+  const typingSpeed = 10
+  const delayNgetik = Math.min(replyText.length * typingSpeed, 1500)
   await new Promise((r) => setTimeout(r, delayNgetik))
+  
   await safeSendMessage(jid, { text: replyText }, { quoted: msg })
   if (sock) await sock.sendPresenceUpdate('paused', jid).catch(() => {})
 
@@ -303,6 +316,7 @@ ipcMain.on('wa:agent-execution-done', async (event, data) => {
     : 'Chat'
   const uiReplyPayload = {
     id: Date.now(),
+    jid: jid,
     sender: 'Mark',
     text: '',
     reply: replyText,

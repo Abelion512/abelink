@@ -54,8 +54,8 @@ const GlobalListener = () => {
 
     if (window.api?.onWaRequestAgentExecution) {
       window.api.onWaRequestAgentExecution(async (data) => {
-        const { text, isAdmin, senderName, jid, isGroup, msgId } = data
-        const result = await runWhatsappAgent(text, isAdmin, senderName, jid, isGroup, msgId)
+        const { text, isAdmin, senderName, jid, isGroup, msgId, chatSession } = data
+        const result = await runWhatsappAgent(text, isAdmin, senderName, jid, isGroup, msgId, chatSession)
         window.api.sendWaAgentExecutionDone({ jid, result, msgId })
       })
     }

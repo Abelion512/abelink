@@ -3,7 +3,7 @@ import { getAnswer } from './ai/chat'
 import { getRelevantMemory } from './vectorMemory'
 import { getAllMemory } from './db'
 
-export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGroup, msgId) => {
+export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGroup, msgId, chatSessionHistory = []) => {
   try {
     const plugins = await window.api.getPlugins()
     console.log('=== DEBUG: LOADED PLUGINS ===', plugins)
@@ -14,7 +14,7 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
 
     // 2. Buat Planning
     const contextMsg = (isGroup ? `Kamu di grup WA. Pengirim: ${senderName}.` : `Kamu di chat pribadi dengan ${senderName}.`) + `\n\nFITUR KHUSUS WA: Kamu punya tambahan action "screenshot" (tanpa parameter query) untuk mengambil tangkapan layar monitor PC/laptop jika user memintanya. Gunakan action "screenshot" dan BUKAN "system-command" jika user meminta screenshot.`
-    const planResult = await getPlan(userInput, true, null, [], memory, contextMsg)
+    const planResult = await getPlan(userInput, true, null, chatSessionHistory, memory, contextMsg)
     const planArray = planResult?.plan || []
     
     // Optimisasi: Jika plan kosong (tidak butuh tools), dan AI sudah memberikan direct_answer di getPlan,
@@ -110,10 +110,11 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
     let chatSession = []
     
     if (planArray.length === 0) {
-      chatSession = [{ role: 'user', content: userInput }]
+      chatSession = [...chatSessionHistory, { role: 'user', content: userInput }]
     } else {
       const synthesisData = executionResults.map((r, idx) => `[Task ${idx + 1}: ${r.task}]\nResult: ${r.result}`).join('\n\n')
       chatSession = [
+        ...chatSessionHistory,
         { role: 'user', content: userInput },
         { role: 'assistant', content: `[SYSTEM LOG] Menjalankan perintah dan berikut hasilnya:\n${synthesisData}` },
         { role: 'user', content: "Berdasarkan hasil di atas, tolong berikan balasan akhirnya ke saya." }
@@ -122,6 +123,59 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
     
     // Panggil getAnswer dari chat.js
     const finalAnswerObj = await getAnswer(userInput, [], chatSession, false, false, false, contextMsg)
+    
+    // Handle memory updates from getAnswer
+    if (finalAnswerObj?.memory) {
+      const { insertMemory, updateMemory, deleteMemory } = await import('./db')
+      const actions = { insert: insertMemory, update: updateMemory, delete: deleteMemory }
+      if (actions[finalAnswerObj.memory.action]) {
+        try {
+          const memoryData = { ...finalAnswerObj.memory }
+          memoryData.memory = memoryData.memory.trim().replace(/^[\\"]+|[\\"]+$/g, '').replace(/\\n/g, '\n')
+          await actions[finalAnswerObj.memory.action](memoryData)
+        } catch (e) {
+          console.error("WA Memory Save Error:", e)
+        }
+      }
+    }
+
+    // Handle single-action commands from getAnswer (when plan array is empty)
+    if (finalAnswerObj?.command && finalAnswerObj.command.action !== 'none') {
+      const cmdAction = finalAnswerObj.command.action
+      const qry = finalAnswerObj.command.query
+
+      if (cmdAction === 'screenshot') {
+        if (isAdmin) {
+          window.api.sendWaMessage(jid, "📸 _Siap bos, lagi motret layar laptop..._")
+          window.api.waTakeScreenshot(jid, msgId)
+        }
+      } else if (cmdAction.startsWith('music-')) {
+        if (cmdAction === 'music-play' && qry) {
+          if (isAdmin) {
+            window.api.waPlayMusicUi('play', qry)
+          } else {
+            window.api.sendWaMessage(jid, "_(⏳ MP3 lagunya lagi didownload ya, tunggu bentar...)_")
+            window.api.waDownloadMusic(jid, msgId, qry)
+          }
+        } else if (isAdmin) {
+          const c = cmdAction.replace('music-', '')
+          window.api.waPlayMusicUi(c, qry)
+        }
+      } else if (cmdAction === 'search' || cmdAction === 'yt-summary' || cmdAction === 'yt-search') {
+        // Asynchronous tasks requiring feedback are better handled by Planner.
+        // However, if getAnswer outputs this, we can optionally trigger them.
+        if (cmdAction === 'search') {
+          window.api.waRequestWebSearch({ id: Date.now(), query: qry })
+        }
+      } else {
+        // Execute plugin
+        try {
+          await window.api.executePlugin(cmdAction, qry)
+        } catch (e) {
+          console.error("WA Plugin Execution Error:", e)
+        }
+      }
+    }
     
     return {
       answer: finalAnswerObj?.answer || "Selesai diproses."

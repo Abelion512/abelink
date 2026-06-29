@@ -8,7 +8,7 @@
 ## Key Features
 
 - **Dual AI Provider (Hybrid):** You choose! Use **Local AI** (runs directly on your laptop without internet) for 100% privacy, or switch to **Cloud AI** for lightning-fast response times. The system is also smart enough to offload heavy background tasks to the cloud so your laptop stays snappy.
-- **Autonomous Thinking & Execution:** Mark is not just a simple chatbot. When given a complex task, Mark can formulate a step-by-step plan and execute it autonomously (e.g., searching the web for data, reading it, then summarizing it for you).
+- **Autonomous Whatsapp Bot Thinking & Execution:** Mark is not just a simple chatbot. When given a complex task, Mark can formulate a step-by-step plan and execute it autonomously (e.g., searching the web for data, reading it, then summarizing it for you). The entire whatsapp bot flow is controlled by a dedicated AI Brain (`waAutonomous.js`) which acts as the supreme commander.
 - **Smart AI:** Like a real human assistant, Mark silently learns and remembers your preferences, schedules, and habits from everyday conversations. All of this "memory" is stored securely **on your own laptop**, not on third-party servers.
 
 ## Tools
@@ -17,8 +17,8 @@ Mark is directly connected to a variety of powerful capabilities that allow it t
 - **Deep Web Search:** Mark can independently browse the internet to research topics and present accurate summaries with citations.
 - **YouTube Summarizer:** Just provide a YouTube video link, and Mark will automatically pull the transcript, chunk the text, and deliver a concise summary.
 - **YouTube Music Player:** Integrated with YouTube Music (ad-free), Mark can be controlled to search and play your favorite songs directly from the chat interface.
-- **Personal WhatsApp Bot:** Mark can act as a smart personal assistant right in your WhatsApp (using the Baileys library). Mark can adaptively read chat history, respond to mentions in groups, perform web searches, play songs on the laptop when requested by an Admin, and for non-admin users, Mark can automatically download YouTube songs as MP3 files and send them directly into the chat!
-- **Screenshot:** Mark has built-in native integration to take screenshots of your active monitors directly from WhatsApp, allowing you to remotely check your PC's screen from.
+- **Personal WhatsApp Bot:** Mark can act as a smart personal assistant right in your WhatsApp (using the Baileys library). It features a **Robust Auto-Retry Architecture** to handle poor network connections (preventing 428/1006 drops). Mark can adaptively read chat history, respond to mentions in groups, perform web searches, play songs on the laptop when requested by an Admin, and for non-admin users, Mark can automatically download YouTube songs as MP3 files and send them directly into the chat!
+- **Screenshot & PC Control:** Mark has built-in native integration to take screenshots of your active monitors directly from WhatsApp. Through the Plugin System, you can also easily add tools like `windows-tools` (open apps, set volume, shutdown, restart) which execute asynchronously and safely via `waAutonomous.js`.
 - **Voice & Audio (Voice-to-Voice):** Mark can be spoken to directly using a microphone (powered by Groq Whisper STT) and will respond with a natural-sounding voice (powered by Edge-TTS).
 
 ## Project Architecture
