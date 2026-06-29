@@ -89,6 +89,40 @@ mark/
 4.  **Initial Configuration:**
     Open the **Settings** menu inside the application, select your AI provider (LM Studio or Groq), enter your API Key (if using Groq), and configure the Vector Memory provider (recommended: **Transformers.js** for a fully local experience without additional software).
 
+## 🔌 Plugins System (Custom Tools)
+
+Mark allows you to easily extend its capabilities by creating **Custom Plugins** directly from the User Interface! You don't need to dive into the core codebase to add new features or scripts.
+
+### How to Create a Plugin
+
+1. Open the **Plugins** menu from the sidebar in the application.
+2. Click **Buat Plugin Baru** (Create New Plugin).
+3. Fill in the **Plugin Name** (e.g., `pc-controller`) and a general **Description**.
+4. (Optional) If your script requires external libraries, enter them in the **Dependencies (NPM)** field separated by commas (e.g., `systeminformation, axios`). Mark will automatically install them!
+5. Add one or more **Actions**. An action is a specific task the AI can trigger.
+   - **Action Name**: The function name (e.g., `sys-shutdown`).
+   - **Description**: Tell the AI what this action does.
+   - **Trigger Hint**: Tell the AI *when* to use it (e.g., "If the user asks to turn off the PC").
+6. **Write your Code** using the built-in Monaco Editor. Plugins use standard Node.js (CommonJS).
+
+#### Example: PC Shutdown Action
+```javascript
+const { exec } = require('child_process');
+
+// Execute windows shutdown command after 60 seconds
+setTimeout(() => {
+  exec('shutdown /s /f /t 0');
+}, 60000);
+
+// Return the result to Mark
+return {
+  success: true,
+  message: "PC will shutdown in 60 seconds."
+};
+```
+
+7. Click **Simpan Plugin**. Mark will instantly learn your new tool and you can immediately trigger it by chatting with Mark (or via WhatsApp if you are the Admin)!
+
 ## Building the Application
 
 To create an installer (Windows executable):

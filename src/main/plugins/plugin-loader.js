@@ -32,8 +32,12 @@ export const loadPlugins = async () => {
     if (fs.existsSync(manifestPath) && fs.existsSync(indexPath)) {
       try {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+        // Bersihkan cache CommonJS karena file plugin pakai module.exports
+        delete require.cache[require.resolve(indexPath)]
+        
         // Gunakan dynamic import (file://) untuk module eksternal di Windows
-        const moduleUrl = require('url').pathToFileURL(indexPath).href
+        // Cache-busting dengan timestamp agar selalu load file terbaru pas di-save
+        const moduleUrl = require('url').pathToFileURL(indexPath).href + '?t=' + Date.now()
         const handler = await import(moduleUrl)
         
         const indexContent = fs.readFileSync(indexPath, 'utf8')
@@ -107,6 +111,10 @@ export const initPluginIPC = () => {
 
   ipcMain.handle('plugin:open-folder', () => {
     shell.openPath(getPluginsDir())
+  })
+
+  ipcMain.handle('plugin:open-specific-folder', (event, targetPath) => {
+    shell.openPath(targetPath)
   })
   
   ipcMain.handle('plugin:reload', async () => {

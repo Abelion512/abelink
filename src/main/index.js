@@ -137,11 +137,19 @@ app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.mark.agent')
   
-  // Run on startup background
-  app.setLoginItemSettings({
-    openAtLogin: true,
-    openAsHidden: true
-  })
+  // Run on startup background (Only if packaged, to avoid raw electron.exe startup)
+  if (app.isPackaged) {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      openAsHidden: true
+    })
+  } else {
+    // Bersihkan 'electron' dari startup kalau jalan di mode dev
+    app.setLoginItemSettings({
+      openAtLogin: false,
+      openAsHidden: false
+    })
+  }
 
   // Load plugin & Inisialisasi IPC Bridge
   await loadPlugins()

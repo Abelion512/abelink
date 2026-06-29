@@ -45,6 +45,7 @@ const api = {
   getPlugins: () => ipcRenderer.invoke('plugin:get-list'),
   executePlugin: (action, query) => ipcRenderer.invoke('plugin:execute', action, query),
   openPluginFolder: () => ipcRenderer.invoke('plugin:open-folder'),
+  openSpecificFolder: (path) => ipcRenderer.invoke('plugin:open-specific-folder', path),
   reloadPlugins: () => ipcRenderer.invoke('plugin:reload'),
   createPlugin: (payload) => ipcRenderer.invoke('plugin:create', payload),
   removeWaListeners: () => {
