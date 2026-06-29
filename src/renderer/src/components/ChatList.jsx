@@ -109,7 +109,8 @@ const ChatList = ({
             <ThinkingBubble 
               isThinking={isThinking} 
               isSummarizing={isSummarizing} 
-              isSearchingMusic={isSearchingMusic} 
+              isSearchingMusic={isSearchingMusic}
+              content={content}
               youtubeLink={youtubeLink}
             />
           ) : (

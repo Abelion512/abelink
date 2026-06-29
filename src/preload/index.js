@@ -11,6 +11,10 @@ const api = {
   searchYoutube: (query) => ipcRenderer.invoke('youtube-search', query),
   searchMusic: (query) => ipcRenderer.invoke('search-music', query),
   textToSpeech: (text, rate, pitch) => ipcRenderer.invoke('tts-speak', text, rate, pitch),
+  onAiStatus: (callback) => {
+    ipcRenderer.removeAllListeners('ai:status')
+    ipcRenderer.on('ai:status', (event, message) => callback(message))
+  },
   onLiveAudioShortcut: (callback) => ipcRenderer.on('trigger-live-audio', () => callback()),
   removeLiveAudioShortcut: () => ipcRenderer.removeAllListeners('trigger-live-audio'),
   getPreloadPath: (filename) => {

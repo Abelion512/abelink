@@ -139,7 +139,7 @@ export const YoutubeMusicPlayer = () => {
           } catch {
             // Webview belum siap, skip
           }
-          await webviewRef.current.loadURL(musicUrl)
+          await webviewRef.current.executeJavaScript(`window.location.href = "${musicUrl}"`)
         } catch (e) {
           if (e.message && e.message.includes('ERR_ABORTED')) {
             console.log('Navigasi webview diaborsi (biasanya karena ditimpa navigasi baru)');

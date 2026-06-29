@@ -1,6 +1,6 @@
 import React from 'react'
 
-export const ThinkingBubble = ({ isThinking, isSummarizing, isSearchingMusic, youtubeLink }) => {
+export const ThinkingBubble = ({ isThinking, isSummarizing, isSearchingMusic, youtubeLink, content }) => {
   const getVideoId = (url) => {
     if (!url) return null;
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -15,7 +15,7 @@ export const ThinkingBubble = ({ isThinking, isSummarizing, isSearchingMusic, yo
       <div className="flex items-center gap-2">
         {!isSummarizing && <span className="loading loading-dots loading-xs"></span>}
         <span className="text-xs italic opacity-70 flex items-center gap-1">
-          {isThinking && 'Mark is thinking...'}
+          {isThinking && (content || 'Mark is thinking...')}
           {isSummarizing && (
             <>
               <svg

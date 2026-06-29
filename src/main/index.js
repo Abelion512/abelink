@@ -94,7 +94,10 @@ ipcMain.on('sync-config', (event, config) => {
 
 ipcMain.handle('ai:fetch', async (event, { messages, config, isSmallTask, jsonSchema }) => {
   try {
-    return await fetchAI(messages, config, isSmallTask, jsonSchema)
+    const onStatus = (statusMsg) => {
+      event.sender.send('ai:status', statusMsg)
+    }
+    return await fetchAI(messages, config, isSmallTask, jsonSchema, onStatus)
   } catch (error) {
     return { error: { message: error.message, code: error.code } }
   }

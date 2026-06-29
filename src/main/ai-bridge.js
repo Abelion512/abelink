@@ -30,7 +30,7 @@ export const setGlobalConfig = (config) => {
 
 export const getGlobalConfig = () => globalConfig
 
-export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema = null) => {
+export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema = null, onStatus = null) => {
   try {
     const conf = config || globalConfig
 
@@ -180,11 +180,31 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
 
         // Auto-retry fallback untuk High Traffic / Rate Limits (503, 429, 500)
         const isHighTraffic = response.status === 429 || response.status >= 500 || finalErrorMessage.toLowerCase().includes('high traffic') || finalErrorMessage.toLowerCase().includes('rate limit');
-        if (isHighTraffic && trafficRetryCount < 3 && (endpoint.includes('cerebras.ai') || endpoint.includes('groq.com'))) {
-           const backoffDelay = (trafficRetryCount + 1) * 3000; // 3s, 6s, 9s
-           console.log(`[High Traffic Auto-Retry] Server sibuk (${response.status}). Mencoba lagi dalam ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/3)`);
+        if (isHighTraffic && trafficRetryCount < 4 && (endpoint.includes('cerebras.ai') || endpoint.includes('groq.com'))) {
+           
+           // Cek apakah server ngasih tau harus nunggu berapa detik (khusus Groq 429)
+           let backoffDelay = (trafficRetryCount + 1) * 3000; 
+           const timeMatch = finalErrorMessage.match(/Please try again in ([0-9.]+)s/);
+           if (timeMatch) {
+             // Kalau disuruh nunggu 14 detik, kita nunggu 14.5 detik biar aman
+             backoffDelay = Math.ceil(parseFloat(timeMatch[1]) * 1000) + 500; 
+           }
+           
+           // Trik Rahasia: Kalau Groq lagi sibuk, kita ganti/swap modelnya ke server cadangan mereka!
+           let retryBody = { ...currentBody };
+           if (endpoint.includes('groq.com') && trafficRetryCount >= 1) {
+             const backupModels = ['llama3-8b-8192', 'gemma2-9b-it', 'mixtral-8x7b-32768', 'llama-3.3-70b-versatile'];
+             const nextModel = backupModels[(trafficRetryCount - 1) % backupModels.length];
+             retryBody.model = nextModel;
+             console.log(`[Model Swap] Model utama sibuk, Mark ganti haluan ke ${nextModel}`);
+             if (onStatus) onStatus(`Server sibuk, ganti jalur ke model cadangan (${nextModel})...`);
+           } else {
+             if (onStatus) onStatus(`Lalu lintas server AI sedang padat, menunggu jalur kosong...`);
+           }
+
+           console.log(`[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/4)`);
            await new Promise((resolve) => setTimeout(resolve, backoffDelay));
-           return executeFetch(currentBody, isRetry, trafficRetryCount + 1);
+           return executeFetch(retryBody, isRetry, trafficRetryCount + 1);
         }
 
         if (

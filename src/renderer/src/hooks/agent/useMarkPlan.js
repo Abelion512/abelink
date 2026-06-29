@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { getPlan, getTaskAction, getTaskSummary, getPlanConclusion } from '../../api/ai/planning'
 import { getSearchResult, getYoutubeSummary } from '../../api/ai/tools'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
@@ -9,6 +10,21 @@ export const useMarkPlan = ({
   chatData, setChatData, config, isAction, isSpeak, abortControllerRef, setIsLoading, setMessage,
   handleYoutubeSearch, handleSearchCommand, handleYoutubeSummary, handleMusic, getYoutubeData
 }) => {
+  useEffect(() => {
+    if (window.api.onAiStatus) {
+      window.api.onAiStatus((statusMsg) => {
+        setChatData((prev) => {
+          const newChat = [...prev]
+          const lastIdx = newChat.length - 1
+          if (newChat[lastIdx]?.isThinking) {
+             newChat[lastIdx].content = statusMsg
+          }
+          return newChat
+        })
+      })
+    }
+  }, [setChatData])
+
   const handlePlanningCommand = async (userInput) => {
     if (!userInput) return
     setIsLoading(true)
