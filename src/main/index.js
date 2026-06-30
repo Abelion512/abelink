@@ -13,6 +13,7 @@ import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
 app.commandLine.appendSwitch('disable-background-timer-throttling')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 
 const setupYoutubeFix = () => {
   // Kita cegat semua request yang pergi ke YouTube
@@ -51,7 +52,7 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    mainWindow.webContents.openDevTools()
+    // mainWindow.webContents.openDevTools()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

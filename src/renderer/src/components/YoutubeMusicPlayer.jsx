@@ -2,7 +2,18 @@ import { useEffect, useState, useRef } from 'react'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 
 export const YoutubeMusicPlayer = () => {
-  const { musicUrl, isPlayerOpen, setIsPlayerOpen, togglePlayer, webviewRef, playUrl, playId, nextTrack, prevTrack, playPause } = useYoutubeMusic()
+  const {
+    musicUrl,
+    isPlayerOpen,
+    setIsPlayerOpen,
+    togglePlayer,
+    webviewRef,
+    playUrl,
+    playId,
+    nextTrack,
+    prevTrack,
+    playPause
+  } = useYoutubeMusic()
   const [isReady, setIsReady] = useState(false)
 
   // IPC listeners — register sekali saja saat mount, pakai ref agar selalu akses fungsi terbaru
@@ -30,15 +41,14 @@ export const YoutubeMusicPlayer = () => {
     if (window.api?.onExecuteMusicCommandWa) {
       window.api.onExecuteMusicCommandWa((command, payload) => {
         if (command === 'play' && payload) {
-          window.api.searchMusic(payload).then(music => {
+          window.api.searchMusic(payload).then((music) => {
             if (music && music.length > 0) {
               // Tambahkan query parameter acak biar URL selalu dianggap baru oleh React dan Router SPA
               const url = `https://music.youtube.com/watch?v=${music[0].id}&_t=${Date.now()}`
               playUrlRef.current(url)
             }
           })
-        }
-        else if (command === 'next') nextTrackRef.current()
+        } else if (command === 'next') nextTrackRef.current()
         else if (command === 'prev') prevTrackRef.current()
         else if (command === 'toggle') playPauseRef.current()
       })
@@ -133,8 +143,7 @@ export const YoutubeMusicPlayer = () => {
   useEffect(() => {
     if (isReady && webviewRef.current && musicUrl && musicUrl !== 'https://music.youtube.com') {
       try {
-        // Trik paling ampuh buat bypass glitch SPA Router: 
-        // Bikin tag <a> tersembunyi lalu di-klik secara paksa pakai JS!
+        // Trik SPA Router pakai klik a tag buat transisi smooth
         webviewRef.current.executeJavaScript(`
           (function() {
             try {
