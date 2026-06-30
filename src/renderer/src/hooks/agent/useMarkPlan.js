@@ -102,6 +102,10 @@ export const useMarkPlan = ({
         if (isSpeak && !isPluginAction) {
           playVoice(answer.answer)
         }
+        
+        if (window.api.showNotification && !isPluginAction && !document.hasFocus()) {
+          window.api.showNotification('Mark', answer.answer)
+        }
 
         if (answer.memory && answer.command?.action !== 'search') {
           const actions = { insert: insertMemory, update: updateMemory, delete: deleteMemory }
@@ -172,13 +176,16 @@ export const useMarkPlan = ({
               setChatData((prev) => [ ...prev, { role: 'ai', content: 'Membaca hasil eksekusi...', isThinking: true } ])
               await new Promise(resolve => setTimeout(resolve, 500))
 
-              const followUpInput = `Pertanyaan user: "${userInput}"\n\nInfo dari sistem:\n${summaryStr}\n\nCRITICAL RULE: Jawab pertanyaan user MENGGUNAKAN info di atas secara natural. DILARANG KERAS menggunakan action/plugin/tool apapun lagi. Set field "command" menjadi null.`
+              const followUpInput = `Pertanyaan user: "${userInput}"`
               const followUpSession = [
                 ...chatSession,
-                { role: 'assistant', content: `[SYSTEM LOG] Memulai plugin ${act}...` },
-                { role: 'user', content: followUpInput }
+                { role: 'assistant', content: `[SYSTEM LOG] Memulai plugin ${act}...` }
               ]
-              const followUp = await getAnswer(followUpInput, [], followUpSession, abortControllerRef.current.signal, false, true)
+              const followUp = await getPlanConclusion(followUpInput, [summaryStr], abortControllerRef.current.signal, followUpSession, [])
+
+              if (window.api.showNotification && !document.hasFocus()) {
+                window.api.showNotification('Mark', followUp.answer)
+              }
 
               setChatData((prev) => [
                 ...prev.filter(item => !item.isThinking),
@@ -440,6 +447,10 @@ export const useMarkPlan = ({
           uniqueSources.push(source)
         }
       })
+
+      if (window.api.showNotification && !document.hasFocus()) {
+        window.api.showNotification('Mark', finalAnswer)
+      }
 
       setChatData((prev) => {
         const filtered = prev.filter((item) => !item.isThinking)

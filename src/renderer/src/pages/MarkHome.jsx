@@ -69,7 +69,9 @@ const MarkHome = () => {
             sources: lastItem.sources || [],
             youtubeData: lastItem.youtubeData,
             youtubeSummary: lastItem.youtubeLink,
-            pluginResult: lastItem.pluginExecution
+            pluginResult: lastItem.pluginExecution,
+            isProactive: lastItem.isProactive,
+            mood: lastItem.mood
           });
           
           // Trigger speaking animation if TTS is on and not thinking

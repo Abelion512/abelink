@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, session, Tray, Menu, globalShortcut, nativeImage } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session, Tray, Menu, globalShortcut, nativeImage, Notification } from 'electron'
 import { join } from 'path'
 import path from 'path'
 import fs from 'fs'
@@ -9,6 +9,7 @@ import { url } from 'inspector'
 import yts from 'yt-search'
 import YTMusic from 'ytmusic-api'
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
+import { startTracking, getBuffer, flushBuffer } from './awareness/window-tracker.js'
 // Matikan semua optimasi throttling Chromium agar webview WhatsApp tidak tertidur di hasil Build (.exe)
 app.commandLine.appendSwitch('disable-background-timer-throttling')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
@@ -52,7 +53,7 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    // mainWindow.webContents.openDevTools()
+    mainWindow.webContents.openDevTools()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -224,8 +225,18 @@ app.whenReady().then(async () => {
     }
   })
 
+  // Awareness Engine IPC
+  ipcMain.handle('awareness:get-buffer', () => getBuffer())
+  ipcMain.on('awareness:clear-buffer', () => flushBuffer())
+
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+
+  ipcMain.on('show-notification', (event, { title, body }) => {
+    if (Notification.isSupported()) {
+      new Notification({ title, body, icon: icon }).show()
+    }
+  })
 
   ipcMain.handle('execute-node-task', async (event, data) => {
     // Jalankan kode Node.js di sini (misal: baca file, akses DB)
@@ -329,6 +340,9 @@ app.whenReady().then(async () => {
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+
+  // Start Awareness Engine
+  startTracking()
 })
 
 app.on('will-quit', () => {

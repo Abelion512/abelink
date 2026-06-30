@@ -12,6 +12,10 @@ const OrbVisualizer = ({ status = 'idle', intensity = 0 }) => {
       animationClass = 'animate-[orb-breathe_4s_ease-in-out_infinite]';
       colorClass = 'from-primary to-success';
       break;
+    case 'nudge':
+      animationClass = 'animate-[orb-breathe_1s_ease-in-out_infinite] scale-105';
+      colorClass = 'from-info to-primary';
+      break;
     case 'thinking':
       animationClass = 'animate-[orb-think_3s_linear_infinite] scale-110';
       colorClass = 'from-primary to-success';

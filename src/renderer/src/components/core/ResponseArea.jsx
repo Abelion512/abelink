@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { FaLightbulb } from 'react-icons/fa';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
@@ -30,7 +31,7 @@ const ResponseArea = ({ currentResponse }) => {
 
   if (!displayResponse) return null;
 
-  const { text, type, sources, pluginResult, youtubeData, youtubeSummary } = displayResponse;
+  const { text, type, sources, pluginResult, youtubeData, youtubeSummary, isProactive, mood } = displayResponse;
 
   const animationClass = animState === 'fade-out' 
     ? 'animate-[response-fade-out_0.2s_ease-out_forwards]' 
@@ -76,7 +77,16 @@ const ResponseArea = ({ currentResponse }) => {
       }
 
       return (
-        <div className="flex flex-col items-center gap-4 w-full">
+        <div className="flex flex-col items-center gap-4 w-full relative">
+          {/* Proactive Badge */}
+          {isProactive && (
+            <div className="absolute -top-6 flex items-center justify-center animate-fade-in">
+              <span className="badge badge-sm badge-info shadow-[0_0_10px_oklch(var(--in)/0.5)] flex items-center gap-1">
+                <FaLightbulb /> Proactive Nudge
+              </span>
+            </div>
+          )}
+          
           {/* TLDR Part */}
           {tldr && (
             <div className="text-center text-lg md:text-xl font-medium leading-relaxed custom-markdown opacity-90 px-4 max-w-2xl">
@@ -128,10 +138,19 @@ const ResponseArea = ({ currentResponse }) => {
 
     // Short type
     return (
-      <div className="text-center text-xl md:text-2xl font-medium leading-relaxed custom-markdown opacity-90 px-4 max-w-2xl">
-        <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-          {text}
-        </Markdown>
+      <div className="flex flex-col items-center relative gap-2 w-full">
+        {isProactive && (
+          <div className="absolute -top-6 flex items-center justify-center animate-fade-in">
+            <span className="badge badge-sm badge-info shadow-[0_0_10px_oklch(var(--in)/0.5)] flex items-center gap-1">
+              <FaLightbulb /> Proactive Nudge
+            </span>
+          </div>
+        )}
+        <div className="text-center text-xl md:text-2xl font-medium leading-relaxed custom-markdown opacity-90 px-4 max-w-2xl">
+          <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            {text}
+          </Markdown>
+        </div>
       </div>
     );
   };

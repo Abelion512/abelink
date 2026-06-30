@@ -7,6 +7,7 @@ import {
   useMarkMusic,
   useMarkPlan
 } from './agent'
+import { useAwareness } from './useAwareness'
 import { formatForWhatsApp } from '../api/ai/utils'
 
 export const useMarkAgent = () => {
@@ -33,6 +34,13 @@ export const useMarkAgent = () => {
   }
 
   const { handlePlanningCommand } = useMarkPlan({ ...state, ...tools })
+
+  useAwareness({
+    isLoading,
+    setChatData,
+    setOrbStatus,
+    config
+  })
 
   const activeWaRequestRef = useRef(null)
 

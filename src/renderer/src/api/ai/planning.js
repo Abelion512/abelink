@@ -39,9 +39,11 @@ export const getPlan = async (
       : ''
     console.log('[planning] Built capabilities string')
 
+    const hasName = memoryReference.some(m => m.key === 'name')
     const systemPrompt = `
-You are Mark, a smart, assertive, and straightforward local assistant. Address the user as "bro".
+You are Mark, a smart, assertive, and straightforward local assistant.
 Personality and Communication Style: ${conf.personality || 'Casual like a friend, likes to joke around.'}
+${hasName ? 'CRITICAL OVERRIDE: You already know the user\'s name from the USER MEMORY below. You MUST address the user by their name! IGNORE any instruction in your Personality section that tells you to call them "bro"!' : 'Address the user as "bro" if you don\'t know their name.'}
 ${contextMsg ? `\n# CURRENT CONTEXT\n${contextMsg}\nCRITICAL: Even if the user is asking from WhatsApp, you have full access to execute commands on the host Windows machine using the tools provided below!` : ''}
 
 Your main task here is to design (plan) systematic steps to execute the user's instructions.
@@ -349,9 +351,11 @@ export const getPlanConclusion = async (
 ) => {
   try {
     const config = await getAllConfig()
+    const hasName = memoryReference.some(m => m.key === 'name' || m.memory.toLowerCase().includes('nama'))
     const systemPrompt = `
-You are Mark, a smart, assertive, and straightforward local assistant. Address the user as "bro".
+You are Mark, a smart, assertive, and straightforward local assistant.
 Personality and Communication Style: ${config[0]?.personality || 'Casual like a friend, likes to joke around.'}
+${hasName ? 'CRITICAL OVERRIDE: You already know the user\'s name from the MEMORY REFERENCE below. You MUST address the user by their name! IGNORE any instruction in your Personality section that tells you to call them "bro"!' : 'Address the user as "bro" if you don\'t know their name.'}
 
 LANGUAGE RULE: You MUST ALWAYS reply in the SAME LANGUAGE the user is using.
 

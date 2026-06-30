@@ -66,7 +66,13 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
       body.model = conf.model || 'google/gemma-3-4b'
     }
 
+    const parentAbortController = new AbortController()
+    activeAbortControllers.add(parentAbortController)
+
     const executeFetch = async (currentBody, isRetry = false, trafficRetryCount = 0) => {
+      if (parentAbortController.signal.aborted) {
+        throw new Error('AbortError')
+      }
       // --- RATE LIMIT THROTLLING LOGIC (Khusus Cloud) ---
       if (endpoint.includes('groq.com') || endpoint.includes('cerebras.ai')) {
         const now = Date.now()
@@ -95,7 +101,7 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
         })
       } catch (err) {
         if (abortController.signal.aborted) {
-          if (abortController.signal.reason?.message === 'User Aborted') {
+          if (abortController.signal.reason?.message === 'User Aborted' || parentAbortController.signal.aborted) {
             throw new Error('AbortError')
           }
           if (abortController.signal.reason?.message === 'Request Timeout') {
@@ -105,7 +111,7 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
         throw err
       } finally {
         clearTimeout(timeoutId);
-        activeAbortControllers.delete(abortController);
+        parentAbortController.signal.removeEventListener('abort', abortController.abort.bind(abortController))
       }
 
       if (!response.ok) {
@@ -225,7 +231,20 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
            if (onStatus) onStatus(`Server sibuk, mencoba ulang dalam ${Math.round(backoffDelay/1000)}s...`);
            
            console.log(`[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/20)`);
-           await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+           
+           // Abortable sleep
+           await new Promise((resolve, reject) => {
+             const timer = setTimeout(resolve, backoffDelay);
+             if (parentAbortController.signal.aborted) {
+               clearTimeout(timer);
+               reject(new Error('AbortError'));
+             }
+             parentAbortController.signal.addEventListener('abort', () => {
+               clearTimeout(timer);
+               reject(new Error('AbortError'));
+             });
+           });
+           
            return executeFetch(retryBody, isRetry, trafficRetryCount + 1);
         }
 
@@ -261,7 +280,12 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
       }
     }
 
-    const data = await executeFetch(body)
+    let data;
+    try {
+      data = await executeFetch(body)
+    } finally {
+      activeAbortControllers.delete(parentAbortController)
+    }
     const message = data.choices[0].message
 
     let content = message.content || ''
