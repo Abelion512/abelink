@@ -37,7 +37,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                 defaultPosition={{ x: isRight ? window.innerWidth - 440 - cascadeX : 40 + cascadeX, y: 80 + cascadeY }}
                 onClose={() => onDismiss(proc.id)}
               >
-                <div className="w-[400px]">
+                <div className="w-[400px] flex items-center justify-center">
                   {/* Reuse existing WebSearchBubble logic, but styled differently inside */}
                   <WebSearchBubble 
                     query={proc.data.query} 

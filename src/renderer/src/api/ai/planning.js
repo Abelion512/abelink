@@ -83,7 +83,7 @@ Design a logical plan that *can be* executed using a combination of the capabili
 
 ## Example 1: Multi-Step Plan (Complex Task)
 User: "Cari pemenang piala dunia 2022 terus puter lagu kebangsaannya"
-Output: {"plan": [{"task": "Cari pemenang piala dunia 2022", "action": "search", "query": "pemenang piala dunia 2022", "is_dynamic": false}, {"task": "Putar lagu kebangsaan negara pemenang", "action": "music-play", "query": "", "is_dynamic": true}], "command": null, "direct_answer": null}
+Output: {"plan": [{"task": "Cari pemenang piala dunia 2022", "action": "search", "query": "pemenang piala dunia 2022", "is_dynamic": false}, {"task": "Putar lagu kebangsaan negara pemenang", "action": "music-play", "query": "", "is_dynamic": true}], "command": null, "direct_answer": "Tunggu bentar ya bro, gue cari info piala dunia 2022 dulu..."}
 
 ## Example 2: Fast Bypass (Single Tool) OR Casual Chat
 User: "Mark puterin lagu jkt48 dong"
@@ -147,8 +147,8 @@ Output: {"plan": [], "command": null, "direct_answer": "Yoi bro, santai aja! Kal
           }
         },
         direct_answer: {
-          type: ['string', 'null'],
-          description: 'Berikan balasan natural JIKA plan kosong.'
+          type: 'string',
+          description: 'Berikan balasan natural ATAU kalimat persetujuan/tunggu sebentar jika melakukan plan.'
         },
         memory: {
           type: ['object', 'null'],
@@ -179,22 +179,39 @@ Output: {"plan": [], "command": null, "direct_answer": "Yoi bro, santai aja! Kal
     console.log('\n=== GETPLAN SYSTEM PROMPT ===')
     console.log(systemPrompt)
     console.log('=============================\n')
-    console.log('[planning] Calling fetchAI...')
 
-    const response = await fetchAI(messages, signal, false, schema)
-    console.log('[planning] fetchAI returned, parsing...')
-    const data = cleanAndParse(response.content)
-    console.log('[planning] parse finished:', data)
-    if (data && Array.isArray(data.plan)) {
-      return { 
-        plan: data.plan, 
-        direct_answer: data.direct_answer, 
-        command: data.command,
-        memory: data.memory,
-        reasoning: response.reasoning 
+    let attempts = 0
+    const MAX_RETRIES = 2
+
+    while (attempts < MAX_RETRIES) {
+      attempts++
+      console.log(`[planning] Calling fetchAI (Attempt ${attempts})...`)
+      
+      const response = await fetchAI(messages, signal, false, schema)
+      console.log('[planning] fetchAI returned, parsing...')
+      const data = cleanAndParse(response.content)
+      console.log('[planning] parse finished:', data)
+      
+      if (data && Array.isArray(data.plan)) {
+        const hasPlan = data.plan.length > 0
+        const hasAnswer = !!data.direct_answer
+
+        if (!hasPlan && !hasAnswer) {
+          console.warn('[planning] AI returned empty plan and answer. Retrying...')
+          continue
+        }
+
+        return { 
+          plan: data.plan, 
+          direct_answer: data.direct_answer, 
+          command: data.command,
+          memory: data.memory,
+          reasoning: response.reasoning 
+        }
       }
     }
-    return { plan: [], direct_answer: null, command: null, memory: null }
+
+    throw new Error('Gagal merespons: AI memberikan respons kosong setelah retry.')
   } catch (error) {
     console.error('Error in getPlan:', error)
     throw error

@@ -1,13 +1,15 @@
 import React, { useRef, useEffect } from 'react'
 import { useWhatsappBot } from '../hooks/whatsapp/useWhatsappBot'
-import { FaWhatsapp, FaQrcode, FaPlug, FaSignOutAlt } from 'react-icons/fa'
+import { FaWhatsapp, FaQrcode, FaPlug, FaSignOutAlt, FaArrowLeft } from 'react-icons/fa'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import { CodeBlock } from '../components/Chat/CodeBlock'
+import { useNavigate } from 'react-router-dom'
 
 const WhatsappBot = () => {
   const { status, qrCode, messages, isThinking, currentSender, startBot, logout } = useWhatsappBot()
+  const navigate = useNavigate()
 
   const messagesEndRef = useRef(null)
 
@@ -24,6 +26,9 @@ const WhatsappBot = () => {
       <div className="navbar bg-base-300/50 backdrop-blur-md border-b border-white/5 sticky top-0 z-0">
         <div className="flex-1">
           <div className="flex items-center gap-3 px-4">
+            <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm btn-circle">
+              <FaArrowLeft size={16} />
+            </button>
             <div className="avatar">
               <div className="w-10 rounded-full bg-success/20 p-2 text-success flex items-center justify-center">
                 <FaWhatsapp size={24} />

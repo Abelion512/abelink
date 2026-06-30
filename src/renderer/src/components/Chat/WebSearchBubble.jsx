@@ -23,18 +23,17 @@ export const WebSearchBubble = ({ query, sendDataWebSearch }) => {
     setUrl(`https://www.google.com/search?q=${encodeURIComponent(query)}&hl=id`)
   }, [query])
 
-  const loadAndExtract = (webview, targetUrl) => {
+  const waitForLoad = (webview) => {
     return new Promise((resolve) => {
-      let timeoutId;
+      let timeoutId
       const onDone = () => {
-        clearTimeout(timeoutId);
-        webview.removeEventListener('did-finish-load', onDone);
-        resolve();
-      };
-      timeoutId = setTimeout(onDone, 10000); // 10s timeout
-      webview.addEventListener('did-finish-load', onDone);
-      webview.loadURL(targetUrl);
-    });
+        clearTimeout(timeoutId)
+        webview.removeEventListener('did-stop-loading', onDone)
+        resolve()
+      }
+      timeoutId = setTimeout(onDone, 6000) // Dipercepat dari 10s jadi 6s
+      webview.addEventListener('did-stop-loading', onDone)
+    })
   }
 
   const onScrape = async (webview) => {
@@ -42,13 +41,23 @@ export const WebSearchBubble = ({ query, sendDataWebSearch }) => {
     scrapingActive.current = true
     const source = await scrapeGoogle(webview, url, setIsCaptcha)
     const links = []
+    
+    let deepSearchedCount = 0
+
     for (const urlItem of source) {
       let link = null
       if (urlItem.title === 'AI Google Summary') {
         link = { source: urlItem.title, url: urlItem.link, text: urlItem.snippet }
       } else {
-        await loadAndExtract(webview, urlItem.link);
-        link = await deepSearch(webview, urlItem.link);
+        if (deepSearchedCount < 3) {
+          setUrl(urlItem.link) // Menggunakan cara lama yang aman
+          await waitForLoad(webview)
+          link = await deepSearch(webview, urlItem) // Menggunakan urlItem object (bukan sekadar string link) agar tidak error di scraping.js
+          deepSearchedCount++
+        } else {
+          // Sisanya cukup ambil dari snippet Google biar gak kelamaan nunggu
+          link = { source: urlItem.title, url: urlItem.link, text: urlItem.snippet }
+        }
       }
       links.push(link)
     }
@@ -65,9 +74,9 @@ export const WebSearchBubble = ({ query, sendDataWebSearch }) => {
         onScrape(webview)
       }
     }
-    webview.addEventListener('dom-ready', handleInitialLoad)
+    webview.addEventListener('did-stop-loading', handleInitialLoad)
     return () => {
-      webview.removeEventListener('dom-ready', handleInitialLoad)
+      webview.removeEventListener('did-stop-loading', handleInitialLoad)
     }
   }, [])
 

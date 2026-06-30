@@ -1,5 +1,4 @@
 import { getPlan, getTaskAction, getTaskSummary, getPlanConclusion } from './ai/planning'
-import { getAnswer } from './ai/chat'
 import { getRelevantMemory } from './vectorMemory'
 import { getAllMemory } from './db'
 import { scrapeGoogle, deepSearch } from './scraping'
@@ -101,6 +100,7 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
       })
       planResult.direct_answer = null // Batalin Fast Bypass agar hasil search dirangkum oleh getAnswer
     }
+
 
     // Optimisasi Jalur Cepat (Direct Answer)
     if (planArray.length === 0 && planResult?.direct_answer) {
@@ -249,14 +249,21 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
       ]
     }
     
-    // 5. Generate Jawaban Akhir (Fallback chat.js)
-    console.log('[waAutonomous] Executing Fallback getAnswer...')
+    // 5. Generate Jawaban Akhir (Conclusion)
+    console.log('[waAutonomous] Executing getPlanConclusion...')
     let finalAnswerObj = null
     try {
-      finalAnswerObj = await getAnswer(userInput, [], chatSession, false, false, false, contextMsg)
-      console.log('[waAutonomous] Fallback getAnswer finished:', finalAnswerObj)
+      if (planArray.length > 0) {
+        const summaries = executionResults.map(r => r.result)
+        finalAnswerObj = await getPlanConclusion(userInput, chatSessionHistory, summaries, [])
+      } else {
+        // If plan is empty, it means direct_answer was populated (fast bypass already returned above)
+        // Or if we reach here with empty plan (due to no bypass), we can just use direct_answer
+        finalAnswerObj = { answer: planResult.direct_answer, command: null, memory: null }
+      }
+      console.log('[waAutonomous] Conclusion finished:', finalAnswerObj)
     } catch (e) {
-      console.error('[waAutonomous] Fallback getAnswer error:', e)
+      console.error('[waAutonomous] Conclusion error:', e)
       if (planArray.length > 0) {
         const executedNames = planArray.map(p => p.action).join(', ')
         finalAnswerObj = {

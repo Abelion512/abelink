@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { getPlan, getTaskAction, getTaskSummary, getPlanConclusion } from '../../api/ai/planning'
 import { getSearchResult, getYoutubeSummary } from '../../api/ai/tools'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
-import { getAnswer } from '../../api/ai/chat'
 import { insertMemory, updateMemory, deleteMemory, getAllMemory } from '../../api/db'
 import { getRelevantMemory } from '../../api/vectorMemory'
 
@@ -88,7 +87,7 @@ export const useMarkPlan = ({
 
       if (!planData.plan || planData.plan.length === 0) {
         if (!planData.direct_answer) {
-          throw new Error('Gagal merespons: direct_answer kosong.')
+          throw new Error('Gagal merespons: direct_answer kosong setelah retry.')
         }
 
         console.log('[useMarkPlan] Menggunakan direct_answer (Fast Bypass)');

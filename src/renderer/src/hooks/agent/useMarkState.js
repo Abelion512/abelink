@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { getAllConfig, createSession, insertSession, getChatData } from '../../api/db'
-import { getTitleSession } from '../../api/ai/chat'
 
 export const useMarkState = () => {
   const [chatData, setChatData] = useState([])

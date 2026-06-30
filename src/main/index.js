@@ -57,7 +57,7 @@ function createWindow() {
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
-    console.log('openlink: ' + url)
+    console.log('openlink: ' + details.url)
     return { action: 'deny' }
   })
 
