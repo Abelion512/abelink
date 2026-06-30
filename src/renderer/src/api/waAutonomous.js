@@ -3,6 +3,7 @@ import { getAnswer } from './ai/chat'
 import { getRelevantMemory } from './vectorMemory'
 import { getAllMemory } from './db'
 import { scrapeGoogle, deepSearch } from './scraping'
+import { formatForWhatsApp } from './ai/utils'
 
 const performWebSearch = async (query) => {
   console.log('WA Web Search Requested (Local):', query)
@@ -330,7 +331,7 @@ export const runWhatsappAgent = async (userInput, isAdmin, senderName, jid, isGr
     }
 
     return {
-      answer: finalAnswerObj?.answer || "Selesai diproses.",
+      answer: formatForWhatsApp(finalAnswerObj?.answer || "Selesai diproses."),
       toolsUsed: executedTools
     }
 

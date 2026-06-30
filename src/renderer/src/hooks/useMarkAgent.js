@@ -7,6 +7,7 @@ import {
   useMarkMusic,
   useMarkPlan
 } from './agent'
+import { formatForWhatsApp } from '../api/ai/utils'
 
 export const useMarkAgent = () => {
   const youtubeMusicTools = useYoutubeMusic()
@@ -53,7 +54,7 @@ export const useMarkAgent = () => {
       if (lastAiMsg) {
         window.api?.sendWaAgentExecutionDone({ 
           jid: activeWaRequestRef.current.jid, 
-          result: { answer: lastAiMsg.content }, 
+          result: { answer: formatForWhatsApp(lastAiMsg.content) }, 
           msgId: activeWaRequestRef.current.msgId 
         });
         activeWaRequestRef.current = null;
