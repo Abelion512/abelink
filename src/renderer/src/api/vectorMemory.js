@@ -106,9 +106,17 @@ export const getRelevantMemory = async (userInput, memoryList) => {
   }))
 
   // 3. Filter & Sort
-  return scored
-    .filter((m) => m.score > 0.5)
+  // Core memory (profile & preference) selalu di-load sebagai identitas permanen (bypassing threshold)
+  const coreMemories = scored
+    .filter((m) => m.type === 'profile' || m.type === 'preference')
+    .map(({ vector, ...rest }) => rest)
+
+  // Vector memory (fact, project, dll) tetap difilter berdasar kemiripan (threshold 0.3)
+  const relevantMemories = scored
+    .filter((m) => m.score > 0.3 && m.type !== 'profile' && m.type !== 'preference')
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
     .map(({ vector, ...rest }) => rest)
+
+  return [...coreMemories, ...relevantMemories]
 }

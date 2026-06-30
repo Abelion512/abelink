@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
 import Editor from '@monaco-editor/react'
 import Swal from 'sweetalert2'
 import { driver } from 'driver.js'
+import { FaTimes, FaExclamationTriangle, FaChevronLeft } from 'react-icons/fa'
 import 'driver.js/dist/driver.css'
 
 export default function Plugins() {
@@ -158,17 +158,32 @@ export default function Plugins() {
   }
 
   return (
-    <div className="p-8 w-full max-w-5xl mx-auto h-full overflow-y-auto pt-20 pb-40">
-      <style>{`
-        .editor-container {
-          /* container styles if needed */
-        }
-      `}</style>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Plugin Manager</h1>
-          <p className="opacity-70 mt-1">Buat dan kelola custom skill lokal buat Mark</p>
-        </div>
+    <div className="h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif]">
+      {/* Background Ambience */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
+
+      {/* Main Content Area */}
+      <div className="relative z-10 w-full h-full overflow-y-auto custom-scrollbar">
+        <div className="p-8 w-full max-w-5xl mx-auto pb-40 mt-12">
+          <style>{`
+            .editor-container {
+              /* container styles if needed */
+            }
+          `}</style>
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => window.history.back()} 
+                className="btn btn-ghost btn-sm btn-circle"
+              >
+                <FaChevronLeft size={16} />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold">Plugin Manager</h1>
+                <p className="opacity-70 mt-1">Buat dan kelola custom skill lokal buat Mark</p>
+              </div>
+            </div>
         <div className="flex gap-2">
           <button onClick={startTour} className="btn btn-ghost btn-circle" title="Tutorial Plugin">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -202,7 +217,7 @@ export default function Plugins() {
                 className="btn btn-sm btn-circle btn-ghost"
                 onClick={() => setIsFormOpen(false)}
               >
-                ✕
+                <FaTimes />
               </button>
             </div>
 
@@ -353,7 +368,7 @@ export default function Plugins() {
                               className="ml-auto text-[10px] text-error font-bold max-w-[150px] truncate"
                               title={syntaxErrors[idx]}
                             >
-                              ⚠️ Error
+                              <FaExclamationTriangle className="inline mr-1" /> Error
                             </span>
                           )}
                         </div>
@@ -536,6 +551,8 @@ export default function Plugins() {
           ))}
         </div>
       )}
+        </div>
+      </div>
     </div>
   )
 }

@@ -7,8 +7,9 @@ import { insertMemory, updateMemory, deleteMemory, getAllMemory } from '../../ap
 import { getRelevantMemory } from '../../api/vectorMemory'
 
 export const useMarkPlan = ({
-  chatData, setChatData, config, isAction, isSpeak, abortControllerRef, setIsLoading, setMessage,
-  handleYoutubeSearch, handleSearchCommand, handleYoutubeSummary, handleMusic, getYoutubeData
+  chatData, setChatData, config, isSpeak, abortControllerRef, setIsLoading, setMessage,
+  handleYoutubeSearch, handleSearchCommand, handleYoutubeSummary, handleMusic, getYoutubeData,
+  pushProcess
 }) => {
   useEffect(() => {
     if (window.api.onAiStatus) {
@@ -66,7 +67,7 @@ export const useMarkPlan = ({
       ])
       const planData = await getPlan(
         userInput,
-        isAction.web,
+        true,
         abortControllerRef.current.signal,
         chatSession,
         memoryReference
@@ -86,26 +87,16 @@ export const useMarkPlan = ({
       }
 
       if (!planData.plan || planData.plan.length === 0) {
-        let answer = null
-        
-        if (planData.direct_answer) {
-          console.log('[useMarkPlan] Menggunakan direct_answer (Fast Bypass), skip getAnswer kedua.');
-          answer = {
-            answer: planData.direct_answer,
-            command: planData.command,
-            memory: null
-          }
-        } else {
-          // Fallback to normal conversation if plan is empty dan tidak ada direct_answer
-          answer = await getAnswer(
-            userInput,
-            memoryReference,
-            chatSession,
-            abortControllerRef.current.signal,
-            isAction.web
-          )
+        if (!planData.direct_answer) {
+          throw new Error('Gagal merespons: direct_answer kosong.')
         }
-        if (!answer || !answer.answer) throw new Error('Gagal mengurai jawaban dari Mark menjadi format JSON.')
+
+        console.log('[useMarkPlan] Menggunakan direct_answer (Fast Bypass)');
+        const answer = {
+          answer: planData.direct_answer,
+          command: planData.command,
+          memory: planData.memory || null
+        }
 
         const isPluginAction = answer.command?.action && answer.command.action !== 'none' && answer.command.action !== 'search' && answer.command.action !== 'yt-search' && !answer.command.action.startsWith('music') && answer.command.action !== 'yt-summary';
 
@@ -155,10 +146,13 @@ export const useMarkPlan = ({
           const act = answer.command.action
           const qry = answer.command.query
 
-          setChatData((prev) => [
-            ...prev.filter((item) => !item.isThinking),
-            { role: 'ai', content: `Mengeksekusi plugin: ${act}...`, isThinking: true }
-          ])
+          const pluginProcessId = `plugin-${Date.now()}`
+          pushProcess({
+            id: pluginProcessId,
+            type: 'plugin-execution',
+            status: 'active',
+            data: { action: act, query: qry }
+          })
 
           await new Promise(resolve => setTimeout(resolve, 500))
 
@@ -168,6 +162,14 @@ export const useMarkPlan = ({
 
             if (res.success) {
               const summaryStr = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
+              
+              pushProcess({
+                id: pluginProcessId,
+                type: 'plugin-execution',
+                status: 'done',
+                data: { action: act, query: qry, result: summaryStr }
+              })
+              
               setChatData((prev) => [ ...prev, { role: 'ai', content: 'Membaca hasil eksekusi...', isThinking: true } ])
               await new Promise(resolve => setTimeout(resolve, 500))
 
@@ -207,12 +209,12 @@ export const useMarkPlan = ({
         return
       }
 
-      setChatData((prev) => {
-        const filtered = prev.filter((item) => !item.isThinking)
-        return [
-          ...filtered,
-          { role: 'ai', content: '', reasoning: planData.reasoning, isPlanSteps: true, plan: planData.plan, currentStep: 0 }
-        ]
+      const planProcessId = `plan-${Date.now()}`
+      pushProcess({
+        id: planProcessId,
+        type: 'planning',
+        status: 'active',
+        data: { plan: planData.plan, currentStep: 0, reasoning: planData.reasoning }
       })
 
       let contextSummaries = []
@@ -224,10 +226,12 @@ export const useMarkPlan = ({
         const planItem = planData.plan[i]
         const task = typeof planItem === 'object' ? planItem.task : planItem
 
-        // UI update for running task - UPDATE currentStep instead of adding new thinking message
-        setChatData((prev) =>
-          prev.map((item) => (item.isPlanSteps ? { ...item, currentStep: i } : item))
-        )
+        pushProcess({
+          id: planProcessId,
+          type: 'planning',
+          status: 'active',
+          data: { plan: planData.plan, currentStep: i, reasoning: planData.reasoning }
+        })
 
         let actionData;
         if (typeof planItem === 'object' && planItem.action && !planItem.is_dynamic) {
@@ -238,7 +242,7 @@ export const useMarkPlan = ({
           actionData = await getTaskAction(
             task,
             previousContext,
-            isAction.web,
+            true,
             abortControllerRef.current.signal
           )
         }
@@ -248,6 +252,7 @@ export const useMarkPlan = ({
 
         // Execute Action
         if (actionData.action === 'search') {
+          const searchProcessId = `search-${Date.now()}`
           actionResult = await new Promise((resolve, reject) => {
             const onAbort = () => {
               clearTimeout(timeoutId)
@@ -259,20 +264,20 @@ export const useMarkPlan = ({
             }
             abortControllerRef.current.signal.addEventListener('abort', onAbort)
 
-            setChatData((prev) => [
-              ...prev.filter((item) => !item.isThinking),
-              {
-                role: 'ai',
-                content: '...',
-                isSearching: true,
+            pushProcess({
+              id: searchProcessId,
+              type: 'web-search',
+              status: 'active',
+              data: {
                 query: actionData.query,
                 sendDataWebSearch: (search, result) => {
                   abortControllerRef.current.signal.removeEventListener('abort', onAbort)
                   clearTimeout(timeoutId)
+                  pushProcess({ id: searchProcessId, type: 'web-search', status: 'done', data: { query: actionData.query } })
                   resolve({ search, result })
                 }
               }
-            ])
+            })
 
             const timeoutId = setTimeout(() => {
               abortControllerRef.current.signal.removeEventListener('abort', onAbort)
@@ -347,10 +352,13 @@ export const useMarkPlan = ({
           const act = actionData.action
           const qry = actionData.query
           
-          setChatData((prev) => [
-            ...prev,
-            { role: 'ai', content: `⚙️ Mengeksekusi plugin: ${act}...`, isThinking: true }
-          ])
+          const pluginProcessId = `plugin-${Date.now()}`
+          pushProcess({
+            id: pluginProcessId,
+            type: 'plugin-execution',
+            status: 'active',
+            data: { action: act, query: qry }
+          })
           
           const res = await window.api.executePlugin(act, qry)
           
@@ -361,6 +369,12 @@ export const useMarkPlan = ({
           } else {
             summary = `Gagal mengeksekusi plugin ${act}: ${res.error}`
           }
+          pushProcess({
+            id: pluginProcessId,
+            type: 'plugin-execution',
+            status: 'done',
+            data: { action: act, query: qry, result: summary }
+          })
         } else {
           const chatSessionSlice = chatData
             .filter(
@@ -391,26 +405,19 @@ export const useMarkPlan = ({
         contextSummaries.push(summary)
         previousContext.push(`Task: ${task} -> Hasil: ${summary}`)
 
-        setChatData((prev) => 
-          prev.map((item) => {
-            if (item.isPlanSteps) {
-              const updatedPlan = [...item.plan]
-              if (typeof updatedPlan[i] === 'object') {
-                updatedPlan[i] = { ...updatedPlan[i], result: summary }
-              } else {
-                updatedPlan[i] = { task: updatedPlan[i], result: summary }
-              }
-              return { ...item, plan: updatedPlan }
-            }
-            return item
-          }).filter((item) => !item.isSearching)
-        )
+        if (typeof planData.plan[i] === 'object') {
+          planData.plan[i] = { ...planData.plan[i], result: summary }
+        } else {
+          planData.plan[i] = { task: planData.plan[i], result: summary }
+        }
       }
 
-      // All steps done
-      setChatData((prev) =>
-        prev.map((item) => (item.isPlanSteps ? { ...item, currentStep: planData.plan.length } : item))
-      )
+      pushProcess({
+        id: planProcessId,
+        type: 'planning',
+        status: 'done',
+        data: { plan: planData.plan, currentStep: planData.plan.length, reasoning: planData.reasoning }
+      })
 
       // 3. Conclusion
       setChatData((prev) => [

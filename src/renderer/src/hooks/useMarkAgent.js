@@ -1,10 +1,10 @@
+import { useEffect, useRef } from 'react'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import {
   useMarkState,
   useMarkSearch,
   useMarkYoutube,
   useMarkMusic,
-  useMarkChat,
   useMarkPlan
 } from './agent'
 
@@ -13,13 +13,17 @@ export const useMarkAgent = () => {
 
   const state = useMarkState()
   const {
-    chatData, setChatData, sessionId, setSessionId, changeSession,
-    isAction, setIsAction, config, setConfig, message, setMessage,
+    chatData, setChatData, sessionId, changeSession,
+    config, setConfig, message, setMessage,
     isLoading, setIsLoading, isSpeak, setIsSpeak, abortControllerRef,
-    searchProp, handleStop
+    searchProp, handleStop,
+    orbStatus, setOrbStatus, currentResponse, setCurrentResponse,
+    notifications, pushNotification,
+    activeProcesses, setActiveProcesses, pushProcess, dismissProcess,
+    inputSource, setInputSource
   } = state
 
-  const { receiveSearchResult, handleSearchCommand } = useMarkSearch(setChatData, chatData, searchProp)
+  const { receiveSearchResult, handleSearchCommand } = useMarkSearch(setChatData, chatData, searchProp, pushProcess, dismissProcess)
   const { handleYoutubeSearch, handleYoutubeSummary, getYoutubeData } = useMarkYoutube(setChatData)
   const { handleMusic } = useMarkMusic(setChatData, abortControllerRef, youtubeMusicTools)
 
@@ -27,31 +31,59 @@ export const useMarkAgent = () => {
     handleYoutubeSearch, handleSearchCommand, handleYoutubeSummary, handleMusic, getYoutubeData
   }
 
-  const { handleAIResponse } = useMarkChat({ ...state, ...tools })
   const { handlePlanningCommand } = useMarkPlan({ ...state, ...tools })
+
+  const activeWaRequestRef = useRef(null)
+
+  useEffect(() => {
+    const handleWaAdminMessage = (e) => {
+      const data = e.detail;
+      activeWaRequestRef.current = data;
+      setInputSource('wa');
+      handlePlanningCommand(data.text);
+    };
+
+    window.addEventListener('wa-admin-message', handleWaAdminMessage);
+    return () => window.removeEventListener('wa-admin-message', handleWaAdminMessage);
+  }, [handlePlanningCommand, setInputSource]);
+
+  useEffect(() => {
+    if (!isLoading && activeWaRequestRef.current && chatData.length > 0) {
+      const lastAiMsg = [...chatData].reverse().find(m => m.role === 'ai' && !m.isThinking && !m.isSearching && !m.isSummarizing);
+      if (lastAiMsg) {
+        window.api?.sendWaAgentExecutionDone({ 
+          jid: activeWaRequestRef.current.jid, 
+          result: { answer: lastAiMsg.content }, 
+          msgId: activeWaRequestRef.current.msgId 
+        });
+        activeWaRequestRef.current = null;
+        setInputSource('pc');
+      }
+    }
+  }, [isLoading, chatData, setInputSource]);
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault()
     if (isLoading) {
       handleStop()
     } else {
-      if (isAction.plan) {
-        handlePlanningCommand(message.trim())
-      } else {
-        handleAIResponse(message.trim())
-      }
+      handlePlanningCommand(message.trim())
     }
   }
 
   return {
     chatData, setChatData,
-    sessionId, setSessionId, changeSession,
-    isAction, setIsAction,
+    sessionId, changeSession,
     isSpeak, setIsSpeak,
     config,
     isLoading,
     message, setMessage,
-    handleAIResponse,
+    orbStatus, setOrbStatus,
+    currentResponse, setCurrentResponse,
+    notifications, pushNotification,
+    activeProcesses, setActiveProcesses, pushProcess, dismissProcess,
+    inputSource, setInputSource,
+    handlePlanningCommand,
     handleStop,
     handleSubmit
   }

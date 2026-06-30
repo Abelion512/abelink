@@ -11,25 +11,39 @@ export const YoutubeMusicProvider = ({ children }) => {
   const [playId, setPlayId] = useState(0)
   const webviewRef = useRef(null)
 
-  // Poll webview every 1s to detect if music is playing
-  // useEffect(() => {
-  //   const interval = setInterval(async () => {
-  //     const webview = webviewRef.current
-  //     if (!webview) {
-  //       setIsPlaying(false)
-  //       return
-  //     }
-  //     try {
-  //       const paused = await webview.executeJavaScript(
-  //         `(function(){ const v = document.querySelector('video'); return v ? v.paused : true; })()`
-  //       )
-  //       setIsPlaying(!paused)
-  //     } catch {
-  //       setIsPlaying(false)
-  //     }
-  //   }, 1000)
-  //   return () => clearInterval(interval)
-  // }, [])
+  const [currentTrack, setCurrentTrack] = useState({ title: '', artist: '' })
+
+  // Poll webview every 1s to detect if music is playing and get track info
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const webview = webviewRef.current
+      if (!webview) {
+        setIsPlaying(false)
+        return
+      }
+      try {
+        const info = await webview.executeJavaScript(
+          `(function(){ 
+            const titleEl = document.querySelector('yt-formatted-string.title.ytmusic-player-bar');
+            const subtitleEl = document.querySelector('span.subtitle.ytmusic-player-bar');
+            const video = document.querySelector('video');
+            return {
+              title: titleEl ? titleEl.innerText : '',
+              artist: subtitleEl ? subtitleEl.innerText : '',
+              paused: video ? video.paused : true
+            };
+          })()`
+        )
+        setIsPlaying(!info.paused)
+        if (info.title) {
+          setCurrentTrack({ title: info.title, artist: info.artist })
+        }
+      } catch {
+        setIsPlaying(false)
+      }
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   const playUrl = useCallback((url) => {
     setMusicUrl(url)
@@ -63,6 +77,7 @@ export const YoutubeMusicProvider = ({ children }) => {
     togglePlayer,
     webviewRef,
     isPlaying,
+    currentTrack,
     nextTrack,
     prevTrack,
     playPause

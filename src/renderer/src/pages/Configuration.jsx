@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { FaSave, FaCheckCircle, FaTrash, FaTimes } from 'react-icons/fa'
 import { getAllMemory, getAllConfig, saveConfiguration, deleteMemory, db } from '../api/db'
 import { getExtractor } from '../api/vectorMemory'
 import { driver } from 'driver.js'
@@ -285,19 +286,35 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   }
 
   return (
-    <div className="w-full h-full overflow-y-auto no-scrollbar">
-      <div className="max-w-2xl mx-auto px-4 py-6 pb-24 space-y-8">
-        {/* Page Header */}
-        <div>
-          <h1 className="text-2xl font-bold">
-            {isFirstSetup ? 'Selamat Datang di Mark!' : 'Setup Mark!'}
-          </h1>
-          <p className="opacity-50 text-sm mt-1">
-            {isFirstSetup 
-              ? 'Sebelum mulai ngobrol, atur provider AI dan pengaturan dasar lainnya di bawah ini.' 
-              : 'Atur perilaku Mark sesuai kebutuhanmu.'}
-          </p>
-        </div>
+    <div className="h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif]">
+      {/* Background Ambience */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
+
+      {/* Main Content Area */}
+      <div className="relative z-10 w-full h-full overflow-y-auto custom-scrollbar">
+        <div className="max-w-2xl mx-auto px-4 py-8 pb-32 space-y-8">
+          {/* Page Header */}
+          <div className="flex items-center gap-4">
+            {!isFirstSetup && (
+              <button 
+                onClick={() => window.history.back()} 
+                className="btn btn-ghost btn-sm btn-circle"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="1.2em" height="1.2em" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+              </button>
+            )}
+            <div>
+              <h1 className="text-2xl font-bold">
+                {isFirstSetup ? 'Selamat Datang di Mark!' : 'Pengaturan Mark'}
+              </h1>
+              <p className="opacity-50 text-sm mt-1">
+                {isFirstSetup 
+                  ? 'Sebelum mulai ngobrol, atur provider AI dan pengaturan dasar lainnya di bawah ini.' 
+                  : 'Sesuaikan perilaku Mark dengan preferensimu.'}
+              </p>
+            </div>
+          </div>
 
         {/* ── AI Engine & Tools ── */}
         <section className="space-y-5">
@@ -883,7 +900,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                                   onClick={() => handleDeleteMemory(mem)}
                                   title="Hapus memori ini"
                                 >
-                                  ✕
+                                  <FaTimes />
                                 </button>
                               </div>
                             ))}
@@ -942,6 +959,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           <button>close</button>
         </form>
       </dialog>
+      </div>
     </div>
   )
 }

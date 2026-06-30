@@ -4,12 +4,16 @@ import { getTitleSession } from '../../api/ai/chat'
 
 export const useMarkState = () => {
   const [chatData, setChatData] = useState([])
-  const [sessionId, setSessionId] = useState(null)
-  const [isAction, setIsAction] = useState({ web: true, plan: true })
   const [config, setConfig] = useState([])
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSpeak, setIsSpeak] = useState(false)
+  const [orbStatus, setOrbStatus] = useState('idle')
+  const [currentResponse, setCurrentResponse] = useState(null)
+  const [notifications, setNotifications] = useState([])
+  const [activeProcesses, setActiveProcesses] = useState([])
+  const [inputSource, setInputSource] = useState('pc')
+  const sessionId = useRef('mark-main-thread')
 
   const abortControllerRef = useRef(null)
   const searchProp = useRef({ userInput: '', signal: null, chatSession: null })
@@ -25,24 +29,47 @@ export const useMarkState = () => {
 
   useEffect(() => {
     if (chatData && chatData.length) {
-      if (!sessionId) {
-        ;(async () => {
-          const title = await getTitleSession(chatData[0].content)
-          const id = await createSession(title, chatData)
-          setSessionId(id)
-        })()
-      } else {
-        ;(async () => {
-          await insertSession(sessionId, chatData)
-        })()
-      }
+      ;(async () => {
+        const title = 'Jarvis Main Thread'
+        // Just insert/update the main thread session
+        const allSessions = await getAllConfig() // wait, get session?
+        try {
+          await insertSession(sessionId.current, chatData)
+        } catch (e) {
+          await createSession(title, chatData, sessionId.current)
+        }
+      })()
     }
   }, [chatData])
 
   const changeSession = async (id) => {
-    setSessionId(id)
+    // In Jarvis mode, we don't change session often, but we might load from history
+    // We keep this for compatibility if needed.
     const chat = await getChatData(id)
     setChatData([...chat])
+  }
+
+  const pushNotification = (type, message) => {
+    setNotifications(prev => [...prev, { id: Date.now() + Math.random(), type, message, timestamp: Date.now() }])
+  }
+
+  const pushProcess = (process) => {
+    // process: { id, type, status, data }
+    setActiveProcesses(prev => {
+      const existing = prev.findIndex(p => p.id === process.id);
+      if (existing !== -1) {
+        // Update
+        const next = [...prev];
+        next[existing] = { ...next[existing], ...process };
+        return next;
+      }
+      // Add new
+      return [...prev, process];
+    });
+  }
+
+  const dismissProcess = (id) => {
+    setActiveProcesses(prev => prev.filter(p => p.id !== id));
   }
 
   const handleStop = () => {
@@ -52,11 +79,8 @@ export const useMarkState = () => {
   return {
     chatData,
     setChatData,
-    sessionId,
-    setSessionId,
+    sessionId: sessionId.current,
     changeSession,
-    isAction,
-    setIsAction,
     config,
     setConfig,
     message,
@@ -65,6 +89,18 @@ export const useMarkState = () => {
     setIsLoading,
     isSpeak,
     setIsSpeak,
+    orbStatus,
+    setOrbStatus,
+    currentResponse,
+    setCurrentResponse,
+    notifications,
+    pushNotification,
+    activeProcesses,
+    setActiveProcesses,
+    pushProcess,
+    dismissProcess,
+    inputSource,
+    setInputSource,
     abortControllerRef,
     searchProp,
     handleStop

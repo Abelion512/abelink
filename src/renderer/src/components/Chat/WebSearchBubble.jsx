@@ -23,17 +23,18 @@ export const WebSearchBubble = ({ query, sendDataWebSearch }) => {
     setUrl(`https://www.google.com/search?q=${encodeURIComponent(query)}&hl=id`)
   }, [query])
 
-  const waitForLoad = (webview) => {
+  const loadAndExtract = (webview, targetUrl) => {
     return new Promise((resolve) => {
-      let timeoutId
+      let timeoutId;
       const onDone = () => {
-        clearTimeout(timeoutId)
-        webview.removeEventListener('dom-ready', onDone)
-        resolve()
-      }
-      timeoutId = setTimeout(onDone, 10000) // 10 second timeout for each page load
-      webview.addEventListener('dom-ready', onDone)
-    })
+        clearTimeout(timeoutId);
+        webview.removeEventListener('did-finish-load', onDone);
+        resolve();
+      };
+      timeoutId = setTimeout(onDone, 10000); // 10s timeout
+      webview.addEventListener('did-finish-load', onDone);
+      webview.loadURL(targetUrl);
+    });
   }
 
   const onScrape = async (webview) => {
@@ -46,9 +47,8 @@ export const WebSearchBubble = ({ query, sendDataWebSearch }) => {
       if (urlItem.title === 'AI Google Summary') {
         link = { source: urlItem.title, url: urlItem.link, text: urlItem.snippet }
       } else {
-        setUrl(urlItem.link)
-        await waitForLoad(webview)
-        link = await deepSearch(webview, urlItem.link)
+        await loadAndExtract(webview, urlItem.link);
+        link = await deepSearch(webview, urlItem.link);
       }
       links.push(link)
     }

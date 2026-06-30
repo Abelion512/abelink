@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import Navbar from './components/Navbar'
-import Chat from './pages/Chat'
+import MarkHome from './pages/MarkHome'
 import Configuration from './pages/Configuration'
 import LiveAudio from './pages/LiveAudio'
 import WhatsappBot from './pages/WhatsappBot'
@@ -55,8 +54,12 @@ const GlobalListener = () => {
     if (window.api?.onWaRequestAgentExecution) {
       window.api.onWaRequestAgentExecution(async (data) => {
         const { text, isAdmin, senderName, jid, isGroup, msgId, chatSession } = data
-        const result = await runWhatsappAgent(text, isAdmin, senderName, jid, isGroup, msgId, chatSession)
-        window.api.sendWaAgentExecutionDone({ jid, result, msgId })
+        if (isAdmin) {
+          window.dispatchEvent(new CustomEvent('wa-admin-message', { detail: data }))
+        } else {
+          const result = await runWhatsappAgent(text, isAdmin, senderName, jid, isGroup, msgId, chatSession)
+          window.api.sendWaAgentExecutionDone({ jid, result, msgId })
+        }
       })
     }
 
@@ -121,10 +124,9 @@ function App() {
         <HashRouter>
           <GlobalListener />
           <div className="h-screen flex flex-col overflow-hidden">
-            {!isStandalone && <Navbar />}
-            <div className={!isStandalone ? "h-[calc(100vh-4rem)] mt-16" : "h-screen w-full"}>
+            <div className="h-screen w-full">
               <Routes>
-                <Route path="/" element={<Chat />} />
+                <Route path="/" element={<MarkHome />} />
                 <Route path="/config" element={<Configuration />} />
                 <Route path="/plugins" element={<Plugins />} />
                 <Route path="/live-audio" element={<LiveAudio />} />

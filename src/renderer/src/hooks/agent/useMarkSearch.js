@@ -1,7 +1,7 @@
 import { getSearchResult } from '../../api/ai/tools'
 import { insertMemory } from '../../api/db'
 
-export const useMarkSearch = (setChatData, chatData, searchProp) => {
+export const useMarkSearch = (setChatData, chatData, searchProp, pushProcess, dismissProcess) => {
   const receiveSearchResult = async (search, result) => {
     setChatData((prev) => [
       ...prev.filter((item) => !item.isSearching),
@@ -59,14 +59,33 @@ export const useMarkSearch = (setChatData, chatData, searchProp) => {
 
   const handleSearchCommand = async (userInput, query, signal, chatSession) => {
     searchProp.current = { userInput, signal, chatSession }
+    
+    const processId = `search-${Date.now()}`;
+    pushProcess({
+      id: processId,
+      type: 'web-search',
+      status: 'active',
+      data: {
+        query: query,
+        sendDataWebSearch: (search, result) => {
+          pushProcess({
+            id: processId,
+            type: 'web-search',
+            status: 'done',
+            data: { query }
+          });
+          receiveSearchResult(search, result);
+        }
+      }
+    });
+
     setChatData((prev) => [
       ...prev,
       {
         role: 'ai',
-        content: '...',
+        content: 'Mencari informasi di internet...',
         isSearching: true,
-        query: query,
-        sendDataWebSearch: receiveSearchResult
+        query: query
       }
     ])
   }

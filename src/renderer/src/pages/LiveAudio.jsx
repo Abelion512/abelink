@@ -3,20 +3,20 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { getAllConfig } from '../api/db'
 import { transcribeAudioGroq } from '../api/groq'
+import { FaChevronLeft, FaMicrophone, FaStop, FaExclamationTriangle } from 'react-icons/fa'
 
 const LiveAudio = () => {
   const {
     chatData,
     setChatData,
-    isAction,
-    setIsAction,
     isLoading,
     isSpeak,
     setIsSpeak,
     message,
     setMessage,
     handleSubmit,
-    handleAIResponse,
+    handlePlanningCommand,
+    abortControllerRef,
     config
   } = useChat()
   const chatEndRef = useRef(null)
@@ -188,8 +188,7 @@ const LiveAudio = () => {
                 .then(text => {
                   if (text && text.trim() !== '') {
                     setMessage(text.trim())
-                    handleAIResponse(text.trim())
-                    setMessage('')
+                    handlePlanningCommand(text.trim())
                   } else {
                     setStatus('listening')
                   }
@@ -297,9 +296,13 @@ const LiveAudio = () => {
   }
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center overflow-hidden bg-linear-to-b from-base-300 via-base-100 to-base-300">
+    <div className="h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif] flex flex-col items-center justify-center">
+      {/* Background Ambience */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
+
       {/* Ambient background effects */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div
           className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-3xl transition-all duration-1000 ${isActive ? 'scale-110 bg-primary/10' : 'scale-100'}`}
         />
@@ -313,17 +316,7 @@ const LiveAudio = () => {
         onClick={() => navigate('/')}
         className="absolute top-6 left-6 btn btn-ghost btn-sm gap-2 z-20 opacity-60 hover:opacity-100 transition-opacity"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="1.2em"
-          height="1.2em"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
+        <FaChevronLeft size={14} />
         Kembali
       </button>
 
@@ -331,18 +324,7 @@ const LiveAudio = () => {
       <div className="relative z-10 text-center mb-8 select-none">
         <div className="flex items-center justify-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="1.3em"
-              height="1.3em"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              className="text-primary"
-            >
-              <path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4Z" />
-              <path d="M17 11a1 1 0 0 1 1 1 6 6 0 0 1-12 0 1 1 0 0 1 2 0 4 4 0 0 0 8 0 1 1 0 0 1 1-1Z" />
-              <path d="M12 19a1 1 0 0 1 1 1v2a1 1 0 0 1-2 0v-2a1 1 0 0 1 1-1Z" />
-            </svg>
+            <FaMicrophone className="text-primary" size={20} />
           </div>
           <h1 className="text-2xl font-bold">Live Audio</h1>
         </div>
@@ -437,36 +419,14 @@ const LiveAudio = () => {
           onClick={handleMicToggle}
           className={`relative w-18 h-18 rounded-full flex items-center justify-center transition-all duration-500 active:scale-95 ${
             isActive
-              ? 'bg-error shadow-lg hover:bg-error/90'
-              : 'bg-primary shadow-lg hover:bg-primary/90'
+              ? 'bg-error shadow-[0_0_20px_oklch(var(--er)/0.4)] hover:bg-error/90'
+              : 'bg-primary shadow-[0_0_20px_oklch(var(--p)/0.4)] hover:bg-primary/90'
           }`}
         >
           {isActive ? (
-            /* Stop icon */
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="1.8em"
-              height="1.8em"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              className="text-white"
-            >
-              <path d="M7 5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H7Z" />
-            </svg>
+            <FaStop className="text-white" size={24} />
           ) : (
-            /* Mic icon */
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="1.8em"
-              height="1.8em"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              className="text-white"
-            >
-              <path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4Z" />
-              <path d="M17 11a1 1 0 0 1 1 1 6 6 0 0 1-12 0 1 1 0 0 1 2 0 4 4 0 0 0 8 0 1 1 0 0 1 1-1Z" />
-              <path d="M12 19a1 1 0 0 1 1 1v2a1 1 0 0 1-2 0v-2a1 1 0 0 1 1-1Z" />
-            </svg>
+            <FaMicrophone className="text-white" size={24} />
           )}
         </button>
 
@@ -485,7 +445,7 @@ const LiveAudio = () => {
       {toastMessage && (
         <div className="toast toast-top toast-center z-50 animate-bounce">
           <div className="alert alert-error text-sm font-semibold shadow-2xl flex gap-2 items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <FaExclamationTriangle size={18} />
             <span>{toastMessage}</span>
           </div>
         </div>

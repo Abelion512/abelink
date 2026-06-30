@@ -35,7 +35,7 @@ export const scrapeGoogle = async (webview, url, onCaptcha) => {
           items.push({ title: 'AI Google Summary', link: '${url}', snippet: aiSummary });
         }
 
-        const elements = document.querySelectorAll('div.g, div.tF2Cxc, div.v7W49e');
+        const elements = document.querySelectorAll('div.g, div.tF2Cxc, div.v7W49e, div.MjjYud');
 
         elements.forEach((el) => {
           if (items.length < 5) {

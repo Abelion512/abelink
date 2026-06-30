@@ -303,3 +303,84 @@ html {
   opacity: 0.7 !important;
   background-color: #000000 !important;
 }
+
+/* === TAMBAHAN UNTUK ORB & HOLOGRAM (HIJAU SEIRAMA) === */
+:root {
+  --color-holo-border: linear-gradient(90deg, oklch(var(--p)), oklch(var(--su)), oklch(var(--p)));
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: blur(20px);
+}
+
+/* === ORB ANIMATIONS === */
+@keyframes orb-breathe {
+  0%, 100% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes orb-think {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes orb-error {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* === HOLOGRAM CARD ANIMATIONS === */
+@keyframes holo-border-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes holo-scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes holo-enter {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes holo-project-in {
+  0% { opacity: 0; transform: scale(0.3) translateY(20px); }
+  70% { transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes holo-dismiss {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.8) translateY(-10px); }
+}
+
+/* === RESPONSE TRANSITIONS === */
+@keyframes response-fade-in {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes response-fade-out {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+
+/* === TOAST NOTIFICATIONS === */
+@keyframes toast-slide-in {
+  0% { opacity: 0; transform: translateX(100%); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toast-fade-out {
+  0% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(50%); }
+}
+
+/* === NOW PLAYING WIDGET === */
+@keyframes music-bar {
+  0%, 100% { height: 4px; }
+  50% { height: 16px; }
+}
+

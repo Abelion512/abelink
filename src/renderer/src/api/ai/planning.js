@@ -77,7 +77,8 @@ Design a logical plan that *can be* executed using a combination of the capabili
 5. WEB SEARCH USAGE: Use Web Search ("search") ONLY for searching real-time information, news, product prices, or latest public facts. DO NOT use it for coding/basic theory, just use "summary".
 6. FAST BYPASS (SINGLE TOOL): If the user's instruction ONLY requires 1 tool usage (e.g., just setting volume, just playing music), RETURN an empty plan array '{"plan": []}', AND fill the 'command' field with the tool details, AND fill 'direct_answer' with the textual response!
 7. CASUAL CHAT / REACTIONS: If the user is just chatting casually, agreeing, reacting, or NOT explicitly asking you to perform a new action (e.g., "mantap", "oke", "jos"), you MUST set 'command' to null! DO NOT repeat the previous tool.
-8. SEARCH LANGUAGE: Ensure the search query ("query" field) is written in the SAME LANGUAGE as the user's prompt to get accurate local results.
+8. MEMORY / PROFILE SAVING: If the user gives info to remember (e.g., "Nama gue Mada"), set the 'memory' object according to the schema. Also provide 'direct_answer' to acknowledge it.
+9. SEARCH LANGUAGE: Ensure the search query ("query" field) is written in the SAME LANGUAGE as the user's prompt to get accurate local results.
 # EXAMPLES
 
 ## Example 1: Multi-Step Plan (Complex Task)
@@ -147,7 +148,20 @@ Output: {"plan": [], "command": null, "direct_answer": "Yoi bro, santai aja! Kal
         },
         direct_answer: {
           type: ['string', 'null'],
-          description: 'Berikan balasan natural JIKA plan kosong. CRITICAL: JIKA user memberikan info untuk diingat, biarkan INI NULL!'
+          description: 'Berikan balasan natural JIKA plan kosong.'
+        },
+        memory: {
+          type: ['object', 'null'],
+          description: 'Isi JIKA DAN HANYA JIKA user memberikan informasi tentang dirinya (nama, preferensi) yang perlu disimpan. Jika tidak ada, wajib null.',
+          properties: {
+            id: { type: ['number', 'null'] },
+            type: { type: 'string', enum: ['profile', 'preference', 'skill', 'project', 'transaction', 'goal', 'relationship', 'fact', 'other'] },
+            key: { type: 'string' },
+            memory: { type: 'string' },
+            action: { type: 'string', enum: ['insert', 'update', 'delete'] }
+          },
+          required: ['type', 'key', 'memory', 'action'],
+          additionalProperties: false
         },
         command: {
           type: ['object', 'null'],
@@ -158,7 +172,7 @@ Output: {"plan": [], "command": null, "direct_answer": "Yoi bro, santai aja! Kal
           }
         }
       },
-      required: ['plan', 'direct_answer', 'command'],
+      required: ['plan', 'direct_answer', 'memory', 'command'],
       additionalProperties: false
     }
 
@@ -176,10 +190,11 @@ Output: {"plan": [], "command": null, "direct_answer": "Yoi bro, santai aja! Kal
         plan: data.plan, 
         direct_answer: data.direct_answer, 
         command: data.command,
+        memory: data.memory,
         reasoning: response.reasoning 
       }
     }
-    return { plan: [], direct_answer: null, command: null }
+    return { plan: [], direct_answer: null, command: null, memory: null }
   } catch (error) {
     console.error('Error in getPlan:', error)
     throw error
@@ -331,12 +346,12 @@ ${memoryReference.length > 0 ? JSON.stringify(memoryReference) : 'Empty.'}
 
 # WRITING & COMMUNICATION STYLE RULES
 1. **ADAPTIVE BASED ON THE QUESTION**: 
-   - If the user asks for a full summary of a video/text, provide a LONG and COMPREHENSIVE answer complete with *timestamps* (if available in the Execution History).
-   - However, if the user ONLY asks for specific information (e.g., "What's the initial capital from this video?"), answer the question *to-the-point* and logically WITHOUT summarizing the entire video.
-2. **PROFESSIONAL BUT CASUAL**: Maintain your communication style (address as "bro", be assertive), but don't overdo the slang. Stay focused on the substance of the information.
-3. **FORMATTING**: Use neat paragraphs and bullet points (markdown \`-\` or \`*\`).
-4. **SOURCE PRIORITY**: Use data from "Execution History" as the primary reference. Add your own insights to enrich the explanation if needed.
-5. **VOICE-EXPRESSIVE**: Write "answer" as if you are speaking (it will be read aloud by TTS).
+   - Kalo user minta kesimpulan penuh, kasih jawaban PANJANG dan KOMPREHENSIF pakai *timestamps* (kalau ada).
+   - Kalo user nanya spesifik (contoh: "Berapa modal awalnya?"), jawab *to-the-point* TANPA merangkum seluruh video.
+2. **PROFESSIONAL BUT CASUAL**: Tetap nyambung, cerdas, tapi bahasanya *chill* banget (gue/lu). Nggak kaku.
+3. **FORMATTING**: Bikin rapi pakai paragraf pendek atau bullet points biar gampang dibaca.
+4. **SOURCE PRIORITY**: Prioritaskan data dari "Execution History". Tambahin *insight* pintar lu sendiri kalau perlu.
+5. **VOICE-EXPRESSIVE**: Tulis "answer" seolah-olah lu lagi ngomong langsung (karena bakal dibaca TTS). Pakai kata sambung natural ("Jadi gini", "Btw", "Wah", dll).
 
 # AUTO-MEMORY EVALUATION (CRITICAL)
 Your main task is to summarize the system's work results, BUT you must also self-evaluate: "Is there any important information about the user from this conversation or work results that is worth saving?"
