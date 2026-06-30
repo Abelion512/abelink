@@ -23,6 +23,7 @@ let lastCloudFetchTime = 0
 const CLOUD_DELAY_MS = 2500 // 2.5 seconds delay
 
 let globalConfig = {}
+export const activeAbortControllers = new Set();
 
 export const setGlobalConfig = (config) => {
   globalConfig = config || {}
@@ -81,6 +82,7 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
       // --- TIMEOUT LOGIC ---
       const timeoutMs = endpoint.includes('localhost') ? 120000 : 45000; // 120s for local, 45s for cloud
       const abortController = new AbortController();
+      activeAbortControllers.add(abortController);
       const timeoutId = setTimeout(() => abortController.abort(new Error('Request Timeout')), timeoutMs);
 
       let response;
@@ -92,12 +94,18 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
           signal: abortController.signal
         })
       } catch (err) {
-        if (abortController.signal.aborted && abortController.signal.reason?.message === 'Request Timeout') {
-          throw new Error('Request Timeout: AI memakan waktu terlalu lama untuk membalas.')
+        if (abortController.signal.aborted) {
+          if (abortController.signal.reason?.message === 'User Aborted') {
+            throw new Error('AbortError')
+          }
+          if (abortController.signal.reason?.message === 'Request Timeout') {
+            throw new Error('Request Timeout: AI memakan waktu terlalu lama untuk membalas.')
+          }
         }
         throw err
       } finally {
         clearTimeout(timeoutId);
+        activeAbortControllers.delete(abortController);
       }
 
       if (!response.ok) {
@@ -179,7 +187,15 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
         let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
 
         // Auto-retry fallback untuk High Traffic / Rate Limits (503, 429, 500)
-        const isHighTraffic = response.status === 429 || response.status >= 500 || finalErrorMessage.toLowerCase().includes('high traffic') || finalErrorMessage.toLowerCase().includes('rate limit') || finalErrorMessage.toLowerCase().includes('tpm');
+        let isHighTraffic = response.status === 429 || response.status >= 500 || finalErrorMessage.toLowerCase().includes('high traffic') || finalErrorMessage.toLowerCase().includes('rate limit') || finalErrorMessage.toLowerCase().includes('tpm');
+        
+        // PENTING: Kalau errornya "Request too large", ini bukan masalah server sibuk yang bisa selesai dengan nunggu!
+        // Ini berarti ukuran pesan (tokens) lebih besar dari batasan maksimal tier (misal tier gratis cuma 6000 TPM).
+        // Nunggu sampai lebaran pun request ini nggak bakal lolos, jadi jangan dilooping!
+        if (finalErrorMessage.toLowerCase().includes('request too large')) {
+          isHighTraffic = false;
+        }
+
         if (isHighTraffic && trafficRetryCount < 20 && (endpoint.includes('cerebras.ai') || endpoint.includes('groq.com'))) {
            
            // Cek apakah server ngasih tau harus nunggu berapa detik (khusus Groq 429)
@@ -190,22 +206,23 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
              backoffDelay = Math.ceil(parseFloat(timeMatch[1]) * 1000) + 500; 
            }
 
-           // Trik Rahasia: Kalau Groq lagi sibuk, kita ganti/swap modelnya ke server cadangan mereka!
-           // Rate limit Groq itu per-model. Jadi kalau kita langsung ganti model, kita bisa bypass rate limit tanpa harus nunggu puluhan detik!
            let retryBody = { ...currentBody };
+           
+           // Kalau server ngasih instruksi nunggu (timeMatch ada), HARGAI instruksi server.
+           // Jangan maksa nge-spam tiap 1 detik karena API gateway akan terus nge-blokir.
            if (endpoint.includes('groq.com')) {
-             const backupModels = ['openai/gpt-oss-20b'];
+             const backupModels = ['openai/gpt-oss-20b']; // Hanya gunakan model yang didukung!
              const nextModel = backupModels[trafficRetryCount % backupModels.length];
              retryBody.model = nextModel;
-             console.log(`[Model Swap] Model utama sibuk/rate limit, Mark ganti haluan instan ke ${nextModel}`);
-             if (onStatus) onStatus(`Server sibuk, ganti jalur instan ke model cadangan (${nextModel})...`);
+             console.log(`[Model Swap] Mark ganti haluan instan ke ${nextModel}`);
              
-             // Bypass backoffDelay sepenuhnya karena kita udah pindah model!
-             backoffDelay = 1000; // Cuma jeda 1 detik biar aman
-           } else {
-             // Tunggu berapapun lamanya sesuai permintaan user ("rebound terus sampek dapet")
-             if (onStatus) onStatus(`Server sibuk, mencoba ulang dalam ${Math.round(backoffDelay/1000)}s...`);
+             // Kalau nggak ada timeMatch (nggak disuruh nunggu spesifik), boleh jeda cepat
+             if (!timeMatch) {
+               backoffDelay = 2000; 
+             }
            }
+           
+           if (onStatus) onStatus(`Server sibuk, mencoba ulang dalam ${Math.round(backoffDelay/1000)}s...`);
            
            console.log(`[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/20)`);
            await new Promise((resolve) => setTimeout(resolve, backoffDelay));

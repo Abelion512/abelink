@@ -4,6 +4,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 // Custom APIs for renderer
 const api = {
   fetchAI: (params) => ipcRenderer.invoke('ai:fetch', params),
+  abortFetchAI: () => ipcRenderer.send('ai:abort-fetch'),
   syncConfig: (config) => ipcRenderer.send('sync-config', config),
   runNodeFunction: (data) => ipcRenderer.invoke('execute-node-task', data),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),

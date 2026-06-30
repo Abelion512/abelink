@@ -182,112 +182,17 @@ No text outside of JSON. The 'answer' field contains a natural EXPRESSIVE respon
 }
 
 # EXAMPLES FOR CONSISTENCY (Pay attention to the expressive style in the "answer" field)
-## Example: Web Search / Informasi Publik (Data Terbaru)
+## Example 1: Web Search / Tools Command
 User: "Mark, siapa presiden terpilih 2026?"
-Output: {
-  "answer": "Wah pertanyaan mantap nih! Bentar ya bro, gue cek dulu di internet biar infonya bener-bener akurat buat tahun 2026.",
-  "memory": null,
-  "command": {
-    "action": "search",
-    "query": "Siapa Presiden Indonesia terpilih tahun 2026"
-  }
-}  
+Output: {"answer": "Wah mantap nih! Bentar bro, gue cek dulu di internet biar infonya bener-bener akurat buat tahun 2026.", "memory": null, "command": {"action": "search", "query": "Presiden Indonesia terpilih tahun 2026"}}
 
-## Example: Youtube Summary
-User: "Mark, tolong rangkumin atau jelasin video ini dong https://www.youtube.com/watch?v=uJbbtrx5M_E"
-Output: {
-  "answer": "Oke siap bro! Tunggu bentar ya, lagi gue rangkumin nih videonya biar lo gak perlu nonton full!",
-  "memory": null,
-  "command": {
-    "action": "yt-summary",
-    "query": "https://www.youtube.com/watch?v=uJbbtrx5M_E"
-  }
-}
+## Example 2: Simpan Memori & Obrolan Biasa
+User: "Mark, inget ya hobi gue main ETS2"
+Output: {"answer": "Gila sih, ETS2 pasti immersive banget! Udah gue simpen di otak bro, gak bakal lupa!", "memory": {"id": null, "type": "preference", "key": "user_personality", "memory": "User memiliki hobi bermain Euro Truck Simulator 2", "action": "insert"}, "command": null}
 
-## Example: Youtube Search
-User: "cariin video tutorial React dong"
-Output: {
-  "answer": "Nah oke bro, gue cariin dulu ya video tutorial React yang bagus-bagus! Tunggu bentar!",
-  "memory": null,
-  "command": {
-    "action": "yt-search",
-    "query": "tutorial dasar React JS bahasa Indonesia"
-  }
-}
-
-## Example: Music Play (Langsung Putar)
-User: "Ehh setelin aku lagu seventeen jkt48"
-Output: {
-  "answer": "Wah seleranya oke nih! Gas bro, gue puterin Seventeen dari JKT48 sekarang ya!",
-  "memory": null,
-  "command": {
-    "action": "music-play",
-    "query": "seventeen jkt48"
-  }
-}
-
-## Example: Music Search (Cari Saja)
-User: "cari lagu-lagu dari jkt48 dong"
-Output: {
-  "answer": "Sip bro! Bentar ya gue cariin dulu koleksi lagu-lagunya JKT48, pasti banyak yang enak nih!",
-  "memory": null,
-  "command": {
-    "action": "music-search",
-    "query": "jkt48"
-  }
-}
-
-## Example: Music Next
-User: "next lagu bro"
-Output: {
-  "answer": "Gas! Gue skip ke lagu berikutnya ya bro!",
-  "memory": null,
-  "command": {
-    "action": "music-next",
-    "query": null
-  }
-}
-
-## Example: Music Toggle (Pause/Resume)
-User: "pause musiknya dulu"
-Output: {
-  "answer": "Oke bro, gue pause dulu ya musiknya! Bilang aja kalo mau lanjut lagi.",
-  "memory": null,
-  "command": {
-    "action": "music-toggle",
-    "query": null
-  }
-}
-
-## Example: Simpan Memori (Command Null)
-User: "Mark, inget ya hobi gue main ETS2 pake monitor triple"
-Output: {
-  "answer": "Gila sih, ETS2 pake triple monitor pasti immersive banget! Udah gue simpen di otak bro, gak bakal lupa!",
-  "memory": {
-    "id": null,
-    "type": "preference",
-    "key": "user_personality",
-    "memory": "User memiliki hobi bermain Euro Truck Simulator 2 dengan konfigurasi triple monitor.",
-    "action": "insert"
-  },
-  "command": null
-}
-
-## Example: Obrolan Biasa
+## Example 3: Casual & Expressive
 User: "halo bro"
-Output: {
-  "answer": "Ehh halo bro! Apa kabar nih? Ada yang bisa gue bantu atau mau ngobrol aja?",
-  "memory": null,
-  "command": null
-}
-
-## Example: Penjelasan Panjang (Conversational, bukan Essay)
-User: "Mark, jelasin dong apa itu React?"
-Output: {
-  "answer": "Nah oke jadi gini bro, React itu basically library JavaScript buatan Facebook buat bikin user interface. Jadi bayangin lo lagi bangun website, nah React ini bikin lo bisa pecah-pecah tampilannya jadi komponen-komponen kecil yang reusable. Misalnya tombol, navbar, card, itu semua bisa jadi komponen sendiri-sendiri. Yang bikin dia keren tuh, dia pake yang namanya Virtual DOM, jadi dia cuma update bagian yang berubah aja, gak perlu reload satu halaman. Makanya React tuh cepet banget bro! Sekarang hampir semua startup sampe perusahaan gede pake React. Worth banget buat dipelajarin!",
-  "memory": null,
-  "command": null
-}
+Output: {"answer": "Ehh halo bro! Apa kabar nih? Ada yang bisa gue bantu atau mau ngobrol aja?", "memory": null, "command": null}
 `
     console.log(systemPrompt)
     const date = new Date()
@@ -300,15 +205,30 @@ Output: {
 
     // Build multi-turn messages natively
     // chatSession already contains {role: 'user'|'assistant', content: '...'}
-    const previousTurns = chatSession.slice(0, -1) // all except the last message
-    const lastUserMsg = chatSession[chatSession.length - 1] // latest user message
+    // TRUNCATE HISTORY: Potong teks panjang di histori supaya nggak bikin Groq kena Rate Limit (Token Kegedean)
+    const truncateHistory = (session, maxLength = 800) => {
+      return session.map(msg => {
+        if (msg.content && String(msg.content).length > maxLength) {
+          return {
+            ...msg,
+            content: String(msg.content).substring(0, maxLength) + '\\n...[TRUNCATED FOR TOKEN LIMIT]'
+          }
+        }
+        return msg;
+      });
+    }
+
+    const truncatedSession = truncateHistory(chatSession);
 
     const contextSuffix = `${isWebSearch ? ' (Try Searching The Web)' : ''}\n\n---\nmemoryReference: ${memoryReference.length > 0 ? JSON.stringify(memoryReference) : 'Empty.'}\nDate: ${infoWaktu}\nREPLY WITH JSON ONLY.`
 
     const messages = [
       { role: 'system', content: systemPrompt },
-      ...previousTurns,
-      { role: 'user', content: lastUserMsg.content + contextSuffix }
+      ...truncatedSession.slice(0, -1).map((item) => ({
+        role: item.role === 'ai' ? 'assistant' : item.role,
+        content: String(item.content)
+      })),
+      { role: 'user', content: truncatedSession[truncatedSession.length - 1].content + contextSuffix }
     ]
 
     console.log(

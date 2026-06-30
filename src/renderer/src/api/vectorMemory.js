@@ -105,9 +105,9 @@ export const getRelevantMemory = async (userInput, memoryList) => {
     return { ...mem, score }
   }))
 
-  // 3. Filter & Sort (Threshold 0.3 biar kasus Sawit kebuang)
+  // 3. Filter & Sort
   return scored
-    .filter((m) => m.score > 0.3)
+    .filter((m) => m.score > 0.5)
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
     .map(({ vector, ...rest }) => rest)

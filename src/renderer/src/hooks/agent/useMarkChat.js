@@ -176,7 +176,7 @@ export const useMarkChat = ({
       setIsLoading(false)
     } catch (error) {
       setIsLoading(false)
-      if (error.name === 'AbortError' && !error.message?.includes('Timeout')) {
+      if (error.name === 'AbortError' || error?.message?.includes('AbortError')) {
         setChatData((prev) => [...prev.filter((item) => !item.isThinking)])
         setChatData((prev) => prev.slice(0, -1))
       } else if (

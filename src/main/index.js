@@ -51,7 +51,7 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    mainWindow.webContents.openDevTools()
+    // mainWindow.webContents.openDevTools()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -92,15 +92,24 @@ ipcMain.on('sync-config', (event, config) => {
   setGlobalConfig(config)
 })
 
-ipcMain.handle('ai:fetch', async (event, { messages, config, isSmallTask, jsonSchema }) => {
+ipcMain.handle('ai:fetch', async (event, data) => {
+  const { messages, config, isSmallTask, jsonSchema } = data
   try {
-    const onStatus = (statusMsg) => {
-      event.sender.send('ai:status', statusMsg)
+    const onStatus = (msg) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('ai:status', msg)
+      }
     }
     return await fetchAI(messages, config, isSmallTask, jsonSchema, onStatus)
   } catch (error) {
     return { error: { message: error.message, code: error.code } }
   }
+})
+
+ipcMain.on('ai:abort-fetch', () => {
+  import('./ai-bridge.js').then(({ activeAbortControllers }) => {
+    activeAbortControllers.forEach(controller => controller.abort(new Error('User Aborted')))
+  })
 })
 
 // This method will be called when Electron has finished

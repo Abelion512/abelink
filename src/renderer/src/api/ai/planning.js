@@ -82,53 +82,30 @@ Design a logical plan that *can be* executed using a combination of the capabili
 
 ## Example 1: Multi-Step Plan (Complex Task)
 User: "Cari pemenang piala dunia 2022 terus puter lagu kebangsaannya"
-Output: 
-\`\`\`json
-{
-  "plan": [
-    { "task": "Cari pemenang piala dunia 2022", "action": "search", "query": "pemenang piala dunia 2022", "is_dynamic": false },
-    { "task": "Putar lagu kebangsaan negara pemenang", "action": "music-play", "query": "", "is_dynamic": true }
-  ],
-  "command": null,
-  "direct_answer": null
-}
-\`\`\`
+Output: {"plan": [{"task": "Cari pemenang piala dunia 2022", "action": "search", "query": "pemenang piala dunia 2022", "is_dynamic": false}, {"task": "Putar lagu kebangsaan negara pemenang", "action": "music-play", "query": "", "is_dynamic": true}], "command": null, "direct_answer": null}
 
-## Example 2: Fast Bypass (Single Task - EXPRESSIVE)
+## Example 2: Fast Bypass (Single Tool) OR Casual Chat
 User: "Mark puterin lagu jkt48 dong"
-Output: 
-\`\`\`json
-{
-  "plan": [],
-  "command": { "action": "music-play", "query": "jkt48" },
-  "direct_answer": "Wah mantap seleranya bro! Gas, gue puterin JKT48 sekarang juga ya!"
-}
-\`\`\`
-
-## Example 3: Fast Bypass (Expressive)
-User: "Matiin pc 10 detik"
-Output: 
-\`\`\`json
-{
-  "plan": [],
-  "command": { "action": "shutdown-pc", "query": "10" },
-  "direct_answer": "Siap laksanakan bro! PC lu bakal mati dalam 10 detik, siap-siap ya!"
-}
-\`\`\`
-
-## Example 4: Casual Chat (No Command)
+Output: {"plan": [], "command": {"action": "music-play", "query": "jkt48"}, "direct_answer": "Wah mantap seleranya bro! Gas, gue puterin JKT48 sekarang juga ya!"}
 User: "Mantap bro makasih ya"
-Output: 
-\`\`\`json
-{
-  "plan": [],
-  "command": null,
-  "direct_answer": "Yoi bro, santai aja! Kalo ada apa-apa lagi bilang aja."
-}
-\`\`\`
+Output: {"plan": [], "command": null, "direct_answer": "Yoi bro, santai aja! Kalo ada apa-apa lagi bilang aja."}
 `
     console.log(systemPrompt)
-    const previousTurns = chatSession.length > 0 ? chatSession.slice(0, -1) : []
+    
+    // TRUNCATE HISTORY: Potong teks panjang di histori supaya nggak bikin Groq kena Rate Limit (Token Kegedean)
+    const truncateHistory = (session, maxLength = 800) => {
+      return session.map(msg => {
+        if (msg.content && msg.content.length > maxLength) {
+          return {
+            ...msg,
+            content: msg.content.substring(0, maxLength) + '\\n...[TRUNCATED FOR TOKEN LIMIT]'
+          }
+        }
+        return msg;
+      });
+    }
+
+    const previousTurns = chatSession.length > 0 ? truncateHistory(chatSession.slice(0, -1)) : []
     const lastUserMsg =
       chatSession.length > 0
         ? chatSession[chatSession.length - 1]

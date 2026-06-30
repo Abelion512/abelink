@@ -4,18 +4,42 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
   const currentConfig = await getAllConfig()
   const conf = currentConfig[0] || {}
 
-  // AbortController support on renderer side is tricky with IPC,
-  // we will just wait for main process to return or timeout.
-  
-  const result = await window.api.fetchAI({ messages, config: conf, isSmallTask, jsonSchema })
-  
-  if (result.error) {
-    const err = new Error(result.error.message)
-    err.code = result.error.code
-    throw err
-  }
+  return new Promise((resolve, reject) => {
+    let hasResolved = false;
 
-  return result
+    const onAbort = () => {
+      if (hasResolved) return;
+      hasResolved = true;
+      if (window.api.abortFetchAI) window.api.abortFetchAI();
+      const err = new Error('AbortError');
+      err.name = 'AbortError';
+      reject(err);
+    }
+
+    if (signal) {
+      if (signal.aborted) return onAbort();
+      signal.addEventListener('abort', onAbort);
+    }
+
+    window.api.fetchAI({ messages, config: conf, isSmallTask, jsonSchema }).then(result => {
+      if (hasResolved) return;
+      hasResolved = true;
+      if (signal) signal.removeEventListener('abort', onAbort);
+
+      if (result && result.error) {
+        const err = new Error(result.error.message)
+        err.code = result.error.code
+        reject(err)
+        return
+      }
+      resolve(result);
+    }).catch(e => {
+      if (hasResolved) return;
+      hasResolved = true;
+      if (signal) signal.removeEventListener('abort', onAbort);
+      reject(e);
+    })
+  });
 }
 
 export const cleanAndParse = (rawResponse) => {

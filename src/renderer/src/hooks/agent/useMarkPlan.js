@@ -72,18 +72,44 @@ export const useMarkPlan = ({
         memoryReference
       )
 
+      // Pencegahan Fast Bypass untuk perintah yang butuh balasan data (misal: search)
+      const dataFetchingActions = ['search', 'summary', 'yt-summary', 'yt-search', 'read_file']
+      if ((!planData.plan || planData.plan.length === 0) && planData.command && dataFetchingActions.includes(planData.command.action)) {
+        console.log('[useMarkPlan] Data-fetching command detected in Fast Bypass. Converting to Multi-Step Plan.')
+        planData.plan = [{
+          task: `Execute ${planData.command.action} for "${planData.command.query}"`,
+          action: planData.command.action,
+          query: planData.command.query,
+          is_dynamic: false
+        }]
+        planData.direct_answer = null 
+      }
+
       if (!planData.plan || planData.plan.length === 0) {
-        // Fallback to normal conversation if plan is empty
-        const answer = await getAnswer(
-          userInput,
-          memoryReference,
-          chatSession,
-          abortControllerRef.current.signal,
-          isAction.web
-        )
+        let answer = null
+        
+        if (planData.direct_answer) {
+          console.log('[useMarkPlan] Menggunakan direct_answer (Fast Bypass), skip getAnswer kedua.');
+          answer = {
+            answer: planData.direct_answer,
+            command: planData.command,
+            memory: null
+          }
+        } else {
+          // Fallback to normal conversation if plan is empty dan tidak ada direct_answer
+          answer = await getAnswer(
+            userInput,
+            memoryReference,
+            chatSession,
+            abortControllerRef.current.signal,
+            isAction.web
+          )
+        }
         if (!answer || !answer.answer) throw new Error('Gagal mengurai jawaban dari Mark menjadi format JSON.')
 
-        if (isSpeak) {
+        const isPluginAction = answer.command?.action && answer.command.action !== 'none' && answer.command.action !== 'search' && answer.command.action !== 'yt-search' && !answer.command.action.startsWith('music') && answer.command.action !== 'yt-summary';
+
+        if (isSpeak && !isPluginAction) {
           playVoice(answer.answer)
         }
 
@@ -100,7 +126,7 @@ export const useMarkPlan = ({
 
         if (answer.command?.action === 'yt-search') {
           handleYoutubeSearch(answer, abortControllerRef.current.signal)
-        } else {
+        } else if (!isPluginAction) {
           setChatData((prev) => {
             const filtered = prev.filter((item) => !item.isThinking)
             const aiResponse = {
@@ -130,7 +156,7 @@ export const useMarkPlan = ({
           const qry = answer.command.query
 
           setChatData((prev) => [
-            ...prev,
+            ...prev.filter((item) => !item.isThinking),
             { role: 'ai', content: `Mengeksekusi plugin: ${act}...`, isThinking: true }
           ])
 
@@ -159,6 +185,9 @@ export const useMarkPlan = ({
                   role: 'ai', 
                   content: followUp.answer, 
                   command: followUp.command,
+                  isMemorySaved: answer.memory?.action === 'insert' && answer.command?.action !== 'search',
+                  isMemoryUpdated: answer.memory?.action === 'update',
+                  isMemoryDeleted: answer.memory?.action === 'delete',
                   pluginExecution: {
                     action: act,
                     query: qry,
@@ -454,7 +483,7 @@ export const useMarkPlan = ({
     } catch (error) {
       console.error('Planning Error:', error)
       setIsLoading(false)
-      if (error.name === 'AbortError') {
+      if (error.name === 'AbortError' || error.message.includes('AbortError')) {
         setChatData((prev) => [...prev.filter((item) => !item.isThinking && !item.isSearching)])
         setChatData((prev) => prev.slice(0, -1))
       } else {

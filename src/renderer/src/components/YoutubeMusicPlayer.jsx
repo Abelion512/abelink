@@ -32,7 +32,8 @@ export const YoutubeMusicPlayer = () => {
         if (command === 'play' && payload) {
           window.api.searchMusic(payload).then(music => {
             if (music && music.length > 0) {
-              const url = `https://music.youtube.com/watch?v=${music[0].id}`
+              // Tambahkan query parameter acak biar URL selalu dianggap baru oleh React dan Router SPA
+              const url = `https://music.youtube.com/watch?v=${music[0].id}&_t=${Date.now()}`
               playUrlRef.current(url)
             }
           })
@@ -131,24 +132,25 @@ export const YoutubeMusicPlayer = () => {
 
   useEffect(() => {
     if (isReady && webviewRef.current && musicUrl && musicUrl !== 'https://music.youtube.com') {
-      const load = async () => {
-        try {
-          // Bangunkan webview yang mungkin frozen/throttled setelah idle lama
-          try {
-            await webviewRef.current.executeJavaScript('1')
-          } catch {
-            // Webview belum siap, skip
-          }
-          await webviewRef.current.executeJavaScript(`window.location.href = "${musicUrl}"`)
-        } catch (e) {
-          if (e.message && e.message.includes('ERR_ABORTED')) {
-            console.log('Navigasi webview diaborsi (biasanya karena ditimpa navigasi baru)');
-          } else {
-            console.error('Failed to load URL into webview:', e)
-          }
-        }
+      try {
+        // Trik paling ampuh buat bypass glitch SPA Router: 
+        // Bikin tag <a> tersembunyi lalu di-klik secara paksa pakai JS!
+        webviewRef.current.executeJavaScript(`
+          (function() {
+            try {
+              const a = document.createElement('a');
+              a.href = "${musicUrl}";
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+            } catch(e) {
+              window.location.href = "${musicUrl}";
+            }
+          })();
+        `)
+      } catch (e) {
+        console.error('Gagal ganti lagu YT Music:', e)
       }
-      load()
     }
   }, [musicUrl, playId, isReady])
 
