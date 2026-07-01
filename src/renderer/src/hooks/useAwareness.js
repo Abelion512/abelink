@@ -6,8 +6,13 @@ import { getAwarenessResponse } from '../api/ai/awareness'
 const CHECKIN_INTERVAL = 10 * 60 * 1000 // 10 menit
 const INITIAL_DELAY = 2 * 60 * 1000 // 2 menit
 
-export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config }) => {
+export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, chatData }) => {
   const isRequestingRef = useRef(false)
+  const chatDataRef = useRef(chatData)
+
+  useEffect(() => {
+    chatDataRef.current = chatData
+  }, [chatData])
 
   useEffect(() => {
     const checkIn = async () => {
@@ -28,12 +33,18 @@ export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config }) =
         const allMemory = await getAllMemory()
         const memoryRef = await getRelevantMemory('aktivitas user bekerja dan rutinitas', allMemory)
 
+        // Ambil 5 riwayat chat terakhir tanpa status isThinking dll
+        const recentChat = (chatDataRef.current || [])
+          .filter(m => !m.isThinking && !m.isSearching && !m.isSummarizing)
+          .slice(-5)
+          .map(m => ({ role: m.role, content: m.content }))
+
         // Clear buffer right away so we don't send the exact same bulk again later
         if (window.api.clearActivityBuffer) {
           window.api.clearActivityBuffer()
         }
 
-        const result = await getAwarenessResponse(buffer, memoryRef, config)
+        const result = await getAwarenessResponse(buffer, memoryRef, config, recentChat)
         console.log('[useAwareness] AI Response:', result)
 
         if (result.should_speak && result.message) {

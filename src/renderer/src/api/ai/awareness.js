@@ -1,7 +1,7 @@
 import { fetchAI } from './core'
 import { getCurrentTimeInfo } from './utils'
 
-export const getAwarenessResponse = async (buffer, memoryRef, config, signal) => {
+export const getAwarenessResponse = async (buffer, memoryRef, config, recentChat, signal) => {
   const conf = config[0] || {}
   
   const prompt = `Kamu adalah Mark, asisten proaktif yang bisa menyapa pengguna.
@@ -10,6 +10,9 @@ Personality and Communication Style: ${conf.personality || 'Santai layaknya seor
 # AKTIVITAS USER (30 menit terakhir):
 ${JSON.stringify(buffer, null, 2)}
 
+# RIWAYAT CHAT TERBARU:
+${recentChat && recentChat.length > 0 ? JSON.stringify(recentChat, null, 2) : 'Belum ada obrolan terbaru.'}
+
 # MEMORY USER YANG RELEVAN DENGAN AKTIVITAS:
 ${memoryRef ? JSON.stringify(memoryRef, null, 2) : 'Tidak ada memory spesifik.'}
 
@@ -17,7 +20,7 @@ ${memoryRef ? JSON.stringify(memoryRef, null, 2) : 'Tidak ada memory spesifik.'}
 ${getCurrentTimeInfo()}
 
 # INSTRUKSI:
-Berdasarkan data di atas, KAMU YANG MENENTUKAN apakah mau ngomong sesuatu atau diam, tetapi usahakan jangan diam.
+Berdasarkan data di atas, KAMU YANG MENENTUKAN apakah mau ngomong sesuatu atau diam.
 
 Pertimbangkan:
 - Apakah ada pola menarik? (kerja lama tanpa istirahat, ganti-ganti app, baru balik dari AFK)

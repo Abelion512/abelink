@@ -3,6 +3,7 @@ import Swal from 'sweetalert2'
 import { driver } from 'driver.js'
 import { FaTimes, FaExclamationTriangle, FaChevronLeft } from 'react-icons/fa'
 import 'driver.js/dist/driver.css'
+import { useEffect, useState } from 'react'
 
 export default function Plugins() {
   const [plugins, setPlugins] = useState([])

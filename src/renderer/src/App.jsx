@@ -9,7 +9,7 @@ import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
 import { YoutubeMusicPlayer } from './components/YoutubeMusicPlayer'
 import { getAllConfig } from './api/db'
-import { runWhatsappAgent } from './api/waAutonomous'
+import { runWhatsappAgent } from './api/waAgent'
 
 const GlobalListener = () => {
   const navigate = useNavigate()
@@ -57,7 +57,8 @@ const GlobalListener = () => {
         if (isAdmin) {
           window.dispatchEvent(new CustomEvent('wa-admin-message', { detail: data }))
         } else {
-          const result = await runWhatsappAgent(text, isAdmin, senderName, jid, isGroup, msgId, chatSession)
+          // Single Fetch Agent for Non-Admin via waAgent
+          const result = await runWhatsappAgent(text, senderName, jid, isGroup, chatSession)
           window.api.sendWaAgentExecutionDone({ jid, result, msgId })
         }
       })

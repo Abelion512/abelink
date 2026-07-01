@@ -39,7 +39,8 @@ export const useMarkAgent = () => {
     isLoading,
     setChatData,
     setOrbStatus,
-    config
+    config,
+    chatData
   })
 
   const activeWaRequestRef = useRef(null)
