@@ -15,7 +15,7 @@ export const useMarkAgent = () => {
 
   const state = useMarkState()
   const {
-    chatData, setChatData, sessionId, changeSession,
+    chatData, setChatData, clearChat,
     config, setConfig, message, setMessage,
     isLoading, setIsLoading, isSpeak, setIsSpeak, abortControllerRef,
     searchProp, handleStop,
@@ -83,7 +83,7 @@ export const useMarkAgent = () => {
 
   return {
     chatData, setChatData,
-    sessionId, changeSession,
+    clearChat,
     isSpeak, setIsSpeak,
     config,
     isLoading,

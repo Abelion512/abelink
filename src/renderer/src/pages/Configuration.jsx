@@ -216,15 +216,17 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const confirmClearChat = async () => {
     await db.sessions.clear()
     document.getElementById('confirm_clear_chat').close()
+    alert('Riwayat obrolan telah dihapus secara permanen.')
   }
 
   const handleExportChat = async () => {
-    const sessions = await db.sessions.toArray()
-    const blob = new Blob([JSON.stringify(sessions, null, 2)], { type: 'application/json' })
+    const session = await db.sessions.get(1)
+    const exportData = session ? session.data : []
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `mark-chat-export-${Date.now()}.json`
+    a.download = `mark-chat-history-${Date.now()}.json`
     a.click()
     URL.revokeObjectURL(url)
   }

@@ -1,45 +1,62 @@
 import React, { useEffect, useState } from 'react';
-import { getAllSessionTitle, getChatData } from '../../api/db';
+import { getMainThread } from '../../api/db';
 import { FaTimes, FaCommentAlt } from 'react-icons/fa';
 import ResponseArea from './ResponseArea';
 
 const HistoryDrawer = ({ isOpen, onClose }) => {
-  const [sessions, setSessions] = useState([]);
-  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [historyTurns, setHistoryTurns] = useState([]);
+  const [selectedTurnId, setSelectedTurnId] = useState(null);
   const [previewData, setPreviewData] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
-      loadSessions();
+      loadHistory();
     } else {
       setPreviewData(null);
-      setSelectedSessionId(null);
+      setSelectedTurnId(null);
     }
   }, [isOpen]);
 
-  const loadSessions = async () => {
-    const all = await getAllSessionTitle();
-    all.sort((a, b) => b.timestamp - a.timestamp);
-    setSessions(all);
+  const loadHistory = async () => {
+    const data = await getMainThread();
+    if (!data || data.length === 0) {
+      setHistoryTurns([]);
+      return;
+    }
+    
+    // Parse linear chatData into turns (user msg + subsequent ai msg)
+    const turns = [];
+    for (let i = 0; i < data.length; i++) {
+      if (data[i].role === 'user') {
+        const turn = { id: i, user: data[i].content, ai: null };
+        // find next AI response
+        for (let j = i + 1; j < data.length; j++) {
+          if (data[j].role === 'ai') {
+            turn.ai = data[j];
+            break;
+          }
+          if (data[j].role === 'user') break; // another user message started
+        }
+        turns.push(turn);
+      }
+    }
+    // Reverse to show newest on top
+    setHistoryTurns(turns.reverse());
   };
 
-  const loadPreview = async (id) => {
-    setSelectedSessionId(id);
-    const data = await getChatData(id);
-    if (data && data.length > 0) {
-      const aiMsgs = data.filter(d => d.role === 'ai');
-      if (aiMsgs.length > 0) {
-        const lastMsg = aiMsgs[aiMsgs.length - 1];
-        setPreviewData({
-          text: lastMsg.content,
-          type: lastMsg.content?.length > 500 ? 'long' : 'short',
-          sources: lastMsg.sources || [],
-          reasoning: lastMsg.reasoning,
-          pluginResult: lastMsg.pluginExecution
-        });
-      } else {
-        setPreviewData({ text: 'Tidak ada respons AI di riwayat ini.', type: 'short' });
-      }
+  const loadPreview = (turn) => {
+    setSelectedTurnId(turn.id);
+    if (turn.ai) {
+      setPreviewData({
+        text: turn.ai.content,
+        type: turn.ai.content?.length > 500 ? 'long' : 'short',
+        sources: turn.ai.sources || [],
+        reasoning: turn.ai.reasoning,
+        pluginResult: turn.ai.pluginExecution,
+        mood: turn.ai.mood
+      });
+    } else {
+      setPreviewData({ text: 'Tidak ada respons AI.', type: 'short' });
     }
   };
 
@@ -71,24 +88,24 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col gap-2">
-          {sessions.map(s => (
+          {historyTurns.map((turn, idx) => (
             <button
-              key={s.id}
-              onClick={() => loadPreview(s.id)}
+              key={turn.id}
+              onClick={() => loadPreview(turn)}
               className={`p-4 rounded-xl text-left transition-all ${
-                selectedSessionId === s.id 
+                selectedTurnId === turn.id 
                   ? 'bg-success/20 border border-success/50'
                   : 'bg-base-200 hover:bg-base-200/80 border border-transparent'
               }`}
             >
-              <h3 className="font-medium text-white/90 truncate">{s.title || 'Percakapan Tanpa Judul'}</h3>
-              <p className="text-xs text-white/40 mt-1">
-                {new Date(s.timestamp).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+              <h3 className="font-medium text-white/90 truncate">{turn.user || 'Instruksi Tanpa Teks'}</h3>
+              <p className="text-xs text-white/40 mt-1 line-clamp-2">
+                {turn.ai?.content?.substring(0, 100) || 'Belum ada balasan'}
               </p>
             </button>
           ))}
 
-          {sessions.length === 0 && (
+          {historyTurns.length === 0 && (
             <div className="text-center text-white/50 mt-10">
               Belum ada riwayat.
             </div>
@@ -102,7 +119,7 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
           <div className="bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-3xl p-8 max-h-[80vh] overflow-y-auto custom-scrollbar shadow-[0_0_50px_rgba(0,0,0,0.5)] pointer-events-auto">
             <div className="flex justify-between items-center mb-6 sticky top-0 bg-base-300/95 backdrop-blur-md pb-4 border-b border-white/5 z-20">
               <span className="text-sm font-semibold tracking-widest uppercase text-success">Preview Riwayat</span>
-              <button onClick={() => {setPreviewData(null); setSelectedSessionId(null)}} className="text-white/50 hover:text-error transition-colors"><FaTimes size={20}/></button>
+              <button onClick={() => {setPreviewData(null); setSelectedTurnId(null)}} className="text-white/50 hover:text-error transition-colors"><FaTimes size={20}/></button>
             </div>
             <div className="mt-4">
               <ResponseArea currentResponse={previewData} />

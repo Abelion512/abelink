@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { getAllConfig, createSession, insertSession, getChatData } from '../../api/db'
+import { getAllConfig, saveMainThread, getMainThread } from '../../api/db'
 
 export const useMarkState = () => {
   const [chatData, setChatData] = useState([])
@@ -24,28 +24,25 @@ export const useMarkState = () => {
 
   useEffect(() => {
     loadConfig()
+    loadMainThread()
   }, [])
 
+  const loadMainThread = async () => {
+    const data = await getMainThread()
+    if (data && data.length > 0) {
+      setChatData(data)
+    }
+  }
+
   useEffect(() => {
-    if (chatData && chatData.length) {
-      ;(async () => {
-        const title = 'Jarvis Main Thread'
-        // Just insert/update the main thread session
-        const allSessions = await getAllConfig() // wait, get session?
-        try {
-          await insertSession(sessionId.current, chatData)
-        } catch (e) {
-          await createSession(title, chatData, sessionId.current)
-        }
-      })()
+    // Save to DB on every change if not initial empty array
+    if (chatData !== undefined) {
+      saveMainThread(chatData)
     }
   }, [chatData])
 
-  const changeSession = async (id) => {
-    // In Jarvis mode, we don't change session often, but we might load from history
-    // We keep this for compatibility if needed.
-    const chat = await getChatData(id)
-    setChatData([...chat])
+  const clearChat = () => {
+    setChatData([]) // saveMainThread will auto save the empty array
   }
 
   const pushNotification = (type, message) => {
@@ -79,7 +76,6 @@ export const useMarkState = () => {
     chatData,
     setChatData,
     sessionId: sessionId.current,
-    changeSession,
     config,
     setConfig,
     message,

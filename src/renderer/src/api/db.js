@@ -46,19 +46,21 @@ export async function insertMemory(data) {
   }
 }
 
-export async function createSession(title, data) {
+export async function saveMainThread(data) {
   try {
-    const id = await db.sessions.add({ title: title, data: data, timestamp: Date.now() })
-    return id
+    await db.sessions.put({ id: 1, title: 'Main Thread', data: data, timestamp: Date.now() })
   } catch (error) {
-    console.error('Error in createSession logic:', error)
+    console.error('Error saving main thread:', error)
   }
 }
-export async function insertSession(id, data) {
+
+export async function getMainThread() {
   try {
-    await db.sessions.update(id, { data: data, timestamp: Date.now() })
+    const session = await db.sessions.get(1)
+    return session ? session.data : []
   } catch (error) {
-    console.error('Error in insertSession logic:', error)
+    console.error('Error getting main thread:', error)
+    return []
   }
 }
 
