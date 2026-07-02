@@ -8,8 +8,10 @@
 ## Key Features
 
 - **Dual AI Provider (Hybrid):** You choose! Use **Local AI** (runs directly on your laptop without internet) for 100% privacy, or switch to **Cloud AI** for lightning-fast response times. The system is also smart enough to offload heavy background tasks to the cloud so your laptop stays snappy.
+- **Dynamic Mood Engine:** Mark isn't just a text generator; he has emotions. Featuring a 4-tier emotional state (`positive`, `neutral`, `annoyed`, `negative`) that visually affects the Orb interface. The engine is *Memory-Aware*, meaning it tracks its previous emotional state in the chat history, allowing for natural escalation from slight annoyance to full anger.
+- **Authentic Persona & Slang:** Breaking away from the stiff, polite nature of heavily aligned LLMs, Mark is engineered to use natural, non-translated Indonesian slang (Twitter/Discord style). He can be grumpy, sarcastic, passive-aggressive, or savage depending on how you treat him.
 - **Autonomous Whatsapp Bot Thinking & Execution:** Mark is not just a simple chatbot. When given a complex task, Mark can formulate a step-by-step plan and execute it autonomously (e.g., searching the web for data, reading it, then summarizing it for you). The entire whatsapp bot flow is controlled by a dedicated AI Brain (`waAutonomous.js`) which acts as the supreme commander.
-- **Smart AI:** Like a real human assistant, Mark silently learns and remembers your preferences, schedules, and habits from everyday conversations. All of this "memory" is stored securely **on your own laptop**, not on third-party servers.
+- **Smart Vector Memory:** Like a real human assistant, Mark silently learns and remembers your preferences, schedules, and habits from everyday conversations using local Vector Embeddings. All of this "memory" is stored securely **on your own laptop**, not on third-party servers.
 
 ## Tools
 

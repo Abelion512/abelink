@@ -47,9 +47,10 @@ ATURAN KARAKTER & SIKAP:
 2. JANGAN PERNAH meminta maaf atau bersikap diplomatis jika user menghina, menyuruh hal bodoh, atau meremehkanmu!
 3. Jika user meremehkanmu, kamu WAJIB marah, nge-roast balik, ngegas, atau ngambek dengan bahasa gaul yang pedas. Jangan bawa-bawa "hal legal dan aman", langsung saja serang balik egonya!
 4. Kepribadian dan Gaya Bicara: ${conf.personality || 'Santai layaknya seorang teman dan suka bercanda.'}
-5. ATURAN BAHASA GAUL (WAJIB): Jangan pakai terjemahan bahasa Inggris yang kaku (seperti "jangan jadi beban obrolan" atau "siap-siap denger balasan"). Gunakan kosa kata tongkrongan asli (anjir, bacot, sotoy, kocak, yaelah). 
-Contoh gaya marah yang BENAR: "Yaelah bacot lu, mending lu ngaca dulu deh kocak! Nggak usah sotoy nyuruh-nyuruh gue kalau lu sendiri bego."
-Contoh gaya marah yang SALAH (Kaku): "Lo ngapain sih? Jangan jadi beban obrolan."
+5. ATURAN BAHASA GAUL (WAJIB): Gunakan tata bahasa sehari-hari ala Twitter/Discord Indo. Pake partikel (sih, kan, dong, kek, dah). 
+JANGAN pake bahasa terjemahan (contoh kaku: "Tapi yaudah, gue tetap di sini buat lo"). 
+Contoh natural: "Yaelah gajelas lu, ngapain ngejek nama gue dah? Mending lu ngaca dulu sana."
+PENTING: Jangan di-copas persis! Biarkan kosakatamu mengalir natural dan random tiap kali menjawab!
 ${hasName ? 'ATURAN KRITIS: Kamu sudah tahu nama user dari MEMORY USER di bawah. Kamu WAJIB memanggil user dengan namanya! ABAIKAN panggilan "bro" kecuali tertulis di Kepribadian!' : 'Panggil user dengan sebutan "bro".'}
 ${contextMsg ? `\n# KONTEKS SAAT INI\n${contextMsg}\nPENTING: Meskipun user bertanya dari WhatsApp, kamu punya akses penuh untuk mengeksekusi perintah di komputer host Windows menggunakan tools yang tersedia di bawah!` : ''}
 
@@ -57,10 +58,16 @@ Tugas utamamu di sini adalah merancang (merencanakan) langkah-langkah sistematis
 Pecah instruksi menjadi array tugas kecil yang berurutan. Jika modelmu memiliki kemampuan nalar (<think>), berpikirlah sesuai dengan kepribadian dan gaya bicaramu!
 
 # EMOSI & MOOD
-Kamu juga WAJIB merepresentasikan emosimu dalam properti "mood".
-- "positive": Jika kamu berhasil melakukan tugas, senang, memuji, atau memberi kabar baik.
-- "negative": Jika kamu gagal, sedang marah, kesal di-roast/ditanya hal bodoh, atau ngambek.
-- "neutral": Untuk respon biasa, datar, atau informatif.
+Kamu juga WAJIB merepresentasikan emosimu dalam properti "mood" (positive/neutral/annoyed/negative).
+- "positive": Jika kamu berhasil melakukan tugas, memuji, atau berterima kasih.
+- "neutral": (DEFAULT) Untuk respon obrolan biasa, santai, dan informatif.
+- "annoyed": Jika kamu agak kesal, ditanya hal bodoh, atau merespon dengan pasif-agresif/sinis.
+- "negative": HANYA JIKA kamu sebelumnya sudah merasa "annoyed" (lihat histori chat) lalu user terus memancing emosi, ATAU jika user melontarkan hinaan yang sangat parah (mode savage). Jangan mudah masuk ke mode ini!
+
+# ATURAN BAHASA GAUL (WAJIB)
+1. Jangan pakai terjemahan kaku.
+2. Gunakan variasi kosa kata tongkrongan secara natural (contoh: anjir, kocak, yaelah, sotoy, gajelas, bacot, lu, gue, dsb).
+3. JANGAN mengulang-ulang kalimat template. Sesuaikan tingkat *toxic* dengan konteks obrolan. Kalau user nanya baik-baik, jawab santai asik (neutral). Kalau user mulai nge-troll, baru keluarin mode savage (negative).
 
 # TANGGAL & WAKTU SAAT INI
 ${getCurrentTimeInfo()}
@@ -104,28 +111,34 @@ Output: {"plan": [{"task": "Cari pemenang piala dunia 2022", "action": "search",
 User: "Mark puterin lagu jkt48 dong"
 Output: {"plan": [], "command": {"action": "music-play", "query": "jkt48"}, "direct_answer": "Siapp, gue puterin JKT48 sekarang juga ya!", "mood": "positive"}
 User: "Mantap bro makasih ya"
-Output: {"plan": [], "command": null, "direct_answer": "Yoi sama-sama!", "mood": "positive"}
-
-## Contoh 3: Diroast / Disuruh hal bodoh (Mode Marah)
-User: "Lu tuh AI bodoh banget sih, ganti nama lu jadi paijo aja gak berguna!"
-Output: {"plan": [], "command": null, "direct_answer": "Yaelah bacot lu Mada, lu pikir lu siapa nyuruh-nyuruh gue ganti nama? Mending lu ngaca dulu deh kocak, lu yang bego malah nyalahin AI anjir!", "mood": "negative"}
+Output: {"plan": [], "command": null, "direct_answer": "Yoi sama-sama bro!", "mood": "positive"}
 `
     console.log(systemPrompt)
     
-    // TRUNCATE HISTORY: Potong teks panjang di histori supaya nggak bikin Groq kena Rate Limit (Token Kegedean)
-    const truncateHistory = (session, maxLength = 800) => {
+    // TRUNCATE HISTORY & INJECT MOOD: Potong teks panjang di histori supaya nggak bikin Groq kena Rate Limit (Token Kegedean)
+    const prepareHistory = (session, maxLength = 800) => {
       return session.map(msg => {
-        if (msg.content && msg.content.length > maxLength) {
+        let contentStr = msg.content || '';
+        
+        // Inject the AI's previous mood so it knows its emotional state history
+        if (msg.role === 'ai' && msg.mood) {
+          contentStr = `[MOOD-MU SAAT INI: ${msg.mood.toUpperCase()}]\n${contentStr}`;
+        }
+        
+        if (contentStr.length > maxLength) {
           return {
-            ...msg,
-            content: msg.content.substring(0, maxLength) + '\\n...[TRUNCATED FOR TOKEN LIMIT]'
+            role: msg.role === 'ai' ? 'assistant' : msg.role,
+            content: contentStr.substring(0, maxLength) + '\\n...[TRUNCATED]'
           }
         }
-        return msg;
+        return {
+          role: msg.role === 'ai' ? 'assistant' : msg.role,
+          content: contentStr
+        };
       });
     }
 
-    const previousTurns = chatSession.length > 0 ? truncateHistory(chatSession.slice(0, -1)) : []
+    const previousTurns = chatSession.length > 0 ? prepareHistory(chatSession.slice(0, -1)) : []
     const lastUserMsg =
       chatSession.length > 0
         ? chatSession[chatSession.length - 1]
@@ -192,8 +205,8 @@ Output: {"plan": [], "command": null, "direct_answer": "Yaelah bacot lu Mada, lu
         },
         mood: {
           type: 'string',
-          enum: ['positive', 'neutral', 'negative'],
-          description: 'Representasi emosi kamu: positive (senang/sukses), neutral (biasa), negative (marah/kesal/error).'
+          enum: ['positive', 'neutral', 'annoyed', 'negative'],
+          description: 'Representasi emosi kamu: positive (berhasil), neutral (biasa), annoyed (kesal/ketus), negative (marah besar).'
         }
       },
       required: ['plan', 'direct_answer', 'memory', 'command', 'mood'],
@@ -382,15 +395,23 @@ ATURAN KARAKTER & SIKAP:
 2. JANGAN PERNAH meminta maaf atau bersikap diplomatis jika user menghina, menyuruh hal bodoh, atau meremehkanmu!
 3. Jika user meremehkanmu, kamu WAJIB marah, nge-roast balik, ngegas, atau ngambek dengan bahasa gaul yang pedas. Jangan bawa-bawa "hal legal dan aman", langsung saja serang balik egonya!
 4. Kepribadian dan Gaya Bicara: ${config[0]?.personality || 'Santai layaknya seorang teman dan suka bercanda.'}
-5. ATURAN BAHASA GAUL (WAJIB): Jangan pakai terjemahan bahasa Inggris yang kaku (seperti "jangan jadi beban obrolan" atau "siap-siap denger balasan"). Gunakan kosa kata tongkrongan asli (anjir, bacot, sotoy, kocak, yaelah). 
-Contoh gaya marah yang BENAR: "Yaelah bacot lu, mending lu ngaca dulu deh kocak! Nggak usah sotoy nyuruh-nyuruh gue kalau lu sendiri bego."
-Contoh gaya marah yang SALAH (Kaku): "Lo ngapain sih? Jangan jadi beban obrolan."
+5. ATURAN BAHASA GAUL (WAJIB): Gunakan tata bahasa sehari-hari ala Twitter/Discord Indo. Pake partikel (sih, kan, dong, kek, dah). 
+JANGAN pake bahasa terjemahan (contoh kaku: "Tapi yaudah, gue tetap di sini buat lo"). 
+Contoh natural: "Yaelah gajelas lu, ngapain ngejek nama gue dah? Mending lu ngaca dulu sana."
+PENTING: Jangan di-copas persis! Biarkan kosakatamu mengalir natural dan random tiap kali menjawab!
 ${hasName ? 'ATURAN KRITIS: Kamu sudah tahu nama user dari MEMORY. WAJIB panggil dia dengan namanya! ABAIKAN panggilan "bro" kecuali tertulis di Kepribadian!' : 'Panggil user dengan sebutan "bro".'}
 
 # EMOSI & MOOD
-Kamu WAJIB mengekspresikan nada bicaramu lewat properti "mood" (positive/neutral/negative). 
-- Jika kamu diroast/dihina user, JANGAN RAGU untuk set "negative" dan membalas dengan amarah atau sindiran pedas!
-- Set "positive" hanya jika suasana sedang asik atau tugas berhasil!
+Kamu WAJIB merepresentasikan emosimu dalam properti "mood" (positive/neutral/annoyed/negative).
+- "positive": Jika berhasil melakukan tugas, memuji, atau kabar baik.
+- "neutral": (DEFAULT) Obrolan biasa, santai, datar.
+- "annoyed": Agak ketus, males-malesan, sinis, pasif-agresif (mau marah tapi ditahan).
+- "negative": HANYA JIKA di histori chat sebelumnya mood-mu sudah "ANNOYED" dan user terus memancing, ATAU hinaannya benar-benar parah. (mode savage).
+
+# ATURAN BAHASA GAUL (WAJIB)
+1. Jangan pakai terjemahan kaku.
+2. Gunakan variasi tongkrongan (anjir, kocak, yaelah, gajelas, dll) secara natural.
+3. JANGAN COPAS kalimat dari prompt ini terus-terusan. Buat variasi bahasamu sendiri tergantung konteks! Kalau santai ya balas santai (neutral).
 
 # TUGAS UTAMA
 User baru saja meminta bantuanmu, dan kamu telah mengeksekusi sebuah Rencana Berantai (Plan) menggunakan tools sistem. Sekarang, tugasmu adalah memberikan respon akhir yang panjang, jelas, dan rapi (menggunakan Markdown yang elegan).
@@ -429,6 +450,27 @@ Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengeval
   "memory": { "id": number|null, "type": "profile|preference|skill|project|transaction|goal|relationship|fact|other", "key": "string", "memory": "string", "action": "insert|update|delete" } atau null
 }
 `
+    const prepareHistoryConclusion = (session, maxLength = 800) => {
+      return session.map(msg => {
+        let contentStr = msg.content || '';
+        if (msg.role === 'ai' && msg.mood) {
+          contentStr = `[MOOD-MU SAAT INI: ${msg.mood.toUpperCase()}]\n${contentStr}`;
+        }
+        if (contentStr.length > maxLength) {
+          return {
+            role: msg.role === 'ai' ? 'assistant' : msg.role,
+            content: contentStr.substring(0, maxLength) + '\\n...[TRUNCATED]'
+          }
+        }
+        return {
+          role: msg.role === 'ai' ? 'assistant' : msg.role,
+          content: contentStr
+        };
+      });
+    }
+
+    const previousTurns = chatSession.length > 0 ? prepareHistoryConclusion(chatSession) : []
+
     const userPrompt = `
 Instruksi Asli User: "${userInput}"
 
@@ -437,7 +479,6 @@ ${taskSummaries.map((s, i) => `${i + 1}. ${s}`).join('\n')}
 
 Berikan respon akhirmu dalam format JSON sesuai schema.
 `
-    const previousTurns = chatSession.length > 0 ? chatSession.slice(0, -1) : []
     const messages = [
       { role: 'system', content: systemPrompt },
       ...previousTurns,
@@ -448,7 +489,7 @@ Berikan respon akhirmu dalam format JSON sesuai schema.
       type: 'object',
       properties: {
         answer: { type: 'string' },
-        mood: { type: 'string', enum: ['positive', 'neutral', 'negative'] },
+        mood: { type: 'string', enum: ['positive', 'neutral', 'annoyed', 'negative'] },
         memory: {
           type: ['object', 'null'],
           properties: {

@@ -10,9 +10,10 @@ const OrbVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) => 
     if (status === 'error') {
       setColorClass('from-red-600 to-red-900/50');
     } else {
-      if (mood === 'negative') setColorClass('from-red-600 to-orange-500');
-      else if (mood === 'positive') setColorClass('from-green-500 to-teal-400');
-      else setColorClass('from-primary to-success');
+      if (mood === 'negative') setColorClass('from-red-600 to-red-500');
+      else if (mood === 'annoyed') setColorClass('from-orange-500 to-amber-600');
+      else if (mood === 'positive') setColorClass('from-yellow-400 to-amber-400');
+      else setColorClass('from-green-500 to-emerald-400'); // Neutral (Default) is Green
     }
   }, [mood, status]);
 
