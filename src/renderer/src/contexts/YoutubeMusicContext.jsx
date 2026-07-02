@@ -51,7 +51,22 @@ export const YoutubeMusicProvider = ({ children }) => {
     return () => clearInterval(interval)
   }, [])
 
-  const playUrl = useCallback((url, initialTrack = null) => {
+  const playUrl = useCallback(async (url, initialTrack = null) => {
+    if (webviewRef.current) {
+      try {
+        await webviewRef.current.executeJavaScript(`
+          var video = document.querySelector('video');
+          if (video && !video.paused) {
+            video.pause();
+          }
+        `);
+        // Tunggu sebentar agar pause benar-benar tereksekusi sebelum ganti URL
+        await new Promise(resolve => setTimeout(resolve, 300));
+      } catch (e) {
+        console.error('Error pausing before playUrl:', e);
+      }
+    }
+    
     setMusicUrl(url)
     setPlayId(prev => prev + 1)
     setIsPlayerOpen(true)

@@ -7,6 +7,7 @@ import StatusIndicator from '../components/core/StatusIndicator';
 import FloatingMenu from '../components/core/FloatingMenu';
 import HistoryDrawer from '../components/core/HistoryDrawer';
 import ProcessPanel from '../components/core/ProcessPanel';
+import musicCoverFallback from '../assets/music-cover.png';
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext';
 
 const MarkHome = () => {
@@ -133,11 +134,18 @@ const MarkHome = () => {
             <div className="mt-8 flex flex-col items-center animate-[holo-project-in_0.5s_ease-out_forwards]">
               <div className="relative group w-48 h-48 mb-4 rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-primary/20">
                 {currentTrack.thumbnail ? (
-                  <img src={currentTrack.thumbnail} alt="Album Art" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  <img 
+                    src={currentTrack.thumbnail} 
+                    alt="Album Art" 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                    onError={(e) => { e.target.onerror = null; e.target.src = musicCoverFallback; }}
+                  />
                 ) : (
-                  <div className="w-full h-full bg-base-300 flex items-center justify-center">
-                    <span className="loading loading-bars text-primary loading-lg"></span>
-                  </div>
+                  <img 
+                    src={musicCoverFallback} 
+                    alt="Default Album Art" 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
                 )}
                 {/* Audio visualizer overlay */}
                 {isPlaying && (
