@@ -50,7 +50,7 @@ export const useMarkAgent = () => {
       const data = e.detail;
       activeWaRequestRef.current = data;
       setInputSource('wa');
-      handlePlanningCommand(data.text);
+      handlePlanningCommand(data.text, data);
     };
 
     window.addEventListener('wa-admin-message', handleWaAdminMessage);

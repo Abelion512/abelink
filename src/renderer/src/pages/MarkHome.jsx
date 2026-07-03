@@ -31,6 +31,26 @@ const MarkHome = () => {
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [currentResponse, setCurrentResponse] = useState(null);
+  const [showMusicWidget, setShowMusicWidget] = useState(false);
+  const [isMusicAnimatingOut, setIsMusicAnimatingOut] = useState(false);
+
+  // Handle music widget exit animation
+  useEffect(() => {
+    const hasTrack = isPlaying && currentTrack?.title;
+    if (hasTrack) {
+      setIsMusicAnimatingOut(false);
+      setShowMusicWidget(true);
+    } else {
+      if (showMusicWidget) {
+        setIsMusicAnimatingOut(true);
+        const timer = setTimeout(() => {
+          setShowMusicWidget(false);
+          setIsMusicAnimatingOut(false);
+        }, 500); // Match the holo-dismiss duration
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isPlaying, currentTrack?.title, showMusicWidget]);
 
   // Sync orb status based on isLoading
   useEffect(() => {
@@ -130,8 +150,8 @@ const MarkHome = () => {
           )}
 
           {/* Centered Now Playing Info */}
-          {(isPlaying || isPlayerOpen) && currentTrack?.title && (
-            <div className="mt-8 flex flex-col items-center animate-[holo-project-in_0.5s_ease-out_forwards]">
+          {showMusicWidget && (
+            <div className={`mt-8 flex flex-col items-center ${isMusicAnimatingOut ? 'animate-[holo-dismiss_0.5s_ease-in_forwards]' : 'animate-[holo-project-in_0.5s_ease-out_forwards]'}`}>
               <div className="relative group w-48 h-48 mb-4 rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-primary/20">
                 {currentTrack.thumbnail ? (
                   <img 

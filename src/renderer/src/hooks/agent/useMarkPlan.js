@@ -25,7 +25,7 @@ export const useMarkPlan = ({
     }
   }, [setChatData])
 
-  const handlePlanningCommand = async (userInput) => {
+  const handlePlanningCommand = async (userInput, waContext = null) => {
     if (!userInput) return
     setIsLoading(true)
     const userMessage = { role: 'user', content: userInput }
@@ -146,6 +146,13 @@ export const useMarkPlan = ({
           await handleYoutubeSummary(answer.command.query, abortControllerRef.current.signal)
         } else if (answer.command?.action?.startsWith('music')) {
           await handleMusic(answer.command.action, answer.command?.query)
+        } else if (answer.command?.action === 'screenshot') {
+          if (waContext) {
+            window.api.waTakeScreenshot(waContext.jid, waContext.msgId)
+            setChatData((prev) => [...prev.filter(item => !item.isThinking), { role: 'ai', content: '✅ Memproses tangkapan layar, tunggu sebentar...' }])
+          } else {
+            setChatData((prev) => [...prev.filter(item => !item.isThinking), { role: 'ai', content: '❌ Fitur screenshot saat ini hanya tersedia jika diminta melalui WhatsApp.' }])
+          }
         } else if (answer.command?.action && answer.command.action !== 'none' && answer.command.action !== 'search' && answer.command.action !== 'yt-search') {
           const act = answer.command.action
           const qry = answer.command.query
