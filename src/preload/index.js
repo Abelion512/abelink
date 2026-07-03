@@ -57,7 +57,7 @@ const api = {
     ipcRenderer.on('wa:request-agent-execution', (_, data) => cb(data))
   },
   sendWaAgentExecutionDone: (data) => ipcRenderer.send('wa:agent-execution-done', data),
-  sendWaMessage: (jid, text) => ipcRenderer.send('wa:send-message', { jid, text }),
+  sendWaMessage: (jid, text) => ipcRenderer.invoke('wa:send-message', { jid, text }),
   waTakeScreenshot: (jid, msgId) => ipcRenderer.send('wa:trigger-screenshot', { jid, msgId }),
   waDownloadMusic: (jid, msgId, query) => ipcRenderer.send('wa:trigger-music-download', { jid, msgId, query }),
   waPlayMusicUi: (command, query) => ipcRenderer.send('wa:trigger-music-ui', { command, query }),

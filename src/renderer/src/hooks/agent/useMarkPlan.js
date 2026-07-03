@@ -146,13 +146,6 @@ export const useMarkPlan = ({
           await handleYoutubeSummary(answer.command.query, abortControllerRef.current.signal)
         } else if (answer.command?.action?.startsWith('music')) {
           await handleMusic(answer.command.action, answer.command?.query)
-        } else if (answer.command?.action === 'screenshot') {
-          if (waContext) {
-            window.api.waTakeScreenshot(waContext.jid, waContext.msgId)
-            setChatData((prev) => [...prev.filter(item => !item.isThinking), { role: 'ai', content: '✅ Memproses tangkapan layar, tunggu sebentar...' }])
-          } else {
-            setChatData((prev) => [...prev.filter(item => !item.isThinking), { role: 'ai', content: '❌ Fitur screenshot saat ini hanya tersedia jika diminta melalui WhatsApp.' }])
-          }
         } else if (answer.command?.action && answer.command.action !== 'none' && answer.command.action !== 'search' && answer.command.action !== 'yt-search') {
           const act = answer.command.action
           const qry = answer.command.query
@@ -168,7 +161,30 @@ export const useMarkPlan = ({
           await new Promise(resolve => setTimeout(resolve, 500))
 
           try {
-            const res = await window.api.executePlugin(act, qry)
+            let res;
+            if (act === 'screenshot') {
+              if (waContext) {
+                window.api.waTakeScreenshot(waContext.jid, waContext.msgId)
+                res = { success: true, data: 'Screenshot berhasil dikirim secara asinkron.' }
+              } else {
+                res = { success: false, error: 'Fitur screenshot saat ini hanya tersedia jika diminta melalui WhatsApp.' }
+              }
+            } else if (act === 'wa-send') {
+              const [targetJid, targetText] = (qry || '').split('|')
+              if (targetJid && targetText) {
+                 const waRes = await window.api.sendWaMessage(targetJid.trim(), targetText.trim())
+                 if (waRes && waRes.success) {
+                   res = { success: true, data: `Berhasil mengirim pesan WhatsApp ke ${targetJid}` }
+                 } else {
+                   res = { success: false, error: `Gagal mengirim pesan: ${waRes?.error || 'Unknown error'}` }
+                 }
+              } else {
+                 res = { success: false, error: `Gagal mengirim pesan, format query AI salah: ${qry}` }
+              }
+            } else {
+              res = await window.api.executePlugin(act, qry)
+            }
+            
             setChatData((prev) => prev.filter(item => !item.isThinking))
 
             if (res.success) {
@@ -361,6 +377,25 @@ export const useMarkPlan = ({
             summary = `Memutar lagu dari hasil pencarian: "${actionData.query}".`
           } else {
             summary = `Menampilkan hasil pencarian lagu untuk: "${actionData.query}".`
+          }
+        } else if (actionData.action === 'wa-send') {
+          const [targetJid, targetText] = (actionData.query || '').split('|')
+          if (targetJid && targetText) {
+             const res = await window.api.sendWaMessage(targetJid.trim(), targetText.trim())
+             if (res && res.success) {
+               summary = `[SYSTEM LOG] Berhasil mengirim pesan WhatsApp ke ${targetJid}`
+             } else {
+               summary = `[SYSTEM LOG] Gagal mengirim pesan WhatsApp ke ${targetJid}: ${res?.error || 'Unknown error'}`
+             }
+          } else {
+             summary = `[SYSTEM LOG] Gagal mengirim pesan WhatsApp, format query salah: ${actionData.query}`
+          }
+        } else if (actionData.action === 'screenshot') {
+          if (waContext) {
+             window.api.waTakeScreenshot(waContext.jid, waContext.msgId)
+             summary = `[SYSTEM LOG] Screenshot berhasil dikirim secara asinkron.`
+          } else {
+             summary = `[SYSTEM LOG] Gagal mengambil screenshot, fitur ini hanya tersedia via request WhatsApp.`
           }
         } else if (actionData.action && actionData.action !== 'none' && actionData.action !== 'summary') {
           const act = actionData.action

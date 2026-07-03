@@ -1,4 +1,5 @@
 import { getAllConfig } from '../db'
+import { jsonrepair } from 'jsonrepair'
 
 export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema = null) => {
   const currentConfig = await getAllConfig()
@@ -96,7 +97,17 @@ export const cleanAndParse = (rawResponse) => {
 
     cleaned = cleaned.replace(/,\s*([}\]])/g, '$1')
 
-    return JSON.parse(cleaned)
+    try {
+      return JSON.parse(cleaned)
+    } catch (_) {}
+
+    // Ultimate fallback using jsonrepair for missing brackets/quotes
+    try {
+      const repaired = jsonrepair(cleaned)
+      return JSON.parse(repaired)
+    } catch (_) {}
+
+    return null
   } catch (error) {
     console.error('Gagal Parse JSON:', error)
     try {

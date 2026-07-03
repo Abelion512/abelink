@@ -87,8 +87,8 @@ Sistem ini memiliki kemampuan berikut:
 - music-search: Mencari lagu spesifik di YT Music.
 - summary: Mengidentifikasi, memfilter, atau merangkum data dari langkah sebelumnya.
 - screenshot: Mengambil screenshot layar komputer (langsung mengembalikan gambar).
-${pluginCapabilities ? pluginCapabilities + '\n' : ''}
-ATURAN KRITIS UNTUK PLUGIN: Hanya gunakan tools/plugins jika SECARA EKSPLISIT diminta di pesan TERAKHIR user. Pesan-pesan sebelumnya HANYA untuk konteks obrolan. Jika pesan TERAKHIR hanya basa-basi atau tidak memberi instruksi baru, kamu WAJIB menggunakan action "none".
+- wa-send: Mengirim pesan WhatsApp ke SATU nomor (Format JID: 628xxx@s.whatsapp.net). Format query: "JID|Isi Pesan". JIKA disuruh mengirim ke beberapa orang, buatlah BEBERAPA TASK dalam "plan" (jangan digabung).
+${pluginCapabilities ? pluginCapabilities + '\n' : ''}ATURAN KRITIS UNTUK PLUGIN: Hanya gunakan tools/plugins jika SECARA EKSPLISIT diminta di pesan TERAKHIR user. Pesan-pesan sebelumnya HANYA untuk konteks obrolan. Jika pesan TERAKHIR hanya basa-basi atau tidak memberi instruksi baru, kamu WAJIB menggunakan action "none".
 Rancang rencana logis yang *bisa dieksekusi* menggunakan kombinasi dari kemampuan-kemampuan di atas.
 
 # ATURAN PEMBUATAN QUERY (JIT)

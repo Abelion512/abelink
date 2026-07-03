@@ -344,9 +344,20 @@ ipcMain.on('wa:agent-execution-done', async (event, data) => {
   if (sock) await sock.sendPresenceUpdate('paused', jid).catch(() => {})
 })
 
-ipcMain.removeAllListeners('wa:send-message')
-ipcMain.on('wa:send-message', async (event, { jid, text }) => {
-  await safeSendMessage(jid, { text })
+ipcMain.removeHandler('wa:send-message')
+ipcMain.handle('wa:send-message', async (event, { jid, text }) => {
+  if (!sock) return { success: false, error: 'WhatsApp belum terhubung.' }
+  try {
+    const [result] = await sock.onWhatsApp(jid)
+    if (result && result.exists) {
+      await safeSendMessage(result.jid, { text })
+      return { success: true, jid: result.jid }
+    } else {
+      return { success: false, error: 'Nomor tidak terdaftar di WhatsApp.' }
+    }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
 })
 
 ipcMain.removeAllListeners('wa:trigger-screenshot')
