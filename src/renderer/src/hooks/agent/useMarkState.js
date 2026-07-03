@@ -12,6 +12,7 @@ export const useMarkState = () => {
   const [notifications, setNotifications] = useState([])
   const [activeProcesses, setActiveProcesses] = useState([])
   const [inputSource, setInputSource] = useState('pc')
+  const [activeTopic, setActiveTopic] = useState(null)
   const sessionId = useRef('mark-main-thread')
 
   const abortControllerRef = useRef(null)
@@ -96,6 +97,8 @@ export const useMarkState = () => {
     dismissProcess,
     inputSource,
     setInputSource,
+    activeTopic,
+    setActiveTopic,
     abortControllerRef,
     searchProp,
     handleStop

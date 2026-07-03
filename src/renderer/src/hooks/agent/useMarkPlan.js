@@ -8,7 +8,7 @@ import { getRelevantMemory } from '../../api/vectorMemory'
 export const useMarkPlan = ({
   chatData, setChatData, config, isSpeak, abortControllerRef, setIsLoading, setMessage,
   handleYoutubeSearch, handleSearchCommand, handleYoutubeSummary, handleMusic, getYoutubeData,
-  pushProcess
+  pushProcess, activeTopic, setActiveTopic
 }) => {
   useEffect(() => {
     if (window.api.onAiStatus) {
@@ -59,6 +59,10 @@ export const useMarkPlan = ({
       const allMemory = await getAllMemory()
       const memoryReference = await getRelevantMemory(userInput, allMemory)
 
+      // Construct contextMsg
+      let contextMsgStr = ''
+      if (waContext) contextMsgStr += `Permintaan ini berasal dari WhatsApp (JID: ${waContext.jid}).\n`
+
       // 1. Get Plan
       setChatData((prev) => [
         ...prev,
@@ -69,8 +73,14 @@ export const useMarkPlan = ({
         true,
         abortControllerRef.current.signal,
         chatSession,
-        memoryReference
+        memoryReference,
+        contextMsgStr,
+        activeTopic
       )
+
+      if (planData.active_topic !== undefined) {
+        setActiveTopic(planData.active_topic)
+      }
 
       // Pencegahan Fast Bypass untuk perintah yang butuh balasan data (misal: search)
       const dataFetchingActions = ['search', 'summary', 'yt-summary', 'yt-search', 'read_file']
@@ -100,7 +110,7 @@ export const useMarkPlan = ({
         const isPluginAction = answer.command?.action && answer.command.action !== 'none' && answer.command.action !== 'search' && answer.command.action !== 'yt-search' && !answer.command.action.startsWith('music') && answer.command.action !== 'yt-summary';
 
         if (isSpeak && !isPluginAction) {
-          playVoice(answer.answer)
+          await playVoice(answer.answer)
         }
         
         if (window.api.showNotification && !isPluginAction && !document.hasFocus()) {
@@ -478,7 +488,8 @@ export const useMarkPlan = ({
         contextSummaries,
         abortControllerRef.current.signal,
         chatSession,
-        memoryReference
+        memoryReference,
+        contextMsgStr
       )
 
       const uniqueSources = []
@@ -536,7 +547,7 @@ export const useMarkPlan = ({
       }
 
       if (isSpeak) {
-        playVoice(finalAnswer)
+        await playVoice(finalAnswer)
       }
 
       setMessage('')

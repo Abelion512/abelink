@@ -242,6 +242,14 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
       return
     }
 
+    if (config.aiProvider === 'custom') {
+      const endpoint = config.customEndpoint?.trim() || '';
+      if (!endpoint.endsWith('/chat/completions')) {
+        alert('Gagal Menyimpan: Custom Endpoint URL tidak valid! URL wajib diakhiri dengan /chat/completions (Contoh: https://api.openai.com/v1/chat/completions).')
+        return
+      }
+    }
+
     if (config.embedProvider === 'transformers') {
       setIsDownloadingModel(true)
       setDownloadProgress(0)
@@ -340,6 +348,10 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 <input type="radio" name="aiProvider" className="radio radio-primary radio-sm" value="cerebras" checked={config.aiProvider === 'cerebras'} onChange={() => setConfig((prev) => ({ ...prev, aiProvider: 'cerebras' }))} />
                 <span className="label-text">Cerebras API</span>
               </label>
+              <label className="label cursor-pointer justify-start gap-2">
+                <input type="radio" name="aiProvider" className="radio radio-primary radio-sm" value="custom" checked={config.aiProvider === 'custom'} onChange={() => setConfig((prev) => ({ ...prev, aiProvider: 'custom' }))} />
+                <span className="label-text">Custom API</span>
+              </label>
             </div>
           </div>
 
@@ -370,6 +382,48 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               <p className="text-xs opacity-40">
                 Model Groq yang ingin digunakan. (Pastikan API Key Groq di bawah diisi).
               </p>
+            </div>
+          ) : config.aiProvider === 'custom' ? (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">Custom Endpoint URL</p>
+                <input
+                  type="text"
+                  placeholder="Contoh: https://api.openai.com/v1/chat/completions"
+                  className={`input input-bordered w-full ${config.customEndpoint && !config.customEndpoint.trim().endsWith('/chat/completions') ? 'input-error' : ''}`}
+                  value={config.customEndpoint || ''}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, customEndpoint: e.target.value }))}
+                />
+                {config.customEndpoint && !config.customEndpoint.trim().endsWith('/chat/completions') ? (
+                  <p className="text-xs text-error mt-1 font-medium">
+                    ⚠️ URL wajib diakhiri dengan /chat/completions
+                  </p>
+                ) : (
+                  <p className="text-xs opacity-50 mt-1">
+                    Pastikan Endpoint mendukung standar format <strong>OpenAI-Compatible</strong>.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">Custom Model ID</p>
+                <input
+                  type="text"
+                  placeholder="Contoh: gpt-4o-mini"
+                  className="input input-bordered w-full"
+                  value={config.customModel || ''}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, customModel: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">Custom API Key</p>
+                <input
+                  type="password"
+                  placeholder="Masukkan API Key (jika diperlukan)"
+                  className="input input-bordered w-full"
+                  value={config.customApiKey || ''}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, customApiKey: e.target.value }))}
+                />
+              </div>
             </div>
           ) : (
             <div className="space-y-1.5">
@@ -483,7 +537,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             </div>
             {config.aiProvider !== 'groq' && (
               <p className="text-xs opacity-40">
-                Karena kamu memakai {config.aiProvider === 'lm-studio' ? 'LM Studio' : 'Cerebras'}, API Key Groq ini hanya akan dipakai saat kamu ngobrol via suara (Speech-to-Text).
+                Karena kamu memakai {config.aiProvider === 'lm-studio' ? 'LM Studio' : config.aiProvider === 'custom' ? 'Custom API' : 'Cerebras'}, API Key Groq ini hanya akan dipakai saat kamu ngobrol via suara (Speech-to-Text).
               </p>
             )}
           </div>

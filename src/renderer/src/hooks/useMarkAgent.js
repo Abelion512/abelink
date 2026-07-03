@@ -22,7 +22,7 @@ export const useMarkAgent = () => {
     orbStatus, setOrbStatus, currentResponse, setCurrentResponse,
     notifications, pushNotification,
     activeProcesses, setActiveProcesses, pushProcess, dismissProcess,
-    inputSource, setInputSource
+    inputSource, setInputSource, activeTopic, setActiveTopic
   } = state
 
   const { receiveSearchResult, handleSearchCommand } = useMarkSearch(setChatData, chatData, searchProp, pushProcess, dismissProcess)

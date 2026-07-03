@@ -16,6 +16,9 @@ app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 
+// Matikan Hardware Acceleration untuk mencegah GPU crash (command_buffer_proxy_impl.cc:327)
+app.disableHardwareAcceleration()
+
 const setupYoutubeFix = () => {
   // Kita cegat semua request yang pergi ke YouTube
   session.defaultSession.webRequest.onBeforeSendHeaders(
@@ -283,21 +286,23 @@ app.whenReady().then(async () => {
 
   // src/main/index.js
 
+  let globalTTS = null;
+
   ipcMain.handle('tts-speak', async (_, text, rate, pitch) => {
     try {
-      const tts = new MsEdgeTTS()
+      if (!globalTTS) {
+        globalTTS = new MsEdgeTTS()
+        await globalTTS.setMetadata('id-ID-ArdiNeural', OUTPUT_FORMAT.WEBM_24KHZ_16BIT_MONO_OPUS)
+      }
+      
       const formattedRate = `${rate || 0}%`
       const formattedPitch = `${pitch || 0}Hz`
 
-      console.log(formattedRate)
-      console.log(formattedPitch)
-
-      await tts.setMetadata('id-ID-ArdiNeural', OUTPUT_FORMAT.WEBM_24KHZ_16BIT_MONO_OPUS)
       const tmpPath = path.join(app.getPath('temp'), 'mark-tts-folder')
       if (!fs.existsSync(tmpPath)) {
         fs.mkdirSync(tmpPath, { recursive: true })
       }
-      const { audioFilePath } = await tts.toFile(tmpPath, text, {
+      const { audioFilePath } = await globalTTS.toFile(tmpPath, text, {
         rate: formattedRate,
         pitch: formattedPitch
       })

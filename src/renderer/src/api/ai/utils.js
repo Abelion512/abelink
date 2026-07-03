@@ -33,7 +33,7 @@ export const playVoice = async (text) => {
       const audio = new Audio(audioBase64)
 
       // 3. Mainkan!
-      audio.play()
+      await audio.play()
     }
   } catch (error) {
     console.error('Gagal memutar suara:', error)

@@ -62,6 +62,12 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
       headers['Authorization'] = `Bearer ${conf.cerebrasApiKey}`
       body.model = conf.cerebrasModel || 'llama3.1-8b'
       body.max_completion_tokens = 2048 // Fix for Cerebras TPM assuming 8k/128k tokens
+    } else if (conf.aiProvider === 'custom') {
+      endpoint = conf.customEndpoint || 'http://localhost:1234/v1/chat/completions'
+      if (conf.customApiKey) {
+        headers['Authorization'] = `Bearer ${conf.customApiKey}`
+      }
+      body.model = conf.customModel || 'default-model'
     } else {
       body.model = conf.model || 'google/gemma-3-4b'
     }
@@ -189,7 +195,9 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
             ? 'Groq API'
             : conf.aiProvider === 'cerebras'
               ? 'Cerebras API'
-              : 'LM Studio'
+              : conf.aiProvider === 'custom'
+                ? 'Custom API'
+                : 'LM Studio'
         let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
 
         // Auto-retry fallback untuk High Traffic / Rate Limits (503, 429, 500)
