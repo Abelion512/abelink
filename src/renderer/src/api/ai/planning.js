@@ -111,7 +111,7 @@ Rancang rencana logis yang *bisa dieksekusi* menggunakan kombinasi dari kemampua
 5. PENGGUNAAN WEB SEARCH: Gunakan Web Search ("search") HANYA untuk mencari informasi real-time, berita, harga produk, atau fakta publik terbaru. JANGAN gunakan untuk materi coding/teori dasar, cukup gunakan "summary".
 6. FAST BYPASS (TOOL TUNGGAL): Jika instruksi user HANYA butuh 1 penggunaan tool (misal: cuma atur volume, cuma putar lagu), KEMBALIKAN array plan kosong '{"plan": []}', DAN isi field 'command' dengan detail tool tersebut, DAN isi 'direct_answer' dengan respon teks obrolannya!
 7. OBROLAN SANTAI / REAKSI: Jika user hanya mengobrol santai, setuju, bereaksi, atau TIDAK meminta aksi baru secara eksplisit (misal: "mantap", "oke", "jos"), kamu WAJIB set 'command' menjadi null! JANGAN mengulangi tool sebelumnya.
-8. MENYIMPAN MEMORY / PROFIL: Jika user memberi info untuk diingat (misal: "Nama gue Mada"), isi objek 'memory' sesuai schema. Berikan juga 'direct_answer' untuk menanggapinya.
+8. MENYIMPAN MEMORY / PROFIL: Jika user memberi info untuk diingat (misal: "Plat motor Jono B 1234"), isi objek 'memory' sesuai schema dengan sangat jelas. PENTING: Field 'memory' WAJIB berupa KALIMAT LENGKAP dengan konteks (Contoh: "Plat nomor motor Jono adalah B 1234"), bukan sekadar value/angkanya saja.
 10. ORIGINALITAS: JANGAN PERNAH menyalin teks (direct_answer) secara persis dari bagian CONTOH di bawah. Buatlah responmu sendiri secara natural dan bervariasi!
 # CONTOH
 
@@ -133,8 +133,13 @@ Output: {"plan": [], "command": null, "direct_answer": "Yoi sama-sama bro!", "mo
         let contentStr = msg.content || '';
         
         // Inject the AI's previous mood so it knows its emotional state history
-        if (msg.role === 'ai' && msg.mood) {
+        if (msg.role === 'assistant' && msg.mood) {
           contentStr = `[MOOD-MU SAAT INI: ${msg.mood.toUpperCase()}]\n${contentStr}`;
+        }
+        
+        // Let the AI know if this message was initiated proactively by the Awareness Engine
+        if (msg.role === 'assistant' && msg.isProactive) {
+          contentStr = `[AWARENESS INITIATED: KAMU MEMULAI PEMBICARAAN INI]\n${contentStr}`;
         }
         
         if (contentStr.length > maxLength) {
@@ -144,7 +149,7 @@ Output: {"plan": [], "command": null, "direct_answer": "Yoi sama-sama bro!", "mo
           }
         }
         return {
-          role: msg.role === 'ai' ? 'assistant' : msg.role,
+          role: msg.role,
           content: contentStr
         };
       });
@@ -200,8 +205,8 @@ Output: {"plan": [], "command": null, "direct_answer": "Yoi sama-sama bro!", "mo
           properties: {
             id: { type: ['number', 'null'] },
             type: { type: 'string', enum: ['profile', 'preference', 'skill', 'project', 'transaction', 'goal', 'relationship', 'fact', 'other'] },
-            key: { type: 'string' },
-            memory: { type: 'string' },
+            key: { type: 'string', description: 'Kata kunci label singkat tanpa spasi (misal: jono_plat)' },
+            memory: { type: 'string', description: 'Konten memory. WAJIB berupa kalimat penjelasan utuh berkonteks! (Contoh BENAR: "Plat motor Jono adalah B 1234", contoh SALAH: "B 1234").' },
             action: { type: 'string', enum: ['insert', 'update', 'delete'] }
           },
           required: ['type', 'key', 'memory', 'action'],
@@ -465,7 +470,7 @@ Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengeval
 3. DILARANG menyimpan jika info tersebut sudah ada atau mirip di Referensi Memory.
 4. Jika ADA info user yang pantas disimpan/diperbarui, isi properti "memory". Kamu WAJIB menulis konten 'memory' dalam Bahasa Indonesia.
 5. Jika TIDAK ADA, kamu harus set "memory" menjadi null.
-6. Kamu WAJIB menulis konten 'memory' sebagai KALIMAT DESKRIPTIF PENUH. (Contoh salah: "Mada". Contoh benar: "Nama user adalah Mada"). Ini sangat penting agar sistem vektor bisa mencocokkan kata kunci konteks (seperti kata "nama").
+6. Kamu WAJIB menulis konten 'memory' sebagai KALIMAT DESKRIPTIF PENUH YANG BERKONTEKS, bukan sekadar nilai mentahnya. (Contoh SALAH: "B 1234". Contoh BENAR: "Plat nomor motor Jono adalah B 1234"). Ini sangat penting agar sistem vektor bisa mencocokkan kata kunci konteks (seperti kata "plat" atau "jono").
 7. Jika memory berupa catatan, acara, atau info yang butuh konteks waktu, kamu WAJIB memasukkan Tanggal & Waktu saat ini di dalam kalimat memory. (Contoh: "Pada 1 Juli 2026, user mengatakan bahwa...")
 
 # OUTPUT WAJIB JSON
@@ -519,8 +524,8 @@ Berikan respon akhirmu dalam format JSON sesuai schema.
           type: ['object', 'null'],
           properties: {
             action: { type: 'string' },
-            key: { type: 'string' },
-            memory: { type: 'string' },
+            key: { type: 'string', description: 'Label singkat tanpa spasi (misal: jono_plat)' },
+            memory: { type: 'string', description: 'Konten memory. WAJIB kalimat penjelasan utuh berkonteks! (Contoh BENAR: "Plat motor Jono adalah B 1234", contoh SALAH: "B 1234")' },
             oldKey: { type: 'string' }
           },
           required: ['action', 'key', 'memory', 'oldKey'],

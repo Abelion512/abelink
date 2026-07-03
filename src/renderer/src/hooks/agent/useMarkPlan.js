@@ -36,7 +36,12 @@ export const useMarkPlan = ({
           (item) =>
             item.role !== 'command' && !item.isThinking && !item.isSearching && !item.isSummarizing
         )
-        .map((item) => ({ role: item.role === 'ai' ? 'assistant' : 'user', content: item.content }))
+        .map((item) => ({ 
+          role: item.role === 'ai' ? 'assistant' : 'user', 
+          content: item.content,
+          mood: item.mood,
+          isProactive: item.isProactive
+        }))
     ]
 
     let chatSession = []
