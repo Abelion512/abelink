@@ -1,70 +1,108 @@
 import React, { useState, useEffect } from 'react';
 
-
-const OrbVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) => {
-  // status: 'idle' | 'thinking' | 'speaking' | 'listening' | 'error'
-  
-  const [colorClass, setColorClass] = useState('from-primary to-success');
+const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) => {
+  const [glassClass, setGlassClass] = useState('from-emerald-400/40 to-green-500/10');
+  const [glowClass, setGlowClass] = useState('bg-green-500/50');
+  const [borderClass, setBorderClass] = useState('border-green-400/50');
 
   useEffect(() => {
     if (status === 'error') {
-      setColorClass('from-red-600 to-red-900/50');
+      setGlassClass('from-red-500/40 to-red-600/10');
+      setGlowClass('bg-red-500/50');
+      setBorderClass('border-red-400/50');
     } else {
-      if (mood === 'negative') setColorClass('from-red-600 to-red-500');
-      else if (mood === 'annoyed') setColorClass('from-orange-500 to-amber-600');
-      else if (mood === 'positive') setColorClass('from-yellow-400 to-amber-400');
-      else setColorClass('from-green-500 to-emerald-400'); // Neutral (Default) is Green
+      if (mood === 'negative') {
+        setGlassClass('from-red-500/40 to-red-600/10');
+        setGlowClass('bg-red-500/50');
+        setBorderClass('border-red-400/50');
+      }
+      else if (mood === 'annoyed') {
+        setGlassClass('from-orange-400/40 to-amber-600/10');
+        setGlowClass('bg-orange-500/50');
+        setBorderClass('border-orange-400/50');
+      }
+      else if (mood === 'positive') {
+        setGlassClass('from-yellow-300/40 to-amber-400/10');
+        setGlowClass('bg-yellow-400/50');
+        setBorderClass('border-yellow-400/50');
+      }
+      else {
+        setGlassClass('from-emerald-400/40 to-green-500/10'); // Neutral
+        setGlowClass('bg-green-500/50');
+        setBorderClass('border-green-400/50');
+      }
     }
   }, [mood, status]);
 
-  let animationClass = '';
-  let scaleStyle = {};
-  
-  switch (status) {
-    case 'idle':
-      animationClass = 'animate-[orb-breathe_4s_ease-in-out_infinite]';
-      break;
-    case 'nudge':
-      animationClass = 'animate-[orb-breathe_1s_ease-in-out_infinite] scale-105';
-      break;
-    case 'thinking':
-      animationClass = 'animate-[orb-think_3s_linear_infinite] scale-110';
-      break;
-    case 'speaking':
-      animationClass = ''; // Scale is handled by inline style based on intensity
-      scaleStyle.transform = `scale(${1 + intensity * 0.3})`;
-      break;
-    case 'listening':
-      animationClass = 'audio-pulse-ring';
-      break;
-    case 'error':
-      animationClass = 'animate-[orb-error_2s_ease-in-out_infinite]';
-      break;
-    default:
-      animationClass = 'animate-[orb-breathe_4s_ease-in-out_infinite]';
-  }
+  // Calculate dynamic scale based on state
+  let targetScale = 1;
+  if (status === 'thinking') targetScale = 1.15;
+  else if (status === 'nudge') targetScale = 1.05;
+  else if (status === 'speaking') targetScale = 1 + intensity * 0.4;
+  else targetScale = 1;
+
+  // 24 = 6rem = 96px, so translateZ is 48px
+  const faceClass = `absolute inset-0 m-auto w-24 h-24 rounded-2xl border ${borderClass} bg-gradient-to-br ${glassClass} shadow-[inset_0_0_20px_rgba(255,255,255,0.2)] flex items-center justify-center`;
+  const innerFaceClass = `absolute inset-0 m-auto w-10 h-10 bg-white shadow-[0_0_15px_rgba(255,255,255,0.9)]`;
 
   return (
-    <div className="relative shrink-0 w-32 h-32 flex items-center justify-center my-8 transition-all duration-500">
-      {/* Layer 3: Aura */}
-      <div 
-        className={`absolute inset-0 rounded-full bg-gradient-to-tr ${colorClass} blur-[60px] opacity-20 transition-all duration-200 ${animationClass}`}
-        style={scaleStyle}
-      />
-      
-      {/* Layer 2: Glow */}
-      <div 
-        className={`absolute inset-0 rounded-full bg-gradient-to-tr ${colorClass} blur-[30px] opacity-40 transition-all duration-200 ${animationClass}`}
-        style={scaleStyle}
-      />
-      
-      {/* Layer 1: Inti (3D Sphere) */}
-      <div 
-        className={`absolute inset-6 rounded-full bg-gradient-to-tr ${colorClass} shadow-[inset_-8px_-8px_16px_rgba(0,0,0,0.5),inset_8px_8px_16px_rgba(255,255,255,0.4),0_0_30px_oklch(var(--p)/0.4)] transition-all duration-200 ${animationClass}`}
-        style={scaleStyle}
-      />
-    </div>
+    <>
+      <style>
+        {`
+          @keyframes cube-spin {
+            0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+            100% { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); }
+          }
+          @keyframes cube-spin-reverse {
+            0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+            100% { transform: rotateX(-360deg) rotateY(-720deg) rotateZ(-360deg); }
+          }
+        `}
+      </style>
+      <div className={`relative shrink-0 w-36 h-36 flex items-center justify-center my-8 [perspective:1000px]`}>
+        
+        {/* Layer 1: Constant Breathing Wrapper - NEVER swapped out so it never snaps */}
+        <div className="relative w-full h-full flex items-center justify-center animate-[orb-breathe_5s_ease-in-out_infinite] will-change-transform">
+          
+          {/* Layer 2: State & Audio Scaler - Smooth transition speed based on state */}
+          <div 
+            className="relative w-full h-full flex items-center justify-center ease-out will-change-transform"
+            style={{ 
+              transitionProperty: 'transform',
+              transitionDuration: status === 'speaking' ? '75ms' : '500ms',
+              transform: `scale(${targetScale})` 
+            }}
+          >
+            {/* Background Aura */}
+            <div className={`absolute inset-0 m-auto w-24 h-24 rounded-full ${glowClass} blur-[40px] will-change-transform`} />
+
+            {/* Layer 3: Outer Cube Container - Constant rotation speed to prevent CSS reset snapping */}
+            <div className="relative w-24 h-24 [transform-style:preserve-3d] will-change-transform animate-[cube-spin_12s_linear_infinite]">
+              
+              {/* Outer Glass Faces */}
+              <div className={`${faceClass} [transform:translateZ(48px)]`} />
+              <div className={`${faceClass} [transform:rotateY(180deg)_translateZ(48px)]`} />
+              <div className={`${faceClass} [transform:rotateY(90deg)_translateZ(48px)]`} />
+              <div className={`${faceClass} [transform:rotateY(-90deg)_translateZ(48px)]`} />
+              <div className={`${faceClass} [transform:rotateX(90deg)_translateZ(48px)]`} />
+              <div className={`${faceClass} [transform:rotateX(-90deg)_translateZ(48px)]`} />
+
+              {/* Layer 4: Sentient Inner Core (Tesseract) - Centered symmetrically */}
+              <div className="absolute inset-0 m-auto w-10 h-10 [transform-style:preserve-3d] animate-[cube-spin-reverse_8s_linear_infinite]">
+                 <div className={`${innerFaceClass} [transform:translateZ(20px)]`} />
+                 <div className={`${innerFaceClass} [transform:rotateY(180deg)_translateZ(20px)]`} />
+                 <div className={`${innerFaceClass} [transform:rotateY(90deg)_translateZ(20px)]`} />
+                 <div className={`${innerFaceClass} [transform:rotateY(-90deg)_translateZ(20px)]`} />
+                 <div className={`${innerFaceClass} [transform:rotateX(90deg)_translateZ(20px)]`} />
+                 <div className={`${innerFaceClass} [transform:rotateX(-90deg)_translateZ(20px)]`} />
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
 
-export default OrbVisualizer;
+export default CubeVisualizer;
