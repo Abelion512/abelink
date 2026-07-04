@@ -108,7 +108,7 @@ const ResponseArea = ({ currentResponse }) => {
 
           {/* TLDR Part */}
           {tldr && (
-            <div className="text-center text-lg md:text-xl font-medium leading-relaxed custom-markdown opacity-90 px-4 max-w-2xl">
+            <div className="text-center text-base md:text-lg font-light leading-relaxed custom-markdown opacity-90 px-4 max-w-2xl">
               <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                 {tldr}
               </Markdown>
@@ -182,7 +182,7 @@ const ResponseArea = ({ currentResponse }) => {
             </span>
           </div>
         )}
-        <div className="text-center text-xl md:text-2xl font-medium leading-relaxed custom-markdown opacity-90 px-4 max-w-2xl">
+        <div className="text-center text-lg md:text-xl font-light leading-relaxed custom-markdown opacity-90 px-4 max-w-2xl">
           <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
             {text}
           </Markdown>

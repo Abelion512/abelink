@@ -6,7 +6,7 @@ import { getAwarenessResponse } from '../api/ai/awareness'
 const CHECKIN_INTERVAL = 10 * 60 * 1000 // 10 menit
 const INITIAL_DELAY = 2 * 60 * 1000 // 2 menit
 
-export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, chatData }) => {
+export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, chatData, handlePlanningCommand }) => {
   const isRequestingRef = useRef(false)
   const chatDataRef = useRef(chatData)
 
@@ -47,20 +47,25 @@ export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, cha
         const result = await getAwarenessResponse(buffer, memoryRef, config, recentChat)
         console.log('[useAwareness] AI Response:', result)
 
-        if (result.should_speak && result.message) {
-          console.log('[useAwareness] Triggering nudge and UI updates!')
+        if (result.should_act && result.message) {
+          console.log('[useAwareness] Triggering autonomous action!')
           // Push notification
-          if (window.api.showNotification) {
+          if (window.api.showNotification && !document.hasFocus()) {
             window.api.showNotification('Mark', result.message)
           }
 
-          // Push chat bubble
-          setChatData(prev => [...prev, {
-            role: 'ai',
-            content: result.message,
-            isProactive: true,
-            mood: result.mood
-          }])
+          // Jika ada perintah autonomus, bypass chat bubble biasa dan langsung eksekusi plan siluman
+          if (result.autonomous_prompt && handlePlanningCommand) {
+             handlePlanningCommand(result.autonomous_prompt, null, true, result.message)
+          } else {
+             // Kalau cuma mau ngomong biasa tanpa ngejalanin plan
+             setChatData(prev => [...prev, {
+               role: 'ai',
+               content: result.message,
+               isProactive: true,
+               mood: result.mood
+             }])
+          }
 
           // Orb nudge animation
           setOrbStatus('nudge')
@@ -82,5 +87,5 @@ export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, cha
       clearInterval(id)
       clearTimeout(initialTimeout)
     }
-  }, [isLoading, config, setChatData, setOrbStatus])
+  }, [isLoading, config, setChatData, setOrbStatus, handlePlanningCommand])
 }

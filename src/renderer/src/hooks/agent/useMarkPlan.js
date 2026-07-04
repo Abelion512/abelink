@@ -25,10 +25,11 @@ export const useMarkPlan = ({
     }
   }, [setChatData])
 
-  const handlePlanningCommand = async (userInput, waContext = null) => {
+  const handlePlanningCommand = async (userInput, waContext = null, isAutonomous = false, autonomousInitialMessage = null) => {
     if (!userInput) return
     setIsLoading(true)
-    const userMessage = { role: 'user', content: userInput }
+    const timestampStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+    const userMessage = { role: 'user', content: userInput, timestamp: timestampStr }
 
     const rawSession = [
       ...chatData
@@ -40,7 +41,8 @@ export const useMarkPlan = ({
           role: item.role === 'ai' ? 'assistant' : 'user', 
           content: item.content,
           mood: item.mood,
-          isProactive: item.isProactive
+          isProactive: item.isProactive,
+          timestamp: item.timestamp
         }))
     ]
 
@@ -57,7 +59,10 @@ export const useMarkPlan = ({
     chatSession = [...chatSession].slice(-1 * (config[0]?.context || 10))
     chatSession = [...chatSession, userMessage]
 
-    setChatData((prev) => [...prev, userMessage])
+    // Invisible execution: Do not push user's message to UI if autonomous
+    if (!isAutonomous) {
+      setChatData((prev) => [...prev, userMessage])
+    }
     abortControllerRef.current = new AbortController()
 
     try {
@@ -67,6 +72,14 @@ export const useMarkPlan = ({
       // Construct contextMsg
       let contextMsgStr = ''
       if (waContext) contextMsgStr += `Permintaan ini berasal dari WhatsApp (JID: ${waContext.jid}).\n`
+      if (isAutonomous) contextMsgStr += `[AWARENESS MODE]: Ini adalah pemikiran autonom-mu sendiri, bukan perintah user secara langsung. Kamu baru saja memikirkan ide ini dan sekarang sedang mengeksekusinya.\n`
+
+      if (isAutonomous && autonomousInitialMessage) {
+        setChatData((prev) => [
+          ...prev,
+          { role: 'ai', content: autonomousInitialMessage, isProactive: true, isThinking: false, timestamp: timestampStr }
+        ])
+      }
 
       // 1. Get Plan
       setChatData((prev) => [
@@ -145,7 +158,8 @@ export const useMarkPlan = ({
               mood: planData.mood || 'neutral',
               isMemorySaved: answer.memory?.action === 'insert' && answer.command?.action !== 'search',
               isMemoryUpdated: answer.memory?.action === 'update',
-              isMemoryDeleted: answer.memory?.action === 'delete'
+              isMemoryDeleted: answer.memory?.action === 'delete',
+              timestamp: timestampStr
             }
             if (answer.command?.run && String(answer.command.run).toLowerCase() !== 'null') {
               return [...filtered, aiResponse, { role: 'command', content: answer.command.run, risk: answer.command.risk }]
@@ -520,7 +534,8 @@ export const useMarkPlan = ({
           mood: finalMood || 'neutral',
           isMemorySaved: finalMemory?.action === 'insert',
           isMemoryUpdated: finalMemory?.action === 'update',
-          isMemoryDeleted: finalMemory?.action === 'delete'
+          isMemoryDeleted: finalMemory?.action === 'delete',
+          timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
         }
         if (uniqueSources.length > 0) {
           newAiMsg.sources = uniqueSources

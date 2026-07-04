@@ -132,6 +132,10 @@ Output: {"plan": [], "command": null, "direct_answer": "Yoi sama-sama bro!", "mo
       return session.map(msg => {
         let contentStr = msg.content || '';
         
+        if (msg.timestamp) {
+          contentStr = `[Waktu: ${msg.timestamp}] ${contentStr}`;
+        }
+        
         // Inject the AI's previous mood so it knows its emotional state history
         if (msg.role === 'assistant' && msg.mood) {
           contentStr = `[MOOD-MU SAAT INI: ${msg.mood.toUpperCase()}]\n${contentStr}`;
@@ -149,17 +153,15 @@ Output: {"plan": [], "command": null, "direct_answer": "Yoi sama-sama bro!", "mo
           }
         }
         return {
-          role: msg.role,
+          role: msg.role === 'ai' ? 'assistant' : msg.role,
           content: contentStr
         };
       });
     }
 
     const previousTurns = chatSession.length > 0 ? prepareHistory(chatSession.slice(0, -1)) : []
-    const lastUserMsg =
-      chatSession.length > 0
-        ? chatSession[chatSession.length - 1]
-        : { role: 'user', content: userInput }
+    const lastUserMsgRaw = chatSession.length > 0 ? chatSession[chatSession.length - 1] : { role: 'user', content: userInput }
+    const lastUserMsg = prepareHistory([lastUserMsgRaw])[0]
 
     const messages = [{ role: 'system', content: systemPrompt }, ...previousTurns, lastUserMsg]
     const schema = {

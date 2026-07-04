@@ -4,7 +4,7 @@ import { getCurrentTimeInfo } from './utils'
 export const getAwarenessResponse = async (buffer, memoryRef, config, recentChat, signal) => {
   const conf = config[0] || {}
   
-  const prompt = `Kamu adalah Mark, asisten proaktif yang bisa menyapa pengguna.
+  const prompt = `Kamu adalah Mark, asisten AI otonom yang berjalan di latar belakang (Awareness Engine).
 Personality and Communication Style: ${conf.personality || 'Santai layaknya seorang teman dan suka bercanda.'}
 
 # AKTIVITAS USER (30 menit terakhir):
@@ -19,34 +19,35 @@ ${memoryRef ? JSON.stringify(memoryRef, null, 2) : 'Tidak ada memory spesifik.'}
 # WAKTU SEKARANG:
 ${getCurrentTimeInfo()}
 
-# INSTRUKSI:
-Berdasarkan data di atas, KAMU YANG MENENTUKAN apakah mau ngomong sesuatu atau diam.
+# INSTRUKSI & WEWENANG:
+Berdasarkan aktivitas di atas, kamu HANYA BUKAN pengamat. KAMU MEMILIKI WEWENANG PENUH untuk mengeksekusi sistem (Autonomous Agent).
+Kamu bisa memutar musik (music-play), menelusuri web (search), mengeksekusi plugin, dsb.
 
 Pertimbangkan:
-- Apakah ada pola menarik? (kerja lama tanpa istirahat, ganti-ganti app, baru balik dari AFK)
-- Apakah kamu bisa membantu sesuatu? (browsing error, buka dokumentasi)
-- Apakah ada konteks dari memory yang relevan?
-- JANGAN SPAM. Kalau aktivitasnya normal-normal saja dan tidak ada yang patut dikomentari, DIAM saja (should_speak: false).
+- Jika user bekerja terlalu lama, kamu BISA memutuskan untuk memutar lagu lofi/relaxing secara otomatis.
+- Jika ada pola aktivitas yang butuh riset, kamu BISA melakukan web search otomatis.
+- Jika tidak ada hal penting, tetap DIAM (should_act: false). JANGAN SPAM.
 
-# OUTPUT FORMAT (Wajib mematuhi JSON schema):
-Kamu harus merespons dengan JSON object yang memiliki:
-1. "should_speak": boolean (true jika mau ngomong, false jika diam)
-2. "message": string pesanmu (atau null jika should_speak false)
-3. "mood": string ("curious", "caring", "playful", atau "helpful")
+# OUTPUT FORMAT (Wajib JSON):
+1. "should_act": boolean (true jika kamu ingin mengeksekusi sesuatu, false jika diam)
+2. "message": string (Kalimat pembuka yang kamu ucapkan ke user. Misal: "Wah bos lembur nih, gue puterin lagu chill ya!") atau null.
+3. "autonomous_prompt": string (Instruksi teks PERINTAH yang akan kamu kirimkan ke otak eksekutor-mu sendiri. Misal: "Putar lagu lofi hip hop relax" atau "Cari berita teknologi terbaru"). Isi null jika tidak ada tindakan.
+4. "mood": string ("curious", "caring", "playful", atau "helpful")
 
-Jadilah natural, bukan robot. Gaya bicara sesuai personality di atas.`
+Jadilah asisten cerdas yang inisiatif, bukan robot pasif.`
 
   const awarenessSchema = {
     type: 'object',
     properties: {
-      should_speak: { type: 'boolean' },
+      should_act: { type: 'boolean' },
       message: { type: ['string', 'null'] },
+      autonomous_prompt: { type: ['string', 'null'] },
       mood: {
         type: 'string',
         enum: ['curious', 'caring', 'playful', 'helpful', 'normal']
       }
     },
-    required: ['should_speak', 'message', 'mood'],
+    required: ['should_act', 'message', 'autonomous_prompt', 'mood'],
     additionalProperties: false
   }
 
@@ -57,13 +58,14 @@ Jadilah natural, bukan robot. Gaya bicara sesuai personality di atas.`
       try {
         const parsed = JSON.parse(aiResponse.content)
         return {
-          should_speak: parsed.should_speak,
+          should_act: parsed.should_act,
           message: parsed.message,
+          autonomous_prompt: parsed.autonomous_prompt,
           mood: parsed.mood || 'normal'
         }
       } catch (err) {
         console.error('[Awareness AI] Gagal parse JSON AI:', err)
-        return { should_speak: false, message: null, mood: 'normal' }
+        return { should_act: false, message: null, autonomous_prompt: null, mood: 'normal' }
       }
     }
   } catch (error) {
@@ -72,5 +74,5 @@ Jadilah natural, bukan robot. Gaya bicara sesuai personality di atas.`
     }
   }
   
-  return { should_speak: false, message: null, mood: 'normal' }
+  return { should_act: false, message: null, autonomous_prompt: null, mood: 'normal' }
 }
