@@ -114,24 +114,24 @@ export const useMarkPlan = ({
       }
 
       if (!planData.plan || planData.plan.length === 0) {
-        if (!planData.direct_answer) {
+        const isPluginAction = planData.command?.action && planData.command.action !== 'none' && planData.command.action !== 'search' && planData.command.action !== 'yt-search' && planData.command.action !== 'yt-summary';
+
+        if (!planData.direct_answer && !isPluginAction) {
           throw new Error('Gagal merespons: direct_answer kosong setelah retry.')
         }
 
         console.log('[useMarkPlan] Menggunakan direct_answer (Fast Bypass)');
         const answer = {
-          answer: planData.direct_answer,
+          answer: planData.direct_answer || '',
           command: planData.command,
           memory: planData.memory || null
         }
 
-        const isPluginAction = answer.command?.action && answer.command.action !== 'none' && answer.command.action !== 'search' && answer.command.action !== 'yt-search' && !answer.command.action.startsWith('music') && answer.command.action !== 'yt-summary';
-
-        if (isSpeak && !isPluginAction) {
+        if (isSpeak && !isPluginAction && answer.answer) {
           await playVoice(answer.answer)
         }
         
-        if (window.api.showNotification && !isPluginAction && !document.hasFocus()) {
+        if (window.api.showNotification && !isPluginAction && !document.hasFocus() && answer.answer) {
           window.api.showNotification('Mark', answer.answer)
         }
 
@@ -173,8 +173,7 @@ export const useMarkPlan = ({
         }
         if (answer.command?.action === 'yt-summary') {
           await handleYoutubeSummary(answer.command.query, abortControllerRef.current.signal)
-        } else if (answer.command?.action?.startsWith('music')) {
-          await handleMusic(answer.command.action, answer.command?.query)
+
         } else if (answer.command?.action && answer.command.action !== 'none' && answer.command.action !== 'search' && answer.command.action !== 'yt-search') {
           const act = answer.command.action
           const qry = answer.command.query
@@ -210,6 +209,9 @@ export const useMarkPlan = ({
               } else {
                  res = { success: false, error: `Gagal mengirim pesan, format query AI salah: ${qry}` }
               }
+            } else if (act.startsWith('music')) {
+              const musicResult = await handleMusic(act, qry)
+              res = { success: true, data: musicResult }
             } else {
               res = await window.api.executePlugin(act, qry)
             }
@@ -395,18 +397,7 @@ export const useMarkPlan = ({
             setChatData((prev) => prev.filter((item) => !item.isSummarizing))
           }
         } else if (actionData.action?.startsWith('music')) {
-          await handleMusic(actionData.action, actionData.query)
-          if (actionData.action === 'music-next') {
-            summary = 'Memutar lagu selanjutnya.'
-          } else if (actionData.action === 'music-prev') {
-            summary = 'Memutar lagu sebelumnya.'
-          } else if (actionData.action === 'music-toggle') {
-            summary = 'Pause/Resume lagu.'
-          } else if (actionData.action === 'music-play') {
-            summary = `Memutar lagu dari hasil pencarian: "${actionData.query}".`
-          } else {
-            summary = `Menampilkan hasil pencarian lagu untuk: "${actionData.query}".`
-          }
+          summary = await handleMusic(actionData.action, actionData.query)
         } else if (actionData.action === 'wa-send') {
           const [targetJid, targetText] = (actionData.query || '').split('|')
           if (targetJid && targetText) {

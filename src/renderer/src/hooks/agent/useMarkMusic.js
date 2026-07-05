@@ -4,9 +4,9 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
   const { playUrl, nextTrack, prevTrack, playPause } = youtubeMusicTools
 
   const handleMusic = async (action, query) => {
-    if (action === 'music-next') return nextTrack()
-    if (action === 'music-prev') return prevTrack()
-    if (action === 'music-toggle') return playPause()
+    if (action === 'music-next') { nextTrack(); return 'Memutar lagu selanjutnya.' }
+    if (action === 'music-prev') { prevTrack(); return 'Memutar lagu sebelumnya.' }
+    if (action === 'music-toggle') { playPause(); return 'Pause/Resume lagu.' }
 
     setChatData((prev) => [...prev, { role: 'ai', content: 'Mencari lagu...', isSearchingMusic: true }])
     const music = await window.api.searchMusic(query)
@@ -54,7 +54,10 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
 
     if (isAutoplay && selectedId) {
       playUrl(`https://music.youtube.com/watch?v=${selectedId}`, selectedMusicList[0])
+      return `[SYSTEM LOG] Berhasil memutar lagu: ${selectedMusicList[0].title} oleh ${selectedMusicList[0].artist}`
     }
+
+    return `[SYSTEM LOG] Menampilkan hasil pencarian lagu untuk: "${query}"`
   }
 
 
