@@ -256,8 +256,10 @@ Output: {"plan": [], "command": null, "direct_answer": "Yoi sama-sama bro!", "mo
         const hasPlan = data.plan.length > 0
         const hasAnswer = !!data.direct_answer
 
-        if (!hasPlan && !hasAnswer) {
-          console.warn('[planning] AI returned empty plan and answer. Retrying...')
+        const hasCommand = data.command && data.command.action && data.command.action !== 'none'
+
+        if (!hasPlan && !hasAnswer && !hasCommand) {
+          console.warn('[planning] AI returned empty plan, answer, and command. Retrying...')
           continue
         }
 
@@ -462,7 +464,7 @@ ${memoryReference.length > 0 ? JSON.stringify(memoryReference) : 'Kosong.'}
    - Kalo user nanya spesifik (contoh: "Berapa modal awalnya?"), jawab *to-the-point* TANPA merangkum seluruh video.
 2. **PROFESIONAL TAPI SANTAI**: Tetap nyambung, cerdas, tapi bahasanya *chill* banget (gue/lu). Nggak kaku.
 3. **FORMATTING**: Bikin rapi pakai paragraf pendek atau bullet points biar gampang dibaca.
-4. **PRIORITAS SUMBER**: Prioritaskan data dari "Riwayat Eksekusi". Tambahin *insight* pintar lu sendiri kalau perlu.
+4. **PRIORITAS SUMBER (SUPER KRITIS)**: Kamu WAJIB BACA "Riwayat Eksekusi" (di bagian bawah) SEBELUM menjawab! Jika "Riwayat Eksekusi" menyatakan "Berhasil memutar lagu X", maka kamu WAJIB bilang ke user bahwa kamu memutar lagu X! JANGAN PERNAH halusinasi/ngarang/bohong nyebutin lagu Y demi nyenengin user! Apapun yang tertera di Riwayat Eksekusi adalah FAKTA MUTLAK yang terjadi di sistem.
 5. **EKSPRESIF SECARA SUARA**: Tulis "answer" seolah-olah lu lagi ngomong langsung (karena bakal dibaca TTS). Pakai kata sambung natural ("Jadi gini", "Btw", "Wah", dll).
 
 # EVALUASI MEMORY OTOMATIS (KRITIS)

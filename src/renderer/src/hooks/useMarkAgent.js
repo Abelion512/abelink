@@ -30,7 +30,8 @@ export const useMarkAgent = () => {
   const { handleMusic } = useMarkMusic(setChatData, abortControllerRef, youtubeMusicTools)
 
   const tools = {
-    handleYoutubeSearch, handleSearchCommand, handleYoutubeSummary, handleMusic, getYoutubeData
+    handleYoutubeSearch, handleSearchCommand, handleYoutubeSummary, handleMusic, getYoutubeData,
+    currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null
   }
 
   const { handlePlanningCommand } = useMarkPlan({ ...state, ...tools })

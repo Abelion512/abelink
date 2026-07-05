@@ -8,7 +8,7 @@ import { getRelevantMemory } from '../../api/vectorMemory'
 export const useMarkPlan = ({
   chatData, setChatData, config, isSpeak, abortControllerRef, setIsLoading, setMessage,
   handleYoutubeSearch, handleSearchCommand, handleYoutubeSummary, handleMusic, getYoutubeData,
-  pushProcess, activeTopic, setActiveTopic
+  pushProcess, activeTopic, setActiveTopic, currentMusicTrack
 }) => {
   useEffect(() => {
     if (window.api.onAiStatus) {
@@ -73,6 +73,9 @@ export const useMarkPlan = ({
       let contextMsgStr = ''
       if (waContext) contextMsgStr += `Permintaan ini berasal dari WhatsApp (JID: ${waContext.jid}).\n`
       if (isAutonomous) contextMsgStr += `[AWARENESS MODE]: Ini adalah pemikiran autonom-mu sendiri, bukan perintah user secara langsung. Kamu baru saja memikirkan ide ini dan sekarang sedang mengeksekusinya.\n`
+      if (currentMusicTrack && currentMusicTrack.title) {
+        contextMsgStr += `[STATUS SISTEM]: Saat ini kamu sedang memutar lagu "${currentMusicTrack.title}" oleh ${currentMusicTrack.artist} di background.\n`
+      }
 
       if (isAutonomous && autonomousInitialMessage) {
         setChatData((prev) => [
@@ -236,7 +239,15 @@ export const useMarkPlan = ({
                 ...chatSession,
                 { role: 'assistant', content: `[SYSTEM LOG] Memulai plugin ${act}...` }
               ]
-              const followUp = await getPlanConclusion(followUpInput, [summaryStr], abortControllerRef.current.signal, followUpSession, [])
+              const followUp = await getPlanConclusion(
+                followUpInput, 
+                [summaryStr], 
+                abortControllerRef.current.signal, 
+                followUpSession, 
+                memoryReference,
+                contextMsgStr,
+                activeTopic
+              )
 
               if (window.api.showNotification && !document.hasFocus()) {
                 window.api.showNotification('Mark', followUp.answer)

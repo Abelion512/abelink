@@ -217,7 +217,6 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const confirmClearChat = async () => {
     await db.sessions.clear()
     document.getElementById('confirm_clear_chat').close()
-    alert('Riwayat obrolan telah dihapus secara permanen.')
   }
 
   const handleExportChat = async () => {
