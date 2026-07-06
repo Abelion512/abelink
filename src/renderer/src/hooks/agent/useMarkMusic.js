@@ -57,7 +57,8 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
       return `[SYSTEM LOG] Berhasil memutar lagu: ${selectedMusicList[0].title} oleh ${selectedMusicList[0].artist}`
     }
 
-    return `[SYSTEM LOG] Menampilkan hasil pencarian lagu untuk: "${query}"`
+    const resultText = music.slice(0, 5).map(m => `${m.title} oleh ${m.artist}`).join(', ')
+    return `[SYSTEM LOG] Hasil pencarian lagu untuk "${query}": ${resultText}`
   }
 
 
