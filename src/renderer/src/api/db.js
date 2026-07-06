@@ -34,13 +34,21 @@ db.version(7).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, waAdminNumber, waPendingAdmins, waApprovedAdmins, customEndpoint, customApiKey, customModel'
 })
 
+// --- VALIDATION ---
+const VALID_TYPES = ['profile', 'preference', 'skill', 'project', 'transaction', 'goal', 'relationship', 'fact', 'other'];
+
+function getValidType(type) {
+  const t = (type || '').toLowerCase().trim();
+  return VALID_TYPES.includes(t) ? t : 'other';
+}
+
 // --- CREATE ---
 export async function insertMemory(data) {
   const memoryText = data.memory.trim()
   const vector = await generateVector(memoryText)
   try {
     await db.memory.add({
-      type: data.type,
+      type: getValidType(data.type),
       key: data.key,
       memory: memoryText,
       vector: vector
@@ -73,13 +81,38 @@ export async function updateMemory(data) {
   try {
     const newMemoryText = data.memory.trim()
     const newVector = await generateVector(newMemoryText)
-    await db.memory.put({
-      id: data.id || undefined,
-      type: data.type.toLowerCase().trim(),
-      key: data.key.toLowerCase().trim(),
-      memory: newMemoryText,
-      vector: newVector
-    })
+    
+    let targetId = data.id;
+    if (!targetId && data.type && data.oldKey) {
+       // Support Mark's "oldKey" format if provided
+       const existing = await db.memory
+        .where('[type+key]')
+        .equals([getValidType(data.type), data.oldKey.toLowerCase().trim()])
+        .first();
+      if (existing) {
+        targetId = existing.id;
+      }
+    } else if (!targetId && data.type && data.key) {
+      // Fallback normal
+      const existing = await db.memory
+        .where('[type+key]')
+        .equals([getValidType(data.type), data.key.toLowerCase().trim()])
+        .first();
+      if (existing) {
+        targetId = existing.id;
+      }
+    }
+
+    if (targetId) {
+      await db.memory.update(targetId, {
+        key: data.key.toLowerCase().trim(),
+        memory: newMemoryText,
+        vector: newVector
+      })
+      console.log(`✅ Memory ID ${targetId} berhasil di-update.`)
+    } else {
+      console.warn('⚠️ Gagal update: ID tidak ditemukan dan data fallback tidak cocok.')
+    }
   } catch (error) {
     console.error('Error in updateMemory logic:', error)
   }
@@ -97,10 +130,11 @@ export async function deleteMemory(data) {
 
     // 2. Fallback: Kalau Mark nggak kasih ID (tapi ini harusnya jarang)
     // Kita hapus berdasarkan type dan key
-    if (data.type && data.key) {
+    if (data.type && (data.oldKey || data.key)) {
+      const keyToDelete = data.oldKey ? data.oldKey : data.key;
       const deletedCount = await db.memory
         .where('[type+key]')
-        .equals([data.type.toLowerCase(), data.key.toLowerCase()])
+        .equals([getValidType(data.type), keyToDelete.toLowerCase()])
         .delete()
 
       console.log(`⚠️ Hapus via fallback: ${deletedCount} data terhapus.`)
@@ -117,7 +151,7 @@ export async function deleteMemory(data) {
 export async function getAllMemory() {
   try {
     const data = await db.memory.toArray()
-    return data || [] // Kembalikan array kosong kalau gak ada data
+    return data || []
   } catch (error) {
     console.error('Error in getAllMemory logic:', error)
     return []
@@ -127,9 +161,9 @@ export async function getAllMemory() {
 export async function getAllConfig() {
   try {
     const data = await db.config.toArray()
-    return data || [] // Kembalikan array kosong kalau gak ada data
+    return data || []
   } catch (error) {
-    console.error('Error in getAllMemory logic:', error)
+    console.error('Error in getAllConfig logic:', error)
     return []
   }
 }
