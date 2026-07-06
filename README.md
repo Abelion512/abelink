@@ -1,5 +1,7 @@
 # MARK - Memory Adaptive Response Knowledge
 
+[![Download Terbaru](https://img.shields.io/badge/Download-Versi_Terbaru-blue?style=for-the-badge&logo=windows)](https://github.com/Mazees/mark-agent/releases/)
+
 > **Mark BUKAN sekadar asisten virtual biasa. Mark adalah entitas AI yang dirancang untuk memiliki emosi dan bertindak selayaknya manusia.** 
 > Lebih dari sekadar chatbot kaku, Mark adalah *Personal AI Assistant* yang berjalan di ekosistem lokal Anda—dilengkapi dengan sistem memori jangka panjang berbasis *Vector Memory* untuk mempelajari kebiasaan Anda tanpa mengorbankan privasi sedikit pun. Ditenagai oleh *Hybrid AI Engine*, Mark dapat beroperasi 100% *offline* untuk privasi penuh, atau menggunakan *Cloud APIs* untuk mengeksekusi tugas kompleks, menyusun rencana (*Agentic Planning*), merangkum video YouTube, melakukan riset internet, hingga berinteraksi melalui suara secara *real-time*. Mark dapat bersikap ramah, sarkastis, atau tegas tergantung pada bagaimana pengguna berinteraksi dengannya.
 
@@ -131,20 +133,6 @@ Untuk membuat aplikasi mandiri (berkas `.exe`) yang dapat diinstal di PC Windows
 npm run build:win
 ```
 Berkas *installer* akan secara otomatis tersedia di dalam direktori `dist/`.
-
-## Peta Jalan (Roadmap)
-
-- [x] Integrasi Pencarian Web & Riset Mendalam
-- [x] Sistem Memori Vektor (Pencarian semantik dengan Transformers.js & LM Studio)
-- [x] Perangkum YouTube (Ekstraksi transkrip & metadada)
-- [x] Kesadaran Waktu dan Konteks Berkelanjutan
-- [x] Pemutar YouTube Music & Pemblokir Iklan Otomatis
-- [x] Deteksi Suara Langsung (VAD & Groq STT Hybrid)
-- [x] Perencanaan Berbasis Agen (Agentic Planning)
-- [x] Integrasi Bot WhatsApp Pribadi Tingkat Lanjut
-- [ ] Analisis Visi (Computer Vision): Kemampuan melihat dan menganalisis gambar secara lokal
-- [ ] Ekspor/Impor Memori: Fitur pencadangan dan pemulihan ingatan pengguna
-- [ ] Code Interpreter: Kemampuan mengeksekusi skrip Python dinamis di dalam lingkungan *sandbox*
 
 ## Lisensi
 
