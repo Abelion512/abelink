@@ -83,21 +83,31 @@ export async function updateMemory(data) {
     const newVector = await generateVector(newMemoryText)
     
     let targetId = data.id;
-    if (!targetId && data.type && data.oldKey) {
-       // Support Mark's "oldKey" format if provided
-       const existing = await db.memory
-        .where('[type+key]')
-        .equals([getValidType(data.type), data.oldKey.toLowerCase().trim()])
-        .first();
-      if (existing) {
-        targetId = existing.id;
+    
+    // Jika ID tidak ada, coba cari berdasarkan [type+key] atau [key]
+    if (!targetId) {
+      let existing = null;
+      
+      // Coba cari pakai oldKey jika ada
+      if (data.oldKey) {
+        if (data.type) {
+          existing = await db.memory.where('[type+key]').equals([getValidType(data.type), data.oldKey.toLowerCase().trim()]).first();
+        }
+        if (!existing) {
+          existing = await db.memory.where('key').equals(data.oldKey.toLowerCase().trim()).first();
+        }
       }
-    } else if (!targetId && data.type && data.key) {
-      // Fallback normal
-      const existing = await db.memory
-        .where('[type+key]')
-        .equals([getValidType(data.type), data.key.toLowerCase().trim()])
-        .first();
+      
+      // Jika belum ketemu, coba cari pakai key baru
+      if (!existing && data.key) {
+        if (data.type) {
+          existing = await db.memory.where('[type+key]').equals([getValidType(data.type), data.key.toLowerCase().trim()]).first();
+        }
+        if (!existing) {
+          existing = await db.memory.where('key').equals(data.key.toLowerCase().trim()).first();
+        }
+      }
+
       if (existing) {
         targetId = existing.id;
       }
@@ -128,17 +138,23 @@ export async function deleteMemory(data) {
       return { success: true }
     }
 
-    // 2. Fallback: Kalau Mark nggak kasih ID (tapi ini harusnya jarang)
-    // Kita hapus berdasarkan type dan key
-    if (data.type && (data.oldKey || data.key)) {
-      const keyToDelete = data.oldKey ? data.oldKey : data.key;
-      const deletedCount = await db.memory
-        .where('[type+key]')
-        .equals([getValidType(data.type), keyToDelete.toLowerCase()])
-        .delete()
+    // 2. Fallback: Cari pakai type+key atau key doang
+    const keyToSearch = data.oldKey ? data.oldKey.toLowerCase().trim() : (data.key ? data.key.toLowerCase().trim() : null);
+    
+    if (keyToSearch) {
+      let existing = null;
+      if (data.type) {
+        existing = await db.memory.where('[type+key]').equals([getValidType(data.type), keyToSearch]).first();
+      }
+      if (!existing) {
+        existing = await db.memory.where('key').equals(keyToSearch).first();
+      }
 
-      console.log(`⚠️ Hapus via fallback: ${deletedCount} data terhapus.`)
-      return { success: true }
+      if (existing) {
+        await db.memory.delete(existing.id);
+        console.log(`⚠️ Hapus via fallback: Memory ID ${existing.id} terhapus.`);
+        return { success: true };
+      }
     }
 
     console.warn('Mark mau hapus data tapi gak kasih ID atau Type/Key yang jelas.')

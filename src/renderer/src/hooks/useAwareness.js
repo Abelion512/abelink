@@ -3,8 +3,8 @@ import { getAllMemory } from '../api/db'
 import { getRelevantMemory } from '../api/vectorMemory'
 import { getAwarenessResponse } from '../api/ai/awareness'
 
-const CHECKIN_INTERVAL = 10 * 60 * 1000 // 10 menit
-const INITIAL_DELAY = 2 * 60 * 1000 // 2 menit
+const CHECKIN_INTERVAL = 3 * 60 * 1000 // 3 menit
+const INITIAL_DELAY = 30 * 1000 // 30 detik
 
 export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, chatData, handlePlanningCommand }) => {
   const isRequestingRef = useRef(false)
@@ -23,8 +23,8 @@ export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, cha
         console.log('[useAwareness] Memulai check-in...')
         
         const buffer = await window.api.getActivityBuffer()
-        if (!buffer || buffer.length < 3) {
-          console.log('[useAwareness] Skip check-in: Buffer kurang dari 3 (sekarang: ' + (buffer ? buffer.length : 0) + ')')
+        if (!buffer || buffer.length < 1) {
+          console.log('[useAwareness] Skip check-in: Buffer kosong')
           isRequestingRef.current = false
           return
         }

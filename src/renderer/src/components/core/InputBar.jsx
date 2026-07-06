@@ -1,5 +1,7 @@
-import React, { useRef, useEffect } from 'react';
-import { FaMicrophone, FaStop, FaArrowUp, FaDesktop, FaWhatsapp } from 'react-icons/fa';
+import React, { useRef, useEffect, useState } from 'react';
+import { FaMicrophone, FaStop, FaArrowUp, FaDesktop, FaWhatsapp, FaSmile } from 'react-icons/fa';
+
+const EMOJIS = ['😂', '🤣', '😅', '🙏', '🔥', '🚀', '💀', '😎', '🤔', '😭', '❤️', '👍', '✨', '👀', '💯'];
 
 const InputBar = ({ 
   value, 
@@ -12,6 +14,7 @@ const InputBar = ({
   source = 'pc'
 }) => {
   const inputRef = useRef(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   useEffect(() => {
     if (!isLoading && inputRef.current) {
@@ -21,6 +24,15 @@ const InputBar = ({
       }, 50);
     }
   }, [isLoading]);
+
+  const handleEmojiClick = (emoji) => {
+    // Memasukkan emoji ke dalam input state
+    onChange({ target: { value: value + emoji } });
+    setShowEmojiPicker(false);
+    setTimeout(() => {
+      if (inputRef.current) inputRef.current.focus();
+    }, 10);
+  };
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-50">
@@ -41,6 +53,33 @@ const InputBar = ({
         >
           <FaMicrophone size={18} />
         </button>
+
+        {/* Emoji Button */}
+        <div className="relative flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="p-3 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-full transition-all"
+            title="Insert Emoji"
+          >
+            <FaSmile size={18} />
+          </button>
+          
+          {showEmojiPicker && (
+            <div className="absolute bottom-full left-0 mb-4 bg-[var(--glass-bg)] backdrop-blur-3xl border border-[var(--glass-border)] rounded-2xl p-2 shadow-2xl flex flex-wrap w-52 gap-1 z-[100] animate-[holo-project-in_0.2s_ease-out_forwards]">
+              {EMOJIS.map(emoji => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => handleEmojiClick(emoji)}
+                  className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-xl text-2xl transition-all hover:scale-110 active:scale-95"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Input */}
         <input

@@ -22,7 +22,7 @@ export const useMarkAgent = () => {
     orbStatus, setOrbStatus, currentResponse, setCurrentResponse,
     notifications, pushNotification,
     activeProcesses, setActiveProcesses, pushProcess, dismissProcess,
-    inputSource, setInputSource, activeTopic, setActiveTopic
+    inputSource, setInputSource, activeTopic, setActiveTopic, isChatLoaded
   } = state
 
   const { receiveSearchResult, handleSearchCommand } = useMarkSearch(setChatData, chatData, searchProp, pushProcess, dismissProcess)
@@ -46,6 +46,24 @@ export const useMarkAgent = () => {
   })
 
   const activeWaRequestRef = useRef(null)
+  const hasGreetedRef = useRef(false)
+
+  // Welcome Greeting on Startup
+  useEffect(() => {
+    if (isChatLoaded && !hasGreetedRef.current && config.length > 0) {
+      hasGreetedRef.current = true;
+      console.log('[useMarkAgent] Memicu pesan sambutan (Boot sequence)...');
+      
+      const greetingPrompt = `[SYSTEM BOOT]: Aplikasi baru saja dinyalakan dari keadaan mati.
+Tugasmu:
+1. Ucapkan selamat datang kembali / sapa user sesuai personality-mu.
+2. Analisis sekilas obrolan paling terakhir di atas (jika ada) dan sebutkan atau singgung obrolan itu dengan natural (misalnya: "Btw tadi kita lagi bahas X").
+3. Jangan berikan plan atau task apa pun. Langsung sapa saja.`;
+
+      // Trigger planning secara autonom tanpa bubble chat dari user
+      handlePlanningCommand(greetingPrompt, null, true, null);
+    }
+  }, [isChatLoaded, config, handlePlanningCommand]);
 
   useEffect(() => {
     const handleWaAdminMessage = (e) => {

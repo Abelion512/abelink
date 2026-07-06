@@ -13,6 +13,7 @@ export const useMarkState = () => {
   const [activeProcesses, setActiveProcesses] = useState([])
   const [inputSource, setInputSource] = useState('pc')
   const [activeTopic, setActiveTopic] = useState(null)
+  const [isChatLoaded, setIsChatLoaded] = useState(false)
   const sessionId = useRef('mark-main-thread')
 
   const abortControllerRef = useRef(null)
@@ -33,14 +34,15 @@ export const useMarkState = () => {
     if (data && data.length > 0) {
       setChatData(data)
     }
+    setIsChatLoaded(true)
   }
 
   useEffect(() => {
     // Save to DB on every change if not initial empty array
-    if (chatData !== undefined) {
+    if (chatData !== undefined && isChatLoaded) {
       saveMainThread(chatData)
     }
-  }, [chatData])
+  }, [chatData, isChatLoaded])
 
   const clearChat = () => {
     setChatData([]) // saveMainThread will auto save the empty array
@@ -99,6 +101,7 @@ export const useMarkState = () => {
     setInputSource,
     activeTopic,
     setActiveTopic,
+    isChatLoaded,
     abortControllerRef,
     searchProp,
     handleStop

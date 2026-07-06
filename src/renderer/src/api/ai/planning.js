@@ -479,7 +479,7 @@ Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengeval
 4. Jika ADA info user yang pantas disimpan/diperbarui, isi properti "memory". Kamu WAJIB menulis konten 'memory' dalam Bahasa Indonesia.
 5. Jika TIDAK ADA, kamu harus set "memory" menjadi null.
 6. Kamu WAJIB menulis konten 'memory' sebagai KALIMAT DESKRIPTIF PENUH YANG BERKONTEKS, bukan sekadar nilai mentahnya. (Contoh SALAH: "B 1234". Contoh BENAR: "Plat nomor motor Jono adalah B 1234", "Gaya bahasa user ini kaku dan sopan, sepertinya orang tua, Mark harus merespons formal"). Ini sangat penting agar sistem vektor bisa mencocokkan kata kunci konteks.
-7. Jika memory berupa informasi permanen, kamu WAJIB menyimpannya dengan "type" sebagai "preference" atau "profile". Kedua tipe ini adalah "Core Memory" yang akan diingat SELAMANYA di setiap percakapan! Gunakan "key" yang konsisten untuk Core Memory (misal: "name", "age", "tone", "hobby", "relationship").
+7. Jika memory berupa informasi permanen, kamu WAJIB menyimpannya dengan "type" sebagai "preference" atau "profile". Kedua tipe ini adalah "Core Memory" yang akan diingat SELAMANYA di setiap percakapan! Untuk Core Memory, kamu WAJIB menggunakan "key" baku berikut secara persis: "name", "age", "tone", "hobby", "relationship", "job", atau "routine". DILARANG KERAS mengarang key lain seperti "user_name" atau semacamnya!
 8. Jika memory berupa catatan, acara, atau info yang butuh konteks waktu, kamu WAJIB memasukkan Tanggal & Waktu saat ini di dalam kalimat memory. (Contoh: "Pada 1 Juli 2026, user mengatakan bahwa...")
 9. ATURAN TIPE (SUPER KRITIS): Properti "type" HANYA BOLEH diisi dengan salah satu dari ini secara persis: "profile", "preference", "skill", "project", "transaction", "goal", "relationship", "fact", atau "other". Dilarang keras mengarang tipe baru!
 
@@ -487,7 +487,13 @@ Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengeval
 {
   "answer": "string (Penjelasan panjang, substantif, dan komprehensif)",
   "mood": "positive|neutral|negative",
-  "memory": { "id": number|null, "type": "profile|preference|skill|project|transaction|goal|relationship|fact|other", "key": "string", "memory": "string", "action": "insert|update|delete" } atau null
+  "memory": { 
+      "id": number|null, 
+      "type": "profile|preference|skill|project|transaction|goal|relationship|fact|other", 
+      "key": "string", 
+      "memory": "string", 
+      "action": "insert|update|delete" 
+  } atau null (Semua properti di dalam objek memory ini WAJIB ADA dan tidak boleh dilewati!)
 }
 `
     const prepareHistoryConclusion = (session, maxLength = 800) => {
