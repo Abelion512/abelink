@@ -1,4 +1,4 @@
-# MARK - Memory Adaptive Response Knowledge
+# MARK - Metacognitive Artificial Relational Knowledge
 
 [![Download Terbaru](https://img.shields.io/badge/Download-Versi_Terbaru-blue?style=for-the-badge&logo=windows)](https://github.com/Mazees/mark-agent/releases/)
 
