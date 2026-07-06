@@ -28,7 +28,7 @@ export const generateVector = async (text) => {
   try {
     const configs = await getAllConfig();
     const conf = configs[0] || {};
-    const embedProvider = conf.embedProvider || 'lm-studio';
+    const embedProvider = conf.embedProvider || 'transformers';
 
     if (embedProvider === 'transformers') {
       const ext = await getExtractor();

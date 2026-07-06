@@ -1,4 +1,15 @@
-import { app, shell, BrowserWindow, ipcMain, session, Tray, Menu, globalShortcut, nativeImage, Notification } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  ipcMain,
+  session,
+  Tray,
+  Menu,
+  globalShortcut,
+  nativeImage,
+  Notification
+} from 'electron'
 import { join } from 'path'
 import path from 'path'
 import fs from 'fs'
@@ -56,7 +67,7 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    mainWindow.webContents.openDevTools()
+    // mainWindow.webContents.openDevTools()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -72,7 +83,7 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
-  
+
   // Sembunyikan window saat tombol close diklik (masuk tray)
   mainWindow.on('close', function (event) {
     if (!isQuiting) {
@@ -83,7 +94,6 @@ function createWindow() {
 }
 
 // Removed old WA logic
-
 
 ipcMain.on('remote-music-command', (event, command, payload) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -113,7 +123,7 @@ ipcMain.handle('ai:fetch', async (event, data) => {
 
 ipcMain.on('ai:abort-fetch', () => {
   import('./ai-bridge.js').then(({ activeAbortControllers }) => {
-    activeAbortControllers.forEach(controller => controller.abort(new Error('User Aborted')))
+    activeAbortControllers.forEach((controller) => controller.abort(new Error('User Aborted')))
   })
 })
 
@@ -141,7 +151,13 @@ app.on('second-instance', (event, commandLine, workingDirectory) => {
   }
 })
 
-import { startWhatsappBot, stopWhatsappBot, getConnectionStatus, logoutWhatsapp, uiMessageHistory } from './whatsapp/baileys-service.js'
+import {
+  startWhatsappBot,
+  stopWhatsappBot,
+  getConnectionStatus,
+  logoutWhatsapp,
+  uiMessageHistory
+} from './whatsapp/baileys-service.js'
 
 ipcMain.on('wa:start', () => startWhatsappBot(mainWindow))
 ipcMain.on('wa:stop', () => stopWhatsappBot())
@@ -154,7 +170,7 @@ import { loadPlugins, initPluginIPC } from './plugins/plugin-loader.js'
 app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.mark.agent')
-  
+
   // Run on startup background (Only if packaged, to avoid raw electron.exe startup)
   if (app.isPackaged) {
     app.setLoginItemSettings({
@@ -175,49 +191,58 @@ app.whenReady().then(async () => {
 
   setupYoutubeFix()
   createWindow()
-  
+
   // Langsung jalankan WhatsApp Bot di background secara rahasia (Tray Mode) saat aplikasi utama dibuka
   startWhatsappBot(mainWindow)
 
   // Setup System Tray
   // Cara paling aman dan ampuh di Windows: Ekstrak icon 16x16 langsung dari file .exe aplikasi!
   // Ini menghindari semua masalah pathing ASAR dan masalah format .ico yang rusak.
-  app.getFileIcon(process.execPath, { size: 'small' }).then((exeIcon) => {
-    tray = new Tray(exeIcon)
-    tray.setToolTip('Mark AI Assistant')
-    
-    const contextMenu = Menu.buildFromTemplate([
-      { label: 'Buka Mark', click: () => mainWindow.show() },
-      { label: 'Monitor WhatsApp', click: () => { mainWindow.show(); mainWindow.webContents.send('navigate', '/whatsapp-bot') } },
-      { 
-        label: 'Matikan WhatsApp Bot', 
-        click: () => {
-          stopWhatsappBot()
+  app
+    .getFileIcon(process.execPath, { size: 'small' })
+    .then((exeIcon) => {
+      tray = new Tray(exeIcon)
+      tray.setToolTip('Mark AI Assistant')
+
+      const contextMenu = Menu.buildFromTemplate([
+        { label: 'Buka Mark', click: () => mainWindow.show() },
+        {
+          label: 'Monitor WhatsApp',
+          click: () => {
+            mainWindow.show()
+            mainWindow.webContents.send('navigate', '/whatsapp-bot')
+          }
+        },
+        {
+          label: 'Matikan WhatsApp Bot',
+          click: () => {
+            stopWhatsappBot()
+          }
+        },
+        {
+          label: 'Ngobrol Sekarang (Live Audio)',
+          click: () => {
+            mainWindow.show()
+            mainWindow.webContents.send('trigger-live-audio')
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Keluar',
+          click: () => {
+            isQuiting = true
+            app.quit()
+          }
         }
-      },
-      { 
-        label: 'Ngobrol Sekarang (Live Audio)', 
-        click: () => {
-          mainWindow.show()
-          mainWindow.webContents.send('trigger-live-audio')
-        }
-      },
-      { type: 'separator' },
-      { 
-        label: 'Keluar', 
-        click: () => {
-          isQuiting = true
-          app.quit()
-        } 
-      }
-    ])
-    tray.setContextMenu(contextMenu)
-    tray.on('click', () => mainWindow.show())
-  }).catch(() => {
-    // Fallback jika gagal (misal saat masih mode npm run dev)
-    tray = new Tray(nativeImage.createFromPath(icon).resize({ width: 16, height: 16 }))
-    tray.setToolTip('Mark AI Assistant')
-  })
+      ])
+      tray.setContextMenu(contextMenu)
+      tray.on('click', () => mainWindow.show())
+    })
+    .catch(() => {
+      // Fallback jika gagal (misal saat masih mode npm run dev)
+      tray = new Tray(nativeImage.createFromPath(icon).resize({ width: 16, height: 16 }))
+      tray.setToolTip('Mark AI Assistant')
+    })
 
   // Global Shortcut (One-way)
   // Menggunakan Ctrl+Alt+M untuk menghindari bentrok dengan shortcut OS atau aplikasi lain (misal: Discord/AMD)
@@ -277,7 +302,11 @@ app.whenReady().then(async () => {
     try {
       const ytData = await yts(query)
       const video = ytData.videos.slice(0, 4)
-      return video.map((item) => ({ url: `https://www.youtube.com/watch?v=${item.videoId}`, title: item.title, author: item.author.name }))
+      return video.map((item) => ({
+        url: `https://www.youtube.com/watch?v=${item.videoId}`,
+        title: item.title,
+        author: item.author.name
+      }))
     } catch (error) {
       console.error('Gagal search YT:', error.message)
       return []
@@ -286,7 +315,7 @@ app.whenReady().then(async () => {
 
   // src/main/index.js
 
-  let globalTTS = null;
+  let globalTTS = null
 
   ipcMain.handle('tts-speak', async (_, text, rate, pitch) => {
     try {
@@ -294,7 +323,7 @@ app.whenReady().then(async () => {
         globalTTS = new MsEdgeTTS()
         await globalTTS.setMetadata('id-ID-ArdiNeural', OUTPUT_FORMAT.WEBM_24KHZ_16BIT_MONO_OPUS)
       }
-      
+
       const formattedRate = `${rate || 0}%`
       const formattedPitch = `${pitch || 0}Hz`
 
@@ -327,7 +356,7 @@ app.whenReady().then(async () => {
       }
 
       const results = await ytmusicInstance.search(query)
-      const validSongs = results.filter(item => item.videoId)
+      const validSongs = results.filter((item) => item.videoId)
 
       return validSongs.slice(0, 5).map((song) => ({
         id: song.videoId,
@@ -335,7 +364,9 @@ app.whenReady().then(async () => {
         artist: song.artist?.name || 'Unknown',
         album: song.album?.name || 'Single',
         duration: song.duration,
-        thumbnail: song.thumbnails?.[song.thumbnails.length - 1]?.url?.replace(/=w\d+-h\d+.*$/, '=w1080-h1080-l90-rj')?.replace(/\?sqp=.*$/, '')
+        thumbnail: song.thumbnails?.[song.thumbnails.length - 1]?.url
+          ?.replace(/=w\d+-h\d+.*$/, '=w1080-h1080-l90-rj')
+          ?.replace(/\?sqp=.*$/, '')
       }))
     } catch (error) {
       console.error('Mark gagal mencari lagu:', error.message)

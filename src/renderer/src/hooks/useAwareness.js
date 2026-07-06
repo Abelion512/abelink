@@ -3,16 +3,20 @@ import { getAllMemory } from '../api/db'
 import { getRelevantMemory } from '../api/vectorMemory'
 import { getAwarenessResponse } from '../api/ai/awareness'
 
-const CHECKIN_INTERVAL = 3 * 60 * 1000 // 3 menit
-const INITIAL_DELAY = 30 * 1000 // 30 detik
+const CHECKIN_INTERVAL = 10 * 60 * 1000
+const INITIAL_DELAY = 60 * 1000
 
 export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, chatData, handlePlanningCommand }) => {
   const isRequestingRef = useRef(false)
   const chatDataRef = useRef(chatData)
+  const configRef = useRef(config)
+  const handlePlanningCommandRef = useRef(handlePlanningCommand)
 
   useEffect(() => {
     chatDataRef.current = chatData
-  }, [chatData])
+    configRef.current = config
+    handlePlanningCommandRef.current = handlePlanningCommand
+  }, [chatData, config, handlePlanningCommand])
 
   useEffect(() => {
     const checkIn = async () => {
@@ -44,7 +48,7 @@ export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, cha
           window.api.clearActivityBuffer()
         }
 
-        const result = await getAwarenessResponse(buffer, memoryRef, config, recentChat)
+        const result = await getAwarenessResponse(buffer, memoryRef, configRef.current, recentChat)
         console.log('[useAwareness] AI Response:', result)
 
         if (result.should_act && result.message) {
@@ -55,8 +59,8 @@ export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, cha
           }
 
           // Jika ada perintah autonomus, bypass chat bubble biasa dan langsung eksekusi plan siluman
-          if (result.autonomous_prompt && handlePlanningCommand) {
-             handlePlanningCommand(result.autonomous_prompt, null, true, result.message)
+          if (result.autonomous_prompt && handlePlanningCommandRef.current) {
+             handlePlanningCommandRef.current(result.autonomous_prompt, null, true, result.message)
           } else {
              // Kalau cuma mau ngomong biasa tanpa ngejalanin plan
              setChatData(prev => [...prev, {
@@ -87,5 +91,5 @@ export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, cha
       clearInterval(id)
       clearTimeout(initialTimeout)
     }
-  }, [isLoading, config, setChatData, setOrbStatus, handlePlanningCommand])
+  }, [isLoading, setChatData, setOrbStatus])
 }

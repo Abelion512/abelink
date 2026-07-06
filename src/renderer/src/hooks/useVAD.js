@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { transcribeAudioGroq } from '../api/groq'
 
-
+import { getAllConfig } from '../api/db'
 
 export const useVAD = ({
   onTranscript // Function to call when STT finishes
@@ -50,7 +50,14 @@ export const useVAD = ({
     try {
       stopVADCleanup()
       
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const config = await getAllConfig()
+      const micId = config[0]?.micDeviceId
+      const constraints = {
+        audio: micId && micId !== 'default' 
+          ? { deviceId: { exact: micId } } 
+          : true
+      }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
       streamRef.current = stream
 
       const AudioContext = window.AudioContext || window.webkitAudioContext

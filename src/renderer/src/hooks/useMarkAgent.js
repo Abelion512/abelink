@@ -50,7 +50,7 @@ export const useMarkAgent = () => {
 
   // Welcome Greeting on Startup
   useEffect(() => {
-    if (isChatLoaded && !hasGreetedRef.current && config.length > 0) {
+    if (isChatLoaded && !hasGreetedRef.current) {
       hasGreetedRef.current = true;
       console.log('[useMarkAgent] Memicu pesan sambutan (Boot sequence)...');
       
@@ -63,7 +63,7 @@ Tugasmu:
       // Trigger planning secara autonom tanpa bubble chat dari user
       handlePlanningCommand(greetingPrompt, null, true, null);
     }
-  }, [isChatLoaded, config, handlePlanningCommand]);
+  }, [isChatLoaded, handlePlanningCommand]);
 
   useEffect(() => {
     const handleWaAdminMessage = (e) => {

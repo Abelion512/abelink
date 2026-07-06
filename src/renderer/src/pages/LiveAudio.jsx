@@ -115,7 +115,13 @@ const LiveAudio = () => {
       try {
         stopRecordingCleanup()
         
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const micId = config[0]?.micDeviceId
+        const constraints = {
+          audio: micId && micId !== 'default' 
+            ? { deviceId: { exact: micId } } 
+            : true
+        }
+        const stream = await navigator.mediaDevices.getUserMedia(constraints)
         streamRef.current = stream
 
         const AudioContext = window.AudioContext || window.webkitAudioContext

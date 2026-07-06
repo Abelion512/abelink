@@ -16,11 +16,13 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     groqApiKey: '',
     aiProvider: 'lm-studio',
     groqModel: 'llama-3.1-8b-instant',
-    embedProvider: 'lm-studio',
+    embedProvider: 'transformers',
     lmStudioEmbedModel: 'embeddinggemma-300m-qat',
-    waAdminNumber: ''
+    waAdminNumber: '',
+    micDeviceId: 'default'
   })
   const [memories, setMemories] = useState([])
+  const [audioDevices, setAudioDevices] = useState([])
   const [loadingMemory, setLoadingMemory] = useState(true)
   const [playingTest, setPlayingTest] = useState(false)
   const [isDownloadingModel, setIsDownloadingModel] = useState(false)
@@ -52,6 +54,13 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   useEffect(() => {
     loadConfig()
     loadMemories()
+
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(() => {
+      navigator.mediaDevices.enumerateDevices().then(devices => {
+        const mics = devices.filter(d => d.kind === 'audioinput')
+        setAudioDevices(mics)
+      }).catch(err => console.error("Error enumerating devices", err))
+    }).catch(err => console.error("Mic permission denied", err))
   }, [])
 
   useEffect(() => {
@@ -193,7 +202,8 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
         ...data[0],
         aiProvider: data[0].aiProvider || 'lm-studio',
         embedProvider: data[0].embedProvider || 'lm-studio',
-        lmStudioEmbedModel: data[0].lmStudioEmbedModel || 'embeddinggemma-300m-qat'
+        lmStudioEmbedModel: data[0].lmStudioEmbedModel || 'embeddinggemma-300m-qat',
+        micDeviceId: data[0].micDeviceId || 'default'
       }))
     }
   }
@@ -651,10 +661,27 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           <div className="divider"></div>
 
           {/* TTS Settings */}
-          <div id="tour-tts" className="p-2 -mx-2 rounded-lg">
+          <div id="tour-tts" className="space-y-6 p-2 -mx-2 rounded-lg">
             <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5">
               Audio & Voice Engine
             </h2>
+
+          {/* Microphone Source Selection */}
+          <div className="space-y-1.5">
+            <p className="text-sm font-semibold">Mikrofon (Voice Input)</p>
+            <select
+              className="select select-bordered w-full"
+              value={config.micDeviceId || 'default'}
+              onChange={(e) => setConfig((prev) => ({ ...prev, micDeviceId: e.target.value }))}
+            >
+              <option value="default">Default System Microphone</option>
+              {audioDevices.map((mic) => (
+                <option key={mic.deviceId} value={mic.deviceId}>
+                  {mic.label || `Microphone ${mic.deviceId.substring(0, 5)}...`}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* TTS Rate */}
           <div className="space-y-2">
