@@ -9,6 +9,7 @@ import HistoryDrawer from '../components/core/HistoryDrawer';
 import ProcessPanel from '../components/core/ProcessPanel';
 import musicCoverFallback from '../assets/music-cover.png';
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext';
+import { useVAD } from '../hooks/useVAD';
 
 const MarkHome = () => {
   const {
@@ -33,6 +34,16 @@ const MarkHome = () => {
   const [currentResponse, setCurrentResponse] = useState(null);
   const [showMusicWidget, setShowMusicWidget] = useState(false);
   const [isMusicAnimatingOut, setIsMusicAnimatingOut] = useState(false);
+
+  const handleVoiceTranscript = (text) => {
+    setMessage(text);
+    setIsSpeak(true); // Sets global state
+    handlePlanningCommand(text, null, false, null, { forceSpeak: true }); // Pass forceSpeak option
+  };
+
+  const { isRecording, toggleRecording, toastMessage } = useVAD({
+    onTranscript: handleVoiceTranscript
+  });
 
   // Handle music widget exit animation
   useEffect(() => {
@@ -137,6 +148,12 @@ const MarkHome = () => {
       <StatusIndicator notifications={notifications} />
       <ProcessPanel processes={activeProcesses} onDismiss={dismissProcess} />
 
+      {toastMessage && (
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 bg-error/90 text-white px-4 py-2 rounded-xl z-50 backdrop-blur shadow-lg animate-bounce text-sm">
+          {toastMessage}
+        </div>
+      )}
+
       {/* Main Content Area */}
       <div className="relative z-10 flex flex-col items-center w-full h-full px-4 pt-[10vh] pb-40 overflow-y-auto custom-scrollbar">
         
@@ -188,11 +205,17 @@ const MarkHome = () => {
       {/* Bottom Input Area */}
       <InputBar 
         value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        onSubmit={handleSubmit}
+        onChange={(e) => {
+          setMessage(e.target.value);
+          if (isSpeak) setIsSpeak(false); // Typing disables voice auto-reply
+        }}
+        onSubmit={() => {
+          setIsSpeak(false); // Typing submit disables voice auto-reply
+          handleSubmit();
+        }}
         isLoading={isLoading}
-        isSpeak={isSpeak}
-        onToggleSpeak={() => setIsSpeak(!isSpeak)}
+        isRecording={isRecording}
+        onToggleRecord={toggleRecording}
         onStop={handleStop}
         source={inputSource}
       />

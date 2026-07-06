@@ -25,7 +25,9 @@ export const useMarkPlan = ({
     }
   }, [setChatData])
 
-  const handlePlanningCommand = async (userInput, waContext = null, isAutonomous = false, autonomousInitialMessage = null) => {
+  const handlePlanningCommand = async (userInput, waContext = null, isAutonomous = false, autonomousInitialMessage = null, options = {}) => {
+    const finalIsSpeak = options.forceSpeak !== undefined ? options.forceSpeak : isSpeak
+
     if (!userInput) return
     setIsLoading(true)
     const timestampStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
@@ -87,7 +89,7 @@ export const useMarkPlan = ({
       // 1. Get Plan
       setChatData((prev) => [
         ...prev,
-        { role: 'ai', content: 'Menganalisis instruksi dan membuat rencana...', isThinking: true }
+        { role: 'ai', content: 'Bentar, mikir dulu...', isThinking: true }
       ])
       const planData = await getPlan(
         userInput,
@@ -130,7 +132,11 @@ export const useMarkPlan = ({
           memory: planData.memory || null
         }
 
-        if (isSpeak && !isPluginAction && answer.answer) {
+        if (finalIsSpeak && !isPluginAction && answer.answer) {
+          setChatData((prev) => [
+            ...prev.filter((item) => !item.isThinking),
+            { role: 'ai', content: 'Bentar...', isThinking: true }
+          ])
           await playVoice(answer.answer)
         }
         
@@ -231,7 +237,7 @@ export const useMarkPlan = ({
                 data: { action: act, query: qry, result: summaryStr }
               })
               
-              setChatData((prev) => [ ...prev, { role: 'ai', content: 'Membaca hasil eksekusi...', isThinking: true } ])
+              setChatData((prev) => [ ...prev, { role: 'ai', content: 'Ngecek hasilnya bentar...', isThinking: true } ])
               await new Promise(resolve => setTimeout(resolve, 500))
 
               const followUpInput = `Pertanyaan user: "${userInput}"`
@@ -251,6 +257,11 @@ export const useMarkPlan = ({
 
               if (window.api.showNotification && !document.hasFocus()) {
                 window.api.showNotification('Mark', followUp.answer)
+              }
+
+              if (options?.forceSpeak) {
+                setChatData((prev) => [ ...prev.filter(item => !item.isThinking), { role: 'ai', content: 'Bentar...', isThinking: true } ])
+                await playVoice(followUp.answer)
               }
 
               setChatData((prev) => [
@@ -526,7 +537,7 @@ export const useMarkPlan = ({
       // 3. Conclusion
       setChatData((prev) => [
         ...prev,
-        { role: 'ai', content: 'Merangkum hasil akhir...', isThinking: true }
+        { role: 'ai', content: 'Nyiapin jawaban...', isThinking: true }
       ])
       const { answer: finalAnswer, reasoning: finalReasoning, memory: finalMemory, mood: finalMood } = await getPlanConclusion(
         userInput,
@@ -549,6 +560,14 @@ export const useMarkPlan = ({
 
       if (window.api.showNotification && !document.hasFocus()) {
         window.api.showNotification('Mark', finalAnswer)
+      }
+
+      if (options?.forceSpeak || isSpeak) {
+        setChatData((prev) => [
+          ...prev.filter((item) => !item.isThinking),
+          { role: 'ai', content: 'Bentar...', isThinking: true }
+        ])
+        await playVoice(finalAnswer)
       }
 
       setChatData((prev) => {
@@ -590,10 +609,6 @@ export const useMarkPlan = ({
           memoryData.memory = `[${dateStr}] ${memoryData.memory}`
           await actions[finalMemory.action](memoryData)
         }
-      }
-
-      if (isSpeak) {
-        await playVoice(finalAnswer)
       }
 
       setMessage('')

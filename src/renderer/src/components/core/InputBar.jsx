@@ -6,8 +6,8 @@ const InputBar = ({
   onChange, 
   onSubmit, 
   isLoading, 
-  isSpeak, 
-  onToggleSpeak, 
+  isRecording, 
+  onToggleRecord, 
   onStop,
   source = 'pc'
 }) => {
@@ -28,16 +28,16 @@ const InputBar = ({
         onSubmit={(e) => { e.preventDefault(); onSubmit(); }}
         className="relative flex items-center bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-[2rem] p-2 pr-3 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all focus-within:border-primary/50 focus-within:shadow-[0_0_20px_oklch(var(--su)/0.2)]"
       >
-        {/* TTS Toggle */}
+        {/* Mic / Record Toggle */}
         <button
           type="button"
-          onClick={onToggleSpeak}
+          onClick={onToggleRecord}
           className={`p-3 rounded-full transition-all flex-shrink-0 ${
-            isSpeak 
-              ? 'text-primary bg-success/20' 
+            isRecording 
+              ? 'text-error bg-error/20 animate-pulse' 
               : 'text-white/40 hover:text-white/80 hover:bg-white/5'
           }`}
-          title={isSpeak ? 'Voice Response On' : 'Voice Response Off'}
+          title={isRecording ? 'Stop Recording' : 'Click to Talk'}
         >
           <FaMicrophone size={18} />
         </button>

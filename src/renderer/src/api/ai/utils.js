@@ -19,7 +19,7 @@ export const getCurrentTimeInfo = () => {
 
 
 
-export const playVoice = async (text) => {
+export const playVoice = async (text, onStart, onEnd) => {
   try {
     const config = await getAllConfig()
     const rate = config[0]?.ttsRate ?? 0
@@ -32,11 +32,27 @@ export const playVoice = async (text) => {
       // 2. Bikin object Audio baru dari string base64 tadi
       const audio = new Audio(audioBase64)
 
+      audio.onended = () => {
+        window.isMarkSpeaking = false
+        if (onEnd) onEnd()
+      }
+
       // 3. Mainkan!
+      window.isMarkSpeaking = true
       await audio.play()
+      if (onStart) onStart()
+    } else {
+      if (onStart) onStart()
+      if (onEnd) onEnd()
     }
   } catch (error) {
     console.error('Gagal memutar suara:', error)
+    if (window.api && window.api.showNotification) {
+      window.api.showNotification('Error TTS', String(error.message || error))
+    }
+    window.isMarkSpeaking = false
+    if (onStart) onStart()
+    if (onEnd) onEnd()
   }
 }
 
