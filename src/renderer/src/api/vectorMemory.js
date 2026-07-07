@@ -37,7 +37,7 @@ export const generateVector = async (text) => {
       return Array.from(output.data);
     } else {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000)
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
       
       try {
         const response = await fetch('http://localhost:1234/v1/embeddings', {
@@ -119,4 +119,18 @@ export const getRelevantMemory = async (userInput, memoryList) => {
     .map(({ vector, ...rest }) => rest)
 
   return [...coreMemories, ...relevantMemories]
+}
+
+import { searchArchives, searchDocuments } from './oramaStore'
+
+export const getUnifiedContext = async (userInput, memoryList) => {
+  const output = await generateVector(userInput)
+  if (!output) return { memories: [], archives: [], documents: [] }
+  const userVector = Array.from(output)
+
+  const memories = await getRelevantMemory(userInput, memoryList)
+  const archives = await searchArchives(userVector, 3)
+  const documents = await searchDocuments(userInput, userVector, 5)
+
+  return { memories, archives, documents }
 }

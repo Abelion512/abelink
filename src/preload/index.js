@@ -58,6 +58,10 @@ const api = {
   },
   sendWaAgentExecutionDone: (data) => ipcRenderer.send('wa:agent-execution-done', data),
   sendWaMessage: (jid, text) => ipcRenderer.invoke('wa:send-message', { jid, text }),
+  
+  // RAG Parsing
+  parseDocument: (arrayBuffer, isDocx) => ipcRenderer.invoke('parse-document', arrayBuffer, isDocx),
+
   waTakeScreenshot: (jid, msgId) => ipcRenderer.send('wa:trigger-screenshot', { jid, msgId }),
   waDownloadMusic: (jid, msgId, query) => ipcRenderer.send('wa:trigger-music-download', { jid, msgId, query }),
   waPlayMusicUi: (command, query) => ipcRenderer.send('wa:trigger-music-ui', { command, query }),

@@ -6,7 +6,8 @@ import {
   FaPuzzlePiece,
   FaMicrophoneAlt,
   FaHistory,
-  FaWhatsapp
+  FaWhatsapp,
+  FaDatabase
 } from 'react-icons/fa'
 
 const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
@@ -59,6 +60,20 @@ const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
             <FaMicrophoneAlt className="text-primary" /> Live Audio
+          </button>
+
+          <button
+            onClick={() => handleNav('/knowledge')}
+            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
+          >
+            <FaDatabase className="text-primary" /> Knowledge (RAG)
+          </button>
+
+          <button
+            onClick={() => handleNav('/archives')}
+            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
+          >
+            <FaHistory className="text-primary" /> Chat Archives
           </button>
 
           <button

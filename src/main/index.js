@@ -163,6 +163,25 @@ ipcMain.on('wa:start', () => startWhatsappBot(mainWindow))
 ipcMain.on('wa:stop', () => stopWhatsappBot())
 ipcMain.handle('wa:get-status', () => getConnectionStatus())
 ipcMain.handle('wa:get-history', () => uiMessageHistory)
+
+ipcMain.handle('parse-document', async (event, arrayBuffer, isDocx) => {
+  try {
+    const buffer = Buffer.from(arrayBuffer)
+    if (isDocx) {
+      const mammoth = require('mammoth')
+      const result = await mammoth.extractRawText({ buffer })
+      return result.value
+    } else {
+      const { PDFParse } = require('pdf-parse')
+      const parser = new PDFParse({ data: buffer })
+      const data = await parser.getText()
+      return data.text
+    }
+  } catch (error) {
+    console.error('Failed to parse document:', error)
+    throw new Error('Gagal mem-parsing dokumen: ' + error.message)
+  }
+})
 ipcMain.handle('wa:logout', async () => await logoutWhatsapp())
 
 import { loadPlugins, initPluginIPC } from './plugins/plugin-loader.js'

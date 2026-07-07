@@ -34,6 +34,11 @@ db.version(7).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, waAdminNumber, waPendingAdmins, waApprovedAdmins, customEndpoint, customApiKey, customModel'
 })
 
+db.version(8).stores({
+  chatArchive: '++id, summary, timestamp, topic',
+  documents: '++id, docName, chunkIndex, content, timestamp'
+})
+
 // --- VALIDATION ---
 const VALID_TYPES = ['profile', 'preference', 'skill', 'project', 'transaction', 'goal', 'relationship', 'fact', 'other'];
 
@@ -214,5 +219,64 @@ export async function getChatData(id) {
   } catch (error) {
     console.error('Error in getChatData logic:', error)
     return []
+  }
+}
+
+// --- CHAT ARCHIVE CRUD ---
+export async function insertChatArchive(data) {
+  try {
+    return await db.chatArchive.add(data)
+  } catch (error) {
+    console.error('Error in insertChatArchive:', error)
+    throw error
+  }
+}
+
+export async function getAllChatArchives() {
+  try {
+    return await db.chatArchive.toArray()
+  } catch (error) {
+    console.error('Error in getAllChatArchives:', error)
+    return []
+  }
+}
+
+export async function deleteChatArchive(id) {
+  try {
+    await db.chatArchive.delete(id)
+  } catch (error) {
+    console.error('Error in deleteChatArchive:', error)
+    throw error
+  }
+}
+
+// --- DOCUMENTS CRUD ---
+export async function bulkInsertDocuments(chunks) {
+  try {
+    return await db.documents.bulkAdd(chunks, { allKeys: true })
+  } catch (error) {
+    console.error('Error in bulkInsertDocuments:', error)
+    throw error
+  }
+}
+
+export async function getAllDocuments() {
+  try {
+    return await db.documents.toArray()
+  } catch (error) {
+    console.error('Error in getAllDocuments:', error)
+    return []
+  }
+}
+
+export async function deleteDocumentByName(docName) {
+  try {
+    const chunks = await db.documents.where('docName').equals(docName).toArray()
+    const ids = chunks.map(c => c.id)
+    await db.documents.bulkDelete(ids)
+    return ids
+  } catch (error) {
+    console.error('Error in deleteDocumentByName:', error)
+    throw error
   }
 }

@@ -8,6 +8,7 @@ import {
   useMarkPlan
 } from './agent'
 import { useAwareness } from './useAwareness'
+import { useChatArchiver } from './useChatArchiver'
 import { formatForWhatsApp } from '../api/ai/utils'
 
 export const useMarkAgent = () => {
@@ -44,6 +45,8 @@ export const useMarkAgent = () => {
     chatData,
     handlePlanningCommand
   })
+
+  useChatArchiver({ chatData, activeTopic, config, pushNotification, isLoading })
 
   const activeWaRequestRef = useRef(null)
   const hasGreetedRef = useRef(false)

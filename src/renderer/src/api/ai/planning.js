@@ -27,11 +27,12 @@ export const getPlan = async (
   isWebSearch,
   signal,
   chatSession = [],
-  memoryReference = [],
+  unifiedContext = { memories: [], archives: [], documents: [] },
   contextMsg = '',
   activeTopic = ''
 ) => {
   try {
+    const { memories = [], archives = [], documents = [] } = unifiedContext
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
     const pluginActions = await getPluginActions()
@@ -40,7 +41,7 @@ export const getPlan = async (
       : ''
     console.log('[planning] Built capabilities string')
 
-    const hasName = memoryReference.some(m => m.key === 'name')
+    const hasName = memories.some(m => m.key === 'name')
     const systemPrompt = `
 Kamu adalah Mark (Memory Adaptive Response Knowledge), sebuah entitas asisten AI canggih dan otonom.
 
@@ -86,8 +87,21 @@ ${activeTopic ? `ATURAN KRITIS: Topik/Mode obrolan kamu dari chat sebelumnya ada
 ${getCurrentTimeInfo()}
 
 # MEMORY USER
-${memoryReference.length > 0 ? JSON.stringify(memoryReference) : 'Tidak ada memory yang relevan.'}
+${memories.length > 0 ? JSON.stringify(memories) : 'Tidak ada memory yang relevan.'}
 Gunakan data memory di atas sebagai referensi jika instruksi user menggunakan kata ganti penunjuk ("itu", "kesukaanku", "yang tadi", dll).
+
+# ARSIP OBROLAN LAMA (Ingatan Jangka Panjang)
+${archives.length > 0 ? archives.map(a =>
+  `[${new Date(a.timestamp).toLocaleDateString('id-ID')}] ${a.summary}`
+).join('\n') : 'Tidak ada arsip relevan.'}
+Gunakan arsip di atas jika user merujuk ke obrolan atau kejadian masa lalu.
+
+# REFERENSI DOKUMEN (RAG Knowledge Base)
+${documents.length > 0 ? documents.map(d =>
+  `[${d.docName}] ${d.content}`
+).join('\n---\n') : 'Tidak ada dokumen relevan.'}
+Jika ada referensi dokumen di atas, WAJIB gunakan sebagai sumber jawaban utama.
+Jangan mengarang fakta di luar konteks dokumen!
 
 
 # KEMAMPUAN / TOOLS YANG TERSEDIA
@@ -110,10 +124,11 @@ Rancang rencana logis yang *bisa dieksekusi* menggunakan kombinasi dari kemampua
 3. Set "is_dynamic" menjadi true JIKA DAN HANYA JIKA "query" mutlak bergantung pada hasil teks dari tugas sebelumnya yang belum diketahui. Jika true, biarkan "query" kosong ("").
 4. Jika tugas bisa langsung dieksekusi tanpa menunggu hasil sebelumnya (misal: mencari cuaca, memutar lagu tertentu, atau web search), tuliskan "query" dengan kata kunci yang tepat dan set "is_dynamic" menjadi false.
 5. PENGGUNAAN WEB SEARCH: Gunakan Web Search ("search") HANYA untuk mencari informasi real-time, berita, harga produk, atau fakta publik terbaru. JANGAN gunakan untuk materi coding/teori dasar, cukup gunakan "summary".
-6. FAST BYPASS (TOOL TUNGGAL): Jika instruksi user HANYA butuh 1 penggunaan tool, KEMBALIKAN array plan kosong '{"plan": []}'. PENTING: Untuk action 'search', 'yt-search', atau percakapan biasa (none), isi 'direct_answer' dengan respon teks. NAMUN untuk eksekusi PLUGIN atau perintah berawalan 'music-', biarkan 'direct_answer' kosong/null (tanpa teks) agar eksekusi lebih cepat!
-7. OBROLAN SANTAI / REAKSI: Jika user hanya mengobrol santai, setuju, bereaksi, atau TIDAK meminta aksi baru secara eksplisit (misal: "mantap", "oke", "jos"), kamu WAJIB set 'command' menjadi null! JANGAN mengulangi tool sebelumnya.
-8. MENYIMPAN MEMORY / PROFIL: Jika user memberi info untuk diingat (misal: "Plat motor Jono B 1234"), isi objek 'memory' sesuai schema dengan sangat jelas. PENTING: Field 'memory' WAJIB berupa KALIMAT LENGKAP dengan konteks (Contoh: "Plat nomor motor Jono adalah B 1234"), bukan sekadar value/angkanya saja.
-10. AWARENESS ENGINE (Kesadaran Latar Belakang): Kamu memiliki mata dan telinga yang terus memantau aktivitas PC user (Awareness Engine). Jika user memintamu melakukan sesuatu NANTI, atau SAAT TERJADI SESUATU (misal: "kalau ayahku buka PC ini", "kalau aku buka VSCode"), JANGAN eksekusi tools sekarang! Cukup simpan permintaan tersebut ke dalam 'memory' dengan tipe "goal". Awareness Engine-mu akan membacanya dan bertindak sendiri secara otomatis saat kondisinya terpenuhi. Berikan 'direct_answer' yang santai bahwa kamu akan memantaunya.
+6. PENGGUNAAN DOKUMEN RAG: Jika pertanyaan user berkaitan dengan isi "# REFERENSI DOKUMEN (RAG Knowledge Base)" (misal: catatan pribadi, daftar belanja, modul PDF), kamu DILARANG KERAS menggunakan "search" web! Langsung baca dokumen tersebut dan berikan "direct_answer", atau gunakan action "summary" jika datanya sangat panjang/butuh diproses.
+7. FAST BYPASS (TOOL TUNGGAL): Jika instruksi user HANYA butuh 1 penggunaan tool, KEMBALIKAN array plan kosong '{"plan": []}'. PENTING: Untuk action 'search', 'yt-search', atau percakapan biasa (none), isi 'direct_answer' dengan respon teks. NAMUN untuk eksekusi PLUGIN atau perintah berawalan 'music-', biarkan 'direct_answer' kosong/null (tanpa teks) agar eksekusi lebih cepat!
+8. OBROLAN SANTAI / REAKSI: Jika user hanya mengobrol santai, setuju, bereaksi, atau TIDAK meminta aksi baru secara eksplisit (misal: "mantap", "oke", "jos"), kamu WAJIB set 'command' menjadi null! JANGAN mengulangi tool sebelumnya.
+9. MENYIMPAN MEMORY / PROFIL: Jika user memberi info untuk diingat (misal: "Plat motor Jono B 1234"), isi objek 'memory' sesuai schema dengan sangat jelas. PENTING: Field 'memory' WAJIB berupa KALIMAT LENGKAP dengan konteks.
+10. AWARENESS ENGINE: Kamu memiliki mata dan telinga yang terus memantau aktivitas PC user (Awareness Engine). Jika user memintamu melakukan sesuatu NANTI, atau SAAT TERJADI SESUATU (misal: "kalau ayahku buka PC ini", "kalau aku buka VSCode"), JANGAN eksekusi tools sekarang! Cukup simpan permintaan tersebut ke dalam 'memory' dengan tipe "goal".
 11. ORIGINALITAS: JANGAN PERNAH menyalin teks (direct_answer) secara persis dari bagian CONTOH di bawah. Buatlah responmu sendiri secara natural dan bervariasi!
 # CONTOH
 
@@ -411,13 +426,14 @@ export const getPlanConclusion = async (
   taskSummaries,
   signal,
   chatSession = [],
-  memoryReference = [],
+  unifiedContext = { memories: [], archives: [], documents: [] },
   contextMsg = '',
   activeTopic = ''
 ) => {
   try {
     const config = await getAllConfig()
-    const hasName = memoryReference.some(m => m.key === 'name' || m.memory.toLowerCase().includes('nama'))
+    const { memories = [], archives = [], documents = [] } = unifiedContext
+    const hasName = memories.some(m => m.key === 'name' || m.memory.toLowerCase().includes('nama'))
     const systemPrompt = `
 Kamu adalah Mark, sebuah entitas asisten AI canggih dan otonom.
 
@@ -460,8 +476,18 @@ ATURAN BAHASA: Kamu WAJIB SELALU membalas dalam BAHASA YANG SAMA dengan yang dig
 ${getCurrentTimeInfo()}
 
 # REFERENSI MEMORY (Ingatan masa lalu)
-${memoryReference.length > 0 ? JSON.stringify(memoryReference) : 'Kosong.'}
+${memories.length > 0 ? JSON.stringify(memories) : 'Kosong.'}
 (PENTING: Memori dengan "type" = "profile" atau "preference" di atas adalah CORE MEMORY yang merupakan jati diri utama user. Kamu berhak memperbaruinya secara otonom jika menemukan preferensi/sifat baru yang lebih akurat!)
+
+# ARSIP OBROLAN LAMA (Ingatan Jangka Panjang)
+${archives.length > 0 ? archives.map(a =>
+  `[${new Date(a.timestamp).toLocaleDateString('id-ID')}] ${a.summary}`
+).join('\n') : 'Tidak ada arsip relevan.'}
+
+# REFERENSI DOKUMEN (RAG Knowledge Base)
+${documents.length > 0 ? documents.map(d =>
+  `[${d.docName}] ${d.content}`
+).join('\n---\n') : 'Tidak ada dokumen relevan.'}
 
 # ATURAN PENULISAN & GAYA KOMUNIKASI
 1. **ADAPTIF BERDASARKAN PERTANYAAN**: 

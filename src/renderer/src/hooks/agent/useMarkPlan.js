@@ -3,7 +3,7 @@ import { getPlan, getTaskAction, getTaskSummary, getPlanConclusion } from '../..
 import { getSearchResult, getYoutubeSummary } from '../../api/ai/tools'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
 import { insertMemory, updateMemory, deleteMemory, getAllMemory } from '../../api/db'
-import { getRelevantMemory } from '../../api/vectorMemory'
+import { getUnifiedContext } from '../../api/vectorMemory'
 
 export const useMarkPlan = ({
   chatData, setChatData, config, isSpeak, abortControllerRef, setIsLoading, setMessage,
@@ -69,7 +69,7 @@ export const useMarkPlan = ({
 
     try {
       const allMemory = await getAllMemory()
-      const memoryReference = await getRelevantMemory(userInput, allMemory)
+      const unifiedContext = await getUnifiedContext(userInput, allMemory)
 
       // Construct contextMsg
       let contextMsgStr = ''
@@ -96,7 +96,7 @@ export const useMarkPlan = ({
         true,
         abortControllerRef.current.signal,
         chatSession,
-        memoryReference,
+        unifiedContext,
         contextMsgStr,
         activeTopic
       )
@@ -250,7 +250,7 @@ export const useMarkPlan = ({
                 [summaryStr], 
                 abortControllerRef.current.signal, 
                 followUpSession, 
-                memoryReference,
+                unifiedContext,
                 contextMsgStr,
                 activeTopic
               )
@@ -544,7 +544,7 @@ export const useMarkPlan = ({
         contextSummaries,
         abortControllerRef.current.signal,
         chatSession,
-        memoryReference,
+        unifiedContext,
         contextMsgStr
       )
 

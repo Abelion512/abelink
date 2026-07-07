@@ -4,6 +4,8 @@ import Configuration from './pages/Configuration'
 import LiveAudio from './pages/LiveAudio'
 import WhatsappBot from './pages/WhatsappBot'
 import Plugins from './pages/Plugins'
+import Knowledge from './pages/Knowledge'
+import ChatArchive from './pages/ChatArchive'
 import { HashRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
@@ -77,12 +79,24 @@ const GlobalListener = () => {
   return null
 }
 
+import { initOramaIndices, hydrateFromDexie } from './api/oramaStore'
+
 function App() {
   const [hasConfig, setHasConfig] = useState(true)
   const [isChecking, setIsChecking] = useState(true)
 
   useEffect(() => {
     const checkConfig = async () => {
+      // 1. Init Orama and Hydrate from Dexie
+      try {
+        await initOramaIndices()
+        await hydrateFromDexie()
+        console.log('[App] Orama indices ready!')
+      } catch (e) {
+        console.error('[App] Failed to init Orama:', e)
+      }
+
+      // 2. Load config
       const data = await getAllConfig()
       if (!data || data.length === 0) {
         setHasConfig(false)
@@ -132,6 +146,8 @@ function App() {
                 <Route path="/plugins" element={<Plugins />} />
                 <Route path="/live-audio" element={<LiveAudio />} />
                 <Route path="/whatsapp-bot" element={<WhatsappBot />} />
+                <Route path="/knowledge" element={<Knowledge />} />
+                <Route path="/archives" element={<ChatArchive />} />
               </Routes>
             </div>
           </div>
