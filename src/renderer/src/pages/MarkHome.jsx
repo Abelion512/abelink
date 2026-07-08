@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useChat } from '../contexts/ChatContext';
 import OrbVisualizer from '../components/core/OrbVisualizer';
 import InputBar from '../components/core/InputBar';
@@ -53,6 +54,18 @@ const MarkHome = () => {
   const { isRecording, toggleRecording, toastMessage } = useVAD({
     onTranscript: handleVoiceTranscript
   });
+
+  const location = useLocation();
+  const hasAutoStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (location.state?.autoStartMic) {
+      if (hasAutoStartedRef.current !== location.state.autoStartMic) {
+        hasAutoStartedRef.current = location.state.autoStartMic;
+        toggleRecording();
+      }
+    }
+  }, [location.state?.autoStartMic, toggleRecording]);
 
   // Handle music widget exit animation
   useEffect(() => {

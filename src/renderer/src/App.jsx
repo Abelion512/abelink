@@ -17,8 +17,8 @@ const GlobalListener = () => {
 
   useEffect(() => {
     const handleShortcut = () => {
-      // Force autoStart dengan timestamp agar state selalu unik dan termakan useEffect
-      navigate('/live-audio', { state: { autoStart: Date.now() } })
+      // Navigate to Home (MarkHome) and trigger microphone auto-start
+      navigate('/', { state: { autoStartMic: Date.now() } })
     }
 
     if (window.api?.onLiveAudioShortcut) {
