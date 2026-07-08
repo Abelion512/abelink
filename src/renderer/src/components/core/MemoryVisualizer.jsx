@@ -86,7 +86,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           const typeId = `type-${mem.type || 'other'}`;
           nodes.push({
             id: `mem-${mem.id}`,
-            name: mem.key ? mem.key : mem.memory.substring(0, 30) + '...',
+            name: mem.summary ? mem.summary : mem.memory.substring(0, 30) + '...',
             fullText: mem.memory,
             date: 'Vector RAG',
             group: 3,

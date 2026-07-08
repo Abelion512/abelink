@@ -74,24 +74,33 @@ export const cosineSimilarity = (vecA, vecB) => {
 }
 
 import { db } from './db';
+import { searchArchives, searchDocuments } from './oramaStore'
 
 export const getRelevantMemory = async (userInput, memoryList) => {
-  // 1. Ubah input user jadi koordinat (Vector)
+  // 1. Core memory (profile & preference) dipanggil langsung tanpa filter
+  const coreMemories = memoryList
+    .filter(m => m.type === 'profile' || m.type === 'preference')
+    .map(({ vector, ...rest }) => rest);
+
+  // 2. Jika ada memori notes, cari menggunakan Vector Search
+  const notesMemories = memoryList.filter(m => m.type === 'notes');
+  
+  if (notesMemories.length === 0) {
+    return coreMemories;
+  }
+
   const output = await generateVector(userInput);
-  if (!output) return []
+  if (!output) return coreMemories;
+  
+  const userVector = Array.from(output);
 
-  const userVector = Array.from(output)
-
-  // 2. Bandingkan dengan setiap memori di list
-  const scored = await Promise.all(memoryList.map(async (mem) => {
+  const scoredNotes = await Promise.all(notesMemories.map(async (mem) => {
     let currentVector = mem.vector;
 
-    // Jika belum ada vector atau dimensinya beda (karena pindah provider LM Studio <-> Transformers)
     if (!Array.isArray(currentVector) || currentVector.length === 0 || currentVector.length !== userVector.length) {
-      console.log(`Dimensi vector tidak cocok untuk memory ID ${mem.id}. Re-generating...`);
+      console.log(`Dimensi vector tidak cocok untuk notes ID ${mem.id}. Re-generating...`);
       currentVector = await generateVector(mem.memory);
       
-      // Update DB secara asinkron agar permanen
       if (currentVector && mem.id) {
          db.memory.update(mem.id, { vector: currentVector }).catch(console.error);
       }
@@ -101,29 +110,20 @@ export const getRelevantMemory = async (userInput, memoryList) => {
       return { ...mem, score: 0 }
     }
 
-    const score = cosineSimilarity(userVector, currentVector)
-    return { ...mem, score }
-  }))
+    return { ...mem, score: cosineSimilarity(userVector, currentVector) }
+  }));
 
-  // 3. Filter & Sort
-  // Core memory (profile & preference) selalu di-load sebagai identitas permanen (bypassing threshold)
-  const coreMemories = scored
-    .filter((m) => m.type === 'profile' || m.type === 'preference')
-    .map(({ vector, ...rest }) => rest)
-
-  // Vector memory (fact, project, dll) tetap difilter berdasar kemiripan (threshold 0.3)
-  const relevantMemories = scored
-    .filter((m) => m.score > 0.3 && m.type !== 'profile' && m.type !== 'preference')
+  const relevantNotes = scoredNotes
+    .filter(m => m.score > 0.3)
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
-    .map(({ vector, ...rest }) => rest)
+    .map(({ vector, ...rest }) => rest);
 
-  return [...coreMemories, ...relevantMemories]
+  return [...coreMemories, ...relevantNotes];
 }
 
-import { searchArchives, searchDocuments } from './oramaStore'
-
 export const getUnifiedContext = async (userInput, memoryList) => {
+  // Masih perlu generate vector untuk Orama (Documents & Archives)
   const output = await generateVector(userInput)
   if (!output) return { memories: [], archives: [], documents: [] }
   const userVector = Array.from(output)

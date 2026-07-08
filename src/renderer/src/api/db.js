@@ -40,20 +40,27 @@ db.version(8).stores({
 })
 
 // --- VALIDATION ---
-const VALID_TYPES = ['profile', 'preference'];
+const VALID_TYPES = ['profile', 'preference', 'notes'];
 
 function getValidType(type) {
   const t = (type || '').toLowerCase().trim();
-  return VALID_TYPES.includes(t) ? t : 'preference';
+  return VALID_TYPES.includes(t) ? t : 'notes';
 }
 
 // --- CREATE ---
 export async function insertMemory(data) {
   const memoryText = data.memory.trim()
-  const vector = await generateVector(memoryText)
+  const type = getValidType(data.type)
+  let vector = []
+  
+  if (type === 'notes') {
+    vector = await generateVector(memoryText) || []
+  }
+
   try {
     await db.memory.add({
-      type: getValidType(data.type),
+      type: type,
+      summary: data.summary || '',
       memory: memoryText,
       vector: vector
     })
@@ -72,10 +79,10 @@ export async function saveMainThread(data) {
 
 export async function getMainThread() {
   try {
-    const session = await db.sessions.get(1)
-    return session ? session.data : []
+    const thread = await db.sessions.get(1)
+    return thread ? thread.data : []
   } catch (error) {
-    console.error('Error getting main thread:', error)
+    console.error('Error fetching main thread:', error)
     return []
   }
 }
@@ -84,14 +91,20 @@ export async function getMainThread() {
 export async function updateMemory(data) {
   try {
     const newMemoryText = data.memory.trim()
-    const newVector = await generateVector(newMemoryText)
+    const type = getValidType(data.type)
     
+    let updatePayload = {
+      type: type,
+      summary: data.summary || '',
+      memory: newMemoryText
+    }
+    
+    if (type === 'notes') {
+      updatePayload.vector = await generateVector(newMemoryText) || []
+    }
+
     if (data.id) {
-      await db.memory.update(data.id, {
-        type: getValidType(data.type),
-        memory: newMemoryText,
-        vector: newVector
-      })
+      await db.memory.update(data.id, updatePayload)
       console.log(`✅ Memory ID ${data.id} berhasil di-update.`)
     } else {
       console.warn('⚠️ Gagal update: ID tidak ditemukan.')

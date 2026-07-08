@@ -3,27 +3,21 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ingestDocument } from '../api/ragPipeline'
 import { getAllDocuments, deleteDocumentByName } from '../api/db'
 import { deleteDocumentFromOrama } from '../api/oramaStore'
-import Swal from 'sweetalert2'
+import { useConfirm } from '../hooks/useConfirm'
 
 const Knowledge = () => {
   const navigate = useNavigate()
   const [documents, setDocuments] = useState([])
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const { confirm, ModalComponent } = useConfirm()
 
-  const Toast = Swal.mixin({
-    toast: true,
-    position: 'top-end',
-    showConfirmButton: false,
-    timer: 3000,
-    timerProgressBar: true,
-    background: 'oklch(var(--b2))',
-    color: 'oklch(var(--bc))',
-    didOpen: (toast) => {
-      toast.addEventListener('mouseenter', Swal.stopTimer)
-      toast.addEventListener('mouseleave', Swal.resumeTimer)
-    }
-  })
+  const [toastMessage, setToastMessage] = useState(null)
+
+  const showToast = (message) => {
+    setToastMessage(message)
+    setTimeout(() => setToastMessage(null), 3000)
+  }
 
   const loadData = useCallback(async () => {
     try {
@@ -58,19 +52,15 @@ const Knowledge = () => {
         setUploadProgress(progress)
       })
       await loadData()
-      Toast.fire({
-        icon: 'success',
-        title: 'Dokumen berhasil di-ingest!'
-      })
+      showToast('Dokumen berhasil di-ingest!')
     } catch (error) {
       console.error(error)
-      Swal.fire({
-        icon: 'error',
+      await confirm({
         title: 'Gagal Ingest',
-        text: error.message,
-        background: 'oklch(var(--b2))',
-        color: 'oklch(var(--bc))',
-        confirmButtonColor: 'oklch(var(--er))'
+        message: error.message,
+        isError: true,
+        hideCancel: true,
+        confirmText: 'Tutup'
       })
     } finally {
       setIsUploading(false)
@@ -80,17 +70,12 @@ const Knowledge = () => {
   }
 
   const handleDeleteDocument = async (docName) => {
-    const result = await Swal.fire({
+    const result = await confirm({
       title: 'Hapus Dokumen?',
-      text: `Yakin ingin menghapus dokumen "${docName}"? Mark tidak akan bisa mengingat informasi dari dokumen ini lagi.`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#ff5f56',
-      cancelButtonColor: '#4b5563',
-      confirmButtonText: 'Ya, Hapus',
-      cancelButtonText: 'Batal',
-      background: '#1d232a',
-      color: 'oklch(var(--bc))'
+      message: `Yakin ingin menghapus dokumen "${docName}"? Mark tidak akan bisa mengingat informasi dari dokumen ini lagi.`,
+      isError: true,
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal'
     })
 
     if (!result.isConfirmed) return
@@ -107,19 +92,15 @@ const Knowledge = () => {
       }
 
       await loadData()
-      Toast.fire({
-        icon: 'success',
-        title: 'Dokumen berhasil dihapus'
-      })
+      showToast('Dokumen berhasil dihapus')
     } catch (error) {
       console.error(error)
-      Swal.fire({
-        icon: 'error',
+      await confirm({
         title: 'Oops...',
-        text: 'Gagal menghapus dokumen',
-        background: 'oklch(var(--b2))',
-        color: 'oklch(var(--bc))',
-        confirmButtonColor: 'oklch(var(--er))'
+        message: 'Gagal menghapus dokumen',
+        isError: true,
+        hideCancel: true,
+        confirmText: 'Tutup'
       })
     }
   }
@@ -238,6 +219,15 @@ const Knowledge = () => {
           </section>
         </div>
       </div>
+      <ModalComponent />
+      
+      {toastMessage && (
+        <div className="toast toast-top toast-end z-[9999]">
+          <div className="alert alert-success shadow-lg rounded-xl flex items-center gap-2">
+            <span className="text-sm font-medium">{toastMessage}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
