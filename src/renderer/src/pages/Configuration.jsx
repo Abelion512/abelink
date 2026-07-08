@@ -987,7 +987,6 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                                 className="bg-base-300 p-2.5 rounded-lg flex justify-between items-start gap-3"
                               >
                                 <div>
-                                  <p className="text-sm font-medium">{mem.key}</p>
                                   <p className="text-xs opacity-60 mt-0.5 leading-relaxed">
                                     {mem.summary || mem.memory}
                                   </p>

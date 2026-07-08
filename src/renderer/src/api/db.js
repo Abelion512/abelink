@@ -54,7 +54,6 @@ export async function insertMemory(data) {
   try {
     await db.memory.add({
       type: getValidType(data.type),
-      key: data.key,
       memory: memoryText,
       vector: vector
     })
@@ -87,46 +86,15 @@ export async function updateMemory(data) {
     const newMemoryText = data.memory.trim()
     const newVector = await generateVector(newMemoryText)
     
-    let targetId = data.id;
-    
-    // Jika ID tidak ada, coba cari berdasarkan [type+key] atau [key]
-    if (!targetId) {
-      let existing = null;
-      
-      // Coba cari pakai oldKey jika ada
-      if (data.oldKey) {
-        if (data.type) {
-          existing = await db.memory.where('[type+key]').equals([getValidType(data.type), data.oldKey.toLowerCase().trim()]).first();
-        }
-        if (!existing) {
-          existing = await db.memory.where('key').equals(data.oldKey.toLowerCase().trim()).first();
-        }
-      }
-      
-      // Jika belum ketemu, coba cari pakai key baru
-      if (!existing && data.key) {
-        if (data.type) {
-          existing = await db.memory.where('[type+key]').equals([getValidType(data.type), data.key.toLowerCase().trim()]).first();
-        }
-        if (!existing) {
-          existing = await db.memory.where('key').equals(data.key.toLowerCase().trim()).first();
-        }
-      }
-
-      if (existing) {
-        targetId = existing.id;
-      }
-    }
-
-    if (targetId) {
-      await db.memory.update(targetId, {
-        key: data.key.toLowerCase().trim(),
+    if (data.id) {
+      await db.memory.update(data.id, {
+        type: getValidType(data.type),
         memory: newMemoryText,
         vector: newVector
       })
-      console.log(`✅ Memory ID ${targetId} berhasil di-update.`)
+      console.log(`✅ Memory ID ${data.id} berhasil di-update.`)
     } else {
-      console.warn('⚠️ Gagal update: ID tidak ditemukan dan data fallback tidak cocok.')
+      console.warn('⚠️ Gagal update: ID tidak ditemukan.')
     }
   } catch (error) {
     console.error('Error in updateMemory logic:', error)
@@ -136,36 +104,17 @@ export async function updateMemory(data) {
 // --- DELETE ---
 export async function deleteMemory(data) {
   try {
-    // 1. Prioritas utama: Hapus pake ID yang dikasih Mark
     if (data.id) {
       await db.memory.delete(data.id)
       console.log(`🗑️ Memory ID ${data.id} berhasil dihapus oleh Mark.`)
       return { success: true }
     }
-
-    // 2. Fallback: Cari pakai type+key atau key doang
-    const keyToSearch = data.oldKey ? data.oldKey.toLowerCase().trim() : (data.key ? data.key.toLowerCase().trim() : null);
     
-    if (keyToSearch) {
-      let existing = null;
-      if (data.type) {
-        existing = await db.memory.where('[type+key]').equals([getValidType(data.type), keyToSearch]).first();
-      }
-      if (!existing) {
-        existing = await db.memory.where('key').equals(keyToSearch).first();
-      }
-
-      if (existing) {
-        await db.memory.delete(existing.id);
-        console.log(`⚠️ Hapus via fallback: Memory ID ${existing.id} terhapus.`);
-        return { success: true };
-      }
-    }
-
-    console.warn('Mark mau hapus data tapi gak kasih ID atau Type/Key yang jelas.')
+    console.warn('⚠️ Gagal menghapus memory: ID tidak ditemukan dalam perintah delete.')
+    return { success: false, error: 'ID is required for deletion' }
   } catch (error) {
     console.error('Error in deleteMemory logic:', error)
-    throw error
+    return { success: false, error: error.message }
   }
 }
 
