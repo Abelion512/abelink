@@ -24,22 +24,26 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
       return;
     }
     
-    // Parse linear chatData into turns (user msg + subsequent ai msg)
+    // Parse linear chatData into turns (user msg + subsequent ai msg, or standalone ai)
     const turns = [];
+    let currentTurn = null;
+    
     for (let i = 0; i < data.length; i++) {
-      if (data[i].role === 'user') {
-        const turn = { id: i, user: data[i].content, ai: null };
-        // find next AI response
-        for (let j = i + 1; j < data.length; j++) {
-          if (data[j].role === 'ai') {
-            turn.ai = data[j];
-            break;
-          }
-          if (data[j].role === 'user') break; // another user message started
+      const msg = data[i];
+      if (msg.role === 'user') {
+        if (currentTurn) turns.push(currentTurn);
+        currentTurn = { id: i, user: msg.content, ai: null };
+      } else if (msg.role === 'ai') {
+        if (currentTurn && !currentTurn.ai) {
+          currentTurn.ai = msg;
+          turns.push(currentTurn);
+          currentTurn = null;
+        } else {
+          turns.push({ id: i, user: '🤖 [Inisiatif Mark]', ai: msg });
         }
-        turns.push(turn);
       }
     }
+    if (currentTurn) turns.push(currentTurn);
     // Reverse to show newest on top
     setHistoryTurns(turns.reverse());
   };
