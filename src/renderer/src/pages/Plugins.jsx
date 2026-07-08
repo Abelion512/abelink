@@ -514,13 +514,24 @@ export default function Plugins() {
               className="card bg-base-200/50 shadow-xl border border-base-content/10 backdrop-blur-md flex flex-col"
             >
               <div className="card-body flex flex-col h-full">
-                <h2 className="card-title text-primary">
-                  {pl.name}{' '}
-                  <span className="text-xs opacity-50 bg-base-300 px-2 py-1 rounded-full">
-                    v{pl.version || '1.0.0'}
-                  </span>
-                </h2>
-                <p className="text-sm opacity-80 flex-1">{pl.description}</p>
+                <div className="flex justify-between items-start">
+                  <h2 className={`card-title ${pl.isEnabled !== false ? 'text-primary' : 'text-base-content/50 line-through'}`}>
+                    {pl.name}{' '}
+                    <span className="text-xs opacity-50 bg-base-300 px-2 py-1 rounded-full no-underline">
+                      v{pl.version || '1.0.0'}
+                    </span>
+                  </h2>
+                  <input 
+                    type="checkbox" 
+                    className="toggle toggle-primary toggle-sm mt-1" 
+                    checked={pl.isEnabled !== false} 
+                    onChange={async (e) => {
+                      await window.api.togglePlugin(pl.name, e.target.checked);
+                      loadData();
+                    }} 
+                  />
+                </div>
+                <p className={`text-sm flex-1 ${pl.isEnabled !== false ? 'opacity-80' : 'opacity-40'}`}>{pl.description}</p>
                 <div className="mt-4">
                   <span className="text-xs font-bold uppercase opacity-50">Available Actions:</span>
                   <ul className="list-disc ml-4 text-xs mt-1 space-y-1">

@@ -40,11 +40,11 @@ db.version(8).stores({
 })
 
 // --- VALIDATION ---
-const VALID_TYPES = ['profile', 'preference', 'skill', 'project', 'transaction', 'goal', 'relationship', 'fact', 'other'];
+const VALID_TYPES = ['profile', 'preference'];
 
 function getValidType(type) {
   const t = (type || '').toLowerCase().trim();
-  return VALID_TYPES.includes(t) ? t : 'other';
+  return VALID_TYPES.includes(t) ? t : 'preference';
 }
 
 // --- CREATE ---

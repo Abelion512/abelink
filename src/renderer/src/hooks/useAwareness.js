@@ -6,17 +6,19 @@ import { getAwarenessResponse } from '../api/ai/awareness'
 const CHECKIN_INTERVAL = 10 * 60 * 1000
 const INITIAL_DELAY = 60 * 1000
 
-export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, chatData, handlePlanningCommand }) => {
+export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, chatData, handlePlanningCommand, currentMusicTrack }) => {
   const isRequestingRef = useRef(false)
   const chatDataRef = useRef(chatData)
   const configRef = useRef(config)
   const handlePlanningCommandRef = useRef(handlePlanningCommand)
+  const currentMusicTrackRef = useRef(currentMusicTrack)
 
   useEffect(() => {
     chatDataRef.current = chatData
     configRef.current = config
     handlePlanningCommandRef.current = handlePlanningCommand
-  }, [chatData, config, handlePlanningCommand])
+    currentMusicTrackRef.current = currentMusicTrack
+  }, [chatData, config, handlePlanningCommand, currentMusicTrack])
 
   useEffect(() => {
     const checkIn = async () => {
@@ -48,7 +50,13 @@ export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, cha
           window.api.clearActivityBuffer()
         }
 
-        const result = await getAwarenessResponse(buffer, memoryRef, configRef.current, recentChat)
+        const result = await getAwarenessResponse(
+          buffer, 
+          memoryRef, 
+          configRef.current, 
+          recentChat, 
+          currentMusicTrackRef.current
+        )
         console.log('[useAwareness] AI Response:', result)
 
         if (result.should_act && result.message) {

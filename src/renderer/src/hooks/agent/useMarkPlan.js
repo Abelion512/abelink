@@ -30,7 +30,7 @@ export const useMarkPlan = ({
 
     if (!userInput) return
     setIsLoading(true)
-    const timestampStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+    const timestampStr = getCurrentTimeInfo()
     const userMessage = { role: 'user', content: userInput, timestamp: timestampStr }
 
     const rawSession = [
@@ -534,19 +534,29 @@ export const useMarkPlan = ({
         data: { plan: planData.plan, currentStep: planData.plan.length, reasoning: planData.reasoning }
       })
 
-      // 3. Conclusion
-      setChatData((prev) => [
-        ...prev,
-        { role: 'ai', content: 'Nyiapin jawaban...', isThinking: true }
-      ])
-      const { answer: finalAnswer, reasoning: finalReasoning, memory: finalMemory, mood: finalMood } = await getPlanConclusion(
-        userInput,
-        contextSummaries,
-        abortControllerRef.current.signal,
-        chatSession,
-        unifiedContext,
-        contextMsgStr
-      )
+      let finalAnswer = autonomousInitialMessage || 'Selesai mengeksekusi rencana mandiri.';
+      let finalReasoning = null;
+      let finalMemory = null;
+      let finalMood = 'neutral';
+
+      if (!isAutonomous) {
+        setChatData((prev) => [
+          ...prev,
+          { role: 'ai', content: 'Nyiapin jawaban...', isThinking: true }
+        ])
+        const conclusion = await getPlanConclusion(
+          userInput,
+          contextSummaries,
+          abortControllerRef.current.signal,
+          chatSession,
+          unifiedContext,
+          contextMsgStr
+        )
+        finalAnswer = conclusion.answer
+        finalReasoning = conclusion.reasoning
+        finalMemory = conclusion.memory
+        finalMood = conclusion.mood
+      }
 
       const uniqueSources = []
       const seenLinks = new Set()
@@ -580,7 +590,7 @@ export const useMarkPlan = ({
           isMemorySaved: finalMemory?.action === 'insert',
           isMemoryUpdated: finalMemory?.action === 'update',
           isMemoryDeleted: finalMemory?.action === 'delete',
-          timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+          timestamp: getCurrentTimeInfo()
         }
         if (uniqueSources.length > 0) {
           newAiMsg.sources = uniqueSources

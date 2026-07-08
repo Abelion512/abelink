@@ -1,8 +1,7 @@
 import { getAllConfig } from '../db'
 import { marked } from 'marked'
 
-export const getCurrentTimeInfo = () => {
-  const now = new Date()
+export const getCurrentTimeInfo = (dateObj = new Date()) => {
   const options = {
     weekday: 'long',
     year: 'numeric',
@@ -13,7 +12,7 @@ export const getCurrentTimeInfo = () => {
     second: '2-digit',
     timeZoneName: 'short'
   }
-  return now.toLocaleDateString('id-ID', options)
+  return dateObj.toLocaleDateString('id-ID', options)
 }
 
 

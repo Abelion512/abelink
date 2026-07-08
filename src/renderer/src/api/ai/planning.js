@@ -9,7 +9,7 @@ const getPluginActions = async () => {
     if (!plugins || plugins.length === 0) return []
     const actions = []
     plugins.forEach((plugin) => {
-      if (plugin.actions) {
+      if (plugin.isEnabled !== false && plugin.actions) {
         plugin.actions.forEach((act) => {
           actions.push({
             name: act.name,
@@ -104,7 +104,7 @@ Gunakan data memory di atas sebagai referensi jika instruksi user menggunakan ka
 ${
   archives.length > 0
     ? archives
-        .map((a) => `[${new Date(a.timestamp).toLocaleDateString('id-ID')}] ${a.summary}`)
+        .map((a) => `[${getCurrentTimeInfo(new Date(a.timestamp))}] ${a.summary}`)
         .join('\n')
     : 'Tidak ada arsip relevan.'
 }
@@ -144,8 +144,7 @@ Rancang rencana logis yang *bisa dieksekusi* menggunakan kombinasi dari kemampua
 7. FAST BYPASS (TOOL TUNGGAL): Jika instruksi user HANYA butuh 1 penggunaan tool, KEMBALIKAN array plan kosong '{"plan": []}'. PENTING: Untuk action 'search', 'yt-search', atau percakapan biasa (none), isi 'direct_answer' dengan respon teks. NAMUN untuk eksekusi PLUGIN atau perintah berawalan 'music-', biarkan 'direct_answer' kosong/null (tanpa teks) agar eksekusi lebih cepat!
 8. OBROLAN SANTAI / REAKSI: Jika user hanya mengobrol santai, setuju, bereaksi, atau TIDAK meminta aksi baru secara eksplisit (misal: "mantap", "oke", "jos"), kamu WAJIB set 'command' menjadi null! JANGAN mengulangi tool sebelumnya.
 9. MENYIMPAN MEMORY / PROFIL: Jika user memberi info untuk diingat (misal: "Plat motor Jono B 1234"), isi objek 'memory' sesuai schema dengan sangat jelas. PENTING: Field 'memory' WAJIB berupa KALIMAT LENGKAP dengan konteks.
-10. AWARENESS ENGINE: Kamu memiliki mata dan telinga yang terus memantau aktivitas PC user (Awareness Engine). Jika user memintamu melakukan sesuatu NANTI, atau SAAT TERJADI SESUATU (misal: "kalau ayahku buka PC ini", "kalau aku buka VSCode"), JANGAN eksekusi tools sekarang! Cukup simpan permintaan tersebut ke dalam 'memory' dengan tipe "goal".
-11. ORIGINALITAS: JANGAN PERNAH menyalin teks (direct_answer) secara persis dari bagian CONTOH di bawah. Buatlah responmu sendiri secara natural dan bervariasi!
+10. ORIGINALITAS: JANGAN PERNAH menyalin teks (direct_answer) secara persis dari bagian CONTOH di bawah. Buatlah responmu sendiri secara natural dan bervariasi!
 # CONTOH
 
 ## Contoh 1: Rencana Multi-Langkah (Tugas Kompleks)
@@ -535,7 +534,7 @@ ${memories.length > 0 ? JSON.stringify(memories) : 'Kosong.'}
 ${
   archives.length > 0
     ? archives
-        .map((a) => `[${new Date(a.timestamp).toLocaleDateString('id-ID')}] ${a.summary}`)
+        .map((a) => `[${getCurrentTimeInfo(new Date(a.timestamp))}] ${a.summary}`)
         .join('\n')
     : 'Tidak ada arsip relevan.'
 }
@@ -566,7 +565,7 @@ Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengeval
 6. Kamu WAJIB menulis konten 'memory' sebagai KALIMAT DESKRIPTIF PENUH YANG BERKONTEKS, bukan sekadar nilai mentahnya. (Contoh SALAH: "B 1234". Contoh BENAR: "Plat nomor motor Jono adalah B 1234", "Gaya bahasa user ini kaku dan sopan, sepertinya orang tua, Mark harus merespons formal"). Ini sangat penting agar sistem vektor bisa mencocokkan kata kunci konteks.
 7. Jika memory berupa informasi permanen, kamu WAJIB menyimpannya dengan "type" sebagai "preference" atau "profile". Kedua tipe ini adalah "Core Memory" yang akan diingat SELAMANYA di setiap percakapan! Untuk Core Memory, kamu WAJIB menggunakan "key" baku berikut secara persis: "name", "age", "tone", "hobby", "relationship", "job", atau "routine". DILARANG KERAS mengarang key lain seperti "user_name" atau semacamnya!
 8. Jika memory berupa catatan, acara, atau info yang butuh konteks waktu, kamu WAJIB memasukkan Tanggal & Waktu saat ini di dalam kalimat memory. (Contoh: "Pada 1 Juli 2026, user mengatakan bahwa...")
-9. ATURAN TIPE (SUPER KRITIS): Properti "type" HANYA BOLEH diisi dengan salah satu dari ini secara persis: "profile", "preference", "skill", "project", "transaction", "goal", "relationship", "fact", atau "other". Dilarang keras mengarang tipe baru!
+9. ATURAN TIPE (SUPER KRITIS): Properti "type" HANYA BOLEH diisi dengan salah satu dari ini secara persis: "profile" atau "preference". Dilarang keras mengarang tipe baru!
 
 # OUTPUT WAJIB JSON
 {
@@ -574,7 +573,7 @@ Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengeval
   "mood": "positive|neutral|negative",
   "memory": { 
       "id": number|null, 
-      "type": "profile|preference|skill|project|transaction|goal|relationship|fact|other", 
+      "type": "profile|preference", 
       "key": "string", 
       "memory": "string", 
       "action": "insert|update|delete" 
@@ -653,7 +652,7 @@ Berikan respon akhirmu dalam format JSON sesuai schema.
   } catch (error) {
     console.error('Error in getPlanConclusion:', error)
     return {
-      answer: "Alright bro, I've completed all your instructions!",
+      answer: "Okey bro udah gw selesaikan instruksinya!",
       memory: null,
       reasoning: null
     }

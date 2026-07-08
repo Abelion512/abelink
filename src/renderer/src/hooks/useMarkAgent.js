@@ -43,7 +43,8 @@ export const useMarkAgent = () => {
     setOrbStatus,
     config,
     chatData,
-    handlePlanningCommand
+    handlePlanningCommand,
+    currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null
   })
 
   useChatArchiver({ chatData, activeTopic, config, pushNotification, isLoading })

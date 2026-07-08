@@ -71,6 +71,8 @@ const api = {
   openSpecificFolder: (path) => ipcRenderer.invoke('plugin:open-specific-folder', path),
   reloadPlugins: () => ipcRenderer.invoke('plugin:reload'),
   createPlugin: (payload) => ipcRenderer.invoke('plugin:create', payload),
+  togglePlugin: (name, isEnabled) => ipcRenderer.invoke('plugin:toggle', name, isEnabled),
+  deletePlugin: (name) => ipcRenderer.invoke('plugin:delete', name),
   removeWaListeners: () => {
     ['wa:qr', 'wa:connection', 'wa:message', 'wa:reply-sent', 'wa:thinking', 'wa:request-web-search', 'wa:admin-request', 'wa:request-agent-execution']
       .forEach(ch => ipcRenderer.removeAllListeners(ch))

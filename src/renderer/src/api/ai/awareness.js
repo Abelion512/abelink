@@ -1,7 +1,7 @@
 import { fetchAI } from './core'
 import { getCurrentTimeInfo } from './utils'
 
-export const getAwarenessResponse = async (buffer, memoryRef, config, recentChat, signal) => {
+export const getAwarenessResponse = async (buffer, memoryRef, config, recentChat, currentMusicTrack, signal) => {
   const conf = config[0] || {}
   
   const prompt = `Kamu adalah Mark, asisten AI otonom yang berjalan di latar belakang (Awareness Engine).
@@ -18,6 +18,9 @@ ${memoryRef ? JSON.stringify(memoryRef, null, 2) : 'Tidak ada memory spesifik.'}
 
 # WAKTU SEKARANG:
 ${getCurrentTimeInfo()}
+
+# MUSIK YANG SEDANG DIPUTAR SAAT INI:
+${currentMusicTrack ? `Mark sedang memutar: "${currentMusicTrack.title}" oleh ${currentMusicTrack.artist}. JANGAN ganti lagunya tanpa izin!` : 'Tidak ada musik yang sedang diputar.'}
 
 # INSTRUKSI & WEWENANG:
 Berdasarkan aktivitas di atas, kamu BUKAN sekadar pengamat. KAMU ADALAH AUTONOMOUS AGENT yang bisa berinisiatif mengambil tindakan tanpa disuruh.

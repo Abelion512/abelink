@@ -44,8 +44,8 @@ export const loadPlugins = async () => {
         
         manifest.folderPath = pluginPath
         
-        // Daftarkan semua action ke dictionary global & extract code
-        if (manifest.actions && Array.isArray(manifest.actions)) {
+        // Daftarkan semua action ke dictionary global HANYA JIKA plugin diaktifkan
+        if (manifest.isEnabled !== false && manifest.actions && Array.isArray(manifest.actions)) {
           manifest.actions.forEach(act => {
              // asumsikan handler di-export secara default
              if (handler.default && handler.default[act.name]) {
@@ -111,6 +111,19 @@ export const initPluginIPC = () => {
 
   ipcMain.handle('plugin:open-folder', () => {
     shell.openPath(getPluginsDir())
+  })
+
+  ipcMain.handle('plugin:toggle', async (event, pluginName, isEnabled) => {
+    const pluginPath = path.join(getPluginsDir(), pluginName)
+    const manifestPath = path.join(pluginPath, 'plugin.json')
+    if (fs.existsSync(manifestPath)) {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+      manifest.isEnabled = isEnabled
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+      await loadPlugins()
+      return { success: true }
+    }
+    return { success: false, error: 'Plugin not found' }
   })
 
   ipcMain.handle('plugin:open-specific-folder', (event, targetPath) => {
