@@ -88,8 +88,6 @@ export const fetchAI = async (
     // Set max_tokens to prevent truncation, tapi jangan terlalu gede buat API gratisan Groq/OpenRouter
     if (conf.aiProvider === 'groq') {
       body.max_tokens = 2048 // Diubah dari 8192 ke 2048 biar ga meledak TPM-nya Groq
-    } else if (conf.aiProvider === 'custom' && endpoint.includes('openrouter.ai')) {
-      body.max_tokens = 4096; // Khusus OpenRouter: Jangan kosongi, dia bakal nge-charge max context (misal 65k) kalo kosong!
     }
 
     const parentAbortController = new AbortController()
@@ -134,11 +132,16 @@ export const fetchAI = async (
         if (parentAbortController.signal.aborted) {
           throw new Error('AbortError')
         }
-        if (abortController.signal.reason?.message === 'Request Timeout (Tidak ada respon dari server)') {
+        if (
+          abortController.signal.reason?.message ===
+          'Request Timeout (Tidak ada respon dari server)'
+        ) {
           throw new Error('Request Timeout: AI memakan waktu terlalu lama untuk membalas.')
         }
         if (err.name === 'AbortError' || (err.message && err.message.includes('Timeout'))) {
-          throw new Error(`Koneksi Timeout: Server API (${endpoint}) nge-gantung lebih dari 60 detik.`)
+          throw new Error(
+            `Koneksi Timeout: Server API (${endpoint}) nge-gantung lebih dari 60 detik.`
+          )
         }
         throw err
       } finally {
