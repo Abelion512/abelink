@@ -10,17 +10,16 @@ export const useMarkPlan = ({
   handleYoutubeSearch, handleSearchCommand, handleYoutubeSummary, handleMusic, getYoutubeData,
   pushProcess, activeTopic, setActiveTopic, currentMusicTrack
 }) => {
-  // Listener for 'ai-status' events to show "Mikiri..." texts when tools take long
+  // Listener for 'ai-status' events from Main Process (via IPC)
   useEffect(() => {
-    const handleAiStatus = (e) => {
-      const msg = e.detail
-      setChatData((prev) => {
-        const filtered = prev.filter((item) => !item.isThinking)
-        return [...filtered, { role: 'ai', content: msg, isThinking: true }]
+    if (window.api && window.api.onAiStatus) {
+      window.api.onAiStatus((msg) => {
+        setChatData((prev) => {
+          const filtered = prev.filter((item) => !item.isThinking)
+          return [...filtered, { role: 'ai', content: msg, isThinking: true }]
+        })
       })
     }
-    window.addEventListener('ai-status', handleAiStatus)
-    return () => window.removeEventListener('ai-status', handleAiStatus)
   }, [setChatData])
 
   const handlePlanningCommand = async (userInput, waContext = null, isAutonomous = false, autonomousInitialMessage = null, options = {}) => {

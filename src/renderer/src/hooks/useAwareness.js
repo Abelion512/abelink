@@ -12,13 +12,15 @@ export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, cha
   const configRef = useRef(config)
   const handlePlanningCommandRef = useRef(handlePlanningCommand)
   const currentMusicTrackRef = useRef(currentMusicTrack)
+  const isLoadingRef = useRef(isLoading)
 
   useEffect(() => {
     chatDataRef.current = chatData
     configRef.current = config
     handlePlanningCommandRef.current = handlePlanningCommand
     currentMusicTrackRef.current = currentMusicTrack
-  }, [chatData, config, handlePlanningCommand, currentMusicTrack])
+    isLoadingRef.current = isLoading
+  }, [chatData, config, handlePlanningCommand, currentMusicTrack, isLoading])
 
   useEffect(() => {
     const checkIn = async () => {
@@ -60,6 +62,10 @@ export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, cha
         console.log('[useAwareness] AI Response:', result)
 
         if (result.should_act && result.message) {
+          if (isLoadingRef.current) {
+            console.log('[useAwareness] Skip triggering action karena Mark sedang sibuk (isLoading true)')
+            return
+          }
           console.log('[useAwareness] Triggering autonomous action!')
           // Push notification
           if (window.api.showNotification && !document.hasFocus()) {

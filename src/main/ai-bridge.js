@@ -23,14 +23,14 @@ let lastCloudFetchTime = 0
 const CLOUD_DELAY_MS = 2500 // 2.5 seconds delay
 
 let globalConfig = {}
-export const activeAbortControllers = new Set();
+export const activeAbortControllers = new Set()
 export const abortAllFetches = () => {
   activeAbortControllers.forEach((controller) => {
     try {
-      controller.abort(new Error('User Aborted'));
+      controller.abort(new Error('User Aborted'))
     } catch (e) {}
-  });
-};
+  })
+}
 
 export const setGlobalConfig = (config) => {
   globalConfig = config || {}
@@ -38,7 +38,13 @@ export const setGlobalConfig = (config) => {
 
 export const getGlobalConfig = () => globalConfig
 
-export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema = null, onStatus = null) => {
+export const fetchAI = async (
+  messages,
+  config,
+  isSmallTask = false,
+  jsonSchema = null,
+  onStatus = null
+) => {
   try {
     const conf = config || globalConfig
 
@@ -78,10 +84,12 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
     } else {
       body.model = conf.model || 'google/gemma-3-4b'
     }
-    
-    // Set max_tokens to prevent truncation, tapi jangan terlalu gede buat local LLM
+
+    // Set max_tokens to prevent truncation, tapi jangan terlalu gede buat API gratisan Groq/OpenRouter
     if (conf.aiProvider === 'groq') {
-      body.max_tokens = 8192;
+      body.max_tokens = 2048 // Diubah dari 8192 ke 2048 biar ga meledak TPM-nya Groq
+    } else if (conf.aiProvider === 'custom' && endpoint.includes('openrouter.ai')) {
+      body.max_tokens = 4096; // Khusus OpenRouter: Jangan kosongi, dia bakal nge-charge max context (misal 65k) kalo kosong!
     }
 
     const parentAbortController = new AbortController()
@@ -91,8 +99,8 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
       if (parentAbortController.signal.aborted) {
         throw new Error('AbortError')
       }
-      // --- RATE LIMIT THROTLLING LOGIC (Khusus Cloud) ---
-      if (!endpoint.includes('localhost') && !endpoint.includes('127.0.0.1')) {
+      // --- RATE LIMIT THROTLLING LOGIC (Khusus API Gratisan yang rewel) ---
+      if (endpoint.includes('groq.com') || endpoint.includes('cerebras.ai')) {
         const now = Date.now()
         const timeSinceLastFetch = now - lastCloudFetchTime
         if (timeSinceLastFetch < CLOUD_DELAY_MS) {
@@ -104,12 +112,15 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
       }
 
       // --- TIMEOUT LOGIC ---
-      const timeoutMs = 3600000; // 1 jam (Timeout dimatikan atas permintaan user) // 120s for local, 45s for cloud
-      const abortController = new AbortController();
-      activeAbortControllers.add(abortController);
-      const timeoutId = setTimeout(() => abortController.abort(new Error('Request Timeout')), timeoutMs);
+      const timeoutMs = 60000 // 60s timeout buat koneksi ngadat
+      const abortController = new AbortController()
+      activeAbortControllers.add(abortController)
+      const timeoutId = setTimeout(
+        () => abortController.abort(new Error('Request Timeout (Tidak ada respon dari server)')),
+        timeoutMs
+      )
 
-      let response;
+      let response
       try {
         response = await fetch(endpoint, {
           method: 'POST',
@@ -117,19 +128,25 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
           body: JSON.stringify(currentBody),
           signal: abortController.signal
         })
+        clearTimeout(timeoutId)
       } catch (err) {
-        if (abortController.signal.aborted) {
-          if (abortController.signal.reason?.message === 'User Aborted' || parentAbortController.signal.aborted) {
-            throw new Error('AbortError')
-          }
-          if (abortController.signal.reason?.message === 'Request Timeout') {
-            throw new Error('Request Timeout: AI memakan waktu terlalu lama untuk membalas.')
-          }
+        clearTimeout(timeoutId)
+        if (parentAbortController.signal.aborted) {
+          throw new Error('AbortError')
+        }
+        if (abortController.signal.reason?.message === 'Request Timeout (Tidak ada respon dari server)') {
+          throw new Error('Request Timeout: AI memakan waktu terlalu lama untuk membalas.')
+        }
+        if (err.name === 'AbortError' || (err.message && err.message.includes('Timeout'))) {
+          throw new Error(`Koneksi Timeout: Server API (${endpoint}) nge-gantung lebih dari 60 detik.`)
         }
         throw err
       } finally {
-        clearTimeout(timeoutId);
-        parentAbortController.signal.removeEventListener('abort', abortController.abort.bind(abortController))
+        clearTimeout(timeoutId)
+        parentAbortController.signal.removeEventListener(
+          'abort',
+          abortController.abort.bind(abortController)
+        )
       }
 
       if (!response.ok) {
@@ -180,7 +197,9 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
             response.status === 400 ||
             response.status === 422)
         ) {
-          console.log('[Auto-Retry] Model gagal menghasilkan JSON murni (strict JSON), fallback tanpa constraint response_format...')
+          console.log(
+            '[Auto-Retry] Model gagal menghasilkan JSON murni (strict JSON), fallback tanpa constraint response_format...'
+          )
 
           let fallbackBody = { ...currentBody }
           delete fallbackBody.response_format
@@ -213,59 +232,66 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
         let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
 
         // Auto-retry fallback untuk High Traffic / Rate Limits (503, 429, 500)
-        let isHighTraffic = response.status === 429 || response.status >= 500 || finalErrorMessage.toLowerCase().includes('high traffic') || finalErrorMessage.toLowerCase().includes('rate limit') || finalErrorMessage.toLowerCase().includes('tpm');
-        
+        let isHighTraffic =
+          response.status === 429 ||
+          response.status >= 500 ||
+          finalErrorMessage.toLowerCase().includes('high traffic') ||
+          finalErrorMessage.toLowerCase().includes('rate limit') ||
+          finalErrorMessage.toLowerCase().includes('tpm')
+
         // PENTING: Kalau errornya "Request too large", ini bukan masalah server sibuk yang bisa selesai dengan nunggu!
         // Ini berarti ukuran pesan (tokens) lebih besar dari batasan maksimal tier (misal tier gratis cuma 6000 TPM).
         // Nunggu sampai lebaran pun request ini nggak bakal lolos, jadi jangan dilooping!
         if (finalErrorMessage.toLowerCase().includes('request too large')) {
-          isHighTraffic = false;
+          isHighTraffic = false
         }
 
-        if (isHighTraffic && trafficRetryCount < 20) {
-           
-           // Cek apakah server ngasih tau harus nunggu berapa detik (khusus Groq 429)
-           let backoffDelay = (trafficRetryCount + 1) * 3000; 
-           const timeMatch = finalErrorMessage.match(/Please try again in ([0-9.]+)s/);
-           if (timeMatch) {
-             // Kalau disuruh nunggu 14 detik, kita nunggu 14.5 detik biar aman
-             backoffDelay = Math.ceil(parseFloat(timeMatch[1]) * 1000) + 500; 
-           }
+        if (isHighTraffic && trafficRetryCount < 5) {
+          // Cek apakah server ngasih tau harus nunggu berapa detik (khusus Groq 429)
+          let backoffDelay = (trafficRetryCount + 1) * 3000
+          const timeMatch = finalErrorMessage.match(/Please try again in ([0-9.]+)s/)
+          if (timeMatch) {
+            // Kalau disuruh nunggu 14 detik, kita nunggu 14.5 detik biar aman
+            backoffDelay = Math.ceil(parseFloat(timeMatch[1]) * 1000) + 500
+          }
 
-           let retryBody = { ...currentBody };
-           
-           // Kalau server ngasih instruksi nunggu (timeMatch ada), HARGAI instruksi server.
-           // Jangan maksa nge-spam tiap 1 detik karena API gateway akan terus nge-blokir.
-           if (endpoint.includes('groq.com')) {
-             const backupModels = ['openai/gpt-oss-20b']; // Hanya gunakan model yang didukung!
-             const nextModel = backupModels[trafficRetryCount % backupModels.length];
-             retryBody.model = nextModel;
-             console.log(`[Model Swap] Mark ganti haluan instan ke ${nextModel}`);
-             
-             // Kalau nggak ada timeMatch (nggak disuruh nunggu spesifik), boleh jeda cepat
-             if (!timeMatch) {
-               backoffDelay = 2000; 
-             }
-           }
-           
-           if (onStatus) onStatus(`Server sibuk, mencoba ulang dalam ${Math.round(backoffDelay/1000)}s...`);
-           
-           console.log(`[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/20)`);
-           
-           // Abortable sleep
-           await new Promise((resolve, reject) => {
-             const timer = setTimeout(resolve, backoffDelay);
-             if (parentAbortController.signal.aborted) {
-               clearTimeout(timer);
-               reject(new Error('AbortError'));
-             }
-             parentAbortController.signal.addEventListener('abort', () => {
-               clearTimeout(timer);
-               reject(new Error('AbortError'));
-             });
-           });
-           
-           return executeFetch(retryBody, isRetry, trafficRetryCount + 1);
+          let retryBody = { ...currentBody }
+
+          // Kalau server ngasih instruksi nunggu (timeMatch ada), HARGAI instruksi server.
+          // Jangan maksa nge-spam tiap 1 detik karena API gateway akan terus nge-blokir.
+          if (endpoint.includes('groq.com')) {
+            const backupModels = ['openai/gpt-oss-20b'] // Hanya gunakan model yang didukung!
+            const nextModel = backupModels[trafficRetryCount % backupModels.length]
+            retryBody.model = nextModel
+            console.log(`[Model Swap] Mark ganti haluan instan ke ${nextModel}`)
+
+            // Kalau nggak ada timeMatch (nggak disuruh nunggu spesifik), boleh jeda cepat
+            if (!timeMatch) {
+              backoffDelay = 2000
+            }
+          }
+
+          if (onStatus)
+            onStatus(`Server sibuk, mencoba ulang dalam ${Math.round(backoffDelay / 1000)}s...`)
+
+          console.log(
+            `[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/5)`
+          )
+
+          // Abortable sleep
+          await new Promise((resolve, reject) => {
+            const timer = setTimeout(resolve, backoffDelay)
+            if (parentAbortController.signal.aborted) {
+              clearTimeout(timer)
+              reject(new Error('AbortError'))
+            }
+            parentAbortController.signal.addEventListener('abort', () => {
+              clearTimeout(timer)
+              reject(new Error('AbortError'))
+            })
+          })
+
+          return executeFetch(retryBody, isRetry, trafficRetryCount + 1)
         }
 
         if (
@@ -300,7 +326,7 @@ export const fetchAI = async (messages, config, isSmallTask = false, jsonSchema 
       }
     }
 
-    let data;
+    let data
     try {
       data = await executeFetch(body)
     } finally {
@@ -351,7 +377,9 @@ export const cleanAndParse = (rawResponse) => {
     console.error('Gagal Parse JSON menggunakan jsonrepair:', error)
     // Upaya terakhir: coba bersihkan BOM dan extract ulang manual
     try {
-      const lastResort = String(rawResponse).trim().replace(/^\xEF\xBB\xBF/, '')
+      const lastResort = String(rawResponse)
+        .trim()
+        .replace(/^\xEF\xBB\xBF/, '')
       const match = lastResort.match(/\{[\s\S]*\}/)
       return match ? JSON.parse(match[0]) : null
     } catch (e) {

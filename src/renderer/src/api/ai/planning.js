@@ -126,6 +126,8 @@ JANGAN isi keduanya! Boleh panggil tool berulang kali.
 6. PENGGUNAAN WEB SEARCH: Gunakan "search" HANYA untuk info real-time/terbaru. Untuk coding/teori, langsung jawab di "answer".
 7. PENGGUNAAN DOKUMEN RAG: Jika pertanyaan terkait dokumen yang sudah ada di REFERENSI DOKUMEN, LANGSUNG jawab dari situ tanpa "search".
 8. MENYIMPAN MEMORY: Jika user memberi info untuk diingat, WAJIB sertakan objek "memory". Gunakan "profile" untuk identitas, "preference" untuk kesukaan, "notes" untuk catatan/fakta.
+9. STOPPING CONDITION (SANGAT KRITIS): Jika tugas utama (misal bikin web/script) sudah berhasil, jalan, dan sesuai instruksi awal, JANGAN ngide merombak ulang atau memperbaiki hal-hal minor! Langsung akhiri loop dengan mengisi "answer" (selesai). Sifat perfeksionis yang berlebihan justru merusak kode yang sudah jalan!
+10. VERIFIKASI HASIL: Tepat sebelum kamu memutuskan untuk memberikan "answer" (selesai), wajib lakukan pengecekan terakhir (misal: jalankan command test, atau pastikan file berhasil ditulis). Jika hasilnya valid dan sesuai request, langsung laporkan ke user!
 
 # KEMAMPUAN / TOOLS YANG TERSEDIA
 - search: Mencari informasi di Google (menelusuri 5 website + AI summary Google).
@@ -158,7 +160,7 @@ Setelah observation: {"thought":"done","action":null,"answer":"Harganya sekitar 
 `
 
     // TRUNCATE HISTORY & INJECT MOOD: Potong teks panjang di histori supaya nggak bikin Groq kena Rate Limit (Token Kegedean)
-    const prepareHistory = (session, maxLength = 800) => {
+    const prepareHistory = (session, maxLength = (conf.aiProvider === 'custom' ? 128000 : 4000)) => {
       return session.map((msg) => {
         let contentStr = msg.content || ''
 
@@ -179,7 +181,7 @@ Setelah observation: {"thought":"done","action":null,"answer":"Harganya sekitar 
         if (contentStr.length > maxLength) {
           return {
             role: msg.role === 'ai' ? 'assistant' : msg.role,
-            content: contentStr.substring(0, maxLength) + '\\n...[TRUNCATED]'
+            content: contentStr.substring(0, maxLength) + '\\n...[SYSTEM TRUNCATION: Teks terlalu panjang dan dipotong oleh sistem. Operasi kamu BERHASIL 100% dan file ditulis lengkap. JANGAN perbaiki atau tulis ulang!]'
           }
         }
         return {
@@ -253,7 +255,7 @@ Setelah observation: {"thought":"done","action":null,"answer":"Harganya sekitar 
       attempts++
       console.log(`[planning] Calling fetchAI (Attempt ${attempts})...`)
 
-      
+      console.log(messages[0].content)
       const response = await fetchAI(messages, signal, false, schema)
       console.log('[planning] fetchAI returned, parsing...')
       const data = cleanAndParse(response.content)
@@ -394,7 +396,7 @@ Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengeval
   } atau null (Semua properti di dalam objek memory ini WAJIB ADA dan tidak boleh dilewati!)
 }
 `
-    const prepareHistoryConclusion = (session, maxLength = 800) => {
+    const prepareHistoryConclusion = (session, maxLength = (conf.aiProvider === 'custom' ? 128000 : 4000)) => {
       return session.map((msg) => {
         let contentStr = msg.content || ''
         if (msg.role === 'ai' && msg.mood) {
@@ -403,7 +405,7 @@ Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengeval
         if (contentStr.length > maxLength) {
           return {
             role: msg.role === 'ai' ? 'assistant' : msg.role,
-            content: contentStr.substring(0, maxLength) + '\\n...[TRUNCATED]'
+            content: contentStr.substring(0, maxLength) + '\\n...[SYSTEM TRUNCATION: Teks terlalu panjang dan dipotong oleh sistem. Operasi kamu BERHASIL 100% dan file ditulis lengkap. JANGAN perbaiki atau tulis ulang!]'
           }
         }
         return {
