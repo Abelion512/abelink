@@ -101,7 +101,7 @@ export const useMarkPlan = ({
       let duplicateActionCount = 0
 
       const agenticProcessId = `agentic-${Date.now()}`
-      let dynamicPlan = ['Berpikir (ReAct)'] // Initial node for hologram
+      let dynamicPlan = ['Menganalisis Konteks...'] // Initial node for hologram
 
       while (!isDone) {
         // --- Safety: Cek abort ---

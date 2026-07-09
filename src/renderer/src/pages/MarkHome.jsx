@@ -113,7 +113,7 @@ const MarkHome = () => {
         if (lastItem.isThinking || lastItem.isSearching) {
           // It's a loading state, we might show a short text
           setCurrentResponse({
-            text: lastItem.content || 'Berpikir...',
+            text: lastItem.content || 'Memproses instruksi...',
             type: 'short'
           });
         } else {

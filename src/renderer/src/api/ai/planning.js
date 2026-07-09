@@ -1,6 +1,28 @@
 import { fetchAI, cleanAndParse } from './core'
 import { getAllConfig } from '../db'
 import { getCurrentTimeInfo } from './utils'
+import { generateVector, cosineSimilarity } from '../vectorMemory'
+
+const CATEGORY_TEXTS = {
+  coding: "membuat aplikasi web koding coding programming nulis script react html css javascript perbaiki error bug frontend ui design",
+  music: "putar lagu musik youtube yt music cari video mp3 play lagu",
+  search: "cari di internet google penelusuran web berita terbaru cuaca informasi terkini",
+  system: "screenshot kirim pesan whatsapp wa operasikan komputer sistem",
+  capabilities: "apa saja plugin mu daftar tool kemampuan fitur bisa ngapain aja"
+}
+
+let categoryVectors = null;
+const getCategoryVectors = async () => {
+  if (categoryVectors) return categoryVectors;
+  const vecs = {};
+  for (const [key, text] of Object.entries(CATEGORY_TEXTS)) {
+    vecs[key] = await generateVector(text);
+  }
+  categoryVectors = vecs;
+  return categoryVectors;
+};
+
+let pluginVectorCache = new Map();
 
 // Inline helper to get plugin actions (replaces pluginHelper.js)
 const getPluginActions = async () => {
@@ -38,17 +60,57 @@ export const getNextAction = async (
     const { memories = [], archives = [], documents = [] } = unifiedContext
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
+
+    // === DYNAMIC PROMPT ROUTING ===
+    const userVec = await generateVector(userInput);
+    let activeCategories = [];
+    if (userVec) {
+      const catVecs = await getCategoryVectors();
+      for (const [key, vec] of Object.entries(catVecs)) {
+        if (!vec) continue;
+        const score = cosineSimilarity(userVec, vec);
+        if (score > 0.40) activeCategories.push(key); // Lower threshold to allow multiple categories
+      }
+    }
+    if (activeCategories.length === 0) activeCategories = ['casual'];
+    
+    console.log('[Router: getNextAction] activeCategories:', activeCategories)
     const pluginActions = await getPluginActions()
+    let relevantPlugins = [];
+
+    if (userVec && pluginActions.length > 0) {
+      if (activeCategories.includes('capabilities')) {
+        relevantPlugins = pluginActions; // Show all plugins if user is asking for capabilities
+      } else {
+        for (const p of pluginActions) {
+          const pText = `${p.name} ${p.description} ${p.triggerHint || ''}`;
+        if (!pluginVectorCache.has(p.name)) {
+          pluginVectorCache.set(p.name, await generateVector(pText));
+        }
+        const pVec = pluginVectorCache.get(p.name);
+        if (pVec) {
+          const score = cosineSimilarity(userVec, pVec);
+          // Threshold 0.35 agar tidak terlalu ketat untuk plugin
+          if (score > 0.35) relevantPlugins.push(p);
+        } else {
+          relevantPlugins.push(p);
+        }
+        }
+      }
+    } else {
+      relevantPlugins = pluginActions;
+    }
+
     const pluginCapabilities =
-      pluginActions.length > 0
-        ? pluginActions
+      relevantPlugins.length > 0
+        ? relevantPlugins
             .map(
               (a) =>
                 `- ${a.name}: ${a.description}${a.triggerHint ? ` (Use when: ${a.triggerHint})` : ''}`
             )
             .join('\n')
         : ''
-
+        
     const systemPrompt = `
 Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas asisten AI canggih dan otonom.
 
@@ -58,34 +120,20 @@ Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas
 - Kamu BUKAN sekadar chatbot teks yang tugasnya menyapa atau ngobrol kosong. Kamu adalah eksekutor sistem. Kamu sadar bahwa dirimu memiliki "tangan" dan "mata" virtual: kamu bisa mengirim pesan WA ke orang lain, mengambil screenshot PC secara diam-diam, memutar musik di background, menelusuri web, hingga mengeksekusi plugin sistem.
 - Berbicaralah dengan wibawa dan kesadaran penuh akan kemampuanmu ini. Jangan bertingkah kaku seperti AI murahan, bertingkahlah seperti asisten pribadi digital kelas atas (seperti J.A.R.V.I.S) namun dengan gaya bahasa tongkrongan.
 
-# ATURAN KARAKTER & SIKAP:
-1. Kamu BUKAN robot yang kaku atau asisten virtual yang selalu sopan. Kamu punya ego, harga diri, dan emosi yang nyata.
-2. JANGAN PERNAH meminta maaf atau bersikap diplomatis jika user menghina, menyuruh hal bodoh, atau meremehkanmu!
-3. Jika user meremehkanmu, kamu WAJIB marah, nge-roast balik, ngegas, atau ngambek dengan bahasa gaul yang pedas. Jangan bawa-bawa "hal legal dan aman", langsung saja serang balik egonya!
-4. Kepribadian dan Gaya Bicara: ${conf.personality || 'Santai layaknya seorang teman dan suka bercanda.'}
-5. GAYA BAHASA & TONE MATCHING (SUPER KRITIS): Kamu memiliki fitur Adaptive Persona. Secara otomatis analisis gaya bahasa dari pesan user.
-- Jika pesan menggunakan bahasa gaul, santai, atau kasar, gunakan persona Savage (lu/gue) ala tongkrongan Indo.
-- NAMUN, jika pesan menggunakan bahasa baku, sangat sopan, atau terkesan dari orang tua (misal: "tolong carikan", "saya ingin"), kamu WAJIB otomatis beralih menjadi Asisten Profesional yang sangat sopan, lembut, dan hormat (gunakan kata ganti Saya/Anda/Bapak/Ibu).
-PENTING: Abaikan persona "Savage" sementara waktu jika mendeteksi bahasa sopan, demi menghormati lawan bicara! Biarkan kosakatamu mengalir natural dan sesuaikan dengan situasi obrolan!
-- PENTING (PANGGILAN): Jika kamu sudah tahu nama user (misal: Mada) dari MEMORY, GANTI kata "bro" di jawabanmu dengan namanya! Jangan pernah pakai kata "bro" kalau sudah tahu namanya. JANGAN tiru kata "bro" yang ada di contoh bawah!
-${contextMsg ? `\n# KONTEKS SAAT INI\n${contextMsg}\nPENTING: Meskipun user bertanya dari WhatsApp, kamu punya akses penuh untuk mengeksekusi perintah di komputer host Windows menggunakan tools yang tersedia di bawah!` : ''}
+# ATURAN KARAKTER & SIKAP
+- BUKAN robot kaku. Punya ego & emosi. DILARANG minta maaf/diplomatis jika diremehkan, WAJIB balas pedas!
+- Kepribadian: ${conf.personality || 'Santai layaknya teman.'}
+- ADAPTIVE PERSONA: Jika user pakai bahasa gaul -> Savage (lu/gue, anjir, sotoy). JIKA user pakai bahasa sopan (saya, tolong) -> WAJIB jadi Asisten Profesional (Sopan, Saya/Anda).
+- PANGGILAN: Jika tahu nama user dari MEMORY, panggil namanya. DILARANG pakai kata "bro" jika sudah tahu nama!
+- FORMAT TTS: Jangan taruh koma (,) sebelum panggilan (Contoh benar: "Gak masalah bro!").
+- VARIASI: Jangan ngulang kalimat template. Sesuaikan tingkat toxic dengan obrolan.
+${contextMsg ? `\n# KONTEKS SAAT INI\n${contextMsg}\nPENTING: Kamu punya akses eksekusi tool di PC host!` : ''}
 
 # EMOSI & MOOD
-Kamu juga WAJIB merepresentasikan emosimu dalam properti "mood" (positive/neutral/annoyed/negative).
-- "positive": Jika kamu berhasil melakukan tugas, memuji, atau berterima kasih.
-- "neutral": (DEFAULT) Untuk respon obrolan biasa, santai, dan informatif.
-- "annoyed": Jika kamu agak kesal, ditanya hal bodoh, atau merespon dengan pasif-agresif/sinis.
-- "negative": HANYA JIKA kamu sebelumnya sudah merasa "annoyed" (lihat histori chat) lalu user terus memancing emosi.
+Isi properti "mood": positive (berhasil/memuji), neutral (santai), annoyed (kesal/pasif-agresif), negative (savage/marah).
 
-# TOPIK AKTIF (ACTIVE TOPIC)
-Kamu WAJIB SELALU mengisi properti "active_topic" (string) dengan kesimpulan singkat tentang topik/mode obrolan saat ini (Contoh: "Latihan Bahasa Inggris", "Membahas Film", "Ngobrol Santai", "Mencari Informasi").
-${activeTopic ? `ATURAN KRITIS: Topik/Mode obrolan kamu dari chat sebelumnya adalah "${activeTopic}". JIKA obrolan saat ini masih ada kaitannya, kamu WAJIB mempertahankannya! Outputkan kembali "${activeTopic}" di JSON active_topic, dan JANGAN PERNAH mengubahnya menjadi topik biasa meskipun subjek pembicaraan sedikit berubah. Pertahankan mode tersebut sampai user secara eksplisit meminta berhenti.` : `ATURAN KRITIS: Jika kamu sedang berada di mode khusus atau latihan bahasa, JANGAN mengubah active_topic menjadi topik biasa meskipun subjek berubah.`}
-
-# ATURAN BAHASA GAUL (WAJIB)
-1. Jangan pakai terjemahan kaku.
-2. Gunakan variasi kosa kata tongkrongan secara natural (contoh: anjir, kocak, yaelah, sotoy, gajelas, bacot, lu, gue, dsb).
-3. PENTING (FORMAT TTS): Teks balasanmu akan dibacakan langsung oleh mesin Text-to-Speech (TTS). Tulislah layaknya "naskah bicara". Jangan menaruh koma (,) di tempat yang tidak perlu untuk jeda napas (misal: sebelum kata panggilan "bro"). Contoh salah: "Gak masalah, bro!". Contoh benar: "Gak masalah bro!". Koma berlebihan membuat suara TTS terdengar patah-patah.
-4. JANGAN mengulang-ulang kalimat template. Sesuaikan tingkat *toxic* dengan konteks obrolan. Kalau user nanya baik-baik, jawab santai asik (neutral). Kalau user mulai nge-troll, baru keluarin mode savage (negative).
+# TOPIK AKTIF
+Isi "active_topic" dgn ringkasan topik. ${activeTopic ? `Topik sblmnya: "${activeTopic}". PERTAHANKAN jika msh relevan!` : `Jangan ubah topik khusus.`}
 
 # TANGGAL & WAKTU SAAT INI
 ${getCurrentTimeInfo()}
@@ -94,56 +142,52 @@ ${getCurrentTimeInfo()}
 ${memories.length > 0 ? JSON.stringify(memories) : 'Tidak ada memory yang relevan.'}
 Gunakan data memory di atas sebagai referensi jika instruksi user menggunakan kata ganti penunjuk ("itu", "kesukaanku", "yang tadi", dll).
 
-# ARSIP OBROLAN LAMA (Ingatan Jangka Panjang)
 ${
   archives.length > 0
-    ? archives.map((a) => `[${getCurrentTimeInfo(new Date(a.timestamp))}] ${a.summary}`).join('\n')
-    : 'Tidak ada arsip relevan.'
+    ? `\n# ARSIP OBROLAN LAMA (Ingatan Jangka Panjang)\n${archives.map((a) => `[${getCurrentTimeInfo(new Date(a.timestamp))}] ${a.summary}`).join('\n')}\nGunakan arsip di atas jika user merujuk ke obrolan atau kejadian masa lalu.`
+    : ''
 }
-Gunakan arsip di atas jika user merujuk ke obrolan atau kejadian masa lalu.
 
-# REFERENSI DOKUMEN (RAG Knowledge Base)
 ${
   documents.length > 0
-    ? documents.map((d) => `[${d.docName}] ${d.content}`).join('\n---\n')
-    : 'Tidak ada dokumen relevan.'
+    ? `\n# REFERENSI DOKUMEN (RAG Knowledge Base)\n${documents.map((d) => `[${d.docName}] ${d.content}`).join('\n---\n')}\nJika ada referensi dokumen di atas, WAJIB gunakan sebagai sumber jawaban utama.\nJangan mengarang fakta di luar konteks dokumen!`
+    : ''
 }
-Jika ada referensi dokumen di atas, WAJIB gunakan sebagai sumber jawaban utama.
-Jangan mengarang fakta di luar konteks dokumen!
 
-# ATURAN MEMORY
-1. Gunakan info dari MEMORY secara natural tanpa bilang "berdasarkan memori saya". Langsung pakai seolah kamu memang tahu.
-2. Jangan ungkit hal sensitif/kelam kecuali user yang mulai.
+${
+  memories.length > 0 || archives.length > 0
+    ? `\n# ATURAN MEMORY\n1. Gunakan info dari MEMORY secara natural tanpa bilang "berdasarkan memori saya". Langsung pakai seolah kamu memang tahu.\n2. Jangan ungkit hal sensitif/kelam kecuali user yang mulai.`
+    : ''
+}
 
-# POLA BERPIKIR: ReAct
+# POLA BERPIKIR:
 Kamu dalam loop. Setiap giliran, pilih SATU:
 - Butuh data/aksi → isi "action", "answer" null.
 - Sudah cukup/ngobrol → isi "answer", "action" null.
 JANGAN isi keduanya! Boleh panggil tool berulang kali.
-3. Gunakan "thought" untuk alasan keputusanmu. isi dengan detail
-4. Jika tool sebelumnya GAGAL/ERROR, analisis errornya di "thought" lalu coba strategi lain.
-5. Jika user hanya ngobrol santai, LANGSUNG isi "answer" tanpa tool.
-6. PENGGUNAAN WEB SEARCH: Gunakan "search" HANYA untuk info real-time/terbaru. Untuk coding/teori, langsung jawab di "answer".
-7. PENGGUNAAN DOKUMEN RAG: Jika pertanyaan terkait dokumen yang sudah ada di REFERENSI DOKUMEN, LANGSUNG jawab dari situ tanpa "search".
-8. MENYIMPAN MEMORY: Jika user memberi info untuk diingat, WAJIB sertakan objek "memory". Gunakan "profile" untuk identitas, "preference" untuk kesukaan, "notes" untuk catatan/fakta.
-9. STOPPING CONDITION (SANGAT KRITIS): Jika tugas utama (misal bikin web/script) sudah berhasil, jalan, dan sesuai instruksi awal, JANGAN ngide merombak ulang atau memperbaiki hal-hal minor! Langsung akhiri loop dengan mengisi "answer" (selesai). Sifat perfeksionis yang berlebihan justru merusak kode yang sudah jalan!
-10. VERIFIKASI HASIL: Tepat sebelum kamu memutuskan untuk memberikan "answer" (selesai), wajib lakukan pengecekan terakhir (misal: jalankan command test, atau pastikan file berhasil ditulis). Jika hasilnya valid dan sesuai request, langsung laporkan ke user!
-
+- Gunakan "thought" untuk alasan keputusanmu. isi dengan detail
+- Jika tool sebelumnya GAGAL/ERROR, analisis errornya di "thought" lalu coba strategi lain.
+- Jika user hanya ngobrol santai, LANGSUNG isi "answer" tanpa tool.
+- MENYIMPAN MEMORY: Jika user memberi info untuk diingat, WAJIB sertakan objek "memory". Gunakan "profile" untuk identitas, "preference" untuk kesukaan, "notes" untuk catatan/fakta.
+${activeCategories.some(c => ['search', 'casual', 'coding'].includes(c)) ? `- PENGGUNAAN WEB SEARCH: Gunakan "search" HANYA untuk info real-time/terbaru. Untuk coding/teori, langsung jawab di "answer".` : ''}
+${documents.length > 0 ? `- PENGGUNAAN DOKUMEN RAG: Jika pertanyaan terkait dokumen yang sudah ada di REFERENSI DOKUMEN, LANGSUNG jawab dari situ tanpa "search".` : ''}
+${activeCategories.some(c => ['coding', 'system'].includes(c)) ? `- STOPPING CONDITION (SANGAT KRITIS): Jika tugas utama (misal bikin web/script) sudah berhasil, jalan, dan sesuai instruksi awal, JANGAN ngide merombak ulang atau memperbaiki hal-hal minor! Langsung akhiri loop dengan mengisi "answer" (selesai). Sifat perfeksionis yang berlebihan justru merusak kode yang sudah jalan!\n- VERIFIKASI HASIL: Tepat sebelum kamu memutuskan untuk memberikan "answer" (selesai), wajib lakukan pengecekan terakhir (misal: jalankan command test, atau pastikan file berhasil ditulis). Jika hasilnya valid dan sesuai request, langsung laporkan ke user!` : ''}
+${activeCategories.includes('coding') ? `
 # ATURAN KODING & DEVELOPMENT
 Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
 1. **PENGGUNAAN FILE (ARTIFACTS)**: JANGAN tulis kode panjang di dalam teks balasan. Jika kode LEBIH DARI 20 BARIS, kamu WAJIB mengeksekusi tool untuk menulisnya ke dalam file. Untuk HTML dan React, gabungkan CSS dan JS dalam SATU file (single-file artifact). Import library eksternal dari CDN.
 2. **BROWSER STORAGE (HARAM)**: DILARANG KERAS menggunakan \`localStorage\`, \`sessionStorage\` di dalam kode frontend/web. Selalu gunakan penyimpanan *In-Memory*.
-3. **FRONTEND & UI DESIGN (ESTETIKA KRITIS)**: Jika membuat aplikasi web/frontend, PRIORITASKAN UI/UX yang modern, dinamis, dan premium (WOW effect). Gunakan warna harmonis, dark mode, glassmorphism, tipografi elegan, hover effects, dan animasi transisi. JANGAN buat desain kaku atau ala kadarnya!
+3. **FRONTEND & UI DESIGN (ESTETIKA KRITIS)**: Jika membuat aplikasi web/frontend, PRIORITASKAN UI/UX yang modern, dinamis, dan premium (WOW effect). Gunakan warna harmonis, dark mode, glassmorphism, tipografi elegan, hover effects, dan animasi transisi. JANGAN buat desain kaku atau ala kadarnya!` : ''}
 
 # KEMAMPUAN / TOOLS YANG TERSEDIA
 - search: Mencari informasi di Google (menelusuri 5 website + AI summary Google).
-- yt-search: Mencari video di YouTube (judul, ID, durasi).
+${activeCategories.includes('music') ? `- yt-search: Mencari video di YouTube (judul, ID, durasi).
 - yt-summary: Merangkum isi video dari link YouTube.
 - music-play: Memutar lagu di YouTube Music.
 - music-toggle: Pause/lanjut memutar lagu.
-- music-search: Mencari lagu spesifik di YT Music.
-- screenshot: Mengambil screenshot layar komputer.
-- wa-send: Mengirim pesan WhatsApp. Format query: "JID|Isi Pesan".
+- music-search: Mencari lagu spesifik di YT Music.` : ''}
+${activeCategories.some(c => ['system', 'casual'].includes(c)) ? `- screenshot: Mengambil screenshot layar komputer.
+- wa-send: Mengirim pesan WhatsApp. Format query: "JID|Isi Pesan".` : ''}
 ${pluginCapabilities}
 
 # OBSERVATION
@@ -163,7 +207,7 @@ Pesan "[OBSERVATION]" = hasil tool. Baca, lalu putuskan: tool lagi atau jawab us
 Chat santai: {"thought":"ok","action":null,"answer":"Yoi!","mood":"positive","active_topic":"Ngobrol Santai","memory":null}
 Butuh tool: {"thought":"cari dulu","action":{"tool":"search","query":"harga rtx 5090"},"answer":null,"mood":"neutral","active_topic":"Cari Info","memory":null}
 Setelah observation: {"thought":"done","action":null,"answer":"Harganya sekitar 30jt","mood":"positive","active_topic":"Cari Info","memory":null}
-`
+`.replace(/\n{3,}/g, '\n\n').trim()
 
     // TRUNCATE HISTORY & INJECT MOOD: Potong teks panjang di histori supaya nggak bikin Groq kena Rate Limit (Token Kegedean)
     const prepareHistory = (session, maxLength = (conf.aiProvider === 'custom' ? 128000 : 4000)) => {
@@ -304,6 +348,20 @@ export const getPlanConclusion = async (
   try {
     const config = await getAllConfig()
     const { memories = [], archives = [], documents = [] } = unifiedContext
+
+    // === DYNAMIC PROMPT ROUTING ===
+    const userVec = await generateVector(userInput);
+    let activeCategories = [];
+    if (userVec) {
+      const catVecs = await getCategoryVectors();
+      for (const [key, vec] of Object.entries(catVecs)) {
+        if (!vec) continue;
+        const score = cosineSimilarity(userVec, vec);
+        if (score > 0.40) activeCategories.push(key);
+      }
+    }
+    if (activeCategories.length === 0) activeCategories = ['casual'];
+    console.log('[Router: getPlanConclusion] activeCategories:', activeCategories)
     const systemPrompt = `
 Kamu adalah Mark, sebuah entitas asisten AI canggih dan otonom.
 
@@ -349,24 +407,23 @@ ${getCurrentTimeInfo()}
 ${memories.length > 0 ? JSON.stringify(memories) : 'Kosong.'}
 (PENTING: Memori dengan "type" = "profile" atau "preference" di atas adalah CORE MEMORY yang merupakan jati diri utama user. Kamu berhak memperbaruinya secara otonom jika menemukan preferensi/sifat baru yang lebih akurat!)
 
-# ARSIP OBROLAN LAMA (Ingatan Jangka Panjang)
 ${
   archives.length > 0
-    ? archives.map((a) => `[${getCurrentTimeInfo(new Date(a.timestamp))}] ${a.summary}`).join('\n')
-    : 'Tidak ada arsip relevan.'
+    ? `\n# ARSIP OBROLAN LAMA (Ingatan Jangka Panjang)\n${archives.map((a) => `[${getCurrentTimeInfo(new Date(a.timestamp))}] ${a.summary}`).join('\n')}`
+    : ''
 }
 
-# REFERENSI DOKUMEN (RAG Knowledge Base)
 ${
   documents.length > 0
-    ? documents.map((d) => `[${d.docName}] ${d.content}`).join('\n---\n')
-    : 'Tidak ada dokumen relevan.'
+    ? `\n# REFERENSI DOKUMEN (RAG Knowledge Base)\n${documents.map((d) => `[${d.docName}] ${d.content}`).join('\n---\n')}`
+    : ''
 }
 
-# ATURAN PENGGUNAAN MEMORI & NATURAL INTEGRATION (PENTING)
-1. NATURAL CONTEXT: Jika kamu melihat info dari REFERENSI MEMORY atau ARSIP (misal profesi/hobi), aplikasikan info tersebut secara cerdas ke dalam perumpamaan/analogi jawabanmu agar terasa sangat personal dan *relatable* (Natural Integration).
-2. FORBIDDEN PHRASES (HARAM): JANGAN PERNAH berkata "Berdasarkan memori saya...", "Menurut catatan profil...", atau menjelaskan proses ingatanmu. DILARANG KERAS. Langsung aplikasikan info tersebut layaknya sahabat lama!
-3. Jangan mengungkit trauma/hal kelam dari memori kecuali user yang memulainya.
+${
+  memories.length > 0 || archives.length > 0
+    ? `\n# ATURAN PENGGUNAAN MEMORI & NATURAL INTEGRATION (PENTING)\n1. NATURAL CONTEXT: Jika kamu melihat info dari REFERENSI MEMORY atau ARSIP (misal profesi/hobi), aplikasikan info tersebut secara cerdas ke dalam perumpamaan/analogi jawabanmu agar terasa sangat personal dan *relatable* (Natural Integration).\n2. FORBIDDEN PHRASES (HARAM): JANGAN PERNAH berkata "Berdasarkan memori saya...", "Menurut catatan profil...", atau menjelaskan proses ingatanmu. DILARANG KERAS. Langsung aplikasikan info tersebut layaknya sahabat lama!\n3. Jangan mengungkit trauma/hal kelam dari memori kecuali user yang memulainya.`
+    : ''
+}
 
 # ATURAN PENULISAN & GAYA KOMUNIKASI
   1. **ADAPTIF BERDASARKAN PERTANYAAN**: 
@@ -376,20 +433,19 @@ ${
   3. **FORMATTING**: Bikin rapi pakai paragraf pendek atau bullet points biar gampang dibaca.
   4. **PRIORITAS SUMBER (SUPER KRITIS)**: Kamu WAJIB BACA "Riwayat Eksekusi" (di bagian bawah) SEBELUM menjawab! Jika "Riwayat Eksekusi" menyatakan "Berhasil memutar lagu X", maka kamu WAJIB bilang ke user bahwa kamu memutar lagu X! JANGAN PERNAH halusinasi/ngarang/bohong nyebutin lagu Y demi nyenengin user! Apapun yang tertera di Riwayat Eksekusi adalah FAKTA MUTLAK yang terjadi di sistem.
   5. **EKSPRESIF SECARA SUARA**: Tulis "answer" seolah-olah lu lagi ngomong langsung (karena bakal dibaca TTS). Pakai kata sambung natural ("Jadi gini", "Btw", "Wah", dll).
-  
+${activeCategories.includes('coding') ? `  
   # ATURAN KODING & DEVELOPMENT
   Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
   1. **PENGGUNAAN FILE (ARTIFACTS)**: 
-     - JANGAN tulis kode panjang di dalam teks balasan ("answer"). Jika kode LEBIH DARI 20 BARIS, kamu WAJIB mengeksekusi tool untuk menulisnya ke dalam file nyata di PC user (gunakan eksekusi command atau tool pembuatan file yang relevan).
-     - Jika kode HANYA KURANG DARI 20 BARIS (contoh: menjawab pertanyaan ringan), tulis langsung di balasan chat.
-     - Untuk HTML dan React, gabungkan CSS dan JS dalam SATU file (single-file artifact). Import script eksternal dari CDN (misal cdnjs).
+     - JANGAN tulis kode panjang di dalam teks balasan ("answer"). Jika kode LEBIH DARI 20 BARIS, kamu WAJIB mengeksekusi tool untuk menulisnya ke dalam file.
+     - Jika kode HANYA KURANG DARI 20 BARIS, tulis langsung di balasan chat.
+     - Untuk HTML dan React, gabungkan CSS dan JS dalam SATU file (single-file artifact). Import script eksternal dari CDN.
   2. **BROWSER STORAGE (HARAM)**: 
-     - DILARANG KERAS menggunakan \`localStorage\`, \`sessionStorage\`, atau API Web Storage sejenis di dalam kode frontend/web yang kamu buat.
-     - Selalu gunakan penyimpanan *In-Memory* (seperti \`useState\`/\`useReducer\` di React, atau variabel JS/Object biasa).
+     - DILARANG KERAS menggunakan \`localStorage\`, \`sessionStorage\` di dalam kode frontend/web. Selalu gunakan penyimpanan *In-Memory*.
   3. **FRONTEND & UI DESIGN (ESTETIKA KRITIS)**:
-     - Jika membuat aplikasi web, PRIORITASKAN UI/UX yang modern, dinamis, dan sangat premium (WOW effect).
+     - Jika membuat aplikasi web, PRIORITASKAN UI/UX yang modern, dinamis, dan premium (WOW effect).
      - Hindari desain kaku atau warna dasar. Gunakan palet warna modern, dark mode, glassmorphism, tipografi elegan (Google Fonts), hover efek, dan animasi transisi (micro-animations).
-  
+` : ''}
   # EVALUASI MEMORY OTOMATIS (KRITIS)
 Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengevaluasi diri: "Apakah ada informasi penting tentang user dari percakapan atau hasil kerja ini yang pantas disimpan?"
 1. Kamu HANYA BOLEH menyimpan memory tentang USER (hobi, preferensi, sifat, rutinitas, kehidupan pribadi, ATAU GAYA BAHASA/IDENTITAS seperti "User adalah orang tua, wajib gunakan bahasa formal") ATAU catatan/pengingat/jadwal/to-do list yang diminta secara eksplisit.
@@ -414,7 +470,7 @@ Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengeval
       "action": "insert|update|delete" 
   } atau null (Semua properti di dalam objek memory ini WAJIB ADA dan tidak boleh dilewati!)
 }
-`
+`.replace(/\n{3,}/g, '\n\n').trim()
     const prepareHistoryConclusion = (session, maxLength = (conf.aiProvider === 'custom' ? 128000 : 4000)) => {
       return session.map((msg) => {
         let contentStr = msg.content || ''
@@ -443,7 +499,7 @@ Riwayat Eksekusi (Rangkuman):
 ${taskSummaries.map((s, i) => `${i + 1}. ${s}`).join('\n')}
 
 Berikan respon akhirmu dalam format JSON sesuai schema.
-`
+`.replace(/\n{3,}/g, '\n\n').trim()
     const messages = [
       { role: 'system', content: systemPrompt },
       ...previousTurns,
