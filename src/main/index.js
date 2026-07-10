@@ -21,6 +21,7 @@ import yts from 'yt-search'
 import YTMusic from 'ytmusic-api'
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
 import { startTracking, getBuffer, flushBuffer } from './awareness/window-tracker.js'
+import { NATIVE_TOOLS } from './native-tools.js'
 // Matikan semua optimasi throttling Chromium agar webview WhatsApp tidak tertidur di hasil Build (.exe)
 app.commandLine.appendSwitch('disable-background-timer-throttling')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
@@ -103,6 +104,28 @@ import { fetchAI, setGlobalConfig, abortAllFetches } from './ai-bridge.js'
 
 ipcMain.on('sync-config', (event, config) => {
   setGlobalConfig(config)
+})
+
+// --- NATIVE TOOLS IPC ---
+ipcMain.handle('native-tool:execute', async (event, toolName, query) => {
+  const tool = NATIVE_TOOLS[toolName]
+  if (!tool) return { success: false, error: 'Tool tidak ditemukan' }
+  try {
+    const result = await tool.handler(query)
+    return { success: true, data: result }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('native-tool:needs-approval', (event, toolName, query) => {
+  const tool = NATIVE_TOOLS[toolName]
+  if (!tool) return { needsApproval: false }
+  const needs = typeof tool.needsApproval === 'function' ? tool.needsApproval(query) : tool.needsApproval
+  return { 
+    needsApproval: needs,
+    message: needs && tool.approvalMessage ? tool.approvalMessage(query) : null
+  }
 })
 
 ipcMain.handle('ai:fetch', async (event, data) => {

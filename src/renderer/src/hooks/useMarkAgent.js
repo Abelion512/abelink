@@ -10,8 +10,10 @@ import {
 import { useAwareness } from './useAwareness'
 import { useChatArchiver } from './useChatArchiver'
 import { formatForWhatsApp } from '../api/ai/utils'
+import { useApproval } from '../contexts/ApprovalContext'
 
 export const useMarkAgent = () => {
+  const { requestApproval } = useApproval()
   const youtubeMusicTools = useYoutubeMusic()
 
   const state = useMarkState()
@@ -35,7 +37,7 @@ export const useMarkAgent = () => {
     currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null
   }
 
-  const { handlePlanningCommand } = useMarkPlan({ ...state, ...tools })
+  const { handlePlanningCommand } = useMarkPlan({ ...state, ...tools, requestApproval })
 
   useAwareness({
     isLoading,

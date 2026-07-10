@@ -8,6 +8,7 @@ import Knowledge from './pages/Knowledge'
 import { HashRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
+import { ApprovalProvider } from './contexts/ApprovalContext'
 import { YoutubeMusicPlayer } from './components/YoutubeMusicPlayer'
 import { getAllConfig } from './api/db'
 import { runWhatsappAgent } from './api/waAgent'
@@ -133,34 +134,36 @@ function App() {
   const isStandalone = window.location.hash.includes('whatsapp-bot')
 
   return (
-    <YoutubeMusicProvider>
-      <ChatProvider>
-        <HashRouter>
-          <GlobalListener />
-          <div className="h-screen flex flex-col overflow-hidden">
-            <div className="h-screen w-full">
-              <Routes>
-                <Route path="/" element={<MarkHome />} />
-                <Route path="/config" element={<Configuration />} />
-                <Route path="/plugins" element={<Plugins />} />
-                <Route path="/live-audio" element={<LiveAudio />} />
-                <Route path="/whatsapp-bot" element={<WhatsappBot />} />
-                <Route path="/knowledge" element={<Knowledge />} />
-              </Routes>
+    <ApprovalProvider>
+      <YoutubeMusicProvider>
+        <ChatProvider>
+          <HashRouter>
+            <GlobalListener />
+            <div className="h-screen flex flex-col overflow-hidden">
+              <div className="h-screen w-full">
+                <Routes>
+                  <Route path="/" element={<MarkHome />} />
+                  <Route path="/config" element={<Configuration />} />
+                  <Route path="/plugins" element={<Plugins />} />
+                  <Route path="/live-audio" element={<LiveAudio />} />
+                  <Route path="/whatsapp-bot" element={<WhatsappBot />} />
+                  <Route path="/knowledge" element={<Knowledge />} />
+                </Routes>
+              </div>
             </div>
-          </div>
-          <div style={{ display: isStandalone ? 'none' : 'block' }}>
-            <YoutubeMusicPlayer />
-          </div>
-          <webview 
-            id="global-ai-search-webview" 
-            src="about:blank" 
-            useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-            style={{ display: 'none' }} 
-          />
-        </HashRouter>
-      </ChatProvider>
-    </YoutubeMusicProvider>
+            <div style={{ display: isStandalone ? 'none' : 'block' }}>
+              <YoutubeMusicPlayer />
+            </div>
+            <webview 
+              id="global-ai-search-webview" 
+              src="about:blank" 
+              useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+              style={{ display: 'none' }} 
+            />
+          </HashRouter>
+        </ChatProvider>
+      </YoutubeMusicProvider>
+    </ApprovalProvider>
   )
 }
 

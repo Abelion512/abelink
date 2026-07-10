@@ -24,6 +24,9 @@ export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, cha
 
   useEffect(() => {
     const checkIn = async () => {
+      const currentConf = configRef.current?.[0] || {}
+      if (currentConf.awarenessEnabled === false) return
+      
       if (isLoading || isRequestingRef.current) return
 
       try {

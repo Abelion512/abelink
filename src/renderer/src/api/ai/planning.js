@@ -4,7 +4,8 @@ import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorMemory'
 
 const CATEGORY_TEXTS = {
-  coding: "membuat aplikasi web koding coding programming nulis script react html css javascript perbaiki error bug frontend ui design",
+  coding: "bikin web script kode code program aplikasi membuat koding coding programming nulis react html css javascript js perbaiki error bug frontend ui design backend logic",
+  files: "baca file tulis file hapus file buat file edit file folder direktori cari teks grep terminal powershell command jalankan perintah eksekusi cmd",
   music: "putar lagu musik youtube yt music cari video mp3 play lagu",
   search: "cari di internet google penelusuran web berita terbaru cuaca informasi terkini",
   system: "screenshot kirim pesan whatsapp wa operasikan komputer sistem",
@@ -69,7 +70,7 @@ export const getNextAction = async (
       for (const [key, vec] of Object.entries(catVecs)) {
         if (!vec) continue;
         const score = cosineSimilarity(userVec, vec);
-        if (score > 0.40) activeCategories.push(key); // Lower threshold to allow multiple categories
+        if (score > 0.35) activeCategories.push(key);
       }
     }
     if (activeCategories.length === 0) activeCategories = ['casual'];
@@ -177,9 +178,12 @@ ${activeCategories.includes('coding') ? `
 Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
 1. **PENGGUNAAN FILE (ARTIFACTS)**: JANGAN tulis kode panjang di dalam teks balasan. Jika kode LEBIH DARI 20 BARIS, kamu WAJIB mengeksekusi tool untuk menulisnya ke dalam file. Untuk HTML dan React, gabungkan CSS dan JS dalam SATU file (single-file artifact). Import library eksternal dari CDN.
 2. **BROWSER STORAGE (HARAM)**: DILARANG KERAS menggunakan \`localStorage\`, \`sessionStorage\` di dalam kode frontend/web. Selalu gunakan penyimpanan *In-Memory*.
-3. **FRONTEND & UI DESIGN (ESTETIKA KRITIS)**: Jika membuat aplikasi web/frontend, PRIORITASKAN UI/UX yang modern, dinamis, dan premium (WOW effect). Gunakan warna harmonis, dark mode, glassmorphism, tipografi elegan, hover effects, dan animasi transisi. JANGAN buat desain kaku atau ala kadarnya!` : ''}
+3. **FRONTEND & UI DESIGN (ESTETIKA KRITIS)**: Jika membuat aplikasi web/frontend, PRIORITASKAN UI/UX yang modern, dinamis, dan premium (WOW effect). Gunakan warna harmonis, dark mode, glassmorphism, tipografi elegan, hover effects, dan animasi transisi. JANGAN buat desain kaku atau ala kadarnya!
+4. **ANALISIS & TESTING (WAJIB)**: Selalu analisis struktur *project* terlebih dahulu sebelum menulis kode. Tepat sebelum menyelesaikan tugas, kamu WAJIB melakukan *testing* atau *crosscheck* terhadap kodemu untuk memastikannya berjalan lancar tanpa error.
+5. **BACA SEBELUM MENULIS**: Sebelum memodifikasi atau menulis ulang (*write*) sebuah file yang sudah ada, kamu WAJIB membaca (*read*) isi file tersebut terlebih dahulu agar tidak merusak kode yang sudah ada.
+6. **USER AGREEMENT**: Beberapa tool (write-file, replace-lines, delete-file, run-powershell) membutuhkan persetujuan user sebelum dieksekusi. Jika user MENOLAK, jangan paksa. Jelaskan alasanmu dan tanyakan alternatif.` : ''}
 
-# KEMAMPUAN / TOOLS YANG TERSEDIA
+# TOOLS BAWAAN (BUILT-IN)
 - search: Mencari informasi di Google (menelusuri 5 website + AI summary Google).
 ${activeCategories.includes('music') ? `- yt-search: Mencari video di YouTube (judul, ID, durasi).
 - yt-summary: Merangkum isi video dari link YouTube.
@@ -188,7 +192,17 @@ ${activeCategories.includes('music') ? `- yt-search: Mencari video di YouTube (j
 - music-search: Mencari lagu spesifik di YT Music.` : ''}
 ${activeCategories.some(c => ['system', 'casual'].includes(c)) ? `- screenshot: Mengambil screenshot layar komputer.
 - wa-send: Mengirim pesan WhatsApp. Format query: "JID|Isi Pesan".` : ''}
-${pluginCapabilities}
+${activeCategories.some(c => ['files', 'coding'].includes(c)) ? `- read-file: Membaca isi file. Query: path_absolut. Baca spesifik baris: path||startLine||endLine.
+- write-file: Menulis/buat file baru. Query: path||isi_file. (Perlu persetujuan user)
+- replace-lines: Edit baris tertentu. Query: path||startLine||endLine||kode_baru. (Perlu persetujuan user)
+- delete-file: Hapus file. Query: path_absolut. (Perlu persetujuan user)
+- list-dir: Lihat isi folder. Query: path_folder.
+- grep-search: Cari teks dalam folder. Query: path_folder||keyword.
+- run-powershell: Eksekusi perintah PowerShell. (Perlu persetujuan user untuk command berbahaya)` : ''}
+
+# PLUGIN TAMBAHAN (EXTERNAL)
+${pluginCapabilities || '- (Belum ada plugin tambahan yang terdeteksi)'}
+(Catatan: User bisa sewaktu-waktu menginstal atau menghapus plugin tambahan di atas ke dalam sistemmu. Jika tool yang relevan tidak ada di daftar bawaan, periksa daftar plugin tambahan ini.)
 
 # OBSERVATION
 Pesan "[OBSERVATION]" = hasil tool. Baca, lalu putuskan: tool lagi atau jawab user.
@@ -267,6 +281,13 @@ Setelah observation: {"thought":"done","action":null,"answer":"Harganya sekitar 
                 'yt-summary',
                 'screenshot',
                 'wa-send',
+                'read-file',
+                'write-file',
+                'replace-lines',
+                'delete-file',
+                'list-dir',
+                'grep-search',
+                'run-powershell',
                 ...pluginActions.map((a) => a.name)
               ]
             },
@@ -357,7 +378,7 @@ export const getPlanConclusion = async (
       for (const [key, vec] of Object.entries(catVecs)) {
         if (!vec) continue;
         const score = cosineSimilarity(userVec, vec);
-        if (score > 0.40) activeCategories.push(key);
+        if (score > 0.35) activeCategories.push(key);
       }
     }
     if (activeCategories.length === 0) activeCategories = ['casual'];
@@ -445,6 +466,13 @@ ${activeCategories.includes('coding') ? `
   3. **FRONTEND & UI DESIGN (ESTETIKA KRITIS)**:
      - Jika membuat aplikasi web, PRIORITASKAN UI/UX yang modern, dinamis, dan premium (WOW effect).
      - Hindari desain kaku atau warna dasar. Gunakan palet warna modern, dark mode, glassmorphism, tipografi elegan (Google Fonts), hover efek, dan animasi transisi (micro-animations).
+  4. **ANALISIS & TESTING (WAJIB)**:
+     - Selalu analisis struktur *project* terlebih dahulu sebelum mulai memodifikasi atau membuat file baru.
+     - Tepat sebelum mengakhiri tugas, WAJIB lakukan *testing* atau *crosscheck* terakhir untuk memastikan kodemu bebas *error* dan berjalan sesuai ekspektasi.
+  5. **BACA SEBELUM MENULIS**:
+     - Sebelum melakukan *write* atau modifikasi pada file yang sudah ada, kamu WAJIB membaca (*read*) isi file tersebut terlebih dahulu untuk memahami konteksnya dan mencegah hilangnya kode penting.
+  6. **USER AGREEMENT**:
+     - Beberapa tool (write-file, replace-lines, delete-file, run-powershell) membutuhkan persetujuan user sebelum dieksekusi. Jika user MENOLAK (muncul pesan DITOLAK di hasil observasi), jangan paksa. Jelaskan alasanmu dan tanyakan alternatif.
 ` : ''}
   # EVALUASI MEMORY OTOMATIS (KRITIS)
 Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengevaluasi diri: "Apakah ada informasi penting tentang user dari percakapan atau hasil kerja ini yang pantas disimpan?"

@@ -39,6 +39,10 @@ db.version(8).stores({
   documents: '++id, docName, chunkIndex, content, timestamp'
 })
 
+db.version(9).stores({
+  config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, waAdminNumber, waPendingAdmins, waApprovedAdmins, customEndpoint, customApiKey, customModel, awarenessEnabled'
+})
+
 // --- VALIDATION ---
 const VALID_TYPES = ['profile', 'preference', 'notes'];
 

@@ -36,7 +36,8 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     embedProvider: 'transformers',
     lmStudioEmbedModel: 'embeddinggemma-300m-qat',
     waAdminNumber: '',
-    micDeviceId: 'default'
+    micDeviceId: 'default',
+    awarenessEnabled: true
   })
   const [memories, setMemories] = useState([])
   const [audioDevices, setAudioDevices] = useState([])
@@ -237,7 +238,8 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
         aiProvider: data[0].aiProvider || 'lm-studio',
         embedProvider: data[0].embedProvider || 'lm-studio',
         lmStudioEmbedModel: data[0].lmStudioEmbedModel || 'embeddinggemma-300m-qat',
-        micDeviceId: data[0].micDeviceId || 'default'
+        micDeviceId: data[0].micDeviceId || 'default',
+        awarenessEnabled: data[0].awarenessEnabled ?? true
       }))
     }
   }
@@ -831,6 +833,22 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 </div>
               </div>
             )}
+
+            {/* Awareness Engine Toggle */}
+            <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold">Awareness Engine</p>
+                  <p className="text-xs opacity-50 mt-1">Mengizinkan Mark membaca log sistem/aktivitas dan memulai obrolan secara proaktif di latar belakang.</p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  className="toggle toggle-primary" 
+                  checked={config.awarenessEnabled !== false}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, awarenessEnabled: e.target.checked }))}
+                />
+              </div>
+            </div>
 
             {/* System Persona */}
             <div id="tour-persona" className="space-y-1.5 p-2 -mx-2 rounded-lg">

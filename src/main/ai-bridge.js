@@ -357,6 +357,9 @@ export const fetchAI = async (
       conf.aiProvider !== 'cerebras' &&
       isLMStudioOfflineError(error)
     ) {
+      if (conf.aiProvider === 'custom' && conf.customEndpoint && !conf.customEndpoint.includes('localhost') && !conf.customEndpoint.includes('127.0.0.1')) {
+        throw new Error(`Koneksi ke Custom API gagal atau ditolak. Pastikan URL benar: ${error.message}`)
+      }
       throw createLMStudioOfflineError(error)
     }
 

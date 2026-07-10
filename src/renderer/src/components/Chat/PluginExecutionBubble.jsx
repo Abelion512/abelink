@@ -10,7 +10,7 @@ const PluginExecutionBubble = ({ pluginExecution }) => {
         <summary className="text-xs cursor-pointer select-none flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
           <FaChevronRight className="group-open:rotate-90 transition-transform text-[11px]" />
           <span className="truncate max-w-[250px]">
-            Plugin digunakan: {pluginExecution.action}
+            Tool dieksekusi: {pluginExecution.action}
           </span>
         </summary>
         <div className="pl-4 pt-1 flex flex-col gap-1 border-l border-white/20 ml-1.5 mt-1.5 mb-2">

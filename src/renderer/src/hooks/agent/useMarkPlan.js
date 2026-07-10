@@ -8,7 +8,7 @@ import { getUnifiedContext } from '../../api/vectorMemory'
 export const useMarkPlan = ({
   chatData, setChatData, config, isSpeak, abortControllerRef, setIsLoading, setMessage,
   handleYoutubeSearch, handleSearchCommand, handleYoutubeSummary, handleMusic, getYoutubeData,
-  pushProcess, activeTopic, setActiveTopic, currentMusicTrack
+  pushProcess, activeTopic, setActiveTopic, currentMusicTrack, requestApproval
 }) => {
   // Listener for 'ai-status' events from Main Process (via IPC)
   useEffect(() => {
@@ -99,9 +99,10 @@ export const useMarkPlan = ({
       let lastActionTool = null
       let lastActionQuery = null
       let duplicateActionCount = 0
+      let lastToolExecution = null
 
       const agenticProcessId = `agentic-${Date.now()}`
-      let dynamicPlan = ['Menganalisis Konteks...'] // Initial node for hologram
+      let execSteps = [{ task: 'Menganalisis Konteks...' }] // Initial node for hologram
 
       while (!isDone) {
         // --- Safety: Cek abort ---
@@ -159,13 +160,13 @@ export const useMarkPlan = ({
         if (decision.answer && !decision.action) {
           isDone = true
           
-          dynamicPlan.push('Selesai');
-          if (dynamicPlan.length > 2) {
+          execSteps.push({ task: 'Selesai' });
+          if (execSteps.length > 2) {
             pushProcess({
             id: agenticProcessId,
             type: 'planning',
             status: 'done',
-            data: { plan: [...dynamicPlan], currentStep: dynamicPlan.length, reasoning: decision.thought || 'Selesai' }
+            data: { steps: [...execSteps], currentStep: execSteps.length, reasoning: decision.thought || 'Selesai' }
           })
           }
 
@@ -194,6 +195,7 @@ export const useMarkPlan = ({
               isMemorySaved: decision.memory?.action === 'insert',
               isMemoryUpdated: decision.memory?.action === 'update',
               isMemoryDeleted: decision.memory?.action === 'delete',
+              pluginExecution: lastToolExecution,
               timestamp: getCurrentTimeInfo()
             }
             if (allSources.length > 0) {
@@ -226,12 +228,12 @@ export const useMarkPlan = ({
           lastActionQuery = query
 
           // Add to hologram plan
-          dynamicPlan.push(`Eksekusi ${tool}`);
+          execSteps.push({ task: `Eksekusi ${tool}`, query: query });
           pushProcess({
             id: agenticProcessId,
             type: 'planning',
             status: 'active',
-            data: { plan: [...dynamicPlan], currentStep: dynamicPlan.length - 1, reasoning: decision.thought || `Menjalankan ${tool}` }
+            data: { steps: [...execSteps], currentStep: execSteps.length - 1, reasoning: decision.thought || `Menjalankan ${tool}` }
           })
 
           // Update UI
@@ -326,6 +328,38 @@ export const useMarkPlan = ({
                 resultString = 'Screenshot hanya tersedia via WhatsApp.'
               }
 
+            } else if (['read-file', 'write-file', 'replace-lines', 'delete-file', 'list-dir', 'grep-search', 'run-powershell'].includes(tool)) {
+              // --- NATIVE TOOLS (Built-in) ---
+              const approvalCheck = await window.api.checkToolApproval(tool, query)
+              
+              if (approvalCheck.needsApproval && requestApproval) {
+                const userApproved = await requestApproval(approvalCheck.message, tool, query)
+                if (!userApproved) {
+                  resultString = `[DITOLAK] User menolak eksekusi "${tool}". Cari cara lain atau tanyakan user.`
+                  loopMessages.push(
+                    { role: 'assistant', content: JSON.stringify({ thought: decision.thought, action: decision.action }) },
+                    { role: 'user', content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${resultString}` }
+                  )
+                  continue
+                }
+              }
+              
+              const nativePromise = window.api.executeNativeTool(tool, query)
+              const abortPromise = new Promise((_, reject) => {
+                const onAbort = () => reject(new Error('AbortError'));
+                if (abortControllerRef.current.signal.aborted) return onAbort();
+                abortControllerRef.current.signal.addEventListener('abort', onAbort);
+              })
+              
+              const res = await Promise.race([nativePromise, abortPromise])
+              if (res.success) {
+                resultString = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
+              } else {
+                resultString = `[ERROR] ${tool} gagal: ${res.error}`
+              }
+              
+              lastToolExecution = { action: tool, query, result: resultString }
+
             } else {
               // --- PLUGIN FALLBACK ---
               const pluginProcessId = `plugin-${Date.now()}`
@@ -344,6 +378,7 @@ export const useMarkPlan = ({
                 resultString = `[ERROR] Plugin ${tool} gagal: ${res.error}`
               }
 
+              lastToolExecution = { action: tool, query, result: resultString }
               pushProcess({ id: pluginProcessId, type: 'plugin-execution', status: 'done', data: { action: tool, query, result: resultString } })
             }
           } catch (toolError) {
@@ -373,8 +408,8 @@ export const useMarkPlan = ({
 
       // ========== CLEANUP ==========
       if (!lastDecision?.answer) {
-         if (dynamicPlan.length > 2) {
-          pushProcess({ id: agenticProcessId, type: 'planning', status: 'done', data: { plan: [...dynamicPlan], currentStep: dynamicPlan.length, reasoning: 'Loop Selesai' } })
+         if (execSteps.length > 2) {
+          pushProcess({ id: agenticProcessId, type: 'planning', status: 'done', data: { steps: [...execSteps], currentStep: execSteps.length, reasoning: 'Loop Selesai' } })
          }
       }
       

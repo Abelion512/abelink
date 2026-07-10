@@ -87,13 +87,13 @@ const ProcessPanel = ({ processes, onDismiss }) => {
         }
 
         if (proc.type === 'planning') {
-          const { plan, currentStep, reasoning } = proc.data;
+          const { steps, currentStep, reasoning } = proc.data;
           const isDone = proc.status === 'done';
           return (
             <div className="pointer-events-auto" key={proc.id}>
               <DraggableHoloCard
                 id={proc.id}
-                title={isDone ? <><FaCheckCircle className="inline mr-1" /> Planning Selesai</> : <><FaListUl className="inline mr-1" /> Planning [{currentStep + 1}/{plan.length}]</>}
+                title={isDone ? <><FaCheckCircle className="inline mr-1" /> Eksekusi Selesai</> : <><FaListUl className="inline mr-1" /> Eksekusi [{currentStep + 1}/{steps?.length || 1}]</>}
                 defaultPosition={{ x: isRight ? window.innerWidth - 390 - cascadeX : 40 + cascadeX, y: 80 + cascadeY }}
                 onClose={() => onDismiss(proc.id)}
                 isVisible={!proc.isExiting}
@@ -110,7 +110,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                       </div>
                     </details>
                   )}
-                  {plan.map((step, idx) => {
+                  {steps && steps.map((step, idx) => {
                     let prefix = idx + 1 + '.';
                     let opacity = 'opacity-50 text-white';
                     let suffix = '';
@@ -127,8 +127,22 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                       <div key={idx} className={`flex items-start text-[11px] font-mono transition-all ${opacity}`}>
                         <span className="w-4 inline-block">{prefix}</span>
                         <div className="flex-1">
-                          {typeof step === 'object' ? step.task : step}
-                          {suffix}
+                          {typeof step === 'object' && step.query ? (
+                            <details className="group/step outline-none">
+                              <summary className="cursor-pointer select-none flex items-center hover:opacity-80 outline-none list-none [&::-webkit-details-marker]:hidden">
+                                <FaChevronRight className="group-open/step:rotate-90 transition-transform text-[8px] mr-1 opacity-50" />
+                                {step.task} {suffix}
+                              </summary>
+                              <div className="mt-1 pl-3 opacity-70 text-[9px] border-l border-white/20 ml-[3px] mb-1 break-words font-sans bg-black/20 p-1.5 rounded">
+                                {step.query}
+                              </div>
+                            </details>
+                          ) : (
+                            <>
+                              {typeof step === 'object' ? step.task : step}
+                              {suffix}
+                            </>
+                          )}
                         </div>
                       </div>
                     );
