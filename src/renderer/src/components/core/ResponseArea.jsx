@@ -97,14 +97,6 @@ const ResponseArea = ({ currentResponse }) => {
 
       return (
         <div className="flex flex-col items-center gap-4 w-full relative">
-          {/* Proactive Badge */}
-          {isProactive && (
-            <div className="absolute -top-6 flex items-center justify-center animate-fade-in">
-              <span className="badge badge-sm badge-info shadow-[0_0_10px_oklch(var(--in)/0.5)] flex items-center gap-1">
-                <FaLightbulb /> Proactive Nudge
-              </span>
-            </div>
-          )}
 
           {/* TLDR Part */}
           {tldr && (
@@ -175,13 +167,6 @@ const ResponseArea = ({ currentResponse }) => {
     // Short type
     return (
       <div className="flex flex-col items-center relative gap-2 w-full">
-        {isProactive && (
-          <div className="absolute -top-6 flex items-center justify-center animate-fade-in">
-            <span className="badge badge-sm badge-info shadow-[0_0_10px_oklch(var(--in)/0.5)] flex items-center gap-1">
-              <FaLightbulb /> Proactive Nudge
-            </span>
-          </div>
-        )}
         <div className="text-center text-lg md:text-xl font-light leading-relaxed custom-markdown opacity-90 px-4 max-w-2xl">
           <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
             {text}

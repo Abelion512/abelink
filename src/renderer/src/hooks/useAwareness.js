@@ -13,6 +13,7 @@ export const useAwareness = ({ isLoading, isAgentBusy, setChatData, setOrbStatus
   const handlePlanningCommandRef = useRef(handlePlanningCommand)
   const currentMusicTrackRef = useRef(currentMusicTrack)
   const isLoadingRef = useRef(isLoading)
+  const isAgentBusyRef = useRef(isAgentBusy)
 
   useEffect(() => {
     chatDataRef.current = chatData
@@ -20,14 +21,17 @@ export const useAwareness = ({ isLoading, isAgentBusy, setChatData, setOrbStatus
     handlePlanningCommandRef.current = handlePlanningCommand
     currentMusicTrackRef.current = currentMusicTrack
     isLoadingRef.current = isLoading
-  }, [chatData, config, handlePlanningCommand, currentMusicTrack, isLoading])
+    isAgentBusyRef.current = isAgentBusy
+  }, [chatData, config, handlePlanningCommand, currentMusicTrack, isLoading, isAgentBusy])
+
+  const isAwarenessEnabled = config?.[0]?.awarenessEnabled !== false;
 
   useEffect(() => {
+    if (!isAwarenessEnabled) return;
+    if (isLoading || isAgentBusy) return;
+
     const checkIn = async () => {
-      const currentConf = configRef.current?.[0] || {}
-      if (currentConf.awarenessEnabled === false) return
-      
-      if (isAgentBusy || isLoading || isRequestingRef.current) return
+      if (isAgentBusyRef.current || isLoadingRef.current || isRequestingRef.current) return
 
       try {
         isRequestingRef.current = true
@@ -77,7 +81,7 @@ export const useAwareness = ({ isLoading, isAgentBusy, setChatData, setOrbStatus
 
           // Jika ada perintah autonomus, bypass chat bubble biasa dan langsung eksekusi plan siluman
           if (result.autonomous_prompt && handlePlanningCommandRef.current) {
-             handlePlanningCommandRef.current(result.autonomous_prompt, null, true, result.message)
+             handlePlanningCommandRef.current(result.autonomous_prompt, null, true, result.message, {}, true)
           } else {
              // Kalau cuma mau ngomong biasa tanpa ngejalanin plan
              setChatData(prev => [...prev, {
@@ -108,5 +112,5 @@ export const useAwareness = ({ isLoading, isAgentBusy, setChatData, setOrbStatus
       clearInterval(id)
       clearTimeout(initialTimeout)
     }
-  }, [isLoading, setChatData, setOrbStatus])
+  }, [isLoading, isAgentBusy, isAwarenessEnabled, setChatData, setOrbStatus])
 }

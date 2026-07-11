@@ -43,6 +43,33 @@ db.version(9).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, waAdminNumber, waPendingAdmins, waApprovedAdmins, customEndpoint, customApiKey, customModel, awarenessEnabled'
 })
 
+db.version(10).upgrade(async tx => {
+  // Reset all vectors to force re-indexing with the new multilingual MiniLM model
+  return tx.memory.toCollection().modify(mem => {
+    mem.vector = [];
+  });
+})
+
+db.version(11).upgrade(async tx => {
+  // Reset vectors for chatArchive and documents as well because of the model change
+  await tx.chatArchive.toCollection().modify(arc => {
+    arc.vector = [];
+  });
+  await tx.documents.toCollection().modify(doc => {
+    doc.vector = [];
+  });
+})
+
+db.version(12).upgrade(async tx => {
+  // BUMP VERSION 12: Memastikan benar-benar terhapus (jika v11 ke-skip)
+  await tx.chatArchive.toCollection().modify(arc => {
+    arc.vector = [];
+  });
+  await tx.documents.toCollection().modify(doc => {
+    doc.vector = [];
+  });
+})
+
 // --- VALIDATION ---
 const VALID_TYPES = ['profile', 'preference', 'notes'];
 

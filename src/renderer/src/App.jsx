@@ -84,16 +84,33 @@ import { initOramaIndices, hydrateFromDexie } from './api/oramaStore'
 function App() {
   const [hasConfig, setHasConfig] = useState(true)
   const [isChecking, setIsChecking] = useState(true)
+  const [loadingText, setLoadingText] = useState('Membangunkan Mark...')
 
   useEffect(() => {
     const checkConfig = async () => {
       // 1. Init Orama and Hydrate from Dexie
       try {
+        setLoadingText('Memuat Knowledge Base...')
         await initOramaIndices()
         await hydrateFromDexie()
         console.log('[App] Orama indices ready!')
       } catch (e) {
         console.error('[App] Failed to init Orama:', e)
+      }
+
+      // 1.5 Load Embeddings Model
+      try {
+        setLoadingText('Memuat Memori Kognitif...')
+        const { getExtractor } = await import('./api/vectorMemory')
+        await getExtractor((info) => {
+          if (info.status === 'progress' && info.total > 0) {
+            setLoadingText(`Mengunduh Memori AI... ${Math.round((info.loaded / info.total) * 100)}%`)
+          } else if (info.status === 'done' || info.status === 'ready') {
+            setLoadingText('Membangunkan Mark...')
+          }
+        })
+      } catch (e) {
+        console.error('[App] Failed to load Transformers:', e)
       }
 
       // 2. Load config
@@ -116,7 +133,7 @@ function App() {
       <div className="h-screen w-screen bg-base-300 flex flex-col items-center justify-center gap-5">
         <span className="loading loading-infinity w-16 text-primary"></span>
         <p className="text-sm font-semibold tracking-[0.2em] text-white/40 uppercase animate-pulse">
-          Membangunkan Mark...
+          {loadingText}
         </p>
       </div>
     )

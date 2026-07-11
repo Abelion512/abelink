@@ -33,8 +33,6 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     groqApiKey: '',
     aiProvider: 'lm-studio',
     groqModel: 'llama-3.1-8b-instant',
-    embedProvider: 'transformers',
-    lmStudioEmbedModel: 'embeddinggemma-300m-qat',
     waAdminNumber: '',
     micDeviceId: 'default',
     awarenessEnabled: true
@@ -236,8 +234,6 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
         ...prev,
         ...data[0],
         aiProvider: data[0].aiProvider || 'lm-studio',
-        embedProvider: data[0].embedProvider || 'lm-studio',
-        lmStudioEmbedModel: data[0].lmStudioEmbedModel || 'embeddinggemma-300m-qat',
         micDeviceId: data[0].micDeviceId || 'default',
         awarenessEnabled: data[0].awarenessEnabled ?? true
       }))
@@ -325,23 +321,21 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
       }
     }
 
-    if (config.embedProvider === 'transformers') {
-      setIsDownloadingModel(true)
-      setDownloadProgress(0)
+    setIsDownloadingModel(true)
+    setDownloadProgress(0)
 
-      try {
-        await getExtractor((info) => {
-          if (info.status === 'progress' && info.total > 0) {
-            setDownloadProgress(Math.round((info.loaded / info.total) * 100))
-          } else if (info.status === 'done' || info.status === 'ready') {
-            setDownloadProgress(100)
-          }
-        })
-      } catch (e) {
-        console.error(e)
-      }
-      setIsDownloadingModel(false)
+    try {
+      await getExtractor((info) => {
+        if (info.status === 'progress' && info.total > 0) {
+          setDownloadProgress(Math.round((info.loaded / info.total) * 100))
+        } else if (info.status === 'done' || info.status === 'ready') {
+          setDownloadProgress(100)
+        }
+      })
+    } catch (e) {
+      console.error(e)
     }
+    setIsDownloadingModel(false)
     await saveConfiguration(config)
     if (isFirstSetup && onSetupComplete) {
       onSetupComplete()
@@ -633,60 +627,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               </div>
             )}
 
-            {/* Embed Provider Selector */}
-            <div id="tour-embed-provider" className="space-y-1.5 p-2 -mx-2 rounded-lg">
-              <p className="text-sm font-semibold">Memori Embeddings Provider</p>
-              <div className="flex gap-4">
-                <label className="label cursor-pointer justify-start gap-2">
-                  <input
-                    type="radio"
-                    name="embedProvider"
-                    className="radio radio-primary radio-sm"
-                    value="lm-studio"
-                    checked={config.embedProvider === 'lm-studio'}
-                    onChange={() => setConfig((prev) => ({ ...prev, embedProvider: 'lm-studio' }))}
-                  />
-                  <span className="label-text">LM Studio (Local Server)</span>
-                </label>
-                <label className="label cursor-pointer justify-start gap-2">
-                  <input
-                    type="radio"
-                    name="embedProvider"
-                    className="radio radio-primary radio-sm"
-                    value="transformers"
-                    checked={config.embedProvider === 'transformers'}
-                    onChange={() =>
-                      setConfig((prev) => ({ ...prev, embedProvider: 'transformers' }))
-                    }
-                  />
-                  <span className="label-text">Transformers.js (Fully Local - Tanpa Server)</span>
-                </label>
-              </div>
-              {config.embedProvider === 'transformers' && (
-                <p className="text-xs text-warning">
-                  Jika baru pertama kali memilih opsi ini, model sebesar ~22MB akan di-download saat
-                  menyimpan pengaturan.
-                </p>
-              )}
 
-              {config.embedProvider === 'lm-studio' && (
-                <div className="mt-2 space-y-1.5">
-                  <p className="text-sm font-semibold">Model Embeddings (LM Studio)</p>
-                  <input
-                    type="text"
-                    placeholder="Contoh: embeddinggemma-300m-qat"
-                    className="input input-bordered w-full"
-                    value={config.lmStudioEmbedModel || 'embeddinggemma-300m-qat'}
-                    onChange={(e) =>
-                      setConfig((prev) => ({ ...prev, lmStudioEmbedModel: e.target.value }))
-                    }
-                  />
-                  <p className="text-xs opacity-40">
-                    Pastikan model text-embedding ini dalam status "Loaded" di LM Studio.
-                  </p>
-                </div>
-              )}
-            </div>
 
             {/* Groq API Key (Always visible for STT) */}
             <div id="tour-groq-key" className="space-y-1.5 p-2 -mx-2 rounded-lg">

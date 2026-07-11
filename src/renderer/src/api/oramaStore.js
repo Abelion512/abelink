@@ -1,4 +1,5 @@
 import { create, insert, insertMultiple, search, remove, removeMultiple } from '@orama/orama'
+import { generateVector } from './vectorMemory'
 
 // Dimensi vektor sesuai model Transformers.js (all-MiniLM-L6-v2 = 384)
 const VECTOR_SIZE = 384
@@ -34,29 +35,64 @@ export async function hydrateFromDexie() {
   const { db } = await import('./db')
 
   const archives = await db.chatArchive.toArray()
-  if (archives.length > 0) {
-    await insertMultiple(archiveIndex, archives.map(a => ({
-      summary: a.summary,
-      topic: a.topic || 'General',
-      timestamp: a.timestamp || Date.now(),
-      dexieId: a.id,
-      vector: a.vector
-    })))
+  const validArchives = []
+  const needsMigration = localStorage.getItem('migrated_vectors_v1') !== 'true'
+
+  for (let a of archives) {
+    if (needsMigration || !a.vector || a.vector.length !== VECTOR_SIZE) {
+      console.log(`[Orama] Re-generating vector for archive ID ${a.id}`)
+      a.vector = await generateVector(a.summary)
+      if (a.vector && a.vector.length === VECTOR_SIZE) {
+        db.chatArchive.update(a.id, { vector: a.vector }).catch(console.error)
+      }
+    }
+    if (a.vector && a.vector.length === VECTOR_SIZE) {
+      validArchives.push({
+        summary: a.summary,
+        topic: a.topic || 'General',
+        timestamp: a.timestamp || Date.now(),
+        dexieId: a.id,
+        vector: a.vector
+      })
+    }
+  }
+
+  if (validArchives.length > 0) {
+    await insertMultiple(archiveIndex, validArchives)
   }
 
   const docs = await db.documents.toArray()
-  if (docs.length > 0) {
-    await insertMultiple(documentIndex, docs.map(d => ({
-      docName: d.docName,
-      chunkIndex: d.chunkIndex,
-      content: d.content,
-      timestamp: d.timestamp || Date.now(),
-      dexieId: d.id,
-      vector: d.vector
-    })))
+  const validDocs = []
+  for (let d of docs) {
+    if (needsMigration || !d.vector || d.vector.length !== VECTOR_SIZE) {
+      console.log(`[Orama] Re-generating vector for doc ID ${d.id}`)
+      d.vector = await generateVector(d.content)
+      if (d.vector && d.vector.length === VECTOR_SIZE) {
+        db.documents.update(d.id, { vector: d.vector }).catch(console.error)
+      }
+    }
+    if (d.vector && d.vector.length === VECTOR_SIZE) {
+      validDocs.push({
+        docName: d.docName,
+        chunkIndex: d.chunkIndex,
+        content: d.content,
+        timestamp: d.timestamp || Date.now(),
+        dexieId: d.id,
+        vector: d.vector
+      })
+    }
   }
 
-  console.log(`[Orama] Hydrated: ${archives.length} archives, ${docs.length} doc chunks`)
+  if (validDocs.length > 0) {
+    await insertMultiple(documentIndex, validDocs)
+  }
+
+  if (needsMigration) {
+    localStorage.setItem('migrated_vectors_v1', 'true')
+    console.log('[Orama] Successfully migrated all old vectors to new model!')
+  }
+
+  console.log(`[Orama] Hydrated: ${validArchives.length} archives, ${validDocs.length} doc chunks`)
 }
 
 // Vector search di arsip obrolan
@@ -66,9 +102,10 @@ export async function searchArchives(queryVector, limit = 3) {
     const results = await search(archiveIndex, {
       mode: 'vector',
       vector: { value: queryVector, property: 'vector' },
+      similarity: 0.25,
       limit
     })
-    console.log(`[Orama] Found ${results.hits.length} archives.`)
+    console.log(`[Orama] Found ${results.hits.length} archives. Scores:`, results.hits.map(h => h.score))
     return results.hits.map(hit => hit.document)
   } catch (err) {
     console.error('[Orama] Error in searchArchives:', err)
@@ -88,6 +125,7 @@ export async function searchDocuments(queryText, queryVector, limit = 5) {
       term: queryText,
       mode: 'hybrid',
       vector: { value: queryVector, property: 'vector' },
+      similarity: 0.25,
       limit
     })
     console.log(`[Orama] Found ${results.hits.length} documents. Scores:`, results.hits.map(h => h.score))

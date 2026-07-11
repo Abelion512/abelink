@@ -22,7 +22,7 @@ export const useMarkPlan = ({
     }
   }, [setChatData])
 
-  const handlePlanningCommand = async (userInput, waContext = null, isAutonomous = false, autonomousInitialMessage = null, options = {}) => {
+  const handlePlanningCommand = async (userInput, waContext = null, isAutonomous = false, autonomousInitialMessage = null, options = {}, isSystem = false) => {
     const finalIsSpeak = options.forceSpeak !== undefined ? options.forceSpeak : isSpeak
     if (!userInput) return
 
@@ -34,7 +34,8 @@ export const useMarkPlan = ({
     setIsAgentBusy(true)
 
     const timestampStr = getCurrentTimeInfo()
-    const userMessage = { role: 'user', content: userInput, timestamp: timestampStr }
+    // Pesan dari system (greetingPrompt, awareness) pakai role 'system' agar AI bisa bedain dari pesan user
+    const userMessage = { role: isSystem ? 'system' : 'user', content: userInput, timestamp: timestampStr }
 
     // ========== STEP 1: PERSIAPAN CHAT SESSION ==========
     const rawSession = [
@@ -59,7 +60,7 @@ export const useMarkPlan = ({
     chatSession = [...chatSession].slice(-1 * (config[0]?.context || 10))
     chatSession = [...chatSession, userMessage]
 
-    if (!isAutonomous) {
+    if (!isAutonomous && !isSystem) {
       setChatData(prev => [...prev, userMessage])
     }
     abortControllerRef.current = new AbortController()
@@ -78,10 +79,21 @@ export const useMarkPlan = ({
 
       let contextMsgStr = ''
       if (waContext) contextMsgStr += `Permintaan ini berasal dari WhatsApp (JID: ${waContext.jid}).\n`
+      if (isSystem) contextMsgStr += `[SYSTEM INSTRUCTION]: Pesan ini adalah instruksi internal dari sistem, bukan dari user.\n`
       if (isAutonomous) contextMsgStr += `[AWARENESS MODE]: Ini adalah pemikiran autonom-mu sendiri.\n`
       if (currentMusicTrack && currentMusicTrack.title) {
         contextMsgStr += `[STATUS SISTEM]: Sedang memutar "${currentMusicTrack.title}" oleh ${currentMusicTrack.artist}.\n`
       }
+
+      // Inject window tracker — biar AI tau user lagi ngapain di PC
+      try {
+        const activityBuffer = await window.api.getActivityBuffer()
+        if (activityBuffer && activityBuffer.length > 0) {
+          const recent = activityBuffer.slice(-5) // Ambil 5 aktivitas terakhir saja biar hemat token
+          const activitySummary = recent.map(a => `[${a.time}] ${a.app}${a.title ? ` — ${a.title}` : ''}`).join('\n')
+          contextMsgStr += `[AKTIVITAS PC USER (terakhir)]\n${activitySummary}\n`
+        }
+      } catch (_) { /* Silent fail — jika API tidak tersedia */ }
 
       if (isAutonomous && autonomousInitialMessage) {
         setChatData(prev => [
@@ -185,31 +197,37 @@ export const useMarkPlan = ({
             window.api.showNotification('Mark', decision.answer)
           }
 
-          // Tampilkan jawaban akhir di UI
-          setChatData(prev => {
-            const filtered = prev.filter(item => !item.isThinking)
-            const aiMsg = {
-              role: 'ai',
-              content: decision.answer,
-              reasoning: decision.thought,
-              mood: decision.mood || 'neutral',
-              isMemorySaved: decision.memory?.action === 'insert',
-              isMemoryUpdated: decision.memory?.action === 'update',
-              isMemoryDeleted: decision.memory?.action === 'delete',
-              pluginExecution: lastToolExecution,
-              timestamp: getCurrentTimeInfo()
-            }
-            if (allSources.length > 0) {
-              const uniqueSources = []
-              const seenLinks = new Set()
-              allSources.forEach(source => {
-                const id = source.link || JSON.stringify(source)
-                if (!seenLinks.has(id)) { seenLinks.add(id); uniqueSources.push(source) }
-              })
-              aiMsg.sources = uniqueSources
-            }
-            return [...filtered, aiMsg]
-          })
+          // Tampilkan jawaban akhir di UI (skip jika autonomous — cukup pakai autonomousInitialMessage)
+          if (!isAutonomous) {
+            setChatData(prev => {
+              const filtered = prev.filter(item => !item.isThinking)
+              const aiMsg = {
+                role: 'ai',
+                content: decision.answer,
+                reasoning: decision.thought,
+                mood: decision.mood || 'neutral',
+                isMemorySaved: decision.memory?.action === 'insert',
+                isMemoryUpdated: decision.memory?.action === 'update',
+                isMemoryDeleted: decision.memory?.action === 'delete',
+                pluginExecution: lastToolExecution,
+                isProactive: false,
+                timestamp: getCurrentTimeInfo()
+              }
+              if (allSources.length > 0) {
+                const uniqueSources = []
+                const seenLinks = new Set()
+                allSources.forEach(source => {
+                  const id = source.link || JSON.stringify(source)
+                  if (!seenLinks.has(id)) { seenLinks.add(id); uniqueSources.push(source) }
+                })
+                aiMsg.sources = uniqueSources
+              }
+              return [...filtered, aiMsg]
+            })
+          } else {
+            // Autonomous: hapus isThinking bubble saja, jawaban sudah ada di autonomousInitialMessage
+            setChatData(prev => prev.filter(item => !item.isThinking))
+          }
 
           break // EXIT LOOP
         }

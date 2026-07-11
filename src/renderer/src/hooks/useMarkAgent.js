@@ -61,14 +61,16 @@ export const useMarkAgent = () => {
       hasGreetedRef.current = true;
       console.log('[useMarkAgent] Memicu pesan sambutan (Boot sequence)...');
       
-      const greetingPrompt = `[SYSTEM BOOT]: Aplikasi baru saja dinyalakan dari keadaan mati.
-Tugasmu:
-1. Ucapkan selamat datang kembali / sapa user sesuai personality-mu.
-2. Analisis sekilas obrolan paling terakhir di atas (jika ada) dan sebutkan atau singgung obrolan itu dengan natural (misalnya: "Btw tadi kita lagi bahas X").
-3. Jangan berikan plan atau task apa pun. Langsung sapa saja.`;
+      const greetingPrompt = `[SYSTEM BOOT]: Aplikasi baru saja dinyalakan.
+Tugasmu: Ucapkan sapaan singkat sesuai personality-mu.
+Riwayat chat di atas hanya sebagai referensi konteks saja, tidak wajib disinggung.
+LARANGAN KERAS:
+- DILARANG mengeksekusi tool apapun (search, file, powershell, dll).
+- DILARANG melanjutkan atau mengulang task/perintah apapun dari history chat.
+Fokus hanya pada sapaan pembuka.`;
 
       // Trigger planning secara autonom tanpa bubble chat dari user
-      handlePlanningCommand(greetingPrompt, null, true, null);
+      handlePlanningCommand(greetingPrompt, null, true, null, {}, true);
     }
   }, [isChatLoaded, handlePlanningCommand]);
 

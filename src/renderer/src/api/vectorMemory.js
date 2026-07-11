@@ -11,7 +11,7 @@ export const getExtractor = async (onProgress) => {
   if (!extractor && !isDownloading) {
     isDownloading = true;
     try {
-      extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+      extractor = await pipeline('feature-extraction', 'Xenova/paraphrase-multilingual-MiniLM-L12-v2', {
         device: 'wasm',
         progress_callback: onProgress
       });
@@ -26,38 +26,10 @@ export const getExtractor = async (onProgress) => {
 
 export const generateVector = async (text) => {
   try {
-    const configs = await getAllConfig();
-    const conf = configs[0] || {};
-    const embedProvider = conf.embedProvider || 'transformers';
-
-    if (embedProvider === 'transformers') {
-      const ext = await getExtractor();
-      if (!ext) return null;
-      const output = await ext(text, { pooling: 'mean', normalize: true });
-      return Array.from(output.data);
-    } else {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 15000)
-      
-      try {
-        const response = await fetch('http://localhost:1234/v1/embeddings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            input: text,
-            model: conf.lmStudioEmbedModel || "embeddinggemma-300m-qat"
-          }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId)
-        const result = await response.json();
-        return result.data[0].embedding;
-      } catch (err) {
-        clearTimeout(timeoutId)
-        throw err
-      }
-    }
+    const ext = await getExtractor();
+    if (!ext) return null;
+    const output = await ext(text, { pooling: 'mean', normalize: true, truncation: true, max_length: 512 });
+    return Array.from(output.data);
   } catch (error) {
     console.error("Gagal generate vector:", error);
     return null;
