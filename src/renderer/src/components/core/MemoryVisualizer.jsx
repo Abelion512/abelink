@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
-import { getAllChatArchives, getAllMemory, getAllDocuments } from '../../api/db'
+import { getAllChatArchives, getAllMemory, getAllDocuments, deleteMemory, deleteChatArchive } from '../../api/db'
 
 const MemoryVisualizer = ({ isOpen, onClose }) => {
   const [graphData, setGraphData] = useState({ nodes: [], links: [] })
@@ -30,15 +30,13 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
   }, [isOpen])
 
   // Fetch and format data
-  useEffect(() => {
-    if (isOpen) {
-      const loadMemories = async () => {
-        const archives = await getAllChatArchives();
-        const explicitMemories = await getAllMemory();
-        const documents = await getAllDocuments();
-        
-        const nodes = [];
-        const links = [];
+  const loadMemories = async () => {
+    const archives = await getAllChatArchives();
+    const explicitMemories = await getAllMemory();
+    const documents = await getAllDocuments();
+    
+    const nodes = [];
+    const links = [];
 
         // 0. Core Node
         const coreNodeId = 'core';
@@ -119,11 +117,38 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           links.push({ source: docGroupId, target: `doc-${doc.id}`, color: 'rgba(255,255,255,0.1)' });
         });
 
-        setGraphData({ nodes, links });
-      };
+    setGraphData({ nodes, links });
+  };
+
+  useEffect(() => {
+    if (isOpen) {
       loadMemories();
     }
   }, [isOpen]);
+
+  const handleDelete = async () => {
+    if (!selectedNode) return;
+    const confirmDelete = window.confirm(`Yakin ingin menghapus memori ini?\n"${selectedNode.name}"`);
+    if (!confirmDelete) return;
+
+    try {
+      if (selectedNode.typeLabel === 'Explicit Memory') {
+        const id = parseInt(selectedNode.id.split('-')[1]);
+        await deleteMemory(id);
+      } else if (selectedNode.typeLabel === 'Chat Archive') {
+        const id = parseInt(selectedNode.id.split('-')[1]);
+        await deleteChatArchive(id);
+      } else {
+        alert('Penghapusan Document Chunk belum didukung dari panel ini.');
+        return;
+      }
+      setSelectedNode(null);
+      await loadMemories();
+    } catch (err) {
+      console.error('Gagal menghapus memori:', err);
+      alert('Gagal menghapus memori!');
+    }
+  };
 
   // Handle graph physics on load
   useEffect(() => {
@@ -225,9 +250,17 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
             </span>
             <span className="text-xs opacity-50">{selectedNode.date}</span>
           </div>
-          <p className="text-sm opacity-90 leading-relaxed font-mono">
+          <p className="text-sm opacity-90 leading-relaxed font-mono mb-4">
             "{selectedNode.fullText}"
           </p>
+
+          {(selectedNode.typeLabel === 'Explicit Memory' || selectedNode.typeLabel === 'Chat Archive') && (
+            <div className="flex justify-end mt-2">
+              <button onClick={handleDelete} className="btn btn-error btn-sm text-xs">
+                Hapus Ingatan
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

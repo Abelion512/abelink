@@ -22,6 +22,20 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
       signal.addEventListener('abort', onAbort);
     }
 
+    // --- DEBUG LOG: Token Usage & Payload ---
+    console.groupCollapsed(`[fetchAI] Request Payload (${isSmallTask ? 'Small Task' : 'Main Task'})`);
+    console.log("Total Messages:", messages.length);
+    let totalChars = 0;
+    messages.forEach((m, i) => {
+      const charLen = m.content?.length || 0;
+      totalChars += charLen;
+      console.log(`%c[Msg ${i} | ${m.role.toUpperCase()}]`, 'color: #3b82f6; font-weight: bold;', `${charLen} chars`);
+      console.log(m.content);
+    });
+    console.log(`%c[ESTIMASI ESTIMATED TOKENS]`, 'color: #ef4444; font-weight: bold;', `~${Math.round(totalChars / 2.5)} tokens (Bahasa Indonesia & JSON overhead)`);
+    console.groupEnd();
+    // --- END DEBUG LOG ---
+
     window.api.fetchAI({ messages, config: conf, isSmallTask, jsonSchema }).then(result => {
       if (hasResolved) return;
       hasResolved = true;

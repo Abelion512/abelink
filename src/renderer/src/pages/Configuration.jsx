@@ -340,8 +340,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     if (isFirstSetup && onSetupComplete) {
       onSetupComplete()
     } else {
-      // Kembali ke halaman chat setelah simpan
-      window.location.hash = '#/'
+      // Kembali ke halaman chat dan reload agar config baru di-load oleh semua context
+      window.location.href = '#/'
+      window.location.reload()
     }
   }
 
@@ -1196,67 +1197,6 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   </div>
                 </div>
 
-                {/* Core Memory */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold">Core Memory</p>
-                    <span className="badge badge-sm badge-outline badge-primary">
-                      {memories.length} item
-                    </span>
-                  </div>
-
-                  {loadingMemory ? (
-                    <div className="flex justify-center py-10">
-                      <span className="loading loading-spinner loading-md"></span>
-                    </div>
-                  ) : memories.length === 0 ? (
-                    <div className="text-center py-10 opacity-30">
-                      <p className="text-sm">Belum ada memori tersimpan.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 max-h-100 overflow-y-auto no-scrollbar">
-                      {Object.entries(groupedMemories)
-                        .sort(([a], [b]) => a.localeCompare(b))
-                        .map(([type, mems]) => (
-                          <div
-                            key={type}
-                            className="collapse collapse-arrow bg-base-200 rounded-xl"
-                          >
-                            <input type="checkbox" />
-                            <div className="collapse-title text-sm font-semibold min-h-0 py-3">
-                              <span
-                                className={`badge badge-xs mr-2 ${typeBadgeColor[type] || 'badge-ghost'}`}
-                              >
-                                {type}
-                              </span>
-                              <span className="opacity-40 text-xs">({mems.length})</span>
-                            </div>
-                            <div className="collapse-content space-y-1.5 px-4 pb-3">
-                              {mems.map((mem) => (
-                                <div
-                                  key={mem.id}
-                                  className="bg-base-300 p-2.5 rounded-lg flex justify-between items-start gap-3"
-                                >
-                                  <div>
-                                    <p className="text-xs opacity-60 mt-0.5 leading-relaxed">
-                                      {mem.summary || mem.memory}
-                                    </p>
-                                  </div>
-                                  <button
-                                    className="btn btn-ghost btn-xs text-error shrink-0"
-                                    onClick={() => handleDeleteMemory(mem)}
-                                    title="Hapus memori ini"
-                                  >
-                                    <FaTimes />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
               </section>
             </>
           )}
