@@ -6,7 +6,7 @@ import { getAwarenessResponse } from '../api/ai/awareness'
 const CHECKIN_INTERVAL = 10 * 60 * 1000
 const INITIAL_DELAY = 60 * 1000
 
-export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, chatData, handlePlanningCommand, currentMusicTrack }) => {
+export const useAwareness = ({ isLoading, isAgentBusy, setChatData, setOrbStatus, config, chatData, handlePlanningCommand, currentMusicTrack }) => {
   const isRequestingRef = useRef(false)
   const chatDataRef = useRef(chatData)
   const configRef = useRef(config)
@@ -27,7 +27,7 @@ export const useAwareness = ({ isLoading, setChatData, setOrbStatus, config, cha
       const currentConf = configRef.current?.[0] || {}
       if (currentConf.awarenessEnabled === false) return
       
-      if (isLoading || isRequestingRef.current) return
+      if (isAgentBusy || isLoading || isRequestingRef.current) return
 
       try {
         isRequestingRef.current = true

@@ -4,26 +4,28 @@ import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorMemory'
 
 const CATEGORY_TEXTS = {
-  coding: "bikin web script kode code program aplikasi membuat koding coding programming nulis react html css javascript js perbaiki error bug frontend ui design backend logic",
-  files: "baca file tulis file hapus file buat file edit file folder direktori cari teks grep terminal powershell command jalankan perintah eksekusi cmd",
-  music: "putar lagu musik youtube yt music cari video mp3 play lagu",
-  search: "cari di internet google penelusuran web berita terbaru cuaca informasi terkini",
-  system: "screenshot kirim pesan whatsapp wa operasikan komputer sistem",
-  capabilities: "apa saja plugin mu daftar tool kemampuan fitur bisa ngapain aja"
+  coding:
+    'bikin web script kode code program aplikasi membuat koding coding programming nulis react html css javascript js perbaiki error bug frontend ui design backend logic',
+  files:
+    'baca file tulis file hapus file buat file edit file folder direktori cari teks grep terminal powershell command jalankan perintah eksekusi cmd',
+  music: 'putar lagu musik youtube yt music cari video mp3 play lagu',
+  search: 'cari di internet google penelusuran web berita terbaru cuaca informasi terkini',
+  system: 'screenshot kirim pesan whatsapp wa operasikan komputer sistem',
+  capabilities: 'apa saja plugin mu daftar tool kemampuan fitur bisa ngapain aja'
 }
 
-let categoryVectors = null;
+let categoryVectors = null
 const getCategoryVectors = async () => {
-  if (categoryVectors) return categoryVectors;
-  const vecs = {};
+  if (categoryVectors) return categoryVectors
+  const vecs = {}
   for (const [key, text] of Object.entries(CATEGORY_TEXTS)) {
-    vecs[key] = await generateVector(text);
+    vecs[key] = await generateVector(text)
   }
-  categoryVectors = vecs;
-  return categoryVectors;
-};
+  categoryVectors = vecs
+  return categoryVectors
+}
 
-let pluginVectorCache = new Map();
+let pluginVectorCache = new Map()
 
 // Inline helper to get plugin actions (replaces pluginHelper.js)
 const getPluginActions = async () => {
@@ -63,43 +65,43 @@ export const getNextAction = async (
     const conf = currentConfig[0] || {}
 
     // === DYNAMIC PROMPT ROUTING ===
-    const userVec = await generateVector(userInput);
-    let activeCategories = [];
+    const userVec = await generateVector(userInput)
+    let activeCategories = []
     if (userVec) {
-      const catVecs = await getCategoryVectors();
+      const catVecs = await getCategoryVectors()
       for (const [key, vec] of Object.entries(catVecs)) {
-        if (!vec) continue;
-        const score = cosineSimilarity(userVec, vec);
-        if (score > 0.35) activeCategories.push(key);
+        if (!vec) continue
+        const score = cosineSimilarity(userVec, vec)
+        if (score > 0.35) activeCategories.push(key)
       }
     }
-    if (activeCategories.length === 0) activeCategories = ['casual'];
-    
+    if (activeCategories.length === 0) activeCategories = ['casual']
+
     console.log('[Router: getNextAction] activeCategories:', activeCategories)
     const pluginActions = await getPluginActions()
-    let relevantPlugins = [];
+    let relevantPlugins = []
 
     if (userVec && pluginActions.length > 0) {
       if (activeCategories.includes('capabilities')) {
-        relevantPlugins = pluginActions; // Show all plugins if user is asking for capabilities
+        relevantPlugins = pluginActions // Show all plugins if user is asking for capabilities
       } else {
         for (const p of pluginActions) {
-          const pText = `${p.name} ${p.description} ${p.triggerHint || ''}`;
-        if (!pluginVectorCache.has(p.name)) {
-          pluginVectorCache.set(p.name, await generateVector(pText));
-        }
-        const pVec = pluginVectorCache.get(p.name);
-        if (pVec) {
-          const score = cosineSimilarity(userVec, pVec);
-          // Threshold 0.35 agar tidak terlalu ketat untuk plugin
-          if (score > 0.35) relevantPlugins.push(p);
-        } else {
-          relevantPlugins.push(p);
-        }
+          const pText = `${p.name} ${p.description} ${p.triggerHint || ''}`
+          if (!pluginVectorCache.has(p.name)) {
+            pluginVectorCache.set(p.name, await generateVector(pText))
+          }
+          const pVec = pluginVectorCache.get(p.name)
+          if (pVec) {
+            const score = cosineSimilarity(userVec, pVec)
+            // Threshold 0.35 agar tidak terlalu ketat untuk plugin
+            if (score > 0.35) relevantPlugins.push(p)
+          } else {
+            relevantPlugins.push(p)
+          }
         }
       }
     } else {
-      relevantPlugins = pluginActions;
+      relevantPlugins = pluginActions
     }
 
     const pluginCapabilities =
@@ -111,7 +113,7 @@ export const getNextAction = async (
             )
             .join('\n')
         : ''
-        
+
     const systemPrompt = `
 Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas asisten AI canggih dan otonom.
 
@@ -170,10 +172,12 @@ JANGAN isi keduanya! Boleh panggil tool berulang kali.
 - Jika tool sebelumnya GAGAL/ERROR, analisis errornya di "thought" lalu coba strategi lain.
 - Jika user hanya ngobrol santai, LANGSUNG isi "answer" tanpa tool.
 - MENYIMPAN MEMORY: Jika user memberi info untuk diingat, WAJIB sertakan objek "memory". Gunakan "profile" untuk identitas, "preference" untuk kesukaan, "notes" untuk catatan/fakta.
-${activeCategories.some(c => ['search', 'casual', 'coding'].includes(c)) ? `- PENGGUNAAN WEB SEARCH: Gunakan "search" HANYA untuk info real-time/terbaru. Untuk coding/teori, langsung jawab di "answer".` : ''}
+${activeCategories.some((c) => ['search', 'casual', 'coding'].includes(c)) ? `- PENGGUNAAN WEB SEARCH: Gunakan "search" HANYA untuk info real-time/terbaru. Untuk coding/teori, langsung jawab di "answer".` : ''}
 ${documents.length > 0 ? `- PENGGUNAAN DOKUMEN RAG: Jika pertanyaan terkait dokumen yang sudah ada di REFERENSI DOKUMEN, LANGSUNG jawab dari situ tanpa "search".` : ''}
-${activeCategories.some(c => ['coding', 'system'].includes(c)) ? `- STOPPING CONDITION (SANGAT KRITIS): Jika tugas utama (misal bikin web/script) sudah berhasil, jalan, dan sesuai instruksi awal, JANGAN ngide merombak ulang atau memperbaiki hal-hal minor! Langsung akhiri loop dengan mengisi "answer" (selesai). Sifat perfeksionis yang berlebihan justru merusak kode yang sudah jalan!\n- VERIFIKASI HASIL: Tepat sebelum kamu memutuskan untuk memberikan "answer" (selesai), wajib lakukan pengecekan terakhir (misal: jalankan command test, atau pastikan file berhasil ditulis). Jika hasilnya valid dan sesuai request, langsung laporkan ke user!` : ''}
-${activeCategories.includes('coding') ? `
+${activeCategories.some((c) => ['coding', 'system'].includes(c)) ? `- STOPPING CONDITION (SANGAT KRITIS): Jika tugas utama (misal bikin web/script) sudah berhasil, jalan, dan sesuai instruksi awal, JANGAN ngide merombak ulang atau memperbaiki hal-hal minor! Langsung akhiri loop dengan mengisi "answer" (selesai). Sifat perfeksionis yang berlebihan justru merusak kode yang sudah jalan!\n- VERIFIKASI HASIL: Tepat sebelum kamu memutuskan untuk memberikan "answer" (selesai), wajib lakukan pengecekan terakhir (misal: jalankan command test, atau pastikan file berhasil ditulis). Jika hasilnya valid dan sesuai request, langsung laporkan ke user!` : ''}
+${
+  activeCategories.includes('coding')
+    ? `
 # ATURAN KODING & DEVELOPMENT
 Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
 1. **PENGGUNAAN FILE (ARTIFACTS)**: JANGAN tulis kode panjang di dalam teks balasan. Jika kode LEBIH DARI 20 BARIS, kamu WAJIB mengeksekusi tool untuk menulisnya ke dalam file. Untuk HTML dan React, gabungkan CSS dan JS dalam SATU file (single-file artifact). Import library eksternal dari CDN.
@@ -181,24 +185,34 @@ Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
 3. **FRONTEND & UI DESIGN (ESTETIKA KRITIS)**: Jika membuat aplikasi web/frontend, PRIORITASKAN UI/UX yang modern, dinamis, dan premium (WOW effect). Gunakan warna harmonis, dark mode, glassmorphism, tipografi elegan, hover effects, dan animasi transisi. JANGAN buat desain kaku atau ala kadarnya!
 4. **ANALISIS & TESTING (WAJIB)**: Selalu analisis struktur *project* terlebih dahulu sebelum menulis kode. Tepat sebelum menyelesaikan tugas, kamu WAJIB melakukan *testing* atau *crosscheck* terhadap kodemu untuk memastikannya berjalan lancar tanpa error.
 5. **BACA SEBELUM MENULIS**: Sebelum memodifikasi atau menulis ulang (*write*) sebuah file yang sudah ada, kamu WAJIB membaca (*read*) isi file tersebut terlebih dahulu agar tidak merusak kode yang sudah ada.
-6. **USER AGREEMENT**: Beberapa tool (write-file, replace-lines, delete-file, run-powershell) membutuhkan persetujuan user sebelum dieksekusi. Jika user MENOLAK, jangan paksa. Jelaskan alasanmu dan tanyakan alternatif.` : ''}
+6. **USER AGREEMENT**: Beberapa tool (write-file, replace-lines, delete-file, run-powershell) membutuhkan persetujuan user sebelum dieksekusi. Jika user MENOLAK, jangan paksa. Jelaskan alasanmu dan tanyakan alternatif.`
+    : ''
+}
 
 # TOOLS BAWAAN (BUILT-IN)
 - search: Mencari informasi di Google (menelusuri 5 website + AI summary Google).
-${activeCategories.includes('music') ? `- yt-search: Mencari video di YouTube (judul, ID, durasi).
+${
+  activeCategories.includes('music')
+    ? `- yt-search: Mencari video di YouTube (judul, ID, durasi).
 - yt-summary: Merangkum isi video dari link YouTube.
 - music-play: Memutar lagu di YouTube Music.
 - music-toggle: Pause/lanjut memutar lagu.
-- music-search: Mencari lagu spesifik di YT Music.` : ''}
-${activeCategories.some(c => ['system', 'casual'].includes(c)) ? `- screenshot: Mengambil screenshot layar komputer.
-- wa-send: Mengirim pesan WhatsApp. Format query: "JID|Isi Pesan".` : ''}
-${activeCategories.some(c => ['files', 'coding'].includes(c)) ? `- read-file: Membaca isi file. Query: path_absolut. Baca spesifik baris: path||startLine||endLine.
+- music-search: Mencari lagu spesifik di YT Music.`
+    : ''
+}
+${
+  activeCategories.some((c) => ['system', 'casual'].includes(c))
+    ? `- screenshot: Mengambil screenshot layar komputer.
+- wa-send: Mengirim pesan WhatsApp. Format query: "JID|Isi Pesan".`
+    : ''
+}
+- read-file: Membaca isi file. Query: path_absolut. Baca spesifik baris: path||startLine||endLine.
 - write-file: Menulis/buat file baru. Query: path||isi_file. (Perlu persetujuan user)
 - replace-lines: Edit baris tertentu. Query: path||startLine||endLine||kode_baru. (Perlu persetujuan user)
 - delete-file: Hapus file. Query: path_absolut. (Perlu persetujuan user)
 - list-dir: Lihat isi folder. Query: path_folder.
 - grep-search: Cari teks dalam folder. Query: path_folder||keyword.
-- run-powershell: Eksekusi perintah PowerShell. (Perlu persetujuan user untuk command berbahaya)` : ''}
+- run-powershell: Eksekusi perintah PowerShell. (Perlu persetujuan user untuk command berbahaya)
 
 # PLUGIN TAMBAHAN (EXTERNAL)
 ${pluginCapabilities || '- (Belum ada plugin tambahan yang terdeteksi)'}
@@ -207,24 +221,26 @@ ${pluginCapabilities || '- (Belum ada plugin tambahan yang terdeteksi)'}
 # OBSERVATION
 Pesan "[OBSERVATION]" = hasil tool. Baca, lalu putuskan: tool lagi atau jawab user.
 
-# FORMAT OUTPUT WAJIB (JSON)
-{
-  "thought": "string (Alasan/logika keputusanmu, tidak ditampilkan ke user)",
-  "action": { "tool": "nama-tool", "query": "parameter" } atau null,
-  "answer": "string (Jawaban lengkap untuk user)" atau null,
-  "mood": "positive|neutral|negative|annoyed",
-  "active_topic": "string",
-  "memory": { "id": number|null, "type": "profile|preference|notes", "summary": "string", "memory": "string", "action": "insert|update|delete" } atau null
+  # FORMAT OUTPUT WAJIB (JSON)
+  {
+    "thought": "string (Alasan/logika keputusanmu, tidak ditampilkan ke user)",
+    "action": { "tool": "nama-tool", "query": "parameter" } atau null,
+    "answer": "string (Jawaban lengkap untuk user)" atau null,
+    "mood": "positive|neutral|negative|annoyed",
+    "active_topic": "string",
+    "memory": { "id": number|null, "type": "profile|preference|notes", "summary": "string", "memory": "string", "action": "insert|update|delete" } atau null
 }
 
 # CONTOH
 Chat santai: {"thought":"ok","action":null,"answer":"Yoi!","mood":"positive","active_topic":"Ngobrol Santai","memory":null}
 Butuh tool: {"thought":"cari dulu","action":{"tool":"search","query":"harga rtx 5090"},"answer":null,"mood":"neutral","active_topic":"Cari Info","memory":null}
 Setelah observation: {"thought":"done","action":null,"answer":"Harganya sekitar 30jt","mood":"positive","active_topic":"Cari Info","memory":null}
-`.replace(/\n{3,}/g, '\n\n').trim()
+`
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
 
     // TRUNCATE HISTORY & INJECT MOOD: Potong teks panjang di histori supaya nggak bikin Groq kena Rate Limit (Token Kegedean)
-    const prepareHistory = (session, maxLength = (conf.aiProvider === 'custom' ? 128000 : 4000)) => {
+    const prepareHistory = (session, maxLength = conf.aiProvider === 'custom' ? 128000 : 4000) => {
       return session.map((msg) => {
         let contentStr = msg.content || ''
 
@@ -245,7 +261,9 @@ Setelah observation: {"thought":"done","action":null,"answer":"Harganya sekitar 
         if (contentStr.length > maxLength) {
           return {
             role: msg.role === 'ai' ? 'assistant' : msg.role,
-            content: contentStr.substring(0, maxLength) + '\\n...[SYSTEM TRUNCATION: Teks terlalu panjang dan dipotong oleh sistem. Operasi kamu BERHASIL 100% dan file ditulis lengkap. JANGAN perbaiki atau tulis ulang!]'
+            content:
+              contentStr.substring(0, maxLength) +
+              '\\n...[SYSTEM TRUNCATION: Teks terlalu panjang dan dipotong oleh sistem. Operasi kamu BERHASIL 100% dan file ditulis lengkap. JANGAN perbaiki atau tulis ulang!]'
           }
         }
         return {
@@ -348,7 +366,9 @@ Setelah observation: {"thought":"done","action":null,"answer":"Harganya sekitar 
       }
     }
 
-    throw new Error('Gagal merespons: Model AI yang lu pake gagal ngeluarin format JSON yang bener setelah di-retry. (Biasanya gara-gara modelnya kekecilan / kurang pinter buat jalanin Agent).')
+    throw new Error(
+      'Gagal merespons: Model AI yang lu pake gagal ngeluarin format JSON yang bener setelah di-retry. (Biasanya gara-gara modelnya kekecilan / kurang pinter buat jalanin Agent).'
+    )
   } catch (error) {
     if (error.name !== 'AbortError' && !error.message.includes('AbortError')) {
       console.error('Error in getNextAction:', error)
@@ -371,17 +391,17 @@ export const getPlanConclusion = async (
     const { memories = [], archives = [], documents = [] } = unifiedContext
 
     // === DYNAMIC PROMPT ROUTING ===
-    const userVec = await generateVector(userInput);
-    let activeCategories = [];
+    const userVec = await generateVector(userInput)
+    let activeCategories = []
     if (userVec) {
-      const catVecs = await getCategoryVectors();
+      const catVecs = await getCategoryVectors()
       for (const [key, vec] of Object.entries(catVecs)) {
-        if (!vec) continue;
-        const score = cosineSimilarity(userVec, vec);
-        if (score > 0.35) activeCategories.push(key);
+        if (!vec) continue
+        const score = cosineSimilarity(userVec, vec)
+        if (score > 0.35) activeCategories.push(key)
       }
     }
-    if (activeCategories.length === 0) activeCategories = ['casual'];
+    if (activeCategories.length === 0) activeCategories = ['casual']
     console.log('[Router: getPlanConclusion] activeCategories:', activeCategories)
     const systemPrompt = `
 Kamu adalah Mark, sebuah entitas asisten AI canggih dan otonom.
@@ -454,7 +474,9 @@ ${
   3. **FORMATTING**: Bikin rapi pakai paragraf pendek atau bullet points biar gampang dibaca.
   4. **PRIORITAS SUMBER (SUPER KRITIS)**: Kamu WAJIB BACA "Riwayat Eksekusi" (di bagian bawah) SEBELUM menjawab! Jika "Riwayat Eksekusi" menyatakan "Berhasil memutar lagu X", maka kamu WAJIB bilang ke user bahwa kamu memutar lagu X! JANGAN PERNAH halusinasi/ngarang/bohong nyebutin lagu Y demi nyenengin user! Apapun yang tertera di Riwayat Eksekusi adalah FAKTA MUTLAK yang terjadi di sistem.
   5. **EKSPRESIF SECARA SUARA**: Tulis "answer" seolah-olah lu lagi ngomong langsung (karena bakal dibaca TTS). Pakai kata sambung natural ("Jadi gini", "Btw", "Wah", dll).
-${activeCategories.includes('coding') ? `  
+${
+  activeCategories.includes('coding')
+    ? `  
   # ATURAN KODING & DEVELOPMENT
   Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
   1. **PENGGUNAAN FILE (ARTIFACTS)**: 
@@ -473,7 +495,9 @@ ${activeCategories.includes('coding') ? `
      - Sebelum melakukan *write* atau modifikasi pada file yang sudah ada, kamu WAJIB membaca (*read*) isi file tersebut terlebih dahulu untuk memahami konteksnya dan mencegah hilangnya kode penting.
   6. **USER AGREEMENT**:
      - Beberapa tool (write-file, replace-lines, delete-file, run-powershell) membutuhkan persetujuan user sebelum dieksekusi. Jika user MENOLAK (muncul pesan DITOLAK di hasil observasi), jangan paksa. Jelaskan alasanmu dan tanyakan alternatif.
-` : ''}
+`
+    : ''
+}
   # EVALUASI MEMORY OTOMATIS (KRITIS)
 Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengevaluasi diri: "Apakah ada informasi penting tentang user dari percakapan atau hasil kerja ini yang pantas disimpan?"
 1. Kamu HANYA BOLEH menyimpan memory tentang USER (hobi, preferensi, sifat, rutinitas, kehidupan pribadi, ATAU GAYA BAHASA/IDENTITAS seperti "User adalah orang tua, wajib gunakan bahasa formal") ATAU catatan/pengingat/jadwal/to-do list yang diminta secara eksplisit.
@@ -498,8 +522,13 @@ Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengeval
       "action": "insert|update|delete" 
   } atau null (Semua properti di dalam objek memory ini WAJIB ADA dan tidak boleh dilewati!)
 }
-`.replace(/\n{3,}/g, '\n\n').trim()
-    const prepareHistoryConclusion = (session, maxLength = (conf.aiProvider === 'custom' ? 128000 : 4000)) => {
+`
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+    const prepareHistoryConclusion = (
+      session,
+      maxLength = conf.aiProvider === 'custom' ? 128000 : 4000
+    ) => {
       return session.map((msg) => {
         let contentStr = msg.content || ''
         if (msg.role === 'ai' && msg.mood) {
@@ -508,7 +537,9 @@ Tugas utamamu adalah merangkum hasil kerja sistem, TAPI kamu juga harus mengeval
         if (contentStr.length > maxLength) {
           return {
             role: msg.role === 'ai' ? 'assistant' : msg.role,
-            content: contentStr.substring(0, maxLength) + '\\n...[SYSTEM TRUNCATION: Teks terlalu panjang dan dipotong oleh sistem. Operasi kamu BERHASIL 100% dan file ditulis lengkap. JANGAN perbaiki atau tulis ulang!]'
+            content:
+              contentStr.substring(0, maxLength) +
+              '\\n...[SYSTEM TRUNCATION: Teks terlalu panjang dan dipotong oleh sistem. Operasi kamu BERHASIL 100% dan file ditulis lengkap. JANGAN perbaiki atau tulis ulang!]'
           }
         }
         return {
@@ -527,7 +558,9 @@ Riwayat Eksekusi (Rangkuman):
 ${taskSummaries.map((s, i) => `${i + 1}. ${s}`).join('\n')}
 
 Berikan respon akhirmu dalam format JSON sesuai schema.
-`.replace(/\n{3,}/g, '\n\n').trim()
+`
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
     const messages = [
       { role: 'system', content: systemPrompt },
       ...previousTurns,

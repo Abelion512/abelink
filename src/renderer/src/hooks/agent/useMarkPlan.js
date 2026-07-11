@@ -6,7 +6,7 @@ import { insertMemory, updateMemory, deleteMemory, getAllMemory } from '../../ap
 import { getUnifiedContext } from '../../api/vectorMemory'
 
 export const useMarkPlan = ({
-  chatData, setChatData, config, isSpeak, abortControllerRef, setIsLoading, setMessage,
+  chatData, setChatData, config, isSpeak, abortControllerRef, setIsLoading, setIsAgentBusy, setMessage,
   handleYoutubeSearch, handleSearchCommand, handleYoutubeSummary, handleMusic, getYoutubeData,
   pushProcess, activeTopic, setActiveTopic, currentMusicTrack, requestApproval
 }) => {
@@ -31,6 +31,7 @@ export const useMarkPlan = ({
       setIsLoading(true)
       setMessage('') // Clear input box instantly upon sending
     }
+    setIsAgentBusy(true)
 
     const timestampStr = getCurrentTimeInfo()
     const userMessage = { role: 'user', content: userInput, timestamp: timestampStr }
@@ -416,6 +417,7 @@ export const useMarkPlan = ({
       if (!waContext && !isAutonomous) {
         setIsLoading(false)
       }
+      setIsAgentBusy(false)
 
     } catch (error) {
       if (error.name !== 'AbortError' && !error.message.includes('AbortError')) {
@@ -425,6 +427,7 @@ export const useMarkPlan = ({
       if (!waContext && !isAutonomous) {
         setIsLoading(false)
       }
+      setIsAgentBusy(false)
       if (error.name === 'AbortError' || error.message.includes('AbortError')) {
         setChatData(prev => [
           ...prev.filter(item => !item.isThinking && !item.isSearching),

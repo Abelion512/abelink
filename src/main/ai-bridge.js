@@ -110,7 +110,7 @@ export const fetchAI = async (
       }
 
       // --- TIMEOUT LOGIC ---
-      const timeoutMs = 60000 // 60s timeout buat koneksi ngadat
+      const timeoutMs = 300000 // 5 menit timeout buat local LLM yang lama mikir
       const abortController = new AbortController()
       activeAbortControllers.add(abortController)
       const timeoutId = setTimeout(
@@ -140,7 +140,7 @@ export const fetchAI = async (
         }
         if (err.name === 'AbortError' || (err.message && err.message.includes('Timeout'))) {
           throw new Error(
-            `Koneksi Timeout: Server API (${endpoint}) nge-gantung lebih dari 60 detik.`
+            `Koneksi Timeout: Server API (${endpoint}) nge-gantung lebih dari 5 menit.`
           )
         }
         throw err

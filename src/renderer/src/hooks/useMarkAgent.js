@@ -20,7 +20,7 @@ export const useMarkAgent = () => {
   const {
     chatData, setChatData, clearChat,
     config, setConfig, message, setMessage,
-    isLoading, setIsLoading, isSpeak, setIsSpeak, abortControllerRef,
+    isLoading, setIsLoading, isAgentBusy, setIsAgentBusy, isSpeak, setIsSpeak, abortControllerRef,
     searchProp, handleStop,
     orbStatus, setOrbStatus, currentResponse, setCurrentResponse,
     notifications, pushNotification,
@@ -41,6 +41,7 @@ export const useMarkAgent = () => {
 
   useAwareness({
     isLoading,
+    isAgentBusy,
     setChatData,
     setOrbStatus,
     config,

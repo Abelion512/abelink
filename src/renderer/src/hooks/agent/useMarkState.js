@@ -6,6 +6,7 @@ export const useMarkState = () => {
   const [config, setConfig] = useState([])
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isAgentBusy, setIsAgentBusy] = useState(false)
   const [isSpeak, setIsSpeak] = useState(false)
   const [orbStatus, setOrbStatus] = useState('idle')
   const [currentResponse, setCurrentResponse] = useState(null)
@@ -85,6 +86,8 @@ export const useMarkState = () => {
     setMessage,
     isLoading,
     setIsLoading,
+    isAgentBusy,
+    setIsAgentBusy,
     isSpeak,
     setIsSpeak,
     orbStatus,
