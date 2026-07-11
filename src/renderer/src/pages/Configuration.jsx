@@ -21,6 +21,7 @@ import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import { useLocation } from 'react-router-dom'
 import { useConfirm } from '../hooks/useConfirm'
+import { useChat } from '../contexts/ChatContext'
 
 const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const [config, setConfig] = useState({
@@ -44,6 +45,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const [isDownloadingModel, setIsDownloadingModel] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState(0)
   const { confirm, ModalComponent } = useConfirm()
+  const chatContext = useChat()
 
   const [showGroqKey, setShowGroqKey] = useState(false)
   const [showCerebrasKey, setShowCerebrasKey] = useState(false)
@@ -337,12 +339,17 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     }
     setIsDownloadingModel(false)
     await saveConfiguration(config)
+    
+    // Update global state without reloading the page
+    if (chatContext && chatContext.setConfig) {
+      chatContext.setConfig([config])
+    }
+
     if (isFirstSetup && onSetupComplete) {
       onSetupComplete()
     } else {
-      // Kembali ke halaman chat dan reload agar config baru di-load oleh semua context
+      // Kembali ke halaman chat
       window.location.href = '#/'
-      window.location.reload()
     }
   }
 
