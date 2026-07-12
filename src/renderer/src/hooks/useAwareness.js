@@ -7,7 +7,16 @@ import { analyzeImage } from '../api/vision'
 const CHECKIN_INTERVAL = 10 * 60 * 1000
 const INITIAL_DELAY = 60 * 1000
 
-export const useAwareness = ({ isLoading, isAgentBusy, setChatData, setOrbStatus, config, chatData, handlePlanningCommand, currentMusicTrack }) => {
+export const useAwareness = ({
+  isLoading,
+  isAgentBusy,
+  setChatData,
+  setOrbStatus,
+  config,
+  chatData,
+  handlePlanningCommand,
+  currentMusicTrack
+}) => {
   const isRequestingRef = useRef(false)
   const chatDataRef = useRef(chatData)
   const configRef = useRef(config)
@@ -25,11 +34,11 @@ export const useAwareness = ({ isLoading, isAgentBusy, setChatData, setOrbStatus
     isAgentBusyRef.current = isAgentBusy
   }, [chatData, config, handlePlanningCommand, currentMusicTrack, isLoading, isAgentBusy])
 
-  const isAwarenessEnabled = config?.[0]?.awarenessEnabled !== false;
+  const isAwarenessEnabled = config?.[0]?.awarenessEnabled !== false
 
   useEffect(() => {
-    if (!isAwarenessEnabled) return;
-    if (isLoading || isAgentBusy) return;
+    if (!isAwarenessEnabled) return
+    if (isLoading || isAgentBusy) return
 
     const checkIn = async () => {
       if (isAgentBusyRef.current || isLoadingRef.current || isRequestingRef.current) return
@@ -37,7 +46,7 @@ export const useAwareness = ({ isLoading, isAgentBusy, setChatData, setOrbStatus
       try {
         isRequestingRef.current = true
         console.log('[useAwareness] Memulai check-in...')
-        
+
         const buffer = await window.api.getActivityBuffer()
         if (!buffer || buffer.length < 1) {
           console.log('[useAwareness] Skip check-in: Buffer kosong')
@@ -51,22 +60,25 @@ export const useAwareness = ({ isLoading, isAgentBusy, setChatData, setOrbStatus
 
         // Ambil 5 riwayat chat terakhir tanpa status isThinking dll
         const recentChat = (chatDataRef.current || [])
-          .filter(m => !m.isThinking && !m.isSearching && !m.isSummarizing)
+          .filter((m) => !m.isThinking && !m.isSearching && !m.isSummarizing)
           .slice(-5)
-          .map(m => ({ role: m.role, content: m.content }))
+          .map((m) => ({ role: m.role, content: m.content }))
 
         // Clear buffer right away so we don't send the exact same bulk again later
         if (window.api.clearActivityBuffer) {
           window.api.clearActivityBuffer()
         }
 
-        let visionDescription = ""
+        let visionDescription = ''
         try {
           const screens = await window.api.takeScreenshot()
           if (screens && screens.length > 0) {
             console.log(`[useAwareness] Menganalisis ${screens.length} screenshot layar...`)
             for (let i = 0; i < screens.length; i++) {
-              const screenDesc = await analyzeImage(screens[i].data, "Describe what the user is doing on their computer screen right now.")
+              const screenDesc = await analyzeImage(
+                screens[i].data,
+                'Describe what the user is doing on their computer screen right now.'
+              )
               visionDescription += `[Layar ${screens[i].name}]: ${screenDesc}\n`
             }
             console.log('[useAwareness] Hasil Vision:', visionDescription)
@@ -76,10 +88,10 @@ export const useAwareness = ({ isLoading, isAgentBusy, setChatData, setOrbStatus
         }
 
         const result = await getAwarenessResponse(
-          buffer, 
-          memoryRef, 
-          configRef.current, 
-          recentChat, 
+          buffer,
+          memoryRef,
+          configRef.current,
+          recentChat,
           currentMusicTrackRef.current,
           visionDescription
         )
@@ -87,7 +99,9 @@ export const useAwareness = ({ isLoading, isAgentBusy, setChatData, setOrbStatus
 
         if (result.should_act && result.message) {
           if (isLoadingRef.current) {
-            console.log('[useAwareness] Skip triggering action karena Mark sedang sibuk (isLoading true)')
+            console.log(
+              '[useAwareness] Skip triggering action karena Mark sedang sibuk (isLoading true)'
+            )
             return
           }
           console.log('[useAwareness] Triggering autonomous action!')
@@ -98,15 +112,25 @@ export const useAwareness = ({ isLoading, isAgentBusy, setChatData, setOrbStatus
 
           // Jika ada perintah autonomus, bypass chat bubble biasa dan langsung eksekusi plan siluman
           if (result.autonomous_prompt && handlePlanningCommandRef.current) {
-             handlePlanningCommandRef.current(result.autonomous_prompt, null, true, result.message, {}, true)
+            handlePlanningCommandRef.current(
+              result.autonomous_prompt,
+              null,
+              true,
+              result.message,
+              { disableTools: true },
+              true
+            )
           } else {
-             // Kalau cuma mau ngomong biasa tanpa ngejalanin plan
-             setChatData(prev => [...prev, {
-               role: 'ai',
-               content: result.message,
-               isProactive: true,
-               mood: result.mood
-             }])
+            // Kalau cuma mau ngomong biasa tanpa ngejalanin plan
+            setChatData((prev) => [
+              ...prev,
+              {
+                role: 'ai',
+                content: result.message,
+                isProactive: true,
+                mood: result.mood
+              }
+            ])
           }
 
           // Orb nudge animation

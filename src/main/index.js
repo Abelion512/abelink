@@ -205,7 +205,24 @@ ipcMain.handle('parse-document', async (event, arrayBuffer, isDocx) => {
 ipcMain.handle('wa:logout', async () => await logoutWhatsapp())
 
 import { loadPlugins, initPluginIPC } from './plugins/plugin-loader.js'
+import { navigateTo, readDOM, executeAction, closeBrowser } from './browser-agent.js'
 
+// Browser Automation IPCs
+ipcMain.handle('browser:navigate', async (event, url) => {
+  try { return await navigateTo(url) }
+  catch (e) { return `[ERROR] Gagal membuka ${url}: ${e.message}` }
+})
+ipcMain.handle('browser:read-dom', async (event) => {
+  try { return await readDOM() }
+  catch (e) { return `[ERROR] Gagal membaca DOM: ${e.message}` }
+})
+ipcMain.handle('browser:action', async (event, data) => {
+  try { return await executeAction(data) }
+  catch (e) { return `[ERROR] Gagal eksekusi action: ${e.message}` }
+})
+ipcMain.handle('browser:close', (event) => {
+  return closeBrowser()
+})
 app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.mark.agent')

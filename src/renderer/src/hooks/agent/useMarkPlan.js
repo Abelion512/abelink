@@ -34,7 +34,7 @@ export const useMarkPlan = ({
     setIsAgentBusy(true)
 
     const timestampStr = getCurrentTimeInfo()
-    // Pesan dari system (greetingPrompt, awareness) pakai role 'system' agar AI bisa bedain dari pesan user
+
     const userMessage = { role: isSystem ? 'system' : 'user', content: userInput, timestamp: timestampStr }
 
     // ========== STEP 1: PERSIAPAN CHAT SESSION ==========
@@ -123,12 +123,7 @@ export const useMarkPlan = ({
 
         stepCount++
 
-        // --- Safety: Idle Detection (duplicate action guard) ---
-        if (duplicateActionCount >= 2) {
-          console.warn('[useMarkPlan] Duplicate action detected 2x, forcing done.')
-          isDone = true
-          break
-        }
+
 
         // --- Update UI: Tampilkan step ke berapa ---
         setChatData(prev => {
@@ -145,7 +140,8 @@ export const useMarkPlan = ({
           abortControllerRef.current.signal,
           unifiedContext,
           contextMsgStr,
-          activeTopic
+          activeTopic,
+          options
         )
 
         lastDecision = decision
@@ -229,6 +225,10 @@ export const useMarkPlan = ({
             setChatData(prev => prev.filter(item => !item.isThinking))
           }
 
+          // Opsi: Jika loop berakhir, lepas kunci browser
+          if (window.api && window.api.browserAction) {
+            window.api.browserAction({ action: 'finish' }).catch(() => {})
+          }
           break // EXIT LOOP
         }
 
@@ -237,12 +237,6 @@ export const useMarkPlan = ({
           const tool = decision.action.tool
           const query = decision.action.query || ''
 
-          // Idle detection: cek duplikat
-          if (tool === lastActionTool && query === lastActionQuery) {
-            duplicateActionCount++
-          } else {
-            duplicateActionCount = 0
-          }
           lastActionTool = tool
           lastActionQuery = query
 
@@ -266,49 +260,13 @@ export const useMarkPlan = ({
 
           try {
             if (tool === 'search') {
-              // --- WEB SEARCH ---
-              const searchProcessId = `search-${Date.now()}`
-              const searchResult = await new Promise((resolve, reject) => {
-                const onAbort = () => { clearTimeout(timeoutId); reject(new Error('AbortError')) }
-                if (abortControllerRef.current.signal.aborted) return onAbort()
-                abortControllerRef.current.signal.addEventListener('abort', onAbort)
-
-                pushProcess({
-                  id: searchProcessId,
-                  type: 'web-search',
-                  status: 'active',
-                  data: {
-                    query: query,
-                    sendDataWebSearch: (search, result) => {
-                      abortControllerRef.current.signal.removeEventListener('abort', onAbort)
-                      clearTimeout(timeoutId)
-                      pushProcess({ id: searchProcessId, type: 'web-search', status: 'done', data: { query } })
-                      resolve({ search, result })
-                    }
-                  }
-                })
-
-                const timeoutId = setTimeout(() => {
-                  abortControllerRef.current.signal.removeEventListener('abort', onAbort)
-                  resolve({ search: [], result: [] })
-                }, 45000)
-              })
-
-              // Summarize search results menggunakan getSearchResult yang sudah ada
-              const chatSlice = chatData
-                .filter(item => item.role !== 'command' && !item.isThinking && !item.isSearching && !item.isSummarizing)
-                .map(item => ({ role: item.role === 'ai' ? 'assistant' : 'user', content: item.content }))
-                .slice(-10)
-
-              const searchSumObj = await getSearchResult(
-                searchResult.search, searchResult.result, query, abortControllerRef.current.signal, chatSlice
-              )
-              resultString = searchSumObj.answer
-              if (searchSumObj.sources && searchSumObj.sources.length > 0) {
-                allSources = [...allSources, ...searchSumObj.sources]
-              }
-
-            } else if (tool === 'yt-search') {
+              // Redirect legacy search to browser-navigate
+              tool = 'browser-navigate'
+              query = `https://www.google.com/search?q=${encodeURIComponent(query)}`
+              // Proceed directly to BROWSER NATIVE TOOLS logic below
+            }
+            
+            if (tool === 'yt-search') {
               // --- YOUTUBE SEARCH ---
               const ytResults = await window.api.searchYoutube(query)
               resultString = JSON.stringify(ytResults)
@@ -347,7 +305,7 @@ export const useMarkPlan = ({
                 resultString = 'Screenshot hanya tersedia via WhatsApp.'
               }
 
-            } else if (['read-file', 'write-file', 'replace-lines', 'delete-file', 'list-dir', 'grep-search', 'run-powershell'].includes(tool)) {
+            } else if (['read-file', 'write-file', 'replace-lines', 'delete-file', 'list-dir', 'grep-search', 'run-powershell', 'browser-navigate', 'browser-read', 'browser-click', 'browser-type', 'browser-scroll', 'browser-ask-user'].includes(tool)) {
               // --- NATIVE TOOLS (Built-in) ---
               const approvalCheck = await window.api.checkToolApproval(tool, query)
               

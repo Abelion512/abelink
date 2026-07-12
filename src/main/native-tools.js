@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { exec } from 'child_process'
 import util from 'util'
+import { navigateTo, readDOM, executeAction } from './browser-agent.js'
 
 const execPromise = util.promisify(exec)
 
@@ -172,6 +173,87 @@ export const NATIVE_TOOLS = {
           message: "Gagal mengeksekusi perintah.", 
           error: error.message 
         };
+      }
+    }
+  },
+  'browser-navigate': {
+    needsApproval: false,
+    handler: async (query) => {
+      try {
+        let url = query.trim()
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          url = 'https://' + url
+        }
+        const result = await navigateTo(url)
+        return { success: true, data: result }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
+    }
+  },
+  'browser-read': {
+    needsApproval: false,
+    handler: async () => {
+      try {
+        const result = await readDOM()
+        return { success: true, data: result }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
+    }
+  },
+  'browser-click': {
+    needsApproval: false,
+    handler: async (query) => {
+      const id = parseInt(query.trim(), 10)
+      if (isNaN(id)) return { success: false, error: 'ID harus berupa angka.' }
+      try {
+        const result = await executeAction({ action: 'click', id })
+        return { success: true, data: result }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
+    }
+  },
+  'browser-type': {
+    needsApproval: false,
+    handler: async (query) => {
+      const parts = query.split('||')
+      if (parts.length < 2) return { success: false, error: "Format: ID||teks" }
+      const id = parseInt(parts[0].trim(), 10)
+      const text = parts.slice(1).join('||')
+      if (isNaN(id)) return { success: false, error: 'ID harus berupa angka.' }
+      try {
+        const result = await executeAction({ action: 'type', id, value: text })
+        return { success: true, data: result }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
+    }
+  },
+  'browser-scroll': {
+    needsApproval: false,
+    handler: async (query) => {
+      const direction = query.trim().toLowerCase()
+      if (direction !== 'up' && direction !== 'down') {
+        return { success: false, error: "Gunakan 'up' atau 'down'." }
+      }
+      try {
+        const result = await executeAction({ action: 'scroll', direction })
+        return { success: true, data: result }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
+    }
+  },
+  'browser-ask-user': {
+    needsApproval: false,
+    handler: async (query) => {
+      try {
+        const result = await executeAction({ action: 'unblock', value: query })
+        return { success: true, data: result }
+      } catch (e) {
+        return { success: false, error: e.message }
       }
     }
   }

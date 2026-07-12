@@ -79,7 +79,13 @@ const api = {
   removeWaListeners: () => {
     ['wa:qr', 'wa:connection', 'wa:message', 'wa:reply-sent', 'wa:thinking', 'wa:request-web-search', 'wa:admin-request', 'wa:request-agent-execution']
       .forEach(ch => ipcRenderer.removeAllListeners(ch))
-  }
+  },
+  
+  // Browser Automation
+  browserNavigate: (url) => ipcRenderer.invoke('browser:navigate', url),
+  browserReadDom: () => ipcRenderer.invoke('browser:read-dom'),
+  browserAction: (data) => ipcRenderer.invoke('browser:action', data),
+  browserClose: () => ipcRenderer.invoke('browser:close')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

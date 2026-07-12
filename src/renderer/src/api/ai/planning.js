@@ -11,6 +11,8 @@ const CATEGORY_TEXTS = {
   music: 'putar lagu musik youtube yt music cari video mp3 play lagu',
   search: 'cari di internet google penelusuran web berita terbaru cuaca informasi terkini',
   system: 'screenshot kirim pesan whatsapp wa operasikan komputer sistem',
+  browser:
+    'buka web website halaman navigasi klik browse internet login form isi formulir pesan order beli cari di web otomasi browser automasi',
   capabilities: 'apa saja plugin mu daftar tool kemampuan fitur bisa ngapain aja'
 }
 
@@ -57,7 +59,8 @@ export const getNextAction = async (
   signal,
   unifiedContext = { memories: [], archives: [], documents: [] },
   contextMsg = '',
-  activeTopic = ''
+  activeTopic = '',
+  options = {}
 ) => {
   try {
     const { memories = [], archives = [], documents = [] } = unifiedContext
@@ -142,7 +145,7 @@ JANGAN isi keduanya! Boleh panggil tool berulang kali.
 - Jika tool sebelumnya GAGAL/ERROR, analisis errornya di "thought" lalu coba strategi lain.
 - Jika user hanya ngobrol santai, LANGSUNG isi "answer" tanpa tool.
 - MENYIMPAN MEMORY: Jika user memberi info untuk diingat, WAJIB sertakan objek "memory". Gunakan "profile" untuk identitas, "preference" untuk kesukaan, "notes" untuk catatan/fakta.
-${activeCategories.some((c) => ['search', 'casual', 'coding'].includes(c)) ? `- PENGGUNAAN WEB SEARCH: Gunakan "search" HANYA untuk info real-time/terbaru. Untuk coding/teori, langsung jawab di "answer".` : ''}
+${activeCategories.some((c) => ['search', 'casual', 'coding'].includes(c)) ? `- PENGGUNAAN WEB SEARCH: Gunakan "browser-navigate" ke Google Search HANYA untuk info real-time/terbaru. Untuk coding/teori umum, langsung jawab di "answer".` : ''}
 ${activeCategories.some((c) => ['coding', 'system'].includes(c)) ? `- STOPPING CONDITION (SANGAT KRITIS): Jika tugas utama (misal bikin web/script) sudah berhasil, jalan, dan sesuai instruksi awal, JANGAN ngide merombak ulang atau memperbaiki hal-hal minor! Langsung akhiri loop dengan mengisi "answer" (selesai). Sifat perfeksionis yang berlebihan justru merusak kode yang sudah jalan!\n- VERIFIKASI HASIL: Tepat sebelum kamu memutuskan untuk memberikan "answer" (selesai), wajib lakukan pengecekan terakhir (misal: jalankan command test, atau pastikan file berhasil ditulis). Jika hasilnya valid dan sesuai request, langsung laporkan ke user!` : ''}
 ${
   activeCategories.includes('coding')
@@ -158,16 +161,31 @@ Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
     : ''
 }
 
+${
+  !options.disableTools ? `
 # TOOLS BAWAAN (BUILT-IN)
-- search: Mencari informasi di Google (menelusuri 5 website + AI summary Google).${
-  activeCategories.includes('music')
-    ? `- yt-search: Mencari video di YouTube (judul, ID, durasi).
+- browser-navigate: Buka URL di browser fisik. Query: URL lengkap. Mengembalikan daftar elemen interaktif bernomor (ID).
+- browser-read: Scan ulang elemen halaman saat ini. Gunakan setelah menunggu loading.
+- browser-click: Klik elemen. Query: ID angka. Mengembalikan DOM terbaru setelah klik.
+- browser-type: Ketik teks di kolom input. Query: ID||teks. Mengembalikan DOM terbaru.
+- browser-scroll: Scroll halaman. Query: "up" atau "down".
+- browser-ask-user: JIKA terhalang form login/CAPTCHA, BUKAKAN HALAMANNYA DULU (misal klik tombol 'Login' hingga form muncul), lalu GUNAKAN TOOL INI. Query: Instruksi/Pesan untuk user (misal: "Tolong isi email dan password"). Pesanmu akan muncul di layar popup. Setelah user selesai, kamu akan langsung mendapat DOM terbaru untuk MELANJUTKAN misimu. Jangan berhenti!
+
+ATURAN BROWSER AUTOMATION:
+1. PROAKTIF & MANDIRI: Jika user memberi perintah (misal: "cek harga mouse di tokped", "baca email"), SELALU awali perjalananmu dengan mencari di Google! Gunakan \`browser-navigate\` ke URL pencarian (contoh: https://www.google.com/search?q=tokopedia+mouse), lalu klik hasil yang tepat. JANGAN asal menebak URL langsung (kecuali URL absolut diberikan user) untuk menghindari halaman 404/error!
+2. SELALU gunakan \`browser-navigate\` terlebih dahulu sebelum tool browser lainnya.
+3. Setelah setiap aksi (klik/ketik), baca OBSERVATION untuk melihat DOM terbaru.
+4. Jika elemen yang dicari tidak ditemukan, coba \`browser-scroll\` atau \`browser-read\`.
+5. Elemen ditandai dengan format: [ID] Tipe: "Label". Gunakan ID angka untuk merujuk elemen.
+6. JANGAN MENYERAH! Secara default user diblokir. Jika butuh user login/isi form manual, JANGAN balas dengan 'answer' lalu berhenti! HARUS selalu gunakan tool \`browser-ask-user\`, lalu tunggu user selesai, dan LAKUKAN sisa tugasmu!${
+      activeCategories.includes('music')
+        ? `\n- yt-search: Mencari video di YouTube (judul, ID, durasi).
 - yt-summary: Merangkum isi video dari link YouTube.
 - music-play: Memutar lagu di YouTube Music.
 - music-toggle: Pause/lanjut memutar lagu.
 - music-search: Mencari lagu spesifik di YT Music.`
-    : ''
-}
+        : ''
+    }
 ${
   activeCategories.some((c) => ['system', 'casual'].includes(c))
     ? `- screenshot: Mengambil screenshot layar komputer.
@@ -192,6 +210,8 @@ ${pluginCapabilities || '- (Belum ada plugin tambahan yang terdeteksi)'}
 
 # OBSERVATION
 Pesan "[OBSERVATION]" = hasil tool. Baca, lalu putuskan: tool lagi atau jawab user.
+` : ''
+}
 
 # FORMAT OUTPUT WAJIB (JSON)
 {
@@ -304,6 +324,12 @@ ${
                 'list-dir',
                 'grep-search',
                 'run-powershell',
+                'browser-navigate',
+                'browser-read',
+                'browser-click',
+                'browser-type',
+                'browser-scroll',
+                'browser-ask-user',
                 ...pluginActions.map((a) => a.name)
               ]
             },

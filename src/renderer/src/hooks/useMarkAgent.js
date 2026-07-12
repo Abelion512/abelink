@@ -70,7 +70,7 @@ LARANGAN KERAS:
 Fokus hanya pada sapaan pembuka.`;
 
       // Trigger planning secara autonom tanpa bubble chat dari user
-      handlePlanningCommand(greetingPrompt, null, true, null, {}, true);
+      handlePlanningCommand(greetingPrompt, null, true, null, { disableTools: true }, true);
     }
   }, [isChatLoaded, handlePlanningCommand]);
 

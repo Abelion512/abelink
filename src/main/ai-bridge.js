@@ -99,10 +99,15 @@ export const fetchAI = async (
       }
       // --- RATE LIMIT THROTLLING LOGIC (Berlaku buat SEMUA API cloud/berbayar/gratis biar gak jebol) ---
       if (!endpoint.includes('localhost') && !endpoint.includes('127.0.0.1')) {
+        let requiredDelay = 0;
+        if (conf.aiProvider === 'groq') requiredDelay = 3000;
+        else if (conf.aiProvider === 'cerebras') requiredDelay = 1000;
+        else requiredDelay = 0;
+
         const now = Date.now()
         const timeSinceLastFetch = now - lastCloudFetchTime
-        if (timeSinceLastFetch < CLOUD_DELAY_MS) {
-          const delay = CLOUD_DELAY_MS - timeSinceLastFetch
+        if (requiredDelay > 0 && timeSinceLastFetch < requiredDelay) {
+          const delay = requiredDelay - timeSinceLastFetch
           console.log(`[Rate Limit Guard] Waiting ${delay}ms before next Cloud request...`)
           await new Promise((resolve) => setTimeout(resolve, delay))
         }
@@ -319,12 +324,26 @@ export const fetchAI = async (
     }
 
     if (jsonSchema) {
-      body.response_format = {
-        type: 'json_schema',
-        json_schema: {
-          name: 'mark_schema',
-          strict: true,
-          schema: jsonSchema
+      if (conf.aiProvider === 'cerebras' || conf.aiProvider === 'groq' || conf.aiProvider === 'custom') {
+        // Fallback for providers that might struggle with strict json_schema
+        body.response_format = { type: 'json_object' }
+        // Inject schema instructions manually
+        body.messages = body.messages.map(m => ({ ...m })) // Clone array
+        let sysIdx = body.messages.findIndex((m) => m.role === 'system')
+        const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
+        if (sysIdx >= 0) {
+          body.messages[sysIdx].content += instruction
+        } else {
+          body.messages.unshift({ role: 'system', content: instruction })
+        }
+      } else {
+        body.response_format = {
+          type: 'json_schema',
+          json_schema: {
+            name: 'mark_schema',
+            strict: true,
+            schema: jsonSchema
+          }
         }
       }
     }
