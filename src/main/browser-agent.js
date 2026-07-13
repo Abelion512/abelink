@@ -198,21 +198,13 @@ export async function navigateTo(url) {
     })
     browserWindow.webContents.on('did-navigate', (event, newUrl) => {
       if (!browserWindow.isDestroyed()) {
-        if (newUrl.startsWith('https://www.google.com/search')) {
-          browserWindow.hide()
-        } else {
-          browserWindow.show()
-        }
+        browserWindow.show()
       }
     })
   }
 
-  if (url.startsWith('https://www.google.com/search')) {
-    browserWindow.hide()
-  } else {
-    browserWindow.show()
-    browserWindow.focus()
-  }
+  browserWindow.show()
+  browserWindow.focus()
   
   await browserWindow.loadURL(url)
 
