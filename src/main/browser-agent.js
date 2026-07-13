@@ -150,6 +150,10 @@ export async function navigateTo(url) {
       height: 800,
       title: 'Mark Browser',
       autoHideMenuBar: true,
+      frame: false,
+      transparent: true,
+      hasShadow: false,
+      backgroundColor: '#00000000',
       webPreferences: {
         nodeIntegration: false,    // KEAMANAN: website tidak boleh akses Node
         contextIsolation: true,    // KEAMANAN: isolasi context
@@ -157,7 +161,73 @@ export async function navigateTo(url) {
       }
     })
     
+    // Set opacity untuk efek hologram (seluruh isi window tembus pandang)
+    browserWindow.setOpacity(0.85)
+    browserWindow.webContents.setMaxListeners(50) // Fix memory leak warning for did-stop-loading
+    
     browserWindow.webContents.on('did-finish-load', () => {
+      // Inject CSS efek Hologram border + Scanlines
+      browserWindow.webContents.insertCSS(`
+        html {
+          border: 2px solid rgba(31, 184, 84, 0.8) !important;
+          border-radius: 12px !important;
+          box-shadow: 0 0 20px rgba(31, 184, 84, 0.6), inset 0 0 15px rgba(31, 184, 84, 0.3) !important;
+          box-sizing: border-box !important;
+          height: 100vh !important;
+          overflow: hidden !important;
+          background-color: transparent !important;
+        }
+        body {
+          height: 100vh !important;
+          overflow-y: auto !important;
+          margin: 0 !important;
+          box-sizing: border-box !important;
+        }
+        /* Top Drag Handle (Hologram Header) */
+        body::before {
+          content: "MARK BROWSER - NEURAL LINK ACTIVE";
+          display: block;
+          position: sticky;
+          top: 0; left: 0; right: 0;
+          height: 28px;
+          background: rgba(31, 184, 84, 0.15);
+          color: #1fb854;
+          font-family: monospace;
+          font-size: 12px;
+          font-weight: bold;
+          text-align: center;
+          line-height: 28px;
+          -webkit-app-region: drag;
+          z-index: 2147483647;
+          border-bottom: 1px solid rgba(31, 184, 84, 0.4);
+          backdrop-filter: blur(4px);
+        }
+        body::after {
+          content: "";
+          position: fixed;
+          top: 0; left: 0; width: 100vw; height: 100vh;
+          background: repeating-linear-gradient(
+            0deg,
+            rgba(31, 184, 84, 0.05),
+            rgba(31, 184, 84, 0.05) 1px,
+            transparent 1px,
+            transparent 3px
+          );
+          pointer-events: none;
+          z-index: 2147483646;
+        }
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: rgba(0, 20, 10, 0.8);
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #1fb854;
+          border-radius: 10px;
+        }
+      `).catch(() => {})
+
       if (activeAskUser && !browserWindow.isDestroyed()) {
         executeAction({ action: 'unblock', value: activeAskUserMessage, isReinject: true }).catch(() => null)
       }
@@ -206,6 +276,10 @@ export async function navigateTo(url) {
   browserWindow.show()
   browserWindow.focus()
   
+  if (browserWindow.webContents.isLoading()) {
+    browserWindow.webContents.stop()
+  }
+
   await browserWindow.loadURL(url)
 
   // Tunggu halaman selesai load + 2 detik buffer untuk SPA rendering

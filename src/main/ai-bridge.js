@@ -326,7 +326,9 @@ export const fetchAI = async (
     if (jsonSchema) {
       if (conf.aiProvider === 'cerebras' || conf.aiProvider === 'groq' || conf.aiProvider === 'custom') {
         // Fallback for providers that might struggle with strict json_schema
-        body.response_format = { type: 'json_object' }
+        if (conf.aiProvider !== 'custom') {
+          body.response_format = { type: 'json_object' }
+        }
         // Inject schema instructions manually
         body.messages = body.messages.map(m => ({ ...m })) // Clone array
         let sysIdx = body.messages.findIndex((m) => m.role === 'system')
