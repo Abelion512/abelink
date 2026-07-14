@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, screen } from 'electron'
 
 let browserWindow = null
 let activeAskUser = false
@@ -150,86 +150,20 @@ export async function navigateTo(url) {
       height: 800,
       title: 'Mark Browser',
       autoHideMenuBar: true,
-      frame: false,
-      transparent: true,
-      hasShadow: false,
-      backgroundColor: '#00000000',
       webPreferences: {
-        nodeIntegration: false,    // KEAMANAN: website tidak boleh akses Node
-        contextIsolation: true,    // KEAMANAN: isolasi context
-        sandbox: true              // KEAMANAN: sandbox penuh
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true
       }
     })
-    
-    // Set opacity untuk efek hologram (seluruh isi window tembus pandang)
-    browserWindow.setOpacity(0.85)
+
     browserWindow.webContents.setMaxListeners(50) // Fix memory leak warning for did-stop-loading
     
     browserWindow.webContents.on('did-finish-load', () => {
-      // Inject CSS efek Hologram border + Scanlines
-      browserWindow.webContents.insertCSS(`
-        html {
-          border: 2px solid rgba(31, 184, 84, 0.8) !important;
-          border-radius: 12px !important;
-          box-shadow: 0 0 20px rgba(31, 184, 84, 0.6), inset 0 0 15px rgba(31, 184, 84, 0.3) !important;
-          box-sizing: border-box !important;
-          height: 100vh !important;
-          overflow: hidden !important;
-          background-color: transparent !important;
-        }
-        body {
-          height: 100vh !important;
-          overflow-y: auto !important;
-          margin: 0 !important;
-          box-sizing: border-box !important;
-        }
-        /* Top Drag Handle (Hologram Header) */
-        body::before {
-          content: "MARK BROWSER - NEURAL LINK ACTIVE";
-          display: block;
-          position: sticky;
-          top: 0; left: 0; right: 0;
-          height: 28px;
-          background: rgba(31, 184, 84, 0.15);
-          color: #1fb854;
-          font-family: monospace;
-          font-size: 12px;
-          font-weight: bold;
-          text-align: center;
-          line-height: 28px;
-          -webkit-app-region: drag;
-          z-index: 2147483647;
-          border-bottom: 1px solid rgba(31, 184, 84, 0.4);
-          backdrop-filter: blur(4px);
-        }
-        body::after {
-          content: "";
-          position: fixed;
-          top: 0; left: 0; width: 100vw; height: 100vh;
-          background: repeating-linear-gradient(
-            0deg,
-            rgba(31, 184, 84, 0.05),
-            rgba(31, 184, 84, 0.05) 1px,
-            transparent 1px,
-            transparent 3px
-          );
-          pointer-events: none;
-          z-index: 2147483646;
-        }
-        ::-webkit-scrollbar {
-          width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-          background: rgba(0, 20, 10, 0.8);
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #1fb854;
-          border-radius: 10px;
-        }
-      `).catch(() => {})
-
       if (activeAskUser && !browserWindow.isDestroyed()) {
-        executeAction({ action: 'unblock', value: activeAskUserMessage, isReinject: true }).catch(() => null)
+        executeAction({ action: 'unblock', value: activeAskUserMessage, isReinject: true }).catch(
+          () => null
+        )
       }
     })
 
@@ -241,31 +175,36 @@ export async function navigateTo(url) {
         globalAskUserResolve = null
         activeAskUser = false
         activeAskUserMessage = ''
-        
+
         // Relock screen
         if (!browserWindow.isDestroyed()) {
-          browserWindow.webContents.executeJavaScript(`
-            const b = document.getElementById('mark-user-blocker');
-            if (b) {
-              b.style.width = '100vw';
-              b.style.height = '100vh';
-              b.style.top = '0';
-              b.style.left = '0';
-              b.style.bottom = 'auto';
-              b.style.right = 'auto';
-              b.style.background = 'rgba(0,0,0,0.1)';
-              b.style.pointerEvents = 'auto';
-              b.style.display = 'flex';
-              b.style.justifyContent = 'center';
-              b.style.alignItems = 'flex-start';
-              b.style.paddingTop = '24px';
-              b.innerHTML = \`<div style="background: rgba(25, 54, 45, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(31, 184, 84, 0.4); border-radius: 30px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; color: #1fb854; font-family: system-ui, sans-serif; font-weight: 600; font-size: 14px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); pointer-events: none;"><svg class="mark-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><span class="mark-pulse">Mark is working...</span></div>\`;
-            }
-            document.body.classList.add('mark-locked');
-          `).catch(() => {})
+          browserWindow.webContents
+            .executeJavaScript(
+              `
+              const b = document.getElementById('mark-user-blocker');
+              if (b) {
+                b.style.width = '100vw';
+                b.style.height = '100vh';
+                b.style.top = '0';
+                b.style.left = '0';
+                b.style.bottom = 'auto';
+                b.style.right = 'auto';
+                b.style.background = 'rgba(0,0,0,0.1)';
+                b.style.pointerEvents = 'auto';
+                b.style.display = 'flex';
+                b.style.justifyContent = 'center';
+                b.style.alignItems = 'flex-start';
+                b.style.paddingTop = '24px';
+                b.innerHTML = \`<div style="background: rgba(25, 54, 45, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(31, 184, 84, 0.4); border-radius: 30px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; color: #1fb854; font-family: system-ui, sans-serif; font-weight: 600; font-size: 14px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); pointer-events: none;"><svg class="mark-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><span class="mark-pulse">Mark is working...</span></div>\`;
+              }
+              document.body.classList.add('mark-locked');
+            `
+            )
+            .catch(() => {})
         }
       }
     })
+
     browserWindow.webContents.on('did-navigate', (event, newUrl) => {
       if (!browserWindow.isDestroyed()) {
         browserWindow.show()
@@ -275,7 +214,7 @@ export async function navigateTo(url) {
 
   browserWindow.show()
   browserWindow.focus()
-  
+
   if (browserWindow.webContents.isLoading()) {
     browserWindow.webContents.stop()
   }
@@ -283,7 +222,7 @@ export async function navigateTo(url) {
   await browserWindow.loadURL(url)
 
   // Tunggu halaman selesai load + 2 detik buffer untuk SPA rendering
-  await new Promise(resolve => setTimeout(resolve, 2000))
+  await new Promise((resolve) => setTimeout(resolve, 2000))
 
   // Auto-scan DOM setelah navigate
   return await readDOM()
@@ -400,10 +339,10 @@ export async function executeAction(data) {
     } catch (e) {
       // Jika error "Execution context was destroyed", berarti halamannya pindah/refresh karena klik.
       // Kita ignore errornya dan biarkan script lanjut untuk readDOM()
-      if (!e.message.includes('destroyed')) throw e;
+      if (!e.message.includes('destroyed')) throw e
     }
     // Tunggu efek klik (navigasi halaman / SPA update) + durasi animasi
-    await new Promise(resolve => setTimeout(resolve, 2500))
+    await new Promise((resolve) => setTimeout(resolve, 2500))
     // Auto-scan ulang DOM setelah klik
     return await readDOM()
   }
@@ -429,9 +368,9 @@ export async function executeAction(data) {
         })()`
       )
     } catch (e) {
-      if (!e.message.includes('destroyed')) throw e;
+      if (!e.message.includes('destroyed')) throw e
     }
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 1000))
     return await readDOM()
   }
 
@@ -440,18 +379,20 @@ export async function executeAction(data) {
     await browserWindow.webContents.executeJavaScript(
       `window.scrollBy({ top: ${scrollAmount}, behavior: 'smooth' })`
     )
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 1000))
     return await readDOM()
   }
 
   if (action === 'unblock') {
     try {
-      const isReinject = data.isReinject;
+      const isReinject = data.isReinject
       if (!isReinject) {
-        activeAskUser = true;
-        activeAskUserMessage = value ? value.replace(/'/g, "\\'").replace(/\n/g, "<br>") : 'Please complete the required manual action...';
+        activeAskUser = true
+        activeAskUserMessage = value
+          ? value.replace(/'/g, "\\'").replace(/\n/g, '<br>')
+          : 'Please complete the required manual action...'
       }
-      const aiMessage = activeAskUserMessage;
+      const aiMessage = activeAskUserMessage
 
       await browserWindow.webContents.executeJavaScript(
         `(() => {
@@ -508,33 +449,35 @@ export async function executeAction(data) {
           });
           document.body.classList.remove('mark-locked');
         })()`
-      );
-      
-      if (isReinject) return 'reinjected';
+      )
+
+      if (isReinject) return 'reinjected'
 
       return new Promise((resolve) => {
         globalAskUserResolve = async (comment) => {
           // Auto-scan ulang DOM setelah unblock supaya AI tau state halaman setelah user interaksi
-          const newDOM = await readDOM();
-          resolve(`[LAPORAN USER]: ${comment}\n\n[DOM TERBARU SETELAH USER INTERAKSI]:\n${newDOM}`);
-        };
-      });
+          const newDOM = await readDOM()
+          resolve(`[LAPORAN USER]: ${comment}\n\n[DOM TERBARU SETELAH USER INTERAKSI]:\n${newDOM}`)
+        }
+      })
     } catch (e) {
-      return `[ERROR] Gagal menunggu respon user: ${e.message}`;
+      return `[ERROR] Gagal menunggu respon user: ${e.message}`
     }
   }
 
   if (action === 'finish') {
-    await browserWindow.webContents.executeJavaScript(
-      `(() => {
+    await browserWindow.webContents
+      .executeJavaScript(
+        `(() => {
         const blocker = document.getElementById('mark-user-blocker');
         if (blocker) blocker.remove();
         document.body.classList.remove('mark-locked');
         const style = document.getElementById('mark-blocker-style');
         if (style) style.remove();
       })()`
-    ).catch(() => {});
-    return 'Browser unlocked.';
+      )
+      .catch(() => {})
+    return 'Browser unlocked.'
   }
 
   return '[ERROR] Action tidak dikenal.'

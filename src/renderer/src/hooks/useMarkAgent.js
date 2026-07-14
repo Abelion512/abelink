@@ -11,6 +11,7 @@ import { useAwareness } from './useAwareness'
 import { useChatArchiver } from './useChatArchiver'
 import { formatForWhatsApp } from '../api/ai/utils'
 import { useApproval } from '../contexts/ApprovalContext'
+import { fetchAI } from '../api/ai/core'
 
 export const useMarkAgent = () => {
   const { requestApproval } = useApproval()
@@ -61,16 +62,37 @@ export const useMarkAgent = () => {
       hasGreetedRef.current = true;
       console.log('[useMarkAgent] Memicu pesan sambutan (Boot sequence)...');
       
-      const greetingPrompt = `[SYSTEM BOOT]: Aplikasi baru saja dinyalakan.
-Tugasmu: Ucapkan sapaan singkat sesuai personality-mu.
-Riwayat chat di atas hanya sebagai referensi konteks saja, tidak wajib disinggung.
-LARANGAN KERAS:
-- DILARANG mengeksekusi tool apapun (search, file, powershell, dll).
-- DILARANG melanjutkan atau mengulang task/perintah apapun dari history chat.
-Fokus hanya pada sapaan pembuka.`;
+      const greetingPrompt = `[SYSTEM BOOT SEQUENCE INITIATED]
+Mark, sistem baru saja dinyalakan. Sapa penggunamu dengan gaya khasmu!
+Kamu bebas bercanda, proaktif nanya kabar, atau siap nerima perintah.
+(Tapi INGAT: Jangan gunakan markdown JSON dan JANGAN mengeksekusi tool apapun saat ini, cukup balas dengan pesan sapaan yang asik dan hidup!).`;
 
-      // Trigger planning secara autonom tanpa bubble chat dari user
-      handlePlanningCommand(greetingPrompt, null, true, null, { disableTools: true }, true);
+      // Gunakan fetchAI secara langsung tanpa masuk ke sistem planning agentic (handlePlanningCommand)
+      // agar tidak stuck atau melakukan aksi aneh.
+      setIsLoading(true);
+      
+      const contextMessages = chatData.length > 0 ? chatData.slice(-10).map(msg => ({
+        role: msg.role === 'user' || msg.role === 'system' ? msg.role : 'assistant',
+        content: typeof msg.content === 'object' ? JSON.stringify(msg.content) : String(msg.content || '')
+      })) : [];
+
+      fetchAI([
+        { role: 'system', content: 'Kamu adalah asisten AI bernama Mark. Kamu punya kepribadian yang cerdas, agak sarkas tapi sangat membantu, dan sangat proaktif layaknya asisten pribadi elit. JANGAN gunakan format JSON, cukup ngobrol biasa.' },
+        ...contextMessages,
+        { role: 'user', content: greetingPrompt }
+      ], abortControllerRef.current?.signal, false)
+        .then(res => {
+          const textContent = typeof res === 'object' && res.content ? res.content : String(res);
+          setChatData(prev => [...prev, { role: 'ai', content: textContent, isProactive: true }]);
+          setIsSpeak(true);
+          setIsLoading(false);
+        })
+        .catch(err => {
+          if (err.name !== 'AbortError') {
+            console.error('[useMarkAgent] Gagal fetch greeting:', err);
+            setIsLoading(false);
+          }
+        });
     }
   }, [isChatLoaded, handlePlanningCommand]);
 
