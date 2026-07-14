@@ -15,6 +15,7 @@ export const useMarkState = () => {
   const [inputSource, setInputSource] = useState('pc')
   const [activeTopic, setActiveTopic] = useState(null)
   const [isChatLoaded, setIsChatLoaded] = useState(false)
+  const [isBooting, setIsBooting] = useState(true)
   const sessionId = useRef('mark-main-thread')
 
   const abortControllerRef = useRef(null)
@@ -105,6 +106,8 @@ export const useMarkState = () => {
     activeTopic,
     setActiveTopic,
     isChatLoaded,
+    isBooting,
+    setIsBooting,
     abortControllerRef,
     searchProp,
     handleStop

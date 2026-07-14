@@ -11,25 +11,57 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
       setGlowClass('bg-red-500/50');
       setBorderClass('border-red-400/50');
     } else {
-      if (mood === 'negative') {
-        setGlassClass('from-red-500/40 to-red-600/10');
-        setGlowClass('bg-red-500/50');
-        setBorderClass('border-red-400/50');
-      }
-      else if (mood === 'annoyed') {
-        setGlassClass('from-orange-400/40 to-amber-600/10');
-        setGlowClass('bg-orange-500/50');
-        setBorderClass('border-orange-400/50');
-      }
-      else if (mood === 'positive') {
-        setGlassClass('from-yellow-300/40 to-amber-400/10');
-        setGlowClass('bg-yellow-400/50');
-        setBorderClass('border-yellow-400/50');
-      }
-      else {
-        setGlassClass('from-emerald-400/40 to-green-500/10'); // Neutral
-        setGlowClass('bg-green-500/50');
-        setBorderClass('border-green-400/50');
+      switch (mood) {
+        case 'joy':
+          setGlassClass('from-yellow-300/40 to-amber-400/10');
+          setGlowClass('bg-yellow-400/50');
+          setBorderClass('border-yellow-400/50');
+          break;
+        case 'sadness':
+          setGlassClass('from-blue-500/40 to-blue-700/10');
+          setGlowClass('bg-blue-500/50');
+          setBorderClass('border-blue-400/50');
+          break;
+        case 'fear':
+          setGlassClass('from-purple-500/40 to-purple-700/10');
+          setGlowClass('bg-purple-500/50');
+          setBorderClass('border-purple-400/50');
+          break;
+        case 'anger':
+          setGlassClass('from-red-500/40 to-red-700/10');
+          setGlowClass('bg-red-500/50');
+          setBorderClass('border-red-400/50');
+          break;
+        case 'disgust':
+          setGlassClass('from-green-500/40 to-green-700/10');
+          setGlowClass('bg-green-500/50');
+          setBorderClass('border-green-400/50');
+          break;
+        case 'anxiety':
+          setGlassClass('from-orange-400/40 to-orange-600/10');
+          setGlowClass('bg-orange-500/50');
+          setBorderClass('border-orange-400/50');
+          break;
+        case 'envy':
+          setGlassClass('from-teal-400/40 to-teal-600/10');
+          setGlowClass('bg-teal-500/50');
+          setBorderClass('border-teal-400/50');
+          break;
+        case 'embarrassment':
+          setGlassClass('from-pink-400/40 to-pink-600/10');
+          setGlowClass('bg-pink-500/50');
+          setBorderClass('border-pink-400/50');
+          break;
+        case 'ennui':
+          setGlassClass('from-gray-400/40 to-gray-600/10');
+          setGlowClass('bg-gray-500/50');
+          setBorderClass('border-gray-400/50');
+          break;
+        default: // neutral
+          setGlassClass('from-emerald-400/40 to-green-500/10');
+          setGlowClass('bg-green-500/50');
+          setBorderClass('border-green-400/50');
+          break;
       }
     }
   }, [mood, status]);

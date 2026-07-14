@@ -78,6 +78,7 @@ export const useMarkPlan = ({
         const unifiedContext = await Promise.race([contextPromise, abortPromise])
 
       let contextMsgStr = ''
+
       if (waContext) contextMsgStr += `Permintaan ini berasal dari WhatsApp (JID: ${waContext.jid}).\n`
       if (isSystem) contextMsgStr += `[SYSTEM INSTRUCTION]: Pesan ini adalah instruksi internal dari sistem, bukan dari user.\n`
       if (isAutonomous) contextMsgStr += `[AWARENESS MODE]: Ini adalah pemikiran autonom-mu sendiri.\n`

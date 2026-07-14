@@ -273,3 +273,16 @@ export async function deleteDocumentByName(docName) {
     throw error
   }
 }
+
+// --- CORE MEMORY ---
+export async function getCoreMemory() {
+  try {
+    const profiles = await db.memory.where('type').equals('profile').toArray()
+    if (profiles && profiles.length > 0) {
+      return profiles.map(p => `- ${p.summary || p.memory}`).join('\n')
+    }
+  } catch (error) {
+    console.error('Error in getCoreMemory:', error)
+  }
+  return 'Tidak ada profil user.'
+}

@@ -29,7 +29,8 @@ const MarkHome = () => {
     activeProcesses,
     dismissProcess,
     inputSource,
-    handleStop
+    handleStop,
+    isBooting
   } = useChat();
   const { isPlaying, currentTrack, isPlayerOpen } = useYoutubeMusic();
 
@@ -164,6 +165,15 @@ const MarkHome = () => {
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
+
+      {isBooting && (
+        <div className="fixed inset-0 bg-base-300 flex flex-col items-center justify-center gap-5 z-[999]">
+          <span className="loading loading-infinity w-16 text-primary"></span>
+          <p className="text-sm font-semibold tracking-[0.2em] text-white/40 uppercase animate-pulse">
+            Membangunkan Mark...
+          </p>
+        </div>
+      )}
 
       {/* Floating UI Elements */}
       <FloatingMenu onOpenHistory={() => setIsHistoryOpen(true)} />

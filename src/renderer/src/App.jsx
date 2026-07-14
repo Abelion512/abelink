@@ -186,7 +186,7 @@ function App() {
   }
 
   if (!hasConfig) {
-    return <Configuration isFirstSetup={true} onSetupComplete={() => setHasConfig(true)} />
+    return <Configuration isFirstSetup={true} onSetupComplete={() => window.location.reload()} />
   }
 
   const isStandalone = window.location.hash.includes('whatsapp-bot')
