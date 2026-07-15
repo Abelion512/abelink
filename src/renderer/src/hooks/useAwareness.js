@@ -117,7 +117,7 @@ export const useAwareness = ({
               null,
               true,
               result.message,
-              { disableTools: true },
+              { disableTools: false },
               true
             )
           } else {

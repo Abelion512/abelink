@@ -133,18 +133,8 @@ export const useMarkPlan = ({
         /* Silent fail — jika API tidak tersedia */
       }
 
-      if (isAutonomous && autonomousInitialMessage) {
-        setChatData((prev) => [
-          ...prev,
-          {
-            role: 'ai',
-            content: autonomousInitialMessage,
-            isProactive: true,
-            isThinking: false,
-            timestamp: timestampStr
-          }
-        ])
-      }
+      // [DIHAPUS] Jangan push autonomousInitialMessage di awal karena akan tertimpa animasi 'isThinking'
+      // dan kita ingin ini menjadi jawaban final (decision.answer) di akhir loop.
 
       // ========== STEP 3: AGENTIC LOOP ==========
       const loopMessages = [...chatSession]
@@ -214,6 +204,12 @@ export const useMarkPlan = ({
         if (decision.answer && !decision.action) {
           isDone = true
 
+          // OVERRIDE: Jika ini autonomous, abaikan jawaban LLM (yang merupakan hasil eksekusi tool)
+          // dan gunakan pesan awareness awal sebagai jawaban final untuk UI, Notifikasi, dan TTS.
+          if (isAutonomous && autonomousInitialMessage) {
+            decision.answer = autonomousInitialMessage
+          }
+
           execSteps.push({ task: 'Selesai' })
           if (execSteps.length > 2) {
             pushProcess({
@@ -242,40 +238,35 @@ export const useMarkPlan = ({
             window.api.showNotification('Mark', decision.answer)
           }
 
-          // Tampilkan jawaban akhir di UI (skip jika autonomous DAN punya initial message)
-          if (!isAutonomous || !autonomousInitialMessage) {
-            setChatData((prev) => {
-              const filtered = prev.filter((item) => !item.isThinking)
-              const aiMsg = {
-                role: 'ai',
-                content: decision.answer,
-                reasoning: decision.thought,
-                mood: decision.mood || 'neutral',
-                isMemorySaved: decision.memory?.action === 'insert',
-                isMemoryUpdated: decision.memory?.action === 'update',
-                isMemoryDeleted: decision.memory?.action === 'delete',
-                pluginExecution: lastToolExecution,
-                isProactive: isAutonomous,
-                timestamp: getCurrentTimeInfo()
-              }
-              if (allSources.length > 0) {
-                const uniqueSources = []
-                const seenLinks = new Set()
-                allSources.forEach((source) => {
-                  const id = source.link || JSON.stringify(source)
-                  if (!seenLinks.has(id)) {
-                    seenLinks.add(id)
-                    uniqueSources.push(source)
-                  }
-                })
-                aiMsg.sources = uniqueSources
-              }
-              return [...filtered, aiMsg]
-            })
-          } else {
-            // Autonomous: hapus isThinking bubble saja, jawaban sudah ada di autonomousInitialMessage
-            setChatData((prev) => prev.filter((item) => !item.isThinking))
-          }
+          // Tampilkan jawaban akhir di UI
+          setChatData((prev) => {
+            const filtered = prev.filter((item) => !item.isThinking)
+            const aiMsg = {
+              role: 'ai',
+              content: decision.answer,
+              reasoning: decision.thought,
+              mood: decision.mood || 'neutral',
+              isMemorySaved: decision.memory?.action === 'insert',
+              isMemoryUpdated: decision.memory?.action === 'update',
+              isMemoryDeleted: decision.memory?.action === 'delete',
+              pluginExecution: lastToolExecution,
+              isProactive: isAutonomous,
+              timestamp: getCurrentTimeInfo()
+            }
+            if (allSources.length > 0) {
+              const uniqueSources = []
+              const seenLinks = new Set()
+              allSources.forEach((source) => {
+                const id = source.link || JSON.stringify(source)
+                if (!seenLinks.has(id)) {
+                  seenLinks.add(id)
+                  uniqueSources.push(source)
+                }
+              })
+              aiMsg.sources = uniqueSources
+            }
+            return [...filtered, aiMsg]
+          })
 
           // Opsi: Jika loop berakhir, lepas kunci browser
           if (window.api && window.api.browserAction) {
