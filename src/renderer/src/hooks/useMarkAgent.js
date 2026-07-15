@@ -179,7 +179,7 @@ Jika ada nama pengguna di atas, sapa dia dengan namanya.
   }, [handlePlanningCommand, setInputSource])
 
   useEffect(() => {
-    if (!isLoading && activeWaRequestRef.current && chatData.length > 0) {
+    if (!isAgentBusy && activeWaRequestRef.current && chatData.length > 0) {
       const lastAiMsg = [...chatData]
         .reverse()
         .find((m) => m.role === 'ai' && !m.isThinking && !m.isSearching && !m.isSummarizing)
@@ -193,7 +193,7 @@ Jika ada nama pengguna di atas, sapa dia dengan namanya.
         setInputSource('pc')
       }
     }
-  }, [isLoading, chatData, setInputSource])
+  }, [isAgentBusy, chatData, setInputSource])
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault()
