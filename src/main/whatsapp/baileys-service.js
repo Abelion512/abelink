@@ -82,8 +82,6 @@ const handleIncomingMessage = async (messages, type) => {
     if (jid === 'status@broadcast') continue
     if (msg.key.fromMe) continue
 
-    messageStoreMap.set(msg.key.id, msg)
-    setTimeout(() => messageStoreMap.delete(msg.key.id), 300000) // 5 minutes
 
     const isGroup = jid.endsWith('@g.us')
     const senderJid = isGroup ? msg.key.participant : jid
@@ -180,6 +178,10 @@ const handleIncomingMessage = async (messages, type) => {
 
       if (!isMentioned && !isCalled && !isReplyToBot) continue
     }
+
+    // SIMPAN PESAN HANYA JIKA LOLOS FILTER (BIAR RAM NGGAK MELEDAK)
+    messageStoreMap.set(msg.key.id, msg)
+    setTimeout(() => messageStoreMap.delete(msg.key.id), 300000) // Maksimal simpan 5 menit kalau ngehang
 
     await processMessage(msg, isGroup, senderName, text, jid, senderNumber)
   }
@@ -343,6 +345,10 @@ ipcMain.on('wa:agent-execution-done', async (event, data) => {
 
   // Baru deh kirim via WA (kalau error 1006 tetep aman karena UI udah ke-update)
   await safeSendMessage(jid, { text: replyText }, msg ? { quoted: msg } : undefined)
+  
+  // HAPUS DARI MEMORY SUPAYA RAM NGGAK BOCOR
+  messageStoreMap.delete(msgId)
+  
   if (sock) await sock.sendPresenceUpdate('paused', jid).catch(() => {})
 })
 

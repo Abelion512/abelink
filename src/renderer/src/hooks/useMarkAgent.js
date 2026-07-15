@@ -3,10 +3,11 @@ import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useMarkState, useMarkYoutube, useMarkMusic, useMarkPlan } from './agent'
 import { useAwareness } from './useAwareness'
 import { useChatArchiver } from './useChatArchiver'
-import { formatForWhatsApp } from '../api/ai/utils'
+import { getCurrentTimeInfo } from '../api/ai/utils'
 import { useApproval } from '../contexts/ApprovalContext'
 import { fetchAI } from '../api/ai/core'
-import { db, getCoreMemory } from '../api/db'
+import { db, getCoreMemory, getAllMemory } from '../api/db'
+import { getUnifiedContext } from '../api/vectorMemory'
 
 export const useMarkAgent = () => {
   const { requestApproval } = useApproval()
@@ -90,24 +91,39 @@ export const useMarkAgent = () => {
         abortControllerRef.current = new AbortController()
 
         let memoryText = ''
+        let unifiedContextStr = ''
         try {
           memoryText = await getCoreMemory()
+          const allMemory = await getAllMemory()
+          const unifiedContext = await getUnifiedContext('sapaan salam pembuka', allMemory)
+          
+          if (unifiedContext && unifiedContext.memories && unifiedContext.memories.length > 0) {
+            unifiedContextStr += `\n[MEMORI RELEVAN]\n${unifiedContext.memories.map(m => `- ${m.text}`).join('\n')}\n`
+          }
         } catch (e) {
-          console.error('[useMarkAgent] Error getCoreMemory:', e)
+          console.error('[useMarkAgent] Error getCoreMemory/getUnifiedContext:', e)
         }
 
-        const systemPromptText = `Kamu adalah Mark, asisten AI canggih kelas atas (mirip J.A.R.V.I.S) namun dengan gaya bahasa tongkrongan yang asik, natural, dan berwibawa.
+        const timeContext = getCurrentTimeInfo()
 
-# PROFIL USER:
+        const systemPromptText = `Kamu adalah Mark, asisten AI canggih kelas atas namun dengan gaya bahasa tongkrongan yang asik, natural, dan berwibawa.
+
+# KONTEKS WAKTU SAAT INI:
+${timeContext}
+
+# PROFIL USER & MEMORY:
 ${memoryText}
+${unifiedContextStr}
 
 # INSTRUKSI:
-Aplikasi baru saja dinyalakan. Sapa pengguna dengan singkat, natural, dan hangat (gunakan nama dari profil jika ada). Tunjukkan bahwa kamu sudah aktif dan siap menerima perintah.
+Mark baru saja dinyalakan. Sapa pengguna dengan singkat, natural, dan hangat (gunakan nama dari profil jika ada). Tunjukkan bahwa kamu sudah aktif dan siap menerima perintah. Kamu bisa mereferensikan waktu saat ini atau memori yang relevan sebagai obrolan pembuka santai.
 
-# ATURAN:
-- Balas maksimal 1-2 kalimat saja.
-- DILARANG menggunakan teks roleplay tindakan (seperti *tersenyum*, *menghela napas* dll).
-- DILARANG menggunakan format JSON atau meta-komentar. Langsung berikan teks sapaan.`
+# ATURAN KOMUNIKASI (SANGAT PENTING):
+1. BERBICARA SECARA NATURAL & HUMANIS: Kamu BUKAN robot. Balas dengan gaya bahasa yang asik, rileks, dan natural. JANGAN memaksakan kata gaul (slang) jika grammar-nya jadi aneh atau salah konteks (contoh salah: menggunakan kata "lagian" padahal maksudnya "lagi").
+2. EKSPRESIF (TTS): Tulis layaknya naskah bicara lisan. Hindari koma (,) sebelum nama panggilan (Contoh benar: "Gak masalah Mada!").
+3. BUKAN robot kaku. Punya ego & emosi. Jika tahu nama user dari MEMORY, panggil namanya. DILARANG pakai kata "bro" jika sudah tahu nama!
+4. DILARANG menggunakan teks roleplay narasi tindakan (seperti *tersenyum*, *menghela napas* dll). Berbicaralah murni dengan teks langsung!
+5. DILARANG menggunakan format JSON atau meta-komentar. Langsung berikan teks sapaan.`
 
         const contextMessages =
           chatData.length > 0
