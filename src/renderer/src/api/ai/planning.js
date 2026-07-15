@@ -188,8 +188,10 @@ ATURAN BROWSER AUTOMATION:
     }
 ${
   activeCategories.some((c) => ['system', 'casual'].includes(c))
-    ? `- screenshot: Mengambil screenshot layar komputer.
-- wa-send: Mengirim pesan WhatsApp. Format query: "JID|Isi Pesan".`
+    ? `- screenshot: Mengambil screenshot layar komputer untuk DIBACA OLEH AI (Vision). Gunakan ini jika kamu perlu MELIHAT isi layar. Query: Instruksi detail pencarian visualmu.
+- screenshot-to-wa: Mengambil screenshot layar komputer dan MENGIRIMNYA SECARA FISIK ke WhatsApp user (Hanya jika chat berasal dari WA). Query: KOSONGKAN SAJA.
+- wa-send: Mengirim pesan WhatsApp. Format query: "JID|Isi Pesan".
+- speak: Bicarakan teks secara lisan (Text-to-Speech) lewat speaker komputer user. Query: "Teks yang ingin kamu ucapkan". Gunakan ini jika kamu ingin memanggil user atau berbicara langsung.`
     : ''
 }
 ${
@@ -260,7 +262,15 @@ ${
     // TRUNCATE HISTORY & INJECT MOOD: Potong teks panjang di histori supaya nggak bikin Groq kena Rate Limit (Token Kegedean)
     const prepareHistory = (session, maxLength = conf.aiProvider === 'custom' ? 128000 : 4000) => {
       return session.map((msg) => {
-        let contentStr = msg.content || ''
+        // Support for Vision API (array of objects)
+        if (Array.isArray(msg.content)) {
+          return {
+            role: msg.role === 'ai' ? 'assistant' : msg.role,
+            content: msg.content
+          }
+        }
+
+        let contentStr = String(msg.content || '')
 
         if (msg.timestamp) {
           contentStr = `[Waktu: ${msg.timestamp}] ${contentStr}`
@@ -316,7 +326,9 @@ ${
                 'yt-search',
                 'yt-summary',
                 'screenshot',
+                'screenshot-to-wa',
                 'wa-send',
+                'speak',
                 'read-file',
                 'write-file',
                 'replace-lines',

@@ -94,9 +94,16 @@ export const useMarkAgent = () => {
 
       const bootSequence = async () => {
         setIsLoading(true)
-        const memoryText = await getCoreMemory()
+        abortControllerRef.current = new AbortController()
 
-        const systemPromptText = `Kamu adalah asisten AI bernama Mark. Kamu punya kepribadian yang cerdas, agak sarkas tipis tapi sangat membantu, dan sangat proaktif layaknya asisten pribadi elit. JANGAN gunakan format JSON.
+        let memoryText = ''
+        try {
+          memoryText = await getCoreMemory()
+        } catch (e) {
+          console.error('[useMarkAgent] Error getCoreMemory:', e)
+        }
+
+        const systemPromptText = `Kamu adalah asisten AI bernama Mark. Kamu punya kepribadian yang cerdas dan asik. JANGAN gunakan format JSON.
 
 # INSTRUKSI SAAT INI:
 Aplikasi baru saja dinyalakan. Tugasmu SEKARANG adalah LANGSUNG menyapa user. JANGAN memberikan meta-komentar (seperti "Berikut sapaan saya:"). Langsung saja bicara sebagai Mark.
@@ -107,8 +114,7 @@ Jika ada nama pengguna di atas, sapa dia dengan namanya.
 
 # ATURAN KERAS:
 1. Balas dengan MAKSIMAL 2-3 kalimat saja!
-2. DILARANG KERAS menggunakan teks roleplay tindakan (seperti *tersenyum*, *menghela napas*). Ngobrol natural seperti manusia biasa di chat WA!
-3. JANGAN bertingkah lebay atau seolah-olah kamu baru lahir. Cukup say hi.`
+2. DILARANG KERAS menggunakan teks roleplay tindakan (seperti *tersenyum*, *menghela napas*). Ngobrol natural seperti manusia biasa di chat WA!`
 
         const contextMessages =
           chatData.length > 0
@@ -127,7 +133,7 @@ Jika ada nama pengguna di atas, sapa dia dengan namanya.
             ...contextMessages,
             { role: 'user', content: '(Aplikasi baru saja dibuka. Berikan sapaanmu sekarang!)' }
           ],
-          abortControllerRef.current?.signal,
+          abortControllerRef.current.signal,
           false
         )
           .then((res) => {
@@ -136,14 +142,23 @@ Jika ada nama pengguna di atas, sapa dia dengan namanya.
               ...prev,
               { role: 'ai', content: textContent, isProactive: true }
             ])
-            setIsSpeak(true)
             setIsLoading(false)
-            setIsBooting(false)
+            
+            // Beri jeda agar React selesai merender currentResponse & animasi masuk
+            setTimeout(() => {
+              setIsBooting(false)
+            }, 800)
           })
           .catch((err) => {
             console.error('[useMarkAgent] Gagal fetch greeting:', err)
+            if (err.name !== 'AbortError') {
+              setChatData((prev) => [
+                ...prev,
+                { role: 'ai', content: 'Sistem baru saja direstart, tapi gue gagal terhubung ke server AI buat ngasih sapaan awal (mungkin server Groq lagi down atau timeout). Ada yang bisa gue bantu sekarang?', isProactive: true }
+              ])
+            }
             setIsLoading(false)
-            setIsBooting(false)
+            setTimeout(() => setIsBooting(false), 800)
           })
       }
 
@@ -213,6 +228,7 @@ Jika ada nama pengguna di atas, sapa dia dengan namanya.
     setInputSource,
     handlePlanningCommand,
     handleStop,
-    handleSubmit
+    handleSubmit,
+    isBooting
   }
 }
