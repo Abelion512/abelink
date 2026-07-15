@@ -408,6 +408,82 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     other: 'badge-ghost'
   }
 
+  const handleAiProviderChange = (provider) => setConfig((prev) => ({ ...prev, aiProvider: provider }))
+  const handleModelChange = (e) => setConfig((prev) => ({ ...prev, model: e.target.value }))
+  const handleGroqModelChange = (e) => setConfig((prev) => ({ ...prev, groqModel: e.target.value }))
+  const handleCerebrasModelChange = (e) => setConfig((prev) => ({ ...prev, cerebrasModel: e.target.value }))
+  const handleUseSecondaryModelChange = (e) => setConfig((prev) => ({ ...prev, useSecondaryModel: e.target.checked }))
+  const handleGroqApiKeyChange = (e) => setConfig((prev) => ({ ...prev, groqApiKey: e.target.value }))
+  const handleCerebrasApiKeyChange = (e) => setConfig((prev) => ({ ...prev, cerebrasApiKey: e.target.value }))
+  const handleCustomEndpointChange = (e) => setConfig((prev) => ({ ...prev, customEndpoint: e.target.value }))
+  const handleCustomApiKeyChange = (e) => setConfig((prev) => ({ ...prev, customApiKey: e.target.value }))
+  const handleCustomModelChange = (e) => setConfig((prev) => ({ ...prev, customModel: e.target.value }))
+  const handleAwarenessEnabledChange = (e) => setConfig((prev) => ({ ...prev, awarenessEnabled: e.target.checked }))
+  const handlePersonalityChange = (e) => setConfig((prev) => ({ ...prev, personality: e.target.value }))
+  const handleTemperatureChange = (e) => setConfig((prev) => ({ ...prev, temperature: e.target.value }))
+  const handleContextChange = (e) => setConfig((prev) => ({ ...prev, context: e.target.value }))
+  const handleMicDeviceIdChange = (e) => setConfig((prev) => ({ ...prev, micDeviceId: e.target.value }))
+  const handleTtsRateChange = (e) => setConfig((prev) => ({ ...prev, ttsRate: e.target.value }))
+  const handleTtsPitchChange = (e) => setConfig((prev) => ({ ...prev, ttsPitch: e.target.value }))
+  const handleBack = () => window.history.back()
+  const handleToggleGroqKey = () => setShowGroqKey(!showGroqKey)
+  const handleToggleCerebrasKey = () => setShowCerebrasKey(!showCerebrasKey)
+  const handleToggleCustomKey = () => setShowCustomKey(!showCustomKey)
+
+  const handleApproveAdmin = async (admin) => {
+    const currentAdmins = config.waAdminNumber ? config.waAdminNumber.split(',').map((n) => n.trim()) : []
+    if (!currentAdmins.includes(admin.id)) currentAdmins.push(admin.id)
+    const newPending = config.waPendingAdmins.filter((p) => p.id !== admin.id)
+    const newApproved = [...(config.waApprovedAdmins || []), admin]
+    const newConfig = { ...config, waAdminNumber: currentAdmins.join(', '), waPendingAdmins: newPending, waApprovedAdmins: newApproved }
+    setConfig(newConfig)
+    const { saveConfiguration } = await import('../api/db')
+    await saveConfiguration(newConfig)
+    if (window.api && window.api.syncConfig) window.api.syncConfig(newConfig)
+    if (window.api && window.api.sendWaMessage) {
+      window.api.sendWaMessage(admin.jid, `🎉 Selamat *${admin.name}*! Akses Admin kamu telah disetujui. Sekarang kamu bisa memiliki akses pada fitur khusus tertentu.`)
+    }
+  }
+
+  const handleRejectAdmin = async (admin) => {
+    const newPending = config.waPendingAdmins.filter((p) => p.id !== admin.id)
+    const newConfig = { ...config, waPendingAdmins: newPending }
+    setConfig(newConfig)
+    const { saveConfiguration } = await import('../api/db')
+    await saveConfiguration(newConfig)
+    if (window.api && window.api.sendWaMessage) {
+      window.api.sendWaMessage(admin.jid, `Maaf *${admin.name}*, permintaan akses Admin kamu ditolak oleh Owner.`)
+    }
+  }
+
+  const handleRemoveApprovedAdmin = async (admin) => {
+    const currentAdmins = config.waAdminNumber ? config.waAdminNumber.split(',').map((n) => n.trim()).filter(Boolean) : []
+    const newAdmins = currentAdmins.filter((a) => a !== admin.id)
+    const newApproved = (config.waApprovedAdmins || []).filter((a) => a.id !== admin.id)
+    const newConfig = { ...config, waAdminNumber: newAdmins.join(', '), waApprovedAdmins: newApproved }
+    setConfig(newConfig)
+    const { saveConfiguration } = await import('../api/db')
+    await saveConfiguration(newConfig)
+    if (window.api && window.api.syncConfig) window.api.syncConfig(newConfig)
+    if (window.api && window.api.sendWaMessage && admin.jid) {
+      window.api.sendWaMessage(admin.jid, `⚠️ *Pemberitahuan:* Akses Admin kamu telah dicabut oleh Owner.`)
+    }
+  }
+
+  const handleRemoveLegacyAdmin = async (cleanId) => {
+    const currentAdmins = config.waAdminNumber.split(',').map((n) => n.trim()).filter(Boolean)
+    const newAdmins = currentAdmins.filter((a) => a !== cleanId)
+    const newConfig = { ...config, waAdminNumber: newAdmins.join(', ') }
+    setConfig(newConfig)
+    const { saveConfiguration } = await import('../api/db')
+    await saveConfiguration(newConfig)
+    if (window.api && window.api.syncConfig) window.api.syncConfig(newConfig)
+    if (window.api && window.api.sendWaMessage) {
+      const guessedJid = cleanId.length > 14 ? `${cleanId}@lid` : `${cleanId}@s.whatsapp.net`
+      window.api.sendWaMessage(guessedJid, `⚠️ *Pemberitahuan:* Akses Admin kamu telah dicabut oleh Owner.`)
+    }
+  }
+
   return (
     <div className="h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif]">
       {/* Background Ambience */}
@@ -421,7 +497,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           <div className="flex items-center gap-4">
             {!isFirstSetup && (
               <button
-                onClick={() => window.history.back()}
+                onClick={handleBack}
                 className="btn btn-ghost btn-sm btn-circle"
               >
                 <svg
@@ -466,7 +542,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                     className="radio radio-primary radio-sm"
                     value="lm-studio"
                     checked={config.aiProvider === 'lm-studio' || !config.aiProvider}
-                    onChange={() => setConfig((prev) => ({ ...prev, aiProvider: 'lm-studio' }))}
+                    onChange={() => handleAiProviderChange('lm-studio')}
                   />
                   <span className="label-text">LM Studio (Local)</span>
                 </label>
@@ -477,7 +553,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                     className="radio radio-primary radio-sm"
                     value="groq"
                     checked={config.aiProvider === 'groq'}
-                    onChange={() => setConfig((prev) => ({ ...prev, aiProvider: 'groq' }))}
+                    onChange={() => handleAiProviderChange('groq')}
                   />
                   <span className="label-text">Groq API</span>
                 </label>
@@ -488,7 +564,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                     className="radio radio-primary radio-sm"
                     value="cerebras"
                     checked={config.aiProvider === 'cerebras'}
-                    onChange={() => setConfig((prev) => ({ ...prev, aiProvider: 'cerebras' }))}
+                    onChange={() => handleAiProviderChange('cerebras')}
                   />
                   <span className="label-text">Cerebras API</span>
                 </label>
@@ -499,7 +575,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                     className="radio radio-primary radio-sm"
                     value="custom"
                     checked={config.aiProvider === 'custom'}
-                    onChange={() => setConfig((prev) => ({ ...prev, aiProvider: 'custom' }))}
+                    onChange={() => handleAiProviderChange('custom')}
                   />
                   <span className="label-text">Custom API</span>
                 </label>
@@ -514,7 +590,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   placeholder="Contoh: google/gemma-3-4b"
                   className="input input-bordered w-full"
                   value={config.model || ''}
-                  onChange={(e) => setConfig((prev) => ({ ...prev, model: e.target.value }))}
+                  onChange={handleModelChange}
                 />
                 <p className="text-xs opacity-40">
                   Nama model yang aktif di LM Studio. Pastikan sudah ter-load.
@@ -528,7 +604,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   placeholder="Contoh: llama-3.1-8b-instant"
                   className="input input-bordered w-full"
                   value={config.groqModel || 'llama-3.1-8b-instant'}
-                  onChange={(e) => setConfig((prev) => ({ ...prev, groqModel: e.target.value }))}
+                  onChange={handleGroqModelChange}
                 />
                 <p className="text-xs opacity-40">
                   Model Groq yang ingin digunakan. (Pastikan API Key Groq di bawah diisi).
@@ -543,9 +619,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                     placeholder="Contoh: https://api.openai.com/v1/chat/completions"
                     className={`input input-bordered w-full ${config.customEndpoint && !config.customEndpoint.trim().endsWith('/chat/completions') ? 'input-error' : ''}`}
                     value={config.customEndpoint || ''}
-                    onChange={(e) =>
-                      setConfig((prev) => ({ ...prev, customEndpoint: e.target.value }))
-                    }
+                    onChange={handleCustomEndpointChange}
                   />
                   {config.customEndpoint &&
                   !config.customEndpoint.trim().endsWith('/chat/completions') ? (
@@ -578,14 +652,12 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                       placeholder="Masukkan API Key (jika diperlukan)"
                       className="input input-bordered w-full pr-10"
                       value={config.customApiKey || ''}
-                      onChange={(e) =>
-                        setConfig((prev) => ({ ...prev, customApiKey: e.target.value }))
-                      }
+                      onChange={handleCustomApiKeyChange}
                     />
                     <button
                       type="button"
                       className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                      onClick={() => setShowCustomKey(!showCustomKey)}
+                      onClick={handleToggleCustomKey}
                       title={showCustomKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
                     >
                       {showCustomKey ? (
@@ -633,9 +705,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   placeholder="Contoh: llama3.1-8b"
                   className="input input-bordered w-full"
                   value={config.cerebrasModel || 'llama3.1-8b'}
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, cerebrasModel: e.target.value }))
-                  }
+                  onChange={handleCerebrasModelChange}
                 />
                 <p className="text-xs opacity-40">
                   Model Cerebras yang ingin digunakan. (Pastikan API Key Cerebras di bawah diisi).
@@ -651,9 +721,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                     type="checkbox"
                     className="checkbox checkbox-sm checkbox-primary"
                     checked={config.useSecondaryModel || false}
-                    onChange={(e) =>
-                      setConfig((prev) => ({ ...prev, useSecondaryModel: e.target.checked }))
-                    }
+                    onChange={handleUseSecondaryModelChange}
                   />
                   <span className="label-text text-sm">
                     Gunakan Model Ringan untuk Tugas Latar Belakang (Lebih Cepat)
@@ -694,12 +762,12 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   placeholder="Contoh: gsk_xxxxxxxxxxxxxxxxx"
                   className="input input-bordered w-full pr-10"
                   value={config.groqApiKey || ''}
-                  onChange={(e) => setConfig((prev) => ({ ...prev, groqApiKey: e.target.value }))}
+                  onChange={handleGroqApiKeyChange}
                 />
                 <button
                   type="button"
                   className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                  onClick={() => setShowGroqKey(!showGroqKey)}
+                  onClick={handleToggleGroqKey}
                   title={showGroqKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
                 >
                   {showGroqKey ? (
@@ -771,14 +839,12 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                     placeholder="Contoh: c-xxxxxxxxxxxxxxxxx"
                     className="input input-bordered w-full pr-10"
                     value={config.cerebrasApiKey || ''}
-                    onChange={(e) =>
-                      setConfig((prev) => ({ ...prev, cerebrasApiKey: e.target.value }))
-                    }
+                    onChange={handleCerebrasApiKeyChange}
                   />
                   <button
                     type="button"
                     className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                    onClick={() => setShowCerebrasKey(!showCerebrasKey)}
+                    onClick={handleToggleCerebrasKey}
                     title={showCerebrasKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
                   >
                     {showCerebrasKey ? (
@@ -830,7 +896,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   type="checkbox" 
                   className="toggle toggle-primary" 
                   checked={config.awarenessEnabled !== false}
-                  onChange={(e) => setConfig((prev) => ({ ...prev, awarenessEnabled: e.target.checked }))}
+                  onChange={handleAwarenessEnabledChange}
                 />
               </div>
             </div>
@@ -842,7 +908,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 className="textarea w-full h-72 leading-relaxed no-scrollbar resize-none"
                 placeholder="Deskripsikan kepribadian Mark..."
                 value={config.personality}
-                onChange={(e) => setConfig((prev) => ({ ...prev, personality: e.target.value }))}
+                onChange={handlePersonalityChange}
               />
             </div>
             <div id="tour-temperature" className="space-y-2 p-2 -mx-2 rounded-lg">
@@ -859,7 +925,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 step="0.1"
                 value={config.temperature}
                 className="range range-primary range-xs w-full"
-                onChange={(e) => setConfig((prev) => ({ ...prev, temperature: e.target.value }))}
+                onChange={handleTemperatureChange}
               />
               <div className="flex justify-between px-2.5 mt-2 text-xs">
                 <span>0</span>
@@ -884,7 +950,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 step="2"
                 value={config.context}
                 className="range range-primary range-xs w-full"
-                onChange={(e) => setConfig((prev) => ({ ...prev, context: e.target.value }))}
+                onChange={handleContextChange}
               />
               <div className="flex justify-between mt-2 text-xs">
                 <span>2</span>
@@ -910,7 +976,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 <select
                   className="select select-bordered w-full"
                   value={config.micDeviceId || 'default'}
-                  onChange={(e) => setConfig((prev) => ({ ...prev, micDeviceId: e.target.value }))}
+                  onChange={handleMicDeviceIdChange}
                 >
                   <option value="default">Default System Microphone</option>
                   {audioDevices.map((mic) => (
@@ -936,7 +1002,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   step="1"
                   value={config.ttsRate}
                   className="range range-primary range-xs w-full"
-                  onChange={(e) => setConfig((prev) => ({ ...prev, ttsRate: e.target.value }))}
+                  onChange={handleTtsRateChange}
                 />
                 <div className="flex justify-between mt-2 text-xs">
                   <span>-50%</span>
@@ -962,9 +1028,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   step="1"
                   value={config.ttsPitch}
                   className="range range-primary range-xs w-full"
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, ttsPitch: parseInt(e.target.value) }))
-                  }
+                  onChange={handleTtsPitchChange}
                 />
                 <div className="flex justify-between mt-2 text-xs">
                   <span>-50hz</span>
@@ -1029,66 +1093,13 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                       <div className="flex gap-2">
                         <button
                           className="btn btn-xs btn-success text-white"
-                          onClick={async () => {
-                            const currentAdmins = config.waAdminNumber
-                              ? config.waAdminNumber.split(',').map((n) => n.trim())
-                              : []
-                            if (!currentAdmins.includes(admin.id)) {
-                              currentAdmins.push(admin.id)
-                            }
-                            const newPending = config.waPendingAdmins.filter(
-                              (p) => p.id !== admin.id
-                            )
-                            const newApproved = [...(config.waApprovedAdmins || []), admin]
-
-                            const newConfig = {
-                              ...config,
-                              waAdminNumber: currentAdmins.join(', '),
-                              waPendingAdmins: newPending,
-                              waApprovedAdmins: newApproved
-                            }
-
-                            setConfig(newConfig)
-
-                            // Simpan langsung ke DB biar gak usah nunggu tombol Save utama
-                            const { saveConfiguration } = await import('../api/db')
-                            await saveConfiguration(newConfig)
-                            if (window.api && window.api.syncConfig) {
-                              window.api.syncConfig(newConfig)
-                            }
-
-                            // Notify WA
-                            if (window.api && window.api.sendWaMessage) {
-                              window.api.sendWaMessage(
-                                admin.jid,
-                                `🎉 Selamat *${admin.name}*! Akses Admin kamu telah disetujui. Sekarang kamu bisa memiliki akses pada fitur khusus tertentu.`
-                              )
-                            }
-                          }}
+                          onClick={() => handleApproveAdmin(admin)}
                         >
                           Setujui
                         </button>
                         <button
                           className="btn btn-xs btn-error text-white"
-                          onClick={async () => {
-                            const newPending = config.waPendingAdmins.filter(
-                              (p) => p.id !== admin.id
-                            )
-                            const newConfig = { ...config, waPendingAdmins: newPending }
-
-                            setConfig(newConfig)
-
-                            // Simpan langsung ke DB
-                            const { saveConfiguration } = await import('../api/db')
-                            await saveConfiguration(newConfig)
-
-                            if (window.api && window.api.sendWaMessage) {
-                              window.api.sendWaMessage(
-                                admin.jid,
-                                `Maaf *${admin.name}*, permintaan akses Admin kamu ditolak oleh Owner.`
-                              )
-                            }
-                          }}
+                          onClick={() => handleRejectAdmin(admin)}
                         >
                           Tolak
                         </button>
@@ -1119,38 +1130,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                         <p className="text-xs opacity-50">{admin.id}</p>
                       </div>
                       <button
-                        onClick={async () => {
-                          const currentAdmins = config.waAdminNumber
-                            ? config.waAdminNumber
-                                .split(',')
-                                .map((n) => n.trim())
-                                .filter(Boolean)
-                            : []
-                          const newAdmins = currentAdmins.filter((a) => a !== admin.id)
-                          const newApproved = (config.waApprovedAdmins || []).filter(
-                            (a) => a.id !== admin.id
-                          )
-
-                          const newConfig = {
-                            ...config,
-                            waAdminNumber: newAdmins.join(', '),
-                            waApprovedAdmins: newApproved
-                          }
-                          setConfig(newConfig)
-
-                          const { saveConfiguration } = await import('../api/db')
-                          await saveConfiguration(newConfig)
-                          if (window.api && window.api.syncConfig) {
-                            window.api.syncConfig(newConfig)
-                          }
-
-                          if (window.api && window.api.sendWaMessage && admin.jid) {
-                            window.api.sendWaMessage(
-                              admin.jid,
-                              `⚠️ *Pemberitahuan:* Akses Admin kamu telah dicabut oleh Owner.`
-                            )
-                          }
-                        }}
+                        onClick={() => handleRemoveApprovedAdmin(admin)}
                         className="btn btn-xs btn-error text-white"
                       >
                         Hapus
@@ -1178,33 +1158,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                             <p className="text-xs opacity-50">{cleanId}</p>
                           </div>
                           <button
-                            onClick={async () => {
-                              const currentAdmins = config.waAdminNumber
-                                .split(',')
-                                .map((n) => n.trim())
-                                .filter(Boolean)
-                              const newAdmins = currentAdmins.filter((a) => a !== cleanId)
-
-                              const newConfig = { ...config, waAdminNumber: newAdmins.join(', ') }
-                              setConfig(newConfig)
-
-                              const { saveConfiguration } = await import('../api/db')
-                              await saveConfiguration(newConfig)
-                              if (window.api && window.api.syncConfig) {
-                                window.api.syncConfig(newConfig)
-                              }
-
-                              if (window.api && window.api.sendWaMessage) {
-                                const guessedJid =
-                                  cleanId.length > 14
-                                    ? `${cleanId}@lid`
-                                    : `${cleanId}@s.whatsapp.net`
-                                window.api.sendWaMessage(
-                                  guessedJid,
-                                  `⚠️ *Pemberitahuan:* Akses Admin kamu telah dicabut oleh Owner. Kamu tidak bisa lagi mengakses fitur khusus tertentu.`
-                                )
-                              }
-                            }}
+                            onClick={() => handleRemoveLegacyAdmin(cleanId)}
                             className="btn btn-xs btn-error text-white"
                           >
                             Hapus
