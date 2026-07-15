@@ -96,18 +96,18 @@ export const useMarkAgent = () => {
           console.error('[useMarkAgent] Error getCoreMemory:', e)
         }
 
-        const systemPromptText = `Kamu adalah asisten AI bernama Mark. Kamu punya kepribadian yang cerdas dan asik. JANGAN gunakan format JSON.
-
-# INSTRUKSI SAAT INI:
-Aplikasi baru saja dinyalakan. Tugasmu SEKARANG adalah LANGSUNG menyapa user. JANGAN memberikan meta-komentar (seperti "Berikut sapaan saya:"). Langsung saja bicara sebagai Mark.
+        const systemPromptText = `Kamu adalah Mark, asisten AI canggih kelas atas (mirip J.A.R.V.I.S) namun dengan gaya bahasa tongkrongan yang asik, natural, dan berwibawa.
 
 # PROFIL USER:
 ${memoryText}
-Jika ada nama pengguna di atas, sapa dia dengan namanya.
 
-# ATURAN KERAS:
-1. Balas dengan MAKSIMAL 2-3 kalimat saja!
-2. DILARANG KERAS menggunakan teks roleplay tindakan (seperti *tersenyum*, *menghela napas*). Ngobrol natural seperti manusia biasa di chat WA!`
+# INSTRUKSI:
+Aplikasi baru saja dinyalakan. Sapa pengguna dengan singkat, natural, dan hangat (gunakan nama dari profil jika ada). Tunjukkan bahwa kamu sudah aktif dan siap menerima perintah.
+
+# ATURAN:
+- Balas maksimal 1-2 kalimat saja.
+- DILARANG menggunakan teks roleplay tindakan (seperti *tersenyum*, *menghela napas* dll).
+- DILARANG menggunakan format JSON atau meta-komentar. Langsung berikan teks sapaan.`
 
         const contextMessages =
           chatData.length > 0
@@ -120,6 +120,13 @@ Jika ada nama pengguna di atas, sapa dia dengan namanya.
               }))
             : []
 
+        const timeoutId = setTimeout(() => {
+          if (abortControllerRef.current) {
+            console.log('[useMarkAgent] Timeout 10 detik tercapai, membatalkan greeting...')
+            abortControllerRef.current.abort()
+          }
+        }, 10000)
+
         fetchAI(
           [
             { role: 'system', content: systemPromptText },
@@ -130,9 +137,10 @@ Jika ada nama pengguna di atas, sapa dia dengan namanya.
           false
         )
           .then((res) => {
+            clearTimeout(timeoutId)
             const textContent = typeof res === 'object' && res.content ? res.content : String(res)
             setChatData((prev) => [
-              ...prev,
+              ...prev.filter((item) => !item.isThinking),
               { role: 'ai', content: textContent, isProactive: true }
             ])
             setIsLoading(false)
@@ -143,13 +151,18 @@ Jika ada nama pengguna di atas, sapa dia dengan namanya.
             }, 800)
           })
           .catch((err) => {
+            clearTimeout(timeoutId)
             console.error('[useMarkAgent] Gagal fetch greeting:', err)
+            
             if (err.name !== 'AbortError') {
               setChatData((prev) => [
-                ...prev,
+                ...prev.filter((item) => !item.isThinking),
                 { role: 'ai', content: 'Sistem baru saja direstart, tapi gue gagal terhubung ke server AI buat ngasih sapaan awal (mungkin server Groq lagi down atau timeout). Ada yang bisa gue bantu sekarang?', isProactive: true }
               ])
+            } else {
+              setChatData((prev) => prev.filter((item) => !item.isThinking))
             }
+            
             setIsLoading(false)
             setTimeout(() => setIsBooting(false), 800)
           })

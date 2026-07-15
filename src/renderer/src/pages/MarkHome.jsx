@@ -1,18 +1,18 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
-import { useChat } from '../contexts/ChatContext';
-import OrbVisualizer from '../components/core/OrbVisualizer';
-import InputBar from '../components/core/InputBar';
-import ResponseArea from '../components/core/ResponseArea';
-import StatusIndicator from '../components/core/StatusIndicator';
-import FloatingMenu from '../components/core/FloatingMenu';
-import HistoryDrawer from '../components/core/HistoryDrawer';
-import ProcessPanel from '../components/core/ProcessPanel';
-import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow';
-import MemoryVisualizer from '../components/core/MemoryVisualizer';
-import musicCoverFallback from '../assets/music-cover.png';
-import { useYoutubeMusic } from '../contexts/YoutubeMusicContext';
-import { useVAD } from '../hooks/useVAD';
+import React, { useEffect, useState, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
+import { useChat } from '../contexts/ChatContext'
+import OrbVisualizer from '../components/core/OrbVisualizer'
+import InputBar from '../components/core/InputBar'
+import ResponseArea from '../components/core/ResponseArea'
+import StatusIndicator from '../components/core/StatusIndicator'
+import FloatingMenu from '../components/core/FloatingMenu'
+import HistoryDrawer from '../components/core/HistoryDrawer'
+import ProcessPanel from '../components/core/ProcessPanel'
+import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
+import MemoryVisualizer from '../components/core/MemoryVisualizer'
+import musicCoverFallback from '../assets/music-cover.png'
+import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
+import { useVAD } from '../hooks/useVAD'
 
 const MarkHome = () => {
   const {
@@ -31,109 +31,110 @@ const MarkHome = () => {
     inputSource,
     handleStop,
     isBooting
-  } = useChat();
-  const { isPlaying, currentTrack, isPlayerOpen } = useYoutubeMusic();
+  } = useChat()
+  const { isPlaying, currentTrack, isPlayerOpen } = useYoutubeMusic()
 
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false);
-  const [currentResponse, setCurrentResponse] = useState(null);
-  const [showMusicWidget, setShowMusicWidget] = useState(false);
-  const [isMusicAnimatingOut, setIsMusicAnimatingOut] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
+  const [currentResponse, setCurrentResponse] = useState(null)
+  const [showMusicWidget, setShowMusicWidget] = useState(false)
+  const [isMusicAnimatingOut, setIsMusicAnimatingOut] = useState(false)
 
   useEffect(() => {
-    const handleOpenMap = () => setIsMemoryMapOpen(true);
-    window.addEventListener('open-memory-map', handleOpenMap);
-    return () => window.removeEventListener('open-memory-map', handleOpenMap);
-  }, []);
+    const handleOpenMap = () => setIsMemoryMapOpen(true)
+    window.addEventListener('open-memory-map', handleOpenMap)
+    return () => window.removeEventListener('open-memory-map', handleOpenMap)
+  }, [])
 
   const handleVoiceTranscript = (text) => {
-    setMessage(text);
-    setIsSpeak(true); // Sets global state
-    handlePlanningCommand(text, null, false, null, { forceSpeak: true }); // Pass forceSpeak option
-  };
+    setMessage(text)
+    setIsSpeak(true) // Sets global state
+    handlePlanningCommand(text, null, false, null, { forceSpeak: true }) // Pass forceSpeak option
+  }
 
   const { isRecording, toggleRecording, toastMessage } = useVAD({
     onTranscript: handleVoiceTranscript
-  });
+  })
 
-  const location = useLocation();
-  const hasAutoStartedRef = useRef(false);
+  const location = useLocation()
+  const hasAutoStartedRef = useRef(false)
 
   useEffect(() => {
     if (location.state?.autoStartMic) {
       if (hasAutoStartedRef.current !== location.state.autoStartMic) {
-        hasAutoStartedRef.current = location.state.autoStartMic;
-        toggleRecording();
+        hasAutoStartedRef.current = location.state.autoStartMic
+        toggleRecording()
       }
     }
-  }, [location.state?.autoStartMic, toggleRecording]);
+  }, [location.state?.autoStartMic, toggleRecording])
 
   // Handle music widget exit animation
   useEffect(() => {
-    const hasTrack = isPlaying && currentTrack?.title;
+    const hasTrack = isPlaying && currentTrack?.title
     if (hasTrack) {
-      setIsMusicAnimatingOut(false);
-      setShowMusicWidget(true);
+      setIsMusicAnimatingOut(false)
+      setShowMusicWidget(true)
     } else {
       if (showMusicWidget) {
-        setIsMusicAnimatingOut(true);
+        setIsMusicAnimatingOut(true)
         const timer = setTimeout(() => {
-          setShowMusicWidget(false);
-          setIsMusicAnimatingOut(false);
-        }, 500); // Match the holo-dismiss duration
-        return () => clearTimeout(timer);
+          setShowMusicWidget(false)
+          setIsMusicAnimatingOut(false)
+        }, 500) // Match the holo-dismiss duration
+        return () => clearTimeout(timer)
       }
     }
-  }, [isPlaying, currentTrack?.title, showMusicWidget]);
+  }, [isPlaying, currentTrack?.title, showMusicWidget])
 
   // Sync orb status based on isLoading
   useEffect(() => {
     if (isLoading) {
       // If last message is thinking, then thinking. Else speaking/executing
-      const lastMsg = chatData[chatData.length - 1];
+      const lastMsg = chatData[chatData.length - 1]
       if (lastMsg?.isThinking) {
-        setOrbStatus('thinking');
+        setOrbStatus('thinking')
       } else if (lastMsg?.isSearching) {
-        setOrbStatus('thinking');
+        setOrbStatus('thinking')
       } else if (lastMsg?.role === 'ai' && lastMsg?.content?.includes('Mengeksekusi plugin')) {
-        setOrbStatus('thinking');
+        setOrbStatus('thinking')
       } else {
-        setOrbStatus('listening');
+        setOrbStatus('listening')
       }
     } else {
-      setOrbStatus('idle');
+      setOrbStatus('idle')
     }
-  }, [isLoading, chatData, setOrbStatus]);
+  }, [isLoading, chatData, setOrbStatus])
 
   // Derived currentResponse from chatData
   useEffect(() => {
     if (chatData && chatData.length > 0) {
-      const lastItem = chatData[chatData.length - 1];
-      
+      const lastItem = chatData[chatData.length - 1]
+
       if (lastItem.role === 'ai') {
         if (lastItem.isThinking || lastItem.isSearching) {
           // It's a loading state, we might show a short text
           setCurrentResponse({
             text: lastItem.content || 'Memproses instruksi...',
             type: 'short'
-          });
+          })
         } else {
           // Final response
           setCurrentResponse({
             text: lastItem.content,
-            type: (lastItem.content?.length > 200 || lastItem.content?.includes('\n')) ? 'long' : 'short',
+            type:
+              lastItem.content?.length > 200 || lastItem.content?.includes('\n') ? 'long' : 'short',
             sources: lastItem.sources || [],
             youtubeData: lastItem.youtubeData,
             youtubeSummary: lastItem.youtubeLink,
             pluginResult: lastItem.pluginExecution,
             isProactive: lastItem.isProactive,
             mood: lastItem.mood
-          });
-          
+          })
+
           // Trigger holographic beam (speaking animation) to project the text
           if (!lastItem.isThinking) {
-            setOrbStatus('speaking');
-            setTimeout(() => setOrbStatus('idle'), 2500); // Project the beam for 2.5 seconds
+            setOrbStatus('speaking')
+            setTimeout(() => setOrbStatus('idle'), 2500) // Project the beam for 2.5 seconds
           }
         }
       } else {
@@ -142,7 +143,12 @@ const MarkHome = () => {
           setCurrentResponse({
             text: 'Memproses...',
             type: 'short'
-          });
+          })
+        } else {
+          setCurrentResponse({
+            text: 'Halo, saya Mark. Ada yang bisa saya bantu hari ini?',
+            type: 'short'
+          })
         }
       }
     } else {
@@ -150,15 +156,15 @@ const MarkHome = () => {
       setCurrentResponse({
         text: 'Halo, saya Mark. Ada yang bisa saya bantu hari ini?',
         type: 'short'
-      });
+      })
     }
-  }, [chatData, isLoading, isSpeak, setOrbStatus]);
+  }, [chatData, isLoading, isSpeak, setOrbStatus])
 
   const handleSubmit = () => {
     if (message.trim()) {
-      handlePlanningCommand(message);
+      handlePlanningCommand(message)
     }
-  };
+  }
 
   return (
     <div className="h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif]">
@@ -191,61 +197,83 @@ const MarkHome = () => {
         {/* The Orb & Neural Flow */}
         <div className="relative flex items-center justify-center w-full max-w-3xl mt-10 mb-8 h-64">
           <ThoughtNeuralFlow processes={activeProcesses} />
-          <OrbVisualizer status={orbStatus} intensity={0.5} mood={currentResponse?.mood || 'neutral'} />
+          <OrbVisualizer
+            status={orbStatus}
+            intensity={0.5}
+            mood={currentResponse?.mood || 'neutral'}
+          />
         </div>
 
         {/* Dynamic Response Area */}
         <div className="w-full max-w-4xl mt-8 flex flex-col items-center justify-center transition-all duration-500 ease-in-out">
-          {currentResponse && (
-            <ResponseArea currentResponse={currentResponse} />
-          )}
+          {currentResponse && <ResponseArea currentResponse={currentResponse} />}
 
           {/* Centered Now Playing Info */}
           {showMusicWidget && (
-            <div className={`mt-8 flex flex-col items-center ${isMusicAnimatingOut ? 'animate-[holo-dismiss_0.5s_ease-in_forwards]' : 'animate-[holo-project-in_0.5s_ease-out_forwards]'}`}>
+            <div
+              className={`mt-8 flex flex-col items-center ${isMusicAnimatingOut ? 'animate-[holo-dismiss_0.5s_ease-in_forwards]' : 'animate-[holo-project-in_0.5s_ease-out_forwards]'}`}
+            >
               <div className="relative group w-48 h-48 mb-4 rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-primary/20">
                 {currentTrack.thumbnail ? (
-                  <img 
-                    src={currentTrack.thumbnail} 
-                    alt="Album Art" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                    onError={(e) => { e.target.onerror = null; e.target.src = musicCoverFallback; }}
+                  <img
+                    src={currentTrack.thumbnail}
+                    alt="Album Art"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    onError={(e) => {
+                      e.target.onerror = null
+                      e.target.src = musicCoverFallback
+                    }}
                   />
                 ) : (
-                  <img 
-                    src={musicCoverFallback} 
-                    alt="Default Album Art" 
+                  <img
+                    src={musicCoverFallback}
+                    alt="Default Album Art"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                 )}
                 {/* Audio visualizer overlay */}
                 {isPlaying && (
                   <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-4 gap-1">
-                    <span className="w-1.5 h-4 bg-primary rounded-t-full animate-[music-bar_1s_ease-in-out_infinite]" style={{ animationDelay: '0.1s' }} />
-                    <span className="w-1.5 h-6 bg-primary rounded-t-full animate-[music-bar_1.2s_ease-in-out_infinite]" style={{ animationDelay: '0.3s' }} />
-                    <span className="w-1.5 h-3 bg-primary rounded-t-full animate-[music-bar_0.8s_ease-in-out_infinite]" style={{ animationDelay: '0.2s' }} />
-                    <span className="w-1.5 h-5 bg-primary rounded-t-full animate-[music-bar_1.1s_ease-in-out_infinite]" style={{ animationDelay: '0.4s' }} />
+                    <span
+                      className="w-1.5 h-4 bg-primary rounded-t-full animate-[music-bar_1s_ease-in-out_infinite]"
+                      style={{ animationDelay: '0.1s' }}
+                    />
+                    <span
+                      className="w-1.5 h-6 bg-primary rounded-t-full animate-[music-bar_1.2s_ease-in-out_infinite]"
+                      style={{ animationDelay: '0.3s' }}
+                    />
+                    <span
+                      className="w-1.5 h-3 bg-primary rounded-t-full animate-[music-bar_0.8s_ease-in-out_infinite]"
+                      style={{ animationDelay: '0.2s' }}
+                    />
+                    <span
+                      className="w-1.5 h-5 bg-primary rounded-t-full animate-[music-bar_1.1s_ease-in-out_infinite]"
+                      style={{ animationDelay: '0.4s' }}
+                    />
                   </div>
                 )}
               </div>
-              <h3 className="text-xl font-bold text-white text-center max-w-md truncate">{currentTrack.title}</h3>
-              <p className="text-sm text-white/50 text-center max-w-sm truncate mt-1">{currentTrack.artist}</p>
+              <h3 className="text-xl font-bold text-white text-center max-w-md truncate">
+                {currentTrack.title}
+              </h3>
+              <p className="text-sm text-white/50 text-center max-w-sm truncate mt-1">
+                {currentTrack.artist}
+              </p>
             </div>
           )}
         </div>
-
       </div>
 
       {/* Bottom Input Area */}
-      <InputBar 
+      <InputBar
         value={message}
         onChange={(e) => {
-          setMessage(e.target.value);
-          if (isSpeak) setIsSpeak(false); // Typing disables voice auto-reply
+          setMessage(e.target.value)
+          if (isSpeak) setIsSpeak(false) // Typing disables voice auto-reply
         }}
         onSubmit={() => {
-          setIsSpeak(false); // Typing submit disables voice auto-reply
-          handleSubmit();
+          setIsSpeak(false) // Typing submit disables voice auto-reply
+          handleSubmit()
         }}
         isLoading={isLoading}
         isRecording={isRecording}
@@ -255,17 +283,11 @@ const MarkHome = () => {
       />
 
       {/* Slide-out Drawers */}
-      <HistoryDrawer 
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-      />
+      <HistoryDrawer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 
-      <MemoryVisualizer 
-        isOpen={isMemoryMapOpen}
-        onClose={() => setIsMemoryMapOpen(false)}
-      />
+      <MemoryVisualizer isOpen={isMemoryMapOpen} onClose={() => setIsMemoryMapOpen(false)} />
     </div>
-  );
-};
+  )
+}
 
-export default MarkHome;
+export default MarkHome

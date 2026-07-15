@@ -162,7 +162,6 @@ export const useVAD = ({
           offset += arr.length
         }
         stopVADCleanup()
-        setToastMessage('Mengirim audio manual...')
         transcribeAudioGroq(merged)
           .then(text => {
             if (text && text.trim() !== '') onTranscript(text.trim())
