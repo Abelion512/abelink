@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
-import { useMarkState, useMarkSearch, useMarkYoutube, useMarkMusic, useMarkPlan } from './agent'
+import { useMarkState, useMarkYoutube, useMarkMusic, useMarkPlan } from './agent'
 import { useAwareness } from './useAwareness'
 import { useChatArchiver } from './useChatArchiver'
 import { formatForWhatsApp } from '../api/ai/utils'
@@ -28,7 +28,7 @@ export const useMarkAgent = () => {
     isSpeak,
     setIsSpeak,
     abortControllerRef,
-    searchProp,
+
     handleStop,
     orbStatus,
     setOrbStatus,
@@ -49,19 +49,12 @@ export const useMarkAgent = () => {
     setIsBooting
   } = state
 
-  const { receiveSearchResult, handleSearchCommand } = useMarkSearch(
-    setChatData,
-    chatData,
-    searchProp,
-    pushProcess,
-    dismissProcess
-  )
+
   const { handleYoutubeSearch, handleYoutubeSummary, getYoutubeData } = useMarkYoutube(setChatData)
   const { handleMusic } = useMarkMusic(setChatData, abortControllerRef, youtubeMusicTools)
 
   const tools = {
     handleYoutubeSearch,
-    handleSearchCommand,
     handleYoutubeSummary,
     handleMusic,
     getYoutubeData,

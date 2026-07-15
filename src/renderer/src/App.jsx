@@ -72,6 +72,11 @@ const GlobalListener = () => {
       if (window.api?.removeLiveAudioShortcut) {
         window.api.removeLiveAudioShortcut()
       }
+      if (window.electron?.ipcRenderer) {
+        window.electron.ipcRenderer.removeAllListeners('route-to-config')
+        window.electron.ipcRenderer.removeAllListeners('wa:admin-request') // if this is the actual channel name
+        window.electron.ipcRenderer.removeAllListeners('wa:request-agent-execution') // if this is the channel name
+      }
     }
   }, [navigate])
 

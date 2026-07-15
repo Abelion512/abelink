@@ -99,10 +99,10 @@ export const fetchAI = async (
       }
       // --- RATE LIMIT THROTLLING LOGIC (Berlaku buat SEMUA API cloud/berbayar/gratis biar gak jebol) ---
       if (!endpoint.includes('localhost') && !endpoint.includes('127.0.0.1')) {
-        let requiredDelay = 0;
-        if (conf.aiProvider === 'groq') requiredDelay = 3000;
-        else if (conf.aiProvider === 'cerebras') requiredDelay = 1000;
-        else requiredDelay = 0;
+        let requiredDelay = 0
+        if (conf.aiProvider === 'groq') requiredDelay = 3000
+        else if (conf.aiProvider === 'cerebras') requiredDelay = 1000
+        else requiredDelay = 0
 
         const now = Date.now()
         const timeSinceLastFetch = now - lastCloudFetchTime
@@ -324,13 +324,15 @@ export const fetchAI = async (
     }
 
     if (jsonSchema) {
-      if (conf.aiProvider === 'cerebras' || conf.aiProvider === 'groq' || conf.aiProvider === 'custom') {
+      if (
+        conf.aiProvider === 'cerebras' ||
+        conf.aiProvider === 'groq' ||
+        conf.aiProvider === 'custom'
+      ) {
         // Fallback for providers that might struggle with strict json_schema
-        if (conf.aiProvider !== 'custom') {
-          body.response_format = { type: 'json_object' }
-        }
+        body.response_format = { type: 'json_object' }
         // Inject schema instructions manually
-        body.messages = body.messages.map(m => ({ ...m })) // Clone array
+        body.messages = body.messages.map((m) => ({ ...m })) // Clone array
         let sysIdx = body.messages.findIndex((m) => m.role === 'system')
         const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
         if (sysIdx >= 0) {
@@ -378,8 +380,15 @@ export const fetchAI = async (
       conf.aiProvider !== 'cerebras' &&
       isLMStudioOfflineError(error)
     ) {
-      if (conf.aiProvider === 'custom' && conf.customEndpoint && !conf.customEndpoint.includes('localhost') && !conf.customEndpoint.includes('127.0.0.1')) {
-        throw new Error(`Koneksi ke Custom API gagal atau ditolak. Pastikan URL benar: ${error.message}`)
+      if (
+        conf.aiProvider === 'custom' &&
+        conf.customEndpoint &&
+        !conf.customEndpoint.includes('localhost') &&
+        !conf.customEndpoint.includes('127.0.0.1')
+      ) {
+        throw new Error(
+          `Koneksi ke Custom API gagal atau ditolak. Pastikan URL benar: ${error.message}`
+        )
       }
       throw createLMStudioOfflineError(error)
     }

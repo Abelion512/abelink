@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import { getNextAction, getPlanConclusion } from '../../api/ai/planning'
-import { getSearchResult, getYoutubeSummary } from '../../api/ai/tools'
+import { getNextAction } from '../../api/ai/planning'
+import { getYoutubeSummary } from '../../api/ai/tools'
 import { fetchAI } from '../../api/ai/core'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
 import { insertMemory, updateMemory, deleteMemory, getAllMemory } from '../../api/db'
@@ -306,12 +306,7 @@ export const useMarkPlan = ({
           let resultString = 'Tidak ada hasil.'
 
           try {
-            if (tool === 'search') {
-              // Redirect legacy search to browser-navigate
-              tool = 'browser-navigate'
-              query = `https://www.google.com/search?q=${encodeURIComponent(query)}`
-              // Proceed directly to BROWSER NATIVE TOOLS logic below
-            }
+
 
             if (tool === 'yt-search') {
               // --- YOUTUBE SEARCH ---

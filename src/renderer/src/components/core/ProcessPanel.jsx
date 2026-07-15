@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import DraggableHoloCard from './DraggableHoloCard';
-import { WebSearchBubble } from '../Chat/WebSearchBubble';
+
 import { FaCheckCircle, FaSearch, FaListUl, FaBolt, FaCheck, FaChevronRight } from 'react-icons/fa';
 
 const ProcessPanel = ({ processes, onDismiss }) => {
@@ -64,28 +64,6 @@ const ProcessPanel = ({ processes, onDismiss }) => {
         const cascadeY = sideIndex * 40;
         const cascadeX = sideIndex * 30;
         
-        if (proc.type === 'web-search') {
-          return (
-            <div className="pointer-events-auto" key={proc.id}>
-              <DraggableHoloCard
-                id={proc.id}
-                title={proc.status === 'done' ? <><FaCheckCircle className="inline mr-1" /> Web Search Selesai</> : <><FaSearch className="inline mr-1" /> Web Search Aktif</>}
-                defaultPosition={{ x: isRight ? window.innerWidth - 440 - cascadeX : 40 + cascadeX, y: 80 + cascadeY }}
-                onClose={() => onDismiss(proc.id)}
-                isVisible={!proc.isExiting}
-              >
-                <div className="w-[400px] flex items-center justify-center">
-                  {/* Reuse existing WebSearchBubble logic, but styled differently inside */}
-                  <WebSearchBubble 
-                    query={proc.data.query} 
-                    sendDataWebSearch={proc.data.sendDataWebSearch} 
-                  />
-                </div>
-              </DraggableHoloCard>
-            </div>
-          );
-        }
-
         if (proc.type === 'planning') {
           const { steps, currentStep, reasoning } = proc.data;
           const isDone = proc.status === 'done';

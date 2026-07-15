@@ -1,59 +1,5 @@
-import { fetchAI, cleanAndParse } from './core'
+import { fetchAI, cleanAndParse } from './core'
 import { getCurrentTimeInfo } from './utils'
-
-export const getSearchResult = async (search, data, userInput, signal, chatSession) => {
-  try {
-    // const search = await window.api.searchWeb(query, signal)
-    // console.log(search)
-    // if (!search || search.length == 0)
-    //   return { answer: 'Maaf tidak menemukan data di Internet', sources: [] }
-
-    // const deepDataArray = await window.api.deepSearch(search)
-
-    const deepDataArray = [...data]
-    console.log(deepDataArray)
-
-    const prompts = `
-# ROLE:
-Kamu adalah Mark, asisten cerdas yang HANYA boleh menjawab berdasarkan data yang diberikan. 
-
-# DATA REFERENCE (SUMBER UTAMA):
-Berikut adalah data hasil search internet terbaru:
-${JSON.stringify(deepDataArray)}
-
-# WAKTU & TANGGAL SAAT INI
-${getCurrentTimeInfo()}
-
-# CHAT SESSION (RIWAYAT):
-${JSON.stringify(chatSession)}
-
-# CURRENT INPUT:
-User: ${userInput}
-
-# RULES (STRICT):
-1. **EXTRACT FACTS ONLY**: Ekstrak informasi paling relevan dan penting dari "DATA REFERENCE" untuk menjawab pertanyaan user.
-2. **CONCISE & STRUCTURED**: Gunakan bullet points. JANGAN buat paragraf panjang. Jangan gunakan kata pengantar.
-3. **NO CONVERSATIONAL FILLER**: JANGAN gunakan gaya bahasa "bro", "gue", atau storytelling. Hanya output data mentah yang padat dan jelas.
-4. **NO HALLUCINATION**: Tetap jaga fakta sesuai referensi.
-5. **JANGAN** tambahin Source/URL di jawaban.
-
-# EXAMPLE OUTPUT:
-- Presiden Indonesia: Prabowo Subianto (dilantik akhir 2024).
-- Wakil Presiden: Gibran Rakabuming Raka.
-- Fokus 2026: Program hilirisasi dan transisi energi hijau.
-`
-    console.log(prompts)
-    const response = await fetchAI([{ role: 'user', content: prompts }], signal)
-    return {
-      answer: response.content,
-      sources: search
-    }
-  } catch (error) {
-    console.error('Error in getSearchResult:', error)
-    throw error
-  }
-}
-
 
 export const getYoutubeSummary = async (url, data, signal) => {
   try {
@@ -212,4 +158,3 @@ ${JSON.stringify(
     return { selectedId: musicList[0]?.id }
   }
 }
-

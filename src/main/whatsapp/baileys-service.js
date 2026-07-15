@@ -4,6 +4,7 @@ import {
   DisconnectReason,
   jidNormalizedUser
 } from '@whiskeysockets/baileys'
+import pino from 'pino'
 import { app, ipcMain, Notification } from 'electron'
 import qrcode from 'qrcode'
 import fs from 'fs'
@@ -253,6 +254,7 @@ export const startWhatsappBot = async (mainWindow) => {
 
   sock = makeWASocket({
     auth: state,
+    logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
     syncFullHistory: false,
     keepAliveIntervalMs: 25000, // Ping server setiap 25 detik biar koneksi nggak diputus sepihak sama WA

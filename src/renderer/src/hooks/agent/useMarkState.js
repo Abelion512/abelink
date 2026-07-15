@@ -19,7 +19,7 @@ export const useMarkState = () => {
   const sessionId = useRef('mark-main-thread')
 
   const abortControllerRef = useRef(null)
-  const searchProp = useRef({ userInput: '', signal: null, chatSession: null })
+
 
   const loadConfig = async () => {
     const data = await getAllConfig()
@@ -109,7 +109,7 @@ export const useMarkState = () => {
     isBooting,
     setIsBooting,
     abortControllerRef,
-    searchProp,
+
     handleStop
   }
 }
