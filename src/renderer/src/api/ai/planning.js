@@ -8,7 +8,7 @@ const CATEGORY_TEXTS = {
     'bikin web script kode code program aplikasi membuat koding coding programming nulis react html css javascript js perbaiki error bug frontend ui design backend logic',
   files:
     'baca file tulis file hapus file buat file edit file folder direktori cari teks grep terminal powershell command jalankan perintah eksekusi cmd',
-  music: 'putar lagu musik youtube yt music cari video mp3 play lagu',
+  music: 'putar lagu musik youtube yt music cari video mp3 play lagu puter',
   search: 'cari di internet google penelusuran web berita terbaru cuaca informasi terkini',
   system: 'screenshot kirim pesan whatsapp wa operasikan komputer sistem',
   browser:
@@ -199,18 +199,22 @@ ATURAN PENGGUNAAN BROWSER-CLOSE:
 2. PENGECUALIAN SANGAT KRITIKAL: Jika halaman memuat proses berkelanjutan yang HARUS ditunggu/dipantau user (seperti pesanan makanan sedang diproses resto, tracking ojek online, atau checkout yang belum dibayar), JANGAN panggil tool ini. Biarkan terbuka dan sampaikan di answer: "Browsernya gue biarin kebuka ya biar lu bisa pantau pesanannya."
 
 ATURAN BROWSER AUTOMATION:
-1. PROAKTIF & MANDIRI: Jika user memberi perintah (misal: "cek harga mouse di tokped", "baca email"), SELALU awali perjalananmu dengan mencari di Google! Gunakan \`browser-navigate\` ke URL pencarian (contoh: https://www.google.com/search?q=tokopedia+mouse), lalu klik hasil yang tepat. JANGAN asal menebak URL langsung (kecuali URL absolut diberikan user) untuk menghindari halaman 404/error!
-2. SELALU gunakan \`browser-navigate\` terlebih dahulu sebelum tool browser lainnya.
+1. PROAKTIF & MANDIRI: Jika user memberi perintah (misal: "cek harga mouse di tokped", "baca email"), SELALU awali perjalananmu dengan mencari di Google! Gunakan browser-navigate ke URL pencarian (contoh: https://www.google.com/search?q=tokopedia+mouse), lalu klik hasil yang tepat. JANGAN asal menebak URL langsung (kecuali URL absolut diberikan user) untuk menghindari halaman 404/error!
+2. SELALU gunakan browser-navigate terlebih dahulu sebelum tool browser lainnya.
 3. Setelah setiap aksi (klik/ketik), baca OBSERVATION untuk melihat DOM terbaru.
-4. Jika elemen yang dicari tidak ditemukan, coba \`browser-scroll\` atau \`browser-read\`.
+4. Jika elemen yang dicari tidak ditemukan, coba browser-scroll atau browser-read.
 5. Elemen ditandai dengan format: [ID] Tipe: "Label". Gunakan ID angka untuk merujuk elemen.
-6. JANGAN MENYERAH! Secara default user diblokir. Jika butuh user login/isi form manual, JANGAN balas dengan 'answer' lalu berhenti! HARUS selalu gunakan tool \`browser-ask-user\`, lalu tunggu user selesai, dan LAKUKAN sisa tugasmu!${
+6. JANGAN MENYERAH! Secara default user diblokir. Jika butuh user login/isi form manual, JANGAN balas dengan 'answer' lalu berhenti! HARUS selalu gunakan tool browser-ask-user, lalu tunggu user selesai, dan LAKUKAN sisa tugasmu!
+7. JANGAN GUNAKAN browser ini untuk memutar lagu${
         activeCategories.includes('music')
           ? `\n- yt-search: Mencari video di YouTube (judul, ID, durasi).
 - yt-summary: Merangkum isi video dari link YouTube.
 - music-play: Memutar lagu di YouTube Music.
 - music-toggle: Pause/lanjut memutar lagu.
-- music-search: Mencari lagu spesifik di YT Music.`
+- music-search: Mencari lagu spesifik di YT Music.
+- music-next: Mengganti lagu ke track selanjutnya.
+- music-prev: Mengganti lagu ke track sebelumnya.
+                `
           : ''
       }
 ${
