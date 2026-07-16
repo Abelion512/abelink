@@ -11,11 +11,11 @@
 
 ## Fitur Unggulan
 
-- **Dynamic Agentic Planning (ReAct Loop) (Baru v3.5):** Mengganti sistem penjawab statis dengan arsitektur penalaran cerdas. Mark mampu memecah masalah, memikirkan strategi, menggunakan *tools* secara otonom berulang kali, dan mengevaluasi hasilnya sebelum memberikan jawaban akhir yang komprehensif.
-- **Vision Awareness (Baru v3.5):** Mark kini dapat "melihat" layar Anda secara langsung (*Desktop Screen Reading*). Terintegrasi dengan *Awareness Engine*, Mark bisa bereaksi cerdas terhadap aplikasi yang sedang Anda buka berdasarkan penglihatan visual.
+- **Dynamic Agentic Planning (ReAct Loop):** Mengganti sistem penjawab statis dengan arsitektur penalaran cerdas. Mark mampu memecah masalah, memikirkan strategi, menggunakan *tools* secara otonom berulang kali, dan mengevaluasi hasilnya sebelum memberikan jawaban akhir yang komprehensif.
+- **Vision Awareness:** Mark kini dapat "melihat" layar Anda secara langsung (*Desktop Screen Reading*). Terintegrasi dengan *Awareness Engine*, Mark bisa bereaksi cerdas terhadap aplikasi yang sedang Anda buka berdasarkan penglihatan visual.
 - **Infinite Memory & Injection Knowledge RAG:** Sistem Vector Retrieval-Augmented Generation (RAG) kini berjalan secara *offline*. Mark dapat menyimpan riwayat memori obrolan masif tanpa batas dan pengguna dapat menambahkan pengetahuan dari sebuah file document tanpa membebani *context window* utama LLM.
-- **Visualisasi Jaringan Otak (Memory Visualizer) (Baru v3.0):** Dilengkapi dengan UI *Live Feed* "Mark Neural Core". Pengguna dapat melihat secara *real-time* grafis Neural Network yang menampilkan jaringan *Chat History*, *Knowledge Base*, hingga *Document Vault*.
-- **Live Thought Process (Neural Flow) (Baru v3.0):** Perhatikan Mark berpikir! Setiap kali sistem mengeksekusi rencana (*Agentic Planning*), antarmuka akan memancarkan animasi *3D Neuron* yang terbang mengorbit inti pikiran (Orb) untuk interaktivitas tingkat *Sci-Fi*.
+- **Visualisasi Jaringan Otak (Memory Visualizer):** Dilengkapi dengan UI *Live Feed* "Mark Neural Core". Pengguna dapat melihat secara *real-time* grafis Neural Network yang menampilkan jaringan *Chat History*, *Knowledge Base*, hingga *Document Vault*.
+- **Live Thought Process (Neural Flow):** Perhatikan Mark berpikir! Setiap kali sistem mengeksekusi rencana (*Agentic Planning*), antarmuka akan memancarkan animasi *3D Neuron* yang terbang mengorbit inti pikiran (Orb) untuk interaktivitas tingkat *Sci-Fi*.
 - **Emosi & Persona Dinamis (Dynamic Mood Engine):** Dilengkapi spektrum 9 emosi baru (Joy, Sadness, Fear, Anger, dll). Emosi ini secara visual memengaruhi antarmuka (Orb) serta gaya bahasa Mark secara dinamis berdasarkan perlakuan pengguna (*Tone Matching*).
 - **Dual AI Provider (Hybrid) & Custom API:** Anda memegang kendali penuh. Gunakan **Local AI** (berjalan langsung di PC Anda), atau alihkan ke **Cloud AI** (Groq/Cerebras). Ditambah dukungan Custom OpenAI-Compatible API untuk fleksibilitas mutlak.
 - **Asisten Bot WhatsApp Mandiri:** Mark mampu memproses tugas rumit melalui WhatsApp dengan menyusun rencana terstruktur, mengeksekusi langkah demi langkah (mencari data, merangkum, dll), dan memberi laporan akhir berkat arsitektur `waAutonomous.js`.
@@ -24,7 +24,7 @@
 ## Kemampuan Utama (Tools)
 
 Mark dibekali dengan berbagai integrasi alat untuk mengeksekusi tugas di luar sekadar membalas teks:
-- **Native File Handling & PowerShell (Baru v3.5):** Mark memiliki kontrol OS tingkat lanjut untuk membaca, menulis, memodifikasi, dan menghapus file secara *native*. Mark juga dapat mengeksekusi perintah PowerShell untuk mengendalikan sistem operasi. *(Keamanan Tinggi: Semua perintah berisiko wajib mendapat persetujuan modal UI dari pengguna).*
+- **Native File Handling & PowerShell:** Mark memiliki kontrol OS tingkat lanjut untuk membaca, menulis, memodifikasi, dan menghapus file secara *native*. Mark juga dapat mengeksekusi perintah PowerShell untuk mengendalikan sistem operasi. *(Keamanan Tinggi: Semua perintah berisiko wajib mendapat persetujuan modal UI dari pengguna).*
 - **Autonomous Web Browsing:** Menggunakan *window* Chromium internal, Mark dapat secara otonom membuka halaman web, bernavigasi, dan berinteraksi dengan website secara mandiri. Dilengkapi dengan *Smart Pause & Resume* jika membutuhkan intervensi manual (login/CAPTCHA).
 - **Interaksi Suara (Voice Activity Detection & STT):** Berbicara langsung ke mikrofon! Mark menggunakan sistem VAD cerdas yang mendeteksi suara Anda dan akan menunggu hingga Anda selesai berbicara sebelum memproses audio secara instan menggunakan *Groq Whisper STT* atau *Local Transformers.js Whisper*. Balasan Mark juga menggunakan sintesis suara manusia yang natural (Edge-TTS).
 - **Riset Internet Mendalam (Deep Web Search):** Mark dapat menelusuri web secara mandiri untuk mencari informasi akurat dan memberikan ringkasan yang dilengkapi dengan tautan kutipan (*citations*).
