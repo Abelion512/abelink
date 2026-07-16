@@ -31,7 +31,9 @@ export const generateVector = async (text) => {
     const ext = await getExtractor();
     if (!ext) return null;
     const output = await ext(text, { pooling: 'mean', normalize: true, truncation: true, max_length: 512 });
-    return Array.from(output.data);
+    const result = Array.from(output.data);
+    if (output.dispose) output.dispose();
+    return result;
   } catch (error) {
     console.error("Gagal generate vector:", error);
     return null;

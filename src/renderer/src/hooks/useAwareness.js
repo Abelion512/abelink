@@ -77,7 +77,7 @@ export const useAwareness = ({
             for (let i = 0; i < screens.length; i++) {
               const screenDesc = await analyzeImage(
                 screens[i].data,
-                'Describe what the user is doing on their computer screen right now.'
+                'Analyze this image visually. Describe the generic layout, main objects, apps, or visual elements. DO NOT attempt to read, transcribe, or guess any text.'
               )
               visionDescription += `[Layar ${screens[i].name}]: ${screenDesc}\n`
             }

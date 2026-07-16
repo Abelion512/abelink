@@ -97,6 +97,14 @@ export const analyzeImage = async (imageSource, userPrompt = "Describe this imag
       { skip_special_tokens: true },
     );
     
+    // Dispose Tensors untuk mencegah memory leak WebGPU
+    if (outputs && outputs.dispose) outputs.dispose();
+    if (inputs) {
+      Object.values(inputs).forEach(tensor => {
+        if (tensor && tensor.dispose) tensor.dispose();
+      });
+    }
+    
     return decoded[0];
   } catch (error) {
     console.error("Gagal menganalisis gambar:", error);
