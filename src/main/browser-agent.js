@@ -158,7 +158,11 @@ export async function navigateTo(url) {
     })
 
     browserWindow.webContents.setMaxListeners(50) // Fix memory leak warning for did-stop-loading
-    
+
+    browserWindow.on('closed', () => {
+      browserWindow = null
+    })
+
     browserWindow.webContents.on('did-finish-load', () => {
       if (activeAskUser && !browserWindow.isDestroyed()) {
         executeAction({ action: 'unblock', value: activeAskUserMessage, isReinject: true }).catch(
@@ -226,6 +230,15 @@ export async function navigateTo(url) {
 
   // Auto-scan DOM setelah navigate
   return await readDOM()
+}
+
+export async function closeBrowser() {
+  if (browserWindow && !browserWindow.isDestroyed()) {
+    browserWindow.close()
+    browserWindow = null
+    return 'Browser berhasil ditutup.'
+  }
+  return 'Browser memang sudah dalam keadaan tertutup.'
 }
 
 export async function readDOM() {
@@ -481,12 +494,4 @@ export async function executeAction(data) {
   }
 
   return '[ERROR] Action tidak dikenal.'
-}
-
-export function closeBrowser() {
-  if (browserWindow && !browserWindow.isDestroyed()) {
-    browserWindow.close()
-    browserWindow = null
-  }
-  return 'Browser ditutup.'
 }

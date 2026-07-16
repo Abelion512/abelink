@@ -20,7 +20,6 @@ export const useMarkState = () => {
 
   const abortControllerRef = useRef(null)
 
-
   const loadConfig = async () => {
     const data = await getAllConfig()
     if (data.length > 0) setConfig(data)
@@ -51,26 +50,29 @@ export const useMarkState = () => {
   }
 
   const pushNotification = (type, message) => {
-    setNotifications(prev => [...prev, { id: Date.now() + Math.random(), type, message, timestamp: Date.now() }])
+    setNotifications((prev) => [
+      ...prev,
+      { id: Date.now() + Math.random(), type, message, timestamp: Date.now() }
+    ])
   }
 
   const pushProcess = (process) => {
     // process: { id, type, status, data }
-    setActiveProcesses(prev => {
-      const existing = prev.findIndex(p => p.id === process.id);
+    setActiveProcesses((prev) => {
+      const existing = prev.findIndex((p) => p.id === process.id)
       if (existing !== -1) {
         // Update
-        const next = [...prev];
-        next[existing] = { ...next[existing], ...process };
-        return next;
+        const next = [...prev]
+        next[existing] = { ...next[existing], ...process }
+        return next
       }
       // Add new
-      return [...prev, process];
-    });
+      return [...prev, process]
+    })
   }
 
   const dismissProcess = (id) => {
-    setActiveProcesses(prev => prev.filter(p => p.id !== id));
+    setActiveProcesses((prev) => prev.filter((p) => p.id !== id))
   }
 
   const handleStop = () => {
@@ -109,7 +111,6 @@ export const useMarkState = () => {
     isBooting,
     setIsBooting,
     abortControllerRef,
-
     handleStop
   }
 }

@@ -59,7 +59,13 @@ export const fetchAI = async (
 
     let body = {
       temperature: Number(conf.temperature) || 0,
-      messages: messages
+      messages: messages.map(m => {
+        let sanitizedContent = m.content;
+        if (Array.isArray(m.content)) {
+          sanitizedContent = m.content.find(c => c.type === 'text')?.text || '[Gambar terlampir]';
+        }
+        return { ...m, content: sanitizedContent };
+      })
     }
 
     if (useSecondary) {
@@ -330,7 +336,9 @@ export const fetchAI = async (
         conf.aiProvider === 'custom'
       ) {
         // Fallback for providers that might struggle with strict json_schema
-        body.response_format = { type: 'json_object' }
+        if (conf.aiProvider === 'groq') {
+          body.response_format = { type: 'json_object' }
+        }
         // Inject schema instructions manually
         body.messages = body.messages.map((m) => ({ ...m })) // Clone array
         let sysIdx = body.messages.findIndex((m) => m.role === 'system')
@@ -350,6 +358,24 @@ export const fetchAI = async (
           }
         }
       }
+    }
+
+    // Normalisasi array messages untuk Custom API (terutama NaraRouter/Gemini)
+    if (conf.aiProvider === 'custom') {
+      let normalizedMessages = []
+      for (let m of body.messages) {
+        let currentRole = m.role === 'system' ? 'user' : m.role
+
+        if (
+          normalizedMessages.length > 0 &&
+          normalizedMessages[normalizedMessages.length - 1].role === currentRole
+        ) {
+          normalizedMessages[normalizedMessages.length - 1].content += `\n\n${m.content}`
+        } else {
+          normalizedMessages.push({ role: currentRole, content: m.content })
+        }
+      }
+      body.messages = normalizedMessages
     }
 
     let data

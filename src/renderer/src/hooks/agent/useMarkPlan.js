@@ -59,8 +59,8 @@ export const useMarkPlan = ({
     const timestampStr = getCurrentTimeInfo()
 
     const userMessage = {
-      role: isSystem ? 'system' : 'user',
-      content: userInput,
+      role: 'user',
+      content: isSystem ? `[SYSTEM INSTRUCTION]: ${userInput}` : userInput,
       timestamp: timestampStr
     }
 
@@ -427,7 +427,8 @@ export const useMarkPlan = ({
                 'browser-click',
                 'browser-type',
                 'browser-scroll',
-                'browser-ask-user'
+                'browser-ask-user',
+                'browser-close'
               ].includes(tool)
             ) {
               // --- NATIVE TOOLS (Built-in) ---

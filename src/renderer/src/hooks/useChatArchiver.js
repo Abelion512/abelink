@@ -10,10 +10,13 @@ export const useChatArchiver = ({ chatData, activeTopic, config, pushNotificatio
   
   // Track on initial mount if chatData already has items (from restored session)
   useEffect(() => {
-    if (lastArchivedIndexRef.current === 0 && chatData.length > 0) {
+    if (chatData.length < lastArchivedIndexRef.current) {
+      // Jika user melakukan 'Clear Chat', reset index ke 0
+      lastArchivedIndexRef.current = 0
+    } else if (lastArchivedIndexRef.current === 0 && chatData.length > 0) {
       lastArchivedIndexRef.current = chatData.length
     }
-  }, [])
+  }, [chatData.length])
 
   useEffect(() => {
     // Kita cek transisi dari isLoading: true -> false (artinya Mark baru selesai bales pesan)
@@ -30,7 +33,7 @@ export const useChatArchiver = ({ chatData, activeTopic, config, pushNotificatio
           const recentMessages = chatData
             .slice(lastArchivedIndexRef.current)
             .filter(m => !m.isThinking && !m.isSearching && !m.isSummarizing)
-            .map(m => ({ role: m.role, content: m.content }))
+            .map((m) => ({ role: m.role, content: m.content }))
 
           if (recentMessages.length >= 10) {
             isArchivingRef.current = true
