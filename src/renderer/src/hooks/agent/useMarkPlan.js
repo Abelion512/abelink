@@ -99,7 +99,20 @@ export const useMarkPlan = ({
       // ========== STEP 2: AMBIL MEMORI & KONTEKS ==========
 
       const allMemory = await getAllMemory()
-      const contextPromise = getUnifiedContext(userInput, allMemory)
+      let searchQuery = userInput
+      if (chatSession.length > 0) {
+        const lastMsg = chatSession[chatSession.length - 2]
+        if (lastMsg.role === 'assistant' && lastMsg.content) {
+          let lastAiText = lastMsg.content
+          // Jika teks terlalu panjang, ambil awal dan akhirnya saja biar konteks awal (seperti judul lagu) gak hilang
+          if (lastAiText.length > 600) {
+            lastAiText = lastAiText.substring(0, 300) + ' ... ' + lastAiText.slice(-300)
+          }
+          searchQuery = `Konteks obrolan sebelumnya: "${lastAiText}". Pertanyaan user saat ini: "${userInput}"`
+          console.log(searchQuery)
+        }
+      }
+      const contextPromise = getUnifiedContext(searchQuery, allMemory)
       const abortPromise = new Promise((_, reject) => {
         const onAbort = () => reject(new Error('AbortError'))
         if (abortControllerRef.current.signal.aborted) return onAbort()
@@ -306,8 +319,6 @@ export const useMarkPlan = ({
           let resultString = 'Tidak ada hasil.'
 
           try {
-
-
             if (tool === 'yt-search') {
               // --- YOUTUBE SEARCH ---
               const ytResults = await window.api.searchYoutube(query)
