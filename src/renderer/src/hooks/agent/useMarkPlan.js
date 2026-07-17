@@ -380,7 +380,7 @@ export const useMarkPlan = ({
                 resultString =
                   'Tool screenshot-to-wa HANYA tersedia jika user sedang chat dari WhatsApp.'
               }
-            } else if (tool === 'screenshot') {
+            } else if (tool === 'analyze-screen') {
               // --- SCREENSHOT FOR VISION ---
               try {
                 const screens = await window.api.takeScreenshot()
@@ -404,7 +404,7 @@ export const useMarkPlan = ({
                   screens.forEach((screen) => {
                     contentArray.push({
                       type: 'image_url',
-                      image_url: { url: screen.data }
+                      image_url: { url: screen.data } // Standar mutlak OpenAI API
                     })
                   })
 
@@ -417,6 +417,11 @@ export const useMarkPlan = ({
                     typeof visionResponse === 'object' && visionResponse.content
                       ? visionResponse.content
                       : String(visionResponse)
+                  // sk-nry-iKHsWVIcArhPtt1vprUboIV7FZGMO_c9x6izmLfPpUo
+                  //
+                  // [LOG FETCH] Permintaan user untuk nge-log hasil Vision AI
+                  console.log(`[Vision AI - analyze-screen] Hasil analisis:`, textContent)
+                  
                   resultString = `Hasil Analisis Layar:\n${textContent}`
                 } else {
                   resultString = 'Gagal mengambil screenshot dari sistem operasi.'

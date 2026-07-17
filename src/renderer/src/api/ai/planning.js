@@ -220,7 +220,7 @@ ATURAN BROWSER AUTOMATION:
       }
 ${
   activeCategories.some((c) => ['system', 'casual'].includes(c))
-    ? `- screenshot: Mengambil screenshot layar komputer untuk DIBACA OLEH AI (Vision). Gunakan ini jika kamu perlu MELIHAT isi layar. Query: Instruksi detail pencarian visualmu.
+    ? `- analyze-screen: Mengambil screenshot untuk dianalisis oleh "Mata AI" (Vision). Gunakan tool ini JIKA DAN HANYA JIKA kamu perlu TAHU apa yang sedang tampil di layar komputer user. Query: Isi dengan prompt instruksi visual spesifikmu, isi query dengan jelas dan panjang karena akan dibaca oleh model ai visual, Jangan minta untuk ambil screenshot karen sudah ditangani oleh sistem, prompt ini bertujuan untuk menganalisa hasil screenshot oleh sistem (misal: "Tolong bacakan teks error di layar" atau "Cari tombol warna biru").
 - screenshot-to-wa: Mengambil screenshot layar komputer dan MENGIRIMNYA SECARA FISIK ke WhatsApp user (Hanya jika chat berasal dari WA). Query: KOSONGKAN SAJA.
 - wa-send: Mengirim pesan WhatsApp. Format query: "JID|Isi Pesan".
 - speak: Bicarakan teks secara lisan (Text-to-Speech) lewat speaker komputer user. Query: "Teks yang ingin kamu ucapkan". Gunakan ini jika kamu ingin memanggil user atau berbicara langsung.`
@@ -364,7 +364,7 @@ ${
                 'music-toggle',
                 'yt-search',
                 'yt-summary',
-                'screenshot',
+                'analyze-screen',
                 'screenshot-to-wa',
                 'wa-send',
                 'speak',

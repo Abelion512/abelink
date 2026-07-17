@@ -59,10 +59,15 @@ export const fetchAI = async (
 
     let body = {
       temperature: Number(conf.temperature) || 0,
-      messages: messages.map((m) => {
+      messages: messages.map((m, index) => {
         let sanitizedContent = m.content
         if (Array.isArray(m.content)) {
-          sanitizedContent = m.content.find((c) => c.type === 'text')?.text || '[Gambar terlampir]'
+          // Hanya hapus gambar dari HISTORY (bukan pesan terakhir) untuk hemat token
+          if (index < messages.length - 1) {
+            sanitizedContent = m.content.find((c) => c.type === 'text')?.text || '[Gambar terlampir]'
+          } else {
+            sanitizedContent = m.content // Biarkan gambar tetap utuh untuk dianalisis AI
+          }
         }
         return { ...m, content: sanitizedContent }
       })
@@ -381,16 +386,38 @@ export const fetchAI = async (
     // Normalisasi array messages untuk Custom API (terutama NaraRouter/Gemini)
     if (conf.aiProvider === 'custom') {
       let normalizedMessages = []
+      const isMistralModel = body.model && body.model.toLowerCase().includes('mistral')
+
       for (let m of body.messages) {
         let currentRole = m.role === 'system' ? 'user' : m.role
+        let currentContent = m.content
+
+        // Adaptasi Vision Payload Khusus Mistral (Mistral mengharapkan image_url sebagai string, bukan object)
+        if (isMistralModel && Array.isArray(currentContent)) {
+          currentContent = currentContent.map(item => {
+            if (item.type === 'image_url' && item.image_url && typeof item.image_url === 'object') {
+              return { type: 'image_url', image_url: item.image_url.url }
+            }
+            return item
+          })
+        }
 
         if (
           normalizedMessages.length > 0 &&
           normalizedMessages[normalizedMessages.length - 1].role === currentRole
         ) {
-          normalizedMessages[normalizedMessages.length - 1].content += `\n\n${m.content}`
+          const prevMsg = normalizedMessages[normalizedMessages.length - 1]
+          if (Array.isArray(prevMsg.content) || Array.isArray(currentContent)) {
+            // Gabung array vision
+            const prevArr = Array.isArray(prevMsg.content) ? prevMsg.content : [{ type: 'text', text: prevMsg.content }]
+            const currArr = Array.isArray(currentContent) ? currentContent : [{ type: 'text', text: currentContent }]
+            prevMsg.content = [...prevArr, ...currArr]
+          } else {
+            // Gabung string biasa
+            prevMsg.content += `\n\n${currentContent}`
+          }
         } else {
-          normalizedMessages.push({ role: currentRole, content: m.content })
+          normalizedMessages.push({ role: currentRole, content: currentContent })
         }
       }
       body.messages = normalizedMessages

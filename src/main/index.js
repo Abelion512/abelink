@@ -317,7 +317,7 @@ app.whenReady().then(async () => {
     try {
       const sources = await desktopCapturer.getSources({
         types: ['screen'],
-        thumbnailSize: { width: 1920, height: 1080 }
+        thumbnailSize: { width: 1280, height: 720 } // [OPTIMASI] Diturunkan dari 1080p ke 720p agar payload Base64 tidak terlalu besar dan mengurangi halusinasi AI
       })
       if (sources.length > 0) {
         // Return array of Base64 for all screens
