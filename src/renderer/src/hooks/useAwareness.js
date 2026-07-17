@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 import { getAllMemory } from '../api/db'
 import { getRelevantMemory } from '../api/vectorMemory'
 import { getAwarenessResponse } from '../api/ai/awareness'
-import { analyzeImage } from '../api/vision'
 
 const CHECKIN_INTERVAL = 10 * 60 * 1000
 const INITIAL_DELAY = 60 * 1000
@@ -69,31 +68,12 @@ export const useAwareness = ({
           window.api.clearActivityBuffer()
         }
 
-        let visionDescription = ''
-        try {
-          const screens = await window.api.takeScreenshot()
-          if (screens && screens.length > 0) {
-            console.log(`[useAwareness] Menganalisis ${screens.length} screenshot layar...`)
-            for (let i = 0; i < screens.length; i++) {
-              const screenDesc = await analyzeImage(
-                screens[i].data,
-                'Describe the UI layout, shapes, colors, and main visual objects only. Do not read any text.'
-              )
-              visionDescription += `[Layar ${screens[i].name}]: ${screenDesc}\n`
-            }
-            console.log('[useAwareness] Hasil Vision:', visionDescription)
-          }
-        } catch (e) {
-          console.error('[useAwareness] Error saat memproses screenshot:', e)
-        }
-
         const result = await getAwarenessResponse(
           buffer,
           memoryRef,
           configRef.current,
           recentChat,
-          currentMusicTrackRef.current,
-          visionDescription
+          currentMusicTrackRef.current
         )
         console.log('[useAwareness] AI Response:', result)
 

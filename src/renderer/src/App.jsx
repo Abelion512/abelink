@@ -141,38 +141,6 @@ function App() {
         if (window.api && window.api.syncConfig) {
           window.api.syncConfig(data[0])
         }
-
-        // 3. Load Vision Model (hanya jika awareness menyala)
-        if (data[0].awarenessEnabled !== false) {
-          try {
-            setLoadingText('Memuat Mata Kognitif (Vision)...')
-            const { initVisionModel } = await import('./api/vision')
-            let downloadStats = {}
-            await initVisionModel((info) => {
-              if (info.status === 'initiate') {
-                downloadStats[info.file] = { loaded: 0, total: info.total || 0 }
-              } else if (info.status === 'progress') {
-                if (downloadStats[info.file]) {
-                  downloadStats[info.file].loaded = info.loaded
-                  downloadStats[info.file].total = info.total // sometimes total is updated
-                }
-                const values = Object.values(downloadStats)
-                const totalBytes = values.reduce((acc, curr) => acc + curr.total, 0)
-                const loadedBytes = values.reduce((acc, curr) => acc + curr.loaded, 0)
-                if (totalBytes > 0) {
-                  const percent = Math.round((loadedBytes / totalBytes) * 100)
-                  const loadedMB = (loadedBytes / 1024 / 1024).toFixed(1)
-                  const totalMB = (totalBytes / 1024 / 1024).toFixed(1)
-                  setLoadingText(`Mengunduh Vision AI... ${percent}% (${loadedMB}MB / ${totalMB}MB)`)
-                }
-              } else if (info.status === 'done' || info.status === 'ready') {
-                setLoadingText('Membangunkan Mark...')
-              }
-            })
-          } catch (e) {
-            console.error('[App] Failed to load Vision model:', e)
-          }
-        }
       }
       setIsChecking(false)
     }

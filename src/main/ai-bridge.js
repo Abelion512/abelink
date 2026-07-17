@@ -59,12 +59,12 @@ export const fetchAI = async (
 
     let body = {
       temperature: Number(conf.temperature) || 0,
-      messages: messages.map(m => {
-        let sanitizedContent = m.content;
+      messages: messages.map((m) => {
+        let sanitizedContent = m.content
         if (Array.isArray(m.content)) {
-          sanitizedContent = m.content.find(c => c.type === 'text')?.text || '[Gambar terlampir]';
+          sanitizedContent = m.content.find((c) => c.type === 'text')?.text || '[Gambar terlampir]'
         }
-        return { ...m, content: sanitizedContent };
+        return { ...m, content: sanitizedContent }
       })
     }
 
@@ -326,7 +326,25 @@ export const fetchAI = async (
         throw err
       }
 
-      return response.json()
+      let rawText = await response.text()
+      
+      // [ROUTER FIX] Ambil murni dari { pertama sampai } terakhir untuk mengabaikan teks sampah dari router
+      let cleanText = rawText.trim()
+      const firstBrace = cleanText.indexOf('{')
+      const lastBrace = cleanText.lastIndexOf('}')
+      
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
+        cleanText = cleanText.substring(firstBrace, lastBrace + 1)
+      }
+
+      console.log(`[FetchAI] Raw Response from Router (Status: ${response.status}):`, cleanText)
+      
+      try {
+        return JSON.parse(cleanText)
+      } catch (parseError) {
+        console.error('[FetchAI] Gagal mem-parsing response body JSON dari router:', parseError.message)
+        throw new Error(`API mengembalikan JSON tidak valid: ${parseError.message}\nRaw Text: ${cleanText.slice(0, 100)}...`)
+      }
     }
 
     if (jsonSchema) {
