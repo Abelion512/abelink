@@ -24,7 +24,8 @@ export const useMarkPlan = ({
   activeTopic,
   setActiveTopic,
   currentMusicTrack,
-  requestApproval
+  requestApproval,
+  requestCameraCapture
 }) => {
   // Listener for 'ai-status' events from Main Process (via IPC)
   useEffect(() => {
@@ -428,6 +429,70 @@ export const useMarkPlan = ({
                 }
               } catch (e) {
                 resultString = `Gagal memproses visual: Model AI saat ini mungkin tidak mendukung Vision (Image Analysis) atau terjadi error. Pesan: ${e.message}`
+              }
+            } else if (tool === 'camera-look') {
+              // --- CAMERA VISION ---
+              console.log('[camera-look] Tool dipanggil. config[0]?.cameraEnabled:', config[0]?.cameraEnabled, 'requestCameraCapture:', !!requestCameraCapture)
+              try {
+                if (config[0]?.cameraEnabled === false) {
+                  resultString = 'Fitur kamera dimatikan di pengaturan. Beri tahu user untuk mengaktifkannya.'
+                } else if (!requestCameraCapture) {
+                  resultString = 'Internal Error: Callback requestCameraCapture tidak tersedia.'
+                } else {
+                  setChatData((prev) => {
+                    const filtered = prev.filter((item) => !item.isThinking)
+                    return [
+                      ...filtered,
+                      { role: 'ai', content: 'Mengakses kamera...', isThinking: true }
+                    ]
+                  })
+
+                  console.log('[camera-look] Memanggil requestCameraCapture...')
+                  const cameraFrame = await requestCameraCapture({
+                    isAutonomous: isAutonomous,
+                    deviceId: config[0]?.cameraDeviceId !== 'default' ? config[0]?.cameraDeviceId : null
+                  })
+                  console.log('[camera-look] Hasil cameraFrame:', cameraFrame ? `${Math.round(cameraFrame.length / 1024)}KB` : 'null')
+
+                  if (cameraFrame) {
+                    setChatData((prev) => {
+                      const filtered = prev.filter((item) => !item.isThinking)
+                      return [
+                        ...filtered,
+                        { role: 'ai', content: 'Menganalisis hasil kamera...', isThinking: true }
+                      ]
+                    })
+
+                    const contentArray = [
+                      {
+                        type: 'text',
+                        text: query || 'Jelaskan dengan detail apa yang terlihat dari kamera ini.'
+                      },
+                      {
+                        type: 'image_url',
+                        image_url: { url: cameraFrame }
+                      }
+                    ]
+
+                    const visionResponse = await fetchAI(
+                      [{ role: 'user', content: contentArray }],
+                      abortControllerRef.current?.signal,
+                      false
+                    )
+
+                    const textContent =
+                      typeof visionResponse === 'object' && visionResponse.content
+                        ? visionResponse.content
+                        : String(visionResponse)
+
+                    console.log(`[Vision AI - camera-look] Hasil analisis:`, textContent)
+                    resultString = `Hasil Analisis Kamera:\n${textContent}`
+                  } else {
+                    resultString = 'Gagal mengambil gambar dari kamera. Pastikan kamera terhubung dan tidak sedang digunakan aplikasi lain.'
+                  }
+                }
+              } catch (e) {
+                resultString = `Gagal memproses kamera: ${e.message}`
               }
             } else if (
               [

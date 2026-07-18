@@ -246,6 +246,17 @@ app.whenReady().then(async () => {
   initPluginIPC()
 
   setupYoutubeFix()
+
+  // Grant camera & microphone permissions automatically (Electron blocks by default)
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    const allowedPermissions = ['media', 'mediaKeySystem', 'geolocation', 'notifications', 'fullscreen']
+    if (allowedPermissions.includes(permission)) {
+      callback(true)
+    } else {
+      callback(false)
+    }
+  })
+
   createWindow()
 
   // Langsung jalankan WhatsApp Bot di background secara rahasia (Tray Mode) saat aplikasi utama dibuka

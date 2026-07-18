@@ -70,6 +70,9 @@ db.version(12).upgrade(async tx => {
   });
 })
 
+db.version(13).stores({
+  config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, waAdminNumber, waPendingAdmins, waApprovedAdmins, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled'
+})
 // --- VALIDATION ---
 const VALID_TYPES = ['profile', 'preference', 'notes'];
 

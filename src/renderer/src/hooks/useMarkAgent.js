@@ -58,7 +58,21 @@ export const useMarkAgent = () => {
     currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null
   }
 
-  const { handlePlanningCommand } = useMarkPlan({ ...state, ...tools, requestApproval })
+  const requestCameraCaptureRef = useRef(null)
+
+  const { handlePlanningCommand } = useMarkPlan({ 
+    ...state, 
+    ...tools, 
+    requestApproval,
+    requestCameraCapture: async (args) => {
+      console.log('[useMarkAgent] requestCameraCapture called, ref.current:', !!requestCameraCaptureRef.current)
+      if (requestCameraCaptureRef.current) {
+        return await requestCameraCaptureRef.current(args)
+      }
+      console.warn('[useMarkAgent] requestCameraCaptureRef.current is null! MarkHome belum set callback.')
+      return null
+    }
+  })
 
   useAwareness({
     isLoading,
@@ -175,6 +189,7 @@ export const useMarkAgent = () => {
     handlePlanningCommand,
     handleStop,
     handleSubmit,
-    isBooting
+    isBooting,
+    requestCameraCaptureRef
   }
 }

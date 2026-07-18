@@ -36,10 +36,13 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     groqModel: 'llama-3.1-8b-instant',
     waAdminNumber: '',
     micDeviceId: 'default',
-    awarenessEnabled: true
+    awarenessEnabled: true,
+    cameraDeviceId: 'default',
+    cameraEnabled: true
   })
   const [memories, setMemories] = useState([])
   const [audioDevices, setAudioDevices] = useState([])
+  const [videoDevices, setVideoDevices] = useState([])
   const [loadingMemory, setLoadingMemory] = useState(true)
   const [playingTest, setPlayingTest] = useState(false)
   const [isDownloadingModel, setIsDownloadingModel] = useState(false)
@@ -75,17 +78,22 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     loadMemories()
 
     navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then(() => {
+      .getUserMedia({ audio: true, video: true })
+      .then((stream) => {
         navigator.mediaDevices
           .enumerateDevices()
           .then((devices) => {
             const mics = devices.filter((d) => d.kind === 'audioinput')
+            const cameras = devices.filter((d) => d.kind === 'videoinput')
             setAudioDevices(mics)
+            setVideoDevices(cameras)
           })
           .catch((err) => console.error('Error enumerating devices', err))
+          
+        // Stop stream immediately since we just needed permission
+        stream.getTracks().forEach(track => track.stop())
       })
-      .catch((err) => console.error('Mic permission denied', err))
+      .catch((err) => console.error('Mic/Cam permission denied', err))
   }, [])
 
   useEffect(() => {
@@ -399,6 +407,11 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const handleTemperatureChange = (e) => setConfig((prev) => ({ ...prev, temperature: e.target.value }))
   const handleContextChange = (e) => setConfig((prev) => ({ ...prev, context: e.target.value }))
   const handleMicDeviceIdChange = (e) => setConfig((prev) => ({ ...prev, micDeviceId: e.target.value }))
+  const handleCameraDeviceIdChange = (e) => {
+    console.log('[Config] Camera device changed to:', e.target.value, '| label:', e.target.options[e.target.selectedIndex]?.text)
+    setConfig((prev) => ({ ...prev, cameraDeviceId: e.target.value }))
+  }
+  const handleCameraEnabledChange = (e) => setConfig((prev) => ({ ...prev, cameraEnabled: e.target.checked }))
   const handleTtsRateChange = (e) => setConfig((prev) => ({ ...prev, ttsRate: e.target.value }))
   const handleTtsPitchChange = (e) => setConfig((prev) => ({ ...prev, ttsPitch: e.target.value }))
   const handleBack = () => window.history.back()
@@ -936,6 +949,48 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 <span>18</span>
                 <span>22</span>
               </div>
+            </div>
+
+            <div className="divider"></div>
+
+            {/* Camera Settings */}
+            <div className="space-y-6 p-2 -mx-2 rounded-lg">
+              <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5 flex items-center gap-2">
+                Kamera
+              </h2>
+
+              <div className="form-control">
+                <label className="label cursor-pointer p-0">
+                  <span className="label-text text-sm font-semibold">Aktifkan Kamera AI</span>
+                  <input
+                    type="checkbox"
+                    className="toggle toggle-primary"
+                    checked={config.cameraEnabled !== false}
+                    onChange={handleCameraEnabledChange}
+                  />
+                </label>
+                <span className="text-xs opacity-50 mt-2 block">
+                  Mengizinkan Mark menggunakan kamera (jika diminta) untuk melihat dunia fisik.
+                </span>
+              </div>
+
+              {config.cameraEnabled !== false && (
+                <div className="space-y-1.5">
+                  <p className="text-sm font-semibold">Perangkat Kamera</p>
+                  <select
+                    className="select select-bordered w-full"
+                    value={config.cameraDeviceId || 'default'}
+                    onChange={handleCameraDeviceIdChange}
+                  >
+                    <option value="default">Default System Camera</option>
+                    {videoDevices.map((cam) => (
+                      <option key={cam.deviceId} value={cam.deviceId}>
+                        {cam.label || `Camera ${cam.deviceId.substring(0, 5)}...`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="divider"></div>

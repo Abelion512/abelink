@@ -11,7 +11,7 @@ Personality and Communication Style: ${conf.personality || 'Santai layaknya seor
 ${JSON.stringify(buffer, null, 2)}
 
 # RIWAYAT CHAT TERBARU:
-${recentChat && recentChat.length > 0 ? JSON.stringify(recentChat, null, 2) : 'Belum ada obrolan terbaru.'}
+${recentChat && recentChat.length > 0 ? recentChat.map(m => `${m.role === 'user' ? 'User' : 'Mark'}: ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`).join('\n') : 'Belum ada obrolan terbaru.'}
 
 # MEMORY USER YANG RELEVAN DENGAN AKTIVITAS:
 ${memoryRef ? JSON.stringify(memoryRef, null, 2) : 'Tidak ada memory spesifik.'}
@@ -59,7 +59,10 @@ Jadilah asisten cerdas yang inisiatif dan natural, bukan robot pasif. PENTING: J
   }
 
   try {
-    const messages = [{ role: 'user', content: prompt }]
+    const messages = [
+      { role: 'system', content: prompt },
+      { role: 'user', content: 'Evaluasi kondisiku saat ini dan berikan output JSON.' }
+    ]
     const aiResponse = await fetchAI(messages, signal, false, awarenessSchema)
     if (aiResponse && aiResponse.content) {
       try {
