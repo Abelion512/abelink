@@ -195,6 +195,7 @@ export async function saveConfiguration(data) {
     if (window.api && window.api.syncConfig) {
       window.api.syncConfig(data)
     }
+    window.dispatchEvent(new CustomEvent('config-updated', { detail: data }))
     console.log('Configuration saved:', data)
   } catch (error) {
     console.error('Error in saveConfiguration logic:', error)

@@ -28,6 +28,17 @@ export const useMarkState = () => {
   useEffect(() => {
     loadConfig()
     loadMainThread()
+
+    const handleConfigUpdate = (e) => {
+      if (e.detail) {
+        setConfig([e.detail])
+      }
+    }
+
+    window.addEventListener('config-updated', handleConfigUpdate)
+    return () => {
+      window.removeEventListener('config-updated', handleConfigUpdate)
+    }
   }, [])
 
   const loadMainThread = async () => {

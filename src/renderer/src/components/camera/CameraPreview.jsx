@@ -108,7 +108,7 @@ export const CameraPreview = ({
             if (!isMounted) return
             
             videoRef.current.play().then(() => {
-              console.log('[CameraPreview] Video playing')
+              console.log('[CameraPreview] Video playing. isAutonomous prop value:', isAutonomous)
               if (!isMounted) return
               setIsReady(true)
 
