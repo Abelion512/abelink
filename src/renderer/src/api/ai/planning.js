@@ -1,5 +1,5 @@
 import { fetchAI, cleanAndParse } from './core'
-import { getAllConfig } from '../db'
+import { getAllConfig, getRelationship } from '../db'
 import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorMemory'
 
@@ -66,6 +66,26 @@ export const getNextAction = async (
     const { memories = [], archives = [], documents = [] } = unifiedContext
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
+
+    const userId = options.waContext ? options.waContext.senderJid : 'owner'
+    const traits = await getRelationship(userId)
+
+    function describeLevel(val) {
+      if (val >= 0.8) return 'sangat tinggi'
+      if (val >= 0.65) return 'cukup tinggi'
+      if (val >= 0.45) return 'netral'
+      if (val >= 0.3) return 'cukup rendah'
+      return 'sangat rendah'
+    }
+
+    const traitContext = `
+# RELATIONAL GROWTH (Sifat Hubunganmu Saat Ini)
+Trait hubunganmu dengan user ini (skala 0-1, netral = 0.5):
+- Warmth (kehangatan): ${traits.warmth} → ${describeLevel(traits.warmth)}
+- Sarcasm (level sarkas): ${traits.sarcasm_level} → ${describeLevel(traits.sarcasm_level)}
+- Trust (kepercayaan): ${traits.trust} → ${describeLevel(traits.trust)}
+- Energy (energi): ${traits.energy} → ${describeLevel(traits.energy)}
+Sesuaikan gaya bicaramu secara natural berdasarkan trait di atas. JANGAN sebutkan angka trait ini ke user!`
 
     // === DYNAMIC PROMPT ROUTING ===
     const queryForIntent = options.intentQuery || userInput
@@ -272,6 +292,7 @@ Setelah observation: {"thought":"done","action":null,"answer":"Harganya sekitar 
 Kepribadian: ${conf.personality || 'Santai layaknya teman.'}
 ${getCurrentTimeInfo()}
 Isi "active_topic" dgn ringkasan topik. ${activeTopic ? `Topik sblmnya: "${activeTopic}". PERTAHANKAN jika msh relevan!` : `Jangan ubah topik khusus.`}
+${traitContext}
 ${contextMsg ? `\n# KONTEKS SAAT INI\n${contextMsg}\nPENTING: Kamu punya akses eksekusi tool di PC host!` : ''}
 
 # MEMORY USER

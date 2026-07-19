@@ -15,7 +15,7 @@ import {
   FaDatabase,
   FaCog
 } from 'react-icons/fa'
-import { getAllMemory, getAllConfig, saveConfiguration, deleteMemory, db } from '../api/db'
+import { getAllMemory, getAllConfig, saveConfiguration, deleteMemory, db, getRelationship, saveRelationship } from '../api/db'
 import { getExtractor } from '../api/vectorMemory'
 import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
@@ -40,6 +40,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     cameraDeviceId: 'default',
     cameraEnabled: true
   })
+  const [relationalTraits, setRelationalTraits] = useState(null)
   const [memories, setMemories] = useState([])
   const [audioDevices, setAudioDevices] = useState([])
   const [videoDevices, setVideoDevices] = useState([])
@@ -76,6 +77,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   useEffect(() => {
     loadConfig()
     loadMemories()
+    loadRelationalTraits()
 
     navigator.mediaDevices
       .getUserMedia({ audio: true, video: true })
@@ -247,6 +249,35 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
         micDeviceId: data[0].micDeviceId || 'default',
         awarenessEnabled: data[0].awarenessEnabled ?? true
       }))
+    }
+  }
+
+  const loadRelationalTraits = async () => {
+    const traits = await getRelationship('owner')
+    setRelationalTraits(traits)
+  }
+
+  const handleResetTraits = async () => {
+    const result = await confirm({
+      title: 'Reset Sifat Hubungan?',
+      message: 'Ini akan mereset memori sifat kepribadian Mark terhadap Anda (Owner) kembali ke netral (0.5). Lanjutkan?',
+      isError: true,
+      confirmText: 'Ya, Reset'
+    })
+
+    if (result.isConfirmed && relationalTraits) {
+      const resetTraits = {
+        ...relationalTraits,
+        warmth: 0.5,
+        sarcasm_level: 0.5,
+        trust: 0.5,
+        energy: 0.5,
+        evalCount: 0,
+        lastChatIndex: 0,
+        reasoning: 'Direset manual oleh user.'
+      }
+      await saveRelationship(resetTraits)
+      setRelationalTraits(resetTraits)
     }
   }
 
@@ -889,6 +920,43 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 />
               </div>
             </div>
+
+            {/* Relational Growth UI */}
+            {relationalTraits && config.awarenessEnabled !== false && (
+              <div className="space-y-3 p-3 -mx-2 rounded-lg bg-base-200 mt-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Relational Growth (Sifat Hubungan)</p>
+                    <p className="text-xs opacity-50 mt-1">Sifat dan sikap Mark ke kamu yang berkembang otomatis dari pola obrolan.</p>
+                  </div>
+                  <button onClick={handleResetTraits} className="btn btn-xs btn-error btn-outline">
+                    Reset
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  {[
+                    { label: 'Warmth (Kehangatan)', val: relationalTraits.warmth, color: 'progress-error' },
+                    { label: 'Sarcasm (Sarkas)', val: relationalTraits.sarcasm_level, color: 'progress-warning' },
+                    { label: 'Trust (Kepercayaan)', val: relationalTraits.trust, color: 'progress-success' },
+                    { label: 'Energy (Energi)', val: relationalTraits.energy, color: 'progress-info' },
+                  ].map((trait, i) => (
+                    <div key={i} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span>{trait.label}</span>
+                        <span className="font-mono">{trait.val}</span>
+                      </div>
+                      <progress className={`progress ${trait.color} w-full`} value={trait.val} max="1"></progress>
+                    </div>
+                  ))}
+                </div>
+                {relationalTraits.reasoning && (
+                  <div className="text-xs bg-base-300 p-2 rounded border border-base-content/10 italic text-base-content/70">
+                    <span className="font-semibold not-italic block mb-1">Reasoning Terakhir:</span>
+                    {relationalTraits.reasoning}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* System Persona */}
             <div id="tour-persona" className="space-y-1.5 p-2 -mx-2 rounded-lg">

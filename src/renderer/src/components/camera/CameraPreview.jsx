@@ -150,9 +150,16 @@ export const CameraPreview = ({
     return () => clearTimeout(timer)
   }, [isOpen, isReady, isAutonomous, timeLeft, error, captureFrame])
 
-  // Don't render anything if closed or autonomous mode
+  // Don't render UI if closed or autonomous mode, but keep video for autonomous
   if (!isOpen) return null
-  if (isAutonomous) return null
+  if (isAutonomous) {
+    return (
+      <>
+        <video ref={videoRef} autoPlay playsInline muted className="hidden" />
+        <canvas ref={canvasRef} className="hidden" />
+      </>
+    )
+  }
 
   return (
     <div className="fixed bottom-24 right-6 z-50" style={{ animation: 'slideUpFadeIn 0.3s ease-out' }}>

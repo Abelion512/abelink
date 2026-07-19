@@ -73,6 +73,10 @@ db.version(12).upgrade(async tx => {
 db.version(13).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, waAdminNumber, waPendingAdmins, waApprovedAdmins, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled'
 })
+
+db.version(14).stores({
+  relationships: 'userId, warmth, sarcasm_level, trust, energy, lastEvaluation, evalCount'
+})
 // --- VALIDATION ---
 const VALID_TYPES = ['profile', 'preference', 'notes'];
 
@@ -288,4 +292,38 @@ export async function getCoreMemory() {
     console.error('Error in getCoreMemory:', error)
   }
   return 'Tidak ada profil user.'
+}
+
+// --- RELATIONSHIPS ---
+const DEFAULT_TRAITS = {
+  warmth: 0.5,
+  sarcasm_level: 0.5,
+  trust: 0.5,
+  energy: 0.5,
+  evalCount: 0,
+  lastChatIndex: 0,
+  reasoning: 'Baseline netral — belum ada evaluasi.'
+}
+
+export async function getRelationship(userId = 'owner') {
+  try {
+    const data = await db.relationships.get(userId)
+    if (!data) {
+      // Return default traits untuk user baru
+      return { userId, ...DEFAULT_TRAITS, lastEvaluation: null }
+    }
+    return data
+  } catch (error) {
+    console.error('[DB] Error getRelationship:', error)
+    return { userId, ...DEFAULT_TRAITS, lastEvaluation: null }
+  }
+}
+
+export async function saveRelationship(data) {
+  try {
+    await db.relationships.put(data)
+    console.log(`[DB] Relationship saved for ${data.userId}:`, data)
+  } catch (error) {
+    console.error('[DB] Error saveRelationship:', error)
+  }
 }

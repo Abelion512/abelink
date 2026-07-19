@@ -8,7 +8,8 @@ import {
   FaHistory,
   FaWhatsapp,
   FaDatabase,
-  FaNetworkWired
+  FaNetworkWired,
+  FaHeartbeat
 } from 'react-icons/fa'
 
 const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
@@ -79,6 +80,13 @@ const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
             <FaNetworkWired className="text-primary" /> Memory Map
+          </button>
+
+          <button
+            onClick={() => handleNav('/relational')}
+            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
+          >
+            <FaHeartbeat className="text-primary" /> Relational Growth
           </button>
 
           <button

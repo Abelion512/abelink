@@ -185,7 +185,7 @@ export const useMarkPlan = ({
           unifiedContext,
           contextMsgStr,
           activeTopic,
-          { ...options, intentQuery: searchQuery }
+          { ...options, intentQuery: searchQuery, waContext }
         )
 
         lastDecision = decision

@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { getAllMemory } from '../api/db'
+import { getAllMemory, getRelationship, saveRelationship, insertMemory } from '../api/db'
 import { getRelevantMemory } from '../api/vectorMemory'
 import { getAwarenessResponse } from '../api/ai/awareness'
+import { evaluateTraitDrift } from '../api/ai/relationship'
 
 const CHECKIN_INTERVAL = 10 * 60 * 1000
 const INITIAL_DELAY = 60 * 1000
@@ -23,6 +24,9 @@ export const useAwareness = ({
   const currentMusicTrackRef = useRef(currentMusicTrack)
   const isLoadingRef = useRef(isLoading)
   const isAgentBusyRef = useRef(isAgentBusy)
+  
+  const evalTickRef = useRef(0)
+  const lastEvalChatLenRef = useRef(0)
 
   useEffect(() => {
     chatDataRef.current = chatData
@@ -118,6 +122,54 @@ export const useAwareness = ({
           setTimeout(() => {
             setOrbStatus('idle')
           }, 3000)
+        }
+
+        // --- RELATIONAL GROWTH EVALUATION ---
+        evalTickRef.current += 1
+        if (evalTickRef.current >= 3) {
+          evalTickRef.current = 0
+
+          // Cek apakah ada chat baru sejak evaluasi terakhir
+          const allCleanChats = (chatDataRef.current || []).filter(m => !m.isThinking && !m.isSearching && !m.isSummarizing)
+          const currentCleanLen = allCleanChats.length
+
+          if (currentCleanLen > lastEvalChatLenRef.current) {
+            // Ambil trait lama
+            const oldTraits = await getRelationship('owner')
+
+            // Ambil SEMUA chat yang belum dievaluasi sejak cek terakhir di sesi ini
+            const recentForEval = allCleanChats
+              .slice(lastEvalChatLenRef.current)
+              .slice(-30) // cap maksimal 30 chat terakhir biar context ngga meledak kalau user spam
+              .map(m => `${m.role === 'user' ? 'User' : 'Mark'}: ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`)
+              .join('\n')
+
+            // Simpan state panjang chat saat ini untuk evaluasi berikutnya
+            lastEvalChatLenRef.current = currentCleanLen
+
+            // Evaluasi
+            const newTraits = await evaluateTraitDrift(oldTraits, recentForEval, 'owner')
+            console.log('[Relational Growth] Trait shift:', newTraits)
+
+            // Simpan trait baru
+            await saveRelationship({
+              userId: 'owner',
+              ...newTraits,
+              lastEvaluation: new Date().toISOString(),
+              evalCount: (oldTraits.evalCount || 0) + 1,
+              lastChatIndex: currentChatLen
+            })
+
+            // Simpan relational memory jika ada
+            if (newTraits.new_relational_memory) {
+              await insertMemory({
+                type: 'notes',
+                summary: '[Relational] Catatan hubungan otomatis',
+                memory: newTraits.new_relational_memory
+              })
+              console.log('[Relational Growth] Relational memory tersimpan:', newTraits.new_relational_memory)
+            }
+          }
         }
       } catch (err) {
         console.error('[Awareness Hook] Error during check-in:', err)
