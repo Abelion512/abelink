@@ -157,7 +157,7 @@ export const useAwareness = ({
               ...newTraits,
               lastEvaluation: new Date().toISOString(),
               evalCount: (oldTraits.evalCount || 0) + 1,
-              lastChatIndex: currentChatLen
+              lastChatIndex: currentCleanLen
             })
 
             // Simpan relational memory jika ada
