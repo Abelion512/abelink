@@ -281,17 +281,6 @@ const RelationalGrowth = () => {
                   })}
                 </div>
               </div>
-
-              {/* Info Section */}
-              <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10">
-                <p className="text-sm font-semibold text-primary mb-2 flex items-center gap-2"><FaInfoCircle className="text-primary" /> Bagaimana ini bekerja?</p>
-                <ul className="text-xs text-base-content/60 space-y-1.5 leading-relaxed">
-                  <li>• Setiap ~30 menit (yakni tiap 3 kali siklus check-in awareness 10-menitan), sistem mengevaluasi pola obrolan terakhir dan menggeser trait secara perlahan (maks ±0.05 per evaluasi).</li>
-                  <li>• Trait tidak bisa dimanipulasi langsung — hanya pola perilaku organik yang dihitung.</li>
-                  <li>• <strong>Warmth</strong> & <strong>Trust</strong> punya floor di 0.15 — Mark tidak akan pernah "benci" sepenuhnya.</li>
-                  <li>• Trait yang lama tidak disentuh akan perlahan kembali ke netral (0.5).</li>
-                </ul>
-              </div>
             </>
           )}
         </div>

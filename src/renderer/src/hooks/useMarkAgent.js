@@ -5,6 +5,7 @@ import { fetchAI } from '../api/ai/core'
 import { db, getCoreMemory } from '../api/db'
 import { useMarkState, useMarkYoutube, useMarkMusic, useMarkPlan } from './agent'
 import { useAwareness } from './useAwareness'
+import { useRelationalGrowth } from './agent/useRelationalGrowth'
 import { useChatArchiver } from './useChatArchiver'
 import { formatForWhatsApp } from '../api/ai/utils'
 
@@ -90,6 +91,8 @@ export const useMarkAgent = () => {
     handlePlanningCommand,
     currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null
   })
+
+  useRelationalGrowth({ chatData })
 
   useChatArchiver({ chatData, activeTopic, config, pushNotification, isLoading })
 
