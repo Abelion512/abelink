@@ -77,7 +77,7 @@ export const useAwareness = ({
         )
         console.log('[useAwareness] AI Response:', result)
 
-        if (result.should_act && result.message) {
+        if (result.should_act || result.autonomous_prompt) {
           if (isLoadingRef.current) {
             console.log(
               '[useAwareness] Skip triggering action karena Mark sedang sibuk (isLoading true)'
@@ -86,7 +86,7 @@ export const useAwareness = ({
           }
           console.log('[useAwareness] Triggering autonomous action!')
           // Push notification
-          if (window.api.showNotification && !document.hasFocus()) {
+          if (window.api.showNotification && !document.hasFocus() && result.message) {
             window.api.showNotification('Mark', result.message)
           }
 
@@ -96,11 +96,11 @@ export const useAwareness = ({
               result.autonomous_prompt,
               null,
               true,
-              result.message,
+              result.message || "Melakukan pengecekan background...",
               { disableTools: false },
               true
             )
-          } else {
+          } else if (result.message) {
             // Kalau cuma mau ngomong biasa tanpa ngejalanin plan
             setChatData((prev) => [
               ...prev,

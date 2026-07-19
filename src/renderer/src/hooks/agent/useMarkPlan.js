@@ -70,9 +70,13 @@ export const useMarkPlan = ({
 
     const timestampStr = getCurrentTimeInfo()
 
+    let finalContent = userInput
+    if (isSystem) finalContent = `[SYSTEM INSTRUCTION]: ${userInput}`
+    if (isAutonomous) finalContent = `[AUTONOMOUS ENGINE]: Kamu memutuskan secara mandiri untuk melakukan tugas ini: "${userInput}"`
+
     const userMessage = {
       role: 'user',
-      content: isSystem ? `[SYSTEM INSTRUCTION]: ${userInput}` : userInput,
+      content: finalContent,
       timestamp: timestampStr
     }
 
@@ -140,7 +144,7 @@ export const useMarkPlan = ({
       if (isSystem)
         contextMsgStr += `[SYSTEM INSTRUCTION]: Pesan ini adalah instruksi internal dari sistem, bukan dari user.\n`
       if (isAutonomous)
-        contextMsgStr += `[AWARENESS MODE]: Ini adalah pemikiran autonom-mu sendiri.\n`
+        contextMsgStr += `[AWARENESS MODE]: Ini adalah pemikiran autonom-mu sendiri. Pesan terakhir di sesi ini BUKAN dari user, melainkan inisiatifmu sendiri. Saat memberikan 'answer' akhir ke user, berlakulah seolah-olah KAMU yang pertama kali membuka topik secara proaktif (misal: 'Eh, tadi gue iseng nyari info...'). JANGAN bertingkah seolah user yang menyuruhmu!\n`
       if (currentMusicTrack && currentMusicTrack.title) {
         contextMsgStr += `[STATUS SISTEM]: Sedang memutar "${currentMusicTrack.title}" oleh ${currentMusicTrack.artist}.\n`
       }
@@ -229,11 +233,8 @@ export const useMarkPlan = ({
         if (decision.answer && !decision.action) {
           isDone = true
 
-          // OVERRIDE: Jika ini autonomous, abaikan jawaban LLM (yang merupakan hasil eksekusi tool)
-          // dan gunakan pesan awareness awal sebagai jawaban final untuk UI, Notifikasi, dan TTS.
-          if (isAutonomous && autonomousInitialMessage) {
-            decision.answer = autonomousInitialMessage
-          }
+          // Autonomous answers akan langsung di-output-kan sebagai pesan proaktif.
+          // Override autonomousInitialMessage dihapus agar LLM bisa bicara hasilnya.
 
           execSteps.push({ task: 'Selesai' })
           if (execSteps.length > 2) {
