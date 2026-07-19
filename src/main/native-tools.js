@@ -231,8 +231,6 @@ export const NATIVE_TOOLS = {
     }
   },
   'browser-close': {
-    needsApproval: true,
-    approvalMessage: () => 'Mark menyarankan untuk menutup browser, Apakah anda setuju untuk menutup browser?',
     handler: async () => {
       try {
         const { closeBrowser } = await import('./browser-agent.js')

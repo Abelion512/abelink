@@ -11,6 +11,7 @@ import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
 import { ApprovalProvider } from './contexts/ApprovalContext'
 import { YoutubeMusicPlayer } from './components/YoutubeMusicPlayer'
+import { GlobalCameraManager } from './components/GlobalCameraManager'
 import { getAllConfig } from './api/db'
 import { runWhatsappAgent } from './api/waAgent'
 
@@ -187,6 +188,7 @@ function App() {
             <div style={{ display: isStandalone ? 'none' : 'block' }}>
               <YoutubeMusicPlayer />
             </div>
+            <GlobalCameraManager />
             <webview
               id="global-ai-search-webview"
               src="about:blank"

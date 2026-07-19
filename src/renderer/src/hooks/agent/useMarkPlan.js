@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { getNextAction } from '../../api/ai/planning'
 import { getYoutubeSummary } from '../../api/ai/tools'
 import { fetchAI } from '../../api/ai/core'
@@ -39,6 +39,8 @@ export const useMarkPlan = ({
     }
   }, [setChatData])
 
+  const isExecutingRef = useRef(false)
+
   const handlePlanningCommand = async (
     userInput,
     waContext = null,
@@ -47,8 +49,17 @@ export const useMarkPlan = ({
     options = {},
     isSystem = false
   ) => {
+    if (!waContext && isExecutingRef.current) {
+      console.log('[useMarkPlan] Menolak prompt masuk karena proses lain sedang berjalan (Lock active).')
+      return
+    }
+    if (!waContext) isExecutingRef.current = true
+
     const finalIsSpeak = options.forceSpeak !== undefined ? options.forceSpeak : isSpeak
-    if (!userInput) return
+    if (!userInput) {
+      if (!waContext) isExecutingRef.current = false
+      return
+    }
 
     // Jangan blokir UI Desktop jika perintah datang dari background/WhatsApp
     if (!waContext && !isAutonomous) {
@@ -95,6 +106,7 @@ export const useMarkPlan = ({
       setChatData((prev) => [...prev, userMessage])
     }
     abortControllerRef.current = new AbortController()
+    const agenticProcessId = `agentic-${Date.now()}`
 
     try {
       // ========== STEP 2: AMBIL MEMORI & KONTEKS ==========
@@ -162,7 +174,6 @@ export const useMarkPlan = ({
       let duplicateActionCount = 0
       let lastToolExecution = null
 
-      const agenticProcessId = `agentic-${Date.now()}`
       let execSteps = [{ task: 'Menganalisis Konteks...' }] // Initial node for hologram
 
       while (!isDone) {
@@ -647,6 +658,18 @@ export const useMarkPlan = ({
         setIsLoading(false)
       }
       setIsAgentBusy(false)
+
+      pushProcess({
+        id: agenticProcessId,
+        type: 'planning',
+        status: 'error',
+        data: {
+          steps: [{ task: 'Proses Gagal/Dibatalkan' }],
+          currentStep: 1,
+          reasoning: error.message || 'Error'
+        }
+      })
+
       if (error.name === 'AbortError' || error.message.includes('AbortError')) {
         setChatData((prev) => [
           ...prev.filter((item) => !item.isThinking && !item.isSearching),
@@ -667,8 +690,11 @@ export const useMarkPlan = ({
           { role: 'ai', content: `Maaf, terjadi kesalahan: ${error.message}` }
         ])
       }
+    } finally {
+      if (!waContext) {
+        isExecutingRef.current = false
+      }
     }
   }
-
   return { handlePlanningCommand }
 }

@@ -6,6 +6,7 @@ import { db, getCoreMemory } from '../api/db'
 import { useMarkState, useMarkYoutube, useMarkMusic, useMarkPlan } from './agent'
 import { useAwareness } from './useAwareness'
 import { useChatArchiver } from './useChatArchiver'
+import { formatForWhatsApp } from '../api/ai/utils'
 
 export const useMarkAgent = () => {
   const { requestApproval } = useApproval()
@@ -60,16 +61,21 @@ export const useMarkAgent = () => {
 
   const requestCameraCaptureRef = useRef(null)
 
-  const { handlePlanningCommand } = useMarkPlan({ 
-    ...state, 
-    ...tools, 
+  const { handlePlanningCommand } = useMarkPlan({
+    ...state,
+    ...tools,
     requestApproval,
     requestCameraCapture: async (args) => {
-      console.log('[useMarkAgent] requestCameraCapture called, ref.current:', !!requestCameraCaptureRef.current)
+      console.log(
+        '[useMarkAgent] requestCameraCapture called, ref.current:',
+        !!requestCameraCaptureRef.current
+      )
       if (requestCameraCaptureRef.current) {
         return await requestCameraCaptureRef.current(args)
       }
-      console.warn('[useMarkAgent] requestCameraCaptureRef.current is null! MarkHome belum set callback.')
+      console.warn(
+        '[useMarkAgent] requestCameraCaptureRef.current is null! MarkHome belum set callback.'
+      )
       return null
     }
   })
@@ -129,6 +135,12 @@ export const useMarkAgent = () => {
   useEffect(() => {
     const handleWaAdminMessage = (e) => {
       const data = e.detail
+      
+      if (data.text.trim().toLowerCase() === '/stop') {
+        handleStop()
+        return
+      }
+
       activeWaRequestRef.current = data
       setInputSource('wa')
       handlePlanningCommand(data.text, data)
@@ -136,7 +148,7 @@ export const useMarkAgent = () => {
 
     window.addEventListener('wa-admin-message', handleWaAdminMessage)
     return () => window.removeEventListener('wa-admin-message', handleWaAdminMessage)
-  }, [handlePlanningCommand, setInputSource])
+  }, [handlePlanningCommand, setInputSource, handleStop])
 
   useEffect(() => {
     if (!isAgentBusy && activeWaRequestRef.current && chatData.length > 0) {
@@ -157,7 +169,7 @@ export const useMarkAgent = () => {
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault()
-    if (isLoading) {
+    if (isLoading || isAgentBusy) {
       handleStop()
     } else {
       handlePlanningCommand(message.trim())
@@ -172,6 +184,7 @@ export const useMarkAgent = () => {
     setIsSpeak,
     config,
     isLoading,
+    isAgentBusy,
     message,
     setMessage,
     orbStatus,

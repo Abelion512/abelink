@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   FaSave,
   FaCheckCircle,
@@ -22,6 +22,47 @@ import 'driver.js/dist/driver.css'
 import { useLocation } from 'react-router-dom'
 import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/ChatContext'
+
+const ConfigCameraPreview = ({ deviceId, enabled }) => {
+  const videoRef = useRef(null)
+  
+  useEffect(() => {
+    if (!enabled) return
+    let stream = null
+    let isMounted = true
+    const startCamera = async () => {
+      try {
+        const constraints = { video: deviceId && deviceId !== 'default' ? { deviceId: { exact: deviceId } } : true }
+        stream = await navigator.mediaDevices.getUserMedia(constraints)
+        if (videoRef.current && isMounted) {
+          videoRef.current.srcObject = stream
+          videoRef.current.play().catch(e => console.error(e))
+        } else {
+          stream.getTracks().forEach(t => t.stop())
+        }
+      } catch (err) {
+        console.error('Preview camera error:', err)
+      }
+    }
+    startCamera()
+    return () => {
+      isMounted = false
+      if (stream) stream.getTracks().forEach(t => t.stop())
+    }
+  }, [deviceId, enabled])
+
+  if (!enabled) return null
+
+  return (
+    <div className="mt-4 rounded-xl overflow-hidden border border-white/10 bg-black/50 aspect-video relative flex items-center justify-center shadow-inner">
+      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+      <div className="absolute top-2 left-2 flex items-center gap-2 px-2 py-1 bg-black/60 rounded text-xs font-mono text-white backdrop-blur-md">
+        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+        Live Preview
+      </div>
+    </div>
+  )
+}
 
 const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const [config, setConfig] = useState({
@@ -1058,6 +1099,10 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                     ))}
                   </select>
                 </div>
+              )}
+
+              {config.cameraEnabled !== false && (
+                <ConfigCameraPreview deviceId={config.cameraDeviceId} enabled={config.cameraEnabled !== false} />
               )}
             </div>
 

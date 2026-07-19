@@ -10,7 +10,6 @@ import HistoryDrawer from '../components/core/HistoryDrawer'
 import ProcessPanel from '../components/core/ProcessPanel'
 import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
 import MemoryVisualizer from '../components/core/MemoryVisualizer'
-import { CameraPreview } from '../components/camera/CameraPreview'
 import musicCoverFallback from '../assets/music-cover.png'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useVAD } from '../hooks/useVAD'
@@ -22,6 +21,7 @@ const MarkHome = () => {
     message,
     setMessage,
     isLoading,
+    isAgentBusy,
     isSpeak,
     setIsSpeak,
     handlePlanningCommand,
@@ -43,44 +43,6 @@ const MarkHome = () => {
   const [currentResponse, setCurrentResponse] = useState(null)
   const [showMusicWidget, setShowMusicWidget] = useState(false)
   const [isMusicAnimatingOut, setIsMusicAnimatingOut] = useState(false)
-
-  const [isCameraOpen, setIsCameraOpen] = useState(false)
-  const [cameraIsAutonomous, setCameraIsAutonomous] = useState(false)
-  const [cameraDeviceId, setCameraDeviceId] = useState(null)
-  const cameraResolverRef = useRef(null)
-
-  useEffect(() => {
-    if (requestCameraCaptureRef) {
-      console.log('[MarkHome] Setting requestCameraCaptureRef.current callback')
-      requestCameraCaptureRef.current = ({ isAutonomous, deviceId }) => {
-        console.log('[MarkHome] Camera capture requested! isAutonomous:', isAutonomous, 'deviceId:', deviceId)
-        return new Promise((resolve) => {
-          cameraResolverRef.current = resolve
-          setCameraIsAutonomous(isAutonomous || false)
-          setCameraDeviceId(deviceId || null)
-          setIsCameraOpen(true)
-        })
-      }
-    } else {
-      console.warn('[MarkHome] requestCameraCaptureRef is undefined/null from context!')
-    }
-  }, [requestCameraCaptureRef])
-
-  const handleCameraCapture = (base64) => {
-    if (cameraResolverRef.current) {
-      cameraResolverRef.current(base64)
-      cameraResolverRef.current = null
-    }
-    setIsCameraOpen(false)
-  }
-
-  const handleCameraClose = () => {
-    if (cameraResolverRef.current) {
-      cameraResolverRef.current(null)
-      cameraResolverRef.current = null
-    }
-    setIsCameraOpen(false)
-  }
 
   useEffect(() => {
     const handleOpenMap = () => setIsMemoryMapOpen(true)
@@ -317,7 +279,7 @@ const MarkHome = () => {
           setIsSpeak(false) // Typing submit disables voice auto-reply
           handleSubmit()
         }}
-        isLoading={isLoading}
+        isLoading={isLoading || isAgentBusy}
         isRecording={isRecording}
         onToggleRecord={toggleRecording}
         onStop={handleStop}
@@ -328,15 +290,6 @@ const MarkHome = () => {
       <HistoryDrawer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 
       <MemoryVisualizer isOpen={isMemoryMapOpen} onClose={() => setIsMemoryMapOpen(false)} />
-
-      <CameraPreview
-        isOpen={isCameraOpen}
-        onCapture={handleCameraCapture}
-        onClose={handleCameraClose}
-        isAutonomous={cameraIsAutonomous}
-        deviceId={config?.[0]?.cameraDeviceId && config[0].cameraDeviceId !== 'default' ? config[0].cameraDeviceId : null}
-        countdown={5}
-      />
     </div>
   )
 }
