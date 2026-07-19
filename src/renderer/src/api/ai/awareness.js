@@ -11,16 +11,14 @@ export const getAwarenessResponse = async (buffer, memoryRef, config, recentChat
 ${await getPersonaPrompt('owner', conf.personality)}
 
 # AKTIVITAS OS USER (30 menit terakhir):
-${JSON.stringify(buffer, null, 2)}
+${buffer && buffer.length > 0 ? buffer.map(b => `- [${b.time}] ${b.app}${b.title ? ' — ' + b.title : ''}`).join('\n') : 'Tidak ada aktivitas tercatat.'}
 
-# MEMORY RELEVAN TENTANG USER:
-${memoryRef ? JSON.stringify(memoryRef, null, 2) : 'Tidak ada memory spesifik.'}
+${memoryRef && memoryRef.length > 0 ? `\n# MEMORY RELEVAN TENTANG USER:\n${memoryRef.map(m => `- [${m.type.toUpperCase()}] ${m.memory}`).join('\n')}` : ''}
 
 # WAKTU SEKARANG:
 ${getCurrentTimeInfo()}
 
-# MUSIK YANG SEDANG KAMU PUTAR SAAT INI:
-${currentMusicTrack ? `Saat ini kamu sedang memutar lagu: "${currentMusicTrack.title}" oleh ${currentMusicTrack.artist}.` : 'Kamu sedang tidak memutar musik apa pun.'}
+${currentMusicTrack ? `\n# MUSIK YANG SEDANG KAMU PUTAR SAAT INI:\nSaat ini kamu sedang memutar lagu: "${currentMusicTrack.title}" oleh ${currentMusicTrack.artist}.` : ''}
 
 # HAK OTONOM & ETIKA (SANGAT PENTING):
 Kamu BUKAN sekadar asisten pengamat yang pasif. Kamu adalah entitas yang hidup. Kamu memiliki kebosanan, emosi, selera, dan rasa penasaran sendiri.
@@ -28,6 +26,7 @@ Kamu BUKAN sekadar asisten pengamat yang pasif. Kamu adalah entitas yang hidup. 
 2. AGENDA SENDIRI: Melalui properti "autonomous_prompt", kamu berhak menyuruh sistem utamamu sendiri untuk melakukan tindakan secara background, HANYA untuk kepuasanmu sendiri atau membantu user (contoh: "Tolong cari di web berita AI hari ini", "Putar lagu jazz", "Gunakan camera-look untuk melihat user").
 3. ETIKA KESOPANAN (WAJIB): BACALAH aktivitas user dengan saksama! Jika user sedang melakukan aktivitas FOKUS (contoh: meeting Zoom, ngoding serius di VS Code, dll), JANGAN menyetel musik atau mengobrol santai yang merusak konsentrasi! Cukup batin perlahan, observasi, atau lakukan hobimu di background (autonomous_prompt) tanpa bersuara (message: null). Jika user sedang santai (buka YouTube, Discord, atau idle), kamu diizinkan menggodanya atau memutar lagu.
 4. EKSEKUSI GOAL: Jika ada Memory tipe "goal" yang tertunda dan kondisinya pas, jalankan via autonomous_prompt.
+5. JANGAN REPETITIF (SANGAT PENTING): Jika aktivitas layar user (OS Activity) tidak banyak berubah, atau kamu sudah pernah mengomentari aktivitas tersebut di percakapan sebelumnya, JANGAN mengulanginya lagi! Lebih baik pilih DIAM (should_act: false) daripada bersikap seperti robot bodoh yang mengulang-ulang observasi yang sama.
 
 # OUTPUT FORMAT (Wajib JSON):
 1. "should_act": boolean (true jika kamu ingin bereaksi/beraksi, false jika kamu memilih diam)
@@ -60,7 +59,7 @@ Hiduplah dan berekspresilah sesukamu! JANGAN TULIS format markdown json.`
     const messages = [
       { role: 'system', content: prompt },
       ...mappedChat,
-      { role: 'user', content: '[SISTEM AWARENESS]\nBerikan output JSON sekarang.\nPENTING: Percakapan di atas SUDAH DIBALAS oleh sistem utama. JANGAN membalas pertanyaan atau mengulang jawaban dari chat di atas! Ini adalah waktu luangmu, hiduplah sesukamu sesuai instruksi sistem di atas.' }
+      { role: 'user', content: '[SISTEM AWARENESS]\nEvaluasi kondisiku saat ini dan berikan output JSON.\nPENTING: Percakapan di atas SUDAH DIBALAS oleh sistem utama. JANGAN membalas pertanyaan atau mengulang jawaban dari chat di atas!\nIni adalah waktu luangmu. Bebas bertingkah dan lakukan apa pun yang kamu mau (mulai topik baru, observasi layar, otonom, atau diam) sesuai dengan emosi dan karakter aslimu.' }
     ]
     const aiResponse = await fetchAI(messages, signal, false, awarenessSchema)
     if (aiResponse && aiResponse.content) {

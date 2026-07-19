@@ -206,9 +206,7 @@ ${
     : ''
 }
 
-# PLUGIN TAMBAHAN (EXTERNAL)
-${pluginCapabilities || '- (Belum ada plugin tambahan yang terdeteksi)'}
-(Catatan: User bisa sewaktu-waktu menginstal atau menghapus plugin tambahan di atas ke dalam sistemmu. Jika tool yang relevan tidak ada di daftar bawaan, periksa daftar plugin tambahan ini.)
+${pluginCapabilities ? `\n# PLUGIN TAMBAHAN (EXTERNAL)\n${pluginCapabilities}\n(Catatan: User bisa sewaktu-waktu menginstal atau menghapus plugin tambahan di atas ke dalam sistemmu. Jika tool yang relevan tidak ada di daftar bawaan, periksa daftar plugin tambahan ini.)` : ''}
 
 # OBSERVATION
 Pesan "[OBSERVATION]" = hasil tool. Baca, lalu putuskan: tool lagi atau jawab user.
@@ -244,9 +242,7 @@ ${getCurrentTimeInfo()}
 Isi "active_topic" dgn ringkasan topik. ${activeTopic ? `Topik sblmnya: "${activeTopic}". PERTAHANKAN jika msh relevan!` : `Jangan ubah topik khusus.`}
 ${contextMsg ? `\n# KONTEKS SAAT INI\n${contextMsg}\nPENTING: Kamu punya akses eksekusi tool di PC host!` : ''}
 
-# MEMORY USER
-${memories.length > 0 ? JSON.stringify(memories) : 'Tidak ada memory yang relevan.'}
-Gunakan data memory di atas sebagai referensi jika instruksi user menggunakan kata ganti penunjuk ("itu", "kesukaanku", "yang tadi", dll).
+${memories.length > 0 ? `\n# MEMORY USER\n${memories.map(m => `- [${m.type.toUpperCase()}] ${m.memory}`).join('\n')}\nGunakan data memory di atas sebagai referensi jika instruksi user menggunakan kata ganti penunjuk ("itu", "kesukaanku", "yang tadi", dll).` : ''}
 ${
   memories.length > 0 || archives.length > 0
     ? `\n# ATURAN MEMORY\n1. Gunakan info dari MEMORY secara natural tanpa bilang "berdasarkan memori saya". Langsung pakai seolah kamu memang tahu.\n2. Jangan ungkit hal sensitif/kelam kecuali user yang mulai.`
