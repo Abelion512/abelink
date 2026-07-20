@@ -9,7 +9,8 @@ import {
   FaWhatsapp,
   FaDatabase,
   FaNetworkWired,
-  FaHeartbeat
+  FaHeartbeat,
+  FaBook
 } from 'react-icons/fa'
 
 const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
@@ -69,6 +70,13 @@ const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
             <FaDatabase className="text-primary" /> Knowledge (RAG)
+          </button>
+
+          <button
+            onClick={() => handleNav('/guidebook')}
+            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
+          >
+            <FaBook className="text-primary" /> Guidebook
           </button>
 
           <button

@@ -5,6 +5,7 @@ import LiveAudio from './pages/LiveAudio'
 import WhatsappBot from './pages/WhatsappBot'
 import Plugins from './pages/Plugins'
 import Knowledge from './pages/Knowledge'
+import Guidebook from './pages/Guidebook'
 import RelationalGrowth from './pages/RelationalGrowth'
 import { HashRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { ChatProvider } from './contexts/ChatContext'
@@ -181,6 +182,7 @@ function App() {
                   <Route path="/live-audio" element={<LiveAudio />} />
                   <Route path="/whatsapp-bot" element={<WhatsappBot />} />
                   <Route path="/knowledge" element={<Knowledge />} />
+                  <Route path="/guidebook" element={<Guidebook />} />
                   <Route path="/relational" element={<RelationalGrowth />} />
                 </Routes>
               </div>
