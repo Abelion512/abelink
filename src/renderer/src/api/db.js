@@ -78,7 +78,7 @@ db.version(14).stores({
   relationships: 'userId, warmth, sarcasm_level, trust, energy, lastEvaluation, evalCount'
 })
 // --- VALIDATION ---
-const VALID_TYPES = ['profile', 'preference', 'notes'];
+const VALID_TYPES = ['profile', 'preference', 'notes', 'learn'];
 
 function getValidType(type) {
   const t = (type || '').toLowerCase().trim();
@@ -91,7 +91,7 @@ export async function insertMemory(data) {
   const type = getValidType(data.type)
   let vector = []
   
-  if (type === 'notes') {
+  if (type === 'notes' || type === 'learn') {
     vector = await generateVector(memoryText) || []
   }
 
@@ -137,7 +137,7 @@ export async function updateMemory(data) {
       memory: newMemoryText
     }
     
-    if (type === 'notes') {
+    if (type === 'notes' || type === 'learn') {
       updatePayload.vector = await generateVector(newMemoryText) || []
     }
 

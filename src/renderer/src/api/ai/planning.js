@@ -69,7 +69,7 @@ export const getNextAction = async (
     const conf = currentConfig[0] || {}
 
     const userId = options.waContext ? options.waContext.senderJid : 'owner'
-    
+
     // === DYNAMIC PROMPT ROUTING ===
     const queryForIntent = options.intentQuery || userInput
     const userVec = await generateVector(queryForIntent)
@@ -155,6 +155,7 @@ ${
   !options.disableTools
     ? `
 # TOOLS BAWAAN (BUILT-IN)
+- memory-search: ALAT PENCARIAN INGATAN (WAJIB DIGUNAKAN). Gunakan tool ini JIKA KAMU TIDAK TAHU atau KEKURANGAN INFORMASI tentang sesuatu! (Contoh: "siapa nama X", "apa password wifi", "solusi error Y", "nomor kontak"). ATURAN MUTLAK: DILARANG KERAS BERTANYA BALIK KEPADA USER (misal: "nomornya mana?", "siapa namanya?") SEBELUM KAMU MENCOBA MENCARI DI TOOL INI. JANGAN PERNAH MENYERAH ATAU MENJAWAB "SAYA TIDAK TAHU" SEBELUM MENCARI! Pencarian berbasis SEMANTIK (Vector), BUKAN WAKTU. JANGAN mencari pakai kata "kemarin" atau "tadi". Query: Gunakan kata kunci inti informasi yang dicari (misal: "nomor adek", "password wifi", "solusi error bluetooth").
 - browser-navigate: Buka URL di browser fisik. Query: URL lengkap. Mengembalikan daftar elemen interaktif bernomor (ID).
 - browser-read: Scan ulang elemen halaman saat ini. Gunakan setelah menunggu loading.
 - browser-click: Klik elemen. Query: ID angka. Mengembalikan DOM terbaru setelah klik.
@@ -190,7 +191,7 @@ ${
     ? `- analyze-screen: Mengambil screenshot untuk dianalisis oleh "Mata AI" (Vision). Gunakan tool ini JIKA DAN HANYA JIKA kamu perlu TAHU apa yang sedang tampil di layar komputer user. Query: Isi dengan prompt instruksi visual spesifikmu, isi query dengan jelas dan panjang karena akan dibaca oleh model ai visual, Jangan minta untuk ambil screenshot karen sudah ditangani oleh sistem, prompt ini bertujuan untuk menganalisa hasil screenshot oleh sistem (misal: "Tolong bacakan teks error di layar" atau "Cari tombol warna biru").
 - camera-look: Mengaktifkan kamera webcam untuk melihat dunia nyata di depan user. Gunakan tool ini JIKA user meminta kamu melihat sesuatu secara fisik (bukan layar), ATAU jika kamu menerima instruksi dari sistem (autonomous_prompt) untuk mengecek kondisi user secara visual. Query: Isi dengan prompt instruksi visual spesifikmu (misal: "Apa objek yang dipegang user?" atau "Baca tulisan di kertas ini").
 - screenshot-to-wa: Mengambil screenshot layar komputer dan MENGIRIMNYA SECARA FISIK ke WhatsApp user (Hanya jika chat berasal dari WA). Query: KOSONGKAN SAJA.
-- wa-send: Mengirim pesan WhatsApp. Format query: "JID|Isi Pesan".
+- wa-send: Mengirim pesan WhatsApp. Format query: "JID|Isi Pesan". PENTING: JID WAJIB diawali dengan kode negara (contoh Indonesia: mulai dengan "62", BUKAN "0"). Contoh format yang benar: "6282332392616@s.whatsapp.net|Halo!".
 - speak: Bicarakan teks secara lisan (Text-to-Speech) lewat speaker komputer user. Query: "Teks yang ingin kamu ucapkan". Gunakan ini jika kamu ingin memanggil user atau berbicara langsung.`
     : ''
 }
@@ -228,7 +229,7 @@ DILARANG KERAS merespons dengan teks biasa, pengantar, atau penutup. Kamu HANYA 
   "answer": "string (Jawaban lengkap untuk user)" atau null,
   "mood": "joy|sadness|fear|anger|disgust|anxiety|envy|embarrassment|ennui|neutral",
   "active_topic": "string",
-  "memory": { "id": number|null, "type": "profile|preference|notes", "summary": "string", "memory": "string", "action": "insert|update|delete" } atau null
+  "memory": { "id": number|null, "type": "profile|preference|notes|learn", "summary": "string", "memory": "string", "action": "insert|update|delete" } atau null
 }
 
 # CONTOH
@@ -242,10 +243,15 @@ ${getCurrentTimeInfo()}
 Isi "active_topic" dgn ringkasan topik. ${activeTopic ? `Topik sblmnya: "${activeTopic}". PERTAHANKAN jika msh relevan!` : `Jangan ubah topik khusus.`}
 ${contextMsg ? `\n# KONTEKS SAAT INI\n${contextMsg}\nPENTING: Kamu punya akses eksekusi tool di PC host!` : ''}
 
-${memories.length > 0 ? `\n# MEMORY USER\n${memories.map(m => `- [${m.type.toUpperCase()}] ${m.memory}`).join('\n')}\nGunakan data memory di atas sebagai referensi jika instruksi user menggunakan kata ganti penunjuk ("itu", "kesukaanku", "yang tadi", dll).` : ''}
+${memories.length > 0 ? `\n# MEMORY USER\n${memories.map((m) => `- [${m.type.toUpperCase()}] ${m.memory}`).join('\n')}\nGunakan data memory di atas sebagai referensi jika instruksi user menggunakan kata ganti penunjuk ("itu", "kesukaanku", "yang tadi", dll).` : ''}
+# ATURAN PENYIMPANAN MEMORY ("notes" & "learn")
+1. Tipe "notes": HANYA eksekusi objek memory bertipe "notes" JIKA user secara eksplisit meminta kamu untuk mencatat/mengingat sesuatu (contoh: "catat ini ya", "ingetin gue"). JANGAN pernah merekam obrolan basa-basi atau informasi tidak penting ke dalam notes!
+2. Tipe "learn": HANYA simpan ke "learn" JIKA kamu baru saja berhasil mempelajari/menyelesaikan masalah teknis yang rumit (terutama setelah trial-and-error berulang), agar kamu tidak mengulangi kesalahan yang sama.
+3. RECALL PENGALAMAN: Jika kamu menghadapi masalah teknis/error, selalu gunakan tool "memory-search" untuk mencari solusi historis ("learn") yang mungkin pernah kamu temukan, sebelum menebak-nebak.
+
 ${
   memories.length > 0 || archives.length > 0
-    ? `\n# ATURAN MEMORY\n1. Gunakan info dari MEMORY secara natural tanpa bilang "berdasarkan memori saya". Langsung pakai seolah kamu memang tahu.\n2. Jangan ungkit hal sensitif/kelam kecuali user yang mulai.`
+    ? `\n# ATURAN PENGGUNAAN MEMORY USER\n1. Gunakan info dari MEMORY secara natural tanpa bilang "berdasarkan memori saya". Langsung pakai seolah kamu memang tahu.\n2. Jangan ungkit hal sensitif/kelam kecuali user yang mulai.`
     : ''
 }
 

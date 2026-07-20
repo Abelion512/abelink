@@ -4,7 +4,7 @@ import { getYoutubeSummary } from '../../api/ai/tools'
 import { fetchAI } from '../../api/ai/core'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
 import { insertMemory, updateMemory, deleteMemory, getAllMemory } from '../../api/db'
-import { getUnifiedContext } from '../../api/vectorMemory'
+import { getUnifiedContext, searchExtendedMemory } from '../../api/vectorMemory'
 
 export const useMarkPlan = ({
   chatData,
@@ -369,6 +369,13 @@ export const useMarkPlan = ({
               } else {
                 resultString = `Gagal: format query salah (harus "JID|pesan"): ${query}`
               }
+            } else if (tool === 'memory-search') {
+              // --- MEMORY SEARCH ---
+              const results = await searchExtendedMemory(query)
+              const formatted = results.length > 0
+                ? results.map(m => `- [${m.type.toUpperCase()}] (ID:${m.id}, Score:${m.score.toFixed(2)}) ${m.memory}`).join('\n')
+                : 'Tidak ditemukan memori yang relevan.'
+              resultString = `[MEMORY SEARCH RESULTS]\n${formatted}`
             } else if (tool === 'speak') {
               // --- NATIVE TTS SPEAKER ---
               if (query && query.trim() !== '') {

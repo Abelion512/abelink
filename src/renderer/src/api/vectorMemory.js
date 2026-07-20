@@ -1,5 +1,5 @@
 import { pipeline, env } from '@huggingface/transformers';
-import { getAllConfig } from './db';
+import { getAllConfig, getAllMemory, db } from './db';
 
 env.allowLocalModels = false;
 env.useBrowserCache = true;
@@ -49,53 +49,46 @@ export const cosineSimilarity = (vecA, vecB) => {
   return vecA.reduce((sum, a, i) => sum + a * vecB[i], 0)
 }
 
-import { db } from './db';
 import { searchArchives, searchDocuments } from './oramaStore'
 
 export const getRelevantMemory = async (userInput, memoryList) => {
-  // 1. Core memory (profile & preference) dipanggil langsung tanpa filter
+  // Hanya Core memory (profile & preference) dipanggil langsung tanpa filter
   const coreMemories = memoryList
     .filter(m => m.type === 'profile' || m.type === 'preference')
     .map(({ vector, ...rest }) => rest);
 
-  // 2. Jika ada memori notes, cari menggunakan Vector Search
-  const notesMemories = memoryList.filter(m => m.type === 'notes');
+  return coreMemories;
+}
+
+export const searchExtendedMemory = async (query) => {
+  const allMemory = await getAllMemory()
+  const extendedMemories = allMemory.filter(m => m.type === 'notes' || m.type === 'learn')
   
-  if (notesMemories.length === 0) {
-    return coreMemories;
-  }
+  if (extendedMemories.length === 0) return []
 
-  const output = await generateVector(userInput);
-  if (!output) return coreMemories;
-  
-  const userVector = Array.from(output);
+  const queryVector = await generateVector(query)
+  if (!queryVector) return []
 
-  const scoredNotes = await Promise.all(notesMemories.map(async (mem) => {
-    let currentVector = mem.vector;
-
-    if (!Array.isArray(currentVector) || currentVector.length === 0 || currentVector.length !== userVector.length) {
-      console.log(`Dimensi vector tidak cocok untuk notes ID ${mem.id}. Re-generating...`);
-      currentVector = await generateVector(mem.memory);
-      
+  const scored = await Promise.all(extendedMemories.map(async (mem) => {
+    let currentVector = mem.vector
+    
+    // Re-generate jika dimensi tidak cocok
+    if (!Array.isArray(currentVector) || currentVector.length !== queryVector.length) {
+      currentVector = await generateVector(mem.memory)
       if (currentVector && mem.id) {
-         db.memory.update(mem.id, { vector: currentVector }).catch(console.error);
+        db.memory.update(mem.id, { vector: currentVector }).catch(console.error)
       }
     }
 
-    if (!currentVector || currentVector.length !== userVector.length) {
-      return { ...mem, score: 0 }
-    }
+    if (!currentVector) return { ...mem, score: 0 }
+    return { ...mem, score: cosineSimilarity(queryVector, currentVector) }
+  }))
 
-    return { ...mem, score: cosineSimilarity(userVector, currentVector) }
-  }));
-
-  const relevantNotes = scoredNotes
-    .filter(m => m.score > 0.3)
+  return scored
+    .filter(m => m.score > 0.3)    // Threshold kemiripan
     .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map(({ vector, ...rest }) => rest);
-
-  return [...coreMemories, ...relevantNotes];
+    .slice(0, 3)                    // Top 3
+    .map(({ vector, ...rest }) => rest)
 }
 
 export const getUnifiedContext = async (userInput, memoryList) => {
