@@ -10,6 +10,7 @@ import HistoryDrawer from '../components/core/HistoryDrawer'
 import ProcessPanel from '../components/core/ProcessPanel'
 import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
 import MemoryVisualizer from '../components/core/MemoryVisualizer'
+import BrowserPreviewWidget from '../components/core/BrowserPreviewWidget'
 import musicCoverFallback from '../assets/music-cover.png'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useVAD } from '../hooks/useVAD'
@@ -189,6 +190,7 @@ const MarkHome = () => {
       <FloatingMenu onOpenHistory={() => setIsHistoryOpen(true)} />
       <StatusIndicator notifications={notifications} />
       <ProcessPanel processes={activeProcesses} onDismiss={dismissProcess} />
+      <BrowserPreviewWidget />
 
       {toastMessage && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 bg-error/90 text-white px-4 py-2 rounded-xl z-50 backdrop-blur shadow-lg animate-bounce text-sm">

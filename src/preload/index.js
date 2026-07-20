@@ -85,7 +85,12 @@ const api = {
   browserNavigate: (url) => ipcRenderer.invoke('browser:navigate', url),
   browserReadDom: () => ipcRenderer.invoke('browser:read-dom'),
   browserAction: (data) => ipcRenderer.invoke('browser:action', data),
-  browserClose: () => ipcRenderer.invoke('browser:close')
+  browserClose: () => ipcRenderer.invoke('browser:close'),
+  onBrowserPreview: (cb) => {
+    ipcRenderer.removeAllListeners('browser:preview')
+    ipcRenderer.on('browser:preview', (_, data) => cb(data))
+  },
+  showBrowserWindow: () => ipcRenderer.send('browser:show')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -205,7 +205,7 @@ ipcMain.handle('parse-document', async (event, arrayBuffer, isDocx) => {
 ipcMain.handle('wa:logout', async () => await logoutWhatsapp())
 
 import { loadPlugins, initPluginIPC } from './plugins/plugin-loader.js'
-import { navigateTo, readDOM, executeAction, closeBrowser } from './browser-agent.js'
+import { navigateTo, readDOM, executeAction, closeBrowser, showBrowser } from './browser-agent.js'
 
 // Browser Automation IPCs
 ipcMain.handle('browser:navigate', async (event, url) => {
@@ -222,6 +222,9 @@ ipcMain.handle('browser:action', async (event, data) => {
 })
 ipcMain.handle('browser:close', (event) => {
   return closeBrowser()
+})
+ipcMain.on('browser:show', () => {
+  showBrowser()
 })
 app.whenReady().then(async () => {
   // Set app user model id for windows

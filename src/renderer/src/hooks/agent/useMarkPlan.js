@@ -21,6 +21,7 @@ export const useMarkPlan = ({
   handleMusic,
   getYoutubeData,
   pushProcess,
+  dismissProcess,
   activeTopic,
   setActiveTopic,
   currentMusicTrack,
@@ -660,16 +661,7 @@ export const useMarkPlan = ({
       }
       setIsAgentBusy(false)
 
-      pushProcess({
-        id: agenticProcessId,
-        type: 'planning',
-        status: 'error',
-        data: {
-          steps: [{ task: 'Proses Gagal/Dibatalkan' }],
-          currentStep: 1,
-          reasoning: error.message || 'Error'
-        }
-      })
+      dismissProcess(agenticProcessId)
 
       if (error.name === 'AbortError' || error.message.includes('AbortError')) {
         setChatData((prev) => [
@@ -686,10 +678,30 @@ export const useMarkPlan = ({
           }
         ])
       } else {
-        setChatData((prev) => [
-          ...prev.filter((item) => !item.isThinking && !item.isSearching),
-          { role: 'ai', content: `Maaf, terjadi kesalahan: ${error.message}` }
-        ])
+        if (isSystem) {
+          const fallbackGreetings = [
+            "Sistem aktif. Halo, saya Mark. Ada yang bisa saya bantu hari ini?",
+            "Mark sudah online. Silakan berikan perintah.",
+            "Halo bro! Sistem berhasil diinisialisasi. Ada yang perlu saya kerjakan?",
+            "Sistem Mark siap digunakan. Ada tugas untukku hari ini?",
+            "Halo! Saya siap membantumu."
+          ]
+          const randomGreeting = fallbackGreetings[Math.floor(Math.random() * fallbackGreetings.length)]
+          
+          setChatData((prev) => [
+            ...prev.filter((item) => !item.isThinking && !item.isSearching),
+            { 
+              role: 'ai', 
+              content: randomGreeting,
+              timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+            }
+          ])
+        } else {
+          setChatData((prev) => [
+            ...prev.filter((item) => !item.isThinking && !item.isSearching),
+            { role: 'ai', content: `Maaf, terjadi kesalahan: ${error.message}` }
+          ])
+        }
       }
     } finally {
       if (!waContext) {

@@ -4,6 +4,7 @@ let browserWindow = null
 let activeAskUser = false
 let activeAskUserMessage = ''
 let globalAskUserResolve = null
+let isForceClosing = false
 
 const DOM_PARSER_SCRIPT = `
 (() => {
@@ -144,6 +145,7 @@ const DOM_PARSER_SCRIPT = `
 export async function navigateTo(url) {
   if (!browserWindow || browserWindow.isDestroyed()) {
     browserWindow = new BrowserWindow({
+      show: false,
       width: 1280,
       height: 800,
       title: 'Mark Browser',
@@ -156,6 +158,13 @@ export async function navigateTo(url) {
     })
 
     browserWindow.webContents.setMaxListeners(50) // Fix memory leak warning for did-stop-loading
+
+    browserWindow.on('close', (event) => {
+      if (!isForceClosing) {
+        event.preventDefault()
+        browserWindow.hide()
+      }
+    })
 
     browserWindow.on('closed', () => {
       browserWindow = null
@@ -207,14 +216,12 @@ export async function navigateTo(url) {
     })
 
     browserWindow.webContents.on('did-navigate', (event, newUrl) => {
-      if (!browserWindow.isDestroyed()) {
-        browserWindow.show()
-      }
+      // Don't show automatically on navigate anymore
     })
   }
 
-  browserWindow.show()
-  browserWindow.focus()
+  // JANGAN browserWindow.show() di sini. Tetap hidden.
+  // browserWindow.focus() // Focus juga nggak perlu kalau hidden
 
   if (browserWindow.webContents.isLoading()) {
     browserWindow.webContents.stop()
@@ -231,8 +238,17 @@ export async function navigateTo(url) {
 
 export async function closeBrowser() {
   if (browserWindow && !browserWindow.isDestroyed()) {
+    isForceClosing = true
     browserWindow.close()
     browserWindow = null
+    isForceClosing = false
+
+    // Kirim null ke frontend biar hologramnya ikutan hilang
+    const mainWin = BrowserWindow.getAllWindows().find(w => w !== browserWindow)
+    if (mainWin && !mainWin.isDestroyed()) {
+      mainWin.webContents.send('browser:preview', null)
+    }
+
     return 'Browser berhasil ditutup.'
   }
   return 'Browser memang sudah dalam keadaan tertutup.'
@@ -244,9 +260,35 @@ export async function readDOM() {
   }
 
   const result = await browserWindow.webContents.executeJavaScript(DOM_PARSER_SCRIPT)
+  
+  // Capture page & send to renderer for HoloCard Preview
+  try {
+    const image = await browserWindow.webContents.capturePage()
+    const thumbnail = image.resize({ width: 800 }).toDataURL() // Resize biar enteng
+    const url = browserWindow.webContents.getURL()
+    const title = browserWindow.getTitle()
+    const mainWin = BrowserWindow.getAllWindows().find(w => w !== browserWindow)
+    if (mainWin && !mainWin.isDestroyed()) {
+      mainWin.webContents.send('browser:preview', { url, title, thumbnail })
+      console.log('[DEBUG] Sent browser:preview to main window')
+    }
+  } catch (e) {
+    console.error('Failed to capture browser preview:', e)
+  }
+
   return result
 }
 
+export function showBrowser() {
+  console.log('[DEBUG] showBrowser called! Window exists?', !!browserWindow)
+  if (browserWindow && !browserWindow.isDestroyed()) {
+    if (browserWindow.isMinimized()) browserWindow.restore()
+    browserWindow.show()
+    browserWindow.focus()
+    browserWindow.setAlwaysOnTop(true)
+    browserWindow.setAlwaysOnTop(false)
+  }
+}
 export async function executeAction(data) {
   if (!browserWindow || browserWindow.isDestroyed()) {
     return '[ERROR] Browser belum dibuka.'
@@ -410,6 +452,10 @@ export async function executeAction(data) {
   }
 
   if (action === 'unblock') {
+    if (!browserWindow.isDestroyed()) {
+      browserWindow.show()
+      browserWindow.focus()
+    }
     try {
       const isReinject = data.isReinject
       if (!isReinject) {

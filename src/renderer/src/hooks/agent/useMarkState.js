@@ -88,6 +88,9 @@ export const useMarkState = () => {
 
   const handleStop = () => {
     abortControllerRef.current?.abort()
+    if (window.api?.browserClose) {
+      window.api.browserClose()
+    }
   }
 
   return {
