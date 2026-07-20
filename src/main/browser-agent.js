@@ -19,7 +19,6 @@ const DOM_PARSER_SCRIPT = `
       .mark-spin { animation: mark-spin 1.5s linear infinite; }
       @keyframes mark-pulse { 50% { opacity: 0.7; } }
       .mark-pulse { animation: mark-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-      body.mark-locked { overflow: hidden !important; }
     \`;
     document.head.appendChild(style);
   }
@@ -48,7 +47,6 @@ const DOM_PARSER_SCRIPT = `
     blocker.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
     document.body.appendChild(blocker);
   }
-  document.body.classList.add('mark-locked');
   blocker.style.display = 'flex'; // Selalu pastikan aktif setiap habis scan DOM
 
   const INTERACTIVE_SELECTORS = [
@@ -201,7 +199,6 @@ export async function navigateTo(url) {
                 b.style.paddingTop = '24px';
                 b.innerHTML = \`<div style="background: rgba(25, 54, 45, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(31, 184, 84, 0.4); border-radius: 30px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; color: #1fb854; font-family: system-ui, sans-serif; font-weight: 600; font-size: 14px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); pointer-events: none;"><svg class="mark-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><span class="mark-pulse">Mark is working...</span></div>\`;
               }
-              document.body.classList.add('mark-locked');
             `
             )
             .catch(() => {})
@@ -368,16 +365,32 @@ export async function executeAction(data) {
           if (!el) return 'Elemen dengan ID ${id} tidak ditemukan.';
           el.scrollIntoView({ behavior: 'instant', block: 'center' });
           el.focus();
-          el.value = '';
+
+          const text = '${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}';
           
-          // Simulasi typing agar framework JS (React, Vue) mendeteksi perubahan
-          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-            window.HTMLInputElement.prototype, 'value'
-          ).set;
-          nativeInputValueSetter.call(el, '${value.replace(/'/g, "\\'")}');
-          el.dispatchEvent(new Event('input', { bubbles: true }));
+          // Strategy 1: Native prototype setter (React controlled components)
+          const proto = el.tagName === 'TEXTAREA'
+            ? window.HTMLTextAreaElement.prototype
+            : window.HTMLInputElement.prototype;
+          const nativeValueSetter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+          if (nativeValueSetter) {
+            nativeValueSetter.call(el, text);
+          } else {
+            el.value = text;
+          }
+
+          // Fire full event chain agar framework modern (React 18+, Next.js) mendeteksi
+          el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
           el.dispatchEvent(new Event('change', { bubbles: true }));
-          return 'Berhasil ketik "${value}" di elemen ${id}.';
+
+          // Strategy 2: Fallback execCommand untuk textarea yang sangat strict
+          if (!el.value || el.value !== text) {
+            el.value = '';
+            el.focus();
+            document.execCommand('insertText', false, text);
+          }
+
+          return 'Berhasil ketik di elemen ${id}.';
         })()`
       )
     } catch (e) {
@@ -460,7 +473,7 @@ export async function executeAction(data) {
           document.getElementById('mark-user-input').addEventListener('keypress', function (e) {
               if (e.key === 'Enter') document.getElementById('mark-btn-selesai').click();
           });
-          document.body.classList.remove('mark-locked');
+
         })()`
       )
 
@@ -484,7 +497,6 @@ export async function executeAction(data) {
         `(() => {
         const blocker = document.getElementById('mark-user-blocker');
         if (blocker) blocker.remove();
-        document.body.classList.remove('mark-locked');
         const style = document.getElementById('mark-blocker-style');
         if (style) style.remove();
       })()`
