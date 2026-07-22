@@ -244,10 +244,11 @@ export async function closeBrowser() {
     isForceClosing = false
 
     // Kirim null ke frontend biar hologramnya ikutan hilang
-    const mainWin = BrowserWindow.getAllWindows().find(w => w !== browserWindow)
-    if (mainWin && !mainWin.isDestroyed()) {
-      mainWin.webContents.send('browser:preview', null)
-    }
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('browser:preview', null)
+      }
+    })
 
     return 'Browser berhasil ditutup.'
   }
@@ -267,11 +268,11 @@ export async function readDOM() {
     const thumbnail = image.resize({ width: 800 }).toDataURL() // Resize biar enteng
     const url = browserWindow.webContents.getURL()
     const title = browserWindow.getTitle()
-    const mainWin = BrowserWindow.getAllWindows().find(w => w !== browserWindow)
-    if (mainWin && !mainWin.isDestroyed()) {
-      mainWin.webContents.send('browser:preview', { url, title, thumbnail })
-      console.log('[DEBUG] Sent browser:preview to main window')
-    }
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (win !== browserWindow && !win.isDestroyed()) {
+        win.webContents.send('browser:preview', { url, title, thumbnail })
+      }
+    })
   } catch (e) {
     console.error('Failed to capture browser preview:', e)
   }

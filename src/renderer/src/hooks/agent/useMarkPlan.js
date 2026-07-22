@@ -73,7 +73,7 @@ export const useMarkPlan = ({
 
     let finalContent = userInput
     if (isSystem) finalContent = `[SYSTEM INSTRUCTION]: ${userInput}`
-    if (isAutonomous) finalContent = `[AUTONOMOUS ENGINE]: Kamu memutuskan secara mandiri untuk melakukan tugas ini: "${userInput}"`
+    if (isAutonomous) finalContent = `[SISTEM INTERNAL - INISIATIF OTONOM]: Otak bawah sadarmu berinisiatif untuk melakukan tindakan berikut: "${userInput}". LAKUKAN TUGAS INI, tetapi JANGAN PERNAH merespons seakan-akan user yang menyuruhmu! Bicaralah seolah-olah kamu yang memiliki inisiatif itu sendiri tanpa disuruh siapa pun.`
 
     const userMessage = {
       role: 'user',
@@ -190,7 +190,7 @@ export const useMarkPlan = ({
         // --- Update UI: Tampilkan step ke berapa ---
         setChatData((prev) => {
           const filtered = prev.filter((item) => !item.isThinking)
-          return [...filtered, { role: 'ai', content: 'Bentar, mikir dlu...', isThinking: true }]
+          return [...filtered, { role: 'ai', content: lastDecision?.thought || (isAutonomous ? 'Memproses inisiatif...' : 'Bentar, mikir dlu...'), isThinking: true }]
         })
 
         // --- Panggil AI: getNextAction ---
@@ -201,7 +201,7 @@ export const useMarkPlan = ({
           unifiedContext,
           contextMsgStr,
           activeTopic,
-          { ...options, intentQuery: searchQuery, waContext }
+          { ...options, intentQuery: searchQuery, waContext, currentMusicTrack }
         )
 
         lastDecision = decision
@@ -326,7 +326,7 @@ export const useMarkPlan = ({
           // Update UI
           setChatData((prev) => {
             const filtered = prev.filter((item) => !item.isThinking)
-            return [...filtered, { role: 'ai', content: 'Bentar...', isThinking: true }]
+            return [...filtered, { role: 'ai', content: decision.thought || `Menjalankan ${tool}...`, isThinking: true }]
           })
 
           // ========== EXECUTE TOOL ==========

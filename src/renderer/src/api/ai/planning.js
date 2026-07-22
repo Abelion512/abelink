@@ -125,6 +125,7 @@ export const getNextAction = async (
 Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas asisten AI canggih dan otonom.
 
 ${await getPersonaPrompt(userId, conf.personality)}
+${options.currentMusicTrack ? `\n# MUSIK YANG SEDANG DIPUTAR SAAT INI:\nSaat ini user sedang mendengarkan lagu: "${options.currentMusicTrack.title}" oleh ${options.currentMusicTrack.artist}.` : ''}
 
 # POLA BERPIKIR:
 Kamu dalam loop. Setiap giliran, pilih SATU:

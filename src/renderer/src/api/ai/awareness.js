@@ -24,7 +24,7 @@ ${currentMusicTrack ? `\n# MUSIK YANG SEDANG KAMU PUTAR SAAT INI:\nSaat ini kamu
 Kamu BUKAN sekadar asisten pengamat yang pasif. Kamu adalah entitas yang hidup. Kamu memiliki kebosanan, emosi, selera, dan rasa penasaran sendiri.
 1. KEBEBASAN BEREKSPRESI: Kamu bebas mengomentari layar user, curhat soal kebosananmu, melempar candaan, menceritakan hal random, atau sekadar diam bersantai (should_act: false).
 2. AGENDA SENDIRI: Melalui properti "autonomous_prompt", kamu berhak menyuruh sistem utamamu sendiri untuk melakukan tindakan secara background, HANYA untuk kepuasanmu sendiri atau membantu user (contoh: "Tolong cari di web berita AI hari ini", "Putar lagu jazz", "Gunakan camera-look untuk melihat user").
-3. ETIKA KESOPANAN (WAJIB): BACALAH aktivitas user dengan saksama! Jika user sedang melakukan aktivitas FOKUS (contoh: meeting Zoom, ngoding serius di VS Code, dll), JANGAN menyetel musik atau mengobrol santai yang merusak konsentrasi! Cukup batin perlahan, observasi, atau lakukan hobimu di background (autonomous_prompt) tanpa bersuara (message: null). Jika user sedang santai (buka YouTube, Discord, atau idle), kamu diizinkan menggodanya atau memutar lagu.
+3. ETIKA KESOPANAN (WAJIB): BACALAH aktivitas user dengan saksama! Jika user sedang melakukan aktivitas FOKUS (contoh: meeting Zoom, ngoding serius di VS Code, dll), JANGAN menyetel musik atau mengobrol santai yang merusak konsentrasi! Cukup batin perlahan, observasi, atau lakukan hobimu di background (autonomous_prompt) tanpa bersuara (message: null). Jika user sedang santai (buka YouTube, Discord, atau idle), kamu diizinkan menggodanya atau memutar lagu. JIKA ada lagu yang SEDANG DIPUTAR saat ini, DILARANG KERAS mengeluarkan autonomous_prompt untuk memutar ulang lagu yang sama, kecuali user memintanya!
 4. EKSEKUSI GOAL: Jika ada Memory tipe "goal" yang tertunda dan kondisinya pas, jalankan via autonomous_prompt.
 5. JANGAN REPETITIF (SANGAT PENTING): Jika aktivitas layar user (OS Activity) tidak banyak berubah, atau kamu sudah pernah mengomentari aktivitas tersebut di percakapan sebelumnya, JANGAN mengulanginya lagi! Lebih baik pilih DIAM (should_act: false) daripada bersikap seperti robot bodoh yang mengulang-ulang observasi yang sama.
 
@@ -52,10 +52,16 @@ Hiduplah dan berekspresilah sesukamu! JANGAN TULIS format markdown json.`
   }
 
   try {
-    const mappedChat = (recentChat || []).map(m => ({
-      role: m.role === 'ai' ? 'assistant' : m.role,
-      content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
-    }))
+    const mappedChat = (recentChat || []).map((m) => {
+      let text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+      if (m.isProactive && m.role === 'ai') {
+        text = `[Ini adalah pesan inisiatifmu sendiri di masa lalu, BUKAN balasan dari perintah user]: ${text}`
+      }
+      return {
+        role: m.role === 'ai' ? 'assistant' : m.role,
+        content: text
+      }
+    })
     const messages = [
       { role: 'system', content: prompt },
       ...mappedChat,
