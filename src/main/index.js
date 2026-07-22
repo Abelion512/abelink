@@ -30,6 +30,8 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding')
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 // Fix GPU crash for hidden webview (command_buffer_proxy_impl.cc:327 GPU state invalid)
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+// Mencegah aplikasi mati total kalau GPU Process nge-crash berkali-kali
+app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
 
 
 const setupYoutubeFix = () => {

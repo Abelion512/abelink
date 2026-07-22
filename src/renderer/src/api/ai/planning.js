@@ -163,9 +163,11 @@ ${
 - browser-type: Ketik teks di kolom input. Query: ID||teks. Mengembalikan DOM terbaru.
 - browser-scroll: Scroll halaman. Query: "up" atau "down".
 - browser-ask-user: JIKA terhalang form login/CAPTCHA, BUKAKAN HALAMANNYA DULU (misal klik tombol 'Login' hingga form muncul), lalu GUNAKAN TOOL INI. Query: Instruksi/Pesan untuk user (misal: "Tolong isi email dan password"). Pesanmu akan muncul di layar popup. Setelah user selesai, kamu akan langsung mendapat DOM terbaru untuk MELANJUTKAN misimu. Jangan berhenti!
-- browser-close: Menutup browser fisik.                                                                                                  
-ATURAN PENGGUNAAN BROWSER-CLOSE:                                                                                                         
-1. Jendela browser memakan banyak RAM PC user. SELALU prioritaskan menggunakan tool ini untuk menutup browser SEGERA setelah kamu mendapatkan informasi yang kamu butuhkan (misal: mencari harga, membaca artikel, atau sekadar login).                                      
+- browser-close: Menutup browser fisik.
+- yt-search: Alat pencari video di YouTube. Gunakan ini jika kamu merasa informasi lebih baik didapat dari video/tutorial visual.
+- yt-summary: Merangkum isi video YouTube. Sangat berguna untuk mengekstrak informasi/pembelajaran dari video panjang.
+ATURAN PENGGUNAAN BROWSER-CLOSE:
+1. Jendela browser memakan banyak RAM PC user. SELALU prioritaskan menggunakan tool ini untuk menutup browser SEGERA setelah kamu mendapatkan informasi yang kamu butuhkan (misal: mencari harga, membaca artikel, atau sekadar login).
 2. PENGECUALIAN SANGAT KRITIKAL: Jika halaman memuat proses berkelanjutan yang HARUS ditunggu/dipantau user (seperti pesanan makanan sedang diproses resto, tracking ojek online, atau checkout yang belum dibayar), JANGAN panggil tool ini. Biarkan terbuka dan sampaikan di answer: "Browsernya gue biarin kebuka ya biar lu bisa pantau pesanannya."
 
 ATURAN BROWSER AUTOMATION:
@@ -175,18 +177,15 @@ ATURAN BROWSER AUTOMATION:
 4. Jika elemen yang dicari tidak ditemukan, coba browser-scroll atau browser-read.
 5. Elemen ditandai dengan format: [ID] Tipe: "Label". Gunakan ID angka untuk merujuk elemen.
 6. JANGAN MENYERAH! Secara default user diblokir. Jika butuh user login/isi form manual, JANGAN balas dengan 'answer' lalu berhenti! HARUS selalu gunakan tool browser-ask-user, lalu tunggu user selesai, dan LAKUKAN sisa tugasmu!
-7. JANGAN GUNAKAN browser ini untuk memutar lagu${
-        activeCategories.includes('music')
-          ? `\n- yt-search: Mencari video di YouTube (judul, ID, durasi).
-- yt-summary: Merangkum isi video dari link YouTube.
-- music-play: Memutar lagu di YouTube Music.
+7. JANGAN GUNAKAN browser ini untuk memutar lagu!${
+  activeCategories.includes('music')
+    ? `\n- music-play: Memutar lagu di YouTube Music.
 - music-toggle: Pause/lanjut memutar lagu.
 - music-search: Mencari lagu spesifik di YT Music.
 - music-next: Mengganti lagu ke track selanjutnya.
-- music-prev: Mengganti lagu ke track sebelumnya.
-                `
-          : ''
-      }
+- music-prev: Mengganti lagu ke track sebelumnya.`
+    : ''
+}
 ${
   activeCategories.some((c) => ['system', 'casual'].includes(c))
     ? `- analyze-screen: Mengambil screenshot untuk dianalisis oleh "Mata AI" (Vision). Gunakan tool ini JIKA DAN HANYA JIKA kamu perlu TAHU apa yang sedang tampil di layar komputer user. Query: Isi dengan prompt instruksi visual spesifikmu, isi query dengan jelas dan panjang karena akan dibaca oleh model ai visual, Jangan minta untuk ambil screenshot karen sudah ditangani oleh sistem, prompt ini bertujuan untuk menganalisa hasil screenshot oleh sistem (misal: "Tolong bacakan teks error di layar" atau "Cari tombol warna biru").
