@@ -179,22 +179,25 @@ export async function navigateTo(url) {
         }
 
         // Ambil screenshot super cepat sebelum hide agar hologram bisa muncul
-        browserWindow.webContents.capturePage().then(image => {
-          const thumbnail = image.resize({ width: 800 }).toDataURL()
-          const url = browserWindow.webContents.getURL()
-          const title = browserWindow.getTitle()
-          
-          browserWindow.hide() // Hide setelah screenshot dapet
-          
-          BrowserWindow.getAllWindows().forEach(win => {
-            if (win !== browserWindow && !win.isDestroyed()) {
-              win.webContents.send('browser:preview', { url, title, thumbnail })
-            }
+        browserWindow.webContents
+          .capturePage()
+          .then((image) => {
+            const thumbnail = image.resize({ width: 800 }).toDataURL()
+            const url = browserWindow.webContents.getURL()
+            const title = browserWindow.getTitle()
+
+            browserWindow.hide() // Hide setelah screenshot dapet
+
+            BrowserWindow.getAllWindows().forEach((win) => {
+              if (win !== browserWindow && !win.isDestroyed()) {
+                win.webContents.send('browser:preview', { url, title, thumbnail })
+              }
+            })
           })
-        }).catch(e => {
-          console.error("Gagal capturePage saat close:", e)
-          browserWindow.hide()
-        })
+          .catch((e) => {
+            console.error('Gagal capturePage saat close:', e)
+            browserWindow.hide()
+          })
       }
     })
 
@@ -262,8 +265,8 @@ export async function navigateTo(url) {
   // Gunakan Promise.race untuk ngasih timeout ke loadURL biar gak stuck di website berat/banyak tracker
   await Promise.race([
     browserWindow.loadURL(url),
-    new Promise(resolve => setTimeout(resolve, 15000)) // 15 detik timeout paksa kelar
-  ]).catch(e => console.error("Error/Timeout loading URL:", e));
+    new Promise((resolve) => setTimeout(resolve, 60000)) // 60 detik timeout paksa kelar
+  ]).catch((e) => console.error('Error/Timeout loading URL:', e))
 
   // Tunggu halaman selesai load + 2 detik buffer untuk SPA rendering
   await new Promise((resolve) => setTimeout(resolve, 2000))
@@ -286,7 +289,7 @@ export async function closeBrowser() {
     }
 
     // Kirim null ke frontend biar hologramnya ikutan hilang
-    BrowserWindow.getAllWindows().forEach(win => {
+    BrowserWindow.getAllWindows().forEach((win) => {
       if (!win.isDestroyed()) {
         win.webContents.send('browser:preview', null)
       }
@@ -303,7 +306,7 @@ export async function readDOM() {
   }
 
   const result = await browserWindow.webContents.executeJavaScript(DOM_PARSER_SCRIPT)
-  
+
   // Capture page & send to renderer for HoloCard Preview
   try {
     // Jangan kirim hologram kalau window fisik sedang terbuka (biar gak bentrok/double)
@@ -312,7 +315,7 @@ export async function readDOM() {
       const thumbnail = image.resize({ width: 800 }).toDataURL() // Resize biar enteng
       const url = browserWindow.webContents.getURL()
       const title = browserWindow.getTitle()
-      BrowserWindow.getAllWindows().forEach(win => {
+      BrowserWindow.getAllWindows().forEach((win) => {
         if (win !== browserWindow && !win.isDestroyed()) {
           win.webContents.send('browser:preview', { url, title, thumbnail })
         }
