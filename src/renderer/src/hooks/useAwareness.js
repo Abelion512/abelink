@@ -23,6 +23,7 @@ export const useAwareness = ({
   const currentMusicTrackRef = useRef(currentMusicTrack)
   const isLoadingRef = useRef(isLoading)
   const isAgentBusyRef = useRef(isAgentBusy)
+  const lastCheckInRef = useRef(0)
 
   useEffect(() => {
     chatDataRef.current = chatData
@@ -37,13 +38,20 @@ export const useAwareness = ({
 
   useEffect(() => {
     if (!isAwarenessEnabled) return
-    if (isLoading || isAgentBusy) return
 
     const checkIn = async () => {
       if (isAgentBusyRef.current || isLoadingRef.current || isRequestingRef.current) return
+      
+      const now = Date.now()
+      // Minimal harus nunggu 9 menit (540,000 ms) dari check-in terakhir buat nge-trigger lagi
+      if (now - lastCheckInRef.current < 540000) {
+        console.log('[useAwareness] Skip check-in: Belum waktunya (terlalu cepat).')
+        return
+      }
 
       try {
         isRequestingRef.current = true
+        lastCheckInRef.current = Date.now()
         console.log('[useAwareness] Memulai check-in...')
 
         const buffer = await window.api.getActivityBuffer()
@@ -136,5 +144,5 @@ export const useAwareness = ({
       clearInterval(id)
       clearTimeout(initialTimeout)
     }
-  }, [isLoading, isAgentBusy, isAwarenessEnabled, setChatData, setOrbStatus])
+  }, [isAwarenessEnabled, setChatData, setOrbStatus]) // Hapus isLoading & isAgentBusy dari deps biar gak keriset mulu
 }

@@ -159,9 +159,25 @@ export async function navigateTo(url) {
 
     browserWindow.webContents.setMaxListeners(50) // Fix memory leak warning for did-stop-loading
 
+    // Cegah website buka window baru (pop-up atau target="_blank")
+    browserWindow.webContents.setWindowOpenHandler(({ url }) => {
+      if (browserWindow && !browserWindow.isDestroyed()) {
+        browserWindow.loadURL(url) // Paksa buka di window yang sama
+      }
+      return { action: 'deny' } // Tolak pembuatan window baru
+    })
+
     browserWindow.on('close', (event) => {
       if (!isForceClosing) {
         event.preventDefault()
+
+        if (globalAskUserResolve) {
+          globalAskUserResolve('User aborted the action by hiding the browser.')
+          globalAskUserResolve = null
+          activeAskUser = false
+          activeAskUserMessage = ''
+        }
+
         // Ambil screenshot super cepat sebelum hide agar hologram bisa muncul
         browserWindow.webContents.capturePage().then(image => {
           const thumbnail = image.resize({ width: 800 }).toDataURL()

@@ -5,8 +5,6 @@ import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import HoloCard from './HoloCard'
 import { CodeBlock } from '../Chat/CodeBlock'
-import { YoutubeSearchBubble } from '../Chat/YoutubeSearchBubble'
-import { YoutubeSummaryBubble } from '../Chat/YoutubeSummaryBubble'
 import PluginExecutionBubble from '../Chat/PluginExecutionBubble'
 
 const ResponseArea = ({ currentResponse }) => {
@@ -118,46 +116,6 @@ const ResponseArea = ({ currentResponse }) => {
                 {restText || text}
               </Markdown>
 
-              {/* External Elements inside card */}
-              {sources && sources.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-[var(--glass-border)]">
-                  <h4 className="text-xs font-semibold uppercase text-primary mb-2 opacity-70">
-                    Sumber Referensi
-                  </h4>
-                  <div className="flex flex-col gap-2">
-                    {sources.map((src, i) => {
-                      return (
-                        <li
-                          key={i}
-                          href={src.link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-sm text-primary hover:underline opacity-80 hover:opacity-100 truncate block cursor-pointer"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            window.api.openExternal(src.link)
-                          }}
-                        >
-                          {src.title || src.link}
-                        </li>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-              {youtubeData && (
-                <div className="mt-4">
-                  <YoutubeSearchBubble
-                    queryYoutube={youtubeData.query}
-                    youtubeLink={youtubeData.link}
-                  />
-                </div>
-              )}
-              {youtubeSummary && (
-                <div className="mt-4">
-                  <YoutubeSummaryBubble youtubeLink={youtubeSummary} />
-                </div>
-              )}
             </HoloCard>
           </div>
         </div>

@@ -318,10 +318,21 @@ export const useMarkPlan = ({
 
           // Tampilkan jawaban akhir di UI
           setChatData((prev) => {
-            const filtered = prev.filter((item) => !item.isThinking)
+            const filtered = prev.filter((item) => {
+              if (item.isThinking) return false;
+              // Hapus pesan inisial yang berdiri sendiri agar tidak ganda di riwayat obrolan
+              if (isAutonomous && item.isProactive && item.content === autonomousInitialMessage) return false;
+              return true;
+            })
+            
+            let finalContent = decision.answer
+            if (isAutonomous && autonomousInitialMessage) {
+              finalContent = `**${autonomousInitialMessage}**\n\n${decision.answer}`
+            }
+
             const aiMsg = {
               role: 'ai',
-              content: decision.answer,
+              content: finalContent,
               reasoning: decision.thought,
               mood: decision.mood || 'neutral',
               isMemorySaved: decision.memory?.action === 'insert',
@@ -757,7 +768,7 @@ export const useMarkPlan = ({
           ])
         } else if (isAutonomous) {
           // Gagal diam-diam (silent fail) kalau autonomous error (misal AI gagal ngeluarin format JSON)
-          setChatData((prev) => prev.filter((item) => !item.isThinking && !item.isSearching))
+          setChatData((prev) => prev.filter((item) => !item.isThinking && !item.isSearching && !item.isProactive))
         } else {
           setChatData((prev) => [
             ...prev.filter((item) => !item.isThinking && !item.isSearching),
