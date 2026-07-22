@@ -43,19 +43,19 @@ export const downloadAndSendMusicWA = async (sock, jid, msg, query) => {
       return
     }
     const tempPath = path.join(app.getPath('temp'), `wa-audio-${Date.now()}.mp3`)
-    const unpackFfmpeg = ffmpeg.replace('app.asar', 'app.asar.unpacked')
-    const unpackYtdl = resolveYtdlPath(ffmpeg)
+    const ffmpegPath = ffmpeg.replace('app.asar', 'app.asar.unpacked')
+    const ytdlPath = resolveYtdlPath(ffmpeg)
 
     await new Promise((resolve, reject) => {
       execFile(
-        unpackYtdl,
+        ytdlPath,
         [
           video.url,
           '--extract-audio',
           '--audio-format',
           'mp3',
           '--ffmpeg-location',
-          unpackFfmpeg,
+          ffmpegPath,
           '--output',
           tempPath
         ],

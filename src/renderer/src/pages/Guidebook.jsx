@@ -343,7 +343,7 @@ const Guidebook = () => {
                 </ol>
                 <p>
                   Misalnya, jika Anda bertanya soal lagu, Mark hanya akan melihat tools musik. Jika
-                  Anda minta kodingan, Mark hanya melihat tools file dan PowerShell.
+                  Anda minta kodingan, Mark hanya melihat tools file dan shell/terminal.
                 </p>
               </div>
             </section>
@@ -499,9 +499,9 @@ const Guidebook = () => {
                   <div className="space-y-3">
                     <ToolCard
                       name="run-powershell"
-                      description="Menjalankan perintah PowerShell / CMD."
+                      description="Menjalankan perintah shell (PowerShell di Windows, Bash di Linux)."
                       needsPermission={true}
-                      queryFormat="Perintah mentah (misal: npm install, dir, ping)"
+                      queryFormat="Perintah mentah (misal: npm install, ls, ping)"
                       howItWorks="Mark akan mengetikkan perintah ini ke terminal sistem. Perintah berbahaya (seperti rm, shutdown) wajib di-acc."
                       example="Coba cek penggunaan RAM komputer gue sekarang."
                     />
