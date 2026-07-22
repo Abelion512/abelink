@@ -41,6 +41,11 @@ export const useMarkPlan = ({
   }, [setChatData])
 
   const isExecutingRef = useRef(false)
+  const interventionBufferRef = useRef([])
+
+  const handleIntervention = (msg) => {
+    interventionBufferRef.current.push(msg)
+  }
 
   const handlePlanningCommand = async (
     userInput,
@@ -54,8 +59,10 @@ export const useMarkPlan = ({
       console.log('[useMarkPlan] Menolak prompt masuk karena proses lain sedang berjalan (Lock active).')
       return
     }
-    if (!waContext) isExecutingRef.current = true
-
+    if (!waContext) {
+      isExecutingRef.current = true
+      interventionBufferRef.current = [] // Bersihkan sisa intervensi lama
+    }
     const finalIsSpeak = options.forceSpeak !== undefined ? options.forceSpeak : isSpeak
     if (!userInput) {
       if (!waContext) isExecutingRef.current = false
@@ -73,7 +80,7 @@ export const useMarkPlan = ({
 
     let finalContent = userInput
     if (isSystem) finalContent = `[SYSTEM INSTRUCTION]: ${userInput}`
-    if (isAutonomous) finalContent = `[SISTEM INTERNAL - INISIATIF OTONOM]: Otak bawah sadarmu berinisiatif untuk melakukan tindakan berikut: "${userInput}". LAKUKAN TUGAS INI, tetapi JANGAN PERNAH merespons seakan-akan user yang menyuruhmu! Bicaralah seolah-olah kamu yang memiliki inisiatif itu sendiri tanpa disuruh siapa pun.`
+    if (isAutonomous) finalContent = `[SISTEM INTERNAL - INISIATIF OTONOM]: Otak bawah sadarmu berinisiatif untuk melakukan tindakan berikut: "${userInput}". LAKUKAN TUGAS INI! Bicaralah seolah-olah kamu yang memiliki inisiatif itu sendiri tanpa disuruh. PENTING: Respons "answer"-mu HARUS SANGAT SINGKAT, santai, dan cuek (Maks 1-2 kalimat pendek). DILARANG KERAS menggunakan sapaan kaku (seperti "Yoi Mada") ATAU menawarkan bantuan di akhir kalimat! Boleh kosongkan (null) jika tidak perlu bicara.`
 
     const userMessage = {
       role: 'user',
@@ -200,6 +207,33 @@ export const useMarkPlan = ({
       while (!isDone) {
         // --- Safety: Cek abort ---
         if (abortControllerRef.current.signal.aborted) break
+
+        // --- Cek Intervensi User ---
+        if (interventionBufferRef.current.length > 0) {
+          const interventions = interventionBufferRef.current.join('\n')
+          loopMessages.push({
+            role: 'user',
+            content: `[USER INTERVENTION]: ${interventions}`
+          })
+          interventionBufferRef.current = [] // Kosongkan buffer
+          
+          setChatData((prev) => {
+            const filtered = prev.filter((item) => !item.isThinking)
+            return [...filtered, { role: 'user', content: interventions }]
+          })
+          
+          execSteps.push({ task: `Intervensi User: ${interventions}` })
+          pushProcess({
+            id: agenticProcessId,
+            type: 'planning',
+            status: 'active',
+            data: {
+              steps: [...execSteps],
+              currentStep: execSteps.length - 1,
+              reasoning: 'Menerima arahan baru dari user di tengah proses.'
+            }
+          })
+        }
 
         stepCount++
 
@@ -703,7 +737,7 @@ export const useMarkPlan = ({
           }
         ])
       } else {
-        if (isSystem) {
+        if (isSystem && !isAutonomous) {
           const fallbackGreetings = [
             "Sistem aktif. Halo, saya Mark. Ada yang bisa saya bantu hari ini?",
             "Mark sudah online. Silakan berikan perintah.",
@@ -721,6 +755,9 @@ export const useMarkPlan = ({
               timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
             }
           ])
+        } else if (isAutonomous) {
+          // Gagal diam-diam (silent fail) kalau autonomous error (misal AI gagal ngeluarin format JSON)
+          setChatData((prev) => prev.filter((item) => !item.isThinking && !item.isSearching))
         } else {
           setChatData((prev) => [
             ...prev.filter((item) => !item.isThinking && !item.isSearching),
@@ -734,5 +771,5 @@ export const useMarkPlan = ({
       }
     }
   }
-  return { handlePlanningCommand }
+  return { handlePlanningCommand, handleIntervention }
 }

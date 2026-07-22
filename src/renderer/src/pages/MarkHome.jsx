@@ -165,9 +165,13 @@ const MarkHome = () => {
     }
   }, [chatData, isLoading, isSpeak, setOrbStatus])
 
-  const handleSubmit = () => {
-    if (message.trim()) {
-      handlePlanningCommand(message)
+  const handleSubmit = (e) => {
+    if (chatContext.handleSubmit) {
+      chatContext.handleSubmit(e)
+    } else {
+      if (message.trim()) {
+        handlePlanningCommand(message)
+      }
     }
   }
 

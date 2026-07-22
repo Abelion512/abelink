@@ -162,10 +162,23 @@ export async function navigateTo(url) {
     browserWindow.on('close', (event) => {
       if (!isForceClosing) {
         event.preventDefault()
-        browserWindow.hide()
-        // Panggil readDOM agar mengirimkan 'browser:preview' event ke frontend
-        // sehingga widget (hologram) muncul kembali setelah fisik browser ditutup (di-hide).
-        readDOM().catch(e => console.error("Gagal readDOM saat hide browser:", e))
+        // Ambil screenshot super cepat sebelum hide agar hologram bisa muncul
+        browserWindow.webContents.capturePage().then(image => {
+          const thumbnail = image.resize({ width: 800 }).toDataURL()
+          const url = browserWindow.webContents.getURL()
+          const title = browserWindow.getTitle()
+          
+          browserWindow.hide() // Hide setelah screenshot dapet
+          
+          BrowserWindow.getAllWindows().forEach(win => {
+            if (win !== browserWindow && !win.isDestroyed()) {
+              win.webContents.send('browser:preview', { url, title, thumbnail })
+            }
+          })
+        }).catch(e => {
+          console.error("Gagal capturePage saat close:", e)
+          browserWindow.hide()
+        })
       }
     })
 
@@ -230,7 +243,11 @@ export async function navigateTo(url) {
     browserWindow.webContents.stop()
   }
 
-  await browserWindow.loadURL(url)
+  // Gunakan Promise.race untuk ngasih timeout ke loadURL biar gak stuck di website berat/banyak tracker
+  await Promise.race([
+    browserWindow.loadURL(url),
+    new Promise(resolve => setTimeout(resolve, 15000)) // 15 detik timeout paksa kelar
+  ]).catch(e => console.error("Error/Timeout loading URL:", e));
 
   // Tunggu halaman selesai load + 2 detik buffer untuk SPA rendering
   await new Promise((resolve) => setTimeout(resolve, 2000))
@@ -245,6 +262,12 @@ export async function closeBrowser() {
     browserWindow.close()
     browserWindow = null
     isForceClosing = false
+    activeAskUser = false
+    activeAskUserMessage = ''
+    if (globalAskUserResolve) {
+      globalAskUserResolve('User aborted the action by closing the browser.')
+      globalAskUserResolve = null
+    }
 
     // Kirim null ke frontend biar hologramnya ikutan hilang
     BrowserWindow.getAllWindows().forEach(win => {
@@ -267,15 +290,18 @@ export async function readDOM() {
   
   // Capture page & send to renderer for HoloCard Preview
   try {
-    const image = await browserWindow.webContents.capturePage()
-    const thumbnail = image.resize({ width: 800 }).toDataURL() // Resize biar enteng
-    const url = browserWindow.webContents.getURL()
-    const title = browserWindow.getTitle()
-    BrowserWindow.getAllWindows().forEach(win => {
-      if (win !== browserWindow && !win.isDestroyed()) {
-        win.webContents.send('browser:preview', { url, title, thumbnail })
-      }
-    })
+    // Jangan kirim hologram kalau window fisik sedang terbuka (biar gak bentrok/double)
+    if (!browserWindow.isVisible()) {
+      const image = await browserWindow.webContents.capturePage()
+      const thumbnail = image.resize({ width: 800 }).toDataURL() // Resize biar enteng
+      const url = browserWindow.webContents.getURL()
+      const title = browserWindow.getTitle()
+      BrowserWindow.getAllWindows().forEach(win => {
+        if (win !== browserWindow && !win.isDestroyed()) {
+          win.webContents.send('browser:preview', { url, title, thumbnail })
+        }
+      })
+    }
   } catch (e) {
     console.error('Failed to capture browser preview:', e)
   }

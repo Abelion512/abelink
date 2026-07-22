@@ -63,6 +63,9 @@ export const useAwareness = ({
           .slice(-5)
           .map((m) => ({ role: m.role, content: m.content }))
 
+        console.log('[useAwareness] chatDataRef.current length:', chatDataRef.current?.length);
+        console.log('[useAwareness] recentChat extracted:', recentChat);
+
         // Clear buffer right away so we don't send the exact same bulk again later
         if (window.api.clearActivityBuffer) {
           window.api.clearActivityBuffer()

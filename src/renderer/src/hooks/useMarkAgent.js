@@ -62,7 +62,7 @@ export const useMarkAgent = () => {
 
   const requestCameraCaptureRef = useRef(null)
 
-  const { handlePlanningCommand } = useMarkPlan({
+  const { handlePlanningCommand, handleIntervention } = useMarkPlan({
     ...state,
     ...tools,
     requestApproval,
@@ -173,7 +173,10 @@ export const useMarkAgent = () => {
   const handleSubmit = (e) => {
     if (e) e.preventDefault()
     if (isLoading || isAgentBusy) {
-      handleStop()
+      if (handleIntervention && message.trim()) {
+        handleIntervention(message.trim())
+        setMessage('')
+      }
     } else {
       handlePlanningCommand(message.trim())
     }

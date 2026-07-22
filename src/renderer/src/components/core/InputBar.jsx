@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { FaMicrophone, FaStop, FaArrowUp, FaDesktop, FaWhatsapp, FaSmile } from 'react-icons/fa';
+import ConfirmModal from './ConfirmModal';
 
-const EMOJIS = ['😂', '🤣', '😅', '🙏', '🔥', '🚀', '💀', '😎', '🤔', '😭', '❤️', '👍', '✨', '👀', '💯'];
+const EMOJIS = ['😂', '🤣', '😅', '🗿', '🙏', '🔥', '🚀', '💀', '😎', '🤔', '😭', '❤️', '👍', '✨', '👀', '💯'];
 
 const InputBar = ({ 
   value, 
@@ -15,6 +16,7 @@ const InputBar = ({
 }) => {
   const inputRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showAbortConfirm, setShowAbortConfirm] = useState(false);
 
   useEffect(() => {
     if (!isLoading && inputRef.current) {
@@ -87,32 +89,46 @@ const InputBar = ({
           type="text"
           value={value}
           onChange={onChange}
-          disabled={isLoading}
-          placeholder={isLoading ? 'Mark is thinking...' : 'Tanya apapun ke Mark...'}
+          placeholder={isLoading ? 'Beri intervensi ke Mark...' : 'Tanya apapun ke Mark...'}
           className="flex-1 bg-transparent border-none outline-none text-white px-3 py-3 placeholder:text-white/30 disabled:opacity-50"
         />
 
-        {/* Action Button */}
-        {isLoading ? (
-          <button
-            type="button"
-            onClick={onStop}
-            className="p-3 rounded-full bg-error/20 text-error hover:bg-error hover:text-white transition-all flex-shrink-0"
-            title="Stop Generation"
-          >
-            <FaStop size={16} />
-          </button>
-        ) : (
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isLoading && (
+            <button
+              type="button"
+              onClick={() => setShowAbortConfirm(true)}
+              className="p-3 rounded-full bg-error/20 text-error hover:bg-error hover:text-white transition-all"
+              title="Stop Generation (Hard Abort)"
+            >
+              <FaStop size={16} />
+            </button>
+          )}
           <button
             type="submit"
             disabled={!value.trim()}
-            className="p-3 rounded-full bg-success text-success-content disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-success/80 hover:scale-105 active:scale-95 transition-all flex-shrink-0"
+            className="p-3 rounded-full bg-success text-success-content disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-success/80 hover:scale-105 active:scale-95 transition-all"
             title="Send Message"
           >
             <FaArrowUp size={16} />
           </button>
-        )}
+        </div>
       </form>
+
+      <ConfirmModal
+        isOpen={showAbortConfirm}
+        title="Hard Abort Proses?"
+        message="Yakin mau memberhentikan proses Mark secara paksa? Tindakan ini akan menghentikan secara langsung semua alat yang sedang berjalan dan memutuskan koneksi ke otak AI-nya seketika."
+        confirmText="Berhentikan"
+        cancelText="Batal"
+        isError={true}
+        onConfirm={() => {
+          setShowAbortConfirm(false);
+          if (onStop) onStop();
+        }}
+        onCancel={() => setShowAbortConfirm(false)}
+      />
     </div>
   );
 };
