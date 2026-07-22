@@ -270,12 +270,16 @@ app.whenReady().then(async () => {
   startWhatsappBot(mainWindow)
 
   // Setup System Tray
-  // Cara paling aman dan ampuh di Windows: Ekstrak icon 16x16 langsung dari file .exe aplikasi!
-  // Ini menghindari semua masalah pathing ASAR dan masalah format .ico yang rusak.
-  app
-    .getFileIcon(process.execPath, { size: 'small' })
-    .then((exeIcon) => {
-      tray = new Tray(exeIcon)
+  // Di Windows: Ekstrak icon 16x16 langsung dari file .exe aplikasi
+  // Di Linux: getFileIcon mengembalikan icon generic Electron, jadi pakai icon bundled langsung
+  const IS_LINUX = process.platform === 'linux'
+  const trayIconPromise = IS_LINUX
+    ? Promise.resolve(nativeImage.createFromPath(icon).resize({ width: 16, height: 16 }))
+    : app.getFileIcon(process.execPath, { size: 'small' })
+
+  trayIconPromise
+    .then((trayIcon) => {
+      tray = new Tray(trayIcon)
       tray.setToolTip('Mark AI Assistant')
 
       const contextMenu = Menu.buildFromTemplate([

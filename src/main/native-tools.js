@@ -6,7 +6,14 @@ import { navigateTo, readDOM, executeAction, closeBrowser } from './browser-agen
 
 const execPromise = util.promisify(exec)
 
-// Helper: Cek apakah command PowerShell berbahaya
+// Platform detection
+const IS_WIN = process.platform === 'win32'
+const IS_LINUX = process.platform === 'linux'
+const IS_MAC = process.platform === 'darwin'
+
+const pathExample = IS_WIN ? 'D:\\file.txt' : '/home/user/file.txt'
+
+// Helper: Cek apakah command shell berbahaya
 const DANGEROUS_KEYWORDS = [
   'Remove-Item',
   'rm ',
@@ -84,7 +91,7 @@ export const NATIVE_TOOLS = {
         if (parts.length < 2)
           return {
             success: false,
-            message: "Format salah. Gunakan separator '||' (contoh: D:\\file.txt||Halo)"
+            message: `Format salah. Gunakan separator '||' (contoh: ${pathExample}||Halo)`
           }
 
         const filePath = parts[0].trim()
@@ -174,13 +181,15 @@ export const NATIVE_TOOLS = {
         if (parts.length < 2)
           return {
             success: false,
-            message: "Format salah. Gunakan separator '||' (contoh: D:\\Project||nama_fungsi)"
+            message: `Format salah. Gunakan separator '||' (contoh: ${pathExample}||nama_fungsi)`
           }
 
         const dirPath = parts[0].trim()
         const keyword = parts[1].trim()
 
-        const cmd = `findstr /S /I /N /C:"${keyword}" "${dirPath}\\*.*"`
+        const cmd = IS_WIN
+          ? `findstr /S /I /N /C:"${keyword}" "${dirPath}\\*.*"`
+          : `grep -rni "${keyword}" "${dirPath}"`
         const { stdout } = await execPromise(cmd)
 
         const result = stdout.split('\n').slice(0, 50).join('\n')
@@ -195,12 +204,17 @@ export const NATIVE_TOOLS = {
   },
   'run-powershell': {
     needsApproval: (query) => isDangerousCommand(query),
-    approvalMessage: (query) =>
-      `Mark ingin mengeksekusi perintah PowerShell yang berpotensi BERBAHAYA:\n\n${query}`,
+    approvalMessage: (query) => {
+      const label = IS_WIN ? 'PowerShell' : 'Shell'
+      return `Mark ingin mengeksekusi perintah ${label} yang berpotensi BERBAHAYA:\n\n${query}`
+    },
     handler: async (query) => {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
       try {
-        const { stdout, stderr } = await execPromise(`powershell.exe -Command "${query}"`)
+        const shellCmd = IS_WIN
+          ? `powershell.exe -Command "${query}"`
+          : `bash -c "${query}"`
+        const { stdout, stderr } = await execPromise(shellCmd)
         return {
           success: true,
           output: stdout.trim() || 'Perintah berhasil dieksekusi tanpa output teks.',

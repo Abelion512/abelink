@@ -450,7 +450,7 @@ const Guidebook = () => {
                       name="read-file"
                       description="Membaca isi file teks/kode di komputer Anda."
                       needsPermission={false}
-                      queryFormat="Path Absolut (misal: D:\project\index.js)"
+                      queryFormat="Path Absolut (misal: /home/user/project/index.js atau D:\project\index.js)"
                       howItWorks="Membaca isi file agar Mark tahu kode apa yang sedang Anda kerjakan."
                     />
                     <ToolCard

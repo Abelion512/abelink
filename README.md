@@ -7,7 +7,7 @@
 > Lebih dari sekadar chatbot kaku, Mark adalah _Personal AI Assistant_ yang berjalan di ekosistem lokal Anda—dilengkapi dengan sistem memori jangka panjang berbasis _Vector Memory_ dan **Relational Growth System** untuk mempelajari kebiasaan serta beradaptasi dengan gaya komunikasi Anda tanpa mengorbankan privasi sedikit pun. Ditenagai oleh _Hybrid AI Engine_, Mark dapat beroperasi secara lokal untuk privasi maksimal, atau menggunakan _Cloud APIs_ untuk mengeksekusi tugas kompleks, menyusun rencana (_Agentic Planning_), merangkum video YouTube, mengobservasi layar atau dunia nyata (_Vision_), melakukan riset internet, hingga berinteraksi melalui suara secara _real-time_.
 
 > [!IMPORTANT]
-> Proyek ini secara khusus dioptimasi untuk **Windows** (Windows 10/11).
+> Proyek ini awalnya dioptimasi untuk **Windows** (Windows 10/11). Dukungan **Linux** eksperimental tersedia sejak v4.x. Lihat [Panduan Linux](#linux) untuk detailnya.
 
 ## Fitur Unggulan
 
@@ -77,10 +77,14 @@ mark/
 
 ### Persyaratan Sistem
 
-- **Sistem Operasi**: Windows 10/11
+- **Sistem Operasi**: Windows 10/11 (Linux eksperimental — lihat catatan di bawah)
 - **Node.js**: Versi 18 atau lebih baru
 - (Opsional) **LM Studio** jika Anda ingin menjalankan model sepenuhnya secara luring (_offline_).
 - (Opsional) **API Key Groq** untuk menggunakan model komputasi awan yang sangat cepat.
+
+> **Catatan Linux:** Untuk _Awareness Engine_ (pelacakan jendela aktif), diperlukan `xdotool`.
+> Install dengan: `sudo apt install xdotool` (Debian/Ubuntu) atau `sudo pacman -S xdotool` (Arch).
+> Build Linux: `npm run build:linux`
 
 ### Langkah Instalasi
 
@@ -143,10 +147,15 @@ try {
 
 ## Membangun Berkas Executable (Build)
 
-Untuk membuat aplikasi mandiri (berkas `.exe`) yang dapat diinstal di PC Windows:
-
 ```bash
+# Windows (.exe installer)
 npm run build:win
+
+# Linux (AppImage + snap + deb)
+npm run build:linux
+
+# macOS (.dmg)
+npm run build:mac
 ```
 
 Berkas _installer_ akan secara otomatis tersedia di dalam direktori `dist/`.

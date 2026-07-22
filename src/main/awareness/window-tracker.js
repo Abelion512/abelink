@@ -1,5 +1,11 @@
-import activeWindow from 'active-win'
+import { exec } from 'child_process'
+import util from 'util'
 import { powerMonitor } from 'electron'
+
+const execPromise = util.promisify(exec)
+const IS_WIN = process.platform === 'win32'
+const IS_LINUX = process.platform === 'linux'
+const IS_MAC = process.platform === 'darwin'
 
 let buffer = []
 let intervalId = null
@@ -14,6 +20,42 @@ function pushToBuffer(entry) {
   buffer.push(newEntry)
   console.log('[Awareness Engine] Recorded activity:', newEntry.title || newEntry.app)
   if (buffer.length > 30) buffer.shift()
+}
+
+/**
+ * Get active window info in a cross-platform way.
+ * - macOS/Windows: uses active-win (imported lazily, throws on Linux)
+ * - Linux: falls back to xdotool spawn
+ */
+async function getActiveWindow() {
+  if (IS_LINUX) {
+    try {
+      const { stdout } = await execPromise(
+        'xdotool getactivewindow getwindowname 2>/dev/null'
+      )
+      const title = stdout.split('\n').filter(Boolean)[0] || ''
+      let app = 'unknown'
+      try {
+        const { stdout: cls } = await execPromise(
+          'xdotool getactivewindow getclass 2>/dev/null'
+        )
+        app = cls.split('\n').filter(Boolean)[0] || 'unknown'
+      } catch {}
+      return { title, owner: { name: app } }
+    } catch {
+      console.warn('[Awareness Engine] xdotool not available. Install it: sudo apt install xdotool')
+      return null
+    }
+  }
+
+  // macOS / Windows — use active-win
+  try {
+    const activeWindow = await import('active-win')
+    return await activeWindow.default()
+  } catch (err) {
+    console.error('[Awareness Engine] active-win failed:', err.message)
+    return null
+  }
 }
 
 export function startTracking() {
@@ -38,7 +80,7 @@ export function startTracking() {
       }
 
       // Read active window
-      const win = await activeWindow()
+      const win = await getActiveWindow()
       if (win) {
         const entry = { app: win.owner.name, title: win.title }
         pushToBuffer(entry)
