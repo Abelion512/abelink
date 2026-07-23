@@ -585,7 +585,7 @@ export const useMarkPlan = ({
                 'delete-file',
                 'list-dir',
                 'grep-search',
-                'run-powershell',
+                'run-shell',
                 'run-cli',
                 'browser-navigate',
                 'browser-read',

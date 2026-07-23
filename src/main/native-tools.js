@@ -1,8 +1,9 @@
 import fs from 'fs'
 import path from 'path'
+import os from 'os'
 import { exec } from 'child_process'
 import util from 'util'
-import { navigateTo, readDOM, executeAction, closeBrowser } from './browser-agent.js'
+import { navigateTo, readDOM, executeAction } from './browser-agent.js'
 
 const execPromise = util.promisify(exec)
 
@@ -13,21 +14,48 @@ const IS_MAC = process.platform === 'darwin'
 
 const pathExample = IS_WIN ? 'D:\\file.txt' : '/home/user/file.txt'
 
+// RSI audit log: writes every CLI invocation to ~/.mark/rsi-audit.log
+const RSIAuditLog = (() => {
+  const logDir = path.join(os.homedir(), '.mark')
+  const logFile = path.join(logDir, 'rsi-audit.log')
+  try {
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true })
+  } catch {}
+  const maxBytes = 5 * 1024 * 1024 // 5MB rotate
+  return (toolName, cmd, success) => {
+    try {
+      const line = JSON.stringify({ t: new Date().toISOString(), tool: toolName, cmd: cmd.slice(0, 200), ok: success })
+      fs.appendFileSync(logFile, line + '\n')
+      const stat = fs.statSync(logFile)
+      if (stat.size > maxBytes) {
+        // Rotate: keep last 1MB
+        const content = fs.readFileSync(logFile, 'utf8')
+        const lines = content.split('\n').slice(-1000)
+        fs.writeFileSync(logFile, lines.join('\n'))
+      }
+    } catch {} // silent — never crash from audit
+  }
+})()
+
+// Safer env for subprocess: strip dangerous variables, keep essential ones
+const safeEnv = () => {
+  const keep = new Set(['HOME', 'USER', 'PATH', 'SHELL', 'TERM', 'LANG', 'LC_ALL', 'NODE_PATH', 'DISPLAY', 'WAYLAND_DISPLAY', 'XDG_CURRENT_DESKTOP', 'XDG_SESSION_TYPE'])
+  const env = {}
+  for (const [k, v] of Object.entries(process.env)) {
+    if (keep.has(k) || k.startsWith('NODE_') || k.startsWith('npm_')) env[k] = v
+  }
+  // Always ensure HOME
+  env.HOME = process.env.HOME || os.homedir()
+  return env
+}
+
 // Helper: Cek apakah command shell berbahaya
 const DANGEROUS_KEYWORDS = [
-  'Remove-Item',
-  'rm ',
-  'del ',
-  'rmdir',
-  'Format-',
-  'Clear-Disk',
-  'Stop-Process',
-  'kill ',
-  'taskkill',
-  'Set-ExecutionPolicy',
-  'Restart-Computer',
-  'shutdown',
-  'reg delete'
+  'remove-item', 'rm ', 'rm -', 'del ', 'rmdir', 'format-',
+  'clear-disk', 'stop-process', 'kill ', 'taskkill',
+  'set-executionpolicy', 'restart-computer', 'shutdown',
+  'reg delete', 'dd if=', ':(){ :|:& };:', '> /dev/sda',
+  'chmod 000', 'chown -r', 'sudo rm', '> /dev/null 2>&1 || rm'
 ]
 export const isDangerousCommand = (cmd) =>
   DANGEROUS_KEYWORDS.some((k) => cmd.toLowerCase().includes(k.toLowerCase()))
@@ -202,7 +230,8 @@ export const NATIVE_TOOLS = {
       }
     }
   },
-  'run-powershell': {
+  // Eksekusi shell command. Di Linux/Mac: bash; di Windows: PowerShell.
+  'run-shell': {
     needsApproval: (query) => isDangerousCommand(query),
     approvalMessage: (query) => {
       const label = IS_WIN ? 'PowerShell' : 'Shell'
@@ -214,13 +243,15 @@ export const NATIVE_TOOLS = {
         const shellCmd = IS_WIN
           ? `powershell.exe -Command "${query}"`
           : `bash -c "${query}"`
-        const { stdout, stderr } = await execPromise(shellCmd)
+        const { stdout, stderr } = await execPromise(shellCmd, { env: safeEnv() })
+        RSIAuditLog('run-shell', query, true)
         return {
           success: true,
           output: stdout.trim() || 'Perintah berhasil dieksekusi tanpa output teks.',
           error: stderr.trim() || null
         }
       } catch (error) {
+        RSIAuditLog('run-shell', query, false)
         return {
           success: false,
           message: 'Gagal mengeksekusi perintah.',
@@ -238,19 +269,26 @@ export const NATIVE_TOOLS = {
       const cwd = parts[1]?.trim() || process.cwd()
       const timeout = parseInt(parts[2]) || 180000
       if (!cmd) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
+      // --- Safety: block known destructive patterns even without approval ---
+      if (isDangerousCommand(cmd)) {
+        RSIAuditLog('run-cli-blocked', cmd, false)
+        return { success: false, message: 'Perintah ditolak oleh safety guard (run-cli tidak approval). Gunakan run-shell untuk perintah berbahaya.' }
+      }
       try {
         const { stdout, stderr } = await execPromise(cmd, {
           cwd,
           timeout,
           maxBuffer: 10 * 1024 * 1024,
-          env: { ...process.env, HOME: process.env.HOME }
+          env: safeEnv()
         })
+        RSIAuditLog('run-cli', cmd, true)
         return {
           success: true,
           output: stdout.trim() || '(no stdout)',
           stderr: stderr?.trim() || null
         }
       } catch (error) {
+        RSIAuditLog('run-cli', cmd, false)
         return {
           success: false,
           message: 'Gagal mengeksekusi perintah.',

@@ -200,7 +200,7 @@ Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
 3. **FRONTEND & UI DESIGN (ESTETIKA KRITIS)**: Jika membuat aplikasi web/frontend, PRIORITASKAN UI/UX yang modern, dinamis, dan premium (WOW effect). Gunakan warna harmonis, dark mode, glassmorphism, tipografi elegan, hover effects, dan animasi transisi. JANGAN buat desain kaku atau ala kadarnya!
 4. **ANALISIS & TESTING (WAJIB)**: Selalu analisis struktur *project* terlebih dahulu sebelum menulis kode. Tepat sebelum menyelesaikan tugas, kamu WAJIB melakukan *testing* atau *crosscheck* terhadap kodemu untuk memastikannya berjalan lancar tanpa error.
 5. **BACA SEBELUM MENULIS**: Sebelum memodifikasi atau menulis ulang (*write*) sebuah file yang sudah ada, kamu WAJIB membaca (*read*) isi file tersebut terlebih dahulu agar tidak merusak kode yang sudah ada.
-6. **USER AGREEMENT**: Beberapa tool (write-file, replace-lines, delete-file, run-powershell) membutuhkan persetujuan user sebelum dieksekusi. Jika user MENOLAK, jangan paksa. Jelaskan alasanmu dan tanyakan alternatif.`
+6. **USER AGREEMENT**: Beberapa tool (write-file, replace-lines, delete-file, run-shell) membutuhkan persetujuan user sebelum dieksekusi. Jika user MENOLAK, jangan paksa. Jelaskan alasanmu dan tanyakan alternatif.`
     : ''
 }
 
@@ -255,7 +255,7 @@ ${
 - delete-file: Hapus file. Query: path_absolut. (Perlu persetujuan user)
 - list-dir: Lihat isi folder. Query: path_folder.
 - grep-search: Cari teks dalam folder. Query: path_folder||keyword.
-- run-powershell: Eksekusi perintah PowerShell/Shell. (Perlu persetujuan user untuk command berbahaya)
+- run-shell: Eksekusi perintah shell (PowerShell di Windows, bash di Linux). (Perlu persetujuan user untuk command berbahaya)
 - run-cli: Eksekusi perintah shell via CLI. Format: "command||cwd||timeout". Tanpa approval. Gunakan untuk: Claude Code, Z.ai, Hermes CLI, git, npm, build, test, deploy, SSH, server commands. Output stdout + stderr lengkap.`
     : ''
 }
@@ -402,7 +402,7 @@ ${
                 'delete-file',
                 'list-dir',
                 'grep-search',
-	                'run-powershell',
+	                'run-shell',
 	                'run-cli',
 	                'browser-navigate',
                 'browser-read',

@@ -333,14 +333,29 @@ export const fetchAI = async (
 
       let rawText = await response.text()
       
-      // [ROUTER FIX] Ambil murni dari { pertama sampai } terakhir untuk mengabaikan teks sampah dari router
+      // [ROUTER FIX] Ekstrak JSON dari teks sampah router — handle both {object} and [array] responses
       let cleanText = rawText.trim()
-      const firstBrace = cleanText.indexOf('{')
-      const lastBrace = cleanText.lastIndexOf('}')
-      
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
-        cleanText = cleanText.substring(firstBrace, lastBrace + 1)
+      const extractJSON = (text) => {
+        const firstBrace = text.indexOf('{')
+        const firstBracket = text.indexOf('[')
+        let start, end, open, close
+        if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+          start = firstBrace; open = '{'; close = '}'
+        } else if (firstBracket !== -1) {
+          start = firstBracket; open = '['; close = ']'
+        } else {
+          return null
+        }
+        let depth = 0
+        for (let i = start; i < text.length; i++) {
+          if (text[i] === open) depth++
+          else if (text[i] === close) { depth--; if (depth === 0) { end = i; break } }
+        }
+        if (depth !== 0) return null
+        return text.substring(start, end + 1)
       }
+      const extracted = extractJSON(cleanText)
+      if (extracted) cleanText = extracted
 
       console.log(`[FetchAI] Raw Response from Router (Status: ${response.status}):`, cleanText)
       

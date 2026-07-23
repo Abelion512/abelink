@@ -498,7 +498,7 @@ const Guidebook = () => {
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
-                      name="run-powershell"
+                      name="run-shell"
                       description="Menjalankan perintah shell (PowerShell di Windows, Bash di Linux)."
                       needsPermission={true}
                       queryFormat="Perintah mentah (misal: npm install, ls, ping)"
