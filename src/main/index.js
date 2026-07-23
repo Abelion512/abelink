@@ -487,12 +487,22 @@ app.whenReady().then(async () => {
 })
 
 app.on('will-quit', () => {
+  if (tray) tray.destroy()
   globalShortcut.unregisterAll()
 })
 
 app.on('window-all-closed', () => {
   // Abaikan event ini agar aplikasi tetap hidup di background tray
 })
+
+// Clean exit on Ctrl+C / kill signal (Linux)
+const cleanExit = () => {
+  isQuiting = true
+  if (tray) tray.destroy()
+  app.quit()
+}
+process.on('SIGINT', cleanExit)
+process.on('SIGTERM', cleanExit)
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
