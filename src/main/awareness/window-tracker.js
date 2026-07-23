@@ -3,9 +3,6 @@ import util from 'util'
 import { powerMonitor } from 'electron'
 
 const execPromise = util.promisify(exec)
-const IS_WIN = process.platform === 'win32'
-const IS_LINUX = process.platform === 'linux'
-const IS_MAC = process.platform === 'darwin'
 
 let buffer = []
 let intervalId = null
@@ -56,7 +53,7 @@ function detectLinuxDesktop() {
 /**
  * Get active window title & app on Linux via compositor-specific tool.
  */
-async function getLinuxActiveWindow() {
+export async function getLinuxActiveWindow() {
   const de = detectLinuxDesktop()
 
   // --- X11 (or XWayland fallback) ---
@@ -179,23 +176,10 @@ async function getLinuxActiveWindow() {
 }
 
 /**
- * Get active window info in a cross-platform way.
- * - macOS/Windows: uses active-win (lazy import)
- * - Linux: compositor-aware detection
+ * Get active window info — Linux only.
  */
 async function getActiveWindow() {
-  if (IS_LINUX) {
-    return getLinuxActiveWindow()
-  }
-
-  // macOS / Windows — use active-win (lazy-imported, crashes at top-level on Linux)
-  try {
-    const activeWindow = await import('active-win')
-    return await activeWindow.default()
-  } catch (err) {
-    console.error('[Awareness Engine] active-win failed:', err.message)
-    return null
-  }
+  return getLinuxActiveWindow()
 }
 
 export function startTracking() {

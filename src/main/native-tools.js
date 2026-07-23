@@ -7,12 +7,7 @@ import { navigateTo, readDOM, executeAction } from './browser-agent.js'
 
 const execPromise = util.promisify(exec)
 
-// Platform detection
-const IS_WIN = process.platform === 'win32'
-const IS_LINUX = process.platform === 'linux'
-const IS_MAC = process.platform === 'darwin'
-
-const pathExample = IS_WIN ? 'D:\\file.txt' : '/home/user/file.txt'
+const pathExample = '/home/user/file.txt'
 
 // RSI audit log: writes every CLI invocation to ~/.mark/rsi-audit.log
 const RSIAuditLog = (() => {
@@ -201,7 +196,7 @@ export const NATIVE_TOOLS = {
       }
     }
   },
-  'grep-search': {
+	  'grep-search': {
     needsApproval: false,
     handler: async (query) => {
       try {
@@ -215,10 +210,7 @@ export const NATIVE_TOOLS = {
         const dirPath = parts[0].trim()
         const keyword = parts[1].trim()
 
-        const cmd = IS_WIN
-          ? `findstr /S /I /N /C:"${keyword}" "${dirPath}\\*.*"`
-          : `grep -rni "${keyword}" "${dirPath}"`
-        const { stdout } = await execPromise(cmd)
+        const { stdout } = await execPromise(`grep -rni "${keyword}" "${dirPath}"`)
 
         const result = stdout.split('\n').slice(0, 50).join('\n')
         return { success: true, result: result || 'Pencarian tidak menemukan hasil apapun.' }
@@ -230,19 +222,16 @@ export const NATIVE_TOOLS = {
       }
     }
   },
-  // Eksekusi shell command. Di Linux/Mac: bash; di Windows: PowerShell.
+  // Eksekusi shell command. Di Linux: bash.
   'run-shell': {
     needsApproval: (query) => isDangerousCommand(query),
     approvalMessage: (query) => {
-      const label = IS_WIN ? 'PowerShell' : 'Shell'
-      return `Mark ingin mengeksekusi perintah ${label} yang berpotensi BERBAHAYA:\n\n${query}`
+      return `Mark ingin mengeksekusi perintah Shell yang berpotensi BERBAHAYA:\n\n${query}`
     },
     handler: async (query) => {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
       try {
-        const shellCmd = IS_WIN
-          ? `powershell.exe -Command "${query}"`
-          : `bash -c "${query}"`
+        const shellCmd = `bash -c "${query}"`
         const { stdout, stderr } = await execPromise(shellCmd, { env: safeEnv() })
         RSIAuditLog('run-shell', query, true)
         return {

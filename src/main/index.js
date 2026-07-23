@@ -280,53 +280,40 @@ app.whenReady().then(async () => {
   startWhatsappBot(mainWindow)
 
   // Setup System Tray
-  // Di Windows: Ekstrak icon 16x16 langsung dari file .exe aplikasi
-  // Di Linux: getFileIcon mengembalikan icon generic Electron, jadi pakai icon bundled langsung
-  const IS_LINUX = process.platform === 'linux'
-  const trayIconPromise = IS_LINUX
-    ? Promise.resolve(nativeImage.createFromPath(icon).resize({ width: 16, height: 16 }))
-    : app.getFileIcon(process.execPath, { size: 'small' })
+  // Di Linux: pakai icon bundled langsung (getFileIcon return generic di Linux)
+  const trayIcon = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
+  tray = new Tray(trayIcon)
+  tray.setToolTip('Mark AI Assistant')
 
-  trayIconPromise
-    .then((trayIcon) => {
-      tray = new Tray(trayIcon)
-      tray.setToolTip('Mark AI Assistant')
+  const safeShow = () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show()
+  }
+  const safeSend = (channel, ...args) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, ...args)
+  }
 
-      const safeShow = () => {
-        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show()
-      }
-      const safeSend = (channel, ...args) => {
-        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, ...args)
-      }
-
-      const contextMenu = Menu.buildFromTemplate([
-        { label: 'Buka Mark', click: safeShow },
-        {
-          label: 'Monitor WhatsApp',
-          click: () => { safeShow(); safeSend('navigate', '/whatsapp-bot') }
-        },
-        {
-          label: 'Matikan WhatsApp Bot',
-          click: () => stopWhatsappBot()
-        },
-        {
-          label: 'Ngobrol Sekarang (Live Audio)',
-          click: () => { safeShow(); safeSend('trigger-live-audio') }
-        },
-        { type: 'separator' },
-        {
-          label: 'Keluar',
-          click: () => { isQuiting = true; app.quit() }
-        }
-      ])
-      tray.setContextMenu(contextMenu)
-      tray.on('click', safeShow)
-    })
-    .catch(() => {
-      // Fallback jika gagal (misal saat masih mode npm run dev)
-      tray = new Tray(nativeImage.createFromPath(icon).resize({ width: 16, height: 16 }))
-      tray.setToolTip('Mark AI Assistant')
-    })
+  const contextMenu = Menu.buildFromTemplate([
+    { label: 'Buka Mark', click: safeShow },
+    {
+      label: 'Monitor WhatsApp',
+      click: () => { safeShow(); safeSend('navigate', '/whatsapp-bot') }
+    },
+    {
+      label: 'Matikan WhatsApp Bot',
+      click: () => stopWhatsappBot()
+    },
+    {
+      label: 'Ngobrol Sekarang (Live Audio)',
+      click: () => { safeShow(); safeSend('trigger-live-audio') }
+    },
+    { type: 'separator' },
+    {
+      label: 'Keluar',
+      click: () => { isQuiting = true; app.quit() }
+    }
+  ])
+  tray.setContextMenu(contextMenu)
+  tray.on('click', safeShow)
 
   // Global Shortcut (One-way)
   // Menggunakan Ctrl+Alt+M untuk menghindari bentrok dengan shortcut OS atau aplikasi lain (misal: Discord/AMD)

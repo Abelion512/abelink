@@ -5,20 +5,12 @@ import yts from 'yt-search'
 import { execFile } from 'child_process'
 import ffmpeg from 'ffmpeg-static'
 
-const IS_WIN = process.platform === 'win32'
-
 /**
  * Resolve youtube-dl-exec binary path from ffmpeg-static path.
  * Both packages ship platform-specific binaries (ffmpeg, yt-dlp).
  */
 function resolveYtdlPath(ffmpegPath) {
   const unpacked = ffmpegPath.replace('app.asar', 'app.asar.unpacked')
-  if (IS_WIN) {
-    return unpacked.replace(
-      /ffmpeg-static[\\/]ffmpeg\.exe/i,
-      'youtube-dl-exec\\bin\\yt-dlp.exe'
-    )
-  }
   return unpacked.replace(
     /ffmpeg-static[\\/]ffmpeg/i,
     'youtube-dl-exec/bin/yt-dlp'
