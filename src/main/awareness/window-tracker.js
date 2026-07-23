@@ -18,7 +18,7 @@ function pushToBuffer(entry) {
     ...entry
   }
   buffer.push(newEntry)
-  console.log('[Awareness Engine] Recorded activity:', newEntry.title || newEntry.app)
+  try { console.log('[Awareness Engine] Recorded activity:', newEntry.title || newEntry.app) } catch {}
   if (buffer.length > 30) buffer.shift()
 }
 
