@@ -23,6 +23,13 @@ import YTMusic from 'ytmusic-api'
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
 import { startTracking, getBuffer, flushBuffer } from './awareness/window-tracker.js'
 import { NATIVE_TOOLS } from './native-tools.js'
+import { loadSkills, initSkillsIPC } from './agent-skills-loader.js'
+// Headless/SSH detection: disable GPU if no display server available (Linux)
+if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+  app.commandLine.appendSwitch('disable-gpu')
+  app.commandLine.appendSwitch('disable-software-rasterizer')
+}
+
 // Matikan semua optimasi throttling Chromium agar webview WhatsApp tidak tertidur di hasil Build (.exe)
 app.commandLine.appendSwitch('disable-background-timer-throttling')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
@@ -251,6 +258,10 @@ app.whenReady().then(async () => {
   // Load plugin & Inisialisasi IPC Bridge
   await loadPlugins()
   initPluginIPC()
+
+  // Load & register Agent Skills (~/.agents/skills/)
+  loadSkills()
+  initSkillsIPC()
 
   setupYoutubeFix()
 

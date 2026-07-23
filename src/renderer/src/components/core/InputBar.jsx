@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { FaMicrophone, FaStop, FaArrowUp, FaDesktop, FaWhatsapp, FaSmile } from 'react-icons/fa';
 import ConfirmModal from './ConfirmModal';
 
@@ -14,26 +14,45 @@ const InputBar = ({
   onStop,
   source = 'pc'
 }) => {
-  const inputRef = useRef(null);
+  const textareaRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showAbortConfirm, setShowAbortConfirm] = useState(false);
 
+  // Auto-resize textarea height (max 160px ~10 lines)
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+    }
+  }, []);
+
   useEffect(() => {
-    if (!isLoading && inputRef.current) {
-      // setTimeout to ensure it runs after the disabled attribute is fully removed by React
+    autoResize();
+  }, [value, autoResize]);
+
+  useEffect(() => {
+    if (!isLoading && textareaRef.current) {
       setTimeout(() => {
-        if (inputRef.current) inputRef.current.focus();
+        if (textareaRef.current) textareaRef.current.focus();
       }, 50);
     }
   }, [isLoading]);
 
   const handleEmojiClick = (emoji) => {
-    // Memasukkan emoji ke dalam input state
     onChange({ target: { value: value + emoji } });
     setShowEmojiPicker(false);
     setTimeout(() => {
-      if (inputRef.current) inputRef.current.focus();
+      if (textareaRef.current) textareaRef.current.focus();
     }, 10);
+  };
+
+  const handleKeyDown = (e) => {
+    // Enter tanpa Shift = submit, Shift+Enter = newline
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      onSubmit();
+    }
   };
 
   return (
@@ -46,7 +65,7 @@ const InputBar = ({
         <button
           type="button"
           onClick={onToggleRecord}
-          className={`p-3 rounded-full transition-all flex-shrink-0 ${
+          className={`p-3 rounded-full transition-all flex-shrink-0 self-end ${
             isRecording 
               ? 'text-error bg-error/20 animate-pulse' 
               : 'text-white/40 hover:text-white/80 hover:bg-white/5'
@@ -57,7 +76,7 @@ const InputBar = ({
         </button>
 
         {/* Emoji Button */}
-        <div className="relative flex-shrink-0">
+        <div className="relative flex-shrink-0 self-end">
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -83,18 +102,20 @@ const InputBar = ({
           )}
         </div>
 
-        {/* Input */}
-        <input
-          ref={inputRef}
-          type="text"
+        {/* Textarea Input — multi-line with auto-resize & scrollbar */}
+        <textarea
+          ref={textareaRef}
           value={value}
-          onChange={onChange}
+          onChange={(e) => { onChange(e); autoResize(); }}
+          onKeyDown={handleKeyDown}
+          disabled={isLoading}
+          rows={1}
           placeholder={isLoading ? 'Beri intervensi ke Mark...' : 'Tanya apapun ke Mark...'}
-          className="flex-1 bg-transparent border-none outline-none text-white px-3 py-3 placeholder:text-white/30 disabled:opacity-50"
+          className="flex-1 bg-transparent border-none outline-none text-white px-3 py-3 placeholder:text-white/30 disabled:opacity-50 resize-none overflow-y-auto custom-scrollbar max-h-40 leading-relaxed"
         />
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 self-end">
           {isLoading && (
             <button
               type="button"

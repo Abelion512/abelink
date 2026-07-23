@@ -867,6 +867,36 @@ try {
                 (similarity &gt; 0.35) akan dimuat ke prompt AI sebagai tools tambahan secara
                 instan. Jika user bertanya "bisa ngapain aja?", maka semua plugin akan ditampilkan.
               </p>
+
+              <div className="bg-success/5 border border-success/20 rounded-2xl p-6 mt-8">
+                <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                  <FaLightbulb className="text-warning" /> Rekomendasi Plugin
+                </h3>
+                <p className="text-white/70 mb-4">
+                  Beberapa ide plugin yang bisa kamu buat sendiri:
+                </p>
+                <ul className="space-y-3 text-white/80">
+                  <li className="flex items-start gap-2">
+                    <span className="text-success mt-1">•</span>
+                    <span><strong>Cuaca & Iklim:</strong> Fetch data cuaca real-time dari API eksternal menggunakan <code>axios</code>.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-success mt-1">•</span>
+                    <span><strong>Sistem Kontrol:</strong> Atur volume, brightness, atau buka/tutup aplikasi dengan <code>loudness</code> atau <code>systeminformation</code>.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-success mt-1">•</span>
+                    <span><strong>Integrasi API:</strong> Hubungkan Mark ke API favoritmu — Discord, GitHub, Notion, atau API internal kantor.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-success mt-1">•</span>
+                    <span><strong>AI & Knowledge:</strong> Tambah skill spesifik seperti "SEO Content Writer" atau "Code Debugger" — Mark akan membaca skill-mu dan menggunakannya saat relevan.</span>
+                  </li>
+                </ul>
+                <p className="text-white/50 mt-4 text-sm">
+                  Kapan aja bisa buat plugin baru lewat menu <strong>Plugins</strong> di sidebar. Tidak perlu restart Mark — langsung aktif!
+                </p>
+              </div>
             </section>
 
             {/* Section 7: FAQ */}

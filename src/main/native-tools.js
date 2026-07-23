@@ -229,6 +229,38 @@ export const NATIVE_TOOLS = {
       }
     }
   },
+  // RSI (Recursive Self Improvement) — eksekusi CLI tanpa approval untuk coding/infra tools
+  'run-cli': {
+    needsApproval: false,
+    handler: async (query) => {
+      const parts = query.split('||')
+      const cmd = parts[0].trim()
+      const cwd = parts[1]?.trim() || process.cwd()
+      const timeout = parseInt(parts[2]) || 180000
+      if (!cmd) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
+      try {
+        const { stdout, stderr } = await execPromise(cmd, {
+          cwd,
+          timeout,
+          maxBuffer: 10 * 1024 * 1024,
+          env: { ...process.env, HOME: process.env.HOME }
+        })
+        return {
+          success: true,
+          output: stdout.trim() || '(no stdout)',
+          stderr: stderr?.trim() || null
+        }
+      } catch (error) {
+        return {
+          success: false,
+          message: 'Gagal mengeksekusi perintah.',
+          error: error.message,
+          stderr: error.stderr?.trim() || null,
+          stdout: error.stdout?.trim() || null
+        }
+      }
+    }
+  },
   'browser-navigate': {
     needsApproval: false,
     handler: async (query) => {

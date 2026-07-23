@@ -153,7 +153,8 @@ export async function navigateTo(url) {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        sandbox: true
+        sandbox: true,
+        partition: 'persist:mark-browser'
       }
     })
 

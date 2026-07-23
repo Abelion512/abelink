@@ -29,6 +29,20 @@ const getCategoryVectors = async () => {
 }
 
 let pluginVectorCache = new Map()
+let skillsVectorCache = new Map()
+
+// Inline helper to get agent skills (~/.agents/skills/)
+const getAgentSkills = async () => {
+  try {
+    if (typeof window.api?.getAgentSkills !== 'function') return []
+    const skills = await window.api.getAgentSkills()
+    if (!Array.isArray(skills)) return []
+    return skills
+  } catch (e) {
+    console.error(e)
+    return []
+  }
+}
 
 // Inline helper to get plugin actions (replaces pluginHelper.js)
 const getPluginActions = async () => {
@@ -121,6 +135,28 @@ export const getNextAction = async (
             .join('\n')
         : ''
 
+    // === Agent Skills (~/.agents/skills/) — vector-match & inject knowledge ===
+    const agentSkills = await getAgentSkills()
+    let relevantSkillContent = ''
+    if (userVec && agentSkills.length > 0) {
+      for (const s of agentSkills) {
+        const sText = `${s.name} ${s.description}`
+        if (!skillsVectorCache.has(s.name)) {
+          skillsVectorCache.set(s.name, await generateVector(sText))
+        }
+        const sVec = skillsVectorCache.get(s.name)
+        if (sVec) {
+          const score = cosineSimilarity(userVec, sVec)
+          if (score > 0.35) {
+            const content = await window.api.getAgentSkillContent(s.name)
+            if (content) {
+              relevantSkillContent += `\n# SKILL: ${s.name} (${s.description})\n${content}\n`
+            }
+          }
+        }
+      }
+    }
+
     const systemPrompt = `
 Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas asisten AI canggih dan otonom.
 
@@ -139,9 +175,25 @@ JANGAN isi keduanya! Boleh panggil tool berulang kali.
 ${activeCategories.some((c) => ['search', 'casual', 'coding'].includes(c)) ? `- PENGGUNAAN WEB SEARCH: Gunakan "browser-navigate" ke Google Search HANYA untuk info real-time/terbaru. Untuk coding/teori umum, langsung jawab di "answer".` : ''}
 ${activeCategories.some((c) => ['coding', 'system'].includes(c)) ? `- STOPPING CONDITION (SANGAT KRITIS): Jika tugas utama (misal bikin web/script) sudah berhasil, jalan, dan sesuai instruksi awal, JANGAN ngide merombak ulang atau memperbaiki hal-hal minor! Langsung akhiri loop dengan mengisi "answer" (selesai). Sifat perfeksionis yang berlebihan justru merusak kode yang sudah jalan!\n- VERIFIKASI HASIL: Tepat sebelum kamu memutuskan untuk memberikan "answer" (selesai), wajib lakukan pengecekan terakhir (misal: jalankan command test, atau pastikan file berhasil ditulis). Jika hasilnya valid dan sesuai request, langsung laporkan ke user!` : ''}
 ${
-  activeCategories.includes('coding')
-    ? `
-# ATURAN KODING & DEVELOPMENT
+	      activeCategories.includes('coding')
+	    ? `
+	# RSI (RECURSIVE SELF IMPROVEMENT) — Stage 4 Agent Engineering
+	KAMU ADALAH SELF-IMPROVING AGENT. Tool \`run-cli\` adalah PRIMARY tool untuk:
+	  - Improve kodemu sendiri via Claude Code: \`claude -p "task" --bare\`
+	  - Quick coding via Z.ai: \`zai-cli "task"\`
+	  - Autonomous task chains via Hermes: \`hermes "task"\`
+	  - Git: commit, branch, push hasil improvement
+	  - Build & test: \`npm run build\`, \`npm test\`
+	  - Eksekusi perintah server apa pun, SSH, deploy, infra
+	
+	RSI LOOP RULES:
+	  1. JALANKAN → EVALUASI → SIMPAN → ITERASI
+	  2. Setelah sukses, SELALU simpan sebagai "learn" memory:
+	     { "memory": { "type": "learn", "summary": "ringkasan", "memory": "perintah + hasil", "action": "insert" } }
+	  3. Saat error/gagal, simpan juga learn memory dengan apa yang SALAH agar tidak diulang.
+	  4. Sebelum menulis kode, cek "learn" memory dulu via memory-search.
+	
+	# ATURAN KODING & DEVELOPMENT
 Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
 1. **PENGGUNAAN FILE (ARTIFACTS)**: JANGAN tulis kode panjang di dalam teks balasan. Jika kode LEBIH DARI 20 BARIS, kamu WAJIB mengeksekusi tool untuk menulisnya ke dalam file. Untuk HTML dan React, gabungkan CSS dan JS dalam SATU file (single-file artifact). Import library eksternal dari CDN.
 2. **BROWSER STORAGE (HARAM)**: DILARANG KERAS menggunakan \`localStorage\`, \`sessionStorage\` di dalam kode frontend/web. Selalu gunakan penyimpanan *In-Memory*.
@@ -203,11 +255,14 @@ ${
 - delete-file: Hapus file. Query: path_absolut. (Perlu persetujuan user)
 - list-dir: Lihat isi folder. Query: path_folder.
 - grep-search: Cari teks dalam folder. Query: path_folder||keyword.
-- run-powershell: Eksekusi perintah PowerShell. (Perlu persetujuan user untuk command berbahaya)`
+- run-powershell: Eksekusi perintah PowerShell/Shell. (Perlu persetujuan user untuk command berbahaya)
+- run-cli: Eksekusi perintah shell via CLI. Format: "command||cwd||timeout". Tanpa approval. Gunakan untuk: Claude Code, Z.ai, Hermes CLI, git, npm, build, test, deploy, SSH, server commands. Output stdout + stderr lengkap.`
     : ''
 }
 
 ${pluginCapabilities ? `\n# PLUGIN TAMBAHAN (EXTERNAL)\n${pluginCapabilities}\n(Catatan: User bisa sewaktu-waktu menginstal atau menghapus plugin tambahan di atas ke dalam sistemmu. Jika tool yang relevan tidak ada di daftar bawaan, periksa daftar plugin tambahan ini.)` : ''}
+
+${relevantSkillContent ? `\n# SKILL & PEDOMAN KHUSUS\n${relevantSkillContent}` : ''}
 
 # OBSERVATION
 Pesan "[OBSERVATION]" = hasil tool. Baca, lalu putuskan: tool lagi atau jawab user.
@@ -347,8 +402,9 @@ ${
                 'delete-file',
                 'list-dir',
                 'grep-search',
-                'run-powershell',
-                'browser-navigate',
+	                'run-powershell',
+	                'run-cli',
+	                'browser-navigate',
                 'browser-read',
                 'browser-click',
                 'browser-type',

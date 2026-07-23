@@ -90,7 +90,12 @@ const api = {
     ipcRenderer.removeAllListeners('browser:preview')
     ipcRenderer.on('browser:preview', (_, data) => cb(data))
   },
-  showBrowserWindow: () => ipcRenderer.send('browser:show')
+  showBrowserWindow: () => ipcRenderer.send('browser:show'),
+
+  // Agent Skills (~/.agents/skills/)
+  getAgentSkills: () => ipcRenderer.invoke('agent-skills:get-list'),
+  getAgentSkillContent: (name) => ipcRenderer.invoke('agent-skills:get-content', name),
+  reloadAgentSkills: () => ipcRenderer.invoke('agent-skills:reload')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
