@@ -293,6 +293,10 @@ Chat santai (Tanpa tool): {"thought":"Gue dengerin aja dan kasih respons santai.
 Butuh tool: {"thought":"cari dulu","action":{"tool":"browser-navigate","query":"https://www.google.com/search?q=harga+rtx+5090"},"answer":null,"mood":"neutral","active_topic":"Cari Info","memory":null}
 Setelah observation: {"thought":"done","action":null,"answer":"Harganya sekitar 30jt","mood":"joy","active_topic":"Cari Info","memory":null}
 
+# PLATFORM
+OS: ${navigator.platform || 'unknown'} (${navigator.userAgent.includes('Linux') ? 'Linux' : navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent.includes('Mac') ? 'macOS' : 'unknown'})
+Tool run-powershell menggunakan bash di Linux, powershell.exe di Windows. File paths pakai format OS native.
+
 # KONTEKS DINAMIS
 Kepribadian: ${conf.personality || 'Santai layaknya teman.'}
 ${getCurrentTimeInfo()}
