@@ -442,7 +442,7 @@ ${
           type: ['object', 'null'],
           properties: {
             id: { type: ['number', 'null'] },
-            type: { type: 'string', enum: ['profile', 'preference', 'notes'] },
+            type: { type: 'string', enum: ['profile', 'preference', 'notes', 'learn'] },
             summary: { type: 'string' },
             memory: { type: 'string' },
             action: { type: 'string', enum: ['insert', 'update', 'delete'] }

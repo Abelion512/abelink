@@ -486,7 +486,7 @@ const Guidebook = () => {
                       description="Mencari teks atau kata kunci di dalam folder secara rekursif."
                       needsPermission={false}
                       queryFormat="Path Folder||Keyword"
-                      howItWorks="Menjalankan findstr untuk pencarian cepat di ratusan file."
+                      howItWorks="Menjalankan pencarian teks berbasis regex di seluruh file dalam folder secara rekursif."
                     />
                   </div>
                 </div>
