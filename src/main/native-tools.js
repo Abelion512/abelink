@@ -210,10 +210,30 @@ export const NATIVE_TOOLS = {
         const dirPath = parts[0].trim()
         const keyword = parts[1].trim()
 
-        const { stdout } = await execPromise(`grep -rni "${keyword}" "${dirPath}"`)
+        // Ensure ripgrep is installed — Linux-only, use apt
+        const hasRg = await execPromise('command -v rg', { shell: '/bin/bash' })
+          .then(r => r.stdout.trim().length > 0).catch(() => false)
+        if (!hasRg) {
+          try {
+            await execPromise('sudo apt-get install -y ripgrep', { shell: '/bin/bash' })
+          } catch (_) {
+            // If install fails, fall through to grep fallback
+          }
+        }
 
-        const result = stdout.split('\n').slice(0, 50).join('\n')
-        return { success: true, result: result || 'Pencarian tidak menemukan hasil apapun.' }
+        let stdout
+        if (hasRg) {
+          const cmd = `rg -n --no-heading -i -m 50 --glob '!node_modules' --glob '!.git' "${keyword}" "${dirPath}"`
+          const result = await execPromise(cmd, { shell: '/bin/bash', maxBuffer: 10 * 1024 * 1024 })
+          stdout = result.stdout
+        } else {
+          const cmd = `grep -rni --exclude-dir=node_modules --exclude-dir=.git -m 50 "${keyword}" "${dirPath}"`
+          const result = await execPromise(cmd, { shell: '/bin/bash', maxBuffer: 10 * 1024 * 1024 })
+          stdout = result.stdout
+        }
+
+        const lines = stdout.split('\n').slice(0, 200).join('\n')
+        return { success: true, result: lines || 'Pencarian tidak menemukan hasil apapun.' }
       } catch (e) {
         return {
           success: true,
@@ -231,8 +251,10 @@ export const NATIVE_TOOLS = {
     handler: async (query) => {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
       try {
-        const shellCmd = `bash -c "${query}"`
-        const { stdout, stderr } = await execPromise(shellCmd, { env: safeEnv() })
+        const { stdout, stderr } = await execPromise(query, {
+          shell: '/bin/bash',
+          env: safeEnv()
+        })
         RSIAuditLog('run-shell', query, true)
         return {
           success: true,

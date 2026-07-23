@@ -6,6 +6,8 @@ import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
 import { insertMemory, updateMemory, deleteMemory, getAllMemory } from '../../api/db'
 import { getUnifiedContext, searchExtendedMemory } from '../../api/vectorMemory'
 
+const THINKING_UPDATE_INTERVAL = 300 // ms - throttle thinking UI updates
+
 export const useMarkPlan = ({
   chatData,
   setChatData,
@@ -28,20 +30,28 @@ export const useMarkPlan = ({
   requestApproval,
   requestCameraCapture
 }) => {
+  const lastThinkingUpdateRef = useRef(0)
   // Listener for 'ai-status' events from Main Process (via IPC)
   useEffect(() => {
     if (window.api && window.api.onAiStatus) {
       window.api.onAiStatus((msg) => {
-        setChatData((prev) => {
-          const filtered = prev.filter((item) => !item.isThinking)
-          return [...filtered, { role: 'ai', content: msg, isThinking: true }]
-        })
+        updateThinkingMessage(msg, true)
       })
     }
-  }, [setChatData])
+  }, [setChatData, updateThinkingMessage])
 
   const isExecutingRef = useRef(false)
   const interventionBufferRef = useRef([])
+
+  const updateThinkingMessage = (text, force = false) => {
+    const now = Date.now()
+    if (!force && now - lastThinkingUpdateRef.current < THINKING_UPDATE_INTERVAL) return
+    lastThinkingUpdateRef.current = now
+    setChatData((prev) => {
+      const filtered = prev.filter((item) => !item.isThinking)
+      return [...filtered, { role: 'ai', content: text, isThinking: true }]
+    })
+  }
 
   const handleIntervention = (msg) => {
     interventionBufferRef.current.push(msg)
@@ -217,10 +227,7 @@ export const useMarkPlan = ({
           })
           interventionBufferRef.current = [] // Kosongkan buffer
           
-          setChatData((prev) => {
-            const filtered = prev.filter((item) => !item.isThinking)
-            return [...filtered, { role: 'user', content: interventions }]
-          })
+          updateThinkingMessage(`Intervensi User: ${interventions}`, true)
           
           execSteps.push({ task: `Intervensi User: ${interventions}` })
           pushProcess({
@@ -238,11 +245,7 @@ export const useMarkPlan = ({
         stepCount++
 
         // --- Update UI: Tampilkan step ke berapa ---
-        setChatData((prev) => {
-          const filtered = prev.filter((item) => !item.isThinking)
-          let loadingText = (isAutonomous && autonomousInitialMessage) ? autonomousInitialMessage : 'Bentar, mikir dlu...'
-          return [...filtered, { role: 'ai', content: loadingText, isThinking: true }]
-        })
+        updateThinkingMessage((isAutonomous && autonomousInitialMessage) ? autonomousInitialMessage : 'Bentar, mikir dlu...')
 
         // --- Panggil AI: getNextAction ---
         const decision = await getNextAction(
@@ -304,10 +307,7 @@ export const useMarkPlan = ({
 
           // TTS
           if (finalIsSpeak && decision.answer) {
-            setChatData((prev) => [
-              ...prev.filter((item) => !item.isThinking),
-              { role: 'ai', content: 'Bentar...', isThinking: true }
-            ])
+            updateThinkingMessage('Bentar...', true)
             await playVoice(decision.answer)
           }
 
@@ -386,11 +386,7 @@ export const useMarkPlan = ({
           })
 
           // Update UI
-          setChatData((prev) => {
-            const filtered = prev.filter((item) => !item.isThinking)
-            let loadingText = (isAutonomous && autonomousInitialMessage) ? autonomousInitialMessage : 'Bentar, mikir dlu...'
-            return [...filtered, { role: 'ai', content: loadingText, isThinking: true }]
-          })
+          updateThinkingMessage((isAutonomous && autonomousInitialMessage) ? autonomousInitialMessage : 'Bentar, mikir dlu...')
 
           // ========== EXECUTE TOOL ==========
           let resultString = 'Tidak ada hasil.'
@@ -444,13 +440,7 @@ export const useMarkPlan = ({
               if (query && query.trim() !== '') {
                 // Jangan pake wait karena kita mau chatnya tetap responsif, tapi kalau await dia nunggu selesai ngomong
                 // Tampilkan pesan animasi "Berbicara..."
-                setChatData((prev) => {
-                  const filtered = prev.filter((item) => !item.isThinking)
-                  return [
-                    ...filtered,
-                    { role: 'ai', content: `(Sedang berbicara) ${query}`, isThinking: true }
-                  ]
-                })
+                updateThinkingMessage(`(Sedang berbicara) ${query}`)
                 await playVoice(query)
                 resultString = `Berhasil berbicara secara lisan: "${query}"`
               } else {
@@ -469,13 +459,7 @@ export const useMarkPlan = ({
               try {
                 const screens = await window.api.takeScreenshot()
                 if (screens && screens.length > 0) {
-                  setChatData((prev) => {
-                    const filtered = prev.filter((item) => !item.isThinking)
-                    return [
-                      ...filtered,
-                      { role: 'ai', content: 'Memproses Vision AI...', isThinking: true }
-                    ]
-                  })
+                  updateThinkingMessage('Memproses Vision AI...')
 
                   const contentArray = [
                     {
@@ -522,13 +506,7 @@ export const useMarkPlan = ({
                 } else if (!requestCameraCapture) {
                   resultString = 'Internal Error: Callback requestCameraCapture tidak tersedia.'
                 } else {
-                  setChatData((prev) => {
-                    const filtered = prev.filter((item) => !item.isThinking)
-                    return [
-                      ...filtered,
-                      { role: 'ai', content: 'Mengakses kamera...', isThinking: true }
-                    ]
-                  })
+                  updateThinkingMessage('Mengakses kamera...', true)
 
                   console.log('[camera-look] Memanggil requestCameraCapture...')
                   const cameraFrame = await requestCameraCapture({
@@ -538,13 +516,7 @@ export const useMarkPlan = ({
                   console.log('[camera-look] Hasil cameraFrame:', cameraFrame ? `${Math.round(cameraFrame.length / 1024)}KB` : 'null')
 
                   if (cameraFrame) {
-                    setChatData((prev) => {
-                      const filtered = prev.filter((item) => !item.isThinking)
-                      return [
-                        ...filtered,
-                        { role: 'ai', content: 'Menganalisis hasil kamera...', isThinking: true }
-                      ]
-                    })
+                    updateThinkingMessage('Menganalisis hasil kamera...', true)
 
                     const contentArray = [
                       {

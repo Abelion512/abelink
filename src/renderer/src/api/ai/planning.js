@@ -4,6 +4,26 @@ import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorMemory'
 import { getPersonaPrompt, getTraitContext } from './persona'
 
+// --- Config Cache (cache-aside pattern) ---
+let _configCache = null
+let _configCachePromise = null
+
+const getConfigCached = async () => {
+  if (_configCache) return _configCache
+  if (_configCachePromise) return _configCachePromise
+  _configCachePromise = getAllConfig().then(cfg => {
+    _configCache = cfg
+    _configCachePromise = null
+    return cfg
+  })
+  return _configCachePromise
+}
+
+// Invalidate cache on config update
+if (typeof window !== 'undefined') {
+  window.addEventListener('config-updated', () => { _configCache = null })
+}
+
 const CATEGORY_TEXTS = {
   coding:
     'bikin web script kode code program aplikasi membuat koding coding programming nulis react html css javascript js perbaiki error bug frontend ui design backend logic',
@@ -79,7 +99,7 @@ export const getNextAction = async (
 ) => {
   try {
     const { memories = [], archives = [], documents = [] } = unifiedContext
-    const currentConfig = await getAllConfig()
+    const currentConfig = await getConfigCached()
     const conf = currentConfig[0] || {}
 
     const userId = options.waContext ? options.waContext.senderJid : 'owner'
@@ -99,7 +119,10 @@ export const getNextAction = async (
     if (activeCategories.length === 0) activeCategories = ['casual']
 
     console.log('[Router: getNextAction] activeCategories:', activeCategories)
-    const pluginActions = await getPluginActions()
+    const [pluginActions, agentSkills] = await Promise.all([
+      getPluginActions(),
+      getAgentSkills()
+    ])
     let relevantPlugins = []
 
     if (userVec && pluginActions.length > 0) {
@@ -136,7 +159,6 @@ export const getNextAction = async (
         : ''
 
     // === Agent Skills (~/.agents/skills/) — vector-match & inject knowledge ===
-    const agentSkills = await getAgentSkills()
     let relevantSkillContent = ''
     if (userVec && agentSkills.length > 0) {
       for (const s of agentSkills) {
