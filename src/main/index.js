@@ -293,39 +293,35 @@ app.whenReady().then(async () => {
       tray = new Tray(trayIcon)
       tray.setToolTip('Mark AI Assistant')
 
+      const safeShow = () => {
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show()
+      }
+      const safeSend = (channel, ...args) => {
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, ...args)
+      }
+
       const contextMenu = Menu.buildFromTemplate([
-        { label: 'Buka Mark', click: () => mainWindow.show() },
+        { label: 'Buka Mark', click: safeShow },
         {
           label: 'Monitor WhatsApp',
-          click: () => {
-            mainWindow.show()
-            mainWindow.webContents.send('navigate', '/whatsapp-bot')
-          }
+          click: () => { safeShow(); safeSend('navigate', '/whatsapp-bot') }
         },
         {
           label: 'Matikan WhatsApp Bot',
-          click: () => {
-            stopWhatsappBot()
-          }
+          click: () => stopWhatsappBot()
         },
         {
           label: 'Ngobrol Sekarang (Live Audio)',
-          click: () => {
-            mainWindow.show()
-            mainWindow.webContents.send('trigger-live-audio')
-          }
+          click: () => { safeShow(); safeSend('trigger-live-audio') }
         },
         { type: 'separator' },
         {
           label: 'Keluar',
-          click: () => {
-            isQuiting = true
-            app.quit()
-          }
+          click: () => { isQuiting = true; app.quit() }
         }
       ])
       tray.setContextMenu(contextMenu)
-      tray.on('click', () => mainWindow.show())
+      tray.on('click', safeShow)
     })
     .catch(() => {
       // Fallback jika gagal (misal saat masih mode npm run dev)
