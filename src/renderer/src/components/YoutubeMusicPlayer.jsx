@@ -65,7 +65,41 @@ export const YoutubeMusicPlayer = () => {
       webview.insertCSS(`
         /* Hide scrollbar */
         ::-webkit-scrollbar { display: none !important; width: 0 !important; }
-        html, body { overflow-y: scroll !important; scrollbar-width: none !important; }
+        html, body { overflow-y: hidden !important; scrollbar-width: none !important; }
+
+        /* Hide masthead/header */
+        ytd-masthead, #masthead-container, ytd-topbar-menu-button-renderer,
+        ytd-searchbox, #search-container {
+          display: none !important;
+        }
+
+        /* Hide sidebar */
+        ytd-guide-renderer, #guide, ytd-browse-renderer, ytd-thumbnail-overlay-time-status-renderer {
+          display: none !important;
+        }
+
+        /* Hide video info section below player */
+        #above-the-fold, #title, #meta, #info, #info-contents,
+        ytd-video-primary-info-renderer, ytd-video-secondary-info-renderer,
+        #description, #description-inline-expander, #expand,
+        ytd-reel-video-renderer, #below-the-fold,
+        ytd-watch-metadata, ytd-watch-flexy {
+          display: none !important;
+        }
+
+        /* Hide comments, related videos, suggestions */
+        ytd-comments, ytd-item-section-renderer, ytd-continuation-item-renderer,
+        ytd-watch-next-tabbed-results-renderer, ytd-structured-description-content-renderer,
+        ytd-video-description-transcript-section-renderer {
+          display: none !important;
+        }
+
+        /* Hide subscribe, like, share buttons */
+        #subscribe-button, #like-button, #segmented-dislike-button,
+        ytd-menu-renderer, ytd-button-renderer, #primary-button,
+        ytd-subscribe-button-renderer, ytd-toggle-button-renderer {
+          display: none !important;
+        }
 
         /* Hide ad containers */
         .ad-showing, .ad-interrupting, .ytp-ad-overlay-container, .ytp-ad-message-container,
@@ -77,6 +111,17 @@ export const YoutubeMusicPlayer = () => {
         ytd-guide-entry-renderer[icon*='premium'],
         ytd-pivot-bar-item-renderer[tab-id*='premium'] {
           display: none !important;
+        }
+
+        /* Make video player full width */
+        #movie_player, .html5-video-player {
+          width: 100% !important;
+          height: auto !important;
+        }
+
+        video {
+          width: 100% !important;
+          height: auto !important;
         }
       `)
 
@@ -98,6 +143,23 @@ export const YoutubeMusicPlayer = () => {
               video.playbackRate = 1;
             }
             if (confirm) confirm.click();
+
+            // Force-hide page clutter dynamically
+            const hideSelectors = [
+              'ytd-masthead', '#masthead-container', 'ytd-guide-renderer', '#guide',
+              '#above-the-fold', '#title', '#meta', '#info', '#info-contents',
+              'ytd-video-primary-info-renderer', 'ytd-video-secondary-info-renderer',
+              '#description', '#description-inline-expander',
+              'ytd-comments', 'ytd-item-section-renderer',
+              'ytd-watch-next-tabbed-results-renderer',
+              '#subscribe-button', '#like-button', 'ytd-menu-renderer',
+              'ytd-reel-video-renderer', '#below-the-fold'
+            ];
+            hideSelectors.forEach(sel => {
+              document.querySelectorAll(sel).forEach(el => {
+                el.style.display = 'none';
+              });
+            });
           }, 500);
         })();
       `)
@@ -145,7 +207,41 @@ export const YoutubeMusicPlayer = () => {
       webview.insertCSS(`
         /* Hide scrollbar */
         ::-webkit-scrollbar { display: none !important; width: 0 !important; }
-        html, body { overflow-y: scroll !important; scrollbar-width: none !important; }
+        html, body { overflow-y: hidden !important; scrollbar-width: none !important; }
+
+        /* Hide masthead/header */
+        ytd-masthead, #masthead-container, ytd-topbar-menu-button-renderer,
+        ytd-searchbox, #search-container {
+          display: none !important;
+        }
+
+        /* Hide sidebar */
+        ytd-guide-renderer, #guide, ytd-browse-renderer, ytd-thumbnail-overlay-time-status-renderer {
+          display: none !important;
+        }
+
+        /* Hide video info section below player */
+        #above-the-fold, #title, #meta, #info, #info-contents,
+        ytd-video-primary-info-renderer, ytd-video-secondary-info-renderer,
+        #description, #description-inline-expander, #expand,
+        ytd-reel-video-renderer, #below-the-fold,
+        ytd-watch-metadata, ytd-watch-flexy {
+          display: none !important;
+        }
+
+        /* Hide comments, related videos, suggestions */
+        ytd-comments, ytd-item-section-renderer, ytd-continuation-item-renderer,
+        ytd-watch-next-tabbed-results-renderer, ytd-structured-description-content-renderer,
+        ytd-video-description-transcript-section-renderer {
+          display: none !important;
+        }
+
+        /* Hide subscribe, like, share buttons */
+        #subscribe-button, #like-button, #segmented-dislike-button,
+        ytd-menu-renderer, ytd-button-renderer, #primary-button,
+        ytd-subscribe-button-renderer, ytd-toggle-button-renderer {
+          display: none !important;
+        }
 
         /* Hide ad containers */
         .ad-showing, .ad-interrupting, .ytp-ad-overlay-container, .ytp-ad-message-container,
@@ -157,6 +253,17 @@ export const YoutubeMusicPlayer = () => {
         ytd-guide-entry-renderer[icon*='premium'],
         ytd-pivot-bar-item-renderer[tab-id*='premium'] {
           display: none !important;
+        }
+
+        /* Make video player full width */
+        #movie_player, .html5-video-player {
+          width: 100% !important;
+          height: auto !important;
+        }
+
+        video {
+          width: 100% !important;
+          height: auto !important;
         }
       `)
 
@@ -178,6 +285,23 @@ export const YoutubeMusicPlayer = () => {
               video.playbackRate = 1;
             }
             if (confirm) confirm.click();
+
+            // Force-hide page clutter dynamically
+            const hideSelectors = [
+              'ytd-masthead', '#masthead-container', 'ytd-guide-renderer', '#guide',
+              '#above-the-fold', '#title', '#meta', '#info', '#info-contents',
+              'ytd-video-primary-info-renderer', 'ytd-video-secondary-info-renderer',
+              '#description', '#description-inline-expander',
+              'ytd-comments', 'ytd-item-section-renderer',
+              'ytd-watch-next-tabbed-results-renderer',
+              '#subscribe-button', '#like-button', 'ytd-menu-renderer',
+              'ytd-reel-video-renderer', '#below-the-fold'
+            ];
+            hideSelectors.forEach(sel => {
+              document.querySelectorAll(sel).forEach(el => {
+                el.style.display = 'none';
+              });
+            });
           }, 500);
         })();
       `)
