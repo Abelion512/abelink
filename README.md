@@ -151,10 +151,10 @@ npm run build:win
 
 Berkas _installer_ akan secara otomatis tersedia di dalam direktori `dist/`.
 
-## Lisensi
+## Warning
 
-Proyek ini menggunakan lisensi **MIT**, dengan penambahan syarat mutlak: **Dilarang keras menjual atau memperdagangkan perangkat lunak ini untuk keuntungan komersial tanpa izin tertulis.**
+**Dilarang keras menjual atau memperdagangkan perangkat lunak ini untuk keuntungan komersial tanpa izin tertulis.**
 
 ---
 
-> Dibangun untuk masa depan AI yang lebih privat, adaptif, dan manusiawi.
+> Dibangun untuk masa depan AI yang lebih adaptif, dan manusiawi.
