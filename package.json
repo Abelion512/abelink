@@ -27,7 +27,6 @@
     "@tailwindcss/vite": "^4.1.18",
     "@whiskeysockets/baileys": "^7.0.0-rc13",
     "@xenova/transformers": "^2.17.2",
-    "active-win": "^8.2.1",
     "axios": "^1.13.4",
     "buffer": "^6.0.3",
     "dexie": "^4.3.0",

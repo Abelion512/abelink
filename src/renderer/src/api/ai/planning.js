@@ -277,7 +277,7 @@ ${
 - delete-file: Hapus file. Query: path_absolut. (Perlu persetujuan user)
 - list-dir: Lihat isi folder. Query: path_folder.
 - grep-search: Cari teks dalam folder. Query: path_folder||keyword.
-- run-shell: Eksekusi perintah shell (PowerShell di Windows, bash di Linux). (Perlu persetujuan user untuk command berbahaya)
+- run-shell: Eksekusi perintah shell (bash). (Perlu persetujuan user untuk command berbahaya)
 - run-cli: Eksekusi perintah shell via CLI. Format: "command||cwd||timeout". Tanpa approval. Gunakan untuk: Claude Code, Z.ai, Hermes CLI, git, npm, build, test, deploy, SSH, server commands. Output stdout + stderr lengkap.`
     : ''
 }
