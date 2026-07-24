@@ -480,7 +480,7 @@ ${
           messages[0].content += `\n\n[KRITIS] Batas maksimal ${hints.turnCap} tool calls per percakapan. Setelah itu WAJIB isi "answer" dan akhiri loop.`
         }
       }
-    } catch (e) { /* hints opsional — gagal membaca jangan memblokir */ }
+    } catch { /* hints opsional — gagal membaca jangan memblokir */ }
     const schema = {
       type: 'object',
       properties: {
