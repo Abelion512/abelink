@@ -13,6 +13,10 @@ import { sendScreenshotToWA } from './screenshot.js'
 import { downloadAndSendMusicWA } from './media-downloader.js'
 import { getGlobalConfig } from '../ai-bridge.js'
 
+// Global quit flag — stops reconnection loop when app is shutting down
+let appIsQuiting = false
+app.on('before-quit', () => { appIsQuiting = true })
+
 let sock = null
 let currentStatus = 'disconnected'
 let qrDataUrl = null
@@ -281,7 +285,7 @@ export const startWhatsappBot = async (mainWindow) => {
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut
       updateStatus('disconnected')
 
-      if (shouldReconnect) {
+      if (shouldReconnect && !appIsQuiting) {
         updateStatus('connecting')
         const delayMs = statusCode === DisconnectReason.restartRequired ? 1000 : 5000
         setTimeout(() => startWhatsappBot(mainWindow), delayMs)

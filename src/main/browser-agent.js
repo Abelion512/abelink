@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, app } from 'electron'
 import { DOM_PARSER_SCRIPT } from './browser-dom-parser.js'
 
 let browserWindow = null
@@ -6,6 +6,9 @@ let activeAskUser = false
 let activeAskUserMessage = ''
 let globalAskUserResolve = null
 let isForceClosing = false
+let appIsQuiting = false
+
+app.on('before-quit', () => { appIsQuiting = true })
 
 export async function navigateTo(url) {
   if (!browserWindow || browserWindow.isDestroyed()) {
@@ -34,7 +37,7 @@ export async function navigateTo(url) {
     })
 
     browserWindow.on('close', (event) => {
-      if (!isForceClosing) {
+      if (!isForceClosing && !appIsQuiting) {
         event.preventDefault()
 
         if (globalAskUserResolve) {
@@ -129,10 +132,13 @@ export async function navigateTo(url) {
   }
 
   // Gunakan Promise.race untuk ngasih timeout ke loadURL biar gak stuck di website berat/banyak tracker
+  let loadTimerId
+  const timeoutPromise = new Promise((resolve) => { loadTimerId = setTimeout(resolve, 60000) })
   await Promise.race([
     browserWindow.loadURL(url),
-    new Promise((resolve) => setTimeout(resolve, 60000)) // 60 detik timeout paksa kelar
-  ]).catch((e) => console.error('Error/Timeout loading URL:', e))
+    timeoutPromise
+  ]).finally(() => clearTimeout(loadTimerId))
+  .catch((e) => console.error('Error/Timeout loading URL:', e))
 
   // Tunggu halaman selesai load + 2 detik buffer untuk SPA rendering
   await new Promise((resolve) => setTimeout(resolve, 2000))

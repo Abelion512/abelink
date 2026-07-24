@@ -15,21 +15,21 @@ import { join } from 'path'
 import path from 'path'
 import fs from 'fs'
 import { electronApp, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.ico?asset'
+import icon from '../../resources/icon.png?asset'
 import { fetchTranscript } from 'youtube-transcript-plus'
 import yts from 'yt-search'
-import YTMusic from 'ytmusic-api'
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
-import { startTracking, getBuffer, flushBuffer } from './awareness/window-tracker.js'
+import { startTracking, stopTracking, getBuffer, flushBuffer } from './awareness/window-tracker.js'
 import { NATIVE_TOOLS } from './native-tools.js'
 import { loadSkills, initSkillsIPC } from './agent-skills-loader.js'
+import { initMpris, setMprisCallbacks, setMprisPlaybackStatus, updateMprisTrack, stopMpris } from './mpris-service.js'
 // Headless/SSH detection: disable GPU if no display server available (Linux)
 if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
   app.commandLine.appendSwitch('disable-gpu')
   app.commandLine.appendSwitch('disable-software-rasterizer')
 }
 
-// Matikan semua optimasi throttling Chromium agar webview WhatsApp tidak tertidur di hasil Build (.exe)
+// Matikan semua optimasi throttling Chromium agar webview WhatsApp tidak tertidur
 app.commandLine.appendSwitch('disable-background-timer-throttling')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
@@ -94,12 +94,9 @@ function createWindow() {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  // Sembunyikan window saat tombol close diklik (masuk tray)
-  mainWindow.on('close', function (event) {
-    if (!isQuiting) {
-      event.preventDefault()
-      mainWindow.hide()
-    }
+  // Close window = quit app (no minimize-to-tray for main window)
+  mainWindow.on('close', function () {
+    // Let window close naturally; app will quit via window-all-closed
   })
 }
 
@@ -109,6 +106,14 @@ ipcMain.on('remote-music-command', (event, command, payload) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('execute-music-command', command, payload)
   }
+})
+
+// Renderer calls this to update MPRIS track metadata (e.g., when a new song plays)
+ipcMain.on('mpris:update-track', (event, track, playing) => {
+  try { updateMprisTrack(track, playing) } catch {}
+})
+ipcMain.on('mpris:set-status', (event, playing) => {
+  try { setMprisPlaybackStatus(playing) } catch {}
 })
 
 import { fetchAI, setGlobalConfig, abortAllFetches } from './ai-bridge.js'
@@ -254,11 +259,10 @@ app.whenReady().then(async () => {
     })
   }
 
-  // Load plugin & Inisialisasi IPC Bridge
-  await loadPlugins()
+  // Register IPC handlers for plugins — no import() at boot
   initPluginIPC()
 
-  // Load & register Agent Skills (~/.agents/skills/)
+  // Load & register Agent Skills (~/.agents/skills/) — frontmatter-only, fast
   loadSkills()
   initSkillsIPC()
 
@@ -275,6 +279,30 @@ app.whenReady().then(async () => {
   })
 
   createWindow()
+
+  // Deferred non-blocking init — runs AFTER window is visible to user
+  loadPlugins().then(() => console.log('[Plugins] Manifests loaded'))
+
+  // MPRIS D-Bus — non-critical for UI, fire-and-forget
+  initMpris()
+  setMprisCallbacks({
+    onPlayPause: () => {
+      if (mainWindow && !mainWindow.isDestroyed())
+        mainWindow.webContents.send('execute-music-command', 'toggle')
+    },
+    onNext: () => {
+      if (mainWindow && !mainWindow.isDestroyed())
+        mainWindow.webContents.send('execute-music-command', 'next')
+    },
+    onPrevious: () => {
+      if (mainWindow && !mainWindow.isDestroyed())
+        mainWindow.webContents.send('execute-music-command', 'prev')
+    },
+    onStop: () => {
+      if (mainWindow && !mainWindow.isDestroyed())
+        mainWindow.webContents.send('execute-music-command', 'stop')
+    }
+  })
 
   // Langsung jalankan WhatsApp Bot di background secara rahasia (Tray Mode) saat aplikasi utama dibuka
   startWhatsappBot(mainWindow)
@@ -438,27 +466,18 @@ app.whenReady().then(async () => {
     }
   })
 
-  let ytmusicInstance = null
   ipcMain.handle('search-music', async (event, query) => {
     try {
-      if (!ytmusicInstance) {
-        ytmusicInstance = new YTMusic()
-        await ytmusicInstance.initialize()
-      }
-
-      const results = await ytmusicInstance.search(query)
-      const validSongs = results.filter((item) => item.videoId)
-
-      return validSongs.slice(0, 5).map((song) => ({
-        id: song.videoId,
-        title: song.name,
-        artist: song.artist?.name || 'Unknown',
-        album: song.album?.name || 'Single',
-        duration: song.duration,
-        thumbnail: song.thumbnails?.[song.thumbnails.length - 1]?.url
-          ?.replace(/=w\d+-h\d+.*$/, '=w1080-h1080-l90-rj')
-          ?.replace(/\?sqp=.*$/, '')
+      const { videos } = await yts(query)
+      const results = videos.slice(0, 5).map((v) => ({
+        id: v.videoId,
+        title: v.title,
+        artist: v.author.name,
+        album: 'Single',
+        duration: v.duration.seconds,
+        thumbnail: v.image?.replace(/=w\d+-h\d+.*$/, '=w1080-h1080-l90-rj')?.replace(/\?sqp=.*$/, '') || ''
       }))
+      return results
     } catch (error) {
       console.error('Mark gagal mencari lagu:', error.message)
       return []
@@ -472,23 +491,33 @@ app.whenReady().then(async () => {
   startTracking()
 })
 
-app.on('will-quit', () => {
+app.on('will-quit', async () => {
+  abortAllFetches()
+  stopTracking()
+  stopMpris()
+  stopWhatsappBot()
+  try { await closeBrowser() } catch {}
   if (tray) tray.destroy()
   globalShortcut.unregisterAll()
 })
 
 app.on('window-all-closed', () => {
-  // Abaikan event ini agar aplikasi tetap hidup di background tray
+  // On Linux, quit when all windows are closed (no dock behavior)
+  if (process.platform === 'linux') {
+    isQuiting = true
+    app.quit()
+  }
 })
 
-// Clean exit on Ctrl+C / kill signal (Linux)
+// Clean exit on Ctrl+C / kill signal (Linux) — app.exit(0) bypasses close hooks
 const cleanExit = () => {
   isQuiting = true
   if (tray) tray.destroy()
-  app.quit()
+  app.exit(0)
 }
 process.on('SIGINT', cleanExit)
 process.on('SIGTERM', cleanExit)
+process.on('SIGHUP', cleanExit) // terminal death/SSH disconnect
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.

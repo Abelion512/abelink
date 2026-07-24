@@ -44,7 +44,7 @@ export const YoutubeMusicPlayer = () => {
           window.api.searchMusic(payload).then((music) => {
             if (music && music.length > 0) {
               // Tambahkan query parameter acak biar URL selalu dianggap baru oleh React dan Router SPA
-              const url = `https://music.youtube.com/watch?v=${music[0].id}&_t=${Date.now()}`
+              const url = `https://www.youtube.com/watch?v=${music[0].id}`
               playUrlRef.current(url)
             }
           })
@@ -55,83 +55,130 @@ export const YoutubeMusicPlayer = () => {
     }
   }, []) // Register sekali saja, tidak perlu re-register
 
+  // Inject adblock CSS + JS into webview on dom-ready
   useEffect(() => {
     const webview = webviewRef.current
     if (!webview) return
 
     const handleDomReady = () => {
       setIsReady(true)
-      // 1. Suntik CSS buat ngilangin visual iklan & promo premium
       webview.insertCSS(`
-        /* Sembunyikan iklan video/audio player */
-        .ad-showing, .ad-interrupting, .ytp-ad-overlay-container, .ytp-ad-message-container {
-          display: none !important;
-        }
-        
-        /* Sembunyikan banner "Upgrade to Premium" & Mealbar Promo */
-        ytmusic-guide-entry-renderer[icon='yt-sys-icons:premium'],
-        ytmusic-pivot-bar-item-renderer[tab-id='SPunlimited'],
-        .ytmusic-mealbar-promo-renderer,
-        ytmusic-ad-slot-renderer,
-        #premium-out-of-app-upsell {
+        /* Hide scrollbar */
+        ::-webkit-scrollbar { display: none !important; width: 0 !important; }
+        html, body { overflow-y: scroll !important; scrollbar-width: none !important; }
+
+        /* Hide ad containers */
+        .ad-showing, .ad-interrupting, .ytp-ad-overlay-container, .ytp-ad-message-container,
+        #premium-ytd, ytd-mealbar-promo-renderer, ytd-banner-promo-renderer,
+        ytd-banner-promo-renderer-background, ytd-popup-container {
           display: none !important;
         }
 
-        /* Sembunyikan popup promosi & overlay backdrop */
-        ytmusic-popup-container, iron-overlay-backdrop, ytmusic-upsell-dialog-renderer {
+        ytd-guide-entry-renderer[icon*='premium'],
+        ytd-pivot-bar-item-renderer[tab-id*='premium'] {
           display: none !important;
         }
       `)
 
-      // 2. Logic "Ad-Blaster" (Auto-Mute & 16x Speed)
       webview.executeJavaScript(`
         (function() {
-          let isAdMuted = false;
-
           setInterval(() => {
             const video = document.querySelector('video');
-            const adContainer = document.querySelector('.ad-showing, .ad-interrupting');
-            const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
+            const ad = document.querySelector('.ad-showing, .ad-interrupting');
+            const skip = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
+            const confirm = document.querySelector('.ytd-popup-container button, .ytd-button-renderer button, #confirm-button button');
 
-            // --- JIKA ADA IKLAN ---
-            if (adContainer && video) {
-              console.log('Mark mendeteksi iklan. Mengaktifkan Ad-Blaster...');
-              
-              // A. Mute suara iklan biar gak berisik
-              if (!video.muted) {
-                video.muted = true;
-                isAdMuted = true;
-              }
-
-              // B. Paksa kecepatan 16x (Iklan 30 detik jadi ~2 detik)
+            if (ad && video) {
+              video.muted = true;
               video.playbackRate = 16;
-
-              // C. Paksa loncat ke akhir video iklan
-              if (isFinite(video.duration)) {
-                video.currentTime = video.duration - 0.1;
-              }
-
-              // D. Klik tombol skip kalau tiba-tiba muncul
-              if (skipBtn) skipBtn.click();
-            } 
-            
-            // --- JIKA IKLAN SELESAI ---
-            else if (video) {
-              // Balikin suara & kecepatan normal
-              if (isAdMuted) {
-                video.muted = false;
-                isAdMuted = false;
-              }
-              if (video.playbackRate !== 1) {
-                video.playbackRate = 1;
-              }
+              if (isFinite(video.duration)) video.currentTime = video.duration - 0.1;
+              if (skip) skip.click();
+            } else if (video && video.muted) {
+              video.muted = false;
+              video.playbackRate = 1;
             }
+            if (confirm) confirm.click();
+          }, 500);
+        })();
+      `)
+    }
 
-            // Anti-pause "Are you still watching?"
-            const confirmBtn = document.querySelector('ytmusic-you-there-renderer button, .ytmusic-you-there-renderer button');
-            if (confirmBtn) confirmBtn.click();
+    const handleNewWindow = (e) => {
+      // Intercept YouTube links that try to open new window — load in same webview
+      if (e.url.startsWith('https://www.youtube.com/watch?v=')) {
+        e.preventDefault()
+        webview.loadURL(e.url)
+      }
+    }
 
-          }, 500); // Cek setiap setengah detik
+    webview.addEventListener('dom-ready', handleDomReady)
+    webview.addEventListener('new-window', handleNewWindow)
+    return () => {
+      webview.removeEventListener('dom-ready', handleDomReady)
+      webview.removeEventListener('new-window', handleNewWindow)
+    }
+  }, [])
+
+  // Default URL — load YouTube so user can search manually
+  const DEFAULT_URL = 'https://www.youtube.com/'
+
+  useEffect(() => {
+    if (isReady && webviewRef.current && musicUrl && musicUrl !== DEFAULT_URL) {
+      try {
+        // Navigate directly to video URL
+        webviewRef.current.executeJavaScript(`
+          window.location.href = "${musicUrl}";
+        `)
+      } catch (e) {
+        console.error('Gagal navigate:', e)
+      }
+    }
+  }, [musicUrl, playId, isReady])
+
+  // Inject adblock CSS + JS into webview on dom-ready
+  useEffect(() => {
+    const webview = webviewRef.current
+    if (!webview) return
+
+    const handleDomReady = () => {
+      setIsReady(true)
+      webview.insertCSS(`
+        /* Hide scrollbar */
+        ::-webkit-scrollbar { display: none !important; width: 0 !important; }
+        html, body { overflow-y: scroll !important; scrollbar-width: none !important; }
+
+        /* Hide ad containers */
+        .ad-showing, .ad-interrupting, .ytp-ad-overlay-container, .ytp-ad-message-container,
+        #premium-ytd, ytd-mealbar-promo-renderer, ytd-banner-promo-renderer,
+        ytd-banner-promo-renderer-background, ytd-popup-container {
+          display: none !important;
+        }
+
+        ytd-guide-entry-renderer[icon*='premium'],
+        ytd-pivot-bar-item-renderer[tab-id*='premium'] {
+          display: none !important;
+        }
+      `)
+
+      webview.executeJavaScript(`
+        (function() {
+          setInterval(() => {
+            const video = document.querySelector('video');
+            const ad = document.querySelector('.ad-showing, .ad-interrupting');
+            const skip = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
+            const confirm = document.querySelector('.ytd-popup-container button, .ytd-button-renderer button, #confirm-button button');
+
+            if (ad && video) {
+              video.muted = true;
+              video.playbackRate = 16;
+              if (isFinite(video.duration)) video.currentTime = video.duration - 0.1;
+              if (skip) skip.click();
+            } else if (video && video.muted) {
+              video.muted = false;
+              video.playbackRate = 1;
+            }
+            if (confirm) confirm.click();
+          }, 500);
         })();
       `)
     }
@@ -140,48 +187,25 @@ export const YoutubeMusicPlayer = () => {
     return () => webview.removeEventListener('dom-ready', handleDomReady)
   }, [])
 
-  useEffect(() => {
-    if (isReady && webviewRef.current && musicUrl && musicUrl !== 'https://music.youtube.com') {
-      try {
-        // Trik SPA Router pakai klik a tag buat transisi smooth
-        webviewRef.current.executeJavaScript(`
-          (function() {
-            try {
-              const a = document.createElement('a');
-              a.href = "${musicUrl}";
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-            } catch(e) {
-              window.location.href = "${musicUrl}";
-            }
-          })();
-        `)
-      } catch (e) {
-        console.error('Gagal ganti lagu YT Music:', e)
-      }
-    }
-  }, [musicUrl, playId, isReady])
-
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none max-w-[90vw]">
       {/* Player Panel */}
       <div
         className={`
-          transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] origin-bottom-right
+          transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] origin-bottom-right w-full
           ${
             isPlayerOpen
-              ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
-              : 'opacity-0 scale-75 translate-y-4 pointer-events-none'
+              ? 'opacity-100 translate-y-0 pointer-events-auto'
+              : 'opacity-0 translate-y-4 pointer-events-none'
           }
         `}
       >
-        <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-black/40 border border-white/10 bg-base-300">
+        <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-black/40 border border-white/10 bg-base-300 w-full max-w-[520px] min-w-0">
           {/* Header bar */}
           <div className="flex items-center justify-between px-3 py-2 bg-base-200/80 backdrop-blur-sm border-b border-white/5">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
-              <span className="text-xs font-medium text-white/60 select-none">YouTube Music</span>
+              <span className="text-xs font-medium text-white/60 select-none">YouTube</span>
             </div>
             <button
               onClick={() => setIsPlayerOpen(false)}
@@ -203,14 +227,16 @@ export const YoutubeMusicPlayer = () => {
             </button>
           </div>
 
-          {/* Webview */}
+          {/* Webview — responsive, no zoom, fit container */}
           <webview
             ref={webviewRef}
-            src="https://music.youtube.com/"
-            style={{ zoom: '0.65', width: '420px', height: '560px' }}
+            src="https://www.youtube.com/"
+            style={{ width: '100%', height: '380px', overflow: 'hidden' }}
             className="no-scrollbar"
             allowpopups="false"
-            useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            partition="persist:youtube"
+            webpreferences="enableRemoteModule, contextIsolation=no, zoomFactor=1.0"
+            useragent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
           />
         </div>
       </div>
@@ -230,7 +256,7 @@ export const YoutubeMusicPlayer = () => {
               : 'bg-linear-to-br from-red-600 to-red-800 hover:from-red-500 hover:to-red-700'
           }
         `}
-        title={isPlayerOpen ? 'Tutup Player' : 'Buka YouTube Music'}
+        title={isPlayerOpen ? 'Tutup Player' : 'Buka YouTube'}
       >
         {/* Pulse ring saat tertutup */}
         {!isPlayerOpen && (
