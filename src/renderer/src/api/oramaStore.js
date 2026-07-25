@@ -37,6 +37,7 @@ export async function hydrateFromDexie() {
   const archives = await db.chatArchive.toArray()
   const validArchives = []
   const needsMigration = localStorage.getItem('migrated_vectors_v1') !== 'true'
+  let vecCount = 0
 
   for (let a of archives) {
     if (needsMigration || !a.vector || a.vector.length !== VECTOR_SIZE) {
@@ -45,6 +46,8 @@ export async function hydrateFromDexie() {
       if (a.vector && a.vector.length === VECTOR_SIZE) {
         db.chatArchive.update(a.id, { vector: a.vector }).catch(console.error)
       }
+      vecCount++
+      if (vecCount % 3 === 0) await new Promise(r => setTimeout(r, 0))
     }
     if (a.vector && a.vector.length === VECTOR_SIZE) {
       validArchives.push({
@@ -70,6 +73,8 @@ export async function hydrateFromDexie() {
       if (d.vector && d.vector.length === VECTOR_SIZE) {
         db.documents.update(d.id, { vector: d.vector }).catch(console.error)
       }
+      vecCount++
+      if (vecCount % 3 === 0) await new Promise(r => setTimeout(r, 0))
     }
     if (d.vector && d.vector.length === VECTOR_SIZE) {
       validDocs.push({

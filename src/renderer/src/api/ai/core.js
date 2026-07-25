@@ -1,9 +1,11 @@
 import { getAllConfig } from '../db'
 import { jsonrepair } from 'jsonrepair'
 
-export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema = null) => {
-  const currentConfig = await getAllConfig()
-  const conf = currentConfig[0] || {}
+export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema = null, conf = null) => {
+  if (!conf) {
+    const currentConfig = await getAllConfig()
+    conf = currentConfig[0] || {}
+  }
 
   return new Promise((resolve, reject) => {
     let hasResolved = false;
@@ -19,7 +21,7 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
 
     if (signal) {
       if (signal.aborted) return onAbort();
-      signal.addEventListener('abort', onAbort);
+      signal.addEventListener('abort', onAbort, { once: true });
     }
 
     // --- DEBUG LOG: Token Usage & Payload ---
@@ -39,8 +41,6 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
     window.api.fetchAI({ messages, config: conf, isSmallTask, jsonSchema }).then(result => {
       if (hasResolved) return;
       hasResolved = true;
-      if (signal) signal.removeEventListener('abort', onAbort);
-
       if (result && result.error) {
         const err = new Error(result.error.message)
         err.code = result.error.code
@@ -51,7 +51,6 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
     }).catch(e => {
       if (hasResolved) return;
       hasResolved = true;
-      if (signal) signal.removeEventListener('abort', onAbort);
       reject(e);
     })
   });
@@ -60,75 +59,18 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
 export const cleanAndParse = (rawResponse) => {
   try {
     if (!rawResponse) return null
-
-    let text = rawResponse
-      .replace(/```json\s*/gi, '')
-      .replace(/```\s*/g, '')
-      .trim()
-
-    const firstBrace = text.indexOf('{')
-    const lastBrace = text.lastIndexOf('}')
-    const firstBracket = text.indexOf('[')
-    const lastBracket = text.lastIndexOf(']')
-
-    let firstIndex = -1
-    let lastIndex = -1
-
-    if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
-      firstIndex = firstBrace
-    } else if (firstBracket !== -1) {
-      firstIndex = firstBracket
-    }
-
-    if (lastBrace !== -1 && (lastBracket === -1 || lastBrace > lastBracket)) {
-      lastIndex = lastBrace
-    } else if (lastBracket !== -1) {
-      lastIndex = lastBracket
-    }
-
-    if (firstIndex === -1 || lastIndex === -1) return null
-
-    const jsonStr = text.substring(firstIndex, lastIndex + 1)
-
-    try {
-      return JSON.parse(jsonStr)
-    } catch (_) {}
-
-    let cleaned = jsonStr
-      .replace(/\r?\n/g, ' ')
-      .replace(/\t/g, ' ')
-      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
-
-    try {
-      return JSON.parse(cleaned)
-    } catch (_) {}
-
-    cleaned = cleaned.replace(/\\(?!(["\\\/bfnrt]|u[a-fA-F0-9]{4}))/g, '\\\\')
-
-    try {
-      return JSON.parse(cleaned)
-    } catch (_) {}
-
-    cleaned = cleaned.replace(/,\s*([}\]])/g, '$1')
-
-    try {
-      return JSON.parse(cleaned)
-    } catch (_) {}
-
-    // Ultimate fallback using jsonrepair for missing brackets/quotes
-    try {
-      const repaired = jsonrepair(cleaned)
-      return JSON.parse(repaired)
-    } catch (_) {}
-
-    return null
+    // Fast path: try raw parse first (avoids expensive jsonrepair on valid JSON)
+    const trimmed = rawResponse.replace(/^\xEF\xBB\xBF/, '').trim()
+    try { return JSON.parse(trimmed) } catch {}
+    // Strip code fences then jsonrepair for broken LLM JSON
+    const cleaned = trimmed.replace(/```[\s\S]*?```/g, '').trim()
+    return JSON.parse(jsonrepair(cleaned))
   } catch (error) {
     console.error('Gagal Parse JSON:', error)
     try {
-      const lastResort = rawResponse.trim().replace(/^\xEF\xBB\xBF/, '')
-      const match = lastResort.match(/\{[\s\S]*\}/)
+      const match = rawResponse.trim().replace(/^\xEF\xBB\xBF/, '').match(/\{[\s\S]*\}/)
       return match ? JSON.parse(match[0]) : null
-    } catch (e) {
+    } catch {
       return null
     }
   }

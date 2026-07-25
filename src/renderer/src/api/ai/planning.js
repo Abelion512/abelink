@@ -1,5 +1,9 @@
 import { fetchAI, cleanAndParse } from './core'
+import { parseFallbackFormat, FALLBACK_PROMPT_SUFFIX } from './fallback-serializer'
+import { createCompressor } from './prompt-compressor'
 import { getAllConfig, getRelationship } from '../db'
+
+const compressor = createCompressor({ maxTokens: 128000 })
 import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorMemory'
 import { getPersonaPrompt, getTraitContext } from './persona'
@@ -15,13 +19,17 @@ const getConfigCached = async () => {
     _configCache = cfg
     _configCachePromise = null
     return cfg
+  }).catch(e => {
+    _configCachePromise = null
+    _configCache = null
+    throw e
   })
   return _configCachePromise
 }
 
-// Invalidate cache on config update
-if (typeof window !== 'undefined') {
-  window.addEventListener('config-updated', () => { _configCache = null })
+// Invalidate cache on config update (IPC from main process via preload bridge)
+if (typeof window !== 'undefined' && window.api?.onConfigUpdated) {
+  window.api.onConfigUpdated(() => { _configCache = null })
 }
 
 const CATEGORY_TEXTS = {
@@ -29,7 +37,7 @@ const CATEGORY_TEXTS = {
     'bikin web script kode code program aplikasi membuat koding coding programming nulis react html css javascript js perbaiki error bug frontend ui design backend logic',
   files:
     'baca file tulis file hapus file buat file edit file folder direktori cari teks grep terminal powershell command jalankan perintah eksekusi cmd',
-  music: 'putar lagu musik youtube yt music cari video mp3 play lagu puter',
+  music: 'putar lagu youtube cari video mp3 play lagu puter',
   search: 'cari di internet google penelusuran web berita terbaru cuaca informasi terkini',
   system: 'screenshot kirim pesan whatsapp wa operasikan komputer sistem',
   browser:
@@ -40,16 +48,22 @@ const CATEGORY_TEXTS = {
 let categoryVectors = null
 const getCategoryVectors = async () => {
   if (categoryVectors) return categoryVectors
+  const entries = Object.entries(CATEGORY_TEXTS)
+  const vectors = await Promise.all(entries.map(([_, text]) => generateVector(text)))
   const vecs = {}
-  for (const [key, text] of Object.entries(CATEGORY_TEXTS)) {
-    vecs[key] = await generateVector(text)
-  }
+  entries.forEach(([key], i) => { vecs[key] = vectors[i] })
   categoryVectors = vecs
   return categoryVectors
 }
 
 let pluginVectorCache = new Map()
 let skillsVectorCache = new Map()
+let skillsContentCache = new Map()
+
+// Plugin list cache — avoid IPC round-trip every turn
+let pluginListCache = []
+let pluginListCacheTime = 0
+const PLUGIN_CACHE_TTL = 60000 // 60s
 
 // Inline helper to get agent skills (~/.agents/skills/)
 const getAgentSkills = async () => {
@@ -64,8 +78,12 @@ const getAgentSkills = async () => {
   }
 }
 
-// Inline helper to get plugin actions (replaces pluginHelper.js)
+// Inline helper to get plugin actions with caching
 const getPluginActions = async () => {
+  const now = Date.now()
+  if (pluginListCache.length > 0 && now - pluginListCacheTime < PLUGIN_CACHE_TTL) {
+    return pluginListCache
+  }
   try {
     const plugins = await window.api.getPlugins()
     if (!plugins || plugins.length === 0) return []
@@ -81,6 +99,8 @@ const getPluginActions = async () => {
         })
       }
     })
+    pluginListCache = actions
+    pluginListCacheTime = now
     return actions
   } catch (e) {
     console.error(e)
@@ -129,11 +149,12 @@ export const getNextAction = async (
       if (activeCategories.includes('capabilities')) {
         relevantPlugins = pluginActions // Show all plugins if user is asking for capabilities
       } else {
+        const uncachedPlugins = pluginActions.filter(p => !pluginVectorCache.has(p.name))
+        if (uncachedPlugins.length > 0) {
+          const vectors = await Promise.all(uncachedPlugins.map(p => generateVector(`${p.name} ${p.description} ${p.triggerHint || ''}`)))
+          uncachedPlugins.forEach((p, i) => pluginVectorCache.set(p.name, vectors[i]))
+        }
         for (const p of pluginActions) {
-          const pText = `${p.name} ${p.description} ${p.triggerHint || ''}`
-          if (!pluginVectorCache.has(p.name)) {
-            pluginVectorCache.set(p.name, await generateVector(pText))
-          }
           const pVec = pluginVectorCache.get(p.name)
           if (pVec) {
             const score = cosineSimilarity(userVec, pVec)
@@ -161,16 +182,22 @@ export const getNextAction = async (
     // === Agent Skills (~/.agents/skills/) — vector-match & inject knowledge ===
     let relevantSkillContent = ''
     if (userVec && agentSkills.length > 0) {
+      const uncachedSkills = agentSkills.filter(s => !skillsVectorCache.has(s.name))
+      if (uncachedSkills.length > 0) {
+        const vectors = await Promise.all(uncachedSkills.map(s => generateVector(`${s.name} ${s.description}`)))
+        uncachedSkills.forEach((s, i) => skillsVectorCache.set(s.name, vectors[i]))
+      }
       for (const s of agentSkills) {
-        const sText = `${s.name} ${s.description}`
-        if (!skillsVectorCache.has(s.name)) {
-          skillsVectorCache.set(s.name, await generateVector(sText))
-        }
         const sVec = skillsVectorCache.get(s.name)
         if (sVec) {
           const score = cosineSimilarity(userVec, sVec)
           if (score > 0.35) {
-            const content = await window.api.getAgentSkillContent(s.name)
+            // Use cached content if available, avoid IPC round-trip
+            let content = skillsContentCache.get(s.name)
+            if (!content) {
+              content = await window.api.getAgentSkillContent(s.name)
+              if (content) skillsContentCache.set(s.name, content)
+            }
             if (content) {
               relevantSkillContent += `\n# SKILL: ${s.name} (${s.description})\n${content}\n`
             }
@@ -184,6 +211,8 @@ Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas
 
 ${await getPersonaPrompt(userId, conf.personality)}
 ${options.currentMusicTrack ? `\n# MUSIK YANG SEDANG DIPUTAR SAAT INI:\nSaat ini user sedang mendengarkan lagu: "${options.currentMusicTrack.title}" oleh ${options.currentMusicTrack.artist}.` : ''}
+${options.playbackError ? `\n# [YT ERROR] Gagal memutar lagu: ${options.playbackError}\nMARK WAJIB memberitahu user bahwa lagu gagal diputar. Jangan bilang berhasil!` : ''}
+${options.lastfmTracks || ''}
 
 # POLA BERPIKIR:
 Kamu dalam loop. Setiap giliran, pilih SATU:
@@ -197,8 +226,8 @@ JANGAN isi keduanya! Boleh panggil tool berulang kali.
 ${activeCategories.some((c) => ['search', 'casual', 'coding'].includes(c)) ? `- PENGGUNAAN WEB SEARCH: Gunakan "browser-navigate" ke Google Search HANYA untuk info real-time/terbaru. Untuk coding/teori umum, langsung jawab di "answer".` : ''}
 ${activeCategories.some((c) => ['coding', 'system'].includes(c)) ? `- STOPPING CONDITION (SANGAT KRITIS): Jika tugas utama (misal bikin web/script) sudah berhasil, jalan, dan sesuai instruksi awal, JANGAN ngide merombak ulang atau memperbaiki hal-hal minor! Langsung akhiri loop dengan mengisi "answer" (selesai). Sifat perfeksionis yang berlebihan justru merusak kode yang sudah jalan!\n- VERIFIKASI HASIL: Tepat sebelum kamu memutuskan untuk memberikan "answer" (selesai), wajib lakukan pengecekan terakhir (misal: jalankan command test, atau pastikan file berhasil ditulis). Jika hasilnya valid dan sesuai request, langsung laporkan ke user!` : ''}
 ${
-	      activeCategories.includes('coding')
-	    ? `
+          activeCategories.includes('coding')
+        ? `
 	# RSI (RECURSIVE SELF IMPROVEMENT) — Stage 4 Agent Engineering
 	KAMU ADALAH SELF-IMPROVING AGENT. Tool \`run-cli\` adalah PRIMARY tool untuk:
 	  - Improve kodemu sendiri via Claude Code: \`claude -p "task" --bare\`
@@ -253,9 +282,9 @@ ATURAN BROWSER AUTOMATION:
 6. JANGAN MENYERAH! Secara default user diblokir. Jika butuh user login/isi form manual, JANGAN balas dengan 'answer' lalu berhenti! HARUS selalu gunakan tool browser-ask-user, lalu tunggu user selesai, dan LAKUKAN sisa tugasmu!
 7. JANGAN GUNAKAN browser ini untuk memutar lagu!${
   activeCategories.includes('music')
-    ? `\n- music-play: Memutar lagu di YouTube Music.
+    ? `\n- music-play: Memutar lagu di YouTube.
 - music-toggle: Pause/lanjut memutar lagu.
-- music-search: Mencari lagu spesifik di YT Music.
+- music-search: Mencari lagu spesifik di YouTube.
 - music-next: Mengganti lagu ke track selanjutnya.
 - music-prev: Mengganti lagu ke track sebelumnya.`
     : ''
@@ -266,9 +295,10 @@ ${
 - camera-look: Mengaktifkan kamera webcam untuk melihat dunia nyata di depan user. Gunakan tool ini JIKA user meminta kamu melihat sesuatu secara fisik (bukan layar), ATAU jika kamu menerima instruksi dari sistem (autonomous_prompt) untuk mengecek kondisi user secara visual. Query: Isi dengan prompt instruksi visual spesifikmu (misal: "Apa objek yang dipegang user?" atau "Baca tulisan di kertas ini").
 - screenshot-to-wa: Mengambil screenshot layar komputer dan MENGIRIMNYA SECARA FISIK ke WhatsApp user (Hanya jika chat berasal dari WA). Query: KOSONGKAN SAJA.
 - wa-send: Mengirim pesan WhatsApp. Format query: "JID|Isi Pesan". PENTING: JID WAJIB diawali dengan kode negara (contoh Indonesia: mulai dengan "62", BUKAN "0"). Contoh format yang benar: "6282332392616@s.whatsapp.net|Halo!".
-- speak: Bicarakan teks secara lisan (Text-to-Speech) lewat speaker komputer user. Query: "Teks yang ingin kamu ucapkan". Gunakan ini jika kamu ingin memanggil user atau berbicara langsung.`
-    : ''
-}
+- speak: Bicarakan teks secara lisan (Text-to-Speech) lewat speaker komputer user. Query: "Teks yang ingin kamu ucapkan". Gunakan ini jika kamu ingin memanggil user atau berbicara langsung.
+- native-notify: Kirim notifikasi sistem Linux via notify-send. Format: "Judul||Isi Pesan". Muncul di notification center GNOME/KDE.`
+	    : ''
+	}
 ${
   activeCategories.some((c) => ['coding', 'files', 'system'].includes(c))
     ? `- read-file: Membaca isi file. Query: path_absolut. Baca spesifik baris: path||startLine||endLine.
@@ -291,6 +321,17 @@ Pesan "[OBSERVATION]" = hasil tool. Baca, lalu putuskan: tool lagi atau jawab us
 `
     : ''
 }
+
+${options.degradedMode ? `
+# DEGRADED MODE AKTIF
+Karena beberapa tool gagal berulang kali, browser tools dinonaktifkan. HANYA gunakan:
+- memory-search, read-file, write-file, replace-lines, list-dir, grep-search, run-shell, run-cli
+- yt-search, yt-summary, music-play, music-search, music-toggle, music-next, music-prev
+- native-notify, speak
+
+JANGAN gunakan: browser-navigate, browser-read, browser-click, browser-type, browser-scroll, browser-ask-user, browser-close
+Output HARUS dalam format JSON atau XML.
+` : ''}
 
 # ATURAN KOMUNIKASI (SANGAT PENTING)
 1. BERBICARA SECARA NATURAL & HUMANIS: Kamu BUKAN robot. Pada properti "answer", balas dengan gaya bahasa yang asik, rileks, dan proaktif! JANGAN memaksakan kata gaul (slang) jika grammar-nya jadi aneh, tapi jadilah teman ngobrol yang seru (Vibes 100% hidup).
@@ -395,7 +436,10 @@ ${
 
     const previousTurns = loopMessages.length > 0 ? prepareHistory(loopMessages) : []
 
-    const messages = [{ role: 'system', content: systemPrompt }, ...previousTurns]
+    // Compress history (Hermes-style) before building messages
+    const compressedTurns = compressor.compress(previousTurns)
+
+    const messages = [{ role: 'system', content: systemPrompt }, ...compressedTurns]
     const schema = {
       type: 'object',
       properties: {
@@ -422,6 +466,7 @@ ${
                 'screenshot-to-wa',
                 'wa-send',
                 'speak',
+                'native-notify',
                 'read-file',
                 'write-file',
                 'replace-lines',
@@ -432,8 +477,9 @@ ${
 	                'run-cli',
 	                'browser-navigate',
                 'browser-read',
-                'browser-click',
-                'browser-type',
+	                'browser-click',
+	                'browser-close',
+	                'browser-type',
                 'browser-scroll',
                 'browser-ask-user',
                 ...pluginActions.map((a) => a.name)
@@ -484,14 +530,19 @@ ${
     let attempts = 0
     const MAX_RETRIES = 2
 
-    while (attempts < MAX_RETRIES) {
-      attempts++
-      console.log(`[planning] Calling fetchAI (Attempt ${attempts})...`)
+	    while (attempts < MAX_RETRIES) {
+	      attempts++
+	      console.log(`[planning] Calling fetchAI (Attempt ${attempts})...`)
 
-      console.log(messages[0].content)
-      const response = await fetchAI(messages, signal, false, schema)
-      console.log('[planning] fetchAI returned, parsing...')
-      const data = cleanAndParse(response.content)
+	      // On retry, append fallback format instructions if JSON mode disabled
+	      if (attempts > 1 && !messages[0].content.includes('ALTERNATIF')) {
+	        messages[0].content += `\n\n${FALLBACK_PROMPT_SUFFIX}`
+	      }
+
+	      console.log(messages[0].content)
+	      const response = await fetchAI(messages, signal, false, schema, conf)
+	      console.log('[planning] fetchAI returned, parsing...')
+	      const data = parseFallbackFormat(response.content)
       console.log('[planning] parse finished:', data)
 
       if (data) {

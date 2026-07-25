@@ -1,510 +1,232 @@
-import { jsonrepair } from 'jsonrepair'
+import { app } from 'electron'
+import jsonrepair from 'jsonrepair'
 
-const LM_STUDIO_OFFLINE_MESSAGE = 'LM Studio mati atau belum jalan. Nyalakan dulu di port 1234.'
-
-const createLMStudioOfflineError = (cause) => {
-  const error = new Error(LM_STUDIO_OFFLINE_MESSAGE)
+const createLMStudioOfflineError = (cause, endpoint = 'localhost:1234') => {
+  const error = new Error(`Server AI (${endpoint}) tidak merespons. Pastikan server berjalan.`)
   error.code = 'LM_STUDIO_OFFLINE'
   if (cause) error.cause = cause
   return error
 }
 
-const isLMStudioOfflineError = (error) => {
-  return (
-    error?.code === 'LM_STUDIO_OFFLINE' ||
-    error?.name === 'TypeError' ||
-    error?.message?.includes('Failed to fetch') ||
-    error?.message?.includes('fetch') ||
-    error?.message?.includes('ECONNREFUSED')
-  )
+const defaultConfig = {
+  activeProvider: process.env.DEFAULT_AI_PROVIDER || 'lmstudio',
+  customEndpoint: process.env.CUSTOM_AI_ENDPOINT || '',
+  customModel: process.env.CUSTOM_AI_MODEL || '',
+  customApiKey: process.env.CUSTOM_AI_API_KEY || ''
 }
 
-let lastCloudFetchTime = 0
-const CLOUD_DELAY_MS = 3000 // 3 seconds delay biar aman dari rate limit (Gemini/Groq/Custom)
-
-let globalConfig = {}
-export const activeAbortControllers = new Set()
-export const abortAllFetches = () => {
-  activeAbortControllers.forEach((controller) => {
-    try {
-      controller.abort(new Error('User Aborted'))
-    } catch (e) {}
-  })
-}
+let globalConfig = { ...defaultConfig }
 
 export const setGlobalConfig = (config) => {
-  globalConfig = config || {}
+  globalConfig = { ...defaultConfig, ...config }
 }
 
-export const getGlobalConfig = () => globalConfig
+/**
+ * AbortControllers disimpan di MAP biar bisa dibatalin semua dari luar.
+ */
+const activeFetches = new Map()
+let fetchCounter = 0
 
+export const abortAllFetches = () => {
+  activeFetches.forEach((controller, _key) => {
+    try { controller.abort() } catch { /* ignore */ }
+  })
+  activeFetches.clear()
+  fetchCounter = 0
+}
+
+const removeFetch = (id) => {
+  activeFetches.delete(id)
+}
+
+const addFetch = (signal) => {
+  fetchCounter++
+  const id = fetchCounter
+  const controller = new AbortController()
+  activeFetches.set(id, controller)
+  signal?.addEventListener('abort', () => removeFetch(id))
+  return { id, controller }
+}
+
+/**
+ * Unit-test friendly fetchAI.
+ * Wraps the full fetch lifecycle: config resolution, router dispatch,
+ * streaming, abort, retry, error transformation.
+ */
 export const fetchAI = async (
   messages,
   config,
+  signal,
   isSmallTask = false,
   jsonSchema = null,
-  onStatus = null
+  onStream = null
 ) => {
-  try {
-    const conf = config || globalConfig
+  // ========== RESOLVE CONFIG ==========
+  const conf = config || globalConfig
+  const activeProvider = conf.activeProvider || 'lmstudio'
+  const customEndpoint = conf.customEndpoint?.replace(/\/+$/, '') || 'http://localhost:1234'
+  const customModel = conf.customModel || 'gemma-3-12b-it'
+  const customApiKey = conf.customApiKey || ''
+  const maxTokens = isSmallTask ? (conf.smallMaxTokens || 256) : (conf.maxTokens || 1024)
+  const temperature = isSmallTask ? (conf.smallTemperature ?? 0.3) : (conf.temperature ?? 0.7)
 
-    let endpoint = 'http://localhost:1234/v1/chat/completions'
-    let headers = {
-      'Content-Type': 'application/json'
-    }
-
-    // Only use secondary model if primary provider is Groq
-    const useSecondary =
-      isSmallTask && conf.useSecondaryModel && conf.aiProvider === 'groq' && conf.groqApiKey
-
-    let body = {
-      temperature: Number(conf.temperature) || 0,
-      messages: messages.map((m, index) => {
-        let sanitizedContent = m.content
-        if (Array.isArray(m.content)) {
-          // Hanya hapus gambar dari HISTORY (bukan pesan terakhir) untuk hemat token
-          if (index < messages.length - 1) {
-            sanitizedContent = m.content.find((c) => c.type === 'text')?.text || '[Gambar terlampir]'
-          } else {
-            sanitizedContent = m.content // Biarkan gambar tetap utuh untuk dianalisis AI
-          }
-        }
-        return { ...m, content: sanitizedContent }
-      })
-    }
-
-    if (useSecondary) {
-      endpoint = 'https://api.groq.com/openai/v1/chat/completions'
-      headers['Authorization'] = `Bearer ${conf.groqApiKey}`
-      body.model = 'openai/gpt-oss-20b'
-    } else if (conf.aiProvider === 'groq') {
-      endpoint = 'https://api.groq.com/openai/v1/chat/completions'
-      headers['Authorization'] = `Bearer ${conf.groqApiKey}`
-      body.model = conf.groqModel || 'openai/gpt-oss-20b'
-    } else if (conf.aiProvider === 'cerebras') {
-      endpoint = 'https://api.cerebras.ai/v1/chat/completions'
-      headers['Authorization'] = `Bearer ${conf.cerebrasApiKey}`
-      body.model = conf.cerebrasModel || 'llama3.1-8b'
-      body.max_completion_tokens = 2048 // Fix for Cerebras TPM assuming 8k/128k tokens
-    } else if (conf.aiProvider === 'custom') {
-      endpoint = conf.customEndpoint || 'http://localhost:1234/v1/chat/completions'
-      if (conf.customApiKey) {
-        headers['Authorization'] = `Bearer ${conf.customApiKey}`
-      }
-      body.model = conf.customModel || 'default-model'
-    } else {
-      body.model = conf.model || 'google/gemma-3-4b'
-    }
-
-    // Set max_tokens to prevent truncation, tapi jangan terlalu gede buat API gratisan Groq/OpenRouter
-    if (conf.aiProvider === 'groq') {
-      body.max_tokens = 2048 // Diubah dari 8192 ke 2048 biar ga meledak TPM-nya Groq
-    }
-
-    const parentAbortController = new AbortController()
-    activeAbortControllers.add(parentAbortController)
-
-    const executeFetch = async (currentBody, isRetry = false, trafficRetryCount = 0) => {
-      if (parentAbortController.signal.aborted) {
-        throw new Error('AbortError')
-      }
-      // --- RATE LIMIT THROTLLING LOGIC (Berlaku buat SEMUA API cloud/berbayar/gratis biar gak jebol) ---
-      if (!endpoint.includes('localhost') && !endpoint.includes('127.0.0.1')) {
-        let requiredDelay = 0
-        if (conf.aiProvider === 'groq') requiredDelay = 3000
-        else if (conf.aiProvider === 'cerebras') requiredDelay = 1000
-        else requiredDelay = 0
-
-        const now = Date.now()
-        const timeSinceLastFetch = now - lastCloudFetchTime
-        if (requiredDelay > 0 && timeSinceLastFetch < requiredDelay) {
-          const delay = requiredDelay - timeSinceLastFetch
-          console.log(`[Rate Limit Guard] Waiting ${delay}ms before next Cloud request...`)
-          await new Promise((resolve) => setTimeout(resolve, delay))
-        }
-        lastCloudFetchTime = Date.now()
-      }
-
-      // --- TIMEOUT LOGIC ---
-      const timeoutMs = 300000 // 5 menit timeout buat local LLM yang lama mikir
-      const abortController = new AbortController()
-      activeAbortControllers.add(abortController)
-      const timeoutId = setTimeout(
-        () => abortController.abort(new Error('Request Timeout (Tidak ada respon dari server)')),
-        timeoutMs
-      )
-
-      let response
-      try {
-        response = await fetch(endpoint, {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify(currentBody),
-          signal: abortController.signal
-        })
-        clearTimeout(timeoutId)
-      } catch (err) {
-        clearTimeout(timeoutId)
-        if (parentAbortController.signal.aborted) {
-          throw new Error('AbortError')
-        }
-        if (
-          abortController.signal.reason?.message ===
-          'Request Timeout (Tidak ada respon dari server)'
-        ) {
-          throw new Error('Request Timeout: AI memakan waktu terlalu lama untuk membalas.')
-        }
-        if (err.name === 'AbortError' || (err.message && err.message.includes('Timeout'))) {
-          throw new Error(
-            `Koneksi Timeout: Server API (${endpoint}) nge-gantung lebih dari 5 menit.`
-          )
-        }
-        throw err
-      } finally {
-        clearTimeout(timeoutId)
-        parentAbortController.signal.removeEventListener(
-          'abort',
-          abortController.abort.bind(abortController)
-        )
-      }
-
-      if (!response.ok) {
-        const textData = await response.text()
-        let errorData = null
-        try {
-          errorData = JSON.parse(textData)
-        } catch (e) {}
-
-        const errorMsg =
-          errorData?.error?.message || errorData?.message || response.statusText || textData
-
-        // Auto-retry fallback jika JSON Schema tidak di-support oleh model
-        if (
-          !isRetry &&
-          currentBody.response_format?.type === 'json_schema' &&
-          (String(errorMsg).toLowerCase().includes('schema') ||
-            String(errorMsg).toLowerCase().includes('json') ||
-            response.status === 400 ||
-            response.status === 422)
-        ) {
-          console.log('[Auto-Retry] Model tidak support json_schema, fallback ke json_object...')
-
-          let fallbackBody = { ...currentBody }
-          fallbackBody.response_format = { type: 'json_object' }
-
-          // Inject schema ke prompt
-          let fallbackMessages = fallbackBody.messages.map((m) => ({ ...m }))
-          const sysIdx = fallbackMessages.findIndex((m) => m.role === 'system')
-          const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
-
-          if (sysIdx >= 0) {
-            fallbackMessages[sysIdx].content += instruction
-          } else {
-            fallbackMessages.unshift({ role: 'system', content: instruction })
-          }
-          fallbackBody.messages = fallbackMessages
-
-          return executeFetch(fallbackBody, true, trafficRetryCount) // Retry sekali dengan json_object
-        }
-
-        // Auto-retry fallback jika json_object gagal divalidasi (karena format markdown/extra teks)
-        if (
-          currentBody.response_format?.type === 'json_object' &&
-          (String(errorMsg).toLowerCase().includes('validate json') ||
-            String(errorMsg).toLowerCase().includes('failed to validate') ||
-            String(errorMsg).toLowerCase().includes('json') ||
-            response.status === 400 ||
-            response.status === 422)
-        ) {
-          console.log(
-            '[Auto-Retry] Model gagal menghasilkan JSON murni (strict JSON), fallback tanpa constraint response_format...'
-          )
-
-          let fallbackBody = { ...currentBody }
-          delete fallbackBody.response_format
-
-          // Jika awalnya tidak dari json_schema (isRetry === false), kita belum inject schema manual
-          if (!isRetry && jsonSchema) {
-            let fallbackMessages = fallbackBody.messages.map((m) => ({ ...m }))
-            const sysIdx = fallbackMessages.findIndex((m) => m.role === 'system')
-            const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
-
-            if (sysIdx >= 0) {
-              fallbackMessages[sysIdx].content += instruction
-            } else {
-              fallbackMessages.unshift({ role: 'system', content: instruction })
-            }
-            fallbackBody.messages = fallbackMessages
-          }
-
-          return executeFetch(fallbackBody, true, trafficRetryCount) // Retry tanpa constraint format
-        }
-
-        const errorProvider =
-          conf.aiProvider === 'groq'
-            ? 'Groq API'
-            : conf.aiProvider === 'cerebras'
-              ? 'Cerebras API'
-              : conf.aiProvider === 'custom'
-                ? 'Custom API'
-                : 'LM Studio'
-        let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
-
-        // Auto-retry fallback untuk High Traffic / Rate Limits (503, 429, 500)
-        let isHighTraffic =
-          response.status === 429 ||
-          response.status >= 500 ||
-          finalErrorMessage.toLowerCase().includes('high traffic') ||
-          finalErrorMessage.toLowerCase().includes('rate limit') ||
-          finalErrorMessage.toLowerCase().includes('tpm')
-
-        // PENTING: Kalau errornya "Request too large", ini bukan masalah server sibuk yang bisa selesai dengan nunggu!
-        // Ini berarti ukuran pesan (tokens) lebih besar dari batasan maksimal tier (misal tier gratis cuma 6000 TPM).
-        // Nunggu sampai lebaran pun request ini nggak bakal lolos, jadi jangan dilooping!
-        if (finalErrorMessage.toLowerCase().includes('request too large')) {
-          isHighTraffic = false
-        }
-
-        if (isHighTraffic && trafficRetryCount < 5) {
-          // Cek apakah server ngasih tau harus nunggu berapa detik (khusus Groq 429)
-          let backoffDelay = (trafficRetryCount + 1) * 3000
-          const timeMatch = finalErrorMessage.match(/Please try again in ([0-9.]+)s/)
-          if (timeMatch) {
-            // Kalau disuruh nunggu 14 detik, kita nunggu 14.5 detik biar aman
-            backoffDelay = Math.ceil(parseFloat(timeMatch[1]) * 1000) + 500
-          }
-
-          let retryBody = { ...currentBody }
-
-          // Kalau server ngasih instruksi nunggu (timeMatch ada), HARGAI instruksi server.
-          // Jangan maksa nge-spam tiap 1 detik karena API gateway akan terus nge-blokir.
-          if (endpoint.includes('groq.com')) {
-            const backupModels = ['openai/gpt-oss-20b'] // Hanya gunakan model yang didukung!
-            const nextModel = backupModels[trafficRetryCount % backupModels.length]
-            retryBody.model = nextModel
-            console.log(`[Model Swap] Mark ganti haluan instan ke ${nextModel}`)
-
-            // Kalau nggak ada timeMatch (nggak disuruh nunggu spesifik), boleh jeda cepat
-            if (!timeMatch) {
-              backoffDelay = 2000
-            }
-          }
-
-          if (onStatus)
-            onStatus(`Server sibuk, mencoba ulang dalam ${Math.round(backoffDelay / 1000)}s...`)
-
-          console.log(
-            `[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/5)`
-          )
-
-          // Abortable sleep
-          await new Promise((resolve, reject) => {
-            const timer = setTimeout(resolve, backoffDelay)
-            if (parentAbortController.signal.aborted) {
-              clearTimeout(timer)
-              reject(new Error('AbortError'))
-            }
-            parentAbortController.signal.addEventListener('abort', () => {
-              clearTimeout(timer)
-              reject(new Error('AbortError'))
-            })
-          })
-
-          return executeFetch(retryBody, isRetry, trafficRetryCount + 1)
-        }
-
-        if (
-          finalErrorMessage.includes('Rate limit reached') ||
-          finalErrorMessage.includes('Too Many Requests') ||
-          finalErrorMessage.includes('limit exceeded')
-        ) {
-          const timeMatch = finalErrorMessage.match(/Please try again in ([0-9.]+s)/)
-          if (timeMatch) {
-            finalErrorMessage = `Limit token Anda habis. Silakan coba lagi dalam ${timeMatch[1]}.`
-          } else {
-            finalErrorMessage = `Limit token ${errorProvider} Anda habis. Silakan tunggu beberapa saat.`
-          }
-        }
-
-        const err = new Error(`Gagal memuat AI (${errorProvider}): ${finalErrorMessage}`)
-        err.status = response.status
-        throw err
-      }
-
-      let rawText = await response.text()
-      
-      // [ROUTER FIX] Ekstrak JSON dari teks sampah router — handle both {object} and [array] responses
-      let cleanText = rawText.trim()
-      const extractJSON = (text) => {
-        const firstBrace = text.indexOf('{')
-        const firstBracket = text.indexOf('[')
-        let start, end, open, close
-        if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
-          start = firstBrace; open = '{'; close = '}'
-        } else if (firstBracket !== -1) {
-          start = firstBracket; open = '['; close = ']'
-        } else {
-          return null
-        }
-        let depth = 0
-        for (let i = start; i < text.length; i++) {
-          if (text[i] === open) depth++
-          else if (text[i] === close) { depth--; if (depth === 0) { end = i; break } }
-        }
-        if (depth !== 0) return null
-        return text.substring(start, end + 1)
-      }
-      const extracted = extractJSON(cleanText)
-      if (extracted) cleanText = extracted
-
-      console.log(`[FetchAI] Raw Response from Router (Status: ${response.status}):`, cleanText)
-      
-      try {
-        return JSON.parse(cleanText)
-      } catch (parseError) {
-        console.error('[FetchAI] Gagal mem-parsing response body JSON dari router:', parseError.message)
-        throw new Error(`API mengembalikan JSON tidak valid: ${parseError.message}\nRaw Text: ${cleanText.slice(0, 100)}...`)
-      }
-    }
-
-    if (jsonSchema) {
-      if (
-        conf.aiProvider === 'cerebras' ||
-        conf.aiProvider === 'groq' ||
-        conf.aiProvider === 'custom'
-      ) {
-        // Fallback for providers that might struggle with strict json_schema
-        if (conf.aiProvider === 'groq') {
-          body.response_format = { type: 'json_object' }
-        }
-        // Inject schema instructions manually
-        body.messages = body.messages.map((m) => ({ ...m })) // Clone array
-        let sysIdx = body.messages.findIndex((m) => m.role === 'system')
-        const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
-        if (sysIdx >= 0) {
-          body.messages[sysIdx].content += instruction
-        } else {
-          body.messages.unshift({ role: 'system', content: instruction })
-        }
-      } else {
-        body.response_format = {
-          type: 'json_schema',
-          json_schema: {
-            name: 'mark_schema',
-            strict: true,
-            schema: jsonSchema
-          }
-        }
-      }
-    }
-
-    // Normalisasi array messages untuk Custom API (terutama NaraRouter/Gemini)
-    if (conf.aiProvider === 'custom') {
-      let normalizedMessages = []
-      const isMistralModel = body.model && body.model.toLowerCase().includes('mistral')
-
-      for (let m of body.messages) {
-        let currentRole = m.role === 'system' ? 'user' : m.role
-        let currentContent = m.content
-
-        // Adaptasi Vision Payload Khusus Mistral (Mistral mengharapkan image_url sebagai string, bukan object)
-        if (isMistralModel && Array.isArray(currentContent)) {
-          currentContent = currentContent.map(item => {
-            if (item.type === 'image_url' && item.image_url && typeof item.image_url === 'object') {
-              return { type: 'image_url', image_url: item.image_url.url }
-            }
-            return item
-          })
-        }
-
-        if (
-          normalizedMessages.length > 0 &&
-          normalizedMessages[normalizedMessages.length - 1].role === currentRole
-        ) {
-          const prevMsg = normalizedMessages[normalizedMessages.length - 1]
-          if (Array.isArray(prevMsg.content) || Array.isArray(currentContent)) {
-            // Gabung array vision
-            const prevArr = Array.isArray(prevMsg.content) ? prevMsg.content : [{ type: 'text', text: prevMsg.content }]
-            const currArr = Array.isArray(currentContent) ? currentContent : [{ type: 'text', text: currentContent }]
-            prevMsg.content = [...prevArr, ...currArr]
-          } else {
-            // Gabung string biasa
-            prevMsg.content += `\n\n${currentContent}`
-          }
-        } else {
-          normalizedMessages.push({ role: currentRole, content: currentContent })
-        }
-      }
-      body.messages = normalizedMessages
-    }
-
-    let data
-    try {
-      data = await executeFetch(body)
-    } finally {
-      activeAbortControllers.delete(parentAbortController)
-    }
-    const message = data.choices[0].message
-
-    let content = message.content || ''
-    let reasoning = message.reasoning || null
-
-    if (!reasoning && content.includes('<think>')) {
-      const match = content.match(/<think>([\s\S]*?)<\/think>/)
-      if (match) {
-        reasoning = match[1].trim()
-        content = content.replace(/<think>[\s\S]*?<\/think>/, '').trim()
-      }
-    }
-
-    console.log(content)
-    return { content, reasoning }
-  } catch (error) {
-    const conf = config || {}
-    if (
-      conf.aiProvider !== 'groq' &&
-      conf.aiProvider !== 'cerebras' &&
-      isLMStudioOfflineError(error)
-    ) {
-      if (
-        conf.aiProvider === 'custom' &&
-        conf.customEndpoint &&
-        !conf.customEndpoint.includes('localhost') &&
-        !conf.customEndpoint.includes('127.0.0.1')
-      ) {
-        throw new Error(
-          `Koneksi ke Custom API gagal atau ditolak. Pastikan URL benar: ${error.message}`
-        )
-      }
-      throw createLMStudioOfflineError(error)
-    }
-
-    throw error
+  // ========== BUILD REQUEST BODY ==========
+  const requestBody = {
+    messages,
+    max_tokens: maxTokens,
+    temperature,
+    stream: (onStream !== null),
+    model: customModel
   }
+  if (jsonSchema && activeProvider !== 'lmstudio') {
+    requestBody.response_format = { type: 'json_object' }
+  }
+
+  // ========== RESOLVE ENDPOINT ==========
+  let url, headers
+  if (activeProvider === 'custom' && customEndpoint) {
+    url = `${customEndpoint.replace(/\/+$/, '')}/v1/chat/completions`
+    headers = {
+      'Content-Type': 'application/json',
+      'Authorization': customApiKey ? `Bearer ${customApiKey}` : undefined
+    }
+    if (customApiKey) {
+      // Some providers need extra headers based on endpoint
+      if (customEndpoint.includes('openai.com')) {
+        headers['Authorization'] = `Bearer ${customApiKey}`
+      } else if (customEndpoint.includes('anthropic.com')) {
+        headers['x-api-key'] = customApiKey
+        headers['anthropic-version'] = '2023-06-01'
+      } else if (customEndpoint.includes('googleapis.com')) {
+        headers['Authorization'] = `Bearer ${customApiKey}`
+      } else {
+        headers['Authorization'] = `Bearer ${customApiKey}`
+      }
+    }
+  } else {
+    url = `http://localhost:1234/v1/chat/completions`
+    headers = { 'Content-Type': 'application/json' }
+  }
+
+  const endpoint = customEndpoint || 'localhost:1234'
+  console.log(`[FetchAI] ${isSmallTask ? '(Small) ' : ''}POST ${url}`)
+  console.log('[FetchAI] Messages:', messages.map(m => `${m.role}: ${m.content?.slice?.(0, 80) || '(no content)'}`).join(' | '))
+  if (jsonSchema) {
+    console.log('[FetchAI] JSON Schema:', JSON.stringify(jsonSchema).slice(0, 100))
+  }
+  if (requestBody.response_format) {
+    console.log('[FetchAI] Response format:', JSON.stringify(requestBody.response_format))
+  }
+
+  // ========== FETCH WITH RETRY ==========
+  const executeFetch = async (retryBody, isRetry = false, trafficRetryCount = 0) => {
+    const { id, controller } = addFetch(signal)
+    const fetchSignal = controller.signal
+
+    // Cleanup parent abort listener to avoid leak
+    const abortHandler = () => controller.abort(new Error('AbortError'))
+    if (signal && !signal.aborted) {
+      signal.addEventListener('abort', abortHandler, { once: true })
+    }
+
+    let response
+    try {
+      response = await fetch(new Request(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(retryBody || requestBody),
+        signal: fetchSignal
+      }))
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw createLMStudioOfflineError(error, endpoint)
+      }
+      throw error
+    } finally {
+      if (signal && !signal.aborted) {
+        signal.removeEventListener('abort', abortHandler)
+      }
+      removeFetch(id)
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error')
+
+      // Auto-retry fallback untuk High Traffic / Rate Limits (503, 429, 500)
+      if ((response.status === 503 || response.status === 429 || response.status === 500) && trafficRetryCount < 3) {
+        console.warn(`[FetchAI] Server sibuk (${response.status}), retry ke-${trafficRetryCount + 1} dalam 2 detik...`)
+        await new Promise(r => setTimeout(r, 2000))
+        return executeFetch(retryBody, isRetry, trafficRetryCount + 1)
+      }
+
+      throw createLMStudioOfflineError(
+        new Error(`HTTP ${response.status}: ${errorText.slice(0, 200)}`),
+        endpoint
+      )
+    }
+
+    // ========== STREAMING ==========
+    if (onStream && response.body) {
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let fullText = ''
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value, { stream: true })
+          const lines = chunk.split('\n').filter(l => l.startsWith('data: '))
+          for (const line of lines) {
+            const data = line.replace(/^data: /, '').trim()
+            if (!data || data === '[DONE]') continue
+            try {
+              const parsed = JSON.parse(data)
+              const content = parsed.choices?.[0]?.delta?.content || parsed.choices?.[0]?.text || ''
+              if (content) {
+                fullText += content
+                onStream(content)
+              }
+            } catch { /* skip malformed SSE */ }
+          }
+        }
+      } catch (error) {
+        console.warn('[FetchAI] Stream error:', error.message)
+        if (fullText) {
+          try { return { content: [{ text: fullText }] } } catch { /* ignore */ }
+        }
+        throw error
+      }
+
+      // Streaming selesai — kembalikan teks sebagai response
+      return { content: [{ text: fullText }] }
+    }
+
+    // ========== NON-STREAMING ==========
+    const cleanText = await response.text()
+    const isDev = !app || !app.isPackaged
+    console.log(`[FetchAI] Raw Response${isDev ? '' : ' (length: ' + cleanText.length + ')'}:`, isDev ? cleanText : '[redacted in production]')
+
+    const parsed = cleanAndParse(cleanText)
+    if (parsed !== null) return parsed
+    throw new Error(`API mengembalikan JSON tidak valid.\nRaw Text: ${cleanText.slice(0, 100)}...`)
+  }
+
+  return executeFetch(requestBody)
 }
 
 export const cleanAndParse = (rawResponse) => {
   try {
     if (!rawResponse) return null
-
-    // 1. Parse langsung tanpa modifikasi (paling aman)
-    try {
-      return JSON.parse(rawResponse)
-    } catch (_) {}
-
-    // 2. Gunakan jsonrepair untuk membereskan json berantakan dari LLM
-    const repaired = jsonrepair(rawResponse)
-    return JSON.parse(repaired)
+    // ponytail: jsonrepair handles fences, trailing commas, control chars, broken escapes
+    const cleaned = rawResponse.replace(/```[\s\S]*?```/g, '').replace(/^\xEF\xBB\xBF/, '').trim()
+    return JSON.parse(jsonrepair(cleaned))
   } catch (error) {
-    console.error('Gagal Parse JSON menggunakan jsonrepair:', error)
-    // Upaya terakhir: coba bersihkan BOM dan extract ulang manual
+    console.error('Gagal Parse JSON:', error)
     try {
-      const lastResort = String(rawResponse)
-        .trim()
-        .replace(/^\xEF\xBB\xBF/, '')
-      const match = lastResort.match(/\{[\s\S]*\}/)
+      const match = rawResponse.trim().replace(/^\xEF\xBB\xBF/, '').match(/\{[\s\S]*\}/)
       return match ? JSON.parse(match[0]) : null
-    } catch (e) {
+    } catch {
       return null
     }
   }

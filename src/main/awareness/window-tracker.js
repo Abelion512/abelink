@@ -5,7 +5,7 @@ import { powerMonitor } from 'electron'
 const execPromise = util.promisify(exec)
 
 let buffer = []
-let intervalId = null
+let timeoutId = null
 let wasIdle = false
 
 function pushToBuffer(entry) {
@@ -183,9 +183,9 @@ async function getActiveWindow() {
 }
 
 export function startTracking() {
-  if (intervalId) return // Already running
+  if (timeoutId) return // Already running
 
-  intervalId = setInterval(async () => {
+  const tick = async () => {
     try {
       // Check idle time first
       const idleTime = powerMonitor.getSystemIdleTime()
@@ -212,7 +212,11 @@ export function startTracking() {
     } catch (err) {
       console.error('[Awareness Engine] Error tracking window:', err)
     }
-  }, 60000)
+    // Schedule next poll — guarantees no overlap
+    timeoutId = setTimeout(tick, 60000)
+  }
+
+  timeoutId = setTimeout(tick, 60000)
 }
 
 export function getBuffer() {
@@ -224,6 +228,6 @@ export function flushBuffer() {
 }
 
 export function stopTracking() {
-  if (intervalId) clearInterval(intervalId)
-  intervalId = null
+  if (timeoutId) clearTimeout(timeoutId)
+  timeoutId = null
 }

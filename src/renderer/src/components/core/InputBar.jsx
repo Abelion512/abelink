@@ -60,13 +60,15 @@ const InputBar = ({
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Ctrl+Enter = submit
+    if (e.key === 'Enter' && e.ctrlKey) {
       e.preventDefault();
-      historyIndexRef.current = -1;
-      onSubmit();
+      const form = e.currentTarget.closest('form');
+      if (form) form.requestSubmit();
       return;
     }
 
+    // ArrowUp = history backward
     if (e.key === 'ArrowUp' && historyStackRef.current.length > 0) {
       e.preventDefault();
       if (historyIndexRef.current === -1) savedInputRef.current = value;
@@ -76,6 +78,7 @@ const InputBar = ({
       return;
     }
 
+    // ArrowDown = history forward
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (historyIndexRef.current <= 0) {
@@ -88,6 +91,8 @@ const InputBar = ({
       }
       return;
     }
+
+    // Enter alone = new line (default textarea behavior)
   };
 
   const handleFormSubmit = (e) => {
@@ -157,7 +162,7 @@ const InputBar = ({
         />
 
         <div className="flex items-center gap-2 flex-shrink-0 self-end">
-          {isLoading && (
+          {isLoading ? (
             <button
               type="button"
               onClick={() => setShowAbortConfirm(true)}
@@ -166,15 +171,16 @@ const InputBar = ({
             >
               <FaStop size={16} />
             </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!value.trim()}
+              className="p-3 rounded-full bg-success text-success-content disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-success/80 hover:scale-105 active:scale-95 transition-all"
+              title="Send (Ctrl+Enter)"
+            >
+              <FaArrowUp size={16} />
+            </button>
           )}
-          <button
-            type="submit"
-            disabled={!value.trim()}
-            className="p-3 rounded-full bg-success text-success-content disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-success/80 hover:scale-105 active:scale-95 transition-all"
-            title="Send Message"
-          >
-            <FaArrowUp size={16} />
-          </button>
         </div>
       </form>
 

@@ -53,7 +53,7 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
     }
 
     if (isAutoplay && selectedId) {
-      playUrl(`https://music.youtube.com/watch?v=${selectedId}`, selectedMusicList[0])
+      playUrl(`https://www.youtube.com/watch?v=${selectedId}`, selectedMusicList[0])
       return `[SYSTEM LOG] Berhasil memutar lagu: ${selectedMusicList[0].title} oleh ${selectedMusicList[0].artist}`
     }
 

@@ -2,114 +2,119 @@ import { useState, useContext, createContext, useRef, useCallback, useEffect } f
 
 const YoutubeMusicContext = createContext()
 
-const DEFAULT_URL = 'https://music.youtube.com'
-
 export const YoutubeMusicProvider = ({ children }) => {
-  const [musicUrl, setMusicUrl] = useState(DEFAULT_URL)
+  const [musicUrl, setMusicUrl] = useState('https://www.youtube.com')
   const [isPlayerOpen, setIsPlayerOpen] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [playId, setPlayId] = useState(0)
+  const [playbackError, setPlaybackError] = useState(null)
   const webviewRef = useRef(null)
 
-  const [currentTrack, setCurrentTrack] = useState({ title: '', artist: '' })
+  const [currentTrack, setCurrentTrack] = useState({ title: '', artist: '', thumbnail: '' })
+  const isPollingRef = useRef(false)
 
-  // Poll webview every 1s to detect if music is playing and get track info
+  // Poll webview every 5s for track info + thumbnail — hanya saat player terbuka
   useEffect(() => {
-    const interval = setInterval(async () => {
+    let interval
+    const poll = async () => {
+      if (!isPlayerOpen || isPollingRef.current) return
+      isPollingRef.current = true
+
+      // Defer via requestAnimationFrame agar tidak blocking click handler
+      await new Promise(r => requestAnimationFrame(r))
+
       const webview = webviewRef.current
-      if (!webview) {
-        setIsPlaying(false)
-        return
-      }
+      if (!webview) { setIsPlaying(false); isPollingRef.current = false; return }
       try {
         const info = await webview.executeJavaScript(
           `(function(){ 
-            const titleEl = document.querySelector('yt-formatted-string.title.ytmusic-player-bar, .title.ytmusic-player-bar');
-            const subtitleEl = document.querySelector('span.subtitle.ytmusic-player-bar, .byline.ytmusic-player-bar');
-            const imgEl = document.querySelector('img.image.ytmusic-player-bar, .thumbnail.ytmusic-player img');
+            const titleEl = document.querySelector('#title h1 yt-formatted-string.ytd-watch-metadata, .ytd-video-primary-info-renderer h1 yt-formatted-string');
+            const subtitleEl = document.querySelector('#owner #channel-name a');
+            const imgEl = document.querySelector('link[itemprop="thumbnailUrl"]');
             const video = document.querySelector('video');
+            const url = window.location.href;
+            const vidMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
             return {
-              title: titleEl ? (titleEl.getAttribute('title') || titleEl.innerText || titleEl.textContent || '').trim() : '',
-              artist: subtitleEl ? (subtitleEl.getAttribute('title') || subtitleEl.innerText || subtitleEl.textContent || '').trim() : '',
-              thumbnail: imgEl ? imgEl.src.replace(/=w\\d+-h\\d+.*$/, '=w1080-h1080-l90-rj').replace(/\\?sqp=.*$/, '') : '',
+              title: titleEl ? (titleEl.innerText || titleEl.textContent || '').trim() : '',
+              artist: subtitleEl ? subtitleEl.innerText.trim() : '',
+              thumbnail: imgEl ? imgEl.href : (vidMatch ? 'https://i.ytimg.com/vi/' + vidMatch[1] + '/maxresdefault.jpg' : ''),
               paused: video ? video.paused : true
             };
           })()`
         )
         setIsPlaying(!info.paused)
-        if (info.title) {
-          setCurrentTrack(prev => ({ 
-            title: info.title, 
-            artist: info.artist, 
-            thumbnail: info.thumbnail || prev.thumbnail 
+        if (info.title && info.title !== currentTrack.title) {
+          setCurrentTrack(prev => ({
+            title: info.title,
+            artist: info.artist || prev.artist,
+            thumbnail: info.thumbnail || prev.thumbnail
           }))
         }
-      } catch {
-        setIsPlaying(false)
-      }
-    }, 1000)
+      } catch { setIsPlaying(false) }
+      isPollingRef.current = false
+    }
+    interval = setInterval(poll, 5000)
     return () => clearInterval(interval)
-  }, [])
+  }, [isPlayerOpen])
+
+  // Sync to MPRIS
+  useEffect(() => {
+    if (window.api?.updateMprisTrack && currentTrack.title)
+      window.api.updateMprisTrack(currentTrack, !isPlaying)
+  }, [currentTrack.title, currentTrack.artist])
+  useEffect(() => {
+    if (window.api?.setMprisPlaybackStatus)
+      window.api.setMprisPlaybackStatus(isPlaying)
+  }, [isPlaying])
 
   const playUrl = useCallback(async (url, initialTrack = null) => {
-    if (webviewRef.current) {
-      try {
-        await webviewRef.current.executeJavaScript(`
-          var video = document.querySelector('video');
-          if (video && !video.paused) {
-            video.pause();
-          }
-        `);
-        // Tunggu sebentar agar pause benar-benar tereksekusi sebelum ganti URL
-        await new Promise(resolve => setTimeout(resolve, 300));
-      } catch (e) {
-        console.error('Error pausing before playUrl:', e);
-      }
-    }
-    
+    setPlaybackError(null)
     setMusicUrl(url)
     setPlayId(prev => prev + 1)
     setIsPlayerOpen(true)
     if (initialTrack) {
       setCurrentTrack(initialTrack)
+    } else {
+      // Auto-generate thumbnail from URL if available
+      const vidMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
+      if (vidMatch) {
+        setCurrentTrack(prev => ({
+          ...prev,
+          thumbnail: 'https://i.ytimg.com/vi/' + vidMatch[1] + '/maxresdefault.jpg'
+        }))
+      }
     }
   }, [])
 
-  const togglePlayer = useCallback(() => {
-    setIsPlayerOpen((prev) => !prev)
-  }, [])
+  const togglePlayer = useCallback(() => setIsPlayerOpen(prev => !prev), [])
 
   const nextTrack = useCallback(() => {
-    webviewRef.current?.executeJavaScript(`document.querySelector('.next-button')?.click();`)
+    webviewRef.current?.executeJavaScript(
+      `document.dispatchEvent(new KeyboardEvent('keydown', {key: 'N', shiftKey: true, bubbles: true}));`
+    )
   }, [])
 
   const prevTrack = useCallback(() => {
-    webviewRef.current?.executeJavaScript(`document.querySelector('.previous-button')?.click();`)
+    webviewRef.current?.executeJavaScript(
+      `document.dispatchEvent(new KeyboardEvent('keydown', {key: 'P', shiftKey: true, bubbles: true}));`
+    )
   }, [])
 
   const playPause = useCallback(() => {
-    webviewRef.current?.executeJavaScript(`document.querySelector('.play-pause-button')?.click();`)
+    webviewRef.current?.executeJavaScript(
+      `document.dispatchEvent(new KeyboardEvent('keydown', {key: 'k', bubbles: true}));`
+    )
   }, [])
 
   const value = {
-    musicUrl,
-    setMusicUrl,
-    playUrl,
-    playId,
-    isPlayerOpen,
-    setIsPlayerOpen,
-    togglePlayer,
-    webviewRef,
-    isPlaying,
-    currentTrack,
-    nextTrack,
-    prevTrack,
-    playPause
+    musicUrl, setMusicUrl, playUrl, playId,
+    isPlayerOpen, setIsPlayerOpen, togglePlayer,
+    webviewRef, isPlaying, currentTrack,
+    nextTrack, prevTrack, playPause,
+    playbackError, setPlaybackError
   }
 
   return <YoutubeMusicContext.Provider value={value}>{children}</YoutubeMusicContext.Provider>
 }
 
-export const useYoutubeMusic = () => {
-  return useContext(YoutubeMusicContext)
-}
+export const useYoutubeMusic = () => useContext(YoutubeMusicContext)

@@ -6,6 +6,9 @@ import { execSync } from 'child_process'
 let loadedPlugins = []
 let pluginHandlers = {}
 
+/** Cache of lazy-loaded plugin modules: pluginName → module exports */
+const pluginModuleCache = new Map()
+
 export const getPluginsDir = () => {
   const docPath = app.getPath('documents')
   const pluginDir = path.join(docPath, 'Mark Plugins')
@@ -15,10 +18,13 @@ export const getPluginsDir = () => {
   return pluginDir
 }
 
+/**
+ * Load only plugin manifests at boot — no module imports.
+ * import() happens lazily on first plugin:execute call.
+ */
 export const loadPlugins = async () => {
   const pluginDir = getPluginsDir()
   loadedPlugins = []
-  pluginHandlers = {}
 
   const folders = fs.readdirSync(pluginDir, { withFileTypes: true })
     .filter(dirent => dirent.isDirectory())
@@ -32,62 +38,28 @@ export const loadPlugins = async () => {
     if (fs.existsSync(manifestPath) && fs.existsSync(indexPath)) {
       try {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
-        // Bersihkan cache CommonJS karena file plugin pakai module.exports
-        delete require.cache[require.resolve(indexPath)]
-        
-        // Gunakan dynamic import (file://) untuk module eksternal di Windows
-        // Cache-busting dengan timestamp agar selalu load file terbaru pas di-save
-        const moduleUrl = require('url').pathToFileURL(indexPath).href + '?t=' + Date.now()
-        const handler = await import(moduleUrl)
-        
-        const indexContent = fs.readFileSync(indexPath, 'utf8')
-        
         manifest.folderPath = pluginPath
-        
-        // Daftarkan semua action ke dictionary global HANYA JIKA plugin diaktifkan
-        if (manifest.isEnabled !== false && manifest.actions && Array.isArray(manifest.actions)) {
-          manifest.actions.forEach(act => {
-             // asumsikan handler di-export secara default
-             if (handler.default && handler.default[act.name]) {
-               pluginHandlers[act.name] = handler.default[act.name]
-             }
-             
-             // Extract code from index.js for UI Editor
-             const searchStr1 = `'${act.name}': async ({ query }) => {`
-             const searchStr2 = `"${act.name}": async ({ query }) => {`
-             const searchStr3 = `${act.name}: async ({ query }) => {`
-             
-             let startIdx = indexContent.indexOf(searchStr1)
-             if (startIdx === -1) startIdx = indexContent.indexOf(searchStr2)
-             if (startIdx === -1) startIdx = indexContent.indexOf(searchStr3)
-             
-             if (startIdx !== -1) {
-               const len = startIdx === indexContent.indexOf(searchStr1) ? searchStr1.length : 
-                           startIdx === indexContent.indexOf(searchStr2) ? searchStr2.length : searchStr3.length
-               let i = startIdx + len
-               let openBrackets = 1
-               for (; i < indexContent.length; i++) {
-                 if (indexContent[i] === '{') openBrackets++
-                 if (indexContent[i] === '}') {
-                   openBrackets--
-                   if (openBrackets === 0) break
-                 }
-               }
-               
-               let rawCode = indexContent.substring(startIdx + len, i)
-               // remove 4 spaces indentation if present
-               act.code = rawCode.split('\n').map(l => l.startsWith('    ') ? l.substring(4) : l).join('\n').trim()
-             }
-          })
-        }
-        
+        manifest.indexPath = indexPath
         loadedPlugins.push(manifest)
       } catch (err) {
-        console.error(`Gagal load plugin ${folder}:`, err)
+        console.error(`Gagal load manifest plugin ${folder}:`, err)
       }
     }
   }
   return loadedPlugins
+}
+
+/**
+ * Lazily import a plugin module — only on first execution.
+ * Cached for subsequent calls.
+ */
+async function ensurePluginLoaded(indexPath) {
+  if (pluginModuleCache.has(indexPath)) return pluginModuleCache.get(indexPath)
+  delete require.cache[require.resolve(indexPath)]
+  const moduleUrl = require('url').pathToFileURL(indexPath).href + '?t=' + Date.now()
+  const handler = await import(moduleUrl)
+  pluginModuleCache.set(indexPath, handler)
+  return handler
 }
 
 export const getLoadedPlugins = () => loadedPlugins
@@ -95,18 +67,32 @@ export const getPluginHandlers = () => pluginHandlers
 
 // Inisialisasi IPC Bridge
 export const initPluginIPC = () => {
-  ipcMain.handle('plugin:get-list', () => loadedPlugins)
-  
+  ipcMain.handle('plugin:get-list', () => loadedPlugins.map(p => ({
+    name: p.name,
+    version: p.version,
+    description: p.description,
+    isEnabled: p.isEnabled,
+    actions: p.actions || [],
+    folderPath: p.folderPath
+  })))
+
   ipcMain.handle('plugin:execute', async (event, action, query) => {
-    if (pluginHandlers[action]) {
-      try {
-        const result = await pluginHandlers[action]({ query })
+    // Find which plugin owns this action
+    const plugin = loadedPlugins.find(p =>
+      p.actions && p.actions.some(a => a.name === action)
+    )
+    if (!plugin) return { success: false, error: 'Action tidak ditemukan' }
+
+    try {
+      const handler = await ensurePluginLoaded(plugin.indexPath)
+      if (handler.default && handler.default[action]) {
+        const result = await handler.default[action]({ query })
         return { success: true, data: result }
-      } catch (err) {
-        return { success: false, error: err.message }
       }
+      return { success: false, error: `Handler '${action}' not found in plugin module` }
+    } catch (err) {
+      return { success: false, error: err.message }
     }
-    return { success: false, error: 'Action tidak ditemukan' }
   })
 
   ipcMain.handle('plugin:open-folder', () => {
@@ -120,6 +106,13 @@ export const initPluginIPC = () => {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
       manifest.isEnabled = isEnabled
       fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+      // Clear plugin module cache so it reloads on next execute
+      const idx = loadedPlugins.findIndex(p => p.name === pluginName)
+      if (idx !== -1) {
+        const indexPath = loadedPlugins[idx].indexPath
+        delete require.cache[require.resolve(indexPath)]
+        pluginModuleCache.delete(indexPath)
+      }
       await loadPlugins()
       return { success: true }
     }
@@ -129,8 +122,9 @@ export const initPluginIPC = () => {
   ipcMain.handle('plugin:open-specific-folder', (event, targetPath) => {
     shell.openPath(targetPath)
   })
-  
+
   ipcMain.handle('plugin:reload', async () => {
+    pluginModuleCache.clear()
     return await loadPlugins()
   })
 
@@ -138,16 +132,16 @@ export const initPluginIPC = () => {
     try {
       const { name, description, actions, isEdit } = payload
       const kebabPluginName = name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
-      
+
       const pDir = getPluginsDir()
       const newPluginDir = path.join(pDir, kebabPluginName)
-      
+
       if (!isEdit && fs.existsSync(newPluginDir)) {
         return { success: false, error: 'Plugin dengan nama tersebut sudah ada' }
       }
-      
+
       fs.mkdirSync(newPluginDir, { recursive: true })
-      
+
       const manifestActions = actions.map(act => ({
         name: act.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase(),
         description: act.description,
@@ -162,9 +156,9 @@ export const initPluginIPC = () => {
         dependencies: payload.dependencies ? payload.dependencies.split(',').map(d => d.trim()).filter(d => d) : [],
         actions: manifestActions
       }
-      
+
       fs.writeFileSync(path.join(newPluginDir, 'plugin.json'), JSON.stringify(manifest, null, 2))
-      
+
       let codeTemplate = `module.exports = {\n`
       actions.forEach((act, index) => {
         const actionKebabName = act.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
@@ -173,7 +167,7 @@ export const initPluginIPC = () => {
         else codeTemplate += `\n`
       })
       codeTemplate += `}`
-      
+
       fs.writeFileSync(path.join(newPluginDir, 'index.js'), codeTemplate)
 
       // Install dependencies if specified
@@ -188,7 +182,7 @@ export const initPluginIPC = () => {
           return { success: false, error: 'Gagal menginstall dependencies npm: ' + npmErr.message }
         }
       }
-      
+
       await loadPlugins()
       return { success: true }
     } catch (err) {

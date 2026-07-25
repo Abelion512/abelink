@@ -7,9 +7,11 @@ env.useFSCache = false;
 
 let extractor = null;
 let isDownloading = false;
+let vectorDisabled = false; // CSP block failover — skip vector ops permanently after first failure
 
 // We export this so we can manually trigger download from config page
 export const getExtractor = async (onProgress) => {
+  if (vectorDisabled) return null;
   if (!extractor && !isDownloading) {
     isDownloading = true;
     try {
@@ -19,6 +21,7 @@ export const getExtractor = async (onProgress) => {
       });
     } catch (e) {
       console.error("Failed to load transformer model", e);
+      vectorDisabled = true; // CSP block — skip forever
     } finally {
       isDownloading = false;
     }
@@ -27,6 +30,7 @@ export const getExtractor = async (onProgress) => {
 };
 
 export const generateVector = async (text) => {
+  if (vectorDisabled) return null;
   try {
     const ext = await getExtractor();
     if (!ext) return null;
@@ -36,6 +40,7 @@ export const generateVector = async (text) => {
     return result;
   } catch (error) {
     console.error("Gagal generate vector:", error);
+    vectorDisabled = true;
     return null;
   }
 }

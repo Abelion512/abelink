@@ -19,14 +19,21 @@ import { ipcMain } from 'electron'
 
 let loadedSkills = []
 
-/** Resolve the user's .agents/skills directory */
-export function getSkillsDir() {
-  return path.join(os.homedir(), '.agents', 'skills')
+/** Scan multiple dirs: ~/.agents/skills/, ~/.zcode/skills/, <project>/.agents/skills/ (if env AGENT_SKILLS_DIR) */
+export function getSkillsDirs() {
+  const dirs = []
+  dirs.push(path.join(os.homedir(), '.agents', 'skills'))
+  dirs.push(path.join(os.homedir(), '.zcode', 'skills'))
+  const projectDir = process.env.AGENT_SKILLS_DIR
+  if (projectDir) {
+    dirs.push(path.join(projectDir, '.agents', 'skills'))
+  }
+  return dirs
 }
 
 /**
  * Parse YAML frontmatter from SKILL.md.
- * Returns { name, description, content }
+ * Returns { name, description, content } or null.
  */
 function parseSkillFile(filePath) {
   const text = fs.readFileSync(filePath, 'utf8')
@@ -45,7 +52,6 @@ function parseSkillFile(filePath) {
   if (endIdx === -1) return null
 
   const frontmatter = lines.slice(1, endIdx).join('\n')
-  const content = lines.slice(endIdx + 1).join('\n').trim()
 
   // Parse YAML-like frontmatter (simple key-value only)
   const name = frontmatter.match(/^name:\s*(.+)$/m)?.[1]?.trim()
@@ -60,35 +66,30 @@ function parseSkillFile(filePath) {
   }
 }
 
-/** Scan skills directory and load all SKILL.md files */
-export function loadSkills() {
-  loadedSkills = []
-  const skillsDir = getSkillsDir()
-
-  if (!fs.existsSync(skillsDir)) {
-    console.log('[Agent Skills] Directory not found:', skillsDir)
-    return []
-  }
-
+/** Scan a single skills dir for SKILL.md files */
+function scanDir(skillsDir) {
+  if (!fs.existsSync(skillsDir)) return
   const entries = fs.readdirSync(skillsDir, { withFileTypes: true })
-
   for (const entry of entries) {
     if (!entry.isDirectory()) continue
     const skillPath = path.join(skillsDir, entry.name, 'SKILL.md')
     if (!fs.existsSync(skillPath)) continue
-
     try {
       const skill = parseSkillFile(skillPath)
-      if (skill) {
-        loadedSkills.push(skill)
-        console.log(`[Agent Skills] Loaded: ${skill.name}`)
-      }
+      if (skill) loadedSkills.push(skill)
     } catch (err) {
       console.error(`[Agent Skills] Failed to parse ${entry.name}/SKILL.md:`, err.message)
     }
   }
+}
 
-  console.log(`[Agent Skills] Total: ${loadedSkills.length} skills loaded`)
+export function loadSkills() {
+  loadedSkills = []
+  const dirs = getSkillsDirs()
+  for (const dir of dirs) {
+    scanDir(dir)
+  }
+  console.log(`[Agent Skills] Loaded: ${loadedSkills.length} skills from ${dirs.length} dirs`)
   return loadedSkills
 }
 
@@ -105,7 +106,7 @@ export function initSkillsIPC() {
     }))
   })
 
-  ipcMain.handle('agent-skills:get-content', (event, skillName) => {
+  ipcMain.handle('agent-skills:get-content', (_event, skillName) => {
     const skill = loadedSkills.find(s => s.name === skillName)
     return skill ? skill.content : null
   })

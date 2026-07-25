@@ -23,43 +23,29 @@ import { startTracking, stopTracking, getBuffer, flushBuffer } from './awareness
 import { NATIVE_TOOLS } from './native-tools.js'
 import { loadSkills, initSkillsIPC } from './agent-skills-loader.js'
 import { initMpris, setMprisCallbacks, setMprisPlaybackStatus, updateMprisTrack, stopMpris } from './mpris-service.js'
+import { getRecentTracks, getTopTracks } from './lastfm-service.js'
+import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
+import { ElectronBlocker } from '@cliqz/adblocker-electron'
+import mammoth from 'mammoth'
+import { PDFParse } from 'pdf-parse'
+
 // Headless/SSH detection: disable GPU if no display server available (Linux)
 if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
   app.commandLine.appendSwitch('disable-gpu')
   app.commandLine.appendSwitch('disable-software-rasterizer')
 }
 
-// Matikan semua optimasi throttling Chromium agar webview WhatsApp tidak tertidur
 app.commandLine.appendSwitch('disable-background-timer-throttling')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
-// Fix GPU crash for hidden webview (command_buffer_proxy_impl.cc:327 GPU state invalid)
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
-// Mencegah aplikasi mati total kalau GPU Process nge-crash berkali-kali
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
-
-
-const setupYoutubeFix = () => {
-  // Kita cegat semua request yang pergi ke YouTube
-  session.defaultSession.webRequest.onBeforeSendHeaders(
-    { urls: ['https://www.youtube.com/*'] },
-    (details, callback) => {
-      // Kita paksa header 'Referer' dan 'Origin' jadi localhost
-      // Supaya YouTube gak tau kalau ini dateng dari file://
-      details.requestHeaders['Referer'] = 'http://localhost'
-      details.requestHeaders['Origin'] = 'http://localhost'
-      callback({ requestHeaders: details.requestHeaders })
-    }
-  )
-}
 
 let mainWindow = null
 let tray = null
-let isQuiting = false
 
 function createWindow() {
-  // Create the browser window.
   mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
@@ -77,53 +63,43 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    // mainWindow.webContents.openDevTools()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
-    console.log('openlink: ' + details.url)
     return { action: 'deny' }
   })
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
-
-  // Close window = quit app (no minimize-to-tray for main window)
-  mainWindow.on('close', function () {
-    // Let window close naturally; app will quit via window-all-closed
-  })
 }
 
-// Removed old WA logic
-
-ipcMain.on('remote-music-command', (event, command, payload) => {
+ipcMain.on('remote-music-command', (_event, command, payload) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('execute-music-command', command, payload)
   }
 })
 
-// Renderer calls this to update MPRIS track metadata (e.g., when a new song plays)
-ipcMain.on('mpris:update-track', (event, track, playing) => {
+ipcMain.on('mpris:update-track', (_event, track, playing) => {
   try { updateMprisTrack(track, playing) } catch {}
 })
-ipcMain.on('mpris:set-status', (event, playing) => {
+ipcMain.on('mpris:set-status', (_event, playing) => {
   try { setMprisPlaybackStatus(playing) } catch {}
 })
 
 import { fetchAI, setGlobalConfig, abortAllFetches } from './ai-bridge.js'
 
-ipcMain.on('sync-config', (event, config) => {
+ipcMain.on('sync-config', (_event, config) => {
   setGlobalConfig(config)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('config-updated')
+  }
 })
 
-// --- NATIVE TOOLS IPC ---
-ipcMain.handle('native-tool:execute', async (event, toolName, query) => {
+ipcMain.handle('native-tool:execute', async (_event, toolName, query) => {
   const tool = NATIVE_TOOLS[toolName]
   if (!tool) return { success: false, error: 'Tool tidak ditemukan' }
   try {
@@ -134,17 +110,17 @@ ipcMain.handle('native-tool:execute', async (event, toolName, query) => {
   }
 })
 
-ipcMain.handle('native-tool:needs-approval', (event, toolName, query) => {
+ipcMain.handle('native-tool:needs-approval', (_event, toolName, query) => {
   const tool = NATIVE_TOOLS[toolName]
   if (!tool) return { needsApproval: false }
   const needs = typeof tool.needsApproval === 'function' ? tool.needsApproval(query) : tool.needsApproval
-  return { 
+  return {
     needsApproval: needs,
     message: needs && tool.approvalMessage ? tool.approvalMessage(query) : null
   }
 })
 
-ipcMain.handle('ai:fetch', async (event, data) => {
+ipcMain.handle('ai:fetch', async (_event, data) => {
   const { messages, config, isSmallTask, jsonSchema } = data
   try {
     const onStatus = (msg) => {
@@ -162,11 +138,6 @@ ipcMain.on('ai:abort-fetch', () => {
   abortAllFetches()
 })
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-
-// Gunakan folder terpisah untuk development agar terhindar dari error Cache Lock
 if (is.dev) {
   app.setPath('userData', path.join(app.getPath('appData'), 'mark-dev'))
 }
@@ -177,8 +148,7 @@ if (!gotTheLock) {
   process.exit(0)
 }
 
-app.on('second-instance', (event, commandLine, workingDirectory) => {
-  // Jika pengguna mencoba membuka aplikasi lagi, tampilkan window yang sudah ada
+app.on('second-instance', (_event, _commandLine, _workingDirectory) => {
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.show()
@@ -199,15 +169,13 @@ ipcMain.on('wa:stop', () => stopWhatsappBot())
 ipcMain.handle('wa:get-status', () => getConnectionStatus())
 ipcMain.handle('wa:get-history', () => uiMessageHistory)
 
-ipcMain.handle('parse-document', async (event, arrayBuffer, isDocx) => {
+ipcMain.handle('parse-document', async (_event, arrayBuffer, isDocx) => {
   try {
     const buffer = Buffer.from(arrayBuffer)
     if (isDocx) {
-      const mammoth = require('mammoth')
       const result = await mammoth.extractRawText({ buffer })
       return result.value
     } else {
-      const { PDFParse } = require('pdf-parse')
       const parser = new PDFParse({ data: buffer })
       const data = await parser.getText()
       return data.text
@@ -223,53 +191,74 @@ import { loadPlugins, initPluginIPC } from './plugins/plugin-loader.js'
 import { navigateTo, readDOM, executeAction, closeBrowser, showBrowser } from './browser-agent.js'
 
 // Browser Automation IPCs
-ipcMain.handle('browser:navigate', async (event, url) => {
+ipcMain.handle('browser:navigate', async (_event, url) => {
   try { return await navigateTo(url) }
   catch (e) { return `[ERROR] Gagal membuka ${url}: ${e.message}` }
 })
-ipcMain.handle('browser:read-dom', async (event) => {
+ipcMain.handle('browser:read-dom', async (_event) => {
   try { return await readDOM() }
   catch (e) { return `[ERROR] Gagal membaca DOM: ${e.message}` }
 })
-ipcMain.handle('browser:action', async (event, data) => {
+ipcMain.handle('browser:action', async (_event, data) => {
   try { return await executeAction(data) }
   catch (e) { return `[ERROR] Gagal eksekusi action: ${e.message}` }
 })
-ipcMain.handle('browser:close', (event) => {
+ipcMain.handle('browser:close', (_event) => {
   return closeBrowser()
 })
 ipcMain.on('browser:show', () => {
   showBrowser()
 })
+
 app.whenReady().then(async () => {
-  // Set app user model id for windows
   electronApp.setAppUserModelId('com.mark.agent')
 
-  // Run on startup background (Only if packaged, to avoid raw electron.exe startup)
   if (app.isPackaged) {
     app.setLoginItemSettings({
       openAtLogin: true,
       openAsHidden: true
     })
   } else {
-    // Bersihkan 'electron' dari startup kalau jalan di mode dev
     app.setLoginItemSettings({
       openAtLogin: false,
       openAsHidden: false
     })
   }
 
-  // Register IPC handlers for plugins — no import() at boot
   initPluginIPC()
-
-  // Load & register Agent Skills (~/.agents/skills/) — frontmatter-only, fast
   loadSkills()
   initSkillsIPC()
 
-  setupYoutubeFix()
+  // Spoof Referer/Origin on all sessions that load YouTube so requests look like
+  // they originate from youtube.com itself. Electron partitions do NOT inherit
+  // webRequest interceptors from defaultSession.
+  const ytFixSessions = [
+    session.defaultSession,
+    session.fromPartition('persist:youtube'),
+    session.fromPartition('persist:mark-browser')
+  ]
+  for (const s of ytFixSessions) {
+    s.webRequest.onBeforeSendHeaders(
+      { urls: ['https://www.youtube.com/*'] },
+      (details, callback) => {
+        details.requestHeaders['Referer'] = 'https://www.youtube.com'
+        details.requestHeaders['Origin'] = 'https://www.youtube.com'
+        callback({ requestHeaders: details.requestHeaders })
+      }
+    )
+  }
 
-  // Grant camera & microphone permissions automatically (Electron blocks by default)
-  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+  try {
+    const ytSession = session.fromPartition('persist:youtube')
+    const blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch)
+    blocker.enableBlockingInSession(ytSession)
+    blocker.enableBlockingInSession(session.defaultSession)
+    console.log('[Adblock] Brave-style adblocker aktif')
+  } catch (e) {
+    console.error('[Adblock] Gagal init:', e.message)
+  }
+
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     const allowedPermissions = ['media', 'mediaKeySystem', 'geolocation', 'notifications', 'fullscreen']
     if (allowedPermissions.includes(permission)) {
       callback(true)
@@ -280,10 +269,8 @@ app.whenReady().then(async () => {
 
   createWindow()
 
-  // Deferred non-blocking init — runs AFTER window is visible to user
-  loadPlugins().then(() => console.log('[Plugins] Manifests loaded'))
+  loadPlugins().then(() => console.log('[Plugins] Manifests loaded')).catch(e => console.error('[Plugins] Failed:', e))
 
-  // MPRIS D-Bus — non-critical for UI, fire-and-forget
   initMpris()
   setMprisCallbacks({
     onPlayPause: () => {
@@ -304,11 +291,8 @@ app.whenReady().then(async () => {
     }
   })
 
-  // Langsung jalankan WhatsApp Bot di background secara rahasia (Tray Mode) saat aplikasi utama dibuka
   startWhatsappBot(mainWindow)
 
-  // Setup System Tray
-  // Di Linux: pakai icon bundled langsung (getFileIcon return generic di Linux)
   const trayIcon = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
   tray = new Tray(trayIcon)
   tray.setToolTip('Mark AI Assistant')
@@ -337,14 +321,12 @@ app.whenReady().then(async () => {
     { type: 'separator' },
     {
       label: 'Keluar',
-      click: () => { isQuiting = true; app.quit() }
+      click: () => { app.isQuitting = true; app.quit() }
     }
   ])
   tray.setContextMenu(contextMenu)
   tray.on('click', safeShow)
 
-  // Global Shortcut (One-way)
-  // Menggunakan Ctrl+Alt+M untuk menghindari bentrok dengan shortcut OS atau aplikasi lain (misal: Discord/AMD)
   globalShortcut.register('CommandOrControl+Alt+M', () => {
     if (mainWindow) {
       mainWindow.show()
@@ -352,18 +334,16 @@ app.whenReady().then(async () => {
     }
   })
 
-  // Awareness Engine IPC
   ipcMain.handle('awareness:get-buffer', () => getBuffer())
   ipcMain.on('awareness:clear-buffer', () => flushBuffer())
-  
+
   ipcMain.handle('take-screenshot', async () => {
     try {
       const sources = await desktopCapturer.getSources({
         types: ['screen'],
-        thumbnailSize: { width: 1280, height: 720 } // [OPTIMASI] Diturunkan dari 1080p ke 720p agar payload Base64 tidak terlalu besar dan mengurangi halusinasi AI
+        thumbnailSize: { width: 1280, height: 720 }
       })
       if (sources.length > 0) {
-        // Return array of Base64 for all screens
         return sources.map(source => ({
           name: source.name,
           data: source.thumbnail.toDataURL()
@@ -376,26 +356,24 @@ app.whenReady().then(async () => {
     }
   })
 
-  // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
-  ipcMain.on('show-notification', (event, { title, body }) => {
+  ipcMain.on('show-notification', (_event, { title, body }) => {
     if (Notification.isSupported()) {
       new Notification({ title, body, icon: icon }).show()
     }
   })
 
-  ipcMain.handle('execute-node-task', async (event, data) => {
-    // Jalankan kode Node.js di sini (misal: baca file, akses DB)
+  ipcMain.handle('execute-node-task', async (_event, data) => {
     console.log('Menerima data dari UI:', data)
     return `Berhasil memproses: ${data}`
   })
 
-  ipcMain.handle('open-external', async (event, url) => {
+  ipcMain.handle('open-external', async (_event, url) => {
     shell.openExternal(url)
   })
 
-  ipcMain.handle('get-youtube-transcript', async (event, url) => {
+  ipcMain.handle('get-youtube-transcript', async (_event, url) => {
     try {
       const transcript = await fetchTranscript(url)
       const textTranscript = transcript
@@ -417,7 +395,7 @@ app.whenReady().then(async () => {
     }
   })
 
-  ipcMain.handle('youtube-search', async (event, query) => {
+  ipcMain.handle('youtube-search', async (_event, query) => {
     try {
       const ytData = await yts(query)
       const video = ytData.videos.slice(0, 4)
@@ -432,11 +410,9 @@ app.whenReady().then(async () => {
     }
   })
 
-  // src/main/index.js
-
   let globalTTS = null
 
-  ipcMain.handle('tts-speak', async (_, text, rate, pitch) => {
+  ipcMain.handle('tts-speak', async (_event, text, rate, pitch) => {
     try {
       if (!globalTTS) {
         globalTTS = new MsEdgeTTS()
@@ -466,13 +442,13 @@ app.whenReady().then(async () => {
     }
   })
 
-  ipcMain.handle('search-music', async (event, query) => {
+  ipcMain.handle('search-music', async (_event, query) => {
     try {
       const { videos } = await yts(query)
       const results = videos.slice(0, 5).map((v) => ({
         id: v.videoId,
         title: v.title,
-        artist: v.author.name,
+        artist: v.author?.name || 'Unknown',
         album: 'Single',
         duration: v.duration.seconds,
         thumbnail: v.image?.replace(/=w\d+-h\d+.*$/, '=w1080-h1080-l90-rj')?.replace(/\?sqp=.*$/, '') || ''
@@ -483,11 +459,28 @@ app.whenReady().then(async () => {
       return []
     }
   })
+
+  ipcMain.handle('lastfm:get-recent', async (_event, user) => {
+    return getRecentTracks(user || 'abelionz')
+  })
+  ipcMain.handle('lastfm:get-top', async (_event, user) => {
+    return await getTopTracks(user || 'abelionz')
+  })
+
+  ipcMain.handle('ytdl:get-info', async (_event, url) => {
+    return await getMediaInfo(url)
+  })
+  ipcMain.handle('ytdl:get-audio', async (_event, url) => {
+    return await getMediaWithAudio(url)
+  })
+  ipcMain.handle('ytdl:search', async (_event, query, limit) => {
+    return await searchMedia(query, limit || 5)
+  })
+
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 
-  // Start Awareness Engine
   startTracking()
 })
 
@@ -502,22 +495,17 @@ app.on('will-quit', async () => {
 })
 
 app.on('window-all-closed', () => {
-  // On Linux, quit when all windows are closed (no dock behavior)
   if (process.platform === 'linux') {
-    isQuiting = true
+    app.isQuitting = true
     app.quit()
   }
 })
 
-// Clean exit on Ctrl+C / kill signal (Linux) — app.exit(0) bypasses close hooks
 const cleanExit = () => {
-  isQuiting = true
+  app.isQuitting = true
   if (tray) tray.destroy()
   app.exit(0)
 }
 process.on('SIGINT', cleanExit)
 process.on('SIGTERM', cleanExit)
-process.on('SIGHUP', cleanExit) // terminal death/SSH disconnect
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.
+process.on('SIGHUP', cleanExit)

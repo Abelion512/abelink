@@ -5,8 +5,8 @@ import { fetchAI } from '../../api/ai/core'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
 import { insertMemory, updateMemory, deleteMemory, getAllMemory } from '../../api/db'
 import { getUnifiedContext, searchExtendedMemory } from '../../api/vectorMemory'
-
-const THINKING_UPDATE_INTERVAL = 300 // ms - throttle thinking UI updates
+import { sanitizeToolOutput } from '../../api/ai/output-sanitizer'
+import { createGuardGate } from '../../api/ai/guard-gate'
 
 export const useMarkPlan = ({
   chatData,
@@ -17,9 +17,6 @@ export const useMarkPlan = ({
   setIsLoading,
   setIsAgentBusy,
   setMessage,
-  handleYoutubeSearch,
-  handleSearchCommand,
-  handleYoutubeSummary,
   handleMusic,
   getYoutubeData,
   pushProcess,
@@ -27,31 +24,48 @@ export const useMarkPlan = ({
   activeTopic,
   setActiveTopic,
   currentMusicTrack,
+  currentPlaybackError,
   requestApproval,
   requestCameraCapture
 }) => {
-  const lastThinkingUpdateRef = useRef(0)
+  const thinkingRafRef = useRef(null)
+  const lastThinkingTextRef = useRef('')
+  const guardRef = useRef(null)
+  if (!guardRef.current) guardRef.current = createGuardGate()
+  const guard = guardRef.current
   // Listener for 'ai-status' events from Main Process (via IPC)
   useEffect(() => {
     if (window.api && window.api.onAiStatus) {
       window.api.onAiStatus((msg) => {
-        updateThinkingMessage(msg, true)
+        flushThinkingUpdate(msg)
       })
     }
-  }, [setChatData, updateThinkingMessage])
+  }, [setChatData])
 
-  const isExecutingRef = useRef(false)
-  const interventionBufferRef = useRef([])
+  const scheduleThinkingUpdate = (text) => {
+    lastThinkingTextRef.current = text
+    if (thinkingRafRef.current) return
+    thinkingRafRef.current = requestAnimationFrame(() => {
+      thinkingRafRef.current = null
+      setChatData((prev) => {
+        const filtered = prev.filter((item) => !item.isThinking)
+        return [...filtered, { role: 'ai', content: lastThinkingTextRef.current, isThinking: true }]
+      })
+    })
+  }
 
-  const updateThinkingMessage = (text, force = false) => {
-    const now = Date.now()
-    if (!force && now - lastThinkingUpdateRef.current < THINKING_UPDATE_INTERVAL) return
-    lastThinkingUpdateRef.current = now
+  const flushThinkingUpdate = (text) => {
+    if (thinkingRafRef.current) cancelAnimationFrame(thinkingRafRef.current)
+    thinkingRafRef.current = null
+    lastThinkingTextRef.current = text
     setChatData((prev) => {
       const filtered = prev.filter((item) => !item.isThinking)
       return [...filtered, { role: 'ai', content: text, isThinking: true }]
     })
   }
+
+  const isExecutingRef = useRef(false)
+  const interventionBufferRef = useRef([])
 
   const handleIntervention = (msg) => {
     interventionBufferRef.current.push(msg)
@@ -151,7 +165,7 @@ export const useMarkPlan = ({
       const abortPromise = new Promise((_, reject) => {
         const onAbort = () => reject(new Error('AbortError'))
         if (abortControllerRef.current.signal.aborted) return onAbort()
-        abortControllerRef.current.signal.addEventListener('abort', onAbort)
+        abortControllerRef.current.signal.addEventListener('abort', onAbort, { once: true })
       })
       const unifiedContext = await Promise.race([contextPromise, abortPromise])
 
@@ -200,17 +214,24 @@ export const useMarkPlan = ({
         })
       }
 
-      // ========== STEP 3: AGENTIC LOOP ==========
-      const loopMessages = [...chatSession]
+// ========== STEP 3: AGENTIC LOOP ==========
+const loopMessages = [...chatSession]
+const MAX_TURNS = 10
+	const PER_TURN_TIMEOUT_MS = 30000 // 30s — model gede butuh waktu buat reasoning + vector loading
 
-      let isDone = false
-      let stepCount = 0
-      let lastDecision = null
-      let allSources = []
-      let lastActionTool = null
-      let lastActionQuery = null
-      let duplicateActionCount = 0
-      let lastToolExecution = null
+// Hermes-style granular guardrails
+const GUARDRAIL_WARN =  { exact_failure: 2, same_tool_failure: 3, idempotent_no_progress: 2 }
+const GUARDRAIL_STOP = { exact_failure: 5, same_tool_failure: 8, idempotent_no_progress: 5 }
+
+let isDone = false
+let stepCount = 0
+let decision = null
+let lastDecision = null
+let allSources = []
+let lastToolExecution = null
+// ponytail: per-tool failure counters complement guard-gate's aggregate circuit breaker
+let failureCounters = { exact_failure: 0, same_tool_failure: {}, idempotent_no_progress: 0 }
+let hardStopped = false
 
       let execSteps = [{ task: 'Menganalisis Konteks...' }] // Initial node for hologram
 
@@ -227,7 +248,7 @@ export const useMarkPlan = ({
           })
           interventionBufferRef.current = [] // Kosongkan buffer
           
-          updateThinkingMessage(`Intervensi User: ${interventions}`, true)
+          flushThinkingUpdate(`Intervensi User: ${interventions}`, true)
           
           execSteps.push({ task: `Intervensi User: ${interventions}` })
           pushProcess({
@@ -242,21 +263,96 @@ export const useMarkPlan = ({
           })
         }
 
+        // --- Turn Governor: Max Turn Check ---
+        if (stepCount >= MAX_TURNS) {
+          console.warn(`[Turn Governor] Hit max turns (${MAX_TURNS}). Forcing answer.`)
+          decision = { thought: 'Turn limit reached.', action: null, answer: 'Maaf, udah mentok batas turn nih. Coba ulang dengan perintah yang lebih spesifik ya.', mood: 'ennui', active_topic: activeTopic, memory: null }
+          isDone = true
+          break
+        }
+
         stepCount++
 
-        // --- Update UI: Tampilkan step ke berapa ---
-        updateThinkingMessage((isAutonomous && autonomousInitialMessage) ? autonomousInitialMessage : 'Bentar, mikir dlu...')
+        // --- Hermes-style Guardrail: Inject warnings ---
+        let guardrailMsgs = []
+        for (const [tool, count] of Object.entries(failureCounters.same_tool_failure)) {
+          if (count >= GUARDRAIL_WARN.same_tool_failure && count < GUARDRAIL_STOP.same_tool_failure) {
+            guardrailMsgs.push(`[WARN] Tool "${tool}" gagal ${count}x. Ganti pendekatan!`)
+          }
+          if (count >= GUARDRAIL_STOP.same_tool_failure && !hardStopped) {
+            guardrailMsgs.push(`[HARD STOP] Tool "${tool}" gagal ${count}x. Tool ini dilarang dipakai lagi di sesi ini!`)
+            hardStopped = true
+          }
+        }
+        if (failureCounters.idempotent_no_progress >= GUARDRAIL_WARN.idempotent_no_progress &&
+            failureCounters.idempotent_no_progress < GUARDRAIL_STOP.idempotent_no_progress) {
+          guardrailMsgs.push(`[WARN] ${failureCounters.idempotent_no_progress}x berturut tidak ada progress. Coba strategi yang berbeda total!`)
+        }
+        if (failureCounters.idempotent_no_progress >= GUARDRAIL_STOP.idempotent_no_progress) {
+          guardrailMsgs.push(`[HARD STOP] ${failureCounters.idempotent_no_progress}x tanpa progress. AKHIRI workflow dengan answer!`)
+          if (!guardrailMsgs.some(m => m.includes('HARD STOP'))) {
+            isDone = true
+            decision = { thought: 'No progress after many retries.', action: null, answer: 'Gagal terus nih, coba dengan perintah yang lebih sederhana ya.', mood: 'ennui', active_topic: activeTopic, memory: null }
+            break
+          }
+        }
+        if (guardrailMsgs.length > 0) {
+          loopMessages.push({ role: 'user', content: guardrailMsgs.join('\n') })
+        }
 
-        // --- Panggil AI: getNextAction ---
-        const decision = await getNextAction(
-          userInput,
-          loopMessages,
-          abortControllerRef.current.signal,
-          unifiedContext,
-          contextMsgStr,
-          activeTopic,
-          { ...options, intentQuery: searchQuery, waContext, currentMusicTrack }
-        )
+        // HARD STOP — a tool exceeded the per-tool failure limit, end the loop
+        if (hardStopped) {
+          decision = { thought: 'Hard stopped — tool failure limit exceeded.', action: null, answer: 'Tool bermasalah, gue stop dulu ya. Coba perintah lain.', mood: 'ennui', active_topic: activeTopic, memory: null }
+          isDone = true
+          break
+        }
+
+        // --- Update UI: Tampilkan step ke berapa ---
+        scheduleThinkingUpdate((isAutonomous && autonomousInitialMessage) ? autonomousInitialMessage : 'Bentar, mikir dlu...')
+
+        // --- Fetch Last.fm listening history untuk konteks AI ---
+        let lastfmContext = ''
+        try {
+          if (typeof window.api?.getRecentTracks === 'function') {
+            const fmTracks = await window.api.getRecentTracks('abelionz')
+            if (fmTracks && fmTracks.length > 0) {
+              const top = fmTracks.slice(0, 8).map(t =>
+                `"${t.title}" by ${t.artist}${t.nowPlaying ? ' (NOW)' : ''}`
+              ).join(', ')
+              lastfmContext = `\n[LISTENING HISTORY (Last.fm)]: ${fmTracks.filter(t => t.nowPlaying).length > 0 ? `NOW PLAYING: "${fmTracks.find(t => t.nowPlaying).title}" by ${fmTracks.find(t => t.nowPlaying).artist}.` : `Recent: ${top}`}`
+            }
+          }
+        } catch {}
+
+        // --- Panggil AI: getNextAction (with per-turn timeout) ---
+        const guardStatus = guard.getStatus()
+        try {
+          const turnTimeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('TURN_TIMEOUT')), PER_TURN_TIMEOUT_MS)
+          )
+          decision = await Promise.race([
+            getNextAction(
+              userInput,
+              loopMessages,
+              abortControllerRef.current.signal,
+              unifiedContext,
+              contextMsgStr,
+              activeTopic,
+              { ...options, intentQuery: searchQuery, waContext, currentMusicTrack, playbackError: currentPlaybackError, degradedMode: guardStatus.state === 'open', lastfmTracks: lastfmContext }
+            ),
+            turnTimeoutPromise
+          ])
+        } catch (e) {
+          if (e.message === 'TURN_TIMEOUT') {
+            console.warn(`[Turn Governor] Turn #${stepCount} timed out (${PER_TURN_TIMEOUT_MS}ms). Injecting /s.`)
+            loopMessages.push({
+              role: 'user',
+              content: `[SISTEM - TURN TIMEOUT] Turn ke-${stepCount} timeout. /s — GANTI STRATEGI! Jangan pakai tool/cara yang sama. Selesaikan dengan pendekatan berbeda atau langsung jawab user.`
+            })
+            continue
+          }
+          throw e
+        }
 
         lastDecision = decision
 
@@ -307,7 +403,7 @@ export const useMarkPlan = ({
 
           // TTS
           if (finalIsSpeak && decision.answer) {
-            updateThinkingMessage('Bentar...', true)
+            flushThinkingUpdate('Bentar...', true)
             await playVoice(decision.answer)
           }
 
@@ -369,9 +465,6 @@ export const useMarkPlan = ({
           const tool = decision.action.tool
           const query = decision.action.query || ''
 
-          lastActionTool = tool
-          lastActionQuery = query
-
           // Add to hologram plan
           execSteps.push({ task: `Eksekusi ${tool}`, query: query })
           pushProcess({
@@ -386,7 +479,7 @@ export const useMarkPlan = ({
           })
 
           // Update UI
-          updateThinkingMessage((isAutonomous && autonomousInitialMessage) ? autonomousInitialMessage : 'Bentar, mikir dlu...')
+          scheduleThinkingUpdate((isAutonomous && autonomousInitialMessage) ? autonomousInitialMessage : 'Bentar, mikir dlu...')
 
           // ========== EXECUTE TOOL ==========
           let resultString = 'Tidak ada hasil.'
@@ -440,7 +533,7 @@ export const useMarkPlan = ({
               if (query && query.trim() !== '') {
                 // Jangan pake wait karena kita mau chatnya tetap responsif, tapi kalau await dia nunggu selesai ngomong
                 // Tampilkan pesan animasi "Berbicara..."
-                updateThinkingMessage(`(Sedang berbicara) ${query}`)
+                scheduleThinkingUpdate(`(Sedang berbicara) ${query}`)
                 await playVoice(query)
                 resultString = `Berhasil berbicara secara lisan: "${query}"`
               } else {
@@ -459,7 +552,7 @@ export const useMarkPlan = ({
               try {
                 const screens = await window.api.takeScreenshot()
                 if (screens && screens.length > 0) {
-                  updateThinkingMessage('Memproses Vision AI...')
+                  scheduleThinkingUpdate('Memproses Vision AI...')
 
                   const contentArray = [
                     {
@@ -506,7 +599,7 @@ export const useMarkPlan = ({
                 } else if (!requestCameraCapture) {
                   resultString = 'Internal Error: Callback requestCameraCapture tidak tersedia.'
                 } else {
-                  updateThinkingMessage('Mengakses kamera...', true)
+                  flushThinkingUpdate('Mengakses kamera...', true)
 
                   console.log('[camera-look] Memanggil requestCameraCapture...')
                   const cameraFrame = await requestCameraCapture({
@@ -516,7 +609,7 @@ export const useMarkPlan = ({
                   console.log('[camera-look] Hasil cameraFrame:', cameraFrame ? `${Math.round(cameraFrame.length / 1024)}KB` : 'null')
 
                   if (cameraFrame) {
-                    updateThinkingMessage('Menganalisis hasil kamera...', true)
+                    flushThinkingUpdate('Menganalisis hasil kamera...', true)
 
                     const contentArray = [
                       {
@@ -565,16 +658,48 @@ export const useMarkPlan = ({
                 'browser-type',
                 'browser-scroll',
                 'browser-ask-user',
-                'browser-close'
+                'browser-close',
+                'native-notify'
               ].includes(tool)
             ) {
+              // --- GUARD: pre-flight check ---
+              const preFlight = guard.preFlightCheck(tool, query)
+              if (!preFlight.allowed) {
+                if (preFlight.degrade) {
+                  options.disableTools = true
+                  resultString = `[DEGRADED] ${preFlight.reason}`
+                } else {
+                  resultString = `[ERROR] Guard rejected: ${preFlight.reason}`
+                }
+                loopMessages.push(
+                  {
+                    role: 'assistant',
+                    content: JSON.stringify({ thought: decision.thought, action: decision.action })
+                  },
+                  {
+                    role: 'user',
+                    content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${resultString}`
+                  }
+                )
+                continue
+              }
+
               // --- NATIVE TOOLS (Built-in) ---
+              const toolStartTime = Date.now()
               const approvalCheck = await window.api.checkToolApproval(tool, query)
 
               if (approvalCheck.needsApproval && requestApproval) {
                 const userApproved = await requestApproval(approvalCheck.message, tool, query)
                 if (!userApproved) {
                   resultString = `[DITOLAK] User menolak eksekusi "${tool}". Cari cara lain atau tanyakan user.`
+                  guard.postFlightCheck(tool, resultString, Date.now() - toolStartTime)
+
+                  // Granular failure tracking (Hermes-style)
+                  failureCounters.exact_failure++
+                  failureCounters.same_tool_failure[tool] = (failureCounters.same_tool_failure[tool] || 0) + 1
+                  failureCounters.idempotent_no_progress++
+
+                  const deniedResult = sanitizeToolOutput(tool, resultString)
                   loopMessages.push(
                     {
                       role: 'assistant',
@@ -585,7 +710,7 @@ export const useMarkPlan = ({
                     },
                     {
                       role: 'user',
-                      content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${resultString}`
+                      content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${deniedResult}`
                     }
                   )
                   continue
@@ -596,14 +721,27 @@ export const useMarkPlan = ({
               const abortPromise = new Promise((_, reject) => {
                 const onAbort = () => reject(new Error('AbortError'))
                 if (abortControllerRef.current.signal.aborted) return onAbort()
-                abortControllerRef.current.signal.addEventListener('abort', onAbort)
+                abortControllerRef.current.signal.addEventListener('abort', onAbort, { once: true })
               })
 
               const res = await Promise.race([nativePromise, abortPromise])
+              const toolDuration = Date.now() - toolStartTime
               if (res.success) {
                 resultString = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
               } else {
                 resultString = `[ERROR] ${tool} gagal: ${res.error}`
+              }
+              guard.postFlightCheck(tool, resultString, toolDuration)
+
+              // Granular failure tracking (Hermes-style)
+              const isError = resultString && (resultString.startsWith('[ERROR]') || resultString.startsWith('[DITOLAK]'))
+              if (isError) {
+                failureCounters.exact_failure++
+                failureCounters.same_tool_failure[tool] = (failureCounters.same_tool_failure[tool] || 0) + 1
+                failureCounters.idempotent_no_progress++
+              } else {
+                failureCounters.same_tool_failure[tool] = 0
+                failureCounters.idempotent_no_progress = 0
               }
 
               lastToolExecution = { action: tool, query, result: resultString }
@@ -621,7 +759,7 @@ export const useMarkPlan = ({
               const abortPromise = new Promise((_, reject) => {
                 const onAbort = () => reject(new Error('AbortError'))
                 if (abortControllerRef.current.signal.aborted) return onAbort()
-                abortControllerRef.current.signal.addEventListener('abort', onAbort)
+                abortControllerRef.current.signal.addEventListener('abort', onAbort, { once: true })
               })
               const res = await Promise.race([pluginPromise, abortPromise])
               if (res.success) {
@@ -646,6 +784,7 @@ export const useMarkPlan = ({
           }
 
           // --- FEED OBSERVATION BACK KE AI ---
+          const sanitizedOutput = sanitizeToolOutput(tool, resultString)
           loopMessages.push(
             {
               role: 'assistant',
@@ -653,7 +792,7 @@ export const useMarkPlan = ({
             },
             {
               role: 'user',
-              content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${resultString}`
+              content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${sanitizedOutput}`
             }
           )
 

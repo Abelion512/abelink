@@ -57,7 +57,8 @@ export const useMarkAgent = () => {
     handleYoutubeSummary,
     handleMusic,
     getYoutubeData,
-    currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null
+    currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null,
+    currentPlaybackError: youtubeMusicTools.playbackError || null
   }
 
   const requestCameraCaptureRef = useRef(null)
@@ -89,7 +90,8 @@ export const useMarkAgent = () => {
     config,
     chatData,
     handlePlanningCommand,
-    currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null
+    currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null,
+    currentPlaybackError: youtubeMusicTools.playbackError || null
   })
 
   useRelationalGrowth({ chatData })

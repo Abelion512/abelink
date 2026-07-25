@@ -114,7 +114,7 @@ ${chunks[i]}
 export const getBestMusicMatch = async (userInput, musicList, signal) => {
   try {
     const systemPrompt = `
-Kamu adalah asisten kurator musik. Tugasmu adalah memilih SATU lagu yang paling sesuai dengan niat pengguna dari daftar hasil pencarian YouTube Music.
+Kamu adalah asisten kurator musik. Tugasmu adalah memilih SATU lagu yang paling sesuai dengan niat pengguna dari daftar hasil pencarian YouTube.
 Gunakan logikamu:
 - Jika user meminta lagu secara spesifik (misal versi cover, live, atau karaoke), carilah judul yang mengandung unsur tersebut.
 - Jika user menyebutkan nama artis, prioritaskan artis tersebut.

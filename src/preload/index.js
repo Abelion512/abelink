@@ -36,7 +36,7 @@ const api = {
     ipcRenderer.removeAllListeners('execute-music-command-wa')
     ipcRenderer.on('execute-music-command-wa', (event, command, payload) => callback(command, payload))
   },
-  sendWaReady: undefined, // Removed
+  sendWaReady: undefined,
   waStart: () => ipcRenderer.send('wa:start'),
   waStop: () => ipcRenderer.send('wa:stop'),
   waGetStatus: () => ipcRenderer.invoke('wa:get-status'),
@@ -92,15 +92,31 @@ const api = {
   },
   showBrowserWindow: () => ipcRenderer.send('browser:show'),
 
-  // Agent Skills (~/.agents/skills/)
+  // Agent Skills
   getAgentSkills: () => ipcRenderer.invoke('agent-skills:get-list'),
   getAgentSkillContent: (name) => ipcRenderer.invoke('agent-skills:get-content', name),
-  reloadAgentSkills: () => ipcRenderer.invoke('agent-skills:reload')
+  reloadAgentSkills: () => ipcRenderer.invoke('agent-skills:reload'),
+
+  // MPRIS D-Bus
+  updateMprisTrack: (track, playing) => ipcRenderer.send('mpris:update-track', track, playing),
+  setMprisPlaybackStatus: (playing) => ipcRenderer.send('mpris:set-status', playing),
+
+  // Last.fm integration - listening history
+  getRecentTracks: (user) => ipcRenderer.invoke('lastfm:get-recent', user),
+  getTopTracks: (user) => ipcRenderer.invoke('lastfm:get-top', user),
+
+  // yt-dlp integration - metadata + audio from YT, TikTok, SoundCloud
+  getYtdlInfo: (url) => ipcRenderer.invoke('ytdl:get-info', url),
+  getYtdlAudio: (url) => ipcRenderer.invoke('ytdl:get-audio', url),
+  searchYtdl: (query, limit) => ipcRenderer.invoke('ytdl:search', query, limit),
+
+  // Config cache invalidation
+  onConfigUpdated: (callback) => {
+    ipcRenderer.removeAllListeners('config-updated')
+    ipcRenderer.on('config-updated', () => callback())
+  }
 }
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)

@@ -82,7 +82,7 @@ export async function navigateTo(url) {
       }
     })
 
-    browserWindow.on('page-title-updated', (event, title) => {
+    browserWindow.on('page-title-updated', async (event, title) => {
       if (title.startsWith('MARK_UNBLOCK_DONE:') && globalAskUserResolve) {
         event.preventDefault() // prevent actual title change if possible
         const comment = title.substring(18) // remove 'MARK_UNBLOCK_DONE:'
@@ -91,27 +91,14 @@ export async function navigateTo(url) {
         activeAskUser = false
         activeAskUserMessage = ''
 
-        // Relock screen
+        // Biarkan browser visible setelah user Resume — user perlu lihat hasil login
+        // Sembunyikan blocker overlay supaya user bisa lihat halaman
         if (!browserWindow.isDestroyed()) {
           browserWindow.webContents
             .executeJavaScript(
               `
               const b = document.getElementById('mark-user-blocker');
-              if (b) {
-                b.style.width = '100vw';
-                b.style.height = '100vh';
-                b.style.top = '0';
-                b.style.left = '0';
-                b.style.bottom = 'auto';
-                b.style.right = 'auto';
-                b.style.background = 'rgba(0,0,0,0.1)';
-                b.style.pointerEvents = 'auto';
-                b.style.display = 'flex';
-                b.style.justifyContent = 'center';
-                b.style.alignItems = 'flex-start';
-                b.style.paddingTop = '24px';
-                b.innerHTML = \`<div style="background: rgba(25, 54, 45, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(31, 184, 84, 0.4); border-radius: 30px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; color: #1fb854; font-family: system-ui, sans-serif; font-weight: 600; font-size: 14px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); pointer-events: none;"><svg class="mark-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><span class="mark-pulse">Mark is working...</span></div>\`;
-              }
+              if (b) b.remove();
             `
             )
             .catch(() => {})
@@ -119,29 +106,62 @@ export async function navigateTo(url) {
       }
     })
 
-    browserWindow.webContents.on('did-navigate', (event, newUrl) => {
+    browserWindow.webContents.on('did-navigate', () => {
       // Don't show automatically on navigate anymore
     })
   }
 
-  // JANGAN browserWindow.show() di sini. Tetap hidden.
-  // browserWindow.focus() // Focus juga nggak perlu kalau hidden
+  // Sembunyikan browser kalau visible (user baru selesai login via unblock)
+  // Biarkan user lihat hasilnya sebentar sebelum agent navigasi lagi
+  if (browserWindow.isVisible()) {
+    browserWindow.hide()
+  }
 
   if (browserWindow.webContents.isLoading()) {
     browserWindow.webContents.stop()
   }
 
-  // Gunakan Promise.race untuk ngasih timeout ke loadURL biar gak stuck di website berat/banyak tracker
+  let loadResolved = false
   let loadTimerId
-  const timeoutPromise = new Promise((resolve) => { loadTimerId = setTimeout(resolve, 60000) })
-  await Promise.race([
-    browserWindow.loadURL(url),
-    timeoutPromise
-  ]).finally(() => clearTimeout(loadTimerId))
-  .catch((e) => console.error('Error/Timeout loading URL:', e))
 
-  // Tunggu halaman selesai load + 2 detik buffer untuk SPA rendering
-  await new Promise((resolve) => setTimeout(resolve, 2000))
+  const loadPromise = new Promise((resolve) => {
+    const done = () => {
+      loadResolved = true
+      clearTimeout(loadTimerId)
+      resolve()
+    }
+    browserWindow.webContents.once('did-finish-load', done)
+    browserWindow.webContents.once('did-fail-load', (_event, code, desc) => {
+      console.warn(`[Browser] did-fail-load: ${code} ${desc}`)
+      done()
+    })
+  })
+
+  const timeoutPromise = new Promise((resolve) => {
+    loadTimerId = setTimeout(() => {
+      if (!loadResolved) {
+        console.warn('[Browser] loadURL timed out, stopping...')
+        if (!browserWindow.isDestroyed()) {
+          browserWindow.webContents.stop()
+        }
+        resolve()
+      }
+    }, 60000)
+  })
+
+  await browserWindow.loadURL(url)
+  await Promise.race([loadPromise, timeoutPromise])
+
+  // Adaptive SPA wait — check DOM readiness every 500ms (max 3s)
+  for (let i = 0; i < 6; i++) {
+    await new Promise((r) => setTimeout(r, 500))
+    try {
+      const ready = await browserWindow.webContents.executeJavaScript(
+        'document.readyState === "complete"'
+      ).catch(() => false)
+      if (ready) break
+    } catch { break }
+  }
 
   // Auto-scan DOM setelah navigate
   return await readDOM()

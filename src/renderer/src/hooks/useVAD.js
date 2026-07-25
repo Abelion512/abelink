@@ -11,7 +11,7 @@ export const useVAD = ({
 
   const streamRef = useRef(null)
   const audioContextRef = useRef(null)
-  const processorRef = useRef(null)
+  const workletNodeRef = useRef(null)
   const isSpeakingRef = useRef(false)
   const audioChunksRef = useRef([])
   const silenceTimerRef = useRef(null)
@@ -21,9 +21,9 @@ export const useVAD = ({
   // VAD & GROQ WHISPER RECORDING
   // ==========================================
   const stopVADCleanup = () => {
-    if (processorRef.current) {
-      processorRef.current.disconnect()
-      processorRef.current = null
+    if (workletNodeRef.current) {
+      workletNodeRef.current.disconnect()
+      workletNodeRef.current = null
     }
     if (audioContextRef.current) {
       audioContextRef.current.close()
@@ -65,26 +65,50 @@ export const useVAD = ({
       audioContextRef.current = audioContext
 
       const source = audioContext.createMediaStreamSource(stream)
-      const processor = audioContext.createScriptProcessor(4096, 1, 1)
-      processorRef.current = processor
 
       const gainNode = audioContext.createGain()
       gainNode.gain.value = 0 // Mute output
 
-      source.connect(processor)
-      processor.connect(gainNode)
+      // AudioWorklet (replace deprecated ScriptProcessorNode)
+      const workletCode = `
+class VADProcessor extends AudioWorkletProcessor {
+  constructor() { super(); }
+  process(inputs, outputs, parameters) {
+    const input = inputs[0];
+    if (!input || !input[0]) return true;
+    const channel = input[0];
+    let sum = 0;
+    for (let i = 0; i < channel.length; i++) sum += channel[i] * channel[i];
+    const rms = Math.sqrt(sum / channel.length);
+    this.port.postMessage({ rms, samples: channel.buffer }, [channel.buffer]);
+    return true;
+  }
+}
+registerProcessor('vad-processor', VADProcessor);
+`
+
+      const blob = new Blob([workletCode], { type: 'application/javascript' })
+      const blobUrl = URL.createObjectURL(blob)
+      await audioContext.audioWorklet.addModule(blobUrl)
+      URL.revokeObjectURL(blobUrl)
+
+      const workletNode = new AudioWorkletNode(audioContext, 'vad-processor', {
+        processorOptions: { threshold: 0.015 }
+      })
+      workletNodeRef.current = workletNode
+
+      source.connect(workletNode)
+      workletNode.connect(gainNode)
       gainNode.connect(audioContext.destination)
 
       isRecordingRef.current = true
       setIsRecording(true)
 
-      processor.onaudioprocess = (e) => {
+      workletNode.port.onmessage = (e) => {
         if (window.isMarkSpeaking) return
 
-        const input = e.inputBuffer.getChannelData(0)
-        let sum = 0
-        for (let i = 0; i < input.length; i++) sum += input[i] * input[i]
-        const rms = Math.sqrt(sum / input.length)
+        const { rms, samples } = e.data
+        const input = new Float32Array(samples)
 
         if (rms > 0.015) {
           if (!isSpeakingRef.current) {
@@ -92,10 +116,10 @@ export const useVAD = ({
             audioChunksRef.current = []
           }
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
-          
+
           silenceTimerRef.current = setTimeout(() => {
             isSpeakingRef.current = false
-            
+
             const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
             if (totalLength < 8000) {
                stopVADCleanup()
@@ -103,21 +127,21 @@ export const useVAD = ({
                setTimeout(() => startVADRecording(), 300)
                return
             }
-            
+
             const merged = new Float32Array(totalLength)
             let offset = 0
             for (let arr of audioChunksRef.current) {
               merged.set(arr, offset)
               offset += arr.length
             }
-            
+
             // Buang 1.5 detik keheningan di akhir (1.5 * 16000 = 24000 samples)
             // Biar Whisper nggak halusinasi nyetak huruf berulang ("AAR AAR", "OI MI MAI") gara-gara denger desis kosong.
             const trimLength = Math.max(8000, merged.length - 24000)
             const trimmedAudio = merged.subarray(0, trimLength)
-            
+
             stopVADCleanup()
-            
+
             // Send to Groq
             transcribeAudioGroq(trimmedAudio)
               .then(text => {
@@ -132,12 +156,12 @@ export const useVAD = ({
                   setTimeout(() => setToastMessage(''), 5000)
                 }
               })
-            
+
           }, 2000) // 2 detik diam = otomatis cut
         }
 
         if (isSpeakingRef.current) {
-          audioChunksRef.current.push(new Float32Array(input))
+          audioChunksRef.current.push(input)
         }
       }
       isStartingRef.current = false

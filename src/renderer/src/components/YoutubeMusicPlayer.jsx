@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 
 export const YoutubeMusicPlayer = () => {
@@ -12,7 +12,9 @@ export const YoutubeMusicPlayer = () => {
     playId,
     nextTrack,
     prevTrack,
-    playPause
+    playPause,
+    playbackError,
+    setPlaybackError
   } = useYoutubeMusic()
   const [isReady, setIsReady] = useState(false)
 
@@ -43,7 +45,6 @@ export const YoutubeMusicPlayer = () => {
         if (command === 'play' && payload) {
           window.api.searchMusic(payload).then((music) => {
             if (music && music.length > 0) {
-              // Tambahkan query parameter acak biar URL selalu dianggap baru oleh React dan Router SPA
               const url = `https://www.youtube.com/watch?v=${music[0].id}`
               playUrlRef.current(url)
             }
@@ -53,120 +54,96 @@ export const YoutubeMusicPlayer = () => {
         else if (command === 'toggle') playPauseRef.current()
       })
     }
-  }, []) // Register sekali saja, tidak perlu re-register
+  }, [])
 
-  // Inject adblock CSS + JS into webview on dom-ready
+  // Retry state untuk ERR_FAILED (-2/-3) — ref agar tidak trigger re-render
+  const lastLoadedUrlRef = useRef(null)
+  const retryTimerRef = useRef(null)
+  const retryCountRef = useRef(0)
+
+  // Init webview: CSS, ad-blaster, error detection, new-window handler
   useEffect(() => {
     const webview = webviewRef.current
     if (!webview) return
 
     const handleDomReady = () => {
       setIsReady(true)
+
+      // CSS: hide scrollbar, premium upsells
       webview.insertCSS(`
-        /* Hide scrollbar */
         ::-webkit-scrollbar { display: none !important; width: 0 !important; }
-        html, body { overflow-y: hidden !important; scrollbar-width: none !important; }
+        html, body { overflow-y: scroll !important; scrollbar-width: none !important; }
 
-        /* Hide masthead/header */
-        ytd-masthead, #masthead-container, ytd-topbar-menu-button-renderer,
-        ytd-searchbox, #search-container {
-          display: none !important;
+        .ytp-chrome-top, .ytp-chrome-bottom, .ytp-gradient-top, .ytp-gradient-bottom {
+          opacity: 1 !important;
         }
+        #movie_player, .html5-video-player { max-height: 400px !important; }
 
-        /* Hide sidebar */
-        ytd-guide-renderer, #guide, ytd-browse-renderer, ytd-thumbnail-overlay-time-status-renderer {
-          display: none !important;
-        }
-
-        /* Hide video info section below player */
-        #above-the-fold, #title, #meta, #info, #info-contents,
-        ytd-video-primary-info-renderer, ytd-video-secondary-info-renderer,
-        #description, #description-inline-expander, #expand,
-        ytd-reel-video-renderer, #below-the-fold,
-        ytd-watch-metadata, ytd-watch-flexy {
-          display: none !important;
-        }
-
-        /* Hide comments, related videos, suggestions */
-        ytd-comments, ytd-item-section-renderer, ytd-continuation-item-renderer,
-        ytd-watch-next-tabbed-results-renderer, ytd-structured-description-content-renderer,
-        ytd-video-description-transcript-section-renderer {
-          display: none !important;
-        }
-
-        /* Hide subscribe, like, share buttons */
-        #subscribe-button, #like-button, #segmented-dislike-button,
-        ytd-menu-renderer, ytd-button-renderer, #primary-button,
-        ytd-subscribe-button-renderer, ytd-toggle-button-renderer {
-          display: none !important;
-        }
-
-        /* Hide ad containers */
-        .ad-showing, .ad-interrupting, .ytp-ad-overlay-container, .ytp-ad-message-container,
         #premium-ytd, ytd-mealbar-promo-renderer, ytd-banner-promo-renderer,
         ytd-banner-promo-renderer-background, ytd-popup-container {
           display: none !important;
         }
-
         ytd-guide-entry-renderer[icon*='premium'],
         ytd-pivot-bar-item-renderer[tab-id*='premium'] {
           display: none !important;
         }
-
-        /* Make video player full width */
-        #movie_player, .html5-video-player {
-          width: 100% !important;
-          height: auto !important;
-        }
-
-        video {
-          width: 100% !important;
-          height: auto !important;
-        }
       `)
 
+      // Ad-blaster — smart: uses MutationObserver instead of aggressive setInterval
+      // Only engages when ad container appears, never overrides user controls
       webview.executeJavaScript(`
         (function() {
-          setInterval(() => {
-            const video = document.querySelector('video');
+          let adActive = false;
+          // Watch for ad containers appearing/disappearing
+          const observer = new MutationObserver(() => {
             const ad = document.querySelector('.ad-showing, .ad-interrupting');
             const skip = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
-            const confirm = document.querySelector('.ytd-popup-container button, .ytd-button-renderer button, #confirm-button button');
+            const video = document.querySelector('video');
 
-            if (ad && video) {
+            if (ad && video && !adActive) {
+              adActive = true;
               video.muted = true;
               video.playbackRate = 16;
               if (isFinite(video.duration)) video.currentTime = video.duration - 0.1;
               if (skip) skip.click();
-            } else if (video && video.muted) {
-              video.muted = false;
-              video.playbackRate = 1;
+            } else if (!ad && adActive) {
+              adActive = false;
+              if (video) { video.muted = false; video.playbackRate = 1; }
             }
+            // Click confirm/skip buttons when they appear (popups, "still watching")
+            if (skip) skip.click();
+            const confirm = document.querySelector('#confirm-button button, .ytd-popup-container button');
             if (confirm) confirm.click();
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+	        })();
+	      `).catch(() => {})
+    }
 
-            // Force-hide page clutter dynamically
-            const hideSelectors = [
-              'ytd-masthead', '#masthead-container', 'ytd-guide-renderer', '#guide',
-              '#above-the-fold', '#title', '#meta', '#info', '#info-contents',
-              'ytd-video-primary-info-renderer', 'ytd-video-secondary-info-renderer',
-              '#description', '#description-inline-expander',
-              'ytd-comments', 'ytd-item-section-renderer',
-              'ytd-watch-next-tabbed-results-renderer',
-              '#subscribe-button', '#like-button', 'ytd-menu-renderer',
-              'ytd-reel-video-renderer', '#below-the-fold'
-            ];
-            hideSelectors.forEach(sel => {
-              document.querySelectorAll(sel).forEach(el => {
-                el.style.display = 'none';
-              });
-            });
-          }, 500);
-        })();
-      `)
+    // Error detection + retry on ERR_FAILED (-2/-3)
+    const handleFailLoad = (event, errorCode, errorDesc) => {
+      const errMsg = `Error ${errorCode}: ${errorDesc}`
+      console.error('[YT Webview] Load failed:', errMsg)
+
+      // Retry on ERR_FAILED (-2) or ERR_ABORTED (-3) — max 2x
+      if ((errorCode === -2 || errorCode === -3) && lastLoadedUrlRef.current) {
+        retryCountRef.current++
+
+        if (retryCountRef.current <= 2) {
+          const delay = 2000 * retryCountRef.current // 2s, 4s
+          console.warn(`[YT] ERR_FAILED (${errorCode}), retry ${retryCountRef.current}/2 in ${delay}ms...`)
+          retryTimerRef.current = setTimeout(() => {
+            if (webviewRef.current && lastLoadedUrlRef.current) {
+              webviewRef.current.loadURL(lastLoadedUrlRef.current)
+            }
+          }, delay)
+          return // don't set error yet — retry in progress
+        }
+      }
+      setPlaybackError(errMsg)
     }
 
     const handleNewWindow = (e) => {
-      // Intercept YouTube links that try to open new window — load in same webview
       if (e.url.startsWith('https://www.youtube.com/watch?v=')) {
         e.preventDefault()
         webview.loadURL(e.url)
@@ -174,142 +151,40 @@ export const YoutubeMusicPlayer = () => {
     }
 
     webview.addEventListener('dom-ready', handleDomReady)
+    webview.addEventListener('did-fail-load', handleFailLoad)
     webview.addEventListener('new-window', handleNewWindow)
+
     return () => {
       webview.removeEventListener('dom-ready', handleDomReady)
+      webview.removeEventListener('did-fail-load', handleFailLoad)
       webview.removeEventListener('new-window', handleNewWindow)
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
     }
   }, [])
 
-  // Default URL — load YouTube so user can search manually
-  const DEFAULT_URL = 'https://www.youtube.com/'
-
+  // Navigate to YT watch page when music changes
+  // Hapus autoplay=1 dari URL — bikin YouTube reject (ERR_FAILED -2).
+  // Trigger play via JS webview API setelah loaded.
   useEffect(() => {
-    if (isReady && webviewRef.current && musicUrl && musicUrl !== DEFAULT_URL) {
-      try {
-        // Navigate directly to video URL
-        webviewRef.current.executeJavaScript(`
-          window.location.href = "${musicUrl}";
-        `)
-      } catch (e) {
-        console.error('Gagal navigate:', e)
+    if (isReady && webviewRef.current && musicUrl) {
+      setPlaybackError(null)
+      retryCountRef.current = 0 // reset retry counter on new track
+
+      const videoId = extractVideoId(musicUrl)
+      const cleanUrl = videoId
+        ? `https://www.youtube.com/watch?v=${videoId}`
+        : musicUrl
+      lastLoadedUrlRef.current = cleanUrl
+
+      // Clear any pending retry timer
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current)
+        retryTimerRef.current = null
       }
+
+      webviewRef.current.loadURL(cleanUrl)
     }
   }, [musicUrl, playId, isReady])
-
-  // Inject adblock CSS + JS into webview on dom-ready
-  useEffect(() => {
-    const webview = webviewRef.current
-    if (!webview) return
-
-    const handleDomReady = () => {
-      setIsReady(true)
-      webview.insertCSS(`
-        /* Hide scrollbar */
-        ::-webkit-scrollbar { display: none !important; width: 0 !important; }
-        html, body { overflow-y: hidden !important; scrollbar-width: none !important; }
-
-        /* Hide masthead/header */
-        ytd-masthead, #masthead-container, ytd-topbar-menu-button-renderer,
-        ytd-searchbox, #search-container {
-          display: none !important;
-        }
-
-        /* Hide sidebar */
-        ytd-guide-renderer, #guide, ytd-browse-renderer, ytd-thumbnail-overlay-time-status-renderer {
-          display: none !important;
-        }
-
-        /* Hide video info section below player */
-        #above-the-fold, #title, #meta, #info, #info-contents,
-        ytd-video-primary-info-renderer, ytd-video-secondary-info-renderer,
-        #description, #description-inline-expander, #expand,
-        ytd-reel-video-renderer, #below-the-fold,
-        ytd-watch-metadata, ytd-watch-flexy {
-          display: none !important;
-        }
-
-        /* Hide comments, related videos, suggestions */
-        ytd-comments, ytd-item-section-renderer, ytd-continuation-item-renderer,
-        ytd-watch-next-tabbed-results-renderer, ytd-structured-description-content-renderer,
-        ytd-video-description-transcript-section-renderer {
-          display: none !important;
-        }
-
-        /* Hide subscribe, like, share buttons */
-        #subscribe-button, #like-button, #segmented-dislike-button,
-        ytd-menu-renderer, ytd-button-renderer, #primary-button,
-        ytd-subscribe-button-renderer, ytd-toggle-button-renderer {
-          display: none !important;
-        }
-
-        /* Hide ad containers */
-        .ad-showing, .ad-interrupting, .ytp-ad-overlay-container, .ytp-ad-message-container,
-        #premium-ytd, ytd-mealbar-promo-renderer, ytd-banner-promo-renderer,
-        ytd-banner-promo-renderer-background, ytd-popup-container {
-          display: none !important;
-        }
-
-        ytd-guide-entry-renderer[icon*='premium'],
-        ytd-pivot-bar-item-renderer[tab-id*='premium'] {
-          display: none !important;
-        }
-
-        /* Make video player full width */
-        #movie_player, .html5-video-player {
-          width: 100% !important;
-          height: auto !important;
-        }
-
-        video {
-          width: 100% !important;
-          height: auto !important;
-        }
-      `)
-
-      webview.executeJavaScript(`
-        (function() {
-          setInterval(() => {
-            const video = document.querySelector('video');
-            const ad = document.querySelector('.ad-showing, .ad-interrupting');
-            const skip = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
-            const confirm = document.querySelector('.ytd-popup-container button, .ytd-button-renderer button, #confirm-button button');
-
-            if (ad && video) {
-              video.muted = true;
-              video.playbackRate = 16;
-              if (isFinite(video.duration)) video.currentTime = video.duration - 0.1;
-              if (skip) skip.click();
-            } else if (video && video.muted) {
-              video.muted = false;
-              video.playbackRate = 1;
-            }
-            if (confirm) confirm.click();
-
-            // Force-hide page clutter dynamically
-            const hideSelectors = [
-              'ytd-masthead', '#masthead-container', 'ytd-guide-renderer', '#guide',
-              '#above-the-fold', '#title', '#meta', '#info', '#info-contents',
-              'ytd-video-primary-info-renderer', 'ytd-video-secondary-info-renderer',
-              '#description', '#description-inline-expander',
-              'ytd-comments', 'ytd-item-section-renderer',
-              'ytd-watch-next-tabbed-results-renderer',
-              '#subscribe-button', '#like-button', 'ytd-menu-renderer',
-              'ytd-reel-video-renderer', '#below-the-fold'
-            ];
-            hideSelectors.forEach(sel => {
-              document.querySelectorAll(sel).forEach(el => {
-                el.style.display = 'none';
-              });
-            });
-          }, 500);
-        })();
-      `)
-    }
-
-    webview.addEventListener('dom-ready', handleDomReady)
-    return () => webview.removeEventListener('dom-ready', handleDomReady)
-  }, [])
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none max-w-[90vw]">
@@ -324,7 +199,7 @@ export const YoutubeMusicPlayer = () => {
           }
         `}
       >
-        <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-black/40 border border-white/10 bg-base-300 w-full max-w-[520px] min-w-0">
+        <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-black/40 border border-white/10 bg-base-300 w-full max-w-[420px] min-w-0">
           {/* Header bar */}
           <div className="flex items-center justify-between px-3 py-2 bg-base-200/80 backdrop-blur-sm border-b border-white/5">
             <div className="flex items-center gap-2">
@@ -351,16 +226,16 @@ export const YoutubeMusicPlayer = () => {
             </button>
           </div>
 
-          {/* Webview — responsive, no zoom, fit container */}
+          {/* Webview — native size, no zoom (zoom cuts content) */}
           <webview
             ref={webviewRef}
             src="https://www.youtube.com/"
-            style={{ width: '100%', height: '380px', overflow: 'hidden' }}
-            className="no-scrollbar"
+            style={{ width: '480px', height: '360px' }}
+            className="no-scrollbar rounded-b-2xl"
             allowpopups="false"
             partition="persist:youtube"
-            webpreferences="enableRemoteModule, contextIsolation=no, zoomFactor=1.0"
-            useragent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+            webpreferences="contextIsolation=yes"
+            useragent={navigator.userAgent}
           />
         </div>
       </div>
@@ -382,42 +257,32 @@ export const YoutubeMusicPlayer = () => {
         `}
         title={isPlayerOpen ? 'Tutup Player' : 'Buka YouTube'}
       >
-        {/* Pulse ring saat tertutup */}
         {!isPlayerOpen && (
           <span className="absolute inset-0 rounded-full bg-red-500/30 animate-ping pointer-events-none" />
         )}
-
         {isPlayerOpen ? (
-          // Icon X (close)
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="transition-transform duration-300"
-          >
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-300">
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
           </svg>
         ) : (
-          // Icon Music Note
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="white"
-            className="transition-transform duration-300 group-hover:scale-110"
-          >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" className="transition-transform duration-300 group-hover:scale-110">
             <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
           </svg>
         )}
       </button>
     </div>
   )
+}
+
+function extractVideoId(url) {
+  if (!url) return null
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ]
+  for (const p of patterns) {
+    const m = url.match(p)
+    if (m && m[1]) return m[1]
+  }
+  return null
 }

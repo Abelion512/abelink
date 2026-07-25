@@ -15,7 +15,7 @@ const RSIAuditLog = (() => {
   const logFile = path.join(logDir, 'rsi-audit.log')
   try {
     if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true })
-  } catch {}
+  } catch (e) { console.warn('[RSI Audit] write failed:', e) }
   const maxBytes = 5 * 1024 * 1024 // 5MB rotate
   return (toolName, cmd, success) => {
     try {
@@ -28,7 +28,7 @@ const RSIAuditLog = (() => {
         const lines = content.split('\n').slice(-1000)
         fs.writeFileSync(logFile, lines.join('\n'))
       }
-    } catch {} // silent — never crash from audit
+    } catch (e) { console.warn('[RSI Audit] write failed:', e) } // silent — never crash from audit
   }
 })()
 
@@ -46,10 +46,9 @@ const safeEnv = () => {
 
 // Helper: Cek apakah command shell berbahaya
 const DANGEROUS_KEYWORDS = [
-  'remove-item', 'rm ', 'rm -', 'del ', 'rmdir', 'format-',
-  'clear-disk', 'stop-process', 'kill ', 'taskkill',
-  'set-executionpolicy', 'restart-computer', 'shutdown',
-  'reg delete', 'dd if=', ':(){ :|:& };:', '> /dev/sda',
+  'rm ', 'rm -', 'del ', 'rmdir', 'format-',
+  'kill ', 'shutdown',
+  'dd if=', ':(){ :|:& };:', '> /dev/sda',
   'chmod 000', 'chown -r', 'sudo rm', '> /dev/null 2>&1 || rm'
 ]
 export const isDangerousCommand = (cmd) =>
@@ -210,16 +209,9 @@ export const NATIVE_TOOLS = {
         const dirPath = parts[0].trim()
         const keyword = parts[1].trim()
 
-        // Ensure ripgrep is installed — Linux-only, use apt
+        // Check if ripgrep is available — no auto-install (security)
         const hasRg = await execPromise('command -v rg', { shell: '/bin/bash' })
           .then(r => r.stdout.trim().length > 0).catch(() => false)
-        if (!hasRg) {
-          try {
-            await execPromise('sudo apt-get install -y ripgrep', { shell: '/bin/bash' })
-          } catch (_) {
-            // If install fails, fall through to grep fallback
-          }
-        }
 
         let stdout
         if (hasRg) {
@@ -397,6 +389,23 @@ export const NATIVE_TOOLS = {
       try {
         const result = await executeAction({ action: 'unblock', value: query })
         return { success: true, data: result }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
+    }
+  },
+  'native-notify': {
+    needsApproval: false,
+    handler: async (query) => {
+      try {
+        const [title, ...bodyParts] = query.split('||')
+        const body = bodyParts.join('||')
+        // Use execFile via spawn — no shell parsing, no injection
+        const { execFile } = await import('child_process')
+        const { promisify } = await import('util')
+        const execFilePromise = promisify(execFile)
+        await execFilePromise('notify-send', [title, body])
+        return { success: true }
       } catch (e) {
         return { success: false, error: e.message }
       }
