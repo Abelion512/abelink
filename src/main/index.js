@@ -35,14 +35,26 @@ app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
 
 
 const setupYoutubeFix = () => {
-  // Kita cegat semua request yang pergi ke YouTube
+  // Kita cegat semua request yang pergi ke YouTube & YouTube Music
   session.defaultSession.webRequest.onBeforeSendHeaders(
-    { urls: ['https://www.youtube.com/*'] },
+    {
+      urls: [
+        '*://*.youtube.com/*',
+        '*://*.googlevideo.com/*',
+        '*://music.youtube.com/*'
+      ]
+    },
     (details, callback) => {
-      // Kita paksa header 'Referer' dan 'Origin' jadi localhost
-      // Supaya YouTube gak tau kalau ini dateng dari file://
-      details.requestHeaders['Referer'] = 'http://localhost'
-      details.requestHeaders['Origin'] = 'http://localhost'
+      const url = details.url || ''
+      if (url.includes('music.youtube.com')) {
+        details.requestHeaders['Referer'] = 'https://music.youtube.com/'
+        details.requestHeaders['Origin'] = 'https://music.youtube.com'
+        details.requestHeaders['Sec-Fetch-Site'] = 'same-origin'
+      } else {
+        details.requestHeaders['Referer'] = 'https://www.youtube.com/'
+        details.requestHeaders['Origin'] = 'https://www.youtube.com'
+        details.requestHeaders['Sec-Fetch-Site'] = 'same-origin'
+      }
       callback({ requestHeaders: details.requestHeaders })
     }
   )

@@ -43,8 +43,8 @@ export const YoutubeMusicPlayer = () => {
         if (command === 'play' && payload) {
           window.api.searchMusic(payload).then((music) => {
             if (music && music.length > 0) {
-              // Tambahkan query parameter acak biar URL selalu dianggap baru oleh React dan Router SPA
-              const url = `https://music.youtube.com/watch?v=${music[0].id}&_t=${Date.now()}`
+              // Gunakan URL bersih tanpa parameter _t yang asing bagi YouTube Music
+              const url = `https://music.youtube.com/watch?v=${music[0].id}`
               playUrlRef.current(url)
             }
           })
@@ -77,13 +77,15 @@ export const YoutubeMusicPlayer = () => {
           display: none !important;
         }
 
-        /* Sembunyikan popup promosi & overlay backdrop */
-        ytmusic-popup-container, iron-overlay-backdrop, ytmusic-upsell-dialog-renderer {
+        /* Sembunyikan popup promosi, overlay backdrop, dan promo login/sign-in */
+        ytmusic-popup-container, iron-overlay-backdrop, ytmusic-upsell-dialog-renderer,
+        ytmusic-sign-in-promo-renderer, ytmusic-modal-with-title-and-button-renderer,
+        yt-confirm-dialog-renderer, #consent-bump, ytmusic-consent-bump-renderer {
           display: none !important;
         }
       `)
 
-      // 2. Logic "Ad-Blaster" (Auto-Mute & 16x Speed)
+      // 2. Logic "Ad-Blaster" & Auto-Dismiss Login Prompt (Auto-Mute, 16x Speed, Anti-Login Modal)
       webview.executeJavaScript(`
         (function() {
           let isAdMuted = false;
@@ -125,6 +127,24 @@ export const YoutubeMusicPlayer = () => {
               if (video.playbackRate !== 1) {
                 video.playbackRate = 1;
               }
+            }
+
+            // --- ANTI-SIGN-IN PROMPT, CONSENT BANNER & MODAL LOGIN ---
+            const dismissBtns = document.querySelectorAll(
+              'ytmusic-modal-with-title-and-button-renderer yt-button-renderer, ' +
+              'ytmusic-sign-in-promo-renderer .dismiss-button, ' +
+              'button[aria-label="No thanks"], button[aria-label="Lain kali"], ' +
+              'button[aria-label="Dismiss"], button[aria-label="Lewati"], ' +
+              'button[aria-label="Reject all"], button[aria-label="Tolak semua"], ' +
+              'ytmusic-consent-bump-renderer .yt-spec-button-shape-next--call-to-action-secondary'
+            );
+            dismissBtns.forEach(btn => btn.click());
+
+            const loginModal = document.querySelector('ytmusic-modal-with-title-and-button-renderer, ytmusic-sign-in-promo-renderer, ytmusic-consent-bump-renderer');
+            if (loginModal) {
+              loginModal.remove();
+              const backdrop = document.querySelector('iron-overlay-backdrop, tp-yt-iron-overlay-backdrop');
+              if (backdrop) backdrop.remove();
             }
 
             // Anti-pause "Are you still watching?"
@@ -210,7 +230,11 @@ export const YoutubeMusicPlayer = () => {
             style={{ zoom: '0.65', width: '420px', height: '560px' }}
             className="no-scrollbar"
             allowpopups="false"
-            useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            useragent={
+              typeof navigator !== 'undefined'
+                ? navigator.userAgent.replace(/Electron\/[\d.]+\s?/, '').replace(/mark\/[\d.]+\s?/, '').trim()
+                : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+            }
           />
         </div>
       </div>
