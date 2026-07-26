@@ -193,21 +193,44 @@ const Guidebook = () => {
 
                 <div className="space-y-6 text-lg text-white/70 leading-relaxed">
                   <p>
-                    Lebih dari sekadar chatbot kaku, <strong className="text-white">Mark</strong> (singkatan dari <span className="text-primary font-semibold">Memory Adaptive Response Knowledge</span>) adalah <em>Personal AI Assistant</em> yang hidup di ekosistem lokal Anda. 
+                    Lebih dari sekadar chatbot kaku, <strong className="text-white">Mark</strong>{' '}
+                    (singkatan dari{' '}
+                    <span className="text-primary font-semibold">
+                      Metacognitive Artificial Relational Knowledge
+                    </span>
+                    ) adalah <em>Personal AI Assistant</em> yang hidup di ekosistem lokal Anda.
                   </p>
-                  
+
                   <p>
-                    Ia memadukan <strong className="text-white">Vector Memory</strong> jangka panjang dengan <strong className="text-error">Relational Growth System</strong>—memungkinkannya mempelajari kebiasaan Anda dan meracik gaya komunikasi yang berevolusi seiring waktu, semua itu <strong>tanpa mengorbankan privasi Anda sedikit pun</strong>.
+                    Ia memadukan <strong className="text-white">Vector Memory</strong> jangka
+                    panjang dengan <strong className="text-error">Relational Growth System</strong>
+                    —memungkinkannya mempelajari kebiasaan Anda dan meracik gaya komunikasi yang
+                    berevolusi seiring waktu, semua itu{' '}
+                    <strong>tanpa mengorbankan privasi Anda sedikit pun</strong>.
                   </p>
 
                   <div className="bg-black/30 border border-white/5 rounded-2xl p-6 mt-8">
-                    <h3 className="text-xl font-bold text-white mb-4">Ditenagai oleh Hybrid AI Engine, Mark mampu:</h3>
+                    <h3 className="text-xl font-bold text-white mb-4">
+                      Ditenagai oleh Hybrid AI Engine, Mark mampu:
+                    </h3>
                     <ul className="list-disc list-inside space-y-3 text-white/80 marker:text-primary">
-                      <li>Beroperasi <strong>secara lokal</strong> untuk privasi maksimal (via LM Studio).</li>
-                      <li>Berpikir dan menyusun rencana berlapis (<strong>Agentic Planning</strong>).</li>
-                      <li>Mengobservasi layar dan objek di dunia nyata (<strong>Vision AI</strong>).</li>
-                      <li>Menarik kesimpulan dari <strong>Deep Web Search</strong> & Video YouTube.</li>
-                      <li>Berinteraksi layaknya manusia nyata melalui <strong>Voice Chat (VAD & TTS)</strong>.</li>
+                      <li>
+                        Beroperasi <strong>secara lokal</strong> untuk privasi maksimal (via LM
+                        Studio).
+                      </li>
+                      <li>
+                        Berpikir dan menyusun rencana berlapis (<strong>Agentic Planning</strong>).
+                      </li>
+                      <li>
+                        Mengobservasi layar dan objek di dunia nyata (<strong>Vision AI</strong>).
+                      </li>
+                      <li>
+                        Menarik kesimpulan dari <strong>Deep Web Search</strong> & Video YouTube.
+                      </li>
+                      <li>
+                        Berinteraksi layaknya manusia nyata melalui{' '}
+                        <strong>Voice Chat (VAD & TTS)</strong>.
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -250,8 +273,8 @@ const Guidebook = () => {
                     <div>
                       <h4 className="text-white font-semibold mb-2">Hybrid AI Engine</h4>
                       <p className="text-sm text-white/60 leading-relaxed">
-                        Bisa berjalan secara offline/lokal via LM Studio untuk privasi maksimal, atau
-                        menggunakan Groq API / Cloud API untuk mengeksekusi tugas berat dengan
+                        Bisa berjalan secara offline/lokal via LM Studio untuk privasi maksimal,
+                        atau menggunakan Groq API / Cloud API untuk mengeksekusi tugas berat dengan
                         kecepatan super.
                       </p>
                     </div>

@@ -23,8 +23,6 @@ Thumbs.db
 .env.example
 .env.local
 .env.*.local
-
-# Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -48,6 +46,9 @@ docs/
 quest.md
 
 # Temp artifacts
+.vscode
+workflow
+mark_chrome_profile
 web.whatsapp.com.html
 /web.whatsapp.com_files
 AGENTS.md
