@@ -108,16 +108,40 @@ export const useMarkAgent = () => {
       console.log('[useMarkAgent] Memicu pesan sambutan (Boot sequence)...')
 
       const bootSequence = async () => {
-        // const timeoutId = setTimeout(() => {
-        //   if (abortControllerRef.current) {
-        //     console.log('[useMarkAgent] Timeout 10 detik tercapai, membatalkan greeting...')
-        //     abortControllerRef.current.abort()
-        //   }
-        // }, 10000)
+        let timeContext = ''
+        let topicContext = ''
+
+        if (chatData && chatData.length > 0) {
+          const lastMsg = chatData[chatData.length - 1]
+          if (lastMsg && lastMsg.timestamp) {
+            const diffMs = Date.now() - lastMsg.timestamp
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+            const diffDays = Math.floor(diffHours / 24)
+
+            if (diffDays >= 3) {
+              timeContext = `\n[KONTEKS WAKTU & RIWAYAT]: Pengguna sudah tidak membuka aplikasi/ngobrol selama ${diffDays} hari! Sapa dengan nada kaget, akrab, atau kangen bergaya santai (contoh: "Waduh kemana aja nih lama gak kelihatan", "Akhirnya nongkrong lagi kita", "Sibuk banget kayaknya baru kelihatan lagi", dll). JANGAN formal atau kaku!`
+            } else if (diffDays >= 1) {
+              timeContext = `\n[KONTEKS WAKTU & RIWAYAT]: Pengguna kembali setelah ${diffDays} hari tidak ngobrol. Beri sapaan santai dan ramah bahwa lu senang dia balik lagi.`
+            } else if (diffHours >= 5) {
+              timeContext = `\n[KONTEKS WAKTU & RIWAYAT]: Pengguna kembali setelah sekitar ${diffHours} jam dari obrolan terakhir hari ini.`
+            } else {
+              const diffMinutes = Math.max(1, Math.floor(diffMs / 60000))
+              timeContext = `\n[KONTEKS WAKTU & RIWAYAT]: Kalian baru saja ngobrol belum lama ini (${diffMinutes} menit yang lalu). JANGAN sapa berlebihan seolah sudah lama tidak ketemu, cukup sambut santai melanjutkan obrolan.`
+            }
+          }
+
+          const lastUserMsg = [...chatData].reverse().find((m) => m.type === 'user' && typeof m.message === 'string')
+          if (lastUserMsg && lastUserMsg.message) {
+            const cleanMsg = lastUserMsg.message.replace(/\[.*?\]/g, '').trim()
+            if (cleanMsg && cleanMsg.length > 3) {
+              topicContext = `\n[TOPIK TERAKHIR KALIAN]: "${cleanMsg.slice(0, 100)}". Kamu boleh sedikit menyinggung atau mengaitkan obrolan terakhir ini jika cocok agar sapaanmu terasa hidup dan peka memori.`
+            }
+          }
+        }
 
         try {
           await handlePlanningCommand(
-            'Aplikasi baru saja dinyalakan. Sapa pengguna dengan singkat, natural, dan hangat (gunakan nama dari profil jika ada). Tunjukkan bahwa kamu sudah aktif dan siap menerima perintah. Kamu bisa mereferensikan waktu saat ini atau memori yang relevan sebagai obrolan pembuka santai.',
+            `Aplikasi baru saja dinyalakan. Sapa pengguna dengan singkat, natural, hangat, dan tidak kaku layaknya teman dekat/asisten pribadi yang hidup (gunakan nama pengguna dari profil jika ada).${timeContext}${topicContext}\nTunjukkan bahwa kamu siap dan aktif merespons tanpa bersikap seperti robot kaku atau customer service.`,
             null, // waContext
             false, // isAutonomous
             null, // autonomousInitialMessage
@@ -135,7 +159,7 @@ export const useMarkAgent = () => {
 
       bootSequence()
     }
-  }, [isChatLoaded])
+  }, [isChatLoaded, chatData])
 
   useEffect(() => {
     const handleWaAdminMessage = (e) => {

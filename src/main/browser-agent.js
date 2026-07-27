@@ -297,18 +297,15 @@ export async function readDOM() {
 
   // Capture page & send to renderer for HoloCard Preview
   try {
-    // Jangan kirim hologram kalau window fisik sedang terbuka (biar gak bentrok/double)
-    if (!browserWindow.isVisible()) {
-      const image = await browserWindow.webContents.capturePage()
-      const thumbnail = image.resize({ width: 800 }).toDataURL() // Resize biar enteng
-      const url = browserWindow.webContents.getURL()
-      const title = browserWindow.getTitle()
-      BrowserWindow.getAllWindows().forEach((win) => {
-        if (win !== browserWindow && !win.isDestroyed()) {
-          win.webContents.send('browser:preview', { url, title, thumbnail })
-        }
-      })
-    }
+    const image = await browserWindow.webContents.capturePage()
+    const thumbnail = image.resize({ width: 800 }).toDataURL() // Resize biar enteng
+    const url = browserWindow.webContents.getURL()
+    const title = browserWindow.getTitle()
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (win !== browserWindow && !win.isDestroyed()) {
+        win.webContents.send('browser:preview', { url, title, thumbnail })
+      }
+    })
   } catch (e) {
     console.error('Failed to capture browser preview:', e)
   }
