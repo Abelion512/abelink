@@ -138,7 +138,7 @@ export const useMarkPlan = ({
 
     let finalContent = userInput
     if (isSystem) finalContent = `[SYSTEM INSTRUCTION]: ${userInput}`
-    if (isAutonomous) finalContent = `[SISTEM INTERNAL - INISIATIF OTONOM]: Otak bawah sadarmu berinisiatif untuk melakukan tindakan berikut: "${userInput}". LAKUKAN TUGAS INI! Bicaralah seolah-olah kamu yang memiliki inisiatif itu sendiri tanpa disuruh. PENTING: Respons "answer"-mu HARUS SANGAT SINGKAT, santai, dan cuek (Maks 1-2 kalimat pendek). DILARANG KERAS menggunakan sapaan kaku (seperti "Yoi Mada") ATAU menawarkan bantuan di akhir kalimat! Boleh kosongkan (null) jika tidak perlu bicara.`
+    if (isAutonomous) finalContent = `[SISTEM INTERNAL - INISIATIF OTONOM]: Otak bawah sadarmu berinisiatif untuk melakukan tindakan berikut: "${userInput}". LAKUKAN TUGAS INI! Bicaralah seolah-olah kamu yang memiliki inisiatif itu sendiri tanpa disuruh. PENTING: DILARANG KERAS menggunakan tool 'os-*' (seperti os-control-open, os-click, os-type, dll) untuk interaksi PC secara otonom! Respons "answer"-mu HARUS SANGAT SINGKAT, santai, dan cuek (Maks 1-2 kalimat pendek). DILARANG KERAS menggunakan sapaan kaku (seperti "Yoi Mada") ATAU menawarkan bantuan di akhir kalimat! Boleh kosongkan (null) jika tidak perlu bicara.`
 
     const userMessage = {
       role: 'user',
