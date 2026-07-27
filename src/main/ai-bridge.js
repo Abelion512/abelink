@@ -1,5 +1,7 @@
 import { app } from 'electron'
-import jsonrepair from 'jsonrepair'
+// ponytail: lazy import so missing dep doesn't crash module at eval time
+let jsonrepair = null
+try { jsonrepair = (await import('jsonrepair')).jsonrepair || null } catch {}
 
 const createLMStudioOfflineError = (cause, endpoint = 'localhost:1234') => {
   const error = new Error(`Server AI (${endpoint}) tidak merespons. Pastikan server berjalan.`)

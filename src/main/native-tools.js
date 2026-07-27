@@ -209,17 +209,22 @@ export const NATIVE_TOOLS = {
         const dirPath = parts[0].trim()
         const keyword = parts[1].trim()
 
+        // Escape shell metacharacters to prevent injection
+        const esc = (s) => s.replace(/(["\\$`!])/g, '\\$1')
+        const safeKeyword = esc(keyword)
+        const safeDir = esc(dirPath)
+
         // Check if ripgrep is available — no auto-install (security)
         const hasRg = await execPromise('command -v rg', { shell: '/bin/bash' })
           .then(r => r.stdout.trim().length > 0).catch(() => false)
 
         let stdout
         if (hasRg) {
-          const cmd = `rg -n --no-heading -i -m 50 --glob '!node_modules' --glob '!.git' "${keyword}" "${dirPath}"`
+          const cmd = `rg -n --no-heading -i -m 50 --glob '!node_modules' --glob '!.git' "${safeKeyword}" "${safeDir}"`
           const result = await execPromise(cmd, { shell: '/bin/bash', maxBuffer: 10 * 1024 * 1024 })
           stdout = result.stdout
         } else {
-          const cmd = `grep -rni --exclude-dir=node_modules --exclude-dir=.git -m 50 "${keyword}" "${dirPath}"`
+          const cmd = `grep -rni --exclude-dir=node_modules --exclude-dir=.git -m 50 "${safeKeyword}" "${safeDir}"`
           const result = await execPromise(cmd, { shell: '/bin/bash', maxBuffer: 10 * 1024 * 1024 })
           stdout = result.stdout
         }

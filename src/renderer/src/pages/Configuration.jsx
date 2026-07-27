@@ -73,7 +73,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     ttsRate: 0,
     ttsPitch: 0,
     groqApiKey: '',
-    aiProvider: 'lm-studio',
+    aiProvider: 'lmstudio',
     groqModel: 'llama-3.1-8b-instant',
     waAdminNumber: '',
     micDeviceId: 'default',
@@ -286,7 +286,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
       setConfig((prev) => ({
         ...prev,
         ...data[0],
-        aiProvider: data[0].aiProvider || 'lm-studio',
+        aiProvider: data[0].aiProvider?.replace('lm-studio', 'lmstudio') || 'lmstudio',
         micDeviceId: data[0].micDeviceId || 'default',
         awarenessEnabled: data[0].awarenessEnabled ?? true
       }))
@@ -476,16 +476,16 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const handleCustomModelChange = (e) => setConfig((prev) => ({ ...prev, customModel: e.target.value }))
   const handleAwarenessEnabledChange = (e) => setConfig((prev) => ({ ...prev, awarenessEnabled: e.target.checked }))
   const handlePersonalityChange = (e) => setConfig((prev) => ({ ...prev, personality: e.target.value }))
-  const handleTemperatureChange = (e) => setConfig((prev) => ({ ...prev, temperature: e.target.value }))
-  const handleContextChange = (e) => setConfig((prev) => ({ ...prev, context: e.target.value }))
+  const handleTemperatureChange = (e) => setConfig((prev) => ({ ...prev, temperature: Number(e.target.value) }))
+  const handleContextChange = (e) => setConfig((prev) => ({ ...prev, context: Number(e.target.value) }))
   const handleMicDeviceIdChange = (e) => setConfig((prev) => ({ ...prev, micDeviceId: e.target.value }))
   const handleCameraDeviceIdChange = (e) => {
     console.log('[Config] Camera device changed to:', e.target.value, '| label:', e.target.options[e.target.selectedIndex]?.text)
     setConfig((prev) => ({ ...prev, cameraDeviceId: e.target.value }))
   }
   const handleCameraEnabledChange = (e) => setConfig((prev) => ({ ...prev, cameraEnabled: e.target.checked }))
-  const handleTtsRateChange = (e) => setConfig((prev) => ({ ...prev, ttsRate: e.target.value }))
-  const handleTtsPitchChange = (e) => setConfig((prev) => ({ ...prev, ttsPitch: e.target.value }))
+  const handleTtsRateChange = (e) => setConfig((prev) => ({ ...prev, ttsRate: Number(e.target.value) }))
+  const handleTtsPitchChange = (e) => setConfig((prev) => ({ ...prev, ttsPitch: Number(e.target.value) }))
   const handleBack = () => window.history.back()
   const handleToggleGroqKey = () => setShowGroqKey(!showGroqKey)
   const handleToggleCerebrasKey = () => setShowCerebrasKey(!showCerebrasKey)
@@ -601,9 +601,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                     type="radio"
                     name="aiProvider"
                     className="radio radio-primary radio-sm"
-                    value="lm-studio"
-                    checked={config.aiProvider === 'lm-studio' || !config.aiProvider}
-                    onChange={() => handleAiProviderChange('lm-studio')}
+                    value="lmstudio"
+                    checked={config.aiProvider === 'lmstudio' || !config.aiProvider}
+                    onChange={() => handleAiProviderChange('lmstudio')}
                   />
                   <span className="label-text">LM Studio (Local)</span>
                 </label>
@@ -643,7 +643,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               </div>
             </div>
 
-            {config.aiProvider === 'lm-studio' || !config.aiProvider ? (
+            {config.aiProvider === 'lmstudio' || !config.aiProvider ? (
               <div className="space-y-1.5">
                 <p className="text-sm font-semibold">Model Selector (LM Studio)</p>
                 <input
@@ -869,7 +869,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               {config.aiProvider !== 'groq' && (
                 <p className="text-xs opacity-40">
                   Karena kamu memakai{' '}
-                  {config.aiProvider === 'lm-studio'
+                  {config.aiProvider === 'lmstudio'
                     ? 'LM Studio'
                     : config.aiProvider === 'custom'
                       ? 'Custom API'

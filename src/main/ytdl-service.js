@@ -9,16 +9,17 @@
  * - Cross-platform: YouTube, TikTok, SoundCloud, etc.
  */
 import { execFile } from 'child_process'
+import { createRequire } from 'module'
 import path from 'path'
 
-// Resolve yt-dlp binary path
+const _require = createRequire(import.meta.url)
+
+// Resolve yt-dlp binary path via youtube-dl-exec (already in dependencies)
 let ytdlBin = null
 function getYtdlPath() {
   if (ytdlBin) return ytdlBin
   try {
-    const ffmpegStatic = require.resolve('ffmpeg-static')
-    const unpacked = ffmpegStatic.replace('app.asar', 'app.asar.unpacked')
-    ytdlBin = unpacked.replace(/ffmpeg-static[\\/]ffmpeg/i, 'youtube-dl-exec/bin/yt-dlp')
+    ytdlBin = _require.resolve('youtube-dl-exec').replace(/index\.js$/, 'bin/yt-dlp')
   } catch {
     // Fallback: try global yt-dlp
     ytdlBin = 'yt-dlp'
