@@ -542,11 +542,24 @@ ${
 	      console.log(messages[0].content)
 	      const response = await fetchAI(messages, signal, false, schema, conf)
 	      console.log('[planning] fetchAI returned, parsing...')
-	      const data = parseFallbackFormat(response.content)
+	      const rawContent = response.content
+	      const data = parseFallbackFormat(rawContent)
       console.log('[planning] parse finished:', data)
 
       if (data) {
+        // Handle reasoning models: if no action/answer but has thought, use thought as answer
         if (!data.action && !data.answer) {
+          if (data.thought && data.thought.length > 10) {
+            console.warn('[planning] No action/answer but thought exists — using thought as answer')
+            return {
+              thought: '',
+              action: null,
+              answer: data.thought,
+              memory: data.memory,
+              mood: data.mood || 'neutral',
+              active_topic: data.active_topic || activeTopic
+            }
+          }
           console.warn('[planning] AI returned null for both action and answer. Retrying...')
           continue
         }
@@ -557,6 +570,19 @@ ${
           memory: data.memory,
           mood: data.mood || 'neutral',
           active_topic: data.active_topic || activeTopic
+        }
+      }
+
+      // Fallback: if content is plain text (reasoning model), use it directly as answer
+      if (rawContent && rawContent.trim().length > 5 && !rawContent.trim().startsWith('{')) {
+        console.warn('[planning] Content is plain text (not JSON) — using as answer directly')
+        return {
+          thought: '',
+          action: null,
+          answer: rawContent.trim(),
+          memory: null,
+          mood: 'neutral',
+          active_topic: activeTopic
         }
       }
     }

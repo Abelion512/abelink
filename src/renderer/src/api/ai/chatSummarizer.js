@@ -36,8 +36,27 @@ Aturan:
       return
     }
 
-    const summary = response.content?.trim()
+    let summary = response.content?.trim()
     if (!summary) return
+
+    // Fix: if model returned raw API response JSON, try to extract the actual content
+    if (summary.startsWith('{"id"') || summary.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(summary)
+        // OpenAI response wrapper — extract the actual message content
+        if (parsed.choices?.[0]?.message?.content) {
+          summary = parsed.choices[0].message.content.trim()
+        } else if (parsed.choices?.[0]?.message?.reasoning) {
+          summary = parsed.choices[0].message.reasoning.trim()
+        }
+      } catch { /* not JSON, keep as-is */ }
+    }
+
+    // Sanity check: summary should be text, not JSON
+    if (summary.startsWith('{') && summary.includes('"choices"')) {
+      console.warn('[ChatSummarizer] Summary looks like raw API response, skipping')
+      return
+    }
 
     const vector = await generateVector(summary)
     if (!vector) {
