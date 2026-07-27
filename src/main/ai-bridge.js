@@ -1,38 +1,95 @@
 import { app } from 'electron'
+import { readFileSync, writeFileSync, existsSync } from 'fs'
+import { join } from 'path'
 
 // ponytail: lazy require so missing dep doesn't crash module at eval time
 let jsonrepair = null
 try { jsonrepair = require('jsonrepair').jsonrepair || require('jsonrepair').default || null } catch {}
 
-// ========== MODEL REGISTRY (Pluggable) ==========
-// Add new combos here — no other code changes needed.
-// Config UI: set "Custom Model" to a registry key (e.g. "abelink") or comma-separated list.
-const MODEL_REGISTRIES = {
-  abelink: [
-    'opencode/deepseek-v4-flash-free',
-    'opencode/nemotron-3-ultra-free',
-    'opencode/mimo-v2.5-free',
-    'oc/north-mini-code-free'
-  ],
-  // Add more combos anytime:
-  // fast: ['opencode/nemotron-3-ultra-free', 'oc/north-mini-code-free'],
-  // quality: ['opencode/deepseek-v4-flash-free', 'opencode/mimo-v2.5-free'],
+// ========== MODEL REGISTRY (Dynamic, Pluggable) ==========
+const REGISTRY_PATH = join(__dirname, 'model-registry.json')
+
+function loadRegistry() {
+  try {
+    if (existsSync(REGISTRY_PATH)) {
+      return JSON.parse(readFileSync(REGISTRY_PATH, 'utf8'))
+    }
+  } catch (e) {
+    console.warn('[ModelRegistry] Failed to load:', e.message)
+  }
+  return { combos: {}, analytics: { models: {} } }
+}
+
+function saveRegistry(registry) {
+  try {
+    writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2))
+  } catch (e) {
+    console.warn('[ModelRegistry] Failed to save:', e.message)
+  }
 }
 
 function resolveModelChain(input) {
   if (!input) return ['gemma-3-12b-it']
   const trimmed = input.trim()
-  if (MODEL_REGISTRIES[trimmed]) return [...MODEL_REGISTRIES[trimmed]]
+  const registry = loadRegistry()
+
+  // Check combo registry
+  if (registry.combos[trimmed]) {
+    const combo = registry.combos[trimmed]
+    console.log(`[ModelRegistry] Resolved combo "${trimmed}": ${combo.models.join(' → ')}`)
+    return [...combo.models]
+  }
+
+  // Comma-separated fallback
   const models = trimmed.split(',').map(m => m.trim()).filter(Boolean)
   return models.length > 0 ? models : ['gemma-3-12b-it']
 }
 
-// ========== RETRY POLICIES (Configurable per provider) ==========
+function resolveVisionModel(input) {
+  const registry = loadRegistry()
+  const trimmed = (input || '').trim()
+  if (registry.combos[trimmed]?.vision) return registry.combos[trimmed].vision
+  return null
+}
+
+// Track model analytics
+function trackModelUsage(model, success, latencyMs, finishReason) {
+  const registry = loadRegistry()
+  if (!registry.analytics) registry.analytics = { models: {} }
+  if (!registry.analytics.models) registry.analytics.models = {}
+
+  const m = registry.analytics.models[model] || {
+    uses: 0, successes: 0, failures: 0,
+    avgLatencyMs: 0, lastUsed: null,
+    tags: []  // 'reasoning', 'vision', 'fast', 'automation'
+  }
+
+  m.uses++
+  m.lastUsed = new Date().toISOString()
+  m.avgLatencyMs = Math.round((m.avgLatencyMs * (m.uses - 1) + latencyMs) / m.uses)
+
+  if (success) {
+    m.successes++
+    if (finishReason === 'length') m.truncated = (m.truncated || 0) + 1
+  } else {
+    m.failures++
+  }
+
+  // Auto-tag
+  if (!m.tags.includes('reasoning') && model.includes('deepseek')) m.tags.push('reasoning')
+  if (!m.tags.includes('vision') && model.includes('gemini')) m.tags.push('vision')
+  if (!m.tags.includes('fast') && (model.includes('nemotron') || model.includes('north-mini'))) m.tags.push('fast')
+
+  registry.analytics.models[model] = m
+  saveRegistry(registry)
+}
+
+// ========== RETRY POLICIES (Configurable) ==========
 const RETRY_POLICIES = {
-  custom:    { maxRetries: 3, baseDelay: 2000, backoff: 'exponential' },
-  groq:      { maxRetries: 5, baseDelay: 3000, backoff: 'exponential' },
-  cerebras:  { maxRetries: 3, baseDelay: 1500, backoff: 'exponential' },
-  lmstudio:  { maxRetries: 2, baseDelay: 1000, backoff: 'linear' },
+  custom:   { maxRetries: 10, baseDelay: 2000, maxDelay: 30000, backoff: 'exponential' },
+  groq:     { maxRetries: 10, baseDelay: 3000, maxDelay: 60000, backoff: 'exponential' },
+  cerebras: { maxRetries: 8,  baseDelay: 2000, maxDelay: 30000, backoff: 'exponential' },
+  lmstudio: { maxRetries: 3,  baseDelay: 1000, maxDelay: 5000,  backoff: 'linear' },
 }
 
 function getRetryPolicy(provider) {
@@ -41,7 +98,7 @@ function getRetryPolicy(provider) {
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
-// ========== ERROR CLASSES (Debuggable) ==========
+// ========== ERROR CLASSES ==========
 class AIServiceError extends Error {
   constructor(message, ctx = {}) {
     super(message)
@@ -55,33 +112,39 @@ class AIServiceError extends Error {
 }
 
 // ========== RESPONSE EXTRACTION ==========
-// Handles both chat models (content) and reasoning models (reasoning field)
 function extractAIContent(parsed) {
   const msg = parsed.choices?.[0]?.message
   if (!msg) return null
-  return msg.content          // Chat models (GPT, Llama-instruct)
-    || msg.reasoning          // Reasoning models (DeepSeek-R1, north-mini, QwQ)
-    || parsed.choices?.[0]?.text  // Legacy format
-    || parsed.content         // Non-OpenAI format
+  return msg.content
+    || msg.reasoning       // DeepSeek-R1, north-mini, QwQ
+    || parsed.choices?.[0]?.text
+    || parsed.content
     || null
 }
 
-// ========== RSI OBSERVATION LOGGING ==========
-function createObservation(ctx) {
-  return {
-    t: new Date().toISOString(),
-    p: ctx.provider,
-    m: ctx.model,
-    e: ctx.endpoint,
-    lat: ctx.latencyMs,
-    status: ctx.httpStatus,
-    fr: ctx.finishReason,
-    hasReasoning: ctx.hasReasoning,
-    cLen: ctx.contentLength,
-    retry: ctx.retryCount,
-    err: ctx.error || null,
+// ========== RSI OBSERVATION ==========
+function logObservation(ctx) {
+  const obs = {
+    time: new Date().toLocaleTimeString('id-ID'),
+    model: ctx.model,
+    latency: `${ctx.latencyMs}ms`,
+    status: ctx.httpStatus || 'ok',
+    tokens: ctx.contentLength || 0,
+    retries: ctx.retryCount || 0,
     ok: ctx.success,
   }
+  if (ctx.error) obs.err = ctx.error
+  if (ctx.finishReason) obs.finish = ctx.finishReason
+  console.log('📊 [OBS]', JSON.stringify(obs))
+}
+
+// Pretty console helpers
+const log = {
+  info: (tag, msg) => console.log(`  ${tag} ${msg}`),
+  warn: (tag, msg) => console.warn(`  ⚠️  ${tag} ${msg}`),
+  err:  (tag, msg) => console.error(`  ❌ ${tag} ${msg}`),
+  ok:   (tag, msg) => console.log(`  ✅ ${tag} ${msg}`),
+  model: (tag, msg) => console.log(`  🤖 ${tag} ${msg}`),
 }
 
 // ========== CONFIG ==========
@@ -100,14 +163,12 @@ export const setGlobalConfig = (config) => {
 
 export const getGlobalConfig = () => ({ ...globalConfig })
 
-// ========== ABORT CONTROLLERS ==========
+// ========== ABORT ==========
 const activeFetches = new Map()
 let fetchCounter = 0
 
 export const abortAllFetches = () => {
-  activeFetches.forEach((controller) => {
-    try { controller.abort() } catch { /* ignore */ }
-  })
+  activeFetches.forEach((c) => { try { c.abort() } catch {} })
   activeFetches.clear()
   fetchCounter = 0
 }
@@ -131,7 +192,6 @@ export const fetchAI = async (
   onStream = null,
   onStatus = null
 ) => {
-  // ========== RESOLVE CONFIG ==========
   const conf = config || globalConfig
   const activeProvider = conf.aiProvider || conf.activeProvider || 'lmstudio'
   const customEndpoint = conf.customEndpoint?.replace(/\/+$/, '') || 'http://localhost:1234'
@@ -139,10 +199,9 @@ export const fetchAI = async (
   const maxTokens = isSmallTask ? (conf.smallMaxTokens || 512) : (conf.maxTokens || 4096)
   const temperature = isSmallTask ? (conf.smallTemperature ?? 0.3) : (conf.temperature ?? 0.7)
 
-  // ========== RESOLVE MODEL CHAIN ==========
   const modelChain = resolveModelChain(conf.customModel)
 
-  // ========== RESOLVE ENDPOINT ==========
+  // ========== ENDPOINT ==========
   let url, headers
   if (activeProvider === 'custom' && customEndpoint) {
     const base = customEndpoint.replace(/\/+$/, '')
@@ -161,7 +220,7 @@ export const fetchAI = async (
     headers = { 'Content-Type': 'application/json' }
   }
 
-  // ========== JSON SCHEMA HANDLING ==========
+  // ========== JSON SCHEMA ==========
   const baseBody = {
     messages,
     max_tokens: maxTokens,
@@ -169,7 +228,6 @@ export const fetchAI = async (
     stream: false,
   }
   if (jsonSchema && activeProvider !== 'lmstudio') {
-    // Inject schema into system prompt for custom/cloud providers
     baseBody.messages = baseBody.messages.map((m) => ({ ...m }))
     const sysIdx = baseBody.messages.findIndex((m) => m.role === 'system')
     const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
@@ -205,13 +263,12 @@ export const fetchAI = async (
     baseBody.messages = normalized
   }
 
-  const endpoint = customEndpoint || 'localhost:1234'
-  const endpointForLog = url
-
-  console.log(`[FetchAI] POST ${url}`)
-  console.log('[FetchAI] Models:', modelChain.join(' → '))
-  console.log('[FetchAI] Messages:', messages.map(m => `${m.role}: ${m.content?.slice?.(0, 80) || '(no content)'}`).join(' | '))
-  if (jsonSchema) console.log('[FetchAI] JSON Schema:', JSON.stringify(jsonSchema).slice(0, 100))
+  // ========== LOG HEADER ==========
+  console.log('')
+  log.info('📡', `POST ${url}`)
+  log.model('📋', `Models: ${modelChain.join(' → ')}`)
+  log.info('💬', `Messages: ${messages.length} | Prompt: ~${Math.round(messages.reduce((a, m) => a + (m.content?.length || 0), 0) / 2)} tokens`)
+  if (jsonSchema) log.info('📐', `Schema: ${Object.keys(jsonSchema.properties || {}).join(', ')}`)
 
   // ========== MODEL FALLBACK LOOP ==========
   const policy = getRetryPolicy(activeProvider)
@@ -221,9 +278,8 @@ export const fetchAI = async (
     const model = modelChain[modelIdx]
     const requestBody = { ...baseBody, model }
 
-    console.log(`[FetchAI] Trying model: ${model} (${modelIdx + 1}/${modelChain.length})`)
+    log.model(`[${modelIdx + 1}/${modelChain.length}]`, model)
 
-    // ========== EXECUTE FETCH WITH RETRY ==========
     let retryCount = 0
     let success = false
     let result = null
@@ -231,11 +287,8 @@ export const fetchAI = async (
     while (retryCount <= policy.maxRetries && !success) {
       const { id, controller } = addFetch(signal)
       const fetchSignal = controller.signal
-
       const abortHandler = () => controller.abort(new Error('AbortError'))
-      if (signal && !signal.aborted) {
-        signal.addEventListener('abort', abortHandler, { once: true })
-      }
+      if (signal && !signal.aborted) signal.addEventListener('abort', abortHandler, { once: true })
 
       const startTime = Date.now()
       let response
@@ -249,20 +302,19 @@ export const fetchAI = async (
       } catch (error) {
         activeFetches.delete(id)
         if (signal && !signal.aborted) signal.removeEventListener('abort', abortHandler)
+        if (error.name === 'AbortError') throw new AIServiceError('Request dibatalkan', { provider: activeProvider, model, originalError: error })
 
-        if (error.name === 'AbortError') {
-          throw new AIServiceError('Request dibatalkan', {
-            provider: activeProvider, model, originalError: error
-          })
+        // Network error
+        const delay = Math.min(policy.baseDelay * Math.pow(2, retryCount), policy.maxDelay)
+        log.warn('🌐', `Network error: ${error.message} ${retryCount < policy.maxRetries ? `→ retry ${retryCount + 1}/${policy.maxRetries} in ${Math.round(delay / 1000)}s` : '→ next model'}`)
+        if (onStatus) onStatus(`Network error, retry ${retryCount + 1}...`)
+        if (retryCount < policy.maxRetries) {
+          await sleep(delay)
+          retryCount++
+          continue
         }
-
-        // Network error → try next model
-        console.warn(`[FetchAI] Network error on ${model}: ${error.message}`)
-        lastError = new AIServiceError(`Network error: ${error.message}`, {
-          provider: activeProvider, model, originalError: error,
-          suggestion: 'Cek apakah server AI running'
-        })
-        break  // Break retry loop → next model
+        lastError = new AIServiceError(`Network: ${error.message}`, { provider: activeProvider, model, originalError: error })
+        break
       }
 
       activeFetches.delete(id)
@@ -270,36 +322,35 @@ export const fetchAI = async (
 
       const latencyMs = Date.now() - startTime
 
-      // ========== HTTP ERROR HANDLING ==========
+      // ========== HTTP ERROR ==========
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Unknown error')
+        const isRetryable = [429, 500, 503].includes(response.status)
 
-        // Rate limit / server busy → retry with backoff
-        if ([429, 500, 503].includes(response.status) && retryCount < policy.maxRetries) {
-          const delay = policy.backoff === 'exponential'
-            ? policy.baseDelay * Math.pow(2, retryCount)
-            : policy.baseDelay * (retryCount + 1)
-          console.warn(`[FetchAI] HTTP ${response.status} on ${model}, retry ${retryCount + 1}/${policy.maxRetries} in ${delay}ms`)
-          if (onStatus) onStatus(`Server sibuk, retry ${retryCount + 1} dalam ${Math.round(delay / 1000)}s...`)
-          await sleep(delay)
+        if (isRetryable && retryCount < policy.maxRetries) {
+          const delay = Math.min(policy.baseDelay * Math.pow(2, retryCount), policy.maxDelay)
+          const retryAfter = response.headers?.get('retry-after')
+          const actualDelay = retryAfter ? Math.ceil(parseFloat(retryAfter) * 1000) : delay
+          log.warn('⏳', `HTTP ${response.status} → retry ${retryCount + 1}/${policy.maxRetries} in ${Math.round(actualDelay / 1000)}s`)
+          if (onStatus) onStatus(`Server sibuk (${response.status}), retry ${retryCount + 1}...`)
+          await sleep(actualDelay)
           retryCount++
           continue
         }
 
-        // Non-retryable error → next model
-        lastError = new AIServiceError(`HTTP ${response.status}: ${errorText.slice(0, 200)}`, {
+        const errMsg = errorText.slice(0, 150)
+        log.err('🚫', `HTTP ${response.status}: ${errMsg}`)
+        lastError = new AIServiceError(`HTTP ${response.status}: ${errMsg}`, {
           provider: activeProvider, model, httpStatus: response.status,
           suggestion: response.status === 401 ? 'Check API key' :
                       response.status === 404 ? 'Check endpoint URL' : null
         })
-        console.warn(`[FetchAI] Model ${model} failed: ${lastError.message}`)
-        break  // Next model
+        trackModelUsage(model, false, latencyMs, null)
+        break
       }
 
-      // ========== PARSE RESPONSE ==========
+      // ========== PARSE ==========
       const rawText = await response.text()
-
-      // Brace extraction — strip router garbage
       let cleanText = rawText.trim()
       const firstBrace = cleanText.indexOf('{')
       const lastBrace = cleanText.lastIndexOf('}')
@@ -307,69 +358,45 @@ export const fetchAI = async (
         cleanText = cleanText.substring(firstBrace, lastBrace + 1)
       }
 
-      console.log(`[FetchAI] Raw Response (${model}, ${cleanText.length} chars):`, cleanText.slice(0, 500))
-
       const parsed = cleanAndParse(cleanText)
       if (parsed === null) {
-        lastError = new AIServiceError('Response bukan JSON valid', {
-          provider: activeProvider, model,
-          suggestion: 'Model mungkin tidak support JSON mode'
-        })
-        console.warn(`[FetchAI] Model ${model}: invalid JSON, trying next`)
-        break  // Next model
+        log.err(' parse', 'Response bukan JSON valid')
+        lastError = new AIServiceError('Response bukan JSON valid', { provider: activeProvider, model })
+        trackModelUsage(model, false, latencyMs, null)
+        break
       }
 
-      // ========== EXTRACT CONTENT (handles reasoning models) ==========
       const content = extractAIContent(parsed)
       const finishReason = parsed.choices?.[0]?.finish_reason
 
-      // Validate response
       if (!content || content.trim() === '') {
-        lastError = new AIServiceError('Model mengembalikan response kosong (content: null)', {
-          provider: activeProvider, model,
-          suggestion: 'Model mungkin reasoning model yang butuh handling khusus'
-        })
-        console.warn(`[FetchAI] Model ${model}: empty content, trying next`)
-        break  // Next model
+        log.warn(' empty', 'Content kosong (content: null)')
+        lastError = new AIServiceError('Response kosong', { provider: activeProvider, model })
+        trackModelUsage(model, false, latencyMs, finishReason)
+        break
       }
 
       if (finishReason === 'length') {
-        console.warn(`[FetchAI] ⚠ Model ${model}: response truncated (finish_reason: length)`)
+        log.warn('✂️', 'Truncated (finish_reason: length)')
       }
 
       // SUCCESS
       result = { content }
       success = true
-
-      // RSI Observation Log
-      const observation = createObservation({
-        provider: activeProvider,
-        model,
-        endpoint: endpointForLog,
-        latencyMs,
-        httpStatus: response.status,
-        finishReason,
-        hasReasoning: !!parsed.choices?.[0]?.message?.reasoning,
-        contentLength: content.length,
-        retryCount,
-        success: true,
+      trackModelUsage(model, true, latencyMs, finishReason)
+      logObservation({
+        provider: activeProvider, model, latencyMs,
+        httpStatus: response.status, finishReason,
+        contentLength: content.length, retryCount, success: true,
       })
-      console.log('[OBSERVATION]', JSON.stringify(observation))
     }
 
-    // Model succeeded → return
     if (result) return result
-
-    // All retries exhausted for this model → try next
-    if (modelIdx < modelChain.length - 1) {
-      console.log(`[FetchAI] Switching to next model...`)
-    }
+    if (modelIdx < modelChain.length - 1) log.info('🔄', 'Switching to next model...')
   }
 
-  // All models exhausted
-  throw lastError || new AIServiceError('Semua model gagal merespons', {
+  throw lastError || new AIServiceError('Semua model gagal', {
     provider: activeProvider, model: modelChain.join(','),
-    suggestion: 'Cek server AI dan config'
   })
 }
 
@@ -381,7 +408,6 @@ export const cleanAndParse = (rawResponse) => {
     const repaired = jsonrepair ? jsonrepair(cleaned) : cleaned
     return JSON.parse(repaired)
   } catch (error) {
-    console.error('Gagal Parse JSON:', error.message)
     try {
       const match = rawResponse.trim().replace(/^\xEF\xBB\xBF/, '').match(/\{[\s\S]*\}/)
       return match ? JSON.parse(match[0]) : null
