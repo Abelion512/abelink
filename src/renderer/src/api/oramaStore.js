@@ -6,8 +6,19 @@ const VECTOR_SIZE = 384
 
 let archiveIndex = null
 let documentIndex = null
+let memoryIndex = null
 
 export async function initOramaIndices() {
+  memoryIndex = await create({
+    schema: {
+      type: 'string',
+      summary: 'string',
+      memory: 'string',
+      timestamp: 'number',
+      dexieId: 'number',
+      vector: `vector[${VECTOR_SIZE}]`
+    }
+  })
   archiveIndex = await create({
     schema: {
       summary: 'string',
@@ -92,12 +103,38 @@ export async function hydrateFromDexie() {
     await insertMultiple(documentIndex, validDocs)
   }
 
+  const memories = await db.memory.toArray()
+  const validMemories = []
+  for (let m of memories) {
+    if (needsMigration || !m.vector || m.vector.length !== VECTOR_SIZE) {
+      console.log(`[Orama] Re-generating vector for memory ID ${m.id}`)
+      m.vector = await generateVector(m.memory)
+      if (m.vector && m.vector.length === VECTOR_SIZE) {
+        db.memory.update(m.id, { vector: m.vector }).catch(console.error)
+      }
+    }
+    if (m.vector && m.vector.length === VECTOR_SIZE) {
+      validMemories.push({
+        type: m.type || 'notes',
+        summary: m.summary || '',
+        memory: m.memory || '',
+        timestamp: Date.now(),
+        dexieId: m.id,
+        vector: m.vector
+      })
+    }
+  }
+
+  if (validMemories.length > 0) {
+    await insertMultiple(memoryIndex, validMemories)
+  }
+
   if (needsMigration) {
     localStorage.setItem('migrated_vectors_v1', 'true')
     console.log('[Orama] Successfully migrated all old vectors to new model!')
   }
 
-  console.log(`[Orama] Hydrated: ${validArchives.length} archives, ${validDocs.length} doc chunks`)
+  console.log(`[Orama] Hydrated: ${validArchives.length} archives, ${validDocs.length} doc chunks, ${validMemories.length} memories`)
 }
 
 // Vector search di arsip obrolan
@@ -168,3 +205,65 @@ export async function deleteDocumentFromOrama(docName) {
   const ids = res.hits.map(h => h.id)
   await removeMultiple(documentIndex, ids)
 }
+
+// ======================== MEMORY ORAMA INDEX ========================
+
+export async function searchMemoriesInOrama(queryText, queryVector, limit = 5, filterTypes = null) {
+  if (!memoryIndex || !queryVector) return []
+  try {
+    const results = await search(memoryIndex, {
+      term: queryText,
+      mode: 'hybrid',
+      vector: { value: queryVector, property: 'vector' },
+      similarity: 0.25,
+      limit: limit * 4
+    })
+    let hits = results.hits.map(hit => ({ ...hit.document, id: hit.document.dexieId, score: hit.score }))
+    if (filterTypes) {
+      const typesArr = Array.isArray(filterTypes) ? filterTypes : [filterTypes]
+      hits = hits.filter(h => typesArr.includes(h.type))
+    }
+    hits.sort((a, b) => b.score - a.score)
+    return hits.slice(0, limit)
+  } catch (err) {
+    console.error('[Orama] Error in searchMemoriesInOrama:', err)
+    return []
+  }
+}
+
+export async function insertMemoryToOrama(data) {
+  if (!memoryIndex || !data.vector || data.vector.length !== VECTOR_SIZE) return
+  try {
+    await insert(memoryIndex, {
+      type: data.type || 'notes',
+      summary: data.summary || '',
+      memory: data.memory || '',
+      timestamp: Date.now(),
+      dexieId: data.id,
+      vector: data.vector
+    })
+  } catch (err) {
+    console.error('[Orama] Error insertMemoryToOrama:', err)
+  }
+}
+
+export async function updateMemoryInOrama(dexieId, data) {
+  if (!memoryIndex) return
+  await deleteMemoryFromOrama(dexieId)
+  await insertMemoryToOrama({ ...data, id: dexieId })
+}
+
+export async function deleteMemoryFromOrama(dexieId) {
+  if (!memoryIndex || !dexieId) return
+  try {
+    const res = await search(memoryIndex, { term: dexieId.toString(), properties: ['dexieId'], exact: true })
+    if (res.hits.length > 0) {
+      for (let h of res.hits) {
+        await remove(memoryIndex, h.id)
+      }
+    }
+  } catch (err) {
+    console.error('[Orama] Error deleteMemoryFromOrama:', err)
+  }
+}
+

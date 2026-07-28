@@ -54,7 +54,7 @@ export const cosineSimilarity = (vecA, vecB) => {
   return vecA.reduce((sum, a, i) => sum + a * vecB[i], 0)
 }
 
-import { searchArchives, searchDocuments } from './oramaStore'
+import { searchArchives, searchDocuments, searchMemoriesInOrama } from './oramaStore'
 
 export const getRelevantMemory = async (userInput, memoryList) => {
   // Hanya Core memory (profile & preference) dipanggil langsung tanpa filter
@@ -66,34 +66,9 @@ export const getRelevantMemory = async (userInput, memoryList) => {
 }
 
 export const searchExtendedMemory = async (query) => {
-  const allMemory = await getAllMemory()
-  const extendedMemories = allMemory.filter(m => m.type === 'notes' || m.type === 'learn')
-  
-  if (extendedMemories.length === 0) return []
-
   const queryVector = await generateVector(query)
   if (!queryVector) return []
-
-  const scored = await Promise.all(extendedMemories.map(async (mem) => {
-    let currentVector = mem.vector
-    
-    // Re-generate jika dimensi tidak cocok
-    if (!Array.isArray(currentVector) || currentVector.length !== queryVector.length) {
-      currentVector = await generateVector(mem.memory)
-      if (currentVector && mem.id) {
-        db.memory.update(mem.id, { vector: currentVector }).catch(console.error)
-      }
-    }
-
-    if (!currentVector) return { ...mem, score: 0 }
-    return { ...mem, score: cosineSimilarity(queryVector, currentVector) }
-  }))
-
-  return scored
-    .filter(m => m.score > 0.3)    // Threshold kemiripan
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)                    // Top 3
-    .map(({ vector, ...rest }) => rest)
+  return await searchMemoriesInOrama(query, queryVector, 3, ['notes', 'learn'])
 }
 
 export const getUnifiedContext = async (userInput, memoryList) => {
