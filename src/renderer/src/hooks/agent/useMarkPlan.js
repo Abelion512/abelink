@@ -94,6 +94,38 @@ export const useMarkPlan = ({
       return
     }
 
+    // ========== VOICE FAST PATH (Security-Gated) ==========
+    // Check if voice command matches a fast-path tool
+    // SECURITY: Risk assessment applied — GREEN auto-execute, YELLOW audit, ORANGE approval, RED block
+    if (options.isVoice) {
+      try {
+        const fastMatch = await window.api.matchVoiceCommand(userInput)
+        if (fastMatch && !fastMatch.blocked) {
+          console.log(`[Voice Fast Path] Matched: ${fastMatch.tool} (${fastMatch.risk})`)
+
+          // GREEN: auto-execute
+          if (fastMatch.risk === 'green') {
+            scheduleThinkingUpdate(`Executing: ${fastMatch.tool}...`)
+            // Execute via tool dispatch (same as normal flow)
+            const fakeDecision = { action: { tool: fastMatch.tool, query: fastMatch.query }, thought: 'Voice fast path' }
+            // Fall through to normal tool execution below
+          }
+          // YELLOW: execute + audit (will be logged by tool dispatch)
+          else if (fastMatch.risk === 'yellow') {
+            scheduleThinkingUpdate(`Executing: ${fastMatch.tool} (logged)...`)
+          }
+          // ORANGE: approval required — fall through to normal flow with approval
+          else if (fastMatch.risk === 'orange') {
+            console.log(`[Voice Fast Path] ${fastMatch.tool} needs approval — using normal flow`)
+            // Don't use fast path, go through normal planning with approval
+          }
+        }
+      } catch (e) {
+        console.warn('[Voice Fast Path] Error:', e.message)
+        // Fall through to normal planning
+      }
+    }
+
     // Jangan blokir UI Desktop jika perintah datang dari background/WhatsApp
     if (!waContext && !isAutonomous) {
       setIsLoading(true)

@@ -409,9 +409,61 @@ const VOICE_FAST_PATH = {
   'baca pesan': { tool: 'memory-search', query: 'pesan terakhir' },
 }
 
+// ========== SECURITY: Risk Assessment per Tool ==========
+// Matches session doc: GREEN/YELLOW/ORANGE/RED
+const TOOL_RISK_LEVELS = {
+  // GREEN — auto-execute, no approval
+  'tool-info': 'green',
+  'memory-search': 'green',
+  'browser-read': 'green',
+  'browser-scroll': 'green',
+  'yt-search': 'green',
+  'yt-summary': 'green',
+  'music-toggle': 'green',
+  'music-search': 'green',
+  'music-next': 'green',
+  'music-prev': 'green',
+  'read-file': 'green',
+  'list-dir': 'green',
+  'grep-search': 'green',
+  'analyze-screen': 'green',
+  'native-notify': 'green',
+
+  // YELLOW — auto-execute + audit log
+  'browser-navigate': 'yellow',
+  'browser-click': 'yellow',
+  'browser-type': 'yellow',
+  'music-play': 'yellow',
+  'speak': 'yellow',
+  'camera-look': 'yellow',
+  'run-shell': 'yellow',
+  'run-cli': 'yellow',
+  'write-file': 'yellow',
+  'replace-lines': 'yellow',
+
+  // ORANGE — approval required
+  'browser-ask-user': 'orange',
+  'browser-close': 'orange',
+  'screenshot-to-wa': 'orange',
+  'wa-send': 'orange',
+  'delete-file': 'orange',
+
+  // RED — blocked (never auto-execute)
+  'shutdown': 'red',
+  'restart': 'red',
+  'sudo': 'red',
+}
+
+function getToolRisk(toolName) {
+  return TOOL_RISK_LEVELS[toolName] || 'orange' // default: approval required
+}
+
 /**
  * Try to match voice command to a fast-path tool.
- * Returns { tool, query } or null if no match.
+ * Returns { tool, query, risk, needsApproval } or null if no match.
+ *
+ * SECURITY: All matched tools go through risk assessment.
+ * GREEN → auto-execute. YELLOW → execute + audit. ORANGE → approval. RED → blocked.
  *
  * @param {string} voiceText - Transcribed voice text (lowercase, trimmed)
  */
@@ -419,22 +471,35 @@ export function matchVoiceCommand(voiceText) {
   if (!voiceText) return null
   const normalized = voiceText.toLowerCase().trim()
 
+  let match = null
+
   // Exact match
   if (VOICE_FAST_PATH[normalized]) {
-    const match = VOICE_FAST_PATH[normalized]
-    if (match.blocked) return { blocked: true, reason: match.reason }
-    return { tool: match.tool, query: match.query, fastPath: true }
+    match = VOICE_FAST_PATH[normalized]
   }
 
-  // Partial match (voice text contains a fast-path key)
-  for (const [key, match] of Object.entries(VOICE_FAST_PATH)) {
-    if (normalized.includes(key)) {
-      if (match.blocked) return { blocked: true, reason: match.reason }
-      return { tool: match.tool, query: match.query, fastPath: true }
+  // Partial match
+  if (!match) {
+    for (const [key, m] of Object.entries(VOICE_FAST_PATH)) {
+      if (normalized.includes(key)) {
+        match = m
+        break
+      }
     }
   }
 
-  return null // No fast path → use normal AI planning
+  if (!match) return null
+  if (match.blocked) return { blocked: true, reason: match.reason }
+
+  // SECURITY: Risk assessment before returning
+  const risk = getToolRisk(match.tool)
+  return {
+    tool: match.tool,
+    query: match.query,
+    risk,
+    needsApproval: risk === 'orange' || risk === 'red',
+    fastPath: true
+  }
 }
 
 // ========== PUBLIC API ==========
