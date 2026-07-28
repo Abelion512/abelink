@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 const DraggableHoloCard = ({ 
   children, 
@@ -12,6 +12,7 @@ const DraggableHoloCard = ({
   const [isDragging, setIsDragging] = useState(false);
   const [animState, setAnimState] = useState(isVisible ? 'entering' : 'hidden');
   const dragRef = useRef({ offsetX: 0, offsetY: 0 });
+  const rafRef = useRef(null);
 
   useEffect(() => {
     if (isVisible) {
@@ -25,24 +26,32 @@ const DraggableHoloCard = ({
     }
   }, [isVisible]);
 
+  // Throttle mousemove via requestAnimationFrame to avoid 800ms handler
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isDragging) return;
-      
-      let newX = e.clientX - dragRef.current.offsetX;
-      let newY = e.clientY - dragRef.current.offsetY;
+      if (rafRef.current) return; // skip if frame already queued
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        let newX = e.clientX - dragRef.current.offsetX;
+        let newY = e.clientY - dragRef.current.offsetY;
 
-      // Simple boundary clamping
-      const maxX = window.innerWidth - 100; // at least 100px visible
-      const maxY = window.innerHeight - 50;
-      
-      newX = Math.max(0, Math.min(newX, maxX));
-      newY = Math.max(0, Math.min(newY, maxY));
+        // Simple boundary clamping
+        const maxX = window.innerWidth - 100; // at least 100px visible
+        const maxY = window.innerHeight - 50;
+        
+        newX = Math.max(0, Math.min(newX, maxX));
+        newY = Math.max(0, Math.min(newY, maxY));
 
-      setPos({ x: newX, y: newY });
+        setPos({ x: newX, y: newY });
+      });
     };
 
     const handleMouseUp = () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
       setIsDragging(false);
     };
 
@@ -54,6 +63,10 @@ const DraggableHoloCard = ({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
   }, [isDragging]);
 

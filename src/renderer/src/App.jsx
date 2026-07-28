@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
+const Configuration = lazy(() => import('./pages/Configuration'))
+const Guidebook = lazy(() => import('./pages/Guidebook'))
+const Plugins = lazy(() => import('./pages/Plugins'))
 import MarkHome from './pages/MarkHome'
-import Configuration from './pages/Configuration'
 import LiveAudio from './pages/LiveAudio'
 import WhatsappBot from './pages/WhatsappBot'
-import Plugins from './pages/Plugins'
 import Knowledge from './pages/Knowledge'
-import Guidebook from './pages/Guidebook'
 import RelationalGrowth from './pages/RelationalGrowth'
 import { HashRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { ChatProvider } from './contexts/ChatContext'
@@ -162,7 +162,7 @@ function App() {
   }
 
   if (!hasConfig) {
-    return <Configuration isFirstSetup={true} onSetupComplete={() => window.location.reload()} />
+    return <Suspense fallback={<div className="h-screen w-screen bg-base-300 flex items-center justify-center"><span className="loading loading-infinity w-16 text-primary"></span></div>}><Configuration isFirstSetup={true} onSetupComplete={() => window.location.reload()} /></Suspense>
   }
 
   const isStandalone = window.location.hash.includes('whatsapp-bot')
@@ -177,12 +177,12 @@ function App() {
               <div className="h-screen w-full">
                 <Routes>
                   <Route path="/" element={<MarkHome />} />
-                  <Route path="/config" element={<Configuration />} />
-                  <Route path="/plugins" element={<Plugins />} />
+                  <Route path="/config" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Configuration /></Suspense>} />
+                  <Route path="/plugins" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Plugins /></Suspense>} />
                   <Route path="/live-audio" element={<LiveAudio />} />
                   <Route path="/whatsapp-bot" element={<WhatsappBot />} />
                   <Route path="/knowledge" element={<Knowledge />} />
-                  <Route path="/guidebook" element={<Guidebook />} />
+                  <Route path="/guidebook" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Guidebook /></Suspense>} />
                   <Route path="/relational" element={<RelationalGrowth />} />
                 </Routes>
               </div>

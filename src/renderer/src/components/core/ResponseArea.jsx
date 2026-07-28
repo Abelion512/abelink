@@ -148,4 +148,4 @@ const ResponseArea = ({ currentResponse }) => {
   )
 }
 
-export default ResponseArea
+export default React.memo(ResponseArea)
