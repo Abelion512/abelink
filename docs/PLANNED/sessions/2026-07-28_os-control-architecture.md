@@ -15,6 +15,94 @@ Capability + Transparency + Control harus seimbang. Agent yang bisa klik tombol 
 
 ---
 
+## 10. Structured Session Knowledge
+
+### Problem
+
+Chat antara user dan MARK adalah **pengetahuan paling berharga** — reasoning, decisions, trade-offs, design patterns. Tapi saat ini cuma disimpan sebagai:
+- Chat archive (summary 2-3 kalimat) — terlalu ringkas
+- Session messages (raw text) — tidak terstruktur
+
+### Solution: Knowledge Extraction
+
+Setiap selesai sesi, AI extract bukan cuma "apa yang dibicarakan", tapi:
+
+```json
+{
+  "sessionId": "2026-07-28-os-control",
+  "topic": "OS Control Architecture",
+  "decisions": [
+    {
+      "decision": "4-level control hierarchy",
+      "rationale": "Vision mahal, native API zero cost. Default to Level 1.",
+      "alternatives": ["Pure vision", "Pure CLI"],
+      "tradeoff": "Reliability vs flexibility"
+    },
+    {
+      "decision": "Self-preservation rule",
+      "rationale": "Agent cannot delete itself. Non-negotiable.",
+      "alternatives": ["Allow with approval"],
+      "tradeoff": "Autonomy vs survival"
+    }
+  ],
+  "patterns": [
+    "Progressive Disclosure (Hermes): L0 always, L1 on demand",
+    "Scoped Permissions: path risk overrides user approval",
+    "Quarantine > Delete: preserve first, decide later"
+  ],
+  "gaps": [
+    "5-Layer Memory not implemented",
+    "Agent Kernel still monolithic",
+    "No goal state machine"
+  ],
+  "codeChanges": [
+    "ai-bridge.js: model combo, retry 10x, reasoning handler",
+    "tool-registry.js: progressive disclosure + voice fast path"
+  ],
+  "keyInsight": "Chat reasoning > code output. Knowledge is the real product."
+}
+```
+
+### Storage
+
+```
+~/.mark/knowledge/
+├── sessions/
+│   ├── 2026-07-28-os-control.json
+│   ├── 2026-07-27-model-fallback.json
+│   └── ...
+├── decisions/
+│   ├── all.jsonl          # Every decision ever made
+│   └── by-topic/          # Indexed by topic
+└── patterns/
+    └── all.jsonl          # Reusable design patterns
+```
+
+### Use Cases
+
+1. **Context Replay** — "Kemarin kita bahas OS control, apa yang sudah diputuskan?"
+2. **Decision Audit** — "Kenapa pakai quarantine bukan delete?" → lihat reasoning
+3. **Pattern Reuse** — "Pernahkah kita pakai progressive disclosure sebelumnya?" → ya, di tool-registry
+4. **Gap Tracking** — "Apa yang belum di-implement dari diskusi kemarin?" → lihat gaps
+
+### How It Works
+
+```
+Session ends
+    ↓
+AI extracts: decisions, patterns, gaps, code changes
+    ↓
+Save to ~/.mark/knowledge/sessions/{date}-{topic}.json
+    ↓
+Index decisions to ~/.mark/knowledge/decisions/all.jsonl
+    ↓
+Next session: load relevant knowledge
+    ↓
+AI has full context of past reasoning
+```
+
+---
+
 ## Vision
 
 MARK = Personal Autonomous OS. AI agent yang **bisa bertindak di dunia digital** dengan:
