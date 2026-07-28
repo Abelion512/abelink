@@ -558,8 +558,21 @@ app.whenReady().then(async () => {
         window.chrome.runtime = window.chrome.runtime || {};
         window.chrome.loadTimes = function(){};
         window.chrome.csi = function(){};
+        // Spoof additional fingerprint signals
+        Object.defineProperty(navigator, 'platform', { get: () => 'Win32', configurable: true });
+        Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8, configurable: true });
+        // Spoof plugins length
+        if (navigator.plugins && navigator.plugins.length === 0) {
+          const makePlugin = (n) => ({ name: n, filename: n, description: n, length: 1 });
+          navigator.plugins.__proto__.length = 5;
+        }
       } catch(e) {}
     `
+    // Inject at START of navigation (before page scripts), not just dom-ready
+    wc.on('did-start-navigation', () => {
+      wc.executeJavaScript(antiDetectScript).catch(() => {})
+    })
     wc.on('dom-ready', () => {
       wc.executeJavaScript(antiDetectScript).catch(() => {})
     })

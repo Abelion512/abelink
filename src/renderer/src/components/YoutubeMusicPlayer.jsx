@@ -189,7 +189,7 @@ export const YoutubeMusicPlayer = () => {
     }
 
     const handleNewWindow = (e) => {
-      if (e.url.startsWith('https://www.youtube.com/watch?v=')) {
+      if (e.url.startsWith('https://www.youtube.com/watch?v=') || e.url.startsWith('https://www.youtube.co.id/watch?v=')) {
         e.preventDefault()
         webview.loadURL(e.url)
       }
@@ -244,14 +244,37 @@ export const YoutubeMusicPlayer = () => {
           <div className="flex items-center justify-between px-3 py-2 bg-base-200/80 backdrop-blur-sm border-b border-white/5">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
-              <span className="text-xs font-medium text-white/60 select-none">YouTube Player</span>
+              <span className="text-xs font-medium text-white/60 select-none">YouTube</span>
             </div>
-            <button
-              onClick={() => setIsPlayerOpen(false)}
-              className="btn btn-ghost btn-xs btn-circle text-white/40 hover:text-white/80"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-            </button>
+            <div className="flex items-center gap-1">
+              {playbackError && (
+                <button
+                  onClick={() => {
+                    if (window.api?.showBrowserWindow && window.api?.browserNavigate) {
+                      window.api.showBrowserWindow()
+                      window.api.browserNavigate('https://youtube.com')
+                      // Reload webview after user has a chance to login
+                      setTimeout(() => {
+                        if (webviewRef.current) {
+                          webviewRef.current.loadURL('https://youtube.com')
+                        }
+                      }, 5000)
+                    }
+                  }}
+                  className="btn btn-ghost btn-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 gap-1"
+                  title="Login via browser agar session tersimpan"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <span className="text-[10px]">Login</span>
+                </button>
+              )}
+              <button
+                onClick={() => setIsPlayerOpen(false)}
+                className="btn btn-ghost btn-xs btn-circle text-white/40 hover:text-white/80"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+            </div>
           </div>
           {/* Source: YouTube Player via webview */}
           <div className="flex items-center justify-between px-3 py-1.5 bg-black/20">
@@ -265,9 +288,9 @@ export const YoutubeMusicPlayer = () => {
             style={{ width: '480px', height: '360px' }}
             className="no-scrollbar rounded-b-2xl"
             allowpopups="false"
-            partition="persist:youtube"
+            partition="persist:mark-browser"
             webpreferences="contextIsolation=yes,webSecurity=no"
-            useragent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+            useragent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
           />
         </div>
       </div>
