@@ -19,6 +19,7 @@ INTERACTIVE_ROLES = {
     'list item', 'table cell', 'tree item', 'tab',
 }
 MAX_ELEMENTS = 80
+MAX_DEPTH = 50
 
 def element_info(node):
     """Return dict with accessible info about this node"""
@@ -41,41 +42,73 @@ def element_info(node):
 
 def find_active_app():
     """Find the application that has the active/current window"""
-    desktop = Atspi.get_desktop(0)
-    for i in range(desktop.get_child_count()):
-        app = desktop.get_child_at_index(i)
-        for j in range(app.get_child_count()):
+    try:
+        desktop = Atspi.get_desktop(0)
+        for i in range(max(desktop.get_child_count(), 0)):
             try:
-                child = app.get_child_at_index(j)
-                ss = child.get_state_set()
-                if ss.contains(Atspi.StateType.ACTIVE):
-                    return app
+                app = desktop.get_child_at_index(i)
             except:
-                pass
+                continue
+            if not app:
+                continue
+            for j in range(max(app.get_child_count(), 0)):
+                try:
+                    child = app.get_child_at_index(j)
+                    if child and child.get_state_set().contains(Atspi.StateType.ACTIVE):
+                        return app
+                except:
+                    pass
+    except:
+        pass
     return None
 
 def collect_elements(app):
     """Collect interactive elements from active application"""
     results = []
-    def walk(node):
-        if len(results) >= MAX_ELEMENTS:
+    def walk(node, depth=0):
+        if len(results) >= MAX_ELEMENTS or depth > MAX_DEPTH:
             return
-        role = node.get_role_name()
-        name = node.get_name() or ''
-        if role in INTERACTIVE_ROLES and name.strip():
-            results.append(element_info(node))
+        try:
+            role = node.get_role_name()
+            name = node.get_name() or ''
+            if role in INTERACTIVE_ROLES and name.strip():
+                results.append(element_info(node))
+            for k in range(node.get_child_count()):
+                try:
+                    child = node.get_child_at_index(k)
+                    if child:
+                        walk(child, depth + 1)
+                except:
+                    pass
+        except:
+            pass
+    walk(app)
+    return results
+
+def find_focused_node(node, depth=0):
+    """Recursively search for the focused node within an app"""
+    if depth > MAX_DEPTH:
+        return None
+    try:
+        ss = node.get_state_set()
+        if ss.contains(Atspi.StateType.FOCUSED):
+            return node
+    except:
+        pass
+    # Also check if any descendant is focused
+    try:
         for k in range(node.get_child_count()):
             try:
                 child = node.get_child_at_index(k)
                 if child:
-                    walk(child)
+                    result = find_focused_node(child, depth + 1)
+                    if result is not None:
+                        return result
             except:
                 pass
-    try:
-        walk(app)
     except:
         pass
-    return results
+    return None
 
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else 'active'
@@ -87,20 +120,14 @@ def main():
     result = {'application': app.get_name() or 'unknown'}
 
     if mode == '--focused':
-        for j in range(app.get_child_count()):
-            try:
-                child = app.get_child_at_index(j)
-                ss = child.get_state_set()
-                if ss.contains(Atspi.StateType.FOCUSED):
-                    result['focused'] = element_info(child)
-                    result['ancestors'] = []
-                    p = child.get_parent()
-                    while p and p.get_name():
-                        result['ancestors'].insert(0, p.get_name())
-                        p = p.get_parent()
-                    break
-            except:
-                pass
+        focused = find_focused_node(app)
+        if focused:
+            result['focused'] = element_info(focused)
+            result['ancestors'] = []
+            p = focused.get_parent()
+            while p and p.get_name():
+                result['ancestors'].insert(0, p.get_name())
+                p = p.get_parent()
     else:
         result['elements'] = collect_elements(app)
 
