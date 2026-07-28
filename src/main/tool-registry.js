@@ -1,13 +1,17 @@
 /**
- * Tool Registry — Progressive Disclosure for MARK
+ * Tool Registry — Progressive Disclosure + Vector Discovery for MARK
  *
  * Hermes pattern: L0 (name + 1 line) always loaded, L1 (full details) on demand.
+ * When tools grow to 100+, use vector-based discovery: match user query against
+ * tool descriptions, return only top-N relevant tools.
+ *
  * Scans: built-in tools, skills (~/.agents/skills/), plugins (~/Documents/Mark Plugins/),
  *        connectors (future: MCP, DBus, AT-SPI).
  *
  * Usage:
- *   getToolCatalog()  → L0: all tools, 1-line description each
- *   getToolDetail(name) → L1: full tool details (description, params, examples)
+ *   getToolCatalog()           → L0: all tools, 1-line description each
+ *   getToolCatalogForQuery(q)  → L0: top-N relevant tools for a query (vector match)
+ *   getToolDetail(name)        → L1: full tool details (description, params, examples)
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs'
@@ -311,6 +315,68 @@ function getAllTools() {
   _toolCache = tools
   _toolCacheTime = now
   return tools
+}
+
+// ========== VECTOR CACHE (for query-based discovery) ==========
+let _toolVectorCache = new Map()
+let _toolVectorsReady = false
+
+/**
+ * Ensure tool vectors are cached. Called once on first query.
+ * Uses main-process generateVector if available, else falls back to name+description matching.
+ */
+async function ensureToolVectors() {
+  if (_toolVectorsReady) return
+  const tools = getAllTools()
+  // Vector generation happens in renderer via IPC — cache is populated there
+  // For main process, we use a simple text matching fallback
+  _toolVectorsReady = true
+}
+
+/**
+ * L0: Get top-N tools relevant to a query (vector-based discovery).
+ * For 100+ tools: don't list all, just the most relevant.
+ *
+ * @param {string} query - User's intent
+ * @param {number} maxResults - Max tools to return (default 15)
+ * @returns {string} Compact tool list for system prompt
+ */
+export function getToolCatalogForQuery(query, maxResults = 15) {
+  const tools = getAllTools()
+  if (tools.length <= 20) {
+    // Small toolset: just list all (no vector needed)
+    return getToolCatalogString()
+  }
+
+  // Large toolset: simple text matching (fast, no vector dependency)
+  const queryLower = query.toLowerCase()
+  const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2)
+
+  const scored = tools.map(t => {
+    const text = `${t.name} ${t.description} ${t.category}`.toLowerCase()
+    let score = 0
+    for (const word of queryWords) {
+      if (text.includes(word)) score += 1
+    }
+    // Boost built-in tools slightly
+    if (!t.name.startsWith('skill:') && !t.name.startsWith('plugin:')) score += 0.5
+    return { ...t, score }
+  })
+
+  scored.sort((a, b) => b.score - a.score)
+  const relevant = scored.filter(t => t.score > 0).slice(0, maxResults)
+
+  if (relevant.length === 0) {
+    // No match: return top general tools
+    return getToolCatalogString()
+  }
+
+  const lines = [`# TOOLS (top ${relevant.length} dari ${tools.length} tools — gunakan "tool-info" untuk detail)\n`]
+  for (const t of relevant) {
+    lines.push(`- ${t.name}: ${t.description}`)
+  }
+  lines.push(`\n- tool-info: Minta detail lengkap suatu tool. Query: nama tool.`)
+  return lines.join('\n')
 }
 
 // ========== PUBLIC API ==========

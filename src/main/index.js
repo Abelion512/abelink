@@ -91,7 +91,7 @@ ipcMain.on('mpris:set-status', (_event, playing) => {
 })
 
 import { fetchAI, setGlobalConfig, abortAllFetches, resolveVisionModel } from './ai-bridge.js'
-import { getToolCatalog, getToolDetail, getToolCatalogString, refreshToolCache } from './tool-registry.js'
+import { getToolCatalog, getToolDetail, getToolCatalogString, getToolCatalogForQuery, refreshToolCache } from './tool-registry.js'
 
 ipcMain.on('sync-config', (_event, config) => {
   setGlobalConfig(config)
@@ -103,6 +103,7 @@ ipcMain.on('sync-config', (_event, config) => {
 
 // ========== TOOL REGISTRY IPC ==========
 ipcMain.handle('tool-catalog', () => getToolCatalogString())
+ipcMain.handle('tool-catalog-query', (_event, query, maxResults) => getToolCatalogForQuery(query, maxResults))
 ipcMain.handle('tool-detail', (_event, toolName) => {
   const detail = getToolDetail(toolName)
   return detail ? { name: detail.name, category: detail.category, description: detail.description, l1: detail.l1 } : null

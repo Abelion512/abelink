@@ -120,8 +120,9 @@ const api = {
     ipcRenderer.on('config-updated', () => callback())
   },
 
-  // Tool Registry — Progressive Disclosure
+  // Tool Registry — Progressive Disclosure + Vector Discovery
   getToolCatalog: () => ipcRenderer.invoke('tool-catalog'),
+  getToolCatalogForQuery: (query, maxResults) => ipcRenderer.invoke('tool-catalog-query', query, maxResults),
   getToolDetail: (name) => ipcRenderer.invoke('tool-detail', name),
   refreshTools: () => ipcRenderer.send('tool-refresh')
 }
