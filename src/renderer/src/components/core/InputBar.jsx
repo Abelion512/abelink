@@ -24,9 +24,13 @@ const InputBar = ({
   const savedInputRef = useRef('');
 
   // Auto-resize textarea height (max 160px ~10 lines)
+  // Avoid forced reflow by only resetting when scrollHeight actually changes
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
-    if (el) {
+    if (!el) return;
+    const newHeight = Math.min(el.scrollHeight, 160);
+    const currentHeight = parseInt(el.style.height, 10);
+    if (newHeight !== currentHeight) {
       el.style.height = 'auto';
       el.style.height = Math.min(el.scrollHeight, 160) + 'px';
     }

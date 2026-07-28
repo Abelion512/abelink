@@ -61,4 +61,4 @@ const HoloCard = ({ children, title, defaultExpanded = false }) => {
   );
 };
 
-export default HoloCard;
+export default React.memo(HoloCard);
