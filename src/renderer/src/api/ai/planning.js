@@ -536,11 +536,32 @@ ${
 	        messages[0].content += `\n\n${FALLBACK_PROMPT_SUFFIX}`
 	      }
 
-	      console.log(messages[0].content)
-	      const response = await fetchAI(messages, signal, false, schema, conf)
-	      console.log('[planning] fetchAI returned, parsing...')
-	      const rawContent = response.content
-	      const data = parseFallbackFormat(rawContent)
+console.log(messages[0].content)
+		      const response = await fetchAI(messages, signal, false, schema, conf)
+		      console.log('[planning] fetchAI returned, parsing...')
+		      const rawContent = response.content
+
+		      // Handle empty/null content from AI
+		      if (!rawContent || rawContent.trim() === '') {
+		        console.warn(`[planning] Empty content (attempt ${attempts}/${MAX_RETRIES})`)
+		        if (attempts < MAX_RETRIES) {
+		          // Retry with explicit JSON instruction
+		          messages[0].content += '\n\nTolong beri respons dalam format JSON yang valid. Jangan kosong.'
+		          continue
+		        }
+		        // No retries left — return fallback
+		        console.warn('[planning] No retries left — returning fallback for empty content')
+		        return {
+		          thought: 'empty',
+		          action: null,
+		          answer: 'Maaf, response kosong. Coba lagi ya.',
+		          mood: 'ennui',
+		          active_topic: activeTopic,
+		          memory: null
+		        }
+		      }
+
+		      const data = parseFallbackFormat(rawContent)
       console.log('[planning] parse finished:', data)
 
       if (data) {

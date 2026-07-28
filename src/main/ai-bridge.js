@@ -440,8 +440,15 @@ export const fetchAI = async (
 
         if (!content || content.trim() === '') {
           log.warn(' empty', 'Content kosong (content: null)')
-          lastError = new AIServiceError('Response kosong', { provider: activeProvider, model })
-          trackModelUsage(model, false, latencyMs, finishReason)
+          // Return empty content instead of throwing — let caller handle retry
+          result = { content: '' }
+          success = true
+          trackModelUsage(model, true, latencyMs, finishReason)
+          logObservation({
+            provider: activeProvider, model, latencyMs,
+            httpStatus: response.status, finishReason,
+            contentLength: 0, retryCount, success: true,
+          })
           break
         }
 
