@@ -5,9 +5,10 @@ import { fetchAI } from '../../api/ai/core'
 import { analyzeScreen, analyzeCamera } from '../../api/ai/vision-service'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
 import { insertMemory, updateMemory, deleteMemory, getAllMemory } from '../../api/db'
-import { getUnifiedContext, searchExtendedMemory } from '../../api/vectorMemory'
+import { getUnifiedContext, searchExtendedMemory, generateVector, cosineSimilarity } from '../../api/vectorMemory'
 import { sanitizeToolOutput } from '../../api/ai/output-sanitizer'
 import { getGuardGate } from '../../api/ai/guard-gate'
+import { searchMemoriesInOrama } from '../../api/oramaStore'
 
 export const useMarkPlan = ({
   chatData,
@@ -396,18 +397,47 @@ let hardStopped = false
 
         // --- Handle memory jika ada ---
         if (decision.memory) {
+          const memoryData = { ...decision.memory }
+          memoryData.memory = memoryData.memory
+            .trim()
+            .replace(/^[\\\"]+|[\\\"]+$/g, '')
+            .replace(/\\n/g, '\n')
+          // Hapus prefix timestamp lama jika ada biar gak double pas update
+          memoryData.memory = memoryData.memory.replace(/^\[.*?\]\s*/, '')
+          const dateStr = getCurrentTimeInfo()
+          memoryData.memory = `[${dateStr}] ${memoryData.memory}`
+
+          // AUTO-DEDUP GUARD: Jika AI mencoba insert "profile" atau "preference", cek similarity dengan memory existing di Orama
+          if (
+            memoryData.action === 'insert' &&
+            (memoryData.type === 'profile' || memoryData.type === 'preference')
+          ) {
+            try {
+              const newVec = await generateVector(memoryData.memory)
+              if (newVec) {
+                const similarMemories = await searchMemoriesInOrama(
+                  memoryData.memory,
+                  newVec,
+                  1,
+                  memoryData.type
+                )
+                if (similarMemories.length > 0 && similarMemories[0].score > 0.82) {
+                  const bestMatchId = similarMemories[0].id
+                  console.log(
+                    `🔄 [Orama Auto-Dedup] Mengalihkan insert -> update pada memori ID ${bestMatchId} (similarity: ${similarMemories[0].score.toFixed(2)})`
+                  )
+                  memoryData.action = 'update'
+                  memoryData.id = bestMatchId
+                }
+              }
+            } catch (err) {
+              console.error('Error in Orama auto-dedup check:', err)
+            }
+          }
+
           const actions = { insert: insertMemory, update: updateMemory, delete: deleteMemory }
-          if (actions[decision.memory.action]) {
-            const memoryData = { ...decision.memory }
-            memoryData.memory = memoryData.memory
-              .trim()
-              .replace(/^[\\\"]+|[\\\"]+$/g, '')
-              .replace(/\\n/g, '\n')
-            // Hapus prefix timestamp lama jika ada biar gak double pas update
-            memoryData.memory = memoryData.memory.replace(/^\[.*?\]\s*/, '')
-            const dateStr = getCurrentTimeInfo()
-            memoryData.memory = `[${dateStr}] ${memoryData.memory}`
-            await actions[decision.memory.action](memoryData)
+          if (actions[memoryData.action]) {
+            await actions[memoryData.action](memoryData)
           }
         }
 

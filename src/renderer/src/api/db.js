@@ -1,5 +1,6 @@
 import Dexie from 'dexie'
 import { generateVector } from './vectorMemory'
+import { insertMemoryToOrama, updateMemoryInOrama, deleteMemoryFromOrama } from './oramaStore'
 
 export const db = new Dexie('mark-db')
 
@@ -93,19 +94,16 @@ function getValidType(type) {
 export async function insertMemory(data) {
   const memoryText = data.memory.trim()
   const type = getValidType(data.type)
-  let vector = []
-  
-  if (type === 'notes' || type === 'learn') {
-    vector = await generateVector(memoryText) || []
-  }
+  const vector = (await generateVector(memoryText)) || []
 
   try {
-    await db.memory.add({
+    const id = await db.memory.add({
       type: type,
       summary: data.summary || '',
       memory: memoryText,
       vector: vector
     })
+    insertMemoryToOrama({ id, type, summary: data.summary || '', memory: memoryText, vector }).catch(console.error)
   } catch (error) {
     console.error('Error Save Memory:', error)
   }
@@ -138,15 +136,13 @@ export async function updateMemory(data) {
     let updatePayload = {
       type: type,
       summary: data.summary || '',
-      memory: newMemoryText
-    }
-    
-    if (type === 'notes' || type === 'learn') {
-      updatePayload.vector = await generateVector(newMemoryText) || []
+      memory: newMemoryText,
+      vector: (await generateVector(newMemoryText)) || []
     }
 
     if (data.id) {
       await db.memory.update(data.id, updatePayload)
+      updateMemoryInOrama(data.id, { ...updatePayload, id: data.id }).catch(console.error)
       console.log(`✅ Memory ID ${data.id} berhasil di-update.`)
     } else {
       console.warn('⚠️ Gagal update: ID tidak ditemukan.')
@@ -161,6 +157,7 @@ export async function deleteMemory(data) {
   try {
     if (data.id) {
       await db.memory.delete(data.id)
+      deleteMemoryFromOrama(data.id).catch(console.error)
       console.log(`🗑️ Memory ID ${data.id} berhasil dihapus oleh Mark.`)
       return { success: true }
     }

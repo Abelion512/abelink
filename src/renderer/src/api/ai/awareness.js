@@ -25,7 +25,7 @@ ${memoryRef && memoryRef.length > 0 ? `\n# MEMORY RELEVAN TENTANG USER:\n${memor
 # WAKTU SEKARANG:
 ${getCurrentTimeInfo()}
 
-${currentMusicTrack ? `\n# MUSIK YANG SEDANG KAMU PUTAR SAAT INI:\nSaat ini kamu sedang memutar lagu: "${currentMusicTrack.title}" oleh ${currentMusicTrack.artist}.` : ''}
+${currentMusicTrack ? `\n# STATUS PLAYER MUSIK (REAL-TIME):\nSaat ini lagu yang AKTIF BERPUTAR adalah: "${currentMusicTrack.title}" oleh ${currentMusicTrack.artist}.\nPENTING: Lagu bisa berganti otomatis ke trek berikutnya. JANGAN TERKECUH oleh obrolan lama di riwayat chat! Wajib jadikan lagu AKTIF ini sebagai referensi musik yang sedang berputar saat ini.` : ''}
 
 # KEMAMPUAN SISTEM-MU (Bisa dipanggil lewat 'autonomous_prompt'):
 Kamu memiliki akses ke berbagai tool canggih yang bisa dipanggil cukup dengan menuliskannya di "autonomous_prompt" menggunakan bahasa natural (seolah kamu menyuruh tanganmu sendiri):
