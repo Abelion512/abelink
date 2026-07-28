@@ -1,18 +1,32 @@
-# Session: OS Control Architecture — Security-First Computer Control
+# Session: OS Control Architecture — Transparent, Safe, Autonomous
 
 **Date:** 2026-07-28
 **Branch:** feat/model-fallback-abelink → new branch per layer
-**Priority:** SECURITY FIRST — OS access = high risk
-**Reference:** research-map.md #11 (Subprocess Safety), #12 (Browser DOM), referensi-perubahan-sistem-prompt-ai.md (Trust Boundary + Verification)
+**Priority:** Capability + Transparency + Control — seimbang
+**Reference:** research-map.md #11, #12, referensi-perubahan-sistem-prompt-ai.md
+
+---
+
+## Prinsip Utama
+
+> **MARK boleh bekerja mandiri, tetapi manusia harus selalu memahami tujuan, batas, dan konsekuensi tindakannya.**
+
+Capability + Transparency + Control harus seimbang. Agent yang bisa klik tombol tanpa transparency = malware yang bisa ngobrol.
 
 ---
 
 ## Vision
 
-MARK = Personal Autonomous OS. Bukan cuma AI assistant yang ngobrol, tapi AI agent yang **bisa bertindak di dunia digital** dengan verification loop.
+MARK = Personal Autonomous OS. AI agent yang **bisa bertindak di dunia digital** dengan:
+- **Transparent process** — user tahu apa yang dilakukan
+- **Privacy architecture** — data dibagi zona
+- **Human safety boundary** — agent tahu kapan harus berhenti
+- **Verification loop** — aksi diverifikasi sebelum lanjut
 
 ```
-User Goal → Intent Planner → Computer Control Router → Action → Verification → Memory
+User Goal → Plan → Permission → Execute → Verify → Memory
+                ↑                                ↓
+           Transparency ←──────────────────── Audit
 ```
 
 ## Architecture: 4-Level Control Hierarchy
@@ -41,44 +55,123 @@ Level 4: Hybrid Router (picks best level per task)
 
 ---
 
-## Security Architecture (P0)
+## 1. Transparent Process
 
-### Threat Model
+User harus tahu apa yang MARK lakukan. Bukan "show thinking", tapi **show process**.
 
-| Threat | Risk | Mitigation |
-|--------|------|------------|
-| Accidental `rm -rf /` | HIGH | Policy Engine + dangerous command block |
-| Unauthorized file access | HIGH | Permission boundaries per directory |
-| Unintended system changes | HIGH | Approval workflow for destructive ops |
-| Prompt injection → OS exec | CRITICAL | Input sanitization + policy gate |
-| Privilege escalation | CRITICAL | Never run as root, audit all exec |
-
-### Security Layers
+### UI: Mission Control Panel
 
 ```
-LLM Output
-    ↓
-Intent Parser (extract action type)
-    ↓
-Policy Engine (allow/deny/approve?)
-    ↓
-Permission Check (scope: user dir? system? global?)
-    ↓
-Action Executor (sandboxed)
-    ↓
-Verification (did it work? revert if wrong?)
-    ↓
-Audit Log (every action logged)
+┌─────────────────────────────────────────────────┐
+│  MARK Activity                            10:31 │
+├─────────────────────────────────────────────────┤
+│  ✓ 10:31:02  User requested: "Find laptop"     │
+│  ✓ 10:31:04  Plan: 5 subtasks created           │
+│  ✓ 10:31:10  Tool: web.search                   │
+│  ✓ 10:31:15  Found: 20 candidates               │
+│  ✓ 10:31:20  Verification: sources checked      │
+│  ⏸ 10:31:25  Waiting: user approval             │
+└─────────────────────────────────────────────────┘
 ```
 
-### Risk Levels
+### What to show (NOT chain-of-thought)
 
-| Level | Action | Example | Handler |
+| Show | Don't Show |
+|------|-----------|
+| Goal | Internal reasoning |
+| Plan steps | Token counting |
+| Tool used | Prompt engineering |
+| Result | Model weights |
+| Reason for decision | Temperature settings |
+
+### Explainable Action
+
+Setiap aksi harus punya:
+```json
+{
+  "action": "delete_file",
+  "reason": "User requested cleanup",
+  "scope": "/home/user/temp",
+  "risk": "orange",
+  "approval": "required"
+}
+```
+
+Jangan: `MARK deleted 50 files` → user panik.
+
+---
+
+## 2. Privacy Architecture
+
+Privacy bukan fitur tambahan. Fondasi PAOS.
+
+### Data Zones
+
+```
+┌─────────────────────────────────────────┐
+│  MARK DATA ZONES                        │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │ PUBLIC KNOWLEDGE                │    │
+│  │ docs, articles, tutorials       │    │
+│  │ → boleh cloud                   │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │ USER MEMORY                     │    │
+│  │ preferences, habits, context    │    │
+│  │ → enkripsi lokal                │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │ SENSITIVE DATA                  │    │
+│  │ email, files, camera, location  │    │
+│  │ → LOCAL ONLY, jangan kirim API  │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │ SECRETS                        │    │
+│  │ API keys, tokens, passwords     │    │
+│  │ → TIDAK BOLEH masuk prompt/log  │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+### Privacy Budget
+
+Setiap tool punya privacy cost:
+
+| Tool | Privacy Risk | Zone |
+|------|:-----------:|------|
+| `computer.open` (app) | Low | Public |
+| `computer.list-windows` | Low | Public |
+| `computer.screenshot` | Medium | User Memory |
+| `computer.read-folder` | Medium | User Memory |
+| `camera-look` | HIGH | Sensitive |
+| `wa-send` | HIGH | Sensitive |
+| `read-email` | CRITICAL | Sensitive |
+| `api-key` | MAX | Secrets |
+
+### Privacy Assessment Flow
+
+```
+Task → Privacy Assessment → Allow / Ask / Block
+```
+
+---
+
+## 3. Human Safety Boundary
+
+Agent harus punya "human override".
+
+| Level | Action | Handler | Example |
 |-------|--------|---------|---------|
-| GREEN | Read-only, safe | list-dir, get window name, screenshot | Auto-execute |
-| YELLOW | Reversible, user-scope | write file, open app, click | Auto-execute + log |
-| ORANGE | Semi-destructive | delete file, replace lines | Approval required |
-| RED | System-wide, irreversible | sudo, shutdown, format | BLOCK + approval |
+| GREEN | Auto-execute | No prompt | open app, search web, play music |
+| YELLOW | Log + notification | Silent | read folder, modify settings |
+| ORANGE | Approval required | Modal | send email, delete file, purchase |
+| RED | BLOCK | Hard stop | disable security, extract password, sudo |
 
 ### Existing Security (to keep)
 
@@ -89,30 +182,111 @@ Audit Log (every action logged)
 
 ---
 
+## 4. Memory Consent
+
+MARK jangan otomatis mengingat semuanya. Harus ada consent.
+
+```
+User: "Saya sedang mencari kerja."
+
+MARK: Should I remember: "You are currently job hunting"?
+      [Yes] [No] [This Session Only]
+```
+
+Perbedaan:
+- Context sementara → auto-forget
+- Memory permanen → ask consent
+
+---
+
+## 5. Sensor Indicators
+
+Kamera, mikrofon, screen observation harus punya indikator visual.
+
+```
+🎤 Microphone active
+📷 Camera active
+👁 Screen observation active
+```
+
+Tidak boleh diam-diam. Ever.
+
+---
+
+## 6. Audit Log for Humans
+
+```
+~/.mark/
+├── memory/
+├── audit/
+│   ├── actions.jsonl
+│   ├── approvals.jsonl
+│   └── security-events.jsonl
+├── permissions/
+└── policies/
+```
+
+User harus bisa:
+- Lihat semua aksi
+- Export
+- Delete
+- Filter by date/risk level
+
+---
+
 ## Module Structure
 
 ```
 src/main/computer/
-  ├── index.js                 # Router — picks Level 1/2/3
-  ├── policy-engine.js         # Risk assessment + approval
-  ├── permission-boundary.js   # Directory/scope permissions
-  ├── audit-log.js             # Structured action logging
+  ├── index.js                    # Router — picks Level 1/2/3
+  │
+  ├── intent/
+  │   └── semantic-actions.js     # "click submit" → {role:button, text:Submit}
+  │
+  ├── state/
+  │   └── computer-state.js       # Active window, open apps, last action
+  │
+  ├── drivers/
+  │   ├── x11.js                  # xdotool + wmctrl wrapper
+  │   ├── dbus.js                 # DBus layer (MPRIS, notifications, power)
+  │   └── wayland.js              # Future: Wayland compositor support
+  │
+  ├── policy/
+  │   ├── policy-engine.js        # Risk assessment per action
+  │   ├── permission-boundary.js  # Scope: ~/safe, /tmp, system
+  │   └── capability-token.js     # Time-limited, scoped permissions
+  │
+  ├── router/
+  │   └── computer-router.js      # Intent → best Level (1/2/3)
   │
   ├── level1/
-  │   ├── window-manager.js    # wmctrl + xdotool window ops
+  │   ├── window-manager.js       # wmctrl + xdotool window ops
   │   ├── keyboard-controller.js  # xdotool key/type
-  │   ├── mouse-controller.js  # xdotool mouse move/click
-  │   ├── app-launcher.js      # gtk-launch + xdg-open
-  │   └── process-monitor.js   # ps, top, system info
+  │   ├── mouse-controller.js     # xdotool mouse move/click
+  │   ├── app-launcher.js         # gtk-launch + xdg-open
+  │   └── process-monitor.js      # ps, top, system info
   │
   ├── level2/
-  │   └── accessibility-tree.js  # AT-SPI2 via DBus
+  │   └── accessibility-tree.js   # AT-SPI2 via DBus
   │
   ├── level3/
-  │   └── screen-analyzer.js   # Screenshot → Vision → Coordinates
+  │   └── screen-analyzer.js      # Screenshot → Vision → Coordinates
   │
-  └── verification/
-      └── action-verifier.js   # Post-action verification
+  ├── verification/
+  │   └── action-verifier.js      # Post-action: window? process? UI state?
+  │
+  ├── transparency/
+  │   ├── mission-control.js      # Timeline UI for user
+  │   └── explainable-action.js   # Every action has reason + scope + risk
+  │
+  ├── privacy/
+  │   ├── data-zones.js           # Public/User/Sensitive/Secrets
+  │   ├── privacy-budget.js       # Cost per tool
+  │   └── memory-consent.js       # Ask before remembering
+  │
+  └── audit/
+      ├── audit-log.js            # ~/.mark/audit/*.jsonl
+      └── sensor-indicator.js     # Camera/mic/screen active indicator
 ```
 
 ---
