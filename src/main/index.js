@@ -22,6 +22,11 @@ import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
 import { startTracking, stopTracking, getBuffer, flushBuffer } from './awareness/window-tracker.js'
 import { NATIVE_TOOLS } from './native-tools.js'
 import { loadSkills, initSkillsIPC } from './agent-skills-loader.js'
+import {
+  readDesktop, executeClick, executeType, executeKey, executeScroll,
+  openApp, listWindows, focusWindow, askUserPC,
+  openPCSession, closePCSession, captureScreenshot, ocrRegion, emergencyStop
+} from './pc-agent.js'
 import { initMpris, setMprisCallbacks, setMprisPlaybackStatus, updateMprisTrack, stopMpris } from './mpris-service.js'
 import { getRecentTracks, getTopTracks, setApiKey as setLastfmKey } from './lastfm-service.js'
 import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
@@ -520,6 +525,20 @@ app.whenReady().then(async () => {
     // LM Studio default
     return { url: 'http://localhost:1234/v1/chat/completions', headers: { 'Content-Type': 'application/json' } }
   })
+
+  // ===== LINUX PC AGENT IPC =====
+  ipcMain.handle('os:read', () => readDesktop())
+  ipcMain.handle('os:click', (_e, query) => executeClick(query))
+  ipcMain.handle('os:type', (_e, text) => executeType(text))
+  ipcMain.handle('os:key', (_e, combo) => executeKey(combo))
+  ipcMain.handle('os:scroll', (_e, query) => executeScroll(query))
+  ipcMain.handle('os:open', (_e, name) => openApp(name))
+  ipcMain.handle('os:list-windows', () => listWindows())
+  ipcMain.handle('os:focus-window', (_e, title) => focusWindow(title))
+  ipcMain.handle('os:ask-user', (_e, question) => askUserPC(question))
+  ipcMain.handle('os:screenshot', (_e, path) => captureScreenshot(path))
+  ipcMain.handle('os:ocr-region', (_e, x, y, w, h) => ocrRegion(x, y, w, h))
+  ipcMain.handle('os:emergency-stop', () => emergencyStop())
 
   // ===== WEBVIEW ANTI-DETECTION (YouTube) =====
   // Auto-attach to ALL webviews via did-attach-webview

@@ -42,7 +42,8 @@ const CATEGORY_TEXTS = {
   system: 'screenshot kirim pesan whatsapp wa operasikan komputer sistem',
   browser:
     'buka web website halaman navigasi klik browse internet login form isi formulir pesan order beli cari di web otomasi browser automasi',
-  capabilities: 'apa saja plugin mu daftar tool kemampuan fitur bisa ngapain aja'
+  capabilities: 'apa saja plugin mu daftar tool kemampuan fitur bisa ngapain aja',
+  pc: 'klik tekan buka aplikasi scroll desktop layar mouse keyboard window gui control pc komputer os control desktop automation click type key read screen gui element interact'
 }
 
 let categoryVectors = null
@@ -112,13 +113,13 @@ export const getNextAction = async (
   userInput,
   loopMessages,
   signal,
-  unifiedContext = { memories: [], archives: [], documents: [] },
+  unifiedContext = { memories: [], archives: [], documents: [], oramaMemories: [] },
   contextMsg = '',
   activeTopic = '',
   options = {}
 ) => {
   try {
-    const { memories = [], archives = [], documents = [] } = unifiedContext
+    const { memories = [], archives = [], documents = [], oramaMemories = [] } = unifiedContext
     const currentConfig = await getConfigCached()
     const conf = currentConfig[0] || {}
 
@@ -378,6 +379,10 @@ ${
 ${
   documents.length > 0
     ? `\n# REFERENSI DOKUMEN (RAG Knowledge Base)\n${documents.map((d) => `[${d.docName}] ${d.content}`).join('\n---\n')}\nJika pertanyaan terkait dokumen ini, LANGSUNG jawab dari dokumen ini tanpa "browser-navigate". Jangan mengarang fakta di luar konteks dokumen!`
+    : ''
+}${
+  oramaMemories.length > 0
+    ? `\n# MEMORY INDEX (Orama — Vector Search)\n${oramaMemories.map((m) => `[${m.type.toUpperCase()}] ${m.memory}`).join('\n---\n')}\nGunakan memory di atas sebagai referensi tambahan jika relevan.`
     : ''
 }`
       .replace(/\n{3,}/g, '\n\n')

@@ -125,7 +125,21 @@ const api = {
   getToolCatalogForQuery: (query, maxResults) => ipcRenderer.invoke('tool-catalog-query', query, maxResults),
   getToolDetail: (name) => ipcRenderer.invoke('tool-detail', name),
   refreshTools: () => ipcRenderer.send('tool-refresh'),
-  matchVoiceCommand: (text) => ipcRenderer.invoke('voice-fast-path', text)
+  matchVoiceCommand: (text) => ipcRenderer.invoke('voice-fast-path', text),
+
+  // Linux PC Agent (Desktop Automation)
+  osRead: () => ipcRenderer.invoke('os:read'),
+  osClick: (query) => ipcRenderer.invoke('os:click', query),
+  osType: (text) => ipcRenderer.invoke('os:type', text),
+  osKey: (combo) => ipcRenderer.invoke('os:key', combo),
+  osScroll: (query) => ipcRenderer.invoke('os:scroll', query),
+  osOpen: (name) => ipcRenderer.invoke('os:open', name),
+  osListWindows: () => ipcRenderer.invoke('os:list-windows'),
+  osFocusWindow: (title) => ipcRenderer.invoke('os:focus-window', title),
+  osAskUser: (question) => ipcRenderer.invoke('os:ask-user', question),
+  osScreenshot: (path) => ipcRenderer.invoke('os:screenshot', path),
+  osOcrRegion: (x, y, w, h) => ipcRenderer.invoke('os:ocr-region', x, y, w, h),
+  osEmergencyStop: () => ipcRenderer.invoke('os:emergency-stop')
 }
 
 if (process.contextIsolated) {
