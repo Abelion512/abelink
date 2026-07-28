@@ -35,18 +35,19 @@ function saveRegistry(registry) {
 
 function resolveModelChain(input) {
   if (!input) return ['gemma-3-12b-it']
-  const trimmed = input.trim()
+  const trimmed = input.trim().toLowerCase()
   const registry = loadRegistry()
 
-  // Check combo registry
-  if (registry.combos[trimmed]) {
-    const combo = registry.combos[trimmed]
-    console.log(`[ModelRegistry] Resolved combo "${trimmed}": ${combo.models.join(' → ')}`)
-    return [...combo.models]
+  // Check combo registry (case-insensitive)
+  for (const [key, combo] of Object.entries(registry.combos)) {
+    if (key.toLowerCase() === trimmed) {
+      console.log(`[ModelRegistry] Resolved combo "${input.trim()}" → "${key}": ${combo.models.join(' → ')}`)
+      return [...combo.models]
+    }
   }
 
   // Comma-separated fallback
-  const models = trimmed.split(',').map(m => m.trim()).filter(Boolean)
+  const models = input.trim().split(',').map(m => m.trim()).filter(Boolean)
   return models.length > 0 ? models : ['gemma-3-12b-it']
 }
 

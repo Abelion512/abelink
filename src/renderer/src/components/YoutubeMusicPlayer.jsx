@@ -285,8 +285,8 @@ export const YoutubeMusicPlayer = () => {
           <webview
             ref={webviewRef}
             src="about:blank"
-            style={{ width: '480px', height: '360px' }}
-            className="no-scrollbar rounded-b-2xl"
+            className="no-scrollbar rounded-b-2xl w-full"
+            style={{ height: '280px' }}
             allowpopups="false"
             partition="persist:mark-browser"
             webpreferences="contextIsolation=yes,webSecurity=no"
