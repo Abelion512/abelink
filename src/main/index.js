@@ -480,11 +480,9 @@ app.whenReady().then(async () => {
   })
 
   // ===== WEBVIEW ANTI-DETECTION (YouTube) =====
-  // Injects navigator.webdriver=false BEFORE page scripts execute
-  ipcMain.on('webview:attach-anti-detection', (_event, webContentsId) => {
-    const wc = webContents.fromId(webContentsId)
-    if (!wc) return
-
+  // Auto-attach to ALL webviews via did-attach-webview
+  // Injects navigator.webdriver=false at dom-ready, before page scripts execute
+  mainWindow.webContents.on('did-attach-webview', (_event, wc) => {
     const antiDetectScript = `
       try {
         Object.defineProperty(navigator, 'webdriver', { get: () => false, configurable: true });
@@ -495,18 +493,9 @@ app.whenReady().then(async () => {
         window.chrome.csi = function(){};
       } catch(e) {}
     `
-
-    wc.on('did-start-navigation', (event, url, isInPlace, isMainFrame) => {
-      if (isMainFrame && !url.startsWith('about:')) {
-        wc.executeJavaScript(antiDetectScript).catch(() => {})
-      }
+    wc.on('dom-ready', () => {
+      wc.executeJavaScript(antiDetectScript).catch(() => {})
     })
-  })
-
-  ipcMain.on('webview:detach-anti-detection', (_event, webContentsId) => {
-    const wc = webContents.fromId(webContentsId)
-    if (!wc) return
-    wc.removeAllListeners('did-start-navigation')
   })
 
   app.on('activate', function () {

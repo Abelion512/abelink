@@ -61,21 +61,14 @@ export const YoutubeMusicPlayer = () => {
   const retryTimerRef = useRef(null)
   const retryCountRef = useRef(0)
 
-  // Init webview: anti-detection (via main process), CSS, ad-blaster, error detection
+  // Init webview: CSS, ad-blaster, error detection
+  // Anti-detection (navigator.webdriver=false) handled by main process via did-attach-webview
   useEffect(() => {
     const webview = webviewRef.current
     if (!webview) return
 
-    // Anti-detection: main process injects navigator.webdriver=false via did-start-navigation
-    // This fires BEFORE page scripts execute (unlike renderer-side injection which is too late)
     const handleDomReady = () => {
       setIsReady(true)
-      try {
-        const wcId = webview.getWebContentsId?.()
-        if (wcId && window.api?.attachWebviewAntiDetection) {
-          window.api.attachWebviewAntiDetection(wcId)
-        }
-      } catch (_) {}
 
       // CSS: hide scrollbar, premium upsells, login popups, AND all YouTube ad containers
       webview.insertCSS(`
@@ -207,12 +200,6 @@ export const YoutubeMusicPlayer = () => {
     webview.addEventListener('new-window', handleNewWindow)
 
     return () => {
-      try {
-        const wcId = webview.getWebContentsId?.()
-        if (wcId && window.api?.detachWebviewAntiDetection) {
-          window.api.detachWebviewAntiDetection(wcId)
-        }
-      } catch (_) {}
       webview.removeEventListener('dom-ready', handleDomReady)
       webview.removeEventListener('did-fail-load', handleFailLoad)
       webview.removeEventListener('new-window', handleNewWindow)
