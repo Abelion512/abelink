@@ -110,11 +110,20 @@ const api = {
   getYtdlAudio: (url) => ipcRenderer.invoke('ytdl:get-audio', url),
   searchYtdl: (query, limit) => ipcRenderer.invoke('ytdl:search', query, limit),
 
+  // Vision model routing (registry-based)
+  resolveVisionModel: (role) => ipcRenderer.invoke('vision:resolve-model', role),
+  getModelEndpoint: (modelId) => ipcRenderer.invoke('vision:get-endpoint', modelId),
+
   // Config cache invalidation
   onConfigUpdated: (callback) => {
     ipcRenderer.removeAllListeners('config-updated')
     ipcRenderer.on('config-updated', () => callback())
-  }
+  },
+
+  // Tool Registry — Progressive Disclosure
+  getToolCatalog: () => ipcRenderer.invoke('tool-catalog'),
+  getToolDetail: (name) => ipcRenderer.invoke('tool-detail', name),
+  refreshTools: () => ipcRenderer.send('tool-refresh')
 }
 
 if (process.contextIsolated) {

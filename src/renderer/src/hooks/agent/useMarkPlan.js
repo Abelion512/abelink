@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { getNextAction } from '../../api/ai/planning'
 import { getYoutubeSummary } from '../../api/ai/tools'
 import { fetchAI } from '../../api/ai/core'
+import { analyzeScreen, analyzeCamera } from '../../api/ai/vision-service'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
 import { insertMemory, updateMemory, deleteMemory, getAllMemory } from '../../api/db'
 import { getUnifiedContext, searchExtendedMemory } from '../../api/vectorMemory'
@@ -521,6 +522,18 @@ let hardStopped = false
               } else {
                 resultString = `Gagal: format query salah (harus "JID|pesan"): ${query}`
               }
+            } else if (tool === 'tool-info') {
+              // --- TOOL INFO (Progressive Disclosure L1) ---
+              try {
+                const detail = await window.api.getToolDetail(query)
+                if (detail) {
+                  resultString = detail.l1 || `Tool: ${detail.name}\n${detail.description}`
+                } else {
+                  resultString = `Tool "${query}" tidak ditemukan. Gunakan "tool-info" dengan nama tool yang ada di daftar.`
+                }
+              } catch (e) {
+                resultString = `Gagal mengambil info tool: ${e.message}`
+              }
             } else if (tool === 'memory-search') {
               // --- MEMORY SEARCH ---
               const results = await searchExtendedMemory(query)
@@ -548,51 +561,21 @@ let hardStopped = false
                   'Tool screenshot-to-wa HANYA tersedia jika user sedang chat dari WhatsApp.'
               }
             } else if (tool === 'analyze-screen') {
-              // --- SCREENSHOT FOR VISION ---
+              // --- SCREENSHOT FOR VISION (via vision-service: deep role = Mimo) ---
               try {
                 const screens = await window.api.takeScreenshot()
                 if (screens && screens.length > 0) {
                   scheduleThinkingUpdate('Memproses Vision AI...')
-
-                  const contentArray = [
-                    {
-                      type: 'text',
-                      text: query || 'Jelaskan dengan detail apa yang terlihat di layar ini.'
-                    }
-                  ]
-
-                  // Masukkan semua layar (multi-monitor) ke dalam request Vision
-                  screens.forEach((screen) => {
-                    contentArray.push({
-                      type: 'image_url',
-                      image_url: { url: screen.data } // Standar mutlak OpenAI API
-                    })
-                  })
-
-                  const visionResponse = await fetchAI(
-                    [{ role: 'user', content: contentArray }],
-                    abortControllerRef.current?.signal,
-                    false
-                  )
-                  const textContent =
-                    typeof visionResponse === 'object' && visionResponse.content
-                      ? visionResponse.content
-                      : String(visionResponse)
-                  // sk-nry-iKHsWVIcArhPtt1vprUboIV7FZGMO_c9x6izmLfPpUo
-                  //
-                  // [LOG FETCH] Permintaan user untuk nge-log hasil Vision AI
-                  console.log(`[Vision AI - analyze-screen] Hasil analisis:`, textContent)
-                  
-                  resultString = `Hasil Analisis Layar:\n${textContent}`
+                  resultString = await analyzeScreen(screens, query || 'Jelaskan dengan detail apa yang terlihat di layar ini.')
+                  console.log(`[Vision AI - analyze-screen] Hasil analisis:`, resultString)
                 } else {
                   resultString = 'Gagal mengambil screenshot dari sistem operasi.'
                 }
               } catch (e) {
-                resultString = `Gagal memproses visual: Model AI saat ini mungkin tidak mendukung Vision (Image Analysis) atau terjadi error. Pesan: ${e.message}`
+                resultString = `Gagal memproses visual: ${e.message}`
               }
             } else if (tool === 'camera-look') {
-              // --- CAMERA VISION ---
-              console.log('[camera-look] Tool dipanggil. config[0]?.cameraEnabled:', config[0]?.cameraEnabled, 'requestCameraCapture:', !!requestCameraCapture)
+              // --- CAMERA VISION (via vision-service: realtime role = Gemini) ---
               try {
                 if (config[0]?.cameraEnabled === false) {
                   resultString = 'Fitur kamera dimatikan di pengaturan. Beri tahu user untuk mengaktifkannya.'
@@ -600,43 +583,16 @@ let hardStopped = false
                   resultString = 'Internal Error: Callback requestCameraCapture tidak tersedia.'
                 } else {
                   flushThinkingUpdate('Mengakses kamera...', true)
-
-                  console.log('[camera-look] Memanggil requestCameraCapture...')
                   const cameraFrame = await requestCameraCapture({
                     isAutonomous: isAutonomous,
                     deviceId: config[0]?.cameraDeviceId !== 'default' ? config[0]?.cameraDeviceId : null
                   })
-                  console.log('[camera-look] Hasil cameraFrame:', cameraFrame ? `${Math.round(cameraFrame.length / 1024)}KB` : 'null')
-
                   if (cameraFrame) {
                     flushThinkingUpdate('Menganalisis hasil kamera...', true)
-
-                    const contentArray = [
-                      {
-                        type: 'text',
-                        text: query || 'Jelaskan dengan detail apa yang terlihat dari kamera ini.'
-                      },
-                      {
-                        type: 'image_url',
-                        image_url: { url: cameraFrame }
-                      }
-                    ]
-
-                    const visionResponse = await fetchAI(
-                      [{ role: 'user', content: contentArray }],
-                      abortControllerRef.current?.signal,
-                      false
-                    )
-
-                    const textContent =
-                      typeof visionResponse === 'object' && visionResponse.content
-                        ? visionResponse.content
-                        : String(visionResponse)
-
-                    console.log(`[Vision AI - camera-look] Hasil analisis:`, textContent)
-                    resultString = `Hasil Analisis Kamera:\n${textContent}`
+                    resultString = await analyzeCamera(cameraFrame, query || 'Jelaskan apa yang terlihat dari kamera ini.')
+                    console.log(`[Vision AI - camera-look] Hasil analisis:`, resultString)
                   } else {
-                    resultString = 'Gagal mengambil gambar dari kamera. Pastikan kamera terhubung dan tidak sedang digunakan aplikasi lain.'
+                    resultString = 'Gagal mengambil gambar dari kamera.'
                   }
                 }
               } catch (e) {

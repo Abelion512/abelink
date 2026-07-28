@@ -9,8 +9,7 @@ import {
   globalShortcut,
   nativeImage,
   Notification,
-  desktopCapturer,
-  webContents
+  desktopCapturer
 } from 'electron'
 import { join } from 'path'
 import path from 'path'
@@ -91,7 +90,8 @@ ipcMain.on('mpris:set-status', (_event, playing) => {
   try { setMprisPlaybackStatus(playing) } catch {}
 })
 
-import { fetchAI, setGlobalConfig, abortAllFetches } from './ai-bridge.js'
+import { fetchAI, setGlobalConfig, abortAllFetches, resolveVisionModel } from './ai-bridge.js'
+import { getToolCatalog, getToolDetail, getToolCatalogString, refreshToolCache } from './tool-registry.js'
 
 ipcMain.on('sync-config', (_event, config) => {
   setGlobalConfig(config)
@@ -100,6 +100,14 @@ ipcMain.on('sync-config', (_event, config) => {
     mainWindow.webContents.send('config-updated')
   }
 })
+
+// ========== TOOL REGISTRY IPC ==========
+ipcMain.handle('tool-catalog', () => getToolCatalogString())
+ipcMain.handle('tool-detail', (_event, toolName) => {
+  const detail = getToolDetail(toolName)
+  return detail ? { name: detail.name, category: detail.category, description: detail.description, l1: detail.l1 } : null
+})
+ipcMain.on('tool-refresh', () => refreshToolCache())
 
 ipcMain.handle('native-tool:execute', async (_event, toolName, query) => {
   const tool = NATIVE_TOOLS[toolName]
@@ -477,6 +485,38 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('ytdl:search', async (_event, query, limit) => {
     return await searchMedia(query, limit || 5)
+  })
+
+  // ===== VISION MODEL ROUTING (Registry-based) =====
+  ipcMain.handle('vision:resolve-model', (_event, role) => {
+    const conf = globalConfig || {}
+    const comboName = conf.customModel || 'mark'
+    // resolveVisionModel is imported from ai-bridge at top of file
+    return resolveVisionModel(comboName, role)
+  })
+
+  ipcMain.handle('vision:get-endpoint', (_event, modelId) => {
+    const conf = globalConfig || {}
+    const activeProvider = conf.aiProvider || 'lmstudio'
+    const customEndpoint = conf.customEndpoint?.replace(/\/+$/, '') || 'http://localhost:1234'
+    const customApiKey = conf.customApiKey || ''
+
+    if (activeProvider === 'custom' && customEndpoint) {
+      const base = customEndpoint
+      const url = base.endsWith('/chat/completions') ? base : `${base}/chat/completions`
+      const headers = { 'Content-Type': 'application/json' }
+      if (customApiKey) {
+        if (customEndpoint.includes('anthropic.com')) {
+          headers['x-api-key'] = customApiKey
+          headers['anthropic-version'] = '2023-06-01'
+        } else {
+          headers['Authorization'] = `Bearer ${customApiKey}`
+        }
+      }
+      return { url, headers }
+    }
+    // LM Studio default
+    return { url: 'http://localhost:1234/v1/chat/completions', headers: { 'Content-Type': 'application/json' } }
   })
 
   // ===== WEBVIEW ANTI-DETECTION (YouTube) =====

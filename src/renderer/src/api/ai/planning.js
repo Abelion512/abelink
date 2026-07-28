@@ -258,63 +258,54 @@ Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
 ${
   !options.disableTools
     ? `
-# TOOLS BAWAAN (BUILT-IN)
-- memory-search: ALAT PENCARIAN INGATAN (WAJIB DIGUNAKAN). Gunakan tool ini JIKA KAMU TIDAK TAHU atau KEKURANGAN INFORMASI tentang sesuatu! (Contoh: "siapa nama X", "apa password wifi", "solusi error Y", "nomor kontak"). ATURAN MUTLAK: DILARANG KERAS BERTANYA BALIK KEPADA USER (misal: "nomornya mana?", "siapa namanya?") SEBELUM KAMU MENCOBA MENCARI DI TOOL INI. JANGAN PERNAH MENYERAH ATAU MENJAWAB "SAYA TIDAK TAHU" SEBELUM MENCARI! Pencarian berbasis SEMANTIK (Vector), BUKAN WAKTU. JANGAN mencari pakai kata "kemarin" atau "tadi". Query: Gunakan kata kunci inti informasi yang dicari (misal: "nomor adek", "password wifi", "solusi error bluetooth").
-- browser-navigate: Buka URL di browser fisik. Query: URL lengkap. Mengembalikan daftar elemen interaktif bernomor (ID).
-- browser-read: Scan ulang elemen halaman saat ini. Gunakan setelah menunggu loading.
-- browser-click: Klik elemen. Query: ID angka. Mengembalikan DOM terbaru setelah klik.
-- browser-type: Ketik teks di kolom input. Query: ID||teks. Mengembalikan DOM terbaru.
-- browser-scroll: Scroll halaman. Query: "up" atau "down".
-- browser-ask-user: JIKA terhalang form login/CAPTCHA, BUKAKAN HALAMANNYA DULU (misal klik tombol 'Login' hingga form muncul), lalu GUNAKAN TOOL INI. Query: Instruksi/Pesan untuk user (misal: "Tolong isi email dan password"). Pesanmu akan muncul di layar popup. Setelah user selesai, kamu akan langsung mendapat DOM terbaru untuk MELANJUTKAN misimu. Jangan berhenti!
-- browser-close: Menutup browser fisik.
-- yt-search: Alat pencari video di YouTube. Gunakan ini jika kamu merasa informasi lebih baik didapat dari video/tutorial visual.
-- yt-summary: Merangkum isi video YouTube. Sangat berguna untuk mengekstrak informasi/pembelajaran dari video panjang.
-ATURAN PENGGUNAAN BROWSER-CLOSE:
-1. Jendela browser memakan banyak RAM PC user. SELALU prioritaskan menggunakan tool ini untuk menutup browser SEGERA setelah kamu mendapatkan informasi yang kamu butuhkan (misal: mencari harga, membaca artikel, atau sekadar login).
-2. PENGECUALIAN SANGAT KRITIKAL: Jika halaman memuat proses berkelanjutan yang HARUS ditunggu/dipantau user (seperti pesanan makanan sedang diproses resto, tracking ojek online, atau checkout yang belum dibayar), JANGAN panggil tool ini. Biarkan terbuka dan sampaikan di answer: "Browsernya gue biarin kebuka ya biar lu bisa pantau pesanannya."
+# TOOLS (Progressive Disclosure)
 
-ATURAN BROWSER AUTOMATION:
-1. PROAKTIF & MANDIRI: Jika user memberi perintah (misal: "cek harga mouse di tokped", "baca email"), SELALU awali perjalananmu dengan mencari di Google! Gunakan browser-navigate ke URL pencarian (contoh: https://www.google.com/search?q=tokopedia+mouse), lalu klik hasil yang tepat. JANGAN asal menebak URL langsung (kecuali URL absolut diberikan user) untuk menghindari halaman 404/error!
-2. SELALU gunakan browser-navigate terlebih dahulu sebelum tool browser lainnya.
-3. Setelah setiap aksi (klik/ketik), baca OBSERVATION untuk melihat DOM terbaru.
-4. Jika elemen yang dicari tidak ditemukan, coba browser-scroll atau browser-read.
-5. Elemen ditandai dengan format: [ID] Tipe: "Label". Gunakan ID angka untuk merujuk elemen.
-6. JANGAN MENYERAH! Secara default user diblokir. Jika butuh user login/isi form manual, JANGAN balas dengan 'answer' lalu berhenti! HARUS selalu gunakan tool browser-ask-user, lalu tunggu user selesai, dan LAKUKAN sisa tugasmu!
-7. JANGAN GUNAKAN browser ini untuk memutar lagu!${
-  activeCategories.includes('music')
-    ? `\n- music-play: Memutar lagu di YouTube.
-- music-toggle: Pause/lanjut memutar lagu.
-- music-search: Mencari lagu spesifik di YouTube.
-- music-next: Mengganti lagu ke track selanjutnya.
-- music-prev: Mengganti lagu ke track sebelumnya.`
-    : ''
-}
-${
-  activeCategories.some((c) => ['system', 'casual'].includes(c))
-    ? `- analyze-screen: Mengambil screenshot untuk dianalisis oleh "Mata AI" (Vision). Gunakan tool ini JIKA DAN HANYA JIKA kamu perlu TAHU apa yang sedang tampil di layar komputer user. Query: Isi dengan prompt instruksi visual spesifikmu, isi query dengan jelas dan panjang karena akan dibaca oleh model ai visual, Jangan minta untuk ambil screenshot karen sudah ditangani oleh sistem, prompt ini bertujuan untuk menganalisa hasil screenshot oleh sistem (misal: "Tolong bacakan teks error di layar" atau "Cari tombol warna biru").
-- camera-look: Mengaktifkan kamera webcam untuk melihat dunia nyata di depan user. Gunakan tool ini JIKA user meminta kamu melihat sesuatu secara fisik (bukan layar), ATAU jika kamu menerima instruksi dari sistem (autonomous_prompt) untuk mengecek kondisi user secara visual. Query: Isi dengan prompt instruksi visual spesifikmu (misal: "Apa objek yang dipegang user?" atau "Baca tulisan di kertas ini").
-- screenshot-to-wa: Mengambil screenshot layar komputer dan MENGIRIMNYA SECARA FISIK ke WhatsApp user (Hanya jika chat berasal dari WA). Query: KOSONGKAN SAJA.
-- wa-send: Mengirim pesan WhatsApp. Format query: "JID|Isi Pesan". PENTING: JID WAJIB diawali dengan kode negara (contoh Indonesia: mulai dengan "62", BUKAN "0"). Contoh format yang benar: "6282332392616@s.whatsapp.net|Halo!".
-- speak: Bicarakan teks secara lisan (Text-to-Speech) lewat speaker komputer user. Query: "Teks yang ingin kamu ucapkan". Gunakan ini jika kamu ingin memanggil user atau berbicara langsung.
-- native-notify: Kirim notifikasi sistem Linux via notify-send. Format: "Judul||Isi Pesan". Muncul di notification center GNOME/KDE.`
-	    : ''
-	}
-${
-  activeCategories.some((c) => ['coding', 'files', 'system'].includes(c))
-    ? `- read-file: Membaca isi file. Query: path_absolut. Baca spesifik baris: path||startLine||endLine.
-- write-file: Menulis/buat file baru. Query: path||isi_file. (Perlu persetujuan user)
-- replace-lines: Edit baris tertentu. Query: path||startLine||endLine||kode_baru. (Perlu persetujuan user)
-- delete-file: Hapus file. Query: path_absolut. (Perlu persetujuan user)
-- list-dir: Lihat isi folder. Query: path_folder.
-- grep-search: Cari teks dalam folder. Query: path_folder||keyword.
-- run-shell: Eksekusi perintah shell (bash). (Perlu persetujuan user untuk command berbahaya)
-- run-cli: Eksekusi perintah shell via CLI. Format: "command||cwd||timeout". Tanpa approval. Gunakan untuk: Claude Code, Z.ai, Hermes CLI, git, npm, build, test, deploy, SSH, server commands. Output stdout + stderr lengkap.`
-    : ''
-}
+## CARA KERJA TOOLS
+1. Daftar tool ada di bawah (L0 — name + 1 line)
+2. Sebelum pakai tool, WAJIB minta detail via "tool-info" tool
+3. Setelah dapat detail, baru pakai tool dengan parameter yang benar
+4. Contoh: tool-info("browser-navigate") → dapat detail → gunakan
 
-${pluginCapabilities ? `\n# PLUGIN TAMBAHAN (EXTERNAL)\n${pluginCapabilities}\n(Catatan: User bisa sewaktu-waktu menginstal atau menghapus plugin tambahan di atas ke dalam sistemmu. Jika tool yang relevan tidak ada di daftar bawaan, periksa daftar plugin tambahan ini.)` : ''}
+## TOOL LIST (L0)
+- memory-search: Cari informasi dari memory (profile/preference/notes/learn). WAJIB cari SEBELUM bertanya ke user.
+- tool-info: Minta detail lengkap suatu tool. Query: nama tool.
+- browser-navigate: Buka URL di browser fisik.
+- browser-read: Scan ulang elemen halaman.
+- browser-click: Klik elemen. Query: ID angka.
+- browser-type: Ketik teks. Query: ID||teks.
+- browser-scroll: Scroll halaman. Query: up/down.
+- browser-ask-user: Minta user input manual (login/CAPTCHA).
+- browser-close: Tutup browser fisik.
+- yt-search: Cari video YouTube.
+- yt-summary: Ringkas video YouTube.
+- music-play: Putar lagu di YouTube Music.
+- music-toggle: Pause/lanjut putar lagu.
+- music-search: Cari lagu spesifik.
+- music-next: Lagu berikutnya.
+- music-prev: Lagu sebelumnya.
+- analyze-screen: Screenshot layar untuk analisis vision AI.
+- camera-look: Aktifkan webcam untuk melihat dunia nyata.
+- screenshot-to-wa: Screenshot → kirim ke WhatsApp user.
+- wa-send: Kirim pesan WhatsApp. Format: "JID|Pesan".
+- speak: Bicarakan teks via TTS speaker.
+- native-notify: Kirim notifikasi sistem Linux.
+- read-file: Baca isi file.
+- write-file: Tulis/buat file baru. (Perlu approval)
+- replace-lines: Edit baris tertentu. (Perlu approval)
+- delete-file: Hapus file. (Perlu approval + quarantine)
+- list-dir: Lihat isi folder.
+- grep-search: Cari teks dalam folder.
+- run-shell: Eksekusi shell. (Perlu approval untuk command bahaya)
+- run-cli: Eksekusi CLI (git/npm/build). Tanpa approval.
+${pluginCapabilities ? `\n${pluginCapabilities}` : ''}
+${relevantSkillContent ? `\n${relevantSkillContent}` : ''}
 
-${relevantSkillContent ? `\n# SKILL & PEDOMAN KHUSUS\n${relevantSkillContent}` : ''}
+## ATURAN PENTING
+- memory-search: DILARANG bertanya ke user SEBELUM cari di memory.
+- browser-close: Tutup SEGERA setelah dapat info. Kecuali untuk tracking/pantau.
+- delete-file: QUARANTINE dulu, jangan permanent delete.
+- run-cli: Format "command||cwd||timeout". Untuk Claude Code, Hermes, git, npm.
+- Semua tool: Baca OBSERVATION setelah eksekusi.
 
 # OBSERVATION
 Pesan "[OBSERVATION]" = hasil tool. Baca, lalu putuskan: tool lagi atau jawab user.
@@ -453,6 +444,7 @@ ${
             tool: {
               type: 'string',
               enum: [
+                'tool-info',
                 'search',
                 'music-play',
                 'music-search',
