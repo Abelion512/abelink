@@ -91,19 +91,19 @@ export const YoutubeMusicProvider = ({ children }) => {
   const nextTrack = useCallback(() => {
     webviewRef.current?.executeJavaScript(
       `document.dispatchEvent(new KeyboardEvent('keydown', {key: 'N', shiftKey: true, bubbles: true}));`
-    )
+    ).catch(() => {})
   }, [])
 
   const prevTrack = useCallback(() => {
     webviewRef.current?.executeJavaScript(
       `document.dispatchEvent(new KeyboardEvent('keydown', {key: 'P', shiftKey: true, bubbles: true}));`
-    )
+    ).catch(() => {})
   }, [])
 
   const playPause = useCallback(() => {
     webviewRef.current?.executeJavaScript(
       `document.dispatchEvent(new KeyboardEvent('keydown', {key: 'k', bubbles: true}));`
-    )
+    ).catch(() => {})
   }, [])
 
   const value = {

@@ -114,7 +114,7 @@ export const YoutubeMusicPlayer = () => {
         iron-overlay-backdrop, yt-confirm-dialog-renderer, #consent-bump {
           display: none !important;
         }
-      `)
+      `).catch(() => {})
 
       // Ad-blaster — YouTube pre-roll/mid-roll ad killer
       // MutationObserver detects .ad-showing, mutes + 16x speed + skip clicks
