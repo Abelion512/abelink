@@ -148,22 +148,23 @@ export async function askUserPC(question = '') {
       transparent: true, resizable: false,
       webPreferences: { sandbox: true }
     })
-    overlayWindow.loadURL(`data:text/html,${encodeURIComponent(`
-      <!DOCTYPE html>
-      <html><body style="background:rgba(25,54,45,0.95);backdrop-filter:blur(12px);border-radius:20px;margin:8px;padding:20px;color:#1fb854;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh-16px);">
-        <h3 style="margin-bottom:16px;color:white">MARK membutuhkan input Anda</h3>
-        <p style="color:#94a3b8;margin-bottom:16px;text-align:center">${question}</p>
-        <input id="a" autofocus style="width:80%;padding:10px;border-radius:12px;border:1px solid #1fb854;background:rgba(0,0,0,0.3);color:white;margin-bottom:12px;font-size:14px" placeholder="Ketik jawaban...">
-        <div style="display:flex;gap:8px">
-          <button onclick="done()" style="padding:8px 24px;border-radius:12px;background:#1fb854;color:black;border:none;cursor:pointer;font-weight:600">Kirim</button>
-          <button onclick="cancel()" style="padding:8px 24px;border-radius:12px;background:#333;color:#94a3b8;border:none;cursor:pointer">Batal</button>
-        </div>
-        <script>
-          document.getElementById('a').addEventListener('keydown',e=>{if(e.key==='Enter')done()})
-          function done(){document.title='MARK_UNBLOCK_DONE:'+document.getElementById('a').value}
-          function cancel(){document.title='MARK_UNBLOCK_DONE:__CANCEL__'}
-        <//script>
-      </body></html>`).replace(/%3C%2Fscript%3E/g, '%3C/script%3E')})
+    const overlayHtml = [
+      '<!DOCTYPE html><html><body style="background:rgba(25,54,45,0.95);backdrop-filter:blur(12px);border-radius:20px;margin:8px;padding:20px;color:#1fb854;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh-16px);">',
+      '<h3 style="margin-bottom:16px;color:white">MARK membutuhkan input Anda</h3>',
+      '<p style="color:#94a3b8;margin-bottom:16px;text-align:center">' + question + '</p>',
+      '<input id="a" autofocus style="width:80%;padding:10px;border-radius:12px;border:1px solid #1fb854;background:rgba(0,0,0,0.3);color:white;margin-bottom:12px;font-size:14px" placeholder="Ketik jawaban...">',
+      '<div style="display:flex;gap:8px">',
+      '<button onclick="done()" style="padding:8px 24px;border-radius:12px;background:#1fb854;color:black;border:none;cursor:pointer;font-weight:600">Kirim</button>',
+      '<button onclick="cancel()" style="padding:8px 24px;border-radius:12px;background:#333;color:#94a3b8;border:none;cursor:pointer">Batal</button>',
+      '</div>',
+      '<scr' + 'ipt>',
+      "document.getElementById('a').addEventListener('keydown',e=>{if(e.key==='Enter')done()})",
+      "function done(){document.title='MARK_UNBLOCK_DONE:'+document.getElementById('a').value}",
+      "function cancel(){document.title='MARK_UNBLOCK_DONE:__CANCEL__'}",
+      '</scr' + 'ipt>',
+      '</body></html>'
+    ].join('\n')
+    overlayWindow.loadURL('data:text/html,' + encodeURIComponent(overlayHtml))
     overlayWindow.show()
     overlayWindow.on('page-title-updated', (e, title) => {
       if (title.startsWith('MARK_UNBLOCK_DONE:')) {

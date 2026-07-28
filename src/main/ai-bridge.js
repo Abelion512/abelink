@@ -2,9 +2,14 @@ import { app } from 'electron'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
 
-// ponytail: dynamic import so missing dep doesn't crash module at eval time
-let jsonrepair = null
-try { jsonrepair = (await import('jsonrepair')).jsonrepair || null } catch {}
+// ponytail: lazy import jsonrepair so missing dep doesn't crash module at eval time
+let _jsonrepair = null
+async function getJsonrepair() {
+  if (_jsonrepair === null) {
+    try { _jsonrepair = (await import('jsonrepair')).jsonrepair || false } catch { _jsonrepair = false }
+  }
+  return _jsonrepair || null
+}
 
 // ========== MODEL REGISTRY (Dynamic, Pluggable) ==========
 const REGISTRY_PATH = join(__dirname, 'model-registry.json')
@@ -45,7 +50,7 @@ function resolveModelChain(input) {
   return models.length > 0 ? models : ['gemma-3-12b-it']
 }
 
-function resolveVisionModel(input) {
+export function resolveVisionModel(input) {
   const registry = loadRegistry()
   const trimmed = (input || '').trim()
   if (registry.combos[trimmed]?.vision) return registry.combos[trimmed].vision
@@ -422,7 +427,7 @@ export const fetchAI = async (
           cleanText = cleanText.substring(firstBrace, lastBrace + 1)
         }
 
-        const parsed = cleanAndParse(cleanText)
+        const parsed = await cleanAndParse(cleanText)
         if (parsed === null) {
           log.err(' parse', 'Response bukan JSON valid')
           lastError = new AIServiceError('Response bukan JSON valid', { provider: activeProvider, model })
@@ -466,12 +471,13 @@ export const fetchAI = async (
 }
 
 // ========== JSON PARSER ==========
-export const cleanAndParse = (rawResponse) => {
+export const cleanAndParse = async (rawResponse) => {
   try {
     if (!rawResponse) return null
     const cleaned = rawResponse.replace(/```[\s\S]*?```/g, '').replace(/^\xEF\xBB\xBF/, '').trim()
-    const repaired = jsonrepair ? jsonrepair(cleaned) : cleaned
-    return JSON.parse(repaired)
+    const repair = await getJsonrepair()
+    const json = repair ? repair(cleaned) : cleaned
+    return JSON.parse(json)
   } catch (error) {
     try {
       const match = rawResponse.trim().replace(/^\xEF\xBB\xBF/, '').match(/\{[\s\S]*\}/)
