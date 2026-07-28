@@ -1,58 +1,58 @@
-# Dependencies
+# ── Dependencies ──
 node_modules/
 
-# Build output
+# ── Build output ──
 dist/
 out/
 build/
 release/
 
-# IDE / Editor
+# ── IDE / Editor ──
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS
+# ── OS ──
 .DS_Store
 Thumbs.db
 
-# Env
+# ── Environment ──
 .env
 .env.example
 .env.local
 .env.*.local
+
+# ── Logs ──
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Cache
+# ── Cache ──
 .eslintcache
 .pnpm-store/
 .npm/
+*.tsbuildinfo
 
-# Runtime
+# ── Runtime artifacts ──
 mark_chrome_profile/
 wa-auth/
+web.whatsapp.com.html
+web.whatsapp.com_files/
 
-# Session / plans / docs (dev-only)
+# ── Dev-only (AI agent workspaces, plans, sessions) ──
 .superpowers/
 .zcode/
 .hermes/
-docs/sessions/
-docs/
+docs/PLANNED/
+docs/superpowers/
 quest.md
 
-# Temp artifacts
-.vscode
-workflow
-mark_chrome_profile
-web.whatsapp.com.html
-/web.whatsapp.com_files
-AGENTS.md
+# ── Agent config (local overrides, NOT tracked) ──
 CLAUDE.md
-PLUGIN_SYSTEM_SRS.md
-.superpowers/
-quest.md
+
+# ── Electron builder temp ──
+electron-builder.yml
+*.env.*.local
