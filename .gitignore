@@ -1,11 +1,34 @@
 # ── Dependencies ──
 node_modules/
+.pnpm-store/
+.npm/
+
+# ── Lockfiles (use npm only) ──
+yarn.lock
+yarn-error.log
+pnpm-lock.yaml
 
 # ── Build output ──
 dist/
 out/
+dist-electron/
 build/
 release/
+*.asar
+*.asar.unpacked
+
+# ── Electron packaging ──
+*.AppImage
+*.deb
+*.snap
+*.rpm
+*.flatpak
+*.dmg
+*.exe
+*.msi
+*.nupkg
+RELEASES
+electron-builder.yaml.local
 
 # ── IDE / Editor ──
 .vscode/
@@ -13,46 +36,72 @@ release/
 *.swp
 *.swo
 *~
+*.orig
 
-# ── OS ──
+# ── OS artifacts ──
 .DS_Store
 Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
 # ── Environment ──
 .env
 .env.example
 .env.local
 .env.*.local
+*.pem
+*.cert
+*.key
 
 # ── Logs ──
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
+debug.log
+error.log
+lerna-debug.log*
 
-# ── Cache ──
+# ── Cache & temp ──
 .eslintcache
-.pnpm-store/
-.npm/
+.vite/
+.cache/
 *.tsbuildinfo
+.turbo/
+
+# ── Coverage / test ──
+coverage/
+.nyc_output/
+__pycache__/
+*.pyc
 
 # ── Runtime artifacts ──
 mark_chrome_profile/
 wa-auth/
 web.whatsapp.com.html
 web.whatsapp.com_files/
+*.db
+*.sqlite
+*.sqlite3
 
-# ── Dev-only (AI agent workspaces, plans, sessions) ──
+# ── AI agent artifacts (local overrides) ──
+CLAUDE.md
+AGENTS.md.local
+.local/
+.hermes/
 .superpowers/
 .zcode/
-.hermes/
+quest.md
 docs/PLANNED/
 docs/superpowers/
-quest.md
 
-# ── Agent config (local overrides, NOT tracked) ──
-CLAUDE.md
+# ── Local config ──
+model-registry.json
+9router-config.json
+credentials.json
+service-account.json
+client_secret*.json
+*-config.local.*
 
-# ── Electron builder temp ──
-electron-builder.yml
-*.env.*.local
+# ── Native addon builds ──
+*.node
+build/Release/

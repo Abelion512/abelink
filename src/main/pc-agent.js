@@ -2,10 +2,9 @@
 // Uses AT-SPI + xdotool + Tesseract for zero-vision-cost desktop automation
 // IPC surface matches upstream's os-* tools
 
-import { spawn, execSync } from 'child_process'
+import { spawn } from 'child_process'
 import { join } from 'path'
-import { BrowserWindow, app, globalShortcut } from 'electron'
-import fs from 'fs'
+import { BrowserWindow } from 'electron'
 
 const AGENT_SCRIPT = join(__dirname, 'linux-agent.sh')
 const READ_SCRIPT = join(__dirname, 'read-ui.py')
@@ -100,18 +99,21 @@ export async function executeScroll(query = 'down') {
 }
 
 export async function openApp(appName) {
-  try {
-    // Try xdg-open first, fallback to gtk-launch
-    const result = execSync(`xdg-open "${appName.replace(/"/g, '')}" 2>/dev/null`, { timeout: 5000, shell: '/bin/sh' })
-    return { result: String(result).trim() || 'opened' }
-  } catch {
+  // sanitize: only allow alphanumeric, dots, hyphens, underscores
+  const sanitized = String(appName || '').replace(/[^a-zA-Z0-9._\-\/]/g, '')
+  if (!sanitized) return { error: 'Invalid app name' }
+  // Try xdg-open first, fallback to gtk-launch — both via spawn, no shell
+  for (const cmd of ['xdg-open', 'gtk-launch']) {
     try {
-      execSync(`gtk-launch "${appName.replace(/"/g, '')}" 2>/dev/null`, { timeout: 5000, shell: '/bin/sh' })
+      await new Promise((resolve, reject) => {
+        const proc = spawn(cmd, [sanitized], { timeout: 5000, shell: false, stdio: 'ignore' })
+        proc.on('close', code => code === 0 ? resolve() : reject(new Error(`exit ${code}`)))
+        proc.on('error', reject)
+      })
       return { result: 'opened' }
-    } catch {
-      return { error: `Cannot open: ${appName}` }
-    }
+    } catch { /* try next */ }
   }
+  return { error: `Cannot open: ${appName}` }
 }
 
 export async function listWindows() {
@@ -151,7 +153,7 @@ export async function askUserPC(question = '') {
     const overlayHtml = [
       '<!DOCTYPE html><html><body style="background:rgba(25,54,45,0.95);backdrop-filter:blur(12px);border-radius:20px;margin:8px;padding:20px;color:#1fb854;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh-16px);">',
       '<h3 style="margin-bottom:16px;color:white">MARK membutuhkan input Anda</h3>',
-      '<p style="color:#94a3b8;margin-bottom:16px;text-align:center">' + question + '</p>',
+      '<p style="color:#94a3b8;margin-bottom:16px;text-align:center">' + question.replace(/[<]/g, '&lt;') + '</p>',
       '<input id="a" autofocus style="width:80%;padding:10px;border-radius:12px;border:1px solid #1fb854;background:rgba(0,0,0,0.3);color:white;margin-bottom:12px;font-size:14px" placeholder="Ketik jawaban...">',
       '<div style="display:flex;gap:8px">',
       '<button onclick="done()" style="padding:8px 24px;border-radius:12px;background:#1fb854;color:black;border:none;cursor:pointer;font-weight:600">Kirim</button>',

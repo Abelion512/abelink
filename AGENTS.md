@@ -4,12 +4,11 @@
 
 **Project Name:** MARK (Metacognitive Artificial Relational Knowledge) — v5.0.0
 **Description:** A privacy-first, local-based autonomous AI OS companion designed to assist user productivity, automate tasks, and provide lifelike companionship. It uses a hybrid AI engine (Local LLM via LM Studio or Cloud via Groq API / Gemini / Cerebras / Custom OpenAI-compatible endpoint) and features agentic planning with ReAct loop execution, autonomous physical browser automation, a hybrid Full-Text & Vector Memory Management System (MMS) with Orama & Dexie, document RAG pipeline, OS-level Awareness Engine, dynamic 4D Relational Growth, a native Plugin System with Monaco Editor, WhatsApp Bot integration via Baileys, Voice Activity Detection with Groq Whisper STT, Edge-TTS, and webcam vision capabilities.
-**Environment:** Electron 39 desktop application optimized for Windows (Windows 10/11).
-**Author:** Mazees | **Homepage:** https://github.com/Mazees/mark-agent/  
-**Linux Fork:** Abelion512  
+**Environment:** Electron 39 desktop application optimized for Linux (Ubuntu 22.04+, Fedora, Arch)
+**Author:** Mazees (upstream) | **Linux Fork:** Abelion512  
+**Homepage:** https://github.com/Abelion512/mark-agent  
 **Feature Spec:** [`docs/FEATURES.md`](docs/FEATURES.md) — Full specification, constants, file inventory, IPC contract  
-**Task Breakdown:** [`docs/TASK-BREAKDOWN.md`](docs/TASK-BREAKDOWN.md) — Phased roadmap (P0-P4), effort estimates, verification criteria  
-**Fork Branch:** `feat/model-fallback-abelink` — 14 commits ahead of upstream master
+**Task Breakdown:** [`docs/TASK_ANALYSIS.md`](docs/TASK_ANALYSIS.md) — Phased roadmap (P0-P4), effort estimates, verification criteria
 
 ## 2. Technology Stack & Core Dependencies
 
