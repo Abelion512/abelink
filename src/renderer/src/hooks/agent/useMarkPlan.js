@@ -763,8 +763,10 @@ let hardStopped = false
                   case 'pc-control-focus-window':
                     pcResult = await window.api.osFocusWindow(query); break
                   case 'os-screenshot':
+                  case 'pc-screenshot':
                     pcResult = await window.api.osScreenshot(); break
                   case 'os-ask-user':
+                  case 'os-ask':
                   case 'pc-control-ask':
                     pcResult = await window.api.osAskUser(query); break
                   case 'os-emergency-stop':

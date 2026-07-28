@@ -351,6 +351,12 @@ app.whenReady().then(async () => {
     }
   })
 
+  // PC Agent emergency stop: Ctrl+Shift+S
+  globalShortcut.register('Control+Shift+S', () => {
+    console.log('[PC-Agent] Emergency stop triggered via Ctrl+Shift+S')
+    emergencyStop()
+  })
+
   ipcMain.handle('awareness:get-buffer', () => getBuffer())
   ipcMain.on('awareness:clear-buffer', () => flushBuffer())
 
