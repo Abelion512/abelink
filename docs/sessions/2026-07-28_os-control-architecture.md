@@ -288,6 +288,136 @@ Policy Engine:
 
 ---
 
+## 8. Quarantine vs Delete (Malware Dilemma)
+
+### Problem
+
+Path risk categories protect `docs/`, `src/`, `.git/`. Tapi apa isinya malware?
+
+```
+docs/
+├── readme.md          ← penting
+├── guide.pdf          ← penting
+└── evil-script.js     ← MALWARE
+```
+
+Blokir semua? → malware tetap hidup.
+Hapus semua? → file penting hilang.
+
+### Solution: Quarantine, Bukan Delete
+
+```
+Delete Request
+    ↓
+Path Risk Check
+    ↓
+┌─────────────────────────────────────┐
+│ reinstallable → auto-delete         │
+│ everything else → QUARANTINE        │
+└─────────────────────────────────────┘
+    ↓
+Quarantine Flow:
+  1. Move to ~/.mark/quarantine/{timestamp}/
+  2. Preserve directory structure
+  3. Log: what, why, original path
+  4. Notify user: "X files quarantined"
+  5. User reviews → Restore or Delete permanently
+```
+
+### Quarantine Format
+
+```
+~/.mark/quarantine/
+├── 2026-07-28T10-31-25/
+│   ├── manifest.json        # What was moved and why
+│   ├── home/user/project/
+│   │   ├── docs/evil-script.js
+│   │   └── src/suspicious.exe
+│   └── metadata.json        # Timestamp, action, risk score
+```
+
+### Manifest
+
+```json
+{
+  "id": "q-20260728-001",
+  "timestamp": "2026-07-28T10:31:25Z",
+  "action": "quarantine",
+  "reason": "User requested rm -rf but path contains user-content",
+  "files": [
+    {
+      "original": "/home/user/project/docs/evil-script.js",
+      "quarantined": "~/.mark/quarantine/2026-07-28T10-31-25/home/user/project/docs/evil-script.js",
+      "risk": "unknown",
+      "size": 2048
+    }
+  ],
+  "totalFiles": 3,
+  "totalSize": 12580
+}
+```
+
+### Escalation Path
+
+```
+Delete Request
+    ↓
+Risk Assessment
+    ↓
+┌──────────────────────────────────────────────────────┐
+│ reinstallable (node_modules, build, .cache)          │
+│   → AUTO DELETE (safe, reinstallable)                │
+├──────────────────────────────────────────────────────┤
+│ user-content / source / config                       │
+│   → QUARANTINE (preserve, notify user)               │
+├──────────────────────────────────────────────────────┤
+│ uncertain / mixed (contains both safe and unsafe)    │
+│   → SCAN → separate → delete safe → quarantine rest  │
+├──────────────────────────────────────────────────────┤
+│ system paths (/etc, /usr, /var)                      │
+│   → HARD BLOCK (never touch)                         │
+└──────────────────────────────────────────────────────┘
+```
+
+### User Override
+
+Jika user **yakin** file itu malware dan mau hapus permanent:
+
+```
+MARK: "I quarantined 3 files from docs/. 
+       Review: ~/.mark/quarantine/2026-07-28T10-31-25/
+       
+       [Restore All] [Delete Permanently] [Review Individually]"
+```
+
+User harus **explicitly** klik "Delete Permanently". Tidak ada auto-delete untuk quarantined files.
+
+### Why Not Just Scan for Malware?
+
+1. **Malware detection is hard** — false positives/negatives
+2. **ClamAV is heavy** — 8GB RAM constraint
+3. **Quarantine is safer** — preserve first, decide later
+4. **User is the best scanner** — they know what's theirs
+
+### Updated Flow
+
+```
+User: "rm -rf docs/"
+
+MARK Policy Engine:
+  1. "docs/" → category: user-content → not auto-delete
+  2. Scan contents: 3 files
+  3. 2 files look normal (.md, .pdf)
+  4. 1 file looks suspicious (.js in docs/)
+  5. QUARANTINE all 3 to ~/.mark/quarantine/
+  6. Notify user with manifest
+  7. User reviews → deletes or restores
+
+Result: Nothing deleted permanently without user confirmation
+```
+
+---
+
 ## 4. Memory Consent
 
 MARK jangan otomatis mengingat semuanya. Harus ada consent.
