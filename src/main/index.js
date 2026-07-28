@@ -91,7 +91,7 @@ ipcMain.on('mpris:set-status', (_event, playing) => {
 })
 
 import { fetchAI, setGlobalConfig, abortAllFetches, resolveVisionModel } from './ai-bridge.js'
-import { getToolCatalog, getToolDetail, getToolCatalogString, getToolCatalogForQuery, refreshToolCache } from './tool-registry.js'
+import { getToolCatalog, getToolDetail, getToolCatalogString, getToolCatalogForQuery, matchVoiceCommand, refreshToolCache } from './tool-registry.js'
 
 ipcMain.on('sync-config', (_event, config) => {
   setGlobalConfig(config)
@@ -109,6 +109,7 @@ ipcMain.handle('tool-detail', (_event, toolName) => {
   return detail ? { name: detail.name, category: detail.category, description: detail.description, l1: detail.l1 } : null
 })
 ipcMain.on('tool-refresh', () => refreshToolCache())
+ipcMain.handle('voice-fast-path', (_event, voiceText) => matchVoiceCommand(voiceText))
 
 ipcMain.handle('native-tool:execute', async (_event, toolName, query) => {
   const tool = NATIVE_TOOLS[toolName]

@@ -379,6 +379,64 @@ export function getToolCatalogForQuery(query, maxResults = 15) {
   return lines.join('\n')
 }
 
+// ========== VOICE FAST PATH ==========
+// Common voice commands → direct tool+params mapping (skip tool-info)
+const VOICE_FAST_PATH = {
+  // App launcher
+  'buka terminal': { tool: 'run-shell', query: 'gnome-terminal' },
+  'buka firefox': { tool: 'run-shell', query: 'firefox' },
+  'buka chrome': { tool: 'run-shell', query: 'google-chrome' },
+  'buka vscode': { tool: 'run-shell', query: 'code' },
+  'buka calculator': { tool: 'run-shell', query: 'gnome-calculator' },
+  'buka file manager': { tool: 'run-shell', query: 'nemo' },
+
+  // System
+  'screenshot': { tool: 'analyze-screen', query: 'Jelaskan apa yang terlihat di layar' },
+  'ambil foto': { tool: 'camera-look', query: 'Apa yang terlihat dari kamera?' },
+  'matikan komputer': { tool: null, blocked: true, reason: 'Shutdown membutuhkan approval manual' },
+  'restart': { tool: null, blocked: true, reason: 'Restart membutuhkan approval manual' },
+
+  // Music
+  'pause': { tool: 'music-toggle', query: '' },
+  'stop': { tool: 'music-toggle', query: '' },
+  'lagu selanjutnya': { tool: 'music-next', query: '' },
+  'lagu sebelumnya': { tool: 'music-prev', query: '' },
+
+  // Browser
+  'tutup browser': { tool: 'browser-close', query: '' },
+
+  // Communication
+  'baca pesan': { tool: 'memory-search', query: 'pesan terakhir' },
+}
+
+/**
+ * Try to match voice command to a fast-path tool.
+ * Returns { tool, query } or null if no match.
+ *
+ * @param {string} voiceText - Transcribed voice text (lowercase, trimmed)
+ */
+export function matchVoiceCommand(voiceText) {
+  if (!voiceText) return null
+  const normalized = voiceText.toLowerCase().trim()
+
+  // Exact match
+  if (VOICE_FAST_PATH[normalized]) {
+    const match = VOICE_FAST_PATH[normalized]
+    if (match.blocked) return { blocked: true, reason: match.reason }
+    return { tool: match.tool, query: match.query, fastPath: true }
+  }
+
+  // Partial match (voice text contains a fast-path key)
+  for (const [key, match] of Object.entries(VOICE_FAST_PATH)) {
+    if (normalized.includes(key)) {
+      if (match.blocked) return { blocked: true, reason: match.reason }
+      return { tool: match.tool, query: match.query, fastPath: true }
+    }
+  }
+
+  return null // No fast path → use normal AI planning
+}
+
 // ========== PUBLIC API ==========
 
 /**

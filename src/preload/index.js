@@ -124,7 +124,8 @@ const api = {
   getToolCatalog: () => ipcRenderer.invoke('tool-catalog'),
   getToolCatalogForQuery: (query, maxResults) => ipcRenderer.invoke('tool-catalog-query', query, maxResults),
   getToolDetail: (name) => ipcRenderer.invoke('tool-detail', name),
-  refreshTools: () => ipcRenderer.send('tool-refresh')
+  refreshTools: () => ipcRenderer.send('tool-refresh'),
+  matchVoiceCommand: (text) => ipcRenderer.invoke('voice-fast-path', text)
 }
 
 if (process.contextIsolated) {
