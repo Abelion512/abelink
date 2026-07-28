@@ -152,7 +152,7 @@ const Knowledge = () => {
                   <input
                     type="file"
                     className="file-input file-input-bordered file-input-primary w-full"
-                    accept=".pdf,.txt,.md,.docx"
+                    accept=".pdf,.txt,.md,.docx,.json"
                     onChange={handleFileUpload}
                     disabled={isUploading}
                   />

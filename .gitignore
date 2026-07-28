@@ -105,3 +105,8 @@ client_secret*.json
 # ── Native addon builds ──
 *.node
 build/Release/
+
+# ── Performance test artifacts (large, generated) ──
+tests/*.har
+tests/*.heapsnapshot
+tests/*.gz
