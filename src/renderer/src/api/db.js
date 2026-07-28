@@ -77,6 +77,10 @@ db.version(13).stores({
 db.version(14).stores({
   relationships: 'userId, warmth, sarcasm_level, trust, energy, lastEvaluation, evalCount'
 })
+
+db.version(15).stores({
+  config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, waAdminNumber, waPendingAdmins, waApprovedAdmins, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled, lastfmApiKey'
+})
 // --- VALIDATION ---
 const VALID_TYPES = ['profile', 'preference', 'notes', 'learn'];
 

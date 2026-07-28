@@ -95,6 +95,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const [showGroqKey, setShowGroqKey] = useState(false)
   const [showCerebrasKey, setShowCerebrasKey] = useState(false)
   const [showCustomKey, setShowCustomKey] = useState(false)
+  const [showLastfmKey, setShowLastfmKey] = useState(false)
 
   const handleTestVoice = async () => {
     setPlayingTest(true)
@@ -945,6 +946,55 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 </div>
               </div>
             )}
+
+            {/* Last.fm API Key */}
+            <div className="space-y-1.5 p-2 -mx-2 rounded-lg">
+              <div className="flex justify-between items-center">
+                <p className="text-sm font-semibold">Last.fm API Key</p>
+                <a
+                  href="https://www.last.fm/api/account/create"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-xs btn-outline btn-primary"
+                >
+                  Dapatkan API Key
+                </a>
+              </div>
+              <p className="text-xs opacity-50 mb-1">
+                Opsional. Untuk riwayat musik dan rekomendasi.
+              </p>
+              <div className="relative w-full">
+                <input
+                  type={showLastfmKey ? 'text' : 'password'}
+                  placeholder="Last.fm API Key"
+                  className="input input-bordered w-full pr-10"
+                  value={config.lastfmApiKey || ''}
+                  onChange={(e) =>
+                    setConfig((prev) => ({ ...prev, lastfmApiKey: e.target.value }))
+                  }
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+                  onClick={() => setShowLastfmKey(!showLastfmKey)}
+                  title={showLastfmKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
+                >
+                  {showLastfmKey ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                      <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                      <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                      <line x1="2" x2="22" y1="2" y2="22" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
 
             {/* Awareness Engine Toggle */}
             <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">

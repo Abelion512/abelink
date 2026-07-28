@@ -1,7 +1,11 @@
 import fs from 'fs'
 import path from 'path'
+import { createRequire } from 'module'
+import { fileURLToPath } from 'url'
 import { app, ipcMain, shell } from 'electron'
 import { execSync } from 'child_process'
+
+const _require = createRequire(import.meta.url)
 
 let loadedPlugins = []
 let pluginHandlers = {}
@@ -55,8 +59,8 @@ export const loadPlugins = async () => {
  */
 async function ensurePluginLoaded(indexPath) {
   if (pluginModuleCache.has(indexPath)) return pluginModuleCache.get(indexPath)
-  delete require.cache[require.resolve(indexPath)]
-  const moduleUrl = require('url').pathToFileURL(indexPath).href + '?t=' + Date.now()
+  delete _require.cache[_require.resolve(indexPath)]
+  const moduleUrl = fileURLToPath(indexPath) + '?t=' + Date.now()
   const handler = await import(moduleUrl)
   pluginModuleCache.set(indexPath, handler)
   return handler
@@ -110,7 +114,7 @@ export const initPluginIPC = () => {
       const idx = loadedPlugins.findIndex(p => p.name === pluginName)
       if (idx !== -1) {
         const indexPath = loadedPlugins[idx].indexPath
-        delete require.cache[require.resolve(indexPath)]
+        delete _require.cache[_require.resolve(indexPath)]
         pluginModuleCache.delete(indexPath)
       }
       await loadPlugins()

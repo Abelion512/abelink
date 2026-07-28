@@ -164,7 +164,7 @@ export async function deleteArchiveFromOrama(dexieId) {
 
 export async function deleteDocumentFromOrama(docName) {
   if (!documentIndex) return
-  const res = await search(documentIndex, { term: docName, properties: ['docName'] })
+  const res = await search(documentIndex, { term: docName, properties: ['docName'], exact: true })
   const ids = res.hits.map(h => h.id)
   await removeMultiple(documentIndex, ids)
 }

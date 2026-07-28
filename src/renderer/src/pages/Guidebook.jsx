@@ -557,7 +557,7 @@ const Guidebook = () => {
                 {/* Kategori Music */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaMusic className="text-info" /> YouTube Music Player
+                    <FaMusic className="text-info" /> YouTube Player
                   </h3>
                   <div className="space-y-3">
                     <ToolCard

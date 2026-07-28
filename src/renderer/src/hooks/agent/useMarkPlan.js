@@ -6,7 +6,7 @@ import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
 import { insertMemory, updateMemory, deleteMemory, getAllMemory } from '../../api/db'
 import { getUnifiedContext, searchExtendedMemory } from '../../api/vectorMemory'
 import { sanitizeToolOutput } from '../../api/ai/output-sanitizer'
-import { createGuardGate } from '../../api/ai/guard-gate'
+import { getGuardGate } from '../../api/ai/guard-gate'
 
 export const useMarkPlan = ({
   chatData,
@@ -31,7 +31,7 @@ export const useMarkPlan = ({
   const thinkingRafRef = useRef(null)
   const lastThinkingTextRef = useRef('')
   const guardRef = useRef(null)
-  if (!guardRef.current) guardRef.current = createGuardGate()
+  if (!guardRef.current) guardRef.current = getGuardGate()
   const guard = guardRef.current
   // Listener for 'ai-status' events from Main Process (via IPC)
   useEffect(() => {
@@ -217,7 +217,7 @@ export const useMarkPlan = ({
 // ========== STEP 3: AGENTIC LOOP ==========
 const loopMessages = [...chatSession]
 const MAX_TURNS = 10
-	const PER_TURN_TIMEOUT_MS = 30000 // 30s — model gede butuh waktu buat reasoning + vector loading
+	const PER_TURN_TIMEOUT_MS = 90000 // 90s — model reasoning butuh waktu lebih untuk generate + retry fallback chain
 
 // Hermes-style granular guardrails
 const GUARDRAIL_WARN =  { exact_failure: 2, same_tool_failure: 3, idempotent_no_progress: 2 }

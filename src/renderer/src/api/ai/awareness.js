@@ -105,6 +105,7 @@ Hiduplah dan berekspresilah sesukamu! JANGAN TULIS format markdown json.`
     if (aiResponse && aiResponse.content) {
       try {
         const parsed = cleanAndParse(aiResponse.content)
+        if (!parsed) throw new Error('Parse returned null')
         return {
           should_act: parsed.should_act,
           message: parsed.message,

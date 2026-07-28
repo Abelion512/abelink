@@ -45,8 +45,7 @@ export const YoutubeMusicPlayer = () => {
         if (command === 'play' && payload) {
           window.api.searchMusic(payload).then((music) => {
             if (music && music.length > 0) {
-              // Gunakan URL bersih tanpa parameter _t yang asing bagi YouTube Music
-              const url = `https://music.youtube.com/watch?v=${music[0].id}`
+              const url = `https://www.youtube.com/watch?v=${music[0].id}`
               playUrlRef.current(url)
             }
           })
@@ -62,15 +61,23 @@ export const YoutubeMusicPlayer = () => {
   const retryTimerRef = useRef(null)
   const retryCountRef = useRef(0)
 
-  // Init webview: CSS, ad-blaster, error detection, new-window handler
+  // Init webview: anti-detection (via main process), CSS, ad-blaster, error detection
   useEffect(() => {
     const webview = webviewRef.current
     if (!webview) return
 
+    // Anti-detection: main process injects navigator.webdriver=false via did-start-navigation
+    // This fires BEFORE page scripts execute (unlike renderer-side injection which is too late)
     const handleDomReady = () => {
       setIsReady(true)
+      try {
+        const wcId = webview.getWebContentsId?.()
+        if (wcId && window.api?.attachWebviewAntiDetection) {
+          window.api.attachWebviewAntiDetection(wcId)
+        }
+      } catch (_) {}
 
-      // CSS: hide scrollbar, premium upsells, login popups
+      // CSS: hide scrollbar, premium upsells, login popups, AND all YouTube ad containers
       webview.insertCSS(`
         ::-webkit-scrollbar { display: none !important; width: 0 !important; }
         html, body { overflow-y: scroll !important; scrollbar-width: none !important; }
@@ -78,46 +85,92 @@ export const YoutubeMusicPlayer = () => {
           opacity: 1 !important;
         }
         #movie_player, .html5-video-player { max-height: 400px !important; }
+
+        /* === Ad containers === */
+        /* Sidebar promoted videos */
+        ytd-promoted-sparkles-web-renderer,
+        ytd-display-ad-renderer,
+        ytd-promoted-video-renderer,
+        ytd-in-feed-ad-renderer,
+        ytd-action-companion-ad-renderer,
+        /* Below-video sponsored */
+        ytd-ad-slot-renderer,
+        ytd-statement-banner-renderer,
+        /* Pre-roll ad overlays */
+        .ytp-ad-overlay-container,
+        .ytp-ad-text-overlay,
+        .ytp-ad-image-overlay,
+        .video-ads,
+        /* Bottom banner ads */
+        #bottom-row ytd-merch-shelf-renderer,
+        ytd-merch-shelf-renderer {
+          display: none !important;
+        }
+
+        /* Hide player ad controls so they don't flash */
+        .ytp-ad-player-overlay,
+        .ytp-ad-progress-list {
+          display: none !important;
+        }
+
+        /* Premium upsells & popups */
         #premium-ytd, ytd-mealbar-promo-renderer, ytd-banner-promo-renderer,
-        ytd-banner-promo-renderer-background, ytd-popup-container {
-          display: none !important;
-        }
+        ytd-banner-promo-renderer-background, ytd-popup-container,
         ytd-guide-entry-renderer[icon*='premium'],
-        ytd-pivot-bar-item-renderer[tab-id*='premium'] {
-          display: none !important;
-        }
-        /* Sembunyikan popup promosi, overlay backdrop, dan promo login/sign-in */
-        ytmusic-popup-container, iron-overlay-backdrop, ytmusic-upsell-dialog-renderer,
-        ytmusic-sign-in-promo-renderer, ytmusic-modal-with-title-and-button-renderer,
-        yt-confirm-dialog-renderer, #consent-bump, ytmusic-consent-bump-renderer {
+        ytd-pivot-bar-item-renderer[tab-id*='premium'],
+        iron-overlay-backdrop, yt-confirm-dialog-renderer, #consent-bump {
           display: none !important;
         }
       `)
 
-      // Ad-blaster — smart: uses MutationObserver instead of aggressive setInterval
-      // Only engages when ad container appears, never overrides user controls
+      // Ad-blaster — YouTube pre-roll/mid-roll ad killer
+      // MutationObserver detects .ad-showing, mutes + 16x speed + skip clicks
       webview.executeJavaScript(`
         (function() {
           let adActive = false;
-          const observer = new MutationObserver(() => {
-            const ad = document.querySelector('.ad-showing, .ad-interrupting');
-            const skip = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
+          let adCheckInterval = null;
+
+          function killAd() {
             const video = document.querySelector('video');
-            if (ad && video && !adActive) {
-              adActive = true;
-              video.muted = true;
-              video.playbackRate = 16;
-              if (isFinite(video.duration)) video.currentTime = video.duration - 0.1;
-              if (skip) skip.click();
+            const ad = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-enabled');
+            const skipBtn = document.querySelector(
+              '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, .ytp-ad-skip-button-slot'
+            );
+
+            if (ad && video) {
+              if (!adActive) {
+                adActive = true;
+                video.muted = true;
+                video.playbackRate = 16;
+              }
+              // Keep pushing to end of ad
+              if (isFinite(video.duration) && video.duration > 0) {
+                video.currentTime = video.duration - 0.05;
+              }
+              // Click skip button aggressively
+              if (skipBtn) { skipBtn.click(); skipBtn.dispatchEvent(new MouseEvent('click', {bubbles:true})); }
             } else if (!ad && adActive) {
               adActive = false;
-              if (video) { video.muted = false; video.playbackRate = 1; }
+              if (video) {
+                video.muted = false;
+                video.playbackRate = 1;
+                video.play().catch(()=>{});
+              }
             }
-            if (skip) skip.click();
-            const confirm = document.querySelector('#confirm-button button, .ytd-popup-container button');
-            if (confirm) confirm.click();
-          });
-          observer.observe(document.body, { childList: true, subtree: true });
+            // Also dismiss any popup/confirm dialogs
+            const confirmBtn = document.querySelector('#confirm-button button, .ytd-popup-container button, yt-button-renderer[dialog-dismiss]');
+            if (confirmBtn) confirmBtn.click();
+          }
+
+          // MutationObserver for fast detection
+          const observer = new MutationObserver(killAd);
+          observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+          // Also poll every 500ms as safety net (MutationObserver can miss some mutations)
+          adCheckInterval = setInterval(killAd, 500);
+
+          // Cleanup after 10 minutes to prevent memory leak
+          setTimeout(() => { observer.disconnect(); clearInterval(adCheckInterval); }, 600000);
         })();
       `).catch(() => {})
     }
@@ -154,6 +207,12 @@ export const YoutubeMusicPlayer = () => {
     webview.addEventListener('new-window', handleNewWindow)
 
     return () => {
+      try {
+        const wcId = webview.getWebContentsId?.()
+        if (wcId && window.api?.detachWebviewAntiDetection) {
+          window.api.detachWebviewAntiDetection(wcId)
+        }
+      } catch (_) {}
       webview.removeEventListener('dom-ready', handleDomReady)
       webview.removeEventListener('did-fail-load', handleFailLoad)
       webview.removeEventListener('new-window', handleNewWindow)
@@ -162,13 +221,14 @@ export const YoutubeMusicPlayer = () => {
   }, [])
 
   // Navigate to YT watch page when music changes
+  // Anti-detection is handled by did-start-loading listener (injects before page scripts)
   useEffect(() => {
     if (isReady && webviewRef.current && musicUrl) {
       setPlaybackError(null)
       retryCountRef.current = 0
       const videoId = extractVideoId(musicUrl)
       const cleanUrl = videoId
-        ? `https://music.youtube.com/watch?v=${videoId}`
+        ? `https://www.youtube.com/watch?v=${videoId}`
         : musicUrl
       lastLoadedUrlRef.current = cleanUrl
       if (retryTimerRef.current) {
@@ -197,7 +257,7 @@ export const YoutubeMusicPlayer = () => {
           <div className="flex items-center justify-between px-3 py-2 bg-base-200/80 backdrop-blur-sm border-b border-white/5">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
-              <span className="text-xs font-medium text-white/60 select-none">YouTube Music</span>
+              <span className="text-xs font-medium text-white/60 select-none">YouTube Player</span>
             </div>
             <button
               onClick={() => setIsPlayerOpen(false)}
@@ -206,21 +266,21 @@ export const YoutubeMusicPlayer = () => {
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
             </button>
           </div>
-          {/* Source: YouTube Music Merger */}
+          {/* Source: YouTube Player via webview */}
           <div className="flex items-center justify-between px-3 py-1.5 bg-black/20">
-            <span className="text-[10px] text-white/40 font-mono tracking-wider">ytmusic</span>
+            <span className="text-[10px] text-white/40 font-mono tracking-wider">yt</span>
             <span className="text-[10px] text-white/20">MARK</span>
           </div>
           {/* Webview */}
           <webview
             ref={webviewRef}
-            src="https://music.youtube.com/"
+            src="about:blank"
             style={{ width: '480px', height: '360px' }}
             className="no-scrollbar rounded-b-2xl"
             allowpopups="false"
             partition="persist:youtube"
-            webpreferences="contextIsolation=yes"
-            useragent={navigator.userAgent}
+            webpreferences="contextIsolation=yes,webSecurity=no"
+            useragent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
           />
         </div>
       </div>

@@ -9,7 +9,8 @@ import {
   globalShortcut,
   nativeImage,
   Notification,
-  desktopCapturer
+  desktopCapturer,
+  webContents
 } from 'electron'
 import { join } from 'path'
 import path from 'path'
@@ -23,7 +24,7 @@ import { startTracking, stopTracking, getBuffer, flushBuffer } from './awareness
 import { NATIVE_TOOLS } from './native-tools.js'
 import { loadSkills, initSkillsIPC } from './agent-skills-loader.js'
 import { initMpris, setMprisCallbacks, setMprisPlaybackStatus, updateMprisTrack, stopMpris } from './mpris-service.js'
-import { getRecentTracks, getTopTracks } from './lastfm-service.js'
+import { getRecentTracks, getTopTracks, setApiKey as setLastfmKey } from './lastfm-service.js'
 import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
 import { ElectronBlocker } from '@cliqz/adblocker-electron'
 import mammoth from 'mammoth'
@@ -94,6 +95,7 @@ import { fetchAI, setGlobalConfig, abortAllFetches } from './ai-bridge.js'
 
 ipcMain.on('sync-config', (_event, config) => {
   setGlobalConfig(config)
+  if (config.lastfmApiKey) setLastfmKey(config.lastfmApiKey)
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('config-updated')
   }
@@ -128,7 +130,7 @@ ipcMain.handle('ai:fetch', async (_event, data) => {
         mainWindow.webContents.send('ai:status', msg)
       }
     }
-    return await fetchAI(messages, config, isSmallTask, jsonSchema, onStatus)
+    return await fetchAI(messages, config, undefined, isSmallTask, jsonSchema, null, onStatus)
   } catch (error) {
     return { error: { message: error.message, code: error.code } }
   }
@@ -475,6 +477,36 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('ytdl:search', async (_event, query, limit) => {
     return await searchMedia(query, limit || 5)
+  })
+
+  // ===== WEBVIEW ANTI-DETECTION (YouTube) =====
+  // Injects navigator.webdriver=false BEFORE page scripts execute
+  ipcMain.on('webview:attach-anti-detection', (_event, webContentsId) => {
+    const wc = webContents.fromId(webContentsId)
+    if (!wc) return
+
+    const antiDetectScript = `
+      try {
+        Object.defineProperty(navigator, 'webdriver', { get: () => false, configurable: true });
+        if (navigator.__proto__) delete navigator.__proto__.webdriver;
+        if (!window.chrome) window.chrome = {};
+        window.chrome.runtime = window.chrome.runtime || {};
+        window.chrome.loadTimes = function(){};
+        window.chrome.csi = function(){};
+      } catch(e) {}
+    `
+
+    wc.on('did-start-navigation', (event, url, isInPlace, isMainFrame) => {
+      if (isMainFrame && !url.startsWith('about:')) {
+        wc.executeJavaScript(antiDetectScript).catch(() => {})
+      }
+    })
+  })
+
+  ipcMain.on('webview:detach-anti-detection', (_event, webContentsId) => {
+    const wc = webContents.fromId(webContentsId)
+    if (!wc) return
+    wc.removeAllListeners('did-start-navigation')
   })
 
   app.on('activate', function () {

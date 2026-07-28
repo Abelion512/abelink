@@ -110,6 +110,10 @@ const api = {
   getYtdlAudio: (url) => ipcRenderer.invoke('ytdl:get-audio', url),
   searchYtdl: (query, limit) => ipcRenderer.invoke('ytdl:search', query, limit),
 
+  // Webview anti-detection (YouTube)
+  attachWebviewAntiDetection: (webContentsId) => ipcRenderer.send('webview:attach-anti-detection', webContentsId),
+  detachWebviewAntiDetection: (webContentsId) => ipcRenderer.send('webview:detach-anti-detection', webContentsId),
+
   // Config cache invalidation
   onConfigUpdated: (callback) => {
     ipcRenderer.removeAllListeners('config-updated')

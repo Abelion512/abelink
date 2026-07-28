@@ -42,7 +42,7 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
       if (hasResolved) return;
       hasResolved = true;
       if (result && result.error) {
-        const err = new Error(result.error.message)
+        const err = new Error(result.error?.message || result.error || 'Unknown AI error')
         err.code = result.error.code
         reject(err)
         return
@@ -61,10 +61,15 @@ export const cleanAndParse = (rawResponse) => {
     if (!rawResponse) return null
     // Fast path: try raw parse first (avoids expensive jsonrepair on valid JSON)
     const trimmed = rawResponse.replace(/^\xEF\xBB\xBF/, '').trim()
-    try { return JSON.parse(trimmed) } catch {}
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed
+    } catch {}
     // Strip code fences then jsonrepair for broken LLM JSON
     const cleaned = trimmed.replace(/```[\s\S]*?```/g, '').trim()
-    return JSON.parse(jsonrepair(cleaned))
+    const parsed = JSON.parse(jsonrepair(cleaned))
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed
+    return null
   } catch (error) {
     console.error('Gagal Parse JSON:', error)
     try {

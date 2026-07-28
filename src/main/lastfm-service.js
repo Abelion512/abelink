@@ -3,13 +3,15 @@
  * Replaces need for YouTube login/analytics.
  *
  * API: https://www.last.fm/api/show/user.getRecentTracks
- * User: abelionz
+ * Set via config UI, env LASTFM_API_KEY, or setApiKey().
  */
 const API_BASE = 'https://ws.audioscrobbler.com/2.0/'
-const API_KEY = '0b1c0c1e3b7f4b3e8e5b6f7c8d9e0f1a'
+let API_KEY = process.env.LASTFM_API_KEY || null
+
+export function setApiKey(key) { API_KEY = key }
 
 const CACHE_TTL = 5 * 60 * 1000
-let cache = { data: null, ts: 0 }
+const cache = new Map()
 
 /**
  * Fetch recent tracks from Last.fm.
@@ -19,7 +21,8 @@ let cache = { data: null, ts: 0 }
  */
 export async function getRecentTracks(user = 'abelionz', limit = 50) {
   const now = Date.now()
-  if (cache.data && now - cache.ts < CACHE_TTL) return cache.data
+  const cached = cache.get(user)
+  if (cached && now - cached.ts < CACHE_TTL) return cached.data
 
   try {
     const params = new URLSearchParams({
@@ -43,11 +46,11 @@ export async function getRecentTracks(user = 'abelionz', limit = 50) {
       nowPlaying: t['@attr']?.nowplaying === 'true'
     }))
 
-    cache = { data: tracks, ts: now }
+    cache.set(user, { data: tracks, ts: now })
     return tracks
   } catch (e) {
     console.error('[Last.fm] Failed to fetch:', e.message)
-    return cache.data || []
+    return []
   }
 }
 

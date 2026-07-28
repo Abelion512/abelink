@@ -2,9 +2,9 @@ import { app } from 'electron'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
 
-// ponytail: lazy require so missing dep doesn't crash module at eval time
+// ponytail: dynamic import so missing dep doesn't crash module at eval time
 let jsonrepair = null
-try { jsonrepair = require('jsonrepair').jsonrepair || require('jsonrepair').default || null } catch {}
+try { jsonrepair = (await import('jsonrepair')).jsonrepair || null } catch {}
 
 // ========== MODEL REGISTRY (Dynamic, Pluggable) ==========
 const REGISTRY_PATH = join(__dirname, 'model-registry.json')
@@ -222,24 +222,31 @@ export const fetchAI = async (
 
   // ========== JSON SCHEMA ==========
   const baseBody = {
-    messages,
+    messages: [...messages],
     max_tokens: maxTokens,
     temperature,
-    stream: false,
+    stream: onStream !== null,
   }
-  if (jsonSchema && activeProvider !== 'lmstudio') {
-    baseBody.messages = baseBody.messages.map((m) => ({ ...m }))
-    const sysIdx = baseBody.messages.findIndex((m) => m.role === 'system')
-    const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
-    if (sysIdx >= 0) {
-      baseBody.messages[sysIdx].content += instruction
+  if (jsonSchema) {
+    if (activeProvider === 'lmstudio') {
+      // LM Studio: inject schema into system prompt only (no native json_schema support)
+      const sysIdx = baseBody.messages.findIndex((m) => m.role === 'system')
+      const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
+      if (sysIdx >= 0) {
+        baseBody.messages[sysIdx] = { ...baseBody.messages[sysIdx], content: baseBody.messages[sysIdx].content + instruction }
+      } else {
+        baseBody.messages.unshift({ role: 'system', content: instruction })
+      }
     } else {
-      baseBody.messages.unshift({ role: 'system', content: instruction })
-    }
-  } else if (jsonSchema) {
-    baseBody.response_format = {
-      type: 'json_schema',
-      json_schema: { name: 'mark_schema', strict: true, schema: jsonSchema }
+      // Cloud providers: inject schema into system prompt + send json_object format hint
+      const sysIdx = baseBody.messages.findIndex((m) => m.role === 'system')
+      const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
+      if (sysIdx >= 0) {
+        baseBody.messages[sysIdx] = { ...baseBody.messages[sysIdx], content: baseBody.messages[sysIdx].content + instruction }
+      } else {
+        baseBody.messages.unshift({ role: 'system', content: instruction })
+      }
+      baseBody.response_format = { type: 'json_object' }
     }
   }
 
@@ -349,46 +356,104 @@ export const fetchAI = async (
         break
       }
 
-      // ========== PARSE ==========
-      const rawText = await response.text()
-      let cleanText = rawText.trim()
-      const firstBrace = cleanText.indexOf('{')
-      const lastBrace = cleanText.lastIndexOf('}')
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
-        cleanText = cleanText.substring(firstBrace, lastBrace + 1)
+      // ========== STREAMING ==========
+      if (onStream && requestBody.stream) {
+        const reader = response.body?.getReader()
+        if (!reader) {
+          log.err(' stream', 'Response body not readable')
+          lastError = new AIServiceError('Stream not readable', { provider: activeProvider, model })
+          break
+        }
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let accumulatedContent = ''
+        let finishReason = null
+        let doneRead = false
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+            for (const line of lines) {
+              const trimmed = line.trim()
+              if (!trimmed || !trimmed.startsWith('data: ')) continue
+              const data = trimmed.slice(6)
+              if (data === '[DONE]') { doneRead = true; break }
+              try {
+                const chunk = JSON.parse(data)
+                const delta = chunk.choices?.[0]?.delta
+                if (delta?.content) {
+                  accumulatedContent += delta.content
+                  onStream(delta.content)
+                }
+                if (chunk.choices?.[0]?.finish_reason) {
+                  finishReason = chunk.choices[0].finish_reason
+                }
+              } catch { /* skip malformed SSE chunk */ }
+            }
+            if (doneRead) break
+          }
+        } catch (e) {
+          // Timeout during stream — use what we got
+        }
+        if (accumulatedContent) {
+          result = { content: accumulatedContent }
+          success = true
+          trackModelUsage(model, true, latencyMs, finishReason)
+          logObservation({
+            provider: activeProvider, model, latencyMs,
+            httpStatus: response.status, finishReason,
+            contentLength: accumulatedContent.length, retryCount, success: true,
+          })
+        } else {
+          lastError = new AIServiceError('Stream returned no content', { provider: activeProvider, model })
+          trackModelUsage(model, false, latencyMs, null)
+          break
+        }
+      } else {
+        // ========== NON-STREAMING PARSE ==========
+        const rawText = await response.text()
+        let cleanText = rawText.trim()
+        const firstBrace = cleanText.indexOf('{')
+        const lastBrace = cleanText.lastIndexOf('}')
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
+          cleanText = cleanText.substring(firstBrace, lastBrace + 1)
+        }
+
+        const parsed = cleanAndParse(cleanText)
+        if (parsed === null) {
+          log.err(' parse', 'Response bukan JSON valid')
+          lastError = new AIServiceError('Response bukan JSON valid', { provider: activeProvider, model })
+          trackModelUsage(model, false, latencyMs, null)
+          break
+        }
+
+        const content = extractAIContent(parsed)
+        const finishReason = parsed.choices?.[0]?.finish_reason
+
+        if (!content || content.trim() === '') {
+          log.warn(' empty', 'Content kosong (content: null)')
+          lastError = new AIServiceError('Response kosong', { provider: activeProvider, model })
+          trackModelUsage(model, false, latencyMs, finishReason)
+          break
+        }
+
+        if (finishReason === 'length') {
+          log.warn('✂️', 'Truncated (finish_reason: length)')
+        }
+
+        // SUCCESS
+        result = { content }
+        success = true
+        trackModelUsage(model, true, latencyMs, finishReason)
+        logObservation({
+          provider: activeProvider, model, latencyMs,
+          httpStatus: response.status, finishReason,
+          contentLength: content.length, retryCount, success: true,
+        })
       }
-
-      const parsed = cleanAndParse(cleanText)
-      if (parsed === null) {
-        log.err(' parse', 'Response bukan JSON valid')
-        lastError = new AIServiceError('Response bukan JSON valid', { provider: activeProvider, model })
-        trackModelUsage(model, false, latencyMs, null)
-        break
-      }
-
-      const content = extractAIContent(parsed)
-      const finishReason = parsed.choices?.[0]?.finish_reason
-
-      if (!content || content.trim() === '') {
-        log.warn(' empty', 'Content kosong (content: null)')
-        lastError = new AIServiceError('Response kosong', { provider: activeProvider, model })
-        trackModelUsage(model, false, latencyMs, finishReason)
-        break
-      }
-
-      if (finishReason === 'length') {
-        log.warn('✂️', 'Truncated (finish_reason: length)')
-      }
-
-      // SUCCESS
-      result = { content }
-      success = true
-      trackModelUsage(model, true, latencyMs, finishReason)
-      logObservation({
-        provider: activeProvider, model, latencyMs,
-        httpStatus: response.status, finishReason,
-        contentLength: content.length, retryCount, success: true,
-      })
     }
 
     if (result) return result

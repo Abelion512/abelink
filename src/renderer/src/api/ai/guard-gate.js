@@ -1,5 +1,6 @@
 // Guard gate — pre-flight checks, circuit breaker, degraded mode trigger
 // Prevents cascading failures when tools or LLM calls fail repeatedly.
+// Module-level singleton — survives React remounts.
 
 const STATE = { CLOSED: 'closed', OPEN: 'open', HALF_OPEN: 'half_open' }
 
@@ -10,7 +11,13 @@ const DEFAULTS = {
   maxTrimmedLength: 12000
 }
 
-export function createGuardGate(config = {}) {
+// Tools that legitimately take no query (no-arg tools like music-next, list-dir)
+const NO_QUERY_TOOLS = new Set([
+  'music-next', 'music-prev', 'music-toggle', 'browser-read', 'browser-close',
+  'list-windows', 'screenshot', 'finish', 'stop', 'done'
+])
+
+function createGuardGate(config = {}) {
   const cfg = { ...DEFAULTS, ...config }
   let state = STATE.CLOSED
   let failureCount = 0
@@ -52,6 +59,11 @@ export function createGuardGate(config = {}) {
       return { allowed: false, degrade: false, reason: `Invalid tool name: ${tool}` }
     }
 
+    // Allow tools that don't require a query (no-arg tools)
+    if (NO_QUERY_TOOLS.has(tool)) {
+      return { allowed: true, degrade: false, reason: null }
+    }
+
     if (typeof query !== 'string' || query.trim().length === 0) {
       return { allowed: false, degrade: false, reason: `Empty query for tool ${tool}` }
     }
@@ -78,3 +90,12 @@ export function createGuardGate(config = {}) {
 
   return { preFlightCheck, postFlightCheck, getStatus, reset, getConfig: () => cfg }
 }
+
+// Module-level singleton — survives React remounts
+let _instance = null
+export function getGuardGate(config) {
+  if (!_instance) _instance = createGuardGate(config)
+  return _instance
+}
+// ponytail: migrate singleton to main process + IPC proxy when guard state needs cross-window persistence
+export { createGuardGate, STATE }

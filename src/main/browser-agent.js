@@ -405,7 +405,7 @@ export async function executeAction(data) {
           ? value.replace(/'/g, "\\'").replace(/\n/g, '<br>')
           : 'Please complete the required manual action...'
       }
-      const aiMessage = activeAskUserMessage
+      const aiMessage = JSON.stringify(activeAskUserMessage)
 
       await browserWindow.webContents.executeJavaScript(
         `(() => {
@@ -415,7 +415,6 @@ export async function executeAction(data) {
             blocker.id = 'mark-user-blocker';
             document.body.appendChild(blocker);
           }
-          // Ubah blocker jadi mode "Unblocked" (nampilin form input di pojok bawah)
           blocker.style.position = 'fixed';
           blocker.style.zIndex = '2147483647';
           blocker.style.width = 'auto';
@@ -425,8 +424,8 @@ export async function executeAction(data) {
           blocker.style.top = 'auto';
           blocker.style.left = 'auto';
           blocker.style.background = 'transparent';
-          blocker.style.pointerEvents = 'none'; // Biar halaman di baliknya bisa diklik
-          
+          blocker.style.pointerEvents = 'none';
+
           blocker.innerHTML = \`
             <div style="background: rgba(25, 54, 45, 0.95); backdrop-filter: blur(12px); padding: 20px; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 16px; pointer-events: auto; font-family: system-ui, sans-serif; width: 340px; border: 1px solid rgba(31, 184, 84, 0.3);">
               <div style="display: flex; align-items: center; gap: 12px;">
@@ -437,26 +436,22 @@ export async function executeAction(data) {
                 </svg>
                 <div style="font-weight: 600; color: #f8fafc; font-size: 15px; letter-spacing: 0.5px;">Mark paused for input</div>
               </div>
-              
-              <div style="font-size: 13px; color: #94a3b8; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border-left: 3px solid #1fb854;">
-                ${aiMessage}
-              </div>
-              
+              <div id="mark-ai-message" style="font-size: 13px; color: #94a3b8; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border-left: 3px solid #1fb854;"></div>
               <input type="text" id="mark-user-input" placeholder="Add a comment for Mark (optional)..." style="background: rgba(15, 23, 42, 0.6); color: #f8fafc; padding: 12px 14px; border: 1px solid rgba(31, 184, 84, 0.4); border-radius: 8px; font-size: 13px; outline: none; transition: all 0.2s;" onfocus="this.style.borderColor='#1fb854'; this.style.boxShadow='0 0 0 2px rgba(31, 184, 84, 0.2)';" onblur="this.style.borderColor='rgba(31, 184, 84, 0.4)'; this.style.boxShadow='none';"/>
-              
               <button id="mark-btn-selesai" style="background: #1fb854; color: #0f172a; padding: 12px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#22c55e'; this.style.transform='translateY(-1px)';" onmouseout="this.style.background='#1fb854'; this.style.transform='translateY(0)';">
                 Resume Automation
               </button>
             </div>
           \`;
-          
+          document.getElementById('mark-ai-message').textContent = ${aiMessage};
+
           document.getElementById('mark-btn-selesai').onclick = () => {
             const comment = document.getElementById('mark-user-input').value;
             const originalTitle = document.title;
             document.title = 'MARK_UNBLOCK_DONE:' + (comment.trim() || 'User telah menyelesaikan aksi manual (tidak ada komentar).');
             setTimeout(() => { document.title = originalTitle; }, 100);
           };
-          
+
           document.getElementById('mark-user-input').addEventListener('keypress', function (e) {
               if (e.key === 'Enter') document.getElementById('mark-btn-selesai').click();
           });
