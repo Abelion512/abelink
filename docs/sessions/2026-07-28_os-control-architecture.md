@@ -182,6 +182,112 @@ Agent harus punya "human override".
 
 ---
 
+## 7. Scoped Permissions (Anti-Generalization)
+
+### Problem
+
+User approve `rm -rf node_modules` → agent generalize → `rm -rf docs/` → DATA LOSS.
+
+**Never allow blanket permissions.** Every permission is scoped to:
+- Specific path pattern
+- Specific action
+- Expiry time
+- One-time or recurring
+
+### Permission Scope Rules
+
+```js
+// BAD: blanket permission
+{ action: "delete", scope: "/home/user" }  // DANGEROUS
+
+// GOOD: scoped permission
+{ 
+  action: "delete", 
+  path: "**/node_modules/**",        // pattern matching
+  pathPattern: "reinstallable",       // risk category
+  expiry: "30s",                      // time-limited
+  oneTime: true                       // single use
+}
+```
+
+### Path Risk Categories
+
+| Category | Paths | Can rm -rf? | Risk |
+|----------|-------|:-----------:|------|
+| `reinstallable` | `node_modules/`, `.cache/`, `build/`, `dist/`, `.next/`, `__pycache__/` | ✅ Yes | LOW — reinstallable |
+| `generated` | `*.log`, `*.tmp`, `.env.local`, `*.bak` | ✅ Yes | LOW — regenerable |
+| `user-content` | `docs/`, `notes/`, `diary/`, `*.md` | ❌ NO | HIGH — unique |
+| `source-code` | `src/`, `lib/`, `*.js`, `*.ts`, `*.py` | ❌ NO | CRITICAL — unique |
+| `config` | `.gitconfig`, `package.json`, `tsconfig.json` | ❌ NO | CRITICAL — unique |
+| `system` | `/etc/`, `/usr/`, `/var/` | ❌ BLOCK | MAX — never |
+
+### Permission Resolution
+
+```
+User requests: rm -rf node_modules
+
+Policy Engine:
+  1. Parse target path
+  2. Match against path risk categories
+  3. "node_modules" → category: reinstallable → GREEN → auto-execute
+
+User requests: rm -rf docs/
+
+Policy Engine:
+  1. Parse target path
+  2. "docs" → category: user-content → RED → BLOCK
+  3. "But user gave full access..." → DOESN'T MATTER
+  4. Scoped permission cannot override path risk category
+```
+
+### Key Rules
+
+1. **Permission is NOT authority** — approving one action doesn't approve all
+2. **Path risk overrides user permission** — even if user says "yes", system blocks `docs/`
+3. **Scope inherits narrowest** — `rm -rf *` in `~/project` only covers `reinstallable` + `generated`
+4. **Time-limited** — permissions expire after N seconds/uses
+5. **Audit all** — every permission grant/deny logged
+
+### Permission Token Format
+
+```json
+{
+  "id": "perm-20260728-001",
+  "action": "delete",
+  "path": "/home/user/project/**",
+  "pathPattern": "reinstallable",    // only node_modules, build, dist, etc.
+  "expiresAt": "2026-07-28T10:31:00Z",
+  "maxUses": 1,
+  "uses": 0,
+  "grantedBy": "user",
+  "reason": "User approved cleanup"
+}
+```
+
+### What Gets Blocked (Even with "Full Access")
+
+| Target | Why Blocked |
+|--------|------------|
+| `docs/`, `*.md` | User content, unique |
+| `src/`, `*.js`, `*.ts` | Source code, unique |
+| `.git/` | Version control, irreplaceable |
+| `package.json`, `tsconfig.*` | Config, unique |
+| `~/Documents/`, `~/Pictures/` | Personal files |
+| `/etc/`, `/usr/` | System files |
+| Any file with `important` in name | Heuristic safety |
+
+### What Gets Auto-Approved (With Scoped Permission)
+
+| Target | Why Safe |
+|--------|----------|
+| `node_modules/` | Reinstallable via `npm install` |
+| `build/`, `dist/`, `.next/` | Rebuildable |
+| `.cache/`, `__pycache__/` | Cache, auto-regen |
+| `*.log`, `*.tmp` | Temporary files |
+| `/tmp/` | System temp directory |
+
+---
+
 ## 4. Memory Consent
 
 MARK jangan otomatis mengingat semuanya. Harus ada consent.
