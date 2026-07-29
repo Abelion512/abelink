@@ -131,6 +131,22 @@ export async function navigateTo(url) {
     })
 
     browserWindow.on('page-title-updated', async (event, title) => {
+      // === YouTube track info detection ===
+      // When YouTube plays, title = "Song Name - Artist - YouTube"
+      // Send to all BrowserWindows so renderer can update track card
+      if (title && title.includes(' - YouTube')) {
+        const parts = title.replace(' - YouTube', '').split(' - ')
+        if (parts.length >= 2) {
+          const trackInfo = { title: parts[0], artist: parts.slice(1).join(' - '), fullTitle: title }
+          BrowserWindow.getAllWindows().forEach(win => {
+            if (!win.isDestroyed() && win.webContents) {
+              win.webContents.send('yt:track-updated', trackInfo)
+            }
+          })
+        }
+      }
+
+      // === MARK_UNBLOCK_DONE handler ===
       if (title.startsWith('MARK_UNBLOCK_DONE:') && globalAskUserResolve) {
         event.preventDefault() // prevent actual title change if possible
         const comment = title.substring(18) // remove 'MARK_UNBLOCK_DONE:'
