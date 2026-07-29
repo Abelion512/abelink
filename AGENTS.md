@@ -1,5 +1,10 @@
 # AI Context & Planning (AGENTS.md)
 
+## CRITICAL RULES — PERMANENT MEMORY
+1. **NEVER push to GitHub without explicit user approval.** Local commits are fine. `git push` requires user to say "push" first. No exceptions.
+2. **NEVER run destructive operations** (force push, filter-branch, delete branch) without asking first.
+3. **Security audit before push** — at minimum: syntax check, build pass, no hardcoded secrets.
+
 ## 1. Project Overview
 
 **Project Name:** MARK (Metacognitive Artificial Relational Knowledge) — v5.0.0
