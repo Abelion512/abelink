@@ -25,9 +25,20 @@ export const YoutubeMusicProvider = ({ children }) => {
       }
     }
     try {
-      const res = await window.api.ytLoad(url)
-      setIsPlayerOpen(true)
-      setIsPlaying(true)
+      // Use physical browser-agent (visible, same partition) instead of hidden BrowserWindow
+      // This avoids Google's embedded browser detection
+      if (window.api?.showBrowserWindow && window.api?.browserNavigate) {
+        window.api.showBrowserWindow()
+        await window.api.browserNavigate(url)
+        setIsPlayerOpen(true)
+        setIsPlaying(true)
+      } else {
+        // Fallback: hidden BrowserWindow
+        await window.api.ytLoad(url)
+        window.api.ytShow()
+        setIsPlayerOpen(true)
+        setIsPlaying(true)
+      }
     } catch (e) {
       setPlaybackError(e.message)
     }

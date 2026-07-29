@@ -89,6 +89,15 @@ function getOrCreateWindow() {
 export function loadYouTube(url) {
   ytUrl = url
   const win = getOrCreateWindow()
+  if (win) {
+    win.show()  // Show before navigation — Google less likely to block visible browser
+    win.loadURL(url)
+  }
+}
+
+export function loadYouTubeHidden(url) {
+  ytUrl = url
+  const win = getOrCreateWindow()
   if (win) win.loadURL(url)
 }
 

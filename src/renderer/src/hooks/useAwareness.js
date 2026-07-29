@@ -24,6 +24,8 @@ export const useAwareness = ({
   const isLoadingRef = useRef(isLoading)
   const isAgentBusyRef = useRef(isAgentBusy)
   const lastCheckInRef = useRef(0)
+  const bufferEmptyRef = useRef(false)
+  const mountedRef = useRef(false)
 
   useEffect(() => {
     chatDataRef.current = chatData
@@ -52,16 +54,20 @@ export const useAwareness = ({
       try {
         isRequestingRef.current = true
         lastCheckInRef.current = Date.now()
-        console.log('[useAwareness] Memulai check-in...')
 
         const buffer = await window.api.getActivityBuffer()
+        const wasBufferEmpty = bufferEmptyRef.current
         if (!buffer || buffer.length < 1) {
-          console.log('[useAwareness] Skip check-in: Buffer kosong')
           isRequestingRef.current = false
+          // Only log once when transitioning from data→empty, silence repeat skips
+          if (!wasBufferEmpty) {
+            bufferEmptyRef.current = true
+            console.log('[useAwareness] Buffer kosong — check-in dihentikan')
+          }
           return
         }
-
-        console.log('[useAwareness] Mengirim buffer ke AI:', buffer)
+        bufferEmptyRef.current = false
+        console.log('[useAwareness] Memulai check-in, entries:', buffer.length, buffer)
         const allMemory = await getAllMemory()
         const memoryRef = await getRelevantMemory('aktivitas user bekerja dan rutinitas', allMemory)
 
@@ -138,11 +144,20 @@ export const useAwareness = ({
     }
 
     const id = setInterval(checkIn, CHECKIN_INTERVAL)
-    const initialTimeout = setTimeout(checkIn, INITIAL_DELAY)
+
+    // Guard against React StrictMode double-fire: only schedule one initial timeout
+    if (!mountedRef.current) {
+      mountedRef.current = true
+      const initialTimeout = setTimeout(checkIn, INITIAL_DELAY)
+      return () => {
+        clearInterval(id)
+        clearTimeout(initialTimeout)
+        mountedRef.current = false
+      }
+    }
 
     return () => {
       clearInterval(id)
-      clearTimeout(initialTimeout)
     }
   }, [isAwarenessEnabled, setChatData, setOrbStatus]) // Hapus isLoading & isAgentBusy dari deps biar gak keriset mulu
 }
