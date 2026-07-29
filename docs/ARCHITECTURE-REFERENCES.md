@@ -2,12 +2,17 @@
 
 ## Research Sources
 
-| Framework | Source | Focus |
-|-----------|--------|-------|
-| Claude Code | https://code.claude.com/docs/en/ | Permission modes, memory, subagents |
-| LangGraph | https://docs.langchain.com/oss/python/langgraph/ | Checkpointer, interrupt, store |
-| AutoGen | https://github.com/microsoft/autogen | Pluggable memory, multi-agent |
-| CrewAI | https://docs.crewai.com/ | Unified memory, composite scoring |
+| # | Source | Type | Focus |
+|---|--------|------|-------|
+| 1 | Claude Code docs | Product | Permission modes, memory, subagents |
+| 2 | Anthropic Cookbook (courses) | Open source | Tool use workflow, tool_choice (auto/any/tool), evaluator-optimizer |
+| 3 | Anthropic Effective Agents blog | Blog | Workflow vs agent, when to use agents, pattern catalog |
+| 4 | Anthropic MCP spec | Protocol | Client-host-server, tools/resources/prompts, JSON-RPC |
+| 5 | Anthropic Skills system | Platform | Progressive disclosure, SKILL.md, agent skills |
+| 6 | LangGraph docs | Framework | Checkpointer, interrupt, store |
+| 7 | AutoGen | Framework | Pluggable memory, multi-agent, task-centric memory |
+| 8 | CrewAI | Framework | Unified memory, composite scoring |
+| 9 | Human Cognitive Science | Theory | Working/short-term/long-term memory taxonomy |
 
 ---
 
@@ -77,6 +82,94 @@ class ResearchFlow(Flow):
 - Flow-based orchestration
 - Scope-based memory organization
 - Composite scoring (semantic + recency + importance)
+
+### Anthropic: Workflow vs Agent (Source: https://github.com/anthropics/courses/blob/master/tool_use/05_tool_choice.ipynb + https://www.anthropic.com/engineering/building-effective-agents)
+
+Anthropic's agent loop distinguishes between **workflows** (predetermined paths) and **agents** (autonomous decision-making), controlled via `tool_choice`:
+
+```
+tool_choice patterns:
+├── "auto" → Agentic: Claude decides whether to use tools or not
+├── "any"  → Claude must use a tool but chooses which one
+└── "tool" → Forced workflow: Claude always uses a specific tool
+```
+
+**The complete tool use workflow loop** (https://github.com/anthropics/courses/blob/master/tool_use/04_complete_workflow.ipynb):
+
+```python
+while True:
+    response = client.messages.create(
+        model="claude-3-sonnet-20240229",
+        messages=messages,
+        max_tokens=1000,
+        tools=[article_search_tool]
+    )
+    
+    if response.stop_reason == "tool_use":
+        # Extract tool call
+        tool_use = response.content[-1]
+        tool_name = tool_use.name
+        tool_input = tool_use.input
+        messages.append({"role": "assistant", "content": response.content})
+        
+        # Execute tool
+        wiki_result = get_article(tool_input["search_term"])
+        
+        # Feed result back
+        tool_response = {
+            "role": "user",
+            "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": wiki_result}]
+        }
+        messages.append(tool_response)
+        # Continue loop
+        
+    elif response.stop_reason == "end_turn":
+        # Claude has finished
+        print("Final answer:", response.content[0].text)
+        break
+```
+
+**Anthropic agent patterns catalog** (from "Building Effective Agents" blog):
+
+| Pattern | Description | Use Case |
+|---------|-------------|----------|
+| Prompt chaining | Sequential LLM calls, output of one is input to next | Simple deterministic tasks |
+| Routing | Classify input, route to specialized handler | Customer support triage |
+| Parallelization | Multiple LLM calls in parallel | Independent subtasks |
+| Orchestrator-workers | Central LLM delegates to worker LLMs | Complex tasks needing specialization |
+| Evaluator-optimizer | One LLM generates, another evaluates | Content generation, code review |
+
+**Key design principle:** "Agents are not always better than workflows. Start simple, add complexity only when needed. The simplest system that solves your problem is the best."
+
+**Reference:** Anthropic blog: https://www.anthropic.com/engineering/building-effective-agents
+
+### MCP Protocol Architecture (Source: https://github.com/modelcontextprotocol/modelcontextprotocol)
+
+Model Context Protocol provides standardized tool/context integration via JSON-RPC:
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Host Process    │────▶│  Client          │────▶│  Server          │
+│  (Mark App)      │     │  (MCP Client)    │     │  (Tools/Resources)│
+│  Capability      │     │  Session mgmt    │     │  ┌───────────┐  │
+│  negotiation     │     │  Request routing │     │  │ Tools     │  │
+└─────────────────┘     └─────────────────┘     │  │ Resources │  │
+                                                 │  │ Prompts   │  │
+                                                 └───────────┘  │
+                                                 └─────────────────┘
+```
+
+**Key primitives:**
+- **Tools**: Executable actions (function calling)
+- **Resources**: Data sources (files, APIs, databases)
+- **Prompts**: Pre-written prompt templates
+
+**Key features:**
+- Client-host-server architecture
+- JSON-RPC transport (stdio, HTTP SSE)
+- Capability negotiation during initialization
+- Stateful sessions with context exchange
+- Sampling coordination (server can request AI responses)
 
 ---
 
@@ -257,6 +350,34 @@ researcher = Agent(
 
 **Key pattern:** Tools attached to agents, memory-aware execution.
 
+### Anthropic Skills System (Source: https://github.com/anthropics/skills)
+
+**Three-level progressive loading:**
+```
+Level 1: Metadata (name + description) → Always in context (~100 words)
+Level 2: SKILL.md body → Loaded when skill triggers (<500 lines)
+Level 3: Bundled resources → Loaded on demand (unlimited)
+```
+
+**Skill attachment:**
+```python
+# Attach skills to agent at creation
+agent = client.beta.agents.create(
+    name="Financial Agent",
+    model="claude-opus-4-8",
+    system="You are a financial analysis agent.",
+    skills=[
+        {"type": "anthropic", "skill_id": "xlsx"},
+        {"type": "custom", "skill_id": "skill_abc123", "version": "latest"},
+    ]
+)
+```
+
+**Subagent delegation** (from skills repo):
+> "Before any task longer than a few turns, check your memory file for relevant prior context and write new findings to it as you go. When a task fans out across independent items (many files to read, many tests to run, many candidates to check), delegate to subagents rather than iterating serially."
+
+**Key pattern:** Progressive disclosure (always lean), skills attachable at agent creation, subagent for fan-out tasks.
+
 ---
 
 ## 6. Memory Systems (Complete)
@@ -390,17 +511,21 @@ crew = Crew(
 
 ## 8. Mark Implementation Mapping
 
-| Component | Mark Code | Reference Source |
-|-----------|-----------|-----------------|
-| Agent loop | `useMarkPlan.js` `while(!isDone)` | Claude Code 3-phase loop |
-| Checkpoint | `autonomousTasks.checkpoint` | LangGraph Checkpointer |
-| Steer | `steerBufferRef` + `handleSteer()` | Claude Code steering + LangGraph interrupt |
-| Approval | 5 modes (strict/selective/auto/bypass/plan) | Claude Code permission modes |
-| Memory semantic | `memory` + `documents` + Orama | LangGraph Store + AutoGen Mem0Memory |
-| Memory episodic | `chatArchive` + `taskHistory` | CrewAI long-term memory |
-| Memory procedural | SKILL.md + plugins | Claude Code CLAUDE.md + agent-memory |
-| Scoring | Semantic 0.4 + Recency 0.3 + Importance 0.3 | CrewAI composite scoring |
-| Subagent | Deferred (when parallel tasks needed) | Claude Code /subtask + AutoGen teams |
+| Component | Mark Code | Primary Reference | Secondary Reference |
+|-----------|-----------|-------------------|--------------------|
+| Agent loop | `useMarkPlan.js` `while(!isDone)` | Anthropic tool_use loop (`stop_reason → tool_result`) | Claude Code 3-phase loop |
+| Checkpoint | `autonomousTasks.checkpoint` | LangGraph Checkpointer | Anthropic durable execution |
+| Steering | `steerBufferRef` + `handleSteer()` | Anthropic "interrupt anytime" pattern | LangGraph interrupt/Command |
+| Approval modes | 5 modes (strict/selective/auto/bypass/plan) | Claude Code 6 permission modes | Anthropic tool_choice auto |
+| Tool_choice | N/A (always agentic) → add workflow mode | Anthropic tool_choice (auto/any/tool) | - |
+| Memory semantic | `memory` + `documents` + Orama | LangGraph Store + AutoGen Mem0Memory | Anthropic auto memory |
+| Memory episodic | `chatArchive` + `taskHistory` | CrewAI long-term | LangGraph Checkpointer |
+| Memory procedural | SKILL.md + plugins | Anthropic Skills (3-level progressive) | Claude Code CLAUDE.md |
+| Skills loading | `SKILL.md` vector-matched | Anthropic 3-level progressive disclosure | Claude Code CLAUDE.md |
+| MCP integration | `@modelcontextprotocol/sdk` v1.30.0 | MCP client-host-server | - |
+| Subagent delegation | Deferred (when needed) | Anthropic subagent (`/subtask`, fan-out) | AutoGen teams |
+| Scoring | Semantic 0.4 + Recency 0.3 + Importance 0.3 | CrewAI composite | Anthropic evaluator-optimizer |
+| Workflow vs agent | N/A (always agentic) → add workflow | Anthropic tool_choice: "auto" = agent, "tool" = workflow | - |
 
 ---
 

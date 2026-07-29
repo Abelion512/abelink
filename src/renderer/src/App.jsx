@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 const Configuration = lazy(() => import('./pages/Configuration'))
+const DataControls = lazy(() => import('./pages/DataControls'))
 const Guidebook = lazy(() => import('./pages/Guidebook'))
 const Plugins = lazy(() => import('./pages/Plugins'))
 import MarkHome from './pages/MarkHome'
@@ -178,6 +179,7 @@ function App() {
                 <Routes>
                   <Route path="/" element={<MarkHome />} />
                   <Route path="/config" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Configuration /></Suspense>} />
+                  <Route path="/data-controls" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><DataControls /></Suspense>} />
                   <Route path="/plugins" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Plugins /></Suspense>} />
                   <Route path="/live-audio" element={<LiveAudio />} />
                   <Route path="/whatsapp-bot" element={<WhatsappBot />} />

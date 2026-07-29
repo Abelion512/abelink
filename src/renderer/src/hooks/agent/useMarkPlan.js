@@ -9,6 +9,7 @@ import { getUnifiedContext, searchExtendedMemory, generateVector, cosineSimilari
 import { sanitizeToolOutput } from '../../api/ai/output-sanitizer'
 import { getGuardGate } from '../../api/ai/guard-gate'
 import { searchMemoriesInOrama } from '../../api/oramaStore'
+import { checkApprovalByMode } from '../../api/ai/approval-modes'
 
 export const useMarkPlan = ({
   chatData,
@@ -68,9 +69,28 @@ export const useMarkPlan = ({
 
   const isExecutingRef = useRef(false)
   const interventionBufferRef = useRef([])
+  const steerTypes = ['redirect', 'prioritize', 'cancel', 'modify', 'resume']
 
   const handleIntervention = (msg) => {
-    interventionBufferRef.current.push(msg)
+    // Classify steer type
+    const lower = msg.trim().toLowerCase()
+    let type = 'steer'
+    let priority = ''
+    if (/batal|berhenti|stop|cancel|skip/.test(lower)) { type = 'cancel'; priority = '[PRIORITAS TINGGI]' }
+    else if (/ke|ganti|ubah arah|redirect/.test(lower)) { type = 'redirect'; priority = '' }
+    else if (/dulu|prioritas|tunda/.test(lower)) { type = 'prioritize'; priority = '[PRIORITAS]' }
+    else if (/detail|jelaskan|lebih|lanjut/.test(lower)) { type = 'modify'; priority = '' }
+    
+    interventionBufferRef.current.push({ text: msg.trim(), type, timestamp: Date.now() })
+    
+    // Audit log for steer action
+    import('../../api/db').then(({ insertAuditLog }) => {
+      insertAuditLog({
+        type: 'steer',
+        taskId: agenticProcessId || 'unknown',
+        data: { steerType: type, message: msg.trim().substring(0, 200) }
+      }).catch(() => {})
+    }).catch(() => {})
   }
 
   const handlePlanningCommand = async (
@@ -250,8 +270,8 @@ export const useMarkPlan = ({
 
 // ========== STEP 3: AGENTIC LOOP ==========
 const loopMessages = [...chatSession]
-const MAX_TURNS = 10
-	const PER_TURN_TIMEOUT_MS = 90000 // 90s — model reasoning butuh waktu lebih untuk generate + retry fallback chain
+	const MAX_TURNS = config[0]?.maxTurns || 20
+	const PER_TURN_TIMEOUT_MS = config[0]?.perTurnTimeout || 90000 // default 90s
 
 // Hermes-style granular guardrails
 const GUARDRAIL_WARN =  { exact_failure: 2, same_tool_failure: 3, idempotent_no_progress: 2 }
@@ -273,12 +293,14 @@ let hardStopped = false
         // --- Safety: Cek abort ---
         if (abortControllerRef.current.signal.aborted) break
 
-        // --- Cek Intervensi User ---
+        // --- Cek Steer/Intervensi User ---
         if (interventionBufferRef.current.length > 0) {
-          const interventions = interventionBufferRef.current.join('\n')
+          const steer = interventionBufferRef.current[0]
+          const interventions = steer.text
+          const steerTag = steer.type === 'steer' ? 'INTERVENSI' : `${steer.type.toUpperCase()} STEER`
           loopMessages.push({
             role: 'user',
-            content: `[USER INTERVENTION]: ${interventions}`
+            content: `[USER ${steerTag}]: ${interventions}`
           })
           interventionBufferRef.current = [] // Kosongkan buffer
           
@@ -702,11 +724,41 @@ let hardStopped = false
                 continue
               }
 
-              // --- NATIVE TOOLS (Built-in) ---
-              const toolStartTime = Date.now()
-              const approvalCheck = await window.api.checkToolApproval(tool, query)
+	              // --- NATIVE TOOLS (Built-in) ---
+	              const toolStartTime = Date.now()
+	              const approvalCheck = await window.api.checkToolApproval(tool, query)
 
-              if (approvalCheck.needsApproval && requestApproval) {
+	              // Approval modes check (Claude Code-inspired)
+	              // Source: https://code.claude.com/docs/en/agent-sdk/permissions
+	              const approvalMode = (config[0]?.approvalMode || 'selective')
+	              const modeResult = checkApprovalByMode(approvalMode, tool, !!isAutonomous)
+	              
+	              // Plan mode: block write tools outright
+	              if (modeResult.blocked) {
+	                resultString = `[DITOLAK] Plan mode: "${tool}" tidak diizinkan. Hanya tool read-only.`
+	                const blockedResult = sanitizeToolOutput(tool, resultString)
+	                loopMessages.push(
+	                  { role: 'assistant', content: JSON.stringify({ thought: decision?.thought, action: decision?.action }) },
+	                  { role: 'user', content: `[OBSERVATION] ${blockedResult}` }
+	                )
+	                continue
+	              }
+	              
+	              // Bypass or low-risk: skip approval modal
+	              if (!modeResult.needsApproval || approvalMode === 'bypass') {
+	                // Still do existing IPC check for tool-level blocked commands (e.g. dangerous keywords)
+	                if (approvalCheck.needsApproval && approvalCheck.needsApproval === 'hard_block') {
+	                  resultString = `[ERROR] Tool "${tool}" diblokir oleh sistem.`
+	                  guard.postFlightCheck(tool, resultString, Date.now() - toolStartTime)
+	                  const blockedResult = sanitizeToolOutput(tool, resultString)
+	                  loopMessages.push(
+	                    { role: 'assistant', content: JSON.stringify({ thought: decision?.thought, action: decision?.action }) },
+	                    { role: 'user', content: `[OBSERVATION] ${blockedResult}` }
+	                  )
+	                  continue
+	                }
+	                // Skip modal, execute directly
+	              } else if (approvalCheck.needsApproval && requestApproval) {
                 const userApproved = await requestApproval(approvalCheck.message, tool, query)
                 if (!userApproved) {
                   resultString = `[DITOLAK] User menolak eksekusi "${tool}". Cari cara lain atau tanyakan user.`
