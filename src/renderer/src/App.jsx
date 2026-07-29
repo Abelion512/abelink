@@ -1,6 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 const Configuration = lazy(() => import('./pages/Configuration'))
-const DataControls = lazy(() => import('./pages/DataControls'))
 const Guidebook = lazy(() => import('./pages/Guidebook'))
 const Plugins = lazy(() => import('./pages/Plugins'))
 import MarkHome from './pages/MarkHome'
@@ -14,7 +13,8 @@ import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
 import { ApprovalProvider } from './contexts/ApprovalContext'
 import { YoutubeMusicPlayer } from './components/YoutubeMusicPlayer'
 import { GlobalCameraManager } from './components/GlobalCameraManager'
-import { getAllConfig } from './api/db'
+import { getAllConfig, saveConfiguration } from './api/db'
+import { getExtractor } from './api/vectorMemory'
 import { runWhatsappAgent } from './api/waAgent'
 
 const GlobalListener = () => {
@@ -33,7 +33,6 @@ const GlobalListener = () => {
     if (window.api?.onWaAdminRequest) {
       window.api.onWaAdminRequest(async (data) => {
         // Simpan ke DB agar Configuration.jsx bisa membaca
-        const { getAllConfig, saveConfiguration } = await import('./api/db')
         const configs = await getAllConfig()
         if (configs && configs[0]) {
           const cfg = configs[0]
@@ -109,7 +108,6 @@ function App() {
       // 1.5 Load Embeddings Model
       try {
         setLoadingText('Memuat Memori Kognitif...')
-        const { getExtractor } = await import('./api/vectorMemory')
         let memStats = {}
         await getExtractor((info) => {
           if (info.status === 'initiate') {
@@ -179,7 +177,6 @@ function App() {
                 <Routes>
                   <Route path="/" element={<MarkHome />} />
                   <Route path="/config" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Configuration /></Suspense>} />
-                  <Route path="/data-controls" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><DataControls /></Suspense>} />
                   <Route path="/plugins" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Plugins /></Suspense>} />
                   <Route path="/live-audio" element={<LiveAudio />} />
                   <Route path="/whatsapp-bot" element={<WhatsappBot />} />

@@ -3,10 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <title>Mark Agent</title>
-    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <!--
+      Content Security Policy
+      - 'unsafe-eval' removed from script-src — React/Vite don't need it, and it blocks arbitrary eval().
+        If a dev-only tool requires eval(), add 'unsafe-eval' back conditionally via Vite's
+        htmlPlugin during dev builds only. Monaco workers use blob: which is already allowed.
+      - connect-src scoped to known services (Groq API, YouTube embeds, Google Fonts)
+        plus localhost for dev HMR (Vite WebSocket) and local AI endpoints (LM Studio, 9Router).
+      - style-src 'unsafe-inline' required for React and Tailwind runtime styles.
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://* http://*; media-src 'self' data:; connect-src *;"
+      content="default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://* http://*; media-src 'self' data:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://api.groq.com wss://api.groq.com https://console.groq.com https://*.youtube.com wss://*.youtube.com https://i.ytimg.com https://yt3.ggpht.com http://localhost:* ws://localhost:*;"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
