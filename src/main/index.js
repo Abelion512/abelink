@@ -14,6 +14,7 @@ import {
 import { join } from 'path'
 import path from 'path'
 import fs from 'fs'
+import os from 'os'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { fetchTranscript } from 'youtube-transcript-plus'
@@ -30,7 +31,7 @@ import {
 import { initMpris, setMprisCallbacks, setMprisPlaybackStatus, updateMprisTrack, stopMpris } from './mpris-service.js'
 import { getRecentTracks, getTopTracks, setApiKey as setLastfmKey } from './lastfm-service.js'
 import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
-import { ElectronBlocker } from '@cliqz/adblocker-electron'
+import { ElectronBlocker } from '@ghostery/adblocker-electron'
 import mammoth from 'mammoth'
 import { PDFParse } from 'pdf-parse'
 import { loadYouTube, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, sendKeyboardCommand, showAndNavigate } from './youtube-player.js'
@@ -61,8 +62,7 @@ function createWindow() {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       webviewTag: true,
-      sandbox: false,
-      webSecurity: false,
+      sandbox: true,
       backgroundThrottling: false
     }
   })
@@ -72,7 +72,14 @@ function createWindow() {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    try {
+      const parsed = new URL(details.url)
+      if (!['https:', 'http:', 'mailto:'].includes(parsed.protocol)) {
+        console.warn(`[SECURITY] setWindowOpenHandler blocked: ${parsed.protocol}//${parsed.host}`)
+        return { action: 'deny' }
+      }
+      shell.openExternal(details.url)
+    } catch { /* invalid URL — deny */ }
     return { action: 'deny' }
   })
 
@@ -389,6 +396,23 @@ app.whenReady().then(async () => {
     }
   })
 
+  // ===== SESSION KNOWLEDGE AUTO-SAVE =====
+  ipcMain.handle('save-session-knowledge', async (_event, knowledge) => {
+    try {
+      const dateStr = new Date().toISOString().split('T')[0]
+      const dir = join(os.homedir(), '.mark', 'knowledge', 'sessions', dateStr)
+      fs.mkdirSync(dir, { recursive: true })
+      const fileName = `${knowledge.session.topic.replace(/\s+/g, '-').toLowerCase()}.json`
+      const filePath = join(dir, fileName)
+      fs.writeFileSync(filePath, JSON.stringify(knowledge, null, 2))
+      console.log(`[Knowledge] Saved session knowledge: ${filePath}`)
+      return { saved: true, path: filePath }
+    } catch (err) {
+      console.error('[Knowledge] Failed to save session knowledge:', err.message)
+      return { saved: false, error: err.message }
+    }
+  })
+
   ipcMain.on('ping', () => console.log('pong'))
 
   ipcMain.on('show-notification', (_event, { title, body }) => {
@@ -403,7 +427,16 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.handle('open-external', async (_event, url) => {
-    shell.openExternal(url)
+    try {
+      const parsed = new URL(url)
+      if (!['https:', 'http:', 'mailto:'].includes(parsed.protocol)) {
+        console.warn(`[SECURITY] open-external blocked: ${parsed.protocol}//${parsed.host}`)
+        return { blocked: true }
+      }
+      shell.openExternal(url)
+    } catch {
+      console.warn(`[SECURITY] open-external blocked (invalid URL): ${url?.slice(0, 100)}`)
+    }
   })
 
   ipcMain.handle('get-youtube-transcript', async (_event, url) => {

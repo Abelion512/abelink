@@ -3,7 +3,7 @@ import path from 'path'
 import os from 'os'
 import { exec } from 'child_process'
 import util from 'util'
-import { navigateTo, readDOM, executeAction } from './browser-agent.js'
+import { navigateTo, closeBrowser, readDOM, executeAction } from './browser-agent.js'
 
 const execPromise = util.promisify(exec)
 
@@ -270,7 +270,8 @@ export const NATIVE_TOOLS = {
   },
   // RSI (Recursive Self Improvement) — eksekusi CLI tanpa approval untuk coding/infra tools
   'run-cli': {
-    needsApproval: false,
+    needsApproval: true,  // RSK-2024: was false — LLM prompt injection dapat execute arbitrary command
+    approvalMessage: (query) => `Mark ingin menjalankan CLI:\n\n${query.split('||')[0].trim()}`,
     handler: async (query) => {
       const parts = query.split('||')
       const cmd = parts[0].trim()
@@ -312,6 +313,10 @@ export const NATIVE_TOOLS = {
     handler: async (query) => {
       try {
         let url = query.trim()
+        // — Security: reject non-http schemes (file://, javascript:, data:, etc.)
+        if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url) && !url.startsWith('http://') && !url.startsWith('https://')) {
+          return { success: false, error: `Scheme ditolak: hanya http/https yang diizinkan.` }
+        }
         if (!url.startsWith('http://') && !url.startsWith('https://')) {
           url = 'https://' + url
         }
@@ -325,7 +330,6 @@ export const NATIVE_TOOLS = {
   'browser-close': {
     handler: async () => {
       try {
-        const { closeBrowser } = await import('./browser-agent.js')
         const result = await closeBrowser()
         return { success: true, data: result }
       } catch (e) {
