@@ -25,20 +25,11 @@ export const YoutubeMusicProvider = ({ children }) => {
       }
     }
     try {
-      // Use physical browser-agent (visible, same partition) instead of hidden BrowserWindow
-      // This avoids Google's embedded browser detection
-      if (window.api?.showBrowserWindow && window.api?.browserNavigate) {
-        window.api.showBrowserWindow()
-        await window.api.browserNavigate(url)
-        setIsPlayerOpen(true)
-        setIsPlaying(true)
-      } else {
-        // Fallback: hidden BrowserWindow
-        await window.api.ytLoad(url)
-        window.api.ytShow()
-        setIsPlayerOpen(true)
-        setIsPlaying(true)
-      }
+      // Dedicated BrowserWindow with UA spoofing, CSP removal, ad-blocker
+      await window.api.ytLoad(url)
+      window.api.ytShow()
+      setIsPlayerOpen(true)
+      setIsPlaying(true)
     } catch (e) {
       setPlaybackError(e.message)
     }
@@ -52,24 +43,31 @@ export const YoutubeMusicProvider = ({ children }) => {
   useEffect(() => {
     if (isPlayerOpen) {
       window.api.ytShow()
-      window.api.ytGetUrl().then(currentUrl => {
-        if (currentUrl) window.api.ytLoad(currentUrl)
-      }).catch(() => {})
     } else {
       window.api.ytHide()
     }
   }, [isPlayerOpen])
 
   const nextTrack = useCallback(() => {
-    window.api.ytShow()
+    window.api.ytCommand('next')
   }, [])
 
   const prevTrack = useCallback(() => {
-    window.api.ytShow()
+    window.api.ytCommand('prev')
   }, [])
 
   const playPause = useCallback(() => {
-    setIsPlaying(p => !p)
+    window.api.ytCommand('playPause')
+  }, [])
+
+  // Listener for track metadata from main process
+  useEffect(() => {
+    if (window.api?.onYtTrackUpdated) {
+      window.api.onYtTrackUpdated((track) => {
+        setCurrentTrack(track)
+        setIsPlaying(true)
+      })
+    }
   }, [])
 
   // Route WA/remote music commands to the active functions

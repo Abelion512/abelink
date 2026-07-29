@@ -38,6 +38,7 @@ function getOrCreateWindow() {
       sandbox: false,
       contextIsolation: true,
       autoplayPolicy: 'no-user-gesture-required',
+      backgroundThrottling: false,
     }
   })
 
@@ -72,8 +73,9 @@ function getOrCreateWindow() {
   })
 
   // Track info from page title
+  // www.youtube.com format: "Video Title - Channel Name" or just "Video Title"
   ytWindow.webContents.on('page-title-updated', (_e, title) => {
-    if (title && !title.includes('YouTube')) {
+    if (title && !title.includes('YouTube') && !title.startsWith('(')) {
       const parts = title.split(' - ')
       if (parts.length >= 2 && onTrackCallback) {
         onTrackCallback({ title: parts[0], artist: parts.slice(1).join(' - '), fullTitle: title })
@@ -122,5 +124,31 @@ export function closePlayer() {
   if (ytWindow && !ytWindow.isDestroyed()) {
     ytWindow.close()
     ytWindow = null
+  }
+}
+
+// Keyboard shortcuts for YouTube Music playback control
+const KEYBOARD_COMMANDS = {
+  next:      { key: 'N', shiftKey: true },
+  prev:      { key: 'P', shiftKey: true },
+  playPause: { key: 'k' },
+}
+
+export function sendKeyboardCommand(command) {
+  const win = ytWindow
+  if (!win || win.isDestroyed()) return
+  const cmd = KEYBOARD_COMMANDS[command]
+  if (!cmd) return
+  win.webContents.executeJavaScript(
+    `document.dispatchEvent(new KeyboardEvent('keydown', ${JSON.stringify({ ...cmd, bubbles: true })}));`
+  ).catch(() => {})
+}
+
+export function showAndNavigate(url) {
+  ytUrl = url
+  const win = getOrCreateWindow()
+  if (win) {
+    win.show()
+    win.loadURL(url)
   }
 }

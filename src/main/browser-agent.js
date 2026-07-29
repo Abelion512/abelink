@@ -119,6 +119,10 @@ export async function navigateTo(url) {
     })
 
     browserWindow.webContents.on('did-finish-load', () => {
+      // Show window only after content has loaded — prevents black flash
+      if (browserWindow && !browserWindow.isDestroyed()) {
+        browserWindow.show()
+      }
       if (activeAskUser && !browserWindow.isDestroyed()) {
         executeAction({ action: 'unblock', value: activeAskUserMessage, isReinject: true }).catch(
           () => null

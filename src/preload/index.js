@@ -147,7 +147,12 @@ const api = {
   ytHide: () => ipcRenderer.invoke('yt:hide'),
   ytIsVisible: () => ipcRenderer.invoke('yt:is-visible'),
   ytGetUrl: () => ipcRenderer.invoke('yt:get-url'),
-  ytClose: () => ipcRenderer.invoke('yt:close')
+  ytClose: () => ipcRenderer.invoke('yt:close'),
+  ytCommand: (command) => ipcRenderer.invoke('yt:command', command),
+  onYtTrackUpdated: (callback) => {
+    ipcRenderer.removeAllListeners('yt:track-updated')
+    ipcRenderer.on('yt:track-updated', (_event, track) => callback(track))
+  }
 }
 
 if (process.contextIsolated) {
