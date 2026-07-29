@@ -1,4 +1,9 @@
 # MARK Agent Fork — Linux-only @abelion
+## CRITICAL RULES — PERMANENT MEMORY
+1. **NEVER push to GitHub without explicit user approval.** Commits to local branch are fine. Push = `git push` = requires user to say "push" first. No exceptions.
+2. **NEVER run destructive operations** (force push, filter-branch, delete branch) without asking first.
+3. **Security audit before push** — at minimum: syntax check, build pass, no hardcoded secrets.
+
 ## Identity
 - This is a **Linux-only fork** of [Mazees/mark-agent](https://github.com/Mazees/mark-agent)
 - Windows/macOS references stripped. All paths Linux-native (`/home/user/...`)
