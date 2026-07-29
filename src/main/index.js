@@ -33,6 +33,7 @@ import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
 import { ElectronBlocker } from '@cliqz/adblocker-electron'
 import mammoth from 'mammoth'
 import { PDFParse } from 'pdf-parse'
+import { loadYouTube, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl } from './youtube-player.js'
 
 // Headless/SSH detection: disable GPU if no display server available (Linux)
 if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
@@ -531,6 +532,14 @@ app.whenReady().then(async () => {
     // LM Studio default
     return { url: 'http://localhost:1234/v1/chat/completions', headers: { 'Content-Type': 'application/json' } }
   })
+
+  // ===== YOUTUBE PLAYER (BrowserWindow, not webview) =====
+  ipcMain.handle('yt:load', (_e, url) => { loadYouTube(url); return { success: true } })
+  ipcMain.handle('yt:show', () => { showPlayer(); return { success: true } })
+  ipcMain.handle('yt:hide', () => { hidePlayer(); return { success: true } })
+  ipcMain.handle('yt:is-visible', () => isPlayerVisible())
+  ipcMain.handle('yt:get-url', () => getPlayerUrl())
+  ipcMain.handle('yt:close', () => { closePlayer(); return { success: true } })
 
   // ===== LINUX PC AGENT IPC =====
   ipcMain.handle('os:read', () => readDesktop())

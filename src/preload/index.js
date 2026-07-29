@@ -139,7 +139,15 @@ const api = {
   osAskUser: (question) => ipcRenderer.invoke('os:ask-user', question),
   osScreenshot: (path) => ipcRenderer.invoke('os:screenshot', path),
   osOcrRegion: (x, y, w, h) => ipcRenderer.invoke('os:ocr-region', x, y, w, h),
-  osEmergencyStop: () => ipcRenderer.invoke('os:emergency-stop')
+  osEmergencyStop: () => ipcRenderer.invoke('os:emergency-stop'),
+
+  // YouTube Player (BrowserWindow)
+  ytLoad: (url) => ipcRenderer.invoke('yt:load', url),
+  ytShow: () => ipcRenderer.invoke('yt:show'),
+  ytHide: () => ipcRenderer.invoke('yt:hide'),
+  ytIsVisible: () => ipcRenderer.invoke('yt:is-visible'),
+  ytGetUrl: () => ipcRenderer.invoke('yt:get-url'),
+  ytClose: () => ipcRenderer.invoke('yt:close')
 }
 
 if (process.contextIsolated) {
