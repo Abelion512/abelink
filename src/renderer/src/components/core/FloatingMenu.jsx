@@ -10,7 +10,8 @@ import {
   FaDatabase,
   FaNetworkWired,
   FaHeartbeat,
-  FaBook
+  FaBook,
+  FaSlidersH
 } from 'react-icons/fa'
 
 const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
@@ -49,6 +50,13 @@ const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
             <FaCog className="text-primary" /> Configuration
+          </button>
+
+          <button
+            onClick={() => handleNav('/data-controls')}
+            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
+          >
+            <FaSlidersH className="text-primary" /> Data Controls
           </button>
 
           <button

@@ -13,13 +13,14 @@ import {
   FaTerminal,
   FaVolumeUp,
   FaDatabase,
-  FaCog
+  FaCog,
+  FaSlidersH
 } from 'react-icons/fa'
 import { getAllMemory, getAllConfig, saveConfiguration, deleteMemory, db, getRelationship, saveRelationship } from '../api/db'
 import { getExtractor } from '../api/vectorMemory'
 import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
-import { useLocation } from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/ChatContext'
 
@@ -1110,6 +1111,63 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               </div>
             </div>
 
+            {/* Max Agent Turns */}
+            <div className="space-y-2 p-2 -mx-2 rounded-lg">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">Max Turns per Task</p>
+                <span className="font-mono text-sm text-primary font-bold">{config.maxTurns || 20}</span>
+              </div>
+              <input
+                type="range"
+                min="5"
+                max="50"
+                step="5"
+                value={config.maxTurns || 20}
+                className="range range-primary range-xs w-full"
+                onChange={(e) => setConfig((prev) => ({ ...prev, maxTurns: Number(e.target.value) }))}
+              />
+              <div className="flex justify-between mt-2 text-xs">
+                <span>5</span>
+                <span>15</span>
+                <span>25</span>
+                <span>35</span>
+                <span>50</span>
+              </div>
+            </div>
+
+            <div className="divider"></div>
+
+            {/* Approval Mode */}
+            <div className="space-y-2 p-2 -mx-2 rounded-lg">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">Mode Persetujuan (Approval)</p>
+                <span className="font-mono text-xs text-primary font-bold uppercase">{config.approvalMode || 'selective'}</span>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { value: 'strict', label: '🔒 Strict', desc: 'Tanya semua' },
+                  { value: 'selective', label: '🟡 Selective', desc: 'Auto baca, tanya tulis' },
+                  { value: 'auto', label: '🟢 Auto', desc: 'AI decide' },
+                  { value: 'bypass', label: '⚡ Bypass', desc: 'Jalankan semua' },
+                  { value: 'plan', label: '📋 Plan', desc: 'Read-only' },
+                ].map((m) => (
+                  <button
+                    key={m.value}
+                    onClick={() => setConfig((prev) => ({ ...prev, approvalMode: m.value }))}
+                    className={`px-3 py-2 rounded-xl text-xs font-medium border transition-all ${
+                      (config.approvalMode || 'selective') === m.value
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-white/10 text-white/60 hover:border-white/30'
+                    }`}
+                    title={m.desc}
+                  >
+                    {m.label}
+                    <div className="text-[10px] opacity-60 mt-0.5">{m.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="divider"></div>
 
             {/* Camera Settings */}
@@ -1379,13 +1437,12 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 <div className="space-y-2">
                   <p className="text-sm font-semibold">Chat History</p>
                   <div className="flex flex-wrap gap-2">
-                    <button className="btn btn-soft btn-error btn-sm" onClick={handleClearAllChat}>
-                      Hapus Semua Chat
-                    </button>
-                    <button className="btn btn-soft btn-info btn-sm" onClick={handleExportChat}>
-                      Export Chat ke JSON
-                    </button>
+                    <Link to="/data-controls" className="btn btn-soft btn-primary btn-sm gap-2">
+                      <FaSlidersH size={12} />
+                       Buka Data Controls
+                    </Link>
                   </div>
+                  <p className="text-xs text-white/40">Export, import, hapus chat & backup semua data MARK ada di Data Controls.</p>
                 </div>
 
               </section>

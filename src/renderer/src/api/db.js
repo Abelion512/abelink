@@ -510,6 +510,165 @@ export async function getRecentAccesses(type = null, limit = 10) {
   }
 }
 
+// ========== ENCRYPTION (AES-256-GCM + PBKDF2) ==========
+
+async function deriveKey(password, salt) {
+  const enc = new TextEncoder()
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']
+  )
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 600000, hash: 'SHA-256' },
+    keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  )
+}
+
+export async function encryptBackup(plaintext, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const key = await deriveKey(password, salt)
+  const encoded = new TextEncoder().encode(plaintext)
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded)
+  return {
+    salt: btoa(String.fromCharCode(...salt)),
+    iv: btoa(String.fromCharCode(...iv)),
+    ciphertext: btoa(String.fromCharCode(...new Uint8Array(ciphertext)))
+  }
+}
+
+export async function decryptBackup(encrypted, password) {
+  const salt = Uint8Array.from(atob(encrypted.salt), c => c.charCodeAt(0))
+  const iv = Uint8Array.from(atob(encrypted.iv), c => c.charCodeAt(0))
+  const ciphertext = Uint8Array.from(atob(encrypted.ciphertext), c => c.charCodeAt(0))
+  const key = await deriveKey(password, salt)
+  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext)
+  return new TextDecoder().decode(decrypted)
+}
+
+// ========== FULL MARK EXPORT / IMPORT ==========
+
+export async function exportFullMark(password = null) {
+  const [sessions, memory, configs, chatArchive, documents, relationships, tasks, taskHistory, auditLogs, primingLogs] =
+    await Promise.all([
+      db.sessions.toArray(),
+      db.memory.toArray(),
+      db.config.toArray(),
+      db.chatArchive.toArray(),
+      db.documents.toArray(),
+      db.relationships.toArray(),
+      db.autonomousTasks.toArray(),
+      db.taskHistory.toArray(),
+      db.auditLog.toArray(),
+      db.primingLog.toArray()
+    ])
+
+  // Config: hapus API keys sensitive
+  const safeConfig = configs.map(c => {
+    const safe = { ...c }
+    delete safe.groqApiKey
+    delete safe.cerebrasApiKey
+    delete safe.customApiKey
+    return safe
+  })
+
+  const payload = JSON.stringify({
+    version: 1,
+    type: 'mark-full',
+    exportedAt: Date.now(),
+    stores: {
+      sessions, memory, config: safeConfig, chatArchive, documents,
+      relationships, tasks, taskHistory, auditLogs, primingLogs
+    }
+  })
+
+  if (password) {
+    const encrypted = await encryptBackup(payload, password)
+    return JSON.stringify({
+      version: 1,
+      type: 'mark-full-encrypted',
+      exportedAt: Date.now(),
+      encrypted
+    })
+  }
+
+  return payload
+}
+
+export async function importFullMark(jsonText, password = null) {
+  let data
+
+  if (password) {
+    // Decrypt dulu
+    const wrapper = JSON.parse(jsonText)
+    if (wrapper.type !== 'mark-full-encrypted' || !wrapper.encrypted) {
+      throw new Error('Format backup terenkripsi tidak valid')
+    }
+    const plaintext = await decryptBackup(wrapper.encrypted, password)
+    data = JSON.parse(plaintext)
+  } else {
+    data = JSON.parse(jsonText)
+  }
+
+  if (data.type !== 'mark-full') {
+    throw new Error('Bukan file backup MARK yang valid')
+  }
+
+  const { stores } = data
+
+  // Clear + restore semua store
+  await Promise.all([
+    db.sessions.clear(),
+    db.chatArchive.clear(),
+    db.relationships.clear(),
+    db.autonomousTasks.clear(),
+    db.taskHistory.clear(),
+    db.auditLog.clear(),
+    db.primingLog.clear()
+    // memory & documents di-clear manual karena mungkin besar
+  ])
+
+  // Re-insert
+  if (stores.sessions?.length) await db.sessions.bulkAdd(stores.sessions)
+  if (stores.chatArchive?.length) await db.chatArchive.bulkAdd(stores.chatArchive)
+  if (stores.memory?.length) await db.memory.bulkAdd(stores.memory)
+  if (stores.documents?.length) await db.documents.bulkAdd(stores.documents)
+  if (stores.relationships?.length) await db.relationships.bulkAdd(stores.relationships)
+  if (stores.tasks?.length) await db.autonomousTasks.bulkAdd(stores.tasks)
+  if (stores.taskHistory?.length) await db.taskHistory.bulkAdd(stores.taskHistory)
+  if (stores.auditLogs?.length) await db.auditLog.bulkAdd(stores.auditLogs)
+  if (stores.primingLogs?.length) await db.primingLog.bulkAdd(stores.primingLogs)
+
+  // Restore config (jaga id=1)
+  if (stores.config?.length) {
+    await db.config.clear()
+    for (const cfg of stores.config) {
+      await db.config.put({ ...cfg, id: 1 })
+    }
+  }
+
+  return { totalStores: Object.keys(stores).length }
+}
+
+// ========== CHAT-ONLY EXPORT / IMPORT ==========
+
+export async function exportChat() {
+  const session = await db.sessions.get(1)
+  return JSON.stringify({
+    version: 1,
+    type: 'chat',
+    exportedAt: Date.now(),
+    data: session ? session.data : []
+  })
+}
+
+export async function importChat(jsonText) {
+  const data = JSON.parse(jsonText)
+  if (data.type !== 'chat') throw new Error('Bukan file chat MARK yang valid')
+  if (!Array.isArray(data.data)) throw new Error('Format chat tidak valid')
+  await db.sessions.put({ id: 1, title: 'Main Thread', data: data.data, timestamp: Date.now() })
+  return { count: data.data.length }
+}
+
 export async function getPrimedItemIds(type, limit = 5) {
   try {
     // Return most frequently accessed items (priming effect)
