@@ -70,30 +70,88 @@ export const YoutubeMusicPlayer = () => {
     const handleDomReady = () => {
       setIsReady(true)
 
-      // CSS: hide scrollbar, premium upsells, login popups, AND all YouTube ad containers
+      // CSS: hide everything except video player, scale to fit compact webview
       webview.insertCSS(`
-        ::-webkit-scrollbar { display: none !important; width: 0 !important; }
-        html, body { overflow-y: scroll !important; scrollbar-width: none !important; }
-        .ytp-chrome-top, .ytp-chrome-bottom, .ytp-gradient-top, .ytp-gradient-bottom {
-          opacity: 1 !important;
+        /* Hide everything except video player */
+        #page-manager > *, ytd-browse, ytd-watch, ytd-watch-flexy,
+        ytd-comments, ytd-related-videos, ytd-secondary,
+        #related, #comments, #chat-container, #header,
+        ytd-movie-player, ytd-video-primary-info-renderer,
+        ytd-video-secondary-info-renderer, yt-live-chat-frame,
+        #columns > #secondary, #columns > #primary > #meta,
+        ytd-watch-metadata, #owner, #above-the-fold,
+        ytd-merch-shelf-renderer, ytd-shelf-renderer,
+        ytd-item-section-renderer, ytd-rich-item-renderer,
+        #page-header, #masthead-container, #guide-content,
+        ytd-mini-guide-renderer, yt-masthead,
+        #footer-container, #footer, yt-footer {
+          display: none !important;
         }
-        #movie_player, .html5-video-player { max-height: 400px !important; }
 
         /* === Ad containers === */
-        /* Sidebar promoted videos */
         ytd-promoted-sparkles-web-renderer,
         ytd-display-ad-renderer,
         ytd-promoted-video-renderer,
         ytd-in-feed-ad-renderer,
         ytd-action-companion-ad-renderer,
-        /* Below-video sponsored */
         ytd-ad-slot-renderer,
         ytd-statement-banner-renderer,
-        /* Pre-roll ad overlays */
         .ytp-ad-overlay-container,
         .ytp-ad-text-overlay,
         .ytp-ad-image-overlay,
         .video-ads,
+        .ytp-ad-player-overlay,
+        .ytp-ad-progress-list,
+        #premium-ytd, ytd-mealbar-promo-renderer, ytd-banner-promo-renderer,
+        ytd-banner-promo-renderer-background, ytd-popup-container,
+        ytd-guide-entry-renderer[icon*='premium'],
+        ytd-pivot-bar-item-renderer[tab-id*='premium'],
+        iron-overlay-backdrop, yt-confirm-dialog-renderer, #consent-bump {
+          display: none !important;
+        }
+
+        /* Only show video player */
+        #movie_player, .html5-video-player,
+        #columns, #primary, #player-container,
+        #player-theater-container, #player-container-outer {
+          display: block !important;
+          max-height: 260px !important;
+          min-height: unset !important;
+          height: auto !important;
+        }
+
+        #movie_player video {
+          max-height: 260px !important;
+          min-height: unset !important;
+          object-fit: contain !important;
+        }
+
+        /* Force player container to fill width */
+        #columns { flex-direction: column !important; max-width: 100% !important; }
+        #primary { max-width: 100% !important; min-width: 0 !important; }
+        #player-container { max-height: 260px !important; }
+        #player-theater-container { max-height: 260px !important; }
+
+        /* Remove margins/padding */
+        #content, #page-manager, ytd-watch-flexy {
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+
+        /* Hide scrollbar, allow only horizontal scroll */
+        html, body {
+          overflow: hidden !important;
+          background: #000 !important;
+        }
+
+        /* Hide YouTube controls that take space */
+        .ytp-chrome-bottom, .ytp-chrome-top {
+          transform: scale(0.8) !important;
+          transform-origin: center bottom !important;
+        }
+
+        ::-webkit-scrollbar { display: none !important; width: 0 !important; }
+        html, body { overflow: hidden !important; scrollbar-width: none !important; }
         /* Bottom banner ads */
         #bottom-row ytd-merch-shelf-renderer,
         ytd-merch-shelf-renderer {
