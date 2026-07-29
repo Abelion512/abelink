@@ -82,6 +82,18 @@ db.version(14).stores({
 db.version(15).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, waAdminNumber, waPendingAdmins, waApprovedAdmins, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled, lastfmApiKey'
 })
+
+db.version(16).stores({
+  // Task persistence (episodic memory) — based on LangGraph Checkpointer + interrupt pattern
+  autonomousTasks: '++id, taskId, status, type, priority, createdAt, updatedAt',
+  // Task execution history (long-term episodic) — based on CrewAI long-term memory
+  taskHistory: '++id, taskId, status, type, completedAt, durationMs',
+  // Audit trail — based on Claude Code auto memory + LangGraph durable execution
+  auditLog: '++id, type, taskId, timestamp',
+  // Priming/recency tracking — based on CrewAI recency scoring + AutoGen Mem0Memory
+  primingLog: '++id, type, itemId, accessedAt, score'
+})
+
 // --- VALIDATION ---
 const VALID_TYPES = ['profile', 'preference', 'notes', 'learn'];
 
@@ -327,5 +339,191 @@ export async function saveRelationship(data) {
     console.log(`[DB] Relationship saved for ${data.userId}:`, data)
   } catch (error) {
     console.error('[DB] Error saveRelationship:', error)
+  }
+}
+
+// --- TASK PERSISTENCE (v16) ---
+// Based on: LangGraph Checkpointer + interrupt/resume pattern
+// Source: https://docs.langchain.com/oss/python/langgraph/interrupts
+
+export async function insertAutonomousTask(data) {
+  try {
+    return await db.autonomousTasks.add(data)
+  } catch (error) {
+    console.error('[DB] Error insertAutonomousTask:', error)
+    throw error
+  }
+}
+
+export async function updateAutonomousTask(taskId, updates) {
+  try {
+    const task = await db.autonomousTasks.where('taskId').equals(taskId).first()
+    if (task) {
+      await db.autonomousTasks.update(task.id, { ...updates, updatedAt: Date.now() })
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error('[DB] Error updateAutonomousTask:', error)
+    return false
+  }
+}
+
+export async function getAutonomousTask(taskId) {
+  try {
+    return await db.autonomousTasks.where('taskId').equals(taskId).first()
+  } catch (error) {
+    console.error('[DB] Error getAutonomousTask:', error)
+    return null
+  }
+}
+
+export async function getAllAutonomousTasks() {
+  try {
+    return await db.autonomousTasks.orderBy('createdAt').reverse().toArray()
+  } catch (error) {
+    console.error('[DB] Error getAllAutonomousTasks:', error)
+    return []
+  }
+}
+
+export async function getPendingAutonomousTasks() {
+  try {
+    return await db.autonomousTasks.where('status').anyOf('pending', 'running').toArray()
+  } catch (error) {
+    console.error('[DB] Error getPendingAutonomousTasks:', error)
+    return []
+  }
+}
+
+export async function deleteAutonomousTask(id) {
+  try {
+    await db.autonomousTasks.delete(id)
+  } catch (error) {
+    console.error('[DB] Error deleteAutonomousTask:', error)
+  }
+}
+
+// --- TASK HISTORY (v16) — episodic memory ---
+// Based on: CrewAI long-term memory (persistent patterns, importance scoring)
+// Source: https://docs.crewai.com/concepts/memory
+
+export async function insertTaskHistory(data) {
+  try {
+    return await db.taskHistory.add(data)
+  } catch (error) {
+    console.error('[DB] Error insertTaskHistory:', error)
+  }
+}
+
+export async function getRecentTaskHistory(limit = 20) {
+  try {
+    return await db.taskHistory.orderBy('completedAt').reverse().limit(limit).toArray()
+  } catch (error) {
+    console.error('[DB] Error getRecentTaskHistory:', error)
+    return []
+  }
+}
+
+export async function getTaskStats() {
+  try {
+    const all = await db.taskHistory.toArray()
+    const total = all.length
+    const succeeded = all.filter(t => t.status === 'completed').length
+    const failed = all.filter(t => t.status === 'failed' || t.status === 'hardstop').length
+    const avgDuration = total > 0 ? all.reduce((s, t) => s + (t.durationMs || 0), 0) / total : 0
+    const avgTurns = total > 0 ? all.reduce((s, t) => s + (t.turns || 0), 0) / total : 0
+    return { total, succeeded, failed, successRate: total > 0 ? (succeeded / total) * 100 : 0, avgDuration, avgTurns }
+  } catch (error) {
+    console.error('[DB] Error getTaskStats:', error)
+    return { total: 0, succeeded: 0, failed: 0, successRate: 0, avgDuration: 0, avgTurns: 0 }
+  }
+}
+
+// --- AUDIT LOG (v16) ---
+// Based on: Claude Code auto memory (stores learnings and patterns per session)
+// + LangGraph durable execution (durable state persistence)
+// Source: https://code.claude.com/docs/en/memory
+
+export async function insertAuditLog(data) {
+  try {
+    return await db.auditLog.add({
+      ...data,
+      timestamp: data.timestamp || Date.now()
+    })
+  } catch (error) {
+    console.error('[DB] Error insertAuditLog:', error)
+  }
+}
+
+export async function getAuditLogs(limit = 50, filterType = null) {
+  try {
+    let collection = db.auditLog.orderBy('timestamp').reverse()
+    if (filterType) {
+      return await collection.filter(l => l.type === filterType).limit(limit).toArray()
+    }
+    return await collection.limit(limit).toArray()
+  } catch (error) {
+    console.error('[DB] Error getAuditLogs:', error)
+    return []
+  }
+}
+
+export async function clearAuditLogs() {
+  try {
+    await db.auditLog.clear()
+  } catch (error) {
+    console.error('[DB] Error clearAuditLogs:', error)
+  }
+}
+
+// --- PRIMING LOG (v16) — recent access tracking ---
+// Based on: CrewAI recency scoring (recency_weight, recency_half_life_days)
+// + AutoGen Mem0Memory (retrieval based on recent activity)
+// Source: https://docs.crewai.com/concepts/memory
+
+export async function logAccess(type, itemId, score = 1.0) {
+  try {
+    await db.primingLog.add({ type, itemId, accessedAt: Date.now(), score })
+    // Auto-cleanup: keep only last 100 entries
+    const count = await db.primingLog.count()
+    if (count > 100) {
+      const oldest = await db.primingLog.orderBy('accessedAt').limit(count - 100).toArray()
+      const ids = oldest.map(e => e.id)
+      await db.primingLog.bulkDelete(ids)
+    }
+  } catch (error) {
+    console.error('[DB] Error logAccess:', error)
+  }
+}
+
+export async function getRecentAccesses(type = null, limit = 10) {
+  try {
+    let collection = db.primingLog.orderBy('accessedAt').reverse()
+    if (type) {
+      return await collection.filter(l => l.type === type).limit(limit).toArray()
+    }
+    return await collection.limit(limit).toArray()
+  } catch (error) {
+    console.error('[DB] Error getRecentAccesses:', error)
+    return []
+  }
+}
+
+export async function getPrimedItemIds(type, limit = 5) {
+  try {
+    // Return most frequently accessed items (priming effect)
+    const logs = await db.primingLog.where('type').equals(type).toArray()
+    const grouped = {}
+    logs.forEach(l => {
+      grouped[l.itemId] = (grouped[l.itemId] || 0) + l.score
+    })
+    return Object.entries(grouped)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([itemId]) => itemId)
+  } catch (error) {
+    console.error('[DB] Error getPrimedItemIds:', error)
+    return []
   }
 }
