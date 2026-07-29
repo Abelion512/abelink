@@ -279,6 +279,9 @@ if (!waContext && !isAutonomous && !isSystem && !options.disableTools) {
     { p: /(?:^|\s)(?:next|skip|lanjut|selanjutnya)\s*/i, tool: 'music-next', group: 0 },
     { p: /(?:^|\s)(?:prev|back|kembali|sebelumnya)\s*/i, tool: 'music-prev', group: 0 },
     { p: /(?:^|\s)(?:pause|stop|berhenti|setop)\s*/i, tool: 'music-toggle', group: 0 },
+    // Catch-all: teks biasa (nama lagu/artis) → guess music-play
+    // Minimal 3 kata atau mengandung kata khas judul lagu
+    { p: /^(?:.*\s+ver(si)?\s+.+|.+\s+(?:slow|reverb|version|cover|remix|live)\s*|.*\s+(?:oleh|by)\s+.+)$/i, tool: 'music-play', group: 0 },
   ]
   
   for (const pattern of musicPatterns) {

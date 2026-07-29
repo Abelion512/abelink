@@ -25,11 +25,11 @@ export const YoutubeMusicProvider = ({ children }) => {
       }
     }
     try {
-      // Navigate in the automation browser (stays hidden until user clicks track card)
-      if (window.api?.browserNavigate) {
-        await window.api.browserNavigate(url)
-      } else {
+      // Navigate in DEDICATED YouTube player (not the automation browser)
+      if (window.api?.ytLoad) {
         await window.api.ytLoad(url)
+      } else if (window.api?.browserNavigate) {
+        await window.api.browserNavigate(url)
       }
       setIsPlayerOpen(true)
       setIsPlaying(true)
@@ -42,10 +42,12 @@ export const YoutubeMusicProvider = ({ children }) => {
     setIsPlayerOpen(prev => !prev)
   }, [])
 
-  // React to isPlayerOpen changes — show/hide the browser window
+  // React to isPlayerOpen changes — show/hide the dedicated YouTube player
   useEffect(() => {
     if (isPlayerOpen) {
-      if (window.api?.showBrowserWindow) {
+      if (window.api?.showPlayer) {
+        window.api.showPlayer()
+      } else if (window.api?.showBrowserWindow) {
         window.api.showBrowserWindow()
       }
     } else {

@@ -147,6 +147,7 @@ const api = {
   // YouTube Player (BrowserWindow)
   ytLoad: (url) => ipcRenderer.invoke('yt:load', url),
   ytShow: () => ipcRenderer.invoke('yt:show'),
+  showPlayer: () => ipcRenderer.invoke('yt:show'), // alias
   ytHide: () => ipcRenderer.invoke('yt:hide'),
   ytIsVisible: () => ipcRenderer.invoke('yt:is-visible'),
   ytGetUrl: () => ipcRenderer.invoke('yt:get-url'),
