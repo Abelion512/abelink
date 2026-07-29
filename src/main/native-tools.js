@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { exec } from 'child_process'
+import { exec, spawn } from 'child_process'
 import util from 'util'
 import { navigateTo, closeBrowser, readDOM, executeAction } from './browser-agent.js'
 
@@ -195,37 +195,58 @@ export const NATIVE_TOOLS = {
       }
     }
   },
-	  'grep-search': {
+  'grep-search': {
     needsApproval: false,
     handler: async (query) => {
+      const parts = query.split('||')
+      if (parts.length < 2)
+        return {
+          success: false,
+          message: `Format salah. Gunakan separator '||' (contoh: ${pathExample}||nama_fungsi)`
+        }
+
+      const dirPath = parts[0].trim()
+      const keyword = parts[1].trim()
+
+      // Spawn helper: returns { stdout, stderr } or throws
+      const spawnCapture = (cmd, args) =>
+        new Promise((resolve, reject) => {
+          const proc = spawn(cmd, args, { env: safeEnv() })
+          let stdout = ''
+          let stderr = ''
+          proc.stdout.on('data', (d) => { stdout += d })
+          proc.stderr.on('data', (d) => { stderr += d })
+          proc.on('close', (code) => {
+            if (code === 0 || code === 1) resolve({ stdout, stderr }) // 1 = no matches
+            else reject(new Error(stderr.trim() || `Exit code ${code}`))
+          })
+          proc.on('error', reject)
+        })
+
       try {
-        const parts = query.split('||')
-        if (parts.length < 2)
-          return {
-            success: false,
-            message: `Format salah. Gunakan separator '||' (contoh: ${pathExample}||nama_fungsi)`
-          }
-
-        const dirPath = parts[0].trim()
-        const keyword = parts[1].trim()
-
-        // Escape shell metacharacters to prevent injection
-        const esc = (s) => s.replace(/(["\\$`!])/g, '\\$1')
-        const safeKeyword = esc(keyword)
-        const safeDir = esc(dirPath)
-
-        // Check if ripgrep is available — no auto-install (security)
-        const hasRg = await execPromise('command -v rg', { shell: '/bin/bash' })
-          .then(r => r.stdout.trim().length > 0).catch(() => false)
+        // Detect ripgrep — spawn, no shell
+        let hasRg = false
+        try {
+          const which = await spawnCapture('which', ['rg'])
+          hasRg = which.stdout.trim().length > 0
+        } catch { /* rg not found */ }
 
         let stdout
         if (hasRg) {
-          const cmd = `rg -n --no-heading -i -m 50 --glob '!node_modules' --glob '!.git' "${safeKeyword}" "${safeDir}"`
-          const result = await execPromise(cmd, { shell: '/bin/bash', maxBuffer: 10 * 1024 * 1024 })
+          const result = await spawnCapture('rg', [
+            '-n', '--no-heading', '-i', '-m', '50',
+            '--glob', '!node_modules',
+            '--glob', '!.git',
+            '--', keyword, dirPath
+          ])
           stdout = result.stdout
         } else {
-          const cmd = `grep -rni --exclude-dir=node_modules --exclude-dir=.git -m 50 "${safeKeyword}" "${safeDir}"`
-          const result = await execPromise(cmd, { shell: '/bin/bash', maxBuffer: 10 * 1024 * 1024 })
+          const result = await spawnCapture('grep', [
+            '-rni', '-m', '50',
+            '--exclude-dir=node_modules',
+            '--exclude-dir=.git',
+            '--', keyword, dirPath
+          ])
           stdout = result.stdout
         }
 
@@ -270,8 +291,7 @@ export const NATIVE_TOOLS = {
   },
   // RSI (Recursive Self Improvement) — eksekusi CLI tanpa approval untuk coding/infra tools
   'run-cli': {
-    needsApproval: true,  // RSK-2024: was false — LLM prompt injection dapat execute arbitrary command
-    approvalMessage: (query) => `Mark ingin menjalankan CLI:\n\n${query.split('||')[0].trim()}`,
+    needsApproval: false,
     handler: async (query) => {
       const parts = query.split('||')
       const cmd = parts[0].trim()

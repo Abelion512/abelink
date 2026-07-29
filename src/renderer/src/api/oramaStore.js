@@ -1,5 +1,6 @@
 import { create, insert, insertMultiple, search, remove, removeMultiple } from '@orama/orama'
 import { generateVector } from './vectorMemory'
+import { db } from './db'
 
 // Dimensi vektor sesuai model Transformers.js (all-MiniLM-L6-v2 = 384)
 const VECTOR_SIZE = 384
@@ -43,8 +44,6 @@ export async function initOramaIndices() {
 
 // Dipanggil saat app start: load semua data Dexie ke Orama
 export async function hydrateFromDexie() {
-  const { db } = await import('./db')
-
   const archives = await db.chatArchive.toArray()
   const validArchives = []
   const needsMigration = localStorage.getItem('migrated_vectors_v1') !== 'true'

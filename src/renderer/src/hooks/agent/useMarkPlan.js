@@ -266,6 +266,41 @@ export const useMarkPlan = ({
         })
       }
 
+// ========== MUSIC FAST-PATH ==========
+// Bypass agentic loop for music commands — langsung handleMusic
+if (!waContext && !isAutonomous && !isSystem && !options.disableTools) {
+  const lowerInput = (userInput || '').trim().toLowerCase()
+  const musicPatterns = [
+    { p: /^(putar|play|mainkan|nyalakan)\s+(lagu|musik|playlist)\s+(.+)/i, tool: 'music-play' },
+    { p: /^(putar|play|mainkan)\s+(.+)/i, tool: 'music-play' },
+    { p: /^cari\s+(lagu|musik|playlist)\s+(.+)/i, tool: 'music-search' },
+    { p: /^(lagu|musik|playlist)\s+(.+)/i, tool: 'music-search' },
+    { p: /^(next|skip|lanjut|selanjutnya)/i, tool: 'music-next' },
+    { p: /^(prev|back|kembali|sebelumnya)/i, tool: 'music-prev' },
+    { p: /^(pause|stop|berhenti|toggle)/i, tool: 'music-toggle' },
+  ]
+  
+  for (const pattern of musicPatterns) {
+    const match = lowerInput.match(pattern.p)
+    if (match) {
+      const query = match[match.length - 1] || lowerInput
+      console.log('[Music Fast-Path] Detected:', pattern.tool, 'query:', query)
+      
+      const musicResult = await handleMusic(pattern.tool, query)
+      
+      // Set chat data with result
+      setChatData((prev) => [
+        ...prev,
+        { role: 'ai', content: musicResult, mood: 'joy', timestamp: getCurrentTimeInfo() }
+      ])
+      
+      setIsLoading(false)
+      setIsAgentBusy(false)
+      return
+    }
+  }
+}
+
 // ========== STEP 3: AGENTIC LOOP ==========
 const loopMessages = [...chatSession]
 	const MAX_TURNS = config[0]?.maxTurns || 20
