@@ -1,7 +1,6 @@
 // Vision Service — dedicated vision model dispatch
-// Routes analyze-screen and camera-look to appropriate vision models.
-// Fallback: tries LM Studio vision endpoint, then Gemini-compatible.
-// model-router.js is not yet implemented — dispatch inline here.
+// Routes analyze-screen and camera-look to appropriate vision models via registry.
+// Uses IPC bridge to resolve model from combo registry, not hardcoded endpoints.
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB limit per image
 
@@ -11,36 +10,54 @@ function truncateImage(dataUrl) {
   return dataUrl
 }
 
+async function resolveEndpoint() {
+  // Resolve via registry: deep role for screenshot analysis
+  // Falls back to custom provider endpoint, then LM Studio
+  try {
+    if (window.api?.resolveVisionModel) {
+      const modelId = await window.api.resolveVisionModel('deep')
+      if (modelId && window.api?.getModelEndpoint) {
+        const ep = await window.api.getModelEndpoint(modelId)
+        if (ep?.url) return { ...ep, model: modelId }
+      }
+    }
+  } catch {}
+  // Fallback: use custom endpoint from config or LM Studio
+  try {
+    if (window.api?.getModelEndpoint) {
+      const ep = await window.api.getModelEndpoint(null)
+      if (ep?.url) return { ...ep, model: 'deepseek-vl2' }
+    }
+  } catch {}
+  return { url: 'http://localhost:1234/v1/chat/completions', model: 'llava-v1.6-mistral', headers: { 'Content-Type': 'application/json' } }
+}
+
 async function analyzeImage(imageData, prompt, source) {
-  // Try LM Studio vision endpoint (LLaVA / LLaMA-vision compatible)
-  const endpoints = [
-    { url: 'http://localhost:1234/v1/chat/completions', model: 'llava-v1.6-mistral' },
-  ]
-  for (const ep of endpoints) {
-    try {
-      const res = await fetch(ep.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: ep.model,
-          messages: [
-            { role: 'user', content: [
-              { type: 'text', text: prompt },
-              { type: 'image_url', image_url: { url: imageData, detail: 'high' } }
-            ]}
-          ],
-          max_tokens: 1024,
-          stream: false
-        })
+  const ep = await resolveEndpoint()
+  try {
+    const res = await fetch(ep.url, {
+      method: 'POST',
+      headers: { ...(ep.headers || {}), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: ep.model,
+        messages: [
+          { role: 'user', content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: imageData, detail: 'high' } }
+          ]}
+        ],
+        max_tokens: 1024,
+        stream: false
       })
-      if (!res.ok) continue
-      const data = await res.json()
-      const text = data.choices?.[0]?.message?.content || ''
-      return { source, content: text }
-    } catch {}
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    const text = data.choices?.[0]?.message?.content || ''
+    return { source, content: text }
+  } catch (e) {
+    console.warn('[VisionService] Endpoint failed:', ep.url, e.message)
   }
-  // ponytail: single fallback, multi-model dispatch when vision matters
-  return { source: 'error', content: 'Vision model tidak merespons. Pastikan LM Studio dengan model vision (llava/llama-vision) berjalan.' }
+  return { source: 'error', content: 'Vision model tidak merespons. Cek: (1) Provider punya model vision (2) Config sudah benar (3) Registry combo mengandung vision role.' }
 }
 
 // Analyze screenshot(s) — handles multi-monitor
