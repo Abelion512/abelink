@@ -96,6 +96,17 @@ export const YoutubeMusicProvider = ({ children }) => {
     }
   }, [playUrl, nextTrack, prevTrack, playPause])
 
+  // Listen for track info from browser-agent.js (when YouTube is playing)
+  useEffect(() => {
+    if (window.api?.onYtTrackUpdated) {
+      window.api.onYtTrackUpdated((track) => {
+        if (track && track.title) {
+          setCurrentTrack(track)
+        }
+      })
+    }
+  }, [])
+
   // Sync to MPRIS
   useEffect(() => {
     if (window.api?.updateMprisTrack && currentTrack.title)
