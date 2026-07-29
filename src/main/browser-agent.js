@@ -26,14 +26,58 @@ export async function navigateTo(url) {
       }
     })
 
-    browserWindow.webContents.setMaxListeners(50) // Fix memory leak warning for did-stop-loading
+    browserWindow.webContents.setMaxListeners(50)
 
-    // Cegah website buka window baru (pop-up atau target="_blank")
+    // === CHROME UA SPOOFING ===
+    const originalUA = browserWindow.webContents.userAgent
+    const chromeUA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.152 Safari/537.36'
+    browserWindow.webContents.userAgent = chromeUA
+
+    // Restore real Electron UA for Google login (trusted, don't fake)
+    browserWindow.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
+      if (details.url.startsWith('https://accounts.google.com')) {
+        details.requestHeaders['User-Agent'] = originalUA
+      }
+      cb({ requestHeaders: details.requestHeaders })
+    })
+
+    // Remove CSP
+    browserWindow.webContents.session.webRequest.onHeadersReceived((details, cb) => {
+      if (details.responseHeaders) {
+        delete details.responseHeaders['content-security-policy']
+        delete details.responseHeaders['Content-Security-Policy']
+        delete details.responseHeaders['content-security-policy-report-only']
+      }
+      cb({ responseHeaders: details.responseHeaders })
+    })
+
+    // Handle OAuth popups
     browserWindow.webContents.setWindowOpenHandler(({ url }) => {
       if (browserWindow && !browserWindow.isDestroyed()) {
         browserWindow.loadURL(url) // Paksa buka di window yang sama
       }
       return { action: 'deny' } // Tolak pembuatan window baru
+    })
+
+    // Inject anti-fingerprint scripts on every page load
+    const antiFingerprintScript = `
+      try {
+        Object.defineProperty(navigator, 'webdriver', { get: () => false, configurable: true });
+        if (navigator.__proto__) delete navigator.__proto__.webdriver;
+        if (!window.chrome) window.chrome = {};
+        window.chrome.runtime = window.chrome.runtime || { connect: function(){}, sendMessage: function(){} };
+        window.chrome.loadTimes = function(){};
+        window.chrome.csi = function(){};
+        Object.defineProperty(navigator, 'platform', { get: () => 'Linux x86_64', configurable: true });
+        Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8, configurable: true });
+      } catch(e) {}
+    `
+    browserWindow.webContents.on('did-start-navigation', () => {
+      browserWindow.webContents.executeJavaScript(antiFingerprintScript).catch(() => {})
+    })
+    browserWindow.webContents.on('dom-ready', () => {
+      browserWindow.webContents.executeJavaScript(antiFingerprintScript).catch(() => {})
     })
 
     browserWindow.on('close', (event) => {
