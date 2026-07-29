@@ -25,9 +25,12 @@ export const YoutubeMusicProvider = ({ children }) => {
       }
     }
     try {
-      // Dedicated BrowserWindow with UA spoofing, CSP removal, ad-blocker
-      await window.api.ytLoad(url)
-      window.api.ytShow()
+      // Navigate in the automation browser (stays hidden until user clicks track card)
+      if (window.api?.browserNavigate) {
+        await window.api.browserNavigate(url)
+      } else {
+        await window.api.ytLoad(url)
+      }
       setIsPlayerOpen(true)
       setIsPlaying(true)
     } catch (e) {
@@ -39,12 +42,18 @@ export const YoutubeMusicProvider = ({ children }) => {
     setIsPlayerOpen(prev => !prev)
   }, [])
 
-  // React to isPlayerOpen changes — show/hide the BrowserWindow
+  // React to isPlayerOpen changes — show/hide the automation BrowserWindow
   useEffect(() => {
     if (isPlayerOpen) {
-      window.api.ytShow()
+      if (window.api?.showBrowserWindow) {
+        window.api.showBrowserWindow()
+      } else {
+        window.api.ytShow()
+      }
     } else {
-      window.api.ytHide()
+      if (window.api?.ytHide) {
+        window.api.ytHide()
+      }
     }
   }, [isPlayerOpen])
 

@@ -130,6 +130,38 @@ export async function navigateTo(url) {
       }
     })
 
+    // === TRACK POLLING — catches title changes that page-title-updated misses ===
+    let lastKnownTitle = ''
+    let trackPollingInterval = null
+
+    browserWindow.webContents.once('did-finish-load', () => {
+      trackPollingInterval = setInterval(async () => {
+        try {
+          if (browserWindow.isDestroyed()) {
+            clearInterval(trackPollingInterval)
+            return
+          }
+          const title = await browserWindow.webContents.executeJavaScript('document.title')
+          if (title && title !== lastKnownTitle && title.includes(' - YouTube')) {
+            lastKnownTitle = title
+            const parts = title.replace(' - YouTube', '').split(' - ')
+            if (parts.length >= 2) {
+              const trackInfo = { title: parts[0], artist: parts.slice(1).join(' - '), fullTitle: title }
+              BrowserWindow.getAllWindows().forEach(win => {
+                if (!win.isDestroyed() && win.webContents) {
+                  win.webContents.send('yt:track-updated', trackInfo)
+                }
+              })
+            }
+          }
+        } catch (e) { /* ignore polling errors */ }
+      }, 2000)
+    })
+
+    browserWindow.on('closed', () => {
+      if (trackPollingInterval) clearInterval(trackPollingInterval)
+    })
+
     browserWindow.on('page-title-updated', async (event, title) => {
       // === YouTube track info detection ===
       // When YouTube plays, title = "Song Name - Artist - YouTube"
