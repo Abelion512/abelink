@@ -120,6 +120,9 @@ const api = {
     ipcRenderer.on('config-updated', () => callback())
   },
 
+  // Session Knowledge
+  saveSessionKnowledge: (knowledge) => ipcRenderer.invoke('save-session-knowledge', knowledge),
+
   // Tool Registry — Progressive Disclosure + Vector Discovery
   getToolCatalog: () => ipcRenderer.invoke('tool-catalog'),
   getToolCatalogForQuery: (query, maxResults) => ipcRenderer.invoke('tool-catalog-query', query, maxResults),

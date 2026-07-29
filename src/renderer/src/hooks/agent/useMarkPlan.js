@@ -4,7 +4,7 @@ import { getYoutubeSummary } from '../../api/ai/tools'
 import { fetchAI } from '../../api/ai/core'
 import { analyzeScreen, analyzeCamera } from '../../api/ai/vision-service'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
-import { insertMemory, updateMemory, deleteMemory, getAllMemory } from '../../api/db'
+import { insertMemory, updateMemory, deleteMemory, getAllMemory, insertAuditLog } from '../../api/db'
 import { getUnifiedContext, searchExtendedMemory, generateVector, cosineSimilarity } from '../../api/vectorMemory'
 import { sanitizeToolOutput } from '../../api/ai/output-sanitizer'
 import { getGuardGate } from '../../api/ai/guard-gate'
@@ -84,12 +84,10 @@ export const useMarkPlan = ({
     interventionBufferRef.current.push({ text: msg.trim(), type, timestamp: Date.now() })
     
     // Audit log for steer action
-    import('../../api/db').then(({ insertAuditLog }) => {
-      insertAuditLog({
-        type: 'steer',
-        taskId: agenticProcessId || 'unknown',
-        data: { steerType: type, message: msg.trim().substring(0, 200) }
-      }).catch(() => {})
+    insertAuditLog({
+      type: 'steer',
+      taskId: agenticProcessId || 'unknown',
+      data: { steerType: type, message: msg.trim().substring(0, 200) }
     }).catch(() => {})
   }
 

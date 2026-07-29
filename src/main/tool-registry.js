@@ -15,7 +15,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs'
-import { join, basename } from 'path'
+import { join } from 'path'
 import { homedir } from 'os'
 import { loadPlugins } from './plugins/plugin-loader.js'
 import { loadSkills } from './agent-skills-loader.js'
