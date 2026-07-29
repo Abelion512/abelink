@@ -1,4 +1,4 @@
-import { useState, useContext, createContext, useRef, useCallback, useEffect } from 'react'
+import { useState, useContext, createContext, useCallback, useEffect } from 'react'
 
 const YoutubeMusicContext = createContext()
 
@@ -6,56 +6,86 @@ export const YoutubeMusicProvider = ({ children }) => {
   const [musicUrl, setMusicUrl] = useState('https://www.youtube.com')
   const [isPlayerOpen, setIsPlayerOpen] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [playId, setPlayId] = useState(0)
-  const [playbackError, setPlaybackError] = useState(null)
-  const webviewRef = useRef(null)
-
   const [currentTrack, setCurrentTrack] = useState({ title: '', artist: '', thumbnail: '' })
-  const isPollingRef = useRef(false)
+  const [playbackError, setPlaybackError] = useState(null)
 
-  // Poll webview every 5s for track info + thumbnail — hanya saat player terbuka
-  useEffect(() => {
-    let interval
-    const poll = async () => {
-      if (!isPlayerOpen || isPollingRef.current) return
-      isPollingRef.current = true
-
-      // Defer via requestAnimationFrame agar tidak blocking click handler
-      await new Promise(r => requestAnimationFrame(r))
-
-      const webview = webviewRef.current
-      if (!webview) { setIsPlaying(false); isPollingRef.current = false; return }
-      try {
-        const info = await webview.executeJavaScript(
-          `(function(){ 
-            const titleEl = document.querySelector('#title h1 yt-formatted-string.ytd-watch-metadata, .ytd-video-primary-info-renderer h1 yt-formatted-string');
-            const subtitleEl = document.querySelector('#owner #channel-name a');
-            const imgEl = document.querySelector('link[itemprop="thumbnailUrl"]');
-            const video = document.querySelector('video');
-            const url = window.location.href;
-            const vidMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-            return {
-              title: titleEl ? (titleEl.innerText || titleEl.textContent || '').trim() : '',
-              artist: subtitleEl ? subtitleEl.innerText.trim() : '',
-              thumbnail: imgEl ? imgEl.href : (vidMatch ? 'https://i.ytimg.com/vi/' + vidMatch[1] + '/maxresdefault.jpg' : ''),
-              paused: video ? video.paused : true
-            };
-          })()`
-        )
-        setIsPlaying(!info.paused)
-        if (info.title && info.title !== currentTrack.title) {
-          setCurrentTrack(prev => ({
-            title: info.title,
-            artist: info.artist || prev.artist,
-            thumbnail: info.thumbnail || prev.thumbnail
-          }))
-        }
-      } catch { setIsPlaying(false) }
-      isPollingRef.current = false
+  const playUrl = useCallback(async (url, initialTrack = null) => {
+    if (!url) return
+    setMusicUrl(url)
+    setPlaybackError(null)
+    if (initialTrack) {
+      setCurrentTrack(initialTrack)
+    } else {
+      const vidMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
+      if (vidMatch) {
+        setCurrentTrack(prev => ({
+          ...prev,
+          thumbnail: 'https://i.ytimg.com/vi/' + vidMatch[1] + '/maxresdefault.jpg'
+        }))
+      }
     }
-    interval = setInterval(poll, 5000)
-    return () => clearInterval(interval)
+    try {
+      const res = await window.api.ytLoad(url)
+      setIsPlayerOpen(true)
+      setIsPlaying(true)
+    } catch (e) {
+      setPlaybackError(e.message)
+    }
+  }, [])
+
+  const togglePlayer = useCallback(() => {
+    setIsPlayerOpen(prev => !prev)
+  }, [])
+
+  // React to isPlayerOpen changes — show/hide the BrowserWindow
+  useEffect(() => {
+    if (isPlayerOpen) {
+      window.api.ytShow()
+      window.api.ytGetUrl().then(currentUrl => {
+        if (currentUrl) window.api.ytLoad(currentUrl)
+      }).catch(() => {})
+    } else {
+      window.api.ytHide()
+    }
   }, [isPlayerOpen])
+
+  const nextTrack = useCallback(() => {
+    window.api.ytShow()
+  }, [])
+
+  const prevTrack = useCallback(() => {
+    window.api.ytShow()
+  }, [])
+
+  const playPause = useCallback(() => {
+    setIsPlaying(p => !p)
+  }, [])
+
+  // Route WA/remote music commands to the active functions
+  useEffect(() => {
+    if (window.api?.onExecuteMusicCommand) {
+      window.api.onExecuteMusicCommand((command, payload) => {
+        if (command === 'play' && payload) playUrl(payload)
+        else if (command === 'next') nextTrack()
+        else if (command === 'prev') prevTrack()
+        else if (command === 'toggle') playPause()
+      })
+    }
+    if (window.api?.onExecuteMusicCommandWa) {
+      window.api.onExecuteMusicCommandWa((command, payload) => {
+        if (command === 'play' && payload) {
+          window.api.searchMusic(payload).then((music) => {
+            if (music && music.length > 0) {
+              const url = `https://www.youtube.com/watch?v=${music[0].id}`
+              playUrl(url)
+            }
+          })
+        } else if (command === 'next') nextTrack()
+        else if (command === 'prev') prevTrack()
+        else if (command === 'toggle') playPause()
+      })
+    }
+  }, [playUrl, nextTrack, prevTrack, playPause])
 
   // Sync to MPRIS
   useEffect(() => {
@@ -67,54 +97,22 @@ export const YoutubeMusicProvider = ({ children }) => {
       window.api.setMprisPlaybackStatus(isPlaying)
   }, [isPlaying])
 
-  const playUrl = useCallback(async (url, initialTrack = null) => {
-    setPlaybackError(null)
-    setMusicUrl(url)
-    setPlayId(prev => prev + 1)
-    setIsPlayerOpen(true)
-    if (initialTrack) {
-      setCurrentTrack(initialTrack)
-    } else {
-      // Auto-generate thumbnail from URL if available
-      const vidMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
-      if (vidMatch) {
-        setCurrentTrack(prev => ({
-          ...prev,
-          thumbnail: 'https://i.ytimg.com/vi/' + vidMatch[1] + '/maxresdefault.jpg'
-        }))
-      }
-    }
-  }, [])
-
-  const togglePlayer = useCallback(() => setIsPlayerOpen(prev => !prev), [])
-
-  const nextTrack = useCallback(() => {
-    webviewRef.current?.executeJavaScript(
-      `document.dispatchEvent(new KeyboardEvent('keydown', {key: 'N', shiftKey: true, bubbles: true}));`
-    ).catch(() => {})
-  }, [])
-
-  const prevTrack = useCallback(() => {
-    webviewRef.current?.executeJavaScript(
-      `document.dispatchEvent(new KeyboardEvent('keydown', {key: 'P', shiftKey: true, bubbles: true}));`
-    ).catch(() => {})
-  }, [])
-
-  const playPause = useCallback(() => {
-    webviewRef.current?.executeJavaScript(
-      `document.dispatchEvent(new KeyboardEvent('keydown', {key: 'k', bubbles: true}));`
-    ).catch(() => {})
-  }, [])
-
   const value = {
-    musicUrl, setMusicUrl, playUrl, playId,
-    isPlayerOpen, setIsPlayerOpen, togglePlayer,
-    webviewRef, isPlaying, currentTrack,
-    nextTrack, prevTrack, playPause,
-    playbackError, setPlaybackError
+    musicUrl, setMusicUrl, isPlayerOpen, setIsPlayerOpen,
+    isPlaying, setIsPlaying,
+    currentTrack, setCurrentTrack, playbackError, setPlaybackError,
+    playUrl, nextTrack, prevTrack, playPause, togglePlayer
   }
 
-  return <YoutubeMusicContext.Provider value={value}>{children}</YoutubeMusicContext.Provider>
+  return (
+    <YoutubeMusicContext.Provider value={value}>
+      {children}
+    </YoutubeMusicContext.Provider>
+  )
 }
 
-export const useYoutubeMusic = () => useContext(YoutubeMusicContext)
+export const useYoutubeMusic = () => {
+  const ctx = useContext(YoutubeMusicContext)
+  if (!ctx) throw new Error('useYoutubeMusic must be used within YoutubeMusicProvider')
+  return ctx
+}
