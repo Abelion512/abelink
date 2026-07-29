@@ -110,3 +110,4 @@ build/Release/
 tests/*.har
 tests/*.heapsnapshot
 tests/*.gz
+.env.bak
