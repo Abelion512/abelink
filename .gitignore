@@ -44,14 +44,14 @@ Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
-# ── Environment ──
+# ── Environment / secrets ──
 .env
-.env.example
-.env.local
-.env.*.local
+.env.*
+!.env.example
 *.pem
 *.cert
 *.key
+*.bak
 
 # ── Logs ──
 *.log
@@ -83,7 +83,7 @@ web.whatsapp.com_files/
 *.sqlite
 *.sqlite3
 
-# ── AI agent artifacts (local overrides) ──
+# ── AI agent artifacts ──
 CLAUDE.md
 AGENTS.md.local
 .local/
@@ -93,6 +93,7 @@ AGENTS.md.local
 quest.md
 docs/PLANNED/
 docs/superpowers/
+.remember/agent-memory/
 
 # ── Local config ──
 model-registry.json
@@ -102,12 +103,15 @@ service-account.json
 client_secret*.json
 *-config.local.*
 
-# ── Native addon builds ──
-*.node
-build/Release/
-
-# ── Performance test artifacts (large, generated) ──
+# ── Generated / large test artifacts ──
 tests/*.har
 tests/*.heapsnapshot
 tests/*.gz
-.env.bak
+
+# ── Node.js version specifiers (workspace-specific, not project) ──
+.nvmrc
+.node-version
+.nodenv-version
+
+# ── Pluggable skill cache ──
+agent-skills-cache.json
