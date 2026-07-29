@@ -271,19 +271,23 @@ export const useMarkPlan = ({
 if (!waContext && !isAutonomous && !isSystem && !options.disableTools) {
   const lowerInput = (userInput || '').trim().toLowerCase()
   const musicPatterns = [
-    { p: /^(putar|play|mainkan|nyalakan)\s+(lagu|musik|playlist)\s+(.+)/i, tool: 'music-play' },
-    { p: /^(putar|play|mainkan)\s+(.+)/i, tool: 'music-play' },
-    { p: /^cari\s+(lagu|musik|playlist)\s+(.+)/i, tool: 'music-search' },
-    { p: /^(lagu|musik|playlist)\s+(.+)/i, tool: 'music-search' },
-    { p: /^(next|skip|lanjut|selanjutnya)/i, tool: 'music-next' },
-    { p: /^(prev|back|kembali|sebelumnya)/i, tool: 'music-prev' },
-    { p: /^(pause|stop|berhenti|toggle)/i, tool: 'music-toggle' },
+    // FIX: tambah variasi bahasa natural + middle-of-sentence match
+    { p: /(?:^|\s)(?:putar|play|mainkan|nyalakan|puterin|putarin)\s+(?:lagu|musik|playlist|soundtrack)?\s*(?:dari|nya|dong)?\s+(.+)/i, tool: 'music-play', group: 1 },
+    { p: /(?:^|\s)(?:putar|play|mainkan|nyalakan)\s+(.+)/i, tool: 'music-play', group: 1 },
+    { p: /(?:^|\s)(?:cari|cariin|cariikan)\s+(?:lagu|musik|playlist|soundtrack)\s+(.+)/i, tool: 'music-search', group: 1 },
+    { p: /(?:^|\s)(?:lagu|musik|playlist)\s+(.+)/i, tool: 'music-search', group: 1 },
+    { p: /(?:^|\s)(?:next|skip|lanjut|selanjutnya)\s*/i, tool: 'music-next', group: 0 },
+    { p: /(?:^|\s)(?:prev|back|kembali|sebelumnya)\s*/i, tool: 'music-prev', group: 0 },
+    { p: /(?:^|\s)(?:pause|stop|berhenti|setop)\s*/i, tool: 'music-toggle', group: 0 },
   ]
   
   for (const pattern of musicPatterns) {
     const match = lowerInput.match(pattern.p)
     if (match) {
-      const query = match[match.length - 1] || lowerInput
+      const query = pattern.group ? (match[pattern.group] || '').trim() : lowerInput
+      if (pattern.tool === 'music-play' || pattern.tool === 'music-search') {
+        if (query.length < 2) continue // skip if query too short
+      }
       console.log('[Music Fast-Path] Detected:', pattern.tool, 'query:', query)
       
       const musicResult = await handleMusic(pattern.tool, query)

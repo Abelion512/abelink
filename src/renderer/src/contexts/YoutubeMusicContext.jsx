@@ -42,13 +42,11 @@ export const YoutubeMusicProvider = ({ children }) => {
     setIsPlayerOpen(prev => !prev)
   }, [])
 
-  // React to isPlayerOpen changes — show/hide the automation BrowserWindow
+  // React to isPlayerOpen changes — show/hide the browser window
   useEffect(() => {
     if (isPlayerOpen) {
       if (window.api?.showBrowserWindow) {
         window.api.showBrowserWindow()
-      } else {
-        window.api.ytShow()
       }
     } else {
       if (window.api?.ytHide) {
