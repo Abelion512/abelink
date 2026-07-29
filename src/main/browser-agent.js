@@ -116,13 +116,16 @@ export async function navigateTo(url) {
 
     browserWindow.on('closed', () => {
       browserWindow = null
+      // Clear BrowserPreviewWidget di renderer — thumbnail stale jika gak di-clear
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed()) {
+          win.webContents.send('browser:preview', null)
+        }
+      })
     })
 
     browserWindow.webContents.on('did-finish-load', () => {
-      // Show window only after content has loaded — prevents black flash
-      if (browserWindow && !browserWindow.isDestroyed()) {
-        browserWindow.show()
-      }
+      // JANGAN show() di sini — browser hanya visible saat unblock (browser-ask-user)
       if (activeAskUser && !browserWindow.isDestroyed()) {
         executeAction({ action: 'unblock', value: activeAskUserMessage, isReinject: true }).catch(
           () => null
@@ -314,13 +317,19 @@ export async function readDOM() {
 }
 
 export function showBrowser() {
-  console.log('[DEBUG] showBrowser called! Window exists?', !!browserWindow)
   if (browserWindow && !browserWindow.isDestroyed()) {
     if (browserWindow.isMinimized()) browserWindow.restore()
     browserWindow.show()
     browserWindow.focus()
     browserWindow.setAlwaysOnTop(true)
     browserWindow.setAlwaysOnTop(false)
+  } else {
+    // Window gak ada — clear stale preview di renderer
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('browser:preview', null)
+      }
+    })
   }
 }
 export async function executeAction(data) {
