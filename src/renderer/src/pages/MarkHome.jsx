@@ -216,9 +216,9 @@ const MarkHome = () => {
 
         {/* Response + Music Controls + 4-Mode Bar */}
         <div className="w-full max-w-2xl flex flex-col items-center gap-4 px-4">
-          {/* Response bubble — glass card */}
+          {/* Response — no boundaries, natural flow */}
           {currentResponse && (
-            <div className="w-full animate-[fade-up_0.4s_ease-out_forwards] bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg">
+            <div className="w-full animate-[fade-up_0.4s_ease-out_forwards]">
               <ResponseArea currentResponse={currentResponse} />
             </div>
           )}
