@@ -25,14 +25,14 @@ export const YoutubeMusicProvider = ({ children }) => {
       }
     }
     try {
-      // Navigate in DEDICATED YouTube player (not the automation browser)
+      // Navigate in DEDICATED YouTube player — HIDDEN by default (audio only)
       if (window.api?.ytLoad) {
         await window.api.ytLoad(url)
       } else if (window.api?.browserNavigate) {
         await window.api.browserNavigate(url)
       }
-      setIsPlayerOpen(true)
       setIsPlaying(true)
+      // JANGAN setIsPlayerOpen(true) otomatis — biarkan hidden sampai user klik card
     } catch (e) {
       setPlaybackError(e.message)
     }

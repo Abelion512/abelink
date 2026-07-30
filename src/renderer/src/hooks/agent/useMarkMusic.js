@@ -54,7 +54,8 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
 
     if (isAutoplay && selectedId) {
       playUrl(`https://www.youtube.com/watch?v=${selectedId}`, selectedMusicList[0])
-      return `[SYSTEM LOG] Berhasil memutar lagu: ${selectedMusicList[0].title} oleh ${selectedMusicList[0].artist}`
+      // Return empty — player card di YouTubePlayer sudah cukup sebagai feedback
+      return ''
     }
 
     const resultText = music.slice(0, 5).map(m => `${m.title} oleh ${m.artist}`).join(', ')

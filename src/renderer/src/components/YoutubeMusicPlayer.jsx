@@ -34,7 +34,14 @@ export const YoutubeMusicPlayer = () => {
               </button>
             </div>
           </div>
-          <div className="px-3 py-2 bg-black/20 cursor-pointer" onClick={togglePlayer}>
+          <div className="px-3 py-2 bg-black/20 cursor-pointer" onClick={() => {
+            if (window.api?.showPlayer) {
+              window.api.showPlayer()
+            } else if (window.api?.ytShow) {
+              window.api.ytShow()
+            }
+            togglePlayer()
+          }}>
             {currentTrack.title ? (
               <div className="text-white text-sm truncate font-medium">{currentTrack.title}</div>
             ) : (
