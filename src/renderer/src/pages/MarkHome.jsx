@@ -110,6 +110,13 @@ const MarkHome = () => {
     }
   }, [isLoading, chatData, setOrbStatus])
 
+  // Override orb status when music is playing
+  useEffect(() => {
+    if (isPlaying && orbStatus === 'idle') {
+      setOrbStatus('playing')
+    }
+  }, [isPlaying, orbStatus, setOrbStatus])
+
   // Derived currentResponse from chatData
   useEffect(() => {
     if (chatData && chatData.length > 0) {

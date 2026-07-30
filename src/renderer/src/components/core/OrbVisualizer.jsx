@@ -10,6 +10,10 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
       setGlassClass('from-red-500/40 to-red-600/10');
       setGlowClass('bg-red-500/50');
       setBorderClass('border-red-400/50');
+    } else if (status === 'playing') {
+      setGlassClass('from-purple-500/40 to-violet-600/10');
+      setGlowClass('bg-purple-500/50');
+      setBorderClass('border-purple-400/50');
     } else {
       switch (mood) {
         case 'joy':
@@ -71,6 +75,7 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
   if (status === 'thinking') targetScale = 1.15;
   else if (status === 'nudge') targetScale = 1.05;
   else if (status === 'speaking') targetScale = 1 + intensity * 0.4;
+  else if (status === 'playing') targetScale = 1.03;
   else targetScale = 1;
 
   // 24 = 6rem = 96px, so translateZ is 48px
