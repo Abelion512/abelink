@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 
 const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) => {
-  const [glassClass, setGlassClass] = useState('from-sky-400/30 to-blue-500/10');
-  const [glowClass, setGlowClass] = useState('bg-sky-500/40');
-  const [borderClass, setBorderClass] = useState('border-sky-400/40');
+  const [glassClass, setGlassClass] = useState('from-emerald-400/40 to-green-500/10');
+  const [glowClass, setGlowClass] = useState('bg-green-500/50');
+  const [borderClass, setBorderClass] = useState('border-green-400/50');
 
   useEffect(() => {
     if (status === 'error') {
@@ -11,13 +11,13 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
       setGlowClass('bg-red-500/50');
       setBorderClass('border-red-400/50');
     } else if (status === 'playing') {
-      setGlassClass('from-amber-400/40 to-yellow-600/10');
-      setGlowClass('bg-amber-500/50');
-      setBorderClass('border-amber-400/50');
+      setGlassClass('from-purple-500/40 to-violet-600/10');
+      setGlowClass('bg-purple-500/50');
+      setBorderClass('border-purple-400/50');
     } else {
       switch (mood) {
         case 'joy':
-          setGlassClass('from-yellow-300/40 to-amber-400/10');
+          setGlassClass('from-yellow-300/40 to-yellow-500/10');
           setGlowClass('bg-yellow-400/50');
           setBorderClass('border-yellow-400/50');
           break;
@@ -62,9 +62,9 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
           setBorderClass('border-gray-400/50');
           break;
         default: // neutral
-          setGlassClass('from-sky-400/30 to-blue-500/10');
-          setGlowClass('bg-sky-500/40');
-          setBorderClass('border-sky-400/40');
+          setGlassClass('from-emerald-400/40 to-green-500/10');
+          setGlowClass('bg-green-500/50');
+          setBorderClass('border-green-400/50');
           break;
       }
     }

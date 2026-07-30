@@ -12,7 +12,7 @@ export const YoutubeMusicPlayer = () => {
         <div className="rounded-2xl overflow-hidden shadow-2xl shadow-black/40 border border-white/10 bg-base-300 max-w-[320px] min-w-0">
           <div className="flex items-center justify-between px-3 py-2 bg-base-200/80 backdrop-blur-sm border-b border-white/5">
             <div className="flex items-center gap-2">
-              <div className={`w-2.5 h-2.5 rounded-full ${isPlaying ? 'bg-amber-400 animate-pulse' : 'bg-gray-500'}`}></div>
+              <div className={`w-2.5 h-2.5 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
               <span className="text-xs font-medium text-white/60 select-none">YouTube</span>
             </div>
             <div className="flex items-center gap-1">
