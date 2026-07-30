@@ -594,10 +594,14 @@ console.log(messages[0].content)
       console.log('[planning] parse finished:', data)
 
       if (data) {
-        // Handle reasoning models: if no action/answer but has thought, use thought as answer
+        // Handle reasoning models: if no action/answer but has thought, retry first
         if (!data.action && !data.answer) {
           if (data.thought && data.thought.length > 10) {
-            console.warn('[planning] No action/answer but thought exists — using thought as answer')
+            if (attempts < MAX_RETRIES - 1) {
+              console.warn('[planning] No action/answer, retrying...')
+              continue
+            }
+            console.warn('[planning] Max retries — using thought as answer')
             return {
               thought: '',
               action: null,
@@ -640,15 +644,20 @@ console.log(messages[0].content)
             }
           }
         }
-        console.warn('[planning] Content is plain text — using as answer')
-        return {
-          thought: '',
-          action: null,
-          answer: trimmed,
-          memory: null,
-          mood: 'neutral',
-          active_topic: activeTopic
+        // Can't split cleanly — retry instead of dumping everything as answer
+        console.warn(`[planning] Plain text (attempt ${attempts}/${MAX_RETRIES}) — cannot split, retrying...`)
+        if (attempts >= MAX_RETRIES) {
+          console.warn('[planning] Max retries reached — using plain text as answer')
+          return {
+            thought: '',
+            action: null,
+            answer: trimmed,
+            memory: null,
+            mood: 'neutral',
+            active_topic: activeTopic
+          }
         }
+        continue
       }
     }
 
