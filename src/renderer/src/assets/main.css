@@ -7,6 +7,31 @@
   themes: forest;
 }
 
+/* ===== THEME OVERRIDE: Forest → Crystal/Amber ===== */
+:root {
+  --p: 0.78 0.13 75;       /* primary amber #F5A623 */
+  --pc: 0.95 0.01 75;      /* primary content — light */
+  --s: 0.55 0.02 240;      /* secondary silver */
+  --sc: 0.95 0.01 240;
+  --a: 0.75 0.06 65;       /* accent warm */
+  --ac: 0.15 0.02 240;
+  --n: 0.12 0.02 240;      /* neutral dark */
+  --nc: 0.85 0.01 240;
+  --b1: 0.07 0.01 240;     /* base-100 darkest */
+  --b2: 0.10 0.015 240;    /* base-200 */
+  --b3: 0.13 0.02 240;     /* base-300 */
+  --bc: 0.85 0.01 240;
+  --in: 0.55 0.08 240;
+  --inc: 0.95 0.01 240;
+  --su: 0.55 0.08 150;
+  --suc: 0.95 0.01 150;
+  --wa: 0.78 0.13 75;
+  --wac: 0.15 0.02 240;
+  --er: 0.60 0.15 25;
+  --erc: 0.95 0.01 25;
+  --color-holo-border: linear-gradient(90deg, oklch(var(--p)), oklch(var(--b2)), oklch(var(--p)));
+}
+
 @theme {
   --font-sans: 'Poppins', sans-serif;
 }
@@ -309,9 +334,7 @@ html {
   background-color: #000000 !important;
 }
 
-/* === TAMBAHAN UNTUK ORB & HOLOGRAM (HIJAU SEIRAMA) === */
 :root {
-  --color-holo-border: linear-gradient(90deg, oklch(var(--p)), oklch(var(--su)), oklch(var(--p)));
   --glass-bg: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-blur: blur(20px);
@@ -382,35 +405,17 @@ html {
   }
 }
 
-@keyframes holo-project-in {
-  0% {
-    opacity: 0;
-    transform: scale(0.3) translateY(20px);
-  }
-  70% {
-    transform: scale(1.05);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+/* === SIMPLE FADE ANIMATIONS === */
+@keyframes fade-up {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-down {
+  0%   { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(8px); }
 }
 
-@keyframes holo-dismiss {
-  0% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  30% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(0.5) translateY(20px);
-    filter: blur(5px);
-  }
-}
+
 
 /* === RESPONSE TRANSITIONS === */
 @keyframes response-fade-in {
@@ -458,14 +463,5 @@ html {
 }
 
 /* === NOW PLAYING WIDGET === */
-@keyframes music-bar {
-  0%,
-  100% {
-    height: 4px;
-  }
-  50% {
-    height: 16px;
-  }
-}
 
 @keyframes slide-right { 0% { left: 0%; opacity: 0; } 50% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
