@@ -37,7 +37,7 @@ const MarkHome = () => {
     requestCameraCaptureRef,
     config
   } = chatContext
-  const { isPlaying, currentTrack, isPlayerOpen } = useYoutubeMusic()
+  const { isPlaying, currentTrack, isPlayerOpen, togglePlayer } = useYoutubeMusic()
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
@@ -267,6 +267,9 @@ const MarkHome = () => {
                 </button>
                 <button onClick={() => window.api.ytCommand('next')} className="text-white/60 hover:text-white transition-colors" title="Next">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
+                <button onClick={togglePlayer} className={`text-xs px-2 py-1 rounded-lg transition-all ${isPlayerOpen ? 'text-red-400 bg-red-400/10' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`} title={isPlayerOpen ? 'Tutup Video' : 'Lihat Video'}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m10 8 6 4-6 4V8z"/></svg>
                 </button>
               </div>
             </div>
