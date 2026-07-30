@@ -187,7 +187,6 @@ function App() {
               </div>
             </div>
             <div style={{ display: isStandalone ? 'none' : 'block' }}>
-              <YoutubeMusicPlayer />
             </div>
             <GlobalCameraManager />
             <webview
