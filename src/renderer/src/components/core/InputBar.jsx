@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { FaMicrophone, FaStop, FaArrowUp, FaDesktop, FaWhatsapp, FaSmile } from 'react-icons/fa';
+import { FaMicrophone, FaStop, FaArrowUp, FaSmile } from 'react-icons/fa';
 import ConfirmModal from './ConfirmModal';
 
 const EMOJIS = ['😂', '🤣', '😅', '🗿', '🙏', '🔥', '🚀', '💀', '😎', '🤔', '😭', '❤️', '👍', '✨', '👀', '💯'];
@@ -110,7 +110,7 @@ const InputBar = ({
   };
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-50">
+    <div className="w-full max-w-2xl">
       <form 
         onSubmit={handleFormSubmit}
         className="relative flex items-center bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-[2rem] p-2 pr-3 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all focus-within:border-primary/50 focus-within:shadow-[0_0_20px_oklch(var(--su)/0.2)]"
