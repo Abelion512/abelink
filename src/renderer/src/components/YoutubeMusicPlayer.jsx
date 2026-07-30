@@ -12,7 +12,7 @@ export const YoutubeMusicPlayer = () => {
         <div className="rounded-2xl overflow-hidden shadow-2xl shadow-black/40 border border-white/10 bg-base-300 max-w-[320px] min-w-0">
           <div className="flex items-center justify-between px-3 py-2 bg-base-200/80 backdrop-blur-sm border-b border-white/5">
             <div className="flex items-center gap-2">
-              <div className={`w-2.5 h-2.5 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
+              <div className={`w-2.5 h-2.5 rounded-full ${isPlaying ? 'bg-amber-400 animate-pulse' : 'bg-gray-500'}`}></div>
               <span className="text-xs font-medium text-white/60 select-none">YouTube</span>
             </div>
             <div className="flex items-center gap-1">
@@ -58,9 +58,7 @@ export const YoutubeMusicPlayer = () => {
         className={`group relative w-14 h-14 rounded-full flex items-center justify-center pointer-events-auto shadow-lg shadow-black/30 border border-white/10 transition-all duration-300 ease-out hover:scale-110 hover:shadow-xl hover:shadow-red-500/20 active:scale-95 ${isPlayerOpen ? 'bg-red-600 hover:bg-red-700 rotate-0' : 'bg-linear-to-br from-red-600 to-red-800 hover:from-red-500 hover:to-red-700'}`}
         title={isPlayerOpen ? 'Tutup Player' : 'Buka YouTube'}
       >
-        {!isPlayerOpen && (
-          <span className="absolute inset-0 rounded-full bg-red-500/30 animate-ping pointer-events-none" />
-        )}
+        {/* Ping halo removed for cleaner glass aesthetic */}
         {isPlayerOpen ? (
           <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
         ) : (
