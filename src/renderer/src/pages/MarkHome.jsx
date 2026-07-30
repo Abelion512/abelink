@@ -115,6 +115,7 @@ const MarkHome = () => {
             text: lastItem.content,
             type:
               lastItem.content?.length > 200 || lastItem.content?.includes('\n') ? 'long' : 'short',
+            reasoning: lastItem.reasoning || null,
             sources: lastItem.sources || [],
             youtubeData: lastItem.youtubeData,
             youtubeSummary: lastItem.youtubeLink,

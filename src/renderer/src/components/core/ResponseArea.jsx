@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { FaLightbulb } from 'react-icons/fa'
+{/* ponytail: unused imports cleaned — FaLightbulb not used */}
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
@@ -29,7 +29,7 @@ const ResponseArea = ({ currentResponse }) => {
 
   if (!displayResponse) return null
 
-  const { text, type, sources, pluginResult, youtubeData, youtubeSummary, isProactive, mood } =
+  const { text, type, reasoning, sources, pluginResult, youtubeData, youtubeSummary, isProactive, mood } =
     displayResponse
 
   const animationClass =
@@ -39,37 +39,37 @@ const ResponseArea = ({ currentResponse }) => {
         ? 'animate-[response-fade-in_0.3s_ease-out_forwards]'
         : ''
 
-  const renderContent = () => {
-    const markdownComponents = {
-      code({ node, inline, className, children, ...props }) {
-        const match = /language-(\w+)/.exec(className || '')
-        return !inline ? (
-          <CodeBlock match={match} children={children} />
-        ) : (
-          <code className={className} {...props}>
-            {children}
-          </code>
-        )
-      },
-      a: ({ node, ...props }) => {
-        let url = props.href || '#'
-        if (url !== '#' && !url.startsWith('http://') && !url.startsWith('https://')) {
-          url = 'https://' + url
-        }
-        return (
-          <a
-            {...props}
-            onClick={(e) => {
-              e.preventDefault()
-              if (window.api && window.api.openExternal && url !== '#') {
-                window.api.openExternal(url)
-              }
-            }}
-          />
-        )
+  const markdownComponents = {
+    code({ node, inline, className, children, ...props }) {
+      const match = /language-(\w+)/.exec(className || '')
+      return !inline ? (
+        <CodeBlock match={match} children={children} />
+      ) : (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      )
+    },
+    a: ({ node, ...props }) => {
+      let url = props.href || '#'
+      if (url !== '#' && !url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url
       }
+      return (
+        <a
+          {...props}
+          onClick={(e) => {
+            e.preventDefault()
+            if (window.api && window.api.openExternal && url !== '#') {
+              window.api.openExternal(url)
+            }
+          }}
+        />
+      )
     }
+  }
 
+  const renderContent = () => {
     if (type === 'long') {
       let tldr = ''
       let restText = ''
@@ -137,6 +137,21 @@ const ResponseArea = ({ currentResponse }) => {
   return (
     <div className={`w-full flex flex-col items-center gap-4 ${animationClass}`}>
       {renderContent()}
+
+      {/* Reasoning / CoT Panel */}
+      {displayResponse.reasoning && (
+        <div className="w-full max-w-2xl">
+          <HoloCard title="Proses Pemikiran" defaultExpanded={false}>
+            <Markdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
+              components={markdownComponents}
+            >
+              {displayResponse.reasoning}
+            </Markdown>
+          </HoloCard>
+        </div>
+      )}
 
       {/* Plugin Execution Result Chip */}
       {pluginResult && (
