@@ -228,7 +228,7 @@ const MarkHome = () => {
       {/* 4-Mode Bottom Bar — single container */}
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
         {activeMode === 'chat' ? (
-          <div className="flex items-center justify-center gap-2 animate-[fade-up_0.15s_ease-out_forwards]">
+          <div className="flex items-center justify-center gap-2 animate-[fade-up_0.1s_ease-out_forwards]">
             <div className="flex-1">
               <InputBar
                 value={message}
