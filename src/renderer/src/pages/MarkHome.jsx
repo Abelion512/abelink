@@ -11,7 +11,6 @@ import ProcessPanel from '../components/core/ProcessPanel'
 import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
 import MemoryVisualizer from '../components/core/MemoryVisualizer'
 import BrowserPreviewWidget from '../components/core/BrowserPreviewWidget'
-import musicCoverFallback from '../assets/music-cover.png'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useVAD } from '../hooks/useVAD'
 
@@ -37,13 +36,12 @@ const MarkHome = () => {
     requestCameraCaptureRef,
     config
   } = chatContext
-  const { isPlaying, currentTrack, isPlayerOpen, togglePlayer } = useYoutubeMusic()
+  const { isPlaying, currentTrack, isPlayerOpen, togglePlayer,
+          prevTrack, nextTrack, playPause } = useYoutubeMusic()
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
   const [currentResponse, setCurrentResponse] = useState(null)
-  const [showMusicWidget, setShowMusicWidget] = useState(false)
-  const [isMusicAnimatingOut, setIsMusicAnimatingOut] = useState(false)
 
   useEffect(() => {
     const handleOpenMap = () => setIsMemoryMapOpen(true)
@@ -72,24 +70,6 @@ const MarkHome = () => {
       }
     }
   }, [location.state?.autoStartMic, toggleRecording])
-
-  // Handle music widget exit animation
-  useEffect(() => {
-    const hasTrack = isPlaying && currentTrack?.title
-    if (hasTrack) {
-      setIsMusicAnimatingOut(false)
-      setShowMusicWidget(true)
-    } else {
-      if (showMusicWidget) {
-        setIsMusicAnimatingOut(true)
-        const timer = setTimeout(() => {
-          setShowMusicWidget(false)
-          setIsMusicAnimatingOut(false)
-        }, 500) // Match the holo-dismiss duration
-        return () => clearTimeout(timer)
-      }
-    }
-  }, [isPlaying, currentTrack?.title, showMusicWidget])
 
   // Sync orb status based on isLoading
   useEffect(() => {
@@ -210,77 +190,94 @@ const MarkHome = () => {
       )}
 
       {/* Main Content Area */}
-      <div className="relative z-10 flex flex-col items-center w-full h-full px-4 pt-[10vh] pb-40 overflow-y-auto custom-scrollbar">
-        {/* The Orb & Neural Flow */}
-        <div className="relative flex items-center justify-center w-full max-w-3xl mt-10 mb-8 h-64">
-          <ThoughtNeuralFlow processes={activeProcesses} />
-          <OrbVisualizer
-            status={orbStatus}
-            intensity={0.5}
-            mood={currentResponse?.mood || 'neutral'}
-          />
-        </div>
-
-        {/* Dynamic Response Area */}
-        <div className="w-full max-w-4xl mt-8 flex flex-col items-center justify-center transition-all duration-500 ease-in-out">
-          {currentResponse && <ResponseArea currentResponse={currentResponse} />}
-
-          {/* Centered Now Playing */}
-          {showMusicWidget && (
-            <div
-              className={`mt-8 flex flex-col items-center ${isMusicAnimatingOut ? 'animate-[holo-dismiss_0.5s_ease-in_forwards]' : 'animate-[holo-project-in_0.5s_ease-out_forwards]'}`}
-            >
-              {/* Album Art + Visualizer */}
-              <div className="relative group w-48 h-48 mb-4 rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-primary/20">
-                {currentTrack.thumbnail ? (
-                  <img
-                    src={currentTrack.thumbnail}
-                    alt="Album Art"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    onError={(e) => {
-                      e.target.onerror = null
-                      e.target.src = musicCoverFallback
-                    }}
-                  />
-                ) : (
-                  <img
-                    src={musicCoverFallback}
-                    alt="Default Album Art"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                )}
-                {/* Audio visualizer overlay */}
-                {isPlaying && (
-                  <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-4 gap-1">
-                    <span className="w-1.5 h-4 bg-primary rounded-t-full animate-[music-bar_1s_ease-in-out_infinite]" style={{ animationDelay: '0.1s' }} />
-                    <span className="w-1.5 h-6 bg-primary rounded-t-full animate-[music-bar_1.2s_ease-in-out_infinite]" style={{ animationDelay: '0.3s' }} />
-                    <span className="w-1.5 h-3 bg-primary rounded-t-full animate-[music-bar_0.8s_ease-in-out_infinite]" style={{ animationDelay: '0.2s' }} />
-                    <span className="w-1.5 h-5 bg-primary rounded-t-full animate-[music-bar_1.1s_ease-in-out_infinite]" style={{ animationDelay: '0.4s' }} />
-                  </div>
-                )}
-              </div>
-
-              {/* Inline Controls */}
-              <div className="flex items-center gap-4">
-                <button onClick={() => window.api.ytCommand('prev')} className="text-white/60 hover:text-white transition-colors" title="Previous">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                </button>
-                <button onClick={() => window.api.ytCommand('playPause')} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors" title="Play/Pause">
-                  {isPlaying ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-                  )}
-                </button>
-                <button onClick={() => window.api.ytCommand('next')} className="text-white/60 hover:text-white transition-colors" title="Next">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-                </button>
-                <button onClick={togglePlayer} className={`text-xs px-2 py-1 rounded-lg transition-all ${isPlayerOpen ? 'text-red-400 bg-red-400/10' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`} title={isPlayerOpen ? 'Tutup Video' : 'Lihat Video'}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m10 8 6 4-6 4V8z"/></svg>
-                </button>
-              </div>
+      <div className="relative z-10 flex flex-col items-center w-full h-full px-4 pt-[12vh] pb-48 overflow-y-auto custom-scrollbar">
+        {/* The Orb — fixed size, center top */}
+        <div className="relative flex flex-col items-center justify-center w-full max-w-3xl my-4">
+          <div className="relative flex items-center justify-center">
+            <ThoughtNeuralFlow processes={activeProcesses} />
+            <OrbVisualizer
+              status={orbStatus}
+              intensity={0.5}
+              mood={currentResponse?.mood || 'neutral'}
+            />
+          </div>
+          {/* Now Playing — inline text below orb */}
+          {isPlaying && currentTrack?.title && (
+            <div className="animate-[fade-up_0.4s_ease-out_forwards] text-center mt-2">
+              <p className="text-white/80 text-sm font-light tracking-wide">
+                ♪ {currentTrack.title}
+              </p>
+              {currentTrack.artist && (
+                <p className="text-white/40 text-xs font-extralight">{currentTrack.artist}</p>
+              )}
             </div>
           )}
+        </div>
+
+        {/* Response + Music Controls + 4-Mode Bar */}
+        <div className="w-full max-w-2xl flex flex-col items-center gap-4 px-4">
+          {/* Response bubble — glass card */}
+          {currentResponse && (
+            <div className="w-full animate-[fade-up_0.4s_ease-out_forwards] bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg">
+              <ResponseArea currentResponse={currentResponse} />
+            </div>
+          )}
+
+          {/* Music Controls — inline, thin, only when playing */}
+          {isPlaying && currentTrack?.title && (
+            <div className="animate-[fade-up_0.4s_ease-out_forwards] flex items-center gap-3 py-2">
+              <button onClick={prevTrack} className="text-white/40 hover:text-white/80 transition-colors p-1" title="Previous">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+              </button>
+              <button onClick={playPause} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors" title="Play/Pause">
+                {isPlaying ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                )}
+              </button>
+              <button onClick={nextTrack} className="text-white/40 hover:text-white/80 transition-colors p-1" title="Next">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+              </button>
+              <button onClick={togglePlayer} className={`text-white/30 hover:text-white/60 transition-colors p-1 ${isPlayerOpen ? 'text-amber-400/60' : ''}`} title={isPlayerOpen ? 'Tutup Video' : 'Lihat Video'}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m10 8 6 4-6 4V8z"/></svg>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 4-Mode Bottom Bar */}
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
+        <div className="flex items-center justify-center gap-3 px-4">
+          {/* Chat Mode */}
+          <button
+            className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-amber-400/50 transition-all duration-300 active:scale-90"
+            title="Chat Mode"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/70"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          </button>
+          {/* Voice Mode */}
+          <button
+            className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-amber-400/50 transition-all duration-300 active:scale-90"
+            title="Voice Mode"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/70"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+          {/* Camera Mode */}
+          <button
+            className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-amber-400/50 transition-all duration-300 active:scale-90"
+            title="Camera Mode"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/70"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          </button>
+          {/* Share Screen Mode */}
+          <button
+            className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-amber-400/50 transition-all duration-300 active:scale-90"
+            title="Share Screen"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/70"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </button>
         </div>
       </div>
 
