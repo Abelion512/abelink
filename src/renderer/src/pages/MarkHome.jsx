@@ -218,11 +218,12 @@ const MarkHome = () => {
         <div className="w-full max-w-4xl mt-8 flex flex-col items-center justify-center transition-all duration-500 ease-in-out">
           {currentResponse && <ResponseArea currentResponse={currentResponse} />}
 
-          {/* Centered Now Playing Info */}
+          {/* Centered Now Playing */}
           {showMusicWidget && (
             <div
               className={`mt-8 flex flex-col items-center ${isMusicAnimatingOut ? 'animate-[holo-dismiss_0.5s_ease-in_forwards]' : 'animate-[holo-project-in_0.5s_ease-out_forwards]'}`}
             >
+              {/* Album Art + Visualizer */}
               <div className="relative group w-48 h-48 mb-4 rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-primary/20">
                 {currentTrack.thumbnail ? (
                   <img
@@ -244,31 +245,30 @@ const MarkHome = () => {
                 {/* Audio visualizer overlay */}
                 {isPlaying && (
                   <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-4 gap-1">
-                    <span
-                      className="w-1.5 h-4 bg-primary rounded-t-full animate-[music-bar_1s_ease-in-out_infinite]"
-                      style={{ animationDelay: '0.1s' }}
-                    />
-                    <span
-                      className="w-1.5 h-6 bg-primary rounded-t-full animate-[music-bar_1.2s_ease-in-out_infinite]"
-                      style={{ animationDelay: '0.3s' }}
-                    />
-                    <span
-                      className="w-1.5 h-3 bg-primary rounded-t-full animate-[music-bar_0.8s_ease-in-out_infinite]"
-                      style={{ animationDelay: '0.2s' }}
-                    />
-                    <span
-                      className="w-1.5 h-5 bg-primary rounded-t-full animate-[music-bar_1.1s_ease-in-out_infinite]"
-                      style={{ animationDelay: '0.4s' }}
-                    />
+                    <span className="w-1.5 h-4 bg-primary rounded-t-full animate-[music-bar_1s_ease-in-out_infinite]" style={{ animationDelay: '0.1s' }} />
+                    <span className="w-1.5 h-6 bg-primary rounded-t-full animate-[music-bar_1.2s_ease-in-out_infinite]" style={{ animationDelay: '0.3s' }} />
+                    <span className="w-1.5 h-3 bg-primary rounded-t-full animate-[music-bar_0.8s_ease-in-out_infinite]" style={{ animationDelay: '0.2s' }} />
+                    <span className="w-1.5 h-5 bg-primary rounded-t-full animate-[music-bar_1.1s_ease-in-out_infinite]" style={{ animationDelay: '0.4s' }} />
                   </div>
                 )}
               </div>
-              <h3 className="text-xl font-bold text-white text-center max-w-md truncate">
-                {currentTrack.title}
-              </h3>
-              <p className="text-sm text-white/50 text-center max-w-sm truncate mt-1">
-                {currentTrack.artist}
-              </p>
+
+              {/* Inline Controls */}
+              <div className="flex items-center gap-4">
+                <button onClick={() => window.api.ytCommand('prev')} className="text-white/60 hover:text-white transition-colors" title="Previous">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                </button>
+                <button onClick={() => window.api.ytCommand('playPause')} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors" title="Play/Pause">
+                  {isPlaying ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                  )}
+                </button>
+                <button onClick={() => window.api.ytCommand('next')} className="text-white/60 hover:text-white transition-colors" title="Next">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
+              </div>
             </div>
           )}
         </div>
