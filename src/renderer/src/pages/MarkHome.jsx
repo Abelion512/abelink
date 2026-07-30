@@ -239,7 +239,7 @@ const MarkHome = () => {
               <button onClick={nextTrack} className="text-white/40 hover:text-white/80 transition-colors p-1" title="Next">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
               </button>
-              <button onClick={togglePlayer} className={`text-white/30 hover:text-white/60 transition-colors p-1 ${isPlayerOpen ? 'text-amber-400/60' : ''}`} title={isPlayerOpen ? 'Tutup Video' : 'Lihat Video'}>
+              <button onClick={togglePlayer} className={`text-white/30 hover:text-white/60 transition-colors p-1 ${isPlayerOpen ? 'text-yellow-500/60' : ''}`} title={isPlayerOpen ? 'Tutup Video' : 'Lihat Video'}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m10 8 6 4-6 4V8z"/></svg>
               </button>
             </div>
@@ -252,7 +252,7 @@ const MarkHome = () => {
         <div className="flex items-center justify-center gap-3 px-4">
           {/* Chat Mode */}
           <button
-            className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-amber-400/50 transition-all duration-300 active:scale-90"
+            className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 transition-all duration-300 active:scale-90"
             title="Chat Mode"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/70"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
