@@ -865,7 +865,7 @@ const Guidebook = () => {
                 <h3 className="text-xl font-bold text-white mb-4">
                   Contoh: Plugin Pengatur Volume
                 </h3>
-                <pre className="text-sm bg-black/60 p-4 rounded-xl text-green-400 overflow-x-auto whitespace-pre-wrap">
+                <pre className="text-sm bg-black/60 p-4 rounded-xl text-amber-400 overflow-x-auto whitespace-pre-wrap">
                   <code>{`const loudness = require('loudness')
 
 // Mengambil parameter angka volume yang diberikan oleh AI
