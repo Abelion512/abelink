@@ -225,61 +225,59 @@ const MarkHome = () => {
         </div>
       </div>
 
-      {/* 4-Mode Bottom Bar — chat button morphs into InputBar */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2">
+      {/* 4-Mode Bottom Bar — single container */}
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
         {activeMode === 'chat' ? (
-          /* Chat mode: chat button expanded into full InputBar */
-          <>
-            <InputBar
-              value={message}
-              onChange={(e) => { setMessage(e.target.value); if (isSpeak) setIsSpeak(false) }}
-              onSubmit={() => { setIsSpeak(false); handleSubmit() }}
-              isLoading={isLoading || isAgentBusy}
-              isRecording={isRecording}
-              onToggleRecord={toggleRecording}
-              onStop={handleStop}
-              source={inputSource}
-            />
-            {/* Collapse button — X to close chat mode */}
-            <button
-              onClick={() => setActiveMode(null)}
+          <div className="flex items-center justify-center gap-2">
+            <div className="flex-1">
+              <InputBar
+                value={message}
+                onChange={(e) => { setMessage(e.target.value); if (isSpeak) setIsSpeak(false) }}
+                onSubmit={() => { setIsSpeak(false); handleSubmit() }}
+                isLoading={isLoading || isAgentBusy}
+                isRecording={isRecording}
+                onToggleRecord={toggleRecording}
+                onStop={handleStop}
+                source={inputSource}
+              />
+            </div>
+            <button onClick={() => setActiveMode(null)}
               className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-red-400/50 transition-all duration-300 active:scale-90 text-white/50 hover:text-red-400 shrink-0"
-              title="Close Chat"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-              </svg>
+              title="Close Chat">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
-            {/* Other 3 buttons */}
-            <button onClick={() => setActiveMode(activeMode === 'voice' ? null : 'voice')}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 shrink-0 ${activeMode === 'voice' ? 'bg-green-500/20 border-green-500/50 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : 'bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 text-white/70'}`}
-              title="Voice Mode"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
-            <button onClick={() => setActiveMode(activeMode === 'camera' ? null : 'camera')}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 shrink-0 ${activeMode === 'camera' ? 'bg-green-500/20 border-green-500/50 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : 'bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 text-white/70'}`}
-              title="Camera"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></button>
-            <button onClick={() => setActiveMode(activeMode === 'screen' ? null : 'screen')}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 shrink-0 ${activeMode === 'screen' ? 'bg-green-500/20 border-green-500/50 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : 'bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 text-white/70'}`}
-              title="Share Screen"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></button>
-          </>
+            <button onClick={() => setActiveMode('voice')}
+              className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-300 active:scale-90 text-white/70 shrink-0" title="Voice Mode">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </button>
+            <button onClick={() => setActiveMode('camera')}
+              className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-300 active:scale-90 text-white/70 shrink-0" title="Camera Mode">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            </button>
+            <button onClick={() => setActiveMode('screen')}
+              className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-300 active:scale-90 text-white/70 shrink-0" title="Share Screen">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </button>
+          </div>
         ) : (
-          /* 4 circle buttons — default collapsed state */
-          <>
+          <div className="flex items-center justify-center gap-2">
             <button onClick={() => setActiveMode('chat')}
               className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 transition-all duration-300 active:scale-90 text-white/70" title="Chat Mode">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             </button>
-            <button onClick={() => setActiveMode(activeMode === 'voice' ? null : 'voice')}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 shrink-0 ${activeMode === 'voice' ? 'bg-green-500/20 border-green-500/50 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : 'bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 text-white/70'}`}
-              title="Voice Mode"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+            <button onClick={() => setActiveMode('voice')}
+              className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-300 active:scale-90 text-white/70" title="Voice Mode">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </button>
             <button onClick={() => setActiveMode('camera')}
-              className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 transition-all duration-300 active:scale-90 text-white/70" title="Camera Mode">
+              className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-300 active:scale-90 text-white/70" title="Camera Mode">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
             </button>
             <button onClick={() => setActiveMode('screen')}
-              className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 transition-all duration-300 active:scale-90 text-white/70" title="Share Screen">
+              className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-300 active:scale-90 text-white/70" title="Share Screen">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
             </button>
-          </>
+          </div>
         )}
       </div>
 
