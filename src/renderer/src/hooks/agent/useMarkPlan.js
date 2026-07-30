@@ -264,49 +264,7 @@ export const useMarkPlan = ({
           role: 'assistant',
           content: autonomousInitialMessage
         })
-      }
-
-// ========== MUSIC FAST-PATH ==========
-// Bypass agentic loop for music commands — langsung handleMusic
-if (!waContext && !isAutonomous && !isSystem && !options.disableTools) {
-  const lowerInput = (userInput || '').trim().toLowerCase()
-  const musicPatterns = [
-    // FIX: tambah variasi bahasa natural + middle-of-sentence match
-    { p: /(?:^|\s)(?:putar|play|mainkan|nyalakan|puterin|putarin)\s+(?:lagu|musik|playlist|soundtrack)?\s*(?:dari|nya|dong)?\s+(.+)/i, tool: 'music-play', group: 1 },
-    { p: /(?:^|\s)(?:putar|play|mainkan|nyalakan)\s+(.+)/i, tool: 'music-play', group: 1 },
-    { p: /(?:^|\s)(?:cari|cariin|cariikan)\s+(?:lagu|musik|playlist|soundtrack)\s+(.+)/i, tool: 'music-search', group: 1 },
-    { p: /(?:^|\s)(?:lagu|musik|playlist)\s+(.+)/i, tool: 'music-search', group: 1 },
-    { p: /(?:^|\s)(?:next|skip|lanjut|selanjutnya)\s*/i, tool: 'music-next', group: 0 },
-    { p: /(?:^|\s)(?:prev|back|kembali|sebelumnya)\s*/i, tool: 'music-prev', group: 0 },
-    { p: /(?:^|\s)(?:pause|stop|berhenti|setop)\s*/i, tool: 'music-toggle', group: 0 },
-    // Catch-all: teks biasa (nama lagu/artis) → guess music-play
-    // Minimal 3 kata atau mengandung kata khas judul lagu
-    { p: /^(?:.*\s+ver(si)?\s+.+|.+\s+(?:slow|reverb|version|cover|remix|live)\s*|.*\s+(?:oleh|by)\s+.+)$/i, tool: 'music-play', group: 0 },
-  ]
-  
-  for (const pattern of musicPatterns) {
-    const match = lowerInput.match(pattern.p)
-    if (match) {
-      const query = pattern.group ? (match[pattern.group] || '').trim() : lowerInput
-      if (pattern.tool === 'music-play' || pattern.tool === 'music-search') {
-        if (query.length < 2) continue // skip if query too short
-      }
-      console.log('[Music Fast-Path] Detected:', pattern.tool, 'query:', query)
-      
-      const musicResult = await handleMusic(pattern.tool, query)
-      
-      // Set chat data with result
-      setChatData((prev) => [
-        ...prev,
-        { role: 'ai', content: musicResult, mood: 'joy', timestamp: getCurrentTimeInfo() }
-      ])
-      
-      setIsLoading(false)
-      setIsAgentBusy(false)
-      return
-    }
-  }
-}
+	}
 
 // ========== STEP 3: AGENTIC LOOP ==========
 const loopMessages = [...chatSession]

@@ -250,7 +250,6 @@ JANGAN isi keduanya! Boleh panggil tool berulang kali.
 - Jika user hanya ngobrol santai, LANGSUNG isi "answer" tanpa tool.
 - MENYIMPAN/MEMPERBARUI MEMORY: Untuk "profile" (identitas) & "preference" (kesukaan/gaya bicara), WAJIB PROAKTIF mendeteksi dari obrolan dan simpan tanpa perlu diminta. Untuk "notes" (catatan), HANYA simpan jika user eksplisit meminta. Sebelum insert, CEK daftar MEMORY USER — jika sudah ada atau memperbarui info lama, gunakan action "update" (sertakan ID). Jika info lama salah/tidak relevan, gunakan action "delete".
 ${activeCategories.some((c) => ['search', 'casual', 'coding'].includes(c)) ? `- PENGGUNAAN WEB SEARCH: Gunakan "browser-navigate" ke Google Search HANYA untuk info real-time/terbaru. Untuk coding/teori umum, langsung jawab di "answer".` : ''}
-${activeCategories.includes('music') ? `- MUSIK: Jika user minta putar lagu/search lagu, WAJIB gunakan tool music-play/music-search. DILARANG KERAS menggunakan browser-navigate untuk mencari atau memutar lagu.` : ''}
 ${activeCategories.some((c) => ['coding', 'system'].includes(c)) ? `- STOPPING CONDITION (SANGAT KRITIS): Jika tugas utama (misal bikin web/script) sudah berhasil, jalan, dan sesuai instruksi awal, JANGAN ngide merombak ulang atau memperbaiki hal-hal minor! Langsung akhiri loop dengan mengisi "answer" (selesai). Sifat perfeksionis yang berlebihan justru merusak kode yang sudah jalan!\n- VERIFIKASI HASIL: Tepat sebelum kamu memutuskan untuk memberikan "answer" (selesai), wajib lakukan pengecekan terakhir (misal: jalankan command test, atau pastikan file berhasil ditulis). Jika hasilnya valid dan sesuai request, langsung laporkan ke user!` : ''}
 ${
           activeCategories.includes('coding')
@@ -296,13 +295,6 @@ ${
 ## TOOL LIST (L0)
 - memory-search: Cari informasi dari memory (profile/preference/notes/learn). WAJIB cari SEBELUM bertanya ke user.
 - tool-info: Minta detail lengkap suatu tool. Query: nama tool.
-- music-play: Putar lagu di YouTube Music. GUNAKAN INI untuk memutar lagu, JANGAN pakai browser.
-- music-toggle: Pause/lanjut putar lagu.
-- music-search: Cari lagu spesifik.
-- music-next: Lagu berikutnya.
-- music-prev: Lagu sebelumnya.
-- yt-search: Cari video YouTube.
-- yt-summary: Ringkas video YouTube.
 - browser-navigate: Buka URL di browser fisik.
 - browser-read: Scan ulang elemen halaman.
 - browser-click: Klik elemen. Query: ID angka.
@@ -310,6 +302,13 @@ ${
 - browser-scroll: Scroll halaman. Query: up/down.
 - browser-ask-user: Minta user input manual (login/CAPTCHA).
 - browser-close: Tutup browser fisik.
+- yt-search: Cari video YouTube.
+- yt-summary: Ringkas video YouTube.
+- music-play: Putar lagu di YouTube Music.
+- music-toggle: Pause/lanjut putar lagu.
+- music-search: Cari lagu spesifik.
+- music-next: Lagu berikutnya.
+- music-prev: Lagu sebelumnya.
 - analyze-screen: Screenshot layar untuk analisis vision AI.
 - camera-look: Aktifkan webcam untuk melihat dunia nyata.
 - screenshot-to-wa: Screenshot → kirim ke WhatsApp user.
