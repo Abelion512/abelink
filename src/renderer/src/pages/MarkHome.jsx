@@ -36,12 +36,12 @@ const MarkHome = () => {
     requestCameraCaptureRef,
     config
   } = chatContext
-  const { isPlaying, currentTrack, isPlayerOpen, togglePlayer,
-          prevTrack, nextTrack, playPause } = useYoutubeMusic()
+  const { isPlaying, currentTrack } = useYoutubeMusic()
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
   const [currentResponse, setCurrentResponse] = useState(null)
+  const [activeMode, setActiveMode] = useState(null) // null | 'chat' | 'voice' | 'camera' | 'screen'
 
   useEffect(() => {
     const handleOpenMap = () => setIsMemoryMapOpen(true)
@@ -190,7 +190,7 @@ const MarkHome = () => {
       )}
 
       {/* Main Content Area */}
-      <div className="relative z-10 flex flex-col items-center w-full h-full px-4 pt-[12vh] pb-48 overflow-y-auto custom-scrollbar">
+      <div className="relative z-10 flex flex-col items-center w-full h-full px-4 pt-[12vh] pb-48 overflow-y-auto no-scrollbar">
         {/* The Orb — fixed size, center top */}
         <div className="relative flex flex-col items-center justify-center w-full max-w-3xl my-4">
           <div className="relative flex items-center justify-center">
@@ -214,7 +214,7 @@ const MarkHome = () => {
           )}
         </div>
 
-        {/* Response + Music Controls + 4-Mode Bar */}
+        {/* Response Area */}
         <div className="w-full max-w-2xl flex flex-col items-center gap-4 px-4">
           {/* Response — no boundaries, natural flow */}
           {currentResponse && (
@@ -222,82 +222,83 @@ const MarkHome = () => {
               <ResponseArea currentResponse={currentResponse} />
             </div>
           )}
-
-          {/* Music Controls — inline, thin, only when playing */}
-          {isPlaying && currentTrack?.title && (
-            <div className="animate-[fade-up_0.4s_ease-out_forwards] flex items-center gap-3 py-2">
-              <button onClick={prevTrack} className="text-white/40 hover:text-white/80 transition-colors p-1" title="Previous">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-              </button>
-              <button onClick={playPause} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors" title="Play/Pause">
-                {isPlaying ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-                )}
-              </button>
-              <button onClick={nextTrack} className="text-white/40 hover:text-white/80 transition-colors p-1" title="Next">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-              </button>
-              <button onClick={togglePlayer} className={`text-white/30 hover:text-white/60 transition-colors p-1 ${isPlayerOpen ? 'text-yellow-500/60' : ''}`} title={isPlayerOpen ? 'Tutup Video' : 'Lihat Video'}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m10 8 6 4-6 4V8z"/></svg>
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
       {/* 4-Mode Bottom Bar */}
-      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
-        <div className="flex items-center justify-center gap-3 px-4">
-          {/* Chat Mode */}
-          <button
-            className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 transition-all duration-300 active:scale-90"
-            title="Chat Mode"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/70"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-          </button>
-          {/* Voice Mode */}
-          <button
-            className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-amber-400/50 transition-all duration-300 active:scale-90"
-            title="Voice Mode"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/70"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-          </button>
-          {/* Camera Mode */}
-          <button
-            className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-amber-400/50 transition-all duration-300 active:scale-90"
-            title="Camera Mode"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/70"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-          </button>
-          {/* Share Screen Mode */}
-          <button
-            className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-amber-400/50 transition-all duration-300 active:scale-90"
-            title="Share Screen"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/70"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          </button>
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-end gap-3">
+        {/* Chat Button — always visible */}
+        <button
+          onClick={() => setActiveMode(activeMode === 'chat' ? null : 'chat')}
+          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90
+            ${activeMode === 'chat'
+              ? 'bg-green-500/20 border-green-500/50 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]'
+              : 'bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 text-white/70'}`}
+          title="Chat Mode"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={activeMode === 'chat' ? 'text-green-400' : ''}>
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+        </button>
+        {/* Expanded Input — appears when chat mode active */}
+        <div className={`transition-all duration-300 ${activeMode === 'chat' ? 'w-[320px] opacity-100' : 'w-0 opacity-0 overflow-hidden'}`}>
+          <InputBar
+            value={message}
+            onChange={(e) => {
+              setMessage(e.target.value)
+              if (isSpeak) setIsSpeak(false)
+            }}
+            onSubmit={() => {
+              setIsSpeak(false)
+              handleSubmit()
+            }}
+            isLoading={isLoading || isAgentBusy}
+            isRecording={isRecording}
+            onToggleRecord={toggleRecording}
+            onStop={handleStop}
+            source={inputSource}
+          />
         </div>
+        {/* Voice Mode */}
+        <button
+          onClick={() => setActiveMode(activeMode === 'voice' ? null : 'voice')}
+          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90
+            ${activeMode === 'voice'
+              ? 'bg-green-500/20 border-green-500/50 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]'
+              : 'bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 text-white/70'}`}
+          title="Voice Mode"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={activeMode === 'voice' ? 'text-green-400' : ''}>
+            <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+        {/* Camera Mode */}
+        <button
+          onClick={() => setActiveMode(activeMode === 'camera' ? null : 'camera')}
+          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90
+            ${activeMode === 'camera'
+              ? 'bg-green-500/20 border-green-500/50 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]'
+              : 'bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 text-white/70'}`}
+          title="Camera Mode"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={activeMode === 'camera' ? 'text-green-400' : ''}>
+            <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+          </svg>
+        </button>
+        {/* Share Screen Mode */}
+        <button
+          onClick={() => setActiveMode(activeMode === 'screen' ? null : 'screen')}
+          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90
+            ${activeMode === 'screen'
+              ? 'bg-green-500/20 border-green-500/50 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]'
+              : 'bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 text-white/70'}`}
+          title="Share Screen"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={activeMode === 'screen' ? 'text-green-400' : ''}>
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </button>
       </div>
-
-      {/* Bottom Input Area */}
-      <InputBar
-        value={message}
-        onChange={(e) => {
-          setMessage(e.target.value)
-          if (isSpeak) setIsSpeak(false) // Typing disables voice auto-reply
-        }}
-        onSubmit={() => {
-          setIsSpeak(false) // Typing submit disables voice auto-reply
-          handleSubmit()
-        }}
-        isLoading={isLoading || isAgentBusy}
-        isRecording={isRecording}
-        onToggleRecord={toggleRecording}
-        onStop={handleStop}
-        source={inputSource}
-      />
 
       {/* Slide-out Drawers */}
       <HistoryDrawer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
