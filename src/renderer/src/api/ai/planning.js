@@ -620,13 +620,31 @@ console.log(messages[0].content)
         }
       }
 
-      // Fallback: if content is plain text (reasoning model), use it directly as answer
+      // Fallback: if content is plain text, try to separate CoT from answer
       if (rawContent && rawContent.trim().length > 5 && !rawContent.trim().startsWith('{')) {
-        console.warn('[planning] Content is plain text (not JSON) — using as answer directly')
+        const trimmed = rawContent.trim()
+        // Try to split on first double-newline (CoT then answer)
+        const splitMatch = trimmed.match(/^([\s\S]*?)\n\n([\s\S]+)$/)
+        if (splitMatch) {
+          const before = splitMatch[1].trim()
+          const after = splitMatch[2].trim()
+          if (before.length > 0 && after.length > 0 && before.length < after.length) {
+            console.warn('[planning] Plain text split into thought + answer via double newline')
+            return {
+              thought: before,
+              action: null,
+              answer: after,
+              memory: null,
+              mood: 'neutral',
+              active_topic: activeTopic
+            }
+          }
+        }
+        console.warn('[planning] Content is plain text — using as answer')
         return {
           thought: '',
           action: null,
-          answer: rawContent.trim(),
+          answer: trimmed,
           memory: null,
           mood: 'neutral',
           active_topic: activeTopic
