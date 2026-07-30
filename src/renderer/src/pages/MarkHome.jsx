@@ -160,6 +160,8 @@ const MarkHome = () => {
         handlePlanningCommand(message)
       }
     }
+    // stay in chat mode after submit
+    setActiveMode('chat')
   }
 
   return (
