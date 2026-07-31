@@ -1,15 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { getNextAction } from '../../api/ai/planning'
-import { getYoutubeSummary } from '../../api/ai/tools'
 import { fetchAI } from '../../api/ai/core'
-import { analyzeScreen, analyzeCamera } from '../../api/ai/vision-service'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
 import { insertMemory, updateMemory, deleteMemory, getAllMemory, insertAuditLog } from '../../api/db'
-import { getUnifiedContext, searchExtendedMemory, generateVector, cosineSimilarity } from '../../api/vectorMemory'
+import { getUnifiedContext, generateVector, cosineSimilarity } from '../../api/vectorMemory'
 import { sanitizeToolOutput } from '../../api/ai/output-sanitizer'
 import { getGuardGate } from '../../api/ai/guard-gate'
 import { searchMemoriesInOrama } from '../../api/oramaStore'
-import { checkApprovalByMode } from '../../api/ai/approval-modes'
+import { dispatchTool } from './tools/index'
 
 export const useMarkPlan = ({
   chatData,
@@ -568,326 +566,20 @@ let hardStopped = false
           let resultString = 'Tidak ada hasil.'
 
           try {
-            if (tool === 'yt-search') {
-              // --- YOUTUBE SEARCH ---
-              const ytResults = await window.api.searchYoutube(query)
-              resultString = JSON.stringify(ytResults)
-            } else if (tool === 'yt-summary') {
-              // --- YOUTUBE SUMMARY ---
-              setChatData((prev) => [
-                ...prev,
-                {
-                  role: 'ai',
-                  content: 'Menonton video youtube...',
-                  isSummarizing: true,
-                  youtubeLink: query
-                }
-              ])
-              const yData = await getYoutubeData(query)
-              resultString = await getYoutubeSummary(
-                query,
-                yData,
-                abortControllerRef.current.signal
-              )
-              setChatData((prev) => prev.filter((item) => !item.isSummarizing))
-            } else if (tool.startsWith('music')) {
-              // --- MUSIC ---
-              resultString = await handleMusic(tool, query)
-            } else if (tool === 'wa-send') {
-              // --- WHATSAPP SEND ---
-              const [targetJid, targetText] = (query || '').split('|')
-              if (targetJid && targetText) {
-                const res = await window.api.sendWaMessage(targetJid.trim(), targetText.trim())
-                resultString = res?.success
-                  ? `Berhasil mengirim pesan WhatsApp ke ${targetJid}`
-                  : `Gagal: ${res?.error || 'Unknown'}`
-              } else {
-                resultString = `Gagal: format query salah (harus "JID|pesan"): ${query}`
-              }
-            } else if (tool === 'tool-info') {
-              // --- TOOL INFO (Progressive Disclosure L1) ---
-              try {
-                const detail = await window.api.getToolDetail(query)
-                if (detail) {
-                  resultString = detail.l1 || `Tool: ${detail.name}\n${detail.description}`
-                } else {
-                  resultString = `Tool "${query}" tidak ditemukan. Gunakan "tool-info" dengan nama tool yang ada di daftar.`
-                }
-              } catch (e) {
-                resultString = `Gagal mengambil info tool: ${e.message}`
-              }
-            } else if (tool === 'memory-search') {
-              // --- MEMORY SEARCH ---
-              const results = await searchExtendedMemory(query)
-              const formatted = results.length > 0
-                ? results.map(m => `- [${m.type.toUpperCase()}] (ID:${m.id}, Score:${m.score.toFixed(2)}) ${m.memory}`).join('\n')
-                : 'Tidak ditemukan memori yang relevan.'
-              resultString = `[MEMORY SEARCH RESULTS]\n${formatted}`
-            } else if (tool === 'speak') {
-              // --- NATIVE TTS SPEAKER ---
-              if (query && query.trim() !== '') {
-                // Jangan pake wait karena kita mau chatnya tetap responsif, tapi kalau await dia nunggu selesai ngomong
-                // Tampilkan pesan animasi "Berbicara..."
-                scheduleThinkingUpdate(`(Sedang berbicara) ${query}`)
-                await playVoice(query)
-                resultString = `Berhasil berbicara secara lisan: "${query}"`
-              } else {
-                resultString = 'Gagal: teks yang mau diucapkan kosong.'
-              }
-            } else if (tool === 'screenshot-to-wa') {
-              if (waContext) {
-                window.api.waTakeScreenshot(waContext.jid, waContext.msgId)
-                resultString = 'Screenshot berhasil diambil dan dikirimkan ke WhatsApp user.'
-              } else {
-                resultString =
-                  'Tool screenshot-to-wa HANYA tersedia jika user sedang chat dari WhatsApp.'
-              }
-            } else if (tool === 'analyze-screen') {
-              // --- SCREENSHOT FOR VISION (via vision-service: deep role = Mimo) ---
-              try {
-                const screens = await window.api.takeScreenshot()
-                if (screens && screens.length > 0) {
-                  scheduleThinkingUpdate('Memproses Vision AI...')
-                  resultString = await analyzeScreen(screens, query || 'Jelaskan dengan detail apa yang terlihat di layar ini.')
-                  console.log(`[Vision AI - analyze-screen] Hasil analisis:`, resultString)
-                } else {
-                  resultString = 'Gagal mengambil screenshot dari sistem operasi.'
-                }
-              } catch (e) {
-                resultString = `Gagal memproses visual: ${e.message}`
-              }
-            } else if (tool === 'camera-look') {
-              // --- CAMERA VISION (via vision-service: realtime role = Gemini) ---
-              try {
-                if (config[0]?.cameraEnabled === false) {
-                  resultString = 'Fitur kamera dimatikan di pengaturan. Beri tahu user untuk mengaktifkannya.'
-                } else if (!requestCameraCapture) {
-                  resultString = 'Internal Error: Callback requestCameraCapture tidak tersedia.'
-                } else {
-                  flushThinkingUpdate('Mengakses kamera...', true)
-                  const cameraFrame = await requestCameraCapture({
-                    isAutonomous: isAutonomous,
-                    deviceId: config[0]?.cameraDeviceId !== 'default' ? config[0]?.cameraDeviceId : null
-                  })
-                  if (cameraFrame) {
-                    flushThinkingUpdate('Menganalisis hasil kamera...', true)
-                    resultString = await analyzeCamera(cameraFrame, query || 'Jelaskan apa yang terlihat dari kamera ini.')
-                    console.log(`[Vision AI - camera-look] Hasil analisis:`, resultString)
-                  } else {
-                    resultString = 'Gagal mengambil gambar dari kamera.'
-                  }
-                }
-              } catch (e) {
-                resultString = `Gagal memproses kamera: ${e.message}`
-              }
-            } else if (
-              [
-                'read-file',
-                'write-file',
-                'replace-lines',
-                'delete-file',
-                'list-dir',
-                'grep-search',
-                'run-shell',
-                'run-cli',
-                'browser-navigate',
-                'browser-read',
-                'browser-click',
-                'browser-type',
-                'browser-scroll',
-                'browser-ask-user',
-                'browser-close',
-                'native-notify'
-              ].includes(tool)
-            ) {
-              // --- GUARD: pre-flight check ---
-              const preFlight = guard.preFlightCheck(tool, query)
-              if (!preFlight.allowed) {
-                if (preFlight.degrade) {
-                  options.disableTools = true
-                  resultString = `[DEGRADED] ${preFlight.reason}`
-                } else {
-                  resultString = `[ERROR] Guard rejected: ${preFlight.reason}`
-                }
-                loopMessages.push(
-                  {
-                    role: 'assistant',
-                    content: JSON.stringify({ thought: decision.thought, action: decision.action })
-                  },
-                  {
-                    role: 'user',
-                    content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${resultString}`
-                  }
-                )
-                continue
-              }
-
-	              // --- NATIVE TOOLS (Built-in) ---
-	              const toolStartTime = Date.now()
-	              const approvalCheck = await window.api.checkToolApproval(tool, query)
-
-	              // Approval modes check (Claude Code-inspired)
-	              // Source: https://code.claude.com/docs/en/agent-sdk/permissions
-	              const approvalMode = (config[0]?.approvalMode || 'selective')
-	              const modeResult = checkApprovalByMode(approvalMode, tool, !!isAutonomous)
-	              
-	              // Plan mode: block write tools outright
-	              if (modeResult.blocked) {
-	                resultString = `[DITOLAK] Plan mode: "${tool}" tidak diizinkan. Hanya tool read-only.`
-	                const blockedResult = sanitizeToolOutput(tool, resultString)
-	                loopMessages.push(
-	                  { role: 'assistant', content: JSON.stringify({ thought: decision?.thought, action: decision?.action }) },
-	                  { role: 'user', content: `[OBSERVATION] ${blockedResult}` }
-	                )
-	                continue
-	              }
-	              
-	              // Bypass or low-risk: skip approval modal
-	              if (!modeResult.needsApproval || approvalMode === 'bypass') {
-	                // Still do existing IPC check for tool-level blocked commands (e.g. dangerous keywords)
-	                if (approvalCheck.needsApproval && approvalCheck.needsApproval === 'hard_block') {
-	                  resultString = `[ERROR] Tool "${tool}" diblokir oleh sistem.`
-	                  guard.postFlightCheck(tool, resultString, Date.now() - toolStartTime)
-	                  const blockedResult = sanitizeToolOutput(tool, resultString)
-	                  loopMessages.push(
-	                    { role: 'assistant', content: JSON.stringify({ thought: decision?.thought, action: decision?.action }) },
-	                    { role: 'user', content: `[OBSERVATION] ${blockedResult}` }
-	                  )
-	                  continue
-	                }
-	                // Skip modal, execute directly
-	              } else if (approvalCheck.needsApproval && requestApproval) {
-                const userApproved = await requestApproval(approvalCheck.message, tool, query)
-                if (!userApproved) {
-                  resultString = `[DITOLAK] User menolak eksekusi "${tool}". Cari cara lain atau tanyakan user.`
-                  guard.postFlightCheck(tool, resultString, Date.now() - toolStartTime)
-
-                  // Granular failure tracking (Hermes-style)
-                  failureCounters.exact_failure++
-                  failureCounters.same_tool_failure[tool] = (failureCounters.same_tool_failure[tool] || 0) + 1
-                  failureCounters.idempotent_no_progress++
-
-                  const deniedResult = sanitizeToolOutput(tool, resultString)
-                  loopMessages.push(
-                    {
-                      role: 'assistant',
-                      content: JSON.stringify({
-                        thought: decision.thought,
-                        action: decision.action
-                      })
-                    },
-                    {
-                      role: 'user',
-                      content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${deniedResult}`
-                    }
-                  )
-                  continue
-                }
-              }
-
-              const nativePromise = window.api.executeNativeTool(tool, query)
-              const abortPromise = new Promise((_, reject) => {
-                const onAbort = () => reject(new Error('AbortError'))
-                if (abortControllerRef.current.signal.aborted) return onAbort()
-                abortControllerRef.current.signal.addEventListener('abort', onAbort, { once: true })
-              })
-
-              const res = await Promise.race([nativePromise, abortPromise])
-              const toolDuration = Date.now() - toolStartTime
-              if (res.success) {
-                resultString = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
-              } else {
-                resultString = `[ERROR] ${tool} gagal: ${res.error}`
-              }
-              guard.postFlightCheck(tool, resultString, toolDuration)
-
-              // Granular failure tracking (Hermes-style)
-              const isError = resultString && (resultString.startsWith('[ERROR]') || resultString.startsWith('[DITOLAK]'))
-              if (isError) {
-                failureCounters.exact_failure++
-                failureCounters.same_tool_failure[tool] = (failureCounters.same_tool_failure[tool] || 0) + 1
-                failureCounters.idempotent_no_progress++
-              } else {
-                failureCounters.same_tool_failure[tool] = 0
-                failureCounters.idempotent_no_progress = 0
-              }
-
-              lastToolExecution = { action: tool, query, result: resultString }
-            } else if (tool.startsWith('os-') || tool.startsWith('pc-')) {
-              // --- LINUX PC AGENT (Desktop Automation) ---
-              let pcResult = null
-              try {
-                switch (tool) {
-                  case 'os-read':
-                  case 'pc-control-read':
-                    pcResult = await window.api.osRead(); break
-                  case 'os-click':
-                  case 'pc-control-click':
-                    pcResult = await window.api.osClick(query); break
-                  case 'os-type':
-                  case 'pc-control-type':
-                    pcResult = await window.api.osType(query); break
-                  case 'os-key':
-                  case 'pc-control-key':
-                    pcResult = await window.api.osKey(query); break
-                  case 'os-scroll':
-                  case 'pc-control-scroll':
-                    pcResult = await window.api.osScroll(query); break
-                  case 'os-open':
-                  case 'pc-control-open':
-                    pcResult = await window.api.osOpen(query); break
-                  case 'os-list-windows':
-                  case 'pc-control-list-windows':
-                    pcResult = await window.api.osListWindows(); break
-                  case 'os-focus-window':
-                  case 'pc-control-focus-window':
-                    pcResult = await window.api.osFocusWindow(query); break
-                  case 'os-screenshot':
-                  case 'pc-screenshot':
-                    pcResult = await window.api.osScreenshot(); break
-                  case 'os-ask-user':
-                  case 'os-ask':
-                  case 'pc-control-ask':
-                    pcResult = await window.api.osAskUser(query); break
-                  case 'os-emergency-stop':
-                    pcResult = await window.api.osEmergencyStop(); break
-                  default:
-                    pcResult = { error: `Unknown PC tool: ${tool}` }
-                }
-              } catch (e) {
-                pcResult = { error: e.message }
-              }
-              resultString = typeof pcResult === 'string' ? pcResult : JSON.stringify(pcResult)
+            const toolCtx = {
+              chatData, setChatData, config, abortControllerRef, handleMusic,
+              getYoutubeData, getYoutubeSummary, requestApproval, requestCameraCapture,
+              guard, loopMessages, failureCounters, options, decision,
+              scheduleThinkingUpdate, flushThinkingUpdate, pushProcess,
+              waContext, isAutonomous
+            }
+            const exec = await dispatchTool(tool, query, toolCtx)
+            if (exec.status === 'value') {
+              resultString = exec.value
             } else {
-              // --- PLUGIN FALLBACK ---
-              const pluginProcessId = `plugin-${Date.now()}`
-              pushProcess({
-                id: pluginProcessId,
-                type: 'plugin-execution',
-                status: 'active',
-                data: { action: tool, query }
-              })
-
-              const pluginPromise = window.api.executePlugin(tool, query)
-              const abortPromise = new Promise((_, reject) => {
-                const onAbort = () => reject(new Error('AbortError'))
-                if (abortControllerRef.current.signal.aborted) return onAbort()
-                abortControllerRef.current.signal.addEventListener('abort', onAbort, { once: true })
-              })
-              const res = await Promise.race([pluginPromise, abortPromise])
-              if (res.success) {
-                resultString = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
-              } else {
-                resultString = `[ERROR] Plugin ${tool} gagal: ${res.error}`
-              }
-
-              lastToolExecution = { action: tool, query, result: resultString }
-              pushProcess({
-                id: pluginProcessId,
-                type: 'plugin-execution',
-                status: 'done',
-                data: { action: tool, query, result: resultString }
-              })
+              // status 'observation' — result already pushed to loopMessages
+              lastToolExecution = { action: tool, query, result: exec.value }
+              continue
             }
           } catch (toolError) {
             if (toolError.name === 'AbortError' || toolError.message.includes('AbortError')) {
@@ -912,6 +604,8 @@ let hardStopped = false
               content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${sanitizedOutput}`
             }
           )
+
+          lastToolExecution = { action: tool, query, result: resultString }
 
           continue
         }
