@@ -156,7 +156,32 @@ ipcMain.handle('ai:fetch', async (_event, data) => {
     }
     return await fetchAI(messages, config, undefined, isSmallTask, jsonSchema, null, onStatus)
   } catch (error) {
-    return { error: { message: error.message, code: error.code } }
+    let displayMessage = error.message
+    if (error.httpStatus) {
+      switch (error.httpStatus) {
+        case 401:
+          displayMessage = 'Kredensial AI tidak valid. Periksa API Key di halaman Configuration.'
+          break
+        case 404:
+          if (/credential/i.test(error.message)) {
+            displayMessage = 'Kredensial AI provider tidak aktif. Pastikan API Key dan provider yang dipilih sudah benar di halaman Configuration.'
+          } else {
+            displayMessage = 'Endpoint AI tidak ditemukan. Periksa URL endpoint di halaman Configuration.'
+          }
+          break
+        case 429:
+          displayMessage = 'Terlalu banyak permintaan. Tunggu beberapa saat, lalu coba lagi.'
+          break
+        case 500: case 502: case 503:
+          displayMessage = 'Server AI sedang sibuk. Coba lagi nanti.'
+          break
+        default:
+          displayMessage = `Gagal terhubung ke AI (HTTP ${error.httpStatus}). Periksa pengaturan di halaman Configuration.`
+      }
+    } else if (/network|fetch|econnrefused|enotfound|timeout/i.test(error.message)) {
+      displayMessage = 'Gagal terhubung ke server AI. Pastikan server aktif dan dapat dijangkau dari komputer ini.'
+    }
+    return { error: { message: displayMessage, code: error.code } }
   }
 })
 
