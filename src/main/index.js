@@ -247,6 +247,7 @@ ipcMain.handle('create-agent-skill', async (_event, skillDef) => {
     }
 
     const safeName = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    if (!safeName) throw new Error('name produces empty safeName after sanitization')
     const projectSkills = path.join(process.cwd(), '.agents', 'skills')
     const userSkills = path.join(os.homedir(), '.agents', 'skills')
     const targetBase = fs.existsSync(projectSkills) ? projectSkills : userSkills
@@ -269,7 +270,7 @@ ipcMain.handle('create-agent-skill', async (_event, skillDef) => {
     if (origin === 'mark-generated') {
       const bodyHash = hashBody(content)
       const canonical = buildCanonical({ name: safeName, watermark: 'v5.0.0', origin, provider, bodyHash })
-      signatureLine = `mark-signature: ${signContent(canonical)}\n`
+      signatureLine = `\nmark-signature: ${signContent(canonical)}`
     }
 
     const platformStr = platforms.length > 0 ? `\nplatforms: [${platforms.join(', ')}]` : ''
