@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { getNextAction } from '../../api/ai/planning'
+import { getYoutubeSummary } from '../../api/ai/tools'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
 import { insertMemory, updateMemory, deleteMemory, getAllMemory, insertAuditLog } from '../../api/db'
 import { getUnifiedContext, generateVector } from '../../api/vectorMemory'
@@ -265,7 +266,20 @@ export const useMarkPlan = ({
 
 // ========== STEP 3: AGENTIC LOOP ==========
 const loopMessages = [...chatSession]
-	const MAX_TURNS = config[0]?.maxTurns || 20
+	// Turn Governor: default config, diturunkan otomatis oleh auto-learn (applyLearnedHints)
+	// jika model terbukti loop panjang (maxTurns terobservasi >= 8).
+	let maxTurns = config[0]?.maxTurns || 20
+	try {
+	  const modelName = (conf.customModel || '').split(',')[0].trim()
+	  if (modelName && window.api?.getModelHints) {
+	    const hints = await window.api.getModelHints(modelName)
+	    if (hints?.turnCap && hints.turnCap < maxTurns) {
+	      console.warn(`[Turn Governor] Auto-learn menurunkan cap ${maxTurns} → ${hints.turnCap} (model loop panjang)`)
+	      maxTurns = hints.turnCap
+	    }
+	  }
+	} catch (_) { /* hints opsional */ }
+	const MAX_TURNS = maxTurns
 	const PER_TURN_TIMEOUT_MS = config[0]?.perTurnTimeout || 90000 // default 90s
 
 // Hermes-style granular guardrails
