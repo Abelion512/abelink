@@ -894,6 +894,10 @@ let hardStopped = false
               throw toolError
             }
             resultString = `[ERROR] Tool ${tool} crash: ${toolError.message}`
+            // Granular failure tracking — crashes must count toward hard-stop guardrails
+            failureCounters.exact_failure++
+            failureCounters.same_tool_failure[tool] = (failureCounters.same_tool_failure[tool] || 0) + 1
+            failureCounters.idempotent_no_progress++
           }
 
           // --- FEED OBSERVATION BACK KE AI ---
@@ -941,6 +945,8 @@ let hardStopped = false
           })
         }
       }
+
+      dismissProcess(agenticProcessId)
 
       if (!waContext && !isAutonomous) {
         setIsLoading(false)
