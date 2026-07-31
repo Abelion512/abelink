@@ -93,7 +93,12 @@ AGENTS.md.local
 quest.md
 docs/PLANNED/
 docs/superpowers/
+docs/.screenshoots/
 .remember/agent-memory/
+exa-results/
+.claude/
+!.claude/settings.json
+!.claude/settings.local.json
 
 # ── Local config ──
 model-registry.json
@@ -104,9 +109,9 @@ client_secret*.json
 *-config.local.*
 
 # ── Generated / large test artifacts ──
-tests/*.har
-tests/*.heapsnapshot
-tests/*.gz
+tests/**/*.har
+tests/**/*.heapsnapshot
+tests/**/*.gz
 
 # ── Node.js version specifiers (workspace-specific, not project) ──
 .nvmrc
