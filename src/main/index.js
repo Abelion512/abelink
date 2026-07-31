@@ -60,7 +60,8 @@ function createWindow() {
     autoHideMenuBar: true,
     icon: icon,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      // ponytail: type:module → preload builds as index.mjs; must match or preload silently fails
+      preload: join(__dirname, '../preload/index.mjs'),
       webviewTag: true,
       sandbox: false,
       webSecurity: false,
