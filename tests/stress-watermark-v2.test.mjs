@@ -116,9 +116,18 @@ origin: user
 `
 check('B3. appended origin-in-body → signature-invalid (body tamper)', verifySkillOrigin(evilName, null).status === 'signature-invalid')
 
-// B4. Origin appearing twice — parser takes FIRST (declared mark-generated).
-// Attacker puts 'origin: mark-agent-fork' later in body → ignored.
-check('B4. duplicate origin — first wins, second in body ignored', verifySkillOrigin(genuineSkill, null).status === 'signed-verified')
+// B4. Duplicate origin field — parser takes FIRST (mark-generated); second ignored.
+const dupOrigin = `---
+name: dup
+origin: mark-generated
+origin: mark-agent-fork
+watermark: v5.0.0
+provider: mark-ai
+mark-signature: ${keyring.sign(buildCanonical({ name: 'dup', watermark: 'v5.0.0', origin: 'mark-generated', provider: 'mark-ai', bodyHash: bodyHash('# dup\nbody') }))}
+---
+# dup
+body`
+check('B4. duplicate origin — first wins (mark-generated), verified', verifySkillOrigin(dupOrigin, null).status === 'signed-verified')
 
 // ============ GROUP C: Key rotation ============
 
@@ -149,7 +158,9 @@ const results = await Promise.all(Array.from({ length: 50 }, (_, i) => {
   return new Promise(res => setTimeout(() => res(verifySkillOrigin(skill, null).status), Math.random() * 10))
 }))
 check('E1. 50 concurrent skills all verify', results.every(r => r === 'signed-verified'), results.filter(r => r !== 'signed-verified').length + ' failures')
-check('E2. double-verify idempotent', verifySkillOrigin(genuineSkill, null).status === verifySkillOrigin(genuineSkill, null).status)
+const r1 = verifySkillOrigin(genuineSkill, null).status
+const r2 = verifySkillOrigin(genuineSkill, null).status
+check('E2. double-verify idempotent', r1 === 'signed-verified' && r1 === r2)
 
 // E3. Truncated signature (first 30 chars) → verify false
 const truncated = genuineSkill.replace(/^mark-signature: .*$/m, 'mark-signature: ' + genuineSkill.match(/^mark-signature: (.+)$/m)[1].slice(0, 30))
@@ -163,7 +174,7 @@ check('F1. sig with = padding verifies', verifySkillOrigin(createSkill({ name: '
 // F2. CRLF file — real loader splits on '\n', trimEnd removes '\r' → VERIFIES (not parse-fail)
 check('F2. CRLF file handled (split + trimEnd)', verifySkillOrigin(genuineSkill.replace(/\n/g, '\r\n'), null).status === 'signed-verified')
 
-// F3. Whitespace-indented file → parse-fail (startsWith '---' check) — SAFE rejection
+// F3. Leading spaces → trim() rescues '---' detection → verifies normally
 check('F3. indented file parses via trim (safe)', verifySkillOrigin('  ' + genuineSkill, null).status === 'signed-verified')
 
 // F4. 100KB body — hash + verify < 100ms
