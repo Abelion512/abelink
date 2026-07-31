@@ -1,6 +1,6 @@
 // Section: AI Engine & Tools (provider, models, keys, persona, sliders, approval mode, awareness)
 import { useState } from 'react'
-import { FaEye, FaEyeSlash, FaLock } from 'react-icons/fa'
+import { FaEye, FaEyeSlash } from 'react-icons/fa'
 import { saveConfiguration } from '../../../api/db'
 import { getExtractor } from '../../../api/vectorMemory'
 import { useConfirm } from '../../../hooks/useConfirm'
