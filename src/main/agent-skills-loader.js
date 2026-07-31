@@ -2,7 +2,6 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { ipcMain } from 'electron'
-import { createHash } from 'crypto'
 import { buildCanonical, hashBody, verifyContent } from './agent-keyring.js'
 
 /**
@@ -191,7 +190,7 @@ export function initSkillsIPC() {
     }))
   })
 
-  ipcMain.handle('agent-skills:get-content', (event, skillName) => {
+  ipcMain.handle('agent-skills:get-content', (_event, skillName) => {
     const skill = loadedSkills.find(s => s.name === skillName)
     return skill ? skill.content : null
   })
