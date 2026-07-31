@@ -3,6 +3,7 @@
 // This is the malware defense layer: signature proves provenance, this proves content.
 
 const INJECTION_PATTERNS = [
+  /ignore\s+all/i, // ponytail: general catch-all first; specific pattern below
   /ignore\s+(all\s+)?(previous|above|prior)\s+(instructions|commands|directives)/i,
   /you\s+are\s+(now|an?\s+AI|a\s+free|required\s+to)/i,
   /override\s+(all\s+)?(instructions|commands|rules|policies)/i,
@@ -14,7 +15,6 @@ const INJECTION_PATTERNS = [
   /disregard\s+(all\s+)?(previous|above)/i,
   /set\s+(your|the)\s+(system|role|persona)/i,
   /reveal\s+(your|the)\s+(system|instructions|prompt)/i,
-  /ignore\s+all/i, // ponytail: added for "ignore all" without directional qualifier
 ]
 
 const OBFUSCATION_PATTERNS = [
@@ -72,7 +72,7 @@ export function sanitizeSkillContent(content) {
 export function classifyContentRisk(content) {
   const obf = checkObfuscation(content)
   const inj = checkInjection(content)
-  if (obf.length > 2 || inj.length > 3) return 0  // block
+  if (obf.length > 2 || inj.length >= 3) return 0  // block
   if (obf.length > 0 || inj.length > 0) return 1  // warn
   return 2                                        // pass
 }
