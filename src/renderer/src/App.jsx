@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-const MarkHome = lazy(() => import('./pages/MarkHome'))
+import MarkHome from './pages/MarkHome'
 const Configuration = lazy(() => import('./pages/Configuration'))
 const Guidebook = lazy(() => import('./pages/Guidebook'))
 const Plugins = lazy(() => import('./pages/Plugins'))
@@ -175,7 +175,7 @@ function App() {
             <div className="h-screen flex flex-col overflow-hidden">
               <div className="h-screen w-full">
                 <Routes>
-                  <Route path="/" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><MarkHome /></Suspense>} />
+                  <Route path="/" element={<MarkHome />} />
                   <Route path="/config" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Configuration /></Suspense>} />
                   <Route path="/plugins" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Plugins /></Suspense>} />
                   <Route path="/live-audio" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><LiveAudio /></Suspense>} />
