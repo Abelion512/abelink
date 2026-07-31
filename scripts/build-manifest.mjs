@@ -16,6 +16,10 @@ function getSkillBody(content) {
   return parts[1] ?? content
 }
 
+function getFrontmatter(content) {
+  return content.split(/\n---\s*\n/)[0].replace(/^---\s*\n/, '')
+}
+
 const manifest = { version: 1, skills: {} }
 for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
   if (!entry.isDirectory()) continue
@@ -23,7 +27,7 @@ for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
   if (!existsSync(skillPath)) continue
   const content = readFileSync(skillPath, 'utf8')
   // Only core (mark-agent-fork) skills go into the manifest
-  if (!/^origin:\s*mark-agent-fork\s*$/m.test(content.split('---')[1] || '')) continue
+  if (!/^origin:\s*mark-agent-fork\s*$/m.test(getFrontmatter(content))) continue
   const body = getSkillBody(content)
   manifest.skills[entry.name] = { sha256: createHash('sha256').update(body).digest('hex') }
 }
