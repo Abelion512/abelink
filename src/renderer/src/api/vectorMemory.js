@@ -1,20 +1,18 @@
-import { pipeline, env } from '@huggingface/transformers';
-import { getAllConfig, getAllMemory, db } from './db';
-
-env.allowLocalModels = false;
-env.useBrowserCache = true;
-env.useFSCache = false;
-
 let extractor = null;
 let isDownloading = false;
 let vectorDisabled = false; // CSP block failover — skip vector ops permanently after first failure
 
-// We export this so we can manually trigger download from config page
+// Lazy-load @huggingface/transformers (~200MB) — only imported on first vector call
+// ponytail: dynamic import keeps initial bundle ~300KB lighter
 export const getExtractor = async (onProgress) => {
   if (vectorDisabled) return null;
   if (!extractor && !isDownloading) {
     isDownloading = true;
     try {
+      const { pipeline, env } = await import('@huggingface/transformers');
+      env.allowLocalModels = false;
+      env.useBrowserCache = true;
+      env.useFSCache = false;
       extractor = await pipeline('feature-extraction', 'Xenova/paraphrase-multilingual-MiniLM-L12-v2', {
         device: 'wasm',
         progress_callback: onProgress
@@ -56,7 +54,7 @@ export const cosineSimilarity = (vecA, vecB) => {
 
 import { searchArchives, searchDocuments, searchMemoriesInOrama } from './oramaStore'
 
-export const getRelevantMemory = async (userInput, memoryList) => {
+export const getRelevantMemory = async (memoryList) => {
   // Hanya Core memory (profile & preference) dipanggil langsung tanpa filter
   const coreMemories = memoryList
     .filter(m => m.type === 'profile' || m.type === 'preference')
@@ -72,7 +70,7 @@ export const searchExtendedMemory = async (query) => {
 }
 
 export const getUnifiedContext = async (userInput, memoryList) => {
-  const memories = await getRelevantMemory(userInput, memoryList)
+  const memories = await getRelevantMemory(memoryList)
 
   // Masih perlu generate vector untuk Orama (Documents & Archives)
   const output = await generateVector(userInput)
