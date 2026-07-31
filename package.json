@@ -44,7 +44,7 @@
     "mpris-service": "^2.1.2",
     "msedge-tts": "^2.0.4",
     "open": "^11.0.0",
-    "openai": "^6.17.0",
+    "openai": "^7.1.0",
     "pdf-parse": "^2.4.5",
     "playwright": "^1.62.0",
     "postprocessing": "^6.38.2",
