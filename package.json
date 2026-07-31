@@ -57,7 +57,7 @@
     "rehype-external-links": "^3.0.0",
     "remark-gfm": "^4.0.1",
     "tailwindcss": "^4.1.18",
-    "three": "^0.182.0",
+    "three": "^0.185.1",
     "youtube-dl-exec": "^3.1.7",
     "youtube-transcript": "^1.2.1",
     "youtube-transcript-plus": "^1.1.2",
