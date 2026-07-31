@@ -26,7 +26,7 @@ import { loadSkills, initSkillsIPC } from './agent-skills-loader.js'
 import {
   readDesktop, executeClick, executeType, executeKey, executeScroll,
   openApp, listWindows, focusWindow, askUserPC,
-  openPCSession, closePCSession, captureScreenshot, ocrRegion, emergencyStop
+  captureScreenshot, ocrRegion, emergencyStop
 } from './pc-agent.js'
 import { initMpris, setMprisCallbacks, setMprisPlaybackStatus, updateMprisTrack, stopMpris } from './mpris-service.js'
 import { getRecentTracks, getTopTracks, setApiKey as setLastfmKey } from './lastfm-service.js'
@@ -34,7 +34,7 @@ import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
 import { ElectronBlocker } from '@ghostery/adblocker-electron'
 import mammoth from 'mammoth'
 import { PDFParse } from 'pdf-parse'
-import { loadYouTube, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, sendKeyboardCommand, showAndNavigate } from './youtube-player.js'
+import { loadYouTube, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, sendKeyboardCommand } from './youtube-player.js'
 
 // Headless/SSH detection: disable GPU if no display server available (Linux)
 if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
@@ -62,8 +62,9 @@ function createWindow() {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       webviewTag: true,
+      // ponytail: sandbox=false required for preload's require() — switch to contextBridge-only preload to enable sandbox
       sandbox: false,
-      webSecurity: false,
+      webSecurity: true,
       backgroundThrottling: false
     }
   })
@@ -104,8 +105,8 @@ ipcMain.on('mpris:set-status', (_event, playing) => {
   try { setMprisPlaybackStatus(playing) } catch {}
 })
 
-import { fetchAI, setGlobalConfig, abortAllFetches, resolveVisionModel } from './ai-bridge.js'
-import { getToolCatalog, getToolDetail, getToolCatalogString, getToolCatalogForQuery, matchVoiceCommand, refreshToolCache } from './tool-registry.js'
+import { fetchAI, setGlobalConfig, abortAllFetches, resolveVisionModel, getGlobalConfig } from './ai-bridge.js'
+import { getToolDetail, getToolCatalogString, getToolCatalogForQuery, matchVoiceCommand, refreshToolCache } from './tool-registry.js'
 
 ipcMain.on('sync-config', (_event, config) => {
   setGlobalConfig(config)
@@ -326,7 +327,8 @@ app.whenReady().then(async () => {
     }
   })
 
-  startWhatsappBot(mainWindow)
+  // WhatsApp bot: opt-in only — user starts via tray menu or IPC
+  // Auto-start removed for security: bot can send messages on behalf of user
 
   const trayIcon = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
   tray = new Tray(trayIcon)
@@ -344,6 +346,10 @@ app.whenReady().then(async () => {
     {
       label: 'Monitor WhatsApp',
       click: () => { safeShow(); safeSend('navigate', '/whatsapp-bot') }
+    },
+    {
+      label: 'Hidupkan WhatsApp Bot',
+      click: () => startWhatsappBot(mainWindow)
     },
     {
       label: 'Matikan WhatsApp Bot',
@@ -528,10 +534,10 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.handle('lastfm:get-recent', async (_event, user) => {
-    return getRecentTracks(user || 'abelionz')
+    return getRecentTracks(user || getGlobalConfig()?.lastfmUser || '')
   })
   ipcMain.handle('lastfm:get-top', async (_event, user) => {
-    return await getTopTracks(user || 'abelionz')
+    return await getTopTracks(user || getGlobalConfig()?.lastfmUser || '')
   })
 
   ipcMain.handle('ytdl:get-info', async (_event, url) => {
@@ -546,14 +552,14 @@ app.whenReady().then(async () => {
 
   // ===== VISION MODEL ROUTING (Registry-based) =====
   ipcMain.handle('vision:resolve-model', (_event, role) => {
-    const conf = globalConfig || {}
+    const conf = getGlobalConfig() || {}
     const comboName = conf.customModel || 'mark'
     // resolveVisionModel is imported from ai-bridge at top of file
     return resolveVisionModel(comboName, role)
   })
 
-  ipcMain.handle('vision:get-endpoint', (_event, modelId) => {
-    const conf = globalConfig || {}
+  ipcMain.handle('vision:get-endpoint', () => {
+    const conf = getGlobalConfig() || {}
     const activeProvider = conf.aiProvider || 'lmstudio'
     const customEndpoint = conf.customEndpoint?.replace(/\/+$/, '') || 'http://localhost:1234'
     const customApiKey = conf.customApiKey || ''

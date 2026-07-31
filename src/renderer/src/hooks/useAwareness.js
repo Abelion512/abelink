@@ -69,7 +69,7 @@ export const useAwareness = ({
         bufferEmptyRef.current = false
         console.log('[useAwareness] Memulai check-in, entries:', buffer.length, buffer)
         const allMemory = await getAllMemory()
-        const memoryRef = await getRelevantMemory('aktivitas user bekerja dan rutinitas', allMemory)
+        const memoryRef = await getRelevantMemory(allMemory)
 
         // Ambil 5 riwayat chat terakhir tanpa status isThinking dll
         const recentChat = (chatDataRef.current || [])

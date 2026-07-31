@@ -17,7 +17,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@distube/ytdl-core": "^4.16.12",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@fontsource/poppins": "^5.2.7",
@@ -45,8 +44,6 @@
     "open": "^11.0.0",
     "openai": "^6.17.0",
     "pdf-parse": "^2.4.5",
-    "playwright": "^1.62.0",
-    "postprocessing": "^6.38.2",
     "qrcode": "^1.5.4",
     "react-force-graph-2d": "^1.29.1",
     "react-icons": "^5.6.0",
@@ -56,12 +53,9 @@
     "rehype-external-links": "^3.0.0",
     "remark-gfm": "^4.0.1",
     "tailwindcss": "^4.1.18",
-    "three": "^0.182.0",
     "youtube-dl-exec": "^3.1.7",
-    "youtube-transcript": "^1.2.1",
     "youtube-transcript-plus": "^1.1.2",
-    "yt-search": "^2.13.1",
-    "ytmusic-api": "^5.3.1"
+    "yt-search": "^2.13.1"
   },
   "overrides": {
     "protobufjs": "^7.5.5",
