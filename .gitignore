@@ -87,7 +87,6 @@ web.whatsapp.com_files/
 AGENTS.md
 AGENTS.md.local
 CLAUDE.md
-CONTRIBUTING.md
 CHANGELOG.md
 .local/
 .hermes/
@@ -111,9 +110,7 @@ client_secret*.json
 *-config.local.*
 
 # ── Generated / large test artifacts ──
-tests/**/*.har
-tests/**/*.heapsnapshot
-tests/**/*.gz
+tests/
 
 # ── Node.js version specifiers (workspace-specific, not project) ──
 .nvmrc
