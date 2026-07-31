@@ -465,6 +465,24 @@ ${
     const compressedTurns = compressor.compress(previousTurns)
 
     const messages = [{ role: 'system', content: systemPrompt }, ...compressedTurns]
+    // ---- AUTO-LEARN hint (Level 2): model-specific instruction dari observasi ----
+    // Dipicu oleh applyLearnedHints() di ai-bridge (>=10 sample, jsonReliability<0.7 dsb).
+    // Prinsip: Thinking:Auto = default; ubah hanya kalau ada bukti masalah.
+    try {
+      const modelName = (conf.customModel || '').split(',')[0].trim()
+      if (modelName && window.api?.getModelHints) {
+        const hints = await window.api.getModelHints(modelName)
+        if (hints?.jsonInstruction) {
+          messages[0].content += '\n\n[KRITIS] Kamu WAJIB mengembalikan JSON valid persis skema. JANGAN teks lain di luar JSON — tidak ada pembuka, penutup, atau markdown.'
+        }
+        if (hints?.stripThink) {
+          messages[0].content += '\n\n[KRITIS] JANGAN pernah menaruh tag <think> atau proses berpikir di "content". Hanya JSON murni.'
+        }
+        if (hints?.turnCap) {
+          messages[0].content += `\n\n[KRITIS] Batas maksimal ${hints.turnCap} tool calls per percakapan. Setelah itu WAJIB isi "answer" dan akhiri loop.`
+        }
+      }
+    } catch (e) { /* hints opsional — gagal membaca jangan memblokir */ }
     const schema = {
       type: 'object',
       properties: {

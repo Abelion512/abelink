@@ -104,7 +104,7 @@ ipcMain.on('mpris:set-status', (_event, playing) => {
   try { setMprisPlaybackStatus(playing) } catch {}
 })
 
-import { fetchAI, setGlobalConfig, abortAllFetches, resolveVisionModel } from './ai-bridge.js'
+import { fetchAI, setGlobalConfig, abortAllFetches, resolveVisionModel, applyLearnedHints } from './ai-bridge.js'
 import { getToolCatalog, getToolDetail, getToolCatalogString, getToolCatalogForQuery, matchVoiceCommand, refreshToolCache } from './tool-registry.js'
 
 ipcMain.on('sync-config', (_event, config) => {
@@ -162,6 +162,17 @@ ipcMain.handle('ai:fetch', async (_event, data) => {
 
 ipcMain.on('ai:abort-fetch', () => {
   abortAllFetches()
+})
+
+// AUTO-LEARN: renderer meminta hints per-model (dari observasi di trackModelUsage)
+ipcMain.handle('ai:model-hints', (_event, modelName) => {
+  if (!modelName || typeof modelName !== 'string') return {}
+  try {
+    return applyLearnedHints(modelName.trim())
+  } catch (e) {
+    console.warn('[ModelHints] Failed:', e.message)
+    return {}
+  }
 })
 
 if (is.dev) {

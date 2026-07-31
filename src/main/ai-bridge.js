@@ -51,7 +51,7 @@ export function resolveVisionModel(input) {
 }
 
 // Track model analytics
-function trackModelUsage(model, success, latencyMs, finishReason) {
+function trackModelUsage(model, success, latencyMs, finishReason, learn = {}) {
   const registry = loadRegistry()
   if (!registry.analytics) registry.analytics = { models: {} }
   if (!registry.analytics.models) registry.analytics.models = {}
@@ -73,6 +73,22 @@ function trackModelUsage(model, success, latencyMs, finishReason) {
     m.failures++
   }
 
+  // ---- AUTO-LEARN Level 1 (passive observation, tidak menimpa metadata manual) ----
+  // Dari riset: DeepSeek thinking mode temp di-ignore + JSON kadang kosong; V4 tool calls
+  // bisa jatuh ke content; proxy OpenAI-compatible merusak JSON reliability (KVV). Catat
+  // semua ini sebagai sinyal per-model, dipakai auto-tune di applyLearnedHints().
+  const L = m.learned || { jsonOk: 0, jsonFail: 0, cotLeak: 0, thinkTagged: 0, emptyContent: 0, maxTurns: 0 }
+  if (learn.jsonParsed !== undefined) {
+    if (learn.jsonParsed) L.jsonOk++ ; else L.jsonFail++
+    L.jsonReliability = +(L.jsonOk / (L.jsonOk + L.jsonFail)).toFixed(3)
+  }
+  if (learn.cotLeak) L.cotLeak++
+  if (learn.thinkTagged) L.thinkTagged++
+  if (learn.emptyContent) L.emptyContent++
+  if (learn.maxTurns && learn.maxTurns > L.maxTurns) L.maxTurns = learn.maxTurns
+  L.observedAt = new Date().toISOString()
+  m.learned = L
+
   // Auto-tag
   if (!m.tags.includes('reasoning') && model.includes('deepseek')) m.tags.push('reasoning')
   if (!m.tags.includes('vision') && model.includes('gemini')) m.tags.push('vision')
@@ -80,6 +96,27 @@ function trackModelUsage(model, success, latencyMs, finishReason) {
 
   registry.analytics.models[model] = m
   saveRegistry(registry)
+}
+
+// ---- AUTO-LEARN Level 2: hints yang diterapkan pada request berikutnya ----
+// Prinsip (riset): jangan paksa harness mengatur yang model bisa atur sendiri; ubah hanya
+// kalau ada bukti masalah. Thinking:Auto = default (Gemini), reasoning_effort opsional.
+export function applyLearnedHints(model, hints = {}) {
+  const registry = loadRegistry()
+  const L = registry.analytics?.models?.[model]?.learned
+  if (!L || (L.jsonOk + L.jsonFail) < 10) return hints // butuh >=10 sample sebelum mengubah apa pun
+
+  const out = { ...hints }
+  if (L.jsonReliability !== undefined && L.jsonReliability < 0.7 && !out.jsonInstruction) {
+    out.jsonInstruction = true // minta format JSON ketat di prompt
+  }
+  if ((L.cotLeak || 0) >= 5 && !out.stripThink) {
+    out.stripThink = true // CoT bocor berulang → sanitasi <think>
+  }
+  if (L.maxTurns && L.maxTurns >= 8 && !out.turnCap) {
+    out.turnCap = Math.max(4, Math.ceil(L.maxTurns / 2)) // loop panjang → cap turns
+  }
+  return out
 }
 
 // ========== RETRY POLICIES (Configurable) ==========
@@ -265,6 +302,16 @@ export const fetchAI = async (
         normalized.push({ ...m })
       }
     }
+    // Pass-back reasoning_content: DeepSeek thinking mode wajib membawa reasoning_content
+    // pada assistant message (terutama yang punya tool_calls) di turn berikutnya, atau API
+    // mengembalikan HTTP 400. Baca dari m.reasoning (hasil capture fetchAI) / m.reasoning_content.
+    for (const m of normalized) {
+      if (m.role === 'assistant') {
+        const r = m.reasoning || m.reasoning_content
+        if (r && !m.reasoning_content) m.reasoning_content = r
+        if (m.reasoning) delete m.reasoning
+      }
+    }
     baseBody.messages = normalized
   }
 
@@ -365,6 +412,7 @@ export const fetchAI = async (
         const decoder = new TextDecoder()
         let buffer = ''
         let accumulatedContent = ''
+        let accumulatedReasoning = ''
         let finishReason = null
         let doneRead = false
         try {
@@ -386,6 +434,9 @@ export const fetchAI = async (
                   accumulatedContent += delta.content
                   onStream(delta.content)
                 }
+                if (delta?.reasoning_content) {
+                  accumulatedReasoning += delta.reasoning_content
+                }
                 if (chunk.choices?.[0]?.finish_reason) {
                   finishReason = chunk.choices[0].finish_reason
                 }
@@ -397,7 +448,7 @@ export const fetchAI = async (
           // Timeout during stream — use what we got
         }
         if (accumulatedContent) {
-          result = { content: accumulatedContent }
+          result = { content: accumulatedContent, reasoning: accumulatedReasoning || null }
           success = true
           trackModelUsage(model, true, latencyMs, finishReason)
           logObservation({
@@ -424,19 +475,20 @@ export const fetchAI = async (
         if (parsed === null) {
           log.err(' parse', 'Response bukan JSON valid')
           lastError = new AIServiceError('Response bukan JSON valid', { provider: activeProvider, model })
-          trackModelUsage(model, false, latencyMs, null)
+          trackModelUsage(model, false, latencyMs, null, { jsonParsed: false })
           break
         }
 
         const content = extractAIContent(parsed)
         const finishReason = parsed.choices?.[0]?.finish_reason
+        const reasoningContent = parsed.choices?.[0]?.message?.reasoning_content || null
 
         if (!content || content.trim() === '') {
           log.warn(' empty', 'Content kosong (content: null)')
           // Return empty content instead of throwing — let caller handle retry
-          result = { content: '' }
+          result = { content: '', reasoning: reasoningContent }
           success = true
-          trackModelUsage(model, true, latencyMs, finishReason)
+          trackModelUsage(model, true, latencyMs, finishReason, { jsonParsed: true, emptyContent: true })
           logObservation({
             provider: activeProvider, model, latencyMs,
             httpStatus: response.status, finishReason,
@@ -449,10 +501,15 @@ export const fetchAI = async (
           log.warn('✂️', 'Truncated (finish_reason: length)')
         }
 
+        // CoT leakage detection: content polos (bukan JSON) tapi ada reasoning → bocor
+        const looksLikeCoT = !content.trim().startsWith('{') && reasoningContent
         // SUCCESS
-        result = { content }
+        result = { content, reasoning: reasoningContent }
         success = true
-        trackModelUsage(model, true, latencyMs, finishReason)
+        trackModelUsage(model, true, latencyMs, finishReason, {
+          jsonParsed: true, cotLeak: !!looksLikeCoT,
+          thinkTagged: content.includes('<think>'),
+        })
         logObservation({
           provider: activeProvider, model, latencyMs,
           httpStatus: response.status, finishReason,
