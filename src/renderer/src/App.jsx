@@ -1,12 +1,12 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
+const MarkHome = lazy(() => import('./pages/MarkHome'))
 const Configuration = lazy(() => import('./pages/Configuration'))
 const Guidebook = lazy(() => import('./pages/Guidebook'))
 const Plugins = lazy(() => import('./pages/Plugins'))
-import MarkHome from './pages/MarkHome'
-import LiveAudio from './pages/LiveAudio'
-import WhatsappBot from './pages/WhatsappBot'
-import Knowledge from './pages/Knowledge'
-import RelationalGrowth from './pages/RelationalGrowth'
+const LiveAudio = lazy(() => import('./pages/LiveAudio'))
+const WhatsappBot = lazy(() => import('./pages/WhatsappBot'))
+const Knowledge = lazy(() => import('./pages/Knowledge'))
+const RelationalGrowth = lazy(() => import('./pages/RelationalGrowth'))
 import { HashRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
@@ -175,14 +175,14 @@ function App() {
             <div className="h-screen flex flex-col overflow-hidden">
               <div className="h-screen w-full">
                 <Routes>
-                  <Route path="/" element={<MarkHome />} />
+                  <Route path="/" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><MarkHome /></Suspense>} />
                   <Route path="/config" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Configuration /></Suspense>} />
                   <Route path="/plugins" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Plugins /></Suspense>} />
-                  <Route path="/live-audio" element={<LiveAudio />} />
-                  <Route path="/whatsapp-bot" element={<WhatsappBot />} />
-                  <Route path="/knowledge" element={<Knowledge />} />
+                  <Route path="/live-audio" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><LiveAudio /></Suspense>} />
+                  <Route path="/whatsapp-bot" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><WhatsappBot /></Suspense>} />
+                  <Route path="/knowledge" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Knowledge /></Suspense>} />
                   <Route path="/guidebook" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Guidebook /></Suspense>} />
-                  <Route path="/relational" element={<RelationalGrowth />} />
+                  <Route path="/relational" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><RelationalGrowth /></Suspense>} />
                 </Routes>
               </div>
             </div>
