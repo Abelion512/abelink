@@ -95,7 +95,8 @@ const api = {
   // Agent Skills (~/.agents/skills/)
   getAgentSkills: () => ipcRenderer.invoke('agent-skills:get-list'),
   getAgentSkillContent: (name) => ipcRenderer.invoke('agent-skills:get-content', name),
-  reloadAgentSkills: () => ipcRenderer.invoke('agent-skills:reload')
+  reloadAgentSkills: () => ipcRenderer.invoke('agent-skills:reload'),
+  createAgentSkill: (skillDef) => ipcRenderer.invoke('create-agent-skill', skillDef),
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
