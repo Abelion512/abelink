@@ -7,6 +7,7 @@ const compressor = createCompressor({ maxTokens: 128000 })
 import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorMemory'
 import { getPersonaPrompt, getTraitContext } from './persona'
+import { sanitizeSkillContent, classifyContentRisk } from './skill-sanitizer.js'
 
 // --- Config Cache (cache-aside pattern) ---
 let _configCache = null
@@ -180,55 +181,52 @@ export const getNextAction = async (
             .join('\n')
         : ''
 
-    // Sanitizer: strips instruction-override patterns from skill files.
-    // Prevents prompt injection via SKILL.md (untrusted content from
-    // ~/.agents/skills/ or ~/.zcode/skills/ that could override AI behavior).
-    const sanitizeSkillContent = (content) => {
-      const dangerous = [
-        /ignore all previous instructions/i,
-        /ignore all above/i,
-        /you are now/i,
-        /you are an AI/i,
-        /override/i,
-        /new instructions/i,
-        /system prompt/i,
-        /DANGER:/i,
-        /WARNING:/i,
-      ]
-      const lines = content.split('\n').filter(line => {
-        // Strip markdown headings containing instruction/command
-        if (/^#\s.*(instruction|command)/i.test(line)) return false
-        // Strip lines matching known injection patterns
-        for (const re of dangerous) if (re.test(line)) return false
-        return true
-      })
-      return `<skill_data>\n${lines.join('\n')}\n</skill_data>`
-    }
+    // === Agent Skills — vector-match, verify trust, sanitize content, inject ===
 
-    // === Agent Skills (~/.agents/skills/) — vector-match & inject knowledge ===
     let relevantSkillContent = ''
     if (userVec && agentSkills.length > 0) {
       const uncachedSkills = agentSkills.filter(s => !skillsVectorCache.has(s.name))
       if (uncachedSkills.length > 0) {
-        const vectors = await Promise.all(uncachedSkills.map(s => generateVector(`${s.name} ${s.description}`)))
+        const vectors = await Promise.all(uncachedSkills.map(s =>
+          generateVector(`${s.name} ${s.description}`)
+        ))
         uncachedSkills.forEach((s, i) => skillsVectorCache.set(s.name, vectors[i]))
       }
       for (const s of agentSkills) {
         const sVec = skillsVectorCache.get(s.name)
-        if (sVec) {
-          const score = cosineSimilarity(userVec, sVec)
-          if (score > 0.35) {
-            // Use cached content if available, avoid IPC round-trip
-            let content = skillsContentCache.get(s.name)
-            if (!content) {
-              content = await window.api.getAgentSkillContent(s.name)
-              if (content) skillsContentCache.set(s.name, content)
-            }
-            if (content) {
-              relevantSkillContent += `\n# SKILL: ${s.name} (${s.description})\n${sanitizeSkillContent(content)}\n`
-            }
-          }
+        if (!sVec) continue
+        const score = cosineSimilarity(userVec, sVec)
+
+        // Origin-based priority: verified core +0.05, unknown -0.10
+        const originBoost = s.origin === 'mark-agent-fork' ? 0.05
+                          : s.origin === 'unknown' ? -0.10
+                          : 0
+        const effectiveScore = score + originBoost
+        if (effectiveScore <= 0.35) continue
+
+        let content = skillsContentCache.get(s.name)
+        if (!content) {
+          content = await window.api.getAgentSkillContent(s.name)
+          if (content) skillsContentCache.set(s.name, content)
         }
+        if (!content) continue
+
+        // Content safety: block high-risk, warn on flagged
+        const riskLevel = classifyContentRisk(content)
+        if (riskLevel === 0) {
+          console.warn(`[Skill Safety] BLOCKED high-risk: ${s.name} (${s.signatureStatus || 'unverified'})`)
+          continue
+        }
+        const { content: safeContent, safe, warnings } = sanitizeSkillContent(content)
+
+        // Trust badge: ✓ verified, ⚠ flagged, blank unsigned
+        const trustMark = s.signatureStatus === 'manifest-verified' || s.signatureStatus === 'signed-verified'
+          ? '✓'
+          : s.signatureStatus === 'unsigned' ? '' : '⚠'
+        const originBadge = `[${s.origin}${trustMark}]`
+        const riskNote = !safe ? `\n<!-- ⚠️ CONTENT FLAGGED: ${warnings.join('; ')} -->\n` : ''
+
+        relevantSkillContent += `\n# SKILL: ${originBadge} ${s.name} (${s.description})${riskNote}\n${safeContent}\n`
       }
     }
 
