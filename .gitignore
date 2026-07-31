@@ -83,17 +83,24 @@ web.whatsapp.com_files/
 *.sqlite
 *.sqlite3
 
-# ── AI agent artifacts ──
-CLAUDE.md
+# ── AI agent artifacts (end-user build doesn't need these) ──
+AGENTS.md
 AGENTS.md.local
+CLAUDE.md
+CONTRIBUTING.md
+CHANGELOG.md
 .local/
 .hermes/
 .superpowers/
 .zcode/
 quest.md
-docs/PLANNED/
-docs/superpowers/
+docs/
 .remember/agent-memory/
+exa-results/
+.agents/
+.claude/
+!.claude/settings.json
+!.claude/settings.local.json
 
 # ── Local config ──
 model-registry.json
@@ -104,9 +111,9 @@ client_secret*.json
 *-config.local.*
 
 # ── Generated / large test artifacts ──
-tests/*.har
-tests/*.heapsnapshot
-tests/*.gz
+tests/**/*.har
+tests/**/*.heapsnapshot
+tests/**/*.gz
 
 # ── Node.js version specifiers (workspace-specific, not project) ──
 .nvmrc
@@ -115,3 +122,6 @@ tests/*.gz
 
 # ── Pluggable skill cache ──
 agent-skills-cache.json
+
+# ── Dev-only scripts (user setup script stays tracked) ──
+scripts/ask-ais.mjs

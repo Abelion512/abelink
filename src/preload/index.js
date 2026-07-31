@@ -97,6 +97,7 @@ const api = {
   getAgentSkills: () => ipcRenderer.invoke('agent-skills:get-list'),
   getAgentSkillContent: (name) => ipcRenderer.invoke('agent-skills:get-content', name),
   reloadAgentSkills: () => ipcRenderer.invoke('agent-skills:reload'),
+  createAgentSkill: (skillDef) => ipcRenderer.invoke('create-agent-skill', skillDef),
 
   // MPRIS D-Bus
   updateMprisTrack: (track, playing) => ipcRenderer.send('mpris:update-track', track, playing),

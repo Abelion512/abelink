@@ -35,7 +35,7 @@ import { ElectronBlocker } from '@ghostery/adblocker-electron'
 import mammoth from 'mammoth'
 import { PDFParse } from 'pdf-parse'
 import { loadYouTube, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, sendKeyboardCommand, showAndNavigate } from './youtube-player.js'
-
+import { buildCanonical, hashBody, signContent } from './agent-keyring.js'
 // Headless/SSH detection: disable GPU if no display server available (Linux)
 if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
   app.commandLine.appendSwitch('disable-gpu')
@@ -156,7 +156,32 @@ ipcMain.handle('ai:fetch', async (_event, data) => {
     }
     return await fetchAI(messages, config, undefined, isSmallTask, jsonSchema, null, onStatus)
   } catch (error) {
-    return { error: { message: error.message, code: error.code } }
+    let displayMessage = error.message
+    if (error.httpStatus) {
+      switch (error.httpStatus) {
+        case 401:
+          displayMessage = 'Kredensial AI tidak valid. Periksa API Key di halaman Configuration.'
+          break
+        case 404:
+          if (/credential/i.test(error.message)) {
+            displayMessage = 'Kredensial AI provider tidak aktif. Pastikan API Key dan provider yang dipilih sudah benar di halaman Configuration.'
+          } else {
+            displayMessage = 'Endpoint AI tidak ditemukan. Periksa URL endpoint di halaman Configuration.'
+          }
+          break
+        case 429:
+          displayMessage = 'Terlalu banyak permintaan. Tunggu beberapa saat, lalu coba lagi.'
+          break
+        case 500: case 502: case 503:
+          displayMessage = 'Server AI sedang sibuk. Coba lagi nanti.'
+          break
+        default:
+          displayMessage = `Gagal terhubung ke AI (HTTP ${error.httpStatus}). Periksa pengaturan di halaman Configuration.`
+      }
+    } else if (/network|fetch|econnrefused|enotfound|timeout/i.test(error.message)) {
+      displayMessage = 'Gagal terhubung ke server AI. Pastikan server aktif dan dapat dijangkau dari komputer ini.'
+    }
+    return { error: { message: displayMessage, code: error.code } }
   }
 })
 
@@ -245,6 +270,63 @@ ipcMain.handle('browser:close', (_event) => {
 })
 ipcMain.on('browser:show', () => {
   showBrowser()
+})
+ipcMain.handle('create-agent-skill', async (_event, skillDef) => {
+  try {
+    const { name, description, content, origin, platforms = [], tags = [] } = skillDef
+    if (!name || !content) throw new Error('name and content required')
+    if (!['mark-generated', 'user'].includes(origin)) {
+      throw new Error(`origin must be 'mark-generated' or 'user', got '${origin}'`)
+    }
+
+    const safeName = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    if (!safeName) throw new Error('name produces empty safeName after sanitization')
+    const projectSkills = path.join(process.cwd(), '.agents', 'skills')
+    const userSkills = path.join(os.homedir(), '.agents', 'skills')
+    const targetBase = fs.existsSync(projectSkills) ? projectSkills : userSkills
+    const skillDir = path.join(targetBase, safeName)
+    const skillPath = path.join(skillDir, 'SKILL.md')
+
+    // Don't overwrite unless same origin
+    if (fs.existsSync(skillPath)) {
+      const existing = fs.readFileSync(skillPath, 'utf8')
+      const originMatch = existing.match(/^origin:\s*(.+)$/m)
+      const existingOrigin = originMatch?.[1]?.trim()
+      if (existingOrigin !== origin) {
+        throw new Error(`Skill '${safeName}' exists with origin '${existingOrigin}'. Cannot overwrite with '${origin}'.`)
+      }
+    }
+
+    // WATERMARK v2: sign mark-generated skills at creation
+    const provider = origin === 'mark-generated' ? 'mark-ai' : 'user'
+    let signatureLine = ''
+    if (origin === 'mark-generated') {
+      // Body as loader will extract: frontmatter ends with '---\n', file = frontmatter + '\n' + content
+      // loader: lines.slice(endIdx+1).join('\n') → '\n' + content
+      const bodyHash = hashBody('\n' + content)
+      const canonical = buildCanonical({ name: safeName, watermark: 'v5.0.0', origin, provider, bodyHash })
+      signatureLine = `\nmark-signature: ${signContent(canonical)}`
+    }
+
+    const platformStr = platforms.length > 0 ? `\nplatforms: [${platforms.join(', ')}]` : ''
+    const tagsStr = tags.length > 0 ? `\ntags: [${tags.join(', ')}]` : ''
+    const frontmatter = `---
+name: ${safeName}
+description: ${description || ''}
+watermark: v5.0.0
+origin: ${origin}
+provider: ${provider}${signatureLine}${platformStr}${tagsStr}
+---
+`
+    const fullContent = frontmatter + '\n' + content
+    fs.mkdirSync(skillDir, { recursive: true })
+    fs.writeFileSync(skillPath, fullContent, 'utf8')
+    console.log(`[create-agent-skill] Created: ${skillPath} (origin: ${origin}${signatureLine ? ', signed' : ', unsigned'})`)
+    return { success: true, path: skillPath, name: safeName }
+  } catch (err) {
+    console.error('[create-agent-skill] Failed:', err.message)
+    return { success: false, error: err.message }
+  }
 })
 
 app.whenReady().then(async () => {
