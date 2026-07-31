@@ -1,4 +1,4 @@
-import { fetchAI, cleanAndParse } from './core'
+import { fetchAI } from './core'
 import { parseFallbackFormat, FALLBACK_PROMPT_SUFFIX } from './fallback-serializer'
 import { createCompressor } from './prompt-compressor'
 import { getAllConfig, getRelationship } from '../db'
@@ -590,7 +590,7 @@ console.log(messages[0].content)
 		        }
 		      }
 
-		      const data = parseFallbackFormat(rawContent)
+		      const data = await parseFallbackFormat(rawContent)
       console.log('[planning] parse finished:', data)
 
       if (data) {
