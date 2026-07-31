@@ -1,71 +1,16 @@
-import { useState, useEffect, useRef } from 'react'
-import {
-  FaSave,
-  FaCheckCircle,
-  FaTrash,
-  FaTimes,
-  FaMoon,
-  FaSun,
-  FaEye,
-  FaEyeSlash,
-  FaRobot,
-  FaBrain,
-  FaTerminal,
-  FaVolumeUp,
-  FaDatabase,
-  FaCog,
-  FaLock,
-  FaDownload,
-  FaUpload
-} from 'react-icons/fa'
-import { getAllMemory, getAllConfig, saveConfiguration, deleteMemory, db, getRelationship, saveRelationship, exportChat, importChat, exportFullMark, importFullMark } from '../api/db'
-import { getExtractor } from '../api/vectorMemory'
+import { useState, useEffect } from 'react'
+import { getAllConfig } from '../api/db'
 import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import { useLocation } from 'react-router-dom'
 import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/ChatContext'
-
-const ConfigCameraPreview = ({ deviceId, enabled }) => {
-  const videoRef = useRef(null)
-  
-  useEffect(() => {
-    if (!enabled) return
-    let stream = null
-    let isMounted = true
-    const startCamera = async () => {
-      try {
-        const constraints = { video: deviceId && deviceId !== 'default' ? { deviceId: { exact: deviceId } } : true }
-        stream = await navigator.mediaDevices.getUserMedia(constraints)
-        if (videoRef.current && isMounted) {
-          videoRef.current.srcObject = stream
-          videoRef.current.play().catch(e => console.error(e))
-        } else {
-          stream.getTracks().forEach(t => t.stop())
-        }
-      } catch (err) {
-        console.error('Preview camera error:', err)
-      }
-    }
-    startCamera()
-    return () => {
-      isMounted = false
-      if (stream) stream.getTracks().forEach(t => t.stop())
-    }
-  }, [deviceId, enabled])
-
-  if (!enabled) return null
-
-  return (
-    <div className="mt-4 rounded-xl overflow-hidden border border-white/10 bg-black/50 aspect-video relative flex items-center justify-center shadow-inner">
-      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-      <div className="absolute top-2 left-2 flex items-center gap-2 px-2 py-1 bg-black/60 rounded text-xs font-mono text-white backdrop-blur-md">
-        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-        Live Preview
-      </div>
-    </div>
-  )
-}
+import ConfigAI from './config/sections/ConfigAI'
+import ConfigVoice from './config/sections/ConfigVoice'
+import ConfigCamera from './config/sections/ConfigCamera'
+import ConfigAdmin from './config/sections/ConfigAdmin'
+import ConfigChat from './config/sections/ConfigChat'
+import ConfigMemory from './config/sections/ConfigMemory'
 
 const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const [config, setConfig] = useState({
@@ -84,48 +29,27 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     cameraDeviceId: 'default',
     cameraEnabled: true
   })
-  const [relationalTraits, setRelationalTraits] = useState(null)
-  const [memories, setMemories] = useState([])
   const [audioDevices, setAudioDevices] = useState([])
   const [videoDevices, setVideoDevices] = useState([])
-  const [loadingMemory, setLoadingMemory] = useState(true)
-  const [playingTest, setPlayingTest] = useState(false)
-  const [isDownloadingModel, setIsDownloadingModel] = useState(false)
-  const [downloadProgress, setDownloadProgress] = useState(0)
   const { confirm, ModalComponent } = useConfirm()
   const chatContext = useChat()
+  const location = useLocation()
 
-  const [showGroqKey, setShowGroqKey] = useState(false)
-  const [showCerebrasKey, setShowCerebrasKey] = useState(false)
-  const [showCustomKey, setShowCustomKey] = useState(false)
-  const [showLastfmKey, setShowLastfmKey] = useState(false)
-  const [backupBusy, setBackupBusy] = useState(false)
-  const [backupPw, setBackupPw] = useState('')
-  const [restorePw, setRestorePw] = useState('')
-
-  const handleTestVoice = async () => {
-    setPlayingTest(true)
-    const testText =
-      'Halo bro! Gue Mark, asisten pribadi lo. Gimana suara gue sekarang? Udah mantap belum?'
-    try {
-      const audioBase64 = await window.api.textToSpeech(testText, config.ttsRate, config.ttsPitch)
-      if (audioBase64) {
-        const audio = new Audio(audioBase64)
-        audio.onended = () => setPlayingTest(false)
-        await audio.play()
-      } else {
-        setPlayingTest(false)
-      }
-    } catch (error) {
-      console.error('Gagal test suara:', error)
-      setPlayingTest(false)
+  const loadConfig = async () => {
+    const data = await getAllConfig()
+    if (data.length > 0) {
+      setConfig((prev) => ({
+        ...prev,
+        ...data[0],
+        aiProvider: data[0].aiProvider?.replace('lm-studio', 'lmstudio') || 'lmstudio',
+        micDeviceId: data[0].micDeviceId || 'default',
+        awarenessEnabled: data[0].awarenessEnabled ?? true
+      }))
     }
   }
 
   useEffect(() => {
     loadConfig()
-    loadMemories()
-    loadRelationalTraits()
 
     navigator.mediaDevices
       .getUserMedia({ audio: true, video: true })
@@ -139,7 +63,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             setVideoDevices(cameras)
           })
           .catch((err) => console.error('Error enumerating devices', err))
-          
+
         // Stop stream immediately since we just needed permission
         stream.getTracks().forEach(track => track.stop())
       })
@@ -182,15 +106,6 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           doneBtnText: 'Paham!',
           steps: [
             {
-              popover: {
-                title: 'Halo, Selamat Datang di Mark! 👋',
-                description:
-                  'Mark adalah asisten AI pribadimu. Sebelum mulai ngobrol, ayo kita kenalan dulu sama pengaturan utamanya biar Mark bisa kerja maksimal buat kamu!',
-                side: 'top',
-                align: 'center'
-              }
-            },
-            {
               element: '#tour-ai-provider',
               popover: {
                 title: '1. Pilih Mesin AI',
@@ -201,19 +116,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               }
             },
             {
-              element: '#tour-embed-provider',
-              popover: {
-                title: '2. Memori AI',
-                description:
-                  'Ini otak tempat Mark mengingat semuanya. Pilih Transformers.js kalau mau memori jalan 100% lokal tanpa ribet setup tambahan.',
-                side: 'top',
-                align: 'start'
-              }
-            },
-            {
               element: '#tour-groq-key',
               popover: {
-                title: '3. Wajib: Groq API Key',
+                title: '2. Wajib: Groq API Key',
                 description:
                   'Nah ini penting! Karena fitur ngobrol pakai suara (Speech-to-Text) eksklusif pakai Groq, bagian ini WAJIB kamu isi walaupun pakai AI lokal.',
                 side: 'top',
@@ -223,7 +128,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-persona',
               popover: {
-                title: '4. Kepribadian Mark',
+                title: '3. Kepribadian Mark',
                 description:
                   'Di sini kamu bebas nentuin gaya bicara Mark. Mau dia formal kayak asisten pro, atau santai kayak temen nongkrong? Tulis aja di sini!',
                 side: 'top',
@@ -233,9 +138,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-temperature',
               popover: {
-                title: '5. Kreativitas AI',
+                title: '4. Temperatur Kreativitas',
                 description:
-                  'Temperature nentuin seberapa kreatif Mark. Angka kecil (0-0.3) bikin dia kaku tapi akurat, angka besar (0.7-1.0) bikin dia imajinatif dan luwes.',
+                  'Makin tinggi, makin liar jawabannya. 0 = konsisten & presisi, 1 = kreatif & random. Recomended: 0 untuk kerjaan serius.',
                 side: 'top',
                 align: 'start'
               }
@@ -243,9 +148,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-context',
               popover: {
-                title: '6. Konteks Obrolan',
+                title: '5. Context Window',
                 description:
-                  'Ini batas seberapa jauh Mark bisa mengingat riwayat chat dalam satu sesi. Makin besar angkanya, makin panjang ingatan dia, tapi makin berat juga kerjanya.',
+                  'Berapa banyak pesan yang Mark ingat dalam obrolan. 10 itu cukup buat kebanyakan situasi.',
                 side: 'top',
                 align: 'start'
               }
@@ -253,19 +158,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-tts',
               popover: {
-                title: '7. Pengaturan Suara',
+                title: '6. Suara Mark',
                 description:
-                  'Atur kecepatan (Rate) dan tinggi-rendahnya nada suara (Pitch) Mark. Kamu bisa klik "Test Suara Mark" buat dengerin hasil racikanmu!',
-                side: 'top',
-                align: 'start'
-              }
-            },
-            {
-              element: '#tour-wa-admin',
-              popover: {
-                title: '8. WhatsApp Admin (Penting!)',
-                description:
-                  'Untuk mendaftarkan Admin (agar bisa mengakses fitur khusus tertentu), buka WhatsApp lalu ketik perintah /register ke nomor bot ini. Nanti daftarnya akan muncul di sini untuk disetujui.',
+                  'Atur kecepatan dan nada bicara Mark. Coba dulu sebelum disimpan!',
                 side: 'top',
                 align: 'start'
               }
@@ -273,357 +168,21 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-save-btn',
               popover: {
-                title: 'Simpan & Mulai',
+                title: '7. Simpan & Mulai!',
                 description:
-                  'Kalau udah diisi semua (termasuk API key kalau pakai Cloud), klik di sini buat mulai ngobrol sama Mark!',
+                  'Semua pengaturan bakal disimpan dan Mark langsung aktif. Selamat ngobrol!',
                 side: 'top',
-                align: 'center'
+                align: 'start'
               }
             }
           ]
         })
         driverObj.drive()
-      }, 500) // Delay sedikit biar render beres
+      }, 600)
     }
   }, [isFirstSetup])
 
-  const loadConfig = async () => {
-    const data = await getAllConfig()
-    if (data.length > 0) {
-      setConfig((prev) => ({
-        ...prev,
-        ...data[0],
-        aiProvider: data[0].aiProvider?.replace('lm-studio', 'lmstudio') || 'lmstudio',
-        micDeviceId: data[0].micDeviceId || 'default',
-        awarenessEnabled: data[0].awarenessEnabled ?? true
-      }))
-    }
-  }
-
-  const loadRelationalTraits = async () => {
-    const traits = await getRelationship('owner')
-    setRelationalTraits(traits)
-  }
-
-  const handleResetTraits = async () => {
-    const result = await confirm({
-      title: 'Reset Sifat Hubungan?',
-      message: 'Ini akan mereset memori sifat kepribadian Mark terhadap Anda (Owner) kembali ke netral (0.5). Lanjutkan?',
-      isError: true,
-      confirmText: 'Ya, Reset'
-    })
-
-    if (result.isConfirmed && relationalTraits) {
-      const resetTraits = {
-        ...relationalTraits,
-        warmth: 0.5,
-        sarcasm_level: 0.5,
-        trust: 0.5,
-        energy: 0.5,
-        evalCount: 0,
-        lastChatIndex: 0,
-        reasoning: 'Direset manual oleh user.'
-      }
-      await saveRelationship(resetTraits)
-      setRelationalTraits(resetTraits)
-    }
-  }
-
-  const loadMemories = async () => {
-    setLoadingMemory(true)
-    const data = await getAllMemory()
-    setMemories(data)
-    setLoadingMemory(false)
-  }
-
-  const handleDeleteMemory = async (mem) => {
-    const result = await confirm({
-      title: 'Hapus Memori?',
-      message: `Yakin ingin menghapus memori ini?\n"${mem.summary || mem.memory}"`,
-      isError: true,
-      confirmText: 'Ya, Hapus'
-    })
-
-    if (result.isConfirmed) {
-      await deleteMemory({ id: mem.id })
-      setMemories((prev) => prev.filter((m) => m.id !== mem.id))
-    }
-  }
-
-  const handleClearAllChat = async () => {
-    const result = await confirm({
-      title: 'Hapus Semua Chat?',
-      message: 'Semua riwayat sesi chat akan dihapus permanen dan tidak bisa dikembalikan.',
-      isError: true,
-      confirmText: 'Ya, Hapus Semua'
-    })
-
-    if (result.isConfirmed) {
-      await db.sessions.clear()
-      await db.chatArchive.clear()
-    }
-  }
-
-  const handleExportChat = async () => {
-    const session = await db.sessions.get(1)
-    const exportData = session ? session.data : []
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `mark-chat-history-${Date.now()}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const handleImportChatFile = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    try {
-      const text = await file.text()
-      const result = await confirm({
-        title: 'Import Chat?',
-        message: `File "${file.name}" — ${(JSON.parse(text).data || []).length} pesan. Chat saat ini akan ditimpa.`,
-        confirmText: 'Ya, Import'
-      })
-      if (result.isConfirmed) {
-        await importChat(text)
-        e.target.value = ''
-        await confirm({ title: 'Berhasil', message: 'Chat diimport. Reload halaman.', hideCancel: true, confirmText: 'Reload' })
-        window.location.reload()
-      }
-    } catch (err) {
-      await confirm({ title: 'Gagal', message: err.message, isError: true, hideCancel: true, confirmText: 'Tutup' })
-    }
-  }
-
-  const handleExportFull = async () => {
-    if (!backupPw.trim()) {
-      await confirm({ title: 'Password Kosong', message: 'Beri password untuk enkripsi backup.', isError: true, hideCancel: true, confirmText: 'OK' })
-      return
-    }
-    const ok = await confirm({
-      title: 'Export Semua Data?',
-      message: 'Semua data akan dienkripsi dengan password. API key tidak ikut backup. Simpan password baik-baik.',
-      confirmText: 'Export'
-    })
-    if (!ok.isConfirmed) return
-    setBackupBusy('export')
-    try {
-      const json = await exportFullMark(backupPw)
-      const blob = new Blob([json], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `mark-full-backup-${Date.now()}.json`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (err) {
-      await confirm({ title: 'Gagal', message: err.message, isError: true, hideCancel: true, confirmText: 'Tutup' })
-    }
-    setBackupBusy(false)
-  }
-
-  const handleRestoreFullFile = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setBackupBusy('restore')
-    try {
-      const text = await file.text()
-      const pw = text.includes('mark-full-encrypted') ? restorePw.trim() : null
-      if (text.includes('mark-full-encrypted') && !pw) {
-        await confirm({ title: 'Password Dibutuhkan', message: 'File backup terenkripsi. Masukkan password.', isError: true, hideCancel: true, confirmText: 'OK' })
-        setBackupBusy(false)
-        return
-      }
-      const ok = await confirm({
-        title: '⚠️ Restore Semua Data?',
-        message: 'Data MARK saat ini akan DIHAPUS dan diganti backup. Tidak bisa dibatalkan.',
-        isError: true,
-        confirmText: 'Ya, Restore'
-      })
-      if (!ok.isConfirmed) { setBackupBusy(false); return }
-      await importFullMark(text, pw)
-      e.target.value = ''
-      await confirm({ title: 'Berhasil', message: 'Restore selesai. Reload halaman.', hideCancel: true, confirmText: 'Reload' })
-      window.location.reload()
-    } catch (err) {
-      await confirm({ title: 'Gagal', message: err.message, isError: true, hideCancel: true, confirmText: 'Tutup' })
-    }
-    setBackupBusy(false)
-  }
-
-  const handleSaveConfiguration = async () => {
-    // Validasi API Key
-    if (!config.groqApiKey?.trim()) {
-      await confirm({
-        title: 'API Key Kosong',
-        message:
-          'Tolong isi Groq API Key terlebih dahulu! API Key ini wajib untuk fitur Voice STT.',
-        isError: true,
-        hideCancel: true,
-        confirmText: 'Tutup'
-      })
-      return
-    }
-    if (config.aiProvider === 'cerebras' && !config.cerebrasApiKey?.trim()) {
-      await confirm({
-        title: 'API Key Kosong',
-        message: 'Tolong isi Cerebras API Key terlebih dahulu untuk menggunakan provider Cerebras!',
-        isError: true,
-        hideCancel: true,
-        confirmText: 'Tutup'
-      })
-      return
-    }
-
-    if (config.aiProvider === 'custom') {
-      const endpoint = config.customEndpoint?.trim() || ''
-      if (!endpoint.endsWith('/chat/completions')) {
-        alert(
-          'Gagal Menyimpan: Custom Endpoint URL tidak valid! URL wajib diakhiri dengan /chat/completions (Contoh: https://api.openai.com/v1/chat/completions).'
-        )
-        return
-      }
-    }
-
-    setIsDownloadingModel(true)
-    setDownloadProgress(0)
-
-    try {
-      let extStats = {}
-      await getExtractor((info) => {
-        if (info.status === 'initiate') {
-          extStats[info.file] = { loaded: 0, total: info.total || 0 }
-        } else if (info.status === 'progress') {
-          if (extStats[info.file]) {
-            extStats[info.file].loaded = info.loaded
-            extStats[info.file].total = info.total
-          }
-          const values = Object.values(extStats)
-          const totalBytes = values.reduce((acc, curr) => acc + curr.total, 0)
-          const loadedBytes = values.reduce((acc, curr) => acc + curr.loaded, 0)
-          if (totalBytes > 0) {
-            setDownloadProgress(Math.round((loadedBytes / totalBytes) * 100))
-          }
-        } else if (info.status === 'done' || info.status === 'ready') {
-          setDownloadProgress(100)
-        }
-      })
-    } catch (e) {
-      console.error(e)
-    }
-    setIsDownloadingModel(false)
-    await saveConfiguration(config)
-    
-    // Update global state without reloading the page
-    if (chatContext && chatContext.setConfig) {
-      chatContext.setConfig([config])
-    }
-
-    if (isFirstSetup && onSetupComplete) {
-      onSetupComplete()
-    } else {
-      // Kembali ke halaman chat
-      window.location.href = '#/'
-    }
-  }
-
-  const groupedMemories = memories.reduce((acc, mem) => {
-    const type = mem.type || 'other'
-    if (!acc[type]) acc[type] = []
-    acc[type].push(mem)
-    return acc
-  }, {})
-
-  const typeBadgeColor = {
-    profile: 'badge-primary',
-    preference: 'badge-secondary',
-    skill: 'badge-accent',
-    project: 'badge-info',
-    transaction: 'badge-warning',
-    goal: 'badge-success',
-    relationship: 'badge-error',
-    fact: 'badge-neutral',
-    other: 'badge-ghost'
-  }
-
-  const handleAiProviderChange = (provider) => setConfig((prev) => ({ ...prev, aiProvider: provider }))
-  const handleModelChange = (e) => setConfig((prev) => ({ ...prev, model: e.target.value }))
-  const handleGroqModelChange = (e) => setConfig((prev) => ({ ...prev, groqModel: e.target.value }))
-  const handleCerebrasModelChange = (e) => setConfig((prev) => ({ ...prev, cerebrasModel: e.target.value }))
-  const handleUseSecondaryModelChange = (e) => setConfig((prev) => ({ ...prev, useSecondaryModel: e.target.checked }))
-  const handleGroqApiKeyChange = (e) => setConfig((prev) => ({ ...prev, groqApiKey: e.target.value }))
-  const handleCerebrasApiKeyChange = (e) => setConfig((prev) => ({ ...prev, cerebrasApiKey: e.target.value }))
-  const handleCustomEndpointChange = (e) => setConfig((prev) => ({ ...prev, customEndpoint: e.target.value }))
-  const handleCustomApiKeyChange = (e) => setConfig((prev) => ({ ...prev, customApiKey: e.target.value }))
-  const handleCustomModelChange = (e) => setConfig((prev) => ({ ...prev, customModel: e.target.value }))
-  const handleAwarenessEnabledChange = (e) => setConfig((prev) => ({ ...prev, awarenessEnabled: e.target.checked }))
-  const handlePersonalityChange = (e) => setConfig((prev) => ({ ...prev, personality: e.target.value }))
-  const handleTemperatureChange = (e) => setConfig((prev) => ({ ...prev, temperature: Number(e.target.value) }))
-  const handleContextChange = (e) => setConfig((prev) => ({ ...prev, context: Number(e.target.value) }))
-  const handleMicDeviceIdChange = (e) => setConfig((prev) => ({ ...prev, micDeviceId: e.target.value }))
-  const handleCameraDeviceIdChange = (e) => {
-    console.log('[Config] Camera device changed to:', e.target.value, '| label:', e.target.options[e.target.selectedIndex]?.text)
-    setConfig((prev) => ({ ...prev, cameraDeviceId: e.target.value }))
-  }
-  const handleCameraEnabledChange = (e) => setConfig((prev) => ({ ...prev, cameraEnabled: e.target.checked }))
-  const handleTtsRateChange = (e) => setConfig((prev) => ({ ...prev, ttsRate: Number(e.target.value) }))
-  const handleTtsPitchChange = (e) => setConfig((prev) => ({ ...prev, ttsPitch: Number(e.target.value) }))
   const handleBack = () => window.history.back()
-  const handleToggleGroqKey = () => setShowGroqKey(!showGroqKey)
-  const handleToggleCerebrasKey = () => setShowCerebrasKey(!showCerebrasKey)
-  const handleToggleCustomKey = () => setShowCustomKey(!showCustomKey)
-
-  const handleApproveAdmin = async (admin) => {
-    const currentAdmins = config.waAdminNumber ? config.waAdminNumber.split(',').map((n) => n.trim()) : []
-    if (!currentAdmins.includes(admin.id)) currentAdmins.push(admin.id)
-    const newPending = config.waPendingAdmins.filter((p) => p.id !== admin.id)
-    const newApproved = [...(config.waApprovedAdmins || []), admin]
-    const newConfig = { ...config, waAdminNumber: currentAdmins.join(', '), waPendingAdmins: newPending, waApprovedAdmins: newApproved }
-    setConfig(newConfig)
-	    await saveConfiguration(newConfig)
-	    if (window.api && window.api.syncConfig) window.api.syncConfig(newConfig)
-	    if (window.api && window.api.sendWaMessage) {
-	      window.api.sendWaMessage(admin.jid, `🎉 Selamat *${admin.name}*! Akses Admin kamu telah disetujui. Sekarang kamu bisa memiliki akses pada fitur khusus tertentu.`)
-	    }
-	  }
-
-	  const handleRejectAdmin = async (admin) => {
-	    const newPending = config.waPendingAdmins.filter((p) => p.id !== admin.id)
-	    const newConfig = { ...config, waPendingAdmins: newPending }
-	    setConfig(newConfig)
-	    await saveConfiguration(newConfig)
-    if (window.api && window.api.sendWaMessage) {
-      window.api.sendWaMessage(admin.jid, `Maaf *${admin.name}*, permintaan akses Admin kamu ditolak oleh Owner.`)
-    }
-  }
-
-  const handleRemoveApprovedAdmin = async (admin) => {
-    const currentAdmins = config.waAdminNumber ? config.waAdminNumber.split(',').map((n) => n.trim()).filter(Boolean) : []
-    const newAdmins = currentAdmins.filter((a) => a !== admin.id)
-    const newApproved = (config.waApprovedAdmins || []).filter((a) => a.id !== admin.id)
-    const newConfig = { ...config, waAdminNumber: newAdmins.join(', '), waApprovedAdmins: newApproved }
-	    setConfig(newConfig)
-	    await saveConfiguration(newConfig)
-	    if (window.api && window.api.syncConfig) window.api.syncConfig(newConfig)
-	    if (window.api && window.api.sendWaMessage && admin.jid) {
-	      window.api.sendWaMessage(admin.jid, `⚠️ *Pemberitahuan:* Akses Admin kamu telah dicabut oleh Owner.`)
-	    }
-	  }
-
-	  const handleRemoveLegacyAdmin = async (cleanId) => {
-	    const currentAdmins = config.waAdminNumber.split(',').map((n) => n.trim()).filter(Boolean)
-	    const newAdmins = currentAdmins.filter((a) => a !== cleanId)
-	    const newConfig = { ...config, waAdminNumber: newAdmins.join(', ') }
-	    setConfig(newConfig)
-	    await saveConfiguration(newConfig)
-    if (window.api && window.api.syncConfig) window.api.syncConfig(newConfig)
-    if (window.api && window.api.sendWaMessage) {
-      const guessedJid = cleanId.length > 14 ? `${cleanId}@lid` : `${cleanId}@s.whatsapp.net`
-      window.api.sendWaMessage(guessedJid, `⚠️ *Pemberitahuan:* Akses Admin kamu telah dicabut oleh Owner.`)
-    }
-  }
 
   return (
     <div className="h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif]">
@@ -667,939 +226,37 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           </div>
 
           {/* ── AI Engine & Tools ── */}
-          <section className="space-y-5">
-            <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-              AI Engine & Tools
-            </h2>
-
-            {/* AI Provider Selector */}
-            <div id="tour-ai-provider" className="space-y-1.5 p-2 -mx-2 rounded-lg">
-              <p className="text-sm font-semibold">AI Provider</p>
-              <div className="flex gap-4">
-                <label className="label cursor-pointer justify-start gap-2">
-                  <input
-                    type="radio"
-                    name="aiProvider"
-                    className="radio radio-primary radio-sm"
-                    value="lmstudio"
-                    checked={config.aiProvider === 'lmstudio' || !config.aiProvider}
-                    onChange={() => handleAiProviderChange('lmstudio')}
-                  />
-                  <span className="label-text">LM Studio (Local)</span>
-                </label>
-                <label className="label cursor-pointer justify-start gap-2">
-                  <input
-                    type="radio"
-                    name="aiProvider"
-                    className="radio radio-primary radio-sm"
-                    value="groq"
-                    checked={config.aiProvider === 'groq'}
-                    onChange={() => handleAiProviderChange('groq')}
-                  />
-                  <span className="label-text">Groq API</span>
-                </label>
-                <label className="label cursor-pointer justify-start gap-2">
-                  <input
-                    type="radio"
-                    name="aiProvider"
-                    className="radio radio-primary radio-sm"
-                    value="cerebras"
-                    checked={config.aiProvider === 'cerebras'}
-                    onChange={() => handleAiProviderChange('cerebras')}
-                  />
-                  <span className="label-text">Cerebras API</span>
-                </label>
-                <label className="label cursor-pointer justify-start gap-2">
-                  <input
-                    type="radio"
-                    name="aiProvider"
-                    className="radio radio-primary radio-sm"
-                    value="custom"
-                    checked={config.aiProvider === 'custom'}
-                    onChange={() => handleAiProviderChange('custom')}
-                  />
-                  <span className="label-text">Custom API</span>
-                </label>
-              </div>
-            </div>
-
-            {config.aiProvider === 'lmstudio' || !config.aiProvider ? (
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Model Selector (LM Studio)</p>
-                <input
-                  type="text"
-                  placeholder="Contoh: google/gemma-3-4b"
-                  className="input input-bordered w-full"
-                  value={config.model || ''}
-                  onChange={handleModelChange}
-                />
-                <p className="text-xs opacity-40">
-                  Nama model yang aktif di LM Studio. Pastikan sudah ter-load.
-                </p>
-              </div>
-            ) : config.aiProvider === 'groq' ? (
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Groq Model</p>
-                <input
-                  type="text"
-                  placeholder="Contoh: llama-3.1-8b-instant"
-                  className="input input-bordered w-full"
-                  value={config.groqModel || 'llama-3.1-8b-instant'}
-                  onChange={handleGroqModelChange}
-                />
-                <p className="text-xs opacity-40">
-                  Model Groq yang ingin digunakan. (Pastikan API Key Groq di bawah diisi).
-                </p>
-              </div>
-            ) : config.aiProvider === 'custom' ? (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Custom Endpoint URL</p>
-                  <input
-                    type="text"
-                    placeholder="Contoh: https://api.openai.com/v1/chat/completions"
-                    className={`input input-bordered w-full ${config.customEndpoint && !config.customEndpoint.trim().endsWith('/chat/completions') ? 'input-error' : ''}`}
-                    value={config.customEndpoint || ''}
-                    onChange={handleCustomEndpointChange}
-                  />
-                  {config.customEndpoint &&
-                  !config.customEndpoint.trim().endsWith('/chat/completions') ? (
-                    <p className="text-xs text-error mt-1 font-medium">
-                      URL endpoint tidak memenuhi standar format OpenAI-Compatible.
-                    </p>
-                  ) : (
-                    <p className="text-xs opacity-50 mt-1">
-                      Pastikan Endpoint mendukung standar format <strong>OpenAI-Compatible</strong>.
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Custom Model ID</p>
-                  <input
-                    type="text"
-                    placeholder="Contoh: gpt-4o-mini"
-                    className="input input-bordered w-full"
-                    value={config.customModel || ''}
-                    onChange={(e) =>
-                      setConfig((prev) => ({ ...prev, customModel: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Custom API Key</p>
-                  <div className="relative w-full">
-                    <input
-                      type={showCustomKey ? 'text' : 'password'}
-                      placeholder="Masukkan API Key (jika diperlukan)"
-                      className="input input-bordered w-full pr-10"
-                      value={config.customApiKey || ''}
-                      onChange={handleCustomApiKeyChange}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                      onClick={handleToggleCustomKey}
-                      title={showCustomKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
-                    >
-                      {showCustomKey ? (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-                          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-                          <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                          <line x1="2" x2="22" y1="2" y2="22" />
-                        </svg>
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Cerebras Model</p>
-                <input
-                  type="text"
-                  placeholder="Contoh: llama3.1-8b"
-                  className="input input-bordered w-full"
-                  value={config.cerebrasModel || 'llama3.1-8b'}
-                  onChange={handleCerebrasModelChange}
-                />
-                <p className="text-xs opacity-40">
-                  Model Cerebras yang ingin digunakan. (Pastikan API Key Cerebras di bawah diisi).
-                </p>
-              </div>
-            )}
-
-            {/* Secondary Model Toggle */}
-            {config.aiProvider === 'groq' && (
-              <div className="space-y-1.5 pt-2">
-                <label className="label cursor-pointer justify-start gap-2 max-w-fit">
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-sm checkbox-primary"
-                    checked={config.useSecondaryModel || false}
-                    onChange={handleUseSecondaryModelChange}
-                  />
-                  <span className="label-text text-sm">
-                    Gunakan Model Ringan untuk Tugas Latar Belakang (Lebih Cepat)
-                  </span>
-                </label>
-
-                {config.useSecondaryModel && (
-                  <div className="pl-6 pt-1 mb-4 border-l-2 border-white/10 ml-2">
-                    <p className="text-xs opacity-40 leading-relaxed">
-                      Semua tugas belakang layar (action, parsing, merangkum) akan otomatis
-                      dialihkan ke model <b>openai/gpt-oss-20b</b> via Groq API.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-
-
-            {/* Groq API Key (Always visible for STT) */}
-            <div id="tour-groq-key" className="space-y-1.5 p-2 -mx-2 rounded-lg">
-              <div className="flex justify-between items-center">
-                <p className="text-sm font-semibold">
-                  Groq API Key {config.aiProvider !== 'groq' && '(Khusus untuk fitur Voice/STT)'}
-                </p>
-                <a
-                  href="https://console.groq.com/keys"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-xs btn-outline btn-primary"
-                >
-                  Ambil API Key
-                </a>
-              </div>
-              <div className="relative w-full">
-                <input
-                  type={showGroqKey ? 'text' : 'password'}
-                  placeholder="Contoh: gsk_xxxxxxxxxxxxxxxxx"
-                  className="input input-bordered w-full pr-10"
-                  value={config.groqApiKey || ''}
-                  onChange={handleGroqApiKeyChange}
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                  onClick={handleToggleGroqKey}
-                  title={showGroqKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
-                >
-                  {showGroqKey ? (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-                      <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-                      <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                      <line x1="2" x2="22" y1="2" y2="22" />
-                    </svg>
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-              {config.aiProvider !== 'groq' && (
-                <p className="text-xs opacity-40">
-                  Karena kamu memakai{' '}
-                  {config.aiProvider === 'lmstudio'
-                    ? 'LM Studio'
-                    : config.aiProvider === 'custom'
-                      ? 'Custom API'
-                      : 'Cerebras'}
-                  , API Key Groq ini hanya akan dipakai saat kamu ngobrol via suara
-                  (Speech-to-Text).
-                </p>
-              )}
-            </div>
-
-            {/* Cerebras API Key */}
-            {config.aiProvider === 'cerebras' && (
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <p className="text-sm font-semibold">Cerebras API Key</p>
-                  <a
-                    href="https://cloud.cerebras.ai/platform/org_5y4rkhf62v2mvwyvd6kwm9yx/get-started?onboarding=true"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn btn-xs btn-outline btn-primary"
-                  >
-                    Ambil API Key
-                  </a>
-                </div>
-                <div className="relative w-full">
-                  <input
-                    type={showCerebrasKey ? 'text' : 'password'}
-                    placeholder="Contoh: c-xxxxxxxxxxxxxxxxx"
-                    className="input input-bordered w-full pr-10"
-                    value={config.cerebrasApiKey || ''}
-                    onChange={handleCerebrasApiKeyChange}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                    onClick={handleToggleCerebrasKey}
-                    title={showCerebrasKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
-                  >
-                    {showCerebrasKey ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-                        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                        <line x1="2" x2="22" y1="2" y2="22" />
-                      </svg>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Last.fm API Key */}
-            <div className="space-y-1.5 p-2 -mx-2 rounded-lg">
-              <div className="flex justify-between items-center">
-                <p className="text-sm font-semibold">Last.fm API Key</p>
-                <a
-                  href="https://www.last.fm/api/account/create"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-xs btn-outline btn-primary"
-                >
-                  Dapatkan API Key
-                </a>
-              </div>
-              <p className="text-xs opacity-50 mb-1">
-                Opsional. Untuk riwayat musik dan rekomendasi.
-              </p>
-              <div className="relative w-full">
-                <input
-                  type={showLastfmKey ? 'text' : 'password'}
-                  placeholder="Last.fm API Key"
-                  className="input input-bordered w-full pr-10"
-                  value={config.lastfmApiKey || ''}
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, lastfmApiKey: e.target.value }))
-                  }
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                  onClick={() => setShowLastfmKey(!showLastfmKey)}
-                  title={showLastfmKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
-                >
-                  {showLastfmKey ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-                      <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-                      <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                      <line x1="2" x2="22" y1="2" y2="22" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Awareness Engine Toggle */}
-            <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold">Awareness Engine</p>
-                  <p className="text-xs opacity-50 mt-1">Mengizinkan Mark membaca log sistem/aktivitas dan memulai obrolan secara proaktif di latar belakang.</p>
-                </div>
-                <input 
-                  type="checkbox" 
-                  className="toggle toggle-primary" 
-                  checked={config.awarenessEnabled !== false}
-                  onChange={handleAwarenessEnabledChange}
-                />
-              </div>
-            </div>
-
-            {/* Relational Growth UI */}
-            {relationalTraits && config.awarenessEnabled !== false && (
-              <div className="space-y-3 p-3 -mx-2 rounded-lg bg-base-200 mt-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold">Relational Growth (Sifat Hubungan)</p>
-                    <p className="text-xs opacity-50 mt-1">Sifat dan sikap Mark ke kamu yang berkembang otomatis dari pola obrolan.</p>
-                  </div>
-                  <button onClick={handleResetTraits} className="btn btn-xs btn-error btn-outline">
-                    Reset
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  {[
-                    { label: 'Warmth (Kehangatan)', val: relationalTraits.warmth, color: 'progress-error' },
-                    { label: 'Sarcasm (Sarkas)', val: relationalTraits.sarcasm_level, color: 'progress-warning' },
-                    { label: 'Trust (Kepercayaan)', val: relationalTraits.trust, color: 'progress-success' },
-                    { label: 'Energy (Energi)', val: relationalTraits.energy, color: 'progress-info' },
-                  ].map((trait, i) => (
-                    <div key={i} className="space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span>{trait.label}</span>
-                        <span className="font-mono">{trait.val}</span>
-                      </div>
-                      <progress className={`progress ${trait.color} w-full`} value={trait.val} max="1"></progress>
-                    </div>
-                  ))}
-                </div>
-                {relationalTraits.reasoning && (
-                  <div className="text-xs bg-base-300 p-2 rounded border border-base-content/10 italic text-base-content/70">
-                    <span className="font-semibold not-italic block mb-1">Reasoning Terakhir:</span>
-                    {relationalTraits.reasoning}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* System Persona */}
-            <div id="tour-persona" className="space-y-1.5 p-2 -mx-2 rounded-lg">
-              <p className="text-sm font-semibold">Gaya Bicara dan Kepribadian</p>
-              <textarea
-                className="textarea w-full h-72 leading-relaxed no-scrollbar resize-none"
-                placeholder="Deskripsikan kepribadian Mark..."
-                value={config.personality}
-                onChange={handlePersonalityChange}
-              />
-            </div>
-            <div id="tour-temperature" className="space-y-2 p-2 -mx-2 rounded-lg">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Temperature</p>
-                <span className="font-mono text-sm text-primary font-bold">
-                  {config.temperature}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={config.temperature}
-                className="range range-primary range-xs w-full"
-                onChange={handleTemperatureChange}
-              />
-              <div className="flex justify-between px-2.5 mt-2 text-xs">
-                <span>0</span>
-                <span>0.2</span>
-                <span>0.4</span>
-                <span>0.6</span>
-                <span>0.8</span>
-                <span>1.0</span>
-              </div>
-            </div>
-
-            {/* Context Window */}
-            <div id="tour-context" className="space-y-2 p-2 -mx-2 rounded-lg">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Context Window</p>
-                <span className="font-mono text-sm text-primary font-bold">{config.context}</span>
-              </div>
-              <input
-                type="range"
-                min="2"
-                max="22"
-                step="2"
-                value={config.context}
-                className="range range-primary range-xs w-full"
-                onChange={handleContextChange}
-              />
-              <div className="flex justify-between mt-2 text-xs">
-                <span>2</span>
-                <span>6</span>
-                <span>10</span>
-                <span>14</span>
-                <span>18</span>
-                <span>22</span>
-              </div>
-            </div>
-
-            {/* Max Agent Turns */}
-            <div className="space-y-2 p-2 -mx-2 rounded-lg">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Max Turns per Task</p>
-                <span className="font-mono text-sm text-primary font-bold">{config.maxTurns || 20}</span>
-              </div>
-              <input
-                type="range"
-                min="5"
-                max="50"
-                step="5"
-                value={config.maxTurns || 20}
-                className="range range-primary range-xs w-full"
-                onChange={(e) => setConfig((prev) => ({ ...prev, maxTurns: Number(e.target.value) }))}
-              />
-              <div className="flex justify-between mt-2 text-xs">
-                <span>5</span>
-                <span>15</span>
-                <span>25</span>
-                <span>35</span>
-                <span>50</span>
-              </div>
-            </div>
-
-            <div className="divider"></div>
-
-            {/* Approval Mode */}
-            <div className="space-y-2 p-2 -mx-2 rounded-lg">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Mode Persetujuan (Approval)</p>
-                <span className="font-mono text-xs text-primary font-bold uppercase">{config.approvalMode || 'selective'}</span>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {[
-                  { value: 'strict', label: '🔒 Strict', desc: 'Tanya semua' },
-                  { value: 'selective', label: '🟡 Selective', desc: 'Auto baca, tanya tulis' },
-                  { value: 'auto', label: '🟢 Auto', desc: 'AI decide' },
-                  { value: 'bypass', label: '⚡ Bypass', desc: 'Jalankan semua' },
-                  { value: 'plan', label: '📋 Plan', desc: 'Read-only' },
-                ].map((m) => (
-                  <button
-                    key={m.value}
-                    onClick={() => setConfig((prev) => ({ ...prev, approvalMode: m.value }))}
-                    className={`px-3 py-2 rounded-xl text-xs font-medium border transition-all ${
-                      (config.approvalMode || 'selective') === m.value
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-white/10 text-white/60 hover:border-white/30'
-                    }`}
-                    title={m.desc}
-                  >
-                    {m.label}
-                    <div className="text-[10px] opacity-60 mt-0.5">{m.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="divider"></div>
-
-            {/* Camera Settings */}
-            <div className="space-y-6 p-2 -mx-2 rounded-lg">
-              <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5 flex items-center gap-2">
-                Kamera
-              </h2>
-
-              <div className="form-control">
-                <label className="label cursor-pointer p-0">
-                  <span className="label-text text-sm font-semibold">Aktifkan Kamera AI</span>
-                  <input
-                    type="checkbox"
-                    className="toggle toggle-primary"
-                    checked={config.cameraEnabled !== false}
-                    onChange={handleCameraEnabledChange}
-                  />
-                </label>
-                <span className="text-xs opacity-50 mt-2 block">
-                  Mengizinkan Mark menggunakan kamera (jika diminta) untuk melihat dunia fisik.
-                </span>
-              </div>
-
-              {config.cameraEnabled !== false && (
-                <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Perangkat Kamera</p>
-                  <select
-                    className="select select-bordered w-full"
-                    value={config.cameraDeviceId || 'default'}
-                    onChange={handleCameraDeviceIdChange}
-                  >
-                    <option value="default">Default System Camera</option>
-                    {videoDevices.map((cam) => (
-                      <option key={cam.deviceId} value={cam.deviceId}>
-                        {cam.label || `Camera ${cam.deviceId.substring(0, 5)}...`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {config.cameraEnabled !== false && (
-                <ConfigCameraPreview deviceId={config.cameraDeviceId} enabled={config.cameraEnabled !== false} />
-              )}
-            </div>
-
-            <div className="divider"></div>
-
-            {/* TTS Settings */}
-            <div id="tour-tts" className="space-y-6 p-2 -mx-2 rounded-lg">
-              <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5">
-                Audio & Voice Engine
-              </h2>
-
-              {/* Microphone Source Selection */}
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Mikrofon (Voice Input)</p>
-                <select
-                  className="select select-bordered w-full"
-                  value={config.micDeviceId || 'default'}
-                  onChange={handleMicDeviceIdChange}
-                >
-                  <option value="default">Default System Microphone</option>
-                  {audioDevices.map((mic) => (
-                    <option key={mic.deviceId} value={mic.deviceId}>
-                      {mic.label || `Microphone ${mic.deviceId.substring(0, 5)}...`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* TTS Rate */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">TTS Rate (Kecepatan Suara)</p>
-                  <span className="font-mono text-sm text-primary font-bold">
-                    {config.ttsRate}%
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="-50"
-                  max="50"
-                  step="1"
-                  value={config.ttsRate}
-                  className="range range-primary range-xs w-full"
-                  onChange={handleTtsRateChange}
-                />
-                <div className="flex justify-between mt-2 text-xs">
-                  <span>-50%</span>
-                  <span>-25%</span>
-                  <span>0%</span>
-                  <span>25%</span>
-                  <span>50%</span>
-                </div>
-              </div>
-
-              {/* TTS Pitch */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">TTS Pitch (Nada Suara)</p>
-                  <span className="font-mono text-sm text-primary font-bold">
-                    {config.ttsPitch}hz
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="-50"
-                  max="50"
-                  step="1"
-                  value={config.ttsPitch}
-                  className="range range-primary range-xs w-full"
-                  onChange={handleTtsPitchChange}
-                />
-                <div className="flex justify-between mt-2 text-xs">
-                  <span>-50hz</span>
-                  <span>-25hz</span>
-                  <span>0hz</span>
-                  <span>25hz</span>
-                  <span>50hz</span>
-                </div>
-              </div>
-
-              {/* Test TTS Button */}
-              <div className="pt-2">
-                <button
-                  className={`btn btn-soft btn-sm gap-2 ${playingTest ? 'btn-disabled' : ''}`}
-                  onClick={handleTestVoice}
-                  disabled={playingTest}
-                >
-                  {playingTest ? (
-                    <span className="loading loading-spinner loading-xs"></span>
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="1.2em"
-                      height="1.2em"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
-                    </svg>
-                  )}
-                  Test Suara Mark
-                </button>
-                <p className="text-[10px] opacity-30 mt-1.5 px-1">
-                  *Klik untuk mendengar suara Mark dengan settingan di atas tanpa perlu simpan dulu.
-                </p>
-              </div>
-            </div>
-          </section>
+          <ConfigAI
+            config={config}
+            setConfig={setConfig}
+            isFirstSetup={isFirstSetup}
+            onSetupComplete={onSetupComplete}
+            chatContext={chatContext}
+          />
 
           <div className="divider"></div>
 
-          {/* ── WhatsApp Settings ── */}
-          <section id="tour-wa-admin" className="space-y-5 p-2 -mx-2 rounded-lg">
-            <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-              WhatsApp Bot Settings
-            </h2>
+          {/* ── Kamera & Voice ── */}
+          <ConfigCamera config={config} setConfig={setConfig} videoDevices={videoDevices} />
 
-            {/* Pending Admin Requests */}
-            {config.waPendingAdmins && config.waPendingAdmins.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-warning">Permintaan Akses Admin Baru</p>
-                <div className="space-y-2">
-                  {config.waPendingAdmins.map((admin, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between bg-base-200 p-3 rounded-lg border border-warning/30"
-                    >
-                      <div>
-                        <p className="font-bold text-sm">{admin.name}</p>
-                        <p className="text-xs opacity-50">{admin.id}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          className="btn btn-xs btn-success text-white"
-                          onClick={() => handleApproveAdmin(admin)}
-                        >
-                          Setujui
-                        </button>
-                        <button
-                          className="btn btn-xs btn-error text-white"
-                          onClick={() => handleRejectAdmin(admin)}
-                        >
-                          Tolak
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+          <div className="divider"></div>
 
-            <div className="space-y-2 mt-4">
-              <p className="text-sm font-semibold">Daftar Admin Aktif</p>
-              {(!config.waAdminNumber || config.waAdminNumber.trim() === '') &&
-              (!config.waApprovedAdmins || config.waApprovedAdmins.length === 0) ? (
-                <div className="text-xs opacity-50 italic">
-                  Belum ada admin yang terdaftar. Ketik /register di WA.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {/* Tampilkan data dari waApprovedAdmins (yang ada nama kontaknya) */}
-                  {(config.waApprovedAdmins || []).map((admin, idx) => (
-                    <div
-                      key={`appr-${idx}`}
-                      className="flex items-center justify-between bg-base-200 p-3 rounded-lg border border-success/30"
-                    >
-                      <div>
-                        <p className="font-bold text-sm text-success">{admin.name}</p>
-                        <p className="text-xs opacity-50">{admin.id}</p>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveApprovedAdmin(admin)}
-                        className="btn btn-xs btn-error text-white"
-                      >
-                        Hapus
-                      </button>
-                    </div>
-                  ))}
+          <ConfigVoice config={config} setConfig={setConfig} audioDevices={audioDevices} />
 
-                  {/* Tampilkan data legacy dari waAdminNumber yang gak ada di waApprovedAdmins */}
-                  {config.waAdminNumber &&
-                    config.waAdminNumber.split(',').map((id, idx) => {
-                      const cleanId = id.trim()
-                      if (!cleanId) return null
-                      const isAlreadyShown = (config.waApprovedAdmins || []).find(
-                        (a) => a.id === cleanId
-                      )
-                      if (isAlreadyShown) return null
+          <div className="divider"></div>
 
-                      return (
-                        <div
-                          key={`leg-${idx}`}
-                          className="flex items-center justify-between bg-base-200 p-3 rounded-lg border border-success/30"
-                        >
-                          <div>
-                            <p className="font-bold text-sm text-success">Admin (Manual)</p>
-                            <p className="text-xs opacity-50">{cleanId}</p>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveLegacyAdmin(cleanId)}
-                            className="btn btn-xs btn-error text-white"
-                          >
-                            Hapus
-                          </button>
-                        </div>
-                      )
-                    })}
-                </div>
-              )}
-            </div>
-          </section>
+          {/* ── Relational Growth ── */}
+          <ConfigMemory config={config} setConfig={setConfig} />
+
+          {/* ── WhatsApp Admin ── */}
+          <ConfigAdmin config={config} setConfig={setConfig} />
 
           {!isFirstSetup && (
             <>
               <div className="divider"></div>
-
-              {/* ── Memory & Data ── */}
-              <section className="space-y-5">
-                <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-                  Memory & Data
-                </h2>
-
-                {/* Chat History */}
-                <div className="bg-base-300/60 backdrop-blur-sm border border-[var(--glass-border)] rounded-2xl p-4 space-y-3">
-                  <p className="text-sm font-semibold">Chat History</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button className="btn btn-soft btn-info btn-sm gap-2" onClick={handleExportChat}>
-                      <FaDownload size={11} /> Export Chat
-                    </button>
-                    <button className="btn btn-soft btn-primary btn-sm gap-2" onClick={() => document.getElementById('import-chat-input').click()}>
-                      <FaUpload size={11} /> Import Chat
-                    </button>
-                    <button className="btn btn-soft btn-error btn-sm gap-2" onClick={handleClearAllChat}>
-                      <FaTrash size={11} /> Hapus Semua Chat
-                    </button>
-                  </div>
-                  <input type="file" id="import-chat-input" accept=".json" className="hidden" onChange={handleImportChatFile} />
-                </div>
-
-                {/* Full Backup Encrypted */}
-                <div className="bg-base-300/60 backdrop-blur-sm border border-[var(--glass-border)] rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold">Full MARK Backup</p>
-                    <FaLock className="text-warning" size={14} />
-                  </div>
-                  <p className="text-xs text-white/40">Semua data (chat, memori, dokumen, relasi, riwayat). Dienkripsi AES-256-GCM. API key tidak ikut backup.</p>
-
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div className="flex-1 min-w-[180px]">
-                      <label className="text-xs text-white/50 mb-1 block">Password enkripsi</label>
-                      <input
-                        type="password"
-                        className="input input-bordered input-sm w-full bg-base-200/50"
-                        value={backupPw}
-                        onChange={e => setBackupPw(e.target.value)}
-                        placeholder="password backup..."
-                      />
-                    </div>
-                    <button className="btn btn-soft btn-warning btn-sm gap-2" onClick={handleExportFull} disabled={backupBusy}>
-                      {backupBusy === 'export' ? <span className="loading loading-spinner loading-xs" /> : <FaLock size={11} />}
-                      Export & Enkripsi
-                    </button>
-                    <button className="btn btn-soft btn-accent btn-sm gap-2" onClick={() => document.getElementById('restore-full-input').click()} disabled={backupBusy}>
-                      <FaUpload size={11} /> Restore dari Backup
-                    </button>
-                  </div>
-
-                  <div className="flex-1 min-w-[180px] hidden" id="restore-pw-wrap">
-                    <label className="text-xs text-warning/70 mb-1 block">Password untuk restore</label>
-                    <input
-                      type="password"
-                      className="input input-bordered input-sm w-full bg-base-200/50"
-                      value={restorePw}
-                      onChange={e => setRestorePw(e.target.value)}
-                      placeholder="password backup..."
-                    />
-                  </div>
-                  <input type="file" id="restore-full-input" accept=".json" className="hidden" onChange={handleRestoreFullFile} />
-                </div>
-
-              </section>
+              <ConfigChat />
             </>
           )}
-
-          <div className="flex flex-col items-end pt-2">
-            {isDownloadingModel && (
-              <div className="w-full max-w-xs mb-4">
-                <div className="flex justify-between text-xs mb-1">
-                  <span>Mengunduh Model Embeddings...</span>
-                  <span>{downloadProgress}%</span>
-                </div>
-                <progress
-                  className="progress progress-primary w-full"
-                  value={downloadProgress}
-                  max="100"
-                ></progress>
-              </div>
-            )}
-            <button
-              id="tour-save-btn"
-              onClick={handleSaveConfiguration}
-              disabled={isDownloadingModel}
-              className="btn btn-primary px-8"
-            >
-              {isDownloadingModel
-                ? 'Menyimpan...'
-                : isFirstSetup
-                  ? 'Simpan & Mulai Gunakan Mark'
-                  : 'Simpan Pengaturan'}
-            </button>
-          </div>
         </div>
 
         <ModalComponent />
