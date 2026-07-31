@@ -10,10 +10,14 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const skillsDir = path.join(root, '.agents', 'skills')
 const manifestPath = path.join(root, '.agents', 'manifest.json')
 
-// Must match loader's body extraction: content after the closing '---' line
+// Must match loader's body extraction exactly (lines.slice(endIdx+1).join('\n'))
 function getSkillBody(content) {
-  const parts = content.split(/\n---\s*\n/)
-  return parts[1] ?? content
+  const lines = content.split('\n')
+  let endIdx = -1
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i]?.trim() === '---') { endIdx = i; break }
+  }
+  return endIdx === -1 ? content : lines.slice(endIdx + 1).join('\n')
 }
 
 function getFrontmatter(content) {

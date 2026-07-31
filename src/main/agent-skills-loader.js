@@ -186,7 +186,9 @@ export function initSkillsIPC() {
   ipcMain.handle('agent-skills:get-list', () => {
     return loadedSkills.map(s => ({
       name: s.name,
-      description: s.description
+      description: s.description,
+      origin: s.origin,
+      signatureStatus: s.signatureStatus
     }))
   })
 

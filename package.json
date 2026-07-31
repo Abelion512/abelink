@@ -2,6 +2,7 @@
   "name": "mark",
   "version": "4.0.0",
   "description": "Mark: Metacognitive Artificial Relational Knowledge AI",
+  "type": "module",
   "main": "./out/main/index.js",
   "author": "Mazees",
   "homepage": "https://github.com/Mazees/mark-agent/",

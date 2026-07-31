@@ -268,7 +268,9 @@ ipcMain.handle('create-agent-skill', async (_event, skillDef) => {
     const provider = origin === 'mark-generated' ? 'mark-ai' : 'user'
     let signatureLine = ''
     if (origin === 'mark-generated') {
-      const bodyHash = hashBody(content)
+      // Body as loader will extract: frontmatter ends with '---\n', file = frontmatter + '\n' + content
+      // loader: lines.slice(endIdx+1).join('\n') → '\n' + content
+      const bodyHash = hashBody('\n' + content)
       const canonical = buildCanonical({ name: safeName, watermark: 'v5.0.0', origin, provider, bodyHash })
       signatureLine = `\nmark-signature: ${signContent(canonical)}`
     }
