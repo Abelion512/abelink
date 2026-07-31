@@ -1,5 +1,7 @@
 import { getAllConfig } from '../db'
-import { jsonrepair } from 'jsonrepair'
+import { cleanAndParse } from '../../../../shared/cleanAndParse.js'
+
+export { cleanAndParse }
 
 export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema = null, conf = null) => {
   if (!conf) {
@@ -54,29 +56,4 @@ export const fetchAI = async (messages, signal, isSmallTask = false, jsonSchema 
       reject(e);
     })
   });
-}
-
-export const cleanAndParse = (rawResponse) => {
-  try {
-    if (!rawResponse) return null
-    // Fast path: try raw parse first (avoids expensive jsonrepair on valid JSON)
-    const trimmed = rawResponse.replace(/^\xEF\xBB\xBF/, '').trim()
-    try {
-      const parsed = JSON.parse(trimmed)
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed
-    } catch {}
-    // Strip code fences then jsonrepair for broken LLM JSON
-    const cleaned = trimmed.replace(/```[\s\S]*?```/g, '').trim()
-    const parsed = JSON.parse(jsonrepair(cleaned))
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed
-    return null
-  } catch (error) {
-    console.error('Gagal Parse JSON:', error)
-    try {
-      const match = rawResponse.trim().replace(/^\xEF\xBB\xBF/, '').match(/\{[\s\S]*\}/)
-      return match ? JSON.parse(match[0]) : null
-    } catch {
-      return null
-    }
-  }
 }

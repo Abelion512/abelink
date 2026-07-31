@@ -1,15 +1,7 @@
 import { app } from 'electron'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
-
-// ponytail: lazy import jsonrepair so missing dep doesn't crash module at eval time
-let _jsonrepair = null
-async function getJsonrepair() {
-  if (_jsonrepair === null) {
-    try { _jsonrepair = (await import('jsonrepair')).jsonrepair || false } catch { _jsonrepair = false }
-  }
-  return _jsonrepair || null
-}
+import { cleanAndParse } from '../shared/cleanAndParse.js'
 
 // ========== MODEL REGISTRY (Dynamic, Pluggable) ==========
 const REGISTRY_PATH = join(__dirname, 'model-registry.json')
@@ -479,19 +471,3 @@ export const fetchAI = async (
 }
 
 // ========== JSON PARSER ==========
-export const cleanAndParse = async (rawResponse) => {
-  try {
-    if (!rawResponse) return null
-    const cleaned = rawResponse.replace(/```[\s\S]*?```/g, '').replace(/^\xEF\xBB\xBF/, '').trim()
-    const repair = await getJsonrepair()
-    const json = repair ? repair(cleaned) : cleaned
-    return JSON.parse(json)
-  } catch (error) {
-    try {
-      const match = rawResponse.trim().replace(/^\xEF\xBB\xBF/, '').match(/\{[\s\S]*\}/)
-      return match ? JSON.parse(match[0]) : null
-    } catch {
-      return null
-    }
-  }
-}

@@ -104,7 +104,7 @@ Hiduplah dan berekspresilah sesukamu! JANGAN TULIS format markdown json.`
     const aiResponse = await fetchAI(messages, signal, false, awarenessSchema)
     if (aiResponse && aiResponse.content) {
       try {
-        const parsed = cleanAndParse(aiResponse.content)
+        const parsed = await cleanAndParse(aiResponse.content)
         if (!parsed) throw new Error('Parse returned null')
         return {
           should_act: parsed.should_act,

@@ -75,11 +75,11 @@ function parseKeyValue(text) {
   return result.thought || result.answer ? result : null
 }
 
-export function parseFallbackFormat(rawText) {
+export async function parseFallbackFormat(rawText) {
   if (!rawText || typeof rawText !== 'string') return null
 
   // Strategy 1: JSON (existing)
-  const jsonResult = cleanAndParse(rawText)
+  const jsonResult = await cleanAndParse(rawText)
   if (jsonResult) return jsonResult
 
   // Strategy 2: XML tags

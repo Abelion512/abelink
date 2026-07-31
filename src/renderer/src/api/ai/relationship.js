@@ -136,7 +136,7 @@ Berdasarkan ringkasan di atas, evaluasi apakah trait perlu bergeser. Output JSON
     const response = await fetchAI(messages, null, true, traitSchema)
 
     if (response?.content) {
-      const parsed = cleanAndParse(response.content)
+      const parsed = await cleanAndParse(response.content)
       const clamped = clampDrift(oldTraits, parsed)
 
       return {

@@ -151,7 +151,7 @@ ${JSON.stringify(
     }
 
     const response = await fetchAI(messages, signal, true, schema)
-    const data = cleanAndParse(response.content)
+    const data = await cleanAndParse(response.content)
     return data
   } catch (error) {
     console.error('Error in getBestMusicMatch:', error)
