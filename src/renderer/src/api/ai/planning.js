@@ -3,6 +3,7 @@ import { getAllConfig, getRelationship } from '../db'
 import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorMemory'
 import { getPersonaPrompt, getTraitContext } from './persona'
+import { sanitizeSkillContent, classifyContentRisk } from './skill-sanitizer.js'
 
 // --- Config Cache (cache-aside pattern) ---
 let _configCache = null
@@ -50,6 +51,7 @@ const getCategoryVectors = async () => {
 
 let pluginVectorCache = new Map()
 let skillsVectorCache = new Map()
+let skillsContentCache = new Map()
 
 // Inline helper to get agent skills (~/.agents/skills/)
 const getAgentSkills = async () => {
@@ -158,24 +160,51 @@ export const getNextAction = async (
             .join('\n')
         : ''
 
-    // === Agent Skills (~/.agents/skills/) — vector-match & inject knowledge ===
+    // === Agent Skills — vector-match, verify trust, sanitize content, inject ===
     let relevantSkillContent = ''
     if (userVec && agentSkills.length > 0) {
+      const uncachedSkills = agentSkills.filter(s => !skillsVectorCache.has(s.name))
+      if (uncachedSkills.length > 0) {
+        const vectors = await Promise.all(uncachedSkills.map(s =>
+          generateVector(`${s.name} ${s.description}`)
+        ))
+        uncachedSkills.forEach((s, i) => skillsVectorCache.set(s.name, vectors[i]))
+      }
       for (const s of agentSkills) {
-        const sText = `${s.name} ${s.description}`
-        if (!skillsVectorCache.has(s.name)) {
-          skillsVectorCache.set(s.name, await generateVector(sText))
-        }
         const sVec = skillsVectorCache.get(s.name)
-        if (sVec) {
-          const score = cosineSimilarity(userVec, sVec)
-          if (score > 0.35) {
-            const content = await window.api.getAgentSkillContent(s.name)
-            if (content) {
-              relevantSkillContent += `\n# SKILL: ${s.name} (${s.description})\n${content}\n`
-            }
-          }
+        if (!sVec) continue
+        const score = cosineSimilarity(userVec, sVec)
+
+        // Origin-based priority: verified core +0.05, unknown -0.10
+        const originBoost = s.origin === 'mark-agent-fork' ? 0.05
+                          : s.origin === 'unknown' ? -0.10
+                          : 0
+        const effectiveScore = score + originBoost
+        if (effectiveScore <= 0.35) continue
+
+        let content = skillsContentCache.get(s.name)
+        if (!content) {
+          content = await window.api.getAgentSkillContent(s.name)
+          if (content) skillsContentCache.set(s.name, content)
         }
+        if (!content) continue
+
+        // Content safety: block high-risk, warn on flagged
+        const riskLevel = classifyContentRisk(content)
+        if (riskLevel === 0) {
+          console.warn(`[Skill Safety] BLOCKED high-risk: ${s.name} (${s.signatureStatus || 'unverified'})`)
+          continue
+        }
+        const { content: safeContent, safe, warnings } = sanitizeSkillContent(content)
+
+        // Trust badge: ✓ verified, ⚠ flagged, blank unsigned
+        const trustMark = s.signatureStatus === 'manifest-verified' || s.signatureStatus === 'signed-verified'
+          ? '✓'
+          : s.signatureStatus === 'unsigned' ? '' : '⚠'
+        const originBadge = `[${s.origin}${trustMark}]`
+        const riskNote = !safe ? `\n<!-- ⚠️ CONTENT FLAGGED: ${warnings.join('; ')} -->\n` : ''
+
+        relevantSkillContent += `\n# SKILL: ${originBadge} ${s.name} (${s.description})${riskNote}\n${safeContent}\n`
       }
     }
 
