@@ -1,7 +1,7 @@
 // Section: Memory & Data (chat export/import/clear, full encrypted backup)
 import { useState } from 'react'
 import { FaDownload, FaUpload, FaTrash, FaLock } from 'react-icons/fa'
-import { db, exportChat, importChat, exportFullMark, importFullMark } from '../../../api/db'
+import { db, importChat, exportFullMark, importFullMark } from '../../../api/db'
 import { useConfirm } from '../../../hooks/useConfirm'
 
 export default function ConfigChat() {
