@@ -423,7 +423,7 @@ export async function executeAction(data) {
                 <div style="font-weight: 600; color: #f8fafc; font-size: 15px; letter-spacing: 0.5px;">Mark paused for input</div>
               </div>
               
-              <div style="font-size: 13px; color: #94a3b8; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border-left: 3px solid #1fb854;">
+              <div style="font-size: 13px; color: #94a3b8; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border-left: 3px solid rgba(31, 184, 84, 0.35);">
                 ${aiMessage}
               </div>
               
