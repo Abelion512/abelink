@@ -41,6 +41,7 @@ const MarkHome = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
   const [currentResponse, setCurrentResponse] = useState(null)
+  const isLong = currentResponse?.type === 'long'
   const [activeMode, setActiveMode] = useState(null) // null | 'chat' | 'voice' | 'camera' | 'screen'
 
   useEffect(() => {
@@ -192,10 +193,14 @@ const MarkHome = () => {
         </div>
       )}
 
-      {/* Main Content Area */}
-      <div className="relative z-10 flex flex-col items-center w-full h-full px-4 pt-[12vh] pb-48 overflow-y-auto no-scrollbar">
-        {/* The Orb — fixed size, center top */}
-        <div className="relative flex flex-col items-center justify-center w-full max-w-3xl my-4">
+      {/* Main Content Area — single centered column on short answers; two columns (orb+answer | details) on long */}
+      <div
+        className={`relative z-10 flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-6 w-full h-full px-4 pt-[12vh] pb-48 lg:pt-[5vh] lg:pb-20 ${
+          isLong ? 'overflow-hidden' : 'overflow-y-auto no-scrollbar'
+        }`}
+      >
+        {/* Center Column — orb + answer. Full width on small screens; left half on lg+ */}
+        <div className="relative flex flex-col items-center justify-center w-full max-w-2xl lg:flex-1 lg:max-w-none lg:min-w-0 my-4">
           <div className="relative flex items-center justify-center">
             <ThoughtNeuralFlow processes={activeProcesses} />
             <OrbVisualizer
@@ -215,17 +220,21 @@ const MarkHome = () => {
               )}
             </div>
           )}
-        </div>
 
-        {/* Response Area */}
-        <div className="w-full max-w-2xl flex flex-col items-center gap-4 px-4">
-          {/* Response — no boundaries, natural flow */}
+          {/* Answer — no boundaries, natural flow */}
           {currentResponse && (
             <div className="w-full animate-[fade-up_0.4s_ease-out_forwards]">
               <ResponseArea currentResponse={currentResponse} />
             </div>
           )}
         </div>
+
+        {/* Right Column — Detail Informasi. Stretch-height = row height; the ONLY scroll surface (contained, invisible scrollbar) */}
+        {isLong && (
+          <div className="hidden lg:block lg:flex-1 lg:min-w-0 overflow-y-auto no-scrollbar animate-[fade-up_0.4s_ease-out_forwards]">
+            {/* details mount here (Task 3) */}
+          </div>
+        )}
       </div>
 
       {/* 4-Mode Bottom Bar — single container */}
