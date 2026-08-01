@@ -286,7 +286,7 @@ const RelationalGrowth = () => {
         </div>
       </div>
 
-      {ModalComponent}
+      <ModalComponent />
     </div>
   )
 }
