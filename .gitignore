@@ -93,8 +93,6 @@ CHANGELOG.md
 .superpowers/
 .zcode/
 quest.md
-docs/*
-!docs/PLANNED/
 .remember/agent-memory/
 exa-results/
 .agents/
@@ -111,7 +109,6 @@ client_secret*.json
 *-config.local.*
 
 # ── Generated / large test artifacts ──
-tests/28-07-2026_Test-Performance/
 
 # ── Node.js version specifiers (workspace-specific, not project) ──
 .nvmrc
