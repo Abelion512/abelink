@@ -1,59 +1,56 @@
-import { pipeline, env } from '@huggingface/transformers'
+// Facade vector memory (murni, tanpa transformers statis).
+// generateVector/getExtractor lazy via vectorLoader - wasm 23MB split dari entry bundle.
 import { searchArchives, searchDocuments, searchMemoriesInOrama } from './oramaStore'
 import { getAllMemory } from './db'
+import { loadVectorCore } from './vectorLoader'
 
-env.allowLocalModels = false;
+export { cosineSimilarity } from './vectorLoader'
 
-const isBrowserWithCache = typeof window !== 'undefined' && typeof caches !== 'undefined';
-if (isBrowserWithCache) {
-  env.useBrowserCache = true;
-  env.useFSCache = false;
-} else {
-  env.useBrowserCache = false;
-  env.useFSCache = true;
-}
+// --- Lite Mode: hash embedding fallback (tanpa model, hemat RAM) ---
+let isLiteMode = false
+export const setLiteMode = (v) => { isLiteMode = v }
 
-// Lite mode flag — when true, skip WASM model load and use hash embeddings
-let isLiteMode = false;
-
-export const setLiteMode = (v) => { isLiteMode = v };
-
-// FNV-1a hash for hash-based embeddings (lite mode)
+// FNV-1a 384-dim hash embedding
 function fnv1a(str) {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) }
-  return h >>> 0;
+  let h = 2166136261
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); h >>>= 0 }
+  return h >>> 0
 }
-
-function hashEmbedding(text) {
-  const vec = new Float32Array(384);
-  for (const tok of String(text || '').toLowerCase().split(/\s+/)) {
-    if (!tok) continue;
-    vec[fnv1a(tok) % 384] += 1;
+const hashEmbedding = (text) => {
+  const v = new Array(384).fill(0)
+  const words = String(text || '').toLowerCase().split(/\s+/)
+  for (const w of words) {
+    if (!w) continue
+    v[fnv1a(w) % 384] += 1
+    v[fnv1a(w.slice(0, 3)) % 384] += 0.5
   }
-  const norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0)) || 1;
-  return Array.from(vec.map((v) => v / norm));
+  const norm = Math.sqrt(v.reduce((s2, x) => s2 + x * x, 0)) || 1
+  return v.map((x) => x / norm)
 }
 
-let extractor = null;
-let isDownloading = false;
+let extractor = null
+let isDownloading = false
+
+export const generateVector = async (text) => {
+  if (isLiteMode) {
+    return hashEmbedding(text)
+  }
+  try {
+    const core = await loadVectorCore()
+    return await core.generateVector(text)
+  } catch (error) {
+    console.error('Gagal generate vector:', error)
+    return null
+  }
+}
 
 // We export this so we can manually trigger download from config page
 export const getExtractor = async (onProgress) => {
   if (!extractor && !isDownloading) {
     isDownloading = true
     try {
-      // 'wasm' hanya valid di Browser (Renderer Process).
-      // Di Node.js (Main Process) harus pakai 'cpu'.
-      const device = typeof window !== 'undefined' && typeof caches !== 'undefined' ? 'wasm' : 'cpu'
-      extractor = await pipeline(
-        'feature-extraction',
-        'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-        {
-          device,
-          progress_callback: onProgress
-        }
-      )
+      const core = await loadVectorCore()
+      extractor = await core.getExtractor(onProgress)
     } catch (e) {
       console.error('Failed to load transformer model', e)
     } finally {
@@ -61,37 +58,6 @@ export const getExtractor = async (onProgress) => {
     }
   }
   return extractor
-}
-
-export const generateVector = async (text) => {
-  if (isLiteMode) {
-    return hashEmbedding(text);
-  }
-  try {
-    const ext = await getExtractor()
-    if (!ext) return null
-    const output = await ext(text, {
-      pooling: 'mean',
-      normalize: true,
-      truncation: true,
-      max_length: 512
-    })
-    const result = Array.from(output.data)
-    if (output.dispose) output.dispose()
-    return result
-  } catch (error) {
-    console.error('Gagal generate vector:', error)
-    return null
-  }
-}
-
-// SEARCH: Rumus matematika buat ngukur kemiripan (0 sampai 1)
-export const cosineSimilarity = (vecA, vecB) => {
-  if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length === 0 || vecB.length === 0) {
-    return 0
-  }
-
-  return vecA.reduce((sum, a, i) => sum + a * vecB[i], 0)
 }
 
 export const getRelevantMemory = async (userInput, memoryList) => {

@@ -1,5 +1,5 @@
 import { fetchAI } from './core'
-import { generateVector } from '../vectorMemory'
+import { generateVector } from '../vectorLoader'
 import { insertChatArchive } from '../db'
 import { insertArchiveToOrama } from '../oramaStore'
 

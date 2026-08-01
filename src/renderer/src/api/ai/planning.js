@@ -1,7 +1,7 @@
 import { fetchAI, cleanAndParse } from './core'
 import { getAllConfig, getAllLearnedSkills } from '../db'
 import { getCurrentTimeInfo } from './utils'
-import { generateVector, cosineSimilarity } from '../vectorMemory'
+import { generateVector, cosineSimilarity } from '../vectorLoader'
 import { getPersonaPrompt, getTraitContext } from './persona'
 import { core_tools } from '../tools/core-tools'
 import { group_tools } from '../tools/group-tools'

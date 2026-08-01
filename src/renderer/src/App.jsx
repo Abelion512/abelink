@@ -21,15 +21,9 @@ import { GlobalCameraManager } from './components/GlobalCameraManager'
 import { getAllConfig, saveConfiguration } from './api/db'
 import { initOramaIndices, hydrateFromDexie } from './api/oramaStore'
 import { pauseStaleAgentTasks } from './api/taskStore'
-import { env } from '@huggingface/transformers'
 import { setLiteMode } from './api/vectorMemory'
 import WhatNew from './components/WhatNew'
 import whatsNewData from './data/whats-new.json'
-
-// Global Transformers.js configuration
-env.allowLocalModels = false
-env.useBrowserCache = true
-env.useFSCache = false
 
 const GlobalListener = () => {
   const navigate = useNavigate()

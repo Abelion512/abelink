@@ -1,5 +1,5 @@
 import { create, insert, insertMultiple, search, remove, removeMultiple } from '@orama/orama'
-import { generateVector } from './vectorMemory'
+import { generateVector } from './vectorLoader'
 
 // Dimensi vektor sesuai model Transformers.js (all-MiniLM-L6-v2 = 384)
 const VECTOR_SIZE = 384

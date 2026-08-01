@@ -1,4 +1,4 @@
-import { generateVector } from './vectorMemory'
+import { generateVector } from './vectorLoader'
 import { bulkInsertDocuments, deleteDocumentByName, getAllDocuments } from './db'
 import { insertDocumentChunksToOrama, deleteDocumentFromOrama } from './oramaStore'
 
