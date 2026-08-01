@@ -5,7 +5,7 @@ import { getAllConfig, getRelationship } from '../db'
 
 const compressor = createCompressor({ maxTokens: 128000 })
 import { getCurrentTimeInfo } from './utils'
-import { generateVector, cosineSimilarity } from '../vectorMemory'
+import { generateVector, cosineSimilarity } from '../vectorLoader'
 import { getPersonaPrompt, getTraitContext } from './persona'
 import { sanitizeSkillContent, classifyContentRisk } from './skill-sanitizer.js'
 

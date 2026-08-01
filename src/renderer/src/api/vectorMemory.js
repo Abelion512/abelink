@@ -1,62 +1,17 @@
-import { pipeline, env } from '@huggingface/transformers';
-import { getAllConfig, getAllMemory, db } from './db';
-
-env.allowLocalModels = false;
-env.useBrowserCache = true;
-env.useFSCache = false;
-
-let extractor = null;
-let isDownloading = false;
-let vectorDisabled = false; // CSP block failover — skip vector ops permanently after first failure
-
-// We export this so we can manually trigger download from config page
-export const getExtractor = async (onProgress) => {
-  if (vectorDisabled) return null;
-  if (!extractor && !isDownloading) {
-    isDownloading = true;
-    try {
-      extractor = await pipeline('feature-extraction', 'Xenova/paraphrase-multilingual-MiniLM-L12-v2', {
-        device: 'wasm',
-        progress_callback: onProgress
-      });
-    } catch (e) {
-      console.error("Failed to load transformer model", e);
-      vectorDisabled = true; // CSP block — skip forever
-    } finally {
-      isDownloading = false;
-    }
-  }
-  return extractor;
-};
-
-export const generateVector = async (text) => {
-  if (vectorDisabled) return null;
-  try {
-    const ext = await getExtractor();
-    if (!ext) return null;
-    const output = await ext(text, { pooling: 'mean', normalize: true, truncation: true, max_length: 512 });
-    const result = Array.from(output.data);
-    if (output.dispose) output.dispose();
-    return result;
-  } catch (error) {
-    console.error("Gagal generate vector:", error);
-    vectorDisabled = true;
-    return null;
-  }
-}
-
-// SEARCH: Rumus matematika buat ngukur kemiripan (0 sampai 1)
-export const cosineSimilarity = (vecA, vecB) => {
-  if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length === 0 || vecB.length === 0) {
-    return 0
-  }
-
-  return vecA.reduce((sum, a, i) => sum + a * vecB[i], 0)
-}
-
+// Facade vector memory. Logika getRelevantMemory/getUnifiedContext/searchExtendedMemory
+// tetap di sini (murni, tanpa transformers). generateVector/getExtractor lazy via vectorLoader.
 import { searchArchives, searchDocuments, searchMemoriesInOrama } from './oramaStore'
+import { generateVector, loadVectorCore } from './vectorLoader'
 
-export const getRelevantMemory = async (userInput, memoryList) => {
+export { generateVector, cosineSimilarity } from './vectorLoader'
+
+// Dipakai App.jsx / Configuration.jsx untuk progress download model — lazy load chunk wasm
+export const getExtractor = async (onProgress) => {
+  const core = await loadVectorCore()
+  return core.getExtractor(onProgress)
+}
+
+export const getRelevantMemory = async (_userInput, memoryList) => {
   // Hanya Core memory (profile & preference) dipanggil langsung tanpa filter
   const coreMemories = memoryList
     .filter(m => m.type === 'profile' || m.type === 'preference')
