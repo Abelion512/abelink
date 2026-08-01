@@ -39,6 +39,12 @@ app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 // Mencegah aplikasi mati total kalau GPU Process nge-crash berkali-kali
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
 
+// Anti-bot: UA Chrome asli (major version sinkron dari Chromium embedded).
+// Default Electron bocor "Electron/39" -> TikTok flag sebagai bot & blok login.
+app.commandLine.appendSwitch(
+  'user-agent',
+  `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome}.0.0.0 Safari/537.36`
+)
 
 const setupYoutubeFix = () => {
   // Kita cegat semua request yang pergi ke YouTube
