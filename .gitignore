@@ -93,7 +93,10 @@ CHANGELOG.md
 .superpowers/
 .zcode/
 quest.md
-docs/
+docs/*
+!docs/PLANNED/
+docs/PLANNED/*
+!docs/PLANNED/sessions/
 .remember/agent-memory/
 exa-results/
 .agents/
