@@ -1,5 +1,9 @@
 import Dexie from 'dexie'
+<<<<<<< HEAD
 import { generateVector } from './vectorLoader'
+=======
+import { generateVector } from './vectorMemory'
+>>>>>>> cd/friendly-visvesvaraya-3a533a
 import { insertMemoryToOrama, updateMemoryInOrama, deleteMemoryFromOrama } from './oramaStore'
 
 export const db = new Dexie('mark-db')

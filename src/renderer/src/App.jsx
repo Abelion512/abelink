@@ -175,7 +175,11 @@ function App() {
             <div className="h-screen flex flex-col overflow-hidden">
               <div className="h-screen w-full">
                 <Routes>
+<<<<<<< HEAD
 <Route path="/" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><MarkHome /></Suspense>} />
+=======
+                  <Route path="/" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><MarkHome /></Suspense>} />
+>>>>>>> cd/friendly-visvesvaraya-3a533a
                   <Route path="/config" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Configuration /></Suspense>} />
                   <Route path="/plugins" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Plugins /></Suspense>} />
                   <Route path="/live-audio" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><LiveAudio /></Suspense>} />

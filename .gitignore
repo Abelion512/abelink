@@ -2,8 +2,6 @@
 node_modules/
 .pnpm-store/
 .npm/
-
-# ── Lockfiles (use npm only) ──
 yarn.lock
 yarn-error.log
 pnpm-lock.yaml
@@ -83,8 +81,12 @@ web.whatsapp.com_files/
 *.sqlite
 *.sqlite3
 
+<<<<<<< HEAD
 # ── AI agent artifacts (end-user build doesn't need these) ──
 AGENTS.md
+=======
+# ── AI agent artifacts ──
+>>>>>>> cd/friendly-visvesvaraya-3a533a
 AGENTS.md.local
 CLAUDE.md
 CHANGELOG.md
@@ -93,12 +95,18 @@ CHANGELOG.md
 .superpowers/
 .zcode/
 quest.md
+<<<<<<< HEAD
 .remember/agent-memory/
 exa-results/
 .agents/
 .claude/
 !.claude/settings.json
 !.claude/settings.local.json
+=======
+docs/PLANNED/
+docs/superpowers/
+.remember/agent-memory/
+>>>>>>> cd/friendly-visvesvaraya-3a533a
 
 # ── Local config ──
 model-registry.json
@@ -109,6 +117,12 @@ client_secret*.json
 *-config.local.*
 
 # ── Generated / large test artifacts ──
+<<<<<<< HEAD
+=======
+tests/*.har
+tests/*.heapsnapshot
+tests/*.gz
+>>>>>>> cd/friendly-visvesvaraya-3a533a
 
 # ── Node.js version specifiers (workspace-specific, not project) ──
 .nvmrc
@@ -117,6 +131,9 @@ client_secret*.json
 
 # ── Pluggable skill cache ──
 agent-skills-cache.json
+<<<<<<< HEAD
 
 # ── Dev-only scripts (user setup script stays tracked) ──
 scripts/ask-ais.mjs
+=======
+>>>>>>> cd/friendly-visvesvaraya-3a533a

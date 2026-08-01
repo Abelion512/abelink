@@ -82,7 +82,12 @@ const ResponseArea = ({ currentResponse }) => {
 
   if (!displayResponse) return null
 
+<<<<<<< HEAD
   const { text, type, pluginResult } = displayResponse
+=======
+  const { text, type, reasoning, sources, pluginResult, youtubeData, youtubeSummary, isProactive, mood } =
+    displayResponse
+>>>>>>> cd/friendly-visvesvaraya-3a533a
 
   const animationClass =
     animState === 'fade-out'
@@ -91,6 +96,39 @@ const ResponseArea = ({ currentResponse }) => {
         ? 'animate-[response-fade-in_0.3s_ease-out_forwards]'
         : ''
 
+<<<<<<< HEAD
+=======
+  const markdownComponents = {
+    code({ node, inline, className, children, ...props }) {
+      const match = /language-(\w+)/.exec(className || '')
+      return !inline ? (
+        <CodeBlock match={match} children={children} />
+      ) : (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      )
+    },
+    a: ({ node, ...props }) => {
+      let url = props.href || '#'
+      if (url !== '#' && !url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url
+      }
+      return (
+        <a
+          {...props}
+          onClick={(e) => {
+            e.preventDefault()
+            if (window.api && window.api.openExternal && url !== '#') {
+              window.api.openExternal(url)
+            }
+          }}
+        />
+      )
+    }
+  }
+
+>>>>>>> cd/friendly-visvesvaraya-3a533a
   const renderContent = () => {
     if (type === 'long') {
       const { tldr } = splitLongAnswer(text)
@@ -124,6 +162,21 @@ const ResponseArea = ({ currentResponse }) => {
   return (
     <div className={`w-full flex flex-col items-center gap-4 ${animationClass}`}>
       {renderContent()}
+
+      {/* Reasoning / CoT Panel */}
+      {displayResponse.reasoning && (
+        <div className="w-full max-w-2xl">
+          <HoloCard title="Proses Pemikiran" defaultExpanded={false}>
+            <Markdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
+              components={markdownComponents}
+            >
+              {displayResponse.reasoning}
+            </Markdown>
+          </HoloCard>
+        </div>
+      )}
 
       {/* Plugin Execution Result Chip */}
       {pluginResult && (
