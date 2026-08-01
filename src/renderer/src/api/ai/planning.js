@@ -181,37 +181,8 @@ export const getNextAction = async (
             .join('\n')
         : ''
 
-<<<<<<< HEAD
     // === Agent Skills — vector-match, verify trust, sanitize content, inject ===
 
-=======
-    // Sanitizer: strips instruction-override patterns from skill files.
-    // Prevents prompt injection via SKILL.md (untrusted content from
-    // ~/.agents/skills/ or ~/.zcode/skills/ that could override AI behavior).
-    const sanitizeSkillContent = (content) => {
-      const dangerous = [
-        /ignore all previous instructions/i,
-        /ignore all above/i,
-        /you are now/i,
-        /you are an AI/i,
-        /override/i,
-        /new instructions/i,
-        /system prompt/i,
-        /DANGER:/i,
-        /WARNING:/i,
-      ]
-      const lines = content.split('\n').filter(line => {
-        // Strip markdown headings containing instruction/command
-        if (/^#\s.*(instruction|command)/i.test(line)) return false
-        // Strip lines matching known injection patterns
-        for (const re of dangerous) if (re.test(line)) return false
-        return true
-      })
-      return `<skill_data>\n${lines.join('\n')}\n</skill_data>`
-    }
-
-    // === Agent Skills (~/.agents/skills/) — vector-match & inject knowledge ===
->>>>>>> cd/friendly-visvesvaraya-3a533a
     let relevantSkillContent = ''
     if (userVec && agentSkills.length > 0) {
       const uncachedSkills = agentSkills.filter(s => !skillsVectorCache.has(s.name))
@@ -223,7 +194,6 @@ export const getNextAction = async (
       }
       for (const s of agentSkills) {
         const sVec = skillsVectorCache.get(s.name)
-<<<<<<< HEAD
         if (!sVec) continue
         const score = cosineSimilarity(userVec, sVec)
 
@@ -238,21 +208,6 @@ export const getNextAction = async (
         if (!content) {
           content = await window.api.getAgentSkillContent(s.name)
           if (content) skillsContentCache.set(s.name, content)
-=======
-        if (sVec) {
-          const score = cosineSimilarity(userVec, sVec)
-          if (score > 0.35) {
-            // Use cached content if available, avoid IPC round-trip
-            let content = skillsContentCache.get(s.name)
-            if (!content) {
-              content = await window.api.getAgentSkillContent(s.name)
-              if (content) skillsContentCache.set(s.name, content)
-            }
-            if (content) {
-              relevantSkillContent += `\n# SKILL: ${s.name} (${s.description})\n${sanitizeSkillContent(content)}\n`
-            }
-          }
->>>>>>> cd/friendly-visvesvaraya-3a533a
         }
         if (!content) continue
 

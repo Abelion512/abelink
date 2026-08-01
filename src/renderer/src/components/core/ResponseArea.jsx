@@ -82,12 +82,8 @@ const ResponseArea = ({ currentResponse }) => {
 
   if (!displayResponse) return null
 
-<<<<<<< HEAD
-  const { text, type, pluginResult } = displayResponse
-=======
   const { text, type, reasoning, sources, pluginResult, youtubeData, youtubeSummary, isProactive, mood } =
     displayResponse
->>>>>>> cd/friendly-visvesvaraya-3a533a
 
   const animationClass =
     animState === 'fade-out'
@@ -96,8 +92,6 @@ const ResponseArea = ({ currentResponse }) => {
         ? 'animate-[response-fade-in_0.3s_ease-out_forwards]'
         : ''
 
-<<<<<<< HEAD
-=======
   const markdownComponents = {
     code({ node, inline, className, children, ...props }) {
       const match = /language-(\w+)/.exec(className || '')
@@ -128,7 +122,6 @@ const ResponseArea = ({ currentResponse }) => {
     }
   }
 
->>>>>>> cd/friendly-visvesvaraya-3a533a
   const renderContent = () => {
     if (type === 'long') {
       const { tldr } = splitLongAnswer(text)

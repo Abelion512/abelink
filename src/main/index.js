@@ -34,13 +34,8 @@ import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
 import { ElectronBlocker } from '@ghostery/adblocker-electron'
 import mammoth from 'mammoth'
 import { PDFParse } from 'pdf-parse'
-<<<<<<< HEAD
 import { loadYouTube, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, sendKeyboardCommand, showAndNavigate } from './youtube-player.js'
 import { buildCanonical, hashBody, signContent } from './agent-keyring.js'
-=======
-import { loadYouTube, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, sendKeyboardCommand } from './youtube-player.js'
-
->>>>>>> cd/friendly-visvesvaraya-3a533a
 // Headless/SSH detection: disable GPU if no display server available (Linux)
 if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
   app.commandLine.appendSwitch('disable-gpu')
@@ -115,13 +110,8 @@ ipcMain.on('mpris:set-status', (_event, playing) => {
   try { setMprisPlaybackStatus(playing) } catch {}
 })
 
-<<<<<<< HEAD
 import { fetchAI, setGlobalConfig, getGlobalConfig, abortAllFetches, resolveVisionModel, applyLearnedHints } from './ai-bridge.js'
 import { getToolCatalog, getToolDetail, getToolCatalogString, getToolCatalogForQuery, matchVoiceCommand, refreshToolCache } from './tool-registry.js'
-=======
-import { fetchAI, setGlobalConfig, abortAllFetches, resolveVisionModel, getGlobalConfig } from './ai-bridge.js'
-import { getToolDetail, getToolCatalogString, getToolCatalogForQuery, matchVoiceCommand, refreshToolCache } from './tool-registry.js'
->>>>>>> cd/friendly-visvesvaraya-3a533a
 
 ipcMain.on('sync-config', (_event, config) => {
   setGlobalConfig(config)
@@ -660,23 +650,14 @@ app.whenReady().then(async () => {
 
   // ===== VISION MODEL ROUTING (Registry-based) =====
   ipcMain.handle('vision:resolve-model', (_event, role) => {
-<<<<<<< HEAD
-    const conf = getGlobalConfig()
-=======
     const conf = getGlobalConfig() || {}
->>>>>>> cd/friendly-visvesvaraya-3a533a
     const comboName = conf.customModel || 'mark'
     // resolveVisionModel is imported from ai-bridge at top of file
     return resolveVisionModel(comboName, role)
   })
 
-<<<<<<< HEAD
   ipcMain.handle('vision:get-endpoint', (_event, modelId) => {
-    const conf = getGlobalConfig()
-=======
-  ipcMain.handle('vision:get-endpoint', () => {
     const conf = getGlobalConfig() || {}
->>>>>>> cd/friendly-visvesvaraya-3a533a
     const activeProvider = conf.aiProvider || 'lmstudio'
     const customEndpoint = conf.customEndpoint?.replace(/\/+$/, '') || 'http://localhost:1234'
     const customApiKey = conf.customApiKey || ''
