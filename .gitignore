@@ -95,8 +95,6 @@ CHANGELOG.md
 quest.md
 docs/*
 !docs/PLANNED/
-docs/PLANNED/*
-!docs/PLANNED/sessions/
 .remember/agent-memory/
 exa-results/
 .agents/
@@ -113,7 +111,7 @@ client_secret*.json
 *-config.local.*
 
 # ── Generated / large test artifacts ──
-tests/
+tests/28-07-2026_Test-Performance/
 
 # ── Node.js version specifiers (workspace-specific, not project) ──
 .nvmrc
