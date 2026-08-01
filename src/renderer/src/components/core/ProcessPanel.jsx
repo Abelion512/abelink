@@ -65,7 +65,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
         const cascadeX = sideIndex * 30;
         
         if (proc.type === 'planning') {
-          const { steps, currentStep, reasoning } = proc.data;
+          const { steps, currentStep } = proc.data;
           const isDone = proc.status === 'done';
           return (
             <div className="pointer-events-auto" key={proc.id}>
@@ -77,17 +77,6 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                 isVisible={!proc.isExiting}
               >
                 <div className="w-[320px] flex flex-col gap-2">
-                  {reasoning && (
-                    <details className="group">
-                      <summary className="text-[10px] cursor-pointer select-none flex items-center gap-1.5 opacity-50 hover:opacity-100 transition-opacity uppercase tracking-wider mb-2">
-                        <FaChevronRight className="group-open:rotate-90 transition-transform text-[8px]" />
-                        Proses Pemikiran
-                      </summary>
-                      <div className="text-[11px] opacity-60 border-l border-white/20 pl-2 mb-2 font-mono whitespace-pre-wrap">
-                        {reasoning}
-                      </div>
-                    </details>
-                  )}
                   {steps && steps.map((step, idx) => {
                     let prefix = idx + 1 + '.';
                     let opacity = 'opacity-50 text-white';
