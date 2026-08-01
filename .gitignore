@@ -137,3 +137,7 @@ agent-skills-cache.json
 scripts/ask-ais.mjs
 =======
 >>>>>>> cd/friendly-visvesvaraya-3a533a
+
+# test artifacts (recursive) — HAR/heapsnapshot can exceed GitHub 100MB limit
+tests/**/*.har
+tests/**/*.heapsnapshot
