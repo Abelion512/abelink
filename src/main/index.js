@@ -49,6 +49,27 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
 
+// Anti-bot: UA Chrome asli (major version sinkron dari Chromium embedded).
+// Default Electron bocor "Electron/39" -> TikTok flag sebagai bot & blok login.
+app.commandLine.appendSwitch(
+  'user-agent',
+  `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome}.0.0.0 Safari/537.36`
+)
+
+const setupYoutubeFix = () => {
+  // Kita cegat semua request yang pergi ke YouTube
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ['https://www.youtube.com/*'] },
+    (details, callback) => {
+      // Kita paksa header 'Referer' dan 'Origin' jadi localhost
+      // Supaya YouTube gak tau kalau ini dateng dari file://
+      details.requestHeaders['Referer'] = 'http://localhost'
+      details.requestHeaders['Origin'] = 'http://localhost'
+      callback({ requestHeaders: details.requestHeaders })
+    }
+  )
+}
+
 let mainWindow = null
 let tray = null
 
