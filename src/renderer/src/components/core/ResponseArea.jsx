@@ -7,6 +7,59 @@ import HoloCard from './HoloCard'
 import { CodeBlock } from '../Chat/CodeBlock'
 import PluginExecutionBubble from '../Chat/PluginExecutionBubble'
 
+// Pure: splits a long answer into tldr (first line/first sentence) and the rest.
+export function splitLongAnswer(text) {
+  let tldr = ''
+  let rest = ''
+  const firstNewlineMatch = text.match(/\n/)
+  if (firstNewlineMatch) {
+    const index = firstNewlineMatch.index
+    tldr = text.substring(0, index).trim()
+    rest = text.substring(index).trim()
+  } else {
+    const firstPeriod = text.indexOf('. ')
+    if (firstPeriod !== -1 && firstPeriod < 200) {
+      tldr = text.substring(0, firstPeriod + 1).trim()
+      rest = text.substring(firstPeriod + 1).trim()
+    } else {
+      tldr = text.substring(0, 150) + '...'
+      rest = text
+    }
+  }
+  return { tldr, rest }
+}
+
+// Hoisted pure renderers — reused by ResponseArea (TLDR) and ResponseDetails (rest).
+export const markdownComponents = {
+  code({ node, inline, className, children, ...props }) {
+    const match = /language-(\w+)/.exec(className || '')
+    return !inline ? (
+      <CodeBlock match={match} children={children} />
+    ) : (
+      <code className={className} {...props}>
+        {children}
+      </code>
+    )
+  },
+  a: ({ node, ...props }) => {
+    let url = props.href || '#'
+    if (url !== '#' && !url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url
+    }
+    return (
+      <a
+        {...props}
+        onClick={(e) => {
+          e.preventDefault()
+          if (window.api && window.api.openExternal && url !== '#') {
+            window.api.openExternal(url)
+          }
+        }}
+      />
+    )
+  }
+}
+
 const ResponseArea = ({ currentResponse }) => {
   const [animState, setAnimState] = useState('idle') // 'fade-out', 'fade-in', 'idle'
   const [displayResponse, setDisplayResponse] = useState(currentResponse)
@@ -40,62 +93,11 @@ const ResponseArea = ({ currentResponse }) => {
         : ''
 
   const renderContent = () => {
-    const markdownComponents = {
-      code({ node, inline, className, children, ...props }) {
-        const match = /language-(\w+)/.exec(className || '')
-        return !inline ? (
-          <CodeBlock match={match} children={children} />
-        ) : (
-          <code className={className} {...props}>
-            {children}
-          </code>
-        )
-      },
-      a: ({ node, ...props }) => {
-        let url = props.href || '#'
-        if (url !== '#' && !url.startsWith('http://') && !url.startsWith('https://')) {
-          url = 'https://' + url
-        }
-        return (
-          <a
-            {...props}
-            onClick={(e) => {
-              e.preventDefault()
-              if (window.api && window.api.openExternal && url !== '#') {
-                window.api.openExternal(url)
-              }
-            }}
-          />
-        )
-      }
-    }
-
     if (type === 'long') {
-      let tldr = ''
-      let restText = ''
-
-      const firstNewlineMatch = text.match(/\n/)
-
-      if (firstNewlineMatch) {
-        // Potong di enter pertama
-        const index = firstNewlineMatch.index
-        tldr = text.substring(0, index).trim()
-        restText = text.substring(index).trim()
-      } else {
-        // Kalau ga ada enter tapi kepanjangan, potong di titik pertama
-        const firstPeriod = text.indexOf('. ')
-        if (firstPeriod !== -1 && firstPeriod < 200) {
-          tldr = text.substring(0, firstPeriod + 1).trim()
-          restText = text.substring(firstPeriod + 1).trim()
-        } else {
-          tldr = text.substring(0, 150) + '...'
-          restText = text
-        }
-      }
+      const { tldr } = splitLongAnswer(text)
 
       return (
         <div className="flex flex-col items-center gap-4 w-full relative">
-
           {/* TLDR Part */}
           {tldr && (
             <div className="text-center text-base md:text-lg font-light leading-relaxed custom-markdown opacity-90 px-4 max-w-2xl">
@@ -104,20 +106,6 @@ const ResponseArea = ({ currentResponse }) => {
               </Markdown>
             </div>
           )}
-
-          {/* Rest of the content in HoloCard */}
-          <div className="w-full mt-4">
-            <HoloCard title="Detail Informasi" defaultExpanded={false}>
-              <Markdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
-                components={markdownComponents}
-              >
-                {restText || text}
-              </Markdown>
-
-            </HoloCard>
-          </div>
         </div>
       )
     }
@@ -145,6 +133,23 @@ const ResponseArea = ({ currentResponse }) => {
         </div>
       )}
     </div>
+  )
+}
+
+// Details column for long answers — rendered beside the orb+TLDR on lg+ (MarkHome).
+export const ResponseDetails = ({ currentResponse }) => {
+  if (!currentResponse || currentResponse.type !== 'long' || !currentResponse.text) return null
+  const { rest } = splitLongAnswer(currentResponse.text)
+  return (
+    <HoloCard title="Detail Informasi" defaultExpanded={false}>
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
+        components={markdownComponents}
+      >
+        {rest || currentResponse.text}
+      </Markdown>
+    </HoloCard>
   )
 }
 

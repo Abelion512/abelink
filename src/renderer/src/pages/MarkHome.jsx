@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import OrbVisualizer from '../components/core/OrbVisualizer'
 import InputBar from '../components/core/InputBar'
-import ResponseArea from '../components/core/ResponseArea'
+import ResponseArea, { ResponseDetails } from '../components/core/ResponseArea'
 import StatusIndicator from '../components/core/StatusIndicator'
 import FloatingMenu from '../components/core/FloatingMenu'
 import HistoryDrawer from '../components/core/HistoryDrawer'
@@ -242,7 +242,7 @@ const MarkHome = () => {
         {/* Right Column — Detail Informasi. Stretch-height = row height; the ONLY scroll surface (contained, invisible scrollbar) */}
         {isLong && (
           <div className="hidden lg:block lg:flex-1 lg:min-w-0 overflow-y-auto no-scrollbar animate-[fade-up_0.4s_ease-out_forwards]">
-            {/* details mount here (Task 3) */}
+            {currentResponse && <ResponseDetails currentResponse={currentResponse} />}
           </div>
         )}
       </div>
