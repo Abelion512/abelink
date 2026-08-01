@@ -90,6 +90,10 @@ function createWindow() {
     }
   })
 
+  // Dev/HMR menambah listener eksternal ke webContents — naikkan kapasitas biar
+  // MaxListenersExceededWarning tidak muncul (sama dengan pola di browser-agent.js)
+  mainWindow.webContents.setMaxListeners(50)
+
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
   })
@@ -126,7 +130,7 @@ ipcMain.on('mpris:set-status', (_event, playing) => {
   try { setMprisPlaybackStatus(playing) } catch {}
 })
 
-import { fetchAI, setGlobalConfig, abortAllFetches, resolveVisionModel, applyLearnedHints } from './ai-bridge.js'
+import { fetchAI, setGlobalConfig, getGlobalConfig, abortAllFetches, resolveVisionModel, applyLearnedHints } from './ai-bridge.js'
 import { getToolCatalog, getToolDetail, getToolCatalogString, getToolCatalogForQuery, matchVoiceCommand, refreshToolCache } from './tool-registry.js'
 
 ipcMain.on('sync-config', (_event, config) => {
@@ -661,14 +665,14 @@ app.whenReady().then(async () => {
 
   // ===== VISION MODEL ROUTING (Registry-based) =====
   ipcMain.handle('vision:resolve-model', (_event, role) => {
-    const conf = globalConfig || {}
+    const conf = getGlobalConfig()
     const comboName = conf.customModel || 'mark'
     // resolveVisionModel is imported from ai-bridge at top of file
     return resolveVisionModel(comboName, role)
   })
 
   ipcMain.handle('vision:get-endpoint', (_event, modelId) => {
-    const conf = globalConfig || {}
+    const conf = getGlobalConfig()
     const activeProvider = conf.aiProvider || 'lmstudio'
     const customEndpoint = conf.customEndpoint?.replace(/\/+$/, '') || 'http://localhost:1234'
     const customApiKey = conf.customApiKey || ''

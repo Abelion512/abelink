@@ -42,6 +42,8 @@ function getOrCreateWindow() {
     }
   })
 
+  ytWindow.webContents.setMaxListeners(50)
+
   // UA SPOOFING
   ytWindow.webContents.userAgent = chromeUA
 

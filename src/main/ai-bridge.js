@@ -485,15 +485,17 @@ export const fetchAI = async (
 
         if (!content || content.trim() === '') {
           log.warn(' empty', 'Content kosong (content: null)')
-          // Return empty content instead of throwing — let caller handle retry
-          result = { content: '', reasoning: reasoningContent }
-          success = true
-          trackModelUsage(model, true, latencyMs, finishReason, { jsonParsed: true, emptyContent: true })
-          logObservation({
-            provider: activeProvider, model, latencyMs,
-            httpStatus: response.status, finishReason,
-            contentLength: 0, retryCount, success: true,
-          })
+          // Retry instead of returning empty — empty content usually means model failed
+          lastError = new AIServiceError('Empty content returned', { provider: activeProvider, model })
+          trackModelUsage(model, false, latencyMs, finishReason, { jsonParsed: true, emptyContent: true })
+          if (retryCount < policy.maxRetries) {
+            const delay = Math.min(policy.baseDelay * Math.pow(2, retryCount), policy.maxDelay)
+            log.warn('🌐', `Empty content → retry ${retryCount + 1}/${policy.maxRetries} in ${Math.round(delay / 1000)}s`)
+            if (onStatus) onStatus(`Kosong, retry ${retryCount + 1}...`)
+            await sleep(delay)
+            retryCount++
+            continue
+          }
           break
         }
 

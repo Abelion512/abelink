@@ -307,7 +307,10 @@ export async function readDOM() {
     return '[ERROR] Browser belum dibuka. Gunakan browser-navigate dulu.'
   }
 
-  const result = await browserWindow.webContents.executeJavaScript(DOM_PARSER_SCRIPT)
+  // Halaman bisa pindah/refresh di tengah scan (SPA) → konteks hancur → jangan reject
+  const result = await browserWindow.webContents
+    .executeJavaScript(DOM_PARSER_SCRIPT)
+    .catch(() => '[ERROR] DOM scan gagal — halaman berpindah/context destroyed. Coba browser-navigate ulang.')
 
   // Capture page & send to renderer for HoloCard Preview
   try {
@@ -498,9 +501,9 @@ export async function executeAction(data) {
 
   if (action === 'scroll') {
     const scrollAmount = direction === 'up' ? -600 : 600
-    await browserWindow.webContents.executeJavaScript(
-      `window.scrollBy({ top: ${scrollAmount}, behavior: 'smooth' })`
-    )
+    await browserWindow.webContents
+      .executeJavaScript(`window.scrollBy({ top: ${scrollAmount}, behavior: 'smooth' })`)
+      .catch(() => {}) // scroll gagal (context destroyed) → lanjut, readDOM akan kasih laporan
     await new Promise((resolve) => setTimeout(resolve, 1000))
     return await readDOM()
   }

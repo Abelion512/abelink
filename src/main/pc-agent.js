@@ -150,6 +150,7 @@ export async function askUserPC(question = '') {
       transparent: true, resizable: false,
       webPreferences: { sandbox: true }
     })
+    overlayWindow.webContents.setMaxListeners(50)
     const overlayHtml = [
       '<!DOCTYPE html><html><body style="background:rgba(25,54,45,0.95);backdrop-filter:blur(12px);border-radius:20px;margin:8px;padding:20px;color:#1fb854;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh-16px);">',
       '<h3 style="margin-bottom:16px;color:white">MARK membutuhkan input Anda</h3>',
