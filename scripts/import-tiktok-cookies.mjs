@@ -3,8 +3,10 @@
 import { app, session } from 'electron'
 import { readFileSync } from 'node:fs'
 
+app.disableHardwareAcceleration()
 app.whenReady().then(async () => {
-  const file = process.argv[2]
+  // Electron: argv = [electron, --no-sandbox, script.mjs, cookie.txt] → cookie di index 3
+  const file = process.argv.find((a) => a.endsWith('.txt'))
   if (!file) {
     console.error('Usage: npx electron scripts/import-tiktok-cookies.mjs <cookies.txt>')
     app.exit(1)
@@ -13,22 +15,31 @@ app.whenReady().then(async () => {
   const s = session.fromPartition('persist:mark-browser')
   let ok = 0
   for (const line of lines) {
-    if (!line || line.startsWith('#')) continue
+    if (!line || line.startsWith('#') || !line.trim()) continue
     const [domain, , path, secure, exp, name, ...rest] = line.split('\t')
     const value = rest.join('\t')
-    await s.cookies.set({
-      url: (secure === 'TRUE' ? 'https://' : 'http://') + domain + path,
-      name,
-      value,
-      domain,
-      path,
-      secure: secure === 'TRUE',
-      expirationDate: Number(exp) || undefined,
-      httpOnly: true,
-      sameSite: 'no_restriction'
-    })
-    ok++
+    if (!domain || !name) continue
+    const url = (secure === 'TRUE' ? 'https://' : 'http://') + domain + path
+    console.log(`Setting: ${name} @ ${url}`)
+    try {
+      const result = await s.cookies.set({
+        url,
+        name,
+        value,
+        domain,
+        path,
+        secure: secure === 'TRUE',
+        expirationDate: Number(exp) || undefined,
+      })
+      console.log(`  → OK:`, result)
+      ok++
+    } catch (e) {
+      console.error(`WARN: ${name}=${domain} → ${e.message}`)
+    }
   }
+  // Verify
+  const all = await s.cookies.get({ domain: 'tiktok.com' })
+  console.log('Verified cookies in partition:', all.map(c => c.name))
   console.log(`Imported ${ok} cookies to persist:mark-browser`)
   app.exit(0)
 })
