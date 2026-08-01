@@ -42,6 +42,7 @@ const MarkHome = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
   const [currentResponse, setCurrentResponse] = useState(null)
+  const isLong = currentResponse?.type === 'long'
   const [showMusicWidget, setShowMusicWidget] = useState(false)
   const [isMusicAnimatingOut, setIsMusicAnimatingOut] = useState(false)
 
@@ -202,76 +203,48 @@ const MarkHome = () => {
         </div>
       )}
 
-      {/* Main Content Area */}
-      <div className="relative z-10 flex flex-col items-center w-full h-full px-4 pt-[10vh] pb-40 overflow-y-auto custom-scrollbar">
-        {/* The Orb & Neural Flow */}
-        <div className="relative flex items-center justify-center w-full max-w-3xl mt-10 mb-8 h-64">
-          <ThoughtNeuralFlow processes={activeProcesses} />
-          <OrbVisualizer
-            status={orbStatus}
-            intensity={0.5}
-            mood={currentResponse?.mood || 'neutral'}
-          />
-        </div>
-
-        {/* Dynamic Response Area */}
-        <div className="w-full max-w-4xl mt-8 flex flex-col items-center justify-center transition-all duration-500 ease-in-out">
-          {currentResponse && <ResponseArea currentResponse={currentResponse} />}
-
-          {/* Centered Now Playing Info */}
-          {showMusicWidget && (
-            <div
-              className={`mt-8 flex flex-col items-center ${isMusicAnimatingOut ? 'animate-[holo-dismiss_0.5s_ease-in_forwards]' : 'animate-[holo-project-in_0.5s_ease-out_forwards]'}`}
-            >
-              <div className="relative group w-48 h-48 mb-4 rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-primary/20">
-                {currentTrack.thumbnail ? (
-                  <img
-                    src={currentTrack.thumbnail}
-                    alt="Album Art"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    onError={(e) => {
-                      e.target.onerror = null
-                      e.target.src = musicCoverFallback
-                    }}
-                  />
-                ) : (
-                  <img
-                    src={musicCoverFallback}
-                    alt="Default Album Art"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                )}
-                {/* Audio visualizer overlay */}
-                {isPlaying && (
-                  <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-4 gap-1">
-                    <span
-                      className="w-1.5 h-4 bg-primary rounded-t-full animate-[music-bar_1s_ease-in-out_infinite]"
-                      style={{ animationDelay: '0.1s' }}
-                    />
-                    <span
-                      className="w-1.5 h-6 bg-primary rounded-t-full animate-[music-bar_1.2s_ease-in-out_infinite]"
-                      style={{ animationDelay: '0.3s' }}
-                    />
-                    <span
-                      className="w-1.5 h-3 bg-primary rounded-t-full animate-[music-bar_0.8s_ease-in-out_infinite]"
-                      style={{ animationDelay: '0.2s' }}
-                    />
-                    <span
-                      className="w-1.5 h-5 bg-primary rounded-t-full animate-[music-bar_1.1s_ease-in-out_infinite]"
-                      style={{ animationDelay: '0.4s' }}
-                    />
-                  </div>
-                )}
-              </div>
-              <h3 className="text-xl font-bold text-white text-center max-w-md truncate">
-                {currentTrack.title}
-              </h3>
-              <p className="text-sm text-white/50 text-center max-w-sm truncate mt-1">
-                {currentTrack.artist}
+      {/* Main Content Area — single centered column on short answers; two columns (orb+answer | details) on long */}
+      <div
+        className={`relative z-10 flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-6 w-full h-full px-4 pt-[12vh] pb-48 lg:pt-[5vh] lg:pb-20 ${
+          isLong ? 'overflow-hidden' : 'overflow-y-auto no-scrollbar'
+        }`}
+      >
+        {/* Center Column — orb + answer. Full width on small screens; left half on lg+ */}
+        <div className="relative flex flex-col items-center justify-center w-full max-w-2xl lg:flex-1 lg:max-w-none lg:min-w-0 my-4">
+          <div className="relative flex items-center justify-center">
+            <ThoughtNeuralFlow processes={activeProcesses} />
+            <OrbVisualizer
+              status={orbStatus}
+              intensity={0.5}
+              mood={currentResponse?.mood || 'neutral'}
+            />
+          </div>
+          {/* Now Playing — inline text below orb */}
+          {isPlaying && currentTrack?.title && (
+            <div className="animate-[fade-up_0.4s_ease-out_forwards] text-center mt-2">
+              <p className="text-white/80 text-sm font-light tracking-wide">
+                ♪ {currentTrack.title}
               </p>
+              {currentTrack.artist && (
+                <p className="text-white/40 text-xs font-extralight">{currentTrack.artist}</p>
+              )}
+            </div>
+          )}
+
+          {/* Answer — no boundaries, natural flow */}
+          {currentResponse && (
+            <div className="w-full animate-[fade-up_0.4s_ease-out_forwards]">
+              <ResponseArea currentResponse={currentResponse} />
             </div>
           )}
         </div>
+
+        {/* Right Column — Detail Informasi. Stretch-height = row height; the ONLY scroll surface (contained, invisible scrollbar) */}
+        {isLong && (
+          <div className="hidden lg:block lg:flex-1 lg:min-w-0 overflow-y-auto no-scrollbar animate-[fade-up_0.4s_ease-out_forwards]">
+            {/* details mount here (Task 3) */}
+          </div>
+        )}
       </div>
 
       {/* Bottom Input Area */}
