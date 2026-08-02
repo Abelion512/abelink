@@ -53,9 +53,12 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
     }
 
     if (isAutoplay && selectedId) {
-      playUrl(`https://www.youtube.com/watch?v=${selectedId}`, selectedMusicList[0])
-      // Return empty — player card di YouTubePlayer sudah cukup sebagai feedback
-      return ''
+      const trackUrl = `https://www.youtube.com/watch?v=${selectedId}`
+      await playUrl(trackUrl, selectedMusicList[0])
+      const t = selectedMusicList[0]
+      // Scrobble ke Last.fm (updateNowPlaying)
+      try { window.api?.lastfmUpdateNowPlaying?.(t.title, t.artist) } catch {}
+      return `✅ Berhasil memutar: "${t.title}" oleh ${t.artist || 'Unknown'}. JANGAN panggil music-play lagi — lagu sudah diproses. Tunggu user minta lagu baru.`
     }
 
     const resultText = music.slice(0, 5).map(m => `${m.title} oleh ${m.artist}`).join(', ')

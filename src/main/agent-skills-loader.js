@@ -66,7 +66,7 @@ function parseSkillFile(filePath) {
     name,
     description: description || `${name} skill`,
     watermark: watermark || null,
-    origin: rawOrigin || 'unknown',
+    origin: rawOrigin || 'user',
     provider: provider || null,
     signature,
     platforms,
@@ -199,6 +199,11 @@ export function initSkillsIPC() {
 
   ipcMain.handle('agent-skills:reload', async () => {
     loadSkills()
+    // Notify renderer to bust caches
+    const { BrowserWindow } = await import('electron')
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('agent-skills:updated')
+    }
     return getLoadedSkills().map(s => ({
       name: s.name,
       description: s.description

@@ -116,6 +116,7 @@ import { getToolCatalog, getToolDetail, getToolCatalogString, getToolCatalogForQ
 ipcMain.on('sync-config', (_event, config) => {
   setGlobalConfig(config)
   if (config.lastfmApiKey) setLastfmKey(config.lastfmApiKey)
+  if (config.lastfmSessionKey) setLastfmSessionKey(config.lastfmSessionKey)
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('config-updated')
   }
@@ -328,6 +329,12 @@ provider: ${provider}${signatureLine}${platformStr}${tagsStr}
     fs.mkdirSync(skillDir, { recursive: true })
     fs.writeFileSync(skillPath, fullContent, 'utf8')
     console.log(`[create-agent-skill] Created: ${skillPath} (origin: ${origin}${signatureLine ? ', signed' : ', unsigned'})`)
+    // Reload skills and notify renderer to bust caches
+    loadSkills()
+    const { BrowserWindow } = await import('electron')
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('agent-skills:updated')
+    }
     return { success: true, path: skillPath, name: safeName }
   } catch (err) {
     console.error('[create-agent-skill] Failed:', err.message)
@@ -636,6 +643,12 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('lastfm:get-top', async (_event, user) => {
     return await getTopTracks(user || getGlobalConfig()?.lastfmUser || '')
+  })
+  ipcMain.handle('lastfm:update-now-playing', async (_event, track, artist, album) => {
+    return await lastfmUpdateNowPlaying(track, artist, album)
+  })
+  ipcMain.handle('lastfm:scrobble', async (_event, track, artist, timestamp, album) => {
+    return await lastfmScrobble(track, artist, timestamp, album)
   })
 
   ipcMain.handle('ytdl:get-info', async (_event, url) => {

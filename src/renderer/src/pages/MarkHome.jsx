@@ -115,7 +115,7 @@ const MarkHome = () => {
           setCurrentResponse({
             text: lastItem.content,
             type:
-              lastItem.content?.length > 200 || lastItem.content?.includes('\n') ? 'long' : 'short',
+              lastItem.content?.length > 1200 ? 'long' : 'short',
             reasoning: lastItem.reasoning || null,
             sources: lastItem.sources || [],
             youtubeData: lastItem.youtubeData,
@@ -195,9 +195,7 @@ const MarkHome = () => {
 
       {/* Main Content Area — single centered column on short answers; two columns (orb+answer | details) on long */}
       <div
-        className={`relative z-10 flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-6 w-full h-full px-4 pt-[12vh] pb-48 lg:pt-[5vh] lg:pb-20 ${
-          isLong ? 'overflow-hidden' : 'overflow-y-auto no-scrollbar'
-        }`}
+        className={`relative z-10 flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-6 w-full h-full px-4 pt-[12vh] pb-48 lg:pt-[5vh] lg:pb-20 overflow-y-auto no-scrollbar`}
       >
         {/* Center Column — orb + answer. Full width on small screens; left half on lg+ */}
         <div className="relative flex flex-col items-center justify-center w-full max-w-2xl lg:flex-1 lg:max-w-none lg:min-w-0 my-4">

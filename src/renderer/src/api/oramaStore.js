@@ -9,6 +9,19 @@ let archiveIndex = null
 let documentIndex = null
 let memoryIndex = null
 
+// Singleton init — React StrictMode double-invokes effects in dev; this
+// guarantees init+hydrate run exactly once per session (no duplicate inserts).
+let readyPromise = null
+export function ensureOramaReady() {
+  if (!readyPromise) {
+    readyPromise = (async () => {
+      await initOramaIndices()
+      await hydrateFromDexie()
+    })()
+  }
+  return readyPromise
+}
+
 export async function initOramaIndices() {
   memoryIndex = await create({
     schema: {

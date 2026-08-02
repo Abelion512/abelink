@@ -1,70 +1,45 @@
 import React, { useState, useEffect } from 'react';
 
 const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) => {
-  const [glassClass, setGlassClass] = useState('from-emerald-400/40 to-green-500/10');
-  const [glowClass, setGlowClass] = useState('bg-green-500/50');
-  const [borderClass, setBorderClass] = useState('border-green-400/50');
+  // Single state object — 1 setState per mood/status change, bukan 3 (hemat re-render)
+  const [theme, setTheme] = useState({ glass: 'from-emerald-400/40 to-green-500/10', glow: 'bg-green-500/50', border: 'border-green-400/50' });
 
   useEffect(() => {
     if (status === 'error') {
-      setGlassClass('from-red-500/40 to-red-600/10');
-      setGlowClass('bg-red-500/50');
-      setBorderClass('border-red-400/50');
+      setTheme({ glass: 'from-red-500/40 to-red-600/10', glow: 'bg-red-500/50', border: 'border-red-400/50' });
     } else if (status === 'playing') {
-      setGlassClass('from-purple-500/40 to-violet-600/10');
-      setGlowClass('bg-purple-500/50');
-      setBorderClass('border-purple-400/50');
+      setTheme({ glass: 'from-purple-500/40 to-violet-600/10', glow: 'bg-purple-500/50', border: 'border-purple-400/50' });
     } else {
       switch (mood) {
         case 'joy':
-          setGlassClass('from-yellow-300/40 to-yellow-500/10');
-          setGlowClass('bg-yellow-400/50');
-          setBorderClass('border-yellow-400/50');
+          setTheme({ glass: 'from-yellow-300/40 to-yellow-500/10', glow: 'bg-yellow-400/50', border: 'border-yellow-400/50' });
           break;
         case 'sadness':
-          setGlassClass('from-blue-500/40 to-blue-700/10');
-          setGlowClass('bg-blue-500/50');
-          setBorderClass('border-blue-400/50');
+          setTheme({ glass: 'from-blue-500/40 to-blue-700/10', glow: 'bg-blue-500/50', border: 'border-blue-400/50' });
           break;
         case 'fear':
-          setGlassClass('from-purple-500/40 to-purple-700/10');
-          setGlowClass('bg-purple-500/50');
-          setBorderClass('border-purple-400/50');
+          setTheme({ glass: 'from-purple-500/40 to-purple-700/10', glow: 'bg-purple-500/50', border: 'border-purple-400/50' });
           break;
         case 'anger':
-          setGlassClass('from-red-500/40 to-red-700/10');
-          setGlowClass('bg-red-500/50');
-          setBorderClass('border-red-400/50');
+          setTheme({ glass: 'from-red-500/40 to-red-700/10', glow: 'bg-red-500/50', border: 'border-red-400/50' });
           break;
         case 'disgust':
-          setGlassClass('from-teal-400/30 to-cyan-600/10');
-          setGlowClass('bg-teal-500/40');
-          setBorderClass('border-teal-400/40');
+          setTheme({ glass: 'from-teal-400/30 to-cyan-600/10', glow: 'bg-teal-500/40', border: 'border-teal-400/40' });
           break;
         case 'anxiety':
-          setGlassClass('from-orange-400/40 to-orange-600/10');
-          setGlowClass('bg-orange-500/50');
-          setBorderClass('border-orange-400/50');
+          setTheme({ glass: 'from-orange-400/40 to-orange-600/10', glow: 'bg-orange-500/50', border: 'border-orange-500/50' });
           break;
         case 'envy':
-          setGlassClass('from-teal-400/40 to-teal-600/10');
-          setGlowClass('bg-teal-500/50');
-          setBorderClass('border-teal-400/50');
+          setTheme({ glass: 'from-teal-400/40 to-teal-600/10', glow: 'bg-teal-500/50', border: 'border-teal-400/50' });
           break;
         case 'embarrassment':
-          setGlassClass('from-pink-400/40 to-pink-600/10');
-          setGlowClass('bg-pink-500/50');
-          setBorderClass('border-pink-400/50');
+          setTheme({ glass: 'from-pink-400/40 to-pink-600/10', glow: 'bg-pink-500/50', border: 'border-pink-400/50' });
           break;
         case 'ennui':
-          setGlassClass('from-gray-400/40 to-gray-600/10');
-          setGlowClass('bg-gray-500/50');
-          setBorderClass('border-gray-400/50');
+          setTheme({ glass: 'from-gray-400/40 to-gray-600/10', glow: 'bg-gray-500/50', border: 'border-gray-400/50' });
           break;
         default: // neutral
-          setGlassClass('from-emerald-400/40 to-green-500/10');
-          setGlowClass('bg-green-500/50');
-          setBorderClass('border-green-400/50');
+          setTheme({ glass: 'from-emerald-400/40 to-green-500/10', glow: 'bg-green-500/50', border: 'border-green-400/50' });
           break;
       }
     }
@@ -79,7 +54,7 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
   else targetScale = 1;
 
   // 24 = 6rem = 96px, so translateZ is 48px
-  const faceClass = `absolute inset-0 m-auto w-24 h-24 rounded-2xl border ${borderClass} bg-gradient-to-br ${glassClass} shadow-[inset_0_0_20px_rgba(255,255,255,0.2)] flex items-center justify-center`;
+  const faceClass = `absolute inset-0 m-auto w-24 h-24 rounded-2xl border ${theme.border} bg-gradient-to-br ${theme.glass} shadow-[inset_0_0_20px_rgba(255,255,255,0.2)] flex items-center justify-center`;
   const innerFaceClass = `absolute inset-0 m-auto w-10 h-10 bg-white shadow-[0_0_15px_rgba(255,255,255,0.9)]`;
 
   return (
@@ -111,7 +86,7 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
             }}
           >
             {/* Background Aura */}
-            <div className={`absolute inset-0 m-auto w-24 h-24 rounded-full ${glowClass} blur-[40px] will-change-transform`} />
+            <div className={`absolute inset-0 m-auto w-24 h-24 rounded-full ${theme.glow} blur-[40px] will-change-transform`} />
 
             {/* Layer 3: Outer Cube Container - Constant rotation speed to prevent CSS reset snapping */}
             <div className="relative w-24 h-24 [transform-style:preserve-3d] will-change-transform animate-[cube-spin_12s_linear_infinite]">
@@ -142,4 +117,4 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
   );
 };
 
-export default CubeVisualizer;
+export default React.memo(CubeVisualizer);

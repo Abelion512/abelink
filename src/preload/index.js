@@ -98,6 +98,10 @@ const api = {
   getAgentSkillContent: (name) => ipcRenderer.invoke('agent-skills:get-content', name),
   reloadAgentSkills: () => ipcRenderer.invoke('agent-skills:reload'),
   createAgentSkill: (skillDef) => ipcRenderer.invoke('create-agent-skill', skillDef),
+  onSkillsUpdated: (callback) => {
+    ipcRenderer.removeAllListeners('agent-skills:updated')
+    ipcRenderer.on('agent-skills:updated', () => callback())
+  },
 
   // MPRIS D-Bus
   updateMprisTrack: (track, playing) => ipcRenderer.send('mpris:update-track', track, playing),
@@ -106,6 +110,8 @@ const api = {
   // Last.fm integration - listening history
   getRecentTracks: (user) => ipcRenderer.invoke('lastfm:get-recent', user),
   getTopTracks: (user) => ipcRenderer.invoke('lastfm:get-top', user),
+  lastfmUpdateNowPlaying: (track, artist, album) => ipcRenderer.invoke('lastfm:update-now-playing', track, artist, album),
+  lastfmScrobble: (track, artist, timestamp, album) => ipcRenderer.invoke('lastfm:scrobble', track, artist, timestamp, album),
 
   // yt-dlp integration - metadata + audio from YT, TikTok, SoundCloud
   getYtdlInfo: (url) => ipcRenderer.invoke('ytdl:get-info', url),

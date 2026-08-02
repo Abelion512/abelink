@@ -177,4 +177,4 @@ const ThoughtNeuralFlow = ({ processes }) => {
   );
 };
 
-export default ThoughtNeuralFlow;
+export default React.memo(ThoughtNeuralFlow);

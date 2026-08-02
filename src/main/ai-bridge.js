@@ -168,6 +168,11 @@ function logObservation(ctx) {
     retries: ctx.retryCount || 0,
     ok: ctx.success,
   }
+  if (ctx.cacheHit) {
+    obs.cache = `${ctx.cacheHit}/${ctx.totalPrompt || '?'}`
+    const hitRate = ctx.totalPrompt ? Math.round(ctx.cacheHit / ctx.totalPrompt * 100) : 0
+    obs.cacheHitRate = `${hitRate}%`
+  }
   if (ctx.error) obs.err = ctx.error
   if (ctx.finishReason) obs.finish = ctx.finishReason
   console.log('📊 [OBS]', JSON.stringify(obs))
@@ -231,7 +236,7 @@ export const fetchAI = async (
   const activeProvider = conf.aiProvider || conf.activeProvider || 'lmstudio'
   const customEndpoint = conf.customEndpoint?.replace(/\/+$/, '') || 'http://localhost:1234'
   const customApiKey = conf.customApiKey || ''
-  const maxTokens = isSmallTask ? (conf.smallMaxTokens || 512) : (conf.maxTokens || 4096)
+  const maxTokens = isSmallTask ? (conf.smallMaxTokens || 512) : (conf.maxTokens || 8192)
   const temperature = isSmallTask ? (conf.smallTemperature ?? 0.3) : (conf.temperature ?? 0.7)
 
   const modelChain = resolveModelChain(conf.customModel)
@@ -263,23 +268,35 @@ export const fetchAI = async (
     stream: onStream !== null,
   }
   if (jsonSchema) {
+    // Inject schema instruction into LAST user message (not system prompt)
+    // to preserve system prefix stability for prompt caching.
+    const schemaInstruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
     if (activeProvider === 'lmstudio') {
-      // LM Studio: inject schema into system prompt only (no native json_schema support)
+      // LM Studio: inject into system prompt (no native json_schema support)
       const sysIdx = baseBody.messages.findIndex((m) => m.role === 'system')
-      const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
       if (sysIdx >= 0) {
-        baseBody.messages[sysIdx] = { ...baseBody.messages[sysIdx], content: baseBody.messages[sysIdx].content + instruction }
+        baseBody.messages[sysIdx] = { ...baseBody.messages[sysIdx], content: baseBody.messages[sysIdx].content + schemaInstruction }
       } else {
-        baseBody.messages.unshift({ role: 'system', content: instruction })
+        baseBody.messages.unshift({ role: 'system', content: schemaInstruction })
       }
     } else {
-      // Cloud providers: inject schema into system prompt + send json_object format hint
-      const sysIdx = baseBody.messages.findIndex((m) => m.role === 'system')
-      const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
-      if (sysIdx >= 0) {
-        baseBody.messages[sysIdx] = { ...baseBody.messages[sysIdx], content: baseBody.messages[sysIdx].content + instruction }
+      // Cloud providers: inject into last user message (preserves system prefix cache)
+      const lastUserIdx = baseBody.messages.findLastIndex((m) => m.role === 'user')
+      if (lastUserIdx >= 0) {
+        const msg = baseBody.messages[lastUserIdx]
+        baseBody.messages[lastUserIdx] = {
+          ...msg,
+          content: typeof msg.content === 'string'
+            ? msg.content + schemaInstruction
+            : [...(Array.isArray(msg.content) ? msg.content : [{ type: 'text', text: msg.content }]),
+               { type: 'text', text: schemaInstruction }]
+        }
       } else {
-        baseBody.messages.unshift({ role: 'system', content: instruction })
+        // Fallback: no user message, inject into system
+        const sysIdx = baseBody.messages.findIndex((m) => m.role === 'system')
+        if (sysIdx >= 0) {
+          baseBody.messages[sysIdx] = { ...baseBody.messages[sysIdx], content: baseBody.messages[sysIdx].content + schemaInstruction }
+        }
       }
       baseBody.response_format = { type: 'json_object' }
     }
@@ -512,10 +529,16 @@ export const fetchAI = async (
           jsonParsed: true, cotLeak: !!looksLikeCoT,
           thinkTagged: content.includes('<think>'),
         })
+        // Cache hit monitoring (DeepSeek, OpenAI, etc.)
+        const usage = parsed.usage || {}
+        const cacheHit = usage.prompt_cache_hit_tokens || usage.cached_tokens || 0
+        const cacheMiss = usage.prompt_cache_miss_tokens || 0
+        const totalPrompt = usage.prompt_tokens || (cacheHit + cacheMiss) || 0
         logObservation({
           provider: activeProvider, model, latencyMs,
           httpStatus: response.status, finishReason,
           contentLength: content.length, retryCount, success: true,
+          cacheHit, cacheMiss, totalPrompt,
         })
       }
     }

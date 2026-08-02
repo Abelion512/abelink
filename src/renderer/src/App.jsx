@@ -86,7 +86,7 @@ const GlobalListener = () => {
   return null
 }
 
-import { initOramaIndices, hydrateFromDexie } from './api/oramaStore'
+import { ensureOramaReady } from './api/oramaStore'
 
 function App() {
   const [hasConfig, setHasConfig] = useState(true)
@@ -98,8 +98,7 @@ function App() {
       // 1. Init Orama and Hydrate from Dexie
       try {
         setLoadingText('Memuat Knowledge Base...')
-        await initOramaIndices()
-        await hydrateFromDexie()
+        await ensureOramaReady()
         console.log('[App] Orama indices ready!')
       } catch (e) {
         console.error('[App] Failed to init Orama:', e)
@@ -165,6 +164,7 @@ function App() {
   }
 
   const isStandalone = window.location.hash.includes('whatsapp-bot')
+  const pageFallback = <div className="flex items-center justify-center h-screen bg-base-300"><span className="loading loading-infinity w-16 text-primary"></span></div>
 
   return (
     <ApprovalProvider>
@@ -175,14 +175,14 @@ function App() {
             <div className="h-screen flex flex-col overflow-hidden">
               <div className="h-screen w-full">
                 <Routes>
-                  <Route path="/" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><MarkHome /></Suspense>} />
-                  <Route path="/config" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Configuration /></Suspense>} />
-                  <Route path="/plugins" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Plugins /></Suspense>} />
-                  <Route path="/live-audio" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><LiveAudio /></Suspense>} />
-                  <Route path="/whatsapp-bot" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><WhatsappBot /></Suspense>} />
-                  <Route path="/knowledge" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Knowledge /></Suspense>} />
-                  <Route path="/guidebook" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><Guidebook /></Suspense>} />
-                  <Route path="/relational" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><span className="loading loading-spinner loading-lg text-success"></span></div>}><RelationalGrowth /></Suspense>} />
+                  <Route path="/" element={<Suspense fallback={pageFallback}><MarkHome /></Suspense>} />
+                  <Route path="/config" element={<Suspense fallback={pageFallback}><Configuration /></Suspense>} />
+                  <Route path="/plugins" element={<Suspense fallback={pageFallback}><Plugins /></Suspense>} />
+                  <Route path="/live-audio" element={<Suspense fallback={pageFallback}><LiveAudio /></Suspense>} />
+                  <Route path="/whatsapp-bot" element={<Suspense fallback={pageFallback}><WhatsappBot /></Suspense>} />
+                  <Route path="/knowledge" element={<Suspense fallback={pageFallback}><Knowledge /></Suspense>} />
+                  <Route path="/guidebook" element={<Suspense fallback={pageFallback}><Guidebook /></Suspense>} />
+                  <Route path="/relational" element={<Suspense fallback={pageFallback}><RelationalGrowth /></Suspense>} />
                 </Routes>
               </div>
             </div>

@@ -61,10 +61,32 @@ let pluginVectorCache = new Map()
 let skillsVectorCache = new Map()
 let skillsContentCache = new Map()
 
+// Cache TTL: bust stale entries after 5 minutes
+const CACHE_TTL = 5 * 60 * 1000
+let _cacheTimestamp = Date.now()
+
+function isCacheStale() {
+  return Date.now() - _cacheTimestamp > CACHE_TTL
+}
+
+function bustAllCaches() {
+  pluginVectorCache.clear()
+  skillsVectorCache.clear()
+  skillsContentCache.clear()
+  categoryVectors = null
+  _cacheTimestamp = Date.now()
+}
+
+// Bust caches when skills are reloaded (IPC from main process)
+if (typeof window !== 'undefined' && window.api?.onSkillsUpdated) {
+  window.api.onSkillsUpdated(() => bustAllCaches())
+}
+
 // Plugin list cache — avoid IPC round-trip every turn
 let pluginListCache = []
 let pluginListCacheTime = 0
 const PLUGIN_CACHE_TTL = 60000 // 60s
+const PLUGIN_VECTOR_CACHE_MAX = 100 // cap to prevent unbounded growth
 
 // Inline helper to get agent skills (~/.agents/skills/)
 const getAgentSkills = async () => {
@@ -152,6 +174,11 @@ export const getNextAction = async (
       } else {
         const uncachedPlugins = pluginActions.filter(p => !pluginVectorCache.has(p.name))
         if (uncachedPlugins.length > 0) {
+          // Evict oldest entries if cache is full
+          if (pluginVectorCache.size + uncachedPlugins.length > PLUGIN_VECTOR_CACHE_MAX) {
+            const keysToDelete = [...pluginVectorCache.keys()].slice(0, pluginVectorCache.size + uncachedPlugins.length - PLUGIN_VECTOR_CACHE_MAX)
+            keysToDelete.forEach(k => pluginVectorCache.delete(k))
+          }
           const vectors = await Promise.all(uncachedPlugins.map(p => generateVector(`${p.name} ${p.description} ${p.triggerHint || ''}`)))
           uncachedPlugins.forEach((p, i) => pluginVectorCache.set(p.name, vectors[i]))
         }
@@ -173,6 +200,7 @@ export const getNextAction = async (
     const pluginCapabilities =
       relevantPlugins.length > 0
         ? relevantPlugins
+            .sort((a, b) => a.name.localeCompare(b.name))
             .map(
               (a) =>
                 `- ${a.name}: ${a.description}${a.triggerHint ? ` (Use when: ${a.triggerHint})` : ''}`
@@ -181,9 +209,13 @@ export const getNextAction = async (
         : ''
 
     // === Agent Skills — vector-match, verify trust, sanitize content, inject ===
+    // Sort matched skills by name for deterministic system prompt prefix (cache-friendly).
 
     let relevantSkillContent = ''
     if (userVec && agentSkills.length > 0) {
+      // Auto-bust caches if stale
+      if (isCacheStale()) bustAllCaches()
+
       const uncachedSkills = agentSkills.filter(s => !skillsVectorCache.has(s.name))
       if (uncachedSkills.length > 0) {
         const vectors = await Promise.all(uncachedSkills.map(s =>
@@ -191,6 +223,8 @@ export const getNextAction = async (
         ))
         uncachedSkills.forEach((s, i) => skillsVectorCache.set(s.name, vectors[i]))
       }
+      // Collect matched skills, then sort by name for deterministic prefix
+      const matchedSkills = []
       for (const s of agentSkills) {
         const sVec = skillsVectorCache.get(s.name)
         if (!sVec) continue
@@ -217,14 +251,16 @@ export const getNextAction = async (
           continue
         }
         const { content: safeContent, safe, warnings } = sanitizeSkillContent(content)
-
-        // Trust badge: ✓ verified, ⚠ flagged, blank unsigned
+        matchedSkills.push({ s, safeContent, safe, warnings })
+      }
+      // Sort by name for deterministic system prompt (cache-friendly)
+      matchedSkills.sort((a, b) => a.s.name.localeCompare(b.s.name))
+      for (const { s, safeContent, safe, warnings } of matchedSkills) {
         const trustMark = s.signatureStatus === 'manifest-verified' || s.signatureStatus === 'signed-verified'
           ? '✓'
           : s.signatureStatus === 'unsigned' ? '' : '⚠'
         const originBadge = `[${s.origin}${trustMark}]`
         const riskNote = !safe ? `\n<!-- ⚠️ CONTENT FLAGGED: ${warnings.join('; ')} -->\n` : ''
-
         relevantSkillContent += `\n# SKILL: ${originBadge} ${s.name} (${s.description})${riskNote}\n${safeContent}\n`
       }
     }
@@ -405,7 +441,7 @@ ${
             role: msg.role === 'ai' ? 'assistant' : msg.role,
             content:
               contentStr.substring(0, maxLength) +
-              '\\n...[SYSTEM TRUNCATION: Teks terlalu panjang dan dipotong oleh sistem. Operasi kamu BERHASIL 100% dan file ditulis lengkap. JANGAN perbaiki atau tulis ulang!]'
+              '\\n...[TRUNCATED — operasi BERHASIL, jangan tulis ulang]'
           }
         }
         return {
@@ -427,18 +463,23 @@ ${
     // ---- AUTO-LEARN hint (Level 2): model-specific instruction dari observasi ----
     // Dipicu oleh applyLearnedHints() di ai-bridge (>=10 sample, jsonReliability<0.7 dsb).
     // Prinsip: Thinking:Auto = default; ubah hanya kalau ada bukti masalah.
+    // Inject as separate message (not modifying system prompt) to preserve prefix cache.
     try {
       const modelName = (conf.customModel || '').split(',')[0].trim()
       if (modelName && window.api?.getModelHints) {
         const hints = await window.api.getModelHints(modelName)
+        const hintParts = []
         if (hints?.jsonInstruction) {
-          messages[0].content += '\n\n[KRITIS] Kamu WAJIB mengembalikan JSON valid persis skema. JANGAN teks lain di luar JSON — tidak ada pembuka, penutup, atau markdown.'
+          hintParts.push('[KRITIS] Kamu WAJIB mengembalikan JSON valid persis skema. JANGAN teks lain di luar JSON — tidak ada pembuka, penutup, atau markdown.')
         }
         if (hints?.stripThink) {
-          messages[0].content += '\n\n[KRITIS] JANGAN pernah menaruh tag <think> atau proses berpikir di "content". Hanya JSON murni.'
+          hintParts.push('[KRITIS] JANGAN pernah menaruh tag <think> atau proses berpikir di "content". Hanya JSON murni.')
         }
         if (hints?.turnCap) {
-          messages[0].content += `\n\n[KRITIS] Batas maksimal ${hints.turnCap} tool calls per percakapan. Setelah itu WAJIB isi "answer" dan akhiri loop.`
+          hintParts.push(`[KRITIS] Batas maksimal ${hints.turnCap} tool calls per percakapan. Setelah itu WAJIB isi "answer" dan akhiri loop.`)
+        }
+        if (hintParts.length > 0) {
+          messages.push({ role: 'system', content: hintParts.join('\n') })
         }
       }
     } catch { /* hints opsional — gagal membaca jangan memblokir */ }

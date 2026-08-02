@@ -156,21 +156,6 @@ const ResponseArea = ({ currentResponse }) => {
     <div className={`w-full flex flex-col items-center gap-4 ${animationClass}`}>
       {renderContent()}
 
-      {/* Reasoning / CoT Panel */}
-      {displayResponse.reasoning && (
-        <div className="w-full max-w-2xl">
-          <HoloCard title="Proses Pemikiran" defaultExpanded={false}>
-            <Markdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
-              components={markdownComponents}
-            >
-              {displayResponse.reasoning}
-            </Markdown>
-          </HoloCard>
-        </div>
-      )}
-
       {/* Plugin Execution Result Chip */}
       {pluginResult && (
         <div className="mt-2 w-full flex justify-center">
@@ -182,7 +167,7 @@ const ResponseArea = ({ currentResponse }) => {
 }
 
 // Details column for long answers — rendered beside the orb+TLDR on lg+ (MarkHome).
-export const ResponseDetails = ({ currentResponse }) => {
+export const ResponseDetails = React.memo(({ currentResponse }) => {
   if (!currentResponse || currentResponse.type !== 'long' || !currentResponse.text) return null
   const { rest } = splitLongAnswer(currentResponse.text)
   return (
@@ -196,6 +181,6 @@ export const ResponseDetails = ({ currentResponse }) => {
       </Markdown>
     </HoloCard>
   )
-}
+})
 
-export default ResponseArea
+export default React.memo(ResponseArea)

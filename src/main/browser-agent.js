@@ -1,4 +1,4 @@
-import { BrowserWindow, app } from 'electron'
+import { BrowserWindow, app, screen } from 'electron'
 import { DOM_PARSER_SCRIPT } from './browser-dom-parser.js'
 
 let browserWindow = null
@@ -25,6 +25,30 @@ export async function navigateTo(url) {
         partition: 'persist:mark-browser'
       }
     })
+
+    // === SEMI-VISIBLE MODE ===
+    // Browser automation berjalan di mini-window (pojok kanan bawah, selalu di atas)
+    // sehingga user bisa melihat apa yang Mark lakukan. Klik window → expand penuh.
+    const { workArea } = screen.getPrimaryDisplay()
+    browserWindow.setBounds({
+      x: workArea.x + workArea.width - 440,
+      y: workArea.y + workArea.height - 320,
+      width: 420,
+      height: 300
+    })
+    browserWindow.setAlwaysOnTop(true)
+    browserWindow.setSkipTaskbar(false)
+    browserWindow.once('focus', () => {
+      // Klik user → tampilkan penuh (1280x800), lepas always-on-top
+      if (!browserWindow.isDestroyed()) {
+        browserWindow.setBounds({ x: 0, y: 0, width: 1280, height: 800 })
+        browserWindow.setAlwaysOnTop(false)
+      }
+    })
+    browserWindow.show()
+    // JANGAN focus() di sini — focus event dipakai sebagai trigger "klik user → expand".
+    // AI automation berjalan via executeJavaScript, tidak butuh focus window.
+    // --- normal setup lanjut di bawah ---
 
     browserWindow.webContents.setMaxListeners(50)
 

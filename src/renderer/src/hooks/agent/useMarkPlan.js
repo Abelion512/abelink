@@ -265,6 +265,21 @@ export const useMarkPlan = ({
 	}
 
 // ========== STEP 3: AGENTIC LOOP ==========
+
+// --- Fetch Last.fm ONCE per interaction (not every turn) ---
+let lastfmContext = ''
+try {
+  if (typeof window.api?.getRecentTracks === 'function') {
+    const fmTracks = await window.api.getRecentTracks('abelionz')
+    if (fmTracks && fmTracks.length > 0) {
+      const top = fmTracks.slice(0, 8).map(t =>
+        `"${t.title}" by ${t.artist}${t.nowPlaying ? ' (NOW)' : ''}`
+      ).join(', ')
+      lastfmContext = `\n[LISTENING HISTORY (Last.fm)]: ${fmTracks.filter(t => t.nowPlaying).length > 0 ? `NOW PLAYING: "${fmTracks.find(t => t.nowPlaying).title}" by ${fmTracks.find(t => t.nowPlaying).artist}.` : `Recent: ${top}`}`
+    }
+  }
+} catch {}
+
 const loopMessages = [...chatSession]
 	// Turn Governor: default config, diturunkan otomatis oleh auto-learn (applyLearnedHints)
 	// jika model terbukti loop panjang (maxTurns terobservasi >= 8).
@@ -374,20 +389,6 @@ let hardStopped = false
 
         // --- Update UI: Tampilkan step ke berapa ---
         scheduleThinkingUpdate((isAutonomous && autonomousInitialMessage) ? autonomousInitialMessage : 'Bentar, mikir dlu...')
-
-        // --- Fetch Last.fm listening history untuk konteks AI ---
-        let lastfmContext = ''
-        try {
-          if (typeof window.api?.getRecentTracks === 'function') {
-            const fmTracks = await window.api.getRecentTracks('abelionz')
-            if (fmTracks && fmTracks.length > 0) {
-              const top = fmTracks.slice(0, 8).map(t =>
-                `"${t.title}" by ${t.artist}${t.nowPlaying ? ' (NOW)' : ''}`
-              ).join(', ')
-              lastfmContext = `\n[LISTENING HISTORY (Last.fm)]: ${fmTracks.filter(t => t.nowPlaying).length > 0 ? `NOW PLAYING: "${fmTracks.find(t => t.nowPlaying).title}" by ${fmTracks.find(t => t.nowPlaying).artist}.` : `Recent: ${top}`}`
-            }
-          }
-        } catch {}
 
         // --- Panggil AI: getNextAction (with per-turn timeout) ---
         const guardStatus = guard.getStatus()
