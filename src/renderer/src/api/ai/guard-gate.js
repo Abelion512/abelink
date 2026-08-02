@@ -23,16 +23,21 @@ function createGuardGate(config = {}) {
   let failureCount = 0
   let lastFailureTime = 0
   let consecutiveToolTimeouts = 0
+  let consecutiveInvalidJson = 0
 
   function getStatus() {
-    return { state, failureCount, consecutiveToolTimeouts }
+    return { state, failureCount, consecutiveToolTimeouts, consecutiveInvalidJson }
   }
 
   function reset() {
     state = STATE.CLOSED
     failureCount = 0
     consecutiveToolTimeouts = 0
+    consecutiveInvalidJson = 0
   }
+
+  function recordInvalidJson() { consecutiveInvalidJson++ }
+  function resetInvalidJson() { consecutiveInvalidJson = 0 }
 
   function trip() {
     state = STATE.OPEN
@@ -88,7 +93,7 @@ function createGuardGate(config = {}) {
     return { failureCount, isDegraded: state !== STATE.CLOSED }
   }
 
-  return { preFlightCheck, postFlightCheck, getStatus, reset, getConfig: () => cfg }
+  return { preFlightCheck, postFlightCheck, getStatus, reset, getConfig: () => cfg, recordInvalidJson, resetInvalidJson }
 }
 
 // Module-level singleton — survives React remounts

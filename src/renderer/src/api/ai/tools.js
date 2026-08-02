@@ -1,5 +1,6 @@
 import { fetchAI, cleanAndParse } from './core'
 import { getCurrentTimeInfo } from './utils'
+import { getGuardGate } from './guard-gate'
 
 export const getYoutubeSummary = async (url, data, signal) => {
   try {
@@ -111,6 +112,40 @@ ${chunks[i]}
 }
 
 
+// ponytail: output-fixing retry — 1 retry with error feedback, then give up
+async function withOutputFixRetry(messages, signal, schema, toolName) {
+  const gate = getGuardGate()
+  const response = await fetchAI(messages, signal, true, schema)
+  const raw = response.content
+  const parsed = await cleanAndParse(raw)
+
+  if (parsed) {
+    gate.resetInvalidJson()
+    return parsed
+  }
+
+  // First parse failure — record and retry with feedback
+  gate.recordInvalidJson()
+  const feedbackPrompt = `Output kamu sebelumnya: ${raw}\nError: JSON tidak valid atau field wajib hilang. Perbaiki dan output yang benar.`
+  const retryMessages = [...messages, { role: 'assistant', content: raw }, { role: 'user', content: feedbackPrompt }]
+
+  const retryResponse = await fetchAI(retryMessages, signal, true, schema)
+  const retryRaw = retryResponse.content
+  const retryParsed = await cleanAndParse(retryRaw)
+
+  if (retryParsed) {
+    gate.resetInvalidJson()
+    return retryParsed
+  }
+
+  // Second consecutive parse failure — give up
+  gate.recordInvalidJson()
+  if (gate.getStatus().consecutiveInvalidJson >= 2) {
+    console.error(`[${toolName}] 2x invalid JSON, menyerah.`)
+  }
+  return null
+}
+
 export const getBestMusicMatch = async (userInput, musicList, signal) => {
   try {
     const systemPrompt = `
@@ -150,8 +185,8 @@ ${JSON.stringify(
       additionalProperties: false
     }
 
-    const response = await fetchAI(messages, signal, true, schema)
-    const data = await cleanAndParse(response.content)
+    const data = await withOutputFixRetry(messages, signal, schema, 'getBestMusicMatch')
+    if (!data) return { ok: false, reason: 'JSON tidak valid setelah 2 percobaan', tool: 'getBestMusicMatch' }
     return data
   } catch (error) {
     console.error('Error in getBestMusicMatch:', error)
