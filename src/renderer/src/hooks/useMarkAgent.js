@@ -117,7 +117,10 @@ export const useMarkAgent = () => {
         if (chatData && chatData.length > 0) {
           const lastMsg = chatData[chatData.length - 1]
           if (lastMsg && lastMsg.timestamp) {
-            const diffMs = Date.now() - lastMsg.timestamp
+            const lastTs = typeof lastMsg.timestamp === 'number'
+              ? (lastMsg.timestamp < 1e12 ? lastMsg.timestamp * 1000 : lastMsg.timestamp) // detik → ms
+              : new Date(lastMsg.timestamp).getTime()
+            const diffMs = Date.now() - (isNaN(lastTs) ? Date.now() : lastTs)
             const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
             const diffDays = Math.floor(diffHours / 24)
 

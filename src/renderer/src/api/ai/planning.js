@@ -456,7 +456,7 @@ ${
     // Compress history (Hermes-style) before building messages.
     // Window per provider: custom (9Router/local) = 128K, hosted (Groq dkk) = 32K.
     const windowTokens = conf.aiProvider === 'custom' ? 128000 : 32000
-    const perTurnCompressor = createCompressor({ maxTokens: windowTokens, threshold: 0.45, targetRatio: 0.2, protectLastN: 20 })
+    const perTurnCompressor = createCompressor({ maxTokens: windowTokens, threshold: 0.45, targetRatio: 0.2, protectLastN: 8 })
     const compressedTurns = perTurnCompressor.compress(previousTurns)
 
     const messages = [{ role: 'system', content: systemPrompt }, ...compressedTurns]
