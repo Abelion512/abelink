@@ -51,9 +51,9 @@ const MarkHome = () => {
   }, [])
 
   const handleVoiceTranscript = (text) => {
-    setMessage(text)
     setIsSpeak(true) // Sets global state
     handlePlanningCommand(text, null, false, null, { forceSpeak: true }) // Pass forceSpeak option
+    setMessage('') // Clear local input (voice sudah dikirim)
   }
 
   const { isRecording, toggleRecording, toastMessage } = useVAD({

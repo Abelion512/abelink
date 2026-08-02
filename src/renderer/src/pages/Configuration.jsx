@@ -5,6 +5,7 @@ import 'driver.js/dist/driver.css'
 import { useLocation } from 'react-router-dom'
 import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/ChatContext'
+import ConfigSidebar from './config/ConfigSidebar'
 import ConfigAI from './config/sections/ConfigAI'
 import ConfigVoice from './config/sections/ConfigVoice'
 import ConfigCamera from './config/sections/ConfigCamera'
@@ -31,6 +32,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   })
   const [audioDevices, setAudioDevices] = useState([])
   const [videoDevices, setVideoDevices] = useState([])
+  const [activeSection, setActiveSection] = useState('ai')
   const { confirm, ModalComponent } = useConfirm()
   const chatContext = useChat()
   const location = useLocation()
@@ -63,8 +65,6 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             setVideoDevices(cameras)
           })
           .catch((err) => console.error('Error enumerating devices', err))
-
-        // Stop stream immediately since we just needed permission
         stream.getTracks().forEach(track => track.stop())
       })
       .catch((err) => console.error('Mic/Cam permission denied', err))
@@ -73,6 +73,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   useEffect(() => {
     if (location.state?.highlightAdmin) {
       loadConfig()
+      setActiveSection('admin')
       setTimeout(() => {
         const el = document.getElementById('tour-wa-admin')
         if (el) el.scrollIntoView({ behavior: 'smooth' })
@@ -83,7 +84,6 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   useEffect(() => {
     if (window.api?.onWaAdminRequest) {
       window.api.onWaAdminRequest((data) => {
-        // Langsung munculin ke UI tanpa nunggu reload
         setConfig((prev) => {
           const pending = prev.waPendingAdmins || []
           if (!pending.find((p) => p.id === data.id)) {
@@ -110,7 +110,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               popover: {
                 title: '1. Pilih Mesin AI',
                 description:
-                  'Kamu bisa milih mau pakai AI lokal (gratis & privat pakai LM Studio) atau API Cloud kayak Groq buat respons yang jauh lebih kencang.',
+                  'Kamu bisa milih mau pakai AI lokal (gratis & privat pakai LM Studio) atau API Cloud kayak Groq buat respons yang jauh lebih kenceng.',
                 side: 'bottom',
                 align: 'start'
               }
@@ -184,48 +184,10 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
 
   const handleBack = () => window.history.back()
 
-  return (
-    <div className="h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif]">
-      {/* Background Ambience */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
-
-      {/* Main Content Area */}
-      <div className="relative z-10 w-full h-full overflow-y-auto custom-scrollbar">
-        <div className="max-w-2xl mx-auto px-4 py-8 pb-32 space-y-8">
-          {/* Page Header */}
-          <div className="flex items-center gap-4">
-            {!isFirstSetup && (
-              <button
-                onClick={handleBack}
-                className="btn btn-ghost btn-sm btn-circle"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="1.2em"
-                  height="1.2em"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-            )}
-            <div>
-              <h1 className="text-2xl font-bold">
-                {isFirstSetup ? 'Selamat Datang di Mark!' : 'Pengaturan Mark'}
-              </h1>
-              <p className="opacity-50 text-sm mt-1">
-                {isFirstSetup
-                  ? 'Sebelum mulai ngobrol, atur provider AI dan pengaturan dasar lainnya di bawah ini.'
-                  : 'Sesuaikan perilaku Mark dengan preferensimu.'}
-              </p>
-            </div>
-          </div>
-
-          {/* ── AI Engine & Tools ── */}
+  const renderActiveSection = () => {
+    switch (activeSection) {
+      case 'ai':
+        return (
           <ConfigAI
             config={config}
             setConfig={setConfig}
@@ -233,34 +195,112 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             onSetupComplete={onSetupComplete}
             chatContext={chatContext}
           />
+        )
+      case 'camera':
+        return <ConfigCamera config={config} setConfig={setConfig} videoDevices={videoDevices} />
+      case 'voice':
+        return <ConfigVoice config={config} setConfig={setConfig} audioDevices={audioDevices} />
+      case 'memory':
+        return <ConfigMemory config={config} setConfig={setConfig} />
+      case 'admin':
+        return <ConfigAdmin config={config} setConfig={setConfig} />
+      case 'chat':
+        return !isFirstSetup ? <ConfigChat /> : null
+      default:
+        return <ConfigAI config={config} setConfig={setConfig} isFirstSetup={isFirstSetup} onSetupComplete={onSetupComplete} chatContext={chatContext} />
+    }
+  }
 
-          <div className="divider"></div>
+  return (
+    <div className="h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif]">
+      {/* Background Ambience */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
 
-          {/* ── Kamera & Voice ── */}
-          <ConfigCamera config={config} setConfig={setConfig} videoDevices={videoDevices} />
-
-          <div className="divider"></div>
-
-          <ConfigVoice config={config} setConfig={setConfig} audioDevices={audioDevices} />
-
-          <div className="divider"></div>
-
-          {/* ── Relational Growth ── */}
-          <ConfigMemory config={config} setConfig={setConfig} />
-
-          {/* ── WhatsApp Admin ── */}
-          <ConfigAdmin config={config} setConfig={setConfig} />
-
-          {!isFirstSetup && (
-            <>
-              <div className="divider"></div>
-              <ConfigChat />
-            </>
-          )}
+      {/* Sidebar + Content Layout */}
+      <div className="relative z-10 flex h-full">
+        {/* Sidebar - hidden on mobile, shown on md+ */}
+        <div className="hidden md:flex flex-col w-56 lg:w-64 border-r border-base-content/10 bg-base-300/50 backdrop-blur-sm">
+          <div className="p-4 pb-2">
+            <h1 className="text-lg font-bold">
+              {isFirstSetup ? 'Selamat Datang!' : 'Pengaturan'}
+            </h1>
+            <p className="text-xs opacity-50 mt-1">
+              {isFirstSetup ? 'Atur Mark dulu' : 'Sesuaikan Mark'}
+            </p>
+          </div>
+          <ConfigSidebar
+            activeSection={activeSection}
+            onSectionChange={setActiveSection}
+            onBack={handleBack}
+            isFirstSetup={isFirstSetup}
+            hasChat={!isFirstSetup}
+          />
         </div>
 
-        <ModalComponent />
+        {/* Mobile: top bar with section selector */}
+        <div className="md:hidden fixed top-0 left-0 right-0 z-20 bg-base-300/90 backdrop-blur-sm border-b border-base-content/10">
+          <div className="flex items-center gap-2 px-3 py-2">
+            {!isFirstSetup && (
+              <button onClick={handleBack} className="btn btn-ghost btn-sm btn-circle">
+                <svg xmlns="http://www.w3.org/2000/svg" width="1.2em" height="1.2em" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            <h1 className="text-base font-bold flex-1">
+              {isFirstSetup ? 'Selamat Datang!' : 'Pengaturan'}
+            </h1>
+          </div>
+          {/* Mobile horizontal scroll tabs */}
+          <div className="flex overflow-x-auto px-2 pb-2 gap-1 scrollbar-hide">
+            {[
+              { id: 'ai', label: 'AI' },
+              { id: 'camera', label: 'Kamera' },
+              { id: 'voice', label: 'Suara' },
+              { id: 'memory', label: 'Memori' },
+              { id: 'admin', label: 'Admin' },
+              ...(!isFirstSetup ? [{ id: 'chat', label: 'Chat' }] : [])
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveSection(item.id)}
+                className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-all ${
+                  activeSection === item.id
+                    ? 'bg-primary text-primary-content font-semibold'
+                    : 'bg-base-200 opacity-70'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Content Pane */}
+        <main className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="max-w-2xl mx-auto px-4 py-6 pb-32 md:py-8 pt-20 md:pt-8">
+            {/* Section title for desktop */}
+            <div className="hidden md:block mb-6">
+              <h2 className="text-xl font-bold">
+                {{
+                  ai: 'AI Engine & Tools',
+                  camera: 'Kamera & Visual',
+                  voice: 'Suara & TTS',
+                  memory: 'Relational Growth',
+                  admin: 'WhatsApp Admin',
+                  chat: 'Data & Chat'
+                }[activeSection]}
+              </h2>
+              <div className="divider mt-2 mb-0" />
+            </div>
+
+            {renderActiveSection()}
+          </div>
+        </main>
       </div>
+
+      <ModalComponent />
     </div>
   )
 }
