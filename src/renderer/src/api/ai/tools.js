@@ -1,4 +1,5 @@
-import { fetchAI, cleanAndParse } from './core'
+
+import { fetchAI, cleanAndParse } from './core'
 import { getCurrentTimeInfo } from './utils'
 import { getGuardGate } from './guard-gate'
 
@@ -138,10 +139,15 @@ async function withOutputFixRetry(messages, signal, schema, toolName) {
     return retryParsed
   }
 
+
   // Second consecutive parse failure — give up
   gate.recordInvalidJson()
   if (gate.getStatus().consecutiveInvalidJson >= 2) {
     console.error(`[${toolName}] 2x invalid JSON, menyerah.`)
+    try {
+      const { recordSessionLesson } = await import('./sessionKnowledge.js')
+      recordSessionLesson({ task: toolName, lesson: `Tool ${toolName} gagal 2x JSON — butuh prompt/skema lebih jelas` })
+    } catch { /* lessons opsional */ }
   }
   return null
 }
