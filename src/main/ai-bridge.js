@@ -187,6 +187,17 @@ const log = {
   model: (tag, msg) => console.log(`  🤖 ${tag} ${msg}`),
 }
 
+// ========== ERROR TAXONOMY ==========
+function classifyError(error, httpStatus, finishReason) {
+  if (httpStatus === 429) return 'rate_limit'
+  if (httpStatus >= 500) return 'server'
+  if (error && !httpStatus) return 'network'
+  if (finishReason === 'length') return 'truncated'
+  return 'other'
+}
+
+const CIRCUIT_BREAKER_THRESHOLD = 3
+
 // ========== CONFIG ==========
 const defaultConfig = {
   aiProvider: process.env.DEFAULT_AI_PROVIDER || 'lmstudio',
@@ -352,6 +363,7 @@ export const fetchAI = async (
     let emptyRetryCount = 0
     let currentMaxTokens = maxTokens
     let adaptedRetryDone = false
+    let consecutiveFailures = 0  // per-model circuit breaker
     const requestBody = { ...baseBody, model, max_tokens: currentMaxTokens }
     let success = false
     let result = null
@@ -377,6 +389,12 @@ export const fetchAI = async (
         if (error.name === 'AbortError') throw new AIServiceError('Request dibatalkan', { provider: activeProvider, model, originalError: error })
 
         // Network error
+        consecutiveFailures++
+        if (consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
+          log.warn('⚡', `Circuit breaker: ${model} gagal ${consecutiveFailures}x berturut → skip`)
+          lastError = new AIServiceError(`Circuit breaker: ${consecutiveFailures} consecutive failures`, { provider: activeProvider, model, originalError: error })
+          break
+        }
         const delay = Math.min(policy.baseDelay * Math.pow(2, retryCount), policy.maxDelay)
         log.warn('🌐', `Network error: ${error.message} ${retryCount < policy.maxRetries ? `→ retry ${retryCount + 1}/${policy.maxRetries} in ${Math.round(delay / 1000)}s` : '→ next model'}`)
         if (onStatus) onStatus(`Network error, retry ${retryCount + 1}...`)
@@ -397,13 +415,24 @@ export const fetchAI = async (
       // ========== HTTP ERROR ==========
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Unknown error')
+        const errorType = classifyError(null, response.status, null)
+        consecutiveFailures++
+        if (consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
+          log.warn('⚡', `Circuit breaker: ${model} gagal ${consecutiveFailures}x berturut → skip`)
+          lastError = new AIServiceError(`Circuit breaker: ${consecutiveFailures} consecutive failures`, { provider: activeProvider, model, httpStatus: response.status })
+          trackModelUsage(model, false, latencyMs, null)
+          break
+        }
         const isRetryable = [429, 500, 503].includes(response.status)
 
         if (isRetryable && retryCount < policy.maxRetries) {
-          const delay = Math.min(policy.baseDelay * Math.pow(2, retryCount), policy.maxDelay)
+          const baseRetryDelay = Math.min(policy.baseDelay * Math.pow(2, retryCount), policy.maxDelay)
           const retryAfter = response.headers?.get('retry-after')
-          const actualDelay = retryAfter ? Math.ceil(parseFloat(retryAfter) * 1000) : delay
-          log.warn('⏳', `HTTP ${response.status} → retry ${retryCount + 1}/${policy.maxRetries} in ${Math.round(actualDelay / 1000)}s`)
+          // rate_limit: hormati retry-after, fallback lebih panjang
+          const actualDelay = retryAfter ? Math.ceil(parseFloat(retryAfter) * 1000)
+            : errorType === 'rate_limit' ? Math.max(baseRetryDelay, 30000)
+            : baseRetryDelay
+          log.warn('⏳', `HTTP ${response.status} [${errorType}] → retry ${retryCount + 1}/${policy.maxRetries} in ${Math.round(actualDelay / 1000)}s`)
           if (onStatus) onStatus(`Server sibuk (${response.status}), retry ${retryCount + 1}...`)
           await sleep(actualDelay)
           retryCount++
@@ -477,8 +506,13 @@ export const fetchAI = async (
             contentLength: accumulatedContent.length, retryCount, success: true,
           })
         } else {
+          consecutiveFailures++
           lastError = new AIServiceError('Stream returned no content', { provider: activeProvider, model })
           trackModelUsage(model, false, latencyMs, null)
+          if (consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
+            log.warn('⚡', `Circuit breaker: ${model} gagal ${consecutiveFailures}x berturut → skip`)
+            break
+          }
           if (emptyRetryCount < 2) {
             const jitter = Math.floor(Math.random() * 1000)
             const delay = Math.min(policy.baseDelay * Math.pow(2, emptyRetryCount), policy.maxDelay) + jitter
@@ -502,7 +536,8 @@ export const fetchAI = async (
 
         const parsed = await cleanAndParse(cleanText)
         if (parsed === null) {
-          log.err(' parse', 'Response bukan JSON valid')
+          log.err(' parse', 'Response bukan JSON valid → next model')
+          consecutiveFailures++
           lastError = new AIServiceError('Response bukan JSON valid', { provider: activeProvider, model })
           trackModelUsage(model, false, latencyMs, null, { jsonParsed: false })
           break
@@ -513,6 +548,13 @@ export const fetchAI = async (
         const reasoningContent = parsed.choices?.[0]?.message?.reasoning_content || null
 
         if (!content || content.trim() === '') {
+          consecutiveFailures++
+          if (consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
+            log.warn('⚡', `Circuit breaker: ${model} gagal ${consecutiveFailures}x berturut → skip`)
+            lastError = new AIServiceError('Circuit breaker: empty content threshold', { provider: activeProvider, model })
+            trackModelUsage(model, false, latencyMs, finishReason, { jsonParsed: true, emptyContent: true })
+            break
+          }
           // Jika finish_reason=length, double max_tokens dan retry
           if (finishReason === 'length') {
             log.warn('✂️', 'Empty content + finish_reason=length → retry dengan max_tokens doubled')
@@ -583,6 +625,7 @@ export const fetchAI = async (
         // SUCCESS
         result = { content, reasoning: reasoningContent }
         success = true
+        consecutiveFailures = 0  // reset circuit breaker
         trackModelUsage(model, true, latencyMs, finishReason, {
           jsonParsed: true, cotLeak: !!looksLikeCoT,
           thinkTagged: content.includes('<think>'),
