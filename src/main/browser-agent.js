@@ -245,6 +245,7 @@ export async function navigateTo(url) {
   }
 
   let loadResolved = false
+  let loadSucceeded = false
   let loadTimerId
 
   const loadPromise = new Promise((resolve) => {
@@ -253,7 +254,10 @@ export async function navigateTo(url) {
       clearTimeout(loadTimerId)
       resolve()
     }
-    browserWindow.webContents.once('did-finish-load', done)
+    browserWindow.webContents.once('did-finish-load', () => {
+      loadSucceeded = true
+      done()
+    })
     browserWindow.webContents.once('did-fail-load', (_event, code, desc) => {
       console.warn(`[Browser] did-fail-load: ${code} ${desc}`)
       done()

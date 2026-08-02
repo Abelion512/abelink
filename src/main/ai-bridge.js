@@ -345,7 +345,6 @@ export const fetchAI = async (
 
   for (let modelIdx = 0; modelIdx < modelChain.length; modelIdx++) {
     const model = modelChain[modelIdx]
-    const requestBody = { ...baseBody, model, max_tokens: currentMaxTokens }
 
     log.model(`[${modelIdx + 1}/${modelChain.length}]`, model)
 
@@ -353,6 +352,7 @@ export const fetchAI = async (
     let emptyRetryCount = 0
     let currentMaxTokens = maxTokens
     let adaptedRetryDone = false
+    const requestBody = { ...baseBody, model, max_tokens: currentMaxTokens }
     let success = false
     let result = null
 

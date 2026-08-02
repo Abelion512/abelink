@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getAllConfig } from '../api/db'
+import { getAllConfig, saveConfiguration } from '../api/db'
 import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import { useLocation } from 'react-router-dom'
@@ -185,6 +185,21 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   }, [isFirstSetup])
 
   const handleBack = () => window.history.back()
+
+  // Auto-save config on change (debounced 800ms)
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      // Skip if config is still initial/default (no loaded data)
+      if (!config.model && !config.groqApiKey) return
+      try {
+        await saveConfiguration(config)
+        if (chatContext?.setConfig) chatContext.setConfig([config])
+      } catch (e) {
+        console.error('[Config] auto-save failed:', e)
+      }
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [config])
 
   const renderActiveSection = () => {
     const aiProps = { config, setConfig, isFirstSetup, onSetupComplete, chatContext }
