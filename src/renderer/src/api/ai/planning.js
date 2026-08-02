@@ -488,6 +488,11 @@ ${
       const { injectSessionLessons } = await import('./sessionKnowledge.js')
       if (injectSessionLessons) messages = injectSessionLessons(messages)
     } catch { /* lessons opsional — jangan blokir planning */ }
+    // ---- SKILL LIBRARY: hint nama+deskripsi (konten di-load saat perlu) ----
+    try {
+      const { injectSkillHints } = await import('./skillLibrary.js')
+      if (injectSkillHints) messages = await injectSkillHints(messages)
+    } catch { /* skills opsional — jangan blokir planning */ }
     const schema = {
       type: 'object',
       properties: {
