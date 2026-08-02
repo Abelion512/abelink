@@ -236,7 +236,7 @@ export const fetchAI = async (
   const activeProvider = conf.aiProvider || conf.activeProvider || 'lmstudio'
   const customEndpoint = conf.customEndpoint?.replace(/\/+$/, '') || 'http://localhost:1234'
   const customApiKey = conf.customApiKey || ''
-  const maxTokens = isSmallTask ? (conf.smallMaxTokens || 512) : (conf.maxTokens || 8192)
+  const maxTokens = isSmallTask ? (conf.smallMaxTokens || 1536) : (conf.maxTokens || 8192)
   const temperature = isSmallTask ? (conf.smallTemperature ?? 0.3) : (conf.temperature ?? 0.7)
 
   const modelChain = resolveModelChain(conf.customModel)
@@ -345,11 +345,14 @@ export const fetchAI = async (
 
   for (let modelIdx = 0; modelIdx < modelChain.length; modelIdx++) {
     const model = modelChain[modelIdx]
-    const requestBody = { ...baseBody, model }
+    const requestBody = { ...baseBody, model, max_tokens: currentMaxTokens }
 
     log.model(`[${modelIdx + 1}/${modelChain.length}]`, model)
 
     let retryCount = 0
+    let emptyRetryCount = 0
+    let currentMaxTokens = maxTokens
+    let adaptedRetryDone = false
     let success = false
     let result = null
 
@@ -476,6 +479,15 @@ export const fetchAI = async (
         } else {
           lastError = new AIServiceError('Stream returned no content', { provider: activeProvider, model })
           trackModelUsage(model, false, latencyMs, null)
+          if (emptyRetryCount < 2) {
+            const jitter = Math.floor(Math.random() * 1000)
+            const delay = Math.min(policy.baseDelay * Math.pow(2, emptyRetryCount), policy.maxDelay) + jitter
+            log.warn('🌐', `Stream empty → retry ${emptyRetryCount + 1}/2 in ${Math.round(delay / 1000)}s`)
+            if (onStatus) onStatus(`Stream kosong, retry ${emptyRetryCount + 1}...`)
+            await sleep(delay)
+            emptyRetryCount++
+            continue
+          }
           break
         }
       } else {
@@ -501,23 +513,69 @@ export const fetchAI = async (
         const reasoningContent = parsed.choices?.[0]?.message?.reasoning_content || null
 
         if (!content || content.trim() === '') {
+          // Jika finish_reason=length, double max_tokens dan retry
+          if (finishReason === 'length') {
+            log.warn('✂️', 'Empty content + finish_reason=length → retry dengan max_tokens doubled')
+            currentMaxTokens = Math.min(currentMaxTokens * 2, 16384)
+            requestBody.max_tokens = currentMaxTokens
+            const jitter = Math.floor(Math.random() * 1000)
+            const delay = Math.min(policy.baseDelay * Math.pow(2, emptyRetryCount), policy.maxDelay) + jitter
+            if (emptyRetryCount < 2) {
+              log.warn('🌐', `Truncated empty → retry ${emptyRetryCount + 1}/2 (max_tokens: ${currentMaxTokens}) in ${Math.round(delay / 1000)}s`)
+              if (onStatus) onStatus(`Terpotong, retry ${emptyRetryCount + 1}...`)
+              await sleep(delay)
+              emptyRetryCount++
+              continue
+            }
+            lastError = new AIServiceError('Truncated with empty content after retries', { provider: activeProvider, model })
+            trackModelUsage(model, false, latencyMs, finishReason, { jsonParsed: true, emptyContent: true })
+            break
+          }
           log.warn(' empty', 'Content kosong (content: null)')
-          // Retry instead of returning empty — empty content usually means model failed
           lastError = new AIServiceError('Empty content returned', { provider: activeProvider, model })
           trackModelUsage(model, false, latencyMs, finishReason, { jsonParsed: true, emptyContent: true })
-          if (retryCount < policy.maxRetries) {
-            const delay = Math.min(policy.baseDelay * Math.pow(2, retryCount), policy.maxDelay)
-            log.warn('🌐', `Empty content → retry ${retryCount + 1}/${policy.maxRetries} in ${Math.round(delay / 1000)}s`)
-            if (onStatus) onStatus(`Kosong, retry ${retryCount + 1}...`)
+          if (emptyRetryCount < 2) {
+            // Reasoning-only output → adapt prompt
+            if (reasoningContent && !adaptedRetryDone) {
+              const lastUserIdx = requestBody.messages.findLastIndex((m) => m.role === 'user')
+              if (lastUserIdx >= 0) {
+                requestBody.messages[lastUserIdx] = {
+                  ...requestBody.messages[lastUserIdx],
+                  content: requestBody.messages[lastUserIdx].content + '\n\nJangan output reasoning saja. Langsung output JSON final.'
+                }
+                adaptedRetryDone = true
+                log.warn('🧠', 'Reasoning-only output → adapted prompt')
+              }
+            } else if (adaptedRetryDone) {
+              // Sudah adapt sekali, fall through ke model berikutnya
+              log.warn('🧠', 'Adapted retry sudah dicoba → next model')
+              break
+            }
+            const jitter = Math.floor(Math.random() * 1000)
+            const delay = Math.min(policy.baseDelay * Math.pow(2, emptyRetryCount), policy.maxDelay) + jitter
+            log.warn('🌐', `Empty content → retry ${emptyRetryCount + 1}/2 in ${Math.round(delay / 1000)}s`)
+            if (onStatus) onStatus(`Kosong, retry ${emptyRetryCount + 1}...`)
             await sleep(delay)
-            retryCount++
+            emptyRetryCount++
             continue
           }
           break
         }
 
-        if (finishReason === 'length') {
-          log.warn('✂️', 'Truncated (finish_reason: length)')
+        if (finishReason === 'length' && content.trim() !== '') {
+          // Retry with doubled max_tokens instead of returning truncated JSON
+          if (emptyRetryCount < 2) {
+            currentMaxTokens = Math.min(currentMaxTokens * 2, 16384)
+            requestBody.max_tokens = currentMaxTokens
+            const jitter = Math.floor(Math.random() * 1000)
+            const delay = Math.min(policy.baseDelay * Math.pow(2, emptyRetryCount), policy.maxDelay) + jitter
+            log.warn('✂️', `Truncated (finish_reason: length) → retry ${emptyRetryCount + 1}/2 (max_tokens: ${currentMaxTokens}) in ${Math.round(delay / 1000)}s`)
+            if (onStatus) onStatus(`Terpotong, retry ${emptyRetryCount + 1}...`)
+            await sleep(delay)
+            emptyRetryCount++
+            continue
+          }
+          log.warn('✂️', 'Truncated (finish_reason: length) — max retries exhausted')
         }
 
         // CoT leakage detection: content polos (bukan JSON) tapi ada reasoning → bocor
