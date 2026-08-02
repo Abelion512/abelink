@@ -19,6 +19,7 @@ import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { fetchTranscript } from 'youtube-transcript-plus'
 import yts from 'yt-search'
+import axios from 'axios'
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
 import { startTracking, stopTracking, getBuffer, flushBuffer } from './awareness/window-tracker.js'
 import { NATIVE_TOOLS } from './native-tools.js'
@@ -585,6 +586,24 @@ app.whenReady().then(async () => {
     } catch (error) {
       console.error('Gagal search YT:', error.message)
       return []
+    }
+  })
+
+  // YouTube oEmbed metadata — fetch from main process (server-side, no CORS)
+  ipcMain.handle('youtube-embed-data', async (_event, url) => {
+    try {
+      const endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
+      const response = await axios.get(endpoint, { timeout: 10000 })
+      const data = response.data
+      return {
+        judul: data.title,
+        author: data.author_name,
+        thumbnail: data.thumbnail_url,
+        success: true
+      }
+    } catch (error) {
+      console.error('Gagal ambil data YouTube (main):', error.message)
+      return { judul: 'Video Tidak Ditemukan', author: '-', thumbnail: null, success: false }
     }
   })
 

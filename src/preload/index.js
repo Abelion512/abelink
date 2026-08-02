@@ -14,6 +14,7 @@ const api = {
   clearActivityBuffer: () => ipcRenderer.send('awareness:clear-buffer'),
   takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
   getYoutubeTranscript: (url) => ipcRenderer.invoke('get-youtube-transcript', url),
+  getYoutubeData: (url) => ipcRenderer.invoke('youtube-embed-data', url),
   searchYoutube: (query) => ipcRenderer.invoke('youtube-search', query),
   searchMusic: (query) => ipcRenderer.invoke('search-music', query),
   textToSpeech: (text, rate, pitch) => ipcRenderer.invoke('tts-speak', text, rate, pitch),
