@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { ipcMain } from 'electron'
+import { ipcMain, app } from 'electron'
 import { buildCanonical, hashBody, verifyContent } from './agent-keyring.js'
 
 /**
@@ -22,9 +22,19 @@ let loadedSkills = []
 
 /** Resolve candidate skills directories (homedir primary, cwd fallback) */
 export function getSkillsDirs() {
-  const dirs = [path.join(os.homedir(), '.agents', 'skills')]
+  const dirs = [
+    path.join(os.homedir(), '.agents', 'skills'),
+    path.join(os.homedir(), '.claude', 'skills'),       // Claude Code skill convention
+  ]
+  // userData/skills (mark-dev) — ponytail: app not ready at import time, use getPath synchronously
+  try {
+    const userDataSkills = path.join(app.getPath('userData'), 'skills')
+    if (!dirs.includes(userDataSkills)) dirs.push(userDataSkills)
+  } catch { /* app not initialized yet — skipped */ }
   const cwdSkills = path.join(process.cwd(), '.agents', 'skills')
   if (cwdSkills !== dirs[0] && fs.existsSync(cwdSkills)) dirs.push(cwdSkills)
+  const cwdClaudeSkills = path.join(process.cwd(), 'skills')
+  if (fs.existsSync(cwdClaudeSkills) && !dirs.includes(cwdClaudeSkills)) dirs.push(cwdClaudeSkills)
   return dirs
 }
 
