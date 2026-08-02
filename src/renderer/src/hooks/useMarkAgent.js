@@ -21,8 +21,6 @@ export const useMarkAgent = () => {
     clearChat,
     config,
     setConfig,
-    message,
-    setMessage,
     isLoading,
     setIsLoading,
     isAgentBusy,
@@ -215,15 +213,16 @@ export const useMarkAgent = () => {
     }
   }, [])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e, inputText = '') => {
     if (e) e.preventDefault()
+    const text = (inputText || '').trim()
+    if (!text) return
     if (isLoading || isAgentBusy) {
-      if (handleIntervention && message.trim()) {
-        handleIntervention(message.trim())
-        setMessage('')
+      if (handleIntervention) {
+        handleIntervention(text)
       }
     } else {
-      handlePlanningCommand(message.trim())
+      handlePlanningCommand(text)
     }
   }
 
@@ -236,8 +235,6 @@ export const useMarkAgent = () => {
     config,
     isLoading,
     isAgentBusy,
-    message,
-    setMessage,
     orbStatus,
     setOrbStatus,
     currentResponse,

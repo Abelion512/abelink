@@ -29,7 +29,7 @@ import {
   captureScreenshot, ocrRegion, emergencyStop
 } from './pc-agent.js'
 import { initMpris, setMprisCallbacks, setMprisPlaybackStatus, updateMprisTrack, stopMpris } from './mpris-service.js'
-import { getRecentTracks, getTopTracks, setApiKey as setLastfmKey } from './lastfm-service.js'
+import { getRecentTracks, getTopTracks, setApiKey as setLastfmKey, updateNowPlaying as lastfmUpdateNowPlaying, scrobble as lastfmScrobble, setSessionKey as setLastfmSessionKey, getSessionKey as lastfmGetSessionKey } from './lastfm-service.js'
 import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
 import { ElectronBlocker } from '@ghostery/adblocker-electron'
 import mammoth from 'mammoth'
@@ -649,6 +649,9 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('lastfm:scrobble', async (_event, track, artist, timestamp, album) => {
     return await lastfmScrobble(track, artist, timestamp, album)
+  })
+  ipcMain.handle('lastfm:get-session-key', async (_event, username, password, apiKey, sharedSecret) => {
+    return await lastfmGetSessionKey(username, password, apiKey, sharedSecret)
   })
 
   ipcMain.handle('ytdl:get-info', async (_event, url) => {

@@ -371,40 +371,80 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
         </div>
       )}
 
-      {/* Last.fm API Key */}
-      <div className="space-y-1.5 p-2 -mx-2 rounded-lg">
-        <div className="flex justify-between items-center">
-          <p className="text-sm font-semibold">Last.fm API Key</p>
-          <a
-            href="https://www.last.fm/api/account/create"
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-xs btn-outline btn-primary"
-          >
-            Dapatkan API Key
-          </a>
+      {/* Last.fm Integration — Collapsible */}
+      <div className="collapse collapse-arrow bg-base-200 -mx-2">
+        <input type="checkbox" defaultChecked={false} />
+        <div className="collapse-title text-sm font-semibold flex items-center gap-2">
+          <span>🎵 Last.fm</span>
+          <span className="text-xs opacity-50 font-normal">(opsional — scrobbling & riwayat musik)</span>
         </div>
-        <p className="text-xs opacity-50 mb-1">
-          Opsional. Untuk riwayat musik dan rekomendasi.
-        </p>
-        <div className="relative w-full">
-          <input
-            type={showLastfmKey ? 'text' : 'password'}
-            placeholder="Last.fm API Key"
-            className="input input-bordered w-full pr-10"
-            value={config.lastfmApiKey || ''}
-            onChange={(e) =>
-              setConfig((prev) => ({ ...prev, lastfmApiKey: e.target.value }))
-            }
-          />
-          <button
-            type="button"
-            className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-            onClick={handleToggleLastfmKey}
-            title={showLastfmKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
-          >
-            {showLastfmKey ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
-          </button>
+        <div className="collapse-content space-y-3">
+          <p className="text-xs opacity-60">
+            Untuk scrobbling otomatis dan rekomendasi musik.{' '}
+            <a href="https://www.last.fm/api/account/create" target="_blank" rel="noreferrer" className="link link-primary">
+              Dapatkan API Key
+            </a>
+          </p>
+
+          {/* API Key */}
+          <div className="relative">
+            <label className="text-xs opacity-70">API Key</label>
+            <input
+              type={showLastfmKey ? 'text' : 'password'}
+              placeholder="Last.fm API Key"
+              className="input input-bordered input-sm w-full pr-10"
+              value={config.lastfmApiKey || ''}
+              onChange={(e) => setConfig((prev) => ({ ...prev, lastfmApiKey: e.target.value }))}
+            />
+            <button type="button" className="absolute right-3 bottom-2 opacity-50 hover:opacity-100"
+              onClick={handleToggleLastfmKey}>
+              {showLastfmKey ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
+            </button>
+          </div>
+
+          {/* Shared Secret */}
+          <div className="relative">
+            <label className="text-xs opacity-70">Shared Secret</label>
+            <input
+              type={showLastfmKey ? 'text' : 'password'}
+              placeholder="Shared Secret (dari halaman API account)"
+              className="input input-bordered input-sm w-full pr-10"
+              value={config.lastfmSharedSecret || ''}
+              onChange={(e) => setConfig((prev) => ({ ...prev, lastfmSharedSecret: e.target.value }))}
+            />
+          </div>
+
+          {/* Auto-login: username + password → session key */}
+          <div className="bg-base-300 rounded p-2 space-y-2">
+            <p className="text-xs opacity-70">Login untuk dapat session key (scrobbling):</p>
+            <div className="flex gap-2">
+              <input type="text" placeholder="Username" className="input input-bordered input-sm flex-1"
+                value={config._lastfmUsername || ''} onChange={(e) => setConfig((prev) => ({ ...prev, _lastfmUsername: e.target.value }))} />
+              <input type="password" placeholder="Password" className="input input-bordered input-sm flex-1"
+                value={config._lastfmPassword || ''} onChange={(e) => setConfig((prev) => ({ ...prev, _lastfmPassword: e.target.value }))} />
+              <button className="btn btn-sm btn-primary" onClick={async () => {
+                if (!config.lastfmApiKey || !config.lastfmSharedSecret || !config._lastfmUsername || !config._lastfmPassword) {
+                  alert('Isi semua field dulu: API Key, Shared Secret, Username, Password')
+                  return
+                }
+                const result = await window.api.lastfmGetSessionKey(
+                  config._lastfmUsername, config._lastfmPassword,
+                  config.lastfmApiKey, config.lastfmSharedSecret
+                )
+                if (result?.key) {
+                  setConfig((prev) => ({ ...prev, lastfmSessionKey: result.key, _lastfmPassword: '' }))
+                  alert(`✅ Login berhasil! Session key tersimpan untuk user: ${result.name}`)
+                } else {
+                  alert('❌ Login gagal. Cek username/password.')
+                }
+              }}>Login</button>
+            </div>
+          </div>
+
+          {/* Session Key status */}
+          {config.lastfmSessionKey && (
+            <p className="text-xs text-success">✅ Session key tersimpan — scrobbling aktif</p>
+          )}
         </div>
       </div>
 

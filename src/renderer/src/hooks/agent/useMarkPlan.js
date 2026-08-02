@@ -17,7 +17,6 @@ export const useMarkPlan = ({
   abortControllerRef,
   setIsLoading,
   setIsAgentBusy,
-  setMessage,
   handleMusic,
   getYoutubeData,
   pushProcess,
@@ -146,7 +145,6 @@ export const useMarkPlan = ({
     // Jangan blokir UI Desktop jika perintah datang dari background/WhatsApp
     if (!waContext && !isAutonomous) {
       setIsLoading(true)
-      setMessage('') // Clear input box instantly upon sending
     }
     setIsAgentBusy(true)
 

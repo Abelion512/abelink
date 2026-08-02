@@ -112,6 +112,7 @@ const api = {
   getTopTracks: (user) => ipcRenderer.invoke('lastfm:get-top', user),
   lastfmUpdateNowPlaying: (track, artist, album) => ipcRenderer.invoke('lastfm:update-now-playing', track, artist, album),
   lastfmScrobble: (track, artist, timestamp, album) => ipcRenderer.invoke('lastfm:scrobble', track, artist, timestamp, album),
+  lastfmGetSessionKey: (username, password, apiKey, sharedSecret) => ipcRenderer.invoke('lastfm:get-session-key', username, password, apiKey, sharedSecret),
 
   // yt-dlp integration - metadata + audio from YT, TikTok, SoundCloud
   getYtdlInfo: (url) => ipcRenderer.invoke('ytdl:get-info', url),

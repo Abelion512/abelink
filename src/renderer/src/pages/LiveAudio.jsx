@@ -12,8 +12,6 @@ const LiveAudio = () => {
     isLoading,
     isSpeak,
     setIsSpeak,
-    message,
-    setMessage,
     handleSubmit,
     handlePlanningCommand,
     abortControllerRef,
@@ -193,7 +191,6 @@ const LiveAudio = () => {
               transcribeAudioGroq(merged)
                 .then(text => {
                   if (text && text.trim() !== '') {
-                    setMessage(text.trim())
                     handlePlanningCommand(text.trim())
                   } else {
                     setStatus('listening')

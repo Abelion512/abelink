@@ -4,7 +4,6 @@ import { getAllConfig, saveMainThread, getMainThread } from '../../api/db'
 export const useMarkState = () => {
   const [chatData, setChatData] = useState([])
   const [config, setConfig] = useState([])
-  const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isAgentBusy, setIsAgentBusy] = useState(false)
   const [isSpeak, setIsSpeak] = useState(false)
@@ -99,8 +98,6 @@ export const useMarkState = () => {
     sessionId: sessionId.current,
     config,
     setConfig,
-    message,
-    setMessage,
     isLoading,
     setIsLoading,
     isAgentBusy,

@@ -167,3 +167,36 @@ export async function updateNowPlaying(track, artist, album = '') {
 export async function scrobble(track, artist, timestamp = Math.floor(Date.now() / 1000), album = '') {
   return callWrite('track.scrobble', { track, artist, timestamp: String(timestamp), ...(album && { album }) })
 }
+
+/**
+ * Dapatkan session key via auth.getMobileSession.
+ * Perlu: username, password, api_key, shared_secret.
+ * @param {string} username - Last.fm username
+ * @param {string} password - Last.fm password (plain text)
+ * @param {string} apiKey - API key
+ * @param {string} sharedSecret - Shared secret
+ * @returns {{ key: string, name: string } | null}
+ */
+export async function getSessionKey(username, password, apiKey, sharedSecret) {
+  const params = { method: 'auth.getMobileSession', username, password, api_key: apiKey }
+  const sorted = Object.keys(params).sort().map(k => `${k}${params[k]}`).join('')
+  const apiSig = createHash('md5').update(sorted + sharedSecret).digest('hex')
+
+  try {
+    const body = new URLSearchParams({ ...params, api_sig: apiSig, format: 'json' }).toString()
+    const response = await fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    })
+    const data = await response.json()
+    if (data.error) {
+      console.warn(`[Last.fm] auth.getMobileSession error ${data.error}: ${data.message}`)
+      return null
+    }
+    return { key: data.session.key, name: data.session.name }
+  } catch (e) {
+    console.error('[Last.fm] getSessionKey failed:', e.message)
+    return null
+  }
+}

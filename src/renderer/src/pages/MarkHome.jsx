@@ -16,10 +16,10 @@ import { useVAD } from '../hooks/useVAD'
 
 const MarkHome = () => {
   const chatContext = useChat()
+  // message = LOCAL state (bukan context) — keystroke tidak re-render halaman lain
+  const [message, setMessage] = useState('')
   const {
     chatData,
-    message,
-    setMessage,
     isLoading,
     isAgentBusy,
     isSpeak,
@@ -156,12 +156,13 @@ const MarkHome = () => {
 
   const handleSubmit = (e) => {
     if (chatContext.handleSubmit) {
-      chatContext.handleSubmit(e)
+      chatContext.handleSubmit(e, message)
     } else {
       if (message.trim()) {
         handlePlanningCommand(message)
       }
     }
+    setMessage('') // Clear local input
     // stay in chat mode after submit
     setActiveMode('chat')
   }
