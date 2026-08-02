@@ -1,3 +1,34 @@
+// === Reflexion-lite: session failure memory (in-memory only, YAGNI persistence) ===
+const MAX_LESSONS = 5
+const INJECT_LIMIT = 3
+const _lessons = [] // LRU: newest last
+
+export function recordSessionLesson(lesson) {
+  const entry = { ts: Date.now(), ...lesson }
+  _lessons.push(entry)
+  while (_lessons.length > MAX_LESSONS) _lessons.shift()
+  return entry
+}
+
+export function getSessionLessons() {
+  return [..._lessons]
+}
+
+export function injectSessionLessons(messages) {
+  if (_lessons.length === 0) return messages
+  const tail = _lessons.slice(-INJECT_LIMIT)
+  const block = '[SESSION LESSONS]\n' + tail.map(l => `- ${l.lesson}`).join('\n')
+  const msgs = [...messages]
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i].role === 'user') {
+      msgs[i] = { ...msgs[i], content: `${block}\n\n${msgs[i].content}` }
+      break
+    }
+  }
+  return msgs
+}
+
+// === Existing knowledge extraction ===
 const DECISION_KEYWORDS = ['putuskan', 'pilih', 'pakai', 'decide', 'choose', 'use', 'apply']
 const PATTERN_KEYWORDS = ['pattern', 'approach', 'cara kerja', 'method', 'technique']
 const ERROR_KEYWORDS = ['error', 'fix', 'bug', 'solve', 'resolved', 'solusi']
