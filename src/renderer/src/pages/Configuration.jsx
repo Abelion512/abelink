@@ -189,7 +189,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const renderActiveSection = () => {
     const aiProps = { config, setConfig, isFirstSetup, onSetupComplete, chatContext }
     switch (activeSection) {
-      case 'provider': return <ConfigProviderKeys {...aiProps} onDownloadStateChange={onDownloadStateChange} />
+      case 'provider': return <ConfigProviderKeys {...aiProps} />
       case 'persona': return <ConfigPersona config={config} setConfig={setConfig} />
       case 'integrations': return <ConfigIntegrations config={config} setConfig={setConfig} />
       case 'camera': return <ConfigCamera config={config} setConfig={setConfig} videoDevices={videoDevices} />
