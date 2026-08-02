@@ -96,11 +96,11 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                         <div className="flex-1">
                           {typeof step === 'object' && step.query ? (
                             <details className="group/step outline-none">
-                              <summary className="cursor-pointer select-none flex items-center hover:opacity-80 outline-none list-none [&::-webkit-details-marker]:hidden">
-                                <FaChevronRight className="group-open/step:rotate-90 transition-transform text-[8px] mr-1 opacity-50" />
-                                {step.task} {suffix}
+                              <summary className="cursor-pointer select-none flex items-center hover:opacity-80 outline-none list-none [&::-webkit-details-marker]:hidden px-1.5 py-0.5 rounded hover:bg-white/10 transition-colors group-open/step:bg-white/5">
+                                <FaChevronRight className="group-open/step:rotate-90 transition-transform text-[8px] mr-1.5 opacity-60 group-open/step:opacity-100" />
+                                <span className="group-open/step:font-semibold">{step.task}</span> {suffix}
                               </summary>
-                              <div className="mt-1 pl-3 opacity-70 text-[9px] border-l border-white/20 ml-[3px] mb-1 break-words font-sans bg-black/20 p-1.5 rounded">
+                              <div className="mt-1.5 pl-4 opacity-70 text-[9px] border-l-2 border-success/30 ml-[3px] mb-1.5 break-words font-sans bg-black/20 p-2 rounded-md">
                                 {step.query}
                               </div>
                             </details>

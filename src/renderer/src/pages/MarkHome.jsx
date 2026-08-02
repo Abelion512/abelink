@@ -196,10 +196,10 @@ const MarkHome = () => {
 
       {/* Main Content Area — single centered column on short answers; two columns (orb+answer | details) on long */}
       <div
-        className={`relative z-10 flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-6 w-full h-full px-4 pt-[12vh] pb-48 lg:pt-[5vh] lg:pb-20 overflow-y-auto no-scrollbar`}
+        className={`relative z-10 flex flex-col md:flex-row items-center md:items-stretch justify-center gap-4 md:gap-6 w-full h-full px-4 pt-[12vh] pb-48 md:pt-[5vh] md:pb-20 overflow-y-auto no-scrollbar`}
       >
-        {/* Center Column — orb + answer. Full width on small screens; left half on lg+ */}
-        <div className="relative flex flex-col items-center justify-center w-full max-w-2xl lg:flex-1 lg:max-w-none lg:min-w-0 my-4">
+        {/* Center Column — orb + answer. Full width on small screens; left half on md+ */}
+        <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-2xl md:flex-1 md:max-w-none md:min-w-0 my-4">
           <div className="relative flex items-center justify-center">
             <ThoughtNeuralFlow processes={activeProcesses} />
             <OrbVisualizer
@@ -230,7 +230,7 @@ const MarkHome = () => {
 
         {/* Right Column — Detail Informasi. Stretch-height = row height; the ONLY scroll surface (contained, invisible scrollbar) */}
         {isLong && (
-          <div className="hidden lg:block lg:flex-1 lg:min-w-0 overflow-y-auto no-scrollbar animate-[fade-up_0.4s_ease-out_forwards]">
+          <div className="hidden md:block md:flex-1 md:min-w-0 overflow-y-auto no-scrollbar animate-[fade-up_0.4s_ease-out_forwards]">
             {currentResponse && <ResponseDetails currentResponse={currentResponse} />}
           </div>
         )}

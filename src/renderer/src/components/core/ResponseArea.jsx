@@ -130,7 +130,7 @@ const ResponseArea = ({ currentResponse }) => {
         <div className="flex flex-col items-center gap-4 w-full relative">
           {/* TLDR Part */}
           {tldr && (
-            <div className="text-center text-base md:text-lg font-light leading-relaxed custom-markdown opacity-90 px-4 max-w-2xl">
+            <div className="text-center text-sm md:text-base font-light leading-normal custom-markdown opacity-90 px-4 max-w-2xl">
               <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                 {tldr}
               </Markdown>
@@ -143,7 +143,7 @@ const ResponseArea = ({ currentResponse }) => {
     // Short type
     return (
       <div className="flex flex-col items-center relative gap-2 w-full">
-        <div className="text-center text-lg md:text-xl font-light leading-relaxed custom-markdown opacity-90 px-4 max-w-2xl">
+        <div className="text-center text-sm md:text-base font-light leading-normal custom-markdown opacity-90 px-4 max-w-2xl">
           <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
             {text}
           </Markdown>
