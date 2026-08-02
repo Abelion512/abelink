@@ -1,4 +1,4 @@
-import { useState, useContext, createContext, useCallback, useEffect } from 'react'
+import { useState, useContext, createContext, useCallback, useEffect, useRef } from 'react'
 
 const YoutubeMusicContext = createContext()
 
@@ -8,6 +8,8 @@ export const YoutubeMusicProvider = ({ children }) => {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTrack, setCurrentTrack] = useState({ title: '', artist: '', thumbnail: '' })
   const [playbackError, setPlaybackError] = useState(null)
+  const scrobbleTimerRef = useRef(null)
+  const scrobbleStartRef = useRef(null)
 
   const playUrl = useCallback(async (url, initialTrack = null) => {
     if (!url) return
@@ -72,11 +74,25 @@ export const YoutubeMusicProvider = ({ children }) => {
   // Listener for track metadata from main process
   useEffect(() => {
     if (window.api?.onYtTrackUpdated) {
-      window.api.onYtTrackUpdated((track) => {
+      const handler = (track) => {
         setCurrentTrack(track)
         setIsPlaying(true)
-      })
+        // --- Last.fm scrobbling ---
+        // Clear previous scrobble timer
+        if (scrobbleTimerRef.current) clearTimeout(scrobbleTimerRef.current)
+        // Update now playing on every track change
+        if (track.title && track.artist) {
+          try { window.api?.lastfmUpdateNowPlaying?.(track.title, track.artist) } catch {}
+          // Scrobble after 240s (Last.fm rule: >=4min or >=50% duration)
+          scrobbleStartRef.current = Math.floor(Date.now() / 1000)
+          scrobbleTimerRef.current = setTimeout(() => {
+            try { window.api?.lastfmScrobble?.(track.title, track.artist, scrobbleStartRef.current) } catch {}
+          }, 240_000)
+        }
+      }
+      window.api.onYtTrackUpdated(handler)
     }
+    return () => { if (scrobbleTimerRef.current) clearTimeout(scrobbleTimerRef.current) }
   }, [])
 
   // Route WA/remote music commands to the active functions
@@ -105,16 +121,7 @@ export const YoutubeMusicProvider = ({ children }) => {
     }
   }, [playUrl, nextTrack, prevTrack, playPause])
 
-  // Listen for track info from browser-agent.js (when YouTube is playing)
-  useEffect(() => {
-    if (window.api?.onYtTrackUpdated) {
-      window.api.onYtTrackUpdated((track) => {
-        if (track && track.title) {
-          setCurrentTrack(track)
-        }
-      })
-    }
-  }, [])
+  // Track listener handled in first onYtTrackUpdated useEffect above (with scrobbling)
 
   // Sync to MPRIS
   useEffect(() => {

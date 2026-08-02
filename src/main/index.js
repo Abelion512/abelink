@@ -30,7 +30,7 @@ import {
   captureScreenshot, ocrRegion, emergencyStop
 } from './pc-agent.js'
 import { initMpris, setMprisCallbacks, setMprisPlaybackStatus, updateMprisTrack, stopMpris } from './mpris-service.js'
-import { getRecentTracks, getTopTracks, setApiKey as setLastfmKey, updateNowPlaying as lastfmUpdateNowPlaying, scrobble as lastfmScrobble, setSessionKey as setLastfmSessionKey, getSessionKey as lastfmGetSessionKey } from './lastfm-service.js'
+import { getRecentTracks, getTopTracks, setApiKey as setLastfmKey, setSharedSecret as setLastfmSharedSecret, updateNowPlaying as lastfmUpdateNowPlaying, scrobble as lastfmScrobble, setSessionKey as setLastfmSessionKey, getSessionKey as lastfmGetSessionKey } from './lastfm-service.js'
 import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
 import { ElectronBlocker } from '@ghostery/adblocker-electron'
 import mammoth from 'mammoth'
@@ -118,6 +118,7 @@ ipcMain.on('sync-config', (_event, config) => {
   setGlobalConfig(config)
   if (config.lastfmApiKey) setLastfmKey(config.lastfmApiKey)
   if (config.lastfmSessionKey) setLastfmSessionKey(config.lastfmSessionKey)
+  if (config.lastfmSharedSecret) setLastfmSharedSecret(config.lastfmSharedSecret)
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('config-updated')
   }

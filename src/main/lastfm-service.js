@@ -7,8 +7,10 @@
  */
 const API_BASE = 'https://ws.audioscrobbler.com/2.0/'
 let API_KEY = process.env.LASTFM_API_KEY || null
+let SHARED_SECRET = process.env.LASTFM_SHARED_SECRET || null
 
 export function setApiKey(key) { API_KEY = key }
+export function setSharedSecret(secret) { SHARED_SECRET = secret }
 
 const CACHE_TTL = 5 * 60 * 1000
 const cache = new Map()
@@ -108,7 +110,7 @@ export function setSessionKey(key) { SESSION_KEY = key }
  */
 function signCall(params) {
   const sorted = Object.keys(params).sort().map(k => `${k}${params[k]}`).join('')
-  return createHash('md5').update(sorted + (process.env.LASTFM_SHARED_SECRET || '')).digest('hex')
+  return createHash('md5').update(sorted + (SHARED_SECRET || '')).digest('hex')
 }
 
 /**
@@ -118,8 +120,8 @@ function signCall(params) {
  * @returns {Object|null} response data atau null jika gagal
  */
 async function callWrite(method, params) {
-  if (!API_KEY || !SESSION_KEY) {
-    console.warn('[Last.fm] Write skipped — missing API_KEY or SESSION_KEY')
+  if (!API_KEY || !SESSION_KEY || !SHARED_SECRET) {
+    console.warn('[Last.fm] Write skipped — missing API_KEY, SESSION_KEY, or SHARED_SECRET')
     return null
   }
   const fullParams = { ...params, method, api_key: API_KEY, sk: SESSION_KEY }
