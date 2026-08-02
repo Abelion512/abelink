@@ -1,7 +1,9 @@
-import { FaRobot, FaCamera, FaMicrophone, FaBrain, FaShieldAlt, FaComments, FaChevronLeft } from 'react-icons/fa'
+import { FaKey, FaSlidersH, FaPlug, FaCamera, FaMicrophone, FaBrain, FaShieldAlt, FaComments, FaChevronLeft } from 'react-icons/fa'
 
 const NAV_ITEMS = [
-  { id: 'ai', label: 'AI Engine', icon: FaRobot, desc: 'Provider, model, persona' },
+  { id: 'provider', label: 'Provider & Keys', icon: FaKey, desc: 'AI provider, model, API key' },
+  { id: 'persona', label: 'Persona', icon: FaSlidersH, desc: 'Kepribadian, temperatur, context' },
+  { id: 'integrations', label: 'Integrasi', icon: FaPlug, desc: 'Last.fm, Awareness' },
   { id: 'camera', label: 'Kamera', icon: FaCamera, desc: 'Kamera & visual' },
   { id: 'voice', label: 'Suara', icon: FaMicrophone, desc: 'TTS & mic' },
   { id: 'memory', label: 'Memori', icon: FaBrain, desc: 'Relational growth' },

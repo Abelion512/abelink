@@ -6,7 +6,9 @@ import { useLocation } from 'react-router-dom'
 import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/ChatContext'
 import ConfigSidebar from './config/ConfigSidebar'
-import ConfigAI from './config/sections/ConfigAI'
+import ConfigProviderKeys from './config/sections/ConfigProviderKeys'
+import ConfigPersona from './config/sections/ConfigPersona'
+import ConfigIntegrations from './config/sections/ConfigIntegrations'
 import ConfigVoice from './config/sections/ConfigVoice'
 import ConfigCamera from './config/sections/ConfigCamera'
 import ConfigAdmin from './config/sections/ConfigAdmin'
@@ -32,7 +34,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   })
   const [audioDevices, setAudioDevices] = useState([])
   const [videoDevices, setVideoDevices] = useState([])
-  const [activeSection, setActiveSection] = useState('ai')
+  const [activeSection, setActiveSection] = useState('provider')
   const { confirm, ModalComponent } = useConfirm()
   const chatContext = useChat()
   const location = useLocation()
@@ -185,29 +187,17 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const handleBack = () => window.history.back()
 
   const renderActiveSection = () => {
+    const aiProps = { config, setConfig, isFirstSetup, onSetupComplete, chatContext }
     switch (activeSection) {
-      case 'ai':
-        return (
-          <ConfigAI
-            config={config}
-            setConfig={setConfig}
-            isFirstSetup={isFirstSetup}
-            onSetupComplete={onSetupComplete}
-            chatContext={chatContext}
-          />
-        )
-      case 'camera':
-        return <ConfigCamera config={config} setConfig={setConfig} videoDevices={videoDevices} />
-      case 'voice':
-        return <ConfigVoice config={config} setConfig={setConfig} audioDevices={audioDevices} />
-      case 'memory':
-        return <ConfigMemory config={config} setConfig={setConfig} />
-      case 'admin':
-        return <ConfigAdmin config={config} setConfig={setConfig} />
-      case 'chat':
-        return !isFirstSetup ? <ConfigChat /> : null
-      default:
-        return <ConfigAI config={config} setConfig={setConfig} isFirstSetup={isFirstSetup} onSetupComplete={onSetupComplete} chatContext={chatContext} />
+      case 'provider': return <ConfigProviderKeys {...aiProps} onDownloadStateChange={onDownloadStateChange} />
+      case 'persona': return <ConfigPersona config={config} setConfig={setConfig} />
+      case 'integrations': return <ConfigIntegrations config={config} setConfig={setConfig} />
+      case 'camera': return <ConfigCamera config={config} setConfig={setConfig} videoDevices={videoDevices} />
+      case 'voice': return <ConfigVoice config={config} setConfig={setConfig} audioDevices={audioDevices} />
+      case 'memory': return <ConfigMemory config={config} setConfig={setConfig} />
+      case 'admin': return <ConfigAdmin config={config} setConfig={setConfig} />
+      case 'chat': return !isFirstSetup ? <ConfigChat /> : null
+      default: return <ConfigProviderKeys {...aiProps} onDownloadStateChange={onDownloadStateChange} />
     }
   }
 
@@ -255,7 +245,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           {/* Mobile horizontal scroll tabs */}
           <div className="flex overflow-x-auto px-2 pb-2 gap-1 scrollbar-hide">
             {[
-              { id: 'ai', label: 'AI' },
+              { id: 'provider', label: 'Provider' },
+              { id: 'persona', label: 'Persona' },
+              { id: 'integrations', label: 'Integrasi' },
               { id: 'camera', label: 'Kamera' },
               { id: 'voice', label: 'Suara' },
               { id: 'memory', label: 'Memori' },
@@ -284,7 +276,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             <div className="hidden md:block mb-6">
               <h2 className="text-xl font-bold">
                 {{
-                  ai: 'AI Engine & Tools',
+                  provider: 'Provider & Keys',
+                  persona: 'Persona & Behavior',
+                  integrations: 'Integrasi',
                   camera: 'Kamera & Visual',
                   voice: 'Suara & TTS',
                   memory: 'Relational Growth',
