@@ -7,7 +7,7 @@ import { useMarkState, useMarkYoutube, useMarkMusic, useMarkPlan } from './agent
 import { useAwareness } from './useAwareness'
 import { useRelationalGrowth } from './agent/useRelationalGrowth'
 import { useChatArchiver } from './useChatArchiver'
-import { extractSessionKnowledge } from '../api/ai/sessionKnowledge'
+
 import { formatForWhatsApp } from '../api/ai/utils'
 
 export const useMarkAgent = () => {
@@ -202,19 +202,7 @@ export const useMarkAgent = () => {
     }
   }, [isAgentBusy, chatData, setInputSource])
 
-  // Auto-save session knowledge on unmount
-  useEffect(() => {
-    return () => {
-      const data = chatDataRef.current
-      if (data.length > 5) {
-        const knowledge = extractSessionKnowledge(data, activeTopicRef.current)
-        const { decisions, insights } = knowledge.knowledge
-        if (decisions.length > 0 || insights.length > 0) {
-          window.api?.saveSessionKnowledge(knowledge)
-        }
-      }
-    }
-  }, [])
+
 
   const handleSubmit = (e, inputText = '') => {
     if (e) e.preventDefault()

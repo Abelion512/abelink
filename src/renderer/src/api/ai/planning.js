@@ -483,11 +483,7 @@ ${
         }
       }
     } catch { /* hints opsional — gagal membaca jangan memblokir */ }
-    // ---- REFLEXION-lite (behaviour model): sisipkan pelajaran kegagalan sesi ----
-    try {
-      const { injectSessionLessons } = await import('./sessionKnowledge.js')
-      if (injectSessionLessons) messages = injectSessionLessons(messages)
-    } catch { /* lessons opsional — jangan blokir planning */ }
+
     // ---- SKILL LIBRARY: hint nama+deskripsi (konten di-load saat perlu) ----
     try {
       const { injectSkillHints } = await import('./skillLibrary.js')

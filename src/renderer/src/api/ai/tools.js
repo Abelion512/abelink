@@ -144,10 +144,6 @@ async function withOutputFixRetry(messages, signal, schema, toolName) {
   gate.recordInvalidJson()
   if (gate.getStatus().consecutiveInvalidJson >= 2) {
     console.error(`[${toolName}] 2x invalid JSON, menyerah.`)
-    try {
-      const { recordSessionLesson } = await import('./sessionKnowledge.js')
-      recordSessionLesson({ task: toolName, lesson: `Tool ${toolName} gagal 2x JSON — butuh prompt/skema lebih jelas` })
-    } catch { /* lessons opsional */ }
   }
   return null
 }
