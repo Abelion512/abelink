@@ -58,6 +58,17 @@ export function logSecurityEvent(event) {
 }
 
 /**
+ * Log an AI model call observation (RSI COLLECT feed). Lossless JSONL —
+ * console [OBS] lines are transient; this persists for audit/EVERIFY.
+ * @param {object} obs { model, ok, latencyMs, httpStatus, finishReason, tokens,
+ *                       retryCount, provider, cacheHit, cacheMiss, totalPrompt, err }
+ */
+export function logModelCall(raw) {
+  const { time, ...rest } = raw || {}
+  appendJsonl('model-calls.jsonl', { type: 'model_call', ...rest })
+}
+
+/**
  * Read last N lines from a log file.
  * @param {'actions'|'approvals'|'security-events'} logType
  * @param {number} limit

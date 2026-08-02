@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { cleanAndParse } from '../shared/cleanAndParse.js'
+import { logModelCall } from './computer/audit-log.js'
 
 // ========== MODEL REGISTRY (Dynamic, Pluggable) ==========
 const REGISTRY_PATH = join(__dirname, 'model-registry.json')
@@ -176,6 +177,21 @@ function logObservation(ctx) {
   if (ctx.error) obs.err = ctx.error
   if (ctx.finishReason) obs.finish = ctx.finishReason
   console.log('📊 [OBS]', JSON.stringify(obs))
+  // RSI COLLECT: persist lossless feed (console line is transient, audit survives)
+  logModelCall({
+    model: ctx.model,
+    ok: !!ctx.success,
+    latencyMs: ctx.latencyMs,
+    httpStatus: ctx.httpStatus || null,
+    finishReason: ctx.finishReason || null,
+    tokens: ctx.contentLength || 0,
+    retryCount: ctx.retryCount || 0,
+    provider: ctx.provider || null,
+    cacheHit: ctx.cacheHit ?? null,
+    cacheMiss: ctx.cacheMiss ?? null,
+    totalPrompt: ctx.totalPrompt ?? null,
+    err: ctx.error || null,
+  })
 }
 
 // Pretty console helpers
