@@ -102,7 +102,8 @@ function createGuardGate(config = {}) {
     if (tool === 'browser-navigate') {
       const host = extractHost(query)
       if (RESEARCH_HOSTS.has(host)) {
-        if (topic) {
+        // Unlock hanya kalau riset beneran (URL search dengan term), bukan homepage
+        if (topic && extractSearchTerm(query)) {
           researchDoneAt.set(topic, Date.now())
           if (researchDoneAt.size > 20) researchDoneAt.clear()
         }
