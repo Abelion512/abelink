@@ -17,6 +17,30 @@ const NO_QUERY_TOOLS = new Set([
   'list-windows', 'screenshot', 'finish', 'stop', 'done'
 ])
 
+// --- Marketplace research gate (deterministic ordering: RISET → VERIFIKASI → EKSEKUSI) ---
+// Model (terutama yg kecil) sering skip fase identifikasi & langsung browser-navigate ke
+// marketplace. Gate ini memaksa: search marketplace ditolak sampai riset via search engine
+// terjadi untuk topik tsb. Deep-link produk eksplisit (bukan /search) tetap diizinkan.
+const MARKETPLACE_HOSTS = new Set(['tokopedia.com', 'shopee.co.id', 'shopee.com', 'lazada.co.id', 'bukalapak.com', 'blibli.com'])
+const RESEARCH_HOSTS = new Set(['google.com', 'google.co.id', 'duckduckgo.com', 'bing.com'])
+const RESEARCH_TTL_MS = 30 * 60 * 1000 // unlock riset valid 30 menit per topik
+
+function extractHost (url) {
+  try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' }
+}
+
+function isMarketplaceSearchUrl (url) {
+  const u = url.toLowerCase()
+  return u.includes('search') || u.includes('keyword=') || u.includes('/catalog')
+}
+
+function extractSearchTerm (url) {
+  try {
+    const u = new URL(url)
+    return u.searchParams.get('q') || u.searchParams.get('keyword') || u.searchParams.get('query') || ''
+  } catch { return '' }
+}
+
 function createGuardGate(config = {}) {
   const cfg = { ...DEFAULTS, ...config }
   let state = STATE.CLOSED
@@ -24,6 +48,7 @@ function createGuardGate(config = {}) {
   let lastFailureTime = 0
   let consecutiveToolTimeouts = 0
   let consecutiveInvalidJson = 0
+  const researchDoneAt = new Map() // topic → timestamp riset terakhir
 
   function getStatus() {
     return { state, failureCount, consecutiveToolTimeouts, consecutiveInvalidJson }
@@ -44,7 +69,7 @@ function createGuardGate(config = {}) {
     lastFailureTime = Date.now()
   }
 
-  function preFlightCheck(tool, query) {
+  function preFlightCheck(tool, query, topic = '') {
     if (state === STATE.OPEN) {
       const elapsed = Date.now() - lastFailureTime
       if (elapsed > cfg.recoveryTimeout) {
@@ -71,6 +96,30 @@ function createGuardGate(config = {}) {
 
     if (typeof query !== 'string' || query.trim().length === 0) {
       return { allowed: false, degrade: false, reason: `Empty query for tool ${tool}` }
+    }
+
+    // --- Marketplace research gate ---
+    if (tool === 'browser-navigate') {
+      const host = extractHost(query)
+      if (RESEARCH_HOSTS.has(host)) {
+        if (topic) {
+          researchDoneAt.set(topic, Date.now())
+          if (researchDoneAt.size > 20) researchDoneAt.clear()
+        }
+        return { allowed: true, degrade: false, reason: null }
+      }
+      if (MARKETPLACE_HOSTS.has(host) && isMarketplaceSearchUrl(query)) {
+        const doneAt = researchDoneAt.get(topic)
+        const unlocked = doneAt && (Date.now() - doneAt) < RESEARCH_TTL_MS
+        if (!unlocked) {
+          const term = extractSearchTerm(query)
+          return {
+            allowed: false,
+            degrade: false,
+            reason: `Marketplace search dikunci sampai riset selesai. Buka google.com/search?q=${encodeURIComponent(term || 'produk')} → browser-read scan hasil → present kandidat ke user → TUNGGU pilihan user. Setelah verifikasi, baru buka marketplace.`
+          }
+        }
+      }
     }
 
     return { allowed: true, degrade: false, reason: null }

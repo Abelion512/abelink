@@ -17,14 +17,17 @@ export async function executeNativeTool(ctx) {
   const { tool, query, guard, options, loopMessages, decision, failureCounters, requestApproval, config, isAutonomous, abortControllerRef } = ctx
 
   // --- GUARD: pre-flight check ---
-  const preFlight = guard.preFlightCheck(tool, query)
+  const preFlight = guard.preFlightCheck(tool, query, decision?.active_topic || '')
   if (!preFlight.allowed) {
+    const reason = `[${preFlight.degrade ? 'DEGRADED' : 'ERROR'}] Guard rejected: ${preFlight.reason}`
+    loopMessages.push(
+      { role: 'assistant', content: JSON.stringify({ thought: decision?.thought, action: decision?.action }) },
+      { role: 'user', content: `[OBSERVATION] ${reason}` }
+    )
     if (preFlight.degrade) {
       options.disableTools = true
-      return { status: 'observation', value: `[DEGRADED] ${preFlight.reason}` }
-    } else {
-      return { status: 'observation', value: `[ERROR] Guard rejected: ${preFlight.reason}` }
     }
+    return { status: 'observation', value: reason }
   }
 
   // --- NATIVE TOOLS (Built-in) ---

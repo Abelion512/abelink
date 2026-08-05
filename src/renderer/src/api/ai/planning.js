@@ -201,9 +201,10 @@ export const getNextAction = async (
       relevantPlugins.length > 0
         ? relevantPlugins
             .sort((a, b) => a.name.localeCompare(b.name))
+            .slice(0, 10) // Max 10 plugins in system prompt
             .map(
               (a) =>
-                `- ${a.name}: ${a.description}${a.triggerHint ? ` (Use when: ${a.triggerHint})` : ''}`
+                `- ${a.name}: ${(a.description || '').substring(0, 200)}${a.triggerHint ? ` (Use when: ${a.triggerHint})` : ''}`
             )
             .join('\n')
         : ''
@@ -255,13 +256,24 @@ export const getNextAction = async (
       }
       // Sort by name for deterministic system prompt (cache-friendly)
       matchedSkills.sort((a, b) => a.s.name.localeCompare(b.s.name))
-      for (const { s, safeContent, safe, warnings } of matchedSkills) {
+      // Cap skill content: max 3 skills, each truncated to 2000 chars
+      // Uncapped SKILL.md injection was the #1 cause of 200K system prompts.
+      const MAX_SKILLS = 3
+      const MAX_SKILL_CHARS = 2000
+      const cappedSkills = matchedSkills.slice(0, MAX_SKILLS)
+      if (matchedSkills.length > MAX_SKILLS) {
+        console.debug(`[planning] Skills capped: ${matchedSkills.length} matched → ${MAX_SKILLS} injected`)
+      }
+      for (const { s, safeContent, safe, warnings } of cappedSkills) {
         const trustMark = s.signatureStatus === 'manifest-verified' || s.signatureStatus === 'signed-verified'
           ? '✓'
           : s.signatureStatus === 'unsigned' ? '' : '⚠'
         const originBadge = `[${s.origin}${trustMark}]`
         const riskNote = !safe ? `\n<!-- ⚠️ CONTENT FLAGGED: ${warnings.join('; ')} -->\n` : ''
-        relevantSkillContent += `\n# SKILL: ${originBadge} ${s.name} (${s.description})${riskNote}\n${safeContent}\n`
+        const capped = safeContent.length > MAX_SKILL_CHARS
+          ? safeContent.substring(0, MAX_SKILL_CHARS) + '\n…[SKILL TRUNCATED]…'
+          : safeContent
+        relevantSkillContent += `\n# SKILL: ${originBadge} ${s.name} (${s.description})${riskNote}\n${capped}\n`
       }
     }
 
@@ -336,6 +348,15 @@ ${relevantSkillContent ? `\n${relevantSkillContent}` : ''}
 
 # ATURAN TOOL
 - memory-search dulu, DILARANG tanya user sebelum cari memory.
+${activeCategories.some((c) => ['search', 'casual', 'browser'].includes(c)) ? `
+# PROTOKOL BELI/CARI PRODUK (marketplace, buku, barang)
+1. IDENTIFIKASI: browser-navigate ke google.com/search?q=NAMA+PRODUK+KONTEKS (novel/ISBN/penerbit) → browser-read scan hasil → tentukan judul/varian asli. Produk dirujuk dari video/lagu → cek deskripsi/transkrip sumber DULU via yt-summary (sering ada judul buku asli/true story). Hasil tidak relevan → refine query (max 2x). Google gagal/captcha → coba duckduckgo.com/html/?q=... Produk tidak jelas dari user → TANYA dulu, jangan navigate. Marketplace search DIKUNCI sampai riset selesai (guard gate).
+2. VERIFIKASI: user belum sebut identitas PASTI produk → isi "answer" berisi kandidat (judul + sumber terpercaya: penerbit/Gramedia/Goodreads, cross-check ≥2 sumber) → TUNGGU user pilih. User "gatau/cariin aja" → pilih paling kanonik.
+3. EKSEKUSI: browser-navigate ke marketplace dgn JUDUL TERVERIFIKASI. Hijau (Tokopedia) dulu, orange (Shopee) kedua. Pilihan kosong/stok habis → cari varian/alternatif terdekat, lapor.
+4. LAPOR: browser-close setelah dapat info. Rangkum (judul/harga/link). Eksekusi gagal → TETAP lapor judul terverifikasi, user bisa cari manual.
+- Hanya klik link sumber terpercaya (penerbit, marketplace resmi, Gramedia, Goodreads). Jangan sembarang link hasil pencarian.
+- Tool gagal ≥3x berturut-turut → STOP, lapor user. JANGAN retry loop.
+` : ''}
 - browser-close: tutup SEGERA setelah dapat info (kecuali tracking).
 - delete-file: QUARANTINE dulu, jangan permanent delete.
 - run-cli: Format "command||cwd||timeout". Untuk Claude Code, Hermes, git, npm.
@@ -377,7 +398,7 @@ ${options.currentMusicTrack ? `[MUSIK REAL-TIME: "${options.currentMusicTrack.ti
 "active_topic" = ringkasan topik. ${activeTopic ? `Topik sblmnya: "${activeTopic}". PERTAHANKAN jika masih relevan!` : `Jangan ubah topik khusus.`}
 ${contextMsg ? `\n# KONTEKS SAAT INI\n${contextMsg}\nPENTING: Kamu punya akses eksekusi tool di PC host!` : ''}
 
-${memories.length > 0 ? `\n# MEMORY USER\n${memories.map((m) => `- [${m.type.toUpperCase()}] (ID:${m.id}) ${m.memory}`).join('\n')}\nReferensi di atas; perhatikan ID untuk UPDATE/DELETE.` : ''}
+${memories.length > 0 ? `\n# MEMORY USER\n${memories.slice(0, 15).map((m) => { const mem = String(m.memory || ''); const clipped = mem.length > 300 ? mem.substring(0, 300) + '…' : mem; return `- [${m.type.toUpperCase()}] (ID:${m.id}) ${clipped}` }).join('\n')}\nReferensi di atas; perhatikan ID untuk UPDATE/DELETE.` : ''}
 # ATURAN MEMORY
 1. "profile"/"preference": deteksi & simpan PROAKTIF dari percakapan, tanpa diminta.
 2. "notes": HANYA jika user eksplisit minta mencatat/mengingat.
@@ -393,25 +414,56 @@ ${
 
 ${
   archives.length > 0
-    ? `\n# ARSIP OBROLAN LAMA\n${archives.map((a) => `[${getCurrentTimeInfo(new Date(a.timestamp))}] ${a.summary}`).join('\n')}\nGunakan jika user merujuk obrolan/kejadian masa lalu.`
+    ? `\n# ARSIP OBROLAN LAMA\n${archives.slice(0, 3).map((a) => {
+        const ts = getCurrentTimeInfo(new Date(a.timestamp))
+        const s = String(a.summary || '')
+        const summary = s.length > 600 ? s.substring(0, 600) + '…' : s
+        return `[${ts}] ${summary}`
+      }).join('\n')}\nGunakan jika user merujuk obrolan/kejadian masa lalu.`
     : ''
 }
 
 ${
   documents.length > 0
-    ? `\n# REFERENSI DOKUMEN (RAG)\n${documents.map((d) => `[${d.docName}] ${d.content}`).join('\n---\n')}\nPertanyaan terkait dokumen → jawab langsung dari dokumen, tanpa "browser-navigate". Jangan mengarang di luar dokumen!`
+    ? `\n# REFERENSI DOKUMEN (RAG)\n${documents.slice(0, 3).map((d) => {
+        const content = String(d.content || '')
+        // Cap per-doc: head 800 + tail 300. Full RAG chunks explode context (148K chars seen in B test).
+        const clipped = content.length > 1100 ? content.substring(0, 800) + '\n…[TRUNCATED]…\n' + content.slice(-300) : content
+        return `[${d.docName}] ${clipped}`
+      }).join('\n---\n')}\nPertanyaan terkait dokumen → jawab langsung dari dokumen, tanpa "browser-navigate". Jangan mengarang di luar dokumen!`
     : ''
 }${
   oramaMemories.length > 0
-    ? `\n# MEMORY INDEX (Orama)\n${oramaMemories.map((m) => `[${m.type.toUpperCase()}] ${m.memory}`).join('\n---\n')}\nReferensi tambahan jika relevan.`
+    ? `\n# MEMORY INDEX (Orama)\n${oramaMemories.slice(0, 8).map((m) => {
+        const mem = String(m.memory || '')
+        const clipped = mem.length > 400 ? mem.substring(0, 400) + '…' : mem
+        return `[${m.type.toUpperCase()}] ${clipped}`
+      }).join('\n---\n')}\nReferensi tambahan jika relevan.`
     : ''
 }`
       .replace(/\n{3,}/g, '\n\n')
       .trim()
 
     // TRUNCATE HISTORY & INJECT MOOD: Potong teks panjang di histori supaya nggak bikin Groq kena Rate Limit (Token Kegedean)
+    // Layer 1 — TOOL-RESULT CLEARING (ATM Anthropic Context Editing: clear_tool_uses)
+    // Ref: Anthropic "Effective context engineering" — "clearing old tool results
+    // is the lowest-hanging fruit for compaction." Safest, lightest-touch form.
+    // Ref: Hermes Agent proactive_prune_tokens — deterministic, no-LLM.
+    // Keep last N observations in full; older ones → placeholder preserving tool name.
+    const OBSERVATION_KEEP_LAST = (conf.clearingMode || 'optimized') === 'full' ? 9999 : 4
     const prepareHistory = (session, maxLength = conf.aiProvider === 'custom' ? 128000 : 4000) => {
-      return session.map((msg) => {
+      // Pre-scan: identify which observation indices to keep in full
+      const keepFull = new Set()
+      let obsCount = 0
+      for (let i = session.length - 1; i >= 0; i--) {
+        const c = typeof session[i].content === 'string' ? session[i].content : ''
+        if (c.startsWith('[OBSERVATION]') || c.startsWith('[ERROR]')) {
+          obsCount++
+          if (obsCount <= OBSERVATION_KEEP_LAST) keepFull.add(i)
+        }
+      }
+
+      return session.map((msg, idx) => {
         // Support for Vision API (array of objects)
         if (Array.isArray(msg.content)) {
           return {
@@ -421,6 +473,27 @@ ${
         }
 
         let contentStr = String(msg.content || '')
+
+        // Layer 1a: clear old [OBSERVATION]/[ERROR] with placeholders
+        if ((contentStr.startsWith('[OBSERVATION]') || contentStr.startsWith('[ERROR]')) && !keepFull.has(idx)) {
+          const toolMatch = contentStr.match(/tool "([^"]+)"/)
+          const toolName = toolMatch ? toolMatch[1] : 'unknown'
+          return {
+            role: msg.role === 'ai' ? 'assistant' : msg.role,
+            content: `[OBSERVATION] Tool "${toolName}" executed. Result cleared to save context.`
+          }
+        }
+
+        // Layer 1b: truncate large messages (AI answers containing raw tool results)
+        // Anthropic: "Context must be treated as finite resource with diminishing returns"
+        // AI answers with inline tool data (YouTube lists, file reads) bypass [OBSERVATION] clearing.
+        // Cap at 1500 chars — head 500 + tail 500 + truncation notice.
+        const LARGE_MSG_THRESHOLD = 1500
+        if (contentStr.length > LARGE_MSG_THRESHOLD && !keepFull.has(idx)) {
+          const head = contentStr.substring(0, 500)
+          const tail = contentStr.slice(-500)
+          contentStr = head + '\n...[TRUNCATED — too large for context]...\n' + tail
+        }
 
         if (msg.timestamp) {
           contentStr = `[Waktu: ${msg.timestamp}] ${contentStr}`
@@ -453,13 +526,25 @@ ${
 
     const previousTurns = loopMessages.length > 0 ? prepareHistory(loopMessages) : []
 
-    // Compress history (Hermes-style) before building messages.
-    // Window per provider: custom (9Router/local) = 128K, hosted (Groq dkk) = 32K.
+    // DEBUG: log message sizes after clearing
+    if (import.meta.env.DEV) {
+      let totalPreClear = 0, totalPostClear = 0
+      for (const m of loopMessages) totalPreClear += (m.content?.length || 0)
+      for (const m of previousTurns) totalPostClear += (m.content?.length || 0)
+      console.debug(`[prepareHistory] ${loopMessages.length} msgs: ${totalPreClear} chars → ${previousTurns.length} msgs: ${totalPostClear} chars after clearing`)
+      console.debug(`[systemPrompt] ${systemPrompt.length} chars, ~${Math.round(systemPrompt.length / 2.5)} est tokens`)
+    }
+
+    // Layer 2 — COMPACTION (ATM Hermes Agent default threshold: 0.50)
+    // Anthropic default compaction trigger: 150,000 tokens on 1M window (14.6%).
+    // Hermes default: 0.50 (50% of context window).
+    // "Context rot" degrades recall as tokens grow — compact early, not late.
+    // Window: 128K (custom/9Router) / 32K (hosted/Groq). NOT 1M — client can't detect model window.
     const windowTokens = conf.aiProvider === 'custom' ? 128000 : 32000
-    const perTurnCompressor = createCompressor({ maxTokens: windowTokens, threshold: 0.45, targetRatio: 0.2, protectLastN: 8 })
+    const perTurnCompressor = createCompressor({ maxTokens: windowTokens, threshold: 0.50, targetRatio: 0.3, protectLastN: 8 })
     const compressedTurns = perTurnCompressor.compress(previousTurns)
 
-    const messages = [{ role: 'system', content: systemPrompt }, ...compressedTurns]
+    let messages = [{ role: 'system', content: systemPrompt }, ...compressedTurns]
     // ---- AUTO-LEARN hint (Level 2): model-specific instruction dari observasi ----
     // Dipicu oleh applyLearnedHints() di ai-bridge (>=10 sample, jsonReliability<0.7 dsb).
     // Prinsip: Thinking:Auto = default; ubah hanya kalau ada bukti masalah.
