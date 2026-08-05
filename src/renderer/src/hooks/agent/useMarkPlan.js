@@ -385,6 +385,30 @@ let hardStopped = false
           break
         }
 
+        // IN-LOOP OBSERVATION CLEARING (ATM Anthropic Context Editing)
+        // Prevents token accumulation within a single agentic turn.
+        // Keeps last 2 observations in full; older ones → placeholder.
+        // Anthropic: "Once a tool has been called deep in the message history,
+        // the agent rarely needs to see the raw result again"
+        {
+          const OBS_KEEP = 2
+          const obsPositions = []
+          for (let i = 0; i < loopMessages.length; i++) {
+            const c = typeof loopMessages[i].content === 'string' ? loopMessages[i].content : ''
+            if (c.startsWith('[OBSERVATION]') || c.startsWith('[ERROR]')) {
+              obsPositions.push(i)
+            }
+          }
+          const toRemove = obsPositions.length - OBS_KEEP
+          for (let i = 0; i < toRemove; i++) {
+            const idx = obsPositions[i]
+            const c = loopMessages[idx].content
+            const toolMatch = c.match(/tool "([^"]+)"/)
+            const toolName = toolMatch ? toolMatch[1] : 'unknown'
+            loopMessages[idx].content = `[OBSERVATION] Tool "${toolName}" executed. Result cleared.`
+          }
+        }
+
         // --- Update UI: Tampilkan step ke berapa ---
         scheduleThinkingUpdate((isAutonomous && autonomousInitialMessage) ? autonomousInitialMessage : 'Bentar, mikir dlu...')
 
@@ -529,6 +553,8 @@ let hardStopped = false
               isMemoryDeleted: decision.memory?.action === 'delete',
               pluginExecution: lastToolExecution,
               isProactive: isAutonomous,
+              options: decision.options || null,
+              optionsDefault: decision.options_default ?? null,
               timestamp: getCurrentTimeInfo()
             }
             if (allSources.length > 0) {

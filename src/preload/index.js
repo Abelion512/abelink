@@ -163,6 +163,7 @@ const api = {
   ytGetUrl: () => ipcRenderer.invoke('yt:get-url'),
   ytClose: () => ipcRenderer.invoke('yt:close'),
   ytCommand: (command) => ipcRenderer.invoke('yt:command', command),
+  ytGetDuration: () => ipcRenderer.invoke('yt:get-duration'),
   onYtTrackUpdated: (callback) => {
     ipcRenderer.removeAllListeners('yt:track-updated')
     ipcRenderer.on('yt:track-updated', (_event, track) => callback(track))

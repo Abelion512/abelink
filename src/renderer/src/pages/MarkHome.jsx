@@ -115,14 +115,17 @@ const MarkHome = () => {
           setCurrentResponse({
             text: lastItem.content,
             type:
-              lastItem.content?.length > 1200 ? 'long' : 'short',
+              lastItem.content?.length > 600 ? 'long' : 'short',
             reasoning: lastItem.reasoning || null,
             sources: lastItem.sources || [],
             youtubeData: lastItem.youtubeData,
             youtubeSummary: lastItem.youtubeLink,
             pluginResult: lastItem.pluginExecution,
             isProactive: lastItem.isProactive,
-            mood: lastItem.mood
+            mood: lastItem.mood,
+            options: lastItem.options || null,
+            optionsDefault: lastItem.optionsDefault ?? null,
+            onPick: handleOptionPick
           })
 
           // Trigger holographic beam (speaking animation) to project the text
@@ -164,6 +167,17 @@ const MarkHome = () => {
     }
     setMessage('') // Clear local input
     // stay in chat mode after submit
+    setActiveMode('chat')
+  }
+
+  // Pilihan dari OptionsPicker — kirim langsung via inputText (hindari stale state message)
+  const handleOptionPick = (label) => {
+    const text = `Pilih: ${label}`
+    if (chatContext.handleSubmit) {
+      chatContext.handleSubmit(null, text)
+    } else {
+      handlePlanningCommand(text)
+    }
     setActiveMode('chat')
   }
 
@@ -220,9 +234,9 @@ const MarkHome = () => {
             </div>
           )}
 
-          {/* Answer — no boundaries, natural flow */}
+          {/* Answer — no boundaries, natural flow; max-h cegah overflow ke tombol */}
           {currentResponse && (
-            <div className="w-full animate-[fade-up_0.4s_ease-out_forwards]">
+            <div className="w-full max-h-[45vh] overflow-y-auto no-scrollbar animate-[fade-up_0.4s_ease-out_forwards]">
               <ResponseArea currentResponse={currentResponse} />
             </div>
           )}

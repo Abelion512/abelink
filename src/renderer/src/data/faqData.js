@@ -198,5 +198,21 @@ export const faqs = [
   {
     q: "Apa visi jangka panjang diciptakannya Mark?",
     a: "Menciptakan asisten yang mengerti Anda lebih dari siapa pun, dan mampu menjadi sahabat sekaligus rekan kerja virtual seumur hidup."
+  },
+  {
+    q: "Kenapa iklan YouTube kadang masih muncul sekilas?",
+    a: "Mark menggunakan 4 lapisan ad blocking (CSS, MutationObserver, SABR patch, enforcement dismiss). Tapi YouTube terus mengubah class name dan metode delivery iklannya. Jika iklan muncul kembali, Mark perlu update selector CSS-nya. Iklan SSAI (Server-Side Ad Insertion) di live stream juga tidak bisa diblokir dari sisi client."
+  },
+  {
+    q: "Apakah ad blocking Mark mengganggu Last.fm Scrobbling?",
+    a: "Tidak! Ad blocking hanya menyembunyikan elemen iklan dan mempercepat playback iklan. Metadata lagu (judul + artis) tetap terbaca dari halaman YouTube dan dikirim ke Last.fm secara normal."
+  },
+  {
+    q: "Bagaimana cara setup Last.fm di Mark?",
+    a: "Buka halaman Configuration, masukkan API Key dan Secret Last.fm Anda. Mark akan membuat session key secara otomatis (auto-login). Setelah itu, setiap lagu yang diputar di YouTube player akan otomatis di-scrobble ke akun Last.fm Anda."
+  },
+  {
+    q: "Apakah ad blocking Mark bekerja jika saya pakai Cloudflare WARP?",
+    a: "Ya! Ad blocking Mark beroperasi di layer aplikasi (Electron webRequest hooks), bukan di layer jaringan OS. Jadi warp-cli Cloudflare tidak mengganggu fungsinya. Malah bisa double protection kalau Anda aktifkan '1.1.1.1 for Families' mode."
   }
 ];

@@ -351,7 +351,7 @@ ${relevantSkillContent ? `\n${relevantSkillContent}` : ''}
 ${activeCategories.some((c) => ['search', 'casual', 'browser'].includes(c)) ? `
 # PROTOKOL BELI/CARI PRODUK (marketplace, buku, barang)
 1. IDENTIFIKASI: browser-navigate ke google.com/search?q=NAMA+PRODUK+KONTEKS (novel/ISBN/penerbit) → browser-read scan hasil → tentukan judul/varian asli. Produk dirujuk dari video/lagu → cek deskripsi/transkrip sumber DULU via yt-summary (sering ada judul buku asli/true story). Hasil tidak relevan → refine query (max 2x). Google gagal/captcha → coba duckduckgo.com/html/?q=... Produk tidak jelas dari user → TANYA dulu, jangan navigate. Marketplace search DIKUNCI sampai riset selesai (guard gate).
-2. VERIFIKASI: user belum sebut identitas PASTI produk → isi "answer" berisi kandidat (judul + sumber terpercaya: penerbit/Gramedia/Goodreads, cross-check ≥2 sumber) → TUNGGU user pilih. User "gatau/cariin aja" → pilih paling kanonik.
+2. VERIFIKASI: user belum sebut identitas PASTI produk → isi "options" (max 5 chips: label = judul/varian singkat, value = detail sumber) + "answer" berisi kandidat (judul + sumber terpercaya: penerbit/Gramedia/Goodreads, cross-check ≥2 sumber) → action HARUS null → TUNGGU user pilih (chips muncul otomatis; user klik atau timeout auto-pick). User "gatau/cariin aja" → jangan pakai options, pilih paling kanonik langsung. Request sudah jelas (judul/ISBN/varian spesifik) → JANGAN pakai options, langsung eksekusi. Options HANYA saat maksud user benar-benar ambigu — jangan dipukul rata untuk semua prompt.
 3. EKSEKUSI: browser-navigate ke marketplace dgn JUDUL TERVERIFIKASI. Hijau (Tokopedia) dulu, orange (Shopee) kedua. Pilihan kosong/stok habis → cari varian/alternatif terdekat, lapor.
 4. LAPOR: browser-close setelah dapat info. Rangkum (judul/harga/link). Eksekusi gagal → TETAP lapor judul terverifikasi, user bisa cari manual.
 - Hanya klik link sumber terpercaya (penerbit, marketplace resmi, Gramedia, Goodreads). Jangan sembarang link hasil pencarian.
@@ -656,6 +656,23 @@ ${
           },
           required: ['type', 'summary', 'memory', 'action'],
           additionalProperties: false
+        },
+        options: {
+          type: ['array', 'null'],
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string', description: 'Label yang ditampilkan ke user' },
+              value: { type: 'string', description: 'Detail/nilai pilihan' }
+            },
+            required: ['label', 'value'],
+            additionalProperties: false
+          },
+          description: 'Pilihan untuk user (chips klik). HANYA saat ambigu/multi-kandidat — max 5. Request jelas → null.'
+        },
+        options_default: {
+          type: ['integer', 'null'],
+          description: 'Index options yang jadi default saat user tidak memilih (timeout auto-pick)'
         }
       },
       required: ['thought', 'action', 'answer', 'mood', 'active_topic', 'memory'],
@@ -728,7 +745,9 @@ ${
           answer: data.answer,
           memory: data.memory,
           mood: data.mood || 'neutral',
-          active_topic: data.active_topic || activeTopic
+          active_topic: data.active_topic || activeTopic,
+          options: data.options || null,
+          options_default: Number.isInteger(data.options_default) ? data.options_default : null
         }
       }
 

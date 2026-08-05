@@ -202,12 +202,18 @@ export async function insertDocumentChunksToOrama(chunks) {
 }
 
 export async function deleteArchiveFromOrama(dexieId) {
-  if (!archiveIndex) return
-  // Orama requires internal ID for deletion. We can search by dexieId first if needed.
-  // A simpler way for a small DB is to just search exactly for that dexieId.
-  const res = await search(archiveIndex, { term: dexieId.toString(), properties: ['dexieId'], exact: true })
-  if (res.hits.length > 0) {
-     await remove(archiveIndex, res.hits[0].id)
+  if (!archiveIndex || !dexieId) return
+  try {
+    // Same fix as deleteMemoryFromOrama: 'dexieId' is 'number', not searchable
+    // via fullTextSearch properties. Use `where` filter instead.
+    const res = await search(archiveIndex, { term: '', where: { dexieId: dexieId } })
+    if (res.hits.length > 0) {
+      for (let h of res.hits) {
+        await remove(archiveIndex, h.id)
+      }
+    }
+  } catch (err) {
+    console.error('[Orama] Error deleteArchiveFromOrama:', err)
   }
 }
 
@@ -268,7 +274,14 @@ export async function updateMemoryInOrama(dexieId, data) {
 export async function deleteMemoryFromOrama(dexieId) {
   if (!memoryIndex || !dexieId) return
   try {
-    const res = await search(memoryIndex, { term: dexieId.toString(), properties: ['dexieId'], exact: true })
+    // Orama v3: `search` auto-derives `properties` from `where` fields.
+    // `dexieId` is 'number' (not in fulltext index) → throws INVALID_PROPERTY.
+    // Fix: explicitly pass string-only properties so Orama doesn't auto-include dexieId.
+    const res = await search(memoryIndex, {
+      term: '',
+      properties: ['type', 'summary', 'memory'],
+      where: { dexieId: { eq: dexieId } }
+    })
     if (res.hits.length > 0) {
       for (let h of res.hits) {
         await remove(memoryIndex, h.id)

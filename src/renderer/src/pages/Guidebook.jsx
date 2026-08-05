@@ -24,7 +24,8 @@ import {
   FaHeartbeat,
   FaCamera,
   FaMicrophoneAlt,
-  FaWhatsapp
+  FaWhatsapp,
+  FaShieldAlt
 } from 'react-icons/fa'
 import { faqs } from '../data/faqData'
 
@@ -110,13 +111,14 @@ const Guidebook = () => {
     { id: 'carakerja', label: 'Cara Kerja', icon: <FaCogs /> },
     { id: 'tools', label: 'Fitur & Tools Bawaan', icon: <FaTerminal /> },
     { id: 'awareness', label: 'Mata & Kesadaran', icon: <FaEye /> },
-    { id: 'emosi', label: 'Emosi & Pertumbuhan', icon: <FaHeartbeat /> }, // Note: Assuming FaHeartbeat was meant for emotion or we use FaBrain/FaComments
+    { id: 'emosi', label: 'Emosi & Pertumbuhan', icon: <FaHeartbeat /> },
     { id: 'plugin', label: 'Sistem Plugin Kustom', icon: <FaFolderOpen /> },
+    { id: 'adblock', label: 'Ad Blocking & Privasi', icon: <FaExclamationTriangle /> },
     { id: 'tips', label: 'Pertanyaan', icon: <FaLightbulb /> }
   ]
 
   // Fix Icon (FaHeartbeat not imported above, I will use FaBrain)
-  navItems[4].icon = <FaBrain />
+  navItems[4].icon = <FaHeartbeat />
 
   return (
     <div className="h-full w-full bg-base-300 text-base-content flex flex-col relative overflow-hidden">
@@ -522,7 +524,7 @@ const Guidebook = () => {
                   <div className="space-y-3">
                     <ToolCard
                       name="run-shell"
-                      description="Menjalankan perintah shell (PowerShell di Windows, Bash di Linux)."
+                      description="Menjalankan perintah shell (Bash/Zsh di Linux)."
                       needsPermission={true}
                       queryFormat="Perintah mentah (misal: npm install, ls, ping)"
                       howItWorks="Mark akan mengetikkan perintah ini ke terminal sistem. Perintah berbahaya (seperti rm, shutdown) wajib di-acc."
@@ -922,7 +924,78 @@ try {
               </div>
             </section>
 
-            {/* Section 7: FAQ */}
+            {/* Section 7: Ad Blocking & Privasi */}
+            <section
+              id="adblock"
+              className={
+                activeSection === 'adblock' ? 'block animate-[fade-in_0.3s_ease-out]' : 'hidden'
+              }
+            >
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-warning/10 border border-warning/20 text-warning text-xs font-bold mb-6">
+                <FaShieldAlt /> PRIVASI
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-6">Ad Blocking & Privasi</h2>
+              <p className="text-white/70 mb-8 text-lg">
+                Mark dilengkapi sistem <strong className="text-white">4-Layer Ad Blocking</strong> yang memblokir iklan YouTube secara otomatis — tanpa perlu ekstensi tambahan.
+              </p>
+
+              <div className="bg-black/20 border border-white/5 rounded-3xl p-8 mb-8">
+                <h3 className="text-xl font-bold text-white mb-6">4 Lapisan Pertahanan</h3>
+                <div className="space-y-4">
+                  <FlowStep number="1" title="CSS Cosmetic Hiding" description="150+ selector CSS menyembunyikan container iklan, overlay, sidebar ads, dan premium promosi secara instan." />
+                  <FlowStep number="2" title="MutationObserver + Auto-Skip" description="Mendeteksi perubahan DOM secara real-time. Otomatis klik tombol skip, speed-up iklan ke 16x, dan seek ke akhir." />
+                  <FlowStep number="3" title="SABR Backoff Patch" description="Mengintercept fetch() untuk menghilangkan backoffTimeMs — YouTube tidak bisa menahan player untuk menunggu durasi iklan." />
+                  <FlowStep number="4" title="Enforcement Dismiss" description="Otomatis menghapus popup 'ad blocker detected' agar YouTube tidak memblokir playback." isLast={true} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                  <h4 className="text-white font-bold mb-2">YouTube Page (Bukan Audio Saja)</h4>
+                  <p className="text-sm text-white/60">
+                    Mark memuat halaman YouTube penuh — bukan hanya audio. Ini penting untuk <strong className="text-white">Last.fm Scrobbling</strong>, metadata lagu, dan browsing manual.
+                  </p>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                  <h4 className="text-white font-bold mb-2">Cloudflare WARP Compatible</h4>
+                  <p className="text-sm text-white/60">
+                    Jika Anda menggunakan <code>warp-cli</code> untuk traffic DNS, ad blocking tetap berfungsi. <code>webRequest</code> hooks beroperasi di atas layer jaringan OS.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-success/5 border border-success/20 rounded-2xl p-6 mb-8">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <FaMusic className="text-info" /> Last.fm Scrobbling
+                </h3>
+                <p className="text-white/70 mb-4">
+                  Mark bisa mengirim lagu yang sedang diputar ke <strong className="text-white">Last.fm</strong> secara otomatis. Setiap kali lagu berubah di YouTube player, metadata (judul + artis) dikirim ke akun Last.fm Anda.
+                </p>
+                <ul className="space-y-2 text-white/80">
+                  <li className="flex items-start gap-2">
+                    <span className="text-success mt-1">•</span>
+                    <span>Setup di halaman <strong>Configuration</strong> → masukkan API Key dan Secret Last.fm</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-success mt-1">•</span>
+                    <span>Auto-login membuat session key secara otomatis</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-success mt-1">•</span>
+                    <span>Track metadata diekstrak dari <code>page-title-updated</code> event YouTube</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="bg-warning/5 border border-warning/20 rounded-xl p-4 flex items-start gap-4">
+                <FaExclamationTriangle className="text-warning mt-1 shrink-0" />
+                <p className="text-sm text-warning/80">
+                  <strong>Catatan:</strong> YouTube adalah target yang terus berubah. Jika iklan mulai muncul kembali, Mark perlu update selector CSS-nya. Beberapa iklan SSAI (Server-Side Ad Insertion) di live stream tidak bisa diblokir dari sisi client.
+                </p>
+              </div>
+            </section>
+
+            {/* Section 8: FAQ */}
             <section
               id="tips"
               className={

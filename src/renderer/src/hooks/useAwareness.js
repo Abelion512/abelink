@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { getAllMemory } from '../api/db'
 import { getRelevantMemory } from '../api/vectorMemory'
 import { getAwarenessResponse } from '../api/ai/awareness'
 
 const CHECKIN_INTERVAL = 10 * 60 * 1000
 const INITIAL_DELAY = 60 * 1000
+const AUTONOMOUS_COOLDOWN = 120 * 1000
 
 export const useAwareness = ({
   isLoading,
@@ -26,14 +27,27 @@ export const useAwareness = ({
   const lastCheckInRef = useRef(0)
   const bufferEmptyRef = useRef(false)
   const mountedRef = useRef(false)
+  const lastUserActivityRef = useRef(Date.now())
+  const prevChatLengthRef = useRef(0)
+  const lastAutonomousRef = useRef(0)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     chatDataRef.current = chatData
     configRef.current = config
     handlePlanningCommandRef.current = handlePlanningCommand
     currentMusicTrackRef.current = currentMusicTrack
     isLoadingRef.current = isLoading
     isAgentBusyRef.current = isAgentBusy
+
+    // Track user activity: if chatData length increased, a new message was added.
+    // Check if the latest message is from the user to update activity timestamp.
+    if (chatData.length > prevChatLengthRef.current) {
+      const latestMsg = chatData[chatData.length - 1]
+      if (latestMsg?.role === 'user') {
+        lastUserActivityRef.current = Date.now()
+      }
+    }
+    prevChatLengthRef.current = chatData.length
   }, [chatData, config, handlePlanningCommand, currentMusicTrack, isLoading, isAgentBusy])
 
   const isAwarenessEnabled = config?.[0]?.awarenessEnabled !== false
@@ -95,13 +109,28 @@ export const useAwareness = ({
         console.log('[useAwareness] AI Response:', result)
 
         if (result.should_act || result.autonomous_prompt) {
-          if (isLoadingRef.current) {
+          if (isLoadingRef.current || isAgentBusyRef.current) {
             console.log(
-              '[useAwareness] Skip triggering action karena Mark sedang sibuk (isLoading true)'
+              '[useAwareness] Skip triggering action karena Mark sedang sibuk'
             )
             return
           }
+          // Cooldown: don't trigger autonomous actions if user sent message in last 30s.
+          // Uses lastUserActivityRef (updated when chatData grows with a user message)
+          // because chatData messages don't have timestamp fields.
+          const timeSinceLastUserMsg = Date.now() - lastUserActivityRef.current
+          if (timeSinceLastUserMsg < 30000) {
+            console.log(`[useAwareness] Skip: user aktif ${Math.round(timeSinceLastUserMsg / 1000)}s yang lalu (< 30s cooldown)`)
+            return
+          }
+          // Post-autonomous cooldown: block for 2 min after last autonomous action
+          const sinceLastAuto = Date.now() - lastAutonomousRef.current
+          if (sinceLastAuto < AUTONOMOUS_COOLDOWN) {
+            console.log(`[useAwareness] Skip: autonomous cooldown ${Math.round((AUTONOMOUS_COOLDOWN - sinceLastAuto) / 1000)}s remaining`)
+            return
+          }
           console.log('[useAwareness] Triggering autonomous action!')
+          lastAutonomousRef.current = Date.now()
           // Push notification
           if (window.api.showNotification && !document.hasFocus() && result.message) {
             window.api.showNotification('Mark', result.message)

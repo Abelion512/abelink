@@ -13,8 +13,9 @@ const DEFAULTS = {
 }
 
 function estimateTokens(text) {
-  // Rough heuristic: 1 token ~= 4 chars for Indo/English mix
-  return Math.ceil((text || '').length / 3.5)
+  // Aligned with fetchAI's estimate: 1 token ~= 2.5 chars (Indo/English mix)
+  // Previous /3.5 underestimated, causing compressor to never fire.
+  return Math.ceil((text || '').length / 2.5)
 }
 
 export function createCompressor(config = {}) {
@@ -30,6 +31,9 @@ export function createCompressor(config = {}) {
     }, 0)
 
     const ratio = totalEst / cfg.maxTokens
+    if (import.meta.env.DEV) {
+      console.debug(`[Compressor] ${messages.length} msgs, ~${totalEst} est tokens, ratio=${ratio.toFixed(2)}, threshold=${cfg.threshold}, maxTokens=${cfg.maxTokens}, fire=${ratio > cfg.threshold}`)
+    }
     return ratio > cfg.threshold
   }
 

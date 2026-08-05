@@ -60,10 +60,14 @@ export async function injectSkillHints(messages) {
   const skills = await loadSkills()
   if (!skills.length) return messages
 
-  const hint = skills
-    .map(s => `• ${s.name}: ${s.description}`)
+  // Cap: max 15 skill hints (73 skills × ~150 chars = ~11K chars wasted)
+  const MAX_SKILL_HINTS = 15
+  const capped = skills.slice(0, MAX_SKILL_HINTS)
+  const hint = capped
+    .map(s => `• ${s.name}: ${(s.description || '').substring(0, 80)}`)
     .join('\n')
-  const block = `\n\n[Tersedia ${skills.length} skill:\n${hint}]`
+  const suffix = skills.length > MAX_SKILL_HINTS ? `\n…+${skills.length - MAX_SKILL_HINTS} lainnya` : ''
+  const block = `\n\n[Tersedia ${skills.length} skill:\n${hint}${suffix}]`
 
   const msgs = [...messages]
   for (let i = msgs.length - 1; i >= 0; i--) {

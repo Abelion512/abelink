@@ -9,6 +9,8 @@ Jika kamu TIDAK BISA menghasilkan JSON yang valid, gunakan format XML tags berik
 <thought>Alasan logika keputusanmu</thought>
 <action tool="nama-tool" query="parameter"> atau <action></action> (kosong jika tidak perlu tool)
 <answer>Jawaban untuk user</answer> atau <answer></answer>
+<options>[{"label":"Nama pilihan 1","value":"detail"}, ...]</options> atau <options></options> (HANYA saat ambigu/multi-kandidat, max 5)
+<options_default>0</options_default> atau <options_default></options_default> (index pilihan default untuk auto-pick)
 <mood>neutral</mood>
 <active_topic>Topik pembicaraan</active_topic>
 <memory type="notes">...</memory> atau <memory></memory>
@@ -46,6 +48,21 @@ function parseXml(text) {
     }
   }
 
+  let options = null
+  const optsTag = text.match(/<options>([\s\S]*?)<\/options>/i)
+  if (optsTag) {
+    try {
+      const parsed = JSON.parse(optsTag[1].trim())
+      if (Array.isArray(parsed) && parsed.every(o => o && typeof o.label === 'string')) options = parsed
+    } catch { options = null }
+  }
+  let optionsDefault = null
+  const defTag = text.match(/<options_default>([\s\S]*?)<\/options_default>/i)
+  if (defTag) {
+    const n = Number(defTag[1].trim())
+    if (Number.isInteger(n)) optionsDefault = n
+  }
+
   if (!thought && !action && !answer) return null
 
   return {
@@ -54,7 +71,9 @@ function parseXml(text) {
     answer: answer || null,
     mood: mood || 'neutral',
     active_topic: topic || '',
-    memory: memory || null
+    memory: memory || null,
+    options: options || null,
+    options_default: optionsDefault
   }
 }
 
@@ -68,6 +87,14 @@ function parseKeyValue(text) {
     const val = line.substring(sep + 1).trim()
     if (['thought', 'answer', 'mood', 'active_topic'].includes(key)) {
       result[key] = val === 'null' ? null : val
+    } else if (key === 'options') {
+      try {
+        const parsed = JSON.parse(val)
+        if (Array.isArray(parsed)) result.options = parsed
+      } catch { /* abaikan options invalid */ }
+    } else if (key === 'options_default') {
+      const n = Number(val)
+      if (Number.isInteger(n)) result.options_default = n
     } else if (key === 'action') {
       result.action = val === 'null' ? null : { tool: val }
     }

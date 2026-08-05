@@ -65,7 +65,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
         const cascadeX = sideIndex * 30;
         
         if (proc.type === 'planning') {
-          const { steps, currentStep } = proc.data;
+          const { steps, currentStep, reasoning } = proc.data;
           const isDone = proc.status === 'done';
           return (
             <div className="pointer-events-auto" key={proc.id}>
@@ -77,6 +77,17 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                 isVisible={!proc.isExiting}
               >
                 <div className="w-[320px] flex flex-col gap-2">
+                  {reasoning && (
+                    <details className="group">
+                      <summary className="text-[10px] cursor-pointer select-none flex items-center gap-1.5 opacity-50 hover:opacity-100 transition-opacity uppercase tracking-wider mb-2">
+                        <FaChevronRight className="group-open:rotate-90 transition-transform text-[8px]" />
+                        Proses Pemikiran
+                      </summary>
+                      <div className="text-[11px] opacity-60 border-l border-white/20 pl-2 mb-2 font-mono whitespace-pre-wrap">
+                        {reasoning}
+                      </div>
+                    </details>
+                  )}
                   {steps && steps.map((step, idx) => {
                     let prefix = idx + 1 + '.';
                     let opacity = 'opacity-50 text-white';
@@ -96,11 +107,11 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                         <div className="flex-1">
                           {typeof step === 'object' && step.query ? (
                             <details className="group/step outline-none">
-                              <summary className="cursor-pointer select-none flex items-center hover:opacity-80 outline-none list-none [&::-webkit-details-marker]:hidden px-1.5 py-0.5 rounded hover:bg-white/10 transition-colors group-open/step:bg-white/5">
-                                <FaChevronRight className="group-open/step:rotate-90 transition-transform text-[8px] mr-1.5 opacity-60 group-open/step:opacity-100" />
-                                <span className="group-open/step:font-semibold">{step.task}</span> {suffix}
+                              <summary className="cursor-pointer select-none flex items-center hover:opacity-80 outline-none list-none [&::-webkit-details-marker]:hidden">
+                                <FaChevronRight className="group-open/step:rotate-90 transition-transform text-[8px] mr-1 opacity-50" />
+                                {step.task} {suffix}
                               </summary>
-                              <div className="mt-1.5 pl-4 opacity-70 text-[9px] border-l-2 border-success/30 ml-[3px] mb-1.5 break-words font-sans bg-black/20 p-2 rounded-md">
+                              <div className="mt-1 pl-3 opacity-70 text-[9px] border-l border-white/20 ml-[3px] mb-1 break-words font-sans bg-black/20 p-1.5 rounded">
                                 {step.query}
                               </div>
                             </details>

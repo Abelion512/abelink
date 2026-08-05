@@ -83,11 +83,23 @@ export const YoutubeMusicProvider = ({ children }) => {
         // Update now playing on every track change
         if (track.title && track.artist) {
           try { window.api?.lastfmUpdateNowPlaying?.(track.title, track.artist) } catch {}
-          // Scrobble after 240s (Last.fm rule: >=4min or >=50% duration)
+          // Scrobble after 240s OR 50% of duration (whichever comes first)
           scrobbleStartRef.current = Math.floor(Date.now() / 1000)
-          scrobbleTimerRef.current = setTimeout(() => {
+          const scrobbleIt = () => {
             try { window.api?.lastfmScrobble?.(track.title, track.artist, scrobbleStartRef.current) } catch {}
-          }, 240_000)
+          }
+          // Ask main process for video duration, then pick min(240s, duration/2)
+          if (window.api?.ytGetDuration) {
+            window.api.ytGetDuration().then((dur) => {
+              const halfDur = dur > 0 ? Math.floor(dur / 2) : 240
+              const scrobbleTime = Math.min(240, halfDur)
+              scrobbleTimerRef.current = setTimeout(scrobbleIt, scrobbleTime * 1000)
+            }).catch(() => {
+              scrobbleTimerRef.current = setTimeout(scrobbleIt, 240_000)
+            })
+          } else {
+            scrobbleTimerRef.current = setTimeout(scrobbleIt, 240_000)
+          }
         }
       }
       window.api.onYtTrackUpdated(handler)

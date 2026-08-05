@@ -35,7 +35,7 @@ import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
 import { ElectronBlocker } from '@ghostery/adblocker-electron'
 import mammoth from 'mammoth'
 import { PDFParse } from 'pdf-parse'
-import { loadYouTube, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, sendKeyboardCommand, showAndNavigate } from './youtube-player.js'
+import { loadYouTube, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, sendKeyboardCommand, showAndNavigate, getDuration } from './youtube-player.js'
 import { buildCanonical, hashBody, signContent } from './agent-keyring.js'
 // Headless/SSH detection: disable GPU if no display server available (Linux)
 if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
@@ -724,6 +724,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('yt:get-url', () => getPlayerUrl())
   ipcMain.handle('yt:close', () => { closePlayer(); return { success: true } })
   ipcMain.handle('yt:command', (_e, command) => { sendKeyboardCommand(command); return { success: true } })
+  ipcMain.handle('yt:get-duration', async () => await getDuration())
 
   // ===== LINUX PC AGENT IPC =====
   ipcMain.handle('os:read', () => readDesktop())

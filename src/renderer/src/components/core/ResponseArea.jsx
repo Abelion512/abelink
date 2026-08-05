@@ -6,6 +6,7 @@ import rehypeExternalLinks from 'rehype-external-links'
 import HoloCard from './HoloCard'
 import { CodeBlock } from '../Chat/CodeBlock'
 import PluginExecutionBubble from '../Chat/PluginExecutionBubble'
+import OptionsPicker from './OptionsPicker'
 
 // Pure: splits a long answer into tldr (first line/first sentence) and the rest.
 export function splitLongAnswer(text) {
@@ -82,7 +83,7 @@ const ResponseArea = ({ currentResponse }) => {
 
   if (!displayResponse) return null
 
-  const { text, type, reasoning, sources, pluginResult, youtubeData, youtubeSummary, isProactive, mood } =
+  const { text, type, reasoning, sources, pluginResult, youtubeData, youtubeSummary, isProactive, mood, options, optionsDefault, onPick } =
     displayResponse
 
   const animationClass =
@@ -155,6 +156,11 @@ const ResponseArea = ({ currentResponse }) => {
   return (
     <div className={`w-full flex flex-col items-center gap-4 ${animationClass}`}>
       {renderContent()}
+
+      {/* Options Picker — chips pilihan dari model (ambigu/multi-kandidat) */}
+      {options?.length > 0 && (
+        <OptionsPicker options={options} defaultIndex={optionsDefault} onPick={onPick} />
+      )}
 
       {/* Plugin Execution Result Chip */}
       {pluginResult && (

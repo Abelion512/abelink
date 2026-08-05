@@ -1,4 +1,7 @@
 import { BrowserWindow, app, screen } from 'electron'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import { DOM_PARSER_SCRIPT } from './browser-dom-parser.js'
 
 let browserWindow = null
@@ -10,7 +13,63 @@ let appIsQuiting = false
 
 app.on('before-quit', () => { appIsQuiting = true })
 
+let tikTokCookiesImported = false
+
+// Import TikTok session cookies exported from the real Chrome profile
+// (~/.tiktok-linkedin/tiktok-cookies.json, via tiktok-pipeline/export_tiktok_cookies.py).
+// Electron's TLS/JA4 fingerprint is NOT spoofable via userAgent — TikTok's
+// QR flow flags every Electron session, so we bypass login entirely by
+// transplanting a real Chrome login (sessionid/sid_tt...) into the partition.
+async function importTikTokCookies(win) {
+  if (tikTokCookiesImported) return 0
+  tikTokCookiesImported = true
+  const p = path.join(os.homedir(), '.tiktok-linkedin', 'tiktok-cookies.json')
+  if (!fs.existsSync(p)) return 0
+  const ses = win.webContents.session
+  try {
+    const existing = await ses.cookies.get({ name: 'sessionid', domain: '.tiktok.com' })
+    if (existing.some((c) => c.value && c.value.length > 5)) {
+      console.log('[CookieImport] session already present, skip')
+      return 0
+    }
+  } catch {}
+  let cookies = []
+  try {
+    cookies = JSON.parse(fs.readFileSync(p, 'utf8'))
+  } catch (e) {
+    console.warn('[CookieImport] parse failed:', e.message)
+    return 0
+  }
+  let n = 0
+  for (const c of cookies) {
+    if (!c.domain || !c.domain.includes('tiktok.com')) continue
+    try {
+      const host = c.domain.startsWith('.') ? c.domain.slice(1) : c.domain
+      const setOpts = {
+        url: `https://${host}${c.path || '/'}`,
+        name: c.name,
+        value: c.value,
+        domain: c.domain,
+        path: c.path || '/',
+        secure: !!c.secure,
+        httpOnly: !!c.httpOnly,
+        sameSite: c.sameSite || 'no_restriction'
+      }
+      if (c.expirationDate) setOpts.expirationDate = c.expirationDate
+      await ses.cookies.set(setOpts)
+      n++
+    } catch (e) {
+      console.warn('[CookieImport] skip', c.name, e.message)
+    }
+  }
+  console.log(`[CookieImport] imported ${n}/${cookies.length} tiktok cookies`)
+  return n
+}
+
 export async function navigateTo(url) {
+  // Sudah ada window? (re-navigasi, mis. setelah user selesai unblock/login)
+  // First-open tidak boleh di-hide setelah show — semi-visible mode harus terlihat.
+  const wasExisting = browserWindow && !browserWindow.isDestroyed()
   if (!browserWindow || browserWindow.isDestroyed()) {
     browserWindow = new BrowserWindow({
       show: false,
@@ -52,16 +111,28 @@ export async function navigateTo(url) {
 
     browserWindow.webContents.setMaxListeners(50)
 
-    // === CHROME UA SPOOFING ===
+    // === CHROME UA SPOOFING (dynamic: match real Chromium engine version) ===
+    // 2026-08-04 fix: hardcoded Chrome/130 (Oct 2024) vs Electron 39 (Chromium ~142)
+    // = UA/UA-CH mismatch detected by TikTok/Google as automation. Build from process.versions.chrome.
     const originalUA = browserWindow.webContents.userAgent
-    const chromeUA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.152 Safari/537.36'
+    const chromeVersion = process.versions.chrome // e.g. "142.0.8982.0"
+    const chromeMajor = chromeVersion.split('.')[0]
+    const chromeUA = `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeMajor}.0.0.0 Safari/537.36`
     browserWindow.webContents.userAgent = chromeUA
 
-    // Restore real Electron UA for Google login (trusted, don't fake)
+    // UA Client Hints must match the UA string. webContents.userAgent override does NOT
+    // rewrite Sec-CH-UA* — do it here so the header and navigator.userAgentData agree.
     browserWindow.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
+      // Trusted login: keep real Electron UA + native CH for Google (unchanged behavior)
       if (details.url.startsWith('https://accounts.google.com')) {
         details.requestHeaders['User-Agent'] = originalUA
+        cb({ requestHeaders: details.requestHeaders })
+        return
       }
+      details.requestHeaders['sec-ch-ua'] = `"Not/A)Brand";v="24", "Chromium";v="${chromeMajor}", "Google Chrome";v="${chromeMajor}"`
+      details.requestHeaders['sec-ch-ua-mobile'] = '?0'
+      details.requestHeaders['sec-ch-ua-platform'] = '"Linux"'
+      details.requestHeaders['sec-ch-ua-full-version-list'] = `"Not/A)Brand";v="24.0.0.0", "Chromium";v="${chromeVersion}", "Google Chrome";v="${chromeVersion}"`
       cb({ requestHeaders: details.requestHeaders })
     })
 
@@ -83,7 +154,11 @@ export async function navigateTo(url) {
       return { action: 'deny' } // Tolak pembuatan window baru
     })
 
-    // Inject anti-fingerprint scripts on every page load
+    // Inject anti-fingerprint on EVERY new document BEFORE page scripts run.
+    // CDP Page.addScriptToEvaluateOnNewDocument is the only early main-world hook:
+    // a preload script runs in an isolated world under contextIsolation, so window
+    // patches there are invisible to page JS. Late executeJavaScript (did-start-
+    // navigation/dom-ready) lets site detection JS sample the real values first.
     const antiFingerprintScript = `
       try {
         Object.defineProperty(navigator, 'webdriver', { get: () => false, configurable: true });
@@ -95,14 +170,75 @@ export async function navigateTo(url) {
         Object.defineProperty(navigator, 'platform', { get: () => 'Linux x86_64', configurable: true });
         Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
         Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8, configurable: true });
+        // Keep JS-side UA-CH consistent with the rewritten Sec-CH-UA header
+        if (navigator.userAgentData) {
+          Object.defineProperty(navigator, 'userAgentData', {
+            get: () => ({
+              brands: [
+                { brand: 'Not/A)Brand', version: '24' },
+                { brand: 'Chromium', version: '${chromeMajor}' },
+                { brand: 'Google Chrome', version: '${chromeMajor}' }
+              ],
+              mobile: false,
+              platform: 'Linux',
+              getHighEntropyValues: () => Promise.resolve({
+                architecture: 'x86',
+                bitness: '64',
+                brandVersionList: [
+                  { brand: 'Not/A)Brand', version: '24.0.0.0' },
+                  { brand: 'Chromium', version: '${chromeVersion}' },
+                  { brand: 'Google Chrome', version: '${chromeVersion}' }
+                ],
+                fullVersionList: [
+                  { brand: 'Not/A)Brand', version: '24.0.0.0' },
+                  { brand: 'Chromium', version: '${chromeVersion}' },
+                  { brand: 'Google Chrome', version: '${chromeVersion}' }
+                ],
+                mobile: false,
+                model: '',
+                platform: 'Linux',
+                platformVersion: '',
+                uaFullVersion: '${chromeVersion}'
+              }),
+              toJSON: () => ({
+                brands: [
+                  { brand: 'Not/A)Brand', version: '24' },
+                  { brand: 'Chromium', version: '${chromeMajor}' },
+                  { brand: 'Google Chrome', version: '${chromeMajor}' }
+                ],
+                mobile: false,
+                platform: 'Linux'
+              })
+            }),
+            configurable: true
+          })
+        }
       } catch(e) {}
     `
-    browserWindow.webContents.on('did-start-navigation', () => {
-      browserWindow.webContents.executeJavaScript(antiFingerprintScript).catch(() => {})
-    })
-    browserWindow.webContents.on('dom-ready', () => {
-      browserWindow.webContents.executeJavaScript(antiFingerprintScript).catch(() => {})
-    })
+
+    // CDP early injection (primary). Fallback: late executeJavaScript if CDP is unavailable.
+    // NOTE: Page.* CDP commands HANG until the renderer commits its first navigation
+    // (no target exists pre-commit). We prime with about:blank so the awaits below
+    // resolve fast — otherwise this block would deadlock before loadURL(url) below.
+    let cdpInjected = false
+    try {
+      await browserWindow.loadURL('about:blank')
+      const dbg = browserWindow.webContents.debugger
+      if (!dbg.isAttached()) dbg.attach('1.3')
+      await dbg.sendCommand('Page.enable')
+      await dbg.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source: antiFingerprintScript })
+      cdpInjected = true
+    } catch (e) {
+      console.warn('[Browser] CDP fingerprint injection failed, fallback to late injection:', e.message)
+    }
+    if (!cdpInjected) {
+      browserWindow.webContents.on('did-start-navigation', () => {
+        browserWindow.webContents.executeJavaScript(antiFingerprintScript).catch(() => {})
+      })
+      browserWindow.webContents.on('dom-ready', () => {
+        browserWindow.webContents.executeJavaScript(antiFingerprintScript).catch(() => {})
+      })
+    }
 
     browserWindow.on('close', (event) => {
       if (!isForceClosing && !appIsQuiting) {
@@ -235,8 +371,9 @@ export async function navigateTo(url) {
   }
 
   // Sembunyikan browser kalau visible (user baru selesai login via unblock)
-  // Biarkan user lihat hasilnya sebentar sebelum agent navigasi lagi
-  if (browserWindow.isVisible()) {
+  // Biarkan user lihat hasilnya sebentar sebelum agent navigasi lagi.
+  // HANYA re-navigasi: first-open harus tetap visible (semi-visible mode).
+  if (wasExisting && browserWindow.isVisible()) {
     browserWindow.hide()
   }
 
@@ -275,6 +412,9 @@ export async function navigateTo(url) {
       }
     }, 60000)
   })
+
+  // Transplant real-Chrome TikTok session before navigating (bypass QR/bot detection)
+  await importTikTokCookies(browserWindow)
 
   await browserWindow.loadURL(url)
   await Promise.race([loadPromise, timeoutPromise])

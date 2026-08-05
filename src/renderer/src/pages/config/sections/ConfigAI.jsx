@@ -550,6 +550,31 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
         </div>
       </div>
 
+      {/* Tool-Result Clearing — ATM Anthropic Context Editing (clear_tool_uses) */}
+      <div className="space-y-2 p-2 -mx-2 rounded-lg">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold">Tool-Result Clearing</p>
+          <span className="font-mono text-xs text-primary font-bold uppercase">{config.clearingMode || 'optimized'}</span>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {[
+            { value: 'optimized', label: '⚡ Optimized', desc: 'Auto-clear old tool results, hemat token' },
+            { value: 'full', label: '🧠 Full Recall', desc: 'Semua tool result dipertahankan (boros token)' }
+          ].map((m) => (
+            <button
+              key={m.value}
+              className={`btn btn-sm ${(config.clearingMode || 'optimized') === m.value ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setConfig((prev) => ({ ...prev, clearingMode: m.value }))}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-base-content/60">
+          Optimized: hapus tool result lama (keep 4 terakhir). Full Recall: pertahankan semua (boros token). Compaction tetap jalan di 50%.
+        </p>
+      </div>
+
       <div className="divider"></div>
 
       {/* Approval Mode */}
