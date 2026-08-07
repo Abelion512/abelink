@@ -21,6 +21,7 @@ function readRecent() {
   for (const l of lines) {
     try {
       const r = JSON.parse(l)
+      if (r.provider === 'test' || (r.model && r.model.startsWith('TEST/'))) continue
       const ts = Date.parse(r.timestamp || r.time)
       if (!r.timestamp || isNaN(ts)) continue
       if (ts < cutoff) continue

@@ -27,7 +27,7 @@ function rowsAll() {
   if (!existsSync(AUDIT)) return []
   return readFileSync(AUDIT, 'utf8').split('\n').filter(Boolean)
     .map(l => { try { return JSON.parse(l) } catch { return null } })
-    .filter(r => r && r.timestamp && Date.parse(r.timestamp) >= cutoff)
+    .filter(r => r && r.timestamp && !(r.provider === 'test' || (r.model && r.model.startsWith('TEST/'))) && Date.parse(r.timestamp) >= cutoff)
 }
 
 const r = rowsAll()
