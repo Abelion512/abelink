@@ -5,7 +5,7 @@ import { getAllConfig } from '../api/db'
 import { transcribeAudioGroq } from '../api/groq'
 import { FaChevronLeft, FaMicrophone, FaStop, FaExclamationTriangle } from 'react-icons/fa'
 
-const LiveAudio = ({ embedded = false }) => {
+const LiveAudio = () => {
   const {
     chatData,
     setChatData,
@@ -299,17 +299,10 @@ const LiveAudio = ({ embedded = false }) => {
   }
 
   return (
-    <div className={embedded
-      ? "w-full flex flex-col items-center justify-center relative"
-      : "h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif] flex flex-col items-center justify-center"
-    }>
+    <div className="h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif] flex flex-col items-center justify-center">
       {/* Background Ambience */}
-      {!embedded && (
-        <>
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
-        </>
-      )}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
 
       {/* Ambient background effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
@@ -322,15 +315,13 @@ const LiveAudio = ({ embedded = false }) => {
       </div>
 
       {/* Back button */}
-      {!embedded && (
-        <button
-          onClick={() => navigate('/')}
-          className="absolute top-6 left-6 btn btn-ghost btn-sm gap-2 z-20 opacity-60 hover:opacity-100 transition-opacity"
-        >
-          <FaChevronLeft size={14} />
-          Kembali
-        </button>
-      )}
+      <button
+        onClick={() => navigate('/')}
+        className="absolute top-6 left-6 btn btn-ghost btn-sm gap-2 z-20 opacity-60 hover:opacity-100 transition-opacity"
+      >
+        <FaChevronLeft size={14} />
+        Kembali
+      </button>
 
       {/* Header */}
       <div className="relative z-10 text-center mb-8 select-none">

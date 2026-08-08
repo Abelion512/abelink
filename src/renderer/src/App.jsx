@@ -3,6 +3,7 @@ const MarkHome = lazy(() => import('./pages/MarkHome'))
 const Configuration = lazy(() => import('./pages/Configuration'))
 const Guidebook = lazy(() => import('./pages/Guidebook'))
 const Plugins = lazy(() => import('./pages/Plugins'))
+const LiveAudio = lazy(() => import('./pages/LiveAudio'))
 const WhatsappBot = lazy(() => import('./pages/WhatsappBot'))
 const Knowledge = lazy(() => import('./pages/Knowledge'))
 const RelationalGrowth = lazy(() => import('./pages/RelationalGrowth'))
@@ -177,6 +178,7 @@ function App() {
                   <Route path="/" element={<Suspense fallback={pageFallback}><MarkHome /></Suspense>} />
                   <Route path="/config" element={<Suspense fallback={pageFallback}><Configuration /></Suspense>} />
                   <Route path="/plugins" element={<Suspense fallback={pageFallback}><Plugins /></Suspense>} />
+                  <Route path="/live-audio" element={<Suspense fallback={pageFallback}><LiveAudio /></Suspense>} />
                   <Route path="/whatsapp-bot" element={<Suspense fallback={pageFallback}><WhatsappBot /></Suspense>} />
                   <Route path="/knowledge" element={<Suspense fallback={pageFallback}><Knowledge /></Suspense>} />
                   <Route path="/guidebook" element={<Suspense fallback={pageFallback}><Guidebook /></Suspense>} />

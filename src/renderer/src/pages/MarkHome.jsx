@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import OrbVisualizer from '../components/core/OrbVisualizer'
 import InputBar from '../components/core/InputBar'
@@ -11,7 +11,6 @@ import ProcessPanel from '../components/core/ProcessPanel'
 import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
 import MemoryVisualizer from '../components/core/MemoryVisualizer'
 import BrowserPreviewWidget from '../components/core/BrowserPreviewWidget'
-import LiveAudio from '../pages/LiveAudio'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useVAD } from '../hooks/useVAD'
 
@@ -62,6 +61,7 @@ const MarkHome = () => {
   })
 
   const location = useLocation()
+  const navigate = useNavigate()
   const hasAutoStartedRef = useRef(false)
 
   useEffect(() => {
@@ -223,12 +223,6 @@ const MarkHome = () => {
               mood={currentResponse?.mood || 'neutral'}
             />
           </div>
-          {/* Voice Mode Panel — reuse existing LiveAudio page, embedded without page chrome */}
-          {activeMode === 'voice' && (
-            <div className="animate-[fade-up_0.3s_ease-out_forwards]">
-              <LiveAudio embedded />
-            </div>
-          )}
           {/* Now Playing — inline text below orb */}
           {isPlaying && currentTrack?.title && (
             <div className="animate-[fade-up_0.4s_ease-out_forwards] text-center mt-2">
@@ -278,7 +272,7 @@ const MarkHome = () => {
               title="Close Chat">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
-            <button onClick={() => setActiveMode('voice')}
+            <button onClick={() => navigate('/live-audio')}
               className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-300 active:scale-90 text-white/70 shrink-0" title="Voice Mode">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
             </button>
@@ -297,7 +291,7 @@ const MarkHome = () => {
               className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-green-500/50 transition-all duration-300 active:scale-90 text-white/70" title="Chat Mode">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             </button>
-            <button onClick={() => setActiveMode('voice')}
+            <button onClick={() => navigate('/live-audio')}
               className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-300 active:scale-90 text-white/70" title="Voice Mode">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
             </button>
