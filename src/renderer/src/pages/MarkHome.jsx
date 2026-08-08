@@ -11,6 +11,7 @@ import ProcessPanel from '../components/core/ProcessPanel'
 import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
 import MemoryVisualizer from '../components/core/MemoryVisualizer'
 import BrowserPreviewWidget from '../components/core/BrowserPreviewWidget'
+import LiveAudio from '../pages/LiveAudio'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useVAD } from '../hooks/useVAD'
 
@@ -222,6 +223,12 @@ const MarkHome = () => {
               mood={currentResponse?.mood || 'neutral'}
             />
           </div>
+          {/* Voice Mode Panel — reuse existing LiveAudio page, embedded without page chrome */}
+          {activeMode === 'voice' && (
+            <div className="animate-[fade-up_0.3s_ease-out_forwards]">
+              <LiveAudio embedded />
+            </div>
+          )}
           {/* Now Playing — inline text below orb */}
           {isPlaying && currentTrack?.title && (
             <div className="animate-[fade-up_0.4s_ease-out_forwards] text-center mt-2">
