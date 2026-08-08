@@ -511,21 +511,7 @@ app.whenReady().then(async () => {
   })
 
   // ===== SESSION KNOWLEDGE AUTO-SAVE =====
-  ipcMain.handle('save-session-knowledge', async (_event, knowledge) => {
-    try {
-      const dateStr = new Date().toISOString().split('T')[0]
-      const dir = join(os.homedir(), '.mark', 'knowledge', 'sessions', dateStr)
-      fs.mkdirSync(dir, { recursive: true })
-      const fileName = `${knowledge.session.topic.replace(/\s+/g, '-').toLowerCase()}.json`
-      const filePath = join(dir, fileName)
-      fs.writeFileSync(filePath, JSON.stringify(knowledge, null, 2))
-      console.log(`[Knowledge] Saved session knowledge: ${filePath}`)
-      return { saved: true, path: filePath }
-    } catch (err) {
-      console.error('[Knowledge] Failed to save session knowledge:', err.message)
-      return { saved: false, error: err.message }
-    }
-  })
+  // Removed 2026-08-08: dead code — sessionKnowledge.js extractor removed (YAGNI, 30358df), 0 callers in renderer. See docs/PLANNED/sessions/session-knowledge-schema.md (spec-only).
 
   ipcMain.on('ping', () => console.log('pong'))
 

@@ -130,8 +130,7 @@ const api = {
     ipcRenderer.on('config-updated', () => callback())
   },
 
-  // Session Knowledge
-  saveSessionKnowledge: (knowledge) => ipcRenderer.invoke('save-session-knowledge', knowledge),
+  // Session Knowledge — removed 2026-08-08: dead (extractor removed 30358df, see docs)
 
   // Tool Registry — Progressive Disclosure + Vector Discovery
   getToolCatalog: () => ipcRenderer.invoke('tool-catalog'),
