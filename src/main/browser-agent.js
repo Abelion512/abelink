@@ -307,15 +307,16 @@ export async function navigateTo(url) {
           const title = await browserWindow.webContents.executeJavaScript('document.title')
           if (title && title !== lastKnownTitle && title.includes(' - YouTube')) {
             lastKnownTitle = title
-            const parts = title.replace(' - YouTube', '').split(' - ')
-            if (parts.length >= 2) {
-              const trackInfo = { title: parts[0], artist: parts.slice(1).join(' - '), fullTitle: title }
-              BrowserWindow.getAllWindows().forEach(win => {
-                if (!win.isDestroyed() && win.webContents) {
-                  win.webContents.send('yt:track-updated', trackInfo)
-                }
-              })
-            }
+            const raw = title.replace(/ - YouTube( Music)?$/, '')
+            const parts = raw.split(' - ')
+            const trackInfo = parts.length >= 2
+              ? { title: parts[0], artist: parts.slice(1).join(' - '), fullTitle: title }
+              : { title: raw, artist: 'Unknown', fullTitle: title }
+            BrowserWindow.getAllWindows().forEach(win => {
+              if (!win.isDestroyed() && win.webContents) {
+                win.webContents.send('yt:track-updated', trackInfo)
+              }
+            })
           }
         } catch (e) { /* ignore polling errors */ }
       }, 2000)
@@ -330,15 +331,16 @@ export async function navigateTo(url) {
       // When YouTube plays, title = "Song Name - Artist - YouTube"
       // Send to all BrowserWindows so renderer can update track card
       if (title && title.includes(' - YouTube')) {
-        const parts = title.replace(' - YouTube', '').split(' - ')
-        if (parts.length >= 2) {
-          const trackInfo = { title: parts[0], artist: parts.slice(1).join(' - '), fullTitle: title }
-          BrowserWindow.getAllWindows().forEach(win => {
-            if (!win.isDestroyed() && win.webContents) {
-              win.webContents.send('yt:track-updated', trackInfo)
-            }
-          })
-        }
+        const raw = title.replace(/ - YouTube( Music)?$/, '')
+        const parts = raw.split(' - ')
+        const trackInfo = parts.length >= 2
+          ? { title: parts[0], artist: parts.slice(1).join(' - '), fullTitle: title }
+          : { title: raw, artist: 'Unknown', fullTitle: title }
+        BrowserWindow.getAllWindows().forEach(win => {
+          if (!win.isDestroyed() && win.webContents) {
+            win.webContents.send('yt:track-updated', trackInfo)
+          }
+        })
       }
 
       // === MARK_UNBLOCK_DONE handler ===

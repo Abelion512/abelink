@@ -124,7 +124,7 @@ export const YoutubeMusicProvider = ({ children }) => {
         if (command === 'play' && payload) {
           window.api.searchMusic(payload).then((music) => {
             if (music && music.length > 0) {
-              const url = `https://www.youtube.com/watch?v=${music[0].id}`
+              const url = `https://music.youtube.com/watch?v=${music[0].id}`
               playUrl(url)
             }
           })

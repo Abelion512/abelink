@@ -61,7 +61,7 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
     }
 
     if (isAutoplay && selectedId) {
-      const trackUrl = `https://www.youtube.com/watch?v=${selectedId}`
+      const trackUrl = `https://music.youtube.com/watch?v=${selectedId}`
       await playUrl(trackUrl, selectedMusicList[0])
       const t = selectedMusicList[0]
       // Scrobble ke Last.fm (updateNowPlaying)

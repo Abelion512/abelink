@@ -567,7 +567,7 @@ app.whenReady().then(async () => {
       const ytData = await yts(query)
       const video = ytData.videos.slice(0, 4)
       return video.map((item) => ({
-        url: `https://www.youtube.com/watch?v=${item.videoId}`,
+        url: `https://music.youtube.com/watch?v=${item.videoId}`,
         title: item.title,
         author: item.author.name
       }))
