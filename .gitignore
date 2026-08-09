@@ -129,3 +129,4 @@ scripts/ask-ais.mjs
 tiktok-pipeline/
 **/*.har
 **/electron.vite.config.*.mjs
+backups/
