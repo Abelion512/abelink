@@ -1,3 +1,0 @@
-nodriver>=0.50
-requests>=2.31
-colorama>=0.4

@@ -124,3 +124,8 @@ agent-skills-cache.json
 
 # ── Dev-only scripts (user setup script stays tracked) ──
 scripts/ask-ais.mjs
+
+# Merge-artifact noise (local-only)
+tiktok-pipeline/
+**/*.har
+**/electron.vite.config.*.mjs
