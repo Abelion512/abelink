@@ -418,6 +418,8 @@ app.whenReady().then(async () => {
     }
   })
 
+  createWindow()
+
   loadPlugins().then(() => console.log('[Plugins] Manifests loaded')).catch(e => console.error('[Plugins] Failed:', e))
 
   initMpris()
