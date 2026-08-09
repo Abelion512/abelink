@@ -200,6 +200,27 @@ ipcMain.on('ai:abort-fetch', () => {
   abortAllFetches()
 })
 
+// SCAN MODELS: hit endpoint /models untuk auto-detect daftar model tersedia
+ipcMain.handle('ai:scan-models', async (_event, { endpoint, apiKey }) => {
+  try {
+    const modelsUrl = (endpoint || '').trim().replace(/\/chat\/completions\/?$/, '') + '/models'
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 15000)
+    const res = await fetch(modelsUrl, {
+      signal: controller.signal,
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {}
+    })
+    clearTimeout(timer)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    const ids = (data?.data || []).map(m => m.id).filter(Boolean)
+    return { models: ids }
+  } catch (error) {
+    if (error.name === 'AbortError') return { error: 'Timeout: endpoint tidak merespons dalam 15 detik' }
+    return { error: `Gagal scan endpoint: ${error.message}` }
+  }
+})
+
 // AUTO-LEARN: renderer meminta hints per-model (dari observasi di trackModelUsage)
 ipcMain.handle('ai:model-hints', (_event, modelName) => {
   if (!modelName || typeof modelName !== 'string') return {}

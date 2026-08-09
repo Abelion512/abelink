@@ -4,6 +4,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 // Custom APIs for renderer
 const api = {
   fetchAI: (params) => ipcRenderer.invoke('ai:fetch', params),
+  scanModels: (params) => ipcRenderer.invoke('ai:scan-models', params),
   getModelHints: (modelName) => ipcRenderer.invoke('ai:model-hints', modelName),
   abortFetchAI: () => ipcRenderer.send('ai:abort-fetch'),
   syncConfig: (config) => ipcRenderer.send('sync-config', config),

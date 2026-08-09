@@ -12,6 +12,30 @@ export default function ConfigProviderKeys({ config, setConfig, isFirstSetup, on
   const [showCustomKey, setShowCustomKey] = useState(false)
   const [isDownloadingModel, setIsDownloadingModel] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState(0)
+  const [scanningModels, setScanningModels] = useState(false)
+  const [scannedModels, setScannedModels] = useState([])
+  const [scanError, setScanError] = useState('')
+
+  const handleScanModels = async () => {
+    const endpoint = (config.customEndpoint || '').trim()
+    if (!endpoint) {
+      setScanError('Isi Custom Endpoint URL dulu')
+      return
+    }
+    setScanningModels(true)
+    setScanError('')
+    try {
+      const res = await window.api.scanModels({ endpoint, apiKey: config.customApiKey })
+      if (res.error) { setScanError(res.error); setScannedModels([]) }
+      else {
+        setScannedModels(res.models || [])
+        if ((res.models || []).length && config.aiProvider === 'custom' && !config.customModel) {
+          setConfig(prev => ({ ...prev, customModel: res.models[0] }))
+        }
+      }
+    } catch (e) { setScanError(e.message) }
+    setScanningModels(false)
+  }
 
   const handleSave = async () => {
     if (!config.groqApiKey?.trim()) {
@@ -100,7 +124,26 @@ export default function ConfigProviderKeys({ config, setConfig, isFirstSetup, on
           </div>
           <div className="space-y-1.5">
             <p className="text-sm font-semibold">Custom Model ID</p>
-            <input type="text" placeholder="gpt-4o-mini" className="input input-bordered w-full" value={config.customModel || ''} onChange={e => setConfig(prev => ({ ...prev, customModel: e.target.value }))} />
+            <div className="flex gap-2 items-start">
+              <input type="text" placeholder="gpt-4o-mini" className="input input-bordered w-full" value={config.customModel || ''} onChange={e => setConfig(prev => ({ ...prev, customModel: e.target.value }))} />
+              <button type="button" onClick={handleScanModels} disabled={scanningModels} className="btn btn-outline btn-sm whitespace-nowrap">
+                {scanningModels ? 'Scanning...' : 'Scan Models'}
+              </button>
+            </div>
+            {scanError && <p className="text-xs text-error font-medium">{scanError}</p>}
+            {scannedModels.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs opacity-40">Hasil scan ({scannedModels.length} model) — klik untuk pilih:</p>
+                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                  {scannedModels.map(m => (
+                    <button key={m} type="button" onClick={() => setConfig(prev => ({ ...prev, customModel: m }))}
+                      className={`badge badge-outline cursor-pointer hover:badge-primary ${config.customModel === m ? 'badge-primary' : ''}`}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div className="space-y-1.5">
             <p className="text-sm font-semibold">Custom API Key</p>
