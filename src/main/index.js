@@ -78,6 +78,7 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+    // mainWindow.webContents.openDevTools()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -411,7 +412,11 @@ app.whenReady().then(async () => {
     }
   })
 
-  createWindow()
+  ipcMain.on('show-notification', (event, { title, body }) => {
+    if (Notification.isSupported()) {
+      new Notification({ title, body, icon: icon }).show()
+    }
+  })
 
   loadPlugins().then(() => console.log('[Plugins] Manifests loaded')).catch(e => console.error('[Plugins] Failed:', e))
 
