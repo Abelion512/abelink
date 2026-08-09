@@ -521,12 +521,6 @@ app.whenReady().then(async () => {
 
   ipcMain.on('ping', () => console.log('pong'))
 
-  ipcMain.on('show-notification', (_event, { title, body }) => {
-    if (Notification.isSupported()) {
-      new Notification({ title, body, icon: icon }).show()
-    }
-  })
-
   ipcMain.handle('execute-node-task', async (_event, data) => {
     console.log('Menerima data dari UI:', data)
     return `Berhasil memproses: ${data}`
