@@ -23,6 +23,7 @@ const RISK_LEVELS = {
   'music-prev': 'low',
   'music-toggle': 'low',
   'music-search': 'low',
+  'music-recent': 'low',
 
   'write-file': 'medium',
   'replace-lines': 'medium',

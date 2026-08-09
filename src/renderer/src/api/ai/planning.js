@@ -329,6 +329,7 @@ Daftar di bawah L0 (name + 1 line). Sebelum pakai, WAJIB minta detail via "tool-
 - music-search: Cari lagu spesifik.
 - music-next: Lagu berikutnya.
 - music-prev: Lagu sebelumnya.
+- music-recent: Daftar lagu terakhir diputar (riwayat lokal). Pakai kalau user tanya lagu yang tadi/biasanya didengar.
 - analyze-screen: Screenshot layar → analisis vision AI.
 - camera-look: Aktifkan webcam lihat dunia nyata.
 - screenshot-to-wa: Screenshot → kirim ke WhatsApp user.
@@ -594,6 +595,7 @@ ${
                 'music-next',
                 'music-prev',
                 'music-toggle',
+                'music-recent',
                 'yt-search',
                 'yt-summary',
                 'analyze-screen',

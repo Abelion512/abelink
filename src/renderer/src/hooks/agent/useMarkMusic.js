@@ -7,6 +7,14 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
     if (action === 'music-next') { nextTrack(); return 'Memutar lagu selanjutnya.' }
     if (action === 'music-prev') { prevTrack(); return 'Memutar lagu sebelumnya.' }
     if (action === 'music-toggle') { playPause(); return 'Pause/Resume lagu.' }
+    if (action === 'music-recent') {
+      const limit = parseInt(query, 10) || 15
+      const history = (await window.api.getPlaybackHistory(limit)) || []
+      if (history.length === 0) return 'Belum ada riwayat pemutaran lokal (record dimulai sejak fitur ini aktif). Coba last.fm jika user punya akun.'
+      return 'Lagu terakhir diputar (lokal, terbaru dulu):\n' + history
+        .map((h, i) => `${i + 1}. ${new Date(h.ts).toLocaleString('id-ID')} — ${h.title} oleh ${h.artist}`)
+        .join('\n')
+    }
 
     setChatData((prev) => [...prev, { role: 'ai', content: 'Mencari lagu...', isSearchingMusic: true }])
     const music = await window.api.searchMusic(query)

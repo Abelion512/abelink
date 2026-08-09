@@ -83,6 +83,8 @@ export const YoutubeMusicProvider = ({ children }) => {
         // Update now playing on every track change
         if (track.title && track.artist) {
           try { window.api?.lastfmUpdateNowPlaying?.(track.title, track.artist) } catch {}
+          // Local playback history (source-first: lokal = sumber utama, tanpa last.fm pun tetap jalan)
+          try { window.api?.recordPlayback?.(track.title, track.artist) } catch {}
           // Scrobble after 240s OR 50% of duration (whichever comes first)
           scrobbleStartRef.current = Math.floor(Date.now() / 1000)
           const scrobbleIt = () => {

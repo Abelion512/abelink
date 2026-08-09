@@ -30,7 +30,7 @@ const BUILTIN_TOOLS = {
 Query: kata kunci informasi yang dicari.
 Contoh: "nomor adek", "password wifi", "solusi error bluetooth"
 Cara: Vector similarity search. JANGAN pakai kata "kemarin" atau "tadi".
-ATURAN: WAJIB cari di memory SEBELUM bertanya ke user.`
+ATURAN: memory dipakai untuk data profil/preferensi/catatan user. Untuk pertanyaan AKTIVITAS/RIWAYAT (lagu terakhir diputar, file terakhir, pesan terakhir) — cek tool aktivitas dulu (music-recent, dll). Kalau tool aktivitas unavailable/belum ada data → boleh jawab dari memory TAPI TANDAI: "ini tebakan dari memory, confidence rendah".`
   },
 
   // Browser
@@ -130,6 +130,14 @@ Query: KOSONGKAN SAJA.`
     description: 'Lagu sebelumnya',
     l1: `# music-prev
 Query: KOSONGKAN SAJA.`
+  },
+  'music-recent': {
+    category: 'music',
+    description: 'Daftar lagu yang baru diputar (riwayat lokal, tersedia tanpa akun last.fm)',
+    l1: `# music-recent
+Query: jumlah maksimal baris (default 15, max 30).
+Mengembalikan: daftar lagu terakhir diputar dari riwayat LOKAL (timestamp terbaru dulu).
+Pakai ini kalau user tanya "lagu apa yang tadi/biasanya gw denger" — JANGAN jawab dari memory.`
   },
 
   // System
@@ -401,6 +409,10 @@ const VOICE_FAST_PATH = {
   'stop': { tool: 'music-toggle', query: '' },
   'lagu selanjutnya': { tool: 'music-next', query: '' },
   'lagu sebelumnya': { tool: 'music-prev', query: '' },
+  'lagu tadi': { tool: 'music-recent', query: '15' },
+  'lagu terakhir': { tool: 'music-recent', query: '15' },
+  'lagu yang biasa': { tool: 'music-recent', query: '15' },
+  'riwayat lagu': { tool: 'music-recent', query: '15' },
 
   // Browser
   'tutup browser': { tool: 'browser-close', query: '' },

@@ -31,6 +31,7 @@ import {
 } from './pc-agent.js'
 import { initMpris, setMprisCallbacks, setMprisPlaybackStatus, updateMprisTrack, stopMpris } from './mpris-service.js'
 import { getRecentTracks, getTopTracks, setApiKey as setLastfmKey, setSharedSecret as setLastfmSharedSecret, updateNowPlaying as lastfmUpdateNowPlaying, scrobble as lastfmScrobble, setSessionKey as setLastfmSessionKey, getSessionKey as lastfmGetSessionKey } from './lastfm-service.js'
+import { recordPlayback, getRecentPlayback } from './playback-history.js'
 import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
 import { ElectronBlocker } from '@ghostery/adblocker-electron'
 import mammoth from 'mammoth'
@@ -658,6 +659,14 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('lastfm:get-session-key', async (_event, username, password, apiKey, sharedSecret) => {
     return await lastfmGetSessionKey(username, password, apiKey, sharedSecret)
+  })
+
+  // Local playback history (source-first: lokal = sumber utama, ga butuh last.fm)
+  ipcMain.handle('playback:record', (_event, title, artist) => {
+    return recordPlayback(title, artist)
+  })
+  ipcMain.handle('playback:recent', (_event, limit) => {
+    return getRecentPlayback(limit || 30)
   })
 
   ipcMain.handle('ytdl:get-info', async (_event, url) => {

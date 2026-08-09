@@ -115,6 +115,10 @@ const api = {
   lastfmScrobble: (track, artist, timestamp, album) => ipcRenderer.invoke('lastfm:scrobble', track, artist, timestamp, album),
   lastfmGetSessionKey: (username, password, apiKey, sharedSecret) => ipcRenderer.invoke('lastfm:get-session-key', username, password, apiKey, sharedSecret),
 
+  // Local playback history (source-first)
+  recordPlayback: (title, artist) => ipcRenderer.invoke('playback:record', title, artist),
+  getPlaybackHistory: (limit) => ipcRenderer.invoke('playback:recent', limit),
+
   // yt-dlp integration - metadata + audio from YT, TikTok, SoundCloud
   getYtdlInfo: (url) => ipcRenderer.invoke('ytdl:get-info', url),
   getYtdlAudio: (url) => ipcRenderer.invoke('ytdl:get-audio', url),
