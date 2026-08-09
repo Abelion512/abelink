@@ -435,6 +435,7 @@ const TOOL_RISK_LEVELS = {
   'music-search': 'green',
   'music-next': 'green',
   'music-prev': 'green',
+  'music-recent': 'green',
   'read-file': 'green',
   'list-dir': 'green',
   'grep-search': 'green',

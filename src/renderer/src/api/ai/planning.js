@@ -348,7 +348,7 @@ ${pluginCapabilities ? `\n${pluginCapabilities}` : ''}
 ${relevantSkillContent ? `\n${relevantSkillContent}` : ''}
 
 # ATURAN TOOL
-- memory-search dulu, DILARANG tanya user sebelum cari memory.
+- memory-search untuk data PROFIL/PREFERENSI user. Pertanyaan AKTIVITAS/RIWAYAT (lagu terakhir, file terakhir, pesan terakhir) → cek tool sumber dulu (music-recent dll), jangan jawab dari memory. Memory boleh dipakai kalau tool sumber unavailable → TANDAI jawaban: "tebakan dari memory, confidence rendah".
 ${activeCategories.some((c) => ['search', 'casual', 'browser'].includes(c)) ? `
 # PROTOKOL BELI/CARI PRODUK (marketplace, buku, barang)
 1. IDENTIFIKASI: browser-navigate ke google.com/search?q=NAMA+PRODUK+KONTEKS (novel/ISBN/penerbit) → browser-read scan hasil → tentukan judul/varian asli. Produk dirujuk dari video/lagu → cek deskripsi/transkrip sumber DULU via yt-summary (sering ada judul buku asli/true story). Hasil tidak relevan → refine query (max 2x). Google gagal/captcha → coba duckduckgo.com/html/?q=... Produk tidak jelas dari user → TANYA dulu, jangan navigate. Marketplace search DIKUNCI sampai riset selesai (guard gate).
@@ -368,7 +368,7 @@ ${activeCategories.some((c) => ['search', 'casual', 'browser'].includes(c)) ? `
 
 ${options.degradedMode ? `
 # DEGRADED MODE
-Browser tools dinonaktifkan (gagal berulang). HANYA: memory-search, read-file, write-file, replace-lines, list-dir, grep-search, run-shell, run-cli, yt-search, yt-summary, music-play, music-search, music-toggle, music-next, music-prev, native-notify, speak.
+Browser tools dinonaktifkan (gagal berulang). HANYA: memory-search, read-file, write-file, replace-lines, list-dir, grep-search, run-shell, run-cli, yt-search, yt-summary, music-play, music-search, music-recent, music-toggle, music-next, music-prev, native-notify, speak.
 Output: JSON atau XML.
 ` : ''}
 
