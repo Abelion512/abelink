@@ -4,6 +4,17 @@ import os from 'os'
 import path from 'path'
 import { DOM_PARSER_SCRIPT } from './browser-dom-parser.js'
 
+// Anti-bot: Sec-CH-UA client hints claim "Chrome", bukan "Electron" (default).
+// Scope partition mark-browser SAJA — defaultSession (main window + API traffic) tak tersentuh.
+const markSession = session.fromPartition('persist:mark-browser')
+markSession.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (details, callback) => {
+  details.requestHeaders['Sec-CH-UA'] =
+    `"Chromium";v="${process.versions.chrome}", "Google Chrome";v="${process.versions.chrome}", "Not.A/Brand";v="99"`
+  details.requestHeaders['Sec-CH-UA-Mobile'] = '?0'
+  details.requestHeaders['Sec-CH-UA-Platform'] = '"Linux"'
+  callback({ requestHeaders: details.requestHeaders })
+})
+
 let browserWindow = null
 let activeAskUser = false
 let activeAskUserMessage = ''
