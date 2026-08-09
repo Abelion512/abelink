@@ -94,6 +94,8 @@ function App() {
   const [loadingText, setLoadingText] = useState('Membangunkan Mark...')
 
   useEffect(() => {
+    // Preload self-check: kalau main/preload berubah, HMR renderer TIDAK reload preload — restart penuh.
+    console.log('[preload]', ['getPlaybackHistory', 'recordPlayback', 'searchMusic', 'lastfmUpdateNowPlaying'].map((k) => `${k}:${typeof window.api?.[k]}`).join(' '))
     const checkConfig = async () => {
       // 1. Init Orama and Hydrate from Dexie
       try {
