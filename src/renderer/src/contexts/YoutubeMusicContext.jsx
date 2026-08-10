@@ -147,6 +147,13 @@ export const YoutubeMusicProvider = ({ children }) => {
       window.api.setMprisPlaybackStatus(isPlaying)
   }, [isPlaying])
 
+  // Play/pause state from real video element — keeps toggle icon honest
+  useEffect(() => {
+    if (window.api?.onYtPlayState) {
+      window.api.onYtPlayState((paused) => setIsPlaying(!paused))
+    }
+  }, [])
+
   const value = {
     musicUrl, setMusicUrl, isPlayerOpen, setIsPlayerOpen,
     isPlaying, setIsPlaying,

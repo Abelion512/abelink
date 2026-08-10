@@ -480,3 +480,14 @@ html {
 }
 
 @keyframes slide-right { 0% { left: 0%; opacity: 0; } 50% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
+
+/* === MODE SWAP TRANSITION (orb -> voice) === */
+@keyframes orb-to-voice {
+  0% { transform: scale(1) rotate(0deg); opacity: 1; filter: blur(0px); }
+  40% { transform: scale(1.35) rotate(8deg); opacity: 1; filter: blur(0px); }
+  100% { transform: scale(0.35) rotate(90deg); opacity: 0; filter: blur(8px); }
+}
+@keyframes voice-from-orb {
+  0% { transform: scale(0.35); opacity: 0; filter: blur(8px); }
+  100% { transform: scale(1); opacity: 1; filter: blur(0px); }
+}

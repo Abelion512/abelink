@@ -171,6 +171,10 @@ const api = {
   onYtTrackUpdated: (callback) => {
     ipcRenderer.removeAllListeners('yt:track-updated')
     ipcRenderer.on('yt:track-updated', (_event, track) => callback(track))
+  },
+  onYtPlayState: (callback) => {
+    ipcRenderer.removeAllListeners('yt:play-state')
+    ipcRenderer.on('yt:play-state', (_event, paused) => callback(paused))
   }
 }
 

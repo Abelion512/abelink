@@ -36,7 +36,7 @@ import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
 import { ElectronBlocker } from '@ghostery/adblocker-electron'
 import mammoth from 'mammoth'
 import { PDFParse } from 'pdf-parse'
-import { loadYouTube, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, sendKeyboardCommand, showAndNavigate, getDuration } from './youtube-player.js'
+import { loadYouTube, loadYouTubeHidden, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, setPlayStateCallback, sendKeyboardCommand, showAndNavigate, getDuration } from './youtube-player.js'
 import { buildCanonical, hashBody, signContent } from './agent-keyring.js'
 // Headless/SSH detection: disable GPU if no display server available (Linux)
 if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
@@ -79,6 +79,14 @@ function createWindow() {
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
     // mainWindow.webContents.openDevTools()
+  })
+
+  // Close → sembunyikan ke tray (ikuti official): app tetap jalan, kecuali quit eksplisit
+  mainWindow.on('close', (event) => {
+    if (!app.isQuitting) {
+      event.preventDefault()
+      mainWindow.hide()
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -232,8 +240,10 @@ ipcMain.handle('ai:model-hints', (_event, modelName) => {
   }
 })
 
+app.setName('mark-linux')
+
 if (is.dev) {
-  app.setPath('userData', path.join(app.getPath('appData'), 'mark-dev'))
+  app.setPath('userData', path.join(app.getPath('appData'), 'mark-linux-dev'))
 }
 
 const gotTheLock = app.requestSingleInstanceLock()
@@ -374,6 +384,13 @@ app.whenReady().then(async () => {
   setOnTrackCallback((track) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('yt:track-updated', track)
+    }
+  })
+
+  // Wire play/pause state → renderer (toggle icon sync)
+  setPlayStateCallback((paused) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('yt:play-state', paused)
     }
   })
 
@@ -734,7 +751,7 @@ app.whenReady().then(async () => {
   })
 
   // ===== YOUTUBE PLAYER (BrowserWindow, not webview) =====
-  ipcMain.handle('yt:load', (_e, url) => { loadYouTube(url); return { success: true } })
+  ipcMain.handle('yt:load', (_e, url) => { loadYouTubeHidden(url); return { success: true } })
   ipcMain.handle('yt:show', () => { showPlayer(); return { success: true } })
   ipcMain.handle('yt:hide', () => { hidePlayer(); return { success: true } })
   ipcMain.handle('yt:is-visible', () => isPlayerVisible())

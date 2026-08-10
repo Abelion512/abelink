@@ -29,6 +29,16 @@ const LiveAudio = () => {
   
   const [toastMessage, setToastMessage] = useState('')
 
+  // Orb->voice morph intro (arrived via goVoice in MarkHome)
+  const [morphedEnter, setMorphedEnter] = useState(false)
+  useEffect(() => {
+    if (location.state?.morphed) {
+      setMorphedEnter(true)
+      const t = setTimeout(() => setMorphedEnter(false), 500)
+      return () => clearTimeout(t)
+    }
+  }, [])
+
   // Local Whisper STT Refs (Now used for Audio Context VAD)
   const streamRef = useRef(null)
   const audioContextRef = useRef(null)
@@ -299,7 +309,7 @@ const LiveAudio = () => {
   }
 
   return (
-    <div className="h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif] flex flex-col items-center justify-center">
+    <div className={`h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif] flex flex-col items-center justify-center ${morphedEnter ? 'animate-[voice-from-orb_0.5s_ease-out_forwards]' : ''}`}>
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />

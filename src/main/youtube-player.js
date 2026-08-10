@@ -15,6 +15,31 @@ let ytUrl = null
 let onTrackCallback = null
 export function setOnTrackCallback(fn) { onTrackCallback = fn }
 
+// Callback to send play/pause state to renderer (keeps toggle icon honest)
+let onPlayStateCallback = null
+export function setPlayStateCallback(fn) { onPlayStateCallback = fn }
+
+// Best-effort album art chain: video.poster -> YT Music player-bar art -> hqdefault
+async function extractThumbnail() {
+  const win = ytWindow
+  if (!win || win.isDestroyed()) return ''
+  try {
+    return await win.webContents.executeJavaScript(`(() => {
+      const video = document.querySelector('video')
+      if (video && video.poster && video.poster.startsWith('http')) return video.poster
+      const img = document.querySelector('ytmusic-player-bar .image img, ytmusic-player-bar img')
+      if (img && img.src && img.src.startsWith('http')) return img.src
+      const m = location.href.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
+      return m ? 'https://i.ytimg.com/vi/' + m[1] + '/hqdefault.jpg' : ''
+    })()`)
+  } catch { return '' }
+}
+
+async function attachThumbnail(info) {
+  const thumbnail = await extractThumbnail()
+  return thumbnail ? { ...info, thumbnail } : info
+}
+
 // Get the Chrome-masquerading User-Agent
 function getChromeUA() {
   const platform = process.platform
@@ -315,15 +340,14 @@ const AD_BLOCK_SCRIPT = `
 
 // Parse title string and send to renderer
 function parseAndSendTitle(title) {
-  if (!title || title === 'YouTube' || title.startsWith('(')) return
-  const cleanTitle = title.replace(/ - YouTube$/, '').trim()
+  if (!title || title === 'YouTube' || title === 'YouTube Music' || title.startsWith('(')) return
+  const cleanTitle = title.replace(/ - YouTube( Music)?$/, '').trim()
   if (!cleanTitle) return
   const parts = cleanTitle.split(' - ')
-  if (parts.length >= 2 && onTrackCallback) {
-    onTrackCallback({ title: parts[0], artist: parts.slice(1).join(' - '), fullTitle: cleanTitle })
-  } else if (parts.length === 1 && onTrackCallback) {
-    onTrackCallback({ title: cleanTitle, artist: '', fullTitle: cleanTitle })
-  }
+  const info = parts.length >= 2
+    ? { title: parts[0], artist: parts.slice(1).join(' - '), fullTitle: cleanTitle }
+    : { title: cleanTitle, artist: '', fullTitle: cleanTitle }
+  attachThumbnail(info).then((withThumb) => { if (onTrackCallback) onTrackCallback(withThumb) })
 }
 
 function getOrCreateWindow() {
@@ -420,14 +444,15 @@ function getOrCreateWindow() {
         function getTitle() {
           // Primary: document title (most reliable, always exists)
           let t = document.title || ''
-          t = t.replace(/ - YouTube$/, '').replace(/^\\(\\d+\\)\\s*/, '').trim()
-          if (!t || t === 'YouTube') return null
+          t = t.replace(/ - YouTube( Music)?$/, '').replace(/^\\(\\d+\\)\\s*/, '').trim()
+          if (!t || t === 'YouTube' || t === 'YouTube Music') return null
           return t
         }
 
         function getChannel() {
           // Try multiple selectors for channel name
           const selectors = [
+            'ytmusic-player-bar .byline a',
             '#channel-name yt-formatted-string a',
             'ytd-channel-name yt-formatted-string a',
             '#owner-name a',
@@ -492,23 +517,25 @@ function getOrCreateWindow() {
     if (!ytWindow || ytWindow.isDestroyed()) { clearInterval(trackPollInterval); return }
     ytWindow.webContents.executeJavaScript(`
       (function() {
-        let t = (document.title || '').replace(/ - YouTube$/, '').replace(/^\\(\\d+\\)\\s*/, '').trim()
-        if (!t || t === 'YouTube') return null
-        // Try to get channel name
-        const ch = document.querySelector('#channel-name yt-formatted-string a, ytd-channel-name yt-formatted-string a, #owner-name a')?.textContent?.trim() || ''
-        return JSON.stringify({ title: t, artist: ch })
+        let t = (document.title || '').replace(/ - YouTube( Music)?$/, '').replace(/^\\(\\d+\\)\\s*/, '').trim()
+        if (!t) return null
+        const ch = document.querySelector('ytmusic-player-bar .byline a, #channel-name yt-formatted-string a, ytd-channel-name yt-formatted-string a, #owner-name a')?.textContent?.trim() || ''
+        const v = document.querySelector('video')
+        return JSON.stringify({ title: t, artist: ch, paused: v ? v.paused : null })
       })()
     `).then((result) => {
       if (!result) return
       try {
         const info = JSON.parse(result)
+        if (typeof info.paused === 'boolean' && onPlayStateCallback) onPlayStateCallback(info.paused)
         if (info.title && info.title !== lastSentTitle) {
           lastSentTitle = info.title
-          // Split "Title - Artist" if no channel found
           const parts = info.title.split(' - ')
           const title = parts[0]
           const artist = info.artist || (parts.length > 1 ? parts.slice(1).join(' - ') : '')
-          if (onTrackCallback) onTrackCallback({ title, artist, fullTitle: info.title })
+          attachThumbnail({ title, artist, fullTitle: info.title }).then((track) => {
+            if (onTrackCallback) onTrackCallback(track)
+          })
         }
       } catch {}
     }).catch(() => {})
@@ -586,11 +613,39 @@ export async function getDuration() {
 export function sendKeyboardCommand(command) {
   const win = ytWindow
   if (!win || win.isDestroyed()) return
-  const cmd = KEYBOARD_COMMANDS[command]
-  if (!cmd) return
-  win.webContents.executeJavaScript(
-    `document.dispatchEvent(new KeyboardEvent('keydown', ${JSON.stringify({ ...cmd, bubbles: true })}));`
-  ).catch(() => {})
+  const script = {
+    next: `(() => {
+      const p = document.querySelector('#movie_player')
+      if (p && typeof p.nextVideo === 'function') { p.nextVideo(); return 'ok' }
+      const b = document.querySelector('ytmusic-player-bar .next-button, ytmusic-player-bar [aria-label="Next song"], .ytp-next-button')
+      if (b) { b.click(); return 'ok' }
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'N', shiftKey: true, bubbles: true }))
+      return 'fallback'
+    })()`,
+    prev: `(() => {
+      const p = document.querySelector('#movie_player')
+      if (p && typeof p.previousVideo === 'function') { p.previousVideo(); return 'ok' }
+      const b = document.querySelector('ytmusic-player-bar .previous-button, ytmusic-player-bar [aria-label="Previous song"], .ytp-prev-button')
+      if (b) { b.click(); return 'ok' }
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'P', shiftKey: true, bubbles: true }))
+      return 'fallback'
+    })()`,
+    playPause: `(() => {
+      const v = document.querySelector('video')
+      if (!v) return JSON.stringify({ ok: false })
+      if (v.paused) { v.play().catch(() => {}); return JSON.stringify({ ok: true, paused: false }) }
+      v.pause(); return JSON.stringify({ ok: true, paused: true })
+    })()`
+  }[command]
+  if (!script) return
+  win.webContents.executeJavaScript(script).then((res) => {
+    if (command === 'playPause' && res) {
+      try {
+        const r = JSON.parse(res)
+        if (r.ok && onPlayStateCallback) onPlayStateCallback(r.paused)
+      } catch {}
+    }
+  }).catch(() => {})
 }
 
 export function showAndNavigate(url) {
