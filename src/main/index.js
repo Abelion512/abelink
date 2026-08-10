@@ -36,7 +36,7 @@ import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
 import { ElectronBlocker } from '@ghostery/adblocker-electron'
 import mammoth from 'mammoth'
 import { PDFParse } from 'pdf-parse'
-import { loadYouTube, loadYouTubeHidden, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, setPlayStateCallback, sendKeyboardCommand, showAndNavigate, getDuration } from './youtube-player.js'
+import { loadYouTube, loadYouTubeHidden, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, setPlayStateCallback, setRepeatStateCallback, sendKeyboardCommand, showAndNavigate, getDuration } from './youtube-player.js'
 import { buildCanonical, hashBody, signContent } from './agent-keyring.js'
 // Headless/SSH detection: disable GPU if no display server available (Linux)
 if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
@@ -391,6 +391,13 @@ app.whenReady().then(async () => {
   setPlayStateCallback((paused) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('yt:play-state', paused)
+    }
+  })
+
+  // Wire repeat mode (NONE/ALL/ONE) → renderer (loop icon sync)
+  setRepeatStateCallback((mode) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('yt:repeat-state', mode)
     }
   })
 

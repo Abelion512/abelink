@@ -175,6 +175,10 @@ const api = {
   onYtPlayState: (callback) => {
     ipcRenderer.removeAllListeners('yt:play-state')
     ipcRenderer.on('yt:play-state', (_event, paused) => callback(paused))
+  },
+  onYtRepeatState: (callback) => {
+    ipcRenderer.removeAllListeners('yt:repeat-state')
+    ipcRenderer.on('yt:repeat-state', (_event, mode) => callback(mode))
   }
 }
 

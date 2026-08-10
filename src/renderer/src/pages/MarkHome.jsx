@@ -39,7 +39,7 @@ const MarkHome = () => {
     config
   } = chatContext
   useMemoryGroomer(true) // Aktifkan Hippocampus Engine (auto-groom memori)
-  const { isPlaying, currentTrack, playPause, prevTrack, nextTrack } = useYoutubeMusic()
+  const { isPlaying, currentTrack, playPause, prevTrack, nextTrack, repeatMode, toggleRepeat, openQueue } = useYoutubeMusic()
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
@@ -307,7 +307,12 @@ const MarkHome = () => {
                 <p className="text-white/40 text-xs font-extralight truncate max-w-xs">{currentTrack.artist}</p>
               )}
               {/* Inline Controls */}
-              <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center gap-3 mt-2">
+                <button onClick={toggleRepeat}
+                  className={`p-1 transition-colors ${repeatMode !== 'NONE' ? 'text-primary' : 'text-white/40 hover:text-white'}`}
+                  title={repeatMode === 'ONE' ? 'Repeat One' : repeatMode === 'ALL' ? 'Repeat All' : 'Repeat Off'}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+                </button>
                 <button onClick={prevTrack} className="text-white/60 hover:text-white transition-colors p-1" title="Previous">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
                 </button>
@@ -320,6 +325,9 @@ const MarkHome = () => {
                 </button>
                 <button onClick={nextTrack} className="text-white/60 hover:text-white transition-colors p-1" title="Next">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
+                <button onClick={openQueue} className="text-white/40 hover:text-white transition-colors p-1" title="Queue (buka panel YT Music)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
                 </button>
               </div>
             </div>

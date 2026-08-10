@@ -19,6 +19,10 @@ export function setOnTrackCallback(fn) { onTrackCallback = fn }
 let onPlayStateCallback = null
 export function setPlayStateCallback(fn) { onPlayStateCallback = fn }
 
+// Callback to send repeat mode (NONE/ALL/ONE) to renderer
+let onRepeatStateCallback = null
+export function setRepeatStateCallback(fn) { onRepeatStateCallback = fn }
+
 // Best-effort album art chain: video.poster -> YT Music player-bar art -> hqdefault
 async function extractThumbnail() {
   const win = ytWindow
@@ -521,13 +525,15 @@ function getOrCreateWindow() {
         if (!t) return null
         const ch = document.querySelector('ytmusic-player-bar .byline a, #channel-name yt-formatted-string a, ytd-channel-name yt-formatted-string a, #owner-name a')?.textContent?.trim() || ''
         const v = document.querySelector('video')
-        return JSON.stringify({ title: t, artist: ch, paused: v ? v.paused : null })
+        const rr = document.querySelector('ytmusic-player-bar')?.getAttribute('repeat-mode') || 'NONE'
+        return JSON.stringify({ title: t, artist: ch, paused: v ? v.paused : null, repeatMode: rr })
       })()
     `).then((result) => {
       if (!result) return
       try {
         const info = JSON.parse(result)
         if (typeof info.paused === 'boolean' && onPlayStateCallback) onPlayStateCallback(info.paused)
+        if (info.repeatMode && onRepeatStateCallback) onRepeatStateCallback(info.repeatMode)
         if (info.title && info.title !== lastSentTitle) {
           lastSentTitle = info.title
           const parts = info.title.split(' - ')
@@ -635,16 +641,33 @@ export function sendKeyboardCommand(command) {
       if (!v) return JSON.stringify({ ok: false })
       if (v.paused) { v.play().catch(() => {}); return JSON.stringify({ ok: true, paused: false }) }
       v.pause(); return JSON.stringify({ ok: true, paused: true })
+    })()`,
+    repeat: `(() => {
+      const bar = document.querySelector('ytmusic-player-bar')
+      if (bar && typeof bar.onRepeatButtonClick === 'function') {
+        bar.onRepeatButtonClick()
+        return JSON.stringify({ ok: true, mode: bar.getAttribute('repeat-mode') || 'NONE' })
+      }
+      const b = document.querySelector('ytmusic-player-bar .repeat, [aria-label="Repeat"]')
+      if (b) { b.click(); return JSON.stringify({ ok: true, mode: document.querySelector('ytmusic-player-bar')?.getAttribute('repeat-mode') || 'NONE' }) }
+      return JSON.stringify({ ok: false })
+    })()`,
+    queue: `(() => {
+      const sels = ['ytmusic-player-bar [aria-label="Up next"]', 'ytmusic-player-bar .queue', 'ytmusic-player-bar tp-yt-paper-icon-button[aria-label="Up next"]']
+      for (const sel of sels) { const b = document.querySelector(sel); if (b) { b.click(); return 'ok' } }
+      const q = document.querySelector('#queue')
+      if (q && q.queue && q.queue.store) { q.dispatch({ type: 'SET_PLAYER_PAGE_INFO', payload: { open: true } }); return 'ok' }
+      return 'fallback'
     })()`
   }[command]
   if (!script) return
   win.webContents.executeJavaScript(script).then((res) => {
-    if (command === 'playPause' && res) {
-      try {
-        const r = JSON.parse(res)
-        if (r.ok && onPlayStateCallback) onPlayStateCallback(r.paused)
-      } catch {}
-    }
+    if (!res) return
+    try {
+      const r = JSON.parse(res)
+      if (command === 'playPause' && r.ok && onPlayStateCallback) onPlayStateCallback(r.paused)
+      if (command === 'repeat' && r.ok && r.mode && onRepeatStateCallback) onRepeatStateCallback(r.mode)
+    } catch {}
   }).catch(() => {})
 }
 

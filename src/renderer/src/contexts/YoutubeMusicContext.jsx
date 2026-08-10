@@ -8,6 +8,7 @@ export const YoutubeMusicProvider = ({ children }) => {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTrack, setCurrentTrack] = useState({ title: '', artist: '', thumbnail: '' })
   const [playbackError, setPlaybackError] = useState(null)
+  const [repeatMode, setRepeatMode] = useState('NONE') // NONE | ALL | ONE (native YT Music)
   const scrobbleTimerRef = useRef(null)
   const scrobbleStartRef = useRef(null)
 
@@ -69,6 +70,17 @@ export const YoutubeMusicProvider = ({ children }) => {
 
   const playPause = useCallback(() => {
     window.api.ytCommand('playPause')
+  }, [])
+
+  // Native YT Music loop (NONE -> ALL -> ONE -> NONE). State synced via yt:repeat-state.
+  const toggleRepeat = useCallback(() => {
+    window.api.ytCommand('repeat')
+  }, [])
+
+  // Native queue panel: needs visible window (queue can't be managed blind)
+  const openQueue = useCallback(() => {
+    if (window.api?.ytShow) window.api.ytShow()
+    window.api.ytCommand('queue')
   }, [])
 
   // Listener for track metadata from main process
@@ -154,10 +166,18 @@ export const YoutubeMusicProvider = ({ children }) => {
     }
   }, [])
 
+  // Native repeat mode sync (NONE/ALL/ONE)
+  useEffect(() => {
+    if (window.api?.onYtRepeatState) {
+      window.api.onYtRepeatState((mode) => setRepeatMode(mode))
+    }
+  }, [])
+
   const value = {
     musicUrl, setMusicUrl, isPlayerOpen, setIsPlayerOpen,
     isPlaying, setIsPlaying,
     currentTrack, setCurrentTrack, playbackError, setPlaybackError,
+    repeatMode, toggleRepeat, openQueue,
     playUrl, nextTrack, prevTrack, playPause, togglePlayer
   }
 

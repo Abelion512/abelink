@@ -1,12 +1,13 @@
 import { getBestMusicMatch } from '../../api/ai/tools'
 
 export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools) => {
-  const { playUrl, nextTrack, prevTrack, playPause } = youtubeMusicTools
+  const { playUrl, nextTrack, prevTrack, playPause, toggleRepeat } = youtubeMusicTools
 
   const handleMusic = async (action, query) => {
     if (action === 'music-next') { nextTrack(); return 'Memutar lagu selanjutnya.' }
     if (action === 'music-prev') { prevTrack(); return 'Memutar lagu sebelumnya.' }
     if (action === 'music-toggle') { playPause(); return 'Pause/Resume lagu.' }
+    if (action === 'music-loop') { toggleRepeat(); return 'Mengulang lagu (mode loop diubah).' }
     if (action === 'music-recent') {
       const limit = parseInt(query, 10) || 15
       const history = (await window.api.getPlaybackHistory(limit)) || []
