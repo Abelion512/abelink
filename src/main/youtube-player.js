@@ -2,7 +2,7 @@
 // Keeps YouTube page for Last.fm scrobbling, track metadata, TikTok ecosystem.
 // Blocks ads via: (1) URL filtering, (2) SABR backoff patching, (3) skip-button auto-click.
 
-import { BrowserWindow, screen } from 'electron'
+import { BrowserWindow } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -575,22 +575,9 @@ export function loadYouTubeHidden(url) {
   if (win) win.loadURL(url)
 }
 
-// Docked mini-player: bottom-right of the display, not centered (avoids "floating in middle")
 export function showPlayer() {
   const win = getOrCreateWindow()
-  if (!win) return
-  const target = BrowserWindow.getFocusedWindow() || win
-  const display = screen.getDisplayMatching(
-    target.isDestroyed() ? win.getBounds() : target.getBounds()
-  ).workArea
-  const W = 420, H = 620, M = 12 // mini-player size + margin (queue panel fits)
-  win.setBounds({
-    x: display.x + display.width - W - M,
-    y: display.y + display.height - H - M,
-    width: W,
-    height: H
-  })
-  win.show()
+  if (win) win.show()
 }
 
 export function hidePlayer() {
