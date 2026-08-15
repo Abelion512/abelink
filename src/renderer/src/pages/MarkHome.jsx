@@ -356,8 +356,6 @@ const MarkHome = () => {
           <div className="w-full flex items-center gap-2 animate-[fade-up_0.2s_ease-out_forwards]">
             <div className="flex-1 min-w-0">
               <InputBar
-                value={message}
-                onChange={(e) => { setMessage(e.target.value); if (isSpeak) setIsSpeak(false) }}
                 onSubmit={(finalPrompt) => { setIsSpeak(false); handleSubmit(null, finalPrompt) }}
                 isLoading={isLoading || isAgentBusy}
                 isRecording={isRecording}

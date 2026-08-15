@@ -24,7 +24,8 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     ttsRate: 0,
     ttsPitch: 0,
     groqApiKey: '',
-    aiProvider: 'lmstudio',
+    aiProvider: 'gemini-web',
+    geminiWebModel: 'gemini-3.6-flash',
     groqModel: 'llama-3.1-8b-instant',
     waAdminNumber: '',
     micDeviceId: 'default',
@@ -35,7 +36,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const [audioDevices, setAudioDevices] = useState([])
   const [videoDevices, setVideoDevices] = useState([])
   const [activeSection, setActiveSection] = useState('provider')
-  const { confirm, ModalComponent } = useConfirm()
+  const { ModalComponent } = useConfirm()
   const chatContext = useChat()
   const location = useLocation()
 
@@ -45,7 +46,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
       setConfig((prev) => ({
         ...prev,
         ...data[0],
-        aiProvider: data[0].aiProvider?.replace('lm-studio', 'lmstudio') || 'lmstudio',
+        aiProvider: data[0].aiProvider === 'lm-studio' ? 'lmstudio' : (data[0].aiProvider || 'lmstudio'),
         micDeviceId: data[0].micDeviceId || 'default',
         awarenessEnabled: data[0].awarenessEnabled ?? true
       }))
@@ -108,11 +109,30 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           doneBtnText: 'Paham!',
           steps: [
             {
+              popover: {
+                title: 'Selamat Datang!',
+                description:
+                  'Selamat datang di Mark Agent! Ikuti panduan ini untuk mengatur AI ponsel Anda.',
+                side: 'center',
+                align: 'center'
+              }
+            },
+            {
               element: '#tour-ai-provider',
               popover: {
                 title: '1. Pilih Mesin AI',
                 description:
-                  'Kamu bisa milih mau pakai AI lokal (gratis & privat pakai LM Studio) atau API Cloud kayak Groq buat respons yang jauh lebih kenceng.',
+                  'Pilih Gemini (Gratis) untuk mulai ngobrol tanpa API Key, atau LM Studio untuk AI lokal offline. Butuh internet?',
+                side: 'bottom',
+                align: 'start'
+              }
+            },
+            {
+              element: '#tour-embed-provider',
+              popover: {
+                title: '2. Ekstraktor Embedding',
+                description:
+                  'Unduh model ekstraktor teks otomatis untuk fitur cerdas. Pertama kali butuh koneksi internet.',
                 side: 'bottom',
                 align: 'start'
               }
@@ -120,9 +140,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-groq-key',
               popover: {
-                title: '2. Wajib: Groq API Key',
+                title: '3. Wajib: Groq API Key',
                 description:
-                  'Nah ini penting! Karena fitur ngobrol pakai suara (Speech-to-Text) eksklusif pakai Groq, bagian ini WAJIB kamu isi walaupun pakai AI lokal.',
+                  'Karena fitur ngobrol pakai suara (Speech-to-Text) eksklusif pakai Groq, bagian ini WAJIB kamu isi walaupun pakai AI lokal.',
                 side: 'top',
                 align: 'start'
               }
@@ -130,7 +150,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-persona',
               popover: {
-                title: '3. Kepribadian Mark',
+                title: '4. Kepribadian Mark',
                 description:
                   'Di sini kamu bebas nentuin gaya bicara Mark. Mau dia formal kayak asisten pro, atau santai kayak temen nongkrong? Tulis aja di sini!',
                 side: 'top',
@@ -140,9 +160,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-temperature',
               popover: {
-                title: '4. Temperatur Kreativitas',
+                title: '5. Temperatur Kreativitas',
                 description:
-                  'Makin tinggi, makin liar jawabannya. 0 = konsisten & presisi, 1 = kreatif & random. Recomended: 0 untuk kerjaan serius.',
+                  'Makin tinggi, makin liar jawabannya. 0 = konsisten & presisi, 1 = kreatif & random. Rekomendasi: 0 untuk kerjaan serius.',
                 side: 'top',
                 align: 'start'
               }
@@ -150,7 +170,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-context',
               popover: {
-                title: '5. Context Window',
+                title: '6. Context Window',
                 description:
                   'Berapa banyak pesan yang Mark ingat dalam obrolan. 10 itu cukup buat kebanyakan situasi.',
                 side: 'top',
@@ -160,7 +180,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-tts',
               popover: {
-                title: '6. Suara Mark',
+                title: '7. Suara Mark',
                 description:
                   'Atur kecepatan dan nada bicara Mark. Coba dulu sebelum disimpan!',
                 side: 'top',
@@ -170,7 +190,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-save-btn',
               popover: {
-                title: '7. Simpan & Mulai!',
+                title: '8. Simpan & Mulai!',
                 description:
                   'Semua pengaturan bakal disimpan dan Mark langsung aktif. Selamat ngobrol!',
                 side: 'top',
@@ -190,7 +210,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   useEffect(() => {
     const timer = setTimeout(async () => {
       // Skip if config is still initial/default (no loaded data)
-      if (!config.model && !config.groqApiKey) return
+      if (!config.groqApiKey && !config.aiProvider) return
       try {
         await saveConfiguration(config)
         if (chatContext?.setConfig) chatContext.setConfig([config])
