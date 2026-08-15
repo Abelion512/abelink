@@ -162,7 +162,11 @@ function App() {
   }
 
   if (!hasConfig) {
-    return <Suspense fallback={<div className="h-screen w-screen bg-base-300 flex items-center justify-center"><span className="loading loading-infinity w-16 text-primary"></span></div>}><Configuration isFirstSetup={true} onSetupComplete={() => window.location.reload()} /></Suspense>
+    return (
+      <HashRouter>
+        <Suspense fallback={<div className="h-screen w-screen bg-base-300 flex items-center justify-center"><span className="loading loading-infinity w-16 text-primary"></span></div>}><Configuration isFirstSetup={true} onSetupComplete={() => window.location.reload()} /></Suspense>
+      </HashRouter>
+    )
   }
 
   const isStandalone = window.location.hash.includes('whatsapp-bot')
