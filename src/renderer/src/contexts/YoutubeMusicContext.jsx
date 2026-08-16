@@ -1,195 +1,166 @@
-import { useState, useContext, createContext, useCallback, useEffect, useRef } from 'react'
+import { useState, useContext, createContext, useRef, useCallback, useEffect } from 'react'
 
 const YoutubeMusicContext = createContext()
 
+const DEFAULT_URL = 'https://music.youtube.com'
+
 export const YoutubeMusicProvider = ({ children }) => {
-  const [musicUrl, setMusicUrl] = useState('https://www.youtube.com')
+  const [musicUrl, setMusicUrl] = useState(DEFAULT_URL)
   const [isPlayerOpen, setIsPlayerOpen] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTrack, setCurrentTrack] = useState({ title: '', artist: '', thumbnail: '' })
-  const [playbackError, setPlaybackError] = useState(null)
-  const [repeatMode, setRepeatMode] = useState('NONE') // NONE | ALL | ONE (native YT Music)
-  const scrobbleTimerRef = useRef(null)
-  const scrobbleStartRef = useRef(null)
+  const [playId, setPlayId] = useState(0)
+  const webviewRef = useRef(null)
+
+  const [currentTrack, setCurrentTrack] = useState({ title: '', artist: '' })
+
+  // Poll webview every 1s to detect if music is playing and get track info
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const webview = webviewRef.current
+      if (!webview) {
+        setIsPlaying(false)
+        return
+      }
+      try {
+        const info = await webview.executeJavaScript(
+          `(function(){ 
+            const titleEl = document.querySelector('yt-formatted-string.title.ytmusic-player-bar, .title.ytmusic-player-bar');
+            const subtitleEl = document.querySelector('span.subtitle.ytmusic-player-bar, .byline.ytmusic-player-bar');
+            const imgEl = document.querySelector('img.image.ytmusic-player-bar, .thumbnail.ytmusic-player img');
+            const video = document.querySelector('video');
+            return {
+              title: titleEl ? (titleEl.getAttribute('title') || titleEl.innerText || titleEl.textContent || '').trim() : '',
+              artist: subtitleEl ? (subtitleEl.getAttribute('title') || subtitleEl.innerText || subtitleEl.textContent || '').trim() : '',
+              thumbnail: imgEl ? imgEl.src.replace(/=w\\d+-h\\d+.*$/, '=w1080-h1080-l90-rj').replace(/\\?sqp=.*$/, '') : '',
+              paused: video ? video.paused : true
+            };
+          })()`
+        )
+        setIsPlaying(!info.paused)
+        if (info.title) {
+          setCurrentTrack(prev => ({ 
+            title: info.title, 
+            artist: info.artist, 
+            thumbnail: info.thumbnail || prev.thumbnail 
+          }))
+        }
+      } catch {
+        setIsPlaying(false)
+      }
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   const playUrl = useCallback(async (url, initialTrack = null) => {
-    if (!url) return
-    setMusicUrl(url)
-    setPlaybackError(null)
-    if (initialTrack) {
-      setCurrentTrack(initialTrack)
-    } else {
-      const vidMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
-      if (vidMatch) {
-        setCurrentTrack(prev => ({
-          ...prev,
-          thumbnail: 'https://i.ytimg.com/vi/' + vidMatch[1] + '/maxresdefault.jpg'
-        }))
+    if (webviewRef.current) {
+      try {
+        await webviewRef.current.executeJavaScript(`
+          var video = document.querySelector('video');
+          if (video && !video.paused) {
+            video.pause();
+          }
+        `);
+        // Tunggu sebentar agar pause benar-benar tereksekusi sebelum ganti URL
+        await new Promise(resolve => setTimeout(resolve, 300));
+      } catch (e) {
+        console.error('Error pausing before playUrl:', e);
       }
     }
-    try {
-      // Navigate in DEDICATED YouTube player — HIDDEN by default (audio only)
-      if (window.api?.ytLoad) {
-        await window.api.ytLoad(url)
-      } else if (window.api?.browserNavigate) {
-        await window.api.browserNavigate(url)
-      }
-      setIsPlaying(true)
-      // JANGAN setIsPlayerOpen(true) otomatis — biarkan hidden sampai user klik card
-    } catch (e) {
-      setPlaybackError(e.message)
+    
+    setMusicUrl(url)
+    setPlayId(prev => prev + 1)
+    setIsPlayerOpen(true)
+    if (initialTrack) {
+      setCurrentTrack(initialTrack)
     }
   }, [])
 
   const togglePlayer = useCallback(() => {
-    setIsPlayerOpen(prev => !prev)
+    setIsPlayerOpen((prev) => !prev)
   }, [])
 
-  // React to isPlayerOpen changes — show/hide the dedicated YouTube player
-  useEffect(() => {
-    if (isPlayerOpen) {
-      if (window.api?.showPlayer) {
-        window.api.showPlayer()
-      } else if (window.api?.showBrowserWindow) {
-        window.api.showBrowserWindow()
-      }
-    } else {
-      if (window.api?.ytHide) {
-        window.api.ytHide()
-      }
-    }
-  }, [isPlayerOpen])
-
   const nextTrack = useCallback(() => {
-    window.api.ytCommand('next')
+    webviewRef.current?.executeJavaScript(`
+      (function() {
+        const btn = document.querySelector('.next-button, #next-button, ytmusic-player-bar .next-button, ytmusic-player-bar #next-button');
+        if (btn) btn.click();
+      })();
+    `)
   }, [])
 
   const prevTrack = useCallback(() => {
-    window.api.ytCommand('prev')
+    webviewRef.current?.executeJavaScript(`
+      (function() {
+        const btn = document.querySelector('.previous-button, #previous-button, ytmusic-player-bar .previous-button, ytmusic-player-bar #previous-button');
+        if (btn) btn.click();
+      })();
+    `)
   }, [])
 
   const playPause = useCallback(() => {
-    window.api.ytCommand('playPause')
-  }, [])
-
-  // Native YT Music loop (NONE -> ALL -> ONE -> NONE). State synced via yt:repeat-state.
-  const toggleRepeat = useCallback(() => {
-    window.api.ytCommand('repeat')
-  }, [])
-
-  // Native queue panel: needs visible window (queue can't be managed blind)
-  const openQueue = useCallback(() => {
-    if (window.api?.ytShow) window.api.ytShow()
-    window.api.ytCommand('queue')
-  }, [])
-
-  // Listener for track metadata from main process
-  useEffect(() => {
-    if (window.api?.onYtTrackUpdated) {
-      const handler = (track) => {
-        setCurrentTrack(track)
-        setIsPlaying(true)
-        // --- Last.fm scrobbling ---
-        // Clear previous scrobble timer
-        if (scrobbleTimerRef.current) clearTimeout(scrobbleTimerRef.current)
-        // Update now playing on every track change
-        if (track.title && track.artist) {
-          try { window.api?.lastfmUpdateNowPlaying?.(track.title, track.artist) } catch {}
-          // Local playback history (source-first: lokal = sumber utama, tanpa last.fm pun tetap jalan)
-          try { window.api?.recordPlayback?.(track.title, track.artist) } catch {}
-          // Scrobble after 240s OR 50% of duration (whichever comes first)
-          scrobbleStartRef.current = Math.floor(Date.now() / 1000)
-          const scrobbleIt = () => {
-            try { window.api?.lastfmScrobble?.(track.title, track.artist, scrobbleStartRef.current) } catch {}
-          }
-          // Ask main process for video duration, then pick min(240s, duration/2)
-          if (window.api?.ytGetDuration) {
-            window.api.ytGetDuration().then((dur) => {
-              const halfDur = dur > 0 ? Math.floor(dur / 2) : 240
-              const scrobbleTime = Math.min(240, halfDur)
-              scrobbleTimerRef.current = setTimeout(scrobbleIt, scrobbleTime * 1000)
-            }).catch(() => {
-              scrobbleTimerRef.current = setTimeout(scrobbleIt, 240_000)
-            })
-          } else {
-            scrobbleTimerRef.current = setTimeout(scrobbleIt, 240_000)
+    webviewRef.current?.executeJavaScript(`
+      (function() {
+        const btn = document.querySelector('.play-pause-button, #play-pause-button, ytmusic-player-bar .play-pause-button, ytmusic-player-bar #play-pause-button');
+        if (btn) {
+          btn.click();
+        } else {
+          const video = document.querySelector('video');
+          if (video) {
+            if (video.paused) video.play();
+            else video.pause();
           }
         }
-      }
-      window.api.onYtTrackUpdated(handler)
-    }
-    return () => { if (scrobbleTimerRef.current) clearTimeout(scrobbleTimerRef.current) }
+      })();
+    `)
   }, [])
 
-  // Route WA/remote music commands to the active functions
-  useEffect(() => {
-    if (window.api?.onExecuteMusicCommand) {
-      window.api.onExecuteMusicCommand((command, payload) => {
-        if (command === 'play' && payload) playUrl(payload)
-        else if (command === 'next') nextTrack()
-        else if (command === 'prev') prevTrack()
-        else if (command === 'toggle') playPause()
-      })
-    }
-    if (window.api?.onExecuteMusicCommandWa) {
-      window.api.onExecuteMusicCommandWa((command, payload) => {
-        if (command === 'play' && payload) {
-          window.api.searchMusic(payload).then((music) => {
-            if (music && music.length > 0) {
-              const url = `https://music.youtube.com/watch?v=${music[0].id}`
-              playUrl(url)
-            }
-          })
-        } else if (command === 'next') nextTrack()
-        else if (command === 'prev') prevTrack()
-        else if (command === 'toggle') playPause()
-      })
-    }
-  }, [playUrl, nextTrack, prevTrack, playPause])
-
-  // Track listener handled in first onYtTrackUpdated useEffect above (with scrobbling)
-
-  // Sync to MPRIS
-  useEffect(() => {
-    if (window.api?.updateMprisTrack && currentTrack.title)
-      window.api.updateMprisTrack(currentTrack, !isPlaying)
-  }, [currentTrack.title, currentTrack.artist])
-  useEffect(() => {
-    if (window.api?.setMprisPlaybackStatus)
-      window.api.setMprisPlaybackStatus(isPlaying)
-  }, [isPlaying])
-
-  // Play/pause state from real video element — keeps toggle icon honest
-  useEffect(() => {
-    if (window.api?.onYtPlayState) {
-      window.api.onYtPlayState((paused) => setIsPlaying(!paused))
-    }
+  const pauseTrack = useCallback(() => {
+    webviewRef.current?.executeJavaScript(`
+      (function() {
+        const video = document.querySelector('video');
+        if (video && !video.paused) {
+          const btn = document.querySelector('.play-pause-button, #play-pause-button, ytmusic-player-bar .play-pause-button, ytmusic-player-bar #play-pause-button');
+          if (btn) btn.click();
+          else video.pause();
+        }
+      })();
+    `)
   }, [])
 
-  // Native repeat mode sync (NONE/ALL/ONE)
-  useEffect(() => {
-    if (window.api?.onYtRepeatState) {
-      window.api.onYtRepeatState((mode) => setRepeatMode(mode))
-    }
+  const resumeTrack = useCallback(() => {
+    webviewRef.current?.executeJavaScript(`
+      (function() {
+        const video = document.querySelector('video');
+        if (video && video.paused) {
+          const btn = document.querySelector('.play-pause-button, #play-pause-button, ytmusic-player-bar .play-pause-button, ytmusic-player-bar #play-pause-button');
+          if (btn) btn.click();
+          else video.play();
+        }
+      })();
+    `)
   }, [])
 
   const value = {
-    musicUrl, setMusicUrl, isPlayerOpen, setIsPlayerOpen,
-    isPlaying, setIsPlaying,
-    currentTrack, setCurrentTrack, playbackError, setPlaybackError,
-    repeatMode, toggleRepeat, openQueue,
-    playUrl, nextTrack, prevTrack, playPause, togglePlayer
+    musicUrl,
+    setMusicUrl,
+    playUrl,
+    playId,
+    isPlayerOpen,
+    setIsPlayerOpen,
+    togglePlayer,
+    webviewRef,
+    isPlaying,
+    currentTrack,
+    nextTrack,
+    prevTrack,
+    playPause,
+    pauseTrack,
+    resumeTrack
   }
 
-  return (
-    <YoutubeMusicContext.Provider value={value}>
-      {children}
-    </YoutubeMusicContext.Provider>
-  )
+  return <YoutubeMusicContext.Provider value={value}>{children}</YoutubeMusicContext.Provider>
 }
 
 export const useYoutubeMusic = () => {
-  const ctx = useContext(YoutubeMusicContext)
-  if (!ctx) throw new Error('useYoutubeMusic must be used within YoutubeMusicProvider')
-  return ctx
+  return useContext(YoutubeMusicContext)
 }

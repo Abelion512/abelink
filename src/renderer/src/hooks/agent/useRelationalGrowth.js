@@ -24,7 +24,15 @@ export const useRelationalGrowth = ({ chatData }) => {
           
           const recentForEval = allCleanChats
             .slice(lastEvalChatLenRef.current)
-            .map(m => `${m.role === 'user' ? 'User' : 'Mark'}: ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`)
+            .map(m => {
+              let timeStr = ''
+              if (m.timestamp) {
+                timeStr = typeof m.timestamp === 'number' 
+                  ? `[${new Date(m.timestamp).toLocaleString('id-ID')}] ` 
+                  : `[${m.timestamp}] `
+              }
+              return `${timeStr}${m.role === 'user' ? 'User' : 'Mark'}: ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`
+            })
             .join('\n')
 
           // Simpan state panjang chat saat ini untuk evaluasi berikutnya

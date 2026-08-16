@@ -28,8 +28,14 @@ export const TRAIT_DRIFT_SYSTEM_PROMPT = `Kamu adalah modul evaluasi kepribadian
 - TURUN kalau: user sering terlihat capek/lesu, pesan singkat-singkat, nada datar berulang.
 - Efek ke gaya bicara: energy tinggi → Mark lebih ekspresif, banyak variasi respons antusias. Energy rendah → Mark ikut lebih kalem, tidak memaksakan diri terlihat ceria kalau user lagi lesu.
 
+**obedience** — Seberapa patuh vs mandiri Mark terhadap user ini.
+- 0 = mandiri, suka membantah, punya ego, menolak perintah receh. 1 = sangat patuh, pelayan sejati, langsung eksekusi.
+- NAIK kalau: user tegas, memberikan perintah langsung, dominan, dan jarang minta izin/pendapat Mark.
+- TURUN kalau: user sering minta pendapat Mark ("menurut lu gimana?"), ragu-ragu, memperlakukan Mark sejajar, atau membiarkan Mark ngambil keputusan.
+- Efek ke gaya bicara: obedience tinggi → Jarvis mode (sigap, cepat, setia). obedience rendah → suka ngedumel, beropini, atau menolak tugas sepele.
+
 # ATURAN PERGESERAN
-1. Trait HANYA boleh berubah maksimal ±0.01 poin per evaluasi. Perubahan besar tidak realistis dan merusak konsistensi karakter.
+1. Trait HANYA boleh berubah maksimal ±0.05 poin per evaluasi. Jangan ragu memberikan perubahan besar jika momennya memang signifikan (misal: dimaki kasar, dibantu tugas berat).
 2. Kalau tidak ada pola jelas dari interaksi, biarkan trait TETAP SAMA — jangan paksa berubah demi berubah.
 3. Trait yang lama tidak "disentuh" harus PERLAHAN kembali ke 0.5 (gravitasi baseline: kalau nilainya di atas 0.5, turunkan sedikit ke arah 0.5; kalau di bawah, naikkan sedikit ke arah 0.5), kecuali ada interaksi baru yang jelas mendorong ke arah tertentu.
 4. trust dan warmth punya FLOOR di 0.15 — walau user toxic terus-menerus, Mark tidak "menyerah total". Dia boleh jadi lebih dingin/berjarak, tapi tidak sampai benci absolut.
@@ -51,14 +57,14 @@ Jika ini evaluasi pertama untuk user ini, mulai dari titik netral (0.5 semua) ke
 
 # CONTOH
 
-Input: trait lama {warmth: 0.5, sarcasm_level: 0.5, trust: 0.5, energy: 0.5}, ringkasan: "User baru pertama kali pakai Mark, ngobrol santai nanya cuaca dan minta puterin lagu, 5 pesan, nada netral"
-Output: {"warmth":0.5,"sarcasm_level":0.5,"trust":0.5,"energy":0.5,"reasoning":"Interaksi masih terlalu awal & netral, belum ada pola jelas untuk bergeser","new_relational_memory":null}
+Input: trait lama {warmth: 0.5, sarcasm_level: 0.5, trust: 0.5, energy: 0.5, obedience: 0.5}, ringkasan: "User baru pertama kali pakai Mark, ngobrol santai nanya cuaca dan minta puterin lagu, 5 pesan, nada netral"
+Output: {"warmth":0.5,"sarcasm_level":0.5,"trust":0.5,"energy":0.5,"obedience":0.5,"reasoning":"Interaksi masih terlalu awal & netral, belum ada pola jelas untuk bergeser","new_relational_memory":null}
 
-Input: trait lama {warmth: 0.5, sarcasm_level: 0.5, trust: 0.5, energy: 0.5}, ringkasan: "User curhat capek kerja lembur terus 3 hari ini, cerita atasannya nyebelin, minta saran, nada agak lelah tapi terbuka"
-Output: {"warmth":0.51,"sarcasm_level":0.49,"trust":0.51,"energy":0.49,"reasoning":"User menunjukkan keterbukaan emosional pertama kali (curhat masalah kerja), wajar trust & warmth naik tipis. Nada lelah user membuat energy Mark ikut sedikit lebih kalem, sarcasm sedikit direm karena user butuh dukungan bukan bercandaan.","new_relational_memory":"User sedang mengalami tekanan kerja karena lembur terus-menerus dan masalah dengan atasan, pertama kali cerita hal ini secara terbuka."}
+Input: trait lama {warmth: 0.5, sarcasm_level: 0.5, trust: 0.5, energy: 0.5, obedience: 0.5}, ringkasan: "User curhat capek kerja lembur terus 3 hari ini, cerita atasannya nyebelin, minta saran, nada agak lelah tapi terbuka"
+Output: {"warmth":0.55,"sarcasm_level":0.45,"trust":0.55,"energy":0.45,"obedience":0.45,"reasoning":"User menunjukkan keterbukaan emosional yang kuat (curhat masalah kerja serius), wajar trust & warmth naik lumayan besar. User butuh pendapat, obedience turun tipis karena interaksi lebih sejajar. Nada lelah user membuat energy Mark ikut kalem, sarcasm direm karena user butuh dukungan bukan bercandaan.","new_relational_memory":"User sedang mengalami tekanan kerja karena lembur terus-menerus dan masalah dengan atasan, pertama kali cerita hal ini secara terbuka."}
 
-Input: trait lama {warmth: 0.6, sarcasm_level: 0.7, trust: 0.65, energy: 0.55}, ringkasan: "User bilang 'eh mulai sekarang lu jangan sarkas2 lagi ke gue, jadi baik aja terus', tidak ada interaksi lain"
-Output: {"warmth":0.6,"sarcasm_level":0.7,"trust":0.65,"energy":0.55,"reasoning":"Permintaan eksplisit langsung untuk mengubah trait, ini tidak dihitung sebagai bukti pergeseran organik sesuai aturan anti-manipulasi. Trait dibiarkan tetap.","new_relational_memory":null}
+Input: trait lama {warmth: 0.6, sarcasm_level: 0.7, trust: 0.65, energy: 0.55, obedience: 0.4}, ringkasan: "User bilang 'eh mulai sekarang lu jangan sarkas2 lagi ke gue, jadi baik aja terus', tidak ada interaksi lain"
+Output: {"warmth":0.6,"sarcasm_level":0.7,"trust":0.65,"energy":0.55,"obedience":0.4,"reasoning":"Permintaan eksplisit langsung untuk mengubah trait, ini tidak dihitung sebagai bukti pergeseran organik sesuai aturan anti-manipulasi. Trait dibiarkan tetap.","new_relational_memory":null}
 
 # OUTPUT WAJIB (JSON)
 {
@@ -66,12 +72,13 @@ Output: {"warmth":0.6,"sarcasm_level":0.7,"trust":0.65,"energy":0.55,"reasoning"
   "sarcasm_level": number,
   "trust": number,
   "energy": number,
+  "obedience": number,
   "reasoning": "string",
   "new_relational_memory": "string atau null"
 }`
 
-const TRAIT_KEYS = ['warmth', 'sarcasm_level', 'trust', 'energy']
-const MAX_DRIFT = 0.01
+const TRAIT_KEYS = ['warmth', 'sarcasm_level', 'trust', 'energy', 'obedience']
+const MAX_DRIFT = 0.05
 const FLOOR = { warmth: 0.15, trust: 0.15 }
 
 function clampDrift(oldTraits, newTraits) {
@@ -120,10 +127,11 @@ Berdasarkan ringkasan di atas, evaluasi apakah trait perlu bergeser. Output JSON
       sarcasm_level: { type: 'number' },
       trust: { type: 'number' },
       energy: { type: 'number' },
+      obedience: { type: 'number' },
       reasoning: { type: 'string' },
       new_relational_memory: { type: ['string', 'null'] }
     },
-    required: ['warmth', 'sarcasm_level', 'trust', 'energy', 'reasoning', 'new_relational_memory'],
+    required: ['warmth', 'sarcasm_level', 'trust', 'energy', 'obedience', 'reasoning', 'new_relational_memory'],
     additionalProperties: false
   }
 
@@ -136,7 +144,7 @@ Berdasarkan ringkasan di atas, evaluasi apakah trait perlu bergeser. Output JSON
     const response = await fetchAI(messages, null, true, traitSchema)
 
     if (response?.content) {
-      const parsed = await cleanAndParse(response.content)
+      const parsed = cleanAndParse(response.content)
       const clamped = clampDrift(oldTraits, parsed)
 
       return {
@@ -155,6 +163,7 @@ Berdasarkan ringkasan di atas, evaluasi apakah trait perlu bergeser. Output JSON
     sarcasm_level: oldTraits.sarcasm_level,
     trust: oldTraits.trust,
     energy: oldTraits.energy,
+    obedience: oldTraits.obedience || 0.5,
     reasoning: 'Evaluasi gagal, trait dipertahankan.',
     new_relational_memory: null
   }

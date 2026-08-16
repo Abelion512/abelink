@@ -1,25 +1,13 @@
 <!doctype html>
-<html data-theme="forest">
+<html>
   <head>
     <meta charset="UTF-8" />
     <title>Mark Agent</title>
-    <!--
-      Content Security Policy
-      - 'unsafe-eval' required by @huggingface/transformers v4 (onnxruntime-web):
-        protobuf.js inquire() uses eval() and WASM JIT needs it — 'wasm-unsafe-eval'
-        alone is NOT enough (verified 2026-08-02: embeddings failed with "no available
-        backend found" under wasm-unsafe-eval only). This is the documented tradeoff:
-        local embeddings (memory MMS) are a core feature; without unsafe-eval the
-        entire memory pipeline degrades silently (migrated_vectors_v1 hides it).
-      - connect-src * — intentional: renderer loads from file:// origin with webSecurity disabled,
-        and users configure arbitrary AI provider endpoints (custom, Groq, Cerebras, localhost).
-        Locking connect-src breaks those flows. Script injection prevention is enforced via
-        script-src (no 'unsafe-inline' for scripts).
-      - style-src 'unsafe-inline' required for React, Tailwind, and DaisyUI runtime styles.
-    -->
+    <html data-theme="forest"></html>
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' blob: 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://* http://*; media-src 'self' data:; connect-src *;"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://* http://*;"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

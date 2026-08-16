@@ -15,13 +15,16 @@ import {
   FaChartBar,
   FaClock,
   FaHeart,
-  FaShieldAlt
+  FaShieldAlt,
+  FaUndo,
+  FaSave,
+  FaRobot
 } from 'react-icons/fa'
 
 const TRAIT_META = [
   {
     key: 'warmth',
-    label: 'Warmth',
+    label: 'Kehangatan',
     desc: 'Kehangatan & keakraban emosional',
     color: 'text-error',
     bg: 'bg-error/10',
@@ -30,7 +33,7 @@ const TRAIT_META = [
   },
   {
     key: 'sarcasm_level',
-    label: 'Sarcasm',
+    label: 'Sarkasme',
     desc: 'Level sarkas & toxic-friendly',
     color: 'text-warning',
     bg: 'bg-warning/10',
@@ -39,7 +42,7 @@ const TRAIT_META = [
   },
   {
     key: 'trust',
-    label: 'Trust',
+    label: 'Kepercayaan',
     desc: 'Kepercayaan & keterbukaan',
     color: 'text-success',
     bg: 'bg-success/10',
@@ -48,12 +51,21 @@ const TRAIT_META = [
   },
   {
     key: 'energy',
-    label: 'Energy',
+    label: 'Energi',
     desc: 'Baseline mood & energi',
     color: 'text-info',
     bg: 'bg-info/10',
     ring: 'ring-info/30',
     icon: FaBolt
+  },
+  {
+    key: 'obedience',
+    label: 'Kepatuhan',
+    desc: 'Pelayan vs mandiri',
+    color: 'text-secondary',
+    bg: 'bg-secondary/10',
+    ring: 'ring-secondary/30',
+    icon: FaRobot
   }
 ]
 
@@ -69,7 +81,7 @@ function describeLevel(val) {
 
 function describePersonality(traits) {
   if (!traits) return 'Memuat...'
-  const { warmth, sarcasm_level, trust, energy } = traits
+  const { warmth, sarcasm_level, trust, energy, obedience } = traits
   const parts = []
 
   if (warmth >= 0.7) parts.push('hangat dan akrab')
@@ -88,6 +100,9 @@ function describePersonality(traits) {
   else if (energy <= 0.3) parts.push('kalem dan tenang')
   else parts.push('mood stabil')
 
+  if (obedience >= 0.7) parts.push('sangat penurut')
+  else if (obedience <= 0.3) parts.push('berani membantah')
+
   return `Mark saat ini bersikap ${parts.join(', ')}.`
 }
 
@@ -98,8 +113,8 @@ const TraitRing = ({ value, color, icon: Icon, label, desc, ring }) => {
   const offset = circ - (pct / 100) * circ
 
   return (
-    <div className={`flex flex-col items-center gap-3 p-4 rounded-2xl border border-white/5 ring-1 ${ring} transition-all hover:scale-[1.03] glass glass-hover`}>
-      <div className="relative w-28 h-28">
+    <div className={`flex flex-col items-center gap-2 p-3 rounded-2xl bg-base-200/50 border border-white/5 ring-1 ${ring} transition-all hover:scale-[1.03] hover:bg-base-200/80`}>
+      <div className="relative w-20 h-20">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
           <circle cx="50" cy="50" r={r} fill="none" strokeWidth="6" className="stroke-base-content/10" />
           <circle
@@ -115,14 +130,14 @@ const TraitRing = ({ value, color, icon: Icon, label, desc, ring }) => {
           />
         </svg>
         <div className={`absolute inset-0 flex flex-col items-center justify-center ${color}`}>
-          <Icon className="text-2xl" />
-          <span className="text-lg font-bold font-mono mt-0.5">{value.toFixed(2)}</span>
+          <Icon className="text-xl" />
+          <span className="text-sm font-bold font-mono mt-0.5">{value.toFixed(2)}</span>
         </div>
       </div>
       <div className="text-center">
-        <p className={`text-sm font-bold ${color}`}>{label}</p>
-        <p className="text-xs text-base-content/50">{desc}</p>
-        <p className={`text-xs font-semibold mt-1 ${color}`}>{describeLevel(value)}</p>
+        <p className={`text-[13px] font-bold ${color}`}>{label}</p>
+        <p className="text-[10px] leading-tight text-base-content/50 mt-0.5">{desc}</p>
+        <p className={`text-[11px] font-semibold mt-1 ${color}`}>{describeLevel(value)}</p>
       </div>
     </div>
   )
@@ -166,17 +181,18 @@ const RelationalGrowth = () => {
         sarcasm_level: 0.5,
         trust: 0.5,
         energy: 0.5,
+        obedience: 0.5,
         evalCount: 0,
         lastChatIndex: 0,
         reasoning: 'Direset manual oleh user.',
-        lastEvaluation: new Date().toISOString()
+        lastEvaluation: null
       })
       await loadData()
     }
   }
 
   return (
-    <div className="h-screen bg-[var(--base-300)] text-base-content overflow-hidden relative font-['Poppins',sans-serif]">
+    <div className="h-screen bg-base-300 text-base-content overflow-hidden relative font-['Poppins',sans-serif]">
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,oklch(var(--p)/0.08)_0%,transparent_50%)] pointer-events-none" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,oklch(var(--s)/0.06)_0%,transparent_50%)] pointer-events-none" />
@@ -215,7 +231,7 @@ const RelationalGrowth = () => {
           ) : (
             <>
               {/* Personality Summary Card */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-base-200/80 to-base-300/50 border border-white/5 glass glass-hover">
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-base-200/80 to-base-300/50 border border-white/5 backdrop-blur-sm">
                 <p className="text-sm font-semibold text-primary mb-2 flex items-center gap-2"><FaBrain className="text-primary" /> Kepribadian Saat Ini</p>
                 <p className="text-base-content/80 text-sm leading-relaxed">{describePersonality(traits)}</p>
                 {traits?.evalCount > 0 && (
@@ -231,7 +247,7 @@ const RelationalGrowth = () => {
               {/* Trait Rings Grid */}
               <div>
                 <p className="text-sm font-semibold text-base-content/70 mb-4 flex items-center gap-2"><FaChartLine className="text-primary/70" /> Trait Overview</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {TRAIT_META.map(t => (
                     <TraitRing
                       key={t.key}
@@ -251,7 +267,7 @@ const RelationalGrowth = () => {
               {traits?.reasoning && (
                 <div>
                   <p className="text-sm font-semibold text-base-content/70 mb-3 flex items-center gap-2"><FaCommentDots className="text-primary/70" /> Reasoning Terakhir</p>
-                  <div className="p-4 rounded-2xl bg-base-200/50 border border-white/5 glass glass-hover">
+                  <div className="p-4 rounded-2xl bg-base-200/50 border border-white/5">
                     <p className="text-sm text-base-content/70 italic leading-relaxed">&ldquo;{traits.reasoning}&rdquo;</p>
                   </div>
                 </div>
@@ -260,22 +276,23 @@ const RelationalGrowth = () => {
               {/* Stats Grid */}
               <div>
                 <p className="text-sm font-semibold text-base-content/70 mb-4 flex items-center gap-2"><FaCubes className="text-primary/70" /> Statistik Hubungan</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                   {[
                     { label: 'Evaluasi Sifat', value: traits?.evalCount || 0, icon: FaChartBar, sub: 'Total drift evaluation', iconColor: 'text-primary' },
-                    { label: 'Warmth', value: ((traits?.warmth || 0.5) * 100).toFixed(0) + '%', icon: FaFire, sub: describeLevel(traits?.warmth || 0.5), iconColor: 'text-error' },
-                    { label: 'Trust', value: ((traits?.trust || 0.5) * 100).toFixed(0) + '%', icon: FaShieldAlt, sub: describeLevel(traits?.trust || 0.5), iconColor: 'text-success' },
-                    { label: 'Sarcasm', value: ((traits?.sarcasm_level || 0.5) * 100).toFixed(0) + '%', icon: FaTheaterMasks, sub: describeLevel(traits?.sarcasm_level || 0.5), iconColor: 'text-warning' }
+                    { label: 'Kehangatan', value: ((traits?.warmth || 0.5) * 100).toFixed(0) + '%', icon: FaFire, sub: describeLevel(traits?.warmth || 0.5), iconColor: 'text-error' },
+                    { label: 'Kepercayaan', value: ((traits?.trust || 0.5) * 100).toFixed(0) + '%', icon: FaShieldAlt, sub: describeLevel(traits?.trust || 0.5), iconColor: 'text-success' },
+                    { label: 'Sarkasme', value: ((traits?.sarcasm_level || 0.5) * 100).toFixed(0) + '%', icon: FaTheaterMasks, sub: describeLevel(traits?.sarcasm_level || 0.5), iconColor: 'text-warning' },
+                    { label: 'Kepatuhan', value: ((traits?.obedience || 0.5) * 100).toFixed(0) + '%', icon: FaRobot, sub: describeLevel(traits?.obedience || 0.5), iconColor: 'text-secondary' }
                   ].map((stat, i) => {
                     const StatIcon = stat.icon
                     return (
-                      <div key={i} className="p-4 rounded-xl border border-white/5 glass glass-hover">
-                        <div className="flex items-center gap-2 mb-2">
-                          <StatIcon className={`text-base ${stat.iconColor}`} />
-                          <span className="text-xs text-base-content/50">{stat.label}</span>
+                      <div key={i} className="p-3 rounded-xl bg-base-200/40 border border-white/5 hover:bg-base-200/60 transition-colors">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <StatIcon className={`text-sm ${stat.iconColor}`} />
+                          <span className="text-[11px] text-base-content/50 leading-none">{stat.label}</span>
                         </div>
-                        <p className={`text-2xl font-bold font-mono ${stat.iconColor}`}>{stat.value}</p>
-                        <p className="text-xs text-base-content/40 mt-1">{stat.sub}</p>
+                        <p className={`text-lg font-bold font-mono leading-none ${stat.iconColor}`}>{stat.value}</p>
+                        <p className="text-[10px] text-base-content/40 mt-1.5 leading-none">{stat.sub}</p>
                       </div>
                     )
                   })}
@@ -286,7 +303,7 @@ const RelationalGrowth = () => {
         </div>
       </div>
 
-      <ModalComponent />
+      {ModalComponent}
     </div>
   )
 }

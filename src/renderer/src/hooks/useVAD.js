@@ -1,29 +1,43 @@
 import { useState, useRef, useEffect } from 'react'
+import { transcribeAudioLocal } from '../api/localWhisper'
 import { transcribeAudioGroq } from '../api/groq'
-
 import { getAllConfig } from '../api/db'
 
 export const useVAD = ({
   onTranscript // Function to call when STT finishes
 }) => {
   const [isRecording, setIsRecording] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [audioIntensity, setAudioIntensity] = useState(0)
   const [toastMessage, setToastMessage] = useState('')
 
   const streamRef = useRef(null)
   const audioContextRef = useRef(null)
-  const workletNodeRef = useRef(null)
+  const processorRef = useRef(null)
   const isSpeakingRef = useRef(false)
   const audioChunksRef = useRef([])
-  const silenceTimerRef = useRef(null)
   const isStartingRef = useRef(false)
   const isRecordingRef = useRef(false)
-  // ==========================================
-  // VAD & GROQ WHISPER RECORDING
-  // ==========================================
+  const silenceFramesRef = useRef(0)
+  const isProcessingSpeechRef = useRef(false)
+
   const stopVADCleanup = () => {
-    if (workletNodeRef.current) {
-      workletNodeRef.current.disconnect()
-      workletNodeRef.current = null
+    const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
+
+    // Jika ada pending audio saat user menekan stop manual
+    let pendingAudio = null
+    if (totalLength >= 8000) {
+      pendingAudio = new Float32Array(totalLength)
+      let offset = 0
+      for (let arr of audioChunksRef.current) {
+        pendingAudio.set(arr, offset)
+        offset += arr.length
+      }
+    }
+
+    if (processorRef.current) {
+      processorRef.current.disconnect()
+      processorRef.current = null
     }
     if (audioContextRef.current) {
       audioContextRef.current.close()
@@ -33,31 +47,114 @@ export const useVAD = ({
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
     }
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current)
-    }
     isSpeakingRef.current = false
     audioChunksRef.current = []
     isRecordingRef.current = false
     setIsRecording(false)
     isStartingRef.current = false
+    silenceFramesRef.current = 0
+    isProcessingSpeechRef.current = false
+
+    return pendingAudio
+  }
+
+  const finishSpeechAndTranscribe = () => {
+    if (isProcessingSpeechRef.current) return
+    isProcessingSpeechRef.current = true
+
+    const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
+    if (totalLength < 8000) {
+      stopVADCleanup()
+      return
+    }
+
+    const merged = new Float32Array(totalLength)
+    let offset = 0
+    for (let arr of audioChunksRef.current) {
+      merged.set(arr, offset)
+      offset += arr.length
+    }
+
+    // Hapus pemotongan silence agresif. Whisper bisa menangani sedikit silence di akhir.
+    // Menyimpan sedikit silence di akhir justru mencegah plosif terakhir terpotong.
+    const trimmedAudio = merged
+
+    stopVADCleanup()
+    setIsProcessing(true)
+
+    // Beri waktu 150ms agar React sempat me-render state (mis. mematikan lampu indikator)
+    // sebelum thread diblokir oleh eksekusi ONNX WebAssembly
+    setTimeout(async () => {
+      try {
+        const config = await getAllConfig()
+        const sttEngine = config[0]?.localWhisperModel || 'whisper-small'
+        let text = ''
+
+        if (sttEngine === 'groq-whisper') {
+          setToastMessage('Mentranskrip via Groq API...')
+          text = await transcribeAudioGroq(trimmedAudio)
+          setToastMessage('')
+        } else {
+          text = await transcribeAudioLocal(trimmedAudio, (progressData) => {
+            if (progressData && progressData.progress !== undefined) {
+              setToastMessage(`Mengunduh model AI Suara... ${Math.round(progressData.progress)}%`)
+              if (progressData.progress >= 100) {
+                setTimeout(() => setToastMessage(''), 2000)
+              }
+            }
+          })
+        }
+
+        setIsProcessing(false)
+        if (text && text.trim() !== '') {
+          const cleanText = text.replace(
+            /\b(mbak|mak|makh|marg|mart|marck|marc|mac|mag)\b/gi,
+            'Mark'
+          )
+          onTranscript(cleanText.trim())
+        }
+      } catch (err) {
+        setIsProcessing(false)
+        console.error('[VAD] STT Error:', err)
+        setToastMessage(`Gagal memproses STT: ${err.message}`)
+        setTimeout(() => setToastMessage(''), 5000)
+      }
+    }, 150)
   }
 
   const startVADRecording = async () => {
     if (isStartingRef.current || isRecordingRef.current) return
     isStartingRef.current = true
 
+    let isActive = true
+    const currentStopVAD = stopVADCleanup
+
     try {
       stopVADCleanup()
-      
+      isStartingRef.current = true
+
       const config = await getAllConfig()
+      if (!isActive || !isStartingRef.current) return
+
       const micId = config[0]?.micDeviceId
+      const audioSettings = {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      }
+
       const constraints = {
-        audio: micId && micId !== 'default' 
-          ? { deviceId: { exact: micId } } 
-          : true
+        audio:
+          micId && micId !== 'default'
+            ? { deviceId: { exact: micId }, ...audioSettings }
+            : audioSettings
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      if (!isActive || !isStartingRef.current) {
+        stream.getTracks().forEach((t) => t.stop())
+        return
+      }
+
       streamRef.current = stream
 
       const AudioContext = window.AudioContext || window.webkitAudioContext
@@ -65,136 +162,114 @@ export const useVAD = ({
       audioContextRef.current = audioContext
 
       const source = audioContext.createMediaStreamSource(stream)
+      const processor = audioContext.createScriptProcessor(4096, 1, 1)
+      processorRef.current = processor
 
       const gainNode = audioContext.createGain()
       gainNode.gain.value = 0 // Mute output
 
-      // AudioWorklet (replace deprecated ScriptProcessorNode)
-      const workletCode = `
-class VADProcessor extends AudioWorkletProcessor {
-  constructor() { super(); }
-  process(inputs, outputs, parameters) {
-    const input = inputs[0];
-    if (!input || !input[0]) return true;
-    const channel = input[0];
-    let sum = 0;
-    for (let i = 0; i < channel.length; i++) sum += channel[i] * channel[i];
-    const rms = Math.sqrt(sum / channel.length);
-    this.port.postMessage({ rms, samples: channel.buffer }, [channel.buffer]);
-    return true;
-  }
-}
-registerProcessor('vad-processor', VADProcessor);
-`
-
-      const blob = new Blob([workletCode], { type: 'application/javascript' })
-      const blobUrl = URL.createObjectURL(blob)
-      await audioContext.audioWorklet.addModule(blobUrl)
-      URL.revokeObjectURL(blobUrl)
-
-      const workletNode = new AudioWorkletNode(audioContext, 'vad-processor', {
-        processorOptions: { threshold: 0.015 }
-      })
-      workletNodeRef.current = workletNode
-
-      source.connect(workletNode)
-      workletNode.connect(gainNode)
+      source.connect(processor)
+      processor.connect(gainNode)
       gainNode.connect(audioContext.destination)
 
       isRecordingRef.current = true
       setIsRecording(true)
+      silenceFramesRef.current = 0
 
-      workletNode.port.onmessage = (e) => {
-        if (window.isMarkSpeaking) return
+      // Each buffer is 4096 samples at 16000Hz = 0.256s (256ms)
+      // 8 frames silence = ~2.0s silence (memberi waktu jeda nafas/berpikir sedikit)
+      const MAX_SILENCE_FRAMES = 8
+      const RMS_THRESHOLD = 0.01 // Diturunkan agar suara pelan/ujung kata tidak dianggap silence
 
-        const { rms, samples } = e.data
-        const input = new Float32Array(samples)
+      processor.onaudioprocess = (e) => {
+        if (window.isMarkSpeaking || isProcessingSpeechRef.current) return
 
-        if (rms > 0.015) {
+        const input = e.inputBuffer.getChannelData(0)
+        let sum = 0
+        for (let i = 0; i < input.length; i++) sum += input[i] * input[i]
+        const rms = Math.sqrt(sum / input.length)
+
+        // Normalisasi RMS untuk visualisasi (RMS biasanya berkisar antara 0.01 - 0.15)
+        const normalized = Math.min(1, (rms - RMS_THRESHOLD) * 15)
+        setAudioIntensity(Math.max(0, normalized))
+
+        if (rms > RMS_THRESHOLD) {
           if (!isSpeakingRef.current) {
             isSpeakingRef.current = true
             audioChunksRef.current = []
           }
-          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
+          silenceFramesRef.current = 0
+          audioChunksRef.current.push(new Float32Array(input))
+        } else if (isSpeakingRef.current) {
+          // Push low audio chunk so end of word isn't clipped
+          audioChunksRef.current.push(new Float32Array(input))
+          silenceFramesRef.current += 1
 
-          silenceTimerRef.current = setTimeout(() => {
-            isSpeakingRef.current = false
-
-            const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
-            if (totalLength < 8000) {
-               stopVADCleanup()
-               // Restart VAD silently if too short
-               setTimeout(() => startVADRecording(), 300)
-               return
-            }
-
-            const merged = new Float32Array(totalLength)
-            let offset = 0
-            for (let arr of audioChunksRef.current) {
-              merged.set(arr, offset)
-              offset += arr.length
-            }
-
-            // Buang 1.5 detik keheningan di akhir (1.5 * 16000 = 24000 samples)
-            // Biar Whisper nggak halusinasi nyetak huruf berulang ("AAR AAR", "OI MI MAI") gara-gara denger desis kosong.
-            const trimLength = Math.max(8000, merged.length - 24000)
-            const trimmedAudio = merged.subarray(0, trimLength)
-
-            stopVADCleanup()
-
-            // Send to Groq
-            transcribeAudioGroq(trimmedAudio)
-              .then(text => {
-                if (text && text.trim() !== '') {
-                  onTranscript(text.trim())
-                }
-              })
-              .catch(err => {
-                console.error('Groq Error:', err)
-                if (err.message.includes('Key')) {
-                  setToastMessage(err.message)
-                  setTimeout(() => setToastMessage(''), 5000)
-                }
-              })
-
-          }, 2000) // 2 detik diam = otomatis cut
-        }
-
-        if (isSpeakingRef.current) {
-          audioChunksRef.current.push(input)
+          // Total recording length check (hard max 15 seconds)
+          const totalSamples = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
+          if (silenceFramesRef.current >= MAX_SILENCE_FRAMES || totalSamples >= 240000) {
+            finishSpeechAndTranscribe()
+          }
         }
       }
       isStartingRef.current = false
     } catch (error) {
-      console.error('Error starting mic:', error)
-      stopVADCleanup()
+      console.error('[VAD] Error starting mic:', error)
+      currentStopVAD()
       setToastMessage('Gagal mengakses mikrofon.')
       setTimeout(() => setToastMessage(''), 5000)
     }
   }
 
+  useEffect(() => {
+    window.isVADRecording = isRecording
+  }, [isRecording])
+
   const toggleRecording = () => {
-    // Override manual: If it's already recording, we can force-stop and send it immediately
     if (isRecordingRef.current) {
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
-      const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
-      if (totalLength >= 8000) {
-        const merged = new Float32Array(totalLength)
-        let offset = 0
-        for (let arr of audioChunksRef.current) {
-          merged.set(arr, offset)
-          offset += arr.length
-        }
-        stopVADCleanup()
-        transcribeAudioGroq(merged)
-          .then(text => {
-            if (text && text.trim() !== '') onTranscript(text.trim())
-          })
-          .catch(e => {
-            console.error(e)
-          })
-      } else {
-        stopVADCleanup()
+      const pendingAudio = stopVADCleanup()
+
+      if (pendingAudio) {
+        // Jika user secara eksplisit mematikan mic saat ngomong, transkrip!
+        setIsProcessing(true)
+        setTimeout(async () => {
+          try {
+            const config = await getAllConfig()
+            const sttEngine = config[0]?.localWhisperModel || 'whisper-small'
+            let text = ''
+
+            if (sttEngine === 'groq-whisper') {
+              setToastMessage('Mentranskrip via Groq API...')
+              text = await transcribeAudioGroq(pendingAudio)
+              setToastMessage('')
+            } else {
+              text = await transcribeAudioLocal(pendingAudio, (progressData) => {
+                if (progressData && progressData.progress !== undefined) {
+                  setToastMessage(
+                    `Mengunduh model AI Suara... ${Math.round(progressData.progress)}%`
+                  )
+                  if (progressData.progress >= 100) {
+                    setTimeout(() => setToastMessage(''), 2000)
+                  }
+                }
+              })
+            }
+
+            setIsProcessing(false)
+            if (text && text.trim() !== '') {
+              const cleanText = text.replace(
+                /\b(mbak|mak|makh|marg|mart|marck|marc|mac|mag)\b/gi,
+                'Mark'
+              )
+              onTranscript(cleanText.trim())
+            }
+          } catch (err) {
+            setIsProcessing(false)
+            console.error('[VAD] STT Error:', err)
+            setToastMessage(`Gagal memproses STT: ${err.message}`)
+            setTimeout(() => setToastMessage(''), 5000)
+          }
+        }, 150)
       }
     } else {
       startVADRecording()
@@ -205,5 +280,13 @@ registerProcessor('vad-processor', VADProcessor);
     return () => stopVADCleanup()
   }, [])
 
-  return { isRecording, toggleRecording, toastMessage }
+  return {
+    isRecording,
+    isProcessing,
+    audioIntensity,
+    toggleRecording,
+    startRecording: startVADRecording,
+    stopRecording: finishSpeechAndTranscribe,
+    toastMessage
+  }
 }

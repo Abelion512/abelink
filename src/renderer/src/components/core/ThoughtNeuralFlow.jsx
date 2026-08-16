@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { FaCheck, FaSpinner, FaBrain } from 'react-icons/fa';
 
 const ThoughtNeuralFlow = ({ processes }) => {
   const [displayedPlan, setDisplayedPlan] = useState(null);
@@ -7,12 +7,12 @@ const ThoughtNeuralFlow = ({ processes }) => {
 
   useEffect(() => {
     let activePlan = processes.find(p => p.type === 'planning');
-
+    
     if (!activePlan && processes.length > 0) {
       const runningProc = processes.find(p => p.status !== 'done');
       if (runningProc) {
-        let taskName = runningProc.type === 'web-search' ? 'Mencari Data...' :
-                       runningProc.type === 'plugin-execution' ? 'Eksekusi Plugin...' :
+        let taskName = runningProc.type === 'web-search' ? 'Mencari Data...' : 
+                       runningProc.type === 'plugin-execution' ? 'Eksekusi Plugin...' : 
                        'Memproses...';
         activePlan = {
           status: runningProc.status,
@@ -35,10 +35,11 @@ const ThoughtNeuralFlow = ({ processes }) => {
 
   const plan = displayedPlan?.data?.plan || [];
   const currentStep = displayedPlan?.data?.currentStep || 0;
+  const reasoning = displayedPlan?.data?.reasoning || '';
   const isDone = displayedPlan?.status === 'done';
 
   return (
-    <div
+    <div 
       className={`absolute inset-0 z-0 pointer-events-none flex items-center justify-center transition-all duration-500 ease-out
         ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}
       `}
@@ -54,40 +55,41 @@ const ThoughtNeuralFlow = ({ processes }) => {
           }
         `}
       </style>
-
+      
       {/* Reasoning text removed as per user request */}
 
       {/* Nodes around the Orb */}
-      {plan.map((_, idx) => {
+      {plan.map((step, idx) => {
         const isCompleted = idx < currentStep;
         const isActive = idx === currentStep && !isDone;
         const isPending = idx > currentStep;
+        const stepText = typeof step === 'object' ? step.task : step;
 
         const totalNodes = plan.length;
         const span = totalNodes > 3 ? 180 : 140; // Expand span if there are many nodes
         const startAngle = -90 - (span / 2);
         const stepAngle = totalNodes > 1 ? span / (totalNodes - 1) : 0;
-
+        
         const angleDeg = startAngle + (idx * stepAngle);
         const angleRad = (angleDeg * Math.PI) / 180;
-
+        
         // Push nodes further away if there are many to avoid overlapping labels
         // Use a zigzag pattern for radius if there are many nodes (alternating distances)
         const baseRadius = totalNodes > 3 ? 170 : 150;
         const radius = totalNodes > 3 ? baseRadius + (idx % 2 === 0 ? 0 : 40) : baseRadius;
-
+        
         const x = Math.cos(angleRad) * radius;
         const y = Math.sin(angleRad) * radius;
 
-        // Holographic glass styles — neutralized from primary/secondary to white
+        // Holographic glass styles
         let glassClass = 'from-base-content/10 to-base-content/5 border-base-content/20 text-base-content/40';
-        if (isCompleted) glassClass = 'from-white/30 to-white/10 border-white/40 text-white shadow-[inset_0_0_10px_rgba(255,255,255,0.1)]';
-        if (isActive) glassClass = 'from-white/50 to-white/20 border-white/60 text-white shadow-[inset_0_0_15px_rgba(255,255,255,0.2)] animate-pulse scale-110';
+        if (isCompleted) glassClass = 'from-primary/40 to-primary/10 border-primary/50 text-primary shadow-[inset_0_0_10px_oklch(var(--p)/0.2)]';
+        if (isActive) glassClass = 'from-secondary/50 to-secondary/20 border-secondary/60 text-secondary shadow-[inset_0_0_15px_oklch(var(--s)/0.4)] animate-pulse scale-110';
 
         // Calculate line coordinates so they start from the surface of the Node and end at the surface of the Orb
         // Node is at (x,y) relative to Orb(0,0).
         // The SVG center (150,150) represents the Node.
-        const distance = radius;
+        const distance = radius; 
         const nodeClearance = 16; // Don't draw inside the 32px neuron cube
         const orbClearance = 60; // Don't draw inside the 96px main orb
 
@@ -102,10 +104,10 @@ const ThoughtNeuralFlow = ({ processes }) => {
         const endY = 150 + (dirY * (distance - orbClearance));
 
         return (
-          <div
-            key={idx}
+          <div 
+            key={idx} 
             className="absolute flex flex-col items-center"
-            style={{
+            style={{ 
               transform: `translate(${x}px, ${y}px)`,
               transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
               transitionDelay: `${idx * 100}ms`
@@ -113,11 +115,11 @@ const ThoughtNeuralFlow = ({ processes }) => {
           >
             {/* Draw SVG line connecting to center (Orb) */}
             <svg className="absolute w-[300px] h-[300px] pointer-events-none overflow-visible" style={{ top: -150, left: -150 }}>
-               <line
-                 x1={startX} y1={startY}
-                 x2={endX} y2={endY}
-                 stroke="currentColor"
-                 className={isCompleted ? 'text-white opacity-50' : isActive ? 'text-white opacity-80' : 'text-base-content opacity-20'}
+               <line 
+                 x1={startX} y1={startY} 
+                 x2={endX} y2={endY} 
+                 stroke="currentColor" 
+                 className={isCompleted ? 'text-primary opacity-50' : isActive ? 'text-secondary opacity-80' : 'text-base-content opacity-20'}
                  strokeWidth="2"
                  strokeDasharray="4 4"
                />
@@ -125,11 +127,11 @@ const ThoughtNeuralFlow = ({ processes }) => {
 
             {/* The Node (3D Neuron) */}
             <div className="relative w-8 h-8 z-10 perspective-1000">
-              <div
-                className="w-full h-full relative"
-                style={{
-                  transformStyle: 'preserve-3d',
-                  animation: isActive ? 'neuron-spin 4s linear infinite' : 'neuron-spin 10s linear infinite'
+              <div 
+                className="w-full h-full relative" 
+                style={{ 
+                  transformStyle: 'preserve-3d', 
+                  animation: isActive ? 'neuron-spin 4s linear infinite' : 'neuron-spin 10s linear infinite' 
                 }}
               >
                 {['front', 'back', 'right', 'left', 'top', 'bottom'].map((face) => {
@@ -143,18 +145,18 @@ const ThoughtNeuralFlow = ({ processes }) => {
                   if (face === 'bottom') transform = 'rotateX(-90deg) translateZ(16px)';
 
                   return (
-                    <div
-                      key={face}
+                    <div 
+                      key={face} 
                       className={`absolute inset-0 m-auto w-full h-full rounded-[4px] border backdrop-blur-sm bg-gradient-to-br flex items-center justify-center transition-all duration-700 ease-in-out ${glassClass}`}
                       style={{ transform }}
                     >
                       {face === 'front' && (
                         <div className="relative w-4 h-4 flex items-center justify-center">
                            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${isCompleted ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'}`}>
-                             <Check size={10} />
+                             <FaCheck size={10} />
                            </div>
                            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
-                             <Loader2 className="animate-spin" size={10} />
+                             <FaSpinner className="animate-spin" size={10} />
                            </div>
                            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${isPending ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
                              <span className="text-[10px]">{idx + 1}</span>
@@ -166,7 +168,7 @@ const ThoughtNeuralFlow = ({ processes }) => {
                 })}
               </div>
             </div>
-
+            
             {/* Text labels removed as per user request */}
           </div>
         );
@@ -175,4 +177,4 @@ const ThoughtNeuralFlow = ({ processes }) => {
   );
 };
 
-export default React.memo(ThoughtNeuralFlow);
+export default ThoughtNeuralFlow;

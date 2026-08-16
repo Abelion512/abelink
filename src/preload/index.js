@@ -1,21 +1,24 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
 const api = {
+  getPathForFile: (file) => {
+    try { return webUtils.getPathForFile(file) } catch { return file?.name || '' }
+  },
+  saveTempFile: (arrayBuffer, fileName) => ipcRenderer.invoke('save-temp-file', arrayBuffer, fileName),
+  showOpenDialog: () => ipcRenderer.invoke('dialog:open-file'),
   fetchAI: (params) => ipcRenderer.invoke('ai:fetch', params),
-  scanModels: (params) => ipcRenderer.invoke('ai:scan-models', params),
-  getModelHints: (modelName) => ipcRenderer.invoke('ai:model-hints', modelName),
   abortFetchAI: () => ipcRenderer.send('ai:abort-fetch'),
   syncConfig: (config) => ipcRenderer.send('sync-config', config),
   runNodeFunction: (data) => ipcRenderer.invoke('execute-node-task', data),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   showNotification: (title, body) => ipcRenderer.send('show-notification', { title, body }),
   getActivityBuffer: () => ipcRenderer.invoke('awareness:get-buffer'),
+  getDocumentsPath: () => ipcRenderer.invoke('app:get-documents-path'),
   clearActivityBuffer: () => ipcRenderer.send('awareness:clear-buffer'),
   takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
   getYoutubeTranscript: (url) => ipcRenderer.invoke('get-youtube-transcript', url),
-  getYoutubeData: (url) => ipcRenderer.invoke('youtube-embed-data', url),
   searchYoutube: (query) => ipcRenderer.invoke('youtube-search', query),
   searchMusic: (query) => ipcRenderer.invoke('search-music', query),
   textToSpeech: (text, rate, pitch) => ipcRenderer.invoke('tts-speak', text, rate, pitch),
@@ -23,7 +26,7 @@ const api = {
     ipcRenderer.removeAllListeners('ai:status')
     ipcRenderer.on('ai:status', (event, message) => callback(message))
   },
-  onLiveAudioShortcut: (callback) => ipcRenderer.on('trigger-live-audio', () => callback()),
+  onLiveAudioShortcut: (callback) => ipcRenderer.on('trigger-live-audio', (event, action) => callback(event, action)),
   removeLiveAudioShortcut: () => ipcRenderer.removeAllListeners('trigger-live-audio'),
   getPreloadPath: (filename) => {
     const path = require('path')
@@ -35,42 +38,59 @@ const api = {
     ipcRenderer.removeAllListeners('execute-music-command')
     ipcRenderer.on('execute-music-command', (event, command, payload) => callback(command, payload))
   },
-  onExecuteMusicCommandWa: (callback) => {
-    ipcRenderer.removeAllListeners('execute-music-command-wa')
-    ipcRenderer.on('execute-music-command-wa', (event, command, payload) => callback(command, payload))
+  onExecuteMusicCommandTg: (callback) => {
+    ipcRenderer.removeAllListeners('execute-music-command-tg')
+    ipcRenderer.on('execute-music-command-tg', (event, command, payload) => callback(command, payload))
   },
-  sendWaReady: undefined,
-  waStart: () => ipcRenderer.send('wa:start'),
-  waStop: () => ipcRenderer.send('wa:stop'),
-  waGetStatus: () => ipcRenderer.invoke('wa:get-status'),
-  waGetHistory: () => ipcRenderer.invoke('wa:get-history'),
-  waLogout: () => ipcRenderer.invoke('wa:logout'),
-  onWaQr: (cb) => ipcRenderer.on('wa:qr', (_, data) => cb(data)),
-  onWaConnection: (cb) => ipcRenderer.on('wa:connection', (_, status) => cb(status)),
-  onWaMessage: (cb) => ipcRenderer.on('wa:message', (_, data) => cb(data)),
-  onWaReplySent: (cb) => ipcRenderer.on('wa:reply-sent', (_, data) => cb(data)),
-  onWaThinking: (cb) => ipcRenderer.on('wa:thinking', (_, data) => cb(data)),
-  onWaRequestWebSearch: (cb) => ipcRenderer.on('wa:request-web-search', (_, data) => cb(data)),
-  sendWaSearchResult: (id, result) => ipcRenderer.send('wa:web-search-result', { id, result }),
-  onWaAdminRequest: (cb) => {
-    ipcRenderer.removeAllListeners('wa:admin-request')
-    ipcRenderer.on('wa:admin-request', (_, data) => cb(data))
+  tgStart: (token) => ipcRenderer.send('tg:start', token),
+  tgStop: () => ipcRenderer.send('tg:stop'),
+  tgGetStatus: () => ipcRenderer.invoke('tg:get-status'),
+  tgGetHistory: () => ipcRenderer.invoke('tg:get-history'),
+  onTgConnection: (cb) => ipcRenderer.on('tg:connection', (_, status) => cb(status)),
+  onTgMessage: (cb) => ipcRenderer.on('tg:message', (_, data) => cb(data)),
+  onTgReplySent: (cb) => ipcRenderer.on('tg:reply-sent', (_, data) => cb(data)),
+  onTgThinking: (cb) => ipcRenderer.on('tg:thinking', (_, data) => cb(data)),
+  onTgRequestAgentExecution: (cb) => {
+    ipcRenderer.removeAllListeners('tg:request-agent-execution')
+    ipcRenderer.on('tg:request-agent-execution', (_, data) => cb(data))
   },
-  onWaRequestAgentExecution: (cb) => {
-    ipcRenderer.removeAllListeners('wa:request-agent-execution')
-    ipcRenderer.on('wa:request-agent-execution', (_, data) => cb(data))
-  },
-  sendWaAgentExecutionDone: (data) => ipcRenderer.send('wa:agent-execution-done', data),
-  sendWaMessage: (jid, text) => ipcRenderer.invoke('wa:send-message', { jid, text }),
+  sendTgAgentExecutionDone: (data) => ipcRenderer.send('tg:agent-execution-done', data),
+  tgSendMessage: (chatId, text) => ipcRenderer.invoke('tg:send-message', { chatId, text }),
+  tgBroadcastToAdmins: (text) => ipcRenderer.send('tg:broadcast-to-admins', text),
   
   // RAG Parsing
   parseDocument: (arrayBuffer, isDocx) => ipcRenderer.invoke('parse-document', arrayBuffer, isDocx),
 
-  waTakeScreenshot: (jid, msgId) => ipcRenderer.send('wa:trigger-screenshot', { jid, msgId }),
-  waDownloadMusic: (jid, msgId, query) => ipcRenderer.send('wa:trigger-music-download', { jid, msgId, query }),
-  waPlayMusicUi: (command, query) => ipcRenderer.send('wa:trigger-music-ui', { command, query }),
+  // Google Workspace
+  googleConnect: (clientId, clientSecret) => ipcRenderer.invoke('google:connect', clientId, clientSecret),
+  googleDisconnect: () => ipcRenderer.invoke('google:disconnect'),
+  googleStatus: () => ipcRenderer.invoke('google:status'),
+
+  // Window controls
+  windowMinimize: () => ipcRenderer.send('window-minimize'),
+  windowMaximize: () => ipcRenderer.send('window-maximize'),
+  windowClose: () => ipcRenderer.send('window-close'),
+  onWindowMaximized: (callback) => {
+    ipcRenderer.on('window-maximized', (event, isMaximized) => callback(isMaximized))
+  },
+
+  tgTakeScreenshot: (chatId) => ipcRenderer.send('tg:trigger-screenshot', { chatId }),
+  tgDownloadMusic: (chatId, query) => ipcRenderer.send('tg:trigger-music-download', { chatId, query }),
+  tgPlayMusicUi: (command, query) => ipcRenderer.send('tg:trigger-music-ui', { command, query }),
   getPlugins: () => ipcRenderer.invoke('plugin:get-list'),
-  executeNativeTool: (toolName, query) => ipcRenderer.invoke('native-tool:execute', toolName, query),
+  executeNativeTool: (toolName, query, config) => ipcRenderer.invoke('native-tool:execute', toolName, query, config),
+  checkToolApproval: (toolName, query) => ipcRenderer.invoke('native-tool:needs-approval', toolName, query),
+  executePlugin: (action, query) => ipcRenderer.invoke('plugin:execute', action, query),
+  openPluginFolder: () => ipcRenderer.invoke('plugin:open-folder'),
+  openSpecificFolder: (path) => ipcRenderer.invoke('plugin:open-specific-folder', path),
+  reloadPlugins: () => ipcRenderer.invoke('plugin:reload'),
+  createPlugin: (payload) => ipcRenderer.invoke('plugin:create', payload),
+  togglePlugin: (name, isEnabled) => ipcRenderer.invoke('plugin:toggle', name, isEnabled),
+  tgTakeScreenshot: (chatId) => ipcRenderer.send('tg:trigger-screenshot', { chatId }),
+  tgDownloadMusic: (chatId, query) => ipcRenderer.send('tg:trigger-music-download', { chatId, query }),
+  tgPlayMusicUi: (command, query) => ipcRenderer.send('tg:trigger-music-ui', { command, query }),
+  getPlugins: () => ipcRenderer.invoke('plugin:get-list'),
+  executeNativeTool: (toolName, query, config) => ipcRenderer.invoke('native-tool:execute', toolName, query, config),
   checkToolApproval: (toolName, query) => ipcRenderer.invoke('native-tool:needs-approval', toolName, query),
   executePlugin: (action, query) => ipcRenderer.invoke('plugin:execute', action, query),
   openPluginFolder: () => ipcRenderer.invoke('plugin:open-folder'),
@@ -79,8 +99,8 @@ const api = {
   createPlugin: (payload) => ipcRenderer.invoke('plugin:create', payload),
   togglePlugin: (name, isEnabled) => ipcRenderer.invoke('plugin:toggle', name, isEnabled),
   deletePlugin: (name) => ipcRenderer.invoke('plugin:delete', name),
-  removeWaListeners: () => {
-    ['wa:qr', 'wa:connection', 'wa:message', 'wa:reply-sent', 'wa:thinking', 'wa:request-web-search', 'wa:admin-request', 'wa:request-agent-execution']
+  removeTgListeners: () => {
+    ['tg:connection', 'tg:message', 'tg:reply-sent', 'tg:thinking']
       .forEach(ch => ipcRenderer.removeAllListeners(ch))
   },
   
@@ -94,94 +114,27 @@ const api = {
     ipcRenderer.on('browser:preview', (_, data) => cb(data))
   },
   showBrowserWindow: () => ipcRenderer.send('browser:show'),
-
-  // Agent Skills
-  getAgentSkills: () => ipcRenderer.invoke('agent-skills:get-list'),
-  getAgentSkillContent: (name) => ipcRenderer.invoke('agent-skills:get-content', name),
-  reloadAgentSkills: () => ipcRenderer.invoke('agent-skills:reload'),
-  createAgentSkill: (skillDef) => ipcRenderer.invoke('create-agent-skill', skillDef),
-  onSkillsUpdated: (callback) => {
-    ipcRenderer.removeAllListeners('agent-skills:updated')
-    ipcRenderer.on('agent-skills:updated', () => callback())
-  },
-
-  // MPRIS D-Bus
-  updateMprisTrack: (track, playing) => ipcRenderer.send('mpris:update-track', track, playing),
-  setMprisPlaybackStatus: (playing) => ipcRenderer.send('mpris:set-status', playing),
-
-  // Last.fm integration - listening history
-  getRecentTracks: (user) => ipcRenderer.invoke('lastfm:get-recent', user),
-  getTopTracks: (user) => ipcRenderer.invoke('lastfm:get-top', user),
-  lastfmUpdateNowPlaying: (track, artist, album) => ipcRenderer.invoke('lastfm:update-now-playing', track, artist, album),
-  lastfmScrobble: (track, artist, timestamp, album) => ipcRenderer.invoke('lastfm:scrobble', track, artist, timestamp, album),
-  lastfmGetSessionKey: (username, password, apiKey, sharedSecret) => ipcRenderer.invoke('lastfm:get-session-key', username, password, apiKey, sharedSecret),
-
-  // Local playback history (source-first)
-  recordPlayback: (title, artist) => ipcRenderer.invoke('playback:record', title, artist),
-  getPlaybackHistory: (limit) => ipcRenderer.invoke('playback:recent', limit),
-
-  // yt-dlp integration - metadata + audio from YT, TikTok, SoundCloud
-  getYtdlInfo: (url) => ipcRenderer.invoke('ytdl:get-info', url),
-  getYtdlAudio: (url) => ipcRenderer.invoke('ytdl:get-audio', url),
-  searchYtdl: (query, limit) => ipcRenderer.invoke('ytdl:search', query, limit),
-
-  // Vision model routing (registry-based)
-  resolveVisionModel: (role) => ipcRenderer.invoke('vision:resolve-model', role),
-  getModelEndpoint: (modelId) => ipcRenderer.invoke('vision:get-endpoint', modelId),
-
-  // Config cache invalidation
-  onConfigUpdated: (callback) => {
-    ipcRenderer.removeAllListeners('config-updated')
-    ipcRenderer.on('config-updated', () => callback())
-  },
-
-  // Session Knowledge — removed 2026-08-08: dead (extractor removed 30358df, see docs)
-
-  // Tool Registry — Progressive Disclosure + Vector Discovery
-  getToolCatalog: () => ipcRenderer.invoke('tool-catalog'),
-  getToolCatalogForQuery: (query, maxResults) => ipcRenderer.invoke('tool-catalog-query', query, maxResults),
-  getToolDetail: (name) => ipcRenderer.invoke('tool-detail', name),
-  refreshTools: () => ipcRenderer.send('tool-refresh'),
-  matchVoiceCommand: (text) => ipcRenderer.invoke('voice-fast-path', text),
-
-  // Linux PC Agent (Desktop Automation)
   osRead: () => ipcRenderer.invoke('os:read'),
   osClick: (query) => ipcRenderer.invoke('os:click', query),
-  osType: (text) => ipcRenderer.invoke('os:type', text),
+  osType: (query) => ipcRenderer.invoke('os:type', query),
   osKey: (combo) => ipcRenderer.invoke('os:key', combo),
   osScroll: (query) => ipcRenderer.invoke('os:scroll', query),
-  osOpen: (name) => ipcRenderer.invoke('os:open', name),
+  osOpen: (target) => ipcRenderer.invoke('os:open', target),
   osListWindows: () => ipcRenderer.invoke('os:list-windows'),
   osFocusWindow: (title) => ipcRenderer.invoke('os:focus-window', title),
-  osAskUser: (question) => ipcRenderer.invoke('os:ask-user', question),
-  osScreenshot: (path) => ipcRenderer.invoke('os:screenshot', path),
-  osOcrRegion: (x, y, w, h) => ipcRenderer.invoke('os:ocr-region', x, y, w, h),
-  osEmergencyStop: () => ipcRenderer.invoke('os:emergency-stop'),
+  osAskUser: (query) => ipcRenderer.invoke('os:ask-user', query),
 
-  // YouTube Player (BrowserWindow)
-  ytLoad: (url) => ipcRenderer.invoke('yt:load', url),
-  ytShow: () => ipcRenderer.invoke('yt:show'),
-  showPlayer: () => ipcRenderer.invoke('yt:show'), // alias
-  ytHide: () => ipcRenderer.invoke('yt:hide'),
-  ytIsVisible: () => ipcRenderer.invoke('yt:is-visible'),
-  ytGetUrl: () => ipcRenderer.invoke('yt:get-url'),
-  ytClose: () => ipcRenderer.invoke('yt:close'),
-  ytCommand: (command) => ipcRenderer.invoke('yt:command', command),
-  ytGetDuration: () => ipcRenderer.invoke('yt:get-duration'),
-  onYtTrackUpdated: (callback) => {
-    ipcRenderer.removeAllListeners('yt:track-updated')
-    ipcRenderer.on('yt:track-updated', (_event, track) => callback(track))
-  },
-  onYtPlayState: (callback) => {
-    ipcRenderer.removeAllListeners('yt:play-state')
-    ipcRenderer.on('yt:play-state', (_event, paused) => callback(paused))
-  },
-  onYtRepeatState: (callback) => {
-    ipcRenderer.removeAllListeners('yt:repeat-state')
-    ipcRenderer.on('yt:repeat-state', (_event, mode) => callback(mode))
-  }
+  // Skills
+  getSkills: () => ipcRenderer.invoke('get-skills'),
+  readSkill: (name) => ipcRenderer.invoke('read-skill', name),
+  saveSkill: (name, content) => ipcRenderer.invoke('save-skill', name, content),
+  deleteSkill: (name) => ipcRenderer.invoke('delete-skill', name),
+  installSkill: (sourcePath) => ipcRenderer.invoke('install-skill', sourcePath)
 }
 
+// Use `contextBridge` APIs to expose Electron APIs to
+// renderer only if context isolation is enabled, otherwise
+// just add to the DOM global.
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)

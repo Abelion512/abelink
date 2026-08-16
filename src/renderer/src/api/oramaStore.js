@@ -1,6 +1,5 @@
 import { create, insert, insertMultiple, search, remove, removeMultiple } from '@orama/orama'
-import { generateVector } from './vectorLoader'
-import { db } from './db'
+import { generateVector } from './vectorMemory'
 
 // Dimensi vektor sesuai model Transformers.js (all-MiniLM-L6-v2 = 384)
 const VECTOR_SIZE = 384
@@ -8,19 +7,6 @@ const VECTOR_SIZE = 384
 let archiveIndex = null
 let documentIndex = null
 let memoryIndex = null
-
-// Singleton init — React StrictMode double-invokes effects in dev; this
-// guarantees init+hydrate run exactly once per session (no duplicate inserts).
-let readyPromise = null
-export function ensureOramaReady() {
-  if (!readyPromise) {
-    readyPromise = (async () => {
-      await initOramaIndices()
-      await hydrateFromDexie()
-    })()
-  }
-  return readyPromise
-}
 
 export async function initOramaIndices() {
   memoryIndex = await create({
@@ -57,10 +43,11 @@ export async function initOramaIndices() {
 
 // Dipanggil saat app start: load semua data Dexie ke Orama
 export async function hydrateFromDexie() {
+  const { db } = await import('./db')
+
   const archives = await db.chatArchive.toArray()
   const validArchives = []
   const needsMigration = localStorage.getItem('migrated_vectors_v1') !== 'true'
-  let vecCount = 0
 
   for (let a of archives) {
     if (needsMigration || !a.vector || a.vector.length !== VECTOR_SIZE) {
@@ -69,8 +56,6 @@ export async function hydrateFromDexie() {
       if (a.vector && a.vector.length === VECTOR_SIZE) {
         db.chatArchive.update(a.id, { vector: a.vector }).catch(console.error)
       }
-      vecCount++
-      if (vecCount % 3 === 0) await new Promise(r => setTimeout(r, 0))
     }
     if (a.vector && a.vector.length === VECTOR_SIZE) {
       validArchives.push({
@@ -96,8 +81,6 @@ export async function hydrateFromDexie() {
       if (d.vector && d.vector.length === VECTOR_SIZE) {
         db.documents.update(d.id, { vector: d.vector }).catch(console.error)
       }
-      vecCount++
-      if (vecCount % 3 === 0) await new Promise(r => setTimeout(r, 0))
     }
     if (d.vector && d.vector.length === VECTOR_SIZE) {
       validDocs.push({
@@ -204,9 +187,7 @@ export async function insertDocumentChunksToOrama(chunks) {
 export async function deleteArchiveFromOrama(dexieId) {
   if (!archiveIndex || !dexieId) return
   try {
-    // Same fix as deleteMemoryFromOrama: 'dexieId' is 'number', not searchable
-    // via fullTextSearch properties. Use `where` filter instead.
-    const res = await search(archiveIndex, { term: '', where: { dexieId: dexieId } })
+    const res = await search(archiveIndex, { where: { dexieId: Number(dexieId) } })
     if (res.hits.length > 0) {
       for (let h of res.hits) {
         await remove(archiveIndex, h.id)
@@ -219,7 +200,7 @@ export async function deleteArchiveFromOrama(dexieId) {
 
 export async function deleteDocumentFromOrama(docName) {
   if (!documentIndex) return
-  const res = await search(documentIndex, { term: docName, properties: ['docName'], exact: true })
+  const res = await search(documentIndex, { term: docName, properties: ['docName'] })
   const ids = res.hits.map(h => h.id)
   await removeMultiple(documentIndex, ids)
 }
@@ -274,14 +255,7 @@ export async function updateMemoryInOrama(dexieId, data) {
 export async function deleteMemoryFromOrama(dexieId) {
   if (!memoryIndex || !dexieId) return
   try {
-    // Orama v3: `search` auto-derives `properties` from `where` fields.
-    // `dexieId` is 'number' (not in fulltext index) → throws INVALID_PROPERTY.
-    // Fix: explicitly pass string-only properties so Orama doesn't auto-include dexieId.
-    const res = await search(memoryIndex, {
-      term: '',
-      properties: ['type', 'summary', 'memory'],
-      where: { dexieId: { eq: dexieId } }
-    })
+    const res = await search(memoryIndex, { where: { dexieId: Number(dexieId) } })
     if (res.hits.length > 0) {
       for (let h of res.hits) {
         await remove(memoryIndex, h.id)
@@ -292,3 +266,181 @@ export async function deleteMemoryFromOrama(dexieId) {
   }
 }
 
+export async function findSimilarMemoryClusters(threshold = 0.60) {
+  if (!memoryIndex) {
+    console.warn('[Orama Groomer] memoryIndex belum siap!')
+    return []
+  }
+  try {
+    console.log('[Orama Groomer] Memulai scanning cluster memori di Orama dengan threshold:', threshold)
+    const results = await search(memoryIndex, {
+      term: '',
+      limit: 1000
+    })
+    let memories = results.hits
+      .map(hit => ({
+        ...hit.document,
+        id: hit.document.dexieId
+      }))
+      .filter(m => m.type === 'profile' || m.type === 'preference')
+
+    const visited = new Set()
+    const clusters = []
+    let groupCount = 1
+
+    for (const mem of memories) {
+      if (visited.has(mem.id)) continue
+      if (!mem.vector || !Array.isArray(mem.vector)) {
+        visited.add(mem.id)
+        continue
+      }
+
+      const simResults = await search(memoryIndex, {
+        term: mem.memory,
+        mode: 'hybrid',
+        vector: { value: mem.vector, property: 'vector' },
+        similarity: threshold,
+        limit: 20
+      })
+
+      if (simResults.hits.length > 1) {
+        console.log(
+          '[Orama Groomer] Kandidat mirip untuk:',
+          mem.memory,
+          '-> scores:',
+          simResults.hits.map(h => `${h.score.toFixed(2)} (${h.document.memory.slice(0, 30)}...)`)
+        )
+      }
+
+      const similarHits = simResults.hits
+        .map(hit => ({
+          ...hit.document,
+          id: hit.document.dexieId,
+          score: hit.score
+        }))
+        .filter(
+          h =>
+            (h.type === 'profile' || h.type === 'preference') &&
+            h.score >= threshold &&
+            !visited.has(h.id)
+        )
+
+      if (similarHits.length >= 2) {
+        similarHits.forEach(h => visited.add(h.id))
+        clusters.push({
+          group: groupCount++,
+          items: similarHits.map(h => ({
+            id: h.id,
+            type: h.type,
+            memory: h.memory,
+            timestamp: h.timestamp
+          }))
+        })
+      } else {
+        visited.add(mem.id)
+      }
+    }
+
+    console.log(`[Orama Groomer] Ditemukan ${clusters.length} cluster dari total ${memories.length} memori profile/preference.`)
+    return clusters
+  } catch (err) {
+    console.error('[Orama] Error in findSimilarMemoryClusters:', err)
+    return []
+  }
+}
+
+// On-the-fly Orama Hybrid Vector Search for read-document
+export async function searchDocumentWithOrama(rawText, searchQuery, limit = 5) {
+  try {
+    if (!rawText || !searchQuery) return []
+
+    // 1. Chunk text (500 chars with 50 overlap)
+    const chunks = []
+    let start = 0
+    const chunkSize = 500
+    const overlap = 50
+    while (start < rawText.length) {
+      const end = Math.min(start + chunkSize, rawText.length)
+      const chunkStr = rawText.slice(start, end).trim()
+      if (chunkStr) chunks.push(chunkStr)
+      start += chunkSize - overlap
+    }
+
+    if (chunks.length === 0) return []
+
+    // 2. Pre-filter candidate chunks to avoid CPU freeze (Max 20 chunks)
+    const terms = searchQuery.toLowerCase().split(/\s+/).filter((t) => t.length > 2)
+    let candidateChunks = chunks
+    if (chunks.length > 20) {
+      if (terms.length > 0) {
+        const scored = chunks.map((c) => {
+          const lower = c.toLowerCase()
+          let score = 0
+          for (const term of terms) {
+            if (lower.includes(term)) score += 1
+          }
+          return { chunk: c, score }
+        })
+        const matching = scored
+          .filter((s) => s.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .map((s) => s.chunk)
+
+        if (matching.length > 0) {
+          candidateChunks = matching.slice(0, 20)
+        } else {
+          const step = Math.max(1, Math.floor(chunks.length / 20))
+          candidateChunks = []
+          for (let i = 0; i < chunks.length && candidateChunks.length < 20; i += step) {
+            candidateChunks.push(chunks[i])
+          }
+        }
+      } else {
+        candidateChunks = chunks.slice(0, 20)
+      }
+    }
+
+    // 3. Create in-memory Orama instance
+    const tempDb = await create({
+      schema: {
+        content: 'string',
+        vector: `vector[${VECTOR_SIZE}]`
+      }
+    })
+
+    // 4. Generate vectors and insert with Event-Loop yielding
+    for (let i = 0; i < candidateChunks.length; i++) {
+      const vec = await generateVector(candidateChunks[i])
+      if (vec && vec.length === VECTOR_SIZE) {
+        await insert(tempDb, {
+          content: candidateChunks[i],
+          vector: vec
+        })
+      }
+      // Yield back to Electron Event Loop every 2 chunks to keep UI responsive
+      if (i % 2 === 0) {
+        await new Promise((r) => setTimeout(r, 0))
+      }
+    }
+
+    // 5. Generate query vector and search
+    const queryVec = await generateVector(searchQuery)
+    if (!queryVec || queryVec.length !== VECTOR_SIZE) return []
+
+    const searchRes = await search(tempDb, {
+      term: searchQuery,
+      mode: 'hybrid',
+      vector: { value: queryVec, property: 'vector' },
+      similarity: 0.15,
+      limit: limit
+    })
+
+    return searchRes.hits.map((h) => ({
+      content: h.document.content,
+      score: h.score
+    }))
+  } catch (err) {
+    console.error('[Orama] Error in searchDocumentWithOrama:', err)
+    return []
+  }
+}

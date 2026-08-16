@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { getYoutubeSummary } from '../../api/ai/tools'
 
 export const useMarkYoutube = (setChatData) => {
@@ -33,8 +34,15 @@ export const useMarkYoutube = (setChatData) => {
 
   const getYoutubeData = async (url) => {
     try {
-      const data = await window.api.getYoutubeData(url)
-      return data
+      const endpoint = `https://www.youtube.com/embed?url=${encodeURIComponent(url)}&format=json`
+      const response = await axios.get(endpoint)
+      const data = response.data
+      return {
+        judul: data.title,
+        author: data.author_name,
+        thumbnail: data.thumbnail_url,
+        success: true
+      }
     } catch (error) {
       console.error('Gagal ambil data YouTube:', error.message)
       return { judul: 'Video Tidak Ditemukan', author: '-', thumbnail: null, success: false }

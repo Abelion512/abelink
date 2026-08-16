@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { getAllConfig } from '../api/db'
-import { transcribeAudioGroq } from '../api/groq'
-import { ChevronLeft, Mic, Square, AlertTriangle } from 'lucide-react'
+import { transcribeAudioLocal } from '../api/localWhisper'
+import { FaChevronLeft, FaMicrophone, FaStop, FaExclamationTriangle } from 'react-icons/fa'
 
 const LiveAudio = () => {
   const {
@@ -12,6 +12,8 @@ const LiveAudio = () => {
     isLoading,
     isSpeak,
     setIsSpeak,
+    message,
+    setMessage,
     handleSubmit,
     handlePlanningCommand,
     abortControllerRef,
@@ -26,18 +28,8 @@ const LiveAudio = () => {
   const recognitionRef = useRef(null)
   const audioRef = useRef(null)
   const prevChatLengthRef = useRef(chatData.length)
-  
-  const [toastMessage, setToastMessage] = useState('')
 
-  // Orb->voice morph intro (arrived via goVoice in MarkHome)
-  const [morphedEnter, setMorphedEnter] = useState(false)
-  useEffect(() => {
-    if (location.state?.morphed) {
-      setMorphedEnter(true)
-      const t = setTimeout(() => setMorphedEnter(false), 500)
-      return () => clearTimeout(t)
-    }
-  }, [])
+  const [toastMessage, setToastMessage] = useState('')
 
   // Local Whisper STT Refs (Now used for Audio Context VAD)
   const streamRef = useRef(null)
@@ -46,7 +38,7 @@ const LiveAudio = () => {
   const isSpeakingRef = useRef(false)
   const audioChunksRef = useRef([])
   const silenceTimerRef = useRef(null)
-  
+
   // Inisialisasi dengan pesan terakhir agar saat LiveAudio dibuka, tidak memutar ulang pesan lama
   const lastSpokenMessageContentRef = useRef(
     chatData.length > 0 && chatData[chatData.length - 1].role === 'ai'
@@ -55,6 +47,20 @@ const LiveAudio = () => {
   )
 
   const stopRecordingCleanup = () => {
+    const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
+
+    // Jika dipanggil saat mau dimatikan secara manual dan ada data audio,
+    // kembalikan merged array agar bisa ditranskrip sebelum dihapus
+    let pendingAudio = null
+    if (totalLength >= 8000) {
+      pendingAudio = new Float32Array(totalLength)
+      let offset = 0
+      for (let arr of audioChunksRef.current) {
+        pendingAudio.set(arr, offset)
+        offset += arr.length
+      }
+    }
+
     if (processorRef.current) {
       processorRef.current.disconnect()
       processorRef.current = null
@@ -72,6 +78,8 @@ const LiveAudio = () => {
     }
     isSpeakingRef.current = false
     audioChunksRef.current = []
+
+    return pendingAudio
   }
 
   // Bersihkan mic saat unmount
@@ -109,25 +117,57 @@ const LiveAudio = () => {
 
   const handleMicToggle = async () => {
     if (isActive) {
-      stopRecordingCleanup()
+      // Dapatkan pending audio yang sempat terekam sebelum dimatikan
+      const pendingAudio = stopRecordingCleanup()
       if (audioRef.current) {
         audioRef.current.pause()
         audioRef.current = null
       }
       setIsActive(false)
-      setStatus('idle')
+
+      // Jika ada audio yang sempat ngomong sebelum dimatikan paksa, transkrip!
+      if (pendingAudio) {
+        setStatus('thinking')
+
+        // Memberikan jeda 150ms agar UI React sempat re-render (mic mati) sebelum thread diblokir oleh WASM
+        setTimeout(() => {
+          transcribeAudioLocal(pendingAudio)
+            .then((text) => {
+              if (text && text.trim() !== '') {
+                setMessage(`(Mikrofon) ${text.trim()}`)
+                handlePlanningCommand(`(Mikrofon) ${text.trim()}`)
+              } else {
+                setStatus('idle')
+              }
+            })
+            .catch((err) => {
+              console.error('Local STT Error:', err)
+              setStatus('idle')
+            })
+        }, 150)
+      } else {
+        setStatus('idle')
+      }
     } else {
       if (isStartingRef.current) return
       isStartingRef.current = true
 
       try {
         stopRecordingCleanup()
-        
+
         const micId = config[0]?.micDeviceId
+        const audioConstraints = {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+
+        if (micId && micId !== 'default') {
+          audioConstraints.deviceId = { exact: micId }
+        }
+
         const constraints = {
-          audio: micId && micId !== 'default' 
-            ? { deviceId: { exact: micId } } 
-            : true
+          audio: audioConstraints
         }
         const stream = await navigator.mediaDevices.getUserMedia(constraints)
         streamRef.current = stream
@@ -154,7 +194,7 @@ const LiveAudio = () => {
             let sum = 0
             for (let i = 0; i < input.length; i++) sum += input[i] * input[i]
             const rms = Math.sqrt(sum / input.length)
-            
+
             // Barge-in threshold: jika user teriak / bicara keras saat Mark bicara
             if (statusRef.current === 'speaking' && rms > 0.05) {
               if (audioRef.current) {
@@ -171,50 +211,50 @@ const LiveAudio = () => {
           for (let i = 0; i < input.length; i++) sum += input[i] * input[i]
           const rms = Math.sqrt(sum / input.length)
 
-          // Threshold suara (VAD sederhana)
-          if (rms > 0.015) {
+          // Threshold suara (VAD sederhana) diturunkan agar lebih sensitif
+          if (rms > 0.01) {
             if (!isSpeakingRef.current) {
               isSpeakingRef.current = true
               audioChunksRef.current = []
             }
             if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
-            
+
             silenceTimerRef.current = setTimeout(() => {
               isSpeakingRef.current = false
-              
+
               const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
               // Minimal 0.5 detik audio untuk dikirim ke Whisper (8000 samples @ 16kHz)
               if (totalLength < 8000) {
-                 return // Abaikan noise singkat
+                return // Abaikan noise singkat
               }
-              
+
               const merged = new Float32Array(totalLength)
               let offset = 0
               for (let arr of audioChunksRef.current) {
                 merged.set(arr, offset)
                 offset += arr.length
               }
-              
+
               setStatus('thinking')
-              
-              // Transkripsi ke Groq Cloud API
-              transcribeAudioGroq(merged)
-                .then(text => {
-                  if (text && text.trim() !== '') {
-                    handlePlanningCommand(text.trim())
-                  } else {
-                    setStatus('listening')
-                  }
-                })
-                .catch(err => {
-                  console.error('Groq Error:', err)
-                  if (err.message.includes('Key')) {
-                    setToastMessage(err.message)
+
+              // Memberikan jeda 150ms agar UI React sempat re-render sebelum thread diblokir oleh WASM
+              setTimeout(() => {
+                transcribeAudioLocal(merged)
+                  .then((text) => {
+                    if (text && text.trim() !== '') {
+                      setMessage(`(Mikrofon) ${text.trim()}`)
+                      handlePlanningCommand(`(Mikrofon) ${text.trim()}`)
+                    } else {
+                      setStatus('listening')
+                    }
+                  })
+                  .catch((err) => {
+                    console.error('Local STT Error:', err)
+                    setToastMessage('Gagal memuat atau memproses Whisper Local.')
                     setTimeout(() => setToastMessage(''), 5000)
-                  }
-                  setStatus('listening')
-                })
-              
+                    setStatus('listening')
+                  })
+              }, 150)
             }, 1200) // Diam 1.2 detik = kirim ke Groq
           }
 
@@ -239,11 +279,18 @@ const LiveAudio = () => {
   // Memantau chatData untuk auto-play respons TTS
   useEffect(() => {
     if (!isActive) return
-    
+
     if (chatData.length > 0) {
       const lastMsg = chatData[chatData.length - 1]
       // Jika pesan terakhir dari AI dan bukan status 'thinking'
-      if (lastMsg && lastMsg.role === 'ai' && !lastMsg.isThinking && !lastMsg.isSearching && !lastMsg.isSummarizing && !lastMsg.isSearchingMusic) {
+      if (
+        lastMsg &&
+        lastMsg.role === 'ai' &&
+        !lastMsg.isThinking &&
+        !lastMsg.isSearching &&
+        !lastMsg.isSummarizing &&
+        !lastMsg.isSearchingMusic
+      ) {
         // Cek apakah pesan ini sudah diucapkan agar tidak dobel
         if (lastSpokenMessageContentRef.current !== lastMsg.content) {
           lastSpokenMessageContentRef.current = lastMsg.content
@@ -259,12 +306,12 @@ const LiveAudio = () => {
       const configList = await getAllConfig()
       const rate = configList[0]?.ttsRate ?? 0
       const pitch = configList[0]?.ttsPitch ?? 0
-      
+
       const audioBase64 = await window.api.textToSpeech(text, rate, pitch)
       if (audioBase64) {
         const audio = new Audio(audioBase64)
         audioRef.current = audio
-        
+
         audio.onended = () => {
           setStatus('listening')
         }
@@ -272,7 +319,7 @@ const LiveAudio = () => {
       } else {
         setStatus('listening')
       }
-    } catch(e) {
+    } catch (e) {
       console.error(e)
       setStatus('listening')
     }
@@ -309,10 +356,9 @@ const LiveAudio = () => {
   }
 
   return (
-    <div className={`h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif] flex flex-col items-center justify-center ${morphedEnter ? 'animate-[voice-from-orb_0.5s_ease-out_forwards]' : ''}`}>
+    <div className="h-screen bg-base-300 text-white overflow-hidden relative font-['Poppins',sans-serif] flex flex-col items-center justify-center">
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
-
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
 
       {/* Ambient background effects */}
@@ -330,7 +376,7 @@ const LiveAudio = () => {
         onClick={() => navigate('/')}
         className="absolute top-6 left-6 btn btn-ghost btn-sm gap-2 z-20 opacity-60 hover:opacity-100 transition-opacity"
       >
-        <ChevronLeft size={14} />
+        <FaChevronLeft size={14} />
         Kembali
       </button>
 
@@ -338,7 +384,7 @@ const LiveAudio = () => {
       <div className="relative z-10 text-center mb-8 select-none">
         <div className="flex items-center justify-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-            <Mic className="text-primary" size={20} />
+            <FaMicrophone className="text-primary" size={20} />
           </div>
           <h1 className="text-2xl font-bold">Live Audio</h1>
         </div>
@@ -378,7 +424,7 @@ const LiveAudio = () => {
               isActive
                 ? 'bg-linear-to-br from-primary/30 via-success/20 to-primary/30'
                 : 'bg-linear-to-br from-base-200/60 via-base-300/40 to-base-200/60'
-            } glass glass-hover`}
+            }`}
           />
 
           {/* Inner circle with waveform placeholder */}
@@ -387,7 +433,7 @@ const LiveAudio = () => {
               isActive
                 ? 'bg-base-100/40 border border-primary/30'
                 : 'bg-base-100/20 border border-white/5'
-            } glass glass-hover`}
+            }`}
           >
             {/* Animated bars (audio waveform placeholder) */}
             <div className="flex items-center gap-1">
@@ -438,9 +484,9 @@ const LiveAudio = () => {
           }`}
         >
           {isActive ? (
-            <Square className="text-white" size={24} />
+            <FaStop className="text-white" size={24} />
           ) : (
-            <Mic className="text-white" size={24} />
+            <FaMicrophone className="text-white" size={24} />
           )}
         </button>
 
@@ -458,8 +504,8 @@ const LiveAudio = () => {
       {/* Floating Toast Error */}
       {toastMessage && (
         <div className="toast toast-top toast-center z-50 animate-bounce">
-          <div className="alert alert-error glass glass-hover text-sm font-semibold shadow-2xl flex gap-2 items-center">
-            <AlertTriangle size={18} />
+          <div className="alert alert-error text-sm font-semibold shadow-2xl flex gap-2 items-center">
+            <FaExclamationTriangle size={18} />
             <span>{toastMessage}</span>
           </div>
         </div>

@@ -1,22 +1,36 @@
-import { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import {
-  Mic,
-  Square,
-  ArrowUp,
-  Smile,
-  Paperclip,
-  X,
-  FileText,
-  FileCode,
-  FileImage,
-  Lock,
-  Link2
-} from 'lucide-react'
+  FaMicrophone,
+  FaStop,
+  FaArrowUp,
+  FaSmile,
+  FaPaperclip,
+  FaTimes,
+  FaFileAlt,
+  FaFilePdf,
+  FaFileCode,
+  FaFileImage,
+  FaLock
+} from 'react-icons/fa'
 import ConfirmModal from './ConfirmModal'
 
 const EMOJIS = [
-  '😂', '🤣', '😅', '🗿', '🙏', '🔥', '🚀', '💀',
-  '😎', '🤔', '😭', '❤️', '👍', '✨', '👀', '💯'
+  '😂',
+  '🤣',
+  '😅',
+  '🗿',
+  '🙏',
+  '🔥',
+  '🚀',
+  '💀',
+  '😎',
+  '🤔',
+  '😭',
+  '❤️',
+  '👍',
+  '✨',
+  '👀',
+  '💯'
 ]
 
 const formatFileSize = (bytes) => {
@@ -29,34 +43,33 @@ const formatFileSize = (bytes) => {
 const getFileIcon = (fileName = '') => {
   const ext = fileName.split('.').pop().toLowerCase()
   if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext))
-    return <FileImage className="text-accent" size={14} />
-  if (['pdf'].includes(ext)) return <FileText className="text-error" size={14} />
+    return <FaFileImage className="text-accent" />
+  if (['pdf'].includes(ext)) return <FaFilePdf className="text-error" />
   if (['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'py', 'cpp', 'cs'].includes(ext))
-    return <FileCode className="text-info" size={14} />
-  return <FileText className="text-primary" size={14} />
+    return <FaFileCode className="text-info" />
+  return <FaFileAlt className="text-primary" />
 }
 
-const InputBar = ({
-  onSubmit,
-  isLoading,
-  isRecording,
-  isProcessing,
-  audioIntensity = 0,
-  onStartRecord,
-  onStopRecord,
-  onStop
-}) => {
+const InputBar = ({ onSubmit, isLoading, isRecording, isProcessing, audioIntensity = 0, onStartRecord, onStopRecord, onStop, source = 'pc' }) => {
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
-  const urlInputRef = useRef(null)
   const [inputText, setInputText] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showAbortConfirm, setShowAbortConfirm] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState([])
   const [isDragging, setIsDragging] = useState(false)
-  const [showUrlInput, setShowUrlInput] = useState(false)
-  const [urlText, setUrlText] = useState('')
   const lastPromptRef = useRef('')
+
+  const [skills, setSkills] = useState([])
+  const [filteredSkills, setFilteredSkills] = useState([])
+  const [showSkillList, setShowSkillList] = useState(false)
+  const [selectedSkillIndex, setSelectedSkillIndex] = useState(0)
+
+  useEffect(() => {
+    if (window.api && window.api.getSkills) {
+      window.api.getSkills().then(setSkills).catch(console.error)
+    }
+  }, [])
 
   useEffect(() => {
     if (!isLoading && inputRef.current) {
@@ -118,7 +131,7 @@ const InputBar = ({
           resolvedPath = f.path
         }
 
-        // Web drag-drop: save to temp if no local path
+        // Jika file berasal dari drag & drop web / memory tanpa local path asli
         if (
           (!resolvedPath ||
             resolvedPath === f.name ||
@@ -187,30 +200,36 @@ const InputBar = ({
     }
   }
 
-  const handleUrlSubmit = () => {
-    const trimmed = urlText.trim()
-    if (!trimmed) return
-    // Add as a file-like attachment with the URL as path
-    setAttachedFiles((prev) => {
-      const exists = prev.some((f) => f.path === trimmed)
-      if (exists) return prev
-      return [
-        ...prev,
-        {
-          name: trimmed.split('/').pop() || trimmed,
-          path: trimmed,
-          size: 0,
-          type: 'text/uri-list',
-          isUrl: true
-        }
-      ]
-    })
-    setUrlText('')
-    setShowUrlInput(false)
-  }
-
-  const handleFormSubmit = () => {
+  const handleFormSubmit = async () => {
     let finalPrompt = inputText
+    let userText = inputText
+    const skillMatches = inputText.match(/(?:\s|^)\/([a-zA-Z0-9_-]+)/g)
+
+    if (skillMatches && skillMatches.length > 0 && window.api && window.api.readSkill) {
+      let combinedSkillsContent = ''
+      const loadedSkills = []
+      
+      for (const match of skillMatches) {
+        const skillName = match.trim().substring(1) // Hilangkan spasi dan '/'
+        try {
+          const skillContent = await window.api.readSkill(skillName)
+          if (skillContent) {
+            combinedSkillsContent += `\n\n--- SKILL: ${skillName.toUpperCase()} ---\n${skillContent}`
+            loadedSkills.push(skillName)
+            userText = userText.replace(match, '') // Hapus slash command dari teks yang dilihat AI
+          }
+        } catch (e) {
+          console.error('[InputBar] Failed to read skill:', skillName, e)
+        }
+      }
+
+      userText = userText.trim()
+
+      if (loadedSkills.length > 0) {
+        finalPrompt = `${userText}\n\n=== SYSTEM INSTRUCTION: SKILL DIAKTIFKAN ===\nBerikut adalah instruksi skill khusus yang WAJIB kamu kombinasikan dan ikuti secara ketat untuk mengeksekusi permintaan di atas:\n${combinedSkillsContent}\n=========================================`
+      }
+    }
+
     if (attachedFiles.length > 0) {
       const filePathsText = attachedFiles.map((f) => `"${f.path}"`).join(', ')
       if (finalPrompt.trim()) {
@@ -240,6 +259,58 @@ const InputBar = ({
     }, 50)
   }
 
+  const handleTextChange = (e) => {
+    const val = e.target.value
+    setInputText(val)
+    
+    if (val.startsWith('/')) {
+      const query = val.slice(1).toLowerCase()
+      const matches = skills.filter(s => s.toLowerCase().includes(query))
+      setFilteredSkills(matches)
+      setShowSkillList(true)
+      setSelectedSkillIndex(0)
+    } else {
+      setShowSkillList(false)
+    }
+  }
+
+  const selectSkill = (skill) => {
+    setInputText(`/${skill} `)
+    setShowSkillList(false)
+    if (inputRef.current) inputRef.current.focus()
+  }
+
+  const handleKeyDown = (e) => {
+    if (showSkillList && filteredSkills.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedSkillIndex(prev => (prev + 1) % filteredSkills.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedSkillIndex(prev => (prev - 1 + filteredSkills.length) % filteredSkills.length)
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        selectSkill(filteredSkills[selectedSkillIndex])
+        return
+      }
+      if (e.key === 'Escape') {
+        setShowSkillList(false)
+        return
+      }
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (!isSendDisabled) {
+        handleFormSubmit()
+      }
+    }
+  }
+
   const isSendDisabled = !inputText.trim() && attachedFiles.length === 0
 
   return (
@@ -250,7 +321,7 @@ const InputBar = ({
           {attachedFiles.map((file, idx) => (
             <div
               key={file.path + idx}
-              className="flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-full px-3 py-1.5 text-xs text-white shadow-lg animate-fade-in group hover:border-white/30 transition-all flex-shrink-0"
+              className="flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-full px-3 py-1.5 text-xs text-white shadow-lg animate-fade-in group hover:border-primary/50 transition-all flex-shrink-0"
             >
               <span className="text-sm">{getFileIcon(file.name)}</span>
               <span className="max-w-[140px] truncate font-medium">{file.name}</span>
@@ -263,7 +334,7 @@ const InputBar = ({
                 className="text-white/40 hover:text-error hover:bg-error/20 p-1 rounded-full transition-all"
                 title="Hapus Lampiran"
               >
-                <X size={10} />
+                <FaTimes size={10} />
               </button>
             </div>
           ))}
@@ -279,48 +350,6 @@ const InputBar = ({
         onChange={handleFileChange}
       />
 
-      {/* Web URL Input (expandable) */}
-      {showUrlInput && (
-        <div className="mb-2 flex items-center gap-2 animate-[holo-project-in_0.2s_ease-out_forwards]">
-          <div className="flex-1 flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-xl px-3 py-2 shadow-lg">
-            <Link2 size={14} className="text-white/40" />
-            <input
-              ref={urlInputRef}
-              type="url"
-              value={urlText}
-              onChange={(e) => setUrlText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  handleUrlSubmit()
-                }
-                if (e.key === 'Escape') {
-                  setShowUrlInput(false)
-                  setUrlText('')
-                }
-              }}
-              placeholder="Tempel URL dari web..."
-              className="flex-1 bg-transparent border-none outline-none text-white text-sm placeholder:text-white/30"
-            />
-            <button
-              type="button"
-              onClick={handleUrlSubmit}
-              disabled={!urlText.trim()}
-              className="px-3 py-1 rounded-lg text-white/80 text-xs disabled:opacity-30 transition-all glass glass-hover"
-            >
-              Tambah
-            </button>
-            <button
-              type="button"
-              onClick={() => { setShowUrlInput(false); setUrlText('') }}
-              className="p-1 text-white/40 hover:text-white/80 transition-all"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        </div>
-      )}
-
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -329,16 +358,16 @@ const InputBar = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`relative flex items-center bg-[var(--glass-bg)] backdrop-blur-xl border rounded-[2rem] p-2 pr-3 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all duration-300 focus-within:border-white/30 focus-within:shadow-[0_0_20px_rgba(255,255,255,0.08)] ${
+        className={`relative flex items-center bg-[var(--glass-bg)] border rounded-lg p-2 pr-3 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-colors duration-300 focus-within:border-primary/50 focus-within:shadow-[0_0_20px_oklch(var(--p)/0.2)] ${
           isDragging
-            ? 'border-white/50 scale-[1.02]'
+            ? 'border-primary bg-primary/10 shadow-[0_0_30px_oklch(var(--p)/0.3)] scale-[1.02]'
             : 'border-[var(--glass-border)]'
         }`}
       >
         {/* Drag & Drop Overlay Indicator */}
         {isDragging && (
-          <div className="absolute inset-0 rounded-[2rem] glass glass-hover border-2 border-dashed border-white/40 flex items-center justify-center z-50 pointer-events-none text-white font-medium gap-2 animate-pulse">
-            <Paperclip className="animate-bounce" size={20} />
+          <div className="absolute inset-0 rounded-lg bg-primary/20 backdrop-blur-md border-2 border-dashed border-primary flex items-center justify-center z-50 pointer-events-none text-white font-medium gap-2 animate-pulse">
+            <FaPaperclip className="animate-bounce" size={20} />
             <span>Lepaskan file di sini untuk melampirkan...</span>
           </div>
         )}
@@ -347,24 +376,10 @@ const InputBar = ({
         <button
           type="button"
           onClick={handlePaperclipClick}
-          className="p-3 text-white/40 hover:text-white/80 glass glass-hover rounded-full transition-all flex-shrink-0"
+          className="p-3 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-full transition-all flex-shrink-0"
           title="Lampirkan File (PDF, DOCX, TXT, MD, Gambar, dll)"
         >
-          <Paperclip size={16} />
-        </button>
-
-        {/* URL Source Button */}
-        <button
-          type="button"
-          onClick={() => setShowUrlInput(!showUrlInput)}
-          className={`p-3 rounded-full transition-all flex-shrink-0 ${
-            showUrlInput
-              ? 'text-white glass'
-              : 'text-white/40 hover:text-white/80 glass glass-hover'
-          }`}
-          title="Lampirkan URL"
-        >
-          <Link2 size={16} />
+          <FaPaperclip size={16} />
         </button>
 
         {/* Mic / Record Toggle (Hold to talk) */}
@@ -374,29 +389,21 @@ const InputBar = ({
           disabled={isProcessing || isLoading}
           className={`relative p-3 md:p-4 rounded-full flex-shrink-0 transition-all duration-300 transform outline-none z-10 ${
             isProcessing
-              ? 'text-white/60 glass glass-hover cursor-wait'
+              ? 'text-primary bg-primary/20 cursor-wait'
               : isLoading
-              ? 'text-white/20 glass glass-hover cursor-not-allowed'
+              ? 'text-white/20 bg-white/5 cursor-not-allowed'
               : isRecording
               ? 'text-error bg-error/20'
-              : 'text-white/40 hover:text-white/80 glass glass-hover'
+              : 'text-white/40 hover:text-white/80 hover:bg-white/5'
           }`}
           style={{
             transform: isRecording && !isProcessing ? `scale(${1 + audioIntensity * 0.3})` : '',
-            boxShadow: isRecording && !isProcessing
-              ? `0 0 ${10 + audioIntensity * 40}px rgba(255,0,0, ${0.3 + audioIntensity * 0.5})`
-              : ''
+            boxShadow: isRecording && !isProcessing ? `0 0 ${10 + audioIntensity * 40}px rgba(255,0,0, ${0.3 + audioIntensity * 0.5})` : ''
           }}
-          title={
-            isProcessing
-              ? 'Sedang memproses suara...'
-              : isLoading
-              ? 'Agen sedang sibuk'
-              : 'Mulai/Berhenti Rekam (Ctrl+Alt+M)'
-          }
+          title={isProcessing ? 'Sedang memproses suara...' : isLoading ? 'Agen sedang sibuk' : 'Mulai/Berhenti Rekam (Ctrl+Alt+M)'}
         >
           {isRecording && !isProcessing && (
-            <div
+            <div 
               className="absolute inset-0 rounded-full bg-error/30 -z-10 transition-transform duration-75"
               style={{ transform: `scale(${1 + audioIntensity * 0.8})` }}
             />
@@ -404,9 +411,9 @@ const InputBar = ({
           {isProcessing ? (
             <span className="loading loading-spinner w-[18px] h-[18px]"></span>
           ) : isLoading ? (
-            <Lock size={18} />
+            <FaLock size={18} />
           ) : (
-            <Mic size={18} />
+            <FaMicrophone size={18} />
           )}
         </button>
 
@@ -415,10 +422,10 @@ const InputBar = ({
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-3 text-white/40 hover:text-white/80 glass glass-hover rounded-full transition-all"
+            className="p-3 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-full transition-all"
             title="Insert Emoji"
           >
-            <Smile size={18} />
+            <FaSmile size={18} />
           </button>
 
           {showEmojiPicker && (
@@ -428,7 +435,7 @@ const InputBar = ({
                   key={emoji}
                   type="button"
                   onClick={() => handleEmojiClick(emoji)}
-                  className="w-10 h-10 flex items-center justify-center glass glass-hover rounded-xl text-2xl transition-all hover:scale-110 active:scale-95"
+                  className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-xl text-2xl transition-all hover:scale-110 active:scale-95"
                 >
                   {emoji}
                 </button>
@@ -436,27 +443,44 @@ const InputBar = ({
             </div>
           )}
         </div>
+        {/* Skill Autocomplete Dropdown */}
+        {showSkillList && filteredSkills.length > 0 && (
+          <div className="absolute bottom-full left-12 mb-2 w-64 bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.5)] z-50 animate-fade-in">
+            <div className="p-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-white/5">
+              Available Skills
+            </div>
+            <div className="max-h-48 overflow-y-auto no-scrollbar">
+              {filteredSkills.map((skill, idx) => (
+                <div
+                  key={skill}
+                  onClick={() => selectSkill(skill)}
+                  className={`px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2 ${
+                    idx === selectedSkillIndex 
+                      ? 'bg-emerald-500/20 text-emerald-400' 
+                      : 'hover:bg-white/10 text-gray-300'
+                  }`}
+                >
+                  <span className="opacity-50">/</span>
+                  <span className="font-medium">{skill}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Input Textarea */}
         <textarea
           ref={inputRef}
           rows={1}
           value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              if (!isSendDisabled) {
-                handleFormSubmit()
-              }
-            }
-          }}
+          onChange={handleTextChange}
+          onKeyDown={handleKeyDown}
           placeholder={
             isLoading
               ? 'Beri intervensi ke Mark...'
               : attachedFiles.length > 0
-              ? 'Tambah instruksi untuk file terlampir...'
-              : 'Tanya apapun ke Mark...'
+                ? 'Tambah instruksi untuk file terlampir...'
+                : 'Tanya apapun ke Mark...'
           }
           className="flex-1 resize-none bg-transparent border-none outline-none text-white px-3 py-2.5 text-sm md:text-base leading-normal placeholder:text-white/30 disabled:opacity-50 no-scrollbar"
         />
@@ -470,16 +494,16 @@ const InputBar = ({
               className="p-3 rounded-full bg-error/20 text-error hover:bg-error hover:text-white transition-all"
               title="Stop Generation (Hard Abort)"
             >
-              <Square size={16} />
+              <FaStop size={16} />
             </button>
           )}
           <button
             type="submit"
             disabled={isSendDisabled}
-            className="p-3 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white hover:scale-105 active:scale-95 disabled:opacity-30 disabled:bg-white/5 disabled:text-white/30 transition-all backdrop-blur-sm border border-white/10"
+            className="p-3 rounded-full bg-success text-success-content disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-success/80 hover:scale-105 active:scale-95 transition-all"
             title="Send Message"
           >
-            <ArrowUp size={16} />
+            <FaArrowUp size={16} />
           </button>
         </div>
       </form>

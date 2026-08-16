@@ -1,0 +1,151 @@
+export const GROUP_TOOLS_DEFINITION = {
+  advanced_browser: {
+    description: 'Tool untuk navigasi dan kontrol elemen fisik browser web secara detail.',
+    tools: {
+      'browser-navigate':
+        'Buka URL di browser fisik. Query: URL lengkap. Mengembalikan daftar elemen interaktif bernomor (ID).',
+      'browser-read': 'Scan ulang elemen halaman saat ini. Gunakan setelah menunggu loading.',
+      'browser-click': 'Klik elemen. Query: ID angka. Mengembalikan DOM terbaru setelah klik.',
+      'browser-type': 'Ketik teks di kolom input. Query: ID||teks. Mengembalikan DOM terbaru.',
+      'browser-scroll': 'Scroll halaman. Query: "up" atau "down".',
+      'browser-ask-user':
+        'JIKA terhalang form login/CAPTCHA, BUKAKAN HALAMANNYA DULU (misal klik tombol \'Login\' hingga form muncul), lalu GUNAKAN TOOL INI. Query: Instruksi/Pesan untuk user (misal: "Tolong isi email dan password"). Pesanmu akan muncul di layar popup. Setelah user selesai, kamu akan langsung mendapat DOM terbaru untuk MELANJUTKAN misimu. Jangan berhenti!',
+      'browser-close': 'Menutup browser fisik.'
+    }
+  },
+  pc_automation: {
+    description:
+      'Tool untuk interaksi fisik dengan desktop OS Windows. [SPEEDRUNNER BATCH MODE]: Kamu BISA mengeksekusi BATCH ACTIONS (mengirim ARRAY aksi) dalam 1 giliran untuk menghindari loading lama. Contoh: [{"tool":"os-click","query":"5"}, {"tool":"os-delay","query":"1000"}, {"tool":"os-type","query":"Teks"}]. Gunakan os-click secara bebas, tetapi KELOMPOKKAN aksimu ke dalam array jika urutannya sudah jelas, jangan satu per satu!',
+    tools: {
+      'os-control-open':
+        'WAJIB DIPANGGIL PERTAMA KALI sebelum memulai rangkaian tugas otomatisasi PC. Mengunci sesi dan memunculkan overlay pengunci PC. PENTING: Jika tool ini sudah mengembalikan status success, ITU BERARTI USER SUDAH MEMBERIKAN IZIN DI POPUP! Kamu WAJIB LANGSUNG meneruskan eksekusi langkah berikutnya (os-read/os-click/os-type/dll) di loop yang sama TANPA berhenti atau menyuruh user klik tombol izinkan lagi! Query: KOSONG.',
+      'os-control-close':
+        'WAJIB DIPANGGIL TERAKHIR setelah semua tugas otomatisasi PC selesai. Menutup sesi dan overlay. Query: KOSONG.',
+      'os-read':
+        'Membaca elemen GUI desktop. Query: Kosongkan untuk scan seluruh layar (LAMBAT, 1-3 detik), atau isi dengan kata "focus" untuk HANYA membaca 1 elemen yang saat ini sedang aktif/tersorot (INSTAN, 1 ms). Gunakan query "focus" setelah kamu menekan tombol TAB/Panah untuk memverifikasi posisimu dengan cepat!',
+      'os-click':
+        'Klik mouse pada elemen GUI desktop. Query: ID elemen dari os-read atau x||y koordinat absolut.',
+      'os-type':
+        'Ketik teks ke elemen input di aplikasi Windows. Query: ID||teks atau teks langsung. PENTING: DILARANG KERAS MENGETIKKAN EMOJI! DILARANG KERAS menggunakan format markdown link seperti [teks](url) saat mengetik URL! Ketik raw teks saja.',
+      'os-key':
+        'Tekan kombinasi tombol keyboard shortcut. Query: combo (misal: ctrl+c, alt+tab, win+e, ctrl+s, enter).',
+      'os-scroll':
+        'Scroll mouse wheel di aplikasi aktif. Query: direction||amount (misal: down||5 atau up||3).',
+      'os-open':
+        'Membuka aplikasi Windows via shell execute. Query: nama executable/path atau URL raw (misal: notepad, calc, https://google.com). DILARANG KERAS menggunakan markdown link [teks](url)! Ketik raw text saja.',
+      'os-search':
+        'Mensimulasikan user mencari APLIKASI di Start Menu dengan tombol Windows. Query: kata kunci (misal: Chrome). PENTING: Tool ini HANYA mengetik di Start Menu. Untuk membuka aplikasinya, kamu WAJIB memanggil BATCH ACTION: os-search -> os-delay (1000) -> os-key (enter). JANGAN panggil os-open/os-double-click setelah os-search!',
+      'os-double-click':
+        'Klik ganda (double click) mouse pada elemen GUI desktop. Query: ID elemen dari os-read atau x||y koordinat absolut. Bisa digunakan untuk memilih file saat input file dari browser atau explorer.',
+      'os-list-windows': 'Menampilkan daftar semua window aplikasi yang terbuka beserta judulnya.',
+      'os-focus-window':
+        'Fokus sebuah window aplikasi berdasarkan judul. JANGAN MENEBAK JUDUL! WAJIB gunakan os-list-windows terlebih dahulu, lalu gunakan teks judul yang persis ada di daftar tersebut. Query: judul window.',
+      'os-ask':
+        'Meminta masukan/konfirmasi dari user via dialog floating di layar saat mengontrol PC, ATAU jika user menghentikan otomatisasi (Ctrl+Shift+S).'
+    }
+  },
+  youtube_music: {
+    description: 'Integrasi pencarian YouTube dan pemutar musik lokal.',
+    tools: {
+      'yt-search':
+        'Alat pencari video di YouTube. Gunakan ini jika kamu merasa informasi lebih baik didapat dari video/tutorial visual.',
+      'yt-summary':
+        'Merangkum isi video YouTube. Sangat berguna untuk mengekstrak informasi/pembelajaran dari video panjang.',
+      'music-play': 'Memutar lagu di YouTube Music.',
+      'music-toggle': 'Pause/lanjut memutar lagu.',
+      'music-search': 'Mencari lagu spesifik di YT Music.',
+      'music-next': 'Mengganti lagu ke track selanjutnya.',
+      'music-prev': 'Mengganti lagu ke track sebelumnya.'
+    }
+  },
+  google_drive: {
+    description: 'Akses layanan Google Drive (Manajemen file dan storage).',
+    tools: {
+      'gdrive-info': 'Cek kapasitas/storage sisa Google Drive. Query: "all"',
+      'gdrive-search':
+        'Cari file di Google Drive. Query: "kata kunci||start-end" (Contoh: "dokumen||10-20" untuk paging)',
+      'gdrive-list':
+        'List file di Drive. Query: "folderId||start-end" (Contoh: "root||10-20" untuk paging)',
+      'gdrive-read': 'Ekstrak isi teks dari Google Docs, Sheets, atau TXT. Query: fileId.',
+      'gdrive-upload': 'Upload file teks (Butuh persetujuan user). Query: nama_file||isi_teks.',
+      'gdrive-create': 'Membuat dokumen/folder baru. Query: nama_file||doc/sheet/folder.',
+      'gdrive-move': 'Memindahkan file. Query: fileId||folderId.',
+      'gdrive-copy': 'Menduplikasi file. Query: fileId||nama_baru.'
+    }
+  },
+  google_calendar: {
+    description: 'Akses layanan Google Calendar (Manajemen jadwal dan event).',
+    tools: {
+      'gcalendar-list':
+        'Lihat jadwal/event (PENTING: Jika belum connect, beri tahu user). Query: "start-end||YYYY-MM-DDTHH:mm:ssZ" (Contoh: "10-20||2023-10-01T00:00:00Z" atau "10||" untuk paging)',
+      'gcalendar-create':
+        'Membuat jadwal baru (Butuh persetujuan user). Query: Judul||Deskripsi||Waktu_Mulai(ISO)||Waktu_Selesai(ISO).',
+      'gcalendar-delete': 'Menghapus jadwal. Query: eventId.'
+    }
+  },
+  google_gmail: {
+    description: 'Akses layanan Google Gmail (Membaca dan mengirim pesan email).',
+    tools: {
+      'gmail-search': 'Mencari email. Query: query_gmail||start-end (Contoh: "is:unread||10-20").',
+      'gmail-list': 'Baca email masuk (Inbox). Query: "start-end" (Contoh: "0-10" untuk paging).',
+      'gmail-read': 'Membaca isi pesan email tertentu. Query: messageId.',
+      'gmail-send':
+        'Mengirim email baru (Butuh persetujuan user). Query: email_tujuan||Subjek||Isi_pesan.',
+      'gmail-mark-read': 'Menandai email sebagai sudah dibaca. Query: messageId.'
+    }
+  },
+  system_vision_tg: {
+    description: 'Akses screenshot layar, webcam (Vision), Text-to-Speech lisan, dan Telegram.',
+    tools: {
+      'analyze-screen':
+        'Mengambil screenshot LAYAR LAPTOP saat ini untuk dianalisis oleh "Mata AI" (Vision). ATURAN MUTLAK: DILARANG KERAS menggunakan tool ini JIKA user SUDAH melampirkan file gambar di pesan (karena kamu sudah bisa melihat gambar terlampir tersebut secara langsung!). Gunakan tool ini HANYA jika kamu perlu melihat tampilan layar monitor/aplikasi yang sedang aktif di PC user. Query: Isi dengan prompt instruksi visual spesifikmu (misal: "Tolong bacakan teks error di layar" atau "Cari tombol warna biru").',
+      'camera-look':
+        'Mengaktifkan kamera webcam untuk melihat dunia nyata di depan user. Gunakan tool ini JIKA user meminta kamu melihat sesuatu secara fisik (bukan layar), ATAU jika kamu menerima instruksi dari sistem (autonomous_prompt) untuk mengecek kondisi user secara visual. Query: Isi dengan prompt instruksi visual spesifikmu (misal: "Apa objek yang dipegang user?" atau "Baca tulisan di kertas ini").',
+      'screenshot-to-tg':
+        'Mengambil screenshot layar komputer dan MENGIRIMNYA SECARA FISIK ke Telegram user (Hanya jika chat berasal dari Telegram). Query: KOSONGKAN SAJA.',
+      'tg-send':
+        'Mengirim pesan Telegram. Format query: "ChatID|Isi Pesan". Contoh format yang benar: "123456789|Halo!".',
+      speak:
+        'Bicarakan teks secara lisan (Text-to-Speech) lewat speaker komputer user. Query: "Teks yang ingin kamu ucapkan". Gunakan ini jika kamu ingin memanggil user atau berbicara langsung.'
+    }
+  }
+}
+
+export const group_tools = async () => {
+  const dynamicGroups = { ...GROUP_TOOLS_DEFINITION }
+
+  try {
+    const plugins = await window.api.getPlugins()
+    if (plugins && plugins.length > 0) {
+      plugins.forEach((plugin) => {
+        if (plugin.isEnabled !== false && plugin.actions) {
+          const toolMap = {}
+          plugin.actions.forEach((act) => {
+            let paramDocs = ''
+            if (act.parameters) {
+              paramDocs = ` (Params: ${Object.entries(act.parameters)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join(', ')})`
+            }
+            toolMap[act.name] = `${act.description}${paramDocs}`
+          })
+
+          dynamicGroups[plugin.name] = {
+            description: plugin.description || 'Plugin Eksternal Tambahan',
+            tools: toolMap
+          }
+        }
+      })
+    }
+  } catch (err) {
+    console.error('Gagal meload external plugin', err)
+  }
+
+  return dynamicGroups
+}
+
+// Generate flat map sekali aja buat fast O(1) lookup
+export const group_tools_flat = {}
+for (const group of Object.values(GROUP_TOOLS_DEFINITION)) {
+  Object.assign(group_tools_flat, group.tools)
+}

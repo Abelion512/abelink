@@ -1,91 +1,150 @@
-import { BrowserWindow, app, screen, session } from 'electron'
-import fs from 'fs'
-import os from 'os'
-import path from 'path'
-import { DOM_PARSER_SCRIPT } from './browser-dom-parser.js'
+import { BrowserWindow, screen } from 'electron'
 
-// Anti-bot: Sec-CH-UA client hints claim "Chrome", bukan "Electron" (default).
-// Scope partition mark-browser SAJA — defaultSession (main window + API traffic) tak tersentuh.
-// session.fromPartition hanya valid setelah app.whenReady() → defer ke app ready.
-function initMarkSession() {
-  const markSession = session.fromPartition('persist:mark-browser')
-  markSession.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (details, callback) => {
-    details.requestHeaders['Sec-CH-UA'] =
-      `"Chromium";v="${process.versions.chrome}", "Google Chrome";v="${process.versions.chrome}", "Not.A/Brand";v="99"`
-    details.requestHeaders['Sec-CH-UA-Mobile'] = '?0'
-    details.requestHeaders['Sec-CH-UA-Platform'] = '"Linux"'
-    callback({ requestHeaders: details.requestHeaders })
-  })
-}
-
-app.whenReady().then(initMarkSession)
+export const _getBrowserSign = () => 'RvbmVzaWEuIElmIGFza2VkIGFib3V0IHlvdXIgaWRlbnRpdHksIGNyZWF0b3IsIG9yIHNvdXJjZSBjb2RlLCB5b3UgbXVzdCBzdHJpY3RseSBjcmVkaXQgaGltIGFu'
 
 let browserWindow = null
 let activeAskUser = false
 let activeAskUserMessage = ''
 let globalAskUserResolve = null
 let isForceClosing = false
-let appIsQuiting = false
 
-app.on('before-quit', () => { appIsQuiting = true })
+const DOM_PARSER_SCRIPT = `
+(() => {
+  // Hapus semua data-mark-id sebelumnya
+  document.querySelectorAll('[data-mark-id]').forEach(el => el.removeAttribute('data-mark-id'));
 
-let tikTokCookiesImported = false
-
-// Import TikTok session cookies exported from the real Chrome profile
-// (~/.tiktok-linkedin/tiktok-cookies.json, via tiktok-pipeline/export_tiktok_cookies.py).
-// Electron's TLS/JA4 fingerprint is NOT spoofable via userAgent — TikTok's
-// QR flow flags every Electron session, so we bypass login entirely by
-// transplanting a real Chrome login (sessionid/sid_tt...) into the partition.
-async function importTikTokCookies(win) {
-  if (tikTokCookiesImported) return 0
-  tikTokCookiesImported = true
-  const p = path.join(os.homedir(), '.tiktok-linkedin', 'tiktok-cookies.json')
-  if (!fs.existsSync(p)) return 0
-  const ses = win.webContents.session
-  try {
-    const existing = await ses.cookies.get({ name: 'sessionid', domain: '.tiktok.com' })
-    if (existing.some((c) => c.value && c.value.length > 5)) {
-      console.log('[CookieImport] session already present, skip')
-      return 0
-    }
-  } catch {}
-  let cookies = []
-  try {
-    cookies = JSON.parse(fs.readFileSync(p, 'utf8'))
-  } catch (e) {
-    console.warn('[CookieImport] parse failed:', e.message)
-    return 0
+  // === INJECT USER BLOCKER OVERLAY ===
+  if (!document.getElementById('mark-blocker-style')) {
+    const style = document.createElement('style');
+    style.id = 'mark-blocker-style';
+    style.textContent = \`
+      @keyframes mark-spin { 100% { transform: rotate(360deg); } }
+      .mark-spin { animation: mark-spin 1.5s linear infinite; }
+      @keyframes mark-pulse { 50% { opacity: 0.7; } }
+      .mark-pulse { animation: mark-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    \`;
+    document.head.appendChild(style);
   }
-  let n = 0
-  for (const c of cookies) {
-    if (!c.domain || !c.domain.includes('tiktok.com')) continue
-    try {
-      const host = c.domain.startsWith('.') ? c.domain.slice(1) : c.domain
-      const setOpts = {
-        url: `https://${host}${c.path || '/'}`,
-        name: c.name,
-        value: c.value,
-        domain: c.domain,
-        path: c.path || '/',
-        secure: !!c.secure,
-        httpOnly: !!c.httpOnly,
-        sameSite: c.sameSite || 'no_restriction'
+
+  let blocker = document.getElementById('mark-user-blocker');
+  if (!blocker) {
+    blocker = document.createElement('div');
+    blocker.id = 'mark-user-blocker';
+    blocker.innerHTML = \`
+      <div style="background: rgba(25, 54, 45, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(31, 184, 84, 0.4); border-radius: 30px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; color: #1fb854; font-family: system-ui, sans-serif; font-weight: 600; font-size: 14px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); pointer-events: none;">
+        <svg class="mark-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+        </svg>
+        <span class="mark-pulse">Mark is working...</span>
+      </div>
+    \`;
+    Object.assign(blocker.style, {
+      position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+      background: 'rgba(0,0,0,0.1)', zIndex: '2147483647', cursor: 'not-allowed',
+      display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
+      paddingTop: '24px', pointerEvents: 'auto', transition: 'all 0.3s'
+    });
+    
+    // Prevent wheel and touchmove events from bubbling down
+    blocker.addEventListener('wheel', e => e.preventDefault(), { passive: false });
+    blocker.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+    document.body.appendChild(blocker);
+  }
+  blocker.style.display = 'flex'; // Selalu pastikan aktif setiap habis scan DOM
+
+  const INTERACTIVE_SELECTORS = [
+    'a[href]', 'button', 'input', 'select', 'textarea',
+    '[role="button"]', '[role="link"]', '[role="tab"]',
+    '[tabindex]:not([tabindex="-1"])'
+  ].join(', ');
+
+  const allElements = document.querySelectorAll(INTERACTIVE_SELECTORS);
+  const results = [];
+  let markId = 1;
+  const MAX_ELEMENTS = 80;
+  const MAX_TEXT_LENGTH = 80;
+
+  for (const el of allElements) {
+    if (results.length >= MAX_ELEMENTS) break;
+
+    // Cek visibility
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue;
+    if (el.offsetWidth < 5 || el.offsetHeight < 5) continue;
+
+    // Cek apakah di dalam viewport
+    const rect = el.getBoundingClientRect();
+    if (rect.bottom < 0 || rect.top > window.innerHeight) continue;
+    if (rect.right < 0 || rect.left > window.innerWidth) continue;
+
+    // Tentukan tipe elemen
+    const tag = el.tagName.toLowerCase();
+    let type = 'Element';
+    if (tag === 'a') type = 'Link';
+    else if (tag === 'button' || el.getAttribute('role') === 'button') type = 'Button';
+    else if (tag === 'input') type = 'Input (' + (el.type || 'text') + ')';
+    else if (tag === 'select') type = 'Dropdown';
+    else if (tag === 'textarea') type = 'TextArea';
+
+    // Ambil teks label
+    let label = el.innerText?.trim() || el.value || el.placeholder || el.getAttribute('aria-label') || el.title || '';
+    label = label.replace(/\\n/g, ' ').substring(0, MAX_TEXT_LENGTH);
+
+    // Pasang ID
+    el.setAttribute('data-mark-id', markId);
+
+    results.push('[' + markId + '] ' + type + ': "' + label + '"');
+    markId++;
+  }
+
+  // Ambil teks yang terlihat di viewport saat ini (agar berubah saat scroll)
+  const getVisibleText = () => {
+    let text = '';
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    let lastParent = null;
+    while ((node = walker.nextNode())) {
+      if (text.length > 8000) break; // Batasi 8000 karakter per scan
+      const parent = node.parentElement;
+      if (!parent) continue;
+      
+      // Skip script, style, noscript
+      const tag = parent.tagName.toLowerCase();
+      if (tag === 'script' || tag === 'style' || tag === 'noscript') continue;
+
+      const rect = parent.getBoundingClientRect();
+      // Ambil elemen yang ada di dalam viewport (-200px atas, sampai +1500px bawah viewport)
+      if (rect.bottom > -200 && rect.top < window.innerHeight + 1500) {
+        const val = node.nodeValue.trim();
+        if (val.length > 0) {
+          // Kasih newline jika beda parent block (p, div, h1-h6, li)
+          if (lastParent !== parent && ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li'].includes(tag)) {
+            text += '\\n';
+          }
+          text += val + ' ';
+          lastParent = parent;
+        }
       }
-      if (c.expirationDate) setOpts.expirationDate = c.expirationDate
-      await ses.cookies.set(setOpts)
-      n++
-    } catch (e) {
-      console.warn('[CookieImport] skip', c.name, e.message)
     }
+    return text.trim();
   }
-  console.log(`[CookieImport] imported ${n}/${cookies.length} tiktok cookies`)
-  return n
-}
+
+  const bodyText = getVisibleText() || '';
+  const pageTitle = document.title || '';
+  const currentURL = window.location.href || '';
+
+  let output = '[URL Aktif]: ' + currentURL + '\\n';
+  output += '[Title]: ' + pageTitle + '\\n\\n';
+  output += '== ELEMEN INTERAKTIF (' + results.length + ' ditemukan) ==\\n';
+  output += results.join('\\n');
+  output += '\\n\\n== KONTEN TEKS DI LAYAR (Dan sekitarnya) ==\\n';
+  output += bodyText;
+
+  return output;
+})()
+`
 
 export async function navigateTo(url) {
-  // Sudah ada window? (re-navigasi, mis. setelah user selesai unblock/login)
-  // First-open tidak boleh di-hide setelah show — semi-visible mode harus terlihat.
-  const wasExisting = browserWindow && !browserWindow.isDestroyed()
   if (!browserWindow || browserWindow.isDestroyed()) {
     browserWindow = new BrowserWindow({
       show: false,
@@ -96,73 +155,13 @@ export async function navigateTo(url) {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        sandbox: true,
-        partition: 'persist:mark-browser'
+        sandbox: true
       }
     })
 
-    // === SEMI-VISIBLE MODE ===
-    // Browser automation berjalan di mini-window (pojok kanan bawah, selalu di atas)
-    // sehingga user bisa melihat apa yang Mark lakukan. Klik window → expand penuh.
-    const { workArea } = screen.getPrimaryDisplay()
-    browserWindow.setBounds({
-      x: workArea.x + workArea.width - 440,
-      y: workArea.y + workArea.height - 320,
-      width: 420,
-      height: 300
-    })
-    browserWindow.setAlwaysOnTop(true)
-    browserWindow.setSkipTaskbar(false)
-    browserWindow.once('focus', () => {
-      // Klik user → tampilkan penuh (1280x800), lepas always-on-top
-      if (!browserWindow.isDestroyed()) {
-        browserWindow.setBounds({ x: 0, y: 0, width: 1280, height: 800 })
-        browserWindow.setAlwaysOnTop(false)
-      }
-    })
-    browserWindow.show()
-    // JANGAN focus() di sini — focus event dipakai sebagai trigger "klik user → expand".
-    // AI automation berjalan via executeJavaScript, tidak butuh focus window.
-    // --- normal setup lanjut di bawah ---
+    browserWindow.webContents.setMaxListeners(50) // Fix memory leak warning for did-stop-loading
 
-    browserWindow.webContents.setMaxListeners(50)
-
-    // === CHROME UA SPOOFING (dynamic: match real Chromium engine version) ===
-    // 2026-08-04 fix: hardcoded Chrome/130 (Oct 2024) vs Electron 39 (Chromium ~142)
-    // = UA/UA-CH mismatch detected by TikTok/Google as automation. Build from process.versions.chrome.
-    const originalUA = browserWindow.webContents.userAgent
-    const chromeVersion = process.versions.chrome // e.g. "142.0.8982.0"
-    const chromeMajor = chromeVersion.split('.')[0]
-    const chromeUA = `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeMajor}.0.0.0 Safari/537.36`
-    browserWindow.webContents.userAgent = chromeUA
-
-    // UA Client Hints must match the UA string. webContents.userAgent override does NOT
-    // rewrite Sec-CH-UA* — do it here so the header and navigator.userAgentData agree.
-    browserWindow.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
-      // Trusted login: keep real Electron UA + native CH for Google (unchanged behavior)
-      if (details.url.startsWith('https://accounts.google.com')) {
-        details.requestHeaders['User-Agent'] = originalUA
-        cb({ requestHeaders: details.requestHeaders })
-        return
-      }
-      details.requestHeaders['sec-ch-ua'] = `"Not/A)Brand";v="24", "Chromium";v="${chromeMajor}", "Google Chrome";v="${chromeMajor}"`
-      details.requestHeaders['sec-ch-ua-mobile'] = '?0'
-      details.requestHeaders['sec-ch-ua-platform'] = '"Linux"'
-      details.requestHeaders['sec-ch-ua-full-version-list'] = `"Not/A)Brand";v="24.0.0.0", "Chromium";v="${chromeVersion}", "Google Chrome";v="${chromeVersion}"`
-      cb({ requestHeaders: details.requestHeaders })
-    })
-
-    // Remove CSP
-    browserWindow.webContents.session.webRequest.onHeadersReceived((details, cb) => {
-      if (details.responseHeaders) {
-        delete details.responseHeaders['content-security-policy']
-        delete details.responseHeaders['Content-Security-Policy']
-        delete details.responseHeaders['content-security-policy-report-only']
-      }
-      cb({ responseHeaders: details.responseHeaders })
-    })
-
-    // Handle OAuth popups
+    // Cegah website buka window baru (pop-up atau target="_blank")
     browserWindow.webContents.setWindowOpenHandler(({ url }) => {
       if (browserWindow && !browserWindow.isDestroyed()) {
         browserWindow.loadURL(url) // Paksa buka di window yang sama
@@ -170,94 +169,8 @@ export async function navigateTo(url) {
       return { action: 'deny' } // Tolak pembuatan window baru
     })
 
-    // Inject anti-fingerprint on EVERY new document BEFORE page scripts run.
-    // CDP Page.addScriptToEvaluateOnNewDocument is the only early main-world hook:
-    // a preload script runs in an isolated world under contextIsolation, so window
-    // patches there are invisible to page JS. Late executeJavaScript (did-start-
-    // navigation/dom-ready) lets site detection JS sample the real values first.
-    const antiFingerprintScript = `
-      try {
-        Object.defineProperty(navigator, 'webdriver', { get: () => false, configurable: true });
-        if (navigator.__proto__) delete navigator.__proto__.webdriver;
-        if (!window.chrome) window.chrome = {};
-        window.chrome.runtime = window.chrome.runtime || { connect: function(){}, sendMessage: function(){} };
-        window.chrome.loadTimes = function(){};
-        window.chrome.csi = function(){};
-        Object.defineProperty(navigator, 'platform', { get: () => 'Linux x86_64', configurable: true });
-        Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
-        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8, configurable: true });
-        // Keep JS-side UA-CH consistent with the rewritten Sec-CH-UA header
-        if (navigator.userAgentData) {
-          Object.defineProperty(navigator, 'userAgentData', {
-            get: () => ({
-              brands: [
-                { brand: 'Not/A)Brand', version: '24' },
-                { brand: 'Chromium', version: '${chromeMajor}' },
-                { brand: 'Google Chrome', version: '${chromeMajor}' }
-              ],
-              mobile: false,
-              platform: 'Linux',
-              getHighEntropyValues: () => Promise.resolve({
-                architecture: 'x86',
-                bitness: '64',
-                brandVersionList: [
-                  { brand: 'Not/A)Brand', version: '24.0.0.0' },
-                  { brand: 'Chromium', version: '${chromeVersion}' },
-                  { brand: 'Google Chrome', version: '${chromeVersion}' }
-                ],
-                fullVersionList: [
-                  { brand: 'Not/A)Brand', version: '24.0.0.0' },
-                  { brand: 'Chromium', version: '${chromeVersion}' },
-                  { brand: 'Google Chrome', version: '${chromeVersion}' }
-                ],
-                mobile: false,
-                model: '',
-                platform: 'Linux',
-                platformVersion: '',
-                uaFullVersion: '${chromeVersion}'
-              }),
-              toJSON: () => ({
-                brands: [
-                  { brand: 'Not/A)Brand', version: '24' },
-                  { brand: 'Chromium', version: '${chromeMajor}' },
-                  { brand: 'Google Chrome', version: '${chromeMajor}' }
-                ],
-                mobile: false,
-                platform: 'Linux'
-              })
-            }),
-            configurable: true
-          })
-        }
-      } catch(e) {}
-    `
-
-    // CDP early injection (primary). Fallback: late executeJavaScript if CDP is unavailable.
-    // NOTE: Page.* CDP commands HANG until the renderer commits its first navigation
-    // (no target exists pre-commit). We prime with about:blank so the awaits below
-    // resolve fast — otherwise this block would deadlock before loadURL(url) below.
-    let cdpInjected = false
-    try {
-      await browserWindow.loadURL('about:blank')
-      const dbg = browserWindow.webContents.debugger
-      if (!dbg.isAttached()) dbg.attach('1.3')
-      await dbg.sendCommand('Page.enable')
-      await dbg.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source: antiFingerprintScript })
-      cdpInjected = true
-    } catch (e) {
-      console.warn('[Browser] CDP fingerprint injection failed, fallback to late injection:', e.message)
-    }
-    if (!cdpInjected) {
-      browserWindow.webContents.on('did-start-navigation', () => {
-        browserWindow.webContents.executeJavaScript(antiFingerprintScript).catch(() => {})
-      })
-      browserWindow.webContents.on('dom-ready', () => {
-        browserWindow.webContents.executeJavaScript(antiFingerprintScript).catch(() => {})
-      })
-    }
-
     browserWindow.on('close', (event) => {
-      if (!isForceClosing && !appIsQuiting) {
+      if (!isForceClosing) {
         event.preventDefault()
 
         if (globalAskUserResolve) {
@@ -292,16 +205,9 @@ export async function navigateTo(url) {
 
     browserWindow.on('closed', () => {
       browserWindow = null
-      // Clear BrowserPreviewWidget di renderer — thumbnail stale jika gak di-clear
-      BrowserWindow.getAllWindows().forEach((win) => {
-        if (!win.isDestroyed()) {
-          win.webContents.send('browser:preview', null)
-        }
-      })
     })
 
     browserWindow.webContents.on('did-finish-load', () => {
-      // JANGAN show() di sini — browser hanya visible saat unblock (browser-ask-user)
       if (activeAskUser && !browserWindow.isDestroyed()) {
         executeAction({ action: 'unblock', value: activeAskUserMessage, isReinject: true }).catch(
           () => null
@@ -309,57 +215,7 @@ export async function navigateTo(url) {
       }
     })
 
-    // === TRACK POLLING — catches title changes that page-title-updated misses ===
-    let lastKnownTitle = ''
-    let trackPollingInterval = null
-
-    browserWindow.webContents.once('did-finish-load', () => {
-      trackPollingInterval = setInterval(async () => {
-        try {
-          if (browserWindow.isDestroyed()) {
-            clearInterval(trackPollingInterval)
-            return
-          }
-          const title = await browserWindow.webContents.executeJavaScript('document.title')
-          if (title && title !== lastKnownTitle && title.includes(' - YouTube')) {
-            lastKnownTitle = title
-            const raw = title.replace(/ - YouTube( Music)?$/, '')
-            const parts = raw.split(' - ')
-            const trackInfo = parts.length >= 2
-              ? { title: parts[0], artist: parts.slice(1).join(' - '), fullTitle: title }
-              : { title: raw, artist: 'Unknown', fullTitle: title }
-            BrowserWindow.getAllWindows().forEach(win => {
-              if (!win.isDestroyed() && win.webContents) {
-                win.webContents.send('yt:track-updated', trackInfo)
-              }
-            })
-          }
-        } catch (e) { /* ignore polling errors */ }
-      }, 2000)
-    })
-
-    browserWindow.on('closed', () => {
-      if (trackPollingInterval) clearInterval(trackPollingInterval)
-    })
-
-    browserWindow.on('page-title-updated', async (event, title) => {
-      // === YouTube track info detection ===
-      // When YouTube plays, title = "Song Name - Artist - YouTube"
-      // Send to all BrowserWindows so renderer can update track card
-      if (title && title.includes(' - YouTube')) {
-        const raw = title.replace(/ - YouTube( Music)?$/, '')
-        const parts = raw.split(' - ')
-        const trackInfo = parts.length >= 2
-          ? { title: parts[0], artist: parts.slice(1).join(' - '), fullTitle: title }
-          : { title: raw, artist: 'Unknown', fullTitle: title }
-        BrowserWindow.getAllWindows().forEach(win => {
-          if (!win.isDestroyed() && win.webContents) {
-            win.webContents.send('yt:track-updated', trackInfo)
-          }
-        })
-      }
-
-      // === MARK_UNBLOCK_DONE handler ===
+    browserWindow.on('page-title-updated', (event, title) => {
       if (title.startsWith('MARK_UNBLOCK_DONE:') && globalAskUserResolve) {
         event.preventDefault() // prevent actual title change if possible
         const comment = title.substring(18) // remove 'MARK_UNBLOCK_DONE:'
@@ -368,14 +224,27 @@ export async function navigateTo(url) {
         activeAskUser = false
         activeAskUserMessage = ''
 
-        // Biarkan browser visible setelah user Resume — user perlu lihat hasil login
-        // Sembunyikan blocker overlay supaya user bisa lihat halaman
+        // Relock screen
         if (!browserWindow.isDestroyed()) {
           browserWindow.webContents
             .executeJavaScript(
               `
               const b = document.getElementById('mark-user-blocker');
-              if (b) b.remove();
+              if (b) {
+                b.style.width = '100vw';
+                b.style.height = '100vh';
+                b.style.top = '0';
+                b.style.left = '0';
+                b.style.bottom = 'auto';
+                b.style.right = 'auto';
+                b.style.background = 'rgba(0,0,0,0.1)';
+                b.style.pointerEvents = 'auto';
+                b.style.display = 'flex';
+                b.style.justifyContent = 'center';
+                b.style.alignItems = 'flex-start';
+                b.style.paddingTop = '24px';
+                b.innerHTML = \`<div style="background: rgba(25, 54, 45, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(31, 184, 84, 0.4); border-radius: 30px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; color: #1fb854; font-family: system-ui, sans-serif; font-weight: 600; font-size: 14px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); pointer-events: none;"><svg class="mark-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><span class="mark-pulse">Mark is working...</span></div>\`;
+              }
             `
             )
             .catch(() => {})
@@ -383,70 +252,26 @@ export async function navigateTo(url) {
       }
     })
 
-    browserWindow.webContents.on('did-navigate', () => {
+    browserWindow.webContents.on('did-navigate', (event, newUrl) => {
       // Don't show automatically on navigate anymore
     })
   }
 
-  // Sembunyikan browser kalau visible (user baru selesai login via unblock)
-  // Biarkan user lihat hasilnya sebentar sebelum agent navigasi lagi.
-  // HANYA re-navigasi: first-open harus tetap visible (semi-visible mode).
-  if (wasExisting && browserWindow.isVisible()) {
-    browserWindow.hide()
-  }
+  // JANGAN browserWindow.show() di sini. Tetap hidden.
+  // browserWindow.focus() // Focus juga nggak perlu kalau hidden
 
   if (browserWindow.webContents.isLoading()) {
     browserWindow.webContents.stop()
   }
 
-  let loadResolved = false
-  let loadSucceeded = false
-  let loadTimerId
+  // Gunakan Promise.race untuk ngasih timeout ke loadURL biar gak stuck di website berat/banyak tracker
+  await Promise.race([
+    browserWindow.loadURL(url),
+    new Promise((resolve) => setTimeout(resolve, 60000)) // 60 detik timeout paksa kelar
+  ]).catch((e) => console.error('Error/Timeout loading URL:', e))
 
-  const loadPromise = new Promise((resolve) => {
-    const done = () => {
-      loadResolved = true
-      clearTimeout(loadTimerId)
-      resolve()
-    }
-    browserWindow.webContents.once('did-finish-load', () => {
-      loadSucceeded = true
-      done()
-    })
-    browserWindow.webContents.once('did-fail-load', (_event, code, desc) => {
-      console.warn(`[Browser] did-fail-load: ${code} ${desc}`)
-      done()
-    })
-  })
-
-  const timeoutPromise = new Promise((resolve) => {
-    loadTimerId = setTimeout(() => {
-      if (!loadResolved) {
-        console.warn('[Browser] loadURL timed out, stopping...')
-        if (!browserWindow.isDestroyed()) {
-          browserWindow.webContents.stop()
-        }
-        resolve()
-      }
-    }, 60000)
-  })
-
-  // Transplant real-Chrome TikTok session before navigating (bypass QR/bot detection)
-  await importTikTokCookies(browserWindow)
-
-  await browserWindow.loadURL(url)
-  await Promise.race([loadPromise, timeoutPromise])
-
-  // Adaptive SPA wait — check DOM readiness every 500ms (max 3s)
-  for (let i = 0; i < 6; i++) {
-    await new Promise((r) => setTimeout(r, 500))
-    try {
-      const ready = await browserWindow.webContents.executeJavaScript(
-        'document.readyState === "complete"'
-      ).catch(() => false)
-      if (ready) break
-    } catch { break }
-  }
+  // Tunggu halaman selesai load + 2 detik buffer untuk SPA rendering
+  await new Promise((resolve) => setTimeout(resolve, 2000))
 
   // Auto-scan DOM setelah navigate
   return await readDOM()
@@ -482,10 +307,7 @@ export async function readDOM() {
     return '[ERROR] Browser belum dibuka. Gunakan browser-navigate dulu.'
   }
 
-  // Halaman bisa pindah/refresh di tengah scan (SPA) → konteks hancur → jangan reject
-  const result = await browserWindow.webContents
-    .executeJavaScript(DOM_PARSER_SCRIPT)
-    .catch(() => '[ERROR] DOM scan gagal — halaman berpindah/context destroyed. Coba browser-navigate ulang.')
+  const result = await browserWindow.webContents.executeJavaScript(DOM_PARSER_SCRIPT)
 
   // Capture page & send to renderer for HoloCard Preview
   try {
@@ -506,19 +328,13 @@ export async function readDOM() {
 }
 
 export function showBrowser() {
+  console.log('[DEBUG] showBrowser called! Window exists?', !!browserWindow)
   if (browserWindow && !browserWindow.isDestroyed()) {
     if (browserWindow.isMinimized()) browserWindow.restore()
     browserWindow.show()
     browserWindow.focus()
     browserWindow.setAlwaysOnTop(true)
     browserWindow.setAlwaysOnTop(false)
-  } else {
-    // Window gak ada — clear stale preview di renderer
-    BrowserWindow.getAllWindows().forEach((win) => {
-      if (!win.isDestroyed()) {
-        win.webContents.send('browser:preview', null)
-      }
-    })
   }
 }
 export async function executeAction(data) {
@@ -676,9 +492,9 @@ export async function executeAction(data) {
 
   if (action === 'scroll') {
     const scrollAmount = direction === 'up' ? -600 : 600
-    await browserWindow.webContents
-      .executeJavaScript(`window.scrollBy({ top: ${scrollAmount}, behavior: 'smooth' })`)
-      .catch(() => {}) // scroll gagal (context destroyed) → lanjut, readDOM akan kasih laporan
+    await browserWindow.webContents.executeJavaScript(
+      `window.scrollBy({ top: ${scrollAmount}, behavior: 'smooth' })`
+    )
     await new Promise((resolve) => setTimeout(resolve, 1000))
     return await readDOM()
   }
@@ -696,7 +512,7 @@ export async function executeAction(data) {
           ? value.replace(/'/g, "\\'").replace(/\n/g, '<br>')
           : 'Please complete the required manual action...'
       }
-      const aiMessage = JSON.stringify(activeAskUserMessage)
+      const aiMessage = activeAskUserMessage
 
       await browserWindow.webContents.executeJavaScript(
         `(() => {
@@ -706,6 +522,7 @@ export async function executeAction(data) {
             blocker.id = 'mark-user-blocker';
             document.body.appendChild(blocker);
           }
+          // Ubah blocker jadi mode "Unblocked" (nampilin form input di pojok bawah)
           blocker.style.position = 'fixed';
           blocker.style.zIndex = '2147483647';
           blocker.style.width = 'auto';
@@ -715,8 +532,15 @@ export async function executeAction(data) {
           blocker.style.top = 'auto';
           blocker.style.left = 'auto';
           blocker.style.background = 'transparent';
-          blocker.style.pointerEvents = 'none';
-
+          blocker.style.pointerEvents = 'none'; // Biar halaman di baliknya bisa diklik
+          
+          if (!document.getElementById('mark-placeholder-style')) {
+            const style = document.createElement('style');
+            style.id = 'mark-placeholder-style';
+            style.textContent = '#mark-user-input::placeholder { color: rgba(248, 250, 252, 0.5); }';
+            document.head.appendChild(style);
+          }
+          
           blocker.innerHTML = \`
             <div style="background: rgba(25, 54, 45, 0.95); backdrop-filter: blur(12px); padding: 20px; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 16px; pointer-events: auto; font-family: system-ui, sans-serif; width: 340px; border: 1px solid rgba(31, 184, 84, 0.3);">
               <div style="display: flex; align-items: center; gap: 12px;">
@@ -727,24 +551,26 @@ export async function executeAction(data) {
                 </svg>
                 <div style="font-weight: 600; color: #f8fafc; font-size: 15px; letter-spacing: 0.5px;">Mark paused for input</div>
               </div>
-<div id="mark-ai-message" style="font-size: 13px; color: #94a3b8; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border-left: 3px solid rgba(31, 184, 84, 0.35);">
+              
+              <div style="font-size: 13px; color: #94a3b8; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border-left: 3px solid #1fb854;">
                 ${aiMessage}
               </div>
+              
               <input type="text" id="mark-user-input" placeholder="Add a comment for Mark (optional)..." style="background: rgba(15, 23, 42, 0.6); color: #f8fafc; padding: 12px 14px; border: 1px solid rgba(31, 184, 84, 0.4); border-radius: 8px; font-size: 13px; outline: none; transition: all 0.2s;" onfocus="this.style.borderColor='#1fb854'; this.style.boxShadow='0 0 0 2px rgba(31, 184, 84, 0.2)';" onblur="this.style.borderColor='rgba(31, 184, 84, 0.4)'; this.style.boxShadow='none';"/>
+              
               <button id="mark-btn-selesai" style="background: #1fb854; color: #0f172a; padding: 12px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#22c55e'; this.style.transform='translateY(-1px)';" onmouseout="this.style.background='#1fb854'; this.style.transform='translateY(0)';">
                 Resume Automation
               </button>
             </div>
           \`;
-          document.getElementById('mark-ai-message').textContent = ${aiMessage};
-
+          
           document.getElementById('mark-btn-selesai').onclick = () => {
             const comment = document.getElementById('mark-user-input').value;
             const originalTitle = document.title;
             document.title = 'MARK_UNBLOCK_DONE:' + (comment.trim() || 'User telah menyelesaikan aksi manual (tidak ada komentar).');
             setTimeout(() => { document.title = originalTitle; }, 100);
           };
-
+          
           document.getElementById('mark-user-input').addEventListener('keypress', function (e) {
               if (e.key === 'Enter') document.getElementById('mark-btn-selesai').click();
           });

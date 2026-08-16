@@ -1,5 +1,4 @@
 import { getAllConfig } from '../db'
-import { marked } from 'marked'
 
 export const getCurrentTimeInfo = (dateObj = new Date()) => {
   const options = {
@@ -9,6 +8,7 @@ export const getCurrentTimeInfo = (dateObj = new Date()) => {
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    second: '2-digit',
     timeZoneName: 'short'
   }
   return dateObj.toLocaleDateString('id-ID', options)
@@ -16,6 +16,8 @@ export const getCurrentTimeInfo = (dateObj = new Date()) => {
 
 
 
+
+let ttsAudioContext = null;
 
 export const playVoice = async (text, onStart, onEnd) => {
   try {
@@ -29,15 +31,52 @@ export const playVoice = async (text, onStart, onEnd) => {
     if (audioBase64) {
       // 2. Bikin object Audio baru dari string base64 tadi
       const audio = new Audio(audioBase64)
+      audio.crossOrigin = "anonymous"
+
+      // Setup Web Audio API for Intensity Extraction
+      if (!ttsAudioContext) {
+        ttsAudioContext = new (window.AudioContext || window.webkitAudioContext)()
+      }
+      if (ttsAudioContext.state === 'suspended') {
+        await ttsAudioContext.resume()
+      }
+
+      const source = ttsAudioContext.createMediaElementSource(audio)
+      const analyser = ttsAudioContext.createAnalyser()
+      analyser.fftSize = 2048
+      source.connect(analyser)
+      analyser.connect(ttsAudioContext.destination)
+
+      const bufferLength = analyser.fftSize
+      const dataArray = new Float32Array(bufferLength)
+      let animationId = null
+
+      const updateIntensity = () => {
+        if (!window.isMarkSpeaking) return
+        analyser.getFloatTimeDomainData(dataArray)
+        let sum = 0
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i] * dataArray[i]
+        }
+        const rms = Math.sqrt(sum / bufferLength)
+        
+        // Normalisasi RMS untuk visualisasi (RMS biasanya berkisar antara 0.01 - 0.15)
+        const normalized = Math.min(1, Math.max(0, rms - 0.01) * 8)
+        window.dispatchEvent(new CustomEvent('mark-intensity', { detail: normalized }))
+        animationId = requestAnimationFrame(updateIntensity)
+      }
 
       audio.onended = () => {
         window.isMarkSpeaking = false
+        window.dispatchEvent(new CustomEvent('mark-intensity', { detail: 0 }))
+        if (animationId) cancelAnimationFrame(animationId)
         if (onEnd) onEnd()
       }
 
       // 3. Mainkan!
       window.isMarkSpeaking = true
       await audio.play()
+      updateIntensity()
       if (onStart) onStart()
     } else {
       if (onStart) onStart()
@@ -49,92 +88,18 @@ export const playVoice = async (text, onStart, onEnd) => {
       window.api.showNotification('Error TTS', String(error.message || error))
     }
     window.isMarkSpeaking = false
+    window.dispatchEvent(new CustomEvent('mark-intensity', { detail: 0 }))
     if (onStart) onStart()
     if (onEnd) onEnd()
   }
 }
 
 // ==========================================
-// WHATSAPP UTILS
+// TELEGRAM UTILS
 // ==========================================
-const waRenderer = {
-  heading({ tokens, depth }) {
-    const text = this.parser.parseInline(tokens)
-    return `*${text}*\n\n`
-  },
-  strong({ tokens }) {
-    return `*${this.parser.parseInline(tokens)}*`
-  },
-  em({ tokens }) {
-    return `_${this.parser.parseInline(tokens)}_`
-  },
-  del({ tokens }) {
-    return `~${this.parser.parseInline(tokens)}~`
-  },
-  codespan({ text }) {
-    return `\`\`\`${text}\`\`\``
-  },
-  code({ text }) {
-    return `\`\`\`\n${text}\n\`\`\`\n\n`
-  },
-  link({ href, tokens }) {
-    return `${this.parser.parseInline(tokens)} (${href})`
-  },
-  list({ items, ordered, start }) {
-    let body = ''
-    items.forEach((item, i) => {
-      const prefix = ordered ? `${start + i}. ` : '- '
-      body += prefix + this.listitem(item)
-    })
-    return body + '\n'
-  },
-  listitem({ tokens }) {
-    return `${this.parser.parseInline(tokens)}\n`
-  },
-  paragraph({ tokens }) {
-    return `${this.parser.parseInline(tokens)}\n\n`
-  },
-  br() {
-    return '\n'
-  },
-  table(token) {
-    let out = ''
-    
-    // Header
-    const headers = token.header.map(cell => this.parser.parseInline(cell.tokens))
-    out += headers.join(' | ') + '\n'
-    out += headers.map(() => '---').join(' | ') + '\n'
-
-    // Rows
-    token.rows.forEach(row => {
-      const rowText = row.map(cell => this.parser.parseInline(cell.tokens))
-      out += rowText.join(' | ') + '\n'
-    })
-    
-    return out + '\n'
-  },
-  text({ tokens, text }) {
-    return tokens ? this.parser.parseInline(tokens) : text
-  }
-}
-
-marked.use({ renderer: waRenderer })
-
-export const formatForWhatsApp = (text) => {
+export const formatForTelegram = (text) => {
   if (!text) return ''
-  
-  // Parse markdown ke format WhatsApp (renderer kita akan ngasilin teks biasa pake WA formatting, bukan HTML)
-  let formatted = marked.parse(text, { breaks: true, gfm: true })
-  
-  // Hapus entity HTML bawaan marked kalo ada (meski renderer custom harusnya aman)
-  formatted = formatted
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-
-  return formatted.trim()
+  return text.trim()
 }
 
 // ==========================================

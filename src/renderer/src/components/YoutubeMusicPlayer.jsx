@@ -1,110 +1,288 @@
+import { useEffect, useState, useRef } from 'react'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 
 export const YoutubeMusicPlayer = () => {
   const {
-    musicUrl, isPlayerOpen, togglePlayer,
-    currentTrack, isPlaying, playbackError,
-    prevTrack, nextTrack, playPause
+    musicUrl,
+    isPlayerOpen,
+    setIsPlayerOpen,
+    togglePlayer,
+    webviewRef,
+    playUrl,
+    playId,
+    nextTrack,
+    prevTrack,
+    playPause
   } = useYoutubeMusic()
+  const [isReady, setIsReady] = useState(false)
 
-  const isActive = isPlaying || currentTrack.title
+  // IPC listeners — register sekali saja saat mount, pakai ref agar selalu akses fungsi terbaru
+  const playUrlRef = useRef(playUrl)
+  const nextTrackRef = useRef(nextTrack)
+  const prevTrackRef = useRef(prevTrack)
+  const playPauseRef = useRef(playPause)
+
+  useEffect(() => {
+    playUrlRef.current = playUrl
+    nextTrackRef.current = nextTrack
+    prevTrackRef.current = prevTrack
+    playPauseRef.current = playPause
+  }, [playUrl, nextTrack, prevTrack, playPause])
+
+  useEffect(() => {
+    if (window.api?.onExecuteMusicCommand) {
+      window.api.onExecuteMusicCommand((command, payload) => {
+        if (command === 'play' && payload) playUrlRef.current(payload)
+        else if (command === 'next') nextTrackRef.current()
+        else if (command === 'prev') prevTrackRef.current()
+        else if (command === 'toggle') playPauseRef.current()
+      })
+    }
+    if (window.api?.onExecuteMusicCommandWa) {
+      window.api.onExecuteMusicCommandWa((command, payload) => {
+        if (command === 'play' && payload) {
+          window.api.searchMusic(payload).then((music) => {
+            if (music && music.length > 0) {
+              // Gunakan URL bersih tanpa parameter _t yang asing bagi YouTube Music
+              const url = `https://music.youtube.com/watch?v=${music[0].id}`
+              playUrlRef.current(url)
+            }
+          })
+        } else if (command === 'next') nextTrackRef.current()
+        else if (command === 'prev') prevTrackRef.current()
+        else if (command === 'toggle') playPauseRef.current()
+      })
+    }
+  }, []) // Register sekali saja, tidak perlu re-register
+
+  useEffect(() => {
+    const webview = webviewRef.current
+    if (!webview) return
+
+    const handleDomReady = () => {
+      setIsReady(true)
+      // 1. Suntik CSS buat ngilangin visual iklan & promo premium
+      webview.insertCSS(`
+        /* Sembunyikan iklan video/audio player */
+        .ad-showing, .ad-interrupting, .ytp-ad-overlay-container, .ytp-ad-message-container {
+          display: none !important;
+        }
+        
+        /* Sembunyikan banner "Upgrade to Premium" & Mealbar Promo */
+        ytmusic-guide-entry-renderer[icon='yt-sys-icons:premium'],
+        ytmusic-pivot-bar-item-renderer[tab-id='SPunlimited'],
+        .ytmusic-mealbar-promo-renderer,
+        ytmusic-ad-slot-renderer,
+        #premium-out-of-app-upsell {
+          display: none !important;
+        }
+
+        /* Sembunyikan promo banner non-modal */
+        ytmusic-mealbar-promo-renderer,
+        ytmusic-sign-in-promo-renderer {
+          display: none !important;
+        }
+      `)
+
+      // 2. Logic "Ad-Blaster" & Auto-Dismiss Login Prompt (Auto-Mute, 16x Speed, Anti-Login Modal)
+      webview.executeJavaScript(`
+        (function() {
+          let isAdMuted = false;
+
+          setInterval(() => {
+            const video = document.querySelector('video');
+            const adContainer = document.querySelector('.ad-showing, .ad-interrupting');
+            const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
+
+            // --- JIKA ADA IKLAN ---
+            if (adContainer && video) {
+              console.log('Mark mendeteksi iklan. Mengaktifkan Ad-Blaster...');
+              
+              // A. Mute suara iklan biar gak berisik
+              if (!video.muted) {
+                video.muted = true;
+                isAdMuted = true;
+              }
+
+              // B. Paksa kecepatan hanya jika buffer siap agar tidak loading terus
+              if (video.readyState >= 3) {
+                video.playbackRate = 16;
+              }
+
+              // C. Klik tombol skip kalau tiba-tiba muncul
+              if (skipBtn) skipBtn.click();
+            } 
+            
+            // --- JIKA IKLAN SELESAI ---
+            else if (video) {
+              // Balikin suara & kecepatan normal
+              if (isAdMuted) {
+                video.muted = false;
+                isAdMuted = false;
+              }
+              if (video.playbackRate !== 1) {
+                video.playbackRate = 1;
+              }
+            }
+
+            // --- ANTI-SIGN-IN PROMPT, CONSENT BANNER & MODAL LOGIN ---
+            const dismissBtns = document.querySelectorAll(
+              'ytmusic-modal-with-title-and-button-renderer yt-button-renderer, ' +
+              'ytmusic-sign-in-promo-renderer .dismiss-button, ' +
+              'button[aria-label="No thanks"], button[aria-label="Lain kali"], ' +
+              'button[aria-label="Dismiss"], button[aria-label="Lewati"], ' +
+              'button[aria-label="Reject all"], button[aria-label="Tolak semua"], ' +
+              'button[aria-label="Accept all"], button[aria-label="Terima semua"], ' +
+              'ytmusic-consent-bump-renderer .yt-spec-button-shape-next--call-to-action-secondary, ' +
+              'ytmusic-consent-bump-renderer button, #consent-bump button'
+            );
+            dismissBtns.forEach(btn => btn.click());
+
+            // Pastikan halaman & player tidak terkunci (backdrop sisa / overflow hidden / pointer-events none)
+            const backdrop = document.querySelector('iron-overlay-backdrop, tp-yt-iron-overlay-backdrop');
+            if (backdrop && backdrop.style.display !== 'none') {
+              backdrop.click();
+              backdrop.style.display = 'none';
+            }
+            if (document.body && document.body.style.overflow === 'hidden') {
+              document.body.style.overflow = 'auto';
+            }
+            if (document.body && document.body.style.pointerEvents === 'none') {
+              document.body.style.pointerEvents = 'auto';
+            }
+
+            // Anti-pause "Are you still watching?"
+            const confirmBtn = document.querySelector('ytmusic-you-there-renderer button, .ytmusic-you-there-renderer button');
+            if (confirmBtn) confirmBtn.click();
+
+          }, 500); // Cek setiap setengah detik
+        })();
+      `)
+    }
+
+    webview.addEventListener('dom-ready', handleDomReady)
+    return () => webview.removeEventListener('dom-ready', handleDomReady)
+  }, [])
+
+  useEffect(() => {
+    if (webviewRef.current && musicUrl && musicUrl !== 'https://music.youtube.com') {
+      try {
+        webviewRef.current.loadURL(musicUrl)
+      } catch (e) {
+        console.error('Gagal ganti lagu YT Music:', e)
+      }
+    }
+  }, [musicUrl, playId])
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-none">
-      {/* YouTube icon button — always visible when playing */}
-      {isActive && (
-        <button
-          onClick={togglePlayer}
-          className={`w-11 h-11 rounded-full flex items-center justify-center pointer-events-auto transition-all duration-300
-            shadow-lg shadow-black/30 border border-white/10
-            ${isPlayerOpen
-              ? 'bg-red-600 hover:bg-red-700 rotate-0'
-              : 'bg-gradient-to-br from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 active:scale-90'}`}
-          title={isPlayerOpen ? 'Tutup Player' : 'Buka YouTube'}
-        >
-          {/* YouTube play icon */}
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="white">
-            <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z"/>
-          </svg>
-        </button>
-      )}
-
-      {/* Hologram card — expands from bottom right */}
-      <div className={`pointer-events-auto transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] origin-bottom-right
-        ${isPlayerOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none h-0 overflow-hidden'}`}>
-        <div className="rounded-2xl overflow-hidden shadow-2xl shadow-black/40 border border-white/10 bg-base-300/95 backdrop-blur-xl min-w-[280px] max-w-[320px]">
-          {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2 glass glass-hover border-b border-[var(--glass-border)]">
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
+      {/* Player Panel */}
+      <div
+        className={`
+          transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] origin-bottom-right
+          ${
+            isPlayerOpen
+              ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+              : 'opacity-0 scale-75 translate-y-4 pointer-events-none'
+          }
+        `}
+      >
+        <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-black/40 border border-white/10 bg-base-300">
+          {/* Header bar */}
+          <div className="flex items-center justify-between px-3 py-2 bg-base-200/80 backdrop-blur-sm border-b border-white/5">
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
-              <span className="text-[11px] font-medium text-white/50 uppercase tracking-wider">YouTube</span>
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
+              <span className="text-xs font-medium text-white/60 select-none">YouTube Music</span>
             </div>
-            <div className="flex items-center gap-1">
-              {playbackError && (
-                <button onClick={() => { window.api.ytShow(); setTimeout(() => window.api.ytLoad(musicUrl || 'https://youtube.com'), 1000) }}
-                  className="btn btn-ghost btn-xs text-red-400 hover:text-red-300" title="Login">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                </button>
-              )}
-              <button onClick={() => { window.api.ytHide(); togglePlayer() }}
-                className="text-white/30 hover:text-white/70 transition-colors p-0.5">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-            </div>
+            <button
+              onClick={() => setIsPlayerOpen(false)}
+              className="btn btn-ghost btn-xs btn-circle text-white/40 hover:text-white/80"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
           </div>
 
-          {/* Now Playing */}
-          <div className="px-3 py-2.5">
-            <div className="flex items-center gap-3">
-              {/* Thumbnail mini */}
-              <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 glass">
-                {currentTrack.thumbnail ? (
-                  <img src={currentTrack.thumbnail} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/30">
-                      <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                    </svg>
-                  </div>
-                )}
-              </div>
-              {/* Track info */}
-              <div className="min-w-0 flex-1">
-                {currentTrack.title ? (
-                  <>
-                    <p className="text-white text-sm font-medium truncate">{currentTrack.title}</p>
-                    <p className="text-white/40 text-xs truncate">{currentTrack.artist || 'Unknown'}</p>
-                  </>
-                ) : (
-                  <p className="text-white/30 text-xs">No track playing</p>
-                )}
-              </div>
-            </div>
-
-            {/* Queue preview — muncul kalau ada queue */}
-            {/* queue tracks akan di-render di sini nanti */}
-
-            {/* Controls */}
-            <div className="flex items-center justify-center gap-3 mt-3">
-              <button onClick={prevTrack} className="text-white/50 hover:text-white transition-colors p-1" title="Previous">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-              </button>
-              <button onClick={playPause} className="w-8 h-8 rounded-full glass glass-hover flex items-center justify-center transition-all" title="Play/Pause">
-                {isPlaying ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-                )}
-              </button>
-              <button onClick={nextTrack} className="text-white/50 hover:text-white transition-colors p-1" title="Next">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-              </button>
-            </div>
-          </div>
+          {/* Webview */}
+          <webview
+            ref={webviewRef}
+            src="https://music.youtube.com/"
+            style={{ zoom: '0.65', width: '420px', height: '560px' }}
+            className="no-scrollbar"
+            allowpopups="false"
+            useragent={
+              typeof navigator !== 'undefined'
+                ? navigator.userAgent.replace(/Electron\/[\d.]+\s?/, '').replace(/mark\/[\d.]+\s?/, '').trim()
+                : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+            }
+          />
         </div>
       </div>
+
+      {/* Floating Action Button */}
+      <button
+        onClick={togglePlayer}
+        className={`
+          group relative w-14 h-14 rounded-full flex items-center justify-center pointer-events-auto
+          shadow-lg shadow-black/30 border border-white/10
+          transition-all duration-300 ease-out
+          hover:scale-110 hover:shadow-xl hover:shadow-red-500/20
+          active:scale-95
+          ${
+            isPlayerOpen
+              ? 'bg-red-600 hover:bg-red-700 rotate-0'
+              : 'bg-linear-to-br from-red-600 to-red-800 hover:from-red-500 hover:to-red-700'
+          }
+        `}
+        title={isPlayerOpen ? 'Tutup Player' : 'Buka YouTube Music'}
+      >
+        {/* Pulse ring saat tertutup */}
+        {!isPlayerOpen && (
+          <span className="absolute inset-0 rounded-full bg-red-500/30 animate-ping pointer-events-none" />
+        )}
+
+        {isPlayerOpen ? (
+          // Icon X (close)
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="transition-transform duration-300"
+          >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        ) : (
+          // Icon Music Note
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="white"
+            className="transition-transform duration-300 group-hover:scale-110"
+          >
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+          </svg>
+        )}
+      </button>
     </div>
   )
 }
-
-export default YoutubeMusicPlayer

@@ -36,7 +36,13 @@ const BrowserPreviewWidget = () => {
         >
           {browserPreview.title || browserPreview.url}
         </div>
-        <div className="w-full h-32 rounded-lg overflow-hidden border border-white/10 relative group">
+        <div className="w-full h-32 rounded-sm overflow-hidden border border-white/10 relative group">
+          {/* HUD Brackets */}
+          <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-white/30 pointer-events-none z-10" />
+          <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-white/30 pointer-events-none z-10" />
+          <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-white/30 pointer-events-none z-10" />
+          <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-white/30 pointer-events-none z-10" />
+          
           <img 
             src={browserPreview.thumbnail} 
             alt="Browser Preview" 

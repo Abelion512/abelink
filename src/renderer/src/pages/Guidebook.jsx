@@ -24,8 +24,8 @@ import {
   FaHeartbeat,
   FaCamera,
   FaMicrophoneAlt,
-  FaWhatsapp,
-  FaShieldAlt
+  FaTelegram,
+  FaGoogle
 } from 'react-icons/fa'
 import { faqs } from '../data/faqData'
 
@@ -34,7 +34,7 @@ const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks,
   const [isExpanded, setIsExpanded] = useState(false)
 
   return (
-    <div className="glass glass-hover rounded-xl overflow-hidden transition-all duration-300">
+    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden transition-all duration-300 hover:bg-white/10">
       <div
         className="p-4 cursor-pointer flex justify-between items-center gap-4"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -60,7 +60,7 @@ const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks,
       </div>
 
       {isExpanded && (
-        <div className="p-4 pt-0 border-t border-white/5 glass glass-hover text-sm text-white/80 space-y-3">
+        <div className="p-4 pt-0 border-t border-white/5 bg-black/20 text-sm text-white/80 space-y-3">
           <div>
             <strong className="text-white">Format Query:</strong>
             <div className="bg-base-300/50 p-2 rounded mt-1 font-mono text-xs text-primary/80">
@@ -111,14 +111,13 @@ const Guidebook = () => {
     { id: 'carakerja', label: 'Cara Kerja', icon: <FaCogs /> },
     { id: 'tools', label: 'Fitur & Tools Bawaan', icon: <FaTerminal /> },
     { id: 'awareness', label: 'Mata & Kesadaran', icon: <FaEye /> },
-    { id: 'emosi', label: 'Emosi & Pertumbuhan', icon: <FaHeartbeat /> },
+    { id: 'emosi', label: 'Emosi & Pertumbuhan', icon: <FaHeartbeat /> }, // Note: Assuming FaHeartbeat was meant for emotion or we use FaBrain/FaComments
     { id: 'plugin', label: 'Sistem Plugin Kustom', icon: <FaFolderOpen /> },
-    { id: 'adblock', label: 'Ad Blocking & Privasi', icon: <FaExclamationTriangle /> },
     { id: 'tips', label: 'Pertanyaan', icon: <FaLightbulb /> }
   ]
 
   // Fix Icon (FaHeartbeat not imported above, I will use FaBrain)
-  navItems[4].icon = <FaHeartbeat />
+  navItems[4].icon = <FaBrain />
 
   return (
     <div className="h-full w-full bg-base-300 text-base-content flex flex-col relative overflow-hidden">
@@ -127,10 +126,11 @@ const Guidebook = () => {
       <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 blur-[120px] rounded-full pointer-events-none"></div>
 
       {/* Header */}
-      <header className="h-20 shrink-0 glass glass-hover border-b border-[var(--glass-border)] flex items-center px-8 z-20 relative">
+      <header className="h-20 shrink-0 bg-base-300/80 backdrop-blur-xl border-b border-white/5 flex items-center px-8 z-20 relative">
         <button
           onClick={() => navigate('/')}
           className="btn btn-ghost btn-sm gap-2 text-white/70 hover:text-white mr-6"
+          style={{ WebkitAppRegion: 'no-drag' }}
         >
           <FaArrowLeft /> Kembali
         </button>
@@ -147,7 +147,7 @@ const Guidebook = () => {
       {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar Nav (Desktop) */}
-        <aside className="w-72 shrink-0 glass glass-hover border-r border-[var(--glass-border)] p-6 overflow-y-auto hidden md:block z-10">
+        <aside className="w-72 shrink-0 border-r border-white/5 bg-base-300/50 p-6 overflow-y-auto hidden md:block z-10">
           <h3 className="text-xs font-bold text-white/40 mb-6 uppercase tracking-widest">
             Daftar Isi
           </h3>
@@ -162,7 +162,7 @@ const Guidebook = () => {
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left ${
                   activeSection === item.id
                     ? 'bg-primary/20 text-primary border border-primary/30 shadow-[0_0_15px_oklch(var(--p)/0.2)]'
-                    : 'text-white/60 glass glass-hover'
+                    : 'text-white/60 hover:bg-white/5 hover:text-white'
                 }`}
               >
                 {item.icon} {item.label}
@@ -211,7 +211,7 @@ const Guidebook = () => {
                     <strong>tanpa mengorbankan privasi Anda sedikit pun</strong>.
                   </p>
 
-                  <div className="glass glass-hover rounded-2xl p-6 mt-8">
+                  <div className="bg-black/30 border border-white/5 rounded-2xl p-6 mt-8">
                     <h3 className="text-xl font-bold text-white mb-4">
                       Ditenagai oleh Hybrid AI Engine, Mark mampu:
                     </h3>
@@ -239,7 +239,7 @@ const Guidebook = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
                   {/* Card 1: Vector Memory */}
-                  <div className="glass glass-hover rounded-2xl p-6 flex flex-col gap-4">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
                     <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
                       <FaBrain className="text-primary text-xl" />
                     </div>
@@ -253,7 +253,7 @@ const Guidebook = () => {
                   </div>
 
                   {/* Card 2: Relational Growth */}
-                  <div className="glass glass-hover rounded-2xl p-6 flex flex-col gap-4">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
                     <div className="w-12 h-12 rounded-xl bg-error/20 flex items-center justify-center shrink-0">
                       <FaHeartbeat className="text-error text-xl" />
                     </div>
@@ -268,22 +268,22 @@ const Guidebook = () => {
                   </div>
 
                   {/* Card 3: Hybrid AI */}
-                  <div className="glass glass-hover rounded-2xl p-6 flex flex-col gap-4">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
                     <div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center shrink-0">
                       <FaNetworkWired className="text-secondary text-xl" />
                     </div>
                     <div>
                       <h4 className="text-white font-semibold mb-2">Hybrid AI Engine</h4>
                       <p className="text-sm text-white/60 leading-relaxed">
-                        Bisa berjalan secara offline/lokal via Custom Endpoint untuk privasi maksimal,
-                        atau menggunakan Gemini / Cloud API untuk mengeksekusi tugas berat dengan
+                        Bisa berjalan secara offline/lokal via LM Studio untuk privasi maksimal,
+                        atau menggunakan Groq API / Cloud API untuk mengeksekusi tugas berat dengan
                         kecepatan super.
                       </p>
                     </div>
                   </div>
 
                   {/* Card 4: Awareness */}
-                  <div className="glass glass-hover rounded-2xl p-6 flex flex-col gap-4">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
                     <div className="w-12 h-12 rounded-xl bg-info/20 flex items-center justify-center shrink-0">
                       <FaEye className="text-info text-xl" />
                     </div>
@@ -317,7 +317,7 @@ const Guidebook = () => {
                 berpikir layaknya manusia sebelum bertindak.
               </p>
 
-              <div className="glass glass-hover rounded-3xl p-8 mb-12">
+              <div className="bg-black/20 border border-white/5 rounded-3xl p-8 mb-12">
                 <FlowStep
                   number="1"
                   title="Mengingat (Memory Search)"
@@ -368,7 +368,7 @@ const Guidebook = () => {
                 </ol>
                 <p>
                   Misalnya, jika Anda bertanya soal lagu, Mark hanya akan melihat tools musik. Jika
-                  Anda minta kodingan, Mark hanya melihat tools file dan shell/terminal.
+                  Anda minta kodingan, Mark hanya melihat tools file dan PowerShell.
                 </p>
               </div>
             </section>
@@ -465,6 +465,92 @@ const Guidebook = () => {
                   </div>
                 </div>
 
+                {/* Kategori PC Automation */}
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                    <FaTerminal className="text-warning" /> PC Automation Engine
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <ToolCard
+                      name="os-control-open"
+                      description="Membuka session kontrol Mark di komputer Anda."
+                      needsPermission={true}
+                      queryFormat="(kosong)"
+                      howItWorks="Mengunci sesi kontrol sementara, mengaktifkan pengunci mouse dan floating banner keamanan, serta meminta izin konfirmasi dari pengguna sebelum mengambil alih PC."
+                    />
+                    <ToolCard
+                      name="os-control-close"
+                      description="Menutup session kontrol Mark di komputer Anda."
+                      needsPermission={false}
+                      queryFormat="(kosong)"
+                      howItWorks="Menutup sesi kontrol otomatisasi PC, menghentikan pengunci mouse, serta menghilangkan floating banner keamanan di layar."
+                    />
+                    <ToolCard
+                      name="os-read"
+                      description="Membaca elemen GUI aplikasi Windows aktif via UIAutomation/OCR."
+                      needsPermission={false}
+                      queryFormat="(kosong)"
+                      howItWorks="Mengambil Accessibility Tree dan mengubah elemen tombol/input menjadi JSON teks ber-ID untuk hemat 90% token."
+                    />
+                    <ToolCard
+                      name="os-click"
+                      description="Klik mouse pada elemen GUI desktop."
+                      needsPermission={false}
+                      queryFormat="id atau x||y"
+                      howItWorks="Mengklik elemen berdasarkan nomor ID dari os-read atau koordinat layar absolut."
+                    />
+                    <ToolCard
+                      name="os-type"
+                      description="Ketik teks ke input aplikasi Windows."
+                      needsPermission={false}
+                      queryFormat="id||teks"
+                      howItWorks="Fokus ke elemen ID lalu mengetik string teks secara otomatis."
+                    />
+                    <ToolCard
+                      name="os-key"
+                      description="Tekan kombinasi tombol keyboard shortcut."
+                      needsPermission={false}
+                      queryFormat="ctrl+s, alt+tab, win+e"
+                      howItWorks="Mengirim kombinasi tombol (shortcut berbahaya di-blacklist dan butuh approval)."
+                    />
+                    <ToolCard
+                      name="os-scroll"
+                      description="Scroll mouse wheel di aplikasi aktif."
+                      needsPermission={false}
+                      queryFormat="down||5"
+                      howItWorks="Menggulir layar ke atas atau bawah dengan jumlah tick tertentu."
+                    />
+                    <ToolCard
+                      name="os-open"
+                      description="Membuka aplikasi Windows dari Start Menu/Path."
+                      needsPermission={false}
+                      queryFormat="notepad, calc, winword, etc"
+                      howItWorks="Membuka process aplikasi Windows baru (memerlukan persetujuan user)."
+                    />
+                    <ToolCard
+                      name="os-list-windows"
+                      description="Melihat daftar semua window aplikasi yang terbuka."
+                      needsPermission={false}
+                      queryFormat="(kosong)"
+                      howItWorks="Mengembalikan judul dan PID seluruh aplikasi yang sedang aktif."
+                    />
+                    <ToolCard
+                      name="os-focus-window"
+                      description="Membawa window aplikasi ke depan layar."
+                      needsPermission={false}
+                      queryFormat="judul window"
+                      howItWorks="Fokus dan restore window aplikasi yang minimised berdasarkan judulnya."
+                    />
+                    <ToolCard
+                      name="os-ask"
+                      description="Meminta bantuan/masukan user saat mengontrol PC atau saat dihentikan Ctrl+Shift+S."
+                      needsPermission={false}
+                      queryFormat="pertanyaan/pesan"
+                      howItWorks="Memunculkan modal dialog floating di layar untuk menanyakan alasan user menghentikan otomatisasi atau meminta instruksi."
+                    />
+                  </div>
+                </div>
+
                 {/* Kategori File */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
@@ -475,7 +561,7 @@ const Guidebook = () => {
                       name="read-file"
                       description="Membaca isi file teks/kode di komputer Anda."
                       needsPermission={false}
-                      queryFormat="Path Absolut (misal: /home/user/project/index.js)"
+                      queryFormat="Path Absolut (misal: D:\project\index.js)"
                       howItWorks="Membaca isi file agar Mark tahu kode apa yang sedang Anda kerjakan."
                     />
                     <ToolCard
@@ -511,7 +597,7 @@ const Guidebook = () => {
                       description="Mencari teks atau kata kunci di dalam folder secara rekursif."
                       needsPermission={false}
                       queryFormat="Path Folder||Keyword"
-                      howItWorks="Menjalankan pencarian teks berbasis regex di seluruh file dalam folder secara rekursif."
+                      howItWorks="Menjalankan findstr untuk pencarian cepat di ratusan file."
                     />
                   </div>
                 </div>
@@ -523,12 +609,135 @@ const Guidebook = () => {
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
-                      name="run-shell"
-                      description="Menjalankan perintah shell (Bash/Zsh di Linux)."
+                      name="run-powershell"
+                      description="Menjalankan perintah PowerShell / CMD."
                       needsPermission={true}
-                      queryFormat="Perintah mentah (misal: npm install, ls, ping)"
+                      queryFormat="Perintah mentah (misal: npm install, dir, ping)"
                       howItWorks="Mark akan mengetikkan perintah ini ke terminal sistem. Perintah berbahaya (seperti rm, shutdown) wajib di-acc."
                       example="Coba cek penggunaan RAM komputer gue sekarang."
+                    />
+                  </div>
+                </div>
+
+                {/* Kategori Google Workspace */}
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                    <FaGoogle className="text-info" /> Google Workspace
+                  </h3>
+                  <div className="space-y-3">
+                    <ToolCard
+                      name="gdrive-info"
+                      description="Cek kapasitas/storage sisa Google Drive."
+                      needsPermission={false}
+                      queryFormat="all"
+                      howItWorks="Mengambil informasi kapasitas penyimpanan Google Drive Anda."
+                    />
+                    <ToolCard
+                      name="gdrive-search"
+                      description="Cari file di Google Drive."
+                      needsPermission={false}
+                      queryFormat="kata kunci||start-end"
+                      howItWorks="Mencari file/dokumen berdasarkan kata kunci (contoh query: 'dokumen||10-20' untuk paging)."
+                    />
+                    <ToolCard
+                      name="gdrive-list"
+                      description="List file di folder Drive."
+                      needsPermission={false}
+                      queryFormat="folderId||start-end"
+                      howItWorks="Melihat isi folder tertentu di Google Drive."
+                    />
+                    <ToolCard
+                      name="gdrive-read"
+                      description="Ekstrak isi teks dari Google Docs, Sheets, atau TXT."
+                      needsPermission={false}
+                      queryFormat="fileId"
+                      howItWorks="Membaca dan mengekstrak isi teks dokumen Google Drive."
+                    />
+                    <ToolCard
+                      name="gdrive-upload"
+                      description="Upload file teks ke Google Drive."
+                      needsPermission={true}
+                      queryFormat="nama_file||isi_teks"
+                      howItWorks="Mengunggah file teks baru ke Google Drive Anda. Membutuhkan persetujuan."
+                    />
+                    <ToolCard
+                      name="gdrive-create"
+                      description="Membuat dokumen/folder baru."
+                      needsPermission={true}
+                      queryFormat="nama_file||doc/sheet/folder"
+                      howItWorks="Membuat entitas baru (Docs, Sheets, atau Folder) di Google Drive."
+                    />
+                    <ToolCard
+                      name="gdrive-move"
+                      description="Memindahkan file di Google Drive."
+                      needsPermission={true}
+                      queryFormat="fileId||folderId"
+                      howItWorks="Memindahkan file ke dalam folder tertentu."
+                    />
+                    <ToolCard
+                      name="gdrive-copy"
+                      description="Menduplikasi file di Google Drive."
+                      needsPermission={true}
+                      queryFormat="fileId||nama_baru"
+                      howItWorks="Menyalin file dengan nama baru."
+                    />
+
+                    <ToolCard
+                      name="gcalendar-list"
+                      description="Lihat jadwal atau acara di Google Calendar."
+                      needsPermission={false}
+                      queryFormat="start-end||YYYY-MM-DDTHH:mm:ssZ"
+                      howItWorks="Melihat jadwal mendatang. Query contoh: '10-20||2023-10-01T00:00:00Z'."
+                    />
+                    <ToolCard
+                      name="gcalendar-create"
+                      description="Membuat jadwal acara baru."
+                      needsPermission={true}
+                      queryFormat="Judul||Deskripsi||Waktu_Mulai(ISO)||Waktu_Selesai(ISO)"
+                      howItWorks="Menambahkan jadwal ke Google Calendar Anda. Membutuhkan persetujuan."
+                    />
+                    <ToolCard
+                      name="gcalendar-delete"
+                      description="Menghapus jadwal/acara."
+                      needsPermission={true}
+                      queryFormat="eventId"
+                      howItWorks="Menghapus event dari kalender Anda. Membutuhkan persetujuan."
+                    />
+
+                    <ToolCard
+                      name="gmail-search"
+                      description="Mencari email masuk."
+                      needsPermission={false}
+                      queryFormat="query_gmail||start-end"
+                      howItWorks="Mencari email menggunakan standar query Gmail (misal: 'is:unread||10-20')."
+                    />
+                    <ToolCard
+                      name="gmail-list"
+                      description="Membaca email masuk (Inbox)."
+                      needsPermission={false}
+                      queryFormat="start-end"
+                      howItWorks="Melihat list email terbaru di kotak masuk Anda."
+                    />
+                    <ToolCard
+                      name="gmail-read"
+                      description="Membaca isi pesan email tertentu."
+                      needsPermission={false}
+                      queryFormat="messageId"
+                      howItWorks="Membaca isi teks dari sebuah email secara penuh."
+                    />
+                    <ToolCard
+                      name="gmail-send"
+                      description="Mengirim email baru."
+                      needsPermission={true}
+                      queryFormat="email_tujuan||Subjek||Isi_pesan"
+                      howItWorks="Mengirim email ke tujuan yang ditentukan. Membutuhkan persetujuan Anda."
+                    />
+                    <ToolCard
+                      name="gmail-mark-read"
+                      description="Menandai email sebagai sudah dibaca."
+                      needsPermission={false}
+                      queryFormat="messageId"
+                      howItWorks="Menghilangkan status unread pada sebuah pesan."
                     />
                   </div>
                 </div>
@@ -559,7 +768,7 @@ const Guidebook = () => {
                 {/* Kategori Music */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaMusic className="text-info" /> YouTube Player
+                    <FaMusic className="text-info" /> YouTube Music Player
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -627,7 +836,7 @@ const Guidebook = () => {
                 {/* Kategori Communication */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaWhatsapp className="text-success" /> Komunikasi & Suara
+                    <FaTelegram className="text-info" /> Komunikasi & Suara
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -638,21 +847,22 @@ const Guidebook = () => {
                       howItWorks="Mensintesis suara Mark lewat speaker menggunakan teknologi Edge-TTS yang natural."
                     />
                     <ToolCard
-                      name="wa-send"
-                      description="Mengirim pesan WhatsApp ke nomor tertentu."
+                      name="tg-send"
+                      description="Mengirim pesan Telegram ke User ID tertentu."
                       needsPermission={false}
-                      queryFormat="JID||Isi Pesan"
-                      howItWorks="Nomor tujuan (JID) harus diawali kode negara seperti 62 (contoh: 62812xxx)."
+                      queryFormat="ChatID||Isi Pesan"
+                      howItWorks="Chat ID Telegram tujuan (contoh: 123456789)."
                     />
                     <ToolCard
-                      name="screenshot-to-wa"
-                      description="Mengambil screenshot dan mengirimnya ke chat WA."
+                      name="screenshot-to-tg"
+                      description="Mengambil screenshot dan mengirimnya ke chat Telegram."
                       needsPermission={false}
                       queryFormat="(kosong)"
-                      howItWorks="Hanya bisa dipanggil saat user chatting dengan Mark lewat WhatsApp."
+                      howItWorks="Hanya bisa dipanggil saat user chatting dengan Mark lewat Telegram."
                     />
                   </div>
                 </div>
+
               </div>
             </section>
 
@@ -677,7 +887,7 @@ const Guidebook = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="glass glass-hover rounded-2xl p-6">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
                   <FaEye className="text-3xl text-primary mb-4" />
                   <h4 className="text-white font-bold mb-2">Screen Reading (analyze-screen)</h4>
                   <p className="text-sm text-white/60">
@@ -685,7 +895,7 @@ const Guidebook = () => {
                     teks error, posisi aplikasi, atau menganalisa gambar yang sedang Anda kerjakan.
                   </p>
                 </div>
-                <div className="glass glass-hover rounded-2xl p-6">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
                   <FaCamera className="text-3xl text-accent mb-4" />
                   <h4 className="text-white font-bold mb-2">Camera Vision (camera-look)</h4>
                   <p className="text-sm text-white/60">
@@ -694,7 +904,7 @@ const Guidebook = () => {
                     ruangan.
                   </p>
                 </div>
-                <div className="glass glass-hover rounded-2xl p-6">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
                   <FaBrain className="text-3xl text-secondary mb-4" />
                   <h4 className="text-white font-bold mb-2">Background Awareness</h4>
                   <p className="text-sm text-white/60">
@@ -730,7 +940,7 @@ const Guidebook = () => {
                 ini.
               </p>
 
-              <div className="glass glass-hover rounded-2xl p-8 mb-8">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-8 mb-8">
                 <h4 className="text-white font-bold mb-6 text-center">9 Spektrum Emosi</h4>
                 <div className="flex flex-wrap gap-3 justify-center">
                   <span className="badge badge-lg gap-2 bg-[#FFD700]/20 text-[#FFD700] border-[#FFD700]/50">
@@ -766,7 +976,7 @@ const Guidebook = () => {
               <h4 className="text-xl font-bold text-white mb-4">Relational Growth Parameter</h4>
               <ul className="space-y-4 text-white/70">
                 <li className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full glass glass-hover flex items-center justify-center font-bold text-white shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold text-white shrink-0">
                     1
                   </div>
                   <div>
@@ -775,7 +985,7 @@ const Guidebook = () => {
                   </div>
                 </li>
                 <li className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full glass glass-hover flex items-center justify-center font-bold text-white shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold text-white shrink-0">
                     2
                   </div>
                   <div>
@@ -784,7 +994,7 @@ const Guidebook = () => {
                   </div>
                 </li>
                 <li className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full glass glass-hover flex items-center justify-center font-bold text-white shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold text-white shrink-0">
                     3
                   </div>
                   <div>
@@ -793,7 +1003,7 @@ const Guidebook = () => {
                   </div>
                 </li>
                 <li className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full glass glass-hover flex items-center justify-center font-bold text-white shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold text-white shrink-0">
                     4
                   </div>
                   <div>
@@ -821,7 +1031,7 @@ const Guidebook = () => {
                 instan!
               </p>
 
-              <div className="glass glass-hover rounded-2xl p-6 mb-8">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8">
                 <h3 className="text-xl font-bold text-white mb-4">Langkah Pembuatan Plugin</h3>
                 <ol className="list-decimal list-inside space-y-4 text-white/80">
                   <li>
@@ -863,7 +1073,7 @@ const Guidebook = () => {
                 </ol>
               </div>
 
-              <div className="glass glass-hover rounded-2xl p-6 mb-8">
+              <div className="bg-black/40 border border-white/5 rounded-2xl p-6 mb-8">
                 <h3 className="text-xl font-bold text-white mb-4">
                   Contoh: Plugin Pengatur Volume
                 </h3>
@@ -892,110 +1102,9 @@ try {
                 (similarity &gt; 0.35) akan dimuat ke prompt AI sebagai tools tambahan secara
                 instan. Jika user bertanya "bisa ngapain aja?", maka semua plugin akan ditampilkan.
               </p>
-
-              <div className="bg-success/5 border border-success/20 rounded-2xl p-6 mt-8">
-                <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                  <FaLightbulb className="text-warning" /> Rekomendasi Plugin
-                </h3>
-                <p className="text-white/70 mb-4">
-                  Beberapa ide plugin yang bisa kamu buat sendiri:
-                </p>
-                <ul className="space-y-3 text-white/80">
-                  <li className="flex items-start gap-2">
-                    <span className="text-success mt-1">•</span>
-                    <span><strong>Cuaca & Iklim:</strong> Fetch data cuaca real-time dari API eksternal menggunakan <code>axios</code>.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-success mt-1">•</span>
-                    <span><strong>Sistem Kontrol:</strong> Atur volume, brightness, atau buka/tutup aplikasi dengan <code>loudness</code> atau <code>systeminformation</code>.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-success mt-1">•</span>
-                    <span><strong>Integrasi API:</strong> Hubungkan Mark ke API favoritmu — Discord, GitHub, Notion, atau API internal kantor.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-success mt-1">•</span>
-                    <span><strong>AI & Knowledge:</strong> Tambah skill spesifik seperti "SEO Content Writer" atau "Code Debugger" — Mark akan membaca skill-mu dan menggunakannya saat relevan.</span>
-                  </li>
-                </ul>
-                <p className="text-white/50 mt-4 text-sm">
-                  Kapan aja bisa buat plugin baru lewat menu <strong>Plugins</strong> di sidebar. Tidak perlu restart Mark — langsung aktif!
-                </p>
-              </div>
             </section>
 
-            {/* Section 7: Ad Blocking & Privasi */}
-            <section
-              id="adblock"
-              className={
-                activeSection === 'adblock' ? 'block animate-[fade-in_0.3s_ease-out]' : 'hidden'
-              }
-            >
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-warning/10 border border-warning/20 text-warning text-xs font-bold mb-6">
-                <FaShieldAlt /> PRIVASI
-              </div>
-              <h2 className="text-3xl font-bold text-white mb-6">Ad Blocking & Privasi</h2>
-              <p className="text-white/70 mb-8 text-lg">
-                Mark dilengkapi sistem <strong className="text-white">4-Layer Ad Blocking</strong> yang memblokir iklan YouTube secara otomatis — tanpa perlu ekstensi tambahan.
-              </p>
-
-              <div className="glass glass-hover rounded-3xl p-8 mb-8">
-                <h3 className="text-xl font-bold text-white mb-6">4 Lapisan Pertahanan</h3>
-                <div className="space-y-4">
-                  <FlowStep number="1" title="CSS Cosmetic Hiding" description="150+ selector CSS menyembunyikan container iklan, overlay, sidebar ads, dan premium promosi secara instan." />
-                  <FlowStep number="2" title="MutationObserver + Auto-Skip" description="Mendeteksi perubahan DOM secara real-time. Otomatis klik tombol skip, speed-up iklan ke 16x, dan seek ke akhir." />
-                  <FlowStep number="3" title="SABR Backoff Patch" description="Mengintercept fetch() untuk menghilangkan backoffTimeMs — YouTube tidak bisa menahan player untuk menunggu durasi iklan." />
-                  <FlowStep number="4" title="Enforcement Dismiss" description="Otomatis menghapus popup 'ad blocker detected' agar YouTube tidak memblokir playback." isLast={true} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="glass glass-hover border border-[var(--glass-border)] rounded-2xl p-6">
-                  <h4 className="text-white font-bold mb-2">YouTube Page (Bukan Audio Saja)</h4>
-                  <p className="text-sm text-white/60">
-                    Mark memuat halaman YouTube penuh — bukan hanya audio. Ini penting untuk <strong className="text-white">Last.fm Scrobbling</strong>, metadata lagu, dan browsing manual.
-                  </p>
-                </div>
-                <div className="glass glass-hover border border-[var(--glass-border)] rounded-2xl p-6">
-                  <h4 className="text-white font-bold mb-2">Cloudflare WARP Compatible</h4>
-                  <p className="text-sm text-white/60">
-                    Jika Anda menggunakan <code>warp-cli</code> untuk traffic DNS, ad blocking tetap berfungsi. <code>webRequest</code> hooks beroperasi di atas layer jaringan OS.
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-success/5 border border-success/20 rounded-2xl p-6 mb-8">
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                  <FaMusic className="text-info" /> Last.fm Scrobbling
-                </h3>
-                <p className="text-white/70 mb-4">
-                  Mark bisa mengirim lagu yang sedang diputar ke <strong className="text-white">Last.fm</strong> secara otomatis. Setiap kali lagu berubah di YouTube player, metadata (judul + artis) dikirim ke akun Last.fm Anda.
-                </p>
-                <ul className="space-y-2 text-white/80">
-                  <li className="flex items-start gap-2">
-                    <span className="text-success mt-1">•</span>
-                    <span>Setup di halaman <strong>Configuration</strong> → masukkan API Key dan Secret Last.fm</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-success mt-1">•</span>
-                    <span>Auto-login membuat session key secara otomatis</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-success mt-1">•</span>
-                    <span>Track metadata diekstrak dari <code>page-title-updated</code> event YouTube</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="bg-warning/5 border border-warning/20 rounded-xl p-4 flex items-start gap-4">
-                <FaExclamationTriangle className="text-warning mt-1 shrink-0" />
-                <p className="text-sm text-warning/80">
-                  <strong>Catatan:</strong> YouTube adalah target yang terus berubah. Jika iklan mulai muncul kembali, Mark perlu update selector CSS-nya. Beberapa iklan SSAI (Server-Side Ad Insertion) di live stream tidak bisa diblokir dari sisi client.
-                </p>
-              </div>
-            </section>
-
-            {/* Section 8: FAQ */}
+            {/* Section 7: FAQ */}
             <section
               id="tips"
               className={
@@ -1013,7 +1122,7 @@ try {
                 {faqs.map((faq, idx) => (
                   <div
                     key={idx}
-                    className="collapse collapse-arrow glass glass-hover border border-[var(--glass-border)] text-white"
+                    className="collapse collapse-arrow bg-white/5 border border-white/10 text-white"
                   >
                     <input type="checkbox" defaultChecked={idx === 0} />
                     <div className="collapse-title text-lg font-bold">{faq.q}</div>

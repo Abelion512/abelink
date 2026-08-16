@@ -1,5 +1,5 @@
 import { fetchAI } from './core'
-import { generateVector } from '../vectorLoader'
+import { generateVector } from '../vectorMemory'
 import { insertChatArchive } from '../db'
 import { insertArchiveToOrama } from '../oramaStore'
 
@@ -28,7 +28,8 @@ Aturan:
       ],
       null, // signal
       true, // isSmallTask
-      null // jsonSchema
+      null, // jsonSchema
+      { aiProvider: 'gemini-web', geminiWebModel: 'gemini-3.5-flash-thinking' } // configOverride
     )
 
     if (response?.error) {
@@ -36,27 +37,8 @@ Aturan:
       return
     }
 
-    let summary = response.content?.trim()
+    const summary = response.content?.trim()
     if (!summary) return
-
-    // Fix: if model returned raw API response JSON, try to extract the actual content
-    if (summary.startsWith('{"id"') || summary.startsWith('{')) {
-      try {
-        const parsed = JSON.parse(summary)
-        // OpenAI response wrapper — extract the actual message content
-        if (parsed.choices?.[0]?.message?.content) {
-          summary = parsed.choices[0].message.content.trim()
-        } else if (parsed.choices?.[0]?.message?.reasoning) {
-          summary = parsed.choices[0].message.reasoning.trim()
-        }
-      } catch { /* not JSON, keep as-is */ }
-    }
-
-    // Sanity check: summary should be text, not JSON
-    if (summary.startsWith('{') && summary.includes('"choices"')) {
-      console.warn('[ChatSummarizer] Summary looks like raw API response, skipping')
-      return
-    }
 
     const vector = await generateVector(summary)
     if (!vector) {

@@ -1,14 +1,19 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 import { getAllChatArchives, getAllMemory, getAllDocuments, deleteMemory, deleteChatArchive } from '../../api/db'
+import { FiCheckCircle, FiClock, FiGitMerge, FiTrash2, FiRefreshCw, FiLoader } from 'react-icons/fi'
+import { useMemoryGroomer } from '../../hooks/useMemoryGroomer'
+import ConfirmModal from './ConfirmModal'
 
 const MemoryVisualizer = ({ isOpen, onClose }) => {
+  const { isGrooming, groomResult, triggerGrooming } = useMemoryGroomer(false)
   const [graphData, setGraphData] = useState({ nodes: [], links: [] })
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
     height: window.innerHeight
   })
   const [selectedNode, setSelectedNode] = useState(null)
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, node: null })
   const fgRef = useRef()
 
   // Resize listener
@@ -126,17 +131,26 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!selectedNode) return;
-    const confirmDelete = window.confirm(`Yakin ingin menghapus memori ini?\n"${selectedNode.name}"`);
-    if (!confirmDelete) return;
+    setConfirmModal({ isOpen: true, node: selectedNode });
+  };
+
+  const executeDelete = async () => {
+    const node = confirmModal.node || selectedNode;
+    if (!node) return;
+    setConfirmModal({ isOpen: false, node: null });
 
     try {
-      if (selectedNode.typeLabel === 'Explicit Memory') {
-        const id = parseInt(selectedNode.id.split('-')[1]);
+      if (
+        node.typeLabel === 'Explicit Memory' ||
+        node.typeLabel === 'Core Memory' ||
+        node.typeLabel === 'Learned Memory'
+      ) {
+        const id = parseInt(String(node.id).split('-')[1]);
         await deleteMemory(id);
-      } else if (selectedNode.typeLabel === 'Chat Archive') {
-        const id = parseInt(selectedNode.id.split('-')[1]);
+      } else if (node.typeLabel === 'Chat Archive') {
+        const id = parseInt(String(node.id).split('-')[1]);
         await deleteChatArchive(id);
       } else {
         alert('Penghapusan Document Chunk belum didukung dari panel ini.');
@@ -186,6 +200,63 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
       </button>
+
+      {/* Grooming Status Bar (Hippocampus Engine) */}
+      <div className="absolute top-6 left-6 z-20 flex items-center gap-4 px-4 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-xs text-white/80 shadow-lg">
+        {isGrooming ? (
+          <div className="flex items-center gap-2 text-primary">
+            <FiLoader className="w-4 h-4 animate-spin" />
+            <span>Sedang mengkonsolidasi & merapikan memori...</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              {groomResult.lastChecked ? (
+                <>
+                  <FiCheckCircle className="w-4 h-4 text-emerald-400" />
+                  <span>
+                    Terakhir dikonsolidasi:{' '}
+                    {new Date(groomResult.lastChecked).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <FiClock className="w-4 h-4 text-white/50" />
+                  <span>Belum ada riwayat konsolidasi</span>
+                </>
+              )}
+            </div>
+            {(groomResult.mergedCount > 0 || groomResult.deletedCount > 0) && (
+              <div className="flex items-center gap-3 pl-3 border-l border-white/10 text-white/70">
+                <span className="flex items-center gap-1">
+                  <FiGitMerge className="w-3.5 h-3.5 text-cyan-400" />
+                  {groomResult.mergedCount} digabung
+                </span>
+                <span className="flex items-center gap-1">
+                  <FiTrash2 className="w-3.5 h-3.5 text-rose-400" />
+                  {groomResult.deletedCount} duplikat dibersihkan
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <button
+          onClick={async () => {
+            await triggerGrooming(true)
+            await loadMemories()
+          }}
+          disabled={isGrooming}
+          className="btn btn-xs btn-primary rounded-full px-3 flex items-center gap-1 ml-2"
+          title="Jalankan Hippocampus Engine untuk mengkonsolidasi dan merapikan ingatan"
+        >
+          <FiRefreshCw className={`w-3 h-3 ${isGrooming ? 'animate-spin' : ''}`} />
+          <span>Konsolidasi Sekarang</span>
+        </button>
+      </div>
 
       {/* Graph Area */}
       <div className="absolute inset-0 cursor-crosshair">
@@ -263,6 +334,17 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           )}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title="Hapus Ingatan"
+        message={`Yakin ingin menghapus memori ini secara permanen?\n"${confirmModal.node?.name || ''}"`}
+        onConfirm={executeDelete}
+        onCancel={() => setConfirmModal({ isOpen: false, node: null })}
+        confirmText="Hapus"
+        cancelText="Batal"
+        isError={true}
+      />
     </div>
   )
 }

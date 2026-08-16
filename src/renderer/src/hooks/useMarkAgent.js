@@ -7,8 +7,7 @@ import { useMarkState, useMarkYoutube, useMarkMusic, useMarkPlan } from './agent
 import { useAwareness } from './useAwareness'
 import { useRelationalGrowth } from './agent/useRelationalGrowth'
 import { useChatArchiver } from './useChatArchiver'
-
-import { formatForWhatsApp } from '../api/ai/utils'
+import { formatForTelegram } from '../api/ai/utils'
 
 export const useMarkAgent = () => {
   const { requestApproval } = useApproval()
@@ -21,6 +20,8 @@ export const useMarkAgent = () => {
     clearChat,
     config,
     setConfig,
+    message,
+    setMessage,
     isLoading,
     setIsLoading,
     isAgentBusy,
@@ -56,8 +57,7 @@ export const useMarkAgent = () => {
     handleYoutubeSummary,
     handleMusic,
     getYoutubeData,
-    currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null,
-    currentPlaybackError: youtubeMusicTools.playbackError || null
+    currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null
   }
 
   const requestCameraCaptureRef = useRef(null)
@@ -89,20 +89,15 @@ export const useMarkAgent = () => {
     config,
     chatData,
     handlePlanningCommand,
-    currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null,
-    currentPlaybackError: youtubeMusicTools.playbackError || null
+    currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null
   })
 
   useRelationalGrowth({ chatData })
 
   useChatArchiver({ chatData, activeTopic, config, pushNotification, isLoading })
 
-  const activeWaRequestRef = useRef(null)
+  const activeTgRequestRef = useRef(null)
   const hasGreetedRef = useRef(false)
-  const chatDataRef = useRef(chatData)
-  const activeTopicRef = useRef(activeTopic)
-  chatDataRef.current = chatData
-  activeTopicRef.current = activeTopic
 
   // Welcome Greeting on Startup
   useEffect(() => {
@@ -116,15 +111,32 @@ export const useMarkAgent = () => {
 
         if (chatData && chatData.length > 0) {
           const lastMsg = chatData[chatData.length - 1]
-          if (lastMsg && lastMsg.timestamp) {
-            const lastTs = typeof lastMsg.timestamp === 'number'
-              ? (lastMsg.timestamp < 1e12 ? lastMsg.timestamp * 1000 : lastMsg.timestamp) // detik → ms
-              : new Date(lastMsg.timestamp).getTime()
-            const diffMs = Date.now() - (isNaN(lastTs) ? Date.now() : lastTs)
+          let lastTimeMs = null
+
+          if (lastMsg) {
+            if (
+              typeof lastMsg.created_at === 'number' &&
+              !isNaN(lastMsg.created_at) &&
+              lastMsg.created_at > 0
+            ) {
+              lastTimeMs = lastMsg.created_at
+            } else if (
+              typeof lastMsg.timestamp === 'number' &&
+              !isNaN(lastMsg.timestamp) &&
+              lastMsg.timestamp > 0
+            ) {
+              lastTimeMs = lastMsg.timestamp
+            }
+          }
+
+          if (lastTimeMs && lastTimeMs > 0) {
+            const diffMs = Date.now() - lastTimeMs
             const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
             const diffDays = Math.floor(diffHours / 24)
 
-            if (diffDays >= 3) {
+            if (diffDays >= 365 || diffDays < 0) {
+              timeContext = `\n[KONTEKS WAKTU & RIWAYAT]: Pengguna baru saja membuka kembali aplikasi.`
+            } else if (diffDays >= 3) {
               timeContext = `\n[KONTEKS WAKTU & RIWAYAT]: Pengguna sudah tidak membuka aplikasi/ngobrol selama ${diffDays} hari! Sapa dengan nada kaget, akrab, atau kangen bergaya santai (contoh: "Waduh kemana aja nih lama gak kelihatan", "Akhirnya nongkrong lagi kita", "Sibuk banget kayaknya baru kelihatan lagi", dll). JANGAN formal atau kaku!`
             } else if (diffDays >= 1) {
               timeContext = `\n[KONTEKS WAKTU & RIWAYAT]: Pengguna kembali setelah ${diffDays} hari tidak ngobrol. Beri sapaan santai dan ramah bahwa lu senang dia balik lagi.`
@@ -136,11 +148,13 @@ export const useMarkAgent = () => {
             }
           }
 
-          const lastUserMsg = [...chatData].reverse().find((m) => m.type === 'user' && typeof m.message === 'string')
-          if (lastUserMsg && lastUserMsg.message) {
-            const cleanMsg = lastUserMsg.message.replace(/\[.*?\]/g, '').trim()
+          const lastUserMsg = [...chatData]
+            .reverse()
+            .find((m) => m.role === 'user' && typeof m.content === 'string')
+          if (lastUserMsg && lastUserMsg.content) {
+            const cleanMsg = lastUserMsg.content.replace(/\[.*?\]/g, '').trim()
             if (cleanMsg && cleanMsg.length > 3) {
-              topicContext = `\n[TOPIK TERAKHIR KALIAN]: "${cleanMsg.slice(0, 100)}". Kamu boleh sedikit menyinggung atau mengaitkan obrolan terakhir ini jika cocok agar sapaanmu terasa hidup dan peka memori.`
+              topicContext = `\n[TOPIK TERAKHIR KALIAN DI RIWAYAT]: "${cleanMsg.slice(0, 100)}". PENTING: Topik obrolan terakhir ini adalah MASA LALU. JANGAN mengira pengguna MASIH atau SEDANG melakukan aktivitas/game tersebut sekarang! Jika ingin menyinggungnya, tanyakan secara lampau (contoh: "gimana main game/kerjaan kemarin?", bukan "masih main/kerja ya?").`
             }
           }
         }
@@ -168,52 +182,83 @@ export const useMarkAgent = () => {
   }, [isChatLoaded, chatData])
 
   useEffect(() => {
-    const handleWaAdminMessage = (e) => {
+    const handleTgAdminMessage = (e) => {
       const data = e.detail
-      
+
       if (data.text.trim().toLowerCase() === '/stop') {
         handleStop()
         return
       }
 
-      activeWaRequestRef.current = data
-      setInputSource('wa')
+      activeTgRequestRef.current = data
+      setInputSource('tg')
+      setIsSpeak(false) // Disable voice auto-reply for Telegram messages
       handlePlanningCommand(data.text, data)
     }
 
-    window.addEventListener('wa-admin-message', handleWaAdminMessage)
-    return () => window.removeEventListener('wa-admin-message', handleWaAdminMessage)
-  }, [handlePlanningCommand, setInputSource, handleStop])
+    window.addEventListener('tg-admin-message', handleTgAdminMessage)
+    return () => window.removeEventListener('tg-admin-message', handleTgAdminMessage)
+  }, [handlePlanningCommand, setInputSource, handleStop, setIsSpeak])
+
+  const isInitialSyncDoneRef = useRef(false)
+  const lastSyncedMsgIdRef = useRef(null)
 
   useEffect(() => {
-    if (!isAgentBusy && activeWaRequestRef.current && chatData.length > 0) {
+    if (!isChatLoaded) return
+
+    // Pada render pertama setelah chat DB dimuat, tandai pesan AI terakhir sebagai "sudah tersinkron" agar pesan histori tidak terkirim ulang
+    if (!isInitialSyncDoneRef.current) {
+      isInitialSyncDoneRef.current = true
+      if (chatData && chatData.length > 0) {
+        const lastAiMsg = [...chatData]
+          .reverse()
+          .find((m) => m.role === 'ai' && !m.isThinking && !m.isSearching && !m.isSummarizing)
+        if (lastAiMsg) {
+          lastSyncedMsgIdRef.current = lastAiMsg.timestamp || lastAiMsg.content
+        }
+      }
+      return
+    }
+
+    if (!isAgentBusy && activeTgRequestRef.current && chatData.length > 0) {
       const lastAiMsg = [...chatData]
         .reverse()
         .find((m) => m.role === 'ai' && !m.isThinking && !m.isSearching && !m.isSummarizing)
       if (lastAiMsg) {
-        window.api?.sendWaAgentExecutionDone({
-          jid: activeWaRequestRef.current.jid,
-          result: { answer: formatForWhatsApp(lastAiMsg.content) },
-          msgId: activeWaRequestRef.current.msgId
+        window.api?.sendTgAgentExecutionDone({
+          chatId: activeTgRequestRef.current.chatId,
+          result: { answer: formatForTelegram(lastAiMsg.content) },
+          msgId: activeTgRequestRef.current.msgId
         })
-        activeWaRequestRef.current = null
+        activeTgRequestRef.current = null
         setInputSource('pc')
       }
+    } else if (!isAgentBusy && chatData.length > 0) {
+      const lastAiMsg = [...chatData]
+        .reverse()
+        .find((m) => m.role === 'ai' && !m.isThinking && !m.isSearching && !m.isSummarizing)
+      const msgKey = lastAiMsg ? lastAiMsg.timestamp || lastAiMsg.content : null
+      if (lastAiMsg && lastAiMsg.content && lastSyncedMsgIdRef.current !== msgKey) {
+        lastSyncedMsgIdRef.current = msgKey
+        if (window.api?.tgBroadcastToAdmins) {
+          window.api.tgBroadcastToAdmins(`💻 *Mark (PC)*:\n${lastAiMsg.content}`)
+        }
+      }
     }
-  }, [isAgentBusy, chatData, setInputSource])
+  }, [isAgentBusy, chatData, isChatLoaded, setInputSource])
 
+  const handleSubmit = (e, textPrompt) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault()
+    const textToSend =
+      typeof textPrompt === 'string' ? textPrompt.trim() : typeof e === 'string' ? e.trim() : ''
+    if (!textToSend) return
 
-
-  const handleSubmit = (e, inputText = '') => {
-    if (e) e.preventDefault()
-    const text = (inputText || '').trim()
-    if (!text) return
     if (isLoading || isAgentBusy) {
       if (handleIntervention) {
-        handleIntervention(text)
+        handleIntervention(textToSend)
       }
     } else {
-      handlePlanningCommand(text)
+      handlePlanningCommand(textToSend)
     }
   }
 
@@ -226,6 +271,8 @@ export const useMarkAgent = () => {
     config,
     isLoading,
     isAgentBusy,
+    message,
+    setMessage,
     orbStatus,
     setOrbStatus,
     currentResponse,

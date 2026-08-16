@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { ingestDocument } from '../api/ragPipeline'
 import { getAllDocuments, deleteDocumentByName } from '../api/db'
 import { deleteDocumentFromOrama } from '../api/oramaStore'
@@ -106,7 +106,7 @@ const Knowledge = () => {
   }
 
   return (
-    <div className="h-screen bg-[var(--base-300)] text-base-content overflow-hidden relative font-['Poppins',sans-serif]">
+    <div className="h-screen bg-base-300 text-base-content overflow-hidden relative font-['Poppins',sans-serif]">
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
@@ -138,7 +138,7 @@ const Knowledge = () => {
           </div>
 
           <section className="space-y-5">
-            <div className="card glass glass-hover shadow-xl">
+            <div className="card bg-base-100/50 backdrop-blur-xl border border-base-content/10 shadow-xl">
               <div className="card-body">
                 <h2 className="card-title text-base font-bold uppercase tracking-wider opacity-70">
                   Upload Dokumen Baru
@@ -152,7 +152,7 @@ const Knowledge = () => {
                   <input
                     type="file"
                     className="file-input file-input-bordered file-input-primary w-full"
-                    accept=".pdf,.txt,.md,.docx,.json"
+                    accept=".pdf,.txt,.md,.docx"
                     onChange={handleFileUpload}
                     disabled={isUploading}
                   />
@@ -186,7 +186,7 @@ const Knowledge = () => {
 
             <div className="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
               {documents.length === 0 ? (
-                <div className="text-center py-10 opacity-30 glass glass-hover">
+                <div className="text-center py-10 opacity-30 bg-base-200/30 rounded-xl border border-base-content/5">
                   <p className="text-sm">Belum ada dokumen yang di-inject.</p>
                 </div>
               ) : (

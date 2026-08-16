@@ -1,7 +1,7 @@
 export const faqs = [
   {
     q: "Apakah Mark membutuhkan koneksi internet?",
-    a: "Tidak selalu! Jika Anda mengatur AI Provider ke mode Offline/ Custom API, sebagian besar fungsi Mark bisa berjalan tanpa internet secara lokal. Namun, fitur Voice (Speech-to-Text), Web Search (mencari di Google), dan perangkum YouTube tetap membutuhkan koneksi internet."
+    a: "Tidak selalu! Jika Anda mengatur AI Provider ke LM Studio (Offline), sebagian besar fungsi Mark bisa berjalan tanpa internet secara lokal. Namun, fitur Voice (Speech-to-Text), Web Search (mencari di Google), dan perangkum YouTube tetap membutuhkan koneksi internet."
   },
   {
     q: "Bagaimana cara kerja sistem memori Mark?",
@@ -32,8 +32,8 @@ export const faqs = [
     a: "Ya! Anda bisa bilang, 'Putarkan lagu Nadin Amizah'. Mark otomatis mencari dan memutar lagunya secara tersembunyi di latar belakang tanpa Anda harus repot buka aplikasi musik visual."
   },
   {
-    q: "Mark bisa dihubungi lewat WhatsApp?",
-    a: "Sangat bisa! Mark punya fitur bot WhatsApp khusus. Dia bisa merangkum obrolan grup yang tertinggal panjang, membalas chat, atau bahkan mendownload lagu YouTube lalu dikirim ke WA Anda sebagai MP3. Tinggal scan QR Code-nya."
+    q: "Mark bisa dihubungi lewat Telegram?",
+    a: "Sangat bisa! Mark punya fitur bot Telegram khusus. Cukup masukkan API Token dari @BotFather dan Telegram User ID kamu di menu Pengaturan. Mark bisa mendownload lagu YouTube lalu dikirim ke Telegram Anda sebagai MP3 atau mengirimkan screenshot PC."
   },
   {
     q: "Apakah Mark bisa membantu saya ngoding dan ngecek file kerjaan di laptop?",
@@ -41,15 +41,15 @@ export const faqs = [
   },
   {
     q: "Bagaimana cara mengubah otak pintar (AI Provider) Mark?",
-    a: "Buka menu Configuration. Di sana Anda bisa memilih antara Gemini (Gratis) atau Custom API (OpenAI-Compatible). Pastikan pengaturan URL atau API Key-nya sudah benar."
+    a: "Buka menu Configuration. Di sana Anda bisa memilih antara Gemini (Gratis tanpa API Key), LM Studio (Offline lokal), atau Custom API (OpenAI-Compatible Endpoint). Pilih model dari dropdown yang tersedia."
   },
   {
     q: "Kenapa balasan Mark kadang sangat lambat?",
-    a: "Jika Anda pakai mode Offline/Custom Endpoint, kecepatan mikir Mark 100% bergantung pada kekuatan prosesor (CPU) dan VGA laptop Anda. Semakin besar memori otak (model AI) yang dipakai, semakin berat kerja laptopnya."
+    a: "Jika Anda pakai mode Offline (LM Studio), kecepatan mikir Mark 100% bergantung pada kekuatan prosesor (CPU) dan VGA laptop Anda. Semakin besar memori otak (model AI) yang dipakai, semakin berat kerja laptopnya."
   },
   {
-    q: "Apakah Groq bisa dipakai untuk chat AI?",
-    a: "Groq di Mark saat ini hanya untuk Speech-to-Text (mengubah suara jadi teks). Untuk otak chat AI, pakai Gemini (Gratis) atau Custom API lokal (misalnya Ollama/9Router) via endpoint OpenAI-Compatible."
+    q: "Untuk apa Groq API Key di pengaturan?",
+    a: "Groq API Key digunakan khusus untuk fitur Speech-to-Text (Voice STT via Whisper), sehingga Mark dapat mendengarkan ucapan suara Anda dari mikrofon secara cepat dan akurat."
   },
   {
     q: "Bisakah saya menghapus ingatan Mark tentang saya?",
@@ -72,12 +72,12 @@ export const faqs = [
     a: "Bisa, asalkan video tersebut punya teks *subtitle/transkrip* bawaan. Jika durasinya berjam-jam, Mark akan memotong-motongnya perlahan untuk dibaca dan dirangkum secara mandiri."
   },
   {
-    q: "Kenapa bot WhatsApp Mark cuma diam saja pas grup lagi rame?",
-    a: "Mark memang diprogram agar tidak nyepam dan sok tahu di grup. Dia cuma mau balas dan merangkum kalau ada orang yang dengan sengaja me-mention atau memanggil namanya di grup tersebut."
+    q: "Siapa saja yang bisa mengakses bot Telegram Mark saya?",
+    a: "Hanya user yang ID Telegram-nya terdaftar di menu Pengaturan (Telegram Admin User IDs). Orang lain yang mencoba chat ke bot akan ditolak otomatis."
   },
   {
-    q: "Bolehkah bot WhatsApp Mark pakai nomor WA asli saya sehari-hari?",
-    a: "Bisa saja, tapi saran terbaik adalah pakai nomor HP baru yang khusus, biar orang nggak bingung mana chat yang dibalas oleh Anda betulan dan mana chat yang dibalas otomatis oleh Mark."
+    q: "Bagaimana cara mendapatkan Telegram Bot Token?",
+    a: "Buka aplikasi Telegram, cari akun resmi @BotFather, ketik /newbot, ikuti petunjuk pembuatan nama bot, lalu copy API Token yang diberikan ke halaman Configuration di Mark."
   },
   {
     q: "Kok Mark kadang bisa tiba-tiba nanya 'Lagi sibuk ngerjain dokumen ya?'",
@@ -109,7 +109,7 @@ export const faqs = [
   },
   {
     q: "Bikin baterai laptop boros dan cepat panas nggak sih?",
-    a: "Kalau Anda atur otak AI-nya pakai mode Offline/Custom Endpoint pas nggak di-cas, JELAS IYA. Mesin AI lokal itu kerja rodi. Tapi kalau pakai sambungan online (Gemini/Cloud API), dampaknya enteng banget buat laptop."
+    a: "Kalau Anda atur otak AI-nya pakai mode Offline (LM Studio) pas nggak di-cas, JELAS IYA. Mesin AI lokal itu kerja rodi. Tapi kalau pakai sambungan online (Groq), dampaknya enteng banget buat laptop."
   },
   {
     q: "Bagaimana caranya bikin fitur atau kemampuan baru buat Mark?",
@@ -198,21 +198,5 @@ export const faqs = [
   {
     q: "Apa visi jangka panjang diciptakannya Mark?",
     a: "Menciptakan asisten yang mengerti Anda lebih dari siapa pun, dan mampu menjadi sahabat sekaligus rekan kerja virtual seumur hidup."
-  },
-  {
-    q: "Kenapa iklan YouTube kadang masih muncul sekilas?",
-    a: "Mark menggunakan 4 lapisan ad blocking (CSS, MutationObserver, SABR patch, enforcement dismiss). Tapi YouTube terus mengubah class name dan metode delivery iklannya. Jika iklan muncul kembali, Mark perlu update selector CSS-nya. Iklan SSAI (Server-Side Ad Insertion) di live stream juga tidak bisa diblokir dari sisi client."
-  },
-  {
-    q: "Apakah ad blocking Mark mengganggu Last.fm Scrobbling?",
-    a: "Tidak! Ad blocking hanya menyembunyikan elemen iklan dan mempercepat playback iklan. Metadata lagu (judul + artis) tetap terbaca dari halaman YouTube dan dikirim ke Last.fm secara normal."
-  },
-  {
-    q: "Bagaimana cara setup Last.fm di Mark?",
-    a: "Buka halaman Configuration, masukkan API Key dan Secret Last.fm Anda. Mark akan membuat session key secara otomatis (auto-login). Setelah itu, setiap lagu yang diputar di YouTube player akan otomatis di-scrobble ke akun Last.fm Anda."
-  },
-  {
-    q: "Apakah ad blocking Mark bekerja jika saya pakai Cloudflare WARP?",
-    a: "Ya! Ad blocking Mark beroperasi di layer aplikasi (Electron webRequest hooks), bukan di layer jaringan OS. Jadi warp-cli Cloudflare tidak mengganggu fungsinya. Malah bisa double protection kalau Anda aktifkan '1.1.1.1 for Families' mode."
   }
 ];

@@ -1,9 +1,9 @@
-import { useEffect, useState, useRef } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import React, { useEffect, useState, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import OrbVisualizer from '../components/core/OrbVisualizer'
 import InputBar from '../components/core/InputBar'
-import ResponseArea, { ResponseDetails } from '../components/core/ResponseArea'
+import ResponseArea from '../components/core/ResponseArea'
 import StatusIndicator from '../components/core/StatusIndicator'
 import FloatingMenu from '../components/core/FloatingMenu'
 import HistoryDrawer from '../components/core/HistoryDrawer'
@@ -11,17 +11,17 @@ import ProcessPanel from '../components/core/ProcessPanel'
 import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
 import MemoryVisualizer from '../components/core/MemoryVisualizer'
 import BrowserPreviewWidget from '../components/core/BrowserPreviewWidget'
-import YoutubeMusicPlayer from '../components/YoutubeMusicPlayer'
+import musicCoverFallback from '../assets/music-cover.png'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
-import { useMemoryGroomer } from '../hooks/useMemoryGroomer'
 import { useVAD } from '../hooks/useVAD'
+import { useMemoryGroomer } from '../hooks/useMemoryGroomer'
 
 const MarkHome = () => {
   const chatContext = useChat()
-  // message = LOCAL state (bukan context) — keystroke tidak re-render halaman lain
-  const [message, setMessage] = useState('')
   const {
     chatData,
+    message,
+    setMessage,
     isLoading,
     isAgentBusy,
     isSpeak,
@@ -34,58 +34,106 @@ const MarkHome = () => {
     dismissProcess,
     inputSource,
     handleStop,
-    isBooting
+    isBooting,
+    requestCameraCaptureRef,
+    config
   } = chatContext
-  useMemoryGroomer(true) // Aktifkan Hippocampus Engine (auto-groom memori)
-  const { isPlaying } = useYoutubeMusic() // Initialize YT Music context
+  const { isPlaying, currentTrack, isPlayerOpen } = useYoutubeMusic()
+  useMemoryGroomer(true) // Aktifkan Hippocampus Engine
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
   const [currentResponse, setCurrentResponse] = useState(null)
-  const isLong = currentResponse?.type === 'long'
-  const [activeMode, setActiveMode] = useState(null) // null | 'chat' | 'voice' | 'camera' | 'screen'
-
-  // Mode-swap transition: orb morphs before leaving to /live-audio (no hard page cut)
-  const [isSwapping, setIsSwapping] = useState(null)
-
-  const goVoice = () => {
-    if (isSwapping) return
-    setIsSwapping('voice')
-    setTimeout(() => navigate('/live-audio', { state: { morphed: Date.now() } }), 450)
-  }
+  const [showMusicWidget, setShowMusicWidget] = useState(false)
+  const [isMusicAnimatingOut, setIsMusicAnimatingOut] = useState(false)
+  const [isMaxWindow, setIsMaxWindow] = useState(false)
+  const [ttsIntensity, setTtsIntensity] = useState(0)
 
   useEffect(() => {
+    const handleTtsIntensity = (e) => {
+      setTtsIntensity(e.detail || 0)
+      if (window.isMarkSpeaking) {
+        setOrbStatus('speaking')
+      } else {
+        setOrbStatus((prev) => (prev === 'speaking' ? 'idle' : prev))
+      }
+    }
+    window.addEventListener('mark-intensity', handleTtsIntensity)
+    return () => window.removeEventListener('mark-intensity', handleTtsIntensity)
+  }, [setOrbStatus])
+
+  useEffect(() => {
+    if (window.api?.onWindowMaximized) {
+      window.api.onWindowMaximized((isMax) => {
+        setIsMaxWindow(isMax)
+      })
+    }
+
     const handleOpenMap = () => setIsMemoryMapOpen(true)
     window.addEventListener('open-memory-map', handleOpenMap)
     return () => window.removeEventListener('open-memory-map', handleOpenMap)
   }, [])
 
   const handleVoiceTranscript = (text) => {
+    const prefixedText = `(Mikrofon) ${text}`
+    setMessage(prefixedText)
     setIsSpeak(true) // Sets global state
-    handlePlanningCommand(text, null, false, null, { forceSpeak: true }) // Pass forceSpeak option
-    setMessage('') // Clear local input (voice sudah dikirim)
+    handlePlanningCommand(prefixedText, null, false, null, { forceSpeak: true }) // Pass forceSpeak option
   }
 
-  const { isRecording, toggleRecording, toastMessage } = useVAD({
+  const {
+    isRecording,
+    isProcessing,
+    audioIntensity,
+    toggleRecording,
+    startRecording,
+    stopRecording,
+    toastMessage
+  } = useVAD({
     onTranscript: handleVoiceTranscript
   })
 
   const location = useLocation()
-  const navigate = useNavigate()
   const hasAutoStartedRef = useRef(false)
 
   useEffect(() => {
-    if (location.state?.autoStartMic) {
-      if (hasAutoStartedRef.current !== location.state.autoStartMic) {
-        hasAutoStartedRef.current = location.state.autoStartMic
-        toggleRecording()
+    if (location.state?.autoToggleMic) {
+      if (hasAutoStartedRef.current !== location.state.autoToggleMic) {
+        hasAutoStartedRef.current = location.state.autoToggleMic
+        if (isLoading || isAgentBusy) {
+          console.warn('[VAD] Ignored toggle because agent is busy')
+        } else {
+          toggleRecording()
+        }
       }
     }
-  }, [location.state?.autoStartMic, toggleRecording])
+  }, [location.state?.autoToggleMic, toggleRecording, isLoading, isAgentBusy])
 
-  // Sync orb status based on isLoading
+  // Handle music widget exit animation
   useEffect(() => {
-    if (isLoading) {
+    const hasTrack = isPlaying && currentTrack?.title
+    if (hasTrack) {
+      setIsMusicAnimatingOut(false)
+      setShowMusicWidget(true)
+    } else {
+      if (showMusicWidget) {
+        setIsMusicAnimatingOut(true)
+        const timer = setTimeout(() => {
+          setShowMusicWidget(false)
+          setIsMusicAnimatingOut(false)
+        }, 500) // Match the holo-dismiss duration
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [isPlaying, currentTrack?.title, showMusicWidget])
+
+  // Sync orb status based on isLoading, isRecording, and isProcessing
+  useEffect(() => {
+    if (isRecording) {
+      setOrbStatus('listening')
+    } else if (isProcessing) {
+      setOrbStatus('thinking')
+    } else if (isLoading) {
       // If last message is thinking, then thinking. Else speaking/executing
       const lastMsg = chatData[chatData.length - 1]
       if (lastMsg?.isThinking) {
@@ -100,14 +148,7 @@ const MarkHome = () => {
     } else {
       setOrbStatus('idle')
     }
-  }, [isLoading, chatData, setOrbStatus])
-
-  // Override orb status when music is playing
-  useEffect(() => {
-    if (isPlaying && orbStatus === 'idle') {
-      setOrbStatus('playing')
-    }
-  }, [isPlaying, orbStatus, setOrbStatus])
+  }, [isLoading, chatData, isRecording, isProcessing, setOrbStatus])
 
   // Derived currentResponse from chatData
   useEffect(() => {
@@ -119,38 +160,33 @@ const MarkHome = () => {
           // It's a loading state, we might show a short text
           setCurrentResponse({
             text: lastItem.content || 'Memproses instruksi...',
-            type: 'short'
+            type: 'short',
+            isThinking: true
           })
         } else {
           // Final response
           setCurrentResponse({
             text: lastItem.content,
             type:
-              lastItem.content?.length > 600 ? 'long' : 'short',
-            reasoning: lastItem.reasoning || null,
+              lastItem.content?.length > 200 || lastItem.content?.includes('\n') ? 'long' : 'short',
             sources: lastItem.sources || [],
             youtubeData: lastItem.youtubeData,
             youtubeSummary: lastItem.youtubeLink,
             pluginResult: lastItem.pluginExecution,
             isProactive: lastItem.isProactive,
-            mood: lastItem.mood,
-            options: lastItem.options || null,
-            optionsDefault: lastItem.optionsDefault ?? null,
-            onPick: handleOptionPick
+            mood: lastItem.mood
           })
 
-          // Trigger holographic beam (speaking animation) to project the text
-          if (!lastItem.isThinking) {
-            setOrbStatus('speaking')
-            setTimeout(() => setOrbStatus('idle'), 2500) // Project the beam for 2.5 seconds
-          }
+          // State 'speaking' kini diatur otomatis oleh event mark-intensity
+          // sehingga getaran & status sinkron 100% dengan durasi audio TTS sebenarnya.
         }
       } else {
         // User message, we can clear current response or show "Processing..."
         if (isLoading) {
           setCurrentResponse({
             text: 'Memproses...',
-            type: 'short'
+            type: 'short',
+            isThinking: true
           })
         } else {
           setCurrentResponse({
@@ -168,54 +204,76 @@ const MarkHome = () => {
     }
   }, [chatData, isLoading, isSpeak, setOrbStatus])
 
-  // Drop zone global: seluruh window Mark menerima drop file → teruskan ke InputBar
-  useEffect(() => {
-    const onDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }
-    const onDrop = (e) => {
-      e.preventDefault()
-      const files = e.dataTransfer?.files
-      if (files && files.length) {
-        window.dispatchEvent(new CustomEvent('mark:attach-files', { detail: { files: Array.from(files) } }))
-      }
-    }
-    window.addEventListener('dragover', onDragOver)
-    window.addEventListener('drop', onDrop)
-    return () => {
-      window.removeEventListener('dragover', onDragOver)
-      window.removeEventListener('drop', onDrop)
-    }
-  }, [])
-
   const handleSubmit = (e, text) => {
-    const msg = text ?? message
     if (chatContext.handleSubmit) {
-      chatContext.handleSubmit(e, msg)
+      chatContext.handleSubmit(e, text)
     } else {
-      if (msg.trim()) {
-        handlePlanningCommand(msg)
+      const sendText = typeof text === 'string' && text.trim() ? text.trim() : message.trim()
+      if (sendText) {
+        handlePlanningCommand(sendText)
       }
     }
-    setMessage('') // Clear local input
-    // stay in chat mode after submit
-    setActiveMode('chat')
   }
-
-  // Pilihan dari OptionsPicker — kirim langsung via inputText (hindari stale state message)
-  const handleOptionPick = (label) => {
-    const text = `Pilih: ${label}`
-    if (chatContext.handleSubmit) {
-      chatContext.handleSubmit(null, text)
-    } else {
-      handlePlanningCommand(text)
+  const mood = currentResponse?.mood || 'neutral'
+  let bgGlowColor = 'var(--color-primary)'
+  if (orbStatus === 'error') {
+    bgGlowColor = '#ef4444'
+  } else {
+    switch (mood) {
+      case 'joy':
+        bgGlowColor = '#facc15'
+        break
+      case 'sadness':
+        bgGlowColor = '#3b82f6'
+        break
+      case 'fear':
+        bgGlowColor = '#a855f7'
+        break
+      case 'anger':
+        bgGlowColor = '#ef4444'
+        break
+      case 'disgust':
+        bgGlowColor = '#22c55e'
+        break
+      case 'anxiety':
+        bgGlowColor = '#f97316'
+        break
+      case 'envy':
+        bgGlowColor = '#14b8a6'
+        break
+      case 'embarrassment':
+        bgGlowColor = '#ec4899'
+        break
+      case 'ennui':
+        bgGlowColor = '#6b7280'
+        break
+      default:
+        bgGlowColor = 'var(--color-primary)'
+        break
     }
-    setActiveMode('chat')
   }
 
   return (
-    <div className="h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif]">
-      {/* Background Ambience */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
+    <div
+      className="h-screen text-white overflow-hidden relative transition-colors duration-1000 bg-transparent rounded-xl border border-white/5 shadow-2xl"
+      style={{
+        backgroundColor: `color-mix(in srgb, ${bgGlowColor} 12%, rgba(0,0,0,${config?.[0]?.windowOpacity ?? 0.85}))`
+      }}
+    >
+      <style>{`
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes spin-slow-reverse {
+          from { transform: rotate(360deg); }
+          to { transform: rotate(0deg); }
+        }
+      `}</style>
+
+      {/* Subtle Hologram Scanlines & Texture */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.1)_50%)] bg-[length:100%_4px] opacity-20 pointer-events-none mix-blend-overlay z-0" />
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-[0.03] pointer-events-none mix-blend-screen z-0" />
 
       {isBooting && (
         <div className="fixed inset-0 bg-base-300 flex flex-col items-center justify-center gap-5 z-[999]">
@@ -233,108 +291,225 @@ const MarkHome = () => {
       <BrowserPreviewWidget />
 
       {toastMessage && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 bg-error/90 text-white px-4 py-2 rounded-xl z-50 glass glass-hover shadow-lg animate-bounce text-sm">
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 bg-error/90 text-white px-4 py-2 rounded-xl z-50 backdrop-blur shadow-lg animate-bounce text-sm">
           {toastMessage}
         </div>
       )}
 
-      {/* Main Content Area — single centered column on short answers; two columns (orb+answer | details) on long */}
-      <div
-        className={`relative z-10 flex flex-col md:flex-row items-center md:items-stretch justify-center gap-4 md:gap-6 w-full h-full px-4 pt-[12vh] pb-48 md:pt-[5vh] md:pb-20 overflow-y-auto no-scrollbar`}
-      >
-        {/* Center Column — orb + answer. Full width on small screens; left half on md+ */}
-        <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-2xl md:flex-1 md:max-w-none md:min-w-0 my-4">
-          <div className={`relative flex items-center justify-center ${isSwapping === 'voice' ? 'animate-[orb-to-voice_0.45s_ease-in_forwards]' : ''}`}>
-            <ThoughtNeuralFlow processes={activeProcesses} />
-            <OrbVisualizer
-              status={orbStatus}
-              intensity={0.5}
-              mood={currentResponse?.mood || 'neutral'}
-            />
-          </div>
-          {/* Answer — no boundaries, natural flow; max-h cegah overflow ke tombol */}
-          {currentResponse && (
-            <div className="w-full max-h-[45vh] overflow-y-auto no-scrollbar animate-[fade-up_0.4s_ease-out_forwards]">
-              <ResponseArea currentResponse={currentResponse} />
+      {/* Main Content Area */}
+      <div className="relative z-10 flex flex-col md:flex-row w-full h-full px-4 lg:px-12 pb-[120px] overflow-hidden">
+        {/* Left Panel: The Orb & Neural Flow (Fixed) */}
+        <div className="w-full md:w-1/2 h-[40vh] md:h-full flex flex-col items-center justify-center relative">
+          <div
+            className="relative flex items-center justify-center w-full max-w-lg h-64 md:h-96"
+            style={{
+              transform: isMaxWindow ? 'scale(1)' : 'scale(0.6)',
+              transition: 'transform 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+              marginTop: isMaxWindow ? '0' : '-2rem'
+            }}
+          >
+            {/* Jarvis-Style Holographic HUD centered around Orb */}
+            <div className="absolute inset-0 m-auto flex items-center justify-center pointer-events-none mix-blend-screen opacity-50 z-0 scale-125">
+              <svg viewBox="0 0 500 500" className="w-[500px] h-[500px] absolute">
+                {/* Outer Ring */}
+                <circle
+                  cx="250"
+                  cy="250"
+                  r="230"
+                  fill="none"
+                  stroke={bgGlowColor}
+                  strokeWidth="1"
+                  strokeDasharray="2 10"
+                  className="origin-center animate-[spin-slow_40s_linear_infinite]"
+                />
+
+                {/* Middle Segmented Ring */}
+                <circle
+                  cx="250"
+                  cy="250"
+                  r="180"
+                  fill="none"
+                  stroke={bgGlowColor}
+                  strokeWidth="2"
+                  strokeDasharray="80 20 10 20"
+                  className="origin-center animate-[spin-slow-reverse_30s_linear_infinite]"
+                />
+
+                {/* Inner Ring */}
+                <circle
+                  cx="250"
+                  cy="250"
+                  r="140"
+                  fill="none"
+                  stroke={bgGlowColor}
+                  strokeWidth="1"
+                  strokeDasharray="5 15"
+                  className="origin-center animate-[spin-slow_20s_linear_infinite]"
+                />
+
+                {/* Solid Inner Border */}
+                <circle
+                  cx="250"
+                  cy="250"
+                  r="125"
+                  fill="none"
+                  stroke={bgGlowColor}
+                  strokeWidth="0.5"
+                  className="opacity-50"
+                />
+
+                {/* Crosshairs */}
+                <line
+                  x1="250"
+                  y1="0"
+                  x2="250"
+                  y2="110"
+                  stroke={bgGlowColor}
+                  strokeWidth="0.5"
+                  className="opacity-40"
+                />
+                <line
+                  x1="250"
+                  y1="390"
+                  x2="250"
+                  y2="500"
+                  stroke={bgGlowColor}
+                  strokeWidth="0.5"
+                  className="opacity-40"
+                />
+                <line
+                  x1="0"
+                  y1="250"
+                  x2="110"
+                  y2="250"
+                  stroke={bgGlowColor}
+                  strokeWidth="0.5"
+                  className="opacity-40"
+                />
+                <line
+                  x1="390"
+                  y1="250"
+                  x2="500"
+                  y2="250"
+                  stroke={bgGlowColor}
+                  strokeWidth="0.5"
+                  className="opacity-40"
+                />
+
+                {/* Decorative Tech Nodes */}
+                <circle cx="250" cy="20" r="3" fill={bgGlowColor} />
+                <circle cx="250" cy="480" r="3" fill={bgGlowColor} />
+                <circle cx="20" cy="250" r="3" fill={bgGlowColor} />
+                <circle cx="480" cy="250" r="3" fill={bgGlowColor} />
+              </svg>
             </div>
-          )}
-        </div>
 
-        {/* Right Column — Detail Informasi. Stretch-height = row height; the ONLY scroll surface (contained, invisible scrollbar) */}
-        {isLong && (
-          <div className="hidden md:block md:flex-1 md:min-w-0 overflow-y-auto no-scrollbar animate-[fade-up_0.4s_ease-out_forwards]">
-            {currentResponse && <ResponseDetails currentResponse={currentResponse} />}
-          </div>
-        )}
-      </div>
-
-      {/* 4-Mode Bottom Bar — bar mode SELALU konsisten; InputBar baris terpisah saat chat */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4 flex flex-col items-center gap-3">
-        {/* Chat input row — hanya saat mode chat */}
-        {activeMode === 'chat' && (
-          <div className="w-full flex items-center gap-2 animate-[fade-up_0.2s_ease-out_forwards]">
-            <div className="flex-1 min-w-0">
-              <InputBar
-                onSubmit={(finalPrompt) => { setIsSpeak(false); handleSubmit(null, finalPrompt) }}
-                isLoading={isLoading || isAgentBusy}
-                isRecording={isRecording}
-                onToggleRecord={toggleRecording}
-                onStop={handleStop}
-                source={inputSource}
+            <ThoughtNeuralFlow processes={activeProcesses} />
+            <div className="z-10 relative">
+              <OrbVisualizer
+                status={orbStatus}
+                intensity={orbStatus === 'speaking' ? ttsIntensity : 0}
+                mood={currentResponse?.mood || 'neutral'}
               />
             </div>
-            <button onClick={() => setActiveMode(null)}
-              className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center border border-white/10 hover:border-red-400/50 transition-all duration-300 active:scale-90 text-white/50 hover:text-red-400 glass glass-hover"
-              title="Tutup Chat">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-            </button>
           </div>
-        )}
+        </div>
 
-        {/* Mode bar — selalu 4 tombol identik, aktif di-highlight */}
-        <div className="flex items-center justify-center gap-2 animate-[fade-up_0.15s_ease-out_forwards]">
-          <button onClick={() => setActiveMode(activeMode === 'chat' ? null : 'chat')}
-            className={`w-11 h-11 rounded-full flex items-center justify-center border border-white/10 transition-all duration-300 active:scale-90 ${
-              activeMode === 'chat'
-                ? 'bg-white/15 border-white/30 text-white shadow-[0_0_16px_rgba(255,255,255,0.12)]'
-                : 'glass glass-hover text-white/70 hover:border-white/30'
-            }`} title="Chat Mode">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-          </button>
-          <button onClick={goVoice}
-            className={`w-11 h-11 rounded-full flex items-center justify-center border border-white/10 transition-all duration-300 active:scale-90 ${
-              activeMode === 'voice'
-                ? 'bg-white/15 border-white/30 text-white shadow-[0_0_16px_rgba(255,255,255,0.12)]'
-                : 'glass glass-hover text-white/70 hover:border-white/30'
-            }`} title="Voice Mode">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-          </button>
-          <button onClick={() => setActiveMode('camera')}
-            className={`w-11 h-11 rounded-full flex items-center justify-center border border-white/10 transition-all duration-300 active:scale-90 ${
-              activeMode === 'camera'
-                ? 'bg-white/15 border-white/30 text-white shadow-[0_0_16px_rgba(255,255,255,0.12)]'
-                : 'glass glass-hover text-white/70 hover:border-white/30'
-            }`} title="Camera Mode">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-          </button>
-          <button onClick={() => setActiveMode('screen')}
-            className={`w-11 h-11 rounded-full flex items-center justify-center border border-white/10 transition-all duration-300 active:scale-90 ${
-              activeMode === 'screen'
-                ? 'bg-white/15 border-white/30 text-white shadow-[0_0_16px_rgba(255,255,255,0.12)]'
-                : 'glass glass-hover text-white/70 hover:border-white/30'
-            }`} title="Share Screen">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          </button>
+        {/* Right Panel: Dynamic Response Area (Scrollable) */}
+        <div
+          className="w-full md:w-1/2 h-full flex flex-col overflow-y-auto no-scrollbar md:pl-8 md:pr-4"
+          style={{
+            maskImage:
+              'linear-gradient(to bottom, transparent, black 3rem, black calc(100% - 3rem), transparent)',
+            WebkitMaskImage:
+              'linear-gradient(to bottom, transparent, black 3rem, black calc(100% - 3rem), transparent)'
+          }}
+        >
+          <div className="w-full max-w-2xl mx-auto flex flex-col items-center justify-start transition-all duration-500 ease-in-out pt-[10vh] pb-20 min-h-full">
+            {currentResponse && <ResponseArea currentResponse={currentResponse} />}
+
+            {/* Centered Now Playing Info */}
+            {showMusicWidget && (
+              <div
+                className={`mt-8 flex flex-col items-center ${isMusicAnimatingOut ? 'animate-[holo-dismiss_0.5s_ease-in_forwards]' : 'animate-[holo-project-in_0.5s_ease-out_forwards]'}`}
+              >
+                <div className="relative group w-48 h-48 mb-4 rounded-sm overflow-hidden border border-white/10 shadow-2xl shadow-primary/20">
+                  {/* HUD Brackets */}
+                  <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-white/30 pointer-events-none z-10" />
+                  <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-white/30 pointer-events-none z-10" />
+                  <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-white/30 pointer-events-none z-10" />
+                  <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-white/30 pointer-events-none z-10" />
+                  {currentTrack.thumbnail ? (
+                    <img
+                      src={currentTrack.thumbnail}
+                      alt="Album Art"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      onError={(e) => {
+                        e.target.onerror = null
+                        e.target.src = musicCoverFallback
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={musicCoverFallback}
+                      alt="Default Album Art"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                  )}
+                  {/* Audio visualizer overlay */}
+                  {isPlaying && (
+                    <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-4 gap-1">
+                      <span
+                        className="w-1.5 h-4 bg-primary rounded-t-full animate-[music-bar_1s_ease-in-out_infinite]"
+                        style={{ animationDelay: '0.1s' }}
+                      />
+                      <span
+                        className="w-1.5 h-6 bg-primary rounded-t-full animate-[music-bar_1.2s_ease-in-out_infinite]"
+                        style={{ animationDelay: '0.3s' }}
+                      />
+                      <span
+                        className="w-1.5 h-3 bg-primary rounded-t-full animate-[music-bar_0.8s_ease-in-out_infinite]"
+                        style={{ animationDelay: '0.2s' }}
+                      />
+                      <span
+                        className="w-1.5 h-5 bg-primary rounded-t-full animate-[music-bar_1.1s_ease-in-out_infinite]"
+                        style={{ animationDelay: '0.4s' }}
+                      />
+                    </div>
+                  )}
+                </div>
+                <h3 className="text-xl font-bold text-white text-center max-w-md truncate">
+                  {currentTrack.title}
+                </h3>
+                <p className="text-sm text-white/50 text-center max-w-sm truncate mt-1">
+                  {currentTrack.artist}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Bottom Input Area */}
+      <InputBar
+        onSubmit={(prompt) => {
+          setIsSpeak(false) // Typing submit disables voice auto-reply
+          handleSubmit(prompt)
+        }}
+        isLoading={isLoading || isAgentBusy}
+        isRecording={isRecording}
+        isProcessing={isProcessing}
+        audioIntensity={audioIntensity}
+        onStartRecord={startRecording}
+        onStopRecord={stopRecording}
+        onStop={handleStop}
+        source={inputSource}
+      />
 
       {/* Slide-out Drawers */}
       <HistoryDrawer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 
       <MemoryVisualizer isOpen={isMemoryMapOpen} onClose={() => setIsMemoryMapOpen(false)} />
-
-      {/* YouTube Music — bottom-right corner FAB player */}
-      <YoutubeMusicPlayer />
     </div>
   )
 }

@@ -3,170 +3,238 @@ import {
   shell,
   BrowserWindow,
   ipcMain,
+  dialog,
   session,
   Tray,
   Menu,
   globalShortcut,
   nativeImage,
   Notification,
-  desktopCapturer
+  desktopCapturer,
+  screen
 } from 'electron'
-import { join } from 'path'
 import path from 'path'
 import fs from 'fs'
-import os from 'os'
 import { electronApp, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import icon from '../../resources/icon.ico?asset'
 import { fetchTranscript } from 'youtube-transcript-plus'
 import yts from 'yt-search'
-import axios from 'axios'
+import YTMusic from 'ytmusic-api'
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
-import { startTracking, stopTracking, getBuffer, flushBuffer } from './awareness/window-tracker.js'
-import { NATIVE_TOOLS } from './native-tools.js'
-import { loadSkills, initSkillsIPC } from './agent-skills-loader.js'
+import { startTracking, getBuffer, flushBuffer } from './awareness/window-tracker.js'
+import { NATIVE_TOOLS, _getOSMeta } from './node-tools.js'
 import {
-  readDesktop, executeClick, executeType, executeKey, executeScroll,
-  openApp, listWindows, focusWindow, askUserPC,
-  captureScreenshot, ocrRegion, emergencyStop
-} from './pc-agent.js'
-import { initMpris, setMprisCallbacks, setMprisPlaybackStatus, updateMprisTrack, stopMpris } from './mpris-service.js'
-import { getRecentTracks, getTopTracks, setApiKey as setLastfmKey, setSharedSecret as setLastfmSharedSecret, updateNowPlaying as lastfmUpdateNowPlaying, scrobble as lastfmScrobble, setSessionKey as setLastfmSessionKey, getSessionKey as lastfmGetSessionKey } from './lastfm-service.js'
-import { recordPlayback, getRecentPlayback } from './playback-history.js'
-import { getMediaInfo, getMediaWithAudio, searchMedia } from './ytdl-service.js'
-import { ElectronBlocker } from '@ghostery/adblocker-electron'
-import mammoth from 'mammoth'
-import { PDFParse } from 'pdf-parse'
-import { loadYouTube, loadYouTubeHidden, showPlayer, hidePlayer, isPlayerVisible, closePlayer, getPlayerUrl, setOnTrackCallback, setPlayStateCallback, setRepeatStateCallback, sendKeyboardCommand, showAndNavigate, getDuration } from './youtube-player.js'
-import { buildCanonical, hashBody, signContent } from './agent-keyring.js'
-// Headless/SSH detection: disable GPU if no display server available (Linux)
-if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
-  app.commandLine.appendSwitch('disable-gpu')
-  app.commandLine.appendSwitch('disable-software-rasterizer')
-}
+  startTelegramBot,
+  stopTelegramBot,
+  getConnectionStatus,
+  uiMessageHistory
+} from './telegram/telegram-service.js'
 
+import { fetchAI, setGlobalConfig, abortAllFetches } from './ai-bridge.js'
+import {
+  connectGoogle,
+  disconnectGoogle,
+  getGoogleStatus
+} from './google/google-service.js'
+import { loadPlugins, initPluginIPC } from './plugins/plugin-loader.js'
+import { setupSkillIPC } from './skills/skill-manager.js'
+import { navigateTo, readDOM, executeAction, closeBrowser, showBrowser } from './browser-agent.js'
+import { readDesktop, executeClick, executeType, executeKey, executeScroll, openApp, listWindows, focusWindow, askUserPC } from './pc-agent.js'
+
+// Matikan semua optimasi throttling Chromium agar background task Telegram tidak tertidur di hasil Build (.exe)
 app.commandLine.appendSwitch('disable-background-timer-throttling')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
+// Fix GPU crash for hidden webview (command_buffer_proxy_impl.cc:327 GPU state invalid)
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+// Mencegah aplikasi mati total kalau GPU Process nge-crash berkali-kali
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
+
+
+const setupYoutubeFix = () => {
+  // Tidak perlu intercept request googlevideo/youtube yang merusak validasi CORS Google Music
+}
 
 let mainWindow = null
 let tray = null
+let isQuiting = false
 
 function createWindow() {
+  // Create the browser window.
   mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
     autoHideMenuBar: true,
     icon: icon,
     webPreferences: {
-      // ponytail: type:module → preload builds as index.mjs; must match or preload silently fails
-      preload: join(__dirname, '../preload/index.mjs'),
+      preload: path.join(__dirname, '../preload/index.js'),
       webviewTag: true,
-      // ponytail: sandbox=false required for preload's require() — switch to contextBridge-only preload to enable sandbox
       sandbox: false,
-      webSecurity: true,
-      backgroundThrottling: false
+      webSecurity: false,
+      backgroundThrottling: false,
+      autoplayPolicy: 'no-user-gesture-required'
     }
   })
-
-  // Dev/HMR menambah listener eksternal ke webContents — naikkan kapasitas biar
-  // MaxListenersExceededWarning tidak muncul (sama dengan pola di browser-agent.js)
-  mainWindow.webContents.setMaxListeners(50)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
     // mainWindow.webContents.openDevTools()
   })
 
-  // Close → sembunyikan ke tray (ikuti official): app tetap jalan, kecuali quit eksplisit
-  mainWindow.on('close', (event) => {
-    if (!app.isQuitting) {
+  mainWindow.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url)
+    console.log('openlink: ' + details.url)
+    return { action: 'deny' }
+  })
+
+  // HMR for renderer base on electron-vite cli.
+  // Load the remote URL for development or the local html file for production.
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+  }
+
+  // Sembunyikan window saat tombol close diklik (masuk tray)
+  mainWindow.on('close', function (event) {
+    if (!isQuiting) {
       event.preventDefault()
       mainWindow.hide()
     }
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    try {
-      const parsed = new URL(details.url)
-      if (!['https:', 'http:', 'mailto:'].includes(parsed.protocol)) {
-        console.warn(`[SECURITY] setWindowOpenHandler blocked: ${parsed.protocol}//${parsed.host}`)
-        return { action: 'deny' }
-      }
-      shell.openExternal(details.url)
-    } catch { /* invalid URL — deny */ }
-    return { action: 'deny' }
+  mainWindow.on('maximize', () => {
+    mainWindow.webContents.send('window-maximized', true)
   })
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  }
+  mainWindow.on('unmaximize', () => {
+    mainWindow.webContents.send('window-maximized', false)
+  })
+
+  mainWindow.on('resize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window-maximized', mainWindow.isMaximized())
+    }
+  })
+
+  // Custom Aero Snap Logic
+  mainWindow.on('moved', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    if (mainWindow.isMaximized()) return
+
+    const bounds = mainWindow.getBounds()
+    const currentScreen = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y })
+    const workArea = currentScreen.workArea
+
+    const THRESHOLD = 15
+
+    // Snap to Top -> Maximize
+    if (bounds.y <= workArea.y + THRESHOLD) {
+      mainWindow.maximize()
+      return
+    }
+
+    // Snap to Left -> Half screen left
+    if (bounds.x <= workArea.x + THRESHOLD) {
+      mainWindow.setBounds({
+        x: workArea.x,
+        y: workArea.y,
+        width: Math.floor(workArea.width / 2),
+        height: workArea.height
+      })
+      return
+    }
+
+    // Snap to Right -> Half screen right
+    if (bounds.x + bounds.width >= workArea.x + workArea.width - THRESHOLD) {
+      mainWindow.setBounds({
+        x: workArea.x + Math.floor(workArea.width / 2),
+        y: workArea.y,
+        width: Math.floor(workArea.width / 2),
+        height: workArea.height
+      })
+      return
+    }
+  })
 }
 
-ipcMain.on('remote-music-command', (_event, command, payload) => {
+// Removed old WA logic
+
+ipcMain.on('remote-music-command', (event, command, payload) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('execute-music-command', command, payload)
   }
 })
 
-ipcMain.on('mpris:update-track', (_event, track, playing) => {
-  try { updateMprisTrack(track, playing) } catch {}
-})
-ipcMain.on('mpris:set-status', (_event, playing) => {
-  try { setMprisPlaybackStatus(playing) } catch {}
+ipcMain.on('window-minimize', () => {
+  if (mainWindow) mainWindow.minimize()
 })
 
-import { fetchAI, setGlobalConfig, getGlobalConfig, abortAllFetches, resolveVisionModel, applyLearnedHints } from './ai-bridge.js'
-import { normalizeChatCompletionsUrl } from './modelDiscovery.js'
-import { getToolCatalog, getToolDetail, getToolCatalogString, getToolCatalogForQuery, matchVoiceCommand, refreshToolCache } from './tool-registry.js'
-
-ipcMain.on('sync-config', (_event, config) => {
-  setGlobalConfig(config)
-  if (config.lastfmApiKey) setLastfmKey(config.lastfmApiKey)
-  if (config.lastfmSessionKey) setLastfmSessionKey(config.lastfmSessionKey)
-  if (config.lastfmSharedSecret) setLastfmSharedSecret(config.lastfmSharedSecret)
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('config-updated')
+ipcMain.on('window-maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize()
+    } else {
+      mainWindow.maximize()
+    }
   }
 })
 
-// ========== TOOL REGISTRY IPC ==========
-ipcMain.handle('tool-catalog', () => getToolCatalogString())
-ipcMain.handle('tool-catalog-query', (_event, query, maxResults) => getToolCatalogForQuery(query, maxResults))
-ipcMain.handle('tool-detail', (_event, toolName) => {
-  const detail = getToolDetail(toolName)
-  return detail ? { name: detail.name, category: detail.category, description: detail.description, l1: detail.l1 } : null
+ipcMain.on('window-close', () => {
+  if (mainWindow) mainWindow.close()
 })
-ipcMain.on('tool-refresh', () => refreshToolCache())
-ipcMain.handle('voice-fast-path', (_event, voiceText) => matchVoiceCommand(voiceText))
 
-ipcMain.handle('native-tool:execute', async (_event, toolName, query) => {
+
+ipcMain.on('sync-config', (event, config) => {
+  setGlobalConfig(config)
+  if (config?.tgBotToken && config.tgBotToken.trim() && getConnectionStatus().status === 'disconnected') {
+    console.log('[Main] Auto-starting Telegram Bot from synced config...')
+    startTelegramBot(config.tgBotToken.trim(), mainWindow)
+  }
+  
+  // Re-register global shortcut dynamically
+  const shortcut = config?.shortcutKey || 'CommandOrControl+Alt+M'
+  globalShortcut.unregisterAll()
+  try {
+    globalShortcut.register(shortcut, () => {
+      if (mainWindow) {
+        mainWindow.show()
+        mainWindow.webContents.send('trigger-live-audio')
+      }
+    })
+  } catch (err) {
+    console.error('[Main] Failed to register shortcut:', err)
+  }
+})
+
+// --- NATIVE TOOLS IPC ---
+ipcMain.handle('native-tool:execute', async (event, toolName, query, config) => {
   const tool = NATIVE_TOOLS[toolName]
   if (!tool) return { success: false, error: 'Tool tidak ditemukan' }
   try {
-    const result = await tool.handler(query)
+    const result = await tool.handler(query, config)
     return { success: true, data: result }
   } catch (err) {
     return { success: false, error: err.message }
   }
 })
 
-ipcMain.handle('native-tool:needs-approval', (_event, toolName, query) => {
+ipcMain.handle('native-tool:needs-approval', (event, toolName, query) => {
   const tool = NATIVE_TOOLS[toolName]
   if (!tool) return { needsApproval: false }
   const needs = typeof tool.needsApproval === 'function' ? tool.needsApproval(query) : tool.needsApproval
-  return {
+  return { 
     needsApproval: needs,
     message: needs && tool.approvalMessage ? tool.approvalMessage(query) : null
   }
 })
 
-ipcMain.handle('ai:fetch', async (_event, data) => {
+ipcMain.handle('ai:fetch', async (event, data) => {
   const { messages, config, isSmallTask, jsonSchema } = data
   try {
     const onStatus = (msg) => {
@@ -174,34 +242,9 @@ ipcMain.handle('ai:fetch', async (_event, data) => {
         mainWindow.webContents.send('ai:status', msg)
       }
     }
-    return await fetchAI(messages, config, undefined, isSmallTask, jsonSchema, null, onStatus)
+    return await fetchAI(messages, config, isSmallTask, jsonSchema, onStatus)
   } catch (error) {
-    let displayMessage = error.message
-    if (error.httpStatus) {
-      switch (error.httpStatus) {
-        case 401:
-          displayMessage = 'Kredensial AI tidak valid. Periksa API Key di halaman Configuration.'
-          break
-        case 404:
-          if (/credential/i.test(error.message)) {
-            displayMessage = 'Kredensial AI provider tidak aktif. Pastikan API Key dan provider yang dipilih sudah benar di halaman Configuration.'
-          } else {
-            displayMessage = 'Endpoint AI tidak ditemukan. Periksa URL endpoint di halaman Configuration.'
-          }
-          break
-        case 429:
-          displayMessage = 'Terlalu banyak permintaan. Tunggu beberapa saat, lalu coba lagi.'
-          break
-        case 500: case 502: case 503:
-          displayMessage = 'Server AI sedang sibuk. Coba lagi nanti.'
-          break
-        default:
-          displayMessage = `Gagal terhubung ke AI (HTTP ${error.httpStatus}). Periksa pengaturan di halaman Configuration.`
-      }
-    } else if (/network|fetch|econnrefused|enotfound|timeout/i.test(error.message)) {
-      displayMessage = 'Gagal terhubung ke server AI. Pastikan server aktif dan dapat dijangkau dari komputer ini.'
-    }
-    return { error: { message: displayMessage, code: error.code } }
+    return { error: { message: error.message, code: error.code } }
   }
 })
 
@@ -209,42 +252,41 @@ ipcMain.on('ai:abort-fetch', () => {
   abortAllFetches()
 })
 
-// SCAN MODELS: hit endpoint /models untuk auto-detect daftar model tersedia
-ipcMain.handle('ai:scan-models', async (_event, { endpoint, apiKey }) => {
+// --- GOOGLE WORKSPACE IPC ---
+ipcMain.handle('google:connect', async (event, clientId, clientSecret) => {
   try {
-    const modelsUrl = (endpoint || '').trim().replace(/\/chat\/completions\/?$/, '') + '/models'
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 15000)
-    const res = await fetch(modelsUrl, {
-      signal: controller.signal,
-      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {}
-    })
-    clearTimeout(timer)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
-    const ids = (data?.data || []).map(m => m.id).filter(Boolean)
-    return { models: ids }
-  } catch (error) {
-    if (error.name === 'AbortError') return { error: 'Timeout: endpoint tidak merespons dalam 15 detik' }
-    return { error: `Gagal scan endpoint: ${error.message}` }
+    await connectGoogle(clientId, clientSecret)
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message }
   }
 })
 
-// AUTO-LEARN: renderer meminta hints per-model (dari observasi di trackModelUsage)
-ipcMain.handle('ai:model-hints', (_event, modelName) => {
-  if (!modelName || typeof modelName !== 'string') return {}
+ipcMain.handle('google:disconnect', async () => {
   try {
-    return applyLearnedHints(modelName.trim())
-  } catch (e) {
-    console.warn('[ModelHints] Failed:', e.message)
-    return {}
+    await disconnectGoogle()
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message }
   }
 })
 
-app.setName('mark-linux')
+ipcMain.handle('google:status', async () => {
+  try {
+    const isConnected = await getGoogleStatus()
+    return { isConnected }
+  } catch (err) {
+    return { isConnected: false }
+  }
+})
 
+// This method will be called when Electron has finished
+// initialization and is ready to create browser windows.
+// Some APIs can only be used after this event occurs.
+
+// Gunakan folder terpisah untuk development agar terhindar dari error Cache Lock
 if (is.dev) {
-  app.setPath('userData', path.join(app.getPath('appData'), 'mark-linux-dev'))
+  app.setPath('userData', path.join(app.getPath('appData'), 'mark-dev'))
 }
 
 const gotTheLock = app.requestSingleInstanceLock()
@@ -253,7 +295,8 @@ if (!gotTheLock) {
   process.exit(0)
 }
 
-app.on('second-instance', (_event, _commandLine, _workingDirectory) => {
+app.on('second-instance', (event, commandLine, workingDirectory) => {
+  // Jika pengguna mencoba membuka aplikasi lagi, tampilkan window yang sudah ada
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.show()
@@ -261,26 +304,20 @@ app.on('second-instance', (_event, _commandLine, _workingDirectory) => {
   }
 })
 
-import {
-  startWhatsappBot,
-  stopWhatsappBot,
-  getConnectionStatus,
-  logoutWhatsapp,
-  uiMessageHistory
-} from './whatsapp/baileys-service.js'
+ipcMain.on('tg:start', (event, token) => startTelegramBot(token, mainWindow))
+ipcMain.on('tg:stop', () => stopTelegramBot())
+ipcMain.handle('tg:get-status', () => getConnectionStatus())
+ipcMain.handle('tg:get-history', () => uiMessageHistory)
 
-ipcMain.on('wa:start', () => startWhatsappBot(mainWindow))
-ipcMain.on('wa:stop', () => stopWhatsappBot())
-ipcMain.handle('wa:get-status', () => getConnectionStatus())
-ipcMain.handle('wa:get-history', () => uiMessageHistory)
-
-ipcMain.handle('parse-document', async (_event, arrayBuffer, isDocx) => {
+ipcMain.handle('parse-document', async (event, arrayBuffer, isDocx) => {
   try {
     const buffer = Buffer.from(arrayBuffer)
     if (isDocx) {
+      const mammoth = require('mammoth')
       const result = await mammoth.extractRawText({ buffer })
       return result.value
     } else {
+      const { PDFParse } = require('pdf-parse')
       const parser = new PDFParse({ data: buffer })
       const data = await parser.getText()
       return data.text
@@ -290,166 +327,91 @@ ipcMain.handle('parse-document', async (_event, arrayBuffer, isDocx) => {
     throw new Error('Gagal mem-parsing dokumen: ' + error.message)
   }
 })
-ipcMain.handle('wa:logout', async () => await logoutWhatsapp())
 
-import { loadPlugins, initPluginIPC } from './plugins/plugin-loader.js'
-import { navigateTo, readDOM, executeAction, closeBrowser, showBrowser } from './browser-agent.js'
+ipcMain.handle('dialog:open-file', async () => {
+  const result = await dialog.showOpenDialog({ properties: ['openFile', 'multiSelections'] })
+  if (result.canceled) return []
+  return result.filePaths
+})
+
+ipcMain.handle('save-temp-file', async (event, arrayBuffer, fileName) => {
+  try {
+    const tempDir = path.join(app.getPath('temp'), 'mark-attachments')
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true })
+    }
+    const cleanName = (fileName || `attachment_${Date.now()}.png`).replace(/[^a-zA-Z0-9._-]/g, '_')
+    const finalPath = path.join(tempDir, `${Date.now()}_${cleanName}`)
+    const buffer = Buffer.from(arrayBuffer)
+    fs.writeFileSync(finalPath, buffer)
+    return finalPath
+  } catch (err) {
+    console.error('[Main] save-temp-file error:', err)
+    return null
+  }
+})
+
 
 // Browser Automation IPCs
-ipcMain.handle('browser:navigate', async (_event, url) => {
+ipcMain.handle('browser:navigate', async (event, url) => {
   try { return await navigateTo(url) }
   catch (e) { return `[ERROR] Gagal membuka ${url}: ${e.message}` }
 })
-ipcMain.handle('browser:read-dom', async (_event) => {
+ipcMain.handle('browser:read-dom', async (event) => {
   try { return await readDOM() }
   catch (e) { return `[ERROR] Gagal membaca DOM: ${e.message}` }
 })
-ipcMain.handle('browser:action', async (_event, data) => {
+ipcMain.handle('browser:action', async (event, data) => {
   try { return await executeAction(data) }
   catch (e) { return `[ERROR] Gagal eksekusi action: ${e.message}` }
 })
-ipcMain.handle('browser:close', (_event) => {
+ipcMain.handle('browser:close', (event) => {
   return closeBrowser()
 })
 ipcMain.on('browser:show', () => {
   showBrowser()
 })
-ipcMain.handle('create-agent-skill', async (_event, skillDef) => {
-  try {
-    const { name, description, content, origin, platforms = [], tags = [] } = skillDef
-    if (!name || !content) throw new Error('name and content required')
-    if (!['mark-generated', 'user'].includes(origin)) {
-      throw new Error(`origin must be 'mark-generated' or 'user', got '${origin}'`)
-    }
 
-    const safeName = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    if (!safeName) throw new Error('name produces empty safeName after sanitization')
-    const projectSkills = path.join(process.cwd(), '.agents', 'skills')
-    const userSkills = path.join(os.homedir(), '.agents', 'skills')
-    const targetBase = fs.existsSync(projectSkills) ? projectSkills : userSkills
-    const skillDir = path.join(targetBase, safeName)
-    const skillPath = path.join(skillDir, 'SKILL.md')
 
-    // Don't overwrite unless same origin
-    if (fs.existsSync(skillPath)) {
-      const existing = fs.readFileSync(skillPath, 'utf8')
-      const originMatch = existing.match(/^origin:\s*(.+)$/m)
-      const existingOrigin = originMatch?.[1]?.trim()
-      if (existingOrigin !== origin) {
-        throw new Error(`Skill '${safeName}' exists with origin '${existingOrigin}'. Cannot overwrite with '${origin}'.`)
-      }
-    }
-
-    // WATERMARK v2: sign mark-generated skills at creation
-    const provider = origin === 'mark-generated' ? 'mark-ai' : 'user'
-    let signatureLine = ''
-    if (origin === 'mark-generated') {
-      // Body as loader will extract: frontmatter ends with '---\n', file = frontmatter + '\n' + content
-      // loader: lines.slice(endIdx+1).join('\n') → '\n' + content
-      const bodyHash = hashBody('\n' + content)
-      const canonical = buildCanonical({ name: safeName, watermark: 'v5.0.0', origin, provider, bodyHash })
-      signatureLine = `\nmark-signature: ${signContent(canonical)}`
-    }
-
-    const platformStr = platforms.length > 0 ? `\nplatforms: [${platforms.join(', ')}]` : ''
-    const tagsStr = tags.length > 0 ? `\ntags: [${tags.join(', ')}]` : ''
-    const frontmatter = `---
-name: ${safeName}
-description: ${description || ''}
-watermark: v5.0.0
-origin: ${origin}
-provider: ${provider}${signatureLine}${platformStr}${tagsStr}
----
-`
-    const fullContent = frontmatter + '\n' + content
-    fs.mkdirSync(skillDir, { recursive: true })
-    fs.writeFileSync(skillPath, fullContent, 'utf8')
-    console.log(`[create-agent-skill] Created: ${skillPath} (origin: ${origin}${signatureLine ? ', signed' : ', unsigned'})`)
-    // Reload skills and notify renderer to bust caches
-    loadSkills()
-    const { BrowserWindow } = await import('electron')
-    for (const win of BrowserWindow.getAllWindows()) {
-      win.webContents.send('agent-skills:updated')
-    }
-    return { success: true, path: skillPath, name: safeName }
-  } catch (err) {
-    console.error('[create-agent-skill] Failed:', err.message)
-    return { success: false, error: err.message }
-  }
-})
+// PC Automation IPCs
+ipcMain.handle('os:read', async () => await readDesktop())
+ipcMain.handle('os:click', async (event, query) => await executeClick(query))
+ipcMain.handle('os:type', async (event, query) => await executeType(query))
+ipcMain.handle('os:key', async (event, combo) => await executeKey(combo))
+ipcMain.handle('os:scroll', async (event, query) => await executeScroll(query))
+ipcMain.handle('os:open', async (event, target) => await openApp(target))
+ipcMain.handle('os:list-windows', async () => await listWindows())
+ipcMain.handle('os:focus-window', async (event, title) => await focusWindow(title))
+ipcMain.handle('os:ask-user', async (event, query) => await askUserPC(query))
+ipcMain.handle('app:get-documents-path', () => app.getPath('documents'))
 
 app.whenReady().then(async () => {
+  // Set app user model id for windows
   electronApp.setAppUserModelId('com.mark.agent')
 
-  // Wire YouTube BrowserWindow track callback → renderer
-  setOnTrackCallback((track) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('yt:track-updated', track)
-    }
-  })
-
-  // Wire play/pause state → renderer (toggle icon sync)
-  setPlayStateCallback((paused) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('yt:play-state', paused)
-    }
-  })
-
-  // Wire repeat mode (NONE/ALL/ONE) → renderer (loop icon sync)
-  setRepeatStateCallback((mode) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('yt:repeat-state', mode)
-    }
-  })
-
+  // Run on startup background (Only if packaged, to avoid raw electron.exe startup)
   if (app.isPackaged) {
     app.setLoginItemSettings({
       openAtLogin: true,
       openAsHidden: true
     })
   } else {
+    // Bersihkan 'electron' dari startup kalau jalan di mode dev
     app.setLoginItemSettings({
       openAtLogin: false,
       openAsHidden: false
     })
   }
 
+  // Load plugin & Inisialisasi IPC Bridge
+  await loadPlugins()
   initPluginIPC()
-  loadSkills()
-  initSkillsIPC()
+  setupSkillIPC()
 
-  // Spoof Referer/Origin on all sessions that load YouTube so requests look like
-  // they originate from youtube.com itself. Electron partitions do NOT inherit
-  // webRequest interceptors from defaultSession.
-  const ytFixSessions = [
-    session.defaultSession,
-    session.fromPartition('persist:youtube'),
-    session.fromPartition('persist:mark-browser')
-  ]
-  for (const s of ytFixSessions) {
-    s.webRequest.onBeforeSendHeaders(
-      { urls: ['https://www.youtube.com/*'] },
-      (details, callback) => {
-        details.requestHeaders['Referer'] = 'https://www.youtube.com'
-        details.requestHeaders['Origin'] = 'https://www.youtube.com'
-        callback({ requestHeaders: details.requestHeaders })
-      }
-    )
-  }
+  setupYoutubeFix()
 
-  try {
-    const ytSession = session.fromPartition('persist:youtube')
-    const markBrowserSession = session.fromPartition('persist:mark-browser')
-    const blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch)
-    blocker.enableBlockingInSession(ytSession)
-    blocker.enableBlockingInSession(markBrowserSession)
-    blocker.enableBlockingInSession(session.defaultSession)
-    console.log('[Adblock] Brave-style adblocker aktif (persist:youtube + persist:mark-browser + default)')
-  } catch (e) {
-    console.error('[Adblock] Gagal init:', e.message)
-  }
-
-  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+  // Grant camera & microphone permissions automatically (Electron blocks by default)
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
     const allowedPermissions = ['media', 'mediaKeySystem', 'geolocation', 'notifications', 'fullscreen']
     if (allowedPermissions.includes(permission)) {
       callback(true)
@@ -458,100 +420,77 @@ app.whenReady().then(async () => {
     }
   })
 
-  ipcMain.on('show-notification', (event, { title, body }) => {
-    if (Notification.isSupported()) {
-      new Notification({ title, body, icon: icon }).show()
-    }
-  })
-
   createWindow()
 
-  loadPlugins().then(() => console.log('[Plugins] Manifests loaded')).catch(e => console.error('[Plugins] Failed:', e))
+  // Setup System Tray
+  // Cara paling aman dan ampuh di Windows: Ekstrak icon 16x16 langsung dari file .exe aplikasi!
+  // Ini menghindari semua masalah pathing ASAR dan masalah format .ico yang rusak.
+  app
+    .getFileIcon(process.execPath, { size: 'small' })
+    .then((exeIcon) => {
+      tray = new Tray(exeIcon)
+      tray.setToolTip('Mark AI Assistant')
 
-  initMpris()
-  setMprisCallbacks({
-    onPlayPause: () => {
-      if (mainWindow && !mainWindow.isDestroyed())
-        mainWindow.webContents.send('execute-music-command', 'toggle')
-    },
-    onNext: () => {
-      if (mainWindow && !mainWindow.isDestroyed())
-        mainWindow.webContents.send('execute-music-command', 'next')
-    },
-    onPrevious: () => {
-      if (mainWindow && !mainWindow.isDestroyed())
-        mainWindow.webContents.send('execute-music-command', 'prev')
-    },
-    onStop: () => {
-      if (mainWindow && !mainWindow.isDestroyed())
-        mainWindow.webContents.send('execute-music-command', 'stop')
-    }
-  })
-
-  // WhatsApp bot: opt-in only — user starts via tray menu or IPC
-  // Auto-start removed for security: bot can send messages on behalf of user
-
-  const trayIcon = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
-  tray = new Tray(trayIcon)
-  tray.setToolTip('Mark AI Assistant')
-
-  const safeShow = () => {
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show()
-  }
-  const safeSend = (channel, ...args) => {
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, ...args)
-  }
-
-  const contextMenu = Menu.buildFromTemplate([
-    { label: 'Buka Mark', click: safeShow },
-    {
-      label: 'Monitor WhatsApp',
-      click: () => { safeShow(); safeSend('navigate', '/whatsapp-bot') }
-    },
-    {
-      label: 'Hidupkan WhatsApp Bot',
-      click: () => startWhatsappBot(mainWindow)
-    },
-    {
-      label: 'Matikan WhatsApp Bot',
-      click: () => stopWhatsappBot()
-    },
-    {
-      label: 'Ngobrol Sekarang (Live Audio)',
-      click: () => { safeShow(); safeSend('trigger-live-audio') }
-    },
-    { type: 'separator' },
-    {
-      label: 'Keluar',
-      click: () => { app.isQuitting = true; app.quit() }
-    }
-  ])
-  tray.setContextMenu(contextMenu)
-  tray.on('click', safeShow)
-
+      const contextMenu = Menu.buildFromTemplate([
+        { label: 'Buka Mark', click: () => mainWindow.show() },
+        {
+          label: 'Telegram Bot',
+          click: () => {
+            mainWindow.show()
+            mainWindow.webContents.send('navigate', '/telegram-bot')
+          }
+        },
+        {
+          label: 'Matikan Telegram Bot',
+          click: () => {
+            stopTelegramBot()
+          }
+        },
+        {
+          label: 'Ngobrol Sekarang (Live Audio)',
+          click: () => {
+            mainWindow.show()
+            mainWindow.webContents.send('trigger-live-audio')
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Keluar',
+          click: () => {
+            isQuiting = true
+            app.quit()
+          }
+        }
+      ])
+      tray.setContextMenu(contextMenu)
+      tray.on('click', () => mainWindow.show())
+    })
+    .catch(() => {
+      // Fallback jika gagal (misal saat masih mode npm run dev)
+      tray = new Tray(nativeImage.createFromPath(icon).resize({ width: 16, height: 16 }))
+      tray.setToolTip('Mark AI Assistant')
+    })
+  // Global Shortcut (Toggle)
+  // Menggunakan Ctrl+Alt+M untuk menghindari bentrok dengan shortcut OS atau aplikasi lain (misal: Discord/AMD)
   globalShortcut.register('CommandOrControl+Alt+M', () => {
     if (mainWindow) {
       mainWindow.show()
-      mainWindow.webContents.send('trigger-live-audio')
+      mainWindow.webContents.send('trigger-live-audio', 'toggle')
     }
   })
 
-  // PC Agent emergency stop: Ctrl+Shift+S
-  globalShortcut.register('Control+Shift+S', () => {
-    console.log('[PC-Agent] Emergency stop triggered via Ctrl+Shift+S')
-    emergencyStop()
-  })
-
+  // Awareness Engine IPC
   ipcMain.handle('awareness:get-buffer', () => getBuffer())
   ipcMain.on('awareness:clear-buffer', () => flushBuffer())
-
+  
   ipcMain.handle('take-screenshot', async () => {
     try {
       const sources = await desktopCapturer.getSources({
         types: ['screen'],
-        thumbnailSize: { width: 1280, height: 720 }
+        thumbnailSize: { width: 1280, height: 720 } // [OPTIMASI] Diturunkan dari 1080p ke 720p agar payload Base64 tidak terlalu besar dan mengurangi halusinasi AI
       })
       if (sources.length > 0) {
+        // Return array of Base64 for all screens
         return sources.map(source => ({
           name: source.name,
           data: source.thumbnail.toDataURL()
@@ -564,30 +503,26 @@ app.whenReady().then(async () => {
     }
   })
 
-  // ===== SESSION KNOWLEDGE AUTO-SAVE =====
-  // Removed 2026-08-08: dead code — sessionKnowledge.js extractor removed (YAGNI, 30358df), 0 callers in renderer. See docs/PLANNED/sessions/session-knowledge-schema.md (spec-only).
-
+  // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
-  ipcMain.handle('execute-node-task', async (_event, data) => {
+  ipcMain.on('show-notification', (event, { title, body }) => {
+    if (Notification.isSupported()) {
+      new Notification({ title, body, icon: icon }).show()
+    }
+  })
+
+  ipcMain.handle('execute-node-task', async (event, data) => {
+    // Jalankan kode Node.js di sini (misal: baca file, akses DB)
     console.log('Menerima data dari UI:', data)
     return `Berhasil memproses: ${data}`
   })
 
-  ipcMain.handle('open-external', async (_event, url) => {
-    try {
-      const parsed = new URL(url)
-      if (!['https:', 'http:', 'mailto:'].includes(parsed.protocol)) {
-        console.warn(`[SECURITY] open-external blocked: ${parsed.protocol}//${parsed.host}`)
-        return { blocked: true }
-      }
-      shell.openExternal(url)
-    } catch {
-      console.warn(`[SECURITY] open-external blocked (invalid URL): ${url?.slice(0, 100)}`)
-    }
+  ipcMain.handle('open-external', async (event, url) => {
+    shell.openExternal(url)
   })
 
-  ipcMain.handle('get-youtube-transcript', async (_event, url) => {
+  ipcMain.handle('get-youtube-transcript', async (event, url) => {
     try {
       const transcript = await fetchTranscript(url)
       const textTranscript = transcript
@@ -609,12 +544,12 @@ app.whenReady().then(async () => {
     }
   })
 
-  ipcMain.handle('youtube-search', async (_event, query) => {
+  ipcMain.handle('youtube-search', async (event, query) => {
     try {
       const ytData = await yts(query)
       const video = ytData.videos.slice(0, 4)
       return video.map((item) => ({
-        url: `https://music.youtube.com/watch?v=${item.videoId}`,
+        url: `https://www.youtube.com/watch?v=${item.videoId}`,
         title: item.title,
         author: item.author.name
       }))
@@ -624,27 +559,11 @@ app.whenReady().then(async () => {
     }
   })
 
-  // YouTube oEmbed metadata — fetch from main process (server-side, no CORS)
-  ipcMain.handle('youtube-embed-data', async (_event, url) => {
-    try {
-      const endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
-      const response = await axios.get(endpoint, { timeout: 10000 })
-      const data = response.data
-      return {
-        judul: data.title,
-        author: data.author_name,
-        thumbnail: data.thumbnail_url,
-        success: true
-      }
-    } catch (error) {
-      console.error('Gagal ambil data YouTube (main):', error.message)
-      return { judul: 'Video Tidak Ditemukan', author: '-', thumbnail: null, success: false }
-    }
-  })
+  // src/main/index.js
 
   let globalTTS = null
 
-  ipcMain.handle('tts-speak', async (_event, text, rate, pitch) => {
+  ipcMain.handle('tts-speak', async (_, text, rate, pitch) => {
     try {
       if (!globalTTS) {
         globalTTS = new MsEdgeTTS()
@@ -674,142 +593,47 @@ app.whenReady().then(async () => {
     }
   })
 
-  ipcMain.handle('search-music', async (_event, query) => {
+  let ytmusicInstance = null
+  ipcMain.handle('search-music', async (event, query) => {
     try {
-      const { videos } = await yts(query)
-      const results = videos.slice(0, 5).map((v) => ({
-        id: v.videoId,
-        title: v.title,
-        artist: v.author?.name || 'Unknown',
-        album: 'Single',
-        duration: v.duration.seconds,
-        thumbnail: v.image?.replace(/=w\d+-h\d+.*$/, '=w1080-h1080-l90-rj')?.replace(/\?sqp=.*$/, '') || ''
+      if (!ytmusicInstance) {
+        ytmusicInstance = new YTMusic()
+        await ytmusicInstance.initialize()
+      }
+
+      const results = await ytmusicInstance.search(query)
+      const validSongs = results.filter((item) => item.videoId)
+
+      return validSongs.slice(0, 5).map((song) => ({
+        id: song.videoId,
+        title: song.name,
+        artist: song.artist?.name || 'Unknown',
+        album: song.album?.name || 'Single',
+        duration: song.duration,
+        thumbnail: song.thumbnails?.[song.thumbnails.length - 1]?.url
+          ?.replace(/=w\d+-h\d+.*$/, '=w1080-h1080-l90-rj')
+          ?.replace(/\?sqp=.*$/, '')
       }))
-      return results
     } catch (error) {
       console.error('Mark gagal mencari lagu:', error.message)
       return []
     }
   })
-
-  ipcMain.handle('lastfm:get-recent', async (_event, user) => {
-    return getRecentTracks(user || getGlobalConfig()?.lastfmUser || '')
-  })
-  ipcMain.handle('lastfm:get-top', async (_event, user) => {
-    return await getTopTracks(user || getGlobalConfig()?.lastfmUser || '')
-  })
-  ipcMain.handle('lastfm:update-now-playing', async (_event, track, artist, album) => {
-    return await lastfmUpdateNowPlaying(track, artist, album)
-  })
-  ipcMain.handle('lastfm:scrobble', async (_event, track, artist, timestamp, album) => {
-    return await lastfmScrobble(track, artist, timestamp, album)
-  })
-  ipcMain.handle('lastfm:get-session-key', async (_event, username, password, apiKey, sharedSecret) => {
-    return await lastfmGetSessionKey(username, password, apiKey, sharedSecret)
-  })
-
-  // Local playback history (source-first: lokal = sumber utama, ga butuh last.fm)
-  ipcMain.handle('playback:record', (_event, title, artist) => {
-    return recordPlayback(title, artist)
-  })
-  ipcMain.handle('playback:recent', (_event, limit) => {
-    return getRecentPlayback(limit || 30)
-  })
-
-  ipcMain.handle('ytdl:get-info', async (_event, url) => {
-    return await getMediaInfo(url)
-  })
-  ipcMain.handle('ytdl:get-audio', async (_event, url) => {
-    return await getMediaWithAudio(url)
-  })
-  ipcMain.handle('ytdl:search', async (_event, query, limit) => {
-    return await searchMedia(query, limit || 5)
-  })
-
-  // ===== VISION MODEL ROUTING (Registry-based) =====
-  ipcMain.handle('vision:resolve-model', (_event, role) => {
-    const conf = getGlobalConfig() || {}
-    const comboName = conf.customModel || 'mark'
-    // resolveVisionModel is imported from ai-bridge at top of file
-    return resolveVisionModel(comboName, role)
-  })
-
-  ipcMain.handle('vision:get-endpoint', (_event, modelId) => {
-    const conf = getGlobalConfig() || {}
-    const activeProvider = conf.aiProvider || 'custom'
-    const customEndpoint = conf.customEndpoint || ''
-    const customApiKey = conf.customApiKey || ''
-
-    if (activeProvider === 'custom' && customEndpoint) {
-      const url = normalizeChatCompletionsUrl(customEndpoint)
-      const headers = { 'Content-Type': 'application/json' }
-      if (customApiKey) {
-        if (customEndpoint.includes('anthropic.com')) {
-          headers['x-api-key'] = customApiKey
-          headers['anthropic-version'] = '2023-06-01'
-        } else {
-          headers['Authorization'] = `Bearer ${customApiKey}`
-        }
-      }
-      return { url, headers }
-    }
-    // LM Studio tetap tersedia sebagai fallback lokal (nonaktif by default)
-    return { url: normalizeChatCompletionsUrl(customEndpoint) || 'http://localhost:1234/v1/chat/completions', headers: { 'Content-Type': 'application/json' } }
-  })
-
-  // ===== YOUTUBE PLAYER (BrowserWindow, not webview) =====
-  ipcMain.handle('yt:load', (_e, url) => { loadYouTubeHidden(url); return { success: true } })
-  ipcMain.handle('yt:show', () => { showPlayer(); return { success: true } })
-  ipcMain.handle('yt:hide', () => { hidePlayer(); return { success: true } })
-  ipcMain.handle('yt:is-visible', () => isPlayerVisible())
-  ipcMain.handle('yt:get-url', () => getPlayerUrl())
-  ipcMain.handle('yt:close', () => { closePlayer(); return { success: true } })
-  ipcMain.handle('yt:command', (_e, command) => { sendKeyboardCommand(command); return { success: true } })
-  ipcMain.handle('yt:get-duration', async () => await getDuration())
-
-  // ===== LINUX PC AGENT IPC =====
-  ipcMain.handle('os:read', () => readDesktop())
-  ipcMain.handle('os:click', (_e, query) => executeClick(query))
-  ipcMain.handle('os:type', (_e, text) => executeType(text))
-  ipcMain.handle('os:key', (_e, combo) => executeKey(combo))
-  ipcMain.handle('os:scroll', (_e, query) => executeScroll(query))
-  ipcMain.handle('os:open', (_e, name) => openApp(name))
-  ipcMain.handle('os:list-windows', () => listWindows())
-  ipcMain.handle('os:focus-window', (_e, title) => focusWindow(title))
-  ipcMain.handle('os:ask-user', (_e, question) => askUserPC(question))
-  ipcMain.handle('os:screenshot', (_e, path) => captureScreenshot(path))
-  ipcMain.handle('os:ocr-region', (_e, x, y, w, h) => ocrRegion(x, y, w, h))
-  ipcMain.handle('os:emergency-stop', () => emergencyStop())
-
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 
+  // Start Awareness Engine
   startTracking()
 })
 
-app.on('will-quit', async () => {
-  abortAllFetches()
-  stopTracking()
-  stopMpris()
-  stopWhatsappBot()
-  try { await closeBrowser() } catch {}
-  if (tray) tray.destroy()
+app.on('will-quit', () => {
   globalShortcut.unregisterAll()
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform === 'linux') {
-    app.isQuitting = true
-    app.quit()
-  }
+  // Abaikan event ini agar aplikasi tetap hidup di background tray
 })
 
-const cleanExit = () => {
-  app.isQuitting = true
-  if (tray) tray.destroy()
-  app.exit(0)
-}
-process.on('SIGINT', cleanExit)
-process.on('SIGTERM', cleanExit)
-process.on('SIGHUP', cleanExit)
+// In this file you can include the rest of your app's specific main process
+// code. You can also put them in separate files and require them here.

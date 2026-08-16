@@ -1,11 +1,52 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { getAllMemory } from '../api/db'
 import { getRelevantMemory } from '../api/vectorMemory'
 import { getAwarenessResponse } from '../api/ai/awareness'
 
 const CHECKIN_INTERVAL = 10 * 60 * 1000
 const INITIAL_DELAY = 60 * 1000
-const AUTONOMOUS_COOLDOWN = 120 * 1000
+
+const formatAwarenessContent = (content) => {
+  if (typeof content === 'string') return content
+  if (content == null) return ''
+
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === 'string') return part
+        if (part?.type === 'text') return part.text || ''
+        if (part?.type === 'image_url') return '[Gambar]'
+        return ''
+      })
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  return JSON.stringify(content)
+}
+
+const tokenizeForSimilarity = (text) => {
+  return new Set(
+    String(text || '')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter((word) => word.length > 3)
+  )
+}
+
+const isSimilarAwarenessMessage = (message, recentMessages) => {
+  const incomingTokens = tokenizeForSimilarity(message)
+  if (incomingTokens.size < 4) return false
+
+  return recentMessages.some((item) => {
+    const previousTokens = tokenizeForSimilarity(formatAwarenessContent(item.content))
+    if (previousTokens.size < 4) return false
+
+    const shared = [...incomingTokens].filter((word) => previousTokens.has(word)).length
+    return shared / Math.min(incomingTokens.size, previousTokens.size) >= 0.45
+  })
+}
 
 export const useAwareness = ({
   isLoading,
@@ -25,29 +66,14 @@ export const useAwareness = ({
   const isLoadingRef = useRef(isLoading)
   const isAgentBusyRef = useRef(isAgentBusy)
   const lastCheckInRef = useRef(0)
-  const bufferEmptyRef = useRef(false)
-  const mountedRef = useRef(false)
-  const lastUserActivityRef = useRef(Date.now())
-  const prevChatLengthRef = useRef(0)
-  const lastAutonomousRef = useRef(0)
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     chatDataRef.current = chatData
     configRef.current = config
     handlePlanningCommandRef.current = handlePlanningCommand
     currentMusicTrackRef.current = currentMusicTrack
     isLoadingRef.current = isLoading
     isAgentBusyRef.current = isAgentBusy
-
-    // Track user activity: if chatData length increased, a new message was added.
-    // Check if the latest message is from the user to update activity timestamp.
-    if (chatData.length > prevChatLengthRef.current) {
-      const latestMsg = chatData[chatData.length - 1]
-      if (latestMsg?.role === 'user') {
-        lastUserActivityRef.current = Date.now()
-      }
-    }
-    prevChatLengthRef.current = chatData.length
   }, [chatData, config, handlePlanningCommand, currentMusicTrack, isLoading, isAgentBusy])
 
   const isAwarenessEnabled = config?.[0]?.awarenessEnabled !== false
@@ -68,22 +94,18 @@ export const useAwareness = ({
       try {
         isRequestingRef.current = true
         lastCheckInRef.current = Date.now()
+        console.log('[useAwareness] Memulai check-in...')
 
         const buffer = await window.api.getActivityBuffer()
-        const wasBufferEmpty = bufferEmptyRef.current
         if (!buffer || buffer.length < 1) {
+          console.log('[useAwareness] Skip check-in: Buffer kosong')
           isRequestingRef.current = false
-          // Only log once when transitioning from data→empty, silence repeat skips
-          if (!wasBufferEmpty) {
-            bufferEmptyRef.current = true
-            console.log('[useAwareness] Buffer kosong — check-in dihentikan')
-          }
           return
         }
-        bufferEmptyRef.current = false
-        console.log('[useAwareness] Memulai check-in, entries:', buffer.length, buffer)
+
+        console.log('[useAwareness] Mengirim buffer ke AI:', buffer)
         const allMemory = await getAllMemory()
-        const memoryRef = await getRelevantMemory(allMemory)
+        const memoryRef = await getRelevantMemory('aktivitas user bekerja dan rutinitas', allMemory)
 
         // Ambil 5 riwayat chat terakhir tanpa status isThinking dll
         const recentChat = (chatDataRef.current || [])
@@ -108,32 +130,34 @@ export const useAwareness = ({
         )
         console.log('[useAwareness] AI Response:', result)
 
+        // Filter terakhir di UI layer: awareness tidak boleh memparafrase pesan terbaru.
+        const recentVisibleMessages = (chatDataRef.current || [])
+          .filter((m) => !m.isThinking && !m.isSearching && !m.isSummarizing)
+          .slice(-8)
+
+        if (
+          result.message &&
+          isSimilarAwarenessMessage(result.message, recentVisibleMessages)
+        ) {
+          console.log('[useAwareness] Skip check-in: message terlalu mirip dengan chat terbaru.')
+          return
+        }
+
         if (result.should_act || result.autonomous_prompt) {
-          if (isLoadingRef.current || isAgentBusyRef.current) {
+          if (isLoadingRef.current) {
             console.log(
-              '[useAwareness] Skip triggering action karena Mark sedang sibuk'
+              '[useAwareness] Skip triggering action karena Mark sedang sibuk (isLoading true)'
             )
             return
           }
-          // Cooldown: don't trigger autonomous actions if user sent message in last 30s.
-          // Uses lastUserActivityRef (updated when chatData grows with a user message)
-          // because chatData messages don't have timestamp fields.
-          const timeSinceLastUserMsg = Date.now() - lastUserActivityRef.current
-          if (timeSinceLastUserMsg < 30000) {
-            console.log(`[useAwareness] Skip: user aktif ${Math.round(timeSinceLastUserMsg / 1000)}s yang lalu (< 30s cooldown)`)
-            return
-          }
-          // Post-autonomous cooldown: block for 2 min after last autonomous action
-          const sinceLastAuto = Date.now() - lastAutonomousRef.current
-          if (sinceLastAuto < AUTONOMOUS_COOLDOWN) {
-            console.log(`[useAwareness] Skip: autonomous cooldown ${Math.round((AUTONOMOUS_COOLDOWN - sinceLastAuto) / 1000)}s remaining`)
-            return
-          }
           console.log('[useAwareness] Triggering autonomous action!')
-          lastAutonomousRef.current = Date.now()
           // Push notification
           if (window.api.showNotification && !document.hasFocus() && result.message) {
             window.api.showNotification('Mark', result.message)
+          }
+
+          if (result.message && window.api?.tgBroadcastToAdmins) {
+            window.api.tgBroadcastToAdmins(`🔔 *Mark (Awareness)*:\n${result.message}`)
           }
 
           // Jika ada perintah autonomus, bypass chat bubble biasa dan langsung eksekusi plan siluman
@@ -173,20 +197,11 @@ export const useAwareness = ({
     }
 
     const id = setInterval(checkIn, CHECKIN_INTERVAL)
-
-    // Guard against React StrictMode double-fire: only schedule one initial timeout
-    if (!mountedRef.current) {
-      mountedRef.current = true
-      const initialTimeout = setTimeout(checkIn, INITIAL_DELAY)
-      return () => {
-        clearInterval(id)
-        clearTimeout(initialTimeout)
-        mountedRef.current = false
-      }
-    }
+    const initialTimeout = setTimeout(checkIn, INITIAL_DELAY)
 
     return () => {
       clearInterval(id)
+      clearTimeout(initialTimeout)
     }
   }, [isAwarenessEnabled, setChatData, setOrbStatus]) // Hapus isLoading & isAgentBusy dari deps biar gak keriset mulu
 }

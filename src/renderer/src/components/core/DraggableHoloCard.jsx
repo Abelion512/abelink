@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const DraggableHoloCard = ({ 
   children, 
@@ -12,7 +12,6 @@ const DraggableHoloCard = ({
   const [isDragging, setIsDragging] = useState(false);
   const [animState, setAnimState] = useState(isVisible ? 'entering' : 'hidden');
   const dragRef = useRef({ offsetX: 0, offsetY: 0 });
-  const rafRef = useRef(null);
 
   useEffect(() => {
     if (isVisible) {
@@ -26,32 +25,24 @@ const DraggableHoloCard = ({
     }
   }, [isVisible]);
 
-  // Throttle mousemove via requestAnimationFrame to avoid 800ms handler
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isDragging) return;
-      if (rafRef.current) return; // skip if frame already queued
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null;
-        let newX = e.clientX - dragRef.current.offsetX;
-        let newY = e.clientY - dragRef.current.offsetY;
+      
+      let newX = e.clientX - dragRef.current.offsetX;
+      let newY = e.clientY - dragRef.current.offsetY;
 
-        // Simple boundary clamping
-        const maxX = window.innerWidth - 100; // at least 100px visible
-        const maxY = window.innerHeight - 50;
-        
-        newX = Math.max(0, Math.min(newX, maxX));
-        newY = Math.max(0, Math.min(newY, maxY));
+      // Simple boundary clamping
+      const maxX = window.innerWidth - 100; // at least 100px visible
+      const maxY = window.innerHeight - 50;
+      
+      newX = Math.max(0, Math.min(newX, maxX));
+      newY = Math.max(0, Math.min(newY, maxY));
 
-        setPos({ x: newX, y: newY });
-      });
+      setPos({ x: newX, y: newY });
     };
 
     const handleMouseUp = () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
       setIsDragging(false);
     };
 
@@ -63,10 +54,6 @@ const DraggableHoloCard = ({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
     };
   }, [isDragging]);
 
@@ -93,21 +80,21 @@ const DraggableHoloCard = ({
       className={`fixed ${animationClass} ${dragClass} transition-transform duration-75`}
       style={{ left: pos.x, top: pos.y, width: 'fit-content' }}
     >
-      <div className="relative overflow-hidden rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[0_4px_30px_oklch(var(--p)/0.1)]">
+      <div className="relative overflow-hidden rounded-sm bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[0_4px_30px_oklch(var(--p)/0.1)]">
         
         {/* Animated Border Flow (Top & Bottom) */}
         <div className="absolute top-0 left-0 right-0 h-[1px] bg-[var(--color-holo-border)] bg-[length:200%_auto] animate-[holo-border-flow_3s_linear_infinite]" />
         <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-[var(--color-holo-border)] bg-[length:200%_auto] animate-[holo-border-flow_3s_linear_infinite] rotate-180" />
         
-        {/* Corner Accents */}
-        <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-success rounded-tl-2xl opacity-50 pointer-events-none" />
-        <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-success rounded-tr-2xl opacity-50 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-success rounded-bl-2xl opacity-50 pointer-events-none" />
-        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-success rounded-br-2xl opacity-50 pointer-events-none" />
+        {/* HUD Brackets */}
+        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/30 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/30 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white/30 pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white/30 pointer-events-none" />
 
         {/* Header / Drag Handle */}
         <div 
-          className="flex items-center justify-between px-4 py-2 glass glass-hover cursor-grab active:cursor-grabbing border-b border-white/5 select-none"
+          className="flex items-center justify-between px-4 py-2 bg-base-300/50 cursor-grab active:cursor-grabbing border-b border-white/5 select-none"
           onMouseDown={handleMouseDown}
         >
           <div className="flex items-center gap-2">
@@ -117,7 +104,7 @@ const DraggableHoloCard = ({
           
           <button 
             onClick={onClose}
-            className="text-white/50 hover:text-error transition-colors p-1 -mr-2 rounded-md glass glass-hover"
+            className="text-white/50 hover:text-error transition-colors p-1 -mr-2 rounded-md hover:bg-white/10"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
