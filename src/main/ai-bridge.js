@@ -148,7 +148,7 @@ export const fetchAI = async (
       }
     }
 
-    let endpoint = `http://localhost:1234/v1/cha${pld.charAt(25)}/completions`
+    let endpoint = `http://localhost:20128/v1/cha${pld.charAt(25)}/completions` // 9Router
     let headers = {
       'Content-Type': 'application/json'
     }
@@ -170,14 +170,14 @@ export const fetchAI = async (
     }
 
     if (conf.aiProvider === 'custom') {
-      endpoint = conf.customEndpoint || 'http://localhost:1234/v1/chat/completions'
+      endpoint = conf.customEndpoint || 'http://localhost:20128/v1/chat/completions'
       if (conf.customApiKey) {
         headers['Authorization'] = `Bearer ${conf.customApiKey}`
       }
       body.model = conf.customModel || 'default-model'
     } else {
-      endpoint = `http://localhost:1234/v1/cha${pld.charAt(25)}/completions`
-      body.model = conf.model || 'google/gemma-3-4b'
+      endpoint = `http://localhost:20128/v1/cha${pld.charAt(25)}/completions`
+      body.model = conf.model || 'abelink'
     }
 
     const parentAbortController = new AbortController()
