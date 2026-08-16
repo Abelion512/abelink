@@ -48,8 +48,8 @@ export const faqs = [
     a: "Jika Anda pakai mode Offline/Custom Endpoint, kecepatan mikir Mark 100% bergantung pada kekuatan prosesor (CPU) dan VGA laptop Anda. Semakin besar memori otak (model AI) yang dipakai, semakin berat kerja laptopnya."
   },
   {
-    q: "Apa bedanya pakai Groq dan Custom API lokal?",
-    a: "Groq mikirnya lewat internet super ngebut dari pusat data raksasa, jadi Mark balasnya instan. Custom API lokal (misalnya via Ollama atau 9Router) mikirnya pakai mesin laptop Anda sendiri, jalannya offline tanpa butuh kuota internet, tapi bikin laptop kerja keras."
+    q: "Apakah Groq bisa dipakai untuk chat AI?",
+    a: "Groq di Mark saat ini hanya untuk Speech-to-Text (mengubah suara jadi teks). Untuk otak chat AI, pakai Gemini (Gratis) atau Custom API lokal (misalnya Ollama/9Router) via endpoint OpenAI-Compatible."
   },
   {
     q: "Bisakah saya menghapus ingatan Mark tentang saya?",
@@ -109,7 +109,7 @@ export const faqs = [
   },
   {
     q: "Bikin baterai laptop boros dan cepat panas nggak sih?",
-    a: "Kalau Anda atur otak AI-nya pakai mode Offline/Custom Endpoint pas nggak di-cas, JELAS IYA. Mesin AI lokal itu kerja rodi. Tapi kalau pakai sambungan online (Groq), dampaknya enteng banget buat laptop."
+    a: "Kalau Anda atur otak AI-nya pakai mode Offline/Custom Endpoint pas nggak di-cas, JELAS IYA. Mesin AI lokal itu kerja rodi. Tapi kalau pakai sambungan online (Gemini/Cloud API), dampaknya enteng banget buat laptop."
   },
   {
     q: "Bagaimana caranya bikin fitur atau kemampuan baru buat Mark?",

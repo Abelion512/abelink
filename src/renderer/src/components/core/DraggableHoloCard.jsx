@@ -107,7 +107,7 @@ const DraggableHoloCard = ({
 
         {/* Header / Drag Handle */}
         <div 
-          className="flex items-center justify-between px-4 py-2 bg-base-300/50 cursor-grab active:cursor-grabbing border-b border-white/5 select-none"
+          className="flex items-center justify-between px-4 py-2 glass glass-hover cursor-grab active:cursor-grabbing border-b border-white/5 select-none"
           onMouseDown={handleMouseDown}
         >
           <div className="flex items-center gap-2">
@@ -117,7 +117,7 @@ const DraggableHoloCard = ({
           
           <button 
             onClick={onClose}
-            className="text-white/50 hover:text-error transition-colors p-1 -mr-2 rounded-md hover:bg-white/10"
+            className="text-white/50 hover:text-error transition-colors p-1 -mr-2 rounded-md glass glass-hover"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>

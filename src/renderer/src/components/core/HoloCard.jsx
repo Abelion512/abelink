@@ -47,7 +47,7 @@ const HoloCard = ({ children, title, defaultExpanded = false }) => {
         {isOverflowing && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-white/70 hover:opacity-100 hover:bg-white/10 hover:text-white transition-all bg-white/5 py-2 rounded-lg border border-white/10"
+            className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-white/70 hover:opacity-100 hover:text-white transition-all glass glass-hover py-2 rounded-lg border border-white/10"
           >
             {isExpanded ? (
               <>▲ Ringkas Detail</>

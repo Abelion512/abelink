@@ -306,7 +306,7 @@ const InputBar = ({
               type="button"
               onClick={handleUrlSubmit}
               disabled={!urlText.trim()}
-              className="px-3 py-1 rounded-lg bg-white/10 text-white/80 text-xs hover:bg-white/20 disabled:opacity-30 transition-all"
+              className="px-3 py-1 rounded-lg text-white/80 text-xs disabled:opacity-30 transition-all glass glass-hover"
             >
               Tambah
             </button>
@@ -331,7 +331,7 @@ const InputBar = ({
         onDrop={handleDrop}
         className={`relative flex items-center bg-[var(--glass-bg)] backdrop-blur-xl border rounded-[2rem] p-2 pr-3 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all duration-300 focus-within:border-white/30 focus-within:shadow-[0_0_20px_rgba(255,255,255,0.08)] ${
           isDragging
-            ? 'border-white/50 bg-white/10 shadow-[0_0_30px_rgba(255,255,255,0.15)] scale-[1.02]'
+            ? 'border-white/50 scale-[1.02]'
             : 'border-[var(--glass-border)]'
         }`}
       >
@@ -347,7 +347,7 @@ const InputBar = ({
         <button
           type="button"
           onClick={handlePaperclipClick}
-          className="p-3 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-full transition-all flex-shrink-0"
+          className="p-3 text-white/40 hover:text-white/80 glass glass-hover rounded-full transition-all flex-shrink-0"
           title="Lampirkan File (PDF, DOCX, TXT, MD, Gambar, dll)"
         >
           <Paperclip size={16} />
@@ -360,7 +360,7 @@ const InputBar = ({
           className={`p-3 rounded-full transition-all flex-shrink-0 ${
             showUrlInput
               ? 'text-white bg-white/10'
-              : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+              : 'text-white/40 hover:text-white/80 glass glass-hover'
           }`}
           title="Lampirkan URL"
         >
@@ -374,12 +374,12 @@ const InputBar = ({
           disabled={isProcessing || isLoading}
           className={`relative p-3 md:p-4 rounded-full flex-shrink-0 transition-all duration-300 transform outline-none z-10 ${
             isProcessing
-              ? 'text-white/60 bg-white/10 cursor-wait'
+              ? 'text-white/60 glass glass-hover cursor-wait'
               : isLoading
-              ? 'text-white/20 bg-white/5 cursor-not-allowed'
+              ? 'text-white/20 glass glass-hover cursor-not-allowed'
               : isRecording
               ? 'text-error bg-error/20'
-              : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+              : 'text-white/40 hover:text-white/80 glass glass-hover'
           }`}
           style={{
             transform: isRecording && !isProcessing ? `scale(${1 + audioIntensity * 0.3})` : '',

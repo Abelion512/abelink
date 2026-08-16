@@ -276,7 +276,7 @@ const Guidebook = () => {
                       <h4 className="text-white font-semibold mb-2">Hybrid AI Engine</h4>
                       <p className="text-sm text-white/60 leading-relaxed">
                         Bisa berjalan secara offline/lokal via Custom Endpoint untuk privasi maksimal,
-                        atau menggunakan Groq API / Cloud API untuk mengeksekusi tugas berat dengan
+                        atau menggunakan Gemini / Cloud API untuk mengeksekusi tugas berat dengan
                         kecepatan super.
                       </p>
                     </div>
