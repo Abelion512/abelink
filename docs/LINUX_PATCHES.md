@@ -45,6 +45,14 @@ keputusan eksplisit user untuk memulai ulang dari nol.
   - `mainLayout` menerima prop `isStandalone`; `WindowControls` disembunyikan saat standalone
   - drag region dipindah dari container ke grip center saja
 
+### P5 — index.js: preload .mjs (ESM output — upstream bug)
+- File: `src/main/index.js`
+- Alasan: package.json `type:module` + electron-vite 5 → preload dibuild
+  menjadi `index.mjs`; main refer `index.js` → `Cannot find module` →
+  `window.api` undefined → tombol min/max/close no-op + fetchAI/plugin error.
+- Isi: `preload: path.join(__dirname, '../preload/index.mjs')`
+- Konflik saat merge: cek selalu (upstream mungkin fix dengan cara lain).
+
 ### P4 — package.json: +ytmusic-api (private)
 - File: `package.json`
 - Alasan: upstream `src/main/index.js` import `ytmusic-api` tapi package.json
