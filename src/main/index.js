@@ -73,7 +73,7 @@ function createWindow() {
     autoHideMenuBar: true,
     icon: icon,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
+      preload: path.join(__dirname, '../preload/index.mjs'),
       webviewTag: true,
       sandbox: false,
       webSecurity: false,
