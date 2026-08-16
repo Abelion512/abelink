@@ -69,13 +69,13 @@ const WindowControls = () => {
   }, [])
 
   return (
-    <div className="absolute top-0 left-0 right-0 h-10 z-[9999] [-webkit-app-region:drag] flex items-center justify-between px-4 pointer-events-none text-white">
+    <div className="absolute top-0 left-0 right-0 h-10 z-[9999] flex items-center justify-between px-4 pointer-events-none text-white">
       {/* Invisible left spacer to balance the right controls */}
       <div className="flex-1"></div>
 
       {/* Center Drag Grip */}
       <div
-        className="flex items-center justify-center opacity-30 hover:opacity-100 transition-opacity gap-2"
+        className="flex items-center justify-center opacity-30 hover:opacity-100 transition-opacity gap-2 [-webkit-app-region:drag]"
         title="Tahan dan geser untuk memindahkan"
       >
         <svg
@@ -142,13 +142,13 @@ const WindowControls = () => {
   )
 }
 
-const MainLayout = () => {
+const MainLayout = ({ isStandalone }) => {
   const location = useLocation()
   const isHome = location.pathname === '/'
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-transparent rounded-xl">
-      <WindowControls />
+      {!isStandalone && <WindowControls />}
       {/* Base Home Page - Always Mounted so AI Agent & Telegram Listeners Never Die */}
       <div className="h-full w-full">
         <MarkHome />
@@ -331,7 +331,7 @@ function App() {
         <ChatProvider>
           <HashRouter>
             <GlobalListener />
-            <MainLayout />
+            <MainLayout isStandalone={isStandalone} />
             <div style={{ display: isStandalone ? 'none' : 'block' }}>
               <YoutubeMusicPlayer />
             </div>

@@ -17,6 +17,7 @@ import path from 'path'
 import fs from 'fs'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.ico?asset'
+import iconPng from '../../resources/icon.png?asset'
 import { fetchTranscript } from 'youtube-transcript-plus'
 import yts from 'yt-search'
 import YTMusic from 'ytmusic-api'
@@ -466,8 +467,13 @@ app.whenReady().then(async () => {
       tray.on('click', () => mainWindow.show())
     })
     .catch(() => {
-      // Fallback jika gagal (misal saat masih mode npm run dev)
-      tray = new Tray(nativeImage.createFromPath(icon).resize({ width: 16, height: 16 }))
+      // Linux/dev fallback: icon.png (12px ke 22px untuk tray Linux lebih jelas)
+      tray = new Tray(
+        nativeImage.createFromPath(iconPng).resize({
+          width: process.platform === 'linux' ? 22 : 16,
+          height: process.platform === 'linux' ? 22 : 16
+        })
+      )
       tray.setToolTip('Mark AI Assistant')
     })
   // Global Shortcut (Toggle)
@@ -625,6 +631,11 @@ app.whenReady().then(async () => {
 
   // Start Awareness Engine
   startTracking()
+})
+
+app.on('before-quit', () => {
+  // Pastikan quit benar-benar keluar (bukan hide ke tray)
+  isQuiting = true
 })
 
 app.on('will-quit', () => {
