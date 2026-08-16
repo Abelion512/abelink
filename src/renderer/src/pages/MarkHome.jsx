@@ -37,7 +37,7 @@ const MarkHome = () => {
     isBooting
   } = chatContext
   useMemoryGroomer(true) // Aktifkan Hippocampus Engine (auto-groom memori)
-  useYoutubeMusic() // Initialize YT Music context
+  const { isPlaying } = useYoutubeMusic() // Initialize YT Music context
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
@@ -284,7 +284,7 @@ const MarkHome = () => {
               />
             </div>
             <button onClick={() => setActiveMode(null)}
-              className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-red-400/50 transition-all duration-300 active:scale-90 text-white/50 hover:text-red-400 glass glass-hover"
+              className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center border border-white/10 hover:border-red-400/50 transition-all duration-300 active:scale-90 text-white/50 hover:text-red-400 glass glass-hover"
               title="Tutup Chat">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
@@ -294,34 +294,34 @@ const MarkHome = () => {
         {/* Mode bar — selalu 4 tombol identik, aktif di-highlight */}
         <div className="flex items-center justify-center gap-2 animate-[fade-up_0.15s_ease-out_forwards]">
           <button onClick={() => setActiveMode(activeMode === 'chat' ? null : 'chat')}
-            className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all duration-300 active:scale-90 ${
+            className={`w-11 h-11 rounded-full flex items-center justify-center border border-white/10 transition-all duration-300 active:scale-90 ${
               activeMode === 'chat'
                 ? 'bg-white/15 border-white/30 text-white shadow-[0_0_16px_rgba(255,255,255,0.12)]'
-                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/70 hover:border-white/30'
+                : 'glass glass-hover text-white/70 hover:border-white/30'
             }`} title="Chat Mode">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
           </button>
           <button onClick={goVoice}
-            className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all duration-300 active:scale-90 ${
+            className={`w-11 h-11 rounded-full flex items-center justify-center border border-white/10 transition-all duration-300 active:scale-90 ${
               activeMode === 'voice'
                 ? 'bg-white/15 border-white/30 text-white shadow-[0_0_16px_rgba(255,255,255,0.12)]'
-                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/70 hover:border-white/30'
+                : 'glass glass-hover text-white/70 hover:border-white/30'
             }`} title="Voice Mode">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </button>
           <button onClick={() => setActiveMode('camera')}
-            className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all duration-300 active:scale-90 ${
+            className={`w-11 h-11 rounded-full flex items-center justify-center border border-white/10 transition-all duration-300 active:scale-90 ${
               activeMode === 'camera'
                 ? 'bg-white/15 border-white/30 text-white shadow-[0_0_16px_rgba(255,255,255,0.12)]'
-                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/70 hover:border-white/30'
+                : 'glass glass-hover text-white/70 hover:border-white/30'
             }`} title="Camera Mode">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
           </button>
           <button onClick={() => setActiveMode('screen')}
-            className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all duration-300 active:scale-90 ${
+            className={`w-11 h-11 rounded-full flex items-center justify-center border border-white/10 transition-all duration-300 active:scale-90 ${
               activeMode === 'screen'
                 ? 'bg-white/15 border-white/30 text-white shadow-[0_0_16px_rgba(255,255,255,0.12)]'
-                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/70 hover:border-white/30'
+                : 'glass glass-hover text-white/70 hover:border-white/30'
             }`} title="Share Screen">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </button>

@@ -34,7 +34,7 @@ export const YoutubeMusicPlayer = () => {
         ${isPlayerOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none h-0 overflow-hidden'}`}>
         <div className="rounded-2xl overflow-hidden shadow-2xl shadow-black/40 border border-white/10 bg-base-300/95 backdrop-blur-xl min-w-[280px] max-w-[320px]">
           {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2 bg-white/5 border-b border-white/5">
+          <div className="flex items-center justify-between px-3 py-2 glass glass-hover border-b border-[var(--glass-border)]">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
               <span className="text-[11px] font-medium text-white/50 uppercase tracking-wider">YouTube</span>
@@ -57,7 +57,7 @@ export const YoutubeMusicPlayer = () => {
           <div className="px-3 py-2.5">
             <div className="flex items-center gap-3">
               {/* Thumbnail mini */}
-              <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-white/5">
+              <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 glass">
                 {currentTrack.thumbnail ? (
                   <img src={currentTrack.thumbnail} alt="" className="w-full h-full object-cover" />
                 ) : (
@@ -89,7 +89,7 @@ export const YoutubeMusicPlayer = () => {
               <button onClick={prevTrack} className="text-white/50 hover:text-white transition-colors p-1" title="Previous">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
               </button>
-              <button onClick={playPause} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors" title="Play/Pause">
+              <button onClick={playPause} className="w-8 h-8 rounded-full glass glass-hover flex items-center justify-center transition-all" title="Play/Pause">
                 {isPlaying ? (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                 ) : (
@@ -106,3 +106,5 @@ export const YoutubeMusicPlayer = () => {
     </div>
   )
 }
+
+export default YoutubeMusicPlayer

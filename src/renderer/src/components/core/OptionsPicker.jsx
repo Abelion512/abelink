@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const COUNTDOWN = 60
 
@@ -53,7 +53,7 @@ const OptionsPicker = ({ options, defaultIndex = 0, onPick }) => {
           <button
             key={i}
             onClick={() => handlePick(opt.label)}
-            className="group relative flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-light bg-white/10 hover:bg-white/20 border border-white/10 hover:border-primary/60 transition-all duration-300 active:scale-95 shadow-[0_4px_30px_rgba(0,0,0,0.1)]"
+            className="group relative flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-light glass glass-hover border border-[var(--glass-border)] transition-all duration-300 active:scale-95 shadow-[0_4px_30px_rgba(0,0,0,0.1)]"
           >
             {opt.label}
             {i === defaultIndex && (

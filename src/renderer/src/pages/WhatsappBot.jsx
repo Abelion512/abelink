@@ -21,7 +21,7 @@ const WhatsappBot = () => {
   }, [messages, isThinking])
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-base-100/50">
+    <div className="relative w-full h-full flex flex-col glass">
       {/* Header */}
       <div className="navbar glass glass-hover border-b border-white/5 sticky top-0 z-0">
         <div className="flex-1">

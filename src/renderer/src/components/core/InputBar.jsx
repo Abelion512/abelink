@@ -337,7 +337,7 @@ const InputBar = ({
       >
         {/* Drag & Drop Overlay Indicator */}
         {isDragging && (
-          <div className="absolute inset-0 rounded-[2rem] bg-white/10 backdrop-blur-md border-2 border-dashed border-white/40 flex items-center justify-center z-50 pointer-events-none text-white font-medium gap-2 animate-pulse">
+          <div className="absolute inset-0 rounded-[2rem] glass glass-hover border-2 border-dashed border-white/40 flex items-center justify-center z-50 pointer-events-none text-white font-medium gap-2 animate-pulse">
             <Paperclip className="animate-bounce" size={20} />
             <span>Lepaskan file di sini untuk melampirkan...</span>
           </div>
@@ -359,7 +359,7 @@ const InputBar = ({
           onClick={() => setShowUrlInput(!showUrlInput)}
           className={`p-3 rounded-full transition-all flex-shrink-0 ${
             showUrlInput
-              ? 'text-white bg-white/10'
+              ? 'text-white glass'
               : 'text-white/40 hover:text-white/80 glass glass-hover'
           }`}
           title="Lampirkan URL"
@@ -415,7 +415,7 @@ const InputBar = ({
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-3 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-full transition-all"
+            className="p-3 text-white/40 hover:text-white/80 glass glass-hover rounded-full transition-all"
             title="Insert Emoji"
           >
             <Smile size={18} />
@@ -428,7 +428,7 @@ const InputBar = ({
                   key={emoji}
                   type="button"
                   onClick={() => handleEmojiClick(emoji)}
-                  className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-xl text-2xl transition-all hover:scale-110 active:scale-95"
+                  className="w-10 h-10 flex items-center justify-center glass glass-hover rounded-xl text-2xl transition-all hover:scale-110 active:scale-95"
                 >
                   {emoji}
                 </button>

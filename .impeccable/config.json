@@ -1,0 +1,35 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "animate-bounce",
+        "files": [
+          "src/renderer/src/components/core/InputBar.jsx"
+        ],
+        "createdAt": "2026-08-16T03:00:24.343Z",
+        "reason": "Intentional micro-feedback animation on drag state indicator — user-facing interaction cue, not decorative"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "animate-bounce",
+        "files": [
+          "src/renderer/src/pages/MarkHome.jsx"
+        ],
+        "createdAt": "2026-08-16T03:00:24.924Z",
+        "reason": "Intentional attention-grabbing for transient toast notification — user-facing status cue"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "src/renderer/src/components/core/OrbVisualizer.jsx"
+        ],
+        "createdAt": "2026-08-16T03:00:25.072Z",
+        "reason": "OrbVisualizer core visual identity — purple/violet gradient is intentional branding, not AI-generated artifact"
+      }
+    ]
+  }
+}

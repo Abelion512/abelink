@@ -9,7 +9,7 @@ import { generateGeminiResponse } from './services/gemini-web.js'
 // ========== MODEL REGISTRY (Dynamic, Pluggable) ==========
 const REGISTRY_PATH = join(__dirname, 'model-registry.json')
 
-function loadRegistry() {
+export function loadRegistry() {
   try {
     if (existsSync(REGISTRY_PATH)) {
       return JSON.parse(readFileSync(REGISTRY_PATH, 'utf8'))

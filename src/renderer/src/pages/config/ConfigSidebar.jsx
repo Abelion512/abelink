@@ -32,8 +32,8 @@ export default function ConfigSidebar({ activeSection, onSectionChange, onBack, 
               onClick={() => onSectionChange(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-150 ${
                 isActive
-                  ? 'bg-white/10 text-white font-semibold border border-white/15 backdrop-blur-sm'
-                  : 'hover:bg-white/5 opacity-70 hover:opacity-100'
+                  ? 'glass text-white font-semibold border-[var(--glass-border)]'
+                  : 'hover:glass glass-hover opacity-70 hover:opacity-100'
               }`}
             >
               <Icon size={16} className={isActive ? 'text-white' : 'opacity-60'} />

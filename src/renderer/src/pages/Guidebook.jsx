@@ -127,7 +127,7 @@ const Guidebook = () => {
       <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 blur-[120px] rounded-full pointer-events-none"></div>
 
       {/* Header */}
-      <header className="h-20 shrink-0 bg-base-300/80 backdrop-blur-xl border-b border-white/5 flex items-center px-8 z-20 relative">
+      <header className="h-20 shrink-0 glass glass-hover border-b border-[var(--glass-border)] flex items-center px-8 z-20 relative">
         <button
           onClick={() => navigate('/')}
           className="btn btn-ghost btn-sm gap-2 text-white/70 hover:text-white mr-6"
@@ -147,7 +147,7 @@ const Guidebook = () => {
       {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar Nav (Desktop) */}
-        <aside className="w-72 shrink-0 border-r border-white/5 bg-base-300/50 p-6 overflow-y-auto hidden md:block z-10">
+        <aside className="w-72 shrink-0 glass glass-hover border-r border-[var(--glass-border)] p-6 overflow-y-auto hidden md:block z-10">
           <h3 className="text-xs font-bold text-white/40 mb-6 uppercase tracking-widest">
             Daftar Isi
           </h3>
@@ -162,7 +162,7 @@ const Guidebook = () => {
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left ${
                   activeSection === item.id
                     ? 'bg-primary/20 text-primary border border-primary/30 shadow-[0_0_15px_oklch(var(--p)/0.2)]'
-                    : 'text-white/60 hover:bg-white/5 hover:text-white'
+                    : 'text-white/60 glass glass-hover'
                 }`}
               >
                 {item.icon} {item.label}
@@ -766,7 +766,7 @@ const Guidebook = () => {
               <h4 className="text-xl font-bold text-white mb-4">Relational Growth Parameter</h4>
               <ul className="space-y-4 text-white/70">
                 <li className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold text-white shrink-0">
+                  <div className="w-8 h-8 rounded-full glass glass-hover flex items-center justify-center font-bold text-white shrink-0">
                     1
                   </div>
                   <div>
@@ -775,7 +775,7 @@ const Guidebook = () => {
                   </div>
                 </li>
                 <li className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold text-white shrink-0">
+                  <div className="w-8 h-8 rounded-full glass glass-hover flex items-center justify-center font-bold text-white shrink-0">
                     2
                   </div>
                   <div>
@@ -784,7 +784,7 @@ const Guidebook = () => {
                   </div>
                 </li>
                 <li className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold text-white shrink-0">
+                  <div className="w-8 h-8 rounded-full glass glass-hover flex items-center justify-center font-bold text-white shrink-0">
                     3
                   </div>
                   <div>
@@ -793,7 +793,7 @@ const Guidebook = () => {
                   </div>
                 </li>
                 <li className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold text-white shrink-0">
+                  <div className="w-8 h-8 rounded-full glass glass-hover flex items-center justify-center font-bold text-white shrink-0">
                     4
                   </div>
                   <div>
@@ -950,13 +950,13 @@ try {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <div className="glass glass-hover border border-[var(--glass-border)] rounded-2xl p-6">
                   <h4 className="text-white font-bold mb-2">YouTube Page (Bukan Audio Saja)</h4>
                   <p className="text-sm text-white/60">
                     Mark memuat halaman YouTube penuh — bukan hanya audio. Ini penting untuk <strong className="text-white">Last.fm Scrobbling</strong>, metadata lagu, dan browsing manual.
                   </p>
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <div className="glass glass-hover border border-[var(--glass-border)] rounded-2xl p-6">
                   <h4 className="text-white font-bold mb-2">Cloudflare WARP Compatible</h4>
                   <p className="text-sm text-white/60">
                     Jika Anda menggunakan <code>warp-cli</code> untuk traffic DNS, ad blocking tetap berfungsi. <code>webRequest</code> hooks beroperasi di atas layer jaringan OS.
@@ -1013,7 +1013,7 @@ try {
                 {faqs.map((faq, idx) => (
                   <div
                     key={idx}
-                    className="collapse collapse-arrow bg-white/5 border border-white/10 text-white"
+                    className="collapse collapse-arrow glass glass-hover border border-[var(--glass-border)] text-white"
                   >
                     <input type="checkbox" defaultChecked={idx === 0} />
                     <div className="collapse-title text-lg font-bold">{faq.q}</div>

@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { getAllConfig } from '../api/db'
 import { transcribeAudioGroq } from '../api/groq'
-import { ChevronLeft, Microphone, Square, AlertTriangle } from 'lucide-react'
+import { ChevronLeft, Mic, Square, AlertTriangle } from 'lucide-react'
 
 const LiveAudio = () => {
   const {
@@ -338,7 +338,7 @@ const LiveAudio = () => {
       <div className="relative z-10 text-center mb-8 select-none">
         <div className="flex items-center justify-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-            <Microphone className="text-primary" size={20} />
+            <Mic className="text-primary" size={20} />
           </div>
           <h1 className="text-2xl font-bold">Live Audio</h1>
         </div>
@@ -440,7 +440,7 @@ const LiveAudio = () => {
           {isActive ? (
             <Square className="text-white" size={24} />
           ) : (
-            <Microphone className="text-white" size={24} />
+            <Mic className="text-white" size={24} />
           )}
         </button>
 
