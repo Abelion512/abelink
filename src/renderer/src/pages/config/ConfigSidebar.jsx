@@ -1,14 +1,14 @@
-import { FaKey, FaSlidersH, FaPlug, FaCamera, FaMicrophone, FaBrain, FaShieldAlt, FaComments, FaChevronLeft } from 'react-icons/fa'
+import { Key, SlidersHorizontal, Plug, Camera, Mic, Brain, ShieldCheck, MessageSquare, ChevronLeft } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { id: 'provider', label: 'Provider & Keys', icon: FaKey, desc: 'AI provider, model, API key' },
-  { id: 'persona', label: 'Persona', icon: FaSlidersH, desc: 'Kepribadian, temperatur, context' },
-  { id: 'integrations', label: 'Integrasi', icon: FaPlug, desc: 'Last.fm, Awareness' },
-  { id: 'camera', label: 'Kamera', icon: FaCamera, desc: 'Kamera & visual' },
-  { id: 'voice', label: 'Suara', icon: FaMicrophone, desc: 'TTS & mic' },
-  { id: 'memory', label: 'Memori', icon: FaBrain, desc: 'Relational growth' },
-  { id: 'admin', label: 'Admin', icon: FaShieldAlt, desc: 'WhatsApp admin' },
-  { id: 'chat', label: 'Chat', icon: FaComments, desc: 'Riwayat & data' },
+  { id: 'provider', label: 'Provider & Keys', icon: Key, desc: 'AI provider, model, API key' },
+  { id: 'persona', label: 'Persona', icon: SlidersHorizontal, desc: 'Kepribadian, temperatur, context' },
+  { id: 'integrations', label: 'Integrasi', icon: Plug, desc: 'Last.fm, Awareness' },
+  { id: 'camera', label: 'Kamera', icon: Camera, desc: 'Kamera & visual' },
+  { id: 'voice', label: 'Suara', icon: Mic, desc: 'TTS & mic' },
+  { id: 'memory', label: 'Memori', icon: Brain, desc: 'Relational growth' },
+  { id: 'admin', label: 'Admin', icon: ShieldCheck, desc: 'WhatsApp admin' },
+  { id: 'chat', label: 'Chat', icon: MessageSquare, desc: 'Riwayat & data' },
 ]
 
 export default function ConfigSidebar({ activeSection, onSectionChange, onBack, isFirstSetup, hasChat = true }) {
@@ -18,7 +18,7 @@ export default function ConfigSidebar({ activeSection, onSectionChange, onBack, 
     <aside className="flex flex-col h-full">
       {!isFirstSetup && (
         <button onClick={onBack} className="btn btn-ghost btn-sm btn-circle self-start m-2">
-          <FaChevronLeft size={14} />
+          <ChevronLeft size={14} />
         </button>
       )}
 
@@ -32,11 +32,11 @@ export default function ConfigSidebar({ activeSection, onSectionChange, onBack, 
               onClick={() => onSectionChange(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-150 ${
                 isActive
-                  ? 'bg-primary/20 text-primary font-semibold'
-                  : 'hover:bg-base-200 opacity-70 hover:opacity-100'
+                  ? 'bg-white/10 text-white font-semibold border border-white/15 backdrop-blur-sm'
+                  : 'hover:bg-white/5 opacity-70 hover:opacity-100'
               }`}
             >
-              <Icon size={16} className={isActive ? 'text-primary' : 'opacity-60'} />
+              <Icon size={16} className={isActive ? 'text-white' : 'opacity-60'} />
               <div className="min-w-0">
                 <div className="text-sm truncate">{item.label}</div>
                 <div className="text-xs opacity-50 truncate">{item.desc}</div>

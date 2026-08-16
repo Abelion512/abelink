@@ -46,7 +46,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
       setConfig((prev) => ({
         ...prev,
         ...data[0],
-        aiProvider: data[0].aiProvider === 'lm-studio' ? 'lmstudio' : (data[0].aiProvider || 'lmstudio'),
+        aiProvider: data[0].aiProvider === 'lm-studio' ? 'custom' : (data[0].aiProvider || 'custom'),
         micDeviceId: data[0].micDeviceId || 'default',
         awarenessEnabled: data[0].awarenessEnabled ?? true
       }))
@@ -122,7 +122,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               popover: {
                 title: '1. Pilih Mesin AI',
                 description:
-                  'Pilih Gemini (Gratis) untuk mulai ngobrol tanpa API Key, atau LM Studio untuk AI lokal offline. Butuh internet?',
+                  'Pilih Gemini (Gratis) untuk mulai ngobrol tanpa API Key, atau Custom API untuk endpoint OpenAI-Compatible. Butuh internet?',
                 side: 'bottom',
                 align: 'start'
               }
@@ -245,7 +245,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
       {/* Sidebar + Content Layout */}
       <div className="relative z-10 flex h-full">
         {/* Sidebar - hidden on mobile, shown on md+ */}
-        <div className="hidden md:flex flex-col w-56 lg:w-64 border-r border-base-content/10 bg-base-300/50 backdrop-blur-sm">
+        <div className="hidden md:flex flex-col w-56 lg:w-64 border-r border-base-content/10 glass glass-hover">
           <div className="p-4 pb-2">
             <h1 className="text-lg font-bold">
               {isFirstSetup ? 'Selamat Datang!' : 'Pengaturan'}
@@ -264,7 +264,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
         </div>
 
         {/* Mobile: top bar with section selector */}
-        <div className="md:hidden fixed top-0 left-0 right-0 z-20 bg-base-300/90 backdrop-blur-sm border-b border-base-content/10">
+        <div className="md:hidden fixed top-0 left-0 right-0 z-20 glass glass-hover border-b border-base-content/10">
           <div className="flex items-center gap-2 px-3 py-2">
             {!isFirstSetup && (
               <button onClick={handleBack} className="btn btn-ghost btn-sm btn-circle">

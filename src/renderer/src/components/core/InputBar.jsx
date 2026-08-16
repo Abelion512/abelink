@@ -1,35 +1,22 @@
-import React, { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import {
-  FaMicrophone,
-  FaStop,
-  FaArrowUp,
-  FaSmile,
-  FaPaperclip,
-  FaTimes,
-  FaFileAlt,
-  FaFilePdf,
-  FaFileCode,
-  FaFileImage
-} from 'react-icons/fa'
+  Mic,
+  Square,
+  ArrowUp,
+  Smile,
+  Paperclip,
+  X,
+  FileText,
+  FileCode,
+  FileImage,
+  Lock,
+  Link2
+} from 'lucide-react'
 import ConfirmModal from './ConfirmModal'
 
 const EMOJIS = [
-  '😂',
-  '🤣',
-  '😅',
-  '🗿',
-  '🙏',
-  '🔥',
-  '🚀',
-  '💀',
-  '😎',
-  '🤔',
-  '😭',
-  '❤️',
-  '👍',
-  '✨',
-  '👀',
-  '💯'
+  '😂', '🤣', '😅', '🗿', '🙏', '🔥', '🚀', '💀',
+  '😎', '🤔', '😭', '❤️', '👍', '✨', '👀', '💯'
 ]
 
 const formatFileSize = (bytes) => {
@@ -42,21 +29,34 @@ const formatFileSize = (bytes) => {
 const getFileIcon = (fileName = '') => {
   const ext = fileName.split('.').pop().toLowerCase()
   if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext))
-    return <FaFileImage className="text-accent" />
-  if (['pdf'].includes(ext)) return <FaFilePdf className="text-error" />
+    return <FileImage className="text-accent" size={14} />
+  if (['pdf'].includes(ext)) return <FileText className="text-error" size={14} />
   if (['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'py', 'cpp', 'cs'].includes(ext))
-    return <FaFileCode className="text-info" />
-  return <FaFileAlt className="text-primary" />
+    return <FileCode className="text-info" size={14} />
+  return <FileText className="text-primary" size={14} />
 }
 
-const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, source = 'pc' }) => {
+const InputBar = ({
+  onSubmit,
+  isLoading,
+  isRecording,
+  isProcessing,
+  audioIntensity = 0,
+  onStartRecord,
+  onStopRecord,
+  onStop
+}) => {
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
+  const urlInputRef = useRef(null)
   const [inputText, setInputText] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showAbortConfirm, setShowAbortConfirm] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState([])
   const [isDragging, setIsDragging] = useState(false)
+  const [showUrlInput, setShowUrlInput] = useState(false)
+  const [urlText, setUrlText] = useState('')
+  const lastPromptRef = useRef('')
 
   useEffect(() => {
     if (!isLoading && inputRef.current) {
@@ -97,31 +97,67 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
     fileInputRef.current?.click()
   }
 
-  const addFiles = (newFiles) => {
-    const parsedFiles = newFiles.map((f) => {
-      let resolvedPath = ''
-      if (window.api && window.api.getPathForFile) {
-        try {
-          resolvedPath = window.api.getPathForFile(f)
-        } catch (e) {
-          console.error('[InputBar] getPathForFile error:', e)
+  const addFiles = async (newFiles) => {
+    const parsedFiles = await Promise.all(
+      newFiles.map(async (f) => {
+        let resolvedPath = ''
+        if (window.api && window.api.getPathForFile) {
+          try {
+            resolvedPath = window.api.getPathForFile(f)
+          } catch (e) {
+            console.error('[InputBar] getPathForFile error:', e)
+          }
         }
-      }
-      if (!resolvedPath) resolvedPath = f.path || f.name
 
-      return {
-        name: f.name,
-        path: resolvedPath,
-        size: f.size,
-        type: f.type
-      }
-    })
+        const isRealDiskPath =
+          resolvedPath &&
+          resolvedPath !== f.name &&
+          (resolvedPath.includes('/') || resolvedPath.includes('\\'))
+
+        if (!isRealDiskPath && f.path && f.path !== f.name && (f.path.includes('/') || f.path.includes('\\'))) {
+          resolvedPath = f.path
+        }
+
+        // Web drag-drop: save to temp if no local path
+        if (
+          (!resolvedPath ||
+            resolvedPath === f.name ||
+            (!resolvedPath.includes('/') && !resolvedPath.includes('\\'))) &&
+          window.api?.saveTempFile
+        ) {
+          try {
+            const buffer = await f.arrayBuffer()
+            if (buffer && buffer.byteLength > 0) {
+              const tempPath = await window.api.saveTempFile(buffer, f.name)
+              if (tempPath) {
+                resolvedPath = tempPath
+              }
+            }
+          } catch (err) {
+            console.error('[InputBar] Failed to save dragged file to temp:', err)
+          }
+        }
+
+        if (!resolvedPath) resolvedPath = f.name
+
+        return {
+          name: f.name,
+          path: resolvedPath,
+          size: f.size,
+          type: f.type
+        }
+      })
+    )
 
     setAttachedFiles((prev) => {
       const existingPaths = new Set(prev.map((p) => p.path))
       const unique = parsedFiles.filter((p) => !existingPaths.has(p.path))
       return [...prev, ...unique]
     })
+
+    setTimeout(() => {
+      if (inputRef.current) inputRef.current.focus()
+    }, 50)
   }
 
   const removeFile = (indexToRemove) => {
@@ -151,6 +187,28 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
     }
   }
 
+  const handleUrlSubmit = () => {
+    const trimmed = urlText.trim()
+    if (!trimmed) return
+    // Add as a file-like attachment with the URL as path
+    setAttachedFiles((prev) => {
+      const exists = prev.some((f) => f.path === trimmed)
+      if (exists) return prev
+      return [
+        ...prev,
+        {
+          name: trimmed.split('/').pop() || trimmed,
+          path: trimmed,
+          size: 0,
+          type: 'text/uri-list',
+          isUrl: true
+        }
+      ]
+    })
+    setUrlText('')
+    setShowUrlInput(false)
+  }
+
   const handleFormSubmit = () => {
     let finalPrompt = inputText
     if (attachedFiles.length > 0) {
@@ -163,7 +221,10 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
       setAttachedFiles([])
     }
 
-    if (finalPrompt.trim() && !isLoading) {
+    if (finalPrompt.trim()) {
+      if (!isLoading) {
+        lastPromptRef.current = inputText
+      }
       setInputText('')
       if (typeof onSubmit === 'function') {
         onSubmit(finalPrompt)
@@ -189,7 +250,7 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
           {attachedFiles.map((file, idx) => (
             <div
               key={file.path + idx}
-              className="flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-full px-3 py-1.5 text-xs text-white shadow-lg animate-fade-in group hover:border-primary/50 transition-all flex-shrink-0"
+              className="flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-full px-3 py-1.5 text-xs text-white shadow-lg animate-fade-in group hover:border-white/30 transition-all flex-shrink-0"
             >
               <span className="text-sm">{getFileIcon(file.name)}</span>
               <span className="max-w-[140px] truncate font-medium">{file.name}</span>
@@ -202,7 +263,7 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
                 className="text-white/40 hover:text-error hover:bg-error/20 p-1 rounded-full transition-all"
                 title="Hapus Lampiran"
               >
-                <FaTimes size={10} />
+                <X size={10} />
               </button>
             </div>
           ))}
@@ -218,6 +279,48 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
         onChange={handleFileChange}
       />
 
+      {/* Web URL Input (expandable) */}
+      {showUrlInput && (
+        <div className="mb-2 flex items-center gap-2 animate-[holo-project-in_0.2s_ease-out_forwards]">
+          <div className="flex-1 flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-xl px-3 py-2 shadow-lg">
+            <Link2 size={14} className="text-white/40" />
+            <input
+              ref={urlInputRef}
+              type="url"
+              value={urlText}
+              onChange={(e) => setUrlText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleUrlSubmit()
+                }
+                if (e.key === 'Escape') {
+                  setShowUrlInput(false)
+                  setUrlText('')
+                }
+              }}
+              placeholder="Tempel URL dari web..."
+              className="flex-1 bg-transparent border-none outline-none text-white text-sm placeholder:text-white/30"
+            />
+            <button
+              type="button"
+              onClick={handleUrlSubmit}
+              disabled={!urlText.trim()}
+              className="px-3 py-1 rounded-lg bg-white/10 text-white/80 text-xs hover:bg-white/20 disabled:opacity-30 transition-all"
+            >
+              Tambah
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowUrlInput(false); setUrlText('') }}
+              className="p-1 text-white/40 hover:text-white/80 transition-all"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -226,16 +329,16 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`relative flex items-center bg-[var(--glass-bg)] backdrop-blur-xl border rounded-[2rem] p-2 pr-3 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all focus-within:border-primary/50 focus-within:shadow-[0_0_20px_oklch(var(--su)/0.2)] ${
+        className={`relative flex items-center bg-[var(--glass-bg)] backdrop-blur-xl border rounded-[2rem] p-2 pr-3 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all duration-300 focus-within:border-white/30 focus-within:shadow-[0_0_20px_rgba(255,255,255,0.08)] ${
           isDragging
-            ? 'border-primary bg-primary/10 shadow-[0_0_30px_oklch(var(--p)/0.3)] scale-[1.02]'
+            ? 'border-white/50 bg-white/10 shadow-[0_0_30px_rgba(255,255,255,0.15)] scale-[1.02]'
             : 'border-[var(--glass-border)]'
         }`}
       >
         {/* Drag & Drop Overlay Indicator */}
         {isDragging && (
-          <div className="absolute inset-0 rounded-[2rem] bg-primary/20 backdrop-blur-md border-2 border-dashed border-primary flex items-center justify-center z-50 pointer-events-none text-white font-medium gap-2 animate-pulse">
-            <FaPaperclip className="animate-bounce" size={20} />
+          <div className="absolute inset-0 rounded-[2rem] bg-white/10 backdrop-blur-md border-2 border-dashed border-white/40 flex items-center justify-center z-50 pointer-events-none text-white font-medium gap-2 animate-pulse">
+            <Paperclip className="animate-bounce" size={20} />
             <span>Lepaskan file di sini untuk melampirkan...</span>
           </div>
         )}
@@ -247,21 +350,64 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
           className="p-3 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-full transition-all flex-shrink-0"
           title="Lampirkan File (PDF, DOCX, TXT, MD, Gambar, dll)"
         >
-          <FaPaperclip size={16} />
+          <Paperclip size={16} />
         </button>
 
-        {/* Mic / Record Toggle */}
+        {/* URL Source Button */}
         <button
           type="button"
-          onClick={onToggleRecord}
+          onClick={() => setShowUrlInput(!showUrlInput)}
           className={`p-3 rounded-full transition-all flex-shrink-0 ${
-            isRecording
-              ? 'text-error bg-error/20 animate-pulse'
+            showUrlInput
+              ? 'text-white bg-white/10'
               : 'text-white/40 hover:text-white/80 hover:bg-white/5'
           }`}
-          title={isRecording ? 'Stop Recording' : 'Click to Talk'}
+          title="Lampirkan URL"
         >
-          <FaMicrophone size={18} />
+          <Link2 size={16} />
+        </button>
+
+        {/* Mic / Record Toggle (Hold to talk) */}
+        <button
+          type="button"
+          onClick={isRecording ? onStopRecord : onStartRecord}
+          disabled={isProcessing || isLoading}
+          className={`relative p-3 md:p-4 rounded-full flex-shrink-0 transition-all duration-300 transform outline-none z-10 ${
+            isProcessing
+              ? 'text-white/60 bg-white/10 cursor-wait'
+              : isLoading
+              ? 'text-white/20 bg-white/5 cursor-not-allowed'
+              : isRecording
+              ? 'text-error bg-error/20'
+              : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+          }`}
+          style={{
+            transform: isRecording && !isProcessing ? `scale(${1 + audioIntensity * 0.3})` : '',
+            boxShadow: isRecording && !isProcessing
+              ? `0 0 ${10 + audioIntensity * 40}px rgba(255,0,0, ${0.3 + audioIntensity * 0.5})`
+              : ''
+          }}
+          title={
+            isProcessing
+              ? 'Sedang memproses suara...'
+              : isLoading
+              ? 'Agen sedang sibuk'
+              : 'Mulai/Berhenti Rekam (Ctrl+Alt+M)'
+          }
+        >
+          {isRecording && !isProcessing && (
+            <div
+              className="absolute inset-0 rounded-full bg-error/30 -z-10 transition-transform duration-75"
+              style={{ transform: `scale(${1 + audioIntensity * 0.8})` }}
+            />
+          )}
+          {isProcessing ? (
+            <span className="loading loading-spinner w-[18px] h-[18px]"></span>
+          ) : isLoading ? (
+            <Lock size={18} />
+          ) : (
+            <Mic size={18} />
+          )}
         </button>
 
         {/* Emoji Button */}
@@ -272,7 +418,7 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
             className="p-3 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-full transition-all"
             title="Insert Emoji"
           >
-            <FaSmile size={18} />
+            <Smile size={18} />
           </button>
 
           {showEmojiPicker && (
@@ -300,7 +446,7 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()
-              if (!isSendDisabled && !isLoading) {
+              if (!isSendDisabled) {
                 handleFormSubmit()
               }
             }
@@ -309,8 +455,8 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
             isLoading
               ? 'Beri intervensi ke Mark...'
               : attachedFiles.length > 0
-                ? 'Tambah instruksi untuk file terlampir...'
-                : 'Tanya apapun ke Mark...'
+              ? 'Tambah instruksi untuk file terlampir...'
+              : 'Tanya apapun ke Mark...'
           }
           className="flex-1 resize-none bg-transparent border-none outline-none text-white px-3 py-2.5 text-sm md:text-base leading-normal placeholder:text-white/30 disabled:opacity-50 no-scrollbar"
         />
@@ -324,16 +470,16 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
               className="p-3 rounded-full bg-error/20 text-error hover:bg-error hover:text-white transition-all"
               title="Stop Generation (Hard Abort)"
             >
-              <FaStop size={16} />
+              <Square size={16} />
             </button>
           )}
           <button
             type="submit"
             disabled={isSendDisabled}
-            className="p-3 rounded-full bg-success text-success-content disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-success/80 hover:scale-105 active:scale-95 transition-all"
+            className="p-3 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white hover:scale-105 active:scale-95 disabled:opacity-30 disabled:bg-white/5 disabled:text-white/30 transition-all backdrop-blur-sm border border-white/10"
             title="Send Message"
           >
-            <FaArrowUp size={16} />
+            <ArrowUp size={16} />
           </button>
         </div>
       </form>
@@ -347,6 +493,9 @@ const InputBar = ({ onSubmit, isLoading, isRecording, onToggleRecord, onStop, so
         isError={true}
         onConfirm={() => {
           setShowAbortConfirm(false)
+          if (lastPromptRef.current) {
+            setInputText(lastPromptRef.current)
+          }
           if (onStop) onStop()
         }}
         onCancel={() => setShowAbortConfirm(false)}

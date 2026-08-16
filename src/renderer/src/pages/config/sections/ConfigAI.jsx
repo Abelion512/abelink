@@ -1,6 +1,6 @@
 // Section: AI Engine & Tools (provider, models, keys, persona, sliders, approval mode, awareness)
 import { useState } from 'react'
-import { FaEye, FaEyeSlash } from 'react-icons/fa'
+import { Eye, EyeSlash } from 'lucide-react'
 import { saveConfiguration } from '../../../api/db'
 import { getExtractor } from '../../../api/vectorMemory'
 import { useConfirm } from '../../../hooks/useConfirm'
@@ -15,7 +15,6 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
   const [downloadProgress, setDownloadProgress] = useState(0)
 
   const handleAiProviderChange = (provider) => setConfig((prev) => ({ ...prev, aiProvider: provider }))
-  const handleModelChange = (e) => setConfig((prev) => ({ ...prev, model: e.target.value }))
   const handleGroqModelChange = (e) => setConfig((prev) => ({ ...prev, groqModel: e.target.value }))
   const handleCerebrasModelChange = (e) => setConfig((prev) => ({ ...prev, cerebrasModel: e.target.value }))
   const handleUseSecondaryModelChange = (e) => setConfig((prev) => ({ ...prev, useSecondaryModel: e.target.checked }))
@@ -59,9 +58,9 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
 
     if (config.aiProvider === 'custom') {
       const endpoint = config.customEndpoint?.trim() || ''
-      if (!endpoint.endsWith('/chat/completions')) {
+      if (!endpoint.endsWith('/v1')) {
         alert(
-          'Gagal Menyimpan: Custom Endpoint URL tidak valid! URL wajib diakhiri dengan /chat/completions (Contoh: https://api.openai.com/v1/chat/completions).'
+          'Gagal Menyimpan: Custom Endpoint URL tidak valid! URL wajib diakhiri dengan /v1 (Contoh: https://api.openai.com/v1). Sistem menambahkan /chat/completions otomatis.'
         )
         return
       }
@@ -118,20 +117,9 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
       </h2>
 
       {/* AI Provider Selector */}
-      <div id="tour-ai-provider" className="space-y-1.5 p-2 -mx-2 rounded-lg">
+      <div id="tour-ai-provider" className="space-y-1.5 p-2 -mx-2 glass glass-hover">
         <p className="text-sm font-semibold">AI Provider</p>
         <div className="flex gap-4">
-          <label className="label cursor-pointer justify-start gap-2">
-            <input
-              type="radio"
-              name="aiProvider"
-              className="radio radio-primary radio-sm"
-              value="lmstudio"
-              checked={config.aiProvider === 'lmstudio' || !config.aiProvider}
-              onChange={() => handleAiProviderChange('lmstudio')}
-            />
-            <span className="label-text">LM Studio (Local)</span>
-          </label>
           <label className="label cursor-pointer justify-start gap-2">
             <input
               type="radio"
@@ -168,21 +156,7 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
         </div>
       </div>
 
-      {config.aiProvider === 'lmstudio' || !config.aiProvider ? (
-        <div className="space-y-1.5">
-          <p className="text-sm font-semibold">Model Selector (LM Studio)</p>
-          <input
-            type="text"
-            placeholder="Contoh: google/gemma-3-4b"
-            className="input input-bordered w-full"
-            value={config.model || ''}
-            onChange={handleModelChange}
-          />
-          <p className="text-xs opacity-40">
-            Nama model yang aktif di LM Studio. Pastikan sudah ter-load.
-          </p>
-        </div>
-      ) : config.aiProvider === 'groq' ? (
+      {config.aiProvider === 'groq' ? (
         <div className="space-y-1.5">
           <p className="text-sm font-semibold">Groq Model</p>
           <input
@@ -202,15 +176,15 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
             <p className="text-sm font-semibold">Custom Endpoint URL</p>
             <input
               type="text"
-              placeholder="Contoh: https://api.openai.com/v1/chat/completions"
-              className={`input input-bordered w-full ${config.customEndpoint && !config.customEndpoint.trim().endsWith('/chat/completions') ? 'input-error' : ''}`}
+              placeholder="Contoh: https://api.openai.com/v1"
+              className={`input input-bordered w-full ${config.customEndpoint && !config.customEndpoint.trim().endsWith('/v1') ? 'input-error' : ''}`}
               value={config.customEndpoint || ''}
               onChange={handleCustomEndpointChange}
             />
             {config.customEndpoint &&
-            !config.customEndpoint.trim().endsWith('/chat/completions') ? (
+            !config.customEndpoint.trim().endsWith('/v1') ? (
               <p className="text-xs text-error mt-1 font-medium">
-                URL endpoint tidak memenuhi standar format OpenAI-Compatible.
+                URL endpoint harus diakhiri /v1. Sistem menambahkan /chat/completions otomatis.
               </p>
             ) : (
               <p className="text-xs opacity-50 mt-1">
@@ -244,7 +218,7 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
                 onClick={handleToggleCustomKey}
                 title={showCustomKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
               >
-                {showCustomKey ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
+                {showCustomKey ? <EyeSlash size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
@@ -292,7 +266,7 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
       )}
 
       {/* Groq API Key (Always visible for STT) */}
-      <div id="tour-groq-key" className="space-y-1.5 p-2 -mx-2 rounded-lg">
+      <div id="tour-groq-key" className="space-y-1.5 p-2 -mx-2 glass glass-hover">
         <div className="flex justify-between items-center">
           <p className="text-sm font-semibold">
             Groq API Key {config.aiProvider !== 'groq' && '(Khusus untuk fitur Voice/STT)'}
@@ -320,17 +294,15 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
             onClick={handleToggleGroqKey}
             title={showGroqKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
           >
-            {showGroqKey ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
+            {showGroqKey ? <EyeSlash size={16} /> : <Eye size={16} />}
           </button>
         </div>
         {config.aiProvider !== 'groq' && (
           <p className="text-xs opacity-40">
             Karena kamu memakai{' '}
-            {config.aiProvider === 'lmstudio'
-              ? 'LM Studio'
-              : config.aiProvider === 'custom'
-                ? 'Custom API'
-                : 'Cerebras'}
+            {config.aiProvider === 'custom'
+              ? 'Custom API'
+              : 'Cerebras'}
             , API Key Groq ini hanya akan dipakai saat kamu ngobrol via suara
             (Speech-to-Text).
           </p>
@@ -365,14 +337,14 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
               onClick={handleToggleCerebrasKey}
               title={showCerebrasKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
             >
-              {showCerebrasKey ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
+              {showCerebrasKey ? <EyeSlash size={16} /> : <Eye size={16} />}
             </button>
           </div>
         </div>
       )}
 
       {/* Last.fm Integration — Collapsible */}
-      <div className="collapse collapse-arrow bg-base-200 -mx-2">
+      <div className="collapse collapse-arrow -mx-2" style={{background: 'var(--glass-bg)'}}>
         <input type="checkbox" defaultChecked={false} />
         <div className="collapse-title text-sm font-semibold flex items-center gap-2">
           <span>🎵 Last.fm</span>
@@ -398,7 +370,7 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
             />
             <button type="button" className="absolute right-3 bottom-2 opacity-50 hover:opacity-100"
               onClick={handleToggleLastfmKey}>
-              {showLastfmKey ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
+              {showLastfmKey ? <EyeSlash size={14} /> : <Eye size={14} />}
             </button>
           </div>
 
@@ -415,7 +387,7 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
           </div>
 
           {/* Auto-login: username + password → session key */}
-          <div className="bg-base-300 rounded p-2 space-y-2">
+          <div className="rounded p-2 space-y-2" style={{background: 'var(--glass-bg)'}}>
             <p className="text-xs opacity-70">Login untuk dapat session key (scrobbling):</p>
             <div className="flex gap-2">
               <input type="text" placeholder="Username" className="input input-bordered input-sm flex-1"
@@ -449,7 +421,7 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
       </div>
 
       {/* Awareness Engine Toggle */}
-      <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
+      <div className="space-y-1.5 p-2 -mx-2 glass glass-hover">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold">Awareness Engine</p>
@@ -465,7 +437,7 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
       </div>
 
       {/* System Persona */}
-      <div id="tour-persona" className="space-y-1.5 p-2 -mx-2 rounded-lg">
+      <div id="tour-persona" className="space-y-1.5 p-2 -mx-2 glass glass-hover">
         <p className="text-sm font-semibold">Gaya Bicara dan Kepribadian</p>
         <textarea
           className="textarea w-full h-72 leading-relaxed no-scrollbar resize-none"
@@ -475,7 +447,7 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
         />
       </div>
 
-      <div id="tour-temperature" className="space-y-2 p-2 -mx-2 rounded-lg">
+      <div id="tour-temperature" className="space-y-2 p-2 -mx-2 glass glass-hover">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold">Temperature</p>
           <span className="font-mono text-sm text-primary font-bold">
@@ -502,7 +474,7 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
       </div>
 
       {/* Context Window */}
-      <div id="tour-context" className="space-y-2 p-2 -mx-2 rounded-lg">
+      <div id="tour-context" className="space-y-2 p-2 -mx-2 glass glass-hover">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold">Context Window</p>
           <span className="font-mono text-sm text-primary font-bold">{config.context}</span>
@@ -527,7 +499,7 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
       </div>
 
       {/* Max Agent Turns */}
-      <div className="space-y-2 p-2 -mx-2 rounded-lg">
+      <div className="space-y-2 p-2 -mx-2 glass glass-hover">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold">Max Turns per Task</p>
           <span className="font-mono text-sm text-primary font-bold">{config.maxTurns || 20}</span>
@@ -551,7 +523,7 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
       </div>
 
       {/* Tool-Result Clearing — ATM Anthropic Context Editing (clear_tool_uses) */}
-      <div className="space-y-2 p-2 -mx-2 rounded-lg">
+      <div className="space-y-2 p-2 -mx-2 glass glass-hover">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold">Tool-Result Clearing</p>
           <span className="font-mono text-xs text-primary font-bold uppercase">{config.clearingMode || 'optimized'}</span>
@@ -578,7 +550,7 @@ export default function ConfigAI({ config, setConfig, isFirstSetup, onSetupCompl
       <div className="divider"></div>
 
       {/* Approval Mode */}
-      <div className="space-y-2 p-2 -mx-2 rounded-lg">
+      <div className="space-y-2 p-2 -mx-2 glass glass-hover">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold">Mode Persetujuan (Approval)</p>
           <span className="font-mono text-xs text-primary font-bold uppercase">{config.approvalMode || 'selective'}</span>

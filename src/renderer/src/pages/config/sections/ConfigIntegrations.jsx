@@ -1,6 +1,6 @@
 // Section: Integrations (awareness engine, Last.fm)
 import { useState } from 'react'
-import { FaEye, FaEyeSlash } from 'react-icons/fa'
+import { Eye, EyeSlash } from 'lucide-react'
 
 export default function ConfigIntegrations({ config, setConfig }) {
   const [showLastfmKey, setShowLastfmKey] = useState(false)
@@ -34,7 +34,7 @@ export default function ConfigIntegrations({ config, setConfig }) {
   return (
     <section className="space-y-5">
       {/* Awareness Engine Toggle */}
-      <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
+      <div className="space-y-1.5 p-2 -mx-2 rounded-lg glass glass-hover">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold">Awareness Engine</p>
@@ -50,7 +50,7 @@ export default function ConfigIntegrations({ config, setConfig }) {
       </div>
 
       {/* Last.fm Integration — Collapsible */}
-      <div className="collapse collapse-arrow bg-base-200 -mx-2">
+      <div className="collapse collapse-arrow -mx-2" style={{background: 'var(--glass-bg)'}}>
         <input type="checkbox" defaultChecked={false} />
         <div className="collapse-title text-sm font-semibold flex items-center gap-2">
           <span>🎵 Last.fm</span>
@@ -75,7 +75,7 @@ export default function ConfigIntegrations({ config, setConfig }) {
               onChange={(e) => setConfig((prev) => ({ ...prev, lastfmApiKey: e.target.value }))}
             />
             <button type="button" className="absolute right-3 bottom-2 opacity-50 hover:opacity-100" onClick={() => setShowLastfmKey(!showLastfmKey)}>
-              {showLastfmKey ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
+              {showLastfmKey ? <EyeSlash size={14} /> : <Eye size={14} />}
             </button>
           </div>
 
@@ -92,7 +92,7 @@ export default function ConfigIntegrations({ config, setConfig }) {
           </div>
 
           {/* Auto-login: username + password → session key */}
-          <div className="bg-base-300 rounded p-2 space-y-2">
+          <div className="rounded p-2 space-y-2" style={{background: 'var(--glass-bg)'}}>
             <p className="text-xs opacity-70">Login untuk dapat session key (scrobbling):</p>
             <div className="flex gap-2">
               <input type="text" placeholder="Username" className="input input-bordered input-sm flex-1"
@@ -101,7 +101,7 @@ export default function ConfigIntegrations({ config, setConfig }) {
                 <input type={showPassword ? 'text' : 'password'} placeholder="Password" className="input input-bordered input-sm w-full pr-8"
                   value={config._lastfmPassword || ''} onChange={(e) => setConfig((prev) => ({ ...prev, _lastfmPassword: e.target.value }))} />
                 <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100" onClick={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
+                  {showPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
                 </button>
               </div>
               <button className="btn btn-sm btn-primary" onClick={handleLogin} disabled={loggingIn}>

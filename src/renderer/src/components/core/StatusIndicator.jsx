@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FaCheckCircle, FaInfoCircle, FaExclamationTriangle, FaTimesCircle } from 'react-icons/fa';
+import { CheckCircle, Info, AlertTriangle, XCircle } from 'lucide-react';
 
 const StatusIndicator = ({ notifications }) => {
   const [activeToasts, setActiveToasts] = useState([]);
@@ -8,27 +8,26 @@ const StatusIndicator = ({ notifications }) => {
     if (notifications && notifications.length > 0) {
       const newNotifs = notifications.filter(n => !activeToasts.find(t => t.id === n.id));
       if (newNotifs.length > 0) {
-        // Prepare toasts with types
         const enhancedNotifs = newNotifs.map(notif => {
           let alertType = 'alert-info';
-          let Icon = FaInfoCircle;
-          
+          let Icon = Info;
+
           if (notif.type.includes('memory') || notif.type === 'plugin-done' || notif.type === 'success') {
             alertType = 'alert-success';
-            Icon = FaCheckCircle;
+            Icon = CheckCircle;
           } else if (notif.type === 'plugin-executing') {
             alertType = 'alert-warning';
-            Icon = FaExclamationTriangle;
+            Icon = AlertTriangle;
           } else if (notif.type === 'error') {
             alertType = 'alert-error';
-            Icon = FaTimesCircle;
+            Icon = XCircle;
           }
 
           return { ...notif, alertType, Icon };
         });
 
         setActiveToasts(prev => [...prev, ...enhancedNotifs]);
-        
+
         enhancedNotifs.forEach(notif => {
           setTimeout(() => {
             setActiveToasts(prev => prev.filter(t => t.id !== notif.id));
@@ -43,8 +42,8 @@ const StatusIndicator = ({ notifications }) => {
   return (
     <div className="toast toast-top toast-end z-[9999] p-4">
       {activeToasts.map(toast => (
-        <div 
-          key={toast.id} 
+        <div
+          key={toast.id}
           className={`alert ${toast.alertType} shadow-lg rounded-xl flex items-center gap-3 animate-fade-in`}
         >
           <toast.Icon className="w-5 h-5" />

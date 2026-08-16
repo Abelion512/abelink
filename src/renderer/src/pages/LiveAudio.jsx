@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { getAllConfig } from '../api/db'
 import { transcribeAudioGroq } from '../api/groq'
-import { FaChevronLeft, FaMicrophone, FaStop, FaExclamationTriangle } from 'react-icons/fa'
+import { ChevronLeft, Microphone, Square, AlertTriangle } from 'lucide-react'
 
 const LiveAudio = () => {
   const {
@@ -312,6 +312,7 @@ const LiveAudio = () => {
     <div className={`h-screen bg-[var(--base-300)] text-white overflow-hidden relative font-['Poppins',sans-serif] flex flex-col items-center justify-center ${morphedEnter ? 'animate-[voice-from-orb_0.5s_ease-out_forwards]' : ''}`}>
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
+
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
 
       {/* Ambient background effects */}
@@ -329,7 +330,7 @@ const LiveAudio = () => {
         onClick={() => navigate('/')}
         className="absolute top-6 left-6 btn btn-ghost btn-sm gap-2 z-20 opacity-60 hover:opacity-100 transition-opacity"
       >
-        <FaChevronLeft size={14} />
+        <ChevronLeft size={14} />
         Kembali
       </button>
 
@@ -337,7 +338,7 @@ const LiveAudio = () => {
       <div className="relative z-10 text-center mb-8 select-none">
         <div className="flex items-center justify-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-            <FaMicrophone className="text-primary" size={20} />
+            <Microphone className="text-primary" size={20} />
           </div>
           <h1 className="text-2xl font-bold">Live Audio</h1>
         </div>
@@ -377,7 +378,7 @@ const LiveAudio = () => {
               isActive
                 ? 'bg-linear-to-br from-primary/30 via-success/20 to-primary/30'
                 : 'bg-linear-to-br from-base-200/60 via-base-300/40 to-base-200/60'
-            }`}
+            } glass glass-hover`}
           />
 
           {/* Inner circle with waveform placeholder */}
@@ -386,7 +387,7 @@ const LiveAudio = () => {
               isActive
                 ? 'bg-base-100/40 border border-primary/30'
                 : 'bg-base-100/20 border border-white/5'
-            }`}
+            } glass glass-hover`}
           >
             {/* Animated bars (audio waveform placeholder) */}
             <div className="flex items-center gap-1">
@@ -437,9 +438,9 @@ const LiveAudio = () => {
           }`}
         >
           {isActive ? (
-            <FaStop className="text-white" size={24} />
+            <Square className="text-white" size={24} />
           ) : (
-            <FaMicrophone className="text-white" size={24} />
+            <Microphone className="text-white" size={24} />
           )}
         </button>
 
@@ -457,8 +458,8 @@ const LiveAudio = () => {
       {/* Floating Toast Error */}
       {toastMessage && (
         <div className="toast toast-top toast-center z-50 animate-bounce">
-          <div className="alert alert-error text-sm font-semibold shadow-2xl flex gap-2 items-center">
-            <FaExclamationTriangle size={18} />
+          <div className="alert alert-error glass glass-hover text-sm font-semibold shadow-2xl flex gap-2 items-center">
+            <AlertTriangle size={18} />
             <span>{toastMessage}</span>
           </div>
         </div>

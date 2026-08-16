@@ -98,7 +98,7 @@ const TraitRing = ({ value, color, icon: Icon, label, desc, ring }) => {
   const offset = circ - (pct / 100) * circ
 
   return (
-    <div className={`flex flex-col items-center gap-3 p-4 rounded-2xl bg-base-200/50 border border-white/5 ring-1 ${ring} transition-all hover:scale-[1.03] hover:bg-base-200/80`}>
+    <div className={`flex flex-col items-center gap-3 p-4 rounded-2xl border border-white/5 ring-1 ${ring} transition-all hover:scale-[1.03] glass glass-hover`}>
       <div className="relative w-28 h-28">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
           <circle cx="50" cy="50" r={r} fill="none" strokeWidth="6" className="stroke-base-content/10" />
@@ -215,7 +215,7 @@ const RelationalGrowth = () => {
           ) : (
             <>
               {/* Personality Summary Card */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-base-200/80 to-base-300/50 border border-white/5 backdrop-blur-sm">
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-base-200/80 to-base-300/50 border border-white/5 glass glass-hover">
                 <p className="text-sm font-semibold text-primary mb-2 flex items-center gap-2"><FaBrain className="text-primary" /> Kepribadian Saat Ini</p>
                 <p className="text-base-content/80 text-sm leading-relaxed">{describePersonality(traits)}</p>
                 {traits?.evalCount > 0 && (
@@ -251,7 +251,7 @@ const RelationalGrowth = () => {
               {traits?.reasoning && (
                 <div>
                   <p className="text-sm font-semibold text-base-content/70 mb-3 flex items-center gap-2"><FaCommentDots className="text-primary/70" /> Reasoning Terakhir</p>
-                  <div className="p-4 rounded-2xl bg-base-200/50 border border-white/5">
+                  <div className="p-4 rounded-2xl bg-base-200/50 border border-white/5 glass glass-hover">
                     <p className="text-sm text-base-content/70 italic leading-relaxed">&ldquo;{traits.reasoning}&rdquo;</p>
                   </div>
                 </div>
@@ -269,7 +269,7 @@ const RelationalGrowth = () => {
                   ].map((stat, i) => {
                     const StatIcon = stat.icon
                     return (
-                      <div key={i} className="p-4 rounded-xl bg-base-200/40 border border-white/5 hover:bg-base-200/60 transition-colors">
+                      <div key={i} className="p-4 rounded-xl border border-white/5 glass glass-hover">
                         <div className="flex items-center gap-2 mb-2">
                           <StatIcon className={`text-base ${stat.iconColor}`} />
                           <span className="text-xs text-base-content/50">{stat.label}</span>

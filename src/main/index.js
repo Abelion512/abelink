@@ -122,6 +122,7 @@ ipcMain.on('mpris:set-status', (_event, playing) => {
 })
 
 import { fetchAI, setGlobalConfig, getGlobalConfig, abortAllFetches, resolveVisionModel, applyLearnedHints } from './ai-bridge.js'
+import { normalizeChatCompletionsUrl } from './modelDiscovery.js'
 import { getToolCatalog, getToolDetail, getToolCatalogString, getToolCatalogForQuery, matchVoiceCommand, refreshToolCache } from './tool-registry.js'
 
 ipcMain.on('sync-config', (_event, config) => {
@@ -735,13 +736,12 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('vision:get-endpoint', (_event, modelId) => {
     const conf = getGlobalConfig() || {}
-    const activeProvider = conf.aiProvider || 'lmstudio'
-    const customEndpoint = conf.customEndpoint?.replace(/\/+$/, '') || 'http://localhost:1234'
+    const activeProvider = conf.aiProvider || 'custom'
+    const customEndpoint = conf.customEndpoint || ''
     const customApiKey = conf.customApiKey || ''
 
     if (activeProvider === 'custom' && customEndpoint) {
-      const base = customEndpoint
-      const url = base.endsWith('/chat/completions') ? base : `${base}/chat/completions`
+      const url = normalizeChatCompletionsUrl(customEndpoint)
       const headers = { 'Content-Type': 'application/json' }
       if (customApiKey) {
         if (customEndpoint.includes('anthropic.com')) {
@@ -753,8 +753,8 @@ app.whenReady().then(async () => {
       }
       return { url, headers }
     }
-    // LM Studio default
-    return { url: 'http://localhost:1234/v1/chat/completions', headers: { 'Content-Type': 'application/json' } }
+    // LM Studio tetap tersedia sebagai fallback lokal (nonaktif by default)
+    return { url: normalizeChatCompletionsUrl(customEndpoint) || 'http://localhost:1234/v1/chat/completions', headers: { 'Content-Type': 'application/json' } }
   })
 
   // ===== YOUTUBE PLAYER (BrowserWindow, not webview) =====

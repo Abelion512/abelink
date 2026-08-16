@@ -1,7 +1,7 @@
 export const faqs = [
   {
     q: "Apakah Mark membutuhkan koneksi internet?",
-    a: "Tidak selalu! Jika Anda mengatur AI Provider ke LM Studio (Offline), sebagian besar fungsi Mark bisa berjalan tanpa internet secara lokal. Namun, fitur Voice (Speech-to-Text), Web Search (mencari di Google), dan perangkum YouTube tetap membutuhkan koneksi internet."
+    a: "Tidak selalu! Jika Anda mengatur AI Provider ke mode Offline/ Custom API, sebagian besar fungsi Mark bisa berjalan tanpa internet secara lokal. Namun, fitur Voice (Speech-to-Text), Web Search (mencari di Google), dan perangkum YouTube tetap membutuhkan koneksi internet."
   },
   {
     q: "Bagaimana cara kerja sistem memori Mark?",
@@ -41,15 +41,15 @@ export const faqs = [
   },
   {
     q: "Bagaimana cara mengubah otak pintar (AI Provider) Mark?",
-    a: "Buka menu Configuration. Di sana Anda bisa memilih antara LM Studio (Offline, berat di laptop) atau Groq (Online, super cepat). Pastikan pengaturan URL atau API Key-nya sudah benar."
+    a: "Buka menu Configuration. Di sana Anda bisa memilih antara Gemini (Gratis) atau Custom API (OpenAI-Compatible). Pastikan pengaturan URL atau API Key-nya sudah benar."
   },
   {
     q: "Kenapa balasan Mark kadang sangat lambat?",
-    a: "Jika Anda pakai mode Offline (LM Studio), kecepatan mikir Mark 100% bergantung pada kekuatan prosesor (CPU) dan VGA laptop Anda. Semakin besar memori otak (model AI) yang dipakai, semakin berat kerja laptopnya."
+    a: "Jika Anda pakai mode Offline/Custom Endpoint, kecepatan mikir Mark 100% bergantung pada kekuatan prosesor (CPU) dan VGA laptop Anda. Semakin besar memori otak (model AI) yang dipakai, semakin berat kerja laptopnya."
   },
   {
-    q: "Apa bedanya pakai Groq dan LM Studio?",
-    a: "Groq mikirnya lewat internet super ngebut dari pusat data raksasa, jadi Mark balasnya instan. LM Studio mikirnya pakai mesin laptop Anda sendiri, jalannya offline tanpa butuh kuota internet, tapi bikin laptop kerja keras."
+    q: "Apa bedanya pakai Groq dan Custom API lokal?",
+    a: "Groq mikirnya lewat internet super ngebut dari pusat data raksasa, jadi Mark balasnya instan. Custom API lokal (misalnya via Ollama atau 9Router) mikirnya pakai mesin laptop Anda sendiri, jalannya offline tanpa butuh kuota internet, tapi bikin laptop kerja keras."
   },
   {
     q: "Bisakah saya menghapus ingatan Mark tentang saya?",
@@ -109,7 +109,7 @@ export const faqs = [
   },
   {
     q: "Bikin baterai laptop boros dan cepat panas nggak sih?",
-    a: "Kalau Anda atur otak AI-nya pakai mode Offline (LM Studio) pas nggak di-cas, JELAS IYA. Mesin AI lokal itu kerja rodi. Tapi kalau pakai sambungan online (Groq), dampaknya enteng banget buat laptop."
+    a: "Kalau Anda atur otak AI-nya pakai mode Offline/Custom Endpoint pas nggak di-cas, JELAS IYA. Mesin AI lokal itu kerja rodi. Tapi kalau pakai sambungan online (Groq), dampaknya enteng banget buat laptop."
   },
   {
     q: "Bagaimana caranya bikin fitur atau kemampuan baru buat Mark?",

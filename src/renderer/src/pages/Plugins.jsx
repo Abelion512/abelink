@@ -1,6 +1,6 @@
 import Editor from '@monaco-editor/react'
 import { driver } from 'driver.js'
-import { FaTimes, FaExclamationTriangle, FaChevronLeft } from 'react-icons/fa'
+import { X, AlertTriangle, ChevronLeft } from 'lucide-react'
 import 'driver.js/dist/driver.css'
 import { useEffect, useState } from 'react'
 import { useConfirm } from '../hooks/useConfirm'
@@ -174,7 +174,7 @@ export default function Plugins() {
                 onClick={() => window.history.back()}
                 className="btn btn-ghost btn-sm btn-circle"
               >
-                <FaChevronLeft size={16} />
+                <ChevronLeft size={16} />
               </button>
               <div>
                 <h1 className="text-3xl font-bold">Plugin Manager</h1>
@@ -220,8 +220,8 @@ export default function Plugins() {
 
           {isFormOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-              <div className="bg-base-100 w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-base-content/10">
-                <div className="p-6 border-b border-base-content/10 flex justify-between items-center bg-base-200/50">
+              <div className="glass glass-hover w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-base-content/10">
+                <div className="p-6 border-b border-base-content/10 flex justify-between items-center glass glass-hover bg-base-200/50">
                   <h2 className="text-2xl font-bold">
                     {formData.isEdit ? 'Edit Plugin' : 'Buat Plugin Baru'}
                   </h2>
@@ -229,7 +229,7 @@ export default function Plugins() {
                     className="btn btn-sm btn-circle btn-ghost"
                     onClick={() => setIsFormOpen(false)}
                   >
-                    <FaTimes />
+                    <X />
                   </button>
                 </div>
 
@@ -243,7 +243,7 @@ export default function Plugins() {
                   )}
 
                   <div className="grid grid-cols-1 gap-6">
-                    <div className="flex gap-4 p-4 bg-base-200/30 rounded-xl border border-base-content/10">
+                    <div className="flex gap-4 p-4 rounded-xl border border-base-content/10 glass glass-hover">
                       <div className="form-control flex-1">
                         <label className="label font-semibold">
                           <span className="label-text">Nama Plugin</span>
@@ -277,7 +277,7 @@ export default function Plugins() {
                         />
                       </div>
                     </div>
-                    <div className="form-control w-full p-4 bg-base-200/30 rounded-xl border border-base-content/10">
+                    <div className="form-control w-full p-4 rounded-xl border border-base-content/10 glass glass-hover">
                       <label className="label font-semibold">
                         <span className="label-text">Dependencies (Library NPM)</span>
                         <span className="label-text-alt opacity-70">Opsional</span>
@@ -305,7 +305,7 @@ export default function Plugins() {
                     {formData.actions.map((act, idx) => (
                       <div
                         key={idx}
-                        className="relative p-6 bg-base-200/30 rounded-xl border border-base-content/10 grid grid-cols-1 md:grid-cols-2 gap-6 group"
+                        className="relative p-6 rounded-xl border border-base-content/10 grid grid-cols-1 md:grid-cols-2 gap-6 group glass glass-hover"
                       >
                         {formData.actions.length > 1 && (
                           <button
@@ -385,7 +385,7 @@ export default function Plugins() {
                                   className="ml-auto text-[10px] text-error font-bold max-w-[150px] truncate"
                                   title={syntaxErrors[idx]}
                                 >
-                                  <FaExclamationTriangle className="inline mr-1" /> Error
+                                  <AlertTriangle className="inline mr-1" /> Error
                                 </span>
                               )}
                             </div>
@@ -529,7 +529,7 @@ export default function Plugins() {
               {plugins.map((pl, i) => (
                 <div
                   key={i}
-                  className="card bg-base-200/50 shadow-xl border border-base-content/10 backdrop-blur-md flex flex-col"
+                  className="card glass glass-hover shadow-xl border border-base-content/10 flex flex-col"
                 >
                   <div className="card-body flex flex-col h-full">
                     <div className="flex justify-between items-start">

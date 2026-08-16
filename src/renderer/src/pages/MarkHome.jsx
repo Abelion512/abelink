@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import OrbVisualizer from '../components/core/OrbVisualizer'
@@ -11,10 +11,10 @@ import ProcessPanel from '../components/core/ProcessPanel'
 import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
 import MemoryVisualizer from '../components/core/MemoryVisualizer'
 import BrowserPreviewWidget from '../components/core/BrowserPreviewWidget'
+import YoutubeMusicPlayer from '../components/YoutubeMusicPlayer'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useMemoryGroomer } from '../hooks/useMemoryGroomer'
 import { useVAD } from '../hooks/useVAD'
-import musicCoverFallback from '../assets/music-cover.png'
 
 const MarkHome = () => {
   const chatContext = useChat()
@@ -34,12 +34,10 @@ const MarkHome = () => {
     dismissProcess,
     inputSource,
     handleStop,
-    isBooting,
-    requestCameraCaptureRef,
-    config
+    isBooting
   } = chatContext
   useMemoryGroomer(true) // Aktifkan Hippocampus Engine (auto-groom memori)
-  const { isPlaying, currentTrack, playPause, prevTrack, nextTrack, repeatMode, toggleRepeat, openQueue } = useYoutubeMusic()
+  useYoutubeMusic() // Initialize YT Music context
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
@@ -47,9 +45,6 @@ const MarkHome = () => {
   const isLong = currentResponse?.type === 'long'
   const [activeMode, setActiveMode] = useState(null) // null | 'chat' | 'voice' | 'camera' | 'screen'
 
-  // Official inline music widget — enter/exit animation (holo-project-in / holo-dismiss)
-  const [showMusicWidget, setShowMusicWidget] = useState(false)
-  const [isMusicAnimatingOut, setIsMusicAnimatingOut] = useState(false)
   // Mode-swap transition: orb morphs before leaving to /live-audio (no hard page cut)
   const [isSwapping, setIsSwapping] = useState(null)
 
@@ -58,21 +53,6 @@ const MarkHome = () => {
     setIsSwapping('voice')
     setTimeout(() => navigate('/live-audio', { state: { morphed: Date.now() } }), 450)
   }
-  useEffect(() => {
-    if (isPlaying && currentTrack?.title) {
-      if (showMusicWidget) return
-      setIsMusicAnimatingOut(false)
-      setShowMusicWidget(true)
-    } else {
-      if (showMusicWidget) {
-        setIsMusicAnimatingOut(true)
-        setTimeout(() => {
-          setShowMusicWidget(false)
-          setIsMusicAnimatingOut(false)
-        }, 500)
-      }
-    }
-  }, [isPlaying, currentTrack?.title, showMusicWidget])
 
   useEffect(() => {
     const handleOpenMap = () => setIsMemoryMapOpen(true)
@@ -253,7 +233,7 @@ const MarkHome = () => {
       <BrowserPreviewWidget />
 
       {toastMessage && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 bg-error/90 text-white px-4 py-2 rounded-xl z-50 backdrop-blur shadow-lg animate-bounce text-sm">
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 bg-error/90 text-white px-4 py-2 rounded-xl z-50 glass glass-hover shadow-lg animate-bounce text-sm">
           {toastMessage}
         </div>
       )}
@@ -272,67 +252,6 @@ const MarkHome = () => {
               mood={currentResponse?.mood || 'neutral'}
             />
           </div>
-          {/* Now Playing — official inline widget (album art + visualizer + controls) */}
-          {showMusicWidget && (
-            <div
-              className={`mt-4 flex flex-col items-center ${isMusicAnimatingOut ? 'animate-[holo-dismiss_0.5s_ease-in_forwards]' : 'animate-[holo-project-in_0.5s_ease-out_forwards]'}`}
-            >
-              {/* Album Art + Visualizer */}
-              <div className="relative group w-40 h-40 rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-primary/20">
-                {currentTrack.thumbnail ? (
-                  <img
-                    src={currentTrack.thumbnail}
-                    alt="Album Art"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    onError={(e) => { e.target.onerror = null; e.target.src = musicCoverFallback }}
-                  />
-                ) : (
-                  <img
-                    src={musicCoverFallback}
-                    alt="Default Album Art"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                )}
-                {isPlaying && (
-                  <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-4 gap-1">
-                    <span className="w-1.5 h-4 bg-primary rounded-t-full animate-[music-bar_1s_ease-in-out_infinite]" style={{ animationDelay: '0.1s' }} />
-                    <span className="w-1.5 h-6 bg-primary rounded-t-full animate-[music-bar_1.2s_ease-in-out_infinite]" style={{ animationDelay: '0.3s' }} />
-                    <span className="w-1.5 h-3 bg-primary rounded-t-full animate-[music-bar_0.8s_ease-in-out_infinite]" style={{ animationDelay: '0.2s' }} />
-                    <span className="w-1.5 h-5 bg-primary rounded-t-full animate-[music-bar_1.1s_ease-in-out_infinite]" style={{ animationDelay: '0.4s' }} />
-                  </div>
-                )}
-              </div>
-              <p className="text-white/90 text-sm font-medium mt-2 max-w-xs truncate">{currentTrack.title}</p>
-              {currentTrack.artist && (
-                <p className="text-white/40 text-xs font-extralight truncate max-w-xs">{currentTrack.artist}</p>
-              )}
-              {/* Inline Controls */}
-              <div className="flex items-center gap-3 mt-2">
-                <button onClick={toggleRepeat}
-                  className={`p-1 transition-colors ${repeatMode !== 'NONE' ? 'text-primary' : 'text-white/40 hover:text-white'}`}
-                  title={repeatMode === 'ONE' ? 'Repeat One' : repeatMode === 'ALL' ? 'Repeat All' : 'Repeat Off'}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
-                </button>
-                <button onClick={prevTrack} className="text-white/60 hover:text-white transition-colors p-1" title="Previous">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                </button>
-                <button onClick={playPause} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors" title="Play/Pause">
-                  {isPlaying ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-                  )}
-                </button>
-                <button onClick={nextTrack} className="text-white/60 hover:text-white transition-colors p-1" title="Next">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-                </button>
-                <button onClick={openQueue} className="text-white/40 hover:text-white transition-colors p-1" title="Queue (buka panel YT Music)">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Answer — no boundaries, natural flow; max-h cegah overflow ke tombol */}
           {currentResponse && (
             <div className="w-full max-h-[45vh] overflow-y-auto no-scrollbar animate-[fade-up_0.4s_ease-out_forwards]">
@@ -365,7 +284,7 @@ const MarkHome = () => {
               />
             </div>
             <button onClick={() => setActiveMode(null)}
-              className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-red-400/50 transition-all duration-300 active:scale-90 text-white/50 hover:text-red-400"
+              className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-red-400/50 transition-all duration-300 active:scale-90 text-white/50 hover:text-red-400 glass glass-hover"
               title="Tutup Chat">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
@@ -377,32 +296,32 @@ const MarkHome = () => {
           <button onClick={() => setActiveMode(activeMode === 'chat' ? null : 'chat')}
             className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all duration-300 active:scale-90 ${
               activeMode === 'chat'
-                ? 'bg-green-500/20 border-green-500/60 text-green-400 shadow-[0_0_16px_oklch(var(--su)/0.25)]'
-                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/70 hover:border-green-500/50'
+                ? 'bg-white/15 border-white/30 text-white shadow-[0_0_16px_rgba(255,255,255,0.12)]'
+                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/70 hover:border-white/30'
             }`} title="Chat Mode">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
           </button>
           <button onClick={goVoice}
             className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all duration-300 active:scale-90 ${
               activeMode === 'voice'
-                ? 'bg-primary/20 border-primary/60 text-primary shadow-[0_0_16px_oklch(var(--p)/0.25)]'
-                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/70 hover:border-primary/50'
+                ? 'bg-white/15 border-white/30 text-white shadow-[0_0_16px_rgba(255,255,255,0.12)]'
+                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/70 hover:border-white/30'
             }`} title="Voice Mode">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </button>
           <button onClick={() => setActiveMode('camera')}
             className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all duration-300 active:scale-90 ${
               activeMode === 'camera'
-                ? 'bg-primary/20 border-primary/60 text-primary shadow-[0_0_16px_oklch(var(--p)/0.25)]'
-                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/70 hover:border-primary/50'
+                ? 'bg-white/15 border-white/30 text-white shadow-[0_0_16px_rgba(255,255,255,0.12)]'
+                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/70 hover:border-white/30'
             }`} title="Camera Mode">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
           </button>
           <button onClick={() => setActiveMode('screen')}
             className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all duration-300 active:scale-90 ${
               activeMode === 'screen'
-                ? 'bg-primary/20 border-primary/60 text-primary shadow-[0_0_16px_oklch(var(--p)/0.25)]'
-                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/70 hover:border-primary/50'
+                ? 'bg-white/15 border-white/30 text-white shadow-[0_0_16px_rgba(255,255,255,0.12)]'
+                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white/70 hover:border-white/30'
             }`} title="Share Screen">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </button>
@@ -413,6 +332,9 @@ const MarkHome = () => {
       <HistoryDrawer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 
       <MemoryVisualizer isOpen={isMemoryMapOpen} onClose={() => setIsMemoryMapOpen(false)} />
+
+      {/* YouTube Music — bottom-right corner FAB player */}
+      <YoutubeMusicPlayer />
     </div>
   )
 }

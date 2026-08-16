@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import DraggableHoloCard from './DraggableHoloCard';
 
-import { FaCheckCircle, FaSearch, FaListUl, FaBolt, FaCheck, FaChevronRight } from 'react-icons/fa';
+import { CheckCircle, List, Zap, Check, ChevronRight } from 'lucide-react';
 
 const ProcessPanel = ({ processes, onDismiss }) => {
   const [renderedProcesses, setRenderedProcesses] = useState([]);
@@ -9,8 +9,6 @@ const ProcessPanel = ({ processes, onDismiss }) => {
   // Sync rendered processes with delayed unmount
   useEffect(() => {
     setRenderedProcesses(prev => {
-      const currentIds = processes.map(p => p.id);
-      
       // Update existing or mark as exiting
       let next = prev.map(rp => {
         const updated = processes.find(p => p.id === rp.id);
@@ -40,6 +38,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
       return () => clearTimeout(timer);
     }
   }, [renderedProcesses]);
+
   // Auto-dismiss logic for 'done' status
   useEffect(() => {
     processes.forEach(proc => {
@@ -63,7 +62,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
         const sideIndex = Math.floor(index / 2);
         const cascadeY = sideIndex * 40;
         const cascadeX = sideIndex * 30;
-        
+
         if (proc.type === 'planning') {
           const { steps, currentStep, reasoning } = proc.data;
           const isDone = proc.status === 'done';
@@ -71,7 +70,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
             <div className="pointer-events-auto" key={proc.id}>
               <DraggableHoloCard
                 id={proc.id}
-                title={isDone ? <><FaCheckCircle className="inline mr-1" /> Eksekusi Selesai</> : <><FaListUl className="inline mr-1" /> Eksekusi [{currentStep + 1}/{steps?.length || 1}]</>}
+                title={isDone ? <><CheckCircle className="inline mr-1" size={14} /> Eksekusi Selesai</> : <><List className="inline mr-1" size={14} /> Eksekusi [{currentStep + 1}/{steps?.length || 1}]</>}
                 defaultPosition={{ x: isRight ? window.innerWidth - 390 - cascadeX : 40 + cascadeX, y: 80 + cascadeY }}
                 onClose={() => onDismiss(proc.id)}
                 isVisible={!proc.isExiting}
@@ -80,7 +79,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                   {reasoning && (
                     <details className="group">
                       <summary className="text-[10px] cursor-pointer select-none flex items-center gap-1.5 opacity-50 hover:opacity-100 transition-opacity uppercase tracking-wider mb-2">
-                        <FaChevronRight className="group-open:rotate-90 transition-transform text-[8px]" />
+                        <ChevronRight className="group-open:rotate-90 transition-transform text-[8px]" size={10} />
                         Proses Pemikiran
                       </summary>
                       <div className="text-[11px] opacity-60 border-l border-white/20 pl-2 mb-2 font-mono whitespace-pre-wrap">
@@ -94,8 +93,8 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                     let suffix = '';
 
                     if (idx < currentStep) {
-                      prefix = <FaCheck className="inline" size={10} />;
-                      opacity = 'opacity-100 text-success font-bold';
+                      prefix = <Check className="inline" size={10} />;
+                      opacity = 'opacity-100 text-white font-bold';
                     } else if (idx === currentStep && !isDone) {
                       opacity = 'opacity-100 text-white animate-pulse';
                       suffix = '...';
@@ -108,10 +107,10 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                           {typeof step === 'object' && step.query ? (
                             <details className="group/step outline-none">
                               <summary className="cursor-pointer select-none flex items-center hover:opacity-80 outline-none list-none [&::-webkit-details-marker]:hidden">
-                                <FaChevronRight className="group-open/step:rotate-90 transition-transform text-[8px] mr-1 opacity-50" />
+                                <ChevronRight className="group-open/step:rotate-90 transition-transform text-[8px] mr-1 opacity-50" size={10} />
                                 {step.task} {suffix}
                               </summary>
-                              <div className="mt-1 pl-3 opacity-70 text-[9px] border-l border-white/20 ml-[3px] mb-1 break-words font-sans bg-black/20 p-1.5 rounded">
+                              <div className="mt-1 pl-3 opacity-70 text-[9px] border-l border-white/20 ml-[3px] mb-1 break-words font-sans glass glass-hover p-1.5 rounded">
                                 {step.query}
                               </div>
                             </details>
@@ -136,15 +135,15 @@ const ProcessPanel = ({ processes, onDismiss }) => {
             <div className="pointer-events-auto" key={proc.id}>
               <DraggableHoloCard
                 id={proc.id}
-                title={<><FaBolt className="inline mr-1" /> Plugin: {proc.data.action}</>}
+                title={<><Zap className="inline mr-1" size={14} /> Plugin: {proc.data.action}</>}
                 defaultPosition={{ x: isRight ? window.innerWidth - 340 - cascadeX : 40 + cascadeX, y: 80 + cascadeY }}
                 onClose={() => onDismiss(proc.id)}
                 isVisible={!proc.isExiting}
               >
                 <div className="w-[280px] text-xs font-mono text-white/80">
-                  <div className="mb-2">Mengeksekusi: <span className="text-success">{proc.data.query || proc.data.action}</span></div>
+                  <div className="mb-2">Mengeksekusi: <span className="text-white">{proc.data.query || proc.data.action}</span></div>
                   {proc.data.result && (
-                    <div className="p-2 bg-info/10 text-info border border-info/20 rounded-md">
+                    <div className="p-2 glass glass-hover text-white/90 border border-white/20 rounded-md">
                       {proc.data.result}
                     </div>
                   )}

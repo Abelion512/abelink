@@ -29,6 +29,8 @@ async function resolveEndpoint() {
       if (ep?.url) return { ...ep, model: 'deepseek-vl2' }
     }
   } catch {}
+  // Disabled fallback: LM Studio retained but disabled in UI (default provider is now 'custom').
+  // If you need local vision, re-enable LM Studio in the provider selection and configure the endpoint.
   return { url: 'http://localhost:1234/v1/chat/completions', model: 'llava-v1.6-mistral', headers: { 'Content-Type': 'application/json' } }
 }
 

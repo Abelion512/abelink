@@ -1,6 +1,6 @@
 // Section: Provider & Keys (provider, models, keys, save)
 import { useState } from 'react'
-import { FaEye, FaEyeSlash } from 'react-icons/fa'
+import { Eye, EyeSlash } from 'lucide-react'
 import { saveConfiguration } from '../../../api/db'
 import { getExtractor } from '../../../api/vectorMemory'
 import { useConfirm } from '../../../hooks/useConfirm'
@@ -78,7 +78,6 @@ export default function ConfigProviderKeys({ config, setConfig, isFirstSetup, on
 
   const providers = [
     { id: 'gemini-web', label: 'Gemini (Gratis)' },
-    { id: 'lm-studio', label: 'LM Studio (Local Offline)' },
     { id: 'custom', label: 'Custom API (OpenAI-Compatible)' },
   ]
 
@@ -93,7 +92,7 @@ export default function ConfigProviderKeys({ config, setConfig, isFirstSetup, on
 
   return (
     <section className="space-y-5">
-      <div id="tour-ai-provider" className="space-y-1.5 p-2 -mx-2 rounded-lg">
+      <div id="tour-ai-provider" className="space-y-1.5 p-2 -mx-2 glass glass-hover">
         <p className="text-sm font-semibold">AI Provider</p>
         <select
           className="select select-bordered w-full"
@@ -118,13 +117,6 @@ export default function ConfigProviderKeys({ config, setConfig, isFirstSetup, on
         </div>
       )}
 
-      {config.aiProvider === 'lmstudio' && (
-        <div className="space-y-1.5">
-          <p className="text-sm font-semibold">Model (LM Studio)</p>
-          <input type="text" placeholder="google/gemma-3-4b" className="input input-bordered w-full" value={config.model || ''} onChange={e => setConfig(prev => ({ ...prev, model: e.target.value }))} />
-          <p className="text-xs opacity-40">Nama model aktif di LM Studio.</p>
-        </div>
-      )}
       {config.aiProvider === 'custom' && (
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -159,20 +151,20 @@ export default function ConfigProviderKeys({ config, setConfig, isFirstSetup, on
             <p className="text-sm font-semibold">Custom API Key</p>
             <div className="relative w-full">
               <input type={showCustomKey ? 'text' : 'password'} placeholder="API Key (opsional)" className="input input-bordered w-full pr-10" value={config.customApiKey || ''} onChange={e => setConfig(prev => ({ ...prev, customApiKey: e.target.value }))} />
-              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100" onClick={() => setShowCustomKey(!showCustomKey)}>{showCustomKey ? <FaEyeSlash size={16} /> : <FaEye size={16} />}</button>
+              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100" onClick={() => setShowCustomKey(!showCustomKey)}>{showCustomKey ? <EyeSlash size={16} /> : <Eye size={16} />}</button>
             </div>
           </div>
         </div>
       )}
 
-      <div id="tour-groq-key" className="space-y-1.5 p-2 -mx-2 rounded-lg">
+      <div id="tour-groq-key" className="space-y-1.5 p-2 -mx-2 glass glass-hover">
         <div className="flex justify-between items-center">
           <p className="text-sm font-semibold">Groq API Key {config.aiProvider !== 'groq' && '(untuk Voice/STT)'}</p>
           <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="btn btn-xs btn-outline btn-primary">Ambil Key</a>
         </div>
         <div className="relative w-full">
           <input type={showGroqKey ? 'text' : 'password'} placeholder="gsk_..." className="input input-bordered w-full pr-10" value={config.groqApiKey || ''} onChange={e => setConfig(prev => ({ ...prev, groqApiKey: e.target.value }))} />
-          <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100" onClick={() => setShowGroqKey(!showGroqKey)}>{showGroqKey ? <FaEyeSlash size={16} /> : <FaEye size={16} />}</button>
+          <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100" onClick={() => setShowGroqKey(!showGroqKey)}>{showGroqKey ? <EyeSlash size={16} /> : <Eye size={16} />}</button>
         </div>
         {config.aiProvider !== 'groq' && <p className="text-xs opacity-40">Dipakai untuk Speech-to-Text.</p>}
       </div>

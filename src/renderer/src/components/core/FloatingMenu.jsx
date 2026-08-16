@@ -1,16 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  FaBars,
-  FaCog,
-  FaPuzzlePiece,
-  FaHistory,
-  FaWhatsapp,
-  FaDatabase,
-  FaNetworkWired,
-  FaHeartbeat,
-  FaBook
-} from 'react-icons/fa'
+  Menu,
+  Settings,
+  Puzzle,
+  History,
+  MessageCircle,
+  Database,
+  Network,
+  BookOpen,
+  HeartPulse
+} from 'lucide-react'
 
 const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
   const [isOpen, setIsOpen] = useState(false)
@@ -36,9 +36,9 @@ const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
     <div className="fixed top-8 left-8 z-50" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-12 h-12 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] flex items-center justify-center transition-all shadow-lg hover:shadow-[0_0_15px_oklch(var(--su)/0.3)] ${isOpen ? 'text-white border-success/50' : 'text-white/70 hover:text-white hover:border-white/20'}`}
+        className={`w-12 h-12 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] flex items-center justify-center transition-all shadow-lg hover:shadow-[0_0_15px_rgba(255,255,255,0.1)] ${isOpen ? 'text-white border-white/30' : 'text-white/70 hover:text-white hover:border-white/20'}`}
       >
-        <FaBars size={20} />
+        <Menu size={20} />
       </button>
 
       {isOpen && (
@@ -47,46 +47,45 @@ const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
             onClick={() => handleNav('/config')}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
-            <FaCog className="text-primary" /> Configuration
+            <Settings size={18} className="text-white/60" /> Configuration
           </button>
 
           <button
             onClick={() => handleNav('/plugins')}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
-            <FaPuzzlePiece className="text-primary" /> Plugins
+            <Puzzle size={18} className="text-white/60" /> Plugins
           </button>
 
           <button
             onClick={() => handleNav('/knowledge')}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
-            <FaDatabase className="text-primary" /> Knowledge (RAG)
+            <Database size={18} className="text-white/60" /> Knowledge (RAG)
           </button>
 
           <button
             onClick={() => handleNav('/guidebook')}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
-            <FaBook className="text-primary" /> Guidebook
+            <BookOpen size={18} className="text-white/60" /> Guidebook
           </button>
 
           <button
             onClick={() => {
-              // Custom event to open memory map in MarkHome
-              window.dispatchEvent(new CustomEvent('open-memory-map'));
-              setIsOpen(false);
+              window.dispatchEvent(new CustomEvent('open-memory-map'))
+              setIsOpen(false)
             }}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
-            <FaNetworkWired className="text-primary" /> Memory Map
+            <Network size={18} className="text-white/60" /> Memory Map
           </button>
 
           <button
             onClick={() => handleNav('/relational')}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
-            <FaHeartbeat className="text-primary" /> Relational Growth
+            <HeartPulse size={18} className="text-white/60" /> Relational Growth
           </button>
 
           <button
@@ -96,7 +95,7 @@ const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
             }}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
-            <FaHistory className="text-primary" /> History
+            <History size={18} className="text-white/60" /> History
           </button>
 
           <div className="h-px w-full bg-white/10 my-1" />
@@ -105,10 +104,10 @@ const FloatingMenu = ({ onOpenHistory, waStatus = 'disconnected' }) => {
             onClick={() => handleNav('/whatsapp-bot')}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/5 cursor-pointer text-white/80 text-sm font-medium"
           >
-            <FaWhatsapp className={waStatus === 'connected' ? 'text-success' : 'text-white/30'} />
+            <MessageCircle className={waStatus === 'connected' ? 'text-white' : 'text-white/30'} size={18} />
             <div className="flex-1 text-left">WhatsApp Bot</div>
             <div
-              className={`w-2 h-2 rounded-full ${waStatus === 'connected' ? 'bg-success shadow-[0_0_8px_oklch(var(--su))]' : waStatus === 'qr' ? 'bg-warning' : 'bg-error'}`}
+              className={`w-2 h-2 rounded-full ${waStatus === 'connected' ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.5)]' : waStatus === 'qr' ? 'bg-yellow-400' : 'bg-red-500'}`}
             />
           </button>
         </div>

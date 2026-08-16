@@ -28,7 +28,7 @@ export default function ConfigVoice({ config, setConfig, audioDevices }) {
   const handleTtsPitchChange = (e) => setConfig((prev) => ({ ...prev, ttsPitch: Number(e.target.value) }))
 
   return (
-    <div id="tour-tts" className="space-y-6 p-2 -mx-2 rounded-lg">
+    <div id="tour-tts" className="space-y-6 p-2 -mx-2 glass glass-hover">
       <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5">
         Audio & Voice Engine
       </h2>

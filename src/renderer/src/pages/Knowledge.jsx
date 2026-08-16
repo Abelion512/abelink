@@ -138,7 +138,7 @@ const Knowledge = () => {
           </div>
 
           <section className="space-y-5">
-            <div className="card bg-base-100/50 backdrop-blur-xl border border-base-content/10 shadow-xl">
+            <div className="card glass glass-hover shadow-xl">
               <div className="card-body">
                 <h2 className="card-title text-base font-bold uppercase tracking-wider opacity-70">
                   Upload Dokumen Baru
@@ -186,7 +186,7 @@ const Knowledge = () => {
 
             <div className="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
               {documents.length === 0 ? (
-                <div className="text-center py-10 opacity-30 bg-base-200/30 rounded-xl border border-base-content/5">
+                <div className="text-center py-10 opacity-30 glass glass-hover">
                   <p className="text-sm">Belum ada dokumen yang di-inject.</p>
                 </div>
               ) : (

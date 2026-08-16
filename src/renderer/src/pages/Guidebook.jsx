@@ -34,7 +34,7 @@ const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks,
   const [isExpanded, setIsExpanded] = useState(false)
 
   return (
-    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden transition-all duration-300 hover:bg-white/10">
+    <div className="glass glass-hover rounded-xl overflow-hidden transition-all duration-300">
       <div
         className="p-4 cursor-pointer flex justify-between items-center gap-4"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -60,7 +60,7 @@ const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks,
       </div>
 
       {isExpanded && (
-        <div className="p-4 pt-0 border-t border-white/5 bg-black/20 text-sm text-white/80 space-y-3">
+        <div className="p-4 pt-0 border-t border-white/5 glass glass-hover text-sm text-white/80 space-y-3">
           <div>
             <strong className="text-white">Format Query:</strong>
             <div className="bg-base-300/50 p-2 rounded mt-1 font-mono text-xs text-primary/80">
@@ -211,7 +211,7 @@ const Guidebook = () => {
                     <strong>tanpa mengorbankan privasi Anda sedikit pun</strong>.
                   </p>
 
-                  <div className="bg-black/30 border border-white/5 rounded-2xl p-6 mt-8">
+                  <div className="glass glass-hover rounded-2xl p-6 mt-8">
                     <h3 className="text-xl font-bold text-white mb-4">
                       Ditenagai oleh Hybrid AI Engine, Mark mampu:
                     </h3>
@@ -239,7 +239,7 @@ const Guidebook = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
                   {/* Card 1: Vector Memory */}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
+                  <div className="glass glass-hover rounded-2xl p-6 flex flex-col gap-4">
                     <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
                       <FaBrain className="text-primary text-xl" />
                     </div>
@@ -253,7 +253,7 @@ const Guidebook = () => {
                   </div>
 
                   {/* Card 2: Relational Growth */}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
+                  <div className="glass glass-hover rounded-2xl p-6 flex flex-col gap-4">
                     <div className="w-12 h-12 rounded-xl bg-error/20 flex items-center justify-center shrink-0">
                       <FaHeartbeat className="text-error text-xl" />
                     </div>
@@ -268,14 +268,14 @@ const Guidebook = () => {
                   </div>
 
                   {/* Card 3: Hybrid AI */}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
+                  <div className="glass glass-hover rounded-2xl p-6 flex flex-col gap-4">
                     <div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center shrink-0">
                       <FaNetworkWired className="text-secondary text-xl" />
                     </div>
                     <div>
                       <h4 className="text-white font-semibold mb-2">Hybrid AI Engine</h4>
                       <p className="text-sm text-white/60 leading-relaxed">
-                        Bisa berjalan secara offline/lokal via LM Studio untuk privasi maksimal,
+                        Bisa berjalan secara offline/lokal via Custom Endpoint untuk privasi maksimal,
                         atau menggunakan Groq API / Cloud API untuk mengeksekusi tugas berat dengan
                         kecepatan super.
                       </p>
@@ -283,7 +283,7 @@ const Guidebook = () => {
                   </div>
 
                   {/* Card 4: Awareness */}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
+                  <div className="glass glass-hover rounded-2xl p-6 flex flex-col gap-4">
                     <div className="w-12 h-12 rounded-xl bg-info/20 flex items-center justify-center shrink-0">
                       <FaEye className="text-info text-xl" />
                     </div>
@@ -317,7 +317,7 @@ const Guidebook = () => {
                 berpikir layaknya manusia sebelum bertindak.
               </p>
 
-              <div className="bg-black/20 border border-white/5 rounded-3xl p-8 mb-12">
+              <div className="glass glass-hover rounded-3xl p-8 mb-12">
                 <FlowStep
                   number="1"
                   title="Mengingat (Memory Search)"
@@ -677,7 +677,7 @@ const Guidebook = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                <div className="glass glass-hover rounded-2xl p-6">
                   <FaEye className="text-3xl text-primary mb-4" />
                   <h4 className="text-white font-bold mb-2">Screen Reading (analyze-screen)</h4>
                   <p className="text-sm text-white/60">
@@ -685,7 +685,7 @@ const Guidebook = () => {
                     teks error, posisi aplikasi, atau menganalisa gambar yang sedang Anda kerjakan.
                   </p>
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                <div className="glass glass-hover rounded-2xl p-6">
                   <FaCamera className="text-3xl text-accent mb-4" />
                   <h4 className="text-white font-bold mb-2">Camera Vision (camera-look)</h4>
                   <p className="text-sm text-white/60">
@@ -694,7 +694,7 @@ const Guidebook = () => {
                     ruangan.
                   </p>
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
+                <div className="glass glass-hover rounded-2xl p-6">
                   <FaBrain className="text-3xl text-secondary mb-4" />
                   <h4 className="text-white font-bold mb-2">Background Awareness</h4>
                   <p className="text-sm text-white/60">
@@ -730,7 +730,7 @@ const Guidebook = () => {
                 ini.
               </p>
 
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-8 mb-8">
+              <div className="glass glass-hover rounded-2xl p-8 mb-8">
                 <h4 className="text-white font-bold mb-6 text-center">9 Spektrum Emosi</h4>
                 <div className="flex flex-wrap gap-3 justify-center">
                   <span className="badge badge-lg gap-2 bg-[#FFD700]/20 text-[#FFD700] border-[#FFD700]/50">
@@ -821,7 +821,7 @@ const Guidebook = () => {
                 instan!
               </p>
 
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8">
+              <div className="glass glass-hover rounded-2xl p-6 mb-8">
                 <h3 className="text-xl font-bold text-white mb-4">Langkah Pembuatan Plugin</h3>
                 <ol className="list-decimal list-inside space-y-4 text-white/80">
                   <li>
@@ -863,7 +863,7 @@ const Guidebook = () => {
                 </ol>
               </div>
 
-              <div className="bg-black/40 border border-white/5 rounded-2xl p-6 mb-8">
+              <div className="glass glass-hover rounded-2xl p-6 mb-8">
                 <h3 className="text-xl font-bold text-white mb-4">
                   Contoh: Plugin Pengatur Volume
                 </h3>
@@ -939,7 +939,7 @@ try {
                 Mark dilengkapi sistem <strong className="text-white">4-Layer Ad Blocking</strong> yang memblokir iklan YouTube secara otomatis — tanpa perlu ekstensi tambahan.
               </p>
 
-              <div className="bg-black/20 border border-white/5 rounded-3xl p-8 mb-8">
+              <div className="glass glass-hover rounded-3xl p-8 mb-8">
                 <h3 className="text-xl font-bold text-white mb-6">4 Lapisan Pertahanan</h3>
                 <div className="space-y-4">
                   <FlowStep number="1" title="CSS Cosmetic Hiding" description="150+ selector CSS menyembunyikan container iklan, overlay, sidebar ads, dan premium promosi secara instan." />

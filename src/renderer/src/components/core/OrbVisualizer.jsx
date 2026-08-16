@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) => {
   // Single state object — 1 setState per mood/status change, bukan 3 (hemat re-render)
-  const [theme, setTheme] = useState({ glass: 'from-emerald-400/40 to-green-500/10', glow: 'bg-green-500/50', border: 'border-green-400/50' });
+  const [theme, setTheme] = useState({ glass: 'from-white/40 to-white/5', glow: 'bg-white/40', border: 'border-white/30' });
 
   useEffect(() => {
     if (status === 'error') {
@@ -38,8 +38,8 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
         case 'ennui':
           setTheme({ glass: 'from-gray-400/40 to-gray-600/10', glow: 'bg-gray-500/50', border: 'border-gray-400/50' });
           break;
-        default: // neutral
-          setTheme({ glass: 'from-emerald-400/40 to-green-500/10', glow: 'bg-green-500/50', border: 'border-green-400/50' });
+        default: // neutral — default stays neutral (not green)
+          setTheme({ glass: 'from-white/40 to-white/5', glow: 'bg-white/40', border: 'border-white/30' });
           break;
       }
     }

@@ -53,7 +53,7 @@ export default function ConfigAdmin({ config, setConfig }) {
   }
 
   return (
-    <section id="tour-wa-admin" className="space-y-5 p-2 -mx-2 rounded-lg">
+    <section id="tour-wa-admin" className="space-y-5 p-2 -mx-2 glass glass-hover">
       <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
         WhatsApp Bot Settings
       </h2>
@@ -66,7 +66,8 @@ export default function ConfigAdmin({ config, setConfig }) {
             {config.waPendingAdmins.map((admin, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between bg-base-200 p-3 rounded-lg border border-warning/30"
+                className="flex items-center justify-between p-3 rounded-lg border border-warning/30"
+                style={{background: 'var(--glass-bg)'}}
               >
                 <div>
                   <p className="font-bold text-sm">{admin.name}</p>
@@ -105,7 +106,8 @@ export default function ConfigAdmin({ config, setConfig }) {
             {(config.waApprovedAdmins || []).map((admin, idx) => (
               <div
                 key={`appr-${idx}`}
-                className="flex items-center justify-between bg-base-200 p-3 rounded-lg border border-success/30"
+                className="flex items-center justify-between p-3 rounded-lg border border-success/30"
+                style={{background: 'var(--glass-bg)'}}
               >
                 <div>
                   <p className="font-bold text-sm text-success">{admin.name}</p>
@@ -133,7 +135,8 @@ export default function ConfigAdmin({ config, setConfig }) {
                 return (
                   <div
                     key={`leg-${idx}`}
-                    className="flex items-center justify-between bg-base-200 p-3 rounded-lg border border-success/30"
+                    className="flex items-center justify-between p-3 rounded-lg border border-success/30"
+                    style={{background: 'var(--glass-bg)'}}
                   >
                     <div>
                       <p className="font-bold text-sm text-success">Admin (Manual)</p>

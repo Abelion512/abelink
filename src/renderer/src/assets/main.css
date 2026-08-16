@@ -129,17 +129,15 @@ html {
 
 .audio-glow-listening {
   box-shadow:
-    0 0 40px rgba(31, 184, 84, 0.15),
-    0 0 80px rgba(31, 184, 84, 0.08),
-    0 0 120px rgba(31, 184, 84, 0.04);
+    0 0 40px rgba(255, 255, 255, 0.06),
+    0 0 80px rgba(255, 255, 255, 0.03);
   animation: glow-pulse-listen 2s ease-in-out infinite;
 }
 
 .audio-glow-speaking {
   box-shadow:
     0 0 40px rgba(82, 39, 255, 0.2),
-    0 0 80px rgba(82, 39, 255, 0.1),
-    0 0 120px rgba(82, 39, 255, 0.05);
+    0 0 80px rgba(82, 39, 255, 0.1);
   animation: glow-pulse-speak 1.5s ease-in-out infinite;
 }
 
@@ -147,13 +145,13 @@ html {
   0%,
   100% {
     box-shadow:
-      0 0 40px rgba(31, 184, 84, 0.15),
-      0 0 80px rgba(31, 184, 84, 0.08);
+      0 0 40px rgba(255, 255, 255, 0.06),
+      0 0 80px rgba(255, 255, 255, 0.03);
   }
   50% {
     box-shadow:
-      0 0 60px rgba(31, 184, 84, 0.25),
-      0 0 100px rgba(31, 184, 84, 0.12);
+      0 0 60px rgba(255, 255, 255, 0.1),
+      0 0 100px rgba(255, 255, 255, 0.05);
   }
 }
 
@@ -309,12 +307,43 @@ html {
   background-color: #000000 !important;
 }
 
-/* === TAMBAHAN UNTUK ORB & HOLOGRAM (HIJAU SEIRAMA) === */
+/* === GLASS UTILITY CLASS === */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur) var(--glass-saturate);
+  -webkit-backdrop-filter: var(--glass-blur) var(--glass-saturate);
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+}
+
+.glass-hover:hover {
+  border-color: var(--glass-hover-border);
+}
+
+.glass-shine::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--glass-shine);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glass-shine > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* === GLASS TOKENS (Liquid Glass — neutral, no green) === */
 :root {
-  --color-holo-border: linear-gradient(90deg, oklch(var(--p)), oklch(var(--su)), oklch(var(--p)));
-  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-bg: rgba(255, 255, 255, 0.04);
   --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-hover-border: rgba(255, 255, 255, 0.16);
   --glass-blur: blur(20px);
+  --glass-saturate: saturate(1.2);
+  --glass-shine: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%, rgba(255,255,255,0.05) 100%);
+  --color-holo-border: linear-gradient(90deg, oklch(var(--p)), oklch(var(--p) / 0.6), oklch(var(--p)));
 }
 
 /* === ORB ANIMATIONS === */
@@ -350,6 +379,22 @@ html {
   50% {
     opacity: 1;
   }
+}
+
+/* === WHAT'S NEW NOTIFICATIONS === */
+@keyframes whatsnew-slide-in {
+  0% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes whatsnew-fade-out {
+  0% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(100%); }
+}
+
+/* === NOW PLAYING (bottom-right corner) === */
+@keyframes music-bar-corner {
+  0%, 100% { height: 4px; }
+  50% { height: 12px; }
 }
 
 /* === HOLOGRAM CARD ANIMATIONS === */

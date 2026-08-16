@@ -50,7 +50,7 @@ export default function ConfigCamera({ config, setConfig, videoDevices }) {
   const handleCameraEnabledChange = (e) => setConfig((prev) => ({ ...prev, cameraEnabled: e.target.checked }))
 
   return (
-    <div className="space-y-6 p-2 -mx-2 rounded-lg">
+    <div className="space-y-6 p-2 -mx-2 glass glass-hover">
       <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5 flex items-center gap-2">
         Kamera
       </h2>

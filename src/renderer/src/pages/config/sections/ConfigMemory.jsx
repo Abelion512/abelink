@@ -44,7 +44,7 @@ export default function ConfigMemory({ config, setConfig }) {
   if (!relationalTraits || config.awarenessEnabled === false) return null
 
   return (
-    <div className="space-y-3 p-3 -mx-2 rounded-lg bg-base-200 mt-2">
+    <div className="space-y-3 p-3 -mx-2 glass glass-hover mt-2">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold">Relational Growth (Sifat Hubungan)</p>

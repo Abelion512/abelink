@@ -2,7 +2,9 @@ import { app } from 'electron'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { cleanAndParse } from '../shared/cleanAndParse.js'
+import { normalizeChatCompletionsUrl } from './modelDiscovery.js'
 import { logModelCall } from './computer/audit-log.js'
+import { generateGeminiResponse } from './services/gemini-web.js'
 
 // ========== MODEL REGISTRY (Dynamic, Pluggable) ==========
 const REGISTRY_PATH = join(__dirname, 'model-registry.json')
@@ -216,7 +218,7 @@ const CIRCUIT_BREAKER_THRESHOLD = 3
 
 // ========== CONFIG ==========
 const defaultConfig = {
-  aiProvider: process.env.DEFAULT_AI_PROVIDER || 'lmstudio',
+  aiProvider: process.env.DEFAULT_AI_PROVIDER || 'custom',
   customEndpoint: process.env.CUSTOM_AI_ENDPOINT || '',
   customModel: process.env.CUSTOM_AI_MODEL || '',
   customApiKey: process.env.CUSTOM_AI_API_KEY || ''
@@ -260,19 +262,78 @@ export const fetchAI = async (
   onStatus = null
 ) => {
   const conf = config || globalConfig
-  const activeProvider = conf.aiProvider || conf.activeProvider || 'lmstudio'
-  const customEndpoint = conf.customEndpoint?.replace(/\/+$/, '') || 'http://localhost:1234'
+  const activeProvider = conf.aiProvider || conf.activeProvider || 'custom'
+  const customEndpoint = conf.customEndpoint || ''
   const customApiKey = conf.customApiKey || ''
   const maxTokens = isSmallTask ? (conf.smallMaxTokens || 1536) : (conf.maxTokens || 8192)
   const temperature = isSmallTask ? (conf.smallTemperature ?? 0.3) : (conf.temperature ?? 0.7)
 
   const modelChain = resolveModelChain(conf.customModel)
 
+  // ========== GEMINI WEB (FREE, NO API KEY) ==========
+  if (activeProvider === 'gemini-web') {
+    let workMessages = messages.map((m) => ({ ...m }))
+
+    if (jsonSchema) {
+      let sysIdx = workMessages.findIndex((m) => m.role === 'system')
+      const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
+      if (sysIdx >= 0) {
+        workMessages[sysIdx].content += instruction
+      } else {
+        workMessages.unshift({ role: 'system', content: instruction })
+      }
+    }
+
+    let fullPrompt = '[CRITICAL INSTRUCTION: DO NOT USE GOOGLE SEARCH. DO NOT USE ANY EXTENSIONS. ANSWER IMMEDIATELY FROM YOUR KNOWLEDGE BASE TO SAVE TIME.]\n\n'
+    for (const m of workMessages) {
+      if (Array.isArray(m.content)) {
+        for (const part of m.content) {
+          if (part.type === 'text') {
+            fullPrompt += `[${m.role.toUpperCase()}]: ${part.text}\n`
+          }
+        }
+      } else {
+        fullPrompt += `[${m.role.toUpperCase()}]: ${m.content || ''}\n`
+      }
+    }
+    fullPrompt += '\n[ASSISTANT]:'
+
+    const modelName = conf.geminiWebModel || 'gemini-3.6-flash'
+
+    try {
+      console.log(`\n==================== [GEMINI WEB REQUEST] ====================`)
+      console.log(`Model: ${modelName}`)
+      console.log(`Prompt length: ${fullPrompt.length} chars`)
+      console.log(`==============================================================\n`)
+
+      let answer = await generateGeminiResponse(fullPrompt, modelName)
+
+      let reasoning = null
+      if (answer.includes('<think>')) {
+        const match = answer.match(/<think>([\s\S]*?)<\/think>/)
+        if (match) {
+          reasoning = match[1].trim()
+          answer = answer.replace(/<think>[\s\S]*?<\/think>/, '').trim()
+        }
+      }
+
+      console.log(`[GEMINI WEB SUCCESS] Content length: ${answer.length}`)
+      return { content: answer, reasoning }
+    } catch (err) {
+      console.error('[Gemini Web Error]', err)
+      if (err.message?.includes('Session') || err.message?.includes('BardErrorInfo')) {
+        onStatus?.('⚠️ Session Gemini Web bermasalah, mencoba fallback ke gemini-flash-lite...')
+        let answer = await generateGeminiResponse(fullPrompt, 'gemini-flash-lite')
+        return { content: answer, reasoning: null }
+      }
+      throw err
+    }
+  }
+
   // ========== ENDPOINT ==========
   let url, headers
   if (activeProvider === 'custom' && customEndpoint) {
-    const base = customEndpoint.replace(/\/+$/, '')
-    url = base.endsWith('/chat/completions') ? base : `${base}/chat/completions`
+    url = normalizeChatCompletionsUrl(customEndpoint)
     headers = { 'Content-Type': 'application/json' }
     if (customApiKey) {
       if (customEndpoint.includes('anthropic.com')) {
@@ -282,7 +343,12 @@ export const fetchAI = async (
         headers['Authorization'] = `Bearer ${customApiKey}`
       }
     }
+  } else if (activeProvider === 'custom' && !customEndpoint) {
+    // Configured custom tapi endpoint kosong — jangan tembak localhost:1234 mati.
+    url = normalizeChatCompletionsUrl(customEndpoint)
+    headers = { 'Content-Type': 'application/json' }
   } else {
+    // LM Studio fallback tetap dipertahankan (nonaktif by default).
     url = `http://localhost:1234/v1/chat/completions`
     headers = { 'Content-Type': 'application/json' }
   }

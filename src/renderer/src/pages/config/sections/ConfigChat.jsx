@@ -1,6 +1,6 @@
 // Section: Memory & Data (chat export/import/clear, full encrypted backup)
 import { useState } from 'react'
-import { FaDownload, FaUpload, FaTrash, FaLock } from 'react-icons/fa'
+import { Download, Upload, Trash2, Lock } from 'lucide-react'
 import { db, importChat, exportFullMark, importFullMark } from '../../../api/db'
 import { useConfirm } from '../../../hooks/useConfirm'
 
@@ -120,27 +120,27 @@ export default function ConfigChat() {
       </h2>
 
       {/* Chat History */}
-      <div className="bg-base-300/60 backdrop-blur-sm border border-[var(--glass-border)] rounded-2xl p-4 space-y-3">
+      <div className="glass p-4 space-y-3">
         <p className="text-sm font-semibold">Chat History</p>
         <div className="flex flex-wrap gap-2">
           <button className="btn btn-soft btn-info btn-sm gap-2" onClick={handleExportChat}>
-            <FaDownload size={11} /> Export Chat
+            <Download size={11} /> Export Chat
           </button>
           <button className="btn btn-soft btn-primary btn-sm gap-2" onClick={() => document.getElementById('import-chat-input').click()}>
-            <FaUpload size={11} /> Import Chat
+            <Upload size={11} /> Import Chat
           </button>
           <button className="btn btn-soft btn-error btn-sm gap-2" onClick={handleClearAllChat}>
-            <FaTrash size={11} /> Hapus Semua Chat
+            <Trash2 size={11} /> Hapus Semua Chat
           </button>
         </div>
         <input type="file" id="import-chat-input" accept=".json" className="hidden" onChange={handleImportChatFile} />
       </div>
 
       {/* Full Backup Encrypted */}
-      <div className="bg-base-300/60 backdrop-blur-sm border border-[var(--glass-border)] rounded-2xl p-4 space-y-3">
+      <div className="glass p-4 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold">Full MARK Backup</p>
-          <FaLock className="text-warning" size={14} />
+          <Lock className="text-warning" size={14} />
         </div>
         <p className="text-xs text-white/40">Semua data (chat, memori, dokumen, relasi, riwayat). Dienkripsi AES-256-GCM. API key tidak ikut backup.</p>
 
@@ -156,11 +156,11 @@ export default function ConfigChat() {
             />
           </div>
           <button className="btn btn-soft btn-warning btn-sm gap-2" onClick={handleExportFull} disabled={backupBusy}>
-            {backupBusy === 'export' ? <span className="loading loading-spinner loading-xs" /> : <FaLock size={11} />}
+            {backupBusy === 'export' ? <span className="loading loading-spinner loading-xs" /> : <Lock size={11} />}
             Export & Enkripsi
           </button>
           <button className="btn btn-soft btn-accent btn-sm gap-2" onClick={() => document.getElementById('restore-full-input').click()} disabled={backupBusy}>
-            <FaUpload size={11} /> Restore dari Backup
+            <Upload size={11} /> Restore dari Backup
           </button>
         </div>
 
