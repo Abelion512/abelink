@@ -22,11 +22,20 @@ const PROVIDER_CONF = {
     requirements: 'Wajib Cerebras API Key (cloud.cerebras.ai).',
   },
   custom: {
-    base: null, // dari cfg.customEndpoint, di-strip /chat/completions
+    base: null, // dari cfg.customEndpoint, distandarisasi oleh normalizeChatCompletionsUrl
     needsKey: false,
     keyField: 'customApiKey',
-    requirements: 'Endpoint wajib diakhiri /chat/completions. Prefix (mm/mm/) jangan dihapus.',
+    requirements: 'Endpoint wajib diakhiri /v1. Sistem menambahkan /chat/completions otomatis.',
   },
+}
+
+// Normalisasi endpoint user → URL /chat/completions final.
+// User cukup ketik sampai /v1; trailing slash ditoleransi.
+export function normalizeChatCompletionsUrl(endpoint) {
+  const e = (endpoint || '').replace(/\/+$/, '')
+  if (!e) return ''
+  if (e.endsWith('/chat/completions')) return e
+  return `${e}/chat/completions`
 }
 
 /**
