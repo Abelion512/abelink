@@ -405,6 +405,8 @@ export const useMarkPlan = ({
 
         lastDecision = decision
 
+        let taskJustCreated = false
+
         // INTERCEPTOR: Jika AI menyarankan durable mode, stop ReAct dan alihkan ke planner
         const suggestedMode = decision.suggested_mode || 'direct'
         if (
@@ -463,6 +465,7 @@ export const useMarkPlan = ({
               reasoning: `Durable task dibuat: ${taskRoute.reason}`
             }
           })
+          taskJustCreated = true
         }
 
         // --- Update Task Status ---
@@ -521,6 +524,27 @@ export const useMarkPlan = ({
           if (actions[memoryData.action]) {
             await actions[memoryData.action](memoryData)
           }
+        }
+
+        if (taskJustCreated) {
+          setChatData((prev) => {
+            const filtered = prev.filter((item) => !item.isThinking)
+            return [...filtered, { role: 'ai', content: decision.answer || 'Mission Control diaktifkan.', isProactive: false }]
+          })
+
+          loopMessages.push({
+            role: 'assistant',
+            content: decision.answer || '[DURABLE TASK INITIATED]'
+          })
+          loopMessages.push({
+            role: 'user',
+            content: `[DURABLE TASK DIMULAI] Mulai eksekusi plan. Kerjakan step 1: "${durableActiveStep.title}". Objective: ${durableActiveStep.objective}. Deliverable: ${durableActiveStep.deliverable}. Gunakan tools yang tepat sekarang juga.`
+          })
+          contextMsgStr += `[DURABLE STEP AKTIF]: id=${durableActiveStep.id}; title="${durableActiveStep.title}"; objective="${durableActiveStep.objective}"; deliverable="${durableActiveStep.deliverable}".\n`
+          if (durableActiveStep.acceptanceCriteria?.length > 0) {
+            contextMsgStr += `[DURABLE STEP ACCEPTANCE]\n${durableActiveStep.acceptanceCriteria.map((item) => `- ${item}`).join('\n')}\n`
+          }
+          continue
         }
 
         // ========== CEK KEPUTUSAN AI ==========
