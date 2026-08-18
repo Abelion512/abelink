@@ -123,6 +123,9 @@ function createWindow() {
     }
   })
 
+  mainWindow.on('enter-full-screen', () => mainWindow.webContents.send('window-fullscreen', true))
+  mainWindow.on('leave-full-screen', () => mainWindow.webContents.send('window-fullscreen', false))
+
   // Custom Aero Snap Logic
   mainWindow.on('moved', () => {
     if (!mainWindow || mainWindow.isDestroyed()) return
@@ -188,6 +191,10 @@ ipcMain.on('window-maximize', () => {
 
 ipcMain.on('window-close', () => {
   if (mainWindow) mainWindow.close()
+})
+
+ipcMain.on('window-fullscreen', () => {
+  if (mainWindow) mainWindow.setFullScreen(!mainWindow.isFullScreen())
 })
 
 
@@ -348,6 +355,27 @@ ipcMain.handle('save-temp-file', async (event, arrayBuffer, fileName) => {
     return finalPath
   } catch (err) {
     console.error('[Main] save-temp-file error:', err)
+    return null
+  }
+})
+
+ipcMain.handle('file:read-dataurl', async (event, filePath) => {
+  try {
+    if (!filePath || typeof filePath !== 'string') return null
+    const buffer = fs.readFileSync(filePath)
+    const ext = filePath.split('.').pop().toLowerCase()
+    const mime = {
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      bmp: 'image/bmp',
+      svg: 'image/svg+xml'
+    }[ext] || 'application/octet-stream'
+    return `data:${mime};base64,${buffer.toString('base64')}`
+  } catch (err) {
+    console.error('[Main] file:read-dataurl error:', err)
     return null
   }
 })

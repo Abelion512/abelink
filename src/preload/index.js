@@ -7,6 +7,7 @@ const api = {
     try { return webUtils.getPathForFile(file) } catch { return file?.name || '' }
   },
   saveTempFile: (arrayBuffer, fileName) => ipcRenderer.invoke('save-temp-file', arrayBuffer, fileName),
+  readFileDataUrl: (filePath) => ipcRenderer.invoke('file:read-dataurl', filePath),
   showOpenDialog: () => ipcRenderer.invoke('dialog:open-file'),
   fetchAI: (params) => ipcRenderer.invoke('ai:fetch', params),
   abortFetchAI: () => ipcRenderer.send('ai:abort-fetch'),
@@ -69,9 +70,16 @@ const api = {
   // Window controls
   windowMinimize: () => ipcRenderer.send('window-minimize'),
   windowMaximize: () => ipcRenderer.send('window-maximize'),
+  windowFullscreen: () => ipcRenderer.send('window-fullscreen'),
   windowClose: () => ipcRenderer.send('window-close'),
   onWindowMaximized: (callback) => {
     ipcRenderer.on('window-maximized', (event, isMaximized) => callback(isMaximized))
+  },
+  onWindowFullscreen: (callback) => {
+    ipcRenderer.on('window-fullscreen', (event, isFullscreen) => callback(isFullscreen))
+  },
+  onNavigate: (callback) => {
+    ipcRenderer.on('navigate', (event, path) => callback(path))
   },
 
   tgTakeScreenshot: (chatId) => ipcRenderer.send('tg:trigger-screenshot', { chatId }),
