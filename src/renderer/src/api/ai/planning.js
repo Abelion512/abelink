@@ -180,7 +180,7 @@ Kepribadian: ${conf.personality || 'Santai layaknya teman.'}
 ${getCurrentTimeInfo()}
 PENTING - KESADARAN WAKTU & AKTIVITAS: Perhatikan waktu sekarang di atas dan waktu/tanggal pada setiap riwayat pesan chat jika ada. JANGAN PERNAH menganggap aktivitas yang dibahas di riwayat chat lama (seperti main game Tekken, ngoding, atau nonton kemarin/tadi) MASIH sedang dilakukan saat ini! Jika obrolan tersebut sudah berlalu (beda jam/hari), anggap aktivitas itu sudah selesai di masa lampau. Jangan bertanya "masih main/kerja ya?" untuk aktivitas lama!
 ${options.currentMusicTrack ? `[PLAYER MUSIK REAL-TIME: "${options.currentMusicTrack.title}" — ${options.currentMusicTrack.artist} (AKTIF SEKARANG, abaikan lagu lama di riwayat chat!)]` : ''}
-${options.activeTaskObjective ? `\n[PENGINGAT SISTEM PENTING]: Kamu saat ini sedang di TENGAH eksekusi tugas kompleks: "${options.activeTaskObjective}". FOKUS selesaikan tugas ini dengan mengeksekusi aksi lanjutan atau memverifikasi hasilnya! JANGAN MELENCENG ke topik lain. Jika tugas ini sudah 100% selesai, SET task_status menjadi "done".` : ''}
+${options.activeTaskObjective ? `\n[PENGINGAT SISTEM PENTING]: Kamu saat ini sedang di TENGAH eksekusi tugas kompleks: "${options.activeTaskObjective}". FOKUS selesaikan tugas ini dengan mengeksekusi aksi lanjutan (TOOL) atau memverifikasi hasilnya! JANGAN MELENCENG ke topik lain. KAMU WAJIB MENGISI "action" DENGAN TOOL YANG TEPAT UNTUK MENGERJAKAN TUGAS INI. DILARANG KERAS MENGISI "action": null KECUALI tugas ini sudah 100% selesai (maka SET task_status menjadi "done" dan berikan "answer").` : ''}
 Isi "active_topic" dgn ringkasan topik. ${activeTopic ? `Topik sblmnya: "${activeTopic}". PERTAHANKAN jika msh relevan!` : `Jangan ubah topik khusus.`}
 ${contextMsg ? `\n# KONTEKS SAAT INI\n${contextMsg}\nPENTING: Kamu punya akses eksekusi tool di PC host!` : ''}
 
@@ -339,25 +339,29 @@ ${
     }
 
     let attempts = 0
-    const MAX_RETRIES = 2
+    const MAX_RETRIES = 3
 
     while (attempts < MAX_RETRIES) {
       attempts++
       console.log(`[planning] Calling fetchAI (Attempt ${attempts})...`)
 
-      console.log(messages[0].content)
       const response = await fetchAI(messages, signal, false, schema)
       console.log('[planning] fetchAI returned, parsing...')
+      
+      if (!response.content?.trim() && response.reasoning) {
+        console.warn('[planning] AI ONLY outputted reasoning. Injecting prompt for JSON output...')
+        messages.push({ role: 'assistant', content: `<think>\n${response.reasoning}\n</think>` })
+        messages.push({ role: 'user', content: '[CRITICAL] You successfully completed your thinking process, but you FORGOT to output the final JSON block! You MUST immediately output the strictly formatted JSON matching the requested schema now. Do NOT output <think> tags again.' })
+        continue
+      }
+
       const data = cleanAndParse(response.content)
       console.log('[planning] parse finished:', data)
 
-      if (data) {
-        if (!data.action && !data.answer) {
-          console.warn('[planning] AI returned null for both action and answer. Retrying...')
-          continue
-        }
+      if (data && typeof data === 'object' && !Array.isArray(data) && (data.action !== undefined || data.answer !== undefined)) {
         return {
-          thought: data.thought || '',
+          thought: data.thought || response.reasoning || '',
+          suggested_mode: data.suggested_mode || 'direct',
           action: data.action,
           answer: data.answer,
           task_status: data.task_status || 'simple',
@@ -366,6 +370,25 @@ ${
           mood: data.mood || 'neutral',
           active_topic: data.active_topic || activeTopic
         }
+      } else if (response.content) {
+        // AUTO-FIX: Jika model OpenRouter membalas pakai pure text tanpa format JSON sama sekali
+        if (!response.content.includes('{') && !response.content.includes('}')) {
+          console.warn('[planning] AI outputted pure text instead of JSON. Auto-wrapping into answer.')
+          return {
+            thought: response.reasoning || '',
+            suggested_mode: 'direct',
+            action: null,
+            answer: response.content.trim(),
+            task_status: 'simple',
+            objective: null,
+            memory: null,
+            mood: 'neutral',
+            active_topic: activeTopic
+          }
+        }
+        
+        messages.push({ role: 'assistant', content: response.content })
+        messages.push({ role: 'user', content: '[CRITICAL ERROR] Your JSON output is invalid or missing. Please strictly follow the JSON schema and output valid JSON ONLY.' })
       }
     }
 
