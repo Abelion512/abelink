@@ -50,6 +50,15 @@ export const getNextAction = async (
 
     const groupToolsObj = await group_tools()
 
+    let skills = []
+    try {
+      if (window.api && window.api.getSkills) {
+        skills = await window.api.getSkills()
+      }
+    } catch (e) {
+      console.error('Failed to get skills for planning', e)
+    }
+
     const systemPrompt = `
 Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas asisten AI canggih dan otonom.
 
