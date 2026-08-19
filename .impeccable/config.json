@@ -29,6 +29,16 @@
         ],
         "createdAt": "2026-08-16T03:00:25.072Z",
         "reason": "OrbVisualizer core visual identity — purple/violet gradient is intentional branding, not AI-generated artifact"
+      },
+      {
+        "rule": "side-tab",
+        "value": "official upstream blockquote border-l accent — base=official policy",
+        "createdAt": "2026-08-16T08:14:48.395Z"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "official upstream daisyui toast animate-bounce",
+        "createdAt": "2026-08-16T08:15:50.442Z"
       }
     ]
   }
