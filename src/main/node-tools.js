@@ -1,6 +1,20 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+
+const isWindows = process.platform === 'win32'
+
+const getWorkspaceDir = () => {
+  if (isWindows) return getWorkspaceDir()
+  const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
+  return path.join(xdgData, 'mark', 'workspace')
+}
+
+const getSkillsDir = () => {
+  if (isWindows) return getSkillsDir()
+  const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
+  return path.join(xdgData, 'mark', 'skills')
+}
 import { exec } from 'child_process'
 import util from 'util'
 
@@ -110,7 +124,7 @@ export const NATIVE_TOOLS = {
         let filePath = parts[0].trim()
 
         if (!path.isAbsolute(filePath)) {
-          const workspaceDir = path.join(os.homedir(), 'Documents', 'Mark Workspace')
+          const workspaceDir = getWorkspaceDir()
           filePath = path.join(workspaceDir, filePath)
         }
 
@@ -469,7 +483,7 @@ export const NATIVE_TOOLS = {
         const content = parts.slice(1).join('||')
 
         if (!path.isAbsolute(filePath)) {
-          const workspaceDir = path.join(os.homedir(), 'Documents', 'Mark Workspace')
+          const workspaceDir = getWorkspaceDir()
           filePath = path.join(workspaceDir, filePath)
         }
 
@@ -501,7 +515,7 @@ export const NATIVE_TOOLS = {
         let filePath = parts[0].trim()
 
         if (!path.isAbsolute(filePath)) {
-          const workspaceDir = path.join(os.homedir(), 'Documents', 'Mark Workspace')
+          const workspaceDir = getWorkspaceDir()
           filePath = path.join(workspaceDir, filePath)
         }
 
@@ -538,7 +552,7 @@ export const NATIVE_TOOLS = {
       try {
         let filePath = query.trim()
         if (!path.isAbsolute(filePath)) {
-          const workspaceDir = path.join(os.homedir(), 'Documents', 'Mark Workspace')
+          const workspaceDir = getWorkspaceDir()
           filePath = path.join(workspaceDir, filePath)
         }
         if (!fs.existsSync(filePath))
@@ -556,7 +570,7 @@ export const NATIVE_TOOLS = {
       try {
         let targetDir = query.trim() || process.cwd()
         if (!path.isAbsolute(targetDir) && query.trim() !== '') {
-          const workspaceDir = path.join(os.homedir(), 'Documents', 'Mark Workspace')
+          const workspaceDir = getWorkspaceDir()
           targetDir = path.join(workspaceDir, targetDir)
         }
         if (!fs.existsSync(targetDir))
@@ -582,7 +596,9 @@ export const NATIVE_TOOLS = {
         const dirPath = parts[0].trim()
         const keyword = parts[1].trim()
 
-        const cmd = `findstr /S /I /N /C:"${keyword}" "${dirPath}\\*.*"`
+        const cmd = isWindows
+          ? `findstr /S /I /N /C:"${keyword}" "${dirPath}\\*.*"`
+          : `grep -rIn "${keyword}" "${dirPath}"`
         const { stdout } = await execPromise(cmd)
 
         const result = stdout.split('\n').slice(0, 50).join('\n')
@@ -602,7 +618,10 @@ export const NATIVE_TOOLS = {
     handler: async (query) => {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
       try {
-        const { stdout, stderr } = await execPromise(`powershell.exe -Command "${query}"`)
+        const cmd = isWindows
+          ? `powershell.exe -Command "${query}"`
+          : `bash -c "${query.replace(/"/g, '\\"')}"`
+        const { stdout, stderr } = await execPromise(cmd)
         return {
           success: true,
           output: stdout.trim() || 'Perintah berhasil dieksekusi tanpa output teks.',
