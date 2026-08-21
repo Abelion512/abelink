@@ -323,6 +323,13 @@ export const useMarkPlan = ({
               if (abortControllerRef.current.signal.aborted) break
               const agents = await Promise.all(targetIds.map((id) => subagentStore.getSubagent(id)))
               finalAgents = agents.filter(Boolean)
+
+              // Early-Fail Interrupt: Jika ada subagent yang gagal/error, langsung keluar dari loop tanpa menunggu yang lain
+              const hasFailed = finalAgents.some((a) => a.status === 'failed' || a.status === 'killed')
+              if (hasFailed) {
+                break
+              }
+
               const stillRunning = finalAgents.some((a) => a.status === 'running')
               if (!stillRunning) {
                 allDone = true
@@ -331,24 +338,44 @@ export const useMarkPlan = ({
               await new Promise((r) => setTimeout(r, 1500))
             }
 
+            const failedAgents = finalAgents.filter((a) => a.status === 'failed' || a.status === 'killed')
+            const runningAgents = finalAgents.filter((a) => a.status === 'running')
+
             const reports = finalAgents
               .map((a) => {
                 const isFailed = a.status === 'failed' || a.status === 'killed'
+                const isRunning = a.status === 'running'
                 const statusTag = isFailed
-                  ? `[PERHATIAN: STATUS ${a.status.toUpperCase()} - GAGAL/PERLU RETRY DENGAN send_message ATAU SPAWN PENGGANTI]`
-                  : `[STATUS: ${a.status.toUpperCase()}]`
-                return `### LAPORAN ${a.name} (${a.role}) - ID: ${a.id}\nStatus: ${statusTag} (Total Turns: ${a.turnCount || 0})\nGoal: ${a.goal}\nHasil Akhir:\n${a.finalAnswer || (isFailed ? 'Eksekusi agen ini terhenti atau mengalami kegagalan sebelum mencapai goal.' : '(Sedang memproses langkah berikutnya di background)')}`
+                  ? `[PERHATIAN: STATUS ${a.status.toUpperCase()} - GAGAL/PERLU RETRY DENGAN send_message]`
+                  : isRunning
+                  ? `[STATUS: RUNNING - SEDANG BERJALAN DI BACKGROUND]`
+                  : `[STATUS: COMPLETED - SELESAI]`
+                return `### LAPORAN ${a.name} (${a.role}) - ID: ${a.id}\nStatus: ${statusTag} (Total Turns: ${a.turnCount || 0})\nGoal: ${a.goal}\nHasil Akhir:\n${a.finalAnswer || (isFailed ? 'Eksekusi agen ini terhenti atau mengalami kegagalan sebelum mencapai goal.' : isRunning ? '(Sedang aktif memproses langkah di background secara paralel)' : '(Belum ada output)')}`
               })
               .join('\n\n---\n\n')
 
-            const anyFailed = finalAgents.some((a) => a.status === 'failed' || a.status === 'killed')
-            const failPrompt = anyFailed
-              ? '\n\n[PENGINGAT ORCHESTRATOR]: Ada sub-agent yang GAGAL/TERHENTI di atas! Kamu WAJIB melakukan penanganan/retry: gunakan "send_message" dengan instruksi/keyword alternatif ke ID agen tersebut, atau spawn agen baru, atau selesaikan bagian yang kurang tersebut sendiri sebelum menutup tugas.'
-              : ''
+            let statusSummary = 'SEMUA SELESAI'
+            if (failedAgents.length > 0 && runningAgents.length > 0) {
+              statusSummary = `ADA AGEN GAGAL (${failedAgents.map((a) => a.id).join(', ')}), ${runningAgents.length} AGEN LAIN MASIH RUNNING`
+            } else if (failedAgents.length > 0) {
+              statusSummary = `ADA AGEN GAGAL (${failedAgents.map((a) => a.id).join(', ')})`
+            } else if (runningAgents.length > 0) {
+              statusSummary = `${runningAgents.length} AGEN MASIH RUNNING`
+            }
+
+            let failPrompt = ''
+            if (failedAgents.length > 0) {
+              const failedInfo = failedAgents.map((a) => `"${a.id}" (${a.name})`).join(', ')
+              failPrompt = `\n\n[PENGINGAT ORCHESTRATOR - EARLY FAIL INTERRUPT]: Sub-agent ${failedInfo} GAGAL saat sub-agent lain masih bekerja! Kamu WAJIB SEGERA mengirim pesan instruksi perbaikan/query alternatif ke ID tersebut menggunakan 'send_message' (format: "ID||instruksi kamu"). Sub-agent lain yang berstatus RUNNING akan tetap bekerja di background.`
+            } else if (runningAgents.length > 0) {
+              failPrompt = `\n\n[PENGINGAT ORCHESTRATOR]: Masih ada ${runningAgents.length} sub-agent yang sedang bekerja di background. Jika kamu butuh menunggu mereka, panggil kembali 'wait_subagents'.`
+            } else {
+              failPrompt = `\n\n[PENGINGAT ORCHESTRATOR - REVIEW KRITIS]: Seluruh sub-agent telah selesai. Evaluasi laporan di atas. Jika ada data yang kurang lengkap/dangkal, gunakan 'send_message' untuk meminta pendalaman sebelum membuat kesimpulan akhir.`
+            }
 
             res = {
               success: true,
-              data: `[STATUS SUB-AGENTS (${allDone ? 'SEMUA SELESAI' : 'SEBAGIAN MASIH BERJALAN'})]:\n\n${reports}${failPrompt}`
+              data: `[STATUS SUB-AGENTS (${statusSummary})]:\n\n${reports}${failPrompt}`
             }
           }
         } else if (tool === 'send_message') {
