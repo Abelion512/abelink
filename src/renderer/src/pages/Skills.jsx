@@ -77,7 +77,13 @@ Tulis instruksi mendetail untuk AI di sini...
           {/* Page Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm btn-circle" style={{ WebkitAppRegion: 'no-drag' }}>
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="btn btn-ghost btn-sm btn-circle shrink-0"
+                style={{ WebkitAppRegion: 'no-drag' }}
+                title="Kembali"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="1.2em"

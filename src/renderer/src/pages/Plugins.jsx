@@ -1,11 +1,13 @@
 import Editor from '@monaco-editor/react'
 import { driver } from 'driver.js'
-import { FaTimes, FaExclamationTriangle, FaChevronLeft } from 'react-icons/fa'
+import { FaTimes, FaExclamationTriangle } from 'react-icons/fa'
+import { useNavigate } from 'react-router-dom'
 import 'driver.js/dist/driver.css'
 import { useEffect, useState } from 'react'
 import { useConfirm } from '../hooks/useConfirm'
 
 export default function Plugins() {
+  const navigate = useNavigate()
   const [plugins, setPlugins] = useState([])
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [formData, setFormData] = useState({
@@ -162,29 +164,39 @@ export default function Plugins() {
 
       {/* Main Content Area */}
       <div className="relative z-10 w-full h-full overflow-y-auto custom-scrollbar">
-        <div className="p-8 w-full max-w-5xl mx-auto pb-40 mt-12">
-          <style>{`
-            .editor-container {
-              /* container styles if needed */
-            }
-          `}</style>
-          <div className="flex justify-between items-center mb-6">
+        <div className="max-w-5xl mx-auto px-4 py-8 pb-40 space-y-8">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => window.history.back()}
-                className="btn btn-ghost btn-sm btn-circle"
+                type="button"
+                onClick={() => navigate('/')}
+                className="btn btn-ghost btn-sm btn-circle shrink-0"
+                style={{ WebkitAppRegion: 'no-drag' }}
+                title="Kembali"
               >
-                <FaChevronLeft size={16} />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="1.2em"
+                  height="1.2em"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
               </button>
               <div>
-                <h1 className="text-3xl font-bold">Plugin Manager</h1>
-                <p className="opacity-70 mt-1">Buat dan kelola custom skill lokal buat Mark</p>
+                <h1 className="text-2xl font-bold">Plugin Manager</h1>
+                <p className="opacity-50 text-sm mt-1">Buat dan kelola custom skill lokal buat Mark.</p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={startTour}
-                className="btn btn-ghost btn-circle"
+                className="btn btn-ghost btn-sm btn-circle"
+                style={{ WebkitAppRegion: 'no-drag' }}
                 title="Tutorial Plugin"
               >
                 <svg
@@ -202,17 +214,31 @@ export default function Plugins() {
                   />
                 </svg>
               </button>
-              <button id="btn-tambah-plugin" onClick={openCreateForm} className="btn btn-primary">
+              <button
+                id="btn-tambah-plugin"
+                type="button"
+                onClick={openCreateForm}
+                className="btn btn-primary btn-sm"
+                style={{ WebkitAppRegion: 'no-drag' }}
+              >
                 + Tambah Plugin
               </button>
               <button
                 id="btn-buka-folder"
+                type="button"
                 onClick={handleOpenFolder}
-                className="btn btn-outline border-base-content/20 hover:border-primary hover:bg-primary/10 hover:text-primary"
+                className="btn btn-sm btn-outline border-base-content/20 hover:border-primary hover:bg-primary/10 hover:text-primary"
+                style={{ WebkitAppRegion: 'no-drag' }}
               >
                 Buka Folder
               </button>
-              <button id="btn-reload-plugin" onClick={handleReload} className="btn btn-primary">
+              <button
+                id="btn-reload-plugin"
+                type="button"
+                onClick={handleReload}
+                className="btn btn-sm btn-ghost btn-outline"
+                style={{ WebkitAppRegion: 'no-drag' }}
+              >
                 Reload
               </button>
             </div>

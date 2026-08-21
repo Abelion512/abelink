@@ -512,7 +512,13 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           {/* Page Header */}
           <div className="flex items-center gap-4">
             {!isFirstSetup && (
-              <button onClick={handleBack} className="btn btn-ghost btn-sm btn-circle">
+              <button
+                type="button"
+                onClick={handleBack}
+                className="btn btn-ghost btn-sm btn-circle shrink-0"
+                style={{ WebkitAppRegion: 'no-drag' }}
+                title="Kembali"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="1.2em"

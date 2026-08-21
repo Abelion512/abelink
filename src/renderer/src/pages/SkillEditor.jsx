@@ -228,18 +228,31 @@ const SkillEditor = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
-            <button 
-              className="btn btn-circle btn-ghost" 
+            <button
+              type="button"
               onClick={() => navigate('/skills')}
+              className="btn btn-ghost btn-sm btn-circle shrink-0"
+              style={{ WebkitAppRegion: 'no-drag' }}
+              title="Kembali ke Skills"
             >
-              <ArrowLeft size={20} />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="1.2em"
+                height="1.2em"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
             <div>
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <Terminal className="text-emerald-400" size={24} />
-                {id}
-              </h2>
-              <p className="text-sm text-gray-400">Workspace Editor</p>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <Terminal className="text-emerald-400" size={22} />
+                <span>{id}</span>
+              </h1>
+              <p className="opacity-50 text-xs mt-0.5">Workspace Editor</p>
             </div>
           </div>
           

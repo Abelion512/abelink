@@ -126,21 +126,35 @@ const Guidebook = () => {
       <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 blur-[120px] rounded-full pointer-events-none"></div>
 
       {/* Header */}
-      <header className="h-20 shrink-0 bg-base-300/80 backdrop-blur-xl border-b border-white/5 flex items-center px-8 z-20 relative">
-        <button
-          onClick={() => navigate('/')}
-          className="btn btn-ghost btn-sm gap-2 text-white/70 hover:text-white mr-6"
-          style={{ WebkitAppRegion: 'no-drag' }}
-        >
-          <FaArrowLeft /> Kembali
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-3">
-            <FaBook className="text-primary" /> Mark Guidebook
-          </h1>
-          <p className="text-xs text-white/50 tracking-wider">
-            PANDUAN LENGKAP PENGGUNAAN AI ASSISTANT
-          </p>
+      <header className="h-16 shrink-0 bg-base-300/80 backdrop-blur-xl border-b border-white/5 flex items-center px-6 z-20 relative">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="btn btn-ghost btn-sm btn-circle shrink-0"
+            style={{ WebkitAppRegion: 'no-drag' }}
+            title="Kembali"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="1.2em"
+              height="1.2em"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-base-content flex items-center gap-2">
+              <FaBook className="text-primary" /> Mark Guidebook
+            </h1>
+            <p className="opacity-50 text-xs mt-0.5">
+              Panduan lengkap penggunaan AI Assistant.
+            </p>
+          </div>
         </div>
       </header>
 

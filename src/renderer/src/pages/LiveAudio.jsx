@@ -355,6 +355,13 @@ const LiveAudio = () => {
     }
   }
 
+  const handleBack = () => {
+    stopRecordingCleanup()
+    setIsActive(false)
+    setStatus('idle')
+    navigate('/')
+  }
+
   return (
     <div className="h-screen bg-base-300 text-white overflow-hidden relative font-['Poppins',sans-serif] flex flex-col items-center justify-center">
       {/* Background Ambience */}
@@ -373,11 +380,13 @@ const LiveAudio = () => {
 
       {/* Back button */}
       <button
-        onClick={() => navigate('/')}
-        className="absolute top-6 left-6 btn btn-ghost btn-sm gap-2 z-20 opacity-60 hover:opacity-100 transition-opacity"
+        type="button"
+        onClick={handleBack}
+        className="absolute top-8 left-6 btn btn-ghost btn-sm gap-2 z-50 text-white/80 hover:text-white hover:bg-white/10 transition-all cursor-pointer select-none [-webkit-app-region:no-drag]"
+        style={{ WebkitAppRegion: 'no-drag' }}
       >
         <FaChevronLeft size={14} />
-        Kembali
+        <span>Kembali</span>
       </button>
 
       {/* Header */}
