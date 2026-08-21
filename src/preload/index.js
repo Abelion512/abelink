@@ -61,6 +61,10 @@ const api = {
     ipcRenderer.removeAllListeners('tg:command-accept')
     ipcRenderer.on('tg:command-accept', (_, data) => cb(data))
   },
+  onTgCommandReject: (cb) => {
+    ipcRenderer.removeAllListeners('tg:command-reject')
+    ipcRenderer.on('tg:command-reject', (_, data) => cb(data))
+  },
   
   // RAG Parsing
   parseDocument: (arrayBuffer, isDocx) => ipcRenderer.invoke('parse-document', arrayBuffer, isDocx),

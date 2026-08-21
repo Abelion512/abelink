@@ -87,7 +87,7 @@ export const startTelegramBot = async (token, mainWindow) => {
     })
 
     bot.command('info', (ctx) => {
-      ctx.reply('**Daftar Perintah MARK:**\n\n/start - Memulai bot\n/info - Menampilkan daftar perintah\n/abort - Menghentikan proses AI yang sedang berjalan\n/accept - Mengizinkan prompt persetujuan (needsApproval)', { parse_mode: 'Markdown' })
+      ctx.reply('**Daftar Perintah MARK:**\n\n/start - Memulai bot\n/info - Menampilkan daftar perintah\n/abort - Menghentikan proses AI yang sedang berjalan\n/accept - Mengizinkan prompt persetujuan (needsApproval)\n/reject - Menolak prompt persetujuan', { parse_mode: 'Markdown' })
     })
 
     bot.command('abort', (ctx) => {
@@ -103,6 +103,15 @@ export const startTelegramBot = async (token, mainWindow) => {
       if (botWindow && !botWindow.isDestroyed()) {
         const chatId = String(ctx.chat?.id || ctx.from?.id || '')
         botWindow.webContents.send('tg:command-accept', { chatId })
+      } else {
+        ctx.reply('[ERROR]: UI Mark tidak terhubung.')
+      }
+    })
+
+    bot.command('reject', (ctx) => {
+      if (botWindow && !botWindow.isDestroyed()) {
+        const chatId = String(ctx.chat?.id || ctx.from?.id || '')
+        botWindow.webContents.send('tg:command-reject', { chatId })
       } else {
         ctx.reply('[ERROR]: UI Mark tidak terhubung.')
       }
