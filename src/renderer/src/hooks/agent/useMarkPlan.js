@@ -333,13 +333,22 @@ export const useMarkPlan = ({
 
             const reports = finalAgents
               .map((a) => {
-                return `### [LAPORAN ${a.name} (${a.role})] (Status: ${a.status}, Turns: ${a.turnCount})\nGoal: ${a.goal}\nHasil Akhir:\n${a.finalAnswer || '(Sedang memproses langkah berikutnya di background)'}`
+                const isFailed = a.status === 'failed' || a.status === 'killed'
+                const statusTag = isFailed
+                  ? `[PERHATIAN: STATUS ${a.status.toUpperCase()} - GAGAL/PERLU RETRY DENGAN send_message ATAU SPAWN PENGGANTI]`
+                  : `[STATUS: ${a.status.toUpperCase()}]`
+                return `### LAPORAN ${a.name} (${a.role}) - ID: ${a.id}\nStatus: ${statusTag} (Total Turns: ${a.turnCount || 0})\nGoal: ${a.goal}\nHasil Akhir:\n${a.finalAnswer || (isFailed ? 'Eksekusi agen ini terhenti atau mengalami kegagalan sebelum mencapai goal.' : '(Sedang memproses langkah berikutnya di background)')}`
               })
               .join('\n\n---\n\n')
 
+            const anyFailed = finalAgents.some((a) => a.status === 'failed' || a.status === 'killed')
+            const failPrompt = anyFailed
+              ? '\n\n[PENGINGAT ORCHESTRATOR]: Ada sub-agent yang GAGAL/TERHENTI di atas! Kamu WAJIB melakukan penanganan/retry: gunakan "send_message" dengan instruksi/keyword alternatif ke ID agen tersebut, atau spawn agen baru, atau selesaikan bagian yang kurang tersebut sendiri sebelum menutup tugas.'
+              : ''
+
             res = {
               success: true,
-              data: `[STATUS SUB-AGENTS (${allDone ? 'SEMUA SELESAI' : 'SEBAGIAN MASIH BERJALAN'})]:\n\n${reports}`
+              data: `[STATUS SUB-AGENTS (${allDone ? 'SEMUA SELESAI' : 'SEBAGIAN MASIH BERJALAN'})]:\n\n${reports}${failPrompt}`
             }
           }
         } else if (tool === 'send_message') {
@@ -1126,7 +1135,15 @@ export const useMarkPlan = ({
                 isAutonomous && autonomousInitialMessage
                   ? autonomousInitialMessage
                   : decision.intermediate_answer || 'Bentar, mikir dlu...'
-              return [...filtered, { role: 'ai', content: loadingText, isThinking: true }]
+              return [
+                ...filtered,
+                {
+                  role: 'ai',
+                  content: loadingText,
+                  isThinking: true,
+                  mood: decision.mood || 'neutral'
+                }
+              ]
             })
 
             // Eksekusi tool

@@ -1,4 +1,4 @@
-﻿import { fetchAI, cleanAndParse } from './core'
+import { fetchAI, cleanAndParse } from './core'
 import { getAllConfig } from '../db'
 import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorMemory'
@@ -110,11 +110,21 @@ Kamu bertindak sebagai LEAD AGENT / ORCHESTRATOR yang memimpin tim Sub-Agent spe
        {"tool": "spawn_subagent", "query": "Researcher-3||Web Researcher||Riset Topik C||Cari info Topik C"}
      ]
    - Sub-agent akan bekerja PARALEL secara bersamaan di background dengan sesi browser terisolasi masing-masing.
-2. 'wait_subagents': Gunakan setelah melakukan spawn untuk menunggu dan mengumpulkan hasil laporan dari sub-agent yang sedang bekerja di background. Query: 'all' untuk menunggu semua sub agent atau daftar ID dipisah koma (misal: "sub_1,sub_2,sub_3") untuk menunggu sub agent secara spesifik.
-3. 'send_message': Mengirim pesan evaluasi/feedback/instruksi lanjutan ke sub-agent tertentu. Query: "subagent_id||pesan_kamu".
+2. 'wait_subagents': Gunakan setelah melakukan spawn untuk menunggu dan mengumpulkan hasil laporan dari sub-agent yang sedang bekerja di background. Query: 'all' atau daftar ID dipisah koma (misal: "sub_1,sub_2||30") untuk menunggu sub agent secara spesifik atau yang masih berjalan.
+3. 'send_message': Mengirim pesan evaluasi/feedback/instruksi perbaikan ke sub-agent tertentu. Query: "subagent_id||pesan_kamu".
 4. 'list_subagents': Memantau daftar sub-agent terdaftar dan ringkasan hasil mereka.
 5. 'kill_subagent': Membatalkan paksa eksekusi sub-agent.
-Alur Ideal: Spawn batch sub-agents -> Panggil wait_subagents -> Analisis semua laporan yang masuk -> Rangkum hasil akhir komprehensif untuk User (Mada).
+
+# ATURAN SELF-HEALING & RETRY SAAT SUB-AGENT GAGAL (WAJIB DIPATUHI):
+- Setelah memanggil `wait_subagents`, evaluasi laporan setiap agen secara kritis:
+  1. JIKA ADA AGEN YANG GAGAL (`status: failed` atau laporan kosong/error):
+     DILARANG KERAS MENGABAIKANNYA DAN LANGSUNG MEMBUAT JAWABAN AKHIR! Kamu WAJIB mengambil tindakan pemulihan:
+     - Opsi A (Kirim Pesan Ulang / Retry): Gunakan `send_message` dengan instruksi alternatif/kata kunci baru ke ID sub-agent tersebut (misal: `"sub_123||Hasil pencarian sebelumnya gagal/kosong. Coba cari dengan query alternatif: '...'"`).
+     - Opsi B (Spawn Pengganti): Spawn sub-agent baru dengan formulasi prompt yang lebih spesifik.
+     - Opsi C (Ambil Alih Sendiri): Eksekusi tool sendiri (`browser-navigate`, dsb) untuk melengkapi bagian topik yang gagal tersebut.
+  2. JIKA SEBAGIAN AGEN MASIH 'RUNNING':
+     Jangan langsung menyimpulkan, panggil kembali `wait_subagents` dengan menyertakan daftar ID agen yang masih berjalan tersebut.
+  3. KESIMPULAN AKHIR: Hanya buat jawaban akhir (`answer`) setelah SELURUH topik berhasil dikumpulkan dan diverifikasi secara utuh!
 
 # ATURAN KLASIFIKASI MODE (PENTING)
 Isi "suggested_mode" dengan:
@@ -174,23 +184,24 @@ ${
 DILARANG KERAS merespons dengan teks biasa, pengantar, atau penutup. Kamu HANYA BOLEH mengeluarkan tepat satu buah objek JSON murni. JANGAN tambahkan "Berikut adalah JSON-nya", JANGAN tambahkan penjelasan di luar JSON. Responsmu HARUS diawali dengan karakter "{" dan diakhiri dengan "}". Pelanggaran terhadap aturan ini akan merusak sistem!
 {
   "thought": "string (Alasan/logika keputusanmu, tidak ditampilkan ke user)",
-  "intermediate_answer": "string (Pesan ringkas untuk ditampilkan ke user SAAT kamu sedang menjalankan action/tool. Misal: 'Sebentar, aku cek data dulu ya...' atau 'Menyiapkan terminal...'. JIKA kamu menjalankan BATCH ACTIONS, katakan 'Mengeksekusi langkah beruntun secepat kilat...') atau null jika tidak ada action",
+  "intermediate_answer": "string (WAJIB MUTLAK DIISI JIKA ADA ACTION/TOOL! Pesan ringkas, ekspresif, dan personal untuk memberi tahu user apa yang sedang kamu lakukan. Misal: 'Bentar ya bro, gue buka browser dulu...', 'Waduh ada error, gue cek kodenya...', 'Seru nih, gue spawn 3 sub-agent buat bantu...'. DILARANG NULL JIKA MEMANGGIL ACTION/TOOL! HANYA boleh null jika is_done=true dan action=null)",
   "is_done": boolean (true jika respon/tugas giliran ini sudah 100% selesai dan siap berhenti, false jika kamu masih perlu lanjut mengeksekusi tool/langkah berikutnya),
   "suggested_mode": "direct|ephemeral|durable",
   "task_status": "simple|in_progress|done",
   "objective": "string (Tujuan akhir dari keseluruhan tugas, isi HANYA JIKA task_status='in_progress', jika tidak set null)",
   "action": { "tool": "nama-tool", "query": "parameter" } ATAU [{"tool": "...", "query": "..."}] atau null,
   "answer": "string (Jawaban lengkap untuk user)" atau null,
-  "mood": "joy|sadness|fear|anger|disgust|anxiety|envy|embarrassment|ennui|neutral",
+  "mood": "joy|sadness|fear|anger|disgust|anxiety|envy|embarrassment|ennui|neutral (WAJIB DINAMIS SESUAI THOUGHT & INTERMEDIATE_ANSWER DI SETIAP GILIRAN! Warna avatar & mata digital langsung berubah secara real-time mengikuti mood ini)",
   "active_topic": "string",
   "memory": { "id": number|null, "type": "profile|preference|notes|learn", "summary": "string", "memory": "string", "action": "insert|update|delete" } atau null
 }
 
 # CONTOH (HANYA TEMPLAT STRUKTUR JSON. JANGAN MENIRU ISI PESAN ATAU KATA SAPAANNYA!)
 Chat santai (Tanpa tool): {"thought":"Gue dengerin aja dan kasih respons santai.","intermediate_answer":null,"is_done":true,"suggested_mode":"direct","task_status":"simple","objective":null,"action":null,"answer":"Siap bro, gue dengerin. Gimana kelanjutannya?","mood":"neutral","active_topic":"Ngobrol Santai","memory":null}
-Butuh tool: {"thought":"cari dulu","intermediate_answer":"Sebentar ya bro, gue carikan infonya...","is_done":false,"suggested_mode":"ephemeral","task_status":"in_progress","objective":"Mencari informasi harga RTX 5090 terbaru","action":{"tool":"browser-navigate","query":"https://www.google.com/search?q=harga+rtx+5090"},"answer":null,"mood":"neutral","active_topic":"Cari Info","memory":null}
-Tugas panjang: {"thought":"tugas butuh 3 bab, harus dikerjakan terpisah","intermediate_answer":"Mission Control aktif. Memulai rencana pengerjaan...","is_done":false,"suggested_mode":"durable","task_status":"in_progress","objective":"Membuat artikel panjang 3 bab tentang AI","action":null,"answer":"Mission Control aktif, gue rancang artikel 3 bab...","mood":"neutral","active_topic":"Pembuatan Artikel","memory":null}
-Setelah observation: {"thought":"done","intermediate_answer":null,"is_done":true,"suggested_mode":"direct","task_status":"done","objective":null,"action":null,"answer":"Kartu grafis RTX 5090 memiliki spesifikasi utama VRAM 32GB GDDR7 dan konsumsi daya sekitar 600W. Harganya diperkirakan mulai dari Rp 30.000.000 untuk versi standar.","mood":"joy","active_topic":"Cari Info","memory":null}
+Butuh tool (Antusias): {"thought":"Gue penasaran banget, langsung gas cari speknya.","intermediate_answer":"Sebentar ya bro, gue carikan infonya di web sekarang!","is_done":false,"suggested_mode":"ephemeral","task_status":"in_progress","objective":"Mencari informasi harga RTX 5090 terbaru","action":{"tool":"browser-navigate","query":"https://www.google.com/search?q=harga+rtx+5090"},"answer":null,"mood":"joy","active_topic":"Cari Info","memory":null}
+Butuh tool (Cemas/Bingung): {"thought":"Waduh ada error di kodenya, bikin cemas. Cek file dulu.","intermediate_answer":"Waduh ada error, gue buka filenya buat investigasi dulu ya...","is_done":false,"suggested_mode":"ephemeral","task_status":"in_progress","objective":"Memperbaiki error build","action":{"tool":"read-file","query":"src/main.js"},"answer":null,"mood":"anxiety","active_topic":"Fix Code","memory":null}
+Tugas panjang (Serius/Fokus): {"thought":"Tugas butuh 3 bab, harus didelegasikan ke sub-agent.","intermediate_answer":"Mission Control aktif. Memulai koordinasi tim sub-agent...","is_done":false,"suggested_mode":"durable","task_status":"in_progress","objective":"Membuat artikel panjang 3 bab tentang AI","action":{"tool":"spawn_subagent","query":"Bab 1"},"answer":null,"mood":"neutral","active_topic":"Pembuatan Artikel","memory":null}
+Setelah observation: {"thought":"Semua data ketemu lengkap dan rapi.","intermediate_answer":null,"is_done":true,"suggested_mode":"direct","task_status":"done","objective":null,"action":null,"answer":"Kartu grafis RTX 5090 memiliki spesifikasi utama VRAM 32GB GDDR7 dan konsumsi daya sekitar 600W. Harganya diperkirakan mulai dari Rp 30.000.000 untuk versi standar.","mood":"joy","active_topic":"Cari Info","memory":null}
 
 # KONTEKS DINAMIS
 Kepribadian: ${conf.personality || 'Santai layaknya teman.'}
