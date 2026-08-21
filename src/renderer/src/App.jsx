@@ -10,6 +10,7 @@ import Knowledge from './pages/Knowledge'
 import Guidebook from './pages/Guidebook'
 import RelationalGrowth from './pages/RelationalGrowth'
 import GoogleWorkspace from './pages/GoogleWorkspace'
+import Subagents from './pages/Subagents'
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
@@ -169,6 +170,7 @@ const MainLayout = () => {
               <Route path="/knowledge" element={<Knowledge />} />
               <Route path="/guidebook" element={<Guidebook />} />
               <Route path="/relational" element={<RelationalGrowth />} />
+              <Route path="/subagents" element={<Subagents />} />
             </Routes>
           </div>
         </div>

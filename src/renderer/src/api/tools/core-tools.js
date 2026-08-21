@@ -10,7 +10,11 @@ export const core_tools = {
   "file-outline": "Lihat peta/struktur file (fungsi, class, ekspor, heading) beserta nomor baris tanpa membaca seluruh isi. Query: path_absolut.",
   "read-document": "Membaca & mencari isi dokumen teks/PDF/DOCX. Panggil tanpa query untuk Smart Overview, atau gunakan kata kunci (path||keyword) atau baris (path||startLine||endLine).",
   "run-powershell": "Eksekusi perintah PowerShell. (Perlu persetujuan user untuk command berbahaya).",
-  "browser-search": "Mencari informasi di internet.",
   "read-skills": "WAJIB dipanggil jika user meminta kamu menggunakan Skill tertentu (misal: /speedrunner). Membaca file pedoman skill `.md` untuk mengubah perilakumu. Query: nama_skill (tanpa ekstensi .md).",
-  "open": "Membuka aplikasi Windows via shell execute. Query: nama executable/path atau URL raw (misal: notepad, https://google.com). DILARANG KERAS menggunakan markdown link [teks](url)! Ketik raw text saja."
+  "open": "Membuka aplikasi Windows via shell execute. Query: nama executable/path atau URL raw (misal: notepad, https://google.com). DILARANG KERAS menggunakan markdown link [teks](url)! Ketik raw text saja.",
+  "spawn_subagent": "Mendelegasikan tugas ke agen spesialis baru yang bekerja di lingkungan terisolasi. Query: name||role||goal||initial_message||tools (tools opsional dipisah koma, misal: 'read-file,write-file'). Mengembalikan subagent_id dan balasan awal.",
+  "send_message": "Mengirim pesan instruksi, evaluasi, atau feedback dari Mark ke Sub-Agent aktif. Query: subagent_id||pesan_instruksi. Mengembalikan balasan langsung dari Sub-Agent.",
+  "list_subagents": "Melihat daftar seluruh sub-agent yang sedang aktif atau sudah selesai beserta statusnya. Query: kosongkan atau masukkan status (running/idle/completed).",
+  "wait_subagents": "Menunggu dan mengumpulkan laporan hasil eksekusi dari sub-agent yang sedang berjalan secara paralel di background. Query: 'all' atau daftar ID dipisah koma (misal: 'sub_1,sub_2') atau beserta batas waktu (misal: 'all||30').",
+  "kill_subagent": "Menghentikan paksa eksekusi sub-agent yang sedang berjalan. Query: subagent_id||alasan."
 }

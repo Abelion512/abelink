@@ -1,0 +1,326 @@
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  Bot,
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Cpu,
+  Activity,
+  CheckCircle,
+  X,
+  Radio,
+  Layers
+} from 'lucide-react'
+import SubagentIntercom from '../components/subagent/SubagentIntercom'
+import { runSubagentTurn } from '../api/subagent/subagentExecutor'
+import { subagentStore } from '../api/subagent/subagentStore'
+
+export default function Subagents() {
+  const navigate = useNavigate()
+  const [selectedSubagentId, setSelectedSubagentId] = useState(null)
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [subagents, setSubagents] = useState([])
+
+  // Modal State untuk Spawn Manual
+  const [isSpawnModalOpen, setIsSpawnModalOpen] = useState(false)
+  const [newAgentName, setNewAgentName] = useState('')
+  const [newAgentRole, setNewAgentRole] = useState('')
+  const [newAgentGoal, setNewAgentGoal] = useState('')
+  const [isSpawning, setIsSpawning] = useState(false)
+
+  const loadSubagents = async () => {
+    try {
+      const list = await subagentStore.listSubagents(filterStatus)
+      setSubagents(list || [])
+      if (!selectedSubagentId && list && list.length > 0) {
+        setSelectedSubagentId(list[0].id)
+      }
+    } catch (err) {
+      console.error('[Subagents] Load error:', err)
+    }
+  }
+
+  useEffect(() => {
+    loadSubagents()
+    const interval = setInterval(loadSubagents, 1200)
+    return () => clearInterval(interval)
+  }, [filterStatus, selectedSubagentId])
+
+  const activeCount = subagents?.filter((s) => s.status === 'running').length || 0
+
+  const handleSpawnManual = async (e) => {
+    e.preventDefault()
+    if (!newAgentName.trim() || !newAgentGoal.trim() || isSpawning) return
+
+    setIsSpawning(true)
+    try {
+      const sub = await subagentStore.createSubagent({
+        name: newAgentName.trim(),
+        role: newAgentRole.trim() || 'Technical Specialist',
+        goal: newAgentGoal.trim(),
+        allowedTools: ['*'],
+        parentSessionId: 'manual_dashboard'
+      })
+
+      setSelectedSubagentId(sub.id)
+      setIsSpawnModalOpen(false)
+      setNewAgentName('')
+      setNewAgentRole('')
+      setNewAgentGoal('')
+
+      // Jalankan langkah pertama di background
+      runSubagentTurn(sub.id, sub.goal, 'user')
+    } catch (err) {
+      console.error('[Subagents] Failed to spawn agent manually:', err)
+    } finally {
+      setIsSpawning(false)
+    }
+  }
+
+  const handleDeleteSubagent = async (id, e) => {
+    e.stopPropagation()
+    await subagentStore.deleteSubagent(id)
+    if (selectedSubagentId === id) {
+      setSelectedSubagentId(null)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center pt-14 pb-6 px-6 bg-black/65 backdrop-blur-md font-['Poppins',sans-serif] animate-fade-in select-none">
+      {/* Floating Glass Mission Control Card */}
+      <div className="w-full max-w-6xl h-full max-h-[84vh] bg-base-300/90 backdrop-blur-2xl rounded-3xl border border-[var(--glass-border)] shadow-[0_24px_70px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden relative">
+        {/* HUD Aesthetic Corner Accents */}
+        <div className="absolute top-0 left-0 w-3.5 h-3.5 border-t-2 border-l-2 border-primary/40 pointer-events-none z-20" />
+        <div className="absolute top-0 right-0 w-3.5 h-3.5 border-t-2 border-r-2 border-primary/40 pointer-events-none z-20" />
+        <div className="absolute bottom-0 left-0 w-3.5 h-3.5 border-b-2 border-l-2 border-primary/40 pointer-events-none z-20" />
+        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 border-b-2 border-r-2 border-primary/40 pointer-events-none z-20" />
+
+        {/* Header Bar */}
+        <div className="h-14 px-6 border-b border-base-content/10 flex items-center justify-between bg-base-200/50 backdrop-blur-md flex-none z-10">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              className="btn btn-circle btn-ghost btn-xs text-base-content/60 hover:text-base-content hover:bg-base-content/10"
+              title="Kembali"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm tracking-wide">Sub-Agents</span>
+              <span className="text-xs text-base-content/40 font-mono">/ Mission Control</span>
+            </div>
+            {activeCount > 0 && (
+              <span className="badge badge-warning badge-sm gap-1.5 font-mono text-[11px] rounded-lg">
+                <span className="w-1.5 h-1.5 rounded-full bg-warning-content animate-ping" />
+                {activeCount} active
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setIsSpawnModalOpen(true)}
+              className="btn btn-primary btn-xs rounded-xl gap-1.5 px-3 h-8 text-xs font-medium shadow-sm shadow-primary/20"
+            >
+              <Plus className="w-3.5 h-3.5" /> New Agent
+            </button>
+            <div className="divider divider-horizontal mx-0.5 py-2.5 opacity-20" />
+            <button
+              onClick={() => navigate('/')}
+              className="btn btn-ghost btn-xs btn-circle text-base-content/50 hover:text-base-content hover:bg-base-content/10"
+              title="Tutup"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex overflow-hidden p-4 gap-4">
+          {/* Left Panel: Clean Agent List */}
+          <div className="w-72 flex flex-col bg-base-200/40 rounded-2xl border border-base-content/5 overflow-hidden flex-none">
+            {/* Filter Tabs */}
+            <div className="p-2 border-b border-base-content/5 flex items-center justify-between">
+              <div className="flex gap-1 p-0.5 bg-base-300/60 rounded-xl w-full">
+                <button
+                  onClick={() => setFilterStatus('all')}
+                  className={`flex-1 py-1 text-[11px] font-medium rounded-lg transition-all ${
+                    filterStatus === 'all'
+                      ? 'bg-base-100 text-base-content shadow-sm'
+                      : 'text-base-content/50 hover:text-base-content'
+                  }`}
+                >
+                  Semua
+                </button>
+                <button
+                  onClick={() => setFilterStatus('running')}
+                  className={`flex-1 py-1 text-[11px] font-medium rounded-lg transition-all ${
+                    filterStatus === 'running'
+                      ? 'bg-base-100 text-warning shadow-sm'
+                      : 'text-base-content/50 hover:text-base-content'
+                  }`}
+                >
+                  Running
+                </button>
+              </div>
+            </div>
+
+            {/* List Body */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+              {!subagents || subagents.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-base-content/30 gap-2">
+                  <Layers className="w-6 h-6 stroke-[1.5]" />
+                  <p className="text-[11px]">Belum ada sub-agent.</p>
+                </div>
+              ) : (
+                subagents.map((agent) => {
+                  const isSelected = agent.id === selectedSubagentId
+                  const isRunning = agent.status === 'running'
+                  return (
+                    <div
+                      key={agent.id}
+                      onClick={() => setSelectedSubagentId(agent.id)}
+                      className={`p-3 rounded-xl border transition-all cursor-pointer relative group ${
+                        isSelected
+                          ? 'bg-primary/10 border-primary/40 shadow-sm'
+                          : 'bg-base-100/40 border-base-content/5 hover:border-base-content/15 hover:bg-base-100/70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`w-2 h-2 rounded-full flex-none ${
+                              isRunning
+                                ? 'bg-warning animate-pulse'
+                                : agent.status === 'completed'
+                                  ? 'bg-success'
+                                  : agent.status === 'failed'
+                                    ? 'bg-error'
+                                    : 'bg-info'
+                            }`}
+                          />
+                          <span className="font-semibold text-xs truncate">{agent.name}</span>
+                        </div>
+                        <button
+                          onClick={(e) => handleDeleteSubagent(agent.id, e)}
+                          className="opacity-0 group-hover:opacity-100 text-base-content/40 hover:text-error transition-all p-0.5"
+                          title="Hapus"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      <p className="text-[11px] text-base-content/50 truncate pl-4 mb-2">
+                        {agent.role || 'Specialist'}
+                      </p>
+
+                      <div className="flex items-center justify-between text-[10px] text-base-content/40 font-mono pl-4">
+                        <span>Langkah: {agent.turnCount || 0}</span>
+                        <span>
+                          {new Date(agent.createdAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Right Panel: Intercom Conversation */}
+          <div className="flex-1 flex flex-col bg-base-200/30 rounded-2xl border border-base-content/5 overflow-hidden">
+            {selectedSubagentId ? (
+              <SubagentIntercom
+                subagentId={selectedSubagentId}
+                onClose={() => setSelectedSubagentId(null)}
+              />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-base-content/30 gap-2.5 p-8 text-center">
+                <div className="p-3.5 bg-base-200/60 rounded-2xl border border-base-content/5">
+                  <Bot className="w-8 h-8 stroke-[1.5] text-base-content/40" />
+                </div>
+                <p className="text-xs font-medium text-base-content/50">
+                  Pilih sub-agent di sisi kiri untuk memantau eksekusi live.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Modal Spawn Agent */}
+        {isSpawnModalOpen && (
+          <div className="modal modal-open bg-black/60 backdrop-blur-sm z-50">
+            <div className="modal-box bg-base-200 border border-base-content/10 rounded-2xl max-w-md shadow-2xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-primary" /> Spawn Sub-Agent Baru
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsSpawnModalOpen(false)}
+                  className="btn btn-ghost btn-xs btn-circle text-base-content/50 hover:text-base-content"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <form onSubmit={handleSpawnManual} className="space-y-3">
+                <div>
+                  <label className="label text-[11px] font-medium py-1 text-base-content/70">Nama Agen</label>
+                  <input
+                    type="text"
+                    placeholder="misal: Code-Refactorer / Web-Researcher"
+                    value={newAgentName}
+                    onChange={(e) => setNewAgentName(e.target.value)}
+                    className="input input-sm input-bordered w-full rounded-xl bg-base-100/60 text-xs"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label text-[11px] font-medium py-1 text-base-content/70">Spesialisasi / Role</label>
+                  <input
+                    type="text"
+                    placeholder="misal: React 19 & Architecture Specialist"
+                    value={newAgentRole}
+                    onChange={(e) => setNewAgentRole(e.target.value)}
+                    className="input input-sm input-bordered w-full rounded-xl bg-base-100/60 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="label text-[11px] font-medium py-1 text-base-content/70">Misi / Goal</label>
+                  <textarea
+                    placeholder="Deskripsikan instruksi teknis yang harus diselesaikan sub-agent..."
+                    value={newAgentGoal}
+                    onChange={(e) => setNewAgentGoal(e.target.value)}
+                    className="textarea textarea-sm textarea-bordered w-full rounded-xl h-24 text-xs bg-base-100/60"
+                    required
+                  />
+                </div>
+                <div className="modal-action pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsSpawnModalOpen(false)}
+                    disabled={isSpawning}
+                    className="btn btn-ghost btn-xs rounded-xl px-3"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!newAgentName.trim() || !newAgentGoal.trim() || isSpawning}
+                    className="btn btn-primary btn-xs rounded-xl px-4 font-medium shadow-sm shadow-primary/20"
+                  >
+                    {isSpawning ? <span className="loading loading-spinner loading-xs" /> : 'Mulai Eksekusi'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

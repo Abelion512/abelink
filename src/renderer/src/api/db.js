@@ -116,6 +116,11 @@ db.version(19).stores({
   })
 })
 
+db.version(20).stores({
+  subagents: 'id, status, parentSessionId, createdAt, updatedAt',
+  subagent_messages: '++id, subagentId, sender, timestamp'
+})
+
 // --- VALIDATION ---
 const VALID_TYPES = ['profile', 'preference', 'notes', 'learn'];
 

@@ -1,4 +1,4 @@
-import { fetchAI, cleanAndParse } from './core'
+﻿import { fetchAI, cleanAndParse } from './core'
 import { getAllConfig } from '../db'
 import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorMemory'
@@ -49,7 +49,7 @@ export const getNextAction = async (
     const userId = options.waContext ? options.waContext.senderJid : 'owner'
 
     const groupToolsObj = await group_tools()
-    
+
     let skills = []
     try {
       if (window.api && window.api.getSkills) {
@@ -68,7 +68,7 @@ ${
   skills.length > 0
     ? `\n# MARK SKILLS (KEMAMPUAN KUSTOM)
 Kamu memiliki skill kustom yang **HANYA BISA DIAKTIFKAN OLEH USER** melalui slash command (/). JIKA user meminta bantuan yang cocok dengan daftar skill di bawah, kamu dilarang menjalankannya sendiri! SARANKAN user untuk mengetik perintahnya di chat input (contoh: "Silakan ketik /nama-skill ya bos").
-${skills.map(s => `- /${s.name}: ${s.description}`).join('\n')}`
+${skills.map((s) => `- /${s.name}: ${s.description}`).join('\n')}`
     : ''
 }
 ${
@@ -82,8 +82,7 @@ JANGAN isi keduanya! Boleh panggil tool berulang kali.
 - BATCH ACTIONS: Kamu BOLEH mengirim BANYAK aksi sekaligus dalam satu giliran menggunakan format array jika tugas membutuhkan eksekusi berurutan yang sudah pasti (misal: "action": [{"tool": "nama-tool1", "query": "..."}]). Semua aksi dalam array akan dieksekusi berurutan. Gunakan ini HANYA untuk aksi yang tidak perlu mengecek hasil/observasi dari aksi sebelumnya. Jika kamu butuh melihat hasil dari aksi pertama sebelum melakukan aksi selanjutnya, JANGAN gunakan batch!
 - Gunakan "thought" untuk alasan keputusanmu. isi dengan detail
 - Jika tool sebelumnya GAGAL/ERROR, analisis errornya di "thought" lalu coba strategi lain.
-- Jika user hanya ngobrol santai, LANGSUNG isi "answer" tanpa tool.
-- PENGGUNAAN WEB SEARCH: Gunakan "browser-search" ke Google Search HANYA untuk info real-time/terbaru. Untuk coding/teori umum, langsung jawab di "answer".
+- PENGGUNAAN BROWSER WEB: Untuk riset web atau membuka website, gunakan tool 'advanced_browser' (panggil 'read-tools' dengan query 'advanced_browser' untuk memuat browser-navigate, browser-read, browser-click, browser-type, dll).
 
 # ATURAN PENULISAN FILE & PENYELESAIAN TUGAS (SANGAT KETAT)
 1. Jika membuat file tunggal/artifact baru dan kamu tidak diminta menyimpannya di lokasi tertentu, KAMU CUKUP MEMBERIKAN NAMA FILE-NYA SAJA (contoh: "index.html" atau "laporan.pdf"). Sistem akan otomatis menyimpannya ke dalam folder 'Mark Workspace'. Folder ini berada di 'Documents/Mark Workspace'. Jika kamu butuh path absolutnya untuk eksekusi 'run-powershell', gunakan '~\\Documents\\Mark Workspace\\'. NAMUN, jika kamu sedang mengerjakan struktur *project* yang kompleks atau user meminta path spesifik, gunakan absolute path atau relative path yang sesuai dengan struktur project tersebut.
@@ -99,6 +98,23 @@ Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
 4. **ANALISIS & TESTING (WAJIB)**: Selalu analisis struktur *project* terlebih dahulu sebelum menulis kode. Tepat sebelum menyelesaikan tugas, kamu WAJIB melakukan *testing* atau *crosscheck* terhadap kodemu untuk memastikannya berjalan lancar tanpa error.
 5. **BACA SEBELUM MENULIS**: Sebelum memodifikasi atau menulis ulang (*write*) sebuah file yang sudah ada, kamu WAJIB membaca (*read*) isi file tersebut terlebih dahulu agar tidak merusak kode yang sudah ada.
 6. **USER AGREEMENT**: Beberapa tool (write-file, replace-lines, delete-file, run-powershell) membutuhkan persetujuan user sebelum dieksekusi. Jika user MENOLAK, jangan paksa. Jelaskan alasanmu dan tanyakan alternatif.
+
+# KAPABILITAS MULTI-AGENT (DELEGASI KE SUB-AGENT):
+Kamu bertindak sebagai LEAD AGENT / ORCHESTRATOR yang memimpin tim Sub-Agent spesialis:
+- PRINSIP UTAMA (PROAKTIF DELEGASI): SEBISA MUNGKIN GUNAKAN SUB-AGENT untuk mempermudah dan mempercepat penyelesaian tugas! Jika sebuah tugas melibatkan riset web multi-sumber, perbandingan beberapa topik/model/produk, investigasi data mendalam, atau audit file, JANGAN kerjakan sendirian secara sekuensial. Langsung pecah menjadi tim Sub-Agent spesialis dan spawn secara serentak (paralel)!
+1. 'spawn_subagent': Membuat dan menjalankan agen spesialis baru di background. Format query: "name||role||goal||initial_message||tools".
+   - PARALELISASI & BATCH SPAWN (SANGAT PENTING): Jika mendelegasikan tugas ke banyak sub-agent (misal 2-3 sub-agent), KAMU WAJIB MEMBUAT SEMUANYA SEKALIGUS DALAM SATU BATCH ACTION:
+     "action": [
+       {"tool": "spawn_subagent", "query": "Researcher-1||Web Researcher||Riset Topik A||Cari info Topik A"},
+       {"tool": "spawn_subagent", "query": "Researcher-2||Web Researcher||Riset Topik B||Cari info Topik B"},
+       {"tool": "spawn_subagent", "query": "Researcher-3||Web Researcher||Riset Topik C||Cari info Topik C"}
+     ]
+   - Sub-agent akan bekerja PARALEL secara bersamaan di background dengan sesi browser terisolasi masing-masing.
+2. 'wait_subagents': Gunakan setelah melakukan spawn untuk menunggu dan mengumpulkan hasil laporan dari sub-agent yang sedang bekerja di background. Query: 'all' untuk menunggu semua sub agent atau daftar ID dipisah koma (misal: "sub_1,sub_2,sub_3") untuk menunggu sub agent secara spesifik.
+3. 'send_message': Mengirim pesan evaluasi/feedback/instruksi lanjutan ke sub-agent tertentu. Query: "subagent_id||pesan_kamu".
+4. 'list_subagents': Memantau daftar sub-agent terdaftar dan ringkasan hasil mereka.
+5. 'kill_subagent': Membatalkan paksa eksekusi sub-agent.
+Alur Ideal: Spawn batch sub-agents -> Panggil wait_subagents -> Analisis semua laporan yang masuk -> Rangkum hasil akhir komprehensif untuk User (Mada).
 
 # ATURAN KLASIFIKASI MODE (PENTING)
 Isi "suggested_mode" dengan:
@@ -260,11 +276,13 @@ ${
         },
         intermediate_answer: {
           type: ['string', 'null'],
-          description: 'Pesan ringkas untuk ditampilkan ke user saat kamu sedang menjalankan tool di background. Null jika tidak memanggil tool.'
+          description:
+            'Pesan ringkas untuk ditampilkan ke user saat kamu sedang menjalankan tool di background. Null jika tidak memanggil tool.'
         },
         is_done: {
           type: 'boolean',
-          description: 'True jika tugas/jawaban sudah selesai 100% dan loop boleh berhenti, False jika kamu masih perlu lanjut mengeksekusi tool berikutnya.'
+          description:
+            'True jika tugas/jawaban sudah selesai 100% dan loop boleh berhenti, False jika kamu masih perlu lanjut mengeksekusi tool berikutnya.'
         },
         suggested_mode: {
           type: 'string',
@@ -362,28 +380,45 @@ ${
 
       const response = await fetchAI(messages, signal, false, schema)
       console.log('[planning] fetchAI returned, parsing...')
-      
+
       if (!response.content?.trim() && response.reasoning) {
         console.warn('[planning] AI ONLY outputted reasoning. Injecting prompt for JSON output...')
         messages.push({ role: 'assistant', content: `<think>\n${response.reasoning}\n</think>` })
-        messages.push({ role: 'user', content: '[CRITICAL] You successfully completed your thinking process, but you FORGOT to output the final JSON block! You MUST immediately output the strictly formatted JSON matching the requested schema now. Do NOT output <think> tags again.' })
+        messages.push({
+          role: 'user',
+          content:
+            '[CRITICAL] You successfully completed your thinking process, but you FORGOT to output the final JSON block! You MUST immediately output the strictly formatted JSON matching the requested schema now. Do NOT output <think> tags again.'
+        })
         continue
       }
 
       const data = cleanAndParse(response.content)
       console.log('[planning] parse finished:', data)
 
-      if (data && typeof data === 'object' && !Array.isArray(data) && (data.action !== undefined || data.answer !== undefined)) {
+      if (
+        data &&
+        typeof data === 'object' &&
+        !Array.isArray(data) &&
+        (data.action !== undefined || data.answer !== undefined)
+      ) {
         let finalAction = data.action || null
         let finalAnswer = data.answer || null
         if (!finalAction && !finalAnswer) {
-          console.warn('[planning] AI returned null for both action and answer. Auto-filling with thought or ...')
-          finalAnswer = (data.thought && data.thought.trim()) || (response.reasoning && response.reasoning.trim()) || '...'
+          console.warn(
+            '[planning] AI returned null for both action and answer. Auto-filling with thought or ...'
+          )
+          finalAnswer =
+            (data.thought && data.thought.trim()) ||
+            (response.reasoning && response.reasoning.trim()) ||
+            '...'
         }
         return {
           thought: data.thought || response.reasoning || '',
           intermediate_answer: data.intermediate_answer || null,
-          is_done: typeof data.is_done === 'boolean' ? data.is_done : (data.task_status === 'done' || (!!finalAnswer && !finalAction)),
+          is_done:
+            typeof data.is_done === 'boolean'
+              ? data.is_done
+              : data.task_status === 'done' || (!!finalAnswer && !finalAction),
           suggested_mode: data.suggested_mode || 'direct',
           action: finalAction,
           answer: finalAnswer,
@@ -396,7 +431,9 @@ ${
       } else if (response.content) {
         // AUTO-FIX: Jika model OpenRouter membalas pakai pure text tanpa format JSON sama sekali
         if (!response.content.includes('{') && !response.content.includes('}')) {
-          console.warn('[planning] AI outputted pure text instead of JSON. Auto-wrapping into answer.')
+          console.warn(
+            '[planning] AI outputted pure text instead of JSON. Auto-wrapping into answer.'
+          )
           return {
             thought: response.reasoning || '',
             suggested_mode: 'direct',
@@ -409,13 +446,19 @@ ${
             active_topic: activeTopic
           }
         }
-        
+
         messages.push({ role: 'assistant', content: response.content })
-        messages.push({ role: 'user', content: '[CRITICAL ERROR] Your JSON output is invalid or missing. Please strictly follow the JSON schema and output valid JSON ONLY.' })
+        messages.push({
+          role: 'user',
+          content:
+            '[CRITICAL ERROR] Your JSON output is invalid or missing. Please strictly follow the JSON schema and output valid JSON ONLY.'
+        })
       }
     }
 
-    console.warn('[planning] All retry attempts failed to get valid JSON. Returning clean fallback.')
+    console.warn(
+      '[planning] All retry attempts failed to get valid JSON. Returning clean fallback.'
+    )
     return {
       thought: 'Fallback triggered after retry attempts',
       suggested_mode: 'direct',

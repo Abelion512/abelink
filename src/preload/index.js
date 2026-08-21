@@ -112,12 +112,12 @@ const api = {
   browserNavigate: (url) => ipcRenderer.invoke('browser:navigate', url),
   browserReadDom: () => ipcRenderer.invoke('browser:read-dom'),
   browserAction: (data) => ipcRenderer.invoke('browser:action', data),
-  browserClose: () => ipcRenderer.invoke('browser:close'),
+  browserClose: (sessionId = 'default') => ipcRenderer.invoke('browser:close', sessionId),
   onBrowserPreview: (cb) => {
     ipcRenderer.removeAllListeners('browser:preview')
     ipcRenderer.on('browser:preview', (_, data) => cb(data))
   },
-  showBrowserWindow: () => ipcRenderer.send('browser:show'),
+  showBrowserWindow: (sessionId = 'default') => ipcRenderer.send('browser:show', sessionId),
   osRead: () => ipcRenderer.invoke('os:read'),
   osClick: (query) => ipcRenderer.invoke('os:click', query),
   osType: (query) => ipcRenderer.invoke('os:type', query),

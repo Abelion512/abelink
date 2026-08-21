@@ -3,33 +3,52 @@ import { jsonrepair } from 'jsonrepair'
 
 export const fetchAI = async (
   messages,
-  signal,
+  signalOrOptions = null,
   isSmallTask = false,
   jsonSchema = null,
   configOverride = null
 ) => {
+  let signal = signalOrOptions
+  let smallTask = isSmallTask
+  let schema = jsonSchema
+  let override = configOverride
+
+  if (
+    signalOrOptions &&
+    typeof signalOrOptions === 'object' &&
+    !(signalOrOptions instanceof AbortSignal) &&
+    typeof signalOrOptions.addEventListener !== 'function'
+  ) {
+    signal = signalOrOptions.signal || null
+    smallTask = signalOrOptions.isSmallTask ?? isSmallTask
+    schema = signalOrOptions.jsonSchema ?? jsonSchema
+    override = signalOrOptions.configOverride ?? configOverride
+  }
+
   const currentConfig = await getAllConfig()
-  const conf = { ...(currentConfig[0] || {}), ...(configOverride || {}) }
+  const conf = { ...(currentConfig[0] || {}), ...(override || {}) }
 
   return new Promise((resolve, reject) => {
-    let hasResolved = false;
+    let hasResolved = false
 
     const onAbort = () => {
-      if (hasResolved) return;
-      hasResolved = true;
-      if (window.api.abortFetchAI) window.api.abortFetchAI();
-      const err = new Error('AbortError');
-      err.name = 'AbortError';
-      reject(err);
+      if (hasResolved) return
+      hasResolved = true
+      if (window.api && window.api.abortFetchAI) window.api.abortFetchAI()
+      const err = new Error('AbortError')
+      err.name = 'AbortError'
+      reject(err)
     }
 
     if (signal) {
-      if (signal.aborted) return onAbort();
-      signal.addEventListener('abort', onAbort);
+      if (signal.aborted) return onAbort()
+      if (typeof signal.addEventListener === 'function') {
+        signal.addEventListener('abort', onAbort)
+      }
     }
 
     // --- DEBUG LOG: Token Usage & Payload ---
-    console.groupCollapsed(`[fetchAI] Request Payload (${isSmallTask ? 'Small Task' : 'Main Task'})`);
+    console.groupCollapsed(`[fetchAI] Request Payload (${smallTask ? 'Small Task' : 'Main Task'})`);
     console.log("Total Messages:", messages.length);
     let totalChars = 0;
     messages.forEach((m, i) => {
@@ -43,12 +62,12 @@ export const fetchAI = async (
     // --- END DEBUG LOG ---
 
     console.log('%c[fetchAI] FULL RAW REQUEST JSON:', 'color: #10b981; font-weight: bold;');
-    console.log(JSON.stringify({ messages, isSmallTask, jsonSchema }, null, 2));
+    console.log(JSON.stringify({ messages, isSmallTask: smallTask, jsonSchema: schema }, null, 2));
 
-    window.api.fetchAI({ messages, config: conf, isSmallTask, jsonSchema }).then(result => {
+    window.api.fetchAI({ messages, config: conf, isSmallTask: smallTask, jsonSchema: schema }).then(result => {
       if (hasResolved) return;
       hasResolved = true;
-      if (signal) signal.removeEventListener('abort', onAbort);
+      if (signal && typeof signal.removeEventListener === 'function') signal.removeEventListener('abort', onAbort);
 
       console.log('%c[fetchAI] FULL RAW RESPONSE RESULT (JSON):', 'color: #10b981; font-weight: bold;');
       console.log(result);
@@ -72,6 +91,30 @@ export const fetchAI = async (
 export const cleanAndParse = (rawResponse) => {
   try {
     if (!rawResponse) return null
+
+    // If it's already an object
+    if (typeof rawResponse === 'object') {
+      if (rawResponse.thought !== undefined || rawResponse.action !== undefined || rawResponse.answer !== undefined) {
+        return rawResponse
+      }
+      if (typeof rawResponse.content === 'string') {
+        rawResponse = rawResponse.content
+      } else if (typeof rawResponse.text === 'string') {
+        rawResponse = rawResponse.text
+      } else if (typeof rawResponse.message === 'string') {
+        rawResponse = rawResponse.message
+      } else {
+        try {
+          rawResponse = JSON.stringify(rawResponse)
+        } catch (_) {
+          return null
+        }
+      }
+    }
+
+    if (typeof rawResponse !== 'string') {
+      rawResponse = String(rawResponse || '')
+    }
 
     let text = rawResponse
       .replace(/```json\s*/gi, '')

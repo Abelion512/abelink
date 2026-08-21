@@ -103,6 +103,83 @@ export const NATIVE_TOOLS = {
       return { success: false, message: `Skill ${skillName} tidak ditemukan` }
     }
   },
+  'browser-search': {
+    needsApproval: false,
+    handler: async (query) => {
+      try {
+        const searchQuery = query ? query.trim() : ''
+        if (!searchQuery) return { success: false, message: 'Query pencarian kosong.' }
+
+        let results = []
+        try {
+          const { search: ddgSearch, SafeSearchType } = await import('duck-duck-scrape')
+          const searchRes = await ddgSearch(searchQuery, {
+            safeSearch: SafeSearchType.OFF
+          })
+          if (searchRes && searchRes.results && searchRes.results.length > 0) {
+            results = searchRes.results.slice(0, 5).map((r) => ({
+              title: r.title,
+              url: r.url,
+              snippet: r.description || r.snippet || ''
+            }))
+          }
+        } catch (ddgErr) {
+          console.warn('[browser-search] duck-duck-scrape failed, trying HTTP fallback:', ddgErr.message)
+        }
+
+        if (results.length === 0) {
+          try {
+            const axios = (await import('axios')).default
+            const htmlRes = await axios.get(
+              `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`,
+              {
+                headers: {
+                  'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                },
+                timeout: 10000
+              }
+            )
+            const html = htmlRes.data || ''
+            const matches = [...html.matchAll(/<a class="result__url" href="([^"]+)">/g)]
+            const snippetMatches = [...html.matchAll(/<a class="result__snippet[^>]*>([^<]+)<\/a>/g)]
+            const titleMatches = [...html.matchAll(/<a class="result__a"[^>]*>([^<]+)<\/a>/g)]
+
+            for (let i = 0; i < Math.min(5, titleMatches.length); i++) {
+              results.push({
+                title: titleMatches[i]?.[1] || 'Web Result',
+                url: matches[i]?.[1] || '',
+                snippet: snippetMatches[i]?.[1] || ''
+              })
+            }
+          } catch (fetchErr) {
+            console.error('[browser-search] HTTP fallback error:', fetchErr.message)
+          }
+        }
+
+        if (results.length === 0) {
+          return {
+            success: true,
+            data: `Tidak ditemukan hasil pencarian web langsung untuk "${searchQuery}".`
+          }
+        }
+
+        const formatted = results
+          .map(
+            (r, idx) =>
+              `${idx + 1}. [${r.title}](${r.url})\n   Snippet: ${r.snippet.replace(/\n+/g, ' ')}`
+          )
+          .join('\n\n')
+
+        return {
+          success: true,
+          data: `[HASIL PENCARIAN WEB UNTUK: "${searchQuery}"]\n\n${formatted}`
+        }
+      } catch (err) {
+        return { success: false, message: `Gagal melakukan web search: ${err.message}` }
+      }
+    }
+  },
   'read-file': {
     needsApproval: false,
     handler: async (query) => {
@@ -620,13 +697,14 @@ export const NATIVE_TOOLS = {
   },
   'browser-navigate': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
         let url = query.trim()
         if (!url.startsWith('http://') && !url.startsWith('https://')) {
           url = 'https://' + url
         }
-        const result = await navigateTo(url)
+        const sessionId = config?.sessionId || 'default'
+        const result = await navigateTo(url, sessionId)
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }
@@ -634,9 +712,10 @@ export const NATIVE_TOOLS = {
     }
   },
   'browser-close': {
-    handler: async () => {
+    handler: async (query, config) => {
       try {
-        const result = await closeBrowser()
+        const sessionId = config?.sessionId || (query?.trim() ? query.trim() : 'default')
+        const result = await closeBrowser(sessionId)
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }
@@ -645,9 +724,10 @@ export const NATIVE_TOOLS = {
   },
   'browser-read': {
     needsApproval: false,
-    handler: async () => {
+    handler: async (query, config) => {
       try {
-        const result = await readDOM()
+        const sessionId = config?.sessionId || 'default'
+        const result = await readDOM(sessionId)
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }
@@ -656,11 +736,12 @@ export const NATIVE_TOOLS = {
   },
   'browser-click': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       const id = parseInt(query.trim(), 10)
       if (isNaN(id)) return { success: false, error: 'ID harus berupa angka.' }
       try {
-        const result = await executeAction({ action: 'click', id })
+        const sessionId = config?.sessionId || 'default'
+        const result = await executeAction({ action: 'click', id }, sessionId)
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }
@@ -669,14 +750,15 @@ export const NATIVE_TOOLS = {
   },
   'browser-type': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       const parts = query.split('||')
       if (parts.length < 2) return { success: false, error: 'Format: ID||teks' }
       const id = parseInt(parts[0].trim(), 10)
       const text = parts.slice(1).join('||')
       if (isNaN(id)) return { success: false, error: 'ID harus berupa angka.' }
       try {
-        const result = await executeAction({ action: 'type', id, value: text })
+        const sessionId = config?.sessionId || 'default'
+        const result = await executeAction({ action: 'type', id, value: text }, sessionId)
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }
@@ -685,13 +767,14 @@ export const NATIVE_TOOLS = {
   },
   'browser-scroll': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       const direction = query.trim().toLowerCase()
       if (direction !== 'up' && direction !== 'down') {
         return { success: false, error: "Gunakan 'up' atau 'down'." }
       }
       try {
-        const result = await executeAction({ action: 'scroll', direction })
+        const sessionId = config?.sessionId || 'default'
+        const result = await executeAction({ action: 'scroll', direction }, sessionId)
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }
@@ -700,9 +783,10 @@ export const NATIVE_TOOLS = {
   },
   'browser-ask-user': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
-        const result = await executeAction({ action: 'unblock', value: query })
+        const sessionId = config?.sessionId || 'default'
+        const result = await executeAction({ action: 'unblock', value: query }, sessionId)
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }
@@ -711,9 +795,10 @@ export const NATIVE_TOOLS = {
   },
   'browser-script': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
-        const result = await executeScript(query)
+        const sessionId = config?.sessionId || 'default'
+        const result = await executeScript(query, sessionId)
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }
@@ -722,9 +807,10 @@ export const NATIVE_TOOLS = {
   },
   'browser-extract': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
-        const result = await extractData(query)
+        const sessionId = config?.sessionId || 'default'
+        const result = await extractData(query, sessionId)
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }
@@ -733,9 +819,10 @@ export const NATIVE_TOOLS = {
   },
   'browser-screenshot': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
-        const result = await takeScreenshot(query || 'screenshot.png')
+        const sessionId = config?.sessionId || 'default'
+        const result = await takeScreenshot(query || 'screenshot.png', sessionId)
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }
@@ -745,11 +832,12 @@ export const NATIVE_TOOLS = {
   'browser-download': {
     needsApproval: true,
     approvalMessage: (query) => `Mark ingin mendownload file dari browser:\n\n${query}`,
-    handler: async (query) => {
+    handler: async (query, config) => {
       const parts = query.split('||')
       if (parts.length < 2) return { success: false, error: 'Format: URL||namafile.ext' }
       try {
-        const result = await downloadFile(parts[0].trim(), parts[1].trim())
+        const sessionId = config?.sessionId || 'default'
+        const result = await downloadFile(parts[0].trim(), parts[1].trim(), sessionId)
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }

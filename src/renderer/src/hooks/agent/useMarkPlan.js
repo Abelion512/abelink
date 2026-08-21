@@ -260,12 +260,138 @@ export const useMarkPlan = ({
         }
 
         let res
-        if (tool === 'read-tools') {
+        if (tool === 'spawn_subagent') {
+          const { subagentStore } = await import('../../api/subagent/subagentStore.js')
+          const { runSubagentTurn } = await import('../../api/subagent/subagentExecutor.js')
+          const parts = (query || '').split('||')
+          const name = parts[0]?.trim() || 'Worker-Agent'
+          const role = parts[1]?.trim() || 'Technical Specialist'
+          const goal = parts[2]?.trim() || 'Selesaikan misi teknis'
+          const initialMessage = parts[3]?.trim() || goal
+          const tools = parts[4] ? parts[4].split(',').map((t) => t.trim()).filter(Boolean) : ['*']
+
+          const sub = await subagentStore.createSubagent({
+            name,
+            role,
+            goal,
+            allowedTools: tools,
+            parentSessionId: 'main_chat'
+          })
+
+          // Jalankan loop eksekusi ReAct secara paralel di background (non-blocking)
+          runSubagentTurn(sub.id, initialMessage).catch((err) => {
+            console.error(`[Sub-Agent ${sub.id}] Background error:`, err)
+          })
+
+          res = {
+            success: true,
+            data: `[SUB-AGENT BERHASIL DIBUAT & BERJALAN DI BACKGROUND]\n- Nama: ${name}\n- ID: ${sub.id}\n- Role: ${role}\n- Goal: ${goal}\nSub-agent ini telah mulai bekerja secara paralel di background. Kamu bisa langsung membuat sub-agent lain (batch) atau gunakan tool 'wait_subagents' (query: 'all' atau ID-nya) untuk menunggu dan mengumpulkan hasil laporannya.`
+          }
+        } else if (tool === 'wait_subagents') {
+          const { subagentStore } = await import('../../api/subagent/subagentStore.js')
+          const parts = (query || '').split('||')
+          const targetIdsRaw = parts[0]?.trim() || 'all'
+          const maxWaitSeconds = parseInt(parts[1]?.trim() || '40', 10) || 40
+
+          let targetIds = []
+          if (targetIdsRaw === 'all' || !targetIdsRaw) {
+            const running = await subagentStore.listSubagents('running')
+            targetIds = running.map((s) => s.id)
+          } else {
+            targetIds = targetIdsRaw.split(',').map((id) => id.trim()).filter(Boolean)
+          }
+
+          if (targetIds.length === 0) {
+            const all = await subagentStore.listSubagents()
+            const summary = all
+              .slice(0, 5)
+              .map(
+                (s) =>
+                  `- [${s.name} (${s.id})]: Status=${s.status}\n  Hasil: ${s.finalAnswer || '(Belum ada laporan)'}`
+              )
+              .join('\n\n')
+            res = {
+              success: true,
+              data: `Tidak ada sub-agent yang sedang berjalan.\nRiwayat sub-agent:\n${summary || 'Kosong'}`
+            }
+          } else {
+            const startTime = Date.now()
+            let allDone = false
+            let finalAgents = []
+
+            while (Date.now() - startTime < maxWaitSeconds * 1000) {
+              if (abortControllerRef.current.signal.aborted) break
+              const agents = await Promise.all(targetIds.map((id) => subagentStore.getSubagent(id)))
+              finalAgents = agents.filter(Boolean)
+              const stillRunning = finalAgents.some((a) => a.status === 'running')
+              if (!stillRunning) {
+                allDone = true
+                break
+              }
+              await new Promise((r) => setTimeout(r, 1500))
+            }
+
+            const reports = finalAgents
+              .map((a) => {
+                return `### [LAPORAN ${a.name} (${a.role})] (Status: ${a.status}, Turns: ${a.turnCount})\nGoal: ${a.goal}\nHasil Akhir:\n${a.finalAnswer || '(Sedang memproses langkah berikutnya di background)'}`
+              })
+              .join('\n\n---\n\n')
+
+            res = {
+              success: true,
+              data: `[STATUS SUB-AGENTS (${allDone ? 'SEMUA SELESAI' : 'SEBAGIAN MASIH BERJALAN'})]:\n\n${reports}`
+            }
+          }
+        } else if (tool === 'send_message') {
+          const { runSubagentTurn } = await import('../../api/subagent/subagentExecutor.js')
+          const parts = (query || '').split('||')
+          const targetId = parts[0]?.trim()
+          const msgText = parts[1]?.trim()
+
+          if (!targetId || !msgText) {
+            res = { success: false, error: 'Format query send_message salah. Gunakan: subagent_id||pesan_instruksi' }
+          } else {
+            const runResult = await runSubagentTurn(targetId, msgText)
+            if (runResult.success) {
+              res = {
+                success: true,
+                data: `[BALASAN DARI SUB-AGENT (${targetId})]:\n"${runResult.reply}"\n${runResult.thought ? `(Pemikiran: ${runResult.thought})\n` : ''}Lanjutkan instruksi dengan 'send_message' atau laporkan hasil akhir ke user jika sudah selesai.`
+              }
+            } else {
+              res = { success: false, error: `Sub-Agent error: ${runResult.error}` }
+            }
+          }
+        } else if (tool === 'list_subagents') {
+          const { subagentStore } = await import('../../api/subagent/subagentStore.js')
+          const filter = query ? query.trim().toLowerCase() : null
+          const list = await subagentStore.listSubagents(filter)
+          if (!list || list.length === 0) {
+            res = { success: true, data: 'Tidak ada sub-agent yang aktif/tersedia saat ini.' }
+          } else {
+            const summary = list
+              .map(
+                (s) =>
+                  `- [${s.id}] ${s.name} (${s.role}): Status=${s.status}, Turns=${s.turnCount || 0}, Goal="${s.goal}"\n  Hasil: ${s.finalAnswer ? s.finalAnswer.slice(0, 150) + '...' : '(Belum ada)'}`
+              )
+              .join('\n\n')
+            res = { success: true, data: `Daftar Sub-Agent Terdaftar:\n${summary}` }
+          }
+        } else if (tool === 'kill_subagent') {
+          const { killSubagentExecution } = await import('../../api/subagent/subagentExecutor.js')
+          const parts = (query || '').split('||')
+          const targetId = parts[0]?.trim()
+          if (!targetId) {
+            res = { success: false, error: 'Sebutkan subagent_id yang ingin dihentikan.' }
+          } else {
+            killSubagentExecution(targetId)
+            res = { success: true, data: `Sub-agent ${targetId} berhasil dihentikan paksa.` }
+          }
+        } else if (tool === 'read-tools') {
           const { group_tools } = await import('../../api/tools/group-tools.js')
           const groups = await group_tools()
           const groupName = query.trim()
           if (!groupName) {
-            res = { success: false, message: 'Harap sebutkan nama_grup yang ingin dimuat (misal: "pc_automation").' }
+            res = { success: false, message: 'Harap sebutkan nama_grup yang ingin dimuat (misal: "advanced_browser").' }
           } else if (groups[groupName]) {
             const toolDescriptions = Object.entries(groups[groupName].tools)
               .map(([k, v]) => `- ${k}: ${v}`)
