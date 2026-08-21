@@ -158,7 +158,8 @@ ${
 DILARANG KERAS merespons dengan teks biasa, pengantar, atau penutup. Kamu HANYA BOLEH mengeluarkan tepat satu buah objek JSON murni. JANGAN tambahkan "Berikut adalah JSON-nya", JANGAN tambahkan penjelasan di luar JSON. Responsmu HARUS diawali dengan karakter "{" dan diakhiri dengan "}". Pelanggaran terhadap aturan ini akan merusak sistem!
 {
   "thought": "string (Alasan/logika keputusanmu, tidak ditampilkan ke user)",
-  "intermediate_answer": "string (Pesan ringkas untuk ditampilkan ke user SAAT kamu sedang menjalankan action/tool. Misal: 'Sebentar, aku cek data dulu ya...' atau 'Menyiapkan terminal...'. JIKA kamu menjalankan BATCH ACTIONS, katakan 'Mengeksekusi langkah beruntun secepat kilat...')",
+  "intermediate_answer": "string (Pesan ringkas untuk ditampilkan ke user SAAT kamu sedang menjalankan action/tool. Misal: 'Sebentar, aku cek data dulu ya...' atau 'Menyiapkan terminal...'. JIKA kamu menjalankan BATCH ACTIONS, katakan 'Mengeksekusi langkah beruntun secepat kilat...') atau null jika tidak ada action",
+  "is_done": boolean (true jika respon/tugas giliran ini sudah 100% selesai dan siap berhenti, false jika kamu masih perlu lanjut mengeksekusi tool/langkah berikutnya),
   "suggested_mode": "direct|ephemeral|durable",
   "task_status": "simple|in_progress|done",
   "objective": "string (Tujuan akhir dari keseluruhan tugas, isi HANYA JIKA task_status='in_progress', jika tidak set null)",
@@ -170,10 +171,10 @@ DILARANG KERAS merespons dengan teks biasa, pengantar, atau penutup. Kamu HANYA 
 }
 
 # CONTOH (HANYA TEMPLAT STRUKTUR JSON. JANGAN MENIRU ISI PESAN ATAU KATA SAPAANNYA!)
-Chat santai (Tanpa tool): {"thought":"Gue dengerin aja dan kasih respons santai.","suggested_mode":"direct","task_status":"simple","objective":null,"action":null,"answer":"Siap bro, gue dengerin. Gimana kelanjutannya?","mood":"neutral","active_topic":"Ngobrol Santai","memory":null}
-Butuh tool: {"thought":"cari dulu","suggested_mode":"ephemeral","task_status":"in_progress","objective":"Mencari informasi harga RTX 5090 terbaru","action":{"tool":"browser-navigate","query":"https://www.google.com/search?q=harga+rtx+5090"},"answer":null,"mood":"neutral","active_topic":"Cari Info","memory":null}
-Tugas panjang: {"thought":"tugas butuh 3 bab, harus dikerjakan terpisah","suggested_mode":"durable","task_status":"in_progress","objective":"Membuat artikel panjang 3 bab tentang AI","action":null,"answer":null,"mood":"neutral","active_topic":"Pembuatan Artikel","memory":null}
-Setelah observation: {"thought":"done","suggested_mode":"direct","task_status":"done","objective":null,"action":null,"answer":"Kartu grafis RTX 5090 memiliki spesifikasi utama VRAM 32GB GDDR7 dan konsumsi daya sekitar 600W. Harganya diperkirakan mulai dari Rp 30.000.000 untuk versi standar.","mood":"joy","active_topic":"Cari Info","memory":null}
+Chat santai (Tanpa tool): {"thought":"Gue dengerin aja dan kasih respons santai.","intermediate_answer":null,"is_done":true,"suggested_mode":"direct","task_status":"simple","objective":null,"action":null,"answer":"Siap bro, gue dengerin. Gimana kelanjutannya?","mood":"neutral","active_topic":"Ngobrol Santai","memory":null}
+Butuh tool: {"thought":"cari dulu","intermediate_answer":"Sebentar ya bro, gue carikan infonya...","is_done":false,"suggested_mode":"ephemeral","task_status":"in_progress","objective":"Mencari informasi harga RTX 5090 terbaru","action":{"tool":"browser-navigate","query":"https://www.google.com/search?q=harga+rtx+5090"},"answer":null,"mood":"neutral","active_topic":"Cari Info","memory":null}
+Tugas panjang: {"thought":"tugas butuh 3 bab, harus dikerjakan terpisah","intermediate_answer":"Mission Control aktif. Memulai rencana pengerjaan...","is_done":false,"suggested_mode":"durable","task_status":"in_progress","objective":"Membuat artikel panjang 3 bab tentang AI","action":null,"answer":"Mission Control aktif, gue rancang artikel 3 bab...","mood":"neutral","active_topic":"Pembuatan Artikel","memory":null}
+Setelah observation: {"thought":"done","intermediate_answer":null,"is_done":true,"suggested_mode":"direct","task_status":"done","objective":null,"action":null,"answer":"Kartu grafis RTX 5090 memiliki spesifikasi utama VRAM 32GB GDDR7 dan konsumsi daya sekitar 600W. Harganya diperkirakan mulai dari Rp 30.000.000 untuk versi standar.","mood":"joy","active_topic":"Cari Info","memory":null}
 
 # KONTEKS DINAMIS
 Kepribadian: ${conf.personality || 'Santai layaknya teman.'}
@@ -257,9 +258,21 @@ ${
           type: 'string',
           description: 'Alasan/logika keputusan, tidak ditampilkan ke user'
         },
+        intermediate_answer: {
+          type: ['string', 'null'],
+          description: 'Pesan ringkas untuk ditampilkan ke user saat kamu sedang menjalankan tool di background. Null jika tidak memanggil tool.'
+        },
+        is_done: {
+          type: 'boolean',
+          description: 'True jika tugas/jawaban sudah selesai 100% dan loop boleh berhenti, False jika kamu masih perlu lanjut mengeksekusi tool berikutnya.'
+        },
         suggested_mode: {
           type: 'string',
           enum: ['direct', 'ephemeral', 'durable']
+        },
+        task_status: {
+          type: 'string',
+          enum: ['simple', 'in_progress', 'done']
         },
         action: {
           anyOf: [
@@ -326,6 +339,8 @@ ${
       },
       required: [
         'thought',
+        'intermediate_answer',
+        'is_done',
         'suggested_mode',
         'task_status',
         'objective',
@@ -359,11 +374,19 @@ ${
       console.log('[planning] parse finished:', data)
 
       if (data && typeof data === 'object' && !Array.isArray(data) && (data.action !== undefined || data.answer !== undefined)) {
+        let finalAction = data.action || null
+        let finalAnswer = data.answer || null
+        if (!finalAction && !finalAnswer) {
+          console.warn('[planning] AI returned null for both action and answer. Auto-filling with thought or ...')
+          finalAnswer = (data.thought && data.thought.trim()) || (response.reasoning && response.reasoning.trim()) || '...'
+        }
         return {
           thought: data.thought || response.reasoning || '',
+          intermediate_answer: data.intermediate_answer || null,
+          is_done: typeof data.is_done === 'boolean' ? data.is_done : (data.task_status === 'done' || (!!finalAnswer && !finalAction)),
           suggested_mode: data.suggested_mode || 'direct',
-          action: data.action,
-          answer: data.answer,
+          action: finalAction,
+          answer: finalAnswer,
           task_status: data.task_status || 'simple',
           objective: data.objective || null,
           memory: data.memory,
@@ -392,9 +415,18 @@ ${
       }
     }
 
-    throw new Error(
-      'Gagal merespons: Model AI yang lu pake gagal ngeluarin format JSON yang bener setelah di-retry. (Biasanya gara-gara modelnya kekecilan / kurang pinter buat jalanin Agent).'
-    )
+    console.warn('[planning] All retry attempts failed to get valid JSON. Returning clean fallback.')
+    return {
+      thought: 'Fallback triggered after retry attempts',
+      suggested_mode: 'direct',
+      action: null,
+      answer: '...',
+      task_status: 'simple',
+      objective: null,
+      memory: null,
+      mood: 'neutral',
+      active_topic: activeTopic
+    }
   } catch (error) {
     if (error.name !== 'AbortError' && !error.message.includes('AbortError')) {
       console.error('Error in getNextAction:', error)
