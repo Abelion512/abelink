@@ -35,7 +35,7 @@ const markdownComponents = {
 }
 
 // Komponen Single Unified Bubble untuk Sub-Agent
-function SubagentUnifiedBubble({ turn, subagentName }) {
+function SubagentUnifiedBubble({ turn, subagentName, isRunning }) {
   const [isThoughtOpen, setIsThoughtOpen] = useState(false)
   const [isStepsOpen, setIsStepsOpen] = useState(false)
   const [openStepIdx, setOpenStepIdx] = useState(null)
@@ -152,8 +152,8 @@ function SubagentUnifiedBubble({ turn, subagentName }) {
           </div>
         )}
 
-        {/* 3. Final Content / Answer */}
-        {turn.answer && (
+        {/* 3. Final Content / Answer or Loading */}
+        {turn.answer ? (
           <div className="prose prose-invert prose-sm max-w-none text-xs leading-relaxed font-normal pt-1 text-base-content/95">
             <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
               {turn.answer
@@ -161,7 +161,12 @@ function SubagentUnifiedBubble({ turn, subagentName }) {
                 .replace(/^\[DARI CREATOR \/ USER \(MADA\)\]:\s*/, '')}
             </Markdown>
           </div>
-        )}
+        ) : isRunning ? (
+          <div className="flex items-center gap-2 text-xs text-base-content/75 py-1 font-mono">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+            <span className="text-[11px]">Memproses langkah...</span>
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -428,9 +433,17 @@ export default function SubagentIntercom({ subagentId, onClose }) {
         onScroll={handleScroll}
         className="flex-1 p-5 overflow-y-auto space-y-4 relative"
       >
-        {groupedTurns.map((item) => {
+        {groupedTurns.map((item, idx) => {
           if (item.type === 'subagent_turn') {
-            return <SubagentUnifiedBubble key={item.id} turn={item} subagentName={subagent.name} />
+            const isLastTurn = idx === groupedTurns.length - 1
+            return (
+              <SubagentUnifiedBubble
+                key={item.id}
+                turn={item}
+                subagentName={subagent.name}
+                isRunning={isRunning && isLastTurn}
+              />
+            )
           }
 
           const isUser = item.sender === 'user'
@@ -477,25 +490,27 @@ export default function SubagentIntercom({ subagentId, onClose }) {
           )
         })}
 
-        {/* Loading "Memproses langkah..." State */}
-        {isRunning && (
-          <div className="chat chat-start animate-fade-in">
-            <div className="chat-image avatar placeholder">
-              <div className="w-8 h-8 rounded-2xl text-[10px] font-bold shadow-md flex items-center justify-center bg-primary/20 text-primary border border-primary/30">
-                SUB
+        {/* Initial Loading State hanya jika belum ada bubble giliran sub-agent yang aktif */}
+        {isRunning &&
+          (groupedTurns.length === 0 ||
+            groupedTurns[groupedTurns.length - 1]?.type !== 'subagent_turn') && (
+            <div className="chat chat-start animate-fade-in">
+              <div className="chat-image avatar placeholder">
+                <div className="w-8 h-8 rounded-2xl text-[10px] font-bold shadow-md flex items-center justify-center bg-primary/20 text-primary border border-primary/30">
+                  SUB
+                </div>
+              </div>
+              <div className="chat-header text-[11px] opacity-50 mb-1">
+                <span>{subagent.name}</span>
+              </div>
+              <div className="chat-bubble bg-base-200/95 text-base-content border border-base-content/15 text-xs flex items-center gap-2.5 py-2.5 px-4 shadow-md">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                <span className="font-mono text-[11px] text-base-content/80">
+                  Memproses langkah...
+                </span>
               </div>
             </div>
-            <div className="chat-header text-[11px] opacity-50 mb-1">
-              <span>{subagent.name}</span>
-            </div>
-            <div className="chat-bubble bg-base-200/95 text-base-content border border-base-content/15 text-xs flex items-center gap-2.5 py-2.5 px-4 shadow-md">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-              <span className="font-mono text-[11px] text-base-content/80">
-                Memproses langkah...
-              </span>
-            </div>
-          </div>
-        )}
+          )}
 
         <div ref={messagesEndRef} />
       </div>
