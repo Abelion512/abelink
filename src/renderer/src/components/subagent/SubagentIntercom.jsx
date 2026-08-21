@@ -17,6 +17,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { runSubagentTurn, killSubagentExecution } from '../../api/subagent/subagentExecutor'
+import { useConfirm } from '../../hooks/useConfirm'
 
 const markdownComponents = {
   code({ node, inline, className, children, ...props }) {
@@ -327,6 +328,8 @@ export default function SubagentIntercom({ subagentId, onClose }) {
     }
   }, [messages.length])
 
+  const { confirm, ModalComponent } = useConfirm()
+
   const handleSendMessage = async (e) => {
     e?.preventDefault()
     if (!inputText.trim() || isSending) return
@@ -348,8 +351,15 @@ export default function SubagentIntercom({ subagentId, onClose }) {
     }
   }
 
-  const handleKill = () => {
-    if (confirm('Konfirmasi: Hentikan eksekusi sub-agent ini secara paksa?')) {
+  const handleKill = async () => {
+    const result = await confirm({
+      title: 'Hentikan Eksekusi Sub-Agent',
+      message: 'Apakah kamu yakin ingin menghentikan eksekusi sub-agent ini secara paksa?',
+      isError: true,
+      confirmText: 'Hentikan',
+      cancelText: 'Batal'
+    })
+    if (result?.isConfirmed) {
       killSubagentExecution(subagentId)
       loadData()
     }
@@ -553,6 +563,9 @@ export default function SubagentIntercom({ subagentId, onClose }) {
           )}
         </button>
       </form>
+
+      {/* Confirmation Modal */}
+      <ModalComponent />
     </div>
   )
 }

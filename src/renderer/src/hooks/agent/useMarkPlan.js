@@ -111,7 +111,12 @@ export const useMarkPlan = ({
       else if (tool === 'yt-summary') {
         setChatData((prev) => [
           ...prev,
-          { role: 'ai', content: 'Menonton video youtube...', isSummarizing: true, youtubeLink: query }
+          {
+            role: 'ai',
+            content: 'Menonton video youtube...',
+            isSummarizing: true,
+            youtubeLink: query
+          }
         ])
         const yData = await getYoutubeData(query)
         resultString = await getYoutubeSummary(query, yData, abortControllerRef.current.signal)
@@ -140,7 +145,10 @@ export const useMarkPlan = ({
         if (query && query.trim() !== '') {
           setChatData((prev) => {
             const filtered = prev.filter((item) => !item.isThinking)
-            return [...filtered, { role: 'ai', content: `(Sedang berbicara) ${query}`, isThinking: true }]
+            return [
+              ...filtered,
+              { role: 'ai', content: `(Sedang berbicara) ${query}`, isThinking: true }
+            ]
           })
           await playVoice(query)
           resultString = `Berhasil berbicara secara lisan: "${query}"`
@@ -169,7 +177,10 @@ export const useMarkPlan = ({
             ])
 
             const contentArray = [
-              { type: 'text', text: query || 'Jelaskan dengan detail apa yang terlihat di layar ini.' }
+              {
+                type: 'text',
+                text: query || 'Jelaskan dengan detail apa yang terlihat di layar ini.'
+              }
             ]
             screens.forEach((screen) => {
               contentArray.push({ type: 'image_url', image_url: { url: screen.data } })
@@ -198,7 +209,8 @@ export const useMarkPlan = ({
       else if (tool === 'camera-look') {
         try {
           if (config[0]?.cameraEnabled === false) {
-            resultString = 'Fitur kamera dimatikan di pengaturan. Beri tahu user untuk mengaktifkannya.'
+            resultString =
+              'Fitur kamera dimatikan di pengaturan. Beri tahu user untuk mengaktifkannya.'
           } else if (!requestCameraCapture) {
             resultString = 'Internal Error: Callback requestCameraCapture tidak tersedia.'
           } else {
@@ -219,7 +231,10 @@ export const useMarkPlan = ({
               ])
 
               const contentArray = [
-                { type: 'text', text: query || 'Jelaskan dengan detail apa yang terlihat dari kamera ini.' },
+                {
+                  type: 'text',
+                  text: query || 'Jelaskan dengan detail apa yang terlihat dari kamera ini.'
+                },
                 { type: 'image_url', image_url: { url: cameraFrame } }
               ]
 
@@ -268,7 +283,12 @@ export const useMarkPlan = ({
           const role = parts[1]?.trim() || 'Technical Specialist'
           const goal = parts[2]?.trim() || 'Selesaikan misi teknis'
           const initialMessage = parts[3]?.trim() || goal
-          const tools = parts[4] ? parts[4].split(',').map((t) => t.trim()).filter(Boolean) : ['*']
+          const tools = parts[4]
+            ? parts[4]
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean)
+            : ['*']
 
           const sub = await subagentStore.createSubagent({
             name,
@@ -298,7 +318,10 @@ export const useMarkPlan = ({
             const running = await subagentStore.listSubagents('running')
             targetIds = running.map((s) => s.id)
           } else {
-            targetIds = targetIdsRaw.split(',').map((id) => id.trim()).filter(Boolean)
+            targetIds = targetIdsRaw
+              .split(',')
+              .map((id) => id.trim())
+              .filter(Boolean)
           }
 
           if (targetIds.length === 0) {
@@ -324,8 +347,27 @@ export const useMarkPlan = ({
               const agents = await Promise.all(targetIds.map((id) => subagentStore.getSubagent(id)))
               finalAgents = agents.filter(Boolean)
 
+              const active = finalAgents.filter((a) => a.status === 'running').length
+              const completed = finalAgents.length - active
+              const elapsed = Math.round((Date.now() - startTime) / 1000)
+
+              // Update status thinking secara live agar pengguna tahu sub-agent sedang bekerja
+              setChatData((prev) => {
+                const filtered = prev.filter((item) => !item.isThinking)
+                return [
+                  ...filtered,
+                  {
+                    role: 'ai',
+                    content: `Menunggu tim Sub-Agent bekerja...`,
+                    isThinking: true
+                  }
+                ]
+              })
+
               // Early-Fail Interrupt: Jika ada subagent yang gagal/error, langsung keluar dari loop tanpa menunggu yang lain
-              const hasFailed = finalAgents.some((a) => a.status === 'failed' || a.status === 'killed')
+              const hasFailed = finalAgents.some(
+                (a) => a.status === 'failed' || a.status === 'killed'
+              )
               if (hasFailed) {
                 break
               }
@@ -338,7 +380,9 @@ export const useMarkPlan = ({
               await new Promise((r) => setTimeout(r, 1500))
             }
 
-            const failedAgents = finalAgents.filter((a) => a.status === 'failed' || a.status === 'killed')
+            const failedAgents = finalAgents.filter(
+              (a) => a.status === 'failed' || a.status === 'killed'
+            )
             const runningAgents = finalAgents.filter((a) => a.status === 'running')
 
             const reports = finalAgents
@@ -348,8 +392,8 @@ export const useMarkPlan = ({
                 const statusTag = isFailed
                   ? `[PERHATIAN: STATUS ${a.status.toUpperCase()} - GAGAL/PERLU RETRY DENGAN send_message]`
                   : isRunning
-                  ? `[STATUS: RUNNING - SEDANG BERJALAN DI BACKGROUND]`
-                  : `[STATUS: COMPLETED - SELESAI]`
+                    ? `[STATUS: RUNNING - SEDANG BERJALAN DI BACKGROUND]`
+                    : `[STATUS: COMPLETED - SELESAI]`
                 return `### LAPORAN ${a.name} (${a.role}) - ID: ${a.id}\nStatus: ${statusTag} (Total Turns: ${a.turnCount || 0})\nGoal: ${a.goal}\nHasil Akhir:\n${a.finalAnswer || (isFailed ? 'Eksekusi agen ini terhenti atau mengalami kegagalan sebelum mencapai goal.' : isRunning ? '(Sedang aktif memproses langkah di background secara paralel)' : '(Belum ada output)')}`
               })
               .join('\n\n---\n\n')
@@ -370,7 +414,7 @@ export const useMarkPlan = ({
             } else if (runningAgents.length > 0) {
               failPrompt = `\n\n[PENGINGAT ORCHESTRATOR]: Masih ada ${runningAgents.length} sub-agent yang sedang bekerja di background. Jika kamu butuh menunggu mereka, panggil kembali 'wait_subagents'.`
             } else {
-              failPrompt = `\n\n[PENGINGAT ORCHESTRATOR - REVIEW KRITIS]: Seluruh sub-agent telah selesai. Evaluasi laporan di atas. Jika ada data yang kurang lengkap/dangkal, gunakan 'send_message' untuk meminta pendalaman sebelum membuat kesimpulan akhir.`
+              failPrompt = `\n\n[PENGINGAT ORCHESTRATOR - PROTOKOL PEER-REVIEW & PIPELINE RELAY]: Sub-agent telah memberikan laporan. Sebagai Lead Orchestrator:\n1. RELAY DATA: Kamu BISA meneruskan/menyalurkan temuan dari satu agen ke agen lain yang membutuhkan via 'send_message' (misal: "id_agen_2||Temuan dari Agen 1: ... Tolong lanjutkan dengan menganalisis ...").\n2. REVIEW KRITIS: Evaluasi temuan agen secara mendalam sebelum menyusun kesimpulan akhir.`
             }
 
             res = {
@@ -385,13 +429,16 @@ export const useMarkPlan = ({
           const msgText = parts[1]?.trim()
 
           if (!targetId || !msgText) {
-            res = { success: false, error: 'Format query send_message salah. Gunakan: subagent_id||pesan_instruksi' }
+            res = {
+              success: false,
+              error: 'Format query send_message salah. Gunakan: subagent_id||pesan_instruksi'
+            }
           } else {
             const runResult = await runSubagentTurn(targetId, msgText)
             if (runResult.success) {
               res = {
                 success: true,
-                data: `[BALASAN DARI SUB-AGENT (${targetId})]:\n"${runResult.reply}"\n${runResult.thought ? `(Pemikiran: ${runResult.thought})\n` : ''}Lanjutkan instruksi dengan 'send_message' atau laporkan hasil akhir ke user jika sudah selesai.`
+                data: `[BALASAN EVALUASI DARI SUB-AGENT (${targetId})]:\n"${runResult.reply}"\n${runResult.thought ? `(Pemikiran: ${runResult.thought})\n` : ''}Evaluasi apakah hasil pendalaman ini sudah memenuhi standar kualitas tinggi. Jika sudah solid, susun jawaban komprehensif ke user. Jika masih butuh pengujian, kirimkan 'send_message' lanjutan.`
               }
             } else {
               res = { success: false, error: `Sub-Agent error: ${runResult.error}` }
@@ -427,7 +474,10 @@ export const useMarkPlan = ({
           const groups = await group_tools()
           const groupName = query.trim()
           if (!groupName) {
-            res = { success: false, message: 'Harap sebutkan nama_grup yang ingin dimuat (misal: "advanced_browser").' }
+            res = {
+              success: false,
+              message: 'Harap sebutkan nama_grup yang ingin dimuat (misal: "advanced_browser").'
+            }
           } else if (groups[groupName]) {
             const toolDescriptions = Object.entries(groups[groupName].tools)
               .map(([k, v]) => `- ${k}: ${v}`)
@@ -462,7 +512,9 @@ export const useMarkPlan = ({
           if (tool === 'read-document') {
             const parts = query.split('||')
             let fullText =
-              typeof res.data === 'object' && res.data !== null ? res.data.content || '' : String(res.data || '')
+              typeof res.data === 'object' && res.data !== null
+                ? res.data.content || ''
+                : String(res.data || '')
             if (fullText && fullText.length > 2500) {
               resultString = `${fullText.slice(0, 2500)}\n\n[DOKUMEN DIPOTONG (Total: ${fullText.length} karakter). Gunakan read-document dengan query "${parts[0]}||kata_kunci" untuk pencarian spesifik]`
             }
@@ -495,7 +547,9 @@ export const useMarkPlan = ({
         const res = await Promise.race([pluginPromise, abortPromise])
 
         resultString = res.success
-          ? typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
+          ? typeof res.data === 'string'
+            ? res.data
+            : JSON.stringify(res.data)
           : `[ERROR] Plugin ${tool} gagal: ${res.error}`
 
         pushProcess({
@@ -540,7 +594,9 @@ export const useMarkPlan = ({
     // FASE 1: VALIDASI INPUT & LOCKING
     // ------------------------------------------------------------------------
     if (!tgContext && isExecutingRef.current) {
-      console.log('[useMarkPlan] Menolak prompt masuk karena proses lain sedang berjalan (Lock active).')
+      console.log(
+        '[useMarkPlan] Menolak prompt masuk karena proses lain sedang berjalan (Lock active).'
+      )
       return
     }
     if (!tgContext) {
@@ -630,12 +686,18 @@ export const useMarkPlan = ({
     // ------------------------------------------------------------------------
     const rawSession = [
       ...chatData
-        .filter((item) => item.role !== 'command' && !item.isThinking && !item.isSearching && !item.isSummarizing)
+        .filter(
+          (item) =>
+            item.role !== 'command' && !item.isThinking && !item.isSearching && !item.isSummarizing
+        )
         .map((item) => {
           let msgContent = item.content || ''
           if (item.role === 'ai' && item.executedTools && item.executedTools.length > 0) {
             const toolLog = item.executedTools
-              .map((t) => `  * [Tool: ${t.tool}] query: "${t.query || ''}" -> Hasil: ${t.resultSummary || 'OK'}`)
+              .map(
+                (t) =>
+                  `  * [Tool: ${t.tool}] query: "${t.query || ''}" -> Hasil: ${t.resultSummary || 'OK'}`
+              )
               .join('\n')
             msgContent = `[RIWAYAT EKSEKUSI TOOL TURN INI]:\n${toolLog}\n\n[JAWABAN AKHIR KE USER]:\n${item.content}`
           }
@@ -686,8 +748,10 @@ export const useMarkPlan = ({
       const unifiedContext = await Promise.race([contextPromise, abortPromise])
 
       let contextMsgStr = ''
-      if (tgContext) contextMsgStr += `Permintaan ini berasal dari Telegram (Chat ID: ${tgContext.chatId}).\n`
-      if (isSystem) contextMsgStr += `[SYSTEM INSTRUCTION]: Pesan ini adalah instruksi internal sistem.\n`
+      if (tgContext)
+        contextMsgStr += `Permintaan ini berasal dari Telegram (Chat ID: ${tgContext.chatId}).\n`
+      if (isSystem)
+        contextMsgStr += `[SYSTEM INSTRUCTION]: Pesan ini adalah instruksi internal sistem.\n`
       if (isAutonomous) {
         contextMsgStr += `[AWARENESS MODE]: Ini adalah pemikiran autonom-mu sendiri. Buka topik secara proaktif.\n`
       }
@@ -711,7 +775,12 @@ export const useMarkPlan = ({
       if (isAutonomous && autonomousInitialMessage && !tgContext) {
         setChatData((prev) => [
           ...prev,
-          { role: 'ai', content: autonomousInitialMessage, timestamp: getCurrentTimeInfo(), isProactive: true }
+          {
+            role: 'ai',
+            content: autonomousInitialMessage,
+            timestamp: getCurrentTimeInfo(),
+            isProactive: true
+          }
         ])
         chatSession.splice(chatSession.length - 1, 0, {
           role: 'assistant',
@@ -771,9 +840,27 @@ export const useMarkPlan = ({
         setChatData((prev) => {
           const filtered = prev.filter((item) => !item.isThinking)
           const loadingText =
-            isAutonomous && autonomousInitialMessage ? autonomousInitialMessage : 'Bentar, mikir dlu...'
+            isAutonomous && autonomousInitialMessage
+              ? autonomousInitialMessage
+              : 'Bentar, mikir dlu...'
           return [...filtered, { role: 'ai', content: loadingText, isThinking: true }]
         })
+
+        // Ambil daftar sub-agent yang tersedia untuk pencegahan duplikasi
+        let existingSubagents = ''
+        try {
+          const { subagentStore } = await import('../../api/subagent/subagentStore.js')
+          const allSubs = await subagentStore.listSubagents()
+          if (allSubs && allSubs.length > 0) {
+            existingSubagents = allSubs
+              .slice(0, 10)
+              .map(
+                (s) =>
+                  `- [ID: ${s.id}] "${s.name}" (${s.role}) | Status: ${s.status} | Turns: ${s.turnCount || 0} | Goal: "${s.goal}"`
+              )
+              .join('\n')
+          }
+        } catch (e) {}
 
         // Request keputusan giliran ke AI (getNextAction)
         const decision = await getNextAction(
@@ -788,7 +875,8 @@ export const useMarkPlan = ({
             intentQuery: searchQuery,
             tgContext,
             currentMusicTrack,
-            activeTaskObjective: activeTaskObjectiveRef.current
+            activeTaskObjective: activeTaskObjectiveRef.current,
+            existingSubagents
           }
         )
 
@@ -796,7 +884,8 @@ export const useMarkPlan = ({
         if (options.disableTools) {
           if (decision.action) decision.action = null
           if (!decision.answer) {
-            decision.answer = 'Halo! Aku sudah aktif dan siap membantumu. Ada yang bisa kita kerjakan hari ini?'
+            decision.answer =
+              'Halo! Aku sudah aktif dan siap membantumu. Ada yang bisa kita kerjakan hari ini?'
           }
         }
 
@@ -813,8 +902,17 @@ export const useMarkPlan = ({
           !options.disableTools
         ) {
           console.log('[useMarkPlan] Interceptor triggered: mode=durable. Creating task plan...')
-          const taskRoute = { mode: 'durable', reason: decision.thought, estimatedSteps: 3, confidence: 1 }
-          const durablePlan = await createDurableTaskPlan(userInput, taskRoute, abortControllerRef.current.signal)
+          const taskRoute = {
+            mode: 'durable',
+            reason: decision.thought,
+            estimatedSteps: 3,
+            confidence: 1
+          }
+          const durablePlan = await createDurableTaskPlan(
+            userInput,
+            taskRoute,
+            abortControllerRef.current.signal
+          )
 
           const documentsPath = await window.api.getDocumentsPath?.()
           const artifactRoot = documentsPath
@@ -834,7 +932,8 @@ export const useMarkPlan = ({
               objective: step.objective,
               deliverable: step.deliverable,
               acceptanceCriteria: step.acceptanceCriteria,
-              artifactPath: artifactRoot && step.artifactName ? `${artifactRoot}/${step.artifactName}` : null
+              artifactPath:
+                artifactRoot && step.artifactName ? `${artifactRoot}/${step.artifactName}` : null
             }))
           })
 
@@ -883,7 +982,12 @@ export const useMarkPlan = ({
             try {
               const newVec = await generateVector(memoryData.memory)
               if (newVec) {
-                const similarMemories = await searchMemoriesInOrama(memoryData.memory, newVec, 1, memoryData.type)
+                const similarMemories = await searchMemoriesInOrama(
+                  memoryData.memory,
+                  newVec,
+                  1,
+                  memoryData.type
+                )
                 if (similarMemories.length > 0 && similarMemories[0].score > 0.82) {
                   memoryData.action = 'update'
                   memoryData.id = similarMemories[0].id
@@ -904,7 +1008,11 @@ export const useMarkPlan = ({
         if (taskJustCreated) {
           setChatData((prev) => [
             ...prev.filter((item) => !item.isThinking),
-            { role: 'ai', content: decision.answer || 'Mission Control diaktifkan.', isProactive: false }
+            {
+              role: 'ai',
+              content: decision.answer || 'Mission Control diaktifkan.',
+              isProactive: false
+            }
           ])
 
           loopMessages.push({
@@ -925,7 +1033,10 @@ export const useMarkPlan = ({
         // ----------------------------------------------------------------------
         // EVALUASI KEPUTUSAN GILIRAN (Tool vs Jawaban / Selesai)
         // ----------------------------------------------------------------------
-        const hasAction = !!(decision.action && (decision.action.tool || Array.isArray(decision.action)))
+        const hasAction = !!(
+          decision.action &&
+          (decision.action.tool || Array.isArray(decision.action))
+        )
         const isDoneSignal = decision.is_done === true || options.disableTools
 
         // Kasus 1: Intermediate Speech (Bicara tanpa tool, tapi belum selesai)
@@ -933,7 +1044,8 @@ export const useMarkPlan = ({
           loopMessages.push({ role: 'assistant', content: decision.answer })
           loopMessages.push({
             role: 'user',
-            content: '[LANJUTKAN] Kamu belum menyatakan selesai (is_done: false). Silakan panggil tool di action atau selesaikan tugasmu.'
+            content:
+              '[LANJUTKAN] Kamu belum menyatakan selesai (is_done: false). Silakan panggil tool di action atau selesaikan tugasmu.'
           })
           setChatData((prev) => [
             ...prev.filter((item) => !item.isThinking),
@@ -946,18 +1058,27 @@ export const useMarkPlan = ({
         if (isDoneSignal || (!hasAction && durableTask)) {
           if (durableTask && durableActiveStep) {
             const currentStep = durableActiveStep
-            const checkpoint = buildDurableStepCheckpoint(currentStep, decision.answer, durableTask.maxRetries)
+            const checkpoint = buildDurableStepCheckpoint(
+              currentStep,
+              decision.answer,
+              durableTask.maxRetries
+            )
             const stepValidation = checkpoint.validation
             const checkpointData = { ...checkpoint }
             delete checkpointData.canRetry
 
             // Penulisan artifact file jika lolos validasi
-            if (stepValidation.isComplete && currentStep.artifactPath && window.api?.executeNativeTool) {
+            if (
+              stepValidation.isComplete &&
+              currentStep.artifactPath &&
+              window.api?.executeNativeTool
+            ) {
               const artifactQuery = `${currentStep.artifactPath}||${decision.answer}`
               const approval = await window.api.checkToolApproval('write-file', artifactQuery)
               const approved =
                 !approval?.needsApproval ||
-                (requestApproval && (await requestApproval(approval.message, 'write-file', artifactQuery)))
+                (requestApproval &&
+                  (await requestApproval(approval.message, 'write-file', artifactQuery)))
 
               if (!approved) {
                 checkpointData.status = 'needs_revision'
@@ -968,16 +1089,22 @@ export const useMarkPlan = ({
                   missingRequirements: ['Artifact belum disimpan karena approval ditolak.']
                 }
               } else {
-                const artifactResult = await window.api.executeNativeTool('write-file', artifactQuery, config)
+                const artifactResult = await window.api.executeNativeTool(
+                  'write-file',
+                  artifactQuery,
+                  config
+                )
                 if (!artifactResult?.success) {
                   checkpointData.status = 'needs_revision'
-                  checkpointData.error = artifactResult?.error || artifactResult?.message || 'Artifact gagal ditulis.'
+                  checkpointData.error =
+                    artifactResult?.error || artifactResult?.message || 'Artifact gagal ditulis.'
                 }
               }
             }
 
             const checkpointCompleted = checkpointData.status === 'completed'
-            const checkpointCanRetry = !checkpointCompleted && currentStep.attempts < durableTask.maxRetries + 1
+            const checkpointCanRetry =
+              !checkpointCompleted && currentStep.attempts < durableTask.maxRetries + 1
             const checkpointNeedsRevision = !checkpointCompleted && checkpointCanRetry
 
             const checkpointedTask = await checkpointAgentTaskStep(
@@ -987,7 +1114,11 @@ export const useMarkPlan = ({
             )
 
             if (!checkpointCompleted && !checkpointCanRetry) {
-              await transitionAgentTask(durableTask.id, 'failed', 'Step gagal memenuhi validasi setelah batas retry.')
+              await transitionAgentTask(
+                durableTask.id,
+                'failed',
+                'Step gagal memenuhi validasi setelah batas retry.'
+              )
               decision.answer = `Task berhenti karena step "${currentStep.title}" belum memenuhi deliverable setelah ${currentStep.attempts} percobaan.`
               durableTask = checkpointedTask
               durableActiveStep = null
@@ -1000,11 +1131,15 @@ export const useMarkPlan = ({
               : null
             durableTask = checkpointedTask
             durableActiveStep = nextStep || (checkpointNeedsRevision ? currentStep : null)
-            activeTaskObjectiveRef.current = nextStep?.objective || (checkpointNeedsRevision ? currentStep.objective : null)
+            activeTaskObjectiveRef.current =
+              nextStep?.objective || (checkpointNeedsRevision ? currentStep.objective : null)
 
             // Step butuh revisi
             if (!checkpointCompleted && checkpointNeedsRevision) {
-              loopMessages.push({ role: 'assistant', content: `[STEP PERLU REVISI] ${decision.answer}` })
+              loopMessages.push({
+                role: 'assistant',
+                content: `[STEP PERLU REVISI] ${decision.answer}`
+              })
               loopMessages.push({
                 role: 'user',
                 content: `[REVISI DURABLE STEP] Ulangi step "${currentStep.title}". Kekurangan validasi: ${stepValidation.missingRequirements.join('; ')}`
@@ -1073,7 +1208,8 @@ export const useMarkPlan = ({
           setChatData((prev) => {
             const filtered = prev.filter((item) => {
               if (item.isThinking) return false
-              if (isAutonomous && item.isProactive && item.content === autonomousInitialMessage) return false
+              if (isAutonomous && item.isProactive && item.content === autonomousInitialMessage)
+                return false
               return true
             })
 
@@ -1131,30 +1267,22 @@ export const useMarkPlan = ({
             if (!tool) continue
             if (abortControllerRef.current.signal.aborted) break
 
-            if (isBatch) {
-              pushProcess({
-                id: agenticProcessId,
-                type: 'planning',
-                status: 'active',
-                data: {
-                  steps: [...execSteps],
-                  currentStep: execSteps.length - actionList.length + actionIdx,
-                  reasoning: decision.thought || `Menjalankan ${tool} [${actionIdx + 1}/${actionList.length}]`
-                }
-              })
+            if (execSteps.length === 1 && execSteps[0].task === 'Menganalisis Konteks...') {
+              execSteps = [{ task: `Eksekusi ${tool}`, query: query }]
             } else {
               execSteps.push({ task: `Eksekusi ${tool}`, query: query })
-              pushProcess({
-                id: agenticProcessId,
-                type: 'planning',
-                status: 'active',
-                data: {
-                  steps: [...execSteps],
-                  currentStep: execSteps.length - 1,
-                  reasoning: decision.thought || `Menjalankan ${tool}`
-                }
-              })
             }
+
+            pushProcess({
+              id: agenticProcessId,
+              type: 'planning',
+              status: 'active',
+              data: {
+                steps: [...execSteps],
+                currentStep: execSteps.length - 1,
+                reasoning: decision.thought || `Eksekusi ${tool}`
+              }
+            })
 
             setChatData((prev) => {
               const filtered = prev.filter((item) => !item.isThinking)
@@ -1185,8 +1313,14 @@ export const useMarkPlan = ({
 
             if (execResult.rejected) {
               loopMessages.push(
-                { role: 'assistant', content: JSON.stringify({ thought: decision.thought, action: decision.action }) },
-                { role: 'user', content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${execResult.resultString}` }
+                {
+                  role: 'assistant',
+                  content: JSON.stringify({ thought: decision.thought, action: decision.action })
+                },
+                {
+                  role: 'user',
+                  content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${execResult.resultString}`
+                }
               )
               continue
             }
@@ -1205,11 +1339,17 @@ export const useMarkPlan = ({
               batchResults.push(`[${tool}] ${execResult.resultString}`)
             } else {
               let obsStr = execResult.resultString
-              if (typeof execResult.resultString === 'string' && execResult.resultString.length > 3000) {
+              if (
+                typeof execResult.resultString === 'string' &&
+                execResult.resultString.length > 3000
+              ) {
                 obsStr = `${execResult.resultString.slice(0, 3000)}\n\n[SISA OUTPUT DIPOTONG (Total: ${execResult.resultString.length} karakter). Gunakan startLine||endLine atau grep-search untuk mencari bagian spesifik.]`
               }
               loopMessages.push(
-                { role: 'assistant', content: JSON.stringify({ thought: decision.thought, action: decision.action }) },
+                {
+                  role: 'assistant',
+                  content: JSON.stringify({ thought: decision.thought, action: decision.action })
+                },
                 { role: 'user', content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${obsStr}` }
               )
             }
@@ -1219,11 +1359,19 @@ export const useMarkPlan = ({
             const combinedResult = `[BATCH ${actionList.length} actions]\n${batchResults.join('\n')}`
             let obsStr = combinedResult
             if (combinedResult.length > 3000) {
-              obsStr = combinedResult.slice(0, 3000) + `\n\n[SISA OUTPUT DIPOTONG (Total: ${combinedResult.length} karakter)]`
+              obsStr =
+                combinedResult.slice(0, 3000) +
+                `\n\n[SISA OUTPUT DIPOTONG (Total: ${combinedResult.length} karakter)]`
             }
             loopMessages.push(
-              { role: 'assistant', content: JSON.stringify({ thought: decision.thought, action: decision.action }) },
-              { role: 'user', content: `[OBSERVATION] Hasil eksekusi batch ${actionList.length} tools: ${obsStr}` }
+              {
+                role: 'assistant',
+                content: JSON.stringify({ thought: decision.thought, action: decision.action })
+              },
+              {
+                role: 'user',
+                content: `[OBSERVATION] Hasil eksekusi batch ${actionList.length} tools: ${obsStr}`
+              }
             )
           }
 
@@ -1240,7 +1388,9 @@ export const useMarkPlan = ({
           continue
         }
 
-        console.warn('[useMarkPlan] AI returned neither action nor answer. Forcing done with fallback.')
+        console.warn(
+          '[useMarkPlan] AI returned neither action nor answer. Forcing done with fallback.'
+        )
         isDone = true
         setChatData((prev) => [
           ...prev.filter((item) => !item.isThinking),
@@ -1286,7 +1436,10 @@ export const useMarkPlan = ({
       // ------------------------------------------------------------------------
       // ERROR & ABORT RECOVERY
       // ------------------------------------------------------------------------
-      if (durableTaskForRecovery && (error.name === 'AbortError' || error.message.includes('AbortError'))) {
+      if (
+        durableTaskForRecovery &&
+        (error.name === 'AbortError' || error.message.includes('AbortError'))
+      ) {
         await transitionAgentTask(durableTaskForRecovery.id, 'paused', 'user_abort').catch(() => {})
       }
       if (error.name !== 'AbortError' && !error.message.includes('AbortError')) {
@@ -1308,7 +1461,10 @@ export const useMarkPlan = ({
         }
       } catch (e) {}
 
-      if (durableTaskForRecovery && (error.name === 'AbortError' || error.message.includes('AbortError'))) {
+      if (
+        durableTaskForRecovery &&
+        (error.name === 'AbortError' || error.message.includes('AbortError'))
+      ) {
         pushProcess({
           id: agenticProcessId,
           type: 'planning',
@@ -1331,7 +1487,10 @@ export const useMarkPlan = ({
             content: 'Oke, proses gue batalin ya bro.',
             reasoning: 'Proses dibatalkan secara paksa.',
             mood: 'neutral',
-            timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+            timestamp: new Date().toLocaleTimeString('id-ID', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })
           }
         ])
       } else {
@@ -1341,17 +1500,23 @@ export const useMarkPlan = ({
             'Mark sudah online. Silakan berikan perintah.',
             'Halo bro! Sistem berhasil diinisialisasi. Ada yang perlu saya kerjakan?'
           ]
-          const randomGreeting = fallbackGreetings[Math.floor(Math.random() * fallbackGreetings.length)]
+          const randomGreeting =
+            fallbackGreetings[Math.floor(Math.random() * fallbackGreetings.length)]
           setChatData((prev) => [
             ...prev.filter((item) => !item.isThinking && !item.isSearching),
             {
               role: 'ai',
               content: randomGreeting,
-              timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+              timestamp: new Date().toLocaleTimeString('id-ID', {
+                hour: '2-digit',
+                minute: '2-digit'
+              })
             }
           ])
         } else if (isAutonomous) {
-          setChatData((prev) => prev.filter((item) => !item.isThinking && !item.isSearching && !item.isProactive))
+          setChatData((prev) =>
+            prev.filter((item) => !item.isThinking && !item.isSearching && !item.isProactive)
+          )
         } else {
           setChatData((prev) => [
             ...prev.filter((item) => !item.isThinking && !item.isSearching),

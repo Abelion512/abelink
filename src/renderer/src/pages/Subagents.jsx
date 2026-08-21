@@ -13,14 +13,17 @@ import {
   Layers
 } from 'lucide-react'
 import SubagentIntercom from '../components/subagent/SubagentIntercom'
+import SubagentTopologyMap from '../components/subagent/SubagentTopologyMap'
 import { runSubagentTurn } from '../api/subagent/subagentExecutor'
 import { subagentStore } from '../api/subagent/subagentStore'
+import { useConfirm } from '../hooks/useConfirm'
 
 export default function Subagents() {
   const navigate = useNavigate()
   const [selectedSubagentId, setSelectedSubagentId] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
   const [subagents, setSubagents] = useState([])
+  const [viewMode, setViewMode] = useState('topology') // 'topology' | 'intercom'
 
   // Modal State untuk Spawn Manual
   const [isSpawnModalOpen, setIsSpawnModalOpen] = useState(false)
@@ -49,6 +52,15 @@ export default function Subagents() {
 
   const activeCount = subagents?.filter((s) => s.status === 'running').length || 0
 
+  const handleSendMessageFromTopology = async (id, messageText) => {
+    try {
+      await runSubagentTurn(id, messageText)
+      await loadSubagents()
+    } catch (err) {
+      console.error('[Topology] Send error:', err)
+    }
+  }
+
   const handleSpawnManual = async (e) => {
     e.preventDefault()
     if (!newAgentName.trim() || !newAgentGoal.trim() || isSpawning) return
@@ -59,8 +71,12 @@ export default function Subagents() {
         name: newAgentName.trim(),
         role: newAgentRole.trim() || 'Technical Specialist',
         goal: newAgentGoal.trim(),
-        allowedTools: ['*'],
-        parentSessionId: 'manual_dashboard'
+        status: 'running'
+      })
+
+      // Jalankan initial turn
+      runSubagentTurn(sub.id, newAgentGoal.trim()).catch((err) => {
+        console.error('[Subagent Spawn Error]', err)
       })
 
       setSelectedSubagentId(sub.id)
@@ -68,21 +84,31 @@ export default function Subagents() {
       setNewAgentName('')
       setNewAgentRole('')
       setNewAgentGoal('')
-
-      // Jalankan langkah pertama di background
-      runSubagentTurn(sub.id, sub.goal, 'user')
+      await loadSubagents()
     } catch (err) {
-      console.error('[Subagents] Failed to spawn agent manually:', err)
+      console.error('[Spawn Subagent Failed]', err)
     } finally {
       setIsSpawning(false)
     }
   }
 
+  const { confirm, ModalComponent } = useConfirm()
+
   const handleDeleteSubagent = async (id, e) => {
     e.stopPropagation()
-    await subagentStore.deleteSubagent(id)
-    if (selectedSubagentId === id) {
-      setSelectedSubagentId(null)
+    const result = await confirm({
+      title: 'Hapus Sub-Agent',
+      message: 'Apakah kamu yakin ingin menghapus sub-agent ini beserta riwayatnya?',
+      isError: true,
+      confirmText: 'Hapus',
+      cancelText: 'Batal'
+    })
+    if (result?.isConfirmed) {
+      await subagentStore.deleteSubagent(id)
+      if (selectedSubagentId === id) {
+        setSelectedSubagentId(null)
+      }
+      await loadSubagents()
     }
   }
 
@@ -134,7 +160,37 @@ export default function Subagents() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
+              {/* View Mode Toggle: Topologi vs Intercom */}
+              <div className="flex items-center p-0.5 bg-base-200/80 rounded-xl border border-base-content/10 font-mono text-xs">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('topology')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    viewMode === 'topology'
+                      ? 'bg-primary text-primary-content shadow-sm'
+                      : 'text-base-content/60 hover:text-base-content'
+                  }`}
+                  style={{ WebkitAppRegion: 'no-drag' }}
+                  title="Tampilan Topologi Visual"
+                >
+                  <Activity className="w-3.5 h-3.5" /> Topologi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('intercom')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    viewMode === 'intercom'
+                      ? 'bg-primary text-primary-content shadow-sm'
+                      : 'text-base-content/60 hover:text-base-content'
+                  }`}
+                  style={{ WebkitAppRegion: 'no-drag' }}
+                  title="Tampilan Intercom Feed"
+                >
+                  <Bot className="w-3.5 h-3.5" /> Intercom
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setIsSpawnModalOpen(true)}
@@ -148,117 +204,159 @@ export default function Subagents() {
 
           {/* Main Content Area */}
           <div className="flex-1 flex overflow-hidden rounded-2xl bg-base-200/50 border border-base-content/10 p-4 gap-4 backdrop-blur-md">
-            {/* Left Panel: Clean Agent List */}
-            <div className="w-72 flex flex-col bg-base-200/40 rounded-2xl border border-base-content/5 overflow-hidden flex-none">
-              {/* Filter Tabs */}
-              <div className="p-2 border-b border-base-content/5 flex items-center justify-between">
-                <div className="flex gap-1 p-0.5 bg-base-300/60 rounded-xl w-full">
-                  <button
-                    onClick={() => setFilterStatus('all')}
-                    className={`flex-1 py-1 text-[11px] font-medium rounded-lg transition-all ${
-                      filterStatus === 'all'
-                        ? 'bg-base-100 text-base-content shadow-sm'
-                        : 'text-base-content/50 hover:text-base-content'
-                    }`}
-                  >
-                    Semua
-                  </button>
-                  <button
-                    onClick={() => setFilterStatus('running')}
-                    className={`flex-1 py-1 text-[11px] font-medium rounded-lg transition-all ${
-                      filterStatus === 'running'
-                        ? 'bg-base-100 text-warning shadow-sm'
-                        : 'text-base-content/50 hover:text-base-content'
-                    }`}
-                  >
-                    Running
-                  </button>
-                </div>
-              </div>
-
-              {/* List Body */}
-              <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-                {!subagents || subagents.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center p-6 text-base-content/30 gap-2">
-                    <Layers className="w-6 h-6 stroke-[1.5]" />
-                    <p className="text-[11px]">Belum ada sub-agent.</p>
-                  </div>
-                ) : (
-                  subagents.map((agent) => {
-                    const isSelected = agent.id === selectedSubagentId
-                    const isRunning = agent.status === 'running'
-                    return (
-                      <div
-                        key={agent.id}
-                        onClick={() => setSelectedSubagentId(agent.id)}
-                        className={`p-3 rounded-xl border transition-all cursor-pointer relative group ${
-                          isSelected
-                            ? 'bg-primary/10 border-primary/40 shadow-sm'
-                            : 'bg-base-100/40 border-base-content/5 hover:border-base-content/15 hover:bg-base-100/70'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span
-                              className={`w-2 h-2 rounded-full flex-none ${
-                                isRunning
-                                  ? 'bg-warning animate-pulse'
-                                  : agent.status === 'completed'
-                                    ? 'bg-success'
-                                    : agent.status === 'failed'
-                                      ? 'bg-error'
-                                      : 'bg-info'
-                              }`}
-                            />
-                            <span className="font-semibold text-xs truncate">{agent.name}</span>
-                          </div>
-                          <button
-                            onClick={(e) => handleDeleteSubagent(agent.id, e)}
-                            className="opacity-0 group-hover:opacity-100 text-base-content/40 hover:text-error transition-all p-0.5"
-                            title="Hapus"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-
-                        <p className="text-[11px] text-base-content/50 truncate pl-4 mb-2">
-                          {agent.role || 'Specialist'}
-                        </p>
-
-                        <div className="flex items-center justify-between text-[10px] text-base-content/40 font-mono pl-4">
-                          <span>Langkah: {agent.turnCount || 0}</span>
-                          <span>
-                            {new Date(agent.createdAt).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                        </div>
+            {viewMode === 'topology' ? (
+              <SubagentTopologyMap
+                subagents={subagents}
+                selectedId={selectedSubagentId}
+                onSelectAgent={setSelectedSubagentId}
+                onOpenIntercom={(id) => {
+                  setSelectedSubagentId(id)
+                  setViewMode('intercom')
+                }}
+                onSendMessage={handleSendMessageFromTopology}
+              />
+            ) : (
+              <>
+                {/* Left Panel: Clean Agent List */}
+                <div className="w-72 flex flex-col bg-base-200/40 rounded-2xl border border-base-content/5 overflow-hidden flex-none">
+                    {/* Filter Tabs */}
+                    <div className="p-2 border-b border-base-content/5 flex items-center justify-between">
+                      <div className="flex gap-1 p-0.5 bg-base-300/60 rounded-xl w-full">
+                        <button
+                          type="button"
+                          onClick={() => setFilterStatus('all')}
+                          className={`flex-1 py-1 text-[10px] font-medium rounded-lg transition-all ${
+                            filterStatus === 'all'
+                              ? 'bg-base-100 text-base-content shadow-sm font-semibold'
+                              : 'text-base-content/50 hover:text-base-content'
+                          }`}
+                        >
+                          Semua
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFilterStatus('running')}
+                          className={`flex-1 py-1 text-[10px] font-medium rounded-lg transition-all ${
+                            filterStatus === 'running'
+                              ? 'bg-base-100 text-primary shadow-sm font-semibold'
+                              : 'text-base-content/50 hover:text-base-content'
+                          }`}
+                        >
+                          Running
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFilterStatus('idle')}
+                          className={`flex-1 py-1 text-[10px] font-medium rounded-lg transition-all ${
+                            filterStatus === 'idle'
+                              ? 'bg-base-100 text-base-content shadow-sm font-semibold'
+                              : 'text-base-content/50 hover:text-base-content'
+                          }`}
+                        >
+                          Idle
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFilterStatus('completed')}
+                          className={`flex-1 py-1 text-[10px] font-medium rounded-lg transition-all ${
+                            filterStatus === 'completed'
+                              ? 'bg-base-100 text-success shadow-sm font-semibold'
+                              : 'text-base-content/50 hover:text-base-content'
+                          }`}
+                        >
+                          Selesai
+                        </button>
                       </div>
-                    )
-                  })
-                )}
-              </div>
-            </div>
+                    </div>
 
-            {/* Right Panel: Intercom Conversation */}
-            <div className="flex-1 flex flex-col bg-base-200/30 rounded-2xl border border-base-content/5 overflow-hidden">
-              {selectedSubagentId ? (
-                <SubagentIntercom
-                  subagentId={selectedSubagentId}
-                  onClose={() => setSelectedSubagentId(null)}
-                />
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-base-content/30 gap-2.5 p-8 text-center">
-                  <div className="p-3.5 bg-base-200/60 rounded-2xl border border-base-content/5">
-                    <Bot className="w-8 h-8 stroke-[1.5] text-base-content/40" />
+                    {/* List Body */}
+                    <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
+                      {!subagents || subagents.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-center p-6 text-base-content/30 gap-2">
+                          <Layers className="w-6 h-6 stroke-[1.5]" />
+                          <p className="text-[11px]">Belum ada sub-agent.</p>
+                        </div>
+                      ) : (
+                        subagents.map((agent) => {
+                          const isSelected = agent.id === selectedSubagentId
+                          const isRunning = agent.status === 'running'
+                          const isIdle = agent.status === 'idle'
+                          return (
+                            <div
+                              key={agent.id}
+                              onClick={() => setSelectedSubagentId(agent.id)}
+                              className={`p-3 rounded-xl border transition-all cursor-pointer relative group ${
+                                isSelected
+                                  ? 'bg-primary/10 border-primary/40 shadow-sm'
+                                  : 'bg-base-100/40 border-base-content/5 hover:border-base-content/15 hover:bg-base-100/70'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span
+                                    className={`w-2 h-2 rounded-full flex-none ${
+                                      isRunning
+                                        ? 'bg-primary animate-ping'
+                                        : isIdle
+                                          ? 'bg-primary/70'
+                                          : agent.status === 'completed'
+                                            ? 'bg-success'
+                                            : agent.status === 'failed' || agent.status === 'killed'
+                                              ? 'bg-error'
+                                              : 'bg-base-content/40'
+                                    }`}
+                                  />
+                                  <span className="font-semibold text-xs truncate">{agent.name}</span>
+                                </div>
+                              <button
+                                onClick={(e) => handleDeleteSubagent(agent.id, e)}
+                                className="opacity-0 group-hover:opacity-100 text-base-content/40 hover:text-error transition-all p-0.5"
+                                title="Hapus"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            <p className="text-[11px] text-base-content/50 truncate pl-4 mb-2">
+                              {agent.role || 'Specialist'}
+                            </p>
+
+                            <div className="flex items-center justify-between text-[10px] text-base-content/40 font-mono pl-4">
+                              <span>Langkah: {agent.turnCount || 0}</span>
+                              <span>
+                                {new Date(agent.createdAt).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })
+                    )}
                   </div>
-                  <p className="text-xs font-medium text-base-content/50">
-                    Pilih sub-agent di sisi kiri untuk memantau eksekusi live.
-                  </p>
                 </div>
-              )}
-            </div>
+
+                {/* Right Panel: Intercom Conversation */}
+                <div className="flex-1 flex flex-col bg-base-200/30 rounded-2xl border border-base-content/5 overflow-hidden">
+                  {selectedSubagentId ? (
+                    <SubagentIntercom
+                      subagentId={selectedSubagentId}
+                      onClose={() => setSelectedSubagentId(null)}
+                    />
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-base-content/30 gap-2.5 p-8 text-center">
+                      <div className="p-3.5 bg-base-200/60 rounded-2xl border border-base-content/5">
+                        <Bot className="w-8 h-8 stroke-[1.5] text-base-content/40" />
+                      </div>
+                      <p className="text-xs font-medium text-base-content/50">
+                        Pilih sub-agent di sisi kiri untuk memantau eksekusi live.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -333,6 +431,7 @@ export default function Subagents() {
           </div>
         </div>
       )}
+      <ModalComponent />
     </div>
   )
 }

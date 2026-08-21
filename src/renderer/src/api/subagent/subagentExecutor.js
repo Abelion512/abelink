@@ -204,7 +204,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
     }
 
     await subagentStore.updateSubagent(subagentId, {
-      status: 'completed',
+      status: 'idle',
       finalAnswer: latestSubagentReply || 'Misi sub-agent selesai.'
     })
 
