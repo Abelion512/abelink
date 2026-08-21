@@ -233,7 +233,7 @@ const MarkHome = () => {
         bgGlowColor = '#ef4444'
         break
       case 'disgust':
-        bgGlowColor = '#22c55e'
+        bgGlowColor = '#84cc16'
         break
       case 'anxiety':
         bgGlowColor = '#f97316'
