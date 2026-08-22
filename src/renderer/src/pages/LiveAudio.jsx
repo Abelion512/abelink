@@ -28,7 +28,7 @@ const LiveAudio = () => {
   const recognitionRef = useRef(null)
   const audioRef = useRef(null)
   const prevChatLengthRef = useRef(chatData.length)
-
+  
   const [toastMessage, setToastMessage] = useState('')
 
   // Local Whisper STT Refs (Now used for Audio Context VAD)
@@ -38,7 +38,7 @@ const LiveAudio = () => {
   const isSpeakingRef = useRef(false)
   const audioChunksRef = useRef([])
   const silenceTimerRef = useRef(null)
-
+  
   // Inisialisasi dengan pesan terakhir agar saat LiveAudio dibuka, tidak memutar ulang pesan lama
   const lastSpokenMessageContentRef = useRef(
     chatData.length > 0 && chatData[chatData.length - 1].role === 'ai'
@@ -48,10 +48,10 @@ const LiveAudio = () => {
 
   const stopRecordingCleanup = () => {
     const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
-
+    
     // Jika dipanggil saat mau dimatikan secara manual dan ada data audio,
     // kembalikan merged array agar bisa ditranskrip sebelum dihapus
-    let pendingAudio = null
+    let pendingAudio = null;
     if (totalLength >= 8000) {
       pendingAudio = new Float32Array(totalLength)
       let offset = 0
@@ -78,8 +78,8 @@ const LiveAudio = () => {
     }
     isSpeakingRef.current = false
     audioChunksRef.current = []
-
-    return pendingAudio
+    
+    return pendingAudio;
   }
 
   // Bersihkan mic saat unmount
@@ -124,23 +124,23 @@ const LiveAudio = () => {
         audioRef.current = null
       }
       setIsActive(false)
-
+      
       // Jika ada audio yang sempat ngomong sebelum dimatikan paksa, transkrip!
       if (pendingAudio) {
         setStatus('thinking')
-
+        
         // Memberikan jeda 150ms agar UI React sempat re-render (mic mati) sebelum thread diblokir oleh WASM
         setTimeout(() => {
           transcribeAudioLocal(pendingAudio)
-            .then((text) => {
+            .then(text => {
               if (text && text.trim() !== '') {
-                setMessage(`(Mikrofon) ${text.trim()}`)
-                handlePlanningCommand(`(Mikrofon) ${text.trim()}`)
+                setMessage(text.trim())
+                handlePlanningCommand(text.trim())
               } else {
                 setStatus('idle')
               }
             })
-            .catch((err) => {
+            .catch(err => {
               console.error('Local STT Error:', err)
               setStatus('idle')
             })
@@ -154,14 +154,14 @@ const LiveAudio = () => {
 
       try {
         stopRecordingCleanup()
-
+        
         const micId = config[0]?.micDeviceId
         const audioConstraints = {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
         }
-
+        
         if (micId && micId !== 'default') {
           audioConstraints.deviceId = { exact: micId }
         }
@@ -194,7 +194,7 @@ const LiveAudio = () => {
             let sum = 0
             for (let i = 0; i < input.length; i++) sum += input[i] * input[i]
             const rms = Math.sqrt(sum / input.length)
-
+            
             // Barge-in threshold: jika user teriak / bicara keras saat Mark bicara
             if (statusRef.current === 'speaking' && rms > 0.05) {
               if (audioRef.current) {
@@ -218,43 +218,44 @@ const LiveAudio = () => {
               audioChunksRef.current = []
             }
             if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
-
+            
             silenceTimerRef.current = setTimeout(() => {
               isSpeakingRef.current = false
-
+              
               const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
               // Minimal 0.5 detik audio untuk dikirim ke Whisper (8000 samples @ 16kHz)
               if (totalLength < 8000) {
-                return // Abaikan noise singkat
+                 return // Abaikan noise singkat
               }
-
+              
               const merged = new Float32Array(totalLength)
               let offset = 0
               for (let arr of audioChunksRef.current) {
                 merged.set(arr, offset)
                 offset += arr.length
               }
-
+              
               setStatus('thinking')
-
+              
               // Memberikan jeda 150ms agar UI React sempat re-render sebelum thread diblokir oleh WASM
               setTimeout(() => {
                 transcribeAudioLocal(merged)
-                  .then((text) => {
+                  .then(text => {
                     if (text && text.trim() !== '') {
-                      setMessage(`(Mikrofon) ${text.trim()}`)
-                      handlePlanningCommand(`(Mikrofon) ${text.trim()}`)
+                      setMessage(text.trim())
+                      handlePlanningCommand(text.trim())
                     } else {
                       setStatus('listening')
                     }
                   })
-                  .catch((err) => {
+                  .catch(err => {
                     console.error('Local STT Error:', err)
                     setToastMessage('Gagal memuat atau memproses Whisper Local.')
                     setTimeout(() => setToastMessage(''), 5000)
                     setStatus('listening')
                   })
               }, 150)
+              
             }, 1200) // Diam 1.2 detik = kirim ke Groq
           }
 
@@ -279,18 +280,11 @@ const LiveAudio = () => {
   // Memantau chatData untuk auto-play respons TTS
   useEffect(() => {
     if (!isActive) return
-
+    
     if (chatData.length > 0) {
       const lastMsg = chatData[chatData.length - 1]
       // Jika pesan terakhir dari AI dan bukan status 'thinking'
-      if (
-        lastMsg &&
-        lastMsg.role === 'ai' &&
-        !lastMsg.isThinking &&
-        !lastMsg.isSearching &&
-        !lastMsg.isSummarizing &&
-        !lastMsg.isSearchingMusic
-      ) {
+      if (lastMsg && lastMsg.role === 'ai' && !lastMsg.isThinking && !lastMsg.isSearching && !lastMsg.isSummarizing && !lastMsg.isSearchingMusic) {
         // Cek apakah pesan ini sudah diucapkan agar tidak dobel
         if (lastSpokenMessageContentRef.current !== lastMsg.content) {
           lastSpokenMessageContentRef.current = lastMsg.content
@@ -306,12 +300,12 @@ const LiveAudio = () => {
       const configList = await getAllConfig()
       const rate = configList[0]?.ttsRate ?? 0
       const pitch = configList[0]?.ttsPitch ?? 0
-
+      
       const audioBase64 = await window.api.textToSpeech(text, rate, pitch)
       if (audioBase64) {
         const audio = new Audio(audioBase64)
         audioRef.current = audio
-
+        
         audio.onended = () => {
           setStatus('listening')
         }
@@ -319,7 +313,7 @@ const LiveAudio = () => {
       } else {
         setStatus('listening')
       }
-    } catch (e) {
+    } catch(e) {
       console.error(e)
       setStatus('listening')
     }

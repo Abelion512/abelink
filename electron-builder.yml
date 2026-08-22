@@ -3,8 +3,10 @@ productName: 'Mark Agent'
 directories:
   buildResources: resources
 files:
+  - '**/*'
   - '!**/.vscode/*'
   - '!src/*'
+  - 'src/main/pc-agent-scripts/**/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
@@ -12,6 +14,24 @@ asarUnpack:
   - resources/**
   - "node_modules/ffmpeg-static/**/*"
   - "node_modules/youtube-dl-exec/**/*"
+  - "**/pc-agent-scripts/**/*"
+win:
+  executableName: 'Mark Agent'
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+mac:
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    - NSCameraUsageDescription: Application requests access to the device's camera.
+    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
+    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+  notarize: false
+dmg:
+  artifactName: ${name}-${version}.${ext}
 linux:
   target:
     - AppImage
@@ -19,12 +39,11 @@ linux:
     - deb
   maintainer: electronjs.org
   category: Utility
-  icon: resources/icon.png
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
   provider: generic
   url: https://example.com/auto-updates
-# electronDownload:
-#   mirror: https://npmmirror.com/mirrors/electron/
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/

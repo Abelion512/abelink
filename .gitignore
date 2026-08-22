@@ -1,132 +1,14 @@
-# ── Dependencies ──
-node_modules/
-.pnpm-store/
-.npm/
-yarn.lock
-yarn-error.log
-pnpm-lock.yaml
-
-# ── Build output ──
-dist/
-out/
-dist-electron/
-build/
-release/
-*.asar
-*.asar.unpacked
-
-# ── Electron packaging ──
-*.AppImage
-*.deb
-*.snap
-*.rpm
-*.flatpak
-*.dmg
-*.exe
-*.msi
-*.nupkg
-RELEASES
-electron-builder.yaml.local
-
-# ── IDE / Editor ──
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-*.orig
-
-# ── OS artifacts ──
+node_modules
+dist
+out
+build
 .DS_Store
-Thumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-
-# ── Environment / secrets ──
-.env
-.env.*
-!.env.example
-*.pem
-*.cert
-*.key
-*.bak
-
-# ── Logs ──
-*.log
-npm-debug.log*
-yarn-debug.log*
-debug.log
-error.log
-lerna-debug.log*
-
-# ── Cache & temp ──
 .eslintcache
-.vite/
-.cache/
-*.tsbuildinfo
-.turbo/
-
-# ── Coverage / test ──
-coverage/
-.nyc_output/
-__pycache__/
-*.pyc
-
-# ── Runtime artifacts ──
-mark_chrome_profile/
-wa-auth/
+*.log*
+.env
+.vscode
+workflow
+mark_chrome_profile
 web.whatsapp.com.html
-web.whatsapp.com_files/
-*.db
-*.sqlite
-*.sqlite3
-
-# ── AI agent artifacts (local-only, not public) ──
-AGENTS.md
-AGENTS.md.local
-CLAUDE.md
-CHANGELOG.md
-.local/
-.hermes/
-.superpowers/
-.zcode/
-.quest.md
-.remember/agent-memory/
-exa-results/
-.agents/
-
-# ── Local config ──
-model-registry.json
-9router-config.json
-credentials.json
-service-account.json
-client_secret*.json
-*-config.local.*
-
-# ── Non-public folders (docs, tests, .claude — keep local only) ──
-.claude/
-docs/
-tests/
-session-report*.html
-
-# ── Generated / large test artifacts ──
-tests/**/*.har
-tests/**/*.heapsnapshot
-tests/**/*.gz
-
-# ── Node.js version specifiers (workspace-specific, not project) ──
-.nvmrc
-.node-version
-.nodenv-version
-
-# ── Pluggable skill cache ──
-agent-skills-cache.json
-
-# ── Dev-only scripts (user setup script stays tracked) ──
-scripts/ask-ais.mjs
-
-# Merge-artifact noise (local-only)
-tiktok-pipeline/
-**/*.har
-**/electron.vite.config.*.mjs
-backups/
+/web.whatsapp.com_files
+PLUGIN_SYSTEM_SRS.md

@@ -17,7 +17,6 @@ import path from 'path'
 import fs from 'fs'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.ico?asset'
-import iconPng from '../../resources/icon.png?asset'
 import { fetchTranscript } from 'youtube-transcript-plus'
 import yts from 'yt-search'
 import YTMusic from 'ytmusic-api'
@@ -38,7 +37,6 @@ import {
   getGoogleStatus
 } from './google/google-service.js'
 import { loadPlugins, initPluginIPC } from './plugins/plugin-loader.js'
-import { setupSkillIPC } from './skills/skill-manager.js'
 import { navigateTo, readDOM, executeAction, closeBrowser, showBrowser } from './browser-agent.js'
 import { readDesktop, executeClick, executeType, executeKey, executeScroll, openApp, listWindows, focusWindow, askUserPC } from './pc-agent.js'
 
@@ -73,7 +71,7 @@ function createWindow() {
     autoHideMenuBar: true,
     icon: icon,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.mjs'),
+      preload: path.join(__dirname, '../preload/index.js'),
       webviewTag: true,
       sandbox: false,
       webSecurity: false,
@@ -122,9 +120,6 @@ function createWindow() {
       mainWindow.webContents.send('window-maximized', mainWindow.isMaximized())
     }
   })
-
-  mainWindow.on('enter-full-screen', () => mainWindow.webContents.send('window-fullscreen', true))
-  mainWindow.on('leave-full-screen', () => mainWindow.webContents.send('window-fullscreen', false))
 
   // Custom Aero Snap Logic
   mainWindow.on('moved', () => {
@@ -191,10 +186,6 @@ ipcMain.on('window-maximize', () => {
 
 ipcMain.on('window-close', () => {
   if (mainWindow) mainWindow.close()
-})
-
-ipcMain.on('window-fullscreen', () => {
-  if (mainWindow) mainWindow.setFullScreen(!mainWindow.isFullScreen())
 })
 
 
@@ -359,27 +350,6 @@ ipcMain.handle('save-temp-file', async (event, arrayBuffer, fileName) => {
   }
 })
 
-ipcMain.handle('file:read-dataurl', async (event, filePath) => {
-  try {
-    if (!filePath || typeof filePath !== 'string') return null
-    const buffer = fs.readFileSync(filePath)
-    const ext = filePath.split('.').pop().toLowerCase()
-    const mime = {
-      png: 'image/png',
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      gif: 'image/gif',
-      webp: 'image/webp',
-      bmp: 'image/bmp',
-      svg: 'image/svg+xml'
-    }[ext] || 'application/octet-stream'
-    return `data:${mime};base64,${buffer.toString('base64')}`
-  } catch (err) {
-    console.error('[Main] file:read-dataurl error:', err)
-    return null
-  }
-})
-
 
 // Browser Automation IPCs
 ipcMain.handle('browser:navigate', async (event, url) => {
@@ -435,7 +405,6 @@ app.whenReady().then(async () => {
   // Load plugin & Inisialisasi IPC Bridge
   await loadPlugins()
   initPluginIPC()
-  setupSkillIPC()
 
   setupYoutubeFix()
 
@@ -495,13 +464,8 @@ app.whenReady().then(async () => {
       tray.on('click', () => mainWindow.show())
     })
     .catch(() => {
-      // Linux/dev fallback: icon.png (12px ke 22px untuk tray Linux lebih jelas)
-      tray = new Tray(
-        nativeImage.createFromPath(iconPng).resize({
-          width: process.platform === 'linux' ? 22 : 16,
-          height: process.platform === 'linux' ? 22 : 16
-        })
-      )
+      // Fallback jika gagal (misal saat masih mode npm run dev)
+      tray = new Tray(nativeImage.createFromPath(icon).resize({ width: 16, height: 16 }))
       tray.setToolTip('Mark AI Assistant')
     })
   // Global Shortcut (Toggle)
@@ -659,11 +623,6 @@ app.whenReady().then(async () => {
 
   // Start Awareness Engine
   startTracking()
-})
-
-app.on('before-quit', () => {
-  // Pastikan quit benar-benar keluar (bukan hide ke tray)
-  isQuiting = true
 })
 
 app.on('will-quit', () => {

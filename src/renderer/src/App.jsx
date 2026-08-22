@@ -4,8 +4,6 @@ import Configuration from './pages/Configuration'
 import LiveAudio from './pages/LiveAudio'
 import TelegramBot from './pages/TelegramBot'
 import Plugins from './pages/Plugins'
-import Skills from './pages/Skills'
-import SkillEditor from './pages/SkillEditor'
 import Knowledge from './pages/Knowledge'
 import Guidebook from './pages/Guidebook'
 import RelationalGrowth from './pages/RelationalGrowth'
@@ -39,13 +37,6 @@ const GlobalListener = () => {
       window.api.onLiveAudioShortcut(handleShortcut)
     }
 
-    const handleNavigate = (_event, path) => {
-      if (typeof path === 'string' && path.startsWith('/')) navigate(path)
-    }
-    if (window.api?.onNavigate) {
-      window.api.onNavigate(handleNavigate)
-    }
-
     if (window.api?.onTgRequestAgentExecution) {
       window.api.onTgRequestAgentExecution((data) => {
         window.dispatchEvent(new CustomEvent('tg-admin-message', { detail: data }))
@@ -68,25 +59,21 @@ const GlobalListener = () => {
 
 const WindowControls = () => {
   const [isMax, setIsMax] = useState(false)
-  const [isFs, setIsFs] = useState(false)
 
   useEffect(() => {
     if (window.api?.onWindowMaximized) {
       window.api.onWindowMaximized((max) => setIsMax(max))
     }
-    if (window.api?.onWindowFullscreen) {
-      window.api.onWindowFullscreen((fs) => setIsFs(fs))
-    }
   }, [])
 
   return (
-    <div className="absolute top-0 left-0 right-0 h-10 z-[9999] flex items-center justify-between px-4 pointer-events-none text-white">
+    <div className="absolute top-0 left-0 right-0 h-10 z-[9999] [-webkit-app-region:drag] flex items-center justify-between px-4 pointer-events-none text-white">
       {/* Invisible left spacer to balance the right controls */}
       <div className="flex-1"></div>
 
       {/* Center Drag Grip */}
       <div
-        className="flex items-center justify-center opacity-30 hover:opacity-100 transition-opacity gap-2 [-webkit-app-region:drag]"
+        className="flex items-center justify-center opacity-30 hover:opacity-100 transition-opacity gap-2"
         title="Tahan dan geser untuk memindahkan"
       >
         <svg
@@ -136,21 +123,6 @@ const WindowControls = () => {
           )}
         </button>
         <button
-          onClick={() => window.api?.windowFullscreen()}
-          className="text-white/70 hover:text-white transition-colors flex items-center justify-center p-2"
-          title={isFs ? 'Exit Fullscreen' : 'Fullscreen'}
-        >
-          {isFs ? (
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M2 6V2h4v1H3v3H2zm12 0V3h-3V2h4v4h-1zM3 10v3h3v1H2v-4h1zm10 3h3v-3h1v4h-4v-1z" />
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M3 3h4v1H4v2H3V3zm6 0h4v3h-1V4h-3V3zM3 10h1v2h2v1H3v-3zm9 0h1v3h-3v-1h2v-2z" />
-            </svg>
-          )}
-        </button>
-        <button
           onClick={() => window.api?.windowClose()}
           className="text-white/70 hover:text-red-500 transition-colors flex items-center justify-center p-2"
           title="Close"
@@ -168,72 +140,13 @@ const WindowControls = () => {
   )
 }
 
-const GlobalDropZone = () => {
-  const [isDragging, setIsDragging] = useState(false)
-
-  useEffect(() => {
-    const hasFiles = (e) => e.dataTransfer?.types?.includes('Files')
-    const handleDragEnter = (e) => {
-      if (hasFiles(e)) setIsDragging(true)
-    }
-    const handleDragOver = (e) => {
-      if (hasFiles(e)) {
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'copy'
-      }
-    }
-    const handleDragLeave = (e) => {
-      if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget)) setIsDragging(false)
-    }
-    const handleDrop = (e) => {
-      e.preventDefault()
-      setIsDragging(false)
-      const files = Array.from(e.dataTransfer?.files || [])
-      if (files.length > 0) {
-        window.dispatchEvent(new CustomEvent('mark-files-dropped', { detail: files }))
-      }
-    }
-    window.addEventListener('dragenter', handleDragEnter)
-    window.addEventListener('dragover', handleDragOver)
-    window.addEventListener('dragleave', handleDragLeave)
-    window.addEventListener('drop', handleDrop)
-    return () => {
-      window.removeEventListener('dragenter', handleDragEnter)
-      window.removeEventListener('dragover', handleDragOver)
-      window.removeEventListener('dragleave', handleDragLeave)
-      window.removeEventListener('drop', handleDrop)
-    }
-  }, [])
-
-  if (!isDragging) return null
-  return (
-    <div className="fixed inset-0 z-[9998] pointer-events-none flex items-center justify-center">
-      <div className="glass glass-hover border-2 border-dashed border-white/40 rounded-3xl px-10 py-8 flex flex-col items-center gap-3 text-white animate-pulse">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="17 8 12 3 7 8" />
-          <line x1="12" x2="12" y1="3" y2="15" />
-        </svg>
-        <span className="text-lg font-semibold">Lepaskan file untuk melampirkan</span>
-      </div>
-    </div>
-  )
-}
-
-const StandaloneMusicPlayer = () => {
-  const location = useLocation()
-  if (location.pathname.includes('telegram-bot')) return null
-  return <YoutubeMusicPlayer />
-}
-
 const MainLayout = () => {
   const location = useLocation()
   const isHome = location.pathname === '/'
-  const isStandalone = location.pathname.includes('telegram-bot')
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-transparent rounded-xl">
-      {!isStandalone && <WindowControls />}
+      <WindowControls />
       {/* Base Home Page - Always Mounted so AI Agent & Telegram Listeners Never Die */}
       <div className="h-full w-full">
         <MarkHome />
@@ -246,8 +159,6 @@ const MainLayout = () => {
             <Routes>
               <Route path="/config" element={<Configuration />} />
               <Route path="/plugins" element={<Plugins />} />
-              <Route path="/skills" element={<Skills />} />
-              <Route path="/skill-editor/:id" element={<SkillEditor />} />
               <Route path="/live-audio" element={<LiveAudio />} />
               <Route path="/telegram-bot" element={<TelegramBot />} />
               <Route path="/google-workspace" element={<GoogleWorkspace />} />
@@ -408,16 +319,18 @@ function App() {
     return <Configuration isFirstSetup={true} onSetupComplete={() => window.location.reload()} />
   }
 
+  const isStandalone = window.location.hash.includes('telegram-bot')
+
   return (
     <ApprovalProvider>
       <YoutubeMusicProvider>
         <ChatProvider>
           <HashRouter>
             <GlobalListener />
-            <GlobalDropZone />
             <MainLayout />
-            <StandaloneMusicPlayer />
-            <GlobalCameraManager />
+            <div style={{ display: isStandalone ? 'none' : 'block' }}>
+              <YoutubeMusicPlayer />
+            </div>
             <GlobalCameraManager />
             <webview
               id="global-ai-search-webview"

@@ -15,7 +15,7 @@ export const GROUP_TOOLS_DEFINITION = {
   },
   pc_automation: {
     description:
-      'Tool untuk interaksi fisik dengan desktop PC (Linux/Windows). [SPEEDRUNNER BATCH MODE]: Kamu BISA mengeksekusi BATCH ACTIONS (mengirim ARRAY aksi) dalam 1 giliran untuk menghindari loading lama. Contoh: [{"tool":"os-click","query":"5"}, {"tool":"os-delay","query":"1000"}, {"tool":"os-type","query":"Teks"}]. Gunakan os-click secara bebas, tetapi KELOMPOKKAN aksimu ke dalam array jika urutannya sudah jelas, jangan satu per satu!',
+      'Tool untuk interaksi fisik dengan desktop OS Windows. [SPEEDRUNNER BATCH MODE]: Kamu BISA mengeksekusi BATCH ACTIONS (mengirim ARRAY aksi) dalam 1 giliran untuk menghindari loading lama. Contoh: [{"tool":"os-click","query":"5"}, {"tool":"os-delay","query":"1000"}, {"tool":"os-type","query":"Teks"}]. Gunakan os-click secara bebas, tetapi KELOMPOKKAN aksimu ke dalam array jika urutannya sudah jelas, jangan satu per satu!',
     tools: {
       'os-control-open':
         'WAJIB DIPANGGIL PERTAMA KALI sebelum memulai rangkaian tugas otomatisasi PC. Mengunci sesi dan memunculkan overlay pengunci PC. PENTING: Jika tool ini sudah mengembalikan status success, ITU BERARTI USER SUDAH MEMBERIKAN IZIN DI POPUP! Kamu WAJIB LANGSUNG meneruskan eksekusi langkah berikutnya (os-read/os-click/os-type/dll) di loop yang sama TANPA berhenti atau menyuruh user klik tombol izinkan lagi! Query: KOSONG.',
@@ -26,13 +26,13 @@ export const GROUP_TOOLS_DEFINITION = {
       'os-click':
         'Klik mouse pada elemen GUI desktop. Query: ID elemen dari os-read atau x||y koordinat absolut.',
       'os-type':
-        'Ketik teks ke elemen input di aplikasi desktop. Query: ID||teks atau teks langsung. PENTING: DILARANG KERAS MENGETIKKAN EMOJI! DILARANG KERAS menggunakan format markdown link seperti [teks](url) saat mengetik URL! Ketik raw teks saja.',
+        'Ketik teks ke elemen input di aplikasi Windows. Query: ID||teks atau teks langsung. PENTING: DILARANG KERAS MENGETIKKAN EMOJI! DILARANG KERAS menggunakan format markdown link seperti [teks](url) saat mengetik URL! Ketik raw teks saja.',
       'os-key':
         'Tekan kombinasi tombol keyboard shortcut. Query: combo (misal: ctrl+c, alt+tab, win+e, ctrl+s, enter).',
       'os-scroll':
         'Scroll mouse wheel di aplikasi aktif. Query: direction||amount (misal: down||5 atau up||3).',
       'os-open':
-        'Membuka aplikasi desktop via shell execute. Query: nama aplikasi/path atau URL raw (misal: firefox, xdg-open, https://google.com). DILARANG KERAS menggunakan markdown link [teks](url)! Ketik raw text saja.',
+        'Membuka aplikasi Windows via shell execute. Query: nama executable/path atau URL raw (misal: notepad, calc, https://google.com). DILARANG KERAS menggunakan markdown link [teks](url)! Ketik raw text saja.',
       'os-search':
         'Mensimulasikan user mencari APLIKASI di Start Menu dengan tombol Windows. Query: kata kunci (misal: Chrome). PENTING: Tool ini HANYA mengetik di Start Menu. Untuk membuka aplikasinya, kamu WAJIB memanggil BATCH ACTION: os-search -> os-delay (1000) -> os-key (enter). JANGAN panggil os-open/os-double-click setelah os-search!',
       'os-double-click':

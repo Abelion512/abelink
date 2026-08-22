@@ -28,30 +28,20 @@ export const fetchAI = async (
       signal.addEventListener('abort', onAbort);
     }
 
-    // --- DEBUG LOG: Token Usage & Payload ---
-    console.groupCollapsed(`[fetchAI] Request Payload (${isSmallTask ? 'Small Task' : 'Main Task'})`);
-    console.log("Total Messages:", messages.length);
-    let totalChars = 0;
-    messages.forEach((m, i) => {
-      const charLen = m.content?.length || 0;
-      totalChars += charLen;
-      console.log(`%c[Msg ${i} | ${m.role.toUpperCase()}]`, 'color: #3b82f6; font-weight: bold;', `${charLen} chars`);
-      console.log(m.content);
-    });
-    console.log(`%c[ESTIMASI ESTIMATED TOKENS]`, 'color: #ef4444; font-weight: bold;', `~${Math.round(totalChars / 2.5)} tokens (Bahasa Indonesia & JSON overhead)`);
-    console.groupEnd();
-    // --- END DEBUG LOG ---
-
-    console.log('%c[fetchAI] FULL RAW REQUEST JSON:', 'color: #10b981; font-weight: bold;');
-    console.log(JSON.stringify({ messages, isSmallTask, jsonSchema }, null, 2));
+    if (import.meta.env?.DEV) {
+      console.groupCollapsed(`[fetchAI] ${isSmallTask ? 'Small' : 'Main'} task, ${messages.length} msgs`);
+      console.log(`%c~${Math.round((messages.reduce((s,m) => s + (m.content?.length||0), 0)) / 2.5)} est. tokens`, 'color: #ef4444');
+      console.groupEnd();
+    }
 
     window.api.fetchAI({ messages, config: conf, isSmallTask, jsonSchema }).then(result => {
       if (hasResolved) return;
       hasResolved = true;
       if (signal) signal.removeEventListener('abort', onAbort);
 
-      console.log('%c[fetchAI] FULL RAW RESPONSE RESULT (JSON):', 'color: #10b981; font-weight: bold;');
-      console.log(result);
+      if (import.meta.env?.DEV && result?.error) {
+        console.error('[fetchAI] Error:', result.error.message)
+      }
 
       if (result && result.error) {
         const err = new Error(result.error.message)

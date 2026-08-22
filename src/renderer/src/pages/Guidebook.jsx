@@ -130,7 +130,6 @@ const Guidebook = () => {
         <button
           onClick={() => navigate('/')}
           className="btn btn-ghost btn-sm gap-2 text-white/70 hover:text-white mr-6"
-          style={{ WebkitAppRegion: 'no-drag' }}
         >
           <FaArrowLeft /> Kembali
         </button>
@@ -597,7 +596,7 @@ const Guidebook = () => {
                       description="Mencari teks atau kata kunci di dalam folder secara rekursif."
                       needsPermission={false}
                       queryFormat="Path Folder||Keyword"
-                      howItWorks="Menjalankan findstr untuk pencarian cepat di ratusan file."
+                      howItWorks="Menjalankan grep untuk pencarian cepat di ratusan file."/>
                     />
                   </div>
                 </div>
@@ -609,11 +608,11 @@ const Guidebook = () => {
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
-                      name="run-powershell"
-                      description="Menjalankan perintah PowerShell / CMD."
+                      name="run-bash"
+                      description="Menjalankan perintah bash di terminal Linux."
                       needsPermission={true}
-                      queryFormat="Perintah mentah (misal: npm install, dir, ping)"
-                      howItWorks="Mark akan mengetikkan perintah ini ke terminal sistem. Perintah berbahaya (seperti rm, shutdown) wajib di-acc."
+                      queryFormat="Perintah mentah (misal: npm install, ls, free -h)"
+                      howItWorks="Mark akan menjalankan perintah ini via bash. Perintah berbahaya (seperti rm -rf, shutdown) wajib di-acc."
                       example="Coba cek penggunaan RAM komputer gue sekarang."
                     />
                   </div>

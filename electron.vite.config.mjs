@@ -23,7 +23,14 @@ export default defineConfig({
     plugins: [react(), tailwindcss()],
     server: {
       host: true, // Ini sama dengan --host, mengizinkan akses dari network (HP)
-      port: 5173
+      port: 5173,
+      proxy: {
+        '^/models/(Xenova|onnx-community)/.*': {
+          target: 'https://huggingface.co',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/models\/(Xenova|onnx-community)\/(.*?)(\/resolve\/main)?\/(.*)$/, '/$1/$2/resolve/main/$4')
+        }
+      }
     }
   }
 })

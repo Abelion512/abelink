@@ -1,13 +1,12 @@
 // src/main/pc-agent.js
-// MARK PC Automation Engine - Zero Vision Cost Desktop Controller
-// Uses native Windows UIAutomation, local WinRT OCR fallback, and Win32 action script
+// MARK PC Automation Engine - Linux Desktop Controller
+// Uses xdotool + wmctrl for keyboard/mouse/screenshot/window management
+// Wayland-aware: detects $XDG_SESSION_TYPE, uses grim/wl-copy when available
 
-import { spawn } from 'child_process'
+import { exec } from 'child_process'
 import { join } from 'path'
 import { app, BrowserWindow, globalShortcut, screen } from 'electron'
 import fs from 'fs'
-
-const isWindows = process.platform === 'win32'
 
 let lastReadResult = null
 let lastReadTimestamp = 0
@@ -344,42 +343,20 @@ function triggerEmergencyStop() {
 }
 
 /**
- * Helper to spawn mouse locker
+ * Helper to detect session type (X11 vs Wayland)
+ */
+function isWayland() {
+  return process.env.XDG_SESSION_TYPE === 'wayland'
+}
+
+/**
+ * Helper to lock mouse pointer to center (Linux: no-op)
  */
 function startMouseLocker() {
-  if (mouseLockerProcess) return
-  if (!isWindows) return // No-op on Linux (XTEST injected events are handled by xdotool itself)
-  try {
-    let scriptPath = join(__dirname, '../../src/main/pc-agent-scripts/mouse-locker.ps1')
-    if (app.isPackaged) {
-      const unpackedPath = join(
-        process.resourcesPath,
-        'app.asar.unpacked',
-        'src',
-        'main',
-        'pc-agent-scripts',
-        'mouse-locker.ps1'
-      )
-      if (fs.existsSync(unpackedPath)) {
-        scriptPath = unpackedPath
-      } else {
-        scriptPath = scriptPath.replace('app.asar', 'app.asar.unpacked')
-      }
-    } else if (!fs.existsSync(scriptPath)) {
-      scriptPath = join(__dirname, 'pc-agent-scripts', 'mouse-locker.ps1')
-    }
-    mouseLockerProcess = spawn('powershell.exe', [
-      '-NoProfile',
-      '-WindowStyle',
-      'Hidden',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      scriptPath
-    ])
-  } catch (err) {
-    console.warn('[PC-Agent] Failed to start mouse locker:', err)
-  }
+  // Linux: mouse locker not strictly needed; xdotool can hold pointer but it's intrusive
+  // We keep it as no-op for now to avoid blocking user input
+  mouseLockerProcess = null
+  console.log('[PC-Agent] Mouse locker: no-op on Linux (xdotool not used for locking)')
 }
 
 function stopMouseLocker() {
@@ -473,226 +450,139 @@ export async function askUserPC(query = '') {
   })
 }
 
-const DAEMON_SCRIPT = isWindows ? 'pc-daemon.ps1' : 'linux-daemon.py'
-
-function getDaemonScriptPath() {
-  let scriptPath = join(__dirname, '../../src/main/pc-agent-scripts', DAEMON_SCRIPT)
-  if (app.isPackaged) {
-    const unpackedPath = join(
-      process.resourcesPath, 'app.asar.unpacked', 'src', 'main', 'pc-agent-scripts', DAEMON_SCRIPT
-    )
-    if (fs.existsSync(unpackedPath)) scriptPath = unpackedPath
-    else scriptPath = scriptPath.replace('app.asar', 'app.asar.unpacked')
-  } else if (!fs.existsSync(scriptPath)) {
-    scriptPath = join(__dirname, 'pc-agent-scripts', DAEMON_SCRIPT)
-  }
-  return scriptPath
-}
-
-function startDaemon() {
-  return new Promise((resolve, reject) => {
-    if (daemonProcess && !daemonProcess.killed) {
-      resolve()
-      return
-    }
-    
-    const scriptPath = getDaemonScriptPath()
-    if (isWindows) {
-      daemonProcess = spawn('powershell.exe', [
-        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath
-      ])
-    } else {
-      daemonProcess = spawn('python3', ['-u', scriptPath])
-    }
-    daemonBuffer = ''
-    daemonReady = false
-    
-    // Handle daemon stdout - accumulate until ---MARK_DONE--- delimiter
-    daemonProcess.stdout.on('data', (chunk) => {
-      daemonBuffer += chunk.toString()
-      
-      let delimiterIndex;
-      while ((delimiterIndex = daemonBuffer.indexOf('---MARK_DONE---')) !== -1) {
-        const response = daemonBuffer.substring(0, delimiterIndex).trim()
-        daemonBuffer = daemonBuffer.substring(delimiterIndex + '---MARK_DONE---'.length).trimStart()
-        
-        if (!daemonReady) {
-          // First response is the startup {"status":"ready"} message
-          daemonReady = true
-          console.log('[PC-Agent] Daemon started and ready')
-          resolve()
-          continue
-        }
-        
-        if (pendingResolve) {
-          const resolveFn = pendingResolve
-          pendingResolve = null
-          resolveFn(response)
-        }
-      }
+function runBash(cmd, args = [], options = {}) {
+  return new Promise((resolve) => {
+    const fullCmd = `${cmd} ${args.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`
+    exec(fullCmd, { timeout: options.timeout || 30000, maxBuffer: 1024 * 1024, ...options }, (err, stdout, stderr) => {
+      resolve({ stdout: stdout.trim(), stderr: stderr.trim(), err })
     })
-    
-    daemonProcess.stderr.on('data', (data) => {
-      console.warn('[PC-Agent] Daemon stderr:', data.toString())
-    })
-    
-    daemonProcess.on('close', (code) => {
-      console.log('[PC-Agent] Daemon process exited with code', code)
-      daemonProcess = null
-      daemonReady = false
-      if (pendingResolve) {
-        const resolveFn = pendingResolve
-        pendingResolve = null
-        resolveFn('')
-      }
-    })
-    
-    daemonProcess.on('error', (err) => {
-      console.error('[PC-Agent] Daemon spawn error:', err)
-      daemonProcess = null
-      reject(err)
-    })
-    
-    // Timeout: if daemon doesn't respond within 15s, reject
-    setTimeout(() => {
-      if (!daemonReady) {
-        reject(new Error('Daemon startup timeout'))
-      }
-    }, 15000)
-  })
-}
-
-function stopDaemon() {
-  if (daemonProcess && !daemonProcess.killed) {
-    try {
-      daemonProcess.stdin.write(JSON.stringify({ cmd: 'exit' }) + '\n')
-    } catch (e) {}
-    setTimeout(() => {
-      if (daemonProcess && !daemonProcess.killed) {
-        try { daemonProcess.kill() } catch (e) {}
-      }
-      daemonProcess = null
-      daemonReady = false
-    }, 1000)
-  }
-}
-
-function sendCommand(cmd) {
-  return new Promise((resolve, reject) => {
-    if (!daemonProcess || daemonProcess.killed || !daemonReady) {
-      resolve(JSON.stringify({ status: 'error', message: 'Daemon not running' }))
-      return
-    }
-    
-    if (isStopActive()) {
-      resolve(JSON.stringify({
-        status: 'stopped_by_user',
-        message: `PC automation stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`,
-        user_message: lastStopReason || 'User pressed Ctrl+S / Stop button',
-        action: 'os-ask'
-      }))
-      return
-    }
-    
-    pendingResolve = resolve
-    try {
-      daemonProcess.stdin.write(JSON.stringify(cmd) + '\n')
-    } catch (err) {
-      pendingResolve = null
-      resolve(JSON.stringify({ status: 'error', message: 'Failed to write to daemon: ' + err.message }))
-    }
-    
-    // Timeout: 30s per command
-    setTimeout(() => {
-      if (pendingResolve === resolve) {
-        pendingResolve = null
-        resolve(JSON.stringify({ status: 'error', message: 'Command timeout (30s)' }))
-      }
-    }, 30000)
   })
 }
 
 function isDaemonAlive() {
-  return daemonProcess && !daemonProcess.killed && daemonReady
+  return true
 }
 
-/**
- * Run a script from pc-agent-scripts as fallback
- */
-function runScriptFallback(scriptName, args = []) {
-  return new Promise((resolve) => {
-    const resolvedScript = isWindows ? scriptName : scriptName.replace('.ps1', '.sh')
-    let scriptPath = join(__dirname, '../../src/main/pc-agent-scripts', resolvedScript)
-    if (app.isPackaged) {
-      const unpackedPath = join(
-        process.resourcesPath,
-        'app.asar.unpacked',
-        'src',
-        'main',
-        'pc-agent-scripts',
-        resolvedScript
-      )
-      if (fs.existsSync(unpackedPath)) {
-        scriptPath = unpackedPath
-      } else {
-        scriptPath = scriptPath.replace('app.asar', 'app.asar.unpacked')
-      }
-    } else if (!fs.existsSync(scriptPath)) {
-      scriptPath = join(__dirname, 'pc-agent-scripts', resolvedScript)
-    }
+function startDaemon() {
+  daemonReady = true
+  return Promise.resolve()
+}
 
-    const ps = isWindows
-      ? spawn('powershell.exe', [
-          '-NoProfile',
-          '-ExecutionPolicy',
-          'Bypass',
-          '-File',
-          scriptPath,
-          ...args
-        ])
-      : spawn('bash', [scriptPath, ...args])
-    activeChildProcess = ps
+function stopDaemon() {
+  daemonProcess = null
+  daemonReady = false
+}
 
-    let stdout = ''
-    let stderr = ''
-
-    ps.stdout.on('data', (data) => {
-      stdout += data.toString()
+async function sendCommand(cmd) {
+  if (isStopActive()) {
+    return JSON.stringify({
+      status: 'stopped_by_user',
+      message: `PC automation stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`,
+      user_message: lastStopReason || 'User pressed Ctrl+S / Stop button',
+      action: 'os-ask'
     })
+  }
 
-    ps.stderr.on('data', (data) => {
-      stderr += data.toString()
-    })
+  const isWayland = process.env.XDG_SESSION_TYPE === 'wayland'
+  const x11Only = ['read-ui', 'read-focus', 'mouse-move', 'click', 'type', 'key', 'scroll', 'list-windows', 'focus-window']
+  if (isWayland && x11Only.includes(cmd.cmd)) {
+    return JSON.stringify({ status: 'error', message: 'Command not supported on Wayland. Use X11 or implement ydotool/swaymsg fallback.' })
+  }
 
-    ps.on('close', (code) => {
-      if (activeChildProcess === ps) {
-        activeChildProcess = null
-      }
-      if (code !== 0 && stderr) {
-        console.warn(`[PC-Agent] Script ${scriptName} exited with code ${code}: ${stderr}`)
-      }
-      if (isStopActive()) {
-        resolve(
-          JSON.stringify({
-            status: 'stopped_by_user',
-            message: `PC automation stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`,
-            user_message: lastStopReason || 'User pressed Ctrl+S / Stop button',
-            action: 'os-ask'
+  try {
+    switch (cmd.cmd) {
+      case 'read-ui':
+      case 'read-focus':
+        {
+          const res = await runBash('xdotool', ['getactivewindow'], { timeout: 5000 })
+          if (res.err) {
+            return JSON.stringify({ status: 'error', message: 'xdotool not available: ' + res.stderr })
+          }
+          const winId = res.stdout
+          const winRes = await runBash('xdotool', ['getwindowname', winId], { timeout: 3000 })
+          const winName = winRes.stdout || 'unknown'
+          const winRes2 = await runBash('xdotool', ['getwindowgeometry', '--shell', winId], { timeout: 3000 })
+          const geometry = {}
+          winRes2.stdout.split('\n').forEach(line => {
+            const [k, v] = line.split('=')
+            if (k && v) geometry[k] = v
           })
-        )
-        return
-      }
-      resolve(stdout.trim())
-    })
+          return JSON.stringify({
+            window: winId,
+            title: winName,
+            geometry,
+            method: cmd.cmd === 'read-focus' ? 'focus' : 'active',
+            elements: [{ name: winName, value: winName, type: 'window' }],
+            element_count: 1
+          })
+        }
+      case 'mouse-move':
+        await runBash('xdotool', ['mousemove', cmd.x || 0, cmd.y || 0])
+        return JSON.stringify({ status: 'ok' })
+      case 'click':
+        await runBash('xdotool', ['click', cmd.button || 1])
+        return JSON.stringify({ status: 'ok' })
+      case 'type':
+        await runBash('xdotool', ['type', '--delay', '10', cmd.text || ''])
+        return JSON.stringify({ status: 'ok' })
+      case 'key':
+        await runBash('xdotool', ['key', cmd.key || ''])
+        return JSON.stringify({ status: 'ok' })
+      case 'scroll':
+        await runBash('xdotool', ['click', cmd.direction === 'down' ? 4 : 5])
+        return JSON.stringify({ status: 'ok' })
+      case 'list-windows':
+        {
+          const res = await runBash('wmctrl', ['-l'])
+          const lines = res.stdout.split('\n').filter(l => l.trim())
+          const windows = lines.map(line => {
+            const parts = line.split(/\s+/).slice(0, 5)
+            const [id, workspace, pid, x, y, ...rest] = line.match(/^(\S+)\s+(\S+)\s+(\S+)\s+(-?\d+)\s+(-?\d+)\s+(.*)$/)?.groups || { id: '', workspace: '', pid: '', x: '0', y: '0', win: line }
+            return { id: parts[0], title: rest.join(' ') }
+          })
+          return JSON.stringify({ windows })
+        }
+      case 'focus-window':
+        await runBash('wmctrl', ['-a', cmd.windowId || ''])
+        return JSON.stringify({ status: 'ok' })
+      case 'screenshot':
+        {
+          const res = await runBash(isWayland ? 'grim' : 'scrot', ['-s'], { timeout: 10000 })
+          return res.stdout ? JSON.stringify({ image: res.stdout }) : JSON.stringify({ status: 'error', message: res.stderr })
+        }
+      case 'clipboard-read':
+        {
+          const res = await runBash(isWayland ? 'wl-paste' : 'xclip', ['-sel', 'clip', '-o'], { timeout: 5000 })
+          return JSON.stringify({ text: res.stdout })
+        }
+      case 'clipboard-write':
+        {
+          const text = (cmd.text || '').replace(/'/g, "'\\''")
+          await runBash('bash', ['-c', isWayland ? `printf '%s' '${text}' | wl-copy` : `printf '%s' '${text}' | xclip -sel clip`])
+          return JSON.stringify({ status: 'ok' })
+        }
+      default:
+        return JSON.stringify({ status: 'ok' })
+    }
+  } catch (err) {
+    return JSON.stringify({ status: 'error', message: err.message })
+  }
+}
 
-    ps.on('error', (err) => {
-      if (activeChildProcess === ps) {
-        activeChildProcess = null
-      }
-      console.error(`[PC-Agent] Error spawning script ${scriptName}:`, err)
-      resolve('')
+async function runScriptFallback(scriptName, args = []) {
+  if (isStopActive()) {
+    return JSON.stringify({
+      status: 'stopped_by_user',
+      message: `PC automation stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`,
+      user_message: lastStopReason || 'User pressed Ctrl+S / Stop button',
+      action: 'os-ask'
     })
-  })
+  }
+  const res = await runBash(args[0], args.slice(1), { timeout: 30000 })
+  if (res.err) {
+    console.error(`[PC-Agent] Fallback script error:`, res.stderr)
+  }
+  return res.stdout
 }
 
 /**
@@ -714,7 +604,7 @@ export async function readDesktop(options = {}, query = '') {
     isStoppedByUser = false
   }
   showPCOverlay()
-  
+
   const isFocus = (query === 'focus')
   if (!isFocus && !stateChanged && lastReadResult && (Date.now() - lastReadTimestamp < CACHE_TTL)) {
     scheduleHidePCOverlay()
@@ -723,41 +613,15 @@ export async function readDesktop(options = {}, query = '') {
 
   try {
     let uiText = ''
-    if (isDaemonAlive()) {
-      if (isFocus) {
-        uiText = await sendCommand({ cmd: 'read-focus' })
-      } else {
-        uiText = await sendCommand({ cmd: 'read-ui', maxElements: options.maxElements || 300, roles: options.roles })
-      }
+    if (isFocus) {
+      uiText = await sendCommand({ cmd: 'read-focus' })
     } else {
-      uiText = await runScriptFallback('read-ui.ps1')
+      uiText = await sendCommand({ cmd: 'read-ui', maxElements: options.maxElements || 300 })
     }
 
     let parsed = null
     if (uiText) {
-      try {
-        parsed = JSON.parse(uiText)
-      } catch (e) {
-        console.warn('[PC-Agent] Failed to parse UIAutomation JSON, falling back to OCR')
-      }
-    }
-
-    // If UIAutomation returned 0 elements or failed, fallback to local OCR
-    if (!isFocus && (!parsed || !parsed.elements || parsed.elements.length === 0)) {
-      console.log(
-        '[PC-Agent] UIAutomation returned 0 elements. Executing local WinRT OCR fallback...'
-      )
-      let ocrText = ''
-      if (isDaemonAlive()) {
-        ocrText = await sendCommand({ cmd: 'ocr' })
-      } else {
-        ocrText = await runScriptFallback('ocr-region.ps1')
-      }
-      if (ocrText) {
-        try {
-          parsed = JSON.parse(ocrText)
-        } catch {}
-      }
+      try { parsed = JSON.parse(uiText) } catch (e) {}
     }
 
     if (parsed && parsed.elements) {
@@ -821,27 +685,12 @@ export async function executeClick(query) {
     scheduleHidePCOverlay()
     return `[PC-Agent] Error: Element ID or coordinates '${query}' not found. Try os-read first.`
   }
-  
-  let result = ''
-  if (isDaemonAlive()) {
-    if (coords.id !== undefined) {
-      result = await sendCommand({ cmd: 'native-invoke', id: coords.id, x: coords.x, y: coords.y })
-    } else {
-      result = await sendCommand({ cmd: 'click', x: coords.x, y: coords.y })
-    }
-  } else {
-    result = await runScriptFallback('win-action.ps1', [
-      '-Action',
-      'click',
-      '-X',
-      coords.x.toString(),
-      '-Y',
-      coords.y.toString()
-    ])
-  }
+
+  await runBash('xdotool', ['mousemove', coords.x.toString(), coords.y.toString()])
+  await runBash('xdotool', ['click', 1])
   stateChanged = true
   scheduleHidePCOverlay()
-  return `[PC-Agent] Clicked at (${coords.x}, ${coords.y}). ${result}`
+  return `[PC-Agent] Clicked at (${coords.x}, ${coords.y}).`
 }
 
 /**
@@ -860,23 +709,13 @@ export async function executeDoubleClick(query) {
     scheduleHidePCOverlay()
     return `[PC-Agent] Error: Element ID or coordinates '${query}' not found. Try os-read first.`
   }
-  
-  let result = ''
-  if (isDaemonAlive()) {
-    result = await sendCommand({ cmd: 'double-click', x: coords.x, y: coords.y })
-  } else {
-    result = await runScriptFallback('win-action.ps1', [
-      '-Action',
-      'doubleclick',
-      '-X',
-      coords.x.toString(),
-      '-Y',
-      coords.y.toString()
-    ])
-  }
+
+  await runBash('xdotool', ['mousemove', coords.x.toString(), coords.y.toString()])
+  await runBash('xdotool', ['click', 1])
+  await runBash('xdotool', ['click', 1])
   stateChanged = true
   scheduleHidePCOverlay()
-  return `[PC-Agent] Double-Clicked at (${coords.x}, ${coords.y}). ${result}`
+  return `[PC-Agent] Double-Clicked at (${coords.x}, ${coords.y}).`
 }
 
 /**
@@ -902,29 +741,14 @@ export async function executeType(query) {
 
   // If element ID was provided, click it first to focus
   if (coords) {
-    if (isDaemonAlive()) {
-      await sendCommand({ cmd: 'click', x: coords.x, y: coords.y })
-    } else {
-      await runScriptFallback('win-action.ps1', [
-        '-Action',
-        'click',
-        '-X',
-        coords.x.toString(),
-        '-Y',
-        coords.y.toString()
-      ])
-    }
+    await runBash('xdotool', ['mousemove', coords.x.toString(), coords.y.toString()])
+    await runBash('xdotool', ['click', 1])
   }
 
-  let result = ''
-  if (isDaemonAlive()) {
-    result = await sendCommand({ cmd: 'type', text })
-  } else {
-    result = await runScriptFallback('win-action.ps1', ['-Action', 'type', '-Text', text])
-  }
+  await runBash('xdotool', ['type', '--delay', '10', text])
   stateChanged = true
   scheduleHidePCOverlay()
-  return `[PC-Agent] Typed "${text}". ${result}`
+  return `[PC-Agent] Typed "${text}".`
 }
 
 /**
@@ -938,15 +762,10 @@ export async function executeKey(combo) {
     return `[PC-Agent] Stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`
   }
   showPCOverlay()
-  let result = ''
-  if (isDaemonAlive()) {
-    result = await sendCommand({ cmd: 'key', combo })
-  } else {
-    result = await runScriptFallback('win-action.ps1', ['-Action', 'key', '-Combo', combo])
-  }
+  await runBash('xdotool', ['key', combo])
   stateChanged = true
   scheduleHidePCOverlay()
-  return `[PC-Agent] Pressed key combo "${combo}". ${result}`
+  return `[PC-Agent] Pressed key combo "${combo}".`
 }
 
 /**
@@ -970,27 +789,18 @@ export async function executeScroll(query) {
   } else if (query) {
     direction = query.trim().toLowerCase()
   }
-  
-  let result = ''
-  if (isDaemonAlive()) {
-    result = await sendCommand({ cmd: 'scroll', direction, amount })
-  } else {
-    result = await runScriptFallback('win-action.ps1', [
-      '-Action',
-      'scroll',
-      '-Direction',
-      direction,
-      '-Amount',
-      amount.toString()
-    ])
+
+  const clickBtn = direction === 'down' ? 4 : 5
+  for (let i = 0; i < amount; i++) {
+    await runBash('xdotool', ['click', clickBtn.toString()])
   }
   stateChanged = true
   scheduleHidePCOverlay()
-  return `[PC-Agent] Scrolled ${direction} by ${amount}. ${result}`
+  return `[PC-Agent] Scrolled ${direction} by ${amount}.`
 }
 
 /**
- * Open an application
+ * Open an application / URL
  */
 export async function openApp(target) {
   if (!isSessionOpen) {
@@ -1000,15 +810,18 @@ export async function openApp(target) {
     return `[PC-Agent] Stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`
   }
   showPCOverlay()
-  let result = ''
-  if (isDaemonAlive()) {
-    result = await sendCommand({ cmd: 'open', target })
+  if (!/^[a-zA-Z0-9_./\-]+$/.test(target)) {
+    return `[PC-Agent] Invalid app name: "${target}"`
+  }
+  const isURL = /^https?:\/\//.test(target)
+  if (isURL) {
+    await runBash('xdg-open', [target])
   } else {
-    result = await runScriptFallback('win-action.ps1', ['-Action', 'open', '-Target', target])
+    await runBash('bash', ['-c', `nohup '${target.replace(/'/g, "'\\''")}' >/dev/null 2>&1 &`])
   }
   stateChanged = true
   scheduleHidePCOverlay()
-  return `[PC-Agent] Opened application "${target}". ${result}`
+  return `[PC-Agent] Opened "${target}".`
 }
 
 /**
@@ -1028,19 +841,16 @@ export async function listWindows() {
     return { status: 'stopped_by_user', windows: [], count: 0, message: lastStopReason }
   }
   showPCOverlay()
-  let result = ''
-  if (isDaemonAlive()) {
-    result = await sendCommand({ cmd: 'list-windows' })
-  } else {
-    result = await runScriptFallback('win-action.ps1', ['-Action', 'list-windows'])
-  }
+  const res = await runBash('wmctrl', ['-l'], { timeout: 5000 })
   scheduleHidePCOverlay()
-  try {
-    const parsed = JSON.parse(result)
-    return { status: 'success', windows: parsed, count: parsed.length }
-  } catch {
-    return { status: 'error', windows: [], count: 0, raw: result }
-  }
+  const lines = res.stdout.split('\n').filter(l => l.trim())
+  const windows = lines.map(line => {
+    const parts = line.split(/\s+/)
+    const id = parts[0]
+    const title = parts.slice(5).join(' ')
+    return { id, title }
+  })
+  return { status: 'success', windows, count: windows.length }
 }
 
 /**
@@ -1054,13 +864,8 @@ export async function focusWindow(title) {
     return `[PC-Agent] Stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`
   }
   showPCOverlay()
-  let result = ''
-  if (isDaemonAlive()) {
-    result = await sendCommand({ cmd: 'focus-window', title })
-  } else {
-    result = await runScriptFallback('win-action.ps1', ['-Action', 'focus-window', '-Target', title])
-  }
+  await runBash('wmctrl', ['-a', title])
   stateChanged = true
   scheduleHidePCOverlay()
-  return `[PC-Agent] Focus window "${title}". ${result}`
+  return `[PC-Agent] Focus window "${title}".`
 }

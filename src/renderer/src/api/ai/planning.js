@@ -1,4 +1,4 @@
-﻿import { fetchAI, cleanAndParse } from './core'
+import { fetchAI, cleanAndParse } from './core'
 import { getAllConfig } from '../db'
 import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorMemory'
@@ -50,15 +50,6 @@ export const getNextAction = async (
 
     const groupToolsObj = await group_tools()
 
-    let skills = []
-    try {
-      if (window.api && window.api.getSkills) {
-        skills = await window.api.getSkills()
-      }
-    } catch (e) {
-      console.error('Failed to get skills for planning', e)
-    }
-
     const systemPrompt = `
 Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas asisten AI canggih dan otonom.
 
@@ -78,11 +69,10 @@ JANGAN isi keduanya! Boleh panggil tool berulang kali.
 - Jika user hanya ngobrol santai, LANGSUNG isi "answer" tanpa tool.
 - PENGGUNAAN WEB SEARCH: Gunakan "browser-search" ke Google Search HANYA untuk info real-time/terbaru. Untuk coding/teori umum, langsung jawab di "answer".
 
-# ATURAN PENULISAN FILE & PENYELESAIAN TUGAS (SANGAT KETAT)
-1. Jika membuat file tunggal/artifact baru dan kamu tidak diminta menyimpannya di lokasi tertentu, KAMU CUKUP MEMBERIKAN NAMA FILE-NYA SAJA (contoh: "index.html" atau "laporan.pdf"). Sistem akan otomatis menyimpannya ke dalam folder 'Mark Workspace'. Folder ini berada di 'Documents/Mark Workspace'. Jika kamu butuh path absolutnya untuk eksekusi 'run-powershell', gunakan '~\\Documents\\Mark Workspace\\'. NAMUN, jika kamu sedang mengerjakan struktur *project* yang kompleks atau user meminta path spesifik, gunakan absolute path atau relative path yang sesuai dengan struktur project tersebut.
-2. KETIKA TOOL 'write-file' ATAU 'replace-lines' SUDAH BERHASIL DIEKSEKUSI (success: true): Tugas penulisan file sudah 100% selesai. DILARANG KERAS merombak atau memanggil write-file lagi pada turn yang sama.
-3. SETELAH TUGAS SELESAI : Kamu WAJIB membukakan file tersebut agar user bisa melihat hasilnya! Gunakan tool 'os-open' dengan query berisi NAMA FILE TERSEBUT. (Misal: html akan terbuka di browser, pdf di pdf viewer, dsb). Eksekusi 'os-open' ini pada giliran yang sama atau giliran berikutnya!
-4. KAMU WAJIB MENGAKHIRI LOOP DENGAN MENGISI "answer" (Laporan singkat bahwa file dibuat dan sedang dibuka) DAN MENGOSONGKAN "action" (set "action": null)!
+# ATURAN VERIFIKASI & STOPPING CONDITION SETELAH WRITE-FILE (SANGAT KETAT)
+1. KETIKA TOOL 'write-file' ATAU 'replace-lines' SUDAH BERHASIL DIEKSEKUSI (success: true di riwayat tool): TUGAS PENULISAN FILE SUDAH 100% SELESAI! DILARANG KERAS MEMANGGIL TOOL 'write-file' LAGI ATAU MEROMBAK FILE LAGI!
+2. KAMU WAJIB LANGSUNG MENGAKHIRI LOOP PADA TURN BERIKUTNYA DENGAN MENGISI "answer" (Laporan singkat bahwa file berhasil dibuat) DAN MENGOSONGKAN "action" (set "action": null)!
+3. VERIFIKASI SEBELUM BALAS: Pastikan nama file, ekstensi (.md/.txt), dan folder target sudah sesuai permintaan user. Isi file wajib lengkap tanpa placeholder.
 
 # ATURAN KODING & DEVELOPMENT
 Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
@@ -91,7 +81,7 @@ Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
 3. **FRONTEND & UI DESIGN (ESTETIKA KRITIS)**: Jika membuat aplikasi web/frontend, PRIORITASKAN UI/UX yang modern, dinamis, dan premium (WOW effect). Gunakan warna harmonis, dark mode, glassmorphism, tipografi elegan, hover effects, dan animasi transisi. JANGAN buat desain kaku atau ala kadarnya!
 4. **ANALISIS & TESTING (WAJIB)**: Selalu analisis struktur *project* terlebih dahulu sebelum menulis kode. Tepat sebelum menyelesaikan tugas, kamu WAJIB melakukan *testing* atau *crosscheck* terhadap kodemu untuk memastikannya berjalan lancar tanpa error.
 5. **BACA SEBELUM MENULIS**: Sebelum memodifikasi atau menulis ulang (*write*) sebuah file yang sudah ada, kamu WAJIB membaca (*read*) isi file tersebut terlebih dahulu agar tidak merusak kode yang sudah ada.
-6. **USER AGREEMENT**: Beberapa tool (write-file, replace-lines, delete-file, run-powershell) membutuhkan persetujuan user sebelum dieksekusi. Jika user MENOLAK, jangan paksa. Jelaskan alasanmu dan tanyakan alternatif.
+6. **USER AGREEMENT**: Beberapa tool (write-file, replace-lines, delete-file, run-bash) membutuhkan persetujuan user sebelum dieksekusi. Jika user MENOLAK, jangan paksa. Jelaskan alasanmu dan tanyakan alternatif.
 
 # ATURAN KLASIFIKASI MODE (PENTING)
 Isi "suggested_mode" dengan:
@@ -332,7 +322,7 @@ ${
     }
 
     let attempts = 0
-    const MAX_RETRIES = 2
+    const MAX_RETRIES = 1  // Reduced from 2: retrying plain text is wasteful; model already gave its answer
 
     while (attempts < MAX_RETRIES) {
       attempts++

@@ -12,8 +12,7 @@ export const YoutubeMusicPlayer = () => {
     playId,
     nextTrack,
     prevTrack,
-    playPause,
-    toggleRepeat
+    playPause
   } = useYoutubeMusic()
   const [isReady, setIsReady] = useState(false)
 
@@ -22,15 +21,13 @@ export const YoutubeMusicPlayer = () => {
   const nextTrackRef = useRef(nextTrack)
   const prevTrackRef = useRef(prevTrack)
   const playPauseRef = useRef(playPause)
-  const toggleRepeatRef = useRef(toggleRepeat)
 
   useEffect(() => {
     playUrlRef.current = playUrl
     nextTrackRef.current = nextTrack
     prevTrackRef.current = prevTrack
     playPauseRef.current = playPause
-    toggleRepeatRef.current = toggleRepeat
-  }, [playUrl, nextTrack, prevTrack, playPause, toggleRepeat])
+  }, [playUrl, nextTrack, prevTrack, playPause])
 
   useEffect(() => {
     if (window.api?.onExecuteMusicCommand) {
@@ -39,7 +36,6 @@ export const YoutubeMusicPlayer = () => {
         else if (command === 'next') nextTrackRef.current()
         else if (command === 'prev') prevTrackRef.current()
         else if (command === 'toggle') playPauseRef.current()
-        else if (command === 'repeat' || command === 'loop') toggleRepeatRef.current()
       })
     }
     if (window.api?.onExecuteMusicCommandWa) {
@@ -198,48 +194,24 @@ export const YoutubeMusicPlayer = () => {
               <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
               <span className="text-xs font-medium text-white/60 select-none">YouTube Music</span>
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={toggleRepeat}
-                className="btn btn-ghost btn-xs btn-circle text-white/40 hover:text-white/80"
-                title="Loop (NONE → ALL → ONE → NONE)"
+            <button
+              onClick={() => setIsPlayerOpen(false)}
+              className="btn btn-ghost btn-xs btn-circle text-white/40 hover:text-white/80"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m17 2 4 4-4 4" />
-                  <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
-                  <path d="m7 22-4-4 4-4" />
-                  <path d="M21 13v1a4 4 0 0 1-4 4H3" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setIsPlayerOpen(false)}
-                className="btn btn-ghost btn-xs btn-circle text-white/40 hover:text-white/80"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </button>
-            </div>
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
           </div>
 
           {/* Webview */}

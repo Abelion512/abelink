@@ -7,7 +7,6 @@ const api = {
     try { return webUtils.getPathForFile(file) } catch { return file?.name || '' }
   },
   saveTempFile: (arrayBuffer, fileName) => ipcRenderer.invoke('save-temp-file', arrayBuffer, fileName),
-  readFileDataUrl: (filePath) => ipcRenderer.invoke('file:read-dataurl', filePath),
   showOpenDialog: () => ipcRenderer.invoke('dialog:open-file'),
   fetchAI: (params) => ipcRenderer.invoke('ai:fetch', params),
   abortFetchAI: () => ipcRenderer.send('ai:abort-fetch'),
@@ -70,30 +69,11 @@ const api = {
   // Window controls
   windowMinimize: () => ipcRenderer.send('window-minimize'),
   windowMaximize: () => ipcRenderer.send('window-maximize'),
-  windowFullscreen: () => ipcRenderer.send('window-fullscreen'),
   windowClose: () => ipcRenderer.send('window-close'),
   onWindowMaximized: (callback) => {
     ipcRenderer.on('window-maximized', (event, isMaximized) => callback(isMaximized))
   },
-  onWindowFullscreen: (callback) => {
-    ipcRenderer.on('window-fullscreen', (event, isFullscreen) => callback(isFullscreen))
-  },
-  onNavigate: (callback) => {
-    ipcRenderer.on('navigate', (event, path) => callback(path))
-  },
 
-  tgTakeScreenshot: (chatId) => ipcRenderer.send('tg:trigger-screenshot', { chatId }),
-  tgDownloadMusic: (chatId, query) => ipcRenderer.send('tg:trigger-music-download', { chatId, query }),
-  tgPlayMusicUi: (command, query) => ipcRenderer.send('tg:trigger-music-ui', { command, query }),
-  getPlugins: () => ipcRenderer.invoke('plugin:get-list'),
-  executeNativeTool: (toolName, query, config) => ipcRenderer.invoke('native-tool:execute', toolName, query, config),
-  checkToolApproval: (toolName, query) => ipcRenderer.invoke('native-tool:needs-approval', toolName, query),
-  executePlugin: (action, query) => ipcRenderer.invoke('plugin:execute', action, query),
-  openPluginFolder: () => ipcRenderer.invoke('plugin:open-folder'),
-  openSpecificFolder: (path) => ipcRenderer.invoke('plugin:open-specific-folder', path),
-  reloadPlugins: () => ipcRenderer.invoke('plugin:reload'),
-  createPlugin: (payload) => ipcRenderer.invoke('plugin:create', payload),
-  togglePlugin: (name, isEnabled) => ipcRenderer.invoke('plugin:toggle', name, isEnabled),
   tgTakeScreenshot: (chatId) => ipcRenderer.send('tg:trigger-screenshot', { chatId }),
   tgDownloadMusic: (chatId, query) => ipcRenderer.send('tg:trigger-music-download', { chatId, query }),
   tgPlayMusicUi: (command, query) => ipcRenderer.send('tg:trigger-music-ui', { command, query }),
@@ -130,14 +110,7 @@ const api = {
   osOpen: (target) => ipcRenderer.invoke('os:open', target),
   osListWindows: () => ipcRenderer.invoke('os:list-windows'),
   osFocusWindow: (title) => ipcRenderer.invoke('os:focus-window', title),
-  osAskUser: (query) => ipcRenderer.invoke('os:ask-user', query),
-
-  // Skills
-  getSkills: () => ipcRenderer.invoke('get-skills'),
-  readSkill: (name) => ipcRenderer.invoke('read-skill', name),
-  saveSkill: (name, content) => ipcRenderer.invoke('save-skill', name, content),
-  deleteSkill: (name) => ipcRenderer.invoke('delete-skill', name),
-  installSkill: (sourcePath) => ipcRenderer.invoke('install-skill', sourcePath)
+  osAskUser: (query) => ipcRenderer.invoke('os:ask-user', query)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -140,21 +140,6 @@ export const YoutubeMusicProvider = ({ children }) => {
     `)
   }, [])
 
-  const toggleRepeat = useCallback(() => {
-    // Native YT Music repeat button (NONE -> ALL -> ONE -> NONE)
-    webviewRef.current?.executeJavaScript(`
-      (function() {
-        const btn = document.querySelector('ytmusic-player-bar .repeat, ytmusic-player-bar [aria-label*="repeat" i], ytmusic-player-bar [aria-label*="ulangi" i], .repeat');
-        if (btn) btn.click();
-        else {
-          const el = document.querySelector('ytmusic-player-bar yt-icon-button');
-          const repeatBtns = [...document.querySelectorAll('ytmusic-player-bar yt-icon-button')].filter(b => /repeat|ulangi/i.test(b.getAttribute('aria-label') || ''));
-          if (repeatBtns[0]) repeatBtns[0].click();
-        }
-      })();
-    `)
-  }, [])
-
   const value = {
     musicUrl,
     setMusicUrl,
@@ -170,8 +155,7 @@ export const YoutubeMusicProvider = ({ children }) => {
     prevTrack,
     playPause,
     pauseTrack,
-    resumeTrack,
-    toggleRepeat
+    resumeTrack
   }
 
   return <YoutubeMusicContext.Provider value={value}>{children}</YoutubeMusicContext.Provider>

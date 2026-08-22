@@ -59,27 +59,6 @@ const InputBar = ({ onSubmit, isLoading, isRecording, isProcessing, audioIntensi
   const [attachedFiles, setAttachedFiles] = useState([])
   const [isDragging, setIsDragging] = useState(false)
   const lastPromptRef = useRef('')
-  const [hoveredFileIdx, setHoveredFileIdx] = useState(-1)
-  const previewUrlsRef = useRef(new Map()) // path -> { url, isObjectURL? }
-  const objectUrlSetRef = useRef(new Set())
-
-  // Cleanup object URLs on unmount
-  useEffect(() => {
-    return () => {
-      objectUrlSetRef.current.forEach(url => URL.revokeObjectURL(url))
-    }
-  }, [])
-
-  const [skills, setSkills] = useState([])
-  const [filteredSkills, setFilteredSkills] = useState([])
-  const [showSkillList, setShowSkillList] = useState(false)
-  const [selectedSkillIndex, setSelectedSkillIndex] = useState(0)
-
-  useEffect(() => {
-    if (window.api && window.api.getSkills) {
-      window.api.getSkills().then(setSkills).catch(console.error)
-    }
-  }, [])
 
   useEffect(() => {
     if (!isLoading && inputRef.current) {
@@ -88,16 +67,6 @@ const InputBar = ({ onSubmit, isLoading, isRecording, isProcessing, audioIntensi
       }, 50)
     }
   }, [isLoading])
-
-  // Global drop — file yang di-drop di mana pun di layar Mark
-  useEffect(() => {
-    const handleGlobalDrop = (e) => {
-      const files = e.detail || []
-      if (files.length > 0) addFiles(files)
-    }
-    window.addEventListener('mark-files-dropped', handleGlobalDrop)
-    return () => window.removeEventListener('mark-files-dropped', handleGlobalDrop)
-  }, [])
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || [])
@@ -173,28 +142,6 @@ const InputBar = ({ onSubmit, isLoading, isRecording, isProcessing, audioIntensi
 
         if (!resolvedPath) resolvedPath = f.name
 
-        let previewUrl = ''
-        const isImage = /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(f.name)
-        if (isImage) {
-          if (typeof f.arrayBuffer === 'function') {
-            // Web-dropped File object — keep object URL
-            try {
-              previewUrl = URL.createObjectURL(f)
-              objectUrlSetRef.current.add(previewUrl)
-            } catch (e) {
-              console.error('[InputBar] createObjectURL error:', e)
-            }
-          } else if (window.api?.readFileDataUrl && resolvedPath !== f.name) {
-            // Dialog-picked file — read via main process
-            try {
-              previewUrl = await window.api.readFileDataUrl(resolvedPath)
-            } catch (e) {
-              console.error('[InputBar] readFileDataUrl error:', e)
-            }
-          }
-        }
-        if (previewUrl) previewUrlsRef.current.set(resolvedPath, previewUrl)
-
         return {
           name: f.name,
           path: resolvedPath,
@@ -242,36 +189,8 @@ const InputBar = ({ onSubmit, isLoading, isRecording, isProcessing, audioIntensi
     }
   }
 
-  const handleFormSubmit = async () => {
+  const handleFormSubmit = () => {
     let finalPrompt = inputText
-    let userText = inputText
-    const skillMatches = inputText.match(/(?:\s|^)\/([a-zA-Z0-9_-]+)/g)
-
-    if (skillMatches && skillMatches.length > 0 && window.api && window.api.readSkill) {
-      let combinedSkillsContent = ''
-      const loadedSkills = []
-      
-      for (const match of skillMatches) {
-        const skillName = match.trim().substring(1) // Hilangkan spasi dan '/'
-        try {
-          const skillContent = await window.api.readSkill(skillName)
-          if (skillContent) {
-            combinedSkillsContent += `\n\n--- SKILL: ${skillName.toUpperCase()} ---\n${skillContent}`
-            loadedSkills.push(skillName)
-            userText = userText.replace(match, '') // Hapus slash command dari teks yang dilihat AI
-          }
-        } catch (e) {
-          console.error('[InputBar] Failed to read skill:', skillName, e)
-        }
-      }
-
-      userText = userText.trim()
-
-      if (loadedSkills.length > 0) {
-        finalPrompt = `${userText}\n\n=== SYSTEM INSTRUCTION: SKILL DIAKTIFKAN ===\nBerikut adalah instruksi skill khusus yang WAJIB kamu kombinasikan dan ikuti secara ketat untuk mengeksekusi permintaan di atas:\n${combinedSkillsContent}\n=========================================`
-      }
-    }
-
     if (attachedFiles.length > 0) {
       const filePathsText = attachedFiles.map((f) => `"${f.path}"`).join(', ')
       if (finalPrompt.trim()) {
@@ -301,58 +220,6 @@ const InputBar = ({ onSubmit, isLoading, isRecording, isProcessing, audioIntensi
     }, 50)
   }
 
-  const handleTextChange = (e) => {
-    const val = e.target.value
-    setInputText(val)
-    
-    if (val.startsWith('/')) {
-      const query = val.slice(1).toLowerCase()
-      const matches = skills.filter(s => s.toLowerCase().includes(query))
-      setFilteredSkills(matches)
-      setShowSkillList(true)
-      setSelectedSkillIndex(0)
-    } else {
-      setShowSkillList(false)
-    }
-  }
-
-  const selectSkill = (skill) => {
-    setInputText(`/${skill} `)
-    setShowSkillList(false)
-    if (inputRef.current) inputRef.current.focus()
-  }
-
-  const handleKeyDown = (e) => {
-    if (showSkillList && filteredSkills.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setSelectedSkillIndex(prev => (prev + 1) % filteredSkills.length)
-        return
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setSelectedSkillIndex(prev => (prev - 1 + filteredSkills.length) % filteredSkills.length)
-        return
-      }
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault()
-        selectSkill(filteredSkills[selectedSkillIndex])
-        return
-      }
-      if (e.key === 'Escape') {
-        setShowSkillList(false)
-        return
-      }
-    }
-
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      if (!isSendDisabled) {
-        handleFormSubmit()
-      }
-    }
-  }
-
   const isSendDisabled = !inputText.trim() && attachedFiles.length === 0
 
   return (
@@ -360,47 +227,26 @@ const InputBar = ({ onSubmit, isLoading, isRecording, isProcessing, audioIntensi
       {/* File Attachment Pills Preview */}
       {attachedFiles.length > 0 && (
         <div className="mb-2 flex items-center gap-2 overflow-x-auto py-1 px-2 no-scrollbar animate-[holo-project-in_0.2s_ease-out_forwards]">
-          {attachedFiles.map((file, idx) => {
-            const isImage = /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(file.name)
-            const previewUrl = isImage ? previewUrlsRef.current.get(file.path) : null
-            return (
-              <div
-                key={file.path + idx}
-                className="relative flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-full px-3 py-1.5 text-xs text-white shadow-lg animate-fade-in group hover:border-primary/50 transition-all flex-shrink-0"
-                onMouseEnter={() => isImage && setHoveredFileIdx(idx)}
-                onMouseLeave={() => setHoveredFileIdx(-1)}
+          {attachedFiles.map((file, idx) => (
+            <div
+              key={file.path + idx}
+              className="flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-full px-3 py-1.5 text-xs text-white shadow-lg animate-fade-in group hover:border-primary/50 transition-all flex-shrink-0"
+            >
+              <span className="text-sm">{getFileIcon(file.name)}</span>
+              <span className="max-w-[140px] truncate font-medium">{file.name}</span>
+              {file.size > 0 && (
+                <span className="text-[10px] text-white/40">{formatFileSize(file.size)}</span>
+              )}
+              <button
+                type="button"
+                onClick={() => removeFile(idx)}
+                className="text-white/40 hover:text-error hover:bg-error/20 p-1 rounded-full transition-all"
+                title="Hapus Lampiran"
               >
-                {/* Hover preview popup */}
-                {hoveredFileIdx === idx && previewUrl && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-[100] pointer-events-none animate-[holo-project-in_0.15s_ease-out]">
-                    <div className="glass rounded-xl border border-white/20 shadow-2xl shadow-black/50 p-2">
-                      <img
-                        src={previewUrl}
-                        alt={file.name}
-                        className="max-w-[200px] max-h-[200px] rounded-lg object-contain"
-                      />
-                      <p className="text-[10px] text-white/50 mt-1 text-center truncate max-w-[200px]">{file.name}</p>
-                    </div>
-                    {/* Arrow */}
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-3 h-3 bg-[var(--glass-bg)] border-r border-b border-[var(--glass-border)] rotate-45 -mt-1.5" />
-                  </div>
-                )}
-                <span className="text-sm">{getFileIcon(file.name)}</span>
-                <span className="max-w-[140px] truncate font-medium">{file.name}</span>
-                {file.size > 0 && (
-                  <span className="text-[10px] text-white/40">{formatFileSize(file.size)}</span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => removeFile(idx)}
-                  className="text-white/40 hover:text-error hover:bg-error/20 p-1 rounded-full transition-all"
-                  title="Hapus Lampiran"
-                >
-                  <FaTimes size={10} />
-                </button>
-              </div>
-            )
-          })}
+                <FaTimes size={10} />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -506,38 +352,21 @@ const InputBar = ({ onSubmit, isLoading, isRecording, isProcessing, audioIntensi
             </div>
           )}
         </div>
-        {/* Skill Autocomplete Dropdown */}
-        {showSkillList && filteredSkills.length > 0 && (
-          <div className="absolute bottom-full left-12 mb-2 w-64 bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.5)] z-50 animate-fade-in">
-            <div className="p-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-white/5">
-              Available Skills
-            </div>
-            <div className="max-h-48 overflow-y-auto no-scrollbar">
-              {filteredSkills.map((skill, idx) => (
-                <div
-                  key={skill}
-                  onClick={() => selectSkill(skill)}
-                  className={`px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2 ${
-                    idx === selectedSkillIndex 
-                      ? 'bg-emerald-500/20 text-emerald-400' 
-                      : 'hover:bg-white/10 text-gray-300'
-                  }`}
-                >
-                  <span className="opacity-50">/</span>
-                  <span className="font-medium">{skill}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Input Textarea */}
         <textarea
           ref={inputRef}
           rows={1}
           value={inputText}
-          onChange={handleTextChange}
-          onKeyDown={handleKeyDown}
+          onChange={(e) => setInputText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              if (!isSendDisabled) {
+                handleFormSubmit()
+              }
+            }
+          }}
           placeholder={
             isLoading
               ? 'Beri intervensi ke Mark...'

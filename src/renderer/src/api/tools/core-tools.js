@@ -9,7 +9,6 @@ export const core_tools = {
   "grep-search": "Cari teks dalam folder. Query: path_folder||keyword.",
   "file-outline": "Lihat peta/struktur file (fungsi, class, ekspor, heading) beserta nomor baris tanpa membaca seluruh isi. Query: path_absolut.",
   "read-document": "Membaca & mencari isi dokumen teks/PDF/DOCX. Panggil tanpa query untuk Smart Overview, atau gunakan kata kunci (path||keyword) atau baris (path||startLine||endLine).",
-  "run-powershell": "Eksekusi perintah shell (PowerShell di Windows, bash di Linux). (Perlu persetujuan user untuk command berbahaya).",
-  "browser-search": "Mencari informasi di internet.",
-  "read-skills": "WAJIB dipanggil jika user meminta kamu menggunakan Skill tertentu (misal: /speedrunner). Membaca file pedoman skill `.md` untuk mengubah perilakumu. Query: nama_skill (tanpa ekstensi .md)."
+  "run-bash": "Eksekusi perintah bash (Linux). (Perlu persetujuan user untuk command berbahaya).",
+  "browser-search": "Mencari informasi di internet."
 }
