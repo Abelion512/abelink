@@ -841,40 +841,108 @@ export const NATIVE_TOOLS = {
         if (parts.length < 2)
           return {
             success: false,
-            message: "Format salah. Gunakan separator '||' (contoh: D:\\Project||nama_fungsi atau nama_subfolder||nama_fungsi)"
+            message: "Format salah. Gunakan separator '||' (contoh: D:\\Project||nama_fungsi atau .||nama_fungsi)"
           }
 
         let dirPath = parts[0].trim()
         const keyword = parts[1].trim()
 
+        if (!keyword) {
+          return { success: false, message: 'Kata kunci pencarian tidak boleh kosong.' }
+        }
+
         const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
         if (!path.isAbsolute(dirPath)) {
-          dirPath = dirPath ? path.join(activeRoot, dirPath) : activeRoot
+          dirPath = dirPath && dirPath !== '.' ? path.join(activeRoot, dirPath) : activeRoot
         }
 
         if (!fs.existsSync(dirPath)) {
           return { success: false, message: `Direktori tidak ditemukan: ${dirPath}` }
         }
 
-        const cmd = `findstr /S /I /N /C:"${keyword.replace(/"/g, '\\"')}" "${dirPath}\\*.*"`
-        try {
-          const { stdout } = await execPromise(cmd)
-          const lines = stdout.split('\n').filter((l) => {
-            const lower = l.toLowerCase()
-            return (
-              !lower.includes('\\node_modules\\') &&
-              !lower.includes('\\.git\\') &&
-              !lower.includes('\\dist\\') &&
-              !lower.includes('\\build\\')
-            )
-          })
-          const result = lines.slice(0, 50).join('\n')
-          return { success: true, result: result || 'Pencarian tidak menemukan hasil apapun.' }
-        } catch (findErr) {
-          return {
-            success: true,
-            result: 'Pencarian tidak menemukan hasil apapun.'
+        const IGNORED_GREP_DIRS = new Set([
+          'node_modules',
+          '.git',
+          'dist',
+          'build',
+          '.next',
+          '.vite',
+          '.nuxt',
+          'coverage',
+          '.cache',
+          'out',
+          '.idea',
+          '.vscode',
+          'target',
+          'bin',
+          'obj'
+        ])
+
+        const TEXT_EXTENSIONS = new Set([
+          '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs',
+          '.json', '.html', '.htm', '.css', '.scss', '.less',
+          '.py', '.md', '.markdown', '.txt', '.rs', '.go',
+          '.java', '.c', '.cpp', '.h', '.hpp', '.cs', '.sh',
+          '.ps1', '.bat', '.cmd', '.yml', '.yaml', '.xml',
+          '.env', '.sql', '.toml', '.ini', '.cfg', '.vue', '.svelte'
+        ])
+
+        const matches = []
+        const lowerKeyword = keyword.toLowerCase()
+
+        async function walk(dir) {
+          if (matches.length >= 50) return
+
+          let entries
+          try {
+            entries = await fs.promises.readdir(dir, { withFileTypes: true })
+          } catch (_) {
+            return
           }
+
+          for (const entry of entries) {
+            if (matches.length >= 50) break
+
+            const fullPath = path.join(dir, entry.name)
+
+            if (entry.isDirectory()) {
+              if (!IGNORED_GREP_DIRS.has(entry.name.toLowerCase())) {
+                await walk(fullPath)
+              }
+            } else if (entry.isFile()) {
+              const ext = path.extname(entry.name).toLowerCase()
+              if (TEXT_EXTENSIONS.has(ext) || !ext || entry.name.startsWith('.')) {
+                try {
+                  const stat = await fs.promises.stat(fullPath)
+                  if (stat.size > 2 * 1024 * 1024) continue
+
+                  const content = await fs.promises.readFile(fullPath, 'utf8')
+                  if (content.toLowerCase().includes(lowerKeyword)) {
+                    const lines = content.split('\n')
+                    for (let i = 0; i < lines.length; i++) {
+                      if (lines[i].toLowerCase().includes(lowerKeyword)) {
+                        const relPath = path.relative(dirPath, fullPath)
+                        matches.push(`${relPath}:${i + 1}: ${lines[i].trim()}`)
+                        if (matches.length >= 50) break
+                      }
+                    }
+                  }
+                } catch (_) {}
+              }
+            }
+          }
+        }
+
+        await walk(dirPath)
+
+        if (matches.length === 0) {
+          return { success: true, result: 'Pencarian tidak menemukan hasil apapun.' }
+        }
+
+        return {
+          success: true,
+          result: matches.join('\n'),
+          total_matches: matches.length
         }
       } catch (e) {
         return { success: false, error: e.message }
