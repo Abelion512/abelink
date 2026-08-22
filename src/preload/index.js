@@ -8,6 +8,7 @@ const api = {
   },
   saveTempFile: (arrayBuffer, fileName) => ipcRenderer.invoke('save-temp-file', arrayBuffer, fileName),
   showOpenDialog: () => ipcRenderer.invoke('dialog:open-file'),
+  selectDirectory: () => ipcRenderer.invoke('dialog:open-directory'),
   fetchAI: (params) => ipcRenderer.invoke('ai:fetch', params),
   abortFetchAI: () => ipcRenderer.send('ai:abort-fetch'),
   syncConfig: (config) => ipcRenderer.send('sync-config', config),

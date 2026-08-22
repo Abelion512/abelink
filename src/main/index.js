@@ -336,6 +336,12 @@ ipcMain.handle('dialog:open-file', async () => {
   return result.filePaths
 })
 
+ipcMain.handle('dialog:open-directory', async () => {
+  const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+  if (result.canceled || !result.filePaths || result.filePaths.length === 0) return null
+  return result.filePaths[0]
+})
+
 ipcMain.handle('save-temp-file', async (event, arrayBuffer, fileName) => {
   try {
     const tempDir = path.join(app.getPath('temp'), 'mark-attachments')

@@ -15,7 +15,8 @@ import {
   Send,
   Loader2,
   ArrowLeft,
-  Bot
+  Bot,
+  Folder
 } from 'lucide-react'
 import {
   getAllSessions,
@@ -24,7 +25,8 @@ import {
   saveSession,
   deleteSession,
   renameSession,
-  getChatData
+  getChatData,
+  setSessionWorkspace
 } from '../../api/db'
 import ChatList from '../ChatList'
 import InputBar from './InputBar'
@@ -205,6 +207,18 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
     setEditingSessionId(null)
   }
 
+  const handleSelectSessionWorkspace = async () => {
+    if (window.api && window.api.selectDirectory) {
+      const selected = await window.api.selectDirectory()
+      if (selected) {
+        await setSessionWorkspace(activeSessionId, selected)
+        setSessions((prev) =>
+          prev.map((s) => (s.id === activeSessionId ? { ...s, workspaceRoot: selected } : s))
+        )
+      }
+    }
+  }
+
   const handleSendMessage = async (prompt) => {
     if (!prompt.trim()) return
 
@@ -219,12 +233,15 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
 
     if (activeSessionId === 1) {
       // Direct pass to Main Thread (Home Orb engine)
-      handlePlanningCommand(prompt)
+      handlePlanningCommand(prompt, false, false, {
+        workspaceRoot: currentSession?.workspaceRoot
+      })
     } else {
       // Local workspace session execution via useMarkPlan
-      handlePlanningCommand(prompt, {
+      handlePlanningCommand(prompt, false, false, {
         sessionId: activeSessionId,
-        customChatData: activeSessionData
+        customChatData: activeSessionData,
+        workspaceRoot: currentSession?.workspaceRoot
       })
     }
   }
@@ -550,6 +567,8 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
               onStopRecord={stopRecording}
               onStop={handleStopSession}
               source={inputSource || 'pc'}
+              workspaceRoot={activeSessionObj?.workspaceRoot}
+              onSelectWorkspace={handleSelectSessionWorkspace}
             />
           </div>
         </div>

@@ -111,6 +111,24 @@ export const GROUP_TOOLS_DEFINITION = {
       speak:
         'Bicarakan teks secara lisan (Text-to-Speech) lewat speaker komputer user. Query: "Teks yang ingin kamu ucapkan". Gunakan ini jika kamu ingin memanggil user atau berbicara langsung.'
     }
+  },
+  git_vcs: {
+    description: 'Manajemen version control Git untuk repositori proyek (Status, Diff, Commit, Revert).',
+    tools: {
+      'git-status': 'Melihat status modifikasi berkas di repositori git (git status --short). Query: kosongkan atau masukkan path folder.',
+      'git-diff': 'Melihat detail baris kode yang berubah sebelum di-commit (git diff). Query: kosongkan untuk semua berkas, atau spesifik nama_berkas.',
+      'git-commit': 'Membuat checkpoint commit git secara otomatis. Query: pesan_commit||path_folder (path opsional). (Butuh persetujuan user).',
+      'git-revert': 'Me-rollback perubahan berkas yang belum di-commit ke HEAD. Query: nama_berkas (atau kosongkan untuk reset --hard seluruh repo). (Butuh persetujuan user).'
+    }
+  },
+  task_terminal: {
+    description: 'Terminal runner latar belakang (non-blocking) untuk menjalankan server dev, unit test, dan proses jangka panjang.',
+    tools: {
+      'run-task': 'Menjalankan server atau proses background terminal (misal: dev-server, build, test). Query: taskId||perintah (contoh: "dev-server||npm run dev" atau "test||pytest"). (Perlu persetujuan user jika perintah berisiko).',
+      'read-task-output': 'Membaca log output terbaru dari background terminal task. Query: taskId||jumlah_baris (contoh: "dev-server||40").',
+      'kill-task': 'Menghentikan proses background terminal yang sedang berjalan. Query: taskId (contoh: "dev-server").',
+      'list-tasks': 'Melihat seluruh background tasks yang sedang berjalan beserta PID dan statusnya. Query: kosongkan.'
+    }
   }
 }
 

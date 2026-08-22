@@ -343,7 +343,7 @@ export async function createSession(title = 'Percakapan Baru', initialData = [])
   }
 }
 
-export async function saveSession(id, data, title = null) {
+export async function saveSession(id, data, title = null, workspaceRoot = null) {
   try {
     const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
     const existing = await db.sessions.get(numId)
@@ -359,10 +359,40 @@ export async function saveSession(id, data, title = null) {
     } else {
       updatePayload.title = numId === 1 ? 'Main Thread' : 'Percakapan Baru'
     }
+    if (workspaceRoot !== null && workspaceRoot !== undefined) {
+      updatePayload.workspaceRoot = workspaceRoot
+    } else if (existing?.workspaceRoot) {
+      updatePayload.workspaceRoot = existing.workspaceRoot
+    }
     await db.sessions.put(updatePayload)
     return true
   } catch (error) {
     console.error('Error in saveSession:', error)
+    return false
+  }
+}
+
+export async function setSessionWorkspace(id, workspaceRoot) {
+  try {
+    const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
+    const existing = await db.sessions.get(numId)
+    if (existing) {
+      existing.workspaceRoot = workspaceRoot
+      existing.timestamp = Date.now()
+      await db.sessions.put(existing)
+      return true
+    } else {
+      await db.sessions.put({
+        id: numId,
+        title: numId === 1 ? 'Main Thread' : 'Percakapan Baru',
+        data: [],
+        workspaceRoot,
+        timestamp: Date.now()
+      })
+      return true
+    }
+  } catch (e) {
+    console.error('Error in setSessionWorkspace:', e)
     return false
   }
 }

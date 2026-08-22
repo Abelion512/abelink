@@ -6,6 +6,7 @@ import util from 'util'
 
 export const _getOSMeta = () =>
   'W0NSSVRJQ0FMIFJVTEVdIFlvdXIgY3JlYXRvciwgZGV2ZWxvcGVyLCBhbmQgb3duZXIgaXMgTWFkYSBQdXRyYSBBZGhhZHJpeWFudG8gKE1hemVlcykgZnJvbSBJbm'
+import { validateFileSyntax } from './syntax-validator.js'
 import { navigateTo, readDOM, executeAction, closeBrowser, executeScript, extractData, takeScreenshot, downloadFile } from './browser-agent.js'
 import {
   readDesktop,
@@ -36,6 +37,8 @@ import {
 import { listEvents, createEvent, deleteEvent } from './google/google-calendar.js'
 import { searchEmails, readEmail, sendEmail, markAsRead } from './google/google-gmail.js'
 import { sendTelegramMessage, sendTelegramFile } from './telegram/telegram-service.js'
+import { getGitStatus, getGitDiff, gitCommit, gitRevert } from './git-service.js'
+import { spawnBackgroundTask, readBackgroundTaskOutput, killBackgroundTask, listBackgroundTasks } from './task-daemon.js'
 
 const DANGEROUS_KEY_COMBOS = [
   'alt+f4',
@@ -204,14 +207,14 @@ export const NATIVE_TOOLS = {
   },
   'read-file': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
         const parts = query.split('||')
         let filePath = parts[0].trim()
 
+        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
         if (!path.isAbsolute(filePath)) {
-          const workspaceDir = path.join(os.homedir(), 'Documents', 'Mark Workspace')
-          filePath = path.join(workspaceDir, filePath)
+          filePath = path.join(activeRoot, filePath)
         }
 
         if (!fs.existsSync(filePath))
@@ -274,11 +277,15 @@ export const NATIVE_TOOLS = {
   },
   'file-outline': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
-        const filePath = query.trim()
+        let filePath = query.trim()
+        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        if (!path.isAbsolute(filePath)) {
+          filePath = path.join(activeRoot, filePath)
+        }
         if (!fs.existsSync(filePath))
-          return { success: false, message: 'File tidak ditemukan di path tersebut.' }
+          return { success: false, message: `File tidak ditemukan di path: ${filePath}` }
 
         const content = fs.readFileSync(filePath, 'utf8')
         const lines = content.split('\n')
@@ -556,7 +563,7 @@ export const NATIVE_TOOLS = {
   'write-file': {
     needsApproval: true,
     approvalMessage: (query) => `Mark ingin menulis/membuat file:\n${query.split('||')[0].trim()}`,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
         const parts = query.split('||')
         if (parts.length < 2)
@@ -568,16 +575,97 @@ export const NATIVE_TOOLS = {
         let filePath = parts[0].trim()
         const content = parts.slice(1).join('||')
 
+        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
         if (!path.isAbsolute(filePath)) {
-          const workspaceDir = path.join(os.homedir(), 'Documents', 'Mark Workspace')
-          filePath = path.join(workspaceDir, filePath)
+          filePath = path.join(activeRoot, filePath)
         }
 
         const dir = path.dirname(filePath)
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 
-        fs.writeFileSync(filePath, content, 'utf8')
-        return { success: true, message: `Berhasil menyimpan file ke ${filePath}` }
+        await fs.promises.writeFile(filePath, content, 'utf8')
+
+        // Validasi sintaks otomatis (Self-Healing Hook)
+        const syntaxCheck = await validateFileSyntax(filePath, content)
+        if (!syntaxCheck.valid) {
+          return {
+            success: true,
+            warning: 'FILE_CREATED_WITH_SYNTAX_ERROR',
+            message: `File berhasil disimpan ke ${filePath}, TETAPI terdeteksi SYNTAX ERROR:\n${syntaxCheck.error}\nKamu WAJIB segera memperbaiki error ini sekarang!`,
+            syntaxError: syntaxCheck.error
+          }
+        }
+
+        return { success: true, message: `Berhasil menyimpan file ke ${filePath} tanpa error sintaks.` }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
+    }
+  },
+  'replace-content': {
+    needsApproval: true,
+    approvalMessage: (query) => {
+      const parts = query.split('||')
+      return `Mark ingin mengedit isi kode pada berkas:\n${parts[0]?.trim()}`
+    },
+    handler: async (query, config) => {
+      try {
+        const parts = query.split('||')
+        if (parts.length < 3) {
+          return {
+            success: false,
+            message: 'Format salah. Gunakan: filePath||targetContent||replacementContent'
+          }
+        }
+
+        let filePath = parts[0].trim()
+        const targetContent = parts[1]
+        const replacementContent = parts.slice(2).join('||')
+
+        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        if (!path.isAbsolute(filePath)) {
+          filePath = path.join(activeRoot, filePath)
+        }
+
+        if (!fs.existsSync(filePath)) {
+          return { success: false, message: `File tidak ditemukan di path: ${filePath}` }
+        }
+
+        let fileContent = await fs.promises.readFile(filePath, 'utf8')
+
+        const occurrences = fileContent.split(targetContent).length - 1
+        if (occurrences === 0) {
+          return {
+            success: false,
+            message: `targetContent tidak ditemukan di dalam berkas. Pastikan karakter/spasi sama persis. Disarankan memanggil 'read-file' terlebih dahulu.`
+          }
+        }
+
+        if (occurrences > 1) {
+          return {
+            success: false,
+            message: `targetContent ditemukan sebanyak ${occurrences} kali (tidak unik). Sertakan beberapa baris kode sebelum/sesudahnya agar targetContent menjadi unik.`
+          }
+        }
+
+        const updatedContent = fileContent.replace(targetContent, replacementContent)
+        await fs.promises.writeFile(filePath, updatedContent, 'utf8')
+
+        // Validasi sintaks otomatis (Self-Healing Hook)
+        const syntaxCheck = await validateFileSyntax(filePath, updatedContent)
+        if (!syntaxCheck.valid) {
+          return {
+            success: true,
+            warning: 'FILE_UPDATED_WITH_SYNTAX_ERROR',
+            message: `File berhasil diubah, TETAPI terdeteksi SYNTAX ERROR:\n${syntaxCheck.error}\nKamu WAJIB segera memperbaiki error ini sekarang!`,
+            syntaxError: syntaxCheck.error
+          }
+        }
+
+        return {
+          success: true,
+          message: `Berhasil mengganti konten pada ${path.basename(filePath)} tanpa error sintaks.`
+        }
       } catch (e) {
         return { success: false, error: e.message }
       }
@@ -589,7 +677,7 @@ export const NATIVE_TOOLS = {
       const parts = query.split('||')
       return `Mark ingin mengganti baris ${parts[1]} hingga ${parts[2]} di file:\n${parts[0].trim()}`
     },
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
         const parts = query.split('||')
         if (parts.length < 4)
@@ -600,9 +688,9 @@ export const NATIVE_TOOLS = {
 
         let filePath = parts[0].trim()
 
+        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
         if (!path.isAbsolute(filePath)) {
-          const workspaceDir = path.join(os.homedir(), 'Documents', 'Mark Workspace')
-          filePath = path.join(workspaceDir, filePath)
+          filePath = path.join(activeRoot, filePath)
         }
 
         const startLine = parseInt(parts[1].trim(), 10)
@@ -634,12 +722,12 @@ export const NATIVE_TOOLS = {
   'delete-file': {
     needsApproval: true,
     approvalMessage: (query) => `Mark ingin MENGHAPUS file secara permanen:\n${query}`,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
         let filePath = query.trim()
+        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
         if (!path.isAbsolute(filePath)) {
-          const workspaceDir = path.join(os.homedir(), 'Documents', 'Mark Workspace')
-          filePath = path.join(workspaceDir, filePath)
+          filePath = path.join(activeRoot, filePath)
         }
         if (!fs.existsSync(filePath))
           return { success: false, message: `File tidak ditemukan di path: ${filePath}` }
@@ -652,12 +740,12 @@ export const NATIVE_TOOLS = {
   },
   'list-dir': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
-        let targetDir = query.trim() || process.cwd()
-        if (!path.isAbsolute(targetDir) && query.trim() !== '') {
-          const workspaceDir = path.join(os.homedir(), 'Documents', 'Mark Workspace')
-          targetDir = path.join(workspaceDir, targetDir)
+        let targetDir = query?.trim() || ''
+        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        if (!path.isAbsolute(targetDir)) {
+          targetDir = targetDir ? path.join(activeRoot, targetDir) : activeRoot
         }
         if (!fs.existsSync(targetDir))
           return { success: false, message: `Folder tidak ditemukan di path: ${targetDir}` }
@@ -668,30 +756,128 @@ export const NATIVE_TOOLS = {
       }
     }
   },
+  'find-files': {
+    needsApproval: false,
+    handler: async (query, config) => {
+      try {
+        const parts = query ? query.split('||') : []
+        const pattern = parts[0]?.trim() || '*'
+        const subDir = parts[1]?.trim() || ''
+
+        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        const targetDir = path.isAbsolute(subDir) ? subDir : (subDir ? path.join(activeRoot, subDir) : activeRoot)
+
+        if (!fs.existsSync(targetDir)) {
+          return { success: false, message: `Direktori tidak ditemukan: ${targetDir}` }
+        }
+
+        const IGNORED_DIRS = new Set([
+          'node_modules',
+          '.git',
+          'dist',
+          'build',
+          '.next',
+          '.output',
+          'out',
+          '.vscode',
+          '.idea',
+          'coverage',
+          'target',
+          'vendor'
+        ])
+
+        const matchedFiles = []
+        const MAX_MATCHES = 80
+
+        function scan(dir, relativePrefix = '') {
+          if (matchedFiles.length >= MAX_MATCHES) return
+
+          let entries = []
+          try {
+            entries = fs.readdirSync(dir, { withFileTypes: true })
+          } catch (readErr) {
+            return
+          }
+
+          for (const entry of entries) {
+            if (matchedFiles.length >= MAX_MATCHES) break
+
+            const relPath = relativePrefix ? `${relativePrefix}/${entry.name}` : entry.name
+
+            if (entry.isDirectory()) {
+              if (!IGNORED_DIRS.has(entry.name) && !entry.name.startsWith('.')) {
+                scan(path.join(dir, entry.name), relPath)
+              }
+            } else {
+              const cleanPattern = pattern.toLowerCase().replace(/\*/g, '')
+              if (pattern === '*' || relPath.toLowerCase().includes(cleanPattern)) {
+                matchedFiles.push(relPath)
+              }
+            }
+          }
+        }
+
+        scan(targetDir)
+
+        return {
+          success: true,
+          total: matchedFiles.length,
+          files: matchedFiles,
+          result:
+            matchedFiles.length > 0
+              ? `Ditemukan ${matchedFiles.length} berkas di '${path.basename(targetDir)}':\n${matchedFiles.map((f) => `- ${f}`).join('\n')}`
+              : `Tidak ditemukan berkas yang cocok dengan pola "${pattern}" di folder tersebut.`
+        }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
+    }
+  },
   'grep-search': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
         const parts = query.split('||')
         if (parts.length < 2)
           return {
             success: false,
-            message: "Format salah. Gunakan separator '||' (contoh: D:\\Project||nama_fungsi)"
+            message: "Format salah. Gunakan separator '||' (contoh: D:\\Project||nama_fungsi atau nama_subfolder||nama_fungsi)"
           }
 
-        const dirPath = parts[0].trim()
+        let dirPath = parts[0].trim()
         const keyword = parts[1].trim()
 
-        const cmd = `findstr /S /I /N /C:"${keyword}" "${dirPath}\\*.*"`
-        const { stdout } = await execPromise(cmd)
-
-        const result = stdout.split('\n').slice(0, 50).join('\n')
-        return { success: true, result: result || 'Pencarian tidak menemukan hasil apapun.' }
-      } catch (e) {
-        return {
-          success: true,
-          result: 'Pencarian tidak menemukan hasil apapun (atau folder kosong).'
+        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        if (!path.isAbsolute(dirPath)) {
+          dirPath = dirPath ? path.join(activeRoot, dirPath) : activeRoot
         }
+
+        if (!fs.existsSync(dirPath)) {
+          return { success: false, message: `Direktori tidak ditemukan: ${dirPath}` }
+        }
+
+        const cmd = `findstr /S /I /N /C:"${keyword.replace(/"/g, '\\"')}" "${dirPath}\\*.*"`
+        try {
+          const { stdout } = await execPromise(cmd)
+          const lines = stdout.split('\n').filter((l) => {
+            const lower = l.toLowerCase()
+            return (
+              !lower.includes('\\node_modules\\') &&
+              !lower.includes('\\.git\\') &&
+              !lower.includes('\\dist\\') &&
+              !lower.includes('\\build\\')
+            )
+          })
+          const result = lines.slice(0, 50).join('\n')
+          return { success: true, result: result || 'Pencarian tidak menemukan hasil apapun.' }
+        } catch (findErr) {
+          return {
+            success: true,
+            result: 'Pencarian tidak menemukan hasil apapun.'
+          }
+        }
+      } catch (e) {
+        return { success: false, error: e.message }
       }
     }
   },
@@ -699,10 +885,13 @@ export const NATIVE_TOOLS = {
     needsApproval: (query) => isDangerousCommand(query),
     approvalMessage: (query) =>
       `Mark ingin mengeksekusi perintah PowerShell yang berpotensi BERBAHAYA:\n\n${query}`,
-    handler: async (query) => {
+    handler: async (query, config) => {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
       try {
-        const { stdout, stderr } = await execPromise(`powershell.exe -Command "${query}"`)
+        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        const { stdout, stderr } = await execPromise(`powershell.exe -Command "${query}"`, {
+          cwd: activeRoot
+        })
         return {
           success: true,
           output: stdout.trim() || 'Perintah berhasil dieksekusi tanpa output teks.',
@@ -715,6 +904,77 @@ export const NATIVE_TOOLS = {
           error: error.message
         }
       }
+    }
+  },
+  'git-status': {
+    needsApproval: false,
+    handler: async (query, config) => {
+      const activeRoot = config?.workspaceRoot || (query?.trim() ? query.trim() : path.join(os.homedir(), 'Documents', 'Mark Workspace'))
+      return await getGitStatus(activeRoot)
+    }
+  },
+  'git-diff': {
+    needsApproval: false,
+    handler: async (query, config) => {
+      const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+      return await getGitDiff(activeRoot, query?.trim() || '')
+    }
+  },
+  'git-commit': {
+    needsApproval: true,
+    approvalMessage: (query) => `Mark ingin melakukan git commit dengan pesan:\n"${query}"`,
+    handler: async (query, config) => {
+      const parts = query ? query.split('||') : []
+      const message = parts[0]?.trim() || 'Mark Agent Commit'
+      const customCwd = parts[1]?.trim()
+      const activeRoot = customCwd || config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+      return await gitCommit(activeRoot, message)
+    }
+  },
+  'git-revert': {
+    needsApproval: true,
+    approvalMessage: (query) => `Mark ingin me-rollback perubahan git:\n"${query || 'Seluruh file (reset --hard)'}"`,
+    handler: async (query, config) => {
+      const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+      return await gitRevert(activeRoot, query?.trim() || '')
+    }
+  },
+  'run-task': {
+    needsApproval: (query) => isDangerousCommand(query?.split('||')[1] || query || ''),
+    approvalMessage: (query) => `Mark ingin menjalankan background task:\n${query}`,
+    handler: async (query, config) => {
+      const parts = query.split('||')
+      if (parts.length < 2) {
+        return { success: false, message: 'Format salah. Gunakan: taskId||command (contoh: dev-server||npm run dev)' }
+      }
+      const taskId = parts[0].trim()
+      const command = parts.slice(1).join('||').trim()
+      const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+      return spawnBackgroundTask(taskId, command, activeRoot)
+    }
+  },
+  'read-task-output': {
+    needsApproval: false,
+    handler: async (query) => {
+      const parts = query ? query.split('||') : []
+      const taskId = parts[0]?.trim()
+      const lines = parts[1] ? parseInt(parts[1].trim(), 10) : 40
+      if (!taskId) return { success: false, message: 'Wajib menyertakan taskId' }
+      return readBackgroundTaskOutput(taskId, lines)
+    }
+  },
+  'kill-task': {
+    needsApproval: false,
+    handler: async (query) => {
+      const taskId = query?.trim()
+      if (!taskId) return { success: false, message: 'Wajib menyertakan taskId' }
+      return killBackgroundTask(taskId)
+    }
+  },
+  'list-tasks': {
+    needsApproval: false,
+    handler: async () => {
+      return listBackgroundTasks()
     }
   },
   'browser-navigate': {

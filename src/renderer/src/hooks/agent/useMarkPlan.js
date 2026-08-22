@@ -618,7 +618,11 @@ export const useMarkPlan = ({
             }
           }
         } else {
-          const nativePromise = window.api.executeNativeTool(tool, query, config)
+          const activeConfig = {
+            ...(Array.isArray(config) ? config[0] : config),
+            workspaceRoot: context?.workspaceRoot
+          }
+          const nativePromise = window.api.executeNativeTool(tool, query, activeConfig)
           const abortPromise = new Promise((_, reject) => {
             const onAbort = () => reject(new Error('AbortError'))
             if (currentSignal?.aborted) return onAbort()
@@ -866,6 +870,16 @@ export const useMarkPlan = ({
           }
         } catch (e) {}
       }
+    }
+
+    // Ambil workspaceRoot dari database jika belum disertakan di opts
+    if (!opts.workspaceRoot) {
+      try {
+        const sessionRecord = await db.sessions.get(activeSessionNum)
+        if (sessionRecord?.workspaceRoot) {
+          opts.workspaceRoot = sessionRecord.workspaceRoot
+        }
+      } catch (e) {}
     }
 
     const targetSetChatData = (updater) => {
@@ -1577,6 +1591,7 @@ export const useMarkPlan = ({
               decision,
               pluginProcessId,
               targetSetChatData,
+              workspaceRoot: opts.workspaceRoot,
               signal: sessionAbortController.signal
             })
 

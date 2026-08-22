@@ -17,6 +17,7 @@ import musicCoverFallback from '../assets/music-cover.png'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useVAD } from '../hooks/useVAD'
 import { useMemoryGroomer } from '../hooks/useMemoryGroomer'
+import { db, setSessionWorkspace } from '../api/db'
 
 const MarkHome = () => {
   const chatContext = useChat()
@@ -51,6 +52,26 @@ const MarkHome = () => {
   const [isMusicAnimatingOut, setIsMusicAnimatingOut] = useState(false)
   const [isMaxWindow, setIsMaxWindow] = useState(false)
   const [ttsIntensity, setTtsIntensity] = useState(0)
+  const [workspaceRoot, setWorkspaceRoot] = useState(null)
+
+  useEffect(() => {
+    db.sessions
+      .get(1)
+      .then((s) => {
+        if (s?.workspaceRoot) setWorkspaceRoot(s.workspaceRoot)
+      })
+      .catch(() => {})
+  }, [])
+
+  const handleSelectWorkspace = async () => {
+    if (window.api && window.api.selectDirectory) {
+      const selected = await window.api.selectDirectory()
+      if (selected) {
+        await setSessionWorkspace(1, selected)
+        setWorkspaceRoot(selected)
+      }
+    }
+  }
 
   useEffect(() => {
     const handleTtsIntensity = (e) => {
@@ -523,6 +544,8 @@ const MarkHome = () => {
         onStopRecord={stopRecording}
         onStop={handleStop}
         source={inputSource}
+        workspaceRoot={workspaceRoot}
+        onSelectWorkspace={handleSelectWorkspace}
       />
 
       {/* Slide-out Drawers & Modals */}

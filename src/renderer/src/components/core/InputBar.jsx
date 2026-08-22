@@ -10,7 +10,8 @@ import {
   FaFilePdf,
   FaFileCode,
   FaFileImage,
-  FaLock
+  FaLock,
+  FaFolder
 } from 'react-icons/fa'
 import ConfirmModal from './ConfirmModal'
 import { NATIVE_SKILLS } from './native-skills'
@@ -62,7 +63,9 @@ const InputBar = ({
   onStop,
   source = 'pc',
   inline = false,
-  className = ''
+  className = '',
+  workspaceRoot = null,
+  onSelectWorkspace = null
 }) => {
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -406,6 +409,25 @@ const InputBar = ({
         </div>
       )}
 
+      {/* Workspace Root Active Indicator Pill */}
+      {workspaceRoot && (
+        <div className="mb-2 flex items-center gap-2 px-3 py-1 bg-base-200/80 border border-primary/30 rounded-lg text-xs text-white/80 w-fit backdrop-blur-md animate-fade-in shadow-md">
+          <FaFolder className="text-primary text-xs" />
+          <span className="text-[10px] text-primary uppercase font-bold tracking-wider">Workspace:</span>
+          <span className="font-mono text-[11px] truncate max-w-xs">{workspaceRoot}</span>
+          {onSelectWorkspace && (
+            <button
+              type="button"
+              onClick={onSelectWorkspace}
+              className="ml-1 text-[10px] text-white/50 hover:text-primary transition-colors cursor-pointer underline"
+              title="Ganti folder proyek"
+            >
+              Ganti
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Hidden Native File Input */}
       <input
         ref={fileInputRef}
@@ -435,6 +457,25 @@ const InputBar = ({
             <FaPaperclip className="animate-bounce" size={20} />
             <span>Lepaskan file di sini untuk melampirkan...</span>
           </div>
+        )}
+
+        {/* Workspace Root Folder Button */}
+        {onSelectWorkspace && (
+          <button
+            type="button"
+            onClick={onSelectWorkspace}
+            className={`p-3 rounded-full transition-all flex-shrink-0 relative ${
+              workspaceRoot
+                ? 'text-primary hover:text-primary hover:bg-primary/10'
+                : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+            }`}
+            title={workspaceRoot ? `Workspace Root: ${workspaceRoot} (Klik untuk ganti)` : 'Atur Folder Proyek (Workspace Root)'}
+          >
+            <FaFolder size={16} />
+            {workspaceRoot && (
+              <span className="absolute bottom-2 right-2 w-1.5 h-1.5 rounded-full bg-primary ring-1 ring-base-300" />
+            )}
+          </button>
         )}
 
         {/* Paperclip File Upload Button */}

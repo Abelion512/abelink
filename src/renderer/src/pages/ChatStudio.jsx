@@ -11,7 +11,8 @@ import {
   Sparkles,
   Check,
   RotateCcw,
-  Bot
+  Bot,
+  Folder
 } from 'lucide-react'
 import { useChat } from '../contexts/ChatContext'
 import {
@@ -20,7 +21,8 @@ import {
   saveSession,
   deleteSession,
   renameSession,
-  getChatData
+  getChatData,
+  setSessionWorkspace
 } from '../api/db'
 import ChatList from '../components/ChatList'
 import InputBar from '../components/core/InputBar'
@@ -197,6 +199,18 @@ const ChatStudio = () => {
     setEditingSessionId(null)
   }
 
+  const handleSelectSessionWorkspace = async () => {
+    if (window.api && window.api.selectDirectory) {
+      const selected = await window.api.selectDirectory()
+      if (selected) {
+        await setSessionWorkspace(activeSessionId, selected)
+        setSessions((prev) =>
+          prev.map((s) => (s.id === activeSessionId ? { ...s, workspaceRoot: selected } : s))
+        )
+      }
+    }
+  }
+
   const handleSendMessage = async (prompt) => {
     if (!prompt.trim()) return
 
@@ -210,11 +224,14 @@ const ChatStudio = () => {
     }
 
     if (activeSessionId === 1) {
-      handlePlanningCommand(prompt)
+      handlePlanningCommand(prompt, false, false, {
+        workspaceRoot: currentSession?.workspaceRoot
+      })
     } else {
-      handlePlanningCommand(prompt, {
+      handlePlanningCommand(prompt, false, false, {
         sessionId: activeSessionId,
-        customChatData: activeSessionData
+        customChatData: activeSessionData,
+        workspaceRoot: currentSession?.workspaceRoot
       })
     }
   }
@@ -525,6 +542,8 @@ const ChatStudio = () => {
               onStopRecord={stopRecording}
               onStop={handleStopSession}
               source={inputSource || 'pc'}
+              workspaceRoot={activeSessionObj?.workspaceRoot}
+              onSelectWorkspace={handleSelectSessionWorkspace}
             />
           </div>
         </div>
