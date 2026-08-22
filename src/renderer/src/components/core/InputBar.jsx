@@ -66,15 +66,33 @@ const InputBar = ({ onSubmit, isLoading, isRecording, isProcessing, audioIntensi
   const [showSkillList, setShowSkillList] = useState(false)
   const [selectedSkillIndex, setSelectedSkillIndex] = useState(0)
 
-  useEffect(() => {
+  const reloadSkills = async () => {
     if (window.api && window.api.getSkills) {
-      window.api.getSkills().then(loadedSkills => {
-        const nativeSkillList = NATIVE_SKILLS.map(s => ({
+      try {
+        const loadedSkills = await window.api.getSkills()
+        const nativeSkillList = NATIVE_SKILLS.map((s) => ({
           name: s.name,
           description: s.description
         }))
-        setSkills([...nativeSkillList, ...loadedSkills])
-      }).catch(console.error)
+        const merged = [...nativeSkillList, ...(loadedSkills || [])]
+        setSkills(merged)
+        return merged
+      } catch (err) {
+        console.error('[InputBar] Failed to reload skills:', err)
+      }
+    }
+    return []
+  }
+
+  useEffect(() => {
+    reloadSkills()
+    if (window.api && window.api.onSkillsUpdated) {
+      const unsub = window.api.onSkillsUpdated(() => {
+        reloadSkills()
+      })
+      return () => {
+        if (typeof unsub === 'function') unsub()
+      }
     }
   }, [])
 
@@ -285,13 +303,14 @@ const InputBar = ({ onSubmit, isLoading, isRecording, isProcessing, audioIntensi
     }, 50)
   }
 
-  const handleTextChange = (e) => {
+  const handleTextChange = async (e) => {
     const val = e.target.value
     setInputText(val)
     
     if (val.startsWith('/')) {
+      const currentSkills = (skills && skills.length > 0) ? skills : await reloadSkills()
       const query = val.slice(1).toLowerCase()
-      const matches = skills.filter(s => s.name.toLowerCase().includes(query))
+      const matches = currentSkills.filter(s => s.name.toLowerCase().includes(query))
       setFilteredSkills(matches)
       setShowSkillList(true)
       setSelectedSkillIndex(0)

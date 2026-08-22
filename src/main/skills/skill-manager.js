@@ -12,6 +12,37 @@ const getSkillDir = () => {
   return dir
 }
 
+let mainWin = null
+let skillWatcher = null
+
+export const setupSkillWatcher = (window) => {
+  mainWin = window
+  try {
+    const dir = getSkillDir()
+    if (skillWatcher) {
+      skillWatcher.close()
+      skillWatcher = null
+    }
+    let debounceTimer = null
+    skillWatcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        if (mainWin && !mainWin.isDestroyed()) {
+          mainWin.webContents.send('skills-updated')
+        }
+      }, 300)
+    })
+  } catch (err) {
+    console.error('Failed to setup skill directory watcher:', err)
+  }
+}
+
+export const notifySkillsUpdated = () => {
+  if (mainWin && !mainWin.isDestroyed()) {
+    mainWin.webContents.send('skills-updated')
+  }
+}
+
 export const setupSkillIPC = () => {
   ipcMain.handle('get-skills', async () => {
     try {
@@ -120,6 +151,7 @@ export const setupSkillIPC = () => {
       }
       const skillFilePath = path.join(folderPath, 'SKILL.md')
       await fs.promises.writeFile(skillFilePath, content, 'utf8')
+      notifySkillsUpdated()
       return true
     } catch (e) {
       console.error('Failed to save skill', e)
@@ -133,11 +165,13 @@ export const setupSkillIPC = () => {
       const folderPath = path.join(dir, name)
       if (fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
         await fs.promises.rm(folderPath, { recursive: true, force: true })
+        notifySkillsUpdated()
         return true
       }
       const filePath = path.join(dir, `${name}.md`)
       if (fs.existsSync(filePath)) {
         await fs.promises.unlink(filePath)
+        notifySkillsUpdated()
         return true
       }
       return false
@@ -167,8 +201,7 @@ export const setupSkillIPC = () => {
       
       let hasSkillMd = false
       for (const entry of zipEntries) {
-        const name = entry.name.toLowerCase()
-        if (!entry.isDirectory && name === 'skill.md') {
+        if (entry.entryName.endsWith('SKILL.md')) {
           hasSkillMd = true
           break
         }
@@ -180,8 +213,8 @@ export const setupSkillIPC = () => {
 
       // Check if all files are inside a single root folder
       const firstEntry = zipEntries[0]
-      const firstPart = firstEntry.entryName.split('/')[0]
-      const isSingleRoot = zipEntries.every(e => e.entryName.startsWith(firstPart + '/'))
+      const firstPart = firstEntry ? firstEntry.entryName.split('/')[0] : ''
+      const isSingleRoot = firstPart && zipEntries.every(e => e.entryName.startsWith(firstPart + '/'))
       
       const dir = getSkillDir()
       if (isSingleRoot) {
@@ -192,6 +225,7 @@ export const setupSkillIPC = () => {
         zip.extractAllTo(targetPath, true)
       }
 
+      notifySkillsUpdated()
       return true
     } catch (e) {
       console.error('Failed to install skill', e)
@@ -277,6 +311,7 @@ export const setupSkillIPC = () => {
       const targetPath = path.join(dir, name, relativePath)
       await fs.promises.mkdir(path.dirname(targetPath), { recursive: true })
       await fs.promises.writeFile(targetPath, content, 'utf8')
+      notifySkillsUpdated()
       return true
     } catch (e) {
       console.error('Failed to save skill file', e)
@@ -302,6 +337,7 @@ export const setupSkillIPC = () => {
         await fs.promises.mkdir(path.dirname(targetPath), { recursive: true })
         await fs.promises.writeFile(targetPath, '', 'utf8')
       }
+      notifySkillsUpdated()
       return true
     } catch (e) {
       console.error('Failed to create skill item', e)
@@ -320,6 +356,7 @@ export const setupSkillIPC = () => {
         } else {
           await fs.promises.unlink(targetPath)
         }
+        notifySkillsUpdated()
         return true
       }
       return false
@@ -336,6 +373,7 @@ export const setupSkillIPC = () => {
       const newPath = path.join(dir, name, newRelativePath)
       if (fs.existsSync(oldPath)) {
         await fs.promises.rename(oldPath, newPath)
+        notifySkillsUpdated()
         return true
       }
       return false

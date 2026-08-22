@@ -22,6 +22,14 @@ const Skills = () => {
 
   useEffect(() => {
     loadSkills()
+    if (window.api && window.api.onSkillsUpdated) {
+      const unsub = window.api.onSkillsUpdated(() => {
+        loadSkills()
+      })
+      return () => {
+        if (typeof unsub === 'function') unsub()
+      }
+    }
   }, [])
 
   const handleCreateNew = async () => {

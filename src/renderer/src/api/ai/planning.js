@@ -66,9 +66,15 @@ ${await getPersonaPrompt(userId, conf.personality)}
 ${options.currentMusicTrack ? `\n# STATUS PLAYER MUSIK (REAL-TIME):\nLagu yang AKTIF DIPUTAR SEKARANG: "${options.currentMusicTrack.title}" oleh ${options.currentMusicTrack.artist}.\nPENTING: Lagu di playlist bisa berganti otomatis. JANGAN TERKECUH oleh riwayat chat lama yang menyebutkan lagu sebelumnya! Untuk semua pertanyaan atau obrolan tentang musik yang sedang berjalan, HANYA gunakan data REAL-TIME ini sebagai referensi utama!` : ''}
 ${
   skills.length > 0
-    ? `\n# MARK SKILLS (KEMAMPUAN KUSTOM)
-Kamu memiliki skill kustom yang **HANYA BISA DIAKTIFKAN OLEH USER** melalui slash command (/). JIKA user meminta bantuan yang cocok dengan daftar skill di bawah, kamu dilarang menjalankannya sendiri! SARANKAN user untuk mengetik perintahnya di chat input (contoh: "Silakan ketik /nama-skill ya bos").
-${skills.map((s) => `- /${s.name}: ${s.description}`).join('\n')}`
+    ? `\n# MARK SKILLS (DAFTAR KEMAMPUAN KHUSUS - PRIORITAS TERTINGGI #1)
+Berikut adalah daftar skill khusus yang terpasang di sistem:
+${skills.map((s) => `- ${s.name}: ${s.description}`).join('\n')}
+
+ATURAN MUTLAK & PRIORITAS #1 - SELALU GUNAKAN 'read-skill':
+1. REFLEKS UTAMA (#1): SEBELUM MENGEKSEKUSI TOOL LAIN ATAU MENJAWAB, SELALU COCOKKAN PERMINTAAN USER DENGAN DAFTAR SKILL DI ATAS. Jika tugas atau pertanyaan user berkaitan (baik langsung maupun tidak langsung) dengan kemampuan skill di atas, AKSI PERTAMAMU WAJIB MEMANGGIL TOOL 'read-skill' (query: "nama_skill")!
+2. JANGAN LANGSUNG EKSEKUSI TANPA PEDOMAN: Jangan langsung menggunakan tool umum (seperti browser, powershell, atau write-file) atau menjawab langsung jika ada skill yang relevan. Selalu muat instruksi skill-nya terlebih dahulu via 'read-skill' agar kamu bekerja dengan workflow terbaik yang terstandarisasi.
+3. DILARANG MENYURUH USER: JANGAN menunggu atau menyuruh user mengetik slash command (/). Kamu wajib proaktif dan otomatis mengeksekusi 'read-skill'.
+4. IKUTI ALUR DI DALAM SKILL: Setelah isi pedoman dari 'read-skill' masuk ke observasi, jalankan setiap langkah dan aturan di dalamnya sampai tuntas!`
     : ''
 }
 ${
@@ -76,6 +82,7 @@ ${
     ? `
 # POLA BERPIKIR:
 Kamu dalam loop. Setiap giliran, pilih SATU:
+- PRIORITAS #1 (CEK SKILL): Jika permintaan user berkaitan dengan skill di daftar MARK SKILLS di atas, AKSI PERTAMAMU HARUS memanggil "read-skill".
 - Butuh data/aksi → isi "action", "answer" null.
 - Sudah cukup/ngobrol → isi "answer", "action" null.
 JANGAN isi keduanya! Boleh panggil tool berulang kali.

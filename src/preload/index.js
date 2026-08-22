@@ -146,7 +146,12 @@ const api = {
   saveSkillFile: (name, relativePath, content) => ipcRenderer.invoke('save-skill-file', name, relativePath, content),
   createSkillItem: (name, relativePath, isFolder) => ipcRenderer.invoke('create-skill-item', name, relativePath, isFolder),
   deleteSkillItem: (name, relativePath) => ipcRenderer.invoke('delete-skill-item', name, relativePath),
-  renameSkillItem: (name, oldPath, newPath) => ipcRenderer.invoke('rename-skill-item', name, oldPath, newPath)
+  renameSkillItem: (name, oldPath, newPath) => ipcRenderer.invoke('rename-skill-item', name, oldPath, newPath),
+  onSkillsUpdated: (callback) => {
+    const handler = () => callback()
+    ipcRenderer.on('skills-updated', handler)
+    return () => ipcRenderer.removeListener('skills-updated', handler)
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

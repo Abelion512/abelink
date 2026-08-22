@@ -91,16 +91,57 @@ export const isDangerousCommand = (cmd) =>
   DANGEROUS_KEYWORDS.some((k) => cmd.toLowerCase().includes(k.toLowerCase()))
 
 export const NATIVE_TOOLS = {
+  'read-skill': {
+    needsApproval: false,
+    execute: async (query) => {
+      const skillName = (query || '').trim()
+      if (!skillName) return { success: false, message: 'Nama skill kosong' }
+      const skillDir = path.join(os.homedir(), 'Documents', 'Mark Skills')
+
+      // 1. Cek jika folder skill berisi SKILL.md
+      const folderSkillPath = path.join(skillDir, skillName, 'SKILL.md')
+      if (fs.existsSync(folderSkillPath)) {
+        return { success: true, content: await fs.promises.readFile(folderSkillPath, 'utf8') }
+      }
+
+      // 2. Cek jika file standalone .md
+      const fileSkillPath = path.join(skillDir, `${skillName}.md`)
+      if (fs.existsSync(fileSkillPath)) {
+        return { success: true, content: await fs.promises.readFile(fileSkillPath, 'utf8') }
+      }
+
+      // 3. Cek direct file path jika query mengandung sub-path
+      const directPath = path.join(skillDir, skillName)
+      if (fs.existsSync(directPath) && !fs.statSync(directPath).isDirectory()) {
+        return { success: true, content: await fs.promises.readFile(directPath, 'utf8') }
+      }
+
+      return { success: false, message: `Skill '${skillName}' tidak ditemukan di folder 'Documents/Mark Skills'.` }
+    }
+  },
   'read-skills': {
     needsApproval: false,
     execute: async (query) => {
-      const skillName = query.trim()
+      const skillName = (query || '').trim()
       if (!skillName) return { success: false, message: 'Nama skill kosong' }
-      const skillPath = path.join(os.homedir(), 'Documents', 'Mark Skills', `${skillName}.md`)
-      if (fs.existsSync(skillPath)) {
-        return { success: true, content: await fs.promises.readFile(skillPath, 'utf8') }
+      const skillDir = path.join(os.homedir(), 'Documents', 'Mark Skills')
+
+      const folderSkillPath = path.join(skillDir, skillName, 'SKILL.md')
+      if (fs.existsSync(folderSkillPath)) {
+        return { success: true, content: await fs.promises.readFile(folderSkillPath, 'utf8') }
       }
-      return { success: false, message: `Skill ${skillName} tidak ditemukan` }
+
+      const fileSkillPath = path.join(skillDir, `${skillName}.md`)
+      if (fs.existsSync(fileSkillPath)) {
+        return { success: true, content: await fs.promises.readFile(fileSkillPath, 'utf8') }
+      }
+
+      const directPath = path.join(skillDir, skillName)
+      if (fs.existsSync(directPath) && !fs.statSync(directPath).isDirectory()) {
+        return { success: true, content: await fs.promises.readFile(directPath, 'utf8') }
+      }
+
+      return { success: false, message: `Skill '${skillName}' tidak ditemukan di folder 'Documents/Mark Skills'.` }
     }
   },
   'browser-search': {

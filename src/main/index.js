@@ -37,7 +37,7 @@ import {
   getGoogleStatus
 } from './google/google-service.js'
 import { loadPlugins, initPluginIPC } from './plugins/plugin-loader.js'
-import { setupSkillIPC } from './skills/skill-manager.js'
+import { setupSkillIPC, setupSkillWatcher } from './skills/skill-manager.js'
 import { navigateTo, readDOM, executeAction, closeBrowser, showBrowser } from './browser-agent.js'
 import { readDesktop, executeClick, executeType, executeKey, executeScroll, openApp, listWindows, focusWindow, askUserPC } from './pc-agent.js'
 
@@ -84,6 +84,7 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+    setupSkillWatcher(mainWindow)
     // mainWindow.webContents.openDevTools()
   })
 
