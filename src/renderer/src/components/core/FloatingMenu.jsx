@@ -13,7 +13,8 @@ import {
   FaBook,
   FaGoogle,
   FaBrain,
-  FaRobot
+  FaRobot,
+  FaCommentAlt
 } from 'react-icons/fa'
 
 const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
@@ -52,6 +53,18 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
           <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-white/30 pointer-events-none z-10" />
           <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-white/30 pointer-events-none z-10" />
           <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-white/30 pointer-events-none z-10" />
+
+          <button
+            onClick={() => {
+              navigate('/')
+              window.dispatchEvent(new CustomEvent('open-chat-studio'))
+              setIsOpen(false)
+            }}
+            className="flex items-center gap-3 w-full p-3 rounded-xl bg-primary/10 hover:bg-primary/20 transition-colors text-white text-sm font-semibold text-left border border-primary/20 shadow-sm"
+          >
+            <FaCommentAlt className="text-primary" /> Chat Studio
+          </button>
+
           <button
             onClick={() => handleNav('/config')}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"

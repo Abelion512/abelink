@@ -3,20 +3,29 @@ import { summarizeAndArchive } from '../api/ai/chatSummarizer'
 
 const MIN_MESSAGES_TO_ARCHIVE = 10 // 10 pesan (5 tektokan) per arsip
 
-export const useChatArchiver = ({ chatData, activeTopic, config, pushNotification, isLoading }) => {
-  const lastArchivedIndexRef = useRef(0)
+export const useChatArchiver = ({
+  chatData,
+  activeTopic,
+  config,
+  pushNotification,
+  isLoading,
+  sessionId = 1
+}) => {
+  const currentSessionId = sessionId || 1
+  const sessionIndexesRef = useRef({}) // Map<sessionId, number>
   const isArchivingRef = useRef(false)
   const wasLoadingRef = useRef(false)
-  
-  // Track on initial mount if chatData already has items (from restored session)
+
+  // Track on mount / session change
   useEffect(() => {
-    if (chatData.length < lastArchivedIndexRef.current) {
-      // Jika user melakukan 'Clear Chat', reset index ke 0
-      lastArchivedIndexRef.current = 0
-    } else if (lastArchivedIndexRef.current === 0 && chatData.length > 0) {
-      lastArchivedIndexRef.current = chatData.length
+    const currentIndex = sessionIndexesRef.current[currentSessionId] || 0
+    if (chatData.length < currentIndex) {
+      // Jika user melakukan 'Clear Chat', reset index
+      sessionIndexesRef.current[currentSessionId] = 0
+    } else if (currentIndex === 0 && chatData.length > 0) {
+      sessionIndexesRef.current[currentSessionId] = chatData.length
     }
-  }, [chatData.length])
+  }, [chatData.length, currentSessionId])
 
   useEffect(() => {
     // Kita cek transisi dari isLoading: true -> false (artinya Mark baru selesai bales pesan)
@@ -24,30 +33,31 @@ export const useChatArchiver = ({ chatData, activeTopic, config, pushNotificatio
     wasLoadingRef.current = isLoading
 
     if (justFinishedLoading) {
-      const newMessageCount = chatData.length - lastArchivedIndexRef.current
+      const lastIndex = sessionIndexesRef.current[currentSessionId] || 0
+      const newMessageCount = chatData.length - lastIndex
 
       if (newMessageCount >= MIN_MESSAGES_TO_ARCHIVE) {
         const executeArchive = async () => {
-          if (isArchivingRef.current) return;
-          
+          if (isArchivingRef.current) return
+
           const recentMessages = chatData
-            .slice(lastArchivedIndexRef.current)
-            .filter(m => !m.isThinking && !m.isSearching && !m.isSummarizing)
+            .slice(lastIndex)
+            .filter((m) => !m.isThinking && !m.isSearching && !m.isSummarizing)
             .map((m) => ({ role: m.role, content: m.content }))
 
           if (recentMessages.length >= 10) {
             isArchivingRef.current = true
-            lastArchivedIndexRef.current = chatData.length
+            sessionIndexesRef.current[currentSessionId] = chatData.length
 
             console.log('[useChatArchiver] Mark selesai membalas. Merangkum obrolan...')
-            
+
             await summarizeAndArchive(recentMessages, activeTopic, config)
-            
+
             isArchivingRef.current = false
           }
         }
         executeArchive()
       }
     }
-  }, [chatData, activeTopic, config, isLoading])
+  }, [chatData, activeTopic, config, isLoading, currentSessionId])
 }

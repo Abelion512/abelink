@@ -51,7 +51,19 @@ const getFileIcon = (fileName = '') => {
   return <FaFileAlt className="text-primary" />
 }
 
-const InputBar = ({ onSubmit, isLoading, isRecording, isProcessing, audioIntensity = 0, onStartRecord, onStopRecord, onStop, source = 'pc' }) => {
+const InputBar = ({
+  onSubmit,
+  isLoading,
+  isRecording,
+  isProcessing,
+  audioIntensity = 0,
+  onStartRecord,
+  onStopRecord,
+  onStop,
+  source = 'pc',
+  inline = false,
+  className = ''
+}) => {
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
   const [inputText, setInputText] = useState('')
@@ -359,7 +371,15 @@ const InputBar = ({ onSubmit, isLoading, isRecording, isProcessing, audioIntensi
   const isSendDisabled = !inputText.trim() && attachedFiles.length === 0
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-50">
+    <div
+      className={
+        className
+          ? className
+          : inline
+          ? 'w-full max-w-4xl mx-auto relative z-10'
+          : 'fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-50'
+      }
+    >
       {/* File Attachment Pills Preview */}
       {attachedFiles.length > 0 && (
         <div className="mb-2 flex items-center gap-2 overflow-x-auto py-1 px-2 no-scrollbar animate-[holo-project-in_0.2s_ease-out_forwards]">

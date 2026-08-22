@@ -11,6 +11,7 @@ import Guidebook from './pages/Guidebook'
 import RelationalGrowth from './pages/RelationalGrowth'
 import GoogleWorkspace from './pages/GoogleWorkspace'
 import Subagents from './pages/Subagents'
+import ChatStudio from './pages/ChatStudio'
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
@@ -160,6 +161,7 @@ const MainLayout = () => {
         <div className="fixed inset-0 z-50 flex flex-col animate-fade-in bg-transparent pointer-events-none">
           <div className="flex-1 pointer-events-auto h-full w-full flex flex-col min-h-0 overflow-hidden">
             <Routes>
+              <Route path="/chat" element={<ChatStudio />} />
               <Route path="/config" element={<Configuration />} />
               <Route path="/plugins" element={<Plugins />} />
               <Route path="/skills" element={<Skills />} />

@@ -3,12 +3,13 @@ import { getBestMusicMatch } from '../../api/ai/tools'
 export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools) => {
   const { playUrl, nextTrack, prevTrack, playPause } = youtubeMusicTools
 
-  const handleMusic = async (action, query) => {
+  const handleMusic = async (action, query, customSetChatData) => {
+    const targetSet = customSetChatData || setChatData
     if (action === 'music-next') { nextTrack(); return 'Memutar lagu selanjutnya.' }
     if (action === 'music-prev') { prevTrack(); return 'Memutar lagu sebelumnya.' }
     if (action === 'music-toggle') { playPause(); return 'Pause/Resume lagu.' }
 
-    setChatData((prev) => [...prev, { role: 'ai', content: 'Mencari lagu...', isSearchingMusic: true }])
+    targetSet((prev) => [...prev, { role: 'ai', content: 'Mencari lagu...', isSearchingMusic: true }])
     const music = await window.api.searchMusic(query)
     const isAutoplay = action === 'music-play'
 
@@ -16,7 +17,7 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
     let selectedId = music[0]?.id
 
     if (isAutoplay && music.length > 0) {
-      setChatData((prev) => [
+      targetSet((prev) => [
         ...prev.filter((item) => !item.isSearchingMusic),
         { role: 'ai', content: 'Menganalisis versi lagu terbaik...', isSearchingMusic: true }
       ])
@@ -37,7 +38,7 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
     }
 
     if (!isAutoplay) {
-      setChatData((prev) => [
+      targetSet((prev) => [
         ...prev.filter((item) => !item.isSearchingMusic),
         {
           role: 'ai',
@@ -49,7 +50,7 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
         }
       ])
     } else {
-      setChatData((prev) => prev.filter((item) => !item.isSearchingMusic))
+      targetSet((prev) => prev.filter((item) => !item.isSearchingMusic))
     }
 
     if (isAutoplay && selectedId) {

@@ -7,6 +7,26 @@ export const useMarkState = () => {
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isAgentBusy, setIsAgentBusy] = useState(false)
+  const [runningSessionIds, setRunningSessionIds] = useState([])
+  const runningSessionId = runningSessionIds[0] || null
+
+  const addRunningSessionId = (id) => {
+    const num = Number(id)
+    setRunningSessionIds((prev) => (prev.map(Number).includes(num) ? prev : [...prev, num]))
+  }
+
+  const removeRunningSessionId = (id) => {
+    const num = Number(id)
+    setRunningSessionIds((prev) => prev.filter((x) => Number(x) !== num))
+  }
+
+  const setRunningSessionId = (id) => {
+    if (id === null || id === undefined) {
+      setRunningSessionIds([])
+    } else {
+      addRunningSessionId(id)
+    }
+  }
   const [isSpeak, setIsSpeak] = useState(false)
   const [orbStatus, setOrbStatus] = useState('idle')
   const [currentResponse, setCurrentResponse] = useState(null)
@@ -105,6 +125,12 @@ export const useMarkState = () => {
     setIsLoading,
     isAgentBusy,
     setIsAgentBusy,
+    runningSessionId,
+    setRunningSessionId,
+    runningSessionIds,
+    setRunningSessionIds,
+    addRunningSessionId,
+    removeRunningSessionId,
     isSpeak,
     setIsSpeak,
     orbStatus,

@@ -26,6 +26,12 @@ export const useMarkAgent = () => {
     setIsLoading,
     isAgentBusy,
     setIsAgentBusy,
+    runningSessionId,
+    setRunningSessionId,
+    runningSessionIds,
+    setRunningSessionIds,
+    addRunningSessionId,
+    removeRunningSessionId,
     isSpeak,
     setIsSpeak,
     abortControllerRef,
@@ -62,7 +68,7 @@ export const useMarkAgent = () => {
 
   const requestCameraCaptureRef = useRef(null)
 
-  const { handlePlanningCommand, handleIntervention } = useMarkPlan({
+  const { handlePlanningCommand, handleIntervention, handleStop: planHandleStop } = useMarkPlan({
     ...state,
     ...tools,
     requestApproval,
@@ -271,6 +277,12 @@ export const useMarkAgent = () => {
     config,
     isLoading,
     isAgentBusy,
+    runningSessionId,
+    setRunningSessionId,
+    runningSessionIds,
+    setRunningSessionIds,
+    addRunningSessionId,
+    removeRunningSessionId,
     message,
     setMessage,
     orbStatus,
@@ -286,7 +298,7 @@ export const useMarkAgent = () => {
     inputSource,
     setInputSource,
     handlePlanningCommand,
-    handleStop,
+    handleStop: planHandleStop || handleStop,
     handleSubmit,
     isBooting,
     requestCameraCaptureRef

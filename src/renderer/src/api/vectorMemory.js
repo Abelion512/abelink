@@ -1,40 +1,51 @@
-import { pipeline } from '@huggingface/transformers';
+import { pipeline } from '@huggingface/transformers'
+import { searchArchives, searchDocuments, searchMemoriesInOrama } from './oramaStore'
+import { getAllMemory } from './db'
 
-let extractor = null;
-let isDownloading = false;
+let extractor = null
+let isDownloading = false
 
 // We export this so we can manually trigger download from config page
 export const getExtractor = async (onProgress) => {
   if (!extractor && !isDownloading) {
-    isDownloading = true;
+    isDownloading = true
     try {
       // 'wasm' hanya valid di Browser (Renderer Process).
       // Di Node.js (Main Process) harus pakai 'cpu'.
-      const device = (typeof window !== 'undefined' && typeof caches !== 'undefined') ? 'wasm' : 'cpu';
-      extractor = await pipeline('feature-extraction', 'Xenova/paraphrase-multilingual-MiniLM-L12-v2', {
-        device,
-        progress_callback: onProgress
-      });
+      const device = typeof window !== 'undefined' && typeof caches !== 'undefined' ? 'wasm' : 'cpu'
+      extractor = await pipeline(
+        'feature-extraction',
+        'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+        {
+          device,
+          progress_callback: onProgress
+        }
+      )
     } catch (e) {
-      console.error("Failed to load transformer model", e);
+      console.error('Failed to load transformer model', e)
     } finally {
-      isDownloading = false;
+      isDownloading = false
     }
   }
-  return extractor;
-};
+  return extractor
+}
 
 export const generateVector = async (text) => {
   try {
-    const ext = await getExtractor();
-    if (!ext) return null;
-    const output = await ext(text, { pooling: 'mean', normalize: true, truncation: true, max_length: 512 });
-    const result = Array.from(output.data);
-    if (output.dispose) output.dispose();
-    return result;
+    const ext = await getExtractor()
+    if (!ext) return null
+    const output = await ext(text, {
+      pooling: 'mean',
+      normalize: true,
+      truncation: true,
+      max_length: 512
+    })
+    const result = Array.from(output.data)
+    if (output.dispose) output.dispose()
+    return result
   } catch (error) {
-    console.error("Gagal generate vector:", error);
-    return null;
+    console.error('Gagal generate vector:', error)
+    return null
   }
 }
 
@@ -47,15 +58,24 @@ export const cosineSimilarity = (vecA, vecB) => {
   return vecA.reduce((sum, a, i) => sum + a * vecB[i], 0)
 }
 
-import { searchArchives, searchDocuments, searchMemoriesInOrama } from './oramaStore'
-
 export const getRelevantMemory = async (userInput, memoryList) => {
+  let list = memoryList
+  if (!Array.isArray(list)) {
+    try {
+      list = await getAllMemory()
+    } catch (e) {
+      list = []
+    }
+  }
+  if (!Array.isArray(list)) {
+    list = []
+  }
   // Hanya Core memory (profile & preference) dipanggil langsung tanpa filter
-  const coreMemories = memoryList
-    .filter(m => m.type === 'profile' || m.type === 'preference')
-    .map(({ vector, ...rest }) => rest);
+  const coreMemories = list
+    .filter((m) => m && typeof m === 'object' && (m.type === 'profile' || m.type === 'preference'))
+    .map(({ vector, ...rest }) => rest)
 
-  return coreMemories;
+  return coreMemories
 }
 
 export const searchExtendedMemory = async (query) => {

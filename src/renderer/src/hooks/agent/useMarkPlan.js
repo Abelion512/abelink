@@ -3,7 +3,7 @@ import { getNextAction } from '../../api/ai/planning'
 import { getYoutubeSummary } from '../../api/ai/tools'
 import { fetchAI } from '../../api/ai/core'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
-import { deleteMemory, getAllMemory, insertMemory, updateMemory } from '../../api/db'
+import { deleteMemory, getAllMemory, insertMemory, updateMemory, saveSession, getChatData } from '../../api/db'
 import { checkTools } from '../../api/tools/index'
 import { createDurableTaskPlan } from '../../api/ai/taskPlanner'
 import { buildDurableStepCheckpoint } from '../../api/taskExecutor'
@@ -58,6 +58,12 @@ export const useMarkPlan = ({
   abortControllerRef,
   setIsLoading,
   setIsAgentBusy,
+  runningSessionId,
+  setRunningSessionId,
+  runningSessionIds,
+  setRunningSessionIds,
+  addRunningSessionId,
+  removeRunningSessionId,
   setMessage,
   handleYoutubeSearch,
   handleSearchCommand,
@@ -72,33 +78,99 @@ export const useMarkPlan = ({
   requestApproval,
   requestCameraCapture
 }) => {
+  // Map menyimpan sesi yang sedang berjalan: key = sessionId, value = { abortController, startTime, prompt }
+  const activeSessionsRef = useRef(new Map())
+  // Map menyimpan updater fungsi setChatData per sesi untuk IPC status AI
+  const activeSessionUpdatersRef = useRef(new Map())
+
   // Listener event status AI dari Main Process (IPC)
   useEffect(() => {
     if (window.api && window.api.onAiStatus) {
       window.api.onAiStatus((msg) => {
-        setChatData((prev) => {
-          const filtered = prev.filter((item) => !item.isThinking)
-          return [...filtered, { role: 'ai', content: msg, isThinking: true }]
-        })
+        if (activeSessionUpdatersRef.current.size > 0) {
+          for (const updater of activeSessionUpdatersRef.current.values()) {
+            try {
+              updater((prev) => {
+                const filtered = prev.filter((item) => !item.isThinking)
+                return [...filtered, { role: 'ai', content: msg, isThinking: true }]
+              })
+            } catch (e) {}
+          }
+        } else {
+          setChatData((prev) => {
+            const filtered = prev.filter((item) => !item.isThinking)
+            return [...filtered, { role: 'ai', content: msg, isThinking: true }]
+          })
+        }
       })
     }
   }, [setChatData])
 
   const activeTaskObjectiveRef = useRef(null)
-  const isExecutingRef = useRef(false)
   const interventionBufferRef = useRef([])
   const lastUserPromptRef = useRef('')
+  const activeRunningSessionIdRef = useRef(1)
+
+  const targetPushProcess = (proc) => {
+    if ((activeRunningSessionIdRef.current === 1 || !activeRunningSessionIdRef.current) && pushProcess) {
+      pushProcess(proc)
+    }
+  }
 
   // Menampung arahan/intervensi user saat ReAct loop sedang berjalan
   const handleIntervention = (msg) => {
     interventionBufferRef.current.push(msg)
   }
 
+  // Penghentian tugas per-sesi secara independen
+  const handleStop = (targetSessionId = null) => {
+    if (targetSessionId !== null && targetSessionId !== undefined) {
+      const numId = Number(targetSessionId)
+      const session = activeSessionsRef.current.get(numId)
+      if (session && session.abortController) {
+        session.abortController.abort()
+      }
+      if (window.api && window.api.abortFetchAI) {
+        window.api.abortFetchAI().catch(() => {})
+      }
+      activeSessionsRef.current.delete(numId)
+      activeSessionUpdatersRef.current.delete(numId)
+      if (removeRunningSessionId) removeRunningSessionId(numId)
+      if (numId === 1) setIsLoading(false)
+      if (activeSessionsRef.current.size === 0) {
+        setIsAgentBusy(false)
+        if (setRunningSessionId) setRunningSessionId(null)
+      }
+      if (window.api && window.api.browserClose) {
+        window.api.browserClose({ sessionId: numId === 1 ? 'main' : `workspace-${numId}` }).catch(() => {})
+      }
+    } else {
+      // Hentikan seluruh sesi yang aktif
+      for (const [id, session] of activeSessionsRef.current.entries()) {
+        if (session.abortController) session.abortController.abort()
+        if (window.api && window.api.browserClose) {
+          window.api.browserClose({ sessionId: id === 1 ? 'main' : `workspace-${id}` }).catch(() => {})
+        }
+      }
+      activeSessionsRef.current.clear()
+      activeSessionUpdatersRef.current.clear()
+      if (setRunningSessionIds) setRunningSessionIds([])
+      if (setRunningSessionId) setRunningSessionId(null)
+      if (abortControllerRef?.current) abortControllerRef.current.abort()
+      if (window.api && window.api.abortFetchAI) {
+        window.api.abortFetchAI().catch(() => {})
+      }
+      setIsAgentBusy(false)
+      setIsLoading(false)
+    }
+  }
+
   // ==========================================================================
   // DISPATCHER EKSEKUSI INDIVIDUAL TOOL
   // ==========================================================================
   const executeSingleTool = async (tool, query, context) => {
-    const { tgContext, isAutonomous, pluginProcessId } = context
+    const { tgContext, isAutonomous, pluginProcessId, targetSetChatData = setChatData, signal } = context
+    const currentSignal = signal || abortControllerRef?.current?.signal
     let resultString = 'Tidak ada hasil.'
 
     try {
@@ -109,7 +181,7 @@ export const useMarkPlan = ({
       }
       // 2. YouTube Summary
       else if (tool === 'yt-summary') {
-        setChatData((prev) => [
+        targetSetChatData((prev) => [
           ...prev,
           {
             role: 'ai',
@@ -119,12 +191,12 @@ export const useMarkPlan = ({
           }
         ])
         const yData = await getYoutubeData(query)
-        resultString = await getYoutubeSummary(query, yData, abortControllerRef.current.signal)
-        setChatData((prev) => prev.filter((item) => !item.isSummarizing))
+        resultString = await getYoutubeSummary(query, yData, currentSignal)
+        targetSetChatData((prev) => prev.filter((item) => !item.isSummarizing))
       }
       // 3. Music Control
       else if (tool.startsWith('music')) {
-        resultString = await handleMusic(tool, query)
+        resultString = await handleMusic(tool, query, targetSetChatData)
       }
       // 4. Memory Vector Search
       else if (tool === 'memory-search') {
@@ -143,7 +215,7 @@ export const useMarkPlan = ({
       // 5. Speak (TTS)
       else if (tool === 'speak') {
         if (query && query.trim() !== '') {
-          setChatData((prev) => {
+          targetSetChatData((prev) => {
             const filtered = prev.filter((item) => !item.isThinking)
             return [
               ...filtered,
@@ -171,7 +243,7 @@ export const useMarkPlan = ({
         try {
           const screens = await window.api.takeScreenshot()
           if (screens && screens.length > 0) {
-            setChatData((prev) => [
+            targetSetChatData((prev) => [
               ...prev.filter((item) => !item.isThinking),
               { role: 'ai', content: 'Memproses Vision AI...', isThinking: true }
             ])
@@ -179,16 +251,14 @@ export const useMarkPlan = ({
             const contentArray = [
               {
                 type: 'text',
-                text: query || 'Jelaskan dengan detail apa yang terlihat di layar ini.'
-              }
+                text: query || 'Jelaskan apa yang kamu lihat di layar ini secara ringkas.'
+              },
+              { type: 'image_url', image_url: { url: screens[0] } }
             ]
-            screens.forEach((screen) => {
-              contentArray.push({ type: 'image_url', image_url: { url: screen.data } })
-            })
 
             const visionResponse = await fetchAI(
               [{ role: 'user', content: contentArray }],
-              abortControllerRef.current?.signal,
+              currentSignal,
               false
             )
             const textContent =
@@ -199,10 +269,10 @@ export const useMarkPlan = ({
             console.log(`[Vision AI - analyze-screen] Hasil analisis:`, textContent)
             resultString = `Hasil Analisis Layar:\n${textContent}`
           } else {
-            resultString = 'Gagal mengambil screenshot dari sistem operasi.'
+            resultString = 'Gagal mengambil screenshot layar untuk analisis.'
           }
         } catch (e) {
-          resultString = `Gagal memproses visual: ${e.message}`
+          resultString = `Gagal memproses analisis layar: ${e.message}`
         }
       }
       // 8. Vision: Camera Look
@@ -214,7 +284,7 @@ export const useMarkPlan = ({
           } else if (!requestCameraCapture) {
             resultString = 'Internal Error: Callback requestCameraCapture tidak tersedia.'
           } else {
-            setChatData((prev) => [
+            targetSetChatData((prev) => [
               ...prev.filter((item) => !item.isThinking),
               { role: 'ai', content: 'Mengakses kamera...', isThinking: true }
             ])
@@ -225,7 +295,7 @@ export const useMarkPlan = ({
             })
 
             if (cameraFrame) {
-              setChatData((prev) => [
+              targetSetChatData((prev) => [
                 ...prev.filter((item) => !item.isThinking),
                 { role: 'ai', content: 'Menganalisis hasil kamera...', isThinking: true }
               ])
@@ -240,7 +310,7 @@ export const useMarkPlan = ({
 
               const visionResponse = await fetchAI(
                 [{ role: 'user', content: contentArray }],
-                abortControllerRef.current?.signal,
+                currentSignal,
                 false
               )
               const textContent =
@@ -352,7 +422,7 @@ export const useMarkPlan = ({
               const elapsed = Math.round((Date.now() - startTime) / 1000)
 
               // Update status thinking secara live agar pengguna tahu sub-agent sedang bekerja
-              setChatData((prev) => {
+              targetSetChatData((prev) => {
                 const filtered = prev.filter((item) => !item.isThinking)
                 return [
                   ...filtered,
@@ -487,129 +557,134 @@ export const useMarkPlan = ({
               loaded_group: groupName,
               message: `BERHASIL MEMUAT GRUP TOOL: ${groupName}.\nDokumentasi tool:\n${toolDescriptions}`
             }
-          } else if (tool === 'read-skill') {
-            const skillName = (query || '').trim()
-            if (!skillName) {
-              res = { success: false, message: 'Harap sebutkan nama_skill yang ingin dibaca.' }
+          } else {
+            res = {
+              success: false,
+              message: `Grup tool "${groupName}" tidak ditemukan.`
+            }
+          }
+        } else if (tool === 'read-skill') {
+          const skillName = (query || '').trim()
+          if (!skillName) {
+            res = { success: false, message: 'Harap sebutkan nama_skill yang ingin dibaca.' }
+          } else {
+            // 1. Cek Dexie learnedSkills (Self-Improved / Dynamic Native Skills)
+            const { getLearnedSkill } = await import('../../api/db.js')
+            const learned = await getLearnedSkill(skillName)
+            if (learned && learned.content) {
+              res = {
+                success: true,
+                data: `[PEDOMAN PROSEDUR KEAHLIAN (LEARNED/DEXIE): ${skillName.toUpperCase()}]\n${learned.content}`
+              }
             } else {
-              // 1. Cek Dexie learnedSkills (Self-Improved / Dynamic Native Skills)
-              const { getLearnedSkill } = await import('../../api/db.js')
-              const learned = await getLearnedSkill(skillName)
-              if (learned && learned.content) {
+              // 2. Cek NATIVE_SKILLS bawaan
+              const { NATIVE_SKILLS } = await import('../../components/core/native-skills.js')
+              const native = NATIVE_SKILLS.find(
+                (s) => s.name.toLowerCase() === skillName.toLowerCase()
+              )
+              if (native && native.content) {
                 res = {
                   success: true,
-                  data: `[PEDOMAN PROSEDUR KEAHLIAN (LEARNED/DEXIE): ${skillName.toUpperCase()}]\n${learned.content}`
+                  data: `[PEDOMAN SKILL BAWAAN: ${skillName.toUpperCase()}]\n${native.content}`
                 }
-              } else {
-                // 2. Cek NATIVE_SKILLS bawaan
-                const { NATIVE_SKILLS } = await import('../../components/core/native-skills.js')
-                const native = NATIVE_SKILLS.find(
-                  (s) => s.name.toLowerCase() === skillName.toLowerCase()
-                )
-                if (native && native.content) {
+              } else if (window.api && window.api.readSkill) {
+                // 3. Cek berkas disk di Documents/Mark Skills
+                const skillData = await window.api.readSkill(skillName)
+                if (skillData) {
+                  const content = typeof skillData === 'string' ? skillData : skillData.content
+                  const basePath =
+                    typeof skillData === 'object' && skillData.basePath ? skillData.basePath : ''
                   res = {
                     success: true,
-                    data: `[PEDOMAN SKILL BAWAAN: ${skillName.toUpperCase()}]\n${native.content}`
-                  }
-                } else if (window.api && window.api.readSkill) {
-                  // 3. Cek berkas disk di Documents/Mark Skills
-                  const skillData = await window.api.readSkill(skillName)
-                  if (skillData) {
-                    const content = typeof skillData === 'string' ? skillData : skillData.content
-                    const basePath =
-                      typeof skillData === 'object' && skillData.basePath ? skillData.basePath : ''
-                    res = {
-                      success: true,
-                      data: `[PEDOMAN SKILL (FILE): ${skillName.toUpperCase()}]\n${basePath ? `[BASE PATH: ${basePath}]\n` : ''}${content}`
-                    }
-                  } else {
-                    res = {
-                      success: false,
-                      message: `Skill "${skillName}" tidak ditemukan di keahlian internal maupun folder Mark Skills.`
-                    }
+                    data: `[PEDOMAN SKILL (FILE): ${skillName.toUpperCase()}]\n${basePath ? `[BASE PATH: ${basePath}]\n` : ''}${content}`
                   }
                 } else {
                   res = {
                     success: false,
-                    message: `Skill "${skillName}" tidak ditemukan.`
+                    message: `Skill "${skillName}" tidak ditemukan di keahlian internal maupun folder Mark Skills.`
                   }
+                }
+              } else {
+                res = {
+                  success: false,
+                  message: `Skill "${skillName}" tidak ditemukan.`
                 }
               }
             }
-          } else {
-            const nativePromise = window.api.executeNativeTool(tool, query, config)
-            const abortPromise = new Promise((_, reject) => {
-              const onAbort = () => reject(new Error('AbortError'))
-              if (abortControllerRef.current.signal.aborted) return onAbort()
-              abortControllerRef.current.signal.addEventListener('abort', onAbort)
-            })
-            res = await Promise.race([nativePromise, abortPromise])
           }
-
-          if (res.success) {
-            resultString =
-              res.data !== undefined
-                ? typeof res.data === 'string'
-                  ? res.data
-                  : JSON.stringify(res.data)
-                : res.message || 'Success'
-
-            // Pemotongan isi dokumen jika terlalu panjang
-            if (tool === 'read-document') {
-              const parts = query.split('||')
-              let fullText =
-                typeof res.data === 'object' && res.data !== null
-                  ? res.data.content || ''
-                  : String(res.data || '')
-              if (fullText && fullText.length > 2500) {
-                resultString = `${fullText.slice(0, 2500)}\n\n[DOKUMEN DIPOTONG (Total: ${fullText.length} karakter). Gunakan read-document dengan query "${parts[0]}||kata_kunci" untuk pencarian spesifik]`
-              }
-            }
-          } else {
-            resultString = `[ERROR] ${tool} gagal: ${res.message || res.error || 'Unknown error'}`
-          }
-
-          return {
-            resultString,
-            rejected: false,
-            toolExecution: { action: tool, query, result: resultString }
-          }
-        }
-        // 10. Plugin Execution
-        else {
-          pushProcess({
-            id: pluginProcessId,
-            type: 'plugin-execution',
-            status: 'active',
-            data: { action: tool, query }
-          })
-
-          const pluginPromise = window.api.executePlugin(tool, query)
+        } else {
+          const nativePromise = window.api.executeNativeTool(tool, query, config)
           const abortPromise = new Promise((_, reject) => {
             const onAbort = () => reject(new Error('AbortError'))
-            if (abortControllerRef.current.signal.aborted) return onAbort()
-            abortControllerRef.current.signal.addEventListener('abort', onAbort)
+            if (currentSignal?.aborted) return onAbort()
+            currentSignal?.addEventListener('abort', onAbort)
           })
-          const res = await Promise.race([pluginPromise, abortPromise])
+          res = await Promise.race([nativePromise, abortPromise])
+        }
 
-          resultString = res.success
-            ? typeof res.data === 'string'
-              ? res.data
-              : JSON.stringify(res.data)
-            : `[ERROR] Plugin ${tool} gagal: ${res.error}`
+        if (res && res.success) {
+          resultString =
+            res.data !== undefined
+              ? typeof res.data === 'string'
+                ? res.data
+                : JSON.stringify(res.data)
+              : res.message || 'Success'
 
-          pushProcess({
-            id: pluginProcessId,
-            type: 'plugin-execution',
-            status: 'done',
-            data: { action: tool, query, result: resultString }
-          })
-
-          return {
-            resultString,
-            rejected: false,
-            toolExecution: { action: tool, query, result: resultString }
+          // Pemotongan isi dokumen jika terlalu panjang
+          if (tool === 'read-document') {
+            const parts = query.split('||')
+            let fullText =
+              typeof res.data === 'object' && res.data !== null
+                ? res.data.content || ''
+                : String(res.data || '')
+            if (fullText && fullText.length > 2500) {
+              resultString = `${fullText.slice(0, 2500)}\n\n[DOKUMEN DIPOTONG (Total: ${fullText.length} karakter). Gunakan read-document dengan query "${parts[0]}||kata_kunci" untuk pencarian spesifik]`
+            }
           }
+        } else {
+          resultString = `[ERROR] ${tool} gagal: ${(res && (res.message || res.error)) || 'Unknown error'}`
+        }
+
+        return {
+          resultString,
+          rejected: false,
+          toolExecution: { action: tool, query, result: resultString }
+        }
+      }
+      // 10. Plugin Execution
+      else {
+        targetPushProcess({
+          id: pluginProcessId,
+          type: 'plugin-execution',
+          status: 'active',
+          data: { action: tool, query }
+        })
+
+        const pluginPromise = window.api.executePlugin(tool, query)
+        const abortPromise = new Promise((_, reject) => {
+          const onAbort = () => reject(new Error('AbortError'))
+          if (currentSignal?.aborted) return onAbort()
+          currentSignal?.addEventListener('abort', onAbort)
+        })
+        const res = await Promise.race([pluginPromise, abortPromise])
+
+        resultString = res.success
+          ? typeof res.data === 'string'
+            ? res.data
+            : JSON.stringify(res.data)
+          : `[ERROR] Plugin ${tool} gagal: ${res.error}`
+
+        targetPushProcess({
+          id: pluginProcessId,
+          type: 'plugin-execution',
+          status: 'done',
+          data: { action: tool, query, result: resultString }
+        })
+
+        return {
+          resultString,
+          rejected: false,
+          toolExecution: { action: tool, query, result: resultString }
         }
       }
     } catch (toolError) {
@@ -631,27 +706,64 @@ export const useMarkPlan = ({
   // ==========================================================================
   const handlePlanningCommand = async (
     userInput,
-    tgContext = null,
+    tgContextOrOptions = null,
     isAutonomous = false,
     autonomousInitialMessage = null,
     options = {},
     isSystem = false
   ) => {
+    let tgContext = tgContextOrOptions
+    let opts = options || {}
+
+    // Flexible options detection: support options passed as 2nd arg or in other slots
+    if (
+      tgContextOrOptions &&
+      typeof tgContextOrOptions === 'object' &&
+      !tgContextOrOptions.chatId &&
+      !tgContextOrOptions.from
+    ) {
+      opts = tgContextOrOptions
+      tgContext = null
+    } else if (
+      autonomousInitialMessage &&
+      typeof autonomousInitialMessage === 'object' &&
+      (autonomousInitialMessage.sessionId ||
+        autonomousInitialMessage.customChatData ||
+        autonomousInitialMessage.customSetChatData ||
+        autonomousInitialMessage.onSaveSession)
+    ) {
+      opts = autonomousInitialMessage
+      autonomousInitialMessage = null
+    }
+
     // ------------------------------------------------------------------------
-    // FASE 1: VALIDASI INPUT & LOCKING
+    // FASE 1: VALIDASI INPUT & PER-SESSION LOCKING
     // ------------------------------------------------------------------------
-    if (!tgContext && isExecutingRef.current) {
+    const activeSessionNum = opts.sessionId ? Number(opts.sessionId) : 1
+    activeRunningSessionIdRef.current = activeSessionNum
+
+    if (!tgContext && activeSessionsRef.current.has(activeSessionNum)) {
       console.log(
-        '[useMarkPlan] Menolak prompt masuk karena proses lain sedang berjalan (Lock active).'
+        `[useMarkPlan] Menolak prompt masuk untuk Sesi ${activeSessionNum} karena sedang berjalan (Lock active).`
       )
       return
     }
-    if (!tgContext) {
-      isExecutingRef.current = true
-      interventionBufferRef.current = []
+
+    const sessionAbortController = new AbortController()
+    activeSessionsRef.current.set(activeSessionNum, {
+      abortController: sessionAbortController,
+      startTime: Date.now(),
+      prompt: userInput
+    })
+
+    if (activeSessionNum === 1) {
+      abortControllerRef.current = sessionAbortController
     }
 
-    let finalIsSpeak = options.forceSpeak !== undefined ? options.forceSpeak : isSpeak
+    if (addRunningSessionId) addRunningSessionId(activeSessionNum)
+    setIsAgentBusy(true)
+
+    let finalIsSpeak = opts.forceSpeak !== undefined ? opts.forceSpeak : isSpeak
     if (userInput && typeof userInput === 'string') {
       if (userInput.startsWith('(Mikrofon)')) {
         finalIsSpeak = true
@@ -661,18 +773,20 @@ export const useMarkPlan = ({
     }
 
     if (!userInput) {
-      if (!tgContext) isExecutingRef.current = false
+      activeSessionsRef.current.delete(activeSessionNum)
+      if (removeRunningSessionId) removeRunningSessionId(activeSessionNum)
       return
     }
 
     if (!tgContext && !isAutonomous) {
-      setIsLoading(true)
-      if (!isSystem) {
+      if (activeSessionNum === 1) {
+        setIsLoading(true)
+      }
+      if (!isSystem && !opts.customSetChatData) {
         lastUserPromptRef.current = userInput
         setMessage('')
       }
     }
-    setIsAgentBusy(true)
 
     const timestampStr = getCurrentTimeInfo()
 
@@ -683,7 +797,8 @@ export const useMarkPlan = ({
     if (userInput.startsWith('/')) {
       const skillName = userInput.slice(1).split(' ')[0].trim()
       try {
-        const skillContent = await window.api.readSkill(skillName)
+        const skillData = await window.api.readSkill(skillName)
+        const skillContent = typeof skillData === 'string' ? skillData : skillData?.content
         if (skillContent) {
           finalContent = `[SYSTEM INSTRUCTION - SKILL ACTIVATED]: Kamu sekarang harus bertindak dan mengikuti seluruh instruksi dalam dokumen skill berikut ini secara ketat:\n\n=== SKILL: ${skillName} ===\n${skillContent}\n====================\n\nInstruksi dari user: ${userInput.replace('/' + skillName, '').trim() || 'Jalankan skill ini sekarang!'}`
         } else {
@@ -725,14 +840,58 @@ export const useMarkPlan = ({
       role: 'user',
       content: payloadContent,
       timestamp: timestampStr,
-      created_at: Date.now()
+      created_at: Date.now(),
+      source: tgContext ? 'telegram' : 'pc',
+      sender:
+        tgContext?.from?.first_name ||
+        tgContext?.from?.username ||
+        (tgContext ? 'Telegram Admin' : undefined)
     }
+
+    // Penyiapan data sesi terisolasi (Database-First Persistent Pipeline)
+    let inMemorySessionData = []
+    if (activeSessionNum !== 1) {
+      if (Array.isArray(opts.customChatData) && opts.customChatData.length > 0) {
+        inMemorySessionData = [...opts.customChatData]
+      } else {
+        try {
+          const existing = await getChatData(activeSessionNum)
+          if (existing && Array.isArray(existing)) {
+            inMemorySessionData = [...existing]
+          }
+        } catch (e) {}
+      }
+    }
+
+    const targetSetChatData = (updater) => {
+      if (activeSessionNum !== 1) {
+        const next = typeof updater === 'function' ? updater(inMemorySessionData) : updater
+        inMemorySessionData = next
+
+        // 1. Direct persistent DB write
+        saveSession(activeSessionNum, next).catch((err) => {
+          console.warn(`[useMarkPlan] Gagal auto-save session ${activeSessionNum}:`, err)
+        })
+
+        // 2. Broadcast reactive event to UI (listeners filter by activeSessionId)
+        window.dispatchEvent(
+          new CustomEvent('session-updated', {
+            detail: { sessionId: activeSessionNum, data: next }
+          })
+        )
+      } else {
+        setChatData(updater)
+      }
+    }
+
+    activeSessionUpdatersRef.current.set(activeSessionNum, targetSetChatData)
 
     // ------------------------------------------------------------------------
     // FASE 3: PENYIAPAN HISTORY CHAT & RETRIEVAL KONTEKS
     // ------------------------------------------------------------------------
+    const sourceChatData = activeSessionNum === 1 ? chatData : inMemorySessionData
     const rawSession = [
-      ...chatData
+      ...sourceChatData
         .filter(
           (item) =>
             item.role !== 'command' && !item.isThinking && !item.isSearching && !item.isSummarizing
@@ -753,7 +912,9 @@ export const useMarkPlan = ({
             content: msgContent,
             mood: item.mood,
             isProactive: item.isProactive,
-            timestamp: item.timestamp
+            timestamp: item.timestamp,
+            source: item.source,
+            sender: item.sender
           }
         })
     ]
@@ -762,10 +923,9 @@ export const useMarkPlan = ({
     chatSession = [...chatSession, userMessage]
 
     if (!isAutonomous && !isSystem) {
-      setChatData((prev) => [...prev, userMessage])
+      targetSetChatData((prev) => [...prev, userMessage])
     }
 
-    abortControllerRef.current = new AbortController()
     const agenticProcessId = `agentic-${Date.now()}`
     let durableTaskForRecovery = null
 
@@ -789,8 +949,8 @@ export const useMarkPlan = ({
       const contextPromise = getUnifiedContext(searchQuery, allMemory)
       const abortPromise = new Promise((_, reject) => {
         const onAbort = () => reject(new Error('AbortError'))
-        if (abortControllerRef.current.signal.aborted) return onAbort()
-        abortControllerRef.current.signal.addEventListener('abort', onAbort)
+        if (sessionAbortController.signal.aborted) return onAbort()
+        sessionAbortController.signal.addEventListener('abort', onAbort)
       })
       const unifiedContext = await Promise.race([contextPromise, abortPromise])
 
@@ -820,7 +980,7 @@ export const useMarkPlan = ({
 
       // Tampilkan ucapan inisiatif jika autonomous
       if (isAutonomous && autonomousInitialMessage && !tgContext) {
-        setChatData((prev) => [
+        targetSetChatData((prev) => [
           ...prev,
           {
             role: 'ai',
@@ -844,13 +1004,14 @@ export const useMarkPlan = ({
       let lastDecision = null
       let allSources = []
       let executedToolsList = []
+      let accumulatedThoughts = []
       let lastToolExecution = null
       let durableFailed = false
       let execSteps = [{ task: 'Menganalisis Konteks...' }]
 
       while (!isDone) {
         // Cek Abort Signal
-        if (abortControllerRef.current.signal.aborted) {
+        if (sessionAbortController.signal.aborted) {
           if (durableTask && durableTask.status === 'running') {
             await transitionAgentTask(durableTask.id, 'paused', 'user_abort')
           }
@@ -863,13 +1024,13 @@ export const useMarkPlan = ({
           loopMessages.push({ role: 'user', content: `[USER INTERVENTION]: ${interventions}` })
           interventionBufferRef.current = []
 
-          setChatData((prev) => [
+          targetSetChatData((prev) => [
             ...prev.filter((item) => !item.isThinking),
             { role: 'user', content: interventions }
           ])
 
           execSteps.push({ task: `Intervensi User: ${interventions}` })
-          pushProcess({
+          targetPushProcess({
             id: agenticProcessId,
             type: 'planning',
             status: 'active',
@@ -884,13 +1045,25 @@ export const useMarkPlan = ({
         stepCount++
 
         // Loading thinking indicator
-        setChatData((prev) => {
+        targetSetChatData((prev) => {
           const filtered = prev.filter((item) => !item.isThinking)
           const loadingText =
             isAutonomous && autonomousInitialMessage
               ? autonomousInitialMessage
               : 'Bentar, mikir dlu...'
-          return [...filtered, { role: 'ai', content: loadingText, isThinking: true }]
+          return [
+            ...filtered,
+            {
+              role: 'ai',
+              content: loadingText,
+              isThinking: true,
+              reasoning:
+                accumulatedThoughts.length > 0
+                  ? accumulatedThoughts.join('\n\n---\n\n')
+                  : undefined,
+              executedTools: executedToolsList.length > 0 ? [...executedToolsList] : undefined
+            }
+          ]
         })
 
         // Ambil daftar sub-agent yang tersedia untuk pencegahan duplikasi
@@ -913,12 +1086,12 @@ export const useMarkPlan = ({
         const decision = await getNextAction(
           userInput,
           loopMessages,
-          abortControllerRef.current.signal,
+          sessionAbortController.signal,
           unifiedContext,
           contextMsgStr,
           activeTopic,
           {
-            ...options,
+            ...opts,
             intentQuery: searchQuery,
             tgContext,
             currentMusicTrack,
@@ -928,7 +1101,7 @@ export const useMarkPlan = ({
         )
 
         // Penanganan jika disableTools aktif
-        if (options.disableTools) {
+        if (opts.disableTools) {
           if (decision.action) decision.action = null
           if (!decision.answer) {
             decision.answer =
@@ -937,6 +1110,9 @@ export const useMarkPlan = ({
         }
 
         lastDecision = decision
+        if (decision?.thought && !accumulatedThoughts.includes(decision.thought)) {
+          accumulatedThoughts.push(decision.thought)
+        }
         let taskJustCreated = false
 
         // INTERCEPTOR: Membuat Durable Task Plan baru jika disarankan AI
@@ -946,7 +1122,7 @@ export const useMarkPlan = ({
           !durableTask &&
           !isAutonomous &&
           !tgContext &&
-          !options.disableTools
+          !opts.disableTools
         ) {
           console.log('[useMarkPlan] Interceptor triggered: mode=durable. Creating task plan...')
           const taskRoute = {
@@ -958,7 +1134,7 @@ export const useMarkPlan = ({
           const durablePlan = await createDurableTaskPlan(
             userInput,
             taskRoute,
-            abortControllerRef.current.signal
+            sessionAbortController.signal
           )
 
           const documentsPath = await window.api.getDocumentsPath?.()
@@ -988,7 +1164,7 @@ export const useMarkPlan = ({
           durableActiveStep = await startAgentTaskStep(durableTask.id, durableTask.activeStepId)
           activeTaskObjectiveRef.current = durableActiveStep?.objective || durableTask.objective
 
-          pushProcess({
+          targetPushProcess({
             id: agenticProcessId,
             type: 'planning',
             status: 'active',
@@ -998,6 +1174,25 @@ export const useMarkPlan = ({
               reasoning: `Durable task dibuat: ${taskRoute.reason}`
             }
           })
+
+          targetSetChatData((prev) => [
+            ...prev.filter((item) => !item.isThinking),
+            {
+              role: 'ai',
+              isPlanSteps: true,
+              plan: durablePlan.steps.map((step) => ({
+                id: step.id,
+                title: step.title,
+                task: step.title,
+                objective: step.objective,
+                deliverable: step.deliverable
+              })),
+              currentStep: 0,
+              reasoning: `Durable task dibuat: ${taskRoute.reason || durablePlan.objective}`,
+              timestamp: getCurrentTimeInfo(),
+              created_at: Date.now()
+            }
+          ])
           taskJustCreated = true
         }
 
@@ -1053,7 +1248,7 @@ export const useMarkPlan = ({
 
         // Jika durable task baru saja dibuat, tampilkan pesan inisiasi & lanjut eksekusi step 1
         if (taskJustCreated) {
-          setChatData((prev) => [
+          targetSetChatData((prev) => [
             ...prev.filter((item) => !item.isThinking),
             {
               role: 'ai',
@@ -1084,7 +1279,7 @@ export const useMarkPlan = ({
           decision.action &&
           (decision.action.tool || Array.isArray(decision.action))
         )
-        const isDoneSignal = decision.is_done === true || options.disableTools
+        const isDoneSignal = decision.is_done === true || opts.disableTools
 
         // Kasus 1: Intermediate Speech (Bicara tanpa tool, tapi belum selesai)
         if (!hasAction && !isDoneSignal && decision.answer && !durableTask) {
@@ -1094,7 +1289,7 @@ export const useMarkPlan = ({
             content:
               '[LANJUTKAN] Kamu belum menyatakan selesai (is_done: false). Silakan panggil tool di action atau selesaikan tugasmu.'
           })
-          setChatData((prev) => [
+          targetSetChatData((prev) => [
             ...prev.filter((item) => !item.isThinking),
             { role: 'ai', content: decision.answer, isProactive: false, isIntermediate: true }
           ])
@@ -1207,7 +1402,7 @@ export const useMarkPlan = ({
                 contextMsgStr += `[DURABLE STEP ACCEPTANCE]\n${nextStep.acceptanceCriteria.map((item) => `- ${item}`).join('\n')}\n`
               }
               await startAgentTaskStep(durableTask.id, nextStep.id)
-              pushProcess({
+              targetPushProcess({
                 id: agenticProcessId,
                 type: 'planning',
                 status: 'active',
@@ -1217,15 +1412,38 @@ export const useMarkPlan = ({
                   reasoning: `Step selesai. Lanjut ke: ${nextStep.title}`
                 }
               })
+              const nextIndex = durableTask.steps.findIndex((s) => s.id === nextStep.id)
+              targetSetChatData((prev) =>
+                prev.map((msg) =>
+                  msg.isPlanSteps
+                    ? {
+                        ...msg,
+                        currentStep: nextIndex !== -1 ? nextIndex : (msg.currentStep || 0) + 1
+                      }
+                    : msg
+                )
+              )
               continue
             }
           }
 
           // Semua step atau proses tunggal selesai total
           isDone = true
+          if (durableTask) {
+            targetSetChatData((prev) =>
+              prev.map((msg) =>
+                msg.isPlanSteps
+                  ? {
+                      ...msg,
+                      currentStep: msg.plan ? msg.plan.length : 999
+                    }
+                  : msg
+              )
+            )
+          }
           execSteps.push({ task: 'Selesai' })
           if (execSteps.length > 2) {
-            pushProcess({
+            targetPushProcess({
               id: agenticProcessId,
               type: 'planning',
               status: durableFailed ? 'failed' : 'done',
@@ -1239,7 +1457,7 @@ export const useMarkPlan = ({
 
           // TTS Lisan
           if (finalIsSpeak && decision.answer) {
-            setChatData((prev) => [
+            targetSetChatData((prev) => [
               ...prev.filter((item) => !item.isThinking),
               { role: 'ai', content: 'Bentar...', isThinking: true }
             ])
@@ -1252,7 +1470,7 @@ export const useMarkPlan = ({
           }
 
           // Tampilkan balasan final di chat UI
-          setChatData((prev) => {
+          targetSetChatData((prev) => {
             const filtered = prev.filter((item) => {
               if (item.isThinking) return false
               if (isAutonomous && item.isProactive && item.content === autonomousInitialMessage)
@@ -1269,7 +1487,10 @@ export const useMarkPlan = ({
               role: 'ai',
               content: finalOutput,
               executedTools: executedToolsList.length > 0 ? executedToolsList : null,
-              reasoning: decision.thought,
+              reasoning:
+                accumulatedThoughts.length > 0
+                  ? accumulatedThoughts.join('\n\n---\n\n')
+                  : decision.thought,
               mood: decision.mood || 'neutral',
               isMemorySaved: decision.memory?.action === 'insert',
               isMemoryUpdated: decision.memory?.action === 'update',
@@ -1277,7 +1498,8 @@ export const useMarkPlan = ({
               pluginExecution: lastToolExecution,
               isProactive: isAutonomous,
               timestamp: getCurrentTimeInfo(),
-              created_at: Date.now()
+              created_at: Date.now(),
+              source: tgContext ? 'telegram' : 'pc'
             }
 
             if (allSources.length > 0) {
@@ -1339,7 +1561,7 @@ export const useMarkPlan = ({
             const query = actionList[actionIdx].query || ''
 
             if (!tool) continue
-            if (abortControllerRef.current.signal.aborted) break
+            if (sessionAbortController.signal.aborted) break
 
             if (execSteps.length === 1 && execSteps[0].task === 'Menganalisis Konteks...') {
               execSteps = [{ task: `Eksekusi ${tool}`, query: query }]
@@ -1347,7 +1569,7 @@ export const useMarkPlan = ({
               execSteps.push({ task: `Eksekusi ${tool}`, query: query })
             }
 
-            pushProcess({
+            targetPushProcess({
               id: agenticProcessId,
               type: 'planning',
               status: 'active',
@@ -1358,18 +1580,25 @@ export const useMarkPlan = ({
               }
             })
 
-            setChatData((prev) => {
+            const currentLiveTools = [
+              ...executedToolsList,
+              { tool, query, status: 'running' }
+            ]
+
+            targetSetChatData((prev) => {
               const filtered = prev.filter((item) => !item.isThinking)
               const loadingText =
                 isAutonomous && autonomousInitialMessage
                   ? autonomousInitialMessage
-                  : decision.intermediate_answer || 'Bentar, mikir dlu...'
+                  : decision.intermediate_answer || `Mengeksekusi [${tool}]...`
               return [
                 ...filtered,
                 {
                   role: 'ai',
                   content: loadingText,
                   isThinking: true,
+                  reasoning: decision.thought,
+                  executedTools: currentLiveTools,
                   mood: decision.mood || 'neutral'
                 }
               ]
@@ -1382,7 +1611,9 @@ export const useMarkPlan = ({
               isAutonomous,
               loopMessages,
               decision,
-              pluginProcessId
+              pluginProcessId,
+              targetSetChatData,
+              signal: sessionAbortController.signal
             })
 
             if (execResult.rejected) {
@@ -1403,6 +1634,7 @@ export const useMarkPlan = ({
             executedToolsList.push({
               tool: tool,
               query: query,
+              status: 'done',
               resultSummary:
                 typeof execResult.resultString === 'string' && execResult.resultString.length > 250
                   ? execResult.resultString.slice(0, 250) + '...'
@@ -1466,7 +1698,7 @@ export const useMarkPlan = ({
           '[useMarkPlan] AI returned neither action nor answer. Forcing done with fallback.'
         )
         isDone = true
-        setChatData((prev) => [
+        targetSetChatData((prev) => [
           ...prev.filter((item) => !item.isThinking),
           {
             role: 'ai',
@@ -1482,7 +1714,7 @@ export const useMarkPlan = ({
       // ------------------------------------------------------------------------
       if (!lastDecision?.answer) {
         if (execSteps.length > 2) {
-          pushProcess({
+          targetPushProcess({
             id: agenticProcessId,
             type: 'planning',
             status: 'done',
@@ -1496,10 +1728,11 @@ export const useMarkPlan = ({
       }
 
       if (!tgContext && !isAutonomous) {
-        setIsLoading(false)
+        if (activeSessionNum === 1) {
+          setIsLoading(false)
+        }
         lastUserPromptRef.current = ''
       }
-      setIsAgentBusy(false)
 
       try {
         if (window.api && window.api.executeNativeTool) {
@@ -1521,13 +1754,14 @@ export const useMarkPlan = ({
       }
 
       if (!tgContext && !isAutonomous) {
-        setIsLoading(false)
-        if (!isSystem && lastUserPromptRef.current) {
+        if (activeSessionNum === 1) {
+          setIsLoading(false)
+        }
+        if (!isSystem && !opts.customSetChatData && lastUserPromptRef.current) {
           setMessage(lastUserPromptRef.current)
           lastUserPromptRef.current = ''
         }
       }
-      setIsAgentBusy(false)
 
       try {
         if (window.api && window.api.executeNativeTool) {
@@ -1539,7 +1773,7 @@ export const useMarkPlan = ({
         durableTaskForRecovery &&
         (error.name === 'AbortError' || error.message.includes('AbortError'))
       ) {
-        pushProcess({
+        targetPushProcess({
           id: agenticProcessId,
           type: 'planning',
           status: 'paused',
@@ -1550,11 +1784,13 @@ export const useMarkPlan = ({
           }
         })
       } else {
-        dismissProcess(agenticProcessId)
+        if (activeSessionNum === 1) {
+          dismissProcess(agenticProcessId)
+        }
       }
 
       if (error.name === 'AbortError' || error.message.includes('AbortError')) {
-        setChatData((prev) => [
+        targetSetChatData((prev) => [
           ...prev.filter((item) => !item.isThinking && !item.isSearching),
           {
             role: 'ai',
@@ -1576,7 +1812,7 @@ export const useMarkPlan = ({
           ]
           const randomGreeting =
             fallbackGreetings[Math.floor(Math.random() * fallbackGreetings.length)]
-          setChatData((prev) => [
+          targetSetChatData((prev) => [
             ...prev.filter((item) => !item.isThinking && !item.isSearching),
             {
               role: 'ai',
@@ -1588,22 +1824,32 @@ export const useMarkPlan = ({
             }
           ])
         } else if (isAutonomous) {
-          setChatData((prev) =>
+          targetSetChatData((prev) =>
             prev.filter((item) => !item.isThinking && !item.isSearching && !item.isProactive)
           )
         } else {
-          setChatData((prev) => [
+          targetSetChatData((prev) => [
             ...prev.filter((item) => !item.isThinking && !item.isSearching),
             { role: 'ai', content: `Maaf, terjadi kesalahan: ${error.message}` }
           ])
         }
       }
     } finally {
-      if (!tgContext) {
-        isExecutingRef.current = false
+      activeSessionUpdatersRef.current.delete(activeSessionNum)
+      activeSessionsRef.current.delete(activeSessionNum)
+
+      if (removeRunningSessionId) {
+        removeRunningSessionId(activeSessionNum)
+      }
+      if (activeSessionsRef.current.size === 0) {
+        setIsAgentBusy(false)
+        if (setRunningSessionId) setRunningSessionId(null)
+      }
+      if (activeSessionNum === 1) {
+        setIsLoading(false)
       }
     }
   }
 
-  return { handlePlanningCommand, handleIntervention }
+  return { handlePlanningCommand, handleIntervention, handleStop }
 }

@@ -277,21 +277,126 @@ export async function saveConfiguration(data) {
 export async function getAllSessionTitle() {
   try {
     const data = await db.sessions.toArray()
-    console.log(data)
+    data.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
     return data || []
   } catch (error) {
     console.error('Error in getAllSessionTitle logic:', error)
     return []
   }
 }
+
+export async function getAllSessions() {
+  try {
+    const sessions = await db.sessions.toArray()
+    if (!sessions || sessions.length === 0) {
+      const defaultSession = { id: 1, title: 'Main Thread', data: [], timestamp: Date.now() }
+      await db.sessions.put(defaultSession)
+      return [defaultSession]
+    }
+    // Pastikan session id: 1 ada
+    const hasMain = sessions.some((s) => s.id === 1)
+    if (!hasMain) {
+      await db.sessions.put({ id: 1, title: 'Main Thread', data: [], timestamp: Date.now() })
+      sessions.unshift({ id: 1, title: 'Main Thread', data: [], timestamp: Date.now() })
+    }
+    sessions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    return sessions
+  } catch (error) {
+    console.error('Error in getAllSessions:', error)
+    return [{ id: 1, title: 'Main Thread', data: [], timestamp: Date.now() }]
+  }
+}
+
 export async function getChatData(id) {
   try {
-    const session = await db.sessions.where('id').equals(id).toArray()
-    console.log(session[0].data)
-    return session[0].data
+    const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
+    const session = await db.sessions.get(numId)
+    return session?.data || []
   } catch (error) {
     console.error('Error in getChatData logic:', error)
     return []
+  }
+}
+
+export async function getSession(id) {
+  try {
+    const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
+    return await db.sessions.get(numId)
+  } catch (error) {
+    console.error('Error in getSession:', error)
+    return null
+  }
+}
+
+export async function createSession(title = 'Percakapan Baru', initialData = []) {
+  try {
+    const timestamp = Date.now()
+    const id = await db.sessions.add({
+      title: title.trim() || 'Percakapan Baru',
+      data: initialData,
+      timestamp
+    })
+    return { id, title, data: initialData, timestamp }
+  } catch (error) {
+    console.error('Error in createSession:', error)
+    throw error
+  }
+}
+
+export async function saveSession(id, data, title = null) {
+  try {
+    const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
+    const existing = await db.sessions.get(numId)
+    const updatePayload = {
+      id: numId,
+      data: data,
+      timestamp: Date.now()
+    }
+    if (title) {
+      updatePayload.title = title
+    } else if (existing?.title) {
+      updatePayload.title = existing.title
+    } else {
+      updatePayload.title = numId === 1 ? 'Main Thread' : 'Percakapan Baru'
+    }
+    await db.sessions.put(updatePayload)
+    return true
+  } catch (error) {
+    console.error('Error in saveSession:', error)
+    return false
+  }
+}
+
+export async function deleteSession(id) {
+  try {
+    const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
+    if (numId === 1) {
+      // Main Thread tidak boleh dihapus barisnya, hanya dikosongkan pesannya
+      await db.sessions.put({ id: 1, title: 'Main Thread', data: [], timestamp: Date.now() })
+      return true
+    }
+    await db.sessions.delete(numId)
+    return true
+  } catch (error) {
+    console.error('Error in deleteSession:', error)
+    return false
+  }
+}
+
+export async function renameSession(id, newTitle) {
+  try {
+    const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
+    const existing = await db.sessions.get(numId)
+    if (existing) {
+      existing.title = newTitle.trim() || existing.title
+      existing.timestamp = Date.now()
+      await db.sessions.put(existing)
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error('Error in renameSession:', error)
+    return false
   }
 }
 

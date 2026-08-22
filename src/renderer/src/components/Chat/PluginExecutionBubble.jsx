@@ -1,7 +1,7 @@
 import React from 'react'
-import { FaCheck, FaChevronRight } from 'react-icons/fa';
+import { FaCheck, FaChevronRight } from 'react-icons/fa'
 
-const PluginExecutionBubble = ({ pluginExecution }) => {
+export const PluginExecutionBubble = ({ pluginExecution }) => {
   if (!pluginExecution) return null
   
   return (

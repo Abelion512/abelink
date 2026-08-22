@@ -11,6 +11,8 @@ import ProcessPanel from '../components/core/ProcessPanel'
 import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
 import MemoryVisualizer from '../components/core/MemoryVisualizer'
 import BrowserPreviewWidget from '../components/core/BrowserPreviewWidget'
+import { ChatStudioModal } from '../components/core/ChatStudioModal'
+import { MessageSquare } from 'lucide-react'
 import musicCoverFallback from '../assets/music-cover.png'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useVAD } from '../hooks/useVAD'
@@ -42,6 +44,7 @@ const MarkHome = () => {
   useMemoryGroomer(true) // Aktifkan Hippocampus Engine
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [isChatStudioOpen, setIsChatStudioOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
   const [currentResponse, setCurrentResponse] = useState(null)
   const [showMusicWidget, setShowMusicWidget] = useState(false)
@@ -70,8 +73,15 @@ const MarkHome = () => {
     }
 
     const handleOpenMap = () => setIsMemoryMapOpen(true)
+    const handleOpenChat = () => setIsChatStudioOpen(true)
+
     window.addEventListener('open-memory-map', handleOpenMap)
-    return () => window.removeEventListener('open-memory-map', handleOpenMap)
+    window.addEventListener('open-chat-studio', handleOpenChat)
+
+    return () => {
+      window.removeEventListener('open-memory-map', handleOpenMap)
+      window.removeEventListener('open-chat-studio', handleOpenChat)
+    }
   }, [])
 
   const handleVoiceTranscript = (text) => {
@@ -287,6 +297,14 @@ const MarkHome = () => {
 
       {/* Floating UI Elements */}
       <FloatingMenu onOpenHistory={() => setIsHistoryOpen(true)} />
+      <button
+        onClick={() => setIsChatStudioOpen(true)}
+        className="fixed top-8 left-22 z-50 h-12 px-3.5 btn btn-outline bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] flex items-center gap-2 transition-all shadow-lg hover:shadow-[0_0_15px_oklch(var(--p)/0.3)] text-white/80 hover:text-white rounded-xl"
+        title="Buka Chat Studio (Multi-Session Bubble Chat)"
+      >
+        <MessageSquare className="w-4 h-4 text-primary" />
+        <span className="text-xs font-semibold hidden md:inline">Studio</span>
+      </button>
       <StatusIndicator notifications={notifications} />
       <ProcessPanel processes={activeProcesses} onDismiss={dismissProcess} />
       <BrowserPreviewWidget />
@@ -507,10 +525,16 @@ const MarkHome = () => {
         source={inputSource}
       />
 
-      {/* Slide-out Drawers */}
+      {/* Slide-out Drawers & Modals */}
       <HistoryDrawer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 
       <MemoryVisualizer isOpen={isMemoryMapOpen} onClose={() => setIsMemoryMapOpen(false)} />
+
+      <ChatStudioModal
+        isOpen={isChatStudioOpen}
+        onClose={() => setIsChatStudioOpen(false)}
+        chatContext={chatContext}
+      />
     </div>
   )
 }

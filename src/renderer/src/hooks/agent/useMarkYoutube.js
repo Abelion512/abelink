@@ -2,10 +2,11 @@ import axios from 'axios'
 import { getYoutubeSummary } from '../../api/ai/tools'
 
 export const useMarkYoutube = (setChatData) => {
-  const handleYoutubeSearch = async (answer, signal) => {
+  const handleYoutubeSearch = async (answer, signal, customSetChatData) => {
+    const targetSet = customSetChatData || setChatData
     try {
       const searchResults = await window.api.searchYoutube(answer.command.query)
-      setChatData((prev) => [
+      targetSet((prev) => [
         ...prev.filter((item) => !item.isThinking),
         {
           role: 'ai',
@@ -18,10 +19,10 @@ export const useMarkYoutube = (setChatData) => {
     } catch (error) {
       console.error('Youtube Search Error:', error)
       if (error.name === 'AbortError') {
-        setChatData((prev) => [...prev.filter((item) => !item.isThinking)])
-        setChatData((prev) => prev.slice(0, -1))
+        targetSet((prev) => [...prev.filter((item) => !item.isThinking)])
+        targetSet((prev) => prev.slice(0, -1))
       } else {
-        setChatData((prev) => [
+        targetSet((prev) => [
           ...prev.filter((item) => !item.isThinking),
           {
             role: 'ai',
@@ -49,22 +50,23 @@ export const useMarkYoutube = (setChatData) => {
     }
   }
 
-  const handleYoutubeSummary = async (url, signal) => {
-    setChatData((prev) => [...prev, { role: 'ai', content: 'Sedang menonton video youtube (hal ini akan membutuhkan waktu beberapa saat mohon ditunggu)...', isSummarizing: true, youtubeLink: url }])
+  const handleYoutubeSummary = async (url, signal, customSetChatData) => {
+    const targetSet = customSetChatData || setChatData
+    targetSet((prev) => [...prev, { role: 'ai', content: 'Sedang menonton video youtube (hal ini akan membutuhkan waktu beberapa saat mohon ditunggu)...', isSummarizing: true, youtubeLink: url }])
     try {
       const data = await getYoutubeData(url)
       const searchResults = await getYoutubeSummary(url, data, signal)
-      setChatData((prev) => [
+      targetSet((prev) => [
         ...prev.filter((item) => !item.isSummarizing),
         { role: 'ai', content: searchResults, isYoutubeSummary: true, youtubeLink: url }
       ])
     } catch (error) {
       console.error('Youtube Summary Error:', error)
       if (error.name === 'AbortError') {
-        setChatData((prev) => [...prev.filter((item) => !item.isSummarizing)])
-        setChatData((prev) => prev.slice(0, -1))
+        targetSet((prev) => [...prev.filter((item) => !item.isSummarizing)])
+        targetSet((prev) => prev.slice(0, -1))
       } else {
-        setChatData((prev) => [
+        targetSet((prev) => [
           ...prev.filter((item) => !item.isSummarizing),
           {
             role: 'ai',
