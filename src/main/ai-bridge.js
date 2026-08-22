@@ -38,7 +38,8 @@ export const abortAllFetches = () => {
     } catch (e) {}
   })
 }
-export const setGlobalConfig = (config) => {
+
+export const setGlobalConfig = (config) => {
   globalConfig = config || {}
 }
 
@@ -148,7 +149,7 @@ export const fetchAI = async (
       }
     }
 
-    let endpoint = `http://localhost:1234/v1/cha${pld.charAt(25)}/completions`
+    let endpoint = `http://localhost:20128/v1/chat/completions` // 9Router composite (abelink: DeepSeek V4 + Nemotron + Mimo 2.5)
     let headers = {
       'Content-Type': 'application/json'
     }
