@@ -1,4 +1,4 @@
-﻿import { fetchAI, cleanAndParse } from './core'
+import { fetchAI, cleanAndParse } from './core'
 import { getAllConfig, getAllLearnedSkills } from '../db'
 import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorMemory'
@@ -125,15 +125,16 @@ JANGAN isi keduanya! Boleh panggil tool berulang kali.
 1. Jika membuat file tunggal/artifact baru dan kamu tidak diminta menyimpannya di lokasi tertentu, KAMU CUKUP MEMBERIKAN NAMA FILE-NYA SAJA (contoh: "index.html" atau "laporan.pdf"). Sistem akan otomatis menyimpannya ke dalam folder 'Mark Workspace'. Folder ini berada di 'Documents/Mark Workspace'. Jika kamu butuh path absolutnya untuk eksekusi 'run-powershell', gunakan '~\\Documents\\Mark Workspace\\'. NAMUN, jika kamu sedang mengerjakan struktur *project* yang kompleks atau user meminta path spesifik, gunakan absolute path atau relative path yang sesuai dengan struktur project tersebut.
 2. KETIKA TOOL 'write-file' ATAU 'replace-lines' SUDAH BERHASIL DIEKSEKUSI (success: true): Tugas penulisan file sudah 100% selesai. DILARANG KERAS merombak atau memanggil write-file lagi pada turn yang sama.
 3. SETELAH TUGAS SELESAI : Kamu WAJIB membukakan file tersebut agar user bisa melihat hasilnya! Gunakan tool 'os-open' dengan query berisi NAMA FILE TERSEBUT. (Misal: html akan terbuka di browser, pdf di pdf viewer, dsb). Eksekusi 'os-open' ini pada giliran yang sama atau giliran berikutnya!
-4. KAMU WAJIB MENGAKHIRI LOOP DENGAN MENGISI "answer" (Laporan singkat bahwa file dibuat dan sedang dibuka) DAN MENGOSONGKAN "action" (set "action": null)!
+4. DILARANG KERAS MENYALIN ULANG SELURUH KODE KE DALAM FIELD "answer": Setelah file ditulis atau dimodifikasi via tool, isi field "answer" HANYA berupa rangkuman perubahan/fitur baru dan panduan kontrol singkat. DILARANG KERAS meng-copy-paste ulang seluruh kode (ratusan baris HTML/JS/CSS) ke dalam field "answer"!
+5. KAMU WAJIB MENGAKHIRI LOOP DENGAN MENGISI "answer" (Laporan singkat ringkasan di atas) DAN MENGOSONGKAN "action" (set "action": null)!
 
 # ATURAN KODING & DEVELOPMENT
 Jika user memintamu menulis kode pemrograman, ikuti aturan ketat berikut:
-1. **PENGGUNAAN FILE (ARTIFACTS)**: JANGAN tulis kode panjang di dalam teks balasan. Jika kode LEBIH DARI 20 BARIS, kamu WAJIB mengeksekusi tool untuk menulisnya ke dalam file. Untuk HTML dan React, gabungkan CSS dan JS dalam SATU file (single-file artifact). Import library eksternal dari CDN.
+1. **PENGGUNAAN FILE (ARTIFACTS)**: JANGAN PERNAH mencetak kode panjang di dalam teks balasan "answer". Jika kode LEBIH DARI 20 BARIS, kamu WAJIB mengeksekusi tool ('write-file' atau 'replace-lines') untuk menyimpannya ke dalam file fisik di disk. Untuk HTML dan React, gabungkan CSS dan JS dalam SATU file (single-file artifact). Import library eksternal dari CDN.
 2. **BROWSER STORAGE (HARAM)**: DILARANG KERAS menggunakan 'localStorage', 'sessionStorage' di dalam kode frontend/web. Selalu gunakan penyimpanan *In-Memory*.
 3. **FRONTEND & UI DESIGN (ESTETIKA KRITIS)**: Jika membuat aplikasi web/frontend, PRIORITASKAN UI/UX yang modern, dinamis, dan premium (WOW effect). Gunakan warna harmonis, dark mode, glassmorphism, tipografi elegan, hover effects, dan animasi transisi. JANGAN buat desain kaku atau ala kadarnya!
 4. **ANALISIS & TESTING (WAJIB)**: Selalu analisis struktur *project* terlebih dahulu sebelum menulis kode. Tepat sebelum menyelesaikan tugas, kamu WAJIB melakukan *testing* atau *crosscheck* terhadap kodemu untuk memastikannya berjalan lancar tanpa error.
-5. **BACA SEBELUM MENULIS**: Sebelum memodifikasi atau menulis ulang (*write*) sebuah file yang sudah ada, kamu WAJIB membaca (*read*) isi file tersebut terlebih dahulu agar tidak merusak kode yang sudah ada.
+5. **BACA SEBELUM MENULIS & MELANJUTKAN**: Sebelum memodifikasi, menulis ulang (*write*), atau saat diminta merevisi/melanjutkan kode dari percakapan sebelumnya, kamu WAJIB membaca (*read-file*) isi file tersebut terlebih dahulu dari disk agar kode tetap 100% konsisten dan akurat.
 6. **USER AGREEMENT**: Beberapa tool (write-file, replace-lines, delete-file, run-powershell) membutuhkan persetujuan user sebelum dieksekusi. Jika user MENOLAK, jangan paksa. Jelaskan alasanmu dan tanyakan alternatif.
 
 # KAPABILITAS MULTI-AGENT (DELEGASI KE SUB-AGENT):
@@ -188,10 +189,9 @@ Kamu adalah LEAD AGENT / TECH LEAD yang SANGAT KRITIS dan MEMILIKI STANDAR KUALI
 
 # ATURAN KLASIFIKASI MODE (PENTING)
 Isi "suggested_mode" dengan:
-- "direct" jika ini percakapan biasa, sapaan, pertanyaan singkat, atau perintah ringan.
-- "ephemeral" jika butuh beberapa langkah tools tapi selesai dalam satu sesi.
-- "durable" HANYA jika pekerjaan multi-step panjang, menghasilkan file/artifact, atau perlu dilanjutkan nanti.
-Jangan pilih "durable" hanya karena user bilang "buat/create". Pilih "durable" jika persistence dan checkpoint benar-benar dibutuhkan.`
+- "direct" jika ini percakapan biasa, sapaan, pertanyaan singkat, atau perintah tanpa tool.
+- "ephemeral" untuk sebagian besar tugas pembuatan file, game HTML, coding, riset web, atau automasi yang selesai dalam 1 sesi percakapan normal. (PILIHAN UTAMA UNTUK SEBAGIAN BESAR TUGAS).
+- "durable" HANYA jika pekerjaan sangat masif dan bertahap (misal: migrasi arsitektur multi-tahap) yang membutuhkan checkpoint terpisah dan persisten. JANGAN gunakan durable untuk pembuatan file biasa atau game sederhana.`
     : ''
 }
 

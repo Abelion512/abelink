@@ -15,6 +15,7 @@ import {
 } from '../../api/taskStore'
 import { getUnifiedContext, searchExtendedMemory, generateVector } from '../../api/vectorMemory'
 import { searchMemoriesInOrama } from '../../api/oramaStore'
+import { buildOptimizedChatSession } from '../../api/ai/contextCompactor'
 
 // ============================================================================
 // HELPER UTILITIES
@@ -131,7 +132,9 @@ export const useMarkPlan = ({
         session.abortController.abort()
       }
       if (window.api && window.api.abortFetchAI) {
-        window.api.abortFetchAI().catch(() => {})
+        try {
+          window.api.abortFetchAI()
+        } catch (_) {}
       }
       activeSessionsRef.current.delete(numId)
       activeSessionUpdatersRef.current.delete(numId)
@@ -158,7 +161,9 @@ export const useMarkPlan = ({
       if (setRunningSessionId) setRunningSessionId(null)
       if (abortControllerRef?.current) abortControllerRef.current.abort()
       if (window.api && window.api.abortFetchAI) {
-        window.api.abortFetchAI().catch(() => {})
+        try {
+          window.api.abortFetchAI()
+        } catch (_) {}
       }
       setIsAgentBusy(false)
       setIsLoading(false)
@@ -890,37 +895,8 @@ export const useMarkPlan = ({
     // FASE 3: PENYIAPAN HISTORY CHAT & RETRIEVAL KONTEKS
     // ------------------------------------------------------------------------
     const sourceChatData = activeSessionNum === 1 ? chatData : inMemorySessionData
-    const rawSession = [
-      ...sourceChatData
-        .filter(
-          (item) =>
-            item.role !== 'command' && !item.isThinking && !item.isSearching && !item.isSummarizing
-        )
-        .map((item) => {
-          let msgContent = item.content || ''
-          if (item.role === 'ai' && item.executedTools && item.executedTools.length > 0) {
-            const toolLog = item.executedTools
-              .map(
-                (t) =>
-                  `  * [Tool: ${t.tool}] query: "${t.query || ''}" -> Hasil: ${t.resultSummary || 'OK'}`
-              )
-              .join('\n')
-            msgContent = `[RIWAYAT EKSEKUSI TOOL TURN INI]:\n${toolLog}\n\n[JAWABAN AKHIR KE USER]:\n${item.content}`
-          }
-          return {
-            role: item.role === 'ai' ? 'assistant' : 'user',
-            content: msgContent,
-            mood: item.mood,
-            isProactive: item.isProactive,
-            timestamp: item.timestamp,
-            source: item.source,
-            sender: item.sender
-          }
-        })
-    ]
-
-    let chatSession = [...rawSession].slice(-1 * (config[0]?.context || 10))
-    chatSession = [...chatSession, userMessage]
+    const optimizedHistory = buildOptimizedChatSession(sourceChatData, config[0]?.context || 10)
+    let chatSession = [...optimizedHistory, userMessage]
 
     if (!isAutonomous && !isSystem) {
       targetSetChatData((prev) => [...prev, userMessage])
@@ -1057,10 +1033,7 @@ export const useMarkPlan = ({
               role: 'ai',
               content: loadingText,
               isThinking: true,
-              reasoning:
-                accumulatedThoughts.length > 0
-                  ? accumulatedThoughts.join('\n\n---\n\n')
-                  : undefined,
+              reasoning: lastDecision?.thought || undefined,
               executedTools: executedToolsList.length > 0 ? [...executedToolsList] : undefined
             }
           ]
@@ -1246,20 +1219,11 @@ export const useMarkPlan = ({
           }
         }
 
-        // Jika durable task baru saja dibuat, tampilkan pesan inisiasi & lanjut eksekusi step 1
+        // Jika durable task baru saja dibuat, lanjut eksekusi step 1
         if (taskJustCreated) {
-          targetSetChatData((prev) => [
-            ...prev.filter((item) => !item.isThinking),
-            {
-              role: 'ai',
-              content: decision.answer || 'Mission Control diaktifkan.',
-              isProactive: false
-            }
-          ])
-
           loopMessages.push({
             role: 'assistant',
-            content: decision.answer || '[DURABLE TASK INITIATED]'
+            content: decision.thought || '[DURABLE TASK INITIATED]'
           })
           loopMessages.push({
             role: 'user',
@@ -1279,7 +1243,10 @@ export const useMarkPlan = ({
           decision.action &&
           (decision.action.tool || Array.isArray(decision.action))
         )
-        const isDoneSignal = decision.is_done === true || opts.disableTools
+        const isDoneSignal =
+          decision.is_done === true ||
+          opts.disableTools ||
+          (!hasAction && !!decision.answer)
 
         // Kasus 1: Intermediate Speech (Bicara tanpa tool, tapi belum selesai)
         if (!hasAction && !isDoneSignal && decision.answer && !durableTask) {
@@ -1487,10 +1454,7 @@ export const useMarkPlan = ({
               role: 'ai',
               content: finalOutput,
               executedTools: executedToolsList.length > 0 ? executedToolsList : null,
-              reasoning:
-                accumulatedThoughts.length > 0
-                  ? accumulatedThoughts.join('\n\n---\n\n')
-                  : decision.thought,
+              reasoning: decision.thought || lastDecision?.thought || null,
               mood: decision.mood || 'neutral',
               isMemorySaved: decision.memory?.action === 'insert',
               isMemoryUpdated: decision.memory?.action === 'update',
