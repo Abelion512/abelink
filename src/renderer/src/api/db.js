@@ -244,6 +244,9 @@ export async function getAllConfig() {
       if (!data[0].localWhisperModel) {
         data[0].localWhisperModel = 'whisper-small'
       }
+      if (data[0].lastSeenWhatsNewVersion === undefined) {
+        data[0].lastSeenWhatsNewVersion = null
+      }
     }
     return data || []
   } catch (error) {

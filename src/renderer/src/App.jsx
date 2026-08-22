@@ -14,10 +14,12 @@ import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
 import { ApprovalProvider } from './contexts/ApprovalContext'
 import { YoutubeMusicPlayer } from './components/YoutubeMusicPlayer'
 import { GlobalCameraManager } from './components/GlobalCameraManager'
-import { getAllConfig } from './api/db'
+import { getAllConfig, saveConfiguration } from './api/db'
 import { initOramaIndices, hydrateFromDexie } from './api/oramaStore'
 import { pauseStaleAgentTasks } from './api/taskStore'
 import { env } from '@huggingface/transformers'
+import WhatNew from './components/WhatNew'
+import whatsNewData from './data/whats-new.json'
 
 // Global Transformers.js configuration
 env.allowLocalModels = false
@@ -178,6 +180,7 @@ function App() {
   const [isChecking, setIsChecking] = useState(true)
   const [loadingText, setLoadingText] = useState('Membangunkan Mark...')
   const [showRecovery, setShowRecovery] = useState(false)
+  const [showWhatsNew, setShowWhatsNew] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -272,6 +275,13 @@ function App() {
         if (window.api && window.api.syncConfig) {
           window.api.syncConfig(data[0])
         }
+        // --- What's New trigger: cek versi vs config ---
+        const newVersion = whatsNewData.version || '0.0.0'
+        const lastSeen = data[0].lastSeenWhatsNewVersion
+        if (newVersion !== lastSeen) {
+          setShowWhatsNew(true)
+        }
+        // -----------------
       }
       setIsChecking(false)
     }
@@ -321,6 +331,18 @@ function App() {
 
   const isStandalone = window.location.hash.includes('telegram-bot')
 
+  const handleWhatsNewClose = async () => {
+    setShowWhatsNew(false)
+    try {
+      const data = await getAllConfig()
+      if (data && data.length > 0) {
+        await saveConfiguration({ ...data[0], lastSeenWhatsNewVersion: whatsNewData.version })
+      }
+    } catch (e) {
+      console.error('[App] Gagal simpan lastSeenWhatsNewVersion:', e)
+    }
+  }
+
   return (
     <ApprovalProvider>
       <YoutubeMusicProvider>
@@ -328,6 +350,9 @@ function App() {
           <HashRouter>
             <GlobalListener />
             <MainLayout isStandalone={isStandalone} />
+            {showWhatsNew && !isChecking && hasConfig && (
+              <WhatNew onClose={handleWhatsNewClose} />
+            )}
             <div style={{ display: isStandalone ? 'none' : 'block' }}>
               <YoutubeMusicPlayer />
             </div>

@@ -72,24 +72,88 @@ keputusan eksplisit user untuk memulai ulang dari nol.
 - Files: `src/renderer/src/components/WhatNew.jsx`, `Guidebook.jsx`, `whats-new.json`
 - Alasan: cleaned up WhatNew UI; Guidebook descriptions now Linux-compatible
 
-## Fitur shelve (cutoff 2026-08-16 — mau diimplementasikan ulang)
+## Apa & Baru? (What's New / Release Notes)
 
-1. Auto scan model dari endpoint (/models) + selectable hasil config
-2. What's New
-3. 4 mode (chat/voice/camera/screen)
-4. Jam digital saat click orb
-5. Connector last.fm API (biarkan di connector, just api)
-6. Fitur import chat
+**Trigger**: Saat app pertama kali dijalankan setelah update, atau dari menu `?` → *What's New*
 
-Setiap fitur yang di-reimplementasi = patch bernomor baru (P5+), kecil, terdokumentasi.
+**Alur**:
+1. **App boot** → cek `whatsNewData.version` vs `config.lastSeenWhatsNewVersion`
+2. **Bedakan** → kalau versi berbeda → tampilkan modal slide-over dari kanan bawah (bukan center modal)
+3. **Tampilan**:
+   - Header: `v{versi} · {tanggal}`
+   - Summary ringkas: "X perubahan rilis"
+   - **Top 5 ATM** (perbaikan & adaptasi) — bulleted, 1 baris per item
+   - **Top 5 AUTO** (fitur otomatis) — bulleted, 1 baris per item
+   - Tombol CTA: "Lihat semua di Linear" → link ke Linear project
+   - Tombol dismiss ("×") → simpan `lastSeenWhatsNewVersion` ke config + tutup
+4. **Tidak muncul lagi** → kalau user dismiss + versi terbaru sudah dibaca
 
-## Status terakhir
+**Implementasi di codebase**:
+- `src/renderer/src/components/WhatNew.jsx` — sudah ada, butuh trigger dari boot
+- `src/renderer/src/data/whats-new.json` — perlu kolom `version` yang dibandingkan dengan config
+- `src/renderer/src/contexts/ChatContext` → tambah `lastSeenWhatsNewVersion` state + `setConfig`
+- `src/main/index.js` → saat `createWindow()` → cek versi dan arahkan ke WhatNew jika perlu
 
-- Base: `upstream/master` @ 2026-08-22 (diff src/ = P1–P4, P6–P9)
-- Branch: `5.5.0`
-- P5 deprecated; build outputs `preload/index.js` (not `.mjs`)
-- Commit history:
-  - `d4f447f` Merge upstream
-  - `0ea4d30` Re-apply P1–P5 after merge
-  - `1156c1c` Revert P5 (preload .mjs obsolete)
-  - `55cec51` Apply stash P6–P9 (Linux migration)
+**Catatan visual** (Apple Liquid Glass theme, HIG-compatible):
+- Modal floating di kiri/bawah layar (bukan center-block)
+- Glassmorphism background `bg-base-200 border border-[var(--glass-border)]`
+- `[-webkit-app-region:no-drag]` pada titlebar area
+- Warna: teks putih, badge-primary/secondary/accent/info/warning/success/neutral/ghost
+
+## Configuration Sidebar Navigation
+
+**Masalah**: `Configuration.jsx` sekarang 1184 baris — single vertical scroll semua sections (AI Engine, Camera, Shortcut, TTS, Telegram, Memory). User pusing, harus scroll panjang buat nemu setting.
+
+**Solusi**: Sidebar navigation (daftar section di kiri) + content panel di kanan. Pattern: desktop settings UX standar (VS Code, Discord, Slack, macOS System Settings).
+
+**Arsitektur**:
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Header: "Pengaturan Mark"  [Back btn if !firstSetup]       │
+├──────────────────┬──────────────────────────────────────────┤
+│  SIDEBAR (260px) │  CONTENT PANEL (flex-1)                  │
+│  ┌────────────┐  │  ┌────────────────────────────────────┐  │
+│  │ 🤖 AI &   │  │  │  Section content (scrollable)       │  │
+│  │    Tools   │──▶ │  │                                   │  │
+│  ├────────────┤  │  │                                   │  │
+│  │ 🎥 Kamera  │  │  │                                   │  │
+│  ├────────────┤  │  │                                   │  │
+│  │ ⌨ Shortcut │  │  │                                   │  │
+│  ├────────────┤  │  │                                   │  │
+│  │ 🔊 Audio   │  │  │                                   │  │
+│  ├────────────┤  │  │                                   │  │
+│  │ 🤖 Telegram│  │  │                                   │  │
+│  ├────────────┤  │  │                                   │  │
+│  │ 💾 Memory  │  │  │                                   │  │
+│  └────────────┘  │  └────────────────────────────────────┘  │
+└──────────────────┴──────────────────────────────────────────┘
+```
+
+**Sections (dari Configuration.jsx existing)**:
+1. **AI & Tools** (lines 541-709): AI Provider, Model, Awareness, Persona, Temperature, Context, Window Opacity
+2. **Kamera** (lines 806-851): Camera toggle, device select, preview
+3. **Global Shortcut** (lines 854-919): Shortcut key, recorder, presets
+4. **Audio & Voice** (lines 924-1090): STT engine, Groq API Key, Mic, TTS Rate/Pitch, Test Voice
+5. **Telegram Bot** (lines ~1090+): Bot Token, Admin IDs
+6. **Memory & Data** (lines ~1120+): Clear chat, Export chat
+
+**Implementasi**:
+- Refactor `Configuration.jsx` jadi parent component + 6 child section components
+- State `activeSection` di parent
+- Sidebar: `nav` list dengan highlight aktif, `aria-current="page"`
+- Keyboard navigation: Arrow Up/Down antar section, Enter buat pilih
+- Responsive: mobile (< 768px) → sidebar jadi dropdown/select di header
+- HIG compliance: fokus visible, 44px touch target, label jelas
+
+**Files to create/modify**:
+- `src/renderer/src/pages/Configuration.jsx` → parent + sections
+- `src/renderer/src/components/ConfigSidebar.jsx` (baru)
+- `src/renderer/src/components/ConfigSections/*.jsx` (6 files baru)
+
+**Catatan visual** (Apple Liquid Glass theme):
+- Sidebar: `bg-base-200/50 backdrop-blur-sm border-r border-white/10`
+- Active item: `bg-primary/20 text-primary border-l-2 border-primary`
+- Hover: `bg-white/5`
+- Content panel: `overflow-y-auto p-6 space-y-8`
+
+**Backwards compat**: `isFirstSetup` prop tetap jalan — sidebar hidden di firstSetup mode (wizard step-by-step via `driver.js` yang sudah ada).
