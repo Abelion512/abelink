@@ -45,19 +45,32 @@ keputusan eksplisit user untuk memulai ulang dari nol.
   - `mainLayout` menerima prop `isStandalone`; `WindowControls` disembunyikan saat standalone
   - drag region dipindah dari container ke grip center saja
 
-### P5 — index.js: preload .mjs (ESM output — upstream bug)
-- File: `src/main/index.js`
-- Alasan: package.json `type:module` + electron-vite 5 → preload dibuild
-  menjadi `index.mjs`; main refer `index.js` → `Cannot find module` →
-  `window.api` undefined → tombol min/max/close no-op + fetchAI/plugin error.
-- Isi: `preload: path.join(__dirname, '../preload/index.mjs')`
-- Konflik saat merge: cek selalu (upstream mungkin fix dengan cara lain).
+### ~~P5 — index.js: preload .mjs (ESM output — upstream bug)~~ DEPRECATED
+- Status: **OBSOLETE**. Upstream build sekarang menghasilkan `preload/index.js`
+  (bukan `.mjs`). P5 tidak diperlukan di base `b531932`.
 
 ### P4 — package.json: +ytmusic-api (private)
 - File: `package.json`
 - Alasan: upstream `src/main/index.js` import `ytmusic-api` tapi package.json
   upstream tidak mencantumkan (bug upstream). Kita keep `5.3.1`.
 - Catatan: kalau upstream pernah menambahkan, hapus dari sini.
+
+### P6 — README.md: PowerShell → Shell (cross-platform)
+- File: `README.md`
+- Alasan: Linux migration; gunakan "shell" bukan "PowerShell"
+
+### P7 — src/main/*: comment + string updates for Linux
+- Files: `src/main/index.js`, `node-tools.js`, `pc-agent.js`, `plugins/plugin-loader.js`, `telegram/telegram-service.js`
+- Alasan: hapus referensi Windows-only di komentar dan UI strings
+
+### P8 — telegram-service.js: yt-dlp binary path fix
+- File: `src/main/telegram/telegram-service.js`
+- Alasan: `youtube-dl-exec` bundle binary berbeda per OS
+  (`yt-dlp.exe` Win32 vs `yt-dlp` Linux/macOS)
+
+### P9 — renderer: WhatNew + Guidebook UI simplifications
+- Files: `src/renderer/src/components/WhatNew.jsx`, `Guidebook.jsx`, `whats-new.json`
+- Alasan: cleaned up WhatNew UI; Guidebook descriptions now Linux-compatible
 
 ## Fitur shelve (cutoff 2026-08-16 — mau diimplementasikan ulang)
 
@@ -72,6 +85,11 @@ Setiap fitur yang di-reimplementasi = patch bernomor baru (P5+), kecil, terdokum
 
 ## Status terakhir
 
-- Base: `upstream/master` @ 2026-08-16 (diff src/ = hanya P1–P3)
+- Base: `upstream/master` @ 2026-08-22 (diff src/ = P1–P4, P6–P9)
 - Branch: `5.5.0`
-- Ui glass Apple Liquid Glass yang sudah dibuat pre-cutoff: di commit `4522623` (bisa cherry-pick / re-apply sebagai patch baru kalau mau)
+- P5 deprecated; build outputs `preload/index.js` (not `.mjs`)
+- Commit history:
+  - `d4f447f` Merge upstream
+  - `0ea4d30` Re-apply P1–P5 after merge
+  - `1156c1c` Revert P5 (preload .mjs obsolete)
+  - `55cec51` Apply stash P6–P9 (Linux migration)
