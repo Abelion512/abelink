@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FaTimes, FaInfoCircle, FaCodeBranch } from 'react-icons/fa'
+import { FaTimes, FaInfoCircle, FaCodeBranch, FaTag } from 'react-icons/fa'
 import whatsNewData from '../data/whats-new.json'
 
 const WhatNew = ({ onClose }) => {
