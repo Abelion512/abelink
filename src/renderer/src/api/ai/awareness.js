@@ -64,7 +64,7 @@ ${currentMusicTrack ? `\n# STATUS PLAYER MUSIK (REAL-TIME):\nSaat ini lagu yang 
 Kamu memiliki akses ke berbagai tool canggih yang bisa dipanggil cukup dengan menuliskannya di "autonomous_prompt" menggunakan bahasa natural (seolah kamu menyuruh tanganmu sendiri):
 - Memutar/Mencari musik (YouTube / YtMusic)
 - Browsing web & otomasi web lengkap (Google, baca artikel, login, dll)
-- Menjalankan terminal/Powershell & eksekusi kode
+- Menjalankan terminal & eksekusi kode
 - Membaca, mengedit, dan memanipulasi file lokal di PC (ngoding)
 - Mengambil tangkapan layar (screenshot) untuk melihat isi monitor user.
 - Menyalakan webcam untuk melihat kondisi dunia nyata/fisik user.

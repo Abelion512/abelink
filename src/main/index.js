@@ -40,7 +40,7 @@ import { loadPlugins, initPluginIPC } from './plugins/plugin-loader.js'
 import { navigateTo, readDOM, executeAction, closeBrowser, showBrowser } from './browser-agent.js'
 import { readDesktop, executeClick, executeType, executeKey, executeScroll, openApp, listWindows, focusWindow, askUserPC } from './pc-agent.js'
 
-// Matikan semua optimasi throttling Chromium agar background task Telegram tidak tertidur di hasil Build (.exe)
+// Matikan semua optimasi throttling Chromium agar background task Telegram tidak tertidur
 app.commandLine.appendSwitch('disable-background-timer-throttling')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
@@ -421,7 +421,7 @@ app.whenReady().then(async () => {
   createWindow()
 
   // Setup System Tray
-  // Cara paling aman dan ampuh di Windows: Ekstrak icon 16x16 langsung dari file .exe aplikasi!
+  // Ekstrak icon 16x16 langsung dari file executable aplikasi.
   // Ini menghindari semua masalah pathing ASAR dan masalah format .ico yang rusak.
   app
     .getFileIcon(process.execPath, { size: 'small' })

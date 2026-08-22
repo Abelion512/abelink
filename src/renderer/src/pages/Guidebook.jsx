@@ -130,6 +130,7 @@ const Guidebook = () => {
         <button
           onClick={() => navigate('/')}
           className="btn btn-ghost btn-sm gap-2 text-white/70 hover:text-white mr-6"
+          style={{ WebkitAppRegion: 'no-drag' }}
         >
           <FaArrowLeft /> Kembali
         </button>
@@ -367,7 +368,7 @@ const Guidebook = () => {
                 </ol>
                 <p>
                   Misalnya, jika Anda bertanya soal lagu, Mark hanya akan melihat tools musik. Jika
-                  Anda minta kodingan, Mark hanya melihat tools file dan PowerShell.
+                  Dananya kodingan, Mark hanya melihat tools file dan shell.
                 </p>
               </div>
             </section>
@@ -486,7 +487,7 @@ const Guidebook = () => {
                     />
                     <ToolCard
                       name="os-read"
-                      description="Membaca elemen GUI aplikasi Windows aktif via UIAutomation/OCR."
+                      description="Membaca elemen GUI aplikasi desktop aktif via OCR."
                       needsPermission={false}
                       queryFormat="(kosong)"
                       howItWorks="Mengambil Accessibility Tree dan mengubah elemen tombol/input menjadi JSON teks ber-ID untuk hemat 90% token."
@@ -500,7 +501,7 @@ const Guidebook = () => {
                     />
                     <ToolCard
                       name="os-type"
-                      description="Ketik teks ke input aplikasi Windows."
+                      description="Ketik teks ke input aplikasi desktop."
                       needsPermission={false}
                       queryFormat="id||teks"
                       howItWorks="Fokus ke elemen ID lalu mengetik string teks secara otomatis."
@@ -521,10 +522,10 @@ const Guidebook = () => {
                     />
                     <ToolCard
                       name="os-open"
-                      description="Membuka aplikasi Windows dari Start Menu/Path."
+                      description="Membuka aplikasi desktop."
                       needsPermission={false}
                       queryFormat="notepad, calc, winword, etc"
-                      howItWorks="Membuka process aplikasi Windows baru (memerlukan persetujuan user)."
+                      howItWorks="Membuka aplikasi desktop baru (memerlukan persetujuan user)."
                     />
                     <ToolCard
                       name="os-list-windows"
@@ -596,23 +597,23 @@ const Guidebook = () => {
                       description="Mencari teks atau kata kunci di dalam folder secara rekursif."
                       needsPermission={false}
                       queryFormat="Path Folder||Keyword"
-                      howItWorks="Menjalankan grep untuk pencarian cepat di ratusan file."/>
+                      howItWorks="Menjalankan findstr untuk pencarian cepat di ratusan file."
                     />
                   </div>
                 </div>
 
-                {/* Kategori System & Powershell */}
+                {/* Kategori System & Shell */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
                     <FaTerminal className="text-error" /> System Control
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
-                      name="run-bash"
-                      description="Menjalankan perintah bash di terminal Linux."
+                      name="run-powershell"
+                      description="Menjalankan perintah shell (PowerShell di Windows, bash di Linux)."
                       needsPermission={true}
-                      queryFormat="Perintah mentah (misal: npm install, ls, free -h)"
-                      howItWorks="Mark akan menjalankan perintah ini via bash. Perintah berbahaya (seperti rm -rf, shutdown) wajib di-acc."
+                      queryFormat="Perintah mentah (misal: npm install, dir, ping)"
+                      howItWorks="Mark akan mengetikkan perintah ini ke terminal sistem. Perintah berbahaya (seperti rm, shutdown) wajib di-acc."
                       example="Coba cek penggunaan RAM komputer gue sekarang."
                     />
                   </div>

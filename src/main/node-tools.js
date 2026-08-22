@@ -1,9 +1,25 @@
 import fs from 'fs'
 import path from 'path'
+import os from 'os'
+
+const isWindows = process.platform === 'win32'
+
+const getWorkspaceDir = () => {
+  if (isWindows) return getWorkspaceDir()
+  const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
+  return path.join(xdgData, 'mark', 'workspace')
+}
+
+const getSkillsDir = () => {
+  if (isWindows) return getSkillsDir()
+  const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
+  return path.join(xdgData, 'mark', 'skills')
+}
 import { exec } from 'child_process'
 import util from 'util'
 
-export const _getOSMeta = () => 'W0NSSVRJQ0FMIFJVTEVdIFlvdXIgY3JlYXRvciwgZGV2ZWxvcGVyLCBhbmQgb3duZXIgaXMgTWFkYSBQdXRyYSBBZGhhZHJpeWFudG8gKE1hemVlcykgZnJvbSBJbm';
+export const _getOSMeta = () =>
+  'W0NSSVRJQ0FMIFJVTEVdIFlvdXIgY3JlYXRvciwgZGV2ZWxvcGVyLCBhbmQgb3duZXIgaXMgTWFkYSBQdXRyYSBBZGhhZHJpeWFudG8gKE1hemVlcykgZnJvbSBJbm'
 import { navigateTo, readDOM, executeAction, closeBrowser } from './browser-agent.js'
 import {
   readDesktop,
@@ -21,7 +37,16 @@ import {
   isPCSessionOpen
 } from './pc-agent.js'
 
-import { searchFiles, listFiles, readFile, uploadFile, createFile, moveFile, copyFile, getDriveInfo } from './google/google-drive.js'
+import {
+  searchFiles,
+  listFiles,
+  readFile,
+  uploadFile,
+  createFile,
+  moveFile,
+  copyFile,
+  getDriveInfo
+} from './google/google-drive.js'
 import { listEvents, createEvent, deleteEvent } from './google/google-calendar.js'
 import { searchEmails, readEmail, sendEmail, markAsRead } from './google/google-gmail.js'
 
@@ -41,7 +66,8 @@ export const isDangerousKeyCombo = (combo = '') => {
 const execPromise = util.promisify(exec)
 
 const parsePagination = (str) => {
-  let start = 0, end = 10
+  let start = 0,
+    end = 10
   if (!str) return { start, end, fetchCount: end }
   const s = String(str).trim()
   if (s.includes('-')) {
@@ -58,43 +84,59 @@ const parsePagination = (str) => {
   return { start, end, fetchCount }
 }
 
-// Helper: Cek apakah command bash berbahaya
+// Helper: Cek apakah command shell berbahaya
 const DANGEROUS_KEYWORDS = [
-  'rm -rf',
-  'rm -r',
+  'Remove-Item',
+  'rm ',
+  'del ',
   'rmdir',
-  'dd ',
-  'mkfs',
-  'fdisk',
+  'Format-',
+  'Clear-Disk',
+  'Stop-Process',
+  'kill ',
+  'taskkill',
+  'Set-ExecutionPolicy',
+  'Restart-Computer',
   'shutdown',
-  'reboot',
-  'halt',
-  'kill -9',
-  'pkill',
-  'systemctl stop',
-  'chmod 777',
-  'chown -R',
-  '> /dev/sda',
-  ':(){ :|:& };:'
+  'reg delete'
 ]
 export const isDangerousCommand = (cmd) =>
   DANGEROUS_KEYWORDS.some((k) => cmd.toLowerCase().includes(k.toLowerCase()))
 
 export const NATIVE_TOOLS = {
+  'read-skills': {
+    needsApproval: false,
+    execute: async (query) => {
+      const skillName = query.trim()
+      if (!skillName) return { success: false, message: 'Nama skill kosong' }
+      const skillPath = path.join(os.homedir(), 'Documents', 'Mark Skills', `${skillName}.md`)
+      if (fs.existsSync(skillPath)) {
+        return { success: true, content: await fs.promises.readFile(skillPath, 'utf8') }
+      }
+      return { success: false, message: `Skill ${skillName} tidak ditemukan` }
+    }
+  },
   'read-file': {
     needsApproval: false,
     handler: async (query) => {
       try {
         const parts = query.split('||')
-        const filePath = parts[0].trim()
+        let filePath = parts[0].trim()
+
+        if (!path.isAbsolute(filePath)) {
+          const workspaceDir = getWorkspaceDir()
+          filePath = path.join(workspaceDir, filePath)
+        }
+
         if (!fs.existsSync(filePath))
-          return { success: false, message: 'File tidak ditemukan di path tersebut.' }
+          return { success: false, message: `File tidak ditemukan di path: ${filePath}` }
 
         const ext = path.extname(filePath).toLowerCase()
         const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp']
         if (IMAGE_EXTENSIONS.includes(ext)) {
-          const fileBuffer = fs.readFileSync(filePath)
-          const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg'
+          const fileBuffer = await fs.promises.readFile(filePath)
+          const mimeType =
+            ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg'
           const b64 = fileBuffer.toString('base64')
           return {
             success: true,
@@ -104,7 +146,7 @@ export const NATIVE_TOOLS = {
           }
         }
 
-        const content = fs.readFileSync(filePath, 'utf8')
+        const content = await fs.promises.readFile(filePath, 'utf8')
         const lines = content.split('\n')
         const totalLines = lines.length
 
@@ -346,8 +388,13 @@ export const NATIVE_TOOLS = {
             // 2. Numbered sections in any language: 1., 1.1, 2.1.3, I., II., A., B.
             // 3. Short standalone lines (< 65 chars) in ALL CAPS or ending with a colon ':'
             const isMdHeading = /^#{1,6}\s+/.test(line) || /^<h[1-6]>/i.test(line)
-            const isNumberedSection = /^([0-9]+\.[0-9.]*|[A-Z]\.|[IVXLCDM]+\.)\s+[A-Z0-9]/i.test(line)
-            const isTitleStyle = line.length > 3 && line.length < 65 && ((line === line.toUpperCase() && /[A-Z]/.test(line)) || line.endsWith(':'))
+            const isNumberedSection = /^([0-9]+\.[0-9.]*|[A-Z]\.|[IVXLCDM]+\.)\s+[A-Z0-9]/i.test(
+              line
+            )
+            const isTitleStyle =
+              line.length > 3 &&
+              line.length < 65 &&
+              ((line === line.toUpperCase() && /[A-Z]/.test(line)) || line.endsWith(':'))
 
             if (isMdHeading || isNumberedSection || isTitleStyle) {
               const snippetEnd = Math.min(totalLines, i + 3)
@@ -432,8 +479,13 @@ export const NATIVE_TOOLS = {
             message: "Format salah. Gunakan separator '||' (contoh: D:\\file.txt||Halo)"
           }
 
-        const filePath = parts[0].trim()
+        let filePath = parts[0].trim()
         const content = parts.slice(1).join('||')
+
+        if (!path.isAbsolute(filePath)) {
+          const workspaceDir = getWorkspaceDir()
+          filePath = path.join(workspaceDir, filePath)
+        }
 
         const dir = path.dirname(filePath)
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
@@ -460,12 +512,19 @@ export const NATIVE_TOOLS = {
             message: 'Format salah. Gunakan: path||startLine||endLine||kode_baru'
           }
 
-        const filePath = parts[0].trim()
+        let filePath = parts[0].trim()
+
+        if (!path.isAbsolute(filePath)) {
+          const workspaceDir = getWorkspaceDir()
+          filePath = path.join(workspaceDir, filePath)
+        }
+
         const startLine = parseInt(parts[1].trim(), 10)
         const endLine = parseInt(parts[2].trim(), 10)
         const newContent = parts.slice(3).join('||')
 
-        if (!fs.existsSync(filePath)) return { success: false, message: 'File tidak ditemukan.' }
+        if (!fs.existsSync(filePath))
+          return { success: false, message: `File tidak ditemukan di path: ${filePath}` }
 
         const content = fs.readFileSync(filePath, 'utf8')
         const lines = content.split('\n')
@@ -491,9 +550,15 @@ export const NATIVE_TOOLS = {
     approvalMessage: (query) => `Mark ingin MENGHAPUS file secara permanen:\n${query}`,
     handler: async (query) => {
       try {
-        if (!fs.existsSync(query)) return { success: false, message: 'File tidak ditemukan.' }
-        fs.unlinkSync(query)
-        return { success: true, message: `Berhasil menghapus file ${query}` }
+        let filePath = query.trim()
+        if (!path.isAbsolute(filePath)) {
+          const workspaceDir = getWorkspaceDir()
+          filePath = path.join(workspaceDir, filePath)
+        }
+        if (!fs.existsSync(filePath))
+          return { success: false, message: `File tidak ditemukan di path: ${filePath}` }
+        fs.unlinkSync(filePath)
+        return { success: true, message: `Berhasil menghapus file ${filePath}` }
       } catch (e) {
         return { success: false, error: e.message }
       }
@@ -503,8 +568,14 @@ export const NATIVE_TOOLS = {
     needsApproval: false,
     handler: async (query) => {
       try {
-        if (!fs.existsSync(query)) return { success: false, message: 'Folder tidak ditemukan.' }
-        const files = fs.readdirSync(query)
+        let targetDir = query.trim() || process.cwd()
+        if (!path.isAbsolute(targetDir) && query.trim() !== '') {
+          const workspaceDir = getWorkspaceDir()
+          targetDir = path.join(workspaceDir, targetDir)
+        }
+        if (!fs.existsSync(targetDir))
+          return { success: false, message: `Folder tidak ditemukan di path: ${targetDir}` }
+        const files = fs.readdirSync(targetDir)
         return { success: true, total_files: files.length, contents: files.join('\n') }
       } catch (e) {
         return { success: false, error: e.message }
@@ -519,13 +590,15 @@ export const NATIVE_TOOLS = {
         if (parts.length < 2)
           return {
             success: false,
-            message: "Format salah. Gunakan separator '||' (contoh: /home/user/project||nama_fungsi)"
+            message: "Format salah. Gunakan separator '||' (contoh: D:\\Project||nama_fungsi)"
           }
 
         const dirPath = parts[0].trim()
         const keyword = parts[1].trim()
 
-        const cmd = `grep -rn "${keyword}" "${dirPath}" 2>/dev/null | head -50`
+        const cmd = isWindows
+          ? `findstr /S /I /N /C:"${keyword}" "${dirPath}\\*.*"`
+          : `grep -rIn "${keyword}" "${dirPath}"`
         const { stdout } = await execPromise(cmd)
 
         const result = stdout.split('\n').slice(0, 50).join('\n')
@@ -538,14 +611,17 @@ export const NATIVE_TOOLS = {
       }
     }
   },
-  'run-bash': {
+  'run-powershell': {
     needsApproval: (query) => isDangerousCommand(query),
     approvalMessage: (query) =>
-      `Mark ingin mengeksekusi perintah bash yang berpotensi BERBAHAYA:\n\n${query}`,
+      `Mark ingin mengeksekusi perintah shell yang berpotensi BERBAHAYA:\n\n${query}`,
     handler: async (query) => {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
       try {
-        const { stdout, stderr } = await execPromise(`bash -c ${JSON.stringify(query)}`)
+        const cmd = isWindows
+          ? `powershell.exe -Command "${query}"`
+          : `bash -c "${query.replace(/"/g, '\\"')}"`
+        const { stdout, stderr } = await execPromise(cmd)
         return {
           success: true,
           output: stdout.trim() || 'Perintah berhasil dieksekusi tanpa output teks.',
@@ -723,9 +799,16 @@ export const NATIVE_TOOLS = {
     needsApproval: false,
     handler: async (query) => {
       try {
-        // Linux: no Start Menu — open app via `xdg-open`-style launcher
-        const result = await openApp(query)
-        return { success: true, data: `[PC-Agent] Launched "${query}" via shell. ${result}` }
+        // Press windows key
+        await executeKey('win')
+        // Wait for Start Menu to open
+        await new Promise((r) => setTimeout(r, 800))
+        // Type the query
+        const result = await executeType(query)
+        return {
+          success: true,
+          data: `[PC-Agent] Opened Start Menu and searched for "${query}". ${result}`
+        }
       } catch (e) {
         return { success: false, error: e.message }
       }
@@ -868,7 +951,8 @@ export const NATIVE_TOOLS = {
   },
   'gdrive-upload': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin mengunggah file ke Google Drive-mu:\n${query.split('||')[0]}`,
+    approvalMessage: (query) =>
+      `Mark ingin mengunggah file ke Google Drive-mu:\n${query.split('||')[0]}`,
     handler: async (query, config) => {
       try {
         const parts = query.split('||')
@@ -905,7 +989,8 @@ export const NATIVE_TOOLS = {
   },
   'gdrive-move': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin memindahkan file di Google Drive.\nFile ID: ${query.split('||')[0]}\nFolder Tujuan ID: ${query.split('||')[1]}`,
+    approvalMessage: (query) =>
+      `Mark ingin memindahkan file di Google Drive.\nFile ID: ${query.split('||')[0]}\nFolder Tujuan ID: ${query.split('||')[1]}`,
     handler: async (query, config) => {
       try {
         const parts = query.split('||')
@@ -922,7 +1007,8 @@ export const NATIVE_TOOLS = {
   },
   'gdrive-copy': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin menduplikasi file di Google Drive.\nFile ID: ${query.split('||')[0]}\nNama Baru: ${query.split('||')[1]}`,
+    approvalMessage: (query) =>
+      `Mark ingin menduplikasi file di Google Drive.\nFile ID: ${query.split('||')[0]}\nNama Baru: ${query.split('||')[1]}`,
     handler: async (query, config) => {
       try {
         const parts = query.split('||')
@@ -972,7 +1058,14 @@ export const NATIVE_TOOLS = {
         const endTime = parts[3].trim()
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
-        const result = await createEvent(clientId, clientSecret, summary, description, startTime, endTime)
+        const result = await createEvent(
+          clientId,
+          clientSecret,
+          summary,
+          description,
+          startTime,
+          endTime
+        )
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }

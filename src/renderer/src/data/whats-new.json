@@ -1,24 +1,23 @@
 {
-  "version": "5.0.0",
-  "date": "2026-08-19",
+  "version": "5.0.1",
+  "date": "19 Agustus 2026",
+  "summary": "3 perbaikan rilis: lebih stabil, perintah planning lebih aman, dan Telegram bot lebih cerdas",
+  "linearUrl": "https://linear.app/abelion/project/mark-agent-for-linux-10ceec65c326",
   "changes": [
     {
       "type": "ATM",
-      "msg": "feat: enhance planning command with improved error handling and JSON output validation",
-      "hash": "33946aa",
-      "files": ["src/renderer/src/api/ai/planning.js"]
+      "msg": "Perbaikan error handling & validasi pada perintah planning",
+      "hash": "33946aa"
     },
     {
       "type": "ATM",
-      "msg": "feat: implement durable task creation handling in planning command",
-      "hash": "367efd6",
-      "files": ["src/renderer/src/hooks/agent/useMarkPlan.js"]
+      "msg": "Pembuatan tugas tahan lama (bisa lanjut setelah error)",
+      "hash": "367efd6"
     },
     {
-      "type": "ATM",
-      "msg": "feat: enhance Telegram bot commands with approval handling and file download notifications",
-      "hash": "350b969",
-      "files": ["src/renderer/src/api/ai/telegram.js"]
+      "type": "AUTO",
+      "msg": "Perintah Telegram bot dengan persetujuan & notifikasi unduhan",
+      "hash": "350b969"
     }
   ]
 }

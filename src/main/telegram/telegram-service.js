@@ -426,9 +426,10 @@ ipcMain.on('tg:trigger-music-download', async (event, { chatId, query }) => {
     }
     const tempPath = path.join(app.getPath('temp'), `tg-audio-${Date.now()}.mp3`)
     const unpackFfmpeg = ffmpeg.replace('app.asar', 'app.asar.unpacked')
+    const ytdlBinName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
     const unpackYtdl = unpackFfmpeg.replace(
-      /ffmpeg-static[\\/]ffmpeg\.exe/i,
-      'youtube-dl-exec\\bin\\yt-dlp.exe'
+      /ffmpeg-static[\\/].*?$/i,
+      `youtube-dl-exec${process.platform === 'win32' ? '\\bin' : '/bin'}/${ytdlBinName}`
     )
 
     await new Promise((resolve, reject) => {
