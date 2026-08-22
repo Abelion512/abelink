@@ -38,7 +38,8 @@ export const abortAllFetches = () => {
     } catch (e) {}
   })
 }
-export const setGlobalConfig = (config) => {
+
+export const setGlobalConfig = (config) => {
   globalConfig = config || {}
 }
 
@@ -132,6 +133,24 @@ export const fetchAI = async (
           if (match) {
             reasoning = match[1].trim()
             answer = answer.replace(/<think>[\s\S]*?<\/think>/, '').trim()
+          } else {
+            const openIdx = answer.indexOf('<think>')
+            if (openIdx !== -1) {
+              reasoning = answer.substring(openIdx + 7).trim()
+              answer = answer.substring(0, openIdx).trim()
+            }
+          }
+        }
+
+        // Jika answer kosong setelah think diekstrak (karena seluruh respon ada di dalam think)
+        if (!answer && reasoning) {
+          const firstBrace = reasoning.indexOf('{')
+          const lastBrace = reasoning.lastIndexOf('}')
+          if (firstBrace !== -1 && lastBrace > firstBrace) {
+            answer = reasoning.substring(firstBrace, lastBrace + 1)
+            reasoning = (reasoning.substring(0, firstBrace) + reasoning.substring(lastBrace + 1)).trim() || null
+          } else {
+            answer = reasoning
           }
         }
 
@@ -227,7 +246,11 @@ export const fetchAI = async (
             `Koneksi Timeout: Server API (${endpoint}) nge-gantung lebih dari 5 menit.`
           )
         }
-        throw err
+        const causeStr = err.cause ? ` (${err.cause.message || err.cause.code || err.cause})` : ''
+        const enrichedError = new Error(`Gagal menghubungi server AI di ${endpoint}: ${err.message}${causeStr}`)
+        enrichedError.code = err.code || err.cause?.code || 'FETCH_FAILED'
+        enrichedError.cause = err
+        throw enrichedError
       } finally {
         clearTimeout(timeoutId)
         parentAbortController.signal.removeEventListener(
@@ -454,13 +477,31 @@ export const fetchAI = async (
     const message = data.choices[0].message
 
     let content = message.content || ''
-    let reasoning = message.reasoning || null
+    let reasoning = message.reasoning || message.reasoning_content || null
 
     if (!reasoning && content.includes('<think>')) {
       const match = content.match(/<think>([\s\S]*?)<\/think>/)
       if (match) {
         reasoning = match[1].trim()
         content = content.replace(/<think>[\s\S]*?<\/think>/, '').trim()
+      } else {
+        const openIdx = content.indexOf('<think>')
+        if (openIdx !== -1) {
+          reasoning = content.substring(openIdx + 7).trim()
+          content = content.substring(0, openIdx).trim()
+        }
+      }
+    }
+
+    // Jika content kosong tapi reasoning ada isinya (model mengeluarkan respon di dalam reasoning)
+    if (!content && reasoning) {
+      const firstBrace = reasoning.indexOf('{')
+      const lastBrace = reasoning.lastIndexOf('}')
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        content = reasoning.substring(firstBrace, lastBrace + 1)
+        reasoning = (reasoning.substring(0, firstBrace) + reasoning.substring(lastBrace + 1)).trim() || null
+      } else {
+        content = reasoning
       }
     }
 
