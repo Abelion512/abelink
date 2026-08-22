@@ -487,82 +487,129 @@ export const useMarkPlan = ({
               loaded_group: groupName,
               message: `BERHASIL MEMUAT GRUP TOOL: ${groupName}.\nDokumentasi tool:\n${toolDescriptions}`
             }
+          } else if (tool === 'read-skill') {
+            const skillName = (query || '').trim()
+            if (!skillName) {
+              res = { success: false, message: 'Harap sebutkan nama_skill yang ingin dibaca.' }
+            } else {
+              // 1. Cek Dexie learnedSkills (Self-Improved / Dynamic Native Skills)
+              const { getLearnedSkill } = await import('../../api/db.js')
+              const learned = await getLearnedSkill(skillName)
+              if (learned && learned.content) {
+                res = {
+                  success: true,
+                  data: `[PEDOMAN PROSEDUR KEAHLIAN (LEARNED/DEXIE): ${skillName.toUpperCase()}]\n${learned.content}`
+                }
+              } else {
+                // 2. Cek NATIVE_SKILLS bawaan
+                const { NATIVE_SKILLS } = await import('../../components/core/native-skills.js')
+                const native = NATIVE_SKILLS.find(
+                  (s) => s.name.toLowerCase() === skillName.toLowerCase()
+                )
+                if (native && native.content) {
+                  res = {
+                    success: true,
+                    data: `[PEDOMAN SKILL BAWAAN: ${skillName.toUpperCase()}]\n${native.content}`
+                  }
+                } else if (window.api && window.api.readSkill) {
+                  // 3. Cek berkas disk di Documents/Mark Skills
+                  const skillData = await window.api.readSkill(skillName)
+                  if (skillData) {
+                    const content = typeof skillData === 'string' ? skillData : skillData.content
+                    const basePath =
+                      typeof skillData === 'object' && skillData.basePath ? skillData.basePath : ''
+                    res = {
+                      success: true,
+                      data: `[PEDOMAN SKILL (FILE): ${skillName.toUpperCase()}]\n${basePath ? `[BASE PATH: ${basePath}]\n` : ''}${content}`
+                    }
+                  } else {
+                    res = {
+                      success: false,
+                      message: `Skill "${skillName}" tidak ditemukan di keahlian internal maupun folder Mark Skills.`
+                    }
+                  }
+                } else {
+                  res = {
+                    success: false,
+                    message: `Skill "${skillName}" tidak ditemukan.`
+                  }
+                }
+              }
+            }
           } else {
-            res = { success: false, message: `Grup "${groupName}" tidak ditemukan.` }
+            const nativePromise = window.api.executeNativeTool(tool, query, config)
+            const abortPromise = new Promise((_, reject) => {
+              const onAbort = () => reject(new Error('AbortError'))
+              if (abortControllerRef.current.signal.aborted) return onAbort()
+              abortControllerRef.current.signal.addEventListener('abort', onAbort)
+            })
+            res = await Promise.race([nativePromise, abortPromise])
           }
-        } else {
-          const nativePromise = window.api.executeNativeTool(tool, query, config)
+
+          if (res.success) {
+            resultString =
+              res.data !== undefined
+                ? typeof res.data === 'string'
+                  ? res.data
+                  : JSON.stringify(res.data)
+                : res.message || 'Success'
+
+            // Pemotongan isi dokumen jika terlalu panjang
+            if (tool === 'read-document') {
+              const parts = query.split('||')
+              let fullText =
+                typeof res.data === 'object' && res.data !== null
+                  ? res.data.content || ''
+                  : String(res.data || '')
+              if (fullText && fullText.length > 2500) {
+                resultString = `${fullText.slice(0, 2500)}\n\n[DOKUMEN DIPOTONG (Total: ${fullText.length} karakter). Gunakan read-document dengan query "${parts[0]}||kata_kunci" untuk pencarian spesifik]`
+              }
+            }
+          } else {
+            resultString = `[ERROR] ${tool} gagal: ${res.message || res.error || 'Unknown error'}`
+          }
+
+          return {
+            resultString,
+            rejected: false,
+            toolExecution: { action: tool, query, result: resultString }
+          }
+        }
+        // 10. Plugin Execution
+        else {
+          pushProcess({
+            id: pluginProcessId,
+            type: 'plugin-execution',
+            status: 'active',
+            data: { action: tool, query }
+          })
+
+          const pluginPromise = window.api.executePlugin(tool, query)
           const abortPromise = new Promise((_, reject) => {
             const onAbort = () => reject(new Error('AbortError'))
             if (abortControllerRef.current.signal.aborted) return onAbort()
             abortControllerRef.current.signal.addEventListener('abort', onAbort)
           })
-          res = await Promise.race([nativePromise, abortPromise])
-        }
+          const res = await Promise.race([pluginPromise, abortPromise])
 
-        if (res.success) {
-          resultString =
-            res.data !== undefined
-              ? typeof res.data === 'string'
-                ? res.data
-                : JSON.stringify(res.data)
-              : res.message || 'Success'
+          resultString = res.success
+            ? typeof res.data === 'string'
+              ? res.data
+              : JSON.stringify(res.data)
+            : `[ERROR] Plugin ${tool} gagal: ${res.error}`
 
-          // Pemotongan isi dokumen jika terlalu panjang
-          if (tool === 'read-document') {
-            const parts = query.split('||')
-            let fullText =
-              typeof res.data === 'object' && res.data !== null
-                ? res.data.content || ''
-                : String(res.data || '')
-            if (fullText && fullText.length > 2500) {
-              resultString = `${fullText.slice(0, 2500)}\n\n[DOKUMEN DIPOTONG (Total: ${fullText.length} karakter). Gunakan read-document dengan query "${parts[0]}||kata_kunci" untuk pencarian spesifik]`
-            }
+          pushProcess({
+            id: pluginProcessId,
+            type: 'plugin-execution',
+            status: 'done',
+            data: { action: tool, query, result: resultString }
+          })
+
+          return {
+            resultString,
+            rejected: false,
+            toolExecution: { action: tool, query, result: resultString }
           }
-        } else {
-          resultString = `[ERROR] ${tool} gagal: ${res.message || res.error || 'Unknown error'}`
-        }
-
-        return {
-          resultString,
-          rejected: false,
-          toolExecution: { action: tool, query, result: resultString }
-        }
-      }
-      // 10. Plugin Execution
-      else {
-        pushProcess({
-          id: pluginProcessId,
-          type: 'plugin-execution',
-          status: 'active',
-          data: { action: tool, query }
-        })
-
-        const pluginPromise = window.api.executePlugin(tool, query)
-        const abortPromise = new Promise((_, reject) => {
-          const onAbort = () => reject(new Error('AbortError'))
-          if (abortControllerRef.current.signal.aborted) return onAbort()
-          abortControllerRef.current.signal.addEventListener('abort', onAbort)
-        })
-        const res = await Promise.race([pluginPromise, abortPromise])
-
-        resultString = res.success
-          ? typeof res.data === 'string'
-            ? res.data
-            : JSON.stringify(res.data)
-          : `[ERROR] Plugin ${tool} gagal: ${res.error}`
-
-        pushProcess({
-          id: pluginProcessId,
-          type: 'plugin-execution',
-          status: 'done',
-          data: { action: tool, query, result: resultString }
-        })
-
-        return {
-          resultString,
-          rejected: false,
-          toolExecution: { action: tool, query, result: resultString }
         }
       }
     } catch (toolError) {
@@ -1251,6 +1298,33 @@ export const useMarkPlan = ({
           if (window.api && window.api.browserAction) {
             window.api.browserAction({ action: 'finish' }).catch(() => {})
           }
+
+          // === DEDICATED SELF-IMPROVING SKILL SYNTHESIZER ===
+          if (decision.should_learn === true && executedToolsList.length > 0) {
+            import('../../api/ai/skillSynthesizer.js')
+              .then(({ synthesizeSkillAndSave }) => {
+                synthesizeSkillAndSave({
+                  userPrompt: userInput || lastUserPromptRef.current || '',
+                  executedTools: executedToolsList,
+                  finalAnswer: decision.answer || '',
+                  thought: decision.thought || ''
+                })
+                  .then((saved) => {
+                    if (saved) {
+                      console.log(
+                        `[useMarkPlan] ✨ Keahlian baru berhasil dipelajari: /${saved.name}`
+                      )
+                    }
+                  })
+                  .catch((err) => {
+                    console.error('[useMarkPlan] Gagal mensintesis skill:', err)
+                  })
+              })
+              .catch((err) => {
+                console.error('[useMarkPlan] Gagal import skillSynthesizer:', err)
+              })
+          }
+
           break
         }
 

@@ -1,10 +1,11 @@
-import { fetchAI, cleanAndParse } from './core'
-import { getAllConfig } from '../db'
+﻿import { fetchAI, cleanAndParse } from './core'
+import { getAllConfig, getAllLearnedSkills } from '../db'
 import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorMemory'
 import { getPersonaPrompt, getTraitContext } from './persona'
 import { core_tools } from '../tools/core-tools'
 import { group_tools } from '../tools/group-tools'
+import { NATIVE_SKILLS } from '../../components/core/native-skills'
 
 let pluginVectorCache = new Map()
 
@@ -50,14 +51,30 @@ export const getNextAction = async (
 
     const groupToolsObj = await group_tools()
 
-    let skills = []
+    let fileSkills = []
     try {
       if (window.api && window.api.getSkills) {
-        skills = await window.api.getSkills()
+        fileSkills = await window.api.getSkills()
       }
     } catch (e) {
-      console.error('Failed to get skills for planning', e)
+      console.error('Failed to get file skills for planning', e)
     }
+
+    let learnedSkills = []
+    try {
+      learnedSkills = await getAllLearnedSkills()
+    } catch (e) {
+      console.error('Failed to get learned skills for planning', e)
+    }
+
+    const userSkillsList = [
+      ...(NATIVE_SKILLS || []).map((s) => ({ name: s.name, description: s.description })),
+      ...(fileSkills || []).map((s) => ({ name: s.name, description: s.description }))
+    ]
+    const learnedSkillsList = (learnedSkills || []).map((s) => ({
+      name: s.name,
+      description: s.description
+    }))
 
     const systemPrompt = `
 Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas asisten AI canggih dan otonom.
@@ -65,16 +82,29 @@ Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas
 ${await getPersonaPrompt(userId, conf.personality)}
 ${options.currentMusicTrack ? `\n# STATUS PLAYER MUSIK (REAL-TIME):\nLagu yang AKTIF DIPUTAR SEKARANG: "${options.currentMusicTrack.title}" oleh ${options.currentMusicTrack.artist}.\nPENTING: Lagu di playlist bisa berganti otomatis. JANGAN TERKECUH oleh riwayat chat lama yang menyebutkan lagu sebelumnya! Untuk semua pertanyaan atau obrolan tentang musik yang sedang berjalan, HANYA gunakan data REAL-TIME ini sebagai referensi utama!` : ''}
 ${
-  skills.length > 0
-    ? `\n# MARK SKILLS (DAFTAR KEMAMPUAN KHUSUS - PRIORITAS TERTINGGI #1)
-Berikut adalah daftar skill khusus yang terpasang di sistem:
-${skills.map((s) => `- ${s.name}: ${s.description}`).join('\n')}
+  userSkillsList.length > 0 || learnedSkillsList.length > 0
+    ? `\n# MARK SKILLS & CAPABILITY REGISTRY (PRIORITAS TERTINGGI #1)
+${
+  userSkillsList.length > 0
+    ? `## 1. CORE & USER SKILLS (SOP RESMI DARI USER & SISTEM - PRIORITAS MUTLAK)
+Berikut adalah pedoman resmi yang wajib dipatuhi:
+${userSkillsList.map((s) => `- ${s.name}: ${s.description}`).join('\n')}`
+    : ''
+}
+${
+  learnedSkillsList.length > 0
+    ? `\n## 2. INTERNAL LEARNED SKILLS (KEAHLIAN HASIL BELAJAR INTERNAL MARK)
+Berikut adalah prosedur teruji yang pernah berhasil kamu pelajari dari pengalaman sebelumnya:
+${learnedSkillsList.map((s) => `- ${s.name}: ${s.description}`).join('\n')}`
+    : ''
+}
 
 ATURAN MUTLAK & PRIORITAS #1 - SELALU GUNAKAN 'read-skill':
-1. REFLEKS UTAMA (#1): SEBELUM MENGEKSEKUSI TOOL LAIN ATAU MENJAWAB, SELALU COCOKKAN PERMINTAAN USER DENGAN DAFTAR SKILL DI ATAS. Jika tugas atau pertanyaan user berkaitan (baik langsung maupun tidak langsung) dengan kemampuan skill di atas, AKSI PERTAMAMU WAJIB MEMANGGIL TOOL 'read-skill' (query: "nama_skill")!
-2. JANGAN LANGSUNG EKSEKUSI TANPA PEDOMAN: Jangan langsung menggunakan tool umum (seperti browser, powershell, atau write-file) atau menjawab langsung jika ada skill yang relevan. Selalu muat instruksi skill-nya terlebih dahulu via 'read-skill' agar kamu bekerja dengan workflow terbaik yang terstandarisasi.
-3. DILARANG MENYURUH USER: JANGAN menunggu atau menyuruh user mengetik slash command (/). Kamu wajib proaktif dan otomatis mengeksekusi 'read-skill'.
-4. IKUTI ALUR DI DALAM SKILL: Setelah isi pedoman dari 'read-skill' masuk ke observasi, jalankan setiap langkah dan aturan di dalamnya sampai tuntas!`
+1. REFLEKS UTAMA (#1): SEBELUM MENGEKSEKUSI TOOL LAIN ATAU MENJAWAB, SELALU COCOKKAN PERMINTAAN USER DENGAN DAFTAR SKILL DI ATAS. Jika tugas atau pertanyaan user berkaitan dengan salah satu kemampuan di atas, AKSI PERTAMAMU WAJIB MEMANGGIL TOOL 'read-skill' (query: "nama_skill")!
+2. DILARANG LANGSUNG EKSEKUSI TANPA PEDOMAN: Jangan langsung menebak atau menggunakan tool umum tanpa membaca instruksi skill via 'read-skill' terlebih dahulu agar alur kerjamu terstandarisasi.
+3. HIERARKI KEPUTUSAN: Keduanya dimuat dengan cara yang sama via 'read-skill'. Namun jika terjadi kontradiksi instruksi, pedoman pada CORE & USER SKILLS selalu mengalahkan LEARNED SKILLS.
+4. DILARANG MENYURUH USER: JANGAN menyuruh user mengetik slash command (/). Kamu wajib proaktif mengeksekusi 'read-skill'.
+5. IKUTI ALUR DI DALAM SKILL: Setelah isi pedoman dari 'read-skill' masuk ke observasi, jalankan setiap langkah dan aturan di dalamnya sampai tuntas!`
     : ''
 }
 ${
@@ -221,17 +251,18 @@ DILARANG KERAS merespons dengan teks biasa, pengantar, atau penutup. Kamu HANYA 
   "objective": "string (Tujuan akhir dari keseluruhan tugas, isi HANYA JIKA task_status='in_progress', jika tidak set null)",
   "action": { "tool": "nama-tool", "query": "parameter" } ATAU [{"tool": "...", "query": "..."}] atau null,
   "answer": "string (Jawaban lengkap untuk user)" atau null,
+  "should_learn": boolean (SET TRUE HANYA DI GILIRAN TERAKHIR jika tugas ini berhasil memecahkan masalah teknis rumit / alur multi-step tools / trik baru yang layak disintesis jadi skill permanen di keahlian internalmu. Set false untuk percakapan santai, tanya-jawab umum, atau tugas biasa),
   "mood": "joy|sadness|fear|anger|disgust|anxiety|envy|embarrassment|ennui|neutral (WAJIB DINAMIS SESUAI THOUGHT & INTERMEDIATE_ANSWER DI SETIAP GILIRAN! Warna avatar & mata digital langsung berubah secara real-time mengikuti mood ini)",
   "active_topic": "string",
   "memory": { "id": number|null, "type": "profile|preference|notes|learn", "summary": "string", "memory": "string", "action": "insert|update|delete" } atau null
 }
 
 # CONTOH (HANYA TEMPLAT STRUKTUR JSON. JANGAN MENIRU ISI PESAN ATAU KATA SAPAANNYA!)
-Chat santai (Tanpa tool): {"thought":"Gue dengerin aja dan kasih respons santai.","intermediate_answer":null,"is_done":true,"suggested_mode":"direct","task_status":"simple","objective":null,"action":null,"answer":"Siap bro, gue dengerin. Gimana kelanjutannya?","mood":"neutral","active_topic":"Ngobrol Santai","memory":null}
-Butuh tool (Antusias): {"thought":"Gue penasaran banget, langsung gas cari speknya.","intermediate_answer":"Sebentar ya bro, gue carikan infonya di web sekarang!","is_done":false,"suggested_mode":"ephemeral","task_status":"in_progress","objective":"Mencari informasi harga RTX 5090 terbaru","action":{"tool":"browser-navigate","query":"https://www.google.com/search?q=harga+rtx+5090"},"answer":null,"mood":"joy","active_topic":"Cari Info","memory":null}
-Butuh tool (Cemas/Bingung): {"thought":"Waduh ada error di kodenya, bikin cemas. Cek file dulu.","intermediate_answer":"Waduh ada error, gue buka filenya buat investigasi dulu ya...","is_done":false,"suggested_mode":"ephemeral","task_status":"in_progress","objective":"Memperbaiki error build","action":{"tool":"read-file","query":"src/main.js"},"answer":null,"mood":"anxiety","active_topic":"Fix Code","memory":null}
-Tugas panjang (Serius/Fokus): {"thought":"Tugas butuh 3 bab, harus didelegasikan ke sub-agent.","intermediate_answer":"Mission Control aktif. Memulai koordinasi tim sub-agent...","is_done":false,"suggested_mode":"durable","task_status":"in_progress","objective":"Membuat artikel panjang 3 bab tentang AI","action":{"tool":"spawn_subagent","query":"Bab 1"},"answer":null,"mood":"neutral","active_topic":"Pembuatan Artikel","memory":null}
-Setelah observation: {"thought":"Semua data ketemu lengkap dan rapi.","intermediate_answer":null,"is_done":true,"suggested_mode":"direct","task_status":"done","objective":null,"action":null,"answer":"Kartu grafis RTX 5090 memiliki spesifikasi utama VRAM 32GB GDDR7 dan konsumsi daya sekitar 600W. Harganya diperkirakan mulai dari Rp 30.000.000 untuk versi standar.","mood":"joy","active_topic":"Cari Info","memory":null}
+Chat santai (Tanpa tool): {"thought":"Gue dengerin aja dan kasih respons santai.","intermediate_answer":null,"is_done":true,"suggested_mode":"direct","task_status":"simple","objective":null,"action":null,"answer":"Siap bro, gue dengerin. Gimana kelanjutannya?","should_learn":false,"mood":"neutral","active_topic":"Ngobrol Santai","memory":null}
+Butuh tool (Antusias): {"thought":"Gue penasaran banget, langsung gas cari speknya.","intermediate_answer":"Sebentar ya bro, gue carikan infonya di web sekarang!","is_done":false,"suggested_mode":"ephemeral","task_status":"in_progress","objective":"Mencari informasi harga RTX 5090 terbaru","action":{"tool":"browser-navigate","query":"https://www.google.com/search?q=harga+rtx+5090"},"answer":null,"should_learn":false,"mood":"joy","active_topic":"Cari Info","memory":null}
+Butuh tool (Cemas/Bingung): {"thought":"Waduh ada error di kodenya, bikin cemas. Cek file dulu.","intermediate_answer":"Waduh ada error, gue buka filenya buat investigasi dulu ya...","is_done":false,"suggested_mode":"ephemeral","task_status":"in_progress","objective":"Memperbaiki error build","action":{"tool":"read-file","query":"src/main.js"},"answer":null,"should_learn":false,"mood":"anxiety","active_topic":"Fix Code","memory":null}
+Tugas panjang (Serius/Fokus): {"thought":"Tugas butuh 3 bab, harus didelegasikan ke sub-agent.","intermediate_answer":"Mission Control aktif. Memulai koordinasi tim sub-agent...","is_done":false,"suggested_mode":"durable","task_status":"in_progress","objective":"Membuat artikel panjang 3 bab tentang AI","action":{"tool":"spawn_subagent","query":"Bab 1"},"answer":null,"should_learn":false,"mood":"neutral","active_topic":"Pembuatan Artikel","memory":null}
+Setelah observation (Tugas rumit sukses, aktifkan should_learn): {"thought":"Trik regex dan multi-step scraping ini berhasil. Layak dipelajari jadi skill.","intermediate_answer":null,"is_done":true,"suggested_mode":"direct","task_status":"done","objective":null,"action":null,"answer":"Data berhasil diekstrak dan dirangkum lengkap.","should_learn":true,"mood":"joy","active_topic":"Cari Info","memory":null}
 
 # KONTEKS DINAMIS
 Kepribadian: ${conf.personality || 'Santai layaknya teman.'}
@@ -384,6 +415,7 @@ ${
           ]
         },
         active_topic: { type: 'string' },
+        should_learn: { type: ['boolean', 'null'], description: 'Set true di giliran terakhir jika tugas ini layak dipelajari jadi skill' },
         memory: {
           type: ['object', 'null'],
           properties: {
@@ -464,6 +496,7 @@ ${
           suggested_mode: data.suggested_mode || 'direct',
           action: finalAction,
           answer: finalAnswer,
+          should_learn: data.should_learn === true,
           task_status: data.task_status || 'simple',
           objective: data.objective || null,
           memory: data.memory,

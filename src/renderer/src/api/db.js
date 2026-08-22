@@ -121,6 +121,10 @@ db.version(20).stores({
   subagent_messages: '++id, subagentId, sender, timestamp'
 })
 
+db.version(21).stores({
+  learnedSkills: 'id, name, createdAt, updatedAt'
+})
+
 // --- VALIDATION ---
 const VALID_TYPES = ['profile', 'preference', 'notes', 'learn'];
 
@@ -397,3 +401,67 @@ export async function saveRelationship(data) {
     console.error('[DB] Error saveRelationship:', error)
   }
 }
+
+// --- LEARNED SKILLS (METASYSTEM SELF-IMPROVEMENT) ---
+export async function saveLearnedSkill({ name, description, content }) {
+  try {
+    const cleanName = (name || '').toLowerCase().replace(/[^a-z0-9-_]/g, '-').replace(/^-+|-+$/g, '')
+    if (!cleanName || !content) return null
+
+    // Cek apakah skill dengan nama ini sudah ada (update) atau baru (create)
+    const existing = await db.learnedSkills.where('name').equalsIgnoreCase(cleanName).first()
+    const id = existing?.id || `learned_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+    
+    const skillData = {
+      id,
+      name: cleanName,
+      description: description || 'Prosedur teknis teruji buatan Mark',
+      content: content.trim(),
+      createdAt: existing?.createdAt || Date.now(),
+      updatedAt: Date.now()
+    }
+
+    await db.learnedSkills.put(skillData)
+    console.log(`[DB] Learned skill saved: /${cleanName}`, skillData)
+    return skillData
+  } catch (err) {
+    console.error('[DB] Error saveLearnedSkill:', err)
+    return null
+  }
+}
+
+export async function getLearnedSkill(name) {
+  try {
+    if (!name) return null
+    const cleanName = name.toLowerCase().trim()
+    return await db.learnedSkills.where('name').equalsIgnoreCase(cleanName).first()
+  } catch (err) {
+    console.error('[DB] Error getLearnedSkill:', err)
+    return null
+  }
+}
+
+export async function getAllLearnedSkills() {
+  try {
+    return await db.learnedSkills.orderBy('createdAt').reverse().toArray()
+  } catch (err) {
+    console.error('[DB] Error getAllLearnedSkills:', err)
+    return []
+  }
+}
+
+export async function deleteLearnedSkill(idOrName) {
+  try {
+    if (!idOrName) return false
+    const existing = (await db.learnedSkills.get(idOrName)) || (await db.learnedSkills.where('name').equalsIgnoreCase(idOrName).first())
+    if (existing) {
+      await db.learnedSkills.delete(existing.id)
+      return true
+    }
+    return false
+  } catch (err) {
+    console.error('[DB] Error deleteLearnedSkill:', err)
+    return false
+  }
+}
+
