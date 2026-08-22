@@ -17,6 +17,7 @@ import path from 'path'
 import fs from 'fs'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.ico?asset'
+import iconPng from '../../resources/icon.png?asset'
 import { fetchTranscript } from 'youtube-transcript-plus'
 import yts from 'yt-search'
 import YTMusic from 'ytmusic-api'
@@ -465,7 +466,7 @@ app.whenReady().then(async () => {
     })
     .catch(() => {
       // Fallback jika gagal (misal saat masih mode npm run dev)
-      tray = new Tray(nativeImage.createFromPath(icon).resize({ width: 16, height: 16 }))
+      tray = new Tray(nativeImage.createFromPath(iconPng).resize({ width: 22, height: 22 }))
       tray.setToolTip('Mark AI Assistant')
     })
   // Global Shortcut (Toggle)
@@ -631,6 +632,12 @@ app.on('will-quit', () => {
 
 app.on('window-all-closed', () => {
   // Abaikan event ini agar aplikasi tetap hidup di background tray
+})
+
+app.on('before-quit', () => {
+  // Pastikan isQuiting = true agar window close event tidak memunculkan tray-only hide
+  isQuiting = true
+  if (tray) tray.destroy()
 })
 
 // In this file you can include the rest of your app's specific main process
