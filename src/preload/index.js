@@ -165,7 +165,11 @@ const api = {
   workspaceGetMemory: (workspaceRoot) => ipcRenderer.invoke('workspace:get-memory', workspaceRoot),
   workspaceSaveMemory: (workspaceRoot, memoryData) =>
     ipcRenderer.invoke('workspace:save-memory', { workspaceRoot, memoryData }),
-  workspaceEnsure: (workspaceRoot) => ipcRenderer.invoke('workspace:ensure', workspaceRoot)
+  workspaceEnsure: (workspaceRoot) => ipcRenderer.invoke('workspace:ensure', workspaceRoot),
+
+  // Lite Mode
+  getLiteMode: () => ipcRenderer.invoke('system:get-lite-mode'),
+  onLiteModeChanged: (cb) => ipcRenderer.on('system:lite-mode-changed', (_e, d) => cb(d))
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
