@@ -1,11 +1,109 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react'
-import ForceGraph2D from 'react-force-graph-2d'
+import React, { useEffect, useState, useRef, useMemo, Suspense, lazy } from 'react'
+import { useLiteMode } from '../../contexts/LiteModeContext'
 import { getAllChatArchives, getAllMemory, getAllDocuments, deleteMemory, deleteChatArchive } from '../../api/db'
 import { FiCheckCircle, FiClock, FiGitMerge, FiTrash2, FiRefreshCw, FiLoader } from 'react-icons/fi'
 import { useMemoryGroomer } from '../../hooks/useMemoryGroomer'
 import ConfirmModal from './ConfirmModal'
 
+const ForceGraph2D = lazy(() => import('react-force-graph-2d'))
+
+// Roots that anchor the memory graph (color + id match the ForceGraph nodes)
+const GRAPH_ROOTS = [
+  { id: 'archives-root', name: 'Chat History', color: '#00e5ff' },
+  { id: 'vector-root', name: 'Knowledge Base', color: '#ff00aa' },
+  { id: 'doc-root', name: 'Document Vault', color: '#ffaa00' }
+]
+
+function useGraphChildren(graphData) {
+  return useMemo(() => {
+    if (!graphData?.nodes || !graphData?.links) return {}
+    const nodeMap = new Map(graphData.nodes.map((n) => [n.id, n]))
+    const children = new Map()
+    for (const link of graphData.links) {
+      const src = typeof link.source === 'object' ? link.source.id : link.source
+      const tgt = typeof link.target === 'object' ? link.target.id : link.target
+      if (!children.has(src)) children.set(src, [])
+      children.get(src).push(tgt)
+    }
+    const collect = (rootId) => {
+      const visited = new Set()
+      const stack = [rootId]
+      const leaves = []
+      while (stack.length) {
+        const cur = stack.pop()
+        if (visited.has(cur)) continue
+        visited.add(cur)
+        const node = nodeMap.get(cur)
+        if (!node) continue
+        const kids = children.get(cur) || []
+        if (kids.length === 0 && node.group === 3) leaves.push(node)
+        for (const k of kids) stack.push(k)
+      }
+      return leaves
+    }
+    const out = {}
+    for (const r of GRAPH_ROOTS) out[r.id] = collect(r.id)
+    return out
+  }, [graphData])
+}
+
+function LiteGraphView({ graphData, setSelectedNode }) {
+  const childrenByRoot = useGraphChildren(graphData)
+  const totalItems = graphData?.nodes?.length || 0
+  const [openRoot, setOpenRoot] = useState(null)
+
+  return (
+    <div className="absolute inset-0 overflow-y-auto p-6 text-sm text-base-content/80">
+      <div className="max-w-2xl mx-auto space-y-4">
+        <div className="text-xs text-base-content/40">
+          Lite mode — {totalItems} node sebagai senarai (hemat RAM)
+        </div>
+        {GRAPH_ROOTS.map((r) => {
+          const items = childrenByRoot[r.id] || []
+          const isOpen = openRoot === r.id
+          return (
+            <div key={r.id} className="border border-base-300/50 rounded-lg p-3 bg-base-200/30">
+              <div
+                className="flex items-center justify-between cursor-pointer select-none"
+                onClick={() => setOpenRoot(isOpen ? null : r.id)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: r.color }} />
+                  <span className="font-medium text-base-content/90">{r.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-base-content/50">{items.length} entri</span>
+                  <FiLoader
+                    className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                    style={{ transformOrigin: 'center' }}
+                  />
+                </div>
+              </div>
+              {isOpen && items.length > 0 && (
+                <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
+                  {items.map((n) => (
+                    <div
+                      key={n.id}
+                      className="text-xs p-2 rounded cursor-pointer hover:bg-base-300/50"
+                      onClick={() => setSelectedNode(n)}
+                      title={n.fullText}
+                    >
+                      <span className="truncate block">{n.name}</span>
+                      {n.typeLabel && <span className="text-base-content/50"> · {n.typeLabel}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 const MemoryVisualizer = ({ isOpen, onClose }) => {
+  const { isLite, loading } = useLiteMode()
   const { isGrooming, groomResult, triggerGrooming } = useMemoryGroomer(false)
   const [graphData, setGraphData] = useState({ nodes: [], links: [] })
   const [dimensions, setDimensions] = useState({
@@ -260,8 +358,12 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
 
       {/* Graph Area */}
       <div className="absolute inset-0 cursor-crosshair">
-        <ForceGraph2D
-          ref={fgRef}
+        {isLite ? (
+          <LiteGraphView graphData={graphData} setSelectedNode={setSelectedNode} />
+        ) : (
+          <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-sm text-base-content/50">Memuat graf neural…</div>}>
+            <ForceGraph2D
+              ref={fgRef}
           width={dimensions.width}
           height={dimensions.height}
           graphData={graphData}
@@ -303,7 +405,9 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
               }
             }
           }}
-        />
+            />
+          </Suspense>
+        )}
       </div>
 
       {/* Info Panel for Selected Node */}
