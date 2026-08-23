@@ -130,35 +130,21 @@ const Guidebook = () => {
       <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 blur-[120px] rounded-full pointer-events-none"></div>
 
       {/* Header */}
-      <header className="h-16 shrink-0 bg-base-300/80 backdrop-blur-xl border-b border-white/5 flex items-center px-6 z-20 relative">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="btn btn-ghost btn-sm btn-circle shrink-0"
-            style={{ WebkitAppRegion: 'no-drag' }}
-            title="Kembali"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="1.2em"
-              height="1.2em"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div>
-            <h1 className="text-xl font-bold text-base-content flex items-center gap-2">
-              <FaBook className="text-primary" /> Mark Guidebook
-            </h1>
-            <p className="opacity-50 text-xs mt-0.5">
-              Panduan lengkap penggunaan AI Assistant.
-            </p>
-          </div>
+      <header className="h-20 shrink-0 bg-base-300/80 backdrop-blur-xl border-b border-white/5 flex items-center px-8 z-20 relative">
+        <button
+          onClick={() => navigate('/')}
+          className="btn btn-ghost btn-sm gap-2 text-white/70 hover:text-white mr-6"
+          style={{ WebkitAppRegion: 'no-drag' }}
+        >
+          <FaArrowLeft /> Kembali
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-white flex items-center gap-3">
+            <FaBook className="text-primary" /> Mark Guidebook
+          </h1>
+          <p className="text-xs text-white/50 tracking-wider">
+            PANDUAN LENGKAP PENGGUNAAN AI ASSISTANT
+          </p>
         </div>
       </header>
 
@@ -386,7 +372,7 @@ const Guidebook = () => {
                 </ol>
                 <p>
                   Misalnya, jika Anda bertanya soal lagu, Mark hanya akan melihat tools musik. Jika
-                  Anda minta kodingan, Mark hanya melihat tools file dan PowerShell.
+                  Dananya kodingan, Mark hanya melihat tools file dan shell.
                 </p>
               </div>
             </section>
@@ -549,7 +535,7 @@ const Guidebook = () => {
                     />
                     <ToolCard
                       name="os-read"
-                      description="Membaca elemen GUI aplikasi Windows aktif via UIAutomation/OCR."
+                      description="Membaca elemen GUI aplikasi desktop aktif via OCR."
                       needsPermission={false}
                       queryFormat="(kosong)"
                       howItWorks="Mengambil Accessibility Tree dan mengubah elemen tombol/input menjadi JSON teks ber-ID untuk hemat 90% token."
@@ -563,7 +549,7 @@ const Guidebook = () => {
                     />
                     <ToolCard
                       name="os-type"
-                      description="Ketik teks ke input aplikasi Windows."
+                      description="Ketik teks ke input aplikasi desktop."
                       needsPermission={false}
                       queryFormat="id||teks"
                       howItWorks="Fokus ke elemen ID lalu mengetik string teks secara otomatis."
@@ -584,10 +570,10 @@ const Guidebook = () => {
                     />
                     <ToolCard
                       name="os-open"
-                      description="Membuka aplikasi Windows dari Start Menu/Path."
+                      description="Membuka aplikasi desktop."
                       needsPermission={false}
                       queryFormat="notepad, calc, winword, etc"
-                      howItWorks="Membuka process aplikasi Windows baru (memerlukan persetujuan user)."
+                      howItWorks="Membuka aplikasi desktop baru (memerlukan persetujuan user)."
                     />
                     <ToolCard
                       name="os-list-windows"
@@ -759,7 +745,7 @@ const Guidebook = () => {
                   </div>
                 </div>
 
-                {/* Kategori System & Powershell */}
+                {/* Kategori System & Shell */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
                     <FaTerminal className="text-error" /> System Control
@@ -767,7 +753,7 @@ const Guidebook = () => {
                   <div className="space-y-3">
                     <ToolCard
                       name="run-powershell"
-                      description="Menjalankan perintah PowerShell / CMD."
+                      description="Menjalankan perintah shell (PowerShell di Windows, bash di Linux)."
                       needsPermission={true}
                       queryFormat="Perintah mentah (misal: npm install, dir, ping)"
                       howItWorks="Mark akan mengetikkan perintah ini ke terminal sistem. Perintah berbahaya (seperti rm, shutdown) wajib di-acc."

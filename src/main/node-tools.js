@@ -55,6 +55,21 @@ export const isDangerousKeyCombo = (combo = '') => {
 
 const execPromise = util.promisify(exec)
 
+const isWindows = process.platform === 'win32'
+
+// Linux-native: XDG data dir; Windows tetap Documents (kompatibel dengan build lama)
+const getWorkspaceDir = () => {
+  if (isWindows) return getWorkspaceDir()
+  const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
+  return path.join(xdgData, 'mark', 'workspace')
+}
+
+const getSkillsDir = () => {
+  if (isWindows) return path.join(os.homedir(), 'Documents', 'Mark Skills')
+  const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
+  return path.join(xdgData, 'mark', 'skills')
+}
+
 const parsePagination = (str) => {
   let start = 0,
     end = 10
@@ -99,7 +114,7 @@ export const NATIVE_TOOLS = {
     handler: async (query) => {
       const skillName = (query || '').trim()
       if (!skillName) return { success: false, error: 'Nama skill kosong' }
-      const skillDir = path.join(os.homedir(), 'Documents', 'Mark Skills')
+      const skillDir = getSkillsDir()
 
       // 1. Cek jika folder skill berisi SKILL.md
       const folderSkillPath = path.join(skillDir, skillName, 'SKILL.md')
@@ -212,7 +227,7 @@ export const NATIVE_TOOLS = {
         const parts = query.split('||')
         let filePath = parts[0].trim()
 
-        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         if (!path.isAbsolute(filePath)) {
           filePath = path.join(activeRoot, filePath)
         }
@@ -280,7 +295,7 @@ export const NATIVE_TOOLS = {
     handler: async (query, config) => {
       try {
         let filePath = query.trim()
-        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         if (!path.isAbsolute(filePath)) {
           filePath = path.join(activeRoot, filePath)
         }
@@ -575,7 +590,7 @@ export const NATIVE_TOOLS = {
         let filePath = parts[0].trim()
         const content = parts.slice(1).join('||')
 
-        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         if (!path.isAbsolute(filePath)) {
           filePath = path.join(activeRoot, filePath)
         }
@@ -622,7 +637,7 @@ export const NATIVE_TOOLS = {
         const targetContent = parts[1]
         const replacementContent = parts.slice(2).join('||')
 
-        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         if (!path.isAbsolute(filePath)) {
           filePath = path.join(activeRoot, filePath)
         }
@@ -688,7 +703,7 @@ export const NATIVE_TOOLS = {
 
         let filePath = parts[0].trim()
 
-        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         if (!path.isAbsolute(filePath)) {
           filePath = path.join(activeRoot, filePath)
         }
@@ -725,7 +740,7 @@ export const NATIVE_TOOLS = {
     handler: async (query, config) => {
       try {
         let filePath = query.trim()
-        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         if (!path.isAbsolute(filePath)) {
           filePath = path.join(activeRoot, filePath)
         }
@@ -743,7 +758,7 @@ export const NATIVE_TOOLS = {
     handler: async (query, config) => {
       try {
         let targetDir = query?.trim() || ''
-        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         if (!path.isAbsolute(targetDir)) {
           targetDir = targetDir ? path.join(activeRoot, targetDir) : activeRoot
         }
@@ -764,7 +779,7 @@ export const NATIVE_TOOLS = {
         const pattern = parts[0]?.trim() || '*'
         const subDir = parts[1]?.trim() || ''
 
-        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         const targetDir = path.isAbsolute(subDir) ? subDir : (subDir ? path.join(activeRoot, subDir) : activeRoot)
 
         if (!fs.existsSync(targetDir)) {
@@ -851,7 +866,7 @@ export const NATIVE_TOOLS = {
           return { success: false, message: 'Kata kunci pencarian tidak boleh kosong.' }
         }
 
-        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+        const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         if (!path.isAbsolute(dirPath)) {
           dirPath = dirPath && dirPath !== '.' ? path.join(activeRoot, dirPath) : activeRoot
         }
@@ -952,12 +967,16 @@ export const NATIVE_TOOLS = {
   'run-powershell': {
     needsApproval: (query) => isDangerousCommand(query),
     approvalMessage: (query) =>
-      `Mark ingin mengeksekusi perintah PowerShell yang berpotensi BERBAHAYA:\n\n${query}`,
+      `Mark ingin mengeksekusi perintah shell yang berpotensi BERBAHAYA:\n\n${query}`,
     handler: async (query, config) => {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
       try {
-        const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
-        const { stdout, stderr } = await execPromise(`powershell.exe -Command "${query}"`, {
+        const activeRoot = config?.workspaceRoot || getWorkspaceDir()
+        // Linux-native: jalankan via bash; Windows tetap PowerShell
+        const cmd = isWindows
+          ? `powershell.exe -Command "${query}"`
+          : `bash -c "${query.replace(/"/g, '\\"')}"`
+        const { stdout, stderr } = await execPromise(cmd, {
           cwd: activeRoot
         })
         return {
@@ -977,14 +996,14 @@ export const NATIVE_TOOLS = {
   'git-status': {
     needsApproval: false,
     handler: async (query, config) => {
-      const activeRoot = config?.workspaceRoot || (query?.trim() ? query.trim() : path.join(os.homedir(), 'Documents', 'Mark Workspace'))
+      const activeRoot = config?.workspaceRoot || (query?.trim() ? query.trim() : getWorkspaceDir())
       return await getGitStatus(activeRoot)
     }
   },
   'git-diff': {
     needsApproval: false,
     handler: async (query, config) => {
-      const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+      const activeRoot = config?.workspaceRoot || getWorkspaceDir()
       return await getGitDiff(activeRoot, query?.trim() || '')
     }
   },
@@ -995,7 +1014,7 @@ export const NATIVE_TOOLS = {
       const parts = query ? query.split('||') : []
       const message = parts[0]?.trim() || 'Mark Agent Commit'
       const customCwd = parts[1]?.trim()
-      const activeRoot = customCwd || config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+      const activeRoot = customCwd || config?.workspaceRoot || getWorkspaceDir()
       return await gitCommit(activeRoot, message)
     }
   },
@@ -1003,7 +1022,7 @@ export const NATIVE_TOOLS = {
     needsApproval: true,
     approvalMessage: (query) => `Mark ingin me-rollback perubahan git:\n"${query || 'Seluruh file (reset --hard)'}"`,
     handler: async (query, config) => {
-      const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+      const activeRoot = config?.workspaceRoot || getWorkspaceDir()
       return await gitRevert(activeRoot, query?.trim() || '')
     }
   },
@@ -1017,7 +1036,7 @@ export const NATIVE_TOOLS = {
       }
       const taskId = parts[0].trim()
       const command = parts.slice(1).join('||').trim()
-      const activeRoot = config?.workspaceRoot || path.join(os.homedir(), 'Documents', 'Mark Workspace')
+      const activeRoot = config?.workspaceRoot || getWorkspaceDir()
       return spawnBackgroundTask(taskId, command, activeRoot)
     }
   },
@@ -1251,7 +1270,7 @@ export const NATIVE_TOOLS = {
       }
     }
   },
-  'open': {
+  'os-open': {
     needsApproval: false,
     handler: async (query) => {
       try {

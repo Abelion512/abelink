@@ -120,17 +120,9 @@ export const useMarkAgent = () => {
           let lastTimeMs = null
 
           if (lastMsg) {
-            if (
-              typeof lastMsg.created_at === 'number' &&
-              !isNaN(lastMsg.created_at) &&
-              lastMsg.created_at > 0
-            ) {
+            if (typeof lastMsg.created_at === 'number' && !isNaN(lastMsg.created_at) && lastMsg.created_at > 0) {
               lastTimeMs = lastMsg.created_at
-            } else if (
-              typeof lastMsg.timestamp === 'number' &&
-              !isNaN(lastMsg.timestamp) &&
-              lastMsg.timestamp > 0
-            ) {
+            } else if (typeof lastMsg.timestamp === 'number' && !isNaN(lastMsg.timestamp) && lastMsg.timestamp > 0) {
               lastTimeMs = lastMsg.timestamp
             }
           }
@@ -154,9 +146,7 @@ export const useMarkAgent = () => {
             }
           }
 
-          const lastUserMsg = [...chatData]
-            .reverse()
-            .find((m) => m.role === 'user' && typeof m.content === 'string')
+          const lastUserMsg = [...chatData].reverse().find((m) => m.role === 'user' && typeof m.content === 'string')
           if (lastUserMsg && lastUserMsg.content) {
             const cleanMsg = lastUserMsg.content.replace(/\[.*?\]/g, '').trim()
             if (cleanMsg && cleanMsg.length > 3) {
@@ -190,7 +180,7 @@ export const useMarkAgent = () => {
   useEffect(() => {
     const handleTgAdminMessage = (e) => {
       const data = e.detail
-
+      
       if (data.text.trim().toLowerCase() === '/stop') {
         handleStop()
         return
@@ -198,13 +188,12 @@ export const useMarkAgent = () => {
 
       activeTgRequestRef.current = data
       setInputSource('tg')
-      setIsSpeak(false) // Disable voice auto-reply for Telegram messages
       handlePlanningCommand(data.text, data)
     }
 
     window.addEventListener('tg-admin-message', handleTgAdminMessage)
     return () => window.removeEventListener('tg-admin-message', handleTgAdminMessage)
-  }, [handlePlanningCommand, setInputSource, handleStop, setIsSpeak])
+  }, [handlePlanningCommand, setInputSource, handleStop])
 
   const isInitialSyncDoneRef = useRef(false)
   const lastSyncedMsgIdRef = useRef(null)
@@ -243,11 +232,11 @@ export const useMarkAgent = () => {
       const lastAiMsg = [...chatData]
         .reverse()
         .find((m) => m.role === 'ai' && !m.isThinking && !m.isSearching && !m.isSummarizing)
-      const msgKey = lastAiMsg ? lastAiMsg.timestamp || lastAiMsg.content : null
+      const msgKey = lastAiMsg ? (lastAiMsg.timestamp || lastAiMsg.content) : null
       if (lastAiMsg && lastAiMsg.content && lastSyncedMsgIdRef.current !== msgKey) {
         lastSyncedMsgIdRef.current = msgKey
-        if (window.api?.tgBroadcastToAdmins && !lastAiMsg.isProactive) {
-          window.api.tgBroadcastToAdmins(`*Mark (PC)*:\n${lastAiMsg.content}`)
+        if (window.api?.tgBroadcastToAdmins) {
+          window.api.tgBroadcastToAdmins(`💻 *Mark (PC)*:\n${lastAiMsg.content}`)
         }
       }
     }
@@ -255,8 +244,7 @@ export const useMarkAgent = () => {
 
   const handleSubmit = (e, textPrompt) => {
     if (e && typeof e.preventDefault === 'function') e.preventDefault()
-    const textToSend =
-      typeof textPrompt === 'string' ? textPrompt.trim() : typeof e === 'string' ? e.trim() : ''
+    const textToSend = typeof textPrompt === 'string' ? textPrompt.trim() : (typeof e === 'string' ? e.trim() : '')
     if (!textToSend) return
 
     if (isLoading || isAgentBusy) {

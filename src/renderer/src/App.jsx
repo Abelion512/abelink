@@ -4,12 +4,12 @@ import Configuration from './pages/Configuration'
 import LiveAudio from './pages/LiveAudio'
 import TelegramBot from './pages/TelegramBot'
 import Plugins from './pages/Plugins'
-import Skills from './pages/Skills'
-import SkillEditor from './pages/SkillEditor'
 import Knowledge from './pages/Knowledge'
 import Guidebook from './pages/Guidebook'
 import RelationalGrowth from './pages/RelationalGrowth'
 import GoogleWorkspace from './pages/GoogleWorkspace'
+import Skills from './pages/Skills'
+import SkillEditor from './pages/SkillEditor'
 import Subagents from './pages/Subagents'
 import ChatStudio from './pages/ChatStudio'
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
@@ -18,10 +18,12 @@ import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
 import { ApprovalProvider } from './contexts/ApprovalContext'
 import { YoutubeMusicPlayer } from './components/YoutubeMusicPlayer'
 import { GlobalCameraManager } from './components/GlobalCameraManager'
-import { getAllConfig } from './api/db'
+import { getAllConfig, saveConfiguration } from './api/db'
 import { initOramaIndices, hydrateFromDexie } from './api/oramaStore'
 import { pauseStaleAgentTasks } from './api/taskStore'
 import { env } from '@huggingface/transformers'
+import WhatNew from './components/WhatNew'
+import whatsNewData from './data/whats-new.json'
 
 // Global Transformers.js configuration
 env.allowLocalModels = false
@@ -71,7 +73,7 @@ const WindowControls = () => {
   }, [])
 
   return (
-    <div className="absolute top-0 left-0 right-0 h-10 z-[9999] [-webkit-app-region:drag] flex items-center justify-between px-4 pointer-events-none text-white">
+    <div className="absolute top-0 left-0 right-0 h-10 z-[9999] [-webkit-app-region:no-drag] flex items-center justify-between px-4 pointer-events-none text-white">
       {/* Invisible left spacer to balance the right controls */}
       <div className="flex-1"></div>
 
@@ -144,13 +146,13 @@ const WindowControls = () => {
   )
 }
 
-const MainLayout = () => {
+const MainLayout = ({ isStandalone = false }) => {
   const location = useLocation()
   const isHome = location.pathname === '/'
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-transparent rounded-xl">
-      <WindowControls />
+      {!isStandalone && <WindowControls />}
       {/* Base Home Page - Always Mounted so AI Agent & Telegram Listeners Never Die */}
       <div className="h-full w-full">
         <MarkHome />
@@ -186,6 +188,7 @@ function App() {
   const [isChecking, setIsChecking] = useState(true)
   const [loadingText, setLoadingText] = useState('Membangunkan Mark...')
   const [showRecovery, setShowRecovery] = useState(false)
+  const [showWhatsNew, setShowWhatsNew] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -280,6 +283,13 @@ function App() {
         if (window.api && window.api.syncConfig) {
           window.api.syncConfig(data[0])
         }
+        // --- What's New trigger: cek versi vs config ---
+        const newVersion = whatsNewData.version || '0.0.0'
+        const lastSeen = data[0].lastSeenWhatsNewVersion
+        if (newVersion !== lastSeen) {
+          setShowWhatsNew(true)
+        }
+        // -----------------
       }
       setIsChecking(false)
     }
@@ -329,13 +339,28 @@ function App() {
 
   const isStandalone = window.location.hash.includes('telegram-bot')
 
+  const handleWhatsNewClose = async () => {
+    setShowWhatsNew(false)
+    try {
+      const data = await getAllConfig()
+      if (data && data.length > 0) {
+        await saveConfiguration({ ...data[0], lastSeenWhatsNewVersion: whatsNewData.version })
+      }
+    } catch (e) {
+      console.error('[App] Gagal simpan lastSeenWhatsNewVersion:', e)
+    }
+  }
+
   return (
     <ApprovalProvider>
       <YoutubeMusicProvider>
         <ChatProvider>
           <HashRouter>
             <GlobalListener />
-            <MainLayout />
+            <MainLayout isStandalone={isStandalone} />
+            {showWhatsNew && !isChecking && hasConfig && (
+              <WhatNew onClose={handleWhatsNewClose} />
+            )}
             <div style={{ display: isStandalone ? 'none' : 'block' }}>
               <YoutubeMusicPlayer />
             </div>

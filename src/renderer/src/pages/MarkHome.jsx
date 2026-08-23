@@ -53,6 +53,8 @@ const MarkHome = () => {
   const [isMaxWindow, setIsMaxWindow] = useState(false)
   const [ttsIntensity, setTtsIntensity] = useState(0)
   const [workspaceRoot, setWorkspaceRoot] = useState(null)
+  const [showClock, setShowClock] = useState(false)
+  const clockTimerRef = useRef(null)
 
   useEffect(() => {
     db.sessions
@@ -73,13 +75,22 @@ const MarkHome = () => {
     }
   }
 
+  const handleOrbClick = () => {
+    setShowClock(prev => {
+      if (clockTimerRef.current) clearTimeout(clockTimerRef.current)
+      if (prev) return false
+      clockTimerRef.current = setTimeout(() => setShowClock(false), 5000)
+      return true
+    })
+  }
+
   useEffect(() => {
     const handleTtsIntensity = (e) => {
       setTtsIntensity(e.detail || 0)
       if (window.isMarkSpeaking) {
         setOrbStatus('speaking')
       } else {
-        setOrbStatus((prev) => (prev === 'speaking' ? 'idle' : prev))
+        setOrbStatus((prev) => prev === 'speaking' ? 'idle' : prev)
       }
     }
     window.addEventListener('mark-intensity', handleTtsIntensity)
@@ -92,7 +103,7 @@ const MarkHome = () => {
         setIsMaxWindow(isMax)
       })
     }
-
+    
     const handleOpenMap = () => setIsMemoryMapOpen(true)
     const handleOpenChat = () => setIsChatStudioOpen(true)
 
@@ -112,15 +123,7 @@ const MarkHome = () => {
     handlePlanningCommand(prefixedText, null, false, null, { forceSpeak: true }) // Pass forceSpeak option
   }
 
-  const {
-    isRecording,
-    isProcessing,
-    audioIntensity,
-    toggleRecording,
-    startRecording,
-    stopRecording,
-    toastMessage
-  } = useVAD({
+  const { isRecording, isProcessing, audioIntensity, toggleRecording, startRecording, stopRecording, toastMessage } = useVAD({
     onTranscript: handleVoiceTranscript
   })
 
@@ -192,8 +195,7 @@ const MarkHome = () => {
           setCurrentResponse({
             text: lastItem.content || 'Memproses instruksi...',
             type: 'short',
-            isThinking: true,
-            mood: lastItem.mood || 'neutral'
+            isThinking: true
           })
         } else {
           // Final response
@@ -246,52 +248,31 @@ const MarkHome = () => {
       }
     }
   }
-  const mood = currentResponse?.mood || 'neutral'
-  let bgGlowColor = 'var(--color-primary)'
+  const mood = currentResponse?.mood || 'neutral';
+  let bgGlowColor = 'var(--color-primary)';
   if (orbStatus === 'error') {
-    bgGlowColor = '#ef4444'
+    bgGlowColor = '#ef4444';
   } else {
     switch (mood) {
-      case 'joy':
-        bgGlowColor = '#facc15'
-        break
-      case 'sadness':
-        bgGlowColor = '#3b82f6'
-        break
-      case 'fear':
-        bgGlowColor = '#a855f7'
-        break
-      case 'anger':
-        bgGlowColor = '#ef4444'
-        break
-      case 'disgust':
-        bgGlowColor = '#84cc16'
-        break
-      case 'anxiety':
-        bgGlowColor = '#f97316'
-        break
-      case 'envy':
-        bgGlowColor = '#14b8a6'
-        break
-      case 'embarrassment':
-        bgGlowColor = '#ec4899'
-        break
-      case 'ennui':
-        bgGlowColor = '#6b7280'
-        break
-      default:
-        bgGlowColor = 'var(--color-primary)'
-        break
+      case 'joy': bgGlowColor = '#facc15'; break;
+      case 'sadness': bgGlowColor = '#3b82f6'; break;
+      case 'fear': bgGlowColor = '#a855f7'; break;
+      case 'anger': bgGlowColor = '#ef4444'; break;
+      case 'disgust': bgGlowColor = '#22c55e'; break;
+      case 'anxiety': bgGlowColor = '#f97316'; break;
+      case 'envy': bgGlowColor = '#14b8a6'; break;
+      case 'embarrassment': bgGlowColor = '#ec4899'; break;
+      case 'ennui': bgGlowColor = '#6b7280'; break;
+      default: bgGlowColor = 'var(--color-primary)'; break;
     }
   }
 
   return (
-    <div
+    <div 
       className="h-screen text-white overflow-hidden relative transition-colors duration-1000 bg-transparent rounded-xl border border-white/5 shadow-2xl"
-      style={{
-        backgroundColor: `color-mix(in srgb, ${bgGlowColor} 12%, rgba(0,0,0,${config?.[0]?.windowOpacity ?? 0.85}))`
-      }}
+      style={{ backgroundColor: `color-mix(in srgb, ${bgGlowColor} 12%, rgba(0,0,0,${config?.[0]?.windowOpacity ?? 0.85}))` }}
     >
+
       <style>{`
         @keyframes spin-slow {
           from { transform: rotate(0deg); }
@@ -338,109 +319,44 @@ const MarkHome = () => {
 
       {/* Main Content Area */}
       <div className="relative z-10 flex flex-col md:flex-row w-full h-full px-4 lg:px-12 pb-[120px] overflow-hidden">
+        
         {/* Left Panel: The Orb & Neural Flow (Fixed) */}
         <div className="w-full md:w-1/2 h-[40vh] md:h-full flex flex-col items-center justify-center relative">
-          <div
+          <div 
             className="relative flex items-center justify-center w-full max-w-lg h-64 md:h-96"
-            style={{
-              transform: isMaxWindow ? 'scale(1)' : 'scale(0.6)',
+            style={{ 
+              transform: isMaxWindow ? 'scale(1)' : 'scale(0.6)', 
               transition: 'transform 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
               marginTop: isMaxWindow ? '0' : '-2rem'
             }}
           >
+            
             {/* Jarvis-Style Holographic HUD centered around Orb */}
             <div className="absolute inset-0 m-auto flex items-center justify-center pointer-events-none mix-blend-screen opacity-50 z-0 scale-125">
               <svg viewBox="0 0 500 500" className="w-[500px] h-[500px] absolute">
-                {/* Outer Ring */}
-                <circle
-                  cx="250"
-                  cy="250"
-                  r="230"
-                  fill="none"
-                  stroke={bgGlowColor}
-                  strokeWidth="1"
-                  strokeDasharray="2 10"
-                  className="origin-center animate-[spin-slow_40s_linear_infinite]"
-                />
+                 {/* Outer Ring */}
+                 <circle cx="250" cy="250" r="230" fill="none" stroke={bgGlowColor} strokeWidth="1" strokeDasharray="2 10" className="origin-center animate-[spin-slow_40s_linear_infinite]" />
+                 
+                 {/* Middle Segmented Ring */}
+                 <circle cx="250" cy="250" r="180" fill="none" stroke={bgGlowColor} strokeWidth="2" strokeDasharray="80 20 10 20" className="origin-center animate-[spin-slow-reverse_30s_linear_infinite]" />
+                 
+                 {/* Inner Ring */}
+                 <circle cx="250" cy="250" r="140" fill="none" stroke={bgGlowColor} strokeWidth="1" strokeDasharray="5 15" className="origin-center animate-[spin-slow_20s_linear_infinite]" />
+                 
+                 {/* Solid Inner Border */}
+                 <circle cx="250" cy="250" r="125" fill="none" stroke={bgGlowColor} strokeWidth="0.5" className="opacity-50" />
 
-                {/* Middle Segmented Ring */}
-                <circle
-                  cx="250"
-                  cy="250"
-                  r="180"
-                  fill="none"
-                  stroke={bgGlowColor}
-                  strokeWidth="2"
-                  strokeDasharray="80 20 10 20"
-                  className="origin-center animate-[spin-slow-reverse_30s_linear_infinite]"
-                />
-
-                {/* Inner Ring */}
-                <circle
-                  cx="250"
-                  cy="250"
-                  r="140"
-                  fill="none"
-                  stroke={bgGlowColor}
-                  strokeWidth="1"
-                  strokeDasharray="5 15"
-                  className="origin-center animate-[spin-slow_20s_linear_infinite]"
-                />
-
-                {/* Solid Inner Border */}
-                <circle
-                  cx="250"
-                  cy="250"
-                  r="125"
-                  fill="none"
-                  stroke={bgGlowColor}
-                  strokeWidth="0.5"
-                  className="opacity-50"
-                />
-
-                {/* Crosshairs */}
-                <line
-                  x1="250"
-                  y1="0"
-                  x2="250"
-                  y2="110"
-                  stroke={bgGlowColor}
-                  strokeWidth="0.5"
-                  className="opacity-40"
-                />
-                <line
-                  x1="250"
-                  y1="390"
-                  x2="250"
-                  y2="500"
-                  stroke={bgGlowColor}
-                  strokeWidth="0.5"
-                  className="opacity-40"
-                />
-                <line
-                  x1="0"
-                  y1="250"
-                  x2="110"
-                  y2="250"
-                  stroke={bgGlowColor}
-                  strokeWidth="0.5"
-                  className="opacity-40"
-                />
-                <line
-                  x1="390"
-                  y1="250"
-                  x2="500"
-                  y2="250"
-                  stroke={bgGlowColor}
-                  strokeWidth="0.5"
-                  className="opacity-40"
-                />
-
-                {/* Decorative Tech Nodes */}
-                <circle cx="250" cy="20" r="3" fill={bgGlowColor} />
-                <circle cx="250" cy="480" r="3" fill={bgGlowColor} />
-                <circle cx="20" cy="250" r="3" fill={bgGlowColor} />
-                <circle cx="480" cy="250" r="3" fill={bgGlowColor} />
+                 {/* Crosshairs */}
+                 <line x1="250" y1="0" x2="250" y2="110" stroke={bgGlowColor} strokeWidth="0.5" className="opacity-40" />
+                 <line x1="250" y1="390" x2="250" y2="500" stroke={bgGlowColor} strokeWidth="0.5" className="opacity-40" />
+                 <line x1="0" y1="250" x2="110" y2="250" stroke={bgGlowColor} strokeWidth="0.5" className="opacity-40" />
+                 <line x1="390" y1="250" x2="500" y2="250" stroke={bgGlowColor} strokeWidth="0.5" className="opacity-40" />
+                 
+                 {/* Decorative Tech Nodes */}
+                 <circle cx="250" cy="20" r="3" fill={bgGlowColor} />
+                 <circle cx="250" cy="480" r="3" fill={bgGlowColor} />
+                 <circle cx="20" cy="250" r="3" fill={bgGlowColor} />
+                 <circle cx="480" cy="250" r="3" fill={bgGlowColor} />
               </svg>
             </div>
 
@@ -450,20 +366,17 @@ const MarkHome = () => {
                 status={orbStatus}
                 intensity={orbStatus === 'speaking' ? ttsIntensity : 0}
                 mood={currentResponse?.mood || 'neutral'}
+                showClock={showClock}
+                onClockClick={handleOrbClick}
               />
             </div>
           </div>
         </div>
 
         {/* Right Panel: Dynamic Response Area (Scrollable) */}
-        <div
+        <div 
           className="w-full md:w-1/2 h-full flex flex-col overflow-y-auto no-scrollbar md:pl-8 md:pr-4"
-          style={{
-            maskImage:
-              'linear-gradient(to bottom, transparent, black 3rem, black calc(100% - 3rem), transparent)',
-            WebkitMaskImage:
-              'linear-gradient(to bottom, transparent, black 3rem, black calc(100% - 3rem), transparent)'
-          }}
+          style={{ maskImage: 'linear-gradient(to bottom, transparent, black 3rem, black calc(100% - 3rem), transparent)', WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 3rem, black calc(100% - 3rem), transparent)' }}
         >
           <div className="w-full max-w-2xl mx-auto flex flex-col items-center justify-start transition-all duration-500 ease-in-out pt-[10vh] pb-20 min-h-full">
             {currentResponse && <ResponseArea currentResponse={currentResponse} />}

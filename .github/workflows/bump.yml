@@ -1,0 +1,50 @@
+name: Bump Version
+
+on:
+  push:
+    branches: [master, main]
+    paths-ignore:
+      - '**.md'
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Determine bump type
+        id: bump
+        run: |
+          TYPE=$(node scripts/bump-version.mjs --dry-run 2>&1 | grep '^Reason:' | sed 's/Reason: //')
+          echo "Bump type: $TYPE"
+          echo "bump=$TYPE" >> $GITHUB_OUTPUT
+
+      - name: Bump version
+        run: |
+          node scripts/bump-version.mjs ${{ steps.bump.bump }}
+
+      - name: Build
+        run: npm run build
+
+      - name: Push tag + commit
+        run: |
+          git add package.json CHANGELOG.md
+          git commit -m "chore: release v${{ steps.bump.bump }}" || true
+          git push
+          git push --tags

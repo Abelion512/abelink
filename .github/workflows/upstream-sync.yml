@@ -1,0 +1,41 @@
+# Secrets required:
+#   LINEAR_API_KEY — consumed by scripts/mark-update.mjs to create Linear issues
+# Notes:
+#   - repository_dispatch fires when upstream (Mazees/mark-agent) pushes; cron is the
+#     reliable fallback that runs daily at 06:00 UTC.
+#   - The `upstream` remote is registered here because a fresh CI checkout only has `origin`.
+name: Upstream Sync
+
+on:
+  repository_dispatch:
+    types: [upstream-pushed]
+  schedule:
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Detect upstream commits
+        id: detect
+        run: |
+          git remote add upstream https://github.com/Mazees/mark-agent.git || true
+          node scripts/auto-detect-upstream.mjs --json
+          echo "new_commits=$(node -e 'const fs=require("fs");const f="./upstream-diff-report.json";const r=fs.existsSync(f)?JSON.parse(fs.readFileSync(f,"utf8")):null;console.log(r&&r.commits&&r.commits.length?"true":"false")')" >> "$GITHUB_OUTPUT"
+
+      - name: Sync to Linear
+        if: steps.detect.outputs.new_commits == 'true'
+        run: node scripts/mark-update.mjs --sync-linear

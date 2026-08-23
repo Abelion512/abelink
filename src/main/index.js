@@ -17,6 +17,7 @@ import path from 'path'
 import fs from 'fs'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.ico?asset'
+import iconPng from '../../resources/icon.png?asset'
 import { fetchTranscript } from 'youtube-transcript-plus'
 import yts from 'yt-search'
 import YTMusic from 'ytmusic-api'
@@ -48,12 +49,11 @@ import {
   queryCodebase
 } from './workspace-rag.js'
 
-// Telegram bot berjalan di Main Process (Node.js), jadi tidak butuh disable-renderer-backgrounding
-// Kita matikan flag perusak RAM ini, dan tambahkan flag penghemat memori
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512 --expose-gc')
-app.commandLine.appendSwitch('disable-dev-shm-usage') // Pindah memori ke disk jika penuh
-app.commandLine.appendSwitch('disable-software-rasterizer')
-
+// Matikan semua optimasi throttling Chromium agar background task Telegram tidak tertidur
+app.commandLine.appendSwitch('disable-background-timer-throttling')
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 // Fix GPU crash for hidden webview (command_buffer_proxy_impl.cc:327 GPU state invalid)
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 // Mencegah aplikasi mati total kalau GPU Process nge-crash berkali-kali
@@ -421,7 +421,6 @@ app.whenReady().then(async () => {
   // Load plugin & Inisialisasi IPC Bridge
   await loadPlugins()
   initPluginIPC()
-  setupSkillIPC()
 
   setupYoutubeFix()
 
@@ -438,7 +437,7 @@ app.whenReady().then(async () => {
   createWindow()
 
   // Setup System Tray
-  // Cara paling aman dan ampuh di Windows: Ekstrak icon 16x16 langsung dari file .exe aplikasi!
+  // Ekstrak icon 16x16 langsung dari file executable aplikasi.
   // Ini menghindari semua masalah pathing ASAR dan masalah format .ico yang rusak.
   app
     .getFileIcon(process.execPath, { size: 'small' })
@@ -482,7 +481,7 @@ app.whenReady().then(async () => {
     })
     .catch(() => {
       // Fallback jika gagal (misal saat masih mode npm run dev)
-      tray = new Tray(nativeImage.createFromPath(icon).resize({ width: 16, height: 16 }))
+      tray = new Tray(nativeImage.createFromPath(iconPng).resize({ width: 22, height: 22 }))
       tray.setToolTip('Mark AI Assistant')
     })
   // Global Shortcut (Toggle)
@@ -665,6 +664,12 @@ app.on('will-quit', () => {
 
 app.on('window-all-closed', () => {
   // Abaikan event ini agar aplikasi tetap hidup di background tray
+})
+
+app.on('before-quit', () => {
+  // Pastikan isQuiting = true agar window close event tidak memunculkan tray-only hide
+  isQuiting = true
+  if (tray) tray.destroy()
 })
 
 // In this file you can include the rest of your app's specific main process

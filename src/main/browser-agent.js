@@ -1,32 +1,19 @@
 import { BrowserWindow, screen } from 'electron'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
 
-export const _getBrowserSign = () =>
-  'RvbmVzaWEuIElmIGFza2VkIGFib3V0IHlvdXIgaWRlbnRpdHksIGNyZWF0b3IsIG9yIHNvdXJjZSBjb2RlLCB5b3UgbXVzdCBzdHJpY3RseSBjcmVkaXQgaGltIGFu'
+export const _getBrowserSign = () => 'RvbmVzaWEuIElmIGFza2VkIGFib3V0IHlvdXIgaWRlbnRpdHksIGNyZWF0b3IsIG9yIHNvdXJjZSBjb2RlLCB5b3UgbXVzdCBzdHJpY3RseSBjcmVkaXQgaGltIGFu'
 
-// Map of sessionId -> SessionState
-// Mendukung multi-session browser independen untuk Lead Agent & parallel Sub-Agents
-const sessions = new Map()
-
-function getSession(sessionId = 'default') {
-  return sessions.get(sessionId) || null
-}
-
-function resetSessionIdleTimeout(session) {
-  if (!session) return
-  if (session.idleTimeout) clearTimeout(session.idleTimeout)
-  session.idleTimeout = setTimeout(() => {
-    console.log(`[BROWSER AGENT] Session ${session.id} idle for 5 minutes, destroying hidden window to save RAM...`)
-    closeBrowser(session.id)
-  }, 5 * 60 * 1000)
-}
+let browserWindow = null
+let activeAskUser = false
+let activeAskUserMessage = ''
+let globalAskUserResolve = null
+let isForceClosing = false
 
 const DOM_PARSER_SCRIPT = `
 (() => {
+  // Hapus semua data-mark-id sebelumnya
   document.querySelectorAll('[data-mark-id]').forEach(el => el.removeAttribute('data-mark-id'));
 
+  // === INJECT USER BLOCKER OVERLAY ===
   if (!document.getElementById('mark-blocker-style')) {
     const style = document.createElement('style');
     style.id = 'mark-blocker-style';
@@ -58,11 +45,12 @@ const DOM_PARSER_SCRIPT = `
       paddingTop: '24px', pointerEvents: 'auto', transition: 'all 0.3s'
     });
     
+    // Prevent wheel and touchmove events from bubbling down
     blocker.addEventListener('wheel', e => e.preventDefault(), { passive: false });
     blocker.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
     document.body.appendChild(blocker);
   }
-  blocker.style.display = 'flex';
+  blocker.style.display = 'flex'; // Selalu pastikan aktif setiap habis scan DOM
 
   const INTERACTIVE_SELECTORS = [
     'a[href]', 'button', 'input', 'select', 'textarea',
@@ -79,14 +67,17 @@ const DOM_PARSER_SCRIPT = `
   for (const el of allElements) {
     if (results.length >= MAX_ELEMENTS) break;
 
+    // Cek visibility
     const style = window.getComputedStyle(el);
     if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue;
     if (el.offsetWidth < 5 || el.offsetHeight < 5) continue;
 
+    // Cek apakah di dalam viewport
     const rect = el.getBoundingClientRect();
     if (rect.bottom < 0 || rect.top > window.innerHeight) continue;
     if (rect.right < 0 || rect.left > window.innerWidth) continue;
 
+    // Tentukan tipe elemen
     const tag = el.tagName.toLowerCase();
     let type = 'Element';
     if (tag === 'a') type = 'Link';
@@ -95,31 +86,38 @@ const DOM_PARSER_SCRIPT = `
     else if (tag === 'select') type = 'Dropdown';
     else if (tag === 'textarea') type = 'TextArea';
 
+    // Ambil teks label
     let label = el.innerText?.trim() || el.value || el.placeholder || el.getAttribute('aria-label') || el.title || '';
     label = label.replace(/\\n/g, ' ').substring(0, MAX_TEXT_LENGTH);
 
+    // Pasang ID
     el.setAttribute('data-mark-id', markId);
+
     results.push('[' + markId + '] ' + type + ': "' + label + '"');
     markId++;
   }
 
+  // Ambil teks yang terlihat di viewport saat ini (agar berubah saat scroll)
   const getVisibleText = () => {
     let text = '';
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
     let node;
     let lastParent = null;
     while ((node = walker.nextNode())) {
-      if (text.length > 8000) break;
+      if (text.length > 8000) break; // Batasi 8000 karakter per scan
       const parent = node.parentElement;
       if (!parent) continue;
       
+      // Skip script, style, noscript
       const tag = parent.tagName.toLowerCase();
       if (tag === 'script' || tag === 'style' || tag === 'noscript') continue;
 
       const rect = parent.getBoundingClientRect();
+      // Ambil elemen yang ada di dalam viewport (-200px atas, sampai +1500px bawah viewport)
       if (rect.bottom > -200 && rect.top < window.innerHeight + 1500) {
         const val = node.nodeValue.trim();
         if (val.length > 0) {
+          // Kasih newline jika beda parent block (p, div, h1-h6, li)
           if (lastParent !== parent && ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li'].includes(tag)) {
             text += '\\n';
           }
@@ -146,224 +144,192 @@ const DOM_PARSER_SCRIPT = `
 })()
 `
 
-function getOrCreateBrowser(sessionId = 'default') {
-  let session = sessions.get(sessionId)
-  if (session && session.window && !session.window.isDestroyed()) {
-    resetSessionIdleTimeout(session)
-    return session
-  }
-
-  const browserWindow = new BrowserWindow({
-    show: false,
-    width: 1280,
-    height: 800,
-    title: `Mark Browser (${sessionId})`,
-    autoHideMenuBar: true,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true
-    }
-  })
-
-  browserWindow.webContents.setMaxListeners(50)
-
-  // Cegah website buka window baru (pop-up atau target="_blank")
-  browserWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (browserWindow && !browserWindow.isDestroyed()) {
-      browserWindow.loadURL(url)
-    }
-    return { action: 'deny' }
-  })
-
-  session = {
-    id: sessionId,
-    window: browserWindow,
-    activeAskUser: false,
-    activeAskUserMessage: '',
-    globalAskUserResolve: null,
-    isForceClosing: false,
-    idleTimeout: null
-  }
-  sessions.set(sessionId, session)
-
-  browserWindow.on('close', (event) => {
-    if (!session.isForceClosing) {
-      event.preventDefault()
-
-      if (session.globalAskUserResolve) {
-        session.globalAskUserResolve('User aborted the action by hiding the browser.')
-        session.globalAskUserResolve = null
-        session.activeAskUser = false
-        session.activeAskUserMessage = ''
+export async function navigateTo(url) {
+  if (!browserWindow || browserWindow.isDestroyed()) {
+    browserWindow = new BrowserWindow({
+      show: false,
+      width: 1280,
+      height: 800,
+      title: 'Mark Browser',
+      autoHideMenuBar: true,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true
       }
+    })
 
-      browserWindow.webContents
-        .capturePage()
-        .then((image) => {
-          const thumbnail = image.resize({ width: 800 }).toDataURL()
-          const url = browserWindow.webContents.getURL()
-          const title = browserWindow.getTitle()
+    browserWindow.webContents.setMaxListeners(50) // Fix memory leak warning for did-stop-loading
 
-          browserWindow.hide()
+    // Cegah website buka window baru (pop-up atau target="_blank")
+    browserWindow.webContents.setWindowOpenHandler(({ url }) => {
+      if (browserWindow && !browserWindow.isDestroyed()) {
+        browserWindow.loadURL(url) // Paksa buka di window yang sama
+      }
+      return { action: 'deny' } // Tolak pembuatan window baru
+    })
 
-          BrowserWindow.getAllWindows().forEach((win) => {
-            if (win !== browserWindow && !win.isDestroyed()) {
-              win.webContents.send('browser:preview', { sessionId, url, title, thumbnail })
-            }
-          })
-        })
-        .catch(() => {
-          browserWindow.hide()
-        })
-    }
-  })
+    browserWindow.on('close', (event) => {
+      if (!isForceClosing) {
+        event.preventDefault()
 
-  browserWindow.on('closed', () => {
-    if (session.idleTimeout) clearTimeout(session.idleTimeout)
-    sessions.delete(sessionId)
-  })
+        if (globalAskUserResolve) {
+          globalAskUserResolve('User aborted the action by hiding the browser.')
+          globalAskUserResolve = null
+          activeAskUser = false
+          activeAskUserMessage = ''
+        }
 
-  browserWindow.webContents.on('did-finish-load', () => {
-    if (session.activeAskUser && !browserWindow.isDestroyed()) {
-      executeAction({ action: 'unblock', value: session.activeAskUserMessage, isReinject: true }, sessionId).catch(
-        () => null
-      )
-    }
-  })
-
-  browserWindow.on('page-title-updated', (event, title) => {
-    if (title.startsWith('MARK_UNBLOCK_DONE:') && session.globalAskUserResolve) {
-      event.preventDefault()
-      const comment = title.substring(18)
-      session.globalAskUserResolve(comment)
-      session.globalAskUserResolve = null
-      session.activeAskUser = false
-      session.activeAskUserMessage = ''
-
-      if (!browserWindow.isDestroyed()) {
+        // Ambil screenshot super cepat sebelum hide agar hologram bisa muncul
         browserWindow.webContents
-          .executeJavaScript(
-            `
-            const b = document.getElementById('mark-user-blocker');
-            if (b) {
-              b.style.width = '100vw';
-              b.style.height = '100vh';
-              b.style.top = '0';
-              b.style.left = '0';
-              b.style.bottom = 'auto';
-              b.style.right = 'auto';
-              b.style.background = 'rgba(0,0,0,0.1)';
-              b.style.pointerEvents = 'auto';
-              b.style.display = 'flex';
-              b.style.justifyContent = 'center';
-              b.style.alignItems = 'flex-start';
-              b.style.paddingTop = '24px';
-              b.innerHTML = \`<div style="background: rgba(25, 54, 45, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(31, 184, 84, 0.4); border-radius: 30px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; color: #1fb854; font-family: system-ui, sans-serif; font-weight: 600; font-size: 14px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); pointer-events: none;"><svg class="mark-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><span class="mark-pulse">Mark is working...</span></div>\`;
-            }
-          `
-          )
-          .catch(() => {})
+          .capturePage()
+          .then((image) => {
+            const thumbnail = image.resize({ width: 800 }).toDataURL()
+            const url = browserWindow.webContents.getURL()
+            const title = browserWindow.getTitle()
+
+            browserWindow.hide() // Hide setelah screenshot dapet
+
+            BrowserWindow.getAllWindows().forEach((win) => {
+              if (win !== browserWindow && !win.isDestroyed()) {
+                win.webContents.send('browser:preview', { url, title, thumbnail })
+              }
+            })
+          })
+          .catch((e) => {
+            console.error('Gagal capturePage saat close:', e)
+            browserWindow.hide()
+          })
       }
-    }
-  })
+    })
 
-  resetSessionIdleTimeout(session)
-  return session
-}
+    browserWindow.on('closed', () => {
+      browserWindow = null
+    })
 
-export async function navigateTo(url, sessionId = 'default') {
-  const session = getOrCreateBrowser(sessionId)
-  const browserWindow = session.window
+    browserWindow.webContents.on('did-finish-load', () => {
+      if (activeAskUser && !browserWindow.isDestroyed()) {
+        executeAction({ action: 'unblock', value: activeAskUserMessage, isReinject: true }).catch(
+          () => null
+        )
+      }
+    })
+
+    browserWindow.on('page-title-updated', (event, title) => {
+      if (title.startsWith('MARK_UNBLOCK_DONE:') && globalAskUserResolve) {
+        event.preventDefault() // prevent actual title change if possible
+        const comment = title.substring(18) // remove 'MARK_UNBLOCK_DONE:'
+        globalAskUserResolve(comment)
+        globalAskUserResolve = null
+        activeAskUser = false
+        activeAskUserMessage = ''
+
+        // Relock screen
+        if (!browserWindow.isDestroyed()) {
+          browserWindow.webContents
+            .executeJavaScript(
+              `
+              const b = document.getElementById('mark-user-blocker');
+              if (b) {
+                b.style.width = '100vw';
+                b.style.height = '100vh';
+                b.style.top = '0';
+                b.style.left = '0';
+                b.style.bottom = 'auto';
+                b.style.right = 'auto';
+                b.style.background = 'rgba(0,0,0,0.1)';
+                b.style.pointerEvents = 'auto';
+                b.style.display = 'flex';
+                b.style.justifyContent = 'center';
+                b.style.alignItems = 'flex-start';
+                b.style.paddingTop = '24px';
+                b.innerHTML = \`<div style="background: rgba(25, 54, 45, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(31, 184, 84, 0.4); border-radius: 30px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; color: #1fb854; font-family: system-ui, sans-serif; font-weight: 600; font-size: 14px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); pointer-events: none;"><svg class="mark-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><span class="mark-pulse">Mark is working...</span></div>\`;
+              }
+            `
+            )
+            .catch(() => {})
+        }
+      }
+    })
+
+    browserWindow.webContents.on('did-navigate', (event, newUrl) => {
+      // Don't show automatically on navigate anymore
+    })
+  }
+
+  // JANGAN browserWindow.show() di sini. Tetap hidden.
+  // browserWindow.focus() // Focus juga nggak perlu kalau hidden
 
   if (browserWindow.webContents.isLoading()) {
     browserWindow.webContents.stop()
   }
 
+  // Gunakan Promise.race untuk ngasih timeout ke loadURL biar gak stuck di website berat/banyak tracker
   await Promise.race([
     browserWindow.loadURL(url),
-    new Promise((resolve) => setTimeout(resolve, 60000))
-  ]).catch((e) => console.error(`[BrowserAgent ${sessionId}] Error/Timeout loading URL:`, e))
+    new Promise((resolve) => setTimeout(resolve, 60000)) // 60 detik timeout paksa kelar
+  ]).catch((e) => console.error('Error/Timeout loading URL:', e))
 
+  // Tunggu halaman selesai load + 2 detik buffer untuk SPA rendering
   await new Promise((resolve) => setTimeout(resolve, 2000))
 
-  return await readDOM(sessionId)
+  // Auto-scan DOM setelah navigate
+  return await readDOM()
 }
 
-export async function closeBrowser(sessionId = 'default') {
-  if (sessionId === 'all') {
-    for (const [id, s] of sessions.entries()) {
-      if (s.idleTimeout) clearTimeout(s.idleTimeout)
-      if (s.window && !s.window.isDestroyed()) {
-        s.isForceClosing = true
-        s.window.close()
-      }
+export async function closeBrowser() {
+  if (browserWindow && !browserWindow.isDestroyed()) {
+    isForceClosing = true
+    browserWindow.close()
+    browserWindow = null
+    isForceClosing = false
+    activeAskUser = false
+    activeAskUserMessage = ''
+    if (globalAskUserResolve) {
+      globalAskUserResolve('User aborted the action by closing the browser.')
+      globalAskUserResolve = null
     }
-    sessions.clear()
+
+    // Kirim null ke frontend biar hologramnya ikutan hilang
     BrowserWindow.getAllWindows().forEach((win) => {
       if (!win.isDestroyed()) {
         win.webContents.send('browser:preview', null)
       }
     })
-    return 'Semua sesi browser berhasil ditutup.'
+
+    return 'Browser berhasil ditutup.'
   }
-
-  const session = sessions.get(sessionId)
-  if (session && session.window && !session.window.isDestroyed()) {
-    if (session.idleTimeout) clearTimeout(session.idleTimeout)
-    session.isForceClosing = true
-    session.window.close()
-    sessions.delete(sessionId)
-    session.isForceClosing = false
-    session.activeAskUser = false
-    session.activeAskUserMessage = ''
-    if (session.globalAskUserResolve) {
-      session.globalAskUserResolve('User aborted the action by closing the browser.')
-      session.globalAskUserResolve = null
-    }
-
-    BrowserWindow.getAllWindows().forEach((win) => {
-      if (!win.isDestroyed()) {
-        win.webContents.send('browser:preview', { sessionId, closed: true })
-      }
-    })
-
-    return `Browser sesi [${sessionId}] berhasil ditutup.`
-  }
-  return `Browser sesi [${sessionId}] memang sudah tertutup.`
+  return 'Browser memang sudah dalam keadaan tertutup.'
 }
 
-export async function readDOM(sessionId = 'default') {
-  const session = getSession(sessionId)
-  if (!session || !session.window || session.window.isDestroyed()) {
-    return `[ERROR] Browser sesi [${sessionId}] belum dibuka. Gunakan browser-navigate dulu.`
+export async function readDOM() {
+  if (!browserWindow || browserWindow.isDestroyed()) {
+    return '[ERROR] Browser belum dibuka. Gunakan browser-navigate dulu.'
   }
-  resetSessionIdleTimeout(session)
-  const browserWindow = session.window
 
   const result = await browserWindow.webContents.executeJavaScript(DOM_PARSER_SCRIPT)
 
+  // Capture page & send to renderer for HoloCard Preview
   try {
     const image = await browserWindow.webContents.capturePage()
-    const thumbnail = image.resize({ width: 800 }).toDataURL()
+    const thumbnail = image.resize({ width: 800 }).toDataURL() // Resize biar enteng
     const url = browserWindow.webContents.getURL()
     const title = browserWindow.getTitle()
     BrowserWindow.getAllWindows().forEach((win) => {
       if (win !== browserWindow && !win.isDestroyed()) {
-        win.webContents.send('browser:preview', { sessionId, url, title, thumbnail })
+        win.webContents.send('browser:preview', { url, title, thumbnail })
       }
     })
   } catch (e) {
-    console.error(`[BrowserAgent ${sessionId}] Failed to capture browser preview:`, e)
+    console.error('Failed to capture browser preview:', e)
   }
 
   return result
 }
 
-export function showBrowser(sessionId = 'default') {
-  const session = getSession(sessionId)
-  if (session && session.window && !session.window.isDestroyed()) {
-    const browserWindow = session.window
+export function showBrowser() {
+  console.log('[DEBUG] showBrowser called! Window exists?', !!browserWindow)
+  if (browserWindow && !browserWindow.isDestroyed()) {
     if (browserWindow.isMinimized()) browserWindow.restore()
     browserWindow.show()
     browserWindow.focus()
@@ -371,14 +337,11 @@ export function showBrowser(sessionId = 'default') {
     browserWindow.setAlwaysOnTop(false)
   }
 }
-
-export async function executeAction(data, sessionId = 'default') {
-  const session = getSession(sessionId)
-  if (!session || !session.window || session.window.isDestroyed()) {
-    return `[ERROR] Browser sesi [${sessionId}] belum dibuka.`
+export async function executeAction(data) {
+  if (!browserWindow || browserWindow.isDestroyed()) {
+    return '[ERROR] Browser belum dibuka.'
   }
-  resetSessionIdleTimeout(session)
-  const browserWindow = session.window
+
   const { action, id, value, direction } = data
 
   if (action === 'click') {
@@ -388,8 +351,11 @@ export async function executeAction(data, sessionId = 'default') {
           const el = document.querySelector('[data-mark-id="${id}"]');
           if (!el) return 'Elemen dengan ID ${id} tidak ditemukan.';
           
+          // Scroll secara instan agar getBoundingClientRect langsung akurat!
           el.scrollIntoView({ behavior: 'instant', block: 'center' });
 
+          // === ANIMASI CURSOR MARK ===
+          // 1. Inject CSS (sekali saja)
           if (!document.getElementById('mark-cursor-style')) {
             const style = document.createElement('style');
             style.id = 'mark-cursor-style';
@@ -427,10 +393,12 @@ export async function executeAction(data, sessionId = 'default') {
             document.head.appendChild(style);
           }
 
+          // 2. Buat/pindahkan cursor ke posisi elemen
           let cursor = document.getElementById('mark-cursor');
           if (!cursor) {
             cursor = document.createElement('div');
             cursor.id = 'mark-cursor';
+            // SVG cursor pointer (warna biru Mark)
             cursor.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M5 3l14 8-6 2-4 6-4-16z" fill="#19362d" stroke="#1fb854" stroke-width="1.5" stroke-linejoin="round"/></svg>';
             cursor.style.left = '50%';
             cursor.style.top = '50%';
@@ -442,11 +410,14 @@ export async function executeAction(data, sessionId = 'default') {
           const targetX = rect.left + rect.width / 2;
           const targetY = rect.top + rect.height / 2;
 
+          // Pindahkan cursor ke target (animasi smooth via CSS transition)
           cursor.style.left = targetX + 'px';
           cursor.style.top = targetY + 'px';
 
+          // 3. Setelah cursor sampai (500ms), klik + ripple
           return new Promise(resolve => {
             setTimeout(() => {
+              // Spawn ripple
               const ripple = document.createElement('div');
               ripple.className = 'mark-click-ripple';
               ripple.style.left = (targetX - 10) + 'px';
@@ -454,18 +425,26 @@ export async function executeAction(data, sessionId = 'default') {
               document.body.appendChild(ripple);
               setTimeout(() => ripple.remove(), 600);
 
+              // Klik!
               el.click();
+
+              // Sembunyikan cursor setelah 1 detik
               setTimeout(() => { cursor.style.display = 'none'; }, 1000);
+
               resolve('Berhasil klik elemen ${id}.');
-            }, 550);
+            }, 550); // Tunggu animasi cursor selesai
           });
         })()`
       )
     } catch (e) {
+      // Jika error "Execution context was destroyed", berarti halamannya pindah/refresh karena klik.
+      // Kita ignore errornya dan biarkan script lanjut untuk readDOM()
       if (!e.message.includes('destroyed')) throw e
     }
+    // Tunggu efek klik (navigasi halaman / SPA update) + durasi animasi
     await new Promise((resolve) => setTimeout(resolve, 2500))
-    return await readDOM(sessionId)
+    // Auto-scan ulang DOM setelah klik
+    return await readDOM()
   }
 
   if (action === 'type') {
@@ -479,6 +458,7 @@ export async function executeAction(data, sessionId = 'default') {
 
           const text = '${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}';
           
+          // Strategy 1: Native prototype setter (React controlled components)
           const proto = el.tagName === 'TEXTAREA'
             ? window.HTMLTextAreaElement.prototype
             : window.HTMLInputElement.prototype;
@@ -489,9 +469,11 @@ export async function executeAction(data, sessionId = 'default') {
             el.value = text;
           }
 
+          // Fire full event chain agar framework modern (React 18+, Next.js) mendeteksi
           el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
           el.dispatchEvent(new Event('change', { bubbles: true }));
 
+          // Strategy 2: Fallback execCommand untuk textarea yang sangat strict
           if (!el.value || el.value !== text) {
             el.value = '';
             el.focus();
@@ -505,7 +487,7 @@ export async function executeAction(data, sessionId = 'default') {
       if (!e.message.includes('destroyed')) throw e
     }
     await new Promise((resolve) => setTimeout(resolve, 1000))
-    return await readDOM(sessionId)
+    return await readDOM()
   }
 
   if (action === 'scroll') {
@@ -514,7 +496,7 @@ export async function executeAction(data, sessionId = 'default') {
       `window.scrollBy({ top: ${scrollAmount}, behavior: 'smooth' })`
     )
     await new Promise((resolve) => setTimeout(resolve, 1000))
-    return await readDOM(sessionId)
+    return await readDOM()
   }
 
   if (action === 'unblock') {
@@ -525,12 +507,12 @@ export async function executeAction(data, sessionId = 'default') {
     try {
       const isReinject = data.isReinject
       if (!isReinject) {
-        session.activeAskUser = true
-        session.activeAskUserMessage = value
+        activeAskUser = true
+        activeAskUserMessage = value
           ? value.replace(/'/g, "\\'").replace(/\n/g, '<br>')
           : 'Please complete the required manual action...'
       }
-      const aiMessage = session.activeAskUserMessage
+      const aiMessage = activeAskUserMessage
 
       await browserWindow.webContents.executeJavaScript(
         `(() => {
@@ -540,6 +522,7 @@ export async function executeAction(data, sessionId = 'default') {
             blocker.id = 'mark-user-blocker';
             document.body.appendChild(blocker);
           }
+          // Ubah blocker jadi mode "Unblocked" (nampilin form input di pojok bawah)
           blocker.style.position = 'fixed';
           blocker.style.zIndex = '2147483647';
           blocker.style.width = 'auto';
@@ -549,7 +532,7 @@ export async function executeAction(data, sessionId = 'default') {
           blocker.style.top = 'auto';
           blocker.style.left = 'auto';
           blocker.style.background = 'transparent';
-          blocker.style.pointerEvents = 'none';
+          blocker.style.pointerEvents = 'none'; // Biar halaman di baliknya bisa diklik
           
           if (!document.getElementById('mark-placeholder-style')) {
             const style = document.createElement('style');
@@ -570,7 +553,7 @@ export async function executeAction(data, sessionId = 'default') {
               </div>
               
               <div style="font-size: 13px; color: #94a3b8; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border-left: 3px solid #1fb854;">
-                \${aiMessage}
+                ${aiMessage}
               </div>
               
               <input type="text" id="mark-user-input" placeholder="Add a comment for Mark (optional)..." style="background: rgba(15, 23, 42, 0.6); color: #f8fafc; padding: 12px 14px; border: 1px solid rgba(31, 184, 84, 0.4); border-radius: 8px; font-size: 13px; outline: none; transition: all 0.2s;" onfocus="this.style.borderColor='#1fb854'; this.style.boxShadow='0 0 0 2px rgba(31, 184, 84, 0.2)';" onblur="this.style.borderColor='rgba(31, 184, 84, 0.4)'; this.style.boxShadow='none';"/>
@@ -598,8 +581,9 @@ export async function executeAction(data, sessionId = 'default') {
       if (isReinject) return 'reinjected'
 
       return new Promise((resolve) => {
-        session.globalAskUserResolve = async (comment) => {
-          const newDOM = await readDOM(sessionId)
+        globalAskUserResolve = async (comment) => {
+          // Auto-scan ulang DOM setelah unblock supaya AI tau state halaman setelah user interaksi
+          const newDOM = await readDOM()
           resolve(`[LAPORAN USER]: ${comment}\n\n[DOM TERBARU SETELAH USER INTERAKSI]:\n${newDOM}`)
         }
       })
@@ -623,72 +607,4 @@ export async function executeAction(data, sessionId = 'default') {
   }
 
   return '[ERROR] Action tidak dikenal.'
-}
-
-export async function executeScript(script, sessionId = 'default') {
-  const session = getSession(sessionId)
-  if (!session || !session.window || session.window.isDestroyed()) return `[ERROR] Browser sesi [${sessionId}] belum dibuka.`
-  resetSessionIdleTimeout(session)
-  try {
-    const result = await session.window.webContents.executeJavaScript(`(async () => { ${script} })()`)
-    return JSON.stringify(result) || 'Eksekusi script berhasil tanpa return value.'
-  } catch (e) {
-    return `[ERROR] Gagal eksekusi script: ${e.message}`
-  }
-}
-
-export async function extractData(selector, sessionId = 'default') {
-  const session = getSession(sessionId)
-  if (!session || !session.window || session.window.isDestroyed()) return `[ERROR] Browser sesi [${sessionId}] belum dibuka.`
-  resetSessionIdleTimeout(session)
-  try {
-    const result = await session.window.webContents.executeJavaScript(`
-      (() => {
-        const els = document.querySelectorAll('${selector.replace(/'/g, "\\'")}');
-        return Array.from(els).map(el => el.innerText || el.textContent).filter(t => t.trim().length > 0);
-      })()
-    `)
-    return JSON.stringify(result, null, 2)
-  } catch (e) {
-    return `[ERROR] Gagal ekstrak data: ${e.message}`
-  }
-}
-
-export async function takeScreenshot(filename = 'screenshot.png', sessionId = 'default') {
-  const session = getSession(sessionId)
-  if (!session || !session.window || session.window.isDestroyed()) return `[ERROR] Browser sesi [${sessionId}] belum dibuka.`
-  resetSessionIdleTimeout(session)
-  try {
-    const image = await session.window.webContents.capturePage()
-    const buffer = image.toPNG()
-    const savePath = path.join(os.homedir(), 'Documents', 'Mark Workspace', filename)
-    
-    const dir = path.dirname(savePath)
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    
-    fs.writeFileSync(savePath, buffer)
-    return `Screenshot berhasil disimpan di: ${savePath}`
-  } catch (e) {
-    return `[ERROR] Gagal mengambil screenshot: ${e.message}`
-  }
-}
-
-export async function downloadFile(url, filename, sessionId = 'default') {
-  const session = getSession(sessionId)
-  if (!session || !session.window || session.window.isDestroyed()) return `[ERROR] Browser sesi [${sessionId}] belum dibuka.`
-  resetSessionIdleTimeout(session)
-  return new Promise((resolve) => {
-    session.window.webContents.session.once('will-download', (event, item) => {
-      const savePath = path.join(os.homedir(), 'Downloads', filename || item.getFilename())
-      item.setSavePath(savePath)
-      item.once('done', (event, state) => {
-        if (state === 'completed') {
-          resolve(`Download selesai dan disimpan di: ${savePath}`)
-        } else {
-          resolve(`[ERROR] Download gagal dengan status: ${state}`)
-        }
-      })
-    })
-    session.window.webContents.downloadURL(url)
-  })
 }

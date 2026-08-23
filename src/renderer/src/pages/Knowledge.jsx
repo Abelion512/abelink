@@ -116,13 +116,7 @@ const Knowledge = () => {
         <div className="max-w-2xl mx-auto px-4 py-8 pb-32 space-y-8">
           {/* Page Header */}
           <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="btn btn-ghost btn-sm btn-circle shrink-0"
-              style={{ WebkitAppRegion: 'no-drag' }}
-              title="Kembali"
-            >
+            <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm btn-circle">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="1.2em"

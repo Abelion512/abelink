@@ -35,7 +35,7 @@ export const loadPlugins = async () => {
         // Bersihkan cache CommonJS karena file plugin pakai module.exports
         delete require.cache[require.resolve(indexPath)]
         
-        // Gunakan dynamic import (file://) untuk module eksternal di Windows
+        // Gunakan dynamic import (file://) untuk module eksternal
         // Cache-busting dengan timestamp agar selalu load file terbaru pas di-save
         const moduleUrl = require('url').pathToFileURL(indexPath).href + '?t=' + Date.now()
         const handler = await import(moduleUrl)

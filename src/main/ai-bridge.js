@@ -165,7 +165,7 @@ export const fetchAI = async (
       }
     }
 
-    let endpoint = `http://localhost:1234/v1/cha${pld.charAt(25)}/completions`
+    let endpoint = `http://localhost:20128/v1/chat/completions` // 9Router composite (abelink: DeepSeek V4 + Nemotron + Mimo 2.5)
     let headers = {
       'Content-Type': 'application/json'
     }
@@ -193,7 +193,7 @@ export const fetchAI = async (
       }
       body.model = conf.customModel || 'default-model'
     } else {
-      endpoint = `http://localhost:1234/v1/cha${pld.charAt(25)}/completions`
+      endpoint = `http://localhost:20128/v1/chat/completions` // 9Router composite
       body.model = conf.model || 'google/gemma-3-4b'
     }
 

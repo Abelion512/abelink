@@ -1,13 +1,12 @@
-import { Telegraf, Input } from 'telegraf'
+import { Telegraf } from 'telegraf'
 import { app, ipcMain } from 'electron'
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
 import yts from 'yt-search'
 import { execFile } from 'child_process'
 import ffmpeg from 'ffmpeg-static'
 import { desktopCapturer } from 'electron'
-import { getGlobalConfig, abortAllFetches, activeAbortControllers } from '../ai-bridge.js'
+import { getGlobalConfig } from '../ai-bridge.js'
 
 let bot = null
 let currentStatus = 'disconnected'
@@ -83,38 +82,7 @@ export const startTelegramBot = async (token, mainWindow) => {
         if (senderUsername) usernameToChatIdMap.set(senderUsername, chatId)
         saveChatIdsToFile()
       }
-      ctx.reply('Halo! Saya Mark (AI OS Companion). Bot Telegram ini telah terhubung.')
-    })
-
-    bot.command('info', (ctx) => {
-      ctx.reply('**Daftar Perintah MARK:**\n\n/start - Memulai bot\n/info - Menampilkan daftar perintah\n/abort - Menghentikan proses AI yang sedang berjalan\n/accept - Mengizinkan prompt persetujuan (needsApproval)\n/reject - Menolak prompt persetujuan', { parse_mode: 'Markdown' })
-    })
-
-    bot.command('abort', (ctx) => {
-      if (activeAbortControllers.size > 0) {
-        abortAllFetches()
-        ctx.reply('[INFO]: Membatalkan proses AI saat ini...')
-      } else {
-        ctx.reply('[INFO]: Tidak ada proses AI yang sedang berjalan.')
-      }
-    })
-
-    bot.command('accept', (ctx) => {
-      if (botWindow && !botWindow.isDestroyed()) {
-        const chatId = String(ctx.chat?.id || ctx.from?.id || '')
-        botWindow.webContents.send('tg:command-accept', { chatId })
-      } else {
-        ctx.reply('[ERROR]: UI Mark tidak terhubung.')
-      }
-    })
-
-    bot.command('reject', (ctx) => {
-      if (botWindow && !botWindow.isDestroyed()) {
-        const chatId = String(ctx.chat?.id || ctx.from?.id || '')
-        botWindow.webContents.send('tg:command-reject', { chatId })
-      } else {
-        ctx.reply('[ERROR]: UI Mark tidak terhubung.')
-      }
+      ctx.reply('👋 Halo! Saya Mark (AI OS Companion). Bot Telegram ini telah terhubung.')
     })
 
     bot.on('text', async (ctx) => {
@@ -167,13 +135,7 @@ export const startTelegramBot = async (token, mainWindow) => {
         botWindow.webContents.send('tg:thinking', { sender: senderName, chatId })
       }
 
-      let loadingMsgId = null
-      try {
-        const loadingMsg = await ctx.reply('[LOADING]: Sedang diproses...', { disable_notification: true })
-        loadingMsgId = loadingMsg.message_id
-      } catch (e) {}
-
-      pendingRequestsMap.set(msgId, { ctx, chatId, text, loadingMsgId })
+      pendingRequestsMap.set(msgId, { ctx, chatId, text })
       setTimeout(() => pendingRequestsMap.delete(msgId), 300000)
 
       const recentHistory = uiMessageHistory
@@ -186,7 +148,7 @@ export const startTelegramBot = async (token, mainWindow) => {
 
       if (botWindow && !botWindow.isDestroyed()) {
         botWindow.webContents.send('tg:request-agent-execution', {
-          text: `[Telegram from ${chatId} - ${senderName}]:\n${text}`,
+          text,
           isAdmin: true,
           senderName,
           msgId,
@@ -194,102 +156,6 @@ export const startTelegramBot = async (token, mainWindow) => {
           isGroup: ctx.chat?.type !== 'private',
           chatSession: recentHistory
         })
-      }
-    })
-
-    bot.on(['document', 'photo'], async (ctx) => {
-      const senderId = String(ctx.from?.id || '')
-      const senderName = ctx.from?.first_name ? `${ctx.from.first_name} ${ctx.from.last_name || ''}`.trim() : ctx.from?.username || senderId
-      const chatId = String(ctx.chat?.id || senderId)
-
-      const senderUsername = (ctx.from?.username || '').toLowerCase()
-      const config = getGlobalConfig()
-      const adminList = (config.tgAdminIds || '')
-        .split(',')
-        .map((item) => item.trim().toLowerCase().replace(/^@/, ''))
-        .filter(Boolean)
-      const isAdmin = adminList.includes(senderId.toLowerCase()) || (senderUsername && adminList.includes(senderUsername))
-
-      if (!isAdmin) {
-        await ctx.reply('Maaf, kamu belum punya akses ke MARK.')
-        return
-      }
-      
-      try {
-        let fileId = ''
-        let originalName = ''
-        
-        if (ctx.message.document) {
-          fileId = ctx.message.document.file_id
-          originalName = ctx.message.document.file_name || `document_${Date.now()}`
-        } else if (ctx.message.photo) {
-          const photo = ctx.message.photo[ctx.message.photo.length - 1]
-          fileId = photo.file_id
-          originalName = `photo_${Date.now()}.jpg`
-        }
-
-        const statusMsg = await ctx.reply(`[INFO]: Sedang mengunduh file ${originalName}...`)
-      
-        const fileUrl = await ctx.telegram.getFileLink(fileId)
-        const saveDir = path.join(os.homedir(), 'Documents', 'Mark Workspace', 'Telegram')
-        if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true })
-        
-        const savePath = path.join(saveDir, originalName)
-        
-        const response = await fetch(fileUrl)
-        const buffer = await response.arrayBuffer()
-        fs.writeFileSync(savePath, Buffer.from(buffer))
-
-        await ctx.telegram.editMessageText(chatId, statusMsg.message_id, undefined, `[INFO]: Berhasil mengunduh: ${originalName}\n[LOADING]: Sedang diproses...`)
-
-        const caption = ctx.message.caption || ''
-        const text = `[FILE TERLAMPIR]: "${savePath}"\n${caption ? `Caption dari user: ${caption}` : 'Silakan baca/analisa file gambar atau dokumen ini jika perlu.'}`
-
-        const msgId = `${chatId}-${ctx.message.message_id}`
-        const uiMsgPayload = {
-          id: msgId,
-          chatId: chatId,
-          sender: senderName,
-          text: `[FILE]: Mengirim file: ${originalName}\n${caption}`,
-          isGroup: ctx.chat?.type !== 'private',
-          chatTitle: ctx.chat?.title || senderName,
-          time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-          type: 'incoming'
-        }
-
-        uiMessageHistory.push(uiMsgPayload)
-        if (uiMessageHistory.length > MAX_UI_HISTORY) uiMessageHistory.shift()
-
-        if (botWindow && !botWindow.isDestroyed()) {
-          botWindow.webContents.send('tg:message', uiMsgPayload)
-          botWindow.webContents.send('tg:thinking', { sender: senderName, chatId })
-        }
-
-        pendingRequestsMap.set(msgId, { ctx, chatId, text, loadingMsgId: statusMsg.message_id })
-        setTimeout(() => pendingRequestsMap.delete(msgId), 300000)
-
-        const recentHistory = uiMessageHistory
-          .filter((m) => m.chatId === chatId)
-          .slice(-10)
-          .map((m) => ({
-            role: m.type === 'incoming' ? 'user' : 'assistant',
-            content: m.type === 'incoming' ? m.text : m.reply
-          }))
-
-        if (botWindow && !botWindow.isDestroyed()) {
-          botWindow.webContents.send('tg:request-agent-execution', {
-            text: `[Telegram from ${chatId} - ${senderName}]:\n${text}`,
-            isAdmin: true,
-            senderName,
-            msgId,
-            chatId,
-            isGroup: ctx.chat?.type !== 'private',
-            chatSession: recentHistory
-          })
-        }
-      } catch (e) {
-        console.error('Failed to download file from Telegram:', e)
-        ctx.reply(`Gagal mengunduh file: ${e.message}`)
       }
     })
 
@@ -347,27 +213,6 @@ export const sendTelegramMessage = async (chatId, text) => {
     } catch (fallbackErr) {
       return { success: false, error: fallbackErr.message }
     }
-  }
-}
-
-export const sendTelegramFile = async (chatId, filePath, caption = '') => {
-  if (!bot || currentStatus !== 'connected') {
-    return { success: false, error: 'Telegram Bot belum terhubung.' }
-  }
-  if (!fs.existsSync(filePath)) {
-    return { success: false, error: `File tidak ditemukan: ${filePath}` }
-  }
-  try {
-    const filename = path.basename(filePath)
-    const fileStream = fs.createReadStream(filePath)
-    await bot.telegram.sendDocument(
-      chatId,
-      { source: fileStream, filename: filename },
-      { caption }
-    )
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: err.message }
   }
 }
 
@@ -502,11 +347,6 @@ ipcMain.on('tg:agent-execution-done', async (event, data) => {
   }
 
   if (bot && chatId) {
-    if (reqObj?.loadingMsgId) {
-      try {
-        await bot.telegram.deleteMessage(chatId, reqObj.loadingMsgId)
-      } catch (e) {}
-    }
     try {
       await bot.telegram.sendMessage(chatId, replyText, { parse_mode: 'Markdown' })
     } catch (e) {
@@ -586,9 +426,10 @@ ipcMain.on('tg:trigger-music-download', async (event, { chatId, query }) => {
     }
     const tempPath = path.join(app.getPath('temp'), `tg-audio-${Date.now()}.mp3`)
     const unpackFfmpeg = ffmpeg.replace('app.asar', 'app.asar.unpacked')
+    const ytdlBinName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
     const unpackYtdl = unpackFfmpeg.replace(
-      /ffmpeg-static[\\/]ffmpeg\.exe/i,
-      'youtube-dl-exec\\bin\\yt-dlp.exe'
+      /ffmpeg-static[\\/].*?$/i,
+      `youtube-dl-exec${process.platform === 'win32' ? '\\bin' : '/bin'}/${ytdlBinName}`
     )
 
     await new Promise((resolve, reject) => {

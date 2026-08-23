@@ -1,113 +1,160 @@
-# MARK - Metacognitive Artificial Relational Knowledge
+# MARK - Metacognitive Artificial Relational Knowledge (Linux Edition)
 
 ![MARK AI Banner](./assets/banner-repo.png)
-[![Download Terbaru](https://img.shields.io/badge/Download-Versi_Terbaru-blue?style=for-the-badge&logo=windows)](https://github.com/Mazees/mark-agent/releases/)
+[![Download Terbaru](https://img.shields.io/badge/Download-Linux-blue?style=for-the-badge&logo=linux)](https://github.com/Abelion512/mark-agent/releases/)
 
-> **Mark BUKAN sekadar asisten virtual biasa. Mark adalah entitas AI yang dirancang untuk memiliki emosi, bertindak selayaknya manusia, dan memimpin tim agen cerdas.**
-> Lebih dari sekadar chatbot kaku, Mark adalah *Personal AI OS Companion* yang berjalan di ekosistem lokal Anda—dilengkapi dengan sistem memori jangka panjang berbasis *Vector Memory*, **Relational Growth System**, **Autonomous Multi-Agent Sub-Agent Engine**, serta **Multi-Session Browser Automation**. Ditenagai oleh *Hybrid AI Engine*, Mark dapat beroperasi secara lokal untuk privasi maksimal, atau menggunakan *Cloud APIs* untuk mengeksekusi tugas kompleks, menyusun rencana (*Agentic Planning*), mengotomatisasi desktop PC, merangkum video YouTube, mengobservasi layar atau dunia nyata (*Vision*), hingga kendali jarak jauh via **Telegram Bot**.
+> **Mark BUKAN sekadar asisten virtual biasa. Mark adalah entitas AI yang dirancang untuk memiliki emosi dan bertindak selayaknya manusia.**
+> Lebih dari sekadar chatbot kaku, Mark adalah _Personal AI Assistant_ yang berjalan di ekosistem lokal Anda—dilengkapi dengan sistem memori jangka panjang berbasis _Vector Memory_ dan **Relational Growth System** untuk mempelajari kebiasaan serta beradaptasi dengan gaya komunikasi Anda tanpa mengorbankan privasi sedikit pun. Ditenagai oleh _Hybrid AI Engine_, Mark dapat beroperasi secara lokal untuk privasi maksimal, atau menggunakan _Cloud APIs_ untuk mengeksekusi tugas kompleks, menyusun rencana (_Agentic Planning_), merangkum video YouTube, mengobservasi layar atau dunia nyata (_Vision_), melakukan riset internet, hingga berinteraksi melalui suara secara _real-time_.
 
 > [!IMPORTANT]
-> Proyek ini secara khusus dioptimasi untuk **Windows** (Windows 10/11).
+> **Linux-only fork.** Versi Windows original: [Mazees/mark-agent](https://github.com/Mazees/mark-agent).
 
 ## Fitur Unggulan
 
-- **Autonomous Multi-Agent Sub-Agent Engine (Mission Control):** Mark bertindak sebagai *Lead Agent* yang mampu memecah tugas kompleks dan mendelegasikannya ke banyak **Sub-Agent spesialis** yang bekerja secara paralel di latar belakang. Dilengkapi dengan antarmuka **Mission Control** dan **Live Sub-Agent Intercom HUD** yang menampilkan pemikiran mendalam (*Reasoning Analisis*), langkah eksekusi berkala (*Execution Steps*), dan laporan hasil akhir dengan dukungan penuh Markdown & Syntax Highlighting.
-- **Multi-Session Isolated Browser Automation:** Sistem browser Chromium fisik Mark kini mendukung sesi independen tanpa batas. Beberapa Sub-Agent dapat melakukan riset web, menavigasi Google, mengekstrak data, dan mengisi form secara bersamaan tanpa saling mengganggu, didukung oleh **Multi-Card Holo Preview** yang menampilkan status visual tiap sesi di layar desktop.
-- **Dynamic Agentic Planning (ReAct Loop):** Mengganti sistem penjawab statis dengan arsitektur penalaran cerdas. Mark mampu memecah masalah, memikirkan strategi, menggunakan *tools* secara otonom berulang kali, dan mengevaluasi hasilnya sebelum memberikan jawaban akhir yang komprehensif.
-- **Agent Task Workflows (Durable Tasks):** Untuk pekerjaan multi-langkah yang panjang, router AI memilih mode `durable`, memecah pekerjaan ke dalam *milestone*, lalu mengeksekusinya bertahap. Setiap langkah divalidasi, di-checkpoint, dapat di-retry, dan menghasilkan artifact resmi di `Documents/Mark Tasks/<task-id>/`.
-- **Zero-Vision Physical PC & Desktop Automation (Windows UIAutomation + C# Daemon):** Menggunakan daemon PowerShell C# persisten (`pc-daemon.ps1`), Mark dapat membaca elemen GUI desktop secara struktural, mengklik koordinat, mengetik teks Unicode, menekan kombinasi *shortcut*, hingga mengelola jendela aplikasi di Windows secara fisik dengan kecepatan tinggi tanpa biaya vision API. Dilengkapi *Floating Security Banner* dan tombol darurat **Emergency Stop (`Ctrl+Shift+S`)**.
-- **Infinite Memory & Injection Knowledge RAG:** Sistem Vector Retrieval-Augmented Generation (RAG) berjalan secara *offline*. Mark menyimpan riwayat memori obrolan masif tanpa batas dan pengguna dapat menambahkan dokumen (.pdf, .docx, .txt, .md) ke dalam *knowledge base* tanpa membebani *context window* LLM.
-- **Automatic Memory Groomer (Hippocampus Engine):** Sistem pembersihan dan konsolidasi memori mandiri berbasis *Orama Clustering* dan *LLM Batch Processing*. Hippocampus Engine mendeteksi klaster memori serupa (`profile` & `preference`) lalu menggabungkannya secara kronologis tanpa kehilangan riwayat penting.
-- **Visualisasi Jaringan Otak (Memory Visualizer):** Antarmuka *Live Feed* "Mark Neural Core" berbasis grafis Neural Network interaktif untuk menjelajahi jaringan *Chat History*, *Knowledge Base*, hingga *Document Vault*.
-- **Relational Growth System & Dynamic Persona:** Hubungan Anda dengan Mark dievaluasi layaknya manusia sungguhan melalui 4 parameter krusial (*Warmth, Sarcasm, Trust, Energy*). Tingkat kesopanan, kelancangan (*roasting*), dan kepribadian Mark akan berevolusi organik sesuai gaya komunikasi Anda.
-- **Multi AI Provider (Built-in Gemini / Local / Cloud):** Mark hadir dengan **Google Gemini Engine (Gratis)** sebagai *provider* bawaan yang siap pakai tanpa API Key. Anda juga memiliki fleksibilitas penuh untuk menggunakan **Local AI** (LM Studio), **Cloud AI** (Groq / Cerebras), maupun *Custom OpenAI-Compatible API*.
-- **Asisten Bot Telegram Mandiri (Telegraf Engine):** Terhubung langsung dengan Telegram Bot API. Mark dapat dikontrol jarak jauh via Telegram, merangkum obrolan, mengunduh MP3 YouTube, mengambil tangkapan layar PC, dan secara otomatis menyinkronkan seluruh balasan & *Awareness Engine* ke Telegram Admin secara *real-time*.
-- **Proaktif dengan Awareness Engine:** Mark tidak hanya pasif merespons. Mark dapat proaktif menyapa, mengingatkan tugas, atau memutarkan musik di latar belakang saat Anda sedang bersantai atau bekerja fokus.
+- **Dynamic Agentic Planning (ReAct Loop):** Mengganti sistem penjawab statis dengan arsitektur penalaran cerdas. Mark mampu memecah masalah, memikirkan strategi, menggunakan _tools_ secara otonom berulang kali, dan mengevaluasi hasilnya sebelum memberikan jawaban akhir yang komprehensif.
+- **Infinite Memory & Injection Knowledge RAG:** Sistem Vector Retrieval-Augmented Generation (RAG) kini berjalan secara _offline_. Mark dapat menyimpan riwayat memori obrolan masif tanpa batas dan pengguna dapat menambahkan pengetahuan dari sebuah file document tanpa membebani _context window_ utama LLM.
+- **Visualisasi Jaringan Otak (Memory Visualizer):** Dilengkapi dengan UI _Live Feed_ "Mark Neural Core". Pengguna dapat melihat secara _real-time_ grafis Neural Network yang menampilkan jaringan _Chat History_, _Knowledge Base_, hingga _Document Vault_.
+- **Live Thought Process (Neural Flow):** Perhatikan Mark berpikir! Setiap kali sistem mengeksekusi rencana (_Agentic Planning_), antarmuka akan memancarkan animasi _3D Neuron_ yang terbang mengorbit inti pikiran (Orb) untuk interaktivitas tingkat _Sci-Fi_.
+- **Relational Growth System & Dynamic Persona:** Hubungan Anda dengan Mark dievaluasi layaknya dengan manusia sungguhan melalui 4 parameter krusial (_Warmth, Sarcasm, Trust, Energy_). Tingkat kesopanan, kelancangan (_toxicity_), dan kepribadian Mark akan berevolusi organik. Jika Anda sering bersarkasme, Mark bebas menggunakan bahasa _tongkrongan_ dan men-_roasting_ Anda. Didukung oleh **9 Inside Out 2 Emotions** (Joy, Sadness, Fear, Anger, Disgust, Anxiety, Envy, Embarrassment, Ennui) yang secara dinamis mengubah warna UI Orb di layar.
+- **Dual AI Provider (Hybrid) & Custom API:** Anda memegang kendali penuh. Gunakan **Local AI** (berjalan langsung di PC Anda), atau alihkan ke **Cloud AI** (Groq/Cerebras). Ditambah dukungan Custom OpenAI-Compatible API untuk fleksibilitas mutlak.
+- **Asisten Bot WhatsApp Mandiri:** Mark mampu memproses tugas rumit melalui WhatsApp dengan menyusun rencana terstruktur, mengeksekusi langkah demi langkah (mencari data, merangkum, dll), dan memberi laporan akhir berkat arsitektur `waAutonomous.js`.
+- **Proaktif dengan Awareness Engine:** Sistem Mark tidak hanya pasif merespons. Mark bisa proaktif menegur, menyapa, atau memutarkan musik di latar belakang. Aksi proaktif intrusif dibatasi oleh _Proactive Proposal Boundary_, dan kini dilengkapi fitur **Toggle** (bisa dimatikan kapan saja).
 
 ## Kemampuan Utama (Tools)
 
-- **Autonomous Multi-Agent Tools:** `spawn_subagent`, `wait_subagents`, `send_message`, `list_subagents`, `kill_subagent`.
-- **Multi-Session Web Browsing (`browser-*`):** `browser-navigate`, `browser-read`, `browser-click`, `browser-type`, `browser-scroll`, `browser-extract`, `browser-ask-user`, `browser-close`.
-- **Desktop Automation (`os-*`):** `os-read`, `os-click`, `os-type`, `os-key`, `os-scroll`, `os-open`, `os-list-windows`, `os-focus-window`, `os-ask`.
-- **Native File Handling & PowerShell:** `read-file`, `write-file`, `replace-lines`, `delete-file`, `list-dir`, `grep-search`, `run-powershell`.
-- **Vision Awareness:** `analyze-screen` (analisis layar multi-monitor) dan `camera-look` (observasi visual webcam).
-- **Interaksi Suara Natural:** Voice Activity Detection (VAD) dengan Groq Whisper STT / Local Whisper dan Edge-TTS.
-- **Perangkum YouTube & YouTube Music:** Transkripsi kilat video YouTube dan pemutar YouTube Music tanpa iklan dengan *ad-blaster*.
-- **Mark Skills System:** Kustomisasi kepribadian dan kapabilitas menggunakan instruksi Markdown (`.md`) dengan pemanggilan slash command (`/nama-skill`).
-- **Sistem Plugin Kustom:** Penambahan modul fungsi Node.js baru langsung dari antarmuka pengguna dengan Monaco Editor.
+Mark dibekali dengan berbagai integrasi alat untuk mengeksekusi tugas di luar sekadar membalas teks:
+
+- **Native File Handling & Shell:** Mark memiliki kontrol OS tingkat lanjut untuk membaca, menulis, memodifikasi, dan menghapus file secara _native_. Mark juga dapat mengeksekusi perintah shell untuk mengendalikan sistem operasi. _(Keamanan Tinggi: Semua perintah berisiko wajib mendapat persetujuan modal UI dari pengguna)._
+- **Vision Awareness (Desktop Screen Reading):** Mark tidak lagi buta! Ia memiliki kemampuan membaca layar (`analyze-screen`) untuk "melihat" apa yang sedang terjadi di PC Anda. Terintegrasi dengan _Awareness Engine_, Mark bisa memberikan panduan sangat kontekstual berdasarkan aplikasi visual yang Anda buka.
+- **Camera Vision (Mata Fisik):** Dilengkapi integrasi Webcam (`camera-look`), Mark dapat mengobservasi keadaan fisik Anda di dunia nyata. Fitur ini dapat dipicu manual maupun secara otonom oleh Mark sendiri jika diperlukan.
+- **Autonomous Web Browsing:** Menggunakan _window_ Chromium internal, Mark dapat secara otonom membuka halaman web, bernavigasi, dan berinteraksi dengan website secara mandiri. Dilengkapi dengan _Smart Pause & Resume_ jika membutuhkan intervensi manual (login/CAPTCHA).
+- **Interaksi Suara (Voice Activity Detection & STT):** Berbicara langsung ke mikrofon! Mark menggunakan sistem VAD cerdas yang mendeteksi suara Anda dan akan menunggu hingga Anda selesai berbicara sebelum memproses audio secara instan menggunakan _Groq Whisper STT_ atau _Local Transformers.js Whisper_. Balasan Mark juga menggunakan sintesis suara manusia yang natural (Edge-TTS).
+- **Riset Internet Mendalam (Deep Web Search):** Mark dapat menelusuri web secara mandiri untuk mencari informasi akurat dan memberikan ringkasan yang dilengkapi dengan tautan kutipan (_citations_).
+- **Perangkum YouTube Kilat:** Cukup berikan tautan video YouTube, dan Mark akan mengekstrak transkrip asli, memproses teks, dan memberikan ringkasan akurat tanpa Anda harus menonton video tersebut.
+- **Pemutar YouTube Music Terintegrasi:** Terhubung langsung dengan ekosistem YouTube Music (tanpa iklan). Perintahkan Mark untuk memutar lagu, dan ia akan mencari serta memutarnya di latar belakang sembari menampilkan sampul album pada antarmuka.
+- **Integrasi Bot WhatsApp (Baileys):** Mark dapat bertindak sebagai asisten pribadi di akun WhatsApp Anda. Dengan arsitektur _Auto-Retry_ yang andal, Mark kebal terhadap masalah jaringan. Ia dapat merangkum obrolan grup, merespons _mention_, mencari informasi di web, atau bahkan mengunduh lagu YouTube sebagai berkas MP3 langsung ke obrolan WhatsApp.
+- **Sistem Plugin Kustom:** Tambahkan fitur atau kemampuan baru langsung dari antarmuka aplikasi tanpa perlu memodifikasi kode sumber inti. Anda dapat membuat skrip Node.js (misalnya, _plugin_ untuk mengatur volume atau mematikan PC) dan Mark akan langsung memahami cara menggunakannya.
 
 ## Arsitektur Proyek
 
 ```text
 mark/
 ├── src/
-│   ├── main/              # Proses Utama Electron (Window, IPC, Multi-Session Browser, PC Daemon)
-│   │   ├── browser-agent.js       # Multi-Session Chromium Browser Manager
-│   │   ├── pc-agent.js            # Desktop Automation Engine via C# Daemon
-│   │   ├── pc-agent-scripts/      # Persistent PowerShell & Win32 C# scripts
-│   │   ├── node-tools.js          # Registry Tool Native OS & Browser
-│   │   ├── telegram/              # Layanan Bot Telegram (Telegraf Engine)
-│   │   └── ai-bridge.js           # Penghubung AI API, Rate Limiting, & Auto-Repair JSON
-│   ├── preload/           # Skrip Preload (Jembatan keamanan IPC Node.js ke React)
-│   └── renderer/          # Frontend (React 19 + Vite 7 + Tailwind CSS 4)
+│   ├── main/              # Proses Utama Electron (Window, IPC, TTS, Tray, Global Shortcut)
+│   │   ├── whatsapp/      # Layanan WhatsApp WebSocket Asli (@whiskeysockets/baileys)
+│   │   │   ├── baileys-service.js     # Koneksi, Parsing Pesan, IPC Routing & Perintah
+│   │   │   ├── message-store.js       # Penyimpanan histori chat di RAM
+│   │   │   └── media-downloader.js    # Modul pengunduh media MP3 untuk WA (ytdl-exec)
+│   │   └── ai-bridge.js   # Penghubung utama ke AI API, Rate Limit, & Auto-Repair JSON
+│   ├── preload/           # Skrip Preload (Jembatan keamanan Node.js ke React)
+│   └── renderer/          # Frontend (React 19 + Vite)
 │       └── src/
 │           ├── api/
-│           │   ├── ai/            # Planning, Persona, Awareness, Relationship, Memory Groomer
-│           │   ├── subagent/      # Sub-Agent Store, Autonomous ReAct Executor, Prompt Engine
-│           │   ├── db.js          # Skema Dexie Database (IndexedDB v14)
-│           │   └── oramaStore.js  # Hybrid Full-Text & Vector Search
-│           ├── components/
-│           │   ├── subagent/      # SubagentIntercom (HUD Double Dropdown & Markdown Stream)
-│           │   └── core/          # ResponseArea, HoloCard, BrowserPreviewWidget (Multi-Card)
-│           ├── hooks/             # Custom Hooks (useMarkPlan, useAwareness, useVAD, dll)
-│           └── pages/             # Subagents (Mission Control), MarkHome, Configuration, Plugins, dll
+│           │   ├── ai/             # Modul Integrasi AI (chat, perencanaan, tools)
+│           │   ├── db.js           # Skema & Migrasi Database Lokal (Dexie/IndexedDB)
+│           │   ├── scraping.js     # Mesin pencari Google & web scraper
+│           │   ├── vectorMemory.js # Sistem Memori Vektor (Transformers.js / LM Studio)
+│           │   └── waAutonomous.js # Logika otonom & eksekusi plugin untuk Bot WhatsApp
+│           ├── components/         # Komponen UI modular
+│           ├── hooks/              # Custom Hooks React (useMarkPlan, useVAD, dll)
+│           └── pages/              # Halaman UI (Chat, Configuration, WhatsApp Bot)
 ```
 
 ## Teknologi Terkait
 
-| Kategori           | Teknologi                                                                                          |
-| ------------------ | -------------------------------------------------------------------------------------------------- |
-| **Framework**      | Electron 39, React 19, Vite 7                                                                      |
-| **Antarmuka (UI)** | Tailwind CSS 4, DaisyUI 5, Framer Motion/GSAP, Prism Syntax Highlighter, Monaco Editor            |
-| **Mesin AI**       | Google Gemini (Bawaan Gratis) / LM Studio (Offline) / Groq, Cerebras, Custom OpenAI-Compatible API |
-| **Multi-Agent**    | Dexie Multi-Stream Store, Autonomous ReAct Loop, Multi-Session Browser Isolation                   |
-| **Memori Vektor**  | `@orama/orama` (Hybrid Search), Transformers.js (`@huggingface/transformers`, 384d)                |
-| **Suara & Audio**  | Groq Whisper-Large-v3, Local Transformers.js STT, Edge-TTS (`id-ID-ArdiNeural`), Web Audio API VAD |
-| **Desktop & OS**   | Win32 UIAutomation, Windows PowerShell C# Daemon, WinRT OCR                                        |
+| Kategori           | Teknologi                                                                     |
+| ------------------ | ----------------------------------------------------------------------------- |
+| **Framework**      | Electron 39, React 19, Vite 7                                                 |
+| **Antarmuka (UI)** | Tailwind CSS 4, DaisyUI 5, Framer Motion/GSAP (Animasi), React Force Graph 2D |
+| **Mesin AI**       | LM Studio (Offline) / Groq, Cerebras, Custom OpenAI-Compatible API            |
+| **Memori Vektor**  | Transformers.js (`@huggingface/transformers`), LM Studio                      |
+| **Pencarian Web**  | Electron Webview (Bypass Anti-Bot)                                            |
+| **Suara & Audio**  | Groq API (STT), Transformers.js (Local STT), Edge-TTS, Web Audio API (VAD)    |
+| **Integrasi**      | `youtube-transcript-plus`, `youtube-dl-exec`, `ffmpeg-static`, Baileys WA     |
+| **Database/RAG**   | Dexie.js (IndexedDB), `pdf-parse` (Document Extraction)                       |
 
 ## Instalasi & Penggunaan
 
 ### Persyaratan Sistem
 
-- **Sistem Operasi**: Windows 10/11
+- **Sistem Operasi**: Linux (Ubuntu 22.04+/Fedora/Arch).
 - **Node.js**: Versi 18 atau lebih baru
-- (Opsional) **LM Studio** untuk menjalankan model lokal secara luring (*offline*).
-- (Opsional) **API Key Groq** untuk inferensi awan berkecepatan tinggi.
+- **xdotool**: Untuk Awareness Engine (window tracking). Install: `sudo apt install xdotool` (Debian/Ubuntu) atau `sudo pacman -S xdotool` (Arch).
+- (Opsional) **LM Studio** jika Anda ingin menjalankan model sepenuhnya secara luring (_offline_).
+- (Opsional) **API Key Groq** untuk menggunakan model komputasi awan yang sangat cepat.
 
 ### Langkah Instalasi
 
-1. **Kloning repositori:**
-   ```bash
-   git clone https://github.com/Mazees/mark-agent.git
-   cd mark-agent/mark
-   ```
+1.  **Kloning repositori:**
 
-2. **Instalasi dependensi:**
-   ```bash
-   npm install
-   ```
+    ```bash
+    git clone https://github.com/username/mark-project.git
+    cd mark-project/mark
+    ```
 
-3. **Jalankan aplikasi dalam mode pengembangan:**
-   ```bash
-   npm run dev
-   ```
+2.  **Instalasi dependensi:**
 
-4. **Kompilasi Installer Executable (.exe):**
-   ```bash
-   npm run build:win
-   ```
-   Berkas *installer* NSIS akan otomatis tersedia di direktori `dist/`.
+    ```bash
+    npm install
+    ```
+
+3.  **Jalankan aplikasi:**
+
+    ```bash
+    npm run dev
+    ```
+
+4.  **Konfigurasi Awal:**
+    Buka menu **Configuration** di dalam aplikasi, pilih penyedia AI Anda (LM Studio atau Groq), masukkan API Key, lalu atur penyedia _Vector Memory_ (Sangat disarankan menggunakan **Transformers.js** untuk pengalaman lokal tanpa perangkat lunak tambahan).
+
+## 🔌 Sistem Plugin (Ekstensi Kustom)
+
+Mark memungkinkan Anda memperluas kemampuannya dengan mudah melalui pembuatan **Plugin Kustom** secara langsung dari antarmuka pengguna, tanpa perlu mengubah kode inti aplikasi.
+
+1. Buka menu **Plugins** pada _sidebar_ aplikasi.
+2. Klik **Buat Plugin Baru**.
+3. Isi kolom Nama (contoh: `pengendali-sistem`) dan Deskripsi singkat.
+4. Jika skrip Anda memerlukan pustaka eksternal, tulis pada kolom **Dependencies (NPM)** dengan pemisah koma (contoh: `loudness, systeminformation`). Mark akan menginstalnya secara otomatis.
+5. Tambahkan **Action** (Fungsi):
+   - **Nama Action**: Penamaan fungsi (contoh: `set-volume`).
+   - **Deskripsi**: Penjelasan spesifik mengenai fungsi tersebut agar AI memahami peruntukannya.
+   - **Trigger Hint**: Petunjuk pemicu kapan AI harus menggunakan alat ini.
+6. **Tulis Skrip Anda** menggunakan editor Monaco bawaan. Skrip mengikuti standar lingkungan Node.js (CommonJS).
+
+#### Contoh: Plugin Pengatur Volume
+
+```javascript
+const loudness = require('loudness')
+
+// Mengambil parameter angka volume yang diberikan oleh AI
+const vol = parseInt(query)
+if (isNaN(vol) || vol < 0 || vol > 100) {
+  return '❌ Gagal: Masukkan angka volume 0-100.'
+}
+
+try {
+  await loudness.setVolume(vol)
+  return '✅ Berhasil, volume telah diubah ke ' + vol + '%'
+} catch (e) {
+  return '❌ Gagal mengubah volume: ' + e.message
+}
+```
+
+7. Klik **Simpan Plugin**. Mark akan langsung mempelajari alat baru ini dan Anda dapat segera memerintahkannya untuk mengeksekusi skrip tersebut melalui teks atau perintah suara.
+
+## Membangun Berkas Executable (Build)
+
+```bash
+# Linux (AppImage + snap + deb)
+npm run build:linux
+```
+
+Berkas _installer_ akan secara otomatis tersedia di dalam direktori `dist/`.
+
+## Warning
+
+**Dilarang keras menjual atau memperdagangkan perangkat lunak ini untuk keuntungan komersial tanpa izin tertulis.**
 
 ---
 
-**Dilarang keras menjual atau memperdagangkan perangkat lunak ini untuk keuntungan komersial tanpa izin tertulis.**
+> Dibangun untuk masa depan AI yang lebih adaptif, dan manusiawi.

@@ -80,87 +80,56 @@ const TelegramBot = () => {
   }
 
   return (
-    <div className="h-screen bg-base-300 text-base-content overflow-hidden relative font-['Poppins',sans-serif]">
-      {/* Background Ambience */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
-
-      {/* Main Content Area */}
-      <div className="relative z-10 w-full h-full overflow-y-auto custom-scrollbar flex flex-col">
-        <div className="max-w-4xl mx-auto px-4 py-8 pb-32 space-y-6 w-full flex-1 flex flex-col">
-          {/* Page Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => navigate('/')}
-                className="btn btn-ghost btn-sm btn-circle shrink-0"
-                style={{ WebkitAppRegion: 'no-drag' }}
-                title="Kembali"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="1.2em"
-                  height="1.2em"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h1 className="text-2xl font-bold">Telegram Bot Monitor</h1>
-                  <div className="flex items-center gap-1.5 text-xs bg-base-200/80 px-2.5 py-0.5 rounded-full border border-base-content/10 font-mono">
-                    <div
-                      className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-warning animate-pulse' : 'bg-error'}`}
-                    />
-                    <span className="capitalize text-xs">{status}</span>
-                  </div>
-                </div>
-                <p className="opacity-50 text-sm mt-1">Kelola dan pantau interaksi Mark via Telegram.</p>
+    <div className="relative w-full h-full flex flex-col bg-base-100/50">
+      {/* Header */}
+      <div className="navbar bg-base-300/50 backdrop-blur-md border-b border-white/5 sticky top-0 z-10">
+        <div className="flex-1">
+          <div className="flex items-center gap-3 px-4">
+            <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm btn-circle">
+              <FaArrowLeft size={16} />
+            </button>
+            <div className="avatar">
+              <div className="w-10 rounded-full bg-info/20 p-2 text-info flex items-center justify-center">
+                <FaTelegram size={24} />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  loadConfigData()
-                  setShowConfigModal(true)
-                }}
-                className="btn btn-sm btn-ghost gap-2 border border-base-content/10"
-                style={{ WebkitAppRegion: 'no-drag' }}
-                title="Buka Pengaturan Telegram Token & Admin"
-              >
-                <FaCog /> Pengaturan
-              </button>
-              {status === 'disconnected' && (
-                <button
-                  type="button"
-                  onClick={handleSaveConfigAndConnect}
-                  className="btn btn-sm btn-info text-white gap-1.5"
-                  style={{ WebkitAppRegion: 'no-drag' }}
-                >
-                  <FaPlug /> Connect
-                </button>
-              )}
-              {(status === 'connected' || status === 'connecting') && (
-                <button
-                  type="button"
-                  onClick={stopBot}
-                  className="btn btn-sm btn-outline btn-error gap-1.5"
-                  style={{ WebkitAppRegion: 'no-drag' }}
-                >
-                  <FaStop /> Disconnect
-                </button>
-              )}
+            <div>
+              <h1 className="font-bold text-lg text-base-content">Telegram Bot Monitor</h1>
+              <div className="flex items-center gap-2 text-xs opacity-70">
+                <div
+                  className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-warning animate-pulse' : 'bg-error'}`}
+                ></div>
+                <span className="capitalize">{status}</span>
+              </div>
             </div>
           </div>
+        </div>
+        <div className="flex-none gap-2 px-4">
+          <button
+            onClick={() => {
+              loadConfigData()
+              setShowConfigModal(true)
+            }}
+            className="btn btn-sm btn-ghost gap-2"
+            title="Buka Pengaturan Telegram Token & Admin"
+          >
+            <FaCog /> Pengaturan
+          </button>
+          {status === 'disconnected' && (
+            <button onClick={handleSaveConfigAndConnect} className="btn btn-sm btn-info text-white">
+              <FaPlug /> Connect
+            </button>
+          )}
+          {(status === 'connected' || status === 'connecting') && (
+            <button onClick={stopBot} className="btn btn-sm btn-outline btn-error">
+              <FaStop /> Disconnect
+            </button>
+          )}
+        </div>
+      </div>
 
-          {/* Content Area */}
-          <div className="flex-1 overflow-y-auto w-full flex flex-col gap-4">
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto w-full max-w-4xl mx-auto p-4 flex flex-col gap-4">
         {status === 'disconnected' && (
           <div className="card bg-base-200 shadow-xl border border-white/10 p-6 max-w-md mx-auto my-auto text-center space-y-4">
             <FaTelegram className="text-6xl text-info mx-auto" />
@@ -262,8 +231,6 @@ const TelegramBot = () => {
         )}
 
         <div ref={messagesEndRef} />
-          </div>
-        </div>
       </div>
 
       {/* Telegram Configuration Modal */}

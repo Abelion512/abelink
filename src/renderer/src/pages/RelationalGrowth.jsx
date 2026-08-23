@@ -204,38 +204,19 @@ const RelationalGrowth = () => {
           {/* Page Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => navigate('/')}
-                className="btn btn-ghost btn-sm btn-circle shrink-0"
-                style={{ WebkitAppRegion: 'no-drag' }}
-                title="Kembali"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="1.2em"
-                  height="1.2em"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm btn-circle">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                 </svg>
               </button>
               <div>
-                <h1 className="text-2xl font-bold">Relational Growth</h1>
-                <p className="opacity-50 text-sm mt-1">
-                  Statistik kepribadian & hubungan Mark denganmu.
-                </p>
+                <h1 className="text-2xl font-bold text-primary">
+                  Relational Growth
+                </h1>
+                <p className="text-xs text-base-content/50 mt-1">Statistik kepribadian & hubungan Mark denganmu</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="btn btn-sm btn-error btn-outline gap-1"
-              style={{ WebkitAppRegion: 'no-drag' }}
-            >
+            <button onClick={handleReset} className="btn btn-sm btn-error btn-outline gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
               </svg>
