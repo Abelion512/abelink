@@ -1,9 +1,42 @@
-import { pipeline } from '@huggingface/transformers'
+import { pipeline, env } from '@huggingface/transformers'
 import { searchArchives, searchDocuments, searchMemoriesInOrama } from './oramaStore'
 import { getAllMemory } from './db'
 
-let extractor = null
-let isDownloading = false
+env.allowLocalModels = false;
+
+const isBrowserWithCache = typeof window !== 'undefined' && typeof caches !== 'undefined';
+if (isBrowserWithCache) {
+  env.useBrowserCache = true;
+  env.useFSCache = false;
+} else {
+  env.useBrowserCache = false;
+  env.useFSCache = true;
+}
+
+// Lite mode flag — when true, skip WASM model load and use hash embeddings
+let isLiteMode = false;
+
+export const setLiteMode = (v) => { isLiteMode = v };
+
+// FNV-1a hash for hash-based embeddings (lite mode)
+function fnv1a(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) }
+  return h >>> 0;
+}
+
+function hashEmbedding(text) {
+  const vec = new Float32Array(384);
+  for (const tok of String(text || '').toLowerCase().split(/\s+/)) {
+    if (!tok) continue;
+    vec[fnv1a(tok) % 384] += 1;
+  }
+  const norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0)) || 1;
+  return Array.from(vec.map((v) => v / norm));
+}
+
+let extractor = null;
+let isDownloading = false;
 
 // We export this so we can manually trigger download from config page
 export const getExtractor = async (onProgress) => {
@@ -31,6 +64,9 @@ export const getExtractor = async (onProgress) => {
 }
 
 export const generateVector = async (text) => {
+  if (isLiteMode) {
+    return hashEmbedding(text);
+  }
   try {
     const ext = await getExtractor()
     if (!ext) return null
