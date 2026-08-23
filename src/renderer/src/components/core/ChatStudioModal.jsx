@@ -171,21 +171,17 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
 
   const handleDeleteSessionClick = async (e, id) => {
     e.stopPropagation()
+    if (id === 1) return
+
     const confirmed = await confirm({
-      title: id === 1 ? 'Bersihkan Sesi Utama' : 'Hapus Sesi Obrolan',
-      message:
-        id === 1
-          ? 'Apakah kamu yakin ingin mengosongkan seluruh riwayat obrolan Sesi Utama (Home)?'
-          : 'Apakah kamu yakin ingin menghapus sesi percakapan ini secara permanen?',
-      confirmText: id === 1 ? 'Bersihkan' : 'Hapus',
+      title: 'Hapus Sesi Obrolan',
+      message: 'Apakah kamu yakin ingin menghapus sesi percakapan ini secara permanen?',
+      confirmText: 'Hapus',
       confirmColor: 'btn-error'
     })
 
-    if (confirmed) {
+    if (confirmed?.isConfirmed) {
       await deleteSession(id)
-      if (id === 1 && setMainChatData) {
-        setMainChatData([])
-      }
       await loadAllSessions()
       if (activeSessionId === id) {
         setActiveSessionId(1)
@@ -353,13 +349,6 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                   <h4 className="text-xs font-semibold truncate">Main Thread</h4>
                 </div>
               </div>
-              <button
-                onClick={(e) => handleDeleteSessionClick(e, 1)}
-                className="opacity-0 group-hover/item:opacity-70 hover:opacity-100 hover:text-error p-1 transition-opacity text-white/40 rounded hover:bg-white/10"
-                title="Bersihkan riwayat sesi utama"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
             </div>
 
             <div className="my-2 border-t border-white/5" />
