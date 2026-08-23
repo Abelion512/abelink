@@ -46,13 +46,23 @@ export const buildOptimizedChatSession = (sourceChatData, maxTurns = 10) => {
 
   return recentSlice.map((item, idx) => {
     const isRecentTurn = idx >= totalCount - 2 // 2 pesan terakhir dibiarkan resolusi tinggi
+    // In-progress retention: Jika pesan AI ini belum selesai (tanya user/in-progress) atau pesan AI paling akhir
+    const isInProgress = item.isTaskDone === false || (item.isTaskDone !== true && isRecentTurn)
     let msgContent = item.content || ''
 
     if (item.role === 'ai') {
       // 1. Kompaksi log tool
       let toolLog = ''
       if (item.executedTools && item.executedTools.length > 0) {
-        if (isRecentTurn) {
+        if (isInProgress) {
+          // Smart Retention: Pertahankan detail hasil tool (read-file, grep, list-dir) secara utuh
+          toolLog = item.executedTools
+            .map((t) => {
+              const res = t.fullResult || t.resultSummary || 'OK'
+              return `  * [Tool: ${t.tool}] query: "${t.query || ''}"\n    Hasil:\n${res}`
+            })
+            .join('\n\n')
+        } else if (isRecentTurn) {
           toolLog = item.executedTools
             .map(
               (t) =>
@@ -67,9 +77,9 @@ export const buildOptimizedChatSession = (sourceChatData, maxTurns = 10) => {
         }
       }
 
-      // 2. Kompaksi blok kode panjang pada giliran lama
+      // 2. Kompaksi blok kode panjang pada giliran lama (hanya jika sudah bukan in-progress)
       let formattedBody = msgContent
-      if (!isRecentTurn) {
+      if (!isRecentTurn && !isInProgress) {
         formattedBody = compactCodeBlocks(msgContent)
         // Batasi panjang teks maksimal pada pesan lama
         if (formattedBody.length > 1500) {

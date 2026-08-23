@@ -6,6 +6,7 @@ import { getPersonaPrompt, getTraitContext } from './persona'
 import { core_tools } from '../tools/core-tools'
 import { group_tools } from '../tools/group-tools'
 import { NATIVE_SKILLS } from '../../components/core/native-skills'
+import { getWorkspaceContext } from '../workspaceRag'
 
 let pluginVectorCache = new Map()
 
@@ -75,6 +76,24 @@ export const getNextAction = async (
       name: s.name,
       description: s.description
     }))
+
+    const targetWorkspace = options.workspaceRoot || conf.workspaceRoot || null
+    let workspaceRagSection = ''
+    if (targetWorkspace) {
+      try {
+        const { workingMemoryText, codeRagText } = await getWorkspaceContext(targetWorkspace, userInput)
+        const sections = []
+        if (workingMemoryText) {
+          sections.push(`## 1. ACTIVE WORKING MEMORY (.mark/)\n${workingMemoryText}`)
+        }
+        if (codeRagText) {
+          sections.push(`## 2. RELEVAN CODEBASE CONTEXT (.mark/ RAG)\n${codeRagText}`)
+        }
+        if (sections.length > 0) {
+          workspaceRagSection = `\n# ACTIVE WORKSPACE CONTEXT & RAG (.mark/)\n${sections.join('\n\n')}\n`
+        }
+      } catch (_) {}
+    }
 
     const systemPrompt = `
 Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas asisten AI canggih dan otonom.
@@ -234,6 +253,7 @@ ${
     ? `\n# DIREKTORI WORKSPACE PROYEK AKTIF (ROOT)\nKamu sedang bekerja di proyek dengan direktori root: "${options.workspaceRoot}".\nSeluruh relative path pada 'read-file', 'write-file', 'replace-content', 'find-files', 'grep-search', 'git-*', dan 'run-task' akan otomatis mengacu ke folder ini.`
     : ''
 }
+${workspaceRagSection}
 
 ${
   options.disableTools
@@ -428,6 +448,10 @@ ${
           ]
         },
         active_topic: { type: 'string' },
+        working_memory: {
+          type: ['string', 'null'],
+          description: 'Catatan ringkas progres koding, lokasi baris/fungsi yang telah dipetakan, atau rencana teknis untuk disimpan ke .mark/working-memory.json.'
+        },
         should_learn: { type: ['boolean', 'null'], description: 'Set true di giliran terakhir jika tugas ini layak dipelajari jadi skill' },
         memory: {
           type: ['object', 'null'],
@@ -509,6 +533,7 @@ ${
           should_learn: data.should_learn === true,
           task_status: data.task_status || 'simple',
           objective: data.objective || null,
+          working_memory: data.working_memory || null,
           memory: data.memory,
           mood: data.mood || 'neutral',
           active_topic: data.active_topic || activeTopic

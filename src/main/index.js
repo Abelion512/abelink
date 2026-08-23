@@ -40,6 +40,13 @@ import { loadPlugins, initPluginIPC } from './plugins/plugin-loader.js'
 import { setupSkillIPC, setupSkillWatcher } from './skills/skill-manager.js'
 import { navigateTo, readDOM, executeAction, closeBrowser, showBrowser } from './browser-agent.js'
 import { readDesktop, executeClick, executeType, executeKey, executeScroll, openApp, listWindows, focusWindow, askUserPC } from './pc-agent.js'
+import {
+  ensureMarkWorkspace,
+  readWorkingMemory,
+  saveWorkingMemory,
+  indexWorkspace,
+  queryCodebase
+} from './workspace-rag.js'
 
 // Telegram bot berjalan di Main Process (Node.js), jadi tidak butuh disable-renderer-backgrounding
 // Kita matikan flag perusak RAM ini, dan tambahkan flag penghemat memori
@@ -528,6 +535,23 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('open-external', async (event, url) => {
     shell.openExternal(url)
+  })
+
+  // Workspace RAG & .mark/ Engine
+  ipcMain.handle('workspace:index', async (_, workspaceRoot) => {
+    return await indexWorkspace(workspaceRoot)
+  })
+  ipcMain.handle('workspace:query', async (_, { workspaceRoot, queryText, topK }) => {
+    return queryCodebase(workspaceRoot, queryText, topK)
+  })
+  ipcMain.handle('workspace:get-memory', async (_, workspaceRoot) => {
+    return readWorkingMemory(workspaceRoot)
+  })
+  ipcMain.handle('workspace:save-memory', async (_, { workspaceRoot, memoryData }) => {
+    return saveWorkingMemory(workspaceRoot, memoryData)
+  })
+  ipcMain.handle('workspace:ensure', async (_, workspaceRoot) => {
+    return ensureMarkWorkspace(workspaceRoot)
   })
 
   ipcMain.handle('get-youtube-transcript', async (event, url) => {

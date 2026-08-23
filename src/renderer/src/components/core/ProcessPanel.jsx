@@ -44,17 +44,21 @@ const ProcessPanel = ({ processes, onDismiss }) => {
       return () => clearTimeout(timer);
     }
   }, [renderedProcesses]);
-  // Auto-dismiss logic for 'done' status
+  // Auto-dismiss logic for 'done' and 'failed' status
   useEffect(() => {
-    processes.forEach(proc => {
-      if (proc.status === 'done') {
-        const timeout = proc.type === 'planning' ? 3000 : 5000;
+    const timers = [];
+    processes.forEach((proc) => {
+      if (proc.status === 'done' || proc.status === 'completed' || proc.status === 'failed') {
+        const timeout = proc.type === 'planning' ? 1200 : 2500;
         const timer = setTimeout(() => {
-          onDismiss(proc.id);
+          if (onDismiss) onDismiss(proc.id);
         }, timeout);
-        return () => clearTimeout(timer);
+        timers.push(timer);
       }
     });
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+    };
   }, [processes, onDismiss]);
 
   if (!renderedProcesses || renderedProcesses.length === 0) return null;

@@ -152,7 +152,16 @@ const api = {
     const handler = () => callback()
     ipcRenderer.on('skills-updated', handler)
     return () => ipcRenderer.removeListener('skills-updated', handler)
-  }
+  },
+
+  // Workspace RAG & .mark/ Engine
+  workspaceIndex: (workspaceRoot) => ipcRenderer.invoke('workspace:index', workspaceRoot),
+  workspaceQuery: (workspaceRoot, queryText, topK = 4) =>
+    ipcRenderer.invoke('workspace:query', { workspaceRoot, queryText, topK }),
+  workspaceGetMemory: (workspaceRoot) => ipcRenderer.invoke('workspace:get-memory', workspaceRoot),
+  workspaceSaveMemory: (workspaceRoot, memoryData) =>
+    ipcRenderer.invoke('workspace:save-memory', { workspaceRoot, memoryData }),
+  workspaceEnsure: (workspaceRoot) => ipcRenderer.invoke('workspace:ensure', workspaceRoot)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

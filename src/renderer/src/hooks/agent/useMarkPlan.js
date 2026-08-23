@@ -16,6 +16,7 @@ import {
 import { getUnifiedContext, searchExtendedMemory, generateVector } from '../../api/vectorMemory'
 import { searchMemoriesInOrama } from '../../api/oramaStore'
 import { buildOptimizedChatSession } from '../../api/ai/contextCompactor'
+import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
 
 // ============================================================================
 // HELPER UTILITIES
@@ -1423,18 +1424,16 @@ export const useMarkPlan = ({
             )
           }
           execSteps.push({ task: 'Selesai' })
-          if (execSteps.length > 2) {
-            targetPushProcess({
-              id: agenticProcessId,
-              type: 'planning',
-              status: durableFailed ? 'failed' : 'done',
-              data: {
-                steps: [...execSteps],
-                currentStep: execSteps.length,
-                reasoning: decision.thought || 'Selesai'
-              }
-            })
-          }
+          targetPushProcess({
+            id: agenticProcessId,
+            type: 'planning',
+            status: durableFailed ? 'failed' : 'done',
+            data: {
+              steps: [...execSteps],
+              currentStep: execSteps.length,
+              reasoning: decision.thought || 'Selesai'
+            }
+          })
 
           // TTS Lisan
           if (finalIsSpeak && decision.answer) {
@@ -1468,6 +1467,7 @@ export const useMarkPlan = ({
               role: 'ai',
               content: finalOutput,
               executedTools: executedToolsList.length > 0 ? executedToolsList : null,
+              isTaskDone: decision.is_done === true,
               reasoning: decision.thought || lastDecision?.thought || null,
               mood: decision.mood || 'neutral',
               isMemorySaved: decision.memory?.action === 'insert',
@@ -1497,6 +1497,14 @@ export const useMarkPlan = ({
 
           if (window.api && window.api.browserAction) {
             window.api.browserAction({ action: 'finish' }).catch(() => {})
+          }
+
+          // === WORKSPACE WORKING MEMORY AUTO-SAVE ===
+          if (opts.workspaceRoot && (decision.working_memory || decision.objective)) {
+            saveWorkspaceWorkingMemory(opts.workspaceRoot, {
+              notes: decision.working_memory || undefined,
+              activeObjective: decision.objective || undefined
+            }).catch(() => {})
           }
 
           // === DEDICATED SELF-IMPROVING SKILL SYNTHESIZER ===
@@ -1614,6 +1622,10 @@ export const useMarkPlan = ({
               tool: tool,
               query: query,
               status: 'done',
+              fullResult:
+                typeof execResult.resultString === 'string'
+                  ? execResult.resultString.slice(0, 4000)
+                  : execResult.resultString,
               resultSummary:
                 typeof execResult.resultString === 'string' && execResult.resultString.length > 250
                   ? execResult.resultString.slice(0, 250) + '...'
@@ -1691,20 +1703,19 @@ export const useMarkPlan = ({
       // ------------------------------------------------------------------------
       // FASE 5: CLEANUP & CLOSING
       // ------------------------------------------------------------------------
-      if (!lastDecision?.answer) {
-        if (execSteps.length > 2) {
-          targetPushProcess({
-            id: agenticProcessId,
-            type: 'planning',
-            status: 'done',
-            data: {
-              steps: [...execSteps],
-              currentStep: execSteps.length,
-              reasoning: 'Loop Selesai'
-            }
-          })
+      targetPushProcess({
+        id: agenticProcessId,
+        type: 'planning',
+        status: 'done',
+        data: {
+          steps: [...execSteps],
+          currentStep: execSteps.length,
+          reasoning: lastDecision?.thought || 'Selesai'
         }
-      }
+      })
+      setTimeout(() => {
+        dismissProcess(agenticProcessId)
+      }, 1500)
 
       if (!tgContext && !isAutonomous) {
         if (activeSessionNum === 1) {
