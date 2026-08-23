@@ -82,6 +82,7 @@ const api = {
   // Window controls
   windowMinimize: () => ipcRenderer.send('window-minimize'),
   windowMaximize: () => ipcRenderer.send('window-maximize'),
+  windowFullscreen: () => ipcRenderer.send('window-fullscreen'),
   windowClose: () => ipcRenderer.send('window-close'),
   onWindowMaximized: (callback) => {
     ipcRenderer.on('window-maximized', (event, isMaximized) => callback(isMaximized))
