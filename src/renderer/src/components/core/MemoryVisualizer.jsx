@@ -103,7 +103,7 @@ function LiteGraphView({ graphData, setSelectedNode }) {
 }
 
 const MemoryVisualizer = ({ isOpen, onClose }) => {
-  const { isLite, loading } = useLiteMode()
+  const { isLite } = useLiteMode()
   const { isGrooming, groomResult, triggerGrooming } = useMemoryGroomer(false)
   const [graphData, setGraphData] = useState({ nodes: [], links: [] })
   const [dimensions, setDimensions] = useState({
