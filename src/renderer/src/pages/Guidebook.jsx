@@ -25,7 +25,11 @@ import {
   FaCamera,
   FaMicrophoneAlt,
   FaTelegram,
-  FaGoogle
+  FaGoogle,
+  FaCode,
+  FaGitAlt,
+  FaUsers,
+  FaTasks
 } from 'react-icons/fa'
 import { faqs } from '../data/faqData'
 
@@ -404,6 +408,50 @@ const Guidebook = () => {
               </p>
 
               <div className="space-y-8">
+                {/* Kategori Multi-Agent Orchestration */}
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                    <FaUsers className="text-primary" /> Multi-Agent Orchestration (Sub-Agents)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <ToolCard
+                      name="spawn_subagent"
+                      description="Meluncurkan sub-agent otonom di latar belakang untuk tugas paralel."
+                      needsPermission={false}
+                      queryFormat='{"name": "...", "role": "...", "goal": "...", "toolGroups": ["..."]}'
+                      howItWorks="Membuat sesi sub-agent terisolasi dengan siklus ReAct mandiri dan sesi browser Chromium terpisah."
+                    />
+                    <ToolCard
+                      name="wait_subagents"
+                      description="Menunggu sub-agent menyelesaikan tugasnya dan mengumpulkan hasil."
+                      needsPermission={false}
+                      queryFormat="id1,id2,id3 atau (kosong)"
+                      howItWorks="Menghentikan sementara Lead Agent hingga sub-agent yang ditugaskan mengirimkan laporan akhir."
+                    />
+                    <ToolCard
+                      name="send_message"
+                      description="Mengirim instruksi lanjutan atau arahan ke sub-agent aktif."
+                      needsPermission={false}
+                      queryFormat="subagentId||isi pesan"
+                      howItWorks="Menyuntikkan pesan langsung ke dalam konteks observasi sub-agent yang sedang berjalan."
+                    />
+                    <ToolCard
+                      name="list_subagents"
+                      description="Melihat status seluruh sub-agent yang sedang aktif atau selesai."
+                      needsPermission={false}
+                      queryFormat="(kosong)"
+                      howItWorks="Mengembalikan daftar sub-agent, ID, role, jumlah turn, dan status terkini."
+                    />
+                    <ToolCard
+                      name="kill_subagent"
+                      description="Menghentikan paksa sub-agent yang sedang berjalan."
+                      needsPermission={false}
+                      queryFormat="subagentId"
+                      howItWorks="Memutus eksekusi ReAct sub-agent dan otomatis menutup jendela browser terisolasinya."
+                    />
+                  </div>
+                </div>
+
                 {/* Kategori Memory */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
@@ -565,53 +613,148 @@ const Guidebook = () => {
                   </div>
                 </div>
 
-                {/* Kategori File */}
+                {/* Kategori Autonomous Coding & Precision Editing */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaFolderOpen className="text-accent" /> File Management
+                    <FaCode className="text-success" /> Autonomous Coding & Precision Editing
                   </h3>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ToolCard
-                      name="read-file"
-                      description="Membaca isi file teks/kode di komputer Anda."
+                      name="replace-content"
+                      description="Menyunting kode dengan pencocokan teks presisi dan auto-lint syntax check."
+                      needsPermission={true}
+                      queryFormat="filePath||targetContent||replacementContent"
+                      howItWorks="Mencari substring targetContent secara unik di berkas, menggantinya dengan replacementContent, dan otomatis memvalidasi sintaks (Self-Healing)."
+                    />
+                    <ToolCard
+                      name="file-outline"
+                      description="Mengekstrak struktur ringkas (fungsi, class, method) dari berkas kode."
                       needsPermission={false}
-                      queryFormat="Path Absolut (misal: D:\project\index.js)"
-                      howItWorks="Membaca isi file agar Mark tahu kode apa yang sedang Anda kerjakan."
+                      queryFormat="filePath (misal: src/main/index.js)"
+                      howItWorks="Menganalisis definisi fungsi dan class tanpa memuat seluruh baris file untuk menghemat token secara masif."
                     />
                     <ToolCard
-                      name="write-file"
-                      description="Membuat file baru atau menimpa file lama."
-                      needsPermission={true}
-                      queryFormat="Path||Isi Teks"
-                      howItWorks="Menulis file ke hardisk Anda. Membutuhkan klik tombol 'Terima' dari Anda."
-                    />
-                    <ToolCard
-                      name="replace-lines"
-                      description="Memodifikasi atau mengedit baris tertentu dalam sebuah file."
-                      needsPermission={true}
-                      queryFormat="Path||StartLine||EndLine||KodeBaru"
-                      howItWorks="Digunakan untuk nge-fix bug atau mengubah sebagian isi file tanpa merusak kode sekitarnya."
-                    />
-                    <ToolCard
-                      name="delete-file"
-                      description="Menghapus file secara permanen."
-                      needsPermission={true}
-                      queryFormat="Path Absolut"
-                      howItWorks="Menghapus file dari harddisk. Membutuhkan izin pengguna."
-                    />
-                    <ToolCard
-                      name="list-dir"
-                      description="Melihat isi folder (daftar file dan subfolder)."
+                      name="find-files"
+                      description="Mencari berkas/folder di proyek menggunakan filter pola glob kilat."
                       needsPermission={false}
-                      queryFormat="Path Folder"
-                      howItWorks="Membaca direktori dan menampilkan daftar semua item di dalamnya."
+                      queryFormat="folderPath||*.jsx atau .||*.js"
+                      howItWorks="Memindai struktur proyek secara instan dan otomatis melompati node_modules, .git, dist, dan build."
                     />
                     <ToolCard
                       name="grep-search"
-                      description="Mencari teks atau kata kunci di dalam folder secara rekursif."
+                      description="Pencarian teks/kata kunci super cepat berbasis AST filesystem traversal."
                       needsPermission={false}
-                      queryFormat="Path Folder||Keyword"
-                      howItWorks="Menjalankan findstr untuk pencarian cepat di ratusan file."
+                      queryFormat="folderPath||keyword atau .||keyword"
+                      howItWorks="Mencari referensi fungsi atau teks di seluruh proyek dalam waktu ~10ms tanpa membebani CPU."
+                    />
+                    <ToolCard
+                      name="read-file"
+                      description="Membaca isi berkas teks/kode secara lengkap."
+                      needsPermission={false}
+                      queryFormat="filePath (misal: package.json)"
+                      howItWorks="Membaca isi file dari disk dan otomatis menyesuaikan dengan Workspace Root aktif."
+                    />
+                    <ToolCard
+                      name="write-file"
+                      description="Membuat berkas baru di workspace (disertai validasi sintaks)."
+                      needsPermission={true}
+                      queryFormat="filePath||isi teks"
+                      howItWorks="Menulis berkas baru ke disk dan menjalankan Self-Healing hook untuk memastikan kode bebas error sintaks."
+                    />
+                    <ToolCard
+                      name="replace-lines"
+                      description="Mengganti baris kode tertentu berdasarkan nomor baris awal dan akhir."
+                      needsPermission={true}
+                      queryFormat="filePath||startLine||endLine||kodeBaru"
+                      howItWorks="Mengganti baris spesifik pada berkas target tanpa merusak bagian kode lainnya."
+                    />
+                    <ToolCard
+                      name="delete-file"
+                      description="Menghapus berkas dari direktori proyek secara permanen."
+                      needsPermission={true}
+                      queryFormat="filePath"
+                      howItWorks="Menghapus file dari disk setelah mendapatkan persetujuan pengguna."
+                    />
+                    <ToolCard
+                      name="list-dir"
+                      description="Melihat daftar berkas dan subdirektori pada path tertentu."
+                      needsPermission={false}
+                      queryFormat="folderPath atau ."
+                      howItWorks="Membaca isi folder dan menampilkan ukuran serta status direktori."
+                    />
+                  </div>
+                </div>
+
+                {/* Kategori Git Version Control */}
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                    <FaGitAlt className="text-warning" /> Git Version Control (VCS)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <ToolCard
+                      name="git-status"
+                      description="Melihat status repository Git, branch aktif, dan daftar berkas termodifikasi."
+                      needsPermission={false}
+                      queryFormat="folderPath atau ."
+                      howItWorks="Menjalankan pemeriksaan git status untuk mengetahui kondisi working tree dan staged files."
+                    />
+                    <ToolCard
+                      name="git-diff"
+                      description="Melihat perbedaan baris kode (diff) yang baru saja diubah."
+                      needsPermission={false}
+                      queryFormat="folderPath atau ."
+                      howItWorks="Menghasilkan visualisasi git diff untuk memverifikasi perubahan sebelum di-commit."
+                    />
+                    <ToolCard
+                      name="git-commit"
+                      description="Melakukan stage semua perubahan dan membuat commit pesan otomatis."
+                      needsPermission={true}
+                      queryFormat="folderPath||pesan commit atau .||pesan commit"
+                      howItWorks="Menjalankan git add . dan git commit -m secara otonom setelah disetujui."
+                    />
+                    <ToolCard
+                      name="git-revert"
+                      description="Mengembalikan berkas ke kondisi commit terakhir (revert / checkout)."
+                      needsPermission={true}
+                      queryFormat="folderPath||filePath atau .||filePath"
+                      howItWorks="Membatalkan perubahan pada file jika terjadi error fatal atau kesalahan koding."
+                    />
+                  </div>
+                </div>
+
+                {/* Kategori Background Task & Terminal Daemon */}
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                    <FaTasks className="text-info" /> Background Task & Terminal Daemon
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <ToolCard
+                      name="run-task"
+                      description="Menjalankan proses terminal/server latar belakang secara non-blocking."
+                      needsPermission={true}
+                      queryFormat="perintah||cwd (misal: npm run dev||.)"
+                      howItWorks="Meluncurkan background task daemon sehingga AI dapat terus bekerja tanpa terhenti oleh server yang berjalan terus."
+                    />
+                    <ToolCard
+                      name="read-task-output"
+                      description="Membaca log output terminal terbaru dari background task aktif."
+                      needsPermission={false}
+                      queryFormat="taskId (misal: task_1)"
+                      howItWorks="Mengambil buffer stdout/stderr proses untuk memeriksa apakah server siap atau ada compile error."
+                    />
+                    <ToolCard
+                      name="kill-task"
+                      description="Menghentikan proses terminal latar belakang."
+                      needsPermission={false}
+                      queryFormat="taskId (misal: task_1)"
+                      howItWorks="Mematikan proses terminal background dan membersihkan task dari daftar aktif."
+                    />
+                    <ToolCard
+                      name="list-tasks"
+                      description="Melihat seluruh background task yang sedang berjalan beserta status & PID."
+                      needsPermission={false}
+                      queryFormat="(kosong)"
+                      howItWorks="Mengembalikan daftar task ID, command yang dijalankan, dan waktu mulai proses."
                     />
                   </div>
                 </div>

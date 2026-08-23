@@ -142,15 +142,13 @@ export const fetchAI = async (
           }
         }
 
-        // Jika answer kosong setelah think diekstrak (karena seluruh respon ada di dalam think)
+        // Jika answer kosong setelah think diekstrak (hanya angkat jika terdapat blok JSON di dalam think)
         if (!answer && reasoning) {
           const firstBrace = reasoning.indexOf('{')
           const lastBrace = reasoning.lastIndexOf('}')
           if (firstBrace !== -1 && lastBrace > firstBrace) {
             answer = reasoning.substring(firstBrace, lastBrace + 1)
             reasoning = (reasoning.substring(0, firstBrace) + reasoning.substring(lastBrace + 1)).trim() || null
-          } else {
-            answer = reasoning
           }
         }
 
@@ -493,15 +491,13 @@ export const fetchAI = async (
       }
     }
 
-    // Jika content kosong tapi reasoning ada isinya (model mengeluarkan respon di dalam reasoning)
+    // Jika content kosong tapi reasoning ada isinya (hanya angkat jika terdapat blok JSON di dalam reasoning)
     if (!content && reasoning) {
       const firstBrace = reasoning.indexOf('{')
       const lastBrace = reasoning.lastIndexOf('}')
       if (firstBrace !== -1 && lastBrace > firstBrace) {
         content = reasoning.substring(firstBrace, lastBrace + 1)
         reasoning = (reasoning.substring(0, firstBrace) + reasoning.substring(lastBrace + 1)).trim() || null
-      } else {
-        content = reasoning
       }
     }
 

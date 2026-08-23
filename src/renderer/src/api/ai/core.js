@@ -99,14 +99,12 @@ export const cleanAndParse = (rawResponse) => {
       }
       if (typeof rawResponse.content === 'string' && rawResponse.content.trim().length > 0) {
         rawResponse = rawResponse.content
-      } else if (typeof rawResponse.reasoning === 'string' && rawResponse.reasoning.trim().length > 0) {
+      } else if (typeof rawResponse.reasoning === 'string' && rawResponse.reasoning.includes('{') && rawResponse.reasoning.includes('}')) {
         rawResponse = rawResponse.reasoning
       } else if (typeof rawResponse.text === 'string' && rawResponse.text.trim().length > 0) {
         rawResponse = rawResponse.text
       } else if (typeof rawResponse.message === 'string' && rawResponse.message.trim().length > 0) {
         rawResponse = rawResponse.message
-      } else if (typeof rawResponse.content === 'string') {
-        rawResponse = rawResponse.content
       } else {
         try {
           rawResponse = JSON.stringify(rawResponse)
@@ -145,17 +143,7 @@ export const cleanAndParse = (rawResponse) => {
       lastIndex = lastBracket
     }
 
-    if (firstIndex === -1 || lastIndex === -1) {
-      if (text.trim().length > 0) {
-        return {
-          thought: text.trim(),
-          action: null,
-          answer: text.trim(),
-          is_done: true
-        }
-      }
-      return null
-    }
+    if (firstIndex === -1 || lastIndex === -1) return null
 
     const jsonStr = text.substring(firstIndex, lastIndex + 1)
 

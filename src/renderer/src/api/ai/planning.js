@@ -469,12 +469,12 @@ ${
       console.log('[planning] fetchAI returned, parsing...')
 
       if (!response.content?.trim() && response.reasoning) {
-        console.warn('[planning] AI ONLY outputted reasoning. Injecting prompt for JSON output...')
+        console.warn('[planning] AI ONLY outputted reasoning. Continuing loop with thinking preserved...')
         messages.push({ role: 'assistant', content: `<think>\n${response.reasoning}\n</think>` })
         messages.push({
           role: 'user',
           content:
-            '[CRITICAL] You successfully completed your thinking process, but you FORGOT to output the final JSON block! You MUST immediately output the strictly formatted JSON matching the requested schema now. Do NOT output <think> tags again.'
+            '[SYSTEM / OBSERVATION] Analisis pemikiran Anda sudah selesai tercatat. Sekarang keluarkan HANYA blok JSON keputusan aksi atau jawaban akhir sesuai schema (tanpa tag <think>):\n{\n  "thought": "ringkasan pemikiran dalam bahasa Indonesia",\n  "action": null atau {"tool": "nama_tool", "query": "parameter"},\n  "answer": "jawaban jika tugas selesai" atau null,\n  "is_done": true/false\n}'
         })
         continue
       }
@@ -492,12 +492,9 @@ ${
         let finalAnswer = data.answer || null
         if (!finalAction && !finalAnswer) {
           console.warn(
-            '[planning] AI returned null for both action and answer. Auto-filling with thought or ...'
+            '[planning] AI returned null for both action and answer. Auto-filling with fallback.'
           )
-          finalAnswer =
-            (data.thought && data.thought.trim()) ||
-            (response.reasoning && response.reasoning.trim()) ||
-            '...'
+          finalAnswer = '...'
         }
         return {
           thought: data.thought || response.reasoning || '',
@@ -516,31 +513,21 @@ ${
           mood: data.mood || 'neutral',
           active_topic: data.active_topic || activeTopic
         }
-      } else if (response.content) {
-        // AUTO-FIX: Jika model OpenRouter membalas pakai pure text tanpa format JSON sama sekali
-        if (!response.content.includes('{') && !response.content.includes('}')) {
-          console.warn(
-            '[planning] AI outputted pure text instead of JSON. Auto-wrapping into answer.'
-          )
-          return {
-            thought: response.reasoning || '',
-            suggested_mode: 'direct',
-            action: null,
-            answer: response.content.trim(),
-            task_status: 'simple',
-            objective: null,
-            memory: null,
-            mood: 'neutral',
-            active_topic: activeTopic
-          }
-        }
+      }
 
-        messages.push({ role: 'assistant', content: response.content })
+      // Jika data null (output bukan JSON valid), dorong AI untuk memperbaiki format responsnya
+      if (attempts < MAX_RETRIES) {
+        console.warn(`[planning] AI output invalid JSON or missing schema (Attempt ${attempts}/${MAX_RETRIES}). Continuing loop...`)
+        const rawOutput = response.content || response.reasoning || ''
+        if (rawOutput) {
+          messages.push({ role: 'assistant', content: rawOutput })
+        }
         messages.push({
           role: 'user',
           content:
-            '[CRITICAL ERROR] Your JSON output is invalid or missing. Please strictly follow the JSON schema and output valid JSON ONLY.'
+            '[CRITICAL ERROR] Respons Anda tidak mengandung format JSON yang valid. Anda WAJIB merespon HANYA dengan format JSON valid sesuai schema:\n{\n  "thought": "analisis singkat langkah berikutnya",\n  "action": null atau {"tool": "nama_tool", "query": "parameter"},\n  "answer": "jawaban akhir jika tugas selesai" atau null,\n  "is_done": true/false\n}'
         })
+        continue
       }
     }
 
@@ -551,7 +538,7 @@ ${
       thought: 'Fallback triggered after retry attempts',
       suggested_mode: 'direct',
       action: null,
-      answer: '...',
+      answer: 'Maaf, terjadi kendala format respons saat memproses instruksi. Bisa tolong ulangi atau berikan detail tambahan?',
       task_status: 'simple',
       objective: null,
       memory: null,
