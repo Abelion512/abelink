@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 
 const ConfirmModal = ({ 
   isOpen,
@@ -11,48 +11,63 @@ const ConfirmModal = ({
   isError = false,
   hideCancel = false
 }) => {
-  const dialogRef = useRef(null);
-
   useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onCancel?.();
+      }
+    };
     if (isOpen) {
-      dialogRef.current?.showModal();
-    } else {
-      dialogRef.current?.close();
+      window.addEventListener('keydown', handleKeyDown);
     }
-  }, [isOpen]);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onCancel]);
+
+  if (!isOpen) return null;
 
   return (
-    <dialog ref={dialogRef} className="modal" onClose={onCancel}>
-      <div className="modal-box">
+    <div className="modal modal-open z-[99999] fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[response-fade-in_0.15s_ease-out_forwards]">
+      <div className="modal-box relative bg-base-300 border border-white/10 shadow-2xl z-10 max-w-md">
         <h3 className={`font-bold text-lg ${isError ? 'text-error' : 'text-primary'}`}>{title}</h3>
-        <p className="py-4 text-sm opacity-60 whitespace-pre-wrap">
+        <p className="py-4 text-sm opacity-80 whitespace-pre-wrap">
           {message}
         </p>
         <div className="modal-action">
           {!hideCancel && (
-            <button className="btn btn-ghost btn-sm" onClick={(e) => {
-              e.preventDefault();
-              onCancel();
-            }}>{cancelText}</button>
+            <button 
+              type="button"
+              className="btn btn-ghost btn-sm" 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onCancel?.();
+              }}
+            >
+              {cancelText}
+            </button>
           )}
           <button 
-            className={`btn ${isError ? 'btn-error' : 'btn-primary'} btn-sm`} 
+            type="button"
+            className={`btn ${isError ? 'btn-error' : 'btn-primary'} btn-sm shadow-md`} 
             onClick={(e) => {
               e.preventDefault();
-              onConfirm();
+              e.stopPropagation();
+              onConfirm?.();
             }}
           >
             {confirmText}
           </button>
         </div>
       </div>
-      <form method="dialog" className="modal-backdrop">
-        <button onClick={(e) => {
+      <div 
+        className="modal-backdrop fixed inset-0 cursor-pointer" 
+        onClick={(e) => {
           e.preventDefault();
-          onCancel();
-        }}>close</button>
-      </form>
-    </dialog>
+          e.stopPropagation();
+          onCancel?.();
+        }} 
+      />
+    </div>
   );
 };
 

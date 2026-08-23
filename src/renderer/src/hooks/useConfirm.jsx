@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback, useRef } from 'react'
 import ConfirmModal from '../components/core/ConfirmModal'
 
 export const useConfirm = () => {
@@ -8,13 +8,14 @@ export const useConfirm = () => {
     message: '',
     isError: false,
     confirmText: 'Ya',
-    cancelText: 'Batal'
+    cancelText: 'Batal',
+    hideCancel: false
   })
-  const [promiseRef, setPromiseRef] = useState(null)
+  const promiseRef = useRef(null)
 
-  const confirm = (config) => {
+  const confirm = useCallback((config) => {
     return new Promise((resolve) => {
-      setPromiseRef({ resolve })
+      promiseRef.current = resolve
       setModalConfig({
         isOpen: true,
         title: config.title || 'Konfirmasi',
@@ -28,30 +29,40 @@ export const useConfirm = () => {
             : false
       })
     })
-  }
+  }, [])
 
-  const handleConfirm = () => {
+  const handleConfirm = useCallback(() => {
     setModalConfig((prev) => ({ ...prev, isOpen: false }))
-    if (promiseRef) promiseRef.resolve({ isConfirmed: true })
-  }
+    if (promiseRef.current) {
+      promiseRef.current({ isConfirmed: true })
+      promiseRef.current = null
+    }
+  }, [])
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setModalConfig((prev) => ({ ...prev, isOpen: false }))
-    if (promiseRef) promiseRef.resolve({ isConfirmed: false })
-  }
+    if (promiseRef.current) {
+      promiseRef.current({ isConfirmed: false })
+      promiseRef.current = null
+    }
+  }, [])
 
-  const ModalComponent = () => (
-    <ConfirmModal
-      isOpen={modalConfig.isOpen}
-      title={modalConfig.title}
-      message={modalConfig.message}
-      onConfirm={handleConfirm}
-      onCancel={handleCancel}
-      confirmText={modalConfig.confirmText}
-      cancelText={modalConfig.cancelText}
-      isError={modalConfig.isError}
-      hideCancel={modalConfig.hideCancel}
-    />
+  const ModalComponent = useCallback(
+    () => (
+      <ConfirmModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        isError={modalConfig.isError}
+        hideCancel={modalConfig.hideCancel}
+      />
+    ),
+    [modalConfig, handleConfirm, handleCancel]
   )
+
   return { confirm, ModalComponent }
 }
