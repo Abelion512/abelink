@@ -193,7 +193,7 @@ export const useMarkAgent = () => {
 
     window.addEventListener('tg-admin-message', handleTgAdminMessage)
     return () => window.removeEventListener('tg-admin-message', handleTgAdminMessage)
-  }, [handlePlanningCommand, setInputSource, handleStop])
+  }, [handlePlanningCommand, setInputSource, handleStop, setIsSpeak])
 
   const isInitialSyncDoneRef = useRef(false)
   const lastSyncedMsgIdRef = useRef(null)
@@ -235,8 +235,8 @@ export const useMarkAgent = () => {
       const msgKey = lastAiMsg ? (lastAiMsg.timestamp || lastAiMsg.content) : null
       if (lastAiMsg && lastAiMsg.content && lastSyncedMsgIdRef.current !== msgKey) {
         lastSyncedMsgIdRef.current = msgKey
-        if (window.api?.tgBroadcastToAdmins) {
-          window.api.tgBroadcastToAdmins(`💻 *Mark (PC)*:\n${lastAiMsg.content}`)
+        if (window.api?.tgBroadcastToAdmins && !lastAiMsg.isProactive) {
+          window.api.tgBroadcastToAdmins(`*Mark (PC)*:\n${lastAiMsg.content}`)
         }
       }
     }

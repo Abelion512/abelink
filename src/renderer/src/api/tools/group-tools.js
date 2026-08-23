@@ -1,6 +1,6 @@
 export const GROUP_TOOLS_DEFINITION = {
   advanced_browser: {
-    description: 'Tool untuk navigasi dan kontrol elemen fisik browser web secara detail.',
+    description: 'Tool untuk navigasi dan kontrol elemen fisik browser web secara detail, gunakan ini untuk melakukan pencarian di browser/web jangan gunakan powershell.',
     tools: {
       'browser-navigate':
         'Buka URL di browser fisik. Query: URL lengkap. Mengembalikan daftar elemen interaktif bernomor (ID).',
@@ -8,6 +8,10 @@ export const GROUP_TOOLS_DEFINITION = {
       'browser-click': 'Klik elemen. Query: ID angka. Mengembalikan DOM terbaru setelah klik.',
       'browser-type': 'Ketik teks di kolom input. Query: ID||teks. Mengembalikan DOM terbaru.',
       'browser-scroll': 'Scroll halaman. Query: "up" atau "down".',
+      'browser-extract': 'Ekstrak teks/data via CSS Selector. Kembalikan JSON. Query: selector CSS (misal: ".product-price").',
+      'browser-script': 'Eksekusi custom Javascript di browser (Bisa untuk manipulasi DOM / bypass). Query: script JS murni.',
+      'browser-screenshot': 'Ambil screenshot web utuh dan simpan ke OS. Query: namafile.png.',
+      'browser-download': 'Download URL secara fisik ke OS. Query: URL||namafile.ext.',
       'browser-ask-user':
         'JIKA terhalang form login/CAPTCHA, BUKAKAN HALAMANNYA DULU (misal klik tombol \'Login\' hingga form muncul), lalu GUNAKAN TOOL INI. Query: Instruksi/Pesan untuk user (misal: "Tolong isi email dan password"). Pesanmu akan muncul di layar popup. Setelah user selesai, kamu akan langsung mendapat DOM terbaru untuk MELANJUTKAN misimu. Jangan berhenti!',
       'browser-close': 'Menutup browser fisik.'
@@ -15,7 +19,7 @@ export const GROUP_TOOLS_DEFINITION = {
   },
   pc_automation: {
     description:
-      'Tool untuk interaksi fisik dengan desktop OS Windows. [SPEEDRUNNER BATCH MODE]: Kamu BISA mengeksekusi BATCH ACTIONS (mengirim ARRAY aksi) dalam 1 giliran untuk menghindari loading lama. Contoh: [{"tool":"os-click","query":"5"}, {"tool":"os-delay","query":"1000"}, {"tool":"os-type","query":"Teks"}]. Gunakan os-click secara bebas, tetapi KELOMPOKKAN aksimu ke dalam array jika urutannya sudah jelas, jangan satu per satu!',
+      'Tool untuk <inter></inter>aksi fisik dengan desktop OS Windows. [SPEEDRUNNER BATCH MODE]: Kamu BISA mengeksekusi BATCH ACTIONS (mengirim ARRAY aksi) dalam 1 giliran untuk menghindari loading lama. Contoh: [{"tool":"os-click","query":"5"}, {"tool":"os-delay","query":"1000"}, {"tool":"os-type","query":"Teks"}]. Gunakan os-click secara bebas, tetapi KELOMPOKKAN aksimu ke dalam array jika urutannya sudah jelas, jangan satu per satu!',
     tools: {
       'os-control-open':
         'WAJIB DIPANGGIL PERTAMA KALI sebelum memulai rangkaian tugas otomatisasi PC. Mengunci sesi dan memunculkan overlay pengunci PC. PENTING: Jika tool ini sudah mengembalikan status success, ITU BERARTI USER SUDAH MEMBERIKAN IZIN DI POPUP! Kamu WAJIB LANGSUNG meneruskan eksekusi langkah berikutnya (os-read/os-click/os-type/dll) di loop yang sama TANPA berhenti atau menyuruh user klik tombol izinkan lagi! Query: KOSONG.',
@@ -31,10 +35,11 @@ export const GROUP_TOOLS_DEFINITION = {
         'Tekan kombinasi tombol keyboard shortcut. Query: combo (misal: ctrl+c, alt+tab, win+e, ctrl+s, enter).',
       'os-scroll':
         'Scroll mouse wheel di aplikasi aktif. Query: direction||amount (misal: down||5 atau up||3).',
-      'os-open':
-        'Membuka aplikasi Windows via shell execute. Query: nama executable/path atau URL raw (misal: notepad, calc, https://google.com). DILARANG KERAS menggunakan markdown link [teks](url)! Ketik raw text saja.',
+
       'os-search':
         'Mensimulasikan user mencari APLIKASI di Start Menu dengan tombol Windows. Query: kata kunci (misal: Chrome). PENTING: Tool ini HANYA mengetik di Start Menu. Untuk membuka aplikasinya, kamu WAJIB memanggil BATCH ACTION: os-search -> os-delay (1000) -> os-key (enter). JANGAN panggil os-open/os-double-click setelah os-search!',
+      'os-open':
+        'Membuka aplikasi via shell execute (Windows/Linux) atau membuka URL di browser default secara langsung. Query: nama executable/path atau URL raw (misal: notepad, code, https://google.com). DILARANG KERAS menggunakan markdown link [teks](url)! Ketik raw text saja.',
       'os-double-click':
         'Klik ganda (double click) mouse pada elemen GUI desktop. Query: ID elemen dari os-read atau x||y koordinat absolut. Bisa digunakan untuk memilih file saat input file dari browser atau explorer.',
       'os-list-windows': 'Menampilkan daftar semua window aplikasi yang terbuka beserta judulnya.',
@@ -104,7 +109,7 @@ export const GROUP_TOOLS_DEFINITION = {
       'screenshot-to-tg':
         'Mengambil screenshot layar komputer dan MENGIRIMNYA SECARA FISIK ke Telegram user (Hanya jika chat berasal dari Telegram). Query: KOSONGKAN SAJA.',
       'tg-send':
-        'Mengirim pesan Telegram. Format query: "ChatID|Isi Pesan". Contoh format yang benar: "123456789|Halo!".',
+        'Mengirim pesan teks ATAU file fisik ke Telegram. Format query: chatId||tipe(text/file)||konten. Jika tipe="text", konten=isi pesan. Jika tipe="file", konten=path absolute file. WAJIB MENGGUNAKAN DOUBLE PIPE (||) SEBAGAI PEMISAH, JANGAN PERNAH GUNAKAN SINGLE PIPE (|)!!! Contoh benar: "1234567||text||Halo!" atau "1234567||file||C:\\Data.xlsx".',
       speak:
         'Bicarakan teks secara lisan (Text-to-Speech) lewat speaker komputer user. Query: "Teks yang ingin kamu ucapkan". Gunakan ini jika kamu ingin memanggil user atau berbicara langsung.'
     }

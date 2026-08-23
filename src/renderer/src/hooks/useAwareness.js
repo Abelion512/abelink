@@ -157,7 +157,7 @@ export const useAwareness = ({
           }
 
           if (result.message && window.api?.tgBroadcastToAdmins) {
-            window.api.tgBroadcastToAdmins(`🔔 *Mark (Awareness)*:\n${result.message}`)
+            window.api.tgBroadcastToAdmins(`[AWARENESS] *Mark (PC)*:\n${result.message}`)
           }
 
           // Jika ada perintah autonomus, bypass chat bubble biasa dan langsung eksekusi plan siluman

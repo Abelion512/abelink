@@ -195,7 +195,8 @@ const MarkHome = () => {
           setCurrentResponse({
             text: lastItem.content || 'Memproses instruksi...',
             type: 'short',
-            isThinking: true
+            isThinking: true,
+            mood: lastItem.mood || 'neutral'
           })
         } else {
           // Final response
