@@ -30,6 +30,7 @@ import 'driver.js/dist/driver.css'
 import { useLocation } from 'react-router-dom'
 import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/ChatContext'
+import ConfigSidebar from '../components/ConfigSidebar'
 
 const ConfigCameraPreview = ({ deviceId, enabled }) => {
   const videoRef = useRef(null)
@@ -106,6 +107,8 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
 
   const [showGroqKey, setShowGroqKey] = useState(false)
   const [showCustomKey, setShowCustomKey] = useState(false)
+  const [activeSection, setActiveSection] = useState('cfg-ai-engine')
+  const contentRef = useRef(null)
 
   const handleTestVoice = async () => {
     setPlayingTest(true)
@@ -493,10 +496,34 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const handleToggleGroqKey = () => setShowGroqKey(!showGroqKey)
   const handleToggleCustomKey = () => setShowCustomKey(!showCustomKey)
 
-  const handleTgBotTokenChange = (e) =>
-    setConfig((prev) => ({ ...prev, tgBotToken: e.target.value }))
   const handleTgAdminIdsChange = (e) =>
     setConfig((prev) => ({ ...prev, tgAdminIds: e.target.value }))
+
+  useEffect(() => {
+    const container = contentRef.current
+    if (!container) return
+    const sectionIds = ['cfg-ai-engine', 'cfg-camera', 'cfg-shortcut', 'cfg-audio-voice', 'cfg-memory-data']
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id)
+          }
+        }
+      },
+      { root: container, rootMargin: '-30% 0px -40% 0px', threshold: 0 }
+    )
+    sectionIds.forEach((id) => {
+      const el = container.querySelector('#' + id)
+      if (el) observer.observe(el)
+    })
+    return () => observer.disconnect()
+  }, [])
+
+  const handleSidebarNavigate = (id) => {
+    const el = contentRef.current?.querySelector('#' + id)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <div
@@ -506,11 +533,17 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
 
-      {/* Main Content Area */}
-      <div className="relative z-10 w-full h-full overflow-y-auto custom-scrollbar">
-        <div className="max-w-2xl mx-auto px-4 py-8 pb-32 space-y-8">
-          {/* Page Header */}
-          <div className="flex items-center gap-4">
+      {/* Sidebar + Content Layout */}
+      <div className="relative z-10 flex h-full">
+        <ConfigSidebar
+          isFirstSetup={isFirstSetup}
+          activeSection={activeSection}
+          onNavigate={handleSidebarNavigate}
+        />
+        <div className="flex-1 overflow-y-auto ml-4 mr-4">
+          <div ref={contentRef} className="pt-4">
+            {/* Page Header */}
+            <div className="flex items-center gap-4">
             {!isFirstSetup && (
               <button onClick={handleBack} className="btn btn-ghost btn-sm btn-circle">
                 <svg
@@ -1174,9 +1207,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             </button>
           </div>
         </div>
-
         <ModalComponent />
       </div>
+    </div>
     </div>
   )
 }
