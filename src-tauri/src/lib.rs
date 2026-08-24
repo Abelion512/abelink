@@ -80,6 +80,7 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(Arc::new(NodeBridgeState::new()))
         .setup(|app| {
             // ---- Sidecar node engine ----
