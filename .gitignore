@@ -1,15 +1,42 @@
-node_modules
-dist
-out
-build
-.DS_Store
-.eslintcache
-*.log*
+# deps
+node_modules/
+bun.lock.bak
+
+# build output
+dist/
+out/
+build/
+src-tauri/target/
+src-tauri/gen/
+
+# rust
+**/*.rs.bk
+
+# env & secrets
 .env
-.vscode
+.env.*
+*.pem
+*.key
+
+# logs & cache
+*.log*
+.eslintcache
+.cache/
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# project-specific
 workflow
 mark_chrome_profile
 web.whatsapp.com.html
 /web.whatsapp.com_files
 PLUGIN_SYSTEM_SRS.md
 .mark/
+social-data-engine/
+scripts/tmp-*
+
+# tauri generated schemas (regenerated otomatis)
+src-tauri/gen/schemas/

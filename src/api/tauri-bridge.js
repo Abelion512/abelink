@@ -107,14 +107,14 @@ export const api = {
   googleDisconnect: () => call('google:disconnect'),
   googleStatus: () => call('google:status'),
 
-  // ---------- Window controls (Rust native — fase B; v1 no-op aman) ----------
-  windowMinimize: () => invoke('window_minimize').catch(() => {}),
-  windowMaximize: () => invoke('window_maximize_toggle').catch(() => {}),
-  windowFullscreen: () => invoke('window_fullscreen_toggle').catch(() => {}),
-  windowClose: () => invoke('window_close').catch(() => {}),
+  // ---------- Window controls (Rust native) ----------
+  windowMinimize: () => invoke('window_minimize'),
+  windowMaximize: () => invoke('window_maximize_toggle'),
+  windowFullscreen: () => invoke('window_fullscreen_toggle'),
+  windowClose: () => invoke('window_close'),
   onWindowMaximized: on('window-maximized'),
   onWindowState: on('window-state'),
-  getWindowState: () => invoke('window_get_state').catch(() => ({ isMaximized: false, isFullScreen: false })),
+  getWindowState: () => invoke('window_get_state'),
 
   // ---------- Native tools (AI tools) ----------
   executeNativeTool: (toolName, query, config) => call('native-tool:execute', toolName, query, config),
@@ -187,6 +187,30 @@ export const api = {
 export function installTauriBridge() {
   window.api = api
   window.electron = undefined
+
+  // Frameless drag: konversi style -webkit-app-region: drag -> data-tauri-drag-region
+  const upgrade = (root) =>
+    root.querySelectorAll?.('[style*="-webkit-app-region: drag"], [style*="-webkit-app-region:drag"]').forEach((el) => {
+      el.removeAttribute('style')
+      el.setAttribute('data-tauri-drag-region', '')
+      el.style.setProperty('-webkit-app-region', 'no-drag')
+    })
+  const mo = new MutationObserver(() => {
+    document.querySelectorAll('[data-tauri-drag-region]').forEach((el) => {
+      if (!el.dataset.dragWired) {
+        el.dataset.dragWired = '1'
+        el.addEventListener('mousedown', (e) => {
+          if (e.button !== 0 || e.target.closest('button, input, textarea, a')) return
+          window.__TAURI_INTERNALS__.invoke('plugin:window|start_dragging')
+        })
+      }
+    })
+    upgrade(document.body)
+  })
+  document.addEventListener('DOMContentLoaded', () => {
+    upgrade(document.body)
+    mo.observe(document.body, { childList: true, subtree: true })
+  })
 }
 
 installTauriBridge()
