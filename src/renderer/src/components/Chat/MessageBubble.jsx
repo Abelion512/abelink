@@ -16,26 +16,64 @@ export const MessageBubble = React.memo(({
 }) => {
   const [isCopied, setIsCopied] = useState(false)
 
+  const extractContent = (val) => {
+    if (val == null) return { text: '', images: [] }
+    if (typeof val === 'string') {
+      if (val.startsWith('data:image/')) {
+        return { text: '', images: [val] }
+      }
+      return { text: val, images: [] }
+    }
+    if (Array.isArray(val)) {
+      const texts = []
+      const images = []
+      for (const item of val) {
+        if (!item) continue
+        if (typeof item === 'string') {
+          if (item.startsWith('data:image/')) {
+            images.push(item)
+          } else {
+            texts.push(item)
+          }
+        } else if (item.type === 'text') {
+          if (item.text) texts.push(item.text)
+        } else if (item.type === 'image_url') {
+          const imgUrl =
+            item.image_url?.url ||
+            item.url ||
+            (typeof item.image_url === 'string' ? item.image_url : null)
+          if (imgUrl) images.push(imgUrl)
+        } else if (item.image_url || item.url) {
+          const imgUrl = item.image_url?.url || item.image_url || item.url
+          if (typeof imgUrl === 'string') images.push(imgUrl)
+        } else {
+          texts.push(JSON.stringify(item, null, 2))
+        }
+      }
+      return { text: texts.join('\n\n'), images }
+    }
+    if (typeof val === 'object') {
+      if (val.type === 'image_url') {
+        const imgUrl =
+          val.image_url?.url ||
+          val.url ||
+          (typeof val.image_url === 'string' ? val.image_url : null)
+        if (imgUrl) return { text: '', images: [imgUrl] }
+      }
+      return { text: JSON.stringify(val, null, 2), images: [] }
+    }
+    return { text: String(val), images: [] }
+  }
+
+  const { text: stringContent, images: attachedImages } = extractContent(content)
+
   const handleCopy = () => {
-    if (!content) return
-    navigator.clipboard.writeText(content)
+    const textToCopy = stringContent || ''
+    if (!textToCopy) return
+    navigator.clipboard.writeText(textToCopy)
     setIsCopied(true)
     setTimeout(() => setIsCopied(false), 2000)
   }
-
-  const formatContent = (val) => {
-    if (val == null) return ''
-    if (typeof val === 'string') return val
-    if (Array.isArray(val)) {
-      return val.map((item) => (typeof item === 'string' ? item : JSON.stringify(item, null, 2))).join('\n\n')
-    }
-    if (typeof val === 'object') {
-      return JSON.stringify(val, null, 2)
-    }
-    return String(val)
-  }
-
-  const stringContent = formatContent(content)
 
   return (
     <div className="text-sm leading-relaxed custom-markdown flex flex-col gap-1 relative group">
@@ -125,23 +163,49 @@ export const MessageBubble = React.memo(({
         </details>
       )}
 
-      {/* Markdown Content / Plain User Message */}
-      {isUser ? (
-        <div className="whitespace-pre-wrap leading-relaxed">{stringContent}</div>
-      ) : (
-        <div className="prose prose-sm max-w-none text-inherit prose-pre:p-0 prose-pre:bg-transparent prose-headings:text-inherit prose-strong:text-inherit">
-          <Markdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[
-              [rehypeExternalLinks, { target: '_blank', rel: ['noopener', 'noreferrer'] }]
-            ]}
-            components={{
-              code: CodeBlock
-            }}
-          >
-            {stringContent}
-          </Markdown>
+      {/* Attached Images Preview Grid */}
+      {attachedImages && attachedImages.length > 0 && (
+        <div className="flex flex-wrap gap-2 my-1.5">
+          {attachedImages.map((imgSrc, idx) => (
+            <div
+              key={idx}
+              className="relative group/img rounded-xl overflow-hidden border border-white/20 shadow-md bg-black/40 max-w-xs"
+            >
+              <img
+                src={imgSrc}
+                alt={`Lampiran ${idx + 1}`}
+                className="max-h-56 w-auto object-contain cursor-pointer transition-transform duration-200 group-hover/img:scale-105"
+                onClick={() => {
+                  const w = window.open('')
+                  w?.document.write(
+                    `<body style="margin:0;background:#0d1117;display:flex;align-items:center;justify-content:center;height:100vh;"><img src="${imgSrc}" style="max-width:95vw;max-height:95vh;border-radius:8px;object-contain;" /></body>`
+                  )
+                }}
+              />
+            </div>
+          ))}
         </div>
+      )}
+
+      {/* Markdown Content / Plain User Message */}
+      {stringContent && (
+        isUser ? (
+          <div className="whitespace-pre-wrap leading-relaxed">{stringContent}</div>
+        ) : (
+          <div className="prose prose-sm max-w-none text-inherit prose-pre:p-0 prose-pre:bg-transparent prose-headings:text-inherit prose-strong:text-inherit">
+            <Markdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[
+                [rehypeExternalLinks, { target: '_blank', rel: ['noopener', 'noreferrer'] }]
+              ]}
+              components={{
+                code: CodeBlock
+              }}
+            >
+              {stringContent}
+            </Markdown>
+          </div>
+        )
       )}
 
       {/* Sources */}

@@ -62,6 +62,10 @@ const api = {
     ipcRenderer.removeAllListeners('tg:command-accept')
     ipcRenderer.on('tg:command-accept', (_, data) => cb(data))
   },
+  onTgCommandAlways: (cb) => {
+    ipcRenderer.removeAllListeners('tg:command-always')
+    ipcRenderer.on('tg:command-always', (_, data) => cb(data))
+  },
   onTgCommandReject: (cb) => {
     ipcRenderer.removeAllListeners('tg:command-reject')
     ipcRenderer.on('tg:command-reject', (_, data) => cb(data))

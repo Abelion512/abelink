@@ -250,11 +250,12 @@ export async function getAllConfig() {
       if (data[0].windowOpacity === undefined) {
         data[0].windowOpacity = 0.85
       }
-      if (!data[0].localWhisperModel) {
-        data[0].localWhisperModel = 'whisper-small'
-      }
+      // P10 Linux patch: WhatNew boot trigger masih baca field ini
       if (data[0].lastSeenWhatsNewVersion === undefined) {
         data[0].lastSeenWhatsNewVersion = null
+      }
+      if (!data[0].localWhisperModel) {
+        data[0].localWhisperModel = 'whisper-small'
       }
     }
     return data || []
@@ -274,6 +275,67 @@ export async function saveConfiguration(data) {
     console.log('Configuration saved:', data)
   } catch (error) {
     console.error('Error in saveConfiguration logic:', error)
+  }
+}
+
+export async function getAlwaysAllowedPaths() {
+  try {
+    const configs = await db.config.toArray()
+    if (configs && configs.length > 0 && Array.isArray(configs[0].alwaysAllowedPaths)) {
+      return configs[0].alwaysAllowedPaths
+    }
+    return []
+  } catch (error) {
+    console.error('Error in getAlwaysAllowedPaths logic:', error)
+    return []
+  }
+}
+
+export async function addAlwaysAllowedPath(pathToAdd) {
+  try {
+    if (!pathToAdd) return []
+    const configs = await db.config.toArray()
+    const currentConfig = (configs && configs[0]) || { id: 1 }
+    const currentList = Array.isArray(currentConfig.alwaysAllowedPaths)
+      ? currentConfig.alwaysAllowedPaths
+      : []
+
+    if (!currentList.includes(pathToAdd)) {
+      const updatedList = [...currentList, pathToAdd]
+      const newConfig = { ...currentConfig, id: 1, alwaysAllowedPaths: updatedList }
+      await db.config.put(newConfig)
+      if (window.api && window.api.syncConfig) {
+        window.api.syncConfig(newConfig)
+      }
+      window.dispatchEvent(new CustomEvent('config-updated', { detail: newConfig }))
+      return updatedList
+    }
+    return currentList
+  } catch (error) {
+    console.error('Error in addAlwaysAllowedPath logic:', error)
+    return []
+  }
+}
+
+export async function removeAlwaysAllowedPath(pathToRemove) {
+  try {
+    const configs = await db.config.toArray()
+    const currentConfig = (configs && configs[0]) || { id: 1 }
+    const currentList = Array.isArray(currentConfig.alwaysAllowedPaths)
+      ? currentConfig.alwaysAllowedPaths
+      : []
+
+    const updatedList = currentList.filter((p) => p !== pathToRemove)
+    const newConfig = { ...currentConfig, id: 1, alwaysAllowedPaths: updatedList }
+    await db.config.put(newConfig)
+    if (window.api && window.api.syncConfig) {
+      window.api.syncConfig(newConfig)
+    }
+    window.dispatchEvent(new CustomEvent('config-updated', { detail: newConfig }))
+    return updatedList
+  } catch (error) {
+    console.error('Error in removeAlwaysAllowedPath logic:', error)
+    return []
   }
 }
 
