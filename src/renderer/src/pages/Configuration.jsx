@@ -232,7 +232,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               }
             },
             {
-              element: '#tour-tts',
+              element: '#cfg-audio-voice',
               popover: {
                 title: '7. Pengaturan Suara',
                 description:
@@ -572,7 +572,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           </div>
 
           {/* ── AI Engine & Tools ── */}
-          <section className="space-y-5">
+          <section id="cfg-ai-engine" className="space-y-5 scroll-mt-4">
             <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
               AI Engine & Tools
             </h2>
@@ -837,7 +837,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             <div className="divider"></div>
 
             {/* Camera Settings */}
-            <div className="space-y-6 p-2 -mx-2 rounded-lg">
+            <div id="cfg-camera" className="space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4">
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5 flex items-center gap-2">
                 Kamera
               </h2>
@@ -884,7 +884,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             </div>
 
             {/* ── Global Shortcut Settings ── */}
-            <section id="tour-shortcut" className="space-y-5 p-2 -mx-2 rounded-lg">
+            <section id="cfg-shortcut" className="space-y-5 p-2 -mx-2 rounded-lg scroll-mt-4">
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                 Global Shortcut Key
               </h2>
@@ -954,7 +954,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             <div className="divider"></div>
 
             {/* TTS Settings */}
-            <div id="tour-tts" className="space-y-6 p-2 -mx-2 rounded-lg">
+            <div id="cfg-audio-voice" className="space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4">
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5">
                 Audio & Voice Engine
               </h2>
@@ -1158,7 +1158,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               <div className="divider"></div>
 
               {/* ── Memory & Data ── */}
-              <section className="space-y-5">
+              <section id="cfg-memory-data" className="space-y-5 scroll-mt-4">
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                   Memory & Data
                 </h2>
