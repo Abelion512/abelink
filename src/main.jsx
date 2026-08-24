@@ -1,3 +1,4 @@
+import './api/tauri-bridge'
 import './assets/main.css'
 
 import { StrictMode } from 'react'
