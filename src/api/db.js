@@ -125,6 +125,10 @@ db.version(21).stores({
   learnedSkills: 'id, name, createdAt, updatedAt'
 })
 
+db.version(22).stores({
+  chatTurns: 'pairId, sessionId, timestamp'
+})
+
 // --- VALIDATION ---
 const VALID_TYPES = ['profile', 'preference', 'notes', 'learn'];
 
@@ -468,9 +472,19 @@ export async function deleteSession(id) {
     if (numId === 1) {
       // Main Thread tidak boleh dihapus barisnya, hanya dikosongkan pesannya
       await db.sessions.put({ id: 1, title: 'Main Thread', data: [], timestamp: Date.now() })
+      await db.chatTurns.where('sessionId').equals(1).delete()
+      try {
+        const { deleteTurnPairsBySessionFromOrama } = await import('./oramaStore')
+        await deleteTurnPairsBySessionFromOrama(1)
+      } catch (_) {}
       return true
     }
     await db.sessions.delete(numId)
+    await db.chatTurns.where('sessionId').equals(Number(numId)).delete()
+    try {
+      const { deleteTurnPairsBySessionFromOrama } = await import('./oramaStore')
+      await deleteTurnPairsBySessionFromOrama(numId)
+    } catch (_) {}
     return true
   } catch (error) {
     console.error('Error in deleteSession:', error)
@@ -662,6 +676,70 @@ export async function deleteLearnedSkill(idOrName) {
   } catch (err) {
     console.error('[DB] Error deleteLearnedSkill:', err)
     return false
+  }
+}
+
+// ==========================================================================
+// CHAT TURNS (TURN-PAIR VECTOR MEMORY)
+// ==========================================================================
+
+export async function saveChatTurn(turnData) {
+  try {
+    if (!turnData || !turnData.pairId) return null
+    await db.chatTurns.put(turnData)
+    return turnData
+  } catch (err) {
+    console.error('[DB] Error saveChatTurn:', err)
+    return null
+  }
+}
+
+export async function saveBatchChatTurns(turnsArray) {
+  try {
+    if (!Array.isArray(turnsArray) || turnsArray.length === 0) return 0
+    await db.chatTurns.bulkPut(turnsArray)
+    return turnsArray.length
+  } catch (err) {
+    console.error('[DB] Error saveBatchChatTurns:', err)
+    return 0
+  }
+}
+
+export async function getAllChatTurns() {
+  try {
+    return await db.chatTurns.toArray()
+  } catch (err) {
+    console.error('[DB] Error getAllChatTurns:', err)
+    return []
+  }
+}
+
+export async function getChatTurnsBySession(sessionId) {
+  try {
+    if (!sessionId) return []
+    return await db.chatTurns.where('sessionId').equals(Number(sessionId)).toArray()
+  } catch (err) {
+    console.error('[DB] Error getChatTurnsBySession:', err)
+    return []
+  }
+}
+
+export async function deleteChatTurnsBySession(sessionId) {
+  try {
+    if (!sessionId) return 0
+    return await db.chatTurns.where('sessionId').equals(Number(sessionId)).delete()
+  } catch (err) {
+    console.error('[DB] Error deleteChatTurnsBySession:', err)
+    return 0
+  }
+}
+
+export async function getChatTurnCount() {
+  try {
+    return await db.chatTurns.count()
+  } catch (err) {
+    console.error('[DB] Error getChatTurnCount:', err)
+    return 0
   }
 }
 

@@ -222,7 +222,9 @@ function App() {
       try {
         setLoadingText('Memuat Knowledge Base...')
         await initOramaIndices()
-        await hydrateFromDexie()
+        await hydrateFromDexie((current, total) => {
+          setLoadingText(`Mengindeks memori percakapan lama (${current}/${total})...`)
+        })
         // Recovery saat boot: task yang terputus tidak boleh tetap berstatus running.
         const pausedTaskCount = await pauseStaleAgentTasks('app_restart')
         if (pausedTaskCount > 0) {

@@ -7,6 +7,7 @@ const VECTOR_SIZE = 384
 let archiveIndex = null
 let documentIndex = null
 let memoryIndex = null
+let turnPairIndex = null
 
 export async function initOramaIndices() {
   memoryIndex = await create({
@@ -39,11 +40,69 @@ export async function initOramaIndices() {
       vector: `vector[${VECTOR_SIZE}]`
     }
   })
+
+  turnPairIndex = await create({
+    schema: {
+      pairId: 'string',
+      sessionId: 'number',
+      sessionTitle: 'string',
+      userText: 'string',
+      aiText: 'string',
+      combinedText: 'string',
+      timestamp: 'number',
+      vector: `vector[${VECTOR_SIZE}]`
+    }
+  })
 }
 
 // Dipanggil saat app start: load semua data Dexie ke Orama
-export async function hydrateFromDexie() {
+export async function hydrateFromDexie(onProgress) {
   const { db } = await import('./db')
+
+  // 1. CHAT TURNS HYDRATION & SMART MIGRATION
+  let validTurnsCount = 0
+  try {
+    const turnCount = await db.chatTurns.count()
+    const sessionCount = await db.sessions.count()
+
+    if (turnCount === 0 && sessionCount > 0) {
+      console.log('[Orama] Kondisi 1: chatTurns kosong & sessions ada. Memulai smart migration...')
+      const { migrateOldSessionsToTurns } = await import('./turnPairMigrator')
+      validTurnsCount = await migrateOldSessionsToTurns(onProgress)
+    } else if (turnCount > 0) {
+      const turns = await db.chatTurns.toArray()
+      const validTurns = turns
+        .filter((t) => t.vector && t.vector.length === VECTOR_SIZE)
+        .map((t) => {
+          const rawTs = t.timestamp
+          const numericTs =
+            typeof rawTs === 'number' && !isNaN(rawTs)
+              ? rawTs
+              : typeof rawTs === 'string' && !isNaN(Date.parse(rawTs))
+                ? Date.parse(rawTs)
+                : Number(rawTs) || Date.now()
+          return {
+            pairId: String(t.pairId || ''),
+            sessionId: Number(t.sessionId) || 1,
+            sessionTitle: String(t.sessionTitle || 'Session'),
+            userText: String(t.userText || ''),
+            aiText: String(t.aiText || ''),
+            combinedText: String(t.combinedText || ''),
+            timestamp: numericTs,
+            vector: t.vector
+          }
+        })
+      if (validTurns.length > 0) {
+        await insertMultiple(turnPairIndex, validTurns)
+        validTurnsCount = validTurns.length
+      }
+      console.log(`[Orama] Kondisi 2: Hydrated ${validTurnsCount} turn pairs from Dexie`)
+    } else {
+      console.log('[Orama] Kondisi 3: Fresh install, no chat turns to migrate')
+    }
+  } catch (err) {
+    console.error('[Orama] Error hydrating turn pairs:', err)
+  }
 
   const archives = await db.chatArchive.toArray()
   const validArchives = []
@@ -129,7 +188,7 @@ export async function hydrateFromDexie() {
     console.log('[Orama] Successfully migrated all old vectors to new model!')
   }
 
-  console.log(`[Orama] Hydrated: ${validArchives.length} archives, ${validDocs.length} doc chunks, ${validMemories.length} memories`)
+  console.log(`[Orama] Hydrated: ${validTurnsCount} turn pairs, ${validArchives.length} archives, ${validDocs.length} doc chunks, ${validMemories.length} memories`)
 }
 
 // Vector search di arsip obrolan
@@ -205,16 +264,113 @@ export async function deleteDocumentFromOrama(docName) {
   await removeMultiple(documentIndex, ids)
 }
 
+// ======================== TURN PAIR ORAMA INDEX ========================
+
+export async function insertTurnPairToOrama(data) {
+  if (!turnPairIndex || !data.vector || data.vector.length !== VECTOR_SIZE) return
+  try {
+    const rawTs = data.timestamp
+    const numericTs =
+      typeof rawTs === 'number' && !isNaN(rawTs)
+        ? rawTs
+        : typeof rawTs === 'string' && !isNaN(Date.parse(rawTs))
+          ? Date.parse(rawTs)
+          : Number(rawTs) || Date.now()
+
+    await insert(turnPairIndex, {
+      pairId: String(data.pairId || ''),
+      sessionId: Number(data.sessionId) || 1,
+      sessionTitle: String(data.sessionTitle || 'Session'),
+      userText: String(data.userText || ''),
+      aiText: String(data.aiText || ''),
+      combinedText: String(data.combinedText || ''),
+      timestamp: numericTs,
+      vector: data.vector
+    })
+  } catch (err) {
+    console.error('[Orama] Error insertTurnPairToOrama:', err)
+  }
+}
+
+export async function insertBatchTurnPairsToOrama(turns) {
+  if (!turnPairIndex || !Array.isArray(turns) || turns.length === 0) return
+  try {
+    const valid = turns
+      .filter((t) => t.vector && t.vector.length === VECTOR_SIZE)
+      .map((t) => {
+        const rawTs = t.timestamp
+        const numericTs =
+          typeof rawTs === 'number' && !isNaN(rawTs)
+            ? rawTs
+            : typeof rawTs === 'string' && !isNaN(Date.parse(rawTs))
+              ? Date.parse(rawTs)
+              : Number(rawTs) || Date.now()
+
+        return {
+          pairId: String(t.pairId || ''),
+          sessionId: Number(t.sessionId) || 1,
+          sessionTitle: String(t.sessionTitle || 'Session'),
+          userText: String(t.userText || ''),
+          aiText: String(t.aiText || ''),
+          combinedText: String(t.combinedText || ''),
+          timestamp: numericTs,
+          vector: t.vector
+        }
+      })
+
+    if (valid.length > 0) {
+      await insertMultiple(turnPairIndex, valid)
+    }
+  } catch (err) {
+    console.error('[Orama] Error insertBatchTurnPairsToOrama:', err)
+  }
+}
+
+export async function searchTurnPairsInOrama(queryText, queryVector, limit = 5, threshold = 0.5) {
+  if (!turnPairIndex || !queryVector) return []
+  try {
+    const results = await search(turnPairIndex, {
+      term: queryText,
+      mode: 'hybrid',
+      vector: { value: queryVector, property: 'vector' },
+      similarity: threshold,
+      limit
+    })
+    return results.hits.map((hit) => ({
+      ...hit.document,
+      score: hit.score
+    }))
+  } catch (err) {
+    console.error('[Orama] Error in searchTurnPairsInOrama:', err)
+    return []
+  }
+}
+
+export async function deleteTurnPairsBySessionFromOrama(sessionId) {
+  if (!turnPairIndex || !sessionId) return
+  try {
+    const results = await search(turnPairIndex, {
+      where: { sessionId: Number(sessionId) }
+    })
+    if (results.hits.length > 0) {
+      const ids = results.hits.map((h) => h.id)
+      await removeMultiple(turnPairIndex, ids)
+    }
+  } catch (err) {
+    console.error('[Orama] Error deleteTurnPairsBySessionFromOrama:', err)
+  }
+}
+
 // ======================== MEMORY ORAMA INDEX ========================
 
-export async function searchMemoriesInOrama(queryText, queryVector, limit = 5, filterTypes = null) {
+export async function searchMemoriesInOrama(queryText, queryVector, limit = 5, filterTypes = null, threshold = 0.5) {
   if (!memoryIndex || !queryVector) return []
   try {
     const results = await search(memoryIndex, {
       term: queryText,
       mode: 'hybrid',
       vector: { value: queryVector, property: 'vector' },
-      similarity: 0.25,
+      similarity: threshold,
       limit: limit * 4
     })
     let hits = results.hits.map(hit => ({ ...hit.document, id: hit.document.dexieId, score: hit.score }))

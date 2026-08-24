@@ -1,7 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { summarizeAndArchive } from '../api/ai/chatSummarizer'
-
-const MIN_MESSAGES_TO_ARCHIVE = 10 // 10 pesan (5 tektokan) per arsip
+import { indexSingleTurn } from '../api/turnPairMigrator'
 
 export const useChatArchiver = ({
   chatData,
@@ -12,52 +10,45 @@ export const useChatArchiver = ({
   sessionId = 1
 }) => {
   const currentSessionId = sessionId || 1
-  const sessionIndexesRef = useRef({}) // Map<sessionId, number>
-  const isArchivingRef = useRef(false)
   const wasLoadingRef = useRef(false)
-
-  // Track on mount / session change
-  useEffect(() => {
-    const currentIndex = sessionIndexesRef.current[currentSessionId] || 0
-    if (chatData.length < currentIndex) {
-      // Jika user melakukan 'Clear Chat', reset index
-      sessionIndexesRef.current[currentSessionId] = 0
-    } else if (currentIndex === 0 && chatData.length > 0) {
-      sessionIndexesRef.current[currentSessionId] = chatData.length
-    }
-  }, [chatData.length, currentSessionId])
+  const lastIndexedPairIdRef = useRef(null)
 
   useEffect(() => {
-    // Kita cek transisi dari isLoading: true -> false (artinya Mark baru selesai bales pesan)
+    // Deteksi transisi ketika Mark selesai merespons (isLoading: true -> false)
     const justFinishedLoading = wasLoadingRef.current && !isLoading
     wasLoadingRef.current = isLoading
 
-    if (justFinishedLoading) {
-      const lastIndex = sessionIndexesRef.current[currentSessionId] || 0
-      const newMessageCount = chatData.length - lastIndex
+    if (justFinishedLoading && Array.isArray(chatData) && chatData.length >= 2) {
+      // Cari pesan balasan AI terakhir yang valid
+      let lastAiMsg = null
+      let userMsg = null
 
-      if (newMessageCount >= MIN_MESSAGES_TO_ARCHIVE) {
-        const executeArchive = async () => {
-          if (isArchivingRef.current) return
-
-          const recentMessages = chatData
-            .slice(lastIndex)
-            .filter((m) => !m.isThinking && !m.isSearching && !m.isSummarizing)
-            .map((m) => ({ role: m.role, content: m.content }))
-
-          if (recentMessages.length >= 10) {
-            isArchivingRef.current = true
-            sessionIndexesRef.current[currentSessionId] = chatData.length
-
-            console.log('[useChatArchiver] Mark selesai membalas. Merangkum obrolan...')
-
-            await summarizeAndArchive(recentMessages, activeTopic, config)
-
-            isArchivingRef.current = false
+      for (let i = chatData.length - 1; i >= 0; i--) {
+        const msg = chatData[i]
+        if (!msg) continue
+        if (!lastAiMsg && msg.role === 'ai' && !msg.isThinking && !msg.isSearching && !msg.isSummarizing) {
+          lastAiMsg = msg
+          // Cari pesan user sebelum pesan AI ini
+          for (let j = i - 1; j >= 0; j--) {
+            if (chatData[j]?.role === 'user') {
+              userMsg = chatData[j]
+              break
+            }
           }
+          break
         }
-        executeArchive()
+      }
+
+      if (userMsg && lastAiMsg) {
+        const turnKey = `${currentSessionId}-${userMsg.timestamp || ''}-${lastAiMsg.timestamp || ''}`
+        if (lastIndexedPairIdRef.current !== turnKey) {
+          lastIndexedPairIdRef.current = turnKey
+          // Index secara instan di background
+          indexSingleTurn(currentSessionId, activeTopic, userMsg, lastAiMsg).catch((err) => {
+            console.warn('[useChatArchiver] Realtime indexSingleTurn error:', err)
+          })
+        }
       }
     }
-  }, [chatData, activeTopic, config, isLoading, currentSessionId])
+  }, [chatData, activeTopic, isLoading, currentSessionId])
 }

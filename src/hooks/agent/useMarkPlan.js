@@ -13,7 +13,7 @@ import {
   checkpointAgentTaskStep,
   transitionAgentTask
 } from '../../api/taskStore'
-import { getUnifiedContext, searchExtendedMemory, generateVector } from '../../api/vectorMemory'
+import { getUnifiedContext, searchExtendedMemory, generateVector, executeMemorySearch } from '../../api/vectorMemory'
 import { searchMemoriesInOrama } from '../../api/oramaStore'
 import { buildOptimizedChatSession } from '../../api/ai/contextCompactor'
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
@@ -206,17 +206,7 @@ export const useMarkPlan = ({
       }
       // 4. Memory Vector Search
       else if (tool === 'memory-search') {
-        const results = await searchExtendedMemory(query)
-        const formatted =
-          results.length > 0
-            ? results
-                .map(
-                  (m) =>
-                    `- [${m.type.toUpperCase()}] (ID:${m.id}, Score:${m.score.toFixed(2)}) ${m.memory}`
-                )
-                .join('\n')
-            : 'Tidak ditemukan memori yang relevan.'
-        resultString = `[MEMORY SEARCH RESULTS]\n${formatted}`
+        resultString = await executeMemorySearch(query)
       }
       // 5. Speak (TTS)
       else if (tool === 'speak') {

@@ -163,12 +163,8 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
                 res = { success: false, error: `Grup tool '${groupName}' tidak ditemukan.` }
               }
             } else if (act.tool === 'memory-search') {
-              const { searchExtendedMemory } = await import('../vectorMemory.js')
-              const mems = await searchExtendedMemory(act.query || '', 3)
-              const formatted =
-                mems && mems.length > 0
-                  ? mems.map((m) => `- [${m.type}]: ${m.memory}`).join('\n')
-                  : 'Tidak ada memori terkait ditemukan.'
+              const { executeMemorySearch } = await import('../vectorMemory.js')
+              const formatted = await executeMemorySearch(act.query || '')
               res = { success: true, data: formatted }
             } else if (window.api && window.api.executeNativeTool) {
               res = await window.api.executeNativeTool(act.tool, act.query || '', { sessionId: subagentId })
