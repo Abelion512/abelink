@@ -7,7 +7,7 @@ const CODE_EXTENSIONS = new Set([
   '.py', '.json', '.html', '.css', '.scss', '.md',
   '.sql', '.rs', '.go', '.php', '.rb', '.c', '.cpp',
   '.h', '.hpp', '.cs', '.java', '.kt', '.swift',
-  '.dart', '.vue', '.svelte', '.yaml', '.yml', '.sh', '.ps1'
+  '.dart', '.vue', '.svelte', '.yaml', '.yml', '.sh'
 ])
 
 const IGNORE_DIRS = new Set([

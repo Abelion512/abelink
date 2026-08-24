@@ -55,17 +55,13 @@ export const isDangerousKeyCombo = (combo = '') => {
 
 const execPromise = util.promisify(exec)
 
-const isWindows = process.platform === 'win32'
-
-// Linux-native: XDG data dir; Windows tetap Documents (kompatibel dengan build lama)
+// Linux-native: XDG data dir
 const getWorkspaceDir = () => {
-  if (isWindows) return getWorkspaceDir()
   const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
   return path.join(xdgData, 'mark', 'workspace')
 }
 
 const getSkillsDir = () => {
-  if (isWindows) return path.join(os.homedir(), 'Documents', 'Mark Skills')
   const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
   return path.join(xdgData, 'mark', 'skills')
 }
@@ -972,12 +968,10 @@ export const NATIVE_TOOLS = {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
       try {
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
-        // Linux-native: jalankan via bash; Windows tetap PowerShell
-        const cmd = isWindows
-          ? `powershell.exe -Command "${query}"`
-          : `bash -c "${query.replace(/"/g, '\\"')}"`
-        const { stdout, stderr } = await execPromise(cmd, {
-          cwd: activeRoot
+        // Linux-native: bash langsung
+        const { stdout, stderr } = await execPromise(query, {
+          cwd: activeRoot,
+          shell: '/bin/bash'
         })
         return {
           success: true,

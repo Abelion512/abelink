@@ -48,7 +48,7 @@ Tugasmu: Rumuskan alur kerja prosedural di atas menjadi berkas SKILL.md yang ter
 Tugasmu adalah menyaring alur kerja teknis yang baru saja BERHASIL diselesaikan oleh Mark menjadi sebuah PROSEDUR SKILL (.md) yang rapi, modular, dan dapat dieksekusi kembali secara otomatis oleh Mark di masa depan via 'read-skill'.
 
 # ATURAN PENYUSUNAN SKILL:
-1. "name": Buat nama skill dalam format kebab-case (huruf kecil, gunakan strip '-', contoh: "scrape-dynamic-table", "setup-wsl-node", "fix-powershell-policy").
+1. "name": Buat nama skill dalam format kebab-case (huruf kecil, gunakan strip '-', contoh: "scrape-dynamic-table", "setup-node-env", "fix-shell-permission").
 2. "description": Tulis 1-2 kalimat ringkas menjelaskan kegunaan skill ini dan kapan Mark harus memanggilnya.
 3. "content": Tulis isi panduan teknis langkah-demi-langkah dalam format Markdown:
    - Gambaran umum tujuan prosedur.

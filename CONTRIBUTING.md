@@ -10,8 +10,8 @@ semua aturan singkat dan praktis.
 git clone https://github.com/Abelion512/mark-agent.git
 cd mark-agent
 npm ci
-npm run dev           # dev server (Vite HMR + Electron)
-npm run build:linux   # production build -> dist/
+bun tauri dev        # dev server (Vite HMR + Tauri shell)
+bun tauri build      # production build -> src-tauri/target/release/bundle/
 ```
 
 Catatan: `npm ci` butuh `package-lock.json` — jangan hapus file itu.
@@ -48,8 +48,8 @@ Jangan pernah push langsung ke `master`.
 
 ## Code Style
 
-- **Linter:** ESLint — `npm run lint`
-- **Formatter:** Prettier — `npm run format`
+- **Linter:** ESLint — `bun run lint`
+- **Formatter:** Prettier — `bun run format`
   - singleQuote, noSemi, printWidth 100, trailingComma none
 - **Electron boundary:** Jangan pakai `fs`/`path` di `renderer/` — komunikasi OS lewat `preload/index.js` (IPC) saja
 - **CSS:** Tailwind 4 + DaisyUI 5 (`forest` theme). Jangan bikin file CSS ad-hoc

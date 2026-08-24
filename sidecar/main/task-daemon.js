@@ -14,9 +14,8 @@ export function spawnBackgroundTask(taskId, command, cwd) {
     killBackgroundTask(taskId)
   }
 
-  const child = spawn('powershell.exe', ['-NoProfile', '-Command', command], {
-    cwd: cwd || process.cwd(),
-    shell: true
+  const child = spawn('/bin/bash', ['-c', command], {
+    cwd: cwd || process.cwd()
   })
 
   const taskState = {

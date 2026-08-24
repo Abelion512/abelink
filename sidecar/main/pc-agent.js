@@ -7,7 +7,6 @@ import { join } from 'path'
 import { app, BrowserWindow, globalShortcut, screen } from 'electron'
 import fs from 'fs'
 
-const isWindows = process.platform === 'win32'
 
 let lastReadResult = null
 let lastReadTimestamp = 0
@@ -343,43 +342,8 @@ function triggerEmergencyStop() {
   }
 }
 
-/**
- * Helper to spawn mouse locker
- */
 function startMouseLocker() {
-  if (mouseLockerProcess) return
-  if (!isWindows) return // No-op on Linux (XTEST injected events are handled by xdotool itself)
-  try {
-    let scriptPath = join(__dirname, '../../src/main/pc-agent-scripts/mouse-locker.ps1')
-    if (app.isPackaged) {
-      const unpackedPath = join(
-        process.resourcesPath,
-        'app.asar.unpacked',
-        'src',
-        'main',
-        'pc-agent-scripts',
-        'mouse-locker.ps1'
-      )
-      if (fs.existsSync(unpackedPath)) {
-        scriptPath = unpackedPath
-      } else {
-        scriptPath = scriptPath.replace('app.asar', 'app.asar.unpacked')
-      }
-    } else if (!fs.existsSync(scriptPath)) {
-      scriptPath = join(__dirname, 'pc-agent-scripts', 'mouse-locker.ps1')
-    }
-    mouseLockerProcess = spawn('powershell.exe', [
-      '-NoProfile',
-      '-WindowStyle',
-      'Hidden',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      scriptPath
-    ])
-  } catch (err) {
-    console.warn('[PC-Agent] Failed to start mouse locker:', err)
-  }
+  // Linux-native: xdotool menangani event injection sendiri — tidak perlu locker eksternal
 }
 
 function stopMouseLocker() {
@@ -473,18 +437,12 @@ export async function askUserPC(query = '') {
   })
 }
 
-const DAEMON_SCRIPT = isWindows ? 'pc-daemon.ps1' : 'linux-daemon.py'
+const DAEMON_SCRIPT = 'linux-daemon.py'
 
 function getDaemonScriptPath() {
-  let scriptPath = join(__dirname, '../../src/main/pc-agent-scripts', DAEMON_SCRIPT)
-  if (app.isPackaged) {
-    const unpackedPath = join(
-      process.resourcesPath, 'app.asar.unpacked', 'src', 'main', 'pc-agent-scripts', DAEMON_SCRIPT
-    )
-    if (fs.existsSync(unpackedPath)) scriptPath = unpackedPath
-    else scriptPath = scriptPath.replace('app.asar', 'app.asar.unpacked')
-  } else if (!fs.existsSync(scriptPath)) {
-    scriptPath = join(__dirname, 'pc-agent-scripts', DAEMON_SCRIPT)
+  let scriptPath = join(__dirname, 'pc-agent-scripts', DAEMON_SCRIPT)
+  if (!fs.existsSync(scriptPath)) {
+    scriptPath = join(process.cwd(), 'sidecar', 'main', 'pc-agent-scripts', DAEMON_SCRIPT)
   }
   return scriptPath
 }
@@ -497,13 +455,7 @@ function startDaemon() {
     }
     
     const scriptPath = getDaemonScriptPath()
-    if (isWindows) {
-      daemonProcess = spawn('powershell.exe', [
-        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath
-      ])
-    } else {
-      daemonProcess = spawn('python3', ['-u', scriptPath])
-    }
+    daemonProcess = spawn('python3', ['-u', scriptPath])
     daemonBuffer = ''
     daemonReady = false
     
@@ -621,36 +573,13 @@ function isDaemonAlive() {
  */
 function runScriptFallback(scriptName, args = []) {
   return new Promise((resolve) => {
-    const resolvedScript = isWindows ? scriptName : scriptName.replace('.ps1', '.sh')
-    let scriptPath = join(__dirname, '../../src/main/pc-agent-scripts', resolvedScript)
-    if (app.isPackaged) {
-      const unpackedPath = join(
-        process.resourcesPath,
-        'app.asar.unpacked',
-        'src',
-        'main',
-        'pc-agent-scripts',
-        resolvedScript
-      )
-      if (fs.existsSync(unpackedPath)) {
-        scriptPath = unpackedPath
-      } else {
-        scriptPath = scriptPath.replace('app.asar', 'app.asar.unpacked')
-      }
-    } else if (!fs.existsSync(scriptPath)) {
-      scriptPath = join(__dirname, 'pc-agent-scripts', resolvedScript)
+    const resolvedScript = scriptName.replace('.ps1', '.sh')
+    let scriptPath = join(__dirname, 'pc-agent-scripts', resolvedScript)
+    if (!fs.existsSync(scriptPath)) {
+      scriptPath = join(process.cwd(), 'sidecar', 'main', 'pc-agent-scripts', resolvedScript)
     }
 
-    const ps = isWindows
-      ? spawn('powershell.exe', [
-          '-NoProfile',
-          '-ExecutionPolicy',
-          'Bypass',
-          '-File',
-          scriptPath,
-          ...args
-        ])
-      : spawn('bash', [scriptPath, ...args])
+    const ps = spawn('bash', [scriptPath, ...args])
     activeChildProcess = ps
 
     let stdout = ''

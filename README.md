@@ -96,13 +96,13 @@ mark/
 2.  **Instalasi dependensi:**
 
     ```bash
-    npm install
+    bun install
     ```
 
-3.  **Jalankan aplikasi:**
+3.  **Jalankan aplikasi (dev mode — Tauri + Vite HMR):**
 
     ```bash
-    npm run dev
+    bun tauri dev
     ```
 
 4.  **Konfigurasi Awal:**
@@ -146,11 +146,14 @@ try {
 ## Membangun Berkas Executable (Build)
 
 ```bash
-# Linux (AppImage + snap + deb)
-npm run build:linux
+# Linux (AppImage + deb)
+bun tauri build
 ```
 
-Berkas _installer_ akan secara otomatis tersedia di dalam direktori `dist/`.
+Berkas _installer_ akan otomatis tersedia di `src-tauri/target/release/bundle/`.
+
+> **Catatan migrasi:** branch ini sedang bermigrasi Electron → Tauri v2.
+> Lihat `docs/PLANNED/migration-tauri-v2.md` untuk peta jalan lengkap.
 
 ## Warning
 

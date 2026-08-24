@@ -752,10 +752,10 @@ const Guidebook = () => {
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
-                      name="run-powershell"
-                      description="Menjalankan perintah shell (PowerShell di Windows, bash di Linux)."
+                      name="run-shell"
+                      description="Menjalankan perintah terminal bash di Linux."
                       needsPermission={true}
-                      queryFormat="Perintah mentah (misal: npm install, dir, ping)"
+                      queryFormat="Perintah mentah (misal: bun install, ls -la, ping)"
                       howItWorks="Mark akan mengetikkan perintah ini ke terminal sistem. Perintah berbahaya (seperti rm, shutdown) wajib di-acc."
                       example="Coba cek penggunaan RAM komputer gue sekarang."
                     />

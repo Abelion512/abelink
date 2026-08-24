@@ -5,15 +5,12 @@ import matter from 'gray-matter'
 import AdmZip from 'adm-zip'
 
 const getSkillDir = () => {
-  // Linux-native: XDG data dir; Windows tetap Documents
-  const dir =
-    process.platform === 'win32'
-      ? path.join(app.getPath('documents'), 'Mark Skills')
-      : path.join(
-          process.env.XDG_DATA_HOME || path.join(app.getPath('home'), '.local', 'share'),
-          'mark',
-          'skills'
-        )
+  // Linux-native: XDG data dir
+  const dir = path.join(
+    process.env.XDG_DATA_HOME || path.join(app.getPath('home'), '.local', 'share'),
+    'mark',
+    'skills'
+  )
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
   }

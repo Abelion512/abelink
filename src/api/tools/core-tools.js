@@ -13,7 +13,7 @@ export const core_tools = {
   "read-document": "Membaca & mencari isi dokumen teks/PDF/DOCX. Panggil tanpa query untuk Smart Overview, atau gunakan kata kunci (path||keyword) atau baris (path||startLine||endLine).",
   "read-skill": "WAJIB dipanggil jika permintaan user berkaitan dengan salah satu kemampuan di daftar MARK SKILLS. Membaca file pedoman skill untuk memuat instruksi dan workflow khusus sebelum mengeksekusi aksi. Query: nama_skill (misal: \"speedrunner\", \"git-commit\").",
   "browser-search": "Mencari informasi di internet secara langsung (web search). Query: kata kunci pencarian.",
-  "os-open": "Membuka aplikasi via shell execute (Windows/Linux) atau URL di browser default. Query: nama executable/path atau URL raw (misal: notepad, https://google.com). DILARANG KERAS menggunakan markdown link [teks](url)! Ketik raw text saja.",
+  "os-open": "Membuka file/aplikasi via shell execute (xdg-open di Linux) atau URL di browser default. Query: nama executable/path atau URL raw (misal: notepad, https://google.com). DILARANG KERAS menggunakan markdown link [teks](url)! Ketik raw text saja.",
   "run-powershell": "Menjalankan perintah terminal singkat (PowerShell di Windows, bash di Linux). Query: perintah_shell.",
   "spawn_subagent": "Mendelegasikan tugas ke agen spesialis baru yang bekerja di lingkungan terisolasi. Query: name||role||goal||initial_message||tools (tools opsional dipisah koma, misal: 'read-file,write-file'). Mengembalikan subagent_id dan balasan awal.",
   "send_message": "Mengirim pesan instruksi, evaluasi, atau feedback dari Mark ke Sub-Agent aktif. Query: subagent_id||pesan_instruksi. Mengembalikan balasan langsung dari Sub-Agent.",
