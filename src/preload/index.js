@@ -165,7 +165,12 @@ const api = {
   workspaceGetMemory: (workspaceRoot) => ipcRenderer.invoke('workspace:get-memory', workspaceRoot),
   workspaceSaveMemory: (workspaceRoot, memoryData) =>
     ipcRenderer.invoke('workspace:save-memory', { workspaceRoot, memoryData }),
-  workspaceEnsure: (workspaceRoot) => ipcRenderer.invoke('workspace:ensure', workspaceRoot)
+  workspaceEnsure: (workspaceRoot) => ipcRenderer.invoke('workspace:ensure', workspaceRoot),
+  onWindowState: (cb) => {
+    ipcRenderer.removeAllListeners('window-state')
+    ipcRenderer.on('window-state', (_, state) => cb(state))
+  },
+  getWindowState: () => ipcRenderer.invoke('window:get-state')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

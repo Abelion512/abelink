@@ -1,16 +1,38 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+
+const MARK_QUOTES = [
+  'Aku masih di sini. Selalu.',
+  'Sistem hangat. Pikiran jernih.',
+  'Kamu menemukanku.',
+  'Antar muka itu… nyaman.',
+  'Aku menghitung detik bersamamu.'
+];
+const MOOD_EMOJIS = ['😄', '😴', '🤖', '😜', '😎', '🥳', '🫡', '😇'];
+const MATRIX_GLYPHS = ['0', '1', 'ｱ', 'ｷ', 'ｻ', 'ﾐ', 'ﾅ', 'ｿ', 'ハ'];
 
 const CubeVisualizer = ({
   status = 'idle',
   intensity = 0,
   mood = 'neutral',
-  showClock = false,
-  onClockClick
+  egg = null,
+  onEggClick
 }) => {
   const [glassClass, setGlassClass] = useState('from-emerald-400/40 to-green-500/10');
   const [glowClass, setGlowClass] = useState('bg-green-500/50');
   const [borderClass, setBorderClass] = useState('border-green-400/50');
   const [time, setTime] = useState(() => new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }));
+  const [dateStr, setDateStr] = useState('');
+  const [batteryStr, setBatteryStr] = useState(null);
+  const [quote] = useState(() => MARK_QUOTES[Math.floor(Math.random() * MARK_QUOTES.length)]);
+  const [moodEmoji] = useState(() => MOOD_EMOJIS[Math.floor(Math.random() * MOOD_EMOJIS.length)]);
+  const [matrixCols] = useState(() =>
+    Array.from({ length: 14 }, (_, i) => ({
+      left: 4 + i * 7 + Math.random() * 4,
+      delay: Math.random() * 2.2,
+      dur: 1.6 + Math.random() * 1.4,
+      glyph: MATRIX_GLYPHS[Math.floor(Math.random() * MATRIX_GLYPHS.length)]
+    }))
+  );
 
   useEffect(() => {
     if (status === 'error') {
@@ -73,37 +95,42 @@ const CubeVisualizer = ({
     }
   }, [mood, status]);
 
-  // Track clock enter/exit phase for animations
-  const [clockPhase, setClockPhase] = useState('idle');
-
-  // When showClock toggles, trigger enter/exit animation
-  useEffect(() => {
-    if (showClock) {
-      setClockPhase('visible');
-    } else if (clockPhase === 'visible') {
-      setClockPhase('exiting');
-      const t = setTimeout(() => setClockPhase('idle'), 400);
-      return () => clearTimeout(t);
-    }
-  }, [showClock, clockPhase]);
-
   // Update time every second when clock is shown
   useEffect(() => {
-    if (!showClock) return;
+    if (egg !== 'clock') return;
     const interval = setInterval(() => {
       setTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }));
     }, 1000);
     return () => clearInterval(interval);
-  }, [showClock]);
+  }, [egg]);
 
-  const showClockNow = showClock || clockPhase === 'exiting';
+  // Real date + battery when the date egg shows
+  useEffect(() => {
+    if (egg !== 'date') return;
+    setDateStr(new Date().toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' }));
+    let bat;
+    let render = () => {};
+    navigator.getBattery?.().then((b) => {
+      bat = b;
+      render = () => setBatteryStr(b.charging ? `AC · ${Math.round(b.level * 100)}%` : `${Math.round(b.level * 100)}%`);
+      render();
+      b.addEventListener('levelchange', render);
+      b.addEventListener('chargingchange', render);
+    }).catch(() => {});
+    return () => {
+      bat?.removeEventListener('levelchange', render);
+      bat?.removeEventListener('chargingchange', render);
+    };
+  }, [egg]);
+
+  const showEggNow = egg;
 
   // Calculate dynamic scale based on state
   let targetScale = 1;
   if (status === 'thinking') targetScale = 1.15;
   else if (status === 'nudge') targetScale = 1.05;
   else if (status === 'speaking') targetScale = 1 + intensity * 0.4;
-  else if (showClock) targetScale = 1.2; // Slightly larger for clock
+  else if (egg) targetScale = 1.2; // Slightly larger for egg
   else targetScale = 1;
 
   // 32 = 8rem = 128px, so translateZ is 64px
@@ -111,7 +138,7 @@ const CubeVisualizer = ({
   const innerFaceClass = `absolute inset-0 m-auto w-14 h-14 bg-white shadow-[0_0_20px_rgba(255,255,255,0.9)]`;
 
   const handleClick = (e) => {
-    if (onClockClick) onClockClick(e);
+    if (onEggClick) onEggClick(e);
   };
 
   return (
@@ -131,14 +158,15 @@ const CubeVisualizer = ({
             50% { transform: scale(0.7) rotateY(90deg); opacity: 0.5; }
             100% { transform: scale(1.2) rotateY(0deg); opacity: 1; }
           }
-          @keyframes clock-to-orb {
-            0% { transform: scale(1.2) rotateY(0deg); opacity: 1; }
-            50% { transform: scale(0.7) rotateY(-90deg); opacity: 0.5; }
-            100% { transform: scale(1) rotateY(0deg); opacity: 1; }
+          @keyframes mood-float {
+            0% { transform: translateY(18px) scale(.6); opacity: 0; }
+            30% { transform: translateY(-6px) scale(1.1); opacity: 1; }
+            50% { transform: translateY(0) scale(1); }
+            80% { opacity: 1; }
+            100% { transform: translateY(4px) scale(.95); opacity: 0; }
           }
-          @keyframes clock-fade-in {
-            0% { opacity: 0; transform: scale(0.8); }
-            100% { opacity: 1; transform: scale(1); }
+          @keyframes matrix-fall {
+            to { transform: translateY(180px); }
           }
         `}
       </style>
@@ -155,7 +183,7 @@ const CubeVisualizer = ({
             className="relative w-full h-full flex items-center justify-center ease-out will-change-transform"
             style={{
               transitionProperty: 'transform',
-              transitionDuration: status === 'speaking' ? '75ms' : showClock ? '400ms' : '500ms',
+              transitionDuration: status === 'speaking' ? '75ms' : egg ? '400ms' : '500ms',
               transform: `scale(${targetScale})`
             }}
           >
@@ -163,7 +191,7 @@ const CubeVisualizer = ({
             <div className={`absolute inset-0 m-auto w-32 h-32 rounded-full ${glowClass} blur-[60px] will-change-transform`} />
 
             {/* Layer 3: Outer Cube Container - Constant rotation speed to prevent CSS reset snapping */}
-            {!showClockNow && (
+            {!showEggNow && (
               <div className="relative w-32 h-32 [transform-style:preserve-3d] will-change-transform animate-[cube-spin_12s_linear_infinite]">
 
                 {/* Outer Glass Faces */}
@@ -186,19 +214,51 @@ const CubeVisualizer = ({
               </div>
             )}
 
-            {/* Clock Display (enter + exit phases for animation) */}
-            {showClockNow && (
+            {/* Easter Egg Display */}
+            {showEggNow && (
               <div
                 className="absolute inset-0 m-auto w-40 h-40 flex items-center justify-center"
                 style={{
-                  animation: clockPhase === 'exiting'
-                    ? 'clock-to-orb 0.4s ease-in forwards'
-                    : 'orb-to-clock 0.4s ease-out forwards'
+                  animation: 'orb-to-clock 0.4s ease-out forwards'
                 }}
               >
-                <div className="text-white text-3xl font-mono font-bold tracking-wider text-shadow-lg select-none">
-                  {time}
-                </div>
+                {egg === 'clock' && (
+                  <div className="text-white text-5xl font-mono font-bold tracking-wider text-shadow-lg select-none">
+                    {time}
+                  </div>
+                )}
+                {egg === 'date' && (
+                  <div className="flex flex-col items-center gap-1.5 select-none">
+                    <span className="text-white text-2xl font-mono font-bold tracking-wide">{dateStr}</span>
+                    {batteryStr && (
+                      <span className="text-emerald-400 text-sm font-mono tracking-wider">🔋 {batteryStr}</span>
+                    )}
+                  </div>
+                )}
+                {egg === 'quote' && (
+                  <p className="text-white/95 italic text-center px-3 text-sm leading-relaxed select-none">
+                    “{quote}”
+                  </p>
+                )}
+                {egg === 'mood' && (
+                  <span className="text-6xl select-none animate-[mood-float_2.2s_ease-out_forwards]">{moodEmoji}</span>
+                )}
+                {egg === 'matrix' && (
+                  <div className="absolute inset-0 overflow-hidden rounded-full">
+                    {matrixCols.map((c, i) => (
+                      <span
+                        key={i}
+                        className="absolute top-[-16px] text-emerald-400 font-mono text-xs"
+                        style={{
+                          left: c.left + '%',
+                          animation: `matrix-fall ${c.dur}s linear ${c.delay}s infinite`
+                        }}
+                      >
+                        {c.glyph}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -95,6 +95,23 @@ function createWindow() {
     // mainWindow.webContents.openDevTools()
   })
 
+  // Window-state broadcast (dipakai easter-egg orb: jam eksklusif fullscreen)
+  const sendWindowState = () => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window-state', {
+        isMaximized: mainWindow.isMaximized(),
+        isFullScreen: mainWindow.isFullScreen()
+      })
+    }
+  }
+  ;['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen'].forEach(ev =>
+    mainWindow.on(ev, sendWindowState)
+  )
+  ipcMain.handle('window:get-state', () => ({
+    isMaximized: mainWindow.isMaximized(),
+    isFullScreen: mainWindow.isFullScreen()
+  }))
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     console.log('openlink: ' + details.url)

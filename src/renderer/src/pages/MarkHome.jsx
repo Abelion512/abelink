@@ -53,8 +53,28 @@ const MarkHome = () => {
   const [isMaxWindow, setIsMaxWindow] = useState(false)
   const [ttsIntensity, setTtsIntensity] = useState(0)
   const [workspaceRoot, setWorkspaceRoot] = useState(null)
-  const [showClock, setShowClock] = useState(false)
-  const clockTimerRef = useRef(null)
+  const [winState, setWinState] = useState({ isMaximized: false, isFullScreen: false })
+  const [easterEgg, setEasterEgg] = useState(null)
+  const eggTimerRef = useRef(null)
+
+  // Pool easter-egg saat maximize/restored — jam eksklusif fullscreen
+  const EGG_POOL = ['date', 'quote', 'mood', 'matrix']
+
+  const hideEgg = () => {
+    if (eggTimerRef.current) clearTimeout(eggTimerRef.current)
+    setEasterEgg(null)
+  }
+
+  const handleOrbClick = () => {
+    if (easterEgg) return hideEgg()
+    if (!winState.isMaximized && !winState.isFullScreen) return
+    const pick = winState.isFullScreen
+      ? 'clock'
+      : EGG_POOL[Math.floor(Math.random() * EGG_POOL.length)]
+    setEasterEgg(pick)
+    if (eggTimerRef.current) clearTimeout(eggTimerRef.current)
+    eggTimerRef.current = setTimeout(hideEgg, 15000)
+  }
 
   useEffect(() => {
     db.sessions
@@ -65,6 +85,13 @@ const MarkHome = () => {
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    if (window.api?.onWindowState) {
+      window.api.onWindowState((s) => setWinState(s))
+      window.api.getWindowState?.().then(setWinState)
+    }
+  }, [])
+
   const handleSelectWorkspace = async () => {
     if (window.api && window.api.selectDirectory) {
       const selected = await window.api.selectDirectory()
@@ -73,15 +100,6 @@ const MarkHome = () => {
         setWorkspaceRoot(selected)
       }
     }
-  }
-
-  const handleOrbClick = () => {
-    setShowClock(prev => {
-      if (clockTimerRef.current) clearTimeout(clockTimerRef.current)
-      if (prev) return false
-      clockTimerRef.current = setTimeout(() => setShowClock(false), 5000)
-      return true
-    })
   }
 
   useEffect(() => {
@@ -367,8 +385,8 @@ const MarkHome = () => {
                 status={orbStatus}
                 intensity={orbStatus === 'speaking' ? ttsIntensity : 0}
                 mood={currentResponse?.mood || 'neutral'}
-                showClock={showClock}
-                onClockClick={handleOrbClick}
+                egg={easterEgg}
+                onEggClick={handleOrbClick}
               />
             </div>
           </div>
