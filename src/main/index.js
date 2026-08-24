@@ -15,6 +15,7 @@ import {
 } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import { detectLiteMode } from './utils/systemInfo'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.ico?asset'
 import iconPng from '../../resources/icon.png?asset'
@@ -126,6 +127,10 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('system:lite-mode-changed', detectLiteMode())
+  })
+
   // Sembunyikan window saat tombol close diklik (masuk tray)
   mainWindow.on('close', function (event) {
     if (!isQuiting) {
@@ -215,6 +220,7 @@ ipcMain.on('window-close', () => {
   if (mainWindow) mainWindow.close()
 })
 
+ipcMain.handle('system:get-lite-mode', () => detectLiteMode())
 
 ipcMain.on('sync-config', (event, config) => {
   setGlobalConfig(config)

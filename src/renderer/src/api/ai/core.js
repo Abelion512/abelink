@@ -144,6 +144,7 @@ export const cleanAndParse = (rawResponse) => {
     let cleaned = jsonStr
       .replace(/\r?\n/g, ' ')
       .replace(/\t/g, ' ')
+      // eslint-disable-next-line no-control-regex -- stripping control chars is the point
       .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
 
     try {

@@ -19,6 +19,7 @@
 - **Dual AI Provider (Hybrid) & Custom API:** Anda memegang kendali penuh. Gunakan **Local AI** (berjalan langsung di PC Anda), atau alihkan ke **Cloud AI** (Groq/Cerebras). Ditambah dukungan Custom OpenAI-Compatible API untuk fleksibilitas mutlak.
 - **Asisten Bot WhatsApp Mandiri:** Mark mampu memproses tugas rumit melalui WhatsApp dengan menyusun rencana terstruktur, mengeksekusi langkah demi langkah (mencari data, merangkum, dll), dan memberi laporan akhir berkat arsitektur `waAutonomous.js`.
 - **Proaktif dengan Awareness Engine:** Sistem Mark tidak hanya pasif merespons. Mark bisa proaktif menegur, menyapa, atau memutarkan musik di latar belakang. Aksi proaktif intrusif dibatasi oleh _Proactive Proposal Boundary_, dan kini dilengkapi fitur **Toggle** (bisa dimatikan kapan saja).
+- **Lite Mode Otomatis:** Di PC dengan RAM ≤4GB, Mark otomatis mengganti fitur-fitur berat dengan alternatif ringan tanpa menghilangkan fungsi apa pun — _Memory Visualizer_ tampil sebagai daftar ringkas alih-alih graf 3D, memori vektor menggunakan _hash embedding_ alih-alih model WASM lokal, dan jendela browser agent ditutup otomatis setelah idle 60 detik. Ditandai badge **"Lite"** yang bisa dihilangkan di pojok kiri atas; mode penuh tetap dapat dipaksa lewat environment variable `LITE_MODE=0`.
 
 ## Kemampuan Utama (Tools)
 
