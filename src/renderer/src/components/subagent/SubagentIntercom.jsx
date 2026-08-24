@@ -23,7 +23,7 @@ const markdownComponents = {
   code({ node, inline, className, children, ...props }) {
     const match = /language-(\w+)/.exec(className || '')
     return !inline ? (
-      <CodeBlock match={match} children={children} />
+      <CodeBlock match={match}>{children}</CodeBlock>
     ) : (
       <code
         className="bg-base-300/90 text-accent font-mono text-[11px] px-1.5 py-0.5 rounded border border-base-content/10"
