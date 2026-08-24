@@ -10,7 +10,7 @@ on:
       - '.github/FUNDING.yml'
       - '.github/SECURITY.md'
   pull_request:
-    branches: [main, master]
+    branches: [main, master, develop, 5.5.0]
     paths-ignore:
       - '**.md'
       - '.gitignore'
