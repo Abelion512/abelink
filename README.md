@@ -11,6 +11,8 @@
 
 ## Fitur Unggulan
 
+- **Persistent 3-Layer Memory & Real-Time Turn-Pair Vector Engine:** Seluruh pasangan tanya-jawab (Turn Pairs) disimpan permanen di database lokal (Dexie/IndexedDB) dan diindeks *real-time* ke mesin hybrid `@orama/orama` dengan model lokal 384-dimensi via **Dedicated Web Worker** — tanpa membebani UI thread.
+- **Universal Zero-Hallucination Policy & Strict Groundedness:** Jika data riwayat, berkas kode, atau fakta dokumen tidak ditemukan, Mark wajib jujur mengakuinya dan dilarang keras mengarang informasi (*anti-extrapolation*).
 - **Dynamic Agentic Planning (ReAct Loop):** Mengganti sistem penjawab statis dengan arsitektur penalaran cerdas. Mark mampu memecah masalah, memikirkan strategi, menggunakan _tools_ secara otonom berulang kali, dan mengevaluasi hasilnya sebelum memberikan jawaban akhir yang komprehensif.
 - **Infinite Memory & Injection Knowledge RAG:** Sistem Vector Retrieval-Augmented Generation (RAG) kini berjalan secara _offline_. Mark dapat menyimpan riwayat memori obrolan masif tanpa batas dan pengguna dapat menambahkan pengetahuan dari sebuah file document tanpa membebani _context window_ utama LLM.
 - **Visualisasi Jaringan Otak (Memory Visualizer):** Dilengkapi dengan UI _Live Feed_ "Mark Neural Core". Pengguna dapat melihat secara _real-time_ grafis Neural Network yang menampilkan jaringan _Chat History_, _Knowledge Base_, hingga _Document Vault_.
