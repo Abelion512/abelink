@@ -13,7 +13,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test": "vitest run",
+    "verify": "bash scripts/verify.sh",
+    "harness": "bun sidecar/engine.mjs"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",

@@ -27,6 +27,12 @@ src-tauri/gen/
 .vscode/
 .idea/
 .DS_Store
+*.swp
+
+# worktree lokal & cache lain
+/.claude/worktrees/
+__pycache__/
+coverage/
 
 # project-specific
 workflow

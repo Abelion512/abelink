@@ -7,6 +7,15 @@ let nextId = 1
 const pendingPromises = new Map()
 const progressListeners = new Set()
 
+let liteAutoNotified = false
+function emitLiteAuto() {
+  if (liteAutoNotified) return
+  liteAutoNotified = true
+  try {
+    window.dispatchEvent(new CustomEvent('mark:auto-lite', { detail: { reason: 'wasm-unsupported' } }))
+  } catch (_) {}
+}
+
 function getWorker() {
   if (!worker && typeof Worker !== 'undefined') {
     try {
@@ -30,6 +39,12 @@ function getWorker() {
             resolve(vector !== undefined ? vector : results)
           } else {
             console.warn('[EmbeddingWorker] Worker task error:', error)
+            // WebKitGTK tanpa WASM SIMD/threads -> auto Lite Mode (hash embedding)
+            if (/SIMD|no available backend/i.test(String(error))) {
+              isLiteMode = true
+              emitLiteAuto()
+              console.warn('[EmbeddingWorker] Auto Lite Mode AKTIF (hash embedding fallback)')
+            }
             resolve(null)
           }
         }

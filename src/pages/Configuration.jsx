@@ -110,9 +110,6 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const [activeSection, setActiveSection] = useState('cfg-ai-engine')
   const [devHarness, setDevHarness] = useState(() => localStorage.getItem('devHarnessLogging') === '1')
   const [legacyProfiles, setLegacyProfiles] = useState([])
-  const [legacyBusy, setLegacyBusy] = useState(false)
-  const [legacyMsg, setLegacyMsg] = useState(null)
-  const contentRef = useRef(null)
 
   const handleTestVoice = async () => {
     setPlayingTest(true)
@@ -164,23 +161,6 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
       .catch(() => {})
   }, [isFirstSetup])
 
-  const handleLegacyImport = async () => {
-    if (legacyBusy) return
-    setLegacyBusy(true)
-    setLegacyMsg(null)
-    try {
-      const picked = await window.api.legacyImportPickAndRead()
-      if (!picked) return
-      const { importInto } = await import('dexie-export-import')
-      await importInto(db, JSON.parse(picked.content), { clearTablesBeforeImport: true })
-      setLegacyMsg('Import berhasil — memuat ulang...')
-      setTimeout(() => window.location.reload(), 900)
-    } catch (err) {
-      setLegacyMsg(`Gagal: ${err.message}`)
-    } finally {
-      setLegacyBusy(false)
-    }
-  }
 
   useEffect(() => {
     if (isFirstSetup) {
@@ -529,31 +509,8 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const handleTgAdminIdsChange = (e) =>
     setConfig((prev) => ({ ...prev, tgAdminIds: e.target.value }))
 
-  useEffect(() => {
-    const container = contentRef.current
-    if (!container) return
-    const sectionIds = ['cfg-ai-engine', 'cfg-camera', 'cfg-shortcut', 'cfg-audio-voice', 'cfg-memory-data', 'cfg-developer']
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id)
-          }
-        }
-      },
-      { root: container, rootMargin: '-30% 0px -40% 0px', threshold: 0 }
-    )
-    sectionIds.forEach((id) => {
-      const el = container.querySelector('#' + id)
-      if (el) observer.observe(el)
-    })
-    return () => observer.disconnect()
-  }, [])
 
-  const handleSidebarNavigate = (id) => {
-    const el = contentRef.current?.querySelector('#' + id)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
+  const handleSidebarNavigate = (id) => setActiveSection(id)
 
   return (
     <div
@@ -571,7 +528,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           onNavigate={handleSidebarNavigate}
         />
         <div className="flex-1 overflow-y-auto ml-4 mr-4">
-          <div ref={contentRef} className="pt-4">
+          <div className="pt-4">
             {/* Page Header */}
             <div className="flex items-center gap-4">
             {!isFirstSetup && (
@@ -606,21 +563,28 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 Profil Mark versi lama terdeteksi ({legacyProfiles.length} lokasi).
                 Lanjutkan memory & pengaturan lama lewat file export JSON, atau mulai fresh.
               </span>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button className="btn btn-xs" onClick={() => setLegacyProfiles([])}>
                   Mulai Fresh
                 </button>
-                <button className="btn btn-xs btn-primary" onClick={handleLegacyImport} disabled={legacyBusy}>
-                  {legacyBusy ? 'Mengimpor...' : 'Pilih File Export JSON'}
+                <button
+                  className="btn btn-xs btn-ghost"
+                  onClick={() => window.api?.openExternal('file://' + legacyProfiles[0])}
+                  title={legacyProfiles.join(', ')}
+                >
+                  Buka Folder Data Lama
                 </button>
               </div>
-              {legacyMsg && <span className="text-xs opacity-70">{legacyMsg}</span>}
+              <span className="text-xs opacity-60">
+                Untuk memindahkan memory: buka Mark versi lama → Settings → Export DB ke JSON,
+                lalu hubungi flow import (fitur berikutnya). Data lama tidak diubah.
+              </span>
             </div>
           )}
           </div>
 
           {/* ── AI Engine & Tools ── */}
-          <section id="cfg-ai-engine" className="space-y-5 scroll-mt-4">
+          <section id="cfg-ai-engine" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-ai-engine' ? 'hidden' : ''}`}>
             <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
               AI Engine & Tools
             </h2>
@@ -885,7 +849,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             <div className="divider"></div>
 
             {/* Camera Settings */}
-            <div id="cfg-camera" className="space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4">
+            <div id="cfg-camera" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-camera' ? 'hidden' : ''}`}>
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5 flex items-center gap-2">
                 Kamera
               </h2>
@@ -932,7 +896,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             </div>
 
             {/* ── Global Shortcut Settings ── */}
-            <section id="cfg-shortcut" className="space-y-5 p-2 -mx-2 rounded-lg scroll-mt-4">
+            <section id="cfg-shortcut" className={`space-y-5 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-shortcut' ? 'hidden' : ''}`}>
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                 Global Shortcut Key
               </h2>
@@ -1002,7 +966,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             <div className="divider"></div>
 
             {/* TTS Settings */}
-            <div id="cfg-audio-voice" className="space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4">
+            <div id="cfg-audio-voice" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-audio-voice' ? 'hidden' : ''}`}>
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5">
                 Audio & Voice Engine
               </h2>
@@ -1206,7 +1170,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               <div className="divider"></div>
 
               {/* ── Memory & Data ── */}
-              <section id="cfg-memory-data" className="space-y-5 scroll-mt-4">
+              <section id="cfg-memory-data" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-memory-data' ? 'hidden' : ''}`}>
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                   Memory & Data
                 </h2>
@@ -1226,7 +1190,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               </section>
 
               {/* -- Developer -- */}
-              <section id="cfg-developer" className="space-y-5 scroll-mt-4">
+              <section id="cfg-developer" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-developer' ? 'hidden' : ''}`}>
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                   Developer
                 </h2>

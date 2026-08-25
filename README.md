@@ -19,9 +19,8 @@
 - **Live Thought Process (Neural Flow):** Perhatikan Mark berpikir! Setiap kali sistem mengeksekusi rencana (_Agentic Planning_), antarmuka akan memancarkan animasi _3D Neuron_ yang terbang mengorbit inti pikiran (Orb) untuk interaktivitas tingkat _Sci-Fi_.
 - **Relational Growth System & Dynamic Persona:** Hubungan Anda dengan Mark dievaluasi layaknya dengan manusia sungguhan melalui 4 parameter krusial (_Warmth, Sarcasm, Trust, Energy_). Tingkat kesopanan, kelancangan (_toxicity_), dan kepribadian Mark akan berevolusi organik. Jika Anda sering bersarkasme, Mark bebas menggunakan bahasa _tongkrongan_ dan men-_roasting_ Anda. Didukung oleh **9 Inside Out 2 Emotions** (Joy, Sadness, Fear, Anger, Disgust, Anxiety, Envy, Embarrassment, Ennui) yang secara dinamis mengubah warna UI Orb di layar.
 - **Dual AI Provider (Hybrid) & Custom API:** Anda memegang kendali penuh. Gunakan **Local AI** (berjalan langsung di PC Anda), atau alihkan ke **Cloud AI** (Groq/Cerebras). Ditambah dukungan Custom OpenAI-Compatible API untuk fleksibilitas mutlak.
-- **Asisten Bot WhatsApp Mandiri:** Mark mampu memproses tugas rumit melalui WhatsApp dengan menyusun rencana terstruktur, mengeksekusi langkah demi langkah (mencari data, merangkum, dll), dan memberi laporan akhir berkat arsitektur `waAutonomous.js`.
 - **Proaktif dengan Awareness Engine:** Sistem Mark tidak hanya pasif merespons. Mark bisa proaktif menegur, menyapa, atau memutarkan musik di latar belakang. Aksi proaktif intrusif dibatasi oleh _Proactive Proposal Boundary_, dan kini dilengkapi fitur **Toggle** (bisa dimatikan kapan saja).
-- **Lite Mode Otomatis:** Di PC dengan RAM ≤4GB, Mark otomatis mengganti fitur-fitur berat dengan alternatif ringan tanpa menghilangkan fungsi apa pun — _Memory Visualizer_ tampil sebagai daftar ringkas alih-alih graf 3D, memori vektor menggunakan _hash embedding_ alih-alih model WASM lokal, dan jendela browser agent ditutup otomatis setelah idle 60 detik. Ditandai badge **"Lite"** yang bisa dihilangkan di pojok kiri atas; mode penuh tetap dapat dipaksa lewat environment variable `LITE_MODE=0`.
+- **Lite Mode Otomatis:** Di PC dengan RAM ≤4GB, Mark otomatis mengganti fitur-fitur berat dengan alternatif ringan tanpa menghilangkan fungsi apa pun — _Memory Visualizer_ tampil sebagai daftar ringkas alih-alih graf 3D, memori vektor menggunakan _hash embedding_ alih-alih model WASM lokal, dan jendela browser agent ditutup otomatis setelah idle 60 detik. Ditandai badge **"Lite"** yang bisa dihilangkan di pojok kiri atas. Jika webview tidak mendukung WASM SIMD, Mark **otomatis** aktif Lite Mode (hash embedding).
 
 ## Kemampuan Utama (Tools)
 
@@ -35,53 +34,52 @@ Mark dibekali dengan berbagai integrasi alat untuk mengeksekusi tugas di luar se
 - **Riset Internet Mendalam (Deep Web Search):** Mark dapat menelusuri web secara mandiri untuk mencari informasi akurat dan memberikan ringkasan yang dilengkapi dengan tautan kutipan (_citations_).
 - **Perangkum YouTube Kilat:** Cukup berikan tautan video YouTube, dan Mark akan mengekstrak transkrip asli, memproses teks, dan memberikan ringkasan akurat tanpa Anda harus menonton video tersebut.
 - **Pemutar YouTube Music Terintegrasi:** Terhubung langsung dengan ekosistem YouTube Music (tanpa iklan). Perintahkan Mark untuk memutar lagu, dan ia akan mencari serta memutarnya di latar belakang sembari menampilkan sampul album pada antarmuka.
-- **Integrasi Bot WhatsApp (Baileys):** Mark dapat bertindak sebagai asisten pribadi di akun WhatsApp Anda. Dengan arsitektur _Auto-Retry_ yang andal, Mark kebal terhadap masalah jaringan. Ia dapat merangkum obrolan grup, merespons _mention_, mencari informasi di web, atau bahkan mengunduh lagu YouTube sebagai berkas MP3 langsung ke obrolan WhatsApp.
+- **Bot Telegram Pribadi:** Kendalikan Mark dari mana saja via Telegram — kirim tugas kompleks (auto-planning + eksekusi bertahap), terima notifikasi proaktif, ringkasan obrolan, hingga unduh lagu YouTube sebagai MP3 langsung ke chat. Auto-retry tahan jaringan.
 - **Sistem Plugin Kustom:** Tambahkan fitur atau kemampuan baru langsung dari antarmuka aplikasi tanpa perlu memodifikasi kode sumber inti. Anda dapat membuat skrip Node.js (misalnya, _plugin_ untuk mengatur volume atau mematikan PC) dan Mark akan langsung memahami cara menggunakannya.
 
 ## Arsitektur Proyek
 
 ```text
 mark/
-├── src/
-│   ├── main/              # Proses Utama Electron (Window, IPC, TTS, Tray, Global Shortcut)
-│   │   ├── whatsapp/      # Layanan WhatsApp WebSocket Asli (@whiskeysockets/baileys)
-│   │   │   ├── baileys-service.js     # Koneksi, Parsing Pesan, IPC Routing & Perintah
-│   │   │   ├── message-store.js       # Penyimpanan histori chat di RAM
-│   │   │   └── media-downloader.js    # Modul pengunduh media MP3 untuk WA (ytdl-exec)
-│   │   └── ai-bridge.js   # Penghubung utama ke AI API, Rate Limit, & Auto-Repair JSON
-│   ├── preload/           # Skrip Preload (Jembatan keamanan Node.js ke React)
-│   └── renderer/          # Frontend (React 19 + Vite)
-│       └── src/
-│           ├── api/
-│           │   ├── ai/             # Modul Integrasi AI (chat, perencanaan, tools)
-│           │   ├── db.js           # Skema & Migrasi Database Lokal (Dexie/IndexedDB)
-│           │   ├── scraping.js     # Mesin pencari Google & web scraper
-│           │   ├── vectorMemory.js # Sistem Memori Vektor (Transformers.js / LM Studio)
-│           │   └── waAutonomous.js # Logika otonom & eksekusi plugin untuk Bot WhatsApp
-│           ├── components/         # Komponen UI modular
-│           ├── hooks/              # Custom Hooks React (useMarkPlan, useVAD, dll)
-│           └── pages/              # Halaman UI (Chat, Configuration, WhatsApp Bot)
+├── index.html            # Entry Vite (standard Tauri)
+├── src/                  # Frontend React 19 + Vite + Tailwind 4
+│   ├── api/              # AI core, planning, db (Dexie), vectorMemory (Web Worker), tauri-bridge
+│   ├── components/       # Komponen UI modular
+│   ├── hooks/            # useMarkPlan, useVAD, useAwareness, dll
+│   └── pages/            # MarkHome, Configuration, Subagents, ChatStudio, dll
+├── src-tauri/            # Shell Rust (Tauri v2): window, tray, shortcut, cmd_fs, harness, node-bridge
+├── sidecar/              # Node engine masa transisi (50+ tool channel, protokol JSON stdio)
+│   ├── engine.mjs        # Dispatcher harness — bisa jalan headless: bun run harness
+│   └── main/             # Modul tool lama (ai-bridge, node-tools, telegram, google, dll)
+├── resources/            # Ikon & binary eksternal (ffmpeg, yt-dlp)
+└── scripts/verify.sh     # Gerbang verifikasi (test + build + cargo check)
 ```
 
 ## Teknologi Terkait
 
 | Kategori           | Teknologi                                                                     |
 | ------------------ | ----------------------------------------------------------------------------- |
-| **Framework**      | Electron 39, React 19, Vite 7                                                 |
-| **Antarmuka (UI)** | Tailwind CSS 4, DaisyUI 5, Framer Motion/GSAP (Animasi), React Force Graph 2D |
-| **Mesin AI**       | LM Studio (Offline) / Groq, Cerebras, Custom OpenAI-Compatible API            |
-| **Memori Vektor**  | Transformers.js (`@huggingface/transformers`), LM Studio                      |
-| **Pencarian Web**  | Electron Webview (Bypass Anti-Bot)                                            |
-| **Suara & Audio**  | Groq API (STT), Transformers.js (Local STT), Edge-TTS, Web Audio API (VAD)    |
-| **Integrasi**      | `youtube-transcript-plus`, `youtube-dl-exec`, `ffmpeg-static`, Baileys WA     |
-| **Database/RAG**   | Dexie.js (IndexedDB), `pdf-parse` (Document Extraction)                       |
+| Kategori           | Teknologi                                                                     |
+| ------------------ | ----------------------------------------------------------------------------- |
+| **Shell**          | Tauri v2 (Rust) — pengganti Electron, jauh lebih ringan                        |
+| **Runtime tool**   | Bun (package manager, test runner, sidecar engine)                             |
+| **Antarmuka (UI)** | React 19, Vite 7, Tailwind CSS 4, DaisyUI 5, GSAP (Animasi)                    |
+| **Backend native** | Rust + tokio (file-ops, shell, tray, harness logging)                          |
+| **Mesin AI**       | Gemini Web (Gratis) / LM Studio offline / Groq, Cerebras, Custom OpenAI-API    |
+| **Memori Vektor**  | Transformers.js di Dedicated Web Worker (384-dim), hash fallback Lite Mode     |
+| **Suara & Audio**  | Groq Whisper (STT), Transformers.js local STT, Edge-TTS, Web Audio API (VAD)   |
+| **Integrasi**      | youtube-transcript-plus, yt-dlp + ffmpeg (resources), Telegram Bot             |
+| **Database/RAG**   | Dexie.js (IndexedDB), @orama/orama (hybrid search), pdf-parse                  |
 
 ## Instalasi & Penggunaan
 
 ### Persyaratan Sistem
 
 - **Sistem Operasi**: Linux (Ubuntu 22.04+/Fedora/Arch).
-- **Node.js**: Versi 18 atau lebih baru
+- **Rust toolchain**: `rustup` (stable) + dependensi WebKitGTK:
+  `sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev`
+- **Bun**: `curl -fsSL https://bun.sh/install | bash`
+- **python3 + xdotool**: untuk PC-automation daemon & Awareness Engine
 - **xdotool**: Untuk Awareness Engine (window tracking). Install: `sudo apt install xdotool` (Debian/Ubuntu) atau `sudo pacman -S xdotool` (Arch).
 - (Opsional) **LM Studio** jika Anda ingin menjalankan model sepenuhnya secara luring (_offline_).
 - (Opsional) **API Key Groq** untuk menggunakan model komputasi awan yang sangat cepat.
@@ -145,6 +143,22 @@ try {
 
 7. Klik **Simpan Plugin**. Mark akan langsung mempelajari alat baru ini dan Anda dapat segera memerintahkannya untuk mengeksekusi skrip tersebut melalui teks atau perintah suara.
 
+## 🔌 Headless Harness (Plugable)
+
+Engine tool Mark berjalan sebagai proses terpisah dengan protokol **JSON-over-stdio** —
+bisa dipakai tanpa GUI, dipasang ke agent lain, atau di-orchestrate dari skrip mana pun:
+
+```bash
+bun run harness          # engine hidup, baca perintah dari stdin
+```
+
+```json
+{"id":1,"action":"ping","payload":[]}
+{"id":2,"action":"native-tool:execute","payload":["list-dir",""]}
+```
+
+Respons: `{"id":1,"success":true,"data":"..."}` · Event proaktif: `{"event":"ai:status","payload":"..."}`
+
 ## Membangun Berkas Executable (Build)
 
 ```bash
@@ -154,8 +168,8 @@ bun tauri build
 
 Berkas _installer_ akan otomatis tersedia di `src-tauri/target/release/bundle/`.
 
-> **Catatan migrasi:** branch ini sedang bermigrasi Electron → Tauri v2.
-> Lihat `docs/PLANNED/migration-tauri-v2.md` untuk peta jalan lengkap.
+> **Mark Light 6.x** — dibangun ulang di atas Tauri v2 (Rust). Peta jalan & status:
+> `docs/PLANNED/migration-tauri-v2.md`
 
 ## Warning
 
