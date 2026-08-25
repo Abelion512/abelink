@@ -258,6 +258,37 @@ export const api = {
 
 // Pasang sebelum modul lain dieksekusi (dipanggil paling atas di main.jsx)
 export function installTauriBridge() {
+  const isTauri = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
+
+  if (!isTauri) {
+    // Mode browser (vite dibuka tanpa shell Tauri): API native tidak ada.
+    // Pasang stub ramah — tanpa dinding error, cukup satu peringatan.
+    let warned = false
+    const warnOnce = () => {
+      if (!warned) {
+        warned = true
+        console.warn('[tauri-bridge] Mode browser: API native nonaktif. Jalankan `bun tauri dev` untuk app penuh.')
+      }
+    }
+    const noop = async () => {
+      warnOnce()
+      return null
+    }
+    window.api = new Proxy({}, {
+      get: (_t, key) => {
+        if (typeof key === 'string' && key.startsWith('on')) {
+          return (cb) => {
+            warnOnce()
+            return () => {}
+          }
+        }
+        warnOnce()
+        return noop
+      }
+    })
+    return
+  }
+
   window.api = api
   window.electron = undefined
 
