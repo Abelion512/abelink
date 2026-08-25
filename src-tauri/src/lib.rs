@@ -80,6 +80,9 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }))
+        .plugin(tauri_plugin_log::Builder::new()
+            .level(log::LevelFilter::Info)
+            .build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(Arc::new(NodeBridgeState::new()))

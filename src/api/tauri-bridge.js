@@ -39,10 +39,23 @@ function routeFsTool(toolName, query) {
   }
 }
 
+// rtk-style: potong output tool yang kegedean sebelum masuk konteks AI
+const clampData = (data, max = 20000) => {
+  if (typeof data === 'string' && data.length > max) {
+    return data.slice(0, max) + `\n\n…[output dipotong ${data.length} → ${max} chars — rtk-style]`
+  }
+  if (data && typeof data === 'object') {
+    for (const k of Object.keys(data)) {
+      if (typeof data[k] === 'string') data[k] = clampData(data[k], max)
+    }
+  }
+  return data
+}
+
 const call = async (action, ...args) => {
   const res = await invoke('node_invoke', { action, payload: args })
   if (!res?.success) throw new Error(res?.error || 'Sidecar error')
-  return res.data
+  return clampData(res.data)
 }
 const callSafe = async (action, ...args) => {
   try {
