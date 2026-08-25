@@ -286,6 +286,21 @@ export function installTauriBridge() {
         return noop
       }
     })
+
+    // Ganti seluruh halaman dengan papan pengumuman — tab browser BUKAN app.
+    document.body.innerHTML = `
+      <div style="position:fixed;inset:0;background:#0b0f0c;color:#e5e7eb;display:flex;align-items:center;justify-content:center;font-family:system-ui;padding:2rem;z-index:999999">
+        <div style="max-width:560px;border:1px solid #2a3a2f;border-radius:16px;padding:2rem;background:#101713">
+          <h1 style="margin:0 0 .5rem;font-size:1.3rem;color:#4ade80">MARK berjalan di window terpisah</h1>
+          <p style="margin:0 0 1rem;line-height:1.6;opacity:.85">
+            Tab browser ini hanya <b>preview frontend</b> — tanpa API native, tanpa engine.
+          </p>
+          <p style="margin:0 0 .5rem">Jalankan aplikasi asli dari folder proyek:</p>
+          <pre style="background:#0b0f0c;border:1px solid #2a3a2f;border-radius:8px;padding:.75rem 1rem;overflow:auto"><code>bun tauri dev</code></pre>
+          <p style="margin:.75rem 0 0;opacity:.6;font-size:.85rem">Window berjudul <b>MARK</b> akan muncul terpisah dari browser ini.</p>
+        </div>
+      </div>
+      <div id="root" style="display:none"></div>`
     return
   }
 

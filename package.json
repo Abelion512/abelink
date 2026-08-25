@@ -16,7 +16,8 @@
     "tauri": "tauri",
     "test": "vitest run",
     "verify": "bash scripts/verify.sh",
-    "harness": "bun sidecar/engine.mjs"
+    "harness": "bun sidecar/engine.mjs",
+    "app": "tauri dev"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
