@@ -128,7 +128,7 @@ pub fn run() {
                 .build(app)?;
 
             // ---- Global shortcut Ctrl+Alt+M: toggle tampil/sembunyi ----
-            use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+            use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
             app.global_shortcut()
                 .on_shortcut("Ctrl+Alt+M", |app, _sc, event| {
                     if event.state() == ShortcutState::Pressed {

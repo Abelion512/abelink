@@ -17,7 +17,7 @@ fn harness_dir() -> PathBuf {
 #[tauri::command]
 pub fn harness_append(kind: String, line: String) -> Result<(), String> {
     let dir = harness_dir();
-    let mut file_path = dir.join(format!("{kind}.jsonl"));
+    let file_path = dir.join(format!("{kind}.jsonl"));
     if file_path.exists() {
         if let Ok(meta) = fs::metadata(&file_path) {
             if meta.len() > MAX_BYTES {
