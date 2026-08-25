@@ -104,7 +104,7 @@ db.version(18).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, tgBotToken, tgAdminIds, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled, geminiWebModel, windowOpacity'
 }).upgrade(tx => {
   return tx.table('config').toCollection().modify(config => {
-    config.windowOpacity = config.windowOpacity ?? 0.85
+    config.windowOpacity = config.windowOpacity ?? 1
   })
 })
 
@@ -252,7 +252,7 @@ export async function getAllConfig() {
         data[0].aiProvider = 'gemini-web'
       }
       if (data[0].windowOpacity === undefined) {
-        data[0].windowOpacity = 0.85
+        data[0].windowOpacity = 1
       }
       // P10 Linux patch: WhatNew boot trigger masih baca field ini
       if (data[0].lastSeenWhatsNewVersion === undefined) {
