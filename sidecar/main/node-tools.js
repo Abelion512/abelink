@@ -973,9 +973,24 @@ export const NATIVE_TOOLS = {
           cwd: activeRoot,
           shell: '/bin/bash'
         })
+        let output = stdout.trim() || 'Perintah berhasil dieksekusi tanpa output teks.'
+        // rtk: kompres output panjang sebelum masuk konteks LLM (hemat token)
+        if (output.length > 4000 && config?.rtkCompress !== false) {
+          try {
+            const { execFileSync } = await import('child_process')
+            const filtered = execFileSync('rtk', ['log'], {
+              input: output,
+              encoding: 'utf8',
+              timeout: 10000
+            })
+            if (filtered && filtered.trim().length > 0 && filtered.length < output.length) {
+              output = filtered.trim()
+            }
+          } catch {}
+        }
         return {
           success: true,
-          output: stdout.trim() || 'Perintah berhasil dieksekusi tanpa output teks.',
+          output,
           error: stderr.trim() || null
         }
       } catch (error) {

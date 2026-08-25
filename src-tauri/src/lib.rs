@@ -85,6 +85,15 @@ pub fn run() {
             .build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: Some("mark-light".into()) }),
+                ])
+                .level(log::LevelFilter::Info)
+                .build(),
+        )
         .manage(Arc::new(NodeBridgeState::new()))
         .setup(|app| {
             // ---- Sidecar node engine ----
