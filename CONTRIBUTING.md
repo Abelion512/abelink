@@ -9,12 +9,12 @@ semua aturan singkat dan praktis.
 ```bash
 git clone https://github.com/Abelion512/mark-agent.git
 cd mark-agent
-npm ci
+bun install
 bun tauri dev        # dev server (Vite HMR + Tauri shell)
 bun tauri build      # production build -> src-tauri/target/release/bundle/
 ```
 
-Catatan: `npm ci` butuh `package-lock.json` — jangan hapus file itu.
+Catatan: project pakai **bun** — lockfile resmi `bun.lock`.
 `node_modules/` tidak pernah di-commit (sudah di `.gitignore`).
 
 ## Branch Convention
@@ -42,7 +42,7 @@ Jangan pernah push langsung ke `master`.
 ## PR Workflow
 
 1. Open PR dengan title deskriptif
-2. CI otomatis menjalankan: `npm ci` → lint → prettier check → build (lihat `.github/workflows/build.yml`)
+2. CI otomatis menjalankan: gitleaks → vite build → cargo check (lihat `.github/workflows/tauri.yml`)
 3. Minimal 1 review approval
 4. Merge dengan pesan commit yang jelas
 

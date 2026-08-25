@@ -7,6 +7,38 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 
+
+// ---- FB#1: router file-ops -> Rust cmd_fs ----
+// Query format AI tools: "path||arg2||arg3"
+function routeFsTool(toolName, query) {
+  const parts = String(query ?? '').split('||').map((x) => x.trim())
+  const ws = undefined // Rust pakai XDG workspace root sendiri
+  switch (toolName) {
+    case 'read-file': {
+      const [, sLine, eLine] = parts
+      return invoke('fs_read_file', {
+        path: parts[0],
+        startLine: sLine ? Number(sLine) : null,
+        endLine: eLine ? Number(eLine) : null
+      })
+    }
+    case 'write-file': {
+      if (parts.length < 2) return Promise.resolve({ success: false, message: "Format: path||isi_file" })
+      return invoke('fs_write_file', { path: parts[0], content: parts.slice(1).join('||') })
+    }
+    case 'delete-file':
+      return invoke('fs_delete_file', { path: parts[0] })
+    case 'list-dir':
+      return invoke('fs_list_dir', { path: parts[0] ?? '' })
+    case 'grep-search': {
+      if (parts.length < 2) return Promise.resolve({ success: false, message: "Format: path_folder||keyword" })
+      return invoke('fs_grep_search', { dir: parts[0], keyword: parts[1] })
+    }
+    default:
+      return null
+  }
+}
+
 const call = async (action, ...args) => {
   const res = await invoke('node_invoke', { action, payload: args })
   if (!res?.success) throw new Error(res?.error || 'Sidecar error')
@@ -117,7 +149,12 @@ export const api = {
   getWindowState: () => invoke('window_get_state'),
 
   // ---------- Native tools (AI tools) ----------
-  executeNativeTool: (toolName, query, config) => call('native-tool:execute', toolName, query, config),
+  // FB#1: file-ops langsung ke Rust (std::fs) — tidak lewat sidecar lagi
+  executeNativeTool: async (toolName, query, config) => {
+    const fsRoute = routeFsTool(toolName, query)
+    if (fsRoute) return fsRoute
+    return call('native-tool:execute', toolName, query, config)
+  },
   checkToolApproval: (toolName, query) => call('native-tool:needs-approval', toolName, query),
 
   // ---------- Plugins (sidecar loader lama — fase C4 pindah Web Worker) ----------
