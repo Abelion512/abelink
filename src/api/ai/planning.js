@@ -530,6 +530,10 @@ ${
       }
 
       const data = cleanAndParse(response.content)
+      try {
+        const h = await import('../harness')
+        h.logReasoning({ thought: data.thought, suggested_mode: data.suggested_mode, task_status: data.task_status, objective: data.objective, action: data.action ? (data.action.tool || JSON.stringify(data.action).slice(0,120)) : null })
+      } catch (_) {}
       console.log('[planning] parse finished:', data)
 
       if (

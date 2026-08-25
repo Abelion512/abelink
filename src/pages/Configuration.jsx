@@ -108,6 +108,10 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const [showGroqKey, setShowGroqKey] = useState(false)
   const [showCustomKey, setShowCustomKey] = useState(false)
   const [activeSection, setActiveSection] = useState('cfg-ai-engine')
+  const [devHarness, setDevHarness] = useState(() => localStorage.getItem('devHarnessLogging') === '1')
+  const [legacyProfiles, setLegacyProfiles] = useState([])
+  const [legacyBusy, setLegacyBusy] = useState(false)
+  const [legacyMsg, setLegacyMsg] = useState(null)
   const contentRef = useRef(null)
 
   const handleTestVoice = async () => {
@@ -151,6 +155,32 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
       })
       .catch((err) => console.error('Mic/Cam permission denied', err))
   }, [])
+
+  useEffect(() => {
+    if (!isFirstSetup || !window.api?.legacyDetectProfiles) return
+    window.api
+      .legacyDetectProfiles()
+      .then((paths) => setLegacyProfiles(paths || []))
+      .catch(() => {})
+  }, [isFirstSetup])
+
+  const handleLegacyImport = async () => {
+    if (legacyBusy) return
+    setLegacyBusy(true)
+    setLegacyMsg(null)
+    try {
+      const picked = await window.api.legacyImportPickAndRead()
+      if (!picked) return
+      const { importInto } = await import('dexie-export-import')
+      await importInto(db, JSON.parse(picked.content), { clearTablesBeforeImport: true })
+      setLegacyMsg('Import berhasil — memuat ulang...')
+      setTimeout(() => window.location.reload(), 900)
+    } catch (err) {
+      setLegacyMsg(`Gagal: ${err.message}`)
+    } finally {
+      setLegacyBusy(false)
+    }
+  }
 
   useEffect(() => {
     if (isFirstSetup) {
@@ -502,7 +532,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   useEffect(() => {
     const container = contentRef.current
     if (!container) return
-    const sectionIds = ['cfg-ai-engine', 'cfg-camera', 'cfg-shortcut', 'cfg-audio-voice', 'cfg-memory-data']
+    const sectionIds = ['cfg-ai-engine', 'cfg-camera', 'cfg-shortcut', 'cfg-audio-voice', 'cfg-memory-data', 'cfg-developer']
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -569,6 +599,24 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   : 'Sesuaikan perilaku Mark dengan preferensimu.'}
               </p>
             </div>
+
+          {isFirstSetup && legacyProfiles.length > 0 && (
+            <div className="alert bg-base-200/70 border border-warning/30 text-sm flex-col items-start gap-2 my-3">
+              <span>
+                Profil Mark versi lama terdeteksi ({legacyProfiles.length} lokasi).
+                Lanjutkan memory & pengaturan lama lewat file export JSON, atau mulai fresh.
+              </span>
+              <div className="flex gap-2">
+                <button className="btn btn-xs" onClick={() => setLegacyProfiles([])}>
+                  Mulai Fresh
+                </button>
+                <button className="btn btn-xs btn-primary" onClick={handleLegacyImport} disabled={legacyBusy}>
+                  {legacyBusy ? 'Mengimpor...' : 'Pilih File Export JSON'}
+                </button>
+              </div>
+              {legacyMsg && <span className="text-xs opacity-70">{legacyMsg}</span>}
+            </div>
+          )}
           </div>
 
           {/* ── AI Engine & Tools ── */}
@@ -1174,6 +1222,33 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                       Export Chat ke JSON
                     </button>
                   </div>
+                </div>
+              </section>
+
+              {/* -- Developer -- */}
+              <section id="cfg-developer" className="space-y-5 scroll-mt-4">
+                <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
+                  Developer
+                </h2>
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold">Harness Logging</p>
+                  <p className="text-xs opacity-60">
+                    Rekam reasoning &amp; tool-call ke file JSONL di
+                    ~/.local/share/mark/harness/. Default OFF. Rotasi otomatis 50MB.
+                  </p>
+                  <label className="flex items-center gap-3 cursor-pointer w-fit">
+                    <input
+                      type="checkbox"
+                      className="toggle toggle-warning toggle-sm"
+                      checked={devHarness}
+                      onChange={(e) => {
+                        const v = e.target.checked
+                        setDevHarness(v)
+                        localStorage.setItem('devHarnessLogging', v ? '1' : '0')
+                      }}
+                    />
+                    <span className="text-sm">{devHarness ? 'AKTIF' : 'OFF'}</span>
+                  </label>
                 </div>
               </section>
             </>

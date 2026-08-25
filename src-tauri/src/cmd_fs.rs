@@ -177,3 +177,47 @@ pub fn fs_grep_search(dir: String, keyword: String) -> FsResult {
         ok(hits.join("\n"))
     }
 }
+
+#[derive(Serialize)]
+pub struct LegacyPick {
+    pub path: String,
+    pub content: String,
+}
+
+/// Deteksi profil Electron lama (IndexedDB / Local Storage Chromium)
+#[tauri::command]
+pub fn fs_detect_legacy_profiles() -> Vec<String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let candidates = ["Mark Agent", "mark-agent", "mark-agent-fork", "Electron"];
+    let mut found = Vec::new();
+    for c in candidates {
+        let base = format!("{home}/.config/{c}");
+        let markers = [
+            format!("{base}/IndexedDB"),
+            format!("{base}/Local Storage"),
+            format!("{base}/Session Storage"),
+        ];
+        if markers.iter().any(|m| Path::new(m).exists()) {
+            found.push(base);
+        }
+    }
+    found
+}
+
+/// Picker file export JSON (dexie-export-import) + baca isinya
+#[tauri::command]
+pub fn fs_import_pick_and_read() -> Result<LegacyPick, String> {
+    let file = rfd::FileDialog::new()
+        .add_filter("Dexie Export JSON", &["json"])
+        .set_title("Pilih file export database Mark lama")
+        .pick_file();
+    match file {
+        Some(f) => {
+            let path = f.to_string_lossy().to_string();
+            let content =
+                fs::read_to_string(&f).map_err(|e| format!("Gagal baca {path}: {e}"))?;
+            Ok(LegacyPick { path, content })
+        }
+        None => Err("__canceled__".into()),
+    }
+}

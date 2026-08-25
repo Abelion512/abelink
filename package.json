@@ -53,7 +53,8 @@
     "youtube-transcript-plus": "^1.1.2",
     "yt-search": "^2.13.1",
     "ytmusic-api": "5.3.1",
-    "@tauri-apps/api": "^2"
+    "@tauri-apps/api": "^2",
+    "@fontsource/inter": "^5.2.7"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^2.1.0",

@@ -164,9 +164,21 @@ export const api = {
   // ---------- Native tools (AI tools) ----------
   // FB#1: file-ops langsung ke Rust (std::fs) — tidak lewat sidecar lagi
   executeNativeTool: async (toolName, query, config) => {
-    const fsRoute = routeFsTool(toolName, query)
-    if (fsRoute) return fsRoute
-    return call('native-tool:execute', toolName, query, config)
+    const t0 = Date.now()
+    let result, error = null
+    try {
+      const fsRoute = routeFsTool(toolName, query)
+      result = fsRoute ?? (await call('native-tool:execute', toolName, query, config))
+    } catch (e) {
+      error = e.message
+      throw e
+    } finally {
+      try {
+        const h = await import('./harness')
+        h.logToolCall({ tool: toolName, query: String(query).slice(0, 200), durMs: Date.now() - t0, ok: !error && result?.success !== false, error })
+      } catch (_) {}
+    }
+    return result
   },
   checkToolApproval: (toolName, query) => call('native-tool:needs-approval', toolName, query),
 
@@ -228,6 +240,17 @@ export const api = {
     return selected ? { canceled: false, filePaths: [selected] } : { canceled: true, filePaths: [] }
   },
   selectDirectory: async () => await call('dialog:open-directory'),
+
+  // ---------- Legacy memory migration (MEM) ----------
+  legacyDetectProfiles: () => invoke('fs_detect_legacy_profiles'),
+  legacyImportPickAndRead: async () => {
+    try {
+      return await invoke('fs_import_pick_and_read')
+    } catch (e) {
+      if (String(e).includes('__canceled__')) return null
+      throw e
+    }
+  },
 
   // ---------- Screenshot (fase B5 — crate screenshots) ----------
   takeScreenshot: () => call('take-screenshot')

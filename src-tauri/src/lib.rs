@@ -1,5 +1,6 @@
 // Mark Light — Tauri v2 shell (Linux-native)
 mod cmd_fs;
+mod cmd_harness;
 mod cmd_node_bridge;
 
 use cmd_node_bridge::{start_node_engine, NodeBridgeState};
@@ -156,6 +157,9 @@ pub fn run() {
             cmd_fs::fs_delete_file,
             cmd_fs::fs_list_dir,
             cmd_fs::fs_grep_search,
+            cmd_fs::fs_detect_legacy_profiles,
+            cmd_fs::fs_import_pick_and_read,
+            cmd_harness::harness_append,
             cmd_node_bridge::node_invoke,
             window_minimize,
             window_maximize_toggle,

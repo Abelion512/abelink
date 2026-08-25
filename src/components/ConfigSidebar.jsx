@@ -1,4 +1,4 @@
-import { FaRobot, FaCamera, FaKeyboard, FaMicrophone, FaBrain } from 'react-icons/fa'
+import { FaRobot, FaCamera, FaKeyboard, FaMicrophone, FaBrain, FaCode } from 'react-icons/fa'
 
 const sections = [
   { id: 'cfg-ai-engine', label: 'AI Engine', icon: FaRobot },
@@ -9,6 +9,7 @@ const sections = [
 
 const sectionsLogged = [
   { id: 'cfg-memory-data', label: 'Memory & Data', icon: FaBrain },
+  { id: 'cfg-developer', label: 'Developer', icon: FaCode },
 ]
 
 export default function ConfigSidebar({ isFirstSetup = false, activeSection, onNavigate }) {

@@ -20,6 +20,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri-plugin-log = "2"
 tauri-plugin-single-instance = "2"
+rfd = "0.15"
+chrono = "0.4"
 tauri-plugin-global-shortcut = "2"
 log = "0.4"
 tokio = { version = "1", features = ["full"] }
