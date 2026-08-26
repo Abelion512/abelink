@@ -83,6 +83,11 @@ const ALLOWED_ACTIONS: &[&str] = &[
     "awareness:get-buffer",
     "awareness:clear-buffer",
     "ping",
+    // Listing metadata plugin (load-when-needed; eksekusi tetap fase C4)
+    "plugins:list",
+    // Kirim pesan Telegram hanya ke chat/admin milik owner
+    "tg:send-message",
+    "tg:broadcast-to-admins",
     "skills:get-all",
     "skills:read",
     "skills:read-file",

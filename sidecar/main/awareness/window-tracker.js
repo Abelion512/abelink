@@ -23,8 +23,9 @@ export function startTracking() {
 
   intervalId = setInterval(async () => {
     try {
-      // Check idle time first
-      const idleTime = powerMonitor.getSystemIdleTime()
+      // Check idle time first — powerMonitor tak tersedia di runtime bun sidecar;
+      // anggap tidak idle agar polling active-window tetap jalan.
+      const idleTime = powerMonitor?.getSystemIdleTime?.() ?? 0
       
       if (idleTime > 180) { // 3 minutes idle
         if (!wasIdle) {

@@ -10,6 +10,7 @@
 // - Skema URL dibatasi http/https/mailto: xdg-open bisa mengeksekusi launcher
 //   .desktop untuk skema/file arbitrer, jadi jangan diteruskan mentah-mentah.
 use std::process::{Command, Stdio};
+use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 /// Paritas dgn engine.mjs (`os.totalmem() <= 4.5e9`).
@@ -129,4 +130,33 @@ pub fn misc_show_notification(title: Option<String>, body: Option<String>) -> bo
     }
     // Paritas perilaku engine: gagal spawn dikembalikan sebagai false, bukan error.
     spawn_detached(&mut cmd).is_ok()
+}
+
+// ---- Dialog file/folder native (pengganti stub Fase B5 dialog:*) ----------
+// GTK melarang dialog dari thread non-main — pola sama dgn confirm_on_main_thread:
+// dispatch ke main thread, hasil dikirim balik lewat mpsc.
+fn pick_native_path(app: &AppHandle, is_dir: bool) -> Option<String> {
+    let (tx, rx) = std::sync::mpsc::channel::<Option<String>>();
+    let dispatched = app.run_on_main_thread(move || {
+        let picked = if is_dir {
+            rfd::FileDialog::new().pick_folder()
+        } else {
+            rfd::FileDialog::new().pick_file()
+        };
+        let _ = tx.send(picked.map(|p| p.to_string_lossy().into_owned()));
+    });
+    if dispatched.is_err() {
+        return None; // app sedang berhenti — anggap dibatalkan
+    }
+    rx.recv_timeout(Duration::from_secs(600)).ok().flatten()
+}
+
+#[tauri::command]
+pub fn misc_open_file_dialog(app: AppHandle) -> Option<String> {
+    pick_native_path(&app, false)
+}
+
+#[tauri::command]
+pub fn misc_open_directory_dialog(app: AppHandle) -> Option<String> {
+    pick_native_path(&app, true)
 }

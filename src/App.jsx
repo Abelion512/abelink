@@ -74,6 +74,7 @@ const WindowControls = () => {
 
       {/* Center Drag Grip */}
       <div
+        data-tauri-drag-region=""
         className="flex items-center justify-center opacity-30 hover:opacity-100 transition-opacity gap-2"
         title="Tahan dan geser untuk memindahkan"
       >
@@ -267,41 +268,9 @@ function App() {
         console.error('[App] Failed to load Transformers:', e)
       }
 
-      // 1.6 Load Local STT (Whisper) Model (skip in lite mode — cloud Groq STT still available)
-      try {
-        if (!lm?.isLite) {
-          setLoadingText('Memuat Voice Engine...')
-          const { loadWhisper } = await import('./api/localWhisper')
-        let sttStats = {}
-        await loadWhisper((info) => {
-          if (info.status === 'initiate') {
-            sttStats[info.file] = { loaded: 0, total: info.total || 0 }
-          } else if (info.status === 'progress') {
-            if (sttStats[info.file]) {
-              sttStats[info.file].loaded = info.loaded
-              sttStats[info.file].total = info.total
-            }
-            const values = Object.values(sttStats)
-            const totalBytes = values.reduce((acc, curr) => acc + curr.total, 0)
-            const loadedBytes = values.reduce((acc, curr) => acc + curr.loaded, 0)
-            if (totalBytes > 0) {
-              const percent = Math.round((loadedBytes / totalBytes) * 100)
-              const loadedMB = (loadedBytes / 1024 / 1024).toFixed(1)
-              const totalMB = (totalBytes / 1024 / 1024).toFixed(1)
-              setLoadingText(`Mengunduh Voice Engine... ${percent}% (${loadedMB}MB / ${totalMB}MB)`)
-            }
-          } else if (info.status === 'done' || info.status === 'ready') {
-            setLoadingText('Membangunkan Mark...')
-          }
-        })
-        }
-      } catch (e) {
-        console.warn(
-          '[App] Whisper STT lokal tidak bisa dimuat di webview ini:',
-          e?.message || e,
-          '- fitur suara-ke-teks lokal dimatikan; Groq Whisper tetap bisa dipakai bila API Key diisi.'
-        )
-      }
+      // 1.6 Voice Engine (Whisper) sengaja TIDAK di-preload di boot —
+      // transcribeAudioLocal memuat model saat pertama kali dipakai
+      // (lazy by design, lihat src/api/localWhisper.js). Boot jadi lebih cepat.
 
       // 2. Load config
       const data = await getAllConfig()
@@ -363,7 +332,14 @@ function App() {
   }
 
   if (!hasConfig) {
-    return <Configuration isFirstSetup={true} onSetupComplete={() => window.location.reload()} />
+    // Wizard setup tetap butuh kontrol window (minimize/close dsb.) —
+    // jangan biarkan cabang ini tampil tanpa titlebar.
+    return (
+      <>
+        <WindowControls />
+        <Configuration isFirstSetup={true} onSetupComplete={() => window.location.reload()} />
+      </>
+    )
   }
 
   const isStandalone = window.location.hash.includes('telegram-bot')

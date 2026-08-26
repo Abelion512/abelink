@@ -182,6 +182,8 @@ pub fn run() {
             cmd_misc::misc_save_temp_file,
             cmd_misc::misc_open_external,
             cmd_misc::misc_show_notification,
+            cmd_misc::misc_open_file_dialog,
+            cmd_misc::misc_open_directory_dialog,
             window_minimize,
             window_maximize_toggle,
             window_fullscreen_toggle,

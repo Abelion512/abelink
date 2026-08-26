@@ -13,7 +13,8 @@ import {
   FaTerminal,
   FaVolumeUp,
   FaDatabase,
-  FaCog
+  FaCog,
+  FaQuestionCircle
 } from 'react-icons/fa'
 import {
   getAllMemory,
@@ -25,8 +26,8 @@ import {
   saveRelationship
 } from '../api/db'
 import { getExtractor } from '../api/vectorMemory'
-import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
+import { startDriverTour } from '../utils/driverTour'
 import { useLocation } from 'react-router-dom'
 import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/ChatContext'
@@ -94,6 +95,50 @@ const ConfigCameraPreview = ({ deviceId, enabled }) => {
   )
 }
 
+// ── Tur setup MINIMAL ────────────────────────────────────────────────────
+// Prinsip: tur hanya memandu yang WAJIB untuk menyelesaikan setup.
+// Bagian opsional (persona, suara, telegram, dsb.) tidak masuk tur dan bisa
+// dijelaskan ulang kapan saja lewat tombol "Panduan" di mode normal.
+const TOUR_OPTIONS = {
+  showProgress: true,
+  animate: true,
+  nextBtnText: 'Lanjut',
+  prevBtnText: 'Kembali',
+  doneBtnText: 'Paham!'
+}
+
+const buildSetupTourSteps = () => [
+  {
+    popover: {
+      title: 'Selamat Datang di Mark!',
+      description:
+        'Cuma dua langkah buat mulai: pilih mesin AI, lalu simpan. Sisanya (persona, suara, telegram) bersifat opsional dan bisa diatur kapan saja lewat menu Pengaturan.',
+      side: 'top',
+      align: 'center'
+    }
+  },
+  {
+    element: '#tour-ai-provider',
+    popover: {
+      title: 'Pilih Mesin AI',
+      description:
+        'Default Gemini Web langsung jalan tanpa API key. Mau lebih kencang atau privat penuh? Ganti ke Groq Cloud atau LM Studio lokal di sini.',
+      side: 'bottom',
+      align: 'start'
+    }
+  },
+  {
+    element: '#tour-save-btn',
+    popover: {
+      title: 'Simpan & Mulai',
+      description:
+        'Klik tombol ini untuk menyelesaikan setup dan masuk ke halaman utama. Tanpa API key pun simpan tetap jalan.',
+      side: 'top',
+      align: 'center'
+    }
+  }
+]
+
 const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const [config, setConfig] = useState({
     personality: 'Santai layaknya seorang teman dan suka bercanda.',
@@ -128,6 +173,8 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const [showGroqKey, setShowGroqKey] = useState(false)
   const [showCustomKey, setShowCustomKey] = useState(false)
   const [activeSection, setActiveSection] = useState('cfg-ai-engine')
+  const [touring, setTouring] = useState(false)
+  const tourStartedRef = useRef(false)
   const [devHarness, setDevHarness] = useState(() => localStorage.getItem('devHarnessLogging') === '1')
   const [legacyProfiles, setLegacyProfiles] = useState([])
 
@@ -193,121 +240,20 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   }, [isFirstSetup])
 
 
+  // Tur setup MINIMAL — hanya langkah wajib untuk menyelesaikan setup.
+  // Gate: tunggu data halaman siap (loadingMemory false) supaya spotlight
+  // selalu mendarat di elemen nyata, dan ref guard mencegah double-run
+  // di React StrictMode.
   useEffect(() => {
-    if (isFirstSetup) {
-      setTimeout(() => {
-        const driverObj = driver({
-          showProgress: true,
-          animate: true,
-          nextBtnText: 'Lanjut',
-          prevBtnText: 'Kembali',
-          doneBtnText: 'Paham!',
-          steps: [
-            {
-              popover: {
-                title: 'Halo, Selamat Datang di Mark! 👋',
-                description:
-                  'Mark adalah asisten AI pribadimu. Sebelum mulai ngobrol, ayo kita kenalan dulu sama pengaturan utamanya biar Mark bisa kerja maksimal buat kamu!',
-                side: 'top',
-                align: 'center'
-              }
-            },
-            {
-              element: '#tour-ai-provider',
-              popover: {
-                title: '1. Pilih Mesin AI',
-                description:
-                  'Kamu bisa milih mau pakai AI lokal (gratis & privat pakai LM Studio) atau API Cloud kayak Groq buat respons yang jauh lebih kencang.',
-                side: 'bottom',
-                align: 'start'
-              }
-            },
-            {
-              element: '#tour-embed-provider',
-              popover: {
-                title: '2. Memori AI',
-                description:
-                  'Ini otak tempat Mark mengingat semuanya. Pilih Transformers.js kalau mau memori jalan 100% lokal tanpa ribet setup tambahan.',
-                side: 'top',
-                align: 'start'
-              }
-            },
-            {
-              element: '#tour-groq-key',
-              popover: {
-                title: '3. Groq API Key (khusus Voice STT)',
-                description:
-                  'Bagian ini KHUSUS fitur ngobrol pakai suara (Speech-to-Text via Groq Cloud). Kalau tidak pakai voice, atau pilih Local Offline (Whisper Small), bagian ini boleh dikosongkan dan simpan config tetap jalan.',
-                side: 'top',
-                align: 'start'
-              }
-            },
-            {
-              element: '#tour-persona',
-              popover: {
-                title: '4. Kepribadian Mark',
-                description:
-                  'Di sini kamu bebas nentuin gaya bicara Mark. Mau dia formal kayak asisten pro, atau santai kayak temen nongkrong? Tulis aja di sini!',
-                side: 'top',
-                align: 'start'
-              }
-            },
-            {
-              element: '#tour-temperature',
-              popover: {
-                title: '5. Kreativitas AI',
-                description:
-                  'Temperature nentuin seberapa kreatif Mark. Angka kecil (0-0.3) bikin dia kaku tapi akurat, angka besar (0.7-1.0) bikin dia imajinatif dan luwes.',
-                side: 'top',
-                align: 'start'
-              }
-            },
-            {
-              element: '#tour-context',
-              popover: {
-                title: '6. Konteks Obrolan',
-                description:
-                  'Ini batas seberapa jauh Mark bisa mengingat riwayat chat dalam satu sesi. Makin besar angkanya, makin panjang ingatan dia, tapi makin berat juga kerjanya.',
-                side: 'top',
-                align: 'start'
-              }
-            },
-            {
-              element: '#cfg-audio-voice',
-              popover: {
-                title: '7. Pengaturan Suara',
-                description:
-                  'Atur kecepatan (Rate) dan tinggi-rendahnya nada suara (Pitch) Mark. Kamu bisa klik "Test Suara Mark" buat dengerin hasil racikanmu!',
-                side: 'top',
-                align: 'start'
-              }
-            },
-            {
-              element: '#tour-tg-admin',
-              popover: {
-                title: '8. Telegram Bot Settings',
-                description:
-                  'Masukkan Telegram Bot Token dari @BotFather dan Telegram User ID dari @userinfobot agar kamu bisa mengontrol Mark jarak jauh via Telegram.',
-                side: 'top',
-                align: 'start'
-              }
-            },
-            {
-              element: '#tour-save-btn',
-              popover: {
-                title: 'Simpan & Mulai',
-                description:
-                  'Kalau udah diisi semua (termasuk API key kalau pakai Cloud), klik di sini buat mulai ngobrol sama Mark!',
-                side: 'top',
-                align: 'center'
-              }
-            }
-          ]
-        })
-        driverObj.drive()
-      }, 500) // Delay sedikit biar render beres
-    }
-  }, [isFirstSetup])
+    if (!isFirstSetup || loadingMemory || tourStartedRef.current) return
+    let timer
+    timer = setTimeout(() => {
+      if (tourStartedRef.current) return
+      tourStartedRef.current = true
+      startDriverTour(buildSetupTourSteps(), TOUR_OPTIONS)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [isFirstSetup, loadingMemory])
 
   const loadConfig = async () => {
     const data = await getAllConfig()
@@ -328,6 +274,20 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     const data = await getAllMemory()
     setMemories(data)
     setLoadingMemory(false)
+  }
+
+  // Replay panduan (mode normal): reveal semua section selama tur berjalan
+  // supaya spotlight tidak pernah mendarat di section yang sedang hidden.
+  const startGuidedTour = () => {
+    setTouring(true)
+    // Tunggu satu frame agar reveal ter-render sebelum driver mengukur posisi.
+    requestAnimationFrame(() => {
+      const obj = startDriverTour(buildSetupTourSteps(), {
+        ...TOUR_OPTIONS,
+        onDestroyed: () => setTouring(false)
+      })
+      if (!obj) setTouring(false)
+    })
   }
 
   const handleDeleteMemory = async (mem) => {
@@ -381,16 +341,26 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
 
   const handleSaveConfiguration = async () => {
     // Validasi API Key
+    let effectiveConfig = config
     if (config.localWhisperModel?.startsWith('groq') && !config.groqApiKey?.trim()) {
-      await confirm({
-        title: 'Groq API Key Kosong',
-        message:
-          'Engine STT dipilih Groq Cloud, tapi API Key masih kosong. Isi key di bagian Voice, atau ganti engine ke Local Offline (Whisper Small).',
-        isError: true,
-        hideCancel: true,
-        confirmText: 'Tutup'
-      })
-      return
+      if (isFirstSetup) {
+        // Wizard TIDAK BOLEH macet karena STT cloud: fallback otomatis ke lokal.
+        console.info(
+          '[Configuration] STT Groq dipilih tanpa API Key saat setup - otomatis fallback ke Whisper Small lokal.'
+        )
+        effectiveConfig = { ...config, localWhisperModel: 'whisper-small' }
+        setConfig(effectiveConfig)
+      } else {
+        await confirm({
+          title: 'Groq API Key Kosong',
+          message:
+            'Engine STT dipilih Groq Cloud, tapi API Key masih kosong. Isi key di bagian Voice, atau ganti engine ke Local Offline (Whisper Small).',
+          isError: true,
+          hideCancel: true,
+          confirmText: 'Tutup'
+        })
+        return
+      }
     }
 
     if (config.aiProvider === 'custom') {
@@ -435,11 +405,11 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
       console.error(e)
     }
     setIsDownloadingModel(false)
-    await saveConfiguration(config)
+    await saveConfiguration(effectiveConfig)
 
     // Update global state without reloading the page
     if (chatContext && chatContext.setConfig) {
-      chatContext.setConfig([config])
+      chatContext.setConfig([effectiveConfig])
     }
 
     if (isFirstSetup && onSetupComplete) {
@@ -628,6 +598,15 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   : 'Sesuaikan perilaku Mark dengan preferensimu.'}
               </p>
             </div>
+            {!isFirstSetup && (
+              <button
+                onClick={startGuidedTour}
+                className="btn btn-ghost btn-sm btn-circle ml-auto"
+                title="Lihat panduan singkat"
+              >
+                <FaQuestionCircle className="text-lg opacity-60" />
+              </button>
+            )}
 
           {isFirstSetup && legacyProfiles.length > 0 && (
             <div className="alert bg-base-200/70 border border-warning/30 text-sm flex-col items-start gap-2 my-3">
@@ -656,7 +635,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           </div>
 
           {/* ── AI Engine & Tools ── */}
-          <section id="cfg-ai-engine" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-ai-engine' ? 'hidden' : ''}`}>
+          <section id="cfg-ai-engine" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-ai-engine' ? 'hidden' : ''}`}>
             <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
               AI Engine & Tools
             </h2>
@@ -966,7 +945,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             <div className="divider"></div>
 
             {/* Camera Settings */}
-            <div id="cfg-camera" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-camera' ? 'hidden' : ''}`}>
+            <div id="cfg-camera" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-camera' ? 'hidden' : ''}`}>
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5 flex items-center gap-2">
                 Kamera
               </h2>
@@ -1013,7 +992,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             </div>
 
             {/* ── Global Shortcut Settings ── */}
-            <section id="cfg-shortcut" className={`space-y-5 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-shortcut' ? 'hidden' : ''}`}>
+            <section id="cfg-shortcut" className={`space-y-5 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-shortcut' ? 'hidden' : ''}`}>
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                 Global Shortcut Key
               </h2>
@@ -1083,7 +1062,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             <div className="divider"></div>
 
             {/* TTS Settings */}
-            <div id="cfg-audio-voice" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-audio-voice' ? 'hidden' : ''}`}>
+            <div id="cfg-audio-voice" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-audio-voice' ? 'hidden' : ''}`}>
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5">
                 Audio & Voice Engine
               </h2>
@@ -1287,7 +1266,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               <div className="divider"></div>
 
               {/* ── Memory & Data ── */}
-              <section id="cfg-memory-data" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-memory-data' ? 'hidden' : ''}`}>
+              <section id="cfg-memory-data" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-memory-data' ? 'hidden' : ''}`}>
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                   Memory & Data
                 </h2>
@@ -1307,7 +1286,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               </section>
 
               {/* -- Developer -- */}
-              <section id="cfg-developer" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-developer' ? 'hidden' : ''}`}>
+              <section id="cfg-developer" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-developer' ? 'hidden' : ''}`}>
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                   Developer
                 </h2>

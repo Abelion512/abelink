@@ -7,6 +7,7 @@ import { core_tools } from '../tools/core-tools'
 import { group_tools } from '../tools/group-tools'
 import { NATIVE_SKILLS } from '../../components/core/native-skills'
 import { getWorkspaceContext } from '../workspaceRag'
+import { getCachedSkills } from '../skillsCache'
 
 let pluginVectorCache = new Map()
 
@@ -54,9 +55,9 @@ export const getNextAction = async (
 
     let fileSkills = []
     try {
-      if (window.api && window.api.getSkills) {
-        fileSkills = await window.api.getSkills()
-      }
+      // Cache: scan filesystem sidecar tidak diulang tiap giliran agen;
+      // refresh otomatis via event 'skills-updated' / TTL (lihat skillsCache).
+      fileSkills = await getCachedSkills()
     } catch (e) {
       console.error('Failed to get file skills for planning', e)
     }

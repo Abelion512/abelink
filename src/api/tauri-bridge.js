@@ -172,7 +172,17 @@ export const api = {
   onTgRequestAgentExecution: onTg('tg:request-agent-execution'),
   sendTgAgentExecutionDone: (data) => call('tg:agent-execution-done', data),
   tgSendMessage: (chatId, text) => call('tg:send-message', { chatId, text }),
-  tgBroadcastToAdmins: (text) => call('tg:broadcast-to-admins', text),
+  tgBroadcastToAdmins: async (text) => {
+    // Guard di satu titik: bot tidak terhubung = no-op sunyi, bukan rejection
+    // yang menyulut unhandled promise rejection tiap giliran agen.
+    try {
+      const st = await call('tg:get-status')
+      if (!st || st.status !== 'connected') return { skipped: true }
+      return call('tg:broadcast-to-admins', text)
+    } catch (_) {
+      return { skipped: true }
+    }
+  },
   onTgCommandAccept: onTg('tg:command-accept'),
   onTgCommandAlways: onTg('tg:command-always'),
   onTgCommandReject: onTg('tg:command-reject'),
@@ -293,12 +303,12 @@ export const api = {
   onLiteModeChanged: on('lite-mode-changed'),
   onExecuteMusicCommandWa: on('execute-music-command-wa'),
 
-  // ---------- Dialog ----------
-  showOpenDialog: async (options = {}) => {
-    const selected = await call('dialog:open-file')
+  // ---------- Dialog (Fase B5 dipercepat: rfd native di main thread Rust) ----------
+  showOpenDialog: async () => {
+    const selected = await invoke('misc_open_file_dialog')
     return selected ? { canceled: false, filePaths: [selected] } : { canceled: true, filePaths: [] }
   },
-  selectDirectory: async () => await call('dialog:open-directory'),
+  selectDirectory: () => invoke('misc_open_directory_dialog'),
 
   // ---------- Legacy memory migration (MEM) ----------
   legacyDetectProfiles: () => invoke('fs_detect_legacy_profiles'),

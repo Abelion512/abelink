@@ -15,6 +15,7 @@ import {
 } from 'react-icons/fa'
 import ConfirmModal from './ConfirmModal'
 import { NATIVE_SKILLS } from './native-skills'
+import { getCachedSkills } from '../../api/skillsCache'
 
 const EMOJIS = [
   '😂',
@@ -84,7 +85,8 @@ const InputBar = ({
   const reloadSkills = async () => {
     if (window.api && window.api.getSkills) {
       try {
-        const loadedSkills = await window.api.getSkills()
+        // Lewat cache (TTL + invalidasi event skills-updated), bukan fs-scan ulang.
+        const loadedSkills = await getCachedSkills()
         const nativeSkillList = NATIVE_SKILLS.map((s) => ({
           name: s.name,
           description: s.description

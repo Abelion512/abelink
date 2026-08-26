@@ -348,7 +348,7 @@ html, body, #root {
 /* Modern backdrop */
 .driver-overlay {
   backdrop-filter: blur(4px) !important;
-  opacity: 0.7 !important;
+  opacity: 0.8 !important;
   background-color: #000000 !important;
 }
 

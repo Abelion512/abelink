@@ -729,10 +729,14 @@ export const useMarkPlan = ({
         }
       }
     } catch (toolError) {
-      if (toolError.name === 'AbortError' || toolError.message.includes('AbortError')) {
+      // Error bisa berupa Error instance ATAU string mentah dari reject invoke
+      // Tauri — jangan pernah asumsi selalu punya .message.
+      const toolErrMsg =
+        typeof toolError === 'string' ? toolError : toolError?.message || String(toolError)
+      if (toolError?.name === 'AbortError' || toolErrMsg.includes('AbortError')) {
         throw toolError
       }
-      resultString = `[ERROR] Tool ${tool} crash: ${toolError.message}`
+      resultString = `[ERROR] Tool ${tool} gagal: ${toolErrMsg}`
     }
 
     return {

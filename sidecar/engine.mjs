@@ -21,8 +21,32 @@ const on = (action, fn) => {
 const unsupported = (phase) => async () =>
   ok({ unsupported: true, message: `Channel ini dipindah ke ${phase} (lihat docs/PLANNED/migration-tauri-v2.md)` })
 
+// --------------------------------------------------- Lazy module registry
+// Prinsip load-when-needed: modul berat hanya di-import saat channel-nya
+// dipakai pertama kali. Startup sidecar jadi instan, dan efek samping modul
+// (mis. interval polling window-tracker) baru hidup saat benar-benar dibutuhkan.
+const lazy = (loader) => {
+  let p = null
+  return () => (p ??= loader())
+}
+const getAi = lazy(() => import('./main/ai-bridge.js'))
+const getNt = lazy(() => import('./main/node-tools.js'))
+const getYt = lazy(async () => {
+  // Paket CJS: fungsi utama bisa di default atau namespace — normalkan.
+  const m = await import('youtube-transcript-plus')
+  return m.default ?? m
+})
+const getYts = lazy(async () => (await import('yt-search')).default)
+const getTg = lazy(() => import('./main/telegram/telegram-service.js'))
+const getGsvc = lazy(() => import('./main/google/google-service.js'))
+const getWs = lazy(() => import('./main/workspace-rag.js'))
+const getTracker = lazy(() => import('./main/awareness/window-tracker.js'))
+const getPl = lazy(() => import('./main/plugins/plugin-loader.js'))
+
+// Config terakhir yang disinkronkan renderer — sumber tgAdminIds untuk broadcast.
+let latestConfig = null
+
 // ---------------------------------------------------------------- AI bridge
-const ai = await import('./main/ai-bridge.js')
 // Daftarkan manual (bukan lewat on()) supaya bentuk frame sukses/gagal ke bridge
 // tidak dibungkus ulang oleh ok().
 handlers['ai:fetch'] = async (payload) => {
@@ -30,34 +54,38 @@ handlers['ai:fetch'] = async (payload) => {
   const { messages, config, isSmallTask, jsonSchema } = data || {}
   const onStatus = (msg) => emit('ai:status', msg)
   try {
-    const result = await ai.fetchAI(messages || [], config, !!isSmallTask, jsonSchema ?? null, onStatus)
+    const { fetchAI } = await getAi()
+    const result = await fetchAI(messages || [], config, !!isSmallTask, jsonSchema ?? null, onStatus)
     return { success: true, data: result ?? null }
   } catch (err) {
     return { success: false, error: { message: err.message, code: err.code || 'AI_FETCH_ERROR' } }
   }
 }
-on('ai:abort-fetch', () => ai.abortAllFetches())
+on('ai:abort-fetch', async () => (await getAi()).abortAllFetches())
 // Deteksi daftar model dari endpoint custom (GET /models) utk Configuration.
 // on() otomatis spread args + bungkus sukses; throw akan jadi error frame.
-on('ai:list-models', (endpoint, apiKey, protocol) =>
-  ai.listCustomModels(endpoint, apiKey, protocol)
+on('ai:list-models', async (endpoint, apiKey, protocol) =>
+  (await getAi()).listCustomModels(endpoint, apiKey, protocol)
 )
-on('sync-config', (config) => {
-  ai.setGlobalConfig(config)
+on('sync-config', async (config) => {
+  const aiMod = await getAi()
+  aiMod.setGlobalConfig(config)
+  latestConfig = config || null
+  const tgMod = await getTg()
   if (
     config?.tgBotToken &&
     config.tgBotToken.trim() &&
-    tg.getConnectionStatus().status === 'disconnected'
+    tgMod.getConnectionStatus().status === 'disconnected'
   ) {
-    tg.startTelegramBot(config.tgBotToken.trim(), null)
+    tgMod.startTelegramBot(config.tgBotToken.trim(), null)
   }
   return true
 })
 
 // ------------------------------------------------------------- Native tools
-const nt = await import('./main/node-tools.js')
 on('native-tool:execute', async (toolName, query, config) => {
-  const tool = nt.NATIVE_TOOLS[toolName]
+  const { NATIVE_TOOLS } = await getNt()
+  const tool = NATIVE_TOOLS[toolName]
   if (!tool) return { success: false, error: 'Tool tidak ditemukan' }
   try {
     const result = await tool.handler(query, config)
@@ -66,8 +94,9 @@ on('native-tool:execute', async (toolName, query, config) => {
     return { success: false, error: err.message }
   }
 })
-on('native-tool:needs-approval', (toolName, query) => {
-  const tool = nt.NATIVE_TOOLS[toolName]
+on('native-tool:needs-approval', async (toolName, query) => {
+  const { NATIVE_TOOLS } = await getNt()
+  const tool = NATIVE_TOOLS[toolName]
   if (!tool) return { needsApproval: true, reason: 'Tool tidak ditemukan' }
   if (typeof tool.needsApproval === 'function') return { needsApproval: !!tool.needsApproval(query), message: tool.needsApproval(query) ? tool.approvalMessage?.(query) : null }
   return { needsApproval: !!tool.needsApproval, message: tool.needsApproval ? tool.approvalMessage?.(query) : null }
@@ -118,8 +147,8 @@ on('tts-speak', async (text, rate, pitch) => {
   }
 })
 
-const yt = await import('youtube-transcript-plus')
 on('get-youtube-transcript', async (url) => {
+  const yt = await getYt()
   const transcript = await yt.fetchTranscript(url)
   return transcript
     .filter((_, index) => index % 2 === 0)
@@ -130,8 +159,8 @@ on('get-youtube-transcript', async (url) => {
     })
     .join(' ')
 })
-const yts = (await import('yt-search')).default
 on('youtube-search', async (query) => {
+  const yts = await getYts()
   const ytData = await yts(query)
   return ytData.videos.slice(0, 4).map((item) => ({
     url: `https://www.youtube.com/watch?v=${item.videoId}`,
@@ -143,37 +172,81 @@ on('youtube-search', async (query) => {
 })
 
 // ---------------------------------------------------------------- Telegram
-const tg = await import('./main/telegram/telegram-service.js')
-on('tg:start', (token) => tg.startTelegramBot(token, null))
-on('tg:stop', () => tg.stopTelegramBot())
-on('tg:get-status', () => tg.getConnectionStatus())
-on('tg:get-history', () => tg.uiMessageHistory)
+on('tg:start', async (token) => (await getTg()).startTelegramBot(token, null))
+on('tg:stop', async () => (await getTg()).stopTelegramBot())
+on('tg:get-status', async () => (await getTg()).getConnectionStatus())
+on('tg:get-history', async () => (await getTg()).uiMessageHistory)
+on('tg:send-message', async (chatId, text) => (await getTg()).sendTelegramMessage(String(chatId), String(text)))
+// Broadcast ke admin milik owner (id dari config.tgAdminIds). Jika bot tidak
+// terhubung, kembalikan flag skipped secara sunyi — pemanggil UI tidak boleh
+// kena unhandled rejection tiap giliran agen hanya karena Telegram mati.
+on('tg:broadcast-to-admins', async (text) => {
+  const tgMod = await getTg()
+  if (tgMod.getConnectionStatus().status !== 'connected') return { skipped: true }
+  const ids = String(latestConfig?.tgAdminIds || '')
+    .split(/[\s,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (ids.length === 0) return { skipped: true, reason: 'no-admin-ids' }
+  const results = []
+  for (const id of ids) {
+    try {
+      await tgMod.sendTelegramMessage(id, String(text))
+      results.push({ id, ok: true })
+    } catch (err) {
+      results.push({ id, ok: false, error: err.message })
+    }
+  }
+  return { sent: results.filter((r) => r.ok).length, results }
+})
 
 // ------------------------------------------------------------------ Google
-const gsvc = await import('./main/google/google-service.js')
 on('google:connect', async (clientId, clientSecret) => {
   try {
-    await gsvc.connectGoogle(clientId, clientSecret)
+    await (await getGsvc()).connectGoogle(clientId, clientSecret)
     return { success: true }
   } catch (err) {
     return { success: false, error: err.message }
   }
 })
-on('google:disconnect', () => gsvc.disconnectGoogle())
-on('google:status', () => gsvc.getGoogleStatus())
+on('google:disconnect', async () => (await getGsvc()).disconnectGoogle())
+on('google:status', async () => (await getGsvc()).getGoogleStatus())
 
 // ------------------------------------------------------- Workspace RAG (.mark)
-const ws = await import('./main/workspace-rag.js')
-on('workspace:index', (root) => ws.indexWorkspace(root))
-on('workspace:query', ({ workspaceRoot, queryText, topK }) => ws.queryCodebase(workspaceRoot, queryText, topK))
-on('workspace:get-memory', (root) => ws.readWorkingMemory(root))
-on('workspace:save-memory', ({ workspaceRoot, memoryData }) => ws.saveWorkingMemory(workspaceRoot, memoryData))
-on('workspace:ensure', (root) => ws.ensureMarkWorkspace(root))
+on('workspace:index', async (root) => (await getWs()).indexWorkspace(root))
+on(
+  'workspace:query',
+  async ({ workspaceRoot, queryText, topK }) => (await getWs()).queryCodebase(workspaceRoot, queryText, topK)
+)
+on('workspace:get-memory', async (root) => (await getWs()).readWorkingMemory(root))
+on(
+  'workspace:save-memory',
+  async ({ workspaceRoot, memoryData }) => (await getWs()).saveWorkingMemory(workspaceRoot, memoryData)
+)
+on('workspace:ensure', async (root) => (await getWs()).ensureMarkWorkspace(root))
 
 // ---------------------------------------------------------------- Awareness
-const tracker = await import('./main/awareness/window-tracker.js')
-on('awareness:get-buffer', () => tracker.getActivityBuffer())
-on('awareness:clear-buffer', () => tracker.clearActivityBuffer())
+// Nama fungsi asli modul: startTracking/getBuffer/flushBuffer. get-buffer
+// otomatis memulai tracking sekali (interval polling internal modul).
+let trackerStarted = false
+on('awareness:get-buffer', async () => {
+  const tracker = await getTracker()
+  if (!trackerStarted) {
+    tracker.startTracking()
+    trackerStarted = true
+  }
+  return tracker.getBuffer()
+})
+on('awareness:clear-buffer', async () => (await getTracker()).flushBuffer())
+
+// ------------------------------------------------------------------ Plugins
+// Listing metadata saja (nama/deskripsi/actions) — kode plugin tidak dieksekusi
+// di jalur ini; eksekusi tetap fase C4 (Web Worker sandbox, load-when-needed).
+on('plugins:list', async () => {
+  const pl = await getPl()
+  await pl.loadPlugins()
+  return pl.getLoadedPlugins()
+})
 
 // ------------------------------------------------------------- Lite & misc
 // Fase B0 (2026-08-26): cluster lite & misc pindah ke Rust native
@@ -183,10 +256,10 @@ on('awareness:clear-buffer', () => tracker.clearActivityBuffer())
 on('ping', () => 'pong')
 
 // ------------------------------------------- Dipindah ke fase B/C (Tauri native)
+// dialog:open-file / dialog:open-directory -> Rust native `misc_open_*_dialog`
+// (src-tauri/src/cmd_misc.rs, rfd di main thread). Sisanya masih stub fase B/C.
 for (const ch of [
   'take-screenshot',
-  'dialog:open-directory',
-  'dialog:open-file',
   'browser:navigate',
   'browser:read-dom',
   'browser:action',

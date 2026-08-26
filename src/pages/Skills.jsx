@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, FileText, Upload, ArrowLeft, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { getCachedSkills } from '../api/skillsCache'
 
 const Skills = () => {
   const [skills, setSkills] = useState([])
@@ -11,7 +12,8 @@ const Skills = () => {
   const loadSkills = async () => {
     try {
       setIsRefreshing(true)
-      const list = await window.api.getSkills()
+      // Halaman editor butuh data segar: force melewati cache skills.
+      const list = await getCachedSkills({ force: true })
       setSkills(list)
     } catch (e) {
       console.error(e)
