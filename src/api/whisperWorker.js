@@ -37,6 +37,14 @@ env.fetch = async (url, init) => {
 
 let transcriber = null;
 
+async function createTranscriber(device, progress_callback) {
+  return pipeline('automatic-speech-recognition', 'onnx-community/whisper-small', {
+    device,
+    dtype: 'fp32',
+    progress_callback
+  });
+}
+
 self.onmessage = async (e) => {
   const { type, data } = e.data;
 
@@ -44,13 +52,26 @@ self.onmessage = async (e) => {
     if (!transcriber) {
       try {
         const hasWebGPU = typeof navigator !== 'undefined' && navigator.gpu;
-        transcriber = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-small', {
-          device: hasWebGPU ? 'webgpu' : 'wasm',
-          dtype: 'fp32',
-          progress_callback: (prog) => {
-            self.postMessage({ type: 'progress', data: prog });
+        const progress_callback = (prog) => {
+          self.postMessage({ type: 'progress', data: prog });
+        };
+        // Rantai fallback: webgpu -> wasm SIMD -> wasm non-SIMD.
+        try {
+          transcriber = await createTranscriber(hasWebGPU ? 'webgpu' : 'wasm', progress_callback);
+        } catch (err) {
+          const msg = err?.message || String(err);
+          if (hasWebGPU && !/SIMD|no available backend/i.test(msg)) throw err;
+          if (/webgpu/i.test(msg)) {
+            // WebGPU ada tapi gagal inisialisasi -> turun ke wasm biasa.
+            transcriber = await createTranscriber('wasm', progress_callback);
+          } else if (/SIMD|no available backend/i.test(msg)) {
+            console.warn('[WhisperWorker] WASM SIMD tidak tersedia, mencoba backend non-SIMD...');
+            env.backends.onnx.wasm.simd = false;
+            transcriber = await createTranscriber('wasm', progress_callback);
+          } else {
+            throw err;
           }
-        });
+        }
         self.postMessage({ type: 'loaded' });
       } catch (err) {
         console.error('[WhisperWorker] Load error:', err);

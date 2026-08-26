@@ -296,7 +296,11 @@ function App() {
         })
         }
       } catch (e) {
-        console.error('[App] Failed to load Whisper STT:', e)
+        console.warn(
+          '[App] Whisper STT lokal tidak bisa dimuat di webview ini:',
+          e?.message || e,
+          '- fitur suara-ke-teks lokal dimatikan; Groq Whisper tetap bisa dipakai bila API Key diisi.'
+        )
       }
 
       // 2. Load config

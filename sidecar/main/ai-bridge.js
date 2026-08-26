@@ -183,6 +183,7 @@ export const fetchAI = async (
     let headers = {
       'Content-Type': 'application/json'
     }
+    let customProtocol = 'openai' // 'openai' | 'anthropic'
 
     let body = {
       temperature: Number(conf.temperature) || 0,
@@ -201,9 +202,31 @@ export const fetchAI = async (
     }
 
     if (conf.aiProvider === 'custom') {
-      endpoint = conf.customEndpoint || 'http://localhost:1234/v1/chat/completions'
-      if (conf.customApiKey) {
-        headers['Authorization'] = `Bearer ${conf.customApiKey}`
+      const rawEndpoint = (conf.customEndpoint || 'http://localhost:1234/v1').trim().replace(/\/+$/, '')
+      const preferAnthropic =
+        conf.customApiProtocol === 'anthropic' ||
+        (conf.customApiProtocol !== 'openai' && /anthropic/i.test(rawEndpoint))
+      if (preferAnthropic) {
+        // Protokol Anthropic Messages: /v1/messages + header x-api-key.
+        customProtocol = 'anthropic'
+        endpoint = rawEndpoint.endsWith('/v1/messages')
+          ? rawEndpoint
+          : rawEndpoint.endsWith('/v1')
+            ? `${rawEndpoint}/messages`
+            : `${rawEndpoint}/v1/messages`
+        headers = {
+          'Content-Type': 'application/json',
+          'x-api-key': conf.customApiKey || '',
+          'anthropic-version': '2023-06-01'
+        }
+      } else {
+        // Protokol OpenAI-Compatible: user cukup menulis base .../v1.
+        endpoint = rawEndpoint.endsWith('/chat/completions')
+          ? rawEndpoint
+          : `${rawEndpoint}/chat/completions`
+        if (conf.customApiKey) {
+          headers['Authorization'] = `Bearer ${conf.customApiKey}`
+        }
       }
       body.model = conf.customModel || 'default-model'
     } else {
@@ -486,13 +509,60 @@ export const fetchAI = async (
       body.messages = normalizedMessages
     }
 
+    // Konversi payload ke protokol Anthropic Messages: system terpisah, tanpa
+    // role 'system' di messages, max_tokens wajib, role harus bergantian.
+    if (customProtocol === 'anthropic') {
+      const sysParts = []
+      const convo = []
+      for (const m of body.messages) {
+        const text =
+          typeof m.content === 'string'
+            ? m.content
+            : Array.isArray(m.content)
+              ? m.content.map((c) => (c.type === 'text' ? c.text : '')).filter(Boolean).join('\n')
+              : String(m.content || '')
+        if (m.role === 'system') {
+          sysParts.push(text)
+        } else {
+          convo.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: text })
+        }
+      }
+      const merged = []
+      for (const m of convo) {
+        const last = merged[merged.length - 1]
+        if (last && last.role === m.role) {
+          last.content += `\n\n${m.content}`
+        } else {
+          merged.push({ ...m })
+        }
+      }
+      if (!merged.length || merged[0].role !== 'user') {
+        merged.unshift({ role: 'user', content: '(lanjutkan)' })
+      }
+      body = {
+        model: body.model,
+        max_tokens: Number(conf.customMaxTokens) || 4096,
+        temperature: body.temperature,
+        system: sysParts.join('\n\n') || undefined,
+        messages: merged
+      }
+    }
+
     let data
     try {
       data = await executeFetch(body)
     } finally {
       activeAbortControllers.delete(parentAbortController)
     }
-    const message = data.choices[0].message
+    let message
+    if (customProtocol === 'anthropic') {
+      const blocks = Array.isArray(data.content) ? data.content : []
+      const text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('')
+      const thinking = blocks.filter((b) => b.type === 'thinking').map((b) => b.thinking).join('')
+      message = { content: text, reasoning: thinking || null }
+    } else {
+      message = data.choices[0].message
+    }
 
     let content = message.content || ''
     let reasoning = message.reasoning || message.reasoning_content || null

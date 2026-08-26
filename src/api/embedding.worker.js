@@ -11,14 +11,34 @@ async function getExtractor(progressCallback) {
   if (!extractor && !isInitializing) {
     isInitializing = true
     try {
-      extractor = await pipeline(
-        'feature-extraction',
-        'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-        {
-          device: 'wasm',
-          progress_callback: progressCallback
-        }
-      )
+      // Coba backend WASM normal; bila lingkungan tidak punya WebAssembly SIMD
+      // (mis. WebKitGTK tertentu), turun ke jalur non-SIMD sebelum menyerah.
+      try {
+        extractor = await pipeline(
+          'feature-extraction',
+          'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+          {
+            device: 'wasm',
+            progress_callback: progressCallback
+          }
+        )
+      } catch (err) {
+        const isSimdIssue =
+          /SIMD/i.test(err?.message || '') || /no available backend/i.test(err?.message || '')
+        if (!isSimdIssue) throw err
+        console.warn(
+          '[EmbeddingWorker] WASM SIMD tidak tersedia, mencoba backend non-SIMD...'
+        )
+        env.backends.onnx.wasm.simd = false
+        extractor = await pipeline(
+          'feature-extraction',
+          'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+          {
+            device: 'wasm',
+            progress_callback: progressCallback
+          }
+        )
+      }
     } finally {
       isInitializing = false
     }

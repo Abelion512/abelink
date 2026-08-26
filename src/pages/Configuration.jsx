@@ -32,13 +32,24 @@ import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/ChatContext'
 import ConfigSidebar from '../components/ConfigSidebar'
 
+// Plausibilitas endpoint custom: cukup base /v1 (OpenAI maupun Anthropic),
+// URL lengkap /chat/completions, atau domain yang jelas anthropic.
+const isCustomEndpointPlausible = (raw, protocol) => {
+  const ep = (raw || '').trim().replace(/\/+$/, '')
+  if (!/^https?:\/\//i.test(ep)) return false
+  if (/\/(chat\/completions|v1)$/.test(ep)) return true
+  return /anthropic/i.test(ep) || protocol === 'anthropic'
+}
+
 const ConfigCameraPreview = ({ deviceId, enabled }) => {
   const videoRef = useRef(null)
+  const [camError, setCamError] = useState('')
 
   useEffect(() => {
     if (!enabled) return
     let stream = null
     let isMounted = true
+    setCamError('')
     const startCamera = async () => {
       try {
         const constraints = {
@@ -52,7 +63,9 @@ const ConfigCameraPreview = ({ deviceId, enabled }) => {
           stream.getTracks().forEach((t) => t.stop())
         }
       } catch (err) {
-        console.error('Preview camera error:', err)
+        // WebKitGTK/wry bisa menolak getUserMedia tanpa dialog izin — tampilkan
+        // pesan ramah sekali per percobaan, jangan spam console.
+        if (isMounted) setCamError('Preview kamera tidak tersedia: izin ditolak atau lingkungan webview tidak mengizinkan akses kamera.')
       }
     }
     startCamera()
@@ -66,11 +79,17 @@ const ConfigCameraPreview = ({ deviceId, enabled }) => {
 
   return (
     <div className="mt-4 rounded-xl overflow-hidden border border-white/10 bg-black/50 aspect-video relative flex items-center justify-center shadow-inner">
-      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-      <div className="absolute top-2 left-2 flex items-center gap-2 px-2 py-1 bg-black/60 rounded text-xs font-mono text-white backdrop-blur-md">
-        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-        Live Preview
-      </div>
+      {camError ? (
+        <p className="text-xs opacity-60 text-center px-4">{camError}</p>
+      ) : (
+        <>
+          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+          <div className="absolute top-2 left-2 flex items-center gap-2 px-2 py-1 bg-black/60 rounded text-xs font-mono text-white backdrop-blur-md">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+            Live Preview
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -86,6 +105,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     groqApiKey: '',
     aiProvider: 'gemini-web',
     geminiWebModel: 'gemini-3.6-flash',
+    customApiProtocol: 'auto',
     groqModel: 'llama-3.1-8b-instant',
     tgBotToken: '',
     tgAdminIds: '',
@@ -134,6 +154,11 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     loadConfig()
     loadMemories()
 
+    if (!navigator.mediaDevices?.getUserMedia?.enumerateDevices) {
+      console.warn('[Config] Media devices API tidak tersedia di webview ini; daftar mic/kamera dikosongkan.')
+      return
+    }
+
     navigator.mediaDevices
       .getUserMedia({ audio: true, video: true })
       .then((stream) => {
@@ -150,7 +175,13 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
         // Stop stream immediately since we just needed permission
         stream.getTracks().forEach((track) => track.stop())
       })
-      .catch((err) => console.error('Mic/Cam permission denied', err))
+      .catch(() => {
+        // WebKitGTK/wry dapat menolak permintaan izin tanpa dialog. Bukan fatal:
+        // daftar perangkat kosong dan pengguna tetap bisa menyimpan config.
+        console.warn(
+          '[Config] Izin mic/kamera tidak diberikan oleh lingkungan webview; pilihan perangkat dikosongkan.'
+        )
+      })
   }, [])
 
   useEffect(() => {
@@ -363,10 +394,15 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     }
 
     if (config.aiProvider === 'custom') {
-      const endpoint = config.customEndpoint?.trim() || ''
-      if (!endpoint.endsWith('/chat/completions')) {
+      const endpoint = (config.customEndpoint || '').trim().replace(/\/+$/, '')
+      const isHttp = /^https?:\/\//i.test(endpoint)
+      const openaiStyle = /\/(chat\/completions|v1)$/.test(endpoint)
+      const anthropicStyle = /anthropic/i.test(endpoint) || config.customApiProtocol === 'anthropic'
+      if (!isHttp || (!openaiStyle && !anthropicStyle)) {
         alert(
-          'Gagal Menyimpan: Custom Endpoint URL tidak valid! URL wajib diakhiri dengan /chat/completions (Contoh: https://api.openai.com/v1/chat/completions).'
+          'Gagal Menyimpan: Custom Endpoint URL tidak valid. Gunakan salah satu format:\n' +
+            '- OpenAI-Compatible: akhiri dengan /v1 atau /chat/completions (contoh: https://api.openai.com/v1)\n' +
+            '- Anthropic-Compatible: URL berisi "anthropic" atau pilih protokol Anthropic (contoh: https://api.anthropic.com/v1).'
         )
         return
       }
@@ -646,21 +682,38 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   <p className="text-sm font-semibold">Custom Endpoint URL</p>
                   <input
                     type="text"
-                    placeholder="Contoh: https://api.openai.com/v1/chat/completions"
-                    className={`input input-bordered w-full ${config.customEndpoint && !config.customEndpoint.trim().endsWith('/chat/completions') ? 'input-error' : ''}`}
+                    placeholder="Contoh: https://api.openai.com/v1 atau https://api.anthropic.com/v1"
+                    className={`input input-bordered w-full ${config.customEndpoint && !isCustomEndpointPlausible(config.customEndpoint, config.customApiProtocol) ? 'input-warning' : ''}`}
                     value={config.customEndpoint || ''}
                     onChange={handleCustomEndpointChange}
                   />
                   {config.customEndpoint &&
-                  !config.customEndpoint.trim().endsWith('/chat/completions') ? (
-                    <p className="text-xs text-error mt-1 font-medium">
-                      URL endpoint tidak memenuhi standar format OpenAI-Compatible.
+                  !isCustomEndpointPlausible(config.customEndpoint, config.customApiProtocol) ? (
+                    <p className="text-xs text-warning mt-1 font-medium">
+                      Format tidak dikenali. Akhiri dengan /v1 (OpenAI/Anthropic) atau
+                      /chat/completions.
                     </p>
                   ) : (
                     <p className="text-xs opacity-50 mt-1">
-                      Pastikan Endpoint mendukung standar format <strong>OpenAI-Compatible</strong>.
+                      Cukup tulis base URL sampai <strong>/v1</strong> (OpenAI-compatible atau
+                      Anthropic-compatible). Protokol dideteksi otomatis, atau paksa lewat pilihan
+                      di bawah.
                     </p>
                   )}
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-semibold">Protokol API</p>
+                  <select
+                    className="select select-bordered w-full font-medium"
+                    value={config.customApiProtocol || 'auto'}
+                    onChange={(e) =>
+                      setConfig((prev) => ({ ...prev, customApiProtocol: e.target.value }))
+                    }
+                  >
+                    <option value="auto">Auto-Detect (disarankan)</option>
+                    <option value="openai">OpenAI-Compatible (/v1/chat/completions)</option>
+                    <option value="anthropic">Anthropic-Compatible (/v1/messages)</option>
+                  </select>
                 </div>
                 <div className="space-y-1.5">
                   <p className="text-sm font-semibold">Custom Model ID</p>
