@@ -30,9 +30,17 @@ src-tauri/gen/
 *.swp
 
 # worktree lokal & cache lain
-/.claude/worktrees/
+/.claude/
 __pycache__/
 coverage/
+
+# file lokal tool AI (plan/state per-tool, bukan bagian repo)
+/.hermes/
+/.zcode/
+/.impeccable/
+/.remember/
+/.superpowers/
+/plans/
 
 # project-specific
 workflow

@@ -1,7 +1,7 @@
 # MARK - Metacognitive Artificial Relational Knowledge (Linux Edition)
 
 ![MARK AI Banner](./assets/banner-repo.png)
-[![Download Terbaru](https://img.shields.io/badge/Download-Linux-blue?style=for-the-badge&logo=linux)](https://github.com/Abelion512/mark-agent/releases/)
+[![Download Terbaru](https://img.shields.io/badge/Download-Linux-blue?style=for-the-badge&logo=linux)](https://github.com/Abelion512/mark-agent-linux/releases/)
 
 > **Mark BUKAN sekadar asisten virtual biasa. Mark adalah entitas AI yang dirancang untuk memiliki emosi dan bertindak selayaknya manusia.**
 > Lebih dari sekadar chatbot kaku, Mark adalah _Personal AI Assistant_ yang berjalan di ekosistem lokal Anda—dilengkapi dengan sistem memori jangka panjang berbasis _Vector Memory_ dan **Relational Growth System** untuk mempelajari kebiasaan serta beradaptasi dengan gaya komunikasi Anda tanpa mengorbankan privasi sedikit pun. Ditenagai oleh _Hybrid AI Engine_, Mark dapat beroperasi secara lokal untuk privasi maksimal, atau menggunakan _Cloud APIs_ untuk mengeksekusi tugas kompleks, menyusun rencana (_Agentic Planning_), merangkum video YouTube, mengobservasi layar atau dunia nyata (_Vision_), melakukan riset internet, hingga berinteraksi melalui suara secara _real-time_.
@@ -59,8 +59,6 @@ mark/
 
 | Kategori           | Teknologi                                                                     |
 | ------------------ | ----------------------------------------------------------------------------- |
-| Kategori           | Teknologi                                                                     |
-| ------------------ | ----------------------------------------------------------------------------- |
 | **Shell**          | Tauri v2 (Rust) — pengganti Electron, jauh lebih ringan                        |
 | **Runtime tool**   | Bun (package manager, test runner, sidecar engine)                             |
 | **Antarmuka (UI)** | React 19, Vite 7, Tailwind CSS 4, DaisyUI 5, GSAP (Animasi)                    |
@@ -89,8 +87,8 @@ mark/
 1.  **Kloning repositori:**
 
     ```bash
-    git clone https://github.com/username/mark-project.git
-    cd mark-project/mark
+    git clone https://github.com/Abelion512/mark-agent-linux.git
+    cd mark-agent-linux
     ```
 
 2.  **Instalasi dependensi:**
@@ -102,13 +100,26 @@ mark/
 3.  **Jalankan aplikasi (dev mode — Tauri + Vite HMR):**
 
     ```bash
-    bun tauri dev
+    bun run app        # alias dari: bun tauri dev
     ```
 
 4.  **Konfigurasi Awal:**
     Buka menu **Configuration** di dalam aplikasi, pilih penyedia AI Anda (LM Studio atau Groq), masukkan API Key, lalu atur penyedia _Vector Memory_ (Sangat disarankan menggunakan **Transformers.js** untuk pengalaman lokal tanpa perangkat lunak tambahan).
 
-## 🔌 Sistem Plugin (Ekstensi Kustom)
+### Perintah Pengembangan Lainnya
+
+| Perintah             | Fungsi                                                                    |
+| -------------------- | ------------------------------------------------------------------------- |
+| `bun run verify`     | Gerbang verifikasi lengkap: vitest + harness watermark + build + cargo check. WAJIB hijau sebelum push. |
+| `bun test`           | Unit test saja (vitest).                                                   |
+| `bun run lint`       | ESLint atas seluruh repo (hasil di-cache).                                 |
+| `bun run format`     | Prettier tulis-ulang seluruh file.                                         |
+| `bun run sync-version` | Tarik versi dari `src-tauri/tauri.conf.json` ke package.json + Cargo.toml. Versi HANYA diubah di tauri.conf.json. |
+| `bun run harness`    | Engine tool headless (JSON-over-stdio) — lihat bagian Headless Harness.    |
+
+Shortcut dalam aplikasi: `Ctrl+Alt+M` tampilkan/sembunyikan jendela, `Ctrl+Shift+S` hentikan darurat semua aksi otomatis.
+
+## Sistem Plugin (Ekstensi Kustom)
 
 Mark memungkinkan Anda memperluas kemampuannya dengan mudah melalui pembuatan **Plugin Kustom** secara langsung dari antarmuka pengguna, tanpa perlu mengubah kode inti aplikasi.
 
@@ -130,20 +141,20 @@ const loudness = require('loudness')
 // Mengambil parameter angka volume yang diberikan oleh AI
 const vol = parseInt(query)
 if (isNaN(vol) || vol < 0 || vol > 100) {
-  return '❌ Gagal: Masukkan angka volume 0-100.'
+  return '[GAGAL] Masukkan angka volume 0-100.'
 }
 
 try {
   await loudness.setVolume(vol)
-  return '✅ Berhasil, volume telah diubah ke ' + vol + '%'
+  return '[SUKSES] Volume diubah ke ' + vol + '%'
 } catch (e) {
-  return '❌ Gagal mengubah volume: ' + e.message
+  return '[GAGAL] Tidak bisa mengubah volume: ' + e.message
 }
 ```
 
 7. Klik **Simpan Plugin**. Mark akan langsung mempelajari alat baru ini dan Anda dapat segera memerintahkannya untuk mengeksekusi skrip tersebut melalui teks atau perintah suara.
 
-## 🔌 Headless Harness (Plugable)
+## Headless Harness (Plugable)
 
 Engine tool Mark berjalan sebagai proses terpisah dengan protokol **JSON-over-stdio** —
 bisa dipakai tanpa GUI, dipasang ke agent lain, atau di-orchestrate dari skrip mana pun:
@@ -168,7 +179,7 @@ bun tauri build
 
 Berkas _installer_ akan otomatis tersedia di `src-tauri/target/release/bundle/`.
 
-> **MARK Linux** — fork independen, dibangun ulang di atas Tauri v2 (Rust). Versi fork memakai garis sendiri (`1.x`, saat ini `1.0.0-alpha.1`), terpisah dari penomoran upstream. Rilis dipicu otomatis oleh tag `v*` melalui gerbang CI ketat (gitleaks + vitest + vite build + cargo check) — lihat `.github/workflows/release.yml`. Sumber kebenaran versi: `src-tauri/tauri.conf.json` (sinkron via `bun run sync-version`). Peta jalan migrasi & status:
+> **MARK Linux** — fork independen, dibangun ulang di atas Tauri v2 (Rust). Versi fork memakai garis sendiri (`1.x`, saat ini `1.0.0-alpha.1`), terpisah dari penomoran upstream, dan mengikuti **Semantic Versioning 2.0.0**: `MAJOR.MINOR.PATCH` dengan sufiks prerelease (`-alpha.N`, `-rc.N`) yang diurutkan lebih rendah dari rilis stabil (contoh: `1.0.0-alpha.2` < `1.0.0-rc.1` < `1.0.0`). Naik MAJOR hanya untuk breaking change pada data/skema/API, MINOR untuk fitur, PATCH untuk perbaikan. Rilis dipicu otomatis oleh tag `v*` melalui gerbang CI ketat (gitleaks + vitest + vite build + cargo check) — lihat `.github/workflows/release.yml`. Sumber kebenaran versi: `src-tauri/tauri.conf.json` (sinkron via `bun run sync-version`). Peta jalan migrasi & status:
 > `docs/PLANNED/migration-tauri-v2.md`
 
 ## Warning
