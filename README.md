@@ -168,7 +168,7 @@ bun tauri build
 
 Berkas _installer_ akan otomatis tersedia di `src-tauri/target/release/bundle/`.
 
-> **Mark Light 6.x** — dibangun ulang di atas Tauri v2 (Rust). Peta jalan & status:
+> **MARK Linux** — fork independen, dibangun ulang di atas Tauri v2 (Rust). Versi fork memakai garis sendiri (`1.x`, saat ini `1.0.0-alpha.1`), terpisah dari penomoran upstream. Rilis dipicu otomatis oleh tag `v*` melalui gerbang CI ketat (gitleaks + vitest + vite build + cargo check) — lihat `.github/workflows/release.yml`. Sumber kebenaran versi: `src-tauri/tauri.conf.json` (sinkron via `bun run sync-version`). Peta jalan migrasi & status:
 > `docs/PLANNED/migration-tauri-v2.md`
 
 ## Warning

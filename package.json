@@ -1,6 +1,6 @@
 {
   "name": "mark",
-  "version": "5.0.0",
+  "version": "1.0.0-alpha.1",
   "description": "Mark: Metacognitive Artificial Relational Knowledge AI",
   "main": "./out/main/index.js",
   "author": "Mazees",
@@ -15,7 +15,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
+    "test:harness": "node tests/stress-watermark.harness.mjs && node tests/stress-watermark-v2.harness.mjs",
     "verify": "bash scripts/verify.sh",
+    "sync-version": "node scripts/sync-version.mjs",
     "harness": "bun sidecar/engine.mjs",
     "app": "tauri dev"
   },
