@@ -126,6 +126,8 @@ export const fetchAI = async (
           for (const part of m.content) {
             if (part.type === 'text') {
               fullPrompt += `[${m.role.toUpperCase()}]: ${part.text}\n`
+            } else if (part.type === 'image_url') {
+              console.warn('[ai] gemini-web: bagian gambar dilewati (RPC tidak mendukung vision).')
             }
           }
         } else {
@@ -373,6 +375,30 @@ export const fetchAI = async (
 
         const errorProvider = conf.aiProvider === 'custom' ? 'Custom API' : 'LM Studio'
         let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
+
+        // Auto-retry: sebagian endpoint (mis. DeepSeek) menolak payload gambar
+        // dengan 400. Ulangi SEKALI tanpa bagian gambar agar chat tetap jalan.
+        const bodyHasImage = currentBody.messages?.some(
+          (m) => Array.isArray(m.content) && m.content.some((p) => p.type === 'image_url')
+        )
+        if (
+          !isRetry &&
+          bodyHasImage &&
+          /image|vision|multimodal|content.?type|unsupported|tidak didukung/i.test(finalErrorMessage)
+        ) {
+          onStatus?.('Endpoint menolak payload gambar; mencoba ulang tanpa gambar...')
+          logAi('[Auto-Retry] Endpoint menolak gambar; strip image_url lalu ulang.')
+          const strippedMessages = currentBody.messages.map((m) => {
+            if (!Array.isArray(m.content)) return m
+            const texts = m.content
+              .filter((p) => p.type === 'text')
+              .map((p) => p.text)
+              .join('\n')
+            return { ...m, content: texts }
+          })
+          const retryNoImage = { ...currentBody, messages: strippedMessages }
+          return executeFetch(retryNoImage, true, trafficRetryCount)
+        }
 
         // Auto-retry fallback untuk High Traffic / Rate Limits (503, 429, 500)
         let isHighTraffic =
@@ -637,5 +663,61 @@ export const cleanAndParse = (rawResponse) => {
     } catch (e) {
       return null
     }
+  }
+}
+
+// Deteksi daftar model dari endpoint custom (GET {base}/models).
+// Mendukung protokol OpenAI-Compatible maupun Anthropic; cukup base /v1.
+export const listCustomModels = async (rawEndpoint, apiKey, protocolConf) => {
+  const base = (rawEndpoint || '').trim().replace(/\/+$/, '')
+  if (!/^https?:\/\//i.test(base)) {
+    throw new Error('URL endpoint tidak valid. Harus diawali http:// atau https://')
+  }
+  const preferAnthropic =
+    protocolConf === 'anthropic' ||
+    (protocolConf !== 'openai' && /anthropic/i.test(base))
+  const url = preferAnthropic
+    ? base.endsWith('/v1/messages')
+      ? base.replace(/\/messages$/, '/models')
+      : base.endsWith('/v1')
+        ? `${base}/models`
+        : `${base}/v1/models`
+    : base.endsWith('/chat/completions')
+      ? base.replace(/\/chat\/completions$/, '/models')
+      : base.endsWith('/models')
+        ? base
+        : `${base}/models`
+  const headers = { 'Content-Type': 'application/json' }
+  if (preferAnthropic) {
+    headers['x-api-key'] = apiKey || ''
+    headers['anthropic-version'] = '2023-06-01'
+  } else if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`
+  }
+  const controller = new AbortController()
+  // Race manual: sinyal abort Bun tidak selalu membatalkan fase connect,
+  // jadi janji fetch dilombakan dengan timer penolak sendiri.
+  const timeoutErr = () => new Error('Timeout deteksi model (15s). Endpoint tidak merespons.')
+  const timer = setTimeout(() => {
+    controller.abort(timeoutErr())
+  }, 15000)
+  try {
+    const res = await Promise.race([
+      fetch(url, { method: 'GET', headers, signal: controller.signal }),
+      new Promise((_, reject) => setTimeout(() => reject(timeoutErr()), 15000))
+    ])
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(redactSecrets(`HTTP ${res.status} dari ${url}: ${text.slice(0, 160)}`))
+    }
+    const data = await res.json()
+    const ids =
+      (Array.isArray(data?.data) && data.data.map((m) => m.id || m.name)) ||
+      (Array.isArray(data?.models) && data.models.map((m) => m.id || m.name)) ||
+      (Array.isArray(data) && data.map((m) => m.id || m.name)) ||
+      []
+    return [...new Set(ids.filter(Boolean))].sort((a, b) => a.localeCompare(b))
+  } finally {
+    clearTimeout(timer)
   }
 }

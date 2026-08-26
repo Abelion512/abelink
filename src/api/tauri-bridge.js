@@ -54,7 +54,11 @@ const clampData = (data, max = 20000) => {
 
 const call = async (action, ...args) => {
   const res = await invoke('node_invoke', { action, payload: args })
-  if (!res?.success) throw new Error(res?.error || 'Sidecar error')
+  if (!res?.success) {
+    const errText =
+      typeof res?.error === 'string' ? res.error : res?.error?.message || 'Sidecar error'
+    throw new Error(errText)
+  }
   return clampData(res.data)
 }
 const callSafe = async (action, ...args) => {
@@ -127,6 +131,9 @@ export const api = {
     }),
   abortFetchAI: () => call('ai:abort-fetch'),
   syncConfig: (config) => call('sync-config', config),
+  // Deteksi daftar model dari endpoint custom (GET /models via sidecar).
+  detectCustomModels: (endpoint, apiKey, protocol) =>
+    call('ai:list-models', endpoint || '', apiKey || '', protocol || 'auto'),
   runNodeFunction: (fn, ...args) => call(fn, ...args),
 
   // ---------- AI status stream ----------

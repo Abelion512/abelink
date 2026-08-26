@@ -37,6 +37,11 @@ handlers['ai:fetch'] = async (payload) => {
   }
 }
 on('ai:abort-fetch', () => ai.abortAllFetches())
+// Deteksi daftar model dari endpoint custom (GET /models) utk Configuration.
+// on() otomatis spread args + bungkus sukses; throw akan jadi error frame.
+on('ai:list-models', (endpoint, apiKey, protocol) =>
+  ai.listCustomModels(endpoint, apiKey, protocol)
+)
 on('sync-config', (config) => {
   ai.setGlobalConfig(config)
   if (

@@ -235,9 +235,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {
               element: '#tour-groq-key',
               popover: {
-                title: '3. Wajib: Groq API Key',
+                title: '3. Groq API Key (khusus Voice STT)',
                 description:
-                  'Nah ini penting! Karena fitur ngobrol pakai suara (Speech-to-Text) eksklusif pakai Groq, bagian ini WAJIB kamu isi walaupun pakai AI lokal.',
+                  'Bagian ini KHUSUS fitur ngobrol pakai suara (Speech-to-Text via Groq Cloud). Kalau tidak pakai voice, atau pilih Local Offline (Whisper Small), bagian ini boleh dikosongkan dan simpan config tetap jalan.',
                 side: 'top',
                 align: 'start'
               }
@@ -381,11 +381,11 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
 
   const handleSaveConfiguration = async () => {
     // Validasi API Key
-    if (!config.groqApiKey?.trim()) {
+    if (config.localWhisperModel?.startsWith('groq') && !config.groqApiKey?.trim()) {
       await confirm({
-        title: 'API Key Kosong',
+        title: 'Groq API Key Kosong',
         message:
-          'Tolong isi Groq API Key terlebih dahulu! API Key ini wajib untuk fitur Voice STT.',
+          'Engine STT dipilih Groq Cloud, tapi API Key masih kosong. Isi key di bagian Voice, atau ganti engine ke Local Offline (Whisper Small).',
         isError: true,
         hideCancel: true,
         confirmText: 'Tutup'
@@ -476,6 +476,33 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     setConfig((prev) => ({ ...prev, groqApiKey: e.target.value }))
   const handleCustomEndpointChange = (e) =>
     setConfig((prev) => ({ ...prev, customEndpoint: e.target.value }))
+  // Deteksi daftar model dari endpoint custom via sidecar (ai:list-models).
+  const [customModels, setCustomModels] = useState([])
+  const [detectingModels, setDetectingModels] = useState(false)
+  const [modelDetectError, setModelDetectError] = useState('')
+  const handleDetectModels = async () => {
+    setDetectingModels(true)
+    setModelDetectError('')
+    try {
+      const list = await window.api.detectCustomModels(
+        config.customEndpoint,
+        config.customApiKey,
+        config.customApiProtocol || 'auto'
+      )
+      if (Array.isArray(list) && list.length > 0) {
+        setCustomModels(list)
+        if (!config.customModel && list.length > 0) {
+          setConfig((prev) => ({ ...prev, customModel: list[0] }))
+        }
+      } else {
+        setModelDetectError('Endpoint tidak mengembalikan daftar model.')
+      }
+    } catch (err) {
+      setModelDetectError(`Deteksi gagal: ${err?.message || err}`)
+    } finally {
+      setDetectingModels(false)
+    }
+  }
   const handleCustomApiKeyChange = (e) =>
     setConfig((prev) => ({ ...prev, customApiKey: e.target.value }))
   const handleCustomModelChange = (e) =>
@@ -716,16 +743,44 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Custom Model ID</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm font-semibold">Custom Model ID</p>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline"
+                      disabled={detectingModels || !config.customEndpoint}
+                      onClick={handleDetectModels}
+                      title="Ambil daftar model dari endpoint (GET /models)"
+                    >
+                      {detectingModels ? (
+                        <span className="loading loading-spinner loading-xs"></span>
+                      ) : (
+                        'Deteksi Model'
+                      )}
+                    </button>
+                  </div>
+                  {modelDetectError && (
+                    <p className="text-xs text-error mt-1">{modelDetectError}</p>
+                  )}
                   <input
                     type="text"
-                    placeholder="Contoh: gpt-4o-mini"
+                    list="custom-model-options"
+                    placeholder={
+                      customModels.length > 0
+                        ? `${customModels.length} model terdeteksi - klik untuk memilih`
+                        : 'Contoh: gpt-4o-mini'
+                    }
                     className="input input-bordered w-full"
                     value={config.customModel || ''}
                     onChange={(e) =>
                       setConfig((prev) => ({ ...prev, customModel: e.target.value }))
                     }
                   />
+                  <datalist id="custom-model-options">
+                    {customModels.map((m) => (
+                      <option key={m} value={m} />
+                    ))}
+                  </datalist>
                 </div>
                 <div className="space-y-1.5">
                   <p className="text-sm font-semibold">Custom API Key</p>

@@ -62,6 +62,7 @@ pub struct NodeResponse {
 const ALLOWED_ACTIONS: &[&str] = &[
     "ai:fetch",
     "ai:abort-fetch",
+    "ai:list-models",
     "sync-config",
     "native-tool:execute",
     "native-tool:needs-approval",
