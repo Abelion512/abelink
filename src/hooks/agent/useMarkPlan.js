@@ -24,6 +24,11 @@ import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
 
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp']
 
+// Batas keamanan loop ReAct: jumlah langkah maksimum sebelum eksekusi dipaksa selesai
+const MAX_PLAN_STEPS = 25
+// Batas giliran tanpa kemajuan (bicara intermediate tanpa action) sebelum dipaksa selesai
+const MAX_NO_PROGRESS_STREAK = 3
+
 const isImagePath = (filePath = '') => {
   const ext = filePath.split('.').pop().toLowerCase()
   return IMAGE_EXTS.includes(`.${ext}`)
@@ -109,7 +114,9 @@ export const useMarkPlan = ({
   }, [setChatData])
 
   const activeTaskObjectiveRef = useRef(null)
-  const interventionBufferRef = useRef([])
+  // Buffer intervensi user, dipisah per sesi agar arahan tidak bocor antar sesi
+  // ({ [sessionId]: string[] }, kunci 'main' untuk sesi utama)
+  const interventionBufferRef = useRef({})
   const lastUserPromptRef = useRef('')
   const activeRunningSessionIdRef = useRef(1)
 
@@ -119,9 +126,22 @@ export const useMarkPlan = ({
     }
   }
 
-  // Menampung arahan/intervensi user saat ReAct loop sedang berjalan
-  const handleIntervention = (msg) => {
-    interventionBufferRef.current.push(msg)
+  // Kunci buffer intervensi yang konsisten: sesi utama -> 'main', lainnya -> id string
+  const interventionKeyFor = (sessionId) => {
+    const numId =
+      sessionId !== null && sessionId !== undefined && !Number.isNaN(Number(sessionId))
+        ? Number(sessionId)
+        : 1
+    return numId === 1 ? 'main' : String(numId)
+  }
+
+  // Menampung arahan/intervensi user saat ReAct loop sedang berjalan (per sesi)
+  const handleIntervention = (msg, targetSessionId = null) => {
+    const key = interventionKeyFor(targetSessionId)
+    if (!Array.isArray(interventionBufferRef.current[key])) {
+      interventionBufferRef.current[key] = []
+    }
+    interventionBufferRef.current[key].push(msg)
   }
 
   // Penghentian tugas per-sesi secara independen
@@ -146,14 +166,20 @@ export const useMarkPlan = ({
         if (setRunningSessionId) setRunningSessionId(null)
       }
       if (window.api && window.api.browserClose) {
-        window.api.browserClose({ sessionId: numId === 1 ? 'main' : `workspace-${numId}` }).catch(() => {})
+        // Facade bridge menerima id sesi sebagai string posisi: 'default' untuk sesi utama
+        window.api
+          .browserClose(numId === 1 ? 'default' : String(numId))
+          .catch((e) => console.warn('browserClose gagal:', e?.message))
       }
     } else {
       // Hentikan seluruh sesi yang aktif
       for (const [id, session] of activeSessionsRef.current.entries()) {
         if (session.abortController) session.abortController.abort()
         if (window.api && window.api.browserClose) {
-          window.api.browserClose({ sessionId: id === 1 ? 'main' : `workspace-${id}` }).catch(() => {})
+          // Facade bridge menerima id sesi sebagai string posisi: 'default' untuk sesi utama
+          window.api
+            .browserClose(id === 1 ? 'default' : String(id))
+            .catch((e) => console.warn('browserClose gagal:', e?.message))
         }
       }
       activeSessionsRef.current.clear()
@@ -409,7 +435,9 @@ export const useMarkPlan = ({
             let finalAgents = []
 
             while (Date.now() - startTime < maxWaitSeconds * 1000) {
-              if (abortControllerRef.current.signal.aborted) break
+              // Pakai signal sesi lokal (bukan abortControllerRef milik sesi 1) agar
+              // sesi lain tidak ikut terpengaruh; fallback aman bila signal tak tersedia.
+              if (currentSignal?.aborted ?? false) break
               const agents = await Promise.all(targetIds.map((id) => subagentStore.getSubagent(id)))
               finalAgents = agents.filter(Boolean)
 
@@ -614,12 +642,18 @@ export const useMarkPlan = ({
             workspaceRoot: context?.workspaceRoot
           }
           const nativePromise = window.api.executeNativeTool(tool, query, activeConfig)
+          let onNativeAbort = null
           const abortPromise = new Promise((_, reject) => {
-            const onAbort = () => reject(new Error('AbortError'))
-            if (currentSignal?.aborted) return onAbort()
-            currentSignal?.addEventListener('abort', onAbort)
+            onNativeAbort = () => reject(new Error('AbortError'))
+            if (currentSignal?.aborted) return onNativeAbort()
+            currentSignal?.addEventListener('abort', onNativeAbort)
           })
-          res = await Promise.race([nativePromise, abortPromise])
+          try {
+            res = await Promise.race([nativePromise, abortPromise])
+          } finally {
+            // Lepas listener abort agar tidak menumpuk di signal (memory leak)
+            if (onNativeAbort) currentSignal?.removeEventListener('abort', onNativeAbort)
+          }
         }
 
         if (res && res.success) {
@@ -661,12 +695,19 @@ export const useMarkPlan = ({
         })
 
         const pluginPromise = window.api.executePlugin(tool, query)
+        let onPluginAbort = null
         const abortPromise = new Promise((_, reject) => {
-          const onAbort = () => reject(new Error('AbortError'))
-          if (currentSignal?.aborted) return onAbort()
-          currentSignal?.addEventListener('abort', onAbort)
+          onPluginAbort = () => reject(new Error('AbortError'))
+          if (currentSignal?.aborted) return onPluginAbort()
+          currentSignal?.addEventListener('abort', onPluginAbort)
         })
-        const res = await Promise.race([pluginPromise, abortPromise])
+        let res
+        try {
+          res = await Promise.race([pluginPromise, abortPromise])
+        } finally {
+          // Lepas listener abort agar tidak menumpuk di signal (memory leak)
+          if (onPluginAbort) currentSignal?.removeEventListener('abort', onPluginAbort)
+        }
 
         resultString = res.success
           ? typeof res.data === 'string'
@@ -928,12 +969,21 @@ export const useMarkPlan = ({
       }
 
       const contextPromise = getUnifiedContext(searchQuery, allMemory)
+      let onContextAbort = null
       const abortPromise = new Promise((_, reject) => {
-        const onAbort = () => reject(new Error('AbortError'))
-        if (sessionAbortController.signal.aborted) return onAbort()
-        sessionAbortController.signal.addEventListener('abort', onAbort)
+        onContextAbort = () => reject(new Error('AbortError'))
+        if (sessionAbortController.signal.aborted) return onContextAbort()
+        sessionAbortController.signal.addEventListener('abort', onContextAbort)
       })
-      const unifiedContext = await Promise.race([contextPromise, abortPromise])
+      let unifiedContext
+      try {
+        unifiedContext = await Promise.race([contextPromise, abortPromise])
+      } finally {
+        // Lepas listener abort agar tidak menumpuk di signal (memory leak)
+        if (onContextAbort) {
+          sessionAbortController.signal.removeEventListener('abort', onContextAbort)
+        }
+      }
 
       let contextMsgStr = ''
       if (tgContext)
@@ -982,6 +1032,7 @@ export const useMarkPlan = ({
       const loopMessages = [...chatSession]
       let isDone = false
       let stepCount = 0
+      let noActionStreak = 0
       let lastDecision = null
       let allSources = []
       let executedToolsList = []
@@ -999,11 +1050,13 @@ export const useMarkPlan = ({
           break
         }
 
-        // Cek Intervensi User di tengah jalan
-        if (interventionBufferRef.current.length > 0) {
-          const interventions = interventionBufferRef.current.join('\n')
+        // Cek Intervensi User di tengah jalan (buffer terpisah per sesi)
+        const interventionKey = activeSessionNum === 1 ? 'main' : String(activeSessionNum)
+        const pendingInterventions = interventionBufferRef.current[interventionKey]
+        if (Array.isArray(pendingInterventions) && pendingInterventions.length > 0) {
+          const interventions = pendingInterventions.join('\n')
           loopMessages.push({ role: 'user', content: `[USER INTERVENTION]: ${interventions}` })
-          interventionBufferRef.current = []
+          interventionBufferRef.current[interventionKey] = []
 
           targetSetChatData((prev) => [
             ...prev.filter((item) => !item.isThinking),
@@ -1024,6 +1077,23 @@ export const useMarkPlan = ({
         }
 
         stepCount++
+
+        // Guard batas langkah keamanan: bila MAX_PLAN_STEPS tercapai, isi keputusan
+        // paksa-selesai di sini sehingga pemanggilan AI dilewati dan finish-path
+        // normal (arsip, TTS, notifikasi) tetap berjalan.
+        let decision = null
+        if (stepCount >= MAX_PLAN_STEPS) {
+          console.warn(
+            `[useMarkPlan] Batas ${MAX_PLAN_STEPS} langkah tercapai. Eksekusi dipaksa berhenti.`
+          )
+          decision = {
+            thought: 'Batas langkah tercapai...',
+            answer:
+              'Eksekusi aku hentikan karena sudah mencapai batas langkah keamanan. Lanjutkan sisanya secara manual, atau minta aku meneruskan lewat perintah baru.',
+            is_done: true,
+            action: null
+          }
+        }
 
         // Loading thinking indicator
         targetSetChatData((prev) => {
@@ -1060,23 +1130,26 @@ export const useMarkPlan = ({
           }
         } catch (e) {}
 
-        // Request keputusan giliran ke AI (getNextAction)
-        const decision = await getNextAction(
-          userInput,
-          loopMessages,
-          sessionAbortController.signal,
-          unifiedContext,
-          contextMsgStr,
-          activeTopic,
-          {
-            ...opts,
-            intentQuery: searchQuery,
-            tgContext,
-            currentMusicTrack,
-            activeTaskObjective: activeTaskObjectiveRef.current,
-            existingSubagents
-          }
-        )
+        // Request keputusan giliran ke AI (getNextAction) — dilewati bila sudah
+        // dipaksa selesai oleh guard batas langkah di atas.
+        if (!decision) {
+          decision = await getNextAction(
+            userInput,
+            loopMessages,
+            sessionAbortController.signal,
+            unifiedContext,
+            contextMsgStr,
+            activeTopic,
+            {
+              ...opts,
+              intentQuery: searchQuery,
+              tgContext,
+              currentMusicTrack,
+              activeTaskObjective: activeTaskObjectiveRef.current,
+              existingSubagents
+            }
+          )
+        }
 
         // Penanganan jika disableTools aktif
         if (opts.disableTools) {
@@ -1244,6 +1317,32 @@ export const useMarkPlan = ({
         // ----------------------------------------------------------------------
         // EVALUASI KEPUTUSAN GILIRAN (Tool vs Jawaban / Selesai)
         // ----------------------------------------------------------------------
+        // Guard tanpa-kemajuan: reset saat action akan dieksekusi; naik saat model
+        // hanya bicara intermediate tanpa action agar re-prompt "[LANJUTKAN]"
+        // tidak berlangsung abadi melawan API berbayar.
+        const actionPresentNow = !!(
+          decision.action &&
+          (decision.action.tool || Array.isArray(decision.action))
+        )
+        if (actionPresentNow) {
+          noActionStreak = 0
+        } else if (!decision.is_done && !opts.disableTools && decision.answer && !durableTask) {
+          noActionStreak++
+          if (noActionStreak >= MAX_NO_PROGRESS_STREAK) {
+            console.warn(
+              `[useMarkPlan] Tidak ada kemajuan ${noActionStreak} giliran berturut-turut. Memaksa penyelesaian dengan jawaban terakhir.`
+            )
+            decision = {
+              ...decision,
+              is_done: true,
+              action: null,
+              thought:
+                decision.thought ||
+                'Eksekusi dihentikan karena tidak ada kemajuan (berbicara tanpa menjalankan action).'
+            }
+          }
+        }
+
         const hasAction = !!(
           decision.action &&
           (decision.action.tool || Array.isArray(decision.action))

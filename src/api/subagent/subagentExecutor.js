@@ -7,6 +7,11 @@ import { GROUP_TOOLS_DEFINITION } from '../tools/group-tools'
 // Registry AbortController aktif per sub-agent
 const subagentAbortControllers = new Map()
 
+// Guard tanpa-kemajuan: batas balasan invalid (bukan action maupun answer)
+// sebelum dikoreksi dan sebelum eksekusi dinyatakan gagal
+const NO_PROGRESS_INJECT_LIMIT = 3
+const NO_PROGRESS_FAIL_LIMIT = 6
+
 /**
  * Menjalankan satu putaran eksekusi ReAct untuk sub-agent
  * @param {string} subagentId ID sub-agent
@@ -17,6 +22,25 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   const subagent = await subagentStore.getSubagent(subagentId)
   if (!subagent) {
     return { success: false, error: 'Sub-agent tidak ditemukan.' }
+  }
+
+  // Tolak permintaan ganda: bila masih ada eksekusi yang hidup untuk sub-agent ini,
+  // controller lama tidak boleh ditimpa agar kill/abort tetap bisa bekerja.
+  const existingController = subagentAbortControllers.get(subagentId)
+  if (existingController && !existingController.signal.aborted) {
+    console.warn(
+      `[subagentExecutor] Eksekusi sudah berjalan; abaikan permintaan ganda. (${subagentId})`
+    )
+    await subagentStore.addMessage(subagentId, {
+      sender: 'system',
+      role: 'user',
+      content: '[SYSTEM]: Eksekusi sudah berjalan; abaikan permintaan ganda.'
+    })
+    return {
+      success: false,
+      subagentId,
+      error: 'Eksekusi sudah berjalan; abaikan permintaan ganda.'
+    }
   }
 
   if (subagent.status === 'completed' || subagent.status === 'killed') {
@@ -74,6 +98,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
 
   let currentTurn = subagent.turnCount || 0
   let latestSubagentReply = ''
+  let noProgress = 0
 
   try {
     while (!abortController.signal.aborted) {
@@ -103,6 +128,29 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
       const decision = cleanAndParse(rawContent)
       if (!decision) {
         throw new Error('Sub-Agent mengembalikan output yang tidak dapat diparse sebagai JSON.')
+      }
+
+      // Guard tanpa-kemajuan: balasan yang bukan action maupun answer (misal {} atau
+      // thought saja) tidak menghasilkan apa pun. Koreksi dulu lewat observasi, lalu
+      // gagalkan eksekusi bila tetap tidak kunjung valid.
+      const hasAnswerBranch = !decision.action && decision.answer
+      const hasActionBranch = !!decision.action
+      if (!hasAnswerBranch && !hasActionBranch) {
+        noProgress++
+        if (noProgress >= NO_PROGRESS_FAIL_LIMIT) {
+          throw new Error('loop tanpa kemajuan (format respons invalid)')
+        }
+        if (noProgress === NO_PROGRESS_INJECT_LIMIT) {
+          // Suntik satu observasi korektif ke riwayat agar model memperbaiki formatnya
+          await subagentStore.addMessage(subagentId, {
+            sender: 'tool',
+            role: 'user',
+            content:
+              '[OBSERVATION]: Format balasanmu tidak valid. Balas HANYA JSON {thought, action, answer}. Jika selesai, action=null beserta answer.'
+          })
+        }
+      } else {
+        noProgress = 0
       }
 
       // KONDISI 1: Sub-Agent Ingin Berbicara / Melapor ke Mark (action null / selesai)
@@ -218,7 +266,11 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
     await subagentStore.updateSubagent(subagentId, { status: 'failed' })
     return { success: false, subagentId, error: err.message }
   } finally {
-    subagentAbortControllers.delete(subagentId)
+    // Hapus hanya bila yang terdaftar masih controller milik run ini,
+    // supaya tidak menghapus controller run lain yang lebih baru.
+    if (subagentAbortControllers.get(subagentId) === abortController) {
+      subagentAbortControllers.delete(subagentId)
+    }
     if (window.api && window.api.executeNativeTool) {
       window.api.executeNativeTool('browser-close', '', { sessionId: subagentId }).catch(() => {})
     }

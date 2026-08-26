@@ -235,7 +235,7 @@ const ChatStudio = () => {
   const handleStopSession = () => {
     if (handleStop) handleStop(activeSessionId)
     if (window.api && window.api.browserClose) {
-      window.api.browserClose({ sessionId: activeSessionId === 1 ? 'main' : `workspace-${activeSessionId}` }).catch(() => {})
+      window.api.browserClose(activeSessionId === 1 ? 'default' : String(activeSessionId)).catch((e) => console.warn('browserClose gagal:', e?.message))
     }
     setIsLocalLoading(false)
   }

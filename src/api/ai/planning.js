@@ -530,9 +530,19 @@ ${
       }
 
       const data = cleanAndParse(response.content)
+      // Log defensif: data bisa null bila parse gagal, jangan sampai lempar error
+      // dan mencegah fallback rapi di akhir fungsi.
       try {
         const h = await import('../harness')
-        h.logReasoning({ thought: data.thought, suggested_mode: data.suggested_mode, task_status: data.task_status, objective: data.objective, action: data.action ? (data.action.tool || JSON.stringify(data.action).slice(0,120)) : null })
+        h.logReasoning({
+          thought: data?.thought ?? null,
+          suggested_mode: data?.suggested_mode ?? null,
+          task_status: data?.task_status ?? null,
+          objective: data?.objective ?? null,
+          action: data?.action
+            ? data.action.tool || JSON.stringify(data.action).slice(0, 120)
+            : null
+        })
       } catch (_) {}
       console.log('[planning] parse finished:', data)
 
