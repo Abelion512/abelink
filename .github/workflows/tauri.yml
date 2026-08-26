@@ -2,9 +2,9 @@ name: Tauri CI
 
 on:
   push:
-    branches: ["tauri-migration", "6.*"]
+    branches: ["tauri-migration", "5.5.0", "master"]
   pull_request:
-    branches: ["5.5.0", "master", "6.*"]
+    branches: ["5.5.0", "master", "tauri-migration"]
 
 jobs:
   secrets:
@@ -19,12 +19,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   frontend:
-    name: Frontend build (vite)
+    name: Frontend test + build (vitest, vite)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install
+      - name: Unit tests (vitest)
+        run: bunx vitest run
       - run: bun run build
 
   rust:

@@ -2,10 +2,12 @@
 # Verifikasi penuh sebelum push / rilis — WAJIB hijau.
 set -e
 cd "$(dirname "$0")/.."
-echo "[1/3] Unit tests (vitest)"
+echo "[1/4] Unit tests (vitest)"
 bunx vitest run
-echo "[2/3] Frontend build (vite + tailwind)"
+echo "[2/4] Crypto harness (watermark signing)"
+bun run test:harness
+echo "[3/4] Frontend build (vite + tailwind)"
 bun run build
-echo "[3/3] Rust check (src-tauri)"
+echo "[4/4] Rust check (src-tauri)"
 (cd src-tauri && cargo check)
-echo "✓ VERIFY LOLOS"
+echo "OK VERIFY LOLOS"

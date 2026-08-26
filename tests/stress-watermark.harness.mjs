@@ -1,5 +1,5 @@
 // WATERMARK v2 stress test — simulates attack vectors against the signing scheme.
-// Run: node tests/stress-watermark.test.mjs
+// Run: node tests/stress-watermark.harness.mjs
 // NOTE: Node 24+ — use modern sign/verify API (createSign deprecated for Ed25519)
 import { generateKeyPairSync, sign, verify, createHash } from 'crypto'
 

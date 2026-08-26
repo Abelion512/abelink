@@ -1,5 +1,5 @@
 // WATERMARK v2 — ADVANCED stress test (final, harness-corrected)
-// Run: node tests/stress-watermark-v2.test.mjs
+// Run: node tests/stress-watermark-v2.harness.mjs
 import { generateKeyPairSync, sign, verify, createHash } from 'crypto'
 
 let passed = 0, failed = 0

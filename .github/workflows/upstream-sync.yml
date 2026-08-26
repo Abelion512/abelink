@@ -1,9 +1,10 @@
-# Secrets required:
-#   LINEAR_API_KEY — consumed by scripts/mark-update.mjs to create Linear issues
-# Notes:
-#   - repository_dispatch fires when upstream (Mazees/mark-agent) pushes; cron is the
-#     reliable fallback that runs daily at 06:00 UTC.
-#   - The `upstream` remote is registered here because a fresh CI checkout only has `origin`.
+# Deteksi commit baru di upstream (Mazees/mark-agent).
+# Catatan:
+#   - repository_dispatch fires when upstream pushes; cron harian 06:00 UTC sebagai fallback.
+#   - Langkah "Sync to Linear" dihapus (2026-08-26): memanggil CLI `linear` yang tidak
+#     ada di runner dan selalu gagal -> daily cron merah tanpa arti. Sinkronisasi Linear
+#     kini manual via `node scripts/mark-update.mjs --sync-linear` dengan CLI terpasang.
+#   - Laporan diff diunggah sebagai artefak agar bisa ditinjau tanpa commit ke repo.
 name: Upstream Sync
 
 on:
@@ -34,8 +35,10 @@ jobs:
         run: |
           git remote add upstream https://github.com/Mazees/mark-agent.git || true
           node scripts/auto-detect-upstream.mjs --json
-          echo "new_commits=$(node -e 'const fs=require("fs");const f="./upstream-diff-report.json";const r=fs.existsSync(f)?JSON.parse(fs.readFileSync(f,"utf8")):null;console.log(r&&r.commits&&r.commits.length?"true":"false")')" >> "$GITHUB_OUTPUT"
 
-      - name: Sync to Linear
-        if: steps.detect.outputs.new_commits == 'true'
-        run: node scripts/mark-update.mjs --sync-linear
+      - name: Upload diff report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-diff-report
+          path: upstream-diff-report.json
+          if-no-files-found: ignore
