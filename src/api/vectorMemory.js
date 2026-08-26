@@ -38,16 +38,22 @@ function getWorker() {
           if (success) {
             resolve(vector !== undefined ? vector : results)
           } else {
-            console.warn('[EmbeddingWorker] Worker task error:', error)
-            // WebKitGTK tanpa WASM SIMD/threads -> auto Lite Mode (hash embedding)
-            if (/SIMD|no available backend/i.test(String(error))) {
-              isLiteMode = true
-              const isFirstNotice = !liteAutoNotified
-              emitLiteAuto()
-              if (isFirstNotice) {
-                console.warn(
-                  '[EmbeddingWorker] Auto Lite Mode AKTIF (hash embedding fallback) - pesan ini cukup sekali.'
-                )
+            // Setelah Lite Mode pernah AKTIF, semua embed/init berikutnya akan
+            // gagal berulang kali karena initFailed flag di worker. Jangan
+            // log warning berulang kali — cukup resolve null agar caller
+            // langsung pakai hash embedding.
+            if (!isLiteMode) {
+              console.warn('[EmbeddingWorker] Worker task error:', error)
+              // WebKitGTK tanpa WASM SIMD/threads -> auto Lite Mode (hash embedding)
+              if (/SIMD|no available backend/i.test(String(error))) {
+                isLiteMode = true
+                const isFirstNotice = !liteAutoNotified
+                emitLiteAuto()
+                if (isFirstNotice) {
+                  console.warn(
+                    '[EmbeddingWorker] Auto Lite Mode AKTIF (hash embedding fallback) - pesan ini cukup sekali.'
+                  )
+                }
               }
             }
             resolve(null)
@@ -92,18 +98,36 @@ async function getDirectExtractor(onProgress) {
   return directExtractor
 }
 
+// Guard: jalankan init worker sekali saja. Setelah berhasil, kembalikan
+// worker yang sudah siap tanpa post message init lagi. Setelah gagal
+// (atau Lite Mode sudah AKTIF), kembalikan null agar caller langsung
+// fallback ke hash embedding.
+let initDone = false
+
 // We export this so we can manually trigger download from config page
 export const getExtractor = async (onProgress) => {
+  if (isLiteMode) return null
   if (typeof onProgress === 'function') {
     progressListeners.add(onProgress)
   }
   const w = getWorker()
   if (w) {
+    // Init sudah pernah selesai: kembalikan worker jika berhasil.
+    // Jika gagal, isLiteMode sudah true dan tertangkap di cek di atas.
+    if (initDone) return w
     return new Promise((resolve) => {
       const id = nextId++
       pendingPromises.set(id, {
-        resolve: () => resolve(w),
-        reject: () => resolve(w)
+        // Pada init_done: success -> val=undefined (worker objek siap);
+        // failure -> val=null.
+        resolve: (val) => {
+          initDone = true
+          resolve(val === null ? null : w)
+        },
+        reject: () => {
+          initDone = true
+          resolve(null)
+        }
       })
       w.postMessage({ id, type: 'init' })
     })

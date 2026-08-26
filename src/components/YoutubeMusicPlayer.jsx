@@ -15,6 +15,7 @@ export const YoutubeMusicPlayer = () => {
     currentTrack,
     nextTrack,
     prevTrack,
+    playUrl,
     playPause
   } = useYoutubeMusic()
 

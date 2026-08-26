@@ -4,8 +4,38 @@ env.allowLocalModels = false
 env.useBrowserCache = true
 env.useFSCache = false
 
+// Deteksi dukungan WebAssembly SIMD sekali di module-level, sebelum pipeline
+// pernah dipanggil. ONNX WASM backend membaca flag ini saat inisialisasi;
+// mengubahnya setelah backend sudah ter-load tidak akan mengganti modul WASM
+// yang sudah ter-cached, sehingga retry non-SIMD selalu gagal.
+function isWasmSimdSupported() {
+  try {
+    // Modul WASM SIMD satu instruksi: (v128.const) — hanya valid bila SIMD didukung.
+    const simdModule = new Uint8Array([
+      0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x05, 0x01, 0x60,
+      0x00, 0x01, 0x7b, 0x03, 0x02, 0x01, 0x00, 0x0a, 0x0e, 0x01, 0x0c, 0x01,
+      0x03, 0x00, 0x41, 0x00, 0xfd, 0x0c, 0x00, 0xfd, 0x7d, 0x01, 0x0b
+    ])
+    return WebAssembly.validate(simdModule)
+  } catch (_) {
+    return false
+  }
+}
+
+const simdSupported = isWasmSimdSupported()
+if (!simdSupported) {
+  console.warn(
+    '[EmbeddingWorker] WebAssembly SIMD tidak didukung, konfigurasi backend WASM non-SIMD.'
+  )
+  env.backends.onnx.wasm.simd = false
+  env.backends.onnx.wasm.threads = false
+}
+
 let extractor = null
 let extractorPromise = null
+// Cache kegagalan init supaya worker tidak retry berulang kali — cukup sekali
+// beri tahu main thread untuk beralih ke Lite Mode (hash embedding).
+let initFailed = false
 
 /**
  * Init sekali dan DIJAMIN tunggal: semua pemanggil concurrent berbagi promise
@@ -13,45 +43,49 @@ let extractorPromise = null
  * dan melempar "Extractor not ready" (race lama yang membanjiri console boot).
  */
 function getExtractor(progressCallback) {
-  if (!extractorPromise) {
-    extractorPromise = (async () => {
+  if (extractorPromise) return extractorPromise
+  if (initFailed) return Promise.reject(new Error('Extractor init gagal — gunakan Lite Mode'))
+
+  extractorPromise = (async () => {
+    try {
+      // Coba backend WASM; flag SIMD sudah di-set non-aktip di module-level
+      // bila environment tidak mendukungnya.
       try {
-        // Coba backend WASM normal; bila lingkungan tidak punya WebAssembly SIMD
-        // (mis. WebKitGTK tertentu), turun ke jalur non-SIMD sebelum menyerah.
-        try {
-          extractor = await pipeline(
-            'feature-extraction',
-            'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-            {
-              device: 'wasm',
-              progress_callback: progressCallback
-            }
-          )
-        } catch (err) {
-          const isSimdIssue =
-            /SIMD/i.test(err?.message || '') || /no available backend/i.test(err?.message || '')
-          if (!isSimdIssue) throw err
-          console.warn(
-            '[EmbeddingWorker] WASM SIMD tidak tersedia, mencoba backend non-SIMD...'
-          )
-          env.backends.onnx.wasm.simd = false
-          extractor = await pipeline(
-            'feature-extraction',
-            'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-            {
-              device: 'wasm',
-              progress_callback: progressCallback
-            }
-          )
-        }
-        return extractor
+        extractor = await pipeline(
+          'feature-extraction',
+          'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+          {
+            device: 'wasm',
+            progress_callback: progressCallback
+          }
+        )
       } catch (err) {
-        // Gagal init: reset promise supaya percobaan berikutnya bisa coba lagi.
-        extractorPromise = null
-        throw err
+        const isSimdIssue =
+          /SIMD/i.test(err?.message || '') || /no available backend/i.test(err?.message || '')
+        if (!isSimdIssue) throw err
+
+        // WASM gagal meski sudah non-SIMD — turun ke CPU backend sebagai
+        // fallback terakhir agar embedding tetap berfungsi (lebih lambat).
+        console.warn(
+          '[EmbeddingWorker] WASM gagal meski non-SIMD, mencoba CPU backend...'
+        )
+        extractor = await pipeline(
+          'feature-extraction',
+          'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+          {
+            device: 'cpu',
+            progress_callback: progressCallback
+          }
+        )
       }
-    })()
-  }
+      return extractor
+    } catch (err) {
+      // Gagal init: cache kegagalan agar tidak retry berulang kali.
+      initFailed = true
+      extractorPromise = null
+      throw err
+    }
+  })()
   return extractorPromise
 }
 
