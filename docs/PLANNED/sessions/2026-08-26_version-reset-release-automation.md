@@ -52,6 +52,12 @@
 - [ ] Push tag uji `v0.0.0-test` ke repo nyata → release.yml full pass (perlu akses push; owner)
 - [ ] Hapus tag uji setelah verifikasi
 
+## Update 2026-08-26 (akhir sesi) - Rilis perdana BERHASIL
+
+Run pertama tag v1.0.0-alpha.1 GAGAL di step vitest CI: paket vitest tidak pernah dideklarasikan di package.json (lokal lolos karena cache global bunx; CI gagal resolve saat memuat config). Fix: deklarasikan `vitest ^4.1.10` di devDependencies + bun.lock (commit ff48713, "fix(ci): deklarasikan vitest di devDependencies"); dependensi electron sisa migrasi sengaja dipertahankan karena modul sidecar dorman masih mengimpor stub-nya (backlog Fase B/C). Tag dipasang ulang di commit fix, run kedua: Guard success, Verify success, Bundle+Release success. Rilis terbit: **MARK Linux v1.0.0-alpha.1** (prerelease otomatis benar karena versi mengandung '-'), aset `Mark.Agent_1.0.0-alpha.1_amd64.AppImage` + `_amd64.deb`. Tauri CI dan CodeQL juga hijau di commit yang sama.
+
+Pelajaran: gate verify lokal memakai `bunx` menyembunyikan dependensi yang tak dideklarasikan - runner bersih adalah satu-satunya bukti; pipeline ketat justru menangkapnya dalam 2 menit.
+
 ## Callback
 
 Tag pertama rilis nyata (`v1.0.0-alpha.1`) baru saya buat setelah Fase 2 (fix keamanan) lolos verify lokal — setuju kalau tag dipaku di akhir Fase 2 alih-alih sekarang?
