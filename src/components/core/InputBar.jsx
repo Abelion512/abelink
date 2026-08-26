@@ -17,6 +17,10 @@ import ConfirmModal from './ConfirmModal'
 import { NATIVE_SKILLS } from './native-skills'
 import { getCachedSkills } from '../../api/skillsCache'
 
+// Command history recall (gaya TUI) + draft persistence anti-crash.
+const PROMPT_HISTORY_KEY = 'mark:prompt-history'
+const DRAFT_KEY = 'mark:draft'
+
 const EMOJIS = [
   '😂',
   '🤣',
@@ -70,7 +74,23 @@ const InputBar = ({
 }) => {
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
-  const [inputText, setInputText] = useState('')
+  const [inputText, setInputText] = useState(() => {
+    // Draft persistence: teks yang sedang diketik selamat dari app mati/crash.
+    try {
+      return localStorage.getItem(DRAFT_KEY) || ''
+    } catch {
+      return ''
+    }
+  })
+  const [promptHistory, setPromptHistory] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PROMPT_HISTORY_KEY) || '[]')
+    } catch {
+      return []
+    }
+  })
+  const recallIndexRef = useRef(-1)
+  const recallDraftRef = useRef('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showAbortConfirm, setShowAbortConfirm] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState([])
@@ -305,7 +325,23 @@ const InputBar = ({
       if (!isLoading) {
         lastPromptRef.current = inputText
       }
+      // Rekam ke prompt history (dedupe berurutan, cap 100) + bersihkan draft.
+      const trimmedPrompt = String(userText || finalPrompt || '').trim()
+      if (trimmedPrompt) {
+        setPromptHistory((prev) => {
+          const next = [...prev.filter((p) => p !== trimmedPrompt), trimmedPrompt].slice(-100)
+          try {
+            localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(next))
+          } catch (_) {}
+          return next
+        })
+      }
+      recallIndexRef.current = -1
+      recallDraftRef.current = ''
       setInputText('')
+      try {
+        localStorage.removeItem(DRAFT_KEY)
+      } catch (_) {}
       if (typeof onSubmit === 'function') {
         onSubmit(finalPrompt)
       }
@@ -323,6 +359,14 @@ const InputBar = ({
   const handleTextChange = async (e) => {
     const val = e.target.value
     setInputText(val)
+    try {
+      localStorage.setItem(DRAFT_KEY, val)
+    } catch (_) {}
+    // Mengetik manual membatalkan mode recall.
+    if (recallIndexRef.current !== -1) {
+      recallIndexRef.current = -1
+      recallDraftRef.current = ''
+    }
 
     if (val.startsWith('/')) {
       const currentSkills = (skills && skills.length > 0) ? skills : await reloadSkills()
@@ -370,6 +414,54 @@ const InputBar = ({
       if (!isSendDisabled) {
         handleFormSubmit()
       }
+    }
+
+    // ── Command history recall (gaya TUI) ────────────────────────────────
+    // ArrowUp saat kursor di posisi paling awal / kotak kosong -> mundur
+    // ke prompt sebelumnya. ArrowDown maju; lewat terbaru -> kembalikan
+    // draf yang sedang ditulis sebelum mulai recall.
+    const el = e.target
+    const caretAtStart = el.selectionStart === 0 && el.selectionEnd === 0
+    if (e.key === 'ArrowUp' && !e.shiftKey && !e.altKey && (caretAtStart || el.value === '') && promptHistory.length > 0) {
+      e.preventDefault()
+      if (recallIndexRef.current === -1) {
+        recallDraftRef.current = el.value
+        recallIndexRef.current = promptHistory.length - 1
+      } else {
+        recallIndexRef.current = Math.max(0, recallIndexRef.current - 1)
+      }
+      const recalled = promptHistory[recallIndexRef.current] ?? ''
+      setInputText(recalled)
+      try {
+        localStorage.setItem(DRAFT_KEY, recalled)
+      } catch (_) {}
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.selectionStart = inputRef.current.selectionEnd = inputRef.current.value.length
+        }
+      }, 0)
+      return
+    }
+    if (e.key === 'ArrowDown' && !e.shiftKey && !e.altKey && recallIndexRef.current !== -1) {
+      e.preventDefault()
+      recallIndexRef.current -= 1
+      let nextValue
+      if (recallIndexRef.current < 0) {
+        nextValue = recallDraftRef.current
+        recallDraftRef.current = ''
+      } else {
+        nextValue = promptHistory[recallIndexRef.current] ?? ''
+      }
+      setInputText(nextValue)
+      try {
+        localStorage.setItem(DRAFT_KEY, nextValue)
+      } catch (_) {}
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.selectionStart = inputRef.current.selectionEnd = inputRef.current.value.length
+        }
+      }, 0)
+      return
     }
   }
 

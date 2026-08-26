@@ -42,6 +42,13 @@ const getGsvc = lazy(() => import('./main/google/google-service.js'))
 const getWs = lazy(() => import('./main/workspace-rag.js'))
 const getTracker = lazy(() => import('./main/awareness/window-tracker.js'))
 const getPl = lazy(() => import('./main/plugins/plugin-loader.js'))
+const getYtm = lazy(async () => {
+  const mod = await import('ytmusic-api')
+  const YTMusic = mod.default ?? mod
+  const inst = typeof YTMusic === 'function' ? new YTMusic() : YTMusic
+  if (typeof inst.initialize === 'function') await inst.initialize()
+  return inst
+})
 
 // Config terakhir yang disinkronkan renderer — sumber tgAdminIds untuk broadcast.
 let latestConfig = null
@@ -248,6 +255,53 @@ on('plugins:list', async () => {
   return pl.getLoadedPlugins()
 })
 
+// ------------------------------------------------------- Musik remote (F4)
+// Forwarder event ke frontend: Telegram/UI lama mengirim perintah, frontend
+// (YoutubeMusicPlayer) yang mengeksekusi — pola event bridge era Electron.
+// Bridge mengirim dua argumen posisional: (command, payload).
+on('remote-music-command', async (command, payload) => {
+  emit('execute-music-command', { command, payload })
+  return true
+})
+// Pencarian lagu via ytmusic-api (lazy; instance di-init sekali). Hasil
+// DINORMALKAN ke kontrak lama yt-search ({id,title,artist,duration,url,...})
+// karena konsumen (getBestMusicMatch, YoutubeMusicPlayer) bergantung padanya —
+// tanpa ini field metadata jadi undefined.
+on('search-music', async (query) => {
+  const ytm = await getYtm()
+  if (typeof ytm.search !== 'function') {
+    throw new Error('ytmusic-api tidak menyediakan search()')
+  }
+  const res = await ytm.search(String(query))
+  const items = Array.isArray(res) ? res : Array.isArray(res?.videos) ? res.videos : []
+  const fmtDur = (d) => {
+    if (d == null) return ''
+    if (typeof d === 'string') return d
+    const s = Number(d)
+    if (!isFinite(s) || s <= 0) return ''
+    const m = Math.floor(s / 60)
+    const ss = String(Math.floor(s % 60)).padStart(2, '0')
+    return `${m}:${ss}`
+  }
+  return items
+    .slice(0, 8)
+    .map((v) => {
+      const id = v.videoId ?? v.id ?? ''
+      const thumb =
+        v.thumbnails?.at?.(-1)?.url ?? v.thumbnail ?? v.thumbnails?.[0]?.url ?? ''
+      return {
+        id,
+        videoId: id,
+        title: v.title ?? v.name ?? '',
+        artist: v.artist?.name ?? v.author?.name ?? (typeof v.author === 'string' ? v.author : ''),
+        duration: fmtDur(v.duration ?? v.durationText),
+        url: `https://music.youtube.com/watch?v=${id}`,
+        thumbnail: thumb
+      }
+    })
+    .filter((x) => x.id)
+})
+
 // ------------------------------------------------------------- Lite & misc
 // Fase B0 (2026-08-26): cluster lite & misc pindah ke Rust native
 // (src-tauri/src/cmd_misc.rs): system:get-lite-mode, app:get-documents-path,
@@ -257,9 +311,9 @@ on('ping', () => 'pong')
 
 // ------------------------------------------- Dipindah ke fase B/C (Tauri native)
 // dialog:open-file / dialog:open-directory -> Rust native `misc_open_*_dialog`
-// (src-tauri/src/cmd_misc.rs, rfd di main thread). Sisanya masih stub fase B/C.
+// take-screenshot                            -> Rust native `misc_take_screenshot`
+// Sisanya masih stub fase B/C.
 for (const ch of [
-  'take-screenshot',
   'browser:navigate',
   'browser:read-dom',
   'browser:action',

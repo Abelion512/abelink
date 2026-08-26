@@ -122,7 +122,12 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
                   : 'bg-base-200 hover:bg-base-200/80 border border-transparent'
               }`}
             >
-              <h3 className="font-medium text-white/90 truncate">{turn.user || 'Instruksi Tanpa Teks'}</h3>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-primary/70 mb-1">
+                Prompt User
+              </p>
+              <h3 className="font-medium text-white/90 whitespace-pre-wrap break-words line-clamp-4">
+                {turn.user || 'Instruksi Tanpa Teks'}
+              </h3>
               <p className="text-xs text-white/40 mt-1 line-clamp-2">
                 {formatHistoryContent(turn.ai?.content).substring(0, 100) || 'Belum ada balasan'}
               </p>

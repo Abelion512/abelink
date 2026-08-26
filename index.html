@@ -7,7 +7,8 @@
       /* Linux WebKitGTK: cat background opaque sejak awal (anti transparan) */
       html,
       body {
-        background: #0b0f0c !important;
+        /* Alpha dikendalikan --win-alpha (Transparansi di General). */
+        background: rgba(11, 15, 12, var(--win-alpha, 1)) !important;
       }
     </style>
     <!-- CSP ketat (audit 2026-08-26): tanpa unsafe-eval (WASM pakai wasm-unsafe-eval),
@@ -15,7 +16,7 @@
          img-src tanpa http wildcard. Policy produksi juga diset di tauri.conf.json. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost blob: data: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://*; object-src 'none'; base-uri 'self'"
+      content="default-src 'self'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; script-src 'self' 'wasm-unsafe-eval' blob: https://www.youtube.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost blob: data: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://*; object-src 'none'; base-uri 'self'"
     />
   </head>
 

@@ -42,8 +42,13 @@ function getWorker() {
             // WebKitGTK tanpa WASM SIMD/threads -> auto Lite Mode (hash embedding)
             if (/SIMD|no available backend/i.test(String(error))) {
               isLiteMode = true
+              const isFirstNotice = !liteAutoNotified
               emitLiteAuto()
-              console.warn('[EmbeddingWorker] Auto Lite Mode AKTIF (hash embedding fallback)')
+              if (isFirstNotice) {
+                console.warn(
+                  '[EmbeddingWorker] Auto Lite Mode AKTIF (hash embedding fallback) - pesan ini cukup sekali.'
+                )
+              }
             }
             resolve(null)
           }

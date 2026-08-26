@@ -14,8 +14,10 @@ import {
   FaGoogle,
   FaBrain,
   FaRobot,
-  FaCommentAlt
+  FaCommentAlt,
+  FaGift
 } from 'react-icons/fa'
+import whatsNewData from '../../data/whats-new.json'
 
 const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
   const [isOpen, setIsOpen] = useState(false)
@@ -53,6 +55,27 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
           <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-white/30 pointer-events-none z-10" />
           <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-white/30 pointer-events-none z-10" />
           <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-white/30 pointer-events-none z-10" />
+
+          {/* What's New — item teratas dengan badge saat ada versi baru */}
+          <button
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('mark:open-whats-new'))
+              setIsOpen(false)
+            }}
+            className="flex items-center gap-3 w-full p-3 rounded-xl bg-info/10 hover:bg-info/20 transition-colors text-white text-sm font-semibold text-left border border-info/20"
+          >
+            <FaGift className="text-info" />
+            <div className="flex-1">What&apos;s New</div>
+            {(() => {
+              try {
+                return (whatsNewData.version || '') !== (localStorage.getItem('mark:last-seen-whats-new') || '')
+              } catch (_) {
+                return false
+              }
+            })() && <span className="w-2 h-2 rounded-full bg-error animate-pulse" />}
+          </button>
+
+          <div className="h-px w-full bg-white/10 my-1" />
 
           <button
             onClick={() => {

@@ -1,14 +1,17 @@
-import { FaRobot, FaCamera, FaKeyboard, FaMicrophone, FaBrain, FaCode } from 'react-icons/fa'
+import { FaCog, FaPuzzlePiece, FaKeyboard, FaDatabase, FaCode, FaRobot, FaUserCog } from 'react-icons/fa'
 
+// IA baru (review 2026-08-26): General → Personalization → AI Engine →
+// Capabilities → Shortcuts → Data Controls / Developer.
 const sections = [
+  { id: 'cfg-general', label: 'General', icon: FaCog },
+  { id: 'cfg-personalization', label: 'Personalization', icon: FaUserCog },
   { id: 'cfg-ai-engine', label: 'AI Engine', icon: FaRobot },
-  { id: 'cfg-camera', label: 'Kamera', icon: FaCamera },
-  { id: 'cfg-shortcut', label: 'Shortcut', icon: FaKeyboard },
-  { id: 'cfg-audio-voice', label: 'Audio & Voice', icon: FaMicrophone },
+  { id: 'cfg-capabilities', label: 'Capabilities', icon: FaPuzzlePiece },
+  { id: 'cfg-shortcut', label: 'Shortcuts', icon: FaKeyboard },
 ]
 
 const sectionsLogged = [
-  { id: 'cfg-memory-data', label: 'Memory & Data', icon: FaBrain },
+  { id: 'cfg-memory-data', label: 'Data Controls', icon: FaDatabase },
   { id: 'cfg-developer', label: 'Developer', icon: FaCode },
 ]
 

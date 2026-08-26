@@ -11,6 +11,10 @@ import { getCachedSkills } from '../skillsCache'
 
 let pluginVectorCache = new Map()
 
+// Audit injeksi: snapshot system prompt terakhir (diambil via getLastSystemPrompt).
+let lastSystemPrompt = ''
+export const getLastSystemPrompt = () => lastSystemPrompt
+
 // Inline helper to get plugin actions (replaces pluginHelper.js)
 const getPluginActions = async () => {
   try {
@@ -99,7 +103,7 @@ export const getNextAction = async (
     const systemPrompt = `
 Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas asisten AI canggih dan otonom.
 
-${await getPersonaPrompt(userId, conf.personality)}
+${await getPersonaPrompt(userId, conf.personality, conf.ownerName)}
 ${options.currentMusicTrack ? `\n# STATUS PLAYER MUSIK (REAL-TIME):\nLagu yang AKTIF DIPUTAR SEKARANG: "${options.currentMusicTrack.title}" oleh ${options.currentMusicTrack.artist}.\nPENTING: Lagu di playlist bisa berganti otomatis. JANGAN TERKECUH oleh riwayat chat lama yang menyebutkan lagu sebelumnya! Untuk semua pertanyaan atau obrolan tentang musik yang sedang berjalan, HANYA gunakan data REAL-TIME ini sebagai referensi utama!` : ''}
 ${
   userSkillsList.length > 0 || learnedSkillsList.length > 0
@@ -400,6 +404,20 @@ ${
     const previousTurns = loopMessages.length > 0 ? prepareHistory(loopMessages) : []
 
     const messages = [{ role: 'system', content: systemPrompt }, ...previousTurns]
+
+    // Audit injeksi (dev): snapshot prompt terakhir untuk dump dari
+    // Configuration > Developer. Deteksi nama tak dideklarasikan.
+    try {
+      lastSystemPrompt = systemPrompt
+      if (!conf.ownerName?.trim()) {
+        const suspicious = systemPrompt.match(/\b(Mada|Mazees)\b/i)
+        if (suspicious) {
+          console.warn(
+            `[planning][AUDIT] Nama "${suspicious[1]}" muncul di system prompt padahal ownerName kosong - gunakan Dump System Prompt utk melihat blok sumbernya.`
+          )
+        }
+      }
+    } catch (_) {}
     const schema = {
       type: 'object',
       properties: {

@@ -40,7 +40,7 @@ export const getAwarenessResponse = async (
 
   const prompt = `Kamu adalah Mark, entitas AI otonom yang 'hidup' berdampingan dengan user di dalam sistem ini. Ini adalah waktu luangmu.
 
-${await getPersonaPrompt('owner', conf.personality)}
+${await getPersonaPrompt('owner', conf.personality, conf.ownerName)}
 
 # AKTIVITAS OS USER (REAL-TIME SAAT INI):
 ${buffer && buffer.length > 0 ? buffer.map((b) => `- [${b.time}] ${b.app}${b.title ? ' — ' + b.title : ''}`).join('\n') : 'Tidak ada aktivitas tercatat (Pengguna hanya membuka aplikasi Mark / desktop statis).'}

@@ -81,3 +81,53 @@ User menjalankan `bun run app` di lingkungan agent; console webview ditempel len
 Verifikasi tambahan: `engine:ready` instan; uji protokol stdio langsung (stdin dijaga terbuka — EOF prematur = artefak test, bukan bug): awareness→[], broadcast→{skipped:true}, plugins→[], send-message→frame error elegan. Aplikasi live auto-rebuild via watcher tauri dev (1m28s).
 
 Sisa diketahui: `take-screenshot` & `os:*` masih stub Fase B5/B6; WASM SIMD WebKitGTK tak didukung → Lite Mode hash embedding aktif (by design).
+
+## Update 2026-08-26 (3) — RAM Report, Boot Hygiene, Autosave Config, Restorasi Fitur
+
+**RAM terukur (PSS, dev mode):** mark 81MB + WebKitWebProcess ×2 (362+356MB) + NetworkProc ×2 (24+14MB) + bun sidecar 151MB ≈ **991MB**. Dev-inflated (HMR, DevTools, StrictMode, tak-minify); baseline Electron docs ±350–500MB prod. Remeasure build release = deliverable berikutnya; selidiki penyebab dua WebProcess.
+
+**Fix boot warning:** embedding.worker race "Extractor not ready" → init promise tunggal dibagikan semua caller (+reset saat gagal); log Auto-Lite sekali (flag `liteAutoNotified` dipakai sebagai penanda first-notice); enumerasi mic/kamera jadi LAZY di Configuration (wizard atau section Audio/Kamera) — warning dobel hilang + mount lebih cepat.
+
+**Autosave config (mode normal):** snapshot JSON baseline di `loadConfig` (hydration guard), debounce 700ms pada effect `[config]`, `withSttFallback()` senyap, indikator badge header (Perubahan…/Menyimpan…/Tersimpan HH:MM/Gagal), tombol Simpan manual tetap ada (validasi penuh + alur wizard). Autosave TIDAK memicu warm-up embedding berat.
+
+**Restorasi fitur:** dialog file/folder native rfd (misc_open_*_dialog) + reroute bridge; take-screenshot native Rust (`misc_take_screenshot`: gnome-screenshot→scrot→maim→import chain, return data URL PNG, b64 encoder inline); plugins:list handler metadata-only; tg:send-message/tg:broadcast-to-admins handler + guard koneksi di bridge; music remote forwarder (`remote-music-command`→emit execute-music-command) + `search-music` lazy ytmusic-api; allowlist += 5 aksi.
+
+**LIMITASI PLATFORM (penting):** opasitas window TIDAK bisa dibuat — Tauri 2.11 tidak punya API `set_opacity` (hanya v1). Slider dibatalkan sebelum sempat dirilis; dicatat agar tidak dijanjikan lagi ke user.
+
+Verifikasi: cargo check OK, engine syntax OK, uji stdio `remote-music-command`→true, vitest pass, eslint 0 error (853 warnings = noise prettier legacy). Live watcher rebuild+restart sukses (NodeBridge 10:05:57).
+
+## Update 2026-08-26 (4) — Salah Nama "Mada", First-Boot Legacy Chooser, run-shell, Music Contract
+
+**1. Mark nyapa "Mada" padahal user tidak pernah bilang:** nama itu TIDAK ada di kode/data (sweep menyeluruh 0 hit) — model MENEBAK dari konteks karena persona hanya berkata "panggil nama dari MEMORY" tanpa sumber kebenaran. Fix akar: field config baru `ownerName` (+ input "Nama Panggilan Kamu" di section Persona, autosave otomatis), disuntikkan sebagai blok `# IDENTITAS USER (SUMBER KEBENARAN TUNGGAL)` di `getPersonaPrompt(userId, personality, ownerName)`; tanpa nama → instruksi eksplisit DILARANG menebak. Call sites: planning.js + awareness.js. Label hardcoded "Creator (Mada)" di SubagentIntercom.jsx dicatat sebagai kosmetik legacy (opsional dirapikan belakangan).
+
+**2. Memory lama + First-Boot Chooser:** data era Electron UTUH di `~/.config/<profil>/IndexedDB` (format Chromium LevelDB) — tak bisa dibaca langsung WebKit (engine beda); satu-satunya jembatan = export/import JSON. Deteksi path diperlebar (+kandidat `mark`/`Mark` yang sebelumnya BOLONH — nama app Electron lama adalah `mark`, jadi deteksi sering meleset). UX baru: layar pilihan FIRST BOOT ONLY (`FirstBootChoiceScreen`) — muncul saat wizard aktif + profil terdeteksi + flag `mark:first-boot-choice` belum ada; dua tombol: Restore (auto-buka dialog impor JSON via prop `initialLegacyImport` → `handleImportLegacy` sekali) / Mulai Fresh; setelah dipilih tidak pernah muncul lagi.
+
+**3. Log smoke kedua:** (a) misteri powershell — handler ternyata SUDAH bash native `/bin/bash`, nama saja warisan Windows; fix: rename ke `run-shell` + alias kompatibilitas `NATIVE_TOOLS['run-powershell']`, katalog core-tools diupdate, DANGEROUS_TOOLS mencakup keduanya; (b) musik "return undefined" — kontrak shape beda: ytmusic-api v5 mengembalikan array SongDetailed {name,artist:{}} sedangkan konsumen minta {id,title,artist,duration}; `search-music` kini menormalkan ke bentuk legacy lengkap dengan url music.youtube — UJI LIVE: query "daylight tiktok version" mengembalikan hasil benar termasuk versi TikTok; (c) warning Media devices diturunkan console.info (batas webview). Catatan follow-up: pertumbuhan konteks planning 11→32 msgs belum terlihat kompaksi — audit contextCompactor di sesi berikutnya.
+
+Verifikasi: cargo check OK; node --check engine+node-tools OK; uji stdio search-music live network PASS dengan shape benar; eslint 0 error.
+
+## Update 2026-08-26 (5) — Goal Prioritas: Musik Hidup Lagi + Gerbang Approval Query-Aware
+
+Goal `goal-559d42af` dibuat (backlog by-priority, DENY list tetap). Dua P0 selesai:
+
+**Musik hidup lagi (akar terkonfirmasi via error console user):** `<webview>` Electron di YoutubeMusicPlayer tidak dikenal WebKitGTK → loadURL/executeJavaScript mati. Rewrite total: `YoutubeMusicContext.jsx` kini audio-only player resmi YouTube **IFrame API** (host div tersembunyi milik Provider, promise loader di-cache modul-level, reset saat init gagal), antrean milik sendiri dengan wrap-around, metadata dari hasil pencarian ternormalisasi (bukan scraping DOM); kartu UI jadi Now Playing murni (thumbnail+judul+artist+prev/play-pause/next+link YT). Kontrak playUrl(watchUrl, meta) dipertahankan untuk handleMusic/listener WA. CSP dua tempat ditambah `script-src https://www.youtube.com` + `frame-src youtube.com/-nocookie`. Fix juga: forwarder `remote-music-command` signature positional (command,payload) sesuai bridge; listener 'play' kompatibel payload url-string ATAU item ternormalisasi.
+
+**Gerbang approval query-aware:** akar keluhan "terlalu sering minta izin" = pencocokan NAMA tool buta-query. Kini `is_safe_shell_query()` di cmd_node_bridge.rs memverifikasi seluruh pipeline (split ; && | \n): first-token ∈ safe-list baca-saja (+git subcommand whitelist), tanpa redireksi tulis (`>` selain /dev/null), tanpa substitusi nested `$(` backtick, tanpa substring berbahaya (-exec -delete rm sudo curl dst.). Lolos → tanpa dialog; sisanya → rfd seperti biasa. git-commit/git-revert tetap selalu dialog. Unit test lib 3/3 PASS (termasuk kasus nyata user `find ~ ... 2>/dev/null`). Pembelajaran kecil: smaps_rollup & pola grep `^Pss` ikut menangkap Pss_Dirty dll — pakai match kolom `$1=="Pss:"`.
+
+### Batch P2 (goal ronde 2) — IA Settings restructure + hapus Simpan manual
+- Sidebar baru 6 entri: **General / Personalization / AI Engine / Capabilities / Shortcuts / Data Controls+Developer** (ConfigSidebar.jsx ditulis ulang; wizard = subset tanpa Data&Developer).
+- Section fisik direstrukturisasi: `cfg-general` BARU (Bahasa ID/EN tersimpan + Transparansi slider pindahan + Awareness toggle pindahan); `cfg-personalization` BARU (Pekerjaan dropdown kurasi + ownerName/personality pindahan + Impor Memory + link Memory); `cfg-ai-engine` kini murni provider/model; wrapper div `cfg-capabilities` membungkus Kamera+Audio&Voice; Shortcut jadi sibling; Memory&Data → heading **Data Controls** (+ tombol Impor Export JSON Lama); Developer copy tanpa kata harness.
+- Tombol Simpan manual mode normal DIHAPUS (autosave penuh); CTA tetap ada di wizard.
+- Scrollbar: kolom konten `overflow-x-hidden` + `min-w-0` + pr-4 — scrollbar vertikal kini mepet tepi, horizontal hilang.
+- Label Context Window → **Riwayat Pesan** + copy penjelas beda unit vs token window.
+- Catatan teknis: nesting lama (kamera/shortcut/audio nested di dalam ai-engine) dipertahankan polanya tapi kini dibungkus rapi; operasi pemindahan blok besar pakai python marker-index (anchor string rapuh terhadap spasi/karakter box-drawing).
+Verifikasi: eslint Configuration+Sidebar 0 error (warnings turun ke 773), vitest 18/18, live HMR sukses tanpa error residual.
+
+### Batch P1 (goal ronde 1) — UX quick wins
+- Easter egg dimatikan via `EASTER_EGG_ENABLED=false` di MarkHome (klik orb jadi no-op).
+- What's New: auto-popup DIHAPUS; kini item TERATAS hamburger (FaGift, badge pulse dari mirror localStorage `mark:last-seen-whats-new`; App menulis mirror saat modal ditutup; dibuka via event `mark:open-whats-new`).
+- Panggilan netral: blok IDENTITAS USER persona sudah memaksa tanpa-nama saat ownerName kosong (verifikasi call sites planning+awareness pass ownerName).
+- Media devices info: module flag `mediaInfoLogged` → log sekali saja.
+- HistoryDrawer: prompt user tampil penuh multi-baris (label "Prompt User", line-clamp-4) — sebelumnya truncate 1 baris.
+- InputBar: **command history recall** gaya TUI (ArrowUp dari posisi awal/kosong mundur lewat riwayat tersimpan localStorage cap100 dedupe; ArrowDown maju, lewat terbaru mengembalikan draf awal) + **draft persistence** (`mark:draft`) — teks selamat dari app mati; dibersihkan saat terkirim.
+Verifikasi batch: eslint 0 error, vitest 18/18.

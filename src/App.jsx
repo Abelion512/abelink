@@ -193,18 +193,71 @@ const MainLayout = ({ isStandalone = false }) => {
   )
 }
 
+// ── First Boot: pilih Mulai Fresh / Restore data lama ────────────────────
+// Muncul HANYA sekali (flag localStorage) saat wizard terdeteksi + profil
+// Electron lama ada. Restore = alur export/import JSON (engine beda: Chromium
+// LevelDB tak bisa dibaca langsung oleh WebKit).
+const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }) => (
+  <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+    <div className="max-w-md w-full bg-base-200/95 border border-white/10 rounded-2xl shadow-2xl p-7 space-y-4 animate-fade-in">
+      <h2 className="text-xl font-bold">Data Mark versi lama terdeteksi</h2>
+      <p className="text-sm opacity-70 leading-relaxed">
+        Ditemukan {profiles.length} profil Mark era lama di folder konfigurasi. Karena mesin
+        browser berbeda (Chromium → WebKit), datanya tidak bisa dibaca langsung — tapi tetap aman
+        dan bisa dipulihkan lewat file export JSON dari Mark versi lama (Settings → Export DB).
+      </p>
+      <div className="flex flex-col gap-2 pt-1">
+        <button className="btn btn-primary" onClick={onRestore}>
+          Restore dari Export JSON
+        </button>
+        <button className="btn btn-ghost" onClick={onFresh}>
+          Mulai Fresh (abaikan data lama)
+        </button>
+      </div>
+      <p className="text-[11px] opacity-40">
+        Pilihan ini hanya ditanyakan sekali. Kamu masih bisa impor manual kapan saja lewat menu
+        Configuration.
+      </p>
+    </div>
+  </div>
+)
+
 function App() {
   const [hasConfig, setHasConfig] = useState(true)
   const [isChecking, setIsChecking] = useState(true)
   const [loadingText, setLoadingText] = useState('Membangunkan Mark...')
   const [showRecovery, setShowRecovery] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
+  const [legacyProfiles, setLegacyProfiles] = useState(null) // null = belum dicek
+  const [wizardAutoImport, setWizardAutoImport] = useState(false)
+
+  // Deteksi profil era Electron hanya saat wizard aktif (first boot tanpa config).
+  useEffect(() => {
+    if (isChecking || hasConfig || !window.api?.legacyDetectProfiles) return
+    let alive = true
+    window.api
+      .legacyDetectProfiles()
+      .then((paths) => {
+        if (alive) setLegacyProfiles(paths || [])
+      })
+      .catch(() => alive && setLegacyProfiles([]))
+    return () => {
+      alive = false
+    }
+  }, [isChecking, hasConfig])
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowRecovery(true)
     }, 15000)
     return () => clearTimeout(timer)
+  }, [])
+
+  // What's New dibuka manual dari item teratas hamburger (bukan auto-popup).
+  useEffect(() => {
+    const openWhatNew = () => setShowWhatsNew(true)
+    window.addEventListener('mark:open-whats-new', openWhatNew)
+    return () => window.removeEventListener('mark:open-whats-new', openWhatNew)
   }, [])
 
   useEffect(() => {
@@ -281,12 +334,20 @@ function App() {
         if (window.api && window.api.syncConfig) {
           window.api.syncConfig(data[0])
         }
-        // --- What's New trigger: cek versi vs config ---
-        const newVersion = whatsNewData.version || '0.0.0'
-        const lastSeen = data[0].lastSeenWhatsNewVersion
-        if (newVersion !== lastSeen) {
-          setShowWhatsNew(true)
-        }
+        // Terapkan alpha jendela tersimpan via CSS var (transparansi eksperimental).
+        try {
+          document.documentElement.style.setProperty(
+            '--win-alpha',
+            String(typeof data[0].windowOpacity === 'number' ? data[0].windowOpacity : 1)
+          )
+        } catch (_) {}
+        // --- What's New: TIDAK auto-popup lagi. Modal dibuka dari item
+        // teratas hamburger; badge dihitung dari mirror localStorage.
+        try {
+          if (localStorage.getItem('mark:last-seen-whats-new') === null) {
+            localStorage.setItem('mark:last-seen-whats-new', '')
+          }
+        } catch (_) {}
         // -----------------
       }
       setIsChecking(false)
@@ -334,10 +395,42 @@ function App() {
   if (!hasConfig) {
     // Wizard setup tetap butuh kontrol window (minimize/close dsb.) —
     // jangan biarkan cabang ini tampil tanpa titlebar.
+    const choiceMade = localStorage.getItem('mark:first-boot-choice')
+    const showChooser =
+      Array.isArray(legacyProfiles) && legacyProfiles.length > 0 && !choiceMade && !wizardAutoImport
+
+    const settleChoice = (value) => {
+      localStorage.setItem('mark:first-boot-choice', value)
+      if (!choiceMade) localStorage.setItem('mark:first-boot-choice', value)
+    }
+
     return (
       <>
         <WindowControls />
-        <Configuration isFirstSetup={true} onSetupComplete={() => window.location.reload()} />
+        {showChooser ? (
+          <FirstBootChoiceScreen
+            profiles={legacyProfiles}
+            onFresh={() => {
+              settleChoice('fresh')
+              setLegacyProfiles([])
+            }}
+            onRestore={() => {
+              settleChoice('restore')
+              setWizardAutoImport(true)
+            }}
+          />
+        ) : (
+          <Configuration
+            isFirstSetup={true}
+            initialLegacyImport={wizardAutoImport}
+            onSetupComplete={() => {
+              if (!localStorage.getItem('mark:first-boot-choice')) {
+                localStorage.setItem('mark:first-boot-choice', 'setup-complete')
+              }
+              window.location.reload()
+            }}
+          />
+        )}
       </>
     )
   }
@@ -351,6 +444,10 @@ function App() {
       if (data && data.length > 0) {
         await saveConfiguration({ ...data[0], lastSeenWhatsNewVersion: whatsNewData.version })
       }
+      // Mirror untuk badge hamburger.
+      try {
+        localStorage.setItem('mark:last-seen-whats-new', whatsNewData.version)
+      } catch (_) {}
     } catch (e) {
       console.error('[App] Gagal simpan lastSeenWhatsNewVersion:', e)
     }

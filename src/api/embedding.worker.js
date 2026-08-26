@@ -5,45 +5,54 @@ env.useBrowserCache = true
 env.useFSCache = false
 
 let extractor = null
-let isInitializing = false
+let extractorPromise = null
 
-async function getExtractor(progressCallback) {
-  if (!extractor && !isInitializing) {
-    isInitializing = true
-    try {
-      // Coba backend WASM normal; bila lingkungan tidak punya WebAssembly SIMD
-      // (mis. WebKitGTK tertentu), turun ke jalur non-SIMD sebelum menyerah.
+/**
+ * Init sekali dan DIJAMIN tunggal: semua pemanggil concurrent berbagi promise
+ * yang sama. Tanpa ini, embed yang datang saat init berjalan mendapat null
+ * dan melempar "Extractor not ready" (race lama yang membanjiri console boot).
+ */
+function getExtractor(progressCallback) {
+  if (!extractorPromise) {
+    extractorPromise = (async () => {
       try {
-        extractor = await pipeline(
-          'feature-extraction',
-          'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-          {
-            device: 'wasm',
-            progress_callback: progressCallback
-          }
-        )
+        // Coba backend WASM normal; bila lingkungan tidak punya WebAssembly SIMD
+        // (mis. WebKitGTK tertentu), turun ke jalur non-SIMD sebelum menyerah.
+        try {
+          extractor = await pipeline(
+            'feature-extraction',
+            'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+            {
+              device: 'wasm',
+              progress_callback: progressCallback
+            }
+          )
+        } catch (err) {
+          const isSimdIssue =
+            /SIMD/i.test(err?.message || '') || /no available backend/i.test(err?.message || '')
+          if (!isSimdIssue) throw err
+          console.warn(
+            '[EmbeddingWorker] WASM SIMD tidak tersedia, mencoba backend non-SIMD...'
+          )
+          env.backends.onnx.wasm.simd = false
+          extractor = await pipeline(
+            'feature-extraction',
+            'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+            {
+              device: 'wasm',
+              progress_callback: progressCallback
+            }
+          )
+        }
+        return extractor
       } catch (err) {
-        const isSimdIssue =
-          /SIMD/i.test(err?.message || '') || /no available backend/i.test(err?.message || '')
-        if (!isSimdIssue) throw err
-        console.warn(
-          '[EmbeddingWorker] WASM SIMD tidak tersedia, mencoba backend non-SIMD...'
-        )
-        env.backends.onnx.wasm.simd = false
-        extractor = await pipeline(
-          'feature-extraction',
-          'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-          {
-            device: 'wasm',
-            progress_callback: progressCallback
-          }
-        )
+        // Gagal init: reset promise supaya percobaan berikutnya bisa coba lagi.
+        extractorPromise = null
+        throw err
       }
-    } finally {
-      isInitializing = false
-    }
+    })()
   }
-  return extractor
+  return extractorPromise
 }
 
 self.onmessage = async (event) => {

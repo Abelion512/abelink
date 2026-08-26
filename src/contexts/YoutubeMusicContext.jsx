@@ -1,156 +1,187 @@
 import { useState, useContext, createContext, useRef, useCallback, useEffect } from 'react'
 
+/**
+ * Mesin musik MARK Linux — pengganti total pendekatan <webview> Electron.
+ *
+ * Kenapa ditulis ulang: <webview> adalah elemen khusus Electron yang tidak
+ * dikenal WebKitGTK (Tauri), sehingga seluruh kontrol (loadURL/
+ * executeJavaScript) mati diam-diam. Sekarang: audio-only player resmi via
+ * YouTube IFrame API + antrean milik kita; metadata lagu datang dari hasil
+ * pencarian ternormalisasi (bukan scraping DOM halaman YouTube Music).
+ *
+ * Kontrak yang dipertahankan agar konsumen lama tak rusak:
+ * - playUrl(watchUrl, initialTrack) — url tipe watch?v=ID
+ * - nextTrack / prevTrack / playPause / pauseTrack / resumeTrack
+ * - isPlaying, currentTrack {id,title,artist,duration,thumbnail}, playId,
+ *   isPlayerOpen/setIsPlayerOpen/togglePlayer
+ * - musicUrl (read-only compat: watch URL lagu terakhir)
+ */
+
 const YoutubeMusicContext = createContext()
 
-const DEFAULT_URL = 'https://music.youtube.com'
+// Muat IFrame API sekali untuk seluruh aplikasi (promise di-cache modul-level).
+let ytApiPromise = null
+function loadYTApi() {
+  if (ytApiPromise) return ytApiPromise
+  ytApiPromise = new Promise((resolve, reject) => {
+    if (window.YT && window.YT.Player) return resolve(window.YT)
+    const prev = window.onYouTubeIframeAPIReady
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof prev === 'function') prev()
+      resolve(window.YT)
+    }
+    const script = document.createElement('script')
+    script.src = 'https://www.youtube.com/iframe_api'
+    script.async = true
+    script.onerror = () => reject(new Error('Gagal memuat YouTube IFrame API'))
+    document.head.appendChild(script)
+  })
+  return ytApiPromise
+}
 
 export const YoutubeMusicProvider = ({ children }) => {
-  const [musicUrl, setMusicUrl] = useState(DEFAULT_URL)
   const [isPlayerOpen, setIsPlayerOpen] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [playId, setPlayId] = useState(0)
-  const webviewRef = useRef(null)
+  const [current, setCurrent] = useState({ id: '', title: '', artist: '', duration: '', thumbnail: '' })
+  const [queue, setQueue] = useState([])
 
-  const [currentTrack, setCurrentTrack] = useState({ title: '', artist: '' })
+  const playerRef = useRef(null)
+  const readyRef = useRef(false)
+  const pendingPlayRef = useRef(null)
+  const queueRef = useRef([])
+  const currentRef = useRef(current)
 
-  // Poll webview every 1s to detect if music is playing and get track info
+  // Mirror refs supaya fungsi kontrol stabil tanpa perlu re-create callback.
   useEffect(() => {
-    const interval = setInterval(async () => {
-      const webview = webviewRef.current
-      if (!webview) {
-        setIsPlaying(false)
-        return
-      }
-      try {
-        const info = await webview.executeJavaScript(
-          `(function(){ 
-            const titleEl = document.querySelector('yt-formatted-string.title.ytmusic-player-bar, .title.ytmusic-player-bar');
-            const subtitleEl = document.querySelector('span.subtitle.ytmusic-player-bar, .byline.ytmusic-player-bar');
-            const imgEl = document.querySelector('img.image.ytmusic-player-bar, .thumbnail.ytmusic-player img');
-            const video = document.querySelector('video');
-            return {
-              title: titleEl ? (titleEl.getAttribute('title') || titleEl.innerText || titleEl.textContent || '').trim() : '',
-              artist: subtitleEl ? (subtitleEl.getAttribute('title') || subtitleEl.innerText || subtitleEl.textContent || '').trim() : '',
-              thumbnail: imgEl ? imgEl.src.replace(/=w\\d+-h\\d+.*$/, '=w1080-h1080-l90-rj').replace(/\\?sqp=.*$/, '') : '',
-              paused: video ? video.paused : true
-            };
-          })()`
-        )
-        setIsPlaying(!info.paused)
-        if (info.title) {
-          setCurrentTrack(prev => ({ 
-            title: info.title, 
-            artist: info.artist, 
-            thumbnail: info.thumbnail || prev.thumbnail 
-          }))
-        }
-      } catch {
-        setIsPlaying(false)
-      }
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
+    queueRef.current = queue
+  }, [queue])
+  useEffect(() => {
+    currentRef.current = current
+  }, [current])
 
-  const playUrl = useCallback(async (url, initialTrack = null) => {
-    if (webviewRef.current) {
-      try {
-        await webviewRef.current.executeJavaScript(`
-          var video = document.querySelector('video');
-          if (video && !video.paused) {
-            video.pause();
+  // Boot player sekali (audio-only, disembunyikan dari layout).
+  const hostRef = useRef(null)
+  useEffect(() => {
+    if (playerRef.current || !hostRef.current) return
+    loadYTApi()
+      .then((YT) => {
+        if (!hostRef.current) return
+        playerRef.current = new YT.Player(hostRef.current, {
+          height: '90',
+          width: '160',
+          playerVars: { autoplay: 0, rel: 0 },
+          events: {
+            onReady: (e) => {
+              readyRef.current = true
+              if (pendingPlayRef.current) {
+                e.target.loadVideoById(pendingPlayRef.current)
+                pendingPlayRef.current = null
+                setIsPlaying(true)
+              }
+            },
+            onStateChange: (e) => setIsPlaying(e.data === 1)
           }
-        `);
-        // Tunggu sebentar agar pause benar-benar tereksekusi sebelum ganti URL
-        await new Promise(resolve => setTimeout(resolve, 300));
-      } catch (e) {
-        console.error('Error pausing before playUrl:', e);
+        })
+      })
+      .catch((err) => console.error('[MusicEngine]', err.message))
+  }, [])
+
+  const loadIntoPlayer = useCallback((videoId) => {
+    if (playerRef.current && readyRef.current) {
+      playerRef.current.loadVideoById(videoId)
+      setIsPlaying(true)
+    } else {
+      pendingPlayRef.current = videoId
+    }
+  }, [])
+
+  const playTrack = useCallback(
+    (item) => {
+      if (!item?.id) return false
+      currentRef.current = item
+      setCurrent(item)
+      setQueue((q) => (q.some((x) => x.id === item.id) ? q : [...q, item]))
+      loadIntoPlayer(item.id)
+      setIsPlayerOpen(true)
+      setPlayId((p) => p + 1)
+      return true
+    },
+    [loadIntoPlayer]
+  )
+
+  /**
+   * Kompatibel dgn pemanggil lama: url watch?v=ID + metadata opsional.
+   * Dipakai handleMusic (useMarkMusic), listener WA, dan tombol UI.
+   */
+  const playUrl = useCallback(
+    (url, initialTrack = null) => {
+      const match = String(url || '').match(/[?&]v=([^&]+)/)
+      const id = initialTrack?.id || match?.[1] || ''
+      if (!id) {
+        console.warn('[MusicEngine] playUrl tanpa video id:', url)
+        return false
       }
-    }
-    
-    setMusicUrl(url)
-    setPlayId(prev => prev + 1)
-    setIsPlayerOpen(true)
-    if (initialTrack) {
-      setCurrentTrack(initialTrack)
-    }
-  }, [])
+      return playTrack({
+        id,
+        title: initialTrack?.title || 'Lagu',
+        artist: initialTrack?.artist || '',
+        duration: initialTrack?.duration || '',
+        thumbnail: initialTrack?.thumbnail || ''
+      })
+    },
+    [playTrack]
+  )
 
-  const togglePlayer = useCallback(() => {
-    setIsPlayerOpen((prev) => !prev)
-  }, [])
+  const jump = useCallback(
+    (dir) => {
+      const q = queueRef.current
+      if (q.length === 0) return
+      const cur = currentRef.current
+      let i = q.findIndex((x) => x.id === cur?.id)
+      i = i < 0 ? 0 : i + dir
+      if (i >= q.length) i = 0 // wrap-around: cocok utk sesi chill
+      if (i < 0) i = q.length - 1
+      playTrack(q[i])
+    },
+    [playTrack]
+  )
 
-  const nextTrack = useCallback(() => {
-    webviewRef.current?.executeJavaScript(`
-      (function() {
-        const btn = document.querySelector('.next-button, #next-button, ytmusic-player-bar .next-button, ytmusic-player-bar #next-button');
-        if (btn) btn.click();
-      })();
-    `)
-  }, [])
+  const nextTrack = useCallback(() => jump(1), [jump])
+  const prevTrack = useCallback(() => jump(-1), [jump])
 
-  const prevTrack = useCallback(() => {
-    webviewRef.current?.executeJavaScript(`
-      (function() {
-        const btn = document.querySelector('.previous-button, #previous-button, ytmusic-player-bar .previous-button, ytmusic-player-bar #previous-button');
-        if (btn) btn.click();
-      })();
-    `)
+  const playerCommand = useCallback((fn) => {
+    const p = playerRef.current
+    if (!p || !readyRef.current) return
+    fn(p)
   }, [])
 
   const playPause = useCallback(() => {
-    webviewRef.current?.executeJavaScript(`
-      (function() {
-        const btn = document.querySelector('.play-pause-button, #play-pause-button, ytmusic-player-bar .play-pause-button, ytmusic-player-bar #play-pause-button');
-        if (btn) {
-          btn.click();
-        } else {
-          const video = document.querySelector('video');
-          if (video) {
-            if (video.paused) video.play();
-            else video.pause();
-          }
-        }
-      })();
-    `)
-  }, [])
+    playerCommand((p) => {
+      const state = typeof p.getPlayerState === 'function' ? p.getPlayerState() : null
+      if (state === 1) p.pauseVideo()
+      else p.playVideo()
+    })
+  }, [playerCommand])
 
-  const pauseTrack = useCallback(() => {
-    webviewRef.current?.executeJavaScript(`
-      (function() {
-        const video = document.querySelector('video');
-        if (video && !video.paused) {
-          const btn = document.querySelector('.play-pause-button, #play-pause-button, ytmusic-player-bar .play-pause-button, ytmusic-player-bar #play-pause-button');
-          if (btn) btn.click();
-          else video.pause();
-        }
-      })();
-    `)
-  }, [])
+  const pauseTrack = useCallback(() => playerCommand((p) => p.pauseVideo()), [playerCommand])
+  const resumeTrack = useCallback(() => playerCommand((p) => p.playVideo()), [playerCommand])
 
-  const resumeTrack = useCallback(() => {
-    webviewRef.current?.executeJavaScript(`
-      (function() {
-        const video = document.querySelector('video');
-        if (video && video.paused) {
-          const btn = document.querySelector('.play-pause-button, #play-pause-button, ytmusic-player-bar .play-pause-button, ytmusic-player-bar #play-pause-button');
-          if (btn) btn.click();
-          else video.play();
-        }
-      })();
-    `)
-  }, [])
+  const togglePlayer = useCallback(() => setIsPlayerOpen((prev) => !prev), [])
+
+  // Compat: string watch URL lagu terakhir (ada konsumen lama yang membaca ini).
+  const musicUrl = current.id ? `https://music.youtube.com/watch?v=${current.id}` : 'https://music.youtube.com'
 
   const value = {
     musicUrl,
-    setMusicUrl,
     playUrl,
     playId,
     isPlayerOpen,
     setIsPlayerOpen,
     togglePlayer,
-    webviewRef,
     isPlaying,
-    currentTrack,
+    currentTrack: current,
+    queue,
     nextTrack,
     prevTrack,
     playPause,
@@ -158,9 +189,27 @@ export const YoutubeMusicProvider = ({ children }) => {
     resumeTrack
   }
 
-  return <YoutubeMusicContext.Provider value={value}>{children}</YoutubeMusicContext.Provider>
+  return (
+    <YoutubeMusicContext.Provider value={value}>
+      {children}
+      {/* Host player audio-only: tetap hidup walau panel ditutup. */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+          left: -9999,
+          bottom: 0,
+          pointerEvents: 'none',
+          opacity: 0.01
+        }}
+      >
+        <div ref={hostRef} />
+      </div>
+    </YoutubeMusicContext.Provider>
+  )
 }
 
-export const useYoutubeMusic = () => {
-  return useContext(YoutubeMusicContext)
-}
+export const useYoutubeMusic = () => useContext(YoutubeMusicContext)

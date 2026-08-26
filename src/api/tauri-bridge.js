@@ -321,8 +321,8 @@ export const api = {
     }
   },
 
-  // ---------- Screenshot (fase B5 — crate screenshots) ----------
-  takeScreenshot: () => call('take-screenshot')
+  // ---------- Screenshot (Fase B5 native — rute Rust) ----------
+  takeScreenshot: () => invoke('misc_take_screenshot')
 }
 
 // Pasang sebelum modul lain dieksekusi (dipanggil paling atas di main.jsx)

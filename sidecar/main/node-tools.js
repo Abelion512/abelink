@@ -975,7 +975,7 @@ export const NATIVE_TOOLS = {
       }
     }
   },
-  'run-powershell': {
+  'run-shell': {
     needsApproval: (query) => isDangerousCommand(query),
     approvalMessage: (query) =>
       `Mark ingin mengeksekusi perintah shell yang berpotensi BERBAHAYA:\n\n${query}`,
@@ -1652,5 +1652,9 @@ export const NATIVE_TOOLS = {
     }
   }
 }
+
+// Alias kompatibilitas: nama Windows warisan upstream -> run-shell (bash Linux).
+// Model lama kadang masih menyebut run-powershell; jangan biarkan tool hilang.
+NATIVE_TOOLS['run-powershell'] = NATIVE_TOOLS['run-shell']
 
 export const getNativeToolsDefinition = () => NATIVE_TOOLS

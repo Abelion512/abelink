@@ -18,12 +18,12 @@
         "minWidth": 940,
         "minHeight": 600,
         "decorations": false,
-        "transparent": false,
+        "transparent": true,
         "backgroundColor": "#0b0f0c"
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost blob: data: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://*; object-src 'none'; base-uri 'self'"
+      "csp": "default-src 'self'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; script-src 'self' 'wasm-unsafe-eval' blob: https://www.youtube.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost blob: data: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://*; object-src 'none'; base-uri 'self'"
     }
   },
   "bundle": {

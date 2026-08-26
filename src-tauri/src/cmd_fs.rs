@@ -301,7 +301,7 @@ pub struct LegacyPick {
 #[tauri::command]
 pub fn fs_detect_legacy_profiles() -> Vec<String> {
     let home = std::env::var("HOME").unwrap_or_default();
-    let candidates = ["Mark Agent", "mark-agent", "mark-agent-fork", "Electron"];
+    let candidates = ["Mark Agent", "mark-agent", "mark-agent-fork", "Electron", "mark", "Mark"];
     let mut found = Vec::new();
     for c in candidates {
         let base = format!("{home}/.config/{c}");

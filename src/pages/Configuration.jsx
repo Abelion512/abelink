@@ -28,7 +28,7 @@ import {
 import { getExtractor } from '../api/vectorMemory'
 import 'driver.js/dist/driver.css'
 import { startDriverTour } from '../utils/driverTour'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/ChatContext'
 import ConfigSidebar from '../components/ConfigSidebar'
@@ -139,7 +139,20 @@ const buildSetupTourSteps = () => [
   }
 ]
 
-const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
+let mediaInfoLogged = false
+
+// Fallback STT senyap yang sama untuk autosave & first-setup: wizard/mode
+// otomatis tidak boleh macet karena STT cloud tanpa key.
+const withSttFallback = (cfg) =>
+  cfg.localWhisperModel?.startsWith('groq') && !cfg.groqApiKey?.trim()
+    ? { ...cfg, localWhisperModel: 'whisper-small' }
+    : cfg
+
+const Configuration = ({
+  isFirstSetup = false,
+  onSetupComplete = null,
+  initialLegacyImport = false
+}) => {
   const [config, setConfig] = useState({
     personality: 'Santai layaknya seorang teman dan suka bercanda.',
     model: 'google/gemma-3-4b',
@@ -169,12 +182,19 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const [downloadProgress, setDownloadProgress] = useState(0)
   const { confirm, ModalComponent } = useConfirm()
   const chatContext = useChat()
+  const navigate = useNavigate()
 
   const [showGroqKey, setShowGroqKey] = useState(false)
   const [showCustomKey, setShowCustomKey] = useState(false)
   const [activeSection, setActiveSection] = useState('cfg-ai-engine')
   const [touring, setTouring] = useState(false)
   const tourStartedRef = useRef(false)
+  const [saveStatus, setSaveStatus] = useState(null)
+  const savedSnapshotRef = useRef('')
+  const hydratedRef = useRef(false)
+  const autosaveTimerRef = useRef(null)
+  const devicesLoadedRef = useRef(false)
+  const legacyImportFiredRef = useRef(false)
   const [devHarness, setDevHarness] = useState(() => localStorage.getItem('devHarnessLogging') === '1')
   const [legacyProfiles, setLegacyProfiles] = useState([])
 
@@ -197,15 +217,22 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     }
   }
 
-  useEffect(() => {
-    loadConfig()
-    loadMemories()
-
+  // Enumerasi mic/kamera LAZY — hanya saat dibutuhkan (wizard atau section
+  // Audio/Kamera dibuka). getUserMedia di mount memicu warning dobel WebKitGTK
+  // dan memperlambat buka halaman tanpa alasan.
+  const enumerateMediaDevices = () => {
+    if (devicesLoadedRef.current) return
     if (!navigator.mediaDevices?.getUserMedia?.enumerateDevices) {
-      console.warn('[Config] Media devices API tidak tersedia di webview ini; daftar mic/kamera dikosongkan.')
+      // Batas webview Linux (WebKitGTK) — bukan error aplikasi. Log sekali saja.
+      if (!mediaInfoLogged) {
+        mediaInfoLogged = true
+        console.info(
+          '[Config] Media devices API tidak tersedia di webview ini; daftar mic/kamera dikosongkan.'
+        )
+      }
       return
     }
-
+    devicesLoadedRef.current = true
     navigator.mediaDevices
       .getUserMedia({ audio: true, video: true })
       .then((stream) => {
@@ -229,7 +256,18 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           '[Config] Izin mic/kamera tidak diberikan oleh lingkungan webview; pilihan perangkat dikosongkan.'
         )
       })
+  }
+
+  useEffect(() => {
+    loadConfig()
+    loadMemories()
   }, [])
+
+  useEffect(() => {
+    if (isFirstSetup || activeSection === 'cfg-audio-voice' || activeSection === 'cfg-camera') {
+      enumerateMediaDevices()
+    }
+  }, [isFirstSetup, activeSection])
 
   useEffect(() => {
     if (!isFirstSetup || !window.api?.legacyDetectProfiles) return
@@ -258,15 +296,20 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
   const loadConfig = async () => {
     const data = await getAllConfig()
     if (data.length > 0) {
-      setConfig((prev) => ({
-        ...prev,
+      const merged = {
+        ...config,
         ...data[0],
         aiProvider: data[0].aiProvider || 'gemini-web',
         geminiWebModel: data[0].geminiWebModel || 'gemini-3.6-flash',
         micDeviceId: data[0].micDeviceId || 'default',
         awarenessEnabled: data[0].awarenessEnabled ?? true
-      }))
+      }
+      setConfig(merged)
+      // Baseline snapshot: setelah titik ini, perubahan config dianggap dirty
+      // dan memicu autosave (hydration tidak boleh memicu simpan).
+      savedSnapshotRef.current = JSON.stringify(merged)
     }
+    hydratedRef.current = true
   }
 
   const loadMemories = async () => {
@@ -289,6 +332,100 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
       if (!obj) setTouring(false)
     })
   }
+
+  // ── Autosave: debounce 700ms setelah perubahan terakhir (mode normal) ──
+  // Wizard tidak ikut — dia punya alur "Simpan & Mulai" eksplisit.
+  useEffect(() => {
+    if (!hydratedRef.current || isFirstSetup) return
+    const snap = JSON.stringify(config)
+    if (snap === savedSnapshotRef.current) return
+    setSaveStatus({ state: 'pending' })
+    clearTimeout(autosaveTimerRef.current)
+    autosaveTimerRef.current = setTimeout(async () => {
+      try {
+        setSaveStatus({ state: 'saving' })
+        const eff = withSttFallback(config)
+        await saveConfiguration(eff)
+        savedSnapshotRef.current = JSON.stringify(eff)
+        if (chatContext?.setConfig) chatContext.setConfig([eff])
+        setSaveStatus({ state: 'saved', at: new Date() })
+      } catch (e) {
+        console.error('[Config] Autosave gagal:', e)
+        setSaveStatus({ state: 'error' })
+      }
+    }, 700)
+    return () => clearTimeout(autosaveTimerRef.current)
+  }, [config, isFirstSetup])
+
+  // Opasitas window: TIDAK bisa diimplement di Tauri 2.11 (API set_opacity
+  // hanya ada di v1). Handler lama dihapus; lihat session log untuk limitasi.
+
+  // Impor database legacy dari export JSON versi lama (dexie-export-import).
+  const handleImportLegacy = async () => {
+    try {
+      const pick = await window.api.legacyImportPickAndRead()
+      if (!pick?.content) return
+      const parsed = JSON.parse(pick.content)
+      const { importInto } = await import('dexie-export-import')
+      await importInto(db, parsed, { overwriteValues: true })
+      await confirm({
+        title: 'Impor Berhasil',
+        message: 'Data lama sudah digabung ke database ini. Halaman akan dimuat ulang.',
+        hideCancel: true,
+        confirmText: 'Muat Ulang'
+      })
+      window.location.reload()
+    } catch (err) {
+      if (String(err).includes('__canceled__')) return
+      console.error('[Config] Import legacy gagal:', err)
+      await confirm({
+        title: 'Impor Gagal',
+        message: String(err?.message || err),
+        isError: true,
+        hideCancel: true,
+        confirmText: 'Tutup'
+      })
+    }
+  }
+
+  // Audit injeksi: salin system prompt terakhir ke clipboard + deteksi nama
+  // yang tidak dideklarasikan user (bukti, bukan teori).
+  const handleDumpPrompt = async () => {
+    const { getLastSystemPrompt } = await import('../api/ai/planning')
+    const prompt = getLastSystemPrompt()
+    if (!prompt) {
+      await confirm({
+        title: 'Dump System Prompt',
+        message: 'Belum ada prompt tersimpan - jalankan satu giliran obrolan dulu.',
+        hideCancel: true,
+        confirmText: 'Tutup'
+      })
+      return
+    }
+    let copied = false
+    try {
+      await navigator.clipboard.writeText(prompt)
+      copied = true
+    } catch (_) {}
+    const leak = !config.ownerName?.trim() && /\b(Mada|Mazees)\b/i.test(prompt)
+    await confirm({
+      title: 'Dump System Prompt',
+      message:
+        `Panjang: ${prompt.length} chars.${copied ? ' Disalin ke clipboard.' : ' Clipboard tidak tersedia.'}` +
+        (leak ? '\n\nPERINGATAN: terdeteksi nama Mada/Mazees di prompt padahal ownerName kosong - lacak blok sumbernya lewat isi clipboard.' : ''),
+      isError: leak,
+      hideCancel: true,
+      confirmText: 'Tutup'
+    })
+  }
+
+  // Auto-buka dialog impor saat user memilih "Restore" di layar first boot.
+  useEffect(() => {
+    if (initialLegacyImport && !legacyImportFiredRef.current && handleImportLegacy) {
+      legacyImportFiredRef.current = true
+      handleImportLegacy()
+    }
+  }, [initialLegacyImport])
 
   const handleDeleteMemory = async (mem) => {
     const result = await confirm({
@@ -569,8 +706,8 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
           activeSection={activeSection}
           onNavigate={handleSidebarNavigate}
         />
-        <div className="flex-1 overflow-y-auto ml-4 mr-4">
-          <div className="pt-4">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden ml-4 min-w-0">
+          <div className="pt-4 pr-4">
             {/* Page Header */}
             <div className="flex items-center gap-4">
             {!isFirstSetup && (
@@ -598,15 +735,36 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   : 'Sesuaikan perilaku Mark dengan preferensimu.'}
               </p>
             </div>
-            {!isFirstSetup && (
-              <button
-                onClick={startGuidedTour}
-                className="btn btn-ghost btn-sm btn-circle ml-auto"
-                title="Lihat panduan singkat"
-              >
-                <FaQuestionCircle className="text-lg opacity-60" />
-              </button>
-            )}
+            <div className="ml-auto flex items-center gap-2">
+              {saveStatus && !isFirstSetup && (
+                <span
+                  className={`badge badge-sm ${
+                    saveStatus.state === 'error'
+                      ? 'badge-error'
+                      : saveStatus.state === 'saved'
+                        ? 'badge-success badge-outline'
+                        : 'badge-warning badge-outline'
+                  }`}
+                >
+                  {saveStatus.state === 'pending'
+                    ? 'Perubahan…'
+                    : saveStatus.state === 'saving'
+                      ? 'Menyimpan…'
+                      : saveStatus.state === 'error'
+                        ? 'Gagal autosave'
+                        : `Tersimpan ${saveStatus.at.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
+                </span>
+              )}
+              {!isFirstSetup && (
+                <button
+                  onClick={startGuidedTour}
+                  className="btn btn-ghost btn-sm btn-circle"
+                  title="Lihat panduan singkat"
+                >
+                  <FaQuestionCircle className="text-lg opacity-60" />
+                </button>
+              )}
+            </div>
 
           {isFirstSetup && legacyProfiles.length > 0 && (
             <div className="alert bg-base-200/70 border border-warning/30 text-sm flex-col items-start gap-2 my-3">
@@ -829,6 +987,60 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 </p>
               </div>
             )}
+          </section>
+
+          {/* ── General ── */}
+          <section id="cfg-general" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-general' ? 'hidden' : ''}`}>
+            <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
+              General
+            </h2>
+
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold">Bahasa / Language</p>
+              <select
+                className="select select-bordered w-full"
+                value={config.language || 'id'}
+                onChange={(e) => setConfig((prev) => ({ ...prev, language: e.target.value }))}
+              >
+                <option value="id">Bahasa Indonesia</option>
+                <option value="en">English</option>
+              </select>
+              <p className="text-xs opacity-40">Preferensi disimpan; terjemahan antarmuka menyusul.</p>
+            </div>
+
+            {/* Preferensi jendela: transparansi (sinkron lewat syncConfig) */}
+            <div className="space-y-2 p-2 -mx-2 rounded-lg bg-base-200">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">Tingkat Transparansi Jendela</p>
+                <span className="font-mono text-sm text-primary font-bold">
+                  {Math.round((config.windowOpacity ?? 0.85) * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={config.windowOpacity ?? 0.85}
+                className="range range-primary range-xs w-full"
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value)
+                  document.documentElement.style.setProperty('--win-alpha', String(val))
+                  setConfig((prev) => {
+                    const newConfig = { ...prev, windowOpacity: val }
+                    if (window.api && window.api.syncConfig) window.api.syncConfig(newConfig)
+                    return newConfig
+                  })
+                }}
+              />
+              <div className="flex justify-between mt-2 text-xs opacity-50">
+                <span>10% (Kaca Bening)</span>
+                <span>100% (Solid)</span>
+              </div>
+              <p className="text-[11px] text-warning/80">
+                Eksperimental: butuh restart pertama kali &amp; dapat menimbulkan artefak di WebKitGTK.
+              </p>
+            </div>
 
             {/* Awareness Engine Toggle */}
             <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
@@ -848,9 +1060,60 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 />
               </div>
             </div>
+          </section>
+
+          {/* ── Personalization ── */}
+          <section id="cfg-personalization" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-personalization' ? 'hidden' : ''}`}>
+            <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
+              Personalization
+            </h2>
+
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold">Pekerjaan</p>
+              <select
+                className="select select-bordered w-full"
+                value={config.occupation || ''}
+                onChange={(e) => setConfig((prev) => ({ ...prev, occupation: e.target.value }))}
+              >
+                <option value="">- Pilih pekerjaan (opsional) -</option>
+                {['Software Engineer','Pelajar / Mahasiswa','Content Creator','Penulis','Data Scientist','Desainer','Musisi / Artis','Entrepreneur','Lainnya'].map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+              <p className="text-xs opacity-40">Membantu Mark menyesuaikan analogi &amp; gaya penjelasan.</p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleImportLegacy}>
+                Impor Memory (JSON Lama)
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  navigate('/')
+                  window.dispatchEvent(new CustomEvent('open-memory-map'))
+                }}
+              >
+                Buka Menu Memory ↗
+              </button>
+            </div>
 
             {/* System Persona */}
             <div id="tour-persona" className="space-y-1.5 p-2 -mx-2 rounded-lg">
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">Nama Panggilan Kamu (opsional)</p>
+                <input
+                  className="input input-bordered w-full"
+                  placeholder="Contoh: Mada"
+                  value={config.ownerName || ''}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, ownerName: e.target.value }))}
+                />
+                <p className="text-xs opacity-40">
+                  Dipakai Mark untuk menyapamu dengan benar. Tanpa ini, dia menebak dari konteks
+                  dan bisa salah.
+                </p>
+              </div>
               <p className="text-sm font-semibold">Gaya Bicara dan Kepribadian</p>
               <textarea
                 className="textarea w-full h-72 leading-relaxed no-scrollbar resize-none"
@@ -888,7 +1151,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
             {/* Context Window */}
             <div id="tour-context" className="space-y-2 p-2 -mx-2 rounded-lg">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Context Window</p>
+                <p className="text-sm font-semibold">Riwayat Pesan</p>
                 <span className="font-mono text-sm text-primary font-bold">{config.context}</span>
               </div>
               <input
@@ -908,42 +1171,15 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 <span>18</span>
                 <span>22</span>
               </div>
+              <p className="text-xs opacity-40">
+                Jumlah <b>pesan obrolan</b> yang dikirim sebagai konteks — bukan token window.
+                Batas token model (mis. 1.048.576) adalah unit yang berbeda.
+              </p>
             </div>
+          </section>
 
-            <div className="divider"></div>
-
-            {/* Window Settings */}
-            <div className="space-y-2 p-2 -mx-2 rounded-lg">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Tingkat Transparansi Jendela</p>
-                <span className="font-mono text-sm text-primary font-bold">
-                  {Math.round((config.windowOpacity ?? 0.85) * 100)}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0.1"
-                max="1.0"
-                step="0.05"
-                value={config.windowOpacity ?? 0.85}
-                className="range range-primary range-xs w-full"
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value)
-                  setConfig((prev) => {
-                    const newConfig = { ...prev, windowOpacity: val }
-                    if (window.api && window.api.syncConfig) window.api.syncConfig(newConfig)
-                    return newConfig
-                  })
-                }}
-              />
-              <div className="flex justify-between mt-2 text-xs opacity-50">
-                <span>10% (Kaca Bening)</span>
-                <span>100% (Solid)</span>
-              </div>
-            </div>
-
-            <div className="divider"></div>
-
+          {/* ── Capabilities ── */}
+          <div id="cfg-capabilities" className={`${!isFirstSetup && !touring && activeSection !== 'cfg-capabilities' ? 'hidden' : ''} space-y-6`}>
             {/* Camera Settings */}
             <div id="cfg-camera" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-camera' ? 'hidden' : ''}`}>
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5 flex items-center gap-2">
@@ -990,76 +1226,6 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 />
               )}
             </div>
-
-            {/* ── Global Shortcut Settings ── */}
-            <section id="cfg-shortcut" className={`space-y-5 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-shortcut' ? 'hidden' : ''}`}>
-              <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-                Global Shortcut Key
-              </h2>
-
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-end">
-                  <p className="text-sm font-semibold">Tombol Panggilan Cepat</p>
-                  <span className="text-[10px] font-mono opacity-50">Aktif Lintas Aplikasi</span>
-                </div>
-
-                <div className="relative w-full">
-                  <input
-                    type="text"
-                    readOnly
-                    onFocus={() => setIsRecordingShortcut(true)}
-                    onBlur={() => setIsRecordingShortcut(false)}
-                    onKeyDown={handleShortcutRecorderKeyDown}
-                    value={
-                      isRecordingShortcut
-                        ? 'Tekan kombinasi tombol di keyboard...'
-                        : (config.shortcutKey || 'CommandOrControl+Alt+M').replace(
-                            /CommandOrControl|Control/g,
-                            'Ctrl'
-                          )
-                    }
-                    className={`input input-bordered w-full font-mono text-sm cursor-pointer select-none ${
-                      isRecordingShortcut
-                        ? 'input-primary border-2 animate-pulse bg-primary/10 text-primary font-bold'
-                        : 'hover:border-primary/60'
-                    }`}
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  <span className="text-xs opacity-60 w-full mb-1">Preset Cepat:</span>
-                  {[
-                    'CommandOrControl+Alt+M',
-                    'CommandOrControl+Shift+Space',
-                    'Alt+Space',
-                    'CommandOrControl+Space',
-                    'F9'
-                  ].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => {
-                        setConfig((prev) => {
-                          const updated = { ...prev, shortcutKey: preset }
-                          if (window.api && window.api.syncConfig) window.api.syncConfig(updated)
-                          return updated
-                        })
-                      }}
-                      className={`btn btn-xs ${config.shortcutKey === preset ? 'btn-primary' : 'btn-ghost border-base-content/20'} font-mono`}
-                    >
-                      {preset.replace('CommandOrControl', 'Ctrl')}
-                    </button>
-                  ))}
-                </div>
-                <span className="text-[11px] opacity-60 block mt-1">
-                  Cukup <b>klik kotak input di atas</b> lalu tekan kombinasi tombol di keyboard kamu
-                  (misal: <code>Ctrl+Alt+A</code>, <code>Alt+Space</code>, <code>F9</code>).
-                  Shortcut langsung aktif seketika di OS!
-                </span>
-              </div>
-            </section>
-
-            <div className="divider"></div>
 
             {/* TTS Settings */}
             <div id="cfg-audio-voice" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-audio-voice' ? 'hidden' : ''}`}>
@@ -1257,7 +1423,77 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 </p>
               </div>
             </div>
-          </section>
+          </div>
+
+            {/* ── Global Shortcut Settings ── */}
+            <section id="cfg-shortcut" className={`space-y-5 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-shortcut' ? 'hidden' : ''}`}>
+              <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
+                Global Shortcut Key
+              </h2>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-end">
+                  <p className="text-sm font-semibold">Tombol Panggilan Cepat</p>
+                  <span className="text-[10px] font-mono opacity-50">Aktif Lintas Aplikasi</span>
+                </div>
+
+                <div className="relative w-full">
+                  <input
+                    type="text"
+                    readOnly
+                    onFocus={() => setIsRecordingShortcut(true)}
+                    onBlur={() => setIsRecordingShortcut(false)}
+                    onKeyDown={handleShortcutRecorderKeyDown}
+                    value={
+                      isRecordingShortcut
+                        ? 'Tekan kombinasi tombol di keyboard...'
+                        : (config.shortcutKey || 'CommandOrControl+Alt+M').replace(
+                            /CommandOrControl|Control/g,
+                            'Ctrl'
+                          )
+                    }
+                    className={`input input-bordered w-full font-mono text-sm cursor-pointer select-none ${
+                      isRecordingShortcut
+                        ? 'input-primary border-2 animate-pulse bg-primary/10 text-primary font-bold'
+                        : 'hover:border-primary/60'
+                    }`}
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  <span className="text-xs opacity-60 w-full mb-1">Preset Cepat:</span>
+                  {[
+                    'CommandOrControl+Alt+M',
+                    'CommandOrControl+Shift+Space',
+                    'Alt+Space',
+                    'CommandOrControl+Space',
+                    'F9'
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        setConfig((prev) => {
+                          const updated = { ...prev, shortcutKey: preset }
+                          if (window.api && window.api.syncConfig) window.api.syncConfig(updated)
+                          return updated
+                        })
+                      }}
+                      className={`btn btn-xs ${config.shortcutKey === preset ? 'btn-primary' : 'btn-ghost border-base-content/20'} font-mono`}
+                    >
+                      {preset.replace('CommandOrControl', 'Ctrl')}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[11px] opacity-60 block mt-1">
+                  Cukup <b>klik kotak input di atas</b> lalu tekan kombinasi tombol di keyboard kamu
+                  (misal: <code>Ctrl+Alt+A</code>, <code>Alt+Space</code>, <code>F9</code>).
+                  Shortcut langsung aktif seketika di OS!
+                </span>
+              </div>
+            </section>
+
+            <div className="divider"></div>
 
           {/* ── Telegram Bot Settings ── */}
 
@@ -1268,7 +1504,7 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
               {/* ── Memory & Data ── */}
               <section id="cfg-memory-data" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && !touring && activeSection !== 'cfg-memory-data' ? 'hidden' : ''}`}>
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-                  Memory & Data
+                  Data Controls
                 </h2>
 
                 {/* Chat History */}
@@ -1281,6 +1517,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                     <button className="btn btn-soft btn-info btn-sm" onClick={handleExportChat}>
                       Export Chat ke JSON
                     </button>
+                    <button className="btn btn-soft btn-sm" onClick={handleImportLegacy}>
+                      Impor Export JSON Lama
+                    </button>
                   </div>
                 </div>
               </section>
@@ -1291,10 +1530,10 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                   Developer
                 </h2>
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold">Harness Logging</p>
+                  <p className="text-sm font-semibold">Debug Logging (JSONL)</p>
                   <p className="text-xs opacity-60">
-                    Rekam reasoning &amp; tool-call ke file JSONL di
-                    ~/.local/share/mark/harness/. Default OFF. Rotasi otomatis 50MB.
+                    Rekam reasoning &amp; tool-call ke file JSONL di folder data aplikasi.
+                    Default OFF. Rotasi otomatis 50MB.
                   </p>
                   <label className="flex items-center gap-3 cursor-pointer w-fit">
                     <input
@@ -1310,6 +1549,9 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                     <span className="text-sm">{devHarness ? 'AKTIF' : 'OFF'}</span>
                   </label>
                 </div>
+                   <button className="btn btn-outline btn-sm w-fit" onClick={handleDumpPrompt}>
+                     Dump System Prompt (Audit)
+                   </button>
               </section>
             </>
           )}
@@ -1328,18 +1570,18 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
                 ></progress>
               </div>
             )}
-            <button
-              id="tour-save-btn"
-              onClick={handleSaveConfiguration}
-              disabled={isDownloadingModel}
-              className="btn btn-primary px-8"
-            >
-              {isDownloadingModel
-                ? 'Menyimpan...'
-                : isFirstSetup
-                  ? 'Simpan & Mulai Gunakan Mark'
-                  : 'Simpan Pengaturan'}
-            </button>
+            {/* Mode normal: AUTOSAVE penuh — tombol simpan manual dihapus.
+                Tombol ini hanya ada di wizard first-setup sebagai CTA akhir. */}
+            {isFirstSetup && (
+              <button
+                id="tour-save-btn"
+                onClick={handleSaveConfiguration}
+                disabled={isDownloadingModel}
+                className="btn btn-primary px-8"
+              >
+                {isDownloadingModel ? 'Menyimpan...' : 'Simpan & Mulai Gunakan Mark'}
+              </button>
+            )}
           </div>
         </div>
         <ModalComponent />

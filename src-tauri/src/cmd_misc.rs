@@ -160,3 +160,78 @@ pub fn misc_open_file_dialog(app: AppHandle) -> Option<String> {
 pub fn misc_open_directory_dialog(app: AppHandle) -> Option<String> {
     pick_native_path(&app, true)
 }
+
+// ---- Screenshot layar penuh (Fase B5 dipercepat) ---------------------------
+// CATATAN: opasitas window TIDAK bisa diimplement di Tauri 2.11 (API
+// set_opacity hanya ada di v1). Limitasi platform didokumentasikan di
+// session log; slider UI tidak dibuat agar tidak menjanjikan hal mustahil.
+
+const B64_ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+fn b64_encode(data: &[u8]) -> String {
+    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = *chunk.get(1).unwrap_or(&0) as u32;
+        let b2 = *chunk.get(2).unwrap_or(&0) as u32;
+        let n = (b0 << 16) | (b1 << 8) | b2;
+        out.push(B64_ALPHABET[((n >> 18) & 63) as usize] as char);
+        out.push(B64_ALPHABET[((n >> 12) & 63) as usize] as char);
+        out.push(if chunk.len() > 1 {
+            B64_ALPHABET[((n >> 6) & 63) as usize] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            B64_ALPHABET[(n & 63) as usize] as char
+        } else {
+            '='
+        });
+    }
+    out
+}
+
+/// Screenshot layar penuh via tool sistem yang tersedia (X11). Kembalikan
+/// data URL PNG; Err berisi alasan tool terakhir bila semua gagal.
+#[tauri::command]
+pub fn misc_take_screenshot() -> Result<String, String> {
+    let path = std::env::temp_dir().join(format!(
+        "mark-screenshot-{}.png",
+        chrono::Local::now().timestamp_millis()
+    ));
+    let path_str = path.to_string_lossy().into_owned();
+    let attempts: Vec<(&str, Vec<String>)> = vec![
+        ("gnome-screenshot", vec!["-f".into(), path_str.clone()]),
+        ("scrot", vec!["-z".into(), path_str.clone()]),
+        ("maim", vec![path_str.clone()]),
+        (
+            "import",
+            vec!["-window".into(), "root".into(), path_str.clone()],
+        ),
+    ];
+    let mut last_err = String::from(
+        "Tidak ada tool screenshot terpasang (coba: sudo apt install scrot / gnome-screenshot)",
+    );
+    for (prog, args) in attempts {
+        match Command::new(prog).args(&args).output() {
+            Ok(out)
+                if out.status.success()
+                    && path.is_file()
+                    && path.metadata().map(|m| m.len() > 0).unwrap_or(false) =>
+            {
+                let bytes =
+                    std::fs::read(&path).map_err(|e| format!("Gagal baca screenshot: {e}"))?;
+                let _ = std::fs::remove_file(&path);
+                return Ok(format!("data:image/png;base64,{}", b64_encode(&bytes)));
+            }
+            Ok(out) => {
+                last_err = format!("{prog} gagal: {}", String::from_utf8_lossy(&out.stderr));
+            }
+            Err(_) => {
+                last_err = format!("{prog} tidak tersedia");
+            }
+        }
+    }
+    let _ = std::fs::remove_file(&path);
+    Err(last_err)
+}

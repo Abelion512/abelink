@@ -20,6 +20,10 @@ import { useVAD } from '../hooks/useVAD'
 import { useMemoryGroomer } from '../hooks/useMemoryGroomer'
 import { db, setSessionWorkspace } from '../api/db'
 
+// Easter egg dinonaktifkan sementara (review UX 2026-08-26) —
+// nyalakan kembali dengan mengubah flag ini menjadi true.
+const EASTER_EGG_ENABLED = false
+
 const MarkHome = () => {
   const chatContext = useChat()
   const {
@@ -67,8 +71,9 @@ const MarkHome = () => {
   }
 
   const handleOrbClick = () => {
+    // Easter egg dinonaktifkan sementara (review UX 2026-08-26).
+    if (!EASTER_EGG_ENABLED) return
     if (easterEgg) return hideEgg()
-    if (!winState.isMaximized && !winState.isFullScreen) return
     const pick = winState.isFullScreen
       ? 'clock'
       : EGG_POOL[Math.floor(Math.random() * EGG_POOL.length)]
