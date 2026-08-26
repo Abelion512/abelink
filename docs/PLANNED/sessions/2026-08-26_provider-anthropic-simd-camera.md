@@ -53,6 +53,18 @@ Verifikasi konversi Anthropic dilakukan lewat replikasi logika di node: system g
 - [x] verify.sh exit 0
 - [x] Sanity konversi anthropic (merge/alternating/prepend) benar
 
+## Update 2026-08-26 (lanjutan) - Deteksi Model, Blok Save Groq, Vision Retry
+
+| Finding | File | Root Cause | Fix | Status |
+|---|---|---|---|---|
+| User harus tahu URL model lengkap; ingin auto-detect /models | ai-bridge.js, engine.mjs, cmd_node_bridge.rs, tauri-bridge.js, Configuration.jsx | belum ada channel deteksi | channel `ai:list-models` (allowlist + sidecar GET {base}/models utk openai & anthropic, race-timeout 15s karena abort Bun tak membatalkan fase connect) + tombol "Deteksi Model" dgn datalist saran di UI Custom | DONE |
+| Save DITOLAK minta Groq key padahal input Groq tak terlihat | Configuration.jsx handleSaveConfiguration | validasi `!groqApiKey` TANPA syarat; sementara input hanya render saat STT=groq (default local) -> kontradiksi | validasi kondisional: wajib hanya bila localWhisperModel startsWith 'groq'; judul/deskripsi tur first-setup dikoreksi (tidak lagi "Wajib") | DONE |
+| "Model support image tapi katanya tidak support" | useMarkPlan path -> ai-bridge.js | dua jalur: (a) gemini-web MEMBUANG image part diam-diam; (b) endpoint yang menolak gambar (DeepSeek 400 "image not supported") melempar error mentah ke user | (a) warning eksplisit saat image dilewati; (b) auto-retry SEKALI tanpa image_url saat pesan error menyerupai penolakan gambar + status "mencoba ulang tanpa gambar" | DONE |
+
+Learnings tambahan: wrapper `on()` engine = spread args + ok() (handler harus return data polos, throw utk error); koneksi-refused di proses engine bisa ~15s (bukan instan seperti bun -e) sehingga race timer wajib; menutup stdin test membuat exit(0) mengalahkan respons async — selalu tahan stdin saat smoke test.
+
+Verifikasi: node --check 2 file OK; eslint 0 error; vitest 10/10; verify.sh exit 0; cargo check 0 warning; smoke frame invalid-url -> error frame benar, refused-connection -> error frame setelah timeout guard. Commit c57557e.
+
 ## Callback
 
 Untuk uji nyata Anthropic: mau saya tambahkan tombol "Test Koneksi" di section Custom API yang mengirim ping mini (1 token) dan menampilkan status protokol yang terdeteksi?
