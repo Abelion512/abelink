@@ -60,6 +60,26 @@ Tidak diubah (by design / sudah aman): `task-daemon.js` (spawn argv array), `tel
 - [ ] E2E manual di app (write-file .js dgn syntax error → warning self-healing muncul)
 - [ ] Test di Windows build (powershell.exe -NoProfile -NonInteractive path)
 
+## Update 2026-08-26 — Hardening Ternyata HILANG saat migrasi; direstorasi ke sidecar
+
+**Keywords tambahan:** restorasi hardening, stale patch, sidecar git-service runGit, syntax-validator runCheck, plugin-loader validator, engine.mjs skills traversal, workspace containment guard, fsGuard
+
+Temuan audit 2026-08-26 (subagent + verifikasi `git log --all -S`): **keempat fix V1-V5 di atas TIDAK PERNAH ter-commit** — simbol `runGit`/`runCheck`/`isValidNpmDependency`/`resolveContainedPluginPath` tidak ada di commit/branch manapun; log sesi ini ditulis untuk branch `merge/all-to-5.5.0` yang tidak eksis, dan patch diterapkan ke path `src/main/**` yang sudah dipindah/dihapus oleh migrasi Tauri (4a11f29). Kode di `sidecar/main/*` adalah versi PRA-hardening utuh.
+
+| Item lama | Status di sidecar sebelum update | Fix 2026-08-26 |
+|---|---|---|
+| V1 run-shell argv array | STALE (`exec(query,{shell:'/bin/bash'})`, tanpa timeout) | timeout 120s + maxBuffer; gate blacklist tetap (upgrade allowlist = backlog) |
+| V2 git-service | STALE penuh (interpolasi + needsApproval:false di git-diff!) | rewrite `runGit()` execFile argv, path sebagai elemen argv |
+| V3 syntax-validator | STALE (6 titik interpolasi `${filePath}`) | helper `runCheck()` execFile + timeout 30s; ENOENT = interpreter tidak ada |
+| V4/V5 plugin-loader | STALE (`npm install ${deps}`, rmSync tanpa containment) | `isValidNpmDependency()` regex + `resolveContainedPluginPath()` |
+| BARU: file tools tanpa containment | read/write/delete/list/grep menerima path absolut & `..` | guard `resolveContained(root,p)` di semua file tool -> "Akses ditolak: path di luar workspace." |
+| BARU: skills:* traversal di engine.mjs | save/delete/read join `name` mentah | validasi nama [A-Za-z0-9._-] + strip '..' pada read-file |
+| BARU: browser-*/os-* fake success | stub electron BrowserWindow loadURL no-op -> AI berhalusinasi hasil riset | handler mengembalikan `{success:false, unsupported:true}` eksplisit |
+
+Verifikasi: `node --check` semua file OK; smoke test engine (`bun sidecar/engine.mjs`): frame rusak dijawab error frame, `skills:delete "../../../evil"` ditolak "Nama skill tidak valid", `read-file "../../etc/passwd"` ditolak "Akses ditolak: path di luar workspace."
+
+Pelajaran besar: **patch yang tidak di-commit = patch yang tidak ada.** Session log DONE bukan bukti kode hidup; selalu grep simbol di tree aktif sebelum menandai selesai. Detail lanjutan lapisan Rust: `docs/PLANNED/sessions/2026-08-26_rust-shell-hardening-ci-gate.md`.
+
 ## Callback
 
 Approval gate `isDangerousCommand` masih blacklist-based dan bisa bypass dengan encoding (mis. `Get-ChildItem | Remove-Item` via alias `ls | ri`, atau base64 `-EncodedCommand`). Mau kita upgrade ke allowlist-based policy (default-deny, whitelist perintah aman) + blokir `-EncodedCommand`, sebagai hardening tahap berikutnya?

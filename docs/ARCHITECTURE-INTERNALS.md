@@ -1,5 +1,7 @@
 # MARK Architecture Internals
 
+> STATUS 2026-08-26: dokumen ini ditulis untuk layout Electron lama (src/main, preload, src/renderer). Struktur saat ini: renderer=src/, shell=src-tauri/, engine lama=sidecar/. Bagian di bawah tetap bernilai sebagai referensi perilaku modul yang kini hidup di sidecar/main dan src/api.
+
 Detail arsitektur yang dipindahkan dari `AGENTS.md` agar file instruksi tetap ringkas. Referensi utama: [`AGENTS.md`](../AGENTS.md).
 
 ## File Inventory

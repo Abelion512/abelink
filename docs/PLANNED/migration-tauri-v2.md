@@ -79,6 +79,12 @@ Bukan `frontend/` ala upstream — kita pegang konvensi framework langsung.
 - **Acceptance A:** semua tool inti (chat, memory, browser, PC-agent, telegram, TTS) berperilaku sama; RAM idle < 200MB; installer < 40MB
 
 ### Fase B — Kikis sidecar (ringan bertahap, urut murah→berat)
+- [x] B0 (2026-08-26): cluster **lite & misc** → `src-tauri/src/cmd_misc.rs`
+      (`misc_get_documents_path`, `misc_get_lite_mode`, `misc_save_temp_file`,
+      `misc_open_external`, `misc_show_notification`). Handler sidecar + entri
+      allowlist/approval di `cmd_node_bridge.rs` dibersihkan; `ping` sengaja tetap
+      di sidecar (health-check proses engine). Bonus: perbaikan kehilangan `body`
+      pada `showNotification` saat dipanggil posisional `(title, body)`.
 Urutan port: (5) file ops → (6) shell/task → (16) watcher → (7) tray/shortcut → (8) screenshot → (9) pc-agent spawn → (10) tracker → (17) resources binary → (11) TTS
 - Aturan: satu PR per modul, acceptance = tool-parity test + benchmark RAM/startup turun
 - Setiap modul Rust yang matang: hapus dari sidecar entry

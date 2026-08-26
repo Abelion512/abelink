@@ -44,5 +44,11 @@ PLUGIN_SYSTEM_SRS.md
 social-data-engine/
 scripts/tmp-*
 
+# artefak generator — regenerasi on-demand, jangan di-commit (audit 2026-08-26)
+upstream-diff-report.json
+
 # tauri generated schemas (regenerated otomatis)
 src-tauri/gen/schemas/
+
+# scratch verifikasi agent (baseline lint), jangan commit
+.lint-baseline/
