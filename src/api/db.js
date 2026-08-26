@@ -241,6 +241,18 @@ export async function getAllMemory() {
   }
 }
 
+// Ambil satu memori berdasarkan ID (dipakai memory groomer sebelum merge)
+export async function getMemory(id) {
+  try {
+    const numId = Number(id)
+    if (!numId || isNaN(numId)) return null
+    return (await db.memory.get(numId)) || null
+  } catch (error) {
+    console.error('Error in getMemory logic:', error)
+    return null
+  }
+}
+
 export async function getAllConfig() {
   try {
     const data = await db.config.toArray()
@@ -276,7 +288,8 @@ export async function saveConfiguration(data) {
       window.api.syncConfig(data)
     }
     window.dispatchEvent(new CustomEvent('config-updated', { detail: data }))
-    console.log('Configuration saved:', data)
+    // Jangan pernah print payload utuh — berisi API key & tgBotToken
+    console.log('Configuration saved:', Object.keys(data))
   } catch (error) {
     console.error('Error in saveConfiguration logic:', error)
   }
@@ -683,11 +696,40 @@ export async function deleteLearnedSkill(idOrName) {
 // CHAT TURNS (TURN-PAIR VECTOR MEMORY)
 // ==========================================================================
 
+// Vektor hasil generateVector() saat Lite Mode adalah hash embedding dan TIDAK BOLEH
+// masuk Dexie/Orama — korpus pencarian vektor bisa rusak permanen. Fungsi ini
+// menstrip vektor hash sebelum disimpan dan menandai provenansi model tiap baris:
+//   vectorModel: 'minilm' | 'hash' (dilarang tersimpan) | 'none' (fulltext saja)
+async function sanitizeTurnForStorage(turn) {
+  if (!turn || typeof turn !== 'object') return turn
+  try {
+    const { getVectorModel } = await import('./vectorMemory')
+    const safe = { ...turn }
+    if (!Array.isArray(safe.vector) || safe.vector.length === 0) {
+      delete safe.vector
+      safe.vectorModel = safe.vectorModel || 'none'
+      return safe
+    }
+    // Vektor tanpa tag dianggap dibuat oleh engine yang aktif saat ini
+    const model = safe.vectorModel || getVectorModel()
+    if (model === 'hash') {
+      delete safe.vector
+      safe.vectorModel = 'none'
+    } else {
+      safe.vectorModel = model
+    }
+    return safe
+  } catch {
+    return turn
+  }
+}
+
 export async function saveChatTurn(turnData) {
   try {
     if (!turnData || !turnData.pairId) return null
-    await db.chatTurns.put(turnData)
-    return turnData
+    const safeTurn = await sanitizeTurnForStorage(turnData)
+    await db.chatTurns.put(safeTurn)
+    return safeTurn
   } catch (err) {
     console.error('[DB] Error saveChatTurn:', err)
     return null
@@ -697,8 +739,12 @@ export async function saveChatTurn(turnData) {
 export async function saveBatchChatTurns(turnsArray) {
   try {
     if (!Array.isArray(turnsArray) || turnsArray.length === 0) return 0
-    await db.chatTurns.bulkPut(turnsArray)
-    return turnsArray.length
+    const safeTurns = []
+    for (const t of turnsArray) {
+      safeTurns.push(await sanitizeTurnForStorage(t))
+    }
+    await db.chatTurns.bulkPut(safeTurns)
+    return safeTurns.length
   } catch (err) {
     console.error('[DB] Error saveBatchChatTurns:', err)
     return 0

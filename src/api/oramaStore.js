@@ -1,8 +1,63 @@
 import { create, insert, insertMultiple, search, remove, removeMultiple } from '@orama/orama'
 import { generateVector } from './vectorLoader'
 
+// Policy vektor (getVectorModel/generateStorableVector) di-import dinamis dari
+// vectorMemory agar bundle transformers tetap ter-split keluar dari entry chunk.
+let vectorPolicyPromise = null
+const loadVectorPolicy = () => {
+  if (!vectorPolicyPromise) vectorPolicyPromise = import('./vectorMemory')
+  return vectorPolicyPromise
+}
+
 // Dimensi vektor sesuai model Transformers.js (all-MiniLM-L6-v2 = 384)
 const VECTOR_SIZE = 384
+
+// Baris legasi tanpa tag dianggap ber-model MiniLM (vektor asli era pra-penetapan)
+const LEGACY_VECTOR_MODEL = 'minilm'
+
+// Provenansi vektor tiap baris indeks:
+//   'minilm' = vektor asli MiniLM | 'hash' = hash embedding (DILARANG tersimpan)
+//   'none'   = baris fulltext saja, tanpa vektor
+const MEMORY_SCHEMA = {
+  type: 'string',
+  summary: 'string',
+  memory: 'string',
+  timestamp: 'number',
+  dexieId: 'number',
+  vector: `vector[${VECTOR_SIZE}]`,
+  vectorModel: 'string'
+}
+
+const ARCHIVE_SCHEMA = {
+  summary: 'string',
+  topic: 'string',
+  timestamp: 'number',
+  dexieId: 'number', // Referensi ke ID di Dexie
+  vector: `vector[${VECTOR_SIZE}]`,
+  vectorModel: 'string'
+}
+
+const DOCUMENT_SCHEMA = {
+  docName: 'string',
+  chunkIndex: 'number',
+  content: 'string',
+  timestamp: 'number',
+  dexieId: 'number',
+  vector: `vector[${VECTOR_SIZE}]`,
+  vectorModel: 'string'
+}
+
+const TURN_PAIR_SCHEMA = {
+  pairId: 'string',
+  sessionId: 'number',
+  sessionTitle: 'string',
+  userText: 'string',
+  aiText: 'string',
+  combinedText: 'string',
+  timestamp: 'number',
+  vector: `vector[${VECTOR_SIZE}]`,
+  vectorModel: 'string'
+}
 
 let archiveIndex = null
 let documentIndex = null
@@ -10,54 +65,45 @@ let memoryIndex = null
 let turnPairIndex = null
 
 export async function initOramaIndices() {
-  memoryIndex = await create({
-    schema: {
-      type: 'string',
-      summary: 'string',
-      memory: 'string',
-      timestamp: 'number',
-      dexieId: 'number',
-      vector: `vector[${VECTOR_SIZE}]`
-    }
-  })
-  archiveIndex = await create({
-    schema: {
-      summary: 'string',
-      topic: 'string',
-      timestamp: 'number',
-      dexieId: 'number',       // Referensi ke ID di Dexie
-      vector: `vector[${VECTOR_SIZE}]`
-    }
-  })
+  memoryIndex = await create({ schema: MEMORY_SCHEMA })
+  archiveIndex = await create({ schema: ARCHIVE_SCHEMA })
+  documentIndex = await create({ schema: DOCUMENT_SCHEMA })
+  turnPairIndex = await create({ schema: TURN_PAIR_SCHEMA })
+}
 
-  documentIndex = await create({
-    schema: {
-      docName: 'string',
-      chunkIndex: 'number',
-      content: 'string',
-      timestamp: 'number',
-      dexieId: 'number',
-      vector: `vector[${VECTOR_SIZE}]`
-    }
-  })
+// Kosongkan indeks pencarian turunan data chat (archive, document, turn pair) dengan
+// drop + recreate memakai skema konstruksi yang sama seperti module init. Dipanggil
+// SETELAH Dexie dibersihkan (Hapus Semua Chat); TIDAK re-hydrate di sini agar baris
+// memoryIndex tidak ter-insert dobel. memoryIndex sengaja dipertahankan — memori user
+// bukan bagian riwayat chat.
+export async function resetSearchIndices() {
+  archiveIndex = await create({ schema: ARCHIVE_SCHEMA })
+  documentIndex = await create({ schema: DOCUMENT_SCHEMA })
+  turnPairIndex = await create({ schema: TURN_PAIR_SCHEMA })
+}
 
-  turnPairIndex = await create({
-    schema: {
-      pairId: 'string',
-      sessionId: 'number',
-      sessionTitle: 'string',
-      userText: 'string',
-      aiText: 'string',
-      combinedText: 'string',
-      timestamp: 'number',
-      vector: `vector[${VECTOR_SIZE}]`
-    }
-  })
+// Kecocokan model baris vs mode pencarian aktif; tanpa tag = legasi MiniLM,
+// 'none' (fulltext saja) selalu kompatibel karena tidak punya vektor.
+function rowModelCompatible(rowModel, currentModel) {
+  if (!rowModel || rowModel === 'none') return true
+  return rowModel === currentModel
+}
+
+// Susun baris indeks: vektor hanya disertakan jika valid & se-model dengan mode aktif,
+// selebihnya baris disimpan fulltext saja (tanpa vektor hash/lintas model).
+function toIndexRow(fields, vector, rowModel, currentModel) {
+  const model = rowModel || LEGACY_VECTOR_MODEL
+  if (vector && vector.length === VECTOR_SIZE && rowModelCompatible(model, currentModel)) {
+    return { ...fields, vector, vectorModel: model }
+  }
+  return { ...fields, vectorModel: 'none' }
 }
 
 // Dipanggil saat app start: load semua data Dexie ke Orama
 export async function hydrateFromDexie(onProgress) {
   const { db } = await import('./db')
+  const { generateStorableVector, getVectorModel } = await loadVectorPolicy()
+  const currentModel = getVectorModel()
 
   // 1. CHAT TURNS HYDRATION & SMART MIGRATION
   let validTurnsCount = 0
@@ -71,27 +117,41 @@ export async function hydrateFromDexie(onProgress) {
       validTurnsCount = await migrateOldSessionsToTurns(onProgress)
     } else if (turnCount > 0) {
       const turns = await db.chatTurns.toArray()
-      const validTurns = turns
-        .filter((t) => t.vector && t.vector.length === VECTOR_SIZE)
-        .map((t) => {
-          const rawTs = t.timestamp
-          const numericTs =
-            typeof rawTs === 'number' && !isNaN(rawTs)
-              ? rawTs
-              : typeof rawTs === 'string' && !isNaN(Date.parse(rawTs))
-                ? Date.parse(rawTs)
-                : Number(rawTs) || Date.now()
-          return {
-            pairId: String(t.pairId || ''),
-            sessionId: Number(t.sessionId) || 1,
-            sessionTitle: String(t.sessionTitle || 'Session'),
-            userText: String(t.userText || ''),
-            aiText: String(t.aiText || ''),
-            combinedText: String(t.combinedText || ''),
-            timestamp: numericTs,
-            vector: t.vector
+      const validTurns = []
+      for (let t of turns) {
+        const rawTs = t.timestamp
+        const numericTs =
+          typeof rawTs === 'number' && !isNaN(rawTs)
+            ? rawTs
+            : typeof rawTs === 'string' && !isNaN(Date.parse(rawTs))
+              ? Date.parse(rawTs)
+              : Number(rawTs) || Date.now()
+        const fields = {
+          pairId: String(t.pairId || ''),
+          sessionId: Number(t.sessionId) || 1,
+          sessionTitle: String(t.sessionTitle || 'Session'),
+          userText: String(t.userText || ''),
+          aiText: String(t.aiText || ''),
+          combinedText: String(t.combinedText || ''),
+          timestamp: numericTs
+        }
+        if (t.vector && t.vector.length === VECTOR_SIZE) {
+          // Vektor tersimpan: hormati provenansinya, jangan campur lintas model
+          validTurns.push(toIndexRow(fields, t.vector, t.vectorModel, currentModel))
+        } else {
+          // Regenerasi HANYA lewat generateStorableVector (null saat Lite Mode)
+          const vec = await generateStorableVector(t.combinedText)
+          if (vec && vec.length === VECTOR_SIZE) {
+            db.chatTurns
+              .update(t.pairId, { vector: vec, vectorModel: currentModel })
+              .catch(console.error)
+            validTurns.push({ ...fields, vector: vec, vectorModel: currentModel })
+          } else {
+            // Gagal regen / Lite Mode: baris fulltext saja, JANGAN menulis vektor ke Dexie
+            validTurns.push({ ...fields, vectorModel: 'none' })
           }
-        })
+        }
+      }
       if (validTurns.length > 0) {
         await insertMultiple(turnPairIndex, validTurns)
         validTurnsCount = validTurns.length
@@ -111,20 +171,23 @@ export async function hydrateFromDexie(onProgress) {
   for (let a of archives) {
     if (needsMigration || !a.vector || a.vector.length !== VECTOR_SIZE) {
       console.log(`[Orama] Re-generating vector for archive ID ${a.id}`)
-      a.vector = await generateVector(a.summary)
-      if (a.vector && a.vector.length === VECTOR_SIZE) {
-        db.chatArchive.update(a.id, { vector: a.vector }).catch(console.error)
+      // Hanya generateStorableVector — null di Lite Mode sehingga hash tidak pernah disimpan
+      const vec = await generateStorableVector(a.summary)
+      if (vec && vec.length === VECTOR_SIZE) {
+        a.vector = vec
+        a.vectorModel = currentModel
+        db.chatArchive.update(a.id, { vector: vec, vectorModel: currentModel }).catch(console.error)
+      } else {
+        a.vector = null
       }
     }
-    if (a.vector && a.vector.length === VECTOR_SIZE) {
-      validArchives.push({
-        summary: a.summary,
-        topic: a.topic || 'General',
-        timestamp: a.timestamp || Date.now(),
-        dexieId: a.id,
-        vector: a.vector
-      })
+    const fields = {
+      summary: a.summary,
+      topic: a.topic || 'General',
+      timestamp: a.timestamp || Date.now(),
+      dexieId: a.id
     }
+    validArchives.push(toIndexRow(fields, a.vector, a.vectorModel, currentModel))
   }
 
   if (validArchives.length > 0) {
@@ -136,21 +199,23 @@ export async function hydrateFromDexie(onProgress) {
   for (let d of docs) {
     if (needsMigration || !d.vector || d.vector.length !== VECTOR_SIZE) {
       console.log(`[Orama] Re-generating vector for doc ID ${d.id}`)
-      d.vector = await generateVector(d.content)
-      if (d.vector && d.vector.length === VECTOR_SIZE) {
-        db.documents.update(d.id, { vector: d.vector }).catch(console.error)
+      const vec = await generateStorableVector(d.content)
+      if (vec && vec.length === VECTOR_SIZE) {
+        d.vector = vec
+        d.vectorModel = currentModel
+        db.documents.update(d.id, { vector: vec, vectorModel: currentModel }).catch(console.error)
+      } else {
+        d.vector = null
       }
     }
-    if (d.vector && d.vector.length === VECTOR_SIZE) {
-      validDocs.push({
-        docName: d.docName,
-        chunkIndex: d.chunkIndex,
-        content: d.content,
-        timestamp: d.timestamp || Date.now(),
-        dexieId: d.id,
-        vector: d.vector
-      })
+    const fields = {
+      docName: d.docName,
+      chunkIndex: d.chunkIndex,
+      content: d.content,
+      timestamp: d.timestamp || Date.now(),
+      dexieId: d.id
     }
+    validDocs.push(toIndexRow(fields, d.vector, d.vectorModel, currentModel))
   }
 
   if (validDocs.length > 0) {
@@ -162,21 +227,23 @@ export async function hydrateFromDexie(onProgress) {
   for (let m of memories) {
     if (needsMigration || !m.vector || m.vector.length !== VECTOR_SIZE) {
       console.log(`[Orama] Re-generating vector for memory ID ${m.id}`)
-      m.vector = await generateVector(m.memory)
-      if (m.vector && m.vector.length === VECTOR_SIZE) {
-        db.memory.update(m.id, { vector: m.vector }).catch(console.error)
+      const vec = await generateStorableVector(m.memory)
+      if (vec && vec.length === VECTOR_SIZE) {
+        m.vector = vec
+        m.vectorModel = currentModel
+        db.memory.update(m.id, { vector: vec, vectorModel: currentModel }).catch(console.error)
+      } else {
+        m.vector = null
       }
     }
-    if (m.vector && m.vector.length === VECTOR_SIZE) {
-      validMemories.push({
-        type: m.type || 'notes',
-        summary: m.summary || '',
-        memory: m.memory || '',
-        timestamp: Date.now(),
-        dexieId: m.id,
-        vector: m.vector
-      })
+    const fields = {
+      type: m.type || 'notes',
+      summary: m.summary || '',
+      memory: m.memory || '',
+      timestamp: Date.now(),
+      dexieId: m.id
     }
+    validMemories.push(toIndexRow(fields, m.vector, m.vectorModel, currentModel))
   }
 
   if (validMemories.length > 0) {
@@ -201,8 +268,17 @@ export async function searchArchives(queryVector, limit = 3) {
       similarity: 0.25,
       limit
     })
-    console.log(`[Orama] Found ${results.hits.length} archives. Scores:`, results.hits.map(h => h.score))
-    return results.hits.map(hit => hit.document)
+    // Buang baris lintas model (hash vs minilm) agar korpus campur tidak menghasut hasil palsu
+    const { getVectorModel } = await loadVectorPolicy()
+    const currentModel = getVectorModel()
+    const hits = results.hits.filter((h) =>
+      rowModelCompatible(h.document.vectorModel, currentModel)
+    )
+    console.log(
+      `[Orama] Found ${hits.length} archives. Scores:`,
+      hits.map((h) => h.score)
+    )
+    return hits.map((hit) => hit.document)
   } catch (err) {
     console.error('[Orama] Error in searchArchives:', err)
     return []
@@ -224,8 +300,17 @@ export async function searchDocuments(queryText, queryVector, limit = 5) {
       similarity: 0.25,
       limit
     })
-    console.log(`[Orama] Found ${results.hits.length} documents. Scores:`, results.hits.map(h => h.score))
-    return results.hits.map(hit => hit.document)
+    // Baris 'none' (fulltext saja) tetap boleh lewat lewat jalur term
+    const { getVectorModel } = await loadVectorPolicy()
+    const currentModel = getVectorModel()
+    const hits = results.hits.filter((h) =>
+      rowModelCompatible(h.document.vectorModel, currentModel)
+    )
+    console.log(
+      `[Orama] Found ${hits.length} documents. Scores:`,
+      hits.map((h) => h.score)
+    )
+    return hits.map((hit) => hit.document)
   } catch (error) {
     console.error('[Orama] Error in searchDocuments:', error)
     return []
@@ -235,12 +320,17 @@ export async function searchDocuments(queryText, queryVector, limit = 5) {
 // Insert baru (dipanggil setelah Dexie.add)
 export async function insertArchiveToOrama(data) {
   if (!archiveIndex) return
-  await insert(archiveIndex, data)
+  // Vector selalu hasil vectorLoader (MiniLM asli, tanpa fallback hash)
+  await insert(archiveIndex, { ...data, vectorModel: data.vectorModel || LEGACY_VECTOR_MODEL })
 }
 
 export async function insertDocumentChunksToOrama(chunks) {
   if (!documentIndex) return
-  await insertMultiple(documentIndex, chunks)
+  const tagged = (chunks || []).map((c) => ({
+    ...c,
+    vectorModel: c.vectorModel || LEGACY_VECTOR_MODEL
+  }))
+  await insertMultiple(documentIndex, tagged)
 }
 
 export async function deleteArchiveFromOrama(dexieId) {
@@ -258,17 +348,35 @@ export async function deleteArchiveFromOrama(dexieId) {
 }
 
 export async function deleteDocumentFromOrama(docName) {
-  if (!documentIndex) return
-  const res = await search(documentIndex, { term: docName, properties: ['docName'] })
-  const ids = res.hits.map(h => h.id)
-  await removeMultiple(documentIndex, ids)
+  if (!documentIndex || !docName) return
+  try {
+    // Filter eksak (bukan fuzzy term search) agar chunk dokumen sejenis tidak ikut terhapus
+    const res = await search(documentIndex, { where: { docName }, limit: 10000 })
+    const ids = res.hits.map((h) => h.id)
+    if (ids.length > 0) {
+      await removeMultiple(documentIndex, ids)
+    }
+  } catch (err) {
+    console.error('[Orama] Error deleteDocumentFromOrama:', err)
+  }
 }
 
 // ======================== TURN PAIR ORAMA INDEX ========================
 
 export async function insertTurnPairToOrama(data) {
-  if (!turnPairIndex || !data.vector || data.vector.length !== VECTOR_SIZE) return
+  if (!turnPairIndex) return
   try {
+    const { getVectorModel } = await loadVectorPolicy()
+    const currentModel = getVectorModel()
+    let vector = data.vector && data.vector.length === VECTOR_SIZE ? data.vector : null
+    // Vektor tanpa tag dianggap dibuat engine aktif saat ini (mis. vectorMemory.generateVector)
+    let vectorModel = data.vectorModel || (vector ? currentModel : null)
+    if (vectorModel === 'hash') {
+      // Hash embedding DILARANG masuk indeks — sisakan baris fulltext saja
+      vector = null
+      vectorModel = 'none'
+    }
+
     const rawTs = data.timestamp
     const numericTs =
       typeof rawTs === 'number' && !isNaN(rawTs)
@@ -277,7 +385,7 @@ export async function insertTurnPairToOrama(data) {
           ? Date.parse(rawTs)
           : Number(rawTs) || Date.now()
 
-    await insert(turnPairIndex, {
+    const doc = {
       pairId: String(data.pairId || ''),
       sessionId: Number(data.sessionId) || 1,
       sessionTitle: String(data.sessionTitle || 'Session'),
@@ -285,8 +393,11 @@ export async function insertTurnPairToOrama(data) {
       aiText: String(data.aiText || ''),
       combinedText: String(data.combinedText || ''),
       timestamp: numericTs,
-      vector: data.vector
-    })
+      vectorModel: vectorModel || 'none'
+    }
+    if (vector) doc.vector = vector
+
+    await insert(turnPairIndex, doc)
   } catch (err) {
     console.error('[Orama] Error insertTurnPairToOrama:', err)
   }
@@ -295,28 +406,37 @@ export async function insertTurnPairToOrama(data) {
 export async function insertBatchTurnPairsToOrama(turns) {
   if (!turnPairIndex || !Array.isArray(turns) || turns.length === 0) return
   try {
-    const valid = turns
-      .filter((t) => t.vector && t.vector.length === VECTOR_SIZE)
-      .map((t) => {
-        const rawTs = t.timestamp
-        const numericTs =
-          typeof rawTs === 'number' && !isNaN(rawTs)
-            ? rawTs
-            : typeof rawTs === 'string' && !isNaN(Date.parse(rawTs))
-              ? Date.parse(rawTs)
-              : Number(rawTs) || Date.now()
+    const { getVectorModel } = await loadVectorPolicy()
+    const currentModel = getVectorModel()
+    const valid = []
+    for (let t of turns) {
+      let vector = t.vector && t.vector.length === VECTOR_SIZE ? t.vector : null
+      let vectorModel = t.vectorModel || (vector ? currentModel : null)
+      if (vectorModel === 'hash') {
+        vector = null
+        vectorModel = 'none'
+      }
+      const rawTs = t.timestamp
+      const numericTs =
+        typeof rawTs === 'number' && !isNaN(rawTs)
+          ? rawTs
+          : typeof rawTs === 'string' && !isNaN(Date.parse(rawTs))
+            ? Date.parse(rawTs)
+            : Number(rawTs) || Date.now()
 
-        return {
-          pairId: String(t.pairId || ''),
-          sessionId: Number(t.sessionId) || 1,
-          sessionTitle: String(t.sessionTitle || 'Session'),
-          userText: String(t.userText || ''),
-          aiText: String(t.aiText || ''),
-          combinedText: String(t.combinedText || ''),
-          timestamp: numericTs,
-          vector: t.vector
-        }
-      })
+      const doc = {
+        pairId: String(t.pairId || ''),
+        sessionId: Number(t.sessionId) || 1,
+        sessionTitle: String(t.sessionTitle || 'Session'),
+        userText: String(t.userText || ''),
+        aiText: String(t.aiText || ''),
+        combinedText: String(t.combinedText || ''),
+        timestamp: numericTs,
+        vectorModel: vectorModel || 'none'
+      }
+      if (vector) doc.vector = vector
+      valid.push(doc)
+    }
 
     if (valid.length > 0) {
       await insertMultiple(turnPairIndex, valid)
@@ -336,10 +456,15 @@ export async function searchTurnPairsInOrama(queryText, queryVector, limit = 5, 
       similarity: threshold,
       limit
     })
-    return results.hits.map((hit) => ({
-      ...hit.document,
-      score: hit.score
-    }))
+    // Abaikan baris lintas model agar korpus campur tidak menghasilkan skor bohong
+    const { getVectorModel } = await loadVectorPolicy()
+    const currentModel = getVectorModel()
+    return results.hits
+      .filter((hit) => rowModelCompatible(hit.document.vectorModel, currentModel))
+      .map((hit) => ({
+        ...hit.document,
+        score: hit.score
+      }))
   } catch (err) {
     console.error('[Orama] Error in searchTurnPairsInOrama:', err)
     return []
@@ -373,7 +498,11 @@ export async function searchMemoriesInOrama(queryText, queryVector, limit = 5, f
       similarity: threshold,
       limit: limit * 4
     })
-    let hits = results.hits.map(hit => ({ ...hit.document, id: hit.document.dexieId, score: hit.score }))
+    const { getVectorModel } = await loadVectorPolicy()
+    const currentModel = getVectorModel()
+    let hits = results.hits
+      .filter((hit) => rowModelCompatible(hit.document.vectorModel, currentModel))
+      .map(hit => ({ ...hit.document, id: hit.document.dexieId, score: hit.score }))
     if (filterTypes) {
       const typesArr = Array.isArray(filterTypes) ? filterTypes : [filterTypes]
       hits = hits.filter(h => typesArr.includes(h.type))
@@ -395,6 +524,8 @@ export async function insertMemoryToOrama(data) {
       memory: data.memory || '',
       timestamp: Date.now(),
       dexieId: data.id,
+      // Vector dari db.js selalu hasil vectorLoader (MiniLM asli, tanpa fallback hash)
+      vectorModel: data.vectorModel || LEGACY_VECTOR_MODEL,
       vector: data.vector
     })
   } catch (err) {
@@ -433,12 +564,18 @@ export async function findSimilarMemoryClusters(threshold = 0.60) {
       term: '',
       limit: 1000
     })
+    const { getVectorModel } = await loadVectorPolicy()
+    const currentModel = getVectorModel()
     let memories = results.hits
       .map(hit => ({
         ...hit.document,
         id: hit.document.dexieId
       }))
-      .filter(m => m.type === 'profile' || m.type === 'preference')
+      .filter(
+        (m) =>
+          (m.type === 'profile' || m.type === 'preference') &&
+          rowModelCompatible(m.vectorModel, currentModel)
+      )
 
     const visited = new Set()
     const clusters = []
@@ -477,6 +614,7 @@ export async function findSimilarMemoryClusters(threshold = 0.60) {
         .filter(
           h =>
             (h.type === 'profile' || h.type === 'preference') &&
+            rowModelCompatible(h.vectorModel, currentModel) &&
             h.score >= threshold &&
             !visited.has(h.id)
         )

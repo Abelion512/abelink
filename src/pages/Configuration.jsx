@@ -324,6 +324,15 @@ const Configuration = ({ isFirstSetup = false, onSetupComplete = null }) => {
     if (result.isConfirmed) {
       await db.sessions.clear()
       await db.chatArchive.clear()
+      // Privacy: chatTurns & indeks pencarian juga harus ikut dihapus,
+      // kalau tidak chat lama tetap bisa ditemukan lewat memory search
+      await db.chatTurns.clear()
+      try {
+        const { resetSearchIndices } = await import('../api/oramaStore')
+        await resetSearchIndices()
+      } catch (err) {
+        console.error('[Configuration] Gagal mereset indeks pencarian:', err)
+      }
     }
   }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { findSimilarMemoryClusters } from '../api/oramaStore'
 import { runBatchConsolidation } from '../api/ai/memoryGroomer'
-import { updateMemory, deleteMemory } from '../api/db'
+import { updateMemory, deleteMemory, getMemory } from '../api/db'
 
 // Shared in-memory event listener so any component using useMemoryGroomer stays in sync
 const groomListeners = new Set()
@@ -74,22 +74,50 @@ export function useMemoryGroomer(enableAutoOnStartup = false) {
       let deletedCount = 0
       const details = []
 
+      // Peta keep_id -> set ID anggota cluster aslinya. Dipakai untuk memvalidasi
+      // delete_ids dari LLM supaya id halusinasi tidak pernah ikut terhapus.
+      const clusterIdsByKeepId = new Map()
+      for (const cluster of clusters || []) {
+        const memberIds = new Set((cluster.items || []).map((i2) => i2.id))
+        for (const member of cluster.items || []) {
+          clusterIdsByKeepId.set(member.id, memberIds)
+        }
+      }
+
       for (const item of consolidations) {
         const { keep_id, merged_text, delete_ids } = item
         if (!keep_id || !merged_text) continue
 
         try {
-          // 1. Update memori utama dengan narasi kronologis yang sudah digabungkan
-          await updateMemory(keep_id, merged_text)
+          // 0. Validasi: record yang di-keep harus benar-benar ada & anggota cluster
+          const keptRecord = await getMemory(keep_id)
+          if (!keptRecord || !clusterIdsByKeepId.has(keptRecord.id)) {
+            console.warn(`[Hippocampus Engine] Lewati konsolidasi keep_id ${keep_id}: record tidak ditemukan / bukan anggota cluster.`)
+            continue
+          }
+
+          // 1. Update memori utama dengan narasi kronologis yang sudah digabungkan.
+          //    Tipe asli (profile/preference) & summary dipertahankan dari record sumber,
+          //    jangan percaya teks LLM untuk menentukan tipe.
+          await updateMemory({
+            id: Number(keep_id),
+            type: keptRecord.type,
+            summary: keptRecord.summary || '',
+            memory: merged_text
+          })
           mergedCount++
 
-          // 2. Hapus duplikat setelah merge sukses
+          // 2. Hapus duplikat setelah merge sukses — hanya id anggota cluster yang sama
+          const allowedIds = clusterIdsByKeepId.get(Number(keep_id)) || new Set()
           if (Array.isArray(delete_ids)) {
             for (const delId of delete_ids) {
-              if (delId && delId !== keep_id) {
-                await deleteMemory(delId)
-                deletedCount++
+              if (!delId || Number(delId) === Number(keep_id)) continue
+              if (!allowedIds.has(Number(delId))) {
+                console.warn(`[Hippocampus Engine] Tolak hapus ID ${delId}: tidak ada dalam cluster keep_id ${keep_id} (potensi delete_ids halusinasi).`)
+                continue
               }
+              await deleteMemory(Number(delId))
+              deletedCount++
             }
           }
 

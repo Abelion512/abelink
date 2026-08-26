@@ -1,8 +1,8 @@
 // Tauri bridge — pengganti preload/contextBridge (fase A migrasi).
 // Menyediakan objek window.api dengan signature yang sama seperti sidecar/preload/index.js,
 // tapi setiap panggilan di-routing ke:
-//   - Rust native command   : window-state, dsb. (fase B)
-//   - node_invoke (sidecar) : semua channel engine lama
+//   - Rust native command   : window-state, file-ops (cmd_fs), lite & misc (cmd_misc)
+//   - node_invoke (sidecar) : sisa channel engine lama
 // Event listener memakai Tauri event system (@tauri-apps/api/event).
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
@@ -72,22 +72,48 @@ const toPayload = (v) => {
   return v
 }
 
+// Pola disposed-flag: kalau unsubscribe dipanggil sebelum listen() resolve,
+// unlisten hasil promise langsung dieksekusi agar tidak bocor.
 const on = (channel) => (cb) => {
+  let disposed = false
   let unlisten = null
-  listen(channel, (e) => cb(e.payload)).then((un) => (unlisten = un))
-  return () => unlisten?.()
+  listen(channel, (e) => cb(e.payload)).then((un) => {
+    if (disposed) un()
+    else unlisten = un
+  })
+  return () => {
+    disposed = true
+    unlisten?.()
+  }
 }
 
 const pathForFile = (file) => (typeof file === 'string' ? file : file?.path || '')
 
+// ---------- Telegram ----------
+// Semua unlisten Telegram dikumpulkan di sini supaya removeTgListeners benar-benar bekerja
+const tgUnlisteners = []
+const trackTgListener = (dispose) => {
+  tgUnlisteners.push(dispose)
+  return dispose
+}
+const onTg = (channel) => (cb) => trackTgListener(on(channel)(cb))
+
 export const api = {
-  // ---------- umum ----------
+  // ---------- umum (Fase B0: langsung Rust native, tanpa node_invoke) ----------
   getPathForFile: pathForFile,
-  saveTempFile: (data, name) => call('save-temp-file', toPayload(data), name),
-  openExternal: (url) => call('open-external', url),
-  showNotification: (payload) => call('show-notification', payload),
-  getDocumentsPath: () => call('app:get-documents-path'),
-  getLiteMode: () => call('system:get-lite-mode').then((d) => d ?? { isLite: false }),
+  saveTempFile: (data, name) =>
+    invoke('misc_save_temp_file', { data: toPayload(data), name: name ?? null }),
+  openExternal: (url) => invoke('misc_open_external', { url }),
+  showNotification: (...args) => {
+    // Dua gaya pemanggil lama di renderer: ({title, body}) ATAU (title, body) posisional.
+    // Versi sidecar lama kehilangan body saat pemanggil posisional — di sini diperbaiki.
+    const [a, b] = args
+    const title = typeof a === 'string' ? a : a?.title
+    const body = typeof b === 'string' ? b : a?.body
+    return invoke('misc_show_notification', { title: title ?? null, body: body ?? null })
+  },
+  getDocumentsPath: () => invoke('misc_get_documents_path'),
+  getLiteMode: () => invoke('misc_get_lite_mode').then((d) => d ?? { isLite: false }),
   ping: () => call('ping'),
 
   // ---------- AI ----------
@@ -132,19 +158,25 @@ export const api = {
   tgStop: () => call('tg:stop'),
   tgGetStatus: () => call('tg:get-status'),
   tgGetHistory: () => call('tg:get-history'),
-  onTgConnection: on('tg:connection'),
-  onTgMessage: on('tg:message'),
-  onTgReplySent: on('tg:reply-sent'),
-  onTgThinking: on('tg:thinking'),
-  onTgRequestAgentExecution: on('tg:request-agent-execution'),
+  onTgConnection: onTg('tg:connection'),
+  onTgMessage: onTg('tg:message'),
+  onTgReplySent: onTg('tg:reply-sent'),
+  onTgThinking: onTg('tg:thinking'),
+  onTgRequestAgentExecution: onTg('tg:request-agent-execution'),
   sendTgAgentExecutionDone: (data) => call('tg:agent-execution-done', data),
   tgSendMessage: (chatId, text) => call('tg:send-message', { chatId, text }),
   tgBroadcastToAdmins: (text) => call('tg:broadcast-to-admins', text),
-  onTgCommandAccept: on('tg:command-accept'),
-  onTgCommandAlways: on('tg:command-always'),
-  onTgCommandReject: on('tg:command-reject'),
+  onTgCommandAccept: onTg('tg:command-accept'),
+  onTgCommandAlways: onTg('tg:command-always'),
+  onTgCommandReject: onTg('tg:command-reject'),
   removeTgListeners: () => {
-    ;['tg:connection', 'tg:message', 'tg:reply-sent', 'tg:thinking'].forEach(() => {})
+    while (tgUnlisteners.length > 0) {
+      try {
+        tgUnlisteners.pop()()
+      } catch {
+        // Abaikan error cleanup individual — lanjut ke listener berikutnya
+      }
+    }
   },
 
   // ---------- Google Workspace ----------
@@ -233,6 +265,26 @@ export const api = {
   workspaceSaveMemory: (workspaceRoot, memoryData) =>
     call('workspace:save-memory', { workspaceRoot, memoryData }),
   workspaceEnsure: (workspaceRoot) => call('workspace:ensure', workspaceRoot),
+
+  // ---------- Document parsing (RAG) ----------
+  // Kontrak payload sidecar: [0] = base64 string (bisa juga numeric array), [1] = isDocx boolean.
+  // ArrayBuffer dikonversi chunked btoa over Uint8Array supaya aman dari limit argumen apply.
+  parseDocument: (arrayBuffer, isDocx) => {
+    const bytes = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer ?? 0)
+    const CHUNK = 0x8000
+    let binary = ''
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode.apply(
+        null,
+        bytes.subarray(i, Math.min(i + CHUNK, bytes.length))
+      )
+    }
+    return call('parse-document', btoa(binary), !!isDocx)
+  },
+
+  // ---------- Lite Mode & WhatsApp music ----------
+  onLiteModeChanged: on('lite-mode-changed'),
+  onExecuteMusicCommandWa: on('execute-music-command-wa'),
 
   // ---------- Dialog ----------
   showOpenDialog: async (options = {}) => {

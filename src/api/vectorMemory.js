@@ -162,6 +162,18 @@ export const generateVector = async (text) => {
   }
 }
 
+// Model vektor aktif saat ini ('hash' saat Lite Mode, 'minilm' saat normal).
+// Dipakai oramaStore/db untuk menandai provenansi vektor tiap baris.
+export const getVectorModel = () => (isLiteMode ? 'hash' : 'minilm')
+
+// Vektor yang layak disimpan ke Dexie/Orama: NULL saat Lite Mode agar hash embedding
+// tidak pernah mengotori korpus pencarian (kerusakan permanen). Untuk similarity
+// in-memory tetap gunakan generateVector() yang fallback ke hash.
+export const generateStorableVector = async (text) => {
+  if (isLiteMode) return null
+  return generateVector(text)
+}
+
 // SEARCH: Rumus matematika buat ngukur kemiripan (0 sampai 1)
 export const cosineSimilarity = (vecA, vecB) => {
   if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length === 0 || vecB.length === 0) {

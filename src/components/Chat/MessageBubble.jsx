@@ -175,12 +175,28 @@ export const MessageBubble = React.memo(({
                 src={imgSrc}
                 alt={`Lampiran ${idx + 1}`}
                 className="max-h-56 w-auto object-contain cursor-pointer transition-transform duration-200 group-hover/img:scale-105"
-                onClick={() => {
-                  const w = window.open('')
-                  w?.document.write(
-                    `<body style="margin:0;background:#0d1117;display:flex;align-items:center;justify-content:center;height:100vh;"><img src="${imgSrc}" style="max-width:95vw;max-height:95vh;border-radius:8px;object-contain;" /></body>`
-                  )
-                }}
+                  onClick={() => {
+                    const w = window.open('')
+                    if (!w) return
+                    // Bangun viewer lewat DOM API — imgSrc tidak pernah diinterpolasi
+                    // ke string HTML agar tidak bisa breakout atribut di about:blank
+                    const doc = w.document
+                    doc.title = 'Lampiran'
+                    doc.body.style.margin = '0'
+                    doc.body.style.background = '#0d1117'
+                    doc.body.style.display = 'flex'
+                    doc.body.style.alignItems = 'center'
+                    doc.body.style.justifyContent = 'center'
+                    doc.body.style.minHeight = '100vh'
+                    const img = doc.createElement('img')
+                    img.src = imgSrc
+                    img.alt = 'Lampiran'
+                    img.style.maxWidth = '95vw'
+                    img.style.maxHeight = '95vh'
+                    img.style.borderRadius = '8px'
+                    img.style.objectFit = 'contain'
+                    doc.body.appendChild(img)
+                  }}
               />
             </div>
           ))}
