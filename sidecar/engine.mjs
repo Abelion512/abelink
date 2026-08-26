@@ -7,7 +7,6 @@ import readline from 'readline'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { spawn } from 'child_process'
 
 const send = (obj) => process.stdout.write(JSON.stringify(obj) + '\n')
 const emit = (event, payload) => send({ event, payload })
@@ -24,18 +23,19 @@ const unsupported = (phase) => async () =>
 
 // ---------------------------------------------------------------- AI bridge
 const ai = await import('./main/ai-bridge.js')
-on('ai:fetch', async (data) => {
+// Daftarkan manual (bukan lewat on()) supaya bentuk frame sukses/gagal ke bridge
+// tidak dibungkus ulang oleh ok().
+handlers['ai:fetch'] = async (payload) => {
+  const data = Array.isArray(payload) ? payload[0] : payload
   const { messages, config, isSmallTask, jsonSchema } = data || {}
   const onStatus = (msg) => emit('ai:status', msg)
   try {
     const result = await ai.fetchAI(messages || [], config, !!isSmallTask, jsonSchema ?? null, onStatus)
-    return result
+    return { success: true, data: result ?? null }
   } catch (err) {
-    return {
-      error: { message: err.message, code: err.code || 'AI_FETCH_ERROR' }
-    }
+    return { success: false, error: { message: err.message, code: err.code || 'AI_FETCH_ERROR' } }
   }
-})
+}
 on('ai:abort-fetch', () => ai.abortAllFetches())
 on('sync-config', (config) => {
   ai.setGlobalConfig(config)
@@ -69,8 +69,12 @@ on('native-tool:needs-approval', (toolName, query) => {
 })
 
 // ------------------------------------------------------------ Dokumen & file
-on('parse-document', async (arrayBuffer, isDocx) => {
-  const buffer = Buffer.from(new Uint8Array(arrayBuffer))
+on('parse-document', async (b64OrBytes, isDocx) => {
+  // Bridge renderer mengirim base64 string; array byte lama tetap didukung.
+  let buffer
+  if (typeof b64OrBytes === 'string') buffer = Buffer.from(b64OrBytes, 'base64')
+  else if (Array.isArray(b64OrBytes)) buffer = Buffer.from(new Uint8Array(b64OrBytes))
+  else buffer = Buffer.from(new Uint8Array(b64OrBytes ?? []))
   if (isDocx) {
     const mammoth = (await import('mammoth')).default
     const result = await mammoth.extractRawText({ buffer })
@@ -80,14 +84,7 @@ on('parse-document', async (arrayBuffer, isDocx) => {
   const data = await pdfParse(buffer)
   return data.text
 })
-on('save-temp-file', async (arrayBuffer, fileName) => {
-  const tempDir = path.join(os.tmpdir(), 'mark-attachments')
-  fs.mkdirSync(tempDir, { recursive: true })
-  const cleanName = String(fileName || `attachment_${Date.now()}.png`).replace(/[^a-zA-Z0-9._-]/g, '_')
-  const filePath = path.join(tempDir, cleanName)
-  fs.writeFileSync(filePath, Buffer.from(new Uint8Array(arrayBuffer)))
-  return filePath
-})
+// save-temp-file -> Fase B0: Rust native `misc_save_temp_file` (src-tauri/src/cmd_misc.rs)
 
 // ------------------------------------------------------------------- Media
 let globalTTS
@@ -174,30 +171,11 @@ on('awareness:get-buffer', () => tracker.getActivityBuffer())
 on('awareness:clear-buffer', () => tracker.clearActivityBuffer())
 
 // ------------------------------------------------------------- Lite & misc
-on('system:get-lite-mode', () => ({ isLite: os.totalmem() <= 4.5e9 }))
+// Fase B0 (2026-08-26): cluster lite & misc pindah ke Rust native
+// (src-tauri/src/cmd_misc.rs): system:get-lite-mode, app:get-documents-path,
+// save-temp-file, open-external, show-notification.
+// `ping` TETAP di sini — semantiknya health-check proses sidecar itu sendiri.
 on('ping', () => 'pong')
-on('app:get-documents-path', async () => {
-  const r = await new Promise((res) => {
-    const p = spawn('xdg-user-dir', ['DOCUMENTS'])
-    let out = ''
-    p.stdout.on('data', (d) => (out += d))
-    p.on('close', () => res(out.trim()))
-    p.on('error', () => res(''))
-  })
-  return r || path.join(os.homedir(), 'Documents')
-})
-on('open-external', (url) => {
-  spawn('xdg-open', [String(url)], { detached: true, stdio: 'ignore' }).unref()
-  return true
-})
-on('show-notification', ({ title, body }) => {
-  try {
-    spawn('notify-send', [String(title || 'MARK'), String(body || '')], { detached: true, stdio: 'ignore' }).unref()
-    return true
-  } catch {
-    return false
-  }
-})
 
 // ------------------------------------------- Dipindah ke fase B/C (Tauri native)
 for (const ch of [
@@ -246,6 +224,17 @@ async function readDescription(folderPath) {
   }
 }
 
+// Nama skill wajib sederhana tanpa slash dan tanpa titik di depan agar tidak
+// bisa dipakai untuk path traversal keluar dari folder skills.
+const isValidSkillName = (name) =>
+  typeof name === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(name)
+
+// Handler skills terdaftar lewat on() yang membungkus hasil dengan ok(),
+// jadi penolakan dilempar sebagai error agar frame-nya {success:false,error}.
+const rejectInvalidSkillName = () => {
+  throw new Error('Nama skill tidak valid')
+}
+
 on('skills:get-all', async () => {
   await fs.promises.mkdir(SKILLS_DIR, { recursive: true })
   const entries = await fs.promises.readdir(SKILLS_DIR, { withFileTypes: true })
@@ -263,6 +252,7 @@ on('skills:get-all', async () => {
   return skills
 })
 on('skills:read', async (name) => {
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
   const folder = path.join(SKILLS_DIR, name, 'SKILL.md')
   if (fs.existsSync(folder)) return await fs.promises.readFile(folder, 'utf8')
   const single = path.join(SKILLS_DIR, `${name}.md`)
@@ -270,6 +260,7 @@ on('skills:read', async (name) => {
   return null
 })
 on('skills:save', async (name, content) => {
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
   const folderPath = path.join(SKILLS_DIR, name)
   const skillFilePath = path.join(folderPath, 'SKILL.md')
   fs.mkdirSync(folderPath, { recursive: true })
@@ -278,6 +269,7 @@ on('skills:save', async (name, content) => {
   return true
 })
 on('skills:delete', async (name) => {
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
   const target = path.join(SKILLS_DIR, name)
   if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
     fs.rmSync(target, { recursive: true, force: true })
@@ -293,7 +285,13 @@ on('skills:delete', async (name) => {
   return false
 })
 on('skills:read-file', async (name, relativePath) => {
-  const safe = path.normalize(relativePath).replace(/^([.]{2[/\\])+/, '')
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
+  // Buang SEMUA segmen '..' dan '.' agar file tetap di dalam folder skill.
+  const safe = path
+    .normalize(String(relativePath || ''))
+    .split(path.sep)
+    .filter((s) => s !== '..' && s !== '.')
+    .join(path.sep)
   return await fs.promises.readFile(path.join(SKILLS_DIR, name, safe), 'utf8')
 })
 
@@ -301,13 +299,20 @@ on('skills:read-file', async (name, relativePath) => {
 send({ event: 'engine:ready', payload: Object.keys(handlers) })
 
 const rl = readline.createInterface({ input: process.stdin, terminal: false })
+// Batas panjang satu frame JSON agar stdin tidak bisa menghabiskan memori.
+const MAX_FRAME_LENGTH = 32 * 1024 * 1024
 rl.on('line', async (line) => {
   const trimmed = line.trim()
   if (!trimmed) return
+  if (trimmed.length > MAX_FRAME_LENGTH) {
+    send({ id: null, success: false, error: 'json frame terlalu besar (batas 32MB)' })
+    return
+  }
   let req
   try {
     req = JSON.parse(trimmed)
   } catch {
+    send({ id: null, success: false, error: 'malformed json frame' })
     return
   }
   const { id, action, payload } = req

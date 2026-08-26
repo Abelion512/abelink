@@ -1,14 +1,24 @@
-import { exec } from 'child_process'
+import { execFile } from 'child_process'
 import util from 'util'
 
-const execPromise = util.promisify(exec)
+const execFilePromise = util.promisify(execFile)
+
+// Semua perintah git wajib lewat array argv tanpa shell agar string dari LLM
+// (nama file, pesan commit) tidak bisa dieksekusi sebagai perintah shell.
+// Timeout 30 detik mencegah git menggantung selamanya saat menunggu input.
+const runGit = (args, cwd) =>
+  execFilePromise('git', args, {
+    cwd: cwd || process.cwd(),
+    timeout: 30000,
+    maxBuffer: 10 * 1024 * 1024
+  })
 
 /**
  * Mendapatkan status berkas repositori git (git status --short)
  */
 export async function getGitStatus(cwd) {
   try {
-    const { stdout } = await execPromise('git status --short', { cwd: cwd || process.cwd() })
+    const { stdout } = await runGit(['status', '--short'], cwd)
     return {
       success: true,
       status: stdout.trim() || 'Working tree clean (tidak ada perubahan berkas).'
@@ -23,8 +33,8 @@ export async function getGitStatus(cwd) {
  */
 export async function getGitDiff(cwd, filePath = '') {
   try {
-    const cleanPath = filePath ? ` -- "${filePath.trim()}"` : ''
-    const { stdout } = await execPromise(`git diff${cleanPath}`, { cwd: cwd || process.cwd() })
+    const args = ['diff', ...(filePath ? ['--', filePath.trim()] : [])]
+    const { stdout } = await runGit(args, cwd)
     return {
       success: true,
       diff: stdout.trim() || 'Tidak ada perbedaan baris kode yang belum di-commit.'
@@ -39,9 +49,9 @@ export async function getGitDiff(cwd, filePath = '') {
  */
 export async function gitCommit(cwd, message = 'Mark Agent Checkpoint') {
   try {
-    await execPromise('git add -A', { cwd: cwd || process.cwd() })
-    const safeMsg = message.replace(/"/g, '\\"')
-    const { stdout } = await execPromise(`git commit -m "${safeMsg}"`, { cwd: cwd || process.cwd() })
+    await runGit(['add', '-A'], cwd)
+    // Pesan commit dikirim sebagai satu elemen argv, tidak perlu escaping shell.
+    const { stdout } = await runGit(['commit', '-m', message], cwd)
     return { success: true, message: stdout.trim() }
   } catch (err) {
     return { success: false, error: err.message }
@@ -54,10 +64,10 @@ export async function gitCommit(cwd, message = 'Mark Agent Checkpoint') {
 export async function gitRevert(cwd, filePath = '') {
   try {
     if (filePath && filePath.trim()) {
-      await execPromise(`git checkout -- "${filePath.trim()}"`, { cwd: cwd || process.cwd() })
+      await runGit(['checkout', '--', filePath.trim()], cwd)
       return { success: true, message: `Berhasil me-rollback perubahan pada berkas ${filePath}.` }
     } else {
-      await execPromise('git reset --hard HEAD', { cwd: cwd || process.cwd() })
+      await runGit(['reset', '--hard', 'HEAD'], cwd)
       return { success: true, message: 'Berhasil me-rollback seluruh repositori ke HEAD.' }
     }
   } catch (err) {

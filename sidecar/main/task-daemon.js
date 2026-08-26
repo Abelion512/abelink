@@ -2,6 +2,38 @@ import { spawn } from 'child_process'
 
 const activeTasks = new Map()
 
+// Retensi: simpan maksimal 20 entri task yang sudah selesai supaya Map tidak tumbuh tanpa batas.
+const MAX_FINISHED_TASKS = 20
+// Status terminal; task berstatus lain (mis. running) tidak pernah dibersihkan.
+const FINISHED_STATUSES = ['completed', 'failed', 'killed', 'error']
+let reapTimer = null
+
+const isFinishedStatus = (status) => FINISHED_STATUSES.includes(status)
+
+// Map mempertahankan urutan insertion, jadi iterasi pertama = entri selesai tertua.
+function reapOldestFinishedTasks() {
+  const finishedIds = []
+  for (const [id, task] of activeTasks.entries()) {
+    if (isFinishedStatus(task.status)) finishedIds.push(id)
+  }
+  const excessCount = finishedIds.length - MAX_FINISHED_TASKS
+  for (let i = 0; i < excessCount; i++) {
+    activeTasks.delete(finishedIds[i])
+  }
+  if (excessCount > 0) {
+    console.log(`[TaskDaemon] Membersihkan ${excessCount} entri task selesai tertua.`)
+  }
+}
+
+// Jadwalkan sapuan setelah transisi ke status selesai; ditunda sekali untuk mem-batch beberapa close event.
+function scheduleFinishedTaskReap() {
+  if (reapTimer) return
+  reapTimer = setTimeout(() => {
+    reapTimer = null
+    reapOldestFinishedTasks()
+  }, 500)
+}
+
 /**
  * Menjalankan background terminal task secara non-blocking
  */
@@ -46,11 +78,13 @@ export function spawnBackgroundTask(taskId, command, cwd) {
   child.on('close', (code) => {
     taskState.status = code === 0 ? 'completed' : 'failed'
     taskState.exitCode = code
+    scheduleFinishedTaskReap()
   })
 
   child.on('error', (err) => {
     taskState.status = 'error'
     taskState.error = err.message
+    scheduleFinishedTaskReap()
   })
 
   activeTasks.set(taskId, taskState)

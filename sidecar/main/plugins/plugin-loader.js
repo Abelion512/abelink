@@ -1,7 +1,10 @@
 import fs from 'fs'
 import path from 'path'
 import { app, ipcMain, shell } from 'electron'
-import { execSync } from 'child_process'
+import { execFile } from 'child_process'
+import util from 'util'
+
+const execFilePromise = util.promisify(execFile)
 
 let loadedPlugins = []
 let pluginHandlers = {}
@@ -14,6 +17,20 @@ export const getPluginsDir = () => {
   }
   return pluginDir
 }
+
+// Cegah path traversal: nama plugin hanya boleh resolve di dalam folder plugins.
+const resolveContainedPluginPath = (name) => {
+  const root = getPluginsDir()
+  const p = path.resolve(root, name)
+  if (p !== root && !p.startsWith(root + path.sep)) return null
+  return p
+}
+
+// Nama package npm yang diizinkan (opsional scope @org/pkg dan range versi),
+// plus blok karakter shell berbahaya sebagai lapisan kedua.
+const isValidNpmDependency = (d) =>
+  /^(@[a-zA-Z0-9][a-zA-Z0-9._-]*\/)?[a-zA-Z0-9][a-zA-Z0-9._-]*(@[a-zA-Z0-9^~><=*,.\s|-]+)?$/.test(d) &&
+  !/[;&|`$()<>"'\\]/.test(d)
 
 export const loadPlugins = async () => {
   const pluginDir = getPluginsDir()
@@ -114,7 +131,8 @@ export const initPluginIPC = () => {
   })
 
   ipcMain.handle('plugin:toggle', async (event, pluginName, isEnabled) => {
-    const pluginPath = path.join(getPluginsDir(), pluginName)
+    const pluginPath = resolveContainedPluginPath(pluginName)
+    if (!pluginPath) return { success: false, message: 'Nama plugin tidak valid.' }
     const manifestPath = path.join(pluginPath, 'plugin.json')
     if (fs.existsSync(manifestPath)) {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
@@ -127,7 +145,10 @@ export const initPluginIPC = () => {
   })
 
   ipcMain.handle('plugin:open-specific-folder', (event, targetPath) => {
-    shell.openPath(targetPath)
+    // Hanya buka path yang berada di dalam folder plugins.
+    const contained = resolveContainedPluginPath(targetPath)
+    if (!contained) return { success: false, message: 'Nama plugin tidak valid.' }
+    shell.openPath(contained)
   })
   
   ipcMain.handle('plugin:reload', async () => {
@@ -179,10 +200,19 @@ export const initPluginIPC = () => {
       // Install dependencies if specified
       if (manifest.dependencies.length > 0) {
         try {
-          if (!fs.existsSync(path.join(newPluginDir, 'package.json'))) {
-            execSync('npm init -y', { cwd: newPluginDir, stdio: 'ignore' })
+          // Tolak seluruh instalasi bila satu saja dependency tidak lolos validasi.
+          const invalidDeps = manifest.dependencies.filter((d) => !isValidNpmDependency(d))
+          if (invalidDeps.length > 0) {
+            return { success: false, error: 'Dependency npm tidak valid: ' + invalidDeps.join(', ') }
           }
-          execSync(`npm install ${manifest.dependencies.join(' ')}`, { cwd: newPluginDir, stdio: 'ignore' })
+          if (!fs.existsSync(path.join(newPluginDir, 'package.json'))) {
+            await execFilePromise('npm', ['init', '-y'], { cwd: newPluginDir, timeout: 120000 })
+          }
+          await execFilePromise(
+            'npm',
+            ['install', '--no-audit', '--no-fund', ...manifest.dependencies],
+            { cwd: newPluginDir, timeout: 120000 }
+          )
         } catch (npmErr) {
           console.error('Gagal install dependencies:', npmErr)
           return { success: false, error: 'Gagal menginstall dependencies npm: ' + npmErr.message }
@@ -198,7 +228,8 @@ export const initPluginIPC = () => {
 
   ipcMain.handle('plugin:delete', async (event, pluginName) => {
     try {
-      const pluginPath = path.join(getPluginsDir(), pluginName)
+      const pluginPath = resolveContainedPluginPath(pluginName)
+      if (!pluginPath) return { success: false, message: 'Nama plugin tidak valid.' }
       if (fs.existsSync(pluginPath)) {
         fs.rmSync(pluginPath, { recursive: true, force: true })
         await loadPlugins()

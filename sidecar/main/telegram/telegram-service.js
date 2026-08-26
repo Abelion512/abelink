@@ -37,9 +37,28 @@ import https from 'https'
 
 const agent = new https.Agent({
   keepAlive: true,
-  keepAliveMsecs: 10000,
-  rejectUnauthorized: false
+  keepAliveMsecs: 10000
 })
+
+// Batas ukuran unduhan dokumen dari Telegram: 50MB
+const MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024
+
+// Amankan nama file dari Telegram: ambil basename, buang karakter aneh, batasi panjangnya.
+const sanitizeFileName = (rawName) => {
+  const base = path.basename(String(rawName || ''))
+  const cleaned = base.replace(/[^a-zA-Z0-9._ -]/g, '_')
+  const capped = cleaned.slice(0, 120).trim()
+  return capped || `file_${Date.now()}`
+}
+
+// Pastikan path hasil simpan tetap berada di dalam saveDir (anti path traversal).
+const resolveContainedSavePath = (saveDir, fileName) => {
+  const resolvedDir = path.resolve(saveDir)
+  const resolvedPath = path.resolve(resolvedDir, fileName)
+  const contained =
+    resolvedPath === resolvedDir || resolvedPath.startsWith(resolvedDir + path.sep)
+  return contained ? resolvedPath : null
+}
 
 export const startTelegramBot = async (token, mainWindow) => {
   if (!token || !token.trim()) {
@@ -66,12 +85,17 @@ export const startTelegramBot = async (token, mainWindow) => {
 
     if (config.tgAdminIds) {
       const ids = config.tgAdminIds.split(',').map((s) => s.trim()).filter(Boolean)
+      const numericIds = []
       ids.forEach((id) => {
         const cleanId = id.replace(/^@/, '')
         if (/^\d+$/.test(cleanId)) {
+          numericIds.push(cleanId)
           adminChatIdsSet.add(cleanId)
+          pendingChatIdsSet.delete(cleanId)
         }
       })
+      // Hanya id yang tercantum di config.tgAdminIds yang dianggap admin terpercaya.
+      setTelegramAdmins(numericIds)
       saveChatIdsToFile()
     }
 
@@ -83,7 +107,22 @@ export const startTelegramBot = async (token, mainWindow) => {
         if (senderUsername) usernameToChatIdMap.set(senderUsername, chatId)
         saveChatIdsToFile()
       }
-      ctx.reply('Halo! Saya Mark (AI OS Companion). Bot Telegram ini telah terhubung.')
+      if (chatId && authorizedAdminIds.has(chatId)) {
+        // Admin terpercaya: hapus status pending dan sambut normal.
+        pendingChatIdsSet.delete(chatId)
+        ctx.reply('Halo! Saya Mark (AI OS Companion). Bot Telegram ini telah terhubung. Kamu terdaftar sebagai admin.')
+      } else if (chatId) {
+        // Pendaftaran mandiri tetap masuk daftar broadcast, tapi ditandai PENDING:
+        // tidak akan menerima screenshot/approval sampai id-nya masuk tgAdminIds.
+        pendingChatIdsSet.add(chatId)
+        ctx.reply(
+          'Halo! Saya Mark (AI OS Companion). Bot Telegram ini telah terhubung.\n\n' +
+          `ID kamu (${chatId}) terdaftar sebagai PENDING. Tambahkan ID tersebut ke tgAdminIds ` +
+          'di konfigurasi MARK agar menerima screenshot & approval.'
+        )
+      } else {
+        ctx.reply('Halo! Saya Mark (AI OS Companion). Bot Telegram ini telah terhubung.')
+      }
     })
 
     bot.command('info', (ctx) => {
@@ -108,7 +147,8 @@ export const startTelegramBot = async (token, mainWindow) => {
       }
     })
 
-    bot.command('accept', (ctx) => {
+    bot.command('accept', async (ctx) => {
+      if (!(await ensureTrustedAdmin(ctx))) return
       if (botWindow && !botWindow.isDestroyed()) {
         const chatId = String(ctx.chat?.id || ctx.from?.id || '')
         botWindow.webContents.send('tg:command-accept', { chatId })
@@ -117,7 +157,8 @@ export const startTelegramBot = async (token, mainWindow) => {
       }
     })
 
-    bot.command('always', (ctx) => {
+    bot.command('always', async (ctx) => {
+      if (!(await ensureTrustedAdmin(ctx))) return
       if (botWindow && !botWindow.isDestroyed()) {
         const chatId = String(ctx.chat?.id || ctx.from?.id || '')
         botWindow.webContents.send('tg:command-always', { chatId })
@@ -126,7 +167,8 @@ export const startTelegramBot = async (token, mainWindow) => {
       }
     })
 
-    bot.command('reject', (ctx) => {
+    bot.command('reject', async (ctx) => {
+      if (!(await ensureTrustedAdmin(ctx))) return
       if (botWindow && !botWindow.isDestroyed()) {
         const chatId = String(ctx.chat?.id || ctx.from?.id || '')
         botWindow.webContents.send('tg:command-reject', { chatId })
@@ -236,23 +278,39 @@ export const startTelegramBot = async (token, mainWindow) => {
       try {
         let fileId = ''
         let originalName = ''
-        
+
         if (ctx.message.document) {
           fileId = ctx.message.document.file_id
-          originalName = ctx.message.document.file_name || `document_${Date.now()}`
+          originalName = sanitizeFileName(ctx.message.document.file_name || `document_${Date.now()}`)
+          // Tolak lebih awal SEBELUM mengunduh/buffering bila metadata ukuran tersedia.
+          const declaredSize = Number(ctx.message.document.file_size || 0)
+          if (declaredSize > MAX_DOWNLOAD_BYTES) {
+            await ctx.reply('[ERROR]: File terlalu besar (batas 50MB). Unduhan dibatalkan.')
+            return
+          }
         } else if (ctx.message.photo) {
           const photo = ctx.message.photo[ctx.message.photo.length - 1]
           fileId = photo.file_id
-          originalName = `photo_${Date.now()}.jpg`
+          originalName = sanitizeFileName(`photo_${Date.now()}.jpg`)
         }
 
         const statusMsg = await ctx.reply(`[INFO]: Sedang mengunduh file ${originalName}...`)
-      
+
         const fileUrl = await ctx.telegram.getFileLink(fileId)
         const saveDir = path.join(os.homedir(), 'Documents', 'Mark Workspace', 'Telegram')
         if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true })
-        
-        const savePath = path.join(saveDir, originalName)
+
+        const savePath = resolveContainedSavePath(saveDir, originalName)
+        if (!savePath) {
+          console.warn(`[Telegram] Path simpan di luar direktori tujuan, dibatalkan: ${originalName}`)
+          await ctx.telegram.editMessageText(
+            chatId,
+            statusMsg.message_id,
+            undefined,
+            '[ERROR]: Nama file tidak valid. Unduhan dibatalkan.'
+          )
+          return
+        }
         
         const response = await fetch(fileUrl)
         const buffer = await response.arrayBuffer()
@@ -393,7 +451,87 @@ const adminChatIdsSet = new Set()
 const usernameToChatIdMap = new Map()
 const pendingBroadcastQueue = []
 
+// Chat yang mendaftar via /start tapi BELUM tercantum di daftar admin (pending, tidak dipercaya).
+const pendingChatIdsSet = new Set()
+// Id admin terpercaya: hanya id yang ada di config.tgAdminIds; dipersist ke tg_admin_ids.json.
+const authorizedAdminIds = new Set()
+
 const CHAT_IDS_FILE = path.join(app.getPath('userData'), 'tg_chat_ids.json')
+const ADMIN_IDS_FILE = path.join(app.getPath('userData'), 'tg_admin_ids.json')
+
+const loadSavedAdminIds = () => {
+  try {
+    if (fs.existsSync(ADMIN_IDS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(ADMIN_IDS_FILE, 'utf8'))
+      if (Array.isArray(data.adminIds)) {
+        data.adminIds.forEach((id) => authorizedAdminIds.add(String(id)))
+      }
+      console.log(`[Telegram] Loaded ${authorizedAdminIds.size} trusted admin IDs.`)
+    }
+  } catch (e) {
+    console.error('[Telegram] Error loading saved admin IDs:', e)
+  }
+}
+
+const saveAdminIdsToFile = () => {
+  try {
+    fs.writeFileSync(
+      ADMIN_IDS_FILE,
+      JSON.stringify({ adminIds: Array.from(authorizedAdminIds) }, null, 2),
+      'utf8'
+    )
+  } catch (e) {
+    console.error('[Telegram] Error saving admin IDs to file:', e)
+  }
+}
+
+// Daftarkan id admin terpercaya (dari config.tgAdminIds). Dipanggil oleh startTelegramBot;
+// dieksport juga agar modul lain bisa memasang daftar admin secara eksplisit.
+export const setTelegramAdmins = (ids) => {
+  const list = Array.isArray(ids) ? ids : [ids]
+  let changed = false
+  list.forEach((raw) => {
+    const clean = String(raw || '').trim().toLowerCase().replace(/^@/, '')
+    if (/^\d+$/.test(clean) && !authorizedAdminIds.has(clean)) {
+      authorizedAdminIds.add(clean)
+      pendingChatIdsSet.delete(clean)
+      changed = true
+    }
+  })
+  if (changed) saveAdminIdsToFile()
+}
+
+// Gate perintah sensitif: wajib ctx.from.id tercantum di daftar admin terpercaya.
+const ensureTrustedAdmin = async (ctx) => {
+  const senderId = String(ctx.from?.id || '')
+  if (senderId && authorizedAdminIds.has(senderId)) return true
+  console.warn(`[Telegram] Perintah ditolak: sender ${senderId} bukan admin terpercaya.`)
+  await ctx.reply('Tidak diizinkan.')
+  return false
+}
+
+// Target broadcast TERPERCAYA saja: irisan antara config tgAdminIds dengan chat terdaftar.
+// Chat pending (hanya /start tanpa masuk config) tidak pernah ikut.
+const resolveTrustedBroadcastTargets = () => {
+  const trusted = new Set()
+  for (const id of authorizedAdminIds) {
+    if (adminChatIdsSet.has(id)) trusted.add(id)
+  }
+  const config = getGlobalConfig()
+  const adminInputs = (config.tgAdminIds || '')
+    .split(',')
+    .map((id) => id.trim().toLowerCase().replace(/^@/, ''))
+    .filter(Boolean)
+  for (const input of adminInputs) {
+    if (/^\d+$/.test(input)) {
+      if (adminChatIdsSet.has(input)) trusted.add(input)
+    } else if (usernameToChatIdMap.has(input)) {
+      const mapped = usernameToChatIdMap.get(input)
+      if (adminChatIdsSet.has(mapped)) trusted.add(mapped)
+    }
+  }
+  return trusted
+}
 
 const loadSavedChatIds = () => {
   try {
@@ -427,6 +565,7 @@ const saveChatIdsToFile = () => {
 }
 
 loadSavedChatIds()
+loadSavedAdminIds()
 
 const flushPendingBroadcasts = async () => {
   if (currentStatus !== 'connected' || pendingBroadcastQueue.length === 0) return
@@ -454,23 +593,11 @@ export const sendTelegramToAdmins = async (text) => {
     pendingBroadcastQueue.push(text)
     return
   }
-  const config = getGlobalConfig()
-  const adminInputs = (config.tgAdminIds || '')
-    .split(',')
-    .map((id) => id.trim().toLowerCase().replace(/^@/, ''))
-    .filter(Boolean)
-
-  const targetChatIds = new Set(adminChatIdsSet)
-  for (const input of adminInputs) {
-    if (/^\d+$/.test(input)) {
-      targetChatIds.add(input)
-    } else if (usernameToChatIdMap.has(input)) {
-      targetChatIds.add(usernameToChatIdMap.get(input))
-    }
-  }
+  // Hanya kirim ke admin terpercaya (config tgAdminIds yang terdaftar), bukan chat pending.
+  const targetChatIds = resolveTrustedBroadcastTargets()
 
   if (targetChatIds.size === 0) {
-    console.warn('[Telegram Broadcast] Peringatan: Tidak ada Chat ID admin yang ditemukan. Silakan kirim /start ke bot dari Telegram!')
+    console.warn('[Telegram Broadcast] Tidak ada admin terpercaya. Tambahkan ID Telegram ke tgAdminIds di konfigurasi MARK, lalu kirim /start dari akun tersebut.')
     return
   }
 
@@ -548,24 +675,15 @@ ipcMain.on('tg:trigger-screenshot', async (event, { chatId } = {}) => {
   if (chatId) {
     targetChatIds.add(chatId)
   } else {
-    const config = getGlobalConfig()
-    const adminInputs = (config.tgAdminIds || '')
-      .split(',')
-      .map((id) => id.trim().toLowerCase().replace(/^@/, ''))
-      .filter(Boolean)
-
-    adminChatIdsSet.forEach((id) => targetChatIds.add(id))
-    for (const input of adminInputs) {
-      if (/^\d+$/.test(input)) {
-        targetChatIds.add(input)
-      } else if (usernameToChatIdMap.has(input)) {
-        targetChatIds.add(usernameToChatIdMap.get(input))
-      }
+    // Screenshot hanya untuk admin terpercaya (config tgAdminIds yang terdaftar);
+    // chat pending dari /start tidak pernah menjadi target.
+    for (const id of resolveTrustedBroadcastTargets()) {
+      targetChatIds.add(id)
     }
   }
 
   if (targetChatIds.size === 0) {
-    console.warn('[Telegram Screenshot] Gagal: Tidak ada Chat ID admin yang ditemukan.')
+    console.warn('[Telegram Screenshot] Gagal: Tidak ada admin terpercaya. Tambahkan ID Telegram ke tgAdminIds di konfigurasi MARK, lalu kirim /start dari akun tersebut.')
     return
   }
 

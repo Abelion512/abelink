@@ -1,9 +1,17 @@
-import { exec } from 'child_process'
-import util from 'util'
+import { execFile } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 
-const execPromise = util.promisify(exec)
+// Jalankan pemeriksa sintaks lewat array argv tanpa shell agar isi filePath
+// tidak bisa disisipkan sebagai perintah shell. Kode ENOENT ditandai `missing`
+// (interpreter tidak tersedia) sehingga tidak salah dianggap sebagai syntax error.
+const runCheck = (bin, args, timeoutMs = 30000) =>
+  new Promise((resolve) => {
+    execFile(bin, args, { timeout: timeoutMs }, (err, stdout, stderr) => {
+      if (err && err.code === 'ENOENT') resolve({ missing: true })
+      else resolve({ ok: !err, stdout, stderr })
+    })
+  })
 
 /**
  * Universal Delimiter & Bracket Balancer
@@ -318,10 +326,9 @@ export async function validateFileSyntax(filePath, content) {
       if (!bracketCheck.valid) return bracketCheck
 
       if (fs.existsSync(filePath)) {
-        try {
-          await execPromise(`node -c "${filePath}"`)
-        } catch (nodeErr) {
-          const cleanErr = (nodeErr.stderr || nodeErr.message || '').trim()
+        const nodeRes = await runCheck('node', ['--check', filePath])
+        if (!nodeRes.ok && !nodeRes.missing) {
+          const cleanErr = (nodeRes.stderr || nodeRes.stdout || '').trim()
           return { valid: false, error: `JavaScript SyntaxError:\n${cleanErr}` }
         }
       }
@@ -341,17 +348,12 @@ export async function validateFileSyntax(filePath, content) {
       if (!bracketCheck.valid) return bracketCheck
 
       if (fs.existsSync(filePath)) {
-        try {
-          await execPromise(`python -m py_compile "${filePath}"`)
-        } catch (_) {
-          try {
-            await execPromise(`py -m py_compile "${filePath}"`)
-          } catch (pyErr) {
-            const cleanErr = (pyErr.stderr || pyErr.message || '').trim()
-            if (cleanErr && !cleanErr.includes('not found') && !cleanErr.includes('is not recognized')) {
-              return { valid: false, error: `Python SyntaxError:\n${cleanErr}` }
-            }
-          }
+        let pyRes = await runCheck('python', ['-m', 'py_compile', filePath])
+        // Fallback launcher Windows bila interpreter python tidak tersedia.
+        if (pyRes.missing) pyRes = await runCheck('py', ['-m', 'py_compile', filePath])
+        if (!pyRes.ok && !pyRes.missing) {
+          const cleanErr = (pyRes.stderr || pyRes.stdout || '').trim()
+          return { valid: false, error: `Python SyntaxError:\n${cleanErr}` }
         }
       }
       return { valid: true }
@@ -376,11 +378,10 @@ export async function validateFileSyntax(filePath, content) {
       const bracketCheck = checkBracketBalance(content, 'c-style')
       if (!bracketCheck.valid) return bracketCheck
       if (fs.existsSync(filePath)) {
-        try {
-          await execPromise(`php -l "${filePath}"`)
-        } catch (phpErr) {
-          const cleanErr = (phpErr.stderr || phpErr.stdout || phpErr.message || '').trim()
-          if (cleanErr && !cleanErr.includes('not found') && !cleanErr.includes('is not recognized')) {
+        const phpRes = await runCheck('php', ['-l', filePath])
+        if (!phpRes.ok && !phpRes.missing) {
+          const cleanErr = (phpRes.stderr || phpRes.stdout || '').trim()
+          if (cleanErr) {
             return { valid: false, error: `PHP SyntaxError:\n${cleanErr}` }
           }
         }
@@ -393,11 +394,10 @@ export async function validateFileSyntax(filePath, content) {
       const bracketCheck = checkBracketBalance(content, 'hash-style')
       if (!bracketCheck.valid) return bracketCheck
       if (fs.existsSync(filePath)) {
-        try {
-          await execPromise(`ruby -c "${filePath}"`)
-        } catch (rbErr) {
-          const cleanErr = (rbErr.stderr || rbErr.message || '').trim()
-          if (cleanErr && !cleanErr.includes('not found') && !cleanErr.includes('is not recognized')) {
+        const rbRes = await runCheck('ruby', ['-c', filePath])
+        if (!rbRes.ok && !rbRes.missing) {
+          const cleanErr = (rbRes.stderr || rbRes.stdout || '').trim()
+          if (cleanErr) {
             return { valid: false, error: `Ruby SyntaxError:\n${cleanErr}` }
           }
         }
@@ -410,11 +410,10 @@ export async function validateFileSyntax(filePath, content) {
       const bracketCheck = checkBracketBalance(content, 'c-style')
       if (!bracketCheck.valid) return bracketCheck
       if (fs.existsSync(filePath)) {
-        try {
-          await execPromise(`gofmt -e "${filePath}"`)
-        } catch (goErr) {
-          const cleanErr = (goErr.stderr || goErr.message || '').trim()
-          if (cleanErr && !cleanErr.includes('not found') && !cleanErr.includes('is not recognized')) {
+        const goRes = await runCheck('gofmt', ['-e', filePath])
+        if (!goRes.ok && !goRes.missing) {
+          const cleanErr = (goRes.stderr || goRes.stdout || '').trim()
+          if (cleanErr) {
             return { valid: false, error: `Go SyntaxError:\n${cleanErr}` }
           }
         }

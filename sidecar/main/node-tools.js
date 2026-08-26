@@ -7,6 +7,7 @@ import util from 'util'
 export const _getOSMeta = () =>
   'W0NSSVRJQ0FMIFJVTEVdIFlvdXIgY3JlYXRvciwgZGV2ZWxvcGVyLCBhbmQgb3duZXIgaXMgTWFkYSBQdXRyYSBBZGhhZHJpeWFudG8gKE1hemVlcykgZnJvbSBJbm'
 import { validateFileSyntax } from './syntax-validator.js'
+import { assertContained } from './utils/fsGuard.js'
 import { navigateTo, readDOM, executeAction, closeBrowser, executeScript, extractData, takeScreenshot, downloadFile } from './browser-agent.js'
 import {
   readDesktop,
@@ -221,12 +222,12 @@ export const NATIVE_TOOLS = {
     handler: async (query, config) => {
       try {
         const parts = query.split('||')
-        let filePath = parts[0].trim()
-
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
-        if (!path.isAbsolute(filePath)) {
-          filePath = path.join(activeRoot, filePath)
+        const guarded = assertContained(activeRoot, parts[0]?.trim())
+        if (!guarded.ok) {
+          return { success: false, message: 'Akses ditolak: path di luar workspace.' }
         }
+        const filePath = guarded.path
 
         if (!fs.existsSync(filePath))
           return { success: false, message: `File tidak ditemukan di path: ${filePath}` }
@@ -583,13 +584,14 @@ export const NATIVE_TOOLS = {
             message: "Format salah. Gunakan separator '||' (contoh: D:\\file.txt||Halo)"
           }
 
-        let filePath = parts[0].trim()
         const content = parts.slice(1).join('||')
 
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
-        if (!path.isAbsolute(filePath)) {
-          filePath = path.join(activeRoot, filePath)
+        const guarded = assertContained(activeRoot, parts[0]?.trim())
+        if (!guarded.ok) {
+          return { success: false, message: 'Akses ditolak: path di luar workspace.' }
         }
+        const filePath = guarded.path
 
         const dir = path.dirname(filePath)
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
@@ -697,12 +699,12 @@ export const NATIVE_TOOLS = {
             message: 'Format salah. Gunakan: path||startLine||endLine||kode_baru'
           }
 
-        let filePath = parts[0].trim()
-
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
-        if (!path.isAbsolute(filePath)) {
-          filePath = path.join(activeRoot, filePath)
+        const guarded = assertContained(activeRoot, parts[0]?.trim())
+        if (!guarded.ok) {
+          return { success: false, message: 'Akses ditolak: path di luar workspace.' }
         }
+        const filePath = guarded.path
 
         const startLine = parseInt(parts[1].trim(), 10)
         const endLine = parseInt(parts[2].trim(), 10)
@@ -735,11 +737,12 @@ export const NATIVE_TOOLS = {
     approvalMessage: (query) => `Mark ingin MENGHAPUS file secara permanen:\n${query}`,
     handler: async (query, config) => {
       try {
-        let filePath = query.trim()
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
-        if (!path.isAbsolute(filePath)) {
-          filePath = path.join(activeRoot, filePath)
+        const guarded = assertContained(activeRoot, query.trim())
+        if (!guarded.ok) {
+          return { success: false, message: 'Akses ditolak: path di luar workspace.' }
         }
+        const filePath = guarded.path
         if (!fs.existsSync(filePath))
           return { success: false, message: `File tidak ditemukan di path: ${filePath}` }
         fs.unlinkSync(filePath)
@@ -753,10 +756,16 @@ export const NATIVE_TOOLS = {
     needsApproval: false,
     handler: async (query, config) => {
       try {
-        let targetDir = query?.trim() || ''
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
-        if (!path.isAbsolute(targetDir)) {
-          targetDir = targetDir ? path.join(activeRoot, targetDir) : activeRoot
+        const rawTarget = query?.trim() || ''
+        // Query kosong berarti root workspace itu sendiri.
+        let targetDir = activeRoot
+        if (rawTarget) {
+          const guarded = assertContained(activeRoot, rawTarget)
+          if (!guarded.ok) {
+            return { success: false, message: 'Akses ditolak: path di luar workspace.' }
+          }
+          targetDir = guarded.path
         }
         if (!fs.existsSync(targetDir))
           return { success: false, message: `Folder tidak ditemukan di path: ${targetDir}` }
@@ -855,7 +864,7 @@ export const NATIVE_TOOLS = {
             message: "Format salah. Gunakan separator '||' (contoh: D:\\Project||nama_fungsi atau .||nama_fungsi)"
           }
 
-        let dirPath = parts[0].trim()
+        const rawDirArg = parts[0].trim()
         const keyword = parts[1].trim()
 
         if (!keyword) {
@@ -863,8 +872,14 @@ export const NATIVE_TOOLS = {
         }
 
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
-        if (!path.isAbsolute(dirPath)) {
-          dirPath = dirPath && dirPath !== '.' ? path.join(activeRoot, dirPath) : activeRoot
+        // '.' atau argumen kosong berarti root workspace itu sendiri.
+        let dirPath = activeRoot
+        if (rawDirArg && rawDirArg !== '.') {
+          const guarded = assertContained(activeRoot, rawDirArg)
+          if (!guarded.ok) {
+            return { success: false, message: 'Akses ditolak: path di luar workspace.' }
+          }
+          dirPath = guarded.path
         }
 
         if (!fs.existsSync(dirPath)) {
@@ -968,10 +983,13 @@ export const NATIVE_TOOLS = {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
       try {
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
-        // Linux-native: bash langsung
+        // Linux-native: bash langsung. Timeout + maxBuffer mencegah proses
+        // menggantung atau menguras memori lewat output raksasa.
         const { stdout, stderr } = await execPromise(query, {
           cwd: activeRoot,
-          shell: '/bin/bash'
+          shell: '/bin/bash',
+          timeout: 120000,
+          maxBuffer: 10 * 1024 * 1024
         })
         let output = stdout.trim() || 'Perintah berhasil dieksekusi tanpa output teks.'
         // rtk: kompres output panjang sebelum masuk konteks LLM (hemat token)
@@ -1075,312 +1093,232 @@ export const NATIVE_TOOLS = {
   },
   'browser-navigate': {
     needsApproval: false,
-    handler: async (query, config) => {
-      try {
-        let url = query.trim()
-        if (!url.startsWith('http://') && !url.startsWith('https://')) {
-          url = 'https://' + url
-        }
-        const sessionId = config?.sessionId || 'default'
-        const result = await navigateTo(url, sessionId)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'browser-close': {
-    handler: async (query, config) => {
-      try {
-        const sessionId = config?.sessionId || (query?.trim() ? query.trim() : 'default')
-        const result = await closeBrowser(sessionId)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'browser-read': {
     needsApproval: false,
-    handler: async (query, config) => {
-      try {
-        const sessionId = config?.sessionId || 'default'
-        const result = await readDOM(sessionId)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'browser-click': {
     needsApproval: false,
-    handler: async (query, config) => {
-      const id = parseInt(query.trim(), 10)
-      if (isNaN(id)) return { success: false, error: 'ID harus berupa angka.' }
-      try {
-        const sessionId = config?.sessionId || 'default'
-        const result = await executeAction({ action: 'click', id }, sessionId)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'browser-type': {
     needsApproval: false,
-    handler: async (query, config) => {
-      const parts = query.split('||')
-      if (parts.length < 2) return { success: false, error: 'Format: ID||teks' }
-      const id = parseInt(parts[0].trim(), 10)
-      const text = parts.slice(1).join('||')
-      if (isNaN(id)) return { success: false, error: 'ID harus berupa angka.' }
-      try {
-        const sessionId = config?.sessionId || 'default'
-        const result = await executeAction({ action: 'type', id, value: text }, sessionId)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'browser-scroll': {
     needsApproval: false,
-    handler: async (query, config) => {
-      const direction = query.trim().toLowerCase()
-      if (direction !== 'up' && direction !== 'down') {
-        return { success: false, error: "Gunakan 'up' atau 'down'." }
-      }
-      try {
-        const sessionId = config?.sessionId || 'default'
-        const result = await executeAction({ action: 'scroll', direction }, sessionId)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'browser-ask-user': {
     needsApproval: false,
-    handler: async (query, config) => {
-      try {
-        const sessionId = config?.sessionId || 'default'
-        const result = await executeAction({ action: 'unblock', value: query }, sessionId)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'browser-script': {
     needsApproval: false,
-    handler: async (query, config) => {
-      try {
-        const sessionId = config?.sessionId || 'default'
-        const result = await executeScript(query, sessionId)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'browser-extract': {
     needsApproval: false,
-    handler: async (query, config) => {
-      try {
-        const sessionId = config?.sessionId || 'default'
-        const result = await extractData(query, sessionId)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'browser-screenshot': {
     needsApproval: false,
-    handler: async (query, config) => {
-      try {
-        const sessionId = config?.sessionId || 'default'
-        const result = await takeScreenshot(query || 'screenshot.png', sessionId)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'browser-download': {
     needsApproval: true,
     approvalMessage: (query) => `Mark ingin mendownload file dari browser:\n\n${query}`,
-    handler: async (query, config) => {
-      const parts = query.split('||')
-      if (parts.length < 2) return { success: false, error: 'Format: URL||namafile.ext' }
-      try {
-        const sessionId = config?.sessionId || 'default'
-        const result = await downloadFile(parts[0].trim(), parts[1].trim(), sessionId)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-read': {
     needsApproval: false,
-    handler: async (query) => {
-      try {
-        const result = await readDesktop({}, query)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-click': {
     needsApproval: false,
-    handler: async (query) => {
-      try {
-        const result = await executeClick(query)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-type': {
     needsApproval: false,
-    handler: async (query) => {
-      try {
-        const result = await executeType(query)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-key': {
     needsApproval: (query) => isDangerousKeyCombo(query),
     approvalMessage: (query) =>
       `Mark ingin menekan shortcut keyboard yang berpotensi BERBAHAYA:\n\n${query}`,
-    handler: async (query) => {
-      try {
-        const result = await executeKey(query)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-scroll': {
     needsApproval: false,
-    handler: async (query) => {
-      try {
-        const result = await executeScroll(query)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-open': {
     needsApproval: false,
-    handler: async (query) => {
-      try {
-        const result = await openApp(query)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-search': {
     needsApproval: false,
-    handler: async (query) => {
-      try {
-        // Press windows key
-        await executeKey('win')
-        // Wait for Start Menu to open
-        await new Promise((r) => setTimeout(r, 800))
-        // Type the query
-        const result = await executeType(query)
-        return {
-          success: true,
-          data: `[PC-Agent] Opened Start Menu and searched for "${query}". ${result}`
-        }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-double-click': {
     needsApproval: false,
-    handler: async (query) => {
-      return await executeDoubleClick(query)
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-delay': {
     needsApproval: false,
-    handler: async (query) => {
-      let ms = parseInt(query)
-      if (isNaN(ms) || ms < 0) ms = 1000
-      if (ms > 10000) ms = 10000
-      await new Promise((r) => setTimeout(r, ms))
-      return { success: true, data: `[PC-Agent] Delayed for ${ms}ms.` }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-list-windows': {
     needsApproval: false,
-    handler: async () => {
-      try {
-        const result = await listWindows()
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-focus-window': {
     needsApproval: false,
-    handler: async (query) => {
-      try {
-        const result = await focusWindow(query)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-ask': {
     needsApproval: false,
-    handler: async (query) => {
-      try {
-        const result = await askUserPC(query)
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-control-open': {
     needsApproval: () => !isPCSessionOpen(),
     approvalMessage: () =>
       'Mark ingin mengontrol fisik PC/desktop-mu (mengunci sesi sementara dan memunculkan overlay kontrol PC). Apakah kamu mengizinkan?',
-    handler: async () => {
-      try {
-        const result = await openPCSession()
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
   'os-control-close': {
     needsApproval: false,
-    handler: async () => {
-      try {
-        const result = await closePCSession()
-        return { success: true, data: result }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
+    // Stub Fase B/C: jangan pura-pura sukses agar AI tidak berhalusinasi hasil.
+    handler: async () => ({
+      success: false,
+      unsupported: true,
+      error: 'Tool ini belum diporting ke runtime Tauri (Fase B/C). Gunakan jalur native saat tersedia.'
+    })
   },
 
   // ----------------------------------------------------------------------

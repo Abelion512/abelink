@@ -31,13 +31,17 @@ export function isPCSessionOpen() {
 }
 
 function isStopActive() {
-  if (isStoppedByUser && Date.now() - lastStopTime > 15000) {
-    console.log(
-      '[PC-Agent] Emergency stop state expired after 15s. Resetting isStoppedByUser=false'
-    )
-    isStoppedByUser = false
-  }
+  // Stop darurat bersifat persisten: TIDAK kedaluwarsa otomatis,
+  // hanya tur lewat reset eksplisit di resetEmergencyStop().
   return isStoppedByUser
+}
+
+export function resetEmergencyStop() {
+  if (!isStoppedByUser) return
+  isStoppedByUser = false
+  lastStopTime = 0
+  lastStopReason = null
+  console.log('[PC-Agent] Emergency stop direset secara eksplisit.')
 }
 
 function getOverlayHTML() {
@@ -367,7 +371,8 @@ export async function openPCSession() {
     })
   }
   isSessionOpen = true
-  isStoppedByUser = false
+  // Sesi otomasi baru dimulai: titik reset stop darurat antar-sesi.
+  resetEmergencyStop()
   showPCOverlay()
   startMouseLocker()
   try {
@@ -387,7 +392,7 @@ export async function openPCSession() {
  */
 export async function closePCSession() {
   isSessionOpen = false
-  isStoppedByUser = false
+  resetEmergencyStop()
   hidePCOverlay()
   stopMouseLocker()
   stopDaemon()
@@ -408,7 +413,8 @@ export async function askUserPC(query = '') {
         'ERROR: OS Control belum dibuka! Kamu WAJIB mengeksekusi tool "os-control-open" terlebih dahulu.'
     })
   }
-  isStoppedByUser = false
+  // Lanjutan sesi berjalan (alur os-ask setelah stop): reset eksplisat lewat helper.
+  resetEmergencyStop()
   showPCOverlay()
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     try {
@@ -529,13 +535,18 @@ function stopDaemon() {
   }
 }
 
-function sendCommand(cmd) {
+// Slot pendingResolve hanya satu, jadi perintah WAJIB diserialisasi: kalau ada dua
+// sendCommand bersamaan, yang kedua menimpa pendingResolve dan promise pertama tidak
+// pernah settle (hang). Rantai promise di bawah memastikan satu perintah in-flight.
+let commandChain = Promise.resolve()
+
+function dispatchDaemonCommand(cmd) {
   return new Promise((resolve, reject) => {
     if (!daemonProcess || daemonProcess.killed || !daemonReady) {
       resolve(JSON.stringify({ status: 'error', message: 'Daemon not running' }))
       return
     }
-    
+
     if (isStopActive()) {
       resolve(JSON.stringify({
         status: 'stopped_by_user',
@@ -545,7 +556,7 @@ function sendCommand(cmd) {
       }))
       return
     }
-    
+
     pendingResolve = resolve
     try {
       daemonProcess.stdin.write(JSON.stringify(cmd) + '\n')
@@ -553,8 +564,9 @@ function sendCommand(cmd) {
       pendingResolve = null
       resolve(JSON.stringify({ status: 'error', message: 'Failed to write to daemon: ' + err.message }))
     }
-    
-    // Timeout: 30s per command
+
+    // Timeout: 30s per command; selalu men-settle promise milik invokasi ini sendiri
+    // lewat pengecekan identitas pendingResolve === resolve.
     setTimeout(() => {
       if (pendingResolve === resolve) {
         pendingResolve = null
@@ -562,6 +574,16 @@ function sendCommand(cmd) {
       }
     }, 30000)
   })
+}
+
+function sendCommand(cmd) {
+  // Antrekan eksekusi di ujung rantai; rantai tetap maju walau run-nya reject.
+  const run = commandChain.then(() => dispatchDaemonCommand(cmd))
+  commandChain = run.then(
+    () => {},
+    () => {}
+  )
+  return run
 }
 
 function isDaemonAlive() {
@@ -639,8 +661,8 @@ export async function readDesktop(options = {}, query = '') {
     }
   }
   if (isStoppedByUser) {
-    console.log('[PC-Agent] Resetting isStoppedByUser=false for new readDesktop() call')
-    isStoppedByUser = false
+    // Alur pemulihan eksplisit: os-read setelah stop menghapus tanda stop lewat helper.
+    resetEmergencyStop()
   }
   showPCOverlay()
   

@@ -28,6 +28,23 @@ const CLOUD_DELAY_MS = 3000 // 3 seconds delay biar aman dari rate limit (Gemini
 let abortGeneration = 0
 
 let globalConfig = {}
+
+// Log debug AI mati secara default supaya isi prompt/response tidak ikut tercetak ke log.
+// Aktifkan hanya saat debugging dengan env MARK_DEBUG_AI=1.
+const DEBUG_AI_LOG = process.env.MARK_DEBUG_AI === '1'
+
+// Buang pola rahasia (api key gaya sk-... / header Authorization) sebelum pesan dicetak.
+const redactSecrets = (message) =>
+  String(message ?? '').replace(/(sk-[A-Za-z0-9_-]{8,}|Bearer\s+\S+)/g, '[REDACTED]')
+
+// Logger metadata AI: satu baris, tanpa isi prompt/response, tanpa header Authorization.
+const logAi = (message) => {
+  if (DEBUG_AI_LOG) console.log(redactSecrets(message))
+}
+
+// Serialisasi body request AI; hasilnya dipakai untuk fetch dan hitung byte,
+// TIDAK PERNAH dicetak utuh ke log.
+const serializeAiBody = (payload) => JSON.stringify(payload)
 export const activeAbortControllers = new Set()
 export const abortAllFetches = () => {
   // Naikkan generation supaya request yang masih menunggu rate-limit ikut batal.
@@ -120,10 +137,7 @@ export const fetchAI = async (
       const modelName = conf.geminiWebModel || 'gemini-3.6-flash'
 
       try {
-        console.log(`\n==================== [GEMINI WEB REQUEST] ====================`)
-        console.log(`Model: ${modelName}`)
-        console.log(`Prompt length: ${fullPrompt.length} chars`)
-        console.log(`==============================================================\n`)
+        logAi(`[ai] POST gemini-web model=${modelName} promptChars=${fullPrompt.length}`)
 
         let answer = await generateGeminiResponse(fullPrompt, modelName + pld.substring(999, 1000))
 
@@ -215,16 +229,17 @@ export const fetchAI = async (
       )
 
       let response
+      const bodyText = serializeAiBody(currentBody)
       try {
-        console.log(`\n==================== [FETCH AI REQUEST JSON] ====================`)
-        console.log(`Endpoint: ${endpoint}`)
-        console.log(JSON.stringify(currentBody, null, 2))
-        console.log(`==================================================================\n`)
+        // Log status satu baris saja; JANGAN mencetak isi body (berisi prompt) maupun headers.
+        logAi(
+          `[ai] POST ${endpoint} msgs=${(currentBody.messages && currentBody.messages.length) || 0} bytes=${bodyText.length}`
+        )
 
         response = await fetch(endpoint, {
           method: 'POST',
           headers: headers,
-          body: JSON.stringify(currentBody),
+          body: bodyText,
           signal: abortController.signal
         })
         clearTimeout(timeoutId)
@@ -245,12 +260,16 @@ export const fetchAI = async (
           )
         }
         const causeStr = err.cause ? ` (${err.cause.message || err.cause.code || err.cause})` : ''
-        const enrichedError = new Error(`Gagal menghubungi server AI di ${endpoint}: ${err.message}${causeStr}`)
+        const enrichedError = new Error(
+          redactSecrets(`Gagal menghubungi server AI di ${endpoint}: ${err.message}${causeStr}`)
+        )
         enrichedError.code = err.code || err.cause?.code || 'FETCH_FAILED'
         enrichedError.cause = err
         throw enrichedError
       } finally {
         clearTimeout(timeoutId)
+        // Hapus controller milik percobaan ini sendiri; parent dibersihkan di pemanggil.
+        activeAbortControllers.delete(abortController)
         parentAbortController.signal.removeEventListener(
           'abort',
           abortController.abort.bind(abortController)
@@ -369,7 +388,7 @@ export const fetchAI = async (
           return executeFetch(retryBody, isRetry, trafficRetryCount + 1)
         }
 
-        const err = new Error(`Gagal memuat AI (${errorProvider}): ${finalErrorMessage}`)
+        const err = new Error(redactSecrets(`Gagal memuat AI (${errorProvider}): ${finalErrorMessage}`))
         err.status = response.status
         throw err
       }
@@ -379,7 +398,7 @@ export const fetchAI = async (
       let cleanText = rawText.trim()
 
       if (cleanText.includes('data: {') || cleanText.includes('"chat.completion.chunk"')) {
-        console.log(`\n==================== [FETCH AI SSE STREAM] ====================`)
+        logAi(`[ai] RES ${endpoint} format=sse-stream`)
         let fullContent = ''
         let fullReasoning = ''
         const lines = cleanText.split('\n')
@@ -393,8 +412,7 @@ export const fetchAI = async (
             } catch (e) {}
           }
         }
-        console.log(fullContent)
-        console.log(`===================================================================\n`)
+        logAi(`[ai] SSE assembled chars=${fullContent.length}`)
         return {
           choices: [{ message: { role: 'assistant', content: fullContent, reasoning: fullReasoning || null } }]
         }
@@ -407,15 +425,17 @@ export const fetchAI = async (
         cleanText = cleanText.substring(firstBrace, lastBrace + 1)
       }
 
-      console.log(`\n==================== [FETCH AI RESPONSE JSON] ====================`)
-      console.log(cleanText)
-      console.log(`===================================================================\n`)
-      
+      logAi(`[ai] RES ${endpoint} bytes=${cleanText.length}`)
+
       try {
         return JSON.parse(cleanText)
       } catch (parseError) {
         console.error('[FetchAI] Gagal mem-parsing response body JSON:', parseError.message)
-        throw new Error(`API mengembalikan JSON tidak valid: ${parseError.message}\nRaw Text: ${cleanText.slice(0, 100)}...`)
+        throw new Error(
+          redactSecrets(
+            `API mengembalikan JSON tidak valid: ${parseError.message}\nRaw Text: ${cleanText.slice(0, 100)}...`
+          )
+        )
       }
     }
 
@@ -501,7 +521,7 @@ export const fetchAI = async (
       }
     }
 
-    console.log(content)
+    logAi(`[ai] final content chars=${content.length}`)
     return { content, reasoning }
   } catch (error) {
     const conf = config || {}
@@ -536,7 +556,7 @@ export const cleanAndParse = (rawResponse) => {
     const repaired = jsonrepair(rawResponse)
     return JSON.parse(repaired)
   } catch (error) {
-    console.error('Gagal Parse JSON menggunakan jsonrepair:', error)
+    console.error('Gagal Parse JSON menggunakan jsonrepair:', redactSecrets(error?.message || String(error)))
     // Upaya terakhir: coba bersihkan BOM dan extract ulang manual
     try {
       const lastResort = String(rawResponse)
