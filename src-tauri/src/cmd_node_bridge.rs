@@ -1,7 +1,14 @@
 // Jembatan stdio ke Node sidecar engine (sidecar/engine.mjs) — fase A/B migrasi.
 // Protokol: request {"id",action,payload} -> response {"id",success,data|error}
 //           event  : {"event","payload"} -> emit ke frontend (Tauri event system)
-// Referensi upstream: src-tauri/src/cmd_node_bridge.rs (tauri-v2-migration)
+//
+// KEAMANAN (audit 2026-08-26):
+// - node_invoke DENY-BY-DEFAULT: hanya aksi pada ALLOWED_ACTIONS yang diteruskan.
+// - Aksi/tool berbahaya WAJIB melewati dialog persetujuan NATIVE di main thread
+//   (rfd) — keputusan user di luar renderer, sehingga renderer kompromi pun
+//   tidak bisa mengeksekusi shell tanpa klik nyata.
+// - Saat engine mati, semua request pending didrain dengan error (tidak menggantung
+//   sampai timeout), dan proses child dibunuh saat aplikasi keluar.
 use serde::Serialize;
 use std::collections::HashMap;
 use std::process::Stdio;
@@ -10,7 +17,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{ChildStdin, Command};
+use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::oneshot;
 
 static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
@@ -20,6 +27,7 @@ type PendingRequests = Arc<Mutex<HashMap<u64, oneshot::Sender<serde_json::Value>
 pub struct NodeBridgeState {
     stdin_writer: Arc<tokio::sync::Mutex<Option<ChildStdin>>>,
     pending_requests: PendingRequests,
+    child: Arc<tokio::sync::Mutex<Option<Child>>>,
 }
 
 impl NodeBridgeState {
@@ -27,6 +35,17 @@ impl NodeBridgeState {
         Self {
             stdin_writer: Arc::new(tokio::sync::Mutex::new(None)),
             pending_requests: Arc::new(Mutex::new(HashMap::new())),
+            child: Arc::new(tokio::sync::Mutex::new(None)),
+        }
+    }
+}
+
+/// Bunuh proses sidecar (dipanggil saat aplikasi keluar).
+pub fn kill_engine(state: &Arc<NodeBridgeState>) {
+    if let Ok(mut guard) = state.child.try_lock() {
+        if let Some(mut c) = guard.take() {
+            log::warn!("[NodeBridge] Menghentikan sidecar engine...");
+            let _ = c.start_kill();
         }
     }
 }
@@ -38,26 +57,134 @@ pub struct NodeResponse {
     pub error: Option<String>,
 }
 
-pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> Result<(), String> {
-    // Cari engine.mjs: cwd dev (src-tauri) → repo root; fallback resource dir (bundled)
-    let engine_path = if std::path::Path::new("sidecar/engine.mjs").exists() {
-        "sidecar/engine.mjs".to_string()
-    } else if std::path::Path::new("../sidecar/engine.mjs").exists() {
-        "../sidecar/engine.mjs".to_string()
-    } else if let Ok(resource_dir) = app.path().resource_dir() {
-        let bundled = resource_dir.join("sidecar/engine.mjs");
-        if bundled.exists() {
-            bundled.to_string_lossy().to_string()
-        } else {
-            "sidecar/engine.mjs".to_string()
-        }
+// ---- Gerbang otorisasi (deny-by-default) -----------------------------------
+/// Aksi yang boleh lewat TANPA persetujuan (read-only / internal app).
+const ALLOWED_ACTIONS: &[&str] = &[
+    "ai:fetch",
+    "ai:abort-fetch",
+    "sync-config",
+    "native-tool:execute",
+    "native-tool:needs-approval",
+    "parse-document",
+    // Fase B0: save-temp-file, system:get-lite-mode, app:get-documents-path
+    // dipindah ke cmd_misc.rs (Rust native) — sengaja TIDAK dihapus dari komentar
+    // sejarah, cukup tidak ada di daftar ini agar deny-by-default menolaknya.
+    "tts-speak",
+    "get-youtube-transcript",
+    "youtube-search",
+    "tg:get-status",
+    "google:status",
+    "workspace:index",
+    "workspace:query",
+    "workspace:get-memory",
+    "workspace:save-memory",
+    "workspace:ensure",
+    "awareness:get-buffer",
+    "awareness:clear-buffer",
+    "ping",
+    "skills:get-all",
+    "skills:read",
+    "skills:read-file",
+];
+
+/// Channel sidecar yang selalu butuh persetujuan native.
+/// (open-external pindah ke cmd_misc.rs::misc_open_external dengan gate rfd yang sama.)
+const APPROVAL_ACTIONS: &[&str] = &[
+    "skills:save",
+    "skills:delete",
+    "tg:start",
+    "tg:stop",
+    "google:connect",
+    "google:disconnect",
+];
+
+/// Tool native yang eksekusinya butuh persetujuan native (selain gate renderer).
+const DANGEROUS_TOOLS: &[&str] = &["run-powershell", "git-commit", "git-revert"];
+
+pub(crate) fn payload_preview(payload: &Option<serde_json::Value>) -> String {
+    let s = serde_json::to_string(payload.as_ref().unwrap_or(&serde_json::Value::Null))
+        .unwrap_or_default();
+    if s.len() > 200 {
+        format!("{}...", &s[..200])
     } else {
-        "sidecar/engine.mjs".to_string()
+        s
+    }
+}
+
+/// Kembalikan Some(deskripsi) bila aksi butuh persetujuan native.
+fn approval_reason(action: &str, payload: &Option<serde_json::Value>) -> Option<String> {
+    if APPROVAL_ACTIONS.contains(&action) {
+        return Some(format!("Aksi \"{action}\" membutuhkan izin.\n\nPayload:\n{}", payload_preview(payload)));
+    }
+    if action == "native-tool:execute" {
+        let tool = payload
+            .as_ref()
+            .and_then(|p| p.get(0))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        if DANGEROUS_TOOLS.contains(&tool) {
+            return Some(format!(
+                "Tool \"{tool}\" berpotensi berbahaya dan membutuhkan izin.\n\nQuery:\n{}",
+                payload_preview(payload)
+            ));
+        }
+    }
+    None
+}
+
+/// Dialog konfirmasi NATIVE — dieksekusi di MAIN thread via run_on_main_thread,
+/// hasilnya dikirim balik lewat mpsc. Ini boundary di luar renderer.
+/// (dipakai ulang cmd_misc.rs untuk aksi native yang setara APPROVAL_ACTIONS.)
+pub(crate) fn confirm_on_main_thread(app: &AppHandle, description: String) -> bool {
+    let (tx, rx) = std::sync::mpsc::channel::<bool>();
+    let dispatched = app.run_on_main_thread(move || {
+        // rfd 0.15: tombol pakai MessageButtons, hasilnya enum MessageDialogResult.
+        let result = rfd::MessageDialog::new()
+            .set_title("MARK - Perlu Persetujuan")
+            .set_description(&description)
+            .set_buttons(rfd::MessageButtons::OkCancel)
+            .show();
+        // OkCancel: OK -> Yes, Cancel -> No
+        let approved = matches!(result, rfd::MessageDialogResult::Yes);
+        let _ = tx.send(approved);
+    });
+    if dispatched.is_err() {
+        // Aplikasi sedang berhenti / main loop tidak tersedia -> default TOLAK.
+        return false;
+    }
+    rx.recv_timeout(Duration::from_secs(180)).unwrap_or(false)
+}
+
+pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> Result<(), String> {
+    // Cari engine.mjs: cwd dev (src-tauri) -> repo root; lalu resource dir (bundled).
+    let candidates = [
+        std::path::PathBuf::from("sidecar/engine.mjs"),
+        std::path::PathBuf::from("../sidecar/engine.mjs"),
+    ];
+    let mut engine_path: Option<std::path::PathBuf> = candidates
+        .iter()
+        .find(|p| p.exists())
+        .cloned();
+    if engine_path.is_none() {
+        if let Ok(resource_dir) = app.path().resource_dir() {
+            let bundled = resource_dir.join("sidecar/engine.mjs");
+            if bundled.exists() {
+                engine_path = Some(bundled);
+            }
+        }
+    }
+    let engine_path = match engine_path {
+        Some(p) => p,
+        None => {
+            return Err(
+                "engine.mjs tidak ditemukan (dev: jalankan dari repo root; bundled: pastikan bundle.resources memuat sidecar/)".into(),
+            )
+        }
     };
 
     log::info!(
         "[NodeBridge] Memulai sidecar engine (bun) di path: {}",
-        engine_path
+        engine_path.display()
     );
 
     let mut cmd = Command::new("bun");
@@ -90,6 +217,10 @@ pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> R
         let mut writer_lock = state.stdin_writer.lock().await;
         *writer_lock = Some(stdin);
     }
+    {
+        let mut child_lock = state.child.lock().await;
+        *child_lock = Some(child);
+    }
 
     let pending = state.pending_requests.clone();
     let app_handle = app.clone();
@@ -120,7 +251,20 @@ pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> R
                 }
             }
         }
-        log::warn!("[NodeBridge] Sidecar engine stdout tertutup");
+        log::warn!("[NodeBridge] Sidecar engine stdout tertutup - drain request pending");
+        // Drain: semua pemanggil aktif langsung dapat error, bukan menggantung 300s.
+        let stale: Vec<(u64, oneshot::Sender<serde_json::Value>)> = {
+            let mut map = pending.lock().unwrap();
+            map.drain().collect()
+        };
+        for (id, sender) in stale {
+            let frame = serde_json::json!({
+                "id": id,
+                "success": false,
+                "error": "Sidecar engine berhenti sebelum merespons"
+            });
+            let _ = sender.send(frame);
+        }
     });
 
     Ok(())
@@ -132,6 +276,18 @@ pub async fn node_invoke(
     action: String,
     payload: Option<serde_json::Value>,
 ) -> Result<NodeResponse, String> {
+    // 1) Deny-by-default: aksi harus terdaftar.
+    if !ALLOWED_ACTIONS.contains(&action.as_str()) {
+        return Err(format!("Aksi tidak diizinkan oleh gerbang Tauri: {action}"));
+    }
+
+    // 2) Persetujuan NATIVE untuk aksi/tool berbahaya (di luar kendali renderer).
+    if let Some(desc) = approval_reason(&action, &payload) {
+        if !confirm_on_main_thread(&app, desc) {
+            return Err(format!("Ditolak pengguna (approval gate Tauri): {action}"));
+        }
+    }
+
     let state = app.state::<Arc<NodeBridgeState>>();
     let req_id = NEXT_REQUEST_ID.fetch_add(1, Ordering::SeqCst);
 
@@ -162,6 +318,8 @@ pub async fn node_invoke(
                 .await
                 .map_err(|e| format!("Gagal flush ke sidecar: {}", e))?;
         } else {
+            let mut map = state.pending_requests.lock().unwrap();
+            map.remove(&req_id);
             return Err("Sidecar engine tidak aktif".to_string());
         }
     }

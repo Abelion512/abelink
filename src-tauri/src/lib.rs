@@ -1,6 +1,7 @@
 // Mark Light — Tauri v2 shell (Linux-native)
 mod cmd_fs;
 mod cmd_harness;
+mod cmd_misc;
 mod cmd_node_bridge;
 
 use cmd_node_bridge::{start_node_engine, NodeBridgeState};
@@ -81,10 +82,8 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }))
-        .plugin(tauri_plugin_log::Builder::new()
-            .level(log::LevelFilter::Info)
-            .build())
-        .plugin(tauri_plugin_opener::init())
+        // (tauri_plugin_log cukup didaftarkan SEKALI — duplikat lama dihapus;
+        //  plugin opener dilepas karena renderer tidak memakainya)
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -110,9 +109,8 @@ pub fn run() {
             let show = MenuItem::with_id(app, "show", "Tampilkan MARK", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Keluar", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
-            TrayIconBuilder::with_id("mark-tray")
-                .icon(app.default_window_icon().unwrap().clone())
-                .tooltip("MARK — Mark Agent")
+            let mut tray = TrayIconBuilder::with_id("mark-tray")
+                .tooltip("MARK - Mark Agent")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -124,8 +122,14 @@ pub fn run() {
                     }
                     "quit" => app.exit(0),
                     _ => {}
-                })
-                .build(app)?;
+                });
+            // Ikon tray: fallback aman, jangan panic bila aset hilang.
+            if let Some(icon) = app.default_window_icon() {
+                tray = tray.icon(icon.clone());
+            } else {
+                log::warn!("[Tray] default_window_icon tidak tersedia; tray berjalan tanpa ikon.");
+            }
+            tray.build(app)?;
 
             // ---- Global shortcut Ctrl+Alt+M: toggle tampil/sembunyi ----
             use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
@@ -140,6 +144,17 @@ pub fn run() {
                                 let _ = w.set_focus();
                             }
                         }
+                    }
+                })?;
+
+            // ---- Global shortcut Ctrl+Shift+S: emergency stop otomasi PC ----
+            // (broadcast event; channel sidecar menyusul saat os-* diporting Fase B)
+            app.global_shortcut()
+                .on_shortcut("Ctrl+Shift+S", |app, _sc, event| {
+                    if event.state() == ShortcutState::Pressed {
+                        use tauri::Emitter;
+                        let _ = app.emit("pc-emergency-stop", true);
+                        log::warn!("[Shortcut] Emergency stop diminta (Ctrl+Shift+S)");
                     }
                 })?;
 
@@ -161,12 +176,24 @@ pub fn run() {
             cmd_fs::fs_import_pick_and_read,
             cmd_harness::harness_append,
             cmd_node_bridge::node_invoke,
+            // Fase B0 — cluster lite & misc (sidecar tidak lagi melayani ini)
+            cmd_misc::misc_get_documents_path,
+            cmd_misc::misc_get_lite_mode,
+            cmd_misc::misc_save_temp_file,
+            cmd_misc::misc_open_external,
+            cmd_misc::misc_show_notification,
             window_minimize,
             window_maximize_toggle,
             window_fullscreen_toggle,
             window_close,
             window_get_state
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // Pastikan proses sidecar tidak jadi orphan saat aplikasi keluar.
+            if let tauri::RunEvent::Exit = event {
+                cmd_node_bridge::kill_engine(app_handle.state::<Arc<NodeBridgeState>>().inner());
+            }
+        });
 }

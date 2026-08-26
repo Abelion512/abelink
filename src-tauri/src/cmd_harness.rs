@@ -1,9 +1,13 @@
 // HARN — structured dev logging (opt-in). JSONL per kind, rotasi 50MB.
+// KEAMANAN (audit 2026-08-26): `kind` divalidasi ketat (anti path escape),
+// tiap entri diserialisasi via serde_json sehingga output DIJAMIN JSONL valid,
+// dan panjang baris dibatasi agar rotasi 50MB tidak bisa dilewati satu tulisan.
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 
 const MAX_BYTES: u64 = 50 * 1024 * 1024;
+const MAX_LINE_CHARS: usize = 256 * 1024;
 
 fn harness_dir() -> PathBuf {
     let xdg = std::env::var("XDG_DATA_HOME")
@@ -16,6 +20,19 @@ fn harness_dir() -> PathBuf {
 
 #[tauri::command]
 pub fn harness_append(kind: String, line: String) -> Result<(), String> {
+    // Anti path escape: kind hanya [A-Za-z0-9_-], 1..=64 karakter.
+    let valid_kind = !kind.is_empty()
+        && kind.chars().count() <= 64
+        && kind
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    if !valid_kind {
+        return Err("Kind harness tidak valid (hanya A-Za-z0-9_-, maks 64 karakter).".into());
+    }
+    if line.chars().count() > MAX_LINE_CHARS {
+        return Err(format!("Baris harness melebihi batas {MAX_LINE_CHARS} karakter."));
+    }
+
     let dir = harness_dir();
     let file_path = dir.join(format!("{kind}.jsonl"));
     if file_path.exists() {
@@ -26,9 +43,14 @@ pub fn harness_append(kind: String, line: String) -> Result<(), String> {
             }
         }
     }
+    let entry = serde_json::json!({
+        "ts": chrono::Local::now().to_rfc3339(),
+        "kind": kind,
+        "line": line
+    });
     match fs::OpenOptions::new().create(true).append(true).open(&file_path) {
         Ok(mut f) => {
-            writeln!(f, "{line}").map_err(|e| e.to_string())?;
+            writeln!(f, "{entry}").map_err(|e| e.to_string())?;
             Ok(())
         }
         Err(e) => Err(e.to_string()),
