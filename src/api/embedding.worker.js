@@ -24,9 +24,6 @@ function isWasmSimdSupported() {
 
 const simdSupported = isWasmSimdSupported()
 if (!simdSupported) {
-  console.warn(
-    '[EmbeddingWorker] WebAssembly SIMD tidak didukung, konfigurasi backend WASM non-SIMD.'
-  )
   env.backends.onnx.wasm.simd = false
   env.backends.onnx.wasm.threads = false
 }
@@ -48,39 +45,23 @@ function getExtractor(progressCallback) {
 
   extractorPromise = (async () => {
     try {
-      // Coba backend WASM; flag SIMD sudah di-set non-aktip di module-level
-      // bila environment tidak mendukungnya.
-      try {
-        extractor = await pipeline(
-          'feature-extraction',
-          'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-          {
-            device: 'wasm',
-            progress_callback: progressCallback
-          }
-        )
-      } catch (err) {
-        const isSimdIssue =
-          /SIMD/i.test(err?.message || '') || /no available backend/i.test(err?.message || '')
-        if (!isSimdIssue) throw err
-
-        // WASM gagal meski sudah non-SIMD — turun ke CPU backend sebagai
-        // fallback terakhir agar embedding tetap berfungsi (lebih lambat).
-        console.warn(
-          '[EmbeddingWorker] WASM gagal meski non-SIMD, mencoba CPU backend...'
-        )
-        extractor = await pipeline(
-          'feature-extraction',
-          'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-          {
-            device: 'cpu',
-            progress_callback: progressCallback
-          }
-        )
-      }
+      extractor = await pipeline(
+        'feature-extraction',
+        'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+        {
+          device: 'wasm',
+          progress_callback: progressCallback
+        }
+      )
       return extractor
     } catch (err) {
-      // Gagal init: cache kegagalan agar tidak retry berulang kali.
+      const isSimdIssue =
+        /SIMD/i.test(err?.message || '') || /no available backend/i.test(err?.message || '')
+      if (isSimdIssue) {
+        console.warn(
+          '[EmbeddingWorker] WASM/SIMD tidak didukung, beralih ke Lite Mode (hash embedding).'
+        )
+      }
       initFailed = true
       extractorPromise = null
       throw err

@@ -405,7 +405,7 @@ function App() {
     }
 
     return (
-      <>
+      <HashRouter>
         <WindowControls />
         {showChooser ? (
           <FirstBootChoiceScreen
@@ -431,7 +431,7 @@ function App() {
             }}
           />
         )}
-      </>
+      </HashRouter>
     )
   }
 

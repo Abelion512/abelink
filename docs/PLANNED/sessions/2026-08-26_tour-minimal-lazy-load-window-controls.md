@@ -131,3 +131,11 @@ Verifikasi: eslint Configuration+Sidebar 0 error (warnings turun ke 773), vitest
 - HistoryDrawer: prompt user tampil penuh multi-baris (label "Prompt User", line-clamp-4) — sebelumnya truncate 1 baris.
 - InputBar: **command history recall** gaya TUI (ArrowUp dari posisi awal/kosong mundur lewat riwayat tersimpan localStorage cap100 dedupe; ArrowDown maju, lewat terbaru mengembalikan draf awal) + **draft persistence** (`mark:draft`) — teks selamat dari app mati; dibersihkan saat terkirim.
 Verifikasi batch: eslint 0 error, vitest 18/18.
+
+### Batch Penutup (goal ronde 2-3) — Audit Injeksi, Transparansi, Commit, RAM Prod
+- **Audit injeksi**: `lastSystemPrompt` snapshot di planning.js + getter; tombol "Dump System Prompt (Audit)" di Developer (copy clipboard + deteksi Mada/Mazees saat ownerName kosong); runtime warn `[planning][AUDIT]` tiap prompt memuat nama tak dideklarasikan.
+- **Transparansi eksperimental**: tauri.conf `transparent:true` + body `rgba(11,15,12,var(--win-alpha))` via CSS var; slider General set var live; boot menerapkan nilai tersimpan; label peringatan artefak WebKitGTK.
+- **Commit**: `02ce93c` (25 file, +1266/−525) — musik iframe-API, approval query-aware, IA settings baru; sebelumnya `66f8114` (tur minimal+lazy load). Keduanya verify.sh LOLOS.
+- **RAM PROD TERUKUR** (release build, PSS): mark 72MB + WebKitWebProcess 101MB (SATU) + NetworkProc 23MB + sidecar 38MB = **235 MB total** vs Electron ±350–500MB → hemat ±40–50%; target ≤150MB menyusul (optimasi webprocess/sidecar). Binary release hanya 19MB.
+- Insiden kecil: pkill/pgrep -f pola argumen kembali membunuh shell sendiri (2×) — selalu pakai comm eksak; import path relatif salah level (`../ai/planning` dari pages/) tertangkap build; FaUserGear tidak ada di react-icons/fa (FaUserCog).
+Verifikasi akhir: verify.sh LOLOS 4/4, vitest 18/18, aplikasi dev di-restart sehat untuk user.

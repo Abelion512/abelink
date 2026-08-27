@@ -46,24 +46,29 @@
 }
 
 @theme {
-  --font-sans: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-sans: 'Inter', 'Poppins', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-}
-
-button {
-  cursor: pointer;
 }
 
 html {
   font-size: 14px;
 }
 
-* {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+body {
+  font-family: 'Inter', 'Poppins', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+/* Linux Tauri/WebKitGTK: use a safe opaque base layer for the window background.
+   Transparency is handled at the window level via tauri.conf.json; forcing
+   transparent here can break rendering on Linux compositors. */
 html, body, #root {
-  background-color: transparent !important;
+  background-color: #0b0f0c !important;
+  color: #e5e7eb;
+}
+
+/* Transparent utility: only apply when a parent explicitly opts in */
+.tranparent-root {
+  background: transparent !important;
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */

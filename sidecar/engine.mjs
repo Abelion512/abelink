@@ -335,7 +335,6 @@ for (const ch of [
 // -------------------------------------------------------------------- Skills
 // Implementasi langsung di atas fs dengan layout yang sama dgn skill-manager
 // (XDG ~/.local/share/mark/skills ; folder skill = <nama>/SKILL.md ; legacy *.md)
-import { app as _electronAppStub } from 'electron' // eslint-disable-line
 const SKILLS_DIR = (() => {
   const xdg = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
   const dir = process.platform === 'win32'

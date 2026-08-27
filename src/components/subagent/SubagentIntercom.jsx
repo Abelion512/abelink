@@ -474,7 +474,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
               </div>
               <div className="chat-header text-[11px] opacity-50 mb-1 flex items-center gap-1.5">
                 <span className={isUser ? 'text-accent font-semibold' : ''}>
-                  {isUser ? 'Creator (Mada)' : 'Lead Agent (Mark)'}
+                  {isUser ? (config.ownerName?.trim() || 'User') : 'Lead Agent (Mark)'}
                 </span>
                 <span className="text-[10px]">
                   {new Date(item.timestamp).toLocaleTimeString([], {
@@ -493,7 +493,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
                 <div className="whitespace-pre-wrap leading-relaxed font-normal">
                   {item.content
                     .replace(/^\[DARI LEAD AGENT \(MARK\)\]:\s*/, '')
-                    .replace(/^\[DARI CREATOR \/ USER \(MADA\)\]:\s*/, '')}
+                    .replace(new RegExp(`^\\\\[DARI CREATOR \\\\/ USER \\\\(${config.ownerName || 'MADA'}\\\\)\\\\]:\\\\s*`, 'i'), '')}
                 </div>
               </div>
             </div>
@@ -545,7 +545,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
           type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder="Ketik instruksi/arahan langsung sebagai Creator (Mada)..."
+          placeholder={config.ownerName?.trim() ? `Ketik instruksi/arahan langsung sebagai ${config.ownerName}...` : 'Ketik instruksi/arahan langsung sebagai User...'}
           disabled={isSending}
           className="input input-sm input-bordered flex-1 rounded-xl bg-base-100/70 focus:bg-base-100 text-xs shadow-inner"
         />

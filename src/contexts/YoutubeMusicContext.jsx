@@ -113,6 +113,7 @@ export const YoutubeMusicProvider = ({ children }) => {
   /**
    * Kompatibel dgn pemanggil lama: url watch?v=ID + metadata opsional.
    * Dipakai handleMusic (useMarkMusic), listener WA, dan tombol UI.
+   * Di Tauri, pakai iframe YouTube Music via window.open / browser.
    */
   const playUrl = useCallback(
     (url, initialTrack = null) => {
@@ -153,6 +154,7 @@ export const YoutubeMusicProvider = ({ children }) => {
   const playerCommand = useCallback((fn) => {
     const p = playerRef.current
     if (!p || !readyRef.current) return
+    if (typeof p.playVideo !== 'function' || typeof p.pauseVideo !== 'function') return
     fn(p)
   }, [])
 

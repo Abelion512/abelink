@@ -407,12 +407,12 @@ const Configuration = ({
       await navigator.clipboard.writeText(prompt)
       copied = true
     } catch (_) {}
-    const leak = !config.ownerName?.trim() && /\b(Mada|Mazees)\b/i.test(prompt)
+    const leak = !config.ownerName?.trim() && new RegExp(`\\b(${config.ownerName || 'Mada'}|${config.ownerName || 'Mazees'})\\b`, 'i').test(prompt)
     await confirm({
       title: 'Dump System Prompt',
       message:
         `Panjang: ${prompt.length} chars.${copied ? ' Disalin ke clipboard.' : ' Clipboard tidak tersedia.'}` +
-        (leak ? '\n\nPERINGATAN: terdeteksi nama Mada/Mazees di prompt padahal ownerName kosong - lacak blok sumbernya lewat isi clipboard.' : ''),
+        (leak ? `\n\nPERINGATAN: terdeteksi nama ${config.ownerName || 'Mada'} di prompt padahal ownerName kosong - lacak blok sumbernya lewat isi clipboard.` : ''),
       isError: leak,
       hideCancel: true,
       confirmText: 'Tutup'
@@ -1105,7 +1105,7 @@ const Configuration = ({
                 <p className="text-sm font-semibold">Nama Panggilan Kamu (opsional)</p>
                 <input
                   className="input input-bordered w-full"
-                  placeholder="Contoh: Mada"
+                  placeholder={config.ownerName?.trim() ? `Contoh: ${config.ownerName}` : 'Contoh: User'}
                   value={config.ownerName || ''}
                   onChange={(e) => setConfig((prev) => ({ ...prev, ownerName: e.target.value }))}
                 />

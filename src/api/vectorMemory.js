@@ -7,13 +7,25 @@ let nextId = 1
 const pendingPromises = new Map()
 const progressListeners = new Set()
 
+// Lite Mode state (hash embedding fallback, tanpa load model)
+let isLiteMode = false
+
 let liteAutoNotified = false
+let isTauriEnvironment = typeof window !== 'undefined' && typeof window.__TAURI_INTEGRATION__ !== 'undefined'
+
 function emitLiteAuto() {
   if (liteAutoNotified) return
   liteAutoNotified = true
   try {
     window.dispatchEvent(new CustomEvent('mark:auto-lite', { detail: { reason: 'wasm-unsupported' } }))
   } catch (_) {}
+}
+
+// Tauri on Linux/WebKitGTK: WASM SIMD not available via sandbox
+// Fall back to hash embedding (Lite Mode) immediately
+if (isTauriEnvironment) {
+  isLiteMode = true
+  console.warn('[EmbeddingWorker] Tauri environment detected - forcing Lite Mode (hash embedding)')
 }
 
 function getWorker() {
@@ -136,7 +148,6 @@ export const getExtractor = async (onProgress) => {
 }
 
 // --- Lite Mode (RAM 4GB): hash embedding fallback, tanpa load model ---
-let isLiteMode = false
 export const setLiteMode = (v) => { isLiteMode = v }
 function fnv1a(str) {
   let h = 2166136261

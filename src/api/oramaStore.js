@@ -545,7 +545,8 @@ export async function deleteMemoryFromOrama(dexieId) {
     const res = await search(memoryIndex, { where: { dexieId: Number(dexieId) } })
     if (res.hits.length > 0) {
       for (let h of res.hits) {
-        await remove(memoryIndex, h.id)
+        if (h.id === undefined || h.id === null) continue
+        await remove(memoryIndex, String(h.id))
       }
     }
   } catch (err) {
