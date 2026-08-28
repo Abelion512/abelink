@@ -7,11 +7,14 @@ mod cmd_node_bridge;
 mod commands_tools_shell;
 #[path = "commands/tools/git.rs"]
 mod commands_tools_git;
+#[path = "commands/tools/tasks.rs"]
+mod commands_tools_tasks;
 #[path = "commands/system/info.rs"]
 mod commands_system_info;
 
 use cmd_node_bridge::{start_node_engine, NodeBridgeState};
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use tauri::{
     Manager,
     menu::{Menu, MenuItem},
@@ -101,6 +104,8 @@ pub fn run() {
                 .build(),
         )
         .manage(Arc::new(NodeBridgeState::new()))
+        .manage(commands_tools_tasks::TasksState(Arc::new(Mutex::new(HashMap::new()))))
+        .manage(commands_tools_tasks::TaskOutputsState(Arc::new(Mutex::new(HashMap::new()))))
         .setup(|app| {
             // ---- Sidecar node engine ----
             let handle = app.handle().clone();
@@ -196,6 +201,10 @@ pub fn run() {
             commands_tools_git::git_diff,
             commands_tools_git::git_commit,
             commands_tools_git::git_revert,
+            commands_tools_tasks::run_task,
+            commands_tools_tasks::list_tasks,
+            commands_tools_tasks::read_task_output,
+            commands_tools_tasks::kill_task,
             // Fase B0 — cluster system info (parity sidecar systemInfo.js)
             commands_system_info::system_get_info,
             window_minimize,

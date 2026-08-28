@@ -351,7 +351,13 @@ export const api = {
   gitStatus: (cwd) => invoke('git_status', { cwd: cwd || null }),
   gitDiff: (cwd, range) => invoke('git_diff', { cwd: cwd || null, range: range || null }),
   gitCommit: (message, cwd) => invoke('git_commit', { message, cwd: cwd || null }),
-  gitRevert: (target, cwd) => invoke('git_revert', { target, cwd: cwd || null })
+  gitRevert: (target, cwd) => invoke('git_revert', { target, cwd: cwd || null }),
+
+  // ---------- Task daemon (native Rust) ----------
+  runTask: (query) => { const parts = (query || '').split('||'); return invoke('run_task', { taskId: parts[0], command: parts.slice(1).join('||'), cwd: null }) },
+  listTasks: () => invoke('list_tasks'),
+  readTaskOutput: (query) => { const parts = (query || '').split('||'); return invoke('read_task_output', { taskId: parts[0], lines: parts[1] ? Number(parts[1]) : 40 }) },
+  killTask: (taskId) => invoke('kill_task', { taskId })
 }
 
 // Pasang sebelum modul lain dieksekusi (dipanggil paling atas di main.jsx)
