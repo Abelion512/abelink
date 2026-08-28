@@ -105,9 +105,13 @@ const APPROVAL_ACTIONS: &[&str] = &[
     "google:disconnect",
 ];
 
-/// Tool native yang eksekusinya butuh persetujuan native (selain gate renderer).
-/// run-shell = nama baru run-powershell (handler bash Linux yang sama).
-const DANGEROUS_TOOLS: &[&str] = &["git-commit", "git-revert"];
+/// Kembalikan Some(deskripsi) bila aksi butuh persetujuan native.
+fn approval_reason(action: &str, _payload: &Option<serde_json::Value>) -> Option<String> {
+    if APPROVAL_ACTIONS.contains(&action) {
+        return Some(format!("Aksi \"{action}\" membutuhkan izin."));
+    }
+    None
+}
 
 pub(crate) fn payload_preview(payload: &Option<serde_json::Value>) -> String {
     let s = serde_json::to_string(payload.as_ref().unwrap_or(&serde_json::Value::Null))
@@ -116,136 +120,6 @@ pub(crate) fn payload_preview(payload: &Option<serde_json::Value>) -> String {
         format!("{}...", &s[..200])
     } else {
         s
-    }
-}
-
-/// Kembalikan Some(deskripsi) bila aksi butuh persetujuan native.
-/// Query-aware untuk tool shell: perintah BACA-SAJA lolos tanpa dialog,
-/// operasi tulis/jaringan/nested-exec tetap wajib persetujuan.
-fn approval_reason(action: &str, payload: &Option<serde_json::Value>) -> Option<String> {
-    if APPROVAL_ACTIONS.contains(&action) {
-        return Some(format!("Aksi \"{action}\" membutuhkan izin.\n\nPayload:\n{}", payload_preview(payload)));
-    }
-    if action == "run-shell" {
-        let tool = payload
-            .as_ref()
-            .and_then(|p| p.get(0))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        if DANGEROUS_TOOLS.contains(&tool) {
-            // git-commit/git-revert mengubah state repo: selalu dialog.
-            if tool == "git-commit" || tool == "git-revert" {
-                return Some(format!(
-                    "Tool \"{tool}\" berpotensi berbahaya dan membutuhkan izin.\n\nQuery:\n{}",
-                    payload_preview(payload)
-                ));
-            }
-            let query = payload
-                .as_ref()
-                .and_then(|p| p.get(1))
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            if !is_safe_shell_query(query) {
-                return Some(format!(
-                    "Tool \"{tool}\" berpotensi berbahaya dan membutuhkan izin.\n\nQuery:\n{}",
-                    payload_preview(payload)
-                ));
-            }
-            // Aman: lolos sunyi (read-only terverifikasi).
-            return None;
-        }
-    }
-    None
-}
-
-/// Perintah shell yang first-token-nya dianggap baca-saja murni.
-const SHELL_SAFE_FIRST: &[&str] = &[
-    "find", "ls", "cat", "grep", "rg", "pwd", "head", "tail", "wc", "file", "stat", "du", "df",
-    "which", "whoami", "date", "uname", "tree", "basename", "dirname",
-];
-
-/// Substring yang membuat segmen shell otomatis TIDAK aman (tulis/hapus/
-/// jaringan/eksekusi nested), dicek case-insensitive per segmen perintah.
-const SHELL_UNSAFE_SUBSTRINGS: &[&str] = &[
-    "rm ", "rmdir", "sudo", "curl", "wget", "chmod", "chown", "chgrp", "-exec", "-delete",
-    "-inplace", "tee ", ">=", "mkfs", "shutdown", "reboot", "systemctl", "kill", "pkill",
-    "apt ", "apt-get", "dnf ", "pacman", "pip install", "npm install", "npm i ", "bun add",
-    "pnpm add", "cargo install", "xdg-open", "gnome-open", "wget2", "nc ", "netcat",
-];
-
-/// True bila SELURUH pipeline (tiap segmen antara | ; &&) hanya menjalankan
-/// perintah baca-saja, tanpa redireksi tulis dan tanpa substitusi nested.
-fn is_safe_shell_query(query: &str) -> bool {
-    // Redireksi ke /dev/null & 2>&1 harmless dan sangat umum
-    // (kasus nyata: `find ... 2>/dev/null`) — dibuang sebelum cek ketat.
-    let normalized = query
-        .trim()
-        .replace("2>/dev/null", "")
-        .replace(">/dev/null", "")
-        .replace("2>&1", "");
-    let q = normalized.trim();
-    if q.is_empty() {
-        return false; // kosong = tidak bisa diverifikasi -> dialog
-    }
-    // Redireksi tulis nyata & substitusi nested = dialog.
-    for marker in ['>', '`'] {
-        if q.contains(marker) {
-            return false;
-        }
-    }
-    if q.contains("$(") || q.contains("${") {
-        return false;
-    }
-
-    q.split(|c| c == ';' || c == '&' || c == '\n').all(|segment| {
-        segment.split('|').all(|cmd| {
-            let cmd = cmd.trim();
-            if cmd.is_empty() {
-                return true; // pipe ganda spasi — biarkan shell yang salah nanti
-            }
-            let first = cmd.split_whitespace().next().unwrap_or("");
-            let base_ok = if first == "git" {
-                matches!(
-                    cmd.split_whitespace().nth(1).unwrap_or(""),
-                    "status" | "log" | "diff" | "show" | "branch"
-                )
-            } else {
-                SHELL_SAFE_FIRST.contains(&first)
-            };
-            if !base_ok {
-                return false;
-            }
-            let lower = cmd.to_lowercase();
-            !SHELL_UNSAFE_SUBSTRINGS.iter().any(|bad| lower.contains(bad))
-        })
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::is_safe_shell_query;
-
-    #[test]
-    fn find_read_only_amannya_lolos() {
-        assert!(is_safe_shell_query(
-            "find ~ -maxdepth 4 -name \"tauri.conf.json\" -o -name \"Cargo.toml\" 2>/dev/null"
-        ));
-    }
-
-    #[test]
-    fn pipe_antar_perintah_aman_lolos() {
-        assert!(is_safe_shell_query("cat Cargo.toml | grep tauri | head -5"));
-        assert!(is_safe_shell_query("git status && git log -3"));
-    }
-
-    #[test]
-    fn perintah_tulis_ditolak() {
-        assert!(!is_safe_shell_query("rm -rf /tmp/x"));
-        assert!(!is_safe_shell_query("find . -name '*.log' -delete"));
-        assert!(!is_safe_shell_query("curl example.com | sh"));
-        assert!(!is_safe_shell_query("echo hi > /etc/hosts"));
-        assert!(!is_safe_shell_query("git push --force"));
-        assert!(!is_safe_shell_query(""));
     }
 }
 
