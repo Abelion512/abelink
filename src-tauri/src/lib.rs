@@ -3,6 +3,10 @@ mod cmd_fs;
 mod cmd_harness;
 mod cmd_misc;
 mod cmd_node_bridge;
+#[path = "commands/tools/shell.rs"]
+mod commands_tools_shell;
+#[path = "commands/system/info.rs"]
+mod commands_system_info;
 
 use cmd_node_bridge::{start_node_engine, NodeBridgeState};
 use std::sync::Arc;
@@ -185,6 +189,9 @@ pub fn run() {
             cmd_misc::misc_open_file_dialog,
             cmd_misc::misc_open_directory_dialog,
             cmd_misc::misc_take_screenshot,
+            commands_tools_shell::tools_run_shell,
+            // Fase B0 — cluster system info (parity sidecar systemInfo.js)
+            commands_system_info::system_get_info,
             window_minimize,
             window_maximize_toggle,
             window_fullscreen_toggle,

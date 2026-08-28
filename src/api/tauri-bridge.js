@@ -34,6 +34,10 @@ function routeFsTool(toolName, query) {
       if (parts.length < 2) return Promise.resolve({ success: false, message: "Format: path_folder||keyword" })
       return invoke('fs_grep_search', { dir: parts[0], keyword: parts[1] })
     }
+    case 'run-shell': {
+      const [, cwd] = parts
+      return invoke('tools_run_shell', { query: parts[0], cwd: cwd || null })
+    }
     default:
       return null
   }
@@ -118,6 +122,7 @@ export const api = {
   },
   getDocumentsPath: () => invoke('misc_get_documents_path'),
   getLiteMode: () => invoke('misc_get_lite_mode').then((d) => d ?? { isLite: false }),
+  getSystemInfo: () => invoke('system_get_info'),
   ping: () => call('ping'),
 
   // ---------- AI ----------
@@ -152,6 +157,24 @@ export const api = {
   onExecuteMusicCommand: on('execute-music-command'),
   onExecuteMusicCommandTg: (cb) =>
     on('execute-music-command-tg')((command, payload) => cb(command, payload)),
+
+  // --- YouTube Music player bridge (Electron parity) ---
+  // Load YouTube URL in dedicated hidden window
+  ytLoad: (url) => call('yt:load', url),
+  // Show the YouTube player window
+  ytShow: () => call('yt:show'),
+  // Hide the YouTube player window
+  ytHide: () => call('yt:hide'),
+  // Send keyboard/mouse commands to YouTube player
+  ytCommand: (command) => call('yt:command', command),
+  // Get current track duration
+  ytGetDuration: () => call('yt:get-duration'),
+  // Track metadata updates from main process
+  onYtTrackUpdated: on('yt:track-updated'),
+  // Play/pause state sync (real video element state)
+  onYtPlayState: on('yt:play-state'),
+  // Native repeat mode sync (NONE/ALL/ONE)
+  onYtRepeatState: on('yt:repeat-state'),
   tgTakeScreenshot: () => callSafe('tg:take-screenshot'),
   tgDownloadMusic: () => callSafe('tg:download-music'),
   tgPlayMusicUi: () => callSafe('tg:play-music-ui'),

@@ -13,7 +13,7 @@ const MAX_READ_BYTES: u64 = 10 * 1024 * 1024;
 /// File lebih besar dari ini dilewati oleh grep (hindari baca memori rakusasa).
 const MAX_GREP_FILE_BYTES: u64 = 1024 * 1024;
 
-fn workspace_root() -> PathBuf {
+pub fn workspace_root() -> PathBuf {
     let xdg = std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| {
         format!("{}/.local/share", std::env::var("HOME").unwrap_or_default())
     });
