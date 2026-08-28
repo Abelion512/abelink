@@ -348,16 +348,24 @@ export const api = {
   takeScreenshot: () => invoke('misc_take_screenshot'),
 
   // ---------- Git tools (native Rust — mengganti sidecar git-service) ----------
-  gitStatus: (cwd) => invoke('git_status', { cwd: cwd || null }),
-  gitDiff: (cwd, range) => invoke('git_diff', { cwd: cwd || null, range: range || null }),
-  gitCommit: (message, cwd) => invoke('git_commit', { message, cwd: cwd || null }),
-  gitRevert: (target, cwd) => invoke('git_revert', { target, cwd: cwd || null }),
-
-  // ---------- Task daemon (native Rust) ----------
-  runTask: (query) => { const parts = (query || '').split('||'); return invoke('run_task', { taskId: parts[0], command: parts.slice(1).join('||'), cwd: null }) },
+  executeShell: (query, cwd) => invoke('tools_run_shell', { query, cwd: cwd || null }),
+  gitStatus: (query) => invoke('git_status', { cwd: query || null }),
+  gitDiff: (query) => invoke('git_diff', { cwd: null, range: query || null }),
+  gitCommit: (query) => {
+    const parts = (query || '').split('||')
+    return invoke('git_commit', { message: parts[0], cwd: parts[1] || null })
+  },
+  gitRevert: (query) => invoke('git_revert', { target: query, cwd: null }),
+  runTask: (query) => {
+    const parts = (query || '').split('||')
+    return invoke('run_task', { taskId: parts[0], command: parts.slice(1).join('||'), cwd: null })
+  },
+  readTaskOutput: (query) => {
+    const parts = (query || '').split('||')
+    return invoke('read_task_output', { taskId: parts[0], lines: parts[1] ? Number(parts[1]) : 40 })
+  },
+  killTask: (taskId) => invoke('kill_task', { taskId }),
   listTasks: () => invoke('list_tasks'),
-  readTaskOutput: (query) => { const parts = (query || '').split('||'); return invoke('read_task_output', { taskId: parts[0], lines: parts[1] ? Number(parts[1]) : 40 }) },
-  killTask: (taskId) => invoke('kill_task', { taskId })
 }
 
 // Pasang sebelum modul lain dieksekusi (dipanggil paling atas di main.jsx)
