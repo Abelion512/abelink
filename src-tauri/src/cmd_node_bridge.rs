@@ -64,8 +64,6 @@ const ALLOWED_ACTIONS: &[&str] = &[
     "ai:abort-fetch",
     "ai:list-models",
     "sync-config",
-    "native-tool:execute",
-    "native-tool:needs-approval",
     "parse-document",
     // Fase B0: save-temp-file, system:get-lite-mode, app:get-documents-path
     // dipindah ke cmd_misc.rs (Rust native) — sengaja TIDAK dihapus dari komentar
@@ -109,7 +107,7 @@ const APPROVAL_ACTIONS: &[&str] = &[
 
 /// Tool native yang eksekusinya butuh persetujuan native (selain gate renderer).
 /// run-shell = nama baru run-powershell (handler bash Linux yang sama).
-const DANGEROUS_TOOLS: &[&str] = &["run-shell", "run-powershell", "git-commit", "git-revert"];
+const DANGEROUS_TOOLS: &[&str] = &["git-commit", "git-revert"];
 
 pub(crate) fn payload_preview(payload: &Option<serde_json::Value>) -> String {
     let s = serde_json::to_string(payload.as_ref().unwrap_or(&serde_json::Value::Null))
@@ -128,7 +126,7 @@ fn approval_reason(action: &str, payload: &Option<serde_json::Value>) -> Option<
     if APPROVAL_ACTIONS.contains(&action) {
         return Some(format!("Aksi \"{action}\" membutuhkan izin.\n\nPayload:\n{}", payload_preview(payload)));
     }
-    if action == "native-tool:execute" {
+    if action == "run-shell" {
         let tool = payload
             .as_ref()
             .and_then(|p| p.get(0))
