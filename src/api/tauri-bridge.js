@@ -345,7 +345,13 @@ export const api = {
   },
 
   // ---------- Screenshot (Fase B5 native — rute Rust) ----------
-  takeScreenshot: () => invoke('misc_take_screenshot')
+  takeScreenshot: () => invoke('misc_take_screenshot'),
+
+  // ---------- Git tools (native Rust — mengganti sidecar git-service) ----------
+  gitStatus: (cwd) => invoke('git_status', { cwd: cwd || null }),
+  gitDiff: (cwd, range) => invoke('git_diff', { cwd: cwd || null, range: range || null }),
+  gitCommit: (message, cwd) => invoke('git_commit', { message, cwd: cwd || null }),
+  gitRevert: (target, cwd) => invoke('git_revert', { target, cwd: cwd || null })
 }
 
 // Pasang sebelum modul lain dieksekusi (dipanggil paling atas di main.jsx)

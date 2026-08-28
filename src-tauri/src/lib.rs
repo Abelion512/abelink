@@ -5,6 +5,8 @@ mod cmd_misc;
 mod cmd_node_bridge;
 #[path = "commands/tools/shell.rs"]
 mod commands_tools_shell;
+#[path = "commands/tools/git.rs"]
+mod commands_tools_git;
 #[path = "commands/system/info.rs"]
 mod commands_system_info;
 
@@ -190,6 +192,10 @@ pub fn run() {
             cmd_misc::misc_open_directory_dialog,
             cmd_misc::misc_take_screenshot,
             commands_tools_shell::tools_run_shell,
+            commands_tools_git::git_status,
+            commands_tools_git::git_diff,
+            commands_tools_git::git_commit,
+            commands_tools_git::git_revert,
             // Fase B0 — cluster system info (parity sidecar systemInfo.js)
             commands_system_info::system_get_info,
             window_minimize,
