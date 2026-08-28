@@ -14,7 +14,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 /// Paritas dgn engine.mjs (`os.totalmem() <= 4.5e9`).
-const LITE_RAM_THRESHOLD_BYTES: u64 = 4_500_000_000;
+pub(crate) const LITE_RAM_THRESHOLD_BYTES: u64 = 4_500_000_000;
 
 /// Spawn fire-and-forget: child ditunggu thread terpisah agar tidak menjadi zombie.
 fn spawn_detached(cmd: &mut Command) -> Result<(), String> {
@@ -51,7 +51,7 @@ pub fn misc_get_documents_path(app: AppHandle) -> Result<String, String> {
 
 /// Baca MemTotal dari /proc/meminfo (kB). Gagal deteksi -> 0 (dianggap bukan lite,
 /// aman: lebih baik fitur penuh jalan daripada salah masuk mode hemat).
-fn total_ram_bytes_linux() -> u64 {
+pub(crate) fn total_ram_bytes_linux() -> u64 {
     let Ok(s) = std::fs::read_to_string("/proc/meminfo") else {
         return 0;
     };
