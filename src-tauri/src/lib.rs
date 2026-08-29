@@ -15,6 +15,8 @@ mod commands_system_info;
 mod commands_awareness_window_tracker;
 #[path = "commands/tools/os.rs"]
 mod commands_tools_os;
+#[path = "commands/telegram/bot.rs"]
+mod commands_telegram_bot;
 
 use cmd_node_bridge::{start_node_engine, NodeBridgeState};
 use std::collections::{HashMap, VecDeque};
@@ -110,6 +112,7 @@ pub fn run() {
         .manage(Arc::new(NodeBridgeState::new()))
         .manage(commands_tools_tasks::TasksState(Arc::new(Mutex::new(HashMap::new()))))
         .manage(commands_tools_tasks::TaskOutputsState(Arc::new(Mutex::new(HashMap::new()))))
+        .manage(commands_telegram_bot::TelegramState(Arc::new(Mutex::new(commands_telegram_bot::TelegramInner::new(String::new())))))
         .setup(|app| {
             // ---- Sidecar node engine ----
             let handle = app.handle().clone();
@@ -126,6 +129,10 @@ pub fn run() {
                 Arc::new(Mutex::new(VecDeque::new())),
             ));
             commands_awareness_window_tracker::start_window_tracker(app.handle().clone());
+
+            // ---- Telegram state (replaces telegram-service.js native commands) ----
+            // Bot event loop tetap di JS (Telegraf); ini hanya API send-message + broadcast.
+            // (state di-manage di builder chain atas agar tersedia sebelum setup)
 
             // ---- Tray (Linux: Ayatana AppIndicator) ----
             let show = MenuItem::with_id(app, "show", "Tampilkan MARK", true, None::<&str>)?;
@@ -233,6 +240,11 @@ pub fn run() {
             commands_tools_os::os_control_close,
             // Fase B0 — cluster system info (parity sidecar systemInfo.js)
             commands_system_info::system_get_info,
+            commands_telegram_bot::telegram_configure,
+            commands_telegram_bot::telegram_send_message,
+            commands_telegram_bot::telegram_broadcast_to_admins,
+            commands_telegram_bot::telegram_register_admin_chat,
+            commands_telegram_bot::telegram_status,
             commands_awareness_window_tracker::awareness_get_buffer,
             commands_awareness_window_tracker::awareness_clear_buffer,
             window_minimize,

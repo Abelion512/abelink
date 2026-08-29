@@ -194,14 +194,14 @@ export const api = {
   onTgThinking: onTg('tg:thinking'),
   onTgRequestAgentExecution: onTg('tg:request-agent-execution'),
   sendTgAgentExecutionDone: (data) => call('tg:agent-execution-done', data),
-  tgSendMessage: (chatId, text) => call('tg:send-message', { chatId, text }),
+  tgSendMessage: (chatId, text) => invoke('telegram_send_message', { chat_id: chatId, text }),
   tgBroadcastToAdmins: async (text) => {
     // Guard di satu titik: bot tidak terhubung = no-op sunyi, bukan rejection
     // yang menyulut unhandled promise rejection tiap giliran agen.
     try {
       const st = await call('tg:get-status')
       if (!st || st.status !== 'connected') return { skipped: true }
-      return call('tg:broadcast-to-admins', text)
+      return invoke('telegram_broadcast_to_admins', { text })
     } catch (_) {
       return { skipped: true }
     }
