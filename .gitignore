@@ -71,3 +71,24 @@ src-tauri/gen/schemas/
 
 # scratch verifikasi agent (baseline lint), jangan commit
 .lint-baseline/
+
+# artefak tracker/generator (HTML dashboard, audit report, generated docs)
+*project-tracker*
+*mark-agent-tracker*
+
+# scratch docs/session notes (proyek lain / non-mark-linux)
+/docs/PLANNED/
+docs/.screenshoots/
+docs/DRIFT_MANIFEST.md
+/docs/archive//
+
+# scratch scripts non-kritis (task automation lain, bukan bagian inti mark)
+scripts/ask-ais.mjs
+scripts/rsi-evaluate.mjs
+scripts/rsi-improve.mjs
+scripts/auto-detect-upstream.mjs
+scripts/import-tiktok-cookies.mjs
+scripts/build-manifest.mjs
+scripts/bump-version.mjs
+scripts/sync-version.mjs
+scripts/mark-update.mjs
