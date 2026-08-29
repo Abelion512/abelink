@@ -67,7 +67,7 @@ export function getProfileConfig(profileName = 'STANDARD') {
 
 // Get active profile (from stored config or auto-detect)
 export async function getActiveProfile() {
-  const { getAppConfig } = await import('./db')
+  const { getAppConfig } = await import('../api/db')
   const stored = await getAppConfig('hardwareProfile')
   if (stored && PROFILES[stored]) return stored
   const detected = detectHardwareProfile()
@@ -78,7 +78,7 @@ export async function getActiveProfile() {
 // Apply profile to config flags
 export async function applyProfile(profileName) {
   const config = getProfileConfig(profileName)
-  const { setAppConfig } = await import('./db')
+  const { setAppConfig } = await import('../api/db')
   await Promise.all([
     setAppConfig('hardwareProfile', profileName),
     setAppConfig('autoProfile', config)
