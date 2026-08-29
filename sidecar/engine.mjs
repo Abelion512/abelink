@@ -263,6 +263,34 @@ on('remote-music-command', async (command, payload) => {
   emit('execute-music-command', { command, payload })
   return true
 })
+
+// ---------------------------------------------------- YouTube Music player bridge (Tauri)
+// Stub handlers — Tauri belum punya window terpisah seperti Electron BrowserWindow.
+// Rencanakan: multi-window Tauri WebviewWindow untuk load youtube.com.
+// Untuk sekarang: return response yang aman supaya frontend ga crash.
+on('yt:load', async (url) => {
+  // Future: spawn Tauri WebviewWindow, load youtube.com/music
+  // Emit event saat track berubah via yt:track-updated
+  return { success: true, message: 'yt:load not yet implemented in Tauri (needs WebviewWindow)' }
+})
+
+on('yt:show', async () => {
+  return { success: true, message: 'yt:show not yet implemented in Tauri' }
+})
+
+on('yt:hide', async () => {
+  return { success: true, message: 'yt:hide not yet implemented in Tauri' }
+})
+
+on('yt:command', async (command) => {
+  // Supported: next, prev, playPause, repeat, queue
+  // Future: inject JS into YouTube WebviewWindow
+  return { success: false, message: `yt:command '${command}' not yet implemented in Tauri` }
+})
+
+on('yt:get-duration', async () => {
+  return { success: false, data: 0, message: 'yt:get-duration not yet implemented in Tauri' }
+})
 // Pencarian lagu via ytmusic-api (lazy; instance di-init sekali). Hasil
 // DINORMALKAN ke kontrak lama yt-search ({id,title,artist,duration,url,...})
 // karena konsumen (getBestMusicMatch, YoutubeMusicPlayer) bergantung padanya —

@@ -24,6 +24,7 @@ import { pauseStaleAgentTasks } from './api/taskStore'
 import { setLiteMode } from './api/vectorMemory'
 import WhatNew from './components/WhatNew'
 import whatsNewData from './data/whats-new.json'
+import { initErrorGuard } from './utils/errorGuard'
 
 const GlobalListener = () => {
   const navigate = useNavigate()
@@ -251,6 +252,11 @@ function App() {
       setShowRecovery(true)
     }, 15000)
     return () => clearTimeout(timer)
+  }, [])
+
+  // Error guard: deteksi error/warning umum + auto-fix
+  useEffect(() => {
+    initErrorGuard()
   }, [])
 
   // What's New dibuka manual dari item teratas hamburger (bukan auto-popup).

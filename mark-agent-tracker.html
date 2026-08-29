@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MARK Agent Project Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-card: #1a1a2e;
+    --border: #2a2a3e;
+    --text-primary: #e8e8f0;
+    --text-secondary: #8888a8;
+    --accent-blue: #3b82f6;
+    --accent-cyan: #06b6d4;
+    --accent-green: #10b981;
+    --accent-purple: #8b5cf6;
+  }
+
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+
+  .header { text-align: center; margin-bottom: 32px; padding: 32px 0; border-bottom: 1px solid var(--border); }
+  .header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 36px; font-weight: 700; margin-bottom: 8px; }
+  .header .subtitle { font-size: 14px; color: var(--text-secondary); }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+  .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; text-align: center; }
+  .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700; color: var(--accent-blue); }
+  .stat-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; }
+
+  .section { margin-bottom: 32px; }
+  .section-title { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600; margin-bottom: 24px; }
+
+  .milestones { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 24px; }
+  .milestone { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+  .milestone-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent-green); }
+  .milestone-content { flex: 1; }
+  .milestone-name { font-weight: 500; font-size: 14px; }
+  .milestone-desc { font-size: 12px; color: var(--text-secondary); }
+  .milestone-date { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-secondary); }
+
+  .goals-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 16px; }
+  .goal-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+  .goal-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+  .goal-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(42,42,62,0.3); }
+  .goal-item:last-child { border-bottom: none; }
+  .goal-check { width: 18px; height: 18px; border-radius: 4px; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; }
+  .goal-check.done { background: var(--accent-green); border-color: var(--accent-green); color: var(--bg-card); }
+  .goal-text { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+
+  .problems { margin-top: 24px; }
+  .problem-row { display: flex; gap: 16px; margin-bottom: 16px; }
+  .problem-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; flex: 1; }
+  .problem-title { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent-cyan); margin-bottom: 8px; }
+  .problem-desc { font-size: 12px; color: var(--text-primary); }
+  .problem-solved { border-left: 3px solid var(--accent-green); }
+
+  .tech-stack { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 24px; }
+  .tech-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .tech-item { text-align: center; padding: 16px; }
+  .tech-value { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--accent-cyan); font-weight: 500; margin-bottom: 4px; }
+  .tech-label { font-size: 11px; color: var(--text-secondary); }
+
+  .commits { margin-top: 24px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-secondary); }
+  .commit-row { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(42,42,62,0.3); }
+  .commit-hash { color: var(--accent-cyan); }
+  .commit-message { color: var(--text-primary); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <h1>MARK Agent Project Tracker</h1>
+  <div class="subtitle">Linux Edition - Status Monitoring</div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-value">68%</div>
+    <div class="stat-label">Overall Progress</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">50</div>
+    <div class="stat-label">Commits</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">1.0.0</div>
+    <div class="stat-label">Version</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">13.2K</div>
+    <div class="stat-label">LOC</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Milestones</div>
+  <div class="milestones">
+    <div class="milestone">
+      <div class="milestone-dot"></div>
+      <div class="milestone-content">
+        <div class="milestone-name">Tauri v2 Migration</div>
+        <div class="milestone-desc">A1-A2: Setup Tauri + scaffold src-tauri</div>
+        <div class="milestone-date">Completed</div>
+      </div>
+    </div>
+    <div class="milestone">
+      <div class="milestone-dot"></div>
+      <div class="milestone-content">
+        <div class="milestone-name">Native Linux Features</div>
+        <div class="milestone-desc">A3-A5: Tray, IPC, File-ops, Window controls</div>
+        <div class="milestone-date">Completed</div>
+      </div>
+    </div>
+    <div class="milestone">
+      <div class="milestone-dot"></div>
+      <div class="milestone-content">
+        <div class="milestone-name">Core Features</div>
+        <div class="milestone-desc">Memory, Tools, Vision, Voice, RAG</div>
+        <div class="milestone-date">Completed</div>
+      </div>
+    </div>
+    <div class="milestone">
+      <div class="milestone-dot"></div>
+      <div class="milestone-content">
+        <div class="milestone-name">Lite Mode & CI</div>
+        <div class="milestone-desc">RAM-aware optimizations, GitHub Actions</div>
+        <div class="milestone-date">In Progress</div>
+      </div>
+    </div>
+    <div class="milestone">
+      <div class="milestone-dot"></div>
+      <div class="milestone-content">
+        <div class="milestone-name">v1.0.0-alpha.1 Release</div>
+        <div class="milestone-desc">Production build + AppImage/deb packaging</div>
+        <div class="milestone-date">Planned</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Goals</div>
+  <div class="goals-grid">
+    <div class="goal-card">
+      <div class="goal-title">Final Goals</div>
+      <div style="margin-top: 12px;">
+        <div class="goal-item">
+          <div class="goal-check done">&#x2713;</div>
+          <div class="goal-text"><strong>Tauri v2 Stable Build</strong><br>Production-ready Tauri application</div>
+        </div>
+        <div class="goal-item">
+          <div class="goal-check done">&#x2713;</div>
+          <div class="goal-text"><strong>Native Linux Integration</strong><br>XDG paths, bash shell, linux-daemon.py</div>
+        </div>
+        <div class="goal-item">
+          <div class="goal-check done">&#x2713;</div>
+          <div class="goal-text"><strong>Feature Completeness</strong><br>All core features ported from Windows version</div>
+        </div>
+        <div class="goal-item">
+          <div class="goal-check" style="background: var(--accent-cyan); border-color: var(--accent-cyan);">→</div>
+          <div class="goal-text"><strong>Distributions Ready</strong><br>AppImage, .deb packages with auto-updates</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Problems & Solutions</div>
+  <div class="problems">
+    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+      <div class="problem-card" style="flex: 2;">
+        <div class="problem-title" style="color: var(--accent-cyan); margin-bottom: 8px;">⚠️ ACTIVE PROBLEMS</div>
+        <div class="problem-desc" style="margin-bottom: 12px;"><strong>WebAssembly SIMD Detection</strong><br>Need robust fallback detection for browsers that don't support WASM SIMD in embedded Chromium.</div>
+        <div class="problem-desc"><strong>AppImage Portability</strong><br>Packaging must handle dependencies (libwebkit2gtk, ffmpeg) across Ubuntu/Fedora/Arch variations.</div>
+      </div>
+      <div class="problem-card problem-solved">
+        <div class="problem-title" style="color: var(--accent-green); margin-bottom: 8px;">✓ SOLVED</div>
+        <div style="font-size: 12px; color: var(--text-secondary);">
+          <div style="margin-bottom: 8px;"><strong>JavaScript Bundle Optimization</strong><br>Lazy loading implementation reduced initial load by 40%.</div>
+          <div style="margin-bottom: 8px;"><strong>Security Hardenning</strong><br>IPC deny-by-default, containerization restored.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Tech Stack</div>
+  <div class="tech-stack">
+    <div class="tech-grid">
+      <div class="tech-item">
+        <div class="tech-value">Tauri 2.0</div>
+        <div class="tech-label">Backend (Rust)</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-value">React 19</div>
+        <div class="tech-label">Frontend</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-value">Vite 7</div>
+        <div class="tech-label">Bundler</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-value">Bun</div>
+        <div class="tech-label">Package Manager</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-value">WebRTC</div>
+        <div class="tech-label">Vision/Audio</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-value">Gemini/Groq</div>
+        <div class="tech-label">AI Providers</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-value">Transformers.js</div>
+        <div class="tech-label">Embeddings</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-value">Postgres/IndexedDB</div>
+        <div class="tech-label">Database</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-value">Orama</div>
+        <div class="tech-label">Search Engine</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Recent Commits</div>
+  <div class="commits">
+    <div class="commit-row">
+      <span class="commit-hash">65f0198</span>
+      <span class="commit-message">ci: restore tests/harness/ required by test:harness workflow</span>
+    </div>
+    <div class="commit-row">
+      <span class="commit-hash">35eff80</span>
+      <span class="commit-message">fix: wrap first-boot Configuration with HashRouter</span>
+    </div>
+    <div class="commit-row">
+      <span class="commit-hash">02ce93c</span>
+      <span class="commit-message">feat(ui)+fix: musik iframe-API, approval query-aware</span>
+    </div>
+    <div class="commit-row">
+      <span class="commit-hash">66f8114</span>
+      <span class="commit-message">feat: tur setup minimal + lazy load + window controls wizard</span>
+    </div>
+    <div class="commit-row">
+      <span class="commit-hash">c57557e</span>
+      <span class="commit-message">feat(config): deteksi model /v1/models + perbaiki blok save Groq</span>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>
