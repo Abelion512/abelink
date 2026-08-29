@@ -364,24 +364,41 @@ function App() {
         // -----------------
       }
 
-      // 2.5 Auto-profile: detect hardware + apply resource preset
-      // Analogy: seperti n8n auto-detect worker threads
-      try {
-        const { getActiveProfile, getAppConfig } = await import('./utils/autoProfile')
-        const profileName = await getActiveProfile()
-        const profileConfig = await getAppConfig('autoProfile')
-        if (profileConfig) {
-          console.log(`[Profile] Sisa-sisa dukungan hardware: ${profileConfig.label}`)
-          window.dispatchEvent(new CustomEvent('profile-applied', { detail: profileConfig }))
-        }
-      } catch (e) {
-        console.warn('[Profile] Auto-detection gagal, pakai default:', e)
-      }
-
       setIsChecking(false)
     }
     checkConfig()
   }, [])
+
+  // Resource Mode chooser: pilihan pertama kali jalan, disimpan ke localStorage
+  const [showResourceChooser, setShowResourceChooser] = useState(false)
+  const [resourceMode, setResourceMode] = useState(null)
+
+  useEffect(() => {
+    // Cek apakah user sudah pilih mode sebelumnya
+    const saved = localStorage.getItem('mark:resource-mode')
+    if (!saved && !isChecking && hasConfig === false) {
+      // First boot — tanya pilihan mode sebelum lanjut
+      setShowResourceChooser(true)
+    } else if (saved) {
+      setResourceMode(saved)
+    }
+  }, [isChecking, hasConfig])
+
+  const chooseResourceMode = (mode) => {
+    setResourceMode(mode)
+    localStorage.setItem('mark:resource-mode', mode)
+    setShowResourceChooser(false)
+    // Apply preset — restart untuk load dengan config baru
+    if (mode === 'semua') {
+      // Semua fitur aktif — Orama + Whisper di-load
+      window.dispatchEvent(new CustomEvent('profile-applied', { detail: { enableWorkspaceRAG: true, enableVoiceSTT: true } }))
+    } else {
+      // Hemat resource — lazy load on demand
+      window.dispatchEvent(new CustomEvent('profile-applied', { detail: { enableWorkspaceRAG: false, enableVoiceSTT: false } }))
+    }
+    // Reload untuk apply preset
+    setTimeout(() => window.location.reload(), 300)
+  }
 
   if (isChecking) {
     return (
@@ -420,22 +437,25 @@ function App() {
     )
   }
 
+  // First-boot flow: Resource Mode first, then Legacy recovery (if any), then Configuration wizard
+  const bootChoice = localStorage.getItem('mark:first-boot-choice')
+  const resourceChoice = localStorage.getItem('mark:resource-mode')
+
   if (!hasConfig) {
-    // Wizard setup tetap butuh kontrol window (minimize/close dsb.) —
-    // jangan biarkan cabang ini tampil tanpa titlebar.
-    const choiceMade = localStorage.getItem('mark:first-boot-choice')
-    const showChooser =
-      Array.isArray(legacyProfiles) && legacyProfiles.length > 0 && !choiceMade && !wizardAutoImport
+    const showLegacyChooser =
+      Array.isArray(legacyProfiles) && legacyProfiles.length > 0 && !bootChoice && !wizardAutoImport
 
     const settleChoice = (value) => {
       localStorage.setItem('mark:first-boot-choice', value)
-      if (!choiceMade) localStorage.setItem('mark:first-boot-choice', value)
     }
 
     return (
       <HashRouter>
         <WindowControls />
-        {showChooser ? (
+        {showResourceChooser && (
+          <ResourceModeChooser />
+        )}
+        {showLegacyChooser ? (
           <FirstBootChoiceScreen
             profiles={legacyProfiles}
             onFresh={() => {
@@ -452,7 +472,7 @@ function App() {
             isFirstSetup={true}
             initialLegacyImport={wizardAutoImport}
             onSetupComplete={() => {
-              if (!localStorage.getItem('mark:first-boot-choice')) {
+              if (!bootChoice) {
                 localStorage.setItem('mark:first-boot-choice', 'setup-complete')
               }
               window.location.reload()
@@ -464,6 +484,44 @@ function App() {
   }
 
   const isStandalone = window.location.hash.includes('telegram-bot')
+
+  // Resource Mode chooser modal — first boot only
+  const ResourceModeChooser = () => (
+    <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-sm flex items-center justify-center p-6">
+      <div className="max-w-lg w-full bg-base-200/95 border border-white/10 rounded-2xl shadow-2xl p-7 space-y-5 animate-fade-in">
+        <h2 className="text-xl font-bold">Pilih Mode Penggunaan</h2>
+        <p className="text-sm opacity-70 leading-relaxed">
+          Laptop spesifikasi rendah (4GB, integrated graphics) atau ingin semua fitur aktif langsung?
+        </p>
+
+        <button
+          onClick={() => chooseResourceMode('hemat')}
+          className="w-full btn btn-outline btn-sm py-6 flex flex-col items-start gap-2"
+        >
+          <span className="font-medium">Hemat Resource</span>
+          <span className="text-xs opacity-60 text-left">
+            Fitur berat (Whisper STT, RAG indexing) dimuat hanya saat dipakai.
+            Hemat ~100MB RAM saat idle. Cocok untuk laptop 4GB.
+          </span>
+        </button>
+
+        <button
+          onClick={() => chooseResourceMode('semua')}
+          className="w-full btn btn-primary btn-sm py-6 flex flex-col items-start gap-2"
+        >
+          <span className="font-medium">Semua Fitur Aktif</span>
+          <span className="text-xs opacity-60 text-left">
+            Whisper STT dan RAG langsung siap pakai.
+            Cocok untuk laptop 16GB+ atau desktop.
+          </span>
+        </button>
+
+        <p className="text-[11px] opacity-40">
+          Pilihan ini hanya ditanyakan sekali. Bisa diubah kapan saja di Settings → Configuration.
+        </p>
+      </div>
+    </div>
+  )
 
   const handleWhatsNewClose = async () => {
     setShowWhatsNew(false)
