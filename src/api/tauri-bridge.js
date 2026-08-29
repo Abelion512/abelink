@@ -272,16 +272,16 @@ export const api = {
   onBrowserPreview: on('browser:preview'),
   showBrowserWindow: (sessionId = 'default') => call('browser:show', sessionId),
 
-  // ---------- PC automation (fase B6) ----------
-  osRead: (...a) => call('os:read', ...a),
-  osClick: (...a) => call('os:click', ...a),
-  osType: (...a) => call('os:type', ...a),
-  osKey: (...a) => call('os:key', ...a),
-  osScroll: (...a) => call('os:scroll', ...a),
-  osOpen: (...a) => call('os:open', ...a),
-  osListWindows: () => call('os:list-windows'),
-  osFocusWindow: (title) => call('os:focus-window', title),
-  osAskUser: (prompt) => call('os:ask-user', prompt),
+  // ---------- PC automation (fase B2 — native Rust xdotool) ----------
+  osRead: () => invoke('os_read'),
+  osClick: (q) => invoke('os_click', { query: q }),
+  osType: (text) => invoke('os_type', { text }),
+  osKey: (key) => invoke('os_key', { key }),
+  osScroll: (q) => invoke('os_scroll', { query: q }),
+  osOpen: (path) => invoke('os_open', { query: path }),
+  osListWindows: () => invoke('os_list_windows'),
+  osFocusWindow: (title) => invoke('os_focus_window', { query: title }),
+  osAskUser: (prompt) => invoke('os_ask', { prompt }),
 
   // ---------- Skills ----------
   getSkills: () => call('skills:get-all'),

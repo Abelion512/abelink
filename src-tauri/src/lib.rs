@@ -13,6 +13,8 @@ mod commands_tools_tasks;
 mod commands_system_info;
 #[path = "commands/awareness/window_tracker.rs"]
 mod commands_awareness_window_tracker;
+#[path = "commands/tools/os.rs"]
+mod commands_tools_os;
 
 use cmd_node_bridge::{start_node_engine, NodeBridgeState};
 use std::collections::{HashMap, VecDeque};
@@ -214,6 +216,21 @@ pub fn run() {
             commands_tools_tasks::list_tasks,
             commands_tools_tasks::read_task_output,
             commands_tools_tasks::kill_task,
+            // Fase B2 — PC automation tools (os-*) via xdotool
+            commands_tools_os::os_click,
+            commands_tools_os::os_double_click,
+            commands_tools_os::os_delay,
+            commands_tools_os::os_type,
+            commands_tools_os::os_key,
+            commands_tools_os::os_scroll,
+            commands_tools_os::os_read,
+            commands_tools_os::os_list_windows,
+            commands_tools_os::os_focus_window,
+            commands_tools_os::os_open,
+            commands_tools_os::os_search,
+            commands_tools_os::os_ask,
+            commands_tools_os::os_control_open,
+            commands_tools_os::os_control_close,
             // Fase B0 — cluster system info (parity sidecar systemInfo.js)
             commands_system_info::system_get_info,
             commands_awareness_window_tracker::awareness_get_buffer,
