@@ -11,9 +11,11 @@ mod commands_tools_git;
 mod commands_tools_tasks;
 #[path = "commands/system/info.rs"]
 mod commands_system_info;
+#[path = "commands/awareness/window_tracker.rs"]
+mod commands_awareness_window_tracker;
 
 use cmd_node_bridge::{start_node_engine, NodeBridgeState};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use tauri::{
     Manager,
@@ -116,6 +118,13 @@ pub fn run() {
                 }
             });
 
+            // ---- Window tracker (replaces sidecar/window-tracker.js) ----
+            // Depends on: xdotool, xprintidle (see docs/superpowers/specs/)
+            app.manage(commands_awareness_window_tracker::WindowTrackerState(
+                Arc::new(Mutex::new(VecDeque::new())),
+            ));
+            commands_awareness_window_tracker::start_window_tracker(app.handle().clone());
+
             // ---- Tray (Linux: Ayatana AppIndicator) ----
             let show = MenuItem::with_id(app, "show", "Tampilkan MARK", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Keluar", true, None::<&str>)?;
@@ -207,6 +216,8 @@ pub fn run() {
             commands_tools_tasks::kill_task,
             // Fase B0 — cluster system info (parity sidecar systemInfo.js)
             commands_system_info::system_get_info,
+            commands_awareness_window_tracker::awareness_get_buffer,
+            commands_awareness_window_tracker::awareness_clear_buffer,
             window_minimize,
             window_maximize_toggle,
             window_fullscreen_toggle,

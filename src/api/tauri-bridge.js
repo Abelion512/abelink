@@ -145,8 +145,8 @@ export const api = {
   onAiStatus: on('ai:status'),
 
   // ---------- Awareness ----------
-  getActivityBuffer: () => call('awareness:get-buffer'),
-  clearActivityBuffer: () => call('awareness:clear-buffer'),
+  getActivityBuffer: () => invoke('awareness_get_buffer'),
+  clearActivityBuffer: () => invoke('awareness_clear_buffer'),
 
   // ---------- YouTube / Music ----------
   getYoutubeTranscript: (url) => call('get-youtube-transcript', url),
