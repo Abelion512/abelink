@@ -5,7 +5,7 @@
   "identifier": "mark-linux",
   "build": {
     "beforeDevCommand": "bun run dev",
-    "devUrl": "http://localhost:1422",
+    "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "bun run build",
     "frontendDist": "../dist"
   },
