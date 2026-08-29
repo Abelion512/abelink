@@ -23,6 +23,7 @@ import { initOramaIndices, hydrateFromDexie } from './api/oramaStore'
 import { pauseStaleAgentTasks } from './api/taskStore'
 import { setLiteMode } from './api/vectorMemory'
 import WhatNew from './components/WhatNew'
+import { detectHardwareProfile, getProfileConfig } from './utils/autoProfile'
 import whatsNewData from './data/whats-new.json'
 import { initErrorGuard } from './utils/errorGuard'
 
@@ -278,26 +279,30 @@ function App() {
         console.error('[App] Failed to get lite mode status:', e)
       }
 
-      // 1. Init Orama and Hydrate from Dexie
+      // 1. Init Orama + Hydrate — GATED by hardware profile (skip di MINIMAL)
+      // Analogy: n8n hanya spawn worker kalau ada workflow yang butuh, bukan saat startup.
+      let profileConfig = null
       try {
-        setLoadingText('Memuat Knowledge Base...')
-        await initOramaIndices()
-        await hydrateFromDexie((current, total) => {
-          setLoadingText(`Mengindeks memori percakapan lama (${current}/${total})...`)
-        })
-        // Recovery saat boot: task yang terputus tidak boleh tetap berstatus running.
-        const pausedTaskCount = await pauseStaleAgentTasks('app_restart')
-        if (pausedTaskCount > 0) {
-          console.log(`[App] ${pausedTaskCount} durable task dipause setelah restart.`)
+        profileConfig = getProfileConfig(detectHardwareProfile())
+        const shouldInitRAG = profileConfig.enableWorkspaceRAG || profileConfig.ragTrigger === 'auto'
+        if (shouldInitRAG) {
+          setLoadingText('Memuat Knowledge Base...')
+          await initOramaIndices()
+          await hydrateFromDexie((current, total) => {
+            setLoadingText(`Mengindeks memori percakapan lama (${current}/${total})...`)
+          })
+          console.log('[App] Orama indices ready (RAG profile)')
+        } else {
+          console.log('[App] Orama skipped — MINIMAL profile (lazy-load on demand)')
         }
-        console.log('[App] Orama indices ready!')
       } catch (e) {
         console.error('[App] Failed to init Orama:', e)
       }
 
-      // 1.5 Load Embeddings Model (skip in lite mode)
+      // 1.5 Load Embeddings Model (skip in lite mode + MINIMAL profile)
       try {
-        if (!lm?.isLite) {
+        const shouldLoadVectors = profileConfig?.enableWorkspaceRAG !== false && !lm?.isLite
+        if (shouldLoadVectors) {
           setLoadingText('Memuat Memori Kognitif...')
           const { getExtractor } = await import('./api/vectorMemory')
           let memStats = {}
@@ -322,6 +327,8 @@ function App() {
               setLoadingText('Membangunkan Mark...')
             }
           })
+        } else {
+          console.log('[App] Vector model skipped — lazy-load on demand')
         }
       } catch (e) {
         console.error('[App] Failed to load Transformers:', e)
@@ -356,6 +363,21 @@ function App() {
         } catch (_) {}
         // -----------------
       }
+
+      // 2.5 Auto-profile: detect hardware + apply resource preset
+      // Analogy: seperti n8n auto-detect worker threads
+      try {
+        const { getActiveProfile, getAppConfig } = await import('./utils/autoProfile')
+        const profileName = await getActiveProfile()
+        const profileConfig = await getAppConfig('autoProfile')
+        if (profileConfig) {
+          console.log(`[Profile] Sisa-sisa dukungan hardware: ${profileConfig.label}`)
+          window.dispatchEvent(new CustomEvent('profile-applied', { detail: profileConfig }))
+        }
+      } catch (e) {
+        console.warn('[Profile] Auto-detection gagal, pakai default:', e)
+      }
+
       setIsChecking(false)
     }
     checkConfig()

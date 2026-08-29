@@ -129,6 +129,27 @@ db.version(22).stores({
   chatTurns: 'pairId, sessionId, timestamp'
 })
 
+db.version(23).stores({
+  appConfig: 'key'
+})
+
+// --- APP CONFIG (feature flags, hardware profile, etc.) ---
+export async function getAppConfig(key, fallback = null) {
+  try {
+    const row = await db.appConfig.get(key)
+    if (row === undefined) return fallback
+    // Parse JSON jika value terlihat seperti object/array, else return string
+    const v = row.value
+    if (v === 'true') return true
+    if (v === 'false') return false
+    try { return JSON.parse(v) } catch { return v }
+  } catch { return fallback }
+}
+
+export async function setAppConfig(key, value) {
+  await db.appConfig.put({ key, value: typeof value === 'string' ? value : JSON.stringify(value) })
+}
+
 // --- VALIDATION ---
 const VALID_TYPES = ['profile', 'preference', 'notes', 'learn'];
 
