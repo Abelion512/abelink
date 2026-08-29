@@ -426,8 +426,23 @@ function App() {
     const showLegacyChooser =
       Array.isArray(legacyProfiles) && legacyProfiles.length > 0 && !choiceMade && !wizardAutoImport
 
-    const settleChoice = (value) => {
+    // First-boot fresh install: auto-create minimal config + go to MarkHome
+    const settleChoice = async (value) => {
       localStorage.setItem('mark:first-boot-choice', value)
+      // Auto-create minimal config + navigate to MarkHome
+      const defaultConfig = {
+        id: 1,
+        model: 'gemini-3.5-flash',
+        temperature: 0.7,
+        context: 10,
+        aiProvider: 'gemini-web',
+        awarenessEnabled: false,
+        windowOpacity: 1,
+        lastSeenWhatsNewVersion: null
+      }
+      await saveConfiguration(defaultConfig)
+      setHasConfig(true)
+      window.location.replace('/')
     }
 
     return (
@@ -438,11 +453,9 @@ function App() {
             profiles={legacyProfiles}
             onFresh={() => {
               settleChoice('fresh')
-              setLegacyProfiles([])
             }}
             onRestore={() => {
               settleChoice('restore')
-              setWizardAutoImport(true)
             }}
           />
         ) : (
@@ -453,7 +466,7 @@ function App() {
               if (!localStorage.getItem('mark:first-boot-choice')) {
                 localStorage.setItem('mark:first-boot-choice', 'setup-complete')
               }
-              window.location.reload()
+              window.location.replace('/')
             }}
           />
         )}
@@ -462,44 +475,6 @@ function App() {
   }
 
   const isStandalone = window.location.hash.includes('telegram-bot')
-
-  // Resource Mode chooser modal — first boot only
-  const ResourceModeChooser = () => (
-    <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-sm flex items-center justify-center p-6">
-      <div className="max-w-lg w-full bg-base-200/95 border border-white/10 rounded-2xl shadow-2xl p-7 space-y-5 animate-fade-in">
-        <h2 className="text-xl font-bold">Pilih Mode Penggunaan</h2>
-        <p className="text-sm opacity-70 leading-relaxed">
-          Laptop spesifikasi rendah (4GB, integrated graphics) atau ingin semua fitur aktif langsung?
-        </p>
-
-        <button
-          onClick={() => chooseResourceMode('hemat')}
-          className="w-full btn btn-outline btn-sm py-6 flex flex-col items-start gap-2"
-        >
-          <span className="font-medium">Hemat Resource</span>
-          <span className="text-xs opacity-60 text-left">
-            Fitur berat (Whisper STT, RAG indexing) dimuat hanya saat dipakai.
-            Hemat ~100MB RAM saat idle. Cocok untuk laptop 4GB.
-          </span>
-        </button>
-
-        <button
-          onClick={() => chooseResourceMode('semua')}
-          className="w-full btn btn-primary btn-sm py-6 flex flex-col items-start gap-2"
-        >
-          <span className="font-medium">Semua Fitur Aktif</span>
-          <span className="text-xs opacity-60 text-left">
-            Whisper STT dan RAG langsung siap pakai.
-            Cocok untuk laptop 16GB+ atau desktop.
-          </span>
-        </button>
-
-        <p className="text-[11px] opacity-40">
-          Pilihan ini hanya ditanyakan sekali. Bisa diubah kapan saja di Settings → Configuration.
-        </p>
-      </div>
-    </div>
-  )
 
   const handleWhatsNewClose = async () => {
     setShowWhatsNew(false)

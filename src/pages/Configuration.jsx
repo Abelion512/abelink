@@ -258,20 +258,7 @@ const Configuration = ({
     setLoadingMemory(false)
   }
 
-  // Replay panduan (mode normal): reveal semua section selama tur berjalan
-  // supaya spotlight tidak pernah mendarat di section yang sedang hidden.
-  const startGuidedTour = () => {
-    setTouring(true)
-    // Tunggu satu frame agar reveal ter-render sebelum driver mengukur posisi.
-    requestAnimationFrame(() => {
-      const obj = startDriverTour(buildSetupTourSteps(), {
-        ...TOUR_OPTIONS,
-        onDestroyed: () => setTouring(false)
-      })
-      if (!obj) setTouring(false)
-    })
-  }
-
+  
   // ── Autosave: debounce 700ms setelah perubahan terakhir (mode normal) ──
   // Wizard tidak ikut — dia punya alur "Simpan & Mulai" eksplisit.
   useEffect(() => {
@@ -694,16 +681,7 @@ const Configuration = ({
                         : `Tersimpan ${saveStatus.at.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
                 </span>
               )}
-              {!isFirstSetup && (
-                <button
-                  onClick={startGuidedTour}
-                  className="btn btn-ghost btn-sm btn-circle"
-                  title="Lihat panduan singkat"
-                >
-                  <FaQuestionCircle className="text-lg opacity-60" />
-                </button>
-              )}
-            </div>
+                          </div>
 
           {isFirstSetup && legacyProfiles.length > 0 && (
             <div className="alert bg-base-200/70 border border-warning/30 text-sm flex-col items-start gap-2 my-3">
@@ -732,7 +710,7 @@ const Configuration = ({
           </div>
 
           {/* ── AI Engine & Tools ── */}
-          <section id="cfg-ai-engine" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-ai-engine' ? 'hidden' : ''}`}>
+          <section id="cfg-ai-engine" className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-ai-engine' ? 'hidden' : ''}`}>
             <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
               AI Engine & Tools
             </h2>
@@ -929,7 +907,7 @@ const Configuration = ({
           </section>
 
           {/* ── General ── */}
-          <section id="cfg-general" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-general' ? 'hidden' : ''}`}>
+          <section id="cfg-general" className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-general' ? 'hidden' : ''}`}>
             <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
               General
             </h2>
@@ -1002,7 +980,7 @@ const Configuration = ({
           </section>
 
           {/* ── Personalization ── */}
-          <section id="cfg-personalization" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-personalization' ? 'hidden' : ''}`}>
+          <section id="cfg-personalization" className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-personalization' ? 'hidden' : ''}`}>
             <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
               Personalization
             </h2>
@@ -1118,9 +1096,9 @@ const Configuration = ({
           </section>
 
           {/* ── Capabilities ── */}
-          <div id="cfg-capabilities" className={`${!isFirstSetup && activeSection !== 'cfg-capabilities' ? 'hidden' : ''} space-y-6`}>
+          <div id="cfg-capabilities" className={`${activeSection !== 'cfg-capabilities' ? 'hidden' : ''} space-y-6`}>
             {/* Camera Settings */}
-            <div id="cfg-camera" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-camera' ? 'hidden' : ''}`}>
+            <div id="cfg-camera" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${activeSection !== 'cfg-camera' ? 'hidden' : ''}`}>
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5 flex items-center gap-2">
                 Kamera
               </h2>
@@ -1167,7 +1145,7 @@ const Configuration = ({
             </div>
 
             {/* TTS Settings */}
-            <div id="cfg-audio-voice" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-audio-voice' ? 'hidden' : ''}`}>
+            <div id="cfg-audio-voice" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${activeSection !== 'cfg-audio-voice' ? 'hidden' : ''}`}>
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5">
                 Audio & Voice Engine
               </h2>
@@ -1365,7 +1343,7 @@ const Configuration = ({
           </div>
 
             {/* ── Global Shortcut Settings ── */}
-            <section id="cfg-shortcut" className={`space-y-5 p-2 -mx-2 rounded-lg scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-shortcut' ? 'hidden' : ''}`}>
+            <section id="cfg-shortcut" className={`space-y-5 p-2 -mx-2 rounded-lg scroll-mt-4 ${activeSection !== 'cfg-shortcut' ? 'hidden' : ''}`}>
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                 Global Shortcut Key
               </h2>
@@ -1441,7 +1419,7 @@ const Configuration = ({
               <div className="divider"></div>
 
               {/* ── Memory & Data ── */}
-              <section id="cfg-memory-data" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-memory-data' ? 'hidden' : ''}`}>
+              <section id="cfg-memory-data" className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-memory-data' ? 'hidden' : ''}`}>
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                   Data Controls
                 </h2>
@@ -1464,7 +1442,7 @@ const Configuration = ({
               </section>
 
               {/* -- Developer -- */}
-              <section id="cfg-developer" className={`space-y-5 scroll-mt-4 ${!isFirstSetup && activeSection !== 'cfg-developer' ? 'hidden' : ''}`}>
+              <section id="cfg-developer" className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-developer' ? 'hidden' : ''}`}>
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                   Developer
                 </h2>
