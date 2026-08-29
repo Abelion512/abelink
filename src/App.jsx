@@ -364,41 +364,25 @@ function App() {
         // -----------------
       }
 
+      // 2.5 Apply hardware profile (auto-detected, saved to localStorage)
+      // No modal — detection runs silently in background. User can change in Settings.
+      try {
+        const savedProfile = localStorage.getItem('mark:resource-mode')
+        if (!savedProfile) {
+          const detected = detectHardwareProfile()
+          const cfg = getProfileConfig(detected)
+          localStorage.setItem('mark:resource-mode', detected)
+          console.log(`[Profile] Auto-detected: ${cfg.label} (${detected})`)
+          window.dispatchEvent(new CustomEvent('profile-applied', { detail: cfg }))
+        }
+      } catch (e) {
+        console.warn('[Profile] Detection failed, using default STANDARD:', e)
+      }
+
       setIsChecking(false)
     }
     checkConfig()
   }, [])
-
-  // Resource Mode chooser: pilihan pertama kali jalan, disimpan ke localStorage
-  const [showResourceChooser, setShowResourceChooser] = useState(false)
-  const [resourceMode, setResourceMode] = useState(null)
-
-  useEffect(() => {
-    // Cek apakah user sudah pilih mode sebelumnya
-    const saved = localStorage.getItem('mark:resource-mode')
-    if (!saved && !isChecking && hasConfig === false) {
-      // First boot — tanya pilihan mode sebelum lanjut
-      setShowResourceChooser(true)
-    } else if (saved) {
-      setResourceMode(saved)
-    }
-  }, [isChecking, hasConfig])
-
-  const chooseResourceMode = (mode) => {
-    setResourceMode(mode)
-    localStorage.setItem('mark:resource-mode', mode)
-    setShowResourceChooser(false)
-    // Apply preset — restart untuk load dengan config baru
-    if (mode === 'semua') {
-      // Semua fitur aktif — Orama + Whisper di-load
-      window.dispatchEvent(new CustomEvent('profile-applied', { detail: { enableWorkspaceRAG: true, enableVoiceSTT: true } }))
-    } else {
-      // Hemat resource — lazy load on demand
-      window.dispatchEvent(new CustomEvent('profile-applied', { detail: { enableWorkspaceRAG: false, enableVoiceSTT: false } }))
-    }
-    // Reload untuk apply preset
-    setTimeout(() => window.location.reload(), 300)
-  }
 
   if (isChecking) {
     return (
@@ -437,13 +421,10 @@ function App() {
     )
   }
 
-  // First-boot flow: Resource Mode first, then Legacy recovery (if any), then Configuration wizard
-  const bootChoice = localStorage.getItem('mark:first-boot-choice')
-  const resourceChoice = localStorage.getItem('mark:resource-mode')
-
   if (!hasConfig) {
+    const choiceMade = localStorage.getItem('mark:first-boot-choice')
     const showLegacyChooser =
-      Array.isArray(legacyProfiles) && legacyProfiles.length > 0 && !bootChoice && !wizardAutoImport
+      Array.isArray(legacyProfiles) && legacyProfiles.length > 0 && !choiceMade && !wizardAutoImport
 
     const settleChoice = (value) => {
       localStorage.setItem('mark:first-boot-choice', value)
@@ -452,9 +433,6 @@ function App() {
     return (
       <HashRouter>
         <WindowControls />
-        {showResourceChooser && (
-          <ResourceModeChooser />
-        )}
         {showLegacyChooser ? (
           <FirstBootChoiceScreen
             profiles={legacyProfiles}
@@ -472,7 +450,7 @@ function App() {
             isFirstSetup={true}
             initialLegacyImport={wizardAutoImport}
             onSetupComplete={() => {
-              if (!bootChoice) {
+              if (!localStorage.getItem('mark:first-boot-choice')) {
                 localStorage.setItem('mark:first-boot-choice', 'setup-complete')
               }
               window.location.reload()
