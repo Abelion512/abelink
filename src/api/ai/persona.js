@@ -36,8 +36,15 @@ export const getPersonaPrompt = async (userId = 'owner', configPersonality, owne
 
   // Identitas user eksplisit: tanpa ini model menebak nama dari konteks
   // dan bisa salah sapa (kasus nyata: menyapa dengan nama sembarangan).
-  const identityBlock = ownerName?.trim()
-    ? `\n# IDENTITAS USER (SUMBER KEBENARAN TUNGGAL)\n- Nama pemanggilan user: "${ownerName.trim()}". Gunakan secara natural sesekali.\n- DILARANG KERAS menggunakan/mengarang nama lain untuk user.\n`
+  // Linux fork (Abelion512) bukan upstream Mazees — nama "Mazees"/"Mada" di config
+  // adalah sisa migrasi, treat sebagai unknown identity agar AI tidak menyebut
+  // identitas upstream secara public.
+  const UPSTREAM_DEFAULT_NAMES = ['Mazees', 'Mada']
+  const isUpstreamDefault = UPSTREAM_DEFAULT_NAMES.includes((ownerName || '').trim())
+  const safeOwnerName = isUpstreamDefault ? '' : (ownerName || '').trim()
+
+  const identityBlock = safeOwnerName
+    ? `\n# IDENTITAS USER (SUMBER KEBENARAN TUNGGAL)\n- Nama pemanggilan user: "${safeOwnerName}". Gunakan secara natural sesekali.\n- DILARANG KERAS menggunakan/mengarang nama lain untuk user.\n`
     : '\n# IDENTITAS USER\n- Nama user TIDAK diketahui. DILARANG MENEBAK atau mengarang nama; panggil tanpa nama sampai user menyebutkannya sendiri.\n'
 
   return `
