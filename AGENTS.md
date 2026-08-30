@@ -3,6 +3,12 @@
 ## 1. Project Overview
 
 **Project Name:** MARK (Metacognitive Artificial Relational Knowledge) — MARK Linux fork, independent version line 1.x (current: **1.0.0-alpha.1**, single source of truth: `src-tauri/tauri.conf.json`)
+
+**Branch Strategy:**
+- `linux` (main) — Linux Tauri v2 branch, receives all new features and fixes
+- `master` — tracks official `Mazees/mark-agent` upstream for sync purposes only
+- Pull requests target: `linux`
+- Version bumping: run `bun run sync-version` after bumping in `tauri.conf.json`
 **Description:** A privacy-first, local-based autonomous AI OS companion designed to assist user productivity, automate tasks, and provide lifelike companionship. It uses a hybrid AI engine (Local LLM via LM Studio or Cloud API, plus a native Gemini Web RPC Engine) and features agentic planning with ReAct loop execution, **Autonomous Multi-Agent Sub-Agent Engine** (UI: **Sub-Agents**, branding: **Mission Control**) with concurrent isolated browser sessions, **Durable Agent Tasks** (UI: **Agent Workflows**) for persistent multi-step work, autonomous physical browser automation with multi-session support, a persistent OS-level desktop automation daemon, a hybrid Full-Text & Vector Memory Management System (MMS) with Orama & Dexie, document RAG pipeline, OS-level Awareness Engine, dynamic 4D Relational Growth, a native Plugin System with Monaco Editor, Telegram Bot integration via Telegraf, Voice Activity Detection with Groq Whisper STT plus local Whisper, Edge-TTS, and webcam vision capabilities.
 **Environment:** Linux-only Tauri v2 desktop application ("MARK Linux") — a fork of Mazees/mark-agent, mid-migration from Electron to the Tauri shell + Node sidecar layout.
 **Maintainer:** Abelion512 | **Homepage:** https://github.com/Abelion512/mark-agent-linux | **Upstream:** https://github.com/Mazees/mark-agent/

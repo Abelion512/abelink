@@ -15,10 +15,24 @@
  */
 
 import { spawnSync } from 'child_process'
+import { existsSync } from 'fs'
 import { readFileSync, writeFileSync } from 'fs'
 import path from 'path'
 
 const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
+
+// Primary source of truth: tauri.conf.json (not package.json for version display)
+function getCurrentVersion() {
+  try {
+    const toml = readFileSync(path.join(REPO, 'src-tauri/tauri.conf.json'), 'utf8')
+    const conf = JSON.parse(toml)
+    return conf.version
+  } catch {
+    // fallback to package.json if tauri.conf.json not available
+    const pkg = JSON.parse(readFileSync(path.join(REPO, 'package.json'), 'utf8'))
+    return pkg.version
+  }
+}
 
 function git(args, opts = {}) {
   const res = spawnSync('git', args.split(' '), { cwd: REPO, encoding: 'utf8', shell: true, ...opts })
@@ -27,12 +41,17 @@ function git(args, opts = {}) {
 }
 
 function semverBump(current, type) {
-  const [major, minor, patch] = current.split('.').map(Number)
-  switch (type) {
-    case 'major': return `${major + 1}.0.0`
-    case 'minor': return `${major}.${minor + 1}.0`
-    case 'patch': return `${major}.${minor}.${patch + 1}`
-  }
+  const match = current.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/)
+  if (!match) throw new Error(`Invalid version: ${current}`)
+  const [_, major, minor, patch, prerelease] = match
+  const [maj, min, pat] = [Number(major), Number(minor), Number(patch)]
+  const next = {
+    'major': `${maj + 1}.0.0`,
+    'minor': `${maj}.${min + 1}.0`,
+    'patch': `${maj}.${min}.${pat + 1}`
+  }[type]
+  // preserve prerelease suffix if any
+  return prerelease ? `${next}-${prerelease}` : next
 }
 
 function detectBumpType() {
@@ -56,9 +75,15 @@ function detectBumpType() {
   return 'patch'
 }
 
+function updateTauriConf(next) {
+  const confPath = path.join(REPO, 'src-tauri/tauri.conf.json')
+  const conf = JSON.parse(readFileSync(confPath, 'utf8'))
+  conf.version = next
+  writeFileSync(confPath, JSON.stringify(conf, null, 2) + '\n')
+}
+
 function main() {
-  const pkg = JSON.parse(readFileSync(path.join(REPO, 'package.json'), 'utf8'))
-  const current = pkg.version
+  const current = getCurrentVersion()
   const arg = process.argv[2]
   const dryRun = process.argv.includes('--dry-run')
 
@@ -75,20 +100,22 @@ function main() {
     return
   }
 
-  pkg.version = next
-  writeFileSync(path.join(REPO, 'package.json'), JSON.stringify(pkg, null, 2) + '\n')
+  updateTauriConf(next)
 
   // Update CHANGELOG.md [Unreleased] → [next]
-  const changelog = readFileSync(path.join(REPO, 'CHANGELOG.md'), 'utf8')
-  const date = new Date().toISOString().slice(0, 10)
-  const updated = changelog.replace(
-    '## [Unreleased]',
-    `## [Unreleased]\n\n## [${next}] - ${date}`
-  )
-  writeFileSync(path.join(REPO, 'CHANGELOG.md'), updated)
+  const changelogPath = path.join(REPO, 'CHANGELOG.md')
+  if (fs.existsSync(changelogPath)) {
+    const changelog = readFileSync(changelogPath, 'utf8')
+    const date = new Date().toISOString().slice(0, 10)
+    const updated = changelog.replace(
+      '## [Unreleased]',
+      `## [Unreleased]\n\n## [${next}] - ${date}`
+    )
+    writeFileSync(changelogPath, updated)
+  }
 
   console.log(`Bumped v${current} → v${next} (${type})`)
-  console.log('Updated: package.json, CHANGELOG.md')
+  console.log('Updated: src-tauri/tauri.conf.json, CHANGELOG.md')
 }
 
 main()

@@ -45,7 +45,10 @@ jobs:
         with:
           workspaces: src-tauri
       - run: bun install
-      - run: cargo check
+      - name: Rust check + tests
+        run: |
+          cargo check
+          cargo test
         working-directory: src-tauri
 
   bundle:
