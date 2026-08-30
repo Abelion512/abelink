@@ -389,7 +389,7 @@ function App() {
     const defaultConfig = {
       id: 1,
       model: 'gemini-3.5-flash',
-      temperature: 0.7,
+      temperature: 1.0,
       context: 10,
       aiProvider: 'gemini-web',
       awarenessEnabled: false,

@@ -5,7 +5,7 @@ import { FaCog, FaPuzzlePiece, FaKeyboard, FaDatabase, FaCode, FaRobot, FaUserCo
 const sections = [
   { id: 'cfg-general', label: 'General', icon: FaCog },
   { id: 'cfg-personalization', label: 'Personalization', icon: FaUserCog },
-  { id: 'cfg-ai-engine', label: 'AI Engine', icon: FaRobot },
+  { id: 'cfg-model', label: 'Model', icon: FaRobot },
   { id: 'cfg-capabilities', label: 'Capabilities', icon: FaPuzzlePiece },
   { id: 'cfg-shortcut', label: 'Shortcuts', icon: FaKeyboard },
 ]

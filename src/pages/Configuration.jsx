@@ -112,7 +112,7 @@ const Configuration = ({
   const [config, setConfig] = useState({
     personality: 'Santai layaknya seorang teman dan suka bercanda.',
     model: 'google/gemma-3-4b',
-    temperature: 0,
+    temperature: 1,
     context: 10,
     ttsRate: 0,
     ttsPitch: 0,
@@ -677,49 +677,25 @@ const Configuration = ({
               )}
                           </div>
 
-          {isFirstSetup && legacyProfiles.length > 0 && (
-            <div className="alert bg-base-200/70 border border-warning/30 text-sm flex-col items-start gap-2 my-3">
-              <span>
-                Profil Mark versi lama terdeteksi ({legacyProfiles.length} lokasi).
-                Lanjutkan memory & pengaturan lama lewat file export JSON, atau mulai fresh.
-              </span>
-              <div className="flex flex-wrap gap-2">
-                <button className="btn btn-xs" onClick={() => setLegacyProfiles([])}>
-                  Mulai Fresh
-                </button>
-                <button
-                  className="btn btn-xs btn-ghost"
-                  onClick={() => window.api?.openExternal('file://' + legacyProfiles[0])}
-                  title={legacyProfiles.join(', ')}
-                >
-                  Buka Folder Data Lama
-                </button>
-              </div>
-              <span className="text-xs opacity-60">
-                Untuk memindahkan memory: buka Mark versi lama → Settings → Export DB ke JSON,
-                lalu hubungi flow import (fitur berikutnya). Data lama tidak diubah.
-              </span>
-            </div>
-          )}
           </div>
 
-          {/* ── AI Engine & Tools ── */}
-          <section id="cfg-ai-engine" className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-ai-engine' ? 'hidden' : ''}`}>
+          {/* ── Model ── */}
+          <section id="cfg-model" className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-model' ? 'hidden' : ''}`}>
             <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-              AI Engine & Tools
+              Model
             </h2>
 
-            {/* AI Provider Selector */}
+            {/* Provider Selector */}
             <div id="tour-ai-provider" className="space-y-1.5">
-              <p className="text-sm font-semibold">AI Provider</p>
+              <p className="text-sm font-semibold">Provider</p>
               <select
                 className="select select-bordered w-full font-medium"
                 value={config.aiProvider || 'gemini-web'}
                 onChange={(e) => handleAiProviderChange(e.target.value)}
               >
                 <option value="gemini-web">Gemini (Gratis)</option>
-                <option value="lm-studio">LM Studio (Local Offline)</option>
-                <option value="custom">Custom API (OpenAI-Compatible)</option>
+                <option value="lm-studio">LM Studio</option>
+                <option value="custom">Custom API</option>
               </select>
             </div>
 
@@ -754,27 +730,14 @@ const Configuration = ({
             ) : config.aiProvider === 'custom' ? (
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Custom Endpoint URL</p>
+                  <p className="text-sm font-semibold">Endpoint URL</p>
                   <input
                     type="text"
-                    placeholder="Contoh: https://api.openai.com/v1 atau https://api.anthropic.com/v1"
+                    placeholder="https://api.openai.com/v1"
                     className={`input input-bordered w-full ${config.customEndpoint && !isCustomEndpointPlausible(config.customEndpoint, config.customApiProtocol) ? 'input-warning' : ''}`}
                     value={config.customEndpoint || ''}
                     onChange={handleCustomEndpointChange}
                   />
-                  {config.customEndpoint &&
-                  !isCustomEndpointPlausible(config.customEndpoint, config.customApiProtocol) ? (
-                    <p className="text-xs text-warning mt-1 font-medium">
-                      Format tidak dikenali. Akhiri dengan /v1 (OpenAI/Anthropic) atau
-                      /chat/completions.
-                    </p>
-                  ) : (
-                    <p className="text-xs opacity-50 mt-1">
-                      Cukup tulis base URL sampai <strong>/v1</strong> (OpenAI-compatible atau
-                      Anthropic-compatible). Protokol dideteksi otomatis, atau paksa lewat pilihan
-                      di bawah.
-                    </p>
-                  )}
                 </div>
                 <div className="space-y-1.5">
                   <p className="text-sm font-semibold">Protokol API</p>
@@ -792,7 +755,7 @@ const Configuration = ({
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
-                    <p className="text-sm font-semibold">Custom Model ID</p>
+                    <p className="text-sm font-semibold">Model ID</p>
                     <button
                       type="button"
                       className="btn btn-xs btn-outline"
@@ -831,7 +794,7 @@ const Configuration = ({
                   </datalist>
                 </div>
                 <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Custom API Key</p>
+                  <p className="text-sm font-semibold">API Key</p>
                   <div className="relative w-full">
                     <input
                       type={showCustomKey ? 'text' : 'password'}
@@ -907,22 +870,21 @@ const Configuration = ({
             </h2>
 
             <div className="space-y-1.5">
-              <p className="text-sm font-semibold">Bahasa / Language</p>
+              <p className="text-sm font-semibold">Bahasa</p>
               <select
                 className="select select-bordered w-full"
                 value={config.language || 'id'}
                 onChange={(e) => setConfig((prev) => ({ ...prev, language: e.target.value }))}
               >
-                <option value="id">Bahasa Indonesia</option>
+                <option value="id">Indonesia</option>
                 <option value="en">English</option>
               </select>
-              <p className="text-xs opacity-40">Preferensi disimpan; terjemahan antarmuka menyusul.</p>
             </div>
 
             {/* Preferensi jendela: transparansi (sinkron lewat syncConfig) */}
             <div className="space-y-2 p-2 -mx-2 rounded-lg bg-base-200">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Tingkat Transparansi Jendela</p>
+                <p className="text-sm font-semibold">Transparansi Jendela</p>
                 <span className="font-mono text-sm text-primary font-bold">
                   {Math.round((config.windowOpacity ?? 0.85) * 100)}%
                 </span>
@@ -945,8 +907,8 @@ const Configuration = ({
                 }}
               />
               <div className="flex justify-between mt-2 text-xs opacity-50">
-                <span>10% (Kaca Bening)</span>
-                <span>100% (Solid)</span>
+                <span>10%</span>
+                <span>100%</span>
               </div>
               <p className="text-[11px] text-warning/80">
                 Eksperimental: butuh restart pertama kali &amp; dapat menimbulkan artefak di WebKitGTK.
@@ -980,13 +942,23 @@ const Configuration = ({
             </h2>
 
             <div className="space-y-1.5">
-              <p className="text-sm font-semibold">Pekerjaan</p>
+              <p className="text-sm font-semibold">Nama Panggilan</p>
+              <input
+                className="input input-bordered w-full"
+                placeholder="Contoh: Abel"
+                value={config.ownerName || ''}
+                onChange={(e) => setConfig((prev) => ({ ...prev, ownerName: e.target.value }))}
+              />
+            </div>
+
+                        <div className="space-y-1.5">
+              <p className="text-sm font-semibold">Pekerjaan / Bidang</p>
               <select
                 className="select select-bordered w-full"
                 value={config.occupation || ''}
                 onChange={(e) => setConfig((prev) => ({ ...prev, occupation: e.target.value }))}
               >
-                <option value="">- Pilih pekerjaan (opsional) -</option>
+                <option value="">- Pilih bidang -</option>
                 {['Software Engineer','Pelajar / Mahasiswa','Content Creator','Penulis','Data Scientist','Desainer','Musisi / Artis','Entrepreneur','Lainnya'].map((o) => (
                   <option key={o} value={o}>{o}</option>
                 ))}
@@ -994,44 +966,17 @@ const Configuration = ({
               <p className="text-xs opacity-40">Membantu Mark menyesuaikan analogi &amp; gaya penjelasan.</p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn btn-outline btn-sm" onClick={handleImportLegacy}>
-                Impor Memory (JSON Lama)
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={() => {
-                  navigate('/')
-                  window.dispatchEvent(new CustomEvent('open-memory-map'))
-                }}
-              >
-                Buka Menu Memory ↗
-              </button>
-            </div>
-
             {/* System Persona */}
             <div id="tour-persona" className="space-y-1.5 p-2 -mx-2 rounded-lg">
               <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Nama Panggilan Kamu (opsional)</p>
-                <input
-                  className="input input-bordered w-full"
-                  placeholder={config.ownerName?.trim() ? `Contoh: ${config.ownerName}` : 'Contoh: User'}
-                  value={config.ownerName || ''}
-                  onChange={(e) => setConfig((prev) => ({ ...prev, ownerName: e.target.value }))}
+                <p className="text-sm font-semibold">Gaya Bicara dan Kepribadian</p>
+                <textarea
+                  className="textarea w-full h-72 leading-relaxed no-scrollbar resize-none"
+                  placeholder="Deskripsikan kepribadian Mark..."
+                  value={config.personality}
+                  onChange={handlePersonalityChange}
                 />
-                <p className="text-xs opacity-40">
-                  Dipakai Mark untuk menyapamu dengan benar. Tanpa ini, dia menebak dari konteks
-                  dan bisa salah.
-                </p>
               </div>
-              <p className="text-sm font-semibold">Gaya Bicara dan Kepribadian</p>
-              <textarea
-                className="textarea w-full h-72 leading-relaxed no-scrollbar resize-none"
-                placeholder="Deskripsikan kepribadian Mark..."
-                value={config.personality}
-                onChange={handlePersonalityChange}
-              />
             </div>
             <div id="tour-temperature" className="space-y-2 p-2 -mx-2 rounded-lg">
               <div className="flex items-center justify-between">
@@ -1422,13 +1367,13 @@ const Configuration = ({
                 <div className="space-y-2">
                   <p className="text-sm font-semibold">Chat History</p>
                   <div className="flex flex-wrap gap-2">
-                    <button className="btn btn-soft btn-error btn-sm" onClick={handleClearAllChat}>
+                    <button className="btn btn-outline btn-sm btn-error" onClick={handleClearAllChat}>
                       Hapus Semua Chat
                     </button>
-                    <button className="btn btn-soft btn-info btn-sm" onClick={handleExportChat}>
+                    <button className="btn btn-outline btn-sm btn-info" onClick={handleExportChat}>
                       Export Chat ke JSON
                     </button>
-                    <button className="btn btn-soft btn-sm" onClick={handleImportLegacy}>
+                    <button className="btn btn-outline btn-sm" onClick={handleImportLegacy}>
                       Impor Export JSON Lama
                     </button>
                   </div>
