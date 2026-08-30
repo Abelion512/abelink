@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import MarkHome from './pages/MarkHome'
 import Configuration from './pages/Configuration'
 import LiveAudio from './pages/LiveAudio'
@@ -196,9 +196,9 @@ const MainLayout = ({ isStandalone = false }) => {
 }
 
 // ── First Boot: pilih Mulai Fresh / Restore data lama ────────────────────
-// Muncul HANYA sekali (flag localStorage) saat wizard terdeteksi + profil
-// Electron lama ada. Restore = alur export/import JSON (engine beda: Chromium
-// LevelDB tak bisa dibaca langsung oleh WebKit).
+// Muncul sebagai modal overlay HANYA sekali (flag localStorage) saat legacy
+// profiles Electron lama terdeteksi. Restore = alur export/import JSON
+// (engine beda: Chromium LevelDB tak bisa dibaca langsung oleh WebKit).
 const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }) => (
   <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
     <div className="max-w-md w-full bg-base-200/95 border border-white/10 rounded-2xl shadow-2xl p-7 space-y-4 animate-fade-in">
@@ -384,6 +384,39 @@ function App() {
     checkConfig()
   }, [])
 
+  const settleChoice = useCallback(async (value) => {
+    localStorage.setItem('mark:first-boot-choice', value)
+    const defaultConfig = {
+      id: 1,
+      model: 'gemini-3.5-flash',
+      temperature: 0.7,
+      context: 10,
+      aiProvider: 'gemini-web',
+      awarenessEnabled: false,
+      windowOpacity: 1,
+      lastSeenWhatsNewVersion: null
+    }
+    await saveConfiguration(defaultConfig)
+    setHasConfig(true)
+    window.location.replace('/')
+  }, [])
+
+  // First-boot logic: legacy profile chooser as modal overlay
+  const choiceMade = localStorage.getItem('mark:first-boot-choice')
+  const showLegacyChooser =
+    !hasConfig &&
+    Array.isArray(legacyProfiles) &&
+    legacyProfiles.length > 0 &&
+    !choiceMade &&
+    !wizardAutoImport
+
+  // Fresh install (no legacy profiles): auto-create config immediately
+  useEffect(() => {
+    if (!hasConfig && !showLegacyChooser && !choiceMade && !wizardAutoImport) {
+      settleChoice('fresh')
+    }
+  }, [hasConfig, showLegacyChooser, choiceMade, wizardAutoImport, settleChoice])
+
   if (isChecking) {
     return (
       <div className="relative h-screen w-screen overflow-hidden bg-base-300 rounded-xl flex flex-col">
@@ -421,59 +454,6 @@ function App() {
     )
   }
 
-  if (!hasConfig) {
-    const choiceMade = localStorage.getItem('mark:first-boot-choice')
-    const showLegacyChooser =
-      Array.isArray(legacyProfiles) && legacyProfiles.length > 0 && !choiceMade && !wizardAutoImport
-
-    // First-boot fresh install: auto-create minimal config + go to MarkHome
-    const settleChoice = async (value) => {
-      localStorage.setItem('mark:first-boot-choice', value)
-      // Auto-create minimal config + navigate to MarkHome
-      const defaultConfig = {
-        id: 1,
-        model: 'gemini-3.5-flash',
-        temperature: 0.7,
-        context: 10,
-        aiProvider: 'gemini-web',
-        awarenessEnabled: false,
-        windowOpacity: 1,
-        lastSeenWhatsNewVersion: null
-      }
-      await saveConfiguration(defaultConfig)
-      setHasConfig(true)
-      window.location.replace('/')
-    }
-
-    return (
-      <HashRouter>
-        <WindowControls />
-        {showLegacyChooser ? (
-          <FirstBootChoiceScreen
-            profiles={legacyProfiles}
-            onFresh={() => {
-              settleChoice('fresh')
-            }}
-            onRestore={() => {
-              settleChoice('restore')
-            }}
-          />
-        ) : (
-          <Configuration
-            isFirstSetup={true}
-            initialLegacyImport={wizardAutoImport}
-            onSetupComplete={() => {
-              if (!localStorage.getItem('mark:first-boot-choice')) {
-                localStorage.setItem('mark:first-boot-choice', 'setup-complete')
-              }
-              window.location.replace('/')
-            }}
-          />
-        )}
-      </HashRouter>
-    )
-  }
-
   const isStandalone = window.location.hash.includes('telegram-bot')
 
   const handleWhatsNewClose = async () => {
@@ -493,29 +473,38 @@ function App() {
   }
 
   return (
-    <ApprovalProvider>
-      <YoutubeMusicProvider>
-        <ChatProvider>
-          <HashRouter>
-            <GlobalListener />
-            <MainLayout isStandalone={isStandalone} />
-            {showWhatsNew && !isChecking && hasConfig && (
-              <WhatNew onClose={handleWhatsNewClose} />
-            )}
-            <div style={{ display: isStandalone ? 'none' : 'block' }}>
-              <YoutubeMusicPlayer />
-            </div>
-            <GlobalCameraManager />
-            <webview
-              id="global-ai-search-webview"
-              src="about:blank"
-              useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-              style={{ display: 'none' }}
-            />
-          </HashRouter>
-        </ChatProvider>
-      </YoutubeMusicProvider>
-    </ApprovalProvider>
+    <>
+      {showLegacyChooser && (
+        <FirstBootChoiceScreen
+          profiles={legacyProfiles}
+          onFresh={() => settleChoice('fresh')}
+          onRestore={() => settleChoice('restore')}
+        />
+      )}
+      <HashRouter>
+        <ApprovalProvider>
+          <YoutubeMusicProvider>
+            <ChatProvider>
+              <GlobalListener />
+              <MainLayout isStandalone={isStandalone} />
+              {showWhatsNew && !isChecking && hasConfig && (
+                <WhatNew onClose={handleWhatsNewClose} />
+              )}
+              <div style={{ display: isStandalone ? 'none' : 'block' }}>
+                <YoutubeMusicPlayer />
+              </div>
+              <GlobalCameraManager />
+              <webview
+                id="global-ai-search-webview"
+                src="about:blank"
+                useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                style={{ display: 'none' }}
+              />
+            </ChatProvider>
+          </YoutubeMusicProvider>
+        </ApprovalProvider>
+      </HashRouter>
+    </>
   )
 }
 
