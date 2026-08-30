@@ -1826,13 +1826,14 @@ export const useMarkPlan = ({
       // ------------------------------------------------------------------------
       // ERROR & ABORT RECOVERY
       // ------------------------------------------------------------------------
+      const errorMsg = error?.message || ''
       if (
         durableTaskForRecovery &&
-        (error.name === 'AbortError' || error.message.includes('AbortError'))
+        (error.name === 'AbortError' || errorMsg.includes('AbortError'))
       ) {
         await transitionAgentTask(durableTaskForRecovery.id, 'paused', 'user_abort').catch(() => {})
       }
-      if (error.name !== 'AbortError' && !error.message.includes('AbortError')) {
+      if (error.name !== 'AbortError' && !errorMsg.includes('AbortError')) {
         console.error('Planning Error:', error)
       }
 

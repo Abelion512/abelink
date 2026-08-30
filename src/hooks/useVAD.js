@@ -146,10 +146,22 @@ export const useVAD = ({
       const constraints = {
         audio:
           micId && micId !== 'default'
-            ? { deviceId: { exact: micId }, ...audioSettings }
+            ? { deviceId: { ideal: micId }, ...audioSettings }
             : audioSettings
       }
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      let stream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints)
+      } catch (err) {
+        // Linux headless / WebKitGTK: 0 audio devices -> graceful degrade
+        console.warn('[useVAD] getUserMedia gagal (no device?), matikan VAD:', err.message || err)
+        isStartingRef.current = false
+        return
+      }
+      if (!stream) {
+        isStartingRef.current = false
+        return
+      }
       if (!isActive || !isStartingRef.current) {
         stream.getTracks().forEach((t) => t.stop())
         return

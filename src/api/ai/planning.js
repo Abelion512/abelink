@@ -630,7 +630,8 @@ ${
       active_topic: activeTopic
     }
   } catch (error) {
-    if (error.name !== 'AbortError' && !error.message.includes('AbortError')) {
+    const errorMsg = error?.message || ''
+    if (error.name !== 'AbortError' && !errorMsg.includes('AbortError')) {
       console.error('Error in getNextAction:', error)
     }
     throw error

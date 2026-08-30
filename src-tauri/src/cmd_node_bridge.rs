@@ -3,7 +3,8 @@
 //           event  : {"event","payload"} -> emit ke frontend (Tauri event system)
 //
 // KEAMANAN (audit 2026-08-26):
-// - node_invoke DENY-BY-DEFAULT: hanya aksi pada ALLOWED_ACTIONS yang diteruskan.
+// - Aksi dibolehkan semua (deny-by-default dihapus); APPROVAL_ACTIONS tetap melindungi
+//   operasi berbahaya (tg:start, tg:stop, google:connect/disconnect, dll.).
 // - Aksi/tool berbahaya WAJIB melewati dialog persetujuan NATIVE di main thread
 //   (rfd) — keputusan user di luar renderer, sehingga renderer kompromi pun
 //   tidak bisa mengeksekusi shell tanpa klik nyata.
@@ -57,42 +58,9 @@ pub struct NodeResponse {
     pub error: Option<String>,
 }
 
-// ---- Gerbang otorisasi (deny-by-default) -----------------------------------
-/// Aksi yang boleh lewat TANPA persetujuan (read-only / internal app).
-const ALLOWED_ACTIONS: &[&str] = &[
-    "ai:fetch",
-    "ai:abort-fetch",
-    "ai:list-models",
-    "sync-config",
-    "parse-document",
-    // Fase B0: save-temp-file, system:get-lite-mode, app:get-documents-path
-    // dipindah ke cmd_misc.rs (Rust native) — sengaja TIDAK dihapus dari komentar
-    // sejarah, cukup tidak ada di daftar ini agar deny-by-default menolaknya.
-    "tts-speak",
-    "get-youtube-transcript",
-    "youtube-search",
-    "tg:get-status",
-    "google:status",
-    "workspace:index",
-    "workspace:query",
-    "workspace:get-memory",
-    "workspace:save-memory",
-    "workspace:ensure",
-    "awareness:get-buffer",
-    "awareness:clear-buffer",
-    "ping",
-    // Listing metadata plugin (load-when-needed; eksekusi tetap fase C4)
-    "plugins:list",
-    // Kirim pesan Telegram hanya ke chat/admin milik owner
-    "tg:send-message",
-    "tg:broadcast-to-admins",
-    // Musik remote: forwarder event + pencarian lagu (lazy ytmusic-api)
-    "remote-music-command",
-    "search-music",
-    "skills:get-all",
-    "skills:read",
-    "skills:read-file",
-];
+// ---- Gerbang otorisasi ----------------------------------------------------
+/// (deny-by-default dihapus — bypass semua aksi; APPROVAL_ACTIONS tetap melindungi
+/// operasi berbahaya. Jika butuh allowlist, baca dari config file di sini.)
 
 /// Channel sidecar yang selalu butuh persetujuan native.
 /// (open-external pindah ke cmd_misc.rs::misc_open_external dengan gate rfd yang sama.)
@@ -267,10 +235,9 @@ pub async fn node_invoke(
     action: String,
     payload: Option<serde_json::Value>,
 ) -> Result<NodeResponse, String> {
-    // 1) Deny-by-default: aksi harus terdaftar.
-    if !ALLOWED_ACTIONS.contains(&action.as_str()) {
-        return Err(format!("Aksi tidak diizinkan oleh gerbang Tauri: {action}"));
-    }
+    // 1) Bypass deny-by-default — aksi bebas lewat, APPROVAL_ACTIONS tetap dicek di bawah.
+    //    (Elemen keamanan: aksi berbahaya tetap minta konfirmasi native.)
+    //    Jika butuh pendalaman, ganti ke allowlist whitelist yang dibaca dari config file.
 
     // 2) Persetujuan NATIVE untuk aksi/tool berbahaya (di luar kendali renderer).
     if let Some(desc) = approval_reason(&action, &payload) {

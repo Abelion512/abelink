@@ -194,7 +194,8 @@ export const YoutubeMusicProvider = ({ children }) => {
   return (
     <YoutubeMusicContext.Provider value={value}>
       {children}
-      {/* Host player audio-only: tetap hidup walau panel ditutup. */}
+      {/* Host player audio-only: tetap hidup walau panel ditutup.
+          allow attribute penting untuk autoplay + encrypted-media di WebKitGTK/Linux. */}
       <div
         aria-hidden="true"
         style={{
@@ -207,6 +208,7 @@ export const YoutubeMusicProvider = ({ children }) => {
           pointerEvents: 'none',
           opacity: 0.01
         }}
+        allow="autoplay; encrypted-media; fullscreen"
       >
         <div ref={hostRef} />
       </div>

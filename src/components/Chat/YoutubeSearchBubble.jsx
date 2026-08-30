@@ -28,10 +28,10 @@ export const YoutubeSearchBubble = ({ queryYoutube, youtubeLink }) => {
             <iframe
               key={idx}
               className="w-1/2 aspect-video rounded-lg"
-              src={`https://www.youtube.com/embed/${id}`}
+              src={`https://www.youtube.com/embed/${id}?rel=0`}
               title="YouTube video player"
               frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
               referrerPolicy="strict-origin-when-cross-origin"
               allowFullScreen
             ></iframe>

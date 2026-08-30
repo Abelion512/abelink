@@ -3,15 +3,15 @@ import {
   FaMicrophone,
   FaStop,
   FaArrowUp,
-  FaSmile,
-  FaPaperclip,
   FaTimes,
+  FaPaperclip,
   FaFileAlt,
   FaFilePdf,
   FaFileCode,
   FaFileImage,
   FaLock,
-  FaFolder
+  FaFolder,
+  FaPlus
 } from 'react-icons/fa'
 import ConfirmModal from './ConfirmModal'
 import { NATIVE_SKILLS } from './native-skills'
@@ -20,25 +20,6 @@ import { getCachedSkills } from '../../api/skillsCache'
 // Command history recall (gaya TUI) + draft persistence anti-crash.
 const PROMPT_HISTORY_KEY = 'mark:prompt-history'
 const DRAFT_KEY = 'mark:draft'
-
-const EMOJIS = [
-  '😂',
-  '🤣',
-  '😅',
-  '🗿',
-  '🙏',
-  '🔥',
-  '🚀',
-  '💀',
-  '😎',
-  '🤔',
-  '😭',
-  '❤️',
-  '👍',
-  '✨',
-  '👀',
-  '💯'
-]
 
 const formatFileSize = (bytes) => {
   if (!bytes) return ''
@@ -91,7 +72,7 @@ const InputBar = ({
   })
   const recallIndexRef = useRef(-1)
   const recallDraftRef = useRef('')
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [showAbortConfirm, setShowAbortConfirm] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState([])
   const [isDragging, setIsDragging] = useState(false)
@@ -348,14 +329,6 @@ const InputBar = ({
     }
   }
 
-  const handleEmojiClick = (emoji) => {
-    setInputText((prev) => prev + emoji)
-    setShowEmojiPicker(false)
-    setTimeout(() => {
-      if (inputRef.current) inputRef.current.focus()
-    }, 50)
-  }
-
   const handleTextChange = async (e) => {
     const val = e.target.value
     setInputText(val)
@@ -553,94 +526,119 @@ const InputBar = ({
           </div>
         )}
 
-        {/* Workspace Root Folder Button */}
-        {onSelectWorkspace && (
-          <button
-            type="button"
-            onClick={onSelectWorkspace}
-            className={`p-3 rounded-full transition-all flex-shrink-0 relative ${
-              workspaceRoot
-                ? 'text-primary hover:text-primary hover:bg-primary/10'
-                : 'text-white/40 hover:text-white/80 hover:bg-white/5'
-            }`}
-            title={workspaceRoot ? `Workspace Root: ${workspaceRoot} (Klik untuk ganti)` : 'Atur Folder Proyek (Workspace Root)'}
-          >
-            <FaFolder size={16} />
-            {workspaceRoot && (
-              <span className="absolute bottom-2 right-2 w-1.5 h-1.5 rounded-full bg-primary ring-1 ring-base-300" />
-            )}
-          </button>
-        )}
-
-        {/* Paperclip File Upload Button */}
-        <button
-          type="button"
-          onClick={handlePaperclipClick}
-          className="p-3 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-full transition-all flex-shrink-0"
-          title="Lampirkan File (PDF, DOCX, TXT, MD, Gambar, dll)"
-        >
-          <FaPaperclip size={16} />
-        </button>
-
-        {/* Mic / Record Toggle (Hold to talk) */}
-        <button
-          type="button"
-          onClick={isRecording ? onStopRecord : onStartRecord}
-          disabled={isProcessing || isLoading}
-          className={`relative p-3 md:p-4 rounded-full flex-shrink-0 transition-all duration-300 transform outline-none z-10 ${
-            isProcessing
-              ? 'text-primary bg-primary/20 cursor-wait'
-              : isLoading
-              ? 'text-white/20 bg-white/5 cursor-not-allowed'
-              : isRecording
-              ? 'text-error bg-error/20'
-              : 'text-white/40 hover:text-white/80 hover:bg-white/5'
-          }`}
-          style={{
-            transform: isRecording && !isProcessing ? `scale(${1 + audioIntensity * 0.3})` : '',
-            boxShadow: isRecording && !isProcessing ? `0 0 ${10 + audioIntensity * 40}px rgba(255,0,0, ${0.3 + audioIntensity * 0.5})` : ''
-          }}
-          title={isProcessing ? 'Sedang memproses suara...' : isLoading ? 'Agen sedang sibuk' : 'Mulai/Berhenti Rekam (Ctrl+Alt+M)'}
-        >
-          {isRecording && !isProcessing && (
-            <div 
-              className="absolute inset-0 rounded-full bg-error/30 -z-10 transition-transform duration-75"
-              style={{ transform: `scale(${1 + audioIntensity * 0.8})` }}
-            />
-          )}
-          {isProcessing ? (
-            <span className="loading loading-spinner w-[18px] h-[18px]"></span>
-          ) : isLoading ? (
-            <FaLock size={18} />
-          ) : (
-            <FaMicrophone size={18} />
-          )}
-        </button>
-
-        {/* Emoji Button */}
+        {/* + expandable popup (workspace + paperclip) — left of textarea */}
         <div className="relative flex-shrink-0">
           <button
             type="button"
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            onClick={() => setShowAttachMenu((v) => !v)}
             className="p-3 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-full transition-all"
-            title="Insert Emoji"
+            title="Lampirkan / Folder"
           >
-            <FaSmile size={18} />
+            <FaPlus size={18} />
           </button>
 
-          {showEmojiPicker && (
-            <div className="absolute bottom-full left-0 mb-4 bg-[var(--glass-bg)] backdrop-blur-3xl border border-[var(--glass-border)] rounded-2xl p-2 shadow-2xl flex flex-wrap w-52 gap-1 z-[100] animate-[holo-project-in_0.2s_ease-out_forwards]">
-              {EMOJIS.map((emoji) => (
+          {showAttachMenu && (
+            <div className="absolute bottom-full left-0 mb-2 bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-xl shadow-2xl overflow-hidden z-50 flex flex-col min-w-[180px]">
+              {onSelectWorkspace && (
                 <button
-                  key={emoji}
                   type="button"
-                  onClick={() => handleEmojiClick(emoji)}
-                  className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-xl text-2xl transition-all hover:scale-110 active:scale-95"
+                  onClick={() => { onSelectWorkspace(); setShowAttachMenu(false) }}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-white/10 text-gray-300 transition-colors text-sm"
                 >
-                  {emoji}
+                  <FaFolder size={16} className="text-primary" />
+                  <span>Folder Proyek</span>
+                  {workspaceRoot && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
                 </button>
-              ))}
+              )}
+              <button
+                type="button"
+                onClick={() => { handlePaperclipClick(); setShowAttachMenu(false) }}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-white/10 text-gray-300 transition-colors text-sm border-t border-white/5"
+              >
+                <FaPaperclip size={16} className="text-info" />
+                <span>Lampirkan File</span>
+              </button>
             </div>
+          )}
+        </div>
+
+        {/* Input Textarea */}
+        <textarea
+          ref={inputRef}
+          rows={1}
+          value={inputText}
+          onChange={handleTextChange}
+          onKeyDown={handleKeyDown}
+          placeholder={
+            isLoading
+              ? 'Beri intervensi ke Mark...'
+              : attachedFiles.length > 0
+                ? 'Tambah instruksi untuk file terlampir...'
+                : 'Tanya apapun ke Mark...'
+          }
+          className="flex-1 resize-none bg-transparent border-none outline-none text-white px-3 py-2.5 text-sm md:text-base leading-normal placeholder:text-white/30 disabled:opacity-50 no-scrollbar"
+        />
+
+        {/* Action Buttons — right side */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Stop replaces Send when loading */}
+          {isLoading ? (
+            <button
+              type="button"
+              onClick={() => setShowAbortConfirm(true)}
+              className="p-3 rounded-full bg-error/20 text-error hover:bg-error hover:text-white transition-all"
+              title="Stop Generation (Hard Abort)"
+            >
+              <FaStop size={16} />
+            </button>
+          ) : (
+            <>
+              {/* Voice when no text; Send when there is text */}
+              {!inputText.trim() ? (
+                <button
+                  type="button"
+                  onClick={isRecording ? onStopRecord : onStartRecord}
+                  disabled={isProcessing || isLoading}
+                  className={`relative p-3 md:p-4 rounded-full flex-shrink-0 transition-all duration-300 transform outline-none z-10 ${
+                    isProcessing
+                      ? 'text-primary bg-primary/20 cursor-wait'
+                      : isLoading
+                      ? 'text-white/20 bg-white/5 cursor-not-allowed'
+                      : isRecording
+                      ? 'text-error bg-error/20'
+                      : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+                  }`}
+                  style={{
+                    transform: isRecording && !isProcessing ? `scale(${1 + audioIntensity * 0.3})` : '',
+                    boxShadow: isRecording && !isProcessing ? `0 0 ${10 + audioIntensity * 40}px rgba(255,0,0, ${0.3 + audioIntensity * 0.5})` : ''
+                  }}
+                  title={isProcessing ? 'Sedang memproses suara...' : isLoading ? 'Agen sedang sibuk' : 'Mulai/Berhenti Rekam (Ctrl+Alt+M)'}
+                >
+                  {isRecording && !isProcessing && (
+                    <div
+                      className="absolute inset-0 rounded-full bg-error/30 -z-10 transition-transform duration-75"
+                      style={{ transform: `scale(${1 + audioIntensity * 0.8})` }}
+                    />
+                  )}
+                  {isProcessing ? (
+                    <span className="loading loading-spinner w-[18px] h-[18px]"></span>
+                  ) : isLoading ? (
+                    <FaLock size={18} />
+                  ) : (
+                    <FaMicrophone size={18} />
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isSendDisabled}
+                  className="p-3 rounded-full bg-success text-success-content disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-success/80 hover:scale-105 active:scale-95 transition-all"
+                  title="Send Message"
+                >
+                  <FaArrowUp size={16} />
+                </button>
+              )}
+            </>
           )}
         </div>
 
@@ -670,45 +668,6 @@ const InputBar = ({
             </div>
           </div>
         )}
-
-        {/* Input Textarea */}
-        <textarea
-          ref={inputRef}
-          rows={1}
-          value={inputText}
-          onChange={handleTextChange}
-          onKeyDown={handleKeyDown}
-          placeholder={
-            isLoading
-              ? 'Beri intervensi ke Mark...'
-              : attachedFiles.length > 0
-                ? 'Tambah instruksi untuk file terlampir...'
-                : 'Tanya apapun ke Mark...'
-          }
-          className="flex-1 resize-none bg-transparent border-none outline-none text-white px-3 py-2.5 text-sm md:text-base leading-normal placeholder:text-white/30 disabled:opacity-50 no-scrollbar"
-        />
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {isLoading && (
-            <button
-              type="button"
-              onClick={() => setShowAbortConfirm(true)}
-              className="p-3 rounded-full bg-error/20 text-error hover:bg-error hover:text-white transition-all"
-              title="Stop Generation (Hard Abort)"
-            >
-              <FaStop size={16} />
-            </button>
-          )}
-          <button
-            type="submit"
-            disabled={isSendDisabled}
-            className="p-3 rounded-full bg-success text-success-content disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-success/80 hover:scale-105 active:scale-95 transition-all"
-            title="Send Message"
-          >
-            <FaArrowUp size={16} />
-          </button>
-        </div>
       </form>
 
       <ConfirmModal

@@ -163,7 +163,7 @@ const LiveAudio = () => {
         }
         
         if (micId && micId !== 'default') {
-          audioConstraints.deviceId = { exact: micId }
+          audioConstraints.deviceId = { ideal: micId }
         }
 
         const constraints = {
