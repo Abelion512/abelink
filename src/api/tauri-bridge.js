@@ -111,6 +111,7 @@ export const api = {
   getPathForFile: pathForFile,
   saveTempFile: (data, name) =>
     invoke('misc_save_temp_file', { data: toPayload(data), name: name ?? null }),
+  osIsX11: () => invoke('os_is_x11'),
   openExternal: (url) => invoke('misc_open_external', { url }),
   showNotification: (...args) => {
     // Dua gaya pemanggil lama di renderer: ({title, body}) ATAU (title, body) posisional.

@@ -2,6 +2,12 @@ use serde::Serialize;
 use std::process::Command;
 use tauri::AppHandle;
 
+/// Detect whether the current session is X11. Returns true only when $DISPLAY
+/// is set and $WAYLAND_DISPLAY is absent. All xdotool-based commands require X11.
+fn is_x11() -> bool {
+    std::env::var("DISPLAY").is_ok() && std::env::var("WAYLAND_DISPLAY").is_err()
+}
+
 #[derive(Serialize)]
 pub struct ToolResult {
     pub success: bool,
@@ -25,6 +31,14 @@ fn xdotool(args: &[&str]) -> Result<String, String> {
     }
 }
 
+fn require_x11() -> Result<(), String> {
+    if is_x11() {
+        Ok(())
+    } else {
+        Err("Otomatisasi PC (xdotool) hanya didukung di X11. Wayland tidak didukung saat ini.".into())
+    }
+}
+
 const DANGEROUS_KEYS: &[&str] =
     &["ctrl", "alt", "super", "shift", "escape", "backspace", "delete"];
 
@@ -34,7 +48,13 @@ fn is_dangerous_key(q: &str) -> bool {
 }
 
 #[tauri::command]
+pub fn os_is_x11() -> bool {
+    is_x11()
+}
+
+#[tauri::command]
 pub fn os_click(app: AppHandle, query: String) -> Result<ToolResult, String> {
+    require_x11()?;
     let lower = query.to_lowercase();
     if is_dangerous_key(&query) && lower.contains("click") {
         let desc = format!("Mark ingin klik mouse:\n{}", query);
@@ -56,6 +76,7 @@ pub fn os_click(app: AppHandle, query: String) -> Result<ToolResult, String> {
 
 #[tauri::command]
 pub fn os_double_click(app: AppHandle, query: String) -> Result<ToolResult, String> {
+    require_x11()?;
     if is_dangerous_key(&query) {
         let desc = format!("Mark ingin double-click mouse:\n{}", query);
         if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
@@ -76,6 +97,7 @@ pub fn os_double_click(app: AppHandle, query: String) -> Result<ToolResult, Stri
 
 #[tauri::command]
 pub fn os_delay(query: String) -> Result<ToolResult, String> {
+    require_x11()?;
     let ms: u64 = query.trim().parse().unwrap_or(100);
     std::thread::sleep(std::time::Duration::from_millis(ms));
     Ok(ToolResult {
@@ -87,6 +109,7 @@ pub fn os_delay(query: String) -> Result<ToolResult, String> {
 
 #[tauri::command]
 pub fn os_type(app: AppHandle, text: String) -> Result<ToolResult, String> {
+    require_x11()?;
     if is_dangerous_key(&text) {
         let desc = format!("Mark ingin mengetik teks berbahaya:\n{}", text);
         if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
@@ -107,6 +130,7 @@ pub fn os_type(app: AppHandle, text: String) -> Result<ToolResult, String> {
 
 #[tauri::command]
 pub fn os_key(app: AppHandle, key: String) -> Result<ToolResult, String> {
+    require_x11()?;
     if is_dangerous_key(&key) {
         let desc = format!("Mark ingin menekan shortcut berbahaya:\n{}", key);
         if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
@@ -155,6 +179,7 @@ pub fn os_key(app: AppHandle, key: String) -> Result<ToolResult, String> {
 
 #[tauri::command]
 pub fn os_scroll(query: String) -> Result<ToolResult, String> {
+    require_x11()?;
     // xdotool: button 4=scroll up, button 5=scroll down
     let btn = if query.to_lowercase().contains("up") {
         "4"
@@ -171,6 +196,7 @@ pub fn os_scroll(query: String) -> Result<ToolResult, String> {
 
 #[tauri::command]
 pub fn os_read() -> Result<ToolResult, String> {
+    require_x11()?;
     let wid = xdotool(&["getactivewindow"])?;
     let name = xdotool(&["getwindowname", &wid])?;
     Ok(ToolResult {
@@ -182,6 +208,7 @@ pub fn os_read() -> Result<ToolResult, String> {
 
 #[tauri::command]
 pub fn os_list_windows() -> Result<ToolResult, String> {
+    require_x11()?;
     let out = xdotool(&["getwindowlist"])?;
     Ok(ToolResult {
         success: true,
@@ -192,6 +219,7 @@ pub fn os_list_windows() -> Result<ToolResult, String> {
 
 #[tauri::command]
 pub fn os_focus_window(query: String) -> Result<ToolResult, String> {
+    require_x11()?;
     let out = xdotool(&["windowfocus", &query])?;
     Ok(ToolResult {
         success: true,
@@ -221,6 +249,7 @@ pub fn os_open(_app: AppHandle, query: String) -> Result<ToolResult, String> {
 
 #[tauri::command]
 pub fn os_search(query: String) -> Result<ToolResult, String> {
+    require_x11()?;
     let out = xdotool(&["search", "--name", &query])?;
     Ok(ToolResult {
         success: true,

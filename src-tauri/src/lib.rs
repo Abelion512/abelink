@@ -224,6 +224,7 @@ pub fn run() {
             commands_tools_tasks::read_task_output,
             commands_tools_tasks::kill_task,
             // Fase B2 — PC automation tools (os-*) via xdotool
+            commands_tools_os::os_is_x11,
             commands_tools_os::os_click,
             commands_tools_os::os_double_click,
             commands_tools_os::os_delay,
