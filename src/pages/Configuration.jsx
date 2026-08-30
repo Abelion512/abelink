@@ -1281,6 +1281,34 @@ const Configuration = ({
             </div>
           </div>
 
+          {/* ── Plugins ── */}
+          <div id="cfg-plugins" className={`space-y-3 p-2 -mx-2 rounded-lg ${activeSection !== 'cfg-plugins' ? 'hidden' : ''}`}>
+            <h3 className="text-sm font-bold uppercase tracking-wider opacity-70">Plugins</h3>
+            <p className="text-xs text-white/50">
+              Tambah atau hapus plugin untuk fungsionalitas tambahan.
+            </p>
+            {/* TODO: Plugin management list */}
+          </div>
+
+          {/* ── Skills ── */}
+          <div id="cfg-skills" className={`space-y-3 p-2 -mx-2 rounded-lg ${activeSection !== 'cfg-skills' ? 'hidden' : ''}`}>
+            <h3 className="text-sm font-bold uppercase tracking-wider opacity-70">Mark Skills</h3>
+            <p className="text-xs text-white/50">
+              Keterampilan bawaan Mark yang bisa kamu aktifkan atau matikan.
+            </p>
+            {/* TODO: Skills toggle list */}
+          </div>
+
+          {/* ── MCP Connector ── */}
+          <div id="cfg-mcp" className={`space-y-3 p-2 -mx-2 rounded-lg ${activeSection !== 'cfg-mcp' ? 'hidden' : ''}`}>
+            <h3 className="text-sm font-bold uppercase tracking-wider opacity-70">MCP Connector</h3>
+            <p className="text-xs text-white/50">
+              Sambungkan layanan eksternal (Google Workspace, Telegram, dll) untuk memperluas kemampuan Mark.
+            </p>
+            {/* TODO: MCP connection list */}
+          </div>
+        </div>
+
             {/* ── Global Shortcut Settings ── */}
             <section id="cfg-shortcut" className={`space-y-5 p-2 -mx-2 rounded-lg scroll-mt-4 ${activeSection !== 'cfg-shortcut' ? 'hidden' : ''}`}>
               <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
@@ -1431,7 +1459,6 @@ const Configuration = ({
         </div>
         <ModalComponent />
       </div>
-    </div>
     </div>
   )
 }

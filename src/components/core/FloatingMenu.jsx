@@ -14,7 +14,6 @@ import {
   FaGoogle,
   FaBrain,
   FaRobot,
-  FaCommentAlt,
   FaGift
 } from 'react-icons/fa'
 import whatsNewData from '../../data/whats-new.json'
@@ -78,17 +77,6 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
           <div className="h-px w-full bg-white/10 my-1" />
 
           <button
-            onClick={() => {
-              navigate('/')
-              window.dispatchEvent(new CustomEvent('open-chat-studio'))
-              setIsOpen(false)
-            }}
-            className="flex items-center gap-3 w-full p-3 rounded-xl bg-primary/10 hover:bg-primary/20 transition-colors text-white text-sm font-semibold text-left border border-primary/20 shadow-sm"
-          >
-            <FaCommentAlt className="text-primary" /> Chat Studio
-          </button>
-
-          <button
             onClick={() => handleNav('/config')}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
@@ -96,31 +84,10 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
           </button>
 
           <button
-            onClick={() => handleNav('/plugins')}
-            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
-          >
-            <FaPuzzlePiece className="text-primary" /> Plugins
-          </button>
-
-          <button
-            onClick={() => handleNav('/skills')}
-            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
-          >
-            <FaBrain className="text-primary" /> Mark Skills
-          </button>
-
-          <button
             onClick={() => handleNav('/subagents')}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
             <FaRobot className="text-primary" /> Sub-Agents
-          </button>
-
-          <button
-            onClick={() => handleNav('/google-workspace')}
-            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
-          >
-            <FaGoogle className="text-primary" /> Google Workspace
           </button>
 
           <button

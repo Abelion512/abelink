@@ -161,12 +161,15 @@ const WindowControls = () => {
 const MainLayout = ({ isStandalone = false }) => {
   const location = useLocation()
   const isHome = location.pathname === '/'
+  const isTelegram = location.pathname === '/telegram-bot'
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-transparent rounded-xl">
-      {!isStandalone && <WindowControls />}
+      {/* Hide WindowControls on Telegram page — it has its own header with controls */}
+      {!isStandalone && !isTelegram && <WindowControls />}
       {/* Base Home Page - Always Mounted so AI Agent & Telegram Listeners Never Die */}
-      <div className="h-full w-full">
+      {/* Hidden on Telegram page to prevent overlap with TelegramBot's own header */}
+      <div className={`h-full w-full ${isTelegram ? 'hidden' : ''}`}>
         <MarkHome />
       </div>
 
