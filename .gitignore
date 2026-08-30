@@ -6,8 +6,6 @@
 dist/
 out/
 build/
-src-tauri/target/
-src-tauri/gen/
 
 # rust
 **/*.rs.bk
@@ -66,29 +64,31 @@ scripts/tmp-*
 # artefak generator — regenerasi on-demand, jangan di-commit (audit 2026-08-26)
 upstream-diff-report.json
 
-# tauri generated schemas (regenerated otomatis)
-src-tauri/gen/schemas/
 
 # scratch verifikasi agent (baseline lint), jangan commit
 .lint-baseline/
 
-# artefak tracker/generator (HTML dashboard, audit report, generated docs)
-*project-tracker*
-*mark-agent-tracker*
+# docs - internal documentation, not for open-source
+/docs/
 
-# scratch docs/session notes (proyek lain / non-mark-linux)
-/docs/PLANNED/
-docs/.screenshoots/
-docs/DRIFT_MANIFEST.md
-/docs/archive//
+# tests - keep only core unit tests; ignore stress/harness
+/tests/stress-*.mjs
+/tests/stability/
+/tests/harness/
 
-# scratch scripts non-kritis (task automation lain, bukan bagian inti mark)
-scripts/ask-ais.mjs
-scripts/rsi-evaluate.mjs
-scripts/rsi-improve.mjs
-scripts/auto-detect-upstream.mjs
-scripts/import-tiktok-cookies.mjs
-scripts/build-manifest.mjs
-scripts/bump-version.mjs
-scripts/sync-version.mjs
-scripts/mark-update.mjs
+# scripts - build/version only; internal helpers ignored
+/scripts/ask-ais.mjs
+/scripts/rsi-*.mjs
+/scripts/import-tiktok-cookies.mjs
+/scripts/auto-detect-upstream.mjs   # may be needed? but ignore for open-source
+/scripts/mark-update.mjs             # may be needed? but ignore for open-source
+/scripts/build-manifest.mjs
+/scripts/bump-version.mjs
+/scripts/sync-version.mjs
+
+# src-tauri - internal engine, tidak untuk open-source
+/src-tauri/
+
+# HTML tracker files - generated artifacts, jangan di-git
+/project-tracker.html
+/mark-agent-tracker.html
