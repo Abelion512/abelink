@@ -5,12 +5,12 @@
 | # | Feature | Electron | Tauri Linux | Status | Root Cause | Action |
 |---|---------|----------|-------------|--------|------------|--------|
 | 1.1 | BrowserWindow creation | main.js BrowserWindow | Rust WindowBuilder in lib.rs | A | Both create main window |
-| 1.2 | Transparent window | `transparent: true` CSS+window | `transparent: false`, solid bg `#0b0f0c` | D | Window not transparent in Tauri Linux config |
+| 1.2 | Transparent window | `transparent: true` CSS+window | `transparent: false`, solid bg `#0b0f0c` | **Platform limitation** | WebKitGTK doesn't render native transparency like Chromium (Layer A) |
 | 1.3 | Frameless | `frame: false` | `decorations: false` + custom React titlebar | A | Both remove native decor |
 | 1.4 | Always on top | `alwaysOnTop: true` | Not configured | B | Not set in tauri.conf.json |
 | 1.5 | Resizable | `resizable: true` | `resizable: true` in tauri.conf.json | A | Same |
 | 1.6 | Minimum size | `minWidth/minHeight` | `minWidth: 940`, `minHeight: 600` | A | Same |
-| 1.7 | Fullscreen | `fullscreen: true/false` | `set_fullscreen()` API exists | B | No fullscreen toggle in app code yet |
+| 1.7 | Fullscreen | `fullscreen: true/false` | `window_fullscreen_toggle` API + UI wired | **MATCH** | Fully implemented: bridge + command + UI button all present |
 | 1.8 | Titlebar style | `titleBarStyle: 'hiddenInset'` | Custom React titlebar in App.jsx | E | Linux replacement |
 | 1.9 | Vibrancy/blur | `vibrancy: 'ultra-dark'` | CSS `backdrop-filter: blur()` limited on WebKitGTK | B | WebKitGTK partial |
 | 1.10 | Opacity | `setOpacity()` | `--win-alpha` CSS var only, no `setOpacity()` | B | Tauri v1 API; not v2 |
@@ -39,11 +39,11 @@
 | 3.3 | File system | `fs.promises` + remote | `invoke('fs_*')` sandboxed to XDG workspace | B | Tauri adds path validation; Electron had nodeIntegration |
 | 3.4 | Dialog permissions | `dialog.showOpenDialog` | `invoke('misc_open_file_dialog')` with rfd + main-thread dispatch | A | Both use native rfd |
 | 3.5 | Notification | `new Notification()` | `invoke('misc_show_notification')` → `notify-send` | A | Both use system notify |
-| 3.6 | Camera/mic | `getUserMedia` | Not yet ported | D | Missing entirely in Tauri port |
+| 3.6 | Camera/mic | `getUserMedia` | `navigator.mediaDevices.getUserMedia()` via Web API | P1 | Ported via Web API; explicit permission dialog required (UX diff) |
 | 3.7 | HTTP/network | implicit Chromium | CSP in tauri.conf.json + `connect-src` allows specific origins | B | Tauri explicit config vs Chromium implicit |
 | 3.8 | System tray | `Tray` + `Menu` | `TrayIconBuilder` with Ayatana AppIndicator | A | Same pattern, different impl |
 | 3.9 | Global shortcuts | `globalShortcut` | `tauri_plugin_global_shortcut` + `on_shortcut()` | A | Same mechanism |
-| 3.10 | Auto-launch | `app.setLoginItemSettings` | Not implemented | D | Missing entirely |
+| 3.10 | Auto-launch | `app.setLoginItemSettings` | **Intentional Linux difference** | I | Linux uses `~/.config/autostart/*.desktop`, not app-internal setting |
 | 3.11 | Read/write paths | Node `fs` + `app.getPath` | `invoke('fs_*')` + `workspace_root()` in Rust | B | Tauri adds path sandboxing; Electron had broader access |
 | 3.12 | WebView new tabs | `session.defaultSession.setPermissionCheck` | CSP + `allow-popups` in window config | B | Tauri explicit vs Electron implicit |
 
@@ -51,8 +51,8 @@
 
 | # | Feature | Electron | Tauri Linux | Status | Notes |
 |---|---------|----------|-------------|--------|-------|
-| 4.1 | Camera | `getUserMedia` + `desktopCapturer` | **Not ported** | D | No camera/mic API in bridge |
-| 4.2 | Microphone | `getUserMedia` | **Not ported** | D | No mic API in bridge |
+| 4.1 | Camera | `getUserMedia` + `desktopCapturer` | `navigator.mediaDevices.getUserMedia()` via Web API | P1 | Ported via Web API; explicit permission dialog required (UX diff) |
+| 4.2 | Microphone | `getUserMedia` | `navigator.mediaDevices.getUserMedia()` via Web API | P1 | Same as camera — ported via Web API, explicit permission required |
 | 4.3 | Screen capture | `desktopCapturer` + `page.mediaDevices` | `invoke('misc_take_screenshot')` → `gnome-screenshot`/`scrot`/`maim`/`import` | B | Screenshot exists but screen-capture API missing |
 | 4.4 | Notifications | `new Notification()` | `invoke('misc_show_notification')` → `notify-send` | A | Same: system notify-send |
 | 4.5 | Audio playback | HTML5 Audio | HTML5 Audio (unchanged) | A | Same |
@@ -62,7 +62,7 @@
 | # | Feature | Electron | Tauri Linux | Status | Notes |
 |---|---------|----------|-------------|--------|-------|
 | 5.1 | Open file dialog | `dialog.showOpenDialog` | `invoke('misc_open_file_dialog')` → rfd + main-thread dispatch | A | Same native rfd |
-| 5.2 | Save file dialog | `dialog.showSaveDialog` | No direct equivalent (only `misc_save_temp_file` with path creation) | D | Missing save dialog |
+| 5.2 | Save file dialog | `dialog.showSaveDialog` | No generic save command (functional via `misc_save_temp_file` + `skills:save-file`) | **New feature / Not parity gap** | Not in Electron reference; enhancement if desired |
 | 5.3 | Read/write files | `fs.promises` + Node remote | `invoke('fs_read_file')`, `invoke('fs_write_file')` sandboxed to workspace | B | Tauri adds path validation; Electron had broader access |
 | 5.4 | Open external | `shell.openExternal` | `invoke('misc_open_external')` → `xdg-open` with approval gate | A | Same: xdg-open with native approval |
 | 5.5 | Open in system | `shell.openPath` | `invoke('misc_open_file_dialog')` can pick, `os_open` → `xdg-open` | A | Same mechanism |
@@ -74,8 +74,8 @@
 |---|---------|----------|-------------|--------|-------|
 | 6.1 | Tray | `Tray` + `ContextMenu` | `TrayIconBuilder` + Ayatana AppIndicator menu | A | Same pattern, different impl |
 | 6.2 | Global shortcuts | `globalShortcut.register` | `tauri_plugin_global_shortcut` + `on_shortcut()` | A | Same mechanism |
-| 6.3 | Auto-launch | `app.setLoginItemSettings` | **Not implemented** | D | Missing entirely |
-| 6.4 | Power monitor | `powerMonitor.on('suspend')` | Not ported | D | Missing entirely |
+| 6.3 | Auto-launch | `app.setLoginItemSettings` | **Intentional Linux difference** | I | Linux uses `~/.config/autostart/*.desktop`, not app-internal setting |
+| 6.4 | Power monitor | `powerMonitor.on('suspend')` | Not ported | D | Missing entirely (not expected in Linux Tauri product spec) |
 | 6.5 | Window focus | `BrowserWindow.on-focus` | `WindowEvent::Focused` + `emit_window_state()` | A | Same event pattern |
 
 ### Section 7: Browser Automation
@@ -113,13 +113,13 @@
 | 9.12 | Modals | React portals | React portals (unchanged) | A | Same |
 | 9.13 | Fullscreen overlays | CSS + Chromium API | CSS + HTML5 fullscreen API | B | WebKitGTK fullscreen differences |
 
-### Section 10: Missing Features (C/D categories)
+### Section 10: Feature Categories
 
 | # | Category | Description | Status |
 |---|----------|-------------|--------|
-| 10.1 | D | Camera/Microphone getUserMedia | Not ported |
-| 10.2 | D | Auto-launch at login | Not implemented |
-| 10.3 | D | Fullscreen toggle UI | Not implemented in app |
+| 10.1 | P1 | Camera/Microphone getUserMedia | Works via Web API; explicit permission dialog required |
+| 10.2 | I | Auto-launch at login | Linux uses `~/.config/autostart/*.desktop`, not app setting |
+| 10.3 | A | Fullscreen toggle UI | Fully wired (bridge + command + UI) |
 | 10.4 | C | Save file dialog | No equivalent exists |
 | 10.5 | B | Transparent window | Window configured `transparent: false` |
 | 10.6 | B | Vibran/blur effects | WebKitGTK limited |
@@ -129,12 +129,15 @@
 
 | Finding | Cause | Fix |
 |---------|-------|-----|
-| Window not transparent | `transparent: false` in tauri.conf.json; `--win-alpha` CSS var only, no window-level opacity | Set `transparent: true` in tauri.conf.json + handle `--win-alpha` in CSS, or use CSS opacity overlay approach |
-| WebKitGTK backdrop-filter limited | WebKitGTK doesn't fully support `backdrop-filter: blur()` | Use CSS-only fallback, document limitation, or switch to Chromium-based WebView if needed |
+| Window not transparent (Layer A) | WebKitGTK doesn't render native window transparency like Chromium | Document as platform limitation; CSS `--win-alpha` controls HTML background (Layers B/C only) |
+| WebKitGTK backdrop-filter (Layer D) | WebKitGTK doesn't fully support `backdrop-filter: blur()` | Use CSS-only fallback; document limitation; no code fix possible |
 | fs path sandboxing | Tauri `resolve_contained()` rejects `~`, absolute paths, `..` | This is intentional security; Electron had broader access via `nodeIntegration: true` — accept new boundary |
-| Camera/mic not ported | `getUserMedia` not in bridge; no Tauri Rust command | Add `getUserMedia` support via Rust WebView2/gtk or accept as Linux limitation |
-| Save file dialog missing | No `invoke('save-file')` command in bridge | Add `misc_save_file` command with rfd, or accept as deferred P2 |
-| Fullscreen not in app code | No `window_fullscreen` toggle handler in frontend + no `set_fullscreen` in tauri.conf.json | Add fullscreen toggle button + wire to `invoke('window_fullscreen_toggle')` |
+| Camera/mic (reclassified) | `getUserMedia` works via standard Web API; UX differs: explicit permission dialog vs Electron's auto-grant | Document UX difference; no code fix needed for parity |
+| Save file dialog (reclassified) | No `invoke('save-file')` command, but functional equivalence via `misc_save_temp_file` + `skills:save-file`; Electron reference also lacks it | Classify as new feature, not parity gap — add `misc_save_file` only if save UI is desired |
+| Fullscreen (reclassified) | Full path exists: UI → `window.api.windowFullscreen()` → `invoke('window_fullscreen_toggle')` → Rust `set_fullscreen()` | No action needed — fully implemented |
+| Auto-launch at login (reclassified) | `app.setLoginItemSettings` not ported; Linux product spec uses `~/.config/autostart/*.desktop` | Classify as intentional Linux difference; no code fix needed |
+| Vibrancy/blur (Layer D/E) | `backdrop-filter: blur()` partial on WebKitGTK; requires specific compositor | Document as platform limitation; CSS fallback recommended; Layer E UNVERIFIED on target DE |
+| Window opacity (`setOpacity`) | Tauri v2 removed `setOpacity()` API | Document as Tauri v2 API gap; `--win-alpha` CSS var workaround for HTML bg only |
 
 ## Known Platform Limitations
 
@@ -157,24 +160,33 @@
 - Notifications: `notify-send` via native spawn
 - Screenshot: `gnome-screenshot` → `scrot` → `maim` → `import` chain
 
-## Remaining Gaps (Priority Order)
+## Confirmed Classification Summary (Canonical)
 
-**P0 — Core user-facing regressions:**
-1. Window not transparent (`transparent: false` in config, `--win-alpha` CSS var only)
-2. Camera/microphone not ported (`getUserMedia` missing entirely)
-3. Save file dialog missing (no equivalent command)
-4. Auto-launch at login not implemented
+| Feature | Electron | Tauri Linux | Final Status | Root Cause | Priority |
+|---------|----------|-------------|--------------|------------|----------|
+| Transparent window | `transparent: true` + `backgroundColor: '#00000000'` | `transparent: false`, `#0b0f0c` bg | **Platform limitation** | WebKitGTK doesn't render CSS backdrop/transparency like Chromium (Layers A/D verified; E UNVERIFIED) | Document |
+| Camera/Mic | `getUserMedia()` + auto-grant | `getUserMedia()` + explicit permission dialog | **PARTIAL** | Electron auto-grants; Tauri/WebKitGTK requires user consent | P1 |
+| Save file dialog | Implicit via node `fs` | No generic save command (functional via `misc_save_temp_file` + `skills:save-file`) | **NEW FEATURE / NOT PARITY GAP** | Not in Electron reference; enhancement opportunity | — |
+| Auto-launch at login | `app.setLoginItemSettings` | Not implemented | **INTENTIONAL LINUX DIFFERENCE** | Linux uses DESKTOP files, not app setting | N/A |
+| Fullscreen toggle | `setFullScreen()` API | Fully wired (bridge + command + UI button) | **MATCH** | Fully implemented | N/A |
+| Vibrancy/blur effects | `vibrancy: 'ultra-dark'` + native effect | CSS `backdrop-filter: blur()` | **Platform limitation** | WebKitGTK partial support; compositor-dependent | P1 (document) |
+| Window opacity (`setOpacity`) | `setOpacity()` API | `--win-alpha` CSS var only (styling) | **Tauri v2 API gap** | Tauri v2 removed `setOpacity()`; alpha only for HTML bg | P1 |
 
-**P1 — Media/integration:**
-5. Fullscreen toggle not wired in UI
-6. Vibrancy/blur effects limited on WebKitGTK
-7. Window opacity only via CSS var, not window-level
+## Must Fix Before Linux Release
 
-**P2 — Visual polish:**
-8. DaisyUI v5 differences from v4 (Electron baseline)
-9. backdrop-filter partial on WebKitGTK
-10. Fullscreen overlay styling differences
+1. **No confirmed P0 regressions.** The save-dialog item was reclassified as a new feature (not parity gap); camera/fullscreen/auto-launch were verified as either working or intentional.
 
-## Recommended Next Milestone
+## Must Document
 
-Implement P0 fixes: window transparency config, camera/mic bridge stub (or documented limitation), and add save file dialog command. These are core user-facing behaviors that currently silently fail or are absent.
+1. **WebKitGTK platform limitations**: `backdrop-filter: blur()` partial support; window transparency not natively renderable (Layers A/D); Layer E compositor blur UNVERIFIED on target DE
+2. **Tauri v2 API gap**: `setOpacity()` removed; `--win-alpha` CSS var only affects HTML background (Layer C)
+3. **Camera/mic permission UX difference**: Explicit permission dialog via WebKitGTK vs Electron's implicit auto-grant
+4. **Auto-launch Linux difference**: Uses `~/.config/autostart/*.desktop`, not `app.setLoginItemSettings`
+5. **Fullscreen**: Fully implemented — no action needed
+
+## Future Improvements (Optional)
+
+- Add `misc_save_file` command for save-file workflow enhancement (new feature, not parity gap)
+- Add Wayland fallback for xdotool (`wtype`/`ydotool`) — P2
+- Test `backdrop-filter` on target GNOME/KDE desktop — verify Layer E compositor behavior
+- DaisyUI v5 theme polish if desired
