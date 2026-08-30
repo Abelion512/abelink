@@ -68,8 +68,11 @@ upstream-diff-report.json
 # scratch verifikasi agent (baseline lint), jangan commit
 .lint-baseline/
 
-# docs - internal documentation, not for open-source
-/docs/
+# docs/PLANNED - internal planning docs, not for open-source
+/docs/PLANNED/
+/docs/superpowers/
+docs/DRIFT_MANIFEST.md
+docs/.screenshoots/
 
 # tests - keep only core unit tests; ignore stress/harness
 /tests/stress-*.mjs
@@ -92,3 +95,6 @@ upstream-diff-report.json
 # HTML tracker files - generated artifacts, jangan di-git
 /project-tracker.html
 /mark-agent-tracker.html
+
+# generated what's-new JSON (runtime artifact)
+/src/data/whats-new.json
