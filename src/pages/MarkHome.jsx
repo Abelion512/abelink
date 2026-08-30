@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import OrbVisualizer from '../components/core/OrbVisualizer'
@@ -19,10 +19,6 @@ import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useVAD } from '../hooks/useVAD'
 import { useMemoryGroomer } from '../hooks/useMemoryGroomer'
 import { db, setSessionWorkspace } from '../api/db'
-
-// Easter egg dinonaktifkan sementara (review UX 2026-08-26) —
-// nyalakan kembali dengan mengubah flag ini menjadi true.
-const EASTER_EGG_ENABLED = false
 
 const MarkHome = () => {
   const chatContext = useChat()
@@ -59,29 +55,7 @@ const MarkHome = () => {
   const [ttsIntensity, setTtsIntensity] = useState(0)
   const [workspaceRoot, setWorkspaceRoot] = useState(null)
   const [winState, setWinState] = useState({ isMaximized: false, isFullScreen: false })
-  const [easterEgg, setEasterEgg] = useState(null)
-  const eggTimerRef = useRef(null)
-
-  // Pool easter-egg saat maximize/restored — jam eksklusif fullscreen
-  const EGG_POOL = ['date', 'quote', 'mood', 'matrix']
-
-  const hideEgg = () => {
-    if (eggTimerRef.current) clearTimeout(eggTimerRef.current)
-    setEasterEgg(null)
-  }
-
-  const handleOrbClick = () => {
-    // Easter egg dinonaktifkan sementara (review UX 2026-08-26).
-    if (!EASTER_EGG_ENABLED) return
-    if (easterEgg) return hideEgg()
-    const pick = winState.isFullScreen
-      ? 'clock'
-      : EGG_POOL[Math.floor(Math.random() * EGG_POOL.length)]
-    setEasterEgg(pick)
-    if (eggTimerRef.current) clearTimeout(eggTimerRef.current)
-    eggTimerRef.current = setTimeout(hideEgg, 15000)
-  }
-
+  
   useEffect(() => {
     db.sessions
       .get(1)
@@ -392,7 +366,6 @@ const MarkHome = () => {
                 status={orbStatus}
                 intensity={orbStatus === 'speaking' ? ttsIntensity : 0}
                 mood={currentResponse?.mood || 'neutral'}
-                egg={easterEgg}
               />
             </div>
           </div>

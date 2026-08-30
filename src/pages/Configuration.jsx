@@ -652,14 +652,8 @@ const Configuration = ({
               </button>
             )}
             <div>
-              <h1 className="text-2xl font-bold">
-                {isFirstSetup ? 'Selamat Datang di Mark!' : 'Pengaturan Mark'}
-              </h1>
-              <p className="opacity-50 text-sm mt-1">
-                {isFirstSetup
-                  ? 'Sebelum mulai ngobrol, atur provider AI dan pengaturan dasar lainnya di bawah ini.'
-                  : 'Sesuaikan perilaku Mark dengan preferensimu.'}
-              </p>
+              <h1 className="text-2xl font-bold">Pengaturan Mark</h1>
+              <p className="opacity-50 text-sm mt-1">Sesuaikan perilaku Mark dengan preferensimu.</p>
             </div>
             <div className="ml-auto flex items-center gap-2">
               {saveStatus && !isFirstSetup && (
@@ -1006,7 +1000,7 @@ const Configuration = ({
               </button>
               <button
                 type="button"
-                className="btn btn-ghost btn-sm"
+                className="btn btn-outline btn-sm"
                 onClick={() => {
                   navigate('/')
                   window.dispatchEvent(new CustomEvent('open-memory-map'))
