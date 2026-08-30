@@ -393,7 +393,6 @@ const MarkHome = () => {
                 intensity={orbStatus === 'speaking' ? ttsIntensity : 0}
                 mood={currentResponse?.mood || 'neutral'}
                 egg={easterEgg}
-                onEggClick={handleOrbClick}
               />
             </div>
           </div>
