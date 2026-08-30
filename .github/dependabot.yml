@@ -15,11 +15,9 @@ updates:
       - 'dependencies'
       - 'automated'
     groups:
-      electron:
+      tauri:
         patterns:
-          - 'electron'
-          - 'electron-*'
-          - '@electron-toolkit/*'
+          - '@tauri-apps/*'
       react:
         patterns:
           - 'react'
@@ -32,9 +30,23 @@ updates:
           - 'prettier*'
           - 'vite'
           - '@vitejs/*'
-    ignore:
-      - dependency-name: 'electron'
-        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: 'cargo'
+    directory: '/src-tauri'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Jakarta'
+    versioning-strategy: increase
+    open-pull-requests-limit: 10
+    labels:
+      - 'dependencies'
+      - 'automated'
+    groups:
+      tauri-rust:
+        patterns:
+          - 'tauri*'
 
   - package-ecosystem: 'github-actions'
     directory: '/'

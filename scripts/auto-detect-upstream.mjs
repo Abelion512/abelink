@@ -10,7 +10,7 @@ import path from 'path';
 
 const REPO_ROOT = '/media/abelion/Isaf/ican/project/AGENT/mark-agent-fork';
 const UPSTREAM = 'upstream/master';
-const LOCAL = 'master';
+const LOCAL = 'linux';
 
 function run(cmd) {
   try {
@@ -48,11 +48,6 @@ function classifyFile(file) {
   ];
 
   const atmPatterns = [
-    /src\/main\//,
-    /src\/preload\//,
-    /electron\.vite\.config/,
-    /electron-builder/,
-    /\.claude\//,
     /src\/renderer\/src\/api\/ai\//,
     /src\/renderer\/src\/hooks\/agent\//,
     /src\/renderer\/src\/components\/YoutubeMusicPlayer/,

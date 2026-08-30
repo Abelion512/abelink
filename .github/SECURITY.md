@@ -19,13 +19,14 @@ If you discover a credential leak, remote code execution, or sandbox escape:
 
 - AI provider API keys and tokens
 - WhatsApp session credentials
-- Local filesystem access boundaries
-- Browser automation isolation (BrowserWindow sandbox)
-- IPC bridge integrity (preload isolation)
+- Local filesystem access boundaries (XDG workspace sandbox via `resolve_contained()`)
+- Browser automation isolation (tauri-sidecar isolation)
+- IPC bridge integrity (capabilities-based permission gates)
 
 ## Threat model
 
-- **Local first**: All secrets stored client-side in Electron's IndexedDB.
-- **Electron sandbox**: Renderer processes have `sandbox: true` where possible.
-  Main process `sandbox: false` by design (Node.js IPC required).
+- **Local first**: All secrets stored client-side in IndexedDB (Dexie).
+- **Tauri capabilities**: Renderer processes have explicit capability grants via `capabilities/default.json`.
+  Main process uses `invoke()` gates; no unrestricted Node.js integration.
+- **Path containment**: All filesystem operations use `resolve_contained()` to reject `~`, `..`, and absolute paths.
 - **No telemetry**: Zero tracking, analytics, or external data exfiltration.
