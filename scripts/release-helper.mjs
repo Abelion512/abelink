@@ -33,22 +33,33 @@ function run(cmd, opts = {}) {
   }
 }
 
-// Get the latest release tag REACHABLE from the linux branch HEAD.
-// This prevents old tags from other branches (e.g. v1.0.0-alpha.1 on master)
-// from becoming accidental baselines.
+// Get the latest release tag REACHABLE from the current HEAD.
+// Uses `git tag --merged HEAD` to guarantee ancestry — prevents
+// old tags from other branches (e.g. v2.0.0 on master) from
+// becoming accidental baselines.
 function getLastReleaseTag() {
-  // Get all tags reachable from linux HEAD, sorted by version descending
-  const reachable = run('git tag -l "v*" --sort=-v:refname').split('\n').filter(Boolean)
+  // Step 1: Only tags that are ancestors of current HEAD
+  let reachable = []
+  try {
+    const mergedTags = run('git tag --merged HEAD').split('\n').filter(Boolean)
+    reachable = mergedTags.filter(t => t.startsWith('v'))
+  } catch {
+    // Fallback: no tags reachable (first release case)
+    return null
+  }
+
   if (reachable.length === 0) return null
 
-  // Find first alpha/beta/stable tag (skip non-release tags)
-  for (const tag of reachable) {
-    const v = tag.replace(/^v/, '')
-    if (semver.valid(v) && (v.includes('-alpha.') || v.includes('-beta.') || !v.includes('-'))) {
-      return v
-    }
-  }
-  return null
+  // Step 2: Filter for valid semver alpha/beta/stable releases
+  const validReleases = reachable
+    .map(t => t.replace(/^v/, ''))
+    .filter(v => semver.valid(v) && (v.includes('-alpha.') || v.includes('-beta.') || !v.includes('-')))
+
+  if (validReleases.length === 0) return null
+
+  // Step 3: Sort by semver descending and return highest
+  validReleases.sort((a, b) => semver.rcompare(a, b))
+  return validReleases[0]
 }
 
 function getCommitsSince(version) {
@@ -184,8 +195,21 @@ function updateReleasePR(version, changes) {
 
   const prBody = `## Changelog\n${changelogBody}\n---\n*This release was prepared automatically by release automation.*`
 
-  // Checkout the release branch
+  // === Synchronize release branch with latest linux ===
+  // The release branch may be behind linux if new commits landed
+  // while the Release PR is open. We must merge linux into the
+  // release branch so the candidate reflects the latest state.
   run(`git checkout ${branch}`)
+
+  // Fetch latest linux
+  run(`git fetch origin linux`)
+
+  // Merge linux into release branch with ours strategy for generated files.
+  // Generated files will be regenerated in the next step anyway.
+  // `-X theirs` means linux wins conflicts for non-generated files
+  // (e.g. if a new feature was added to source). For generated files,
+  // we override them immediately after.
+  run(`git merge origin/linux -m "Merge linux into ${branch}" -X theirs`)
 
   // Pull latest (in case of concurrent updates)
   run(`git pull origin ${branch}`)
