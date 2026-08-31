@@ -1129,18 +1129,23 @@ export const NATIVE_TOOLS = {
           timeout: 30000
         })
         const content = htmlRes.data || ''
-        // Extract text content similar to DOM parser
-        const textOnly = content
-          .replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, '')
-          .replace(/<\s*style[\s\S]*?<\s*\/\s*style\s*>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
+        // Parse HTML and extract text using htmlparser2 (already in deps)
+        const { Parser } = await import('htmlparser2')
+        const textOnly = new Promise((resolve, reject) => {
+          let text = ''
+          const parser = new Parser({
+            ontext: (textChunk) => { text += textChunk },
+            onend: () => { resolve(text.trim()) }
+          }, { decodeEntities: true })
+          parser.write(content)
+          parser.end()
+        })
+        const cleanedText = await textOnly
         return {
           success: true,
           data: {
             url: query,
-            text: textOnly.slice(0, 50000),
+            text: cleanedText.slice(0, 50000),
             raw: content.slice(0, 100000)
           }
         }
