@@ -437,6 +437,8 @@ export function finalizeRelease() {
   if (!semver.valid(version)) throw new Error(`Invalid version in tauri.conf.json: ${version}`)
   const tag = `v${version}`
 
+  // ── Guards ──────────────────────────────────────────────────────────────
+
   // Guard 1: version synchronization
   console.log('[release-helper] Checking version synchronization...')
   try {
@@ -451,13 +453,38 @@ export function finalizeRelease() {
     throw new Error(`Tag ${tag} already exists. Refusing to overwrite.`)
   }
 
+  // Guard 3: version must be newer than the latest existing release tag
+  const lastTag = getLastReleaseTag()
+  if (lastTag && !semver.lt(lastTag, version)) {
+    throw new Error(`Version ${version} is not newer than last release ${lastTag}. Refusing.`)
+  }
+
+  // ── Tag push ─────────────────────────────────────────────────────────────
+
   // Create and push tag
   console.log(`[release-helper] Creating tag ${tag}...`)
   run(`git tag ${tag}`)
   run(`git push origin ${tag}`)
 
-  console.log(`[release-helper] Tag ${tag} pushed. Release workflow will build and publish.`)
+  console.log(`[release-helper] Tag ${tag} pushed.`)
+
+  // ── Explicitly dispatch release.yml ─────────────────────────────────────
+  // GITHUB_TOKEN does NOT trigger 'push' events on tag pushes.
+  // Use workflow_dispatch to guarantee the release build starts.
+  dispatchReleaseWorkflow(tag)
+
   return { version, tag }
+}
+
+function dispatchReleaseWorkflow(tag) {
+  // Explicitly trigger release.yml via workflow_dispatch API.
+  // GITHUB_TOKEN alone cannot trigger 'push: tags' events.
+  // This guarantees: tag created → release build starts → GitHub Release published.
+  const workflowId = 'release.yml'
+  const ref = tag
+  console.log(`[release-helper] Dispatching ${workflowId} for tag ${tag}`)
+  // Use gh CLI to dispatch the workflow
+  run(`gh workflow run ${workflowId} --ref ${ref}`)
 }
 
 // ============================================================
