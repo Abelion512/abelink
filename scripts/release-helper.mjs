@@ -139,35 +139,24 @@ function findReleasePR(version) {
   }
 }
 
+// Create new Release PR (called only for new releases)
 function createReleasePR(version, changes) {
   const branch = `release/v${version}`
-  const sections = ['features', 'fixes', 'security', 'docs']
-  const icons = { features: '✨', fixes: '🛠️', security: '🔐', docs: '📚' }
-  const labels = { features: 'New', fixes: 'Fixes', security: 'Security', docs: 'Documentation' }
+  const prBody = buildPRBody(changes)
 
-  let changelogBody = ''
-  for (const section of sections) {
-    const items = changes[section] || []
-    if (items.length === 0) continue
-    changelogBody += `\n### ${icons[section]} ${labels[section]}\n`
-    for (const item of items) {
-      changelogBody += `- ${item.msg}\n`
-    }
-  }
-
-  const prBody = `## Changelog\n${changelogBody}\n---\n*This release was prepared automatically by release automation.*`
-
-  // Create branch from current linux HEAD
+  // Create branch from current linux HEAD (already on linux when called)
   run(`git checkout -b ${branch}`)
+
+  // Generate files on the new branch
+  writeAllFiles(version, changes)
+  run('bun run sync-version')
 
   // Stage and commit generated files
   run('git add src/data/releases.json src/data/whats-new.json src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
-  const commitMsg = `chore(release): v${version}`
   try {
-    run(`git commit -m "${commitMsg}"`)
+    run(`git commit -m "chore(release): v${version}"`)
   } catch {
     // Nothing to commit (files unchanged)
-    // Continue to push existing commit
   }
 
   // Push branch (no force)
@@ -175,62 +164,6 @@ function createReleasePR(version, changes) {
 
   // Create PR
   run(`gh pr create --base linux --head ${branch} --title "Release v${version}" --body "${prBody}" --label release`)
-}
-
-function updateReleasePR(version, changes) {
-  const branch = `release/v${version}`
-  const sections = ['features', 'fixes', 'security', 'docs']
-  const icons = { features: '✨', fixes: '🛠️', security: '🔐', docs: '📚' }
-  const labels = { features: 'New', fixes: 'Fixes', security: 'Security', docs: 'Documentation' }
-
-  let changelogBody = ''
-  for (const section of sections) {
-    const items = changes[section] || []
-    if (items.length === 0) continue
-    changelogBody += `\n### ${icons[section]} ${labels[section]}\n`
-    for (const item of items) {
-      changelogBody += `- ${item.msg}\n`
-    }
-  }
-
-  const prBody = `## Changelog\n${changelogBody}\n---\n*This release was prepared automatically by release automation.*`
-
-  // === Synchronize release branch with latest linux ===
-  // The release branch may be behind linux if new commits landed
-  // while the Release PR is open. We must merge linux into the
-  // release branch so the candidate reflects the latest state.
-  run(`git checkout ${branch}`)
-
-  // Fetch latest linux
-  run(`git fetch origin linux`)
-
-  // Merge linux into release branch with ours strategy for generated files.
-  // Generated files will be regenerated in the next step anyway.
-  // `-X theirs` means linux wins conflicts for non-generated files
-  // (e.g. if a new feature was added to source). For generated files,
-  // we override them immediately after.
-  run(`git merge origin/linux -m "Merge linux into ${branch}" -X theirs`)
-
-  // Pull latest (in case of concurrent updates)
-  run(`git pull origin ${branch}`)
-
-  // Regenerate and commit
-  run('git add src/data/releases.json src/data/whats-new.json src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
-  try {
-    run('git diff --cached --quiet')
-    // No changes to commit
-  } catch {
-    run('git commit -m "chore(release): update release data"')
-  }
-
-  // Push normally (no force)
-  run(`git push origin ${branch}`)
-
-  // Update PR metadata
-  const prNumber = findReleasePR(version)
-  if (prNumber) {
-    run(`gh pr edit ${prNumber} --title "Release v${version}" --body "${prBody}"`)
-  }
 }
 
 // ============================================================
@@ -353,10 +286,7 @@ function nextAlphaVersion(current) {
 export function prepareRelease() {
   console.log('[release-helper] Stage A: Prepare release')
 
-  // === Idempotency check ===
-  // First, read releases.json — this is the durable source of truth.
-  // If a version entry already exists, this release was already prepared,
-  // even if the tag hasn't been created yet (finalize runs post-merge).
+  // === Read releases.json for idempotency (durable state) ===
   let existingReleases = []
   if (fs.existsSync(RELEASES_PATH)) {
     try {
@@ -367,11 +297,10 @@ export function prepareRelease() {
     }
   }
 
-  // Check if the candidate version already has an entry in releases.json
+  // === Calculate candidate version (pure, no git state mutation) ===
   const lastTagVersion = getLastReleaseTag()
   const commits = getCommitsSince(lastTagVersion)
 
-  // Separate releasable (triggers release) from includable (goes into notes)
   const releasable = commits.filter(isReleasable)
   const includable = commits.filter(shouldIncludeInNotes)
 
@@ -380,21 +309,71 @@ export function prepareRelease() {
     return null
   }
 
-  // Calculate next version from last tag
   const currentVersion = lastTagVersion || '1.0.0-alpha.1'
   const newVersion = nextAlphaVersion(currentVersion)
 
-  // Idempotency: if releases.json already has this version entry, skip
-  const alreadyReleased = existingReleases.findIndex(r => r.version === newVersion)
-  if (alreadyReleased >= 0) {
+  // === Idempotency: does releases.json already have this version? ===
+  // This is the PRIMARY guard — if the version entry exists, this run
+  // was already prepared (even if PR is still open / tag not created).
+  if (existingReleases.some(r => r.version === newVersion)) {
+    // Also check if PR exists — if so, update it with fresh commits but keep same version
+    const existingPR = findReleasePR(newVersion)
+    if (existingPR) {
+      console.log(`[release-helper] Version ${newVersion} already in releases.json. Updating PR #${existingPR} with latest commits (same version).`)
+      // Branch selection happens BEFORE any file mutation
+      run(`git checkout ${existingPR_branch(newVersion)}`)
+      syncWithLinux()
+      const changes = buildChanges(includable)
+      writeAllFiles(newVersion, changes)
+      commitAndPushIfChanged(newVersion, 'chore(release): update release data')
+      updatePRMetadata(newVersion, changes)
+      return { version: newVersion, prNumber: existingPR, updated: true, idempotent: true }
+    }
     console.log(`[release-helper] Version ${newVersion} already prepared (in releases.json). No re-release.`)
     return { version: newVersion, prNumber: null, alreadyReleased: true, idempotent: true }
   }
 
-  // Check if a Release PR already exists for this version (by branch matching)
+  // === Check if a Release PR already exists ===
   const existingPR = findReleasePR(newVersion)
+  const changes = buildChanges(includable)
 
-  // Build changes by category
+  if (existingPR) {
+    // Existing Release PR: checkout branch FIRST, then sync + regenerate
+    console.log(`[release-helper] Updating existing Release PR #${existingPR} for v${newVersion}`)
+    // Branch selection before file mutation — prevents checkout failure
+    run(`git checkout release/v${newVersion}`)
+    syncWithLinux()
+    // Regenerate files on the release branch
+    writeAllFiles(newVersion, changes)
+    run('bun run sync-version')
+    commitAndPushIfChanged(newVersion, 'chore(release): update release data')
+    updatePRMetadata(newVersion, changes)
+    return { version: newVersion, prNumber: existingPR, updated: true, idempotent: false }
+  } else {
+    // New Release PR: create branch from linux HEAD, generate, commit, push
+    console.log(`[release-helper] Creating Release PR for v${newVersion}`)
+    createReleasePR(newVersion, changes)
+    return { version: newVersion, prNumber: null, updated: false }
+  }
+}
+
+// ── Helpers refactored for testability ───────────────────────────────────────
+
+function existingPR_branch(version) {
+  return `release/v${version}`
+}
+
+function syncWithLinux() {
+  // Fetch latest linux and merge into current release branch.
+  // Strategy: -X theirs lets linux win non-generated conflicts;
+  // generated files are overwritten in writeAllFiles anyway.
+  // No force push. Errors propagate (no `|| true` or `||` swallowing).
+  run(`git fetch origin linux`)
+  run(`git merge origin/linux -m "Merge linux into release branch" -X theirs`)
+  run(`git pull origin HEAD`)
+}
+
+function buildChanges(includable) {
   const changes = { features: [], fixes: [], security: [], docs: [] }
   for (const c of includable) {
     const section = classifyChange(c)
@@ -403,25 +382,46 @@ export function prepareRelease() {
       type: c.type
     })
   }
+  return changes
+}
 
-  // Write generated files (always regenerate to reflect latest state)
-  writeReleasesFile(newVersion, changes)
-  writeWhatsNewFile(newVersion, changes)
-
-  // Update version in tauri.conf.json and sync
-  writeConf(newVersion)
+function writeAllFiles(version, changes) {
+  writeReleasesFile(version, changes)
+  writeWhatsNewFile(version, changes)
+  writeConf(version)
   run('bun run sync-version')
+}
 
-  if (existingPR) {
-    // Update existing Release PR
-    console.log(`[release-helper] Updating existing Release PR #${existingPR} for v${newVersion}`)
-    updateReleasePR(newVersion, changes)
-    return { version: newVersion, prNumber: existingPR, updated: true }
-  } else {
-    // Create new Release PR
-    console.log(`[release-helper] Creating Release PR for v${newVersion}`)
-    createReleasePR(newVersion, changes)
-    return { version: newVersion, prNumber: null, updated: false }
+function commitAndPushIfChanged(version, msg) {
+  run('git add src/data/releases.json src/data/whats-new.json src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
+  try {
+    run('git diff --cached --quiet')
+    // No changes — nothing to commit
+  } catch {
+    run(`git commit -m "${msg}"`)
+  }
+  run(`git push origin release/v${version}`)
+}
+
+function buildPRBody(changes) {
+  const sections = ['features', 'fixes', 'security', 'docs']
+  const icons = { features: '✨', fixes: '🛠️', security: '🔐', docs: '📚' }
+  const labels = { features: 'New', fixes: 'Fixes', security: 'Security', docs: 'Documentation' }
+  let changelogBody = ''
+  for (const section of sections) {
+    const items = changes[section] || []
+    if (items.length === 0) continue
+    changelogBody += `\n### ${icons[section]} ${labels[section]}\n`
+    for (const item of items) changelogBody += `- ${item.msg}\n`
+  }
+  return `## Changelog\n${changelogBody}\n---\n*This release was prepared automatically by release automation.*`
+}
+
+function updatePRMetadata(version, changes) {
+  const prNumber = findReleasePR(version)
+  if (prNumber) {
+    const prBody = buildPRBody(changes)
+    run(`gh pr edit ${prNumber} --title "Release v${version}" --body "${prBody}"`)
   }
 }
 
