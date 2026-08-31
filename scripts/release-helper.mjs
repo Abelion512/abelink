@@ -334,6 +334,21 @@ function nextAlphaVersion(current) {
 export function prepareRelease() {
   console.log('[release-helper] Stage A: Prepare release')
 
+  // === Idempotency check ===
+  // First, read releases.json — this is the durable source of truth.
+  // If a version entry already exists, this release was already prepared,
+  // even if the tag hasn't been created yet (finalize runs post-merge).
+  let existingReleases = []
+  if (fs.existsSync(RELEASES_PATH)) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(RELEASES_PATH, 'utf8'))
+      existingReleases = raw.releases || []
+    } catch {
+      existingReleases = []
+    }
+  }
+
+  // Check if the candidate version already has an entry in releases.json
   const lastTagVersion = getLastReleaseTag()
   const commits = getCommitsSince(lastTagVersion)
 
@@ -346,11 +361,18 @@ export function prepareRelease() {
     return null
   }
 
-  // Calculate next version
+  // Calculate next version from last tag
   const currentVersion = lastTagVersion || '1.0.0-alpha.1'
   const newVersion = nextAlphaVersion(currentVersion)
 
-  // Check if a Release PR already exists for this version
+  // Idempotency: if releases.json already has this version entry, skip
+  const alreadyReleased = existingReleases.findIndex(r => r.version === newVersion)
+  if (alreadyReleased >= 0) {
+    console.log(`[release-helper] Version ${newVersion} already prepared (in releases.json). No re-release.`)
+    return { version: newVersion, prNumber: null, alreadyReleased: true, idempotent: true }
+  }
+
+  // Check if a Release PR already exists for this version (by branch matching)
   const existingPR = findReleasePR(newVersion)
 
   // Build changes by category
