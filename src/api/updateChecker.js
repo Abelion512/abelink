@@ -25,7 +25,7 @@ async function fetchReleases() {
     clearTimeout(timeout)
     if (!res.ok) return null
     const data = await res.json()
-    return data.filter(r => !r.draft && !r.prerelease === false)
+    return data.filter(r => !r.draft)
   } catch {
     clearTimeout(timeout)
     return null

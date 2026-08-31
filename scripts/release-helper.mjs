@@ -11,7 +11,10 @@ const CONF_PATH = path.join(ROOT, 'src-tauri/tauri.conf.json')
 const RELEASES_PATH = path.join(ROOT, 'src/data/releases.json')
 const WHATSNEW_PATH = path.join(ROOT, 'src/data/whats-new.json')
 
-// Generate date in Indonesian format (matching existing whats-new.json)
+// ============================================================
+// Helpers
+// ============================================================
+
 function formatDate() {
   const now = new Date()
   const months = [
@@ -23,23 +26,33 @@ function formatDate() {
 
 function run(cmd, opts = {}) {
   try {
-    return execSync(cmd, { cwd: ROOT, encoding: 'utf8', ...opts }).trim()
+    return execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: ['pipe','pipe','pipe'], ...opts }).trim()
   } catch (e) {
-    const msg = e.stderr || e.message
+    const msg = e.stderr ? e.stderr.toString().trim() : e.message
     throw new Error(`Command failed: ${cmd}\n${msg}`)
   }
 }
 
-function getLastTag() {
-  try {
-    return run('git describe --tags --abbrev=0')
-  } catch {
-    return null
+// Get the latest release tag REACHABLE from the linux branch HEAD.
+// This prevents old tags from other branches (e.g. v1.0.0-alpha.1 on master)
+// from becoming accidental baselines.
+function getLastReleaseTag() {
+  // Get all tags reachable from linux HEAD, sorted by version descending
+  const reachable = run('git tag -l "v*" --sort=-v:refname').split('\n').filter(Boolean)
+  if (reachable.length === 0) return null
+
+  // Find first alpha/beta/stable tag (skip non-release tags)
+  for (const tag of reachable) {
+    const v = tag.replace(/^v/, '')
+    if (semver.valid(v) && (v.includes('-alpha.') || v.includes('-beta.') || !v.includes('-'))) {
+      return v
+    }
   }
+  return null
 }
 
-function getCommitsSince(tag) {
-  // If no tag yet, use all history; otherwise commits after the tag
+function getCommitsSince(version) {
+  const tag = version ? `v${version}` : null
   const range = tag ? `${tag}..HEAD` : 'HEAD'
   const out = run(`git log --oneline ${range}`)
   return out.split('\n').filter(Boolean).map(line => {
@@ -55,18 +68,26 @@ function getCommitsSince(tag) {
   })
 }
 
-function getLatestTagVersion() {
-  const tag = getLastTag()
-  if (!tag) return null
-  return tag.replace(/^v/, '')
+function readConf() {
+  return JSON.parse(fs.readFileSync(CONF_PATH, 'utf8'))
 }
+
+function writeConf(version) {
+  const conf = readConf()
+  conf.version = version
+  fs.writeFileSync(CONF_PATH, JSON.stringify(conf, null, 2) + '\n')
+}
+
+// ============================================================
+// Commit classification
+// ============================================================
 
 function isReleasable(commit) {
   return ['feat', 'fix', 'security'].includes(commit.type)
 }
 
 function shouldIncludeInNotes(commit) {
-  // All conventional commits except ci-only internal ones
+  // Include all conventional commits except ci-only internal ones
   return commit.type !== null && !commit.type.startsWith('ci:')
 }
 
@@ -75,44 +96,40 @@ function classifyChange(commit) {
   if (commit.type === 'fix') return 'fixes'
   if (commit.type === 'security') return 'security'
   if (['docs', 'test'].includes(commit.type)) return 'docs'
-  if (commit.type === 'chore') return 'docs' // cleanup/docs
+  if (commit.type === 'chore') return 'docs'
   return 'docs'
 }
 
+// Human-friendly: simplify without destroying technical meaning
+// Stripping is conservative — only removes commit-message artifacts
 function humanify(scope) {
-  // Strip internal references, code identifiers, keep meaning
   let s = scope
-    .replace(/\([^)]*\)/g, '') // remove parenthetical refs
-    .replace(/^\[.*?\]\s*/, '') // remove leading [brackets]
-    .replace(/\b[A-Z][a-z]+[A-Z]\w+/g, '') // remove camelCase types like htmlparser2
+    .replace(/^\[.*?\]\s*/, '')          // [refs/xxx]
+    .replace(/\([^)]*\)/g, '')           // (scope): prefix already stripped
     .replace(/\b(?:fix|feat|chore|docs|test|ci|security|refactor|build)\b/gi, '')
-    .replace(/\b(?:linux|tauri|rust|electron|window|git|webview|api)\b/gi, '')
     .replace(/\s+/g, ' ').trim()
-
-  if (!s) s = scope // fallback
+  if (!s) s = scope
   s = s.charAt(0).toUpperCase() + s.slice(1)
   return s
 }
 
-function findExistingReleasePR() {
+// ============================================================
+// PR management
+// ============================================================
+
+function findReleasePR(version) {
+  const targetBranch = `release/v${version}`
   try {
-    const out = run('gh pr list --base linux --label release --json number,title,headRefName,state --jq ".[] | select(.state == \\"OPEN\\")"')
+    const out = run(`gh pr list --base linux --label release --state open --json number,headRefName --jq '.[] | select(.headRefName == "${targetBranch}") | .number'`)
     if (!out) return null
-    const prs = JSON.parse(out)
-    return prs[0] || null
+    return parseInt(out)
   } catch {
     return null
   }
 }
 
-function createOrUpdateReleasePR(version, changes, allEntries) {
+function createReleasePR(version, changes) {
   const branch = `release/v${version}`
-
-  // Check if release PR already exists
-  const existing = findExistingReleasePR()
-  const prTitle = `Release v${version}`
-
-  // Build changelog for PR body
   const sections = ['features', 'fixes', 'security', 'docs']
   const icons = { features: '✨', fixes: '🛠️', security: '🔐', docs: '📚' }
   const labels = { features: 'New', fixes: 'Fixes', security: 'Security', docs: 'Documentation' }
@@ -129,40 +146,75 @@ function createOrUpdateReleasePR(version, changes, allEntries) {
 
   const prBody = `## Changelog\n${changelogBody}\n---\n*This release was prepared automatically by release automation.*`
 
-  if (existing) {
-    // Update existing PR
-    run(`gh pr edit ${existing.number} --title "${prTitle}" --body "${prBody}"`)
-    run(`git push origin ${branch} -f || true`)
-    return existing.number
-  }
+  // Create branch from current linux HEAD
+  run(`git checkout -b ${branch}`)
 
-  // Create new branch if needed
-  try {
-    run(`git rev-parse --verify ${branch}`)
-  } catch {
-    run(`git checkout -b ${branch}`)
-    run('git push -u origin', { input: `${branch}\n` })
-  }
-
-  // Commit release files
+  // Stage and commit generated files
   run('git add src/data/releases.json src/data/whats-new.json src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
   const commitMsg = `chore(release): v${version}`
   try {
     run(`git commit -m "${commitMsg}"`)
   } catch {
-    // Already committed, continue
+    // Nothing to commit (files unchanged)
+    // Continue to push existing commit
   }
-  run(`git push origin ${branch}`)
+
+  // Push branch (no force)
+  run(`git push -u origin ${branch}`)
 
   // Create PR
-  const result = run(`gh pr create --base linux --head ${branch} --title "${prTitle}" --body "${prBody}" --label release`)
-  return result
+  run(`gh pr create --base linux --head ${branch} --title "Release v${version}" --body "${prBody}" --label release`)
 }
 
-function writeReleasesFile(version, changes, allEntries) {
-  const now = formatDate()
-  let releases = []
+function updateReleasePR(version, changes) {
+  const branch = `release/v${version}`
+  const sections = ['features', 'fixes', 'security', 'docs']
+  const icons = { features: '✨', fixes: '🛠️', security: '🔐', docs: '📚' }
+  const labels = { features: 'New', fixes: 'Fixes', security: 'Security', docs: 'Documentation' }
 
+  let changelogBody = ''
+  for (const section of sections) {
+    const items = changes[section] || []
+    if (items.length === 0) continue
+    changelogBody += `\n### ${icons[section]} ${labels[section]}\n`
+    for (const item of items) {
+      changelogBody += `- ${item.msg}\n`
+    }
+  }
+
+  const prBody = `## Changelog\n${changelogBody}\n---\n*This release was prepared automatically by release automation.*`
+
+  // Checkout the release branch
+  run(`git checkout ${branch}`)
+
+  // Pull latest (in case of concurrent updates)
+  run(`git pull origin ${branch}`)
+
+  // Regenerate and commit
+  run('git add src/data/releases.json src/data/whats-new.json src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
+  try {
+    run('git diff --cached --quiet')
+    // No changes to commit
+  } catch {
+    run('git commit -m "chore(release): update release data"')
+  }
+
+  // Push normally (no force)
+  run(`git push origin ${branch}`)
+
+  // Update PR metadata
+  const prNumber = findReleasePR(version)
+  if (prNumber) {
+    run(`gh pr edit ${prNumber} --title "Release v${version}" --body "${prBody}"`)
+  }
+}
+
+// ============================================================
+// File generation
+// ============================================================
+
+function writeReleasesFile(version, changes) {
+  let releases = []
   if (fs.existsSync(RELEASES_PATH)) {
     try {
       const raw = JSON.parse(fs.readFileSync(RELEASES_PATH, 'utf8'))
@@ -172,7 +224,6 @@ function writeReleasesFile(version, changes, allEntries) {
     }
   }
 
-  // Insert new release at front
   const sections = {
     features: (changes.features || []).map(e => ({ msg: e.msg })),
     fixes: (changes.fixes || []).map(e => ({ msg: e.msg })),
@@ -180,36 +231,49 @@ function writeReleasesFile(version, changes, allEntries) {
     docs: (changes.docs || []).map(e => ({ msg: e.msg })),
   }
 
-  releases.unshift({
-    version,
-    date: now,
-    summary: generateSummary(sections),
-    sections
-  })
-
-  // Keep max 50 releases
-  releases = releases.slice(0, 50)
-
-  const output = {
-    generatedAt: new Date().toISOString(),
-    releases
+  // Check if this version already exists in releases.json (idempotency)
+  const existingIndex = releases.findIndex(r => r.version === version)
+  if (existingIndex >= 0) {
+    // Update existing entry
+    releases[existingIndex] = {
+      version,
+      date: formatDate(),
+      summary: generateSummary(sections),
+      sections
+    }
+  } else {
+    releases.unshift({
+      version,
+      date: formatDate(),
+      summary: generateSummary(sections),
+      sections
+    })
   }
 
-  fs.writeFileSync(RELEASES_PATH, JSON.stringify(output, null, 2) + '\n')
+  releases = releases.slice(0, 50)
+  fs.writeFileSync(RELEASES_PATH, JSON.stringify({ generatedAt: new Date().toISOString(), releases }, null, 2) + '\n')
 }
 
 function writeWhatsNewFile(version, changes) {
-  const now = formatDate()
-  const flatChanges = [
-    ...(changes.features || []).map(e => ({ type: 'AUTO', msg: e.msg })),
-    ...(changes.fixes || []).map(e => ({ type: 'ATM', msg: e.msg })),
-    ...(changes.security || []).map(e => ({ type: 'SECURITY', msg: e.msg })),
-    ...(changes.docs || []).map(e => ({ type: 'DOCS', msg: e.msg })),
-  ]
+  // Compatibility projection for existing WhatNew.jsx
+  // Maps semantic categories to legacy type labels
+  const legacyMap = {
+    features: 'AUTO',
+    fixes: 'ATM',
+    security: 'SECURITY',
+    docs: 'DOCS'
+  }
+
+  const flatChanges = []
+  for (const [section, legacyType] of Object.entries(legacyMap)) {
+    for (const item of (changes[section] || [])) {
+      flatChanges.push({ type: legacyType, msg: item.msg })
+    }
+  }
 
   const data = {
     version,
-    date: now,
+    date: formatDate(),
     summary: generateSummary({
       features: changes.features || [],
       fixes: changes.fixes || [],
@@ -219,7 +283,6 @@ function writeWhatsNewFile(version, changes) {
     linearUrl: 'https://linear.app/abelion/project/mark-agent-for-linux-10ceec65c326',
     changes: flatChanges
   }
-
   fs.writeFileSync(WHATSNEW_PATH, JSON.stringify(data, null, 2) + '\n')
 }
 
@@ -243,23 +306,18 @@ function generateSummary(sections) {
   return `${parts.join(', ')} dan ${last}.`
 }
 
-function syncVersion(version) {
-  const conf = JSON.parse(fs.readFileSync(CONF_PATH, 'utf8'))
-  conf.version = version
-  fs.writeFileSync(CONF_PATH, JSON.stringify(conf, null, 2) + '\n')
-  run('bun run sync-version')
-}
+// ============================================================
+// Version management
+// ============================================================
 
 function nextAlphaVersion(current) {
   const parsed = semver.parse(current)
   if (!parsed) throw new Error(`Cannot parse version: ${current}`)
 
-  // Only increment alpha while in alpha channel
   if (!parsed.prerelease || !parsed.prerelease[0].startsWith('alpha')) {
     throw new Error(`Version ${current} is not in alpha channel. Promotion must be done manually.`)
   }
 
-  // Increment alpha number
   const alphaNum = (parsed.prerelease[1] || 0) + 1
   return semver.format({
     major: parsed.major,
@@ -270,27 +328,21 @@ function nextAlphaVersion(current) {
 }
 
 // ============================================================
-// STAGE A: PREPARE
+// Stage A: Prepare
 // ============================================================
+
 export function prepareRelease() {
   console.log('[release-helper] Stage A: Prepare release')
 
-  const lastTagVersion = getLatestTagVersion()
-  const commits = getCommitsSince(`v${lastTagVersion}`)
+  const lastTagVersion = getLastReleaseTag()
+  const commits = getCommitsSince(lastTagVersion)
 
   // Separate releasable (triggers release) from includable (goes into notes)
   const releasable = commits.filter(isReleasable)
   const includable = commits.filter(shouldIncludeInNotes)
 
   if (releasable.length === 0) {
-    console.log('[release-helper] No releasable commits. No release needed.')
-    return null
-  }
-
-  // Check: if only docs/test commits and no feat/fix/security, skip
-  const hasRealChanges = releasable.some(c => ['feat', 'fix', 'security'].includes(c.type))
-  if (!hasRealChanges) {
-    console.log('[release-helper] Only docs/test/ci commits. No release.')
+    console.log('[release-helper] No releasable commits since last tag. No release needed.')
     return null
   }
 
@@ -298,7 +350,8 @@ export function prepareRelease() {
   const currentVersion = lastTagVersion || '1.0.0-alpha.1'
   const newVersion = nextAlphaVersion(currentVersion)
 
-  console.log(`[release-helper] Current: ${currentVersion}, Next: ${newVersion}`)
+  // Check if a Release PR already exists for this version
+  const existingPR = findReleasePR(newVersion)
 
   // Build changes by category
   const changes = { features: [], fixes: [], security: [], docs: [] }
@@ -310,31 +363,40 @@ export function prepareRelease() {
     })
   }
 
-  // Write generated files
-  writeReleasesFile(newVersion, changes, includable)
+  // Write generated files (always regenerate to reflect latest state)
+  writeReleasesFile(newVersion, changes)
   writeWhatsNewFile(newVersion, changes)
-  syncVersion(newVersion)
 
-  // Create/update Release PR
-  const prNumber = createOrUpdateReleasePR(newVersion, changes, includable)
+  // Update version in tauri.conf.json and sync
+  writeConf(newVersion)
+  run('bun run sync-version')
 
-  console.log(`[release-helper] Release PR #${prNumber} created/updated for v${newVersion}`)
-  return { version: newVersion, prNumber }
+  if (existingPR) {
+    // Update existing Release PR
+    console.log(`[release-helper] Updating existing Release PR #${existingPR} for v${newVersion}`)
+    updateReleasePR(newVersion, changes)
+    return { version: newVersion, prNumber: existingPR, updated: true }
+  } else {
+    // Create new Release PR
+    console.log(`[release-helper] Creating Release PR for v${newVersion}`)
+    createReleasePR(newVersion, changes)
+    return { version: newVersion, prNumber: null, updated: false }
+  }
 }
 
 // ============================================================
-// STAGE B: FINALIZE
+// Stage B: Finalize
 // ============================================================
+
 export function finalizeRelease() {
   console.log('[release-helper] Stage B: Finalize release')
 
-  // Guard 0: version from config (hoisted at top)
-  const conf = JSON.parse(fs.readFileSync(CONF_PATH, 'utf8'))
+  const conf = readConf()
   const version = conf.version
   if (!semver.valid(version)) throw new Error(`Invalid version in tauri.conf.json: ${version}`)
   const tag = `v${version}`
 
-  // Guard 1: sync-version check
+  // Guard 1: version synchronization
   console.log('[release-helper] Checking version synchronization...')
   try {
     run('bun run sync-version --check')
@@ -343,8 +405,7 @@ export function finalizeRelease() {
   }
 
   // Guard 2: tag must not already exist
-  // git tag -l returns list; if tag exists in list, skip
-  const existingTags = run(`git tag -l "${tag}"`)
+  const existingTags = run(`git tag -l "${tag}"`).split('\n').filter(Boolean)
   if (existingTags.includes(tag)) {
     throw new Error(`Tag ${tag} already exists. Refusing to overwrite.`)
   }
@@ -361,6 +422,7 @@ export function finalizeRelease() {
 // ============================================================
 // CLI
 // ============================================================
+
 const command = process.argv[2]
 
 if (command === 'prepare') {

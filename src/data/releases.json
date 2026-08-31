@@ -2,8 +2,8 @@
   "releases": [
     {
       "version": "1.0.0-alpha.1",
-      "date": "31 Agustus 2025",
-      "summary": "Initial alpha release of MARK Linux. First public beta for Tauri-native Linux fork.",
+      "date": "26 Agustus 2026",
+      "summary": "Initial alpha release of MARK Linux. First public release for Tauri-native Linux fork.",
       "sections": {
         "features": [],
         "fixes": [],

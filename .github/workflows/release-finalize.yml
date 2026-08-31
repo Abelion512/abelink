@@ -29,8 +29,6 @@ jobs:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
       - run: bun install
-      - name: Install semver
-        run: bun add semver
       - name: Finalize release (create tag)
         run: node scripts/release-helper.mjs finalize
         env:
