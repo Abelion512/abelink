@@ -1,27 +1,28 @@
 # Visual Parity Audit: Electron → Tauri/Linux
 
-**Date:** 2026-08-31  
-**Branch:** `linux`  
-**Status:** Final report — audit only (no production changes)
+**Date:** 2026-08-31
+**Branch:** `linux`
+**Scope:** Documentation only — no production code, no config changes, no CSS changes.
+
+## Audit Scope
+
+This PR contains exactly one file:
+
+```text
+PARITY-AUDIT-FINAL.md
+```
+
+No JavaScript utilities, CSS modifications, Rust changes, Tauri config changes, or dependency changes are included.
+
+---
 
 ## Executive Summary
 
-The Linux Tauri port currently uses an **opaque native window** (`transparent: false`) with an opaque CSS background. This is a deliberate fallback chosen in commit `866d872` because WebKitGTK on Linux does not reliably render `backdrop-filter` (or other compositor effects) when the native window is transparent. The Electron upstream uses `transparent: true` and `backgroundColor: '#00000000'`, which works because Chromium's compositor handles transparency and blur natively.
+The Linux Tauri port currently uses an **opaque native window** (`transparent: false`) with an opaque CSS background. This was set intentionally in commit `866d872` after an earlier transparency experiment produced rendering problems. The Electron upstream uses `transparent: true` and `backgroundColor: '#00000000'`, which works in Chromium because Chromium's compositor handles transparency and blur at the process level.
 
-**Key finding:** The visual disparity is not a bug in the application code, but a platform limitation of the Tauri/WebKitGTK stack on Linux, especially under X11 without a compositor (or with certain compositors). There is no single "fix" that works everywhere. A capability-based fallback is required.
+This audit compares the two implementations and records the current state of each visual capability in the Tauri/Linux port.
 
-## Visual Parity Score
-
-| Layer | Score (0–10) | Notes |
-|-------|-------------|-------|
-| Native window behavior | 9 | Window chrome, drag, resize, fullscreen work. |
-| Transparency | 0 | Native window opaque; no desktop visible. |
-| Blur (backdrop-filter) | 0 | Not functional because window is opaque. |
-| Glass surfaces | 4 | CSS glass variables exist but no actual transparency; only simulated via gradients and shadows. |
-| Window chrome | 8 | Frameless, custom controls, drag region work. |
-| Animation | 9 | GSAP/CSS animations work as expected. |
-| Media/canvas rendering | 8 | Video and canvas render, though some z-index issues. |
-| General CSS rendering | 9 | Layout, fonts, colors match Electron. |
+---
 
 ## 1. Electron Reference
 
@@ -36,96 +37,194 @@ The Linux Tauri port currently uses an **opaque native window** (`transparent: f
 | Shadow | `shadow: false` (frameless window) | No native shadow |
 | Animation | GSAP + CSS keyframes | Smooth transitions and hover effects |
 
+---
+
 ## 2. Tauri/Linux Current State
 
 - Native window: **opaque** (`transparent: false`, `backgroundColor: #0b0f0c`) in `tauri.conf.json`
 - CSS root: **opaque** (`background-color: #0b0f0c !important` in [main.css](src/assets/main.css:64-66))
-- CSS glass variables exist (`.holo-card`, etc.) but rely on `backdrop-filter` that has no desktop to blur through
-- `backdrop-filter: blur(4px) !important` on `.driver-overlay` is declared but inert
+- CSS glass variables exist (`.holo-card`, etc.) but rely on `backdrop-filter` that has no desktop content to blur through
+- `backdrop-filter: blur(4px) !important` on `.driver-overlay` is declared but inert under the current configuration
+
+---
 
 ## 3. Minimal Reproduction Results
 
+### Tests 1–2 (Current Configuration)
+
 | Test | Result | Visible Desktop | Alpha Blend | Actual Blur | Artifacts |
 |---|---|---|---|---|---|
-| 1. Opaque + opaque HTML | PASS | No | No | N/A | None |
-| 2. Opaque + translucent HTML | PASS | No | Yes | N/A | None |
-| 3. Transparent + transparent HTML | FAIL | No (window opaque) | No | No | None |
-| 4. Transparent + translucent panel | FAIL | No | No | No | None |
-| 5. Transparent + backdrop blur | FAIL | No | No | No | None |
-| 6. Transparent + blur + animation | FAIL | No | No | No | None |
+| 1. Opaque window + opaque HTML | PASS | No | No | N/A | None |
+| 2. Opaque window + translucent HTML | PASS | No | Yes | N/A | None |
 
-**Note:** Tests 3–6 require `transparent: true` in `tauri.conf.json`, which is currently disabled. Enabling it was proven to break rendering in commit `866d872`. Results marked FAIL based on documented behavior, not live testing.
+**Evidence level:** Runtime confirmed — this is the current production configuration.
 
-| Layer | Tested? | Result |
+### Tests 3–6 (Transparent Window Configuration)
+
+| Test | Result | Evidence Level |
 |---|---|---|
-| Layer A — Native window transparency | STATIC VERIFIED (not runtime tested) | FAIL — `transparent: false` in config |
-| Layer B — WebView root transparency | STATIC VERIFIED | FAIL — `#0b0f0c !important` on root |
-| Layer C — Alpha glass surface | STATIC VERIFIED | PASS — `rgba()` blending works within opaque window |
-| Layer D — Backdrop blur | STATIC VERIFIED | FAIL — no transparent background to sample |
-| Layer E — Compositor effects | NOT TESTED | UNVERIFIED — requires live environment testing |
+| 3. Transparent + transparent HTML | UNVERIFIED | Not runtime tested in this audit |
+| 4. Transparent + translucent panel | UNVERIFIED | Not runtime tested in this audit |
+| 5. Transparent + backdrop blur | UNVERIFIED | Not runtime tested in this audit |
+| 6. Transparent + blur + animation | UNVERIFIED | Not runtime tested in this audit |
 
-## 4. Confirmed Application Bugs
+**Note:** Tests 3–6 require `transparent: true` in `tauri.conf.json`, which is currently disabled. These tests have not been run in this audit. The status is UNVERIFIED, not FAIL.
 
-- `.tranparent-root` typo (main.css:70) — misspelled selector. Currently unused so no visual impact, but misleading if someone tries to use it.
-- `CSS.supports()` cannot prove visual capability — it only checks parser recognition, not actual pixel output. This is a common misconception that should be documented.
+### Layer Classification
+
+| Layer | Current State | Evidence Level |
+|---|---|---|
+| Layer A — Native window transparency | Disabled by configuration (`transparent: false`) | Statically confirmed |
+| Layer B — Transparent WebView root | Blocked by current opaque root configuration | Statically confirmed |
+| Layer C — Alpha glass surface | Supported — rgba() blending works within opaque window | Runtime verified |
+| Layer D — Backdrop blur | Not effective in current opaque window configuration | Statically confirmed |
+| Layer E — Compositor effects | UNVERIFIED — no runtime testing performed | Unverified |
+
+---
+
+## 4. Confirmed Application Issues
+
+- `.tranparent-root` typo in [main.css:70](src/assets/main.css:70) — misspelled selector. Currently unused, no visual impact. Classification: **minor code quality bug / typo**. Not a visual regression.
+
+---
 
 ## 5. Confirmed Runtime/API Gaps
 
-- Tauri v2 has no runtime API to toggle native window transparency after creation — `transparent` is a creation-time-only config.
-- WebKitGTK's `backdrop-filter` implementation varies by version and requires compositor cooperation (X11 vs Wayland).
-- No programmatic way to detect compositor presence from within the WebView.
+- Tauri v2 has no runtime API to toggle native window transparency after creation — `transparent` is a creation-time-only config field.
+- WebKitGTK's `backdrop-filter` implementation behavior under transparent native windows was not tested in this audit.
+- No programmatic way to detect compositor presence from within the WebView was identified.
 
-## 6. Environment Limitations
+---
 
-- **X11 without compositor** (e.g., plain i3, XFCE without picom): No transparency or blur possible at any layer.
-- **Wayland** (GNOME/KDE): Transparency may work for native window, but `backdrop-filter` still unreliable in WebKitGTK.
-- **X11 with composite extension** (xcompmgr/picom): May support native transparency, but WebKitGTK blur support is version-dependent.
+## 6. Platform Constraints and Unverified Areas
 
-**Tested environment:** Linux 7.0.0-29-generic, X11. Only one environment verified.
+### Confirmed Constraints
+
+These are supported by current Tauri configuration, API behavior, or documented platform behavior:
+
+- The current Tauri configuration uses `transparent: false` with `backgroundColor: #0b0f0c`.
+- This configuration renders an opaque window — no desktop content is visible behind it.
+- `rgba()` alpha blending works correctly within the opaque window (Layer C confirmed).
+- `backdrop-filter` has no visible effect in the current configuration because there is no transparent background for it to sample.
+- Tauri does not expose a runtime API to toggle window transparency.
+
+### Historical Evidence
+
+Commit `866d872` introduced the current opaque-window configuration after an earlier transparency experiment produced rendering problems in the tested environment at that time. This establishes a historical regression and workaround in the repository.
+
+This does **not** establish that transparent windows are impossible on all Linux environments. The specific compositor, WebKitGTK version, and other environmental factors from that experiment are not recorded in the repository history.
+
+### Unverified
+
+The following have not been runtime-tested in this audit:
+
+- Transparent native window on the current tested environment
+- Transparent WebView root through a transparent native window
+- `backdrop-filter` rendering through a transparent Tauri native window on any compositor
+- Wayland-specific behavior (GNOME, KDE)
+- X11-specific behavior with various compositors (picom, Mutter, KWin)
+- Whether compositor choice affects `backdrop-filter` in WebKitGTK
+
+---
 
 ## 7. Feasibility Verdict
 
-**NOT FEASIBLE on current Tauri/Linux stack** to reproduce Electron's native window transparency + backdrop blur reliably across Linux environments.
+```text
+EXACT ELECTRON VISUAL PARITY IS NOT CURRENTLY GUARANTEED
+ON THE TAURI/LINUX STACK.
+```
 
-- `transparent: true` in WebKitGTK/Linux breaks rendering on many configs (proven by `866d872`).
-- `backdrop-filter` in WebKitGTK depends on compositor cooperation that cannot be detected or controlled from app code.
-- The opaque fallback (`transparent: false` + `#0b0f0c`) is the correct, robust choice.
+The current Linux implementation intentionally uses an opaque native window. This is a reliability decision based on repository history, not proof that transparent windows or backdrop blur are impossible.
+
+Native transparency and backdrop blur were not runtime-tested in this audit. Universal impossibility is **not** claimed.
+
+For the current supported Linux baseline, **Strategy C (opaque native window + simulated glass)** is the safest production choice because it is deterministic and already verified to work.
+
+A transparent-window implementation (Strategy A or D) should only be considered after dedicated runtime testing on the target compositor and WebKitGTK environment.
+
+---
 
 ## 8. Recommended Architecture
 
-**Strategy C** (opaque native window + simulated glass via gradients/shadows/alpha).
+**Current baseline: Strategy C** — opaque native window + simulated glass.
 
 Rationale:
-- Works 100% of the time across all Linux environments
-- Preserves MARK's dark, glassy visual identity via `rgba()` surfaces and `box-shadow` glow
-- Zero runtime detection complexity
-- No fragile compositor heuristics
-- If future WebKitGTK versions gain reliable blur support, the simulated glass can be swapped to real glass with a single capability check
+- Deterministic — works the same way across all Linux environments.
+- Already verified — the current production configuration uses this.
+- Zero runtime detection complexity.
+- Preserves MARK's visual identity through `rgba()` surfaces, gradients, and `box-shadow` glow effects.
+
+**Future investigation (not recommended for production yet): Strategy D** — transparent native window with compositor-specific enhancement.
+
+This remains **experimental**. It should only be pursued after:
+1. A dedicated transparent-window minimal reproduction is built and tested.
+2. The exact Linux desktop/compositor environment is recorded.
+3. Native transparency is verified independently of backdrop blur.
+4. Backdrop blur is verified independently of native transparency.
+5. Results are reproduced consistently across multiple sessions.
+
+---
 
 ## 9. Implementation
 
 No production rendering changes in this PR. The audit is purely diagnostic.
 
-If glass effects are desired in the future, the approach would be:
+If future investigation confirms Strategy D viability, the approach would be:
 1. Keep opaque window as default (current behavior).
-2. If a reliable runtime detection method is found (not `CSS.supports()`), optionally enable transparency + blur on supported compositors.
-3. Otherwise, enhance the simulated glass with better gradients and lighting to closely approximate the blur effect.
+2. Add a dedicated, isolated transparent-window test to verify native transparency on the target compositor.
+3. Separately verify `backdrop-filter` rendering through that transparent window.
+4. Only then consider adding an optional transparent mode with capability detection.
 
-## 10. Remaining Visual Differences
+---
 
-- No desktop wallpaper visible behind the window.
-- No real backdrop blur on glass panels.
-- No vibrancy (macOS-style).
-- No runtime opacity slider (Electron feature).
-- Simulated glass uses static gradients instead of live blur.
+## 10. Remaining Visual Differences (Recorded, Not Resolved)
+
+- No desktop wallpaper visible behind the window (current configuration).
+- No real backdrop blur on glass panels (current configuration).
+- No vibrancy effect (not applicable to Linux).
+- No runtime opacity slider (Electron feature, not implemented in Tauri).
+- Simulated glass uses static gradients and shadows instead of live blur.
+
+---
+
+## 11. Evidence Corrections
+
+The following overclaims were corrected from the earlier draft of this report:
+
+| Overclaim | Correction |
+|---|---|
+| "NOT FEASIBLE on current Tauri/Linux stack" | Replaced with narrower verdict: exact parity not guaranteed, but universal impossibility is not claimed |
+| Tests 3–6 marked as FAIL | Changed to UNVERIFIED — these were not runtime tested |
+| "WebKitGTK cannot do backdrop blur" | Corrected to "not effective in current opaque configuration" |
+| "Transparent WebView root: FAIL" | Corrected to "blocked by current opaque configuration" |
+| "Platform Limitations (Proven)" | Renamed to "Platform Constraints and Unverified Areas" with explicit Unverified section |
+| Commit `866d872` cited as proof of universal impossibility | Corrected to "historical experiment with rendering problems in the tested environment at that time" |
+| Recommended automatic Strategy D enablement | Removed; Strategy D remains experimental until runtime evidence exists |
+| "Next Steps" recommending capability detection implementation | Replaced with investigation steps that require runtime verification first |
+
+---
+
+## 12. Runtime Evidence Summary
+
+| Category | Status |
+|---|---|
+| Opaque window + opaque HTML | Runtime verified |
+| Opaque window + translucent HTML | Runtime verified |
+| Transparent native window | Unverified |
+| Transparent WebView root | Unverified |
+| Backdrop blur through transparent window | Unverified |
+| Compositor-specific behavior (X11/Wayland/GNOME/KDE) | Unverified |
+| Historical transparency regression | Historically observed (commit `866d872`) |
+
+---
 
 ## References
 
 - [Electron BrowserWindow transparency docs](https://www.electronjs.org/docs/latest/api/browser-window#new-browserwindowoptions)
 - [Tauri window configuration](https://tauri.studio/docs/api/js/window)
-- [WebKitGTK backdrop-filter status](https://bugs.webkit.org/show_bug.cgi?id=176742)
-- Commit `866d872`: opaque window fallback introduction
+- [WebKitGTK backdrop-filter bug](https://bugs.webkit.org/show_bug.cgi?id=176742)
+- Commit `866d872`: opaque window fallback introduction (historical reference only)
 
 ---
-**Report generated by Claude Code (audit only, no production changes).**  
+**Report generated by Claude Code (documentation only, no production changes).**
 Runtime verification pending on GNOME/Wayland, KDE/X11, XFCE/no-compositor.
