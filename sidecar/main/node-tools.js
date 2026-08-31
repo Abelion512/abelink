@@ -1131,8 +1131,8 @@ export const NATIVE_TOOLS = {
         const content = htmlRes.data || ''
         // Extract text content similar to DOM parser
         const textOnly = content
-          .replace(/<script\b[^>]*>[\s\S]*?<\/script[^>]*>/gi, '')
-          .replace(/<style\b[^>]*>[\s\S]*?<\/style[^>]*>/gi, '')
+          .replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, '')
+          .replace(/<\s*style[\s\S]*?<\s*\/\s*style\s*>/gi, '')
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
           .trim()
