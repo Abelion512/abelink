@@ -1,0 +1,54 @@
+name: Release Finalize
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [linux]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to finalize (e.g. v1.0.0-alpha.2)"
+        required: true
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-finalize-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - name: Install semver
+        run: bun add semver
+      - name: Finalize release (create tag)
+        run: node scripts/release-helper.mjs finalize
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  manual:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.ref != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - name: Install semver
+        run: bun add semver
+      - name: Finalize release (create tag)
+        run: node scripts/release-helper.mjs finalize
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
