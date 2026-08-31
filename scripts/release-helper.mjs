@@ -338,17 +338,12 @@ function nextAlphaVersion(current) {
   const parsed = semver.parse(current)
   if (!parsed) throw new Error(`Cannot parse version: ${current}`)
 
-  if (!parsed.prerelease || !parsed.prerelease[0].startsWith('alpha')) {
+  if (!parsed.prerelease.length || !parsed.prerelease[0].toString().startsWith('alpha')) {
     throw new Error(`Version ${current} is not in alpha channel. Promotion must be done manually.`)
   }
 
   const alphaNum = (parsed.prerelease[1] || 0) + 1
-  return semver.format({
-    major: parsed.major,
-    minor: parsed.minor,
-    patch: parsed.patch,
-    prerelease: ['alpha', alphaNum]
-  })
+  return `${parsed.major}.${parsed.minor}.${parsed.patch}-alpha.${alphaNum}`
 }
 
 // ============================================================
