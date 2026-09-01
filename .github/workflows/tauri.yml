@@ -2,9 +2,9 @@ name: Tauri CI
 
 on:
   push:
-    branches: ["tauri-migration", "5.5.0", "master", "linux"]
+    branches: ["linux"]
   pull_request:
-    branches: ["5.5.0", "master", "tauri-migration", "linux"]
+    branches: ["linux"]
 
 jobs:
   secrets:
