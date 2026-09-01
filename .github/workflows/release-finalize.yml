@@ -14,9 +14,10 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
-  group: release-finalize-${{ github.ref }}
+  group: release-finalize-${{ github.event.pull_request.head.ref || github.event.inputs.ref }}
   cancel-in-progress: false
 
 jobs:

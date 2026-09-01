@@ -1,30 +1,50 @@
-# Release otomatis MARK Linux (fork) — dipicu tag v*, dijaga gerbang ketat.
+# Release otomatis MARK Linux (fork) — dipicu tag push atau manual dispatch.
 # Alur: guard (tag==versi) -> verify (gitleaks+vitest+vite+cargo) -> publish (bundle + GitHub Release).
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v1.0.0-alpha.2)"
+        required: true
+        type: string
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   guard:
     name: Guard — tag harus sama dengan versi tauri.conf.json
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
+      - name: Validate tag format (SemVer + v prefix)
+        run: |
+          TAG="$RELEASE_TAG"
+          # Must start with v, be valid semver
+          if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+            echo "::error::Invalid tag format: $TAG. Expected: vMAJOR.MINOR.PATCH (with optional prerelease)"
+            exit 1
+          fi
+          echo "Tag format valid: $TAG"
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
       - uses: oven-sh/setup-bun@v2
       - run: bun install
       - name: Cek sinkronisasi manifest + kecocokan tag
         run: |
           bun run sync-version --check
-          TAG="${GITHUB_REF_NAME#v}"
+          TAG="${RELEASE_TAG#v}"  # Remove v prefix for comparison
           CONF=$(node -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json','utf8')).version")
           echo "tag=$TAG conf=$CONF"
           if [ "$TAG" != "$CONF" ]; then
@@ -95,8 +115,9 @@ jobs:
       - name: Buat GitHub Release (+ changelog otomatis dari commit)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          TAG="$GITHUB_REF_NAME"
+          TAG="$RELEASE_TAG"
           FLAGS=""
           case "$TAG" in
             *-*) FLAGS="--prerelease" ;;   # 1.0.0-alpha.1 dst. = prerelease

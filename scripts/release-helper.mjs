@@ -481,10 +481,9 @@ function dispatchReleaseWorkflow(tag) {
   // GITHUB_TOKEN alone cannot trigger 'push: tags' events.
   // This guarantees: tag created → release build starts → GitHub Release published.
   const workflowId = 'release.yml'
-  const ref = tag
   console.log(`[release-helper] Dispatching ${workflowId} for tag ${tag}`)
-  // Use gh CLI to dispatch the workflow
-  run(`gh workflow run ${workflowId} --ref ${ref}`)
+  // --ref: checkout the tag, -f tag=: pass tag as workflow input
+  run(`gh workflow run ${workflowId} --ref ${tag} -f tag=${tag}`)
 }
 
 // ============================================================
