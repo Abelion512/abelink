@@ -486,7 +486,6 @@ function dispatchReleaseWorkflow(tag) {
   // -f tag=...: pass tag as workflow input (release.yml validates this)
   run(`gh workflow run ${workflowId} --ref linux -f tag=${tag}`)
 }
-}
 
 // ============================================================
 // CLI
