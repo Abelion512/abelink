@@ -482,8 +482,10 @@ function dispatchReleaseWorkflow(tag) {
   // This guarantees: tag created → release build starts → GitHub Release published.
   const workflowId = 'release.yml'
   console.log(`[release-helper] Dispatching ${workflowId} for tag ${tag}`)
-  // --ref: checkout the tag, -f tag=: pass tag as workflow input
-  run(`gh workflow run ${workflowId} --ref ${tag} -f tag=${tag}`)
+  // --ref linux: workflow definition lives on linux branch
+  // -f tag=...: pass tag as workflow input (release.yml validates this)
+  run(`gh workflow run ${workflowId} --ref linux -f tag=${tag}`)
+}
 }
 
 // ============================================================

@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: write
-  actions: write
 
 concurrency:
   group: release-${{ inputs.tag || github.ref_name }}
@@ -30,7 +29,6 @@ jobs:
       - name: Validate tag format (SemVer + v prefix)
         run: |
           TAG="$RELEASE_TAG"
-          # Must start with v, be valid semver
           if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
             echo "::error::Invalid tag format: $TAG. Expected: vMAJOR.MINOR.PATCH (with optional prerelease)"
             exit 1
@@ -38,13 +36,13 @@ jobs:
           echo "Tag format valid: $TAG"
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref_name }}
+          ref: ${{ env.RELEASE_TAG }}
       - uses: oven-sh/setup-bun@v2
       - run: bun install
       - name: Cek sinkronisasi manifest + kecocokan tag
         run: |
           bun run sync-version --check
-          TAG="${RELEASE_TAG#v}"  # Remove v prefix for comparison
+          TAG="${RELEASE_TAG#v}"
           CONF=$(node -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json','utf8')).version")
           echo "tag=$TAG conf=$CONF"
           if [ "$TAG" != "$CONF" ]; then
@@ -56,9 +54,12 @@ jobs:
     name: Verify — secrets scan + unit test + build frontend + cargo check
     needs: guard
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
       - name: Gitleaks secret scan
         uses: gitleaks/gitleaks-action@v2
@@ -87,8 +88,12 @@ jobs:
     name: Bundle AppImage/deb + GitHub Release
     needs: verify
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - name: Install Linux deps (WebKitGTK)
         run: |
           sudo apt-get update
@@ -110,17 +115,16 @@ jobs:
           ls -la release-assets
       - uses: actions/upload-artifact@v4
         with:
-          name: mark-linux-${{ github.ref_name }}
+          name: mark-linux-${{ env.RELEASE_TAG }}
           path: release-assets/*
       - name: Buat GitHub Release (+ changelog otomatis dari commit)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           TAG="$RELEASE_TAG"
           FLAGS=""
           case "$TAG" in
-            *-*) FLAGS="--prerelease" ;;   # 1.0.0-alpha.1 dst. = prerelease
+            *-*) FLAGS="--prerelease" ;;
           esac
           gh release create "$TAG" release-assets/* \
             --verify-tag --generate-notes $FLAGS \
