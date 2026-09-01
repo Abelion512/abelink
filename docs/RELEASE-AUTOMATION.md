@@ -1,85 +1,112 @@
-# MARK Linux Release Automation
+# Release Automation — MARK Linux
 
-## Architecture Overview
+## Normal Release Path
 
 ```
-developer pushes → linux branch
-        ↓
-release-prepare.yml (on push linux)
-        ↓
-release-helper.mjs prepare
-        ↓
-Release PR created/updated
-        ↓
-maintainer merges PR
-        ↓
-release-finalize.yml (on PR merged)
-        ↓
-release-helper.mjs finalize
-        ↓
-tag v{alpha.N}
-        ↓
-release.yml (existing)
-        ↓
-Tauri build → AppImage + deb → GitHub Release
+Release PR (head: release/vX, label: release) merged → linux
+↓
+release-finalize.yml (finalize job)
+  → validate release PR (branch starts with release/v, has release label)
+  → node scripts/release-helper.mjs finalize
+    → check version sync
+    → check tag doesn't exist
+    → check version is newer than last release
+    → create tag vX
+    → git push origin vX
+    → gh workflow run release.yml --ref vX -f tag=vX
+↓
+release.yml
+  → guard: tag matches tauri.conf.json
+  → verify: gitleaks + vitest + vite build + cargo check
+  → publish: tauri build → GitHub Release
 ```
 
-## Components
+**Important:** `git tag` + `git push` is NOT the normal release trigger. The release build starts when `release.yml` is explicitly dispatched via `workflow_dispatch`. This is required because `GITHUB_TOKEN` does not trigger downstream workflows from tag pushes.
 
-### 1. `scripts/release-helper.mjs`
+## Manual Promotion (Emergency/Hotfix)
 
-Command-line tool with two modes:
+Manual finalization is available via `workflow_dispatch` on `release-finalize.yml` with `ref` input.
 
-- **`prepare`**: Analyzes unreleased commits, generates release data, creates/updates Release PR
-- **`finalize`**: Verifies state, creates and pushes Git tag
+**Mandatory safety checks (all enforced in CI):**
 
-### 2. `.github/workflows/release-prepare.yml`
+1. `git rev-parse --verify ref` — ref resolves to a valid commit
+2. `git merge-base --is-ancestor ref origin/linux` — ref belongs to the `linux` release line
+3. `semver.valid(version)` — version is valid SemVer
+4. `bun run sync-version --check` — all manifests are synchronized
+5. `git tag -l tag` not found — tag does not already exist
+6. `semver.gt(version, lastRelease)` — version is newer than the last release
+7. `releases.json` contains the version entry — release metadata exists
 
-Triggers on push to `linux` branch.
+Manual promotion requires:
+- `ref` on the `linux` branch
+- A matching entry in `src/data/releases.json`
+- All manifest files synchronized to the version
+- The tag must not already exist
 
-### 3. `.github/workflows/release-finalize.yml`
+## Release PR Preparation
 
-Triggers when a Release PR is merged to `linux`.
+The prepare stage runs on every push to `linux`:
 
-## Version Policy
-
-### Alpha Channel (current)
-
-- Baseline: `v1.0.0-alpha.1`
-- `feat`, `fix`, `security` → increment alpha: `alpha.N` → `alpha.N+1`
-- No auto-promotion to beta or stable
-
-### Promotion
-
-Manual via PR with commit:
-
-```bash
-git commit -m "chore(release): 1.0.0-beta.1"
-git tag v1.0.0-beta.1
-git push origin v1.0.0-beta.1
+```
+push → linux
+↓
+release-prepare.yml
+  → node scripts/release-helper.mjs prepare
+    → check last reachable tag (git tag --merged HEAD)
+    → find releasable commits since last tag
+    → calculate next alpha version
+    → idempotency: check releases.json for existing version entry
+    → if release PR exists (release/vX branch):
+      → checkout release/vX BEFORE any file mutation
+      → merge origin/linux (fetch + -X theirs)
+      → regenerate releases.json, whats-new.json, manifests
+      → commit if changed
+      → push normally (no force)
+      → update PR metadata
+    → if no release PR:
+      → create release/vX branch from linux HEAD
+      → generate files
+      → commit + push + create PR with `release` label
 ```
 
-## Generation Flow
+## Workflow Permissions
 
-1. Find last tag: `git describe --tags --abbrev=0`
-2. Get commits since: `git log <tag>..HEAD --oneline`
-3. Classify commits by conventional commit type
-4. Generate `src/data/releases.json` (historical)
-5. Generate `src/data/whats-new.json` (latest projection)
-6. Update `tauri.conf.json`, sync to `package.json` + `Cargo.toml`
+| Workflow          | Permission        | Reason                          |
+|-------------------|-------------------|---------------------------------|
+| release-finalize  | `contents: write`  | tag creation                    |
+| release-finalize  | `actions: write`   | dispatch release.yml            |
+| release           | `contents: write`  | GitHub Release creation         |
+| release           | `actions: write`   | (reserved for future use)       |
 
-## Release PR
+## Idempotency Guarantees
 
-- Branch: `release/v{version}`
-- Label: `release`
-- Auto-updated if exists
-- Merges create tag + trigger build
+- **`releases.json` is the durable state marker.** If the version entry exists, the release was already prepared — no `alpha.N+1` is created.
+- **Tag existence is checked** before creation (`git tag -l`).
+- **Version comparison** ensures only newer versions can be finalized.
+- **Concurrency is scoped per release branch** (`release-finalize-${head.ref || inputs.ref}`).
+- **Release workflow concurrency** is scoped by tag name (`release-${tag}`).
 
-## Update Detection (In-App)
+## Tag → Release Workflow Chain
 
-See `src/api/updateChecker.js`
-
-- Startup check + periodic (1 hour)
-- Fetches releases via GitHub API
-- Alpha channel users receive newer alpha releases
-- Notifications via `mark:update-available` event
+```
+tag created (v1.0.0-alpha.2)
+    ↓
+gh workflow run release.yml --ref v1.0.0-alpha.2 -f tag=v1.0.0-alpha.2
+    ↓
+release.yml guard job:
+  → validate tag format (SemVer + v prefix)
+  → checkout tag
+  → sync-version --check
+  → compare tag version == tauri.conf.json version
+    ↓
+release.yml verify job:
+  → gitleaks scan
+  → vitest run
+  → vite build
+  → cargo check
+    ↓
+release.yml publish job:
+  → cargo build (Tauri AppImage + deb)
+  → upload artifacts
+  → gh release create v1.0.0-alpha.2 --verify-tag --generate-notes
+```
