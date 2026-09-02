@@ -1,14 +1,17 @@
 // DeepEval integration: wraps Terminal-Bench tasks for trajectory evaluation.
 // Uses DeepEval's GEval + TaskCompleteness metrics for secondary evaluation.
 // Official verifier remains authoritative.
+//
+// NOTE: metrics require a DeepEval model/API key at runtime; without one this
+// runner degrades gracefully and results still carry the official verdict.
 
-import { runTask } from './terminal-bench.js'
+import { runTask } from './terminal-bench.mjs'
 
 export async function runWithDeepEval(taskId, model, provider) {
   const result = await runTask(taskId, model, provider)
 
   // DeepEval evaluation (secondary: trajectory quality, tool use)
-  // If deepeval is not installed, skip gracefully
+  // If deepeval is not installed or misconfigured, skip gracefully.
   let deepevalResult = null
   try {
     const { evaluate, TestCase, GEval, TaskCompleteness } = await import('deepeval')
@@ -50,12 +53,12 @@ export async function runAllWithDeepEval(model, provider) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runAllWithDeepEval().then(results => {
-    results.forEach(r => {
+  runAllWithDeepEval().then((results) => {
+    results.forEach((r) => {
       console.log(`[${r.passed ? 'PASS' : 'FAIL'}] ${r.taskId}: ${r.output.slice(0, 80)}`)
       console.log('  DeepEval:', r.deepeval?.error || 'ok')
     })
-    const passed = results.filter(r => r.passed).length
+    const passed = results.filter((r) => r.passed).length
     console.log(`\n${passed}/${results.length} tasks passed`)
   })
 }
