@@ -31,7 +31,7 @@ export const YoutubeSearchBubble = ({ queryYoutube, youtubeLink }) => {
               src={`https://www.youtube.com/embed/${id}?rel=0`}
               title="YouTube video player"
               frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; origin"
               referrerPolicy="strict-origin-when-cross-origin"
               allowFullScreen
             ></iframe>

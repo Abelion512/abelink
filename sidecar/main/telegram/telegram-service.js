@@ -3,6 +3,7 @@ import { app, ipcMain } from 'electron'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { fileURLToPath } from 'url'
 import yts from 'yt-search'
 import { execFile } from 'child_process'
 import ffmpeg from 'ffmpeg-static'
@@ -369,11 +370,43 @@ export const startTelegramBot = async (token, mainWindow) => {
       }
     })
 
+    bot.command('run', async (ctx) => {
+      if (!(await ensureTrustedAdmin(ctx))) return
+      await ctx.reply('[SKIP]: Perintah benchmark lewat Telegram belum terhubung ke runner di UI. Jalankan dari terminal: bun run benchmark:run.')
+    })
+
+    bot.command('report', async (ctx) => {
+      if (!(await ensureTrustedAdmin(ctx))) return
+      const chatId = String(ctx.chat?.id || ctx.from?.id || '')
+      const res = await sendReport(null, chatId)
+      if (!res.success) {
+        await ctx.reply(`[ERROR]: ${res.error}`)
+      }
+      // Laporan sukses sudah dikirim langsung oleh sendReport ke chatId ini.
+    })
+
+    bot.command('stop', async (ctx) => {
+      if (!(await ensureTrustedAdmin(ctx))) return
+      await ctx.reply('[SKIP]: Tidak ada benchmark yang berjalan via Telegram. Runner benchmark berjalan sinkron di terminal.')
+    })
+
+    bot.action(/^bmk_(yes|no|opt_\d+)$/, async (ctx) => {
+      const chatId = String(ctx.chat?.id || ctx.from?.id || '')
+      const answer = ctx.match[1]
+      resolveAskUser(chatId, answer)
+      if (botWindow && !botWindow.isDestroyed()) {
+        botWindow.webContents.send('benchmark:ask-response', { chatId, answer })
+      }
+      await ctx.answerCbQuery()
+      await ctx.editMessageReplyMarkup({ inline_keyboard: [] })
+      await ctx.reply(`Jawaban diterima: ${answer}`)
+    })
+
     bot.catch((err, ctx) => {
       console.error(`[Telegram] Error for ${ctx.updateType}:`, err)
     })
 
-    bot.launch({ allowedUpdates: ['message'] }).catch((err) => {
+    bot.launch({ allowedUpdates: ['message', 'callback_query'] }).catch((err) => {
       console.error('[Telegram] Polling error:', err)
       bot = null
       updateStatus('disconnected')
@@ -617,16 +650,23 @@ export const sendTelegramToAdmins = async (text) => {
   }
 }
 
-// IPC Handlers
-ipcMain.removeAllListeners('tg:broadcast-to-admins')
-ipcMain.on('tg:broadcast-to-admins', async (event, text) => {
+// ---- Channel exports (didaftarkan engine.mjs; tanpa Electron IPC) ----
+// Kirim event ke renderer lewat stdout JSON-lines (engine meneruskan ke Tauri event system).
+const sendEvent = (event, payload) => {
+  try {
+    process.stdout.write(JSON.stringify({ event, payload }) + '\n')
+  } catch {}
+}
+
+export const broadcastToAdminsSidecar = async (text) => {
   await sendTelegramToAdmins(text)
-})
-ipcMain.removeAllListeners('tg:agent-execution-done')
-ipcMain.on('tg:agent-execution-done', async (event, data) => {
-  const { chatId, result, msgId } = data
+  return { success: true }
+}
+
+export const sendAgentExecutionDone = async (data) => {
+  const { chatId, result, msgId } = data || {}
   const reqObj = pendingRequestsMap.get(msgId)
-  let replyText = result?.answer || 'Selesai diproses.'
+  const replyText = result?.answer || 'Selesai diproses.'
 
   const uiReplyPayload = {
     id: Date.now(),
@@ -642,9 +682,7 @@ ipcMain.on('tg:agent-execution-done', async (event, data) => {
   uiMessageHistory.push(uiReplyPayload)
   if (uiMessageHistory.length > MAX_UI_HISTORY) uiMessageHistory.shift()
 
-  if (botWindow && !botWindow.isDestroyed()) {
-    botWindow.webContents.send('tg:reply-sent', uiReplyPayload)
-  }
+  sendEvent('tg:reply-sent', uiReplyPayload)
 
   if (bot && chatId) {
     if (reqObj?.loadingMsgId) {
@@ -660,12 +698,8 @@ ipcMain.on('tg:agent-execution-done', async (event, data) => {
   }
 
   pendingRequestsMap.delete(msgId)
-})
-
-ipcMain.removeHandler('tg:send-message')
-ipcMain.handle('tg:send-message', async (event, { chatId, text }) => {
-  return await sendTelegramMessage(chatId, text)
-})
+  return { success: true }
+}
 
 ipcMain.removeAllListeners('tg:trigger-screenshot')
 ipcMain.on('tg:trigger-screenshot', async (event, { chatId } = {}) => {
@@ -765,3 +799,155 @@ ipcMain.on('tg:trigger-music-ui', (event, { command, query }) => {
     botWindow.webContents.send('execute-music-command-tg', command, query)
   }
 })
+
+// ---- Benchmark dashboard methods ----
+
+// Direktori hasil benchmark relatif terhadap root repo (stabil terhadap cwd).
+// telegram-service.js ada di sidecar/main/telegram/ -> naik 3 level ke repo root.
+const RESULTS_DIR = fileURLToPath(new URL('../../../benchmark/results/', import.meta.url))
+
+const loadLatestResult = (runId) => {
+  try {
+    const dir = RESULTS_DIR
+    if (!fs.existsSync(dir)) return null
+    let file
+    if (runId) {
+      file = path.join(dir, `${runId}.json`)
+      if (!fs.existsSync(file)) return null
+    } else {
+      const files = fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort().reverse()
+      if (!files.length) return null
+      file = path.join(dir, files[0])
+    }
+    return JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch (e) {
+    console.error('[Telegram] Error loading benchmark result:', e)
+    return null
+  }
+}
+
+export const sendReport = async (runId, targetChatId) => {
+  if (!bot || currentStatus !== 'connected') return { success: false, error: 'Bot not connected.' }
+  const report = loadLatestResult(runId)
+  if (!report) return { success: false, error: 'No benchmark result found.' }
+
+  const lines = [
+    `<b>MarkBench Report</b>`,
+    `<code>Run:</code> ${escapeHtml(report.runId)}`,
+    `<code>Variant:</code> ${escapeHtml(report.agentVariant)}`,
+    `<code>Model:</code> ${escapeHtml(report.model)}`,
+    `<code>Git:</code> ${escapeHtml(report.gitCommit?.slice(0, 7) ?? 'unknown')}`,
+    `<code>Time:</code> ${new Date(report.timestamp).toLocaleString('id-ID')}`,
+    `<code>Duration:</code> ${Number(report.totalDurationMs)}ms`,
+    '',
+    `<b>Summary:</b> ${report.summary.passed}/${report.summary.total} passed (${((report.summary.passed / report.summary.total) * 100).toFixed(1)}%)`
+  ]
+
+  for (const t of report.tasks) {
+    const status = t.status === 'passed' ? 'PASS' : 'FAIL'
+    lines.push(`[${status}] ${escapeHtml(t.taskId)} — ${Number(t.durationMs)}ms (${escapeHtml(t.status)})`)
+  }
+
+  const targets = resolveTrustedBroadcastTargets()
+  const chatIds = targetChatId ? [String(targetChatId)] : Array.from(targets)
+  if (chatIds.length === 0) return { success: false, error: 'No admin targets.' }
+
+  const results = []
+  for (const chatId of chatIds) {
+    try {
+      await bot.telegram.sendMessage(chatId, lines.join('\n'), { parse_mode: 'HTML' })
+      results.push({ chatId, ok: true })
+    } catch (e) {
+      results.push({ chatId, ok: false, error: e.message })
+    }
+  }
+  return { sent: results.filter(r => r.ok).length, results }
+}
+
+export const sendInlineKeyboard = async (chatId, question, options) => {
+  if (!bot || currentStatus !== 'connected') return { success: false, error: 'Bot not connected.' }
+  if (!chatId) return { success: false, error: 'chatId required.' }
+
+  const keyboard = {
+    inline_keyboard: (options || ['Approve', 'Reject']).map((opt, i) => [
+      { text: opt.label || opt, callback_data: `bmk_${opt.value || `opt_${i}`}` }
+    ])
+  }
+
+  try {
+    await bot.telegram.sendMessage(chatId, escapeHtml(String(question)), {
+      parse_mode: 'HTML',
+      reply_markup: JSON.stringify(keyboard)
+    })
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
+}
+
+// ---- ask_user correlation: pending registry keyed by chatId ----
+// ask_user mengirim keyboard lalu MENUNGGU jawaban callback bmk_*.
+let askUserWaiters = new Map() // chatId -> { resolve, timer }
+const ASK_USER_TIMEOUT_MS = 120000
+
+const resolveAskUser = (chatId, answer) => {
+  const w = askUserWaiters.get(String(chatId))
+  if (!w) return false
+  clearTimeout(w.timer)
+  askUserWaiters.delete(String(chatId))
+  w.resolve(answer)
+  return true
+}
+
+export const waitForAskUserAnswer = (chatId, timeoutMs = ASK_USER_TIMEOUT_MS) =>
+  new Promise((resolve) => {
+    const key = String(chatId)
+    const existing = askUserWaiters.get(key)
+    if (existing) {
+      clearTimeout(existing.timer)
+      existing.resolve(null)
+    }
+    const timer = setTimeout(() => {
+      askUserWaiters.delete(key)
+      resolve(null) // timeout -> null
+    }, timeoutMs)
+    askUserWaiters.set(key, { resolve, timer })
+  })
+
+const escapeHtml = (s) =>
+  String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+let progressMessageCache = new Map()
+
+export const sendProgress = async (taskId, status, details, targetChatId) => {
+  if (!bot || currentStatus !== 'connected') return { success: false, error: 'Bot not connected.' }
+
+  const statusLabel = { running: 'RUNNING', passed: 'PASS', failed: 'FAIL', error: 'ERROR' }[status] || 'PENDING'
+  const text = `<b>Benchmark Progress</b>\n<code>Task:</code> ${escapeHtml(taskId)}\n<code>Status:</code> ${escapeHtml(statusLabel)}\n${escapeHtml(details || '')}`
+
+  const chatIds = targetChatId ? [String(targetChatId)] : Array.from(resolveTrustedBroadcastTargets())
+  if (chatIds.length === 0) return { success: false, error: 'No admin targets.' }
+
+  const results = []
+  for (const chatId of chatIds) {
+    try {
+      const prev = progressMessageCache.get(chatId)
+      if (prev) {
+        await bot.telegram.editMessageText(chatId, prev.msgId, undefined, text, {
+          parse_mode: 'HTML',
+          reply_markup: JSON.stringify({ inline_keyboard: [] })
+        })
+      } else {
+        const msg = await bot.telegram.sendMessage(chatId, text, { parse_mode: 'HTML' })
+        progressMessageCache.set(chatId, { msgId: msg.message_id })
+      }
+      results.push({ chatId, ok: true })
+    } catch (e) {
+      results.push({ chatId, ok: false, error: e.message })
+    }
+  }
+  if (status === 'passed' || status === 'failed' || status === 'error') {
+    progressMessageCache.clear()
+  }
+  return { sent: results.filter(r => r.ok).length, results }
+}

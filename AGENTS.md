@@ -9,37 +9,6 @@
 - `master` — tracks official `Mazees/mark-agent` upstream for sync purposes only. Never merge `linux` into `master` and never open PRs targeting `master`.
 - Pull requests target: `linux` (feature branches INTO `linux`)
 - Version bumping: run `bun run sync-version` after bumping in `tauri.conf.json`
-
-## Branch Governance
-
-### `master`
-`master` is the upstream/baseline branch. It must NOT receive development changes from this project.
-- The ONLY acceptable source of updates to `master` is synchronization from the official upstream repository.
-- Never develop MARK Linux features directly on `master`.
-- Never merge `linux` into `master`.
-- Never merge feature branches into `master`.
-- Never use `master` as the target branch for MARK Linux development PRs.
-- Never modify `master` merely to simplify CI/CD or release automation.
-
-### `linux`
-`linux` is the main operational branch of this project. ALL MARK Linux development ultimately lands here.
-- All Linux application changes target `linux`.
-- All Linux bug fixes target `linux`.
-- All Linux features target `linux`.
-- All Linux CI/CD changes target `linux`, unless a change is strictly required for upstream/baseline synchronization.
-- Release candidates are derived from `linux`.
-- Linux release tags are created from `linux`.
-- The final released Linux source must be an immutable tag originating from `linux`.
-
-### `release/vX`
-A temporary release-candidate branch derived from `linux`. Must never become a long-lived development branch.
-
-### Feature/Worktree Branches
-Branches such as `cd/*`, `feature/*`, `fix/*`, `chore/*` are working branches. They eventually merge into `linux`, not `master`.
-
-### Why This Matters
-GitHub's `default_branch` metadata may report `master`, but that does not change the project architecture.
-For MARK Linux: `master` = upstream/baseline, `linux` = operational/main/release branch.
 **Description:** A privacy-first, local-based autonomous AI OS companion designed to assist user productivity, automate tasks, and provide lifelike companionship. It uses a hybrid AI engine (Local LLM via LM Studio or Cloud API, plus a native Gemini Web RPC Engine) and features agentic planning with ReAct loop execution, **Autonomous Multi-Agent Sub-Agent Engine** (UI: **Sub-Agents**, branding: **Mission Control**) with concurrent isolated browser sessions, **Durable Agent Tasks** (UI: **Agent Workflows**) for persistent multi-step work, autonomous physical browser automation with multi-session support, a persistent OS-level desktop automation daemon, a hybrid Full-Text & Vector Memory Management System (MMS) with Orama & Dexie, document RAG pipeline, OS-level Awareness Engine, dynamic 4D Relational Growth, a native Plugin System with Monaco Editor, Telegram Bot integration via Telegraf, Voice Activity Detection with Groq Whisper STT plus local Whisper, Edge-TTS, and webcam vision capabilities.
 **Environment:** Linux-only Tauri v2 desktop application ("MARK Linux") — a fork of Mazees/mark-agent, mid-migration from Electron to the Tauri shell + Node sidecar layout.
 **Maintainer:** Abelion512 | **Homepage:** https://github.com/Abelion512/mark-agent-linux | **Upstream:** https://github.com/Mazees/mark-agent/
@@ -56,7 +25,9 @@ For MARK Linux: `master` = upstream/baseline, `linux` = operational/main/release
 - **Media/Integrations:** `youtube-transcript-plus`, `ytmusic-api` (YouTube Music), `yt-search`, `youtube-dl-exec` + `ffmpeg-static`, `googleapis` (Calendar/Drive/Gmail via sidecar `google:*` channels)
 - **Communication:** `telegraf` (Telegram Bot Framework, `sidecar/main/telegram/telegram-service.js`)
 - **Document Parsing:** `mammoth` (.docx) + `pdf-parse` (.pdf) behind the sidecar `parse-document` channel
-- **Packaging & CI:** Tauri bundler (`bundle.targets: "all"`, sidecar engine shipped as bundled resources); GitHub Actions workflows `tauri.yml`, `release.yml`, `codeql.yml`, `upstream-sync.yml`
+- **Runtime & Toolchain:** Rust + Bun. Rust menaungi shell Tauri (`src-tauri/`); Bun adalah package manager, script runner, dan runtime sidecar (`bun sidecar/engine.mjs`). Semua script first-party (`.mjs`) dijalankan dengan `bun`, bukan `node`; CI memakai `bun install --frozen-lockfile`.
+- **Packaging & CI:** Tauri bundler (`bundle.targets: "all"`, sidecar engine shipped as bundled resources); GitHub Actions workflows `tauri.yml`, `release.yml`, `codeql.yml`, `upstream-sync.yml`, `branch-guard.yml` (PR ber-base `master` digagalkan otomatis); Dependabot mingguan untuk cargo + npm + github-actions.
+- **Evaluation (MarkBench):** harness evaluasi di `evaluation/` — adapter agent via sidecar RPC (`mark-adapter.mjs`), task Terminal-Bench-style dengan verifier deterministik (`terminal-bench.mjs`), metrik sekunder opsional via DeepEval (`deepeval-runner.mjs`, dynamic-import, tanpa dependensi keras), smoke gate tanpa network di CI (`bun evaluation/smoke.mjs`).
 
 ## 3. Project Architecture & File Structure
 
@@ -117,7 +88,7 @@ mark-agent/
 | `src/main.rs`          | Binary entry point calling the app `run()`.                                                                                                                                                                              |
 | `src/cmd_fs.rs`        | Workspace-contained fs commands (`fs_read_file`, `fs_write_file`, `fs_delete_file`, `fs_list_dir`, `fs_grep_search`, legacy-profile detect/import): absolute paths, `..`, and `~` rejected; symlink escape checked via canonicalize + prefix; 10MB read cap. |
 | `src/cmd_harness.rs`   | `harness_append`: structured JSONL dev logging per kind/day under the XDG data dir; strict kind validation, 50MB rotation.                                                                                                |
-| `src/cmd_node_bridge.rs` | Stdio bridge to the sidecar engine: DENY-BY-DEFAULT `ALLOWED_ACTIONS` gate; approval-gated actions/tools confirmed via a NATIVE `rfd` dialog on the main thread; drains pending requests when the engine dies.             |
+| `src/cmd_node_bridge.rs` | Stdio bridge to the sidecar engine: every action passes, but approval-gated actions (`APPROVAL_ACTIONS`: skills writes, plugin create/delete, tg start/stop, google connect/disconnect) are confirmed via a NATIVE `rfd` dialog on the main thread; drains pending requests when the engine dies.             |
 | `src/cmd_misc.rs`      | Fase B0 port of five light sidecar channels to native commands: `misc_save_temp_file`, `misc_open_external` (http/https/mailto only + native rfd approval), `misc_show_notification`, `misc_get_documents_path`, `misc_get_lite_mode` (/proc/meminfo threshold). |
 | `tauri.conf.json`      | Window config, CSP, bundle targets "all", sidecar bundled resources; SINGLE SOURCE OF TRUTH for the app version.                                                                                                          |
 | `Cargo.toml`           | Crate manifest: tauri 2 (+tray-icon/image-png), plugins log/single-instance/global-shortcut, rfd 0.15, tokio.                                                                                                             |
@@ -189,9 +160,9 @@ Removed from the old table: Category Router threshold 0.35 (`CATEGORY_TEXTS` no 
 - **Renderer Isolation (Tauri Boundary):** Never touch Node APIs directly in `src/`. All OS access goes through the `window.api` facade (`src/api/tauri-bridge.js`) -> Tauri IPC: either a Rust command (`fs_*`, `misc_*`, `harness_append`, window controls) or the `node_invoke` sidecar channel.
 - **Security Gates (non-negotiable):**
   - `cmd_fs.rs` confines every path to the XDG workspace root: absolute paths, `..`, and `~` are rejected, and symlink escapes are caught by canonicalize + prefix check. Never bypass `resolve_contained`.
-  - `node_invoke` is DENY-BY-DEFAULT: only actions listed in `ALLOWED_ACTIONS` pass through. Approval-required actions (`skills:save`, `skills:delete`, `tg:start`, `tg:stop`, `google:connect`, `google:disconnect`, `open-external`) and dangerous tools (`run-powershell`, `git-commit`, `git-revert`) trigger a NATIVE `rfd` confirmation dialog on the Rust main thread — the decision happens outside the renderer.
+  - `node_invoke` uses an APPROVAL-GATE model (upstream audit 2026-08-26): every action passes the bridge, but approval-required actions (`skills:save`, `skills:delete`, `skills:save-file`, `skills:create-item`, `skills:delete-item`, `skills:rename-item`, `skills:install`, `plugin:create`, `plugin:delete`, `tg:start`, `tg:stop`, `google:connect`, `google:disconnect`) and dangerous tools (`run-powershell`, `git-commit`, `git-revert`) trigger a NATIVE `rfd` confirmation dialog on the Rust main thread — the decision happens outside the renderer. New destructive sidecar channels MUST be added to `APPROVAL_ACTIONS`.
   - CSP is declared twice: `src-tauri/tauri.conf.json` and the meta tag in `index.html`. Keep both in sync whenever connect-src/script-src change.
-- **Adding Sidecar Tools:** register the tool in `NATIVE_TOOLS` (`sidecar/main/node-tools.js`) with `needsApproval`/`approvalMessage` metadata AND, if it needs a new dedicated channel instead of reusing `native-tool:execute`, add that action to `ALLOWED_ACTIONS`/`APPROVAL_ACTIONS` in `cmd_node_bridge.rs`. The `browser:*`/`os:*` channels intentionally return explicit unsupported until Fase B6/C3 — do not fake success responses for them.
+- **Adding Sidecar Tools:** register the tool in `NATIVE_TOOLS` (`sidecar/main/node-tools.js`) with `needsApproval`/`approvalMessage` metadata AND, if it needs a new dedicated channel instead of reusing `native-tool:execute`, add that action to `APPROVAL_ACTIONS` in `cmd_node_bridge.rs` when it is destructive. The `browser:*`/`os:*` channels intentionally return explicit unsupported until Fase B6/C3 — do not fake success responses for them.
 - **Build & Version Gate:** run `bash scripts/verify.sh` (vitest + crypto watermark harness + vite build + cargo check) before pushing; bump versions ONLY in `src-tauri/tauri.conf.json`, then run `bun run sync-version`.
 - **UI Design System:** The UI uses Tailwind CSS 4 + DaisyUI 5 (`forest` theme) with custom holographic/glassmorphic design tokens in `src/assets/main.css`.
 - **Strict Emoji Rule:** Dilarang keras menggunakan emoji apapun di dalam respon output, dialog, maupun UI.

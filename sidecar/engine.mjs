@@ -178,12 +178,39 @@ on('youtube-search', async (query) => {
   }))
 })
 
-// ---------------------------------------------------------------- Telegram
+// ---------------------------------------------------------------- Benchmark events (Telegram dashboard)
+// Action di-spread sebagai argumen posisional oleh on(): (action, data)
+on('benchmark:telegram', async (action, data) => {
+  const tg = await getTg()
+  if (tg.getConnectionStatus().status !== 'connected') return { skipped: true }
+  const body = data || {}
+  switch (action) {
+    case 'send_report':
+      return tg.sendReport(body.runId, body.chatId)
+    case 'send_ask_user':
+      return tg.sendInlineKeyboard(body.chatId, body.question, body.options)
+    case 'send_progress':
+      return tg.sendProgress(body.taskId, body.status, body.details, body.chatId)
+    default:
+      return { success: false, error: `Unknown benchmark:telegram action: ${action}` }
+  }
+})
 on('tg:start', async (token) => (await getTg()).startTelegramBot(token, null))
 on('tg:stop', async () => (await getTg()).stopTelegramBot())
 on('tg:get-status', async () => (await getTg()).getConnectionStatus())
 on('tg:get-history', async () => (await getTg()).uiMessageHistory)
 on('tg:send-message', async (chatId, text) => (await getTg()).sendTelegramMessage(String(chatId), String(text)))
+on('tg:agent-execution-done', async (data) => (await getTg()).sendAgentExecutionDone(data))
+
+// ------------------------------------------------------- Plugins (fase B: tanpa Electron)
+// Loader lama memakai ipcMain.handle — di Tauri channel-nya didaftarkan langsung di sini.
+on('plugin:execute', async (action, query) => (await getPl()).pluginExecute(action, query))
+on('plugin:open-folder', async () => (await getPl()).pluginOpenFolder())
+on('plugin:open-specific-folder', async (targetPath) => (await getPl()).pluginOpenSpecificFolder(targetPath))
+on('plugin:toggle', async (pluginName, isEnabled) => (await getPl()).pluginToggle(pluginName, isEnabled))
+on('plugin:reload', async () => (await getPl()).pluginReload())
+on('plugin:create', async (payload) => (await getPl()).pluginCreate(payload))
+on('plugin:delete', async (pluginName) => (await getPl()).pluginDelete(pluginName))
 // Broadcast ke admin milik owner (id dari config.tgAdminIds). Jika bot tidak
 // terhubung, kembalikan flag skipped secara sunyi — pemanggil UI tidak boleh
 // kena unhandled rejection tiap giliran agen hanya karena Telegram mati.
@@ -446,21 +473,206 @@ on('skills:delete', async (name) => {
 on('skills:read-file', async (name, relativePath) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   // Buang SEMUA segmen '..' dan '.' agar file tetap di dalam folder skill.
-  const safe = path
+  const safe = sanitizeSkillRelPath(relativePath)
+  return await fs.promises.readFile(path.join(SKILLS_DIR, name, safe), 'utf8')
+})
+
+// ---- Channel file-manager skill (fase B: dulunya ipcMain di skill-manager.js) ----
+// Sanitasi path relatif skill: buang semua segmen '..' dan '.' (anti path traversal).
+const sanitizeSkillRelPath = (relativePath) =>
+  path
     .normalize(String(relativePath || ''))
     .split(path.sep)
     .filter((s) => s !== '..' && s !== '.')
     .join(path.sep)
-  return await fs.promises.readFile(path.join(SKILLS_DIR, name, safe), 'utf8')
+
+const emitSkillsUpdated = () => emit('skills-updated', { name: null })
+
+on('skills:get-tree', async (name) => {
+  // Renderer memanggil tanpa argumen untuk tree root; validasi hanya saat
+  // nama skill eksplisit diberikan (anti path traversal, lebih ketat dari aslinya).
+  if (name != null && String(name).trim() !== '' && !isValidSkillName(name)) rejectInvalidSkillName()
+  const buildTree = (dirPath, basePath) => {
+    const result = []
+    const items = fs.readdirSync(dirPath)
+    for (const item of items) {
+      const itemPath = path.join(dirPath, item)
+      const stat = fs.statSync(itemPath)
+      const relativePath = path.relative(basePath, itemPath).replace(/\\/g, '/')
+      if (stat.isDirectory()) {
+        result.push({ name: item, path: relativePath, type: 'folder', children: buildTree(itemPath, basePath) })
+      } else {
+        result.push({ name: item, path: relativePath, type: 'file' })
+      }
+    }
+    return result.sort((a, b) => {
+      if (a.type === b.type) return a.name.localeCompare(b.name)
+      return a.type === 'folder' ? -1 : 1
+    })
+  }
+  try {
+    const folderPath = path.join(SKILLS_DIR, name)
+    if (fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
+      return buildTree(folderPath, folderPath)
+    }
+    return [{ name: 'SKILL.md', path: 'SKILL.md', type: 'file' }]
+  } catch (e) {
+    console.error('Failed to get skill tree', e)
+    return []
+  }
+})
+
+on('skills:save-file', async (name, relativePath, content) => {
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
+  try {
+    const standalonePath = path.join(SKILLS_DIR, `${name}.md`)
+    const safe = sanitizeSkillRelPath(relativePath)
+    if (safe === 'SKILL.md' && fs.existsSync(standalonePath) && !fs.statSync(standalonePath).isDirectory()) {
+      await fs.promises.writeFile(standalonePath, content, 'utf8')
+      return true
+    }
+    const targetPath = path.join(SKILLS_DIR, name, safe)
+    await fs.promises.mkdir(path.dirname(targetPath), { recursive: true })
+    await fs.promises.writeFile(targetPath, content, 'utf8')
+    emitSkillsUpdated()
+    return true
+  } catch (e) {
+    console.error('Failed to save skill file', e)
+    return false
+  }
+})
+
+on('skills:create-item', async (name, relativePath, isFolder) => {
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
+  try {
+    const standalonePath = path.join(SKILLS_DIR, `${name}.md`)
+    const folderPath = path.join(SKILLS_DIR, name)
+    if (fs.existsSync(standalonePath) && !fs.existsSync(folderPath)) {
+      // Force migration ke folder bila mulai bikin item di skill standalone.
+      await fs.promises.mkdir(folderPath, { recursive: true })
+      await fs.promises.rename(standalonePath, path.join(folderPath, 'SKILL.md'))
+    }
+    const safe = sanitizeSkillRelPath(relativePath)
+    const targetPath = path.join(SKILLS_DIR, name, safe)
+    if (isFolder) {
+      await fs.promises.mkdir(targetPath, { recursive: true })
+    } else {
+      await fs.promises.mkdir(path.dirname(targetPath), { recursive: true })
+      await fs.promises.writeFile(targetPath, '', 'utf8')
+    }
+    emitSkillsUpdated()
+    return true
+  } catch (e) {
+    console.error('Failed to create skill item', e)
+    return false
+  }
+})
+
+on('skills:delete-item', async (name, relativePath) => {
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
+  try {
+    const safe = sanitizeSkillRelPath(relativePath)
+    const targetPath = path.join(SKILLS_DIR, name, safe)
+    if (fs.existsSync(targetPath)) {
+      const stat = await fs.promises.stat(targetPath)
+      if (stat.isDirectory()) {
+        await fs.promises.rm(targetPath, { recursive: true, force: true })
+      } else {
+        await fs.promises.unlink(targetPath)
+      }
+      emitSkillsUpdated()
+      return true
+    }
+    return false
+  } catch (e) {
+    console.error('Failed to delete skill item', e)
+    return false
+  }
+})
+
+on('skills:rename-item', async (name, oldRelativePath, newRelativePath) => {
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
+  try {
+    const oldPath = path.join(SKILLS_DIR, name, sanitizeSkillRelPath(oldRelativePath))
+    const newPath = path.join(SKILLS_DIR, name, sanitizeSkillRelPath(newRelativePath))
+    if (fs.existsSync(oldPath)) {
+      await fs.promises.rename(oldPath, newPath)
+      emitSkillsUpdated()
+      return true
+    }
+    return false
+  } catch (e) {
+    console.error('Failed to rename skill item', e)
+    return false
+  }
+})
+
+// Install skill dari file .zip (dipilih lewat dialog native misc_open_file_dialog).
+on('skills:install', async (sourcePath) => {
+  try {
+    if (typeof sourcePath !== 'string' || !sourcePath.endsWith('.zip')) {
+      throw new Error('Hanya mendukung file .zip')
+    }
+    const { default: AdmZip } = await import('adm-zip')
+    const zip = new AdmZip(sourcePath)
+    const zipEntries = zip.getEntries()
+
+    let hasSkillMd = false
+    for (const entry of zipEntries) {
+      if (entry.entryName.endsWith('SKILL.md')) {
+        hasSkillMd = true
+        break
+      }
+    }
+    if (!hasSkillMd) {
+      throw new Error('Invalid Skill Package: Tidak ditemukan file SKILL.md di dalam zip.')
+    }
+
+    // Check if all files are inside a single root folder
+    const firstEntry = zipEntries[0]
+    const firstPart = firstEntry ? firstEntry.entryName.split('/')[0] : ''
+    const isSingleRoot = firstPart && zipEntries.every((e) => e.entryName.startsWith(firstPart + '/'))
+
+    if (isSingleRoot) {
+      zip.extractAllTo(SKILLS_DIR, true)
+    } else {
+      const zipName = path.basename(sourcePath, '.zip')
+      const targetPath = path.join(SKILLS_DIR, zipName)
+      zip.extractAllTo(targetPath, true)
+    }
+
+    emitSkillsUpdated()
+    return true
+  } catch (e) {
+    console.error('Failed to install skill', e)
+    throw e
+  }
 })
 
 // ------------------------------------------------------------------- Main loop
 send({ event: 'engine:ready', payload: Object.keys(handlers) })
 
 const rl = readline.createInterface({ input: process.stdin, terminal: false })
+let stdinClosed = false
+let pendingHandlers = 0
+const maybeExit = () => {
+  if (!stdinClosed || pendingHandlers > 0) return
+  setTimeout(() => {
+    if (stdinClosed && pendingHandlers === 0) process.exit(0)
+  }, 100).unref()
+}
 // Batas panjang satu frame JSON agar stdin tidak bisa menghabiskan memori.
 const MAX_FRAME_LENGTH = 32 * 1024 * 1024
 rl.on('line', async (line) => {
+  pendingHandlers++
+  try {
+    await handleLine(line)
+  } finally {
+    pendingHandlers--
+  }
+})
+
+const handleLine = async (line) => {
   const trimmed = line.trim()
   if (!trimmed) return
   if (trimmed.length > MAX_FRAME_LENGTH) {
@@ -486,5 +698,11 @@ rl.on('line', async (line) => {
   } catch (err) {
     send({ id, ...fail(err) })
   }
+}
+// stdin ditutup: tunggu semua handler async selesai, lalu keluar secara deterministik.
+// Tanpa ini proses bisa jadi zombie (Telegraf polling menjaga event loop tetap hidup),
+// atau sebaliknya mati sebelum handler selesai bila kita exit langsung.
+rl.on('close', () => {
+  stdinClosed = true
+  maybeExit()
 })
-rl.on('close', () => process.exit(0))

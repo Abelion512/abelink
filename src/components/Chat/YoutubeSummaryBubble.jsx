@@ -19,7 +19,7 @@ export const YoutubeSummaryBubble = ({ youtubeLink }) => {
           src={youtubeEmbedUrl}
           title="YouTube video player"
           frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; origin"
           referrerPolicy="strict-origin-when-cross-origin"
           allowFullScreen
         ></iframe>

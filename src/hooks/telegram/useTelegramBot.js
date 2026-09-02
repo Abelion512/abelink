@@ -49,11 +49,10 @@ export const useTelegramBot = () => {
       })
     }
 
-    return () => {
-      if (window.api?.removeTgListeners) {
-        window.api.removeTgListeners()
-      }
-    }
+    // Module-level Tauri listeners (onTg*) are shared across components
+    // (ApprovalContext, GlobalListener, etc.). Individual component unmounts
+    // must NOT call removeTgListeners() — it clears ALL shared listeners.
+    // Listeners live for the app lifetime; cleanup is intentionally omitted.
   }, [])
 
   const startBot = (token) => {

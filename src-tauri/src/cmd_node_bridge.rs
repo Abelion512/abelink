@@ -67,6 +67,13 @@ pub struct NodeResponse {
 const APPROVAL_ACTIONS: &[&str] = &[
     "skills:save",
     "skills:delete",
+    "skills:save-file",
+    "skills:create-item",
+    "skills:delete-item",
+    "skills:rename-item",
+    "skills:install",
+    "plugin:create",
+    "plugin:delete",
     "tg:start",
     "tg:stop",
     "google:connect",

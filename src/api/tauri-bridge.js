@@ -85,11 +85,15 @@ const toPayload = (v) => {
 const on = (channel) => (cb) => {
   let disposed = false
   let unlisten = null
+  let cleanedUp = false
   listen(channel, (e) => cb(e.payload)).then((un) => {
+    if (cleanedUp) return
     if (disposed) un()
     else unlisten = un
   })
   return () => {
+    if (cleanedUp) return
+    cleanedUp = true
     disposed = true
     unlisten?.()
   }
@@ -98,6 +102,21 @@ const on = (channel) => (cb) => {
 const pathForFile = (file) => (typeof file === 'string' ? file : file?.path || '')
 
 // ---------- Telegram ----------
+// Cache status koneksi bot beberapa detik agar guard tgSendMessage/tgBroadcast
+// tidak menambah satu round-trip IPC (tg:get-status) di setiap pesan.
+let tgStatusCache = { connected: false, at: 0 }
+const TG_STATUS_TTL_MS = 5000
+const tgConnected = async () => {
+  const now = Date.now()
+  if (now - tgStatusCache.at < TG_STATUS_TTL_MS) return tgStatusCache.connected
+  try {
+    const st = await call('tg:get-status')
+    tgStatusCache = { connected: !!st && st.status === 'connected', at: now }
+  } catch (_) {
+    tgStatusCache = { connected: false, at: now }
+  }
+  return tgStatusCache.connected
+}
 // Semua unlisten Telegram dikumpulkan di sini supaya removeTgListeners benar-benar bekerja
 const tgUnlisteners = []
 const trackTgListener = (dispose) => {
@@ -195,17 +214,17 @@ export const api = {
   onTgThinking: onTg('tg:thinking'),
   onTgRequestAgentExecution: onTg('tg:request-agent-execution'),
   sendTgAgentExecutionDone: (data) => call('tg:agent-execution-done', data),
-  tgSendMessage: (chatId, text) => invoke('telegram_send_message', { chat_id: chatId, text }),
+  tgSendMessage: async (chatId, text) => {
+    // Skip silently if bot not configured — prevents 3x "token kosong" errors per session
+    // when ApprovalContext sends status messages before user configures the bot.
+    if (!(await tgConnected())) return { skipped: true }
+    return invoke('telegram_send_message', { chat_id: chatId, text })
+  },
   tgBroadcastToAdmins: async (text) => {
     // Guard di satu titik: bot tidak terhubung = no-op sunyi, bukan rejection
     // yang menyulut unhandled promise rejection tiap giliran agen.
-    try {
-      const st = await call('tg:get-status')
-      if (!st || st.status !== 'connected') return { skipped: true }
-      return invoke('telegram_broadcast_to_admins', { text })
-    } catch (_) {
-      return { skipped: true }
-    }
+    if (!(await tgConnected())) return { skipped: true }
+    return invoke('telegram_broadcast_to_admins', { text })
   },
   onTgCommandAccept: onTg('tg:command-accept'),
   onTgCommandAlways: onTg('tg:command-always'),

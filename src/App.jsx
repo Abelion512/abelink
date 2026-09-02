@@ -26,7 +26,6 @@ import WhatNew from './components/WhatNew'
 import { detectHardwareProfile, getProfileConfig } from './utils/autoProfile'
 import whatsNewData from './data/whats-new.json'
 import { initErrorGuard } from './utils/errorGuard'
-import { initUpdateChecker, destroyUpdateChecker } from './api/updateChecker'
 
 const GlobalListener = () => {
   const navigate = useNavigate()
@@ -271,21 +270,6 @@ function App() {
     return () => window.removeEventListener('mark:open-whats-new', openWhatNew)
   }, [])
 
-  // Update available notification listener — show toast when new version detected
-  useEffect(() => {
-    const handleUpdateAvailable = (e) => {
-      const { version, url, name } = e.detail || {}
-      console.log(`[Update] New version available: ${name || version}`)
-      // Trigger What's New modal if user wants details
-      window.dispatchEvent(new CustomEvent('mark:open-whats-new'))
-    }
-    window.addEventListener('mark:update-available', handleUpdateAvailable)
-    return () => {
-      window.removeEventListener('mark:update-available', handleUpdateAvailable)
-      destroyUpdateChecker()
-    }
-  }, [])
-
   useEffect(() => {
     const checkConfig = async () => {
       // 0. Detect lite mode FIRST — set flag before any hydration so generateVector
@@ -396,13 +380,6 @@ function App() {
         }
       } catch (e) {
         console.warn('[Profile] Detection failed, using default STANDARD:', e)
-      }
-
-      // 2.6 Init update checker — fires startup check + periodic 1h polling
-      try {
-        initUpdateChecker(whatsNewData?.version || '1.0.0-alpha.1')
-      } catch (e) {
-        console.error('[App] Failed to init update checker:', e)
       }
 
       setIsChecking(false)

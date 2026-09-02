@@ -98,3 +98,6 @@ docs/.screenshoots/
 
 # generated what's-new JSON (runtime artifact)
 /src/data/whats-new.json
+
+# Agent-CLI local config (Codex, dst.)
+.codex/

@@ -463,53 +463,21 @@ const Guidebook = () => {
                   <div className="space-y-3">
                     <ToolCard
                       name="browser-navigate"
-                      description="Membuka URL di browser fisik Mark secara mandiri."
+                      description="Mengambil konten halaman web via HTTP fetch (tanpa browser visual)."
                       needsPermission={false}
                       queryFormat="URL lengkap (misal: https://google.com)"
-                      howItWorks="Membuka jendela browser tersembunyi, memuat halaman, dan memindai semua elemen yang bisa diklik."
+                      howItWorks="Mengambil HTML via axios, lalu ekstrak teks bersih menggunakan htmlparser2. Tidak ada browser visual — cocok untuk research dan scraping teks."
                     />
                     <ToolCard
                       name="browser-read"
-                      description="Memindai ulang (re-scan) DOM halaman yang sedang terbuka."
+                      description="Membaca dan parsing HTML halaman web menjadi teks."
                       needsPermission={false}
-                      queryFormat="(kosong)"
-                      howItWorks="Menjalankan ulang DOM Parser setelah menunggu AJAX atau scroll, berguna untuk mendapatkan elemen terbaru."
+                      queryFormat="URL lengkap"
+                      howItWorks="Fetch HTML via axios, parse dengan htmlparser2, kembalikan teks bersih + raw HTML. Berguna untuk re-scan halaman setelah AJAX."
                     />
-                    <ToolCard
-                      name="browser-click"
-                      description="Mengklik elemen di halaman web berdasarkan ID."
-                      needsPermission={false}
-                      queryFormat="ID Angka (misal: 3)"
-                      howItWorks="Menemukan tombol di layar, lalu mengkliknya secara otomatis dengan animasi SVG Cursor."
-                    />
-                    <ToolCard
-                      name="browser-type"
-                      description="Mengetik teks ke dalam form atau kolom pencarian."
-                      needsPermission={false}
-                      queryFormat="ID||teks (misal: 5||Cara membuat kue)"
-                      howItWorks="Mengetik langsung ke dalam input box di halaman web dengan native event dispatcher."
-                    />
-                    <ToolCard
-                      name="browser-scroll"
-                      description="Scroll halaman ke atas atau ke bawah."
-                      needsPermission={false}
-                      queryFormat="up atau down"
-                      howItWorks="Melakukan scroll sejauh 600px lalu re-scan elemen DOM."
-                    />
-                    <ToolCard
-                      name="browser-ask-user"
-                      description="Minta bantuan Anda secara manual jika mentok (seperti form Login atau CAPTCHA)."
-                      needsPermission={false}
-                      queryFormat="Pesan bantuan (misal: 'Tolong isi captcha ini')"
-                      howItWorks="Memunculkan browser ke layar Anda dan menunggu Anda menyelesaikan tugas manual, setelah itu Mark akan melanjutkan otomatisasi."
-                    />
-                    <ToolCard
-                      name="browser-close"
-                      description="Menutup browser fisik Mark."
-                      needsPermission={false}
-                      queryFormat="(kosong)"
-                      howItWorks="Menghemat RAM dengan menutup jendela browser rahasia Mark setelah misinya selesai."
-                    />
+                    <div className="bg-warning/10 border border-warning/20 p-4 rounded-xl text-sm text-warning/80">
+                      <strong>Catatan:</strong> browser-click, browser-type, browser-scroll, browser-screenshot, dan browser-ask-user membutuhkan Playwright/Puppeteer yang belum diimplementasi di Linux. Gunakan browser-navigate untuk web research.
+                    </div>
                   </div>
                 </div>
 
@@ -915,41 +883,16 @@ const Guidebook = () => {
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
-                      name="music-play"
-                      description="Mencari dan memutar lagu secara otomatis."
+                      name="search-music"
+                      description="Mencari lagu di YouTube Music API (tanpa visual player)."
                       needsPermission={false}
                       queryFormat="Judul Lagu / Artis"
-                      howItWorks="Mencari di database YT Music dan otomatis memutar audio dari background proses."
-                      example="Putar lagunya Nadin Amizah dong."
+                      howItWorks="Menggunakan ytmusic-api untuk mencari metadata lagu. Player visual masih dalam pengembangan (Fase C)."
+                      example="Cari lagunya Nadin Amizah dong."
                     />
-                    <ToolCard
-                      name="music-search"
-                      description="Mencari lagu tanpa memutarnya."
-                      needsPermission={false}
-                      queryFormat="Judul Lagu / Artis"
-                      howItWorks="Menampilkan daftar 5 lagu teratas hasil pencarian YT Music."
-                    />
-                    <ToolCard
-                      name="music-toggle"
-                      description="Pause atau Lanjutkan (Resume) lagu."
-                      needsPermission={false}
-                      queryFormat="(kosong)"
-                      howItWorks="Mengontrol pemutar lagu latar belakang."
-                    />
-                    <ToolCard
-                      name="music-next"
-                      description="Pindah ke lagu selanjutnya."
-                      needsPermission={false}
-                      queryFormat="(kosong)"
-                      howItWorks="Skip trek saat ini."
-                    />
-                    <ToolCard
-                      name="music-prev"
-                      description="Kembali ke lagu sebelumnya."
-                      needsPermission={false}
-                      queryFormat="(kosong)"
-                      howItWorks="Mengulang trek sebelumnya."
-                    />
+                    <div className="bg-warning/10 border border-warning/20 p-4 rounded-xl text-sm text-warning/80">
+                      <strong>Catatan:</strong> music-play, music-search, music-toggle, music-next, music-prev BELUM diimplementasi. yt:load, yt:command, yt:show masih stub (membutuhkan WebviewWindow Tauri). Gunakan search-music untuk pencarian.
+                    </div>
                   </div>
                 </div>
 
