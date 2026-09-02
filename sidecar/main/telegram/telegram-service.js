@@ -3,6 +3,7 @@ import { app, ipcMain } from 'electron'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { fileURLToPath } from 'url'
 import yts from 'yt-search'
 import { execFile } from 'child_process'
 import ffmpeg from 'ffmpeg-static'
@@ -371,49 +372,28 @@ export const startTelegramBot = async (token, mainWindow) => {
 
     bot.command('run', async (ctx) => {
       if (!(await ensureTrustedAdmin(ctx))) return
-      if (botWindow && !botWindow.isDestroyed()) {
-        const chatId = String(ctx.chat?.id || ctx.from?.id || '')
-        botWindow.webContents.send('benchmark:run', { chatId })
-        await ctx.reply('Benchmark dijalankan. Progress akan dikirim ke chat ini.')
-      } else {
-        await ctx.reply('[ERROR]: UI Mark tidak terhubung.')
-      }
+      await ctx.reply('[SKIP]: Perintah benchmark lewat Telegram belum terhubung ke runner di UI. Jalankan dari terminal: bun run benchmark:run.')
     })
 
     bot.command('report', async (ctx) => {
       if (!(await ensureTrustedAdmin(ctx))) return
       const chatId = String(ctx.chat?.id || ctx.from?.id || '')
-      if (botWindow && !botWindow.isDestroyed()) {
-        botWindow.webContents.send('benchmark:report', { chatId })
+      const res = await sendReport(null, chatId)
+      if (!res.success) {
+        await ctx.reply(`[ERROR]: ${res.error}`)
       }
-      await ctx.reply('Mengambil laporan benchmark terbaru...')
+      // Laporan sukses sudah dikirim langsung oleh sendReport ke chatId ini.
     })
 
     bot.command('stop', async (ctx) => {
       if (!(await ensureTrustedAdmin(ctx))) return
-      if (botWindow && !botWindow.isDestroyed()) {
-        const chatId = String(ctx.chat?.id || ctx.from?.id || '')
-        botWindow.webContents.send('benchmark:stop', { chatId })
-        await ctx.reply('Benchmark dihentikan.')
-      } else {
-        await ctx.reply('[ERROR]: UI Mark tidak terhubung.')
-      }
-    })
-
-    bot.command('ask', async (ctx) => {
-      if (!(await ensureTrustedAdmin(ctx))) return
-      const chatId = String(ctx.chat?.id || ctx.from?.id || '')
-      if (botWindow && !botWindow.isDestroyed()) {
-        botWindow.webContents.send('benchmark:ask-user', { chatId })
-        await ctx.reply('Menunggu pertanyaan dari benchmark...')
-      } else {
-        await ctx.reply('[ERROR]: UI Mark tidak terhubung.')
-      }
+      await ctx.reply('[SKIP]: Tidak ada benchmark yang berjalan via Telegram. Runner benchmark berjalan sinkron di terminal.')
     })
 
     bot.action(/^bmk_(yes|no|opt_\d+)$/, async (ctx) => {
       const chatId = String(ctx.chat?.id || ctx.from?.id || '')
       const answer = ctx.match[1]
+      resolveAskUser(chatId, answer)
       if (botWindow && !botWindow.isDestroyed()) {
         botWindow.webContents.send('benchmark:ask-response', { chatId, answer })
       }
@@ -821,11 +801,12 @@ ipcMain.on('tg:trigger-music-ui', (event, { command, query }) => {
 
 // ---- Benchmark dashboard methods ----
 
-const RESULTS_DIR = path.join(path.resolve(new URL('.', import.meta.url).pathname).replace(/\/main\/telegram$/, ''), '../../results')
+// Direktori hasil benchmark relatif terhadap root repo (stabil terhadap cwd).
+const RESULTS_DIR = fileURLToPath(new URL('../../../../benchmark/results/', import.meta.url))
 
 const loadLatestResult = (runId) => {
   try {
-    const dir = path.resolve(process.cwd(), 'benchmark', 'results')
+    const dir = RESULTS_DIR
     if (!fs.existsSync(dir)) return null
     let file
     if (runId) {
@@ -849,20 +830,20 @@ export const sendReport = async (runId, targetChatId) => {
   if (!report) return { success: false, error: 'No benchmark result found.' }
 
   const lines = [
-    `<b>📊 MarkBench Report</b>`,
-    `<code>Run:</code> ${report.runId}`,
-    `<code>Variant:</code> ${report.agentVariant}`,
-    `<code>Model:</code> ${report.model}`,
-    `<code>Git:</code> ${report.gitCommit?.slice(0, 7) ?? 'unknown'}`,
+    `<b>MarkBench Report</b>`,
+    `<code>Run:</code> ${escapeHtml(report.runId)}`,
+    `<code>Variant:</code> ${escapeHtml(report.agentVariant)}`,
+    `<code>Model:</code> ${escapeHtml(report.model)}`,
+    `<code>Git:</code> ${escapeHtml(report.gitCommit?.slice(0, 7) ?? 'unknown')}`,
     `<code>Time:</code> ${new Date(report.timestamp).toLocaleString('id-ID')}`,
-    `<code>Duration:</code> ${report.totalDurationMs}ms`,
+    `<code>Duration:</code> ${Number(report.totalDurationMs)}ms`,
     '',
     `<b>Summary:</b> ${report.summary.passed}/${report.summary.total} passed (${((report.summary.passed / report.summary.total) * 100).toFixed(1)}%)`
   ]
 
   for (const t of report.tasks) {
-    const icon = t.status === 'passed' ? '✅' : '❌'
-    lines.push(`${icon} ${t.taskId} — ${t.durationMs}ms (${t.status})`)
+    const status = t.status === 'passed' ? 'PASS' : 'FAIL'
+    lines.push(`[${status}] ${escapeHtml(t.taskId)} — ${Number(t.durationMs)}ms (${escapeHtml(t.status)})`)
   }
 
   const targets = resolveTrustedBroadcastTargets()
@@ -887,13 +868,13 @@ export const sendInlineKeyboard = async (chatId, question, options) => {
 
   const keyboard = {
     inline_keyboard: (options || ['Approve', 'Reject']).map((opt, i) => [
-      { text: opt.label || opt, callback_data: opt.value || `opt_${i}` }
+      { text: opt.label || opt, callback_data: `bmk_${opt.value || `opt_${i}`}` }
     ])
   }
 
   try {
-    await bot.telegram.sendMessage(chatId, question, {
-      parse_mode: 'Markdown',
+    await bot.telegram.sendMessage(chatId, escapeHtml(String(question)), {
+      parse_mode: 'HTML',
       reply_markup: JSON.stringify(keyboard)
     })
     return { success: true }
@@ -902,13 +883,45 @@ export const sendInlineKeyboard = async (chatId, question, options) => {
   }
 }
 
+// ---- ask_user correlation: pending registry keyed by chatId ----
+// ask_user mengirim keyboard lalu MENUNGGU jawaban callback bmk_*.
+let askUserWaiters = new Map() // chatId -> { resolve, timer }
+const ASK_USER_TIMEOUT_MS = 120000
+
+const resolveAskUser = (chatId, answer) => {
+  const w = askUserWaiters.get(String(chatId))
+  if (!w) return false
+  clearTimeout(w.timer)
+  askUserWaiters.delete(String(chatId))
+  w.resolve(answer)
+  return true
+}
+
+export const waitForAskUserAnswer = (chatId, timeoutMs = ASK_USER_TIMEOUT_MS) =>
+  new Promise((resolve) => {
+    const key = String(chatId)
+    const existing = askUserWaiters.get(key)
+    if (existing) {
+      clearTimeout(existing.timer)
+      existing.resolve(null)
+    }
+    const timer = setTimeout(() => {
+      askUserWaiters.delete(key)
+      resolve(null) // timeout -> null
+    }, timeoutMs)
+    askUserWaiters.set(key, { resolve, timer })
+  })
+
+const escapeHtml = (s) =>
+  String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
 let progressMessageCache = new Map()
 
 export const sendProgress = async (taskId, status, details, targetChatId) => {
   if (!bot || currentStatus !== 'connected') return { success: false, error: 'Bot not connected.' }
 
-  const emoji = { running: '▶️', passed: '✅', failed: '❌', error: '⚠️' }[status] || '🔄'
-  const text = `<b>${emoji} Benchmark Progress</b>\n<code>Task:</code> ${taskId}\n<code>Status:</code> ${status}\n${details || ''}`
+  const statusLabel = { running: 'RUNNING', passed: 'PASS', failed: 'FAIL', error: 'ERROR' }[status] || 'PENDING'
+  const text = `<b>Benchmark Progress</b>\n<code>Task:</code> ${escapeHtml(taskId)}\n<code>Status:</code> ${escapeHtml(statusLabel)}\n${escapeHtml(details || '')}`
 
   const chatIds = targetChatId ? [String(targetChatId)] : Array.from(resolveTrustedBroadcastTargets())
   if (chatIds.length === 0) return { success: false, error: 'No admin targets.' }

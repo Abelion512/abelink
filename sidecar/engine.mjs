@@ -474,9 +474,26 @@ on('skills:read-file', async (name, relativePath) => {
 send({ event: 'engine:ready', payload: Object.keys(handlers) })
 
 const rl = readline.createInterface({ input: process.stdin, terminal: false })
+let stdinClosed = false
+let pendingHandlers = 0
+const maybeExit = () => {
+  if (!stdinClosed || pendingHandlers > 0) return
+  setTimeout(() => {
+    if (stdinClosed && pendingHandlers === 0) process.exit(0)
+  }, 100).unref()
+}
 // Batas panjang satu frame JSON agar stdin tidak bisa menghabiskan memori.
 const MAX_FRAME_LENGTH = 32 * 1024 * 1024
 rl.on('line', async (line) => {
+  pendingHandlers++
+  try {
+    await handleLine(line)
+  } finally {
+    pendingHandlers--
+  }
+})
+
+const handleLine = async (line) => {
   const trimmed = line.trim()
   if (!trimmed) return
   if (trimmed.length > MAX_FRAME_LENGTH) {
@@ -502,8 +519,11 @@ rl.on('line', async (line) => {
   } catch (err) {
     send({ id, ...fail(err) })
   }
-})
+}
+// stdin ditutup: tunggu semua handler async selesai, lalu keluar secara deterministik.
+// Tanpa ini proses bisa jadi zombie (Telegraf polling menjaga event loop tetap hidup),
+// atau sebaliknya mati sebelum handler selesai bila kita exit langsung.
 rl.on('close', () => {
-  // Event loop stays alive while async handlers complete.
-  // Process exits naturally when all work is done.
+  stdinClosed = true
+  maybeExit()
 })

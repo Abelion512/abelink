@@ -1184,7 +1184,7 @@ export const NATIVE_TOOLS = {
   'ask_user': {
     needsApproval: false,
     handler: async (query) => {
-      const { chatId, question, options } = query || {}
+      const { chatId, question, options, timeoutMs } = query || {}
       if (!chatId) return { success: false, error: 'chatId wajib diisi' }
       if (!question) return { success: false, error: 'Pertanyaan wajib diisi' }
       if (!options || options.length < 2) return { success: false, error: 'Minimal 2 opsi pilihan' }
@@ -1194,8 +1194,17 @@ export const NATIVE_TOOLS = {
         return { success: false, error: 'Bot Telegram belum terhubung' }
       }
 
-      await tgMod.sendInlineKeyboard(String(chatId), String(question), options)
-      return { success: true, data: { status: 'pending', chatId, question, options } }
+      const sent = await tgMod.sendInlineKeyboard(String(chatId), String(question), options)
+      if (!sent || sent.success === false) {
+        return { success: false, error: sent?.error || 'Gagal mengirim keyboard ke Telegram' }
+      }
+
+      // Tunggu jawaban callback bmk_* (dikorelasikan via waitForAskUserAnswer).
+      const answer = await tgMod.waitForAskUserAnswer(String(chatId), Number(timeoutMs) || 120000)
+      if (answer == null) {
+        return { success: false, error: 'ask_user timeout: tidak ada jawaban dari user' }
+      }
+      return { success: true, data: { status: 'answered', chatId, answer } }
     }
   },
   'browser-ask-user': {
