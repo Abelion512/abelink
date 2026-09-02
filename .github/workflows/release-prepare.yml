@@ -1,0 +1,27 @@
+name: Release Prepare
+
+on:
+  push:
+    branches: [linux]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-prepare-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - name: Prepare release
+        run: node scripts/release-helper.mjs prepare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

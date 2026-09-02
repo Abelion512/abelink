@@ -71,6 +71,7 @@
     "tailwindcss": "^4.1.18",
     "vite": "^7.2.6",
     "vitest": "^4.1.10",
-    "@tauri-apps/cli": "^2"
+    "@tauri-apps/cli": "^2",
+    "semver": "^7.6.3"
   }
 }

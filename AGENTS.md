@@ -9,6 +9,37 @@
 - `master` — tracks official `Mazees/mark-agent` upstream for sync purposes only; never merge linux into master or open PRs targeting master
 - Pull requests target: `linux` (PRs FROM feature branches INTO linux)
 - Version bumping: run `bun run sync-version` after bumping in `tauri.conf.json`
+
+## Branch Governance
+
+### `master`
+`master` is the upstream/baseline branch. It must NOT receive development changes from this project.
+- The ONLY acceptable source of updates to `master` is synchronization from the official upstream repository.
+- Never develop MARK Linux features directly on `master`.
+- Never merge `linux` into `master`.
+- Never merge feature branches into `master`.
+- Never use `master` as the target branch for MARK Linux development PRs.
+- Never modify `master` merely to simplify CI/CD or release automation.
+
+### `linux`
+`linux` is the main operational branch of this project. ALL MARK Linux development ultimately lands here.
+- All Linux application changes target `linux`.
+- All Linux bug fixes target `linux`.
+- All Linux features target `linux`.
+- All Linux CI/CD changes target `linux`, unless a change is strictly required for upstream/baseline synchronization.
+- Release candidates are derived from `linux`.
+- Linux release tags are created from `linux`.
+- The final released Linux source must be an immutable tag originating from `linux`.
+
+### `release/vX`
+A temporary release-candidate branch derived from `linux`. Must never become a long-lived development branch.
+
+### Feature/Worktree Branches
+Branches such as `cd/*`, `feature/*`, `fix/*`, `chore/*` are working branches. They eventually merge into `linux`, not `master`.
+
+### Why This Matters
+GitHub's `default_branch` metadata may report `master`, but that does not change the project architecture.
+For MARK Linux: `master` = upstream/baseline, `linux` = operational/main/release branch.
 **Description:** A privacy-first, local-based autonomous AI OS companion designed to assist user productivity, automate tasks, and provide lifelike companionship. It uses a hybrid AI engine (Local LLM via LM Studio or Cloud API, plus a native Gemini Web RPC Engine) and features agentic planning with ReAct loop execution, **Autonomous Multi-Agent Sub-Agent Engine** (UI: **Sub-Agents**, branding: **Mission Control**) with concurrent isolated browser sessions, **Durable Agent Tasks** (UI: **Agent Workflows**) for persistent multi-step work, autonomous physical browser automation with multi-session support, a persistent OS-level desktop automation daemon, a hybrid Full-Text & Vector Memory Management System (MMS) with Orama & Dexie, document RAG pipeline, OS-level Awareness Engine, dynamic 4D Relational Growth, a native Plugin System with Monaco Editor, Telegram Bot integration via Telegraf, Voice Activity Detection with Groq Whisper STT plus local Whisper, Edge-TTS, and webcam vision capabilities.
 **Environment:** Linux-only Tauri v2 desktop application ("MARK Linux") — a fork of Mazees/mark-agent, mid-migration from Electron to the Tauri shell + Node sidecar layout.
 **Maintainer:** Abelion512 | **Homepage:** https://github.com/Abelion512/mark-agent-linux | **Upstream:** https://github.com/Mazees/mark-agent/
