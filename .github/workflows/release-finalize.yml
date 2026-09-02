@@ -1,0 +1,92 @@
+name: Release Finalize
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [linux]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to finalize (e.g. v1.0.0-alpha.2)"
+        required: true
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: release-finalize-${{ github.event.pull_request.head.ref || github.event.inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    # Only run for Release PRs: branch starts with release/v AND has release label
+    # Normal feature/fix PRs must NOT trigger finalization.
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/v') &&
+      contains(github.event.pull_request.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - name: Finalize release (create tag)
+        run: node scripts/release-helper.mjs finalize
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  manual:
+    # Manual finalization: only for linux release line, valid SemVer, synchronized manifests
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.ref != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - name: Validate manual ref
+        run: |
+          # 1. ref resolves
+          git rev-parse --verify "${{ inputs.ref }}"
+          # 2. ref is on linux release line (ancestor of linux HEAD)
+          if ! git merge-base --is-ancestor "${{ inputs.ref }}" origin/linux; then
+            echo "::error::Ref ${{ inputs.ref }} is not an ancestor of linux branch"
+            exit 1
+          fi
+          # 3. version is valid SemVer
+          TAG="${{ inputs.ref }}"
+          VERSION="${TAG#v}"
+          if ! node -e "const semver=require('semver'); process.exit(semver.valid('${VERSION}') ? 0 : 1)"; then
+            echo "::error::${VERSION} is not valid SemVer"
+            exit 1
+          fi
+          # 4. manifests synchronized
+          bun run sync-version --check
+          # 5. tag does not already exist
+          if git tag -l "${TAG}" | grep -q "^${TAG}$"; then
+            echo "::error::Tag ${TAG} already exists"
+            exit 1
+          fi
+          # 6. version is newer than existing releases
+          LAST=$(git tag --merged origin/linux -l 'v*' | sed 's/^v//' | grep -E '^(alpha|beta|[0-9])' | sort -V | tail -1)
+          if [ -n "$LAST" ] && ! node -e "const semver=require('semver'); process.exit(semver.gt('${VERSION}', '${LAST}') ? 0 : 1)"; then
+            echo "::error::Version ${VERSION} is not newer than ${LAST}"
+            exit 1
+          fi
+          # 7. release metadata exists (releases.json has entry)
+          if ! node -e "const fs=require('fs'); const r=JSON.parse(fs.readFileSync('src/data/releases.json','utf8')).releases; process.exit(r.some(x=>x.version=='${VERSION}') ? 0 : 1)"; then
+            echo "::error::Release metadata for ${VERSION} not found in releases.json"
+            exit 1
+          fi
+      - name: Finalize release (create tag)
+        run: node scripts/release-helper.mjs finalize
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
