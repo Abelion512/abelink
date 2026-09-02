@@ -18,15 +18,11 @@
     "sync-version": "node scripts/sync-version.mjs",
     "harness": "bun sidecar/engine.mjs",
     "app": "tauri dev",
-    "benchmark": "node benchmark/run.mjs",
-    "benchmark:list": "node benchmark/run.mjs list",
-    "benchmark:run": "node benchmark/run.mjs run",
-    "benchmark:report": "node benchmark/run.mjs report"
+    "benchmark:echo": "node evaluation/terminal-bench.mjs",
+    "benchmark:deepeval": "node evaluation/deepeval-runner.mjs",
+    "benchmark:adapter": "node evaluation/mark-adapter.mjs"
   },
   "type": "module",
-  "bin": {
-    "mark-benchmark": "./benchmark/bin/mark.js"
-  },
   "dependencies": {
     "@fontsource/inter": "^5.2.7",
     "@fontsource/poppins": "^5.2.7",
@@ -70,7 +66,6 @@
     "@tauri-apps/cli": "^2",
     "@vitejs/plugin-react": "^5.1.1",
     "daisyui": "^5.5.14",
-    "deepeval": "^0.9.13",
     "eslint": "^9.39.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
