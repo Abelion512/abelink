@@ -20,12 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - name: Install dependencies (frozen lockfile)
+        run: bun install --frozen-lockfile
       - name: Cek sinkronisasi manifest + kecocokan tag
         run: |
           bun run sync-version --check
           TAG="${GITHUB_REF_NAME#v}"
-          CONF=$(node -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json','utf8')).version")
+          CONF=$(bun -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json','utf8')).version")
           echo "tag=$TAG conf=$CONF"
           if [ "$TAG" != "$CONF" ]; then
             echo "::error::Tag ($TAG) tidak cocok dengan src-tauri/tauri.conf.json ($CONF). Perbaiki versi atau tag."
@@ -45,11 +46,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - name: Install dependencies (frozen lockfile)
+        run: bun install --frozen-lockfile
       - name: Unit tests (vitest)
         run: bunx vitest run
       - name: Frontend build (vite)
         run: bun run build
+      - name: Benchmark smoke (evaluation harness)
+        run: bun evaluation/smoke.mjs
       - name: Install Linux deps (WebKitGTK)
         run: |
           sudo apt-get update
@@ -79,7 +83,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - run: bun install
+      - name: Install dependencies (frozen lockfile)
+        run: bun install --frozen-lockfile
       - name: Build Tauri (AppImage + deb)
         run: bun tauri build
       - name: Kumpulkan artefak

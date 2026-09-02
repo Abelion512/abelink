@@ -7,7 +7,8 @@
 import { runMarkAgent } from './mark-adapter.mjs'
 
 // Terminal-Bench-style tasks (adapted, not copied wholesale).
-const TASKS = {
+// Diekspor agar smoke test CI bisa menguji verifier tanpa memanggil LLM.
+export const TASKS = {
   'tb-echo-01': {
     prompt: 'Please respond with exactly: MarkBench is active',
     verifier: (output) => output.trim() === 'MarkBench is active',

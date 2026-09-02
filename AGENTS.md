@@ -25,7 +25,9 @@
 - **Media/Integrations:** `youtube-transcript-plus`, `ytmusic-api` (YouTube Music), `yt-search`, `youtube-dl-exec` + `ffmpeg-static`, `googleapis` (Calendar/Drive/Gmail via sidecar `google:*` channels)
 - **Communication:** `telegraf` (Telegram Bot Framework, `sidecar/main/telegram/telegram-service.js`)
 - **Document Parsing:** `mammoth` (.docx) + `pdf-parse` (.pdf) behind the sidecar `parse-document` channel
-- **Packaging & CI:** Tauri bundler (`bundle.targets: "all"`, sidecar engine shipped as bundled resources); GitHub Actions workflows `tauri.yml`, `release.yml`, `codeql.yml`, `upstream-sync.yml`
+- **Runtime & Toolchain:** Rust + Bun. Rust menaungi shell Tauri (`src-tauri/`); Bun adalah package manager, script runner, dan runtime sidecar (`bun sidecar/engine.mjs`). Semua script first-party (`.mjs`) dijalankan dengan `bun`, bukan `node`; CI memakai `bun install --frozen-lockfile`.
+- **Packaging & CI:** Tauri bundler (`bundle.targets: "all"`, sidecar engine shipped as bundled resources); GitHub Actions workflows `tauri.yml`, `release.yml`, `codeql.yml`, `upstream-sync.yml`, `branch-guard.yml` (PR ber-base `master` digagalkan otomatis); Dependabot mingguan untuk cargo + npm + github-actions.
+- **Evaluation (MarkBench):** harness evaluasi di `evaluation/` — adapter agent via sidecar RPC (`mark-adapter.mjs`), task Terminal-Bench-style dengan verifier deterministik (`terminal-bench.mjs`), metrik sekunder opsional via DeepEval (`deepeval-runner.mjs`, dynamic-import, tanpa dependensi keras), smoke gate tanpa network di CI (`bun evaluation/smoke.mjs`).
 
 ## 3. Project Architecture & File Structure
 

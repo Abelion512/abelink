@@ -93,7 +93,8 @@ const newId = () => (Date.now() + Math.random() * 1e6) | 0
 // ---- Parse tool calls from LLM text ----
 // Format: [tool: name(key=value, key2="value with, comma")]
 // Quote-aware so commas inside quoted values do not split pairs.
-function parseToolCalls(text) {
+// Diekspor untuk smoke test CI (pure function, tanpa efek samping).
+export function parseToolCalls(text) {
   const calls = []
   const callRe = /\[tool:\s*([^\s()]+)\(([^)]*)\)\]/g
   let m

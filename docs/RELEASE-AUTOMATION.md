@@ -103,6 +103,7 @@ release.yml verify job:
   → gitleaks scan
   → vitest run
   → vite build
+  → benchmark smoke (bun evaluation/smoke.mjs)
   → cargo check
     ↓
 release.yml publish job:
@@ -110,3 +111,17 @@ release.yml publish job:
   → upload artifacts
   → gh release create v1.0.0-alpha.2 --verify-tag --generate-notes
 ```
+
+## Toolchain Notes (Rust + Bun)
+
+- Semua runner CI memakai `bun install --frozen-lockfile` (bukan `bun install`)
+  agar CI gagal cepat bila `bun.lock` tidak sinkron dengan `package.json`.
+- Semua script first-party (`.mjs`) dijalankan dengan `bun` (bukan `node`) sesuai
+  toolchain Rust + Bun: `bun run sync-version`, `bun evaluation/smoke.mjs`, dst.
+- Dependensi dipantau Dependabot mingguan untuk tiga ekosistem: `cargo`
+  (`src-tauri/`), `npm` (bun.lock), dan `github-actions` — lihat
+  `.github/dependabot.yml`. Alert CVE (mis. protobufjs) harus diselesaikan
+  sebelum merge; jangan abaikan dengan komentar Socket tanpa justifikasi.
+- Tidak ada dependensi dev yang hanya dipakai runner (semua package LLM-eval,
+  termasuk `deepeval`, bersifat dynamic-import opsional — tidak masuk
+  `package.json` sehingga tidak membebani SBOM/audit produksi).
