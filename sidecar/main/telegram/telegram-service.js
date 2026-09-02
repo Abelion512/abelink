@@ -650,16 +650,23 @@ export const sendTelegramToAdmins = async (text) => {
   }
 }
 
-// IPC Handlers
-ipcMain.removeAllListeners('tg:broadcast-to-admins')
-ipcMain.on('tg:broadcast-to-admins', async (event, text) => {
+// ---- Channel exports (didaftarkan engine.mjs; tanpa Electron IPC) ----
+// Kirim event ke renderer lewat stdout JSON-lines (engine meneruskan ke Tauri event system).
+const sendEvent = (event, payload) => {
+  try {
+    process.stdout.write(JSON.stringify({ event, payload }) + '\n')
+  } catch {}
+}
+
+export const broadcastToAdminsSidecar = async (text) => {
   await sendTelegramToAdmins(text)
-})
-ipcMain.removeAllListeners('tg:agent-execution-done')
-ipcMain.on('tg:agent-execution-done', async (event, data) => {
-  const { chatId, result, msgId } = data
+  return { success: true }
+}
+
+export const sendAgentExecutionDone = async (data) => {
+  const { chatId, result, msgId } = data || {}
   const reqObj = pendingRequestsMap.get(msgId)
-  let replyText = result?.answer || 'Selesai diproses.'
+  const replyText = result?.answer || 'Selesai diproses.'
 
   const uiReplyPayload = {
     id: Date.now(),
@@ -675,9 +682,7 @@ ipcMain.on('tg:agent-execution-done', async (event, data) => {
   uiMessageHistory.push(uiReplyPayload)
   if (uiMessageHistory.length > MAX_UI_HISTORY) uiMessageHistory.shift()
 
-  if (botWindow && !botWindow.isDestroyed()) {
-    botWindow.webContents.send('tg:reply-sent', uiReplyPayload)
-  }
+  sendEvent('tg:reply-sent', uiReplyPayload)
 
   if (bot && chatId) {
     if (reqObj?.loadingMsgId) {
@@ -693,12 +698,8 @@ ipcMain.on('tg:agent-execution-done', async (event, data) => {
   }
 
   pendingRequestsMap.delete(msgId)
-})
-
-ipcMain.removeHandler('tg:send-message')
-ipcMain.handle('tg:send-message', async (event, { chatId, text }) => {
-  return await sendTelegramMessage(chatId, text)
-})
+  return { success: true }
+}
 
 ipcMain.removeAllListeners('tg:trigger-screenshot')
 ipcMain.on('tg:trigger-screenshot', async (event, { chatId } = {}) => {
@@ -802,7 +803,8 @@ ipcMain.on('tg:trigger-music-ui', (event, { command, query }) => {
 // ---- Benchmark dashboard methods ----
 
 // Direktori hasil benchmark relatif terhadap root repo (stabil terhadap cwd).
-const RESULTS_DIR = fileURLToPath(new URL('../../../../benchmark/results/', import.meta.url))
+// telegram-service.js ada di sidecar/main/telegram/ -> naik 3 level ke repo root.
+const RESULTS_DIR = fileURLToPath(new URL('../../../benchmark/results/', import.meta.url))
 
 const loadLatestResult = (runId) => {
   try {
