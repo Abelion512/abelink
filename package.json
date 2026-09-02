@@ -4,7 +4,7 @@
   "description": "Mark: Metacognitive Artificial Relational Knowledge AI",
   "main": "./out/main/index.js",
   "author": "Mazees",
-  "homepage": "https://github.com/Mazees/mark-agent/",
+  "homepage": "https://github.com/Abelion512/mark-agent-linux/",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
