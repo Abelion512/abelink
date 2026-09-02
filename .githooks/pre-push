@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Penuh: test + build frontend + cargo check
+set -e
+bash scripts/verify.sh

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Cepat: unit test saja (<10s). Verifikasi penuh di pre-push.
+set -e
+cd "$(dirname "$0")/.."
+bunx vitest run
