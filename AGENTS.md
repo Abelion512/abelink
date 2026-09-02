@@ -5,9 +5,9 @@
 **Project Name:** MARK (Metacognitive Artificial Relational Knowledge) — MARK Linux fork, independent version line 1.x (current: **1.0.0-alpha.1**, single source of truth: `src-tauri/tauri.conf.json`)
 
 **Branch Strategy:**
-- `linux` (main / baseline) — Linux Tauri v2 branch, receives all new features and fixes; **this is the primary branch, do NOT open PRs from linux to master**
-- `master` — tracks official `Mazees/mark-agent` upstream for sync purposes only; never merge linux into master or open PRs targeting master
-- Pull requests target: `linux` (PRs FROM feature branches INTO linux)
+- `linux` (main / baseline) — Linux Tauri v2 branch, receives all new features and fixes. This is the primary branch: all PRs target it, never the other way around.
+- `master` — tracks official `Mazees/mark-agent` upstream for sync purposes only. Never merge `linux` into `master` and never open PRs targeting `master`.
+- Pull requests target: `linux` (feature branches INTO `linux`)
 - Version bumping: run `bun run sync-version` after bumping in `tauri.conf.json`
 
 ## Branch Governance

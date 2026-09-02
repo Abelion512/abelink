@@ -1,0 +1,20 @@
+name: Branch Guard
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  pull-requests: read
+  contents: read
+
+jobs:
+  target-linux:
+    name: PRs harus menargetkan branch linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tolak PR yang menargetkan master
+        if: ${{ github.event.pull_request.base.ref == 'master' }}
+        run: |
+          echo "::error::PR menargetkan 'master'. Semua PR mark-agent-linux harus menargetkan 'linux' (master hanya untuk sinkronisasi upstream)."
+          exit 1
