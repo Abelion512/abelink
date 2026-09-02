@@ -1,3 +1,45 @@
 {
-  "version": "1.0.0-alpha.1"
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Mark Agent",
+  "version": "1.0.0-alpha.1",
+  "identifier": "mark-linux",
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "bun run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "MARK",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 940,
+        "minHeight": 600,
+        "decorations": false,
+        "transparent": false,
+        "backgroundColor": "#0b0f0c"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; script-src 'self' 'wasm-unsafe-eval' blob: https://www.youtube.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost blob: data: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://*; object-src 'none'; base-uri 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": [
+      "../sidecar/engine.mjs",
+      "../sidecar/main"
+    ],
+    "icon": [
+      "../resources/icon.png",
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
 }

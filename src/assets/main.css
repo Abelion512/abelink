@@ -1,0 +1,541 @@
+@import '@fontsource/inter/300.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/poppins/400.css';
+@import '@fontsource/poppins/500.css';
+@import '@fontsource/poppins/600.css';
+@import '@fontsource/poppins/700.css';
+@import 'tailwindcss';
+@plugin "daisyui" {
+  themes: forest;
+}
+
+@plugin "daisyui/theme" {
+  name: "forest";
+  default: false;
+  prefersdark: false;
+  color-scheme: "dark";
+  --color-base-100: oklch(20.84% 0.008 17.911);
+  --color-base-200: oklch(18.522% 0.007 17.911);
+  --color-base-300: oklch(16.203% 0.007 17.911);
+  --color-base-content: #cac9c9;
+  --color-primary: #1fb854;
+  --color-primary-content: oklch(0% 0 0);
+  --color-secondary: oklch(69.776% 0.135 168.327);
+  --color-secondary-content: oklch(13.955% 0.027 168.327);
+  --color-accent: oklch(70.628% 0.119 185.713);
+  --color-accent-content: oklch(14.125% 0.023 185.713);
+  --color-neutral: #19362d;
+  --color-neutral-content: oklch(86.139% 0.007 171.364);
+  --color-info: oklch(72.06% 0.191 231.6);
+  --color-info-content: oklch(0% 0 0);
+  --color-success: oklch(64.8% 0.15 160);
+  --color-success-content: oklch(0% 0 0);
+  --color-warning: oklch(84.71% 0.199 83.87);
+  --color-warning-content: oklch(0% 0 0);
+  --color-error: oklch(71.76% 0.221 22.18);
+  --color-error-content: oklch(0% 0 0);
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@theme {
+  --font-sans: 'Inter', 'Poppins', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+html {
+  font-size: 14px;
+}
+
+body {
+  font-family: 'Inter', 'Poppins', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Linux Tauri/WebKitGTK: use a safe opaque base layer for the window background.
+   Transparency is handled at the window level via tauri.conf.json; forcing
+   transparent here can break rendering on Linux compositors. */
+html, body, #root {
+  background-color: #0b0f0c !important;
+  color: #e5e7eb;
+}
+
+/* Transparent utility: only apply when a parent explicitly opts in */
+.tranparent-root {
+  background: transparent !important;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Custom Markdown Styles */
+.custom-markdown {
+  color: inherit;
+  line-height: 1.6;
+}
+
+.custom-markdown h1 {
+  @apply text-2xl font-bold mb-4 mt-2;
+}
+.custom-markdown h2 {
+  @apply text-xl font-bold mb-3 mt-2;
+}
+.custom-markdown h3 {
+  @apply text-lg font-bold mb-2 mt-2;
+}
+
+.custom-markdown p {
+  @apply mb-3;
+}
+
+.custom-markdown ul {
+  list-style-type: disc !important;
+  margin-left: 1.5rem !important;
+  margin-bottom: 1rem !important;
+  display: block !important;
+}
+
+.custom-markdown ol {
+  list-style-type: decimal !important;
+  margin-left: 1.5rem !important;
+  margin-bottom: 1rem !important;
+  display: block !important;
+}
+
+.custom-markdown li {
+  display: list-item !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.custom-markdown code {
+  @apply bg-base-300 px-1.5 py-0.5 rounded text-primary font-mono text-sm;
+}
+
+.custom-markdown strong {
+  @apply font-bold text-primary;
+}
+
+.custom-markdown blockquote {
+  @apply border-l-4 border-primary pl-4 italic my-4 opacity-80;
+}
+
+.custom-markdown a {
+  @apply text-primary underline hover:opacity-80 cursor-pointer;
+}
+
+.custom-markdown table {
+  @apply table table-sm w-full bg-base-200/50 rounded-xl my-4 overflow-hidden border border-base-300;
+}
+
+.custom-markdown th {
+  @apply bg-base-300 text-left font-bold;
+}
+
+.custom-markdown td,
+.custom-markdown th {
+  @apply border-b border-base-300 px-4 py-2;
+}
+
+/* ===== Live Audio Page Animations ===== */
+
+/* Pulse ring expanding outward */
+@keyframes audio-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+.audio-pulse-ring {
+  animation: audio-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Glow effects for the visualizer circle */
+.audio-glow-idle {
+  box-shadow:
+    0 0 40px rgba(255, 255, 255, 0.02),
+    0 0 80px rgba(255, 255, 255, 0.01);
+}
+
+.audio-glow-listening {
+  box-shadow:
+    0 0 40px rgba(31, 184, 84, 0.15),
+    0 0 80px rgba(31, 184, 84, 0.08),
+    0 0 120px rgba(31, 184, 84, 0.04);
+  animation: glow-pulse-listen 2s ease-in-out infinite;
+}
+
+.audio-glow-speaking {
+  box-shadow:
+    0 0 40px rgba(82, 39, 255, 0.2),
+    0 0 80px rgba(82, 39, 255, 0.1),
+    0 0 120px rgba(82, 39, 255, 0.05);
+  animation: glow-pulse-speak 1.5s ease-in-out infinite;
+}
+
+@keyframes glow-pulse-listen {
+  0%,
+  100% {
+    box-shadow:
+      0 0 40px rgba(31, 184, 84, 0.15),
+      0 0 80px rgba(31, 184, 84, 0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 60px rgba(31, 184, 84, 0.25),
+      0 0 100px rgba(31, 184, 84, 0.12);
+  }
+}
+
+@keyframes glow-pulse-speak {
+  0%,
+  100% {
+    box-shadow:
+      0 0 40px rgba(82, 39, 255, 0.2),
+      0 0 80px rgba(82, 39, 255, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 60px rgba(82, 39, 255, 0.3),
+      0 0 100px rgba(82, 39, 255, 0.15);
+  }
+}
+
+/* Audio bars (waveform placeholder) */
+@keyframes bar-listening {
+  0%,
+  100% {
+    height: 0.75rem;
+  }
+  50% {
+    height: 2rem;
+  }
+}
+
+@keyframes bar-speaking {
+  0%,
+  100% {
+    height: 0.5rem;
+  }
+  25% {
+    height: 2.5rem;
+  }
+  75% {
+    height: 1.5rem;
+  }
+}
+
+.audio-bar-listening {
+  animation: bar-listening 1.2s ease-in-out infinite;
+}
+
+.audio-bar-speaking {
+  animation: bar-speaking 0.8s ease-in-out infinite;
+}
+
+/* Ultra Modern Driver.js Theme matching DaisyUI Forest */
+.driver-popover {
+  @apply border border-white/10 rounded-2xl p-6;
+  background-color: #2a303c !important; /* Kontras dari hitam */
+  color: #ffffff !important;
+  max-width: 320px !important;
+  min-width: 300px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+}
+
+.driver-popover-title {
+  font-size: 1.125rem !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin-bottom: 0.5rem !important;
+  font-family: 'Poppins', sans-serif !important;
+}
+
+.driver-popover-description {
+  font-size: 0.875rem !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  line-height: 1.5 !important;
+  margin: 0 !important;
+  font-family: 'Poppins', sans-serif !important;
+}
+
+.driver-popover-footer {
+  margin-top: 1.25rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.5rem !important;
+}
+
+.driver-popover-footer button {
+  height: 2rem !important;
+  min-height: 2rem !important;
+  padding: 0 1rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  border-radius: 0.5rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-family: 'Poppins', sans-serif !important;
+  text-shadow: none !important;
+  border: none !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.driver-popover-footer .driver-popover-next-btn,
+.driver-popover-footer .driver-popover-done-btn {
+  background-color: #1eb854 !important; /* DaisyUI Primary */
+  color: #000000 !important;
+}
+
+.driver-popover-footer .driver-popover-next-btn:hover,
+.driver-popover-footer .driver-popover-done-btn:hover {
+  background-color: #1aa049 !important;
+  transform: scale(1.05);
+}
+
+.driver-popover-footer .driver-popover-prev-btn {
+  background-color: rgba(255, 255, 255, 0.05) !important; /* DaisyUI Ghost */
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.driver-popover-footer .driver-popover-prev-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.driver-popover-progress-text {
+  font-size: 0.75rem !important;
+  font-family: monospace !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  margin: 0 !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.driver-popover-close-btn {
+  position: absolute !important;
+  top: 1rem !important;
+  right: 1rem !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  transition: color 0.2s !important;
+}
+
+.driver-popover-close-btn:hover {
+  color: #ff5252 !important; /* Error red */
+}
+
+/* Hide the old-school arrow completely for a cleaner floating card look */
+.driver-popover-arrow {
+  display: none !important;
+}
+
+/* Modern backdrop */
+.driver-overlay {
+  backdrop-filter: blur(4px) !important;
+  opacity: 0.8 !important;
+  background-color: #000000 !important;
+}
+
+/* === TAMBAHAN UNTUK ORB & HOLOGRAM (HIJAU SEIRAMA) === */
+:root {
+  --color-holo-border: linear-gradient(90deg, oklch(var(--p)), oklch(var(--su)), oklch(var(--p)));
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: blur(20px);
+}
+
+/* === ORB ANIMATIONS === */
+@keyframes orb-breathe {
+  0%,
+  100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+@keyframes orb-think {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.1);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes orb-error {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* === HOLOGRAM CARD ANIMATIONS === */
+@keyframes holo-border-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes holo-scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes holo-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes holo-project-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) translateY(20px);
+  }
+  70% {
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes holo-dismiss {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.5) translateY(20px);
+    filter: blur(5px);
+  }
+}
+
+/* === RESPONSE TRANSITIONS === */
+@keyframes response-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes response-fade-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === TOAST NOTIFICATIONS === */
+@keyframes toast-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toast-fade-out {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(50%);
+  }
+}
+
+/* === NOW PLAYING WIDGET === */
+@keyframes music-bar {
+  0%,
+  100% {
+    height: 4px;
+  }
+  50% {
+    height: 16px;
+  }
+}
+
+@keyframes slide-right { 0% { left: 0%; opacity: 0; } 50% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
+
+/* === HOLOGRAPHIC UI SETTINGS === */
+
+.holo-card {
+  @apply bg-black/40 backdrop-blur-2xl border border-primary/30 shadow-[0_0_20px_oklch(var(--p)/0.15)];
+  transition: all 0.3s ease;
+}
+
+.holo-card:hover {
+  @apply border-primary/70 shadow-[0_0_35px_oklch(var(--p)/0.4)] scale-[1.01];
+}

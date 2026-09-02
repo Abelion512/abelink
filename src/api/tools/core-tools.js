@@ -1,0 +1,23 @@
+export const core_tools = {
+  "read-tools": "WAJIB dipanggil SEBELUM menggunakan tool yang tidak kamu ketahui query-nya! Kamu hanya bisa mengeksekusi tool jika kamu tahu pasti format query-nya. Query: nama_grup (misal: \"advanced_browser\", \"pc_automation\", \"git_vcs\", \"task_terminal\").",
+  "memory-search": "ALAT PENCARIAN INGATAN (WAJIB DIGUNAKAN). Mencari ingatan masa lalu, preferensi/catatan user, solusi historis, dan riwayat chat percakapan asli (Turn Pairs). ATURAN MUTLAK: Selalu coba cari di tool ini sebelum bertanya balik ke user. ATURAN ANTI-HALUSINASI (GROUNDEDNESS): Jika setelah dicari hasilnya KOSONG atau hanya sedikit, KAMU WAJIB JUJUR dan DILARANG KERAS MENGARANG/MENAMBAH-NAMBAHKAN DAFTAR/FAKTA FIKTIF yang tidak ada di memori! Query: kata_kunci atau kata_kunci||threshold||limit (contoh: 'solusi error CORS' atau 'password wifi||0.6||3' atau 'konfigurasi vite||0.5||10'). Threshold (0.1 - 0.9, default 0.5): atur lebih tinggi untuk pencarian sangat ketat atau lebih rendah untuk pencarian luas. Limit (default 5): jumlah maksimal memori/chat yang ingin diambil.",
+  "read-file": "Membaca isi file teks biasa. Query: path_absolut atau path_relatif. Baca spesifik baris: path||startLine||endLine.",
+  "write-file": "Menulis/buat file baru dari nol. Query: path||isi_file. (Perlu persetujuan user). Otomatis divalidasi sintaksnya. PENTING: Gunakan 'replace-content' jika file sudah ada!",
+  "replace-content": "MENGEDIT SEBAGIAN KODE (UTAMA). Mencocokkan teks target dan menggantinya secara presisi. Query: path||targetContent||replacementContent. Otomatis divalidasi sintaksnya.",
+  "replace-lines": "Edit baris tertentu berdasarkan nomor baris. Query: path||startLine||endLine||kode_baru. (Perlu persetujuan user).",
+  "delete-file": "Hapus file. Query: path_absolut atau path_relatif. (Perlu persetujuan user).",
+  "list-dir": "Lihat daftar isi folder langsung (1 level). Query: path_folder (kosongkan untuk root workspace).",
+  "find-files": "Mencari file di seluruh subfolder secara rekursif dengan filter nama/ekstensi glob dan auto-ignore (node_modules, .git, dist, build). Query: pola_glob||subfolder (misal: '*.jsx' atau 'api||src').",
+  "grep-search": "Mencari kata kunci/teks kode dalam seluruh file di folder. Query: path_folder||keyword.",
+  "file-outline": "Lihat peta/struktur file (fungsi, class, ekspor, heading) beserta nomor baris tanpa membaca seluruh isi. Query: path_absolut.",
+  "read-document": "Membaca & mencari isi dokumen teks/PDF/DOCX. Panggil tanpa query untuk Smart Overview, atau gunakan kata kunci (path||keyword) atau baris (path||startLine||endLine).",
+  "read-skill": "WAJIB dipanggil jika permintaan user berkaitan dengan salah satu kemampuan di daftar MARK SKILLS. Membaca file pedoman skill untuk memuat instruksi dan workflow khusus sebelum mengeksekusi aksi. Query: nama_skill (misal: \"speedrunner\", \"git-commit\").",
+  "browser-search": "Mencari informasi di internet secara langsung (web search). Query: kata kunci pencarian.",
+  "os-open": "Membuka file/aplikasi via shell execute (xdg-open di Linux) atau URL di browser default. Query: nama executable/path atau URL raw (misal: notepad, https://google.com). DILARANG KERAS menggunakan markdown link [teks](url)! Ketik raw text saja.",
+  "run-shell": "Menjalankan perintah terminal bash singkat di PC user. Query: perintah_shell.",
+  "spawn_subagent": "Mendelegasikan tugas ke agen spesialis baru yang bekerja di lingkungan terisolasi. Query: name||role||goal||initial_message||tools (tools opsional dipisah koma, misal: 'read-file,write-file'). Mengembalikan subagent_id dan balasan awal.",
+  "send_message": "Mengirim pesan instruksi, evaluasi, atau feedback dari Mark ke Sub-Agent aktif. Query: subagent_id||pesan_instruksi. Mengembalikan balasan langsung dari Sub-Agent.",
+  "list_subagents": "Melihat daftar seluruh sub-agent yang sedang aktif atau sudah selesai beserta statusnya. Query: kosongkan atau masukkan status (running/idle/completed).",
+  "wait_subagents": "Menunggu dan mengumpulkan laporan hasil eksekusi dari sub-agent yang sedang berjalan secara paralel di background. Query: 'all' atau daftar ID dipisah koma (misal: 'sub_1,sub_2') atau beserta batas waktu (misal: 'all||30').",
+  "kill_subagent": "Menghentikan paksa eksekusi sub-agent yang sedang berjalan. Query: subagent_id||alasan."
+}

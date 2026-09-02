@@ -1,0 +1,44 @@
+# Deteksi commit baru di upstream (Mazees/mark-agent).
+# Catatan:
+#   - repository_dispatch fires when upstream pushes; cron harian 06:00 UTC sebagai fallback.
+#   - Langkah "Sync to Linear" dihapus (2026-08-26): memanggil CLI `linear` yang tidak
+#     ada di runner dan selalu gagal -> daily cron merah tanpa arti. Sinkronisasi Linear
+#     kini manual via `node scripts/mark-update.mjs --sync-linear` dengan CLI terpasang.
+#   - Laporan diff diunggah sebagai artefak agar bisa ditinjau tanpa commit ke repo.
+name: Upstream Sync
+
+on:
+  repository_dispatch:
+    types: [upstream-pushed]
+  schedule:
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Detect upstream commits
+        id: detect
+        run: |
+          git remote add upstream https://github.com/Mazees/mark-agent.git || true
+          node scripts/auto-detect-upstream.mjs --json
+
+      - name: Upload diff report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-diff-report
+          path: upstream-diff-report.json
+          if-no-files-found: ignore
