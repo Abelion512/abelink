@@ -15,8 +15,7 @@
  */
 
 import { spawnSync } from 'child_process'
-import { existsSync } from 'fs'
-import { readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import path from 'path'
 
 const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
@@ -43,7 +42,7 @@ function git(args, opts = {}) {
 function semverBump(current, type) {
   const match = current.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/)
   if (!match) throw new Error(`Invalid version: ${current}`)
-  const [_, major, minor, patch, prerelease] = match
+  const [, major, minor, patch, prerelease] = match
   const [maj, min, pat] = [Number(major), Number(minor), Number(patch)]
   const next = {
     'major': `${maj + 1}.0.0`,
@@ -104,7 +103,7 @@ function main() {
 
   // Update CHANGELOG.md [Unreleased] → [next]
   const changelogPath = path.join(REPO, 'CHANGELOG.md')
-  if (fs.existsSync(changelogPath)) {
+  if (existsSync(changelogPath)) {
     const changelog = readFileSync(changelogPath, 'utf8')
     const date = new Date().toISOString().slice(0, 10)
     const updated = changelog.replace(

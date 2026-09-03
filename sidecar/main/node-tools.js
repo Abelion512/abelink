@@ -36,7 +36,7 @@ import {
 } from './google/google-drive.js'
 import { listEvents, createEvent, deleteEvent } from './google/google-calendar.js'
 import { searchEmails, readEmail, sendEmail, markAsRead } from './google/google-gmail.js'
-import { sendTelegramMessage, sendTelegramFile } from './telegram/telegram-service.js'
+import { sendTelegramMessage, sendTelegramFile, getConnectionStatus, sendInlineKeyboard, waitForAskUserAnswer } from './telegram/telegram-service.js'
 import { getGitStatus, getGitDiff, gitCommit, gitRevert } from './git-service.js'
 import { spawnBackgroundTask, readBackgroundTaskOutput, killBackgroundTask, listBackgroundTasks } from './task-daemon.js'
 
@@ -1189,7 +1189,7 @@ export const NATIVE_TOOLS = {
       if (!question) return { success: false, error: 'Pertanyaan wajib diisi' }
       if (!options || options.length < 2) return { success: false, error: 'Minimal 2 opsi pilihan' }
 
-      const tgMod = await getTg()
+      const tgMod = { getConnectionStatus, sendInlineKeyboard, waitForAskUserAnswer }
       if (tgMod.getConnectionStatus().status !== 'connected') {
         return { success: false, error: 'Bot Telegram belum terhubung' }
       }

@@ -14,7 +14,7 @@ const getYtm = lazy(async () => {
 // Stub handlers — Tauri belum punya window terpisah seperti Electron BrowserWindow.
 // Rencanakan: multi-window Tauri WebviewWindow untuk load youtube.com.
 // Untuk sekarang: return response yang aman supaya frontend ga crash.
-on('yt:load', async (url) => {
+on('yt:load', async () => {
   // Future: spawn Tauri WebviewWindow, load youtube.com/music
   // Emit event saat track berubah via yt:track-updated
   return { success: true, message: 'yt:load not yet implemented in Tauri (needs WebviewWindow)' }

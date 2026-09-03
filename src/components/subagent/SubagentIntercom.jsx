@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { runSubagentTurn, killSubagentExecution } from '../../api/subagent/subagentExecutor'
 import { useConfirm } from '../../hooks/useConfirm'
+import { getAllConfig } from '../../api/db'
 
 const markdownComponents = {
   code({ node, inline, className, children, ...props }) {
@@ -269,6 +270,7 @@ function groupSubagentMessages(rawMessages) {
 export default function SubagentIntercom({ subagentId, onClose }) {
   const [subagent, setSubagent] = useState(null)
   const [messages, setMessages] = useState([])
+  const [config, setConfig] = useState({})
   const [inputText, setInputText] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false)
@@ -287,6 +289,15 @@ export default function SubagentIntercom({ subagentId, onClose }) {
       setMessages(msgs || [])
     } catch (err) {
       console.error('[SubagentIntercom] Load error:', err)
+    }
+  }
+
+  const loadConfig = async () => {
+    try {
+      const data = await getAllConfig()
+      if (data && data.length > 0) setConfig(data[0] || {})
+    } catch (err) {
+      console.error('[SubagentIntercom] Config load error:', err)
     }
   }
 
@@ -311,6 +322,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
     prevMsgCountRef.current = 0
     isAutoScrollRef.current = true
     setShowScrollBottomBtn(false)
+    loadConfig()
     loadData().then(() => {
       setTimeout(() => scrollToBottom('auto'), 50)
     })
@@ -493,7 +505,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
                 <div className="whitespace-pre-wrap leading-relaxed font-normal">
                   {item.content
                     .replace(/^\[DARI LEAD AGENT \(MARK\)\]:\s*/, '')
-                    .replace(new RegExp(`^\\\\[DARI CREATOR \\\\/ USER \\\\(${config.ownerName || 'MADA'}\\\\)\\\\]:\\\\s*`, 'i'), '')}
+                    .replace(/^\[DARI CREATOR \/ USER \([^)]*\)\]:\s*/, '')}
                 </div>
               </div>
             </div>
