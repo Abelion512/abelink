@@ -62,6 +62,15 @@ Rencana: eksekusi kode plugin dipindah ke sandbox Web Worker ter-isolasi;
 `plugins:list` tetap metadata-only (nama/deskripsi/actions, tidak mengeksekusi
 kode). Kontrak response plugin tidak berubah, hanya lokasi eksekusi.
 
+## Lanjutan B5 — Screenshot & Telegram send native — SELESAI (2026-09-03)
+
+`take-screenshot` native sudah ada; rantai pengirimannya ke Telegram kini
+komplit native: `misc_take_screenshot` (PNG base64) -> `telegram_send_photo`
+(multipart `sendPhoto` Bot API, batas 10MB) -> broadcast ke `tgAdminIds`.
+Token bot dikirim renderer ke `telegram_configure` lewat `syncConfig` (sebelumnya
+tidak ada pemanggilnya sehingga semua perintah `telegram_*` gagal "token kosong").
+Pemetaan lengkap + alasan: `MIGRATION-GAPS.md` bagian "Jalur Telegram native".
+
 ## Pembersihan dead code era Electron — SELESAI (2026-09-03)
 
 - `sidecar/main/skills/skill-manager.js` — dihapus (tidak pernah di-import;

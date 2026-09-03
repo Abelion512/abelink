@@ -6,6 +6,7 @@
 // Event listener memakai Tauri event system (@tauri-apps/api/event).
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { splitTgAdminIds } from '../utils/telegramTargets'
 
 
 // ---- FB#1: router file-ops -> Rust cmd_fs ----
@@ -80,6 +81,32 @@ const toPayload = (v) => {
   return v
 }
 
+// ---------- Screenshot → Telegram (jalur NATIVE Rust, tanpa sidecar) ----------
+// Kembalikan { sent, results } agar pemanggil tool AI bisa melaporkan hasil
+// nyata (jumlah admin yang menerima) — dulu string tak terverifikasi.
+// chatId eksplisit menang; tanpa itu broadcast ke semua admin terdaftar.
+const tgScreenshotToTelegram = async (chatId) => {
+  if (!(await tgConnected())) return { sent: 0, skipped: true }
+  const pngBase64 = await invoke('misc_take_screenshot')
+  if (!pngBase64 || typeof pngBase64 !== 'string') return { sent: 0, error: 'Screenshot gagal' }
+  const targets = chatId ? [String(chatId)] : tgAdminIdsCache.targets
+  if (targets.length === 0) return { sent: 0, error: 'Tidak ada admin Telegram terdaftar' }
+  const results = []
+  for (const target of targets) {
+    try {
+      await invoke('telegram_send_photo', {
+        chatId: target,
+        pngBase64,
+        caption: 'Layar PC (dikirim oleh Mark)'
+      })
+      results.push({ id: target, ok: true })
+    } catch (e) {
+      results.push({ id: target, ok: false, error: e?.message || String(e) })
+    }
+  }
+  return { sent: results.filter((r) => r.ok).length, results }
+}
+
 // Pola disposed-flag: kalau unsubscribe dipanggil sebelum listen() resolve,
 // unlisten hasil promise langsung dieksekusi agar tidak bocor.
 const on = (channel) => (cb) => {
@@ -104,7 +131,10 @@ const pathForFile = (file) => (typeof file === 'string' ? file : file?.path || '
 // ---------- Telegram ----------
 // Cache status koneksi bot beberapa detik agar guard tgSendMessage/tgBroadcast
 // tidak menambah satu round-trip IPC (tg:get-status) di setiap pesan.
+// targets: ID admin yang diparse dari config terakhir (satu sumber dengan
+// splitTgAdminIds) — dipakai screenshot-to-tg saat tanpa chatId eksplisit.
 let tgStatusCache = { connected: false, at: 0 }
+let tgAdminIdsCache = { targets: [], at: 0 }
 const TG_STATUS_TTL_MS = 5000
 const tgConnected = async () => {
   const now = Date.now()
@@ -155,7 +185,18 @@ export const api = {
       return res.data
     }),
   abortFetchAI: () => call('ai:abort-fetch'),
-  syncConfig: (config) => call('sync-config', config),
+  syncConfig: (config) => {
+    // Bridge token ke native Rust (telegram_send_message/broadcast/sendPhoto).
+    // Tanpa ini perintah telegram_* selalu gagal "token kosong" karena tidak ada
+    // satu pun pemanggil telegram_configure sebelumnya.
+    const token = String(config?.tgBotToken ?? '').trim()
+    if (token) {
+      invoke('telegram_configure', { token }).catch(() => {})
+    }
+    // Parse ID admin sekali di sini; dipakai broadcast & screenshot-to-tg.
+    tgAdminIdsCache = { targets: splitTgAdminIds(config?.tgAdminIds), at: Date.now() }
+    return call('sync-config', config)
+  },
   // Deteksi daftar model dari endpoint custom (GET /models via sidecar).
   detectCustomModels: (endpoint, apiKey, protocol) =>
     call('ai:list-models', endpoint || '', apiKey || '', protocol || 'auto'),
@@ -175,8 +216,8 @@ export const api = {
   textToSpeech: (text, rate, pitch) => call('tts-speak', text, rate, pitch),
   sendRemoteMusicCommand: (command, payload) => call('remote-music-command', command, payload),
   onExecuteMusicCommand: on('execute-music-command'),
-  onExecuteMusicCommandTg: (cb) =>
-    on('execute-music-command-tg')((command, payload) => cb(command, payload)),
+  // onExecuteMusicCommandTg dihapus: emit 'execute-music-command-tg' mati
+  // bersama botWindow era Electron (9923989) dan tidak punya konsumen.
 
   // --- YouTube Music player bridge (Electron parity) ---
   // Load YouTube URL in dedicated hidden window
@@ -195,9 +236,11 @@ export const api = {
   onYtPlayState: on('yt:play-state'),
   // Native repeat mode sync (NONE/ALL/ONE)
   onYtRepeatState: on('yt:repeat-state'),
-  tgTakeScreenshot: () => callSafe('tg:take-screenshot'),
-  tgDownloadMusic: () => callSafe('tg:download-music'),
-  tgPlayMusicUi: () => callSafe('tg:play-music-ui'),
+  // Screenshot → Telegram via jalur NATIVE (misc_take_screenshot +
+  // telegram_send_photo). Channel sidecar lama tg:take-screenshot sudah tidak
+  // punya handler sejak pembersihan electron (9923989).
+  // tgDownloadMusic/tgPlayMusicUi dihapus: tanpa konsumen & tanpa backend.
+  tgTakeScreenshot: (chatId) => tgScreenshotToTelegram(chatId),
 
   // ---------- Live audio shortcut ----------
   onLiveAudioShortcut: on('trigger-live-audio'),
@@ -218,13 +261,28 @@ export const api = {
     // Skip silently if bot not configured — prevents 3x "token kosong" errors per session
     // when ApprovalContext sends status messages before user configures the bot.
     if (!(await tgConnected())) return { skipped: true }
-    return invoke('telegram_send_message', { chat_id: chatId, text })
+    return invoke('telegram_send_message', { chatId, text })
   },
   tgBroadcastToAdmins: async (text) => {
     // Guard di satu titik: bot tidak terhubung = no-op sunyi, bukan rejection
     // yang menyulut unhandled promise rejection tiap giliran agen.
     if (!(await tgConnected())) return { skipped: true }
-    return invoke('telegram_broadcast_to_admins', { text })
+    // Broadcast lewat telegram_send_message per ID admin hasil parse config.
+    // telegram_broadcast_to_admins native bergantung pada chat_ids state Rust
+    // yang hanya terisi via telegram_register_admin_chat — channel yang tidak
+    // pernah dipanggil renderer; loop di sini meniru perilaku broadcast sidecar.
+    const targets = tgAdminIdsCache.targets
+    if (targets.length === 0) return { skipped: true, reason: 'no-admin-ids' }
+    const results = []
+    for (const id of targets) {
+      try {
+        await invoke('telegram_send_message', { chatId: id, text })
+        results.push({ id, ok: true })
+      } catch (e) {
+        results.push({ id, ok: false, error: e?.message || String(e) })
+      }
+    }
+    return { sent: results.filter((r) => r.ok).length, results }
   },
   onTgCommandAccept: onTg('tg:command-accept'),
   onTgCommandAlways: onTg('tg:command-always'),

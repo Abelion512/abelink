@@ -248,6 +248,7 @@ pub fn run() {
             commands_telegram_bot::telegram_broadcast_to_admins,
             commands_telegram_bot::telegram_register_admin_chat,
             commands_telegram_bot::telegram_status,
+            commands_telegram_bot::telegram_send_photo,
             commands_awareness_window_tracker::awareness_get_buffer,
             commands_awareness_window_tracker::awareness_clear_buffer,
             window_minimize,

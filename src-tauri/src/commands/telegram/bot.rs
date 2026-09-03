@@ -93,3 +93,54 @@ pub fn telegram_status(state: State<TelegramState>) -> Result<serde_json::Value,
         "chat_count": guard.chat_ids.len()
     }))
 }
+
+/// Kirim foto PNG (base64 dari misc_take_screenshot) ke satu chat Telegram.
+/// Menggantikan channel sidecar lama `tg:take-screenshot` yang handler-nya
+/// dihapus saat pembersihan electron (9923989) — pemanggil tool AI
+/// `screenshot-to-tg` sempat mati total sejak commit itu.
+#[tauri::command]
+pub fn telegram_send_photo(
+    state: State<TelegramState>,
+    chat_id: String,
+    png_base64: String,
+    caption: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let token = { state.0.lock().map_err(|e| format!("Lock: {}", e))?.token.clone() };
+    if token.is_empty() {
+        return Err("Bot belum dikonfigurasi (token kosong).".into());
+    }
+    use base64::Engine as _;
+    let png = base64::engine::general_purpose::STANDARD
+        .decode(png_base64.trim())
+        .map_err(|e| format!("Base64 tidak valid: {e}"))?;
+    if png.is_empty() {
+        return Err("Foto kosong.".into());
+    }
+    if png.len() > 10 * 1024 * 1024 {
+        return Err("Foto melebihi batas 10MB Bot API.".into());
+    }
+    let name = format!("mark-screen-{}.png", chrono::Local::now().timestamp_millis());
+
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| format!("RT: {e}"))?;
+    runtime.block_on(async {
+        let part = reqwest::multipart::Part::bytes(png)
+            .file_name(name)
+            .mime_str("image/png")
+            .map_err(|e| format!("MIME: {e}"))?;
+        let mut form = reqwest::multipart::Form::new().part("photo", part);
+        if let Some(cap) = caption {
+            let cap = cap.trim();
+            if !cap.is_empty() {
+                form = form.text("caption", cap.to_string());
+            }
+        }
+        let client = Client::new();
+        let resp = client
+            .post(format!("https://api.telegram.org/bot{}/sendPhoto", token))
+            .multipart(form)
+            .send()
+            .await
+            .map_err(|e| format!("HTTP: {e}"))?;
+        resp.json().await.map_err(|e| format!("JSON: {e}"))
+    })
+}

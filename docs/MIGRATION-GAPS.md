@@ -26,6 +26,24 @@ melewati dialog persetujuan NATIVE (rfd) di Rust main thread, konsisten dengan
 kebijakan approval-gate (audit upstream 2026-08-26). Hitungan 14 = plugin 7 +
 skills 6 + tg 1.
 
+## Jalur Telegram native yang pernah mati — DIPULIHKAN (2026-09-03)
+
+Pembersihan electron (9923989) menghapus 3 handler `ipcMain.on` telegram, tapi
+renderer masih memanggil channel-nya — tool AI `screenshot-to-tg` mati total
+sejak commit itu (pemanggilan `tg:take-screenshot` mengembalikan "Aksi tidak
+dikenal" yang ditelan `callSafe`). Dipulihkan lewat jalur 100% native:
+
+| Renderer | Dulu (mati) | Sekarang |
+| --- | --- | --- |
+| `tgTakeScreenshot(chatId)` | sidecar `tg:take-screenshot` (handler terhapus) | `misc_take_screenshot` + `telegram_send_photo` (Rust multipart sendPhoto), broadcast ke `tgAdminIds` hasil parse config bila tanpa chatId |
+| `tgSendMessage` / `tgBroadcastToAdmins` | invoke arg `chat_id` (salah format camelCase Tauri v2) + Rust state tanpa token | arg `chatId` benar; token dikirim renderer ke `telegram_configure` via `syncConfig`; broadcast = loop `telegram_send_message` per admin |
+| `tgDownloadMusic`, `tgPlayMusicUi`, `onExecuteMusicCommandTg` | sidecar channel mati tanpa konsumen | DIHAPUS (dead code), bukan di-stub |
+
+Catatan keamanan: `telegram_send_photo` menerima PNG base64 dari
+`misc_take_screenshot` (lokal), memvalidasi ukuran (batas Bot API 10MB), dan
+hanya mengirim ke chatId yang disuplai renderer — token bot tetap di state Rust,
+tidak pernah turun ke renderer.
+
 ## Sengaja ditunda (stub eksplisit, jangan dianggap bug)
 
 | Channel | Fase | Keterangan |
