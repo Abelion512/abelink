@@ -503,12 +503,6 @@ function App() {
                 <YoutubeMusicPlayer />
               </div>
               <GlobalCameraManager />
-              <webview
-                id="global-ai-search-webview"
-                src="about:blank"
-                useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-                style={{ display: 'none' }}
-              />
             </ChatProvider>
           </YoutubeMusicProvider>
         </ApprovalProvider>

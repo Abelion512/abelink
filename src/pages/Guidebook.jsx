@@ -526,7 +526,7 @@ const Guidebook = () => {
                       name="os-key"
                       description="Tekan kombinasi tombol keyboard shortcut."
                       needsPermission={false}
-                      queryFormat="ctrl+s, alt+tab, win+e"
+                      queryFormat="ctrl+s, alt+tab, super+e"
                       howItWorks="Mengirim kombinasi tombol (shortcut berbahaya di-blacklist dan butuh approval)."
                     />
                     <ToolCard
@@ -540,7 +540,7 @@ const Guidebook = () => {
                       name="os-open"
                       description="Membuka aplikasi desktop."
                       needsPermission={false}
-                      queryFormat="notepad, calc, winword, etc"
+                      queryFormat="firefox, gedit, nautilus, etc"
                       howItWorks="Membuka aplikasi desktop baru (memerlukan persetujuan user)."
                     />
                     <ToolCard
@@ -686,7 +686,7 @@ const Guidebook = () => {
                       name="run-task"
                       description="Menjalankan proses terminal/server latar belakang secara non-blocking."
                       needsPermission={true}
-                      queryFormat="perintah||cwd (misal: npm run dev||.)"
+                      queryFormat="perintah||cwd (misal: bun run dev||.)"
                       howItWorks="Meluncurkan background task daemon sehingga AI dapat terus bekerja tanpa terhenti oleh server yang berjalan terus."
                     />
                     <ToolCard

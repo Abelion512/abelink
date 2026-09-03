@@ -1,59 +1,87 @@
 #!/usr/bin/env bash
-# linux-action.sh — Linux fallback single-shot executor (mirrors win-action.ps1)
-# Receives args like: linux-action.sh click 100 200
-# JS calls: runScriptFallback('win-action.ps1', ['-Action', 'click', '-X', x, '-Y', y])
-# Pattern: $1=Action, then remaining args may contain -X/-Y/-Text/-Combo/-Target flags
+# linux-action.sh — Linux single-shot executor for MARK PC automation fallback.
+# Pengganti langsung win-action.ps1 era Windows. Dipanggil dari
+# sidecar/main/pc-agent.js (runScriptFallback) dengan gaya named-flag:
+#   linux-action.sh --action click --x 100 --y 200
+#   linux-action.sh --action type --text "halo dunia"
+# Gaya posisi lama tetap didukung: linux-action.sh click 100 200
+# Output: satu baris JSON di stdout.
 
 set -euo pipefail
 
 [ $# -ge 1 ] || { echo '{"status":"error","message":"No action given"}'; exit 1; }
 
-ACTION="$1"; shift
 err() { echo "{\"status\":\"error\",\"message\":\"$1\"}"; exit 1; }
 
 command -v xdotool >/dev/null 2>&1 || err "xdotool not found; install xdotool"
 
-parse_val() {
-  # Read the next arg unless it starts with -, then read the one after
-  local first="$1"; shift
-  if [ -z "$first" ]; then echo ""; return; fi
-  if [[ "$first" == -* ]]; then
-    local second="$1"; shift
-    echo "${second:-}"
-  else
-    echo "$first"
-  fi
+# --- Argument parsing ------------------------------------------------------
+# Semua argumen (setelah ACTION) disimpan di ARGS; get_flag mencari
+# --name / -name lalu mengembalikan nilai berikutnya. Fallback posisional
+# ditangani lewat pos() per-action.
+ARGS=("$@")
+
+get_flag() {
+  local name="$1" i
+  for ((i=0; i<${#ARGS[@]}-1; i++)); do
+    if [[ "${ARGS[$i]}" == "--$name" || "${ARGS[$i]}" == "-$name" ]]; then
+      printf '%s' "${ARGS[$((i+1))]}"
+      return 0
+    fi
+  done
+  return 1
 }
+
+# Nilai posisional ke-i, hanya bila tidak diawali '-' (bukan flag).
+pos() {
+  local i="$1"
+  [[ $i -lt ${#ARGS[@]} ]] || return 1
+  [[ "${ARGS[$i]}" == -* ]] && return 1
+  printf '%s' "${ARGS[$i]}"
+}
+
+# Tentukan ACTION: dari --action atau token posisional pertama.
+ACTION="$(get_flag action || true)"
+if [ -z "$ACTION" ]; then
+  ACTION="$(pos 0 || true)"
+  ARGS=("${ARGS[@]:1}")
+fi
+
+[ -n "$ACTION" ] || { echo '{"status":"error","message":"No action given"}'; exit 1; }
 
 case "$ACTION" in
   click)
-    X="$(parse_val "$1" "$1")"; shift 1 || true
-    Y="$(parse_val "$1" "$1")"; shift 1 || true
+    X="$(get_flag x || pos 0 || true)"
+    Y="$(get_flag y || pos 1 || true)"
+    [ -n "$X" ] && [ -n "$Y" ] || err "click needs --x and --y"
     xdotool mousemove --sync "$X" "$Y" click 1
-    echo '{"status":"success","action":"click","x":'"$X"',"y":'"$Y"'}'
+    echo '{"status":"success","action":"click","x":"'"$X"'","y":"'"$Y"'"}'
     ;;
 
   doubleclick)
-    X="$(parse_val "$1" "$1")"; shift 1 || true
-    Y="$(parse_val "$1" "$1")"; shift 1 || true
+    X="$(get_flag x || pos 0 || true)"
+    Y="$(get_flag y || pos 1 || true)"
+    [ -n "$X" ] && [ -n "$Y" ] || err "doubleclick needs --x and --y"
     xdotool mousemove --sync "$X" "$Y"
     win="$(xdotool getactivewindow)"
     xdotool click --window "$win" 1; sleep 0.12
     xdotool click --window "$win" 1
-    echo '{"status":"success","action":"doubleclick","x":'"$X"',"y":'"$Y"'}'
+    echo '{"status":"success","action":"doubleclick","x":"'"$X"'","y":"'"$Y"'"}'
     ;;
 
   type)
-    # JS passes: '-Action' 'type' '-Text' 'some text'
-    # After shift: $1 = -Text, $2 = text
-    TEXT="$(parse_val "$1" "$1")"; shift 1 || true
+    TEXT="$(get_flag text || true)"
+    if [ -z "$TEXT" ] && [ ${#ARGS[@]} -gt 0 ]; then
+      # Gaya posisional: gabungkan sisa argumen sebagai teks (bisa ada spasi).
+      TEXT="${ARGS[*]}"
+    fi
     [ -n "$TEXT" ] || err "Empty text"
-    # Send each char; xdotool type doesn't handle \n
+    # Kirim tiap karakter; xdotool type tidak menangani newline.
     i=0; while [ $i -lt ${#TEXT} ]; do
       c="${TEXT:$i:1}"
       case "$c" in
         $'\n') xdotool key Return; sleep 0.01 ;;
-        $'\r') continue ;;
+        $'\r') : ;;
         *) xdotool type --clearmodifiers "$c"; sleep 0.005 ;;
       esac
       i=$((i+1))
@@ -62,9 +90,7 @@ case "$ACTION" in
     ;;
 
   key)
-    # JS passes: '-Action' 'key' '-Combo' 'ctrl+c'
-    # After shift: $1 = -Combo, $2 = combo
-    COMBO="$(parse_val "$1" "$1")"; shift 1 || true
+    COMBO="$(get_flag combo || pos 0 || true)"
     [ -n "$COMBO" ] || err "Empty combo"
     case "$COMBO" in
       ctrl+c) xdotool key ctrl+c ;;
@@ -116,34 +142,33 @@ case "$ACTION" in
       delete) xdotool key Delete ;;
       *) xdotool key "$COMBO" ;;
     esac
-    echo '{"status":"success","action":"key","combo":"'$COMBO'"}'
+    echo '{"status":"success","action":"key","combo":"'"$COMBO"'"}'
     ;;
 
   scroll)
-    DIR="$(parse_val "$1" "$1")"; shift 1 || true
-    AMOUNT="$(parse_val "$1" "$1")"; shift 1 || true
+    DIR="$(get_flag direction || pos 0 || true)"
+    AMOUNT="$(get_flag amount || pos 1 || true)"
+    DIR="${DIR:-down}"; AMOUNT="${AMOUNT:-5}"
     [ "$DIR" = "up" ] && CLICK=4 || CLICK=5
     for ((i=0; i<AMOUNT; i++)); do xdotool click "$CLICK"; done
-    echo '{"status":"success","action":"scroll","direction":"'$DIR'","amount":'$AMOUNT'}'
+    echo '{"status":"success","action":"scroll","direction":"'"$DIR"'","amount":"'"$AMOUNT"'"}'
     ;;
 
   open)
-    # JS passes: '-Action' 'open' '-Target' 'path'
-    # After shift: $1 = -Target, $2 = target
-    TARGET="$(parse_val "$1" "$1")"; shift 1 || true
+    TARGET="$(get_flag target || pos 0 || true)"
     [ -n "$TARGET" ] || err "Empty target"
     xdg-open "$TARGET"
     echo '{"status":"success","action":"open"}'
     ;;
 
   list-windows)
-    # JS does JSON.parse(result) and uses result as windows array
-    # Must emit JSON array of {hwnd, title} objects
+    # Pemanggil JS melakukan JSON.parse(result) dan memakai array window.
+    # Wajib: array JSON berisi {hwnd, title}.
     command -v wmctrl >/dev/null 2>&1 || err "wmctrl not found; install wmctrl"
     echo '['
     first=1
     while read -r id desk host title; do
-      # Filter out mark-agent internal windows
+      # Saring window internal mark-agent
       case "$title" in
         mark\ agent*|mark\ pc\ automation*|mark_unblock|mark_pc_stop) continue ;;
       esac
@@ -157,16 +182,14 @@ case "$ACTION" in
     ;;
 
   focus-window)
-    # JS passes: '-Action' 'focus-window' '-Target' 'title'
-    # After shift: $1 = -Target, $2 = title
-    TITLE="$(parse_val "$1" "$1")"; shift 1 || true
+    TITLE="$(get_flag target || pos 0 || true)"
     [ -n "$TITLE" ] || err "Empty title"
     ID="$(xdotool search --name "$TITLE" 2>/dev/null | head -1)" || true
     if [ -n "$ID" ]; then
       xdotool windowactivate --sync "$ID"
       echo '{"status":"success","action":"focus-window"}'
     else
-      # Fall back to wmctrl
+      # Fallback wmctrl
       WMID="$(wmctrl -l | grep -i "$TITLE" | head -1 | awk '{print $1}')"
       if [ -n "$WMID" ]; then
         wmctrl -i -a "$WMID"
@@ -178,5 +201,5 @@ case "$ACTION" in
     ;;
 
   *)
-    echo '{"status":"error","message":"Unknown action: '$ACTION'"}'; exit 1 ;;
+    echo '{"status":"error","message":"Unknown action: '"$ACTION"'"}'; exit 1 ;;
 esac

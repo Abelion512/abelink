@@ -126,7 +126,7 @@ export const GROUP_TOOLS_DEFINITION = {
   task_terminal: {
     description: 'Terminal runner latar belakang (non-blocking) untuk menjalankan server dev, unit test, dan proses jangka panjang.',
     tools: {
-      'run-task': 'Menjalankan server atau proses background terminal (misal: dev-server, build, test). Query: taskId||perintah (contoh: "dev-server||npm run dev" atau "test||pytest"). (Perlu persetujuan user jika perintah berisiko).',
+      'run-task': 'Menjalankan server atau proses background terminal (misal: dev-server, build, test). Query: taskId||perintah (contoh: "dev-server||bun run dev" atau "test||bunx vitest run"). (Perlu persetujuan user jika perintah berisiko).',
       'read-task-output': 'Membaca log output terbaru dari background terminal task. Query: taskId||jumlah_baris (contoh: "dev-server||40").',
       'kill-task': 'Menghentikan proses background terminal yang sedang berjalan. Query: taskId (contoh: "dev-server").',
       'list-tasks': 'Melihat seluruh background tasks yang sedang berjalan beserta PID dan statusnya. Query: kosongkan.'
