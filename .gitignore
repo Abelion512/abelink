@@ -59,7 +59,8 @@ PLUGIN_SYSTEM_SRS.md
 .mark/
 social-data-engine/
 scripts/tmp-*
-.githooks/
+# NOTE: .githooks/ di-track (aturan lama dihapus 2026-09-03 karena
+# bertentangan dengan isi repo; aturan direktori juga memblokir `git add`).
 
 # artefak generator — regenerasi on-demand, jangan di-commit (audit 2026-08-26)
 upstream-diff-report.json
@@ -74,30 +75,29 @@ upstream-diff-report.json
 docs/DRIFT_MANIFEST.md
 docs/.screenshoots/
 
-# tests - keep only core unit tests; ignore stress/harness
-/tests/stress-*.mjs
+# tests - stability/ di-ignore; stress-harness justru DI-TRACK (dijalankan
+# via `bun run test:harness` & CI), aturan lama dihapus 2026-09-03.
 /tests/stability/
-/tests/harness/
 
-# scripts - build/version only; internal helpers ignored
+# scripts - hanya helper lokal yang benar-benar tidak di-commit
 /scripts/ask-ais.mjs
 /scripts/rsi-*.mjs
 /scripts/import-tiktok-cookies.mjs
-/scripts/auto-detect-upstream.mjs   # may be needed? but ignore for open-source
-/scripts/mark-update.mjs             # may be needed? but ignore for open-source
-/scripts/build-manifest.mjs
-/scripts/bump-version.mjs
-/scripts/sync-version.mjs
+# NOTE: auto-detect-upstream / mark-update / build-manifest / bump-version /
+# sync-version DI-TRACK (dipakai release automation & CI) — aturan ignore
+# lamanya dihapus 2026-09-03 karena bertentangan dan membingungkan agent.
 
-# src-tauri - internal engine, tidak untuk open-source
-/src-tauri/
+# src-tauri - DI-TRACK penuh di repo ini (Tauri port). Aturan `/src-tauri/`
+# dihapus 2026-09-03: pola direktori memblokir `git add <file-tracked>` di
+# bawahnya, yang membuat Release Prepare (git add src-tauri/*) gagal.
+# Target Cargo & gen/schemas tetap di-ignore oleh src-tauri/.gitignore.
 
 # HTML tracker files - generated artifacts, jangan di-git
 /project-tracker.html
 /mark-agent-tracker.html
 
-# generated what's-new JSON (runtime artifact)
-/src/data/whats-new.json
+# what's-new.json DI-TRACK (dibangkitkan release automation) — aturan
+# ignore lama dihapus 2026-09-03 karena bertentangan.
 
 # Agent-CLI local config (Codex, dst.)
 .codex/
