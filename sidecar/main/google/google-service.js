@@ -1,12 +1,18 @@
-import { app, shell } from 'electron'
 import { google } from 'googleapis'
 import http from 'http'
 import url from 'url'
 import path from 'path'
+import os from 'os'
 import fs from 'fs/promises'
+import open from 'open'
 
-// File to store the OAuth tokens safely
-const TOKEN_PATH = path.join(app.getPath('userData'), 'google-tokens.json')
+// File to store the OAuth tokens safely (pengganti app.getPath('userData') era
+// Electron: XDG data dir Linux, konsisten dengan skills/telegram).
+const TOKEN_PATH = path.join(
+  process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'),
+  'mark',
+  'google-tokens.json'
+)
 
 // Scopes we need access to
 const SCOPES = [
@@ -212,7 +218,10 @@ export async function connectGoogle(clientId, clientSecret) {
         prompt: 'consent'
       })
 
-      shell.openExternal(authorizeUrl)
+      // Pengganti shell.openExternal (Electron): open@11 memakai xdg-open di Linux.
+      open(authorizeUrl).catch((err) =>
+        console.error('[Google] Gagal membuka browser OAuth:', err)
+      )
     })
   })
 }

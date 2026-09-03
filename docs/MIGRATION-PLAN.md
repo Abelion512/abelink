@@ -62,14 +62,19 @@ Rencana: eksekusi kode plugin dipindah ke sandbox Web Worker ter-isolasi;
 `plugins:list` tetap metadata-only (nama/deskripsi/actions, tidak mengeksekusi
 kode). Kontrak response plugin tidak berubah, hanya lokasi eksekusi.
 
-## Pembersihan dead code era Electron (paralel, non-blocking)
+## Pembersihan dead code era Electron — SELESAI (2026-09-03)
 
-- `sidecar/main/skill-manager.js` — masih mengimpor `electron`; paritas
-  fitur sudah di `sidecar/engine/channels/skills.mjs`. Hapus setelah
-  diverifikasi tidak ada pemakai.
+- `sidecar/main/skills/skill-manager.js` — dihapus (tidak pernah di-import;
+  paritas fitur sudah di `sidecar/engine/channels/skills.mjs`).
 - `sidecar/main/telegram/telegram-service.js` — 3 handler `ipcMain.on`
   (`tg:trigger-screenshot`, `tg:trigger-music-download`, `tg:trigger-music-ui`)
-  tidak pernah terpanggil; trigger-nya sudah diambil alih Rust commands.
+  dihapus; impor electron/desktopCapturer/yts/ffmpeg ikut dibuang; path
+  chat/admin ids pindah ke XDG `~/.local/share/mark/`.
+- `awareness/window-tracker.js` — powerMonitor diganti `xprintidle` (fallback
+  tidak idle). `google/google-service.js` — `app`/`shell` diganti XDG + `open`.
+
+Motivasi: `electron` tidak ada di bun.lock; modul yang mengimpornya gagal
+load saat channel dipakai (lazy import menyembunyikan ini dari smoke test).
 
 ## Aturan pengerjaan fase baru
 

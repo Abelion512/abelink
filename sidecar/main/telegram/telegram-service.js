@@ -1,13 +1,8 @@
 import { Telegraf, Input } from 'telegraf'
-import { app, ipcMain } from 'electron'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { fileURLToPath } from 'url'
-import yts from 'yt-search'
-import { execFile } from 'child_process'
-import ffmpeg from 'ffmpeg-static'
-import { desktopCapturer } from 'electron'
 import { getGlobalConfig, abortAllFetches, activeAbortControllers } from '../ai-bridge.js'
 
 let bot = null
@@ -489,8 +484,14 @@ const pendingChatIdsSet = new Set()
 // Id admin terpercaya: hanya id yang ada di config.tgAdminIds; dipersist ke tg_admin_ids.json.
 const authorizedAdminIds = new Set()
 
-const CHAT_IDS_FILE = path.join(app.getPath('userData'), 'tg_chat_ids.json')
-const ADMIN_IDS_FILE = path.join(app.getPath('userData'), 'tg_admin_ids.json')
+// Pengganti app.getPath('userData') era Electron: XDG data dir Linux.
+const MARK_DATA_DIR = path.join(
+  process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'),
+  'mark'
+)
+fs.mkdirSync(MARK_DATA_DIR, { recursive: true })
+const CHAT_IDS_FILE = path.join(MARK_DATA_DIR, 'tg_chat_ids.json')
+const ADMIN_IDS_FILE = path.join(MARK_DATA_DIR, 'tg_admin_ids.json')
 
 const loadSavedAdminIds = () => {
   try {
@@ -700,105 +701,6 @@ export const sendAgentExecutionDone = async (data) => {
   pendingRequestsMap.delete(msgId)
   return { success: true }
 }
-
-ipcMain.removeAllListeners('tg:trigger-screenshot')
-ipcMain.on('tg:trigger-screenshot', async (event, { chatId } = {}) => {
-  if (!bot || currentStatus !== 'connected') return
-
-  const targetChatIds = new Set()
-  if (chatId) {
-    targetChatIds.add(chatId)
-  } else {
-    // Screenshot hanya untuk admin terpercaya (config tgAdminIds yang terdaftar);
-    // chat pending dari /start tidak pernah menjadi target.
-    for (const id of resolveTrustedBroadcastTargets()) {
-      targetChatIds.add(id)
-    }
-  }
-
-  if (targetChatIds.size === 0) {
-    console.warn('[Telegram Screenshot] Gagal: Tidak ada admin terpercaya. Tambahkan ID Telegram ke tgAdminIds di konfigurasi MARK, lalu kirim /start dari akun tersebut.')
-    return
-  }
-
-  try {
-    const sources = await desktopCapturer.getSources({
-      types: ['screen'],
-      thumbnailSize: { width: 1920, height: 1080 }
-    })
-    for (const targetId of targetChatIds) {
-      for (const [index, source] of sources.entries()) {
-        const imageBuffer = source.thumbnail.toPNG()
-        const tempPath = path.join(app.getPath('temp'), `tg-ss-${Date.now()}-${index}.png`)
-        fs.writeFileSync(tempPath, imageBuffer)
-        await bot.telegram.sendPhoto(
-          targetId,
-          { source: tempPath },
-          { caption: `📸 Layar ${index + 1} (${source.name})` }
-        )
-        fs.unlink(tempPath, () => {})
-      }
-    }
-  } catch (err) {
-    console.error('[Telegram] Gagal mengirim screenshot:', err)
-  }
-})
-
-ipcMain.removeAllListeners('tg:trigger-music-download')
-ipcMain.on('tg:trigger-music-download', async (event, { chatId, query }) => {
-  if (!bot || !chatId || !query) return
-  try {
-    const searchResult = await yts(query)
-    const video = searchResult.videos[0]
-    if (!video) {
-      await bot.telegram.sendMessage(chatId, `❌ Lagu "${query}" tidak ditemukan di YouTube.`)
-      return
-    }
-    const tempPath = path.join(app.getPath('temp'), `tg-audio-${Date.now()}.mp3`)
-    const unpackFfmpeg = ffmpeg.replace('app.asar', 'app.asar.unpacked')
-    const unpackYtdl = unpackFfmpeg.replace(
-      /ffmpeg-static[\\/]ffmpeg\.exe/i,
-      'youtube-dl-exec\\bin\\yt-dlp.exe'
-    )
-
-    await new Promise((resolve, reject) => {
-      execFile(
-        unpackYtdl,
-        [
-          video.url,
-          '--extract-audio',
-          '--audio-format',
-          'mp3',
-          '--ffmpeg-location',
-          unpackFfmpeg,
-          '--output',
-          tempPath
-        ],
-        (err, stdout, stderr) => {
-          if (err) reject(err)
-          else resolve()
-        }
-      )
-    })
-
-    await bot.telegram.sendAudio(
-      chatId,
-      { source: tempPath },
-      { title: video.title, performer: video.author?.name || 'YouTube' }
-    )
-    fs.unlink(tempPath, () => {})
-  } catch (err) {
-    console.error('[Telegram] Error music download:', err)
-    await bot.telegram.sendMessage(chatId, `❌ Gagal download lagu: ${err.message}`)
-  }
-})
-
-ipcMain.removeAllListeners('tg:trigger-music-ui')
-ipcMain.on('tg:trigger-music-ui', (event, { command, query }) => {
-  if (botWindow && !botWindow.isDestroyed()) {
-    botWindow.webContents.send('execute-music-command-tg', command, query)
-  }
-})
 
 // ---- Benchmark dashboard methods ----
 

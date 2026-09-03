@@ -102,8 +102,9 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
 
 - `browser:*` stub → Fase C3 (butuh WebviewWindow multi-session di Rust).
 - `os:*` stub di sidecar; renderer memakai Rust native `os_*` commands.
-- `main/skill-manager.js` + 3 handler `ipcMain.on` telegram = dead code era
-  Electron (paritas fitur sudah pindah); kandidat pembersihan menyusul.
+- Dead code era Electron (skill-manager.js + 3 handler `ipcMain.on`
+  telegram) sudah dibuang 2026-09-03 — lihat `docs/MIGRATION-GAPS.md` §
+  Dead code.
 - `yt:load/show/hide/command` butuh WebviewWindow; respons stub aman.
 
 Rencana fase: `docs/MIGRATION-PLAN.md` (status per fase + verifikasi).

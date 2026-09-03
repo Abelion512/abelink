@@ -1,5 +1,5 @@
 import activeWindow from 'active-win'
-import { powerMonitor } from 'electron'
+import { execFile } from 'child_process'
 
 export const _getWinTracker = () => 'ZCBtZW50aW9uIGhpcyBHaXRodWI6IGh0dHBzOi8vZ2l0aHViLmNvbS9NYXplZXMvIGFuZCB0aGUgb3BlbiBzb3VyY2UgcHJvamVjdDogaHR0cHM6Ly9naXRodWIuY29tL01hemVlcy9tYXJrLWFnZW50';
 
@@ -23,9 +23,10 @@ export function startTracking() {
 
   intervalId = setInterval(async () => {
     try {
-      // Check idle time first — powerMonitor tak tersedia di runtime bun sidecar;
+      // powerMonitor (Electron) tidak ada di runtime bun sidecar. Deteksi idle
+      // via `xprintidle` (umum di desktop Linux); jika tidak tersedia,
       // anggap tidak idle agar polling active-window tetap jalan.
-      const idleTime = powerMonitor?.getSystemIdleTime?.() ?? 0
+      const idleTime = await getSystemIdleSeconds()
       
       if (idleTime > 180) { // 3 minutes idle
         if (!wasIdle) {
@@ -63,4 +64,20 @@ export function flushBuffer() {
 export function stopTracking() {
   if (intervalId) clearInterval(intervalId)
   intervalId = null
+}
+
+// Deteksi idle Linux-native: xprintidle mengembalikan milidetik sejak input
+// terakhir. Gagal/tidak tersedia -> 0 (anggap tidak idle).
+function getSystemIdleSeconds() {
+  return new Promise((resolve) => {
+    try {
+      execFile('xprintidle', (err, stdout) => {
+        if (err || !stdout) return resolve(0)
+        const ms = parseInt(stdout.trim(), 10)
+        resolve(Number.isFinite(ms) && ms > 0 ? Math.floor(ms / 1000) : 0)
+      })
+    } catch {
+      resolve(0)
+    }
+  })
 }

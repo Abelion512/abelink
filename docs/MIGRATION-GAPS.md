@@ -33,15 +33,23 @@ skills 6 + tg 1.
 | `browser:navigate` / `browser:read-dom` / `browser:action` / `browser:close` / `browser:show` | Fase C3 | Multi-session browser automation; stub mengembalikan `unsupported` agar gagal cepat, bukan diam |
 | `os:read` / `os:click` / `os:type` / `os:key` / `os:scroll` / `os:open` / `os:list-windows` / `os:focus-window` / `os:ask-user` | Fase B6 | Renderer kini memakai Rust native `os_*` commands (`invoke('os_read')`, dst.) — channel sidecar ini hanya fallback lama |
 
-## Dead code era Electron (tercatat, belum dibuang)
+## Dead code era Electron — SUDAH DIBUANG (2026-09-03)
 
 - `telegram-service.js`: 3 handler `ipcMain.on` (`tg:trigger-screenshot`,
-  `tg:trigger-music-download`, `tg:trigger-music-ui`) — tidak pernah
-  terpanggil; logika trigger-nya sudah diambil alih Rust commands.
-- `skill-manager.js`: modul penuh masih mengimpor `electron` (`app`,
-  `ipcMain`, `dialog`) — tidak boleh di-import engine apa pun sekarang;
-  paritas fiturnya sudah dipindah ke `engine.mjs`. Kandidat penghapusan
-  berikutnya setelah diverifikasi tidak ada pemakai lain.
+  `tg:trigger-music-download`, `tg:trigger-music-ui`) dihapus beserta
+  impor `electron`/`desktopCapturer`/`yts`/`ffmpeg`/`execFile` yang hanya
+  dipakai blok itu. Path chat/admin ids pindah dari
+  `app.getPath('userData')` ke XDG (`~/.local/share/mark/`).
+- `skills/skill-manager.js`: dihapus (tidak pernah di-import; paritas
+  fitur sudah di `engine/channels/skills.mjs`).
+- `window-tracker.js`: impor `powerMonitor` (electron) diganti deteksi
+  idle via `xprintidle` (fallback: tidak idle).
+- `google-service.js`: impor `app`/`shell` (electron) diganti XDG path +
+  `open` (xdg-open) untuk OAuth authorize URL.
+
+Alasan mendesak: `electron` TIDAK ada di bun.lock — ketiga modul live
+(telegram/awareness/google) pasti gagal load saat channel-nya dipakai
+pertama kali (`ERR_MODULE_NOT_FOUND`), tersembunyi karena lazy import.
 
 ## Metode audit (untuk reproduce)
 
