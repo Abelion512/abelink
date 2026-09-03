@@ -87,13 +87,10 @@ on('ping', () => 'pong')
 // ------------------------------------------- Dipindah ke fase B/C (Tauri native)
 // dialog:open-file / dialog:open-directory -> Rust native `misc_open_*_dialog`
 // take-screenshot                            -> Rust native `misc_take_screenshot`
-// Sisanya masih stub fase B/C.
+// browser:* -> pindah ke engine/channels/browser.mjs (Fase C3 Jalur A:
+// ekstensi browser + bridge lokal). Stub `unsupported` untuk browser:*
+// DIHAPUS — jangan didaftarkan dua kali.
 for (const ch of [
-  'browser:navigate',
-  'browser:read-dom',
-  'browser:action',
-  'browser:close',
-  'browser:show',
   'os:read',
   'os:click',
   'os:type',
@@ -104,5 +101,5 @@ for (const ch of [
   'os:focus-window',
   'os:ask-user'
 ]) {
-  handlers[ch] = unsupported(ch.startsWith('browser:') ? 'Fase C3' : ch.startsWith('os:') ? 'Fase B6' : 'Fase B5')
+  handlers[ch] = unsupported('Fase B6')
 }

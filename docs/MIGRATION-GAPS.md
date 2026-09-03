@@ -48,7 +48,7 @@ tidak pernah turun ke renderer.
 
 | Channel | Fase | Keterangan |
 | --- | --- | --- |
-| `browser:navigate` / `browser:read-dom` / `browser:action` / `browser:close` / `browser:show` | Fase C3 | Multi-session browser automation; stub mengembalikan `unsupported` agar gagal cepat, bukan diam |
+| ~~`browser:*`~~ → **LIVE sejak 2026-09-03** | Fase C3 | Pindah dari daftar ini: `engine/channels/browser.mjs` mengeksekusi perintah nyata via ekstensi browser + bridge lokal (`main/browser/`, `extension/`). Yang tersisa dari C3: smoke frame dengan browser sungguhan + Jalur B (spawn Chromium fallback) |
 | `os:read` / `os:click` / `os:type` / `os:key` / `os:scroll` / `os:open` / `os:list-windows` / `os:focus-window` / `os:ask-user` | Fase B6 | Renderer kini memakai Rust native `os_*` commands (`invoke('os_read')`, dst.) — channel sidecar ini hanya fallback lama |
 
 ## Dead code era Electron — SUDAH DIBUANG (2026-09-03)
