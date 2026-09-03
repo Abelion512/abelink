@@ -110,8 +110,16 @@ pub fn telegram_send_photo(
         return Err("Bot belum dikonfigurasi (token kosong).".into());
     }
     use base64::Engine as _;
+    // Renderer biasanya mengirim base64 murni, tapi terima juga data URL penuh
+    // ("data:image/png;base64,...") sebagai pertahanan di sisi Rust.
+    let raw = png_base64.trim();
+    let b64 = if raw.starts_with("data:") {
+        raw.splitn(2, "base64,").nth(1).unwrap_or("").trim()
+    } else {
+        raw
+    };
     let png = base64::engine::general_purpose::STANDARD
-        .decode(png_base64.trim())
+        .decode(b64)
         .map_err(|e| format!("Base64 tidak valid: {e}"))?;
     if png.is_empty() {
         return Err("Foto kosong.".into());

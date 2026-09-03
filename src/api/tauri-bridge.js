@@ -7,6 +7,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { splitTgAdminIds } from '../utils/telegramTargets'
+import { stripDataUrlPrefix } from '../utils/dataUrl'
 
 
 // ---- FB#1: router file-ops -> Rust cmd_fs ----
@@ -87,8 +88,11 @@ const toPayload = (v) => {
 // chatId eksplisit menang; tanpa itu broadcast ke semua admin terdaftar.
 const tgScreenshotToTelegram = async (chatId) => {
   if (!(await tgConnected())) return { sent: 0, skipped: true }
-  const pngBase64 = await invoke('misc_take_screenshot')
-  if (!pngBase64 || typeof pngBase64 !== 'string') return { sent: 0, error: 'Screenshot gagal' }
+  const pngDataUrl = await invoke('misc_take_screenshot')
+  // misc_take_screenshot mengembalikan data URL penuh; Rust mendecode base64
+  // murni — prefix harus dibuang dulu (regresi dulu: decode gagal selalu).
+  const pngBase64 = stripDataUrlPrefix(pngDataUrl)
+  if (!pngBase64) return { sent: 0, error: 'Screenshot gagal atau kosong' }
   const targets = chatId ? [String(chatId)] : tgAdminIdsCache.targets
   if (targets.length === 0) return { sent: 0, error: 'Tidak ada admin Telegram terdaftar' }
   const results = []
