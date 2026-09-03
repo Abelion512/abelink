@@ -180,7 +180,7 @@ bun tauri build
 Berkas _installer_ akan otomatis tersedia di `src-tauri/target/release/bundle/`.
 
 > **MARK Linux** — fork independen, dibangun ulang di atas Tauri v2 (Rust). Versi fork memakai garis sendiri (`1.x`, saat ini `1.0.0-alpha.1`), terpisah dari penomoran upstream, dan mengikuti **Semantic Versioning 2.0.0**: `MAJOR.MINOR.PATCH` dengan sufiks prerelease (`-alpha.N`, `-rc.N`) yang diurutkan lebih rendah dari rilis stabil (contoh: `1.0.0-alpha.2` < `1.0.0-rc.1` < `1.0.0`). Naik MAJOR hanya untuk breaking change pada data/skema/API, MINOR untuk fitur, PATCH untuk perbaikan. Rilis dipicu otomatis oleh tag `v*` melalui gerbang CI ketat (gitleaks + vitest + vite build + cargo check) — lihat `.github/workflows/release.yml`. Sumber kebenaran versi: `src-tauri/tauri.conf.json` (sinkron via `bun run sync-version`). Peta jalan migrasi & status:
-> `docs/PLANNED/migration-tauri-v2.md`
+> `docs/MIGRATION-PLAN.md`
 
 ## Warning
 

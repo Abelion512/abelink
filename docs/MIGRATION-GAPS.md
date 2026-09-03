@@ -7,7 +7,7 @@ dibuat dengan membandingkan setiap `call('<action>')` di
 
 ## Diperbaiki di PR ini (dipulihkan dari modul era Electron)
 
-19 channel renderer sebelumnya mati total karena handler-nya masih
+14 channel renderer sebelumnya mati total karena handler-nya masih
 `ipcMain.handle(...)` / `ipcMain.on(...)` yang tidak pernah terpanggil
 di bawah Tauri. Kini didaftarkan langsung di `sidecar/engine.mjs`
 (atau diekspor dari modul lama tanpa dependensi Electron):
@@ -16,14 +16,15 @@ di bawah Tauri. Kini didaftarkan langsung di `sidecar/engine.mjs`
 | --- | --- | --- |
 | `plugin:execute` / `plugin:open-folder` / `plugin:open-specific-folder` / `plugin:toggle` / `plugin:reload` / `plugin:create` / `plugin:delete` | `plugin-loader.js` (ipcMain dihapus, jadi export biasa) | Folder plugin pindah ke XDG documents; `shell.openPath` diganti `execFile('xdg-open')` ter-kontinemen; kunci handler tetap `act.name` sesuai manifest |
 | `skills:get-tree` / `skills:save-file` / `skills:create-item` / `skills:delete-item` / `skills:rename-item` / `skills:install` | inline di `engine.mjs` (paritas dengan `skill-manager.js` lama) | Semua path relatif disanitasi anti-traversal; install .zip butuh `SKILL.md` di dalam arsip; `skills:install` menggantikan dialog Electron dengan path dari `misc_open_file_dialog` (Rust native) |
-| `tg:agent-execution-done` / `tg:broadcast-to-admins` | `telegram-service.js` (blok ipcMain diekstrak jadi export) | Event ke renderer dikirim via stdout JSON-lines (`tg:reply-sent`) |
+| `tg:agent-execution-done` | `telegram-service.js` (handler ipcMain diekstrak jadi export `sendAgentExecutionDone`) | Event ke renderer dikirim via stdout JSON-lines (`tg:reply-sent`); `tg:broadcast-to-admins` sudah terdaftar inline sebelumnya (tidak termasuk hitungan 14) |
 
 Keamanan: karena channel-channel di atas memasukkan kembali operasi destruktif
 (`skills:install`, `skills:delete-item`, `skills:save-file`, `skills:create-item`,
 `skills:rename-item`, `plugin:create`, `plugin:delete`), semuanya didaftarkan ke
 `APPROVAL_ACTIONS` di `src-tauri/src/cmd_node_bridge.rs` — setiap eksekusi
 melewati dialog persetujuan NATIVE (rfd) di Rust main thread, konsisten dengan
-kebijakan approval-gate (audit upstream 2026-08-26).
+kebijakan approval-gate (audit upstream 2026-08-26). Hitungan 14 = plugin 7 +
+skills 6 + tg 1.
 
 ## Sengaja ditunda (stub eksplisit, jangan dianggap bug)
 
@@ -44,13 +45,25 @@ kebijakan approval-gate (audit upstream 2026-08-26).
 
 ## Metode audit (untuk reproduce)
 
+Sejak refactor registry (PR #18), handler tidak lagi didaftarkan di
+`sidecar/engine.mjs` — pindah ke `sidecar/engine/channels/*`. Perintah di
+bawah sudah disesuaikan dan TERVERIFIKASI pada commit refactor:
+
 ```bash
+# Normalisasi baris dulu agar registrasi multi-line (on(
+#   'workspace:query', ...)) ikut terbaca:
+find sidecar/engine -name '*.mjs' -exec cat {} + | tr '\n' ' ' > /tmp/engine-all.mjs
 # Channel yang dipanggil renderer tapi tidak punya handler:
 comm -23 \
   <(grep -oP "call\('\K[^']+" src/api/tauri-bridge.js | sort -u) \
-  <(grep -oP "^on\('\K[^']+" sidecar/engine.mjs | sort -u)
-# Saat audit pertama: 21 baris (2 false positive multi-line, 5 browser:* stub,
-# 14 gap nyata + plugin/skills/tg families).
+  <(grep -oP "on\(\s*'\K[^']+" /tmp/engine-all.mjs | sort -u)
+# Hasil terverifikasi pada refactor: yang muncul hanya 5 stub browser:*
+# (browser:navigate/read-dom/action/close/show) — semuanya terdaftar via
+# loop `unsupported()` di engine/channels/music.mjs, jadi BUKAN gap.
+# 9 stub os:* tidak muncul karena renderer memakai invoke('os_*') Rust native.
+# Hitungan handler total: 55 terdaftar langsung + 14 stub loop = 69.
+# Saat audit pertama (pra-registry): 21 baris (2 false positive multi-line,
+# 5 browser:* stub, 14 gap nyata + plugin/skills/tg families).
 ```
 
 ## Verdict merge-readiness PR #16
@@ -60,7 +73,7 @@ comm -23 \
 - Blocking — sudah diperbaiki di PR ini: deskripsi/body PR kini sesuai diff,
   `release.yml` guard tidak lagi memanggil script yang dihapus, `evaluation/`
   sudah ESM `.mjs` dengan verifier dieksekusi + smoke test tanpa network,
-  Socket Block (protobufjs) sudah hilang dari lockfile, dan 19 channel
+  Socket Block (protobufjs) sudah hilang dari lockfile, dan 14 channel
   renderer yang mati sudah dipulihkan + approval-gated.
 - Tersisa (non-blocking, punya jalur tindak lanjut):
   1. CI `cargo check` wajib hijau sebelum merge (sandbox lokal tidak punya
