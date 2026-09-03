@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write # SLSA provenance (attest-build-provenance)
 
 concurrency:
   group: release-${{ github.ref }}
@@ -103,6 +104,10 @@ jobs:
         with:
           name: mark-linux-${{ github.ref_name }}
           path: release-assets/*
+      - name: Attach SLSA provenance (attest-build-provenance)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release-assets/*
       - name: Buat GitHub Release (+ changelog otomatis dari commit)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

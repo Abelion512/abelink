@@ -11,7 +11,7 @@ const ROOT = path.resolve(__dirname, '..')
 const SIDECAR = path.join(ROOT, 'sidecar', 'engine.mjs')
 const BUN = process.env.BUN_BIN || 'bun'
 
-const MAX_ITER = 5
+const MAX_ITER = 5 // default; bisa ditimpa per task via task.maxTurns (turn-budget eval)
 const TIMEOUT_MS = 300000
 
 // ---- Persistent sidecar child with id-multiplexed JSON-lines RPC ----
@@ -159,7 +159,10 @@ export async function runMarkAgent(task, model, provider) {
 
   const sidecar = createSidecar()
   try {
-    for (let iter = 0; iter < MAX_ITER; iter++) {
+    // Turn budget: task.maxTurns menimpa default MAX_ITER (ala turn-limit
+    // eval — MCP Atlas memakai limit 100 turn). Tidak ada loop tak terbatas.
+    const maxIter = task.maxTurns || MAX_ITER
+    for (let iter = 0; iter < maxIter; iter++) {
       const resp = await sidecar.rpc({
         id: newId(),
         action: 'ai:fetch',

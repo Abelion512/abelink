@@ -10,6 +10,7 @@ const ROOT = path.resolve(__dirname, '..')
 const CONF_PATH = path.join(ROOT, 'src-tauri/tauri.conf.json')
 const RELEASES_PATH = path.join(ROOT, 'src/data/releases.json')
 const WHATSNEW_PATH = path.join(ROOT, 'src/data/whats-new.json')
+const CHANGELOG_PATH = path.join(ROOT, 'CHANGELOG.md')
 
 // ============================================================
 // Helpers
@@ -152,7 +153,7 @@ function createReleasePR(version, changes) {
   run('bun run sync-version')
 
   // Stage and commit generated files
-  run('git add src/data/releases.json src/data/whats-new.json src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
+  run('git add src/data/releases.json src/data/whats-new.json CHANGELOG.md src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
   try {
     run(`git commit -m "chore(release): v${version}"`)
   } catch {
@@ -209,6 +210,52 @@ function writeReleasesFile(version, changes) {
 
   releases = releases.slice(0, 50)
   fs.writeFileSync(RELEASES_PATH, JSON.stringify({ generatedAt: new Date().toISOString(), releases }, null, 2) + '\n')
+}
+
+// CHANGELOG.md root — regenerated penuh dari releases.json setiap prepare.
+// Idempoten (deterministik dari state), tanpa emoji, tanpa referensi rilis
+// yang tidak pernah ada (prinsip anti-fabrikasi docs).
+function writeChangelogFile() {
+  let releases = []
+  if (fs.existsSync(RELEASES_PATH)) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(RELEASES_PATH, 'utf8'))
+      releases = raw.releases || []
+    } catch {
+      releases = []
+    }
+  }
+
+  const sectionMeta = [
+    { key: 'features', label: 'Fitur Baru' },
+    { key: 'fixes', label: 'Perbaikan' },
+    { key: 'security', label: 'Keamanan' },
+    { key: 'docs', label: 'Dokumentasi' },
+  ]
+
+  const lines = [
+    '# Changelog MARK Linux',
+    '',
+    'Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.',
+    '',
+  ]
+
+  for (const r of releases) {
+    lines.push(`## v${r.version} — ${r.date}`)
+    if (r.summary) lines.push('', `**Ringkasan:** ${r.summary}`, '')
+    let hasSection = false
+    for (const meta of sectionMeta) {
+      const items = r.sections?.[meta.key] || []
+      if (items.length === 0) continue
+      hasSection = true
+      lines.push(`### ${meta.label}`)
+      for (const item of items) lines.push(`- ${item.msg}`)
+      lines.push('')
+    }
+    if (!hasSection) lines.push('_Tidak ada perubahan pengguna yang tercatat._', '')
+  }
+
+  fs.writeFileSync(CHANGELOG_PATH, lines.join('\n') + '\n')
 }
 
 function writeWhatsNewFile(version, changes) {
@@ -388,12 +435,13 @@ function buildChanges(includable) {
 function writeAllFiles(version, changes) {
   writeReleasesFile(version, changes)
   writeWhatsNewFile(version, changes)
+  writeChangelogFile()
   writeConf(version)
   run('bun run sync-version')
 }
 
 function commitAndPushIfChanged(version, msg) {
-  run('git add src/data/releases.json src/data/whats-new.json src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
+  run('git add src/data/releases.json src/data/whats-new.json CHANGELOG.md src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
   try {
     run('git diff --cached --quiet')
     // No changes — nothing to commit

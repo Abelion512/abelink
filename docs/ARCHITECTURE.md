@@ -89,11 +89,15 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
 - **Tool berbahaya:** model memutuskan → renderer `node_invoke('native-tool:execute')`
   → Rust cek `APPROVAL_ACTIONS`/`needsApproval` → dialog rfd native →
   baru diteruskan ke sidecar `main/node-tools.js`.
-- **Benchmark (MarkBench):** `evaluation/terminal-bench.mjs` (entry
-  `runTask`/`runAll`, script `bun run benchmark:echo`) → `mark-adapter.mjs`
-  (spawn sidecar persisten, multiplex per id) → jawaban diverifier predikat
-  deterministik yang dieksekusi → laporan JSON + opsional Telegram dashboard
-  (`benchmark:telegram`). Smoke tanpa network: `bun evaluation/smoke.mjs`.
+- **Benchmark (MarkBench):** `evaluation/run.mjs` (orchestrator multi-run:
+  averaging 3x per task ala Terminal-Bench 2.1/Kimi K3, anti-cheat sentinel
+  acak per run, laporan JSON `schemaVersion: 1`, regression gate `--compare`)
+  → `evaluation/terminal-bench.mjs` (registry task + verifier deterministik +
+  `maxTurns`, script `bun run benchmark:run`/`benchmark:echo`) →
+  `mark-adapter.mjs` (spawn sidecar persisten, multiplex per id, turn budget
+  per task) → jawaban diverifier predikat yang dieksekusi → laporan JSON.
+  Smoke tanpa network: `bun evaluation/smoke.mjs` (registry, verifier
+  PASS/FAIL, agregasi + anti-cheat).
 - **Knowledge:** dokumen → `ragPipeline.js` (chunk 500/50) → Dexie + Orama;
   workspace `.mark/` → `workspace:*` channel → working memory disuntikkan ke
   system prompt.
