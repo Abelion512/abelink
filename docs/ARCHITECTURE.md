@@ -44,7 +44,7 @@ stdin. Semua handler didaftarkan lewat `registry.mjs`.
 | `channels/telegram.mjs` | `tg:*`, `benchmark:telegram`, `remote-music-command` | Dashboard benchmark + broadcast admin (config via `setLatestConfig`) |
 | `channels/services.mjs` | `plugin:*`, `plugins:list`, `google:*`, `workspace:*`, `awareness:*` | Plugin loader tanpa Electron; workspace RAG `.mark/` |
 | `channels/music.mjs` | `yt:*`, `search-music`, `ping`, stub `browser:*`/`os:*` | Stub eksplisit fase B6/C3 — jangan diberi respons palsu sukses |
-| `channels/skills.mjs` | `skills:*` (14 channel) | Agent Skills store: SKILL.md + anti path-traversal |
+| `channels/skills.mjs` | `skills:*` (15 channel) | Agent Skills store: SKILL.md + anti path-traversal; `skills:open-folder` (xdg-open ter-kontinemen) untuk workflow drop folder skill + auto-scan |
 
 **Aturan menambah channel baru:** buat/ubah modul di `engine/channels/`,
 daftarkan dengan `on('nama:aksi', handler)`, lalu import modulnya di

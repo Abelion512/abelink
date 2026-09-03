@@ -212,6 +212,8 @@ pub fn run() {
             cmd_misc::misc_open_external,
             cmd_misc::misc_show_notification,
             cmd_misc::misc_open_file_dialog,
+            cmd_misc::misc_open_files_dialog,
+            cmd_misc::misc_stat_path,
             cmd_misc::misc_open_directory_dialog,
             cmd_misc::misc_take_screenshot,
             commands_tools_shell::tools_run_shell,

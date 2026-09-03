@@ -16,6 +16,7 @@ import {
 import ConfirmModal from './ConfirmModal'
 import { NATIVE_SKILLS } from './native-skills'
 import { getCachedSkills } from '../../api/skillsCache'
+import { dedupeAttachments, resolveDroppedFile } from '../../utils/attachments'
 
 // Command history recall (gaya TUI) + draft persistence anti-crash.
 const PROMPT_HISTORY_KEY = 'mark:prompt-history'
@@ -114,6 +115,18 @@ const InputBar = ({
     }
   }, [])
 
+  // Drop di area mana pun (layer global DropAnywhere di App.jsx) -> lampirkan.
+  useEffect(() => {
+    const onGlobalDrop = (e) => {
+      const items = e.detail || []
+      if (items.length > 0) {
+        setAttachedFiles((prev) => dedupeAttachments(prev, items))
+      }
+    }
+    window.addEventListener('mark:files-dropped', onGlobalDrop)
+    return () => window.removeEventListener('mark:files-dropped', onGlobalDrop)
+  }, [])
+
   useEffect(() => {
     if (!isLoading && inputRef.current) {
       setTimeout(() => {
@@ -128,89 +141,47 @@ const InputBar = ({
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  // Multi-select native; UKURAN asli dilengkapi via misc_stat_path. Kunci fix
+  // bug "batal lalu kebuka lagi": dialog CANCELED TIDAK jatuh ke <input type=file>.
+  // Fallback input klik hanya untuk env tanpa jembatan native sama sekali.
   const handlePaperclipClick = async () => {
-    if (window.api && window.api.showOpenDialog) {
+    if (window.api?.showOpenFilesDialog) {
       try {
-        const filePaths = await window.api.showOpenDialog()
-        if (filePaths && filePaths.length > 0) {
-          const dialogFiles = filePaths.map((p) => ({
-            name: p.split(/[/\\]/).pop(),
-            path: p,
-            size: 0,
-            type: ''
-          }))
-          setAttachedFiles((prev) => {
-            const existingPaths = new Set(prev.map((item) => item.path))
-            const unique = dialogFiles.filter((item) => !existingPaths.has(item.path))
-            return [...prev, ...unique]
+        const { canceled, filePaths } = await window.api.showOpenFilesDialog()
+        if (canceled || filePaths.length === 0) return // user batal: JANGAN buka picker kedua
+        const items = await Promise.all(
+          filePaths.map(async (p) => {
+            const item = {
+              name: p.split(/[/\\]/).pop(),
+              path: p,
+              size: 0,
+              type: ''
+            }
+            try {
+              const [size, isDir] = await window.api.statPath(p)
+              item.size = Number(size) || 0
+              item.isDir = !!isDir
+            } catch {
+              // stat gagal (file sudah terhapus, dsb.) — lampirkan tanpa ukuran
+            }
+            return item
           })
-          return
-        }
+        )
+        setAttachedFiles((prev) => dedupeAttachments(prev, items))
+        return
       } catch (err) {
         console.error('[InputBar] Open dialog error:', err)
+        return
       }
     }
     fileInputRef.current?.click()
   }
 
+  // Jalur drop lokal + input web: resolusi path via helper bersama (sama dengan
+  // layer global DropAnywhere) supaya perilaku & dedupe identik.
   const addFiles = async (newFiles) => {
-    const parsedFiles = await Promise.all(
-      newFiles.map(async (f) => {
-        let resolvedPath = ''
-        if (window.api && window.api.getPathForFile) {
-          try {
-            resolvedPath = window.api.getPathForFile(f)
-          } catch (e) {
-            console.error('[InputBar] getPathForFile error:', e)
-          }
-        }
-
-        const isRealDiskPath =
-          resolvedPath &&
-          resolvedPath !== f.name &&
-          (resolvedPath.includes('/') || resolvedPath.includes('\\'))
-
-        if (!isRealDiskPath && f.path && f.path !== f.name && (f.path.includes('/') || f.path.includes('\\'))) {
-          resolvedPath = f.path
-        }
-
-        // Jika file berasal dari drag & drop web / memory tanpa local path asli
-        if (
-          (!resolvedPath ||
-            resolvedPath === f.name ||
-            (!resolvedPath.includes('/') && !resolvedPath.includes('\\'))) &&
-          window.api?.saveTempFile
-        ) {
-          try {
-            const buffer = await f.arrayBuffer()
-            if (buffer && buffer.byteLength > 0) {
-              const tempPath = await window.api.saveTempFile(buffer, f.name)
-              if (tempPath) {
-                resolvedPath = tempPath
-              }
-            }
-          } catch (err) {
-            console.error('[InputBar] Failed to save dragged file to temp:', err)
-          }
-        }
-
-        if (!resolvedPath) resolvedPath = f.name
-
-        return {
-          name: f.name,
-          path: resolvedPath,
-          size: f.size,
-          type: f.type
-        }
-      })
-    )
-
-    setAttachedFiles((prev) => {
-      const existingPaths = new Set(prev.map((p) => p.path))
-      const unique = parsedFiles.filter((p) => !existingPaths.has(p.path))
-      return [...prev, ...unique]
-    })
-
+    const parsedFiles = await Promise.all(newFiles.map(resolveDroppedFile))
+    setAttachedFiles((prev) => dedupeAttachments(prev, parsedFiles))
     setTimeout(() => {
       if (inputRef.current) inputRef.current.focus()
     }, 50)

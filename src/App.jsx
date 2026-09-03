@@ -26,6 +26,7 @@ import WhatNew from './components/WhatNew'
 import { detectHardwareProfile, getProfileConfig } from './utils/autoProfile'
 import whatsNewData from './data/whats-new.json'
 import { initErrorGuard } from './utils/errorGuard'
+import DropAnywhere from './components/core/DropAnywhere'
 
 const GlobalListener = () => {
   const navigate = useNavigate()
@@ -49,10 +50,6 @@ const GlobalListener = () => {
     return () => {
       if (window.api?.removeLiveAudioShortcut) {
         window.api.removeLiveAudioShortcut()
-      }
-      if (window.electron?.ipcRenderer) {
-        window.electron.ipcRenderer.removeAllListeners('route-to-config')
-        window.electron.ipcRenderer.removeAllListeners('tg:request-agent-execution')
       }
     }
   }, [navigate])
@@ -163,10 +160,19 @@ const MainLayout = ({ isStandalone = false }) => {
   const isHome = location.pathname === '/'
   const isTelegram = location.pathname === '/telegram-bot'
 
+  // Drop global satu titik: event 'mark:files-dropped' (detail = array item
+  // {name,path,size,type}) bisa dikonsumsi InputBar/komponen lain mana pun.
+  const handleGlobalDrop = useCallback((items) => {
+    if (items && items.length > 0) {
+      window.dispatchEvent(new CustomEvent('mark:files-dropped', { detail: items }))
+    }
+  }, [])
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-transparent rounded-xl">
       {/* Hide WindowControls on Telegram page — it has its own header with controls */}
       {!isStandalone && !isTelegram && <WindowControls />}
+      <DropAnywhere onFilesDropped={handleGlobalDrop} />
       {/* Base Home Page - Always Mounted so AI Agent & Telegram Listeners Never Die */}
       {/* Hidden on Telegram page to prevent overlap with TelegramBot's own header */}
       <div className={`h-full w-full ${isTelegram ? 'hidden' : ''}`}>

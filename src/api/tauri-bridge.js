@@ -309,6 +309,9 @@ export const api = {
   saveSkill: (name, content) => call('skills:save', name, content),
   deleteSkill: (name) => call('skills:delete', name),
   installSkill: (sourcePath) => call('skills:install', sourcePath),
+  // Buka folder store skills di file manager OS — drop folder <nama>/SKILL.md
+  // ke sini, lalu auto-scan mendeteksinya saat refresh (tanpa import wizard).
+  openSkillsFolder: () => call('skills:open-folder'),
   getSkillTree: () => call('skills:get-tree'),
   readSkillFile: (name, relativePath) => call('skills:read-file', name, relativePath),
   saveSkillFile: (name, relativePath, content) => call('skills:save-file', name, relativePath, content),
@@ -351,6 +354,16 @@ export const api = {
     const selected = await invoke('misc_open_file_dialog')
     return selected ? { canceled: false, filePaths: [selected] } : { canceled: true, filePaths: [] }
   },
+  // Multi-select native: batal = { canceled: true, filePaths: [] }.
+  // Pemanggil TIDAK boleh fallback ke <input type=file> saat canceled,
+  // agar dialog tidak terbuka dua kali (bug lama di InputBar).
+  showOpenFilesDialog: async () => {
+    const paths = await invoke('misc_open_files_dialog')
+    const list = Array.isArray(paths) ? paths : []
+    return { canceled: list.length === 0, filePaths: list }
+  },
+  // Metadata file/directory (size bytes, isDir, mtime) untuk preview lampiran.
+  statPath: (path) => invoke('misc_stat_path', { path }),
   selectDirectory: () => invoke('misc_open_directory_dialog'),
 
   // ---------- Legacy memory migration (MEM) ----------
