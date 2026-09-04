@@ -217,6 +217,7 @@ pub fn run() {
             cmd_misc::misc_open_directory_dialog,
             cmd_misc::misc_take_screenshot,
             cmd_misc::misc_native_confirm,
+            cmd_misc::misc_fetch_web_resource,
             commands_tools_shell::tools_run_shell,
             commands_tools_git::git_status,
             commands_tools_git::git_diff,

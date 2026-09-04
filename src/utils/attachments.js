@@ -58,6 +58,11 @@ export const dedupeAttachments = (prev, incoming) => {
 // Gambar -> object URL untuk thumbnail chip attachment. Hanya saat kita
 // memegang File asli (drop web/file manager); lampiran dialog native tidak
 // punya File, jadi chip pakai ikon biasa.
+// CATATAN FETCH: pengambilan resource web TIDAK dilakukan di renderer —
+// semua fetch URL drop lewat native `misc_fetch_web_resource` (Rust) yang
+// memvalidasi scheme + host privat dan membuang URL taint dari boundary
+// renderer (CodeQL SSRF). isPublicHttpUrl tetap dipakai sebagai pre-filter
+// cepat + ter-tes agar drop host internal gagal cepat tanpa round-trip.
 const isImageFile = (f) =>
   (f?.type || '').startsWith('image/') ||
   ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(
@@ -189,36 +194,28 @@ export const extractDroppedItems = async (dataTransfer) => {
     .map(isPublicHttpUrl)
     .filter(Boolean)
     .map((url) => url.href)
-  if (urls.length === 0) return []
-
-  const MAX_WEB_FETCH_BYTES = 10 * 1024 * 1024 // samakan dengan batas baca FS native
-  const timeoutSignal =
-    typeof AbortSignal !== 'undefined' && AbortSignal.timeout
-      ? AbortSignal.timeout(15000)
-      : undefined
+  if (urls.length === 0) return []  // Fetch via NATIVE Rust (misc_fetch_web_resource): URL taint dari user tidak
+  // pernah menyentuh fetch renderer (CodeQL SSRF cleared), validasi host privat
+  // diulang di native (defense in depth), dan bonus: bebas CORS situs tujuan.
   const results = await Promise.all(
     urls.map(async (u) => {
       try {
-        const res = await fetch(u, { signal: timeoutSignal })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const declared = Number(res.headers.get('content-length') || 0)
-        if (declared > MAX_WEB_FETCH_BYTES) throw new Error('Ukuran melebihi 10MB')
-        const blob = await res.blob()
-        if (blob.size > MAX_WEB_FETCH_BYTES) throw new Error('Ukuran melebihi 10MB')
-        const ext = (blob.type.split('/')[1] || 'png').split(';')[0]
+        const res = await window.api.fetchWebResource(u)
+        if (!res?.dataB64) throw new Error(res?.error || 'Respons native kosong')
+        const bin = atob(res.dataB64)
+        const bytes = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+        const mime = res.mime || 'application/octet-stream'
+        const ext = (mime.split('/')[1] || 'png').split(';')[0]
         let name =
           decodeURIComponent((u.split('/').pop() || '').split('?')[0]) || `gambar-web.${ext}`
         if (!name.includes('.')) name = `${name}.${ext}`
-        const file = new File([blob], name, { type: blob.type || 'image/png' })
+        const file = new File([bytes], name, { type: mime })
         return resolveDroppedFile(file)
       } catch (err) {
-        // CORS/network gagal: lampirkan sebagai link (jujur — bukan file),
+        // Gagal (network/4xx/5xx/host privat): lampirkan sebagai link (jujur),
         // supaya drop dari web tetap menghasilkan sesuatu yang bisa dipakai.
-        console.warn(
-          '[attachments] Fetch drop URL gagal, dilampirkan sebagai link:',
-          u,
-          err?.message
-        )
+        console.warn('[attachments] Fetch native drop URL gagal, dilampirkan sebagai link:', u, err?.message)
         const name = decodeURIComponent((u.split('/').pop() || '').split('?')[0]) || u
         return { name, path: u, size: 0, type: 'text/uri-list', previewUrl: '', linkOnly: true }
       }

@@ -181,6 +181,8 @@ export const api = {
   getLiteMode: () => invoke('misc_get_lite_mode').then((d) => d ?? { isLite: false }),
   // Konfirmasi native (rfd di Rust main thread) untuk aksi berisiko non-sidecar.
   nativeConfirm: (message) => invoke('misc_native_confirm', { message }),
+  // Fetch resource web via native (validasi SSRF + tanpa CORS renderer).
+  fetchWebResource: (url) => invoke('misc_fetch_web_resource', { url }),
   getSystemInfo: () => invoke('system_get_info'),
   ping: () => call('ping'),
 
