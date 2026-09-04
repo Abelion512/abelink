@@ -46,6 +46,7 @@ stdin. Semua handler didaftarkan lewat `registry.mjs`.
 | `channels/music.mjs` | `yt:*`, `search-music`, `ping`, stub `os:*` | Stub eksplisit fase B6 — jangan diberi respons palsu sukses |
 | `channels/browser.mjs` | `browser:navigate/read-dom/action/close/show/status` | Fase C3 Jalur A (ekstensi browser + bridge): perintah nyata via `main/browser/` — long-poll HTTP 127.0.0.1 token-auth ke ekstensi Mark; tanpa ekstensi = error eksplisit + petunjuk pemasangan |
 | `channels/skills.mjs` | `skills:*` (15 channel) | Agent Skills store: SKILL.md + anti path-traversal; `skills:open-folder` (xdg-open ter-kontinemen) untuk workflow drop folder skill + auto-scan |
+| `channels/capabilities.mjs` | `capabilities:list/inspect/guide/execute/connections/authorize/revoke/audit` | Capability Manager (fase Kapabilitas, referensi OpenConnector): catalog connector → policy → eksekusi ter-audit. Connector built-in: `weather` (Open-Meteo), `time` (offline), `fs` (workspace via fsGuard), `shell-tool` (run-shell; dynamic dangerous-keyword check saat runtime). `capabilities:execute` WAJIB di `APPROVAL_ACTIONS` (rfd native). Kredensial koneksi di XDG mode 0600; audit JSONL append-only (trim 1MB). Implementasi: `main/capabilities/` (lazy import) |
 
 **Aturan menambah channel baru:** buat/ubah modul di `engine/channels/`,
 daftarkan dengan `on('nama:aksi', handler)`, lalu import modulnya di

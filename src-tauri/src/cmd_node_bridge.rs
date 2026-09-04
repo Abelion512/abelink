@@ -78,6 +78,11 @@ const APPROVAL_ACTIONS: &[&str] = &[
     "tg:stop",
     "google:connect",
     "google:disconnect",
+    // Capability Manager (fase Kapabilitas): satu gate untuk SEMUA eksekusi
+    // connector. Konektor berbahaya (shell-tool) tidak bisa diandalkan lewat
+    // jalur native-tool:* di sini, jadi setiap capabilities:execute dikonfirmasi
+    // native (rfd) di main thread — keputusan di luar renderer/model.
+    "capabilities:execute",
 ];
 
 /// Kembalikan Some(deskripsi) bila aksi butuh persetujuan native.
