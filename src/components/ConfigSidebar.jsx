@@ -1,23 +1,41 @@
-import { FaCog, FaPuzzlePiece, FaKeyboard, FaDatabase, FaCode, FaRobot, FaUserCog } from 'react-icons/fa'
+import {
+  FaCog,
+  FaPuzzlePiece,
+  FaKeyboard,
+  FaDatabase,
+  FaCode,
+  FaRobot,
+  FaUserCog,
+  FaCubes,
+  FaBrain,
+  FaPlug
+} from 'react-icons/fa'
 
-// IA baru (review 2026-08-26): General → Personalization → AI Engine →
-// Capabilities → Shortcuts → Data Controls / Developer.
-const sections = [
+// IA baru (review 2026-08-26): General → Personalization → Model →
+// Capabilities → Plugins/Skills/Connectors → Shortcuts → Data Controls / Developer.
+// Ekspor sections untuk kontrak test (tests/configSidebar.test.js).
+export const sections = [
   { id: 'cfg-general', label: 'General', icon: FaCog },
   { id: 'cfg-personalization', label: 'Personalization', icon: FaUserCog },
   { id: 'cfg-model', label: 'Model', icon: FaRobot },
   { id: 'cfg-capabilities', label: 'Capabilities', icon: FaPuzzlePiece },
-  { id: 'cfg-shortcut', label: 'Shortcuts', icon: FaKeyboard },
+  { id: 'cfg-plugins', label: 'Plugins', icon: FaCubes },
+  { id: 'cfg-skills', label: 'Skills', icon: FaBrain },
+  { id: 'cfg-connectors', label: 'Connectors', icon: FaPlug },
+  { id: 'cfg-shortcut', label: 'Shortcuts', icon: FaKeyboard }
 ]
 
-const sectionsLogged = [
+export const sectionsLogged = [
   { id: 'cfg-memory-data', label: 'Data Controls', icon: FaDatabase },
-  { id: 'cfg-developer', label: 'Developer', icon: FaCode },
+  { id: 'cfg-developer', label: 'Developer', icon: FaCode }
 ]
 
 export default function ConfigSidebar({ isFirstSetup = false, activeSection, onNavigate }) {
   const allSections = isFirstSetup ? sections : [...sections, ...sectionsLogged]
-  const activeIdx = Math.max(0, allSections.findIndex((s) => s.id === activeSection))
+  const activeIdx = Math.max(
+    0,
+    allSections.findIndex((s) => s.id === activeSection)
+  )
 
   const handleKeyDown = (e) => {
     // Enter/Space tidak perlu ditangani: tombol punya fokus DOM asli, aktivasi native.
@@ -52,9 +70,10 @@ export default function ConfigSidebar({ isFirstSetup = false, activeSection, onN
               aria-selected={isActive}
               onClick={() => onNavigate(sec.id)}
               className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-all duration-200 cursor-pointer
-                ${isActive
-                  ? 'bg-primary/10 text-primary border-r-2 border-primary'
-                  : 'text-white/50 hover:text-white/80 hover:bg-white/5 border-r-2 border-transparent'
+                ${
+                  isActive
+                    ? 'bg-primary/10 text-primary border-r-2 border-primary'
+                    : 'text-white/50 hover:text-white/80 hover:bg-white/5 border-r-2 border-transparent'
                 }`}
             >
               <Icon size={15} className={isActive ? 'text-primary' : 'opacity-50'} />

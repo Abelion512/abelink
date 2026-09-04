@@ -14,7 +14,11 @@ import {
   FaVolumeUp,
   FaDatabase,
   FaCog,
-  FaQuestionCircle
+  FaQuestionCircle,
+  FaCubes,
+  FaPlug,
+  FaShieldAlt,
+  FaExternalLinkAlt
 } from 'react-icons/fa'
 import {
   getAllMemory,
@@ -66,7 +70,10 @@ const ConfigCameraPreview = ({ deviceId, enabled }) => {
       } catch (err) {
         // WebKitGTK/wry bisa menolak getUserMedia tanpa dialog izin — tampilkan
         // pesan ramah sekali per percobaan, jangan spam console.
-        if (isMounted) setCamError('Preview kamera tidak tersedia: izin ditolak atau lingkungan webview tidak mengizinkan akses kamera.')
+        if (isMounted)
+          setCamError(
+            'Preview kamera tidak tersedia: izin ditolak atau lingkungan webview tidak mengizinkan akses kamera.'
+          )
       }
     }
     startCamera()
@@ -143,13 +150,18 @@ const Configuration = ({
   const [showGroqKey, setShowGroqKey] = useState(false)
   const [showCustomKey, setShowCustomKey] = useState(false)
   const [activeSection, setActiveSection] = useState('cfg-general')
+  const [pluginCount, setPluginCount] = useState(null)
+  const [skillCount, setSkillCount] = useState(null)
+  const [connStats, setConnStats] = useState(null) // { total, connected, connectionless, auditOk }
   const [saveStatus, setSaveStatus] = useState(null)
   const savedSnapshotRef = useRef('')
   const hydratedRef = useRef(false)
   const autosaveTimerRef = useRef(null)
   const devicesLoadedRef = useRef(false)
   const legacyImportFiredRef = useRef(false)
-  const [devHarness, setDevHarness] = useState(() => localStorage.getItem('devHarnessLogging') === '1')
+  const [devHarness, setDevHarness] = useState(
+    () => localStorage.getItem('devHarnessLogging') === '1'
+  )
   const [legacyProfiles, setLegacyProfiles] = useState([])
 
   const handleTestVoice = async () => {
@@ -223,6 +235,47 @@ const Configuration = ({
     }
   }, [activeSection])
 
+  // Ringkasan capabilities untuk sidebar Chips (load-when-needed: hanya saat
+  // section terkait aktif, tidak pernah memblok mount halaman).
+  useEffect(() => {
+    let cancelled = false
+    const loadSummary = async () => {
+      try {
+        if (activeSection === 'cfg-plugins' && window.api?.getPlugins && pluginCount === null) {
+          const list = await window.api.getPlugins()
+          if (!cancelled) setPluginCount(Array.isArray(list) ? list.length : 0)
+        } else if (activeSection === 'cfg-skills' && window.api?.getSkills && skillCount === null) {
+          const list = await window.api.getSkills()
+          if (!cancelled) setSkillCount(Array.isArray(list) ? list.length : 0)
+        } else if (
+          activeSection === 'cfg-connectors' &&
+          window.api?.listCapabilities &&
+          connStats === null
+        ) {
+          const [caps, conns, audit] = await Promise.all([
+            window.api.listCapabilities(),
+            window.api.listCapabilityConnections(),
+            window.api.readCapabilityAudit(30)
+          ])
+          if (!cancelled) {
+            setConnStats({
+              total: Array.isArray(caps) ? caps.length : 0,
+              connected: Object.keys(conns || {}).length,
+              connectionless: (caps || []).filter((c) => !c.scopes?.length).length,
+              auditOk: (audit || []).filter((e) => e.status === 'ok').length
+            })
+          }
+        }
+      } catch {
+        // Ringkasan best-effort — kegagalan sidecar tidak boleh memblok UI config.
+      }
+    }
+    loadSummary()
+    return () => {
+      cancelled = true
+    }
+  }, [activeSection, pluginCount, skillCount, connStats])
+
   useEffect(() => {
     if (!isFirstSetup || !window.api?.legacyDetectProfiles) return
     window.api
@@ -230,7 +283,6 @@ const Configuration = ({
       .then((paths) => setLegacyProfiles(paths || []))
       .catch(() => {})
   }, [isFirstSetup])
-
 
   const loadConfig = async () => {
     const data = await getAllConfig()
@@ -258,7 +310,6 @@ const Configuration = ({
     setLoadingMemory(false)
   }
 
-  
   // ── Autosave: debounce 700ms setelah perubahan terakhir (mode normal) ──
   // Wizard tidak ikut — dia punya alur "Simpan & Mulai" eksplisit.
   useEffect(() => {
@@ -333,12 +384,18 @@ const Configuration = ({
       await navigator.clipboard.writeText(prompt)
       copied = true
     } catch (_) {}
-    const leak = !config.ownerName?.trim() && new RegExp(`\\b(${config.ownerName || 'Mada'}|${config.ownerName || 'Mazees'})\\b`, 'i').test(prompt)
+    const leak =
+      !config.ownerName?.trim() &&
+      new RegExp(`\\b(${config.ownerName || 'Mada'}|${config.ownerName || 'Mazees'})\\b`, 'i').test(
+        prompt
+      )
     await confirm({
       title: 'Dump System Prompt',
       message:
         `Panjang: ${prompt.length} chars.${copied ? ' Disalin ke clipboard.' : ' Clipboard tidak tersedia.'}` +
-        (leak ? `\n\nPERINGATAN: terdeteksi nama ${config.ownerName || 'Mada'} di prompt padahal ownerName kosong - lacak blok sumbernya lewat isi clipboard.` : ''),
+        (leak
+          ? `\n\nPERINGATAN: terdeteksi nama ${config.ownerName || 'Mada'} di prompt padahal ownerName kosong - lacak blok sumbernya lewat isi clipboard.`
+          : ''),
       isError: leak,
       hideCancel: true,
       confirmText: 'Tutup'
@@ -359,7 +416,11 @@ const Configuration = ({
       legacyImportFiredRef.current = true
       handleImportLegacy()
       if (location.search.includes('legacy-import=1')) {
-        window.history.replaceState(null, '', window.location.pathname + window.location.hash.split('?')[0])
+        window.history.replaceState(
+          null,
+          '',
+          window.location.pathname + window.location.hash.split('?')[0]
+        )
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -531,7 +592,8 @@ const Configuration = ({
   const [lmStudioModels, setLmStudioModels] = useState([])
   const [lmDetectAttempted, setLmDetectAttempted] = useState(false)
   useEffect(() => {
-    if (activeSection !== 'cfg-model' || config.aiProvider !== 'lm-studio' || lmDetectAttempted) return
+    if (activeSection !== 'cfg-model' || config.aiProvider !== 'lm-studio' || lmDetectAttempted)
+      return
     setLmDetectAttempted(true)
     let alive = true
     window.api
@@ -648,13 +710,10 @@ const Configuration = ({
   const handleTgAdminIdsChange = (e) =>
     setConfig((prev) => ({ ...prev, tgAdminIds: e.target.value }))
 
-
   const handleSidebarNavigate = (id) => setActiveSection(id)
 
   return (
-    <div
-      className="h-screen text-white overflow-hidden relative font-['Poppins',sans-serif] bg-base-300 rounded-xl border border-white/5 shadow-2xl"
-    >
+    <div className="h-screen text-white overflow-hidden relative font-['Poppins',sans-serif] bg-base-300 rounded-xl border border-white/5 shadow-2xl">
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
@@ -670,828 +729,949 @@ const Configuration = ({
           <div className="pt-4 pr-4">
             {/* Page Header */}
             <div className="flex items-center gap-4">
-            {!isFirstSetup && (
-              <button onClick={handleBack} className="btn btn-ghost btn-sm btn-circle">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="1.2em"
-                  height="1.2em"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-            )}
-            <div>
-              <h1 className="text-2xl font-bold">Pengaturan Mark</h1>
-              <p className="opacity-50 text-sm mt-1">Sesuaikan perilaku Mark dengan preferensimu.</p>
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              {saveStatus && !isFirstSetup && (
-                <span
-                  className={`badge badge-sm ${
-                    saveStatus.state === 'error'
-                      ? 'badge-error'
-                      : saveStatus.state === 'saved'
-                        ? 'badge-success badge-outline'
-                        : 'badge-warning badge-outline'
-                  }`}
-                >
-                  {saveStatus.state === 'pending'
-                    ? 'Perubahan…'
-                    : saveStatus.state === 'saving'
-                      ? 'Menyimpan…'
-                      : saveStatus.state === 'error'
-                        ? 'Gagal autosave'
-                        : `Tersimpan ${saveStatus.at.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
-                </span>
+              {!isFirstSetup && (
+                <button onClick={handleBack} className="btn btn-ghost btn-sm btn-circle">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="1.2em"
+                    height="1.2em"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
               )}
-                          </div>
-
-          </div>
-
-          {/* ── Model ── */}
-          <section id="cfg-model" className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-model' ? 'hidden' : ''}`}>
-            <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-              Model
-            </h2>
-
-            {/* Provider Selector */}
-            <div id="tour-ai-provider" className="space-y-1.5">
-              <p className="text-sm font-semibold">Provider</p>
-              <select
-                className="select select-bordered w-full font-medium"
-                value={config.aiProvider || 'gemini-web'}
-                onChange={(e) => handleAiProviderChange(e.target.value)}
-              >
-                <option value="gemini-web">Gemini (Gratis)</option>
-                <option value="lm-studio">LM Studio</option>
-                <option value="custom">Custom API</option>
-              </select>
+              <div>
+                <h1 className="text-2xl font-bold">Pengaturan Mark</h1>
+                <p className="opacity-50 text-sm mt-1">
+                  Sesuaikan perilaku Mark dengan preferensimu.
+                </p>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                {saveStatus && !isFirstSetup && (
+                  <span
+                    className={`badge badge-sm ${
+                      saveStatus.state === 'error'
+                        ? 'badge-error'
+                        : saveStatus.state === 'saved'
+                          ? 'badge-success badge-outline'
+                          : 'badge-warning badge-outline'
+                    }`}
+                  >
+                    {saveStatus.state === 'pending'
+                      ? 'Perubahan…'
+                      : saveStatus.state === 'saving'
+                        ? 'Menyimpan…'
+                        : saveStatus.state === 'error'
+                          ? 'Gagal autosave'
+                          : `Tersimpan ${saveStatus.at.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
+                  </span>
+                )}
+              </div>
             </div>
 
-            {config.aiProvider === 'gemini-web' || !config.aiProvider ? (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Model Gemini</p>
-                  <select
-                    className="select select-bordered w-full"
-                    value={config.geminiWebModel || 'gemini-3.6-flash'}
-                    onChange={(e) =>
-                      setConfig((prev) => ({ ...prev, geminiWebModel: e.target.value }))
-                    }
-                  >
-                    <option value="gemini-3.6-flash">gemini-3.6-flash (Model Utama Terbaru)</option>
-                    <option value="gemini-3.5-flash">gemini-3.5-flash (Stabil & Seimbang)</option>
-                    <option value="gemini-3.5-flash-thinking">
-                      gemini-3.5-flash-thinking (Penalaran Mendalam)
-                    </option>
-                    <option value="gemini-3.5-flash-thinking-lite">
-                      gemini-3.5-flash-thinking-lite (Penalaran Cepat)
-                    </option>
-                    <option value="gemini-auto">gemini-auto (Otomatis Server)</option>
-                    <option value="gemini-flash-lite">gemini-flash-lite (Super Cepat)</option>
-                  </select>
-                  <p className="text-xs opacity-50 mt-1">
-                    Provider bawaan tanpa API Key. Membutuhkan koneksi internet (tidak mendukung
-                    input gambar).
-                  </p>
-                </div>
+            {/* ── Model ── */}
+            <section
+              id="cfg-model"
+              className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-model' ? 'hidden' : ''}`}
+            >
+              <h2 className="text-base font-bold uppercase tracking-wider opacity-70">Model</h2>
+
+              {/* Provider Selector */}
+              <div id="tour-ai-provider" className="space-y-1.5">
+                <p className="text-sm font-semibold">Provider</p>
+                <select
+                  className="select select-bordered w-full font-medium"
+                  value={config.aiProvider || 'gemini-web'}
+                  onChange={(e) => handleAiProviderChange(e.target.value)}
+                >
+                  <option value="gemini-web">Gemini (Gratis)</option>
+                  <option value="lm-studio">LM Studio</option>
+                  <option value="custom">Custom API</option>
+                </select>
               </div>
-            ) : config.aiProvider === 'custom' ? (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Endpoint URL</p>
-                  <input
-                    type="text"
-                    placeholder="https://api.openai.com/v1"
-                    className={`input input-bordered w-full ${config.customEndpoint && !isCustomEndpointPlausible(config.customEndpoint, config.customApiProtocol) ? 'input-warning' : ''}`}
-                    value={config.customEndpoint || ''}
-                    onChange={handleCustomEndpointChange}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Protokol API</p>
-                  <select
-                    className="select select-bordered w-full font-medium"
-                    value={config.customApiProtocol || 'auto'}
-                    onChange={(e) =>
-                      setConfig((prev) => ({ ...prev, customApiProtocol: e.target.value }))
-                    }
-                  >
-                    <option value="auto">Auto-Detect (disarankan)</option>
-                    <option value="openai">OpenAI-Compatible (/v1/chat/completions)</option>
-                    <option value="anthropic">Anthropic-Compatible (/v1/messages)</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm font-semibold">Model ID</p>
-                    <button
-                      type="button"
-                      className="btn btn-xs btn-outline"
-                      disabled={detectingModels || !config.customEndpoint}
-                      onClick={handleDetectModels}
-                      title="Ambil daftar model dari endpoint (GET /models)"
+
+              {config.aiProvider === 'gemini-web' || !config.aiProvider ? (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-semibold">Model Gemini</p>
+                    <select
+                      className="select select-bordered w-full"
+                      value={config.geminiWebModel || 'gemini-3.6-flash'}
+                      onChange={(e) =>
+                        setConfig((prev) => ({ ...prev, geminiWebModel: e.target.value }))
+                      }
                     >
-                      {detectingModels ? (
-                        <span className="loading loading-spinner loading-xs"></span>
-                      ) : (
-                        'Deteksi Model'
-                      )}
-                    </button>
+                      <option value="gemini-3.6-flash">
+                        gemini-3.6-flash (Model Utama Terbaru)
+                      </option>
+                      <option value="gemini-3.5-flash">gemini-3.5-flash (Stabil & Seimbang)</option>
+                      <option value="gemini-3.5-flash-thinking">
+                        gemini-3.5-flash-thinking (Penalaran Mendalam)
+                      </option>
+                      <option value="gemini-3.5-flash-thinking-lite">
+                        gemini-3.5-flash-thinking-lite (Penalaran Cepat)
+                      </option>
+                      <option value="gemini-auto">gemini-auto (Otomatis Server)</option>
+                      <option value="gemini-flash-lite">gemini-flash-lite (Super Cepat)</option>
+                    </select>
+                    <p className="text-xs opacity-50 mt-1">
+                      Provider bawaan tanpa API Key. Membutuhkan koneksi internet (tidak mendukung
+                      input gambar).
+                    </p>
                   </div>
-                  {modelDetectError && (
-                    <p className="text-xs text-error mt-1">{modelDetectError}</p>
+                </div>
+              ) : config.aiProvider === 'custom' ? (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-semibold">Endpoint URL</p>
+                    <input
+                      type="text"
+                      placeholder="https://api.openai.com/v1"
+                      className={`input input-bordered w-full ${config.customEndpoint && !isCustomEndpointPlausible(config.customEndpoint, config.customApiProtocol) ? 'input-warning' : ''}`}
+                      value={config.customEndpoint || ''}
+                      onChange={handleCustomEndpointChange}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-semibold">Protokol API</p>
+                    <select
+                      className="select select-bordered w-full font-medium"
+                      value={config.customApiProtocol || 'auto'}
+                      onChange={(e) =>
+                        setConfig((prev) => ({ ...prev, customApiProtocol: e.target.value }))
+                      }
+                    >
+                      <option value="auto">Auto-Detect (disarankan)</option>
+                      <option value="openai">OpenAI-Compatible (/v1/chat/completions)</option>
+                      <option value="anthropic">Anthropic-Compatible (/v1/messages)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm font-semibold">Model ID</p>
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-outline"
+                        disabled={detectingModels || !config.customEndpoint}
+                        onClick={handleDetectModels}
+                        title="Ambil daftar model dari endpoint (GET /models)"
+                      >
+                        {detectingModels ? (
+                          <span className="loading loading-spinner loading-xs"></span>
+                        ) : (
+                          'Deteksi Model'
+                        )}
+                      </button>
+                    </div>
+                    {modelDetectError && (
+                      <p className="text-xs text-error mt-1">{modelDetectError}</p>
+                    )}
+                    <input
+                      type="text"
+                      list="custom-model-options"
+                      placeholder={
+                        customModels.length > 0
+                          ? `${customModels.length} model terdeteksi - klik untuk memilih`
+                          : 'Contoh: gpt-4o-mini'
+                      }
+                      className="input input-bordered w-full"
+                      value={config.customModel || ''}
+                      onChange={(e) =>
+                        setConfig((prev) => ({ ...prev, customModel: e.target.value }))
+                      }
+                    />
+                    <datalist id="custom-model-options">
+                      {customModels.map((m) => (
+                        <option key={m} value={m} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-semibold">API Key</p>
+                    <div className="relative w-full">
+                      <input
+                        type={showCustomKey ? 'text' : 'password'}
+                        placeholder="Masukkan API Key (jika diperlukan)"
+                        className="input input-bordered w-full pr-10"
+                        value={config.customApiKey || ''}
+                        onChange={handleCustomApiKeyChange}
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+                        onClick={handleToggleCustomKey}
+                        title={showCustomKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
+                      >
+                        {showCustomKey ? (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                            <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                            <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                            <line x1="2" x2="22" y1="2" y2="22" />
+                          </svg>
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-sm font-semibold">Model Selector (LM Studio)</p>
+                  {lmStudioModels.length > 0 && (
+                    <>
+                      <p className="text-xs text-success">
+                        {lmStudioModels.length} model lokal terdeteksi di LM Studio (port 1234) —
+                        pilih di bawah atau ketik manual.
+                      </p>
+                      <select
+                        className="select select-bordered w-full"
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value)
+                            setConfig((prev) => ({ ...prev, model: e.target.value }))
+                        }}
+                      >
+                        <option value="">-- Pilih model terdeteksi --</option>
+                        {lmStudioModels.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                    </>
                   )}
                   <input
                     type="text"
-                    list="custom-model-options"
-                    placeholder={
-                      customModels.length > 0
-                        ? `${customModels.length} model terdeteksi - klik untuk memilih`
-                        : 'Contoh: gpt-4o-mini'
-                    }
+                    list="lmstudio-model-options"
+                    placeholder="Contoh: google/gemma-3-4b"
                     className="input input-bordered w-full"
-                    value={config.customModel || ''}
-                    onChange={(e) =>
-                      setConfig((prev) => ({ ...prev, customModel: e.target.value }))
-                    }
+                    value={config.model || ''}
+                    onChange={handleModelChange}
                   />
-                  <datalist id="custom-model-options">
-                    {customModels.map((m) => (
+                  <datalist id="lmstudio-model-options">
+                    {lmStudioModels.map((m) => (
                       <option key={m} value={m} />
                     ))}
                   </datalist>
+                  <p className="text-xs opacity-40">
+                    Nama model yang aktif di LM Studio. Pastikan sudah ter-load.
+                  </p>
                 </div>
-                <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">API Key</p>
-                  <div className="relative w-full">
-                    <input
-                      type={showCustomKey ? 'text' : 'password'}
-                      placeholder="Masukkan API Key (jika diperlukan)"
-                      className="input input-bordered w-full pr-10"
-                      value={config.customApiKey || ''}
-                      onChange={handleCustomApiKeyChange}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                      onClick={handleToggleCustomKey}
-                      title={showCustomKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
-                    >
-                      {showCustomKey ? (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-                          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-                          <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                          <line x1="2" x2="22" y1="2" y2="22" />
-                        </svg>
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
+              )}
+            </section>
+
+            {/* ── General ── */}
+            <section
+              id="cfg-general"
+              className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-general' ? 'hidden' : ''}`}
+            >
+              <h2 className="text-base font-bold uppercase tracking-wider opacity-70">General</h2>
+
               <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Model Selector (LM Studio)</p>
-                {lmStudioModels.length > 0 && (
-                  <>
-                    <p className="text-xs text-success">
-                      {lmStudioModels.length} model lokal terdeteksi di LM Studio (port 1234) —
-                      pilih di bawah atau ketik manual.
-                    </p>
-                    <select
-                      className="select select-bordered w-full"
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value) setConfig((prev) => ({ ...prev, model: e.target.value }))
-                      }}
-                    >
-                      <option value="">-- Pilih model terdeteksi --</option>
-                      {lmStudioModels.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                  </>
-                )}
+                <p className="text-sm font-semibold">Bahasa</p>
+                <select
+                  className="select select-bordered w-full"
+                  value={config.language || 'id'}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, language: e.target.value }))}
+                >
+                  <option value="id">Indonesia</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+
+              {/* Preferensi jendela: transparansi (sinkron lewat syncConfig) */}
+              <div className="space-y-2 p-2 -mx-2 rounded-lg bg-base-200">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">Transparansi Jendela</p>
+                  <span className="font-mono text-sm text-primary font-bold">
+                    {Math.round((config.windowOpacity ?? 0.85) * 100)}%
+                  </span>
+                </div>
                 <input
-                  type="text"
-                  list="lmstudio-model-options"
-                  placeholder="Contoh: google/gemma-3-4b"
-                  className="input input-bordered w-full"
-                  value={config.model || ''}
-                  onChange={handleModelChange}
+                  type="range"
+                  min="0.1"
+                  max="1.0"
+                  step="0.05"
+                  value={config.windowOpacity ?? 0.85}
+                  className="range range-primary range-xs w-full"
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value)
+                    document.documentElement.style.setProperty('--win-alpha', String(val))
+                    setConfig((prev) => {
+                      const newConfig = { ...prev, windowOpacity: val }
+                      if (window.api && window.api.syncConfig) window.api.syncConfig(newConfig)
+                      return newConfig
+                    })
+                  }}
                 />
-                <datalist id="lmstudio-model-options">
-                  {lmStudioModels.map((m) => (
-                    <option key={m} value={m} />
-                  ))}
-                </datalist>
-                <p className="text-xs opacity-40">
-                  Nama model yang aktif di LM Studio. Pastikan sudah ter-load.
+                <div className="flex justify-between mt-2 text-xs opacity-50">
+                  <span>10%</span>
+                  <span>100%</span>
+                </div>
+                <p className="text-[11px] text-warning/80">
+                  Eksperimental: butuh restart pertama kali &amp; dapat menimbulkan artefak di
+                  WebKitGTK.
                 </p>
               </div>
-            )}
-          </section>
 
-          {/* ── General ── */}
-          <section id="cfg-general" className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-general' ? 'hidden' : ''}`}>
-            <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-              General
-            </h2>
-
-            <div className="space-y-1.5">
-              <p className="text-sm font-semibold">Bahasa</p>
-              <select
-                className="select select-bordered w-full"
-                value={config.language || 'id'}
-                onChange={(e) => setConfig((prev) => ({ ...prev, language: e.target.value }))}
-              >
-                <option value="id">Indonesia</option>
-                <option value="en">English</option>
-              </select>
-            </div>
-
-            {/* Preferensi jendela: transparansi (sinkron lewat syncConfig) */}
-            <div className="space-y-2 p-2 -mx-2 rounded-lg bg-base-200">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Transparansi Jendela</p>
-                <span className="font-mono text-sm text-primary font-bold">
-                  {Math.round((config.windowOpacity ?? 0.85) * 100)}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0.1"
-                max="1.0"
-                step="0.05"
-                value={config.windowOpacity ?? 0.85}
-                className="range range-primary range-xs w-full"
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value)
-                  document.documentElement.style.setProperty('--win-alpha', String(val))
-                  setConfig((prev) => {
-                    const newConfig = { ...prev, windowOpacity: val }
-                    if (window.api && window.api.syncConfig) window.api.syncConfig(newConfig)
-                    return newConfig
-                  })
-                }}
-              />
-              <div className="flex justify-between mt-2 text-xs opacity-50">
-                <span>10%</span>
-                <span>100%</span>
-              </div>
-              <p className="text-[11px] text-warning/80">
-                Eksperimental: butuh restart pertama kali &amp; dapat menimbulkan artefak di WebKitGTK.
-              </p>
-            </div>
-
-            {/* Awareness Engine Toggle */}
-            <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold">Awareness Engine</p>
-                  <p className="text-xs opacity-50 mt-1">
-                    Mengizinkan Mark membaca log sistem/aktivitas dan memulai obrolan secara
-                    proaktif di latar belakang.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={config.awarenessEnabled !== false}
-                  onChange={handleAwarenessEnabledChange}
-                />
-              </div>
-            </div>
-
-            {/* Built-in Plugins (ponytail + caveman) */}
-            <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold">Ponytail (hemat kode)</p>
-                  <p className="text-xs opacity-50 mt-1">
-                    Ladder YAGNI: pakai ulang kode yang ada, stdlib, fitur platform, satu baris —
-                    sebelum menulis kode baru. Validasi &amp; keamanan tidak pernah dipotong.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={config.builtinPlugins?.ponytail !== false}
-                  onChange={handleBuiltinPluginChange('ponytail')}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold">Caveman (hemat token jawaban)</p>
-                  <p className="text-xs opacity-50 mt-1">
-                    Jawaban super-ringkas; kode, perintah, path, dan pesan error tetap utuh.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={config.builtinPlugins?.caveman !== false}
-                  onChange={handleBuiltinPluginChange('caveman')}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold">Rtk (kompresi output tool)</p>
-                  <p className="text-xs opacity-50 mt-1">
-                    Output tool panjang (shell/git/grep) dikompres sebelum masuk konteks AI.
-                    No-op otomatis bila binary `rtk` tidak terpasang.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={config.rtkCompress !== false}
-                  onChange={handleRtkCompressChange}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* ── Personalization ── */}
-          <section id="cfg-personalization" className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-personalization' ? 'hidden' : ''}`}>
-            <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-              Personalization
-            </h2>
-
-            <div className="space-y-1.5">
-              <p className="text-sm font-semibold">Nama Panggilan</p>
-              <input
-                className="input input-bordered w-full"
-                placeholder="Contoh: Abel"
-                value={config.ownerName || ''}
-                onChange={(e) => setConfig((prev) => ({ ...prev, ownerName: e.target.value }))}
-              />
-            </div>
-
-                        <div className="space-y-1.5">
-              <p className="text-sm font-semibold">Pekerjaan / Bidang</p>
-              <select
-                className="select select-bordered w-full"
-                value={config.occupation || ''}
-                onChange={(e) => setConfig((prev) => ({ ...prev, occupation: e.target.value }))}
-              >
-                <option value="">- Pilih bidang -</option>
-                {['Software Engineer','Pelajar / Mahasiswa','Content Creator','Penulis','Data Scientist','Desainer','Musisi / Artis','Entrepreneur','Lainnya'].map((o) => (
-                  <option key={o} value={o}>{o}</option>
-                ))}
-              </select>
-              <p className="text-xs opacity-40">Membantu Mark menyesuaikan analogi &amp; gaya penjelasan.</p>
-            </div>
-
-            {/* System Persona */}
-            <div id="tour-persona" className="space-y-1.5 p-2 -mx-2 rounded-lg">
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Gaya Bicara dan Kepribadian</p>
-                <textarea
-                  className="textarea w-full h-72 leading-relaxed no-scrollbar resize-none"
-                  placeholder="Deskripsikan kepribadian Mark..."
-                  value={config.personality}
-                  onChange={handlePersonalityChange}
-                />
-              </div>
-            </div>
-            <div id="tour-temperature" className="space-y-2 p-2 -mx-2 rounded-lg">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Temperature</p>
-                <span className="font-mono text-sm text-primary font-bold">
-                  {config.temperature}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={config.temperature}
-                className="range range-primary range-xs w-full"
-                onChange={handleTemperatureChange}
-              />
-              <div className="flex justify-between px-2.5 mt-2 text-xs">
-                <span>0</span>
-                <span>0.2</span>
-                <span>0.4</span>
-                <span>0.6</span>
-                <span>0.8</span>
-                <span>1.0</span>
-              </div>
-            </div>
-
-            {/* Context Window */}
-            <div id="tour-context" className="space-y-2 p-2 -mx-2 rounded-lg">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Riwayat Pesan</p>
-                <span className="font-mono text-sm text-primary font-bold">{config.context}</span>
-              </div>
-              <input
-                type="range"
-                min="2"
-                max="22"
-                step="2"
-                value={config.context}
-                className="range range-primary range-xs w-full"
-                onChange={handleContextChange}
-              />
-              <div className="flex justify-between mt-2 text-xs">
-                <span>2</span>
-                <span>6</span>
-                <span>10</span>
-                <span>14</span>
-                <span>18</span>
-                <span>22</span>
-              </div>
-              <p className="text-xs opacity-40">
-                Jumlah <b>pesan obrolan</b> yang dikirim sebagai konteks — bukan token window.
-                Batas token model (mis. 1.048.576) adalah unit yang berbeda.
-              </p>
-            </div>
-          </section>
-
-          {/* ── Capabilities ── */}
-          <div id="cfg-capabilities" className={`${activeSection !== 'cfg-capabilities' ? 'hidden' : ''} space-y-6`}>
-            {/* Camera Settings */}
-            <div id="cfg-camera" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${activeSection !== 'cfg-camera' ? 'hidden' : ''}`}>
-              <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5 flex items-center gap-2">
-                Kamera
-              </h2>
-
-              <div className="form-control">
-                <label className="label cursor-pointer p-0">
-                  <span className="label-text text-sm font-semibold">Aktifkan Kamera AI</span>
+              {/* Awareness Engine Toggle */}
+              <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Awareness Engine</p>
+                    <p className="text-xs opacity-50 mt-1">
+                      Mengizinkan Mark membaca log sistem/aktivitas dan memulai obrolan secara
+                      proaktif di latar belakang.
+                    </p>
+                  </div>
                   <input
                     type="checkbox"
                     className="toggle toggle-primary"
-                    checked={config.cameraEnabled !== false}
-                    onChange={handleCameraEnabledChange}
+                    checked={config.awarenessEnabled !== false}
+                    onChange={handleAwarenessEnabledChange}
                   />
-                </label>
-                <span className="text-xs opacity-50 mt-2 block">
-                  Mengizinkan Mark menggunakan kamera (jika diminta) untuk melihat dunia fisik.
-                </span>
+                </div>
               </div>
 
-              {config.cameraEnabled !== false && (
+              {/* Built-in Plugins (ponytail + caveman) */}
+              <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Ponytail (hemat kode)</p>
+                    <p className="text-xs opacity-50 mt-1">
+                      Ladder YAGNI: pakai ulang kode yang ada, stdlib, fitur platform, satu baris —
+                      sebelum menulis kode baru. Validasi &amp; keamanan tidak pernah dipotong.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="toggle toggle-primary"
+                    checked={config.builtinPlugins?.ponytail !== false}
+                    onChange={handleBuiltinPluginChange('ponytail')}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Caveman (hemat token jawaban)</p>
+                    <p className="text-xs opacity-50 mt-1">
+                      Jawaban super-ringkas; kode, perintah, path, dan pesan error tetap utuh.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="toggle toggle-primary"
+                    checked={config.builtinPlugins?.caveman !== false}
+                    onChange={handleBuiltinPluginChange('caveman')}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Rtk (kompresi output tool)</p>
+                    <p className="text-xs opacity-50 mt-1">
+                      Output tool panjang (shell/git/grep) dikompres sebelum masuk konteks AI. No-op
+                      otomatis bila binary `rtk` tidak terpasang.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="toggle toggle-primary"
+                    checked={config.rtkCompress !== false}
+                    onChange={handleRtkCompressChange}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* ── Personalization ── */}
+            <section
+              id="cfg-personalization"
+              className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-personalization' ? 'hidden' : ''}`}
+            >
+              <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
+                Personalization
+              </h2>
+
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">Nama Panggilan</p>
+                <input
+                  className="input input-bordered w-full"
+                  placeholder="Contoh: Abel"
+                  value={config.ownerName || ''}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, ownerName: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">Pekerjaan / Bidang</p>
+                <select
+                  className="select select-bordered w-full"
+                  value={config.occupation || ''}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, occupation: e.target.value }))}
+                >
+                  <option value="">- Pilih bidang -</option>
+                  {[
+                    'Software Engineer',
+                    'Pelajar / Mahasiswa',
+                    'Content Creator',
+                    'Penulis',
+                    'Data Scientist',
+                    'Desainer',
+                    'Musisi / Artis',
+                    'Entrepreneur',
+                    'Lainnya'
+                  ].map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs opacity-40">
+                  Membantu Mark menyesuaikan analogi &amp; gaya penjelasan.
+                </p>
+              </div>
+
+              {/* System Persona */}
+              <div id="tour-persona" className="space-y-1.5 p-2 -mx-2 rounded-lg">
                 <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Perangkat Kamera</p>
+                  <p className="text-sm font-semibold">Gaya Bicara dan Kepribadian</p>
+                  <textarea
+                    className="textarea w-full h-72 leading-relaxed no-scrollbar resize-none"
+                    placeholder="Deskripsikan kepribadian Mark..."
+                    value={config.personality}
+                    onChange={handlePersonalityChange}
+                  />
+                </div>
+              </div>
+              <div id="tour-temperature" className="space-y-2 p-2 -mx-2 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">Temperature</p>
+                  <span className="font-mono text-sm text-primary font-bold">
+                    {config.temperature}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={config.temperature}
+                  className="range range-primary range-xs w-full"
+                  onChange={handleTemperatureChange}
+                />
+                <div className="flex justify-between px-2.5 mt-2 text-xs">
+                  <span>0</span>
+                  <span>0.2</span>
+                  <span>0.4</span>
+                  <span>0.6</span>
+                  <span>0.8</span>
+                  <span>1.0</span>
+                </div>
+              </div>
+
+              {/* Context Window */}
+              <div id="tour-context" className="space-y-2 p-2 -mx-2 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">Riwayat Pesan</p>
+                  <span className="font-mono text-sm text-primary font-bold">{config.context}</span>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max="22"
+                  step="2"
+                  value={config.context}
+                  className="range range-primary range-xs w-full"
+                  onChange={handleContextChange}
+                />
+                <div className="flex justify-between mt-2 text-xs">
+                  <span>2</span>
+                  <span>6</span>
+                  <span>10</span>
+                  <span>14</span>
+                  <span>18</span>
+                  <span>22</span>
+                </div>
+                <p className="text-xs opacity-40">
+                  Jumlah <b>pesan obrolan</b> yang dikirim sebagai konteks — bukan token window.
+                  Batas token model (mis. 1.048.576) adalah unit yang berbeda.
+                </p>
+              </div>
+            </section>
+
+            {/* ── Capabilities ── */}
+            <div
+              id="cfg-capabilities"
+              className={`${activeSection !== 'cfg-capabilities' ? 'hidden' : ''} space-y-6`}
+            >
+              {/* Camera Settings */}
+              <div
+                id="cfg-camera"
+                className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${activeSection !== 'cfg-camera' ? 'hidden' : ''}`}
+              >
+                <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5 flex items-center gap-2">
+                  Kamera
+                </h2>
+
+                <div className="form-control">
+                  <label className="label cursor-pointer p-0">
+                    <span className="label-text text-sm font-semibold">Aktifkan Kamera AI</span>
+                    <input
+                      type="checkbox"
+                      className="toggle toggle-primary"
+                      checked={config.cameraEnabled !== false}
+                      onChange={handleCameraEnabledChange}
+                    />
+                  </label>
+                  <span className="text-xs opacity-50 mt-2 block">
+                    Mengizinkan Mark menggunakan kamera (jika diminta) untuk melihat dunia fisik.
+                  </span>
+                </div>
+
+                {config.cameraEnabled !== false && (
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-semibold">Perangkat Kamera</p>
+                    <select
+                      className="select select-bordered w-full"
+                      value={config.cameraDeviceId || 'default'}
+                      onChange={handleCameraDeviceIdChange}
+                    >
+                      <option value="default">Default System Camera</option>
+                      {videoDevices.map((cam) => (
+                        <option key={cam.deviceId} value={cam.deviceId}>
+                          {cam.label || `Camera ${cam.deviceId.substring(0, 5)}...`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {config.cameraEnabled !== false && (
+                  <ConfigCameraPreview
+                    deviceId={config.cameraDeviceId}
+                    enabled={config.cameraEnabled !== false}
+                  />
+                )}
+              </div>
+
+              {/* TTS Settings */}
+              <div
+                id="cfg-audio-voice"
+                className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${activeSection !== 'cfg-audio-voice' ? 'hidden' : ''}`}
+              >
+                <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5">
+                  Audio & Voice Engine
+                </h2>
+
+                {/* STT Engine Selection */}
+                <div className="space-y-1.5">
+                  <p className="text-sm font-semibold">Mesin Transkripsi Suara (STT)</p>
                   <select
                     className="select select-bordered w-full"
-                    value={config.cameraDeviceId || 'default'}
-                    onChange={handleCameraDeviceIdChange}
+                    value={config.localWhisperModel || 'whisper-small'}
+                    onChange={(e) =>
+                      setConfig((prev) => ({ ...prev, localWhisperModel: e.target.value }))
+                    }
                   >
-                    <option value="default">Default System Camera</option>
-                    {videoDevices.map((cam) => (
-                      <option key={cam.deviceId} value={cam.deviceId}>
-                        {cam.label || `Camera ${cam.deviceId.substring(0, 5)}...`}
+                    <option value="whisper-small">Local Offline (Whisper Small)</option>
+                    <option value="groq-whisper">Groq API Cloud (Whisper Large-v3)</option>
+                    <option value="groq-whisper-turbo">
+                      Groq API Cloud (Whisper Large-v3 Turbo)
+                    </option>
+                  </select>
+                  <p className="text-xs opacity-40">
+                    Pilih "Groq API Cloud" untuk transkripsi via internet yang sangat ringan di
+                    sistem.
+                  </p>
+                </div>
+
+                {config.localWhisperModel?.startsWith('groq') && (
+                  <div id="tour-groq-key" className="space-y-1.5 p-2 -mx-2 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm font-semibold">
+                        Groq API Key{' '}
+                        <span className="text-xs font-normal opacity-60">
+                          (Khusus untuk Voice Speech-to-Text)
+                        </span>
+                      </p>
+                      <a
+                        href="https://console.groq.com/keys"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-xs btn-outline btn-primary"
+                      >
+                        Ambil API Key
+                      </a>
+                    </div>
+                    <div className="relative w-full">
+                      <input
+                        type={showGroqKey ? 'text' : 'password'}
+                        placeholder="Contoh: gsk_xxxxxxxxxxxxxxxxx"
+                        className="input input-bordered w-full pr-10"
+                        value={config.groqApiKey || ''}
+                        onChange={handleGroqApiKeyChange}
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+                        onClick={handleToggleGroqKey}
+                        title={showGroqKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
+                      >
+                        {showGroqKey ? (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                            <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                            <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                            <line x1="2" x2="22" y1="2" y2="22" />
+                          </svg>
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-xs opacity-40">
+                      API Key Groq ini digunakan khusus untuk fitur transkripsi suara mikrofon
+                      (Whisper STT).
+                    </p>
+                  </div>
+                )}
+
+                {/* Microphone Source Selection */}
+                <div className="space-y-1.5">
+                  <p className="text-sm font-semibold">Mikrofon (Voice Input)</p>
+                  <select
+                    className="select select-bordered w-full"
+                    value={config.micDeviceId || 'default'}
+                    onChange={handleMicDeviceIdChange}
+                  >
+                    <option value="default">Default System Microphone</option>
+                    {audioDevices.map((mic) => (
+                      <option key={mic.deviceId} value={mic.deviceId}>
+                        {mic.label || `Microphone ${mic.deviceId.substring(0, 5)}...`}
                       </option>
                     ))}
                   </select>
                 </div>
-              )}
 
-              {config.cameraEnabled !== false && (
-                <ConfigCameraPreview
-                  deviceId={config.cameraDeviceId}
-                  enabled={config.cameraEnabled !== false}
-                />
-              )}
-            </div>
-
-            {/* TTS Settings */}
-            <div id="cfg-audio-voice" className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${activeSection !== 'cfg-audio-voice' ? 'hidden' : ''}`}>
-              <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5">
-                Audio & Voice Engine
-              </h2>
-
-              {/* STT Engine Selection */}
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Mesin Transkripsi Suara (STT)</p>
-                <select
-                  className="select select-bordered w-full"
-                  value={config.localWhisperModel || 'whisper-small'}
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, localWhisperModel: e.target.value }))
-                  }
-                >
-                  <option value="whisper-small">Local Offline (Whisper Small)</option>
-                  <option value="groq-whisper">Groq API Cloud (Whisper Large-v3)</option>
-                  <option value="groq-whisper-turbo">Groq API Cloud (Whisper Large-v3 Turbo)</option>
-                </select>
-                <p className="text-xs opacity-40">
-                  Pilih "Groq API Cloud" untuk transkripsi via internet yang sangat ringan di
-                  sistem.
-                </p>
-              </div>
-
-              {config.localWhisperModel?.startsWith('groq') && (
-                <div id="tour-groq-key" className="space-y-1.5 p-2 -mx-2 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm font-semibold">
-                      Groq API Key{' '}
-                      <span className="text-xs font-normal opacity-60">
-                        (Khusus untuk Voice Speech-to-Text)
-                      </span>
-                    </p>
-                    <a
-                      href="https://console.groq.com/keys"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-xs btn-outline btn-primary"
-                    >
-                      Ambil API Key
-                    </a>
+                {/* TTS Rate */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold">TTS Rate (Kecepatan Suara)</p>
+                    <span className="font-mono text-sm text-primary font-bold">
+                      {config.ttsRate}%
+                    </span>
                   </div>
-                  <div className="relative w-full">
-                    <input
-                      type={showGroqKey ? 'text' : 'password'}
-                      placeholder="Contoh: gsk_xxxxxxxxxxxxxxxxx"
-                      className="input input-bordered w-full pr-10"
-                      value={config.groqApiKey || ''}
-                      onChange={handleGroqApiKeyChange}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                      onClick={handleToggleGroqKey}
-                      title={showGroqKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
-                    >
-                      {showGroqKey ? (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-                          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-                          <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                          <line x1="2" x2="22" y1="2" y2="22" />
-                        </svg>
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                      )}
-                    </button>
+                  <input
+                    type="range"
+                    min="-50"
+                    max="50"
+                    step="1"
+                    value={config.ttsRate}
+                    className="range range-primary range-xs w-full"
+                    onChange={handleTtsRateChange}
+                  />
+                  <div className="flex justify-between mt-2 text-xs">
+                    <span>-50%</span>
+                    <span>-25%</span>
+                    <span>0%</span>
+                    <span>25%</span>
+                    <span>50%</span>
                   </div>
-                  <p className="text-xs opacity-40">
-                    API Key Groq ini digunakan khusus untuk fitur transkripsi suara mikrofon
-                    (Whisper STT).
+                </div>
+
+                {/* TTS Pitch */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold">TTS Pitch (Nada Suara)</p>
+                    <span className="font-mono text-sm text-primary font-bold">
+                      {config.ttsPitch}hz
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-50"
+                    max="50"
+                    step="1"
+                    value={config.ttsPitch}
+                    className="range range-primary range-xs w-full"
+                    onChange={handleTtsPitchChange}
+                  />
+                  <div className="flex justify-between mt-2 text-xs">
+                    <span>-50hz</span>
+                    <span>-25hz</span>
+                    <span>0hz</span>
+                    <span>25hz</span>
+                    <span>50hz</span>
+                  </div>
+                </div>
+
+                {/* Test TTS Button */}
+                <div className="pt-2">
+                  <button
+                    className={`btn btn-soft btn-sm gap-2 ${playingTest ? 'btn-disabled' : ''}`}
+                    onClick={handleTestVoice}
+                    disabled={playingTest}
+                  >
+                    {playingTest ? (
+                      <span className="loading loading-spinner loading-xs"></span>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="1.2em"
+                        height="1.2em"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
+                      </svg>
+                    )}
+                    Test Suara Mark
+                  </button>
+                  <p className="text-[10px] opacity-30 mt-1.5 px-1">
+                    *Klik untuk mendengar suara Mark dengan settingan di atas tanpa perlu simpan
+                    dulu.
                   </p>
                 </div>
-              )}
-
-              {/* Microphone Source Selection */}
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Mikrofon (Voice Input)</p>
-                <select
-                  className="select select-bordered w-full"
-                  value={config.micDeviceId || 'default'}
-                  onChange={handleMicDeviceIdChange}
-                >
-                  <option value="default">Default System Microphone</option>
-                  {audioDevices.map((mic) => (
-                    <option key={mic.deviceId} value={mic.deviceId}>
-                      {mic.label || `Microphone ${mic.deviceId.substring(0, 5)}...`}
-                    </option>
-                  ))}
-                </select>
               </div>
+            </div>
 
-              {/* TTS Rate */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">TTS Rate (Kecepatan Suara)</p>
-                  <span className="font-mono text-sm text-primary font-bold">
-                    {config.ttsRate}%
-                  </span>
+            {/* ── Plugins ── */}
+            <div
+              id="cfg-plugins"
+              className={`space-y-4 p-2 -mx-2 rounded-lg ${activeSection !== 'cfg-plugins' ? 'hidden' : ''}`}
+            >
+              <h3 className="text-sm font-bold uppercase tracking-wider opacity-70">Plugins</h3>
+              <p className="text-xs text-white/50">
+                Fungsi kustom buatanmu (kode JS) yang dipahami Mark secara otomatis — lengkap dengan
+                Monaco editor di halaman penuhnya.
+              </p>
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-base-100 border border-white/5">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <FaCubes className="text-primary" size={16} />
                 </div>
-                <input
-                  type="range"
-                  min="-50"
-                  max="50"
-                  step="1"
-                  value={config.ttsRate}
-                  className="range range-primary range-xs w-full"
-                  onChange={handleTtsRateChange}
-                />
-                <div className="flex justify-between mt-2 text-xs">
-                  <span>-50%</span>
-                  <span>-25%</span>
-                  <span>0%</span>
-                  <span>25%</span>
-                  <span>50%</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">
+                    {pluginCount === null ? 'Memuat...' : `${pluginCount} plugin terpasang`}
+                  </p>
+                  <p className="text-xs opacity-50">
+                    Plugin berjalan selalu aktif (always-on) dalam setiap sesi agent.
+                  </p>
                 </div>
-              </div>
-
-              {/* TTS Pitch */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">TTS Pitch (Nada Suara)</p>
-                  <span className="font-mono text-sm text-primary font-bold">
-                    {config.ttsPitch}hz
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="-50"
-                  max="50"
-                  step="1"
-                  value={config.ttsPitch}
-                  className="range range-primary range-xs w-full"
-                  onChange={handleTtsPitchChange}
-                />
-                <div className="flex justify-between mt-2 text-xs">
-                  <span>-50hz</span>
-                  <span>-25hz</span>
-                  <span>0hz</span>
-                  <span>25hz</span>
-                  <span>50hz</span>
-                </div>
-              </div>
-
-              {/* Test TTS Button */}
-              <div className="pt-2">
                 <button
-                  className={`btn btn-soft btn-sm gap-2 ${playingTest ? 'btn-disabled' : ''}`}
-                  onClick={handleTestVoice}
-                  disabled={playingTest}
+                  onClick={() => navigate('/plugins')}
+                  className="btn btn-sm btn-outline shrink-0"
                 >
-                  {playingTest ? (
-                    <span className="loading loading-spinner loading-xs"></span>
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="1.2em"
-                      height="1.2em"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
-                    </svg>
-                  )}
-                  Test Suara Mark
+                  Kelola <FaExternalLinkAlt size={10} />
                 </button>
-                <p className="text-[10px] opacity-30 mt-1.5 px-1">
-                  *Klik untuk mendengar suara Mark dengan settingan di atas tanpa perlu simpan dulu.
+              </div>
+            </div>
+
+            {/* ── Skills ── */}
+            <div
+              id="cfg-skills"
+              className={`space-y-4 p-2 -mx-2 rounded-lg ${activeSection !== 'cfg-skills' ? 'hidden' : ''}`}
+            >
+              <h3 className="text-sm font-bold uppercase tracking-wider opacity-70">Mark Skills</h3>
+              <p className="text-xs text-white/50">
+                Keterampilan yang Mark pelajari sendiri dari percakapan (SKILL.md) — bisa kamu edit,
+                ekspor, atau hapus.
+              </p>
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-base-100 border border-white/5">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <FaBrain className="text-primary" size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">
+                    {skillCount === null ? 'Memuat...' : `${skillCount} skill tersimpan`}
+                  </p>
+                  <p className="text-xs opacity-50">
+                    Tersimpan di folder XDG lokal — bisa dibaca langsung dari shell.
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/skills')}
+                  className="btn btn-sm btn-outline shrink-0"
+                >
+                  Kelola <FaExternalLinkAlt size={10} />
+                </button>
+              </div>
+            </div>
+
+            {/* ── Connectors (MCP) ── */}
+            <div
+              id="cfg-connectors"
+              className={`space-y-4 p-2 -mx-2 rounded-lg ${activeSection !== 'cfg-connectors' ? 'hidden' : ''}`}
+            >
+              <h3 className="text-sm font-bold uppercase tracking-wider opacity-70">
+                Connectors (MCP)
+              </h3>
+              <p className="text-xs text-white/50">
+                Kemampuan pluggable ala Claude connectors: katalog, otorisasi scope, dan jejak audit
+                — semua keputusan approval tetap native (rfd), bukan di renderer.
+              </p>
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-base-100 border border-white/5">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <FaPlug className="text-primary" size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  {connStats === null ? (
+                    <p className="text-sm font-semibold">Memuat...</p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold">
+                        {connStats.total} connector · {connStats.connected} terhubung ·{' '}
+                        {connStats.connectionless} connection-less
+                      </p>
+                      <p className="text-xs opacity-50">
+                        {connStats.auditOk} eksekusi ter-audit sukses (30 entri terakhir).
+                      </p>
+                    </>
+                  )}
+                </div>
+                <button
+                  onClick={() => navigate('/connectors')}
+                  className="btn btn-sm btn-outline shrink-0"
+                >
+                  Buka <FaExternalLinkAlt size={10} />
+                </button>
+              </div>
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-success/5 border border-success/20">
+                <FaShieldAlt className="text-success mt-0.5 shrink-0" size={12} />
+                <p className="text-[11px] opacity-70">
+                  Connector berbahaya (shell, fs-write) selalu melewati dialog persetujuan NATIVE di
+                  Rust main thread — model tidak bisa menyetujui dirinya sendiri.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* ── Plugins ── */}
-          <div id="cfg-plugins" className={`space-y-3 p-2 -mx-2 rounded-lg ${activeSection !== 'cfg-plugins' ? 'hidden' : ''}`}>
-            <h3 className="text-sm font-bold uppercase tracking-wider opacity-70">Plugins</h3>
-            <p className="text-xs text-white/50">
-              Tambah atau hapus plugin untuk fungsionalitas tambahan.
-            </p>
-            {/* TODO: Plugin management list */}
-          </div>
+          {/* ── Global Shortcut Settings ── */}
+          <section
+            id="cfg-shortcut"
+            className={`space-y-5 p-2 -mx-2 rounded-lg scroll-mt-4 ${activeSection !== 'cfg-shortcut' ? 'hidden' : ''}`}
+          >
+            <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
+              Global Shortcut Key
+            </h2>
 
-          {/* ── Skills ── */}
-          <div id="cfg-skills" className={`space-y-3 p-2 -mx-2 rounded-lg ${activeSection !== 'cfg-skills' ? 'hidden' : ''}`}>
-            <h3 className="text-sm font-bold uppercase tracking-wider opacity-70">Mark Skills</h3>
-            <p className="text-xs text-white/50">
-              Keterampilan bawaan Mark yang bisa kamu aktifkan atau matikan.
-            </p>
-            {/* TODO: Skills toggle list */}
-          </div>
-
-          {/* ── MCP Connector ── */}
-          <div id="cfg-mcp" className={`space-y-3 p-2 -mx-2 rounded-lg ${activeSection !== 'cfg-mcp' ? 'hidden' : ''}`}>
-            <h3 className="text-sm font-bold uppercase tracking-wider opacity-70">MCP Connector</h3>
-            <p className="text-xs text-white/50">
-              Sambungkan layanan eksternal (Google Workspace, Telegram, dll) untuk memperluas kemampuan Mark.
-            </p>
-            {/* TODO: MCP connection list */}
-          </div>
-        </div>
-
-            {/* ── Global Shortcut Settings ── */}
-            <section id="cfg-shortcut" className={`space-y-5 p-2 -mx-2 rounded-lg scroll-mt-4 ${activeSection !== 'cfg-shortcut' ? 'hidden' : ''}`}>
-              <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-                Global Shortcut Key
-              </h2>
-
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-end">
-                  <p className="text-sm font-semibold">Tombol Panggilan Cepat</p>
-                  <span className="text-[10px] font-mono opacity-50">Aktif Lintas Aplikasi</span>
-                </div>
-
-                <div className="relative w-full">
-                  <input
-                    type="text"
-                    readOnly
-                    onFocus={() => setIsRecordingShortcut(true)}
-                    onBlur={() => setIsRecordingShortcut(false)}
-                    onKeyDown={handleShortcutRecorderKeyDown}
-                    value={
-                      isRecordingShortcut
-                        ? 'Tekan kombinasi tombol di keyboard...'
-                        : (config.shortcutKey || 'CommandOrControl+Alt+M').replace(
-                            /CommandOrControl|Control/g,
-                            'Ctrl'
-                          )
-                    }
-                    className={`input input-bordered w-full font-mono text-sm cursor-pointer select-none ${
-                      isRecordingShortcut
-                        ? 'input-primary border-2 animate-pulse bg-primary/10 text-primary font-bold'
-                        : 'hover:border-primary/60'
-                    }`}
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  <span className="text-xs opacity-60 w-full mb-1">Preset Cepat:</span>
-                  {[
-                    'CommandOrControl+Alt+M',
-                    'CommandOrControl+Shift+Space',
-                    'Alt+Space',
-                    'CommandOrControl+Space',
-                    'F9'
-                  ].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => {
-                        setConfig((prev) => {
-                          const updated = { ...prev, shortcutKey: preset }
-                          if (window.api && window.api.syncConfig) window.api.syncConfig(updated)
-                          return updated
-                        })
-                      }}
-                      className={`btn btn-xs ${config.shortcutKey === preset ? 'btn-primary' : 'btn-ghost border-base-content/20'} font-mono`}
-                    >
-                      {preset.replace('CommandOrControl', 'Ctrl')}
-                    </button>
-                  ))}
-                </div>
-                <span className="text-[11px] opacity-60 block mt-1">
-                  Cukup <b>klik kotak input di atas</b> lalu tekan kombinasi tombol di keyboard kamu
-                  (misal: <code>Ctrl+Alt+A</code>, <code>Alt+Space</code>, <code>F9</code>).
-                  Shortcut langsung aktif seketika di OS!
-                </span>
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-end">
+                <p className="text-sm font-semibold">Tombol Panggilan Cepat</p>
+                <span className="text-[10px] font-mono opacity-50">Aktif Lintas Aplikasi</span>
               </div>
-            </section>
 
-            <div className="divider"></div>
+              <div className="relative w-full">
+                <input
+                  type="text"
+                  readOnly
+                  onFocus={() => setIsRecordingShortcut(true)}
+                  onBlur={() => setIsRecordingShortcut(false)}
+                  onKeyDown={handleShortcutRecorderKeyDown}
+                  value={
+                    isRecordingShortcut
+                      ? 'Tekan kombinasi tombol di keyboard...'
+                      : (config.shortcutKey || 'CommandOrControl+Alt+M').replace(
+                          /CommandOrControl|Control/g,
+                          'Ctrl'
+                        )
+                  }
+                  className={`input input-bordered w-full font-mono text-sm cursor-pointer select-none ${
+                    isRecordingShortcut
+                      ? 'input-primary border-2 animate-pulse bg-primary/10 text-primary font-bold'
+                      : 'hover:border-primary/60'
+                  }`}
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <span className="text-xs opacity-60 w-full mb-1">Preset Cepat:</span>
+                {[
+                  'CommandOrControl+Alt+M',
+                  'CommandOrControl+Shift+Space',
+                  'Alt+Space',
+                  'CommandOrControl+Space',
+                  'F9'
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      setConfig((prev) => {
+                        const updated = { ...prev, shortcutKey: preset }
+                        if (window.api && window.api.syncConfig) window.api.syncConfig(updated)
+                        return updated
+                      })
+                    }}
+                    className={`btn btn-xs ${config.shortcutKey === preset ? 'btn-primary' : 'btn-ghost border-base-content/20'} font-mono`}
+                  >
+                    {preset.replace('CommandOrControl', 'Ctrl')}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[11px] opacity-60 block mt-1">
+                Cukup <b>klik kotak input di atas</b> lalu tekan kombinasi tombol di keyboard kamu
+                (misal: <code>Ctrl+Alt+A</code>, <code>Alt+Space</code>, <code>F9</code>). Shortcut
+                langsung aktif seketika di OS!
+              </span>
+            </div>
+          </section>
+
+          <div className="divider"></div>
 
           {/* ── Telegram Bot Settings ── */}
 
@@ -1500,7 +1680,10 @@ const Configuration = ({
               <div className="divider"></div>
 
               {/* ── Memory & Data ── */}
-              <section id="cfg-memory-data" className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-memory-data' ? 'hidden' : ''}`}>
+              <section
+                id="cfg-memory-data"
+                className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-memory-data' ? 'hidden' : ''}`}
+              >
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                   Data Controls
                 </h2>
@@ -1509,7 +1692,10 @@ const Configuration = ({
                 <div className="space-y-2">
                   <p className="text-sm font-semibold">Chat History</p>
                   <div className="flex flex-wrap gap-2">
-                    <button className="btn btn-outline btn-sm btn-error" onClick={handleClearAllChat}>
+                    <button
+                      className="btn btn-outline btn-sm btn-error"
+                      onClick={handleClearAllChat}
+                    >
                       Hapus Semua Chat
                     </button>
                     <button className="btn btn-outline btn-sm btn-info" onClick={handleExportChat}>
@@ -1523,15 +1709,18 @@ const Configuration = ({
               </section>
 
               {/* -- Developer -- */}
-              <section id="cfg-developer" className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-developer' ? 'hidden' : ''}`}>
+              <section
+                id="cfg-developer"
+                className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-developer' ? 'hidden' : ''}`}
+              >
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                   Developer
                 </h2>
                 <div className="space-y-2">
                   <p className="text-sm font-semibold">Debug Logging (JSONL)</p>
                   <p className="text-xs opacity-60">
-                    Rekam reasoning &amp; tool-call ke file JSONL di folder data aplikasi.
-                    Default OFF. Rotasi otomatis 50MB.
+                    Rekam reasoning &amp; tool-call ke file JSONL di folder data aplikasi. Default
+                    OFF. Rotasi otomatis 50MB.
                   </p>
                   <label className="flex items-center gap-3 cursor-pointer w-fit">
                     <input
@@ -1547,9 +1736,9 @@ const Configuration = ({
                     <span className="text-sm">{devHarness ? 'AKTIF' : 'OFF'}</span>
                   </label>
                 </div>
-                   <button className="btn btn-outline btn-sm w-fit" onClick={handleDumpPrompt}>
-                     Dump System Prompt (Audit)
-                   </button>
+                <button className="btn btn-outline btn-sm w-fit" onClick={handleDumpPrompt}>
+                  Dump System Prompt (Audit)
+                </button>
               </section>
             </>
           )}

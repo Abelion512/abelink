@@ -22,6 +22,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_PATH = path.join(ROOT, 'evaluation', 'perf-baseline.json')
 const ITERATIONS = 30
 const REGRESSION_THRESHOLD = 0.15 // 15% lebih lambat = regresi nyata
+// Ambang absolut: di bawah ini, persentase tidak berarti (noise JIT/GC scheduler
+// bisa mencapai ±100% pada operasi sub-milidetik). Gate yang flaky pada noise
+// melatih orang mengabaikannya — jadi regresi "nyata" harus KEDUA-duanya
+// melewati ambang relatif DAN absolut (pola sama dengan paket benchmark populer).
+const MIN_ABSOLUTE_DELTA_MS = 0.2 // 200µs — di bawah ini = noise scheduler/JIT
 
 // ---------------------------------------------------------------- workloads
 // Semua workload IMPORT modul asli (bukan copy) supaya mengukur jalur produksi.
@@ -174,9 +179,15 @@ for (const r of results) {
   }
   const delta = (r.median - prev) / prev
   const pct = (delta * 100).toFixed(1)
-  if (delta > REGRESSION_THRESHOLD) {
+  const absoluteDelta = r.median - prev
+  const belowNoiseFloor = absoluteDelta < MIN_ABSOLUTE_DELTA_MS
+  if (delta > REGRESSION_THRESHOLD && !belowNoiseFloor) {
     hasRegression = true
     console.log(`  ${r.name}: REGRESI ${pct}% (${prev.toFixed(3)} -> ${r.median.toFixed(3)} ms)`)
+  } else if (delta > REGRESSION_THRESHOLD && belowNoiseFloor) {
+    console.log(
+      `  ${r.name}: stabil (${pct}%, delta ${(absoluteDelta * 1000).toFixed(0)}µs < ${(MIN_ABSOLUTE_DELTA_MS * 1000).toFixed(0)}µs noise floor)`
+    )
   } else if (delta < -REGRESSION_THRESHOLD) {
     hasImprovement = true
     console.log(
