@@ -1552,7 +1552,7 @@ export const useMarkPlan = ({
             window.api.showNotification('Mark', decision.answer)
           }
 
-          // Tampilkan balasan final di chat UI
+          // Tampilkan balasan final di chat UI (lewati jika benar-benar tidak ada jawaban)
           targetSetChatData((prev) => {
             const filtered = prev.filter((item) => {
               if (item.isThinking) return false
@@ -1564,6 +1564,14 @@ export const useMarkPlan = ({
             let finalOutput = decision.answer
             if (isAutonomous && autonomousInitialMessage) {
               finalOutput = `**${autonomousInitialMessage}**\n\n${decision.answer}`
+            }
+            // Guard konteks: model bisa mengembalikan answer null/kosong saat
+            // is_done. Menyimpan `content: undefined` meracuni seluruh consumer
+            // history (archiver turn-pair, awareness recentChat, prompt berikutnya).
+            // Tanpa jawaban sama sekali -> tidak usah push bubble kosong.
+            if (typeof finalOutput !== 'string') finalOutput = ''
+            if (finalOutput.trim() === '') {
+              return filtered
             }
 
             const aiMsg = {

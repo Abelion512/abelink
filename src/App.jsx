@@ -422,7 +422,8 @@ function App() {
     localStorage.setItem('mark:first-boot-choice', value)
     const defaultConfig = {
       id: 1,
-      model: 'gemini-3.5-flash',
+      model: 'google/gemma-3-4b',
+      geminiWebModel: 'gemini-3.6-flash',
       temperature: 1.0,
       context: 10,
       aiProvider: 'gemini-web',
@@ -432,6 +433,14 @@ function App() {
     }
     await saveConfiguration(defaultConfig)
     setHasConfig(true)
+    if (value === 'restore') {
+      // Restore dijalankan DI LATAR BELAKANG: user langsung diarahkan ke
+      // MarkHome dan diberi tahu lewat toast kanan-atas saat impor selesai
+      // (tidak memblokir first-run experience). Impor manual tetap tersedia
+      // di Configuration > Data Controls bila user melewatkan file ini.
+      window.location.replace('/#/config?legacy-import=1')
+      return
+    }
     window.location.replace('/')
   }, [])
 

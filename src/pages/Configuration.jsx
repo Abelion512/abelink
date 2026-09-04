@@ -346,12 +346,24 @@ const Configuration = ({
   }
 
   // Auto-buka dialog impor saat user memilih "Restore" di layar first boot.
+  // Sinyalnya query ?legacy-import=1 pada hash route (dari App.jsx settleChoice)
+  // atau prop initialLegacyImport (kompatibilitas). URL dibersihkan setelahnya
+  // agar refresh tidak memicu dialog lagi.
+  const location = useLocation()
   useEffect(() => {
-    if (initialLegacyImport && !legacyImportFiredRef.current && handleImportLegacy) {
+    const wantsImport =
+      (initialLegacyImport || location.search.includes('legacy-import=1')) &&
+      !legacyImportFiredRef.current &&
+      handleImportLegacy
+    if (wantsImport) {
       legacyImportFiredRef.current = true
       handleImportLegacy()
+      if (location.search.includes('legacy-import=1')) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.hash.split('?')[0])
+      }
     }
-  }, [initialLegacyImport])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialLegacyImport, location.search])
 
   const handleDeleteMemory = async (mem) => {
     const result = await confirm({
@@ -513,6 +525,25 @@ const Configuration = ({
   const [customModels, setCustomModels] = useState([])
   const [detectingModels, setDetectingModels] = useState(false)
   const [modelDetectError, setModelDetectError] = useState('')
+  // Deteksi model LM Studio (localhost:1234/v1/models) — LAZY: hanya saat
+  // section Model dibuka dan provider = lm-studio. Tanpa server -> error
+  // senyap, input manual tetap berfungsi (degrades gracefully).
+  const [lmStudioModels, setLmStudioModels] = useState([])
+  const [lmDetectAttempted, setLmDetectAttempted] = useState(false)
+  useEffect(() => {
+    if (activeSection !== 'cfg-model' || config.aiProvider !== 'lm-studio' || lmDetectAttempted) return
+    setLmDetectAttempted(true)
+    let alive = true
+    window.api
+      .detectCustomModels('http://localhost:1234/v1', '', 'openai')
+      .then((list) => {
+        if (alive && Array.isArray(list) && list.length > 0) setLmStudioModels(list)
+      })
+      .catch(() => {}) // server mati -> biarkan input manual
+    return () => {
+      alive = false
+    }
+  }, [activeSection, config.aiProvider, lmDetectAttempted])
   const handleDetectModels = async () => {
     setDetectingModels(true)
     setModelDetectError('')
@@ -852,13 +883,41 @@ const Configuration = ({
             ) : (
               <div className="space-y-1.5">
                 <p className="text-sm font-semibold">Model Selector (LM Studio)</p>
+                {lmStudioModels.length > 0 && (
+                  <>
+                    <p className="text-xs text-success">
+                      {lmStudioModels.length} model lokal terdeteksi di LM Studio (port 1234) —
+                      pilih di bawah atau ketik manual.
+                    </p>
+                    <select
+                      className="select select-bordered w-full"
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) setConfig((prev) => ({ ...prev, model: e.target.value }))
+                      }}
+                    >
+                      <option value="">-- Pilih model terdeteksi --</option>
+                      {lmStudioModels.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
                 <input
                   type="text"
+                  list="lmstudio-model-options"
                   placeholder="Contoh: google/gemma-3-4b"
                   className="input input-bordered w-full"
                   value={config.model || ''}
                   onChange={handleModelChange}
                 />
+                <datalist id="lmstudio-model-options">
+                  {lmStudioModels.map((m) => (
+                    <option key={m} value={m} />
+                  ))}
+                </datalist>
                 <p className="text-xs opacity-40">
                   Nama model yang aktif di LM Studio. Pastikan sudah ter-load.
                 </p>

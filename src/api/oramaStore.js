@@ -80,11 +80,48 @@ let documentIndex = null
 let memoryIndex = null
 let turnPairIndex = null
 
+// Lazy init promise: di MINIMAL profile App.jsx sengaja tidak init saat boot
+// (hemat RAM/CPU), tapi konsumen (RAG pipeline, memory groomer, pencarian
+// arsip/dokumen) tetap memanggil fungsi2 indeks. Tanpa ini, indeks tetap null
+// selamanya dan pencarian selalu kosong ([Orama] documentIndex is null!).
+// ensure*Index() membuat indeks yang belum ada secara idempoten, on-demand.
+let ensurePromise = null
+const ensureIndices = async () => {
+  if (memoryIndex && archiveIndex && documentIndex && turnPairIndex) return
+  if (!ensurePromise) {
+    ensurePromise = (async () => {
+      if (!memoryIndex) memoryIndex = await create({ schema: MEMORY_SCHEMA })
+      if (!archiveIndex) archiveIndex = await create({ schema: ARCHIVE_SCHEMA })
+      if (!documentIndex) documentIndex = await create({ schema: DOCUMENT_SCHEMA })
+      if (!turnPairIndex) turnPairIndex = await create({ schema: TURN_PAIR_SCHEMA })
+    })()
+    // Gagal create (mis. Orama tidak tersedia) -> reset promise agar caller
+    // berikutnya bisa retry, bukan terjebak rejection yang di-cache selamanya.
+    ensurePromise.catch(() => {
+      ensurePromise = null
+    })
+  }
+  await ensurePromise
+}
+const ensureMemoryIndex = async () => {
+  await ensureIndices()
+  return memoryIndex
+}
+const ensureDocumentIndex = async () => {
+  await ensureIndices()
+  return documentIndex
+}
+const ensureArchiveIndex = async () => {
+  await ensureIndices()
+  return archiveIndex
+}
+const ensureTurnPairIndex = async () => {
+  await ensureIndices()
+  return turnPairIndex
+}
+
 export async function initOramaIndices() {
-  memoryIndex = await create({ schema: MEMORY_SCHEMA })
-  archiveIndex = await create({ schema: ARCHIVE_SCHEMA })
-  documentIndex = await create({ schema: DOCUMENT_SCHEMA })
-  turnPairIndex = await create({ schema: TURN_PAIR_SCHEMA })
+  await ensureIndices()
 }
 
 // Kosongkan indeks pencarian turunan data chat (archive, document, turn pair) dengan
@@ -120,6 +157,10 @@ export async function hydrateFromDexie(onProgress) {
   const { db } = await import('./db')
   const { generateStorableVector, getVectorModel } = await loadVectorPolicy()
   const currentModel = getVectorModel()
+
+  // Jaminan indeks siap: App.jsx bisa jadi tidak memanggil initOramaIndices
+  // (MINIMAL profile), jadi hydrate juga membuat indeks bila belum ada.
+  await ensureIndices()
 
   // 1. CHAT TURNS HYDRATION & SMART MIGRATION
   let validTurnsCount = 0
@@ -339,9 +380,10 @@ export async function hydrateFromDexie(onProgress) {
 
 // Vector search di arsip obrolan
 export async function searchArchives(queryVector, limit = 3) {
-  if (!archiveIndex) return []
+  const archiveIdx = await ensureArchiveIndex()
+  if (!archiveIdx) return []
   try {
-    const results = await search(archiveIndex, {
+    const results = await search(archiveIdx, {
       mode: 'vector',
       vector: { value: queryVector, property: 'vector' },
       similarity: 0.25,
@@ -366,13 +408,14 @@ export async function searchArchives(queryVector, limit = 3) {
 
 // Vector search di dokumen RAG
 export async function searchDocuments(queryText, queryVector, limit = 5) {
-  if (!documentIndex) {
+  const docIdx = await ensureDocumentIndex()
+  if (!docIdx) {
     console.log('[Orama] documentIndex is null!')
     return []
   }
   try {
     console.log(`[Orama] Searching documents for: "${queryText}", vector length: ${queryVector?.length}`)
-    const results = await search(documentIndex, {
+    const results = await search(docIdx, {
       term: queryText,
       mode: 'hybrid',
       vector: { value: queryVector, property: 'vector' },
@@ -398,27 +441,30 @@ export async function searchDocuments(queryText, queryVector, limit = 5) {
 
 // Insert baru (dipanggil setelah Dexie.add)
 export async function insertArchiveToOrama(data) {
-  if (!archiveIndex) return
+  const idx = await ensureArchiveIndex()
+  if (!idx) return
   // Vector selalu hasil vectorLoader (MiniLM asli, tanpa fallback hash)
-  await insert(archiveIndex, { ...data, vectorModel: data.vectorModel || LEGACY_VECTOR_MODEL })
+  await insert(idx, { ...data, vectorModel: data.vectorModel || LEGACY_VECTOR_MODEL })
 }
 
 export async function insertDocumentChunksToOrama(chunks) {
-  if (!documentIndex) return
+  const idx = await ensureDocumentIndex()
+  if (!idx) return
   const tagged = (chunks || []).map((c) => ({
     ...c,
     vectorModel: c.vectorModel || LEGACY_VECTOR_MODEL
   }))
-  await insertMultiple(documentIndex, tagged)
+  await insertMultiple(idx, tagged)
 }
 
 export async function deleteArchiveFromOrama(dexieId) {
-  if (!archiveIndex || !dexieId) return
+  const idx = await ensureArchiveIndex()
+  if (!idx || !dexieId) return
   try {
-    const res = await search(archiveIndex, { where: { dexieId: Number(dexieId) } })
+    const res = await search(idx, { where: { dexieId: Number(dexieId) } })
     if (res.hits.length > 0) {
       for (let h of res.hits) {
-        await remove(archiveIndex, h.id)
+        await remove(idx, h.id)
       }
     }
   } catch (err) {
@@ -427,13 +473,14 @@ export async function deleteArchiveFromOrama(dexieId) {
 }
 
 export async function deleteDocumentFromOrama(docName) {
-  if (!documentIndex || !docName) return
+  const idx = await ensureDocumentIndex()
+  if (!idx || !docName) return
   try {
     // Filter eksak (bukan fuzzy term search) agar chunk dokumen sejenis tidak ikut terhapus
-    const res = await search(documentIndex, { where: { docName }, limit: 10000 })
+    const res = await search(idx, { where: { docName }, limit: 10000 })
     const ids = res.hits.map((h) => h.id)
     if (ids.length > 0) {
-      await removeMultiple(documentIndex, ids)
+      await removeMultiple(idx, ids)
     }
   } catch (err) {
     console.error('[Orama] Error deleteDocumentFromOrama:', err)
@@ -443,7 +490,8 @@ export async function deleteDocumentFromOrama(docName) {
 // ======================== TURN PAIR ORAMA INDEX ========================
 
 export async function insertTurnPairToOrama(data) {
-  if (!turnPairIndex) return
+  const idx = await ensureTurnPairIndex()
+  if (!idx) return
   try {
     const { getVectorModel } = await loadVectorPolicy()
     const currentModel = getVectorModel()
@@ -476,14 +524,15 @@ export async function insertTurnPairToOrama(data) {
     }
     if (vector) doc.vector = vector
 
-    await insert(turnPairIndex, doc)
+    await insert(idx, doc)
   } catch (err) {
     console.error('[Orama] Error insertTurnPairToOrama:', err)
   }
 }
 
 export async function insertBatchTurnPairsToOrama(turns) {
-  if (!turnPairIndex || !Array.isArray(turns) || turns.length === 0) return
+  const idx = await ensureTurnPairIndex()
+  if (!idx || !Array.isArray(turns) || turns.length === 0) return
   try {
     const { getVectorModel } = await loadVectorPolicy()
     const currentModel = getVectorModel()
@@ -518,7 +567,7 @@ export async function insertBatchTurnPairsToOrama(turns) {
     }
 
     if (valid.length > 0) {
-      await insertMultiple(turnPairIndex, valid)
+      await insertMultiple(idx, valid)
     }
   } catch (err) {
     console.error('[Orama] Error insertBatchTurnPairsToOrama:', err)
@@ -526,9 +575,10 @@ export async function insertBatchTurnPairsToOrama(turns) {
 }
 
 export async function searchTurnPairsInOrama(queryText, queryVector, limit = 5, threshold = 0.5) {
-  if (!turnPairIndex || !queryVector) return []
+  const idx = await ensureTurnPairIndex()
+  if (!idx || !queryVector) return []
   try {
-    const results = await search(turnPairIndex, {
+    const results = await search(idx, {
       term: queryText,
       mode: 'hybrid',
       vector: { value: queryVector, property: 'vector' },
@@ -551,14 +601,15 @@ export async function searchTurnPairsInOrama(queryText, queryVector, limit = 5, 
 }
 
 export async function deleteTurnPairsBySessionFromOrama(sessionId) {
-  if (!turnPairIndex || !sessionId) return
+  const idx = await ensureTurnPairIndex()
+  if (!idx || !sessionId) return
   try {
-    const results = await search(turnPairIndex, {
+    const results = await search(idx, {
       where: { sessionId: Number(sessionId) }
     })
     if (results.hits.length > 0) {
       const ids = results.hits.map((h) => h.id)
-      await removeMultiple(turnPairIndex, ids)
+      await removeMultiple(idx, ids)
     }
   } catch (err) {
     console.error('[Orama] Error deleteTurnPairsBySessionFromOrama:', err)
@@ -568,9 +619,10 @@ export async function deleteTurnPairsBySessionFromOrama(sessionId) {
 // ======================== MEMORY ORAMA INDEX ========================
 
 export async function searchMemoriesInOrama(queryText, queryVector, limit = 5, filterTypes = null, threshold = 0.5) {
-  if (!memoryIndex || !queryVector) return []
+  const idx = await ensureMemoryIndex()
+  if (!idx || !queryVector) return []
   try {
-    const results = await search(memoryIndex, {
+    const results = await search(idx, {
       term: queryText,
       mode: 'hybrid',
       vector: { value: queryVector, property: 'vector' },
@@ -595,9 +647,10 @@ export async function searchMemoriesInOrama(queryText, queryVector, limit = 5, f
 }
 
 export async function insertMemoryToOrama(data) {
-  if (!memoryIndex || !data.vector || data.vector.length !== VECTOR_SIZE) return
+  const idx = await ensureMemoryIndex()
+  if (!idx || !data.vector || data.vector.length !== VECTOR_SIZE) return
   try {
-    await insert(memoryIndex, {
+    await insert(idx, {
       type: data.type || 'notes',
       summary: data.summary || '',
       memory: data.memory || '',
@@ -613,19 +666,20 @@ export async function insertMemoryToOrama(data) {
 }
 
 export async function updateMemoryInOrama(dexieId, data) {
-  if (!memoryIndex) return
+  if (!(await ensureMemoryIndex())) return
   await deleteMemoryFromOrama(dexieId)
   await insertMemoryToOrama({ ...data, id: dexieId })
 }
 
 export async function deleteMemoryFromOrama(dexieId) {
-  if (!memoryIndex || !dexieId) return
+  const idx = await ensureMemoryIndex()
+  if (!idx || !dexieId) return
   try {
-    const res = await search(memoryIndex, { where: { dexieId: Number(dexieId) } })
+    const res = await search(idx, { where: { dexieId: Number(dexieId) } })
     if (res.hits.length > 0) {
       for (let h of res.hits) {
         if (h.id === undefined || h.id === null) continue
-        await remove(memoryIndex, String(h.id))
+        await remove(idx, String(h.id))
       }
     }
   } catch (err) {
@@ -634,13 +688,14 @@ export async function deleteMemoryFromOrama(dexieId) {
 }
 
 export async function findSimilarMemoryClusters(threshold = 0.60) {
-  if (!memoryIndex) {
+  const idx = await ensureMemoryIndex()
+  if (!idx) {
     console.warn('[Orama Groomer] memoryIndex belum siap!')
     return []
   }
   try {
     console.log('[Orama Groomer] Memulai scanning cluster memori di Orama dengan threshold:', threshold)
-    const results = await search(memoryIndex, {
+    const results = await search(idx, {
       term: '',
       limit: 1000
     })
@@ -668,7 +723,7 @@ export async function findSimilarMemoryClusters(threshold = 0.60) {
         continue
       }
 
-      const simResults = await search(memoryIndex, {
+      const simResults = await search(idx, {
         term: mem.memory,
         mode: 'hybrid',
         vector: { value: mem.vector, property: 'vector' },

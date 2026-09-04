@@ -364,6 +364,10 @@ export const api = {
   osListWindows: () => invoke('os_list_windows'),
   osFocusWindow: (title) => invoke('os_focus_window', { query: title }),
   osAskUser: (prompt) => invoke('os_ask', { prompt }),
+  // Emergency stop (Ctrl+Shift+S) — teruskan ke sidecar pc-agent agar daemon
+  // / child process otomasi PC ikut dikill, bukan hanya AI loop di renderer.
+  pcEmergencyStop: () => call('os:emergency-stop'),
+  onPcEmergencyStop: on('pc-emergency-stop'),
 
   // ---------- Skills ----------
   getSkills: () => call('skills:get-all'),

@@ -9,7 +9,9 @@ export const YoutubeSummaryBubble = ({ youtubeLink }) => {
   }
 
   const youtubeVideoId = getYouTubeID(youtubeLink)
-  const youtubeEmbedUrl = youtubeVideoId ? `https://www.youtube.com/embed/${youtubeVideoId}?rel=0` : null
+  const youtubeEmbedUrl = youtubeVideoId
+    ? `https://www.youtube.com/embed/${youtubeVideoId}?rel=0&origin=${encodeURIComponent(window.location.origin)}`
+    : null
 
   return (
     <div className="p-3 bg-base-300 rounded-2xl my-2 space-y-3">

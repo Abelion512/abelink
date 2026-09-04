@@ -27,15 +27,32 @@ Verifikasi: `grep -n "invoke('misc_" src/api/tauri-bridge.js`.
 
 ## Fase B6 — Desktop automation (os:*) native Rust
 
-**Status: SELESAI di sisi renderer; stub sidecar dipertahankan sebagai fallback.**
+**Status: SELESAI di sisi renderer; sidecar os-* TOOLS kini memakai
+implementasi REAL pc-agent.js (sebelumnya stub gagal permanen).**
 
 Renderer memakai perintah Rust langsung: `os_read`, `os_click`, `os_type`,
 `os_key`, `os_scroll`, `os_open`, `os_list_windows`, `os_focus_window`,
 `os_ask`, `os_is_x11` (`invoke('os_*')` dari `src/api/tauri-bridge.js`).
 
-Channel sidecar `os:*` (`sidecar/engine/channels/music.mjs`, daftar `unsupported`)
-hanya tersisa sebagai fallback era lama dan mengembalikan `unsupported`
-(fail-fast) — jangan dianggap bug.
+Loop AI tidak memanggil perintah Rust itu langsung — ia memanggil tool
+`os-*` lewat `native-tool:execute`. Karena itu handler di
+`sidecar/main/node-tools.js` kini di-wire ke implementasi real
+`pc-agent.js` (daemon `linux-daemon.py` + fallback bash `linux-action.sh`/
+`read-ui.sh`/`ocr-region.sh`): `os-read`, `os-click`, `os-double-click`,
+`os-type`, `os-key`, `os-scroll`, `os-delay`, `os-search`, `os-open`,
+`os-list-windows`, `os-focus-window`, `os-ask`, `os-control-open`,
+`os-control-close`. Tanpa sesi (belum `os-control-open`) semua handler
+fail-fast — tidak ada sukses palsu.
+
+Channel sidecar `os:*` (`sidecar/engine/channels/music.mjs`, daftar
+`unsupported`) tetap fallback era lama — jalur tool AI adalah
+`native-tool:execute`, bukan channel `os:*`.
+
+**Emergency stop `Ctrl+Shift+S` kini end-to-end:** Rust
+(`pc-emergency-stop` event) → renderer (`useMarkState` listener +
+`window.api.pcEmergencyStop`) → channel sidecar `os:emergency-stop` →
+`triggerEmergencyStopExternal()` (kill daemon + tandai stop di
+pc-agent; reset eksplisit via `os-control-open`/`os-ask`).
 
 ## Fase C3 — Browser automation multi-session (browser:*)
 

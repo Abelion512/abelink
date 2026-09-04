@@ -26,7 +26,11 @@ export const useChatArchiver = ({
       for (let i = chatData.length - 1; i >= 0; i--) {
         const msg = chatData[i]
         if (!msg) continue
-        if (!lastAiMsg && msg.role === 'ai' && !msg.isThinking && !msg.isSearching && !msg.isSummarizing) {
+        // Skip balasan kosong (content null/undefined/empty) — pesan tanpa isi
+        // tidak boleh masuk turn-pair vektor maupun riwayat awareness.
+        const hasContent =
+          typeof msg.content === 'string' ? msg.content.trim() : Array.isArray(msg.content) ? msg.content.length > 0 : !!msg.content
+        if (!lastAiMsg && msg.role === 'ai' && hasContent && !msg.isThinking && !msg.isSearching && !msg.isSummarizing) {
           lastAiMsg = msg
           // Cari pesan user sebelum pesan AI ini
           for (let j = i - 1; j >= 0; j--) {

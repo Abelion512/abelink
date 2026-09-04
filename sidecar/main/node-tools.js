@@ -56,6 +56,7 @@ import { navigateTo, readDOM, executeAction, closeBrowser, executeScript, extrac
 import {
   readDesktop,
   executeClick,
+  executeDoubleClick,
   executeType,
   executeKey,
   executeScroll,
@@ -1329,17 +1330,19 @@ export const NATIVE_TOOLS = {
   },
 
   // ----------------------------------------------------------------------
-  // OS CONTROL TOOLS
+  // OS CONTROL TOOLS — Linux (X11) via pc-agent.js (daemon python + fallback
+  // bash/xdotool). Semua handler memakai implementasi REAL; sesi harus
+  // dibuka dulu lewat 'os-control-open' (approval-gated).
   // ----------------------------------------------------------------------
   'os-read': {
     needsApproval: false,
     handler: async (query) => {
       try {
-        if (query && fs.existsSync(query)) {
-          const content = fs.readFileSync(query, 'utf8')
-          return { success: true, data: content.slice(0, 50000) }
+        const result = await readDesktop({}, (query || '').trim())
+        if (result?.error && result?.window === 'error') {
+          return { success: false, error: result.error }
         }
-        return { success: false, error: 'File tidak ditemukan' }
+        return { success: true, data: result }
       } catch (e) {
         return { success: false, error: e.message }
       }
@@ -1348,18 +1351,33 @@ export const NATIVE_TOOLS = {
   'os-click': {
     needsApproval: false,
     handler: async (query) => {
-      return {
-        success: false,
-        error: 'os-click: Requires PC automation session (os-control-open first)'
+      try {
+        const message = await executeClick((query || '').trim())
+        return { success: !/ERROR/i.test(message), data: message }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
+    }
+  },
+  'os-double-click': {
+    needsApproval: false,
+    handler: async (query) => {
+      try {
+        const message = await executeDoubleClick((query || '').trim())
+        return { success: !/ERROR/i.test(message), data: message }
+      } catch (e) {
+        return { success: false, error: e.message }
       }
     }
   },
   'os-type': {
     needsApproval: false,
     handler: async (query) => {
-      return {
-        success: false,
-        error: 'os-type: Requires PC automation session (os-control-open first)'
+      try {
+        const message = await executeType(query || '')
+        return { success: !/ERROR/i.test(message), data: message }
+      } catch (e) {
+        return { success: false, error: e.message }
       }
     }
   },
@@ -1367,17 +1385,47 @@ export const NATIVE_TOOLS = {
     needsApproval: (query) => isDangerousKeyCombo(query),
     approvalMessage: (query) =>
       `Mark ingin menekan shortcut keyboard yang berpotensi BERBAHAYA:\n\n${query}`,
-    handler: async () => ({
-      success: false,
-      error: 'os-key: Requires PC automation session (os-control-open first)'
-    })
+    handler: async (query) => {
+      try {
+        const message = await executeKey((query || '').trim())
+        return { success: !/ERROR/i.test(message), data: message }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
+    }
   },
   'os-scroll': {
     needsApproval: false,
     handler: async (query) => {
-      return {
-        success: false,
-        error: 'os-scroll: Requires PC automation session (os-control-open first)'
+      try {
+        const message = await executeScroll(query || '')
+        return { success: !/ERROR/i.test(message), data: message }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
+    }
+  },
+  'os-delay': {
+    needsApproval: false,
+    handler: async (query) => {
+      const ms = Math.min(Math.max(parseInt(query, 10) || 500, 50), 30000)
+      await new Promise((r) => setTimeout(r, ms))
+      return { success: true, data: `Delay ${ms}ms selesai.` }
+    }
+  },
+  'os-search': {
+    // Buka overview/launcher GNOME lalu ketik query. Pola katalog:
+    // os-search -> os-delay(1000) -> os-key(enter).
+    needsApproval: false,
+    handler: async (query) => {
+      try {
+        const openRes = await executeKey('super')
+        if (/ERROR/i.test(openRes)) return { success: false, error: openRes }
+        await new Promise((r) => setTimeout(r, 700))
+        const typeRes = await executeType(query || '')
+        return { success: !/ERROR/i.test(typeRes), data: `${openRes} ${typeRes}` }
+      } catch (e) {
+        return { success: false, error: e.message }
       }
     }
   },
@@ -1385,6 +1433,11 @@ export const NATIVE_TOOLS = {
     needsApproval: false,
     handler: async (query) => {
       try {
+        if (isPCSessionOpen()) {
+          const message = await openApp((query || '').trim())
+          return { success: !/ERROR/i.test(message), data: message }
+        }
+        // Di luar sesi kontrol: fallback xdg-open (path/URL valid saja).
         if (query && fs.existsSync(query)) {
           const { execFile } = await import('child_process')
           execFile('xdg-open', [query], (err) => {
@@ -1401,20 +1454,42 @@ export const NATIVE_TOOLS = {
   'os-list-windows': {
     needsApproval: false,
     handler: async () => {
-      return { success: false, error: 'Linux tidak mendukung Windows window enumeration' }
+      try {
+        const result = await listWindows()
+        return { success: result?.status === 'success', data: result }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
     }
   },
   'os-focus-window': {
     needsApproval: false,
-    handler: async () => {
-      return { success: false, error: 'Windows-only tool' }
+    handler: async (query) => {
+      try {
+        const message = await focusWindow((query || '').trim())
+        return { success: !/ERROR/i.test(message), data: message }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
     }
   },
   'os-ask': {
     needsApproval: false,
     handler: async (query) => {
       if (isPCSessionOpen()) {
-        return await askUserPC(query)
+        try {
+          const raw = await askUserPC(query || '')
+          let parsed = raw
+          if (typeof raw === 'string') {
+            try {
+              parsed = JSON.parse(raw)
+            } catch {}
+          }
+          const status = parsed?.status
+          return { success: status !== 'error', data: parsed }
+        } catch (e) {
+          return { success: false, error: e.message }
+        }
       }
       return { success: false, error: 'PC automation session not open. Call os-control-open first.' }
     }
