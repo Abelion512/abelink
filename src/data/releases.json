@@ -1,5 +1,293 @@
 {
+  "generatedAt": "2026-09-04T03:49:51.360Z",
   "releases": [
+    {
+      "version": "1.0.0-alpha.2",
+      "date": "4 September 2026",
+      "summary": "23 fitur baru, 38 perbaikan dan 30 pembaruan dokumentasi.",
+      "sections": {
+        "features": [
+          {
+            "msg": "Capability Manager — OpenConnector-style catalog/policy/audit engine channel"
+          },
+          {
+            "msg": "Fase C3 stage 1 — real browser:* channels via extension bridge"
+          },
+          {
+            "msg": "Drop-anywhere attachments, multi-select upload, real size preview, Telegram UI events via Tauri"
+          },
+          {
+            "msg": "MarkBench Phase 2A-2D — auditable benchmark harness for Mark Linux"
+          },
+          {
+            "msg": "Automated release system with prepare/finalize stages"
+          },
+          {
+            "msg": "Initial release v1.0.0-alpha.1"
+          },
+          {
+            "msg": "Automated release system with prepare/finalize stages"
+          },
+          {
+            "msg": "Baseline for Tauri native Linux migration"
+          },
+          {
+            "msg": "UI cleanup — telegram page isolation, WhatNew redesign, prune dead nav, add config sections"
+          },
+          {
+            "msg": "Add X11/Wayland detection for PC automation"
+          },
+          {
+            "msg": "Auto-detect hardware profile + lazy-load RAG/STT by default"
+          },
+          {
+            "msg": "Awareness window tracker — replace sidecar window-tracker.js with xdotool"
+          },
+          {
+            "msg": "PC automation os-* commands — replace sidecar stubs with xdotool"
+          },
+          {
+            "msg": "Awareness window tracker — replace sidecar window-tracker.js with xdotool"
+          },
+          {
+            "msg": "Awareness window tracker — replace sidecar window-tracker.js with xdotool"
+          },
+          {
+            "msg": "Route run-shell/git/tasks to Rust commands"
+          },
+          {
+            "msg": "Run_task/read_task_output/kill_task/list_tasks — replace task-daemon"
+          },
+          {
+            "msg": "Git_status/diff/commit/revert — replace sidecar git-service with spawn git"
+          },
+          {
+            "msg": "System_get_info — replace sidecar systemInfo with native /proc parser"
+          },
+          {
+            "msg": "Tools_run_shell — replace sidecar run-shell with native Rust"
+          },
+          {
+            "msg": "Tur setup minimal + lazy load menyeluruh + window controls wizard"
+          },
+          {
+            "msg": "Deteksi model /v1/models + perbaiki blok save Groq & vision"
+          },
+          {
+            "msg": "Custom API Anthropic-compatible + fallback SIMD dan kamera"
+          }
+        ],
+        "fixes": [
+          {
+            "msg": "Release-prepare — git identity, label guard, staged-diff commit check, workflow_dispatch"
+          },
+          {
+            "msg": "Resolve 18 lint errors including 6 runtime crash bugs"
+          },
+          {
+            "msg": "Purge Windows-era shell remnants + fallback crash"
+          },
+          {
+            "msg": "Strip data-URL prefix before base64 decode in sendPhoto path"
+          },
+          {
+            "msg": "Restore native screenshot-to-tg, wire tg token, parallel hydrate"
+          },
+          {
+            "msg": "Resolve 18 lint errors incl. 6 runtime crash bugs"
+          },
+          {
+            "msg": "Remove electron imports from live channels — tg/awareness/google crash on first use"
+          },
+          {
+            "msg": "Remove stale .gitignore dir rules that broke Release Prepare"
+          },
+          {
+            "msg": "Remove no-op nested overrides breaking frozen-lockfile, pin Bun version"
+          },
+          {
+            "msg": "Restore plugin/skills/tg channels with approval gates, dependency hardening, migration-gap"
+          },
+          {
+            "msg": "Deterministic drain-exit, correlated ask_user, honest TG commands"
+          },
+          {
+            "msg": "Real durations, executed verifier, persistent sidecar RPC"
+          },
+          {
+            "msg": "Point homepage to mark-agent-linux fork"
+          },
+          {
+            "msg": "Restore stale branches in tauri.yml"
+          },
+          {
+            "msg": "Remove stray closing brace in dispatchReleaseWorkflow"
+          },
+          {
+            "msg": "Gh workflow run --ref linux -f tag=TAG, remove dependency on master branch for workflow_dispatch"
+          },
+          {
+            "msg": "Workflow_dispatch integration with explicit tag passing, actions:write permission, version-scoped concurrency, tag validation"
+          },
+          {
+            "msg": "Explicitly dispatch release.yml via workflow_dispatch, add PR filter and manual validation guards"
+          },
+          {
+            "msg": "Branch selection before file mutation in prepareRelease, add integration tests for PR update ordering"
+          },
+          {
+            "msg": "Wire update checker into App lifecycle — startup init + cleanup on unmount"
+          },
+          {
+            "msg": "Replace non-existent semver.format with string template in nextAlphaVersion, add 31 scenario tests"
+          },
+          {
+            "msg": "Final hardening - semver in package.json, reachable tag detection, linux merge into release branch"
+          },
+          {
+            "msg": "Idempotency via releases.json, after-merge re-release prevention, and tag-reachable-only tag detection"
+          },
+          {
+            "msg": "Correct idempotency and update detection, add semver dependency"
+          },
+          {
+            "msg": "Use htmlparser2 DOM parser for script/style sanitization"
+          },
+          {
+            "msg": "Use full tag-matching regex for script/style stripping"
+          },
+          {
+            "msg": "Improve HTML sanitization regex to match closing tags with optional whitespace"
+          },
+          {
+            "msg": "Add permissions blocks to workflow, improve HTML sanitization regex"
+          },
+          {
+            "msg": "Persona identity — strip upstream 'Mazees'/'Mada' defaults on linux fork"
+          },
+          {
+            "msg": "Simplify Configuration labels, restore occupation, rename AI Engine to Model"
+          },
+          {
+            "msg": "Remove easter egg, clean memory button, first-boot flow final"
+          },
+          {
+            "msg": "FirstBootChoiceScreen as modal overlay, auto-skip config wizard"
+          },
+          {
+            "msg": "Skip config wizard on first boot, sidebar nav + remove tour dead code"
+          },
+          {
+            "msg": "Remove tour guide, cache camera enumeration, external links"
+          },
+          {
+            "msg": "DevUrl 1420 to match vite default port"
+          },
+          {
+            "msg": "Correct import path in autoProfile.js"
+          },
+          {
+            "msg": "Wrap first-boot Configuration with HashRouter to prevent useNavigate crash"
+          },
+          {
+            "msg": "PlayUrl missing destructure crash + WASM SIMD fallback + init spam"
+          }
+        ],
+        "security": [],
+        "docs": [
+          {
+            "msg": "Finalize Fase C3 staged plan"
+          },
+          {
+            "msg": "Route-level lazy loading + Prism language trimming"
+          },
+          {
+            "msg": "Multi-run MarkBench orchestrator + release automation"
+          },
+          {
+            "msg": "Modular channel registry + agent-oriented architecture"
+          },
+          {
+            "msg": "Bun toolchain hardening, benchmark smoke gate, MarkBench"
+          },
+          {
+            "msg": "Align AGENTS.md with #17, cache TG status guard, real benchmark scripts"
+          },
+          {
+            "msg": "Restore src-tauri shell and release automation removed without justification"
+          },
+          {
+            "msg": "Tighten branch strategy wording + branch guard"
+          },
+          {
+            "msg": "Merge linux changes and resolve conflicts"
+          },
+          {
+            "msg": "Document master and linux branch governance"
+          },
+          {
+            "msg": "Update RELEASE-AUTOMATION.md with explicit workflow_dispatch chain and safety checks"
+          },
+          {
+            "msg": "Visual parity audit — evidence-accurate"
+          },
+          {
+            "msg": "Visual parity audit — evidence-accurate"
+          },
+          {
+            "msg": "Visual parity audit — Electron vs Tauri/Linux"
+          },
+          {
+            "msg": "Clarify linux-as-baseline — never open PRs against master"
+          },
+          {
+            "msg": "Remove internal files from open-source repo"
+          },
+          {
+            "msg": "Add cargo to , update AGENTS.md branch strategy, bump-version for Tauri"
+          },
+          {
+            "msg": "Reconcile parity matrix"
+          },
+          {
+            "msg": "Add parity audit matrix + validation report for Electron→Tauri port"
+          },
+          {
+            "msg": "Linux branch coverage, upstream sync, dependabot, policy"
+          },
+          {
+            "msg": "Add ROADMAP.md, refine .gitignore for mark-linux open-source"
+          },
+          {
+            "msg": "Filter , tests, scripts, src-tauri, HTML trackers for open-source"
+          },
+          {
+            "msg": "Replace auto-detect with first-boot resource mode chooser"
+          },
+          {
+            "msg": "Clean up junk files from tracking, config identifier"
+          },
+          {
+            "msg": "Remove migrated tools from ALLOWED_ACTIONS"
+          },
+          {
+            "msg": "Remove migrated tools from ALLOWED_ACTIONS"
+          },
+          {
+            "msg": "Restore tests/harness/ required by :harness workflow"
+          },
+          {
+            "msg": "Update log deteksi model, blok groq, vision retry"
+          },
+          {
+            "msg": "Rapikan struktur root + dokumen cara jalan lokal"
+          },
+          {
+            "msg": "Catat hasil rilis perdana v1.0.0-alpha.1"
+          }
+        ]
+      }
+    },
     {
       "version": "1.0.0-alpha.1",
       "date": "26 Agustus 2026",
