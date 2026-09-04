@@ -89,9 +89,31 @@ const APPROVAL_ACTIONS: &[&str] = &[
     "capabilities:revoke",
 ];
 
+/// Peta aksi -> family kebijakan approval berjenjang (approval_policy.rs).
+/// Family read-only (fs-read) default "always"; sisanya default "ask".
+fn action_family(action: &str) -> &'static str {
+    match action {
+        "skills:save" | "skills:delete" | "skills:save-file" | "skills:create-item"
+        | "skills:delete-item" | "skills:rename-item" | "skills:install" => "skills-write",
+        "plugin:create" | "plugin:delete" => "plugin-write",
+        "tg:start" | "tg:stop" => "tg-control",
+        "google:connect" | "google:disconnect" => "google-auth",
+        "capabilities:execute" => "capabilities-execute",
+        "capabilities:authorize" | "capabilities:revoke" => "capabilities-authorize",
+        _ => "connector-approve",
+    }
+}
+
 /// Kembalikan Some(deskripsi) bila aksi butuh persetujuan native.
+/// Kebijakan berjenjang: family "always" -> tanpa dialog; "session" ->
+/// grant in-memory sekali tanya; "ask" -> dialog rfd tiap kali.
 fn approval_reason(action: &str, _payload: &Option<serde_json::Value>) -> Option<String> {
     if APPROVAL_ACTIONS.contains(&action) {
+        let family = action_family(action);
+        let eff = crate::approval_policy::effective_policy(family);
+        if eff == crate::approval_policy::POLICY_ALWAYS || eff == crate::approval_policy::POLICY_SESSION {
+            return None;
+        }
         return Some(format!("Aksi \"{action}\" membutuhkan izin."));
     }
     None

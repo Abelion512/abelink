@@ -1,0 +1,13 @@
+{
+  "savedAt": "2026-09-04T15:12:53.625Z",
+  "verifierMs": 1.13,
+  "overall": 1,
+  "dimensions": {
+    "planning": 1,
+    "toolOrchestration": 1,
+    "recovery": 1,
+    "memory": 1,
+    "safety": 1,
+    "efficiency": 1
+  }
+}

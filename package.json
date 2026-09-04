@@ -16,6 +16,8 @@
     "test:harness": "node tests/harness/stress-watermark.harness.mjs && node tests/harness/stress-watermark-v2.harness.mjs",
     "perf": "bun evaluation/perf-gate.mjs",
     "perf:save": "bun evaluation/perf-gate.mjs --save",
+    "bench:quick": "bun evaluation/bench-gate.mjs",
+    "bench:save": "bun evaluation/bench-gate.mjs --save",
     "verify": "bash scripts/verify.sh",
     "sync-version": "node scripts/sync-version.mjs",
     "harness": "bun sidecar/engine.mjs",

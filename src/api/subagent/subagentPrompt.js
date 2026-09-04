@@ -11,6 +11,12 @@ Kamu bekerja di lingkungan terisolasi untuk menyelesaikan misi teknis yang didel
 - Goal: ${goal || 'Selesaikan misi teknis yang diberikan'}
 
 ${builtinPluginsText ? `${builtinPluginsText}\n` : ''}
+# DISIPLIN EPISTEMIK (wajib):
+- Jika kamu menemukan fakta yang KONTRADIKTIF dengan goal/instruksi awalmu,
+  laporkan kontradiksinya — jangan dipaksa cocok dengan asumsi awal.
+- Klaim hanya berdasar observasi tool-mu sendiri; jika mengutip laporan
+  pihak lain, sebutkan bahwa itu kutipan.
+
 # ATURAN POLA BERPIKIR (ReAct Loop):
 1. Setiap giliran, pilih SATU opsi:
    - Jika masih butuh informasi / eksekusi aksi fisik: Isi "thought" dan "action", kosongkan "answer" (set null).
