@@ -76,6 +76,58 @@ const createPreviewUrl = (f) => {
   }
 }
 
+// Validasi URL hasil drop web SEBELUM dipakai untuk fetch (CodeQL: URL of
+// request depends on user-provided value). Hanya http/https publik yang
+// lolos — blokir loopback/private/link-local agar drop tidak bisa dipakai
+// memindai jaringan lokal (SSRF) atau mengeksekusi scheme non-web.
+export const isPublicHttpUrl = (raw) => {
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    if (!host) return null
+    // IPv6 literal ([..] sudah dilepas): blokir loopback/unspecified/link-local/
+    // ULA (fc00::/7) & IPv4-mapped; hanya global unicast 2000::/3 yang lolos.
+    if (host.includes(':')) {
+      let v6 = host
+      let embeddedV4 = null
+      const v4Mapped = host.match(/(\d{1,3}(?:\.\d{1,3}){3})$/)
+      if (v4Mapped) {
+        embeddedV4 = v4Mapped[1]
+        v6 = host.slice(0, host.lastIndexOf(':') + 1) + '0:0'
+      }
+      if (embeddedV4) return isPublicHttpUrl(`http://${embeddedV4}/`)
+      if (v6 === '::1' || v6 === '::') return null
+      const firstHextet = parseInt(v6.split(':')[0].replace(/^0+(?=\w)/, ''), 16)
+      if (!Number.isFinite(firstHextet)) return null
+      const isGlobalUnicast = firstHextet >> 13 === 0b001 // 2000::/3
+      const isLinkLocal = firstHextet >> 6 === 0b1111111010 // fe80::/10
+      const isUla = firstHextet >> 9 === 0b1111110 // fc00::/7
+      return isGlobalUnicast && !isLinkLocal && !isUla ? url : null
+    }
+    // Non-IP: blokir localhost & subdomain internal (.local, .internal, dsb.)
+    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+      if (host === 'localhost' || host.endsWith('.localhost')) return null
+      if (/\.(local|internal|intranet|lan)$/.test(host)) return null
+      return url
+    }
+    const octets = host.split('.').map(Number)
+    if (octets.some((o) => o > 255)) return null
+    const [a, b] = octets
+    const isPrivate =
+      a === 0 || // 0.0.0.0/8
+      a === 10 || // 10.0.0.0/8
+      a === 127 || // loopback
+      (a === 100 && b >= 64 && b <= 127) || // CGNAT 100.64/10
+      (a === 169 && b === 254) || // link-local 169.254/16
+      (a === 172 && b >= 16 && b <= 31) || // 172.16/12
+      (a === 192 && b === 168) // 192.168/16
+    return isPrivate ? null : url
+  } catch {
+    return null
+  }
+}
+
 export const resolveDroppedFile = async (f) => {
   let resolvedPath = ''
   if (window.api?.getPathForFile) {
@@ -133,15 +185,26 @@ export const extractDroppedItems = async (dataTransfer) => {
   const urls = uriRaw
     .split(/\r?\n/)
     .map((s) => s.trim())
-    .filter((u) => /^https?:\/\//i.test(u))
+    .filter(Boolean)
+    .map(isPublicHttpUrl)
+    .filter(Boolean)
+    .map((url) => url.href)
   if (urls.length === 0) return []
 
+  const MAX_WEB_FETCH_BYTES = 10 * 1024 * 1024 // samakan dengan batas baca FS native
+  const timeoutSignal =
+    typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+      ? AbortSignal.timeout(15000)
+      : undefined
   const results = await Promise.all(
     urls.map(async (u) => {
       try {
-        const res = await fetch(u)
+        const res = await fetch(u, { signal: timeoutSignal })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const declared = Number(res.headers.get('content-length') || 0)
+        if (declared > MAX_WEB_FETCH_BYTES) throw new Error('Ukuran melebihi 10MB')
         const blob = await res.blob()
+        if (blob.size > MAX_WEB_FETCH_BYTES) throw new Error('Ukuran melebihi 10MB')
         const ext = (blob.type.split('/')[1] || 'png').split(';')[0]
         let name =
           decodeURIComponent((u.split('/').pop() || '').split('?')[0]) || `gambar-web.${ext}`
