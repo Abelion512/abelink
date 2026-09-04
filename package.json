@@ -1,6 +1,6 @@
 {
   "name": "mark",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "description": "Mark: Metacognitive Artificial Relational Knowledge AI",
   "main": "./out/main/index.js",
   "author": "Mazees",

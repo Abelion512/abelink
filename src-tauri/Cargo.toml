@@ -1,6 +1,6 @@
 [package]
 name = "mark"
-version = "1.0.0-alpha.2"
+version = "1.0.0-alpha.3"
 description = "MARK — Metacognitive Artificial Relational Knowledge AI (Linux Edition, Tauri v2 shell)"
 authors = ["Abelion512"]
 edition = "2021"
