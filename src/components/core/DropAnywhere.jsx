@@ -5,7 +5,7 @@
 // (native path via Tauri, fallback saveTempFile untuk drop web).
 import { useEffect, useState } from 'react'
 import { FaPaperclip } from 'react-icons/fa'
-import { resolveDroppedFile } from '../../utils/attachments'
+import { extractDroppedItems } from '../../utils/attachments'
 
 export default function DropAnywhere({ onFilesDropped, enabled = true }) {
   const [isDragging, setIsDragging] = useState(false)
@@ -15,11 +15,16 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
     // dragenter/dragleave di window berpasangan; hitung depth agar overlay
     // tidak berkedip saat kursor melewati elemen anak.
     let depth = 0
-    const hasFiles = (e) =>
-      e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')
+    // 'Files' = drop file OS; 'text/uri-list' = drag gambar/link dari web.
+    // Tanpa uri-list, drag dari browser lain tidak memunculkan overlay.
+    const hasDropData = (e) => {
+      if (!e.dataTransfer) return false
+      const types = Array.from(e.dataTransfer.types || [])
+      return types.includes('Files') || types.includes('text/uri-list')
+    }
 
     const onEnter = (e) => {
-      if (!hasFiles(e)) return
+      if (!hasDropData(e)) return
       depth += 1
       setIsDragging(true)
     }
@@ -28,19 +33,20 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
       if (depth === 0) setIsDragging(false)
     }
     const onOver = (e) => {
-      // WAJIB preventDefault agar browser tidak membuka file saat drop.
-      if (hasFiles(e)) e.preventDefault()
+      // WAJIB preventDefault agar browser tidak membuka file / menavigasi.
+      if (hasDropData(e)) e.preventDefault()
     }
-    const onDrop = (e) => {
-      if (!hasFiles(e)) return
+    const onDrop = async (e) => {
+      if (!hasDropData(e)) return
       e.preventDefault()
       depth = 0
       setIsDragging(false)
-      const files = Array.from(e.dataTransfer.files || [])
-      if (files.length === 0) return
-      Promise.all(files.map(resolveDroppedFile))
-        .then((items) => onFilesDropped?.(items))
-        .catch((err) => console.error('[DropAnywhere] drop error:', err))
+      try {
+        const items = await extractDroppedItems(e.dataTransfer)
+        if (items.length > 0) onFilesDropped?.(items)
+      } catch (err) {
+        console.error('[DropAnywhere] drop error:', err)
+      }
     }
 
     window.addEventListener('dragenter', onEnter)
