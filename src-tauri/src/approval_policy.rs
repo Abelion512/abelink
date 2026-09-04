@@ -130,13 +130,13 @@ fn with_state<T>(f: impl FnOnce(&mut PolicyState) -> T) -> T {
 pub fn effective_policy(family: &str) -> String {
     let family = normalize_family(family).unwrap_or_else(|| "ask-family".to_string());
     with_state(|s| {
-        if s.session_granted.iter().any(|f| f == family) {
+        if s.session_granted.iter().any(|f| f == &family) {
             return POLICY_SESSION.to_string();
         }
         s.families
-            .get(family)
+            .get(&family)
             .cloned()
-            .unwrap_or_else(|| default_policy(family).to_string())
+            .unwrap_or_else(|| default_policy(&family).to_string())
     })
 }
 
@@ -147,17 +147,18 @@ pub fn set_policy(family: &str, policy: &str) -> Result<(), String> {
     if policy != POLICY_ASK && policy != POLICY_SESSION && policy != POLICY_ALWAYS {
         return Err("Policy harus ask|session|always".into());
     }
+    let policy_owned = policy.to_string();
     let (path, to_write) = with_state(|s| {
-        if policy == POLICY_SESSION {
-            if !s.session_granted.iter().any(|f| f == family) {
-                s.session_granted.push(family.to_string());
+        if policy_owned == POLICY_SESSION {
+            if !s.session_granted.iter().any(|f| f == &family) {
+                s.session_granted.push(family.clone());
             }
             return (None, None); // session-only: tidak persist
         }
-        if policy == POLICY_ASK && default_policy(family) == POLICY_ASK {
-            s.families.remove(family);
+        if policy_owned == POLICY_ASK && default_policy(&family) == POLICY_ASK {
+            s.families.remove(&family);
         } else {
-            s.families.insert(family.to_string(), policy.to_string());
+            s.families.insert(family.clone(), policy_owned.clone());
         }
         (Some(s.path.clone()), Some(s.families.clone()))
     });
@@ -179,8 +180,8 @@ pub fn set_policy(family: &str, policy: &str) -> Result<(), String> {
 pub fn grant_session(family: &str) {
     let family = normalize_family(family).unwrap_or_else(|| family.to_string());
     with_state(|s| {
-        if !s.session_granted.iter().any(|f| f == family) {
-            s.session_granted.push(family.to_string());
+        if !s.session_granted.iter().any(|f| f == &family) {
+            s.session_granted.push(family.clone());
         }
     });
 }
