@@ -14,7 +14,8 @@ import {
   FaGoogle,
   FaBrain,
   FaRobot,
-  FaGift
+  FaGift,
+  FaPlug
 } from 'react-icons/fa'
 import whatsNewData from '../../data/whats-new.json'
 
@@ -67,7 +68,10 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
             <div className="flex-1">What&apos;s New</div>
             {(() => {
               try {
-                return (whatsNewData.version || '') !== (localStorage.getItem('mark:last-seen-whats-new') || '')
+                return (
+                  (whatsNewData.version || '') !==
+                  (localStorage.getItem('mark:last-seen-whats-new') || '')
+                )
               } catch (_) {
                 return false
               }
@@ -102,6 +106,13 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
             <FaDatabase className="text-primary" /> Knowledge (RAG)
+          </button>
+
+          <button
+            onClick={() => handleNav('/connectors')}
+            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
+          >
+            <FaPlug className="text-primary" /> Connectors
           </button>
 
           <button

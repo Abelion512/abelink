@@ -12,6 +12,7 @@ const Knowledge = lazy(() => import('./pages/Knowledge'))
 const Guidebook = lazy(() => import('./pages/Guidebook'))
 const RelationalGrowth = lazy(() => import('./pages/RelationalGrowth'))
 const GoogleWorkspace = lazy(() => import('./pages/GoogleWorkspace'))
+const Connectors = lazy(() => import('./pages/Connectors'))
 const Skills = lazy(() => import('./pages/Skills'))
 const SkillEditor = lazy(() => import('./pages/SkillEditor'))
 const Subagents = lazy(() => import('./pages/Subagents'))
@@ -215,6 +216,7 @@ const MainLayout = ({ isStandalone = false }) => {
                 <Route path="/live-audio" element={<LiveAudio />} />
                 <Route path="/telegram-bot" element={<TelegramBot />} />
                 <Route path="/google-workspace" element={<GoogleWorkspace />} />
+                <Route path="/connectors" element={<Connectors />} />
                 <Route path="/knowledge" element={<Knowledge />} />
                 <Route path="/guidebook" element={<Guidebook />} />
                 <Route path="/relational" element={<RelationalGrowth />} />
