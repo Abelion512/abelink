@@ -148,10 +148,16 @@ export function parseToolCalls(text) {
 
 // ---- Run one Mark agent task ----
 export async function runMarkAgent(task, model, provider) {
+  // Effort ladder dipakai di benchmark supaya perbandingan
+  // architecture-vs-model ADIL: model sama dibandingkan pada effort sama.
+  const effort = ['low', 'medium', 'high'].includes(process.env.MARK_BENCH_EFFORT)
+    ? process.env.MARK_BENCH_EFFORT
+    : 'low'
   const config = {
     aiProvider: provider || 'gemini-web',
     geminiWebModel: model || 'gemini-3.6-flash',
     temperature: 0,
+    effortLevel: effort,
   }
 
   const startedAt = Date.now()

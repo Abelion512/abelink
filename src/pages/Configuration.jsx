@@ -18,7 +18,8 @@ import {
   FaCubes,
   FaPlug,
   FaShieldAlt,
-  FaExternalLinkAlt
+  FaExternalLinkAlt,
+  FaExclamationTriangle
 } from 'react-icons/fa'
 import {
   getAllMemory,
@@ -789,6 +790,7 @@ const Configuration = ({
                   onChange={(e) => handleAiProviderChange(e.target.value)}
                 >
                   <option value="gemini-web">Gemini (Gratis)</option>
+                  <option value="groq">Groq Cloud (Free tier)</option>
                   <option value="lm-studio">LM Studio</option>
                   <option value="custom">Custom API</option>
                 </select>
@@ -808,9 +810,9 @@ const Configuration = ({
                   <option value="high">High — maksimal untuk misi panjang/berat</option>
                 </select>
                 <p className="text-xs opacity-50">
-                  Model yang sama bisa jauh lebih murah di effort rendah (pola Fable 5.1:
-                  Low/Medium ≈ model generasi sebelumnya full-effort). Untuk trading-support
-                  dengan wallet mandiri, default low menjaga biaya marginal minimum.
+                  Model yang sama bisa jauh lebih murah di effort rendah (pola Fable 5.1: Low/Medium
+                  ≈ model generasi sebelumnya full-effort). Untuk trading-support dengan wallet
+                  mandiri, default low menjaga biaya marginal minimum.
                 </p>
               </div>
 
@@ -843,6 +845,48 @@ const Configuration = ({
                       input gambar).
                     </p>
                   </div>
+                </div>
+              ) : config.aiProvider === 'groq' ? (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-semibold">Groq Model</p>
+                    <input
+                      type="text"
+                      list="groq-model-options"
+                      placeholder="llama-3.1-8b-instant"
+                      className="input input-bordered w-full"
+                      value={config.customModel || ''}
+                      onChange={(e) =>
+                        setConfig((prev) => ({ ...prev, customModel: e.target.value }))
+                      }
+                    />
+                    <datalist id="groq-model-options">
+                      <option value="llama-3.1-8b-instant">
+                        llama-3.1-8b-instant (free, tercepat)
+                      </option>
+                      <option value="llama-3.3-70b-versatile">
+                        llama-3.3-70b-versatile (free, kuat)
+                      </option>
+                      <option value="openai/gpt-oss-20b">openai/gpt-oss-20b (free)</option>
+                      <option value="moonshotai/kimi-k2-instruct">
+                        moonshotai/kimi-k2-instruct
+                      </option>
+                      <option value="qwen/qwen3-32b">qwen/qwen3-32b</option>
+                    </datalist>
+                    <p className="text-xs opacity-50">
+                      Free tier luas + latensi terendah untuk model open (Llama/Qwen/Kimi). Pakai
+                      API Key yang sama dengan Voice STT — ambil gratis di console.groq.com/keys.
+                    </p>
+                  </div>
+                  {!config.groqApiKey?.trim() && (
+                    <div className="bg-warning/10 border border-warning/30 rounded-xl p-3 flex gap-2 items-start">
+                      <FaExclamationTriangle className="text-warning mt-0.5 shrink-0" size={12} />
+                      <p className="text-xs opacity-80">
+                        Groq API Key kosong — isi di bagian Voice di bawah (Key dipakai bersama
+                        untuk chat dan STT).
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : config.aiProvider === 'custom' ? (
                 <div className="space-y-4">

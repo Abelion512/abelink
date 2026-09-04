@@ -71,7 +71,12 @@ export function aggregateRuns(rawRuns, config = {}) {
   return {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
-    config: { runs: config.runs, model: config.model, provider: config.provider },
+    config: {
+      runs: config.runs,
+      model: config.model,
+      provider: config.provider,
+      effort: process.env.MARK_BENCH_EFFORT || 'low',
+    },
     tasks,
     summary: {
       totalTasks: byTask.size,
@@ -116,7 +121,9 @@ function parseArgs(argv) {
 }
 
 function printTable(report) {
-  console.log(`MarkBench — ${report.config.runs}x run per task (model=${report.config.model || 'default'})`)
+  console.log(
+    `MarkBench — ${report.config.runs}x run per task (model=${report.config.model || 'default'}, effort=${report.config.effort || 'low'})`
+  )
   console.log('─'.repeat(64))
   for (const t of Object.values(report.tasks)) {
     const cheats = t.cheatSuspected ? `  CHEAT x${t.cheatSuspected}` : ''

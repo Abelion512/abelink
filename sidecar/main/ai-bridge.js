@@ -120,7 +120,8 @@ export const fetchAI = async (
         }
       }
 
-      let fullPrompt = '[CRITICAL INSTRUCTION: DO NOT USE GOOGLE SEARCH. DO NOT USE ANY EXTENSIONS. ANSWER IMMEDIATELY FROM YOUR KNOWLEDGE BASE TO SAVE TIME.]\n\n'
+      let fullPrompt =
+        '[CRITICAL INSTRUCTION: DO NOT USE GOOGLE SEARCH. DO NOT USE ANY EXTENSIONS. ANSWER IMMEDIATELY FROM YOUR KNOWLEDGE BASE TO SAVE TIME.]\n\n'
       for (const m of workMessages) {
         if (Array.isArray(m.content)) {
           for (const part of m.content) {
@@ -164,7 +165,9 @@ export const fetchAI = async (
           const lastBrace = reasoning.lastIndexOf('}')
           if (firstBrace !== -1 && lastBrace > firstBrace) {
             answer = reasoning.substring(firstBrace, lastBrace + 1)
-            reasoning = (reasoning.substring(0, firstBrace) + reasoning.substring(lastBrace + 1)).trim() || null
+            reasoning =
+              (reasoning.substring(0, firstBrace) + reasoning.substring(lastBrace + 1)).trim() ||
+              null
           }
         }
 
@@ -194,7 +197,8 @@ export const fetchAI = async (
         if (Array.isArray(m.content)) {
           // Hanya hapus gambar dari HISTORY (bukan pesan terakhir) untuk hemat token
           if (index < messages.length - 1) {
-            sanitizedContent = m.content.find((c) => c.type === 'text')?.text || '[Gambar terlampir]'
+            sanitizedContent =
+              m.content.find((c) => c.type === 'text')?.text || '[Gambar terlampir]'
           } else {
             sanitizedContent = m.content // Biarkan gambar tetap utuh untuk dianalisis AI
           }
@@ -203,8 +207,23 @@ export const fetchAI = async (
       })
     }
 
-    if (conf.aiProvider === 'custom') {
-      const rawEndpoint = (conf.customEndpoint || 'http://localhost:1234/v1').trim().replace(/\/+$/, '')
+    if (conf.aiProvider === 'groq') {
+      // Groq Cloud — free tier besar, latensi terendah untuk model open
+      // (Llama/Qwen/Kimi). Prioritas owner: cloud API yang punya free tier.
+      // Keputusan 2026-09-04: Groq kini juga CHAT provider (sebelumnya hanya STT).
+      if (!conf.groqApiKey) {
+        throw new Error(
+          'Groq API Key kosong. Isi di Configuration → Model, atau ambil gratis di console.groq.com/keys'
+        )
+      }
+      customProtocol = 'openai'
+      endpoint = 'https://api.groq.com/openai/v1/chat/completions'
+      headers['Authorization'] = `Bearer ${conf.groqApiKey}`
+      body.model = conf.customModel || conf.groqModel || 'llama-3.1-8b-instant'
+    } else if (conf.aiProvider === 'custom') {
+      const rawEndpoint = (conf.customEndpoint || 'http://localhost:1234/v1')
+        .trim()
+        .replace(/\/+$/, '')
       const preferAnthropic =
         conf.customApiProtocol === 'anthropic' ||
         (conf.customApiProtocol !== 'openai' && /anthropic/i.test(rawEndpoint))
@@ -239,9 +258,7 @@ export const fetchAI = async (
     // Effort ladder (pola vendor 2026: Fable 5.1 / GPT-6 Astra / Gemini 3.8):
     // model sama, biaya & ketelitian diatur effort. Injeksi per-protokol —
     // provider yang tidak mengenali field akan mengabaikannya (aman).
-    const effort = ['low', 'medium', 'high'].includes(conf.effortLevel)
-      ? conf.effortLevel
-      : 'low'
+    const effort = ['low', 'medium', 'high'].includes(conf.effortLevel) ? conf.effortLevel : 'low'
     const effortReasoningMap = { low: 'low', medium: 'medium', high: 'high' }
     const effortAnthropicBudget = { low: 1024, medium: 4096, high: 16384 }
     body.reasoning_effort = effortReasoningMap[effort] // OpenAI-compatible
@@ -395,7 +412,9 @@ export const fetchAI = async (
         if (
           !isRetry &&
           bodyHasImage &&
-          /image|vision|multimodal|content.?type|unsupported|tidak didukung/i.test(finalErrorMessage)
+          /image|vision|multimodal|content.?type|unsupported|tidak didukung/i.test(
+            finalErrorMessage
+          )
         ) {
           onStatus?.('Endpoint menolak payload gambar; mencoba ulang tanpa gambar...')
           logAi('[Auto-Retry] Endpoint menolak gambar; strip image_url lalu ulang.')
@@ -448,13 +467,15 @@ export const fetchAI = async (
           return executeFetch(retryBody, isRetry, trafficRetryCount + 1)
         }
 
-        const err = new Error(redactSecrets(`Gagal memuat AI (${errorProvider}): ${finalErrorMessage}`))
+        const err = new Error(
+          redactSecrets(`Gagal memuat AI (${errorProvider}): ${finalErrorMessage}`)
+        )
         err.status = response.status
         throw err
       }
 
       let rawText = await response.text()
-      
+
       let cleanText = rawText.trim()
 
       if (cleanText.includes('data: {') || cleanText.includes('"chat.completion.chunk"')) {
@@ -474,13 +495,17 @@ export const fetchAI = async (
         }
         logAi(`[ai] SSE assembled chars=${fullContent.length}`)
         return {
-          choices: [{ message: { role: 'assistant', content: fullContent, reasoning: fullReasoning || null } }]
+          choices: [
+            {
+              message: { role: 'assistant', content: fullContent, reasoning: fullReasoning || null }
+            }
+          ]
         }
       }
 
       const firstBrace = cleanText.indexOf('{')
       const lastBrace = cleanText.lastIndexOf('}')
-      
+
       if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
         cleanText = cleanText.substring(firstBrace, lastBrace + 1)
       }
@@ -500,7 +525,7 @@ export const fetchAI = async (
     }
 
     if (jsonSchema) {
-      if (conf.aiProvider === 'custom') {
+      if (conf.aiProvider === 'custom' || conf.aiProvider === 'groq') {
         // Inject schema instructions manually for Custom API
         body.messages = body.messages.map((m) => ({ ...m }))
         let sysIdx = body.messages.findIndex((m) => m.role === 'system')
@@ -533,7 +558,7 @@ export const fetchAI = async (
 
         // Adaptasi Vision Payload Khusus Mistral (Mistral mengharapkan image_url sebagai string, bukan object)
         if (isMistralModel && Array.isArray(currentContent)) {
-          currentContent = currentContent.map(item => {
+          currentContent = currentContent.map((item) => {
             if (item.type === 'image_url' && item.image_url && typeof item.image_url === 'object') {
               return { type: 'image_url', image_url: item.image_url.url }
             }
@@ -556,7 +581,10 @@ export const fetchAI = async (
           typeof m.content === 'string'
             ? m.content
             : Array.isArray(m.content)
-              ? m.content.map((c) => (c.type === 'text' ? c.text : '')).filter(Boolean).join('\n')
+              ? m.content
+                  .map((c) => (c.type === 'text' ? c.text : ''))
+                  .filter(Boolean)
+                  .join('\n')
               : String(m.content || '')
         if (m.role === 'system') {
           sysParts.push(text)
@@ -582,11 +610,26 @@ export const fetchAI = async (
         temperature: body.temperature,
         thinking: {
           type: 'enabled',
-          budget_tokens: effortAnthropicBudget[
-            ['low', 'medium', 'high'].includes(conf.effortLevel) ? conf.effortLevel : 'low'
-          ]
+          budget_tokens:
+            effortAnthropicBudget[
+              ['low', 'medium', 'high'].includes(conf.effortLevel) ? conf.effortLevel : 'low'
+            ]
         },
-        system: sysParts.join('\n\n') || undefined,
+        // Prompt caching (Anthropic): system prompt = prefix STABIL antar giliran
+        // ReAct — menandai cache_control di sini membuat seluruh persona/skills/
+        // tools ter-cache. Cache read ~10% biaya input; loop agentic memukul
+        // prefix yang sama berulang kali (pola harga agentic Anthropic: hemat
+        // hingga ~45% untuk workload agentic).
+        system:
+          sysParts.join('\n\n') || undefined
+            ? [
+                {
+                  type: 'text',
+                  text: sysParts.join('\n\n'),
+                  cache_control: { type: 'ephemeral' }
+                }
+              ]
+            : undefined,
         messages: merged
       }
     }
@@ -600,8 +643,14 @@ export const fetchAI = async (
     let message
     if (customProtocol === 'anthropic') {
       const blocks = Array.isArray(data.content) ? data.content : []
-      const text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('')
-      const thinking = blocks.filter((b) => b.type === 'thinking').map((b) => b.thinking).join('')
+      const text = blocks
+        .filter((b) => b.type === 'text')
+        .map((b) => b.text)
+        .join('')
+      const thinking = blocks
+        .filter((b) => b.type === 'thinking')
+        .map((b) => b.thinking)
+        .join('')
       message = { content: text, reasoning: thinking || null }
     } else {
       message = data.choices[0].message
@@ -630,7 +679,8 @@ export const fetchAI = async (
       const lastBrace = reasoning.lastIndexOf('}')
       if (firstBrace !== -1 && lastBrace > firstBrace) {
         content = reasoning.substring(firstBrace, lastBrace + 1)
-        reasoning = (reasoning.substring(0, firstBrace) + reasoning.substring(lastBrace + 1)).trim() || null
+        reasoning =
+          (reasoning.substring(0, firstBrace) + reasoning.substring(lastBrace + 1)).trim() || null
       }
     }
 
@@ -669,7 +719,10 @@ export const cleanAndParse = (rawResponse) => {
     const repaired = jsonrepair(rawResponse)
     return JSON.parse(repaired)
   } catch (error) {
-    console.error('Gagal Parse JSON menggunakan jsonrepair:', redactSecrets(error?.message || String(error)))
+    console.error(
+      'Gagal Parse JSON menggunakan jsonrepair:',
+      redactSecrets(error?.message || String(error))
+    )
     // Upaya terakhir: coba bersihkan BOM dan extract ulang manual
     try {
       const lastResort = String(rawResponse)
@@ -691,8 +744,7 @@ export const listCustomModels = async (rawEndpoint, apiKey, protocolConf) => {
     throw new Error('URL endpoint tidak valid. Harus diawali http:// atau https://')
   }
   const preferAnthropic =
-    protocolConf === 'anthropic' ||
-    (protocolConf !== 'openai' && /anthropic/i.test(base))
+    protocolConf === 'anthropic' || (protocolConf !== 'openai' && /anthropic/i.test(base))
   const url = preferAnthropic
     ? base.endsWith('/v1/messages')
       ? base.replace(/\/messages$/, '/models')
