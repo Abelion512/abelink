@@ -1,5 +1,6 @@
 import { getAllConfig } from '../db'
 import { jsonrepair } from 'jsonrepair'
+import { resolveEffortLevel } from './effortEstimator'
 
 export const fetchAI = async (
   messages,
@@ -27,6 +28,18 @@ export const fetchAI = async (
 
   const currentConfig = await getAllConfig()
   const conf = { ...(currentConfig[0] || {}), ...(override || {}) }
+
+  // Effort 'auto': estimasi kompleksitas dari prompt terakhir + task context.
+  // Transparan: keputusan dilog dengan skor + alasan (bisa dieval via console).
+  const taskText = messages
+    .map((m) => (typeof m.content === 'string' ? m.content : ''))
+    .join(' ')
+    .slice(-4000)
+  const effortDecision = resolveEffortLevel(conf, taskText)
+  conf.effortLevel = effortDecision.effort
+  if (effortDecision.auto && typeof console !== 'undefined') {
+    console.info(`[effort-auto] ${effortDecision.transparent}`)
+  }
 
   return new Promise((resolve, reject) => {
     let hasResolved = false

@@ -790,7 +790,6 @@ const Configuration = ({
                   onChange={(e) => handleAiProviderChange(e.target.value)}
                 >
                   <option value="gemini-web">Gemini (Gratis)</option>
-                  <option value="groq">Groq Cloud (Free tier)</option>
                   <option value="lm-studio">LM Studio</option>
                   <option value="custom">Custom API</option>
                 </select>
@@ -799,20 +798,23 @@ const Configuration = ({
               {/* Effort Ladder — pola vendor 2026 (Fable 5.1, Astra, Gemini 3.8):
                   model yang sama, biaya & kualitas diatur effort. */}
               <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Reasoning Effort</p>
-                <select
+                <p className="text-sm font-semibold">Reasoning Effort</p>                <select
                   className="select select-bordered w-full font-medium"
                   value={config.effortLevel || 'low'}
                   onChange={(e) => setConfig((prev) => ({ ...prev, effortLevel: e.target.value }))}
                 >
+                  <option value="auto">Auto — naik otomatis sesuai kompleksitas tugas</option>
                   <option value="low">Low — hemat token (default, untuk ReAct loop pendek)</option>
                   <option value="medium">Medium — seimbang untuk tugas menengah</option>
                   <option value="high">High — maksimal untuk misi panjang/berat</option>
                 </select>
                 <p className="text-xs opacity-50">
-                  Model yang sama bisa jauh lebih murah di effort rendah (pola Fable 5.1: Low/Medium
-                  ≈ model generasi sebelumnya full-effort). Untuk trading-support dengan wallet
-                  mandiri, default low menjaga biaya marginal minimum.
+                  Model yang sama bisa jauh lebih murah di effort rendah (pola Fable 5.1:
+                  Low/Medium ≈ model generasi sebelumnya full-effort). <b>Auto</b> menaikkan
+                  effort hanya saat tugas kompleks (sub-agent, riset multi-sumber, analisis
+                  data) — keputusannya transparan di console (skor + alasan). Untuk
+                  trading-support dengan wallet mandiri, low/auto menjaga biaya marginal
+                  minimum.
                 </p>
               </div>
 
@@ -830,6 +832,7 @@ const Configuration = ({
                       <option value="gemini-3.6-flash">
                         gemini-3.6-flash (Model Utama Terbaru)
                       </option>
+                      <option value="gemini-3.7-flash">gemini-3.7-flash (Terbaru 2026)</option>
                       <option value="gemini-3.5-flash">gemini-3.5-flash (Stabil & Seimbang)</option>
                       <option value="gemini-3.5-flash-thinking">
                         gemini-3.5-flash-thinking (Penalaran Mendalam)
@@ -841,52 +844,11 @@ const Configuration = ({
                       <option value="gemini-flash-lite">gemini-flash-lite (Super Cepat)</option>
                     </select>
                     <p className="text-xs opacity-50 mt-1">
-                      Provider bawaan tanpa API Key. Membutuhkan koneksi internet (tidak mendukung
-                      input gambar).
+                      Provider bawaan tanpa API Key. Hanya melayani model Gemini (web).
+                      Model combo lain (deepseek, qwen, glm, opus, kimi, gpt, dll) ada di
+                      9Router/local — pilih provider LM Studio atau Custom API.
                     </p>
                   </div>
-                </div>
-              ) : config.aiProvider === 'groq' ? (
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-semibold">Groq Model</p>
-                    <input
-                      type="text"
-                      list="groq-model-options"
-                      placeholder="llama-3.1-8b-instant"
-                      className="input input-bordered w-full"
-                      value={config.customModel || ''}
-                      onChange={(e) =>
-                        setConfig((prev) => ({ ...prev, customModel: e.target.value }))
-                      }
-                    />
-                    <datalist id="groq-model-options">
-                      <option value="llama-3.1-8b-instant">
-                        llama-3.1-8b-instant (free, tercepat)
-                      </option>
-                      <option value="llama-3.3-70b-versatile">
-                        llama-3.3-70b-versatile (free, kuat)
-                      </option>
-                      <option value="openai/gpt-oss-20b">openai/gpt-oss-20b (free)</option>
-                      <option value="moonshotai/kimi-k2-instruct">
-                        moonshotai/kimi-k2-instruct
-                      </option>
-                      <option value="qwen/qwen3-32b">qwen/qwen3-32b</option>
-                    </datalist>
-                    <p className="text-xs opacity-50">
-                      Free tier luas + latensi terendah untuk model open (Llama/Qwen/Kimi). Pakai
-                      API Key yang sama dengan Voice STT — ambil gratis di console.groq.com/keys.
-                    </p>
-                  </div>
-                  {!config.groqApiKey?.trim() && (
-                    <div className="bg-warning/10 border border-warning/30 rounded-xl p-3 flex gap-2 items-start">
-                      <FaExclamationTriangle className="text-warning mt-0.5 shrink-0" size={12} />
-                      <p className="text-xs opacity-80">
-                        Groq API Key kosong — isi di bagian Voice di bawah (Key dipakai bersama
-                        untuk chat dan STT).
-                      </p>
-                    </div>
-                  )}
                 </div>
               ) : config.aiProvider === 'custom' ? (
                 <div className="space-y-4">
@@ -952,6 +914,31 @@ const Configuration = ({
                       {customModels.map((m) => (
                         <option key={m} value={m} />
                       ))}
+                      {/* 9Router combo presets — model combo umum (endpoint lokal
+                          OpenAI-compatible: localhost:20128, dsb.) */}
+                      <option value="deepseek-v3.2" />
+                      <option value="deepseek-r1-0528" />
+                      <option value="qwen3.8-max" />
+                      <option value="qwen3.5-plus" />
+                      <option value="glm-5.3" />
+                      <option value="glm-5.3-flash" />
+                      <option value="kimi-k3" />
+                      <option value="claude-opus-4.8" />
+                      <option value="claude-sonnet-4.6" />
+                      <option value="gpt-5.6-sol" />
+                      <option value="gpt-6-astra" />
+                      <option value="nemotron-3-ultra" />
+                      <option value="nemotron-3.5-lightning" />
+                      <option value="muse-spark-2.1" />
+                      <option value="minimax-m2" />
+                      <option value="hy3" />
+                      <option value="mimo-2.5" />
+                      <option value="laguna-s" />
+                      <option value="laguna-xs-2.1" />
+                      <option value="big-pickle" />
+                      <option value="kilo-auto/free" />
+                      <option value="kilo-free" />
+                      <option value="openrouter/free" />
                     </datalist>
                   </div>
                   <div className="space-y-1.5">
@@ -1009,7 +996,12 @@ const Configuration = ({
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Model Selector (LM Studio)</p>
+                  <p className="text-sm font-semibold">Model Selector (LM Studio / 9Router Combo)</p>
+                  <p className="text-xs opacity-40">
+                    Jalur ini melayani LM Studio lokal (port 1234) DAN 9Router composite
+                    (port 20128) — semua model combo (deepseek, qwen, glm, kimi, gpt, opus,
+                    sonnet, nemotron, muse, minimax, dll) dipilih dari sini.
+                  </p>
                   {lmStudioModels.length > 0 && (
                     <>
                       <p className="text-xs text-success">
@@ -1036,7 +1028,7 @@ const Configuration = ({
                   <input
                     type="text"
                     list="lmstudio-model-options"
-                    placeholder="Contoh: google/gemma-3-4b"
+                    placeholder="Contoh: google/gemma-3-4b, glm-5.3, deepseek-v3.2, kimi-k3"
                     className="input input-bordered w-full"
                     value={config.model || ''}
                     onChange={handleModelChange}
@@ -1045,9 +1037,32 @@ const Configuration = ({
                     {lmStudioModels.map((m) => (
                       <option key={m} value={m} />
                     ))}
+                    {/* 9Router combo presets — nama model combo umum */}
+                    <option value="deepseek-v3.2" />
+                    <option value="deepseek-r1-0528" />
+                    <option value="qwen3.8-max" />
+                    <option value="glm-5.3" />
+                    <option value="glm-5.3-flash" />
+                    <option value="kimi-k3" />
+                    <option value="claude-opus-4.8" />
+                    <option value="claude-sonnet-4.6" />
+                    <option value="gpt-5.6-sol" />
+                    <option value="gpt-6-astra" />
+                    <option value="nemotron-3-ultra" />
+                    <option value="nemotron-3.5-lightning" />
+                    <option value="muse-spark-2.1" />
+                    <option value="minimax-m2" />
+                    <option value="hy3" />
+                    <option value="mimo-2.5" />
+                    <option value="laguna-s" />
+                    <option value="laguna-xs-2.1" />
+                    <option value="big-pickle" />
+                    <option value="kilo-auto" />
+                    <option value="openrouter/free" />
                   </datalist>
                   <p className="text-xs opacity-40">
-                    Nama model yang aktif di LM Studio. Pastikan sudah ter-load.
+                    Nama model yang aktif di LM Studio / 9Router. Pastikan sudah ter-load di
+                    server masing-masing.
                   </p>
                 </div>
               )}
@@ -1369,16 +1384,28 @@ const Configuration = ({
                       setConfig((prev) => ({ ...prev, localWhisperModel: e.target.value }))
                     }
                   >
-                    <option value="whisper-small">Local Offline (Whisper Small)</option>
+                    <option value="whisper-small">Local Offline (Whisper Small) — Default</option>
                     <option value="groq-whisper">Groq API Cloud (Whisper Large-v3)</option>
                     <option value="groq-whisper-turbo">
-                      Groq API Cloud (Whisper Large-v3 Turbo)
+                      Groq API Cloud (Whisper Large-v3 Turbo) — paling awet
                     </option>
                   </select>
                   <p className="text-xs opacity-40">
-                    Pilih "Groq API Cloud" untuk transkripsi via internet yang sangat ringan di
-                    sistem.
+                    Default = Local Offline (privat penuh, tanpa kuota). Groq Cloud hanya untuk
+                    voice, akurasi lebih tinggi.
                   </p>
+                  {config.localWhisperModel?.startsWith('groq') && (
+                    <div className="bg-info/5 border border-info/20 rounded-xl p-3 mt-2">
+                      <p className="text-xs font-semibold text-info mb-1">Tips biar kuota Groq awet:</p>
+                      <ul className="text-xs opacity-70 list-disc list-inside space-y-0.5">
+                        <li>Pilih <b>Whisper Large-v3 Turbo</b> — hasil mirip Large-v3, kuota lebih hemat.</li>
+                        <li>Bicara bahasa Inggris bila memungkinkan — akurasi tertinggi = retry lebih sedikit.</li>
+                        <li>Bicara dalam kalimat utuh (VAD auto-cut setelah ~2 detik hening) — hindari ucapkan kata per kata.</li>
+                        <li>Butuh quota lebih besar? Daftar 2-3 akun Groq (email berbeda) dan rotasi key.</li>
+                        <li>Kalau mic bising, turunkan sensitivity — noise dihitung sebagai suara dan makan durasi.</li>
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
                 {config.localWhisperModel?.startsWith('groq') && (

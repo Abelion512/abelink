@@ -258,7 +258,15 @@ export const fetchAI = async (
     // Effort ladder (pola vendor 2026: Fable 5.1 / GPT-6 Astra / Gemini 3.8):
     // model sama, biaya & ketelitian diatur effort. Injeksi per-protokol —
     // provider yang tidak mengenali field akan mengabaikannya (aman).
-    const effort = ['low', 'medium', 'high'].includes(conf.effortLevel) ? conf.effortLevel : 'low'
+    // 'auto' sudah di-resolve di renderer (core.js estimator) — di sini hanya
+    // fallback deterministik (mis. jalur Telegram yang tidak lewat core.js).
+    let effortConf = conf.effortLevel
+    if (effortConf === 'auto') {
+      const joined = JSON.stringify(body.messages || []).slice(-4000).toLowerCase()
+      const heavy = /spawn_subagent|migrasi|refactor|audit|implementasi|riset|research|benchmark|analisis/.test(joined)
+      effortConf = heavy ? 'high' : 'low'
+    }
+    const effort = ['low', 'medium', 'high'].includes(effortConf) ? effortConf : 'low'
     const effortReasoningMap = { low: 'low', medium: 'medium', high: 'high' }
     const effortAnthropicBudget = { low: 1024, medium: 4096, high: 16384 }
     body.reasoning_effort = effortReasoningMap[effort] // OpenAI-compatible
@@ -609,11 +617,7 @@ export const fetchAI = async (
         max_tokens: Number(conf.customMaxTokens) || 4096,
         temperature: body.temperature,
         thinking: {
-          type: 'enabled',
-          budget_tokens:
-            effortAnthropicBudget[
-              ['low', 'medium', 'high'].includes(conf.effortLevel) ? conf.effortLevel : 'low'
-            ]
+          type: 'enabled',          budget_tokens: effortAnthropicBudget[effort]
         },
         // Prompt caching (Anthropic): system prompt = prefix STABIL antar giliran
         // ReAct — menandai cache_control di sini membuat seluruh persona/skills/
