@@ -236,6 +236,17 @@ export const fetchAI = async (
       body.model = conf.model || 'google/gemma-3-4b'
     }
 
+    // Effort ladder (pola vendor 2026: Fable 5.1 / GPT-6 Astra / Gemini 3.8):
+    // model sama, biaya & ketelitian diatur effort. Injeksi per-protokol —
+    // provider yang tidak mengenali field akan mengabaikannya (aman).
+    const effort = ['low', 'medium', 'high'].includes(conf.effortLevel)
+      ? conf.effortLevel
+      : 'low'
+    const effortReasoningMap = { low: 'low', medium: 'medium', high: 'high' }
+    const effortAnthropicBudget = { low: 1024, medium: 4096, high: 16384 }
+    body.reasoning_effort = effortReasoningMap[effort] // OpenAI-compatible
+    body.thinking = { type: 'enabled', budget_tokens: effortAnthropicBudget[effort] } // Anthropic
+
     const parentAbortController = new AbortController()
     activeAbortControllers.add(parentAbortController)
 
@@ -569,6 +580,12 @@ export const fetchAI = async (
         model: body.model,
         max_tokens: Number(conf.customMaxTokens) || 4096,
         temperature: body.temperature,
+        thinking: {
+          type: 'enabled',
+          budget_tokens: effortAnthropicBudget[
+            ['low', 'medium', 'high'].includes(conf.effortLevel) ? conf.effortLevel : 'low'
+          ]
+        },
         system: sysParts.join('\n\n') || undefined,
         messages: merged
       }

@@ -794,6 +794,26 @@ const Configuration = ({
                 </select>
               </div>
 
+              {/* Effort Ladder — pola vendor 2026 (Fable 5.1, Astra, Gemini 3.8):
+                  model yang sama, biaya & kualitas diatur effort. */}
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">Reasoning Effort</p>
+                <select
+                  className="select select-bordered w-full font-medium"
+                  value={config.effortLevel || 'low'}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, effortLevel: e.target.value }))}
+                >
+                  <option value="low">Low — hemat token (default, untuk ReAct loop pendek)</option>
+                  <option value="medium">Medium — seimbang untuk tugas menengah</option>
+                  <option value="high">High — maksimal untuk misi panjang/berat</option>
+                </select>
+                <p className="text-xs opacity-50">
+                  Model yang sama bisa jauh lebih murah di effort rendah (pola Fable 5.1:
+                  Low/Medium ≈ model generasi sebelumnya full-effort). Untuk trading-support
+                  dengan wallet mandiri, default low menjaga biaya marginal minimum.
+                </p>
+              </div>
+
               {config.aiProvider === 'gemini-web' || !config.aiProvider ? (
                 <div className="space-y-4">
                   <div className="space-y-1.5">
