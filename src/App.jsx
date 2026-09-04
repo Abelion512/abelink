@@ -312,30 +312,34 @@ function App() {
         console.error('[App] Failed to get lite mode status:', e)
       }
 
-      // 1. Init Orama + Hydrate — GATED by hardware profile (skip di MINIMAL)
-      // Analogy: n8n hanya spawn worker kalau ada workflow yang butuh, bukan saat startup.
+      // 1. Init Orama + Hydrate — SELALU jalan (fitur tidak pernah mati);
+      // profil hanya mengatur urutan. ensureIndices() di oramaStore idempoten,
+      // jadi pemanggilan eksplisit di sini hanyalah eager-load.
+      // Analogy: n8n spawn worker saat boot kalau profile-nya kencang.
       let profileConfig = null
       try {
-        profileConfig = getProfileConfig(detectHardwareProfile())
-        const shouldInitRAG =
-          profileConfig.enableWorkspaceRAG || profileConfig.ragTrigger === 'auto'
-        if (shouldInitRAG) {
+        let ramGB = null
+        if (lm?.totalRAMGB && lm.totalRAMGB > 0) ramGB = lm.totalRAMGB
+        profileConfig = getProfileConfig(detectHardwareProfile(ramGB))
+        if (profileConfig.eagerLoad.includes('orama')) {
           setLoadingText('Memuat Knowledge Base...')
           await initOramaIndices()
           await hydrateFromDexie((current, total) => {
             setLoadingText(`Mengindeks memori percakapan lama (${current}/${total})...`)
           })
-          console.log('[App] Orama indices ready (RAG profile)')
+          console.log('[App] Orama indices ready (eager)')
         } else {
-          console.log('[App] Orama skipped — MINIMAL profile (lazy-load on demand)')
+          console.log('[App] Orama lazy — dibuat on-demand saat pertama dipakai')
         }
       } catch (e) {
         console.error('[App] Failed to init Orama:', e)
       }
 
-      // 1.5 Load Embeddings Model (skip in lite mode + MINIMAL profile)
+      // 1.5 Load Embeddings Model — TETAP dimuat walau lite mode: lite hanya
+      // berarti WASM mungkin lambat, bukan alasan kehilangan embedding nyata.
+      // Worker punya fallback ladder SIMD -> scalar -> CPU (embedding.worker.js).
       try {
-        const shouldLoadVectors = profileConfig?.enableWorkspaceRAG !== false && !lm?.isLite
+        const shouldLoadVectors = profileConfig?.eagerLoad.includes('vectors')
         if (shouldLoadVectors) {
           setLoadingText('Memuat Memori Kognitif...')
           const { getExtractor } = await import('./api/vectorMemory')

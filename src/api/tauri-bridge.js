@@ -183,6 +183,21 @@ export const api = {
   nativeConfirm: (message) => invoke('misc_native_confirm', { message }),
   // Fetch resource web via native (validasi SSRF + tanpa CORS renderer).
   fetchWebResource: (url) => invoke('misc_fetch_web_resource', { url }),
+
+  // ---------- Capability Manager (general-pluggable connectors) ----------
+  // Referensi desain: Claude connectors/plugins (catalog -> connection ->
+  // action schema -> execution -> policy -> audit). Katalog hidup di sidecar;
+  // renderer hanya membaca metadata & mengeksekusi via channel.
+  listCapabilities: () => call('capabilities:list'),
+  inspectCapability: (connectorId) => call('capabilities:inspect', connectorId),
+  capabilityGuide: (connectorId, actionId) => call('capabilities:guide', connectorId, actionId),
+  executeCapability: (connectorId, actionId, args, opts) =>
+    call('capabilities:execute', connectorId, actionId, args, opts || {}),
+  listCapabilityConnections: () => call('capabilities:connections'),
+  authorizeCapability: (connectorId, grantedScopes) =>
+    call('capabilities:authorize', connectorId, grantedScopes),
+  revokeCapability: (connectorId) => call('capabilities:revoke', connectorId),
+  readCapabilityAudit: (limit) => call('capabilities:audit', limit),
   getSystemInfo: () => invoke('system_get_info'),
   ping: () => call('ping'),
 

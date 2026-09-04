@@ -117,6 +117,22 @@ export const GROUP_TOOLS_DEFINITION = {
         'Bicarakan teks secara lisan (Text-to-Speech) lewat speaker komputer user. Query: "Teks yang ingin kamu ucapkan". Gunakan ini jika kamu ingin memanggil user atau berbicara langsung.'
     }
   },
+  connectors: {
+    description:
+      'General-pluggable Capability Manager (model ala Claude connectors): katalog connector + aksi ter-schema + policy + audit. Gunakan untuk menemukan & mengeksekusi kemampuan eksternal tanpa hardcode — MARK tidak condong ke satu task, semua kemampuan bisa dipasang lewat connector.',
+    tools: {
+      'connector-list':
+        'Lihat semua connector terpasang (id, nama, deskripsi, scopes). Query: KOSONG.',
+      'connector-inspect':
+        'Lihat detail connector + daftar aksinya. Query: connectorId (misal: "fs").',
+      'connector-guide':
+        'Minta panduan input schema + contoh pemakaian satu aksi SEBELUM mengeksekusi. Query: connectorId||actionId (misal: "fs||read").',
+      'connector-run':
+        'Eksekusi aksi connector (policy + audit otomatis; eksekusi berbahaya memicu approval NATIVE user). Query: connectorId||actionId||args_json (misal: "time||diff||{\"from\":\"09:00\",\"to\":\"17:00\"}").',
+      'connector-status':
+        'Lihat status koneksi & izin (scopes) semua connector + jejak audit terakhir. Query: KOSONG atau jumlah_baris_audit.'
+    }
+  },
   trading_support: {
     description:
       'Buku kas & budget trading-support Mark (wallet lokal, fase 1: pencatatan — TANPA eksekusi order exchange). Gunakan untuk melaporkan saldo, mengalokasikan budget model murah (mis. deepseek/glm), dan mencatat pengeluaran inference.',

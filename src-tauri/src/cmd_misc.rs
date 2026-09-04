@@ -179,7 +179,14 @@ pub(crate) fn total_ram_bytes_linux() -> u64 {
 #[tauri::command]
 pub fn misc_get_lite_mode() -> serde_json::Value {
     let total = total_ram_bytes_linux();
-    serde_json::json!({ "isLite": total > 0 && total <= LITE_RAM_THRESHOLD_BYTES })
+    // totalRAMGB: RAM nyata (bulat ke atas, +0.5GB) — dipakai auto-profile.
+    // -1 = deteksi gagal (bukan 0, agar dibedakan dari "belum terbaca").
+    let gb = if total > 0 {
+        serde_json::Value::from(((total as f64 / 1_073_741_824.0) + 0.5).floor() as i64)
+    } else {
+        serde_json::Value::from(-1)
+    };
+    serde_json::json!({ "isLite": total > 0 && total <= LITE_RAM_THRESHOLD_BYTES, "totalRAMGB": gb })
 }
 
 #[tauri::command]

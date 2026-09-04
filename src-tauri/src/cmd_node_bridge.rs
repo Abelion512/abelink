@@ -83,6 +83,10 @@ const APPROVAL_ACTIONS: &[&str] = &[
     // jalur native-tool:* di sini, jadi setiap capabilities:execute dikonfirmasi
     // native (rfd) di main thread — keputusan di luar renderer/model.
     "capabilities:execute",
+    // Authorize/revoke = memberi/mencabut izin kredensial connector — setara
+    // keamanan dgn connect google / start tg. Wajib gate native (rfd).
+    "capabilities:authorize",
+    "capabilities:revoke",
 ];
 
 /// Kembalikan Some(deskripsi) bila aksi butuh persetujuan native.

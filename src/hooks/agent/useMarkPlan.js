@@ -256,6 +256,82 @@ export const useMarkPlan = ({
       else if (tool === 'memory-search') {
         resultString = await executeMemorySearch(query)
       }
+      // 4a. Capability Manager connectors — general-pluggable (ala Claude
+      // connectors): list/inspect/guide/run/status. Eksekusi selalu lewat
+      // channel capabilities:* yang sudah approval-gated native (rfd) di Rust.
+      else if (tool.startsWith('connector-')) {
+        try {
+          if (tool === 'connector-list') {
+            const list = await window.api.listCapabilities()
+            resultString = list?.length
+              ? list
+                  .map(
+                    (c) =>
+                      `- ${c.id}: ${c.name} — ${c.description}${c.scopes?.length ? ` (scopes: ${c.scopes.join(', ')})` : ''}`
+                  )
+                  .join('\n')
+              : 'Tidak ada connector terpasang.'
+          } else if (tool === 'connector-inspect') {
+            const detail = await window.api.inspectCapability(String(query || '').trim())
+            resultString = JSON.stringify(detail)
+          } else if (tool === 'connector-guide') {
+            const parts = String(query || '').split('||')
+            const guide = await window.api.capabilityGuide(
+              (parts[0] || '').trim(),
+              (parts[1] || '').trim()
+            )
+            resultString = JSON.stringify(guide)
+          } else if (tool === 'connector-run') {
+            const parts = String(query || '').split('||')
+            const connectorId = (parts[0] || '').trim()
+            const actionId = (parts[1] || '').trim()
+            let args = {}
+            const rawArgs = (parts.slice(2).join('||') || '').trim()
+            if (rawArgs) {
+              try {
+                args = JSON.parse(rawArgs)
+              } catch (_) {
+                resultString = `[ERROR] args_json tidak valid: ${rawArgs.slice(0, 120)}. Panggil connector-guide dulu untuk schema.`
+                args = null
+              }
+            }
+            if (args) {
+              if (connectorId !== 'time' && connectorId !== 'weather') {
+                // Non-read-only connector: konfirmasi native sekali lagi di sini
+                // (belt & suspenders — gate utama tetap di cmd_node_bridge).
+                let approved = true
+                if (window.api?.nativeConfirm) {
+                  try {
+                    approved = await window.api.nativeConfirm(
+                      `Mark ingin menjalankan connector "${connectorId}" aksi "${actionId}". Lanjutkan?`
+                    )
+                  } catch (_) {
+                    approved = false
+                  }
+                }
+                if (!approved) {
+                  resultString = '[DITOLAK] User tidak menyetujui eksekusi connector ini.'
+                }
+              }
+              if (!resultString.startsWith('[DITOLAK]')) {
+                const out = await window.api.executeCapability(connectorId, actionId, args, {
+                  sessionId: 'main_chat'
+                })
+                resultString = typeof out === 'string' ? out : JSON.stringify(out)
+              }
+            }
+          } else if (tool === 'connector-status') {
+            const conns = await window.api.listCapabilityConnections()
+            const limit = Math.min(Math.max(parseInt(query, 10) || 10, 1), 100)
+            const audit = await window.api.readCapabilityAudit(limit)
+            resultString = JSON.stringify({ connections: conns, recentAudit: audit })
+          } else {
+            resultString = `[ERROR] Tool connector tidak dikenal: ${tool}`
+          }
+        } catch (e) {
+          resultString = `[ERROR] Connector gagal: ${e?.message || e}. Panggil 'connector-list' untuk melihat yang tersedia.`
+        }
+      }
       // 4b. Trading Support — wallet lokal (fase 1: pencatatan, tanpa order)
       else if (tool.startsWith('trading-')) {
         const wallet = await import('../../api/trading/wallet.js')
