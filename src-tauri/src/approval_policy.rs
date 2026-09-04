@@ -54,13 +54,23 @@ fn default_policy(family: &str) -> &'static str {
     }
 }
 
-pub fn normalize_family(family: &str) -> Option<&'static str> {
-    ACTION_FAMILIES
-        .iter()
-        .find(|f| **f == family)
-        .copied()
-        .or(Some(family))
-        .filter(|f| !f.is_empty() && f.len() <= 48 && f.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
+pub fn normalize_family(family: &str) -> Option<String> {
+    let known = ACTION_FAMILIES.iter().find(|f| **f == family).copied();
+    match known {
+        Some(f) => Some(f.to_string()),
+        None => {
+            let valid = !family.is_empty()
+                && family.len() <= 48
+                && family
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-');
+            if valid {
+                Some(family.to_string())
+            } else {
+                None
+            }
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Default, Clone)]
@@ -118,7 +128,7 @@ fn with_state<T>(f: impl FnOnce(&mut PolicyState) -> T) -> T {
 
 /// Kebijakan efektif sebuah family.
 pub fn effective_policy(family: &str) -> String {
-    let family = normalize_family(family).unwrap_or("ask-family");
+    let family = normalize_family(family).unwrap_or_else(|| "ask-family".to_string());
     with_state(|s| {
         if s.session_granted.iter().any(|f| f == family) {
             return POLICY_SESSION.to_string();
@@ -167,7 +177,7 @@ pub fn set_policy(family: &str, policy: &str) -> Result<(), String> {
 
 /// Set family langsung ke granted untuk sesi ini (hasil tombol dialog).
 pub fn grant_session(family: &str) {
-    let family = normalize_family(family).unwrap_or(family);
+    let family = normalize_family(family).unwrap_or_else(|| family.to_string());
     with_state(|s| {
         if !s.session_granted.iter().any(|f| f == family) {
             s.session_granted.push(family.to_string());
@@ -226,6 +236,8 @@ mod tests {
         assert!(normalize_family("shell-exec").is_some());
         assert!(normalize_family("").is_none());
         assert!(normalize_family(&"a".repeat(60)).is_none());
+        // known family dikembalikan sebagai &'static str -> String
+        assert_eq!(normalize_family("shell-exec"), Some("shell-exec".to_string()));
         assert!(normalize_family("bad;family").is_none());
     }
 
