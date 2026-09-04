@@ -548,6 +548,10 @@ const Configuration = ({
       ...prev,
       builtinPlugins: { ...(prev.builtinPlugins || {}), [key]: e.target.checked }
     }))
+  // rtk (kompresi output tool di layer EKSEKUSI sidecar) — default ON,
+  // no-op senyap bila binary `rtk` tidak terpasang di PATH.
+  const handleRtkCompressChange = (e) =>
+    setConfig((prev) => ({ ...prev, rtkCompress: e.target.checked }))
   const handlePersonalityChange = (e) =>
     setConfig((prev) => ({ ...prev, personality: e.target.value }))
   const handleTemperatureChange = (e) =>
@@ -555,15 +559,8 @@ const Configuration = ({
   const handleContextChange = (e) => setConfig((prev) => ({ ...prev, context: e.target.value }))
   const handleMicDeviceIdChange = (e) =>
     setConfig((prev) => ({ ...prev, micDeviceId: e.target.value }))
-  const handleCameraDeviceIdChange = (e) => {
-    console.log(
-      '[Config] Camera device changed to:',
-      e.target.value,
-      '| label:',
-      e.target.options[e.target.selectedIndex]?.text
-    )
+  const handleCameraDeviceIdChange = (e) =>
     setConfig((prev) => ({ ...prev, cameraDeviceId: e.target.value }))
-  }
   const handleCameraEnabledChange = (e) =>
     setConfig((prev) => ({ ...prev, cameraEnabled: e.target.checked }))
   const handleTtsRateChange = (e) => setConfig((prev) => ({ ...prev, ttsRate: e.target.value }))
@@ -971,6 +968,23 @@ const Configuration = ({
                   className="toggle toggle-primary"
                   checked={config.builtinPlugins?.caveman !== false}
                   onChange={handleBuiltinPluginChange('caveman')}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold">Rtk (kompresi output tool)</p>
+                  <p className="text-xs opacity-50 mt-1">
+                    Output tool panjang (shell/git/grep) dikompres sebelum masuk konteks AI.
+                    No-op otomatis bila binary `rtk` tidak terpasang.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  className="toggle toggle-primary"
+                  checked={config.rtkCompress !== false}
+                  onChange={handleRtkCompressChange}
                 />
               </div>
             </div>
