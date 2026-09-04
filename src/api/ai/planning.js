@@ -1,4 +1,4 @@
-import { fetchAI, cleanAndParse } from './core'
+import { fetchAI, cleanAndParse, extractLenientField } from './core'
 import { getAllConfig, getAllLearnedSkills } from '../db'
 import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorLoader'
@@ -87,7 +87,10 @@ export const getNextAction = async (
     let workspaceRagSection = ''
     if (targetWorkspace) {
       try {
-        const { workingMemoryText, codeRagText } = await getWorkspaceContext(targetWorkspace, userInput)
+        const { workingMemoryText, codeRagText } = await getWorkspaceContext(
+          targetWorkspace,
+          userInput
+        )
         const sections = []
         if (workingMemoryText) {
           sections.push(`## 1. ACTIVE WORKING MEMORY (.mark/)\n${workingMemoryText}`)
@@ -497,9 +500,13 @@ ${
         active_topic: { type: 'string' },
         working_memory: {
           type: ['string', 'null'],
-          description: 'Catatan ringkas progres koding, lokasi baris/fungsi yang telah dipetakan, atau rencana teknis untuk disimpan ke .mark/working-memory.json.'
+          description:
+            'Catatan ringkas progres koding, lokasi baris/fungsi yang telah dipetakan, atau rencana teknis untuk disimpan ke .mark/working-memory.json.'
         },
-        should_learn: { type: ['boolean', 'null'], description: 'Set true di giliran terakhir jika tugas ini layak dipelajari jadi skill' },
+        should_learn: {
+          type: ['boolean', 'null'],
+          description: 'Set true di giliran terakhir jika tugas ini layak dipelajari jadi skill'
+        },
         memory: {
           type: ['object', 'null'],
           properties: {
@@ -540,7 +547,9 @@ ${
       console.log('[planning] fetchAI returned, parsing...')
 
       if (!response.content?.trim() && response.reasoning) {
-        console.warn('[planning] AI ONLY outputted reasoning. Continuing loop with thinking preserved...')
+        console.warn(
+          '[planning] AI ONLY outputted reasoning. Continuing loop with thinking preserved...'
+        )
         messages.push({ role: 'assistant', content: `<think>\n${response.reasoning}\n</think>` })
         messages.push({
           role: 'user',
@@ -567,14 +576,45 @@ ${
       } catch (_) {}
       console.log('[planning] parse finished:', data)
 
+      // Jaring penyelamat anti-diskoneksi: bila JSON rusak tapi output mengandung
+      // field kunci, pulihkan field tersebut (terutama "answer") sebagai objek
+      // parsial — daripada buang jawaban model dan retry 2x sia-sia.
+      let recovered = null
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        const rawOut = String(response.content || '')
+        const recoveredAnswer = extractLenientField(rawOut, 'answer')
+        const recoveredThought = extractLenientField(rawOut, 'thought')
+        const recoveredAction = extractLenientField(rawOut, 'action')
+        const recoveredIsDone = /"is_done"\s*:\s*true/i.test(rawOut)
+        const hasActionField = /"action"\s*:/.test(rawOut)
+        if (recoveredAnswer || recoveredAction || (recoveredThought && hasActionField)) {
+          recovered = {
+            thought: recoveredThought || 'Output model dipulihkan dari format rusak',
+            intermediate_answer: extractLenientField(rawOut, 'intermediate_answer'),
+            is_done: recoveredIsDone || (!!recoveredAnswer && !hasActionField),
+            suggested_mode: extractLenientField(rawOut, 'suggested_mode') || 'direct',
+            action: recoveredAction ? { tool: recoveredAction, query: '' } : null,
+            answer: recoveredAnswer,
+            task_status: recoveredIsDone || recoveredAnswer ? 'done' : 'in_progress',
+            objective: null,
+            working_memory: null,
+            memory: null,
+            mood: extractLenientField(rawOut, 'mood') || 'neutral',
+            active_topic: activeTopic
+          }
+          console.warn('[planning] JSON rusak — field dipulihkan via lenient scan')
+        }
+      }
+      const effective = recovered || data
+
       if (
-        data &&
-        typeof data === 'object' &&
-        !Array.isArray(data) &&
-        (data.action !== undefined || data.answer !== undefined)
+        effective &&
+        typeof effective === 'object' &&
+        !Array.isArray(effective) &&
+        (effective.action !== undefined || effective.answer !== undefined)
       ) {
-        let finalAction = data.action || null
-        let finalAnswer = data.answer || null
+        let finalAction = effective.action || null
+        let finalAnswer = effective.answer || null
         if (!finalAction && !finalAnswer) {
           console.warn(
             '[planning] AI returned null for both action and answer. Auto-filling with fallback.'
@@ -582,28 +622,52 @@ ${
           finalAnswer = '...'
         }
         return {
-          thought: data.thought || response.reasoning || '',
-          intermediate_answer: data.intermediate_answer || null,
+          thought: effective.thought || response.reasoning || '',
+          intermediate_answer: effective.intermediate_answer || null,
           is_done:
-            typeof data.is_done === 'boolean'
-              ? data.is_done
-              : data.task_status === 'done' || (!!finalAnswer && !finalAction),
-          suggested_mode: data.suggested_mode || 'direct',
+            typeof effective.is_done === 'boolean'
+              ? effective.is_done
+              : effective.task_status === 'done' || (!!finalAnswer && !finalAction),
+          suggested_mode: effective.suggested_mode || 'direct',
           action: finalAction,
           answer: finalAnswer,
-          should_learn: data.should_learn === true,
-          task_status: data.task_status || 'simple',
-          objective: data.objective || null,
-          working_memory: data.working_memory || null,
-          memory: data.memory,
-          mood: data.mood || 'neutral',
-          active_topic: data.active_topic || activeTopic
+          should_learn: effective.should_learn === true,
+          task_status: effective.task_status || 'simple',
+          objective: effective.objective || null,
+          working_memory: effective.working_memory || null,
+          memory: effective.memory,
+          mood: effective.mood || 'neutral',
+          active_topic: effective.active_topic || activeTopic
+        }
+      }
+
+      // Last resort SEBELUM retry: kalau tidak ada JSON sama sekali tapi output
+      // berisi kalimat jawaban panjang, perlakukan sebagai jawaban akhir (banyak
+      // model kecil mengabaikan format JSON saat menjawab panjang).
+      if (!recovered && attempts >= MAX_RETRIES - 1) {
+        const prose = String(response.content || '').trim()
+        const hasJsonField = /"(answer|action|thought)"\s*:/.test(prose)
+        if (prose && !hasJsonField) {
+          console.warn('[planning] Output prose tanpa JSON — dipakai sebagai jawaban akhir')
+          return {
+            thought: response.reasoning || 'Prose answer recovery',
+            suggested_mode: 'direct',
+            action: null,
+            answer: prose,
+            task_status: 'done',
+            objective: null,
+            memory: null,
+            mood: 'neutral',
+            active_topic: activeTopic
+          }
         }
       }
 
       // Jika data null (output bukan JSON valid), dorong AI untuk memperbaiki format responsnya
       if (attempts < MAX_RETRIES) {
-        console.warn(`[planning] AI output invalid JSON or missing schema (Attempt ${attempts}/${MAX_RETRIES}). Continuing loop...`)
+        console.warn(
+          `[planning] AI output invalid JSON or missing schema (Attempt ${attempts}/${MAX_RETRIES}). Continuing loop...`
+        )
         const rawOutput = response.content || response.reasoning || ''
         if (rawOutput) {
           messages.push({ role: 'assistant', content: rawOutput })
@@ -624,7 +688,8 @@ ${
       thought: 'Fallback triggered after retry attempts',
       suggested_mode: 'direct',
       action: null,
-      answer: 'Maaf, terjadi kendala format respons saat memproses instruksi. Bisa tolong ulangi atau berikan detail tambahan?',
+      answer:
+        'Maaf, terjadi kendala format respons saat memproses instruksi. Bisa tolong ulangi atau berikan detail tambahan?',
       task_status: 'simple',
       objective: null,
       memory: null,

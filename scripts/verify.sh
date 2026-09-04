@@ -4,10 +4,12 @@ set -e
 cd "$(dirname "$0")/.."
 echo "[1/4] Unit tests (vitest)"
 bunx vitest run
-echo "[2/4] Crypto harness (watermark signing)"
+echo "[2/5] Crypto harness (watermark signing)"
 bun run test:harness
-echo "[3/4] Frontend build (vite + tailwind)"
+echo "[3/5] Perf gate (regresi performa nyata >15% = gagal)"
+bun run perf
+echo "[4/5] Frontend build (vite + tailwind)"
 bun run build
-echo "[4/4] Rust check (src-tauri)"
+echo "[5/5] Rust check (src-tauri)"
 (cd src-tauri && cargo check)
 echo "OK VERIFY LOLOS"

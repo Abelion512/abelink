@@ -3,7 +3,15 @@ import { getNextAction } from '../../api/ai/planning'
 import { getYoutubeSummary } from '../../api/ai/tools'
 import { fetchAI } from '../../api/ai/core'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
-import { db, deleteMemory, getAllMemory, insertMemory, updateMemory, saveSession, getChatData } from '../../api/db'
+import {
+  db,
+  deleteMemory,
+  getAllMemory,
+  insertMemory,
+  updateMemory,
+  saveSession,
+  getChatData
+} from '../../api/db'
 import { checkTools } from '../../api/tools/index'
 import { createDurableTaskPlan } from '../../api/ai/taskPlanner'
 import { buildDurableStepCheckpoint } from '../../api/taskExecutor'
@@ -13,7 +21,12 @@ import {
   checkpointAgentTaskStep,
   transitionAgentTask
 } from '../../api/taskStore'
-import { getUnifiedContext, searchExtendedMemory, generateVector, executeMemorySearch } from '../../api/vectorMemory'
+import {
+  getUnifiedContext,
+  searchExtendedMemory,
+  generateVector,
+  executeMemorySearch
+} from '../../api/vectorMemory'
 import { searchMemoriesInOrama } from '../../api/oramaStore'
 import { buildOptimizedChatSession } from '../../api/ai/contextCompactor'
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
@@ -121,7 +134,10 @@ export const useMarkPlan = ({
   const activeRunningSessionIdRef = useRef(1)
 
   const targetPushProcess = (proc) => {
-    if ((activeRunningSessionIdRef.current === 1 || !activeRunningSessionIdRef.current) && pushProcess) {
+    if (
+      (activeRunningSessionIdRef.current === 1 || !activeRunningSessionIdRef.current) &&
+      pushProcess
+    ) {
       pushProcess(proc)
     }
   }
@@ -201,7 +217,13 @@ export const useMarkPlan = ({
   // DISPATCHER EKSEKUSI INDIVIDUAL TOOL
   // ==========================================================================
   const executeSingleTool = async (tool, query, context) => {
-    const { tgContext, isAutonomous, pluginProcessId, targetSetChatData = setChatData, signal } = context
+    const {
+      tgContext,
+      isAutonomous,
+      pluginProcessId,
+      targetSetChatData = setChatData,
+      signal
+    } = context
     const currentSignal = signal || abortControllerRef?.current?.signal
     let resultString = 'Tidak ada hasil.'
 
@@ -233,6 +255,79 @@ export const useMarkPlan = ({
       // 4. Memory Vector Search
       else if (tool === 'memory-search') {
         resultString = await executeMemorySearch(query)
+      }
+      // 4b. Trading Support — wallet lokal (fase 1: pencatatan, tanpa order)
+      else if (tool.startsWith('trading-')) {
+        const wallet = await import('../../api/trading/wallet.js')
+        if (tool === 'trading-status') {
+          const balance = await wallet.getBalance()
+          const allocs = await wallet.listAllocations()
+          const usage = await wallet.getUsageSummary()
+          const activeAllocs = allocs.filter((a) => a.active)
+          const allocatedTotal = activeAllocs.reduce((s, a) => s + (a.budget || 0), 0)
+          resultString = JSON.stringify({
+            balance,
+            allocatedTotal,
+            available: balance - allocatedTotal,
+            allocations: activeAllocs.map((a) => ({ modelKey: a.modelKey, budget: a.budget })),
+            usage
+          })
+        } else if (tool === 'trading-allocate') {
+          const parts = String(query || '').split('||')
+          const modelKey = (parts[0] || '').trim()
+          const budget = Number(parts[1]) || 0
+          if (!modelKey || budget <= 0) {
+            resultString =
+              '[ERROR] Format: modelKey||budget (misal: "deepseek-chat||25"). Budget harus angka positif.'
+          } else {
+            const balance = await wallet.getBalance()
+            const allocs = await wallet.listAllocations()
+            const allocatedTotal = allocs
+              .filter((a) => a.active)
+              .reduce((s, a) => s + (a.budget || 0), 0)
+            if (budget > balance - allocatedTotal) {
+              resultString = `[ERROR] Budget melebihi kas tersedia (saldo ${balance}, teralokasi ${allocatedTotal}).`
+            } else {
+              await wallet.setAllocation(modelKey, budget)
+              resultString = `Alokasi ${budget} ke ${modelKey} tercatat. Kas tersisa: ${balance - allocatedTotal - budget}.`
+            }
+          }
+        } else if (tool === 'trading-log-spend') {
+          const parts = String(query || '').split('||')
+          const modelKey = (parts[0] || '').trim()
+          const amount = Number(parts[1]) || 0
+          const note = (parts[2] || '').trim()
+          if (!modelKey || amount <= 0) {
+            resultString = '[ERROR] Format: modelKey||amount||note. Amount harus angka positif.'
+          } else {
+            const balance = await wallet.getBalance()
+            if (amount > balance) {
+              resultString = `[ERROR] Kas tidak cukup (saldo ${balance}). Catat deposit dulu via ledger atau kurangi amount.`
+            } else {
+              await wallet.recordUsage({ modelKey, cost: amount, note })
+              await wallet.addLedgerEntry({
+                kind: 'spend',
+                amount: -amount,
+                note: `${modelKey}${note ? ': ' + note : ''}`
+              })
+              const newBalance = await wallet.getBalance()
+              resultString = `Pengeluaran ${amount} untuk ${modelKey} dicatat. Saldo sekarang: ${newBalance}.`
+            }
+          }
+        } else if (tool === 'trading-ledger') {
+          const limit = Math.min(Math.max(parseInt(query, 10) || 20, 1), 100)
+          const rows = await wallet.listLedger('main', limit)
+          resultString = rows.length
+            ? rows
+                .map(
+                  (r) =>
+                    `[${new Date(r.ts).toLocaleString('id-ID')}] ${r.kind}: ${r.amount} ${r.note ? '- ' + r.note : ''}`
+                )
+                .join('\n')
+            : 'Buku kas masih kosong.'
+        } else {
+          resultString = `[ERROR] Tool trading tidak dikenal: ${tool}`
+        }
       }
       // 5. Speak (TTS)
       else if (tool === 'speak') {
@@ -1362,9 +1457,7 @@ export const useMarkPlan = ({
           (decision.action.tool || Array.isArray(decision.action))
         )
         const isDoneSignal =
-          decision.is_done === true ||
-          opts.disableTools ||
-          (!hasAction && !!decision.answer)
+          decision.is_done === true || opts.disableTools || (!hasAction && !!decision.answer)
 
         // Kasus 1: Intermediate Speech (Bicara tanpa tool, tapi belum selesai)
         if (!hasAction && !isDoneSignal && decision.answer && !durableTask) {
@@ -1677,10 +1770,7 @@ export const useMarkPlan = ({
               }
             })
 
-            const currentLiveTools = [
-              ...executedToolsList,
-              { tool, query, status: 'running' }
-            ]
+            const currentLiveTools = [...executedToolsList, { tool, query, status: 'running' }]
 
             targetSetChatData((prev) => {
               const filtered = prev.filter((item) => !item.isThinking)

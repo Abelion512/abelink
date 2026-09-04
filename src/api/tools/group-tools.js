@@ -1,6 +1,7 @@
 export const GROUP_TOOLS_DEFINITION = {
   advanced_browser: {
-    description: 'Tool untuk navigasi dan kontrol elemen fisik browser web secara detail, gunakan ini untuk melakukan pencarian di browser/web jangan gunakan terminal.',
+    description:
+      'Tool untuk navigasi dan kontrol elemen fisik browser web secara detail, gunakan ini untuk melakukan pencarian di browser/web jangan gunakan terminal.',
     tools: {
       'browser-navigate':
         'Buka URL di browser fisik. Query: URL lengkap. Mengembalikan daftar elemen interaktif bernomor (ID).',
@@ -8,8 +9,10 @@ export const GROUP_TOOLS_DEFINITION = {
       'browser-click': 'Klik elemen. Query: ID angka. Mengembalikan DOM terbaru setelah klik.',
       'browser-type': 'Ketik teks di kolom input. Query: ID||teks. Mengembalikan DOM terbaru.',
       'browser-scroll': 'Scroll halaman. Query: "up" atau "down".',
-      'browser-extract': 'Ekstrak teks/data via CSS Selector. Kembalikan JSON. Query: selector CSS (misal: ".product-price").',
-      'browser-script': 'Eksekusi custom Javascript di browser (Bisa untuk manipulasi DOM / bypass). Query: script JS murni.',
+      'browser-extract':
+        'Ekstrak teks/data via CSS Selector. Kembalikan JSON. Query: selector CSS (misal: ".product-price").',
+      'browser-script':
+        'Eksekusi custom Javascript di browser (Bisa untuk manipulasi DOM / bypass). Query: script JS murni.',
       'browser-screenshot': 'Ambil screenshot web utuh dan simpan ke OS. Query: namafile.png.',
       'browser-download': 'Download URL secara fisik ke OS. Query: URL||namafile.ext.',
       'browser-ask-user':
@@ -114,22 +117,45 @@ export const GROUP_TOOLS_DEFINITION = {
         'Bicarakan teks secara lisan (Text-to-Speech) lewat speaker komputer user. Query: "Teks yang ingin kamu ucapkan". Gunakan ini jika kamu ingin memanggil user atau berbicara langsung.'
     }
   },
-  git_vcs: {
-    description: 'Manajemen version control Git untuk repositori proyek (Status, Diff, Commit, Revert).',
+  trading_support: {
+    description:
+      'Buku kas & budget trading-support Mark (wallet lokal, fase 1: pencatatan — TANPA eksekusi order exchange). Gunakan untuk melaporkan saldo, mengalokasikan budget model murah (mis. deepseek/glm), dan mencatat pengeluaran inference.',
     tools: {
-      'git-status': 'Melihat status modifikasi berkas di repositori git (git status --short). Query: kosongkan atau masukkan path folder.',
-      'git-diff': 'Melihat detail baris kode yang berubah sebelum di-commit (git diff). Query: kosongkan untuk semua berkas, atau spesifik nama_berkas.',
-      'git-commit': 'Membuat checkpoint commit git secara otomatis. Query: pesan_commit||path_folder (path opsional). (Butuh persetujuan user).',
-      'git-revert': 'Me-rollback perubahan berkas yang belum di-commit ke HEAD. Query: nama_berkas (atau kosongkan untuk reset --hard seluruh repo). (Butuh persetujuan user).'
+      'trading-status':
+        'Ringkasan wallet: saldo kas, alokasi per model, usage & burn rate. Query: KOSONG.',
+      'trading-allocate':
+        'Alokasikan budget dari kas utama ke model AI. Query: modelKey||budget (misal: "deepseek-chat||25"). Mencatat entry allocation di ledger.',
+      'trading-log-spend':
+        'Catat pemakaian token model (biaya inference). Query: modelKey||amount||note (misal: "glm-4.7-air||0.42||sesi riset sub_1").',
+      'trading-ledger': 'Lihat riwayat buku kas terbaru. Query: jumlah_baris (default 20).'
+    }
+  },
+  git_vcs: {
+    description:
+      'Manajemen version control Git untuk repositori proyek (Status, Diff, Commit, Revert).',
+    tools: {
+      'git-status':
+        'Melihat status modifikasi berkas di repositori git (git status --short). Query: kosongkan atau masukkan path folder.',
+      'git-diff':
+        'Melihat detail baris kode yang berubah sebelum di-commit (git diff). Query: kosongkan untuk semua berkas, atau spesifik nama_berkas.',
+      'git-commit':
+        'Membuat checkpoint commit git secara otomatis. Query: pesan_commit||path_folder (path opsional). (Butuh persetujuan user).',
+      'git-revert':
+        'Me-rollback perubahan berkas yang belum di-commit ke HEAD. Query: nama_berkas (atau kosongkan untuk reset --hard seluruh repo). (Butuh persetujuan user).'
     }
   },
   task_terminal: {
-    description: 'Terminal runner latar belakang (non-blocking) untuk menjalankan server dev, unit test, dan proses jangka panjang.',
+    description:
+      'Terminal runner latar belakang (non-blocking) untuk menjalankan server dev, unit test, dan proses jangka panjang.',
     tools: {
-      'run-task': 'Menjalankan server atau proses background terminal (misal: dev-server, build, test). Query: taskId||perintah (contoh: "dev-server||bun run dev" atau "test||bunx vitest run"). (Perlu persetujuan user jika perintah berisiko).',
-      'read-task-output': 'Membaca log output terbaru dari background terminal task. Query: taskId||jumlah_baris (contoh: "dev-server||40").',
-      'kill-task': 'Menghentikan proses background terminal yang sedang berjalan. Query: taskId (contoh: "dev-server").',
-      'list-tasks': 'Melihat seluruh background tasks yang sedang berjalan beserta PID dan statusnya. Query: kosongkan.'
+      'run-task':
+        'Menjalankan server atau proses background terminal (misal: dev-server, build, test). Query: taskId||perintah (contoh: "dev-server||bun run dev" atau "test||bunx vitest run"). (Perlu persetujuan user jika perintah berisiko).',
+      'read-task-output':
+        'Membaca log output terbaru dari background terminal task. Query: taskId||jumlah_baris (contoh: "dev-server||40").',
+      'kill-task':
+        'Menghentikan proses background terminal yang sedang berjalan. Query: taskId (contoh: "dev-server").',
+      'list-tasks':
+        'Melihat seluruh background tasks yang sedang berjalan beserta PID dan statusnya. Query: kosongkan.'
     }
   }
 }
