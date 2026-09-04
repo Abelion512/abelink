@@ -71,12 +71,16 @@ function createSidecar() {
     pending.clear()
     try {
       child.stdin.end()
-    } catch {}
+    } catch {
+      // noop: stdin may already be closed when the sidecar is gone
+    }
     child.kill('SIGTERM')
     const killer = setTimeout(() => {
       try {
         child.kill('SIGKILL')
-      } catch {}
+      } catch {
+        // noop: process already exited
+      }
     }, 5000)
     child.once('exit', () => clearTimeout(killer))
   }

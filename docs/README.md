@@ -17,6 +17,9 @@ mulai bekerja di repo ini:
    lengkap dengan titik masuk implementasi + verifikasi per fase.
 7. `../evaluation/README.md` — MarkBench: harness evaluasi, verifier
    deterministik, anti-fabrication principles, roadmap.
+8. `REFERENCE-LIBRARY.md` — peta referensi eksternal (ATM) dengan prinsip
+   load-when-needed: repo mana dibuka saat fase mana, kolom status pemakaian,
+   dan filter privacy-first untuk skill/agent referensi.
 
 ## Konvensi cepat
 

@@ -47,9 +47,11 @@ const PROFILES = {
 // Detect hardware profile based on system info
 export function detectHardwareProfile() {
   // Navigator APIs available di browser/Tauri WebView
-  const ramGB = typeof navigator !== 'undefined' ? (navigator.deviceMemory || 8) : 8
-  const cores = typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency || 4) : 4
-  const hasGPU = typeof navigator !== 'undefined' && !!(navigator.gpu || window.__TAURI_INTEGRATION__)
+  const ramGB = typeof navigator !== 'undefined' ? navigator.deviceMemory || 8 : 8
+  const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4
+  const hasGPU =
+    typeof navigator !== 'undefined' &&
+    !!(navigator.gpu || (typeof window !== 'undefined' && window.__TAURI_INTEGRATION__))
   const isTauri = typeof window !== 'undefined' && !!window.__TAURI_INTEGRATION__
 
   // Heuristic: Tauri + low RAM = conservative profile
@@ -67,7 +69,7 @@ export function getProfileConfig(profileName = 'STANDARD') {
 
 // Get active profile (from stored config or auto-detect)
 export async function getActiveProfile() {
-  const { getAppConfig } = await import('../api/db')
+  const { getAppConfig, setAppConfig } = await import('../api/db')
   const stored = await getAppConfig('hardwareProfile')
   if (stored && PROFILES[stored]) return stored
   const detected = detectHardwareProfile()
@@ -83,7 +85,9 @@ export async function applyProfile(profileName) {
     setAppConfig('hardwareProfile', profileName),
     setAppConfig('autoProfile', config)
   ])
-  window.dispatchEvent(new CustomEvent('profile-applied', { detail: config }))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('profile-applied', { detail: config }))
+  }
   return config
 }
 

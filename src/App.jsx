@@ -1,17 +1,21 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import MarkHome from './pages/MarkHome'
-import Configuration from './pages/Configuration'
-import LiveAudio from './pages/LiveAudio'
-import TelegramBot from './pages/TelegramBot'
-import Plugins from './pages/Plugins'
-import Knowledge from './pages/Knowledge'
-import Guidebook from './pages/Guidebook'
-import RelationalGrowth from './pages/RelationalGrowth'
-import GoogleWorkspace from './pages/GoogleWorkspace'
-import Skills from './pages/Skills'
-import SkillEditor from './pages/SkillEditor'
-import Subagents from './pages/Subagents'
-import ChatStudio from './pages/ChatStudio'
+// Route-level code splitting: halaman berat (Monaco, force-graph, syntax
+// highlighter, Monaco-based editor) hanya diunduh saat pertama kali dibuka.
+// MarkHome tetap eager — wajib selalu mounted agar listener AI/Telegram
+// tidak pernah mati (lihat komentar di MainLayout).
+const Configuration = lazy(() => import('./pages/Configuration'))
+const LiveAudio = lazy(() => import('./pages/LiveAudio'))
+const TelegramBot = lazy(() => import('./pages/TelegramBot'))
+const Plugins = lazy(() => import('./pages/Plugins'))
+const Knowledge = lazy(() => import('./pages/Knowledge'))
+const Guidebook = lazy(() => import('./pages/Guidebook'))
+const RelationalGrowth = lazy(() => import('./pages/RelationalGrowth'))
+const GoogleWorkspace = lazy(() => import('./pages/GoogleWorkspace'))
+const Skills = lazy(() => import('./pages/Skills'))
+const SkillEditor = lazy(() => import('./pages/SkillEditor'))
+const Subagents = lazy(() => import('./pages/Subagents'))
+const ChatStudio = lazy(() => import('./pages/ChatStudio'))
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
@@ -26,6 +30,7 @@ import WhatNew from './components/WhatNew'
 import { detectHardwareProfile, getProfileConfig } from './utils/autoProfile'
 import whatsNewData from './data/whats-new.json'
 import { initErrorGuard } from './utils/errorGuard'
+import DropAnywhere from './components/core/DropAnywhere'
 
 const GlobalListener = () => {
   const navigate = useNavigate()
@@ -49,10 +54,6 @@ const GlobalListener = () => {
     return () => {
       if (window.api?.removeLiveAudioShortcut) {
         window.api.removeLiveAudioShortcut()
-      }
-      if (window.electron?.ipcRenderer) {
-        window.electron.ipcRenderer.removeAllListeners('route-to-config')
-        window.electron.ipcRenderer.removeAllListeners('tg:request-agent-execution')
       }
     }
   }, [navigate])
@@ -115,7 +116,16 @@ const WindowControls = () => {
           className="text-white/70 hover:text-white transition-colors flex items-center justify-center p-2"
           title="Fullscreen"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="m21 3-9 9" />
             <path d="M21 3h-6" />
             <path d="M21 3v6" />
@@ -163,10 +173,19 @@ const MainLayout = ({ isStandalone = false }) => {
   const isHome = location.pathname === '/'
   const isTelegram = location.pathname === '/telegram-bot'
 
+  // Drop global satu titik: event 'mark:files-dropped' (detail = array item
+  // {name,path,size,type}) bisa dikonsumsi InputBar/komponen lain mana pun.
+  const handleGlobalDrop = useCallback((items) => {
+    if (items && items.length > 0) {
+      window.dispatchEvent(new CustomEvent('mark:files-dropped', { detail: items }))
+    }
+  }, [])
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-transparent rounded-xl">
       {/* Hide WindowControls on Telegram page — it has its own header with controls */}
       {!isStandalone && !isTelegram && <WindowControls />}
+      <DropAnywhere onFilesDropped={handleGlobalDrop} />
       {/* Base Home Page - Always Mounted so AI Agent & Telegram Listeners Never Die */}
       {/* Hidden on Telegram page to prevent overlap with TelegramBot's own header */}
       <div className={`h-full w-full ${isTelegram ? 'hidden' : ''}`}>
@@ -177,20 +196,31 @@ const MainLayout = ({ isStandalone = false }) => {
       {!isHome && (
         <div className="fixed inset-0 z-50 flex flex-col animate-fade-in bg-transparent pointer-events-none">
           <div className="flex-1 pointer-events-auto h-full w-full flex flex-col min-h-0 overflow-hidden">
-            <Routes>
-              <Route path="/chat" element={<ChatStudio />} />
-              <Route path="/config" element={<Configuration />} />
-              <Route path="/plugins" element={<Plugins />} />
-              <Route path="/skills" element={<Skills />} />
-              <Route path="/skill-editor/:id" element={<SkillEditor />} />
-              <Route path="/live-audio" element={<LiveAudio />} />
-              <Route path="/telegram-bot" element={<TelegramBot />} />
-              <Route path="/google-workspace" element={<GoogleWorkspace />} />
-              <Route path="/knowledge" element={<Knowledge />} />
-              <Route path="/guidebook" element={<Guidebook />} />
-              <Route path="/relational" element={<RelationalGrowth />} />
-              <Route path="/subagents" element={<Subagents />} />
-            </Routes>
+            <Suspense
+              fallback={
+                <div className="h-full w-full flex flex-col items-center justify-center gap-4">
+                  <span className="loading loading-infinity w-12 text-primary"></span>
+                  <p className="text-xs font-semibold tracking-[0.2em] text-white/40 uppercase animate-pulse">
+                    Memuat modul
+                  </p>
+                </div>
+              }
+            >
+              <Routes>
+                <Route path="/chat" element={<ChatStudio />} />
+                <Route path="/config" element={<Configuration />} />
+                <Route path="/plugins" element={<Plugins />} />
+                <Route path="/skills" element={<Skills />} />
+                <Route path="/skill-editor/:id" element={<SkillEditor />} />
+                <Route path="/live-audio" element={<LiveAudio />} />
+                <Route path="/telegram-bot" element={<TelegramBot />} />
+                <Route path="/google-workspace" element={<GoogleWorkspace />} />
+                <Route path="/knowledge" element={<Knowledge />} />
+                <Route path="/guidebook" element={<Guidebook />} />
+                <Route path="/relational" element={<RelationalGrowth />} />
+                <Route path="/subagents" element={<Subagents />} />
+              </Routes>
+            </Suspense>
           </div>
         </div>
       )}
@@ -207,9 +237,9 @@ const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }) => (
     <div className="max-w-md w-full bg-base-200/95 border border-white/10 rounded-2xl shadow-2xl p-7 space-y-4 animate-fade-in">
       <h2 className="text-xl font-bold">Data Mark versi lama terdeteksi</h2>
       <p className="text-sm opacity-70 leading-relaxed">
-        Ditemukan {profiles.length} profil Mark era lama di folder konfigurasi. Karena mesin
-        browser berbeda (Chromium → WebKit), datanya tidak bisa dibaca langsung — tapi tetap aman
-        dan bisa dipulihkan lewat file export JSON dari Mark versi lama (Settings → Export DB).
+        Ditemukan {profiles.length} profil Mark era lama di folder konfigurasi. Karena mesin browser
+        berbeda (Chromium → WebKit), datanya tidak bisa dibaca langsung — tapi tetap aman dan bisa
+        dipulihkan lewat file export JSON dari Mark versi lama (Settings → Export DB).
       </p>
       <div className="flex flex-col gap-2 pt-1">
         <button className="btn btn-primary" onClick={onRestore}>
@@ -287,7 +317,8 @@ function App() {
       let profileConfig = null
       try {
         profileConfig = getProfileConfig(detectHardwareProfile())
-        const shouldInitRAG = profileConfig.enableWorkspaceRAG || profileConfig.ragTrigger === 'auto'
+        const shouldInitRAG =
+          profileConfig.enableWorkspaceRAG || profileConfig.ragTrigger === 'auto'
         if (shouldInitRAG) {
           setLoadingText('Memuat Knowledge Base...')
           await initOramaIndices()
@@ -497,12 +528,6 @@ function App() {
                 <YoutubeMusicPlayer />
               </div>
               <GlobalCameraManager />
-              <webview
-                id="global-ai-search-webview"
-                src="about:blank"
-                useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-                style={{ display: 'none' }}
-              />
             </ChatProvider>
           </YoutubeMusicProvider>
         </ApprovalProvider>

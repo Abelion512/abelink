@@ -15,8 +15,7 @@
  */
 
 import { spawnSync } from 'child_process'
-import { existsSync } from 'fs'
-import { readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import path from 'path'
 
 const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
@@ -35,21 +34,27 @@ function getCurrentVersion() {
 }
 
 function git(args, opts = {}) {
-  const res = spawnSync('git', args.split(' '), { cwd: REPO, encoding: 'utf8', shell: true, ...opts })
+  const res = spawnSync('git', args.split(' '), {
+    cwd: REPO,
+    encoding: 'utf8',
+    shell: true,
+    ...opts
+  })
   if (res.error) throw res.error
   return (res.stdout || '').trim()
 }
 
-function semverBump(current, type) {
+export function semverBump(current, type) {
   const match = current.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/)
   if (!match) throw new Error(`Invalid version: ${current}`)
-  const [_, major, minor, patch, prerelease] = match
+  const [, major, minor, patch, prerelease] = match
   const [maj, min, pat] = [Number(major), Number(minor), Number(patch)]
   const next = {
-    'major': `${maj + 1}.0.0`,
-    'minor': `${maj}.${min + 1}.0`,
-    'patch': `${maj}.${min}.${pat + 1}`
+    major: `${maj + 1}.0.0`,
+    minor: `${maj}.${min + 1}.0`,
+    patch: `${maj}.${min}.${pat + 1}`
   }[type]
+  if (!next) throw new Error(`Unknown bump type: ${type}`)
   // preserve prerelease suffix if any
   return prerelease ? `${next}-${prerelease}` : next
 }
@@ -87,9 +92,7 @@ function main() {
   const arg = process.argv[2]
   const dryRun = process.argv.includes('--dry-run')
 
-  const type = arg === 'major' || arg === 'minor' || arg === 'patch'
-    ? arg
-    : detectBumpType()
+  const type = arg === 'major' || arg === 'minor' || arg === 'patch' ? arg : detectBumpType()
 
   const next = semverBump(current, type)
 
@@ -104,7 +107,7 @@ function main() {
 
   // Update CHANGELOG.md [Unreleased] → [next]
   const changelogPath = path.join(REPO, 'CHANGELOG.md')
-  if (fs.existsSync(changelogPath)) {
+  if (existsSync(changelogPath)) {
     const changelog = readFileSync(changelogPath, 'utf8')
     const date = new Date().toISOString().slice(0, 10)
     const updated = changelog.replace(
@@ -118,4 +121,6 @@ function main() {
   console.log('Updated: src-tauri/tauri.conf.json, CHANGELOG.md')
 }
 
-main()
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main()
+}

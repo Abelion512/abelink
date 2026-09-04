@@ -435,9 +435,9 @@ export async function validateFileSyntax(filePath, content) {
       return { valid: true }
     }
 
-    // 13. Shell & PowerShell (.sh, .bash, .ps1, .psm1)
-    if (['.sh', '.bash', '.ps1', '.psm1'].includes(ext)) {
-      const bracketCheck = checkBracketBalance(content, ext.startsWith('.ps') ? 'c-style' : 'hash-style')
+    // 13. Shell script (.sh, .bash) — Linux Debian/Ubuntu, tidak ada .ps1
+    if (['.sh', '.bash', '.zsh'].includes(ext)) {
+      const bracketCheck = checkBracketBalance(content, 'hash-style')
       if (!bracketCheck.valid) return bracketCheck
       return { valid: true }
     }

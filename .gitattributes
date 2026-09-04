@@ -1,0 +1,26 @@
+# Normalize line endings: repo disimpan LF, git checkout di semua platform LF.
+# Shell script HARUS LF (CRLF mematahkan `set -euo pipefail` / shebang di Linux).
+* text=auto eol=lf
+
+# Skrip eksekusi Linux — selalu LF, executable bit dipertahankan via git mode.
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+*.py text eol=lf
+
+# Windows-era scripts tidak lagi ada di branch linux; biarkan master (upstream
+# snapshot) apa adanya agar diff upstream-sync tetap netral.
+*.ps1 -text
+*.bat -text
+*.cmd -text
+
+# Aset biner
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.zip binary

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, FileText, Upload, ArrowLeft, RefreshCw } from 'lucide-react'
+import { Plus, FileText, Upload, ArrowLeft, RefreshCw, FolderOpen } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { getCachedSkills } from '../api/skillsCache'
 
@@ -75,6 +75,19 @@ Tulis instruksi mendetail untuk AI di sini...
     }
   }
 
+  // Auto-scan workflow: buka folder store skills di file manager OS. User bisa
+  // drop/move folder <nama>/SKILL.md di sana; scan berikutnya otomatis
+  // mendeteksinya (RefreshCw atau event skills-updated) tanpa import wizard.
+  const handleOpenSkillsFolder = async () => {
+    if (!window.api?.openSkillsFolder) return
+    try {
+      await window.api.openSkillsFolder()
+      await loadSkills()
+    } catch (e) {
+      console.error('[Skills] Gagal membuka folder skills:', e)
+    }
+  }
+
   return (
     <div className="h-screen bg-base-300 text-base-content overflow-hidden relative font-['Poppins',sans-serif]">
       {/* Background Ambience */}
@@ -121,6 +134,14 @@ Tulis instruksi mendetail untuk AI di sini...
                 title="Refresh Skills"
               >
                 <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+              </button>
+              <button
+                className="btn btn-ghost btn-sm btn-circle"
+                onClick={handleOpenSkillsFolder}
+                style={{ WebkitAppRegion: 'no-drag' }}
+                title="Buka folder skills (drop folder <nama>/SKILL.md di sini, auto-scan mendeteksinya)"
+              >
+                <FolderOpen size={16} />
               </button>
               <button className="btn btn-outline btn-success btn-sm gap-2" onClick={handleInstall} style={{ WebkitAppRegion: 'no-drag' }}>
                 <Upload size={14} /> Install Skill (.zip)

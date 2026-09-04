@@ -250,12 +250,22 @@ export const useMarkPlan = ({
           resultString = 'Gagal: teks yang mau diucapkan kosong.'
         }
       }
-      // 6. Screenshot ke Telegram
+      // 6. Screenshot ke Telegram (native: misc_take_screenshot + telegram_send_photo)
       else if (tool === 'screenshot-to-tg') {
         if (window.api && window.api.tgTakeScreenshot) {
           const targetChatId = tgContext?.chatId || null
-          window.api.tgTakeScreenshot(targetChatId)
-          resultString = 'Screenshot layar PC berhasil diambil dan dikirimkan ke Telegram Admin.'
+          try {
+            const res = await window.api.tgTakeScreenshot(targetChatId)
+            if (res && res.sent > 0) {
+              resultString = `Screenshot layar PC terkirim ke ${res.sent} penerima Telegram.`
+            } else if (res && res.skipped) {
+              resultString = 'Gagal: bot Telegram tidak sedang terhubung.'
+            } else {
+              resultString = `Gagal mengirim screenshot: ${(res && res.error) || 'tidak diketahui'}`
+            }
+          } catch (e) {
+            resultString = `Gagal: ${(e && e.message) || 'error screenshot Telegram'}`
+          }
         } else {
           resultString = 'Gagal: Fitur Telegram Bot belum tersedia.'
         }

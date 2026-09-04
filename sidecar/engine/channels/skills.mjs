@@ -275,3 +275,18 @@ on('skills:install', async (sourcePath) => {
     throw e
   }
 })
+
+// Auto-scan workflow: user bisa drop folder skill (dengan SKILL.md) langsung ke
+// folder store via file manager OS. Scan berikutnya (skills:get-all / refresh
+// halaman Skills) otomatis mendeteksinya — tidak butuh import wizard.
+// Read-only seperti plugin:open-folder: execFile xdg-open ter-kontinemen.
+on('skills:open-folder', async () => {
+  const { execFile } = await import('child_process')
+  await fs.promises.mkdir(SKILLS_DIR, { recursive: true })
+  return new Promise((resolve) => {
+    execFile('xdg-open', [SKILLS_DIR], (err) => {
+      if (err) console.error('[skills] xdg-open gagal:', err.message)
+    })
+    resolve({ success: true, path: SKILLS_DIR })
+  })
+})

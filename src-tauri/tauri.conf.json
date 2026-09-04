@@ -19,7 +19,8 @@
         "minHeight": 600,
         "decorations": false,
         "transparent": false,
-        "backgroundColor": "#0b0f0c"
+        "backgroundColor": "#0b0f0c",
+        "dragDropEnabled": false
       }
     ],
     "security": {
@@ -31,6 +32,7 @@
     "targets": "all",
     "resources": [
       "../sidecar/engine.mjs",
+      "../sidecar/engine/",
       "../sidecar/main"
     ],
     "icon": [

@@ -1,6 +1,7 @@
 // src/main/pc-agent.js
 // MARK PC Automation Engine - Zero Vision Cost Desktop Controller
-// Uses UIAutomation on Windows, xdotool/OCR fallback on Linux, native action scripts
+// Linux-only (Debian/Ubuntu): JSON-over-stdio daemon (linux-daemon.py) utama,
+// fallback bash scripts (linux-action.sh / read-ui.sh / ocr-region.sh, xdotool+OCR).
 
 import { spawn } from 'child_process'
 import { join } from 'path'
@@ -591,14 +592,17 @@ function isDaemonAlive() {
 }
 
 /**
- * Run a script from pc-agent-scripts as fallback
+ * Run a bash script from pc-agent-scripts as fallback.
+ * Nama script HARUS sudah berformat .sh — tidak ada lagi alias .ps1 era Windows.
  */
 function runScriptFallback(scriptName, args = []) {
   return new Promise((resolve) => {
-    const resolvedScript = scriptName.replace('.ps1', '.sh')
-    let scriptPath = join(__dirname, 'pc-agent-scripts', resolvedScript)
+    if (!scriptName.endsWith('.sh')) {
+      scriptName = scriptName.replace(/\.(ps1|psm1)$/, '.sh')
+    }
+    let scriptPath = join(__dirname, 'pc-agent-scripts', scriptName)
     if (!fs.existsSync(scriptPath)) {
-      scriptPath = join(process.cwd(), 'sidecar', 'main', 'pc-agent-scripts', resolvedScript)
+      scriptPath = join(process.cwd(), 'sidecar', 'main', 'pc-agent-scripts', scriptName)
     }
 
     const ps = spawn('bash', [scriptPath, ...args])
@@ -681,7 +685,7 @@ export async function readDesktop(options = {}, query = '') {
         uiText = await sendCommand({ cmd: 'read-ui', maxElements: options.maxElements || 300, roles: options.roles })
       }
     } else {
-      uiText = await runScriptFallback('read-ui.ps1')
+      uiText = await runScriptFallback('read-ui.sh')
     }
 
     let parsed = null
@@ -702,7 +706,7 @@ export async function readDesktop(options = {}, query = '') {
       if (isDaemonAlive()) {
         ocrText = await sendCommand({ cmd: 'ocr' })
       } else {
-        ocrText = await runScriptFallback('ocr-region.ps1')
+        ocrText = await runScriptFallback('ocr-region.sh')
       }
       if (ocrText) {
         try {
@@ -781,12 +785,12 @@ export async function executeClick(query) {
       result = await sendCommand({ cmd: 'click', x: coords.x, y: coords.y })
     }
   } else {
-    result = await runScriptFallback('win-action.ps1', [
-      '-Action',
+    result = await runScriptFallback('linux-action.sh', [
+      '--action',
       'click',
-      '-X',
+      '--x',
       coords.x.toString(),
-      '-Y',
+      '--y',
       coords.y.toString()
     ])
   }
@@ -816,12 +820,12 @@ export async function executeDoubleClick(query) {
   if (isDaemonAlive()) {
     result = await sendCommand({ cmd: 'double-click', x: coords.x, y: coords.y })
   } else {
-    result = await runScriptFallback('win-action.ps1', [
-      '-Action',
+    result = await runScriptFallback('linux-action.sh', [
+      '--action',
       'doubleclick',
-      '-X',
+      '--x',
       coords.x.toString(),
-      '-Y',
+      '--y',
       coords.y.toString()
     ])
   }
@@ -856,12 +860,12 @@ export async function executeType(query) {
     if (isDaemonAlive()) {
       await sendCommand({ cmd: 'click', x: coords.x, y: coords.y })
     } else {
-      await runScriptFallback('win-action.ps1', [
-        '-Action',
+      await runScriptFallback('linux-action.sh', [
+        '--action',
         'click',
-        '-X',
+        '--x',
         coords.x.toString(),
-        '-Y',
+        '--y',
         coords.y.toString()
       ])
     }
@@ -871,7 +875,7 @@ export async function executeType(query) {
   if (isDaemonAlive()) {
     result = await sendCommand({ cmd: 'type', text })
   } else {
-    result = await runScriptFallback('win-action.ps1', ['-Action', 'type', '-Text', text])
+    result = await runScriptFallback('linux-action.sh', ['--action', 'type', '--text', text])
   }
   stateChanged = true
   scheduleHidePCOverlay()
@@ -893,7 +897,7 @@ export async function executeKey(combo) {
   if (isDaemonAlive()) {
     result = await sendCommand({ cmd: 'key', combo })
   } else {
-    result = await runScriptFallback('win-action.ps1', ['-Action', 'key', '-Combo', combo])
+    result = await runScriptFallback('linux-action.sh', ['--action', 'key', '--combo', combo])
   }
   stateChanged = true
   scheduleHidePCOverlay()
@@ -926,12 +930,12 @@ export async function executeScroll(query) {
   if (isDaemonAlive()) {
     result = await sendCommand({ cmd: 'scroll', direction, amount })
   } else {
-    result = await runScriptFallback('win-action.ps1', [
-      '-Action',
+    result = await runScriptFallback('linux-action.sh', [
+      '--action',
       'scroll',
-      '-Direction',
+      '--direction',
       direction,
-      '-Amount',
+      '--amount',
       amount.toString()
     ])
   }
@@ -955,7 +959,7 @@ export async function openApp(target) {
   if (isDaemonAlive()) {
     result = await sendCommand({ cmd: 'open', target })
   } else {
-    result = await runScriptFallback('win-action.ps1', ['-Action', 'open', '-Target', target])
+    result = await runScriptFallback('linux-action.sh', ['--action', 'open', '--target', target])
   }
   stateChanged = true
   scheduleHidePCOverlay()
@@ -983,7 +987,7 @@ export async function listWindows() {
   if (isDaemonAlive()) {
     result = await sendCommand({ cmd: 'list-windows' })
   } else {
-    result = await runScriptFallback('win-action.ps1', ['-Action', 'list-windows'])
+    result = await runScriptFallback('linux-action.sh', ['--action', 'list-windows'])
   }
   scheduleHidePCOverlay()
   try {
@@ -1009,7 +1013,7 @@ export async function focusWindow(title) {
   if (isDaemonAlive()) {
     result = await sendCommand({ cmd: 'focus-window', title })
   } else {
-    result = await runScriptFallback('win-action.ps1', ['-Action', 'focus-window', '-Target', title])
+    result = await runScriptFallback('linux-action.sh', ['--action', 'focus-window', '--target', title])
   }
   stateChanged = true
   scheduleHidePCOverlay()

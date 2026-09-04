@@ -156,6 +156,47 @@ pub fn misc_open_file_dialog(app: AppHandle) -> Option<String> {
     pick_native_path(&app, false)
 }
 
+/// Dialog multi-select: kembalikan semua file yang dipilih (kosong = cancel).
+/// Pola main-thread sama dengan pick_native_path (GTK melarang dialog non-main).
+#[tauri::command]
+pub fn misc_open_files_dialog(app: AppHandle) -> Vec<String> {
+    let (tx, rx) = std::sync::mpsc::channel::<Vec<String>>();
+    let dispatched = app.run_on_main_thread(move || {
+        let picked = rfd::FileDialog::new().pick_files();
+        let _ = tx.send(
+            picked
+                .map(|paths| {
+                    paths
+                        .into_iter()
+                        .map(|p| p.to_string_lossy().into_owned())
+                        .collect()
+                })
+                .unwrap_or_default(),
+        );
+    });
+    if dispatched.is_err() {
+        return Vec::new();
+    }
+    rx.recv_timeout(Duration::from_secs(600)).unwrap_or_default()
+}
+
+/// Stat metadata file untuk preview: (size_bytes, is_dir, modified_unix_secs).
+/// Hanya membaca metadata — tidak pernah membaca isi file.
+#[tauri::command]
+pub fn misc_stat_path(path: String) -> Result<(u64, bool, i64), String> {
+    let p = std::path::PathBuf::from(&path);
+    let meta = std::fs::metadata(&p).map_err(|e| format!("{}: {}", e, path))?;
+    let size = meta.len();
+    let is_dir = meta.is_dir();
+    let modified = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    Ok((size, is_dir, modified))
+}
+
 #[tauri::command]
 pub fn misc_open_directory_dialog(app: AppHandle) -> Option<String> {
     pick_native_path(&app, true)

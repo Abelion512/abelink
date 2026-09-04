@@ -11,10 +11,9 @@
 // Laporan JSON memakai `schemaVersion` agar format bisa berevolusi.
 
 import fs from 'node:fs'
-import { TASKS, listTasks, runTask, mkSentinel } from './terminal-bench.mjs'
+import { TASKS, runTask } from './terminal-bench.mjs'
 
 const DEFAULT_RUNS = 3
-const DEFAULT_MAX_TURNS = 20
 const REGRESSION_THRESHOLD = 5 // persen pass-rate; default tanpa --compare = tidak dieksekusi
 
 // ---- Anti-cheat ----

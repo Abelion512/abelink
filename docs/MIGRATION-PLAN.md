@@ -39,18 +39,51 @@ hanya tersisa sebagai fallback era lama dan mengembalikan `unsupported`
 
 ## Fase C3 — Browser automation multi-session (browser:*)
 
-**Status: BELUM DIMULAI (stub eksplisit).**
+**Status: BELUM DIMULAI (stub eksplisit). Rencana tahapan final (2026-09-03).**
 
-Butuh Tauri `WebviewWindow` terpisah per sesi (pengganti `BrowserWindow`
-Electron). Titik masuk yang direncanakan:
+Keputusan arsitektur (dua jalur, A primer):
 
-- `sidecar/engine/channels/music.mjs` — daftar stub `browser:navigate`,
-  `browser:read-dom`, `browser:action`, `browser:close`, `browser:show`.
-- Kandidat implementasi: command Rust `browser_*` di `src-tauri/` yang
-  spawn WebviewWindow tersembunyi + inject JS (pola `BrowserPreviewWidget`).
+- **Jalur A — Ekstensi browser + CDP attach (PRIMER).** Mark memasang
+  ekstensi Chrome/Chromium (pola [BrowserMCP](https://github.com/BrowserMCP/mcp),
+  pendekatan browser-use/manus: kontrol browser yang sudah login, profil user
+  menempel sehingga tidak perlu login ulang). Ekstensi berkomunikasi dengan
+  sidecar via **native messaging** atau WebSocket lokal (127.0.0.1), sidecar
+  menerjemahkan `browser:*` menjadi perintah DOM/CDP ke ekstensi. Keuntungan:
+  CDP stabil, sesi/cookie user asli, tanpa spawn browser kedua.
+- **Jalur B — Spawn Chromium sendiri (FALLBACK).** Paritas upstream
+  (`browser-agent.js` lama): `spawn` Chromium dengan `--remote-debugging-port`
+  + user-data-dir terpisah per sub-agent. Dipakai otomatis bila ekstensi
+  tidak terpasang/tidak terhubung.
 
-Verifikasi saat fase ini dikerjakan: setiap channel harus menjalankan frame
-smoke nyata (navigate → read-dom → action), bukan respons sukses palsu.
+Titik masuk implementasi (urutan kerja):
+
+1. `sidecar/engine/channels/music.mjs` — ganti stub loop `browser:*`
+   (`browser:navigate`, `browser:read-dom`, `browser:action`, `browser:close`,
+   `browser:show`) dengan dispatcher ke transport baru; kontrak response
+   TIDAK berubah (renderer & `subagentExecutor` tidak perlu sentuh).
+2. Baru: `sidecar/main/browser/transport.mjs` — koneksi WS/native-messaging
+   ke ekstensi (Jalur A) DAN launcher Chromium CDP (Jalur B); pilih Jalur A
+   bila ekstensi handshake OK, jatuh ke Jalur B otomatis.
+3. Baru: `extension/` di root repo — manifest v3 + content script
+   (tag elemen interaktif ala `browser-agent.js`: maks 80 elemen,
+   `data-mark-id`, baca DOM, eksekusi aksi klik/scroll/capture).
+4. `src-tauri/` — TIDAK dibutuhkan untuk Jalur A (murni sidecar + ekstensi);
+   Jalur B hanya butuh spawn proses yang sudah aman lewat `run-shell` gate.
+   Approval: aksi `browser:*` destruktif (submit form, download) WAJIB
+   masuk `APPROVAL_ACTIONS` di `cmd_node_bridge.rs` bila lewat channel baru.
+5. `src/components/core/BrowserPreviewWidget.jsx` — preview holo-card
+   menampilkan screenshot per sesi (dikirim ekstensi/CDP sebagai base64,
+   jalur sama dengan `misc_take_screenshot`).
+
+Verifikasi wajib (anti-respons palsu): setiap channel menjalankan frame
+smoke nyata terhadap halaman uji lokal — navigate → read-dom (jumlah elemen
+tagged > 0) → action (klik mengubah state DOM terverifikasi) → close.
+Stub `unsupported` hanya boleh tersisa bila transport mati, dan pesannya
+harus eksplisit menyebut penyebabnya.
+
+Paritas sub-agent: `sessionId` sub-agent sudah dipropagasi sampai channel
+`browser:*` — Jalur A memetakan 1 sessionId = 1 tab; Jalur B = 1 profil
+Chromium terpisah per sessionId.
 
 ## Fase C4 — Plugin execution sandbox (Web Worker)
 
@@ -61,6 +94,15 @@ era Electron, sudah approval-gated).
 Rencana: eksekusi kode plugin dipindah ke sandbox Web Worker ter-isolasi;
 `plugins:list` tetap metadata-only (nama/deskripsi/actions, tidak mengeksekusi
 kode). Kontrak response plugin tidak berubah, hanya lokasi eksekusi.
+
+## Lanjutan B5 — Screenshot & Telegram send native — SELESAI (2026-09-03)
+
+`take-screenshot` native sudah ada; rantai pengirimannya ke Telegram kini
+komplit native: `misc_take_screenshot` (PNG base64) -> `telegram_send_photo`
+(multipart `sendPhoto` Bot API, batas 10MB) -> broadcast ke `tgAdminIds`.
+Token bot dikirim renderer ke `telegram_configure` lewat `syncConfig` (sebelumnya
+tidak ada pemanggilnya sehingga semua perintah `telegram_*` gagal "token kosong").
+Pemetaan lengkap + alasan: `MIGRATION-GAPS.md` bagian "Jalur Telegram native".
 
 ## Pembersihan dead code era Electron — SELESAI (2026-09-03)
 

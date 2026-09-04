@@ -18,6 +18,8 @@ import {
 } from 'lucide-react'
 import { runSubagentTurn, killSubagentExecution } from '../../api/subagent/subagentExecutor'
 import { useConfirm } from '../../hooks/useConfirm'
+import { getAllConfig } from '../../api/db'
+import { stripAgentTags } from '../../utils/messageTags'
 
 const markdownComponents = {
   code({ node, inline, className, children, ...props }) {
@@ -66,9 +68,7 @@ function SubagentUnifiedBubble({ turn, subagentName, isRunning }) {
             >
               <div className="flex items-center gap-2 font-semibold text-accent text-[11px]">
                 <Brain className="w-3.5 h-3.5 shrink-0" />
-                <span>
-                  Pemikiran Sub-Agent
-                </span>
+                <span>Pemikiran Sub-Agent</span>
               </div>
               <div className="flex items-center gap-1 text-[10px] text-base-content/50">
                 <span>{isThoughtOpen ? 'Tutup' : 'Lihat'}</span>
@@ -157,9 +157,7 @@ function SubagentUnifiedBubble({ turn, subagentName, isRunning }) {
         {turn.answer ? (
           <div className="prose prose-invert prose-sm max-w-none text-xs leading-relaxed font-normal pt-1 text-base-content/95">
             <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-              {turn.answer
-                .replace(/^\[DARI LEAD AGENT \(MARK\)\]:\s*/, '')
-                .replace(/^\[DARI CREATOR \/ USER \(MADA\)\]:\s*/, '')}
+              {stripAgentTags(turn.answer)}
             </Markdown>
           </div>
         ) : isRunning ? (
@@ -269,6 +267,7 @@ function groupSubagentMessages(rawMessages) {
 export default function SubagentIntercom({ subagentId, onClose }) {
   const [subagent, setSubagent] = useState(null)
   const [messages, setMessages] = useState([])
+  const [config, setConfig] = useState({})
   const [inputText, setInputText] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false)
@@ -287,6 +286,15 @@ export default function SubagentIntercom({ subagentId, onClose }) {
       setMessages(msgs || [])
     } catch (err) {
       console.error('[SubagentIntercom] Load error:', err)
+    }
+  }
+
+  const loadConfig = async () => {
+    try {
+      const data = await getAllConfig()
+      if (data && data.length > 0) setConfig(data[0] || {})
+    } catch (err) {
+      console.error('[SubagentIntercom] Config load error:', err)
     }
   }
 
@@ -311,6 +319,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
     prevMsgCountRef.current = 0
     isAutoScrollRef.current = true
     setShowScrollBottomBtn(false)
+    loadConfig()
     loadData().then(() => {
       setTimeout(() => scrollToBottom('auto'), 50)
     })
@@ -474,7 +483,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
               </div>
               <div className="chat-header text-[11px] opacity-50 mb-1 flex items-center gap-1.5">
                 <span className={isUser ? 'text-accent font-semibold' : ''}>
-                  {isUser ? (config.ownerName?.trim() || 'User') : 'Lead Agent (Mark)'}
+                  {isUser ? config.ownerName?.trim() || 'User' : 'Lead Agent (Mark)'}
                 </span>
                 <span className="text-[10px]">
                   {new Date(item.timestamp).toLocaleTimeString([], {
@@ -491,9 +500,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
                 }`}
               >
                 <div className="whitespace-pre-wrap leading-relaxed font-normal">
-                  {item.content
-                    .replace(/^\[DARI LEAD AGENT \(MARK\)\]:\s*/, '')
-                    .replace(new RegExp(`^\\\\[DARI CREATOR \\\\/ USER \\\\(${config.ownerName || 'MADA'}\\\\)\\\\]:\\\\s*`, 'i'), '')}
+                  {stripAgentTags(item.content)}
                 </div>
               </div>
             </div>
@@ -545,7 +552,11 @@ export default function SubagentIntercom({ subagentId, onClose }) {
           type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder={config.ownerName?.trim() ? `Ketik instruksi/arahan langsung sebagai ${config.ownerName}...` : 'Ketik instruksi/arahan langsung sebagai User...'}
+          placeholder={
+            config.ownerName?.trim()
+              ? `Ketik instruksi/arahan langsung sebagai ${config.ownerName}...`
+              : 'Ketik instruksi/arahan langsung sebagai User...'
+          }
           disabled={isSending}
           className="input input-sm input-bordered flex-1 rounded-xl bg-base-100/70 focus:bg-base-100 text-xs shadow-inner"
         />

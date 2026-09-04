@@ -48,10 +48,6 @@ function isAlreadyReleased(releases, version) {
   return releases.findIndex(r => r.version === version) >= 0
 }
 
-function buildChanges(...types) {
-  return types.map(t => ({ type: t, msg: `test ${t}` }))
-}
-
 function classifyChange(commit) {
   if (commit.type === 'feat') return 'features'
   if (commit.type === 'fix') return 'fixes'

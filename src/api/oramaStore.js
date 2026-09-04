@@ -1,5 +1,6 @@
 import { create, insert, insertMultiple, search, remove, removeMultiple } from '@orama/orama'
 import { generateVector } from './vectorLoader'
+import { asyncPool } from '../utils/asyncPool'
 
 // Policy vektor (getVectorModel/generateStorableVector) di-import dinamis dari
 // vectorMemory agar bundle transformers tetap ter-split keluar dari entry chunk.
@@ -11,6 +12,21 @@ const loadVectorPolicy = () => {
 
 // Dimensi vektor sesuai model Transformers.js (all-MiniLM-L6-v2 = 384)
 const VECTOR_SIZE = 384
+
+// Konstanta hydrasi: regen embedding paralel terbatas + tulis per batch.
+// Concurrency sengaja kecil agar perangkat RAM rendah tetap aman; Lite Mode
+// lolos cepat karena generateStorableVector langsung null di mode itu.
+const REGEN_CONCURRENCY = 3
+const BATCH_INSERT = 25
+const BATCH_UPDATE = 25
+
+// Normalisasi timestamp Dexie (angka / string ISO / lainnya) ke epoch ms.
+const toNumericTs = (rawTs) =>
+  typeof rawTs === 'number' && !isNaN(rawTs)
+    ? rawTs
+    : typeof rawTs === 'string' && !isNaN(Date.parse(rawTs))
+      ? Date.parse(rawTs)
+      : Number(rawTs) || Date.now()
 
 // Baris legasi tanpa tag dianggap ber-model MiniLM (vektor asli era pra-penetapan)
 const LEGACY_VECTOR_MODEL = 'minilm'
@@ -117,15 +133,11 @@ export async function hydrateFromDexie(onProgress) {
       validTurnsCount = await migrateOldSessionsToTurns(onProgress)
     } else if (turnCount > 0) {
       const turns = await db.chatTurns.toArray()
-      const validTurns = []
-      for (let t of turns) {
-        const rawTs = t.timestamp
-        const numericTs =
-          typeof rawTs === 'number' && !isNaN(rawTs)
-            ? rawTs
-            : typeof rawTs === 'string' && !isNaN(Date.parse(rawTs))
-              ? Date.parse(rawTs)
-              : Number(rawTs) || Date.now()
+
+      // Regen embedding PARALEL terbatas (REGEN_CONCURRENCY sekaligus) — dulu
+      // serial murni sehingga startup korpus besar lambat. Slot gagal menjadi
+      // Error di posisinya; baris itu jatuh ke fulltext-only, bukan batal semua.
+      const prepared = await asyncPool(REGEN_CONCURRENCY, turns, async (t) => {
         const fields = {
           pairId: String(t.pairId || ''),
           sessionId: Number(t.sessionId) || 1,
@@ -133,27 +145,46 @@ export async function hydrateFromDexie(onProgress) {
           userText: String(t.userText || ''),
           aiText: String(t.aiText || ''),
           combinedText: String(t.combinedText || ''),
-          timestamp: numericTs
+          timestamp: toNumericTs(t.timestamp)
         }
         if (t.vector && t.vector.length === VECTOR_SIZE) {
           // Vektor tersimpan: hormati provenansinya, jangan campur lintas model
-          validTurns.push(toIndexRow(fields, t.vector, t.vectorModel, currentModel))
-        } else {
-          // Regenerasi HANYA lewat generateStorableVector (null saat Lite Mode)
-          const vec = await generateStorableVector(t.combinedText)
-          if (vec && vec.length === VECTOR_SIZE) {
-            db.chatTurns
-              .update(t.pairId, { vector: vec, vectorModel: currentModel })
-              .catch(console.error)
-            validTurns.push({ ...fields, vector: vec, vectorModel: currentModel })
-          } else {
-            // Gagal regen / Lite Mode: baris fulltext saja, JANGAN menulis vektor ke Dexie
-            validTurns.push({ ...fields, vectorModel: 'none' })
+          return toIndexRow(fields, t.vector, t.vectorModel, currentModel)
+        }
+        // Regenerasi HANYA lewat generateStorableVector (null saat Lite Mode)
+        const vec = await generateStorableVector(t.combinedText)
+        if (vec && vec.length === VECTOR_SIZE) {
+          return {
+            row: { ...fields, vector: vec, vectorModel: currentModel },
+            update: { key: t.pairId, changes: { vector: vec, vectorModel: currentModel } }
           }
         }
+        // Gagal regen / Lite Mode: baris fulltext saja, JANGAN menulis vektor ke Dexie
+        return toIndexRow(fields, null, null, currentModel)
+      })
+
+      const validTurns = []
+      const turnUpdates = []
+      for (const item of prepared) {
+        if (item instanceof Error) continue
+        if (item && item.row) {
+          validTurns.push(item.row)
+          turnUpdates.push(item.update)
+        } else if (item) {
+          validTurns.push(item)
+        }
       }
+
+      // Tulis vektor balik ke Dexie per batch (bulkUpdate) — dulu satu update()
+      // fire-and-forget per baris.
+      for (let i = 0; i < turnUpdates.length; i += BATCH_UPDATE) {
+        await db.chatTurns.bulkUpdate(turnUpdates.slice(i, i + BATCH_UPDATE)).catch(console.error)
+      }
+
       if (validTurns.length > 0) {
-        await insertMultiple(turnPairIndex, validTurns)
+        for (let i = 0; i < validTurns.length; i += BATCH_INSERT) {
+          await insertMultiple(turnPairIndex, validTurns.slice(i, i + BATCH_INSERT))
+        }
         validTurnsCount = validTurns.length
       }
       console.log(`[Orama] Kondisi 2: Hydrated ${validTurnsCount} turn pairs from Dexie`)
@@ -165,49 +196,53 @@ export async function hydrateFromDexie(onProgress) {
   }
 
   const archives = await db.chatArchive.toArray()
-  const validArchives = []
   const needsMigration = localStorage.getItem('migrated_vectors_v1') !== 'true'
 
-  for (let a of archives) {
-    if (needsMigration || !a.vector || a.vector.length !== VECTOR_SIZE) {
-      console.log(`[Orama] Re-generating vector for archive ID ${a.id}`)
-      // Hanya generateStorableVector — null di Lite Mode sehingga hash tidak pernah disimpan
-      const vec = await generateStorableVector(a.summary)
-      if (vec && vec.length === VECTOR_SIZE) {
-        a.vector = vec
-        a.vectorModel = currentModel
-        db.chatArchive.update(a.id, { vector: vec, vectorModel: currentModel }).catch(console.error)
-      } else {
-        a.vector = null
-      }
-    }
+  const archiveResults = await asyncPool(REGEN_CONCURRENCY, archives, async (a) => {
     const fields = {
       summary: a.summary,
       topic: a.topic || 'General',
       timestamp: a.timestamp || Date.now(),
       dexieId: a.id
     }
-    validArchives.push(toIndexRow(fields, a.vector, a.vectorModel, currentModel))
+    if (needsMigration || !a.vector || a.vector.length !== VECTOR_SIZE) {
+      // Hanya generateStorableVector — null di Lite Mode sehingga hash tidak pernah disimpan
+      const vec = await generateStorableVector(a.summary)
+      if (vec && vec.length === VECTOR_SIZE) {
+        return {
+          row: toIndexRow(fields, vec, currentModel, currentModel),
+          update: { key: a.id, changes: { vector: vec, vectorModel: currentModel } }
+        }
+      }
+      return toIndexRow(fields, null, null, currentModel)
+    }
+    return toIndexRow(fields, a.vector, a.vectorModel, currentModel)
+  })
+
+  const validArchives = []
+  const archiveUpdates = []
+  for (const item of archiveResults) {
+    if (item instanceof Error) continue
+    if (item && item.row) {
+      validArchives.push(item.row)
+      archiveUpdates.push(item.update)
+    } else if (item) {
+      validArchives.push(item)
+    }
+  }
+
+  for (let i = 0; i < archiveUpdates.length; i += BATCH_UPDATE) {
+    await db.chatArchive.bulkUpdate(archiveUpdates.slice(i, i + BATCH_UPDATE)).catch(console.error)
   }
 
   if (validArchives.length > 0) {
-    await insertMultiple(archiveIndex, validArchives)
+    for (let i = 0; i < validArchives.length; i += BATCH_INSERT) {
+      await insertMultiple(archiveIndex, validArchives.slice(i, i + BATCH_INSERT))
+    }
   }
 
   const docs = await db.documents.toArray()
-  const validDocs = []
-  for (let d of docs) {
-    if (needsMigration || !d.vector || d.vector.length !== VECTOR_SIZE) {
-      console.log(`[Orama] Re-generating vector for doc ID ${d.id}`)
-      const vec = await generateStorableVector(d.content)
-      if (vec && vec.length === VECTOR_SIZE) {
-        d.vector = vec
-        d.vectorModel = currentModel
-        db.documents.update(d.id, { vector: vec, vectorModel: currentModel }).catch(console.error)
-      } else {
-        d.vector = null
-      }
-    }
+  const docResults = await asyncPool(REGEN_CONCURRENCY, docs, async (d) => {
     const fields = {
       docName: d.docName,
       chunkIndex: d.chunkIndex,
@@ -215,27 +250,43 @@ export async function hydrateFromDexie(onProgress) {
       timestamp: d.timestamp || Date.now(),
       dexieId: d.id
     }
-    validDocs.push(toIndexRow(fields, d.vector, d.vectorModel, currentModel))
+    if (needsMigration || !d.vector || d.vector.length !== VECTOR_SIZE) {
+      const vec = await generateStorableVector(d.content)
+      if (vec && vec.length === VECTOR_SIZE) {
+        return {
+          row: toIndexRow(fields, vec, currentModel, currentModel),
+          update: { key: d.id, changes: { vector: vec, vectorModel: currentModel } }
+        }
+      }
+      return toIndexRow(fields, null, null, currentModel)
+    }
+    return toIndexRow(fields, d.vector, d.vectorModel, currentModel)
+  })
+
+  const validDocs = []
+  const docUpdates = []
+  for (const item of docResults) {
+    if (item instanceof Error) continue
+    if (item && item.row) {
+      validDocs.push(item.row)
+      docUpdates.push(item.update)
+    } else if (item) {
+      validDocs.push(item)
+    }
+  }
+
+  for (let i = 0; i < docUpdates.length; i += BATCH_UPDATE) {
+    await db.documents.bulkUpdate(docUpdates.slice(i, i + BATCH_UPDATE)).catch(console.error)
   }
 
   if (validDocs.length > 0) {
-    await insertMultiple(documentIndex, validDocs)
+    for (let i = 0; i < validDocs.length; i += BATCH_INSERT) {
+      await insertMultiple(documentIndex, validDocs.slice(i, i + BATCH_INSERT))
+    }
   }
 
   const memories = await db.memory.toArray()
-  const validMemories = []
-  for (let m of memories) {
-    if (needsMigration || !m.vector || m.vector.length !== VECTOR_SIZE) {
-      console.log(`[Orama] Re-generating vector for memory ID ${m.id}`)
-      const vec = await generateStorableVector(m.memory)
-      if (vec && vec.length === VECTOR_SIZE) {
-        m.vector = vec
-        m.vectorModel = currentModel
-        db.memory.update(m.id, { vector: vec, vectorModel: currentModel }).catch(console.error)
-      } else {
-        m.vector = null
-      }
-    }
+  const memoryResults = await asyncPool(REGEN_CONCURRENCY, memories, async (m) => {
     const fields = {
       type: m.type || 'notes',
       summary: m.summary || '',
@@ -243,11 +294,39 @@ export async function hydrateFromDexie(onProgress) {
       timestamp: Date.now(),
       dexieId: m.id
     }
-    validMemories.push(toIndexRow(fields, m.vector, m.vectorModel, currentModel))
+    if (needsMigration || !m.vector || m.vector.length !== VECTOR_SIZE) {
+      const vec = await generateStorableVector(m.memory)
+      if (vec && vec.length === VECTOR_SIZE) {
+        return {
+          row: toIndexRow(fields, vec, currentModel, currentModel),
+          update: { key: m.id, changes: { vector: vec, vectorModel: currentModel } }
+        }
+      }
+      return toIndexRow(fields, null, null, currentModel)
+    }
+    return toIndexRow(fields, m.vector, m.vectorModel, currentModel)
+  })
+
+  const validMemories = []
+  const memoryUpdates = []
+  for (const item of memoryResults) {
+    if (item instanceof Error) continue
+    if (item && item.row) {
+      validMemories.push(item.row)
+      memoryUpdates.push(item.update)
+    } else if (item) {
+      validMemories.push(item)
+    }
+  }
+
+  for (let i = 0; i < memoryUpdates.length; i += BATCH_UPDATE) {
+    await db.memory.bulkUpdate(memoryUpdates.slice(i, i + BATCH_UPDATE)).catch(console.error)
   }
 
   if (validMemories.length > 0) {
-    await insertMultiple(memoryIndex, validMemories)
+    for (let i = 0; i < validMemories.length; i += BATCH_INSERT) {
+      await insertMultiple(memoryIndex, validMemories.slice(i, i + BATCH_INSERT))
+    }
   }
 
   if (needsMigration) {

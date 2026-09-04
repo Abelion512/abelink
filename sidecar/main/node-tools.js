@@ -36,7 +36,7 @@ import {
 } from './google/google-drive.js'
 import { listEvents, createEvent, deleteEvent } from './google/google-calendar.js'
 import { searchEmails, readEmail, sendEmail, markAsRead } from './google/google-gmail.js'
-import { sendTelegramMessage, sendTelegramFile } from './telegram/telegram-service.js'
+import { sendTelegramMessage, sendTelegramFile, getConnectionStatus, sendInlineKeyboard, waitForAskUserAnswer } from './telegram/telegram-service.js'
 import { getGitStatus, getGitDiff, gitCommit, gitRevert } from './git-service.js'
 import { spawnBackgroundTask, readBackgroundTaskOutput, killBackgroundTask, listBackgroundTasks } from './task-daemon.js'
 
@@ -85,21 +85,34 @@ const parsePagination = (str) => {
   return { start, end, fetchCount }
 }
 
-// Helper: Cek apakah command PowerShell berbahaya
+// Helper: Cek apakah command shell berbahaya (bash/zsh, Linux Debian/Ubuntu).
+// Daftar mencakup keyword era Windows (taskkill, Set-ExecutionPolicy, ...) agar
+// perintah warisan upstream tetap tertangkap, PLUS keyword destruktif khas Linux.
 const DANGEROUS_KEYWORDS = [
   'Remove-Item',
   'rm ',
+  'rm -rf',
   'del ',
   'rmdir',
   'Format-',
   'Clear-Disk',
   'Stop-Process',
   'kill ',
+  'killall',
   'taskkill',
   'Set-ExecutionPolicy',
   'Restart-Computer',
   'shutdown',
-  'reg delete'
+  'reboot',
+  'poweroff',
+  'halt',
+  'init 0',
+  'reg delete',
+  'mkfs',
+  'dd if=',
+  'fdisk',
+  'chmod 777',
+  'chown'
 ]
 export const isDangerousCommand = (cmd) =>
   DANGEROUS_KEYWORDS.some((k) => cmd.toLowerCase().includes(k.toLowerCase()))
@@ -1189,7 +1202,7 @@ export const NATIVE_TOOLS = {
       if (!question) return { success: false, error: 'Pertanyaan wajib diisi' }
       if (!options || options.length < 2) return { success: false, error: 'Minimal 2 opsi pilihan' }
 
-      const tgMod = await getTg()
+      const tgMod = { getConnectionStatus, sendInlineKeyboard, waitForAskUserAnswer }
       if (tgMod.getConnectionStatus().status !== 'connected') {
         return { success: false, error: 'Bot Telegram belum terhubung' }
       }
@@ -1713,5 +1726,8 @@ export const NATIVE_TOOLS = {
 // Alias kompatibilitas: nama Windows warisan upstream -> run-shell (bash Linux).
 // Model lama kadang masih menyebut run-powershell; jangan biarkan tool hilang.
 NATIVE_TOOLS['run-powershell'] = NATIVE_TOOLS['run-shell']
+// run-bash: nama kanonik untuk Linux (Debian/Ubuntu); alias lama di atas hanya
+// untuk kompatibilitas perintah warisan upstream.
+NATIVE_TOOLS['run-bash'] = NATIVE_TOOLS['run-shell']
 
 export const getNativeToolsDefinition = () => NATIVE_TOOLS

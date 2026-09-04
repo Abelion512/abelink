@@ -7,7 +7,6 @@ import { getGlobalConfig, abortAllFetches, activeAbortControllers } from '../ai-
 
 let bot = null
 let currentStatus = 'disconnected'
-let botWindow = null
 export const uiMessageHistory = []
 const MAX_UI_HISTORY = 100
 const pendingRequestsMap = new Map()
@@ -63,7 +62,7 @@ export const startTelegramBot = async (token, mainWindow) => {
     return
   }
 
-  botWindow = mainWindow
+  // Tauri: tidak ada botWindow — event UI dikirim via sendEvent() (stdout JSON-lines).
   if (bot) {
     stopTelegramBot()
   }
@@ -145,32 +144,20 @@ export const startTelegramBot = async (token, mainWindow) => {
 
     bot.command('accept', async (ctx) => {
       if (!(await ensureTrustedAdmin(ctx))) return
-      if (botWindow && !botWindow.isDestroyed()) {
-        const chatId = String(ctx.chat?.id || ctx.from?.id || '')
-        botWindow.webContents.send('tg:command-accept', { chatId })
-      } else {
-        ctx.reply('[ERROR]: UI Mark tidak terhubung.')
-      }
+      const chatId = String(ctx.chat?.id || ctx.from?.id || '')
+      sendEvent('tg:command-accept', { chatId })
     })
 
     bot.command('always', async (ctx) => {
       if (!(await ensureTrustedAdmin(ctx))) return
-      if (botWindow && !botWindow.isDestroyed()) {
-        const chatId = String(ctx.chat?.id || ctx.from?.id || '')
-        botWindow.webContents.send('tg:command-always', { chatId })
-      } else {
-        ctx.reply('[ERROR]: UI Mark tidak terhubung.')
-      }
+      const chatId = String(ctx.chat?.id || ctx.from?.id || '')
+      sendEvent('tg:command-always', { chatId })
     })
 
     bot.command('reject', async (ctx) => {
       if (!(await ensureTrustedAdmin(ctx))) return
-      if (botWindow && !botWindow.isDestroyed()) {
-        const chatId = String(ctx.chat?.id || ctx.from?.id || '')
-        botWindow.webContents.send('tg:command-reject', { chatId })
-      } else {
-        ctx.reply('[ERROR]: UI Mark tidak terhubung.')
-      }
+      const chatId = String(ctx.chat?.id || ctx.from?.id || '')
+      sendEvent('tg:command-reject', { chatId })
     })
 
     bot.on('text', async (ctx) => {
@@ -218,10 +205,10 @@ export const startTelegramBot = async (token, mainWindow) => {
       uiMessageHistory.push(uiMsgPayload)
       if (uiMessageHistory.length > MAX_UI_HISTORY) uiMessageHistory.shift()
 
-      if (botWindow && !botWindow.isDestroyed()) {
-        botWindow.webContents.send('tg:message', uiMsgPayload)
-        botWindow.webContents.send('tg:thinking', { sender: senderName, chatId })
-      }
+      // Tauri: renderer berlangganan event ini via tauri-bridge (onTgMessage/onTgThinking).
+      // Era Electron, event dikirim ke botWindow — di bawah Tauri, botWindow selalu null.
+      sendEvent('tg:message', uiMsgPayload)
+      sendEvent('tg:thinking', { sender: senderName, chatId })
 
       let loadingMsgId = null
       try {
@@ -240,17 +227,16 @@ export const startTelegramBot = async (token, mainWindow) => {
           content: m.type === 'incoming' ? m.text : m.reply
         }))
 
-      if (botWindow && !botWindow.isDestroyed()) {
-        botWindow.webContents.send('tg:request-agent-execution', {
-          text: `[Telegram from ${chatId} - ${senderName}]:\n${text}`,
-          isAdmin: true,
-          senderName,
-          msgId,
-          chatId,
-          isGroup: ctx.chat?.type !== 'private',
-          chatSession: recentHistory
-        })
-      }
+      // Tauri: renderer (App.jsx) meneruskan event ini ke alur agen utama.
+      sendEvent('tg:request-agent-execution', {
+        text: `[Telegram from ${chatId} - ${senderName}]:\n${text}`,
+        isAdmin: true,
+        senderName,
+        msgId,
+        chatId,
+        isGroup: ctx.chat?.type !== 'private',
+        chatSession: recentHistory
+      })
     })
 
     bot.on(['document', 'photo'], async (ctx) => {
@@ -332,10 +318,9 @@ export const startTelegramBot = async (token, mainWindow) => {
         uiMessageHistory.push(uiMsgPayload)
         if (uiMessageHistory.length > MAX_UI_HISTORY) uiMessageHistory.shift()
 
-        if (botWindow && !botWindow.isDestroyed()) {
-          botWindow.webContents.send('tg:message', uiMsgPayload)
-          botWindow.webContents.send('tg:thinking', { sender: senderName, chatId })
-        }
+        // Tauri: sama seperti handler text — renderer menerima via event system.
+        sendEvent('tg:message', uiMsgPayload)
+        sendEvent('tg:thinking', { sender: senderName, chatId })
 
         pendingRequestsMap.set(msgId, { ctx, chatId, text, loadingMsgId: statusMsg.message_id })
         setTimeout(() => pendingRequestsMap.delete(msgId), 300000)
@@ -348,17 +333,16 @@ export const startTelegramBot = async (token, mainWindow) => {
             content: m.type === 'incoming' ? m.text : m.reply
           }))
 
-        if (botWindow && !botWindow.isDestroyed()) {
-          botWindow.webContents.send('tg:request-agent-execution', {
-            text: `[Telegram from ${chatId} - ${senderName}]:\n${text}`,
-            isAdmin: true,
-            senderName,
-            msgId,
-            chatId,
-            isGroup: ctx.chat?.type !== 'private',
-            chatSession: recentHistory
-          })
-        }
+        // Tauri: sama seperti handler text — renderer menerima via event system.
+        sendEvent('tg:request-agent-execution', {
+          text: `[Telegram from ${chatId} - ${senderName}]:\n${text}`,
+          isAdmin: true,
+          senderName,
+          msgId,
+          chatId,
+          isGroup: ctx.chat?.type !== 'private',
+          chatSession: recentHistory
+        })
       } catch (e) {
         console.error('Failed to download file from Telegram:', e)
         ctx.reply(`Gagal mengunduh file: ${e.message}`)
@@ -389,9 +373,7 @@ export const startTelegramBot = async (token, mainWindow) => {
       const chatId = String(ctx.chat?.id || ctx.from?.id || '')
       const answer = ctx.match[1]
       resolveAskUser(chatId, answer)
-      if (botWindow && !botWindow.isDestroyed()) {
-        botWindow.webContents.send('benchmark:ask-response', { chatId, answer })
-      }
+      sendEvent('benchmark:ask-response', { chatId, answer })
       await ctx.answerCbQuery()
       await ctx.editMessageReplyMarkup({ inline_keyboard: [] })
       await ctx.reply(`Jawaban diterima: ${answer}`)
@@ -613,9 +595,7 @@ const flushPendingBroadcasts = async () => {
 
 const updateStatus = (status) => {
   currentStatus = status
-  if (botWindow && !botWindow.isDestroyed()) {
-    botWindow.webContents.send('tg:connection', status)
-  }
+  sendEvent('tg:connection', status)
   if (status === 'connected') {
     setTimeout(flushPendingBroadcasts, 500)
   }
@@ -653,6 +633,8 @@ export const sendTelegramToAdmins = async (text) => {
 
 // ---- Channel exports (didaftarkan engine.mjs; tanpa Electron IPC) ----
 // Kirim event ke renderer lewat stdout JSON-lines (engine meneruskan ke Tauri event system).
+// Protokol registry berbasis baris: satu write = satu frame lengkap, jadi aman
+// dipanggil dari dalam handler mana pun (lihat sendAgentExecutionDone).
 const sendEvent = (event, payload) => {
   try {
     process.stdout.write(JSON.stringify({ event, payload }) + '\n')

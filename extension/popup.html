@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body { font-family: system-ui, sans-serif; width: 280px; padding: 12px; background: #0b0f0c; color: #e6efe9; }
+    h1 { font-size: 14px; margin: 0 0 8px; color: #1fb854; letter-spacing: 0.08em; text-transform: uppercase; }
+    label { display: block; font-size: 11px; opacity: 0.7; margin: 8px 0 2px; }
+    input { width: 100%; box-sizing: border-box; background: #16211b; color: #e6efe9; border: 1px solid #2a3a31; border-radius: 6px; padding: 6px 8px; font-size: 12px; }
+    button { margin-top: 10px; width: 100%; background: #1fb854; color: #06130b; font-weight: 700; border: 0; border-radius: 6px; padding: 8px 0; cursor: pointer; }
+    button.secondary { background: #2a3a31; color: #e6efe9; }
+    #status { font-size: 11px; margin-top: 10px; line-height: 1.5; opacity: 0.85; white-space: pre-wrap; }
+    .ok { color: #1fb854; }
+    .err { color: #ff6b6b; }
+  </style>
+</head>
+<body>
+  <h1>Mark Bridge</h1>
+  <label>Token (dari ~/.local/share/mark/browser-bridge-token)</label>
+  <input id="token" type="password" placeholder="tempel token di sini" />
+  <label>Session ID</label>
+  <input id="session" type="text" value="default" />
+  <button id="start">Sambungkan</button>
+  <button id="stop" class="secondary">Putuskan</button>
+  <div id="status">Memuat status...</div>
+  <script src="popup.js"></script>
+</body>
+</html>
