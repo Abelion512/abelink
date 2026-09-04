@@ -126,6 +126,28 @@ function humanify(scope) {
 }
 
 // ============================================================
+// Environment hardening
+// ============================================================
+
+// CI runners checkout WITHOUT a git identity. Without this, `git commit`
+// fails and createReleasePR's old catch block misread the failure as
+// "nothing to commit" — producing an empty Release PR whose version bump
+// never landed, which later broke the finalize version guard.
+function ensureGitIdentity() {
+  const email = run('git config user.email || true')
+  const name = run('git config user.name || true')
+  if (!email) run('git config user.email "release-bot@mark-agent-linux.local"')
+  if (!name) run('git config user.name "Mark Release Bot"')
+}
+
+// PR tagging + findReleasePR both require the 'release' label. Forks do not
+// inherit labels from upstream, so create it on demand (idempotent via
+// --force, which updates color/description when it already exists).
+function ensureReleaseLabel() {
+  run('gh label create release --description "Automated release PR (release-prepare)" --color 0E8A16 --force')
+}
+
+// ============================================================
 // PR management
 // ============================================================
 
@@ -145,6 +167,8 @@ function createReleasePR(version, changes) {
   const branch = `release/v${version}`
   const prBody = buildPRBody(changes)
 
+  ensureGitIdentity()
+
   // Create branch from current linux HEAD (already on linux when called)
   run(`git checkout -b ${branch}`)
 
@@ -154,14 +178,23 @@ function createReleasePR(version, changes) {
 
   // Stage and commit generated files
   run('git add src/data/releases.json src/data/whats-new.json CHANGELOG.md src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
+  // "No changes" must be detected via the staged diff, NEVER via commit
+  // failure — a failed commit here used to be swallowed as "nothing to
+  // commit" and silently pushed an empty release branch.
+  let hasStagedChanges = false
   try {
-    run(`git commit -m "chore(release): v${version}"`)
+    run('git diff --cached --quiet')
   } catch {
-    // Nothing to commit (files unchanged)
+    hasStagedChanges = true
+  }
+  if (hasStagedChanges) {
+    run(`git commit -m "chore(release): v${version}"`)
   }
 
   // Push branch (no force)
   run(`git push -u origin ${branch}`)
+
+  ensureReleaseLabel()
 
   // Create PR
   run(`gh pr create --base linux --head ${branch} --title "Release v${version}" --body "${prBody}" --label release`)
@@ -441,6 +474,7 @@ function writeAllFiles(version, changes) {
 }
 
 function commitAndPushIfChanged(version, msg) {
+  ensureGitIdentity()
   run('git add src/data/releases.json src/data/whats-new.json CHANGELOG.md src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
   try {
     run('git diff --cached --quiet')
