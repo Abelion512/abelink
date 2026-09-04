@@ -542,6 +542,12 @@ const Configuration = ({
     setConfig((prev) => ({ ...prev, customModel: e.target.value }))
   const handleAwarenessEnabledChange = (e) =>
     setConfig((prev) => ({ ...prev, awarenessEnabled: e.target.checked }))
+  // Built-in plugins (ponytail/caveman) — always-on by default, toggle per fitur.
+  const handleBuiltinPluginChange = (key) => (e) =>
+    setConfig((prev) => ({
+      ...prev,
+      builtinPlugins: { ...(prev.builtinPlugins || {}), [key]: e.target.checked }
+    }))
   const handlePersonalityChange = (e) =>
     setConfig((prev) => ({ ...prev, personality: e.target.value }))
   const handleTemperatureChange = (e) =>
@@ -930,6 +936,41 @@ const Configuration = ({
                   className="toggle toggle-primary"
                   checked={config.awarenessEnabled !== false}
                   onChange={handleAwarenessEnabledChange}
+                />
+              </div>
+            </div>
+
+            {/* Built-in Plugins (ponytail + caveman) */}
+            <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold">Ponytail (hemat kode)</p>
+                  <p className="text-xs opacity-50 mt-1">
+                    Ladder YAGNI: pakai ulang kode yang ada, stdlib, fitur platform, satu baris —
+                    sebelum menulis kode baru. Validasi &amp; keamanan tidak pernah dipotong.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  className="toggle toggle-primary"
+                  checked={config.builtinPlugins?.ponytail !== false}
+                  onChange={handleBuiltinPluginChange('ponytail')}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold">Caveman (hemat token jawaban)</p>
+                  <p className="text-xs opacity-50 mt-1">
+                    Jawaban super-ringkas; kode, perintah, path, dan pesan error tetap utuh.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  className="toggle toggle-primary"
+                  checked={config.builtinPlugins?.caveman !== false}
+                  onChange={handleBuiltinPluginChange('caveman')}
                 />
               </div>
             </div>

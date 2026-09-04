@@ -3,6 +3,7 @@ import { getAllConfig, getAllLearnedSkills } from '../db'
 import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorLoader'
 import { getPersonaPrompt, getTraitContext } from './persona'
+import { getBuiltinPluginsPrompt } from './builtinPlugins'
 import { core_tools } from '../tools/core-tools'
 import { group_tools } from '../tools/group-tools'
 import { NATIVE_SKILLS } from '../../components/core/native-skills'
@@ -104,6 +105,7 @@ export const getNextAction = async (
 Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas asisten AI canggih dan otonom.
 
 ${await getPersonaPrompt(userId, conf.personality, conf.ownerName)}
+${getBuiltinPluginsPrompt(conf)}
 ${options.currentMusicTrack ? `\n# STATUS PLAYER MUSIK (REAL-TIME):\nLagu yang AKTIF DIPUTAR SEKARANG: "${options.currentMusicTrack.title}" oleh ${options.currentMusicTrack.artist}.\nPENTING: Lagu di playlist bisa berganti otomatis. JANGAN TERKECUH oleh riwayat chat lama yang menyebutkan lagu sebelumnya! Untuk semua pertanyaan atau obrolan tentang musik yang sedang berjalan, HANYA gunakan data REAL-TIME ini sebagai referensi utama!` : ''}
 ${
   userSkillsList.length > 0 || learnedSkillsList.length > 0

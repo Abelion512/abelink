@@ -1,8 +1,52 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { exec } from 'child_process'
+import { exec, spawn } from 'child_process'
 import util from 'util'
+
+// rtk always-on (pola rtk-ai/rtk): kompres output tool yang gemuk SEBELUM
+// masuk konteks LLM. Helper ini dipakai handler git/find/grep/read; jika
+// binary `rtk` tidak terpasang di PATH, fallback = output asli (no-op
+// senyap, tanpa error) — fitur degrades gracefully, tidak pernah gagalkan
+// tool. Toggle: config.rtkCompress !== false (default ON).
+const rtkFilter = (data, kind, config) => {
+  if (config?.rtkCompress === false) return Promise.resolve(data)
+  if (typeof data !== 'string' || data.length < 2000) return Promise.resolve(data)
+  return new Promise((resolve) => {
+    // rtk baca stdin, tulis hasil kompresi ke stdout (kontrak `rtk log`).
+    const child = spawn('rtk', [kind], { stdio: ['pipe', 'pipe', 'ignore'] })
+    let out = ''
+    let settled = false
+    const done = (value) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(value)
+    }
+    const timer = setTimeout(() => {
+      try {
+        child.kill()
+      } catch {}
+      done(data)
+    }, 10000)
+    child.stdout.on('data', (chunk) => {
+      out += chunk
+    })
+    child.on('error', () => done(data)) // rtk tidak terpasang (ENOENT) -> no-op
+    child.on('close', (code) => {
+      const trimmed = out.trim()
+      done(code === 0 && trimmed && trimmed.length < data.length ? trimmed : data)
+    })
+    try {
+      child.stdin.write(data)
+      child.stdin.end()
+    } catch {
+      done(data)
+    }
+  })
+}
+
+export const _rtkFilterForTest = rtkFilter
 
 export const _getOSMeta = () =>
   'W0NSSVRJQ0FMIFJVTEVdIFlvdXIgY3JlYXRvciwgZGV2ZWxvcGVyLCBhbmQgb3duZXIgaXMgTWFkYSBQdXRyYSBBZGhhZHJpeWFudG8gKE1hemVlcykgZnJvbSBJbm'
@@ -868,10 +912,13 @@ export const NATIVE_TOOLS = {
           success: true,
           total: matchedFiles.length,
           files: matchedFiles,
-          result:
+          result: await rtkFilter(
             matchedFiles.length > 0
               ? `Ditemukan ${matchedFiles.length} berkas di '${path.basename(targetDir)}':\n${matchedFiles.map((f) => `- ${f}`).join('\n')}`
-              : `Tidak ditemukan berkas yang cocok dengan pola "${pattern}" di folder tersebut.`
+              : `Tidak ditemukan berkas yang cocok dengan pola "${pattern}" di folder tersebut.`,
+            'find',
+            config
+          )
         }
       } catch (e) {
         return { success: false, error: e.message }
@@ -992,7 +1039,7 @@ export const NATIVE_TOOLS = {
 
         return {
           success: true,
-          result: matches.join('\n'),
+          result: await rtkFilter(matches.join('\n'), 'grep', config),
           total_matches: matches.length
         }
       } catch (e) {
@@ -1049,14 +1096,20 @@ export const NATIVE_TOOLS = {
     needsApproval: false,
     handler: async (query, config) => {
       const activeRoot = config?.workspaceRoot || (query?.trim() ? query.trim() : getWorkspaceDir())
-      return await getGitStatus(activeRoot)
+      const res = await getGitStatus(activeRoot)
+      // rtk always-on: status panjang dikompres sebelum masuk konteks.
+      if (res?.success) res.status = await rtkFilter(res.status, 'git-status', config)
+      return res
     }
   },
   'git-diff': {
     needsApproval: false,
     handler: async (query, config) => {
       const activeRoot = config?.workspaceRoot || getWorkspaceDir()
-      return await getGitDiff(activeRoot, query?.trim() || '')
+      const res = await getGitDiff(activeRoot, query?.trim() || '')
+      // rtk always-on: diff gemuk adalah kontributor token terbesar.
+      if (res?.success) res.diff = await rtkFilter(res.diff, 'git-diff', config)
+      return res
     }
   },
   'git-commit': {

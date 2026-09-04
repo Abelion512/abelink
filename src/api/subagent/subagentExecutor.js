@@ -1,6 +1,8 @@
 import { fetchAI, cleanAndParse } from '../ai/core'
 import { subagentStore } from './subagentStore'
 import { buildSubagentSystemPrompt } from './subagentPrompt'
+import { getBuiltinPluginsPrompt } from '../ai/builtinPlugins'
+import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
 import { GROUP_TOOLS_DEFINITION } from '../tools/group-tools'
 
@@ -89,11 +91,16 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
         .join('\n')
     : ''
 
+  // Toggle plugin built-in dibaca dari config (model-agnostic, layer aplikasi).
+  const appConfig = (await getAllConfig().catch(() => []))?.[0] || null
   const systemPrompt = buildSubagentSystemPrompt({
     role: subagent.role,
     goal: subagent.goal,
     coreToolsText,
-    groupToolsText
+    groupToolsText,
+    // Ponytail selalu aktif untuk sub-agent (hemat kode); caveman diadaptasi
+    // untuk laporan teknis ringkas via getCavemanReportRules.
+    builtinPluginsText: getBuiltinPluginsPrompt(appConfig)
   })
 
   let currentTurn = subagent.turnCount || 0

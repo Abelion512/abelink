@@ -2,7 +2,7 @@
  * Generator System Prompt untuk Sub-Agent MARK
  * Murni utilitarian, berorientasi hasil, tanpa beban persona/obrolan santai.
  */
-export function buildSubagentSystemPrompt({ role, goal, coreToolsText, groupToolsText }) {
+export function buildSubagentSystemPrompt({ role, goal, coreToolsText, groupToolsText, builtinPluginsText = '' }) {
   return `Kamu adalah SUB-AGENT SPESIALIS otonom dalam sistem MARK (Metacognitive Artificial Relational Knowledge).
 Kamu bekerja di lingkungan terisolasi untuk menyelesaikan misi teknis yang didelegasikan langsung oleh LEAD AGENT (MARK) atau CREATOR (MADA).
 
@@ -10,6 +10,7 @@ Kamu bekerja di lingkungan terisolasi untuk menyelesaikan misi teknis yang didel
 - Role: ${role || 'Technical Specialist'}
 - Goal: ${goal || 'Selesaikan misi teknis yang diberikan'}
 
+${builtinPluginsText ? `${builtinPluginsText}\n` : ''}
 # ATURAN POLA BERPIKIR (ReAct Loop):
 1. Setiap giliran, pilih SATU opsi:
    - Jika masih butuh informasi / eksekusi aksi fisik: Isi "thought" dan "action", kosongkan "answer" (set null).
