@@ -260,18 +260,53 @@ export const useMarkPlan = ({
       else if (tool.startsWith('trading-')) {
         const wallet = await import('../../api/trading/wallet.js')
         if (tool === 'trading-status') {
+          const monitor = await import('../../api/trading/budgetMonitor.js')
           const balance = await wallet.getBalance()
           const allocs = await wallet.listAllocations()
-          const usage = await wallet.getUsageSummary()
           const activeAllocs = allocs.filter((a) => a.active)
           const allocatedTotal = activeAllocs.reduce((s, a) => s + (a.budget || 0), 0)
+          const statuses = []
+          for (const a of activeAllocs) {
+            statuses.push(await monitor.getModelBudgetStatus(a.modelKey))
+          }
+          const usage = await wallet.getUsageSummary()
           resultString = JSON.stringify({
             balance,
             allocatedTotal,
             available: balance - allocatedTotal,
-            allocations: activeAllocs.map((a) => ({ modelKey: a.modelKey, budget: a.budget })),
-            usage
+            models: statuses,
+            usage,
+            hint: statuses.some((s) => s.exhausted)
+              ? 'Ada model dengan budget habis - sarankan topup (butuh approval) atau migrasi ke model lebih murah.'
+              : null
           })
+        } else if (tool === 'trading-deposit') {
+          // Satu-satunya tool trading yang menambah saldo — WAJIB approval native
+          // (rfd dialog di Rust main thread) karena ini gerbang uang nyata.
+          const parts = String(query || '').split('||')
+          const amount = Number(parts[0]) || 0
+          const note = (parts[1] || '').trim()
+          if (amount <= 0) {
+            resultString = '[ERROR] Format: amount||note. Amount harus angka positif.'
+          } else {
+            let approved = true
+            if (window.api?.nativeConfirm) {
+              try {
+                approved = await window.api.nativeConfirm(
+                  `Mark ingin menambah saldo wallet trading sebesar ${amount}${note ? ` (${note})` : ''}. Lanjutkan?`
+                )
+              } catch (_) {
+                approved = false
+              }
+            }
+            if (!approved) {
+              resultString = '[DITOLAK] User tidak menyetujui penambahan saldo.'
+            } else {
+              await wallet.addLedgerEntry({ kind: 'deposit', amount, note })
+              const balance = await wallet.getBalance()
+              resultString = `Deposit ${amount} tercatat. Saldo sekarang: ${balance}.`
+            }
+          }
         } else if (tool === 'trading-allocate') {
           const parts = String(query || '').split('||')
           const modelKey = (parts[0] || '').trim()

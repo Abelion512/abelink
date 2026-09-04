@@ -49,6 +49,21 @@ pub fn misc_get_documents_path(app: AppHandle) -> Result<String, String> {
         .ok_or_else(|| "Folder Documents tidak ditemukan".into())
 }
 
+/// Konfirmasi NATIVE generik (rfd dialog di main thread) untuk aksi berisiko
+/// yang tidak lewat jalur sidecar — mis. trading-deposit (gerbang uang).
+/// Keputusan tetap di luar renderer; renderer kompromi tidak bisa konfirmasi.
+#[tauri::command]
+pub fn misc_native_confirm(app: AppHandle, message: String) -> Result<bool, String> {
+    let msg = message.trim();
+    if msg.is_empty() || msg.len() > 1000 {
+        return Err("Pesan konfirmasi kosong atau terlalu panjang.".into());
+    }
+    Ok(crate::cmd_node_bridge::confirm_on_main_thread(
+        &app,
+        msg.to_string(),
+    ))
+}
+
 /// Baca MemTotal dari /proc/meminfo (kB). Gagal deteksi -> 0 (dianggap bukan lite,
 /// aman: lebih baik fitur penuh jalan daripada salah masuk mode hemat).
 pub(crate) fn total_ram_bytes_linux() -> u64 {

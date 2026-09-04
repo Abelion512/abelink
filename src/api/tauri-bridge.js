@@ -9,11 +9,12 @@ import { listen } from '@tauri-apps/api/event'
 import { splitTgAdminIds } from '../utils/telegramTargets'
 import { stripDataUrlPrefix } from '../utils/dataUrl'
 
-
 // ---- FB#1: router file-ops -> Rust cmd_fs ----
 // Query format AI tools: "path||arg2||arg3"
 function routeFsTool(toolName, query) {
-  const parts = String(query ?? '').split('||').map((x) => x.trim())
+  const parts = String(query ?? '')
+    .split('||')
+    .map((x) => x.trim())
   const ws = undefined // Rust pakai XDG workspace root sendiri
   switch (toolName) {
     case 'read-file': {
@@ -25,7 +26,8 @@ function routeFsTool(toolName, query) {
       })
     }
     case 'write-file': {
-      if (parts.length < 2) return Promise.resolve({ success: false, message: "Format: path||isi_file" })
+      if (parts.length < 2)
+        return Promise.resolve({ success: false, message: 'Format: path||isi_file' })
       return invoke('fs_write_file', { path: parts[0], content: parts.slice(1).join('||') })
     }
     case 'delete-file':
@@ -33,7 +35,8 @@ function routeFsTool(toolName, query) {
     case 'list-dir':
       return invoke('fs_list_dir', { path: parts[0] ?? '' })
     case 'grep-search': {
-      if (parts.length < 2) return Promise.resolve({ success: false, message: "Format: path_folder||keyword" })
+      if (parts.length < 2)
+        return Promise.resolve({ success: false, message: 'Format: path_folder||keyword' })
       return invoke('fs_grep_search', { dir: parts[0], keyword: parts[1] })
     }
     case 'run-shell': {
@@ -176,6 +179,8 @@ export const api = {
   },
   getDocumentsPath: () => invoke('misc_get_documents_path'),
   getLiteMode: () => invoke('misc_get_lite_mode').then((d) => d ?? { isLite: false }),
+  // Konfirmasi native (rfd di Rust main thread) untuk aksi berisiko non-sidecar.
+  nativeConfirm: (message) => invoke('misc_native_confirm', { message }),
   getSystemInfo: () => invoke('system_get_info'),
   ping: () => call('ping'),
 
@@ -185,7 +190,8 @@ export const api = {
       action: 'ai:fetch',
       payload: [{ messages, config, isSmallTask, jsonSchema }]
     }).then((res) => {
-      if (!res?.success) throw Object.assign(new Error(res?.error || 'AI fetch gagal'), { code: 'AI_FETCH_ERROR' })
+      if (!res?.success)
+        throw Object.assign(new Error(res?.error || 'AI fetch gagal'), { code: 'AI_FETCH_ERROR' })
       return res.data
     }),
   abortFetchAI: () => call('ai:abort-fetch'),
@@ -319,7 +325,8 @@ export const api = {
   // FB#1: file-ops langsung ke Rust (std::fs) — tidak lewat sidecar lagi
   executeNativeTool: async (toolName, query, config) => {
     const t0 = Date.now()
-    let result, error = null
+    let result,
+      error = null
     try {
       const fsRoute = routeFsTool(toolName, query)
       result = fsRoute ?? (await call('native-tool:execute', toolName, query, config))
@@ -329,7 +336,13 @@ export const api = {
     } finally {
       try {
         const h = await import('./harness')
-        h.logToolCall({ tool: toolName, query: String(query).slice(0, 200), durMs: Date.now() - t0, ok: !error && result?.success !== false, error })
+        h.logToolCall({
+          tool: toolName,
+          query: String(query).slice(0, 200),
+          durMs: Date.now() - t0,
+          ok: !error && result?.success !== false,
+          error
+        })
       } catch (_) {}
     }
     return result
@@ -380,7 +393,8 @@ export const api = {
   openSkillsFolder: () => call('skills:open-folder'),
   getSkillTree: () => call('skills:get-tree'),
   readSkillFile: (name, relativePath) => call('skills:read-file', name, relativePath),
-  saveSkillFile: (name, relativePath, content) => call('skills:save-file', name, relativePath, content),
+  saveSkillFile: (name, relativePath, content) =>
+    call('skills:save-file', name, relativePath, content),
   createSkillItem: (name, type, itemName) => call('skills:create-item', name, type, itemName),
   deleteSkillItem: (name, relativePath) => call('skills:delete-item', name, relativePath),
   renameSkillItem: (name, oldPath, newPath) => call('skills:rename-item', name, oldPath, newPath),
@@ -464,7 +478,7 @@ export const api = {
     return invoke('read_task_output', { taskId: parts[0], lines: parts[1] ? Number(parts[1]) : 40 })
   },
   killTask: (taskId) => invoke('kill_task', { taskId }),
-  listTasks: () => invoke('list_tasks'),
+  listTasks: () => invoke('list_tasks')
 }
 
 // Pasang sebelum modul lain dieksekusi (dipanggil paling atas di main.jsx)
@@ -478,25 +492,30 @@ export function installTauriBridge() {
     const warnOnce = () => {
       if (!warned) {
         warned = true
-        console.warn('[tauri-bridge] Mode browser: API native nonaktif. Jalankan `bun tauri dev` untuk app penuh.')
+        console.warn(
+          '[tauri-bridge] Mode browser: API native nonaktif. Jalankan `bun tauri dev` untuk app penuh.'
+        )
       }
     }
     const noop = async () => {
       warnOnce()
       return null
     }
-    window.api = new Proxy({}, {
-      get: (_t, key) => {
-        if (typeof key === 'string' && key.startsWith('on')) {
-          return (cb) => {
-            warnOnce()
-            return () => {}
+    window.api = new Proxy(
+      {},
+      {
+        get: (_t, key) => {
+          if (typeof key === 'string' && key.startsWith('on')) {
+            return (cb) => {
+              warnOnce()
+              return () => {}
+            }
           }
+          warnOnce()
+          return noop
         }
-        warnOnce()
-        return noop
       }
-    })
+    )
 
     // Ganti seluruh halaman dengan papan pengumuman — tab browser BUKAN app.
     document.body.innerHTML = `
@@ -520,11 +539,13 @@ export function installTauriBridge() {
 
   // Frameless drag: konversi style -webkit-app-region: drag -> data-tauri-drag-region
   const upgrade = (root) =>
-    root.querySelectorAll?.('[style*="-webkit-app-region: drag"], [style*="-webkit-app-region:drag"]').forEach((el) => {
-      el.removeAttribute('style')
-      el.setAttribute('data-tauri-drag-region', '')
-      el.style.setProperty('-webkit-app-region', 'no-drag')
-    })
+    root
+      .querySelectorAll?.('[style*="-webkit-app-region: drag"], [style*="-webkit-app-region:drag"]')
+      .forEach((el) => {
+        el.removeAttribute('style')
+        el.setAttribute('data-tauri-drag-region', '')
+        el.style.setProperty('-webkit-app-region', 'no-drag')
+      })
   const mo = new MutationObserver(() => {
     document.querySelectorAll('[data-tauri-drag-region]').forEach((el) => {
       if (!el.dataset.dragWired) {

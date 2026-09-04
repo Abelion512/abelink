@@ -9,6 +9,8 @@ import assert from 'node:assert/strict'
 import { TASKS, listTasks, mkSentinel } from './terminal-bench.mjs'
 import { parseToolCalls } from './mark-adapter.mjs'
 import { aggregateRuns, detectCheat, compareReports } from './run.mjs'
+import { runSmoke as runMarkEvalSmoke, aggregateMarkEval } from './mark-eval.mjs'
+import { BENCHMARK_MATRIX, CORE_SET, summarizeMatrix } from './matrix.mjs'
 
 // 1. Task registry terbaca
 const tasks = listTasks()
@@ -133,5 +135,26 @@ assert.equal(regs.length, 1, 'satu regresi terdeteksi')
 assert.equal(regs[0].taskId, 'a')
 assert.equal(compareReports(cur, prev, 60).length, 0, 'threshold longgar = tanpa regresi')
 console.log('[ok] compareReports (regression gate)')
+
+// 12. MARK-Eval — verifier 6 dimensi jalan offline & laporan valid
+const meSmoke = runMarkEvalSmoke()
+assert.equal(meSmoke.expectedAllPass, true, 'skenario sintetis MARK-Eval wajib lolos semua')
+assert.equal(meSmoke.report.overall, 1, 'overall skor smoke = 1.0')
+const aggNull = aggregateMarkEval({ a: 1, b: null })
+assert.equal(aggNull.dimensions.b, null, 'dimensi tidak teruji = null')
+assert.equal(aggNull.overall, 1, 'rata-rata hanya dari dimensi teruji')
+console.log('[ok] MARK-Eval (6 dimensi deterministik + aggregate)')
+
+// 13. Benchmark matrix — pilar & core set sesuai desain
+const matrixIds = BENCHMARK_MATRIX.map((b) => b.id)
+for (const pillar of ['terminal-bench-4.0', 'osworld-2.0', 'webarena-verified', 'workarena-pp', 'automationbench', 'mark-eval']) {
+  assert.ok(matrixIds.includes(pillar), `pilar ${pillar} wajib ada di matrix`)
+}
+assert.equal(CORE_SET.length, 6, 'core set = 5 pilar publik + MARK-Eval')
+const matrixSummary = summarizeMatrix({ 'terminal-bench-4.0': { score: 0.612 } })
+assert.equal(matrixSummary.kind, 'markbench-matrix')
+assert.equal(matrixSummary.rows.length, BENCHMARK_MATRIX.length)
+assert.equal(matrixSummary.rows.find((r) => r.id === 'terminal-bench-4.0').score, 0.612)
+console.log('[ok] benchmark matrix (pilar + core set)')
 
 console.log('MarkBench smoke: LOLOS')

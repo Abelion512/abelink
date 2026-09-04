@@ -1,5 +1,5 @@
 import { create, insert, insertMultiple, search, remove, removeMultiple } from '@orama/orama'
-import { generateVector } from './vectorLoader'
+import { generateVector, cosineSimilarity } from './vectorLoader'
 import { asyncPool } from '../utils/asyncPool'
 
 // Policy vektor (getVectorModel/generateStorableVector) di-import dinamis dari
@@ -375,7 +375,9 @@ export async function hydrateFromDexie(onProgress) {
     console.log('[Orama] Successfully migrated all old vectors to new model!')
   }
 
-  console.log(`[Orama] Hydrated: ${validTurnsCount} turn pairs, ${validArchives.length} archives, ${validDocs.length} doc chunks, ${validMemories.length} memories`)
+  console.log(
+    `[Orama] Hydrated: ${validTurnsCount} turn pairs, ${validArchives.length} archives, ${validDocs.length} doc chunks, ${validMemories.length} memories`
+  )
 }
 
 // Vector search di arsip obrolan
@@ -414,7 +416,9 @@ export async function searchDocuments(queryText, queryVector, limit = 5) {
     return []
   }
   try {
-    console.log(`[Orama] Searching documents for: "${queryText}", vector length: ${queryVector?.length}`)
+    console.log(
+      `[Orama] Searching documents for: "${queryText}", vector length: ${queryVector?.length}`
+    )
     const results = await search(docIdx, {
       term: queryText,
       mode: 'hybrid',
@@ -618,7 +622,13 @@ export async function deleteTurnPairsBySessionFromOrama(sessionId) {
 
 // ======================== MEMORY ORAMA INDEX ========================
 
-export async function searchMemoriesInOrama(queryText, queryVector, limit = 5, filterTypes = null, threshold = 0.5) {
+export async function searchMemoriesInOrama(
+  queryText,
+  queryVector,
+  limit = 5,
+  filterTypes = null,
+  threshold = 0.5
+) {
   const idx = await ensureMemoryIndex()
   if (!idx || !queryVector) return []
   try {
@@ -633,10 +643,10 @@ export async function searchMemoriesInOrama(queryText, queryVector, limit = 5, f
     const currentModel = getVectorModel()
     let hits = results.hits
       .filter((hit) => rowModelCompatible(hit.document.vectorModel, currentModel))
-      .map(hit => ({ ...hit.document, id: hit.document.dexieId, score: hit.score }))
+      .map((hit) => ({ ...hit.document, id: hit.document.dexieId, score: hit.score }))
     if (filterTypes) {
       const typesArr = Array.isArray(filterTypes) ? filterTypes : [filterTypes]
-      hits = hits.filter(h => typesArr.includes(h.type))
+      hits = hits.filter((h) => typesArr.includes(h.type))
     }
     hits.sort((a, b) => b.score - a.score)
     return hits.slice(0, limit)
@@ -687,93 +697,72 @@ export async function deleteMemoryFromOrama(dexieId) {
   }
 }
 
-export async function findSimilarMemoryClusters(threshold = 0.60) {
-  const idx = await ensureMemoryIndex()
-  if (!idx) {
-    console.warn('[Orama Groomer] memoryIndex belum siap!')
-    return []
-  }
+export async function findSimilarMemoryClusters(threshold = 0.6) {
+  // SUMBER KEBENARAN = DEXIE, bukan indeks Orama.
+  // Dulu groomer scan indeks Orama: saat boot (hydrate belum selesai) indeks
+  // kosong -> "memoryIndex belum siap" + groomer salah lapor "ingatan sudah
+  // bersih"; di MINIMAL profile indeks bahkan tidak pernah di-hydrate, jadi
+  // duplikat TIDAK PERNAH ter groom. Vektor tersimpan di Dexie selalu tersinkron
+  // lewat insertMemoryToOrama/updateMemoryInOrama (db.js), jadi cluster
+  // detection di sini kini jalan identik di SEMUA profile & fase boot.
   try {
-    console.log('[Orama Groomer] Memulai scanning cluster memori di Orama dengan threshold:', threshold)
-    const results = await search(idx, {
-      term: '',
-      limit: 1000
-    })
+    const { db } = await import('./db')
     const { getVectorModel } = await loadVectorPolicy()
     const currentModel = getVectorModel()
-    let memories = results.hits
-      .map(hit => ({
-        ...hit.document,
-        id: hit.document.dexieId
+
+    console.log('[Groomer] Scanning cluster memori dari Dexie (threshold):', threshold)
+    const rows = await db.memory.toArray()
+    const memories = rows
+      .filter((m) => m && (m.type === 'profile' || m.type === 'preference'))
+      .map((m) => ({
+        id: Number(m.id),
+        type: m.type,
+        memory: String(m.memory || ''),
+        timestamp: typeof m.timestamp === 'number' ? m.timestamp : Date.now(),
+        vector: Array.isArray(m.vector) && m.vector.length === VECTOR_SIZE ? m.vector : null,
+        vectorModel: m.vectorModel || null
       }))
-      .filter(
-        (m) =>
-          (m.type === 'profile' || m.type === 'preference') &&
-          rowModelCompatible(m.vectorModel, currentModel)
-      )
+      // Vektor harus se-model dengan mode aktif agar similarity valid.
+      .filter((m) => m.vector && rowModelCompatible(m.vectorModel, currentModel))
 
     const visited = new Set()
     const clusters = []
     let groupCount = 1
 
-    for (const mem of memories) {
-      if (visited.has(mem.id)) continue
-      if (!mem.vector || !Array.isArray(mem.vector)) {
-        visited.add(mem.id)
-        continue
+    for (let i = 0; i < memories.length; i++) {
+      const anchor = memories[i]
+      if (visited.has(anchor.id) || !anchor.vector) continue
+
+      const group = [anchor]
+      for (let j = i + 1; j < memories.length; j++) {
+        const cand = memories[j]
+        if (visited.has(cand.id) || !cand.vector) continue
+        const sim = cosineSimilarity(anchor.vector, cand.vector)
+        if (sim >= threshold) group.push(cand)
       }
 
-      const simResults = await search(idx, {
-        term: mem.memory,
-        mode: 'hybrid',
-        vector: { value: mem.vector, property: 'vector' },
-        similarity: threshold,
-        limit: 20
-      })
-
-      if (simResults.hits.length > 1) {
-        console.log(
-          '[Orama Groomer] Kandidat mirip untuk:',
-          mem.memory,
-          '-> scores:',
-          simResults.hits.map(h => `${h.score.toFixed(2)} (${h.document.memory.slice(0, 30)}...)`)
-        )
-      }
-
-      const similarHits = simResults.hits
-        .map(hit => ({
-          ...hit.document,
-          id: hit.document.dexieId,
-          score: hit.score
-        }))
-        .filter(
-          h =>
-            (h.type === 'profile' || h.type === 'preference') &&
-            rowModelCompatible(h.vectorModel, currentModel) &&
-            h.score >= threshold &&
-            !visited.has(h.id)
-        )
-
-      if (similarHits.length >= 2) {
-        similarHits.forEach(h => visited.add(h.id))
+      if (group.length >= 2) {
+        group.forEach((g) => visited.add(g.id))
         clusters.push({
           group: groupCount++,
-          items: similarHits.map(h => ({
-            id: h.id,
-            type: h.type,
-            memory: h.memory,
-            timestamp: h.timestamp
+          items: group.map((g) => ({
+            id: g.id,
+            type: g.type,
+            memory: g.memory,
+            timestamp: g.timestamp
           }))
         })
       } else {
-        visited.add(mem.id)
+        visited.add(anchor.id)
       }
     }
 
-    console.log(`[Orama Groomer] Ditemukan ${clusters.length} cluster dari total ${memories.length} memori profile/preference.`)
+    console.log(
+      `[Groomer] Ditemukan ${clusters.length} cluster dari total ${memories.length} memori profile/preference (bervektor & se-model).`
+    )
     return clusters
   } catch (err) {
-    console.error('[Orama] Error in findSimilarMemoryClusters:', err)
+    console.error('[Groomer] Error in findSimilarMemoryClusters:', err)
     return []
   }
 }
@@ -798,7 +787,10 @@ export async function searchDocumentWithOrama(rawText, searchQuery, limit = 5) {
     if (chunks.length === 0) return []
 
     // 2. Pre-filter candidate chunks to avoid CPU freeze (Max 20 chunks)
-    const terms = searchQuery.toLowerCase().split(/\s+/).filter((t) => t.length > 2)
+    const terms = searchQuery
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t.length > 2)
     let candidateChunks = chunks
     if (chunks.length > 20) {
       if (terms.length > 0) {

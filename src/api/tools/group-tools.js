@@ -122,7 +122,9 @@ export const GROUP_TOOLS_DEFINITION = {
       'Buku kas & budget trading-support Mark (wallet lokal, fase 1: pencatatan — TANPA eksekusi order exchange). Gunakan untuk melaporkan saldo, mengalokasikan budget model murah (mis. deepseek/glm), dan mencatat pengeluaran inference.',
     tools: {
       'trading-status':
-        'Ringkasan wallet: saldo kas, alokasi per model, usage & burn rate. Query: KOSONG.',
+        'Ringkasan wallet: saldo kas, status budget & burn rate per model, usage. Query: KOSONG.',
+      'trading-deposit':
+        'Catat deposit ke wallet trading (BUTUH KONFIRMASI NATIVE user). Query: amount||note (misal: "50||modal awal").',
       'trading-allocate':
         'Alokasikan budget dari kas utama ke model AI. Query: modelKey||budget (misal: "deepseek-chat||25"). Mencatat entry allocation di ledger.',
       'trading-log-spend':

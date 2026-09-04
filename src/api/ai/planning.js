@@ -661,16 +661,16 @@ ${
             active_topic: activeTopic
           }
         }
-      }
-
-      // Jika data null (output bukan JSON valid), dorong AI untuk memperbaiki format responsnya
+      }      // Jika data null (output bukan JSON valid), dorong AI untuk memperbaiki format responsnya
       if (attempts < MAX_RETRIES) {
-        console.warn(
-          `[planning] AI output invalid JSON or missing schema (Attempt ${attempts}/${MAX_RETRIES}). Continuing loop...`
-        )
+        console.warn(`[planning] AI output invalid JSON or missing schema (Attempt ${attempts}/${MAX_RETRIES}). Continuing loop...`)
         const rawOutput = response.content || response.reasoning || ''
+        // Efisiensi token (requirement "retries burning ~16k"): jangan echo output
+        // mentah utuh balik ke konteks — sering berisi reasoning dump ribuan token.
+        // Cukup petik inti agar model tahu apa yang salah, lalu ulangi formatnya.
         if (rawOutput) {
-          messages.push({ role: 'assistant', content: rawOutput })
+          const trimmed = rawOutput.length > 600 ? `${rawOutput.slice(0, 600)}\n...[dipotong ${rawOutput.length} chars]` : rawOutput
+          messages.push({ role: 'assistant', content: trimmed })
         }
         messages.push({
           role: 'user',
