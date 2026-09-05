@@ -30,6 +30,7 @@ import {
 import { searchMemoriesInOrama } from '../../api/oramaStore'
 import { buildOptimizedChatSession } from '../../api/ai/contextCompactor'
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
+import { classifyMainDecision, INTENT } from '../../api/ai/agentDecision'
 
 // ============================================================================
 // HELPER UTILITIES
@@ -1259,6 +1260,12 @@ export const useMarkPlan = ({
       let accumulatedThoughts = []
       let lastToolExecution = null
       let durableFailed = false
+      // Terminal-state bookkeeping: answer IS NOT termination. The loop only
+      // ends via a completion state, an explicit block, a request for a user
+      // decision, or an exhausted step budget (failed). Recorded per message
+      // (taskOutcome) so consumers can distinguish the five runtime states.
+      let sessionOutcome = 'completed' // completed | failed | blocked | needs_user
+      let lastTerminalReason = null
       let execSteps = [{ task: 'Menganalisis Konteks...' }]
 
       while (!isDone) {
@@ -1313,6 +1320,9 @@ export const useMarkPlan = ({
             is_done: true,
             action: null
           }
+          activeTaskObjectiveRef.current = null
+          sessionOutcome = 'failed'
+          lastTerminalReason = 'step-budget-exhausted'
         }
 
         // Loading thinking indicator
@@ -1470,7 +1480,12 @@ export const useMarkPlan = ({
         // Update task status & active topic
         if (decision.task_status === 'in_progress' && decision.objective) {
           activeTaskObjectiveRef.current = decision.objective
-        } else if (decision.task_status === 'done' || decision.task_status === 'simple') {
+        } else if (
+          decision.task_status === 'done' ||
+          decision.task_status === 'simple' ||
+          decision.task_status === 'blocked' ||
+          decision.task_status === 'needs_user'
+        ) {
           activeTaskObjectiveRef.current = null
         }
         if (decision.active_topic) {
@@ -1540,35 +1555,81 @@ export const useMarkPlan = ({
         // Guard tanpa-kemajuan: reset saat action akan dieksekusi; naik saat model
         // hanya bicara intermediate tanpa action agar re-prompt "[LANJUTKAN]"
         // tidak berlangsung abadi melawan API berbayar.
-        const actionPresentNow = !!(
-          decision.action &&
-          (decision.action.tool || Array.isArray(decision.action))
-        )
-        if (actionPresentNow) {
-          noActionStreak = 0
-        } else if (!decision.is_done && !opts.disableTools && decision.answer && !durableTask) {
-          noActionStreak++
-          if (noActionStreak >= MAX_NO_PROGRESS_STREAK) {
-            console.warn(
-              `[useMarkPlan] Tidak ada kemajuan ${noActionStreak} giliran berturut-turut. Memaksa penyelesaian dengan jawaban terakhir.`
-            )
-            decision = {
-              ...decision,
-              is_done: true,
-              action: null,
-              thought:
-                decision.thought ||
-                'Eksekusi dihentikan karena tidak ada kemajuan (berbicara tanpa menjalankan action).'
-            }
-          }
-        }
-
         const hasAction = !!(
           decision.action &&
           (decision.action.tool || Array.isArray(decision.action))
         )
-        const isDoneSignal =
-          decision.is_done === true || opts.disableTools || (!hasAction && !!decision.answer)
+
+        // --- Objective-aware termination (agentDecision.js) ------------------
+        // `answer` is NOT a termination signal. A mission may only end through
+        // an explicit completion claim (is_done + task_status done/simple), a
+        // reported block, or a genuine request for a user decision. Anything
+        // else keeps the loop going: the agent observes, recovers and replans
+        // instead of chatting its way out of an unfinished objective. Durable
+        // missions are exempt here — their no-action turns are step-deliverable
+        // claims validated by the checkpoint machinery below.
+        let intent = null
+        const isDurableClaim = !hasAction && !!durableTask
+        const madeProgress = hasAction || isDurableClaim || opts.disableTools
+        if (!madeProgress) {
+          const classification = classifyMainDecision(decision, {
+            hasExecutedTools: executedToolsList.length > 0,
+            missionActive: !!activeTaskObjectiveRef.current || !!durableTask
+          })
+          intent = classification.intent
+
+          if (intent === INTENT.CONTINUE) {
+            // Auto-continue is bounded: a model that only talks (no action, no
+            // completion claim) gets MAX_NO_PROGRESS_STREAK rounds before the
+            // harness force-ends the turn as failed instead of silently done.
+            noActionStreak++
+            if (noActionStreak >= MAX_NO_PROGRESS_STREAK) {
+              console.warn(
+                `[useMarkPlan] Tidak ada kemajuan ${noActionStreak} giliran berturut-turut. Memaksa penyelesaian dengan jawaban terakhir.`
+              )
+              decision = {
+                ...decision,
+                is_done: true,
+                action: null,
+                task_status: 'done',
+                objective: null,
+                thought:
+                  decision.thought ||
+                  'Eksekusi dihentikan karena tidak ada kemajuan (berbicara tanpa menjalankan action).'
+              }
+              activeTaskObjectiveRef.current = null
+              sessionOutcome = 'failed'
+              intent = INTENT.FINAL
+              lastTerminalReason = 'no-progress-streak-exhausted'
+            }
+          } else if (intent === INTENT.BLOCKED) {
+            noActionStreak = 0
+            sessionOutcome = 'blocked'
+            activeTaskObjectiveRef.current = null
+            lastTerminalReason = classification.reason || 'blocked-reported'
+          } else if (intent === INTENT.NEEDS_USER) {
+            noActionStreak = 0
+            sessionOutcome = 'needs_user'
+            activeTaskObjectiveRef.current = null
+            lastTerminalReason = classification.reason || 'question-asked'
+          } else {
+            // INTENT.FINAL: completion claim. A previously recorded failure
+            // (step budget / no-progress) is never overwritten by a stray claim.
+            noActionStreak = 0
+            if (sessionOutcome !== 'failed') {
+              sessionOutcome = 'completed'
+              lastTerminalReason = classification.reason || 'explicit-done'
+            }
+          }
+        } else {
+          // Real progress (action executed / durable step claim / non-tool
+          // session): the no-progress streak is reset.
+          noActionStreak = 0
+        }
+
+        const terminalPlain =
+          intent === INTENT.FINAL || intent === INTENT.BLOCKED || intent === INTENT.NEEDS_USER
+        const isDoneSignal = opts.disableTools || isDurableClaim || terminalPlain
 
         // Kasus 1: Intermediate Speech (Bicara tanpa tool, tapi belum selesai)
         if (!hasAction && !isDoneSignal && decision.answer && !durableTask) {
@@ -1655,6 +1716,8 @@ export const useMarkPlan = ({
               durableActiveStep = null
               activeTaskObjectiveRef.current = null
               durableFailed = true
+              sessionOutcome = 'failed'
+              lastTerminalReason = 'durable-deliverable-failed'
             }
 
             const nextStep = checkpointCompleted
@@ -1783,6 +1846,13 @@ export const useMarkPlan = ({
               content: finalOutput,
               executedTools: executedToolsList.length > 0 ? executedToolsList : null,
               isTaskDone: decision.is_done === true,
+              // Objective-aware outcome: completed | failed | blocked | needs_user.
+              // `answer` alone is not completion - consumers can now distinguish
+              // a finished task from a blocked or question-asking one.
+              taskOutcome: sessionOutcome,
+              terminalReason: lastTerminalReason,
+              isBlocked: sessionOutcome === 'blocked',
+              needsUserDecision: sessionOutcome === 'needs_user',
               reasoning: decision.thought || lastDecision?.thought || null,
               mood: decision.mood || 'neutral',
               isMemorySaved: decision.memory?.action === 'insert',
@@ -1997,10 +2067,26 @@ export const useMarkPlan = ({
           continue
         }
 
+        // Empty decision while tools are enabled is NOT completion: the model
+        // may have failed to emit JSON. Re-prompt (bounded by the no-progress
+        // streak and MAX_PLAN_STEPS) instead of silently ending a live objective.
+        if (!opts.disableTools && noActionStreak < MAX_NO_PROGRESS_STREAK) {
+          noActionStreak++ // kosong berulang = tidak ada kemajuan, batasi seperti bicara-tanpa-action
+          console.warn('[useMarkPlan] AI returned neither action nor answer. Re-prompting.')
+          loopMessages.push({
+            role: 'user',
+            content:
+              '[SYSTEM] Respons kosong. Kamu masih di dalam loop eksekusi: isi "action" dengan tool untuk melanjutkan, atau akhiri giliran dengan "answer" + "is_done": true + "task_status": "done".'
+          })
+          continue
+        }
+
         console.warn(
           '[useMarkPlan] AI returned neither action nor answer. Forcing done with fallback.'
         )
         isDone = true
+        sessionOutcome = 'failed'
+        lastTerminalReason = 'empty-decision-budget-exhausted'
         targetSetChatData((prev) => [
           ...prev.filter((item) => !item.isThinking),
           {

@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict'
 import { TASKS, listTasks, mkSentinel } from './terminal-bench.mjs'
-import { parseToolCalls } from './mark-adapter.mjs'
+import { parseToolCalls, normalizeEffort, resolveTaskEffort } from './mark-adapter.mjs'
 import { aggregateRuns, detectCheat, compareReports } from './run.mjs'
 import { runSmoke as runMarkEvalSmoke, aggregateMarkEval } from './mark-eval.mjs'
 import { BENCHMARK_MATRIX, CORE_SET, summarizeMatrix } from './matrix.mjs'
@@ -115,7 +115,7 @@ const agg = aggregateRuns(
   ],
   { runs: 3, model: 'm', provider: 'p' }
 )
-assert.equal(agg.schemaVersion, 1)
+assert.equal(agg.schemaVersion, 2)
 assert.equal(agg.tasks.a.passed, 2)
 assert.equal(agg.tasks.a.runs, 3)
 assert.equal(agg.tasks.a.passRate, 0.667) // +toFixed(3) => dibulatkan
@@ -126,6 +126,49 @@ assert.equal(agg.summary.totalRuns, 4)
 assert.equal(agg.summary.overallPassRate, 0.75)
 assert.equal(agg.summary.cheatTotal, 1)
 console.log('[ok] aggregateRuns (pass-rate, mean durasi, cheat count)')
+
+// 10b. Effort override contract — precedence: task > benchmark > env > system
+assert.equal(resolveTaskEffort({}), 'low', 'tanpa apa pun = system default low')
+assert.equal(resolveTaskEffort({ envEffort: 'high' }), 'high', 'env menang atas system default')
+assert.equal(
+  resolveTaskEffort({ benchmarkEffort: 'medium', envEffort: 'high' }),
+  'medium',
+  'benchmark override menang atas env'
+)
+assert.equal(
+  resolveTaskEffort({ taskEffort: 'low', benchmarkEffort: 'medium', envEffort: 'high' }),
+  'low',
+  'task override menang atas segalanya'
+)
+assert.equal(normalizeEffort('bogus', 'medium'), 'medium', 'nilai tak dikenal jatuh ke fallback')
+console.log('[ok] effort precedence (task > benchmark > env > system)')
+
+// 10c. Per-task effort reporting + split key saat effort campur (sweep/A/B)
+const sweepAgg = aggregateRuns([
+  { taskId: 'x', effort: 'low', passed: true, durationMs: 100, steps: 1, toolCalls: 0 },
+  { taskId: 'x', effort: 'low', passed: true, durationMs: 100, steps: 1, toolCalls: 0 },
+  { taskId: 'x', effort: 'high', passed: true, durationMs: 400, steps: 3, toolCalls: 2 },
+  { taskId: 'x', effort: 'high', passed: false, durationMs: 500, steps: 5, toolCalls: 3 },
+])
+assert.equal(sweepAgg.schemaVersion, 2)
+assert.equal(sweepAgg.tasks['x@low'].effort, 'low')
+assert.equal(sweepAgg.tasks['x@low'].passRate, 1)
+assert.equal(sweepAgg.tasks['x@high'].effort, 'high')
+assert.equal(sweepAgg.tasks['x@high'].passRate, 0.5)
+assert.equal(sweepAgg.tasks['x@high'].details.length, 2)
+assert.equal(sweepAgg.tasks['x@high'].details[0].effort, 'high')
+assert.equal(sweepAgg.summary.byEffort.low.runs, 2)
+assert.equal(sweepAgg.summary.byEffort.high.runs, 2)
+assert.equal(sweepAgg.summary.byEffort.high.passRate, 0.5)
+assert.equal(sweepAgg.effortScaling.find((e) => e.effort === 'high').avgSteps, 4)
+console.log('[ok] per-task effort direkam + split key effort campur (A/B siap)')
+
+// 10d. Effort scaling tanpa asumsi monoton: hanya melaporkan, tidak membandingkan
+const scalingLow = sweepAgg.effortScaling.find((e) => e.effort === 'low')
+assert.equal(scalingLow.passRate, 1)
+assert.equal(scalingLow.avgDurationMs, 100)
+console.log('[ok] effortScaling empiris (kurva dibiarkan terbuka)')
+
 
 // 11. Regression gate (compareReports)
 const prev = { tasks: { a: { passRate: 1.0, runs: 3 }, b: { passRate: 0.5, runs: 3 } } }

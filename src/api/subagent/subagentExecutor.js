@@ -2,6 +2,7 @@ import { fetchAI, cleanAndParse } from '../ai/core'
 import { subagentStore } from './subagentStore'
 import { buildSubagentSystemPrompt } from './subagentPrompt'
 import { getBuiltinPluginsPrompt } from '../ai/builtinPlugins'
+import { classifySubagentAnswer } from '../ai/agentDecision'
 import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
 import { GROUP_TOOLS_DEFINITION } from '../tools/group-tools'
@@ -13,6 +14,10 @@ const subagentAbortControllers = new Map()
 // sebelum dikoreksi dan sebelum eksekusi dinyatakan gagal
 const NO_PROGRESS_INJECT_LIMIT = 3
 const NO_PROGRESS_FAIL_LIMIT = 6
+
+// Batas injeksi korektif setelah error tool: setelah ini, jawaban yang meminta
+// input padahal masih bisa pulih akan dianggap blocked, bukan loop abadi.
+const MAX_AUTO_RECOVER = 2
 
 /**
  * Menjalankan satu putaran eksekusi ReAct untuk sub-agent
@@ -106,6 +111,15 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   let currentTurn = subagent.turnCount || 0
   let latestSubagentReply = ''
   let noProgress = 0
+  // ---- Objective-aware run state (agentDecision.js) -----------------------
+  // `answer` is NOT silently terminal for a sub-agent. Track what happened in
+  // THIS run so a report after a recoverable tool error (or a question the
+  // sub-agent could answer itself) keeps the mission going instead of pausing.
+  let toolsExecutedThisRun = false
+  let lastObservation = ''
+  let autoRecoverUsed = 0
+  // Internal terminal classification of the pause: final | blocked | needs_input
+  let terminalType = 'final'
 
   try {
     while (!abortController.signal.aborted) {
@@ -160,8 +174,35 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
         noProgress = 0
       }
 
-      // KONDISI 1: Sub-Agent Ingin Berbicara / Melapor ke Mark (action null / selesai)
+      // KONDISI 1: Sub-Agent Ingin Berbicara / Melapor ke Mark (action null)
       if (!decision.action && decision.answer) {
+        // Objective-aware classification: an answer produced right after a
+        // recoverable tool error, or a question the sub-agent could answer by
+        // itself, must NOT silently end the mission. Only a genuine terminal
+        // report (final / blocked / needs explicit lead input) pauses the run.
+        const pause = classifySubagentAnswer(decision, {
+          hasExecutedTools: toolsExecutedThisRun,
+          lastObservation,
+          autoRecoverUsed,
+          maxAutoRecover: MAX_AUTO_RECOVER
+        })
+
+        if (pause.type === 'continue') {
+          if (pause.reason === 'recover-after-error') autoRecoverUsed++
+          const corrective =
+            pause.reason === 'recover-after-error'
+              ? '[OBSERVATION]: Tool terakhir GAGAL dan misi belum selesai. Jangan berhenti dan jangan bertanya dulu: analisis error di "thought", pilih strategi alternatif (tool atau argumen berbeda), lalu isi "action" untuk melanjutkan. Laporkan selesai HANYA setelah deliverable terverifikasi oleh observasi tool.'
+              : '[OBSERVATION]: Kamu menjawab tanpa action padahal misi belum selesai. Lanjutkan eksekusi lewat "action". Jika memang tidak bisa maju karena izin/sumber eksternal, tulis laporan blokade yang spesifik di "answer".'
+          await subagentStore.addMessage(subagentId, {
+            sender: 'tool',
+            role: 'user',
+            content: corrective
+          })
+          continue
+        }
+
+        terminalType =
+          pause.type === 'blocked' ? 'blocked' : pause.type === 'needs_input' ? 'needs_input' : 'final'
         latestSubagentReply = decision.answer
         await subagentStore.addMessage(subagentId, {
           sender: 'subagent',
@@ -179,7 +220,12 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
           subagentId,
           reply: decision.answer,
           thought: decision.thought || '',
-          turnCount: currentTurn
+          turnCount: currentTurn,
+          // Internal completion state (REPORT_FINAL / REPORT_BLOCKED /
+          // REQUEST_DECISION) so the lead agent can tell "done" from
+          // "blocked" and "needs a decision" without parsing prose.
+          terminal: terminalType,
+          terminalReason: pause.reason
         }
       }
 
@@ -239,12 +285,15 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
           }
         }
 
+        toolsExecutedThisRun = true
+
         let combinedObservation = observations.join('\n\n')
         if (combinedObservation.length > 4000) {
           combinedObservation =
             combinedObservation.slice(0, 4000) +
             `\n\n[...SISA DATA DIPOTONG (Total: ${combinedObservation.length} karakter)...]`
         }
+        lastObservation = combinedObservation
 
         await subagentStore.addMessage(subagentId, {
           sender: 'tool',
@@ -263,7 +312,9 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
       success: true,
       subagentId,
       reply: latestSubagentReply || 'Misi selesai.',
-      turnCount: currentTurn
+      turnCount: currentTurn,
+      terminal: terminalType,
+      terminalReason: 'loop-exhausted'
     }
   } catch (err) {
     if (abortController.signal.aborted) {
