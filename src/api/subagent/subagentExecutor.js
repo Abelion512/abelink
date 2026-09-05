@@ -3,6 +3,12 @@ import { subagentStore } from './subagentStore'
 import { buildSubagentSystemPrompt } from './subagentPrompt'
 import { getBuiltinPluginsPrompt } from '../ai/builtinPlugins'
 import { classifySubagentAnswer } from '../ai/agentDecision'
+import {
+  evaluateEvidence,
+  gateCompletion,
+  buildReplanObservation,
+  MAX_VERIFY_REPLANS
+} from '../ai/objectiveVerifier'
 import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
 import { GROUP_TOOLS_DEFINITION } from '../tools/group-tools'
@@ -118,6 +124,9 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   let toolsExecutedThisRun = false
   let lastObservation = ''
   let autoRecoverUsed = 0
+  // Verification gate: bounded replans demanded from completion claims that
+  // lack world-state proof (objectiveVerifier.js).
+  let verifyReplansUsed = 0
   // Internal terminal classification of the pause: final | blocked | needs_input
   let terminalType = 'final'
 
@@ -145,7 +154,8 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
         throw new Error(aiResponseRaw.error)
       }
 
-      const rawContent = aiResponseRaw?.content !== undefined ? aiResponseRaw.content : aiResponseRaw
+      const rawContent =
+        aiResponseRaw?.content !== undefined ? aiResponseRaw.content : aiResponseRaw
       const decision = cleanAndParse(rawContent)
       if (!decision) {
         throw new Error('Sub-Agent mengembalikan output yang tidak dapat diparse sebagai JSON.')
@@ -201,8 +211,43 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
           continue
         }
 
+        // VERIFICATION GATE (objectiveVerifier.js): a 'final' report is a
+        // model claim, not proof. Before accepting the pause, check the
+        // objective's world-state evidence; an unproven claim gets a bounded
+        // replan observation instead of silently ending the mission.
+        if (pause.type === 'final' && toolsExecutedThisRun) {
+          try {
+            const evidence = evaluateEvidence({
+              objectiveText: subagent.goal,
+              answer: decision.answer,
+              observations: [lastObservation]
+            })
+            const gate = gateCompletion({
+              modelClaimDone: true,
+              verification: evidence.state,
+              kind: evidence.kind
+            })
+            if (!gate.complete && verifyReplansUsed < MAX_VERIFY_REPLANS) {
+              verifyReplansUsed++
+              await subagentStore.addMessage(subagentId, {
+                sender: 'tool',
+                role: 'user',
+                content: buildReplanObservation(evidence)
+              })
+              continue
+            }
+          } catch (e) {
+            // Additive layer: verifier errors never block a legitimate report.
+            console.warn('[subagentExecutor] objectiveVerifier error:', e?.message)
+          }
+        }
+
         terminalType =
-          pause.type === 'blocked' ? 'blocked' : pause.type === 'needs_input' ? 'needs_input' : 'final'
+          pause.type === 'blocked'
+            ? 'blocked'
+            : pause.type === 'needs_input'
+              ? 'needs_input'
+              : 'final'
         latestSubagentReply = decision.answer
         await subagentStore.addMessage(subagentId, {
           sender: 'subagent',
@@ -240,7 +285,9 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
         })
 
         // Tangani Batch Actions vs Single Action
-        const actionsToExecute = Array.isArray(decision.action) ? decision.action : [decision.action]
+        const actionsToExecute = Array.isArray(decision.action)
+          ? decision.action
+          : [decision.action]
         const observations = []
 
         for (const act of actionsToExecute) {
@@ -254,12 +301,18 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               const groups = await group_tools()
               const groupName = (act.query || '').trim()
               if (!groupName) {
-                res = { success: false, error: 'Harap sebutkan nama_grup (misal: "advanced_browser").' }
+                res = {
+                  success: false,
+                  error: 'Harap sebutkan nama_grup (misal: "advanced_browser").'
+                }
               } else if (groups[groupName]) {
                 const formatted = Object.entries(groups[groupName].tools)
                   .map(([k, v]) => `- ${k}: ${v}`)
                   .join('\n')
-                res = { success: true, data: `[PANDUAN TOOL ${groupName.toUpperCase()}]:\n${formatted}` }
+                res = {
+                  success: true,
+                  data: `[PANDUAN TOOL ${groupName.toUpperCase()}]:\n${formatted}`
+                }
               } else {
                 res = { success: false, error: `Grup tool '${groupName}' tidak ditemukan.` }
               }
@@ -268,7 +321,9 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               const formatted = await executeMemorySearch(act.query || '')
               res = { success: true, data: formatted }
             } else if (window.api && window.api.executeNativeTool) {
-              res = await window.api.executeNativeTool(act.tool, act.query || '', { sessionId: subagentId })
+              res = await window.api.executeNativeTool(act.tool, act.query || '', {
+                sessionId: subagentId
+              })
             } else {
               res = { success: false, error: 'IPC executeNativeTool tidak tersedia.' }
             }

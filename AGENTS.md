@@ -123,6 +123,13 @@ mark-agent/
 
 ## 4. Key Implementation Invariants & Gotchas
 
+### Objective Completion & Verification Layer (agentDecision.js + objectiveVerifier.js)
+- **Two-layer termination contract**: `agentDecision.js` classifies the MODEL_CLAIM (`act` / `continue` / `report_final` / `report_blocked` / `request_decision`); `objectiveVerifier.js` owns SYSTEM VERIFICATION (`verified` / `partially_verified` / `failed` / `unavailable` / `not_run`). `answer` is never a termination signal by itself; final completion requires model claim done AND `evaluateEvidence()` returning `verified`.
+- **Task-aware, no fake verification**: objectives are classified into kinds (`conversational`/`file`/`code`/`browser`/`os`/`research`/`communication`/`general`) via `classifyObjectiveKind()`. Conversational objectives are exempt from external verification; criteria the harness cannot observe are marked `na` and never block or fake proof.
+- **Bounded verification replan**: an unproven completion claim gets a `[VERIFICATION GATE]` replan observation (max `MAX_VERIFY_REPLANS = 2` per session, main loop and sub-agents); budget exhausted -> session outcome `failed` (`verify-*` terminal reason), never a silent "completed".
+- **Verification points**: main ReAct loop (useMarkPlan FINAL branch, evidence = `executedToolsList`), sub-agent final pauses (subagentExecutor, evidence = last observation), and durable step checkpoints (taskExecutor `buildDurableStepCheckpoint`, `verification` block persisted to Dexie). Final chat bubbles expose `verificationState` + `objectiveKind` next to `taskOutcome`.
+- **Benchmark**: MarkBench dimension `verification_discipline` (`evaluation/mark-eval.mjs`) scores whether a "selesai" claim is backed by non-failed tool execution.
+
 ### Multi-Agent Sub-Agent Architecture
 - **No Turn Limit (`maxTurns`)**: Sub-agents execute autonomously until their goal is fulfilled (action: null, answer provided) or until explicitly aborted/killed.
 - **Session-Isolated Browser Sessions (design invariant)**: each sub-agent is designed to operate its own isolated browser session keyed by its unique id, without cross-agent contamination. Today the engine-side `browser:*` channels are stubbed explicit-unsupported until Fase C3, so browser actions fail fast instead of opening windows — keep the sessionId propagation intact so the port can slot in.

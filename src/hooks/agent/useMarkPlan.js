@@ -31,6 +31,14 @@ import { searchMemoriesInOrama } from '../../api/oramaStore'
 import { buildOptimizedChatSession } from '../../api/ai/contextCompactor'
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
 import { classifyMainDecision, INTENT } from '../../api/ai/agentDecision'
+import {
+  classifyObjectiveKind,
+  evaluateEvidence,
+  gateCompletion,
+  buildReplanObservation,
+  MAX_VERIFY_REPLANS,
+  VERIFICATION_STATE
+} from '../../api/ai/objectiveVerifier'
 
 // ============================================================================
 // HELPER UTILITIES
@@ -1266,6 +1274,18 @@ export const useMarkPlan = ({
       // (taskOutcome) so consumers can distinguish the five runtime states.
       let sessionOutcome = 'completed' // completed | failed | blocked | needs_user
       let lastTerminalReason = null
+      // ---- Objective Verification Layer (objectiveVerifier.js) --------------
+      // MODEL_CLAIM (agentDecision) vs VERIFICATION (this layer). A completion
+      // claim only terminates when world-state evidence backs it, unless the
+      // objective is conversational. Bounded replan on unproven claims.
+      const objectiveKind = classifyObjectiveKind(userInput, {
+        disableTools: !!opts.disableTools,
+        conversational: !!(opts.conversational || isAutonomous || tgContext)
+      })
+      // Evidence source = executedToolsList (tool + fullResult per eksekusi).
+      let verifyReplanCount = 0
+      let lastVerification = VERIFICATION_STATE.NOT_RUN
+      let pendingVerifyObservation = null
       let execSteps = [{ task: 'Menganalisis Konteks...' }]
 
       while (!isDone) {
@@ -1616,10 +1636,68 @@ export const useMarkPlan = ({
             // INTENT.FINAL: completion claim. A previously recorded failure
             // (step budget / no-progress) is never overwritten by a stray claim.
             noActionStreak = 0
-            if (sessionOutcome !== 'failed') {
-              sessionOutcome = 'completed'
-              lastTerminalReason = classification.reason || 'explicit-done'
+            // VERIFICATION GATE (objectiveVerifier.js): a completion claim is
+            // NOT accepted on its own. World-state evidence from
+            // executedToolsList must back it, unless the objective is
+            // conversational / has no observable criteria. Unproven claims
+            // trigger a bounded replan; exhausted budget -> failed, never a
+            // silent "completed".
+            const claimVerified = (() => {
+              try {
+                const evidence = evaluateEvidence({
+                  kind: objectiveKind,
+                  objectiveText: activeTaskObjectiveRef.current || userInput,
+                  answer: decision.answer,
+                  tools: executedToolsList
+                })
+                lastVerification = evidence.state
+                const gate = gateCompletion({
+                  modelClaimDone: true,
+                  verification: evidence.state,
+                  kind: objectiveKind
+                })
+                if (gate.complete) {
+                  lastTerminalReason = `${classification.reason || 'explicit-done'}+verify:${gate.reason}`
+                  return true
+                }
+                if (gate.replan && verifyReplanCount < MAX_VERIFY_REPLANS) {
+                  verifyReplanCount++
+                  pendingVerifyObservation = buildReplanObservation(evidence)
+                  return false
+                }
+                lastTerminalReason = `verify-${evidence.state}`
+                sessionOutcome = 'failed'
+                return false
+              } catch (e) {
+                // The verifier is an additive layer: its own failure must not
+                // kill a legitimate completion claim.
+                console.warn('[useMarkPlan] objectiveVerifier error:', e?.message)
+                lastTerminalReason = classification.reason || 'explicit-done'
+                return true
+              }
+            })()
+            if (claimVerified) {
+              if (sessionOutcome !== 'failed') {
+                sessionOutcome = 'completed'
+                if (!lastTerminalReason)
+                  lastTerminalReason = classification.reason || 'explicit-done'
+              }
+            } else if (pendingVerifyObservation) {
+              // Claim rejected with a replan demand: keep the loop alive with
+              // the verification instruction (bounded by MAX_VERIFY_REPLANS),
+              // mirroring the [LANJUTKAN] intermediate path.
+              intent = INTENT.CONTINUE
+              decision = {
+                ...decision,
+                is_done: false,
+                action: null,
+                task_status: 'in_progress',
+                objective: activeTaskObjectiveRef.current || decision.objective
+              }
             }
+            // else: replan budget exhausted -> intent stays FINAL so the loop
+            // terminates now with sessionOutcome 'failed' (unverified claim),
+            // instead of burning turns until MAX_PLAN_STEPS.
           }
         } else {
           // Real progress (action executed / durable step claim / non-tool
@@ -1634,10 +1712,15 @@ export const useMarkPlan = ({
         // Kasus 1: Intermediate Speech (Bicara tanpa tool, tapi belum selesai)
         if (!hasAction && !isDoneSignal && decision.answer && !durableTask) {
           loopMessages.push({ role: 'assistant', content: decision.answer })
+          // A rejected completion claim rides its verification demand here so
+          // the next turn knows exactly which criteria lack world-state proof.
+          const continueMsg = pendingVerifyObservation
+            ? `${pendingVerifyObservation}\n\n[LANJUTKAN] Kerjakan aksi verifikasi di atas sekarang, atau laporkan blocked yang spesifik.`
+            : '[LANJUTKAN] Kamu belum menyatakan selesai (is_done: false). Silakan panggil tool di action atau selesaikan tugasmu.'
+          pendingVerifyObservation = null
           loopMessages.push({
             role: 'user',
-            content:
-              '[LANJUTKAN] Kamu belum menyatakan selesai (is_done: false). Silakan panggil tool di action atau selesaikan tugasmu.'
+            content: continueMsg
           })
           targetSetChatData((prev) => [
             ...prev.filter((item) => !item.isThinking),
@@ -1653,7 +1736,8 @@ export const useMarkPlan = ({
             const checkpoint = buildDurableStepCheckpoint(
               currentStep,
               decision.answer,
-              durableTask.maxRetries
+              durableTask.maxRetries,
+              { tools: executedToolsList }
             )
             const stepValidation = checkpoint.validation
             const checkpointData = { ...checkpoint }
@@ -1850,6 +1934,9 @@ export const useMarkPlan = ({
               // `answer` alone is not completion - consumers can now distinguish
               // a finished task from a blocked or question-asking one.
               taskOutcome: sessionOutcome,
+              // Objective Verification Layer: model claim vs system proof.
+              verificationState: lastVerification,
+              objectiveKind,
               terminalReason: lastTerminalReason,
               isBlocked: sessionOutcome === 'blocked',
               needsUserDecision: sessionOutcome === 'needs_user',
