@@ -9,7 +9,11 @@ import {
   takeNext,
   resolveCommand,
   listSessions,
-  sweepSessions
+  sweepSessions,
+  groupSession,
+  getSessionGroups,
+  deriveGroupName,
+  STATUS_ICON
 } from '../sidecar/main/browser/bridge-core.mjs'
 
 const S = 'test-session'
@@ -138,5 +142,47 @@ describe('browser bridge core', () => {
     listed = listSessions().find((x) => x.id === 'list-test')
     expect(listed.connected).toBe(false)
     dropSession('list-test')
+  })
+
+  it('groupSession membuat/memperbarui group task', async () => {
+    dispatchCommand('test-session', 'read-dom', {})
+    const cmd = await takeNext('test-session', ensureSession('test-session').token)
+    const r = groupSession('test-session', { task: 'read-dom', status: 'acting', color: 1 })
+    expect(r.ok).toBe(true)
+    expect(r.group.status).toBe('acting')
+    expect(r.group.color).toBe('blue')
+    resolveCommand('test-session', ensureSession('test-session').token, cmd.id, { ok: true, data: 'ok' })
+  })
+
+  it('groupSession tanpa task error', async () => {
+    const r = await groupSession('test-session', { status: 'acting' })
+    expect(r.ok).toBe(false)
+    expect(r.error).toContain('wajib')
+  })
+
+  it('deriveGroupName menghasilkan nama benar', () => {
+    expect(deriveGroupName('acting', 'session-abc')).toMatch(/🖱️ \(acting\) — session-abc/)
+    expect(deriveGroupName('idle', undefined)).toMatch(/🟢 \(idle\) — untitled/)
+    expect(deriveGroupName('done', '')).toMatch(/✅ \(done\) — /)
+  })
+
+  it('STATUS_ICON konstanta lengkap', () => {
+    expect(STATUS_ICON.loading).toBe('⏳')
+    expect(STATUS_ICON.reading).toBe('📖')
+    expect(STATUS_ICON.acting).toBe('🖱️')
+    expect(STATUS_ICON.idle).toBe('🟢')
+    expect(STATUS_ICON.done).toBe('✅')
+    expect(STATUS_ICON.error).toBe('❌')
+  })
+
+  it('listSessions melaporkan grup', async () => {
+    ensureSession('group-test')
+    groupSession('group-test', { task: 'browse', status: 'acting', color: 1 })
+    const listed = listSessions()
+    const groups = listed.find((x) => x.id === 'group-test')?.groups
+    expect(groups).toBeDefined()
+    expect(groups?.['browse']?.status).toBe('acting')
+    expect(groups?.['browse']?.color).toBe('blue')
+    dropSession('group-test')
   })
 })

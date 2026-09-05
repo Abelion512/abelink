@@ -3,7 +3,7 @@
   "name": "Mark Browser Bridge",
   "version": "0.1.0",
   "description": "Bridge antara Mark (sidecar lokal) dan browser. Tanpa telemetri; trafik hanya ke 127.0.0.1.",
-  "permissions": ["scripting", "tabs", "storage"],
+  "permissions": ["scripting", "tabs", "storage", "tabGroups"],
   "host_permissions": ["http://127.0.0.1/*"],
   "background": { "service_worker": "background.js" },
   "action": {

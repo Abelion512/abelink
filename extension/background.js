@@ -94,6 +94,32 @@ function sleep(ms) {
 }
 
 // -------------------------------------------------------------- commands
+async function execute(cfg, command) {
+  const { type } = command
+  const { payload } = command
+
+  // Handle group session commands from browser-use
+  if (type === 'group-session') {
+    const { task, status, autoClose } = payload || {}
+    if (!task) return { ok: false, error: 'task wajib.' }
+    await ensureGroup(cfg.session || 'default', task, status, !!autoClose)
+    return { ok: true }
+  }
+
+  switch (type) {
+    case 'navigate':
+      return navigate(payload)
+    case 'read-dom':
+      return readDom()
+    case 'act':
+      return act(payload)
+    case 'show':
+      return showTab()
+    default:
+      return { ok: false, error: `Perintah tidak dikenal: ${type}` }
+  }
+}
+
 async function runCommand(cfg, command) {
   let result
   try {
@@ -117,19 +143,84 @@ async function runCommand(cfg, command) {
   }
 }
 
-async function execute(cfg, command) {
-  switch (command.type) {
-    case 'navigate':
-      return navigate(command.payload)
-    case 'read-dom':
-      return readDom()
-    case 'act':
-      return act(command.payload)
-    case 'show':
-      return showTab()
-    default:
-      return { ok: false, error: `Perintah tidak dikenal: ${command.type}` }
+// ----------------------------------------------------------- group management
+// browser-use: grup tab per task. Hanya 1 group aktif; yang lain
+// ditandai selesai (checkbox hijau ✅). Auto-close tab jika autoClose=true.
+const GROUP_COLORS = ['grey', 'blue', 'yellow', 'green', 'pink', 'purple', 'cyan', 'red']
+const STATUS_ICON = { loading: '⏳', reading: '📖', acting: '🖱️', idle: '🟢', done: '✅', error: '❌' }
+
+function deriveGroupName(status, task) {
+  const icon = STATUS_ICON[status] || STATUS_ICON.idle
+  const safeTask = String(task || 'untitled').slice(0, 32)
+  return `${icon} (${status}) — ${safeTask}`
+}
+
+function colorForIndex(idx) {
+  return GROUP_COLORS[idx % GROUP_COLORS.length]
+}
+
+// Track active group per session: sessionId -> { taskId, groupId, colorIdx }
+const activeGroups = {}
+
+async function ensureGroup(sessionId, task, status, autoClose = false) {
+  const colorIdx = (activeGroups[sessionId]?.colorIdx || 0) % GROUP_COLORS.length
+  const color = colorForIndex(colorIdx)
+
+  // Tutup group sebelumnya jika berbeda task (hanya 1 aktif)
+  const prev = activeGroups[sessionId]
+  if (prev && prev.taskId !== task) {
+    await markGroupDone(prev.groupId, prev.taskId)
+    // Auto-close tab jika diminta
+    if (autoClose && prev.groupId != null) {
+      const tabs = await chrome.tabs.query({ groupId: prev.groupId })
+      for (const t of tabs) {
+        await chrome.tabs.remove(t.id)
+      }
+    }
   }
+
+  const name = deriveGroupName(status, task)
+  let groupId = prev?.groupId || null
+
+  // Cari group yang ada dengan nama ini (update) atau buat baru
+  let allGroups
+  try {
+    allGroups = await chrome.tabGroups.query({})
+  } catch { allGroups = [] }
+
+  const existing = allGroups.find((g) => g.windowId === chrome.windows.WINDOW_ID_CURRENT &&
+    g.title === name)
+
+  if (!existing) {
+    // Buat group baru dari tab aktif
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    if (!activeTab) return null
+    const created = await chrome.tabs.group({
+      tabIds: [activeTab.id],
+      windowId: activeTab.windowId
+    })
+    groupId = created
+    await chrome.tabGroups.update(groupId, { color, title: name })
+  } else {
+    groupId = existing.id
+    await chrome.tabGroups.update(groupId, { color, title: name })
+  }
+
+  activeGroups[sessionId] = { taskId: task, groupId, colorIdx: (colorIdx + 1) % GROUP_COLORS.length }
+  return groupId
+}
+
+async function markGroupDone(groupId, taskId) {
+  if (groupId == null) return
+  const name = STATUS_ICON.done + ' (done) — ' + (taskId || 'untitled').slice(0, 32)
+  await chrome.tabGroups.update(groupId, { title: name })
+}
+
+async function updateGroupStatus(sessionId, task, status) {
+  const group = activeGroups[sessionId]
+  if (!group) return
+  const name = deriveGroupName(status, task)
+  await chrome.tabGroups.update(group.groupId, { title: name })
 }
 
 // ------------------------------------------------------------------ tabs

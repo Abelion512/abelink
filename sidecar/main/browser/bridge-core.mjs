@@ -41,9 +41,30 @@ export const BROWSER_BRIDGE = {
 // sessionId -> {
 //   token, createdAt, lastSeenAt,
 //   pending: [{id, type, payload, resolve, reject, timer}],
-//   waiting: [{resolve, timer}]            // long-poll resolvers
+//   waiting: [{resolve, timer}],           // long-poll resolvers
+//   groups: { [task]: { status, task, color, lastUpdate } }  // browser-use grouping
 // }
 const sessions = new Map()
+
+// Group colors cycle (sesuai Chrome tabGroup.color enum: grey/blue/red/yellow/green/pink/purple/cyan)
+export const GROUP_COLORS = ['grey', 'blue', 'yellow', 'green', 'pink', 'purple', 'cyan', 'red']
+
+// Status ikon untuk group tab. UI menampilkan icon ini di nama group.
+export const STATUS_ICON = {
+  loading: '⏳',
+  reading: '📖',
+  acting: '🖱️',
+  idle: '🟢',
+  done: '✅',
+  error: '❌'
+}
+
+// Konvensi penamaan group: "{icon} ({status}) — {task}"
+export function deriveGroupName(status, task) {
+  const icon = STATUS_ICON[status] || STATUS_ICON.idle
+  const safeTask = String(task || 'untitled').slice(0, 32)
+  return `${icon} (${status}) — ${safeTask}`
+}
 
 function prng() {
   return crypto.randomBytes(16).toString('hex')
@@ -66,7 +87,8 @@ export function ensureSession(sessionId = 'default') {
       createdAt: now(),
       lastSeenAt: 0,
       pending: [],
-      waiting: []
+      waiting: [],
+      groups: {} // browser-use: { [task]: { status, color, lastUpdate } }
     }
     sessions.set(sessionId, s)
   }
@@ -100,8 +122,36 @@ export function listSessions() {
     createdAt: s.createdAt,
     lastSeenAt: s.lastSeenAt,
     connected: now() - s.lastSeenAt < BROWSER_BRIDGE.SESSION_TTL_MS,
-    queued: s.pending.length
+    queued: s.pending.length,
+    groups: { ...s.groups }
   }))
+}
+
+// -------------------------------------------------------- group-session command
+// Update group status untuk task tertentu. Ekstensi akan
+// membuat/memindahkan tab ke group dengan nama yang diturunkan.
+export function groupSession(sessionId, { task, status, color, groupId }) {
+  const s = sessions.get(sessionId)
+  if (!s) return { ok: false, error: 'Sesi tidak dikenal.' }
+  if (!task) return { ok: false, error: 'task wajib.' }
+
+  const colorIdx = typeof color === 'number' ? color : 0
+  const selectedColor = GROUP_COLORS[colorIdx % GROUP_COLORS.length]
+
+  s.groups[task] = {
+    status: status || 'idle',
+    color: selectedColor,
+    groupId: groupId || null,
+    lastUpdate: now()
+  }
+  return { ok: true, group: s.groups[task] }
+}
+
+// Get group info for a specific task (or all tasks)
+export function getSessionGroups(sessionId) {
+  const s = sessions.get(sessionId)
+  if (!s) return { ok: false, error: 'Sesi tidak dikenal.' }
+  return { ok: true, groups: s.groups }
 }
 
 // --------------------------------------------------------------- handshake
