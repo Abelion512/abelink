@@ -37,14 +37,21 @@ pub async fn tools_run_shell(
     }
 
     if is_dangerous(&query) {
-        let desc =
-            format!("Mark ingin mengeksekusi perintah shell:\n\n{}", query);
-        if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
-            return Ok(ToolResult {
-                success: false,
-                output: None,
-                error: Some("Ditolak pengguna.".into()),
-            });
+        // Approval berjenjang: family "always"/"session" lolos tanpa dialog
+        // (keputusan owner, kebijakan diset dari dialog/Configuration).
+        let eff = crate::approval_policy::effective_policy("shell-exec");
+        if eff != crate::approval_policy::POLICY_ALWAYS
+            && eff != crate::approval_policy::POLICY_SESSION
+        {
+            let desc =
+                format!("Mark ingin mengeksekusi perintah shell:\n\n{}", query);
+            if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
+                return Ok(ToolResult {
+                    success: false,
+                    output: None,
+                    error: Some("Ditolak pengguna.".into()),
+                });
+            }
         }
     }
 

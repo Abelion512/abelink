@@ -110,7 +110,26 @@ export const useMarkState = () => {
     if (window.api?.browserClose) {
       window.api.browserClose()
     }
+    // Hentikan juga otomasi PC (daemon + aksi os-* berikutnya) bila sedang aktif.
+    if (window.api?.pcEmergencyStop) {
+      window.api.pcEmergencyStop().catch(() => {})
+    }
   }
+
+  // Ctrl+Shift+S global (Rust) -> event 'pc-emergency-stop' -> abort semua
+  // sesi AI + kill daemon otomasi PC. Jalur darurat, tanpa approval.
+  useEffect(() => {
+    if (!window.api?.onPcEmergencyStop) return
+    const off = window.api.onPcEmergencyStop(() => {
+      abortControllerRef.current?.abort()
+      window.api.pcEmergencyStop?.().catch(() => {})
+    })
+    return () => {
+      try {
+        off?.()
+      } catch {}
+    }
+  }, [])
 
   return {
     chatData,

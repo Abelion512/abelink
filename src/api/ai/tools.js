@@ -1,4 +1,4 @@
-import { fetchAI, cleanAndParse } from './core'
+import { fetchAI, cleanAndParse } from './core'
 
 export const getYoutubeSummary = async (url, data, signal) => {
   try {
@@ -6,7 +6,7 @@ export const getYoutubeSummary = async (url, data, signal) => {
     if (!transcript) return 'Gagal mengambil transkrip video.'
 
     const MAX_CHARS = 4000
-    
+
     // Jika transkrip pendek, langsung proses tanpa chunking
     if (transcript.length <= MAX_CHARS) {
       const prompts = `
@@ -32,9 +32,6 @@ author: ${data.author}
 # TRANSCRIPT
 ${transcript}
 `
-      console.log('--- PROMPT YOUTUBE SHORT ---');
-      console.log(prompts);
-      
       const response = await fetchAI([{ role: 'user', content: prompts }], signal, true)
       return response.content
     }
@@ -42,8 +39,8 @@ ${transcript}
     // --- SISTEM CHUNKING UNTUK VIDEO PANJANG ---
     const chunks = []
     let currentChunk = ''
-    const lines = transcript.split('\\n')
-    
+    const lines = transcript.split('\n')
+
     for (let line of lines) {
       // Jika ada satu baris yang sangat panjang melebihi batas (misal tidak ada newline)
       while (line.length > MAX_CHARS) {
@@ -57,9 +54,9 @@ ${transcript}
 
       if (currentChunk.length + line.length > MAX_CHARS) {
         if (currentChunk.length > 0) chunks.push(currentChunk)
-        currentChunk = line + '\\n'
+        currentChunk = line + '\n'
       } else {
-        currentChunk += line + '\\n'
+        currentChunk += line + '\n'
       }
     }
     if (currentChunk.trim().length > 0) {
@@ -89,9 +86,6 @@ author: ${data.author || 'Tidak diketahui'}
 # TRANSCRIPT BAGIAN ${i + 1}
 ${chunks[i]}
 `
-      console.log(`--- PROMPT YOUTUBE CHUNK ${i + 1}/${chunks.length} ---`);
-      console.log(chunkPrompt);
-
       const response = await fetchAI([{ role: 'user', content: chunkPrompt }], signal, true)
       finalSummary += `${response.content}\n\n`
 

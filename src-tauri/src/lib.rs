@@ -1,4 +1,5 @@
 // Mark Light — Tauri v2 shell (Linux-native)
+mod approval_policy;
 mod cmd_fs;
 mod cmd_harness;
 mod cmd_misc;
@@ -216,6 +217,11 @@ pub fn run() {
             cmd_misc::misc_stat_path,
             cmd_misc::misc_open_directory_dialog,
             cmd_misc::misc_take_screenshot,
+            cmd_misc::misc_native_confirm,
+            cmd_misc::misc_fetch_web_resource,
+            approval_policy::approval_policy_get,
+            approval_policy::approval_policy_set,
+            approval_policy::approval_policy_reset_session,
             commands_tools_shell::tools_run_shell,
             commands_tools_git::git_status,
             commands_tools_git::git_diff,

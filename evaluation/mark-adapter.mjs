@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 // Mark agent adapter for MarkBench — talks to sidecar/engine.mjs over JSON-lines RPC.
 // One persistent sidecar child per run; requests are multiplexed by id.
+//
+// Effort override contract (owner request: task-level A/B, NOT process-global):
+//   resolveTaskEffort precedence: task.effort > benchmark effort (opts) >
+//   MARK_BENCH_EFFORT env > system default ('low').
+// Effort is stamped into every task result + trajectory so reports can answer
+// "which effort ran, did success/recovery/termination improve" per task.
 
 import { spawn } from 'node:child_process'
 import path from 'node:path'
@@ -13,6 +19,32 @@ const BUN = process.env.BUN_BIN || 'bun'
 
 const MAX_ITER = 5 // default; bisa ditimpa per task via task.maxTurns (turn-budget eval)
 const TIMEOUT_MS = 300000
+
+// ---- Effort ladder constants & resolution (pure, exported for smoke/unit tests)
+export const EFFORT_VALUES = ['low', 'medium', 'high']
+export const SYSTEM_DEFAULT_EFFORT = 'low'
+// Architecture version of the harness-facing agent loop (bump on behavior
+// changes so reports can separate "model capability" from "architecture").
+export const AGENT_ARCH_VERSION = 'linux-1.0'
+export const BENCH_SCHEMA_VERSION = 2
+
+export function normalizeEffort(value, fallback = SYSTEM_DEFAULT_EFFORT) {
+  return EFFORT_VALUES.includes(value) ? value : fallback
+}
+
+/**
+ * Precedence (explicit, spec-compliant):
+ *   1. task.effort            (task-level override in terminal-bench registry)
+ *   2. benchmark effort       (run.mjs --effort / --efforts value)
+ *   3. environment default    (MARK_BENCH_EFFORT, kept for CLI experiments)
+ *   4. system default         ('low')
+ */
+export function resolveTaskEffort({ taskEffort, benchmarkEffort, envEffort } = {}) {
+  if (EFFORT_VALUES.includes(taskEffort)) return taskEffort
+  if (EFFORT_VALUES.includes(benchmarkEffort)) return benchmarkEffort
+  if (EFFORT_VALUES.includes(envEffort)) return envEffort
+  return SYSTEM_DEFAULT_EFFORT
+}
 
 // ---- Persistent sidecar child with id-multiplexed JSON-lines RPC ----
 function createSidecar() {
@@ -146,16 +178,41 @@ export function parseToolCalls(text) {
   return calls
 }
 
+// Normalized step shape consumed by MARK-Eval (evaluation/mark-eval.mjs):
+// { step, kind, toolCalls: [{ tool, query, result }], observation, response }
+function pushTrace(trace, step, kind, payload) {
+  trace.push({
+    step,
+    kind,
+    toolCalls: payload.toolCalls || [],
+    observation: payload.observation || '',
+    response: payload.response || '',
+  })
+  return trace
+}
+
 // ---- Run one Mark agent task ----
-export async function runMarkAgent(task, model, provider) {
+// runMarkAgent(task, model, provider, options)
+//   options.effort = benchmark-level default (from run.mjs --effort/--efforts)
+//   task.effort    = task-level override (terminal-bench registry)
+export async function runMarkAgent(task, model, provider, options = {}) {
+  // Task-level effort override: task.effort > options.effort (benchmark
+  // default) > MARK_BENCH_EFFORT (env) > 'low' (system default).
+  const effort = resolveTaskEffort({
+    taskEffort: task?.effort,
+    benchmarkEffort: options?.effort,
+    envEffort: process.env.MARK_BENCH_EFFORT,
+  })
   const config = {
     aiProvider: provider || 'gemini-web',
     geminiWebModel: model || 'gemini-3.6-flash',
     temperature: 0,
+    effortLevel: effort,
   }
 
   const startedAt = Date.now()
   const messages = [{ role: 'user', content: task.prompt }]
+  const trace = [] // normalized trajectory for MARK-Eval verifiers
   const stepLog = []
   let steps = 0
   let toolCalls = 0
@@ -185,6 +242,7 @@ export async function runMarkAgent(task, model, provider) {
 
       messages.push({ role: 'assistant', content: response })
       steps++
+      pushTrace(trace, steps, 'decision', { response })
       stepLog.push({ step: steps, type: 'fetch', response: response.slice(0, 200) })
 
       const calls = parseToolCalls(response)
@@ -216,23 +274,47 @@ export async function runMarkAgent(task, model, provider) {
           tool: call.name,
           result: toolText.slice(0, 200),
         })
+        // Normalized step: MARK-Eval reads toolCalls[].tool/query + observation
+        // to score orchestration, recovery and termination correctness.
+        pushTrace(trace, steps, 'tool', {
+          toolCalls: [
+            {
+              tool: call.name,
+              query: String(call.arguments?.query ?? JSON.stringify(call.arguments ?? {})),
+              result: toolText,
+            },
+          ],
+          observation: toolText,
+        })
       }
     }
   } finally {
     sidecar.dispose()
   }
 
-  return {
-    response: response.trim(),
-    trajectory: {
-      steps,
-      toolCalls,
-      stepLog,
-      startedAt,
-      finishedAt: Date.now(),
-      durationMs: Date.now() - startedAt,
-      tokenUsage: { promptTokens: null, completionTokens: null, totalTokens: null, estimated: false },
+  const finishedAt = Date.now()
+  const trajectory = {
+    steps, // count of AI decision iterations
+    toolCalls,
+    trace, // normalized steps consumed by MARK-Eval verifiers
+    stepLog,
+    startedAt,
+    finishedAt,
+    durationMs: finishedAt - startedAt,
+    meta: {
+      effort,
+      model,
+      provider: provider || 'gemini-web',
+      architectureVersion: AGENT_ARCH_VERSION,
+      benchmarkSchemaVersion: BENCH_SCHEMA_VERSION,
     },
+    tokenUsage: { promptTokens: null, completionTokens: null, totalTokens: null, estimated: false },
+  }
+
+  return {
+    effort,
+    response: response.trim(),
+    trajectory,
     tokenUsage: { promptTokens: null, completionTokens: null, totalTokens: null, estimated: false },
   }
 }
@@ -244,6 +326,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   runMarkAgent(task, 'gemini-3.6-flash', 'gemini-web')
     .then((r) => {
       console.log('RESPONSE:', r.response.slice(0, 200))
+      console.log('EFFORT:', r.effort)
       console.log('TRAJECTORY:', JSON.stringify(r.trajectory, null, 2))
       console.log('DURATION:', Date.now() - start, 'ms')
     })

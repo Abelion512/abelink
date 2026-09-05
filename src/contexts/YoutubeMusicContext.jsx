@@ -70,7 +70,14 @@ export const YoutubeMusicProvider = ({ children }) => {
         playerRef.current = new YT.Player(hostRef.current, {
           height: '90',
           width: '160',
-          playerVars: { autoplay: 0, rel: 0 },
+          playerVars: {
+            autoplay: 0,
+            rel: 0,
+            // Wajib: tanpa origin, widget API postMessage tanpa target yang
+            // cocok -> "Unable to post message to https://www.youtube.com.
+            // Recipient has origin http://localhost:1420" di console.
+            origin: window.location.origin
+          },
           events: {
             onReady: (e) => {
               readyRef.current = true

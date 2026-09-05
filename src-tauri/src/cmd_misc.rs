@@ -49,6 +49,116 @@ pub fn misc_get_documents_path(app: AppHandle) -> Result<String, String> {
         .ok_or_else(|| "Folder Documents tidak ditemukan".into())
 }
 
+/// Host internal/privat? (paritas dgn validasi SSRF di attachments.js)
+fn is_private_host(host: &str) -> bool {
+    let h = host
+        .trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .to_lowercase();
+    if h.is_empty() {
+        return true;
+    }
+    if h == "localhost"
+        || h.ends_with(".localhost")
+        || h.ends_with(".local")
+        || h.ends_with(".internal")
+        || h.ends_with(".intranet")
+        || h.ends_with(".lan")
+    {
+        return true;
+    }
+    if let Ok(ip) = h.parse::<std::net::Ipv4Addr>() {
+        let o = ip.octets();
+        return o[0] == 0
+            || o[0] == 10
+            || o[0] == 127
+            || (o[0] == 100 && (64..=127).contains(&o[1]))
+            || (o[0] == 169 && o[1] == 254)
+            || (o[0] == 172 && (16..=31).contains(&o[1]))
+            || (o[0] == 192 && o[1] == 168);
+    }
+    if let Ok(ip) = h.parse::<std::net::Ipv6Addr>() {
+        let seg = ip.segments();
+        return ip.is_loopback()
+            || ip.is_unspecified()
+            || (seg[0] & 0xffc0) == 0xfe80 // fe80::/10 link-local
+            || (seg[0] & 0xfe00) == 0xfc00; // fc00::/7 ULA
+    }
+    false
+}
+
+/// Fetch resource web (gambar drop) DI SINI, bukan di renderer:
+/// - URL taint dari user tidak pernah menyentuh fetch renderer (CodeQL SSRF)
+/// - Validasi scheme + host privat di native, timeout & cap 10MB
+/// - Bonus arsitektur: tidak terkena CORS situs — drop gambar web lebih sering
+///   jadi file nyata, bukan link-only.
+#[tauri::command]
+pub async fn misc_fetch_web_resource(url: String) -> Result<serde_json::Value, String> {
+    const MAX_BYTES: usize = 10 * 1024 * 1024;
+    let parsed = reqwest::Url::parse(&url).map_err(|e| format!("URL tidak valid: {e}"))?;
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return Err("Hanya http/https yang diizinkan.".into());
+    }
+    let host = parsed.host_str().unwrap_or("").to_string();
+    if is_private_host(&host) {
+        return Err("URL menuju host internal/privat ditolak.".into());
+    }
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("Gagal menyiapkan client: {e}"))?;
+    let resp = client
+        .get(parsed.clone())
+        .send()
+        .await
+        .map_err(|e| format!("Fetch gagal: {e}"))?;
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(format!("HTTP {}", status.as_u16()));
+    }
+    if let Some(len) = resp.content_length() {
+        if len as usize > MAX_BYTES {
+            return Err("Ukuran melebihi 10MB".into());
+        }
+    }
+    let mime = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream")
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let bytes = resp.bytes().await.map_err(|e| format!("Gagal baca body: {e}"))?;
+    if bytes.len() > MAX_BYTES {
+        return Err("Ukuran melebihi 10MB".into());
+    }
+    use base64::Engine as _;
+    Ok(serde_json::json!({
+        "dataB64": base64::engine::general_purpose::STANDARD.encode(&bytes),
+        "mime": mime,
+        "finalUrl": parsed.as_str()
+    }))
+}
+
+/// Konfirmasi NATIVE generik (rfd dialog di main thread) untuk aksi berisiko
+/// yang tidak lewat jalur sidecar — mis. trading-deposit (gerbang uang).
+/// Keputusan tetap di luar renderer; renderer kompromi tidak bisa konfirmasi.
+#[tauri::command]
+pub fn misc_native_confirm(app: AppHandle, message: String) -> Result<bool, String> {
+    let msg = message.trim();
+    if msg.is_empty() || msg.len() > 1000 {
+        return Err("Pesan konfirmasi kosong atau terlalu panjang.".into());
+    }
+    Ok(crate::cmd_node_bridge::confirm_on_main_thread(
+        &app,
+        msg.to_string(),
+    ))
+}
+
 /// Baca MemTotal dari /proc/meminfo (kB). Gagal deteksi -> 0 (dianggap bukan lite,
 /// aman: lebih baik fitur penuh jalan daripada salah masuk mode hemat).
 pub(crate) fn total_ram_bytes_linux() -> u64 {
@@ -69,7 +179,14 @@ pub(crate) fn total_ram_bytes_linux() -> u64 {
 #[tauri::command]
 pub fn misc_get_lite_mode() -> serde_json::Value {
     let total = total_ram_bytes_linux();
-    serde_json::json!({ "isLite": total > 0 && total <= LITE_RAM_THRESHOLD_BYTES })
+    // totalRAMGB: RAM nyata (bulat ke atas, +0.5GB) — dipakai auto-profile.
+    // -1 = deteksi gagal (bukan 0, agar dibedakan dari "belum terbaca").
+    let gb = if total > 0 {
+        serde_json::Value::from(((total as f64 / 1_073_741_824.0) + 0.5).floor() as i64)
+    } else {
+        serde_json::Value::from(-1)
+    };
+    serde_json::json!({ "isLite": total > 0 && total <= LITE_RAM_THRESHOLD_BYTES, "totalRAMGB": gb })
 }
 
 #[tauri::command]

@@ -1,5 +1,10 @@
 import { pipeline } from '@huggingface/transformers'
-import { searchArchives, searchDocuments, searchMemoriesInOrama, searchTurnPairsInOrama } from './oramaStore'
+import {
+  searchArchives,
+  searchDocuments,
+  searchMemoriesInOrama,
+  searchTurnPairsInOrama
+} from './oramaStore'
 import { getAllMemory } from './db'
 
 let worker = null
@@ -11,21 +16,25 @@ const progressListeners = new Set()
 let isLiteMode = false
 
 let liteAutoNotified = false
-let isTauriEnvironment = typeof window !== 'undefined' && typeof window.__TAURI_INTEGRATION__ !== 'undefined'
+let isTauriEnvironment =
+  typeof window !== 'undefined' && typeof window.__TAURI_INTEGRATION__ !== 'undefined'
 
 function emitLiteAuto() {
   if (liteAutoNotified) return
   liteAutoNotified = true
   try {
-    window.dispatchEvent(new CustomEvent('mark:auto-lite', { detail: { reason: 'wasm-unsupported' } }))
+    window.dispatchEvent(
+      new CustomEvent('mark:auto-lite', { detail: { reason: 'wasm-unsupported' } })
+    )
   } catch (_) {}
 }
 
-// Tauri on Linux/WebKitGTK: WASM SIMD not available via sandbox
-// Fall back to hash embedding (Lite Mode) immediately
+// Tauri on Linux/WebKitGTK: WASM SIMD berpeluang tidak tersedia via sandbox.
+// TIDAK lagi memaksa Lite Mode dari sini — worker punya fallback ladder
+// SIMD -> wasm scalar -> CPU (korpus embedding tetap nyata, bukan hash).
+// Lite Mode hanya aktif bila SEMUA attempt gagal (auto-detect di onmessage).
 if (isTauriEnvironment) {
-  isLiteMode = true
-  console.warn('[EmbeddingWorker] Tauri environment detected - forcing Lite Mode (hash embedding)')
+  console.log('[EmbeddingWorker] Tauri environment — init worker dengan fallback ladder.')
 }
 
 function getWorker() {
@@ -56,7 +65,8 @@ function getWorker() {
             // langsung pakai hash embedding.
             if (!isLiteMode) {
               console.warn('[EmbeddingWorker] Worker task error:', error)
-              // WebKitGTK tanpa WASM SIMD/threads -> auto Lite Mode (hash embedding)
+              // Semua device gagal (worker sudah coba SIMD -> wasm scalar -> CPU)
+              // -> auto Lite Mode (hash embedding) sebagai last resort.
               if (/SIMD|no available backend/i.test(String(error))) {
                 isLiteMode = true
                 const isFirstNotice = !liteAutoNotified
@@ -148,15 +158,23 @@ export const getExtractor = async (onProgress) => {
 }
 
 // --- Lite Mode (RAM 4GB): hash embedding fallback, tanpa load model ---
-export const setLiteMode = (v) => { isLiteMode = v }
+export const setLiteMode = (v) => {
+  isLiteMode = v
+}
 function fnv1a(str) {
   let h = 2166136261
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); h >>>= 0 }
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+    h >>>= 0
+  }
   return h >>> 0
 }
 const hashEmbedding = (text) => {
   const v = new Array(384).fill(0)
-  for (const w of String(text || '').toLowerCase().split(/\s+/)) {
+  for (const w of String(text || '')
+    .toLowerCase()
+    .split(/\s+/)) {
     if (!w) continue
     v[fnv1a(w) % 384] += 1
     v[fnv1a(w.slice(0, 3)) % 384] += 0.5
@@ -247,7 +265,13 @@ export const searchExtendedMemory = async (query, threshold = 0.5, limit = 5) =>
   const queryVector = await generateVector(query)
   if (!queryVector) return { memories: [], chatTurns: [] }
 
-  const memories = await searchMemoriesInOrama(query, queryVector, limit, ['notes', 'learn'], threshold)
+  const memories = await searchMemoriesInOrama(
+    query,
+    queryVector,
+    limit,
+    ['notes', 'learn'],
+    threshold
+  )
   const chatTurns = await searchTurnPairsInOrama(query, queryVector, limit, threshold)
 
   return { memories, chatTurns }
@@ -256,10 +280,15 @@ export const searchExtendedMemory = async (query, threshold = 0.5, limit = 5) =>
 export const executeMemorySearch = async (rawQuery) => {
   const parts = (rawQuery || '').split('||')
   const searchKeyword = parts[0]?.trim() || ''
-  const customThreshold = parts[1] && !isNaN(parseFloat(parts[1])) ? parseFloat(parts[1].trim()) : 0.5
+  const customThreshold =
+    parts[1] && !isNaN(parseFloat(parts[1])) ? parseFloat(parts[1].trim()) : 0.5
   const customLimit = parts[2] && !isNaN(parseInt(parts[2], 10)) ? parseInt(parts[2].trim(), 10) : 5
 
-  const { memories = [], chatTurns = [] } = await searchExtendedMemory(searchKeyword, customThreshold, customLimit)
+  const { memories = [], chatTurns = [] } = await searchExtendedMemory(
+    searchKeyword,
+    customThreshold,
+    customLimit
+  )
 
   const formattedMemories =
     memories.length > 0

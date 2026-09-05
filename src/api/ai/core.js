@@ -1,5 +1,6 @@
 import { getAllConfig } from '../db'
 import { jsonrepair } from 'jsonrepair'
+import { resolveEffortLevel } from './effortEstimator'
 
 export const fetchAI = async (
   messages,
@@ -28,6 +29,18 @@ export const fetchAI = async (
   const currentConfig = await getAllConfig()
   const conf = { ...(currentConfig[0] || {}), ...(override || {}) }
 
+  // Effort 'auto': estimasi kompleksitas dari prompt terakhir + task context.
+  // Transparan: keputusan dilog dengan skor + alasan (bisa dieval via console).
+  const taskText = messages
+    .map((m) => (typeof m.content === 'string' ? m.content : ''))
+    .join(' ')
+    .slice(-4000)
+  const effortDecision = resolveEffortLevel(conf, taskText)
+  conf.effortLevel = effortDecision.effort
+  if (effortDecision.auto && typeof console !== 'undefined') {
+    console.info(`[effort-auto] ${effortDecision.transparent}`)
+  }
+
   return new Promise((resolve, reject) => {
     let hasResolved = false
 
@@ -48,48 +61,79 @@ export const fetchAI = async (
     }
 
     if (import.meta.env?.DEV) {
-      console.groupCollapsed(`[fetchAI] ${smallTask ? 'Small' : 'Main'} task, ${messages.length} msgs`);
-      console.log(`%c~${Math.round((messages.reduce((s,m) => s + (m.content?.length||0), 0)) / 2.5)} est. tokens`, 'color: #ef4444');
-      console.groupEnd();
+      console.groupCollapsed(
+        `[fetchAI] ${smallTask ? 'Small' : 'Main'} task, ${messages.length} msgs`
+      )
+      console.log(
+        `%c~${Math.round(messages.reduce((s, m) => s + (m.content?.length || 0), 0) / 2.5)} est. tokens`,
+        'color: #ef4444'
+      )
+      console.groupEnd()
     }
 
-    window.api.fetchAI({ messages, config: conf, isSmallTask: smallTask, jsonSchema: schema }).then(result => {
-      if (hasResolved) return;
-      hasResolved = true;
-      if (signal && typeof signal.removeEventListener === 'function') signal.removeEventListener('abort', onAbort);
+    window.api
+      .fetchAI({ messages, config: conf, isSmallTask: smallTask, jsonSchema: schema })
+      .then((result) => {
+        if (hasResolved) return
+        hasResolved = true
+        if (signal && typeof signal.removeEventListener === 'function')
+          signal.removeEventListener('abort', onAbort)
 
-      if (import.meta.env?.DEV && result?.error) {
-        console.error('[fetchAI] Error:', result.error.message)
-      }
+        if (import.meta.env?.DEV && result?.error) {
+          console.error('[fetchAI] Error:', result.error.message)
+        }
 
-      if (result && result.error) {
-        const err = new Error(result.error.message)
-        err.code = result.error.code
-        reject(err)
-        return
-      }
-      resolve(result);
-    }).catch(e => {
-      if (hasResolved) return;
-      hasResolved = true;
-      if (signal) signal.removeEventListener('abort', onAbort);
-      reject(e);
-    })
-  });
+        if (result && result.error) {
+          const err = new Error(result.error.message)
+          err.code = result.error.code
+          reject(err)
+          return
+        }
+        resolve(result)
+      })
+      .catch((e) => {
+        if (hasResolved) return
+        hasResolved = true
+        if (signal) signal.removeEventListener('abort', onAbort)
+        reject(e)
+      })
+  })
 }
 
 export const cleanAndParse = (rawResponse) => {
   try {
     if (!rawResponse) return null
 
+    // Model reasoning (DeepSeek/RTK dkk.) sering membungkus JSON dalam <think>.
+    // Strip dulu agar brace-extraction tidak nyasar ke isi reasoning.
+    if (typeof rawResponse === 'string') {
+      rawResponse = rawResponse.replace(/<think>[\s\S]*?<\/think>/gi, '').trim() || rawResponse
+    }
+
+    // Kutip melengkung (curly quotes) dari model kecil/Cina bikin JSON.parse gagal;
+    // normalisasi sebelum ekstraksi. Karakter ini tidak pernah valid di JSON murni.
+    if (typeof rawResponse === 'string') {
+      rawResponse = rawResponse
+        .replace(/[\u201C\u201D\u2018\u2019]/g, '"')
+        .replace(/[\uFF02\u300C\u300D]/g, '"')
+    }
+
     // If it's already an object
     if (typeof rawResponse === 'object') {
-      if (rawResponse.thought !== undefined || rawResponse.action !== undefined || rawResponse.answer !== undefined) {
+      if (
+        rawResponse.thought !== undefined ||
+        rawResponse.action !== undefined ||
+        rawResponse.answer !== undefined
+      ) {
         return rawResponse
       }
       if (typeof rawResponse.content === 'string' && rawResponse.content.trim().length > 0) {
         rawResponse = rawResponse.content
-      } else if (typeof rawResponse.reasoning === 'string' && rawResponse.reasoning.includes('{') && rawResponse.reasoning.includes('}')) {
+      } else if (
+        typeof rawResponse.reasoning === 'string' &&
+        rawResponse.reasoning.includes('{') &&
+        rawResponse.reasoning.includes('}')
+      ) {
         rawResponse = rawResponse.reasoning
       } else if (typeof rawResponse.text === 'string' && rawResponse.text.trim().length > 0) {
         rawResponse = rawResponse.text
@@ -179,5 +223,20 @@ export const cleanAndParse = (rawResponse) => {
     } catch (e) {
       return null
     }
+  }
+}
+
+// Pemulihan lapangan dari output MALFORMED (bukan JSON valid): scan regex
+// "field":"value" dan unescape manual. Dipakai planning sebagai jaring penyelamat
+// agar jawaban model tidak dibuang cuma karena formatnya rusak.
+export const extractLenientField = (raw, field) => {
+  if (!raw || typeof raw !== 'string') return null
+  const re = new RegExp(`"${field}\\s*"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'm')
+  const m = raw.match(re)
+  if (!m) return null
+  try {
+    return JSON.parse(`"${m[1]}"`)
+  } catch {
+    return m[1]
   }
 }

@@ -12,6 +12,7 @@ const Knowledge = lazy(() => import('./pages/Knowledge'))
 const Guidebook = lazy(() => import('./pages/Guidebook'))
 const RelationalGrowth = lazy(() => import('./pages/RelationalGrowth'))
 const GoogleWorkspace = lazy(() => import('./pages/GoogleWorkspace'))
+const Connectors = lazy(() => import('./pages/Connectors'))
 const Skills = lazy(() => import('./pages/Skills'))
 const SkillEditor = lazy(() => import('./pages/SkillEditor'))
 const Subagents = lazy(() => import('./pages/Subagents'))
@@ -215,6 +216,7 @@ const MainLayout = ({ isStandalone = false }) => {
                 <Route path="/live-audio" element={<LiveAudio />} />
                 <Route path="/telegram-bot" element={<TelegramBot />} />
                 <Route path="/google-workspace" element={<GoogleWorkspace />} />
+                <Route path="/connectors" element={<Connectors />} />
                 <Route path="/knowledge" element={<Knowledge />} />
                 <Route path="/guidebook" element={<Guidebook />} />
                 <Route path="/relational" element={<RelationalGrowth />} />
@@ -312,30 +314,34 @@ function App() {
         console.error('[App] Failed to get lite mode status:', e)
       }
 
-      // 1. Init Orama + Hydrate — GATED by hardware profile (skip di MINIMAL)
-      // Analogy: n8n hanya spawn worker kalau ada workflow yang butuh, bukan saat startup.
+      // 1. Init Orama + Hydrate — SELALU jalan (fitur tidak pernah mati);
+      // profil hanya mengatur urutan. ensureIndices() di oramaStore idempoten,
+      // jadi pemanggilan eksplisit di sini hanyalah eager-load.
+      // Analogy: n8n spawn worker saat boot kalau profile-nya kencang.
       let profileConfig = null
       try {
-        profileConfig = getProfileConfig(detectHardwareProfile())
-        const shouldInitRAG =
-          profileConfig.enableWorkspaceRAG || profileConfig.ragTrigger === 'auto'
-        if (shouldInitRAG) {
+        let ramGB = null
+        if (lm?.totalRAMGB && lm.totalRAMGB > 0) ramGB = lm.totalRAMGB
+        profileConfig = getProfileConfig(detectHardwareProfile(ramGB))
+        if (profileConfig.eagerLoad.includes('orama')) {
           setLoadingText('Memuat Knowledge Base...')
           await initOramaIndices()
           await hydrateFromDexie((current, total) => {
             setLoadingText(`Mengindeks memori percakapan lama (${current}/${total})...`)
           })
-          console.log('[App] Orama indices ready (RAG profile)')
+          console.log('[App] Orama indices ready (eager)')
         } else {
-          console.log('[App] Orama skipped — MINIMAL profile (lazy-load on demand)')
+          console.log('[App] Orama lazy — dibuat on-demand saat pertama dipakai')
         }
       } catch (e) {
         console.error('[App] Failed to init Orama:', e)
       }
 
-      // 1.5 Load Embeddings Model (skip in lite mode + MINIMAL profile)
+      // 1.5 Load Embeddings Model — TETAP dimuat walau lite mode: lite hanya
+      // berarti WASM mungkin lambat, bukan alasan kehilangan embedding nyata.
+      // Worker punya fallback ladder SIMD -> scalar -> CPU (embedding.worker.js).
       try {
-        const shouldLoadVectors = profileConfig?.enableWorkspaceRAG !== false && !lm?.isLite
+        const shouldLoadVectors = profileConfig?.eagerLoad.includes('vectors')
         if (shouldLoadVectors) {
           setLoadingText('Memuat Memori Kognitif...')
           const { getExtractor } = await import('./api/vectorMemory')
@@ -422,7 +428,8 @@ function App() {
     localStorage.setItem('mark:first-boot-choice', value)
     const defaultConfig = {
       id: 1,
-      model: 'gemini-3.5-flash',
+      model: 'google/gemma-3-4b',
+      geminiWebModel: 'gemini-3.6-flash',
       temperature: 1.0,
       context: 10,
       aiProvider: 'gemini-web',
@@ -432,6 +439,14 @@ function App() {
     }
     await saveConfiguration(defaultConfig)
     setHasConfig(true)
+    if (value === 'restore') {
+      // Restore dijalankan DI LATAR BELAKANG: user langsung diarahkan ke
+      // MarkHome dan diberi tahu lewat toast kanan-atas saat impor selesai
+      // (tidak memblokir first-run experience). Impor manual tetap tersedia
+      // di Configuration > Data Controls bila user melewatkan file ini.
+      window.location.replace('/#/config?legacy-import=1')
+      return
+    }
     window.location.replace('/')
   }, [])
 

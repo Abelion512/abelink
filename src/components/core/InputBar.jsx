@@ -16,7 +16,7 @@ import {
 import ConfirmModal from './ConfirmModal'
 import { NATIVE_SKILLS } from './native-skills'
 import { getCachedSkills } from '../../api/skillsCache'
-import { dedupeAttachments, resolveDroppedFile } from '../../utils/attachments'
+import { dedupeAttachments, extractDroppedItems, resolveDroppedFile } from '../../utils/attachments'
 
 // Command history recall (gaya TUI) + draft persistence anti-crash.
 const PROMPT_HISTORY_KEY = 'mark:prompt-history'
@@ -77,6 +77,9 @@ const InputBar = ({
   const [showAbortConfirm, setShowAbortConfirm] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState([])
   const [isDragging, setIsDragging] = useState(false)
+  // Index attachment yang sedang dibuka di modal preview (klik/hover chip).
+  // -1 = modal tertutup.
+  const [previewIdx, setPreviewIdx] = useState(-1)
   const lastPromptRef = useRef('')
 
   const [skills, setSkills] = useState([])
@@ -188,7 +191,16 @@ const InputBar = ({
   }
 
   const removeFile = (indexToRemove) => {
-    setAttachedFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove))
+    setAttachedFiles((prev) => {
+      const removed = prev[indexToRemove]
+      if (removed?.previewUrl) {
+        try {
+          URL.revokeObjectURL(removed.previewUrl)
+        } catch (_) {}
+      }
+      return prev.filter((_, idx) => idx !== indexToRemove)
+    })
+    setPreviewIdx(-1)
   }
 
   const handleDragOver = (e) => {
@@ -203,14 +215,22 @@ const InputBar = ({
     setIsDragging(false)
   }
 
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(false)
-
-    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const files = Array.from(e.dataTransfer.files)
-      addFiles(files)
+    // Extractor terpadu (sama dengan layer global DropAnywhere): files OS +
+    // uri-list dari drag web — drop di InputBar dan di mana pun berperilaku identik.
+    try {
+      const items = await extractDroppedItems(e.dataTransfer)
+      if (items.length > 0) {
+        setAttachedFiles((prev) => dedupeAttachments(prev, items))
+        setTimeout(() => {
+          if (inputRef.current) inputRef.current.focus()
+        }, 50)
+      }
+    } catch (err) {
+      console.error('[InputBar] drop error:', err)
     }
   }
 
@@ -227,7 +247,9 @@ const InputBar = ({
         const skillName = match.trim().substring(1) // Hilangkan spasi dan '/'
 
         // INTERCEPT BUILT-IN SKILLS
-        const nativeSkill = NATIVE_SKILLS.find(s => s.name.toLowerCase() === skillName.toLowerCase())
+        const nativeSkill = NATIVE_SKILLS.find(
+          (s) => s.name.toLowerCase() === skillName.toLowerCase()
+        )
         if (nativeSkill) {
           combinedSkillsContent += `\n\n--- SKILL BAWAAN: ${skillName.toUpperCase()} ---\n${nativeSkill.content}`
           loadedSkills.push(skillName)
@@ -240,11 +262,12 @@ const InputBar = ({
           if (skillData) {
             // Support both old string format and new object format
             const content = typeof skillData === 'string' ? skillData : skillData.content
-            const basePath = typeof skillData === 'object' && skillData.basePath ? skillData.basePath : ''
+            const basePath =
+              typeof skillData === 'object' && skillData.basePath ? skillData.basePath : ''
 
             combinedSkillsContent += `\n\n--- SKILL EXTERNAL: ${skillName.toUpperCase()} ---\n`
             if (basePath) {
-               combinedSkillsContent += `[LOKASI ABSOLUT SKILL INI (Base Path): ${basePath}]\n\n`
+              combinedSkillsContent += `[LOKASI ABSOLUT SKILL INI (Base Path): ${basePath}]\n\n`
             }
             combinedSkillsContent += `${content}`
 
@@ -270,7 +293,16 @@ const InputBar = ({
       } else {
         finalPrompt = `Tolong proses/rangkum file terlampir ini.\n\n[FILE TERLAMPIR]: ${filePathsText}`
       }
+      // Lepaskan object URL thumbnail sebelum daftar dibersihkan (anti memory leak).
+      attachedFiles.forEach((f) => {
+        if (f?.previewUrl) {
+          try {
+            URL.revokeObjectURL(f.previewUrl)
+          } catch (_) {}
+        }
+      })
       setAttachedFiles([])
+      setPreviewIdx(-1)
     }
 
     if (finalPrompt.trim()) {
@@ -313,9 +345,9 @@ const InputBar = ({
     }
 
     if (val.startsWith('/')) {
-      const currentSkills = (skills && skills.length > 0) ? skills : await reloadSkills()
+      const currentSkills = skills && skills.length > 0 ? skills : await reloadSkills()
       const query = val.slice(1).toLowerCase()
-      const matches = currentSkills.filter(s => s.name.toLowerCase().includes(query))
+      const matches = currentSkills.filter((s) => s.name.toLowerCase().includes(query))
       setFilteredSkills(matches)
       setShowSkillList(true)
       setSelectedSkillIndex(0)
@@ -334,12 +366,12 @@ const InputBar = ({
     if (showSkillList && filteredSkills.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setSelectedSkillIndex(prev => (prev + 1) % filteredSkills.length)
+        setSelectedSkillIndex((prev) => (prev + 1) % filteredSkills.length)
         return
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        setSelectedSkillIndex(prev => (prev - 1 + filteredSkills.length) % filteredSkills.length)
+        setSelectedSkillIndex((prev) => (prev - 1 + filteredSkills.length) % filteredSkills.length)
         return
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
@@ -366,7 +398,13 @@ const InputBar = ({
     // draf yang sedang ditulis sebelum mulai recall.
     const el = e.target
     const caretAtStart = el.selectionStart === 0 && el.selectionEnd === 0
-    if (e.key === 'ArrowUp' && !e.shiftKey && !e.altKey && (caretAtStart || el.value === '') && promptHistory.length > 0) {
+    if (
+      e.key === 'ArrowUp' &&
+      !e.shiftKey &&
+      !e.altKey &&
+      (caretAtStart || el.value === '') &&
+      promptHistory.length > 0
+    ) {
       e.preventDefault()
       if (recallIndexRef.current === -1) {
         recallDraftRef.current = el.value
@@ -381,7 +419,8 @@ const InputBar = ({
       } catch (_) {}
       setTimeout(() => {
         if (inputRef.current) {
-          inputRef.current.selectionStart = inputRef.current.selectionEnd = inputRef.current.value.length
+          inputRef.current.selectionStart = inputRef.current.selectionEnd =
+            inputRef.current.value.length
         }
       }, 0)
       return
@@ -402,7 +441,8 @@ const InputBar = ({
       } catch (_) {}
       setTimeout(() => {
         if (inputRef.current) {
-          inputRef.current.selectionStart = inputRef.current.selectionEnd = inputRef.current.value.length
+          inputRef.current.selectionStart = inputRef.current.selectionEnd =
+            inputRef.current.value.length
         }
       }, 0)
       return
@@ -411,14 +451,16 @@ const InputBar = ({
 
   const isSendDisabled = !inputText.trim() && attachedFiles.length === 0
 
+  const previewFile = previewIdx >= 0 ? attachedFiles[previewIdx] : null
+
   return (
     <div
       className={
         className
           ? className
           : inline
-          ? 'w-full max-w-4xl mx-auto relative z-10'
-          : 'fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-50'
+            ? 'w-full max-w-4xl mx-auto relative z-10'
+            : 'fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-50'
       }
     >
       {/* File Attachment Pills Preview */}
@@ -427,16 +469,30 @@ const InputBar = ({
           {attachedFiles.map((file, idx) => (
             <div
               key={file.path + idx}
-              className="flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-full px-3 py-1.5 text-xs text-white shadow-lg animate-fade-in group hover:border-primary/50 transition-all flex-shrink-0"
+              className="flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-full px-2.5 py-1.5 text-xs text-white shadow-lg animate-fade-in group hover:border-primary/50 transition-all flex-shrink-0 cursor-pointer"
+              onClick={() => setPreviewIdx(idx)}
+              title="Klik untuk pratinjau"
             >
-              <span className="text-sm">{getFileIcon(file.name)}</span>
+              {file.previewUrl ? (
+                <img
+                  src={file.previewUrl}
+                  alt={file.name}
+                  className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                  draggable={false}
+                />
+              ) : (
+                <span className="text-sm">{getFileIcon(file.name)}</span>
+              )}
               <span className="max-w-[140px] truncate font-medium">{file.name}</span>
               {file.size > 0 && (
                 <span className="text-[10px] text-white/40">{formatFileSize(file.size)}</span>
               )}
               <button
                 type="button"
-                onClick={() => removeFile(idx)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  removeFile(idx)
+                }}
                 className="text-white/40 hover:text-error hover:bg-error/20 p-1 rounded-full transition-all"
                 title="Hapus Lampiran"
               >
@@ -451,7 +507,9 @@ const InputBar = ({
       {workspaceRoot && (
         <div className="mb-2 flex items-center gap-2 px-3 py-1 bg-base-200/80 border border-primary/30 rounded-lg text-xs text-white/80 w-fit backdrop-blur-md animate-fade-in shadow-md">
           <FaFolder className="text-primary text-xs" />
-          <span className="text-[10px] text-primary uppercase font-bold tracking-wider">Workspace:</span>
+          <span className="text-[10px] text-primary uppercase font-bold tracking-wider">
+            Workspace:
+          </span>
           <span className="font-mono text-[11px] truncate max-w-xs">{workspaceRoot}</span>
           {onSelectWorkspace && (
             <button
@@ -513,17 +571,25 @@ const InputBar = ({
               {onSelectWorkspace && (
                 <button
                   type="button"
-                  onClick={() => { onSelectWorkspace(); setShowAttachMenu(false) }}
+                  onClick={() => {
+                    onSelectWorkspace()
+                    setShowAttachMenu(false)
+                  }}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-white/10 text-gray-300 transition-colors text-sm"
                 >
                   <FaFolder size={16} className="text-primary" />
                   <span>Folder Proyek</span>
-                  {workspaceRoot && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+                  {workspaceRoot && (
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                  )}
                 </button>
               )}
               <button
                 type="button"
-                onClick={() => { handlePaperclipClick(); setShowAttachMenu(false) }}
+                onClick={() => {
+                  handlePaperclipClick()
+                  setShowAttachMenu(false)
+                }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-white/10 text-gray-300 transition-colors text-sm border-t border-white/5"
               >
                 <FaPaperclip size={16} className="text-info" />
@@ -574,16 +640,26 @@ const InputBar = ({
                     isProcessing
                       ? 'text-primary bg-primary/20 cursor-wait'
                       : isLoading
-                      ? 'text-white/20 bg-white/5 cursor-not-allowed'
-                      : isRecording
-                      ? 'text-error bg-error/20'
-                      : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+                        ? 'text-white/20 bg-white/5 cursor-not-allowed'
+                        : isRecording
+                          ? 'text-error bg-error/20'
+                          : 'text-white/40 hover:text-white/80 hover:bg-white/5'
                   }`}
                   style={{
-                    transform: isRecording && !isProcessing ? `scale(${1 + audioIntensity * 0.3})` : '',
-                    boxShadow: isRecording && !isProcessing ? `0 0 ${10 + audioIntensity * 40}px rgba(255,0,0, ${0.3 + audioIntensity * 0.5})` : ''
+                    transform:
+                      isRecording && !isProcessing ? `scale(${1 + audioIntensity * 0.3})` : '',
+                    boxShadow:
+                      isRecording && !isProcessing
+                        ? `0 0 ${10 + audioIntensity * 40}px rgba(255,0,0, ${0.3 + audioIntensity * 0.5})`
+                        : ''
                   }}
-                  title={isProcessing ? 'Sedang memproses suara...' : isLoading ? 'Agen sedang sibuk' : 'Mulai/Berhenti Rekam (Ctrl+Alt+M)'}
+                  title={
+                    isProcessing
+                      ? 'Sedang memproses suara...'
+                      : isLoading
+                        ? 'Agen sedang sibuk'
+                        : 'Mulai/Berhenti Rekam (Ctrl+Alt+M)'
+                  }
                 >
                   {isRecording && !isProcessing && (
                     <div
@@ -631,7 +707,9 @@ const InputBar = ({
                   }`}
                 >
                   <div className="font-semibold text-sm">/{skillObj.name}</div>
-                  <div className={`text-xs ${idx === selectedSkillIndex ? 'text-emerald-400/80' : 'text-gray-400'} line-clamp-2`}>
+                  <div
+                    className={`text-xs ${idx === selectedSkillIndex ? 'text-emerald-400/80' : 'text-gray-400'} line-clamp-2`}
+                  >
                     {skillObj.description}
                   </div>
                 </div>
@@ -657,6 +735,63 @@ const InputBar = ({
         }}
         onCancel={() => setShowAbortConfirm(false)}
       />
+
+      {/* Modal pratinjau lampiran (klik/hover chip): gambar besar + metadata.
+          Untuk file non-gambar tampilkan info file; tidak ada preview palsu. */}
+      {previewFile && (
+        <div
+          className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in"
+          onClick={() => setPreviewIdx(-1)}
+        >
+          <div
+            className="max-w-3xl w-full max-h-[85vh] bg-[var(--glass-bg)] backdrop-blur-2xl border border-[var(--glass-border)] rounded-2xl shadow-[0_24px_80px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-lg flex-shrink-0">{getFileIcon(previewFile.name)}</span>
+                <span className="text-sm font-medium text-white truncate">{previewFile.name}</span>
+                {previewFile.size > 0 && (
+                  <span className="text-[10px] text-white/40 flex-shrink-0">
+                    {formatFileSize(previewFile.size)}
+                  </span>
+                )}
+                {previewFile.linkOnly && (
+                  <span className="text-[10px] text-warning flex-shrink-0">(tautan web)</span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewIdx(-1)}
+                className="text-white/50 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-all flex-shrink-0"
+                title="Tutup pratinjau"
+              >
+                <FaTimes size={14} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center min-h-0">
+              {previewFile.previewUrl ? (
+                <img
+                  src={previewFile.previewUrl}
+                  alt={previewFile.name}
+                  className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                  draggable={false}
+                />
+              ) : (
+                <div className="text-center text-white/60 py-10">
+                  <div className="text-4xl mb-3 flex justify-center">
+                    {getFileIcon(previewFile.name)}
+                  </div>
+                  <div className="text-sm">Tidak ada pratinjau visual untuk tipe file ini.</div>
+                  <div className="text-xs text-white/40 mt-1 font-mono break-all max-w-md mx-auto mt-2">
+                    {previewFile.path}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

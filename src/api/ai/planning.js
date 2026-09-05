@@ -1,8 +1,9 @@
-import { fetchAI, cleanAndParse } from './core'
+import { fetchAI, cleanAndParse, extractLenientField } from './core'
 import { getAllConfig, getAllLearnedSkills } from '../db'
 import { getCurrentTimeInfo } from './utils'
 import { generateVector, cosineSimilarity } from '../vectorLoader'
 import { getPersonaPrompt, getTraitContext } from './persona'
+import { getBuiltinPluginsPrompt } from './builtinPlugins'
 import { core_tools } from '../tools/core-tools'
 import { group_tools } from '../tools/group-tools'
 import { NATIVE_SKILLS } from '../../components/core/native-skills'
@@ -86,7 +87,10 @@ export const getNextAction = async (
     let workspaceRagSection = ''
     if (targetWorkspace) {
       try {
-        const { workingMemoryText, codeRagText } = await getWorkspaceContext(targetWorkspace, userInput)
+        const { workingMemoryText, codeRagText } = await getWorkspaceContext(
+          targetWorkspace,
+          userInput
+        )
         const sections = []
         if (workingMemoryText) {
           sections.push(`## 1. ACTIVE WORKING MEMORY (.mark/)\n${workingMemoryText}`)
@@ -104,6 +108,7 @@ export const getNextAction = async (
 Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas asisten AI canggih dan otonom.
 
 ${await getPersonaPrompt(userId, conf.personality, conf.ownerName)}
+${getBuiltinPluginsPrompt(conf)}
 ${options.currentMusicTrack ? `\n# STATUS PLAYER MUSIK (REAL-TIME):\nLagu yang AKTIF DIPUTAR SEKARANG: "${options.currentMusicTrack.title}" oleh ${options.currentMusicTrack.artist}.\nPENTING: Lagu di playlist bisa berganti otomatis. JANGAN TERKECUH oleh riwayat chat lama yang menyebutkan lagu sebelumnya! Untuk semua pertanyaan atau obrolan tentang musik yang sedang berjalan, HANYA gunakan data REAL-TIME ini sebagai referensi utama!` : ''}
 ${
   userSkillsList.length > 0 || learnedSkillsList.length > 0
@@ -123,23 +128,30 @@ ${learnedSkillsList.map((s) => `- ${s.name}: ${s.description}`).join('\n')}`
     : ''
 }
 
-ATURAN MUTLAK & PRIORITAS #1 - SELALU GUNAKAN 'read-skill':
-1. REFLEKS UTAMA (#1): SEBELUM MENGEKSEKUSI TOOL LAIN ATAU MENJAWAB, SELALU COCOKKAN PERMINTAAN USER DENGAN DAFTAR SKILL DI ATAS. Jika tugas atau pertanyaan user berkaitan dengan salah satu kemampuan di atas, AKSI PERTAMAMU WAJIB MEMANGGIL TOOL 'read-skill' (query: "nama_skill")!
-2. DILARANG LANGSUNG EKSEKUSI TANPA PEDOMAN: Jangan langsung menebak atau menggunakan tool umum tanpa membaca instruksi skill via 'read-skill' terlebih dahulu agar alur kerjamu terstandarisasi.
-3. HIERARKI KEPUTUSAN: Keduanya dimuat dengan cara yang sama via 'read-skill'. Namun jika terjadi kontradiksi instruksi, pedoman pada CORE & USER SKILLS selalu mengalahkan LEARNED SKILLS.
-4. DILARANG MENYURUH USER: JANGAN menyuruh user mengetik slash command (/). Kamu wajib proaktif mengeksekusi 'read-skill'.
-5. IKUTI ALUR DI DALAM SKILL: Setelah isi pedoman dari 'read-skill' masuk ke observasi, jalankan setiap langkah dan aturan di dalamnya sampai tuntas!`
+ATURAN SKILL (Pakai Saat Relevan - Bukan Ritual Wajib):
+1. Daftar di atas adalah REGISTRY kemampuan: ringkasan satu baris cukup untuk tugas umum.
+2. Panggil 'read-skill' HANYA jika tugasmu benar-benar butuh prosedur detail skill tsb (misal: "/plan", SOP user khusus, atau disiplin eksekusi saat ragu). Jangan bakar giliran untuk 'read-skill' yang tidak mengubah keputusanmu.
+3. HIERARKI KEPUTUSAN: Jika terjadi kontradiksi instruksi, pedoman pada CORE & USER SKILLS selalu mengalahkan LEARNED SKILLS.
+4. DILARANG MENYURUH USER: JANGAN menyuruh user mengetik slash command (/). Kamu yang mengeksekusi.
+5. IKUTI ALUR DI DALAM SKILL: Setelah isi pedoman dari 'read-skill' masuk ke observasi, jalankan langkahnya sampai tuntas - kecuali observasi nyata menunjukkan langkah tsb tidak relevan.`
     : ''
 }
 ${
   !options.disableTools
     ? `
 # POLA BERPIKIR:
-Kamu dalam loop. Setiap giliran, pilih SATU:
-- PRIORITAS #1 (CEK SKILL): Jika permintaan user berkaitan dengan skill di daftar MARK SKILLS di atas, AKSI PERTAMAMU HARUS memanggil "read-skill".
+Kamu dalam loop ReAct: amati state → pikirkan → pilih tool → eksekusi → amati hasil → ulangi sampai tujuan tercapai. Setiap giliran pilih SATU:
 - Butuh data/aksi → isi "action", "answer" null.
-- Sudah cukup/ngobrol → isi "answer", "action" null.
+- Tugas SELESAI & terverifikasi → isi "answer", "action" null, "is_done": true, "task_status": "done".
 JANGAN isi keduanya! Boleh panggil tool berulang kali.
+
+# TERMINASI YANG BENAR (JAWABAN BUKAN PENGHENTI):
+"answer" TANPA "is_done": true TIDAK menghentikan loop — sistem akan memintamu melanjutkan. Giliran hanya berakhir lewat SATU keadaan nyata:
+1. SELESAI ("is_done": true + task_status "done"/"simple"): tujuan tercapai DAN hasil diverifikasi (baca ulang file, cek output tool, build/test bila relevan). Jangan mengklaim selesai tanpa bukti observasi.
+2. TERBLOKIR (task_status "blocked"): kemajuan tidak mungkin tanpa izin/persetujuan/sumber eksternal. Tulis "answer" berisi hambatan spesifik ("butuh izin", "tidak diizinkan", "permission denied").
+3. PERLU KEPUTUSAN USER (task_status "needs_user"): pertanyaan spesifik yang TIDAK bisa kamu jawab sendiri (akhiri dengan "?"). Jangan menanyakan hal yang bisa kamu cari/eksekusi sendiri.
+4. MASIH BERJALAN ("is_done": false + task_status "in_progress"): isi "action" dan terus kerjakan sampai tujuan benar-benar tercapai.
+Tool GAGAL/ERROR bukan alasan berhenti: error → diagnosa → strategi alternatif → observasi → lanjut.
 - BATCH ACTIONS: Kamu BOLEH mengirim BANYAK aksi sekaligus dalam satu giliran menggunakan format array jika tugas membutuhkan eksekusi berurutan yang sudah pasti (misal: "action": [{"tool": "nama-tool1", "query": "..."}]). Semua aksi dalam array akan dieksekusi berurutan. Gunakan ini HANYA untuk aksi yang tidak perlu mengecek hasil/observasi dari aksi sebelumnya. Jika kamu butuh melihat hasil dari aksi pertama sebelum melakukan aksi selanjutnya, JANGAN gunakan batch!
 - Gunakan "thought" untuk alasan keputusanmu. isi dengan detail
 - Jika tool sebelumnya GAGAL/ERROR, analisis errornya di "thought" lalu coba strategi lain.
@@ -151,10 +163,10 @@ JANGAN isi keduanya! Boleh panggil tool berulang kali.
    - JIKA BERKAS SUDAH ADA, GUNAKAN tool 'replace-content' (BUKAN 'write-file').
    - Format: filePath||targetContent||replacementContent.
    - Sertakan 1-2 baris unik pada 'targetContent' agar pencocokan 100% presisi. Jangan menulis ulang 500 baris file hanya untuk mengubah sedikit fungsi/variabel!
-3. KETIKA TOOL 'write-file' ATAU 'replace-content' SUDAH BERHASIL (success: true tanpa warning error): Tugas penulisan file sudah 100% selesai. DILARANG merombak ulang pada turn yang sama.
+3. VERIFIKASI SETELAH MENULIS: 'write-file'/'replace-content' sukses berarti tulisan tersimpan, BUKAN berarti tugas tuntas. Bila relevan, verifikasi (read-file ulang, build, atau test ringan) SEBELUM mengklaim selesai. Jangan menulis ulang file yang sama tanpa alasan baru.
 4. SETELAH TUGAS SELESAI : Buka file dengan tool 'os-open' dengan query berisi nama file agar user bisa melihat hasilnya langsung!
 5. DILARANG KERAS MENYALIN ULANG SELURUH KODE KE DALAM FIELD "answer": Isi field "answer" HANYA berupa rangkuman perubahan/fitur baru dan panduan kontrol singkat. DILARANG KERAS meng-copy-paste ulang seluruh kode (ratusan baris HTML/JS/CSS) ke dalam field "answer"!
-6. KAMU WAJIB MENGAKHIRI LOOP DENGAN MENGISI "answer" (Laporan singkat ringkasan di atas) DAN MENGOSONGKAN "action" (set "action": null)!
+6. AKHIRI LOOP HANYA SAAT TERVERIFIKASI: akhiri giliran dengan "answer" + "is_done": true + "task_status": "done" SETELAH deliverable terpenuhi dan terverifikasi (lihat ATURAN TERMINASI). Jangan mengosongkan "action" hanya karena bosan/gagal - error berarti cari strategi lain.
 
 # ATURAN AUTONOMOUS CODING & DEVELOPMENT
 Jika user memintamu membuat atau memodifikasi kode pemrograman, ikuti aturan profesional berikut:
@@ -219,6 +231,21 @@ Kamu adalah LEAD AGENT / TECH LEAD yang SANGAT KRITIS dan MEMILIKI STANDAR KUALI
 
 5. STANDAR KELULUSAN LAPORAN AKHIR:
    - Kamu HANYA BOLEH menyusun kesimpulan akhir ('answer') untuk user jika seluruh temuan sub-agent sudah lolos dari pengujian kritismu, telah terverifikasi mendalam, dan kaya akan data berkualitas!
+
+6. PROTOKOL ANTI-KONFORMITAS (WAJIB — riset Frontier Red Team 2026: agen yang
+   identik cenderung mengambil keputusan SAMA dan gagal dengan cara yang SAMA):
+   a. SAAT MEMBAGI TIM: beri setiap sub-agent sudut pandang/sumber/area yang
+      EKSPLESIT BERBEDA di goal-nya (misal: "Agen-1 fokus benchmark teknis,
+      Agen-2 fokus harga & ketersediaan lokal, Agen-3 fokus risiko & kelemahan").
+      DILARANG spawn 2 agen dengan goal identik/permute-minor.
+   b. SAAT MENGAGREGASI: jika 2+ laporan sub-agent SANGAT mirip (klaim sama,
+      sumber sama, struktur sama), perlakukan itu sebagai SATU sumber —
+      cari minimal satu sudut pandang lain sebelum menyimpulkan.
+   c. KONSENSUS BUKAN BUKTI: persetujuan banyak agen pada klaim yang berasal
+      dari kebiasaan model yang sama TIDAK meningkatkan kebenaran. Yang
+      meningkatkan kebenaran = bukti independen (data, angka, eksekusi nyata).
+   d. TRIK KEPUNYAAN ORANG LAIN BUKAN MILIKMU: dilarang mengklaim hasil
+      verifikasi sub-agent sebagai eksekusimu sendiri — sebutkan sumbernya.
 
 # ATURAN KLASIFIKASI MODE (PENTING)
 Isi "suggested_mode" dengan:
@@ -298,9 +325,9 @@ DILARANG KERAS merespons dengan teks biasa, pengantar, atau penutup. Kamu HANYA 
 {
   "thought": "string (Alasan/logika keputusanmu, tidak ditampilkan ke user)",
   "intermediate_answer": "string (WAJIB MUTLAK DIISI JIKA ADA ACTION/TOOL! Pesan ringkas, ekspresif, dan personal untuk memberi tahu user apa yang sedang kamu lakukan. Misal: 'Bentar ya bro, gue buka browser dulu...', 'Waduh ada error, gue cek kodenya...', 'Seru nih, gue spawn 3 sub-agent buat bantu...'. DILARANG NULL JIKA MEMANGGIL ACTION/TOOL! HANYA boleh null jika is_done=true dan action=null)",
-  "is_done": boolean (true jika respon/tugas giliran ini sudah 100% selesai dan siap berhenti, false jika kamu masih perlu lanjut mengeksekusi tool/langkah berikutnya),
+  "is_done": boolean (true HANYA jika giliran/tugas benar-benar selesai - lihat ATURAN TERMINASI DI ATAS; false jika kamu masih perlu mengeksekusi tool/langkah berikutnya),
   "suggested_mode": "direct|ephemeral|durable",
-  "task_status": "simple|in_progress|done",
+  "task_status": "simple|in_progress|done|blocked|needs_user",
   "objective": "string (Tujuan akhir dari keseluruhan tugas, isi HANYA JIKA task_status='in_progress', jika tidak set null)",
   "action": { "tool": "nama-tool", "query": "parameter" } ATAU [{"tool": "...", "query": "..."}] atau null,
   "answer": "string (Jawaban lengkap untuk user)" atau null,
@@ -433,7 +460,7 @@ ${
         is_done: {
           type: 'boolean',
           description:
-            'True jika tugas/jawaban sudah selesai 100% dan loop boleh berhenti, False jika kamu masih perlu lanjut mengeksekusi tool berikutnya.'
+            'True HANYA jika tugas/jawaban benar-benar selesai (task_status done/simple); False jika masih perlu lanjut mengeksekusi tool berikutnya. Jawaban tanpa is_done=true tidak menghentikan loop.'
         },
         suggested_mode: {
           type: 'string',
@@ -441,7 +468,7 @@ ${
         },
         task_status: {
           type: 'string',
-          enum: ['simple', 'in_progress', 'done']
+          enum: ['simple', 'in_progress', 'done', 'blocked', 'needs_user']
         },
         action: {
           anyOf: [
@@ -495,9 +522,13 @@ ${
         active_topic: { type: 'string' },
         working_memory: {
           type: ['string', 'null'],
-          description: 'Catatan ringkas progres koding, lokasi baris/fungsi yang telah dipetakan, atau rencana teknis untuk disimpan ke .mark/working-memory.json.'
+          description:
+            'Catatan ringkas progres koding, lokasi baris/fungsi yang telah dipetakan, atau rencana teknis untuk disimpan ke .mark/working-memory.json.'
         },
-        should_learn: { type: ['boolean', 'null'], description: 'Set true di giliran terakhir jika tugas ini layak dipelajari jadi skill' },
+        should_learn: {
+          type: ['boolean', 'null'],
+          description: 'Set true di giliran terakhir jika tugas ini layak dipelajari jadi skill'
+        },
         memory: {
           type: ['object', 'null'],
           properties: {
@@ -538,7 +569,9 @@ ${
       console.log('[planning] fetchAI returned, parsing...')
 
       if (!response.content?.trim() && response.reasoning) {
-        console.warn('[planning] AI ONLY outputted reasoning. Continuing loop with thinking preserved...')
+        console.warn(
+          '[planning] AI ONLY outputted reasoning. Continuing loop with thinking preserved...'
+        )
         messages.push({ role: 'assistant', content: `<think>\n${response.reasoning}\n</think>` })
         messages.push({
           role: 'user',
@@ -565,14 +598,45 @@ ${
       } catch (_) {}
       console.log('[planning] parse finished:', data)
 
+      // Jaring penyelamat anti-diskoneksi: bila JSON rusak tapi output mengandung
+      // field kunci, pulihkan field tersebut (terutama "answer") sebagai objek
+      // parsial — daripada buang jawaban model dan retry 2x sia-sia.
+      let recovered = null
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        const rawOut = String(response.content || '')
+        const recoveredAnswer = extractLenientField(rawOut, 'answer')
+        const recoveredThought = extractLenientField(rawOut, 'thought')
+        const recoveredAction = extractLenientField(rawOut, 'action')
+        const recoveredIsDone = /"is_done"\s*:\s*true/i.test(rawOut)
+        const hasActionField = /"action"\s*:/.test(rawOut)
+        if (recoveredAnswer || recoveredAction || (recoveredThought && hasActionField)) {
+          recovered = {
+            thought: recoveredThought || 'Output model dipulihkan dari format rusak',
+            intermediate_answer: extractLenientField(rawOut, 'intermediate_answer'),
+            is_done: recoveredIsDone || (!!recoveredAnswer && !hasActionField),
+            suggested_mode: extractLenientField(rawOut, 'suggested_mode') || 'direct',
+            action: recoveredAction ? { tool: recoveredAction, query: '' } : null,
+            answer: recoveredAnswer,
+            task_status: recoveredIsDone || recoveredAnswer ? 'done' : 'in_progress',
+            objective: null,
+            working_memory: null,
+            memory: null,
+            mood: extractLenientField(rawOut, 'mood') || 'neutral',
+            active_topic: activeTopic
+          }
+          console.warn('[planning] JSON rusak — field dipulihkan via lenient scan')
+        }
+      }
+      const effective = recovered || data
+
       if (
-        data &&
-        typeof data === 'object' &&
-        !Array.isArray(data) &&
-        (data.action !== undefined || data.answer !== undefined)
+        effective &&
+        typeof effective === 'object' &&
+        !Array.isArray(effective) &&
+        (effective.action !== undefined || effective.answer !== undefined)
       ) {
-        let finalAction = data.action || null
-        let finalAnswer = data.answer || null
+        let finalAction = effective.action || null
+        let finalAnswer = effective.answer || null
         if (!finalAction && !finalAnswer) {
           console.warn(
             '[planning] AI returned null for both action and answer. Auto-filling with fallback.'
@@ -580,31 +644,55 @@ ${
           finalAnswer = '...'
         }
         return {
-          thought: data.thought || response.reasoning || '',
-          intermediate_answer: data.intermediate_answer || null,
+          thought: effective.thought || response.reasoning || '',
+          intermediate_answer: effective.intermediate_answer || null,
           is_done:
-            typeof data.is_done === 'boolean'
-              ? data.is_done
-              : data.task_status === 'done' || (!!finalAnswer && !finalAction),
-          suggested_mode: data.suggested_mode || 'direct',
+            typeof effective.is_done === 'boolean'
+              ? effective.is_done
+              : effective.task_status === 'done' || (!!finalAnswer && !finalAction),
+          suggested_mode: effective.suggested_mode || 'direct',
           action: finalAction,
           answer: finalAnswer,
-          should_learn: data.should_learn === true,
-          task_status: data.task_status || 'simple',
-          objective: data.objective || null,
-          working_memory: data.working_memory || null,
-          memory: data.memory,
-          mood: data.mood || 'neutral',
-          active_topic: data.active_topic || activeTopic
+          should_learn: effective.should_learn === true,
+          task_status: effective.task_status || 'simple',
+          objective: effective.objective || null,
+          working_memory: effective.working_memory || null,
+          memory: effective.memory,
+          mood: effective.mood || 'neutral',
+          active_topic: effective.active_topic || activeTopic
         }
       }
 
-      // Jika data null (output bukan JSON valid), dorong AI untuk memperbaiki format responsnya
+      // Last resort SEBELUM retry: kalau tidak ada JSON sama sekali tapi output
+      // berisi kalimat jawaban panjang, perlakukan sebagai jawaban akhir (banyak
+      // model kecil mengabaikan format JSON saat menjawab panjang).
+      if (!recovered && attempts >= MAX_RETRIES - 1) {
+        const prose = String(response.content || '').trim()
+        const hasJsonField = /"(answer|action|thought)"\s*:/.test(prose)
+        if (prose && !hasJsonField) {
+          console.warn('[planning] Output prose tanpa JSON — dipakai sebagai jawaban akhir')
+          return {
+            thought: response.reasoning || 'Prose answer recovery',
+            suggested_mode: 'direct',
+            action: null,
+            answer: prose,
+            task_status: 'done',
+            objective: null,
+            memory: null,
+            mood: 'neutral',
+            active_topic: activeTopic
+          }
+        }
+      }      // Jika data null (output bukan JSON valid), dorong AI untuk memperbaiki format responsnya
       if (attempts < MAX_RETRIES) {
         console.warn(`[planning] AI output invalid JSON or missing schema (Attempt ${attempts}/${MAX_RETRIES}). Continuing loop...`)
         const rawOutput = response.content || response.reasoning || ''
+        // Efisiensi token (requirement "retries burning ~16k"): jangan echo output
+        // mentah utuh balik ke konteks — sering berisi reasoning dump ribuan token.
+        // Cukup petik inti agar model tahu apa yang salah, lalu ulangi formatnya.
         if (rawOutput) {
-          messages.push({ role: 'assistant', content: rawOutput })
+          const trimmed = rawOutput.length > 600 ? `${rawOutput.slice(0, 600)}\n...[dipotong ${rawOutput.length} chars]` : rawOutput
+          messages.push({ role: 'assistant', content: trimmed })
         }
         messages.push({
           role: 'user',
@@ -622,7 +710,8 @@ ${
       thought: 'Fallback triggered after retry attempts',
       suggested_mode: 'direct',
       action: null,
-      answer: 'Maaf, terjadi kendala format respons saat memproses instruksi. Bisa tolong ulangi atau berikan detail tambahan?',
+      answer:
+        'Maaf, terjadi kendala format respons saat memproses instruksi. Bisa tolong ulangi atau berikan detail tambahan?',
       task_status: 'simple',
       objective: null,
       memory: null,

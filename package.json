@@ -14,6 +14,10 @@
     "tauri": "tauri",
     "test": "vitest run",
     "test:harness": "node tests/harness/stress-watermark.harness.mjs && node tests/harness/stress-watermark-v2.harness.mjs",
+    "perf": "bun evaluation/perf-gate.mjs",
+    "perf:save": "bun evaluation/perf-gate.mjs --save",
+    "bench:quick": "bun evaluation/bench-gate.mjs",
+    "bench:save": "bun evaluation/bench-gate.mjs --save",
     "verify": "bash scripts/verify.sh",
     "sync-version": "node scripts/sync-version.mjs",
     "harness": "bun sidecar/engine.mjs",
@@ -30,7 +34,6 @@
     "adm-zip": "^0.6.0"
   },
   "dependencies": {
-    "@fontsource/inter": "^5.2.7",
     "@fontsource/poppins": "^5.2.7",
     "@huggingface/transformers": "^4.2.0",
     "@modelcontextprotocol/sdk": "^1.25.3",
@@ -76,6 +79,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "fake-indexeddb": "^6.2.5",
     "prettier": "^3.7.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",

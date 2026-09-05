@@ -22,7 +22,12 @@ export const getFileIconKey = (fileName = '') => {
   if (['mp4', 'mkv', 'webm', 'avi', 'mov'].includes(ext)) return 'video'
   if (['zip', 'tar', 'gz', '7z', 'rar', 'xz'].includes(ext)) return 'archive'
   if (['pdf'].includes(ext)) return 'pdf'
-  if (['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'py', 'cpp', 'cs', 'sh', 'rs', 'go'].includes(ext)) return 'code'
+  if (
+    ['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'py', 'cpp', 'cs', 'sh', 'rs', 'go'].includes(
+      ext
+    )
+  )
+    return 'code'
   if (['md', 'txt', 'docx', 'doc', 'rtf'].includes(ext)) return 'doc'
   return 'generic'
 }
@@ -49,6 +54,85 @@ export const dedupeAttachments = (prev, incoming) => {
 // Resolve path asli dari File hasil drag&drop: web drop tanpa path disimpan
 // ke temp file via saveTempFile supaya AI tetap bisa membaca isinya.
 // Dipakai InputBar DAN DropAnywhere (drop di area mana pun).
+
+// Gambar -> object URL untuk thumbnail chip attachment. Hanya saat kita
+// memegang File asli (drop web/file manager); lampiran dialog native tidak
+// punya File, jadi chip pakai ikon biasa.
+// CATATAN FETCH: pengambilan resource web TIDAK dilakukan di renderer —
+// semua fetch URL drop lewat native `misc_fetch_web_resource` (Rust) yang
+// memvalidasi scheme + host privat dan membuang URL taint dari boundary
+// renderer (CodeQL SSRF). isPublicHttpUrl tetap dipakai sebagai pre-filter
+// cepat + ter-tes agar drop host internal gagal cepat tanpa round-trip.
+const isImageFile = (f) =>
+  (f?.type || '').startsWith('image/') ||
+  ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(
+    String(f?.name || '')
+      .split('.')
+      .pop()
+      .toLowerCase()
+  )
+
+const createPreviewUrl = (f) => {
+  if (!isImageFile(f)) return ''
+  try {
+    return URL.createObjectURL(f)
+  } catch {
+    return ''
+  }
+}
+
+// Validasi URL hasil drop web SEBELUM dipakai untuk fetch (CodeQL: URL of
+// request depends on user-provided value). Hanya http/https publik yang
+// lolos — blokir loopback/private/link-local agar drop tidak bisa dipakai
+// memindai jaringan lokal (SSRF) atau mengeksekusi scheme non-web.
+export const isPublicHttpUrl = (raw) => {
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    if (!host) return null
+    // IPv6 literal ([..] sudah dilepas): blokir loopback/unspecified/link-local/
+    // ULA (fc00::/7) & IPv4-mapped; hanya global unicast 2000::/3 yang lolos.
+    if (host.includes(':')) {
+      let v6 = host
+      let embeddedV4 = null
+      const v4Mapped = host.match(/(\d{1,3}(?:\.\d{1,3}){3})$/)
+      if (v4Mapped) {
+        embeddedV4 = v4Mapped[1]
+        v6 = host.slice(0, host.lastIndexOf(':') + 1) + '0:0'
+      }
+      if (embeddedV4) return isPublicHttpUrl(`http://${embeddedV4}/`)
+      if (v6 === '::1' || v6 === '::') return null
+      const firstHextet = parseInt(v6.split(':')[0].replace(/^0+(?=\w)/, ''), 16)
+      if (!Number.isFinite(firstHextet)) return null
+      const isGlobalUnicast = firstHextet >> 13 === 0b001 // 2000::/3
+      const isLinkLocal = firstHextet >> 6 === 0b1111111010 // fe80::/10
+      const isUla = firstHextet >> 9 === 0b1111110 // fc00::/7
+      return isGlobalUnicast && !isLinkLocal && !isUla ? url : null
+    }
+    // Non-IP: blokir localhost & subdomain internal (.local, .internal, dsb.)
+    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+      if (host === 'localhost' || host.endsWith('.localhost')) return null
+      if (/\.(local|internal|intranet|lan)$/.test(host)) return null
+      return url
+    }
+    const octets = host.split('.').map(Number)
+    if (octets.some((o) => o > 255)) return null
+    const [a, b] = octets
+    const isPrivate =
+      a === 0 || // 0.0.0.0/8
+      a === 10 || // 10.0.0.0/8
+      a === 127 || // loopback
+      (a === 100 && b >= 64 && b <= 127) || // CGNAT 100.64/10
+      (a === 169 && b === 254) || // link-local 169.254/16
+      (a === 172 && b >= 16 && b <= 31) || // 172.16/12
+      (a === 192 && b === 168) // 192.168/16
+    return isPrivate ? null : url
+  } catch {
+    return null
+  }
+}
+
 export const resolveDroppedFile = async (f) => {
   let resolvedPath = ''
   if (window.api?.getPathForFile) {
@@ -80,8 +164,64 @@ export const resolveDroppedFile = async (f) => {
     name: f.name,
     path: resolvedPath || f.name,
     size: f.size || 0,
-    type: f.type || ''
+    type: f.type || '',
+    previewUrl: createPreviewUrl(f)
   }
+}
+
+// Ekstraksi item dari DataTransfer drop — SATU pintu untuk InputBar &
+// DropAnywhere. Urutan:
+//  1) dataTransfer.files (drop file manager / OS — selalu ada File + path)
+//  2) text/uri-list (drag gambar/link dari web — TIDAK punya Files type;
+//     tanpa ini drag dari browser webview lain diabaikan diam-diam dan malah
+//     bisa menavigasi halaman). Gambar di-fetch jadi File (CSP connect-src
+//     https://* sudah diizinkan); bila fetch gagal (CORS dsb.), item link
+//     saja tetap dilampirkan agar URL-nya terlihat & bisa diproses AI.
+export const extractDroppedItems = async (dataTransfer) => {
+  const files = Array.from(dataTransfer?.files || [])
+  if (files.length > 0) {
+    return Promise.all(files.map(resolveDroppedFile))
+  }
+
+  const uriRaw =
+    (typeof dataTransfer?.getData === 'function' &&
+      (dataTransfer.getData('text/uri-list') || dataTransfer.getData('text/plain'))) ||
+    ''
+  const urls = uriRaw
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map(isPublicHttpUrl)
+    .filter(Boolean)
+    .map((url) => url.href)
+  if (urls.length === 0) return []  // Fetch via NATIVE Rust (misc_fetch_web_resource): URL taint dari user tidak
+  // pernah menyentuh fetch renderer (CodeQL SSRF cleared), validasi host privat
+  // diulang di native (defense in depth), dan bonus: bebas CORS situs tujuan.
+  const results = await Promise.all(
+    urls.map(async (u) => {
+      try {
+        const res = await window.api.fetchWebResource(u)
+        if (!res?.dataB64) throw new Error(res?.error || 'Respons native kosong')
+        const bin = atob(res.dataB64)
+        const bytes = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+        const mime = res.mime || 'application/octet-stream'
+        const ext = (mime.split('/')[1] || 'png').split(';')[0]
+        let name =
+          decodeURIComponent((u.split('/').pop() || '').split('?')[0]) || `gambar-web.${ext}`
+        if (!name.includes('.')) name = `${name}.${ext}`
+        const file = new File([bytes], name, { type: mime })
+        return resolveDroppedFile(file)
+      } catch (err) {
+        // Gagal (network/4xx/5xx/host privat): lampirkan sebagai link (jujur),
+        // supaya drop dari web tetap menghasilkan sesuatu yang bisa dipakai.
+        console.warn('[attachments] Fetch native drop URL gagal, dilampirkan sebagai link:', u, err?.message)
+        const name = decodeURIComponent((u.split('/').pop() || '').split('?')[0]) || u
+        return { name, path: u, size: 0, type: 'text/uri-list', previewUrl: '', linkOnly: true }
+      }
+    })
+  )
+  return results.filter(Boolean)
 }
 
 // Dedup + enrich stat sekaligus (untuk pemanggil non-React / nilai sudah final).
