@@ -101,7 +101,7 @@ pub fn telegram_status(state: State<TelegramState>) -> Result<serde_json::Value,
 #[tauri::command]
 pub fn telegram_send_photo(
     state: State<TelegramState>,
-    chat_id: String,
+    _chat_id: String,
     png_base64: String,
     caption: Option<String>,
 ) -> Result<serde_json::Value, String> {

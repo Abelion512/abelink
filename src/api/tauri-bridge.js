@@ -43,6 +43,29 @@ function routeFsTool(toolName, query) {
       const [, cwd] = parts
       return invoke('tools_run_shell', { query: parts[0], cwd: cwd || null })
     }
+    // Route extension browser-use tools
+    case 'browser-search':
+      return invoke('tools_browser_search', { query: parts[0] })
+    case 'read-tools':
+      return invoke('tools_read_tools', { query: parts[0] || '' })
+    // Plugin tools
+    case 'spawn_subagent':
+    case 'send_message':
+    case 'list_subagents':
+    case 'wait_subagents':
+    case 'kill_subagent':
+      return invoke('tools_plugin', { tool: toolName, query: parts.join('||') })
+    // File tools without fs route
+    case 'replace-content':
+    case 'replace-lines':
+    case 'file-outline':
+    case 'read-document':
+    case 'read-skill':
+    case 'os-open':
+      return invoke('tools_file', { tool: toolName, query: parts.join('||') })
+    // Memory tools
+    case 'memory-search':
+      return invoke('tools_memory', { query: parts[0] || '' })
     default:
       return null
   }

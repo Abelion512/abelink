@@ -740,7 +740,7 @@ const InputBar = ({
           Untuk file non-gambar tampilkan info file; tidak ada preview palsu. */}
       {previewFile && (
         <div
-          className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in"
+          className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-6 animate-fade-in"
           onClick={() => setPreviewIdx(-1)}
         >
           <div
