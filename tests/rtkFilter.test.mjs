@@ -26,8 +26,15 @@ describe('rtkFilter (output compression, execution layer)', () => {
   })
 
   it('rtk tidak terpasang (ENOENT) -> no-op senyap, data asli tetap keluar', async () => {
-    const out = await rtkFilter(LONG, 'git-status', {})
-    expect(out).toBe(LONG)
+    // Pastikan rtk tidak ditemukan di PATH untuk memaksa jalur ENOENT
+    const savedPath = process.env.PATH
+    process.env.PATH = '/nonexistent'
+    try {
+      const out = await rtkFilter(LONG, 'git-status', {})
+      expect(out).toBe(LONG)
+    } finally {
+      process.env.PATH = savedPath
+    }
   }, 20000)
 
   it('config undefined -> tetap aktif (default ON), rtk absen -> data asli', async () => {
