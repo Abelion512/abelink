@@ -92,6 +92,19 @@ social-data-engine/
 # Agent-CLI local configs (Codex, etc.)
 /.codex/
 
+# Browser use feature artifacts
+# Chrome profile used by browser-use (never commit - local only)
+.mark_chrome_profile/
+
+# Browser-use session state (per-session tab groups)
+.browser-use-state/
+
+# Extension temporary directories generated at runtime
+extension/tmp-*
+
+# History of browser-use group assignments
+.history/
+
 # ─────────────────────────────────────────────────────────────────
 # Documentation — internal planning, not for open source
 # ─────────────────────────────────────────────────────────────────
