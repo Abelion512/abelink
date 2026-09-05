@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Mark Browser Bridge",
   "version": "0.1.0",
-  "description": "Bridge antara Mark (sidecar lokal) dan browser user: navigasi, pembacaan DOM ber-tag, dan aksi otomatis di bawah kendali sesi Mark. Tanpa telemetri; semua trafik ke 127.0.0.1.",
+  "description": "Bridge antara Mark (sidecar lokal) dan browser. Tanpa telemetri; trafik hanya ke 127.0.0.1.",
   "permissions": ["scripting", "tabs", "storage"],
   "host_permissions": ["http://127.0.0.1/*"],
   "background": { "service_worker": "background.js" },
