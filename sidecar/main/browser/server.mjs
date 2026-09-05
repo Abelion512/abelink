@@ -16,7 +16,9 @@ import {
   handshake,
   takeNext,
   resolveCommand,
-  writeTokenFile
+  writeTokenFile,
+  groupSession,
+  getSessionGroups
 } from './bridge-core.mjs'
 
 const MAX_BODY = 1024 * 1024 // 1MB — hasil read-dom jauh di bawah ini (dipotong di core)
@@ -86,6 +88,22 @@ async function route(req, res) {
     } catch (e) {
       return json(res, 401, { error: e.message })
     }
+  }
+
+  if (endpoint === 'group' && req.method === 'POST') {
+    let parsed
+    try {
+      parsed = JSON.parse(await readBody(req))
+    } catch (e) {
+      return json(res, 400, { error: `Body JSON tidak valid: ${e.message}` })
+    }
+    const r = groupSession(sessionId, parsed || {})
+    return r.ok ? json(res, 200, r) : json(res, 400, r)
+  }
+
+  if (endpoint === 'groups' && req.method === 'GET') {
+    const r = getSessionGroups(sessionId)
+    return r.ok ? json(res, 200, r) : json(res, 404, r)
   }
 
   if (endpoint === 'result' && req.method === 'POST') {

@@ -281,7 +281,7 @@ export default function Connectors() {
 
   return (
     <div className="min-h-screen bg-base-300 text-base-content relative flex flex-col p-6 h-screen animate-[holo-enter_0.3s_ease-out_forwards]">
-      {ModalComponent}
+      <ModalComponent />
       {/* Decorative Grid */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
 

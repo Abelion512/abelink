@@ -67,7 +67,7 @@ function getWorker() {
               console.warn('[EmbeddingWorker] Worker task error:', error)
               // Semua device gagal (worker sudah coba SIMD -> wasm scalar -> CPU)
               // -> auto Lite Mode (hash embedding) sebagai last resort.
-              if (/SIMD|no available backend/i.test(String(error))) {
+              if (/SIMD|no available backend|Unsupported device|Extractor init failed|init gagal/i.test(String(error))) {
                 isLiteMode = true
                 const isFirstNotice = !liteAutoNotified
                 emitLiteAuto()
