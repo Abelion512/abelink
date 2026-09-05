@@ -39,6 +39,8 @@ coverage/
 *.swp
 
 # worktree lokal & cache lain
+/.worktrees/
+/worktrees/
 /.claude/
 __pycache__/
 
@@ -74,6 +76,7 @@ upstream-diff-report.json
 /docs/superpowers/
 docs/DRIFT_MANIFEST.md
 docs/.screenshoots/
+PARITY-AUDIT-FINAL.md
 
 # tests - stability/ di-ignore; stress-harness justru DI-TRACK (dijalankan
 # via `bun run test:harness` & CI), aturan lama dihapus 2026-09-03.
