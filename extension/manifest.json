@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Mark Browser Bridge",
-  "version": "0.1.0",
-  "description": "Bridge antara Mark (sidecar lokal) dan browser. Tanpa telemetri; trafik hanya ke 127.0.0.1.",
+  "version": "0.1.1",
+  "description": "Bridge antara Mark (sidecar lokal) dan browser. Tanpa telemetri; trafik jaringan ekstensi hanya ke 127.0.0.1.",
   "permissions": ["scripting", "tabs", "storage", "tabGroups", "downloads"],
-  "host_permissions": ["http://127.0.0.1/*"],
+  "host_permissions": ["http://127.0.0.1/*", "http://*/*", "https://*/*"],
   "background": { "service_worker": "background.js" },
   "action": {
     "default_title": "Mark Bridge",
