@@ -1,12 +1,16 @@
-import eslint from '@electron-toolkit/eslint-config'
-import eslintConfigPrettier from '@electron-toolkit/eslint-config-prettier'
 import eslintPluginReact from 'eslint-plugin-react'
 import eslintPluginReactHooks from 'eslint-plugin-react-hooks'
 import eslintPluginReactRefresh from 'eslint-plugin-react-refresh'
 
+// Audit 2026-09: config lama mengimpor @electron-toolkit/eslint-config dan
+// @electron-toolkit/eslint-config-prettier, tetapi keduanya TIDAK ada di
+// package.json, sehingga `bun run lint` selalu crash (ERR_MODULE_NOT_FOUND).
+// Config ini sekarang self-contained: hanya memakai plugin yang memang
+// terpasang di devDependencies. Layer prettier-compat dihapus bersama paket
+// yang hilang (rules formatting sudah deprecated di ESLint 9, jadi dampaknya
+// praktis nol); rules inti proyek tetap didefinisikan eksplisit di bawah.
 export default [
   { ignores: ['**/node_modules', '**/dist', '**/out'] },
-  eslint,
   eslintPluginReact.configs.flat.recommended,
   eslintPluginReact.configs.flat['jsx-runtime'],
   {
@@ -41,6 +45,5 @@ export default [
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/immutability': 'warn'
     }
-  },
-  eslintConfigPrettier
+  }
 ]

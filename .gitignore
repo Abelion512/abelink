@@ -4,6 +4,12 @@
 /node_modules/
 /bun.lock.bak
 
+# Sidecar: node_modules lokal tidak boleh ikut ter-commit, KECUALI stub
+# 'electron' yang memang disengaja (menangkap import modul era Electron
+# lama di runtime node sidecar). /node_modules/ root saja tidak cukup.
+/sidecar/node_modules/*
+!/sidecar/node_modules/electron/
+
 # ─────────────────────────────────────────────────────────────────
 # Build output
 # ─────────────────────────────────────────────────────────────────

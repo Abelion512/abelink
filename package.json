@@ -2,7 +2,6 @@
   "name": "mark",
   "version": "1.0.0-alpha.2",
   "description": "Mark: Metacognitive Artificial Relational Knowledge AI",
-  "main": "./out/main/index.js",
   "author": "Mazees",
   "homepage": "https://github.com/Abelion512/mark-agent-linux/",
   "scripts": {

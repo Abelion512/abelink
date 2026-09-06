@@ -11,7 +11,15 @@ export const subagentStore = {
     allowedTools = ['*'],
     parentSessionId = 'default'
   }) {
-    const id = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+    const secureIdPart =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : (() => {
+            const bytes = new Uint8Array(16)
+            crypto.getRandomValues(bytes)
+            return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+          })()
+    const id = `sub_${secureIdPart}`
     const subagent = {
       id,
       name,
