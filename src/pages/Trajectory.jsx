@@ -33,12 +33,13 @@ const getKindColor = (kind) => {
   }
 }
 
+// Label tanpa emoji — aturan repo: UI dilarang memakai emoji (lihat AGENTS.md).
 const getKindLabel = (kind) => {
   switch (kind) {
-    case 'reasoning': return '🔍 Reasoning'
-    case 'tool-call': return '⚡ Tool Call'
-    case 'sub-agent': return '🤖 Sub-Agent'
-    case 'step': return '📊 Step'
+    case 'reasoning': return 'Reasoning'
+    case 'tool-call': return 'Tool Call'
+    case 'sub-agent': return 'Sub-Agent'
+    case 'step': return 'Step'
     default: return kind
   }
 }
@@ -242,7 +243,7 @@ export default function Trajectory() {
                   <div>
                     <label className="text-xs uppercase tracking-wider opacity-50 mb-1 block">Status</label>
                     <div className={`text-sm ${selectedEntry.success ? 'text-success' : 'text-error'}`}>
-                      {selectedEntry.success ? '✓ Success' : '✗ Failed'}
+                      {selectedEntry.success ? 'Success' : 'Failed'}
                     </div>
                   </div>
                 )}
