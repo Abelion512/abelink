@@ -222,6 +222,7 @@ pub fn run() {
             approval_policy::approval_policy_get,
             approval_policy::approval_policy_set,
             approval_policy::approval_policy_reset_session,
+            approval_policy::approval_policy_grant_session,
             commands_tools_shell::tools_run_shell,
             commands_tools_git::git_status,
             commands_tools_git::git_diff,

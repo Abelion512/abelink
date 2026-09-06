@@ -87,7 +87,6 @@ struct PolicyState {
     // family -> true (diizinkan untuk sesi runtime ini via dialog "Remember")
     session_granted: Vec<String>,
     path: PathBuf,
-    loaded: bool,
 }
 
 fn policy_path() -> PathBuf {
@@ -114,7 +113,6 @@ fn load_state() -> PolicyState {
         families,
         session_granted: Vec::new(),
         path,
-        loaded: true,
     }
 }
 
@@ -211,6 +209,13 @@ pub fn approval_policy_set(family: String, policy: String) -> Result<(), String>
 #[tauri::command]
 pub fn approval_policy_reset_session() -> bool {
     reset_session();
+    true
+}
+
+/// Grant a family for this runtime session only (no persistent file write).
+#[tauri::command]
+pub fn approval_policy_grant_session(family: String) -> bool {
+    grant_session(&family);
     true
 }
 
