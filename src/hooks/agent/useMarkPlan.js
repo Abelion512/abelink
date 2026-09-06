@@ -33,8 +33,10 @@ import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
 import { classifyMainDecision, INTENT } from '../../api/ai/agentDecision'
 import {
   logToolCall as trajectoryLogTool,
-  logSubAgentSpawn as trajectoryLogSub
+  logSubAgentSpawn as trajectoryLogSub,
+  logReasoning
 } from '../../api/trajectory'
+import {
   classifyObjectiveKind,
   evaluateEvidence,
   gateCompletion,
@@ -877,7 +879,7 @@ export const useMarkPlan = ({
         const url = urlMatch ? urlMatch[1] : q.replace(/^(xdg-open|open)\s+/i, '').trim()
         if (url) {
           try {
-            const res = await window.api.os_open({ url })
+            const res = await window.api.osOpen(url)
             resultString = typeof res === 'string' ? res : JSON.stringify(res)
             logReasoning({ prompt: `Shell URL fallback ke os-open: ${url}` })
           } catch (e) {

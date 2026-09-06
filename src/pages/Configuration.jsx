@@ -1689,6 +1689,7 @@ const Configuration = ({
             </div>
             <div className="h-px w-full bg-white/10 my-2" />
 
+          </div>
           {/* ── Global Shortcut Settings ── */}
           <section
             id="cfg-shortcut"
