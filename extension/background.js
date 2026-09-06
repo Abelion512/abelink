@@ -182,18 +182,22 @@ async function ensureGroup(sessionId, task, status, autoClose = false) {
   const name = deriveGroupName(status, task)
   let groupId = prev?.groupId || null
 
-  // Cari group yang ada dengan nama ini (update) atau buat baru
-  let allGroups
-  try {
-    allGroups = await chrome.tabGroups.query({})
-  } catch { allGroups = [] }
-
-  const existing = allGroups.find((g) => g.windowId === chrome.windows.WINDOW_ID_CURRENT &&
-    g.title === name)
+  // BUGFIX (audit 2026-09): implementasi lama memfilter
+  // g.windowId === chrome.windows.WINDOW_ID_CURRENT — konstanta itu (-2) bukan
+  // ID window nyata, sehingga grup lama TIDAK PERNAH ditemukan dan setiap
+  // perintah group-session membuat grup baru (menumpuk tanpa batas).
+  // Sekarang grup dicari di window milik tab aktif saja.
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  let allGroups = []
+  if (activeTab) {
+    try {
+      allGroups = await chrome.tabGroups.query({ windowId: activeTab.windowId })
+    } catch { allGroups = [] }
+  }
+  const existing = allGroups.find((g) => g.title === name)
 
   if (!existing) {
     // Buat group baru dari tab aktif
-    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
     if (!activeTab) return null
     const created = await chrome.tabs.group({
       tabIds: [activeTab.id],
