@@ -32,6 +32,9 @@ import { buildOptimizedChatSession } from '../../api/ai/contextCompactor'
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
 import { classifyMainDecision, INTENT } from '../../api/ai/agentDecision'
 import {
+  logToolCall as trajectoryLogTool,
+  logSubAgentSpawn as trajectoryLogSub
+} from '../../api/trajectory'
   classifyObjectiveKind,
   evaluateEvidence,
   gateCompletion,
@@ -615,6 +618,9 @@ export const useMarkPlan = ({
             parentSessionId: 'main_chat'
           })
 
+          // Log sub-agent spawn to trajectory buffer
+          trajectoryLogSub({ name, parentAgentId: 'main_chat' })
+
           // Jalankan loop eksekusi ReAct secara paralel di background (non-blocking)
           runSubagentTurn(sub.id, initialMessage).catch((err) => {
             console.error(`[Sub-Agent ${sub.id}] Background error:`, err)
@@ -861,25 +867,67 @@ export const useMarkPlan = ({
               }
             }
           }
-        } else {
-          const activeConfig = {
-            ...(Array.isArray(config) ? config[0] : config),
-            workspaceRoot: context?.workspaceRoot
-          }
-          const nativePromise = window.api.executeNativeTool(tool, query, activeConfig)
-          let onNativeAbort = null
-          const abortPromise = new Promise((_, reject) => {
-            onNativeAbort = () => reject(new Error('AbortError'))
-            if (currentSignal?.aborted) return onNativeAbort()
-            currentSignal?.addEventListener('abort', onNativeAbort)
-          })
+        } else if (tool === 'run-shell') {
+      // Fix: detect URL scheme commands (xdg-open "https://...") that fail in headless/Tauri env.
+      // Fallback ke os-open (Tauri IPC) yang bisa buka URL di browser user's PC.
+      const q = String(query || '').trim()
+      if (/^xdg-open\s/.test(q) || /^open\s/.test(q)) {
+        // Extract URL dari quotes/braces
+        const urlMatch = q.match(/(?:xdg-open|open)\s+["']?([^"'\s]+)["']?/i)
+        const url = urlMatch ? urlMatch[1] : q.replace(/^(xdg-open|open)\s+/i, '').trim()
+        if (url) {
           try {
-            res = await Promise.race([nativePromise, abortPromise])
-          } finally {
-            // Lepas listener abort agar tidak menumpuk di signal (memory leak)
-            if (onNativeAbort) currentSignal?.removeEventListener('abort', onNativeAbort)
+            const res = await window.api.os_open({ url })
+            resultString = typeof res === 'string' ? res : JSON.stringify(res)
+            logReasoning({ prompt: `Shell URL fallback ke os-open: ${url}` })
+          } catch (e) {
+            resultString = `[ERROR] Gagal buka URL: ${(e && e.message) || 'unknown'}`
+            logReasoning({ prompt: `Shell URL gagal: ${url}`, suggested_mode: 'direct' })
+          }
+          return {
+            resultString,
+            rejected: false,
+            toolExecution: { action: tool, query, result: resultString }
           }
         }
+      }
+      // Kalau bukan URL scheme, lanjut ke native tool handler biasa
+      const activeConfig = {
+        ...(Array.isArray(config) ? config[0] : config),
+        workspaceRoot: context?.workspaceRoot
+      }
+      const nativePromise = window.api.executeNativeTool(tool, query, activeConfig)
+      let onNativeAbort = null
+      const abortPromise = new Promise((_, reject) => {
+        onNativeAbort = () => reject(new Error('AbortError'))
+        if (currentSignal?.aborted) return onNativeAbort()
+        currentSignal?.addEventListener('abort', onNativeAbort)
+      })
+      try {
+        res = await Promise.race([nativePromise, abortPromise])
+      } finally {
+        // Lepas listener abort agar tidak menumpuk di signal (memory leak)
+        if (onNativeAbort) currentSignal?.removeEventListener('abort', onNativeAbort)
+      }
+} else {
+      const activeConfig = {
+        ...(Array.isArray(config) ? config[0] : config),
+        workspaceRoot: context?.workspaceRoot
+      }
+      const nativePromise = window.api.executeNativeTool(tool, query, activeConfig)
+      let onNativeAbort = null
+      const abortPromise = new Promise((_, reject) => {
+        onNativeAbort = () => reject(new Error('AbortError'))
+        if (currentSignal?.aborted) return onNativeAbort()
+        currentSignal?.addEventListener('abort', onNativeAbort)
+      })
+      try {
+        res = await Promise.race([nativePromise, abortPromise])
+      } finally {
+        // Lepas listener abort agar tidak menumpuk di signal (memory leak)
+        if (onNativeAbort) currentSignal?.removeEventListener('abort', onNativeAbort)
+      }
+    }
 
         if (res && res.success) {
           resultString =
@@ -900,8 +948,12 @@ export const useMarkPlan = ({
               resultString = `${fullText.slice(0, 2500)}\n\n[DOKUMEN DIPOTONG (Total: ${fullText.length} karakter). Gunakan read-document dengan query "${parts[0]}||kata_kunci" untuk pencarian spesifik]`
             }
           }
+          // Log tool call to trajectory buffer
+          trajectoryLogTool({ tool, query, success: true, result: resultString.slice(0, 200) })
         } else {
           resultString = `[ERROR] ${tool} gagal: ${(res && (res.message || res.error)) || 'Unknown error'}`
+          // Log failed tool call to trajectory buffer
+          trajectoryLogTool({ tool, query, success: false, result: resultString.slice(0, 200) })
         }
 
         return {

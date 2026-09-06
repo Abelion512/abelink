@@ -249,13 +249,14 @@ export default function Connectors() {
       })
       setTestResult({ ok: true, text: JSON.stringify(out, null, 2) })
     } catch (err) {
-      if (err.message.includes(APPROVAL_CODE) || err.message.includes('approval')) {
+      const errMsg = err?.message || String(err) || 'Unknown error'
+      if (errMsg.includes(APPROVAL_CODE) || errMsg.includes('approval')) {
         setTestResult({
           ok: false,
           text: 'Aksi ini memerlukan persetujuan khusus. Gunakan Mark (agent) untuk mengeksekusinya — dialog persetujuan NATIVE akan muncul di layar.'
         })
       } else {
-        setTestResult({ ok: false, text: err.message })
+        setTestResult({ ok: false, text: errMsg })
       }
     } finally {
       setBusyKey(null)

@@ -80,6 +80,8 @@ const InputBar = ({
   // Index attachment yang sedang dibuka di modal preview (klik/hover chip).
   // -1 = modal tertutup.
   const [previewIdx, setPreviewIdx] = useState(-1)
+  const [hoverPreviewIdx, setHoverPreviewIdx] = useState(-1)
+  const hoverTimerRef = useRef(null)
   const lastPromptRef = useRef('')
 
   const [skills, setSkills] = useState([])
@@ -137,6 +139,13 @@ const InputBar = ({
       }, 50)
     }
   }, [isLoading])
+
+  // Bersihkan timer hover preview saat komponen dilepas (anti memory-leak/setState di unmounted).
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+    }
+  }, [])
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || [])
@@ -471,7 +480,17 @@ const InputBar = ({
               key={file.path + idx}
               className="flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-full px-2.5 py-1.5 text-xs text-white shadow-lg animate-fade-in group hover:border-primary/50 transition-all flex-shrink-0 cursor-pointer"
               onClick={() => setPreviewIdx(idx)}
-              title="Klik untuk pratinjau"
+              onMouseEnter={() => {
+                clearTimeout(hoverTimerRef.current)
+                if (file.previewUrl) {
+                  hoverTimerRef.current = setTimeout(() => setHoverPreviewIdx(idx), 150)
+                }
+              }}
+              onMouseLeave={() => {
+                clearTimeout(hoverTimerRef.current)
+                setHoverPreviewIdx(-1)
+              }}
+              title="Klik atau hover untuk pratinjau"
             >
               {file.previewUrl ? (
                 <img
@@ -500,6 +519,11 @@ const InputBar = ({
               </button>
             </div>
           ))}
+          {hoverPreviewIdx >= 0 && attachedFiles[hoverPreviewIdx]?.previewUrl && (
+            <div className="absolute bottom-full mb-2 left-0 z-50 pointer-events-none">
+              <img src={attachedFiles[hoverPreviewIdx].previewUrl} className="w-48 h-48 object-cover rounded-lg shadow-2xl border border-white/10" />
+            </div>
+          )}
         </div>
       )}
 
@@ -740,7 +764,7 @@ const InputBar = ({
           Untuk file non-gambar tampilkan info file; tidak ada preview palsu. */}
       {previewFile && (
         <div
-          className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in"
+          className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-6 animate-fade-in"
           onClick={() => setPreviewIdx(-1)}
         >
           <div

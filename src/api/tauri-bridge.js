@@ -380,6 +380,25 @@ export const api = {
   browserNavigate: (url, sessionId = 'default') => call('browser:navigate', url, sessionId),
   browserReadDom: (sessionId = 'default') => call('browser:read-dom', sessionId),
   browserAction: (data, sessionId = 'default') => call('browser:action', data, sessionId),
+  // Shortcut aksi browser granular. Kontrak payload ekstensi (background.js):
+  // { action, markId, value } — argumen SELALU lewat field `value`, karena
+  // handler ekstensi mendestruktur { markId, action, value }. (Fix review PR #26.)
+  browserClick: (elementId, sessionId = 'default') =>
+    call('browser:action', { action: 'click', markId: elementId }, sessionId),
+  browserType: (elementId, text, sessionId = 'default') =>
+    call('browser:action', { action: 'type', markId: elementId, value: text }, sessionId),
+  browserScroll: (direction, amount, sessionId = 'default') =>
+    call('browser:action', { action: 'scroll', value: { direction, amount } }, sessionId),
+  browserExtract: (selector, sessionId = 'default') =>
+    call('browser:action', { action: 'extract', value: selector }, sessionId),
+  browserScript: (script, sessionId = 'default') =>
+    call('browser:action', { action: 'script', value: script }, sessionId),
+  browserScreenshot: (fileName, sessionId = 'default') =>
+    call('browser:action', { action: 'screenshot', value: fileName }, sessionId),
+  browserDownload: (url, fileName, sessionId = 'default') =>
+    call('browser:action', { action: 'download', value: { url, fileName } }, sessionId),
+  browserAskUser: (prompt, sessionId = 'default') =>
+    call('browser:action', { action: 'ask', value: prompt }, sessionId),
   browserClose: (sessionId = 'default') => call('browser:close', sessionId),
   onBrowserPreview: on('browser:preview'),
   showBrowserWindow: (sessionId = 'default') => call('browser:show', sessionId),

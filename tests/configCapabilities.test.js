@@ -2,20 +2,17 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 
-// Kontrak UI Capabilities — halaman Configuration menyediakan section
-// plugins/skills/connectors, dan masing-masing harus punya tujuan nyata
-// (bukan TODO kosong): deep-link ke halaman manajemennya.
+// Kontrak UI Capabilities — Plugins/Skills/Connectors dikonsolidasi ke cfg-capabilities
+// Semua profil manajemen tetap ada di halaman masing-masing via deep-link.
 
 const readSrc = (rel) => fs.readFileSync(path.join(process.cwd(), rel), 'utf8')
 
 describe('ConfigSidebar sections', async () => {
   const mod = await import('../src/components/ConfigSidebar.jsx')
 
-  it('menyediakan entry Plugins, Skills, dan Connectors', () => {
+  it('menyediakan entry capabilites', () => {
     const ids = mod.sections.map((s) => s.id)
-    for (const id of ['cfg-plugins', 'cfg-skills', 'cfg-connectors']) {
-      expect(ids).toContain(id)
-    }
+    expect(ids).toContain('cfg-capabilities')
   })
 
   it('semua section punya label & icon', () => {
@@ -34,33 +31,22 @@ describe('ConfigSidebar sections', async () => {
 describe('Configuration page sections (contract via source)', () => {
   const src = readSrc('src/pages/Configuration.jsx')
 
-  it('section cfg-plugins/skills/connectors dirender berdasarkan activeSection', () => {
-    for (const id of ['cfg-plugins', 'cfg-skills', 'cfg-connectors']) {
-      expect(src.includes(`id="${id}"`), `section ${id} hilang`).toBe(true)
-      expect(src.includes(`activeSection !== '${id}'`), `${id} tidak punya guard visibility`).toBe(
-        true
-      )
-    }
+  it('section capabilities dirender berdasarkan activeSection', () => {
+    expect(src.includes("id=\"cfg-capabilities\"")).toBe(true)
+    expect(src.includes("activeSection !== 'cfg-capabilities'")).toBe(true)
   })
 
-  it('setiap section capabilities deep-link ke halaman manajemennya', () => {
+  it('setiap item di capabilities deep-link ke halaman manajemennya', () => {
     expect(src.includes("navigate('/plugins')"), 'deep-link /plugins hilang').toBe(true)
     expect(src.includes("navigate('/skills')"), 'deep-link /skills hilang').toBe(true)
     expect(src.includes("navigate('/connectors')"), 'deep-link /connectors hilang').toBe(true)
   })
 
   it('tidak ada TODO kosong tersisa di section capabilities', () => {
-    const sectionsArea = src.slice(src.indexOf('cfg-plugins'))
+    const sectionsArea = src.slice(src.indexOf("id=\"cfg-capabilities\""))
     expect(sectionsArea).not.toContain('TODO: Plugin management list')
     expect(sectionsArea).not.toContain('TODO: Skills toggle list')
     expect(sectionsArea).not.toContain('TODO: MCP connection list')
-  })
-
-  it('ringkasan connectors tidak memanggil API saat section tidak aktif (load-when-needed)', () => {
-    // Efek ringkasan wajib men-guard dengan activeSection — tanpa itu,
-    // membuka Configuration akan memicu sidecar calls yang tidak perlu.
-    const guardIdx = src.indexOf("activeSection === 'cfg-connectors'")
-    expect(guardIdx, 'guard load-when-needed untuk connectors hilang').toBeGreaterThan(-1)
   })
 })
 

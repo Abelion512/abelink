@@ -9,6 +9,7 @@ import { group_tools } from '../tools/group-tools'
 import { NATIVE_SKILLS } from '../../components/core/native-skills'
 import { getWorkspaceContext } from '../workspaceRag'
 import { getCachedSkills } from '../skillsCache'
+import { logReasoning as trajectoryLogReasoning, logStep as trajectoryLogStep } from '../trajectory'
 
 let pluginVectorCache = new Map()
 
@@ -584,17 +585,35 @@ ${
       const data = cleanAndParse(response.content)
       // Log defensif: data bisa null bila parse gagal, jangan sampai lempar error
       // dan mencegah fallback rapi di akhir fungsi.
+      const reasoningData = {
+        thought: data?.thought ?? null,
+        suggested_mode: data?.suggested_mode ?? null,
+        task_status: data?.task_status ?? null,
+        objective: data?.objective ?? null,
+        action: data?.action
+          ? data.action.tool || JSON.stringify(data.action).slice(0, 120)
+          : null
+      }
       try {
         const h = await import('../harness')
-        h.logReasoning({
-          thought: data?.thought ?? null,
-          suggested_mode: data?.suggested_mode ?? null,
-          task_status: data?.task_status ?? null,
-          objective: data?.objective ?? null,
-          action: data?.action
-            ? data.action.tool || JSON.stringify(data.action).slice(0, 120)
-            : null
+        h.logReasoning(reasoningData)
+      } catch (_) {}
+      // Trajectory UI buffer (in-memory + localStorage) — pantau pikiran agen
+      // per giliran. Tidak await; non-blocking, fire-and-forget.
+      try {
+        trajectoryLogReasoning({
+          prompt: userInput,
+          model: conf.model || conf.engine || 'unknown',
+          ...reasoningData
         })
+        if (data?.task_status === 'in_progress' && data?.objective) {
+          trajectoryLogStep({
+            step: loopMessages.filter((m) => m.role === 'assistant').length,
+            total: MAX_RETRIES * 2,
+            description: data.objective,
+            status: 'in_progress'
+          })
+        }
       } catch (_) {}
       console.log('[planning] parse finished:', data)
 

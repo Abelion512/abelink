@@ -1581,115 +1581,113 @@ const Configuration = ({
               </div>
             </div>
 
-            {/* ── Plugins ── */}
+            {/* ── Capabilities (Plugins + Skills + Connectors consolidated) ── */}
             <div
-              id="cfg-plugins"
-              className={`space-y-4 p-2 -mx-2 rounded-lg ${activeSection !== 'cfg-plugins' ? 'hidden' : ''}`}
+              id="cfg-capabilities"
+              className={`${activeSection !== 'cfg-capabilities' ? 'hidden' : ''} space-y-6`}
             >
-              <h3 className="text-sm font-bold uppercase tracking-wider opacity-70">Plugins</h3>
-              <p className="text-xs text-white/50">
-                Fungsi kustom buatanmu (kode JS) yang dipahami Mark secara otomatis — lengkap dengan
-                Monaco editor di halaman penuhnya.
-              </p>
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-base-100 border border-white/5">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                  <FaCubes className="text-primary" size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold">
-                    {pluginCount === null ? 'Memuat...' : `${pluginCount} plugin terpasang`}
-                  </p>
-                  <p className="text-xs opacity-50">
-                    Plugin berjalan selalu aktif (always-on) dalam setiap sesi agent.
-                  </p>
-                </div>
-                <button
-                  onClick={() => navigate('/plugins')}
-                  className="btn btn-sm btn-outline shrink-0"
-                >
-                  Kelola <FaExternalLinkAlt size={10} />
-                </button>
-              </div>
-            </div>
-
-            {/* ── Skills ── */}
-            <div
-              id="cfg-skills"
-              className={`space-y-4 p-2 -mx-2 rounded-lg ${activeSection !== 'cfg-skills' ? 'hidden' : ''}`}
-            >
-              <h3 className="text-sm font-bold uppercase tracking-wider opacity-70">Mark Skills</h3>
-              <p className="text-xs text-white/50">
-                Keterampilan yang Mark pelajari sendiri dari percakapan (SKILL.md) — bisa kamu edit,
-                ekspor, atau hapus.
-              </p>
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-base-100 border border-white/5">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                  <FaBrain className="text-primary" size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold">
-                    {skillCount === null ? 'Memuat...' : `${skillCount} skill tersimpan`}
-                  </p>
-                  <p className="text-xs opacity-50">
-                    Tersimpan di folder XDG lokal — bisa dibaca langsung dari shell.
-                  </p>
-                </div>
-                <button
-                  onClick={() => navigate('/skills')}
-                  className="btn btn-sm btn-outline shrink-0"
-                >
-                  Kelola <FaExternalLinkAlt size={10} />
-                </button>
-              </div>
-            </div>
-
-            {/* ── Connectors (MCP) ── */}
-            <div
-              id="cfg-connectors"
-              className={`space-y-4 p-2 -mx-2 rounded-lg ${activeSection !== 'cfg-connectors' ? 'hidden' : ''}`}
-            >
-              <h3 className="text-sm font-bold uppercase tracking-wider opacity-70">
-                Connectors (MCP)
-              </h3>
-              <p className="text-xs text-white/50">
-                Kemampuan pluggable ala Claude connectors: katalog, otorisasi scope, dan jejak audit
-                — semua keputusan approval tetap native (rfd), bukan di renderer.
-              </p>
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-base-100 border border-white/5">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                  <FaPlug className="text-primary" size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  {connStats === null ? (
-                    <p className="text-sm font-semibold">Memuat...</p>
-                  ) : (
-                    <>
-                      <p className="text-sm font-semibold">
-                        {connStats.total} connector · {connStats.connected} terhubung ·{' '}
-                        {connStats.connectionless} connection-less
-                      </p>
-                      <p className="text-xs opacity-50">
-                        {connStats.auditOk} eksekusi ter-audit sukses (30 entri terakhir).
-                      </p>
-                    </>
-                  )}
-                </div>
-                <button
-                  onClick={() => navigate('/connectors')}
-                  className="btn btn-sm btn-outline shrink-0"
-                >
-                  Buka <FaExternalLinkAlt size={10} />
-                </button>
-              </div>
-              <div className="flex items-start gap-2 p-3 rounded-xl bg-success/5 border border-success/20">
-                <FaShieldAlt className="text-success mt-0.5 shrink-0" size={12} />
-                <p className="text-[11px] opacity-70">
-                  Connector berbahaya (shell, fs-write) selalu melewati dialog persetujuan NATIVE di
-                  Rust main thread — model tidak bisa menyetujui dirinya sendiri.
+              {/* Plugins section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider opacity-70 flex items-center gap-2">
+                  <FaCubes className="text-primary" size={14} /> Plugins
+                </h3>
+                <p className="text-xs text-white/50">
+                  Fungsi kustom buatanmu (kode JS) yang dipahami Mark secara otomatis — lengkap dengan
+                  Monaco editor di halaman penuhnya.
                 </p>
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-base-100 border border-white/5">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <FaCubes className="text-primary" size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">
+                      {pluginCount === null ? 'Memuat...' : `${pluginCount} plugin terpasang`}
+                    </p>
+                    <p className="text-xs opacity-50">
+                      Plugin berjalan selalu aktif (always-on) dalam setiap sesi agent.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate('/plugins')}
+                    className="btn btn-sm btn-outline shrink-0"
+                  >
+                    Kelola <FaExternalLinkAlt size={10} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Skills section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider opacity-70 flex items-center gap-2">
+                  <FaBrain className="text-primary" size={14} /> Mark Skills
+                </h3>
+                <p className="text-xs text-white/50">
+                  Keterampilan yang Mark pelajari sendiri dari percakapan (SKILL.md) — bisa kamu edit,
+                  ekspor, atau hapus.
+                </p>
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-base-100 border border-white/5">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <FaBrain className="text-primary" size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">
+                      {skillCount === null ? 'Memuat...' : `${skillCount} skill tersimpan`}
+                    </p>
+                    <p className="text-xs opacity-50">
+                      Tersimpan di folder XDG lokal — bisa dibaca langsung dari shell.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate('/skills')}
+                    className="btn btn-sm btn-outline shrink-0"
+                  >
+                    Kelola <FaExternalLinkAlt size={10} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Connectors (MCP) section - WITHIN Capabilities */}
+              <div className="space-y-4 p-3 -mx-3 rounded-xl bg-success/5 border border-success/20">
+                <div className="flex items-start gap-2">
+                  <FaShieldAlt className="text-success mt-0.5 shrink-0" size={12} />
+                  <p className="text-[11px] opacity-70 flex-1">
+                    <span className="font-semibold text-success">Catatan:</span> Connectors (MCP) sudah
+                    digabung ke halaman <b>Capabilities</b> di sini. Semua kemampuan pluggable ala Claude
+                    connectors: katalog, otorisasi scope, dan jejak audit — keputusan approval tetap native
+                    (rfd), bukan di renderer.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border border-primary/20 rounded-xl p-4">
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-base-100 border border-white/5">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <FaPlug className="text-primary" size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {connStats === null ? (
+                      <p className="text-sm font-semibold">Memuat koneksi...</p>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold">
+                          {connStats.connected} connector aktif · {connStats.total - connStats.connected} offline
+                        </p>
+                        <p className="text-xs opacity-50">
+                          {connStats.auditOk} eksekusi ter-audit sukses (30 entri terakhir).
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => navigate('/connectors')}
+                    className="btn btn-sm btn-outline shrink-0"
+                  >
+                    Kelola <FaExternalLinkAlt size={10} />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+            <div className="h-px w-full bg-white/10 my-2" />
 
           {/* ── Global Shortcut Settings ── */}
           <section

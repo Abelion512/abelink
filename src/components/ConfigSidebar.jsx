@@ -7,12 +7,11 @@ import {
   FaRobot,
   FaUserCog,
   FaCubes,
-  FaBrain,
-  FaPlug
+  FaBrain
 } from 'react-icons/fa'
 
 // IA baru (review 2026-08-26): General → Personalization → Model →
-// Capabilities → Plugins/Skills/Connectors → Shortcuts → Data Controls / Developer.
+// Capabilities → Plugins/Skills → Shortcuts → Data Controls / Developer.
 // Ekspor sections untuk kontrak test (tests/configSidebar.test.js).
 export const sections = [
   { id: 'cfg-general', label: 'General', icon: FaCog },
@@ -21,7 +20,6 @@ export const sections = [
   { id: 'cfg-capabilities', label: 'Capabilities', icon: FaPuzzlePiece },
   { id: 'cfg-plugins', label: 'Plugins', icon: FaCubes },
   { id: 'cfg-skills', label: 'Skills', icon: FaBrain },
-  { id: 'cfg-connectors', label: 'Connectors', icon: FaPlug },
   { id: 'cfg-shortcut', label: 'Shortcuts', icon: FaKeyboard }
 ]
 

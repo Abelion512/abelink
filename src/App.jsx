@@ -17,6 +17,7 @@ const Skills = lazy(() => import('./pages/Skills'))
 const SkillEditor = lazy(() => import('./pages/SkillEditor'))
 const Subagents = lazy(() => import('./pages/Subagents'))
 const ChatStudio = lazy(() => import('./pages/ChatStudio'))
+const Trajectory = lazy(() => import('./pages/Trajectory'))
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
@@ -221,6 +222,7 @@ const MainLayout = ({ isStandalone = false }) => {
                 <Route path="/guidebook" element={<Guidebook />} />
                 <Route path="/relational" element={<RelationalGrowth />} />
                 <Route path="/subagents" element={<Subagents />} />
+                <Route path="/trajectory" element={<Trajectory />} />
               </Routes>
             </Suspense>
           </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FaTimes, FaInfoCircle, FaCodeBranch, FaTag } from 'react-icons/fa'
+import { FaTimes, FaInfoCircle, FaCodeBranch, FaTag, FaCheck, FaGift, FaWrench, FaBug, FaShieldAlt, FaStar } from 'react-icons/fa'
 import whatsNewData from '../data/whats-new.json'
 
 const WhatNew = ({ onClose }) => {
@@ -29,7 +29,7 @@ const WhatNew = ({ onClose }) => {
         <h4 className="text-xs font-semibold uppercase tracking-wider opacity-60 mb-2">{title}</h4>
         <div className="space-y-2">
           {items.map((c, i) => (
-            <div key={i} className={`px-3 py-2 rounded-lg text-sm text-white/80 border-l-3 ${colorClass}`}>
+            <div key={i} className={`px-3 py-2 rounded-lg text-sm text-white/80 border-l-1 ${colorClass}`}>
               {c.msg}
             </div>
           ))}
@@ -92,14 +92,13 @@ const WhatNew = ({ onClose }) => {
         {/* Footer */}
         <div className="p-4 border-t border-white/10 flex gap-2 flex-shrink-0">
           <button
-            onClick={onClose}
-            className="btn btn-ghost btn-sm flex-1">
-            Tutup
-          </button>
-          <button
-            onClick={() => window.open(whatsNewData.linearUrl || 'https://linear.app/abelion/project/mark-agent-for-linux-10ceec65c326', '_blank')}
+            onClick={() => {
+              try { localStorage.setItem('mark:last-seen-whats-new', whatsNewData.version) }
+              catch (_) {}
+              onClose()
+            }}
             className="btn btn-primary btn-sm flex-1">
-            📋 Lihat Detail di Linear
+            <FaCheck className="w-4 h-4 mr-1" /> Sudah Dilihat
           </button>
         </div>
       </div>

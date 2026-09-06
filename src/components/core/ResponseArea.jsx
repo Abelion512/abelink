@@ -67,7 +67,12 @@ const ResponseArea = ({ currentResponse }) => {
             }}
           />
         )
-      }
+      },
+      table: ({ children, ...props }) => (
+        <div className="overflow-x-auto my-4">
+          <table {...props}>{children}</table>
+        </div>
+      )
     }
 
     if (type === 'long') {
