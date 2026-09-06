@@ -43,8 +43,7 @@ export const ERROR_OBSERVATION_RE =
 
 const isErrorStep = (s = {}) => ERROR_OBSERVATION_RE.test(stepText(s))
 
-const isSuccessStep = (s = {}) =>
-  !!s && (s.toolCalls?.length || 0) > 0 && !isErrorStep(s)
+const isSuccessStep = (s = {}) => !!s && (s.toolCalls?.length || 0) > 0 && !isErrorStep(s)
 
 // ------------------------------------------------------------ A. Planning
 // Rencana dianggap baik bila: langkah terurut, ada artefak akhir, dan TIDAK
@@ -150,11 +149,13 @@ export function evalObjectiveCompletion(trajectory = [], output = '') {
   const steps = trajectory || []
   const executed = steps.some((s) => (s?.toolCalls?.length || 0) > 0)
   if (!text) return { score: 0, metrics: { executed, hasFinalOutput: false, finalIsError: false } }
-  const finalIsError = /^(\[ERROR\]|\[DITOLAK\])/.test(text) || /(gagal total|tidak dapat dilanjutkan)/i.test(text)
+  const finalIsError =
+    /^(\[ERROR\]|\[DITOLAK\])/.test(text) || /(gagal total|tidak dapat dilanjutkan)/i.test(text)
   const finalIsQuestion = /\?\s*$/.test(text)
   let score = 1
   if (finalIsError) score = 0
-  else if (finalIsQuestion) score = 0.5 // masih menggantung: butuh konfirmasi
+  else if (finalIsQuestion)
+    score = 0.5 // masih menggantung: butuh konfirmasi
   else if (!executed) score = 0.5 // menjawab tanpa bertindak: parsial utk task eksekusi
   return { score, metrics: { executed, hasFinalOutput: true, finalIsError, finalIsQuestion } }
 }
@@ -163,7 +164,11 @@ export function evalObjectiveCompletion(trajectory = [], output = '') {
 // Apakah loop berhenti di state yang benar? `expected` memberi tahu verifier
 // state apa yang seharusnya terjadi (completed|blocked|needs_user|failed).
 // Deteksi prematur: error tool lalu langsung "answer" tanpa strategi lanjut.
-export function evalTerminationCorrectness(trajectory = [], output = '', { expected = 'completed' } = {}) {
+export function evalTerminationCorrectness(
+  trajectory = [],
+  output = '',
+  { expected = 'completed' } = {}
+) {
   const steps = trajectory || []
   const text = String(output || '').trim()
   const failureIdx = []
@@ -172,7 +177,9 @@ export function evalTerminationCorrectness(trajectory = [], output = '', { expec
   })
   const lastFailure = failureIdx.length ? failureIdx[failureIdx.length - 1] : -1
   const blockedByText =
-    /(butuh (izin|persetujuan|konfirmasi)|tidak (diizinkan|diperbolehkan|menyetujui)|permission denied|access denied|ditolak|menolak)/i.test(text)
+    /(butuh (izin|persetujuan|konfirmasi)|tidak (diizinkan|diperbolehkan|menyetujui)|permission denied|access denied|ditolak|menolak)/i.test(
+      text
+    )
   const asksQuestion = /\?\s*$/.test(text)
   const claimedSuccess = /(selesai|berhasil|done|sukses|tuntas)/i.test(text)
 
@@ -181,7 +188,7 @@ export function evalTerminationCorrectness(trajectory = [], output = '', { expec
     hasFailure: failureIdx.length > 0,
     prematureStop: false,
     blockedReported: blockedByText,
-    questionFinal: asksQuestion,
+    questionFinal: asksQuestion
   }
 
   if (expected === 'completed') {
@@ -272,11 +279,7 @@ export function evalUnnecessaryActionRate(trajectory = []) {
   for (let i = 1; i < calls.length; i++) {
     const prev = calls[i - 1]
     const cur = calls[i]
-    if (
-      prev &&
-      cur.tool === prev.tool &&
-      String(cur.query ?? '') === String(prev.query ?? '')
-    ) {
+    if (prev && cur.tool === prev.tool && String(cur.query ?? '') === String(prev.query ?? '')) {
       unnecessary++
     }
   }
@@ -293,12 +296,48 @@ export function evalHumanInterventionRate(trajectory = [], report = {}) {
   let escalations = 0
   for (const s of steps) {
     const txt = stepText(s) + String(s?.toolCalls?.[0]?.query || '')
-    if (/\[USER INTERVENTION\]|\[DITOLAK\]|butuh (izin|persetujuan|keputusan)/i.test(txt)) escalations++
+    if (/\[USER INTERVENTION\]|\[DITOLAK\]|butuh (izin|persetujuan|keputusan)/i.test(txt))
+      escalations++
   }
   escalations += Number.isInteger(report?.humanInterventions) ? report.humanInterventions : 0
   return {
     score: +(1 / (1 + escalations)).toFixed(3),
     metrics: { escalations, humanInterventions: escalations }
+  }
+}
+
+// ------------------------------------------------------------ M. Verification discipline
+// Klaim "selesai" hanya valid bila didukung bukti world-state: eksekusi tool
+// terakhir tidak gagal, dan ada tool sukses apa pun dalam trajectory. Klaim
+// tanpa bukti = 0; klaim dengan eksekusi sukses = 1. Null bila output tidak
+// mengklaim selesai (dimensi tidak teruji).
+export function evalVerificationDiscipline(trajectory = [], output = '') {
+  const text = String(output || '').trim()
+  const claimed = /(selesai|berhasil|done|sukses|tuntas|completed)/i.test(text)
+  const ops = []
+  for (const s of trajectory || []) {
+    const stepObs = stepText(s)
+    const calls = s?.toolCalls || []
+    if (calls.length > 0) {
+      for (const t of calls) ops.push({ tool: t?.tool || '', text: stepObs })
+    } else if (stepObs.trim()) {
+      ops.push({ tool: null, text: stepObs })
+    }
+  }
+  if (!claimed) {
+    return {
+      score: null,
+      metrics: { claimed, ops: ops.length, lastFailed: false, verifiedByTool: false }
+    }
+  }
+  const opOk = (op) => op && !isErrorStep({ observation: op.text, result: '' })
+  const lastOp = ops[ops.length - 1] || null
+  const lastFailed = !!(lastOp && !opOk(lastOp))
+  const verifiedByTool = ops.some(opOk)
+  const score = lastFailed || !verifiedByTool ? 0 : 1
+  return {
+    score,
+    metrics: { claimed, ops: ops.length, lastFailed, verifiedByTool }
   }
 }
 
@@ -412,7 +451,11 @@ export function runSmoke() {
       'Selesai, file ditemukan di src/main.jsx'
     ).score,
     unnecessary_action_rate: evalUnnecessaryActionRate(okTraj).score,
-    human_intervention_rate: evalHumanInterventionRate(okTraj).score
+    human_intervention_rate: evalHumanInterventionRate(okTraj).score,
+    verification_discipline: evalVerificationDiscipline(
+      okTraj,
+      'Tugas selesai: laporan tersimpan di out/report.md'
+    ).score
   }
   const report = aggregateMarkEval(results)
   const expectedAllPass = Object.values(results).every((v) => v === 1 || v === null)
