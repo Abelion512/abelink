@@ -329,7 +329,7 @@ async function readDomInTab(tabId) {
 // ------------------------------------------------------------------ act
 // PENTING: fungsi aksi juga di-serialisasi ke konteks halaman — self-contained,
 // state dikirim lewat `args`.
-function actionFn({ markId, action, value }) {
+async function actionFn({ markId, action, value }) {
   const el = markId ? document.querySelector(`[data-mark-id="${markId}"]`) : null
   if (markId && !el)
     return {
@@ -361,6 +361,31 @@ function actionFn({ markId, action, value }) {
       case 'scroll':
         window.scrollBy(0, Number(value) || 600)
         break
+      case 'extract':
+        return { ok: true, data: JSON.stringify(document.querySelector(value)?.textContent || '') }
+      case 'script':
+        // Eksekusi script via chrome.scripting.executeScript (sandbox di konteks halaman)
+        // aman dibanding eval() — kode dijalankan sebagai func, bukan string dinamis.
+        const [scr] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: new Function('return ' + value),
+          world: 'MAIN'
+        })
+        const scriptResult = scr?.result
+        return { ok: true, data: JSON.stringify(typeof scriptResult === 'object' ? scriptResult : { result: scriptResult }) }
+      case 'screenshot':
+        // Hasil screenshot dikirim lewat channel lain (browser:preview)
+        chrome.tabs.captureVisibleTab(null, (dataUrl) => {
+          chrome.runtime.sendMessage({ type: 'screenshot-result', dataUrl, fileName: value })
+        })
+        return { ok: true, data: 'screenshot-queued' }
+      case 'download':
+        const { url, fileName } = value || {}
+        chrome.downloads.download({ url, filename: fileName })
+        return { ok: true, data: 'download-queued' }
+      case 'ask':
+        // TODO: implement user popup (requires manifest permissions)
+        return { ok: false, error: 'browser-ask-user belum supported di versi ini ekstensi.' }
       default:
         return { ok: false, error: `Aksi tidak dikenal: ${action}` }
     }
