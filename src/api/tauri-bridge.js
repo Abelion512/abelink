@@ -43,29 +43,6 @@ function routeFsTool(toolName, query) {
       const [, cwd] = parts
       return invoke('tools_run_shell', { query: parts[0], cwd: cwd || null })
     }
-    // Route extension browser-use tools
-    case 'browser-search':
-      return invoke('tools_browser_search', { query: parts[0] })
-    case 'read-tools':
-      return invoke('tools_read_tools', { query: parts[0] || '' })
-    // Plugin tools
-    case 'spawn_subagent':
-    case 'send_message':
-    case 'list_subagents':
-    case 'wait_subagents':
-    case 'kill_subagent':
-      return invoke('tools_plugin', { tool: toolName, query: parts.join('||') })
-    // File tools without fs route
-    case 'replace-content':
-    case 'replace-lines':
-    case 'file-outline':
-    case 'read-document':
-    case 'read-skill':
-    case 'os-open':
-      return invoke('tools_file', { tool: toolName, query: parts.join('||') })
-    // Memory tools
-    case 'memory-search':
-      return invoke('tools_memory', { query: parts[0] || '' })
     default:
       return null
   }
@@ -403,14 +380,25 @@ export const api = {
   browserNavigate: (url, sessionId = 'default') => call('browser:navigate', url, sessionId),
   browserReadDom: (sessionId = 'default') => call('browser:read-dom', sessionId),
   browserAction: (data, sessionId = 'default') => call('browser:action', data, sessionId),
-  browserClick: (elementId, sessionId = 'default') => call('browser:action', { action: 'click', markId: elementId }, sessionId),
-  browserType: (elementId, text, sessionId = 'default') => call('browser:action', { action: 'type', markId: elementId, value: text }, sessionId),
-  browserScroll: (direction, amount, sessionId = 'default') => call('browser:action', { action: 'scroll', value: { direction, amount } }, sessionId),
-  browserExtract: (selector, sessionId = 'default') => call('browser:action', { action: 'extract', selector }, sessionId),
-  browserScript: (script, sessionId = 'default') => call('browser:action', { action: 'script', script }, sessionId),
-  browserScreenshot: (fileName, sessionId = 'default') => call('browser:action', { action: 'screenshot', fileName }, sessionId),
-  browserDownload: (url, fileName, sessionId = 'default') => call('browser:action', { action: 'download', url, fileName }, sessionId),
-  browserAskUser: (prompt, sessionId = 'default') => call('browser:action', { action: 'ask', prompt }, sessionId),
+  // Shortcut aksi browser granular. Kontrak payload ekstensi (background.js):
+  // { action, markId, value } — argumen SELALU lewat field `value`, karena
+  // handler ekstensi mendestruktur { markId, action, value }. (Fix review PR #26.)
+  browserClick: (elementId, sessionId = 'default') =>
+    call('browser:action', { action: 'click', markId: elementId }, sessionId),
+  browserType: (elementId, text, sessionId = 'default') =>
+    call('browser:action', { action: 'type', markId: elementId, value: text }, sessionId),
+  browserScroll: (direction, amount, sessionId = 'default') =>
+    call('browser:action', { action: 'scroll', value: { direction, amount } }, sessionId),
+  browserExtract: (selector, sessionId = 'default') =>
+    call('browser:action', { action: 'extract', value: selector }, sessionId),
+  browserScript: (script, sessionId = 'default') =>
+    call('browser:action', { action: 'script', value: script }, sessionId),
+  browserScreenshot: (fileName, sessionId = 'default') =>
+    call('browser:action', { action: 'screenshot', value: fileName }, sessionId),
+  browserDownload: (url, fileName, sessionId = 'default') =>
+    call('browser:action', { action: 'download', value: { url, fileName } }, sessionId),
+  browserAskUser: (prompt, sessionId = 'default') =>
+    call('browser:action', { action: 'ask', value: prompt }, sessionId),
   browserClose: (sessionId = 'default') => call('browser:close', sessionId),
   onBrowserPreview: on('browser:preview'),
   showBrowserWindow: (sessionId = 'default') => call('browser:show', sessionId),
