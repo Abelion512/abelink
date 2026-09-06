@@ -103,3 +103,14 @@ for (const ch of [
 ]) {
   handlers[ch] = unsupported('Fase B6')
 }
+
+// ------------------------------------------------------- PC emergency stop
+// Ctrl+Shift+S (global shortcut, Rust) -> renderer -> channel ini.
+// Safety-stop: kill daemon/child aktif & tandai stop di pc-agent sampai
+// di-reset lewat os-control-open/os-ask berikutnya. TIDAK approval-gated —
+// justru jalur pemberhentian darurat, kebalikan dari aksi destruktif.
+on('os:emergency-stop', async () => {
+  const { triggerEmergencyStopExternal } = await import('../../main/pc-agent.js')
+  const stopped = triggerEmergencyStopExternal()
+  return { stopped, message: stopped ? 'Emergency stop dijalankan.' : 'Tidak ada sesi PC automation aktif.' }
+})

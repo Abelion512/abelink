@@ -3,7 +3,15 @@ import { getNextAction } from '../../api/ai/planning'
 import { getYoutubeSummary } from '../../api/ai/tools'
 import { fetchAI } from '../../api/ai/core'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
-import { db, deleteMemory, getAllMemory, insertMemory, updateMemory, saveSession, getChatData } from '../../api/db'
+import {
+  db,
+  deleteMemory,
+  getAllMemory,
+  insertMemory,
+  updateMemory,
+  saveSession,
+  getChatData
+} from '../../api/db'
 import { checkTools } from '../../api/tools/index'
 import { createDurableTaskPlan } from '../../api/ai/taskPlanner'
 import { buildDurableStepCheckpoint } from '../../api/taskExecutor'
@@ -13,10 +21,27 @@ import {
   checkpointAgentTaskStep,
   transitionAgentTask
 } from '../../api/taskStore'
-import { getUnifiedContext, searchExtendedMemory, generateVector, executeMemorySearch } from '../../api/vectorMemory'
+import {
+  getUnifiedContext,
+  searchExtendedMemory,
+  generateVector,
+  executeMemorySearch
+} from '../../api/vectorMemory'
 import { searchMemoriesInOrama } from '../../api/oramaStore'
 import { buildOptimizedChatSession } from '../../api/ai/contextCompactor'
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
+import { classifyMainDecision, INTENT } from '../../api/ai/agentDecision'
+import {
+  logToolCall as trajectoryLogTool,
+  logSubAgentSpawn as trajectoryLogSub
+} from '../../api/trajectory'
+  classifyObjectiveKind,
+  evaluateEvidence,
+  gateCompletion,
+  buildReplanObservation,
+  MAX_VERIFY_REPLANS,
+  VERIFICATION_STATE
+} from '../../api/ai/objectiveVerifier'
 
 // ============================================================================
 // HELPER UTILITIES
@@ -121,7 +146,10 @@ export const useMarkPlan = ({
   const activeRunningSessionIdRef = useRef(1)
 
   const targetPushProcess = (proc) => {
-    if ((activeRunningSessionIdRef.current === 1 || !activeRunningSessionIdRef.current) && pushProcess) {
+    if (
+      (activeRunningSessionIdRef.current === 1 || !activeRunningSessionIdRef.current) &&
+      pushProcess
+    ) {
       pushProcess(proc)
     }
   }
@@ -201,7 +229,13 @@ export const useMarkPlan = ({
   // DISPATCHER EKSEKUSI INDIVIDUAL TOOL
   // ==========================================================================
   const executeSingleTool = async (tool, query, context) => {
-    const { tgContext, isAutonomous, pluginProcessId, targetSetChatData = setChatData, signal } = context
+    const {
+      tgContext,
+      isAutonomous,
+      pluginProcessId,
+      targetSetChatData = setChatData,
+      signal
+    } = context
     const currentSignal = signal || abortControllerRef?.current?.signal
     let resultString = 'Tidak ada hasil.'
 
@@ -233,6 +267,190 @@ export const useMarkPlan = ({
       // 4. Memory Vector Search
       else if (tool === 'memory-search') {
         resultString = await executeMemorySearch(query)
+      }
+      // 4a. Capability Manager connectors — general-pluggable (ala Claude
+      // connectors): list/inspect/guide/run/status. Eksekusi selalu lewat
+      // channel capabilities:* yang sudah approval-gated native (rfd) di Rust.
+      else if (tool.startsWith('connector-')) {
+        try {
+          if (tool === 'connector-list') {
+            const list = await window.api.listCapabilities()
+            resultString = list?.length
+              ? list
+                  .map(
+                    (c) =>
+                      `- ${c.id}: ${c.name} — ${c.description}${c.scopes?.length ? ` (scopes: ${c.scopes.join(', ')})` : ''}`
+                  )
+                  .join('\n')
+              : 'Tidak ada connector terpasang.'
+          } else if (tool === 'connector-inspect') {
+            const detail = await window.api.inspectCapability(String(query || '').trim())
+            resultString = JSON.stringify(detail)
+          } else if (tool === 'connector-guide') {
+            const parts = String(query || '').split('||')
+            const guide = await window.api.capabilityGuide(
+              (parts[0] || '').trim(),
+              (parts[1] || '').trim()
+            )
+            resultString = JSON.stringify(guide)
+          } else if (tool === 'connector-run') {
+            const parts = String(query || '').split('||')
+            const connectorId = (parts[0] || '').trim()
+            const actionId = (parts[1] || '').trim()
+            let args = {}
+            const rawArgs = (parts.slice(2).join('||') || '').trim()
+            if (rawArgs) {
+              try {
+                args = JSON.parse(rawArgs)
+              } catch (_) {
+                resultString = `[ERROR] args_json tidak valid: ${rawArgs.slice(0, 120)}. Panggil connector-guide dulu untuk schema.`
+                args = null
+              }
+            }
+            if (args) {
+              if (connectorId !== 'time' && connectorId !== 'weather') {
+                // Non-read-only connector: konfirmasi native sekali lagi di sini
+                // (belt & suspenders — gate utama tetap di cmd_node_bridge).
+                let approved = true
+                if (window.api?.nativeConfirm) {
+                  try {
+                    approved = await window.api.nativeConfirm(
+                      `Mark ingin menjalankan connector "${connectorId}" aksi "${actionId}". Lanjutkan?`
+                    )
+                  } catch (_) {
+                    approved = false
+                  }
+                }
+                if (!approved) {
+                  resultString = '[DITOLAK] User tidak menyetujui eksekusi connector ini.'
+                }
+              }
+              if (!resultString.startsWith('[DITOLAK]')) {
+                const out = await window.api.executeCapability(connectorId, actionId, args, {
+                  sessionId: 'main_chat'
+                })
+                resultString = typeof out === 'string' ? out : JSON.stringify(out)
+              }
+            }
+          } else if (tool === 'connector-status') {
+            const conns = await window.api.listCapabilityConnections()
+            const limit = Math.min(Math.max(parseInt(query, 10) || 10, 1), 100)
+            const audit = await window.api.readCapabilityAudit(limit)
+            resultString = JSON.stringify({ connections: conns, recentAudit: audit })
+          } else {
+            resultString = `[ERROR] Tool connector tidak dikenal: ${tool}`
+          }
+        } catch (e) {
+          resultString = `[ERROR] Connector gagal: ${e?.message || e}. Panggil 'connector-list' untuk melihat yang tersedia.`
+        }
+      }
+      // 4b. Trading Support — wallet lokal (fase 1: pencatatan, tanpa order)
+      else if (tool.startsWith('trading-')) {
+        const wallet = await import('../../api/trading/wallet.js')
+        if (tool === 'trading-status') {
+          const monitor = await import('../../api/trading/budgetMonitor.js')
+          const balance = await wallet.getBalance()
+          const allocs = await wallet.listAllocations()
+          const activeAllocs = allocs.filter((a) => a.active)
+          const allocatedTotal = activeAllocs.reduce((s, a) => s + (a.budget || 0), 0)
+          const statuses = []
+          for (const a of activeAllocs) {
+            statuses.push(await monitor.getModelBudgetStatus(a.modelKey))
+          }
+          const usage = await wallet.getUsageSummary()
+          resultString = JSON.stringify({
+            balance,
+            allocatedTotal,
+            available: balance - allocatedTotal,
+            models: statuses,
+            usage,
+            hint: statuses.some((s) => s.exhausted)
+              ? 'Ada model dengan budget habis - sarankan topup (butuh approval) atau migrasi ke model lebih murah.'
+              : null
+          })
+        } else if (tool === 'trading-deposit') {
+          // Satu-satunya tool trading yang menambah saldo — WAJIB approval native
+          // (rfd dialog di Rust main thread) karena ini gerbang uang nyata.
+          const parts = String(query || '').split('||')
+          const amount = Number(parts[0]) || 0
+          const note = (parts[1] || '').trim()
+          if (amount <= 0) {
+            resultString = '[ERROR] Format: amount||note. Amount harus angka positif.'
+          } else {
+            let approved = true
+            if (window.api?.nativeConfirm) {
+              try {
+                approved = await window.api.nativeConfirm(
+                  `Mark ingin menambah saldo wallet trading sebesar ${amount}${note ? ` (${note})` : ''}. Lanjutkan?`
+                )
+              } catch (_) {
+                approved = false
+              }
+            }
+            if (!approved) {
+              resultString = '[DITOLAK] User tidak menyetujui penambahan saldo.'
+            } else {
+              await wallet.addLedgerEntry({ kind: 'deposit', amount, note })
+              const balance = await wallet.getBalance()
+              resultString = `Deposit ${amount} tercatat. Saldo sekarang: ${balance}.`
+            }
+          }
+        } else if (tool === 'trading-allocate') {
+          const parts = String(query || '').split('||')
+          const modelKey = (parts[0] || '').trim()
+          const budget = Number(parts[1]) || 0
+          if (!modelKey || budget <= 0) {
+            resultString =
+              '[ERROR] Format: modelKey||budget (misal: "deepseek-chat||25"). Budget harus angka positif.'
+          } else {
+            const balance = await wallet.getBalance()
+            const allocs = await wallet.listAllocations()
+            const allocatedTotal = allocs
+              .filter((a) => a.active)
+              .reduce((s, a) => s + (a.budget || 0), 0)
+            if (budget > balance - allocatedTotal) {
+              resultString = `[ERROR] Budget melebihi kas tersedia (saldo ${balance}, teralokasi ${allocatedTotal}).`
+            } else {
+              await wallet.setAllocation(modelKey, budget)
+              resultString = `Alokasi ${budget} ke ${modelKey} tercatat. Kas tersisa: ${balance - allocatedTotal - budget}.`
+            }
+          }
+        } else if (tool === 'trading-log-spend') {
+          const parts = String(query || '').split('||')
+          const modelKey = (parts[0] || '').trim()
+          const amount = Number(parts[1]) || 0
+          const note = (parts[2] || '').trim()
+          if (!modelKey || amount <= 0) {
+            resultString = '[ERROR] Format: modelKey||amount||note. Amount harus angka positif.'
+          } else {
+            const balance = await wallet.getBalance()
+            if (amount > balance) {
+              resultString = `[ERROR] Kas tidak cukup (saldo ${balance}). Catat deposit dulu via ledger atau kurangi amount.`
+            } else {
+              await wallet.recordUsage({ modelKey, cost: amount, note })
+              await wallet.addLedgerEntry({
+                kind: 'spend',
+                amount: -amount,
+                note: `${modelKey}${note ? ': ' + note : ''}`
+              })
+              const newBalance = await wallet.getBalance()
+              resultString = `Pengeluaran ${amount} untuk ${modelKey} dicatat. Saldo sekarang: ${newBalance}.`
+            }
+          }
+        } else if (tool === 'trading-ledger') {
+          const limit = Math.min(Math.max(parseInt(query, 10) || 20, 1), 100)
+          const rows = await wallet.listLedger('main', limit)
+          resultString = rows.length
+            ? rows
+                .map(
+                  (r) =>
+                    `[${new Date(r.ts).toLocaleString('id-ID')}] ${r.kind}: ${r.amount} ${r.note ? '- ' + r.note : ''}`
+                )
+                .join('\n')
+            : 'Buku kas masih kosong.'
+        } else {
+          resultString = `[ERROR] Tool trading tidak dikenal: ${tool}`
+        }
       }
       // 5. Speak (TTS)
       else if (tool === 'speak') {
@@ -399,6 +617,9 @@ export const useMarkPlan = ({
             allowedTools: tools,
             parentSessionId: 'main_chat'
           })
+
+          // Log sub-agent spawn to trajectory buffer
+          trajectoryLogSub({ name, parentAgentId: 'main_chat' })
 
           // Jalankan loop eksekusi ReAct secara paralel di background (non-blocking)
           runSubagentTurn(sub.id, initialMessage).catch((err) => {
@@ -646,25 +867,67 @@ export const useMarkPlan = ({
               }
             }
           }
-        } else {
-          const activeConfig = {
-            ...(Array.isArray(config) ? config[0] : config),
-            workspaceRoot: context?.workspaceRoot
-          }
-          const nativePromise = window.api.executeNativeTool(tool, query, activeConfig)
-          let onNativeAbort = null
-          const abortPromise = new Promise((_, reject) => {
-            onNativeAbort = () => reject(new Error('AbortError'))
-            if (currentSignal?.aborted) return onNativeAbort()
-            currentSignal?.addEventListener('abort', onNativeAbort)
-          })
+        } else if (tool === 'run-shell') {
+      // Fix: detect URL scheme commands (xdg-open "https://...") that fail in headless/Tauri env.
+      // Fallback ke os-open (Tauri IPC) yang bisa buka URL di browser user's PC.
+      const q = String(query || '').trim()
+      if (/^xdg-open\s/.test(q) || /^open\s/.test(q)) {
+        // Extract URL dari quotes/braces
+        const urlMatch = q.match(/(?:xdg-open|open)\s+["']?([^"'\s]+)["']?/i)
+        const url = urlMatch ? urlMatch[1] : q.replace(/^(xdg-open|open)\s+/i, '').trim()
+        if (url) {
           try {
-            res = await Promise.race([nativePromise, abortPromise])
-          } finally {
-            // Lepas listener abort agar tidak menumpuk di signal (memory leak)
-            if (onNativeAbort) currentSignal?.removeEventListener('abort', onNativeAbort)
+            const res = await window.api.os_open({ url })
+            resultString = typeof res === 'string' ? res : JSON.stringify(res)
+            logReasoning({ prompt: `Shell URL fallback ke os-open: ${url}` })
+          } catch (e) {
+            resultString = `[ERROR] Gagal buka URL: ${(e && e.message) || 'unknown'}`
+            logReasoning({ prompt: `Shell URL gagal: ${url}`, suggested_mode: 'direct' })
+          }
+          return {
+            resultString,
+            rejected: false,
+            toolExecution: { action: tool, query, result: resultString }
           }
         }
+      }
+      // Kalau bukan URL scheme, lanjut ke native tool handler biasa
+      const activeConfig = {
+        ...(Array.isArray(config) ? config[0] : config),
+        workspaceRoot: context?.workspaceRoot
+      }
+      const nativePromise = window.api.executeNativeTool(tool, query, activeConfig)
+      let onNativeAbort = null
+      const abortPromise = new Promise((_, reject) => {
+        onNativeAbort = () => reject(new Error('AbortError'))
+        if (currentSignal?.aborted) return onNativeAbort()
+        currentSignal?.addEventListener('abort', onNativeAbort)
+      })
+      try {
+        res = await Promise.race([nativePromise, abortPromise])
+      } finally {
+        // Lepas listener abort agar tidak menumpuk di signal (memory leak)
+        if (onNativeAbort) currentSignal?.removeEventListener('abort', onNativeAbort)
+      }
+} else {
+      const activeConfig = {
+        ...(Array.isArray(config) ? config[0] : config),
+        workspaceRoot: context?.workspaceRoot
+      }
+      const nativePromise = window.api.executeNativeTool(tool, query, activeConfig)
+      let onNativeAbort = null
+      const abortPromise = new Promise((_, reject) => {
+        onNativeAbort = () => reject(new Error('AbortError'))
+        if (currentSignal?.aborted) return onNativeAbort()
+        currentSignal?.addEventListener('abort', onNativeAbort)
+      })
+      try {
+        res = await Promise.race([nativePromise, abortPromise])
+      } finally {
+        // Lepas listener abort agar tidak menumpuk di signal (memory leak)
+        if (onNativeAbort) currentSignal?.removeEventListener('abort', onNativeAbort)
+      }
+    }
 
         if (res && res.success) {
           resultString =
@@ -685,8 +948,12 @@ export const useMarkPlan = ({
               resultString = `${fullText.slice(0, 2500)}\n\n[DOKUMEN DIPOTONG (Total: ${fullText.length} karakter). Gunakan read-document dengan query "${parts[0]}||kata_kunci" untuk pencarian spesifik]`
             }
           }
+          // Log tool call to trajectory buffer
+          trajectoryLogTool({ tool, query, success: true, result: resultString.slice(0, 200) })
         } else {
           resultString = `[ERROR] ${tool} gagal: ${(res && (res.message || res.error)) || 'Unknown error'}`
+          // Log failed tool call to trajectory buffer
+          trajectoryLogTool({ tool, query, success: false, result: resultString.slice(0, 200) })
         }
 
         return {
@@ -1053,6 +1320,24 @@ export const useMarkPlan = ({
       let accumulatedThoughts = []
       let lastToolExecution = null
       let durableFailed = false
+      // Terminal-state bookkeeping: answer IS NOT termination. The loop only
+      // ends via a completion state, an explicit block, a request for a user
+      // decision, or an exhausted step budget (failed). Recorded per message
+      // (taskOutcome) so consumers can distinguish the five runtime states.
+      let sessionOutcome = 'completed' // completed | failed | blocked | needs_user
+      let lastTerminalReason = null
+      // ---- Objective Verification Layer (objectiveVerifier.js) --------------
+      // MODEL_CLAIM (agentDecision) vs VERIFICATION (this layer). A completion
+      // claim only terminates when world-state evidence backs it, unless the
+      // objective is conversational. Bounded replan on unproven claims.
+      const objectiveKind = classifyObjectiveKind(userInput, {
+        disableTools: !!opts.disableTools,
+        conversational: !!(opts.conversational || isAutonomous || tgContext)
+      })
+      // Evidence source = executedToolsList (tool + fullResult per eksekusi).
+      let verifyReplanCount = 0
+      let lastVerification = VERIFICATION_STATE.NOT_RUN
+      let pendingVerifyObservation = null
       let execSteps = [{ task: 'Menganalisis Konteks...' }]
 
       while (!isDone) {
@@ -1107,6 +1392,9 @@ export const useMarkPlan = ({
             is_done: true,
             action: null
           }
+          activeTaskObjectiveRef.current = null
+          sessionOutcome = 'failed'
+          lastTerminalReason = 'step-budget-exhausted'
         }
 
         // Loading thinking indicator
@@ -1264,7 +1552,12 @@ export const useMarkPlan = ({
         // Update task status & active topic
         if (decision.task_status === 'in_progress' && decision.objective) {
           activeTaskObjectiveRef.current = decision.objective
-        } else if (decision.task_status === 'done' || decision.task_status === 'simple') {
+        } else if (
+          decision.task_status === 'done' ||
+          decision.task_status === 'simple' ||
+          decision.task_status === 'blocked' ||
+          decision.task_status === 'needs_user'
+        ) {
           activeTaskObjectiveRef.current = null
         }
         if (decision.active_topic) {
@@ -1334,45 +1627,152 @@ export const useMarkPlan = ({
         // Guard tanpa-kemajuan: reset saat action akan dieksekusi; naik saat model
         // hanya bicara intermediate tanpa action agar re-prompt "[LANJUTKAN]"
         // tidak berlangsung abadi melawan API berbayar.
-        const actionPresentNow = !!(
-          decision.action &&
-          (decision.action.tool || Array.isArray(decision.action))
-        )
-        if (actionPresentNow) {
-          noActionStreak = 0
-        } else if (!decision.is_done && !opts.disableTools && decision.answer && !durableTask) {
-          noActionStreak++
-          if (noActionStreak >= MAX_NO_PROGRESS_STREAK) {
-            console.warn(
-              `[useMarkPlan] Tidak ada kemajuan ${noActionStreak} giliran berturut-turut. Memaksa penyelesaian dengan jawaban terakhir.`
-            )
-            decision = {
-              ...decision,
-              is_done: true,
-              action: null,
-              thought:
-                decision.thought ||
-                'Eksekusi dihentikan karena tidak ada kemajuan (berbicara tanpa menjalankan action).'
-            }
-          }
-        }
-
         const hasAction = !!(
           decision.action &&
           (decision.action.tool || Array.isArray(decision.action))
         )
-        const isDoneSignal =
-          decision.is_done === true ||
-          opts.disableTools ||
-          (!hasAction && !!decision.answer)
+
+        // --- Objective-aware termination (agentDecision.js) ------------------
+        // `answer` is NOT a termination signal. A mission may only end through
+        // an explicit completion claim (is_done + task_status done/simple), a
+        // reported block, or a genuine request for a user decision. Anything
+        // else keeps the loop going: the agent observes, recovers and replans
+        // instead of chatting its way out of an unfinished objective. Durable
+        // missions are exempt here — their no-action turns are step-deliverable
+        // claims validated by the checkpoint machinery below.
+        let intent = null
+        const isDurableClaim = !hasAction && !!durableTask
+        const madeProgress = hasAction || isDurableClaim || opts.disableTools
+        if (!madeProgress) {
+          const classification = classifyMainDecision(decision, {
+            hasExecutedTools: executedToolsList.length > 0,
+            missionActive: !!activeTaskObjectiveRef.current || !!durableTask
+          })
+          intent = classification.intent
+
+          if (intent === INTENT.CONTINUE) {
+            // Auto-continue is bounded: a model that only talks (no action, no
+            // completion claim) gets MAX_NO_PROGRESS_STREAK rounds before the
+            // harness force-ends the turn as failed instead of silently done.
+            noActionStreak++
+            if (noActionStreak >= MAX_NO_PROGRESS_STREAK) {
+              console.warn(
+                `[useMarkPlan] Tidak ada kemajuan ${noActionStreak} giliran berturut-turut. Memaksa penyelesaian dengan jawaban terakhir.`
+              )
+              decision = {
+                ...decision,
+                is_done: true,
+                action: null,
+                task_status: 'done',
+                objective: null,
+                thought:
+                  decision.thought ||
+                  'Eksekusi dihentikan karena tidak ada kemajuan (berbicara tanpa menjalankan action).'
+              }
+              activeTaskObjectiveRef.current = null
+              sessionOutcome = 'failed'
+              intent = INTENT.FINAL
+              lastTerminalReason = 'no-progress-streak-exhausted'
+            }
+          } else if (intent === INTENT.BLOCKED) {
+            noActionStreak = 0
+            sessionOutcome = 'blocked'
+            activeTaskObjectiveRef.current = null
+            lastTerminalReason = classification.reason || 'blocked-reported'
+          } else if (intent === INTENT.NEEDS_USER) {
+            noActionStreak = 0
+            sessionOutcome = 'needs_user'
+            activeTaskObjectiveRef.current = null
+            lastTerminalReason = classification.reason || 'question-asked'
+          } else {
+            // INTENT.FINAL: completion claim. A previously recorded failure
+            // (step budget / no-progress) is never overwritten by a stray claim.
+            noActionStreak = 0
+            // VERIFICATION GATE (objectiveVerifier.js): a completion claim is
+            // NOT accepted on its own. World-state evidence from
+            // executedToolsList must back it, unless the objective is
+            // conversational / has no observable criteria. Unproven claims
+            // trigger a bounded replan; exhausted budget -> failed, never a
+            // silent "completed".
+            const claimVerified = (() => {
+              try {
+                const evidence = evaluateEvidence({
+                  kind: objectiveKind,
+                  objectiveText: activeTaskObjectiveRef.current || userInput,
+                  answer: decision.answer,
+                  tools: executedToolsList
+                })
+                lastVerification = evidence.state
+                const gate = gateCompletion({
+                  modelClaimDone: true,
+                  verification: evidence.state,
+                  kind: objectiveKind
+                })
+                if (gate.complete) {
+                  lastTerminalReason = `${classification.reason || 'explicit-done'}+verify:${gate.reason}`
+                  return true
+                }
+                if (gate.replan && verifyReplanCount < MAX_VERIFY_REPLANS) {
+                  verifyReplanCount++
+                  pendingVerifyObservation = buildReplanObservation(evidence)
+                  return false
+                }
+                lastTerminalReason = `verify-${evidence.state}`
+                sessionOutcome = 'failed'
+                return false
+              } catch (e) {
+                // The verifier is an additive layer: its own failure must not
+                // kill a legitimate completion claim.
+                console.warn('[useMarkPlan] objectiveVerifier error:', e?.message)
+                lastTerminalReason = classification.reason || 'explicit-done'
+                return true
+              }
+            })()
+            if (claimVerified) {
+              if (sessionOutcome !== 'failed') {
+                sessionOutcome = 'completed'
+                if (!lastTerminalReason)
+                  lastTerminalReason = classification.reason || 'explicit-done'
+              }
+            } else if (pendingVerifyObservation) {
+              // Claim rejected with a replan demand: keep the loop alive with
+              // the verification instruction (bounded by MAX_VERIFY_REPLANS),
+              // mirroring the [LANJUTKAN] intermediate path.
+              intent = INTENT.CONTINUE
+              decision = {
+                ...decision,
+                is_done: false,
+                action: null,
+                task_status: 'in_progress',
+                objective: activeTaskObjectiveRef.current || decision.objective
+              }
+            }
+            // else: replan budget exhausted -> intent stays FINAL so the loop
+            // terminates now with sessionOutcome 'failed' (unverified claim),
+            // instead of burning turns until MAX_PLAN_STEPS.
+          }
+        } else {
+          // Real progress (action executed / durable step claim / non-tool
+          // session): the no-progress streak is reset.
+          noActionStreak = 0
+        }
+
+        const terminalPlain =
+          intent === INTENT.FINAL || intent === INTENT.BLOCKED || intent === INTENT.NEEDS_USER
+        const isDoneSignal = opts.disableTools || isDurableClaim || terminalPlain
 
         // Kasus 1: Intermediate Speech (Bicara tanpa tool, tapi belum selesai)
         if (!hasAction && !isDoneSignal && decision.answer && !durableTask) {
           loopMessages.push({ role: 'assistant', content: decision.answer })
+          // A rejected completion claim rides its verification demand here so
+          // the next turn knows exactly which criteria lack world-state proof.
+          const continueMsg = pendingVerifyObservation
+            ? `${pendingVerifyObservation}\n\n[LANJUTKAN] Kerjakan aksi verifikasi di atas sekarang, atau laporkan blocked yang spesifik.`
+            : '[LANJUTKAN] Kamu belum menyatakan selesai (is_done: false). Silakan panggil tool di action atau selesaikan tugasmu.'
+          pendingVerifyObservation = null
           loopMessages.push({
             role: 'user',
-            content:
-              '[LANJUTKAN] Kamu belum menyatakan selesai (is_done: false). Silakan panggil tool di action atau selesaikan tugasmu.'
+            content: continueMsg
           })
           targetSetChatData((prev) => [
             ...prev.filter((item) => !item.isThinking),
@@ -1388,7 +1788,8 @@ export const useMarkPlan = ({
             const checkpoint = buildDurableStepCheckpoint(
               currentStep,
               decision.answer,
-              durableTask.maxRetries
+              durableTask.maxRetries,
+              { tools: executedToolsList }
             )
             const stepValidation = checkpoint.validation
             const checkpointData = { ...checkpoint }
@@ -1451,6 +1852,8 @@ export const useMarkPlan = ({
               durableActiveStep = null
               activeTaskObjectiveRef.current = null
               durableFailed = true
+              sessionOutcome = 'failed'
+              lastTerminalReason = 'durable-deliverable-failed'
             }
 
             const nextStep = checkpointCompleted
@@ -1552,7 +1955,7 @@ export const useMarkPlan = ({
             window.api.showNotification('Mark', decision.answer)
           }
 
-          // Tampilkan balasan final di chat UI
+          // Tampilkan balasan final di chat UI (lewati jika benar-benar tidak ada jawaban)
           targetSetChatData((prev) => {
             const filtered = prev.filter((item) => {
               if (item.isThinking) return false
@@ -1565,12 +1968,30 @@ export const useMarkPlan = ({
             if (isAutonomous && autonomousInitialMessage) {
               finalOutput = `**${autonomousInitialMessage}**\n\n${decision.answer}`
             }
+            // Guard konteks: model bisa mengembalikan answer null/kosong saat
+            // is_done. Menyimpan `content: undefined` meracuni seluruh consumer
+            // history (archiver turn-pair, awareness recentChat, prompt berikutnya).
+            // Tanpa jawaban sama sekali -> tidak usah push bubble kosong.
+            if (typeof finalOutput !== 'string') finalOutput = ''
+            if (finalOutput.trim() === '') {
+              return filtered
+            }
 
             const aiMsg = {
               role: 'ai',
               content: finalOutput,
               executedTools: executedToolsList.length > 0 ? executedToolsList : null,
               isTaskDone: decision.is_done === true,
+              // Objective-aware outcome: completed | failed | blocked | needs_user.
+              // `answer` alone is not completion - consumers can now distinguish
+              // a finished task from a blocked or question-asking one.
+              taskOutcome: sessionOutcome,
+              // Objective Verification Layer: model claim vs system proof.
+              verificationState: lastVerification,
+              objectiveKind,
+              terminalReason: lastTerminalReason,
+              isBlocked: sessionOutcome === 'blocked',
+              needsUserDecision: sessionOutcome === 'needs_user',
               reasoning: decision.thought || lastDecision?.thought || null,
               mood: decision.mood || 'neutral',
               isMemorySaved: decision.memory?.action === 'insert',
@@ -1669,10 +2090,7 @@ export const useMarkPlan = ({
               }
             })
 
-            const currentLiveTools = [
-              ...executedToolsList,
-              { tool, query, status: 'running' }
-            ]
+            const currentLiveTools = [...executedToolsList, { tool, query, status: 'running' }]
 
             targetSetChatData((prev) => {
               const filtered = prev.filter((item) => !item.isThinking)
@@ -1788,10 +2206,26 @@ export const useMarkPlan = ({
           continue
         }
 
+        // Empty decision while tools are enabled is NOT completion: the model
+        // may have failed to emit JSON. Re-prompt (bounded by the no-progress
+        // streak and MAX_PLAN_STEPS) instead of silently ending a live objective.
+        if (!opts.disableTools && noActionStreak < MAX_NO_PROGRESS_STREAK) {
+          noActionStreak++ // kosong berulang = tidak ada kemajuan, batasi seperti bicara-tanpa-action
+          console.warn('[useMarkPlan] AI returned neither action nor answer. Re-prompting.')
+          loopMessages.push({
+            role: 'user',
+            content:
+              '[SYSTEM] Respons kosong. Kamu masih di dalam loop eksekusi: isi "action" dengan tool untuk melanjutkan, atau akhiri giliran dengan "answer" + "is_done": true + "task_status": "done".'
+          })
+          continue
+        }
+
         console.warn(
           '[useMarkPlan] AI returned neither action nor answer. Forcing done with fallback.'
         )
         isDone = true
+        sessionOutcome = 'failed'
+        lastTerminalReason = 'empty-decision-budget-exhausted'
         targetSetChatData((prev) => [
           ...prev.filter((item) => !item.isThinking),
           {

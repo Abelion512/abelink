@@ -1,4 +1,11 @@
+// Native skills — di-registry di sini agar masuk MARK SKILLS & CAPABILITY
+// REGISTRY (prioritas #1) dan dibaca agent via 'read-skill'.
+// NATIVE_SKILL_LOW_TIER: disiplin eksekusi untuk model apapun (injeksi
+// perilaku via skill.md — kompensasi model low-tier, lihat native-skill-lowtier.js).
+import { NATIVE_SKILL_LOW_TIER } from './native-skill-lowtier'
+
 export const NATIVE_SKILLS = [
+  NATIVE_SKILL_LOW_TIER,
   {
     name: 'plan',
     description:

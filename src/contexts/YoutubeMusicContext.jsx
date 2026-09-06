@@ -21,20 +21,54 @@ const YoutubeMusicContext = createContext()
 
 // Muat IFrame API sekali untuk seluruh aplikasi (promise di-cache modul-level).
 let ytApiPromise = null
+let ytApiLoadAttempts = 0
+const MAX_YT_API_ATTEMPTS = 3
+const YT_API_RETRY_DELAY = 2000
+const YT_API_TIMEOUT = 5000
+
 function loadYTApi() {
   if (ytApiPromise) return ytApiPromise
+
   ytApiPromise = new Promise((resolve, reject) => {
-    if (window.YT && window.YT.Player) return resolve(window.YT)
-    const prev = window.onYouTubeIframeAPIReady
-    window.onYouTubeIframeAPIReady = () => {
-      if (typeof prev === 'function') prev()
-      resolve(window.YT)
+    const attemptLoad = (attempt) => {
+      ytApiLoadAttempts = attempt
+      if (window.YT && window.YT.Player) return resolve(window.YT)
+
+      if (attempt >= MAX_YT_API_ATTEMPTS) {
+        // Final attempt - set timeout for 5s
+        const timeoutId = setTimeout(() => {
+          if (!window.YT || !window.YT.Player) {
+            console.error('[YouTubeMusic] API load timeout')
+            reject(new Error('YouTube IFrame API load timeout'))
+          }
+        }, YT_API_TIMEOUT)
+
+        const prev = window.onYouTubeIframeAPIReady
+        window.onYouTubeIframeAPIReady = () => {
+          clearTimeout(timeoutId)
+          if (typeof prev === 'function') prev()
+          resolve(window.YT)
+        }
+        injectScript() // one more try to kick the callback
+        return
+      }
+
+      // Retry: re-inject script with delay
+      setTimeout(() => attemptLoad(attempt + 1), YT_API_RETRY_DELAY)
     }
-    const script = document.createElement('script')
-    script.src = 'https://www.youtube.com/iframe_api'
-    script.async = true
-    script.onerror = () => reject(new Error('Gagal memuat YouTube IFrame API'))
-    document.head.appendChild(script)
+
+    const injectScript = () => {
+      const script = document.createElement('script')
+      script.src = 'https://www.youtube.com/iframe_api'
+      script.async = true
+      script.onerror = () => {
+        // Let the retry loop handle it (onerror fires before script ready callback)
+      }
+      document.head.appendChild(script)
+    }
+
+    injectScript()
+    attemptLoad(1)
   })
   return ytApiPromise
 }
@@ -70,7 +104,14 @@ export const YoutubeMusicProvider = ({ children }) => {
         playerRef.current = new YT.Player(hostRef.current, {
           height: '90',
           width: '160',
-          playerVars: { autoplay: 0, rel: 0 },
+          playerVars: {
+            autoplay: 0,
+            rel: 0,
+            // Wajib: tanpa origin, widget API postMessage tanpa target yang
+            // cocok -> "Unable to post message to https://www.youtube.com.
+            // Recipient has origin http://localhost:1420" di console.
+            origin: window.location.origin
+          },
           events: {
             onReady: (e) => {
               readyRef.current = true
@@ -88,7 +129,7 @@ export const YoutubeMusicProvider = ({ children }) => {
   }, [])
 
   const loadIntoPlayer = useCallback((videoId) => {
-    if (playerRef.current && readyRef.current) {
+    if (playerRef.current?.loadVideoById && readyRef.current) {
       playerRef.current.loadVideoById(videoId)
       setIsPlaying(true)
     } else {

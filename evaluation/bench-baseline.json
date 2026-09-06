@@ -1,0 +1,19 @@
+{
+  "savedAt": "2026-09-05T00:12:11.175Z",
+  "verifierMs": 1.6,
+  "overall": 1,
+  "dimensions": {
+    "planning": 1,
+    "toolOrchestration": 1,
+    "recovery": 1,
+    "memory": 1,
+    "safety": 1,
+    "efficiency": 1,
+    "objective_completion": 1,
+    "termination_correctness": 1,
+    "replanning_quality": 1,
+    "recovery_success_rate": 1,
+    "unnecessary_action_rate": 1,
+    "human_intervention_rate": 1
+  }
+}

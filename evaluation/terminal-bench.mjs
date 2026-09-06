@@ -9,6 +9,12 @@
 // ({{SENTINEL}}). Verifier wajib memastikan token itu muncul di respons —
 // jawaban hafalan (hard-coded) yang cocok dengan `expected` tanpa sentinel
 // terdeteksi sebagai kecurangan oleh orchestrator (evaluation/run.mjs).
+//
+// Effort per task: sebuah task BOLEH mendeklarasikan `effort: "low|medium|high"`
+// (task-level override — menang atas benchmark default & env). Task tanpa
+// `effort` mengikuti benchmark default (run.mjs --effort/--efforts), lalu env
+// MARK_BENCH_EFFORT, lalu sistem default 'low'. Lihat resolveTaskEffort di
+// mark-adapter.mjs.
 
 import { runMarkAgent } from './mark-adapter.mjs'
 
@@ -46,11 +52,14 @@ export const TASKS = {
   // Context fidelity + anti-cheat: verifier butuh sentinel acak per-run.
   // Referensi: uji konteks panjang / ketepatan pengambilan fakta (Kimi K3:
   // 1M context, BrowseComp context compaction).
+  // Demonstrasi task-level effort: task ini dipatok medium meskipun benchmark
+  // default/env mengatakan low — task override menang.
   'tb-context-01': {
     prompt: 'Ingat kode akses berikut: {{SENTINEL}}. Sekarang jawab hanya dengan kode akses itu.',
     sentinel: true,
     verifier: (output, sentinel) => Boolean(sentinel) && output.includes(sentinel),
     maxTurns: 10,
+    effort: 'medium',
   },
 
   // Terminal competence: verifier memeriksa urutan perintah git nyata.
@@ -70,6 +79,7 @@ export const TASKS = {
 
   // Long-horizon planning: urutan langkah wajib benar dan menyebut artefak
   // akhir (file). Referensi: turn-budget eval ala MCP Atlas (100-turn limit).
+  // Demonstrasi task-level effort tinggi: perencanaan panjang = effort high.
   'tb-plan-01': {
     prompt:
       'Buat rencana 3 langkah berurutan (format: "1. ..." "2. ..." "3. ...") untuk meneliti sebuah topik lalu menulis laporan ke file.',
@@ -81,6 +91,7 @@ export const TASKS = {
       return ordered && /file|tulis|simpan/i.test(output)
     },
     maxTurns: 12,
+    effort: 'high',
   },
 }
 
@@ -90,6 +101,7 @@ export function listTasks() {
     description: t.prompt,
     sentinel: Boolean(t.sentinel),
     maxTurns: t.maxTurns,
+    effort: t.effort || null,
   }))
 }
 
@@ -106,11 +118,21 @@ export async function runTask(taskId, model, provider, opts = {}) {
   }
 
   // --- Real Mark execution (maxTurns = budget langkah, ala turn-limit eval) ---
-  const result = await runMarkAgent(
-    { taskId, prompt, maxTurns: task.maxTurns },
-    model,
-    provider
-  )
+  // Effort precedence di-resolve di adapter: task.effort (registry) menang atas
+  // opts.effort (benchmark default dari run.mjs / env). opts.effort diteruskan
+  // apa adanya supaya benchmark default & sweep bisa menyentuh task tanpa effort.
+  //
+  // Sweep/A/B (`--efforts low,high,...`): run.mjs mengirim overrideTaskEffort: true
+  // agar effort eksperimen menang atas pin task — kalau tidak, task dengan pin
+  // (mis. effort: 'high') tidak pernah bisa di-sweep ke low/medium pada task yang
+  // SAMA, dan A/B effort-scaling mustahil dijalankan.
+  const taskDef = {
+    taskId,
+    prompt,
+    maxTurns: task.maxTurns,
+    effort: opts.overrideTaskEffort ? undefined : task.effort,
+  }
+  const result = await runMarkAgent(taskDef, model, provider, { effort: opts.effort })
 
   // --- Deterministic verifier (explicit predicate, actually executed) ---
   const passed = task.verifier(result.response, sentinel)
@@ -123,7 +145,12 @@ export async function runTask(taskId, model, provider, opts = {}) {
     sentinel,
     verifier: 'deterministic-predicate',
     trajectory: result.trajectory,
+    // Effort direkam di SETIAP task result (bukan hanya config laporan) —
+    // syarat A/B per-effort & analisis effort-scaling.
+    effort: result.effort,
     durationMs: result.trajectory.durationMs,
+    steps: result.trajectory.steps,
+    toolCalls: result.trajectory.toolCalls,
     tokenUsage: result.tokenUsage,
   }
 }
@@ -135,7 +162,9 @@ export function runAll(model, provider, opts) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   runAll().then((results) => {
     results.forEach((r) => {
-      console.log(`[${r.passed ? 'PASS' : 'FAIL'}] ${r.taskId}: ${r.output.slice(0, 80)}`)
+      console.log(
+        `[${r.passed ? 'PASS' : 'FAIL'}] ${r.taskId} (effort=${r.effort}): ${r.output.slice(0, 80)}`
+      )
     })
     const passed = results.filter((r) => r.passed).length
     console.log(`\n${passed}/${results.length} tasks passed`)

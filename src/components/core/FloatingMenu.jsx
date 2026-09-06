@@ -14,7 +14,7 @@ import {
   FaGoogle,
   FaBrain,
   FaRobot,
-  FaGift
+  FaGift,
 } from 'react-icons/fa'
 import whatsNewData from '../../data/whats-new.json'
 
@@ -67,7 +67,10 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
             <div className="flex-1">What&apos;s New</div>
             {(() => {
               try {
-                return (whatsNewData.version || '') !== (localStorage.getItem('mark:last-seen-whats-new') || '')
+                return (
+                  (whatsNewData.version || '') !==
+                  (localStorage.getItem('mark:last-seen-whats-new') || '')
+                )
               } catch (_) {
                 return false
               }

@@ -57,6 +57,8 @@ const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks,
                 <FaCheckCircle size={10} /> Bebas
               </span>
             )}
+            {/* Graduated approval note (fase Linux/Rust): izin per-jenis aksi
+                bisa diatur owner ke ask/session/always — read-only default bebas. */}
           </div>
           <p className="text-white/70 text-sm">{description}</p>
         </div>
@@ -476,7 +478,7 @@ const Guidebook = () => {
                       howItWorks="Fetch HTML via axios, parse dengan htmlparser2, kembalikan teks bersih + raw HTML. Berguna untuk re-scan halaman setelah AJAX."
                     />
                     <div className="bg-warning/10 border border-warning/20 p-4 rounded-xl text-sm text-warning/80">
-                      <strong>Catatan:</strong> browser-click, browser-type, browser-scroll, browser-screenshot, dan browser-ask-user membutuhkan Playwright/Puppeteer yang belum diimplementasi di Linux. Gunakan browser-navigate untuk web research.
+                      <strong>Catatan:</strong> browser-navigate dan browser-read bekerja tanpa ekstensi (HTTP fetch). Aksi interaktif (`browser-click`, `browser-type`, `browser-scroll`, `browser-screenshot`, `browser-extract`, `browser-ask-user`) butuh Chrome extension (komunikasi CDP via long-poll lokal). Install dari folder extension/ lalu reload halaman.
                     </div>
                   </div>
                 </div>
@@ -486,6 +488,15 @@ const Guidebook = () => {
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
                     <FaTerminal className="text-warning" /> PC Automation Engine
                   </h3>
+                  <div className="p-3 mb-4 rounded-xl bg-info/5 border border-info/20">
+                    <p className="text-xs text-white/70">
+                      <strong className="text-info">Approval berjenjang (Linux):</strong> aksi
+                      read-only (os-read, lihat layar) selalu bebas. Aksi kontrol
+                      (klik, ketik, shortcut berbahaya) default minta konfirmasi sekali
+                      per jenis aksi — kamu bisa atur ke "Always allow" atau "Session"
+                      di Configuration → Capabilities, sesuai guidebook ini.
+                    </p>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ToolCard
                       name="os-control-open"
@@ -891,7 +902,7 @@ const Guidebook = () => {
                       example="Cari lagunya Nadin Amizah dong."
                     />
                     <div className="bg-warning/10 border border-warning/20 p-4 rounded-xl text-sm text-warning/80">
-                      <strong>Catatan:</strong> music-play, music-search, music-toggle, music-next, music-prev BELUM diimplementasi. yt:load, yt:command, yt:show masih stub (membutuhkan WebviewWindow Tauri). Gunakan search-music untuk pencarian.
+                      <strong>Catatan:</strong> music-search menggunakan ytmusic-api via sidecar. Player audio aktif melalui YouTube IFrame API (hidden iframe). music-play/toggle/next/prev semuanya bisa dipakai.
                     </div>
                   </div>
                 </div>

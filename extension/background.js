@@ -94,6 +94,32 @@ function sleep(ms) {
 }
 
 // -------------------------------------------------------------- commands
+async function execute(cfg, command) {
+  const { type } = command
+  const { payload } = command
+
+  // Handle group session commands from browser-use
+  if (type === 'group-session') {
+    const { task, status, autoClose } = payload || {}
+    if (!task) return { ok: false, error: 'task wajib.' }
+    await ensureGroup(cfg.session || 'default', task, status, !!autoClose)
+    return { ok: true }
+  }
+
+  switch (type) {
+    case 'navigate':
+      return navigate(payload)
+    case 'read-dom':
+      return readDom()
+    case 'act':
+      return act(payload)
+    case 'show':
+      return showTab()
+    default:
+      return { ok: false, error: `Perintah tidak dikenal: ${type}` }
+  }
+}
+
 async function runCommand(cfg, command) {
   let result
   try {
@@ -117,19 +143,88 @@ async function runCommand(cfg, command) {
   }
 }
 
-async function execute(cfg, command) {
-  switch (command.type) {
-    case 'navigate':
-      return navigate(command.payload)
-    case 'read-dom':
-      return readDom()
-    case 'act':
-      return act(command.payload)
-    case 'show':
-      return showTab()
-    default:
-      return { ok: false, error: `Perintah tidak dikenal: ${command.type}` }
+// ----------------------------------------------------------- group management
+// browser-use: grup tab per task. Hanya 1 group aktif; yang lain
+// ditandai selesai (checkbox hijau ✅). Auto-close tab jika autoClose=true.
+const GROUP_COLORS = ['grey', 'blue', 'yellow', 'green', 'pink', 'purple', 'cyan', 'red']
+const STATUS_ICON = { loading: '⏳', reading: '📖', acting: '🖱️', idle: '🟢', done: '✅', error: '❌' }
+
+function deriveGroupName(status, task) {
+  const icon = STATUS_ICON[status] || STATUS_ICON.idle
+  const safeTask = String(task || 'untitled').slice(0, 32)
+  return `${icon} (${status}) — ${safeTask}`
+}
+
+function colorForIndex(idx) {
+  return GROUP_COLORS[idx % GROUP_COLORS.length]
+}
+
+// Track active group per session: sessionId -> { taskId, groupId, colorIdx }
+const activeGroups = {}
+
+async function ensureGroup(sessionId, task, status, autoClose = false) {
+  const colorIdx = (activeGroups[sessionId]?.colorIdx || 0) % GROUP_COLORS.length
+  const color = colorForIndex(colorIdx)
+
+  // Tutup group sebelumnya jika berbeda task (hanya 1 aktif)
+  const prev = activeGroups[sessionId]
+  if (prev && prev.taskId !== task) {
+    await markGroupDone(prev.groupId, prev.taskId)
+    // Auto-close tab jika diminta
+    if (autoClose && prev.groupId != null) {
+      const tabs = await chrome.tabs.query({ groupId: prev.groupId })
+      for (const t of tabs) {
+        await chrome.tabs.remove(t.id)
+      }
+    }
   }
+
+  const name = deriveGroupName(status, task)
+  let groupId = prev?.groupId || null
+
+  // BUGFIX (audit 2026-09): implementasi lama memfilter
+  // g.windowId === chrome.windows.WINDOW_ID_CURRENT — konstanta itu (-2) bukan
+  // ID window nyata, sehingga grup lama TIDAK PERNAH ditemukan dan setiap
+  // perintah group-session membuat grup baru (menumpuk tanpa batas).
+  // Sekarang grup dicari di window milik tab aktif saja.
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  let allGroups = []
+  if (activeTab) {
+    try {
+      allGroups = await chrome.tabGroups.query({ windowId: activeTab.windowId })
+    } catch { allGroups = [] }
+  }
+  const existing = allGroups.find((g) => g.title === name)
+
+  if (!existing) {
+    // Buat group baru dari tab aktif
+    if (!activeTab) return null
+    const created = await chrome.tabs.group({
+      tabIds: [activeTab.id],
+      windowId: activeTab.windowId
+    })
+    groupId = created
+    await chrome.tabGroups.update(groupId, { color, title: name })
+  } else {
+    groupId = existing.id
+    await chrome.tabGroups.update(groupId, { color, title: name })
+  }
+
+  activeGroups[sessionId] = { taskId: task, groupId, colorIdx: (colorIdx + 1) % GROUP_COLORS.length }
+  return groupId
+}
+
+async function markGroupDone(groupId, taskId) {
+  if (groupId == null) return
+  const name = STATUS_ICON.done + ' (done) — ' + (taskId || 'untitled').slice(0, 32)
+  await chrome.tabGroups.update(groupId, { title: name })
+}
+
+async function updateGroupStatus(sessionId, task, status) {
+  const group = activeGroups[sessionId]
+  if (!group) return
+  const name = deriveGroupName(status, task)
+  await chrome.tabGroups.update(group.groupId, { title: name })
 }
 
 // ------------------------------------------------------------------ tabs
@@ -236,8 +331,10 @@ async function readDomInTab(tabId) {
 }
 
 // ------------------------------------------------------------------ act
-// PENTING: fungsi aksi juga di-serialisasi ke konteks halaman — self-contained,
-// state dikirim lewat `args`.
+// PENTING: fungsi aksi DOM di-serialisasi ke konteks halaman — self-contained,
+// state dikirim lewat `args`. Aksi yang butuh API ekstensi (chrome.scripting,
+// chrome.tabs, chrome.downloads) TIDAK BOLEH ditaruh di sini — tangani di
+// fungsi act() pada konteks service worker (lihat bawah).
 function actionFn({ markId, action, value }) {
   const el = markId ? document.querySelector(`[data-mark-id="${markId}"]`) : null
   if (markId && !el)
@@ -267,9 +364,17 @@ function actionFn({ markId, action, value }) {
           new KeyboardEvent('keydown', { key: value, bubbles: true })
         )
         break
-      case 'scroll':
-        window.scrollBy(0, Number(value) || 600)
+      case 'scroll': {
+        // value bisa angka (px) ATAU { direction, amount } dari bridge browserScroll.
+        const px =
+          value && typeof value === 'object'
+            ? (value.direction === 'up' ? -1 : 1) * (Number(value.amount) || 600)
+            : Number(value) || 600
+        window.scrollBy(0, px)
         break
+      }
+      case 'extract':
+        return { ok: true, data: document.querySelector(String(value || ''))?.textContent || '' }
       default:
         return { ok: false, error: `Aksi tidak dikenal: ${action}` }
     }
@@ -282,6 +387,67 @@ function actionFn({ markId, action, value }) {
 async function act({ markId, action, value }) {
   const tab = await activeOrFindTab()
   if (!tab) return { ok: false, error: 'Tidak ada tab aktif http(s) untuk aksi.' }
+
+  // --- Aksi level SERVICE WORKER (bukan injeksi halaman) ---
+  // chrome.scripting/chrome.tabs/chrome.downloads tidak ada di konteks halaman.
+  // (Review PR #26: versi awal menaruh case ini di actionFn — selalu gagal.)
+  if (action === 'script') {
+    const code = String(value || '')
+    if (!code) return { ok: false, error: 'browser-script butuh kode pada field value.' }
+    try {
+      const [scr] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        world: 'MAIN',
+        args: [code],
+        func: (c) => {
+          // Evaluasi di konteks halaman; tunduk pada CSP halaman target —
+          // halaman tanpa unsafe-eval menolak (gagal jujur, bukan sukses palsu).
+          const fn = new Function(`return (${c})`)
+          const out = fn()
+          return out === undefined ? null : out
+        }
+      })
+      const scriptResult = scr?.result ?? null
+      return {
+        ok: true,
+        data: JSON.stringify(
+          typeof scriptResult === 'object' && scriptResult !== null
+            ? scriptResult
+            : { result: scriptResult }
+        )
+      }
+    } catch (e) {
+      return { ok: false, error: `browser-script gagal: ${String(e?.message || e)}` }
+    }
+  }
+  if (action === 'screenshot') {
+    try {
+      // host_permissions http/https (manifest 0.1.1) membuat ini jalan tanpa gesture.
+      const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
+      if (!dataUrl) return { ok: false, error: 'captureVisibleTab mengembalikan data kosong.' }
+      // Kembalikan sebagai hasil perintah — loop bridge POST /result membawanya
+      // ke sidecar (jalur balik yang memang ada; bukan sendMessage tanpa listener).
+      return { ok: true, data: dataUrl }
+    } catch (e) {
+      return { ok: false, error: `browser-screenshot gagal: ${String(e?.message || e)}` }
+    }
+  }
+  if (action === 'download') {
+    const url = value && typeof value === 'object' ? value.url : null
+    const fileName = value && typeof value === 'object' ? value.fileName : undefined
+    if (!url) return { ok: false, error: 'browser-download butuh value { url, fileName }.' }
+    try {
+      const downloadId = await chrome.downloads.download({ url, filename: fileName })
+      return { ok: true, data: JSON.stringify({ downloadId }) }
+    } catch (e) {
+      return { ok: false, error: `browser-download gagal: ${String(e?.message || e)}` }
+    }
+  }
+  if (action === 'ask') {
+    return { ok: false, error: 'browser-ask-user belum didukung versi ekstensi ini.' }
+  }
+
+  // --- Aksi DOM via injeksi halaman (click/type/select/press/scroll/extract) ---
   const [injection] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     args: [{ markId: markId || null, action, value: value ?? null }],
@@ -289,8 +455,10 @@ async function act({ markId, action, value }) {
   })
   const step = injection?.result
   if (!step?.ok) return step || { ok: false, error: 'Injection aksi gagal.' }
+  // Aksi baca murni mengembalikan datanya langsung; aksi mutasi diikuti
+  // read-dom ulang agar caller menerima DOM ter-tag terbaru.
+  if (action === 'extract') return step
   await sleep(300)
-  // Setelah aksi, balikin DOM ter-tag lagi (polanya: read-dom ulang).
   return readDomInTab(tab.id)
 }
 

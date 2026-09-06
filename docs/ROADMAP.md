@@ -15,7 +15,8 @@ MARK Linux adalah desktop assistant native untuk Linux — ringan, offline-first
 - [x] Tauri v2 migration (Rust backend + React 19 frontend)
 - [x] Native Linux integration (tray, xdotool, window tracker, shortcuts)
 - [x] Core AI: multimodal (vision, voice, RAG, memory)
-- [x] Lite mode: auto-detect hardware, fallback embeddings
+- [x] Auto-profile: deteksi RAM native (/proc/meminfo) — FITUR TIDAK PERNAH
+      HILANG di RAM kecil; profil hanya mengatur eager vs lazy loading
 - [x] UX cleanup: simplified config, first-boot flow, keyboard nav
 
 **Next milestone:** packaging (AppImage, .deb) + auto-update CI.
@@ -29,10 +30,20 @@ MARK Linux adalah desktop assistant native untuk Linux — ringan, offline-first
 - Auto-update mechanism (Tauri updater plugin)
 - Distribution ke AUR / PPA
 
-### 2. MCP Connector Ecosystem
-- Lazy-load MCP server connections (load-when-needed)
-- UI Configuration untuk MCP servers
-- Isolated failure per connector (single server down ≠ app crash)
+### 2. Capability & Connector Ecosystem (general-pluggable)
+- Capability Manager jadi poros pluggability — MARK tidak condong ke satu
+  task. Referensi desain: Claude connectors/plugins/marketplace (catalog ->
+  connection/scope -> action schema -> execution -> policy -> audit).
+- [x] Channel `capabilities:*` (list/inspect/guide/execute/connections/
+  authorize/revoke/audit) + gate approval NATIVE rfd untuk execute/
+  authorize/revoke (cmd_node_bridge.rs APPROVAL_ACTIONS)
+- [x] Tool group `connectors` untuk agent (connector-list/inspect/guide/
+  run/status) + bridge renderer (listCapabilities, executeCapability, dst.)
+- [ ] Katalog connector lebih kaya (calendar/mail/storage via google-service)
+- [ ] Remote connector manifest (manifestUrl ter-validasi, verifikasi manifest)
+- [ ] UI halaman Connectors (browse catalog, authorize scope, audit viewer)
+- [ ] Lazy-load MCP server connections (load-when-needed) — isolated failure
+  per connector (single server down ≠ app crash)
 
 ### 3. Configuration UX
 - Scroll-spy + keyboard navigation di sidebar

@@ -37,6 +37,37 @@ describe('detectHardwareProfile', () => {
     const result = detectHardwareProfile()
     expect(['MINIMAL', 'STANDARD', 'PERFORMANCE', 'UNLIMITED']).toContain(result)
   })
+
+  it('RAM native akurat: 12GB+ = PERFORMANCE (semua fitur eager/hidup)', () => {
+    // Prinsip owner: device RAM 12+ TIDAK BOLEH kehilangan fitur karena
+    // deviceMemory Chromium dipatok 8. /proc/meminfo native = 12 -> PERFORMANCE.
+    expect(detectHardwareProfile(12)).toBe('PERFORMANCE')
+    expect(detectHardwareProfile(16)).toBe('PERFORMANCE')
+    expect(detectHardwareProfile(24)).toBe('PERFORMANCE')
+    expect(detectHardwareProfile(32)).toBe('UNLIMITED')
+    expect(detectHardwareProfile(8)).toBe('STANDARD')
+    expect(detectHardwareProfile(4)).toBe('MINIMAL')
+  })
+
+  it('native gagal/null -> fallback navigator tanpa pernah mematikan fitur', () => {
+    expect(detectHardwareProfile(null)).toMatch(/MINIMAL|STANDARD|PERFORMANCE/)
+    expect(detectHardwareProfile(undefined)).toMatch(/MINIMAL|STANDARD|PERFORMANCE/)
+    expect(detectHardwareProfile(-1)).toMatch(/MINIMAL|STANDARD|PERFORMANCE/)
+  })
+
+  it('semua profil punya fitur AKTIF (trigger berbeda, bukan on/off)', () => {
+    for (const cfg of Object.values(PROFILES)) {
+      expect(cfg.enableVoiceSTT).toBe(true)
+      expect(cfg.enableWorkspaceRAG).toBe(true)
+      expect(cfg.enableMemoryVisualizer).toBe(true)
+      expect(cfg.enableGraphView).toBe(true)
+      expect(Array.isArray(cfg.eagerLoad)).toBe(true)
+    }
+    // Hanya urutan yang beda: MINIMAL lazy semua, PERFORMANCE eager.
+    expect(PROFILES.MINIMAL.eagerLoad).toEqual([])
+    expect(PROFILES.PERFORMANCE.eagerLoad).toContain('vectors')
+    expect(PROFILES.PERFORMANCE.eagerLoad).toContain('orama')
+  })
 })
 
 describe('getActiveProfile', () => {

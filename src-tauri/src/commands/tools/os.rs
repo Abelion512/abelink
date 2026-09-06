@@ -57,13 +57,17 @@ pub fn os_click(app: AppHandle, query: String) -> Result<ToolResult, String> {
     require_x11()?;
     let lower = query.to_lowercase();
     if is_dangerous_key(&query) && lower.contains("click") {
-        let desc = format!("Mark ingin klik mouse:\n{}", query);
-        if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
-            return Ok(ToolResult {
-                success: false,
-                output: None,
-                error: Some("Ditolak.".into()),
-            });
+        // Approval berjenjang (family os-control).
+        let eff = crate::approval_policy::effective_policy("os-control");
+        if eff != crate::approval_policy::POLICY_ALWAYS && eff != crate::approval_policy::POLICY_SESSION {
+            let desc = format!("Mark ingin klik mouse:\n{}", query);
+            if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
+                return Ok(ToolResult {
+                    success: false,
+                    output: None,
+                    error: Some("Ditolak.".into()),
+                });
+            }
         }
     }
     let out = xdotool(&["click", "1"])?;
@@ -78,13 +82,17 @@ pub fn os_click(app: AppHandle, query: String) -> Result<ToolResult, String> {
 pub fn os_double_click(app: AppHandle, query: String) -> Result<ToolResult, String> {
     require_x11()?;
     if is_dangerous_key(&query) {
-        let desc = format!("Mark ingin double-click mouse:\n{}", query);
-        if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
-            return Ok(ToolResult {
-                success: false,
-                output: None,
-                error: Some("Ditolak.".into()),
-            });
+        // Approval berjenjang (family os-control).
+        let eff = crate::approval_policy::effective_policy("os-control");
+        if eff != crate::approval_policy::POLICY_ALWAYS && eff != crate::approval_policy::POLICY_SESSION {
+            let desc = format!("Mark ingin double-click mouse:\n{}", query);
+            if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
+                return Ok(ToolResult {
+                    success: false,
+                    output: None,
+                    error: Some("Ditolak.".into()),
+                });
+            }
         }
     }
     let out = xdotool(&["click", "2"])?;
@@ -111,13 +119,17 @@ pub fn os_delay(query: String) -> Result<ToolResult, String> {
 pub fn os_type(app: AppHandle, text: String) -> Result<ToolResult, String> {
     require_x11()?;
     if is_dangerous_key(&text) {
-        let desc = format!("Mark ingin mengetik teks berbahaya:\n{}", text);
-        if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
-            return Ok(ToolResult {
-                success: false,
-                output: None,
-                error: Some("Ditolak.".into()),
-            });
+        // Approval berjenjang (family os-control): owner bisa set always/session.
+        let eff = crate::approval_policy::effective_policy("os-control");
+        if eff != crate::approval_policy::POLICY_ALWAYS && eff != crate::approval_policy::POLICY_SESSION {
+            let desc = format!("Mark ingin mengetik teks berbahaya:\n{}", text);
+            if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
+                return Ok(ToolResult {
+                    success: false,
+                    output: None,
+                    error: Some("Ditolak.".into()),
+                });
+            }
         }
     }
     let out = xdotool(&["type", "--delay", "10", &text])?;
@@ -132,13 +144,17 @@ pub fn os_type(app: AppHandle, text: String) -> Result<ToolResult, String> {
 pub fn os_key(app: AppHandle, key: String) -> Result<ToolResult, String> {
     require_x11()?;
     if is_dangerous_key(&key) {
-        let desc = format!("Mark ingin menekan shortcut berbahaya:\n{}", key);
-        if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
-            return Ok(ToolResult {
-                success: false,
-                output: None,
-                error: Some("Ditolak.".into()),
-            });
+        // Approval berjenjang (family os-control): owner bisa set always/session.
+        let eff = crate::approval_policy::effective_policy("os-control");
+        if eff != crate::approval_policy::POLICY_ALWAYS && eff != crate::approval_policy::POLICY_SESSION {
+            let desc = format!("Mark ingin menekan shortcut berbahaya:\n{}", key);
+            if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
+                return Ok(ToolResult {
+                    success: false,
+                    output: None,
+                    error: Some("Ditolak.".into()),
+                });
+            }
         }
     }
     let xk = match key.to_lowercase().as_str() {

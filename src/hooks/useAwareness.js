@@ -107,14 +107,21 @@ export const useAwareness = ({
         const allMemory = await getAllMemory()
         const memoryRef = await getRelevantMemory('aktivitas user bekerja dan rutinitas', allMemory)
 
-        // Ambil 5 riwayat chat terakhir tanpa status isThinking dll
+        // Ambil 5 riwayat chat terakhir tanpa status isThinking dll.
+        // Pesan dengan content kosong (null/undefined/'') dibuang — kolom kosong
+        // di prompt awareness memicu jawaban ngawur dan pemborosan token.
+        const hasRealContent = (m) =>
+          typeof m.content === 'string'
+            ? m.content.trim().length > 0
+            : Array.isArray(m.content)
+              ? m.content.length > 0
+              : !!m.content
         const recentChat = (chatDataRef.current || [])
-          .filter((m) => !m.isThinking && !m.isSearching && !m.isSummarizing)
+          .filter((m) => hasRealContent(m) && !m.isThinking && !m.isSearching && !m.isSummarizing)
           .slice(-5)
           .map((m) => ({ role: m.role, content: m.content }))
 
-        console.log('[useAwareness] chatDataRef.current length:', chatDataRef.current?.length);
-        console.log('[useAwareness] recentChat extracted:', recentChat);
+        console.log('[useAwareness] chatDataRef.current length:', chatDataRef.current?.length)
 
         // Clear buffer right away so we don't send the exact same bulk again later
         if (window.api.clearActivityBuffer) {

@@ -31,6 +31,17 @@ export function isPCSessionOpen() {
   return isSessionOpen
 }
 
+/**
+ * Emergency stop (Ctrl+Shift+S global). Dipanggil dari channel
+ * `os:emergency-stop` — menkill daemon/child aktif, menandai stop
+ * agar semua aksi os-* berikutnya menolak sampai reset eksplisit.
+ */
+export function triggerEmergencyStopExternal() {
+  if (!isSessionOpen && !isStoppedByUser) return false
+  triggerEmergencyStop()
+  return true
+}
+
 function isStopActive() {
   // Stop darurat bersifat persisten: TIDAK kedaluwarsa otomatis,
   // hanya tur lewat reset eksplisit di resetEmergencyStop().

@@ -1,6 +1,15 @@
 import { fetchAI, cleanAndParse } from '../ai/core'
 import { subagentStore } from './subagentStore'
 import { buildSubagentSystemPrompt } from './subagentPrompt'
+import { getBuiltinPluginsPrompt } from '../ai/builtinPlugins'
+import { classifySubagentAnswer } from '../ai/agentDecision'
+import {
+  evaluateEvidence,
+  gateCompletion,
+  buildReplanObservation,
+  MAX_VERIFY_REPLANS
+} from '../ai/objectiveVerifier'
+import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
 import { GROUP_TOOLS_DEFINITION } from '../tools/group-tools'
 
@@ -11,6 +20,10 @@ const subagentAbortControllers = new Map()
 // sebelum dikoreksi dan sebelum eksekusi dinyatakan gagal
 const NO_PROGRESS_INJECT_LIMIT = 3
 const NO_PROGRESS_FAIL_LIMIT = 6
+
+// Batas injeksi korektif setelah error tool: setelah ini, jawaban yang meminta
+// input padahal masih bisa pulih akan dianggap blocked, bukan loop abadi.
+const MAX_AUTO_RECOVER = 2
 
 /**
  * Menjalankan satu putaran eksekusi ReAct untuk sub-agent
@@ -89,16 +102,33 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
         .join('\n')
     : ''
 
+  // Toggle plugin built-in dibaca dari config (model-agnostic, layer aplikasi).
+  const appConfig = (await getAllConfig().catch(() => []))?.[0] || null
   const systemPrompt = buildSubagentSystemPrompt({
     role: subagent.role,
     goal: subagent.goal,
     coreToolsText,
-    groupToolsText
+    groupToolsText,
+    // Ponytail selalu aktif untuk sub-agent (hemat kode); caveman diadaptasi
+    // untuk laporan teknis ringkas via getCavemanReportRules.
+    builtinPluginsText: getBuiltinPluginsPrompt(appConfig)
   })
 
   let currentTurn = subagent.turnCount || 0
   let latestSubagentReply = ''
   let noProgress = 0
+  // ---- Objective-aware run state (agentDecision.js) -----------------------
+  // `answer` is NOT silently terminal for a sub-agent. Track what happened in
+  // THIS run so a report after a recoverable tool error (or a question the
+  // sub-agent could answer itself) keeps the mission going instead of pausing.
+  let toolsExecutedThisRun = false
+  let lastObservation = ''
+  let autoRecoverUsed = 0
+  // Verification gate: bounded replans demanded from completion claims that
+  // lack world-state proof (objectiveVerifier.js).
+  let verifyReplansUsed = 0
+  // Internal terminal classification of the pause: final | blocked | needs_input
+  let terminalType = 'final'
 
   try {
     while (!abortController.signal.aborted) {
@@ -124,7 +154,8 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
         throw new Error(aiResponseRaw.error)
       }
 
-      const rawContent = aiResponseRaw?.content !== undefined ? aiResponseRaw.content : aiResponseRaw
+      const rawContent =
+        aiResponseRaw?.content !== undefined ? aiResponseRaw.content : aiResponseRaw
       const decision = cleanAndParse(rawContent)
       if (!decision) {
         throw new Error('Sub-Agent mengembalikan output yang tidak dapat diparse sebagai JSON.')
@@ -153,8 +184,70 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
         noProgress = 0
       }
 
-      // KONDISI 1: Sub-Agent Ingin Berbicara / Melapor ke Mark (action null / selesai)
+      // KONDISI 1: Sub-Agent Ingin Berbicara / Melapor ke Mark (action null)
       if (!decision.action && decision.answer) {
+        // Objective-aware classification: an answer produced right after a
+        // recoverable tool error, or a question the sub-agent could answer by
+        // itself, must NOT silently end the mission. Only a genuine terminal
+        // report (final / blocked / needs explicit lead input) pauses the run.
+        const pause = classifySubagentAnswer(decision, {
+          hasExecutedTools: toolsExecutedThisRun,
+          lastObservation,
+          autoRecoverUsed,
+          maxAutoRecover: MAX_AUTO_RECOVER
+        })
+
+        if (pause.type === 'continue') {
+          if (pause.reason === 'recover-after-error') autoRecoverUsed++
+          const corrective =
+            pause.reason === 'recover-after-error'
+              ? '[OBSERVATION]: Tool terakhir GAGAL dan misi belum selesai. Jangan berhenti dan jangan bertanya dulu: analisis error di "thought", pilih strategi alternatif (tool atau argumen berbeda), lalu isi "action" untuk melanjutkan. Laporkan selesai HANYA setelah deliverable terverifikasi oleh observasi tool.'
+              : '[OBSERVATION]: Kamu menjawab tanpa action padahal misi belum selesai. Lanjutkan eksekusi lewat "action". Jika memang tidak bisa maju karena izin/sumber eksternal, tulis laporan blokade yang spesifik di "answer".'
+          await subagentStore.addMessage(subagentId, {
+            sender: 'tool',
+            role: 'user',
+            content: corrective
+          })
+          continue
+        }
+
+        // VERIFICATION GATE (objectiveVerifier.js): a 'final' report is a
+        // model claim, not proof. Before accepting the pause, check the
+        // objective's world-state evidence; an unproven claim gets a bounded
+        // replan observation instead of silently ending the mission.
+        if (pause.type === 'final' && toolsExecutedThisRun) {
+          try {
+            const evidence = evaluateEvidence({
+              objectiveText: subagent.goal,
+              answer: decision.answer,
+              observations: [lastObservation]
+            })
+            const gate = gateCompletion({
+              modelClaimDone: true,
+              verification: evidence.state,
+              kind: evidence.kind
+            })
+            if (!gate.complete && verifyReplansUsed < MAX_VERIFY_REPLANS) {
+              verifyReplansUsed++
+              await subagentStore.addMessage(subagentId, {
+                sender: 'tool',
+                role: 'user',
+                content: buildReplanObservation(evidence)
+              })
+              continue
+            }
+          } catch (e) {
+            // Additive layer: verifier errors never block a legitimate report.
+            console.warn('[subagentExecutor] objectiveVerifier error:', e?.message)
+          }
+        }
+
+        terminalType =
+          pause.type === 'blocked'
+            ? 'blocked'
+            : pause.type === 'needs_input'
+              ? 'needs_input'
+              : 'final'
         latestSubagentReply = decision.answer
         await subagentStore.addMessage(subagentId, {
           sender: 'subagent',
@@ -172,7 +265,12 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
           subagentId,
           reply: decision.answer,
           thought: decision.thought || '',
-          turnCount: currentTurn
+          turnCount: currentTurn,
+          // Internal completion state (REPORT_FINAL / REPORT_BLOCKED /
+          // REQUEST_DECISION) so the lead agent can tell "done" from
+          // "blocked" and "needs a decision" without parsing prose.
+          terminal: terminalType,
+          terminalReason: pause.reason
         }
       }
 
@@ -187,7 +285,9 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
         })
 
         // Tangani Batch Actions vs Single Action
-        const actionsToExecute = Array.isArray(decision.action) ? decision.action : [decision.action]
+        const actionsToExecute = Array.isArray(decision.action)
+          ? decision.action
+          : [decision.action]
         const observations = []
 
         for (const act of actionsToExecute) {
@@ -201,12 +301,18 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               const groups = await group_tools()
               const groupName = (act.query || '').trim()
               if (!groupName) {
-                res = { success: false, error: 'Harap sebutkan nama_grup (misal: "advanced_browser").' }
+                res = {
+                  success: false,
+                  error: 'Harap sebutkan nama_grup (misal: "advanced_browser").'
+                }
               } else if (groups[groupName]) {
                 const formatted = Object.entries(groups[groupName].tools)
                   .map(([k, v]) => `- ${k}: ${v}`)
                   .join('\n')
-                res = { success: true, data: `[PANDUAN TOOL ${groupName.toUpperCase()}]:\n${formatted}` }
+                res = {
+                  success: true,
+                  data: `[PANDUAN TOOL ${groupName.toUpperCase()}]:\n${formatted}`
+                }
               } else {
                 res = { success: false, error: `Grup tool '${groupName}' tidak ditemukan.` }
               }
@@ -215,7 +321,9 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               const formatted = await executeMemorySearch(act.query || '')
               res = { success: true, data: formatted }
             } else if (window.api && window.api.executeNativeTool) {
-              res = await window.api.executeNativeTool(act.tool, act.query || '', { sessionId: subagentId })
+              res = await window.api.executeNativeTool(act.tool, act.query || '', {
+                sessionId: subagentId
+              })
             } else {
               res = { success: false, error: 'IPC executeNativeTool tidak tersedia.' }
             }
@@ -232,12 +340,15 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
           }
         }
 
+        toolsExecutedThisRun = true
+
         let combinedObservation = observations.join('\n\n')
         if (combinedObservation.length > 4000) {
           combinedObservation =
             combinedObservation.slice(0, 4000) +
             `\n\n[...SISA DATA DIPOTONG (Total: ${combinedObservation.length} karakter)...]`
         }
+        lastObservation = combinedObservation
 
         await subagentStore.addMessage(subagentId, {
           sender: 'tool',
@@ -256,7 +367,9 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
       success: true,
       subagentId,
       reply: latestSubagentReply || 'Misi selesai.',
-      turnCount: currentTurn
+      turnCount: currentTurn,
+      terminal: terminalType,
+      terminalReason: 'loop-exhausted'
     }
   } catch (err) {
     if (abortController.signal.aborted) {
