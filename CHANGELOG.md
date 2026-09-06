@@ -2,6 +2,13 @@
 
 Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.
 
+## v1.0.0-alpha.3 — 4 September 2026
+
+**Ringkasan:** 1 perbaikan dalam rilis ini.
+
+### Perbaikan
+- Release.yml — add workflow_dispatch + tag-aware guard/checkout for finalize chain
+
 ## v1.0.0-alpha.2 — 4 September 2026
 
 **Ringkasan:** 23 fitur baru, 38 perbaikan dan 30 pembaruan dokumentasi.

@@ -1,6 +1,21 @@
 {
-  "generatedAt": "2026-09-04T03:49:51.360Z",
+  "generatedAt": "2026-09-04T04:00:37.580Z",
   "releases": [
+    {
+      "version": "1.0.0-alpha.3",
+      "date": "4 September 2026",
+      "summary": "1 perbaikan dalam rilis ini.",
+      "sections": {
+        "features": [],
+        "fixes": [
+          {
+            "msg": "Release.yml — add workflow_dispatch + tag-aware guard/checkout for finalize chain"
+          }
+        ],
+        "security": [],
+        "docs": []
+      }
+    },
     {
       "version": "1.0.0-alpha.2",
       "date": "4 September 2026",
