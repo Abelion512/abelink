@@ -146,7 +146,7 @@ free_dev_port() {
     cmd="$(ps -p "$pid" -o args= 2>/dev/null | head -c 200 || true)"
     if [ -z "$cmd" ]; then continue; fi
     # Only kill if the process is clearly this project's dev server.
-    if echo "$cmd" | grep -qE 'mark-agent-linux.*(\.bin/(vite|tauri)|node_modules/@tauri-apps/cli)'; then
+    if echo "$cmd" | grep -qE '(mark-agent-linux|abelink).*(\.bin/(vite|tauri)|node_modules/@tauri-apps/cli)'; then
       log "  killing $pid — $cmd"
       kill "$pid" 2>/dev/null || true
     else

@@ -128,15 +128,15 @@ assert.equal(agg.summary.cheatTotal, 1)
 console.log('[ok] aggregateRuns (pass-rate, mean durasi, cheat count)')
 
 // 10b. Effort override contract — precedence: task > benchmark > env > system
-assert.equal(resolveTaskEffort({}), 'low', 'tanpa apa pun = system default low')
-assert.equal(resolveTaskEffort({ envEffort: 'high' }), 'high', 'env menang atas system default')
+assert.equal(await resolveTaskEffort({}), 'low', 'tanpa apa pun = system default low')
+assert.equal(await resolveTaskEffort({ envEffort: 'high' }), 'high', 'env menang atas system default')
 assert.equal(
-  resolveTaskEffort({ benchmarkEffort: 'medium', envEffort: 'high' }),
+  await resolveTaskEffort({ benchmarkEffort: 'medium', envEffort: 'high' }),
   'medium',
   'benchmark override menang atas env'
 )
 assert.equal(
-  resolveTaskEffort({ taskEffort: 'low', benchmarkEffort: 'medium', envEffort: 'high' }),
+  await resolveTaskEffort({ taskEffort: 'low', benchmarkEffort: 'medium', envEffort: 'high' }),
   'low',
   'task override menang atas segalanya'
 )

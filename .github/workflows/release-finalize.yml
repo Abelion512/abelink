@@ -3,7 +3,7 @@ name: Release Finalize
 on:
   pull_request:
     types: [closed]
-    branches: [linux]
+    branches: [main, linux]
   workflow_dispatch:
     inputs:
       ref:
@@ -67,9 +67,13 @@ jobs:
         run: |
           # 1. ref resolves
           git rev-parse --verify "$INPUT_REF"
-          # 2. ref is on linux release line (ancestor of linux HEAD)
-          if ! git merge-base --is-ancestor "$INPUT_REF" origin/linux; then
-            echo "::error::Ref $INPUT_REF is not an ancestor of linux branch"
+          # 2. ref is on release line (ancestor of main or linux HEAD)
+          RELEASE_BASE="origin/main"
+          if ! git rev-parse --verify origin/main >/dev/null 2>&1; then
+            RELEASE_BASE="origin/linux"
+          fi
+          if ! git merge-base --is-ancestor "$INPUT_REF" "$RELEASE_BASE" && ! git merge-base --is-ancestor "$INPUT_REF" origin/linux; then
+            echo "::error::Ref $INPUT_REF is not an ancestor of $RELEASE_BASE or origin/linux"
             exit 1
           fi
           # 3. version is valid SemVer
@@ -87,7 +91,7 @@ jobs:
             exit 1
           fi
           # 6. version is newer than existing releases
-          LAST=$(git tag --merged origin/linux -l 'v*' | sed 's/^v//' | grep -E '^(alpha|beta|[0-9])' | sort -V | tail -1)
+          LAST=$(git tag --merged "$RELEASE_BASE" -l 'v*' | sed 's/^v//' | grep -E '^(alpha|beta|[0-9])' | sort -V | tail -1)
           if [ -n "$LAST" ] && ! node scripts/semver-lite.mjs gt "$VERSION" "$LAST"; then
             echo "::error::Version ${VERSION} is not newer than ${LAST}"
             exit 1

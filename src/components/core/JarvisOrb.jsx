@@ -11,7 +11,7 @@ export default function JarvisOrb({
   status = 'idle',
   intensity = 0,
   className = '',
-  size = 360
+  size = 540
 }) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
@@ -66,10 +66,10 @@ export default function JarvisOrb({
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
 
     const mat = new THREE.PointsMaterial({
-      color: 0x4ca8e8,
-      size: 0.45,
+      color: 0x38bdf8,
+      size: 0.52,
       transparent: true,
-      opacity: 0.65,
+      opacity: 0.8,
       sizeAttenuation: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false
@@ -79,14 +79,14 @@ export default function JarvisOrb({
     scene.add(points)
 
     // Connection lines
-    const MAX_LINES = 6000
+    const MAX_LINES = 8000
     const linePos = new Float32Array(MAX_LINES * 6)
     const lineGeo = new THREE.BufferGeometry()
     lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3))
     lineGeo.setDrawRange(0, 0)
 
     const lineMat = new THREE.LineBasicMaterial({
-      color: 0x4ca8e8,
+      color: 0x38bdf8,
       transparent: true,
       opacity: 0.0,
       blending: THREE.AdditiveBlending,
@@ -97,7 +97,7 @@ export default function JarvisOrb({
     scene.add(lines)
 
     // Electrons
-    const MAX_ELECTRONS = 100
+    const MAX_ELECTRONS = 200
     const electronGeo = new THREE.BufferGeometry()
     const electronPos = new Float32Array(MAX_ELECTRONS * 3)
     electronGeo.setAttribute('position', new THREE.BufferAttribute(electronPos, 3))
@@ -105,7 +105,7 @@ export default function JarvisOrb({
 
     const electronMat = new THREE.PointsMaterial({
       color: 0xffffff,
-      size: 0.9,
+      size: 1.0,
       transparent: true,
       opacity: 1.0,
       sizeAttenuation: true,

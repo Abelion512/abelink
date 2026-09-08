@@ -109,4 +109,4 @@ MARK Linux adalah desktop assistant native untuk Linux — ringan, offline-first
 
 ## Kontribusi
 
-Buka issue di https://github.com/Abelion512/mark-agent-linux — branch target: `linux`.
+Buka issue di https://github.com/Abelion512/abelink - branch target: `main` atau `linux`.

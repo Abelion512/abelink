@@ -10,8 +10,8 @@
 - `master`: Melacak upstream resmi Mazees/mark-agent untuk keperluan sinkronisasi berkala.
 - Version bumping: jalankan `bun run sync-version` setelah bump di `tauri.conf.json`
 **Description:** A privacy-first, local-based autonomous AI OS companion designed to assist user productivity, automate tasks, and provide lifelike companionship. It uses a hybrid AI engine (Local LLM via LM Studio or Cloud API, plus a native Gemini Web RPC Engine) and features agentic planning with ReAct loop execution, **Autonomous Multi-Agent Sub-Agent Engine** (UI: **Sub-Agents**, branding: **Mission Control**) with concurrent isolated browser sessions, **Durable Agent Tasks** (UI: **Agent Workflows**) for persistent multi-step work, autonomous physical browser automation with multi-session support, a persistent OS-level desktop automation daemon, a hybrid Full-Text & Vector Memory Management System (MMS) with Orama & Dexie, document RAG pipeline, OS-level Awareness Engine, dynamic 4D Relational Growth, a native Plugin System with Monaco Editor, Telegram Bot integration via Telegraf, Voice Activity Detection with Groq Whisper STT plus local Whisper, Edge-TTS, and webcam vision capabilities.
-**Environment:** Linux-only Tauri v2 desktop application ("MARK Linux") — a fork of Mazees/mark-agent, mid-migration from Electron to the Tauri shell + Node sidecar layout.
-**Maintainer:** Abelion512 | **Homepage:** https://github.com/Abelion512/mark-agent-linux | **Upstream:** https://github.com/Mazees/mark-agent/
+**Environment:** Linux-only Tauri v2 desktop application ("Abelink Linux"): a fork of Mazees/mark-agent, mid-migration from Electron to the Tauri shell + Node sidecar layout.
+**Maintainer:** Abelion512 | **Homepage:** https://github.com/Abelion512/abelink | **Upstream:** https://github.com/Mazees/mark-agent/
 
 ## 2. Technology Stack & Core Dependencies
 

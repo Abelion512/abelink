@@ -7,8 +7,8 @@ semua aturan singkat dan praktis.
 ## Quick Start
 
 ```bash
-git clone https://github.com/Abelion512/mark-agent-linux.git
-cd mark-agent-linux
+git clone https://github.com/Abelion512/abelink.git
+cd abelink
 bun install
 bun tauri dev        # dev server (Vite HMR + Tauri shell)
 bun tauri build      # production build -> src-tauri/target/release/bundle/

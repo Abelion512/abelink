@@ -38,10 +38,10 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
   }
 
   return (
-    <div className="fixed top-2.5 left-4 z-50" ref={menuRef}>
+    <div className="fixed top-4 left-4 z-50" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-9 h-9 rounded-xl btn-ghost bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center transition-all shadow-md hover:bg-white/10 ${isOpen ? 'text-white border-primary/50' : 'text-white/70 hover:text-white'}`}
+        className={`w-9 h-9 rounded-xl btn-ghost bg-black/60 backdrop-blur-2xl border border-white/10 flex items-center justify-center transition-all shadow-[0_8px_32px_rgba(0,0,0,0.6)] hover:bg-white/10 ${isOpen ? 'text-white border-primary/50' : 'text-white/70 hover:text-white'}`}
         title="Menu Navigasi"
       >
         <FaBars size={15} />

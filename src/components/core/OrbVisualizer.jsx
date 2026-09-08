@@ -9,7 +9,7 @@ const SentientCyberEyes = ({
   mood = 'neutral',
   status = 'idle',
   intensity = 0,
-  colorHex = '#1fb854'
+  colorHex = '#00e5ff'
 }) => {
   const [isBlinking, setIsBlinking] = useState(false)
 
@@ -355,8 +355,8 @@ const SentientCyberEyes = ({
 }
 
 const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral', size = 'normal' }) => {
-  const [glowClass, setGlowClass] = useState('bg-green-500/40')
-  const [colorHex, setColorHex] = useState('#1fb854')
+  const [glowClass, setGlowClass] = useState('bg-cyan-500/40')
+  const [colorHex, setColorHex] = useState('#00e5ff')
 
   useEffect(() => {
     if (status === 'error') {
@@ -382,7 +382,7 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral', size
           break
         case 'disgust':
           setGlowClass('bg-lime-400/40')
-          setColorHex('#84cc16') // Acid Lime Green (sangat kontras dari Emerald neutral #1fb854)
+          setColorHex('#84cc16') // Acid Lime Green
           break
         case 'anxiety':
           setGlowClass('bg-orange-500/40')
@@ -401,8 +401,8 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral', size
           setColorHex('#9ca3af')
           break
         default: // neutral
-          setGlowClass('bg-green-500/40')
-          setColorHex('#1fb854') // Emerald signature green
+          setGlowClass('bg-cyan-500/40')
+          setColorHex('#00e5ff') // Cyan signature blue
           break
       }
     }

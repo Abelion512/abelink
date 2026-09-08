@@ -352,12 +352,21 @@ const MarkHome = () => {
         setScreenStream(null)
       }
     } catch (err) {
-      console.warn('[Screen] getDisplayMedia error:', err)
-      const msg =
-        err.name === 'OverconstrainedError' || err.message?.includes('Invalid constraint')
-          ? 'Desktop screencast memerlukan xdg-desktop-portal aktif di sistem Linux ini.'
-          : 'Share screen dibatalkan atau izin tidak diberikan.'
-      setScreenError(msg)
+      if (err.name === 'OverconstrainedError' || err.message?.includes('Invalid constraint')) {
+        // Fallback anggun: gunakan native screenshot jika xdg-desktop-portal WebKitGTK tidak merespon
+        if (window.api?.takeScreenshot) {
+          const res = await window.api.takeScreenshot().catch(() => null)
+          if (res?.base64) {
+            setScreenStream('native-snapshot')
+            return
+          }
+        }
+        setScreenError('Desktop screencast PipeWire belum aktif. Abelink akan menggunakan native capture saat snap.')
+      } else if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
+        setScreenError(null)
+      } else {
+        setScreenError('Share screen dibatalkan atau izin tidak diberikan.')
+      }
     }
   }
 
@@ -533,90 +542,81 @@ const MarkHome = () => {
         </div>
       )}
 
-      {/* ── TOP EXECUTIVE DOCK: 4-Mode Switcher, Studio & Window Controls ─────── */}
-      <header
-        className={`absolute top-0 inset-x-0 z-40 w-full h-14 px-4 flex items-center justify-between pointer-events-auto transition-all ${
-          currentMode === 'vision' || currentMode === 'screen'
-            ? 'bg-gradient-to-b from-black/80 via-black/20 to-transparent border-none'
-            : 'bg-black/40 backdrop-blur-md border-b border-white/5'
-        }`}
-      >
-        {/* Left Drag Region / Spacer for Floating Hamburger Menu */}
-        <div data-tauri-drag-region="" className="flex items-center pl-14 h-full flex-1" />
+      {/* ── TOP FLOATING HUD: Transparent Drag Strip & Independent Floating Controls ─────── */}
+      <div data-tauri-drag-region="" className="fixed top-0 inset-x-0 h-14 z-30 pointer-events-auto" />
 
-        {/* Center: 4-Mode Switcher Capsule */}
-        <div className="flex items-center bg-black/60 backdrop-blur-2xl border border-white/10 p-1 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.6)] gap-1 shrink-0">
-          <button
-            onClick={() => handleModeChange('voice')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-              currentMode === 'voice'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
-                : 'text-white/60 hover:text-white hover:bg-white/5'
-            }`}
-            title="Jarvis Voice Mode (Hands-free Voice Dialogue)"
-          >
-            <Mic className="w-3.5 h-3.5" />
-            <span>Voice</span>
-          </button>
+      {/* Center: Floating 4-Mode Switcher Capsule */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center bg-black/60 backdrop-blur-2xl border border-white/10 p-1 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.6)] gap-1 shrink-0 pointer-events-auto">
+        <button
+          onClick={() => handleModeChange('voice')}
+          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+            currentMode === 'voice'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
+              : 'text-white/60 hover:text-white hover:bg-white/5'
+          }`}
+          title="Jarvis Voice Mode (Hands-free Voice Dialogue)"
+        >
+          <Mic className="w-3.5 h-3.5" />
+          <span>Voice</span>
+        </button>
 
-          <button
-            onClick={() => handleModeChange('chat')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-              currentMode === 'chat'
-                ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_15px_rgba(var(--p)/0.3)]'
-                : 'text-white/60 hover:text-white hover:bg-white/5'
-            }`}
-            title="Classic Chat Mode (Full Markdown & History)"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>Chat</span>
-          </button>
+        <button
+          onClick={() => handleModeChange('chat')}
+          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+            currentMode === 'chat'
+              ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_15px_rgba(var(--p)/0.3)]'
+              : 'text-white/60 hover:text-white hover:bg-white/5'
+          }`}
+          title="Classic Chat Mode (Full Markdown & History)"
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          <span>Chat</span>
+        </button>
 
-          <button
-            onClick={() => handleModeChange('vision')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-              currentMode === 'vision'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 shadow-[0_0_15px_rgba(52,211,153,0.3)]'
-                : 'text-white/60 hover:text-white hover:bg-white/5'
-            }`}
-            title="Camera Vision Mode (Live Camera + Voice)"
-          >
-            <Camera className="w-3.5 h-3.5" />
-            <span>Vision</span>
-          </button>
+        <button
+          onClick={() => handleModeChange('vision')}
+          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+            currentMode === 'vision'
+              ? 'bg-sky-500/20 text-sky-300 border border-sky-400/40 shadow-[0_0_15px_rgba(56,189,248,0.3)]'
+              : 'text-white/60 hover:text-white hover:bg-white/5'
+          }`}
+          title="Camera Vision Mode (Live Camera + Voice)"
+        >
+          <Camera className="w-3.5 h-3.5" />
+          <span>Vision</span>
+        </button>
 
-          <button
-            onClick={() => handleModeChange('screen')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-              currentMode === 'screen'
-                ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40 shadow-[0_0_15px_rgba(168,85,247,0.3)]'
-                : 'text-white/60 hover:text-white hover:bg-white/5'
-            }`}
-            title="Screen Share Mode (Desktop Inspection + Voice)"
-          >
-            <Monitor className="w-3.5 h-3.5" />
-            <span>Screen</span>
-          </button>
-        </div>
+        <button
+          onClick={() => handleModeChange('screen')}
+          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+            currentMode === 'screen'
+              ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40 shadow-[0_0_15px_rgba(168,85,247,0.3)]'
+              : 'text-white/60 hover:text-white hover:bg-white/5'
+          }`}
+          title="Screen Share Mode (Desktop Inspection + Voice)"
+        >
+          <Monitor className="w-3.5 h-3.5" />
+          <span>Screen</span>
+        </button>
+      </div>
 
-        {/* Right: Studio Button & Native Window Controls */}
-        <div className="flex items-center justify-end gap-3 h-full flex-1">
-          <button
-            onClick={() => setIsChatStudioOpen(true)}
-            className="h-8 px-3 btn btn-outline btn-xs bg-white/5 backdrop-blur-md border-white/10 text-white/80 hover:text-white rounded-lg flex items-center gap-1.5 shadow-sm transition-all hover:bg-white/10"
-            title="Buka Chat Studio"
-          >
-            <Layers className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs font-medium hidden md:inline">Studio</span>
-          </button>
-          <div className="h-4 w-px bg-white/10 hidden sm:block" />
-          <WindowControls />
-        </div>
-      </header>
+      {/* Right: Floating Studio Button & Native Window Controls Capsule */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-black/60 backdrop-blur-2xl border border-white/10 px-2.5 py-1.5 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.6)] pointer-events-auto">
+        <button
+          onClick={() => setIsChatStudioOpen(true)}
+          className="h-7 px-2.5 btn btn-ghost btn-xs text-white/80 hover:text-white rounded-full flex items-center gap-1.5 transition-all hover:bg-white/10"
+          title="Buka Chat Studio"
+        >
+          <Layers className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="text-xs font-medium hidden md:inline">Studio</span>
+        </button>
+        <div className="h-3.5 w-px bg-white/15" />
+        <WindowControls />
+      </div>
 
       {/* ── MODE 1: VOICE MODE (JARVIS DEFAULT) ──────────────────────────────── */}
       {currentMode === 'voice' && (
-        <div className="relative z-10 w-full h-screen flex flex-col items-center justify-center pt-14 px-4 overflow-hidden select-none">
+        <div className="relative z-10 w-full h-screen flex flex-col items-center justify-center px-4 overflow-hidden select-none">
           {/* Centered Jarvis / Mark Hero Orb */}
           <div
             onMouseDown={handleOrbMouseDown}
@@ -637,12 +637,28 @@ const MarkHome = () => {
               <JarvisOrb
                 status={orbStatus}
                 intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
-                size={340}
+                size={540}
               />
             )}
 
+            {/* Minimalist Jarvis Status Typography */}
+            <div className="flex flex-col items-center gap-1 mt-4 select-none pointer-events-none">
+              <span className="font-mono text-xs tracking-widest text-cyan-400/90 animate-pulse">
+                {isRecording
+                  ? 'listening...'
+                  : isProcessing
+                  ? 'thinking...'
+                  : window.isMarkSpeaking
+                  ? 'speaking...'
+                  : 'standby'}
+              </span>
+              <span className="font-mono text-[9px] tracking-[0.35em] text-cyan-500/50 uppercase">
+                ABELINK
+              </span>
+            </div>
+
             {/* Subtle Carousel Dots Indicator */}
-            <div className="flex items-center gap-1.5 mt-2 opacity-30 hover:opacity-80 transition-opacity">
+            <div className="flex items-center gap-1.5 mt-3 opacity-30 hover:opacity-80 transition-opacity">
               <span
                 className={`h-1.5 rounded-full transition-all ${
                   orbStyle === 'jarvis' ? 'bg-cyan-400 w-3.5' : 'bg-white/40 w-1.5'
@@ -650,8 +666,18 @@ const MarkHome = () => {
               />
               <span
                 className={`h-1.5 rounded-full transition-all ${
-                  orbStyle === 'mark' ? 'bg-emerald-400 w-3.5' : 'bg-white/40 w-1.5'
+                  orbStyle === 'mark' ? 'bg-cyan-400 w-3.5' : 'bg-white/40 w-1.5'
                 }`}
+              />
+            </div>
+          </div>
+
+          {/* Bottom Left Minimal Audio Level Meter */}
+          <div className="fixed bottom-6 left-6 z-20 flex items-center gap-2 pointer-events-none opacity-60">
+            <div className="w-16 h-0.5 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-cyan-400 transition-all duration-75"
+                style={{ width: `${Math.min(100, Math.max(8, audioIntensity * 100))}%` }}
               />
             </div>
           </div>
@@ -761,14 +787,14 @@ const MarkHome = () => {
           {/* Scanning HUD Overlay */}
           <div className="absolute inset-0 pointer-events-none p-6 flex flex-col justify-between">
             {/* Corner Brackets */}
-            <div className="absolute top-16 left-6 w-8 h-8 border-t-2 border-l-2 border-emerald-400/80" />
-            <div className="absolute top-16 right-6 w-8 h-8 border-t-2 border-r-2 border-emerald-400/80" />
-            <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-emerald-400/80" />
-            <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-emerald-400/80" />
+            <div className="absolute top-16 left-6 w-8 h-8 border-t-2 border-l-2 border-cyan-400/80" />
+            <div className="absolute top-16 right-6 w-8 h-8 border-t-2 border-r-2 border-cyan-400/80" />
+            <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-cyan-400/80" />
+            <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-cyan-400/80" />
 
             {/* Target Crosshair */}
-            <div className="absolute inset-0 m-auto w-16 h-16 border border-emerald-400/40 rounded-full flex items-center justify-center">
-              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
+            <div className="absolute inset-0 m-auto w-16 h-16 border border-cyan-400/40 rounded-full flex items-center justify-center">
+              <div className="w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
             </div>
 
             {/* Top Right Mini Orb */}
@@ -796,7 +822,7 @@ const MarkHome = () => {
                   setCapsuleInput('')
                 }
               }}
-              className="btn btn-sm rounded-full bg-emerald-500 text-black font-semibold hover:bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.5)] px-6"
+              className="btn btn-sm rounded-full bg-cyan-500 text-black font-semibold hover:bg-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.5)] px-6"
             >
               Snap &amp; Ask Abelink
             </button>
@@ -809,13 +835,21 @@ const MarkHome = () => {
         <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden bg-black z-10">
           {screenStream ? (
             <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-              <video
-                ref={screenVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-contain"
-              />
+              {screenStream === 'native-snapshot' ? (
+                <div className="flex flex-col items-center gap-3 text-cyan-400 font-mono text-xs select-none">
+                  <Monitor className="w-16 h-16 animate-pulse text-cyan-400" />
+                  <span className="tracking-widest">NATIVE LINUX SCREEN CAPTURE READY</span>
+                  <span className="text-white/40 text-[10px]">Klik Capture untuk menganalisis layar desktop Anda</span>
+                </div>
+              ) : (
+                <video
+                  ref={screenVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-contain"
+                />
+              )}
               {/* Top Right Mini Orb */}
               <div className="absolute top-16 right-6 pointer-events-none">
                 <JarvisOrb status={orbStatus} intensity={ttsIntensity || audioIntensity} size={80} />

@@ -14,9 +14,9 @@ name: "CodeQL Advanced"
 on:
   push:
     # Audit 2026-09: branch "5.5.0" sudah tidak ada — trigger mati dihapus.
-    branches: [ "linux" ]
+    branches: [ "main", "linux" ]
   pull_request:
-    branches: [ "linux" ]
+    branches: [ "main", "linux" ]
   schedule:
     - cron: '38 3 * * 0'
 
