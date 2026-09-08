@@ -143,12 +143,12 @@ export default function JarvisOrb({
     let cloudZ = 0
     let cloudZVel = 0
 
-    const clock = new THREE.Clock()
+    const startTime = performance.now()
 
     function animate() {
       if (destroyed) return
       requestAnimationFrame(animate)
-      const t = clock.getElapsedTime()
+      const t = (performance.now() - startTime) * 0.001
       const currentState = stateRef.current || 'idle'
       const curIntensity = intensityRef.current || 0
 

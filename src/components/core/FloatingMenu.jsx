@@ -38,16 +38,17 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
   }
 
   return (
-    <div className="fixed top-8 left-8 z-50" ref={menuRef}>
+    <div className="fixed top-2.5 left-4 z-50" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-12 h-12 btn btn-outline bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] flex items-center justify-center transition-all shadow-lg hover:shadow-[0_0_15px_oklch(var(--su)/0.3)] ${isOpen ? 'text-white border-success/50' : 'text-white/70 hover:text-white hover:border-white/20'}`}
+        className={`w-9 h-9 rounded-xl btn-ghost bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center transition-all shadow-md hover:bg-white/10 ${isOpen ? 'text-white border-primary/50' : 'text-white/70 hover:text-white'}`}
+        title="Menu Navigasi"
       >
-        <FaBars size={20} />
+        <FaBars size={15} />
       </button>
 
       {isOpen && (
-        <div className="absolute top-16 left-0 w-64 bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-sm p-2 flex flex-col gap-1 shadow-[0_8px_32px_rgba(0,0,0,0.5)] animate-[holo-enter_0.2s_ease-out_forwards]">
+        <div className="absolute top-11 left-0 w-64 bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-sm p-2 flex flex-col gap-1 shadow-[0_8px_32px_rgba(0,0,0,0.5)] animate-[holo-enter_0.2s_ease-out_forwards]">
           {/* HUD Brackets */}
           <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-white/30 pointer-events-none z-10" />
           <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-white/30 pointer-events-none z-10" />
