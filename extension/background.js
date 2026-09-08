@@ -1,4 +1,4 @@
-// Mark Browser Bridge — service worker (MV3).
+// Mark Browser Bridge - service worker (MV3).
 /* global chrome */
 //
 // Loop:
@@ -8,7 +8,7 @@
 //
 // Token dibaca user dari file token sidecar (~/.local/share/mark/
 // browser-bridge-token) dan ditempel lewat popup ekstensi. Disimpan di
-// chrome.storage.session (hilang saat browser mati — tepat untuk token
+// chrome.storage.session (hilang saat browser mati - tepat untuk token
 // proses-lokal). Tanpa telemetri; trafik hanya ke 127.0.0.1.
 
 const DEFAULT_PORT = 49712
@@ -70,9 +70,15 @@ async function loop() {
         }
       )
       if (res.status === 401) {
-        // Token berubah (restart sidecar). Coba refresh senyap via helper
-        // lokal dulu; hanya berhenti bila helper juga tidak bisa.
-        const fresh = await getTokenViaNativeHost()
+        // Token berubah (restart sidecar). Coba refresh senyap via helper lokal
+        let fresh = await getTokenViaNativeHost()
+        if (fresh.token) {
+          cfg.token = fresh.token
+          await chrome.storage.session.set({ token: fresh.token, lastError: null })
+          continue
+        }
+        await sleep(2000)
+        fresh = await getTokenViaNativeHost()
         if (fresh.token) {
           cfg.token = fresh.token
           await chrome.storage.session.set({ token: fresh.token, lastError: null })
@@ -80,8 +86,9 @@ async function loop() {
         }
         running = false
         await chrome.storage.session.set({
-          lastError: `Token ditolak (401). Helper: ${fresh.detail || 'tidak ada'}. Klik Sambungkan di popup (atau tempel token manual).`
+          lastError: `Token ditolak (401). Helper: ${fresh.detail || 'tidak ada'}. Mencoba auto-reconnect berkala...`
         })
+        scheduleAutoResume(5000)
         break
       }
       const { command } = await res.json()
@@ -288,7 +295,7 @@ async function ensureGroup(sessionId, task, status, autoClose = false, anchorTab
   const color = colorForIndex(colorIdx)
 
   // Task berganti: grup lama langsung ditandai selesai (tidak menunggu /
-  // tidak mengantre — spawn grup baru tidak diblokir teardown grup lama).
+  // tidak mengantre - spawn grup baru tidak diblokir teardown grup lama).
   const prev = activeGroups[sessionId]
   if (prev && prev.taskId !== task) {
     await markGroupDone(prev.groupId, prev.taskId)
@@ -317,10 +324,10 @@ async function ensureGroup(sessionId, task, status, autoClose = false, anchorTab
   }
 
   // BUGFIX (audit 2026-09): implementasi lama memfilter
-  // g.windowId === chrome.windows.WINDOW_ID_CURRENT — konstanta itu (-2) bukan
+  // g.windowId === chrome.windows.WINDOW_ID_CURRENT - konstanta itu (-2) bukan
   // ID window nyata, sehingga grup lama TIDAK PERNAH ditemukan dan setiap
   // perintah group-session membuat grup baru (menumpuk tanpa batas).
-  // Grup dibuat DARI TAB TASK (anchor), bukan tab aktif — grouping tab aktif
+  // Grup dibuat DARI TAB TASK (anchor), bukan tab aktif - grouping tab aktif
   // adalah akar 7 tab yatim (tab aktif = halaman chrome:// yang tak bisa di-grup).
   if (anchorTabId != null) {
     groupId = await chrome.tabs.group({ tabIds: [anchorTabId] })
@@ -406,7 +413,7 @@ async function closeActiveGroupTabs(sessionId) {
 
 // Masukkan tab ke grup sesi (format judul ikut status). Dipakai navigate
 // agar setiap tab yang dibuka Mark langsung ber-grup. Error DILEMPAR ke
-// caller (dilaporkan di hasil, bukan ditelan) — pelajaran 7 tab yatim.
+// caller (dilaporkan di hasil, bukan ditelan) - pelajaran 7 tab yatim.
 async function groupTabIntoSession(sessionId, tabId, task, status = 'acting') {
   const label = task || sessionTask[sessionId] || 'browser'
   const groupId = await ensureGroup(sessionId, label, status, false, tabId)
@@ -518,7 +525,7 @@ async function showTab(sessionId = 'default') {
 // --------------------------------------------------------------- tagging
 // Sama dengan pola browser-agent.js era Electron: maks 80 elemen interaktif,
 // data-mark-id, teks dipendekkan.
-// PENTING: fungsi ini DI-SERIALISASI lalu dijalankan di konteks halaman —
+// PENTING: fungsi ini DI-SERIALISASI lalu dijalankan di konteks halaman -
 // WAJIB self-contained, tidak boleh menutup variabel dari service worker.
 function taggerFn() {
   document.querySelectorAll('[data-mark-id]').forEach((el) => el.removeAttribute('data-mark-id'))
@@ -584,9 +591,9 @@ async function readDomInTab(tabId) {
 }
 
 // ------------------------------------------------------------------ act
-// PENTING: fungsi aksi DOM di-serialisasi ke konteks halaman — self-contained,
+// PENTING: fungsi aksi DOM di-serialisasi ke konteks halaman - self-contained,
 // state dikirim lewat `args`. Aksi yang butuh API ekstensi (chrome.scripting,
-// chrome.tabs, chrome.downloads) TIDAK BOLEH ditaruh di sini — tangani di
+// chrome.tabs, chrome.downloads) TIDAK BOLEH ditaruh di sini - tangani di
 // fungsi act() pada konteks service worker (lihat bawah).
 async function actionFn({ markId, action, value }) {
   const el = markId ? document.querySelector(`[data-mark-id="${markId}"]`) : null
@@ -921,7 +928,7 @@ async function act({ markId, action, value }, sessionId = 'default') {
       // host_permissions http/https (manifest 0.1.1) membuat ini jalan tanpa gesture.
       const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
       if (!dataUrl) return { ok: false, error: 'captureVisibleTab mengembalikan data kosong.' }
-      // Kembalikan sebagai hasil perintah — loop bridge POST /result membawanya
+      // Kembalikan sebagai hasil perintah - loop bridge POST /result membawanya
       // ke sidecar (jalur balik yang memang ada; bukan sendMessage tanpa listener).
       return { ok: true, data: dataUrl }
     } catch (e) {
@@ -1003,7 +1010,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           return
         }
         // Rotasi refresh-on-use: server menitipkan token baru di handshake.
-        // Tukar diam-diam + simpan persisten — tanpa tempel ulang selamanya.
+        // Tukar diam-diam + simpan persisten - tanpa tempel ulang selamanya.
         if (hs.body?.newToken) {
           cfg.token = hs.body.newToken
           try {
@@ -1072,6 +1079,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true // async response
 })
 
+let resumeTimeout = null
+
+function scheduleAutoResume(delayMs = 5000) {
+  if (running) return
+  if (resumeTimeout) clearTimeout(resumeTimeout)
+  resumeTimeout = setTimeout(() => {
+    tryAutoResume()
+  }, delayMs)
+}
+
 async function tryAutoResume() {
   if (running) return
   await loadSessionState()
@@ -1106,13 +1123,27 @@ async function tryAutoResume() {
           } catch {}
         }
         running = true
+        await chrome.storage.session.set({ lastError: null })
         console.log(`[Mark] auto-resume service worker aktif (session: ${cfg.session}, port: ${cfg.port}).`)
         loop()
+        return
       }
     } catch {
       /* sidecar belum aktif / unreachable */
     }
   }
+
+  // Jika belum tersambung, jadwalkan percobaan ulang berkala selama browser aktif
+  scheduleAutoResume(5000)
+}
+
+if (typeof chrome !== 'undefined' && chrome.alarms) {
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'mark-bridge-keepalive') {
+      tryAutoResume()
+    }
+  })
+  chrome.alarms.create('mark-bridge-keepalive', { periodInMinutes: 1 })
 }
 
 chrome.runtime.onStartup.addListener(() => {

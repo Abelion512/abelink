@@ -40,7 +40,7 @@ function writeWasmBroken() {
 
 if (readWasmBroken() && !isLiteMode) {
   // Mode penuh (pilihan user, 1x saat boot): coba nyata tiap boot, degradasi
-  // per-sesi bila gagal — jangan kunci Lite dari flag persisten.
+  // per-sesi bila gagal - jangan kunci Lite dari flag persisten.
   let fullMode = null
   try {
     fullMode = typeof localStorage !== 'undefined' ? localStorage.getItem('mark:fullmode') : null
@@ -48,7 +48,7 @@ if (readWasmBroken() && !isLiteMode) {
   if (fullMode !== '1') {
     isLiteMode = true
     liteAutoNotified = true
-    console.info('[EmbeddingWorker] Lite Mode (hash embedding) — WASM tercatat rusak di boot sebelumnya.')
+    console.info('[EmbeddingWorker] Lite Mode (hash embedding) - WASM tercatat rusak di boot sebelumnya.')
   }
 }
 
@@ -63,11 +63,11 @@ function emitLiteAuto() {
 }
 
 // Tauri on Linux/WebKitGTK: WASM SIMD berpeluang tidak tersedia via sandbox.
-// TIDAK lagi memaksa Lite Mode dari sini — worker punya fallback ladder
+// TIDAK lagi memaksa Lite Mode dari sini - worker punya fallback ladder
 // SIMD -> wasm scalar -> CPU (korpus embedding tetap nyata, bukan hash).
 // Lite Mode hanya aktif bila SEMUA attempt gagal (auto-detect di onmessage).
 if (isTauriEnvironment) {
-  console.log('[EmbeddingWorker] Tauri environment — init worker dengan fallback ladder.')
+  console.log('[EmbeddingWorker] Tauri environment - init worker dengan fallback ladder.')
 }
 
 function getWorker() {
@@ -94,7 +94,7 @@ function getWorker() {
           } else {
             // Setelah Lite Mode pernah AKTIF, semua embed/init berikutnya akan
             // gagal berulang kali karena initFailed flag di worker. Jangan
-            // log warning berulang kali — cukup resolve null agar caller
+            // log warning berulang kali - cukup resolve null agar caller
             // langsung pakai hash embedding.
             if (!isLiteMode) {
               if (/SIMD|no available backend|Unsupported device|Extractor init failed|init gagal|Lite Mode|tidak didukung/i.test(String(error))) {
