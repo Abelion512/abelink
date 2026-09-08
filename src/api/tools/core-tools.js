@@ -11,7 +11,7 @@ export const core_tools = {
   "grep-search": "Mencari kata kunci/teks kode dalam seluruh file di folder. Query: path_folder||keyword.",
   "file-outline": "Lihat peta/struktur file (fungsi, class, ekspor, heading) beserta nomor baris tanpa membaca seluruh isi. Query: path_absolut.",
   "read-document": "Membaca & mencari isi dokumen teks/PDF/DOCX. Panggil tanpa query untuk Smart Overview, atau gunakan kata kunci (path||keyword) atau baris (path||startLine||endLine).",
-  "read-skill": "WAJIB dipanggil jika permintaan user berkaitan dengan salah satu kemampuan di daftar MARK SKILLS. Membaca file pedoman skill untuk memuat instruksi dan workflow khusus sebelum mengeksekusi aksi. Query: nama_skill (misal: \"speedrunner\", \"git-commit\").",
+  "read-skill": "WAJIB dipanggil jika permintaan user berkaitan dengan salah satu kemampuan di daftar ABELINK SKILLS. Membaca file pedoman skill untuk memuat instruksi dan workflow khusus sebelum mengeksekusi aksi. Query: nama_skill (misal: \"speedrunner\", \"git-commit\").",
   "browser-navigate": "Buka URL di browser companion (Chrome/Chromium). Mengembalikan judul halaman, URL aktif, dan daftar elemen interaktif bernomor ID (mk1, mk2...). Query: URL lengkap (misal: https://www.tradingview.com).",
   "browser-read": "Scan ulang isi DOM & daftar elemen interaktif halaman aktif saat ini. Query: kosongkan atau URL.",
   "browser-ask": "Meminta bantuan pengguna untuk berinteraksi manual langsung di tab browser (misal: login akun Google/TradingView, memecahkan captcha/Cloudflare, verifikasi 2FA). Query: alasan bantuan.",

@@ -114,22 +114,36 @@ extension/tmp-*
 .history/
 
 # ─────────────────────────────────────────────────────────────────
-# Documentation — internal planning, not for open source
+# Heavy media & binary assets (private repo policy: avoid bloated git history)
 # ─────────────────────────────────────────────────────────────────
-/audit/
-/docs/PLANNED/
-/docs/superpowers/
-/docs/.screenshoots/
-/docs/sessions/
-docs/DRIFT_MANIFEST.md
-PARITY-AUDIT-FINAL.md
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.flv
+*.wmv
+*.iso
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.rar
 
-# Agent session logs & scratch — internal only, never push to public repo
+# Model weights and raw binary dumps
+*.safetensors
+*.gguf
+*.onnx
+*.bin
+
+# Allow tracked assets
+!assets/**
+!src/assets/**
+!resources/**
+
+# ─────────────────────────────────────────────────────────────────
+# Local agent scratch & temporary state
+# ─────────────────────────────────────────────────────────────────
 /tasks/
-
-# ─────────────────────────────────────────────────────────────────
-# Tests
-# `/tests/stability/` is local-only; `stress-harness/` is tracked
-# (run via `bun run test:harness` & CI).
-# ─────────────────────────────────────────────────────────────────
 /tests/stability/
+

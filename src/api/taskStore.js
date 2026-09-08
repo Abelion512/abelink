@@ -67,7 +67,7 @@ export async function createAgentTask(input = {}) {
   }))
   const task = {
     id: taskId,
-    title: input.title || 'MARK Task',
+    title: input.title || 'Abelink Task',
     objective: input.objective || '',
     mode: input.mode || 'durable',
     status: input.status || (steps.length ? 'pending' : 'failed'),

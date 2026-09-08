@@ -20,6 +20,7 @@ import {
   Camera,
   Monitor,
   StopCircle,
+  Square,
   Send,
   Maximize2,
   Sparkles,
@@ -171,6 +172,10 @@ const MarkHome = () => {
   const [camError, setCamError] = useState(null)
   const [screenStream, setScreenStream] = useState(null)
   const [screenError, setScreenError] = useState(null)
+  const [liveScreenFrame, setLiveScreenFrame] = useState(null)
+  const liveMirrorIntervalRef = useRef(null)
+  const isScreenStreamingRef = useRef(false)
+  const isCapturingTickRef = useRef(false)
 
   useEffect(() => {
     db.sessions
@@ -248,9 +253,61 @@ const MarkHome = () => {
     }
   }, [])
 
+  // ── Stop Screen Share helper ────────────────────────────────────────────
+  const handleStopScreenShare = useCallback(() => {
+    isScreenStreamingRef.current = false
+    if (liveMirrorIntervalRef.current) {
+      clearInterval(liveMirrorIntervalRef.current)
+      liveMirrorIntervalRef.current = null
+    }
+    if (screenStream && typeof screenStream !== 'string') {
+      try {
+        screenStream.getTracks().forEach((t) => t.stop())
+      } catch (_) {}
+    }
+    setScreenStream(null)
+    setLiveScreenFrame(null)
+  }, [screenStream])
+
+  // ── Continuous Live Desktop Mirror Loop ──────────────────────────────────
+  const startLiveMirrorLoop = useCallback(() => {
+    isScreenStreamingRef.current = true
+    if (liveMirrorIntervalRef.current) {
+      clearInterval(liveMirrorIntervalRef.current)
+    }
+
+    const fetchFrame = async () => {
+      if (!isScreenStreamingRef.current || isCapturingTickRef.current) return
+      isCapturingTickRef.current = true
+      try {
+        if (window.api?.takeScreenshot) {
+          const res = await window.api.takeScreenshot()
+          if (res && isScreenStreamingRef.current) {
+            const frameUrl =
+              typeof res === 'string'
+                ? res
+                : res?.base64
+                ? `data:image/png;base64,${res.base64}`
+                : null
+            if (frameUrl) {
+              setLiveScreenFrame(frameUrl)
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[ScreenLive] Frame capture error:', e)
+      } finally {
+        isCapturingTickRef.current = false
+      }
+    }
+
+    fetchFrame()
+    liveMirrorIntervalRef.current = setInterval(fetchFrame, 180)
+  }, [])
+
   // ── Screen capture helper ───────────────────────────────────────────────
   const captureScreenFrame = useCallback(async () => {
-    if (screenVideoRef.current && screenStream) {
+    if (screenStream instanceof MediaStream && screenVideoRef.current) {
       try {
         const video = screenVideoRef.current
         const canvas = document.createElement('canvas')
@@ -263,14 +320,18 @@ const MarkHome = () => {
         console.warn('[Screen] Canvas capture error:', e)
       }
     }
+    if (liveScreenFrame) {
+      return liveScreenFrame
+    }
     if (window.api?.takeScreenshot) {
       try {
         const res = await window.api.takeScreenshot()
+        if (typeof res === 'string') return res
         if (res?.base64) return `data:image/png;base64,${res.base64}`
       } catch (_) {}
     }
     return null
-  }, [screenStream])
+  }, [screenStream, liveScreenFrame])
 
   // ── Unified Voice Transcript Handler ────────────────────────────────────
   const handleVoiceTranscript = useCallback(
@@ -349,19 +410,14 @@ const MarkHome = () => {
         screenVideoRef.current.srcObject = stream
       }
       stream.getVideoTracks()[0].onended = () => {
-        setScreenStream(null)
+        handleStopScreenShare()
       }
     } catch (err) {
-      if (err.name === 'OverconstrainedError' || err.message?.includes('Invalid constraint')) {
-        // Fallback anggun: gunakan native screenshot jika xdg-desktop-portal WebKitGTK tidak merespon
-        if (window.api?.takeScreenshot) {
-          const res = await window.api.takeScreenshot().catch(() => null)
-          if (res?.base64) {
-            setScreenStream('native-snapshot')
-            return
-          }
-        }
-        setScreenError('Desktop screencast PipeWire belum aktif. Abelink akan menggunakan native capture saat snap.')
+      console.warn('[Screen] getDisplayMedia error, activating Live Desktop Mirror:', err)
+      // Fallback ke Continuous Live Desktop Mirror via native screenshot loop
+      if (window.api?.takeScreenshot) {
+        setScreenStream('live-mirror')
+        startLiveMirrorLoop()
       } else if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
         setScreenError(null)
       } else {
@@ -369,6 +425,20 @@ const MarkHome = () => {
       }
     }
   }
+
+  // ── Mode Cleanup for Screen Stream ──────────────────────────────────────
+  useEffect(() => {
+    if (currentMode !== 'screen') {
+      if (screenStream) {
+        handleStopScreenShare()
+      }
+    }
+    return () => {
+      if (liveMirrorIntervalRef.current) {
+        clearInterval(liveMirrorIntervalRef.current)
+      }
+    }
+  }, [currentMode, screenStream, handleStopScreenShare])
 
   // Auto-start VAD mic bila URL param trigger
   const hasAutoStartedRef = useRef(false)
@@ -548,19 +618,6 @@ const MarkHome = () => {
       {/* Center: Floating 4-Mode Switcher Capsule */}
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center bg-black/60 backdrop-blur-2xl border border-white/10 p-1 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.6)] gap-1 shrink-0 pointer-events-auto">
         <button
-          onClick={() => handleModeChange('voice')}
-          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-            currentMode === 'voice'
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
-              : 'text-white/60 hover:text-white hover:bg-white/5'
-          }`}
-          title="Jarvis Voice Mode (Hands-free Voice Dialogue)"
-        >
-          <Mic className="w-3.5 h-3.5" />
-          <span>Voice</span>
-        </button>
-
-        <button
           onClick={() => handleModeChange('chat')}
           className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
             currentMode === 'chat'
@@ -571,6 +628,19 @@ const MarkHome = () => {
         >
           <MessageSquare className="w-3.5 h-3.5" />
           <span>Chat</span>
+        </button>
+
+        <button
+          onClick={() => handleModeChange('voice')}
+          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+            currentMode === 'voice'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
+              : 'text-white/60 hover:text-white hover:bg-white/5'
+          }`}
+          title="Jarvis Voice Mode (Hands-free Voice Dialogue)"
+        >
+          <Mic className="w-3.5 h-3.5" />
+          <span>Voice</span>
         </button>
 
         <button
@@ -641,45 +711,63 @@ const MarkHome = () => {
               />
             )}
 
-            {/* Minimalist Jarvis Status Typography */}
-            <div className="flex flex-col items-center gap-1 mt-4 select-none pointer-events-none">
-              <span className="font-mono text-xs tracking-widest text-cyan-400/90 animate-pulse">
-                {isRecording
-                  ? 'listening...'
-                  : isProcessing
-                  ? 'thinking...'
-                  : window.isMarkSpeaking
-                  ? 'speaking...'
-                  : 'standby'}
-              </span>
-              <span className="font-mono text-[9px] tracking-[0.35em] text-cyan-500/50 uppercase">
-                ABELINK
-              </span>
-            </div>
-
-            {/* Subtle Carousel Dots Indicator */}
-            <div className="flex items-center gap-1.5 mt-3 opacity-30 hover:opacity-80 transition-opacity">
-              <span
-                className={`h-1.5 rounded-full transition-all ${
-                  orbStyle === 'jarvis' ? 'bg-cyan-400 w-3.5' : 'bg-white/40 w-1.5'
-                }`}
-              />
-              <span
-                className={`h-1.5 rounded-full transition-all ${
-                  orbStyle === 'mark' ? 'bg-cyan-400 w-3.5' : 'bg-white/40 w-1.5'
-                }`}
-              />
-            </div>
           </div>
 
-          {/* Bottom Left Minimal Audio Level Meter */}
-          <div className="fixed bottom-6 left-6 z-20 flex items-center gap-2 pointer-events-none opacity-60">
-            <div className="w-16 h-0.5 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-cyan-400 transition-all duration-75"
-                style={{ width: `${Math.min(100, Math.max(8, audioIntensity * 100))}%` }}
-              />
+          {/* Bottom Dock Melayang: Audio Meter di Kiri, Status & Orb Dots di Tengah */}
+          <div className="fixed bottom-6 inset-x-0 z-20 flex items-center justify-between px-8 pointer-events-none">
+            {/* Kiri: Minimal Audio Level Meter */}
+            <div className="flex items-center gap-2 opacity-60 pointer-events-auto">
+              <div className="w-16 h-0.5 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-cyan-400 transition-all duration-75"
+                  style={{ width: `${Math.min(100, Math.max(8, audioIntensity * 100))}%` }}
+                />
+              </div>
             </div>
+
+            {/* Tengah: Status Typography & Subtle Carousel Dots Indicator */}
+            <div className="flex flex-col items-center gap-1.5 pointer-events-auto select-none">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs tracking-widest text-cyan-400/90 animate-pulse">
+                  {isRecording
+                    ? 'listening...'
+                    : isProcessing
+                    ? 'thinking...'
+                    : window.isMarkSpeaking
+                    ? 'speaking...'
+                    : 'standby'}
+                </span>
+                <span className="text-white/20">/</span>
+                <span className="font-mono text-[9px] tracking-[0.35em] text-cyan-500/50 uppercase">
+                  ABELINK
+                </span>
+              </div>
+              <div
+                className="flex items-center gap-1.5 cursor-pointer opacity-40 hover:opacity-100 transition-opacity"
+                onClick={() => {
+                  const nextStyle = orbStyle === 'jarvis' ? 'mark' : 'jarvis'
+                  setOrbStyle(nextStyle)
+                  try {
+                    localStorage.setItem('mark:orb_style', nextStyle)
+                  } catch (_) {}
+                }}
+                title="Klik untuk beralih gaya Orb"
+              >
+                <span
+                  className={`h-1 rounded-full transition-all ${
+                    orbStyle === 'jarvis' ? 'bg-cyan-400 w-3.5' : 'bg-white/40 w-1'
+                  }`}
+                />
+                <span
+                  className={`h-1 rounded-full transition-all ${
+                    orbStyle === 'mark' ? 'bg-cyan-400 w-3.5' : 'bg-white/40 w-1'
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* Kanan: Spacer penyeimbang */}
+            <div className="w-16 opacity-0" />
           </div>
 
           {/* Rich Data Telemetry Card: HANYA tampil jika ada data terstruktur */}
@@ -830,65 +918,98 @@ const MarkHome = () => {
         </div>
       )}
 
-      {/* ── MODE 4: SCREEN SHARE MODE ────────────────────────────────────────── */}
+      {/* ── MODE 4: SCREEN SHARE MODE (LIVE STREAM LIKE GOOGLE MEET / ZOOM) ── */}
       {currentMode === 'screen' && (
         <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden bg-black z-10">
           {screenStream ? (
-            <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-              {screenStream === 'native-snapshot' ? (
-                <div className="flex flex-col items-center gap-3 text-cyan-400 font-mono text-xs select-none">
-                  <Monitor className="w-16 h-16 animate-pulse text-cyan-400" />
-                  <span className="tracking-widest">NATIVE LINUX SCREEN CAPTURE READY</span>
-                  <span className="text-white/40 text-[10px]">Klik Capture untuk menganalisis layar desktop Anda</span>
+            <div className="relative w-full h-full flex items-center justify-center bg-black/95 p-4 pt-16 pb-16">
+              {/* Top Floating Control Bar ala Google Meet / Zoom */}
+              <div className="absolute top-4 left-6 right-6 flex items-center justify-between pointer-events-auto z-30 select-none">
+                <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-black/80 backdrop-blur-2xl border border-white/10 text-xs font-mono shadow-2xl">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                  <span className="text-red-400 font-bold tracking-wider">LIVE SCREEN</span>
+                  <span className="text-white/30">|</span>
+                  <span className="text-white/70 text-[11px]">
+                    {screenStream === 'live-mirror' ? 'Desktop Mirror (Continuous Stream)' : 'WebRTC ScreenCast'}
+                  </span>
                 </div>
-              ) : (
-                <video
-                  ref={screenVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-contain"
-                />
-              )}
-              {/* Top Right Mini Orb */}
-              <div className="absolute top-16 right-6 pointer-events-none">
+
+                <button
+                  type="button"
+                  onClick={handleStopScreenShare}
+                  className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-red-200 border border-red-500/40 text-xs font-semibold backdrop-blur-2xl transition-all shadow-lg shadow-red-950/40"
+                  title="Hentikan berbagi layar"
+                >
+                  <Square className="w-3 h-3 fill-current" />
+                  <span>Hentikan Share</span>
+                </button>
+              </div>
+
+              {/* Main Live Viewport Screen Stream */}
+              <div className="relative w-full h-full max-w-7xl max-h-[82vh] flex items-center justify-center rounded-2xl overflow-hidden border border-purple-500/20 bg-black/60 shadow-[0_0_50px_rgba(168,85,247,0.15)]">
+                {screenStream === 'live-mirror' ? (
+                  liveScreenFrame ? (
+                    <img
+                      src={liveScreenFrame}
+                      alt="Live Screen Stream"
+                      className="w-full h-full object-contain select-none pointer-events-none"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-3 text-cyan-400 font-mono text-xs select-none">
+                      <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="tracking-widest">MEMULAI LIVE DESKTOP STREAM...</span>
+                    </div>
+                  )
+                ) : (
+                  <video
+                    ref={screenVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-contain"
+                  />
+                )}
+              </div>
+
+              {/* Top Right Floating Mini Orb */}
+              <div className="absolute top-16 right-6 pointer-events-none z-30">
                 <JarvisOrb status={orbStatus} intensity={ttsIntensity || audioIntensity} size={80} />
               </div>
 
-              {/* Bottom Snap Button */}
-              <div className="absolute bottom-6 z-20 flex items-center gap-3">
+              {/* Bottom Snap Action Button */}
+              <div className="absolute bottom-6 inset-x-0 flex items-center justify-center gap-3 pointer-events-auto z-30 select-none">
                 <button
                   type="button"
                   onClick={async () => {
                     const frame = await captureScreenFrame()
                     if (frame) {
-                      const prompt = capsuleInput.trim() || 'Analisis dan jelaskan isi tampilan layar ini.'
+                      const prompt = capsuleInput.trim() || 'Analisis dan jelaskan apa yang sedang tampil di layar ini.'
                       const fullPrompt = `${prompt}\n\n[FRAME LAYAR]: ${frame}`
                       handlePlanningCommand(fullPrompt)
                       setCapsuleInput('')
                     }
                   }}
-                  className="btn btn-sm rounded-full bg-purple-500 text-white font-semibold hover:bg-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.5)] px-6"
+                  className="btn btn-sm rounded-full bg-purple-500 hover:bg-purple-400 text-white font-semibold shadow-[0_0_25px_rgba(168,85,247,0.6)] px-6 border border-purple-300/30"
                 >
-                  Capture &amp; Ask Abelink
+                  Capture &amp; Tanya Abelink
                 </button>
               </div>
             </div>
           ) : (
             <div className="relative z-20 flex flex-col items-center gap-4 text-center p-6 select-none max-w-lg">
-              <Monitor className="w-16 h-16 text-purple-400/60 animate-bounce" />
-              <h3 className="text-lg font-bold text-white">Share Screen Desktop</h3>
-              <p className="text-xs text-white/50">
-                Bagikan jendela aplikasi atau seluruh layar monitor agar Abelink dapat membaca kode, dokumen, atau menganalisis workflow Anda.
+              <Monitor className="w-16 h-16 text-purple-400/70 animate-pulse" />
+              <h3 className="text-lg font-bold text-white tracking-wide">Live Screen Share</h3>
+              <p className="text-xs text-white/50 leading-relaxed">
+                Bagikan tampilan layar desktop Anda secara real-time layaknya Google Meet / Zoom untuk analisis kode, dokumen, atau workflow bersama Abelink.
               </p>
               <button
                 onClick={handleStartScreenShare}
-                className="btn btn-primary btn-sm rounded-full px-6 shadow-lg shadow-primary/20"
+                className="btn btn-primary btn-sm rounded-full px-7 shadow-lg shadow-primary/30"
               >
-                Pilih Layar / Jendela
+                Mulai Share Screen
               </button>
               {screenError && (
-                <p className="text-error text-xs font-mono mt-2 bg-error/10 border border-error/20 p-2 rounded-xl">
+                <p className="text-error text-xs font-mono mt-2 bg-error/10 border border-error/20 p-2.5 rounded-xl">
                   {screenError}
                 </p>
               )}

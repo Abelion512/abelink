@@ -12,6 +12,7 @@ import {
 import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
 import { GROUP_TOOLS_DEFINITION } from '../tools/group-tools'
+import { LEAD_AGENT_TAG, CREATOR_TAG } from '../../utils/messageTags'
 
 // Registry AbortController aktif per sub-agent
 const subagentAbortControllers = new Map()
@@ -64,9 +65,9 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   // Rekam pesan masuk jika ada
   if (incomingMessage) {
     const isUser = senderType === 'user'
-    const tag = isUser ? '[DARI CREATOR / USER (MADA)]:' : '[DARI LEAD AGENT (MARK)]:'
+    const tag = isUser ? CREATOR_TAG : LEAD_AGENT_TAG
     await subagentStore.addMessage(subagentId, {
-      sender: isUser ? 'user' : 'mark',
+      sender: isUser ? 'user' : 'abelink',
       role: 'user',
       content: `${tag} ${incomingMessage}`
     })

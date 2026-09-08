@@ -96,14 +96,21 @@ export const useVAD = ({
           text = await transcribeAudioGroq(trimmedAudio)
           setToastMessage('')
         } else {
-          text = await transcribeAudioLocal(trimmedAudio, (progressData) => {
-            if (progressData && progressData.progress !== undefined) {
-              setToastMessage(`Mengunduh model AI Suara... ${Math.round(progressData.progress)}%`)
-              if (progressData.progress >= 100) {
-                setTimeout(() => setToastMessage(''), 2000)
+          try {
+            text = await transcribeAudioLocal(trimmedAudio, (progressData) => {
+              if (progressData && progressData.progress !== undefined) {
+                setToastMessage(`Mengunduh model AI Suara... ${Math.round(progressData.progress)}%`)
+                if (progressData.progress >= 100) {
+                  setTimeout(() => setToastMessage(''), 2000)
+                }
               }
-            }
-          })
+            })
+          } catch (localErr) {
+            console.warn('[VAD] Local Whisper tidak tersedia, beralih ke Groq Whisper API:', localErr.message)
+            setToastMessage('Mentranskrip via Groq API...')
+            text = await transcribeAudioGroq(trimmedAudio)
+            setToastMessage('')
+          }
         }
 
         setIsProcessing(false)

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Mark Agent",
+  "productName": "Abelink",
   "version": "1.0.0-alpha.3",
-  "identifier": "mark-linux",
+  "identifier": "abelink-linux",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "MARK",
+        "title": "Abelink",
         "width": 1280,
         "height": 800,
         "minWidth": 940,
