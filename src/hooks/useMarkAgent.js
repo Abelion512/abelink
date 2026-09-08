@@ -87,7 +87,7 @@ export const useMarkAgent = () => {
     }
   })
 
-  useAwareness({
+  const awarenessReturn = useAwareness({
     isLoading,
     isAgentBusy,
     setChatData,
@@ -289,6 +289,7 @@ export const useMarkAgent = () => {
     handleStop: planHandleStop || handleStop,
     handleSubmit,
     isBooting,
-    requestCameraCaptureRef
+    requestCameraCaptureRef,
+    ...(awarenessReturn || {})
   }
 }

@@ -29,6 +29,8 @@ on('sync-config', async (config) => {
   const aiMod = await getAi()
   aiMod.setGlobalConfig(config)
   setLatestConfig(config)
+  const { setBrowserConfig } = await import('../../main/browser/bridge-core.mjs')
+  setBrowserConfig({ autoCloseTabs: !!config?.browserAutoCloseTabs })
   const tgMod = await import('../../main/telegram/telegram-service.js')
   if (
     config?.tgBotToken &&
@@ -42,11 +44,25 @@ on('sync-config', async (config) => {
 
 // ------------------------------------------------------------- Native tools
 on('native-tool:execute', async (toolName, query, config) => {
+  const { setTurnId, checkTaintGate, isTaintingTool, markTurnTainted } = await import(
+    '../../main/taint-gate.mjs'
+  )
+  if (config?.turnId) {
+    setTurnId(config.turnId)
+  }
+  const taintCheck = checkTaintGate(toolName)
+  if (taintCheck.blocked) {
+    return { success: false, error: taintCheck.error, is_tainted: true }
+  }
+
   const { NATIVE_TOOLS } = await getNt()
   const tool = NATIVE_TOOLS[toolName]
   if (!tool) return { success: false, error: 'Tool tidak ditemukan' }
   try {
     const result = await tool.handler(query, config)
+    if (result && result.success !== false && isTaintingTool(toolName)) {
+      markTurnTainted(toolName)
+    }
     return { success: true, data: result }
   } catch (err) {
     return { success: false, error: err.message }

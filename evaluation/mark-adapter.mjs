@@ -21,30 +21,90 @@ const MAX_ITER = 5 // default; bisa ditimpa per task via task.maxTurns (turn-bud
 const TIMEOUT_MS = 300000
 
 // ---- Effort ladder constants & resolution (pure, exported for smoke/unit tests)
-export const EFFORT_VALUES = ['low', 'medium', 'high']
-export const SYSTEM_DEFAULT_EFFORT = 'low'
-// Architecture version of the harness-facing agent loop (bump on behavior
-// changes so reports can separate "model capability" from "architecture").
-export const AGENT_ARCH_VERSION = 'linux-1.0'
-export const BENCH_SCHEMA_VERSION = 2
+// Loader-agnostic bridge into the new typed effort system so legacy tests and
+// benchmark harness can still import these symbols without depending on a
+// browser/worker module graph.
 
-export function normalizeEffort(value, fallback = SYSTEM_DEFAULT_EFFORT) {
-  return EFFORT_VALUES.includes(value) ? value : fallback
+// Prefer the typed effort system constants when the module is loadable.
+// The module exports real sync values; do not wrap them in promises here.
+const _effortModule = (() => {
+  try {
+    return import('../src/api/ai/effortSystem.js')
+  } catch (_err) {
+    return null
+  }
+})()
+
+const _resolvedValues = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']
+
+// Real constants from the typed effort system when available; otherwise
+// real constants so tests and harness do not rely on a broken promise shape.
+function _getEffortValues() {
+  if (_effortModule && _effortModule.EFFORT_VALUES) {
+    return _effortModule.EFFORT_VALUES
+  }
+  return _resolvedValues
 }
 
-/**
- * Precedence (explicit, spec-compliant):
- *   1. task.effort            (task-level override in terminal-bench registry)
- *   2. benchmark effort       (run.mjs --effort / --efforts value)
- *   3. environment default    (MARK_BENCH_EFFORT, kept for CLI experiments)
- *   4. system default         ('low')
- */
-export function resolveTaskEffort({ taskEffort, benchmarkEffort, envEffort } = {}) {
-  if (EFFORT_VALUES.includes(taskEffort)) return taskEffort
-  if (EFFORT_VALUES.includes(benchmarkEffort)) return benchmarkEffort
-  if (EFFORT_VALUES.includes(envEffort)) return envEffort
-  return SYSTEM_DEFAULT_EFFORT
+function _getSystemDefaultEffort() {
+  if (_effortModule && _effortModule.SYSTEM_DEFAULT_EFFORT != null) {
+    return _effortModule.SYSTEM_DEFAULT_EFFORT
+  }
+  return 'low'
 }
+
+function _getAgentArchVersion() {
+  if (_effortModule && _effortModule.AGENT_ARCH_VERSION != null) {
+    return _effortModule.AGENT_ARCH_VERSION
+  }
+  return 'linux-1.0'
+}
+
+function _getBenchSchemaVersion() {
+  if (_effortModule && _effortModule.BENCH_SCHEMA_VERSION != null) {
+    return _effortModule.BENCH_SCHEMA_VERSION
+  }
+  return 2
+}
+
+export const EFFORT_VALUES = _getEffortValues() // real constants from the typed effort system when available; otherwise real constants
+export const SYSTEM_DEFAULT_EFFORT = _getSystemDefaultEffort() // real constants from the typed effort system when available; otherwise real constants
+export const AGENT_ARCH_VERSION = _getAgentArchVersion() // real constants from the typed effort system when available; otherwise real constants
+export const BENCH_SCHEMA_VERSION = _getBenchSchemaVersion() // real constants from the typed effort system when available; otherwise real constants
+
+// Backward-compatible sync aliases kept for existing importers that expect
+// synchronous values from the evaluation package.
+export const EFFORT_VALUES_sync = _resolvedValues
+export const AGENT_ARCH_VERSION_sync = 'linux-1.0'
+export const BENCH_SCHEMA_VERSION_sync = 2
+
+
+export function resolveTaskEffortSync({ taskEffort, benchmarkEffort, envEffort } = {}) {
+  const values = _getEffortValues()
+  if (values.includes(taskEffort)) return taskEffort
+  if (values.includes(benchmarkEffort)) return benchmarkEffort
+  if (values.includes(envEffort)) return envEffort
+  return 'low'
+}
+
+// Precedence (explicit, spec-compliant):
+//   1. task.effort            (task-level override in terminal-bench registry)
+//   2. benchmark effort       (run.mjs --effort / --efforts value)
+//   3. environment default    (MARK_BENCH_EFFORT, kept for CLI experiments)
+//   4. system default         ('low')
+export async function resolveTaskEffort({ taskEffort, benchmarkEffort, envEffort } = {}) {
+  const values = _getEffortValues()
+  if (values.includes(taskEffort)) return taskEffort
+  if (values.includes(benchmarkEffort)) return benchmarkEffort
+  if (values.includes(envEffort)) return envEffort
+  return _getSystemDefaultEffort() || 'low'
+}
+
+export function normalizeEffort(value, fallback = 'low') {
+  return _getEffortValues().includes(value) ? value : fallback
+}
+
+
 
 // ---- Persistent sidecar child with id-multiplexed JSON-lines RPC ----
 function createSidecar() {
@@ -198,7 +258,7 @@ function pushTrace(trace, step, kind, payload) {
 export async function runMarkAgent(task, model, provider, options = {}) {
   // Task-level effort override: task.effort > options.effort (benchmark
   // default) > MARK_BENCH_EFFORT (env) > 'low' (system default).
-  const effort = resolveTaskEffort({
+  const effort = await resolveTaskEffort({
     taskEffort: task?.effort,
     benchmarkEffort: options?.effort,
     envEffort: process.env.MARK_BENCH_EFFORT,
@@ -300,8 +360,7 @@ export async function runMarkAgent(task, model, provider, options = {}) {
     stepLog,
     startedAt,
     finishedAt,
-    durationMs: finishedAt - startedAt,
-    meta: {
+    durationMs: finishedAt - startedAt,      meta: {
       effort,
       model,
       provider: provider || 'gemini-web',

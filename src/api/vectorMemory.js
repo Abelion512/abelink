@@ -19,6 +19,39 @@ let liteAutoNotified = false
 let isTauriEnvironment =
   typeof window !== 'undefined' && typeof window.__TAURI_INTEGRATION__ !== 'undefined'
 
+// Flag persisten: WASM pernah terbukti rusak di webview ini -> boot
+// berikutnya langsung Lite Mode tanpa mencoba (tanpa error merah berulang).
+// Ditulis SEKALI saat auto-Lite aktif; dibaca SEKALI saat modul dimuat.
+const WASM_BROKEN_KEY = 'mark:wasm-broken'
+
+function readWasmBroken() {
+  try {
+    return typeof localStorage !== 'undefined' && localStorage.getItem(WASM_BROKEN_KEY) === '1'
+  } catch (_) {
+    return false
+  }
+}
+
+function writeWasmBroken() {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(WASM_BROKEN_KEY, '1')
+  } catch (_) {}
+}
+
+if (readWasmBroken() && !isLiteMode) {
+  // Mode penuh (pilihan user, 1x saat boot): coba nyata tiap boot, degradasi
+  // per-sesi bila gagal — jangan kunci Lite dari flag persisten.
+  let fullMode = null
+  try {
+    fullMode = typeof localStorage !== 'undefined' ? localStorage.getItem('mark:fullmode') : null
+  } catch (_) {}
+  if (fullMode !== '1') {
+    isLiteMode = true
+    liteAutoNotified = true
+    console.info('[EmbeddingWorker] Lite Mode (hash embedding) — WASM tercatat rusak di boot sebelumnya.')
+  }
+}
+
 function emitLiteAuto() {
   if (liteAutoNotified) return
   liteAutoNotified = true
@@ -64,18 +97,18 @@ function getWorker() {
             // log warning berulang kali — cukup resolve null agar caller
             // langsung pakai hash embedding.
             if (!isLiteMode) {
-              console.warn('[EmbeddingWorker] Worker task error:', error)
-              // Semua device gagal (worker sudah coba SIMD -> wasm scalar -> CPU)
-              // -> auto Lite Mode (hash embedding) sebagai last resort.
-              if (/SIMD|no available backend|Unsupported device|Extractor init failed|init gagal/i.test(String(error))) {
+              if (/SIMD|no available backend|Unsupported device|Extractor init failed|init gagal|Lite Mode|tidak didukung/i.test(String(error))) {
                 isLiteMode = true
+                writeWasmBroken()
                 const isFirstNotice = !liteAutoNotified
                 emitLiteAuto()
                 if (isFirstNotice) {
-                  console.warn(
-                    '[EmbeddingWorker] Auto Lite Mode AKTIF (hash embedding fallback) - pesan ini cukup sekali.'
+                  console.info(
+                    '[EmbeddingWorker] Auto Lite Mode AKTIF (hash embedding fallback).'
                   )
                 }
+              } else {
+                console.warn('[EmbeddingWorker] Worker task error:', error)
               }
             }
             resolve(null)

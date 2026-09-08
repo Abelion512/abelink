@@ -1,6 +1,7 @@
 import { getAllConfig } from '../db'
 import { jsonrepair } from 'jsonrepair'
-import { resolveEffortLevel } from './effortEstimator'
+import { resolveEffortLevel, SYSTEM_DEFAULT_EFFORT } from './effortEstimator'
+import { EffortLevel, resolve_effort } from './effortSystem'
 
 export const fetchAI = async (
   messages,
@@ -39,6 +40,24 @@ export const fetchAI = async (
   conf.effortLevel = effortDecision.effort
   if (effortDecision.auto && typeof console !== 'undefined') {
     console.info(`[effort-auto] ${effortDecision.transparent}`)
+  }
+
+  // Proactive effort metadata attached to the fetch context for observability.
+  // This does not change canonical policy; it is read-only metadata flowing into
+  // sidecar/observer hooks and trajectory logs.
+  if (effortDecision.effort && EffortLevel[effortDecision.effort.toUpperCase()]) {
+    const canonical = resolve_effort(EffortLevel[effortDecision.effort.toUpperCase()])
+    conf.__effortMetadata = {
+      requested: effortDecision.effort,
+      canonical: canonical.policy.level.value,
+      policyLikes: {
+        reasoning_score: canonical.policy.reasoning_score,
+        planning_score: canonical.policy.planning_score,
+        verification_score: canonical.policy.verification_score,
+        reflection_score: canonical.policy.reflection_score,
+        workflow_score: canonical.policy.workflow_score,
+      },
+    }
   }
 
   return new Promise((resolve, reject) => {
@@ -108,14 +127,6 @@ export const cleanAndParse = (rawResponse) => {
     // Strip dulu agar brace-extraction tidak nyasar ke isi reasoning.
     if (typeof rawResponse === 'string') {
       rawResponse = rawResponse.replace(/<think>[\s\S]*?<\/think>/gi, '').trim() || rawResponse
-    }
-
-    // Kutip melengkung (curly quotes) dari model kecil/Cina bikin JSON.parse gagal;
-    // normalisasi sebelum ekstraksi. Karakter ini tidak pernah valid di JSON murni.
-    if (typeof rawResponse === 'string') {
-      rawResponse = rawResponse
-        .replace(/[\u201C\u201D\u2018\u2019]/g, '"')
-        .replace(/[\uFF02\u300C\u300D]/g, '"')
     }
 
     // If it's already an object
@@ -213,6 +224,15 @@ export const cleanAndParse = (rawResponse) => {
       return JSON.parse(repaired)
     } catch (_) {}
 
+    // Fallback khusus bila model menggunakan kutip melengkung (curly quotes) sebagai delimiter JSON
+    try {
+      const normalizedQuotes = cleaned
+        .replace(/[\u201C\u201D\u2018\u2019]/g, '"')
+        .replace(/[\uFF02\u300C\u300D]/g, '"')
+      const repaired2 = jsonrepair(normalizedQuotes)
+      return JSON.parse(repaired2)
+    } catch (_) {}
+
     return null
   } catch (error) {
     console.error('Gagal Parse JSON:', error)
@@ -231,12 +251,34 @@ export const cleanAndParse = (rawResponse) => {
 // agar jawaban model tidak dibuang cuma karena formatnya rusak.
 export const extractLenientField = (raw, field) => {
   if (!raw || typeof raw !== 'string') return null
-  const re = new RegExp(`"${field}\\s*"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'm')
-  const m = raw.match(re)
-  if (!m) return null
-  try {
-    return JSON.parse(`"${m[1]}"`)
-  } catch {
-    return m[1]
+  // 1. Coba regex standar yang menangkap escaped quotes dan ditutup dengan pemisah valid (koma, kurung kurawal, komentar, atau akhir)
+  const standardRe = new RegExp(`"${field}\\s*"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"\\s*(?:,|\\}|\\]|\\/\\/|$)`, 'm')
+  const m = raw.match(standardRe)
+  if (m && m[1]) {
+    try {
+      return JSON.parse(`"${m[1]}"`)
+    } catch {
+      return m[1]
+    }
   }
+
+  // 2. Jaring kedua: jika string mengandung kutip unescaped (misal '8.7"'),
+  // cocokkan sampai kutip penutup field sebelum koma field berikutnya atau kurung kurawal penutup
+  const fallbackRe = new RegExp(
+    `"${field}"\\s*:\\s*"([\\s\\S]*?)"(?:\\s*,\\s*"[a-zA-Z0-9_]+"\\s*:|\\s*\\}\\s*$)`
+  )
+  const m2 = raw.match(fallbackRe)
+  if (m2 && m2[1]) {
+    try {
+      return JSON.parse(`"${m2[1]}"`)
+    } catch {
+      return m2[1]
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\"/g, '"')
+    }
+  }
+
+  return null
 }

@@ -4,6 +4,8 @@ mod cmd_fs;
 mod cmd_harness;
 mod cmd_misc;
 mod cmd_node_bridge;
+mod mission_scope;
+mod watchdog;
 #[path = "commands/tools/shell.rs"]
 mod commands_tools_shell;
 #[path = "commands/tools/git.rs"]
@@ -217,12 +219,17 @@ pub fn run() {
             cmd_misc::misc_stat_path,
             cmd_misc::misc_open_directory_dialog,
             cmd_misc::misc_take_screenshot,
+            cmd_misc::misc_read_file_base64,
             cmd_misc::misc_native_confirm,
             cmd_misc::misc_fetch_web_resource,
+            cmd_misc::misc_ensure_extension_files,
             approval_policy::approval_policy_get,
             approval_policy::approval_policy_set,
             approval_policy::approval_policy_reset_session,
             approval_policy::approval_policy_grant_session,
+            mission_scope::mission_scope_set,
+            mission_scope::mission_scope_clear,
+            mission_scope::mission_scope_get,
             commands_tools_shell::tools_run_shell,
             commands_tools_git::git_status,
             commands_tools_git::git_diff,

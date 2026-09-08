@@ -45,11 +45,11 @@ const SentientCyberEyes = ({
       {/* SVG Container untuk Mata Digital Holografik */}
       <svg
         viewBox="0 0 120 60"
-        className="w-full h-full drop-shadow-[0_0_16px_currentColor]"
+        className="w-full h-full overflow-visible drop-shadow-[0_0_16px_currentColor]"
         style={{ color: colorHex }}
       >
         <defs>
-          <filter id="cyber-glow-strong" x="-30%" y="-30%" width="160%" height="160%">
+          <filter id="cyber-glow-strong" x="-100%" y="-100%" width="300%" height="300%">
             <feGaussianBlur stdDeviation="2" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
@@ -454,9 +454,12 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
               transform: `scale(${targetScale})`
             }}
           >
-            {/* Background Aura Glow */}
+            {/* Background Aura Glow (Radial Gradient Vector - Bebas Artefak Kotak WebKitGTK) */}
             <div
-              className={`absolute inset-0 m-auto w-40 h-40 rounded-full ${glowClass} blur-[50px] will-change-transform opacity-75`}
+              className="absolute inset-0 m-auto w-44 h-44 rounded-full pointer-events-none opacity-80"
+              style={{
+                background: `radial-gradient(circle, ${colorHex}70 0%, ${colorHex}25 45%, transparent 70%)`
+              }}
             />
 
             {/* Holographic Orbital Rings */}

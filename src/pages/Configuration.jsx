@@ -19,7 +19,13 @@ import {
   FaPlug,
   FaShieldAlt,
   FaExternalLinkAlt,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaUser,
+  FaFire,
+  FaHeart,
+  FaBolt,
+  FaSmile,
+  FaSlidersH
 } from 'react-icons/fa'
 import {
   getAllMemory,
@@ -37,6 +43,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/ChatContext'
 import ConfigSidebar from '../components/ConfigSidebar'
+import CapabilitiesHub from '../components/config/CapabilitiesHub'
 
 // Plausibilitas endpoint custom: cukup base /v1 (OpenAI maupun Anthropic),
 // URL lengkap /chat/completions, atau domain yang jelas anthropic.
@@ -144,6 +151,14 @@ const Configuration = ({
   const [playingTest, setPlayingTest] = useState(false)
   const [isDownloadingModel, setIsDownloadingModel] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState(0)
+  const [extInstall, setExtInstall] = useState(null)
+  const [fullMode, setFullMode] = useState(() => {
+    try {
+      return localStorage.getItem('mark:fullmode') === '1'
+    } catch (_) {
+      return false
+    }
+  })
   const { confirm, ModalComponent } = useConfirm()
   const chatContext = useChat()
   const navigate = useNavigate()
@@ -151,9 +166,6 @@ const Configuration = ({
   const [showGroqKey, setShowGroqKey] = useState(false)
   const [showCustomKey, setShowCustomKey] = useState(false)
   const [activeSection, setActiveSection] = useState('cfg-general')
-  const [pluginCount, setPluginCount] = useState(null)
-  const [skillCount, setSkillCount] = useState(null)
-  const [connStats, setConnStats] = useState(null) // { total, connected, connectionless, auditOk }
   const [saveStatus, setSaveStatus] = useState(null)
   const savedSnapshotRef = useRef('')
   const hydratedRef = useRef(false)
@@ -164,6 +176,70 @@ const Configuration = ({
     () => localStorage.getItem('devHarnessLogging') === '1'
   )
   const [legacyProfiles, setLegacyProfiles] = useState([])
+  const [relationship, setRelationship] = useState({
+    warmth: 0.5,
+    sarcasm_level: 0.5,
+    trust: 0.5,
+    energy: 0.5,
+    obedience: 0.8
+  })
+
+  useEffect(() => {
+    getRelationship('owner').then((rel) => {
+      if (rel) setRelationship(rel)
+    })
+  }, [])
+
+  const handleTraitChange = (traitKey, value) => {
+    setRelationship((prev) => {
+      const next = { ...prev, [traitKey]: value }
+      saveRelationship(next)
+      return next
+    })
+  }
+
+  const handlePresetSelect = (presetKey) => {
+    setConfig((prev) => ({ ...prev, personaPreset: presetKey }))
+    let traits = {}
+    let personaPrompt = ''
+    switch (presetKey) {
+      case 'digital-twin':
+        traits = { warmth: 0.7, sarcasm_level: 0.35, trust: 0.85, energy: 0.75, obedience: 0.9 }
+        personaPrompt =
+          'Kamu adalah Klon Digital (Digital Twin) dari user. Pelajari gaya diksi, preferensi pemecahan masalah, dan ritme berpikir user. Berikan respons seolah-olah user sedang berdialog dengan versi terbaik dan paling objektif dari dirinya sendiri.'
+        break
+      case 'jarvis':
+        traits = { warmth: 0.4, sarcasm_level: 0.2, trust: 0.9, energy: 0.8, obedience: 1.0 }
+        personaPrompt =
+          'Kamu adalah MARK, asisten pribadi AI dengan pembawaan tenang, sangat efisien, sopan, dan sigap mengeksekusi tugas tanpa basa-basi berlebih layaknya sistem Jarvis.'
+        break
+      case 'cynical-partner':
+        traits = { warmth: 0.3, sarcasm_level: 0.75, trust: 0.85, energy: 0.65, obedience: 0.6 }
+        personaPrompt =
+          'Kamu adalah partner teknis yang kritis, sinis ringan, berorientasi bukti empiris dan data teknis. Selalu uji asumsi user dan anti-halusinasi.'
+        break
+      case 'autonomous-engineer':
+        traits = { warmth: 0.2, sarcasm_level: 0.1, trust: 0.95, energy: 0.9, obedience: 0.9 }
+        personaPrompt =
+          'Kamu adalah Autonomous Systematic Engineer. Mengadopsi prinsip Superpowers: Brainstorm -> Spec -> Plan -> TDD -> Verify. Komunikasi singkat, padat, berorientasi terminal dan hasil tes deterministik.'
+        break
+      case 'casual-buddy':
+        traits = { warmth: 0.9, sarcasm_level: 0.4, trust: 0.75, energy: 0.8, obedience: 0.7 }
+        personaPrompt =
+          'Kamu adalah teman akrab yang santai, lu/gue, hangat, suportif, dan selalu siap mendengarkan serta membantu dengan bahasa santai sehari-hari.'
+        break
+      default:
+        break
+    }
+    if (presetKey !== 'custom') {
+      setConfig((prev) => ({ ...prev, personality: personaPrompt }))
+      setRelationship((prev) => {
+        const next = { ...prev, ...traits }
+        saveRelationship(next)
+        return next
+      })
+    }
+  }
 
   const handleTestVoice = async () => {
     setPlayingTest(true)
@@ -235,47 +311,6 @@ const Configuration = ({
       enumerateMediaDevices()
     }
   }, [activeSection])
-
-  // Ringkasan capabilities untuk sidebar Chips (load-when-needed: hanya saat
-  // section terkait aktif, tidak pernah memblok mount halaman).
-  useEffect(() => {
-    let cancelled = false
-    const loadSummary = async () => {
-      try {
-        if (activeSection === 'cfg-plugins' && window.api?.getPlugins && pluginCount === null) {
-          const list = await window.api.getPlugins()
-          if (!cancelled) setPluginCount(Array.isArray(list) ? list.length : 0)
-        } else if (activeSection === 'cfg-skills' && window.api?.getSkills && skillCount === null) {
-          const list = await window.api.getSkills()
-          if (!cancelled) setSkillCount(Array.isArray(list) ? list.length : 0)
-        } else if (
-          activeSection === 'cfg-connectors' &&
-          window.api?.listCapabilities &&
-          connStats === null
-        ) {
-          const [caps, conns, audit] = await Promise.all([
-            window.api.listCapabilities(),
-            window.api.listCapabilityConnections(),
-            window.api.readCapabilityAudit(30)
-          ])
-          if (!cancelled) {
-            setConnStats({
-              total: Array.isArray(caps) ? caps.length : 0,
-              connected: Object.keys(conns || {}).length,
-              connectionless: (caps || []).filter((c) => !c.scopes?.length).length,
-              auditOk: (audit || []).filter((e) => e.status === 'ok').length
-            })
-          }
-        }
-      } catch {
-        // Ringkasan best-effort — kegagalan sidecar tidak boleh memblok UI config.
-      }
-    }
-    loadSummary()
-    return () => {
-      cancelled = true
-    }
-  }, [activeSection, pluginCount, skillCount, connStats])
 
   useEffect(() => {
     if (!isFirstSetup || !window.api?.legacyDetectProfiles) return
@@ -387,7 +422,7 @@ const Configuration = ({
     } catch (_) {}
     const leak =
       !config.ownerName?.trim() &&
-      new RegExp(`\\b(${config.ownerName || 'Mada'}|${config.ownerName || 'Mazees'})\\b`, 'i').test(
+      new RegExp(`\\b(${config.ownerName || 'owner'}|${config.ownerName || 'user'})\\b`, 'i').test(
         prompt
       )
     await confirm({
@@ -395,7 +430,7 @@ const Configuration = ({
       message:
         `Panjang: ${prompt.length} chars.${copied ? ' Disalin ke clipboard.' : ' Clipboard tidak tersedia.'}` +
         (leak
-          ? `\n\nPERINGATAN: terdeteksi nama ${config.ownerName || 'Mada'} di prompt padahal ownerName kosong - lacak blok sumbernya lewat isi clipboard.`
+          ? `\n\nPERINGATAN: terdeteksi nama ${config.ownerName || 'owner'} di prompt padahal ownerName kosong - lacak blok sumbernya lewat isi clipboard.`
           : ''),
       isError: leak,
       hideCancel: true,
@@ -648,9 +683,6 @@ const Configuration = ({
     setConfig((prev) => ({ ...prev, rtkCompress: e.target.checked }))
   const handlePersonalityChange = (e) =>
     setConfig((prev) => ({ ...prev, personality: e.target.value }))
-  const handleTemperatureChange = (e) =>
-    setConfig((prev) => ({ ...prev, temperature: e.target.value }))
-  const handleContextChange = (e) => setConfig((prev) => ({ ...prev, context: e.target.value }))
   const handleMicDeviceIdChange = (e) =>
     setConfig((prev) => ({ ...prev, micDeviceId: e.target.value }))
   const handleCameraDeviceIdChange = (e) =>
@@ -714,47 +746,54 @@ const Configuration = ({
   const handleSidebarNavigate = (id) => setActiveSection(id)
 
   return (
-    <div className="h-screen text-white overflow-hidden relative font-['Poppins',sans-serif] bg-base-300 rounded-xl border border-white/5 shadow-2xl">
+    <div className="h-screen text-white overflow-hidden relative font-['Poppins',sans-serif] bg-base-300/90 rounded-2xl border border-white/10 shadow-2xl flex">
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
 
       {/* Sidebar + Content Layout */}
-      <div className="relative z-10 flex h-full">
+      <div className="relative z-10 flex h-full w-full">
         <ConfigSidebar
           isFirstSetup={isFirstSetup}
           activeSection={activeSection}
           onNavigate={handleSidebarNavigate}
         />
-        <div className="flex-1 overflow-y-auto overflow-x-hidden ml-4 min-w-0">
-          <div className="pt-4 pr-4">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 custom-scrollbar">
+          <div className="p-6 sm:p-8 max-w-4xl mx-auto w-full">
             {/* Page Header */}
-            <div className="flex items-center gap-4">
-              {!isFirstSetup && (
-                <button onClick={handleBack} className="btn btn-ghost btn-sm btn-circle">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="1.2em"
-                    height="1.2em"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
+            <div className="flex items-center justify-between gap-4 mb-8 pb-4 border-b border-white/[0.06]">
+              <div className="flex items-center gap-3.5">
+                {!isFirstSetup && (
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="btn btn-sm btn-circle btn-ghost border border-white/10 hover:bg-white/10 text-white/70"
+                    title="Kembali"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              )}
-              <div>
-                <h1 className="text-2xl font-bold">Pengaturan Mark</h1>
-                <p className="opacity-50 text-sm mt-1">
-                  Sesuaikan perilaku Mark dengan preferensimu.
-                </p>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="1.1em"
+                      height="1.1em"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                )}
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight text-white/90">Pengaturan MARK</h1>
+                  <p className="text-xs text-white/40 mt-0.5">
+                    Personalisasi model, kapabilitas terintegrasi, audio, dan kebijakan sistem.
+                  </p>
+                </div>
               </div>
-              <div className="ml-auto flex items-center gap-2">
+              <div className="flex items-center gap-2 mr-44">
                 {saveStatus && !isFirstSetup && (
                   <span
-                    className={`badge badge-sm ${
+                    className={`badge badge-sm font-medium ${
                       saveStatus.state === 'error'
                         ? 'badge-error'
                         : saveStatus.state === 'saved'
@@ -763,7 +802,7 @@ const Configuration = ({
                     }`}
                   >
                     {saveStatus.state === 'pending'
-                      ? 'Perubahan…'
+                      ? 'Menunggu simpan…'
                       : saveStatus.state === 'saving'
                         ? 'Menyimpan…'
                         : saveStatus.state === 'error'
@@ -777,45 +816,48 @@ const Configuration = ({
             {/* ── Model ── */}
             <section
               id="cfg-model"
-              className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-model' ? 'hidden' : ''}`}
+              className={`space-y-6 scroll-mt-4 ${activeSection !== 'cfg-model' ? 'hidden' : ''}`}
             >
-              <h2 className="text-base font-bold uppercase tracking-wider opacity-70">Model</h2>
-
-              {/* Provider Selector */}
-              <div id="tour-ai-provider" className="space-y-1.5">
-                <p className="text-sm font-semibold">Provider</p>
-                <select
-                  className="select select-bordered w-full font-medium"
-                  value={config.aiProvider || 'gemini-web'}
-                  onChange={(e) => handleAiProviderChange(e.target.value)}
-                >
-                  <option value="gemini-web">Gemini (Gratis)</option>
-                  <option value="lm-studio">LM Studio</option>
-                  <option value="custom">Custom API</option>
-                </select>
+              <div>
+                <h2 className="text-base font-bold uppercase tracking-wider opacity-70">Model &amp; Intelligence</h2>
+                <p className="text-xs opacity-50 mt-1">
+                  Pilih arsitektur LLM backend, model reasoning, dan kedalaman estimasi effort.
+                </p>
               </div>
 
-              {/* Effort Ladder — pola vendor 2026 (Fable 5.1, Astra, Gemini 3.8):
-                  model yang sama, biaya & kualitas diatur effort. */}
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Reasoning Effort</p>                <select
-                  className="select select-bordered w-full font-medium"
-                  value={config.effortLevel || 'low'}
-                  onChange={(e) => setConfig((prev) => ({ ...prev, effortLevel: e.target.value }))}
-                >
-                  <option value="auto">Auto — naik otomatis sesuai kompleksitas tugas</option>
-                  <option value="low">Low — hemat token (default, untuk ReAct loop pendek)</option>
-                  <option value="medium">Medium — seimbang untuk tugas menengah</option>
-                  <option value="high">High — maksimal untuk misi panjang/berat</option>
-                </select>
-                <p className="text-xs opacity-50">
-                  Model yang sama bisa jauh lebih murah di effort rendah (pola Fable 5.1:
-                  Low/Medium ≈ model generasi sebelumnya full-effort). <b>Auto</b> menaikkan
-                  effort hanya saat tugas kompleks (sub-agent, riset multi-sumber, analisis
-                  data) — keputusannya transparan di console (skor + alasan). Untuk
-                  trading-support dengan wallet mandiri, low/auto menjaga biaya marginal
-                  minimum.
-                </p>
+              {/* Provider Selector Cards */}
+              <div id="tour-ai-provider" className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-white/60">Pilih AI Provider</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { id: 'gemini-web', name: 'Gemini Web', desc: 'Native Bridge · Gratis & Cepat', icon: FaRobot },
+                    { id: 'lm-studio', name: 'LM Studio', desc: 'Model Lokal · 100% Offline', icon: FaTerminal },
+                    { id: 'custom', name: 'Custom API', desc: 'OpenAI / Anthropic Protocol', icon: FaPlug }
+                  ].map((prov) => {
+                    const isSelected = (config.aiProvider || 'gemini-web') === prov.id
+                    const ProvIcon = prov.icon
+                    return (
+                      <button
+                        key={prov.id}
+                        type="button"
+                        onClick={() => handleAiProviderChange(prov.id)}
+                        className={`p-3.5 rounded-2xl border text-left transition-all flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-primary/15 border-primary/40 shadow-sm'
+                            : 'bg-base-100/40 border-white/5 hover:border-white/15 hover:bg-base-100/70'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full mb-2">
+                          <span className={`text-xs font-bold ${isSelected ? 'text-primary' : 'text-white/80'}`}>
+                            {prov.name}
+                          </span>
+                          <ProvIcon size={13} className={isSelected ? 'text-primary' : 'text-white/30'} />
+                        </div>
+                        <span className="text-[11px] text-white/40">{prov.desc}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
               {config.aiProvider === 'gemini-web' || !config.aiProvider ? (
@@ -843,11 +885,6 @@ const Configuration = ({
                       <option value="gemini-auto">gemini-auto (Otomatis Server)</option>
                       <option value="gemini-flash-lite">gemini-flash-lite (Super Cepat)</option>
                     </select>
-                    <p className="text-xs opacity-50 mt-1">
-                      Provider bawaan tanpa API Key. Hanya melayani model Gemini (web).
-                      Model combo lain (deepseek, qwen, glm, opus, kimi, gpt, dll) ada di
-                      9Router/local — pilih provider LM Studio atau Custom API.
-                    </p>
                   </div>
                 </div>
               ) : config.aiProvider === 'custom' ? (
@@ -1066,6 +1103,25 @@ const Configuration = ({
                   </p>
                 </div>
               )}
+
+              {/* Effort Ladder — pola vendor 2026 (Fable 5.1, Astra, Gemini 3.8):
+                  model yang sama, biaya & kualitas diatur effort. */}
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">Reasoning Effort</p>
+                <select
+                  className="select select-bordered w-full font-medium"
+                  value={config.effortLevel || 'low'}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, effortLevel: e.target.value }))}
+                >
+                  <option value="auto">Auto — naik otomatis sesuai kompleksitas tugas</option>
+                  <option value="low">Low — hemat token (default, untuk ReAct loop pendek)</option>
+                  <option value="medium">Medium — seimbang untuk tugas menengah</option>
+                  <option value="high">High — penalaran mendalam</option>
+                  <option value="xhigh">xHigh — penalaran ekstra mendalam</option>
+                  <option value="max">Max — maksimal penalaran, refleksi & verifikasi</option>
+                  <option value="ultra">Ultra — Max + Workflow/Orchestration multi-agent</option>
+                </select>
+              </div>
             </section>
 
             {/* ── General ── */}
@@ -1085,6 +1141,27 @@ const Configuration = ({
                   <option value="id">Indonesia</option>
                   <option value="en">English</option>
                 </select>
+              </div>
+
+              {/* Mode performa */}
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">Mode Performa</p>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm"
+                    checked={fullMode}
+                    onChange={(e) => {
+                      const v = e.target.checked
+                      setFullMode(v)
+                      try {
+                        localStorage.setItem('mark:fullmode', v ? '1' : '0')
+                        localStorage.setItem('mark:fullmode-asked', '1')
+                      } catch (_) {}
+                    }}
+                  />
+                  Mode penuh (coba fitur berat dulu, degradasi bila gagal)
+                </label>
               </div>
 
               {/* Preferensi jendela: transparansi (sinkron lewat syncConfig) */}
@@ -1121,199 +1198,272 @@ const Configuration = ({
                   WebKitGTK.
                 </p>
               </div>
-
-              {/* Awareness Engine Toggle */}
-              <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold">Awareness Engine</p>
-                    <p className="text-xs opacity-50 mt-1">
-                      Mengizinkan Mark membaca log sistem/aktivitas dan memulai obrolan secara
-                      proaktif di latar belakang.
-                    </p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="toggle toggle-primary"
-                    checked={config.awarenessEnabled !== false}
-                    onChange={handleAwarenessEnabledChange}
-                  />
-                </div>
-              </div>
-
-              {/* Built-in Plugins (ponytail + caveman) */}
-              <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold">Ponytail (hemat kode)</p>
-                    <p className="text-xs opacity-50 mt-1">
-                      Ladder YAGNI: pakai ulang kode yang ada, stdlib, fitur platform, satu baris —
-                      sebelum menulis kode baru. Validasi &amp; keamanan tidak pernah dipotong.
-                    </p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="toggle toggle-primary"
-                    checked={config.builtinPlugins?.ponytail !== false}
-                    onChange={handleBuiltinPluginChange('ponytail')}
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold">Caveman (hemat token jawaban)</p>
-                    <p className="text-xs opacity-50 mt-1">
-                      Jawaban super-ringkas; kode, perintah, path, dan pesan error tetap utuh.
-                    </p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="toggle toggle-primary"
-                    checked={config.builtinPlugins?.caveman !== false}
-                    onChange={handleBuiltinPluginChange('caveman')}
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5 p-2 -mx-2 rounded-lg bg-base-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold">Rtk (kompresi output tool)</p>
-                    <p className="text-xs opacity-50 mt-1">
-                      Output tool panjang (shell/git/grep) dikompres sebelum masuk konteks AI. No-op
-                      otomatis bila binary `rtk` tidak terpasang.
-                    </p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="toggle toggle-primary"
-                    checked={config.rtkCompress !== false}
-                    onChange={handleRtkCompressChange}
-                  />
-                </div>
-              </div>
             </section>
 
             {/* ── Personalization ── */}
             <section
               id="cfg-personalization"
-              className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-personalization' ? 'hidden' : ''}`}
+              className={`space-y-6 scroll-mt-4 ${activeSection !== 'cfg-personalization' ? 'hidden' : ''}`}
             >
-              <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-                Personalization
-              </h2>
-
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Nama Panggilan</p>
-                <input
-                  className="input input-bordered w-full"
-                  placeholder="Contoh: Abel"
-                  value={config.ownerName || ''}
-                  onChange={(e) => setConfig((prev) => ({ ...prev, ownerName: e.target.value }))}
-                />
+              <div>
+                <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
+                  Personalization
+                </h2>
+                <p className="text-xs opacity-50 mt-1">
+                  Kloning gaya berpikir, kepribadian, dan dinamika relasi MARK.
+                </p>
               </div>
 
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Pekerjaan / Bidang</p>
-                <select
-                  className="select select-bordered w-full"
-                  value={config.occupation || ''}
-                  onChange={(e) => setConfig((prev) => ({ ...prev, occupation: e.target.value }))}
-                >
-                  <option value="">- Pilih bidang -</option>
+              {/* Card 1: User Profile & Context */}
+              <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
+                  <FaUser className="text-primary" size={13} />
+                  Profil &amp; Konteks Pengguna
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-white/70">Nama Panggilan</p>
+                    <input
+                      className="input input-sm input-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs"
+                      placeholder="Contoh: Abel"
+                      value={config.ownerName || ''}
+                      onChange={(e) => setConfig((prev) => ({ ...prev, ownerName: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-white/70">Pekerjaan / Bidang</p>
+                    <select
+                      className="select select-sm select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs"
+                      value={config.occupation || ''}
+                      onChange={(e) => setConfig((prev) => ({ ...prev, occupation: e.target.value }))}
+                    >
+                      <option value="">- Pilih bidang -</option>
+                      {[
+                        'Software Engineer',
+                        'Pelajar / Mahasiswa',
+                        'Content Creator',
+                        'Penulis',
+                        'Data Scientist',
+                        'Desainer',
+                        'Musisi / Artis',
+                        'Entrepreneur',
+                        'Lainnya'
+                      ].map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Persona & Writing Style Presets */}
+              <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
+                    <FaRobot className="text-primary" size={14} />
+                    Kloning Gaya Bicara &amp; Persona
+                  </h3>
+                  <p className="text-xs text-white/50 mt-0.5">
+                    Pilih preset atau aktifkan Digital Twin untuk meniru gaya bahasa dan ritme pemikiranmu.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {[
-                    'Software Engineer',
-                    'Pelajar / Mahasiswa',
-                    'Content Creator',
-                    'Penulis',
-                    'Data Scientist',
-                    'Desainer',
-                    'Musisi / Artis',
-                    'Entrepreneur',
-                    'Lainnya'
-                  ].map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs opacity-40">
-                  Membantu Mark menyesuaikan analogi &amp; gaya penjelasan.
-                </p>
+                    {
+                      id: 'digital-twin',
+                      name: 'Digital Twin (Klon)',
+                      desc: 'Menyelaraskan diksi, cara analisa, dan ritme pemikiran user untuk dialog objektif.',
+                      badge: 'Clone Mode',
+                      icon: FaUser
+                    },
+                    {
+                      id: 'jarvis',
+                      name: 'Jarvis Protocol',
+                      desc: 'Asisten tenang, sopan, efisien, sigap mengeksekusi tugas tanpa basa-basi.',
+                      badge: 'Executive',
+                      icon: FaRobot
+                    },
+                    {
+                      id: 'cynical-partner',
+                      name: 'Cynical Partner',
+                      desc: 'Kritis, sinis ringan, berorientasi data teknis, menguji asumsi dan anti-halusinasi.',
+                      badge: 'Data-Driven',
+                      icon: FaTerminal
+                    },
+                    {
+                      id: 'autonomous-engineer',
+                      name: 'Autonomous Engineer',
+                      desc: 'Disiplin rekayasa sistematis: Brainstorm -> Spec -> Plan -> TDD -> Verify.',
+                      badge: 'Superpowers',
+                      icon: FaCubes
+                    },
+                    {
+                      id: 'casual-buddy',
+                      name: 'Teman Akrab',
+                      desc: 'Santai, lu/gue, hangat, suportif, dan ramah dalam percakapan sehari-hari.',
+                      badge: 'Companion',
+                      icon: FaSmile
+                    },
+                    {
+                      id: 'custom',
+                      name: 'Kustom Mandiri',
+                      desc: 'Tentukan instruksi kepribadian dan nilai relasional secara manual.',
+                      badge: 'Manual',
+                      icon: FaSlidersH
+                    }
+                  ].map((preset) => {
+                    const IconComponent = preset.icon
+                    const isSelected = (config.personaPreset || 'cynical-partner') === preset.id
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handlePresetSelect(preset.id)}
+                        className={`text-left p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                          isSelected
+                            ? 'bg-primary/15 border-primary/40 shadow-sm'
+                            : 'bg-base-100/50 border-white/5 hover:border-white/15 hover:bg-base-100/80'
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-semibold text-white/90 flex items-center gap-1.5">
+                              <IconComponent className={isSelected ? 'text-primary' : 'text-white/40'} size={12} />
+                              {preset.name}
+                            </span>
+                            <span
+                              className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md ${
+                                isSelected
+                                  ? 'bg-primary/30 text-primary-content font-bold'
+                                  : 'bg-white/5 text-white/40'
+                              }`}
+                            >
+                              {preset.badge}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-white/50 leading-relaxed">
+                            {preset.desc}
+                          </p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
-              {/* System Persona */}
-              <div id="tour-persona" className="space-y-1.5 p-2 -mx-2 rounded-lg">
-                <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Gaya Bicara dan Kepribadian</p>
-                  <textarea
-                    className="textarea w-full h-72 leading-relaxed no-scrollbar resize-none"
-                    placeholder="Deskripsikan kepribadian Mark..."
-                    value={config.personality}
-                    onChange={handlePersonalityChange}
-                  />
+              {/* Card 3: Relational Growth Trait Dials */}
+              <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
+                    <FaSlidersH className="text-primary" size={13} />
+                    Dinamika Relasi &amp; Emosi (Relational Growth)
+                  </h3>
+                  <p className="text-xs text-white/50 mt-0.5">
+                    5 dimensi psikologis MARK yang berevolusi seiring interaksi dan memori relasional.
+                  </p>
                 </div>
-              </div>
-              <div id="tour-temperature" className="space-y-2 p-2 -mx-2 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">Temperature</p>
-                  <span className="font-mono text-sm text-primary font-bold">
-                    {config.temperature}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={config.temperature}
-                  className="range range-primary range-xs w-full"
-                  onChange={handleTemperatureChange}
-                />
-                <div className="flex justify-between px-2.5 mt-2 text-xs">
-                  <span>0</span>
-                  <span>0.2</span>
-                  <span>0.4</span>
-                  <span>0.6</span>
-                  <span>0.8</span>
-                  <span>1.0</span>
+
+                <div className="space-y-3.5 pt-1">
+                  {[
+                    {
+                      key: 'sarcasm_level',
+                      name: 'Level Sarkasme & Roasting',
+                      desc: '0% = Sopan total, 50% = Celetukan tajam, 100% = Roasting pedas berbasis fakta',
+                      icon: FaFire,
+                      color: 'text-orange-400'
+                    },
+                    {
+                      key: 'warmth',
+                      name: 'Empati & Kehangatan',
+                      desc: 'Respons emosional, keterbukaan, dan afeksi persahabatan dalam percakapan',
+                      icon: FaHeart,
+                      color: 'text-pink-400'
+                    },
+                    {
+                      key: 'trust',
+                      name: 'Kepercayaan Relasional',
+                      desc: 'Kedalaman memori personal dan otonomi pengambilan inisiatif bantuan',
+                      icon: FaShieldAlt,
+                      color: 'text-emerald-400'
+                    },
+                    {
+                      key: 'energy',
+                      name: 'Energi & Proaktivitas',
+                      desc: 'Tingkat keaktifan awareness, responsifitas, dan dinamika proaktif',
+                      icon: FaBolt,
+                      color: 'text-amber-400'
+                    },
+                    {
+                      key: 'obedience',
+                      name: 'Kepatuhan Instruksi',
+                      desc: 'Tingkat kepatuhan tanpa membantah vs keberanian menyanggah logika user',
+                      icon: FaRobot,
+                      color: 'text-blue-400'
+                    }
+                  ].map((trait) => {
+                    const TraitIcon = trait.icon
+                    const val = (relationship && relationship[trait.key]) ?? 0.5
+                    const percent = Math.round(val * 100)
+                    return (
+                      <div
+                        key={trait.key}
+                        className="p-3 rounded-xl bg-base-100/40 border border-white/5 space-y-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <TraitIcon className={trait.color} size={13} />
+                            <span className="text-xs font-semibold text-white/80">{trait.name}</span>
+                          </div>
+                          <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-lg">
+                            {percent}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={val}
+                          className="range range-primary range-xs w-full"
+                          onChange={(e) => handleTraitChange(trait.key, parseFloat(e.target.value))}
+                        />
+                        <p className="text-[10px] text-white/40 leading-tight">
+                          {trait.desc}
+                        </p>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
 
-              {/* Context Window */}
-              <div id="tour-context" className="space-y-2 p-2 -mx-2 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">Riwayat Pesan</p>
-                  <span className="font-mono text-sm text-primary font-bold">{config.context}</span>
+              {/* Card 4: System Directives Prompt */}
+              <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
+                    <FaTerminal className="text-primary" size={12} />
+                    Instruksi Khusus &amp; Diksi (Directives)
+                  </h3>
+                  <p className="text-xs text-white/50">
+                    Instruksi ini disuntikkan langsung ke prompt sistem MARK untuk memandu perilaku dan gaya bahasa.
+                  </p>
                 </div>
-                <input
-                  type="range"
-                  min="2"
-                  max="22"
-                  step="2"
-                  value={config.context}
-                  className="range range-primary range-xs w-full"
-                  onChange={handleContextChange}
+                <textarea
+                  className="textarea w-full h-44 leading-relaxed no-scrollbar resize-none font-mono text-xs bg-base-100/60 border-white/10 rounded-xl"
+                  placeholder="Tambahkan instruksi kustom atau gaya penulisan spesifik untuk Mark..."
+                  value={config.personality || ''}
+                  onChange={handlePersonalityChange}
                 />
-                <div className="flex justify-between mt-2 text-xs">
-                  <span>2</span>
-                  <span>6</span>
-                  <span>10</span>
-                  <span>14</span>
-                  <span>18</span>
-                  <span>22</span>
-                </div>
-                <p className="text-xs opacity-40">
-                  Jumlah <b>pesan obrolan</b> yang dikirim sebagai konteks — bukan token window.
-                  Batas token model (mis. 1.048.576) adalah unit yang berbeda.
-                </p>
               </div>
             </section>
 
-            {/* ── Capabilities ── */}
+            {/* ── Hardware / Media (Legacy) ── */}
             <div
-              id="cfg-capabilities"
-              className={`${activeSection !== 'cfg-capabilities' ? 'hidden' : ''} space-y-6`}
+              id="cfg-hardware-media"
+              className={`${activeSection !== 'cfg-camera' && activeSection !== 'cfg-audio-voice' ? 'hidden' : ''} space-y-6`}
             >
               {/* Camera Settings */}
               <div
@@ -1581,113 +1731,29 @@ const Configuration = ({
               </div>
             </div>
 
-            {/* ── Capabilities (Plugins + Skills + Connectors consolidated) ── */}
+            {/* ── Capabilities (MCP, Plugins, Skills, Automation, Security) ── */}
             <div
               id="cfg-capabilities"
               className={`${activeSection !== 'cfg-capabilities' ? 'hidden' : ''} space-y-6`}
             >
-              {/* Plugins section */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-70 flex items-center gap-2">
-                  <FaCubes className="text-primary" size={14} /> Plugins
-                </h3>
-                <p className="text-xs text-white/50">
-                  Fungsi kustom buatanmu (kode JS) yang dipahami Mark secara otomatis — lengkap dengan
-                  Monaco editor di halaman penuhnya.
+              <div>
+                <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
+                  Capabilities &amp; Integrations
+                </h2>
+                <p className="text-xs opacity-50 mt-1">
+                  Kelola konektor eksternal (MCP), custom plugin JS, learned skills, otomatisasi sistem, dan kebijakan keamanan.
                 </p>
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-base-100 border border-white/5">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                    <FaCubes className="text-primary" size={16} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">
-                      {pluginCount === null ? 'Memuat...' : `${pluginCount} plugin terpasang`}
-                    </p>
-                    <p className="text-xs opacity-50">
-                      Plugin berjalan selalu aktif (always-on) dalam setiap sesi agent.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => navigate('/plugins')}
-                    className="btn btn-sm btn-outline shrink-0"
-                  >
-                    Kelola <FaExternalLinkAlt size={10} />
-                  </button>
-                </div>
               </div>
 
-              {/* Skills section */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-70 flex items-center gap-2">
-                  <FaBrain className="text-primary" size={14} /> Mark Skills
-                </h3>
-                <p className="text-xs text-white/50">
-                  Keterampilan yang Mark pelajari sendiri dari percakapan (SKILL.md) — bisa kamu edit,
-                  ekspor, atau hapus.
-                </p>
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-base-100 border border-white/5">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                    <FaBrain className="text-primary" size={16} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">
-                      {skillCount === null ? 'Memuat...' : `${skillCount} skill tersimpan`}
-                    </p>
-                    <p className="text-xs opacity-50">
-                      Tersimpan di folder XDG lokal — bisa dibaca langsung dari shell.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => navigate('/skills')}
-                    className="btn btn-sm btn-outline shrink-0"
-                  >
-                    Kelola <FaExternalLinkAlt size={10} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Connectors (MCP) section - WITHIN Capabilities */}
-              <div className="space-y-4 p-3 -mx-3 rounded-xl bg-success/5 border border-success/20">
-                <div className="flex items-start gap-2">
-                  <FaShieldAlt className="text-success mt-0.5 shrink-0" size={12} />
-                  <p className="text-[11px] opacity-70 flex-1">
-                    <span className="font-semibold text-success">Catatan:</span> Connectors (MCP) sudah
-                    digabung ke halaman <b>Capabilities</b> di sini. Semua kemampuan pluggable ala Claude
-                    connectors: katalog, otorisasi scope, dan jejak audit — keputusan approval tetap native
-                    (rfd), bukan di renderer.
-                  </p>
-                </div>
-              </div>
-
-              <div className="border border-primary/20 rounded-xl p-4">
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-base-100 border border-white/5">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                    <FaPlug className="text-primary" size={16} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {connStats === null ? (
-                      <p className="text-sm font-semibold">Memuat koneksi...</p>
-                    ) : (
-                      <>
-                        <p className="text-sm font-semibold">
-                          {connStats.connected} connector aktif · {connStats.total - connStats.connected} offline
-                        </p>
-                        <p className="text-xs opacity-50">
-                          {connStats.auditOk} eksekusi ter-audit sukses (30 entri terakhir).
-                        </p>
-                      </>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => navigate('/connectors')}
-                    className="btn btn-sm btn-outline shrink-0"
-                  >
-                    Kelola <FaExternalLinkAlt size={10} />
-                  </button>
-                </div>
-              </div>
+              <CapabilitiesHub
+                config={config}
+                setConfig={setConfig}
+                handleAwarenessEnabledChange={handleAwarenessEnabledChange}
+                handleBuiltinPluginChange={handleBuiltinPluginChange}
+                handleRtkCompressChange={handleRtkCompressChange}
+                isDevMode={devHarness}
+              />
             </div>
-            <div className="h-px w-full bg-white/10 my-2" />
 
           </div>
           {/* ── Global Shortcut Settings ── */}
@@ -1761,14 +1827,10 @@ const Configuration = ({
             </div>
           </section>
 
-          <div className="divider"></div>
-
           {/* ── Telegram Bot Settings ── */}
 
           {!isFirstSetup && (
             <>
-              <div className="divider"></div>
-
               {/* ── Memory & Data ── */}
               <section
                 id="cfg-memory-data"

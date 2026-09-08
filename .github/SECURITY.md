@@ -2,10 +2,10 @@
 
 ## Supported versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 4.x     | ✅ Active          |
-| < 4.0   | ❌ Upstream legacy |
+| Version        | Supported          |
+| -------        | ------------------ |
+| 1.0.0-alpha.x  | ✅ Active          |
+| < 1.0.0-alpha  | ❌ Unsupported     |
 
 ## Reporting a vulnerability
 
@@ -13,12 +13,12 @@ Mark Agent stores credentials (API keys, tokens) locally in Dexie/IndexedDB.
 If you discover a credential leak, remote code execution, or sandbox escape:
 
 1. **DO NOT** open a public GitHub issue.
-2. Email the upstream maintainer or open a draft security advisory on this repo.
+2. Email the maintainer or open a draft security advisory on Abelion512/mark-agent-linux.
 
 ## What we protect
 
 - AI provider API keys and tokens
-- WhatsApp session credentials
+- Telegram bot token
 - Local filesystem access boundaries (XDG workspace sandbox via `resolve_contained()`)
 - Browser automation isolation (tauri-sidecar isolation)
 - IPC bridge integrity (capabilities-based permission gates)

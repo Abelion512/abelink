@@ -179,6 +179,8 @@ export const api = {
   },
   getDocumentsPath: () => invoke('misc_get_documents_path'),
   getLiteMode: () => invoke('misc_get_lite_mode').then((d) => d ?? { isLite: false }),
+  // Salin folder extension ter-bundel ke data dir (pengguna binary tanpa repo).
+  ensureExtensionFiles: () => invoke('misc_ensure_extension_files'),
   // Konfirmasi native (rfd di Rust main thread) untuk aksi berisiko non-sidecar.
   nativeConfirm: (message) => invoke('misc_native_confirm', { message }),
   // Fetch resource web via native (validasi SSRF + tanpa CORS renderer).
@@ -366,6 +368,11 @@ export const api = {
   },
   checkToolApproval: (toolName, query) => call('native-tool:needs-approval', toolName, query),
 
+  // ---------- Approval policy per family (ask/session/always) ----------
+  approvalPolicyGet: () => invoke('approval_policy_get'),
+  approvalPolicySet: (family, policy) => invoke('approval_policy_set', { family, policy }),
+  approvalPolicyResetSession: () => invoke('approval_policy_reset_session'),
+
   // ---------- Plugins (sidecar loader lama — fase C4 pindah Web Worker) ----------
   getPlugins: () => call('plugins:list'),
   executePlugin: (action, query) => call('plugin:execute', action, query),
@@ -375,6 +382,7 @@ export const api = {
   createPlugin: (payload) => call('plugin:create', payload),
   togglePlugin: (name, isEnabled) => call('plugin:toggle', name, isEnabled),
   deletePlugin: (name) => call('plugin:delete', name),
+  installPluginFromGit: (repoUrl) => call('plugin:install-git', repoUrl),
 
   // ---------- Browser agent (fase C3) ----------
   browserNavigate: (url, sessionId = 'default') => call('browser:navigate', url, sessionId),
@@ -417,6 +425,14 @@ export const api = {
   // / child process otomasi PC ikut dikill, bukan hanya AI loop di renderer.
   pcEmergencyStop: () => call('os:emergency-stop'),
   onPcEmergencyStop: on('pc-emergency-stop'),
+  // Watchdog eksternal Fase 2 (Rust): { kind, action }. Dengar untuk hentikan
+  // misi graceful — izin sesi sudah dicabut di sisi Rust saat event ini tiba.
+  onWatchdogBreach: on('watchdog-breach'),
+  // Mission scope Fase 3 (Rust): nonaktif secara default. Set eksplisit per
+  // misi ({ dirs: [abs], tools: [...]|null }); clear di akhir misi.
+  missionScopeSet: (dirs, tools) => invoke('mission_scope_set', { dirs, tools: tools ?? null }),
+  missionScopeClear: () => invoke('mission_scope_clear'),
+  missionScopeGet: () => invoke('mission_scope_get'),
 
   // ---------- Skills ----------
   getSkills: () => call('skills:get-all'),
@@ -451,14 +467,11 @@ export const api = {
   parseDocument: (arrayBuffer, isDocx) => {
     const bytes = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer ?? 0)
     const CHUNK = 0x8000
-    let binary = ''
+    const parts = []
     for (let i = 0; i < bytes.length; i += CHUNK) {
-      binary += String.fromCharCode.apply(
-        null,
-        bytes.subarray(i, Math.min(i + CHUNK, bytes.length))
-      )
+      parts.push(btoa(String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + CHUNK, bytes.length)))))
     }
-    return call('parse-document', btoa(binary), !!isDocx)
+    return call('parse-document', parts.join(''), !!isDocx)
   },
 
   // ---------- Lite Mode & WhatsApp music ----------
@@ -495,6 +508,11 @@ export const api = {
 
   // ---------- Screenshot (Fase B5 native — rute Rust) ----------
   takeScreenshot: () => invoke('misc_take_screenshot'),
+  // Isi file biner sebagai data URL base64 (lampiran gambar → vision payload).
+  readFileBase64: (path) =>
+    invoke('misc_read_file_base64', {
+      path: String(path ?? '').replace(/^file:\/\//, '')
+    }),
 
   // ---------- Git tools (native Rust — mengganti sidecar git-service) ----------
   executeShell: (query, cwd) => invoke('tools_run_shell', { query, cwd: cwd || null }),

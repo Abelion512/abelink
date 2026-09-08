@@ -17,6 +17,14 @@ mulai bekerja di repo ini:
    lengkap dengan titik masuk implementasi + verifikasi per fase.
 7. `../evaluation/README.md` — MarkBench: harness evaluasi, verifier
    deterministik, anti-fabrication principles, roadmap.
+8. `../PROJECT-STATUS.md` — ringkasan status sanitized untuk dibaca manager
+   AI via GitHub (tanpa detail internal): milestone, kesehatan CI, keputusan
+   terakhir, langkah berikut.
+9. `effort-system-spec.md` — spesifikasi beku sistem effort/budget (§1-§72).
+10. `smart-orchestrator.md` — dokumen arsitektur aspirasional (ReAct ketat,
+    memori bertingkat, tool gateway); acuan perancangan, bukan keadaan jalan.
+11. `../evaluation/bench/README.md` — benchmark arsitektur: kontrak trajectory,
+    katalog probe, boundary execution, cara run.
 8. `REFERENCE-LIBRARY.md` — peta referensi eksternal (ATM) dengan prinsip
    load-when-needed: repo mana dibuka saat fase mana, kolom status pemakaian,
    dan filter privacy-first untuk skill/agent referensi.

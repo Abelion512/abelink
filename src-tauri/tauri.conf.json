@@ -31,9 +31,9 @@
     "active": true,
     "targets": "all",
     "resources": [
-      "../sidecar/engine.mjs",
-      "../sidecar/engine/",
-      "../sidecar/main"
+      "../dist-sidecar/mark-engine",
+      "../sidecar/main/pc-agent-scripts",
+      "../extension"
     ],
     "icon": [
       "../resources/icon.png",

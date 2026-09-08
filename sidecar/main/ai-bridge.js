@@ -255,22 +255,24 @@ export const fetchAI = async (
       body.model = conf.model || 'google/gemma-3-4b'
     }
 
-    // Effort ladder (pola vendor 2026: Fable 5.1 / GPT-6 Astra / Gemini 3.8):
-    // model sama, biaya & ketelitian diatur effort. Injeksi per-protokol —
-    // provider yang tidak mengenali field akan mengabaikannya (aman).
-    // 'auto' sudah di-resolve di renderer (core.js estimator) — di sini hanya
-    // fallback deterministik (mis. jalur Telegram yang tidak lewat core.js).
+    // Effort ladder: canonical effort policy terpisah dari parameternya di provider.
+    // Parameter provider disuntik lewat ModelProviderAdapter.applyEffort; policy
+    // nya tidak berubah. 'auto' sudah di-resolve di renderer core.js estimator;
+    // di sini hanya fallback deterministik untuk jalur yang tidak lewat core.js.
     let effortConf = conf.effortLevel
     if (effortConf === 'auto') {
       const joined = JSON.stringify(body.messages || []).slice(-4000).toLowerCase()
       const heavy = /spawn_subagent|migrasi|refactor|audit|implementasi|riset|research|benchmark|analisis/.test(joined)
       effortConf = heavy ? 'high' : 'low'
     }
-    const effort = ['low', 'medium', 'high'].includes(effortConf) ? effortConf : 'low'
+    const effort = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(effortConf)
+      ? effortConf
+      : 'low'
+    // Fallback maps hanya untuk level yang memang punya native knop di provider.
     const effortReasoningMap = { low: 'low', medium: 'medium', high: 'high' }
-    const effortAnthropicBudget = { low: 1024, medium: 4096, high: 16384 }
-    body.reasoning_effort = effortReasoningMap[effort] // OpenAI-compatible
-    body.thinking = { type: 'enabled', budget_tokens: effortAnthropicBudget[effort] } // Anthropic
+    const effortAnthropicBudget = { low: 1024, medium: 4096, high: 16384, xhigh: 32768, max: 65536, ultra: 65536 }
+    body.reasoning_effort = effortReasoningMap[effort] || 'low' // OpenAI-compatible
+    body.thinking = { type: 'enabled', budget_tokens: effortAnthropicBudget[effort] || 1024 } // Anthropic
 
     const parentAbortController = new AbortController()
     activeAbortControllers.add(parentAbortController)

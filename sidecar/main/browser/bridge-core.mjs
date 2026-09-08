@@ -60,10 +60,73 @@ export const STATUS_ICON = {
 }
 
 // Konvensi penamaan group: "{icon} ({status}) — {task}"
+// (Kontrak lama, dipakai test + status mirror sidecar. Judul grup Chrome
+// yang tampil ke user memakai format "(icon) <task>" di extension/.)
 export function deriveGroupName(status, task) {
   const icon = STATUS_ICON[status] || STATUS_ICON.idle
   const safeTask = String(task || 'untitled').slice(0, 32)
   return `${icon} (${status}) — ${safeTask}`
+}
+
+// ------------------------------------------------------- config browser
+// Diisi dari renderer via channel sync-config (ai.mjs). Default: jangan
+// auto-close (user masih butuh lihat hasil kerja).
+const browserConfig = { autoCloseTabs: false }
+
+export function setBrowserConfig(partial = {}) {
+  if (typeof partial.autoCloseTabs === 'boolean') {
+    browserConfig.autoCloseTabs = partial.autoCloseTabs
+  }
+  return { ...browserConfig }
+}
+
+export function getBrowserConfig() {
+  return { ...browserConfig }
+}
+
+// Normalisasi ID elemen: "3" -> "mk3" (format data-mark-id); "mk3" tetap.
+export function normalizeMarkId(q) {
+  const t = String(q ?? '').trim()
+  if (/^mk\d+$/i.test(t)) return t.toLowerCase()
+  if (/^\d+$/.test(t)) return `mk${t}`
+  return t
+}
+
+// ------------------------------------------------------- pagar scrape
+// Deteksi perintah shell yang mengambil + mem-parse halaman web
+// (pola spiral observasi nyata: curl|grep|sed berulang → gagal → ulangi).
+// curl polos (cek API), curl -o (download), dan localhost tanpa parse
+// tetap diizinkan — yang ditolak hanya fetch-lalu-parse HTML.
+export function isWebScrapeCommand(query) {
+  const q = String(query ?? '')
+  if (!/https?:\/\//i.test(q)) return false
+  if (/\b(curl|wget)\b[^|]*\|\s*(grep|sed|awk|perl|python|node|php|ruby|cut|sort|head|tail)\b/i.test(q)) return true
+  if (/python\d?\s+-c\b[^;]*\b(urllib|requests|urlopen|BeautifulSoup|htmlparser)\b/i.test(q)) return true
+  // Heredoc crawler: cat << 'EOF' > /tmp/x.py ... urllib/requests ... python3 /tmp/x.py
+  // (pola kabur observasi nyata — query satu blok berisi definisi + eksekusi).
+  if (/<<\s*'?[A-Z_]+\b/i.test(q) && /\b(urllib|requests|urlopen|BeautifulSoup)\b/i.test(q)) return true
+  return false
+}
+
+// File .py yang isinya crawler web (dipakai write-file guard sisi renderer).
+export function looksLikeCrawlerSource(content) {
+  const c = String(content ?? '')
+  if (!/https?:\/\//i.test(c)) return false
+  return /\b(urllib|requests|urlopen|BeautifulSoup|htmlparser|selenium|playwright)\b/i.test(c)
+    && /\b(re|findall|find_all|select|cssselect|href)\b/i.test(c)
+}
+
+// ------------------------------------------------------- sanitasi URL
+// Model sering mengembalikan URL berbalut markdown "[label](url)" atau tanpa
+// skema. Bersihkan sebelum fetch/dispatch agar satu format aneh tidak
+// menggagalkan seluruh sesi (kasus nyata: 20 turn retry → give up).
+export function extractUrl(query) {
+  const text = String(query ?? '')
+  const m = text.match(/https?:\/\/[^\s)\]>"]+/)
+  if (m) return m[0].replace(/[.,;:!?]+$/, '')
+  const t = text.trim()
+  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(t)) return `https://${t}`
+  return ''
 }
 
 function prng() {
@@ -158,9 +221,15 @@ export function getSessionGroups(sessionId) {
 // Dipanggil server.mjs saat ekstensi GET /handshake dengan token valid.
 export function handshake(sessionId, token) {
   const s = ensureSession(sessionId)
-  if (s.token !== token) return { ok: false, error: 'Token tidak cocok.' }
+  if (!tokenOk(s, token)) return { ok: false, error: 'Token tidak cocok.' }
   s.lastSeenAt = now()
-  return { ok: true, pollTimeoutMs: BROWSER_BRIDGE.POLL_TIMEOUT_MS }
+  const out = { ok: true, pollTimeoutMs: BROWSER_BRIDGE.POLL_TIMEOUT_MS }
+  // Rotasi hanya dari handshake VALID dengan token aktif (bukan grace).
+  if (s.token === token) {
+    const rotated = maybeRotate(s)
+    if (rotated) out.newToken = rotated
+  }
+  return out
 }
 
 // ---------------------------------------------------------------- dispatch
@@ -186,7 +255,7 @@ function wake(s) {
 // atau null (timeout tanpa pekerjaan). sidecarToken diverifikasi dulu.
 export function takeNext(sessionId, token) {
   const s = sessions.get(sessionId)
-  if (!s || s.token !== token)
+  if (!s || !tokenOk(s, token))
     return Promise.reject(new Error('Sesi tidak dikenal atau token salah.'))
   s.lastSeenAt = now()
   const existing = s.pending[0]
@@ -217,7 +286,7 @@ function serializeCommand(entry, s) {
 // dispatch() yang sesuai. sidecarToken + commandId wajib.
 export function resolveCommand(sessionId, token, commandId, result) {
   const s = sessions.get(sessionId)
-  if (!s || s.token !== token) return { ok: false, error: 'Sesi tidak dikenal atau token salah.' }
+  if (!s || !tokenOk(s, token)) return { ok: false, error: 'Sesi tidak dikenal atau token salah.' }
   s.lastSeenAt = now()
   if (!commandId) return { ok: false, error: 'commandId wajib.' }
   // Perintah yang sudah diserahkan tidak disimpan di antrean lagi, jadi
@@ -264,26 +333,121 @@ export function dispatchCommand(sessionId, type, payload) {
         )
       )
     }, BROWSER_BRIDGE.COMMAND_TIMEOUT_MS)
-    inflight.set(commandId, { resolve, timer })
+    inflight.set(commandId, { resolve, reject, timer })
     s.pending.push({ id: commandId, type, payload })
     wake(s)
   })
 }
 
 // ------------------------------------------------------------------- token
+// File token JSON: { token, createdAt } + opsional { prevToken, prevExpiresAt }.
+// - File plaintext lama (hanya token) diadopsi apa adanya (createdAt = sekarang).
+// - Rotasi refresh-on-use: handshake VALID yang umurnya > batas -> terbitkan
+//   token baru, token lama tetap diterima selama masa grace (poll yang sedang
+//   jalan tidak putus). Token baru dikembalikan di respons handshake agar
+//   extension menukar diam-diam — tanpa tempel ulang, tanpa putus sesi.
+// - Batas default 30 hari, grace 24 jam (env MARK_TOKEN_ROTATE_MS untuk test).
+function rotateMs() {
+  return Number(process.env.MARK_TOKEN_ROTATE_MS || 30 * 24 * 3600 * 1000)
+}
+const TOKEN_GRACE_MS = 24 * 3600 * 1000
+
 // Lokasi file token: ikuti pola XDG modul lain (~/.local/share/mark).
 export function tokenFilePath(xdgDataDir) {
   return path.join(xdgDataDir, 'browser-bridge-token')
 }
 
-export function writeTokenFile(xdgDataDir) {
+export function readTokenRecord(xdgDataDir) {
+  try {
+    const raw = fs.readFileSync(tokenFilePath(xdgDataDir), 'utf8').trim()
+    if (!raw) return null
+    try {
+      const rec = JSON.parse(raw)
+      if (rec && typeof rec.token === 'string' && rec.token) {
+        return {
+          token: rec.token,
+          createdAt: Number(rec.createdAt) || Date.now(),
+          prevToken: typeof rec.prevToken === 'string' ? rec.prevToken : null,
+          prevExpiresAt: Number(rec.prevExpiresAt) || 0
+        }
+      }
+    } catch {
+      /* bukan JSON -> anggap plaintext lawas */
+    }
+    if (/^\S+$/.test(raw)) {
+      return { token: raw, createdAt: Date.now(), prevToken: null, prevExpiresAt: 0, adopted: true }
+    }
+  } catch {
+    /* belum ada file */
+  }
+  return null
+}
+
+function persistTokenRecord(xdgDataDir, rec) {
   const file = tokenFilePath(xdgDataDir)
   fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify(rec), { mode: 0o600 })
+  return file
+}
+
+export function writeTokenFile(xdgDataDir) {
+  let rec = readTokenRecord(xdgDataDir)
+  if (!rec) {
+    rec = { token: prng(), createdAt: Date.now(), prevToken: null, prevExpiresAt: 0 }
+    persistTokenRecord(xdgDataDir, rec)
+  } else if (!rec.createdAt || rec.adopted) {
+    rec.createdAt = rec.createdAt || Date.now()
+    delete rec.adopted
+    persistTokenRecord(xdgDataDir, rec)
+  }
   // 0600: hanya user yang boleh baca. Server mengizinkan salah satu dari
   // banyak token sesi; file ini menyimpan token sesi 'default'.
   const s = ensureSession('default')
-  fs.writeFileSync(file, s.token, { mode: 0o600 })
-  return { file, token: s.token }
+  s.token = rec.token
+  s.tokenCreatedAt = rec.createdAt
+  s.prevToken = rec.prevToken
+  s.prevExpiresAt = rec.prevExpiresAt
+  s.tokenXdg = xdgDataDir
+  return { file: tokenFilePath(xdgDataDir), token: s.token }
+}
+
+function safeTokenCompare(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false
+  const bufA = Buffer.from(a, 'utf8')
+  const bufB = Buffer.from(b, 'utf8')
+  if (bufA.length !== bufB.length) return false
+  return crypto.timingSafeEqual(bufA, bufB)
+}
+
+// Token cocok: token aktif ATAU token lama dalam masa grace.
+export function tokenOk(s, token) {
+  if (!s || !token) return false
+  if (safeTokenCompare(s.token, token)) return true
+  return !!(s.prevToken && safeTokenCompare(s.prevToken, token) && Date.now() < (s.prevExpiresAt || 0))
+}
+
+// Rotasi bila kedaluwarsa. Dipanggil HANYA dari handshake valid (jalur
+// terautentikasi) — tidak pernah dari jalur gagal.
+function maybeRotate(s) {
+  if (Date.now() - (s.tokenCreatedAt || Date.now()) < rotateMs()) return null
+  const rotated = {
+    token: prng(),
+    createdAt: Date.now(),
+    prevToken: s.token,
+    prevExpiresAt: Date.now() + TOKEN_GRACE_MS
+  }
+  s.prevToken = rotated.prevToken
+  s.prevExpiresAt = rotated.prevExpiresAt
+  s.token = rotated.token
+  s.tokenCreatedAt = rotated.createdAt
+  if (s.tokenXdg) {
+    try {
+      persistTokenRecord(s.tokenXdg, rotated)
+    } catch {
+      /* file gagal ditulis: rotasi tetap berlaku sesi ini */
+    }
+  }
+  return rotated.token
 }
 
 // ------------------------------------------------------------- sweep sesi

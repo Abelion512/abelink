@@ -83,8 +83,17 @@ export const useAwareness = ({
 
     const checkIn = async () => {
       if (isAgentBusyRef.current || isLoadingRef.current || isRequestingRef.current) return
-      
+
       const now = Date.now()
+
+      // Guard against accidental timer drift on slow CAD surfaces. If the last
+      // check-in was unusually recent (under a minute), skip this tick so
+      // awareness does not start hammering the AI provider on every mount.
+      if (now - lastCheckInRef.current < 60000) {
+        console.log('[useAwareness] Skip check-in: interval terlalu cepat (drift).')
+        return
+      }
+
       // Minimal harus nunggu 9 menit (540,000 ms) dari check-in terakhir buat nge-trigger lagi
       if (now - lastCheckInRef.current < 540000) {
         console.log('[useAwareness] Skip check-in: Belum waktunya (terlalu cepat).')
@@ -210,5 +219,9 @@ export const useAwareness = ({
       clearInterval(id)
       clearTimeout(initialTimeout)
     }
-  }, [isAwarenessEnabled, setChatData, setOrbStatus]) // Hapus isLoading & isAgentBusy dari deps biar gak keriset mulu
+  }, [isAwarenessEnabled, setChatData, setOrbStatus])
+
+  return {
+    lastCheckInMs: () => lastCheckInRef.current
+  } // Hapus isLoading & isAgentBusy dari deps biar gak keriset mulu
 }

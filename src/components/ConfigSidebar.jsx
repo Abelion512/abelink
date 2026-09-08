@@ -5,21 +5,17 @@ import {
   FaDatabase,
   FaCode,
   FaRobot,
-  FaUserCog,
-  FaCubes,
-  FaBrain
+  FaUserCog
 } from 'react-icons/fa'
 
 // IA baru (review 2026-08-26): General → Personalization → Model →
-// Capabilities → Plugins/Skills → Shortcuts → Data Controls / Developer.
+// Capabilities → Shortcuts → Data Controls / Developer.
 // Ekspor sections untuk kontrak test (tests/configSidebar.test.js).
 export const sections = [
   { id: 'cfg-general', label: 'General', icon: FaCog },
   { id: 'cfg-personalization', label: 'Personalization', icon: FaUserCog },
   { id: 'cfg-model', label: 'Model', icon: FaRobot },
   { id: 'cfg-capabilities', label: 'Capabilities', icon: FaPuzzlePiece },
-  { id: 'cfg-plugins', label: 'Plugins', icon: FaCubes },
-  { id: 'cfg-skills', label: 'Skills', icon: FaBrain },
   { id: 'cfg-shortcut', label: 'Shortcuts', icon: FaKeyboard }
 ]
 
@@ -50,14 +46,14 @@ export default function ConfigSidebar({ isFirstSetup = false, activeSection, onN
     <nav
       onKeyDown={handleKeyDown}
       tabIndex={0}
-      className="flex flex-col w-[220px] min-w-[220px] h-full bg-base-300/80 backdrop-blur-xl border-r border-white/5 overflow-y-auto custom-scrollbar focus:outline-none"
+      className="flex flex-col w-[230px] min-w-[230px] h-full bg-base-300/60 backdrop-blur-2xl border-r border-white/5 overflow-y-auto custom-scrollbar focus:outline-none p-3"
       role="tablist"
       aria-label="Pengaturan"
     >
-      <div className="px-4 py-5 border-b border-white/5">
-        <p className="text-xs font-semibold uppercase tracking-wider opacity-40">Pengaturan</p>
+      <div className="px-3 py-3 mb-2">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/30">Pengaturan</p>
       </div>
-      <div className="flex-1 py-2">
+      <div className="flex-1 space-y-1">
         {allSections.map((sec) => {
           const Icon = sec.icon
           const isActive = activeSection === sec.id
@@ -67,15 +63,15 @@ export default function ConfigSidebar({ isFirstSetup = false, activeSection, onN
               role="tab"
               aria-selected={isActive}
               onClick={() => onNavigate(sec.id)}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-all duration-200 cursor-pointer
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-left transition-all duration-150 cursor-pointer
                 ${
                   isActive
-                    ? 'bg-primary/10 text-primary border-r-2 border-primary'
-                    : 'text-white/50 hover:text-white/80 hover:bg-white/5 border-r-2 border-transparent'
+                    ? 'bg-white/10 text-white shadow-sm font-semibold border border-white/10'
+                    : 'text-white/50 hover:text-white/90 hover:bg-white/[0.04] border border-transparent'
                 }`}
             >
-              <Icon size={15} className={isActive ? 'text-primary' : 'opacity-50'} />
-              <span className="font-medium">{sec.label}</span>
+              <Icon size={14} className={isActive ? 'text-primary' : 'opacity-40'} />
+              <span className="truncate">{sec.label}</span>
             </button>
           )
         })}

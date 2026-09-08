@@ -26,6 +26,24 @@ saat sebuah referensi mulai dipakai.
 | 9 | [rust-lang/rust-clippy](https://github.com/rust-lang/rust-clippy) | Lint Rust | Sumber pattern anti-lint. MARK sudah punya `cargo clippy` di CI (lihat `.github/workflows/`); gunakan repo ini saat warning baru muncul dan perlu justifikasi/pembenahan. | CI fix / fase Rust apa pun | unused |
 | 10 | [rust-lang/rustfmt](https://github.com/rust-lang/rustfmt) | Format Rust | Standar format `src-tauri/`. Tambahkan `cargo fmt --check` ke verify gate saat toolchain Rust tersedia di sandbox. | Fase CI/toolchain | unused |
 | 11 | [anthropics/claude-cookbooks](https://github.com/anthropics/claude-cookbooks) | Pola agent | Pola tool-use, structured output, dan prompt chaining — pembanding untuk `ai-bridge.js` (3-tier JSON fallback) dan planner ReAct. Ambil POLA, bukan dependensi API. | Fase planner/capabilities | unused |
+| 12 | [abundantbeing/hermes-browser-extension](https://github.com/abundantbeing/hermes-browser-extension) | Extension browser agent | Pola status koneksi persisten (pill), side panel, gateway tersimpan — dipakai untuk redesign popup Mark (indikator, bukan ritual sambung/putus). | Fase extension E2E (popup) | applied |
+| 13 | [MetaMask/metamask-extension](https://github.com/MetaMask/metamask-extension) | Extension production-grade | Pola permissions, approval UX, dan lifecycle extension yang matang. | Fase extension hardening | unused |
+| 14 | [browser-use/browser-use](https://github.com/browser-use/browser-use) | Arsitektur browser agent | Event-driven session, watchdog (security/navigation/DOM/popup/lifecycle), model target/tab, state DOM+a11y+visual. | Fase watchdog/recovery | unused |
+| 15 | [ChromeDevTools/chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) | Observasi DevTools | Akses Chrome DevTools Protocol sebagai referensi observation engine. | Fase observation engine | unused |
+| 16 | [browseros-ai/BrowserOS](https://github.com/browseros-ai/BrowserOS) | Arsitektur browser-agent | Pembanding desain browser agent alternatif. | Fase arsitektur lanjutan | unused |
+| 17 | [AutomaApp/automa](https://github.com/AutomaApp/automa) | Workflow automation | Pola workflow automation visual (blok, loop, kondisi) untuk task abstraction. | Fase task/workflow abstraction | unused |
+| 18 | Manus Browser Operator (blog) | Authorization boundary | Browser lokal tepercaya + otorisasi sebelum kontrol, dedicated task tab, live takeover, stop instan, action trace, pisah user/agent state. | Fase policy/approval browser | unused |
+| 19 | Manus Preferred Browser (blog) | Browser environment | Browser sebagai environment persisten (profil, cookie, permission) + `run task on = ...`. | Fase browser profile abstraction | unused |
+| 20 | [microsoft/playwright-mcp](https://github.com/microsoft/playwright-mcp) | Observasi terstruktur | Accessibility snapshot + `ref` elemen, alur observe → act → re-observe; `ref` basi otomatis invalid. | Fase stale-ref guard | unused |
+| 21 | Stagehand (blog/dok) | Aksi composable | Pisah `observe/act/extract/agent`: deterministik dulu, agentic bila perlu. | Fase action resolver | unused |
+| 22 | Skyvern (dok) | Task abstraction | Task = goal + input + outputSchema + approvalPolicy + recoveryPolicy. | Fase task/workflow abstraction | unused |
+| 23 | OSWorld 2.0 / WebVoyager | Benchmark browser agent | Failure taxonomy + harness tugas web nyata untuk mengukur (bukan klaim). | Fase benchmark E2E | unused |
+| 24 | Chrome: Build extensions with coding agents (+ DevTools MCP) | Skill + harness uji extension | Modern Web Guidance (chrome-extensions skill), DevTools MCP `--categoryExtensions`/`--autoConnect` sebagai harness uji extension di Chrome sungguhan, praktik `CHROMEWEBSTORE.md` untuk publikasi. | Fase uji extension di browser nyata | unused |
+| 25 | GPT-6 Astra (OpenAI index) | Model otonomi end-to-end | Pola "biar gw kerjain": eksekusi sampai beres dalam SnK (scope + batas), lapor hasil + jejak. Acuan perilaku otonomi Mark. | Fase otonomi eksekusi | unused |
+| 26 | Claude Fable & Mythos 5.1 (Anthropic) | Pola reasoning/coding | Referensi perilaku penalaran + coding model frontier. | Fase kualitas reasoning | unused |
+| 27 | Claude Blog (claude.com/blog) | Update perilaku model | Pengumuman perilaku/kemampuan model Anthropic terbaru. | Berkelanjutan | unused |
+| 28 | Anthropic Engineering (anthropic.com/engineering) | Praktik engineering agent | Praktik pembangunan sistem agent production. | Berkelanjutan | unused |
+| 29 | OpenAI Research (openai.com/research) | Konsep produk | Arah konsep produk OpenAI untuk perbandingan. | Berkelanjutan | unused |
 
 ## Aturan pakai (load when needed)
 

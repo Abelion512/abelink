@@ -465,20 +465,34 @@ const Guidebook = () => {
                   <div className="space-y-3">
                     <ToolCard
                       name="browser-navigate"
-                      description="Mengambil konten halaman web via HTTP fetch (tanpa browser visual)."
+                      description="Membuka URL di tab baru grup sesi (atau fetch polos bila extension mati)."
                       needsPermission={false}
                       queryFormat="URL lengkap (misal: https://google.com)"
-                      howItWorks="Mengambil HTML via axios, lalu ekstrak teks bersih menggunakan htmlparser2. Tidak ada browser visual — cocok untuk research dan scraping teks."
+                      howItWorks="Extension tersambung: buka tab baru dalam grup sesi + kembalikan elemen ter-tag (mk1, mk2, ...). Tanpa extension: fallback HTTP fetch + parse teks. URL markdown otomatis dibersihkan."
                     />
                     <ToolCard
                       name="browser-read"
-                      description="Membaca dan parsing HTML halaman web menjadi teks."
+                      description="Membaca dan parsing halaman web menjadi teks."
                       needsPermission={false}
                       queryFormat="URL lengkap"
                       howItWorks="Fetch HTML via axios, parse dengan htmlparser2, kembalikan teks bersih + raw HTML. Berguna untuk re-scan halaman setelah AJAX."
                     />
+                    <ToolCard
+                      name="browser-click / browser-type"
+                      description="Klik/ketik beneran di tab (butuh extension tersambung)."
+                      needsPermission={false}
+                      queryFormat="mk3 atau 3 (klik); ID||teks (type)"
+                      howItWorks="Extension-first: eksekusi di tab fisik + kembalikan DOM terbaru. Wajib read-dom di sesi yang sama (ID basi ditolak). Tanpa extension: gagal jujur dengan petunjuk, bukan sukses palsu."
+                    />
                     <div className="bg-warning/10 border border-warning/20 p-4 rounded-xl text-sm text-warning/80">
-                      <strong>Catatan:</strong> browser-navigate dan browser-read bekerja tanpa ekstensi (HTTP fetch). Aksi interaktif (`browser-click`, `browser-type`, `browser-scroll`, `browser-screenshot`, `browser-extract`, `browser-ask-user`) butuh Chrome extension (komunikasi CDP via long-poll lokal). Install dari folder extension/ lalu reload halaman.
+                      <strong>Catatan:</strong> butuh Chrome/Chromium + extension Mark Bridge
+                      (folder extension/ atau tombol &quot;Pasang extension browser&quot; di
+                      Configuration). Aplikasi Mark harus berjalan (server bridge di sidecar).
+                      Setiap tab dibuka dalam 1 grup sesi berjudul (ikon) task: ⏳ kerja,
+                      ✅ selesai, ❌ gagal. Grup ditutup otomatis hanya bila
+                      &quot;Tutup otomatis grup tab&quot; aktif di Configuration (default mati);
+                      tombol popup &quot;Tutup tab task ini&quot; selalu tersedia. Status koneksi
+                      disuntik ke prompt planner tiap read-tools (model tahu kabelnya lepas).
                     </div>
                   </div>
                 </div>
@@ -552,7 +566,7 @@ const Guidebook = () => {
                       description="Membuka aplikasi desktop."
                       needsPermission={false}
                       queryFormat="firefox, gedit, nautilus, etc"
-                      howItWorks="Membuka aplikasi desktop baru (memerlukan persetujuan user)."
+                      howItWorks="Membuka aplikasi desktop baru. Dijaga gerbang sesi kontrol (os-control-open) — di luar sesi hanya path/URL valid via xdg-open."
                     />
                     <ToolCard
                       name="os-list-windows"

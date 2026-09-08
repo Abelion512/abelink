@@ -2,13 +2,13 @@
 
 ## 1. Project Overview
 
-**Project Name:** MARK (Metacognitive Artificial Relational Knowledge) — MARK Linux fork, independent version line 1.x (current: **1.0.0-alpha.1**, single source of truth: `src-tauri/tauri.conf.json`)
+**Project Name:** MARK (Metacognitive Artificial Relational Knowledge): MARK Linux fork, independent version line 1.x (current: **1.0.0-alpha.1**, single source of truth: `src-tauri/tauri.conf.json`)
 
 **Branch Strategy:**
-- `linux` (main / baseline) — Linux Tauri v2 branch, receives all new features and fixes. This is the primary branch: all PRs target it, never the other way around.
-- `master` — tracks official `Mazees/mark-agent` upstream for sync purposes only. Never merge `linux` into `master` and never open PRs targeting `master`.
-- Pull requests target: `linux` (feature branches INTO `linux`)
-- Version bumping: run `bun run sync-version` after bumping in `tauri.conf.json`
+- `main` (primary / default for private repo `origin` git@github.com:Abelion512/abelink.git): Standard default branch on Git/GitHub, menerima seluruh pengembangan aktif dan commit.
+- `linux`: Cabang pelacak untuk remote publik `public-upstream` (Abelion512/mark-agent-linux).
+- `master`: Melacak upstream resmi Mazees/mark-agent untuk keperluan sinkronisasi berkala.
+- Version bumping: jalankan `bun run sync-version` setelah bump di `tauri.conf.json`
 **Description:** A privacy-first, local-based autonomous AI OS companion designed to assist user productivity, automate tasks, and provide lifelike companionship. It uses a hybrid AI engine (Local LLM via LM Studio or Cloud API, plus a native Gemini Web RPC Engine) and features agentic planning with ReAct loop execution, **Autonomous Multi-Agent Sub-Agent Engine** (UI: **Sub-Agents**, branding: **Mission Control**) with concurrent isolated browser sessions, **Durable Agent Tasks** (UI: **Agent Workflows**) for persistent multi-step work, autonomous physical browser automation with multi-session support, a persistent OS-level desktop automation daemon, a hybrid Full-Text & Vector Memory Management System (MMS) with Orama & Dexie, document RAG pipeline, OS-level Awareness Engine, dynamic 4D Relational Growth, a native Plugin System with Monaco Editor, Telegram Bot integration via Telegraf, Voice Activity Detection with Groq Whisper STT plus local Whisper, Edge-TTS, and webcam vision capabilities.
 **Environment:** Linux-only Tauri v2 desktop application ("MARK Linux") — a fork of Mazees/mark-agent, mid-migration from Electron to the Tauri shell + Node sidecar layout.
 **Maintainer:** Abelion512 | **Homepage:** https://github.com/Abelion512/mark-agent-linux | **Upstream:** https://github.com/Mazees/mark-agent/
@@ -22,7 +22,7 @@
 - **Embeddings/Memory:** `@huggingface/transformers` (Transformers.js) fully local embeddings via WASM inside a Web Worker (`embedding.worker.js`; model `Xenova/paraphrase-multilingual-MiniLM-L12-v2`, 384 dimensions, hash-model fallback in lite mode)
 - **Local Database & Vector Search:** `dexie` (IndexedDB wrapper, schema version 22, 12 stores) and `@orama/orama` for Hybrid Full-Text & Vector search (memory/archive/document/turn-pair indexes)
 - **Voice/Audio:** Groq API Speech-to-Text (`whisper-large-v3`, optional `whisper-large-v3-turbo`) plus a local Whisper worker (`whisperWorker.js`), Edge-TTS (`msedge-tts`, voice: `id-ID-ArdiNeural`, served by the sidecar `tts-speak` channel), Web Audio API Voice Activity Detection via `useVAD.js`
-- **Media/Integrations:** `youtube-transcript-plus`, `ytmusic-api` (YouTube Music), `yt-search`, `youtube-dl-exec` + `ffmpeg-static`, `googleapis` (Calendar/Drive/Gmail via sidecar `google:*` channels)
+- **Media/Integrations:** `youtube-transcript-plus`, `ytmusic-api` (YouTube Music), `yt-search`, `googleapis` (Calendar/Drive/Gmail via sidecar `google:*` channels)
 - **Communication:** `telegraf` (Telegram Bot Framework, `sidecar/main/telegram/telegram-service.js`)
 - **Document Parsing:** `mammoth` (.docx) + `pdf-parse` (.pdf) behind the sidecar `parse-document` channel
 - **Runtime & Toolchain:** Rust + Bun. Rust menaungi shell Tauri (`src-tauri/`); Bun adalah package manager, script runner, dan runtime sidecar (`bun sidecar/engine.mjs`). Semua script first-party (`.mjs`) dijalankan dengan `bun`, bukan `node`; CI memakai `bun install --frozen-lockfile`.

@@ -5,24 +5,36 @@
   <style>
     body { font-family: system-ui, sans-serif; width: 280px; padding: 12px; background: #0b0f0c; color: #e6efe9; }
     h1 { font-size: 14px; margin: 0 0 8px; color: #1fb854; letter-spacing: 0.08em; text-transform: uppercase; }
+    .pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; margin: 2px 0 6px; }
+    .pill.ok { background: #123f27; color: #4ade80; }
+    .pill.warn { background: #3f2f12; color: #fbbf24; }
+    .pill.err { background: #3f1212; color: #ff6b6b; }
     label { display: block; font-size: 11px; opacity: 0.7; margin: 8px 0 2px; }
     input { width: 100%; box-sizing: border-box; background: #16211b; color: #e6efe9; border: 1px solid #2a3a31; border-radius: 6px; padding: 6px 8px; font-size: 12px; }
     button { margin-top: 10px; width: 100%; background: #1fb854; color: #06130b; font-weight: 700; border: 0; border-radius: 6px; padding: 8px 0; cursor: pointer; }
     button.secondary { background: #2a3a31; color: #e6efe9; }
+    button[hidden] { display: none; }
     #status { font-size: 11px; margin-top: 10px; line-height: 1.5; opacity: 0.85; white-space: pre-wrap; }
+    #task { font-size: 11px; margin-top: 6px; opacity: 0.85; }
+    details { font-size: 11px; margin-top: 10px; opacity: 0.8; }
     .ok { color: #1fb854; }
     .err { color: #ff6b6b; }
   </style>
 </head>
 <body>
-  <h1>Mark Bridge</h1>
-  <label>Token (dari ~/.local/share/mark/browser-bridge-token)</label>
-  <input id="token" type="password" placeholder="tempel token di sini" />
-  <label>Session ID</label>
-  <input id="session" type="text" value="default" />
-  <button id="start">Sambungkan</button>
-  <button id="stop" class="secondary">Putuskan</button>
+  <h1><img src="icons/icon48.png" alt="" width="24" height="24" style="vertical-align:-5px" /> Mark Bridge</h1>
+  <div><span id="pill" class="pill warn">menghubungkan…</span></div>
   <div id="status">Memuat status...</div>
+  <div id="task"></div>
+  <button id="closeTabs" class="secondary" hidden>Tutup tab task ini</button>
+  <details>
+    <summary>Sambung manual (bila otomatis gagal)</summary>
+    <label>Token (dari ~/.local/share/browser-bridge-token)</label>
+    <input id="token" type="password" placeholder="tempel token di sini" />
+    <label>Session ID</label>
+    <input id="session" type="text" value="default" />
+    <button id="start">Sambungkan manual</button>
+  </details>
   <script src="popup.js"></script>
 </body>
 </html>

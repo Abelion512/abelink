@@ -7,14 +7,9 @@ import MarkHome from './pages/MarkHome'
 const Configuration = lazy(() => import('./pages/Configuration'))
 const LiveAudio = lazy(() => import('./pages/LiveAudio'))
 const TelegramBot = lazy(() => import('./pages/TelegramBot'))
-const Plugins = lazy(() => import('./pages/Plugins'))
 const Knowledge = lazy(() => import('./pages/Knowledge'))
 const Guidebook = lazy(() => import('./pages/Guidebook'))
 const RelationalGrowth = lazy(() => import('./pages/RelationalGrowth'))
-const GoogleWorkspace = lazy(() => import('./pages/GoogleWorkspace'))
-const Connectors = lazy(() => import('./pages/Connectors'))
-const Skills = lazy(() => import('./pages/Skills'))
-const SkillEditor = lazy(() => import('./pages/SkillEditor'))
 const Subagents = lazy(() => import('./pages/Subagents'))
 const ChatStudio = lazy(() => import('./pages/ChatStudio'))
 const Trajectory = lazy(() => import('./pages/Trajectory'))
@@ -211,13 +206,8 @@ const MainLayout = ({ isStandalone = false }) => {
               <Routes>
                 <Route path="/chat" element={<ChatStudio />} />
                 <Route path="/config" element={<Configuration />} />
-                <Route path="/plugins" element={<Plugins />} />
-                <Route path="/skills" element={<Skills />} />
-                <Route path="/skill-editor/:id" element={<SkillEditor />} />
                 <Route path="/live-audio" element={<LiveAudio />} />
                 <Route path="/telegram-bot" element={<TelegramBot />} />
-                <Route path="/google-workspace" element={<GoogleWorkspace />} />
-                <Route path="/connectors" element={<Connectors />} />
                 <Route path="/knowledge" element={<Knowledge />} />
                 <Route path="/guidebook" element={<Guidebook />} />
                 <Route path="/relational" element={<RelationalGrowth />} />
@@ -311,7 +301,26 @@ function App() {
       let lm = null
       try {
         lm = await window.api.getLiteMode()
-        setLiteMode(lm.isLite)
+        // Mode penuh: ditawarkan SEKALI saat boot, hanya bila RAM > 16GB.
+        // Bila user memilih penuh, gate RAM diabaikan sesi ini dan seterusnya
+        // (pilihan tersimpan; diubah via Configuration).
+        let fullMode = null
+        try {
+          fullMode = localStorage.getItem('mark:fullmode')
+        } catch (_) {}
+        if (fullMode === null && lm?.totalRAMGB > 16 && window.api?.nativeConfirm) {
+          try {
+            const yes = await window.api.nativeConfirm(
+              'RAM di atas 16GB terdeteksi. Aktifkan Mode Penuh (coba fitur berat dulu, degradasi hanya bila benar-benar gagal)?'
+            )
+            fullMode = yes ? '1' : '0'
+            try {
+              localStorage.setItem('mark:fullmode', fullMode)
+              localStorage.setItem('mark:fullmode-asked', '1')
+            } catch (_) {}
+          } catch (_) {}
+        }
+        setLiteMode(fullMode === '1' ? false : lm.isLite)
       } catch (e) {
         console.error('[App] Failed to get lite mode status:', e)
       }

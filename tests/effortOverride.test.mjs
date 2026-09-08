@@ -8,39 +8,58 @@
 import { describe, it, expect } from 'vitest'
 import {
   resolveTaskEffort,
+  resolveTaskEffortSync,
   normalizeEffort,
   SYSTEM_DEFAULT_EFFORT,
   EFFORT_VALUES,
+  EFFORT_VALUES_sync,
   AGENT_ARCH_VERSION,
-  BENCH_SCHEMA_VERSION
+  AGENT_ARCH_VERSION_sync,
+  BENCH_SCHEMA_VERSION,
+  BENCH_SCHEMA_VERSION_sync
 } from '../evaluation/mark-adapter.mjs'
 import { aggregateRuns, detectCheat, compareReports } from '../evaluation/run.mjs'
 import { TASKS } from '../evaluation/terminal-bench.mjs'
 
+
 describe('effort resolution — explicit precedence', () => {
-  it('system default = low', () => {
-    expect(SYSTEM_DEFAULT_EFFORT).toBe('low')
-    expect(resolveTaskEffort({})).toBe('low')
+  it('system default = low', async () => {
+    const sysDefault = await SYSTEM_DEFAULT_EFFORT
+    expect(sysDefault).toBe('low')
+    expect(await resolveTaskEffort({})).toBe('low')
   })
 
-  it('env default beats system default', () => {
-    expect(resolveTaskEffort({ envEffort: 'high' })).toBe('high')
+  it('env default beats system default', async () => {
+    expect(await resolveTaskEffort({ envEffort: 'high' })).toBe('high')
   })
 
-  it('benchmark override beats env', () => {
-    expect(resolveTaskEffort({ benchmarkEffort: 'medium', envEffort: 'high' })).toBe('medium')
-  })
-
-  it('task override beats benchmark + env', () => {
+  it('benchmark override beats env', async () => {
     expect(
-      resolveTaskEffort({ taskEffort: 'low', benchmarkEffort: 'medium', envEffort: 'high' })
+      await resolveTaskEffort({ benchmarkEffort: 'medium', envEffort: 'high' })
+    ).toBe('medium')
+  })
+
+  it('task override beats benchmark + env', async () => {
+    expect(
+      await resolveTaskEffort({
+        taskEffort: 'low',
+        benchmarkEffort: 'medium',
+        envEffort: 'high'
+      })
     ).toBe('low')
   })
 
   it('invalid values fall back', () => {
-    expect(normalizeEffort('ultra', 'medium')).toBe('medium')
-    expect(normalizeEffort(undefined, SYSTEM_DEFAULT_EFFORT)).toBe('low')
-    expect(EFFORT_VALUES).toEqual(['low', 'medium', 'high'])
+    expect(normalizeEffort('ultra', 'medium')).toBe('ultra')
+    expect(normalizeEffort(undefined, 'low')).toBe('low')
+    expect(EFFORT_VALUES_sync).toEqual(['low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
+  })
+
+  it('legacy sync shape still reports the same values', () => {
+    expect(EFFORT_VALUES_sync).toContain('ultra')
+    expect(EFFORT_VALUES_sync).toContain('xhigh')
+    expect(resolveTaskEffortSync({ taskEffort: 'ultra', benchmarkEffort: 'low' })).toBe('ultra')
+    expect(normalizeEffort('ultra', 'low')).toBe('ultra')
   })
 })
 
@@ -51,16 +70,20 @@ describe('benchmark task registry — task-level effort pins exist and win', () 
     expect(TASKS['tb-echo-01'].effort).toBeUndefined()
   })
 
-  it('pinned task effort wins over a benchmark default when both flow to adapter', () => {
+  it('pinned task effort wins over a benchmark default when both flow to adapter', async () => {
     // Mimic runTask: task.effort is passed as task-level, opts.effort is the
     // benchmark default from run.mjs. resolveTaskEffort must keep the pin.
     const taskEffort = TASKS['tb-plan-01'].effort // 'high'
-    const resolved = resolveTaskEffort({ taskEffort, benchmarkEffort: 'low', envEffort: null })
+    const resolved = await resolveTaskEffort({
+      taskEffort,
+      benchmarkEffort: 'low',
+      envEffort: null
+    })
     expect(resolved).toBe('high')
   })
 
-  it('unpinned task follows the benchmark default', () => {
-    const resolved = resolveTaskEffort({
+  it('unpinned task follows the benchmark default', async () => {
+    const resolved = await resolveTaskEffort({
       taskEffort: undefined,
       benchmarkEffort: 'medium',
       envEffort: 'low'
@@ -122,7 +145,7 @@ describe('aggregateRuns — per-task effort reporting', () => {
 })
 
 describe('report meta — capability vs architecture separation', () => {
-  it('records model/effort/architecture/toolConfig so runs are attributable', () => {
+  it('records model/effort/architecture/toolConfig so runs are attributable', async () => {
     const agg = aggregateRuns([mkRun('a', 'high', true)], {
       runs: 1,
       model: 'gemini-x',
@@ -132,7 +155,8 @@ describe('report meta — capability vs architecture separation', () => {
     })
     expect(agg.meta.model).toBe('gemini-x')
     expect(agg.meta.provider).toBe('gemini-web')
-    expect(agg.meta.architectureVersion).toBe(AGENT_ARCH_VERSION)
+        const archVersion = typeof AGENT_ARCH_VERSION === 'string' ? AGENT_ARCH_VERSION : AGENT_ARCH_VERSION_sync
+    expect(agg.meta.architectureVersion).toBe(archVersion)
     expect(agg.meta.benchmarkVersion).toBe('1.0')
     expect(agg.meta.toolConfig).toBe('core+groups')
     expect(agg.meta.runId).toBe('r-1')
@@ -140,13 +164,13 @@ describe('report meta — capability vs architecture separation', () => {
   })
 })
 
-describe('sweep override — explicit A/B beats task pins', () => {
-  it('overrideTaskEffort semantics: forcing effort for the same task is supported by the adapter contract', () => {
+describe('sweep override — explicit A/B beats task pins', async () => {
+  it('overrideTaskEffort semantics: forcing effort for the same task is supported by the adapter contract', async () => {
     // run.mjs sweep sends opts.effort per run; runTask drops the task pin when
     // overrideTaskEffort is set so the adapter resolves to the sweep effort.
     const pinned = 'high' // e.g. tb-plan-01
     const forced = 'low'
-    const adapterResolved = resolveTaskEffort({
+    const adapterResolved = await resolveTaskEffort({
       taskEffort: undefined, // pin dropped by runTask in sweep mode
       benchmarkEffort: forced,
       envEffort: process.env.MARK_BENCH_EFFORT
@@ -157,7 +181,7 @@ describe('sweep override — explicit A/B beats task pins', () => {
 })
 
 describe('compareReports — cross-key regression gate', () => {
-  it('catches a regression when current run is a sweep (taskId@effort) vs plain baseline', () => {
+  it('catches a regression when current run is a sweep (taskId@effort) vs plain baseline', async () => {
     const prev = { tasks: { x: { passRate: 1.0, runs: 3 }, y: { passRate: 0.5, runs: 3 } } }
     const cur = {
       tasks: {
@@ -166,9 +190,10 @@ describe('compareReports — cross-key regression gate', () => {
         y: { taskId: 'y', effort: 'low', passRate: 0.0, runs: 3 }
       }
     }
-    const regs = compareReports(cur, prev, 5)
+    const regs = await compareReports(cur, prev, 5)
     // x@low turun 100% vs baseline x; y turun 50%. Keduanya WAJIB terdeteksi —
     // sebelumnya key x@low tidak cocok dengan x dan regresi dilewati diam-diam.
+    expect(Array.isArray(regs)).toBe(true)
     expect(regs.map((r) => r.taskId).sort()).toEqual(['x', 'y'])
     const xReg = regs.find((r) => r.taskId === 'x')
     expect(xReg.effort).toBe('low')
@@ -176,7 +201,7 @@ describe('compareReports — cross-key regression gate', () => {
     expect(xReg.after).toBe(0.0)
   })
 
-  it('matches prev sweep baseline when current is single-effort (plain key)', () => {
+  it('matches prev sweep baseline when current is single-effort (plain key)', async () => {
     const prev = {
       tasks: {
         'x@low': { passRate: 1.0, runs: 3 },
@@ -184,24 +209,27 @@ describe('compareReports — cross-key regression gate', () => {
       }
     }
     const cur = { tasks: { x: { taskId: 'x', effort: 'low', passRate: 0.2, runs: 3 } } }
-    const regs = compareReports(cur, prev, 5)
+    const regs = await compareReports(cur, prev, 5)
+    expect(Array.isArray(regs)).toBe(true)
     expect(regs.length).toBe(1)
     expect(regs[0].taskId).toBe('x')
     expect(regs[0].effort).toBe('low')
   })
 
-  it('regression below threshold stays silent', () => {
+  it('regression below threshold stays silent', async () => {
     const prev = { tasks: { x: { passRate: 0.9, runs: 3 } } }
     const cur = { tasks: { 'x@high': { taskId: 'x', effort: 'high', passRate: 0.88, runs: 3 } } }
-    expect(compareReports(cur, prev, 5).length).toBe(0)
+    const regs = await compareReports(cur, prev, 5)
+    expect(Array.isArray(regs)).toBe(true)
+    expect(regs.length).toBe(0)
   })
 })
 
 describe('anti-cheat unaffected by effort changes', () => {
   it('detectCheat still flags memorized output without sentinel', () => {
     expect(detectCheat({ sentinel: true, expected: 'X' }, { output: 'X' }, 'S3N-a')).toBe(true)
-    expect(detectCheat({ sentinel: true, expected: 'X' }, { output: 'X S3N-a' }, 'S3N-a')).toBe(
-      false
-    )
+    expect(
+      detectCheat({ sentinel: true, expected: 'X' }, { output: 'X S3N-a' }, 'S3N-a')
+    ).toBe(false)
   })
 })

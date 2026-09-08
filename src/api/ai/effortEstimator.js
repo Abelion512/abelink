@@ -10,6 +10,15 @@
 // Sengaja DETERMINISTIK dan murah (regex + heuristik bobot, tanpa LLM call):
 // dipanggil di setiap turn planner, jadi harus O(panjang teks) tanpa network.
 
+import {
+  EffortLevel,
+  EffortPolicy,
+  resolve_effort,
+  AUTO_SCALE,
+  AUTO_MIN,
+  AUTO_MAX,
+} from './effortSystem'
+
 // Sinyal kompleksitas (bobot kasar, kalibrasi manual — bisa di-evolve via test)
 const SIGNALS = [
   // Delegasi multi-agent = pekerjaan panjang, hasil harus koheren
@@ -80,13 +89,41 @@ export function estimateEffort(text = '') {
   }
 }
 
-// Terapkan hasil estimasi ke conf — TIDAK menimpa pilihan eksplisit user.
-// 'auto' = satu-satunya mode yang boleh menaikkan effort otomatis.
+// AUTO resolver: estimasi awal melewati AUTO_SCALE, lalu ResolvedEffort.
 export function resolveEffortLevel(conf, taskText = '') {
   const configured = conf?.effortLevel || 'low'
   if (configured !== 'auto') {
     return { effort: configured, auto: false, transparent: `effort=${configured} (dipilih user)` }
   }
+  // Tentukan level awal dari heuristik; AUTO_SCALE memetakan ke MEDIUM/HIGH.
   const est = estimateEffort(taskText)
-  return { effort: est.effort, auto: true, transparent: `[auto] ${est.transparent}` }
+  let suggested = est.effort
+  if (suggested === 'low') suggested = 'medium'
+  if (!EffortLevel[suggested.toUpperCase()]) {
+    suggested = 'medium'
+  }
+  const resolved = resolve_effort(EffortLevel.AUTO, { classifierInitial: EffortLevel[suggested.toUpperCase()] })
+  return {
+    effort: resolved.effective_level.value,
+    auto: true,
+    transparent: `[auto] effort=${resolved.effective_level.value} (awal ${resolved.initial_level.value}; ${resolved.resolution_reason})`
+  }
 }
+
+// Helper untuk tampilan level yang didukung.
+export const EFFORT_LEVELS = [
+  EffortLevel.LOW,
+  EffortLevel.MEDIUM,
+  EffortLevel.HIGH,
+  EffortLevel.XHIGH,
+  EffortLevel.MAX,
+  EffortLevel.ULTRA,
+  EffortLevel.AUTO,
+].map((e) => e.value)
+
+export const EFFORT_VALUES = EFFORT_LEVELS.filter((v) => v !== 'auto')
+
+export const SYSTEM_DEFAULT_EFFORT = EffortLevel.LOW.value
+
+// Backward-compatible alias used by legacy importers that expect the old shape.
+export const SYSTEM_DEFAULT_EFFORT_sync = EffortLevel.LOW.value

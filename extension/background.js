@@ -19,6 +19,10 @@ const SETTLE_MS = 2000
 let running = false
 let pollAbort = null
 
+// Log kunci agar console service worker jadi dasbor mini (bukan kuburan):
+// versi saat bangun, handshake, perintah masuk + hasil, error poll.
+console.log('[Mark] bridge service worker aktif (jalur E2E grup-tab + token persisten).')
+
 // ------------------------------------------------------------- helpers
 async function getCfg() {
   const { session, token, port } = await chrome.storage.session.get(['session', 'token', 'port'])
@@ -66,15 +70,23 @@ async function loop() {
         }
       )
       if (res.status === 401) {
-        // Token berubah (restart sidecar). Berhenti; popup menyalakan lagi.
+        // Token berubah (restart sidecar). Coba refresh senyap via helper
+        // lokal dulu; hanya berhenti bila helper juga tidak bisa.
+        const fresh = await getTokenViaNativeHost()
+        if (fresh.token) {
+          cfg.token = fresh.token
+          await chrome.storage.session.set({ token: fresh.token, lastError: null })
+          continue
+        }
         running = false
         await chrome.storage.session.set({
-          lastError: 'Token ditolak (401). Tempel token baru lewat popup.'
+          lastError: `Token ditolak (401). Helper: ${fresh.detail || 'tidak ada'}. Klik Sambungkan di popup (atau tempel token manual).`
         })
         break
       }
       const { command } = await res.json()
       if (command) {
+        console.log(`[Mark] perintah masuk: ${command.type} (${command.id || 'tanpa-id'})`)
         await runCommand(cfg, command)
       }
       // Tanpa jeda saat ada perintah (agar cepat); backoff hanya saat idle.
@@ -93,6 +105,26 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
+// Minta token langsung ke helper lokal (tanpa copas). Gagal -> '' agar
+// caller jatuh ke token tempel manual. Helper dipasang otomatis sidecar.
+// Mengembalikan { token, detail } agar popup bisa menampilkan sebab
+// sebenarnya (host tak ada vs ID tak cocok vs host crash).
+async function getTokenViaNativeHost() {
+  try {
+    const res = await chrome.runtime.sendNativeMessage('id.mark.bridge', { type: 'get-token' })
+    if (res?.ok && res.token) return { token: res.token, detail: '' }
+    return { token: '', detail: res?.error || 'helper menolak permintaan' }
+  } catch (e) {
+    const msg = String(e?.message || e)
+    // Klasifikasi sebab agar user tidak menebak-nebak.
+    let detail = msg
+    if (/not found|No such host/i.test(msg)) detail = 'helper belum terpasang (pakai Mark terbaru / picu channel browser:* sekali)'
+    else if (/exited|exit/i.test(msg)) detail = 'helper crash saat start (cek executable + runtime path)'
+    else if (/permission|allowed|origin|ID/i.test(msg)) detail = 'ID extension tak cocok (verifikasi ID di chrome://extensions)'
+    return { token: '', detail }
+  }
+}
+
 // -------------------------------------------------------------- commands
 async function execute(cfg, command) {
   const { type } = command
@@ -102,19 +134,34 @@ async function execute(cfg, command) {
   if (type === 'group-session') {
     const { task, status, autoClose } = payload || {}
     if (!task) return { ok: false, error: 'task wajib.' }
-    await ensureGroup(cfg.session || 'default', task, status, !!autoClose)
+    if (task) sessionTask[cfg.session || 'default'] = task
+    await ensureGroup(cfg.session || 'default', task, status || 'acting', !!autoClose)
     return { ok: true }
+  }
+
+  // Task selesai: tandai grup (✅/❌) + tutup tab grup hanya bila autoClose.
+  // Error tidak pernah auto-close (disisakan untuk inspeksi).
+  if (type === 'task-done') {
+    const { task, status, autoClose } = payload || {}
+    const done = await finishTaskGroup(cfg.session || 'default', task, status || 'done', !!autoClose)
+    return { ok: true, data: JSON.stringify(done) }
+  }
+
+  // Tutup tab grup aktif sesi ini (tombol manual popup). Selalu tersedia.
+  if (type === 'close-tabs') {
+    const closed = await closeActiveGroupTabs(cfg.session || 'default')
+    return { ok: true, data: JSON.stringify({ closed }) }
   }
 
   switch (type) {
     case 'navigate':
-      return navigate(payload)
+      return navigate(payload, cfg.session || 'default')
     case 'read-dom':
-      return readDom()
+      return readDom(cfg.session || 'default')
     case 'act':
-      return act(payload)
+      return act(payload, cfg.session || 'default')
     case 'show':
-      return showTab()
+      return showTab(cfg.session || 'default')
     default:
       return { ok: false, error: `Perintah tidak dikenal: ${type}` }
   }
@@ -127,6 +174,7 @@ async function runCommand(cfg, command) {
   } catch (e) {
     result = { ok: false, error: String(e?.message || e) }
   }
+  console.log(`[Mark] hasil ${command.type}: ${result.ok ? 'ok' : `gagal (${result.error || 'tanpa pesan'})`}`)
   try {
     await apiPost(
       cfg,
@@ -149,12 +197,6 @@ async function runCommand(cfg, command) {
 const GROUP_COLORS = ['grey', 'blue', 'yellow', 'green', 'pink', 'purple', 'cyan', 'red']
 const STATUS_ICON = { loading: '⏳', reading: '📖', acting: '🖱️', idle: '🟢', done: '✅', error: '❌' }
 
-function deriveGroupName(status, task) {
-  const icon = STATUS_ICON[status] || STATUS_ICON.idle
-  const safeTask = String(task || 'untitled').slice(0, 32)
-  return `${icon} (${status}) — ${safeTask}`
-}
-
 function colorForIndex(idx) {
   return GROUP_COLORS[idx % GROUP_COLORS.length]
 }
@@ -162,31 +204,132 @@ function colorForIndex(idx) {
 // Track active group per session: sessionId -> { taskId, groupId, colorIdx }
 const activeGroups = {}
 
-async function ensureGroup(sessionId, task, status, autoClose = false) {
+// Nama task terakhir per sesi (untuk grouping tab navigate tanpa label task).
+const sessionTask = {}
+
+// Tab primer per sesi: SEMUA navigate dalam satu task memakai ulang tab ini
+// (anti ledakan tab). Tab baru hanya untuk task baru / perintah eksplisit.
+const primaryTabs = {}
+
+async function saveSessionState() {
+  try {
+    await chrome.storage.session.set({
+      _primaryTabs: primaryTabs,
+      _activeGroups: activeGroups,
+      _sessionTask: sessionTask
+    })
+  } catch {}
+}
+
+async function loadSessionState() {
+  try {
+    const data = await chrome.storage.session.get(['_primaryTabs', '_activeGroups', '_sessionTask'])
+    if (data._primaryTabs) Object.assign(primaryTabs, data._primaryTabs)
+    if (data._activeGroups) Object.assign(activeGroups, data._activeGroups)
+    if (data._sessionTask) Object.assign(sessionTask, data._sessionTask)
+  } catch {}
+}
+
+// Ikon judul grup: ✅ selesai, ❌ gagal, ⏳ selain itu (dikerjakan).
+function iconFor(status) {
+  if (status === 'done') return STATUS_ICON.done
+  if (status === 'error' || status === 'failed') return STATUS_ICON.error
+  return STATUS_ICON.loading
+}
+
+// Format judul grup: "(icon) <task>", maks 32 char nama task.
+function groupTitle(status, task) {
+  const safeTask = String(task || 'untitled').slice(0, 32)
+  return `${iconFor(status)} ${safeTask}`
+}
+
+async function getPrimaryTab(sessionId) {
+  await loadSessionState()
+  const id = primaryTabs[sessionId]
+  if (id == null) return null
+  try {
+    const tab = await chrome.tabs.get(id)
+    if (!tab) {
+      delete primaryTabs[sessionId]
+      await saveSessionState()
+      return null
+    }
+    return tab
+  } catch {
+    delete primaryTabs[sessionId]
+    await saveSessionState()
+    return null
+  }
+}
+
+async function targetTabForSession(sessionId = 'default') {
+  await loadSessionState()
+  const primary = await getPrimaryTab(sessionId)
+  if (primary && primary.url?.startsWith('http')) return primary
+
+  // Cari tab yang berada di dalam grup Mark untuk sesi ini (isolasi privasi)
+  const group = activeGroups[sessionId]
+  if (group?.groupId != null) {
+    try {
+      const groupTabs = await chrome.tabs.query({ groupId: group.groupId })
+      const valid = groupTabs.find((t) => t.url?.startsWith('http'))
+      if (valid) {
+        primaryTabs[sessionId] = valid.id
+        await saveSessionState()
+        return valid
+      }
+    } catch {}
+  }
+  return null
+}
+
+async function ensureGroup(sessionId, task, status, autoClose = false, anchorTabId = null) {
   const colorIdx = (activeGroups[sessionId]?.colorIdx || 0) % GROUP_COLORS.length
   const color = colorForIndex(colorIdx)
 
-  // Tutup group sebelumnya jika berbeda task (hanya 1 aktif)
+  // Task berganti: grup lama langsung ditandai selesai (tidak menunggu /
+  // tidak mengantre — spawn grup baru tidak diblokir teardown grup lama).
   const prev = activeGroups[sessionId]
   if (prev && prev.taskId !== task) {
     await markGroupDone(prev.groupId, prev.taskId)
-    // Auto-close tab jika diminta
+    // Auto-close tab grup lama hanya jika diminta (default: dibiarkan).
     if (autoClose && prev.groupId != null) {
-      const tabs = await chrome.tabs.query({ groupId: prev.groupId })
-      for (const t of tabs) {
-        await chrome.tabs.remove(t.id)
-      }
+      closeGroupTabs(prev.groupId).catch(() => {})
     }
   }
 
-  const name = deriveGroupName(status, task)
+  const name = groupTitle(status, task)
   let groupId = prev?.groupId || null
+
+  // Validasi grup terlacak masih ada (user bisa ungroup manual).
+  if (groupId != null) {
+    try {
+      await chrome.tabGroups.get(groupId)
+    } catch {
+      groupId = null
+    }
+  }
+  if (groupId != null) {
+    await chrome.tabGroups.update(groupId, { color, title: name })
+    activeGroups[sessionId] = { taskId: task, groupId, colorIdx: (colorIdx + 1) % GROUP_COLORS.length }
+    await saveSessionState()
+    return groupId
+  }
 
   // BUGFIX (audit 2026-09): implementasi lama memfilter
   // g.windowId === chrome.windows.WINDOW_ID_CURRENT — konstanta itu (-2) bukan
   // ID window nyata, sehingga grup lama TIDAK PERNAH ditemukan dan setiap
   // perintah group-session membuat grup baru (menumpuk tanpa batas).
-  // Sekarang grup dicari di window milik tab aktif saja.
+  // Grup dibuat DARI TAB TASK (anchor), bukan tab aktif — grouping tab aktif
+  // adalah akar 7 tab yatim (tab aktif = halaman chrome:// yang tak bisa di-grup).
+  if (anchorTabId != null) {
+    groupId = await chrome.tabs.group({ tabIds: [anchorTabId] })
+    await chrome.tabGroups.update(groupId, { color, title: name })
+    activeGroups[sessionId] = { taskId: task, groupId, colorIdx: (colorIdx + 1) % GROUP_COLORS.length }
+    await saveSessionState()
+    return groupId
+  }
+
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
   let allGroups = []
   if (activeTab) {
@@ -211,20 +354,71 @@ async function ensureGroup(sessionId, task, status, autoClose = false) {
   }
 
   activeGroups[sessionId] = { taskId: task, groupId, colorIdx: (colorIdx + 1) % GROUP_COLORS.length }
+  await saveSessionState()
   return groupId
 }
 
 async function markGroupDone(groupId, taskId) {
   if (groupId == null) return
-  const name = STATUS_ICON.done + ' (done) — ' + (taskId || 'untitled').slice(0, 32)
-  await chrome.tabGroups.update(groupId, { title: name })
+  await chrome.tabGroups.update(groupId, { title: groupTitle('done', taskId) })
+}
+
+async function markGroupError(groupId, taskId) {
+  if (groupId == null) return
+  await chrome.tabGroups.update(groupId, { title: groupTitle('error', taskId) })
+}
+
+// Tutup semua tab dalam satu grup. Mengembalikan jumlah tab ditutup.
+async function closeGroupTabs(groupId) {
+  if (groupId == null) return 0
+  const tabs = await chrome.tabs.query({ groupId })
+  for (const t of tabs) {
+    await chrome.tabs.remove(t.id)
+  }
+  return tabs.length
+}
+
+// Selesaikan grup task sesi: tandai ✅/❌ + tutup tab hanya bila autoClose
+// dan status bukan error (tab error selalu disisakan untuk inspeksi).
+async function finishTaskGroup(sessionId, task, status = 'done', autoClose = false) {
+  const label = task || sessionTask[sessionId] || 'browser'
+  const group = activeGroups[sessionId]
+  const groupId = group?.groupId ?? null
+  if (status === 'error' || status === 'failed') {
+    await markGroupError(groupId, label)
+    return { groupId, status: 'error', closed: 0 }
+  }
+  await markGroupDone(groupId, label)
+  const closed = autoClose ? await closeGroupTabs(groupId).catch(() => 0) : 0
+  if (closed > 0) {
+    delete primaryTabs[sessionId]
+    await saveSessionState()
+  }
+  return { groupId, status: 'done', closed }
+}
+
+// Tutup tab grup aktif sesi (tombol manual). Mengembalikan jumlah ditutup.
+async function closeActiveGroupTabs(sessionId) {
+  const group = activeGroups[sessionId]
+  if (!group?.groupId) return 0
+  return closeGroupTabs(group.groupId).catch(() => 0)
+}
+
+// Masukkan tab ke grup sesi (format judul ikut status). Dipakai navigate
+// agar setiap tab yang dibuka Mark langsung ber-grup. Error DILEMPAR ke
+// caller (dilaporkan di hasil, bukan ditelan) — pelajaran 7 tab yatim.
+async function groupTabIntoSession(sessionId, tabId, task, status = 'acting') {
+  const label = task || sessionTask[sessionId] || 'browser'
+  const groupId = await ensureGroup(sessionId, label, status, false, tabId)
+  if (groupId == null) throw new Error('grup sesi tidak bisa dibuat (tidak ada tab anchor)')
+  await chrome.tabs.group({ tabIds: [tabId], groupId })
+  return groupId
 }
 
 async function updateGroupStatus(sessionId, task, status) {
   const group = activeGroups[sessionId]
   if (!group) return
-  const name = deriveGroupName(status, task)
-  await chrome.tabGroups.update(group.groupId, { title: name })
+  await chrome.tabGroups.update(group.groupId, { title: groupTitle(status, task) })
 }
 
 // ------------------------------------------------------------------ tabs
@@ -238,19 +432,55 @@ async function activeOrFindTab(urlFilter) {
   return null
 }
 
-async function navigate({ url }) {
-  let tab = await activeOrFindTab()
+async function navigate({ url, reuse = true }, sessionId = 'default') {
+  // Tab PRIMER per task dipakai ulang (anti ledakan tab). Tab baru hanya bila
+  // belum ada / sudah ditutup / reuse=false eksplisit. Tidak merebut fokus.
+  let tab = null
+  let reused = false
+  if (reuse !== false) tab = await getPrimaryTab(sessionId)
   if (!tab) {
     tab = await chrome.tabs.create({ url, active: false })
+    primaryTabs[sessionId] = tab.id
+    await saveSessionState()
   } else {
+    reused = true
     await chrome.tabs.update(tab.id, { url })
   }
   await waitForLoad(tab.id, NAV_TIMEOUT_MS)
   await sleep(SETTLE_MS)
-  return readDomInTab(tab.id)
+  // Setiap tab yang dibuka Mark langsung masuk grup sesi (judul ikut task
+  // terakhir sesi, atau hostname bila belum ada task).
+  let label = sessionTask[sessionId]
+  if (!label) {
+    try {
+      label = new URL(url).hostname
+    } catch {
+      label = 'browser'
+    }
+  }
+  let group = null
+  try {
+    const groupId = await groupTabIntoSession(sessionId, tab.id, label, 'acting')
+    group = { grouped: true, groupId }
+  } catch (e) {
+    group = { grouped: false, error: String(e?.message || e) }
+  }
+  const dom = await readDomInTab(tab.id)
+  if (!dom.ok) return { ...dom, group }
+  try {
+    const parsed = JSON.parse(dom.data)
+    parsed._group = { tabId: tab.id, reused, ...group }
+    return { ok: true, data: JSON.stringify(parsed) }
+  } catch {
+    return { ...dom, group }
+  }
 }
 
-function waitForLoad(tabId, timeoutMs) {
+async function waitForLoad(tabId, timeoutMs) {
+  try {
+    const cur = await chrome.tabs.get(tabId)
+    if (cur?.status === 'complete') return
+  } catch {}
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       chrome.tabs.onUpdated.removeListener(listener)
@@ -267,18 +497,18 @@ function waitForLoad(tabId, timeoutMs) {
   })
 }
 
-async function readDom() {
-  const tab = await activeOrFindTab()
+async function readDom(sessionId = 'default') {
+  const tab = await targetTabForSession(sessionId)
   if (!tab)
     return {
       ok: false,
-      error: 'Tidak ada tab aktif http(s). Buka halaman dulu atau pakai navigate.'
+      error: 'Tidak ada tab aktif http(s) untuk sesi ini. Buka halaman dulu atau pakai navigate.'
     }
   return readDomInTab(tab.id)
 }
 
-async function showTab() {
-  const tab = await activeOrFindTab()
+async function showTab(sessionId = 'default') {
+  const tab = await targetTabForSession(sessionId)
   if (!tab) return { ok: false, error: 'Tidak ada tab aktif untuk difokuskan.' }
   await chrome.tabs.update(tab.id, { active: true })
   await chrome.windows.update(tab.windowId, { focused: true })
@@ -292,31 +522,54 @@ async function showTab() {
 // WAJIB self-contained, tidak boleh menutup variabel dari service worker.
 function taggerFn() {
   document.querySelectorAll('[data-mark-id]').forEach((el) => el.removeAttribute('data-mark-id'))
-  const SELECTORS =
-    'a[href], button, input, select, textarea, [role="button"], [role="link"], [role="tab"], [tabindex]:not([tabindex="-1"])'
+  const SELECTORS = [
+    'a[href]',
+    'button',
+    'input',
+    'select',
+    'textarea',
+    '[role="button"]',
+    '[role="link"]',
+    '[role="tab"]',
+    '[role="checkbox"]',
+    '[role="menuitem"]',
+    '[role="option"]',
+    '[role="switch"]',
+    '[contenteditable="true"]',
+    '[tabindex]:not([tabindex="-1"])'
+  ].join(', ')
+
   const els = document.querySelectorAll(SELECTORS)
   const out = []
   const MAX = 80
   const MAX_TEXT = 80
   let n = 1
+  const vh = window.innerHeight || document.documentElement.clientHeight || 800
+  const vw = window.innerWidth || document.documentElement.clientWidth || 1200
+
   for (const el of els) {
     if (out.length >= MAX) break
     const rect = el.getBoundingClientRect()
-    if (rect.width < 2 || rect.height < 2) continue
+    if (rect.width < 3 || rect.height < 3) continue
     const style = getComputedStyle(el)
-    if (style.visibility === 'hidden' || style.display === 'none') continue
+    if (style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0') continue
+
     const id = 'mk' + n++
     el.setAttribute('data-mark-id', id)
     const text = (el.innerText || el.value || el.getAttribute('aria-label') || el.placeholder || '')
       .trim()
       .slice(0, MAX_TEXT)
+    const inViewport = rect.top >= 0 && rect.left >= 0 && rect.top <= vh && rect.left <= vw
+
     out.push({
       markId: id,
       tag: el.tagName.toLowerCase(),
       type: el.getAttribute('type') || el.getAttribute('role') || '',
       text,
       placeholder: el.placeholder || '',
+      ariaLabel: el.getAttribute('aria-label') || '',
       href: el.href ? el.href.slice(0, 200) : '',
+      inViewport,
       x: Math.round(rect.x + window.scrollX),
       y: Math.round(rect.y + window.scrollY)
     })
@@ -335,42 +588,208 @@ async function readDomInTab(tabId) {
 // state dikirim lewat `args`. Aksi yang butuh API ekstensi (chrome.scripting,
 // chrome.tabs, chrome.downloads) TIDAK BOLEH ditaruh di sini — tangani di
 // fungsi act() pada konteks service worker (lihat bawah).
-function actionFn({ markId, action, value }) {
+async function actionFn({ markId, action, value }) {
   const el = markId ? document.querySelector(`[data-mark-id="${markId}"]`) : null
   if (markId && !el)
     return {
       ok: false,
       error: `Elemen ${markId} tidak ditemukan (DOM berubah? Panggil read-dom lagi).`
     }
-  const fire = (elm, type) => elm.dispatchEvent(new Event(type, { bubbles: true }))
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+  // Visual helper kursor & ripple ala browser-use
+  const ensureStyles = () => {
+    if (document.getElementById('mark-agent-visual-styles')) return
+    const s = document.createElement('style')
+    s.id = 'mark-agent-visual-styles'
+    s.textContent = `
+      #mark-cursor-pointer {
+        position: absolute;
+        width: 22px;
+        height: 22px;
+        pointer-events: none;
+        z-index: 2147483647;
+        transition: left 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), top 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
+        filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+        transform: translate(-2px, -2px);
+      }
+      .mark-click-ripple {
+        position: absolute;
+        border: 2px solid #1fb854;
+        background: rgba(31, 184, 84, 0.25);
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 2147483646;
+        animation: mark-ripple-anim 0.45s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+      }
+      @keyframes mark-ripple-anim {
+        0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
+      }
+    `
+    document.documentElement.appendChild(s)
+  }
+
+  const showCursorAt = async (x, y) => {
+    ensureStyles()
+    let cur = document.getElementById('mark-cursor-pointer')
+    if (!cur) {
+      cur = document.createElement('div')
+      cur.id = 'mark-cursor-pointer'
+      cur.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22">
+          <path d="M4 3L11 21L14 13L21 9L4 3Z" fill="#1fb854" stroke="#06130b" stroke-width="1.8" stroke-linejoin="round"/>
+        </svg>
+      `
+      cur.style.opacity = '0'
+      document.body.appendChild(cur)
+    }
+    cur.style.left = `${x}px`
+    cur.style.top = `${y}px`
+    cur.style.opacity = '1'
+    await sleep(200)
+  }
+
+  const triggerRippleAt = (x, y) => {
+    ensureStyles()
+    const rip = document.createElement('div')
+    rip.className = 'mark-click-ripple'
+    rip.style.width = '36px'
+    rip.style.height = '36px'
+    rip.style.left = `${x}px`
+    rip.style.top = `${y}px`
+    document.body.appendChild(rip)
+    setTimeout(() => {
+      if (rip.parentNode) rip.parentNode.removeChild(rip)
+    }, 500)
+  }
+
+  const hideCursor = (delayMs = 600) => {
+    setTimeout(() => {
+      const cur = document.getElementById('mark-cursor-pointer')
+      if (cur) cur.style.opacity = '0'
+    }, delayMs)
+  }
+
   try {
     switch (action) {
-      case 'click':
-        el.scrollIntoView({ block: 'center' })
+      case 'click': {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+        await sleep(150)
+        const rect = el.getBoundingClientRect()
+        const clickX = Math.round(rect.left + rect.width / 2 + window.scrollX)
+        const clickY = Math.round(rect.top + rect.height / 2 + window.scrollY)
+
+        await showCursorAt(clickX, clickY)
+        triggerRippleAt(clickX, clickY)
+        await sleep(80)
+
+        const opts = {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          clientX: Math.round(rect.left + rect.width / 2),
+          clientY: Math.round(rect.top + rect.height / 2)
+        }
+        el.dispatchEvent(new PointerEvent('pointerdown', opts))
+        el.dispatchEvent(new MouseEvent('mousedown', opts))
+        el.focus()
+        await sleep(50)
+        el.dispatchEvent(new PointerEvent('pointerup', opts))
+        el.dispatchEvent(new MouseEvent('mouseup', opts))
         el.click()
+
+        hideCursor(700)
         break
-      case 'type':
+      }
+      case 'type': {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+        await sleep(150)
+        const rect = el.getBoundingClientRect()
+        const focusX = Math.round(rect.left + Math.min(20, rect.width / 2) + window.scrollX)
+        const focusY = Math.round(rect.top + rect.height / 2 + window.scrollY)
+
+        await showCursorAt(focusX, focusY)
+        triggerRippleAt(focusX, focusY)
+        el.focus()
+        await sleep(100)
+
+        const textToType = String(value ?? '')
+        if (el.isContentEditable) {
+          document.execCommand('selectAll', false, null)
+          if (textToType.length > 0 && textToType.length <= 40) {
+            for (const char of textToType) {
+              document.execCommand('insertText', false, char)
+              await sleep(15 + Math.random() * 25)
+            }
+          } else {
+            document.execCommand('insertText', false, textToType)
+          }
+        } else {
+          const proto =
+            el instanceof HTMLTextAreaElement
+              ? window.HTMLTextAreaElement.prototype
+              : window.HTMLInputElement.prototype
+          const descriptor = Object.getOwnPropertyDescriptor(proto, 'value')
+
+          if (textToType.length > 0 && textToType.length <= 40) {
+            let currVal = ''
+            for (let i = 0; i < textToType.length; i++) {
+              const char = textToType[i]
+              currVal += char
+              if (descriptor && descriptor.set) {
+                descriptor.set.call(el, currVal)
+              } else {
+                el.value = currVal
+              }
+              el.dispatchEvent(new KeyboardEvent('keydown', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true }))
+              el.dispatchEvent(new InputEvent('beforeinput', { data: char, inputType: 'insertText', bubbles: true }))
+              el.dispatchEvent(new Event('input', { bubbles: true }))
+              el.dispatchEvent(new KeyboardEvent('keyup', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true }))
+              await sleep(18 + Math.floor(Math.random() * 22))
+            }
+          } else {
+            if (descriptor && descriptor.set) {
+              descriptor.set.call(el, textToType)
+            } else {
+              el.value = textToType
+            }
+            el.dispatchEvent(new Event('input', { bubbles: true }))
+          }
+          el.dispatchEvent(new Event('change', { bubbles: true }))
+        }
+
+        hideCursor(500)
+        break
+      }
+      case 'select': {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        await sleep(100)
         el.focus()
         el.value = value
-        fire(el, 'input')
-        fire(el, 'change')
+        el.dispatchEvent(new Event('input', { bubbles: true }))
+        el.dispatchEvent(new Event('change', { bubbles: true }))
         break
-      case 'select':
-        el.value = value
-        fire(el, 'change')
+      }
+      case 'press': {
+        const keyName = String(value || 'Enter')
+        const active = document.activeElement || el || document.body
+        active.dispatchEvent(new KeyboardEvent('keydown', { key: keyName, code: keyName, bubbles: true, cancelable: true }))
+        await sleep(50)
+        active.dispatchEvent(new KeyboardEvent('keyup', { key: keyName, code: keyName, bubbles: true, cancelable: true }))
+        if (keyName === 'Enter' && active instanceof HTMLInputElement && active.form) {
+          active.form.requestSubmit?.() || active.form.submit()
+        }
         break
-      case 'press':
-        document.activeElement?.dispatchEvent(
-          new KeyboardEvent('keydown', { key: value, bubbles: true })
-        )
-        break
+      }
       case 'scroll': {
-        // value bisa angka (px) ATAU { direction, amount } dari bridge browserScroll.
         const px =
           value && typeof value === 'object'
             ? (value.direction === 'up' ? -1 : 1) * (Number(value.amount) || 600)
             : Number(value) || 600
-        window.scrollBy(0, px)
+        window.scrollBy({ top: px, behavior: 'smooth' })
+        await sleep(250)
         break
       }
       case 'extract':
@@ -384,30 +803,100 @@ function actionFn({ markId, action, value }) {
   }
 }
 
-async function act({ markId, action, value }) {
-  const tab = await activeOrFindTab()
+async function act({ markId, action, value }, sessionId = 'default') {
+  const tab = await targetTabForSession(sessionId)
   if (!tab) return { ok: false, error: 'Tidak ada tab aktif http(s) untuk aksi.' }
 
   // --- Aksi level SERVICE WORKER (bukan injeksi halaman) ---
-  // chrome.scripting/chrome.tabs/chrome.downloads tidak ada di konteks halaman.
-  // (Review PR #26: versi awal menaruh case ini di actionFn — selalu gagal.)
+  // chrome.scripting/chrome.tabs tidak ada di konteks halaman.
+  if (action === 'back' || action === 'go-back') {
+    try {
+      await chrome.tabs.goBack(tab.id)
+      await sleep(500)
+      return readDomInTab(tab.id)
+    } catch (e) {
+      return { ok: false, error: `browser-back gagal: ${String(e?.message || e)}` }
+    }
+  }
+  if (action === 'forward' || action === 'go-forward') {
+    try {
+      await chrome.tabs.goForward(tab.id)
+      await sleep(500)
+      return readDomInTab(tab.id)
+    } catch (e) {
+      return { ok: false, error: `browser-forward gagal: ${String(e?.message || e)}` }
+    }
+  }
+  if (action === 'reload' || action === 'refresh') {
+    try {
+      await chrome.tabs.reload(tab.id)
+      await sleep(1000)
+      return readDomInTab(tab.id)
+    } catch (e) {
+      return { ok: false, error: `browser-reload gagal: ${String(e?.message || e)}` }
+    }
+  }
+
   if (action === 'script') {
     const code = String(value || '')
     if (!code) return { ok: false, error: 'browser-script butuh kode pada field value.' }
+
+    // Intercept native navigation calls to bypass page CSP eval restrictions
+    const trimmed = code.trim().toLowerCase().replace(/;\s*$/, '')
+    if (trimmed === 'window.history.back()' || trimmed === 'history.back()') {
+      try {
+        await chrome.tabs.goBack(tab.id)
+        await sleep(500)
+        return readDomInTab(tab.id)
+      } catch (e) {
+        return { ok: false, error: `history.back gagal: ${String(e?.message || e)}` }
+      }
+    }
+    if (trimmed === 'window.history.forward()' || trimmed === 'history.forward()') {
+      try {
+        await chrome.tabs.goForward(tab.id)
+        await sleep(500)
+        return readDomInTab(tab.id)
+      } catch (e) {
+        return { ok: false, error: `history.forward gagal: ${String(e?.message || e)}` }
+      }
+    }
+    if (trimmed === 'window.location.reload()' || trimmed === 'location.reload()') {
+      try {
+        await chrome.tabs.reload(tab.id)
+        await sleep(1000)
+        return readDomInTab(tab.id)
+      } catch (e) {
+        return { ok: false, error: `location.reload gagal: ${String(e?.message || e)}` }
+      }
+    }
+
     try {
       const [scr] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         world: 'MAIN',
         args: [code],
         func: (c) => {
-          // Evaluasi di konteks halaman; tunduk pada CSP halaman target —
-          // halaman tanpa unsafe-eval menolak (gagal jujur, bukan sukses palsu).
-          const fn = new Function(`return (${c})`)
-          const out = fn()
-          return out === undefined ? null : out
+          try {
+            const fn = new Function(`return (() => {\n${c}\n})()`)
+            const out = fn()
+            return out === undefined ? null : out
+          } catch (err) {
+            return { __eval_error: String(err?.message || err) }
+          }
         }
       })
       const scriptResult = scr?.result ?? null
+      if (scriptResult && typeof scriptResult === 'object' && scriptResult.__eval_error) {
+        const errStr = scriptResult.__eval_error
+        if (errStr.includes('Content Security Policy') || errStr.includes('unsafe-eval')) {
+          return {
+            ok: false,
+            error: `browser-script diblokir oleh CSP halaman (eval tidak diizinkan). Untuk navigasi, gunakan tool 'browser-back', 'browser-forward', atau 'browser-reload'.`
+          }
+        }
+        return { ok: false, error: `browser-script error: ${errStr}` }
+      }
       return {
         ok: true,
         data: JSON.stringify(
@@ -417,7 +906,14 @@ async function act({ markId, action, value }) {
         )
       }
     } catch (e) {
-      return { ok: false, error: `browser-script gagal: ${String(e?.message || e)}` }
+      const errStr = String(e?.message || e)
+      if (errStr.includes('Content Security Policy') || errStr.includes('unsafe-eval')) {
+        return {
+          ok: false,
+          error: `browser-script diblokir oleh CSP halaman. Untuk navigasi, gunakan tool 'browser-back' atau 'browser-forward'.`
+        }
+      }
+      return { ok: false, error: `browser-script gagal: ${errStr}` }
     }
   }
   if (action === 'screenshot') {
@@ -433,14 +929,9 @@ async function act({ markId, action, value }) {
     }
   }
   if (action === 'download') {
-    const url = value && typeof value === 'object' ? value.url : null
-    const fileName = value && typeof value === 'object' ? value.fileName : undefined
-    if (!url) return { ok: false, error: 'browser-download butuh value { url, fileName }.' }
-    try {
-      const downloadId = await chrome.downloads.download({ url, filename: fileName })
-      return { ok: true, data: JSON.stringify({ downloadId }) }
-    } catch (e) {
-      return { ok: false, error: `browser-download gagal: ${String(e?.message || e)}` }
+    return {
+      ok: false,
+      error: 'browser-download via ekstensi dinonaktifkan demi minimasi permission (keamanan user). Gunakan native download dari Mark sidecar.'
     }
   }
   if (action === 'ask') {
@@ -466,9 +957,33 @@ async function act({ markId, action, value }) {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   ;(async () => {
     if (msg?.type === 'start') {
+      // Urutan token: tempelan manual > helper lokal > simpanan persisten.
+      // Simpanan persisten membuat buka popup = hijau tanpa klik ulang.
+      let token = (msg.token || '').trim()
+      let nativeDetail = ''
+      if (!token) {
+        const via = await getTokenViaNativeHost()
+        token = via.token
+        nativeDetail = via.detail
+      }
+      if (!token) {
+        try {
+          const kept = await chrome.storage.local.get('bridgeToken')
+          if (kept?.bridgeToken) token = kept.bridgeToken
+        } catch {
+          /* storage tak ada */
+        }
+      }
+      if (!token) {
+        await chrome.storage.session.set({
+          lastError: `Token kosong dan helper lokal tidak ada${nativeDetail ? ` (${nativeDetail})` : ''}. Tempel token manual sekali.`
+        })
+        sendResponse({ ok: false, error: 'token' })
+        return
+      }
       const cfg = {
         session: msg.session || 'default',
-        token: msg.token,
+        token,
         port: msg.port || DEFAULT_PORT
       }
       // Verifikasi token sebelum masuk loop: error langsung terlihat di popup
@@ -477,10 +992,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const hs = await apiGet(cfg, 'handshake')
         if (hs.status === 401) {
           await chrome.storage.session.set({
-            lastError: 'Token ditolak sidecar (401). Periksa salinan token.'
+            lastError: 'Token ditolak sidecar (401). Sambungkan ulang sekali.'
           })
           sendResponse({ ok: false, error: 'token' })
           return
+        }
+        // Rotasi refresh-on-use: server menitipkan token baru di handshake.
+        // Tukar diam-diam + simpan persisten — tanpa tempel ulang selamanya.
+        if (hs.body?.newToken) {
+          cfg.token = hs.body.newToken
+          try {
+            await chrome.storage.local.set({ bridgeToken: cfg.token })
+          } catch {
+            /* abaikan */
+          }
         }
         if (hs.status === 403 || hs.status === 0) {
           await chrome.storage.session.set({
@@ -502,8 +1027,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         port: cfg.port,
         lastError: null
       })
+      try {
+        await chrome.storage.local.set({ bridgeToken: cfg.token })
+      } catch {
+        /* abaikan */
+      }
       if (!running) {
         running = true
+        console.log(`[Mark] loop poll jalan (session: ${cfg.session}, port: ${cfg.port}).`)
         loop()
       }
       sendResponse({ ok: true })
@@ -512,6 +1043,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       pollAbort?.abort()
       await chrome.storage.session.set({ lastError: null })
       sendResponse({ ok: true })
+    } else if (msg?.type === 'close-task-tabs') {
+      const cfg = await getCfg()
+      const session = msg.session || cfg.session
+      const closed = await closeActiveGroupTabs(session)
+      sendResponse({ ok: true, closed })
+    } else if (msg?.type === 'get-active-task') {
+      const cfg = await getCfg()
+      const session = msg.session || cfg.session
+      const group = activeGroups[session]
+      sendResponse({ ok: true, hasTask: !!group?.groupId, task: group?.taskId || null })
     } else if (msg?.type === 'status') {
       const cfg = await getCfg()
       sendResponse({
@@ -525,3 +1066,53 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   })()
   return true // async response
 })
+
+async function tryAutoResume() {
+  if (running) return
+  await loadSessionState()
+  let cfg = await getCfg()
+
+  // Jika token di session storage kosong, ambil otomatis via native host atau local storage
+  if (!cfg.token) {
+    const via = await getTokenViaNativeHost()
+    if (via?.token) {
+      cfg.token = via.token
+      await chrome.storage.session.set({ token: via.token })
+    } else {
+      try {
+        const kept = await chrome.storage.local.get('bridgeToken')
+        if (kept?.bridgeToken) {
+          cfg.token = kept.bridgeToken
+          await chrome.storage.session.set({ token: kept.bridgeToken })
+        }
+      } catch {}
+    }
+  }
+
+  if (cfg.token) {
+    try {
+      const hs = await apiGet(cfg, 'handshake')
+      if (hs.status === 200) {
+        if (hs.body?.newToken) {
+          cfg.token = hs.body.newToken
+          await chrome.storage.session.set({ token: cfg.token })
+          try {
+            await chrome.storage.local.set({ bridgeToken: cfg.token })
+          } catch {}
+        }
+        running = true
+        console.log(`[Mark] auto-resume service worker aktif (session: ${cfg.session}, port: ${cfg.port}).`)
+        loop()
+      }
+    } catch {
+      /* sidecar belum aktif / unreachable */
+    }
+  }
+}
+
+chrome.runtime.onStartup.addListener(() => {
+  tryAutoResume()
+})
+
+tryAutoResume()
+

@@ -357,9 +357,26 @@ html, body, #root {
 /* === TAMBAHAN UNTUK ORB & HOLOGRAM (HIJAU SEIRAMA) === */
 :root {
   --color-holo-border: linear-gradient(90deg, oklch(var(--p)), oklch(var(--su)), oklch(var(--p)));
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-blur: blur(20px);
+  --glass-bg: rgba(13, 19, 15, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-blur: blur(12px);
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  transform: translateZ(0);
+}
+
+.glass-card {
+  background: linear-gradient(135deg, rgba(22, 32, 25, 0.8) 0%, rgba(11, 15, 12, 0.88) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  transform: translateZ(0);
 }
 
 /* === ORB ANIMATIONS === */
@@ -529,10 +546,11 @@ html, body, #root {
 /* === HOLOGRAPHIC UI SETTINGS === */
 
 .holo-card {
-  @apply bg-black/40 backdrop-blur-2xl border border-primary/30 shadow-[0_0_20px_oklch(var(--p)/0.15)];
-  transition: all 0.3s ease;
+  @apply bg-black/50 backdrop-blur-md border border-primary/30 shadow-[0_0_20px_oklch(var(--p)/0.15)];
+  transform: translateZ(0);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .holo-card:hover {
-  @apply border-primary/70 shadow-[0_0_35px_oklch(var(--p)/0.4)] scale-[1.01];
+  @apply border-primary/70 shadow-[0_0_28px_oklch(var(--p)/0.3)];
 }

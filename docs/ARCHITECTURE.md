@@ -98,8 +98,24 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
   `maxTurns`, script `bun run benchmark:run`/`benchmark:echo`) →
   `mark-adapter.mjs` (spawn sidecar persisten, multiplex per id, turn budget
   per task) → jawaban diverifier predikat yang dieksekusi → laporan JSON.
-  Smoke tanpa network: `bun evaluation/smoke.mjs` (registry, verifier
-  PASS/FAIL, agregasi + anti-cheat).
+   Smoke tanpa network: `bun evaluation/smoke.mjs` (registry, verifier
+   PASS/FAIL, agregasi + anti-cheat).
+- **Effort/budget:** `src/api/ai/effortSystem.js` (policy kanonis LOW–ULTRA +
+  AUTO resolver, immutable) → `applyLimits()` (min dari kanonis, runtime,
+  provider, `SYSTEM_HARD_LIMITS`) → `BudgetState` (konsumsi mutable) →
+  `BudgetSnapshot` (sisa, tidak pernah negatif). Estimasi awal per turn:
+  `src/api/ai/effortEstimator.js` (deterministik, tanpa LLM call). ULTRA =
+  MAX + orkestrasi workflow; hanya ULTRA yang punya `workflow_node_budget`
+  (32). Spesifikasi: `docs/effort-system-spec.md`.
+- **Benchmark arsitektur:** `evaluation/bench/` menilai perilaku sistem
+  (planning, tool, memory, verifikasi, disiplin loop), bukan kualitas teks:
+  `contract.mjs` (skema trajectory) → `tasks.mjs` (probe brain/logic/body/
+  soul/planning/io) → `capture.mjs` (kontrak boundary
+  `startRun`/`sendPrompt`/`endRun`/`abortRun` + normalisasi) →
+  `evaluator.mjs` (rubrik 0/1 deterministik) → `runner-stub.mjs`
+  (otomatisasi penuh menunggu boundary MARK nyata, lihat
+  `boundary-spec.mjs`). Fixtures deterministik effort:
+  `evaluation/effort-fixtures.mjs` + `tests/effort-fixtures.test.mjs`.
 - **Knowledge:** dokumen → `ragPipeline.js` (chunk 500/50) → Dexie + Orama;
   workspace `.mark/` → `workspace:*` channel → working memory disuntikkan ke
   system prompt.

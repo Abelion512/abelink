@@ -19,10 +19,45 @@ function getFolderFromPath(filePath) {
   return filePath
 }
 
+// Tool native -> family izin (mirror semantik gerbang Rust ask/session/always).
+// Gerbang Rust hanya mencakup channel (skills/plugin/tg/google/capabilities);
+// prompt native-tool (run-shell, git, os-*, dst.) diingat DI SINI.
+const TOOL_FAMILY_RULES = [
+  [/^(run-shell|run-task|run-bash)$/, 'shell-exec'],
+  [/^(write-file|replace-content|replace-lines|delete-file)$/, 'fs-write'],
+  [/^git-(commit|revert)$/, 'git-write'],
+  [/^os-/, 'os-control'],
+  [/^browser-download$/, 'browser-download'],
+  [/^(gdrive|gcalendar|gmail)-/, 'google-write']
+]
+
+export function familyOfTool(tool) {
+  const t = String(tool || '')
+  for (const [re, family] of TOOL_FAMILY_RULES) {
+    if (re.test(t)) return family
+  }
+  return `tool:${t || 'unknown'}`
+}
+
+const ALWAYS_TOOLS_KEY = 'mark:approval-always-tools'
+
+function loadAlwaysTools() {
+  try {
+    const raw = localStorage.getItem(ALWAYS_TOOLS_KEY)
+    const arr = JSON.parse(raw || '[]')
+    return Array.isArray(arr) ? arr.filter((x) => typeof x === 'string') : []
+  } catch (_) {
+    return []
+  }
+}
+
 export const ApprovalProvider = ({ children }) => {
   const [approvalData, setApprovalData] = useState(null)
   const approvalRef = useRef(null)
   const [alwaysAllowedPaths, setAlwaysAllowedPaths] = useState([])
+  // Grant per family: session (RAM, hilang saat reload) + always (localStorage).
+  const sessionGrantedRef = useRef(new Set())
+  const [alwaysTools, setAlwaysTools] = useState(loadAlwaysTools)
 
   const alwaysAllowedPathsRef = useRef(alwaysAllowedPaths)
   useEffect(() => {
@@ -152,6 +187,19 @@ export const ApprovalProvider = ({ children }) => {
   }, [handleRemoteDecision])
 
   const requestApproval = useCallback((message, tool, query) => {
+    // Grant per family dulu (diingat dari pilihan sesi/selalu sebelumnya).
+    const family = familyOfTool(tool)
+    if (sessionGrantedRef.current.has(family)) {
+      return Promise.resolve(true)
+    }
+    let storedAlways = []
+    try {
+      storedAlways = JSON.parse(localStorage.getItem(ALWAYS_TOOLS_KEY) || '[]')
+    } catch (_) {}
+    if (Array.isArray(storedAlways) && storedAlways.includes(family)) {
+      return Promise.resolve(true)
+    }
+
     // Cek apakah query/path sudah diizinkan selamanya
     const targetPath = getPathFromQuery(query)
     const targetFolder = getFolderFromPath(targetPath)
@@ -193,11 +241,33 @@ export const ApprovalProvider = ({ children }) => {
     }
   }
 
+  const handleApproveSession = () => {
+    const current = approvalRef.current || approvalData
+    approvalRef.current = null
+    setApprovalData(null)
+    if (current) {
+      sessionGrantedRef.current.add(familyOfTool(current.tool))
+      if (typeof current.resolve === 'function') {
+        current.resolve(true)
+      }
+    }
+  }
+
   const handleApproveAlways = () => {
     const current = approvalRef.current || approvalData
     approvalRef.current = null
     setApprovalData(null)
     if (current) {
+      const family = familyOfTool(current.tool)
+      sessionGrantedRef.current.add(family)
+      setAlwaysTools((prev) => {
+        if (prev.includes(family)) return prev
+        const next = [...prev, family]
+        try {
+          localStorage.setItem(ALWAYS_TOOLS_KEY, JSON.stringify(next))
+        } catch (_) {}
+        return next
+      })
       handleApproveAlwaysInternal(current.query, current)
       if (typeof current.resolve === 'function') {
         current.resolve(true)
@@ -227,7 +297,8 @@ export const ApprovalProvider = ({ children }) => {
               Mark membutuhkan persetujuan Anda untuk mengeksekusi aksi berikut.
             </p>
             <div className="whitespace-pre-wrap font-mono text-xs bg-base-300 p-3.5 rounded-xl overflow-x-auto max-h-56 overflow-y-auto shadow-inner border border-white/5 mb-4 text-base-content/90">
-              {approvalData.message}
+              {approvalData.message ||
+                `Tool: ${approvalData.tool || 'tak dikenal'}\nQuery: ${approvalData.query || '(kosong)'}`}
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2.5 mt-4">
               <button className="btn btn-ghost btn-sm" onClick={handleReject}>
@@ -237,8 +308,11 @@ export const ApprovalProvider = ({ children }) => {
                 <button className="btn btn-outline btn-sm" onClick={handleApproveOnce}>
                   Izinkan Sekali
                 </button>
+                <button className="btn btn-outline btn-sm" onClick={handleApproveSession}>
+                  Sesi Ini
+                </button>
                 <button className="btn btn-error btn-sm shadow-md" onClick={handleApproveAlways}>
-                  Izinkan Selamanya
+                  Selalu
                 </button>
               </div>
             </div>

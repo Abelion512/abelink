@@ -64,6 +64,11 @@ pub struct NodeResponse {
 
 /// Channel sidecar yang selalu butuh persetujuan native.
 /// (open-external pindah ke cmd_misc.rs::misc_open_external dengan gate rfd yang sama.)
+///
+/// Dipakai juga watchdog Fase 2 sebagai definisi "aksi destruktif".
+pub(crate) fn is_gated_action(action: &str) -> bool {
+    APPROVAL_ACTIONS.contains(&action)
+}
 const APPROVAL_ACTIONS: &[&str] = &[
     "skills:save",
     "skills:delete",
@@ -153,52 +158,57 @@ pub(crate) fn confirm_on_main_thread(app: &AppHandle, description: String) -> bo
 }
 
 pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> Result<(), String> {
-    // Cari engine.mjs: cwd dev (src-tauri) -> repo root; lalu resource dir (bundled).
-    let candidates = [
-        std::path::PathBuf::from("sidecar/engine.mjs"),
-        std::path::PathBuf::from("../sidecar/engine.mjs"),
-    ];
-    let mut engine_path: Option<std::path::PathBuf> = candidates
-        .iter()
-        .find(|p| p.exists())
-        .cloned();
-    if engine_path.is_none() {
-        if let Ok(resource_dir) = app.path().resource_dir() {
-            let bundled = resource_dir.join("sidecar/engine.mjs");
-            if bundled.exists() {
-                engine_path = Some(bundled);
-            }
+    // Rilis: binary single-file hasil `bun run build:sidecar` — tanpa butuh
+    // bun/node_modules di mesin user. Dev: source tree via `bun run` (+ --watch).
+    // Kandidat ganda karena Tauri memetakan resource `..` ke `_up_/` di bundle.
+    let mut cmd = if cfg!(debug_assertions) {
+        let candidates = [
+            std::path::PathBuf::from("sidecar/engine.mjs"),
+            std::path::PathBuf::from("../sidecar/engine.mjs"),
+        ];
+        let engine_path = candidates.iter().find(|p| p.exists()).cloned().ok_or_else(|| {
+            "engine.mjs tidak ditemukan (dev: jalankan dari repo root)".to_string()
+        })?;
+        log::info!(
+            "[NodeBridge] Memulai sidecar engine (bun, dev) di path: {}",
+            engine_path.display()
+        );
+        let mut c = Command::new("bun");
+        c.arg("--watch").arg("run").arg(&engine_path);
+        c
+    } else {
+        let resource_dir = app
+            .path()
+            .resource_dir()
+            .map_err(|e| format!("Gagal resolve resource dir: {e}"))?;
+        let exe = ["mark-engine", "_up_/dist-sidecar/mark-engine"]
+            .iter()
+            .map(|p| resource_dir.join(p))
+            .find(|p| p.exists())
+            .ok_or_else(|| {
+                "mark-engine tidak ditemukan di bundle (rilis: jalankan `bun run build:sidecar` sebelum `tauri build`)".to_string()
+            })?;
+        log::info!(
+            "[NodeBridge] Memulai sidecar engine (binary) di path: {}",
+            exe.display()
+        );
+        let mut c = Command::new(&exe);
+        let scripts = ["pc-agent-scripts", "_up_/sidecar/main/pc-agent-scripts"]
+            .iter()
+            .map(|p| resource_dir.join(p))
+            .find(|p| p.is_dir());
+        if let Some(dir) = scripts {
+            c.env("MARK_RESOURCE_DIR", dir);
         }
-    }
-    let engine_path = match engine_path {
-        Some(p) => p,
-        None => {
-            return Err(
-                "engine.mjs tidak ditemukan (dev: jalankan dari repo root; bundled: pastikan bundle.resources memuat sidecar/)".into(),
-            )
-        }
+        c
     };
 
-    log::info!(
-        "[NodeBridge] Memulai sidecar engine (bun) di path: {}",
-        engine_path.display()
-    );
-
-    let mut cmd = Command::new("bun");
-
-    // Dev mode: auto-reload engine saat file berubah (flag bawaan Node-compatible)
-    if cfg!(debug_assertions) {
-        cmd.arg("--watch");
-    }
-
     let mut child = cmd
-        .arg("run")
-        .arg(&engine_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()
-        .map_err(|e| format!("Gagal menjalankan sidecar engine (butuh bun di PATH): {}", e))?;
+        .map_err(|e| format!("Gagal menjalankan sidecar engine: {}", e))?;
 
     let stdout = child
         .stdout
@@ -276,6 +286,36 @@ pub async fn node_invoke(
     // 1) Bypass deny-by-default — aksi bebas lewat, APPROVAL_ACTIONS tetap dicek di bawah.
     //    (Elemen keamanan: aksi berbahaya tetap minta konfirmasi native.)
     //    Jika butuh pendalaman, ganti ke allowlist whitelist yang dibaca dari config file.
+
+    // 1.5) Watchdog Fase 2 (di luar jangkauan JS): hitung invoke per sesi.
+    //    Soft breach -> cabut session grants + emit event, request ini tetap
+    //    diproses lewat gate normal (yang kini kembali bertanya). Hard breach
+    //    (runaway) -> tolak request; loop JS melihat error dan berhenti graceful.
+    if let Some(breach) = crate::watchdog::record_action(is_gated_action(&action)) {
+        log::warn!(
+            "[Watchdog] breach {} pada aksi '{}' — mencabut session grants",
+            breach.kind(),
+            action
+        );
+        crate::approval_policy::reset_session();
+        let _ = app.emit(
+            "watchdog-breach",
+            serde_json::json!({ "kind": breach.kind(), "action": action }),
+        );
+        if breach.is_hard() {
+            return Err(format!(
+                "Watchdog: laju invoke runaway ({}), request '{}' ditolak. Kurangi kecepatan atau mulai ulang misi.",
+                breach.kind(),
+                action
+            ));
+        }
+    }
+
+    // 1.6) Mission scope Fase 3: penolakan deterministik tanpa dialog bila aksi
+    //    di luar tool yang dideklarasikan misi. Nonaktif secara default.
+    if let Err(e) = crate::mission_scope::check_tool(&action) {
+        return Err(e);
+    }
 
     // 2) Persetujuan NATIVE untuk aksi/tool berbahaya (di luar kendali renderer).
     if let Some(desc) = approval_reason(&action, &payload) {

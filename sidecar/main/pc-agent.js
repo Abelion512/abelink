@@ -457,12 +457,23 @@ export async function askUserPC(query = '') {
 
 const DAEMON_SCRIPT = 'linux-daemon.py'
 
+// import.meta.dir (bun) menunjuk direktori file ini — tetap benar saat
+// dibundel single-file. MARK_RESOURCE_DIR di-set Rust spawner saat produksi.
+const SCRIPT_DIRS = [
+  process.env.MARK_RESOURCE_DIR
+    ? join(process.env.MARK_RESOURCE_DIR, 'pc-agent-scripts')
+    : null,
+  join(import.meta.dir ?? process.cwd(), 'pc-agent-scripts'),
+  join(process.cwd(), 'sidecar', 'main', 'pc-agent-scripts')
+].filter(Boolean)
+
+function resolveScript(name) {
+  return SCRIPT_DIRS.map((d) => join(d, name)).find((p) => fs.existsSync(p))
+    ?? join(SCRIPT_DIRS[0], name)
+}
+
 function getDaemonScriptPath() {
-  let scriptPath = join(__dirname, 'pc-agent-scripts', DAEMON_SCRIPT)
-  if (!fs.existsSync(scriptPath)) {
-    scriptPath = join(process.cwd(), 'sidecar', 'main', 'pc-agent-scripts', DAEMON_SCRIPT)
-  }
-  return scriptPath
+  return resolveScript(DAEMON_SCRIPT)
 }
 
 function startDaemon() {
@@ -611,10 +622,7 @@ function runScriptFallback(scriptName, args = []) {
     if (!scriptName.endsWith('.sh')) {
       scriptName = scriptName.replace(/\.(ps1|psm1)$/, '.sh')
     }
-    let scriptPath = join(__dirname, 'pc-agent-scripts', scriptName)
-    if (!fs.existsSync(scriptPath)) {
-      scriptPath = join(process.cwd(), 'sidecar', 'main', 'pc-agent-scripts', scriptName)
-    }
+    const scriptPath = resolveScript(scriptName)
 
     const ps = spawn('bash', [scriptPath, ...args])
     activeChildProcess = ps

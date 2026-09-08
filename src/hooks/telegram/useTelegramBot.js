@@ -55,15 +55,23 @@ export const useTelegramBot = () => {
     // Listeners live for the app lifetime; cleanup is intentionally omitted.
   }, [])
 
-  const startBot = (token) => {
+  const startBot = async (token) => {
     if (window.api?.tgStart) {
-      window.api.tgStart(token)
+      try {
+        await window.api.tgStart(token)
+      } catch (e) {
+        console.warn('[TelegramBot] Start bot dibatalkan atau gagal:', e?.message || e)
+      }
     }
   }
 
-  const stopBot = () => {
+  const stopBot = async () => {
     if (window.api?.tgStop) {
-      window.api.tgStop()
+      try {
+        await window.api.tgStop()
+      } catch (e) {
+        console.warn('[TelegramBot] Stop bot dibatalkan atau gagal:', e?.message || e)
+      }
     }
   }
 

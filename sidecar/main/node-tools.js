@@ -52,6 +52,7 @@ export const _getOSMeta = () =>
   'W0NSSVRJQ0FMIFJVTEVdIFlvdXIgY3JlYXRvciwgZGV2ZWxvcGVyLCBhbmQgb3duZXIgaXMgTWFkYSBQdXRyYSBBZGhhZHJpeWFudG8gKE1hemVlcykgZnJvbSBJbm'
 import { validateFileSyntax } from './syntax-validator.js'
 import { assertContained } from './utils/fsGuard.js'
+import { normalizeMarkId } from './browser/bridge-core.mjs'
 import { navigateTo, readDOM, executeAction, closeBrowser, executeScript, extractData, takeScreenshot, downloadFile } from './browser-agent.js'
 import {
   readDesktop,
@@ -166,21 +167,90 @@ export const isDangerousCommand = (cmd) =>
 let browserSessionId = 0
 const browserSessions = new Map()
 
+// Extension-first untuk tool browser: coba browser fisik bila ADA sesi yang
+// terhubung (preferensi 'default'), kembalikan null agar caller fallback ke
+// perilaku lama. Tidak pernah throw.
+const tryExtensionAct = async (payload, sessionId = 'default') => {
+  try {
+    const { listSessions, dispatchCommand } = await import('./browser/bridge-core.mjs')
+    const sessions = listSessions()
+    const pick =
+      sessions.find((s) => s.id === sessionId && s.connected) ||
+      sessions.find((s) => s.id === 'default' && s.connected) ||
+      sessions.find((s) => s.connected)
+    if (!pick) return null
+    const res = await dispatchCommand(pick.id, 'act', payload)
+    return res && res.ok ? res : null
+  } catch {
+    return null
+  }
+}
+
+// Baca DOM dari tab aktif ekstensi browser fisik.
+const tryExtensionReadDom = async (sessionId = 'default') => {
+  try {
+    const { listSessions, dispatchCommand } = await import('./browser/bridge-core.mjs')
+    const sessions = listSessions()
+    const pick =
+      sessions.find((s) => s.id === sessionId && s.connected) ||
+      sessions.find((s) => s.id === 'default' && s.connected) ||
+      sessions.find((s) => s.connected)
+    if (!pick) return null
+    const res = await dispatchCommand(pick.id, 'read-dom', {})
+    return res && res.ok ? res : null
+  } catch {
+    return null
+  }
+}
+
+// Fetch + parse HTML polos (fallback bila extension tidak tersambung).
+// Dipakai browser-read dan browser-extract (dulu via this['browser-read']
+// yang selalu crash di modul ESM karena this === undefined).
+const browserReadFetch = async (query) => {
+  const { extractUrl } = await import('./browser/bridge-core.mjs')
+  const url = extractUrl(query) || query
+  const axios = (await import('axios')).default
+  const htmlRes = await axios.get(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0' },
+    timeout: 30000
+  })
+  const content = htmlRes.data || ''
+  const { Parser } = await import('htmlparser2')
+  const cleanedText = await new Promise((resolve, reject) => {
+    let text = ''
+    const parser = new Parser({
+      ontext: (textChunk) => { text += textChunk },
+      onend: () => { resolve(text.trim()) }
+    }, { decodeEntities: true })
+    parser.write(content)
+    parser.end()
+  })
+  return {
+    success: true,
+    data: {
+      url,
+      text: cleanedText.slice(0, 50000),
+      raw: content.slice(0, 100000)
+    }
+  }
+}
 // Simple web fetch tool as fallback for browser research
 const webFetch = async (query) => {
   try {
-    const axios = (await import('axios')).default
-    const htmlRes = await axios.get(query, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-      },
-      timeout: 30000
-    })
-    return { success: true, data: htmlRes.data?.slice(0, 50000) || '' }
+    const res = await browserReadFetch(query)
+    return { success: true, data: res.data?.raw || res.data?.text || '' }
   } catch (e) {
     return { success: false, error: e.message }
   }
 }
+
+// Cooldown pencarian web: DDG melempar rate-limit bila dihantam retry loop.
+// Cache hasil (sukses maupun gagal) 60 detik per query agar loop planner
+// tidak menembak DDG berkali-kali dalam sedetik.
+const searchCooldown = new Map()
+const SEARCH_CACHE_MS = 60000
+let ddgRateLimitedUntil = 0
+let lastDdgWarnAt = 0
 
 export const NATIVE_TOOLS = {
   'read-skill': {
@@ -224,21 +294,45 @@ export const NATIVE_TOOLS = {
         const searchQuery = query ? query.trim() : ''
         if (!searchQuery) return { success: false, message: 'Query pencarian kosong.' }
 
-        let results = []
-        try {
-          const { search: ddgSearch, SafeSearchType } = await import('duck-duck-scrape')
-          const searchRes = await ddgSearch(searchQuery, {
-            safeSearch: SafeSearchType.OFF
-          })
-          if (searchRes && searchRes.results && searchRes.results.length > 0) {
-            results = searchRes.results.slice(0, 5).map((r) => ({
-              title: r.title,
-              url: r.url,
-              snippet: r.description || r.snippet || ''
-            }))
+        const cacheKey = searchQuery.toLowerCase()
+        const cached = searchCooldown.get(cacheKey)
+        if (cached && Date.now() - cached.at < SEARCH_CACHE_MS) return cached.data
+        const remember = (data) => {
+          searchCooldown.set(cacheKey, { at: Date.now(), data })
+          if (searchCooldown.size > 200) {
+            const oldest = searchCooldown.keys().next().value
+            searchCooldown.delete(oldest)
           }
-        } catch (ddgErr) {
-          console.warn('[browser-search] duck-duck-scrape failed, trying HTTP fallback:', ddgErr.message)
+          return data
+        }
+
+        let results = []
+        const now = Date.now()
+        const isRateLimited = now < ddgRateLimitedUntil
+
+        if (!isRateLimited) {
+          try {
+            const { search: ddgSearch, SafeSearchType } = await import('duck-duck-scrape')
+            const searchRes = await ddgSearch(searchQuery, {
+              safeSearch: SafeSearchType.OFF
+            })
+            if (searchRes && searchRes.results && searchRes.results.length > 0) {
+              results = searchRes.results.slice(0, 5).map((r) => ({
+                title: r.title,
+                url: r.url,
+                snippet: r.description || r.snippet || ''
+              }))
+            }
+          } catch (ddgErr) {
+            const isAnomaly = /anomaly|too quickly|rate limit|429/i.test(ddgErr?.message || '')
+            if (isAnomaly) {
+              ddgRateLimitedUntil = Date.now() + 60000
+            }
+            if (Date.now() - lastDdgWarnAt > 30000) {
+              lastDdgWarnAt = Date.now()
+              console.warn('[browser-search] duck-duck-scrape failed, trying HTTP fallback:', ddgErr?.message || ddgErr)
+            }
+          }
         }
 
         if (results.length === 0) {
@@ -267,15 +361,18 @@ export const NATIVE_TOOLS = {
               })
             }
           } catch (fetchErr) {
-            console.error('[browser-search] HTTP fallback error:', fetchErr.message)
+            if (Date.now() - lastDdgWarnAt > 30000) {
+              lastDdgWarnAt = Date.now()
+              console.error('[browser-search] HTTP fallback error:', fetchErr?.message || fetchErr)
+            }
           }
         }
 
         if (results.length === 0) {
-          return {
+          return remember({
             success: true,
             data: `Tidak ditemukan hasil pencarian web langsung untuk "${searchQuery}".`
-          }
+          })
         }
 
         const formatted = results
@@ -285,10 +382,10 @@ export const NATIVE_TOOLS = {
           )
           .join('\n\n')
 
-        return {
+        return remember({
           success: true,
           data: `[HASIL PENCARIAN WEB UNTUK: "${searchQuery}"]\n\n${formatted}`
-        }
+        })
       } catch (err) {
         return { success: false, message: `Gagal melakukan web search: ${err.message}` }
       }
@@ -426,7 +523,8 @@ export const NATIVE_TOOLS = {
         if (ext === '.pdf') {
           const buffer = fs.readFileSync(filePath)
           try {
-            const pdfParseModule = require('pdf-parse')
+            const pdfParseNs = await import('pdf-parse')
+            const pdfParseModule = pdfParseNs.default ?? pdfParseNs
             if (typeof pdfParseModule === 'function') {
               const res = await pdfParseModule(buffer)
               rawText = res.text
@@ -441,7 +539,8 @@ export const NATIVE_TOOLS = {
         } else if (ext === '.docx') {
           const buffer = fs.readFileSync(filePath)
           try {
-            const mammoth = require('mammoth')
+            const mammothNs = await import('mammoth')
+            const mammoth = mammothNs.default ?? mammothNs
             const result = await mammoth.extractRawText({ buffer })
             rawText = result.value
           } catch (docxErr) {
@@ -655,6 +754,19 @@ export const NATIVE_TOOLS = {
           }
 
         const content = parts.slice(1).join('||')
+
+        // Pagar crawler: jangan tulis skrip scraper web (pola kabur observasi
+        // nyata: tulis fetch_webinar.py lalu eksekusi via shell). Arahkan ke
+        // browser-navigate/browser-extract.
+        const { looksLikeCrawlerSource } = await import('./browser/bridge-core.mjs')
+        if (looksLikeCrawlerSource(content)) {
+          return {
+            success: false,
+            message:
+              'Ditolak: jangan buat skrip scraper web. ' +
+              'Gunakan browser-navigate (URL bersih) atau browser-extract (selector CSS).'
+          }
+        }
 
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         const guarded = assertContained(activeRoot, parts[0]?.trim())
@@ -1054,6 +1166,17 @@ export const NATIVE_TOOLS = {
       `Mark ingin mengeksekusi perintah shell yang berpotensi BERBAHAYA:\n\n${query}`,
     handler: async (query, config) => {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
+      // Pagar anti-spiral: ambil + parse halaman web bukan tugas shell.
+      // (Observasi nyata: curl|grep|sed berulang 20 turn lalu give up.)
+      const { isWebScrapeCommand } = await import('./browser/bridge-core.mjs')
+      if (isWebScrapeCommand(query)) {
+        return {
+          success: false,
+          message:
+            'Ditolak: jangan ambil halaman web via curl/wget/python di shell. ' +
+            'Gunakan browser-navigate (URL bersih) atau browser-extract (selector CSS).'
+        }
+      }
       try {
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         // Linux-native: bash langsung. Timeout + maxBuffer mencegah proses
@@ -1178,8 +1301,21 @@ export const NATIVE_TOOLS = {
     needsApproval: false,
     handler: async (query) => {
       try {
-        const result = await webFetch(query)
-        return result
+        const { extractUrl, listSessions, dispatchCommand } = await import('./browser/bridge-core.mjs')
+        const url = extractUrl(query)
+        if (!url) return { success: false, error: `URL tidak valid: '${String(query).slice(0, 120)}'. Sertakan alamat http(s).` }
+        // Extension dulu bila terhubung (hasil DOM + tab ber-grup); fallback
+        // fetch polos bila extension tidak ada. Tanpa extension tidak menunggu.
+        try {
+          const connected = listSessions().some((s) => s.id === 'default' && s.connected)
+          if (connected) {
+            const res = await dispatchCommand('default', 'navigate', { url })
+            if (res && res.ok) return { success: true, data: res.data, via: 'extension' }
+          }
+        } catch {
+          /* jatuh ke fetch polos */
+        }
+        return await webFetch(url)
       } catch (e) {
         return { success: false, error: e.message }
       }
@@ -1189,62 +1325,113 @@ export const NATIVE_TOOLS = {
     needsApproval: false,
     handler: async (query) => {
       try {
-        // Use curl/wget to fetch webpage content
-        const axios = (await import('axios')).default
-        const htmlRes = await axios.get(query, {
-          headers: { 'User-Agent': 'Mozilla/5.0' },
-          timeout: 30000
-        })
-        const content = htmlRes.data || ''
-        // Parse HTML and extract text using htmlparser2 (already in deps)
-        const { Parser } = await import('htmlparser2')
-        const textOnly = new Promise((resolve, reject) => {
-          let text = ''
-          const parser = new Parser({
-            ontext: (textChunk) => { text += textChunk },
-            onend: () => { resolve(text.trim()) }
-          }, { decodeEntities: true })
-          parser.write(content)
-          parser.end()
-        })
-        const cleanedText = await textOnly
+        const q = String(query ?? '').trim()
+        const { extractUrl } = await import('./browser/bridge-core.mjs')
+        const url = extractUrl(q)
+
+        // Jika URL spesifik diberikan, utamakan fetch
+        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+          return await browserReadFetch(url)
+        }
+
+        // Jika query kosong atau tidak ada URL, coba baca DOM tab aktif browser fisik via ekstensi
+        const ext = await tryExtensionReadDom()
+        if (ext) {
+          return { success: true, data: ext.data, via: 'extension' }
+        }
+
+        // Jika bukan URL dan ada teks query, coba fetch
+        if (q && (q.startsWith('http://') || q.startsWith('https://'))) {
+          return await browserReadFetch(q)
+        }
+
         return {
-          success: true,
-          data: {
-            url: query,
-            text: cleanedText.slice(0, 50000),
-            raw: content.slice(0, 100000)
-          }
+          success: false,
+          error:
+            'browser-read: Ekstensi browser tidak tersambung dan tidak ada URL untuk dibaca. Pastikan ekstensi Mark Bridge terpasang dan tab aktif terbuka, atau masukkan URL lengkap.'
         }
       } catch (e) {
         return { success: false, error: e.message }
       }
     }
   },
+  'browser-ask': {
+    needsApproval: false,
+    handler: async (query) => {
+      const reason = String(query || 'Membutuhkan interaksi langsung pengguna di browser').trim()
+      return {
+        success: true,
+        waiting_for_user: true,
+        needs_user: true,
+        data: `[BROWSER HUMAN-IN-THE-LOOP] Menunggu bantuan pengguna di tab browser: "${reason}". Silakan selesaikan interaksi (login akun / captcha / 2FA) di browser Chrome yang sedang aktif, lalu beri tahu Mark bila sudah selesai agar tugas bisa dilanjutkan.`
+      }
+    }
+  },
   'browser-click': {
     needsApproval: false,
     handler: async (query) => {
+      const ext = await tryExtensionAct({ markId: normalizeMarkId(query), action: 'click' })
+      if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
-        error: 'browser-click: Requires full browser automation. Use browser-navigate + web research instead.'
+        error: 'browser-click: extension tidak tersambung. Sambungkan extension Mark Bridge lalu read-dom dulu untuk ID elemen (mk1, mk2, ...).'
       }
     }
   },
   'browser-type': {
     needsApproval: false,
     handler: async (query) => {
+      const [id, ...rest] = String(query ?? '').split('||')
+      const ext = await tryExtensionAct({ markId: normalizeMarkId(id), action: 'type', value: rest.join('||') })
+      if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
-        error: 'browser-type: Requires full browser automation. Use browser-navigate + web research instead.'
+        error: 'browser-type: extension tidak tersambung. Format query: ID||teks.'
       }
     }
   },
   'browser-scroll': {
     needsApproval: false,
     handler: async (query) => {
+      const dir = String(query ?? '').trim().toLowerCase().startsWith('up') ? 'up' : 'down'
+      const ext = await tryExtensionAct({ action: 'scroll', value: { direction: dir, amount: 600 } })
+      if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
-        error: 'browser-scroll: Requires full browser automation.'
+        error: 'browser-scroll: extension tidak tersambung.'
+      }
+    }
+  },
+  'browser-back': {
+    needsApproval: false,
+    handler: async () => {
+      const ext = await tryExtensionAct({ action: 'back' })
+      if (ext) return { success: true, data: ext.data, via: 'extension' }
+      return {
+        success: false,
+        error: 'browser-back: extension tidak tersambung. Sambungkan extension Mark Bridge.'
+      }
+    }
+  },
+  'browser-forward': {
+    needsApproval: false,
+    handler: async () => {
+      const ext = await tryExtensionAct({ action: 'forward' })
+      if (ext) return { success: true, data: ext.data, via: 'extension' }
+      return {
+        success: false,
+        error: 'browser-forward: extension tidak tersambung. Sambungkan extension Mark Bridge.'
+      }
+    }
+  },
+  'browser-reload': {
+    needsApproval: false,
+    handler: async () => {
+      const ext = await tryExtensionAct({ action: 'reload' })
+      if (ext) return { success: true, data: ext.data, via: 'extension' }
+      return {
+        success: false,
+        error: 'browser-reload: extension tidak tersambung. Sambungkan extension Mark Bridge.'
       }
     }
   },
@@ -1284,26 +1471,51 @@ export const NATIVE_TOOLS = {
     }
   },
   'browser-script': {
-    needsApproval: false,
+    needsApproval: true,
+    approvalMessage: (query) =>
+      `Mark ingin mengeksekusi script JavaScript di browser Anda (berpotensi mengakses data halaman/sesi login):\n\n${query}`,
     handler: async (query) => {
+      const ext = await tryExtensionAct({ action: 'script', value: String(query ?? '') })
+      if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
-        error: 'browser-script: Requires full browser automation.'
+        error: 'browser-script: extension tidak tersambung.'
       }
     }
   },
   'browser-extract': {
     needsApproval: false,
     handler: async (query) => {
-      return await this['browser-read'].handler(query)
+      const ext = await tryExtensionAct({ action: 'extract', value: String(query ?? '') })
+      if (ext) return { success: true, data: ext.data, via: 'extension' }
+      try {
+        return await browserReadFetch(query)
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
     }
   },
   'browser-screenshot': {
     needsApproval: false,
-    handler: async () => {
+    handler: async (query, config) => {
+      const ext = await tryExtensionAct({ action: 'screenshot', value: String(query ?? '') })
+      if (ext) {
+        try {
+          const m = /^data:image\/png;base64,(.+)$/.exec(String(ext.data || ''))
+          if (!m) return { success: false, error: 'browser-screenshot: data gambar extension tidak valid.' }
+          const activeRoot = config?.workspaceRoot || getWorkspaceDir()
+          const guarded = assertContained(activeRoot, String(query ?? 'screenshot.png').trim() || 'screenshot.png')
+          if (!guarded.ok) return { success: false, message: 'Akses ditolak: path di luar workspace.' }
+          fs.mkdirSync(path.dirname(guarded.path), { recursive: true })
+          fs.writeFileSync(guarded.path, Buffer.from(m[1], 'base64'))
+          return { success: true, data: guarded.path, via: 'extension' }
+        } catch (e) {
+          return { success: false, error: e.message }
+        }
+      }
       return {
         success: false,
-        error: 'browser-screenshot: Requires visual browser access.'
+        error: 'browser-screenshot: extension tidak tersambung (butuh akses visual browser).'
       }
     }
   },
@@ -1311,14 +1523,20 @@ export const NATIVE_TOOLS = {
     needsApproval: true,
     approvalMessage: (query) => `Mark ingin mendownload file dari browser:\n\n${query}`,
     handler: async (query) => {
+      const [urlPart, ...rest] = String(query ?? '').split('||')
+      const { extractUrl } = await import('./browser/bridge-core.mjs')
+      const url = extractUrl(query) || (urlPart || '').trim()
+      const fileName = rest.join('||').trim() || undefined
+      const ext = await tryExtensionAct({ action: 'download', value: { url, fileName } })
+      if (ext) return { success: true, data: ext.data, via: 'extension' }
       try {
         const axios = (await import('axios')).default
-        const response = await axios.get(query, { responseType: 'blob', timeout: 60000 })
+        const response = await axios.get(url, { responseType: 'blob', timeout: 60000 })
         // Return info about download - actual file needs IPC bridge
         return {
           success: true,
           data: {
-            url: query,
+            url,
             size: response.headers['content-length'],
             type: response.headers['content-type']
           }
@@ -1437,13 +1655,17 @@ export const NATIVE_TOOLS = {
           const message = await openApp((query || '').trim())
           return { success: !/ERROR/i.test(message), data: message }
         }
-        // Di luar sesi kontrol: fallback xdg-open (path/URL valid saja).
-        if (query && fs.existsSync(query)) {
+        // Di luar sesi kontrol: fallback xdg-open (path file atau URL web).
+        const raw = (query || '').trim()
+        const urlMatch = raw.match(/https?:\/\/[^\s)\]>"]+/)
+        const target = urlMatch ? urlMatch[0].replace(/[.,;:!?]+$/, '') : raw
+        const isWebUrl = /^https?:\/\//i.test(target)
+        if (target && (isWebUrl || fs.existsSync(target))) {
           const { execFile } = await import('child_process')
-          execFile('xdg-open', [query], (err) => {
+          execFile('xdg-open', [target], (err) => {
             if (err) console.error('xdg-open error:', err)
           })
-          return { success: true, data: `Membuka ${query}` }
+          return { success: true, data: `Membuka ${target}` }
         }
         return { success: false, error: 'File/tautan tidak ditemukan' }
       } catch (e) {

@@ -100,24 +100,51 @@ mark/
 3.  **Jalankan aplikasi (dev mode — Tauri + Vite HMR):**
 
     ```bash
+    bun run dev:smart  # bootstrap + launch — lihat bagian Smart Bootstrap
+    # atau, kalau bun + dependency + port sudah siap:
     bun run app        # alias dari: bun tauri dev
     ```
 
 4.  **Konfigurasi Awal:**
     Buka menu **Configuration** di dalam aplikasi, pilih penyedia AI Anda (LM Studio atau Groq), masukkan API Key, lalu atur penyedia _Vector Memory_ (Sangat disarankan menggunakan **Transformers.js** untuk pengalaman lokal tanpa perangkat lunak tambahan).
 
-### Perintah Pengembangan Lainnya
+### Smart Bootstrap (`bun run dev:smart`)
 
-| Perintah             | Fungsi                                                                    |
-| -------------------- | ------------------------------------------------------------------------- |
-| `bun run verify`     | Gerbang verifikasi lengkap: vitest + harness watermark + build + cargo check. WAJIB hijau sebelum push. |
-| `bun test`           | Unit test saja (vitest).                                                   |
-| `bun run lint`       | ESLint atas seluruh repo (hasil di-cache).                                 |
-| `bun run format`     | Prettier tulis-ulang seluruh file.                                         |
-| `bun run sync-version` | Tarik versi dari `src-tauri/tauri.conf.json` ke package.json + Cargo.toml. Versi HANYA diubah di tauri.conf.json. |
-| `bun run harness`    | Engine tool headless (JSON-over-stdio) — lihat bagian Headless Harness.    |
+Untuk workstation Linux yang baru pertama kali _clone_, atau setelah sesi dev sebelumnya yang terputus, gunakan:
+
+```bash
+bun run dev:smart           # atau: bash scripts/dev.sh
+```
+
+`scripts/dev.sh` adalah _wrapper_ idempoten yang, secara berurutan:
+
+1. **Pastikan `bun` terpasang** di `$BUN_INSTALL` (default `~/.bun`) — auto-install via `bun.sh/install` tanpa `sudo` kalau belum ada. Versi target = `1.3.14` (selaras dengan CI `.github/workflows/tauri.yml`); versi major yang lebih baru di lokal tetap diterima.
+2. **Jalankan `bun install`** kalau `node_modules/` kosong atau `bun.lock` / `package.json` lebih baru.
+3. **Bersihkan _holder_ port 1420** (Vite) dan _holder_ build-lock `cargo` (`src-tauri/target/`) yang tertinggal dari sesi dev sebelumnya. Hanya _target_ proses yang jelas milik repo ini — kalau _holder_ bukan milik kita, _wrapper_ **abort** agar tidak membunuh proses orang lain.
+4. **Lanjut ke `bun run app`** (= `tauri dev`) lewat `exec`, jadi `Ctrl+C` tetap mematikan seluruh pohon proses.
+
+Mode _bootstrap_ saja (tanpa launch):
+
+```bash
+bun run dev:smart --no-launch
+```
+
+CI tidak berubah — `.github/workflows/tauri.yml` tetap memakai `oven-sh/setup-bun@v2` yang merupakan jalur kanonik di GitHub Actions. _Wrapper_ ini khusus untuk _workstation_ developer.
 
 Shortcut dalam aplikasi: `Ctrl+Alt+M` tampilkan/sembunyikan jendela, `Ctrl+Shift+S` hentikan darurat semua aksi otomatis.
+
+### Perintah Pengembangan Lainnya
+
+| Perintah               | Fungsi                                                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun run dev:smart`    | Smart bootstrap: auto-install bun, refresh deps, clear port 1420 / cargo lock holder, lalu `bun run app`. Direkomendasikan untuk fresh clone. |
+| `bun run app`          | Langsung jalankan Tauri dev (Vite HMR + Rust shell). Pakai ini kalau semua prasyarat sudah siap dan Anda ingin start cepat.           |
+| `bun run verify`       | Gerbang verifikasi lengkap: bootstrap + vitest + harness watermark + build + cargo check. WAJIB hijau sebelum push.                     |
+| `bun test`             | Unit test saja (vitest).                                                                                                                |
+| `bun run lint`         | ESLint atas seluruh repo (hasil di-cache).                                                                                              |
+| `bun run format`       | Prettier tulis-ulang seluruh file.                                                                                                      |
+| `bun run sync-version` | Tarik versi dari `src-tauri/tauri.conf.json` ke package.json + Cargo.toml. Versi HANYA diubah di tauri.conf.json.                       |
+| `bun run harness`      | Engine tool headless (JSON-over-stdio) — lihat bagian Headless Harness.                                                                |
 
 ## Sistem Plugin (Ekstensi Kustom)
 

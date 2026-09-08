@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 
-// Kontrak UI Capabilities — Plugins/Skills/Connectors dikonsolidasi ke cfg-capabilities
-// Semua profil manajemen tetap ada di halaman masing-masing via deep-link.
+// Kontrak UI Capabilities — Plugins/Skills/Connectors terintegrasi penuh di dalam Configuration
+// (Adopsi pola UI/UX claude.ai/customize: inline capability management tanpa rute halaman terpisah).
 
 const readSrc = (rel) => fs.readFileSync(path.join(process.cwd(), rel), 'utf8')
 
@@ -36,10 +36,8 @@ describe('Configuration page sections (contract via source)', () => {
     expect(src.includes("activeSection !== 'cfg-capabilities'")).toBe(true)
   })
 
-  it('setiap item di capabilities deep-link ke halaman manajemennya', () => {
-    expect(src.includes("navigate('/plugins')"), 'deep-link /plugins hilang').toBe(true)
-    expect(src.includes("navigate('/skills')"), 'deep-link /skills hilang').toBe(true)
-    expect(src.includes("navigate('/connectors')"), 'deep-link /connectors hilang').toBe(true)
+  it('merender CapabilitiesHub terpadu tanpa navigasi halaman eksternal', () => {
+    expect(src.includes('<CapabilitiesHub')).toBe(true)
   })
 
   it('tidak ada TODO kosong tersisa di section capabilities', () => {
@@ -50,12 +48,12 @@ describe('Configuration page sections (contract via source)', () => {
   })
 })
 
-describe('App routing untuk halaman capabilities', async () => {
+describe('App routing konsolidasi (halaman terpisah dihapus)', async () => {
   const appSrc = readSrc('src/App.jsx')
 
-  it('route /plugins, /skills, dan /connectors semuanya terdaftar', () => {
+  it('rute halaman mandiri /plugins, /skills, dan /connectors sudah dihapus', () => {
     for (const route of ['/plugins', '/skills', '/connectors']) {
-      expect(appSrc.includes(`path="${route}"`), `route ${route} tidak terdaftar`).toBe(true)
+      expect(appSrc.includes(`path="${route}"`), `route ${route} masih terdaftar`).toBe(false)
     }
   })
 })

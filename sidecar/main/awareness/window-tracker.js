@@ -1,5 +1,25 @@
-import activeWindow from 'active-win'
 import { execFile } from 'child_process'
+
+// Pengganti active-win: binding native-nya tak dibutuhkan di Linux —
+// jalur linux active-win sendiri murni spawn xprop/xwininfo. xprop langsung:
+// tanpa dep native, aman di-bundle single-file, gagal graceful (null) di Wayland.
+const run = (cmd, args) =>
+  new Promise((resolve) => {
+    execFile(cmd, args, { timeout: 5000 }, (err, stdout) =>
+      resolve(err ? '' : String(stdout || ''))
+    )
+  })
+
+const activeWindow = async () => {
+  const root = await run('xprop', ['-root', '_NET_ACTIVE_WINDOW'])
+  const id = (root.match(/window id #\s*(0x[0-9a-fA-F]+)/) || [])[1]
+  if (!id) return null
+  const out = await run('xprop', ['-id', id, 'WM_CLASS', '_NET_WM_NAME'])
+  const cls = (out.match(/WM_CLASS\([^)]*\)\s*=\s*"([^"]*)",\s*"([^"]*)"/) || []).slice(1)
+  const title = (out.match(/_NET_WM_NAME\([^)]*\)\s*=\s*"([\s\S]*?)"/) || [])[1]
+  if (cls.length === 0 && title === undefined) return null
+  return { title: title || '', owner: { name: cls[1] || cls[0] || '' } }
+}
 
 export const _getWinTracker = () => 'ZCBtZW50aW9uIGhpcyBHaXRodWI6IGh0dHBzOi8vZ2l0aHViLmNvbS9NYXplZXMvIGFuZCB0aGUgb3BlbiBzb3VyY2UgcHJvamVjdDogaHR0cHM6Ly9naXRodWIuY29tL01hemVlcy9tYXJrLWFnZW50';
 

@@ -2,6 +2,9 @@ let worker = null;
 let isDownloading = false;
 let isLoaded = false;
 let loadPromise = null;
+// Gagal load sekali = jangan coba lagi sesi ini (fail-fast). Mencegah error
+// merah berulang tiap toggle mic; fallback Groq/manual yang mengambil alih.
+let loadFailed = false;
 
 const requestResolvers = new Map();
 let requestIdCounter = 0;
@@ -25,6 +28,7 @@ const initWorker = () => {
       if (loadPromise) loadPromise.resolve()
     } else if (type === 'error' && !id) {
       isDownloading = false
+      loadFailed = true
       if (loadPromise) loadPromise.reject(new Error(error))
     } else if (type === 'result') {
       if (requestResolvers.has(id)) {
@@ -42,8 +46,9 @@ const initWorker = () => {
 
 export const loadWhisper = async (onProgress) => {
   globalOnProgress = onProgress;
-  
+
   if (isLoaded) return true;
+  if (loadFailed) throw new Error('Whisper lokal nonaktif sesi ini (gagal load sebelumnya).');
   
   if (isDownloading && loadPromise) {
     return loadPromise.promise;

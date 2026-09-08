@@ -380,20 +380,32 @@ export const startTelegramBot = async (token, mainWindow) => {
     })
 
     bot.catch((err, ctx) => {
-      console.error(`[Telegram] Error for ${ctx.updateType}:`, err)
+      console.error(`[Telegram] Error for ${ctx?.updateType || 'update'}:`, err?.message || err)
+      const errCode = err?.response?.error_code
+      if (errCode === 401 || errCode === 404) {
+        console.warn(`[Telegram] Token error (${errCode}). Menghentikan bot agar tidak polling berulang.`)
+        stopTelegramBot()
+      }
     })
 
+    // Verifikasi token terlebih dahulu sebelum bot.launch() menjalankan loop polling
+    try {
+      await bot.telegram.getMe()
+    } catch (authErr) {
+      console.warn(`[Telegram] Autentikasi token gagal (${authErr.message || authErr}). Bot tidak dijalankan.`)
+      stopTelegramBot()
+      return { success: false, error: authErr.message || 'Token tidak valid' }
+    }
+
     bot.launch({ allowedUpdates: ['message', 'callback_query'] }).catch((err) => {
-      console.error('[Telegram] Polling error:', err)
-      bot = null
-      updateStatus('disconnected')
+      console.error('[Telegram] Polling error:', err?.message || err)
+      stopTelegramBot()
     })
     updateStatus('connected')
     console.log('[Telegram] Bot successfully started and listening')
   } catch (err) {
-    console.error('[Telegram] Failed to start bot:', err)
-    bot = null
-    updateStatus('disconnected')
+    console.error('[Telegram] Failed to start bot:', err?.message || err)
+    stopTelegramBot()
   }
 }
 

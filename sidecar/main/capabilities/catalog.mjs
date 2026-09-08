@@ -18,6 +18,7 @@ import { runWeather } from './weather.mjs'
 import { runTime } from './time.mjs'
 import { runFs } from './fs.mjs'
 import { runShellTool } from './shell-tool.mjs'
+import { runBrowserExtension } from './browser-extension.mjs'
 
 // ------------------------------------------------------------- weather
 
@@ -171,10 +172,55 @@ const shellToolConnector = {
   }
 }
 
+// ------------------------------------------------- browser-extension
+
+const browserExtensionConnector = {
+  id: 'browser-extension',
+  name: 'Browser Extension (Mark Bridge)',
+  description:
+    'Lifecycle resmi extension browser Mark: status koneksi, panduan pasang, tutup sesi. Aksi tab (navigate/klik) tetap lewat channel browser:* dan tool advanced_browser.',
+  scopes: [],
+  actions: {
+    status: {
+      summary: 'Sesi bridge + status koneksi extension + flag auto-close.',
+      inputSchema: { type: 'object', properties: {} },
+      scopes: [],
+      guide: {
+        steps: ['Tanpa argumen. connected=true berarti extension polling dan siap menerima perintah.'],
+        examples: [{ args: {} }]
+      },
+      run: runBrowserExtension
+    },
+    'guide-install': {
+      summary: 'Langkah pasang extension untuk pengguna binary (tanpa folder repo).',
+      inputSchema: { type: 'object', properties: {} },
+      scopes: [],
+      guide: {
+        steps: ['Lihat output aksi ini.'],
+        examples: [{ args: {} }]
+      },
+      run: runBrowserExtension
+    },
+    'close-session': {
+      summary: 'Tutup sesi bridge (drop antrean). Tidak menyentuh tab user.',
+      inputSchema: {
+        type: 'object',
+        properties: { sessionId: { type: 'string' } }
+      },
+      scopes: [],
+      guide: {
+        steps: ['Isi sessionId (default: "default").'],
+        examples: [{ args: { sessionId: 'default' } }]
+      },
+      run: runBrowserExtension
+    }
+  }
+}
+
 // ------------------------------------------------------------------- registry
 
 export const CONNECTORS = new Map()
-for (const c of [weatherConnector, timeConnector, fsConnector, shellToolConnector]) {
+for (const c of [weatherConnector, timeConnector, fsConnector, shellToolConnector, browserExtensionConnector]) {
   CONNECTORS.set(c.id, c)
 }
 

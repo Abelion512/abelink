@@ -72,29 +72,57 @@ const ResponseArea = ({ currentResponse }) => {
         <div className="overflow-x-auto my-4">
           <table {...props}>{children}</table>
         </div>
+      ),
+      img: ({ node, ...props }) => (
+        <span className="block my-3 text-center">
+          <img
+            {...props}
+            className="max-h-72 w-auto mx-auto rounded-lg object-contain border border-white/10 shadow-lg max-w-full bg-black/40 cursor-pointer hover:scale-[1.02] transition-transform"
+            loading="lazy"
+            onClick={() => {
+              if (props.src && window.api?.openExternal) {
+                window.api.openExternal(props.src)
+              }
+            }}
+            onError={(e) => {
+              e.target.style.display = 'none'
+            }}
+          />
+        </span>
       )
     }
+
+    const cleanText = (raw) => {
+      if (!raw || typeof raw !== 'string') return ''
+      let res = raw
+      res = res.replace(/<(?:Image|img)\s+[^>]*src="([^"]+)"[^>]*alt="([^"]*)"[^>]*\/?>/gi, '![$2]($1)')
+      res = res.replace(/<(?:Image|img)\s+[^>]*alt="([^"]*)"[^>]*src="([^"]+)"[^>]*\/?>/gi, '![$1]($2)')
+      res = res.replace(/<(?:Image|img)\s+[^>]*$/gim, '')
+      return res.trim()
+    }
+
+    const safeText = cleanText(text)
 
     if (type === 'long') {
       let tldr = ''
       let restText = ''
 
-      const firstNewlineMatch = text.match(/\n/)
+      const firstNewlineMatch = safeText.match(/\n/)
 
       if (firstNewlineMatch) {
         // Potong di enter pertama
         const index = firstNewlineMatch.index
-        tldr = text.substring(0, index).trim()
-        restText = text.substring(index).trim()
+        tldr = safeText.substring(0, index).trim()
+        restText = cleanText(safeText.substring(index).trim())
       } else {
         // Kalau ga ada enter tapi kepanjangan, potong di titik pertama
-        const firstPeriod = text.indexOf('. ')
+        const firstPeriod = safeText.indexOf('. ')
         if (firstPeriod !== -1 && firstPeriod < 200) {
-          tldr = text.substring(0, firstPeriod + 1).trim()
-          restText = text.substring(firstPeriod + 1).trim()
+          tldr = safeText.substring(0, firstPeriod + 1).trim()
+          restText = cleanText(safeText.substring(firstPeriod + 1).trim())
         } else {
-          tldr = text.substring(0, 150) + '...'
-          restText = text
+          tldr = safeText.substring(0, 150) + '...'
+          restText = safeText
         }
       }
 
@@ -167,7 +195,7 @@ const ResponseArea = ({ currentResponse }) => {
               </div>
             ) : (
               <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                {text}
+                {safeText}
               </Markdown>
             )}
           </div>
