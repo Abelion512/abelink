@@ -167,7 +167,20 @@ const LiveAudio = () => {
           noiseSuppression: true,
           autoGainControl: true
         })
-        const stream = await navigator.mediaDevices.getUserMedia(constraints)
+        let stream
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints)
+        } catch (err) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          } catch (fallbackErr) {
+            noteMicFailure()
+            console.warn('[LiveAudio] getUserMedia gagal:', fallbackErr.message || fallbackErr)
+            setIsLive(false)
+            isStartingRef.current = false
+            return
+          }
+        }
         streamRef.current = stream
 
         const AudioContext = window.AudioContext || window.webkitAudioContext

@@ -160,12 +160,16 @@ export const useVAD = ({
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints)
       } catch (err) {
-        // Linux headless / deviceId basi / izin ditolak: catat cooldown,
-        // beri tahu sekali, jangan lempar error berulang.
-        noteMicFailure()
-        console.warn('[useVAD] getUserMedia gagal (no device?), matikan VAD:', err.message || err)
-        isStartingRef.current = false
-        return
+        // Fallback WebKitGTK / Linux: beberapa backend audio menolak DSP constraints (echoCancellation/noiseSuppression)
+        // dengan "Invalid constraint". Coba fallback ke stream dasar { audio: true } sebelum menyerah.
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        } catch (fallbackErr) {
+          noteMicFailure()
+          console.warn('[useVAD] getUserMedia gagal (no device?), matikan VAD:', fallbackErr.message || fallbackErr)
+          isStartingRef.current = false
+          return
+        }
       }
       if (!stream) {
         isStartingRef.current = false
