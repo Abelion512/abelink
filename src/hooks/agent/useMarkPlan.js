@@ -1721,7 +1721,9 @@ export const useMarkPlan = ({
         if (!madeProgress) {
           const classification = classifyMainDecision(decision, {
             hasExecutedTools: executedToolsList.length > 0,
-            missionActive: !!activeTaskObjectiveRef.current || !!durableTask
+            missionActive: !!activeTaskObjectiveRef.current || !!durableTask,
+            objectiveKind,
+            conversational: objectiveKind === 'conversational'
           })
           intent = classification.intent
 
@@ -1861,22 +1863,32 @@ export const useMarkPlan = ({
 
         // Kasus 1: Intermediate Speech (Bicara tanpa tool, tapi belum selesai)
         if (!hasAction && !isDoneSignal && decision.answer && !durableTask) {
-          loopMessages.push({ role: 'assistant', content: decision.answer })
-          // A rejected completion claim rides its verification demand here so
-          // the next turn knows exactly which criteria lack world-state proof.
-          const continueMsg = pendingVerifyObservation
-            ? `${pendingVerifyObservation}\n\n[LANJUTKAN] Kerjakan aksi verifikasi di atas sekarang, atau laporkan blocked yang spesifik.`
-            : '[LANJUTKAN] Kamu belum menyatakan selesai (is_done: false). Silakan panggil tool di action atau selesaikan tugasmu.'
-          pendingVerifyObservation = null
-          loopMessages.push({
-            role: 'user',
-            content: continueMsg
-          })
-          targetSetChatData((prev) => [
-            ...prev.filter((item) => !item.isThinking),
-            { role: 'ai', content: decision.answer, isProactive: false, isIntermediate: true }
-          ])
-          continue
+          if (
+            objectiveKind === 'conversational' ||
+            (!activeTaskObjectiveRef.current && executedToolsList.length === 0)
+          ) {
+            // Ponytail circuit breaker: percakapan atau interaksi non-tool tanpa misi aktif langsung selesai
+            isDoneSignal = true
+            sessionOutcome = 'completed'
+            lastTerminalReason = 'conversational-auto-done'
+          } else {
+            loopMessages.push({ role: 'assistant', content: decision.answer })
+            // A rejected completion claim rides its verification demand here so
+            // the next turn knows exactly which criteria lack world-state proof.
+            const continueMsg = pendingVerifyObservation
+              ? `${pendingVerifyObservation}\n\n[LANJUTKAN] Kerjakan aksi verifikasi di atas sekarang, atau laporkan blocked yang spesifik.`
+              : '[LANJUTKAN] Kamu belum menyatakan selesai (is_done: false). Silakan panggil tool di action atau selesaikan tugasmu.'
+            pendingVerifyObservation = null
+            loopMessages.push({
+              role: 'user',
+              content: continueMsg
+            })
+            targetSetChatData((prev) => [
+              ...prev.filter((item) => !item.isThinking),
+              { role: 'ai', content: decision.answer, isProactive: false, isIntermediate: true }
+            ])
+            continue
+          }
         }
 
         // Kasus 2: Selesai / Checkpoint Step (is_done: true atau selesai giliran)

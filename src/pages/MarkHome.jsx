@@ -946,7 +946,7 @@ const MarkHome = () => {
               }}
               className="btn btn-sm rounded-full bg-cyan-500 text-black font-semibold hover:bg-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.5)] px-6"
             >
-              Snap &amp; Ask Abelink
+              Snap &amp; Tanya
             </button>
           </div>
         </div>
@@ -1010,7 +1010,7 @@ const MarkHome = () => {
                   }}
                   className="btn btn-sm rounded-full bg-purple-500 hover:bg-purple-400 text-white font-semibold shadow-[0_0_25px_rgba(168,85,247,0.6)] px-6 border border-purple-300/30"
                 >
-                  Capture &amp; Tanya Abelink
+                  Capture &amp; Tanya
                 </button>
               </div>
             </div>
@@ -1019,7 +1019,7 @@ const MarkHome = () => {
               <Monitor className="w-16 h-16 text-purple-400/70 animate-pulse" />
               <h3 className="text-lg font-bold text-white tracking-wide">Live Screen Share</h3>
               <p className="text-xs text-white/50 leading-relaxed">
-                Bagikan tampilan layar desktop Anda secara real-time layaknya Google Meet / Zoom untuk analisis kode, dokumen, atau workflow bersama Abelink.
+                Berbagi layar real-time untuk analisis visual.
               </p>
               <button
                 onClick={handleStartScreenShare}
