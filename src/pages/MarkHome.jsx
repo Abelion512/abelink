@@ -100,6 +100,13 @@ const MarkHome = () => {
 
   const [currentMode, setCurrentMode] = useState(initialMode)
   const [capsuleInput, setCapsuleInput] = useState('')
+  const [orbStyle, setOrbStyle] = useState(() => {
+    try {
+      return localStorage.getItem('mark:orb_style') || 'mark'
+    } catch (_) {
+      return 'mark'
+    }
+  })
 
   const handleModeChange = (newMode) => {
     setCurrentMode(newMode)
@@ -574,34 +581,56 @@ const MarkHome = () => {
           {/* Centered Jarvis Arc Reactor Hero */}
           <div className="flex-1 w-full flex flex-col items-center justify-center relative min-h-0">
             <div className="relative flex flex-col items-center justify-center">
-              {/* Telemetry Status Label */}
-              <div className="mb-4 text-center select-none font-mono text-xs tracking-widest uppercase transition-colors duration-500">
-                {orbStatus === 'speaking' ? (
-                  <span className="text-cyan-400 flex items-center gap-2 animate-pulse">
-                    <Volume2 className="w-4 h-4" /> JARVIS ONLINE // SPEAKING
-                  </span>
-                ) : orbStatus === 'thinking' ? (
-                  <span className="text-amber-400 flex items-center gap-2 animate-pulse">
-                    <RefreshCw className="w-4 h-4 animate-spin" /> JARVIS REASONING // MEMPROSES LOGIKA
-                  </span>
-                ) : isRecording ? (
-                  <span className="text-emerald-400 flex items-center gap-2">
-                    <Mic className="w-4 h-4 animate-pulse" /> JARVIS LISTENING // SILAKAN BICARA
-                  </span>
+              {/* Centered Hero Orb: Switchable between Mark Sentient and Jarvis Arc */}
+              <div className="flex flex-col items-center justify-center">
+                {orbStyle === 'mark' ? (
+                  <div className="z-10 relative">
+                    <OrbVisualizer
+                      status={orbStatus}
+                      intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
+                      mood={currentResponse?.mood || 'neutral'}
+                      size="hero"
+                    />
+                  </div>
                 ) : (
-                  <span className="text-white/40 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-cyan-500" /> JARVIS STANDBY // VOICE ACTIVE
-                  </span>
+                  <JarvisArcReactor
+                    status={orbStatus}
+                    isActive={true}
+                    intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
+                    size="hero"
+                  />
                 )}
-              </div>
 
-              {/* The Cybernetic Arc Reactor */}
-              <JarvisArcReactor
-                status={orbStatus}
-                isActive={true}
-                intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
-                size={isMaxWindow ? 'lg' : 'md'}
-              />
+                {/* Minimalist Orb Style Switcher */}
+                <div className="mt-4 flex items-center bg-black/40 backdrop-blur-md border border-white/10 rounded-full p-1 shadow-lg gap-1">
+                  <button
+                    onClick={() => {
+                      setOrbStyle('mark')
+                      try { localStorage.setItem('mark:orb_style', 'mark') } catch (_) {}
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                      orbStyle === 'mark'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 shadow-sm'
+                        : 'text-white/50 hover:text-white'
+                    }`}
+                  >
+                    Mark Sentient
+                  </button>
+                  <button
+                    onClick={() => {
+                      setOrbStyle('jarvis')
+                      try { localStorage.setItem('mark:orb_style', 'jarvis') } catch (_) {}
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                      orbStyle === 'jarvis'
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm'
+                        : 'text-white/50 hover:text-white'
+                    }`}
+                  >
+                    Jarvis Arc
+                  </button>
+                </div>
+              </div>
 
               {/* Rich Data Telemetry Card: HANYA tampil jika ada data terstruktur */}
               {showRichCardInVoice && (
@@ -766,11 +795,7 @@ const MarkHome = () => {
                 <div className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
               </div>
 
-              {/* Telemetry Header */}
-              <div className="absolute top-4 left-14 font-mono text-xs text-emerald-400 tracking-wider uppercase flex items-center gap-2 bg-black/50 px-2 py-1 rounded">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                OPTICAL SENSOR ACTIVE // MULTIMODAL READY
-              </div>
+
 
               {/* Mini Companion Arc Reactor */}
               <div className="absolute top-4 right-14">

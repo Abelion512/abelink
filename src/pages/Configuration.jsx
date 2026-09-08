@@ -1206,20 +1206,17 @@ const Configuration = ({
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
                   Personalization
                 </h2>
-                <p className="text-xs opacity-50 mt-1">
-                  Kloning gaya berpikir, kepribadian, dan dinamika relasi MARK.
-                </p>
               </div>
 
               {/* Card 1: User Profile & Context */}
               <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
                 <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
                   <FaUser className="text-primary" size={13} />
-                  Profil &amp; Konteks Pengguna
+                  Profile
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-white/70">Nama Panggilan</p>
+                    <p className="text-xs font-semibold text-white/70">Username</p>
                     <input
                       className="input input-sm input-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs"
                       placeholder="Contoh: Abel"
@@ -1229,7 +1226,7 @@ const Configuration = ({
                   </div>
 
                   <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-white/70">Pekerjaan / Bidang</p>
+                    <p className="text-xs font-semibold text-white/70">Work on:</p>
                     <select
                       className="select select-sm select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs"
                       value={config.occupation || ''}
@@ -1263,9 +1260,6 @@ const Configuration = ({
                     <FaRobot className="text-primary" size={14} />
                     Kloning Gaya Bicara &amp; Persona
                   </h3>
-                  <p className="text-xs text-white/50 mt-0.5">
-                    Pilih preset atau aktifkan Digital Twin untuk meniru gaya bahasa dan ritme pemikiranmu.
-                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

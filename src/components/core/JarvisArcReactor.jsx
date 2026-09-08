@@ -16,7 +16,14 @@ export const JarvisArcReactor = ({
   const isListening = status === 'listening'
   const isThinking = status === 'thinking'
 
-  const scaleMultiplier = size === 'sm' ? 'scale-75' : size === 'md' ? 'scale-90' : 'scale-100'
+  const scaleMultiplier =
+    size === 'hero'
+      ? 'scale-125 md:scale-[1.4]'
+      : size === 'sm'
+        ? 'scale-75'
+        : size === 'md'
+          ? 'scale-90'
+          : 'scale-100'
 
   return (
     <div className={`relative flex items-center justify-center select-none ${scaleMultiplier}`}>
