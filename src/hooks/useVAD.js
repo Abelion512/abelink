@@ -108,10 +108,13 @@ export const useVAD = ({
     const config = await getAllConfig()
     const hasGroqKey = Boolean(config[0]?.groqApiKey?.trim())
     const configuredEngine = config[0]?.localWhisperModel
-    const localFailed = typeof localStorage !== 'undefined' && localStorage.getItem('mark:local_whisper_unsupported') === '1'
+    const isGroqSelected = configuredEngine?.startsWith('groq')
 
-    // Jika user memilih Groq, ATAU jika user punya Groq Key dan engine lokal belum/tidak didukung
-    if (configuredEngine?.startsWith('groq') || (hasGroqKey && (localFailed || !configuredEngine || configuredEngine === 'whisper-small'))) {
+    // Jika user secara eksplisit memilih Groq di Konfigurasi
+    if (isGroqSelected) {
+      if (!hasGroqKey) {
+        throw new Error('Groq API Key belum disetel di Konfigurasi')
+      }
       setToastMessage('Mentranskrip via Groq API...')
       try {
         const res = await transcribeAudioGroq(audioBuffer)
@@ -119,16 +122,11 @@ export const useVAD = ({
         return res
       } catch (err) {
         setToastMessage('')
-        console.warn('[VAD] Groq API gagal, mencoba fallback jika ada:', err.message)
-        if (!configuredEngine?.startsWith('groq')) {
-          // Lanjutkan ke local attempt jika groq gagal dan user tidak strictly pilih groq
-        } else {
-          throw err
-        }
+        throw err
       }
     }
 
-    // Jika local Whisper dipilih
+    // Default: Jalankan Local Whisper sesuai preferensi pengguna
     try {
       let highestProgress = 0
       const fileProgressMap = {}
@@ -148,17 +146,19 @@ export const useVAD = ({
       setToastMessage('')
       return text
     } catch (localErr) {
-      console.warn('[VAD] Local Whisper gagal / tidak didukung sistem:', localErr.message)
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('mark:local_whisper_unsupported', '1')
-      }
+      console.warn('[VAD] Local Whisper gagal:', localErr.message)
       if (hasGroqKey) {
-        setToastMessage('Mentranskrip via Groq API...')
-        const res = await transcribeAudioGroq(audioBuffer)
-        setToastMessage('')
-        return res
+        setToastMessage('Fallback ke Groq API...')
+        try {
+          const res = await transcribeAudioGroq(audioBuffer)
+          setToastMessage('')
+          return res
+        } catch (groqErr) {
+          setToastMessage('')
+          throw groqErr
+        }
       }
-      throw localErr
+      throw new Error(`Whisper lokal gagal (${localErr.message || 'WASM SIMD tidak didukung'}). Masukkan Groq API Key di Konfigurasi jika ingin fallback cloud.`)
     }
   }
 

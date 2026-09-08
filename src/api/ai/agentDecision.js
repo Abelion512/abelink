@@ -107,7 +107,13 @@ const explicitState = (decision = {}) => {
  * Returns { intent, terminal, reason } where intent is one of INTENT.*.
  */
 export function classifyMainDecision(decision = {}, ctx = {}) {
-  const { disableTools = false, hasExecutedTools = false, missionActive = false } = ctx
+  const {
+    disableTools = false,
+    hasExecutedTools = false,
+    missionActive = false,
+    conversational = false,
+    objectiveKind = ''
+  } = ctx
 
   if (disableTools) {
     return { intent: INTENT.FINAL, terminal: true, reason: 'tools-disabled' }
@@ -152,7 +158,18 @@ export function classifyMainDecision(decision = {}, ctx = {}) {
   const answer = typeof decision.answer === 'string' && decision.answer.trim() ? decision.answer : ''
 
   if (answer) {
-    const mission = hasExecutedTools || missionActive || Boolean(decision.objective)
+    const isConv = conversational || objectiveKind === 'conversational'
+    if (isConv) {
+      if (isSelfTerminateText(answer) && !decision.is_done) {
+        return { intent: INTENT.SELF_TERMINATE, terminal: true, reason: 'self-terminate-reported' }
+      }
+      if (isBlockedText(answer) && !decision.is_done) {
+        return { intent: INTENT.BLOCKED, terminal: true, reason: 'blocked-reported' }
+      }
+      return { intent: INTENT.FINAL, terminal: true, reason: 'conversational-answer' }
+    }
+
+    const mission = hasExecutedTools || missionActive
     if (mission) {
       // Answer without a completion claim while a mission is active is a
       // progress/blocked report, NOT a termination signal.

@@ -69,6 +69,25 @@ describe('classifyMainDecision — completed task terminates', () => {
     expect(r.reason).toBe('conversational-answer')
   })
 
+  it('conversational objectiveKind delivers final answer directly without loop', () => {
+    const r = classifyMainDecision(
+      { thought: 'ide', action: null, answer: 'Ini hasil brainstorming.', objective: 'Brainstorm ide' },
+      { objectiveKind: 'conversational' }
+    )
+    expect(r.intent).toBe(INTENT.FINAL)
+    expect(r.terminal).toBe(true)
+    expect(r.reason).toBe('conversational-answer')
+  })
+
+  it('answer with objective string but no active mission and no executed tools => FINAL', () => {
+    const r = classifyMainDecision(
+      { thought: '', action: null, answer: 'Tentu!', objective: 'Bantu user' },
+      { hasExecutedTools: false, missionActive: false }
+    )
+    expect(r.intent).toBe(INTENT.FINAL)
+    expect(r.terminal).toBe(true)
+  })
+
   it('tools-disabled mode (greeting) => FINAL', () => {
     const r = classifyMainDecision({ action: null, answer: 'Halo' }, { disableTools: true })
     expect(r.intent).toBe(INTENT.FINAL)
