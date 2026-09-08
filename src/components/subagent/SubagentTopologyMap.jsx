@@ -12,9 +12,9 @@ import {
   AlertTriangle
 } from 'lucide-react'
 
-// Primary MARK Theme (Forest Theme)
-const PRIMARY = '#1fb854'
-const PRIMARY_DARK = '#142e22'
+// Primary Abelink Cyan Theme
+const PRIMARY = '#06b6d4'
+const PRIMARY_DARK = '#083344'
 const WHITE = '#ffffff'
 
 export default function SubagentTopologyMap({

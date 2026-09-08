@@ -113,28 +113,28 @@ export default function Subagents() {
   }
 
   return (
-    <div className="h-screen bg-base-300 text-base-content overflow-hidden relative font-['Poppins',sans-serif]">
+    <div className="h-screen bg-[#080B09] text-zinc-200 overflow-hidden relative font-['Poppins',sans-serif]">
       {/* Background Ambience */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(6,182,212,0.08),transparent_50%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,rgba(16,185,129,0.04),transparent_40%)] pointer-events-none" />
 
       {/* Main Content Area */}
       <div className="relative z-10 w-full h-full overflow-hidden flex flex-col">
-        <div className="max-w-6xl mx-auto px-4 py-8 pb-10 space-y-6 w-full flex-1 flex flex-col overflow-hidden">
+        <div className="max-w-6xl mx-auto px-4 py-6 space-y-5 w-full flex-1 flex flex-col overflow-hidden">
           {/* Page Header */}
           <div className="flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3.5">
               <button
                 type="button"
                 onClick={() => navigate('/')}
-                className="btn btn-ghost btn-sm btn-circle shrink-0"
+                className="w-8 h-8 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-zinc-300 hover:text-white transition-all shrink-0"
                 style={{ WebkitAppRegion: 'no-drag' }}
-                title="Kembali"
+                title="Kembali ke Dashboard"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="1.2em"
-                  height="1.2em"
+                  width="1.1em"
+                  height="1.1em"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -145,31 +145,31 @@ export default function Subagents() {
               </button>
               <div>
                 <div className="flex items-center gap-2.5">
-                  <h1 className="text-2xl font-bold">Sub-Agents</h1>
-                  <span className="text-xs text-base-content/40 font-mono">/ Mission Control</span>
+                  <h1 className="text-xl font-semibold text-white tracking-tight">Sub-Agents</h1>
+                  <span className="text-[11px] text-zinc-500 font-mono tracking-wide">/ Mission Control</span>
                   {activeCount > 0 && (
-                    <span className="badge badge-warning badge-sm gap-1.5 font-mono text-[11px] rounded-lg">
-                      <span className="w-1.5 h-1.5 rounded-full bg-warning-content animate-ping" />
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
                       {activeCount} active
                     </span>
                   )}
                 </div>
-                <p className="opacity-50 text-sm mt-1">
-                  Pantau dan kelola tim Sub-Agent yang berjalan di background.
+                <p className="text-zinc-400 text-xs mt-0.5">
+                  Orkestrasi dan pantau agen otonom yang bekerja secara paralel.
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2.5">
               {/* View Mode Toggle: Topologi vs Intercom */}
-              <div className="flex items-center p-0.5 bg-base-200/80 rounded-xl border border-base-content/10 font-mono text-xs">
+              <div className="flex items-center p-1 bg-black/40 rounded-xl border border-white/[0.08] font-mono text-xs">
                 <button
                   type="button"
                   onClick={() => setViewMode('topology')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                     viewMode === 'topology'
-                      ? 'bg-primary text-primary-content shadow-sm'
-                      : 'text-base-content/60 hover:text-base-content'
+                      ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
                   }`}
                   style={{ WebkitAppRegion: 'no-drag' }}
                   title="Tampilan Topologi Visual"
@@ -181,8 +181,8 @@ export default function Subagents() {
                   onClick={() => setViewMode('intercom')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                     viewMode === 'intercom'
-                      ? 'bg-primary text-primary-content shadow-sm'
-                      : 'text-base-content/60 hover:text-base-content'
+                      ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
                   }`}
                   style={{ WebkitAppRegion: 'no-drag' }}
                   title="Tampilan Intercom Feed"
@@ -194,7 +194,7 @@ export default function Subagents() {
               <button
                 type="button"
                 onClick={() => setIsSpawnModalOpen(true)}
-                className="btn btn-primary btn-sm rounded-xl gap-1.5 px-3 font-medium shadow-sm shadow-primary/20"
+                className="btn btn-sm rounded-xl gap-1.5 px-3.5 font-medium bg-cyan-500 text-black hover:bg-cyan-400 border-none shadow-sm shadow-cyan-500/20 transition-all text-xs"
                 style={{ WebkitAppRegion: 'no-drag' }}
               >
                 <Plus className="w-3.5 h-3.5" /> New Agent
@@ -202,8 +202,8 @@ export default function Subagents() {
             </div>
           </div>
 
-          {/* Main Content Area */}
-          <div className="flex-1 flex overflow-hidden rounded-2xl bg-base-200/50 border border-base-content/10 p-4 gap-4 backdrop-blur-md">
+          {/* Main Workspace Area */}
+          <div className="flex-1 flex overflow-hidden rounded-3xl bg-black/40 border border-white/[0.08] p-3.5 gap-3.5 backdrop-blur-xl shadow-2xl">
             {viewMode === 'topology' ? (
               <SubagentTopologyMap
                 subagents={subagents}
@@ -218,110 +218,110 @@ export default function Subagents() {
             ) : (
               <>
                 {/* Left Panel: Clean Agent List */}
-                <div className="w-72 flex flex-col bg-base-200/40 rounded-2xl border border-base-content/5 overflow-hidden flex-none">
-                    {/* Filter Tabs */}
-                    <div className="p-2 border-b border-base-content/5 flex items-center justify-between">
-                      <div className="flex gap-1 p-0.5 bg-base-300/60 rounded-xl w-full">
-                        <button
-                          type="button"
-                          onClick={() => setFilterStatus('all')}
-                          className={`flex-1 py-1 text-[10px] font-medium rounded-lg transition-all ${
-                            filterStatus === 'all'
-                              ? 'bg-base-100 text-base-content shadow-sm font-semibold'
-                              : 'text-base-content/50 hover:text-base-content'
-                          }`}
-                        >
-                          Semua
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFilterStatus('running')}
-                          className={`flex-1 py-1 text-[10px] font-medium rounded-lg transition-all ${
-                            filterStatus === 'running'
-                              ? 'bg-base-100 text-primary shadow-sm font-semibold'
-                              : 'text-base-content/50 hover:text-base-content'
-                          }`}
-                        >
-                          Running
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFilterStatus('idle')}
-                          className={`flex-1 py-1 text-[10px] font-medium rounded-lg transition-all ${
-                            filterStatus === 'idle'
-                              ? 'bg-base-100 text-base-content shadow-sm font-semibold'
-                              : 'text-base-content/50 hover:text-base-content'
-                          }`}
-                        >
-                          Idle
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFilterStatus('completed')}
-                          className={`flex-1 py-1 text-[10px] font-medium rounded-lg transition-all ${
-                            filterStatus === 'completed'
-                              ? 'bg-base-100 text-success shadow-sm font-semibold'
-                              : 'text-base-content/50 hover:text-base-content'
-                          }`}
-                        >
-                          Selesai
-                        </button>
-                      </div>
+                <div className="w-72 flex flex-col bg-white/[0.02] rounded-2xl border border-white/[0.06] overflow-hidden flex-none">
+                  {/* Filter Tabs */}
+                  <div className="p-2 border-b border-white/[0.06]">
+                    <div className="flex gap-1 p-0.5 bg-black/40 rounded-xl w-full border border-white/[0.05]">
+                      <button
+                        type="button"
+                        onClick={() => setFilterStatus('all')}
+                        className={`flex-1 py-1 text-[11px] font-medium rounded-lg transition-all ${
+                          filterStatus === 'all'
+                            ? 'bg-white/[0.08] text-white shadow-sm font-semibold'
+                            : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        Semua
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterStatus('running')}
+                        className={`flex-1 py-1 text-[11px] font-medium rounded-lg transition-all ${
+                          filterStatus === 'running'
+                            ? 'bg-cyan-500/20 text-cyan-300 shadow-sm font-semibold'
+                            : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        Running
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterStatus('idle')}
+                        className={`flex-1 py-1 text-[11px] font-medium rounded-lg transition-all ${
+                          filterStatus === 'idle'
+                            ? 'bg-white/[0.08] text-zinc-300 shadow-sm font-semibold'
+                            : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        Idle
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterStatus('completed')}
+                        className={`flex-1 py-1 text-[11px] font-medium rounded-lg transition-all ${
+                          filterStatus === 'completed'
+                            ? 'bg-emerald-500/20 text-emerald-300 shadow-sm font-semibold'
+                            : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        Selesai
+                      </button>
                     </div>
+                  </div>
 
-                    {/* List Body */}
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
-                      {!subagents || subagents.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-center p-6 text-base-content/30 gap-2">
-                          <Layers className="w-6 h-6 stroke-[1.5]" />
-                          <p className="text-[11px]">Belum ada sub-agent.</p>
-                        </div>
-                      ) : (
-                        subagents.map((agent) => {
-                          const isSelected = agent.id === selectedSubagentId
-                          const isRunning = agent.status === 'running'
-                          const isIdle = agent.status === 'idle'
-                          return (
-                            <div
-                              key={agent.id}
-                              onClick={() => setSelectedSubagentId(agent.id)}
-                              className={`p-3 rounded-xl border transition-all cursor-pointer relative group ${
-                                isSelected
-                                  ? 'bg-primary/10 border-primary/40 shadow-sm'
-                                  : 'bg-base-100/40 border-base-content/5 hover:border-base-content/15 hover:bg-base-100/70'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2 mb-1">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span
-                                    className={`w-2 h-2 rounded-full flex-none ${
-                                      isRunning
-                                        ? 'bg-primary animate-ping'
-                                        : isIdle
-                                          ? 'bg-primary/70'
-                                          : agent.status === 'completed'
-                                            ? 'bg-success'
-                                            : agent.status === 'failed' || agent.status === 'killed'
-                                              ? 'bg-error'
-                                              : 'bg-base-content/40'
-                                    }`}
-                                  />
-                                  <span className="font-semibold text-xs truncate">{agent.name}</span>
-                                </div>
+                  {/* List Body */}
+                  <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
+                    {!subagents || subagents.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500 gap-2">
+                        <Layers className="w-6 h-6 stroke-[1.5] text-zinc-600" />
+                        <p className="text-xs">Belum ada sub-agent aktif.</p>
+                      </div>
+                    ) : (
+                      subagents.map((agent) => {
+                        const isSelected = agent.id === selectedSubagentId
+                        const isRunning = agent.status === 'running'
+                        const isIdle = agent.status === 'idle'
+                        return (
+                          <div
+                            key={agent.id}
+                            onClick={() => setSelectedSubagentId(agent.id)}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer relative group ${
+                              isSelected
+                                ? 'bg-cyan-950/30 border-cyan-500/40 text-cyan-100 shadow-[0_0_15px_rgba(6,182,212,0.08)]'
+                                : 'bg-white/[0.02] border-white/[0.05] hover:border-white/[0.1] hover:bg-white/[0.04]'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className={`w-2 h-2 rounded-full flex-none ${
+                                    isRunning
+                                      ? 'bg-cyan-400 animate-pulse'
+                                      : isIdle
+                                        ? 'bg-cyan-600/70'
+                                        : agent.status === 'completed'
+                                          ? 'bg-emerald-400'
+                                          : agent.status === 'failed' || agent.status === 'killed'
+                                            ? 'bg-rose-400'
+                                            : 'bg-zinc-600'
+                                  }`}
+                                />
+                                <span className="font-semibold text-xs truncate text-zinc-200">{agent.name}</span>
+                              </div>
                               <button
                                 onClick={(e) => handleDeleteSubagent(agent.id, e)}
-                                className="opacity-0 group-hover:opacity-100 text-base-content/40 hover:text-error transition-all p-0.5"
-                                title="Hapus"
+                                className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-rose-400 transition-all p-0.5"
+                                title="Hapus Agent"
                               >
-                                <Trash2 className="w-3 h-3" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
 
-                            <p className="text-[11px] text-base-content/50 truncate pl-4 mb-2">
+                            <p className="text-[11px] text-zinc-400 truncate pl-4 mb-2">
                               {agent.role || 'Specialist'}
                             </p>
 
-                            <div className="flex items-center justify-between text-[10px] text-base-content/40 font-mono pl-4">
+                            <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono pl-4">
                               <span>Langkah: {agent.turnCount || 0}</span>
                               <span>
                                 {new Date(agent.createdAt).toLocaleTimeString([], {
@@ -338,19 +338,19 @@ export default function Subagents() {
                 </div>
 
                 {/* Right Panel: Intercom Conversation */}
-                <div className="flex-1 flex flex-col bg-base-200/30 rounded-2xl border border-base-content/5 overflow-hidden">
+                <div className="flex-1 flex flex-col bg-white/[0.01] rounded-2xl border border-white/[0.06] overflow-hidden">
                   {selectedSubagentId ? (
                     <SubagentIntercom
                       subagentId={selectedSubagentId}
                       onClose={() => setSelectedSubagentId(null)}
                     />
                   ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-base-content/30 gap-2.5 p-8 text-center">
-                      <div className="p-3.5 bg-base-200/60 rounded-2xl border border-base-content/5">
-                        <Bot className="w-8 h-8 stroke-[1.5] text-base-content/40" />
+                    <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 gap-3 p-8 text-center">
+                      <div className="p-4 bg-white/[0.03] rounded-2xl border border-white/[0.06]">
+                        <Bot className="w-8 h-8 stroke-[1.5] text-zinc-400" />
                       </div>
-                      <p className="text-xs font-medium text-base-content/50">
-                        Pilih sub-agent di sisi kiri untuk memantau eksekusi live.
+                      <p className="text-xs font-medium text-zinc-400">
+                        Pilih sub-agent di panel kiri untuk memantau eksekusi live.
                       </p>
                     </div>
                   )}
@@ -363,66 +363,66 @@ export default function Subagents() {
 
       {/* Modal Spawn Agent */}
       {isSpawnModalOpen && (
-        <div className="modal modal-open bg-black/60 backdrop-blur-sm z-50">
-          <div className="modal-box bg-base-200 border border-base-content/10 rounded-2xl max-w-md shadow-2xl p-5">
+        <div className="modal modal-open bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0e1311] border border-white/[0.1] rounded-2xl max-w-md w-full shadow-2xl p-5 text-zinc-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-sm flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-primary" /> Spawn Sub-Agent Baru
+              <h3 className="font-semibold text-sm flex items-center gap-2 text-white">
+                <Cpu className="w-4 h-4 text-cyan-400" /> Spawn Sub-Agent Baru
               </h3>
               <button
                 type="button"
                 onClick={() => setIsSpawnModalOpen(false)}
-                className="btn btn-ghost btn-xs btn-circle text-base-content/50 hover:text-base-content"
+                className="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-zinc-400 hover:text-white flex items-center justify-center transition-all"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleSpawnManual} className="space-y-3">
+            <form onSubmit={handleSpawnManual} className="space-y-3.5">
               <div>
-                <label className="label text-[11px] font-medium py-1 text-base-content/70">Nama Agen</label>
+                <label className="block text-[11px] font-medium mb-1 text-zinc-400">Nama Agen</label>
                 <input
                   type="text"
                   placeholder="misal: Code-Refactorer / Web-Researcher"
                   value={newAgentName}
                   onChange={(e) => setNewAgentName(e.target.value)}
-                  className="input input-sm input-bordered w-full rounded-xl bg-base-100/60 text-xs"
+                  className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/[0.1] focus:border-cyan-500/50 text-xs text-zinc-200 outline-none transition-all placeholder:text-zinc-600"
                   required
                 />
               </div>
               <div>
-                <label className="label text-[11px] font-medium py-1 text-base-content/70">Role / Spesialisasi</label>
+                <label className="block text-[11px] font-medium mb-1 text-zinc-400">Role / Spesialisasi</label>
                 <input
                   type="text"
-                  placeholder="misal: Frontend Developer / Researcher"
+                  placeholder="misal: Frontend Developer / Security Researcher"
                   value={newAgentRole}
                   onChange={(e) => setNewAgentRole(e.target.value)}
-                  className="input input-sm input-bordered w-full rounded-xl bg-base-100/60 text-xs"
+                  className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/[0.1] focus:border-cyan-500/50 text-xs text-zinc-200 outline-none transition-all placeholder:text-zinc-600"
                   required
                 />
               </div>
               <div>
-                <label className="label text-[11px] font-medium py-1 text-base-content/70">Tujuan & Instruksi Misi</label>
+                <label className="block text-[11px] font-medium mb-1 text-zinc-400">Tujuan & Instruksi Misi</label>
                 <textarea
                   placeholder="Deskripsikan instruksi teknis yang harus diselesaikan sub-agent..."
                   value={newAgentGoal}
                   onChange={(e) => setNewAgentGoal(e.target.value)}
-                  className="textarea textarea-sm textarea-bordered w-full rounded-xl h-24 text-xs bg-base-100/60"
+                  className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/[0.1] focus:border-cyan-500/50 text-xs text-zinc-200 outline-none transition-all placeholder:text-zinc-600 h-24 resize-none"
                   required
                 />
               </div>
-              <div className="modal-action pt-2 flex items-center justify-end gap-2">
+              <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsSpawnModalOpen(false)}
                   disabled={isSpawning}
-                  className="btn btn-ghost btn-xs rounded-xl px-3"
+                  className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={!newAgentName.trim() || !newAgentGoal.trim() || isSpawning}
-                  className="btn btn-primary btn-xs rounded-xl px-4 font-medium shadow-sm shadow-primary/20"
+                  className="px-4 py-1.5 rounded-xl bg-cyan-500 text-black hover:bg-cyan-400 disabled:opacity-50 text-xs font-medium shadow-sm shadow-cyan-500/20 transition-all flex items-center gap-1.5"
                 >
                   {isSpawning ? <span className="loading loading-spinner loading-xs" /> : 'Mulai Eksekusi'}
                 </button>
