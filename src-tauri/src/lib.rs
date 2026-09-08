@@ -166,6 +166,25 @@ pub fn run() {
             }
             tray.build(app)?;
 
+            // ---- Linux WebKitGTK: Izinkan permission-request (kamera & mic) & aktifkan media stream ----
+            #[cfg(target_os = "linux")]
+            {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.with_webview(|webview| {
+                        use webkit2gtk::{PermissionRequestExt, SettingsExt, WebViewExt};
+                        let wv = webview.inner();
+                        if let Some(settings) = wv.settings() {
+                            settings.set_enable_media_stream(true);
+                            settings.set_enable_mediasource(true);
+                        }
+                        wv.connect_permission_request(|_, req| {
+                            req.allow();
+                            true
+                        });
+                    });
+                }
+            }
+
             // ---- Global shortcut Ctrl+Alt+M: toggle tampil/sembunyi ----
             use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
             app.global_shortcut()

@@ -19,22 +19,21 @@ export function noteMicFailure() {
 export async function resolveMicConstraints(savedId, audioSettings = {}) {
   let deviceOk = false
   try {
-    if (!navigator?.mediaDevices?.enumerateDevices) {
-      return null
+    if (navigator?.mediaDevices?.enumerateDevices) {
+      const devs = await navigator.mediaDevices.enumerateDevices()
+      const audioInputs = devs.filter((d) => d.kind === 'audioinput')
+      if (audioInputs.length > 0 && savedId && savedId !== 'default') {
+        deviceOk = audioInputs.some((d) => d.deviceId === savedId)
+      }
     }
-    const devs = await navigator.mediaDevices.enumerateDevices()
-    const audioInputs = devs.filter((d) => d.kind === 'audioinput')
-    // Jika tidak ada hardware mikrofon sama sekali di sistem host (0 devices)
-    if (audioInputs.length === 0) {
-      return null
-    }
-    deviceOk = audioInputs.some((d) => d.deviceId === savedId)
   } catch {
-    return null
+    // Abaikan error enumerasi awal; lanjutkan dengan stream audio default
   }
   const audio = { ...audioSettings }
   if (savedId && savedId !== 'default' && deviceOk) {
     audio.deviceId = { ideal: savedId }
+  } else if (Object.keys(audio).length === 0) {
+    return { audio: true }
   }
   return { audio }
 }

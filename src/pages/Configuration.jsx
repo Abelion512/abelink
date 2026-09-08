@@ -276,38 +276,39 @@ const Configuration = ({
       return
     }
     devicesLoadedRef.current = true
-    if (navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices
-        .getUserMedia({ audio: true, video: true })
-        .then((stream) => {
-          navigator.mediaDevices
-            .enumerateDevices()
-            .then((devices) => {
-              const mics = devices.filter((d) => d.kind === 'audioinput')
-              const cameras = devices.filter((d) => d.kind === 'videoinput')
-              setAudioDevices(mics)
-              setVideoDevices(cameras)
-            })
-            .catch((err) => console.error('Error enumerating devices', err))
+    const probeDevices = async () => {
+      if (navigator.mediaDevices.getUserMedia) {
+        let audioStream = null
+        let videoStream = null
+        try {
+          try {
+            audioStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          } catch (_) {}
+          try {
+            videoStream = await navigator.mediaDevices.getUserMedia({ video: true })
+          } catch (_) {}
+        } finally {
+          if (audioStream) audioStream.getTracks().forEach((t) => t.stop())
+          if (videoStream) videoStream.getTracks().forEach((t) => t.stop())
+        }
+      }
 
-          // Stop stream immediately since we just needed permission
-          stream.getTracks().forEach((track) => track.stop())
-        })
-        .catch(() => {
-          // WebKitGTK/wry dapat menolak getUserMedia tanpa dialog izin. Coba enumerate langsung:
-          navigator.mediaDevices
-            .enumerateDevices()
-            .then((devices) => {
-              const mics = devices.filter((d) => d.kind === 'audioinput')
-              const cameras = devices.filter((d) => d.kind === 'videoinput')
-              if (mics.length) setAudioDevices(mics)
-              if (cameras.length) setVideoDevices(cameras)
-            })
-            .catch(() => {})
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const mics = devices.filter((d) => d.kind === 'audioinput')
+        const cameras = devices.filter((d) => d.kind === 'videoinput')
+        setAudioDevices(mics)
+        setVideoDevices(cameras)
+        if (mics.length === 0 && cameras.length === 0) {
           console.warn(
             '[Config] Izin mic/kamera tidak diberikan oleh lingkungan webview; pilihan perangkat dikosongkan.'
           )
-        })
+        }
+      } catch (err) {
+        console.error('Error enumerating devices', err)
+      }
+    }
+    probeDevices()
     } else {
       navigator.mediaDevices
         .enumerateDevices()
