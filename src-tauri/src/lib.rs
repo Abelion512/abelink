@@ -226,6 +226,7 @@ pub fn run() {
             cmd_misc::misc_native_confirm,
             cmd_misc::misc_fetch_web_resource,
             cmd_misc::misc_ensure_extension_files,
+            cmd_misc::misc_open_folder,
             approval_policy::approval_policy_get,
             approval_policy::approval_policy_set,
             approval_policy::approval_policy_reset_session,

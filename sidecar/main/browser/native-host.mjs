@@ -28,34 +28,79 @@ const MANIFEST_BODY = (hostPath) =>
 export async function ensureNativeHost({
   configHome = process.env.HOME + '/.config',
   dataHome = process.env.XDG_DATA_HOME || process.env.HOME + '/.local/share',
-  sourceFile = new URL('../../../extension/native-host/mark-bridge-host.mjs', import.meta.url),
-  browsers = ['google-chrome', 'chromium']
+  sourceFile = null,
+  browsers = [
+    'google-chrome',
+    'chromium',
+    'google-chrome-beta',
+    'google-chrome-unstable',
+    'microsoft-edge',
+    'BraveSoftware/Brave-Browser'
+  ]
 } = {}) {
   const fs = await import('node:fs')
   const path = await import('node:path')
-  const src = sourceFile?.pathname ?? String(sourceFile ?? '')
-  if (!src || !fs.existsSync(src)) return { ok: false, skipped: 'skrip host tidak ada (mode bundle?)' }
 
   const destDir = path.join(dataHome, 'mark', 'native-host')
   fs.mkdirSync(destDir, { recursive: true })
-  const dest = path.join(destDir, 'mark-bridge-host.mjs')
-  fs.copyFileSync(src, dest)
-  fs.chmodSync(dest, 0o755)
 
-  // Wrapper shell dengan path runtime ABSOLUT: Chrome yang dibuka dari
-  // desktop tidak mewarisi PATH shell user (~/.bun/bin), sehingga
-  // `#!/usr/bin/env bun` gagal dan helper "tidak ada". Manifest menunjuk
-  // ke wrapper ini, bukan langsung ke .mjs.
+  const destMjs = path.join(destDir, 'mark-bridge-host.mjs')
+  const src = sourceFile?.pathname ?? String(sourceFile ?? '')
+  if (src && fs.existsSync(src)) {
+    try {
+      fs.copyFileSync(src, destMjs)
+      fs.chmodSync(destMjs, 0o755)
+    } catch {}
+  }
+
+  // Wrapper shell mandiri: menggunakan python3 yang selalu tersedia di Linux Mint / Ubuntu.
+  // Tidak bergantung pada keberadaan Bun atau Node di mesin pengguna rilis .deb.
   const wrapper = path.join(destDir, 'mark-bridge-host.sh')
-  const runtime = process.execPath || 'bun'
-  fs.writeFileSync(wrapper, `#!/bin/sh\nexec "${runtime}" "${dest}"\n`)
+  const wrapperScript = `#!/bin/sh
+# Mark Bridge native messaging host wrapper (mark-bridge-host.mjs fallback)
+if [ -x "/usr/bin/python3" ]; then
+  exec /usr/bin/python3 -c '
+import sys, json, os, struct
+
+def send(obj):
+    raw = json.dumps(obj).encode("utf-8")
+    sys.stdout.buffer.write(struct.pack("<I", len(raw)) + raw)
+    sys.stdout.buffer.flush()
+
+try:
+    data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    token_file = os.path.join(data_home, "browser-bridge-token")
+    if os.path.exists(token_file):
+        with open(token_file, "r", encoding="utf-8") as f:
+            raw = f.read().strip()
+        try:
+            rec = json.loads(raw)
+            tok = rec.get("token") or raw
+        except Exception:
+            tok = raw
+        send({"ok": True, "token": tok})
+    else:
+        send({"ok": False, "error": "token file missing"})
+except Exception as e:
+    send({"ok": False, "error": str(e)})
+'
+fi
+
+if command -v bun >/dev/null 2>&1 && [ -f "${destMjs}" ]; then
+  exec bun "${destMjs}"
+elif command -v node >/dev/null 2>&1 && [ -f "${destMjs}" ]; then
+  exec node "${destMjs}"
+fi
+`
+  fs.writeFileSync(wrapper, wrapperScript)
   fs.chmodSync(wrapper, 0o755)
 
   const body = MANIFEST_BODY(wrapper)
   const installed = []
   for (const b of browsers) {
-    const dir = path.join(configHome, b, 'NativeMessagingHosts')
-    if (!fs.existsSync(path.join(configHome, b))) continue
+    const browserDir = path.join(configHome, b)
+    if (!fs.existsSync(browserDir)) continue
+    const dir = path.join(browserDir, 'NativeMessagingHosts')
     fs.mkdirSync(dir, { recursive: true })
     const file = path.join(dir, `${NATIVE_HOST_NAME}.json`)
     const prev = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null
@@ -66,5 +111,5 @@ export async function ensureNativeHost({
       installed.push({ browser: b, file, changed: true })
     }
   }
-  return { ok: true, host: wrapper, script: dest, installed }
+  return { ok: true, host: wrapper, script: destMjs, installed }
 }

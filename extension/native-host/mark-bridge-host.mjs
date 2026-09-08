@@ -26,9 +26,17 @@ function handle(msg) {
     return
   }
   try {
-    const token = fs.readFileSync(tokenFile(), 'utf8').trim()
-    if (!token) writeMsg({ ok: false, error: 'file token kosong (sidecar belum start?)' })
-    else writeMsg({ ok: true, token })
+    const raw = fs.readFileSync(tokenFile(), 'utf8').trim()
+    if (!raw) {
+      writeMsg({ ok: false, error: 'file token kosong (sidecar belum start?)' })
+      return
+    }
+    let token = raw
+    try {
+      const rec = JSON.parse(raw)
+      if (rec && typeof rec.token === 'string') token = rec.token
+    } catch {}
+    writeMsg({ ok: true, token })
   } catch (e) {
     writeMsg({ ok: false, error: `token tidak terbaca: ${e.message}` })
   }

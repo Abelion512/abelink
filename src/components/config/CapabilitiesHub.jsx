@@ -913,33 +913,56 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                   />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    className="btn btn-xs btn-outline border-white/10 hover:border-primary/50 text-xs"
-                    onClick={async () => {
-                      setExtInstall(null)
-                      try {
-                        if (!window.api?.ensureExtensionFiles) {
-                          setExtInstall({ error: 'Butuh desktop runtime terbaru.' })
-                          return
+                <div className="flex flex-col gap-2 pt-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline border-white/10 hover:border-primary/50 text-xs"
+                      onClick={async () => {
+                        setExtInstall(null)
+                        try {
+                          if (!window.api?.ensureExtensionFiles) {
+                            setExtInstall({ error: 'Butuh desktop runtime terbaru.' })
+                            return
+                          }
+                          const dir = await window.api.ensureExtensionFiles()
+                          setExtInstall({ dir })
+                        } catch (e) {
+                          setExtInstall({ error: e?.message || String(e) })
                         }
-                        const dir = await window.api.ensureExtensionFiles()
-                        setExtInstall({ dir })
-                      } catch (e) {
-                        setExtInstall({ error: e?.message || String(e) })
-                      }
-                    }}
-                  >
-                    Pasang Extension Browser
-                  </button>
+                      }}
+                    >
+                      Pasang Extension Browser
+                    </button>
+                    {extInstall?.dir && (
+                      <button
+                        type="button"
+                        onClick={() => window.api?.openFolder?.(extInstall.dir)}
+                        className="btn btn-xs btn-primary text-xs gap-1.5"
+                      >
+                        <FaFolderOpen size={11} />
+                        <span>Buka Folder Ekstensi</span>
+                      </button>
+                    )}
+                    {extInstall?.error && (
+                      <span className="text-[11px] text-error">Gagal: {extInstall.error}</span>
+                    )}
+                  </div>
                   {extInstall?.dir && (
-                    <span className="text-[11px] text-success/90">
-                      Tersalin: <code className="font-mono text-[10px] px-1 py-0.5 bg-black/30 rounded">{extInstall.dir}</code>
-                    </span>
-                  )}
-                  {extInstall?.error && (
-                    <span className="text-[11px] text-error">Gagal: {extInstall.error}</span>
+                    <div className="p-2.5 rounded-lg bg-black/40 border border-white/10 text-[11px] space-y-1 text-white/80">
+                      <p className="text-success font-semibold flex items-center gap-1.5">
+                        ✓ Folder ekstensi siap di: <code className="font-mono text-[10px] px-1 py-0.5 bg-black/50 rounded text-primary">{extInstall.dir}</code>
+                      </p>
+                      <p className="text-white/60">
+                        Langkah aktivasi di Chrome / Chromium / Brave / Edge:
+                      </p>
+                      <ol className="list-decimal list-inside space-y-0.5 text-white/70 pl-1">
+                        <li>Buka URL <code className="font-mono text-[10px] text-primary">chrome://extensions</code> di browser.</li>
+                        <li>Aktifkan toggle <b>Developer mode</b> di pojok kanan atas.</li>
+                        <li>Klik <b>Load unpacked</b> (Muat yang belum dibongkar), lalu pilih folder di atas.</li>
+                        <li>Selesai! Ekstensi otomatis terhubung hijau tanpa perlu token manual.</li>
+                      </ol>
+                    </div>
                   )}
                 </div>
               </div>

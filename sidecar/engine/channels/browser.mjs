@@ -169,3 +169,11 @@ on('browser:status', async () => {
 export function shutdownBrowserChannels() {
   stopBrowserBridge()
 }
+
+// Auto-start browser bridge saat sidecar engine hidup (di luar test environment):
+// token siap dan native host terpasang di Chrome/Chromium tanpa menunggu AI dipanggil.
+if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
+  startBrowserBridge().catch((e) => {
+    console.warn('[BrowserBridge] auto-start failed:', e.message)
+  })
+}

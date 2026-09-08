@@ -485,3 +485,16 @@ fn copy_dir_recursive(src: &std::path::Path, dest: &std::path::Path) -> Result<(
     }
     Ok(())
 }
+
+#[tauri::command]
+pub fn misc_open_folder(path: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    if !p.exists() {
+        return Err("Folder tidak ditemukan.".into());
+    }
+    std::process::Command::new("xdg-open")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| format!("Gagal membuka folder: {e}"))?;
+    Ok(())
+}
