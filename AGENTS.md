@@ -2,13 +2,15 @@
 
 ## 1. Project Overview
 
-**Project Name:** MARK (Metacognitive Artificial Relational Knowledge): MARK Linux fork, independent version line 1.x (current: **1.0.0-alpha.1**, single source of truth: `src-tauri/tauri.conf.json`)
+**Project Name:** Abelink (formerly MARK Linux fork), independent version line 1.x (current: **1.0.0-alpha.3**, single source of truth: `src-tauri/tauri.conf.json`)
 
 **Branch Strategy:**
 - `main` (primary / default for private repo `origin` git@github.com:Abelion512/abelink.git): Standard default branch on Git/GitHub, menerima seluruh pengembangan aktif dan commit.
 - `linux`: Cabang pelacak untuk remote publik `public-upstream` (Abelion512/mark-agent-linux).
 - `master`: Melacak upstream resmi Mazees/mark-agent untuk keperluan sinkronisasi berkala.
 - Version bumping: jalankan `bun run sync-version` setelah bump di `tauri.conf.json`
+- Pedoman Kontribusi Agent: baca [docs/AGENT_CONTRIBUTION_GUIDELINES.md](docs/AGENT_CONTRIBUTION_GUIDELINES.md)
+- RFC Arsitektur Masa Depan: baca [docs/ARCHITECTURAL_DIRECTION.md](docs/ARCHITECTURAL_DIRECTION.md)
 **Description:** A privacy-first, local-based autonomous AI OS companion designed to assist user productivity, automate tasks, and provide lifelike companionship. It uses a hybrid AI engine (Local LLM via LM Studio or Cloud API, plus a native Gemini Web RPC Engine) and features agentic planning with ReAct loop execution, **Autonomous Multi-Agent Sub-Agent Engine** (UI: **Sub-Agents**, branding: **Mission Control**) with concurrent isolated browser sessions, **Durable Agent Tasks** (UI: **Agent Workflows**) for persistent multi-step work, autonomous physical browser automation with multi-session support, a persistent OS-level desktop automation daemon, a hybrid Full-Text & Vector Memory Management System (MMS) with Orama & Dexie, document RAG pipeline, OS-level Awareness Engine, dynamic 4D Relational Growth, a native Plugin System with Monaco Editor, Telegram Bot integration via Telegraf, Voice Activity Detection with Groq Whisper STT plus local Whisper, Edge-TTS, and webcam vision capabilities.
 **Environment:** Linux-only Tauri v2 desktop application ("Abelink Linux"): a fork of Mazees/mark-agent, mid-migration from Electron to the Tauri shell + Node sidecar layout.
 **Maintainer:** Abelion512 | **Homepage:** https://github.com/Abelion512/abelink | **Upstream:** https://github.com/Mazees/mark-agent/
@@ -27,7 +29,7 @@
 - **Document Parsing:** `mammoth` (.docx) + `pdf-parse` (.pdf) behind the sidecar `parse-document` channel
 - **Runtime & Toolchain:** Rust + Bun. Rust menaungi shell Tauri (`src-tauri/`); Bun adalah package manager, script runner, dan runtime sidecar (`bun sidecar/engine.mjs`). Semua script first-party (`.mjs`) dijalankan dengan `bun`, bukan `node`; CI memakai `bun install --frozen-lockfile`.
 - **Packaging & CI:** Tauri bundler (`bundle.targets: "all"`, sidecar engine shipped as bundled resources); GitHub Actions workflows `tauri.yml`, `release.yml`, `codeql.yml`, `upstream-sync.yml`, `branch-guard.yml` (PR ber-base `master` digagalkan otomatis); Dependabot mingguan untuk cargo + npm + github-actions.
-- **Evaluation (MarkBench):** harness evaluasi di `evaluation/` — adapter agent via sidecar RPC (`mark-adapter.mjs`), task Terminal-Bench-style dengan verifier deterministik (`terminal-bench.mjs`), metrik sekunder opsional via DeepEval (`deepeval-runner.mjs`, dynamic-import, tanpa dependensi keras), smoke gate tanpa network di CI (`bun evaluation/smoke.mjs`).
+- **Evaluation (MarkBench):** harness evaluasi di `evaluation/`: adapter agent via sidecar RPC (`mark-adapter.mjs`), task Terminal-Bench-style dengan verifier deterministik (`terminal-bench.mjs`), metrik sekunder opsional via DeepEval (`deepeval-runner.mjs`, dynamic-import, tanpa dependensi keras), smoke gate tanpa network di CI (`bun evaluation/smoke.mjs`).
 
 ## 3. Project Architecture & File Structure
 
@@ -43,7 +45,7 @@ mark-agent/
 └── scripts/             # sync-version.mjs, verify.sh, release helpers
 ```
 
-### `src/` — React 19 Renderer (UI + Core Logic)
+### `src/`: React 19 Renderer (UI + Core Logic)
 
 | File / Folder                          | Purpose                                                                                                                                                                                                                                                                 |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -80,7 +82,7 @@ mark-agent/
 | `components/subagent/`                 | `SubagentIntercom.jsx` (**live intercom & HUD**: thought/execution dropdowns, markdown answers), `SubagentTopologyMap.jsx`.                                                                                                                                              |
 | `components/core/`                     | `BrowserPreviewWidget.jsx` (multi-card holo preview, kept for Fase C), `HoloCard.jsx`, `InputBar.jsx`, `MemoryVisualizer.jsx`, and other core UI pieces.                                                                                                                 |
 
-### `src-tauri/` — Rust Shell (Tauri v2)
+### `src-tauri/`: Rust Shell (Tauri v2)
 
 | File                   | Purpose                                                                                                                                                                                                                  |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -94,15 +96,15 @@ mark-agent/
 | `Cargo.toml`           | Crate manifest: tauri 2 (+tray-icon/image-png), plugins log/single-instance/global-shortcut, rfd 0.15, tokio.                                                                                                             |
 | `capabilities/`        | Tauri capability/permission definitions.                                                                                                                                                                                 |
 
-### `sidecar/` — Node Engine (fase A/B)
+### `sidecar/`: Node Engine (fase A/B)
 
 | File / Folder                        | Purpose                                                                                                                                                                                                                                                              |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `engine.mjs` + `engine/`             | JSON-over-stdio dispatcher — composition root tipis; semua handler hidup di `engine/registry.mjs` (protokol + `on()` + `lazy()`) dan `engine/channels/*` (`ai`, `media`, `telegram`, `services`, `music`, `skills`). `browser:*` / `os:*` / screenshot / dialog channels return explicit unsupported until Fase B/C. Headless run: `bun run harness`. Peta lengkap: `docs/ARCHITECTURE.md`. |
+| `engine.mjs` + `engine/`             | JSON-over-stdio dispatcher: composition root tipis; semua handler hidup di `engine/registry.mjs` (protokol + `on()` + `lazy()`) dan `engine/channels/*` (`ai`, `media`, `telegram`, `services`, `music`, `skills`). `browser:*` / `os:*` / screenshot / dialog channels return explicit unsupported until Fase B/C. Headless run: `bun run harness`. Peta lengkap: `docs/ARCHITECTURE.md`. |
 | `main/ai-bridge.js`                  | Centralized AI HTTP client: multi-provider routing, 3-tier JSON format fallback (`json_schema` -> `json_object` -> unrestricted), `CLOUD_DELAY_MS=3000` throttle, backoff with auto model swap, DeepSeek `<think>` extraction, `cleanAndParse()` with jsonrepair. |
 | `main/node-tools.js`                 | `NATIVE_TOOLS` registry with `needsApproval`/`approvalMessage` metadata: fs CRUD, `run-shell`/`run-bash` (dangerous-keyword check; `run-powershell` kept only as a legacy alias), `git-commit`/`git-revert`, os-* desktop tools, browser-* dispatchers. Delimiter: double-pipe `\|\|`.                                     |
-| `main/browser-agent.js`              | Multi-session Chromium automation engine (max 80 tagged elements, `data-mark-id`, animated cursor) — dormant until the Fase C port.                                                                                                                                   |
-| `main/pc-agent.js` + `pc-agent-scripts/` | Desktop automation engine + Linux primitives (`linux-daemon.py`, `linux-action.sh`, `read-ui.sh`, `ocr-region.sh`) — LIVE: semua tool `os-*` di `node-tools.js` memakai implementasi ini; emergency stop end-to-end via `os:emergency-stop` (Ctrl+Shift+S).                                                                      |
+| `main/browser-agent.js`              | Multi-session Chromium automation engine (max 80 tagged elements, `data-mark-id`, animated cursor): dormant until the Fase C port.                                                                                                                                   |
+| `main/pc-agent.js` + `pc-agent-scripts/` | Desktop automation engine + Linux primitives (`linux-daemon.py`, `linux-action.sh`, `read-ui.sh`, `ocr-region.sh`): LIVE: semua tool `os-*` di `node-tools.js` memakai implementasi ini; emergency stop end-to-end via `os:emergency-stop` (Ctrl+Shift+S).                                                                      |
 | `main/awareness/window-tracker.js`   | OS activity monitoring: active-win poll every 60s, idle filter >180s, 30-entry ring buffer, `id-ID` timestamps.                                                                                                                                                       |
 | `main/plugins/plugin-loader.js`      | Plugin lifecycle manager: scans the plugin directory, dynamic ESM import with cache-busting (`?t=Date.now()`), auto npm install on creation, CRUD/toggle/reload endpoints.                                                                                            |
 | `main/telegram/telegram-service.js`  | Telegraf bot engine: polling mode, `/start` and `/register` admin approval flow, text/media processing, direct UI notification bridge.                                                                                                                                |
@@ -117,9 +119,9 @@ mark-agent/
 
 ### Build, Verify & CI
 
-- `scripts/sync-version.mjs` — propagates the version from `src-tauri/tauri.conf.json` into package.json/Cargo.toml (single source of truth for versioning).
-- `scripts/verify.sh` — release gate, must be green before push: vitest -> crypto watermark harness -> vite build -> cargo check.
-- `.github/workflows/` — `tauri.yml` (build/check), `release.yml` (tagged releases), `codeql.yml` (security scan), `upstream-sync.yml` (upstream tracker).
+- `scripts/sync-version.mjs`: propagates the version from `src-tauri/tauri.conf.json` into package.json/Cargo.toml (single source of truth for versioning).
+- `scripts/verify.sh`: release gate, must be green before push: vitest -> crypto watermark harness -> vite build -> cargo check.
+- `.github/workflows/`: `tauri.yml` (build/check), `release.yml` (tagged releases), `codeql.yml` (security scan), `upstream-sync.yml` (upstream tracker).
 
 ## 4. Key Implementation Invariants & Gotchas
 
@@ -132,7 +134,7 @@ mark-agent/
 
 ### Multi-Agent Sub-Agent Architecture
 - **No Turn Limit (`maxTurns`)**: Sub-agents execute autonomously until their goal is fulfilled (action: null, answer provided) or until explicitly aborted/killed.
-- **Session-Isolated Browser Sessions (design invariant)**: each sub-agent is designed to operate its own isolated browser session keyed by its unique id, without cross-agent contamination. Today the engine-side `browser:*` channels are stubbed explicit-unsupported until Fase C3, so browser actions fail fast instead of opening windows — keep the sessionId propagation intact so the port can slot in.
+- **Session-Isolated Browser Sessions (design invariant)**: each sub-agent is designed to operate its own isolated browser session keyed by its unique id, without cross-agent contamination. Today the engine-side `browser:*` channels are stubbed explicit-unsupported until Fase C3, so browser actions fail fast instead of opening windows: keep the sessionId propagation intact so the port can slot in.
 - **Proactive Orchestration**: Lead Agent (Mark) is instructed to proactively split multi-topic research into parallel batch spawns (`spawn_subagent` in batch array) and gather aggregated insights via `wait_subagents`.
 
 ### Critical Constants & Thresholds (verified against current files)
@@ -167,11 +169,11 @@ Removed from the old table: Category Router threshold 0.35 (`CATEGORY_TEXTS` no 
 - **Renderer Isolation (Tauri Boundary):** Never touch Node APIs directly in `src/`. All OS access goes through the `window.api` facade (`src/api/tauri-bridge.js`) -> Tauri IPC: either a Rust command (`fs_*`, `misc_*`, `harness_append`, window controls) or the `node_invoke` sidecar channel.
 - **Security Gates (non-negotiable):**
   - `cmd_fs.rs` confines every path to the XDG workspace root: absolute paths, `..`, and `~` are rejected, and symlink escapes are caught by canonicalize + prefix check. Never bypass `resolve_contained`.
-  - `node_invoke` uses an APPROVAL-GATE model (upstream audit 2026-08-26): every action passes the bridge, but approval-required actions (`skills:save`, `skills:delete`, `skills:save-file`, `skills:create-item`, `skills:delete-item`, `skills:rename-item`, `skills:install`, `plugin:create`, `plugin:delete`, `tg:start`, `tg:stop`, `google:connect`, `google:disconnect`) and dangerous tools (`run-shell`/`run-bash`, alias lama `run-powershell`, `git-commit`, `git-revert`) trigger a NATIVE `rfd` confirmation dialog on the Rust main thread — the decision happens outside the renderer. New destructive sidecar channels MUST be added to `APPROVAL_ACTIONS`.
+  - `node_invoke` uses an APPROVAL-GATE model (upstream audit 2026-08-26): every action passes the bridge, but approval-required actions (`skills:save`, `skills:delete`, `skills:save-file`, `skills:create-item`, `skills:delete-item`, `skills:rename-item`, `skills:install`, `plugin:create`, `plugin:delete`, `tg:start`, `tg:stop`, `google:connect`, `google:disconnect`) and dangerous tools (`run-shell`/`run-bash`, alias lama `run-powershell`, `git-commit`, `git-revert`) trigger a NATIVE `rfd` confirmation dialog on the Rust main thread: the decision happens outside the renderer. New destructive sidecar channels MUST be added to `APPROVAL_ACTIONS`.
   - Telegram sending is NATIVE (`src-tauri/src/commands/telegram/bot.rs`): `syncConfig` bridges `tgBotToken` to `telegram_configure` (the only token holder, never exposed to the renderer), `tgSendMessage`/`tgBroadcastToAdmins`/`tgTakeScreenshot` invoke `telegram_send_message`/`telegram_send_photo` (multipart, 10MB cap). Tauri v2 invoke args are camelCase from JS (`chatId`, not `chat_id`).
   - CSP is declared twice: `src-tauri/tauri.conf.json` and the meta tag in `index.html`. Keep both in sync whenever connect-src/script-src change.
-- **Adding Sidecar Tools:** register the tool in `NATIVE_TOOLS` (`sidecar/main/node-tools.js`) with `needsApproval`/`approvalMessage` metadata AND, if it needs a new dedicated channel instead of reusing `native-tool:execute`, add that action to `APPROVAL_ACTIONS` in `cmd_node_bridge.rs` when it is destructive. The `browser:*`/`os:*` channels intentionally return explicit unsupported until Fase B6/C3 — do not fake success responses for them.
+- **Adding Sidecar Tools:** register the tool in `NATIVE_TOOLS` (`sidecar/main/node-tools.js`) with `needsApproval`/`approvalMessage` metadata AND, if it needs a new dedicated channel instead of reusing `native-tool:execute`, add that action to `APPROVAL_ACTIONS` in `cmd_node_bridge.rs` when it is destructive. The `browser:*`/`os:*` channels intentionally return explicit unsupported until Fase B6/C3: do not fake success responses for them.
 - **Build & Version Gate:** run `bash scripts/verify.sh` (vitest + crypto watermark harness + vite build + cargo check) before pushing; bump versions ONLY in `src-tauri/tauri.conf.json`, then run `bun run sync-version`.
-- **Linux-Only Toolchain Policy:** MARK Linux menargetkan Debian/Ubuntu dengan bash/zsh. Dilarang menambah tool Windows-era (`.ps1`, PowerShell command, `notepad`/`cmd.exe` sebagai contoh tool). Shell tool kanonik adalah `run-shell` (alias `run-bash`); `run-powershell` hanya alias kompatibilitas warisan upstream. Referensi eksternal mengikuti peta **load-when-needed** di `docs/REFERENCE-LIBRARY.md` — jangan vendor massal.
+- **Linux-Only Toolchain Policy:** MARK Linux menargetkan Debian/Ubuntu dengan bash/zsh. Dilarang menambah tool Windows-era (`.ps1`, PowerShell command, `notepad`/`cmd.exe` sebagai contoh tool). Shell tool kanonik adalah `run-shell` (alias `run-bash`); `run-powershell` hanya alias kompatibilitas warisan upstream. Referensi eksternal mengikuti peta **load-when-needed** di `docs/REFERENCE-LIBRARY.md`: jangan vendor massal.
 - **UI Design System:** The UI uses Tailwind CSS 4 + DaisyUI 5 (`forest` theme) with custom holographic/glassmorphic design tokens in `src/assets/main.css`.
 - **Strict Emoji Rule:** Dilarang keras menggunakan emoji apapun di dalam respon output, dialog, maupun UI.
