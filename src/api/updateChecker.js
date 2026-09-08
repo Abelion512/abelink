@@ -1,6 +1,6 @@
 import semver from 'semver'
 
-const REPO = 'Abelion512/mark-agent-linux'
+const REPO = 'Abelion512/abelink'
 const CACHE_KEY = 'mark:update-cache'
 const CACHE_TTL = 24 * 60 * 60 * 1000 // 24 hours
 const CHECK_INTERVAL = 60 * 60 * 1000 // 1 hour

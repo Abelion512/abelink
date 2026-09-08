@@ -136,8 +136,8 @@ function humanify(scope) {
 function ensureGitIdentity() {
   const email = run('git config user.email || true')
   const name = run('git config user.name || true')
-  if (!email) run('git config user.email "release-bot@mark-agent-linux.local"')
-  if (!name) run('git config user.name "Mark Release Bot"')
+  if (!email) run('git config user.email "release-bot@abelink.local"')
+  if (!name) run('git config user.name "Abelink Release Bot"')
 }
 
 // PR tagging + findReleasePR both require the 'release' label. Forks do not

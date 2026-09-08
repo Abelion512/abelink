@@ -2,7 +2,7 @@ name: Release Prepare
 
 on:
   push:
-    branches: [linux]
+    branches: [main, linux]
   workflow_dispatch: {}
 
 permissions:

@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting! Check [existing issues](https://github.com/Abelion512/mark-agent-linux/issues) first.
+        Thanks for reporting! Check [existing issues](https://github.com/Abelion512/abelink/issues) first.
 
   - type: dropdown
     id: version

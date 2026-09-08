@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions & Help
-    url: https://github.com/Abelion512/mark-agent-linux/issues
+    url: https://github.com/Abelion512/abelink/issues
     about: Ask for help from the maintainer
   - name: Documentation
-    url: https://github.com/Abelion512/mark-agent-linux
+    url: https://github.com/Abelion512/abelink
     about: Check the README and docs before filing

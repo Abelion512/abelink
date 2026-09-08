@@ -3,7 +3,7 @@
   "version": "1.0.0-alpha.3",
   "description": "Mark: Metacognitive Artificial Relational Knowledge AI",
   "author": "Abelion512",
-  "homepage": "https://github.com/Abelion512/mark-agent-linux/",
+  "homepage": "https://github.com/Abelion512/abelink/",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

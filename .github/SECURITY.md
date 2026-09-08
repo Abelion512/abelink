@@ -13,7 +13,7 @@ Mark Agent stores credentials (API keys, tokens) locally in Dexie/IndexedDB.
 If you discover a credential leak, remote code execution, or sandbox escape:
 
 1. **DO NOT** open a public GitHub issue.
-2. Email the maintainer or open a draft security advisory on Abelion512/mark-agent-linux.
+2. Email the maintainer or open a draft security advisory on Abelion512/abelink.
 
 ## What we protect
 

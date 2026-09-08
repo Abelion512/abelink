@@ -2,9 +2,9 @@ name: Tauri CI
 
 on:
   push:
-    branches: ["linux"]
+    branches: ["main", "linux"]
   pull_request:
-    branches: ["linux"]
+    branches: ["main", "linux"]
 
 jobs:
   secrets:
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: github.ref == 'refs/heads/tauri-migration' || github.ref == 'refs/heads/linux' || startsWith(github.ref, 'refs/tags/')
+    if: github.ref == 'refs/heads/tauri-migration' || github.ref == 'refs/heads/linux' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     needs: [secrets, frontend, benchmark, rust]
     steps:
       - uses: actions/checkout@v4
