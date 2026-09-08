@@ -176,7 +176,10 @@ const LiveAudio = () => {
           } catch (fallbackErr) {
             noteMicFailure()
             console.warn('[LiveAudio] getUserMedia gagal:', fallbackErr.message || fallbackErr)
-            setIsLive(false)
+            setToastMessage('Gagal mengakses mikrofon. Pastikan input audio aktif di sistem.')
+            setTimeout(() => setToastMessage(''), 5000)
+            setIsActive(false)
+            setStatus('idle')
             isStartingRef.current = false
             return
           }
