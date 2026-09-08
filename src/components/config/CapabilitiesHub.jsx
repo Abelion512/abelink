@@ -30,6 +30,39 @@ import {
 import { useConfirm } from '../../hooks/useConfirm'
 import { getCachedSkills } from '../../api/skillsCache'
 
+const PLANNED_MCP_CONNECTORS = [
+  {
+    id: 'context7',
+    name: 'CONTEXT7',
+    url: 'https://mcp.context7.com/mcp/oauth',
+    description: 'Library documentation, real-time code snippet lookup, and API reference.'
+  },
+  {
+    id: 'drive',
+    name: 'Google Drive',
+    url: 'https://drivemcp.googleapis.com/mcp/v1',
+    description: 'Google Drive MCP server for searching, reading, and indexing cloud files.'
+  },
+  {
+    id: 'calendar',
+    name: 'Google Calendar',
+    url: 'https://calendarmcp.googleapis.com/mcp/v1',
+    description: 'Google Calendar MCP server for schedule inspection and event creation.'
+  },
+  {
+    id: 'gmail',
+    name: 'Gmail',
+    url: 'https://gmailmcp.googleapis.com/mcp/v1',
+    description: 'Google Gmail MCP server for email search and drafting.'
+  },
+  {
+    id: 'mermaid',
+    name: 'Mermaid',
+    url: 'https://chatgpt.mermaid.ai/anthropic/mcp',
+    description: 'Architecture diagramming, flowchart, and visual schema generation.'
+  }
+]
+
 const BUILTIN_SKILLS = [
   {
     id: 'systematic-engineering',
@@ -137,17 +170,26 @@ export default function CapabilitiesHub({
   const [busyConnectorKey, setBusyConnectorKey] = useState(null)
 
   const loadMcpData = useCallback(async () => {
-    if (!window.api?.capabilityCatalogGet) {
-      setMcpLoading(false)
-      return
-    }
     setMcpLoading(true)
     try {
-      const [cat, aud] = await Promise.all([
-        window.api.capabilityCatalogGet().catch(() => ({ connectors: [], connections: {} })),
-        window.api.capabilityAuditGet ? window.api.capabilityAuditGet({ limit: 30 }).catch(() => []) : []
-      ])
-      setConnectors(cat?.connectors || [])
+      let cat = null
+      let aud = []
+      if (window.api?.capabilityCatalogGet) {
+        cat = await window.api.capabilityCatalogGet().catch(() => null)
+      }
+      if (window.api?.capabilityAuditGet) {
+        aud = await window.api.capabilityAuditGet({ limit: 30 }).catch(() => [])
+      }
+
+      let customMcp = []
+      try {
+        customMcp = JSON.parse(localStorage.getItem('mark:custom_mcp') || '[]')
+      } catch (_) {}
+
+      const combined = [...PLANNED_MCP_CONNECTORS, ...(cat?.connectors || []), ...customMcp]
+      const unique = Array.from(new Map(combined.map((c) => [c.id, c])).values())
+
+      setConnectors(unique)
       setConnections(cat?.connections || {})
       setAuditLogs(Array.isArray(aud) ? aud : aud?.entries || [])
     } catch (e) {
@@ -645,58 +687,6 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
             </div>
           </div>
 
-          {/* Built-in Connectors: Telegram Bot */}
-          <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-                  <FaTelegramPlane className="text-sky-400" size={14} />
-                  Built-in Connectors: Telegram Bot
-                </h3>
-                <p className="text-xs text-white/50 mt-0.5">
-                  Kontrol asisten, penerimaan instruksi, dan broadcast notifikasi jarak jauh via chat Telegram.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary toggle-sm"
-                  checked={!!config.telegramEnabled}
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, telegramEnabled: e.target.checked }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/70">Bot Token Telegram</label>
-                <input
-                  type="password"
-                  placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ..."
-                  value={config.telegramToken || ''}
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, telegramToken: e.target.value }))
-                  }
-                  className="input input-sm input-bordered w-full rounded-xl bg-base-100/60 border-white/10 font-mono text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/70">Admin Telegram Chat ID</label>
-                <input
-                  type="text"
-                  placeholder="misal: 12345678"
-                  value={config.telegramAdminId || ''}
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, telegramAdminId: e.target.value }))
-                  }
-                  className="input input-sm input-bordered w-full rounded-xl bg-base-100/60 border-white/10 font-mono text-xs"
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Custom Connectors: MCP Protocol */}
           <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -769,6 +759,11 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                             <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">Offline</span>
                           )}
                         </div>
+                        {c.url && (
+                          <div className="font-mono text-[11px] text-cyan-400/80 truncate max-w-lg">
+                            {c.url}
+                          </div>
+                        )}
                         <p className="text-xs text-white/50 leading-relaxed line-clamp-2">
                           {c.description || 'Tidak ada deskripsi.'}
                         </p>

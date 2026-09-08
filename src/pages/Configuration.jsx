@@ -831,17 +831,17 @@ const Configuration = ({
               className={`space-y-6 scroll-mt-4 ${activeSection !== 'cfg-model' ? 'hidden' : ''}`}
             >
               <div>
-                <h2 className="text-base font-bold uppercase tracking-wider opacity-70">Model &amp; Intelligence</h2>
+                <h2 className="text-base font-bold uppercase tracking-wider opacity-70">Model</h2>
               </div>
 
               {/* Provider Selector Cards */}
               <div id="tour-ai-provider" className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-white/60">Pilih AI Provider</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-white/60">Provider</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
-                    { id: 'gemini-web', name: 'Gemini Web', desc: 'Native Bridge · Gratis & Cepat', icon: FaRobot },
-                    { id: 'lm-studio', name: 'LM Studio', desc: 'Model Lokal · 100% Offline', icon: FaTerminal },
-                    { id: 'custom', name: 'Custom API', desc: 'OpenAI / Anthropic Protocol', icon: FaPlug }
+                    { id: 'gemini-web', name: 'Gemini Web', icon: FaRobot },
+                    { id: 'lm-studio', name: 'LM Studio', icon: FaTerminal },
+                    { id: 'custom', name: 'Custom API', icon: FaPlug }
                   ].map((prov) => {
                     const isSelected = (config.aiProvider || 'gemini-web') === prov.id
                     const ProvIcon = prov.icon
@@ -850,19 +850,16 @@ const Configuration = ({
                         key={prov.id}
                         type="button"
                         onClick={() => handleAiProviderChange(prov.id)}
-                        className={`p-3.5 rounded-2xl border text-left transition-all flex flex-col justify-between ${
+                        className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between ${
                           isSelected
                             ? 'bg-primary/15 border-primary/40 shadow-sm'
                             : 'bg-base-100/40 border-white/5 hover:border-white/15 hover:bg-base-100/70'
                         }`}
                       >
-                        <div className="flex items-center justify-between w-full mb-2">
-                          <span className={`text-xs font-bold ${isSelected ? 'text-primary' : 'text-white/80'}`}>
-                            {prov.name}
-                          </span>
-                          <ProvIcon size={13} className={isSelected ? 'text-primary' : 'text-white/30'} />
-                        </div>
-                        <span className="text-[11px] text-white/40">{prov.desc}</span>
+                        <span className={`text-xs font-bold ${isSelected ? 'text-primary' : 'text-white/80'}`}>
+                          {prov.name}
+                        </span>
+                        <ProvIcon size={13} className={isSelected ? 'text-primary' : 'text-white/30'} />
                       </button>
                     )
                   })}
@@ -872,7 +869,7 @@ const Configuration = ({
               {config.aiProvider === 'gemini-web' || !config.aiProvider ? (
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <p className="text-sm font-semibold">Model Gemini</p>
+                    <p className="text-sm font-semibold">Model</p>
                     <select
                       className="select select-bordered w-full"
                       value={config.geminiWebModel || 'gemini-3.6-flash'}
@@ -1034,12 +1031,7 @@ const Configuration = ({
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Model Selector (LM Studio / 9Router Combo)</p>
-                  <p className="text-xs opacity-40">
-                    Jalur ini melayani LM Studio lokal (port 1234) DAN 9Router composite
-                    (port 20128)  -  semua model combo (deepseek, qwen, glm, kimi, gpt, opus,
-                    sonnet, nemotron, muse, minimax, dll) dipilih dari sini.
-                  </p>
+                  <p className="text-sm font-semibold">Model</p>
                   {lmStudioModels.length > 0 && (
                     <>
                       <p className="text-xs text-success">
@@ -1098,17 +1090,13 @@ const Configuration = ({
                     <option value="kilo-auto" />
                     <option value="openrouter/free" />
                   </datalist>
-                  <p className="text-xs opacity-40">
-                    Nama model yang aktif di LM Studio / 9Router. Pastikan sudah ter-load di
-                    server masing-masing.
-                  </p>
                 </div>
               )}
 
               {/* Effort Ladder  -  pola vendor 2026 (Fable 5.1, Astra, Gemini 3.8):
                   model yang sama, biaya & kualitas diatur effort. */}
               <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Reasoning Effort</p>
+                <p className="text-sm font-semibold">Reasoning</p>
                 <select
                   className="select select-bordered w-full font-medium"
                   value={config.effortLevel || 'low'}
@@ -1266,43 +1254,37 @@ const Configuration = ({
                   {[
                     {
                       id: 'digital-twin',
-                      name: 'Digital Twin (Klon)',
-                      desc: 'Menyelaraskan diksi, cara analisa, dan ritme pemikiran user untuk dialog objektif.',
+                      name: 'Digital Twin',
                       badge: 'Clone Mode',
                       icon: FaUser
                     },
                     {
                       id: 'jarvis',
                       name: 'Jarvis Protocol',
-                      desc: 'Asisten tenang, sopan, efisien, sigap mengeksekusi tugas tanpa basa-basi.',
                       badge: 'Executive',
                       icon: FaRobot
                     },
                     {
                       id: 'cynical-partner',
                       name: 'Cynical Partner',
-                      desc: 'Kritis, sinis ringan, berorientasi data teknis, menguji asumsi dan anti-halusinasi.',
                       badge: 'Data-Driven',
                       icon: FaTerminal
                     },
                     {
                       id: 'autonomous-engineer',
                       name: 'Autonomous Engineer',
-                      desc: 'Disiplin rekayasa sistematis: Brainstorm -> Spec -> Plan -> TDD -> Verify.',
                       badge: 'Superpowers',
                       icon: FaCubes
                     },
                     {
                       id: 'casual-buddy',
                       name: 'Teman Akrab',
-                      desc: 'Santai, lu/gue, hangat, suportif, dan ramah dalam percakapan sehari-hari.',
                       badge: 'Companion',
                       icon: FaSmile
                     },
                     {
                       id: 'custom',
                       name: 'Kustom Mandiri',
-                      desc: 'Tentukan instruksi kepribadian dan nilai relasional secara manual.',
                       badge: 'Manual',
                       icon: FaSlidersH
                     }
@@ -1314,32 +1296,25 @@ const Configuration = ({
                         key={preset.id}
                         type="button"
                         onClick={() => handlePresetSelect(preset.id)}
-                        className={`text-left p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                        className={`text-left p-3 rounded-xl border transition-all flex items-center justify-between gap-2 ${
                           isSelected
                             ? 'bg-primary/15 border-primary/40 shadow-sm'
                             : 'bg-base-100/50 border-white/5 hover:border-white/15 hover:bg-base-100/80'
                         }`}
                       >
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-semibold text-white/90 flex items-center gap-1.5">
-                              <IconComponent className={isSelected ? 'text-primary' : 'text-white/40'} size={12} />
-                              {preset.name}
-                            </span>
-                            <span
-                              className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md ${
-                                isSelected
-                                  ? 'bg-primary/30 text-primary-content font-bold'
-                                  : 'bg-white/5 text-white/40'
-                              }`}
-                            >
-                              {preset.badge}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-white/50 leading-relaxed">
-                            {preset.desc}
-                          </p>
-                        </div>
+                        <span className="text-xs font-semibold text-white/90 flex items-center gap-2">
+                          <IconComponent className={isSelected ? 'text-primary' : 'text-white/40'} size={13} />
+                          {preset.name}
+                        </span>
+                        <span
+                          className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md ${
+                            isSelected
+                              ? 'bg-primary/30 text-primary-content font-bold'
+                              : 'bg-white/5 text-white/40'
+                          }`}
+                        >
+                          {preset.badge}
+                        </span>
                       </button>
                     )
                   })}
@@ -1351,11 +1326,8 @@ const Configuration = ({
                 <div>
                   <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
                     <FaSlidersH className="text-primary" size={13} />
-                    Dinamika Relasi &amp; Emosi (Relational Growth)
+                    Dinamika Relasi &amp; Emosi
                   </h3>
-                  <p className="text-xs text-white/50 mt-0.5">
-                    5 dimensi psikologis MARK yang berevolusi seiring interaksi dan memori relasional.
-                  </p>
                 </div>
 
                 <div className="space-y-3.5 pt-1">
@@ -1363,35 +1335,30 @@ const Configuration = ({
                     {
                       key: 'sarcasm_level',
                       name: 'Level Sarkasme & Roasting',
-                      desc: '0% = Sopan total, 50% = Celetukan tajam, 100% = Roasting pedas berbasis fakta',
                       icon: FaFire,
                       color: 'text-orange-400'
                     },
                     {
                       key: 'warmth',
                       name: 'Empati & Kehangatan',
-                      desc: 'Respons emosional, keterbukaan, dan afeksi persahabatan dalam percakapan',
                       icon: FaHeart,
                       color: 'text-pink-400'
                     },
                     {
                       key: 'trust',
                       name: 'Kepercayaan Relasional',
-                      desc: 'Kedalaman memori personal dan otonomi pengambilan inisiatif bantuan',
                       icon: FaShieldAlt,
                       color: 'text-emerald-400'
                     },
                     {
                       key: 'energy',
                       name: 'Energi & Proaktivitas',
-                      desc: 'Tingkat keaktifan awareness, responsifitas, dan dinamika proaktif',
                       icon: FaBolt,
                       color: 'text-amber-400'
                     },
                     {
                       key: 'obedience',
                       name: 'Kepatuhan Instruksi',
-                      desc: 'Tingkat kepatuhan tanpa membantah vs keberanian menyanggah logika user',
                       icon: FaRobot,
                       color: 'text-blue-400'
                     }
@@ -1422,9 +1389,6 @@ const Configuration = ({
                           className="range range-primary range-xs w-full"
                           onChange={(e) => handleTraitChange(trait.key, parseFloat(e.target.value))}
                         />
-                        <p className="text-[10px] text-white/40 leading-tight">
-                          {trait.desc}
-                        </p>
                       </div>
                     )
                   })}
@@ -1436,11 +1400,8 @@ const Configuration = ({
                 <div className="space-y-1">
                   <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
                     <FaTerminal className="text-primary" size={12} />
-                    Instruksi Khusus &amp; Diksi (Directives)
+                    System Prompt
                   </h3>
-                  <p className="text-xs text-white/50">
-                    Instruksi ini disuntikkan langsung ke prompt sistem MARK untuk memandu perilaku dan gaya bahasa.
-                  </p>
                 </div>
                 <textarea
                   className="textarea w-full h-44 leading-relaxed no-scrollbar resize-none font-mono text-xs bg-base-100/60 border-white/10 rounded-xl"
@@ -1534,21 +1495,8 @@ const Configuration = ({
                     </option>
                   </select>
                   <p className="text-xs opacity-40">
-                    Default = Local Offline (privat penuh, tanpa kuota). Groq Cloud hanya untuk
-                    voice, akurasi lebih tinggi.
+                    Default: Local Offline (privat, tanpa kuota). Groq Cloud: opsional via API Key.
                   </p>
-                  {config.localWhisperModel?.startsWith('groq') && (
-                    <div className="bg-info/5 border border-info/20 rounded-xl p-3 mt-2">
-                      <p className="text-xs font-semibold text-info mb-1">Tips biar kuota Groq awet:</p>
-                      <ul className="text-xs opacity-70 list-disc list-inside space-y-0.5">
-                        <li>Pilih <b>Whisper Large-v3 Turbo</b>  -  hasil mirip Large-v3, kuota lebih hemat.</li>
-                        <li>Bicara bahasa Inggris bila memungkinkan  -  akurasi tertinggi = retry lebih sedikit.</li>
-                        <li>Bicara dalam kalimat utuh (VAD auto-cut setelah ~2 detik hening)  -  hindari ucapkan kata per kata.</li>
-                        <li>Butuh quota lebih besar? Daftar 2-3 akun Groq (email berbeda) dan rotasi key.</li>
-                        <li>Kalau mic bising, turunkan sensitivity  -  noise dihitung sebagai suara dan makan durasi.</li>
-                      </ul>
-                    </div>
-                  )}
                 </div>
 
                 {config.localWhisperModel?.startsWith('groq') && (
