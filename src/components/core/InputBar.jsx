@@ -633,10 +633,10 @@ const InputBar = ({
           onKeyDown={handleKeyDown}
           placeholder={
             isLoading
-              ? 'Beri intervensi ke Mark...'
+              ? 'Beri intervensi ke Abelink...'
               : attachedFiles.length > 0
                 ? 'Tambah instruksi untuk file terlampir...'
-                : 'Tanya apapun ke Mark...'
+                : 'Tanya apapun ke Abelink...'
           }
           className="flex-1 resize-none bg-transparent border-none outline-none text-white px-3 py-2.5 text-sm md:text-base leading-normal placeholder:text-white/30 disabled:opacity-50 no-scrollbar"
         />

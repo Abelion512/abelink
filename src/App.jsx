@@ -99,15 +99,6 @@ const WindowControls = () => {
       {/* Right Controls */}
       <div className="flex-1 flex justify-end gap-3 [-webkit-app-region:no-drag] opacity-50 hover:opacity-100 transition-opacity pointer-events-auto">
         <button
-          onClick={() => window.api?.windowMinimize()}
-          className="text-white/70 hover:text-white transition-colors flex items-center justify-center p-2"
-          title="Minimize"
-        >
-          <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M2 7h12v2H2z" />
-          </svg>
-        </button>
-        <button
           onClick={() => window.api?.windowFullscreen()}
           className="text-white/70 hover:text-white transition-colors flex items-center justify-center p-2"
           title="Fullscreen"
@@ -128,6 +119,15 @@ const WindowControls = () => {
             <path d="m3 21 9-9" />
             <path d="M3 21h6" />
             <path d="M3 21v-6" />
+          </svg>
+        </button>
+        <button
+          onClick={() => window.api?.windowMinimize()}
+          className="text-white/70 hover:text-white transition-colors flex items-center justify-center p-2"
+          title="Minimize"
+        >
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2 7h12v2H2z" />
           </svg>
         </button>
         <button

@@ -133,7 +133,7 @@ ${getBuiltinPluginsPrompt(conf)}
 ${options.currentMusicTrack ? `\n# STATUS PLAYER MUSIK (REAL-TIME):\nLagu yang AKTIF DIPUTAR SEKARANG: "${options.currentMusicTrack.title}" oleh ${options.currentMusicTrack.artist}.\nPENTING: Lagu di playlist bisa berganti otomatis. JANGAN TERKECUH oleh riwayat chat lama yang menyebutkan lagu sebelumnya! Untuk semua pertanyaan atau obrolan tentang musik yang sedang berjalan, HANYA gunakan data REAL-TIME ini sebagai referensi utama!` : ''}
 ${
   userSkillsList.length > 0 || learnedSkillsList.length > 0
-    ? `\n# MARK SKILLS & CAPABILITY REGISTRY (PRIORITAS TERTINGGI #1)
+    ? `\n# ABELINK SKILLS & CAPABILITY REGISTRY (PRIORITAS TERTINGGI #1)
 ${
   userSkillsList.length > 0
     ? `## 1. CORE & USER SKILLS (SOP RESMI DARI USER & SISTEM - PRIORITAS MUTLAK)
@@ -143,7 +143,7 @@ ${userSkillsList.map((s) => `- ${s.name}: ${s.description}`).join('\n')}`
 }
 ${
   learnedSkillsList.length > 0
-    ? `\n## 2. INTERNAL LEARNED SKILLS (KEAHLIAN HASIL BELAJAR INTERNAL MARK)
+    ? `\n## 2. INTERNAL LEARNED SKILLS (KEAHLIAN HASIL BELAJAR INTERNAL ABELINK)
 Berikut adalah prosedur teruji yang pernah berhasil kamu pelajari dari pengalaman sebelumnya:
 ${learnedSkillsList.map((s) => `- ${s.name}: ${s.description}`).join('\n')}`
     : ''

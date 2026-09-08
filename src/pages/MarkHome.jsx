@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import OrbVisualizer from '../components/core/OrbVisualizer'
-import JarvisArcReactor from '../components/core/JarvisArcReactor'
+import JarvisOrb from '../components/core/JarvisOrb'
 import InputBar from '../components/core/InputBar'
 import ResponseArea from '../components/core/ResponseArea'
 import StatusIndicator from '../components/core/StatusIndicator'
@@ -102,11 +102,48 @@ const MarkHome = () => {
   const [capsuleInput, setCapsuleInput] = useState('')
   const [orbStyle, setOrbStyle] = useState(() => {
     try {
-      return localStorage.getItem('mark:orb_style') || 'mark'
+      return localStorage.getItem('mark:orb_style') || 'jarvis'
     } catch (_) {
-      return 'mark'
+      return 'jarvis'
     }
   })
+
+  // Drag / Slide with cursor handler untuk beralih Orb
+  const dragStartXRef = useRef(null)
+  const handleOrbMouseDown = (e) => {
+    dragStartXRef.current = e.clientX
+  }
+  const handleOrbMouseUp = (e) => {
+    if (dragStartXRef.current === null) return
+    const deltaX = e.clientX - dragStartXRef.current
+    if (Math.abs(deltaX) > 30) {
+      const nextStyle = orbStyle === 'jarvis' ? 'mark' : 'jarvis'
+      setOrbStyle(nextStyle)
+      try {
+        localStorage.setItem('mark:orb_style', nextStyle)
+      } catch (_) {}
+    }
+    dragStartXRef.current = null
+  }
+  const handleOrbTouchStart = (e) => {
+    if (e.touches && e.touches[0]) {
+      dragStartXRef.current = e.touches[0].clientX
+    }
+  }
+  const handleOrbTouchEnd = (e) => {
+    if (dragStartXRef.current === null) return
+    if (e.changedTouches && e.changedTouches[0]) {
+      const deltaX = e.changedTouches[0].clientX - dragStartXRef.current
+      if (Math.abs(deltaX) > 30) {
+        const nextStyle = orbStyle === 'jarvis' ? 'mark' : 'jarvis'
+        setOrbStyle(nextStyle)
+        try {
+          localStorage.setItem('mark:orb_style', nextStyle)
+        } catch (_) {}
+      }
+    }
+    dragStartXRef.current = null
+  }
 
   const handleModeChange = (newMode) => {
     setCurrentMode(newMode)
@@ -304,8 +341,7 @@ const MarkHome = () => {
     setScreenError(null)
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: false
+        video: true
       })
       setScreenStream(stream)
       if (screenVideoRef.current) {
@@ -316,7 +352,11 @@ const MarkHome = () => {
       }
     } catch (err) {
       console.warn('[Screen] getDisplayMedia error:', err)
-      setScreenError('Share screen dibatalkan atau izin tidak diberikan.')
+      const msg =
+        err.name === 'OverconstrainedError' || err.message?.includes('Invalid constraint')
+          ? 'Desktop screencast memerlukan xdg-desktop-portal aktif di sistem Linux ini.'
+          : 'Share screen dibatalkan atau izin tidak diberikan.'
+      setScreenError(msg)
     }
   }
 
@@ -493,12 +533,16 @@ const MarkHome = () => {
       )}
 
       {/* ── TOP EXECUTIVE DOCK: Abelink Branding & 4-Mode Switcher ───────────── */}
-      <header className="relative z-40 w-full h-16 pt-3 px-6 flex items-center justify-between pointer-events-auto">
+      <header className="relative z-40 w-full h-14 px-4 flex items-center justify-between pointer-events-auto bg-black/40 backdrop-blur-md border-b border-white/5">
         {/* Left: Abelink Brand HUD */}
-        <div className="flex items-center gap-3 pl-16 select-none"></div>
+        <div className="flex items-center gap-3 pl-14 select-none">
+          <span className="font-mono text-xs font-bold tracking-widest text-cyan-400/80 uppercase">
+            Abelink
+          </span>
+        </div>
 
         {/* Center: 4-Mode Switcher Capsule */}
-        <div className="flex items-center bg-black/50 backdrop-blur-2xl border border-white/10 p-1 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.6)] gap-1">
+        <div className="flex items-center bg-black/60 backdrop-blur-2xl border border-white/10 p-1 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.6)] gap-1">
           <button
             onClick={() => handleModeChange('voice')}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
@@ -552,11 +596,11 @@ const MarkHome = () => {
           </button>
         </div>
 
-        {/* Right: Studio & Quick Tools */}
-        <div className="flex items-center gap-2 pr-4">
+        {/* Right: Studio Button (diberi margin kanan mr-36 agar tidak menabrak WindowControls) */}
+        <div className="flex items-center gap-2 mr-36">
           <button
             onClick={() => setIsChatStudioOpen(true)}
-            className="h-9 px-3 btn btn-outline btn-xs bg-white/5 backdrop-blur-md border-white/10 text-white/80 hover:text-white rounded-lg flex items-center gap-1.5 shadow-sm"
+            className="h-8 px-3 btn btn-outline btn-xs bg-white/5 backdrop-blur-md border-white/10 text-white/80 hover:text-white rounded-lg flex items-center gap-1.5 shadow-sm"
             title="Buka Chat Studio"
           >
             <Layers className="w-3.5 h-3.5 text-primary" />
@@ -567,131 +611,65 @@ const MarkHome = () => {
 
       {/* ── MODE 1: VOICE MODE (JARVIS DEFAULT) ──────────────────────────────── */}
       {currentMode === 'voice' && (
-        <div className="relative z-10 w-full h-[calc(100vh-64px)] flex flex-col items-center justify-between pb-8 pt-4 px-4 overflow-hidden">
-          {/* Centered Jarvis Arc Reactor Hero */}
-          <div className="flex-1 w-full flex flex-col items-center justify-center relative min-h-0">
-            <div className="relative flex flex-col items-center justify-center">
-              {/* Centered Hero Orb: Switchable between Mark Sentient and Jarvis Arc */}
-              <div className="flex flex-col items-center justify-center">
-                {orbStyle === 'mark' ? (
-                  <div className="z-10 relative">
-                    <OrbVisualizer
-                      status={orbStatus}
-                      intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
-                      mood={currentResponse?.mood || 'neutral'}
-                      size="hero"
-                    />
-                  </div>
-                ) : (
-                  <JarvisArcReactor
-                    status={orbStatus}
-                    isActive={true}
-                    intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
-                    size="hero"
-                  />
-                )}
+        <div className="relative z-10 w-full h-[calc(100vh-56px)] flex flex-col items-center justify-center px-4 overflow-hidden select-none">
+          {/* Centered Jarvis / Mark Hero Orb */}
+          <div
+            onMouseDown={handleOrbMouseDown}
+            onMouseUp={handleOrbMouseUp}
+            onTouchStart={handleOrbTouchStart}
+            onTouchEnd={handleOrbTouchEnd}
+            className="flex flex-col items-center justify-center cursor-grab active:cursor-grabbing transition-transform duration-300"
+            title="Geser kursor ke kiri/kanan untuk beralih gaya Orb"
+          >
+            {orbStyle === 'mark' ? (
+              <OrbVisualizer
+                status={orbStatus}
+                intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
+                mood={currentResponse?.mood || 'neutral'}
+                size="hero"
+              />
+            ) : (
+              <JarvisOrb
+                status={orbStatus}
+                intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
+                size={340}
+              />
+            )}
 
-                {/* Minimalist Orb Style Switcher */}
-                <div className="mt-4 flex items-center bg-black/40 backdrop-blur-md border border-white/10 rounded-full p-1 shadow-lg gap-1">
-                  <button
-                    onClick={() => {
-                      setOrbStyle('mark')
-                      try { localStorage.setItem('mark:orb_style', 'mark') } catch (_) {}
-                    }}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                      orbStyle === 'mark'
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 shadow-sm'
-                        : 'text-white/50 hover:text-white'
-                    }`}
-                  >
-                    Mark Sentient
-                  </button>
-                  <button
-                    onClick={() => {
-                      setOrbStyle('jarvis')
-                      try { localStorage.setItem('mark:orb_style', 'jarvis') } catch (_) {}
-                    }}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                      orbStyle === 'jarvis'
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm'
-                        : 'text-white/50 hover:text-white'
-                    }`}
-                  >
-                    Jarvis Arc
-                  </button>
-                </div>
-              </div>
-
-              {/* Rich Data Telemetry Card: HANYA tampil jika ada data terstruktur */}
-              {showRichCardInVoice && (
-                <div className="mt-6 max-w-xl w-full bg-black/60 backdrop-blur-xl border border-cyan-500/30 rounded-2xl p-4 shadow-[0_8px_32px_rgba(34,211,238,0.15)] animate-[holo-enter_0.3s_ease-out_forwards] max-h-48 overflow-y-auto no-scrollbar">
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-xs font-mono text-cyan-300">
-                    <span className="flex items-center gap-1.5">
-                      <Eye className="w-3.5 h-3.5" /> DATA OUTPUT
-                    </span>
-                    <button
-                      onClick={() => handleModeChange('chat')}
-                      className="btn btn-ghost btn-xs text-white/60 hover:text-white gap-1"
-                    >
-                      <Maximize2 className="w-3 h-3" /> Mode Chat
-                    </button>
-                  </div>
-                  <div className="text-xs text-white/90 leading-relaxed font-sans">
-                    <ResponseArea currentResponse={currentResponse} />
-                  </div>
-                </div>
-              )}
+            {/* Subtle Carousel Dots Indicator */}
+            <div className="flex items-center gap-1.5 mt-2 opacity-30 hover:opacity-80 transition-opacity">
+              <span
+                className={`h-1.5 rounded-full transition-all ${
+                  orbStyle === 'jarvis' ? 'bg-cyan-400 w-3.5' : 'bg-white/40 w-1.5'
+                }`}
+              />
+              <span
+                className={`h-1.5 rounded-full transition-all ${
+                  orbStyle === 'mark' ? 'bg-emerald-400 w-3.5' : 'bg-white/40 w-1.5'
+                }`}
+              />
             </div>
           </div>
 
-          {/* Hybrid Command Capsule (Slash Commands & Text Input) */}
-          <div className="w-full max-w-2xl px-4">
-            <form
-              onSubmit={handleCapsuleSubmit}
-              className="relative flex items-center bg-black/60 backdrop-blur-2xl border border-white/15 rounded-full p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.7)] transition-all focus-within:border-cyan-400/50 focus-within:shadow-[0_0_20px_rgba(34,211,238,0.25)]"
-            >
-              <button
-                type="button"
-                onClick={toggleRecording}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 ${
-                  isRecording
-                    ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(52,211,153,0.6)] animate-pulse'
-                    : 'bg-white/10 text-white/70 hover:text-white hover:bg-white/20'
-                }`}
-                title={isRecording ? 'Hentikan Mendengarkan' : 'Mulai Bicara (VAD)'}
-              >
-                <Mic className="w-4 h-4" />
-              </button>
-
-              <input
-                type="text"
-                value={capsuleInput}
-                onChange={(e) => setCapsuleInput(e.target.value)}
-                placeholder="Bicara langsung (VAD aktif), atau ketik /plan, /goal, /models..."
-                className="flex-1 bg-transparent border-none outline-none px-4 text-sm text-white placeholder-white/40 font-sans"
-              />
-
-              {(isLoading || isAgentBusy) && (
+          {/* Rich Data Telemetry Card: HANYA tampil jika ada data terstruktur */}
+          {showRichCardInVoice && (
+            <div className="mt-6 max-w-xl w-full bg-black/70 backdrop-blur-2xl border border-cyan-500/30 rounded-2xl p-4 shadow-[0_8px_32px_rgba(34,211,238,0.2)] animate-[holo-enter_0.3s_ease-out_forwards] max-h-56 overflow-y-auto no-scrollbar">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-xs font-mono text-cyan-300">
+                <span className="flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5" /> DATA OUTPUT
+                </span>
                 <button
-                  type="button"
-                  onClick={handleStop}
-                  className="w-10 h-10 rounded-full bg-error/20 text-error hover:bg-error/30 flex items-center justify-center transition-all shrink-0 mr-1"
-                  title="Hentikan Proses"
+                  onClick={() => handleModeChange('chat')}
+                  className="btn btn-ghost btn-xs text-white/60 hover:text-white gap-1"
                 >
-                  <StopCircle className="w-4 h-4" />
+                  <Maximize2 className="w-3 h-3" /> Mode Chat
                 </button>
-              )}
-
-              <button
-                type="submit"
-                disabled={!capsuleInput.trim()}
-                className="w-10 h-10 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 hover:bg-cyan-500/30 flex items-center justify-center transition-all shrink-0 disabled:opacity-30 disabled:pointer-events-none"
-                title="Kirim Perintah"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
-          </div>
+              </div>
+              <div className="text-xs text-white/90 leading-relaxed font-sans">
+                <ResponseArea currentResponse={currentResponse} />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -720,20 +698,20 @@ const MarkHome = () => {
 
           {/* Right Panel: Scrollable Response Area */}
           <div
-            className="w-full md:w-1/2 h-full flex flex-col overflow-y-auto no-scrollbar md:pl-8 md:pr-4"
+            className="w-full md:w-1/2 h-full flex flex-col overflow-y-auto no-scrollbar md:pl-8 md:pr-4 pt-4 md:pt-6"
             style={{
               maskImage:
-                'linear-gradient(to bottom, transparent, black 3rem, black calc(100% - 3rem), transparent)',
+                'linear-gradient(to bottom, transparent, black 2rem, black calc(100% - 2rem), transparent)',
               WebkitMaskImage:
-                'linear-gradient(to bottom, transparent, black 3rem, black calc(100% - 3rem), transparent)'
+                'linear-gradient(to bottom, transparent, black 2rem, black calc(100% - 2rem), transparent)'
             }}
           >
-            <div className="w-full max-w-2xl mx-auto flex flex-col items-center justify-start pt-[5vh] pb-20 min-h-full">
+            <div className="w-full max-w-2xl mx-auto flex flex-col items-center justify-start pt-4 pb-20 min-h-full">
               {currentResponse ? (
                 <ResponseArea currentResponse={currentResponse} />
               ) : (
                 <div className="text-center opacity-40 font-mono text-sm mt-20">
-                  Mark siap menerima instruksi atau percakapan.
+                  Abelink siap menerima instruksi atau percakapan.
                 </div>
               )}
             </div>
@@ -761,9 +739,9 @@ const MarkHome = () => {
 
       {/* ── MODE 3: VISION MODE (CAMERA + VOICE) ─────────────────────────────── */}
       {currentMode === 'vision' && (
-        <div className="relative z-10 w-full h-[calc(100vh-64px)] flex flex-col items-center justify-between pb-8 pt-2 px-6 overflow-hidden">
-          <div className="flex-1 w-full max-w-4xl relative rounded-2xl overflow-hidden border border-emerald-500/30 bg-black/80 flex items-center justify-center shadow-2xl">
-            {/* Viewfinder Video Stream */}
+        <div className="relative z-10 w-full h-[calc(100vh-56px)] flex flex-col items-center justify-center overflow-hidden bg-black">
+          {/* Fullscreen Video Viewfinder */}
+          <div className="absolute inset-0 w-full h-full flex items-center justify-center">
             <video
               ref={videoRef}
               autoPlay
@@ -771,85 +749,61 @@ const MarkHome = () => {
               muted
               className="w-full h-full object-cover"
             />
-
-            {/* Scanning HUD Overlay */}
-            <div className="absolute inset-0 pointer-events-none">
-              {/* Corner Brackets */}
-              <div className="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-emerald-400" />
-              <div className="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-emerald-400" />
-              <div className="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-emerald-400" />
-              <div className="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-emerald-400" />
-
-              {/* Target Crosshair */}
-              <div className="absolute inset-0 m-auto w-16 h-16 border border-emerald-400/40 rounded-full flex items-center justify-center">
-                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
-              </div>
-
-
-
-              {/* Mini Companion Arc Reactor */}
-              <div className="absolute top-4 right-14">
-                <JarvisArcReactor
-                  status={orbStatus}
-                  isActive={true}
-                  intensity={orbStatus === 'speaking' ? ttsIntensity : audioIntensity}
-                  size="sm"
-                />
-              </div>
-            </div>
-
-            {camError && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/90 text-error text-sm font-mono p-4 text-center">
-                {camError}
-              </div>
-            )}
+            {/* Ambient Dark Vignette Overlay */}
+            <div className="absolute inset-0 bg-radial from-transparent via-black/20 to-black/70 pointer-events-none" />
           </div>
 
-          {/* Bottom Action Controls */}
-          <div className="w-full max-w-2xl px-4 mt-4 flex items-center gap-3">
-            <form onSubmit={handleCapsuleSubmit} className="flex-1 flex items-center bg-black/60 backdrop-blur-2xl border border-emerald-500/30 rounded-full p-1.5 shadow-lg">
-              <button
-                type="button"
-                onClick={toggleRecording}
-                className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                  isRecording ? 'bg-emerald-500 text-black animate-pulse' : 'bg-white/10 text-white/70'
-                }`}
-                title="Voice Trigger"
-              >
-                <Mic className="w-4 h-4" />
-              </button>
-              <input
-                type="text"
-                value={capsuleInput}
-                onChange={(e) => setCapsuleInput(e.target.value)}
-                placeholder="Tanyakan apa yang terlihat di kamera..."
-                className="flex-1 bg-transparent border-none outline-none px-4 text-sm text-white placeholder-white/40"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const frame = captureCameraFrame()
-                  if (frame) {
-                    const prompt = capsuleInput.trim() || 'Jelaskan objek apa yang ada di tangkapan kamera ini.'
-                    const fullPrompt = `${prompt}\n\n[FRAME KAMERA]: ${frame}`
-                    handlePlanningCommand(fullPrompt)
-                    setCapsuleInput('')
-                  }
-                }}
-                className="btn btn-xs rounded-full bg-emerald-500 text-black font-semibold hover:bg-emerald-400 mr-1"
-              >
-                Snap & Ask
-              </button>
-            </form>
+          {/* Scanning HUD Overlay */}
+          <div className="absolute inset-0 pointer-events-none p-6 flex flex-col justify-between">
+            {/* Corner Brackets */}
+            <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-emerald-400/80" />
+            <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-emerald-400/80" />
+            <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-emerald-400/80" />
+            <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-emerald-400/80" />
+
+            {/* Target Crosshair */}
+            <div className="absolute inset-0 m-auto w-16 h-16 border border-emerald-400/40 rounded-full flex items-center justify-center">
+              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
+            </div>
+
+            {/* Top Right Mini Orb */}
+            <div className="absolute top-6 right-16">
+              <JarvisOrb status={orbStatus} intensity={ttsIntensity || audioIntensity} size={80} />
+            </div>
+          </div>
+
+          {camError && (
+            <div className="relative z-20 max-w-md p-4 rounded-xl bg-black/85 border border-error/40 text-error text-xs font-mono text-center">
+              {camError}
+            </div>
+          )}
+
+          {/* Bottom Floating Snap Trigger */}
+          <div className="absolute bottom-6 z-20 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                const frame = captureCameraFrame()
+                if (frame) {
+                  const prompt = capsuleInput.trim() || 'Jelaskan objek apa yang ada di tangkapan kamera ini.'
+                  const fullPrompt = `${prompt}\n\n[FRAME KAMERA]: ${frame}`
+                  handlePlanningCommand(fullPrompt)
+                  setCapsuleInput('')
+                }
+              }}
+              className="btn btn-sm rounded-full bg-emerald-500 text-black font-semibold hover:bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.5)] px-6"
+            >
+              Snap &amp; Ask Abelink
+            </button>
           </div>
         </div>
       )}
 
       {/* ── MODE 4: SCREEN SHARE MODE ────────────────────────────────────────── */}
       {currentMode === 'screen' && (
-        <div className="relative z-10 w-full h-[calc(100vh-64px)] flex flex-col items-center justify-between pb-8 pt-2 px-6 overflow-hidden">
-          <div className="flex-1 w-full max-w-4xl relative rounded-2xl overflow-hidden border border-purple-500/30 bg-black/80 flex items-center justify-center shadow-2xl">
-            {screenStream ? (
+        <div className="relative z-10 w-full h-[calc(100vh-56px)] flex flex-col items-center justify-center overflow-hidden bg-black">
+          {screenStream ? (
+            <div className="absolute inset-0 w-full h-full flex items-center justify-center">
               <video
                 ref={screenVideoRef}
                 autoPlay
@@ -857,78 +811,50 @@ const MarkHome = () => {
                 muted
                 className="w-full h-full object-contain"
               />
-            ) : (
-              <div className="flex flex-col items-center gap-4 text-center p-6 select-none">
-                <Monitor className="w-16 h-16 text-purple-400/60 animate-bounce" />
-                <h3 className="text-lg font-bold text-white">Share Screen Desktop</h3>
-                <p className="text-xs text-white/50 max-w-md">
-                  Bagikan jendela aplikasi atau seluruh layar monitor agar Mark dapat membaca kode, dokumen, atau menganalisis workflow Anda.
-                </p>
+              {/* Top Right Mini Orb */}
+              <div className="absolute top-6 right-16 pointer-events-none">
+                <JarvisOrb status={orbStatus} intensity={ttsIntensity || audioIntensity} size={80} />
+              </div>
+
+              {/* Bottom Snap Button */}
+              <div className="absolute bottom-6 z-20 flex items-center gap-3">
                 <button
-                  onClick={handleStartScreenShare}
-                  className="btn btn-primary btn-sm rounded-full px-6 shadow-lg shadow-primary/20"
+                  type="button"
+                  onClick={async () => {
+                    const frame = await captureScreenFrame()
+                    if (frame) {
+                      const prompt = capsuleInput.trim() || 'Analisis dan jelaskan isi tampilan layar ini.'
+                      const fullPrompt = `${prompt}\n\n[FRAME LAYAR]: ${frame}`
+                      handlePlanningCommand(fullPrompt)
+                      setCapsuleInput('')
+                    }
+                  }}
+                  className="btn btn-sm rounded-full bg-purple-500 text-white font-semibold hover:bg-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.5)] px-6"
                 >
-                  Pilih Layar / Jendela
+                  Capture &amp; Ask Abelink
                 </button>
               </div>
-            )}
-
-            {/* Screen Telemetry Mini Orb */}
-            {screenStream && (
-              <div className="absolute top-4 right-4 pointer-events-none">
-                <JarvisArcReactor
-                  status={orbStatus}
-                  isActive={true}
-                  intensity={orbStatus === 'speaking' ? ttsIntensity : audioIntensity}
-                  size="sm"
-                />
-              </div>
-            )}
-
-            {screenError && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/90 text-error text-sm font-mono p-4 text-center">
-                {screenError}
-              </div>
-            )}
-          </div>
-
-          {/* Bottom Screen Command Bar */}
-          <div className="w-full max-w-2xl px-4 mt-4 flex items-center gap-3">
-            <form onSubmit={handleCapsuleSubmit} className="flex-1 flex items-center bg-black/60 backdrop-blur-2xl border border-purple-500/30 rounded-full p-1.5 shadow-lg">
+            </div>
+          ) : (
+            <div className="relative z-20 flex flex-col items-center gap-4 text-center p-6 select-none max-w-lg">
+              <Monitor className="w-16 h-16 text-purple-400/60 animate-bounce" />
+              <h3 className="text-lg font-bold text-white">Share Screen Desktop</h3>
+              <p className="text-xs text-white/50">
+                Bagikan jendela aplikasi atau seluruh layar monitor agar Abelink dapat membaca kode, dokumen, atau menganalisis workflow Anda.
+              </p>
               <button
-                type="button"
-                onClick={toggleRecording}
-                className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                  isRecording ? 'bg-purple-500 text-white animate-pulse' : 'bg-white/10 text-white/70'
-                }`}
-                title="Voice Trigger"
+                onClick={handleStartScreenShare}
+                className="btn btn-primary btn-sm rounded-full px-6 shadow-lg shadow-primary/20"
               >
-                <Mic className="w-4 h-4" />
+                Pilih Layar / Jendela
               </button>
-              <input
-                type="text"
-                value={capsuleInput}
-                onChange={(e) => setCapsuleInput(e.target.value)}
-                placeholder="Tanyakan apa yang ada di layar desktop..."
-                className="flex-1 bg-transparent border-none outline-none px-4 text-sm text-white placeholder-white/40"
-              />
-              <button
-                type="button"
-                onClick={async () => {
-                  const frame = await captureScreenFrame()
-                  if (frame) {
-                    const prompt = capsuleInput.trim() || 'Analisis dan jelaskan isi tampilan layar ini.'
-                    const fullPrompt = `${prompt}\n\n[FRAME LAYAR]: ${frame}`
-                    handlePlanningCommand(fullPrompt)
-                    setCapsuleInput('')
-                  }
-                }}
-                className="btn btn-xs rounded-full bg-purple-500 text-white font-semibold hover:bg-purple-400 mr-1"
-              >
-                Capture & Ask
-              </button>
-            </form>
-          </div>
+              {screenError && (
+                <p className="text-error text-xs font-mono mt-2 bg-error/10 border border-error/20 p-2 rounded-xl">
+                  {screenError}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

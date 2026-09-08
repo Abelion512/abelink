@@ -68,28 +68,24 @@ const BUILTIN_SKILLS = [
     id: 'systematic-engineering',
     name: 'Systematic Engineering',
     badge: 'Disiplin Rekayasa',
-    desc: 'Menegakkan siklus sistematis: Brainstorm -> Spec -> Plan -> TDD -> Verify sebelum eksekusi perubahan kode.',
     icon: FaCubes
   },
   {
     id: 'execution-discipline',
     name: 'Execution Discipline',
     badge: 'Stabilitas Sistem',
-    desc: 'Menjamin eksekusi perintah terminal deterministik dan memverifikasi output sebelum melanjutkan langkah berikutnya.',
     icon: FaTerminal
   },
   {
     id: 'durable-planner',
     name: 'Durable Task Planner (/plan)',
     badge: 'Multi-Step Tasks',
-    desc: 'Perencanaan tugas bertahap berdaya tahan tinggi dengan checkpoint verification dan penanganan kegagalan otomatis.',
     icon: FaBrain
   },
   {
     id: 'root-cause-debugger',
     name: 'Root-Cause Debugger',
     badge: 'Analisis Mendalam',
-    desc: 'Mewajibkan investigasi akar masalah teknis mendalam dengan bukti empiris error sebelum melakukan patching kode.',
     icon: FaSearch
   }
 ]
@@ -603,9 +599,6 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                   <FaPlug className="text-primary" size={14} />
                   Built-in Connectors: Google Workspace
                 </h3>
-                <p className="text-xs text-white/50 mt-0.5">
-                  Integrasi resmi produktivitas Google langsung ke konteks pemikiran MARK.
-                </p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -636,21 +629,18 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                 {
                   id: 'google-calendar',
                   name: 'Google Calendar',
-                  desc: 'Melihat & Menjadwalkan Acara Kalender',
                   icon: FaCalendarAlt,
                   color: 'text-blue-400'
                 },
                 {
                   id: 'google-drive',
                   name: 'Google Drive',
-                  desc: 'Membaca & Mencari Berkas Google Drive',
                   icon: FaHdd,
                   color: 'text-amber-400'
                 },
                 {
                   id: 'gmail',
                   name: 'Gmail',
-                  desc: 'Membaca & Mengirim Email',
                   icon: FaEnvelope,
                   color: 'text-red-400'
                 }
@@ -659,28 +649,21 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                 return (
                   <div
                     key={prod.id}
-                    className="p-4 rounded-2xl bg-base-100/60 border border-white/5 space-y-2 flex flex-col justify-between"
+                    className="p-3.5 rounded-2xl bg-base-100/60 border border-white/5 flex items-center justify-between gap-2"
                   >
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <ProdIcon className={prod.color} size={14} />
-                          <span className="text-xs font-semibold text-white/90">{prod.name}</span>
-                        </div>
-                        {googleConnected ? (
-                          <span className="badge badge-xs badge-success gap-1 text-[10px]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Terhubung
-                          </span>
-                        ) : (
-                          <span className="badge badge-xs badge-ghost border-white/10 text-[10px] opacity-70">
-                            Belum Terhubung
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-white/50 leading-relaxed">
-                        {prod.desc}
-                      </p>
+                    <div className="flex items-center gap-2.5">
+                      <ProdIcon className={prod.color} size={15} />
+                      <span className="text-xs font-semibold text-white/90">{prod.name}</span>
                     </div>
+                    {googleConnected ? (
+                      <span className="badge badge-xs badge-success gap-1 text-[10px]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Terhubung
+                      </span>
+                    ) : (
+                      <span className="badge badge-xs badge-ghost border-white/10 text-[10px] opacity-70">
+                        Belum Terhubung
+                      </span>
+                    )}
                   </div>
                 )
               })}
@@ -695,9 +678,6 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                   <FaPlug className="text-primary" size={14} />
                   Custom Connectors: Gateway Protokol MCP
                 </h3>
-                <p className="text-xs text-white/50 mt-0.5">
-                  Hubungkan server Model Context Protocol eksternal secara mandiri ke sistem MARK.
-                </p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative">
@@ -1181,9 +1161,6 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                 <FaBrain className="text-primary" size={14} />
                 Built-in Skills: Superpowers Discipline
               </h3>
-              <p className="text-xs text-white/50 mt-0.5">
-                Keterampilan operasional tingkat sistem yang memandu disiplin pemikiran dan eksekusi AI.
-              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
@@ -1193,40 +1170,30 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                 return (
                   <div
                     key={skill.id}
-                    className="p-4 rounded-2xl bg-base-100/60 border border-white/5 space-y-2.5 flex flex-col justify-between"
+                    className="p-3.5 rounded-2xl bg-base-100/60 border border-white/5 flex items-center justify-between gap-3"
                   >
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <SkillIcon className="text-primary" size={13} />
-                          <span className="text-xs font-semibold text-white/90">{skill.name}</span>
-                        </div>
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                          {skill.badge}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-white/50 leading-relaxed">
-                        {skill.desc}
-                      </p>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <SkillIcon className="text-primary shrink-0" size={14} />
+                      <span className="text-xs font-semibold text-white/90 truncate">{skill.name}</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 shrink-0">
+                        {skill.badge}
+                      </span>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                      <span className="text-[10px] text-white/40">Status Keahlian</span>
-                      <input
-                        type="checkbox"
-                        className="toggle toggle-primary toggle-xs"
-                        checked={isSkillActive}
-                        onChange={(e) =>
-                          setConfig((prev) => ({
-                            ...prev,
-                            builtinSkills: {
-                              ...(prev.builtinSkills || {}),
-                              [skill.id]: e.target.checked
-                            }
-                          }))
-                        }
-                      />
-                    </div>
+                    <input
+                      type="checkbox"
+                      className="toggle toggle-primary toggle-xs shrink-0"
+                      checked={isSkillActive}
+                      onChange={(e) =>
+                        setConfig((prev) => ({
+                          ...prev,
+                          builtinSkills: {
+                            ...(prev.builtinSkills || {}),
+                            [skill.id]: e.target.checked
+                          }
+                        }))
+                      }
+                    />
                   </div>
                 )
               })}
