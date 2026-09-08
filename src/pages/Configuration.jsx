@@ -260,12 +260,12 @@ const Configuration = ({
     }
   }
 
-  // Enumerasi mic/kamera LAZY — hanya saat dibutuhkan (wizard atau section
-  // Audio/Kamera dibuka). getUserMedia di mount memicu warning dobel WebKitGTK
+  // Batasi pemanggilan enumerateDevices hanya saat tab Voice & Video dibuka:
+  // pemindaian webcam/mic memicu spin-up hardware, menyalakan LED indikator,
   // dan memperlambat buka halaman tanpa alasan.
   const enumerateMediaDevices = () => {
     if (devicesLoadedRef.current) return
-    if (!navigator.mediaDevices?.getUserMedia?.enumerateDevices) {
+    if (!navigator.mediaDevices?.enumerateDevices) {
       // Batas webview Linux (WebKitGTK) — bukan error aplikasi. Log sekali saja.
       if (!mediaInfoLogged) {
         mediaInfoLogged = true
@@ -276,29 +276,49 @@ const Configuration = ({
       return
     }
     devicesLoadedRef.current = true
-    navigator.mediaDevices
-      .getUserMedia({ audio: true, video: true })
-      .then((stream) => {
-        navigator.mediaDevices
-          .enumerateDevices()
-          .then((devices) => {
-            const mics = devices.filter((d) => d.kind === 'audioinput')
-            const cameras = devices.filter((d) => d.kind === 'videoinput')
-            setAudioDevices(mics)
-            setVideoDevices(cameras)
-          })
-          .catch((err) => console.error('Error enumerating devices', err))
+    if (navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ audio: true, video: true })
+        .then((stream) => {
+          navigator.mediaDevices
+            .enumerateDevices()
+            .then((devices) => {
+              const mics = devices.filter((d) => d.kind === 'audioinput')
+              const cameras = devices.filter((d) => d.kind === 'videoinput')
+              setAudioDevices(mics)
+              setVideoDevices(cameras)
+            })
+            .catch((err) => console.error('Error enumerating devices', err))
 
-        // Stop stream immediately since we just needed permission
-        stream.getTracks().forEach((track) => track.stop())
-      })
-      .catch(() => {
-        // WebKitGTK/wry dapat menolak permintaan izin tanpa dialog. Bukan fatal:
-        // daftar perangkat kosong dan pengguna tetap bisa menyimpan config.
-        console.warn(
-          '[Config] Izin mic/kamera tidak diberikan oleh lingkungan webview; pilihan perangkat dikosongkan.'
-        )
-      })
+          // Stop stream immediately since we just needed permission
+          stream.getTracks().forEach((track) => track.stop())
+        })
+        .catch(() => {
+          // WebKitGTK/wry dapat menolak getUserMedia tanpa dialog izin. Coba enumerate langsung:
+          navigator.mediaDevices
+            .enumerateDevices()
+            .then((devices) => {
+              const mics = devices.filter((d) => d.kind === 'audioinput')
+              const cameras = devices.filter((d) => d.kind === 'videoinput')
+              if (mics.length) setAudioDevices(mics)
+              if (cameras.length) setVideoDevices(cameras)
+            })
+            .catch(() => {})
+          console.warn(
+            '[Config] Izin mic/kamera tidak diberikan oleh lingkungan webview; pilihan perangkat dikosongkan.'
+          )
+        })
+    } else {
+      navigator.mediaDevices
+        .enumerateDevices()
+        .then((devices) => {
+          const mics = devices.filter((d) => d.kind === 'audioinput')
+          const cameras = devices.filter((d) => d.kind === 'videoinput')
+          setAudioDevices(mics)
+          setVideoDevices(cameras)
+        })
+        .catch((err) => console.error('Error enumerating devices', err))
+    }
   }
 
   useEffect(() => {
@@ -307,7 +327,12 @@ const Configuration = ({
   }, [])
 
   useEffect(() => {
-    if (activeSection === 'cfg-camera' && !devicesLoadedRef.current) {
+    if (
+      (activeSection === 'cfg-voice-video' ||
+        activeSection === 'cfg-camera' ||
+        activeSection === 'cfg-audio-voice') &&
+      !devicesLoadedRef.current
+    ) {
       enumerateMediaDevices()
     }
   }, [activeSection])
@@ -1460,18 +1485,19 @@ const Configuration = ({
               </div>
             </section>
 
-            {/* ── Hardware / Media (Legacy) ── */}
+            {/* ── Hardware / Media (Voice & Video) ── */}
             <div
-              id="cfg-hardware-media"
-              className={`${activeSection !== 'cfg-camera' && activeSection !== 'cfg-audio-voice' ? 'hidden' : ''} space-y-6`}
+              id="cfg-voice-video"
+              className={`${activeSection !== 'cfg-voice-video' && activeSection !== 'cfg-camera' && activeSection !== 'cfg-audio-voice' ? 'hidden' : ''} space-y-8`}
             >
               {/* Camera Settings */}
               <div
                 id="cfg-camera"
-                className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${activeSection !== 'cfg-camera' ? 'hidden' : ''}`}
+                className={`space-y-6 p-5 rounded-2xl bg-base-200/40 border border-white/5 scroll-mt-4 ${activeSection === 'cfg-audio-voice' ? 'hidden' : ''}`}
               >
-                <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5 flex items-center gap-2">
-                  Kamera
+                <h2 className="text-base font-bold uppercase tracking-wider opacity-80 mb-5 flex items-center gap-2">
+                  <FaEye className="text-primary text-base" />
+                  Kamera & Vision Fisik
                 </h2>
 
                 <div className="form-control">
@@ -1515,12 +1541,13 @@ const Configuration = ({
                 )}
               </div>
 
-              {/* TTS Settings */}
+              {/* TTS & Audio Settings */}
               <div
                 id="cfg-audio-voice"
-                className={`space-y-6 p-2 -mx-2 rounded-lg scroll-mt-4 ${activeSection !== 'cfg-audio-voice' ? 'hidden' : ''}`}
+                className={`space-y-6 p-5 rounded-2xl bg-base-200/40 border border-white/5 scroll-mt-4 ${activeSection === 'cfg-camera' ? 'hidden' : ''}`}
               >
-                <h2 className="text-base font-bold uppercase tracking-wider opacity-70 mb-5">
+                <h2 className="text-base font-bold uppercase tracking-wider opacity-80 mb-5 flex items-center gap-2">
+                  <FaVolumeUp className="text-primary text-base" />
                   Audio & Voice Engine
                 </h2>
 

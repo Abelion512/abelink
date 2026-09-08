@@ -55,11 +55,10 @@ html {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
-/* Linux Tauri/WebKitGTK: use a safe opaque base layer for the window background.
-   Transparency is handled at the window level via tauri.conf.json; forcing
-   transparent here can break rendering on Linux compositors. */
+/* Linux Tauri/WebKitGTK: transparent window background allows the OS compositor
+   to show windows behind MARK when windowOpacity < 1.0. */
 html, body, #root {
-  background-color: #0b0f0c !important;
+  background-color: transparent !important;
   color: #e5e7eb;
 }
 
