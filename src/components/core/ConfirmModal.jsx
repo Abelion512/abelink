@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 const ConfirmModal = ({ 
   isOpen,
@@ -25,7 +26,7 @@ const ConfirmModal = ({
 
   if (!isOpen) return null;
 
-  return (
+  const content = (
     <div className="modal modal-open z-[99999] fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[response-fade-in_0.15s_ease-out_forwards]">
       <div className="modal-box relative bg-base-300 border border-white/10 shadow-2xl z-10 max-w-md">
         <h3 className={`font-bold text-lg ${isError ? 'text-error' : 'text-primary'}`}>{title}</h3>
@@ -69,6 +70,8 @@ const ConfirmModal = ({
       />
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 };
 
 export default ConfirmModal;

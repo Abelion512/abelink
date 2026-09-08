@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   FaMicrophone,
   FaStop,
@@ -762,7 +763,7 @@ const InputBar = ({
 
       {/* Modal pratinjau lampiran (klik/hover chip): gambar besar + metadata.
           Untuk file non-gambar tampilkan info file; tidak ada preview palsu. */}
-      {previewFile && (
+      {previewFile && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-6 animate-fade-in"
           onClick={() => setPreviewIdx(-1)}
@@ -814,7 +815,8 @@ const InputBar = ({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
