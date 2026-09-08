@@ -139,6 +139,8 @@ Shortcut dalam aplikasi: `Ctrl+Alt+M` tampilkan/sembunyikan jendela, `Ctrl+Shift
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `bun run dev:smart`    | Smart bootstrap: auto-install bun, refresh deps, clear port 1420 / cargo lock holder, lalu `bun run app`. Direkomendasikan untuk fresh clone. |
 | `bun run app`          | Langsung jalankan Tauri dev (Vite HMR + Rust shell). Pakai ini kalau semua prasyarat sudah siap dan Anda ingin start cepat.           |
+| `bun run build:deb`    | Kompilasi sidecar dan build paket `.deb` siap instal untuk Debian/Ubuntu/Mint (hasil di `src-tauri/target/release/bundle/deb/`).      |
+| `bun run build:dist`   | Kompilasi sidecar dan build paket distribusi lengkap (`.deb` + `.AppImage`).                                                          |
 | `bun run verify`       | Gerbang verifikasi lengkap: bootstrap + vitest + harness watermark + build + cargo check. WAJIB hijau sebelum push.                     |
 | `bun test`             | Unit test saja (vitest).                                                                                                                |
 | `bun run lint`         | ESLint atas seluruh repo (hasil di-cache).                                                                                              |

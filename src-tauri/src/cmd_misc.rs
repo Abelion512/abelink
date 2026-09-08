@@ -428,20 +428,43 @@ pub fn misc_read_file_base64(path: String) -> Result<String, String> {
 /// Mengembalikan path folder hasil instalasi.
 #[tauri::command]
 pub fn misc_ensure_extension_files(app: AppHandle) -> Result<String, String> {
-    let resource_dir = app
-        .path()
-        .resource_dir()
-        .map_err(|e| format!("Gagal resolve resource dir: {e}"))?;
-    let src = resource_dir.join("extension");
-    if !src.join("manifest.json").is_file() {
-        return Err("Folder extension tidak ikut ter-bundel.".into());
+    let mut candidates = Vec::new();
+
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(resource_dir.join("extension"));
+        candidates.push(resource_dir.join("_up_/extension"));
     }
+    candidates.push(std::path::PathBuf::from("extension"));
+    candidates.push(std::path::PathBuf::from("../extension"));
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            candidates.push(parent.join("extension"));
+            candidates.push(parent.join("_up_/extension"));
+            candidates.push(parent.join("../extension"));
+        }
+    }
+
+    let src = candidates
+        .into_iter()
+        .find(|p| p.join("manifest.json").is_file())
+        .ok_or_else(|| "Folder extension tidak ditemukan di bundle maupun workspace dev.".to_string())?;
+
     let dest = app
         .path()
         .app_data_dir()
         .map_err(|e| format!("Gagal resolve data dir: {e}"))?
         .join("extension");
-    copy_dir_recursive(&src, &dest)?;
+
+    let should_copy = match (src.canonicalize(), dest.canonicalize()) {
+        (Ok(s), Ok(d)) => s != d,
+        _ => true,
+    };
+
+    if should_copy {
+        copy_dir_recursive(&src, &dest)?;
+    }
+
     dest.to_str()
         .map(|s| s.to_owned())
         .ok_or_else(|| "Path extension non-UTF8.".into())
