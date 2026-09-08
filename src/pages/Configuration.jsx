@@ -309,17 +309,6 @@ const Configuration = ({
       }
     }
     probeDevices()
-    } else {
-      navigator.mediaDevices
-        .enumerateDevices()
-        .then((devices) => {
-          const mics = devices.filter((d) => d.kind === 'audioinput')
-          const cameras = devices.filter((d) => d.kind === 'videoinput')
-          setAudioDevices(mics)
-          setVideoDevices(cameras)
-        })
-        .catch((err) => console.error('Error enumerating devices', err))
-    }
   }
 
   useEffect(() => {
