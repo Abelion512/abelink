@@ -13,6 +13,7 @@ import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
 import MemoryVisualizer from '../components/core/MemoryVisualizer'
 import BrowserPreviewWidget from '../components/core/BrowserPreviewWidget'
 import { ChatStudioModal } from '../components/core/ChatStudioModal'
+import WindowControls from '../components/core/WindowControls'
 import {
   Mic,
   MessageSquare,
@@ -532,17 +533,19 @@ const MarkHome = () => {
         </div>
       )}
 
-      {/* ── TOP EXECUTIVE DOCK: Abelink Branding & 4-Mode Switcher ───────────── */}
-      <header className="relative z-40 w-full h-14 px-4 flex items-center justify-between pointer-events-auto bg-black/40 backdrop-blur-md border-b border-white/5">
-        {/* Left: Abelink Brand HUD */}
-        <div className="flex items-center gap-3 pl-14 select-none">
-          <span className="font-mono text-xs font-bold tracking-widest text-cyan-400/80 uppercase">
-            Abelink
-          </span>
-        </div>
+      {/* ── TOP EXECUTIVE DOCK: 4-Mode Switcher, Studio & Window Controls ─────── */}
+      <header
+        className={`absolute top-0 inset-x-0 z-40 w-full h-14 px-4 flex items-center justify-between pointer-events-auto transition-all ${
+          currentMode === 'vision' || currentMode === 'screen'
+            ? 'bg-gradient-to-b from-black/80 via-black/20 to-transparent border-none'
+            : 'bg-black/40 backdrop-blur-md border-b border-white/5'
+        }`}
+      >
+        {/* Left Drag Region / Spacer for Floating Hamburger Menu */}
+        <div data-tauri-drag-region="" className="flex items-center pl-14 h-full flex-1" />
 
         {/* Center: 4-Mode Switcher Capsule */}
-        <div className="flex items-center bg-black/60 backdrop-blur-2xl border border-white/10 p-1 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.6)] gap-1">
+        <div className="flex items-center bg-black/60 backdrop-blur-2xl border border-white/10 p-1 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.6)] gap-1 shrink-0">
           <button
             onClick={() => handleModeChange('voice')}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
@@ -596,22 +599,24 @@ const MarkHome = () => {
           </button>
         </div>
 
-        {/* Right: Studio Button (diberi margin kanan mr-36 agar tidak menabrak WindowControls) */}
-        <div className="flex items-center gap-2 mr-36">
+        {/* Right: Studio Button & Native Window Controls */}
+        <div className="flex items-center justify-end gap-3 h-full flex-1">
           <button
             onClick={() => setIsChatStudioOpen(true)}
-            className="h-8 px-3 btn btn-outline btn-xs bg-white/5 backdrop-blur-md border-white/10 text-white/80 hover:text-white rounded-lg flex items-center gap-1.5 shadow-sm"
+            className="h-8 px-3 btn btn-outline btn-xs bg-white/5 backdrop-blur-md border-white/10 text-white/80 hover:text-white rounded-lg flex items-center gap-1.5 shadow-sm transition-all hover:bg-white/10"
             title="Buka Chat Studio"
           >
             <Layers className="w-3.5 h-3.5 text-primary" />
             <span className="text-xs font-medium hidden md:inline">Studio</span>
           </button>
+          <div className="h-4 w-px bg-white/10 hidden sm:block" />
+          <WindowControls />
         </div>
       </header>
 
       {/* ── MODE 1: VOICE MODE (JARVIS DEFAULT) ──────────────────────────────── */}
       {currentMode === 'voice' && (
-        <div className="relative z-10 w-full h-[calc(100vh-56px)] flex flex-col items-center justify-center px-4 overflow-hidden select-none">
+        <div className="relative z-10 w-full h-screen flex flex-col items-center justify-center pt-14 px-4 overflow-hidden select-none">
           {/* Centered Jarvis / Mark Hero Orb */}
           <div
             onMouseDown={handleOrbMouseDown}
@@ -675,7 +680,7 @@ const MarkHome = () => {
 
       {/* ── MODE 2: CLASSIC CHAT MODE ────────────────────────────────────────── */}
       {currentMode === 'chat' && (
-        <div className="relative z-10 flex flex-col md:flex-row w-full h-[calc(100vh-64px)] px-4 lg:px-12 pb-[110px] overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row w-full h-screen pt-14 pb-[110px] px-4 lg:px-12 overflow-hidden">
           {/* Left Panel: Orb & Neural Flow */}
           <div className="w-full md:w-1/2 h-[35vh] md:h-full flex flex-col items-center justify-center relative">
             <div
@@ -739,7 +744,7 @@ const MarkHome = () => {
 
       {/* ── MODE 3: VISION MODE (CAMERA + VOICE) ─────────────────────────────── */}
       {currentMode === 'vision' && (
-        <div className="relative z-10 w-full h-[calc(100vh-56px)] flex flex-col items-center justify-center overflow-hidden bg-black">
+        <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden bg-black z-10">
           {/* Fullscreen Video Viewfinder */}
           <div className="absolute inset-0 w-full h-full flex items-center justify-center">
             <video
@@ -756,8 +761,8 @@ const MarkHome = () => {
           {/* Scanning HUD Overlay */}
           <div className="absolute inset-0 pointer-events-none p-6 flex flex-col justify-between">
             {/* Corner Brackets */}
-            <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-emerald-400/80" />
-            <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-emerald-400/80" />
+            <div className="absolute top-16 left-6 w-8 h-8 border-t-2 border-l-2 border-emerald-400/80" />
+            <div className="absolute top-16 right-6 w-8 h-8 border-t-2 border-r-2 border-emerald-400/80" />
             <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-emerald-400/80" />
             <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-emerald-400/80" />
 
@@ -767,7 +772,7 @@ const MarkHome = () => {
             </div>
 
             {/* Top Right Mini Orb */}
-            <div className="absolute top-6 right-16">
+            <div className="absolute top-16 right-6">
               <JarvisOrb status={orbStatus} intensity={ttsIntensity || audioIntensity} size={80} />
             </div>
           </div>
@@ -801,7 +806,7 @@ const MarkHome = () => {
 
       {/* ── MODE 4: SCREEN SHARE MODE ────────────────────────────────────────── */}
       {currentMode === 'screen' && (
-        <div className="relative z-10 w-full h-[calc(100vh-56px)] flex flex-col items-center justify-center overflow-hidden bg-black">
+        <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden bg-black z-10">
           {screenStream ? (
             <div className="absolute inset-0 w-full h-full flex items-center justify-center">
               <video
@@ -812,7 +817,7 @@ const MarkHome = () => {
                 className="w-full h-full object-contain"
               />
               {/* Top Right Mini Orb */}
-              <div className="absolute top-6 right-16 pointer-events-none">
+              <div className="absolute top-16 right-6 pointer-events-none">
                 <JarvisOrb status={orbStatus} intensity={ttsIntensity || audioIntensity} size={80} />
               </div>
 
