@@ -10,9 +10,10 @@ const readSrc = (rel) => fs.readFileSync(path.join(process.cwd(), rel), 'utf8')
 describe('ConfigSidebar sections', async () => {
   const mod = await import('../src/components/ConfigSidebar.jsx')
 
-  it('menyediakan entry capabilites', () => {
+  it('menyediakan entry capabilites dan voice & video', () => {
     const ids = mod.sections.map((s) => s.id)
     expect(ids).toContain('cfg-capabilities')
+    expect(ids).toContain('cfg-voice-video')
   })
 
   it('semua section punya label & icon', () => {
@@ -34,6 +35,11 @@ describe('Configuration page sections (contract via source)', () => {
   it('section capabilities dirender berdasarkan activeSection', () => {
     expect(src.includes("id=\"cfg-capabilities\"")).toBe(true)
     expect(src.includes("activeSection !== 'cfg-capabilities'")).toBe(true)
+  })
+
+  it('section voice-video dirender berdasarkan activeSection', () => {
+    expect(src.includes("id=\"cfg-voice-video\"")).toBe(true)
+    expect(src.includes("activeSection !== 'cfg-voice-video'")).toBe(true)
   })
 
   it('merender CapabilitiesHub terpadu tanpa navigasi halaman eksternal', () => {
