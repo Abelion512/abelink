@@ -4,7 +4,6 @@ import {
   FaBars,
   FaCog,
   FaPuzzlePiece,
-  FaMicrophoneAlt,
   FaHistory,
   FaTelegram,
   FaDatabase,
@@ -55,7 +54,7 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
           <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-white/30 pointer-events-none z-10" />
           <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-white/30 pointer-events-none z-10" />
 
-          {/* What's New — item teratas dengan badge saat ada versi baru */}
+          {/* What's New: item teratas dengan badge saat ada versi baru */}
           <button
             onClick={() => {
               window.dispatchEvent(new CustomEvent('mark:open-whats-new'))
@@ -91,13 +90,6 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
           >
             <FaRobot className="text-primary" /> Sub-Agents
-          </button>
-
-          <button
-            onClick={() => handleNav('/live-audio')}
-            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/10 transition-colors text-white/80 hover:text-white text-sm font-medium text-left"
-          >
-            <FaMicrophoneAlt className="text-primary" /> Live Audio
           </button>
 
           <button

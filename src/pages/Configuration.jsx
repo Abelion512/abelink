@@ -76,7 +76,7 @@ const ConfigCameraPreview = ({ deviceId, enabled }) => {
           stream.getTracks().forEach((t) => t.stop())
         }
       } catch (err) {
-        // WebKitGTK/wry bisa menolak getUserMedia tanpa dialog izin — tampilkan
+        // WebKitGTK/wry bisa menolak getUserMedia tanpa dialog izin  -  tampilkan
         // pesan ramah sekali per percobaan, jangan spam console.
         if (isMounted)
           setCamError(
@@ -266,7 +266,7 @@ const Configuration = ({
   const enumerateMediaDevices = () => {
     if (devicesLoadedRef.current) return
     if (!navigator.mediaDevices?.enumerateDevices) {
-      // Batas webview Linux (WebKitGTK) — bukan error aplikasi. Log sekali saja.
+      // Batas webview Linux (WebKitGTK)  -  bukan error aplikasi. Log sekali saja.
       if (!mediaInfoLogged) {
         mediaInfoLogged = true
         console.info(
@@ -362,7 +362,7 @@ const Configuration = ({
   }
 
   // ── Autosave: debounce 700ms setelah perubahan terakhir (mode normal) ──
-  // Wizard tidak ikut — dia punya alur "Simpan & Mulai" eksplisit.
+  // Wizard tidak ikut  -  dia punya alur "Simpan & Mulai" eksplisit.
   useEffect(() => {
     if (!hydratedRef.current || isFirstSetup) return
     const snap = JSON.stringify(config)
@@ -637,7 +637,7 @@ const Configuration = ({
   const [customModels, setCustomModels] = useState([])
   const [detectingModels, setDetectingModels] = useState(false)
   const [modelDetectError, setModelDetectError] = useState('')
-  // Deteksi model LM Studio (localhost:1234/v1/models) — LAZY: hanya saat
+  // Deteksi model LM Studio (localhost:1234/v1/models)  -  LAZY: hanya saat
   // section Model dibuka dan provider = lm-studio. Tanpa server -> error
   // senyap, input manual tetap berfungsi (degrades gracefully).
   const [lmStudioModels, setLmStudioModels] = useState([])
@@ -686,13 +686,13 @@ const Configuration = ({
     setConfig((prev) => ({ ...prev, customModel: e.target.value }))
   const handleAwarenessEnabledChange = (e) =>
     setConfig((prev) => ({ ...prev, awarenessEnabled: e.target.checked }))
-  // Built-in plugins (ponytail/caveman) — always-on by default, toggle per fitur.
+  // Built-in plugins (ponytail/caveman)  -  always-on by default, toggle per fitur.
   const handleBuiltinPluginChange = (key) => (e) =>
     setConfig((prev) => ({
       ...prev,
       builtinPlugins: { ...(prev.builtinPlugins || {}), [key]: e.target.checked }
     }))
-  // rtk (kompresi output tool di layer EKSEKUSI sidecar) — default ON,
+  // rtk (kompresi output tool di layer EKSEKUSI sidecar)  -  default ON,
   // no-op senyap bila binary `rtk` tidak terpasang di PATH.
   const handleRtkCompressChange = (e) =>
     setConfig((prev) => ({ ...prev, rtkCompress: e.target.checked }))
@@ -800,9 +800,6 @@ const Configuration = ({
                 )}
                 <div>
                   <h1 className="text-xl font-bold tracking-tight text-white/90">Pengaturan MARK</h1>
-                  <p className="text-xs text-white/40 mt-0.5">
-                    Personalisasi model, kapabilitas terintegrasi, audio, dan kebijakan sistem.
-                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 mr-44">
@@ -835,9 +832,6 @@ const Configuration = ({
             >
               <div>
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">Model &amp; Intelligence</h2>
-                <p className="text-xs opacity-50 mt-1">
-                  Pilih arsitektur LLM backend, model reasoning, dan kedalaman estimasi effort.
-                </p>
               </div>
 
               {/* Provider Selector Cards */}
@@ -883,20 +877,12 @@ const Configuration = ({
                       className="select select-bordered w-full"
                       value={config.geminiWebModel || 'gemini-3.6-flash'}
                       onChange={(e) =>
-                        setConfig((prev) => ({ ...prev, geminiWebModel: e.target.value }))
-                      }
-                    >
-                      <option value="gemini-3.6-flash">
-                        gemini-3.6-flash (Model Utama Terbaru)
-                      </option>
+                        setConfig((prev) => ({ ...prev, geminiWebModel: e.target.value }))}>
                       <option value="gemini-3.7-flash">gemini-3.7-flash (Terbaru 2026)</option>
+                      <option value="gemini-3.6-flash">gemini-3.6-flash (Model Utama Terbaru)</option>
                       <option value="gemini-3.5-flash">gemini-3.5-flash (Stabil & Seimbang)</option>
-                      <option value="gemini-3.5-flash-thinking">
-                        gemini-3.5-flash-thinking (Penalaran Mendalam)
-                      </option>
-                      <option value="gemini-3.5-flash-thinking-lite">
-                        gemini-3.5-flash-thinking-lite (Penalaran Cepat)
-                      </option>
+                      <option value="gemini-3.5-flash-thinking">gemini-3.5-flash-thinking (Penalaran Mendalam)</option>
+                      <option value="gemini-3.5-flash-thinking-lite">gemini-3.5-flash-thinking-lite (Penalaran Cepat)</option>
                       <option value="gemini-auto">gemini-auto (Otomatis Server)</option>
                       <option value="gemini-flash-lite">gemini-flash-lite (Super Cepat)</option>
                     </select>
@@ -966,7 +952,7 @@ const Configuration = ({
                       {customModels.map((m) => (
                         <option key={m} value={m} />
                       ))}
-                      {/* 9Router combo presets — model combo umum (endpoint lokal
+                      {/* 9Router combo presets  -  model combo umum (endpoint lokal
                           OpenAI-compatible: localhost:20128, dsb.) */}
                       <option value="deepseek-v3.2" />
                       <option value="deepseek-r1-0528" />
@@ -1051,13 +1037,13 @@ const Configuration = ({
                   <p className="text-sm font-semibold">Model Selector (LM Studio / 9Router Combo)</p>
                   <p className="text-xs opacity-40">
                     Jalur ini melayani LM Studio lokal (port 1234) DAN 9Router composite
-                    (port 20128) — semua model combo (deepseek, qwen, glm, kimi, gpt, opus,
+                    (port 20128)  -  semua model combo (deepseek, qwen, glm, kimi, gpt, opus,
                     sonnet, nemotron, muse, minimax, dll) dipilih dari sini.
                   </p>
                   {lmStudioModels.length > 0 && (
                     <>
                       <p className="text-xs text-success">
-                        {lmStudioModels.length} model lokal terdeteksi di LM Studio (port 1234) —
+                        {lmStudioModels.length} model lokal terdeteksi di LM Studio (port 1234)  - 
                         pilih di bawah atau ketik manual.
                       </p>
                       <select
@@ -1089,7 +1075,7 @@ const Configuration = ({
                     {lmStudioModels.map((m) => (
                       <option key={m} value={m} />
                     ))}
-                    {/* 9Router combo presets — nama model combo umum */}
+                    {/* 9Router combo presets  -  nama model combo umum */}
                     <option value="deepseek-v3.2" />
                     <option value="deepseek-r1-0528" />
                     <option value="qwen3.8-max" />
@@ -1119,7 +1105,7 @@ const Configuration = ({
                 </div>
               )}
 
-              {/* Effort Ladder — pola vendor 2026 (Fable 5.1, Astra, Gemini 3.8):
+              {/* Effort Ladder  -  pola vendor 2026 (Fable 5.1, Astra, Gemini 3.8):
                   model yang sama, biaya & kualitas diatur effort. */}
               <div className="space-y-1.5">
                 <p className="text-sm font-semibold">Reasoning Effort</p>
@@ -1128,13 +1114,13 @@ const Configuration = ({
                   value={config.effortLevel || 'low'}
                   onChange={(e) => setConfig((prev) => ({ ...prev, effortLevel: e.target.value }))}
                 >
-                  <option value="auto">Auto — naik otomatis sesuai kompleksitas tugas</option>
-                  <option value="low">Low — hemat token (default, untuk ReAct loop pendek)</option>
-                  <option value="medium">Medium — seimbang untuk tugas menengah</option>
-                  <option value="high">High — penalaran mendalam</option>
-                  <option value="xhigh">xHigh — penalaran ekstra mendalam</option>
-                  <option value="max">Max — maksimal penalaran, refleksi & verifikasi</option>
-                  <option value="ultra">Ultra — Max + Workflow/Orchestration multi-agent</option>
+                  <option value="auto">Auto  -  naik otomatis sesuai kompleksitas tugas</option>
+                  <option value="low">Low  -  hemat token (default, untuk ReAct loop pendek)</option>
+                  <option value="medium">Medium  -  seimbang untuk tugas menengah</option>
+                  <option value="high">High  -  penalaran mendalam</option>
+                  <option value="xhigh">xHigh  -  penalaran ekstra mendalam</option>
+                  <option value="max">Max  -  maksimal penalaran, refleksi & verifikasi</option>
+                  <option value="ultra">Ultra  -  Max + Workflow/Orchestration multi-agent</option>
                 </select>
               </div>
             </section>
@@ -1208,10 +1194,6 @@ const Configuration = ({
                   <span>10%</span>
                   <span>100%</span>
                 </div>
-                <p className="text-[11px] text-warning/80">
-                  Eksperimental: butuh restart pertama kali &amp; dapat menimbulkan artefak di
-                  WebKitGTK.
-                </p>
               </div>
             </section>
 
@@ -1551,10 +1533,10 @@ const Configuration = ({
                       setConfig((prev) => ({ ...prev, localWhisperModel: e.target.value }))
                     }
                   >
-                    <option value="whisper-small">Local Offline (Whisper Small) — Default</option>
+                    <option value="whisper-small">Local Offline (Whisper Small)  -  Default</option>
                     <option value="groq-whisper">Groq API Cloud (Whisper Large-v3)</option>
                     <option value="groq-whisper-turbo">
-                      Groq API Cloud (Whisper Large-v3 Turbo) — paling awet
+                      Groq API Cloud (Whisper Large-v3 Turbo)  -  paling awet
                     </option>
                   </select>
                   <p className="text-xs opacity-40">
@@ -1565,11 +1547,11 @@ const Configuration = ({
                     <div className="bg-info/5 border border-info/20 rounded-xl p-3 mt-2">
                       <p className="text-xs font-semibold text-info mb-1">Tips biar kuota Groq awet:</p>
                       <ul className="text-xs opacity-70 list-disc list-inside space-y-0.5">
-                        <li>Pilih <b>Whisper Large-v3 Turbo</b> — hasil mirip Large-v3, kuota lebih hemat.</li>
-                        <li>Bicara bahasa Inggris bila memungkinkan — akurasi tertinggi = retry lebih sedikit.</li>
-                        <li>Bicara dalam kalimat utuh (VAD auto-cut setelah ~2 detik hening) — hindari ucapkan kata per kata.</li>
+                        <li>Pilih <b>Whisper Large-v3 Turbo</b>  -  hasil mirip Large-v3, kuota lebih hemat.</li>
+                        <li>Bicara bahasa Inggris bila memungkinkan  -  akurasi tertinggi = retry lebih sedikit.</li>
+                        <li>Bicara dalam kalimat utuh (VAD auto-cut setelah ~2 detik hening)  -  hindari ucapkan kata per kata.</li>
                         <li>Butuh quota lebih besar? Daftar 2-3 akun Groq (email berbeda) dan rotasi key.</li>
-                        <li>Kalau mic bising, turunkan sensitivity — noise dihitung sebagai suara dan makan durasi.</li>
+                        <li>Kalau mic bising, turunkan sensitivity  -  noise dihitung sebagai suara dan makan durasi.</li>
                       </ul>
                     </div>
                   )}
@@ -1926,7 +1908,7 @@ const Configuration = ({
                 ></progress>
               </div>
             )}
-            {/* Mode normal: AUTOSAVE penuh — tombol simpan manual dihapus. */}
+            {/* Mode normal: AUTOSAVE penuh  -  tombol simpan manual dihapus. */}
           </div>
         </div>
         <ModalComponent />

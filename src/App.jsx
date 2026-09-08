@@ -2,10 +2,9 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import MarkHome from './pages/MarkHome'
 // Route-level code splitting: halaman berat (Monaco, force-graph, syntax
 // highlighter, Monaco-based editor) hanya diunduh saat pertama kali dibuka.
-// MarkHome tetap eager — wajib selalu mounted agar listener AI/Telegram
+// MarkHome tetap eager  -  wajib selalu mounted agar listener AI/Telegram
 // tidak pernah mati (lihat komentar di MainLayout).
 const Configuration = lazy(() => import('./pages/Configuration'))
-const LiveAudio = lazy(() => import('./pages/LiveAudio'))
 const TelegramBot = lazy(() => import('./pages/TelegramBot'))
 const Knowledge = lazy(() => import('./pages/Knowledge'))
 const Guidebook = lazy(() => import('./pages/Guidebook'))
@@ -13,7 +12,7 @@ const RelationalGrowth = lazy(() => import('./pages/RelationalGrowth'))
 const Subagents = lazy(() => import('./pages/Subagents'))
 const ChatStudio = lazy(() => import('./pages/ChatStudio'))
 const Trajectory = lazy(() => import('./pages/Trajectory'))
-import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { HashRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { ChatProvider } from './contexts/ChatContext'
 import { YoutubeMusicProvider } from './contexts/YoutubeMusicContext'
 import { ApprovalProvider } from './contexts/ApprovalContext'
@@ -180,7 +179,7 @@ const MainLayout = ({ isStandalone = false }) => {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-transparent rounded-xl">
-      {/* Hide WindowControls on Telegram page — it has its own header with controls */}
+      {/* Hide WindowControls on Telegram page  -  it has its own header with controls */}
       {!isStandalone && !isTelegram && <WindowControls />}
       <DropAnywhere onFilesDropped={handleGlobalDrop} />
       {/* Base Home Page - Always Mounted so AI Agent & Telegram Listeners Never Die */}
@@ -206,7 +205,7 @@ const MainLayout = ({ isStandalone = false }) => {
               <Routes>
                 <Route path="/chat" element={<ChatStudio />} />
                 <Route path="/config" element={<Configuration />} />
-                <Route path="/live-audio" element={<LiveAudio />} />
+                <Route path="/live-audio" element={<Navigate to="/?mode=voice" replace />} />
                 <Route path="/telegram-bot" element={<TelegramBot />} />
                 <Route path="/knowledge" element={<Knowledge />} />
                 <Route path="/guidebook" element={<Guidebook />} />
@@ -232,7 +231,7 @@ const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }) => (
       <h2 className="text-xl font-bold">Data Mark versi lama terdeteksi</h2>
       <p className="text-sm opacity-70 leading-relaxed">
         Ditemukan {profiles.length} profil Mark era lama di folder konfigurasi. Karena mesin browser
-        berbeda (Chromium → WebKit), datanya tidak bisa dibaca langsung — tapi tetap aman dan bisa
+        berbeda (Chromium → WebKit), datanya tidak bisa dibaca langsung  -  tapi tetap aman dan bisa
         dipulihkan lewat file export JSON dari Mark versi lama (Settings → Export DB).
       </p>
       <div className="flex flex-col gap-2 pt-1">
@@ -296,7 +295,7 @@ function App() {
 
   useEffect(() => {
     const checkConfig = async () => {
-      // 0. Detect lite mode FIRST — set flag before any hydration so generateVector
+      // 0. Detect lite mode FIRST  -  set flag before any hydration so generateVector
       //    uses hash embeddings instead of triggering WASM extractor load.
       let lm = null
       try {
@@ -325,7 +324,7 @@ function App() {
         console.error('[App] Failed to get lite mode status:', e)
       }
 
-      // 1. Init Orama + Hydrate — SELALU jalan (fitur tidak pernah mati);
+      // 1. Init Orama + Hydrate  -  SELALU jalan (fitur tidak pernah mati);
       // profil hanya mengatur urutan. ensureIndices() di oramaStore idempoten,
       // jadi pemanggilan eksplisit di sini hanyalah eager-load.
       // Analogy: n8n spawn worker saat boot kalau profile-nya kencang.
@@ -342,13 +341,13 @@ function App() {
           })
           console.log('[App] Orama indices ready (eager)')
         } else {
-          console.log('[App] Orama lazy — dibuat on-demand saat pertama dipakai')
+          console.log('[App] Orama lazy  -  dibuat on-demand saat pertama dipakai')
         }
       } catch (e) {
         console.error('[App] Failed to init Orama:', e)
       }
 
-      // 1.5 Load Embeddings Model — TETAP dimuat walau lite mode: lite hanya
+      // 1.5 Load Embeddings Model  -  TETAP dimuat walau lite mode: lite hanya
       // berarti WASM mungkin lambat, bukan alasan kehilangan embedding nyata.
       // Worker punya fallback ladder SIMD -> scalar -> CPU (embedding.worker.js).
       try {
@@ -379,13 +378,13 @@ function App() {
             }
           })
         } else {
-          console.log('[App] Vector model skipped — lazy-load on demand')
+          console.log('[App] Vector model skipped  -  lazy-load on demand')
         }
       } catch (e) {
         console.error('[App] Failed to load Transformers:', e)
       }
 
-      // 1.6 Voice Engine (Whisper) sengaja TIDAK di-preload di boot —
+      // 1.6 Voice Engine (Whisper) sengaja TIDAK di-preload di boot  - 
       // transcribeAudioLocal memuat model saat pertama kali dipakai
       // (lazy by design, lihat src/api/localWhisper.js). Boot jadi lebih cepat.
 
@@ -416,7 +415,7 @@ function App() {
       }
 
       // 2.5 Apply hardware profile (auto-detected, saved to localStorage)
-      // No modal — detection runs silently in background. User can change in Settings.
+      // No modal  -  detection runs silently in background. User can change in Settings.
       try {
         const savedProfile = localStorage.getItem('mark:resource-mode')
         if (!savedProfile) {
