@@ -354,7 +354,7 @@ const SentientCyberEyes = ({
   )
 }
 
-const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) => {
+const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral', size = 'normal' }) => {
   const [glowClass, setGlowClass] = useState('bg-green-500/40')
   const [colorHex, setColorHex] = useState('#1fb854')
 
@@ -442,7 +442,7 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
           }
         `}
       </style>
-      <div className="relative shrink-0 w-56 h-56 flex items-center justify-center my-8 select-none">
+      <div className={`relative shrink-0 flex items-center justify-center my-8 select-none transition-all duration-700 ${size === 'hero' ? 'w-80 h-80 md:w-[420px] md:h-[420px]' : 'w-56 h-56'}`}>
         {/* Layer 1: Constant Breathing Wrapper */}
         <div className="relative w-full h-full flex items-center justify-center animate-[orb-breathe_5s_ease-in-out_infinite] will-change-transform">
           {/* Layer 2: State & Audio Scaler */}
@@ -456,7 +456,7 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
           >
             {/* Background Aura Glow (Radial Gradient Vector - Bebas Artefak Kotak WebKitGTK) */}
             <div
-              className="absolute inset-0 m-auto w-44 h-44 rounded-full pointer-events-none opacity-80"
+              className={`absolute inset-0 m-auto rounded-full pointer-events-none opacity-80 ${size === 'hero' ? 'w-72 h-72 md:w-96 md:h-96' : 'w-44 h-44'}`}
               style={{
                 background: `radial-gradient(circle, ${colorHex}70 0%, ${colorHex}25 45%, transparent 70%)`
               }}
@@ -464,16 +464,16 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral' }) =>
 
             {/* Holographic Orbital Rings */}
             <div
-              className="absolute inset-0 m-auto w-44 h-44 rounded-full border border-dashed opacity-30 animate-[orbital-spin_20s_linear_infinite]"
+              className={`absolute inset-0 m-auto rounded-full border border-dashed opacity-30 animate-[orbital-spin_20s_linear_infinite] ${size === 'hero' ? 'w-72 h-72 md:w-96 md:h-96' : 'w-44 h-44'}`}
               style={{ borderColor: colorHex }}
             />
             <div
-              className="absolute inset-0 m-auto w-36 h-36 rounded-full border border-dotted opacity-20 animate-[orbital-spin-rev_15s_linear_infinite]"
+              className={`absolute inset-0 m-auto rounded-full border border-dotted opacity-20 animate-[orbital-spin-rev_15s_linear_infinite] ${size === 'hero' ? 'w-60 h-60 md:w-80 md:h-80' : 'w-36 h-36'}`}
               style={{ borderColor: colorHex }}
             />
 
             {/* Holographic HUD Center Visor */}
-            <div className="relative z-20 flex items-center justify-center">
+            <div className={`relative z-20 flex items-center justify-center transition-transform ${size === 'hero' ? 'scale-125 md:scale-150' : 'scale-100'}`}>
               <SentientCyberEyes
                 mood={mood}
                 status={status}
