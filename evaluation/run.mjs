@@ -206,7 +206,7 @@ export function aggregateRuns(rawRuns, config = {}) {
 // menyeberang kedua bentuk, kalau tidak regresi pada task yang di-sweep
 // dilewati diam-diam (gate melaporkan "tidak ada regresi" padahal ada).
 const TASK_KEY_EFFORT_RE = /@(low|medium|high)$/
-export async function compareReports(current, prev, thresholdPct = REGRESSION_THRESHOLD) {
+export function compareReports(current, prev, thresholdPct = REGRESSION_THRESHOLD) {
   const prevTasks = prev?.tasks || {}
   const regressions = []
   for (const [key, cur] of Object.entries(current?.tasks || {})) {
