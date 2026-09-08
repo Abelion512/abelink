@@ -233,6 +233,57 @@ export const pluginCreate = async (payload) => {
   }
 }
 
+export const pluginInstallFromGit = async (rawUrlOrShorthand) => {
+  try {
+    const input = String(rawUrlOrShorthand || '').trim()
+    if (!input) return { success: false, error: 'URL atau repository GitHub tidak boleh kosong' }
+
+    let cloneUrl = input
+    let repoName = ''
+
+    // Match "owner/repo" shorthand
+    if (/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(input)) {
+      cloneUrl = `https://github.com/${input}.git`
+      repoName = input.split('/')[1].replace(/\.git$/, '')
+    } else {
+      const match = input.match(/\/([^/]+?)(?:\.git)?$/)
+      repoName = match ? match[1] : `plugin-${Date.now()}`
+    }
+
+    const sanitizedName = repoName.replace(/[^a-zA-Z0-9_.-]/g, '-').toLowerCase()
+    const pDir = getPluginsDir()
+    const targetDir = path.join(pDir, sanitizedName)
+
+    if (fs.existsSync(targetDir)) {
+      return { success: false, error: `Plugin "${sanitizedName}" sudah terpasang.` }
+    }
+
+    // Git clone --depth 1
+    await execFilePromise('git', ['clone', '--depth', '1', cloneUrl, targetDir], {
+      timeout: 120000
+    })
+
+    // Auto install dependencies if package.json exists
+    const pkgPath = path.join(targetDir, 'package.json')
+    if (fs.existsSync(pkgPath)) {
+      try {
+        await execFilePromise('npm', ['install', '--no-audit', '--no-fund'], {
+          cwd: targetDir,
+          timeout: 180000
+        })
+      } catch (npmErr) {
+        console.warn('[plugins] npm install warning:', npmErr.message)
+      }
+    }
+
+    await loadPlugins()
+    return { success: true, name: sanitizedName }
+  } catch (err) {
+    console.error('[plugins] pluginInstallFromGit gagal:', err)
+    return { success: false, error: err.message }
+  }
+}
+
 export const pluginDelete = async (pluginName) => {
   try {
     const pluginPath = resolveContainedPluginPath(pluginName)
@@ -247,3 +298,5 @@ export const pluginDelete = async (pluginName) => {
     return { success: false, error: err.message }
   }
 }
+
+

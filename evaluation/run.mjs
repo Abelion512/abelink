@@ -34,6 +34,8 @@ import {
 const DEFAULT_RUNS = 3
 const REGRESSION_THRESHOLD = 5 // persen pass-rate; default tanpa --compare = tidak dieksekusi
 
+// Synchronous alias kept for legacy importers of the effort ladder.
+
 // ---- Anti-cheat ----
 // Task sentinel dianggap curang jika keluarannya persis `expected` (jawaban
 // hafalan) padahal sentinel acak per-run tidak muncul di output.
@@ -204,10 +206,10 @@ export function aggregateRuns(rawRuns, config = {}) {
 // menyeberang kedua bentuk, kalau tidak regresi pada task yang di-sweep
 // dilewati diam-diam (gate melaporkan "tidak ada regresi" padahal ada).
 const TASK_KEY_EFFORT_RE = /@(low|medium|high)$/
-export function compareReports(current, prev, thresholdPct = REGRESSION_THRESHOLD) {
-  const prevTasks = prev.tasks || {}
+export async function compareReports(current, prev, thresholdPct = REGRESSION_THRESHOLD) {
+  const prevTasks = prev?.tasks || {}
   const regressions = []
-  for (const [key, cur] of Object.entries(current.tasks || {})) {
+  for (const [key, cur] of Object.entries(current?.tasks || {})) {
     const m = key.match(TASK_KEY_EFFORT_RE)
     const baseId = m ? key.slice(0, -m[0].length) : key
     const effort = m ? m[1] : cur.effort || null
@@ -321,7 +323,7 @@ async function main() {
       ? sweepEfforts
       : // resolveTaskEffort akan memakai taskEffort bila ada; kirim benchmark
         // default agar task tanpa effort memakainya (env sudah masuk di sini).
-        [resolveTaskEffort({ taskEffort, benchmarkEffort, envEffort: null })]
+        [await resolveTaskEffort({ taskEffort, benchmarkEffort, envEffort: null })]
     for (const eff of perTaskEfforts) {
       for (let i = 0; i < args.runs; i++) {
         const r = await runTask(taskId, args.model, args.provider, {

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { transcribeAudioLocal } from '../api/localWhisper'
 import { transcribeAudioGroq } from '../api/groq'
 import { getAllConfig } from '../api/db'
+import { resolveMicConstraints, micCoolingDown, noteMicFailure } from '../api/mic'
 
 export const useVAD = ({
   onTranscript // Function to call when STT finishes
@@ -143,17 +144,25 @@ export const useVAD = ({
         autoGainControl: false
       }
 
-      const constraints = {
-        audio:
-          micId && micId !== 'default'
-            ? { deviceId: { ideal: micId }, ...audioSettings }
-            : audioSettings
+      // Cooldown global: jangan spam getUserMedia tiap toggle saat mic mati.
+      if (micCoolingDown()) {
+        isStartingRef.current = false
+        return
+      }
+      const constraints = await resolveMicConstraints(micId, audioSettings)
+      if (!constraints) {
+        noteMicFailure()
+        // Host Linux tidak mendeteksi input mikrofon (0 audio devices); matikan VAD tanpa melempar error
+        isStartingRef.current = false
+        return
       }
       let stream
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints)
       } catch (err) {
-        // Linux headless / WebKitGTK: 0 audio devices -> graceful degrade
+        // Linux headless / deviceId basi / izin ditolak: catat cooldown,
+        // beri tahu sekali, jangan lempar error berulang.
+        noteMicFailure()
         console.warn('[useVAD] getUserMedia gagal (no device?), matikan VAD:', err.message || err)
         isStartingRef.current = false
         return

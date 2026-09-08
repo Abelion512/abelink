@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 💬 Discord Community
-    url: https://discord.gg/mark-agent
-    about: Get help from the community
-  - name: 📖 Documentation
-    url: https://github.com/Mazees/mark-agent/wiki
-    about: Check the wiki before filing
+  - name: Questions & Help
+    url: https://github.com/Abelion512/mark-agent-linux/issues
+    about: Ask for help from the maintainer
+  - name: Documentation
+    url: https://github.com/Abelion512/mark-agent-linux
+    about: Check the README and docs before filing

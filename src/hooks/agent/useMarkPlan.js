@@ -30,7 +30,8 @@ import {
 import { searchMemoriesInOrama } from '../../api/oramaStore'
 import { buildOptimizedChatSession } from '../../api/ai/contextCompactor'
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
-import { classifyMainDecision, INTENT } from '../../api/ai/agentDecision'
+import { classifyMainDecision, INTENT, isExplicitSelfTerminate } from '../../api/ai/agentDecision'
+import { createCircuitBreaker } from '../../api/ai/circuitBreaker'
 import {
   logToolCall as trajectoryLogTool,
   logSubAgentSpawn as trajectoryLogSub,
@@ -62,18 +63,9 @@ const isImagePath = (filePath = '') => {
 }
 
 const convertFilePathToBase64 = async (filePath) => {
+  // fetch(file://) diblokir WebKitGTK/CSP — baca via command Rust native.
   try {
-    const formattedUrl = filePath.startsWith('file://')
-      ? filePath
-      : `file:///${filePath.replace(/\\/g, '/')}`
-    const res = await fetch(formattedUrl)
-    const blob = await res.blob()
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result)
-      reader.onerror = reject
-      reader.readAsDataURL(blob)
-    })
+    return await window.api.readFileBase64(filePath)
   } catch (err) {
     console.error('[useMarkPlan] Failed to convert image file to Base64:', filePath, err)
     return null
@@ -809,10 +801,17 @@ export const useMarkPlan = ({
             const toolDescriptions = Object.entries(groups[groupName].tools)
               .map(([k, v]) => `- ${k}: ${v}`)
               .join('\n')
+            let extLine = ''
+            if (groupName === 'advanced_browser') {
+              const { browserExtensionStatusLine } = await import(
+                '../../api/tools/group-tools.js'
+              )
+              extLine = (await browserExtensionStatusLine()) + '\n'
+            }
             res = {
               success: true,
               loaded_group: groupName,
-              message: `BERHASIL MEMUAT GRUP TOOL: ${groupName}.\nDokumentasi tool:\n${toolDescriptions}`
+              message: `BERHASIL MEMUAT GRUP TOOL: ${groupName}.\n${extLine}Dokumentasi tool:\n${toolDescriptions}`
             }
           } else {
             res = {
@@ -896,7 +895,8 @@ export const useMarkPlan = ({
       // Kalau bukan URL scheme, lanjut ke native tool handler biasa
       const activeConfig = {
         ...(Array.isArray(config) ? config[0] : config),
-        workspaceRoot: context?.workspaceRoot
+        workspaceRoot: context?.workspaceRoot,
+        turnId: context?.turnId || context?.agenticProcessId
       }
       const nativePromise = window.api.executeNativeTool(tool, query, activeConfig)
       let onNativeAbort = null
@@ -914,7 +914,8 @@ export const useMarkPlan = ({
 } else {
       const activeConfig = {
         ...(Array.isArray(config) ? config[0] : config),
-        workspaceRoot: context?.workspaceRoot
+        workspaceRoot: context?.workspaceRoot,
+        turnId: context?.turnId || context?.agenticProcessId
       }
       const nativePromise = window.api.executeNativeTool(tool, query, activeConfig)
       let onNativeAbort = null
@@ -1233,6 +1234,8 @@ export const useMarkPlan = ({
 
     const agenticProcessId = `agentic-${Date.now()}`
     let durableTaskForRecovery = null
+    // Fase 2 watchdog: dideklarasikan di luar try agar finally bisa unsubscribe.
+    let unlistenWatchdog = null
 
     try {
       let durableTask = null
@@ -1326,8 +1329,45 @@ export const useMarkPlan = ({
       // ends via a completion state, an explicit block, a request for a user
       // decision, or an exhausted step budget (failed). Recorded per message
       // (taskOutcome) so consumers can distinguish the five runtime states.
-      let sessionOutcome = 'completed' // completed | failed | blocked | needs_user
+      let sessionOutcome = 'completed' // completed | failed | blocked | needs_user | self_terminated
       let lastTerminalReason = null
+      // Fase 1 pagar otonomi: circuit breaker sesi. Sesi baru = sirkuit baru
+      // (auto-reset); N gagal tool beruntun -> OPEN -> tool destruktif diblokir.
+      const breaker = createCircuitBreaker()
+      // Spiral stop: M gagal BERUNTUN (jenis apa pun) -> loop dipaksa berhenti
+      // dengan jawaban final yang jujur. Tanpa ini, loop non-destruktif bisa
+      // spiral 20+ turn (observasi nyata ~30k token sia-sia).
+      let spiralStopped = false
+      // Anti-pengulangan: tool+query IDENTIK 3x beruntun = tidak ada kemajuan
+      // (hasil ke-3 pasti sama dengan ke-1). Kembalikan cache + hitung gagal.
+      let lastToolKey = null
+      let repeatCount = 0
+      // Fase 2: watchdog Rust mencabut izin + emit event. Berhenti graceful di
+      // iterasi berikut dengan laporan ke user (bukan diam-diam).
+      let watchdogHalted = null
+      try {
+        unlistenWatchdog = window.api?.onWatchdogBreach?.((p) => {
+          watchdogHalted = p || {}
+        })
+      } catch {
+        // Bukan runtime Tauri (mis. test) — misi jalan tanpa watchdog eksternal.
+      }
+      // Lepas resource: bunuh sub-agent yang masih hidup (self-terminate).
+      const killLiveSubagents = async () => {
+        try {
+          const { killSubagentExecution } = await import('../../api/subagent/subagentExecutor.js')
+          for (const id of [...(runningSessionIds || [])]) {
+            try {
+              killSubagentExecution(id)
+              if (removeRunningSessionId) removeRunningSessionId(id)
+            } catch {
+              // Sub-agent sudah mati/dihapus duluan — lanjut ke berikutnya.
+            }
+          }
+        } catch {
+          // Executor belum termuat — tidak ada sub-agent yang bisa dibunuh.
+        }
+      }
       // ---- Objective Verification Layer (objectiveVerifier.js) --------------
       // MODEL_CLAIM (agentDecision) vs VERIFICATION (this layer). A completion
       // claim only terminates when world-state evidence backs it, unless the
@@ -1348,6 +1388,31 @@ export const useMarkPlan = ({
           if (durableTask && durableTask.status === 'running') {
             await transitionAgentTask(durableTask.id, 'paused', 'user_abort')
           }
+          break
+        }
+
+        // Watchdog eksternal menghentikan misi: izin sesi sudah dicabut di Rust.
+        // Lapor jujur ke user, bunuh sub-agent hidup, lalu keluar lewat jalur
+        // closing normal (arsip, TTS, notifikasi tetap berjalan).
+        if (watchdogHalted) {
+          const wdKind = watchdogHalted.kind || 'unknown'
+          sessionOutcome = 'blocked'
+          activeTaskObjectiveRef.current = null
+          lastTerminalReason = `watchdog-breach:${wdKind}`
+          await killLiveSubagents()
+          targetSetChatData((prev) => [
+            ...prev.filter((item) => !item.isThinking),
+            {
+              role: 'ai',
+              content: `Watchdog keamanan menghentikan misi ini (pelanggaran: ${wdKind}). Izin sesi otomatis dicabut — aksi destruktif kembali butuh persetujuan. Mulai perintah baru bila misi masih dibutuhkan.`,
+              mood: 'neutral',
+              taskOutcome: 'blocked',
+              terminalReason: lastTerminalReason,
+              timestamp: getCurrentTimeInfo(),
+              created_at: Date.now(),
+              source: tgContext ? 'telegram' : 'pc'
+            }
+          ])
           break
         }
 
@@ -1686,6 +1751,14 @@ export const useMarkPlan = ({
             sessionOutcome = 'needs_user'
             activeTaskObjectiveRef.current = null
             lastTerminalReason = classification.reason || 'question-asked'
+          } else if (intent === INTENT.SELF_TERMINATE) {
+            // Agen menghentikan dirinya sendiri (di luar scope/bahaya).
+            // Laporan "mengapa aku berhenti" = answer/thought model di bubble final.
+            noActionStreak = 0
+            sessionOutcome = 'self_terminated'
+            activeTaskObjectiveRef.current = null
+            lastTerminalReason = classification.reason || 'self-terminate-reported'
+            await killLiveSubagents()
           } else {
             // INTENT.FINAL: completion claim. A previously recorded failure
             // (step budget / no-progress) is never overwritten by a stray claim.
@@ -1760,8 +1833,23 @@ export const useMarkPlan = ({
         }
 
         const terminalPlain =
-          intent === INTENT.FINAL || intent === INTENT.BLOCKED || intent === INTENT.NEEDS_USER
-        const isDoneSignal = opts.disableTools || isDurableClaim || terminalPlain
+          intent === INTENT.FINAL ||
+          intent === INTENT.BLOCKED ||
+          intent === INTENT.NEEDS_USER ||
+          intent === INTENT.SELF_TERMINATE
+        let isDoneSignal = opts.disableTools || isDurableClaim || terminalPlain
+
+        // Rem darurat: penanda self-terminate eksplisit mengalahkan action yang
+        // ikut ter-emit. Tool TIDAK dieksekusi; alur jatuh ke Kasus 2 (laporan final).
+        if (hasAction && isExplicitSelfTerminate(decision)) {
+          decision = { ...decision, action: null }
+          noActionStreak = 0
+          sessionOutcome = 'self_terminated'
+          activeTaskObjectiveRef.current = null
+          lastTerminalReason = 'explicit-self-terminate-with-action'
+          await killLiveSubagents()
+          isDoneSignal = true
+        }
 
         // Kasus 1: Intermediate Speech (Bicara tanpa tool, tapi belum selesai)
         if (!hasAction && !isDoneSignal && decision.answer && !durableTask) {
@@ -1970,6 +2058,16 @@ export const useMarkPlan = ({
             if (isAutonomous && autonomousInitialMessage) {
               finalOutput = `**${autonomousInitialMessage}**\n\n${decision.answer}`
             }
+            // Self-terminate TANPA jawaban = tetap lapor "mengapa aku berhenti",
+            // jangan bubble kosong.
+            if (
+              sessionOutcome === 'self_terminated' &&
+              typeof finalOutput === 'string' &&
+              finalOutput.trim() === '' &&
+              (decision.thought || lastTerminalReason)
+            ) {
+              finalOutput = `Aku menghentikan diri sendiri (${lastTerminalReason || 'self-terminate'}). Alasan: ${decision.thought || lastDecision?.thought || 'di luar scope/berbahaya'}.`
+            }
             // Guard konteks: model bisa mengembalikan answer null/kosong saat
             // is_done. Menyimpan `content: undefined` meracuni seluruh consumer
             // history (archiver turn-pair, awareness recentChat, prompt berikutnya).
@@ -1994,6 +2092,7 @@ export const useMarkPlan = ({
               terminalReason: lastTerminalReason,
               isBlocked: sessionOutcome === 'blocked',
               needsUserDecision: sessionOutcome === 'needs_user',
+              selfTerminated: sessionOutcome === 'self_terminated',
               reasoning: decision.thought || lastDecision?.thought || null,
               mood: decision.mood || 'neutral',
               isMemorySaved: decision.memory?.action === 'insert',
@@ -2075,6 +2174,87 @@ export const useMarkPlan = ({
             if (!tool) continue
             if (sessionAbortController.signal.aborted) break
 
+            // Anti-pengulangan: query IDENTIK 3x beruntun tidak dieksekusi lagi.
+            // Kembalikan hasil terakhir (cache) + hitung sebagai kegagalan loop
+            // agar spiral "sukses semu" (curl 200 cangkang kosong) ikut trip.
+            const toolKey = `${tool}||${query}`
+            if (toolKey === lastToolKey) {
+              repeatCount++
+            } else {
+              lastToolKey = toolKey
+              repeatCount = 1
+            }
+            if (repeatCount >= 3) {
+              const lastRes =
+                executedToolsList.length > 0
+                  ? executedToolsList[executedToolsList.length - 1].fullResult
+                  : '(belum ada hasil)'
+              breaker.record(false)
+              loopMessages.push(
+                {
+                  role: 'assistant',
+                  content: JSON.stringify({ thought: decision.thought, action: decision.action })
+                },
+                {
+                  role: 'user',
+                  content:
+                    `[OBSERVATION] Tool "${tool}" dengan query IDENTIK dipanggil ke-${repeatCount}x beruntun — TIDAK dieksekusi ulang. Hasil terakhir (cache): ${String(lastRes).slice(0, 1500)}\n` +
+                    'Variasikan pendekatan (tool/query berbeda) atau akhiri dengan jawaban jujur.'
+                }
+              )
+              if (!spiralStopped && breaker.shouldSpiralStop()) {
+                spiralStopped = true
+                loopMessages.push(
+                  {
+                    role: 'assistant',
+                    content: JSON.stringify({ thought: decision.thought, action: decision.action })
+                  },
+                  {
+                    role: 'user',
+                    content:
+                      `[SYSTEM] ${breaker.failures()} kegagalan/pengulangan beruntun. ` +
+                      'Berhenti. Tulis "answer" final yang JUJUR + "is_done": true. JANGAN panggil tool lagi.'
+                  }
+                )
+                break
+              }
+              continue
+            }
+
+            // Spiral sudah dihentikan: tolak tool baru, paksa jawaban final.
+            if (spiralStopped) {
+              loopMessages.push(
+                {
+                  role: 'assistant',
+                  content: JSON.stringify({ thought: decision.thought, action: decision.action })
+                },
+                {
+                  role: 'user',
+                  content:
+                    '[SYSTEM] Loop eksekusi sudah DIHENTIKAN setelah kegagalan beruntun. ' +
+                    'JANGAN panggil tool apa pun lagi. Tulis "answer" final yang JUJUR ' +
+                    '(apa yang gagal, bukti terakhir apa) + "is_done": true.'
+                }
+              )
+              break
+            }
+
+            // Circuit breaker sesi: sirkuit OPEN -> tool destruktif diblokir
+            // (observasi jujur ke model, tanpa eksekusi). Reset tiap sesi baru.
+            if (breaker.shouldBlock(tool)) {
+              loopMessages.push(
+                {
+                  role: 'assistant',
+                  content: JSON.stringify({ thought: decision.thought, action: decision.action })
+                },
+                {
+                  role: 'user',
+                  content: `[OBSERVATION] [CIRCUIT BREAKER OPEN] Tool "${tool}" DIBLOKIR: ${breaker.failures()} gagal tool beruntun (ambang ${breaker.threshold()}). Perbaiki akar masalah atau minta user mereset misi. Tool baca/tulis non-destruktif tetap jalan.`
+                }
+              )
+              continue
+            }
+
             if (execSteps.length === 1 && execSteps[0].task === 'Menganalisis Konteks...') {
               execSteps = [{ task: `Eksekusi ${tool}`, query: query }]
             } else {
@@ -2123,6 +2303,7 @@ export const useMarkPlan = ({
               pluginProcessId,
               targetSetChatData,
               workspaceRoot: opts.workspaceRoot,
+              turnId: agenticProcessId,
               signal: sessionAbortController.signal
             })
 
@@ -2138,6 +2319,33 @@ export const useMarkPlan = ({
                 }
               )
               continue
+            }
+
+            // Umpan sirkuit: gagal eksekusi ([ERROR]) menaikkan streak, sukses
+            // mereset. Penolakan approval BUKAN malfungsi -> diabaikan breaker
+            // (sudah di-continue di atas).
+            breaker.record(!String(execResult.resultString || '').startsWith('[ERROR]'))
+
+            // Spiral stop: streak mencapai batas -> hentikan loop, beri model
+            // satu giliran terakhir untuk jawaban final yang jujur.
+            if (!spiralStopped && breaker.shouldSpiralStop()) {
+              spiralStopped = true
+              loopMessages.push(
+                {
+                  role: 'assistant',
+                  content: JSON.stringify({ thought: decision.thought, action: decision.action })
+                },
+                {
+                  role: 'user',
+                  content:
+                    `[SYSTEM] ${breaker.failures()} eksekusi tool GAGAL BERUNTUN. ` +
+                    'Berhenti mencoba hal yang sama — pendekatan ini terbukti buntu. ' +
+                    'Tulis "answer" final yang JUJUR: apa yang gagal, bukti terakhir apa, ' +
+                    'dan apa yang user bisa lakukan. JANGAN panggil tool lagi. ' +
+                    '"is_done": true + task_status yang sesuai (blocked bila tak bisa lanjut).'
+                }
+              )
+              break
             }
 
             lastToolExecution = execResult.toolExecution
@@ -2365,6 +2573,9 @@ export const useMarkPlan = ({
         }
       }
     } finally {
+      try {
+        if (typeof unlistenWatchdog === 'function') unlistenWatchdog()
+      } catch {}
       activeSessionUpdatersRef.current.delete(activeSessionNum)
       activeSessionsRef.current.delete(activeSessionNum)
 

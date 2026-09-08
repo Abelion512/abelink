@@ -17,15 +17,15 @@ const getYtm = lazy(async () => {
 on('yt:load', async () => {
   // Future: spawn Tauri WebviewWindow, load youtube.com/music
   // Emit event saat track berubah via yt:track-updated
-  return { success: true, message: 'yt:load not yet implemented in Tauri (needs WebviewWindow)' }
+  return { success: false, message: 'yt:load not yet implemented in Tauri (needs WebviewWindow)' }
 })
 
 on('yt:show', async () => {
-  return { success: true, message: 'yt:show not yet implemented in Tauri' }
+  return { success: false, message: 'yt:show not yet implemented in Tauri' }
 })
 
 on('yt:hide', async () => {
-  return { success: true, message: 'yt:hide not yet implemented in Tauri' }
+  return { success: false, message: 'yt:hide not yet implemented in Tauri' }
 })
 
 on('yt:command', async (command) => {

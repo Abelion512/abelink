@@ -52,4 +52,10 @@ describe('extractLenientField — pemulihan field dari JSON rusak', () => {
     expect(extractLenientField(raw, 'thought')).toBe('proses berjalan')
     expect(extractLenientField(raw, 'intermediate_answer')).toBe('Bentar ya bro')
   })
+
+  it('pulihkan answer yang mengandung unescaped double quote seperti inch (8.7" Display)', () => {
+    const raw = '{"thought":"cek","answer":"Tablet Samsung Galaxy Tab A9 8.7" Display bagus","is_done":true}'
+    expect(extractLenientField(raw, 'answer')).toBe('Tablet Samsung Galaxy Tab A9 8.7" Display bagus')
+  })
 })
+

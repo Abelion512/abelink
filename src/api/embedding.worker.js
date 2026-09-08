@@ -10,13 +10,17 @@ env.useFSCache = false
 // yang sudah ter-cached, sehingga retry non-SIMD selalu gagal.
 function isWasmSimdSupported() {
   try {
-    // Modul WASM SIMD satu instruksi: (v128.const) — hanya valid bila SIMD didukung.
+    // Modul WASM SIMD satu instruksi: (v128.const)
+    // WebKitGTK di Linux sering mengembalikan validate(true) tapi gagal saat
+    // kompilasi modul (CompileError: wasm-simd is not enabled).
+    // Oleh karena itu, kita uji langsung dengan new WebAssembly.Module().
     const simdModule = new Uint8Array([
       0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x05, 0x01, 0x60, 0x00, 0x01, 0x7b,
       0x03, 0x02, 0x01, 0x00, 0x0a, 0x0e, 0x01, 0x0c, 0x01, 0x03, 0x00, 0x41, 0x00, 0xfd, 0x0c,
       0x00, 0xfd, 0x7d, 0x01, 0x0b
     ])
-    return WebAssembly.validate(simdModule)
+    new WebAssembly.Module(simdModule)
+    return true
   } catch (_) {
     return false
   }
@@ -38,23 +42,24 @@ let initFailed = false
  * Init sekali dan DIJAMIN tunggal: semua pemanggil concurrent berbagi promise
  * yang sama. Tanpa ini, embed yang datang saat init berjalan mendapat null
  * dan melempar "Extractor not ready" (race lama yang membanjiri console boot).
- *
- * Fallback ladder (smart per request #1): SIMD -> non-SIMD wasm -> CPU -> gagal
- * (barulah Lite Mode). Model MiniLM jalan di ONNX ops generik, jadi non-SIMD
- * tetap KORREK — hanya lebih lambat (~2-4x). Embedding nyata >>> hash.
  */
 function getExtractor(progressCallback) {
   if (extractorPromise) return extractorPromise
   if (initFailed) return Promise.reject(new Error('Extractor init gagal — gunakan Lite Mode'))
 
+  // ONNX runtime web di WebKitGTK Linux mewajibkan wasm SIMD. Jika SIMD tidak didukung,
+  // memanggil pipeline() akan memicu unduhan 23MB dan crash Emscripten abort().
+  // Langsung tolak ke Lite Mode tanpa membebani thread dan membanjiri konsol.
+  if (!simdSupported) {
+    initFailed = true
+    return Promise.reject(new Error('WebAssembly SIMD tidak didukung — beralih ke Lite Mode'))
+  }
+
   extractorPromise = (async () => {
-    const attempts = []
-    if (simdSupported) attempts.push({ device: 'wasm', simd: true })
-    // WebKitGTK (Tauri Linux) tanpa SIMD: wasm scalar masih valid.
-    attempts.push({ device: 'wasm', simd: false })
-    attempts.push({ device: 'cpu', simd: false })
+    const attempts = [{ device: 'wasm', simd: true }]
 
     let lastErr = null
+    const failures = []
     for (const attempt of attempts) {
       try {
         if (attempt.simd === false) {
@@ -70,23 +75,23 @@ function getExtractor(progressCallback) {
           }
         )
         if (attempt.device !== 'wasm' || attempt.simd === false) {
-          console.warn(
+          console.info(
             `[EmbeddingWorker] Init sukses via fallback device=${attempt.device} simd=${attempt.simd} — embedding nyata aktif (tanpa downgrade hash).`
           )
         }
         return extractor
       } catch (err) {
         lastErr = err
-        console.warn(
-          `[EmbeddingWorker] Attempt device=${attempt.device} simd=${attempt.simd} gagal: ${err?.message || err}`
-        )
+        // Kumpulkan diam-diam; satu ringkasan di bawah (bukan warn per attempt).
+        failures.push(`${attempt.device}/simd=${attempt.simd}: ${err?.message || err}`)
       }
     }
     const isSimdIssue =
       /SIMD/i.test(lastErr?.message || '') || /no available backend/i.test(lastErr?.message || '')
     if (isSimdIssue) {
       console.warn(
-        '[EmbeddingWorker] Semua attempt WASM/CPU gagal — beralih ke Lite Mode (hash embedding).'
+        '[EmbeddingWorker] Semua attempt WASM/CPU gagal — beralih ke Lite Mode (hash embedding). ' +
+          `Rincian: ${failures.join(' | ')}`
       )
     }
     initFailed = true

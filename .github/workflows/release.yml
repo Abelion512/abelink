@@ -107,6 +107,11 @@ jobs:
           workspaces: src-tauri
       - name: Install dependencies (frozen lockfile)
         run: bun install --frozen-lockfile
+      - name: Build sidecar (single-file)
+        run: bun run build:sidecar
+      - name: Smoke test sidecar binary
+        run: |
+          printf '%s\n' '{"id":1,"action":"ping","payload":[]}' | timeout 20 ./dist-sidecar/mark-engine | grep -q engine:ready
       - name: Build Tauri (AppImage + deb)
         run: bun tauri build
       - name: Kumpulkan artefak

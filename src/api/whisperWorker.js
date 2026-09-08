@@ -65,7 +65,8 @@ self.onmessage = async (e) => {
             // WebGPU ada tapi gagal inisialisasi -> turun ke wasm biasa.
             transcriber = await createTranscriber('wasm', progress_callback);
           } else if (/SIMD|no available backend/i.test(msg)) {
-            console.warn('[WhisperWorker] WASM SIMD tidak tersedia, mencoba backend non-SIMD...');
+            // Sekali info (bukan warn berulang): retry non-SIMD di bawah ini
+            // yang menentukan; bila itu pun gagal, satu error ringkas saja.
             env.backends.onnx.wasm.simd = false;
             transcriber = await createTranscriber('wasm', progress_callback);
           } else {
@@ -74,7 +75,8 @@ self.onmessage = async (e) => {
         }
         self.postMessage({ type: 'loaded' });
       } catch (err) {
-        console.error('[WhisperWorker] Load error:', err);
+        // Satu baris ringkas; detail penuh ikut postMessage error ke main thread.
+        console.warn('[WhisperWorker] Load gagal, whisper lokal nonaktif sesi ini:', err?.message || err);
         if (err instanceof SyntaxError && err.message.includes('JSON')) {
           try {
             if (typeof caches !== 'undefined') {

@@ -55,6 +55,7 @@ pub fn os_is_x11() -> bool {
 #[tauri::command]
 pub fn os_click(app: AppHandle, query: String) -> Result<ToolResult, String> {
     require_x11()?;
+    crate::mission_scope::check_tool("os-control")?;
     let lower = query.to_lowercase();
     if is_dangerous_key(&query) && lower.contains("click") {
         // Approval berjenjang (family os-control).
@@ -81,6 +82,7 @@ pub fn os_click(app: AppHandle, query: String) -> Result<ToolResult, String> {
 #[tauri::command]
 pub fn os_double_click(app: AppHandle, query: String) -> Result<ToolResult, String> {
     require_x11()?;
+    crate::mission_scope::check_tool("os-control")?;
     if is_dangerous_key(&query) {
         // Approval berjenjang (family os-control).
         let eff = crate::approval_policy::effective_policy("os-control");
@@ -118,6 +120,7 @@ pub fn os_delay(query: String) -> Result<ToolResult, String> {
 #[tauri::command]
 pub fn os_type(app: AppHandle, text: String) -> Result<ToolResult, String> {
     require_x11()?;
+    crate::mission_scope::check_tool("os-control")?;
     if is_dangerous_key(&text) {
         // Approval berjenjang (family os-control): owner bisa set always/session.
         let eff = crate::approval_policy::effective_policy("os-control");
@@ -143,6 +146,7 @@ pub fn os_type(app: AppHandle, text: String) -> Result<ToolResult, String> {
 #[tauri::command]
 pub fn os_key(app: AppHandle, key: String) -> Result<ToolResult, String> {
     require_x11()?;
+    crate::mission_scope::check_tool("os-control")?;
     if is_dangerous_key(&key) {
         // Approval berjenjang (family os-control): owner bisa set always/session.
         let eff = crate::approval_policy::effective_policy("os-control");
@@ -196,6 +200,7 @@ pub fn os_key(app: AppHandle, key: String) -> Result<ToolResult, String> {
 #[tauri::command]
 pub fn os_scroll(query: String) -> Result<ToolResult, String> {
     require_x11()?;
+    crate::mission_scope::check_tool("os-control")?;
     // xdotool: button 4=scroll up, button 5=scroll down
     let btn = if query.to_lowercase().contains("up") {
         "4"
@@ -236,6 +241,7 @@ pub fn os_list_windows() -> Result<ToolResult, String> {
 #[tauri::command]
 pub fn os_focus_window(query: String) -> Result<ToolResult, String> {
     require_x11()?;
+    crate::mission_scope::check_tool("os-control")?;
     let out = xdotool(&["windowfocus", &query])?;
     Ok(ToolResult {
         success: true,
@@ -246,6 +252,7 @@ pub fn os_focus_window(query: String) -> Result<ToolResult, String> {
 
 #[tauri::command]
 pub fn os_open(_app: AppHandle, query: String) -> Result<ToolResult, String> {
+    crate::mission_scope::check_tool("os-control")?;
     // os-open via xdg-open (Linux standard)
     let out = Command::new("xdg-open")
         .arg(&query)

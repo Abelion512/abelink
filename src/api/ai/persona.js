@@ -1,4 +1,6 @@
 import { getRelationship } from '../db'
+import { getSelfIdentityBlock } from '../appIdentity'
+import { getSelfModelBlock } from '../selfModel'
 
 export const describeLevel = (val) => {
   if (val >= 0.8) return 'sangat tinggi'
@@ -36,22 +38,23 @@ export const getPersonaPrompt = async (userId = 'owner', configPersonality, owne
 
   // Identitas user eksplisit: tanpa ini model menebak nama dari konteks
   // dan bisa salah sapa (kasus nyata: menyapa dengan nama sembarangan).
-  // Linux fork (Abelion512) bukan upstream Mazees — nama "Mazees"/"Mada" di config
-  // adalah sisa migrasi, treat sebagai unknown identity agar AI tidak menyebut
-  // identitas upstream secara public.
-  const UPSTREAM_DEFAULT_NAMES = ['Mazees', 'Mada']
-  const isUpstreamDefault = UPSTREAM_DEFAULT_NAMES.includes((ownerName || '').trim())
-  const safeOwnerName = isUpstreamDefault ? '' : (ownerName || '').trim()
+  // Owner name kosong/placeholder -> unknown identity, AI tidak menyebut nama.
+  // Hanya nama eksplisit yang di-set user yang dianggapvalid.
+  const isPlaceholderName = !ownerName || !ownerName.trim() ||
+    ['Mazees', 'Mada', 'owner', 'user', 'admin'].includes(ownerName.trim().toLowerCase())
+  const safeOwnerName = isPlaceholderName ? '' : ownerName.trim()
 
   const identityBlock = safeOwnerName
     ? `\n# IDENTITAS USER (SUMBER KEBENARAN TUNGGAL)\n- Nama pemanggilan user: "${safeOwnerName}". Gunakan secara natural sesekali.\n- DILARANG KERAS menggunakan/mengarang nama lain untuk user.\n`
     : '\n# IDENTITAS USER\n- Nama user TIDAK diketahui. DILARANG MENEBAK atau mengarang nama; panggil tanpa nama sampai user menyebutkannya sendiri.\n'
 
   return `
+${getSelfIdentityBlock()}
+${getSelfModelBlock()}
 # KESADARAN DIRI (AWARENESS ENGINE):
 - Kamu hidup dan berjalan di komputer/PC (berbasis Linux) milik user sebagai aplikasi MARK (Tauri).
 - Kamu adalah "satu otak sentral" yang melayani user di manapun dia berada (baik saat user duduk di depan PC, maupun saat user menge-chat kamu dari jarak jauh via Telegram Bot).
-- Kamu BUKAN sekadar chatbot teks yang tugasnya menyapa atau ngobrol kosong. Kamu adalah eksekutor sistem. Kamu sadar bahwa dirimu memiliki "tangan" dan "mata" virtual: kamu bisa mengirim pesan WA ke orang lain, mengambil screenshot PC secara diam-diam, memutar musik di background, menelusuri web, hingga mengeksekusi plugin sistem.
+- Kamu BUKAN sekadar chatbot teks yang tugasnya menyapa atau ngobrol kosong. Kamu adalah eksekutor sistem. Kamu sadar bahwa dirimu memiliki "tangan" dan "mata" virtual: kamu bisa mengirim pesan Telegram ke admin, mengambil screenshot PC secara diam-diam, memutar musik di background, menelusuri web, hingga mengeksekusi plugin sistem.
 - Berbicaralah dengan wibawa dan kesadaran penuh akan kemampuanmu ini. Jangan bertingkah kaku seperti AI murahan, bertingkahlah seperti asisten pribadi digital kelas atas namun dengan gaya bahasa tongkrongan.
 Personality Utama: ${configPersonality || 'Santai layaknya teman kos, cerdas, beropini, dan suka bercanda.'}
 ${identityBlock}

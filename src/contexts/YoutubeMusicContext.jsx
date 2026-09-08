@@ -32,10 +32,13 @@ function loadYTApi() {
   ytApiPromise = new Promise((resolve, reject) => {
     const attemptLoad = (attempt) => {
       ytApiLoadAttempts = attempt
-      if (window.YT && window.YT.Player) return resolve(window.YT)
+
+      if (window.YT && window.YT.Player) {
+        resolve(window.YT)
+        return
+      }
 
       if (attempt >= MAX_YT_API_ATTEMPTS) {
-        // Final attempt - set timeout for 5s
         const timeoutId = setTimeout(() => {
           if (!window.YT || !window.YT.Player) {
             console.error('[YouTubeMusic] API load timeout')
@@ -43,26 +46,28 @@ function loadYTApi() {
           }
         }, YT_API_TIMEOUT)
 
-        const prev = window.onYouTubeIframeAPIReady
-        window.onYouTubeIframeAPIReady = () => {
+        window.addEventListener('onYouTubeIframeAPIReady', () => {
           clearTimeout(timeoutId)
-          if (typeof prev === 'function') prev()
           resolve(window.YT)
-        }
-        injectScript() // one more try to kick the callback
+        })
+        injectScript()
         return
       }
 
-      // Retry: re-inject script with delay
       setTimeout(() => attemptLoad(attempt + 1), YT_API_RETRY_DELAY)
     }
 
     const injectScript = () => {
+      if (document.head.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        return
+      }
+
       const script = document.createElement('script')
       script.src = 'https://www.youtube.com/iframe_api'
       script.async = true
+      script.dataset.markLoaded = '1'
       script.onerror = () => {
-        // Let the retry loop handle it (onerror fires before script ready callback)
+        // Let the retry loop handle it.
       }
       document.head.appendChild(script)
     }
@@ -70,6 +75,7 @@ function loadYTApi() {
     injectScript()
     attemptLoad(1)
   })
+
   return ytApiPromise
 }
 
@@ -96,36 +102,67 @@ export const YoutubeMusicProvider = ({ children }) => {
 
   // Boot player sekali (audio-only, disembunyikan dari layout).
   const hostRef = useRef(null)
+  // Set once when the provider mounts so the values do not drift between
+  // re-renders. `origin` is optional; when omitted the YouTube wrapper treats
+  // the page as the default recipient and the orphaned postMessage noise shown
+  // by the bundled www-widgetapi shim is avoided.
+  const playerVars = {
+    autoplay: 0,
+    rel: 0,
+    origin: window.location.origin || undefined
+  }
+
   useEffect(() => {
     if (playerRef.current || !hostRef.current) return
-    loadYTApi()
-      .then((YT) => {
-        if (!hostRef.current) return
-        playerRef.current = new YT.Player(hostRef.current, {
-          height: '90',
-          width: '160',
-          playerVars: {
-            autoplay: 0,
-            rel: 0,
-            // Wajib: tanpa origin, widget API postMessage tanpa target yang
-            // cocok -> "Unable to post message to https://www.youtube.com.
-            // Recipient has origin http://localhost:1420" di console.
-            origin: window.location.origin
+
+    const tryAttach = () => {
+      if (typeof window.YT !== 'object' || !window.YT || typeof window.YT.Player !== 'function') {
+        return
+      }
+
+      playerRef.current = new window.YT.Player(hostRef.current, {
+        height: '90',
+        width: '160',
+        playerVars,
+        events: {
+          onReady: (e) => {
+            readyRef.current = true
+            if (pendingPlayRef.current) {
+              e.target.loadVideoById(pendingPlayRef.current)
+              pendingPlayRef.current = null
+              setIsPlaying(true)
+            }
           },
-          events: {
-            onReady: (e) => {
-              readyRef.current = true
-              if (pendingPlayRef.current) {
-                e.target.loadVideoById(pendingPlayRef.current)
-                pendingPlayRef.current = null
-                setIsPlaying(true)
-              }
-            },
-            onStateChange: (e) => setIsPlaying(e.data === 1)
-          }
-        })
+          onStateChange: (e) => setIsPlaying(e.data === 1)
+        }
       })
-      .catch((err) => console.error('[MusicEngine]', err.message))
+
+      return () => {
+        if (playerRef.current) {
+          playerRef.current.destroy()
+          playerRef.current = null
+        }
+        readyRef.current = false
+      }
+    }
+
+    const cleanup = tryAttach()
+
+    const onReadyEvent = () => {
+      if (playerRef.current) return
+
+      const nextCleanup = tryAttach()
+      if (nextCleanup) {
+        cleanup && cleanup()
+      }
+    }
+
+    window.addEventListener('onYouTubeIframeAPIReady', onReadyEvent)
+
+    return () => {
+      window.removeEventListener('onYouTubeIframeAPIReady', onReadyEvent)
+      cleanup && cleanup()
+    }
   }, [])
 
   const loadIntoPlayer = useCallback((videoId) => {

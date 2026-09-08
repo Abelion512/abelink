@@ -396,32 +396,48 @@ export async function executeAction(data, sessionId = 'default') {
             style.textContent = \`
               #mark-cursor {
                 position: fixed;
-                width: 24px;
-                height: 24px;
+                width: 28px;
+                height: 28px;
                 pointer-events: none;
                 z-index: 2147483647;
-                transition: left 0.5s cubic-bezier(0.22, 1, 0.36, 1), 
-                            top 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+                transition: left 0.35s cubic-bezier(0.22, 1, 0.36, 1), 
+                            top 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+                filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
               }
               #mark-cursor svg {
                 width: 100%;
                 height: 100%;
               }
+              #mark-cursor.highlight {
+                transform: scale(1.3);
+                filter: drop-shadow(0 0 12px rgba(31, 184, 84, 0.8));
+              }
               .mark-click-ripple {
                 position: fixed;
-                width: 20px;
-                height: 20px;
+                width: 32px;
+                height: 32px;
                 border-radius: 50%;
-                background: rgba(56, 189, 248, 0.4);
-                border: 2px solid rgba(56, 189, 248, 0.8);
+                background: radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, rgba(56, 189, 248, 0) 70%);
+                border: 2px solid rgba(56, 189, 248, 0.9);
                 pointer-events: none;
                 z-index: 999998;
-                animation: mark-ripple 0.6s ease-out forwards;
+                animation: mark-ripple 0.7s ease-out forwards;
               }
               @keyframes mark-ripple {
-                0% { transform: scale(0.5); opacity: 1; }
-                100% { transform: scale(3); opacity: 0; }
+                0% { transform: scale(0.3); opacity: 1; }
+                100% { transform: scale(4); opacity: 0; }
+              }
+              .mark-click-flash {
+                position: fixed;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.6);
+                pointer-events: none;
+                z-index: 999997;
+                animation: mark-flash 0.3s ease-out forwards;
+              }
+              @keyframes mark-flash {
+                0% { transform: scale(0.5); opacity: 0.8; }
+                100% { transform: scale(1.2); opacity: 0; }
               }
             \`;
             document.head.appendChild(style);
@@ -431,9 +447,14 @@ export async function executeAction(data, sessionId = 'default') {
           if (!cursor) {
             cursor = document.createElement('div');
             cursor.id = 'mark-cursor';
-            cursor.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M5 3l14 8-6 2-4 6-4-16z" fill="#19362d" stroke="#1fb854" stroke-width="1.5" stroke-linejoin="round"/></svg>';
-            cursor.style.left = '50%';
-            cursor.style.top = '50%';
+            cursor.innerHTML = \`
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5.5 3.5l12 7.5-6.5 2.5-4.5 7L5.5 12 1 5.5l4.5-2z" fill="#15543a" stroke="#22c55e" stroke-width="1.2" stroke-linejoin="round"/>
+                <circle cx="14" cy="14" r="3" fill="#22c55e" opacity="0.6"/>
+              </svg>
+            \`;
+            cursor.style.left = '-100px';
+            cursor.style.top = '-100px';
             document.body.appendChild(cursor);
           }
           cursor.style.display = 'block';
@@ -442,22 +463,34 @@ export async function executeAction(data, sessionId = 'default') {
           const targetX = rect.left + rect.width / 2;
           const targetY = rect.top + rect.height / 2;
 
+          cursor.classList.add('highlight');
           cursor.style.left = targetX + 'px';
           cursor.style.top = targetY + 'px';
 
           return new Promise(resolve => {
             setTimeout(() => {
+              cursor.classList.remove('highlight');
+              
               const ripple = document.createElement('div');
               ripple.className = 'mark-click-ripple';
-              ripple.style.left = (targetX - 10) + 'px';
-              ripple.style.top = (targetY - 10) + 'px';
+              ripple.style.left = (targetX - 16) + 'px';
+              ripple.style.top = (targetY - 16) + 'px';
               document.body.appendChild(ripple);
-              setTimeout(() => ripple.remove(), 600);
+              setTimeout(() => ripple.remove(), 700);
+
+              const flash = document.createElement('div');
+              flash.className = 'mark-click-flash';
+              flash.style.width = '12px';
+              flash.style.height = '12px';
+              flash.style.left = (targetX - 6) + 'px';
+              flash.style.top = (targetY - 6) + 'px';
+              document.body.appendChild(flash);
+              setTimeout(() => flash.remove(), 300);
 
               el.click();
-              setTimeout(() => { cursor.style.display = 'none'; }, 1000);
+              setTimeout(() => { cursor.style.display = 'none'; }, 1200);
               resolve('Berhasil klik elemen ${id}.');
-            }, 550);
+            }, 400);
           });
         })()`
       )

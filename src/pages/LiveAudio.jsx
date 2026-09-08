@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { getAllConfig } from '../api/db'
 import { transcribeAudioLocal } from '../api/localWhisper'
+import { resolveMicConstraints, micCoolingDown, noteMicFailure } from '../api/mic'
 import { FaChevronLeft, FaMicrophone, FaStop, FaExclamationTriangle } from 'react-icons/fa'
 
 const LiveAudio = () => {
@@ -156,19 +157,16 @@ const LiveAudio = () => {
         stopRecordingCleanup()
         
         const micId = config[0]?.micDeviceId
-        const audioConstraints = {
+        // Cooldown global bersama useVAD: satu kegagalan = diam 60 detik.
+        if (micCoolingDown()) {
+          isStartingRef.current = false
+          return
+        }
+        const constraints = await resolveMicConstraints(micId, {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true
-        }
-        
-        if (micId && micId !== 'default') {
-          audioConstraints.deviceId = { ideal: micId }
-        }
-
-        const constraints = {
-          audio: audioConstraints
-        }
+        })
         const stream = await navigator.mediaDevices.getUserMedia(constraints)
         streamRef.current = stream
 
@@ -268,8 +266,11 @@ const LiveAudio = () => {
         setStatus('listening')
         isStartingRef.current = false
       } catch (error) {
-        console.error('Error starting mic:', error)
-        alert('Gagal mengakses mikrofon. Pastikan Anda telah memberikan izin.')
+        // Gagal mic: toast (bukan alert blocking) + cooldown global.
+        noteMicFailure()
+        console.warn('[LiveAudio] getUserMedia gagal:', error?.message || error)
+        setToastMessage('Gagal mengakses mikrofon. Pastikan izin diberikan.')
+        setTimeout(() => setToastMessage(''), 5000)
         setIsActive(false)
         setStatus('idle')
         isStartingRef.current = false

@@ -92,6 +92,9 @@ pub async fn fs_read_file(path: String, start_line: Option<u32>, end_line: Optio
         Ok(p) => p,
         Err(e) => return err(e),
     };
+    if let Err(e) = crate::mission_scope::check_canonical(&p) {
+        return err(e);
+    }
     let read = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
         let meta = fs::metadata(&p).map_err(|e| format!("Gagal baca metadata: {e}"))?;
         if meta.len() > MAX_READ_BYTES {
@@ -142,6 +145,9 @@ pub async fn fs_write_file(path: String, content: String) -> FsResult {
         Ok(p) => p,
         Err(e) => return err(e),
     };
+    if let Err(e) = crate::mission_scope::check_canonical(&p) {
+        return err(e);
+    }
     let p_out = p.clone();
     let wrote: Result<(), String> = tauri::async_runtime::spawn_blocking(move || {
         if let Some(parent) = Path::new(&p).parent() {
@@ -173,6 +179,9 @@ pub async fn fs_delete_file(path: String) -> FsResult {
     if p == base {
         return err("Ditolak: root workspace tidak boleh dihapus.");
     }
+    if let Err(e) = crate::mission_scope::check_canonical(&p) {
+        return err(e);
+    }
     let p_out = p.clone();
     let removed: Result<(), String> = tauri::async_runtime::spawn_blocking(move || {
         let sp = Path::new(&p);
@@ -193,6 +202,9 @@ pub async fn fs_list_dir(path: String) -> FsResult {
         Ok(p) => p,
         Err(e) => return err(e),
     };
+    if let Err(e) = crate::mission_scope::check_canonical(&p) {
+        return err(e);
+    }
     let listed = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
         let entries =
             fs::read_dir(&p).map_err(|e| format!("Gagal baca folder {}: {e}", p.display()))?;
@@ -240,6 +252,9 @@ pub async fn fs_grep_search(dir: String, keyword: String) -> FsResult {
         Ok(b) => b,
         Err(e) => return err(e),
     };
+    if let Err(e) = crate::mission_scope::check_canonical(&base) {
+        return err(e);
+    }
     let kw_msg = keyword.clone();
     let base_disp = base.display().to_string();
     let hits = tauri::async_runtime::spawn_blocking(move || -> Result<Vec<String>, String> {

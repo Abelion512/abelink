@@ -397,7 +397,7 @@ export async function searchArchives(queryVector, limit = 3) {
     const hits = results.hits.filter((h) =>
       rowModelCompatible(h.document.vectorModel, currentModel)
     )
-    console.log(
+    console.debug(
       `[Orama] Found ${hits.length} archives. Scores:`,
       hits.map((h) => h.score)
     )
@@ -416,7 +416,7 @@ export async function searchDocuments(queryText, queryVector, limit = 5) {
     return []
   }
   try {
-    console.log(
+    console.debug(
       `[Orama] Searching documents for: "${queryText}", vector length: ${queryVector?.length}`
     )
     const results = await search(docIdx, {
@@ -432,7 +432,7 @@ export async function searchDocuments(queryText, queryVector, limit = 5) {
     const hits = results.hits.filter((h) =>
       rowModelCompatible(h.document.vectorModel, currentModel)
     )
-    console.log(
+    console.debug(
       `[Orama] Found ${hits.length} documents. Scores:`,
       hits.map((h) => h.score)
     )

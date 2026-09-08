@@ -103,6 +103,11 @@ jobs:
           workspaces: src-tauri
       - name: Install dependencies (frozen lockfile)
         run: bun install --frozen-lockfile
+      - name: Build sidecar (single-file)
+        run: bun run build:sidecar
+      - name: Smoke test sidecar binary
+        run: |
+          printf '%s\n' '{"id":1,"action":"ping","payload":[]}' | timeout 20 ./dist-sidecar/mark-engine | grep -q engine:ready
       - run: bun tauri build
       - uses: actions/upload-artifact@v4
         with:

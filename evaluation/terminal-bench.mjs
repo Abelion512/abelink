@@ -155,8 +155,10 @@ export async function runTask(taskId, model, provider, opts = {}) {
   }
 }
 
-export function runAll(model, provider, opts) {
-  return Promise.all(Object.keys(TASKS).map((id) => runTask(id, model, provider, opts)))
+export async function runAll(model, provider, opts) {
+  return Promise.all(
+    Object.keys(TASKS).map((id) => runTask(id, model, provider, opts))
+  )
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

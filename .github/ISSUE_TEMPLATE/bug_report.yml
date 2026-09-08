@@ -6,16 +6,15 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting! Check [existing issues](https://github.com/Mazees/mark-agent/issues) first.
+        Thanks for reporting! Check [existing issues](https://github.com/Abelion512/mark-agent-linux/issues) first.
 
   - type: dropdown
     id: version
     attributes:
       label: Version
       options:
-        - v4.x (current)
-        - v3.x (legacy)
-        - Built from source (main branch)
+        - v1.0.0-alpha.x (current)
+        - Built from source (linux branch)
     validations:
       required: true
 
@@ -28,8 +27,6 @@ body:
         - Linux (deb)
         - Linux (snap)
         - Linux (built from source)
-        - Windows
-        - macOS
     validations:
       required: true
 

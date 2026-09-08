@@ -57,6 +57,12 @@ pub fn git_diff(cwd: Option<String>, range: Option<String>) -> GitResult {
 #[tauri::command]
 pub fn git_commit(app: tauri::AppHandle, message: String, cwd: Option<String>) -> GitResult {
     let path = resolve_cwd(cwd);
+    if let Err(e) = crate::mission_scope::check_tool("git-commit") {
+        return GitResult { success: false, output: String::new(), error: Some(e) };
+    }
+    if let Err(e) = crate::mission_scope::check_canonical(&path) {
+        return GitResult { success: false, output: String::new(), error: Some(e) };
+    }
     // Approval berjenjang (family git-write): always/session lolos tanpa dialog.
     let eff = crate::approval_policy::effective_policy("git-write");
     if eff != crate::approval_policy::POLICY_ALWAYS && eff != crate::approval_policy::POLICY_SESSION {
@@ -71,6 +77,12 @@ pub fn git_commit(app: tauri::AppHandle, message: String, cwd: Option<String>) -
 #[tauri::command]
 pub fn git_revert(app: tauri::AppHandle, target: String, cwd: Option<String>) -> GitResult {
     let path = resolve_cwd(cwd);
+    if let Err(e) = crate::mission_scope::check_tool("git-revert") {
+        return GitResult { success: false, output: String::new(), error: Some(e) };
+    }
+    if let Err(e) = crate::mission_scope::check_canonical(&path) {
+        return GitResult { success: false, output: String::new(), error: Some(e) };
+    }
     let eff = crate::approval_policy::effective_policy("git-write");
     if eff != crate::approval_policy::POLICY_ALWAYS && eff != crate::approval_policy::POLICY_SESSION {
         let desc = format!("Mark ingin revert git:\n\nTarget: {}\nPath: {}", target, path.display());

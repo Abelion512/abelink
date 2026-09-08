@@ -237,9 +237,27 @@ on('skills:rename-item', async (name, oldRelativePath, newRelativePath) => {
 // Install skill dari file .zip (dipilih lewat dialog native misc_open_file_dialog).
 on('skills:install', async (sourcePath) => {
   try {
-    if (typeof sourcePath !== 'string' || !sourcePath.endsWith('.zip')) {
-      throw new Error('Hanya mendukung file .zip')
+    if (
+      typeof sourcePath !== 'string' ||
+      (!sourcePath.endsWith('.zip') && !sourcePath.endsWith('.tar.gz') && !sourcePath.endsWith('.tgz'))
+    ) {
+      throw new Error('Hanya mendukung file .zip, .tar.gz, atau .tgz')
     }
+
+    if (sourcePath.endsWith('.tar.gz') || sourcePath.endsWith('.tgz')) {
+      const { execFile } = await import('child_process')
+      const { promisify } = await import('util')
+      const execFilePromise = promisify(execFile)
+      const baseName = path.basename(sourcePath).replace(/(\.tar\.gz|\.tgz)$/, '')
+      const targetPath = path.join(SKILLS_DIR, baseName)
+      if (!fs.existsSync(targetPath)) {
+        fs.mkdirSync(targetPath, { recursive: true })
+      }
+      await execFilePromise('tar', ['-xzf', sourcePath, '-C', targetPath])
+      emitSkillsUpdated()
+      return true
+    }
+
     const { default: AdmZip } = await import('adm-zip')
     const zip = new AdmZip(sourcePath)
     const zipEntries = zip.getEntries()

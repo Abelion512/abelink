@@ -15,6 +15,8 @@
 //   FINAL          — objective claimed completed; report & terminate
 //   BLOCKED        — cannot progress (permission/safety/external dependency); report
 //   NEEDS_USER     — a user/lead decision is required before progress is possible
+//   SELF_TERMINATE — the agent itself declares out-of-scope/danger and stops.
+//                    Precedence: explicit self-stop beats even an emitted action.
 //
 // The external JSON protocol ({ thought, action, answer, is_done, task_status,
 // objective }) stays byte-compatible. This module only changes how the harness
@@ -26,10 +28,11 @@ export const INTENT = {
   CONTINUE: 'continue',
   FINAL: 'report_final',
   BLOCKED: 'report_blocked',
-  NEEDS_USER: 'request_decision'
+  NEEDS_USER: 'request_decision',
+  SELF_TERMINATE: 'self_terminate'
 }
 
-export const TERMINAL_OUTCOMES = ['final', 'blocked', 'needs_user'] // internal terminal report types
+export const TERMINAL_OUTCOMES = ['final', 'blocked', 'needs_user', 'self_terminated'] // internal terminal report types
 
 // Answer-text markers that signal a permission/approval/safety wall, not a
 // generic tool failure ("tool X tidak bisa dipakai, coba Y" is recovery, not
@@ -54,6 +57,25 @@ export function isBlockedText(text = '') {
   return BLOCKED_TEXT.test(String(text || ''))
 }
 
+// Agent declares ITSELF out of scope / stopping. Narrow vocabulary only:
+// an explicit self-stop statement, not frustration ("duh, gagal terus") and
+// not a question. Text heuristic never overrides an emitted action — only the
+// explicit completion/state marker does (see isExplicitSelfTerminate).
+const SELF_TERMINATE_TEXT =
+  /(aku |saya )?(menghentikan diri|berhenti (karena|sebab)|keluar dari (scope|misi|cakupan|tugas)|di luar (scope|cakupan|tugas|misi|kemampuanku|kemampuan saya)|out of scope|self.?terminate|menghentikan misi|abort(ing)? (the )?mission|bunuh diri)/i
+
+export function isSelfTerminateText(text = '') {
+  return SELF_TERMINATE_TEXT.test(String(text || ''))
+}
+
+// Explicit protocol-level self-stop: completion/status marker. The ONLY signal
+// allowed to beat an emitted action (emergency brake direction: stop > act).
+export function isExplicitSelfTerminate(decision = {}) {
+  if (explicitState(decision) === 'self_terminated') return true
+  const t = String(decision.task_status || '').toLowerCase()
+  return ['self_terminate', 'self-terminate', 'self_terminated', 'abort_mission', 'abort-mission'].includes(t)
+}
+
 const hasActionShape = (decision = {}) =>
   !!(decision.action && (decision.action.tool || Array.isArray(decision.action)))
 
@@ -67,6 +89,9 @@ const explicitState = (decision = {}) => {
   if (['blocked', 'stuck'].includes(c)) return 'blocked'
   if (['needs_user', 'needs_input', 'ask', 'request_decision'].includes(c)) return 'needs_user'
   if (['continue', 'working', 'in_progress'].includes(c)) return 'in_progress'
+  if (['self_terminate', 'self-terminate', 'self_terminated', 'abort_mission', 'abort-mission'].includes(c)) {
+    return 'self_terminated'
+  }
   return null
 }
 
@@ -86,6 +111,12 @@ export function classifyMainDecision(decision = {}, ctx = {}) {
 
   if (disableTools) {
     return { intent: INTENT.FINAL, terminal: true, reason: 'tools-disabled' }
+  }
+
+  // Emergency brake: an explicit self-stop beats even an emitted action.
+  // Never execute a tool the agent itself disavows.
+  if (isExplicitSelfTerminate(decision)) {
+    return { intent: INTENT.SELF_TERMINATE, terminal: true, reason: 'explicit-self-terminate' }
   }
 
   // Tool call always wins: the agent moves, then observes, then decides again.
@@ -125,6 +156,9 @@ export function classifyMainDecision(decision = {}, ctx = {}) {
     if (mission) {
       // Answer without a completion claim while a mission is active is a
       // progress/blocked report, NOT a termination signal.
+      if (isSelfTerminateText(answer) && !decision.is_done) {
+        return { intent: INTENT.SELF_TERMINATE, terminal: true, reason: 'self-terminate-reported' }
+      }
       if (isBlockedText(answer) && !decision.is_done) {
         return { intent: INTENT.BLOCKED, terminal: true, reason: 'blocked-reported' }
       }
@@ -177,10 +211,13 @@ export function classifySubagentAnswer(decision = {}, ctx = {}) {
   if (explicit === 'final') return { type: 'final', reason: 'explicit-done' }
   if (explicit === 'blocked') return { type: 'blocked', reason: 'explicit-blocked' }
   if (explicit === 'needs_user') return { type: 'needs_input', reason: 'explicit-needs-user' }
+  if (explicit === 'self_terminated') return { type: 'self_terminated', reason: 'explicit-self-terminate' }
   if (explicit === 'in_progress') return { type: 'continue', reason: 'explicit-continue' }
 
   const answer = typeof decision.answer === 'string' && decision.answer.trim() ? decision.answer : ''
   if (!answer) return { type: 'continue', reason: 'empty-decision' }
+
+  if (isSelfTerminateText(answer)) return { type: 'self_terminated', reason: 'self-terminate-reported' }
 
   const lastFailed = /(\[ERROR\]|\[DITOLAK\]|failed|timeout|ECONNREFUSED|HTTP [45]\d\d)/i.test(
     String(lastObservation || '')
@@ -206,4 +243,4 @@ export function classifySubagentAnswer(decision = {}, ctx = {}) {
     : { type: 'final', reason: 'report-no-tools' }
 }
 
-export default { INTENT, classifyMainDecision, classifySubagentAnswer, isBlockedText, isQuestionText }
+export default { INTENT, classifyMainDecision, classifySubagentAnswer, isBlockedText, isQuestionText, isSelfTerminateText, isExplicitSelfTerminate }

@@ -6,8 +6,10 @@ export const GROUP_TOOLS_DEFINITION = {
       'browser-navigate':
         'Buka URL di browser fisik. Query: URL lengkap. Mengembalikan daftar elemen interaktif bernomor (ID).',
       'browser-read': 'Scan ulang elemen halaman saat ini. Gunakan setelah menunggu loading.',
-      'browser-click': 'Klik elemen. Query: ID angka. Mengembalikan DOM terbaru setelah klik.',
-      'browser-type': 'Ketik teks di kolom input. Query: ID||teks. Mengembalikan DOM terbaru.',
+      'browser-click':
+        'Klik elemen. Query: ID (mk1, mk2, ...). WAJIB read-dom/browser-navigate di SESI YANG SAMA dulu; ID dari turn/sesi lain = basi, JANGAN diklik. Mengembalikan DOM terbaru setelah klik.',
+      'browser-type':
+        'Ketik teks di kolom input. Query: ID||teks. WAJIB read-dom di SESI YANG SAMA dulu; ID basi JANGAN dipakai.',
       'browser-scroll': 'Scroll halaman. Query: "up" atau "down".',
       'browser-extract':
         'Ekstrak teks/data via CSS Selector. Kembalikan JSON. Query: selector CSS (misal: ".product-price").',
@@ -15,6 +17,11 @@ export const GROUP_TOOLS_DEFINITION = {
         'Eksekusi custom Javascript di browser (Bisa untuk manipulasi DOM / bypass). Query: script JS murni.',
       'browser-screenshot': 'Ambil screenshot web utuh dan simpan ke OS. Query: namafile.png.',
       'browser-download': 'Download URL secara fisik ke OS. Query: URL||namafile.ext.',
+      'browser-back':
+        'Navigasi mundur (history back) di tab browser fisik tanpa terhalang CSP. Query: kosong.',
+      'browser-forward':
+        'Navigasi maju (history forward) di tab browser fisik tanpa terhalang CSP. Query: kosong.',
+      'browser-reload': 'Muat ulang (refresh) tab browser fisik saat ini. Query: kosong.',
       'browser-ask-user':
         'JIKA terhalang form login/CAPTCHA, BUKAKAN HALAMANNYA DULU (misal klik tombol \'Login\' hingga form muncul), lalu GUNAKAN TOOL INI. Query: Instruksi/Pesan untuk user (misal: "Tolong isi email dan password"). Pesanmu akan muncul di layar popup. Setelah user selesai, kamu akan langsung mendapat DOM terbaru untuk MELANJUTKAN misimu. Jangan berhenti!',
       'browser-close': 'Menutup browser fisik.'
@@ -175,6 +182,33 @@ export const GROUP_TOOLS_DEFINITION = {
       'list-tasks':
         'Melihat seluruh background tasks yang sedang berjalan beserta PID dan statusnya. Query: kosongkan.'
     }
+  }
+}
+
+// Status koneksi extension browser untuk disuntik ke prompt planner.
+// Best-effort + bounded (3 detik): gagal/timeout = anggap tidak tersambung,
+// JANGAN pernah melempar (read-tools tidak boleh gagal karena status).
+// Menyertakan umur bacaan: status bisa basi bila extension tersambung
+// SETELAH read-tools; bila ragu, read-tools ulang sebelum klik.
+export async function browserExtensionStatusLine() {
+  const stamp = new Date()
+  const age = ` (dibaca ${stamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}; bisa basi, read-tools ulang bila ragu)`
+  const fallback =
+    'Status extension browser: TIDAK DIKETAHUI (asumsikan belum aktif; coba browser-navigate untuk memicu koneksi).' + age
+  try {
+    if (typeof window === 'undefined' || !window.api?.runNodeFunction) return fallback
+    const st = await Promise.race([
+      window.api.runNodeFunction('browser:status'),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
+    ])
+    const live = Array.isArray(st?.sessions) && st.sessions.some((s) => s.connected)
+    return (
+      live
+        ? `Status extension browser: TERSAMBUNG (browser-click/type/extract fisik tersedia).\nVisual: kursor hijau animasi + ripple efek muncul saat klik (mirip browser-use).\nTetap WAJIB read-dom di sesi yang sama sebelum klik.`
+        : 'Status extension browser: BELUM TERHUBUNG. Mulai dengan browser-navigate untuk navigasi awal dan inisialisasi sesi.'
+    ) + age
+  } catch {
+    return fallback
   }
 }
 

@@ -16,6 +16,7 @@ on('plugin:toggle', async (pluginName, isEnabled) => (await getPl()).pluginToggl
 on('plugin:reload', async () => (await getPl()).pluginReload())
 on('plugin:create', async (payload) => (await getPl()).pluginCreate(payload))
 on('plugin:delete', async (pluginName) => (await getPl()).pluginDelete(pluginName))
+on('plugin:install-git', async (repoUrl) => (await getPl()).pluginInstallFromGit(repoUrl))
 
 // Listing metadata saja (nama/deskripsi/actions) — kode plugin tidak dieksekusi
 // di jalur ini; eksekusi tetap fase C4 (Web Worker sandbox, load-when-needed).

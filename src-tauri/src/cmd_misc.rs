@@ -393,3 +393,72 @@ pub fn misc_take_screenshot() -> Result<String, String> {
     let _ = std::fs::remove_file(&path);
     Err(last_err)
 }
+
+/// Baca file biner (gambar lampiran) sebagai data URL base64 untuk vision payload.
+/// Batas 10MB sama seperti fs_read_file. Tanpa confinement workspace seperti
+/// misc_stat_path — path berasal dari dialog native / temp file lampiran.
+#[tauri::command]
+pub fn misc_read_file_base64(path: String) -> Result<String, String> {
+    const MAX_BYTES: u64 = 10 * 1024 * 1024;
+    let p = std::path::PathBuf::from(&path);
+    let meta = std::fs::metadata(&p).map_err(|e| format!("{}: {}", e, path))?;
+    if meta.len() > MAX_BYTES {
+        return Err(format!("File >10MB, tolak baca: {}", path));
+    }
+    let bytes = std::fs::read(&p).map_err(|e| format!("{}: {}", e, path))?;
+    let mime = match p
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "webp" => "image/webp",
+        "gif" => "image/gif",
+        "bmp" => "image/bmp",
+        _ => "application/octet-stream",
+    };
+    Ok(format!("data:{mime};base64,{}", b64_encode(&bytes)))
+}
+
+/// Salin folder extension ter-bundel ke data dir agar pengguna binary
+/// (tanpa folder repo) bisa load unpacked. Idempoten: timpa file berubah.
+/// Mengembalikan path folder hasil instalasi.
+#[tauri::command]
+pub fn misc_ensure_extension_files(app: AppHandle) -> Result<String, String> {
+    let resource_dir = app
+        .path()
+        .resource_dir()
+        .map_err(|e| format!("Gagal resolve resource dir: {e}"))?;
+    let src = resource_dir.join("extension");
+    if !src.join("manifest.json").is_file() {
+        return Err("Folder extension tidak ikut ter-bundel.".into());
+    }
+    let dest = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Gagal resolve data dir: {e}"))?
+        .join("extension");
+    copy_dir_recursive(&src, &dest)?;
+    dest.to_str()
+        .map(|s| s.to_owned())
+        .ok_or_else(|| "Path extension non-UTF8.".into())
+}
+
+fn copy_dir_recursive(src: &std::path::Path, dest: &std::path::Path) -> Result<(), String> {
+    std::fs::create_dir_all(dest).map_err(|e| format!("Gagal buat dir extension: {e}"))?;
+    let entries =
+        std::fs::read_dir(src).map_err(|e| format!("Gagal baca resource extension: {e}"))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Gagal baca entry: {e}"))?;
+        let (s, d) = (entry.path(), dest.join(entry.file_name()));
+        if s.is_dir() {
+            copy_dir_recursive(&s, &d)?;
+        } else {
+            std::fs::copy(&s, &d).map_err(|e| format!("Gagal salin extension: {e}"))?;
+        }
+    }
+    Ok(())
+}

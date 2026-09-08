@@ -247,7 +247,9 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
             ? 'blocked'
             : pause.type === 'needs_input'
               ? 'needs_input'
-              : 'final'
+              : pause.type === 'self_terminated'
+                ? 'self_terminated'
+                : 'final'
         latestSubagentReply = decision.answer
         await subagentStore.addMessage(subagentId, {
           sender: 'subagent',
@@ -309,9 +311,14 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
                 const formatted = Object.entries(groups[groupName].tools)
                   .map(([k, v]) => `- ${k}: ${v}`)
                   .join('\n')
+                let extLine = ''
+                if (groupName === 'advanced_browser') {
+                  const { browserExtensionStatusLine } = await import('../tools/group-tools.js')
+                  extLine = (await browserExtensionStatusLine()) + '\n'
+                }
                 res = {
                   success: true,
-                  data: `[PANDUAN TOOL ${groupName.toUpperCase()}]:\n${formatted}`
+                  data: `[PANDUAN TOOL ${groupName.toUpperCase()}]:\n${extLine}${formatted}`
                 }
               } else {
                 res = { success: false, error: `Grup tool '${groupName}' tidak ditemukan.` }
@@ -322,7 +329,8 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               res = { success: true, data: formatted }
             } else if (window.api && window.api.executeNativeTool) {
               res = await window.api.executeNativeTool(act.tool, act.query || '', {
-                sessionId: subagentId
+                sessionId: subagentId,
+                turnId: `${subagentId}-${Date.now()}`
               })
             } else {
               res = { success: false, error: 'IPC executeNativeTool tidak tersedia.' }

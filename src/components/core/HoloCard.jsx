@@ -14,7 +14,7 @@ const HoloCard = ({ children, title, defaultExpanded = false }) => {
   }, [children]);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-sm bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] animate-[holo-enter_0.4s_ease-out_forwards] shadow-xl">
+    <div className="relative w-full overflow-hidden rounded-sm bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] animate-[holo-enter_0.4s_ease-out_forwards] shadow-xl [transform:translateZ(0)]">
       
       {/* Animated Border Flow (Top) */}
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-[var(--color-holo-border)] bg-[length:200%_auto] animate-[holo-border-flow_3s_linear_infinite]" />

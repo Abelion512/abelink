@@ -36,6 +36,11 @@ pub async fn tools_run_shell(
         });
     }
 
+    // Mission scope Fase 3: penolakan deterministik tanpa dialog.
+    if let Err(e) = crate::mission_scope::check_tool("run-shell") {
+        return Ok(ToolResult { success: false, output: None, error: Some(e) });
+    }
+
     if is_dangerous(&query) {
         // Approval berjenjang: family "always"/"session" lolos tanpa dialog
         // (keputusan owner, kebijakan diset dari dialog/Configuration).

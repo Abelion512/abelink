@@ -85,49 +85,78 @@ const createPreviewUrl = (f) => {
 // request depends on user-provided value). Hanya http/https publik yang
 // lolos — blokir loopback/private/link-local agar drop tidak bisa dipakai
 // memindai jaringan lokal (SSRF) atau mengeksekusi scheme non-web.
+const IPV4_MAX = 0xff
+const LOOPBACK_SUFFIX = '.localhost'
+
+const isPrivateIPv4 = (a, b) => {
+  // 0.0.0.0/8, 10.0.0.0/8, 127.0.0.0/8, 100.64.0.0/10,
+  // 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16
+  if (a === 0 || a === 10 || a === 127) return true
+  if (a === 100 && b >= 64 && b <= 127) return true
+  if (a === 169 && b === 254) return true
+  if (a === 172 && b >= 16 && b <= 31) return true
+  if (a === 192 && b === 168) return true
+  return false
+}
+
 export const isPublicHttpUrl = (raw) => {
   try {
     const url = new URL(raw)
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    const host = url.hostname.toLowerCase()
     if (!host) return null
-    // IPv6 literal ([..] sudah dilepas): blokir loopback/unspecified/link-local/
-    // ULA (fc00::/7) & IPv4-mapped; hanya global unicast 2000::/3 yang lolos.
-    if (host.includes(':')) {
-      let v6 = host
-      let embeddedV4 = null
-      const v4Mapped = host.match(/(\d{1,3}(?:\.\d{1,3}){3})$/)
-      if (v4Mapped) {
-        embeddedV4 = v4Mapped[1]
-        v6 = host.slice(0, host.lastIndexOf(':') + 1) + '0:0'
+    // Strip IPv6 literal brackets if any remain
+    const plainHost = host.startsWith('[') ? host.slice(1, host.indexOf(']')) : host
+    if (!plainHost) return null
+
+    // IPv6 host detection: contains a colon
+    if (plainHost.includes(':')) {
+      // v4-mapped suffix like ::ffff:192.168.1.1 -> recurse on the v4 part
+      const v4MappedSuffix = plainHost.match(/:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/)
+      if (v4MappedSuffix) {
+        return isPublicHttpUrl(`http://${v4MappedSuffix[1]}/`)
       }
-      if (embeddedV4) return isPublicHttpUrl(`http://${embeddedV4}/`)
-      if (v6 === '::1' || v6 === '::') return null
-      const firstHextet = parseInt(v6.split(':')[0].replace(/^0+(?=\w)/, ''), 16)
+      if (plainHost === '::1' || plainHost === '::') return null
+      // parse first hextet, stripping leading zeros without a full regex lower-power path
+      const rawFirst = plainHost.split(':')[0]
+      let firstHextet = 0
+      for (let i = 0; i < rawFirst.length; i++) {
+        const d = rawFirst.charCodeAt(i)
+        if (d < 48 || d > 57) return null
+        firstHextet = firstHextet * 16 + (d - 48)
+        if (firstHextet > 0xffff) return null
+      }
       if (!Number.isFinite(firstHextet)) return null
-      const isGlobalUnicast = firstHextet >> 13 === 0b001 // 2000::/3
-      const isLinkLocal = firstHextet >> 6 === 0b1111111010 // fe80::/10
-      const isUla = firstHextet >> 9 === 0b1111110 // fc00::/7
+      // 2000::/3 global unicast, fe80::/10 link-local, fc00::/7 ULA
+      const isGlobalUnicast = (firstHextet & 0x2000) === 0x2000
+      const isLinkLocal = (firstHextet & 0xffc0) === 0xfe80
+      const isUla = (firstHextet & 0xfe00) === 0xfc00
       return isGlobalUnicast && !isLinkLocal && !isUla ? url : null
     }
-    // Non-IP: blokir localhost & subdomain internal (.local, .internal, dsb.)
-    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
-      if (host === 'localhost' || host.endsWith('.localhost')) return null
+
+    // IPv4 only: dotted decimal form
+    const dots = host.split('.')
+    if (dots.length !== 4) {
+      // Non-IP hostname: block localhost and common internal suffixes
+      if (host === 'localhost' || host.endsWith(LOOPBACK_SUFFIX)) return null
       if (/\.(local|internal|intranet|lan)$/.test(host)) return null
       return url
     }
-    const octets = host.split('.').map(Number)
-    if (octets.some((o) => o > 255)) return null
-    const [a, b] = octets
-    const isPrivate =
-      a === 0 || // 0.0.0.0/8
-      a === 10 || // 10.0.0.0/8
-      a === 127 || // loopback
-      (a === 100 && b >= 64 && b <= 127) || // CGNAT 100.64/10
-      (a === 169 && b === 254) || // link-local 169.254/16
-      (a === 172 && b >= 16 && b <= 31) || // 172.16/12
-      (a === 192 && b === 168) // 192.168/16
-    return isPrivate ? null : url
+    // parse octets without Number() for per-octet speed
+    const octets = dots.map((oct) => {
+      let v = 0
+      for (let i = 0; i < oct.length; i++) {
+        const d = oct.charCodeAt(i)
+        if (d < 48 || d > 57) return -1
+        v = v * 10 + (d - 48)
+        if (v > IPV4_MAX) return -1
+      }
+      return v
+    })
+    if (octets.some((o) => o < 0)) return null
+    const a = octets[0]
+    const b = octets[1]
+    return isPrivateIPv4(a, b) ? null : url
   } catch {
     return null
   }

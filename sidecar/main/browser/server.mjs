@@ -18,16 +18,17 @@ import {
   resolveCommand,
   writeTokenFile,
   groupSession,
-  getSessionGroups
+  getSessionGroups,
+  getSession,
+  tokenOk
 } from './bridge-core.mjs'
+import { EXTENSION_ID } from './native-host.mjs'
 
 const MAX_BODY = 1024 * 1024 // 1MB — hasil read-dom jauh di bawah ini (dipotong di core)
 
 let server = null
 let listening = false
 let startError = null
-
-const ALLOWED_ORIGIN_PREFIXES = ['chrome-extension://', 'moz-extension://']
 
 function json(res, code, obj) {
   const body = JSON.stringify(obj)
@@ -57,16 +58,32 @@ function readBody(req) {
   })
 }
 
+function checkHost(req) {
+  const host = req.headers.host || ''
+  const hostname = host.split(':')[0].toLowerCase()
+  return hostname === '127.0.0.1' || hostname === 'localhost'
+}
+
 function checkOrigin(req) {
   const origin = req.headers.origin || ''
-  if (!origin) return true // service worker fetch tanpa Origin pada same-origin GET
-  return ALLOWED_ORIGIN_PREFIXES.some((p) => origin.startsWith(p))
+  if (origin) {
+    return origin === `chrome-extension://${EXTENSION_ID}`
+  }
+  // Tolak jika request browser ditandai cross-site oleh web page
+  const fetchSite = req.headers['sec-fetch-site']
+  if (fetchSite && fetchSite !== 'none' && fetchSite !== 'same-origin') {
+    return false
+  }
+  return true
 }
 
 async function route(req, res) {
   const url = new URL(req.url, `http://${BROWSER_BRIDGE.HOST}`)
   if (!url.pathname.startsWith('/mark-bridge/')) {
     return json(res, 404, { error: 'Not found.' })
+  }
+  if (!checkHost(req)) {
+    return json(res, 400, { error: 'Host header tidak valid (DNS rebinding protection).' })
   }
   if (!checkOrigin(req)) {
     return json(res, 403, { error: 'Origin tidak diizinkan.' })
@@ -91,6 +108,8 @@ async function route(req, res) {
   }
 
   if (endpoint === 'group' && req.method === 'POST') {
+    const s = getSession(sessionId)
+    if (!tokenOk(s, token)) return json(res, 401, { error: 'Token tidak cocok.' })
     let parsed
     try {
       parsed = JSON.parse(await readBody(req))
@@ -102,6 +121,8 @@ async function route(req, res) {
   }
 
   if (endpoint === 'groups' && req.method === 'GET') {
+    const s = getSession(sessionId)
+    if (!tokenOk(s, token)) return json(res, 401, { error: 'Token tidak cocok.' })
     const r = getSessionGroups(sessionId)
     return r.ok ? json(res, 200, r) : json(res, 404, r)
   }
@@ -161,6 +182,13 @@ export function startBrowserBridge() {
       } catch (e) {
         console.warn('[BrowserBridge] token file gagal ditulis:', e.message)
       }
+      // Helper token tanpa copas (best-effort; tidak menggagalkan bridge).
+      import('./native-host.mjs')
+        .then((m) => m.ensureNativeHost())
+        .then((r) => {
+          if (r?.ok) console.log('[BrowserBridge] native host siap:', JSON.stringify(r.installed))
+        })
+        .catch((e) => console.warn('[BrowserBridge] native host dilewati:', e.message))
       resolve({ ok: true, port: BROWSER_BRIDGE.PORT })
     })
   })

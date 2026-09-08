@@ -16,6 +16,8 @@
 /dist/
 /out/
 /build/
+/dist-sidecar/
+/graphify-out/
 
 # ─────────────────────────────────────────────────────────────────
 # Rust
@@ -114,11 +116,16 @@ extension/tmp-*
 # ─────────────────────────────────────────────────────────────────
 # Documentation — internal planning, not for open source
 # ─────────────────────────────────────────────────────────────────
+/audit/
 /docs/PLANNED/
 /docs/superpowers/
 /docs/.screenshoots/
+/docs/sessions/
 docs/DRIFT_MANIFEST.md
 PARITY-AUDIT-FINAL.md
+
+# Agent session logs & scratch — internal only, never push to public repo
+/tasks/
 
 # ─────────────────────────────────────────────────────────────────
 # Tests

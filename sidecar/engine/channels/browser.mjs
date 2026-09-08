@@ -20,6 +20,8 @@ import {
   dispatchCommand,
   dropSession,
   ensureSession,
+  getSession,
+  getBrowserConfig,
   listSessions
 } from '../../main/browser/bridge-core.mjs'
 import { BROWSER_BRIDGE } from '../../main/browser/bridge-core.mjs'
@@ -80,21 +82,64 @@ on('browser:action', async (data, sessionId = 'default') => {
   ensureSession(sessionId)
   if (!data || typeof data !== 'object') throw new Error('Payload aksi browser tidak valid.')
   const { markId, action, value, url } = data
-  if (!markId && !['scroll', 'press'].includes(action)) {
+  const NO_MARK_ID_ACTIONS = [
+    'scroll',
+    'press',
+    'screenshot',
+    'download',
+    'extract',
+    'script',
+    'back',
+    'forward',
+    'reload',
+    'go-back',
+    'go-forward'
+  ]
+  if (!markId && !NO_MARK_ID_ACTIONS.includes(action)) {
     throw new Error('Aksi butuh markId elemen (dari browser:read-dom).')
   }
   const res = await run(sessionId, 'act', { markId, action, value, url })
   if (!res.ok) throw new Error(res.error || 'Ekstensi gagal mengeksekusi aksi.')
-  return JSON.parse(res.data)
+  if (typeof res.data === 'string') {
+    try {
+      return JSON.parse(res.data)
+    } catch {
+      return res.data
+    }
+  }
+  return res.data
 })
 
 // ----------------------------------------------------------------- close
+// Menutup sesi: tandai task selesai di extension (judul grup -> ✅, tutup
+// tab grup bila config browserAutoCloseTabs aktif), lalu drop sesi sidecar.
+// Bounded: tanpa extension yang terhubung tidak menunggu COMMAND_TIMEOUT
+// penuh — penandaan grup tidak boleh menggagalkan penutupan sesi.
+const TASK_DONE_WAIT_MS = 2000
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+async function finishSessionTask(sessionId, status = 'done') {
+  const { autoCloseTabs } = getBrowserConfig()
+  try {
+    await Promise.race([
+      run(sessionId, 'task-done', { status, autoClose: !!autoCloseTabs }).catch(() => null),
+      sleep(TASK_DONE_WAIT_MS),
+    ])
+  } catch {
+    /* penutupan sesi tidak boleh gagal karena penandaan grup */
+  }
+}
+
 on('browser:close', async (sessionId = 'default') => {
   await ensureBridge()
   if (sessionId === 'all') {
-    for (const { id } of listSessions()) dropSession(id)
+    for (const { id } of listSessions()) {
+      await finishSessionTask(id)
+      dropSession(id)
+    }
     return 'Semua sesi browser ditutup.'
   }
+  if (getSession(sessionId)) await finishSessionTask(sessionId)
   const had = ensureSession(sessionId) && dropSession(sessionId)
   return had
     ? `Sesi browser '${sessionId}' ditutup.`

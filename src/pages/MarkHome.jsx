@@ -22,8 +22,9 @@ import { db, setSessionWorkspace } from '../api/db'
 
 const MarkHome = () => {
   const chatContext = useChat()
+  const safeContext = chatContext ?? {}
   const {
-    chatData,
+    chatData = [],
     message,
     setMessage,
     isLoading,
@@ -40,8 +41,17 @@ const MarkHome = () => {
     handleStop,
     isBooting,
     requestCameraCaptureRef,
-    config
-  } = chatContext
+    config,
+    canCheckInNow
+  } = safeContext
+
+  // Kalau context belum siap (null/undefined), MarkHome tetap render biar nggak
+  // crash - cukup tanda-tanda halaman siap when canCheckInNow hilang.
+  // Kalau context ada tapi canCheckInNow belum siap, tetap render homepage
+  // biar structure siap, tapi jangan triggere aksi apa-apa yang butuh context.
+  if (!chatContext) {
+    return null
+  }
   const { isPlaying, currentTrack, isPlayerOpen } = useYoutubeMusic()
   useMemoryGroomer(true) // Aktifkan Hippocampus Engine
 
@@ -207,12 +217,26 @@ const MarkHome = () => {
             youtubeSummary: lastItem.youtubeLink,
             pluginResult: lastItem.pluginExecution,
             isProactive: lastItem.isProactive,
-            mood: lastItem.mood
-          })
+            mood: lastItem.mood || 'neutral'
+          })              // State 'speaking' kini diatur otomatis oleh event mark-intensity
+              // sehingga getaran & status sinkron 100% dengan durasi audio TTS sebenarnya.
+            }
 
-          // State 'speaking' kini diatur otomatis oleh event mark-intensity
-          // sehingga getaran & status sinkron 100% dengan durasi audio TTS sebenarnya.
-        }
+            // Kalau orb lagi think / lagu lagi putar, tampilin petunjuk kecil
+            // biar user nggak bingung kenapa orb bergerak tanpa ada teks.
+            if (orbStatus === 'thinking' && !currentResponse?.isThinking) {
+              setCurrentResponse((prev) =>
+                prev?.isThinking
+                  ? prev
+                  : { text: 'Mark lagi mikir sebentar...', type: 'short', isThinking: true, mood: 'neutral' }
+              )
+            } else if (orbStatus === 'listening' && !currentResponse?.isThinking && !isRecording) {
+              setCurrentResponse((prev) =>
+                prev?.isThinking
+                  ? prev
+                  : { text: 'Mark lagi dengerin kamu nih...', type: 'short', isThinking: true, mood: 'neutral' }
+              )
+            }
       } else {
         // User message, we can clear current response or show "Processing..."
         if (isLoading) {
@@ -238,32 +262,53 @@ const MarkHome = () => {
   }, [chatData, isLoading, isSpeak, setOrbStatus])
 
   const handleSubmit = (e, text) => {
-    if (chatContext.handleSubmit) {
-      chatContext.handleSubmit(e, text)
+    if (safeContext.handleSubmit) {
+      safeContext.handleSubmit(e, text)
     } else {
+      // Text dari caller; kalau kosong pakai pesan yang ada di state.
       const sendText = typeof text === 'string' && text.trim() ? text.trim() : message.trim()
       if (sendText) {
         handlePlanningCommand(sendText)
       }
     }
   }
-  const mood = currentResponse?.mood || 'neutral';
-  let bgGlowColor = 'var(--color-primary)';
+  const mood = currentResponse?.mood || 'neutral'
+
+  // Pilih warna glow orb dari status langsung bila tersedia, baru dari mood.
+  // Lebih manusiawi: aplikasi nggak perlu tetap biru saat error, bisa
+  // berubah perlahan ke warna yang lebih mencerminkan keadaan sekarang.
+  let bgGlowColor = 'var(--color-primary)'
   if (orbStatus === 'error') {
-    bgGlowColor = '#ef4444';
+    bgGlowColor = '#ef4444'
+  } else if (orbStatus === 'listening') {
+    bgGlowColor = '#22c55e'
+  } else if (orbStatus === 'thinking') {
+    bgGlowColor = '#8b5cf6'
+  } else if (orbStatus === 'speaking') {
+    bgGlowColor = '#facc15'
   } else {
     switch (mood) {
-      case 'joy': bgGlowColor = '#facc15'; break;
-      case 'sadness': bgGlowColor = '#3b82f6'; break;
-      case 'fear': bgGlowColor = '#a855f7'; break;
-      case 'anger': bgGlowColor = '#ef4444'; break;
-      case 'disgust': bgGlowColor = '#22c55e'; break;
-      case 'anxiety': bgGlowColor = '#f97316'; break;
-      case 'envy': bgGlowColor = '#14b8a6'; break;
-      case 'embarrassment': bgGlowColor = '#ec4899'; break;
-      case 'ennui': bgGlowColor = '#6b7280'; break;
-      default: bgGlowColor = 'var(--color-primary)'; break;
-    }
+        case 'joy': bgGlowColor = '#facc15'
+          break
+        case 'sadness': bgGlowColor = '#3b82f6'
+          break
+        case 'fear': bgGlowColor = '#a855f7'
+          break
+        case 'anger': bgGlowColor = '#ef4444'
+          break
+        case 'disgust': bgGlowColor = '#22c55e'
+          break
+        case 'anxiety': bgGlowColor = '#f97316'
+          break
+        case 'envy': bgGlowColor = '#14b8a6'
+          break
+        case 'embarrassment': bgGlowColor = '#ec4899'
+          break
+        case 'ennui': bgGlowColor = '#6b7280'
+          break
+        default: bgGlowColor = 'var(--color-primary)'
+          break
+      }
   }
 
   return (
@@ -284,7 +329,7 @@ const MarkHome = () => {
       `}</style>
 
       {/* Subtle Hologram Scanlines & Texture */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.1)_50%)] bg-[length:100%_4px] opacity-20 pointer-events-none mix-blend-overlay z-0" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.10)_50%)] bg-[length:100%_4px] opacity-20 pointer-events-none mix-blend-overlay z-0" />
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-[0.03] pointer-events-none mix-blend-screen z-0" />
 
       {isBooting && (
