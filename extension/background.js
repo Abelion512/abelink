@@ -958,8 +958,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   ;(async () => {
     if (msg?.type === 'start') {
       // Urutan token: tempelan manual > helper lokal > simpanan persisten.
-      // Simpanan persisten membuat buka popup = hijau tanpa klik ulang.
       let token = (msg.token || '').trim()
+      if (token.startsWith('{')) {
+        try {
+          const rec = JSON.parse(token)
+          if (rec && typeof rec.token === 'string') token = rec.token
+        } catch {}
+      }
       let nativeDetail = ''
       if (!token) {
         const via = await getTokenViaNativeHost()

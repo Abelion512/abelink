@@ -181,6 +181,8 @@ export const api = {
   getLiteMode: () => invoke('misc_get_lite_mode').then((d) => d ?? { isLite: false }),
   // Salin folder extension ter-bundel ke data dir (pengguna binary tanpa repo).
   ensureExtensionFiles: () => invoke('misc_ensure_extension_files'),
+  // Buka folder di file manager desktop
+  openFolder: (path) => invoke('misc_open_folder', { path }),
   // Konfirmasi native (rfd di Rust main thread) untuk aksi berisiko non-sidecar.
   nativeConfirm: (message) => invoke('misc_native_confirm', { message }),
   // Fetch resource web via native (validasi SSRF + tanpa CORS renderer).

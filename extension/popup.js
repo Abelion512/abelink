@@ -13,18 +13,22 @@ function setPill(kind, text) {
 async function refresh() {
   const res = await chrome.runtime.sendMessage({ type: 'status' })
   const el = $('status')
+  const reconnectBtn = $('reconnect')
   if (res?.running) {
     setPill('ok', 'tersambung')
     el.className = 'ok'
     el.textContent = `Session: ${res.session}. Menunggu perintah...`
+    if (reconnectBtn) reconnectBtn.hidden = true
   } else if (res?.lastError) {
     setPill('err', 'terputus')
     el.className = 'err'
-    el.textContent = `Error: ${res.lastError}`
+    el.textContent = `Status: ${res.lastError}`
+    if (reconnectBtn) reconnectBtn.hidden = false
   } else {
     setPill('warn', 'belum tersambung')
     el.className = ''
     el.textContent = 'Menunggu sidecar Mark...'
+    if (reconnectBtn) reconnectBtn.hidden = false
   }
   await refreshTask()
 }
@@ -49,9 +53,16 @@ async function refreshTask() {
 async function autoConnect() {
   // Token kosong = background mencoba helper lokal dulu.
   const res = await chrome.runtime.sendMessage({ type: 'start', token: '', session: 'default' })
-  if (res?.ok !== true) setPill('warn', 'butuh token manual')
+  if (res?.ok !== true) setPill('warn', 'belum tersambung')
   await refresh()
 }
+
+$('reconnect')?.addEventListener('click', async () => {
+  setPill('warn', 'menghubungkan…')
+  $('status').className = ''
+  $('status').textContent = 'Menghubungkan otomatis ke sidecar Mark…'
+  await autoConnect()
+})
 
 $('start').addEventListener('click', async () => {
   const token = $('token').value.trim()

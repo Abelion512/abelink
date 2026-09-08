@@ -26,11 +26,12 @@
   <div><span id="pill" class="pill warn">menghubungkan…</span></div>
   <div id="status">Memuat status...</div>
   <div id="task"></div>
+  <button id="reconnect" hidden>Hubungkan Otomatis ke MARK</button>
   <button id="closeTabs" class="secondary" hidden>Tutup tab task ini</button>
-  <details>
-    <summary>Sambung manual (bila otomatis gagal)</summary>
-    <label>Token (dari ~/.local/share/browser-bridge-token)</label>
-    <input id="token" type="password" placeholder="tempel token di sini" />
+  <details style="margin-top: 14px;">
+    <summary style="cursor: pointer; opacity: 0.6;">Opsi Manual (Fallback)</summary>
+    <label>Token (otomatis terisi via Mark Native Host):</label>
+    <input id="token" type="password" placeholder="tempel token bila otomatis gagal" />
     <label>Session ID</label>
     <input id="session" type="text" value="default" />
     <button id="start">Sambungkan manual</button>
