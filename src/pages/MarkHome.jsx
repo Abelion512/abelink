@@ -21,6 +21,7 @@ import {
   Monitor,
   StopCircle,
   Square,
+  FlipHorizontal,
   Send,
   Maximize2,
   Sparkles,
@@ -170,6 +171,13 @@ const MarkHome = () => {
   const screenVideoRef = useRef(null)
   const [camStream, setCamStream] = useState(null)
   const [camError, setCamError] = useState(null)
+  const [isCamMirrored, setIsCamMirrored] = useState(() => {
+    try {
+      return localStorage.getItem('mark:camera_mirrored') === 'true'
+    } catch (_) {
+      return false
+    }
+  })
   const [screenStream, setScreenStream] = useState(null)
   const [screenError, setScreenError] = useState(null)
   const [liveScreenFrame, setLiveScreenFrame] = useState(null)
@@ -245,13 +253,17 @@ const MarkHome = () => {
       canvas.width = video.videoWidth || 640
       canvas.height = video.videoHeight || 480
       const ctx = canvas.getContext('2d')
+      if (isCamMirrored) {
+        ctx.translate(canvas.width, 0)
+        ctx.scale(-1, 1)
+      }
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
       return canvas.toDataURL('image/jpeg', 0.8)
     } catch (e) {
       console.warn('[Vision] Frame capture error:', e)
       return null
     }
-  }, [])
+  }, [isCamMirrored])
 
   // ── Stop Screen Share helper ────────────────────────────────────────────
   const handleStopScreenShare = useCallback(() => {
@@ -398,30 +410,34 @@ const MarkHome = () => {
     }
   }, [currentMode])
 
-  // ── Screen Share Starter ────────────────────────────────────────────────
+  // ── Screen Share Starter (WebRTC Screen Capture) ────────────────────────
   const handleStartScreenShare = async () => {
     setScreenError(null)
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true
+        video: { cursor: 'always' },
+        audio: false
       })
       setScreenStream(stream)
       if (screenVideoRef.current) {
         screenVideoRef.current.srcObject = stream
+        screenVideoRef.current.play?.().catch(() => {})
       }
       stream.getVideoTracks()[0].onended = () => {
         handleStopScreenShare()
       }
     } catch (err) {
-      console.warn('[Screen] getDisplayMedia error, activating Live Desktop Mirror:', err)
-      // Fallback ke Continuous Live Desktop Mirror via native screenshot loop
-      if (window.api?.takeScreenshot) {
-        setScreenStream('live-mirror')
-        startLiveMirrorLoop()
-      } else if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
+      console.warn('[Screen] getDisplayMedia error:', err)
+      if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
         setScreenError(null)
+        return
+      }
+      if (err.name === 'OverconstrainedError' || err.message?.includes('Invalid constraint')) {
+        setScreenError(
+          'Portal ScreenCast belum aktif di sistem Linux ini. Pasang "xdg-desktop-portal-gnome" (sudo apt install xdg-desktop-portal-gnome) untuk mengaktifkan WebRTC screen capture di Linux Mint.'
+        )
       } else {
-        setScreenError('Share screen dibatalkan atau izin tidak diberikan.')
+        setScreenError(`Gagal mengakses live share screen: ${err.message}`)
       }
     }
   }
@@ -737,10 +753,6 @@ const MarkHome = () => {
                     ? 'speaking...'
                     : 'standby'}
                 </span>
-                <span className="text-white/20">/</span>
-                <span className="font-mono text-[9px] tracking-[0.35em] text-cyan-500/50 uppercase">
-                  ABELINK
-                </span>
               </div>
               <div
                 className="flex items-center gap-1.5 cursor-pointer opacity-40 hover:opacity-100 transition-opacity"
@@ -866,7 +878,9 @@ const MarkHome = () => {
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover transition-transform duration-300 ${
+                isCamMirrored ? 'scale-x-[-1]' : 'scale-x-1'
+              }`}
             />
             {/* Ambient Dark Vignette Overlay */}
             <div className="absolute inset-0 bg-radial from-transparent via-black/20 to-black/70 pointer-events-none" />
@@ -874,6 +888,26 @@ const MarkHome = () => {
 
           {/* Scanning HUD Overlay */}
           <div className="absolute inset-0 pointer-events-none p-6 flex flex-col justify-between">
+            {/* Top Left Quick Flip Camera Button */}
+            <div className="absolute top-16 left-6 pointer-events-auto z-30">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCamMirrored((prev) => {
+                    const next = !prev
+                    try {
+                      localStorage.setItem('mark:camera_mirrored', String(next))
+                    } catch (_) {}
+                    return next
+                  })
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-xl border border-white/10 text-xs font-mono text-white/80 hover:text-white transition-all shadow-lg"
+                title="Beralih orientasi kamera: Non-Mirror (Alami) / Mirror"
+              >
+                <FlipHorizontal className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{isCamMirrored ? 'Mode: Cermin' : 'Mode: Alami (Non-Mirror)'}</span>
+              </button>
+            </div>
             {/* Corner Brackets */}
             <div className="absolute top-16 left-6 w-8 h-8 border-t-2 border-l-2 border-cyan-400/80" />
             <div className="absolute top-16 right-6 w-8 h-8 border-t-2 border-r-2 border-cyan-400/80" />
@@ -930,7 +964,7 @@ const MarkHome = () => {
                   <span className="text-red-400 font-bold tracking-wider">LIVE SCREEN</span>
                   <span className="text-white/30">|</span>
                   <span className="text-white/70 text-[11px]">
-                    {screenStream === 'live-mirror' ? 'Desktop Mirror (Continuous Stream)' : 'WebRTC ScreenCast'}
+                    {screenStream?.getVideoTracks?.[0]?.label || 'WebRTC Display Stream'}
                   </span>
                 </div>
 
@@ -945,30 +979,15 @@ const MarkHome = () => {
                 </button>
               </div>
 
-              {/* Main Live Viewport Screen Stream */}
+              {/* Main Live Viewport Screen Stream (Google Meet / Zoom WebRTC Video) */}
               <div className="relative w-full h-full max-w-7xl max-h-[82vh] flex items-center justify-center rounded-2xl overflow-hidden border border-purple-500/20 bg-black/60 shadow-[0_0_50px_rgba(168,85,247,0.15)]">
-                {screenStream === 'live-mirror' ? (
-                  liveScreenFrame ? (
-                    <img
-                      src={liveScreenFrame}
-                      alt="Live Screen Stream"
-                      className="w-full h-full object-contain select-none pointer-events-none"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center gap-3 text-cyan-400 font-mono text-xs select-none">
-                      <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                      <span className="tracking-widest">MEMULAI LIVE DESKTOP STREAM...</span>
-                    </div>
-                  )
-                ) : (
-                  <video
-                    ref={screenVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-contain"
-                  />
-                )}
+                <video
+                  ref={screenVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-contain"
+                />
               </div>
 
               {/* Top Right Floating Mini Orb */}
