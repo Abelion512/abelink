@@ -155,9 +155,12 @@ pub fn run() {
                     "quit" => app.exit(0),
                     _ => {}
                 });
-            // Ikon tray: fallback aman, jangan panic bila aset hilang.
+            // Ikon tray dan window: fallback aman, jangan panic bila aset hilang.
             if let Some(icon) = app.default_window_icon() {
                 tray = tray.icon(icon.clone());
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.set_icon(icon.clone());
+                }
             } else {
                 log::warn!("[Tray] default_window_icon tidak tersedia; tray berjalan tanpa ikon.");
             }

@@ -203,9 +203,20 @@ free_cargo_lock() {
   ok "cargo holders cleared"
 }
 
+ensure_sidecar() {
+  if [ ! -f "dist-sidecar/mark-engine" ]; then
+    log "dist-sidecar/mark-engine missing - compiling sidecar binary"
+    bun run build:sidecar
+    ok "sidecar binary built"
+  else
+    ok "sidecar binary present"
+  fi
+}
+
 # --- main ---------------------------------------------------------------------
 ensure_bun
 ensure_deps
+ensure_sidecar
 free_dev_port "$EXPECTED_PORT"
 free_cargo_lock
 
