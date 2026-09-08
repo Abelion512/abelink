@@ -83,36 +83,9 @@ export const useVAD = ({
     stopVADCleanup()
     setIsProcessing(true)
 
-    // Beri waktu 150ms agar React sempat me-render state (mis. mematikan lampu indikator)
-    // sebelum thread diblokir oleh eksekusi ONNX WebAssembly
     setTimeout(async () => {
       try {
-        const config = await getAllConfig()
-        const sttEngine = config[0]?.localWhisperModel || 'whisper-small'
-        let text = ''
-
-        if (sttEngine === 'groq-whisper') {
-          setToastMessage('Mentranskrip via Groq API...')
-          text = await transcribeAudioGroq(trimmedAudio)
-          setToastMessage('')
-        } else {
-          try {
-            text = await transcribeAudioLocal(trimmedAudio, (progressData) => {
-              if (progressData && progressData.progress !== undefined) {
-                setToastMessage(`Mengunduh model AI Suara... ${Math.round(progressData.progress)}%`)
-                if (progressData.progress >= 100) {
-                  setTimeout(() => setToastMessage(''), 2000)
-                }
-              }
-            })
-          } catch (localErr) {
-            console.warn('[VAD] Local Whisper tidak tersedia, beralih ke Groq Whisper API:', localErr.message)
-            setToastMessage('Mentranskrip via Groq API...')
-            text = await transcribeAudioGroq(trimmedAudio)
-            setToastMessage('')
-          }
-        }
-
+        const text = await executeSpeechToText(trimmedAudio)
         setIsProcessing(false)
         if (text && text.trim() !== '') {
           const cleanText = text.replace(
@@ -128,6 +101,65 @@ export const useVAD = ({
         setTimeout(() => setToastMessage(''), 5000)
       }
     }, 150)
+  }
+
+  // ── Unified Robust Speech-to-Text Pipeline ──────────────────────────────
+  const executeSpeechToText = async (audioBuffer) => {
+    const config = await getAllConfig()
+    const hasGroqKey = Boolean(config[0]?.groqApiKey?.trim())
+    const configuredEngine = config[0]?.localWhisperModel
+    const localFailed = typeof localStorage !== 'undefined' && localStorage.getItem('mark:local_whisper_unsupported') === '1'
+
+    // Jika user memilih Groq, ATAU jika user punya Groq Key dan engine lokal belum/tidak didukung
+    if (configuredEngine?.startsWith('groq') || (hasGroqKey && (localFailed || !configuredEngine || configuredEngine === 'whisper-small'))) {
+      setToastMessage('Mentranskrip via Groq API...')
+      try {
+        const res = await transcribeAudioGroq(audioBuffer)
+        setToastMessage('')
+        return res
+      } catch (err) {
+        setToastMessage('')
+        console.warn('[VAD] Groq API gagal, mencoba fallback jika ada:', err.message)
+        if (!configuredEngine?.startsWith('groq')) {
+          // Lanjutkan ke local attempt jika groq gagal dan user tidak strictly pilih groq
+        } else {
+          throw err
+        }
+      }
+    }
+
+    // Jika local Whisper dipilih
+    try {
+      let highestProgress = 0
+      const fileProgressMap = {}
+
+      const text = await transcribeAudioLocal(audioBuffer, (progressData) => {
+        if (progressData?.file && progressData.progress !== undefined) {
+          fileProgressMap[progressData.file] = progressData.progress
+          const vals = Object.values(fileProgressMap)
+          const avg = Math.round(vals.reduce((a, b) => a + b, 0) / Math.max(3, vals.length))
+          // Progress monotonik: hanya naik, tidak pernah mundur
+          if (avg > highestProgress) {
+            highestProgress = Math.min(100, avg)
+            setToastMessage(`Menyiapkan model AI Suara... ${highestProgress}%`)
+          }
+        }
+      })
+      setToastMessage('')
+      return text
+    } catch (localErr) {
+      console.warn('[VAD] Local Whisper gagal / tidak didukung sistem:', localErr.message)
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('mark:local_whisper_unsupported', '1')
+      }
+      if (hasGroqKey) {
+        setToastMessage('Mentranskrip via Groq API...')
+        const res = await transcribeAudioGroq(audioBuffer)
+        setToastMessage('')
+        return res
+      }
+      throw localErr
+    }
   }
 
   const startVADRecording = async () => {
@@ -266,27 +298,7 @@ export const useVAD = ({
         setIsProcessing(true)
         setTimeout(async () => {
           try {
-            const config = await getAllConfig()
-            const sttEngine = config[0]?.localWhisperModel || 'whisper-small'
-            let text = ''
-
-            if (sttEngine === 'groq-whisper') {
-              setToastMessage('Mentranskrip via Groq API...')
-              text = await transcribeAudioGroq(pendingAudio)
-              setToastMessage('')
-            } else {
-              text = await transcribeAudioLocal(pendingAudio, (progressData) => {
-                if (progressData && progressData.progress !== undefined) {
-                  setToastMessage(
-                    `Mengunduh model AI Suara... ${Math.round(progressData.progress)}%`
-                  )
-                  if (progressData.progress >= 100) {
-                    setTimeout(() => setToastMessage(''), 2000)
-                  }
-                }
-              })
-            }
-
+            const text = await executeSpeechToText(pendingAudio)
             setIsProcessing(false)
             if (text && text.trim() !== '') {
               const cleanText = text.replace(
