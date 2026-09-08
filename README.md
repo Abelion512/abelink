@@ -1,220 +1,132 @@
-# MARK - Metacognitive Artificial Relational Knowledge (Linux Edition)
+# Abelink: Autonomous AI OS Companion (Linux Edition)
 
-![MARK AI Banner](./assets/banner-repo.png)
+![Abelink Banner](./assets/banner-repo.png)
 [![Download Terbaru](https://img.shields.io/badge/Download-Linux-blue?style=for-the-badge&logo=linux)](https://github.com/Abelion512/abelink/releases/)
 
-> **Mark BUKAN sekadar asisten virtual biasa. Mark adalah entitas AI yang dirancang untuk memiliki emosi dan bertindak selayaknya manusia.**
-> Lebih dari sekadar chatbot kaku, Mark adalah _Personal AI Assistant_ yang berjalan di ekosistem lokal Anda—dilengkapi dengan sistem memori jangka panjang berbasis _Vector Memory_ dan **Relational Growth System** untuk mempelajari kebiasaan serta beradaptasi dengan gaya komunikasi Anda tanpa mengorbankan privasi sedikit pun. Ditenagai oleh _Hybrid AI Engine_, Mark dapat beroperasi secara lokal untuk privasi maksimal, atau menggunakan _Cloud APIs_ untuk mengeksekusi tugas kompleks, menyusun rencana (_Agentic Planning_), merangkum video YouTube, mengobservasi layar atau dunia nyata (_Vision_), melakukan riset internet, hingga berinteraksi melalui suara secara _real-time_.
+> **Abelink** adalah asisten otonom berbasis Linux dengan fokus pada privasi, otomatisasi sistem operasi, dan eksekusi tugas multi-langkah. Berjalan langsung di workstation lokal menggunakan arsitektur hybrid Tauri v2 (Rust) dan Bun runtime sidecar.
 
-> [!IMPORTANT]
-> **Linux-only fork.** Versi Windows original: [Mazees/mark-agent](https://github.com/Mazees/mark-agent).
-
-## Fitur Unggulan
-
-- **Persistent 3-Layer Memory & Real-Time Turn-Pair Vector Engine:** Seluruh pasangan tanya-jawab (Turn Pairs) disimpan permanen di database lokal (Dexie/IndexedDB) dan diindeks *real-time* ke mesin hybrid `@orama/orama` dengan model lokal 384-dimensi via **Dedicated Web Worker** — tanpa membebani UI thread.
-- **Universal Zero-Hallucination Policy & Strict Groundedness:** Jika data riwayat, berkas kode, atau fakta dokumen tidak ditemukan, Mark wajib jujur mengakuinya dan dilarang keras mengarang informasi (*anti-extrapolation*).
-- **Dynamic Agentic Planning (ReAct Loop):** Mengganti sistem penjawab statis dengan arsitektur penalaran cerdas. Mark mampu memecah masalah, memikirkan strategi, menggunakan _tools_ secara otonom berulang kali, dan mengevaluasi hasilnya sebelum memberikan jawaban akhir yang komprehensif.
-- **Infinite Memory & Injection Knowledge RAG:** Sistem Vector Retrieval-Augmented Generation (RAG) kini berjalan secara _offline_. Mark dapat menyimpan riwayat memori obrolan masif tanpa batas dan pengguna dapat menambahkan pengetahuan dari sebuah file document tanpa membebani _context window_ utama LLM.
-- **Visualisasi Jaringan Otak (Memory Visualizer):** Dilengkapi dengan UI _Live Feed_ "Mark Neural Core". Pengguna dapat melihat secara _real-time_ grafis Neural Network yang menampilkan jaringan _Chat History_, _Knowledge Base_, hingga _Document Vault_.
-- **Live Thought Process (Neural Flow):** Perhatikan Mark berpikir! Setiap kali sistem mengeksekusi rencana (_Agentic Planning_), antarmuka akan memancarkan animasi _3D Neuron_ yang terbang mengorbit inti pikiran (Orb) untuk interaktivitas tingkat _Sci-Fi_.
-- **Relational Growth System & Dynamic Persona:** Hubungan Anda dengan Mark dievaluasi layaknya dengan manusia sungguhan melalui 4 parameter krusial (_Warmth, Sarcasm, Trust, Energy_). Tingkat kesopanan, kelancangan (_toxicity_), dan kepribadian Mark akan berevolusi organik. Jika Anda sering bersarkasme, Mark bebas menggunakan bahasa _tongkrongan_ dan men-_roasting_ Anda. Didukung oleh **9 Inside Out 2 Emotions** (Joy, Sadness, Fear, Anger, Disgust, Anxiety, Envy, Embarrassment, Ennui) yang secara dinamis mengubah warna UI Orb di layar.
-- **Dual AI Provider (Hybrid) & Custom API:** Anda memegang kendali penuh. Gunakan **Local AI** (berjalan langsung di PC Anda), atau alihkan ke **Cloud AI** (Groq/Cerebras). Ditambah dukungan Custom OpenAI-Compatible API untuk fleksibilitas mutlak.
-- **Proaktif dengan Awareness Engine:** Sistem Mark tidak hanya pasif merespons. Mark bisa proaktif menegur, menyapa, atau memutarkan musik di latar belakang. Aksi proaktif intrusif dibatasi oleh _Proactive Proposal Boundary_, dan kini dilengkapi fitur **Toggle** (bisa dimatikan kapan saja).
-- **Lite Mode Otomatis:** Di PC dengan RAM ≤4GB, Mark otomatis mengganti fitur-fitur berat dengan alternatif ringan tanpa menghilangkan fungsi apa pun — _Memory Visualizer_ tampil sebagai daftar ringkas alih-alih graf 3D, memori vektor menggunakan _hash embedding_ alih-alih model WASM lokal, dan jendela browser agent ditutup otomatis setelah idle 60 detik. Ditandai badge **"Lite"** yang bisa dihilangkan di pojok kiri atas. Jika webview tidak mendukung WASM SIMD, Mark **otomatis** aktif Lite Mode (hash embedding).
-
-## Kemampuan Utama (Tools)
-
-Mark dibekali dengan berbagai integrasi alat untuk mengeksekusi tugas di luar sekadar membalas teks:
-
-- **Native File Handling & Shell:** Mark memiliki kontrol OS tingkat lanjut untuk membaca, menulis, memodifikasi, dan menghapus file secara _native_. Mark juga dapat mengeksekusi perintah shell untuk mengendalikan sistem operasi. _(Keamanan Tinggi: Semua perintah berisiko wajib mendapat persetujuan modal UI dari pengguna)._
-- **Vision Awareness (Desktop Screen Reading):** Mark tidak lagi buta! Ia memiliki kemampuan membaca layar (`analyze-screen`) untuk "melihat" apa yang sedang terjadi di PC Anda. Terintegrasi dengan _Awareness Engine_, Mark bisa memberikan panduan sangat kontekstual berdasarkan aplikasi visual yang Anda buka.
-- **Camera Vision (Mata Fisik):** Dilengkapi integrasi Webcam (`camera-look`), Mark dapat mengobservasi keadaan fisik Anda di dunia nyata. Fitur ini dapat dipicu manual maupun secara otonom oleh Mark sendiri jika diperlukan.
-- **Autonomous Web Browsing:** Menggunakan _window_ Chromium internal, Mark dapat secara otonom membuka halaman web, bernavigasi, dan berinteraksi dengan website secara mandiri. Dilengkapi dengan _Smart Pause & Resume_ jika membutuhkan intervensi manual (login/CAPTCHA).
-- **Interaksi Suara (Voice Activity Detection & STT):** Berbicara langsung ke mikrofon! Mark menggunakan sistem VAD cerdas yang mendeteksi suara Anda dan akan menunggu hingga Anda selesai berbicara sebelum memproses audio secara instan menggunakan _Groq Whisper STT_ atau _Local Transformers.js Whisper_. Balasan Mark juga menggunakan sintesis suara manusia yang natural (Edge-TTS).
-- **Riset Internet Mendalam (Deep Web Search):** Mark dapat menelusuri web secara mandiri untuk mencari informasi akurat dan memberikan ringkasan yang dilengkapi dengan tautan kutipan (_citations_).
-- **Perangkum YouTube Kilat:** Cukup berikan tautan video YouTube, dan Mark akan mengekstrak transkrip asli, memproses teks, dan memberikan ringkasan akurat tanpa Anda harus menonton video tersebut.
-- **Pemutar YouTube Music Terintegrasi:** Terhubung langsung dengan ekosistem YouTube Music (tanpa iklan). Perintahkan Mark untuk memutar lagu, dan ia akan mencari serta memutarnya di latar belakang sembari menampilkan sampul album pada antarmuka.
-- **Bot Telegram Pribadi:** Kendalikan Mark dari mana saja via Telegram — kirim tugas kompleks (auto-planning + eksekusi bertahap), terima notifikasi proaktif, ringkasan obrolan, hingga unduh lagu YouTube sebagai MP3 langsung ke chat. Auto-retry tahan jaringan.
-- **Sistem Plugin Kustom:** Tambahkan fitur atau kemampuan baru langsung dari antarmuka aplikasi tanpa perlu memodifikasi kode sumber inti. Anda dapat membuat skrip Node.js (misalnya, _plugin_ untuk mengatur volume atau mematikan PC) dan Mark akan langsung memahami cara menggunakannya.
-
-## Arsitektur Proyek
-
-```text
-mark/
-├── index.html            # Entry Vite (standard Tauri)
-├── src/                  # Frontend React 19 + Vite + Tailwind 4
-│   ├── api/              # AI core, planning, db (Dexie), vectorMemory (Web Worker), tauri-bridge
-│   ├── components/       # Komponen UI modular
-│   ├── hooks/            # useMarkPlan, useVAD, useAwareness, dll
-│   └── pages/            # MarkHome, Configuration, Subagents, ChatStudio, dll
-├── src-tauri/            # Shell Rust (Tauri v2): window, tray, shortcut, cmd_fs, harness, node-bridge
-├── sidecar/              # Node engine masa transisi (50+ tool channel, protokol JSON stdio)
-│   ├── engine.mjs        # Dispatcher harness — bisa jalan headless: bun run harness
-│   └── main/             # Modul tool lama (ai-bridge, node-tools, telegram, google, dll)
-├── resources/            # Ikon & binary eksternal (ffmpeg, yt-dlp)
-└── scripts/verify.sh     # Gerbang verifikasi (test + build + cargo check)
-```
-
-## Teknologi Terkait
-
-| Kategori           | Teknologi                                                                     |
-| ------------------ | ----------------------------------------------------------------------------- |
-| **Shell**          | Tauri v2 (Rust) — pengganti Electron, jauh lebih ringan                        |
-| **Runtime tool**   | Bun (package manager, test runner, sidecar engine)                             |
-| **Antarmuka (UI)** | React 19, Vite 7, Tailwind CSS 4, DaisyUI 5, GSAP (Animasi)                    |
-| **Backend native** | Rust + tokio (file-ops, shell, tray, harness logging)                          |
-| **Mesin AI**       | Gemini Web (Gratis) / LM Studio offline / Groq, Cerebras, Custom OpenAI-API    |
-| **Memori Vektor**  | Transformers.js di Dedicated Web Worker (384-dim), hash fallback Lite Mode     |
-| **Suara & Audio**  | Groq Whisper (STT), Transformers.js local STT, Edge-TTS, Web Audio API (VAD)   |
-| **Integrasi**      | youtube-transcript-plus, yt-dlp + ffmpeg (resources), Telegram Bot             |
-| **Database/RAG**   | Dexie.js (IndexedDB), @orama/orama (hybrid search), pdf-parse                  |
-
-## Instalasi & Penggunaan
-
-### Persyaratan Sistem
-
-- **Sistem Operasi**: Linux (Ubuntu 22.04+/Fedora/Arch).
-- **Rust toolchain**: `rustup` (stable) + dependensi WebKitGTK:
-  `sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev`
-- **Bun**: `curl -fsSL https://bun.sh/install | bash`
-- **python3 + xdotool**: untuk PC-automation daemon & Awareness Engine
-- **xdotool**: Untuk Awareness Engine (window tracking). Install: `sudo apt install xdotool` (Debian/Ubuntu) atau `sudo pacman -S xdotool` (Arch).
-- (Opsional) **LM Studio** jika Anda ingin menjalankan model sepenuhnya secara luring (_offline_).
-- (Opsional) **API Key Groq** untuk menggunakan model komputasi awan yang sangat cepat.
-
-### Langkah Instalasi
-
-1.  **Kloning repositori:**
-
-    ```bash
-    git clone https://github.com/Abelion512/abelink.git
-    cd abelink
-    ```
-
-2.  **Instalasi dependensi:**
-
-    ```bash
-    bun install
-    ```
-
-3.  **Jalankan aplikasi (dev mode — Tauri + Vite HMR):**
-
-    ```bash
-    bun run dev:smart  # bootstrap + launch — lihat bagian Smart Bootstrap
-    # atau, kalau bun + dependency + port sudah siap:
-    bun run app        # alias dari: bun tauri dev
-    ```
-
-4.  **Konfigurasi Awal:**
-    Buka menu **Configuration** di dalam aplikasi, pilih penyedia AI Anda (LM Studio atau Groq), masukkan API Key, lalu atur penyedia _Vector Memory_ (Sangat disarankan menggunakan **Transformers.js** untuk pengalaman lokal tanpa perangkat lunak tambahan).
-
-### Smart Bootstrap (`bun run dev:smart`)
-
-Untuk workstation Linux yang baru pertama kali _clone_, atau setelah sesi dev sebelumnya yang terputus, gunakan:
-
-```bash
-bun run dev:smart           # atau: bash scripts/dev.sh
-```
-
-`scripts/dev.sh` adalah _wrapper_ idempoten yang, secara berurutan:
-
-1. **Pastikan `bun` terpasang** di `$BUN_INSTALL` (default `~/.bun`) — auto-install via `bun.sh/install` tanpa `sudo` kalau belum ada. Versi target = `1.3.14` (selaras dengan CI `.github/workflows/tauri.yml`); versi major yang lebih baru di lokal tetap diterima.
-2. **Jalankan `bun install`** kalau `node_modules/` kosong atau `bun.lock` / `package.json` lebih baru.
-3. **Bersihkan _holder_ port 1420** (Vite) dan _holder_ build-lock `cargo` (`src-tauri/target/`) yang tertinggal dari sesi dev sebelumnya. Hanya _target_ proses yang jelas milik repo ini — kalau _holder_ bukan milik kita, _wrapper_ **abort** agar tidak membunuh proses orang lain.
-4. **Lanjut ke `bun run app`** (= `tauri dev`) lewat `exec`, jadi `Ctrl+C` tetap mematikan seluruh pohon proses.
-
-Mode _bootstrap_ saja (tanpa launch):
-
-```bash
-bun run dev:smart --no-launch
-```
-
-CI tidak berubah — `.github/workflows/tauri.yml` tetap memakai `oven-sh/setup-bun@v2` yang merupakan jalur kanonik di GitHub Actions. _Wrapper_ ini khusus untuk _workstation_ developer.
-
-Shortcut dalam aplikasi: `Ctrl+Alt+M` tampilkan/sembunyikan jendela, `Ctrl+Shift+S` hentikan darurat semua aksi otomatis.
-
-### Perintah Pengembangan Lainnya
-
-| Perintah               | Fungsi                                                                                                                                |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `bun run dev:smart`    | Smart bootstrap: auto-install bun, refresh deps, clear port 1420 / cargo lock holder, lalu `bun run app`. Direkomendasikan untuk fresh clone. |
-| `bun run app`          | Langsung jalankan Tauri dev (Vite HMR + Rust shell). Pakai ini kalau semua prasyarat sudah siap dan Anda ingin start cepat.           |
-| `bun run build:deb`    | Kompilasi sidecar dan build paket `.deb` siap instal untuk Debian/Ubuntu/Mint (hasil di `src-tauri/target/release/bundle/deb/`).      |
-| `bun run build:dist`   | Kompilasi sidecar dan build paket distribusi lengkap (`.deb` + `.AppImage`).                                                          |
-| `bun run verify`       | Gerbang verifikasi lengkap: bootstrap + vitest + harness watermark + build + cargo check. WAJIB hijau sebelum push.                     |
-| `bun test`             | Unit test saja (vitest).                                                                                                                |
-| `bun run lint`         | ESLint atas seluruh repo (hasil di-cache).                                                                                              |
-| `bun run format`       | Prettier tulis-ulang seluruh file.                                                                                                      |
-| `bun run sync-version` | Tarik versi dari `src-tauri/tauri.conf.json` ke package.json + Cargo.toml. Versi HANYA diubah di tauri.conf.json.                       |
-| `bun run harness`      | Engine tool headless (JSON-over-stdio) — lihat bagian Headless Harness.                                                                |
-
-## Sistem Plugin (Ekstensi Kustom)
-
-Mark memungkinkan Anda memperluas kemampuannya dengan mudah melalui pembuatan **Plugin Kustom** secara langsung dari antarmuka pengguna, tanpa perlu mengubah kode inti aplikasi.
-
-1. Buka menu **Plugins** pada _sidebar_ aplikasi.
-2. Klik **Buat Plugin Baru**.
-3. Isi kolom Nama (contoh: `pengendali-sistem`) dan Deskripsi singkat.
-4. Jika skrip Anda memerlukan pustaka eksternal, tulis pada kolom **Dependencies (NPM)** dengan pemisah koma (contoh: `loudness, systeminformation`). Mark akan menginstalnya secara otomatis.
-5. Tambahkan **Action** (Fungsi):
-   - **Nama Action**: Penamaan fungsi (contoh: `set-volume`).
-   - **Deskripsi**: Penjelasan spesifik mengenai fungsi tersebut agar AI memahami peruntukannya.
-   - **Trigger Hint**: Petunjuk pemicu kapan AI harus menggunakan alat ini.
-6. **Tulis Skrip Anda** menggunakan editor Monaco bawaan. Skrip mengikuti standar lingkungan Node.js (CommonJS).
-
-#### Contoh: Plugin Pengatur Volume
-
-```javascript
-const loudness = require('loudness')
-
-// Mengambil parameter angka volume yang diberikan oleh AI
-const vol = parseInt(query)
-if (isNaN(vol) || vol < 0 || vol > 100) {
-  return '[GAGAL] Masukkan angka volume 0-100.'
-}
-
-try {
-  await loudness.setVolume(vol)
-  return '[SUKSES] Volume diubah ke ' + vol + '%'
-} catch (e) {
-  return '[GAGAL] Tidak bisa mengubah volume: ' + e.message
-}
-```
-
-7. Klik **Simpan Plugin**. Mark akan langsung mempelajari alat baru ini dan Anda dapat segera memerintahkannya untuk mengeksekusi skrip tersebut melalui teks atau perintah suara.
-
-## Headless Harness (Plugable)
-
-Engine tool Mark berjalan sebagai proses terpisah dengan protokol **JSON-over-stdio** —
-bisa dipakai tanpa GUI, dipasang ke agent lain, atau di-orchestrate dari skrip mana pun:
-
-```bash
-bun run harness          # engine hidup, baca perintah dari stdin
-```
-
-```json
-{"id":1,"action":"ping","payload":[]}
-{"id":2,"action":"native-tool:execute","payload":["list-dir",""]}
-```
-
-Respons: `{"id":1,"success":true,"data":"..."}` · Event proaktif: `{"event":"ai:status","payload":"..."}`
-
-## Membangun Berkas Executable (Build)
-
-```bash
-# Linux (AppImage + deb)
-bun tauri build
-```
-
-Berkas _installer_ akan otomatis tersedia di `src-tauri/target/release/bundle/`.
-
-> **MARK Linux** — fork independen, dibangun ulang di atas Tauri v2 (Rust). Versi fork memakai garis sendiri (`1.x`, saat ini `1.0.0-alpha.1`), terpisah dari penomoran upstream, dan mengikuti **Semantic Versioning 2.0.0**: `MAJOR.MINOR.PATCH` dengan sufiks prerelease (`-alpha.N`, `-rc.N`) yang diurutkan lebih rendah dari rilis stabil (contoh: `1.0.0-alpha.2` < `1.0.0-rc.1` < `1.0.0`). Naik MAJOR hanya untuk breaking change pada data/skema/API, MINOR untuk fitur, PATCH untuk perbaikan. Rilis dipicu otomatis oleh tag `v*` melalui gerbang CI ketat (gitleaks + vitest + vite build + cargo check) — lihat `.github/workflows/release.yml`. Sumber kebenaran versi: `src-tauri/tauri.conf.json` (sinkron via `bun run sync-version`). Peta jalan migrasi & status:
-> `docs/MIGRATION-PLAN.md`
-
-## Warning
-
-**Dilarang keras menjual atau memperdagangkan perangkat lunak ini untuk keuntungan komersial tanpa izin tertulis.**
+> [!NOTE]
+> Proyek ini merupakan Linux-only fork independen dari basis fondasi [Mazees/mark-agent](https://github.com/Mazees/mark-agent).
 
 ---
 
-> Dibangun untuk masa depan AI yang lebih adaptif, dan manusiawi.
+## Arsitektur Sistem
+
+Abelink dibangun dengan pemisahan tanggung jawab yang ketat:
+
+```text
+abelink/
+├── index.html            # Entry Vite (standard Tauri layout)
+├── src/                  # React 19 frontend (UI, visualizer, local DB, Web Workers)
+│   ├── api/              # AI routing, planning, Dexie DB, vectorMemory worker
+│   ├── components/       # Komponen antarmuka (HUD, Jarvis Orb, Mission Control)
+│   ├── hooks/            # Lifecycle orchestrators (useMarkAgent, useVAD, useAwareness)
+│   └── pages/            # View routing (MarkHome, Configuration, Subagents, Studio)
+├── src-tauri/            # Shell native Rust: windowing, tray, secure sandboxing, rfd modals
+├── sidecar/              # Bun sidecar daemon: JSON-lines RPC stdio, tool handlers, MCP
+├── resources/            # Binary helper pendukung (ffmpeg, yt-dlp)
+└── scripts/              # Verifikasi, benchmark, dan release helper
+```
+
+| Lapisan | Teknologi | Peran |
+| --- | --- | --- |
+| **Desktop Shell** | Tauri v2 (Rust) | Pengelolaan window transparan, global shortcut, tray Linux, dialog konfirmasi native (`rfd`), dan sandboxing path (`resolve_contained`). |
+| **Frontend UI** | React 19, Vite 7, Tailwind 4 | Antarmuka interaktif, Floating HUD, Visualisasi status, dan interaksi suara real-time. |
+| **Background Sidecar** | Bun (JSON-RPC stdio) | Runtime eksekusi tool, integrasi Telegram bot, MCP client, web scraping, dan desktop automation daemon. |
+| **Vector Engine** | Transformers.js (Web Worker) | Ekstraksi embeddings 384-dimensi lokal (MiniLM-L12-v2) tanpa membebani UI thread. |
+| **Database & Index** | Dexie (IndexedDB) + Orama | Penyimpanan terstruktur 12 tables dengan hybrid vector dan full-text search offline. |
+
+---
+
+## Fitur Inti
+
+### 1. Multi-Provider Hybrid AI Routing
+- Mendukung koneksi lokal (LM Studio, Ollama di `localhost:1234`) dan cloud provider (Groq, Cerebras, custom OpenAI-compatible endpoints).
+- Integrasi native Gemini Web RPC bridge tanpa biaya API token eksternal.
+- Mekanisme fallback otomatis jika model cloud terkena rate limit.
+
+### 2. Autonomous Multi-Agent (Mission Control)
+- Lead agent mendelegasikan tugas khusus ke sub-agents yang berjalan secara paralel dan terisolasi.
+- Sub-agents memiliki ReAct loop mandiri dengan dynamic tool-group scoping (`read-tools`).
+- Intercom dan Visual Topology Map menampilkan thought hierarchy, observasi tool, dan deliverable akhir.
+
+### 3. Durable Agent Tasks
+- Eksekusi alur kerja berulang dengan checkpoint state machine yang persisten di IndexedDB.
+- Step deduplication berbasis hash konten untuk mencegah komputasi ulang yang tidak perlu.
+
+### 4. Epistemic Grounding & Hybrid Memory System
+- Setiap turn obrolan diindeks secara otomatis ke dalam IndexedDB dan Orama vector store.
+- Strict groundedness policy: model diinstruksikan menolak menjawab jika data riwayat atau file dokumen tidak terbukti ada di repositori lokal.
+
+### 5. Desktop Awareness & OS Automation
+- Pelacakan jendela aktif via `xdotool` dan filter idle.
+- Otomatisasi desktop Linux native dengan boundary pengaman: setiap aksi sistem berisiko wajib dikonfirmasi melalui native Rust modal dialog.
+- Emergency stop global via shortcut `Ctrl+Shift+S`.
+
+### 6. Voice & Audio Pipeline
+- Voice Activity Detection (VAD) via Web Audio API.
+- Transkripsi suara real-time via Groq Whisper API atau Transformers.js Whisper lokal.
+- Speech synthesis menggunakan Edge-TTS (`id-ID-ArdiNeural`).
+
+---
+
+## Prasyarat & Instalasi
+
+### Kebutuhan Sistem (Linux Mint / Ubuntu / Debian / Arch)
+- **Rust Toolchain**: `rustup` stable.
+- **Sistem Libs**:
+  ```bash
+  sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+    libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xdotool
+  ```
+- **Bun Runtime**: v1.3+ (`curl -fsSL https://bun.sh/install | bash`).
+- **Python 3**: untuk desktop automation scripts.
+
+### Setup Cepat
+
+1. **Clone repository:**
+   ```bash
+   git clone https://github.com/Abelion512/abelink.git
+   cd abelink
+   ```
+
+2. **Smart Bootstrap & Launch:**
+   ```bash
+   bun run dev:smart
+   ```
+   Perintah ini memverifikasi environment, memasang dependensi, membersihkan lock port yang menggantung, dan menjalankan `tauri dev`.
+
+3. **Alternatif Perintah Dev:**
+   ```bash
+   bun install
+   bun run app       # Alias untuk: bun tauri dev
+   ```
+
+---
+
+## Perintah Pengembangan
+
+| Perintah | Deskripsi |
+| --- | --- |
+| `bun run dev:smart` | Idempotent bootstrap + launch dev server. |
+| `bun run app` | Jalankan aplikasi dev mode (Vite HMR + Tauri). |
+| `bun test` | Jalankan seluruh unit test (Vitest). |
+| `bun evaluation/smoke.mjs` | Jalankan MarkBench smoke test gate. |
+| `bun run sync-version` | Sinkronisasi versi dari `tauri.conf.json` ke seluruh manifest. |
+| `bun run build:sidecar` | Kompilasi sidecar Bun menjadi binary mandiri. |
+| `bun run build:deb` | Build paket rilis `.deb` untuk Debian/Ubuntu/Mint. |
+| `bun run build:dist` | Build paket rilis lengkap (`.deb` dan `.AppImage`). |
+
+---
+
+## Standar Kontribusi & Kebijakan Repositori
+
+Untuk pedoman kontribusi agen dan pengembang, baca dokumen referensi berikut:
+- [Agent Contribution Guidelines](docs/AGENT_CONTRIBUTION_GUIDELINES.md): Protokol kerja agen, arsitektur boundary, dan aturan anti-regresi.
+- [Architectural Direction RFC](docs/ARCHITECTURAL_DIRECTION.md): Analisis teknis jangka panjang antara Rust rewrite, Pure Web, dan Hybrid runtime.
+- [Contributing](CONTRIBUTING.md): Alur branching dan commit conventions.
+
+---
+
+## Lisensi & Atribusi
+Lisensi mengacu pada lisensi proyek upstream [Mazees/mark-agent](https://github.com/Mazees/mark-agent). Port Linux dan pemeliharaan arsitektur Abelink dikelola oleh Abelion512.

@@ -3,7 +3,8 @@ import { stripAgentTags, LEAD_AGENT_TAG, CREATOR_TAG } from '../src/utils/messag
 
 describe('stripAgentTags', () => {
   it('melepas tag lead agent di awal pesan', () => {
-    expect(stripAgentTags(`${LEAD_AGENT_TAG} halo dari mark`)).toBe('halo dari mark')
+    expect(stripAgentTags(`${LEAD_AGENT_TAG} halo dari abelink`)).toBe('halo dari abelink')
+    expect(stripAgentTags('[DARI LEAD AGENT (ABELINK)]:  perintah eksekusi')).toBe('perintah eksekusi')
     expect(stripAgentTags('[DARI LEAD AGENT (MARK)]:  perintah eksekusi')).toBe('perintah eksekusi')
   })
 

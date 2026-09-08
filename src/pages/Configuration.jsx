@@ -211,7 +211,7 @@ const Configuration = ({
       case 'jarvis':
         traits = { warmth: 0.4, sarcasm_level: 0.2, trust: 0.9, energy: 0.8, obedience: 1.0 }
         personaPrompt =
-          'Kamu adalah MARK, asisten pribadi AI dengan pembawaan tenang, sangat efisien, sopan, dan sigap mengeksekusi tugas tanpa basa-basi berlebih layaknya sistem Jarvis.'
+          'Kamu adalah Abelink, asisten pribadi AI dengan pembawaan tenang, sangat efisien, sopan, dan sigap mengeksekusi tugas tanpa basa-basi berlebih layaknya sistem Jarvis.'
         break
       case 'cynical-partner':
         traits = { warmth: 0.3, sarcasm_level: 0.75, trust: 0.85, energy: 0.65, obedience: 0.6 }
@@ -799,7 +799,7 @@ const Configuration = ({
                   </button>
                 )}
                 <div>
-                  <h1 className="text-xl font-bold tracking-tight text-white/90">Pengaturan MARK</h1>
+                  <h1 className="text-xl font-bold tracking-tight text-white/90">Pengaturan Abelink</h1>
                 </div>
               </div>
               <div className="flex items-center gap-2 mr-44">

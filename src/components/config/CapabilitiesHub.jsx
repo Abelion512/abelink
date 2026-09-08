@@ -143,7 +143,7 @@ export default function CapabilitiesHub({
   const handleGoogleDisconnect = async () => {
     const res = await confirm({
       title: 'Putuskan Google Workspace?',
-      message: 'MARK tidak lagi dapat mengakses Google Calendar, Google Drive, dan Gmail.',
+      message: 'Abelink tidak lagi dapat mengakses Google Calendar, Google Drive, dan Gmail.',
       confirmText: 'Putuskan',
       isError: true
     })
@@ -712,7 +712,7 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                 <FaPlug className="mx-auto text-white/20 mb-2" size={24} />
                 <p className="text-xs text-white/60 font-medium">Belum ada connector MCP eksternal yang terdeteksi.</p>
                 <p className="text-[11px] text-white/40 mt-1">
-                  Tambahkan server MCP ke konfigurasi sistem MARK atau periksa sidecar runtime.
+                  Tambahkan server MCP ke konfigurasi sistem Abelink atau periksa sidecar runtime.
                 </p>
               </div>
             ) : (
@@ -1306,7 +1306,7 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
             <div>
               <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
                 <FaShieldAlt className="text-warning" size={14} />
-                Matriks Keamanan 3-Tier MARK
+                Matriks Keamanan 3-Tier Abelink
               </h3>
               <p className="text-xs text-white/50 mt-0.5">
                 Klasifikasi hak akses deterministik untuk menjamin kedaulatan sistem operasi Anda.

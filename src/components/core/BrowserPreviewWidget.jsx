@@ -58,8 +58,8 @@ const BrowserPreviewWidget = () => {
         const sid = browserPreview.sessionId || 'default'
         const titleLabel =
           sid === 'default'
-            ? 'MARK BROWSER (Lead)'
-            : `MARK BROWSER (${sid.length > 12 ? sid.slice(0, 10) + '...' : sid})`
+            ? 'ABELINK BROWSER (Lead)'
+            : `ABELINK BROWSER (${sid.length > 12 ? sid.slice(0, 10) + '...' : sid})`
 
         const defaultPos = {
           x: Math.max(20, window.innerWidth - 340 - index * 30),

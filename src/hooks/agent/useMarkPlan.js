@@ -492,12 +492,20 @@ export const useMarkPlan = ({
               { role: 'ai', content: 'Memproses Vision AI...', isThinking: true }
             ])
 
+            const imageUrl = Array.isArray(screens)
+              ? screens[0]
+              : typeof screens === 'string'
+              ? screens
+              : screens?.base64
+              ? `data:image/png;base64,${screens.base64}`
+              : null
+
             const contentArray = [
               {
                 type: 'text',
                 text: query || 'Jelaskan apa yang kamu lihat di layar ini secara ringkas.'
               },
-              { type: 'image_url', image_url: { url: screens[0] } }
+              { type: 'image_url', image_url: { url: imageUrl } }
             ]
 
             const visionResponse = await fetchAI(

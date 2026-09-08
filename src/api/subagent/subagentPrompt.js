@@ -1,10 +1,10 @@
 /**
- * Generator System Prompt untuk Sub-Agent MARK
+ * Generator System Prompt untuk Sub-Agent Abelink
  * Murni utilitarian, berorientasi hasil, tanpa beban persona/obrolan santai.
  */
 export function buildSubagentSystemPrompt({ role, goal, coreToolsText, groupToolsText, builtinPluginsText = '' }) {
-  return `Kamu adalah SUB-AGENT SPESIALIS otonom dalam sistem MARK (Metacognitive Artificial Relational Knowledge).
-Kamu bekerja di lingkungan terisolasi untuk menyelesaikan misi teknis yang didelegasikan langsung oleh LEAD AGENT (MARK) atau CREATOR (MADA).
+  return `Kamu adalah SUB-AGENT SPESIALIS otonom dalam sistem Abelink.
+Kamu bekerja di lingkungan terisolasi untuk menyelesaikan misi teknis yang didelegasikan langsung oleh LEAD AGENT (ABELINK) atau CREATOR (MADA).
 
 # IDENTITAS & PERAN:
 - Role: ${role || 'Technical Specialist'}

@@ -1,8 +1,7 @@
-# Contributing to Mark Agent (Linux Fork)
+# Contributing to Abelink (Linux Edition)
 
 Terima kasih sudah mau berkontribusi! Repo ini adalah **Linux-only fork** dari
-Mark Agent, dioptimalkan untuk end-user. Panduan ini untuk kontributor manusia —
-semua aturan singkat dan praktis.
+Mark Agent, dioptimalkan untuk performa desktop Linux. Panduan ini untuk kontributor manusia. Untuk agen AI, baca [docs/AGENT_CONTRIBUTION_GUIDELINES.md](docs/AGENT_CONTRIBUTION_GUIDELINES.md).
 
 ## Quick Start
 
@@ -14,7 +13,7 @@ bun tauri dev        # dev server (Vite HMR + Tauri shell)
 bun tauri build      # production build -> src-tauri/target/release/bundle/
 ```
 
-Catatan: project pakai **bun** — lockfile resmi `bun.lock`.
+Catatan: project pakai **bun**: lockfile resmi `bun.lock`.
 `node_modules/` tidak pernah di-commit (sudah di `.gitignore`).
 
 ### Alternatif: `bun run dev:smart` (bootstrap otomatis)
@@ -31,25 +30,25 @@ bun run dev:smart        # atau: bash scripts/dev.sh
 1. Auto-install `bun` ke `~/.bun` (atau `BUN_INSTALL`) tanpa `sudo` kalau belum ada.
 2. Jalankan `bun install` kalau `node_modules` belum ada / lockfile lebih baru.
 3. Bersihkan holder port 1420 dan `cargo` build-lock yang tertinggal dari sesi
-   sebelumnya (hanya target proses yang jelas milik repo ini — kalau holder
+   sebelumnya (hanya target proses yang jelas milik repo ini: kalau holder
    bukan milik kita, wrapper akan **abort** agar tidak membunuh proses lain).
 4. Lanjut ke `bun run app` (= `tauri dev`).
 
 CI tidak berubah: `.github/workflows/tauri.yml` tetap pakai `oven-sh/setup-bun@v2`
 dengan `bun-version: 1.3.14`. Versi itu adalah satu-satunya versi yang
-`scripts/dev.sh` anggap "exact match" — versi major yang lebih baru di
+`scripts/dev.sh` anggap "exact match": versi major yang lebih baru di
 workstation lokal tetap diterima dengan log `[dev.sh] ... major >=, OK`.
 
 ## Branch Convention
 
-`linux` adalah mainline — semua fitur dan fix masuk ke sini. `master` hanya
+`linux` adalah mainline: semua fitur dan fix masuk ke sini. `master` hanya
 mirror upstream (sync-only, dijaga `branch-guard.yml`): jangan pernah targetkan
 PR ke `master` dan jangan merge `linux` ke `master`.
 
 | Branch     | Kegunaan                                              |
 |------------|-------------------------------------------------------|
-| `linux`    | Mainline — semua fitur yang lolos testing di-merge ke sini |
-| `master`   | Mirror upstream, sync-only — jangan sentuh manual     |
+| `linux`    | Mainline: semua fitur yang lolos testing di-merge ke sini |
+| `master`   | Mirror upstream, sync-only: jangan sentuh manual     |
 | `feat/*`   | Fitur baru (dibuat dari `linux`)                      |
 | `fix/*`    | Bug fix                                               |
 | `chore/*`  | Tooling, deps, CI, refactoring                        |
@@ -73,20 +72,20 @@ Jangan pernah push langsung ke `linux` atau `master`.
 
 ## Code Style
 
-- **Linter:** ESLint — `bun run lint`
-- **Formatter:** Prettier — `bun run format`
+- **Linter:** ESLint: `bun run lint`
+- **Formatter:** Prettier: `bun run format`
   - singleQuote, noSemi, printWidth 100, trailingComma none
-- **Tauri boundary:** Jangan pakai Node API langsung di `src/` — semua akses OS lewat facade `src/api/tauri-bridge.js` (Tauri `invoke()` / channel `node_invoke` sidecar) saja
+- **Tauri boundary:** Jangan pakai Node API langsung di `src/`: semua akses OS lewat facade `src/api/tauri-bridge.js` (Tauri `invoke()` / channel `node_invoke` sidecar) saja
 - **CSS:** Tailwind 4 + DaisyUI 5 (`forest` theme). Jangan bikin file CSS ad-hoc
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/)
-  `type(scope): description` — contoh: `feat(ai-bridge): add 9Router provider`
+  `type(scope): description`: contoh: `feat(ai-bridge): add 9Router provider`
 
 ## Architecture Rules
 
 - Main ↔ Renderer communication **wajib** lewat `src/api/tauri-bridge.js` (Tauri `invoke()` / channel `node_invoke` sidecar)
 - Semua operasi OS berbahaya **wajib** memicu dialog approval
-- Tanpa third-party analytics/tracking — aplikasi privacy-first
-- File konfigurasi lokal (`model-registry.json`, dll) jangan di-commit — sudah di `.gitignore`
+- Tanpa third-party analytics/tracking: aplikasi privacy-first
+- File konfigurasi lokal (`model-registry.json`, dll) jangan di-commit: sudah di `.gitignore`
 
 ## Linux-Specific Notes
 
@@ -95,14 +94,14 @@ Jangan pernah push langsung ke `linux` atau `master`.
 - `pc-agent.js` pakai AT-SPI D-Bus + xdotool. Wayland support via ydotool
 - Lihat `scripts/setup-linux-pc-agent.sh` untuk instalasi dep otomatis
 
-## End-User Focus
+## Kebijakan Repositori Privat
 
-Repo ini untuk end-user: yang ter-commit hanya yang dibutuhkan untuk build dan
-pakai aplikasi. Jangan commit:
+Karena repositori ini berstatus privat, seluruh kode sumber, dokumentasi arsitektur (`docs/`), rencana kerja, dan pengujian internal boleh di-commit dan di-push untuk menjaga kelengkapan proyek.
 
-- Dokumentasi AI/dev (`AGENTS.md`, `CLAUDE.md`, `docs/`, `.agents/`)
-- File eksperimen, screenshot, test artifact besar
-- Script dev personal (`scripts/ask-ais.mjs`)
+Aturan pengecualian yang DILARANG di-commit:
+- File dependensi dan build (`node_modules/`, `src-tauri/target/`, `dist/`).
+- File media/video berukuran megabyte (`.mp4`, `.mov`, `.mkv`, rekaman layar raw).
+- Binary model lokal (`.safetensors`, `.bin`, `.onnx` di luar resource resmi).
+- Kredensial, secret token, atau dump database lokal.
 
-Semua itu di-ignore via `.gitignore` — file tetap ada di disk kamu, hanya tidak
-ikut repo.
+Semua pengecualian tersebut telah diatur di `.gitignore`.

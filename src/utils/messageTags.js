@@ -1,5 +1,5 @@
-// Tag routing prefixes written by subagentExecutor.js — matched exactly, as literals.
-export const LEAD_AGENT_TAG = '[DARI LEAD AGENT (MARK)]:'
+// Tag routing prefixes written by subagentExecutor.js: matched exactly, as literals.
+export const LEAD_AGENT_TAG = '[DARI LEAD AGENT (ABELINK)]:'
 export const CREATOR_TAG = '[DARI CREATOR / USER (MADA)]:'
 
 /**
@@ -11,7 +11,7 @@ export const CREATOR_TAG = '[DARI CREATOR / USER (MADA)]:'
 export function stripAgentTags(text) {
   if (typeof text !== 'string') return text
   return text
-    .replace(/^\[DARI LEAD AGENT \(MARK\)\]:\s*/, '')
+    .replace(/^\[DARI LEAD AGENT \((ABELINK|MARK)\)\]:\s*/, '')
     .replace(/^\[DARI CREATOR \/ USER \([\s\S]*?\)\]:\s*/, '')
     .replace(/^\[DARI CREATOR \/ USER \([^)]*\)\]:\s*/, '')
 }

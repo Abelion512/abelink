@@ -93,7 +93,7 @@ function normalizePlan(plan, userInput, classification) {
   })
 
   return {
-    title: plan?.title || 'Durable MARK Task',
+    title: plan?.title || 'Durable Abelink Task',
     objective: plan?.objective || userInput,
     mode: 'durable',
     constraints: plan?.constraints || { language: 'id-ID' },
@@ -145,7 +145,7 @@ export async function createDurableTaskPlan(userInput, classification = {}, sign
     {
       role: 'system',
       content:
-        'Buat outline durable task untuk MARK. Pecah tugas menjadi step independen dan berurutan. Jangan memasukkan eksekusi tool. Output hanya JSON sesuai schema.'
+        'Buat outline durable task untuk Abelink. Pecah tugas menjadi step independen dan berurutan. Jangan memasukkan eksekusi tool. Output hanya JSON sesuai schema.'
     },
     {
       role: 'user',

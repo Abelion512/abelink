@@ -126,7 +126,7 @@ export const GROUP_TOOLS_DEFINITION = {
   },
   connectors: {
     description:
-      'General-pluggable Capability Manager (model ala Claude connectors): katalog connector + aksi ter-schema + policy + audit. Gunakan untuk menemukan & mengeksekusi kemampuan eksternal tanpa hardcode — MARK tidak condong ke satu task, semua kemampuan bisa dipasang lewat connector.',
+      'General-pluggable Capability Manager (model ala Claude connectors): katalog connector + aksi ter-schema + policy + audit. Gunakan untuk menemukan & mengeksekusi kemampuan eksternal tanpa hardcode: Abelink tidak condong ke satu task, semua kemampuan bisa dipasang lewat connector.',
     tools: {
       'connector-list':
         'Lihat semua connector terpasang (id, nama, deskripsi, scopes). Query: KOSONG.',
