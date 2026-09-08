@@ -474,7 +474,7 @@ const MarkHome = () => {
         <div className="fixed inset-0 bg-base-300 flex flex-col items-center justify-center gap-5 z-[999]">
           <span className="loading loading-infinity w-16 text-primary"></span>
           <p className="text-sm font-semibold tracking-[0.2em] text-white/40 uppercase animate-pulse">
-            Membangunkan Abelink OS...
+            Membangunkan Abelink...
           </p>
         </div>
       )}
@@ -495,17 +495,7 @@ const MarkHome = () => {
       {/* ── TOP EXECUTIVE DOCK: Abelink Branding & 4-Mode Switcher ───────────── */}
       <header className="relative z-40 w-full h-16 pt-3 px-6 flex items-center justify-between pointer-events-auto">
         {/* Left: Abelink Brand HUD */}
-        <div className="flex items-center gap-3 pl-16 select-none">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
-            <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />
-            <span className="text-xs font-bold tracking-wider uppercase text-white/90 font-mono">
-              Abelink
-            </span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/20 text-primary font-mono">
-              v1.0
-            </span>
-          </div>
-        </div>
+        <div className="flex items-center gap-3 pl-16 select-none"></div>
 
         {/* Center: 4-Mode Switcher Capsule */}
         <div className="flex items-center bg-black/50 backdrop-blur-2xl border border-white/10 p-1 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.6)] gap-1">
