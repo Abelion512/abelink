@@ -3,7 +3,7 @@
 import { on, lazy } from '../registry.mjs'
 
 const getYt = lazy(async () => {
-  // Paket CJS: fungsi utama bisa di default atau namespace — normalkan.
+  // Paket CJS: fungsi utama bisa di default atau namespace (normalkan).
   const m = await import('youtube-transcript-plus')
   return m.default ?? m
 })
@@ -17,7 +17,7 @@ on('tts-speak', async (text, rate, pitch) => {
       const MsEdgeTTS = mod.default || mod.MsEdgeTTS
       const { OUTPUT_FORMAT } = mod
       globalTTS = new MsEdgeTTS()
-      await globalTTS.setMetadata('id-ID-ArdiNeural', OUTPUT_FORMAT.WEBM_24KHZ_16BIT_MONO_OPUS)
+      await globalTTS.setMetadata('id-ID-ArdiNeural', OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3)
     }
     const tmpPath = path.join(os.tmpdir(), 'mark-tts-folder')
     fs.mkdirSync(tmpPath, { recursive: true })

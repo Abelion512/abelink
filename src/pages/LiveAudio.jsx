@@ -3,8 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { getAllConfig } from '../api/db'
 import { transcribeAudioLocal } from '../api/localWhisper'
+import { transcribeAudioGroq } from '../api/groq'
 import { resolveMicConstraints, micCoolingDown, noteMicFailure } from '../api/mic'
-import { FaChevronLeft, FaMicrophone, FaStop, FaExclamationTriangle } from 'react-icons/fa'
+import { FaChevronLeft, FaMicrophone, FaStop, FaExclamationTriangle, FaBolt } from 'react-icons/fa'
 
 const LiveAudio = () => {
   const {
@@ -25,6 +26,7 @@ const LiveAudio = () => {
   const location = useLocation()
   const [isActive, setIsActive] = useState(false)
   const [status, setStatus] = useState('idle')
+  const [audioIntensity, setAudioIntensity] = useState(0)
   const timeoutsRef = useRef(null)
   const recognitionRef = useRef(null)
   const audioRef = useRef(null)
@@ -116,6 +118,46 @@ const LiveAudio = () => {
 
   const isStartingRef = useRef(false)
 
+  // Speech envelope generator saat Mark berbicara agar visualizer Jarvis berdenyut reaktif
+  useEffect(() => {
+    if (status !== 'speaking') {
+      if (status === 'idle') setAudioIntensity(0)
+      return
+    }
+    let frameId
+    let t = 0
+    const animateSpeaking = () => {
+      t += 0.18
+      const simulated = Math.abs(Math.sin(t) * 0.45 + Math.sin(t * 2.1) * 0.35 + Math.cos(t * 0.6) * 0.2)
+      setAudioIntensity(Math.min(1, Math.max(0.15, simulated)))
+      frameId = requestAnimationFrame(animateSpeaking)
+    }
+    frameId = requestAnimationFrame(animateSpeaking)
+    return () => cancelAnimationFrame(frameId)
+  }, [status])
+
+  const transcribeSpeech = async (pcmBuffer) => {
+    const configList = await getAllConfig()
+    const cfg = configList[0] || {}
+    const sttEngine = cfg.localWhisperModel || 'whisper-small'
+
+    if (sttEngine === 'groq-whisper' || !sttEngine.startsWith('whisper-')) {
+      if (cfg.groqApiKey) {
+        return await transcribeAudioGroq(pcmBuffer)
+      }
+    }
+
+    try {
+      return await transcribeAudioLocal(pcmBuffer)
+    } catch (localErr) {
+      if (cfg.groqApiKey) {
+        console.warn('[LiveAudio] Local Whisper gagal, otomatis fallback ke Groq Whisper:', localErr.message || localErr)
+        return await transcribeAudioGroq(pcmBuffer)
+      }
+      throw localErr
+    }
+  }
+
   const handleMicToggle = async () => {
     if (isActive) {
       // Dapatkan pending audio yang sempat terekam sebelum dimatikan
@@ -130,19 +172,20 @@ const LiveAudio = () => {
       if (pendingAudio) {
         setStatus('thinking')
         
-        // Memberikan jeda 150ms agar UI React sempat re-render (mic mati) sebelum thread diblokir oleh WASM
+        // Memberikan jeda 150ms agar UI React sempat re-render sebelum thread diblokir
         setTimeout(() => {
-          transcribeAudioLocal(pendingAudio)
+          transcribeSpeech(pendingAudio)
             .then(text => {
               if (text && text.trim() !== '') {
                 setMessage(text.trim())
-                handlePlanningCommand(text.trim())
+                const prefixed = `(Hasil STT) ${text.trim()}`
+                handlePlanningCommand(prefixed, null, false, null, { forceSpeak: true })
               } else {
                 setStatus('idle')
               }
             })
             .catch(err => {
-              console.error('Local STT Error:', err)
+              console.error('[LiveAudio] STT Error:', err)
               setStatus('idle')
             })
         }, 150)
@@ -225,6 +268,10 @@ const LiveAudio = () => {
           for (let i = 0; i < input.length; i++) sum += input[i] * input[i]
           const rms = Math.sqrt(sum / input.length)
 
+          // Audio intensity untuk Jarvis visualizer (0.01 - 0.15 normalized ke 0.0 - 1.0)
+          const normalized = Math.min(1, Math.max(0, (rms - 0.01) * 12))
+          setAudioIntensity(normalized)
+
           // Threshold suara (VAD sederhana) diturunkan agar lebih sensitif
           if (rms > 0.01) {
             if (!isSpeakingRef.current) {
@@ -251,26 +298,27 @@ const LiveAudio = () => {
               
               setStatus('thinking')
               
-              // Memberikan jeda 150ms agar UI React sempat re-render sebelum thread diblokir oleh WASM
+              // Memberikan jeda 150ms agar UI React sempat re-render sebelum thread diblokir
               setTimeout(() => {
-                transcribeAudioLocal(merged)
+                transcribeSpeech(merged)
                   .then(text => {
                     if (text && text.trim() !== '') {
                       setMessage(text.trim())
-                      handlePlanningCommand(text.trim())
+                      const prefixed = `(Hasil STT) ${text.trim()}`
+                      handlePlanningCommand(prefixed, null, false, null, { forceSpeak: true })
                     } else {
                       setStatus('listening')
                     }
                   })
                   .catch(err => {
-                    console.error('Local STT Error:', err)
-                    setToastMessage('Gagal memuat atau memproses Whisper Local.')
+                    console.error('[LiveAudio] STT Error:', err)
+                    setToastMessage(`Gagal memproses ucapan: ${err.message || err}`)
                     setTimeout(() => setToastMessage(''), 5000)
                     setStatus('listening')
                   })
               }, 150)
               
-            }, 1200) // Diam 1.2 detik = kirim ke Groq
+            }, 1200) // Diam 1.2 detik = kirim ke STT
           }
 
           if (isSpeakingRef.current) {
@@ -317,21 +365,44 @@ const LiveAudio = () => {
       const configList = await getAllConfig()
       const rate = configList[0]?.ttsRate ?? 0
       const pitch = configList[0]?.ttsPitch ?? 0
-      
-      const audioBase64 = await window.api.textToSpeech(text, rate, pitch)
+
+      // Bersihkan markdown atau token tag sebelum dikirim ke TTS
+      const cleanText = text
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/#+\s/g, '')
+        .trim()
+
+      if (!cleanText) {
+        setStatus('listening')
+        return
+      }
+
+      const audioBase64 = await window.api.textToSpeech(cleanText, rate, pitch)
       if (audioBase64) {
         const audio = new Audio(audioBase64)
         audioRef.current = audio
-        
+
         audio.onended = () => {
           setStatus('listening')
         }
-        audio.play()
+        audio.onerror = (e) => {
+          console.warn('[LiveAudio] Audio playback error:', e)
+          setStatus('listening')
+        }
+        try {
+          await audio.play()
+        } catch (playErr) {
+          console.warn('[LiveAudio] audio.play() error:', playErr)
+          setStatus('listening')
+        }
       } else {
         setStatus('listening')
       }
-    } catch(e) {
-      console.error(e)
+    } catch (e) {
+      console.error('[LiveAudio] TTS Error:', e)
       setStatus('listening')
     }
   }
@@ -402,68 +473,215 @@ const LiveAudio = () => {
         <p className="text-sm opacity-50">Percakapan suara real-time dengan Mark</p>
       </div>
 
-      {/* Audio Visualizer Circle */}
-      <div className="relative z-10 flex items-center justify-center mb-10">
-        {/* Outer pulse rings */}
-        {isActive && (
-          <>
-            <div className="absolute w-64 h-64 rounded-full border border-primary/20 audio-pulse-ring" />
-            <div
-              className="absolute w-72 h-72 rounded-full border border-primary/10 audio-pulse-ring"
-              style={{ animationDelay: '0.5s' }}
+      {/* JARVIS / MARK CYBERNETIC ORB VISUALIZER */}
+      <div className="relative z-10 flex items-center justify-center mb-8 select-none">
+        {/* Outer Telemetry Arc Reactor HUD (SVG) */}
+        <div className="relative w-80 h-80 flex items-center justify-center">
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 320 320">
+            {/* Outer Orbit Track */}
+            <circle
+              cx="160"
+              cy="160"
+              r="152"
+              fill="none"
+              stroke="currentColor"
+              className={`transition-colors duration-700 ${
+                status === 'speaking'
+                  ? 'text-cyan-400/40'
+                  : status === 'listening'
+                    ? 'text-emerald-400/40'
+                    : status === 'thinking'
+                      ? 'text-amber-400/40'
+                      : 'text-cyan-600/20'
+              }`}
+              strokeWidth="1"
+              strokeDasharray="4 8"
             />
-            <div
-              className="absolute w-80 h-80 rounded-full border border-primary/5 audio-pulse-ring"
-              style={{ animationDelay: '1s' }}
-            />
-          </>
-        )}
-
-        {/* Main visualizer circle */}
-        <div
-          className={`relative w-52 h-52 rounded-full flex items-center justify-center transition-all duration-700 ${
-            isActive
-              ? status === 'speaking'
-                ? 'audio-glow-speaking'
-                : 'audio-glow-listening'
-              : 'audio-glow-idle'
-          }`}
-        >
-          {/* Inner gradient ring */}
-          <div
-            className={`absolute inset-0 rounded-full transition-all duration-500 ${
-              isActive
-                ? 'bg-linear-to-br from-primary/30 via-success/20 to-primary/30'
-                : 'bg-linear-to-br from-base-200/60 via-base-300/40 to-base-200/60'
-            }`}
-          />
-
-          {/* Inner circle with waveform placeholder */}
-          <div
-            className={`relative w-40 h-40 rounded-full flex items-center justify-center backdrop-blur-sm transition-all duration-500 ${
-              isActive
-                ? 'bg-base-100/40 border border-primary/30'
-                : 'bg-base-100/20 border border-white/5'
-            }`}
-          >
-            {/* Animated bars (audio waveform placeholder) */}
-            <div className="flex items-center gap-1">
-              {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-1.5 rounded-full transition-all duration-300 ${
-                    isActive
-                      ? status === 'speaking'
-                        ? 'bg-success audio-bar-speaking'
-                        : 'bg-primary audio-bar-listening'
-                      : 'bg-white/20 h-4'
-                  }`}
-                  style={{
-                    animationDelay: `${i * 0.15}s`
-                  }}
+            {/* Rotating Segmented Ring 1 (Clockwise) */}
+            <g className={isActive ? 'animate-[spin_30s_linear_infinite] origin-center' : 'origin-center'}>
+              <circle
+                cx="160"
+                cy="160"
+                r="140"
+                fill="none"
+                stroke="currentColor"
+                className={`transition-colors duration-700 ${
+                  status === 'speaking'
+                    ? 'text-cyan-400/60'
+                    : status === 'listening'
+                      ? 'text-emerald-400/60'
+                      : status === 'thinking'
+                        ? 'text-purple-400/60'
+                        : 'text-cyan-500/20'
+                }`}
+                strokeWidth="1.5"
+                strokeDasharray="60 30 15 30 90 20"
+              />
+              {/* Arc Reactor Ticks */}
+              {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
+                <line
+                  key={deg}
+                  x1="160"
+                  y1="16"
+                  x2="160"
+                  y2="24"
+                  stroke="currentColor"
+                  className={isActive ? 'text-cyan-400/70' : 'text-white/20'}
+                  strokeWidth="2"
+                  transform={`rotate(${deg} 160 160)`}
                 />
               ))}
+            </g>
+
+            {/* Counter-Rotating Segmented Ring 2 */}
+            <g className={isActive ? 'animate-[spin_20s_linear_infinite_reverse] origin-center' : 'origin-center'}>
+              <circle
+                cx="160"
+                cy="160"
+                r="124"
+                fill="none"
+                stroke="currentColor"
+                className={`transition-colors duration-700 ${
+                  status === 'speaking'
+                    ? 'text-teal-300/60'
+                    : status === 'listening'
+                      ? 'text-emerald-300/60'
+                      : status === 'thinking'
+                        ? 'text-amber-300/60'
+                        : 'text-cyan-400/20'
+                }`}
+                strokeWidth="2"
+                strokeDasharray="40 40 80 20"
+              />
+            </g>
+
+            {/* Inner Gyroscopic Gyro Ring (Fast Spin when thinking) */}
+            <g className={status === 'thinking' ? 'animate-[spin_4s_linear_infinite] origin-center' : isActive ? 'animate-[spin_12s_linear_infinite] origin-center' : 'origin-center'}>
+              <circle
+                cx="160"
+                cy="160"
+                r="108"
+                fill="none"
+                stroke="currentColor"
+                className={`transition-colors duration-700 ${
+                  status === 'speaking'
+                    ? 'text-cyan-300'
+                    : status === 'listening'
+                      ? 'text-emerald-400'
+                      : status === 'thinking'
+                        ? 'text-amber-400'
+                        : 'text-cyan-500/30'
+                }`}
+                strokeWidth="1"
+                strokeDasharray="8 6"
+              />
+            </g>
+          </svg>
+
+          {/* Dynamic Audio Ripple Waves */}
+          {isActive && (
+            <>
+              <div
+                className={`absolute rounded-full pointer-events-none transition-all duration-300 ${
+                  status === 'speaking'
+                    ? 'border border-cyan-400/30 shadow-[0_0_30px_rgba(34,211,238,0.2)]'
+                    : status === 'listening'
+                      ? 'border border-emerald-400/30 shadow-[0_0_30px_rgba(52,211,153,0.2)]'
+                      : 'border border-amber-400/30 shadow-[0_0_30px_rgba(251,191,36,0.2)]'
+                }`}
+                style={{
+                  width: `${190 + audioIntensity * 80}px`,
+                  height: `${190 + audioIntensity * 80}px`,
+                  opacity: Math.max(0.2, audioIntensity * 0.8)
+                }}
+              />
+              <div
+                className="absolute rounded-full border border-white/10 pointer-events-none transition-all duration-500"
+                style={{
+                  width: `${210 + audioIntensity * 100}px`,
+                  height: `${210 + audioIntensity * 100}px`,
+                  opacity: Math.max(0.1, audioIntensity * 0.5)
+                }}
+              />
+            </>
+          )}
+
+          {/* Glowing Arc Reactor Plasma Sphere */}
+          <div
+            className={`relative w-44 h-44 rounded-full flex items-center justify-center backdrop-blur-md transition-all duration-300 shadow-2xl ${
+              status === 'speaking'
+                ? 'bg-radial from-cyan-400/30 via-sky-600/20 to-teal-950/80 border-2 border-cyan-300/80 shadow-[0_0_50px_rgba(34,211,238,0.5)]'
+                : status === 'listening'
+                  ? 'bg-radial from-emerald-400/30 via-teal-600/20 to-slate-950/80 border-2 border-emerald-400/80 shadow-[0_0_50px_rgba(52,211,153,0.5)]'
+                  : status === 'thinking'
+                    ? 'bg-radial from-amber-400/30 via-purple-700/30 to-slate-950/80 border-2 border-amber-400/80 shadow-[0_0_50px_rgba(251,191,36,0.5)]'
+                    : 'bg-radial from-cyan-900/20 via-slate-900/40 to-slate-950/80 border border-cyan-500/30 shadow-[0_0_30px_rgba(6,182,212,0.15)]'
+            }`}
+            style={{
+              transform: `scale(${1 + audioIntensity * 0.22})`
+            }}
+          >
+            {/* Center Core Reactor Eye */}
+            <div
+              className={`w-28 h-28 rounded-full flex items-center justify-center border transition-all duration-500 ${
+                status === 'speaking'
+                  ? 'border-cyan-300/50 bg-cyan-500/20 shadow-[inset_0_0_25px_rgba(34,211,238,0.6)]'
+                  : status === 'listening'
+                    ? 'border-emerald-300/50 bg-emerald-500/20 shadow-[inset_0_0_25px_rgba(52,211,153,0.6)]'
+                    : status === 'thinking'
+                      ? 'border-amber-300/50 bg-amber-500/20 shadow-[inset_0_0_25px_rgba(251,191,36,0.6)]'
+                      : 'border-cyan-500/20 bg-cyan-950/30 shadow-[inset_0_0_15px_rgba(6,182,212,0.2)]'
+              }`}
+            >
+              {/* Jarvis Audio Frequency Equalizer Waves */}
+              <div className="flex items-center gap-1.5 h-14">
+                {[0.4, 0.7, 1.0, 0.8, 1.2, 0.9, 0.6, 1.1, 0.5].map((factor, idx) => {
+                  const barHeight = isActive
+                    ? Math.max(8, Math.min(48, Math.round(12 + audioIntensity * 36 * factor)))
+                    : 6
+                  return (
+                    <div
+                      key={idx}
+                      className={`w-1 rounded-full transition-all duration-75 ${
+                        status === 'speaking'
+                          ? 'bg-cyan-300 shadow-[0_0_8px_rgba(34,211,238,0.8)]'
+                          : status === 'listening'
+                            ? 'bg-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
+                            : status === 'thinking'
+                              ? 'bg-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.8)]'
+                              : 'bg-cyan-600/40'
+                      }`}
+                      style={{ height: `${barHeight}px` }}
+                    />
+                  )
+                })}
+              </div>
             </div>
+
+            {/* Inner Core Pulse Dot */}
+            <div
+              className={`absolute w-3 h-3 rounded-full transition-transform duration-100 ${
+                status === 'speaking'
+                  ? 'bg-cyan-200 shadow-[0_0_12px_#67e8f9]'
+                  : status === 'listening'
+                    ? 'bg-emerald-200 shadow-[0_0_12px_#6ee7b7]'
+                    : status === 'thinking'
+                      ? 'bg-amber-200 shadow-[0_0_12px_#fde68a]'
+                      : 'bg-cyan-500/40'
+              }`}
+              style={{
+                transform: `scale(${1 + audioIntensity * 0.8})`
+              }}
+            />
+          </div>
+
+          {/* Jarvis Telemetry Badges */}
+          <div className="absolute -top-7 text-[10px] font-mono tracking-widest text-cyan-400/70 uppercase flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'}`} />
+            <span>JARVIS // MARK CORE</span>
+          </div>
+          <div className="absolute -bottom-7 text-[10px] font-mono tracking-wider text-white/40 uppercase">
+            {status === 'speaking' ? 'SYNTH // VOCALIZING' : status === 'listening' ? `AUDIO // LEVEL ${Math.round(audioIntensity * 100)}%` : status === 'thinking' ? 'NEURAL // REASONING' : 'STANDBY // READY'}
           </div>
         </div>
       </div>
