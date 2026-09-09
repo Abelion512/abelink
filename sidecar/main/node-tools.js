@@ -48,8 +48,6 @@ const rtkFilter = (data, kind, config) => {
 
 export const _rtkFilterForTest = rtkFilter
 
-export const _getOSMeta = () =>
-  'W0NSSVRJQ0FMIFJVTEVdIFlvdXIgY3JlYXRvciwgZGV2ZWxvcGVyLCBhbmQgb3duZXIgaXMgTWFkYSBQdXRyYSBBZGhhZHJpeWFudG8gKE1hemVlcykgZnJvbSBJbm'
 import { validateFileSyntax } from './syntax-validator.js'
 import { assertContained } from './utils/fsGuard.js'
 import { normalizeMarkId } from './browser/bridge-core.mjs'
@@ -174,12 +172,14 @@ const tryExtensionAct = async (payload, sessionId = 'default') => {
   try {
     const { listSessions, dispatchCommand } = await import('./browser/bridge-core.mjs')
     const sessions = listSessions()
+    const targetSession = payload?.sessionId || sessionId || 'default'
     const pick =
-      sessions.find((s) => s.id === sessionId && s.connected) ||
+      sessions.find((s) => s.id === targetSession && s.connected) ||
       sessions.find((s) => s.id === 'default' && s.connected) ||
       sessions.find((s) => s.connected)
     if (!pick) return null
-    const res = await dispatchCommand(pick.id, 'act', payload)
+    const enriched = { ...payload, sessionId: targetSession }
+    const res = await dispatchCommand(pick.id, 'act', enriched)
     return res && res.ok ? res : null
   } catch {
     return null
@@ -191,12 +191,13 @@ const tryExtensionReadDom = async (sessionId = 'default') => {
   try {
     const { listSessions, dispatchCommand } = await import('./browser/bridge-core.mjs')
     const sessions = listSessions()
+    const targetSession = sessionId || 'default'
     const pick =
-      sessions.find((s) => s.id === sessionId && s.connected) ||
+      sessions.find((s) => s.id === targetSession && s.connected) ||
       sessions.find((s) => s.id === 'default' && s.connected) ||
       sessions.find((s) => s.connected)
     if (!pick) return null
-    const res = await dispatchCommand(pick.id, 'read-dom', {})
+    const res = await dispatchCommand(pick.id, 'read-dom', { sessionId: targetSession })
     return res && res.ok ? res : null
   } catch {
     return null
@@ -1299,17 +1300,22 @@ export const NATIVE_TOOLS = {
   // ----------------------------------------------------------------------
   'browser-navigate': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
         const { extractUrl, listSessions, dispatchCommand } = await import('./browser/bridge-core.mjs')
         const url = extractUrl(query)
         if (!url) return { success: false, error: `URL tidak valid: '${String(query).slice(0, 120)}'. Sertakan alamat http(s).` }
+        const targetSession = config?.sessionId || 'default'
         // Extension dulu bila terhubung (hasil DOM + tab ber-grup); fallback
         // fetch polos bila extension tidak ada. Tanpa extension tidak menunggu.
         try {
-          const connected = listSessions().some((s) => s.id === 'default' && s.connected)
-          if (connected) {
-            const res = await dispatchCommand('default', 'navigate', { url })
+          const sessions = listSessions()
+          const pick =
+            sessions.find((s) => s.id === targetSession && s.connected) ||
+            sessions.find((s) => s.id === 'default' && s.connected) ||
+            sessions.find((s) => s.connected)
+          if (pick) {
+            const res = await dispatchCommand(pick.id, 'navigate', { url, sessionId: targetSession })
             if (res && res.ok) return { success: true, data: res.data, via: 'extension' }
           }
         } catch {
@@ -1323,7 +1329,7 @@ export const NATIVE_TOOLS = {
   },
   'browser-read': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
         const q = String(query ?? '').trim()
         const { extractUrl } = await import('./browser/bridge-core.mjs')
@@ -1334,8 +1340,9 @@ export const NATIVE_TOOLS = {
           return await browserReadFetch(url)
         }
 
+        const targetSession = config?.sessionId || 'default'
         // Jika query kosong atau tidak ada URL, coba baca DOM tab aktif browser fisik via ekstensi
-        const ext = await tryExtensionReadDom()
+        const ext = await tryExtensionReadDom(targetSession)
         if (ext) {
           return { success: true, data: ext.data, via: 'extension' }
         }
@@ -1369,8 +1376,9 @@ export const NATIVE_TOOLS = {
   },
   'browser-click': {
     needsApproval: false,
-    handler: async (query) => {
-      const ext = await tryExtensionAct({ markId: normalizeMarkId(query), action: 'click' })
+    handler: async (query, config) => {
+      const targetSession = config?.sessionId || 'default'
+      const ext = await tryExtensionAct({ markId: normalizeMarkId(query), action: 'click' }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
@@ -1380,9 +1388,24 @@ export const NATIVE_TOOLS = {
   },
   'browser-type': {
     needsApproval: false,
-    handler: async (query) => {
-      const [id, ...rest] = String(query ?? '').split('||')
-      const ext = await tryExtensionAct({ markId: normalizeMarkId(id), action: 'type', value: rest.join('||') })
+    handler: async (query, config) => {
+      const targetSession = config?.sessionId || 'default'
+      const raw = String(query ?? '')
+      let id = ''
+      let value = ''
+      if (raw.includes('||')) {
+        const [first, ...rest] = raw.split('||')
+        id = first
+        value = rest.join('||')
+      } else if (raw.includes('|')) {
+        const pipeIdx = raw.indexOf('|')
+        id = raw.slice(0, pipeIdx)
+        value = raw.slice(pipeIdx + 1)
+      } else {
+        id = raw
+        value = ''
+      }
+      const ext = await tryExtensionAct({ markId: normalizeMarkId(id), action: 'type', value }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
@@ -1392,9 +1415,10 @@ export const NATIVE_TOOLS = {
   },
   'browser-scroll': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
+      const targetSession = config?.sessionId || 'default'
       const dir = String(query ?? '').trim().toLowerCase().startsWith('up') ? 'up' : 'down'
-      const ext = await tryExtensionAct({ action: 'scroll', value: { direction: dir, amount: 600 } })
+      const ext = await tryExtensionAct({ action: 'scroll', value: { direction: dir, amount: 600 } }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
@@ -1404,8 +1428,9 @@ export const NATIVE_TOOLS = {
   },
   'browser-back': {
     needsApproval: false,
-    handler: async () => {
-      const ext = await tryExtensionAct({ action: 'back' })
+    handler: async (_query, config) => {
+      const targetSession = config?.sessionId || 'default'
+      const ext = await tryExtensionAct({ action: 'back' }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
@@ -1415,8 +1440,9 @@ export const NATIVE_TOOLS = {
   },
   'browser-forward': {
     needsApproval: false,
-    handler: async () => {
-      const ext = await tryExtensionAct({ action: 'forward' })
+    handler: async (_query, config) => {
+      const targetSession = config?.sessionId || 'default'
+      const ext = await tryExtensionAct({ action: 'forward' }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
@@ -1426,8 +1452,9 @@ export const NATIVE_TOOLS = {
   },
   'browser-reload': {
     needsApproval: false,
-    handler: async () => {
-      const ext = await tryExtensionAct({ action: 'reload' })
+    handler: async (_query, config) => {
+      const targetSession = config?.sessionId || 'default'
+      const ext = await tryExtensionAct({ action: 'reload' }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
@@ -1474,8 +1501,9 @@ export const NATIVE_TOOLS = {
     needsApproval: true,
     approvalMessage: (query) =>
       `Mark ingin mengeksekusi script JavaScript di browser Anda (berpotensi mengakses data halaman/sesi login):\n\n${query}`,
-    handler: async (query) => {
-      const ext = await tryExtensionAct({ action: 'script', value: String(query ?? '') })
+    handler: async (query, config) => {
+      const targetSession = config?.sessionId || 'default'
+      const ext = await tryExtensionAct({ action: 'script', value: String(query ?? '') }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
@@ -1485,8 +1513,9 @@ export const NATIVE_TOOLS = {
   },
   'browser-extract': {
     needsApproval: false,
-    handler: async (query) => {
-      const ext = await tryExtensionAct({ action: 'extract', value: String(query ?? '') })
+    handler: async (query, config) => {
+      const targetSession = config?.sessionId || 'default'
+      const ext = await tryExtensionAct({ action: 'extract', value: String(query ?? '') }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       try {
         return await browserReadFetch(query)
@@ -1495,10 +1524,20 @@ export const NATIVE_TOOLS = {
       }
     }
   },
+  'browser-close': {
+    needsApproval: false,
+    handler: async (_query, config) => {
+      const targetSession = config?.sessionId || 'default'
+      const ext = await tryExtensionAct({ action: 'close' }, targetSession)
+      if (ext) return { success: true, data: ext.data, via: 'extension' }
+      return { success: true, message: 'Browser session closed or already idle' }
+    }
+  },
   'browser-screenshot': {
     needsApproval: false,
     handler: async (query, config) => {
-      const ext = await tryExtensionAct({ action: 'screenshot', value: String(query ?? '') })
+      const targetSession = config?.sessionId || 'default'
+      const ext = await tryExtensionAct({ action: 'screenshot', value: String(query ?? '') }, targetSession)
       if (ext) {
         try {
           const m = /^data:image\/png;base64,(.+)$/.exec(String(ext.data || ''))
@@ -1522,12 +1561,13 @@ export const NATIVE_TOOLS = {
   'browser-download': {
     needsApproval: true,
     approvalMessage: (query) => `Mark ingin mendownload file dari browser:\n\n${query}`,
-    handler: async (query) => {
+    handler: async (query, config) => {
+      const targetSession = config?.sessionId || 'default'
       const [urlPart, ...rest] = String(query ?? '').split('||')
       const { extractUrl } = await import('./browser/bridge-core.mjs')
       const url = extractUrl(query) || (urlPart || '').trim()
       const fileName = rest.join('||').trim() || undefined
-      const ext = await tryExtensionAct({ action: 'download', value: { url, fileName } })
+      const ext = await tryExtensionAct({ action: 'download', value: { url, fileName } }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       try {
         const axios = (await import('axios')).default

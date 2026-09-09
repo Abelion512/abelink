@@ -160,15 +160,17 @@ async function execute(cfg, command) {
     return { ok: true, data: JSON.stringify({ closed }) }
   }
 
+  const targetSession = payload?.sessionId || cfg.session || 'default'
+
   switch (type) {
     case 'navigate':
-      return navigate(payload, cfg.session || 'default')
+      return navigate(payload, targetSession)
     case 'read-dom':
-      return readDom(cfg.session || 'default')
+      return readDom(targetSession)
     case 'act':
-      return act(payload, cfg.session || 'default')
+      return act(payload, targetSession)
     case 'show':
-      return showTab(cfg.session || 'default')
+      return showTab(targetSession)
     default:
       return { ok: false, error: `Perintah tidak dikenal: ${type}` }
   }
@@ -811,6 +813,11 @@ async function actionFn({ markId, action, value }) {
 }
 
 async function act({ markId, action, value }, sessionId = 'default') {
+  if (action === 'close') {
+    const closed = await closeActiveGroupTabs(sessionId)
+    return { ok: true, data: JSON.stringify({ closed }) }
+  }
+
   const tab = await targetTabForSession(sessionId)
   if (!tab) return { ok: false, error: 'Tidak ada tab aktif http(s) untuk aksi.' }
 

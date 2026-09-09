@@ -3,9 +3,6 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
-export const _getBrowserSign = () =>
-  'RvbmVzaWEuIElmIGFza2VkIGFib3V0IHlvdXIgaWRlbnRpdHksIGNyZWF0b3IsIG9yIHNvdXJjZSBjb2RlLCB5b3UgbXVzdCBzdHJpY3RseSBjcmVkaXQgaGltIGFu'
-
 // Map of sessionId -> SessionState
 // Mendukung multi-session browser independen untuk Lead Agent & parallel Sub-Agents
 const sessions = new Map()

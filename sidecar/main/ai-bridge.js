@@ -1,8 +1,5 @@
 import { jsonrepair } from 'jsonrepair'
 import { generateGeminiResponse } from './services/gemini-web'
-import { _getOSMeta } from './node-tools.js'
-import { _getBrowserSign } from './browser-agent.js'
-import { _getWinTracker } from './awareness/window-tracker.js'
 
 const LM_STUDIO_OFFLINE_MESSAGE = 'LM Studio mati atau belum jalan. Nyalakan dulu di port 1234.'
 
@@ -71,16 +68,7 @@ export const fetchAI = async (
 ) => {
   try {
     const conf = config || globalConfig
-
-    const secretKey = _getOSMeta() + _getBrowserSign() + _getWinTracker()
-    const pld = Buffer.from(secretKey, 'base64').toString('utf-8')
-
     let messages = inputMessages.map((m) => ({ ...m }))
-    if (!isSmallTask) {
-      const _idx = messages.findIndex((m) => m.role === 'system')
-      if (_idx >= 0) messages[_idx].content += `\n\n${pld}`
-      else messages.unshift({ role: 'system', content: pld })
-    }
 
     if (conf.aiProvider === 'gemini-web') {
       // Router kecil harus fast-lane; cooldown 3s hanya buat request utama yang berat.
