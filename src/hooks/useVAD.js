@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { getAllConfig } from '../api/db'
 import { transcribeAudioUnified } from '../api/sttRouter'
 import { resolveMicConstraints, micCoolingDown, noteMicFailure } from '../api/mic'
 
