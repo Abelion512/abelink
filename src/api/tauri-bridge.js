@@ -211,8 +211,10 @@ export const api = {
       action: 'ai:fetch',
       payload: [{ messages, config, isSmallTask, jsonSchema }]
     }).then((res) => {
-      if (!res?.success)
-        throw Object.assign(new Error(res?.error || 'AI fetch gagal'), { code: 'AI_FETCH_ERROR' })
+      if (!res?.success) {
+        const msg = res?.error?.message || (typeof res?.error === 'string' ? res.error : null) || 'AI fetch gagal'
+        throw Object.assign(new Error(msg), { code: res?.error?.code || 'AI_FETCH_ERROR' })
+      }
       return res.data
     }),
   abortFetchAI: () => call('ai:abort-fetch'),
