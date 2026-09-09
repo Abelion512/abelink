@@ -1,52 +1,90 @@
-import OpenAI from 'openai'
 import { getAllConfig } from './db'
-import { pcmToWav, transcribeAudioGroq } from './groq'
-import { transcribeAudioLocal } from './localWhisper'
+import { pcmToWav } from './groq'
 
 /**
- * Transkripsi audio via Custom OpenAI-Compatible STT API endpoint.
- * Mendukung proxy STT seperti 9router, self-hosted faster-whisper, vLLM, Cloudflare AI, dsb.
+ * Normalisasi URL target endpoint STT.
+ * Menangani URL berakhiran /v1/audio/transcriptions, /v1, atau baseURL murni.
  */
-export const transcribeAudioCustom = async (pcmBuffer, endpoint, apiKey, model = 'whisper-1') => {
-  const url = (endpoint || '').trim() || 'https://api.openai.com/v1'
-  const key = (apiKey || '').trim()
+export const normalizeSttUrl = (rawUrl) => {
+  if (!rawUrl || typeof rawUrl !== 'string') return ''
+  let cleaned = rawUrl.trim().replace(/\/+$/, '')
+  if (!cleaned) return ''
 
-  const client = new OpenAI({
-    apiKey: key || 'dummy-key',
-    baseURL: url.replace(/\/+$/, ''),
-    dangerouslyAllowBrowser: true
-  })
-
-  const file = pcmToWav(pcmBuffer, 16000)
-
-  const response = await client.audio.transcriptions.create({
-    file,
-    model: model || 'whisper-1',
-    language: 'id',
-    temperature: 0.0,
-    prompt: 'Halo Abelink, ini percakapan asisten virtual Linux berbahasa Indonesia.',
-    response_format: 'json'
-  })
-
-  return response.text
+  if (cleaned.endsWith('/audio/transcriptions')) {
+    return cleaned
+  }
+  if (cleaned.endsWith('/v1')) {
+    return `${cleaned}/audio/transcriptions`
+  }
+  return `${cleaned}/v1/audio/transcriptions`
 }
 
 /**
- * Router Terpadu Speech-to-Text (STT)
- * Mencegah laptop lemot akibat beban CPU/RAM lokal Whisper WASM.
- * Mendukung mode:
- * - 'groq': Groq Cloud API (Whisper Large-v3 atau Turbo)
- * - 'custom': Custom OpenAI-compatible endpoint (misal 9router / self-hosted)
- * - 'combo': Multi-provider auto-fallback (Custom -> Groq -> Local)
- * - 'whisper-small' / 'local': Local Offline ONNX Whisper
+ * Eksekusi panggilan HTTP multipart audio transcription ke server OpenAI-compatible STT.
+ * Format request identik dengan cURL spesifikasi 9router dan OpenAI:
+ * curl -X POST <endpoint> -H "Authorization: Bearer <key>" -F "file=@audio.wav" -F "model=<model>" -F "response_format=json"
+ */
+export const transcribeToEndpoint = async (pcmBuffer, { endpoint, apiKey, model, language = 'id', prompt = '' }) => {
+  const targetUrl = normalizeSttUrl(endpoint)
+  if (!targetUrl) {
+    throw new Error('Endpoint STT kosong atau tidak valid')
+  }
+
+  const wavFile = pcmToWav(pcmBuffer, 16000)
+  const formData = new FormData()
+  formData.append('file', wavFile, 'audio.wav')
+  formData.append('model', model || 'selfhosted-stt/whisper-1')
+  formData.append('response_format', 'json')
+  if (language) formData.append('language', language)
+  if (prompt) formData.append('prompt', prompt)
+
+  const headers = {}
+  if (apiKey && apiKey.trim()) {
+    headers['Authorization'] = `Bearer ${apiKey.trim()}`
+  }
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 20000) // 20s timeout
+
+  try {
+    const res = await fetch(targetUrl, {
+      method: 'POST',
+      headers,
+      body: formData,
+      signal: controller.signal
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      throw new Error(`HTTP ${res.status}: ${errText || res.statusText}`)
+    }
+
+    const data = await res.json()
+    if (typeof data?.text === 'string') {
+      return data.text
+    }
+    if (typeof data === 'string') {
+      return data
+    }
+    throw new Error('Format respon STT tidak memuat teks transkripsi')
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if (err.name === 'AbortError') {
+      throw new Error(`Koneksi ke STT ${targetUrl} timeout (20 detik)`)
+    }
+    throw err
+  }
+}
+
+/**
+ * Router STT Terpadu (Custom STT & Multi-Provider Combo Fallback ala 9router)
+ * Tidak lagi menggunakan model WASM lokal di CPU laptop agar performa laptop tetap ringan.
  */
 export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMessage) => {
   const configs = await getAllConfig()
   const cfg = configs[0] || {}
-
-  const provider = cfg.sttProvider || (cfg.groqApiKey?.trim() ? 'groq' : (cfg.localWhisperModel?.startsWith('groq') ? 'groq' : 'whisper-small'))
-  const hasGroqKey = Boolean(cfg.groqApiKey?.trim())
-  const hasCustomEndpoint = Boolean(cfg.customSttEndpoint?.trim())
 
   const updateStatus = (msg) => {
     if (typeof setStatusMessage === 'function') {
@@ -54,123 +92,61 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
     }
   }
 
-  // 1. MODE CUSTOM STT (OpenAI Compatible / 9router)
-  if (provider === 'custom') {
-    if (!hasCustomEndpoint) {
-      throw new Error('Custom STT Endpoint belum diisi di Konfigurasi')
-    }
-    updateStatus('Mentranskrip via Custom STT...')
-    try {
-      const res = await transcribeAudioCustom(
-        pcmBuffer,
-        cfg.customSttEndpoint,
-        cfg.customSttApiKey,
-        cfg.customSttModel || 'whisper-1'
-      )
-      updateStatus('')
-      return res
-    } catch (err) {
-      updateStatus('')
-      throw new Error(`Custom STT gagal: ${err.message}`)
-    }
+  // Primary Endpoint: Default ke 9router localhost atau Groq jika ada key
+  const primaryEndpoint =
+    cfg.customSttEndpoint?.trim() ||
+    (cfg.groqApiKey?.trim() ? 'https://api.groq.com/openai/v1/audio/transcriptions' : 'http://localhost:20128/v1/audio/transcriptions')
+  const primaryKey = cfg.customSttApiKey?.trim() || cfg.groqApiKey?.trim() || ''
+  const primaryModel = cfg.customSttModel?.trim() || (cfg.groqApiKey?.trim() ? 'whisper-large-v3-turbo' : 'selfhosted-stt/whisper-1')
+
+  // Fallback Endpoint (Combo mode)
+  const fallbackEndpoint = cfg.sttFallbackEndpoint?.trim() || (cfg.groqApiKey?.trim() ? 'https://api.groq.com/openai/v1/audio/transcriptions' : '')
+  const fallbackKey = cfg.sttFallbackApiKey?.trim() || cfg.groqApiKey?.trim() || ''
+  const fallbackModel = cfg.sttFallbackModel?.trim() || 'whisper-large-v3-turbo'
+
+  const isComboEnabled = Boolean(cfg.sttEnableCombo && fallbackEndpoint && fallbackEndpoint !== primaryEndpoint)
+
+  if (!primaryEndpoint && !fallbackEndpoint) {
+    throw new Error('Endpoint STT belum diisi. Buka Konfigurasi > Audio & Voice Engine untuk menyetel endpoint.')
   }
 
-  // 2. MODE GROQ CLOUD STT
-  if (provider === 'groq') {
-    if (!hasGroqKey) {
-      throw new Error('Groq API Key belum disetel di Konfigurasi (Audio & Voice Engine)')
-    }
-    updateStatus('Mentranskrip via Groq Cloud API...')
-    try {
-      const res = await transcribeAudioGroq(pcmBuffer)
-      updateStatus('')
-      return res
-    } catch (err) {
-      updateStatus('')
-      throw err
-    }
-  }
-
-  // 3. MODE COMBO (Multi-Provider Auto-Fallback ala 9router)
-  if (provider === 'combo') {
-    const errors = []
-
-    // Langkah A: Coba Custom Endpoint jika tersedia
-    if (hasCustomEndpoint) {
-      updateStatus('Combo: Mencoba Custom STT Endpoint...')
-      try {
-        const res = await transcribeAudioCustom(
-          pcmBuffer,
-          cfg.customSttEndpoint,
-          cfg.customSttApiKey,
-          cfg.customSttModel || 'whisper-1'
-        )
-        updateStatus('')
-        return res
-      } catch (err) {
-        console.warn('[sttRouter] Combo Custom STT gagal, fallback ke Groq:', err.message)
-        errors.push(`Custom STT: ${err.message}`)
-      }
-    }
-
-    // Langkah B: Coba Groq API Cloud
-    if (hasGroqKey) {
-      updateStatus('Combo: Fallback ke Groq Cloud API...')
-      try {
-        const res = await transcribeAudioGroq(pcmBuffer)
-        updateStatus('')
-        return res
-      } catch (err) {
-        console.warn('[sttRouter] Combo Groq API gagal:', err.message)
-        errors.push(`Groq: ${err.message}`)
-      }
-    }
-
-    updateStatus('')
-    throw new Error(
-      `Seluruh provider Combo gagal. Rincian: ${errors.join('; ') || 'Endpoint atau API Key belum dikonfigurasi.'}`
-    )
-  }
-
-  // 4. MODE LOCAL OFFLINE WHISPER
-  // Peringatan: Membutuhkan RAM & CPU tinggi
-  updateStatus('Menyiapkan model Local Whisper...')
+  // Langkah 1: Coba Primary Connection (misal 9router / self-hosted STT)
+  updateStatus('Mentranskrip audio...')
   try {
-    let highestProgress = 0
-    const fileProgressMap = {}
-
-    const text = await transcribeAudioLocal(pcmBuffer, (progressData) => {
-      if (progressData?.file && progressData.progress !== undefined) {
-        fileProgressMap[progressData.file] = progressData.progress
-        const vals = Object.values(fileProgressMap)
-        const avg = Math.round(vals.reduce((a, b) => a + b, 0) / Math.max(3, vals.length))
-        if (avg > highestProgress) {
-          highestProgress = Math.min(100, avg)
-          updateStatus(`Memuat model suara lokal... ${highestProgress}%`)
-        }
-      }
-      if (typeof onProgress === 'function') {
-        onProgress(progressData)
-      }
+    const text = await transcribeToEndpoint(pcmBuffer, {
+      endpoint: primaryEndpoint,
+      apiKey: primaryKey,
+      model: primaryModel,
+      language: 'id',
+      prompt: 'Halo Abelink, percakapan asisten Linux berbahasa Indonesia.'
     })
     updateStatus('')
     return text
-  } catch (localErr) {
-    console.warn('[sttRouter] Local Whisper gagal:', localErr.message)
-    if (hasGroqKey) {
-      updateStatus('Whisper lokal berat/gagal, fallback ke Groq...')
+  } catch (primaryErr) {
+    console.warn('[sttRouter] Primary STT gagal:', primaryErr.message)
+
+    // Langkah 2: Fallback ke Secondary Connection jika mode Combo aktif
+    if (isComboEnabled) {
+      updateStatus('Koneksi utama gagal, beralih ke Fallback Provider...')
       try {
-        const res = await transcribeAudioGroq(pcmBuffer)
+        const text = await transcribeToEndpoint(pcmBuffer, {
+          endpoint: fallbackEndpoint,
+          apiKey: fallbackKey,
+          model: fallbackModel,
+          language: 'id',
+          prompt: 'Halo Abelink, percakapan asisten Linux berbahasa Indonesia.'
+        })
         updateStatus('')
-        return res
-      } catch (groqErr) {
+        return text
+      } catch (fallbackErr) {
         updateStatus('')
-        throw groqErr
+        throw new Error(
+          `Semua provider STT gagal. Utama (${primaryEndpoint}): ${primaryErr.message}. Fallback (${fallbackEndpoint}): ${fallbackErr.message}`
+        )
       }
     }
+
     updateStatus('')
-    throw new Error(
-      `Whisper lokal gagal (${localErr.message || 'WASM gagal'}). Gunakan Groq Cloud atau Custom STT di Konfigurasi agar laptop tidak lemot.`
-    )
+    throw primaryErr
   }
 }

@@ -134,13 +134,17 @@ db.version(23).stores({
 })
 
 db.version(24).stores({
-  config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, tgBotToken, tgAdminIds, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled, geminiWebModel, windowOpacity, localWhisperModel, sttProvider, customSttEndpoint, customSttApiKey, customSttModel'
+  config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, tgBotToken, tgAdminIds, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled, geminiWebModel, windowOpacity, localWhisperModel, sttProvider, customSttEndpoint, customSttApiKey, customSttModel, sttEnableCombo, sttFallbackEndpoint, sttFallbackApiKey, sttFallbackModel'
 }).upgrade(tx => {
   return tx.table('config').toCollection().modify(config => {
-    config.sttProvider = config.sttProvider ?? (config.localWhisperModel?.startsWith('groq') ? 'groq' : (config.groqApiKey ? 'groq' : 'groq'))
-    config.customSttEndpoint = config.customSttEndpoint ?? ''
+    config.sttProvider = 'custom'
+    config.customSttEndpoint = config.customSttEndpoint || (config.groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : 'http://localhost:20128/v1/audio/transcriptions')
     config.customSttApiKey = config.customSttApiKey ?? ''
-    config.customSttModel = config.customSttModel ?? 'whisper-1'
+    config.customSttModel = config.customSttModel || 'selfhosted-stt/whisper-1'
+    config.sttEnableCombo = config.sttEnableCombo ?? false
+    config.sttFallbackEndpoint = config.sttFallbackEndpoint || (config.groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : '')
+    config.sttFallbackApiKey = config.sttFallbackApiKey || config.groqApiKey || ''
+    config.sttFallbackModel = config.sttFallbackModel || 'whisper-large-v3-turbo'
   })
 })
 
@@ -306,16 +310,28 @@ export async function getAllConfig() {
         data[0].localWhisperModel = 'whisper-small'
       }
       if (!data[0].sttProvider) {
-        data[0].sttProvider = data[0].localWhisperModel?.startsWith('groq') ? 'groq' : (data[0].groqApiKey ? 'groq' : 'groq')
+        data[0].sttProvider = 'custom'
       }
       if (data[0].customSttEndpoint === undefined) {
-        data[0].customSttEndpoint = ''
+        data[0].customSttEndpoint = data[0].groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : 'http://localhost:20128/v1/audio/transcriptions'
       }
       if (data[0].customSttApiKey === undefined) {
         data[0].customSttApiKey = ''
       }
       if (data[0].customSttModel === undefined) {
-        data[0].customSttModel = 'whisper-1'
+        data[0].customSttModel = 'selfhosted-stt/whisper-1'
+      }
+      if (data[0].sttEnableCombo === undefined) {
+        data[0].sttEnableCombo = false
+      }
+      if (data[0].sttFallbackEndpoint === undefined) {
+        data[0].sttFallbackEndpoint = data[0].groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : ''
+      }
+      if (data[0].sttFallbackApiKey === undefined) {
+        data[0].sttFallbackApiKey = data[0].groqApiKey || ''
+      }
+      if (data[0].sttFallbackModel === undefined) {
+        data[0].sttFallbackModel = 'whisper-large-v3-turbo'
       }
     }
     return data || []
