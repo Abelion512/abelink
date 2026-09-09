@@ -38,19 +38,27 @@ const GlobalListener = () => {
       navigate('/', { state: { autoToggleMic: Date.now() } })
     }
 
+    let unlistenShortcut = null
     if (window.api?.onLiveAudioShortcut) {
-      window.api.onLiveAudioShortcut(handleShortcut)
+      unlistenShortcut = window.api.onLiveAudioShortcut(handleShortcut)
     }
 
+    let unlistenTg = null
     if (window.api?.onTgRequestAgentExecution) {
-      window.api.onTgRequestAgentExecution((data) => {
+      unlistenTg = window.api.onTgRequestAgentExecution((data) => {
         window.dispatchEvent(new CustomEvent('tg-admin-message', { detail: data }))
       })
     }
 
     return () => {
-      if (window.api?.removeLiveAudioShortcut) {
+      if (typeof unlistenShortcut === 'function') {
+        unlistenShortcut()
+      } else if (window.api?.removeLiveAudioShortcut) {
         window.api.removeLiveAudioShortcut()
+      }
+
+      if (typeof unlistenTg === 'function') {
+        unlistenTg()
       }
     }
   }, [navigate])

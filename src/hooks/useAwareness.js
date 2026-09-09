@@ -169,11 +169,11 @@ export const useAwareness = ({
           console.log('[useAwareness] Triggering autonomous action!')
           // Push notification
           if (window.api.showNotification && !document.hasFocus() && result.message) {
-            window.api.showNotification('Mark', result.message)
+            window.api.showNotification('Abelink', result.message)
           }
 
           if (result.message && window.api?.tgBroadcastToAdmins) {
-            window.api.tgBroadcastToAdmins(`[AWARENESS] *Mark (PC)*:\n${result.message}`)
+            window.api.tgBroadcastToAdmins(`[AWARENESS] *Abelink (PC)*:\n${result.message}`)
           }
 
           // Jika ada perintah autonomus, bypass chat bubble biasa dan langsung eksekusi plan siluman

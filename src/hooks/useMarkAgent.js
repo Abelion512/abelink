@@ -177,11 +177,26 @@ export const useMarkAgent = () => {
     }
   }, [isChatLoaded, chatData])
 
+  const processedTgMsgIdsRef = useRef(new Set())
+
   useEffect(() => {
     const handleTgAdminMessage = (e) => {
       const data = e.detail
+      if (!data) return
+
+      if (data.msgId) {
+        if (processedTgMsgIdsRef.current.has(data.msgId)) {
+          console.warn('[useMarkAgent] Mengabaikan duplikasi pesan Telegram:', data.msgId)
+          return
+        }
+        processedTgMsgIdsRef.current.add(data.msgId)
+        if (processedTgMsgIdsRef.current.size > 100) {
+          const firstKey = processedTgMsgIdsRef.current.keys().next().value
+          processedTgMsgIdsRef.current.delete(firstKey)
+        }
+      }
       
-      if (data.text.trim().toLowerCase() === '/stop') {
+      if (data.text?.trim().toLowerCase() === '/stop') {
         handleStop()
         return
       }
@@ -220,6 +235,8 @@ export const useMarkAgent = () => {
         .reverse()
         .find((m) => m.role === 'ai' && !m.isThinking && !m.isSearching && !m.isSummarizing)
       if (lastAiMsg) {
+        const msgKey = lastAiMsg.timestamp || lastAiMsg.content
+        lastSyncedMsgIdRef.current = msgKey
         window.api?.sendTgAgentExecutionDone({
           chatId: activeTgRequestRef.current.chatId,
           result: { answer: formatForTelegram(lastAiMsg.content) },
@@ -236,7 +253,7 @@ export const useMarkAgent = () => {
       if (lastAiMsg && lastAiMsg.content && lastSyncedMsgIdRef.current !== msgKey) {
         lastSyncedMsgIdRef.current = msgKey
         if (window.api?.tgBroadcastToAdmins && !lastAiMsg.isProactive) {
-          window.api.tgBroadcastToAdmins(`*Mark (PC)*:\n${lastAiMsg.content}`)
+          window.api.tgBroadcastToAdmins(`*Abelink (PC)*:\n${lastAiMsg.content}`)
         }
       }
     }

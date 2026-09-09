@@ -104,7 +104,7 @@ const tgScreenshotToTelegram = async (chatId) => {
       await invoke('telegram_send_photo', {
         chatId: target,
         pngBase64,
-        caption: 'Layar PC (dikirim oleh Mark)'
+        caption: 'Layar PC (dikirim oleh Abelink)'
       })
       results.push({ id: target, ok: true })
     } catch (e) {
@@ -156,11 +156,26 @@ const tgConnected = async () => {
 }
 // Semua unlisten Telegram dikumpulkan di sini supaya removeTgListeners benar-benar bekerja
 const tgUnlisteners = []
-const trackTgListener = (dispose) => {
+const tgChannelUnlisteners = new Map()
+const trackTgListener = (channel, dispose) => {
+  if (tgChannelUnlisteners.has(channel)) {
+    try {
+      tgChannelUnlisteners.get(channel)()
+    } catch {}
+  }
+  tgChannelUnlisteners.set(channel, dispose)
   tgUnlisteners.push(dispose)
-  return dispose
+  return () => {
+    try {
+      dispose()
+    } finally {
+      if (tgChannelUnlisteners.get(channel) === dispose) {
+        tgChannelUnlisteners.delete(channel)
+      }
+    }
+  }
 }
-const onTg = (channel) => (cb) => trackTgListener(on(channel)(cb))
+const onTg = (channel) => (cb) => trackTgListener(channel, on(channel)(cb))
 
 export const api = {
   // ---------- umum (Fase B0: langsung Rust native, tanpa node_invoke) ----------
