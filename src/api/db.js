@@ -133,6 +133,17 @@ db.version(23).stores({
   appConfig: 'key'
 })
 
+db.version(24).stores({
+  config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, tgBotToken, tgAdminIds, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled, geminiWebModel, windowOpacity, localWhisperModel, sttProvider, customSttEndpoint, customSttApiKey, customSttModel'
+}).upgrade(tx => {
+  return tx.table('config').toCollection().modify(config => {
+    config.sttProvider = config.sttProvider ?? (config.localWhisperModel?.startsWith('groq') ? 'groq' : (config.groqApiKey ? 'groq' : 'groq'))
+    config.customSttEndpoint = config.customSttEndpoint ?? ''
+    config.customSttApiKey = config.customSttApiKey ?? ''
+    config.customSttModel = config.customSttModel ?? 'whisper-1'
+  })
+})
+
 // --- APP CONFIG (feature flags, hardware profile, etc.) ---
 export async function getAppConfig(key, fallback = null) {
   try {
@@ -293,6 +304,18 @@ export async function getAllConfig() {
       }
       if (!data[0].localWhisperModel) {
         data[0].localWhisperModel = 'whisper-small'
+      }
+      if (!data[0].sttProvider) {
+        data[0].sttProvider = data[0].localWhisperModel?.startsWith('groq') ? 'groq' : (data[0].groqApiKey ? 'groq' : 'groq')
+      }
+      if (data[0].customSttEndpoint === undefined) {
+        data[0].customSttEndpoint = ''
+      }
+      if (data[0].customSttApiKey === undefined) {
+        data[0].customSttApiKey = ''
+      }
+      if (data[0].customSttModel === undefined) {
+        data[0].customSttModel = 'whisper-1'
       }
     }
     return data || []

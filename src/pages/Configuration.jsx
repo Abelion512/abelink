@@ -114,10 +114,12 @@ let mediaInfoLogged = false
 
 // Fallback STT senyap yang sama untuk autosave & first-setup: wizard/mode
 // otomatis tidak boleh macet karena STT cloud tanpa key.
-const withSttFallback = (cfg) =>
-  cfg.localWhisperModel?.startsWith('groq') && !cfg.groqApiKey?.trim()
-    ? { ...cfg, localWhisperModel: 'whisper-small' }
-    : cfg
+const withSttFallback = (cfg) => {
+  if (cfg.sttProvider === 'groq' && !cfg.groqApiKey?.trim()) {
+    return { ...cfg }
+  }
+  return cfg
+}
 
 const Configuration = ({
   isFirstSetup = false,
@@ -141,7 +143,11 @@ const Configuration = ({
     micDeviceId: 'default',
     awarenessEnabled: true,
     cameraDeviceId: 'default',
-    cameraEnabled: true
+    cameraEnabled: true,
+    sttProvider: 'groq',
+    customSttEndpoint: '',
+    customSttApiKey: '',
+    customSttModel: 'whisper-1'
   })
   const [relationalTraits, setRelationalTraits] = useState(null)
   const [memories, setMemories] = useState([])
@@ -165,6 +171,7 @@ const Configuration = ({
 
   const [showGroqKey, setShowGroqKey] = useState(false)
   const [showCustomKey, setShowCustomKey] = useState(false)
+  const [showCustomSttKey, setShowCustomSttKey] = useState(false)
   const [activeSection, setActiveSection] = useState('cfg-general')
   const [saveStatus, setSaveStatus] = useState(null)
   const savedSnapshotRef = useRef('')
@@ -529,19 +536,26 @@ const Configuration = ({
   const handleSaveConfiguration = async () => {
     // Validasi API Key
     let effectiveConfig = config
-    if (config.localWhisperModel?.startsWith('groq') && !config.groqApiKey?.trim()) {
-      if (isFirstSetup) {
-        // Wizard TIDAK BOLEH macet karena STT cloud: fallback otomatis ke lokal.
-        console.info(
-          '[Configuration] STT Groq dipilih tanpa API Key saat setup - otomatis fallback ke Whisper Small lokal.'
-        )
-        effectiveConfig = { ...config, localWhisperModel: 'whisper-small' }
-        setConfig(effectiveConfig)
-      } else {
+    if (config.sttProvider === 'groq' && !config.groqApiKey?.trim()) {
+      if (!isFirstSetup) {
         await confirm({
           title: 'Groq API Key Kosong',
           message:
-            'Engine STT dipilih Groq Cloud, tapi API Key masih kosong. Isi key di bagian Voice, atau ganti engine ke Local Offline (Whisper Small).',
+            'Engine STT dipilih Groq Cloud, tetapi API Key masih kosong. Silakan isi Groq API Key di bagian Audio & Voice Engine.',
+          isError: true,
+          hideCancel: true,
+          confirmText: 'Tutup'
+        })
+        return
+      }
+    }
+
+    if (config.sttProvider === 'custom' && !config.customSttEndpoint?.trim()) {
+      if (!isFirstSetup) {
+        await confirm({
+          title: 'Custom STT Endpoint Kosong',
+          message:
+            'Engine STT dipilih Custom Endpoint, tetapi Endpoint URL masih kosong. Silakan isi URL endpoint (contoh: https://api.openai.com/v1 atau 9router).',
           isError: true,
           hideCancel: true,
           confirmText: 'Tutup'
@@ -1478,34 +1492,68 @@ const Configuration = ({
                   Audio & Voice Engine
                 </h2>
 
-                {/* STT Engine Selection */}
+                {/* STT Engine Selection: Multi-Provider (Groq / Custom / Combo / Local) */}
                 <div className="space-y-1.5">
-                  <p className="text-sm font-semibold">Mesin Transkripsi Suara (STT)</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold">Mesin Transkripsi Suara (STT)</p>
+                    <span className="badge badge-sm badge-outline text-xs opacity-70">
+                      {config.sttProvider === 'groq'
+                        ? 'Cloud (Cepat & Ringan)'
+                        : config.sttProvider === 'custom'
+                          ? 'OpenAI / 9router'
+                          : config.sttProvider === 'combo'
+                            ? 'Multi-Provider Auto-Fallback'
+                            : 'On-Device Offline'}
+                    </span>
+                  </div>
                   <select
                     className="select select-bordered w-full"
-                    value={config.localWhisperModel || 'whisper-small'}
+                    value={config.sttProvider || 'groq'}
                     onChange={(e) =>
-                      setConfig((prev) => ({ ...prev, localWhisperModel: e.target.value }))
+                      setConfig((prev) => ({ ...prev, sttProvider: e.target.value }))
                     }
                   >
-                    <option value="whisper-small">Local Offline (Whisper Small)  -  Default</option>
-                    <option value="groq-whisper">Groq API Cloud (Whisper Large-v3)</option>
-                    <option value="groq-whisper-turbo">
-                      Groq API Cloud (Whisper Large-v3 Turbo)  -  paling awet
-                    </option>
+                    <option value="groq">Groq Cloud API (Whisper Large-v3) : Ringan untuk Laptop</option>
+                    <option value="custom">Custom STT Endpoint (OpenAI Compatible / 9router)</option>
+                    <option value="combo">Combo Multi-Provider (Auto-Fallback: Custom STT + Groq)</option>
+                    <option value="whisper-small">Local Offline (Whisper Small WASM) : Boros RAM & CPU</option>
                   </select>
-                  <p className="text-xs opacity-40">
-                    Default: Local Offline (privat, tanpa kuota). Groq Cloud: opsional via API Key.
+                  <p className="text-xs opacity-50 leading-relaxed">
+                    {config.sttProvider === 'whisper-small'
+                      ? 'Peringatan: Local Whisper menjalankan model AI langsung di CPU laptop yang dapat menyebabkan sistem lambat.'
+                      : config.sttProvider === 'combo'
+                        ? 'Mode Combo: Menjalankan Custom STT terlebih dahulu, lalu otomatis fallback ke Groq jika rate limit atau offline.'
+                        : config.sttProvider === 'custom'
+                          ? 'Mendukung endpoint STT kustom yang kompatibel dengan format audio OpenAI (seperti 9router, self-hosted, dsb).'
+                          : 'Groq Cloud mentranskripsi audio secara instan di cloud tanpa membebani memori dan prosesor laptop.'}
                   </p>
                 </div>
 
-                {config.localWhisperModel?.startsWith('groq') && (
-                  <div id="tour-groq-key" className="space-y-1.5 p-2 -mx-2 rounded-lg">
+                {/* Groq Model Selector jika provider adalah groq */}
+                {config.sttProvider === 'groq' && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold opacity-75">Model Groq Whisper</p>
+                    <select
+                      className="select select-bordered select-sm w-full"
+                      value={config.localWhisperModel || 'groq-whisper-turbo'}
+                      onChange={(e) =>
+                        setConfig((prev) => ({ ...prev, localWhisperModel: e.target.value }))
+                      }
+                    >
+                      <option value="groq-whisper-turbo">Whisper Large-v3 Turbo (Tercepat & Paling Awet Kuota)</option>
+                      <option value="groq-whisper">Whisper Large-v3 (Akurasi Maksimal)</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Groq API Key Input jika mode groq atau combo */}
+                {(config.sttProvider === 'groq' || config.sttProvider === 'combo') && (
+                  <div id="tour-groq-key" className="space-y-1.5 p-3 rounded-xl bg-base-200/50 border border-white/5">
                     <div className="flex justify-between items-center">
                       <p className="text-sm font-semibold">
                         Groq API Key{' '}
                         <span className="text-xs font-normal opacity-60">
-                          (Khusus untuk Voice Speech-to-Text)
+                          (Untuk Voice Speech-to-Text)
                         </span>
                       </p>
                       <a
@@ -1520,7 +1568,7 @@ const Configuration = ({
                     <div className="relative w-full">
                       <input
                         type={showGroqKey ? 'text' : 'password'}
-                        placeholder="Contoh: gsk_xxxxxxxxxxxxxxxxx"
+                        placeholder="gsk_xxxxxxxxxxxxxxxxx"
                         className="input input-bordered w-full pr-10"
                         value={config.groqApiKey || ''}
                         onChange={handleGroqApiKeyChange}
@@ -1532,44 +1580,76 @@ const Configuration = ({
                         title={showGroqKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
                       >
                         {showGroqKey ? (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-                            <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-                            <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                            <line x1="2" x2="22" y1="2" y2="22" />
-                          </svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
                         ) : (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
                         )}
                       </button>
                     </div>
-                    <p className="text-xs opacity-40">
-                      API Key Groq ini digunakan khusus untuk fitur transkripsi suara mikrofon
-                      (Whisper STT).
-                    </p>
+                  </div>
+                )}
+
+                {/* Custom STT Endpoint Settings jika mode custom atau combo */}
+                {(config.sttProvider === 'custom' || config.sttProvider === 'combo') && (
+                  <div className="space-y-3 p-3.5 rounded-xl bg-base-200/50 border border-purple-500/25">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-purple-300">Custom STT (OpenAI Compatible / 9router)</p>
+                      <span className="text-[11px] font-mono opacity-60">POST /v1/audio/transcriptions</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold opacity-75">Custom Endpoint URL</p>
+                      <input
+                        type="text"
+                        placeholder="https://api.openai.com/v1 atau URL 9router / self-hosted"
+                        className="input input-bordered input-sm w-full font-mono text-xs"
+                        value={config.customSttEndpoint || ''}
+                        onChange={(e) =>
+                          setConfig((prev) => ({ ...prev, customSttEndpoint: e.target.value }))
+                        }
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold opacity-75">Custom API Key</p>
+                        <div className="relative w-full">
+                          <input
+                            type={showCustomSttKey ? 'text' : 'password'}
+                            placeholder="sk-..."
+                            className="input input-bordered input-sm w-full pr-8 font-mono text-xs"
+                            value={config.customSttApiKey || ''}
+                            onChange={(e) =>
+                              setConfig((prev) => ({ ...prev, customSttApiKey: e.target.value }))
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+                            onClick={() => setShowCustomSttKey((prev) => !prev)}
+                          >
+                            {showCustomSttKey ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold opacity-75">Model Name</p>
+                        <input
+                          type="text"
+                          placeholder="whisper-1 atau whisper-large-v3"
+                          className="input input-bordered input-sm w-full font-mono text-xs"
+                          value={config.customSttModel || ''}
+                          onChange={(e) =>
+                            setConfig((prev) => ({ ...prev, customSttModel: e.target.value }))
+                          }
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 
