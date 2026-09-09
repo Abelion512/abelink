@@ -414,10 +414,19 @@ const MarkHome = () => {
   const handleStartScreenShare = async () => {
     setScreenError(null)
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { cursor: 'always' },
-        audio: false
-      })
+      let stream = null
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: false
+        })
+      } catch (firstErr) {
+        if (firstErr.name === 'OverconstrainedError' || firstErr.message?.includes('constraint')) {
+          stream = await navigator.mediaDevices.getDisplayMedia()
+        } else {
+          throw firstErr
+        }
+      }
       setScreenStream(stream)
       if (screenVideoRef.current) {
         screenVideoRef.current.srcObject = stream
@@ -434,7 +443,7 @@ const MarkHome = () => {
       }
       if (err.name === 'OverconstrainedError' || err.message?.includes('Invalid constraint')) {
         setScreenError(
-          'Portal ScreenCast belum aktif di sistem Linux ini. Pasang "xdg-desktop-portal-gnome" (sudo apt install xdg-desktop-portal-gnome) untuk mengaktifkan WebRTC screen capture di Linux Mint.'
+          'Portal ScreenCast belum aktif di sistem Linux ini. Pastikan portal desktop aktif atau gunakan mode screenshot.'
         )
       } else {
         setScreenError(`Gagal mengakses live share screen: ${err.message}`)
