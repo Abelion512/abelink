@@ -17,6 +17,13 @@ export const getConnectionStatus = () => {
 }
 
 export const stopTelegramBot = () => {
+  for (const [, req] of pendingRequestsMap.entries()) {
+    if (req?.typingInterval) {
+      try { clearInterval(req.typingInterval) } catch (_) {}
+    }
+  }
+  pendingRequestsMap.clear()
+
   if (bot) {
     try {
       bot.stop('BOT_STOPPED')
@@ -216,8 +223,20 @@ export const startTelegramBot = async (token, mainWindow) => {
         loadingMsgId = loadingMsg.message_id
       } catch (e) {}
 
-      pendingRequestsMap.set(msgId, { ctx, chatId, text, loadingMsgId })
-      setTimeout(() => pendingRequestsMap.delete(msgId), 300000)
+      // Kirim typing action segera dan jaga status mengetik setiap 4 detik
+      try { ctx.sendChatAction('typing').catch(() => {}) } catch (_) {}
+      const typingInterval = setInterval(() => {
+        if (bot && chatId) {
+          bot.telegram.sendChatAction(chatId, 'typing').catch(() => {})
+        }
+      }, 4000)
+
+      pendingRequestsMap.set(msgId, { ctx, chatId, text, loadingMsgId, typingInterval })
+      setTimeout(() => {
+        const req = pendingRequestsMap.get(msgId)
+        if (req?.typingInterval) clearInterval(req.typingInterval)
+        pendingRequestsMap.delete(msgId)
+      }, 300000)
 
       const recentHistory = uiMessageHistory
         .filter((m) => m.chatId === chatId)
@@ -298,10 +317,28 @@ export const startTelegramBot = async (token, mainWindow) => {
         const buffer = await response.arrayBuffer()
         fs.writeFileSync(savePath, Buffer.from(buffer))
 
-        await ctx.telegram.editMessageText(chatId, statusMsg.message_id, undefined, `[INFO]: Berhasil mengunduh: ${originalName}\n[LOADING]: Sedang diproses...`)
+        const isPhoto = Boolean(ctx.message.photo)
+        let isImageFile = isPhoto
+        const ext = path.extname(originalName).toLowerCase()
+        if (['.jpg', '.jpeg', '.png', '.webp', '.bmp'].includes(ext)) {
+          isImageFile = true
+        }
+
+        let base64Image = null
+        if (isImageFile && buffer.byteLength <= 10 * 1024 * 1024) {
+          const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg'
+          base64Image = `data:${mimeType};base64,${Buffer.from(buffer).toString('base64')}`
+        }
 
         const caption = ctx.message.caption || ''
-        const text = `[FILE TERLAMPIR]: "${savePath}"\n${caption ? `Caption dari user: ${caption}` : 'Silakan baca/analisa file gambar atau dokumen ini jika perlu.'}`
+        let text = ''
+        if (isImageFile && base64Image) {
+          text = `[FILE GAMBAR]: "${savePath}"\n[FRAME GAMBAR]: ${base64Image}\n${caption ? `Instruksi user: ${caption}` : 'Analisis dan jelaskan gambar ini.'}`
+        } else {
+          text = `[FILE DOKUMEN]: "${savePath}"\n(Nama berkas: ${originalName}, Ukuran: ${(buffer.byteLength / 1024).toFixed(1)} KB)\n${caption ? `Instruksi user: ${caption}` : 'Baca atau analisa berkas ini.'}`
+        }
+
+        await ctx.telegram.editMessageText(chatId, statusMsg.message_id, undefined, `[INFO]: Berhasil mengunduh: ${originalName}\n[LOADING]: Sedang diproses...`)
 
         const msgId = `${chatId}-${ctx.message.message_id}`
         const uiMsgPayload = {
@@ -318,12 +355,24 @@ export const startTelegramBot = async (token, mainWindow) => {
         uiMessageHistory.push(uiMsgPayload)
         if (uiMessageHistory.length > MAX_UI_HISTORY) uiMessageHistory.shift()
 
-        // Tauri: sama seperti handler text — renderer menerima via event system.
+        // Tauri: sama seperti handler text, renderer menerima via event system.
         sendEvent('tg:message', uiMsgPayload)
         sendEvent('tg:thinking', { sender: senderName, chatId })
 
-        pendingRequestsMap.set(msgId, { ctx, chatId, text, loadingMsgId: statusMsg.message_id })
-        setTimeout(() => pendingRequestsMap.delete(msgId), 300000)
+        // Kirim status typing segera dan jaga status mengetik setiap 4 detik
+        try { ctx.sendChatAction('typing').catch(() => {}) } catch (_) {}
+        const typingInterval = setInterval(() => {
+          if (bot && chatId) {
+            bot.telegram.sendChatAction(chatId, 'typing').catch(() => {})
+          }
+        }, 4000)
+
+        pendingRequestsMap.set(msgId, { ctx, chatId, text, loadingMsgId: statusMsg.message_id, typingInterval })
+        setTimeout(() => {
+          const req = pendingRequestsMap.get(msgId)
+          if (req?.typingInterval) clearInterval(req.typingInterval)
+          pendingRequestsMap.delete(msgId)
+        }, 300000)
 
         const recentHistory = uiMessageHistory
           .filter((m) => m.chatId === chatId)
@@ -333,7 +382,7 @@ export const startTelegramBot = async (token, mainWindow) => {
             content: m.type === 'incoming' ? m.text : m.reply
           }))
 
-        // Tauri: sama seperti handler text — renderer menerima via event system.
+        // Tauri: sama seperti handler text, renderer menerima via event system.
         sendEvent('tg:request-agent-execution', {
           text: `[Telegram from ${chatId} - ${senderName}]:\n${text}`,
           isAdmin: true,
@@ -661,6 +710,9 @@ export const broadcastToAdminsSidecar = async (text) => {
 export const sendAgentExecutionDone = async (data) => {
   const { chatId, result, msgId } = data || {}
   const reqObj = pendingRequestsMap.get(msgId)
+  if (reqObj?.typingInterval) {
+    try { clearInterval(reqObj.typingInterval) } catch (_) {}
+  }
   const replyText = result?.answer || 'Selesai diproses.'
 
   const uiReplyPayload = {

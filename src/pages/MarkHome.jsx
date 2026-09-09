@@ -16,6 +16,7 @@ import { ChatStudioModal } from '../components/core/ChatStudioModal'
 import WindowControls from '../components/core/WindowControls'
 import {
   Mic,
+  MicOff,
   MessageSquare,
   Camera,
   Monitor,
@@ -744,6 +745,42 @@ const MarkHome = () => {
                 : 'w-full h-full'
             }`}
           >
+            {/* Quick Orb Style Segmented Switcher */}
+            <div className="flex items-center gap-1 bg-black/45 backdrop-blur-2xl border border-white/10 rounded-full p-1 shadow-lg mb-3 pointer-events-auto z-20 select-none">
+              <button
+                type="button"
+                onClick={() => {
+                  setOrbStyle('jarvis')
+                  try {
+                    localStorage.setItem('mark:orb_style', 'jarvis')
+                  } catch (_) {}
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-mono transition-all ${
+                  orbStyle === 'jarvis'
+                    ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(34,211,238,0.35)]'
+                    : 'text-white/50 hover:text-white'
+                }`}
+              >
+                Jarvis 3D
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOrbStyle('mark')
+                  try {
+                    localStorage.setItem('mark:orb_style', 'mark')
+                  } catch (_) {}
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-mono transition-all ${
+                  orbStyle === 'mark'
+                    ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(34,211,238,0.35)]'
+                    : 'text-white/50 hover:text-white'
+                }`}
+              >
+                Hologram
+              </button>
+            </div>
+
             <div
               onMouseDown={handleOrbMouseDown}
               onMouseUp={handleOrbMouseUp}
@@ -753,7 +790,7 @@ const MarkHome = () => {
               style={{
                 transform: showRichCardInVoice ? 'scale(0.68)' : 'scale(1)'
               }}
-              title="Geser kursor ke kiri/kanan untuk beralih gaya Orb"
+              title="Klik tombol di atas atau geser kursor untuk beralih gaya Orb"
             >
               {orbStyle === 'mark' ? (
                 <OrbVisualizer
@@ -1042,8 +1079,35 @@ const MarkHome = () => {
                 <JarvisOrb status={orbStatus} intensity={ttsIntensity || audioIntensity} size={80} />
               </div>
 
-              {/* Bottom Snap Action Button */}
-              <div className="absolute bottom-6 inset-x-0 flex items-center justify-center gap-3 pointer-events-auto z-30 select-none">
+              {/* Bottom Center Floating Mini Dock for Screen Share */}
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-4 py-2 rounded-full bg-black/85 backdrop-blur-2xl border border-purple-500/40 shadow-[0_8px_32px_rgba(0,0,0,0.85),0_0_25px_rgba(168,85,247,0.3)] pointer-events-auto select-none">
+                {/* Live Indicator */}
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-[11px] font-bold tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.9)]" />
+                  <span>LIVE</span>
+                </div>
+
+                {/* Mic Audio Meter & Toggle */}
+                <button
+                  type="button"
+                  onClick={toggleRecording}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all border ${
+                    isRecording
+                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
+                      : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:bg-white/10'
+                  }`}
+                  title={isRecording ? 'Matikan Mikrofon' : 'Nyalakan Mikrofon'}
+                >
+                  {isRecording ? <Mic className="w-3.5 h-3.5 text-cyan-400 animate-pulse" /> : <MicOff className="w-3.5 h-3.5" />}
+                  <span>{isRecording ? 'Mic On' : 'Mic Off'}</span>
+                </button>
+
+                {/* Mini Orb Indicator */}
+                <div className="w-7 h-7 flex items-center justify-center shrink-0">
+                  <JarvisOrb status={orbStatus} intensity={ttsIntensity || audioIntensity} size={28} />
+                </div>
+
+                {/* Snap Screen Button */}
                 <button
                   type="button"
                   onClick={async () => {
@@ -1055,9 +1119,24 @@ const MarkHome = () => {
                       setCapsuleInput('')
                     }
                   }}
-                  className="btn btn-sm rounded-full bg-purple-500 hover:bg-purple-400 text-white font-semibold shadow-[0_0_25px_rgba(168,85,247,0.6)] px-6 border border-purple-300/30"
+                  className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-purple-500 hover:bg-purple-400 text-white text-xs font-semibold shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-all"
+                  title="Tangkap frame layar dan analisa"
                 >
-                  Capture &amp; Tanya
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Snap Layar</span>
+                </button>
+
+                <div className="w-px h-4 bg-white/15" />
+
+                {/* Hentikan Share */}
+                <button
+                  type="button"
+                  onClick={handleStopScreenShare}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-medium transition-all"
+                  title="Hentikan berbagi layar"
+                >
+                  <Square className="w-3 h-3 fill-current" />
+                  <span>Stop</span>
                 </button>
               </div>
             </div>
