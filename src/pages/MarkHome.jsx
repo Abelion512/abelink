@@ -111,7 +111,7 @@ const MarkHome = () => {
     }
   })
 
-  // Drag / Slide with cursor handler untuk beralih Orb
+  // Drag / Slide with cursor handler untuk beralih Orb (klik biasa untuk toggle mic di mode voice)
   const dragStartXRef = useRef(null)
   const handleOrbMouseDown = (e) => {
     dragStartXRef.current = e.clientX
@@ -125,6 +125,8 @@ const MarkHome = () => {
       try {
         localStorage.setItem('mark:orb_style', nextStyle)
       } catch (_) {}
+    } else if (currentMode === 'voice') {
+      toggleRecording()
     }
     dragStartXRef.current = null
   }
@@ -143,6 +145,8 @@ const MarkHome = () => {
         try {
           localStorage.setItem('mark:orb_style', nextStyle)
         } catch (_) {}
+      } else if (currentMode === 'voice') {
+        toggleRecording()
       }
     }
     dragStartXRef.current = null
@@ -478,6 +482,20 @@ const MarkHome = () => {
     }
   }, [location.state?.autoToggleMic, toggleRecording, isLoading, isAgentBusy])
 
+  // Di mode Voice: otomatis aktifkan listening jika belum merekam dan sistem standby
+  useEffect(() => {
+    if (currentMode === 'voice') {
+      if (!isRecording && !isLoading && !isAgentBusy && !isProcessing && !window.isMarkSpeaking) {
+        const timer = setTimeout(() => {
+          startRecording()
+        }, 250)
+        return () => clearTimeout(timer)
+      }
+    } else if (currentMode !== 'voice' && isRecording) {
+      stopRecording()
+    }
+  }, [currentMode, isRecording, isLoading, isAgentBusy, isProcessing, startRecording, stopRecording])
+
   // Music widget exit animation
   useEffect(() => {
     const hasTrack = isPlaying && currentTrack?.title
@@ -788,7 +806,11 @@ const MarkHome = () => {
 
             {/* Tengah: Status Typography & Subtle Carousel Dots Indicator */}
             <div className="flex flex-col items-center gap-1.5 pointer-events-auto select-none">
-              <div className="flex items-center gap-2">
+              <div
+                onClick={toggleRecording}
+                className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                title="Klik untuk menyalakan/mematikan mikrofon"
+              >
                 <span className="font-mono text-xs tracking-widest text-cyan-400/90 animate-pulse">
                   {isRecording
                     ? 'listening...'
@@ -796,7 +818,7 @@ const MarkHome = () => {
                     ? 'thinking...'
                     : window.isMarkSpeaking
                     ? 'speaking...'
-                    : 'standby'}
+                    : 'standby (klik untuk bicara)'}
                 </span>
               </div>
               <div

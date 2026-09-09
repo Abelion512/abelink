@@ -201,6 +201,19 @@ export const useMarkAgent = () => {
         return
       }
 
+      if (isAgentBusy || isLoading) {
+        handleIntervention(data.text)
+        window.api?.sendTgAgentExecutionDone?.({
+          chatId: data.chatId,
+          result: {
+            answer:
+              'Instruksi diterima sebagai arahan (intervensi) untuk proses yang sedang berjalan.'
+          },
+          msgId: data.msgId
+        })
+        return
+      }
+
       activeTgRequestRef.current = data
       setInputSource('tg')
       handlePlanningCommand(data.text, data)
@@ -208,7 +221,7 @@ export const useMarkAgent = () => {
 
     window.addEventListener('tg-admin-message', handleTgAdminMessage)
     return () => window.removeEventListener('tg-admin-message', handleTgAdminMessage)
-  }, [handlePlanningCommand, setInputSource, handleStop, setIsSpeak])
+  }, [handlePlanningCommand, handleIntervention, isAgentBusy, isLoading, setInputSource, handleStop, setIsSpeak])
 
   const isInitialSyncDoneRef = useRef(false)
   const lastSyncedMsgIdRef = useRef(null)

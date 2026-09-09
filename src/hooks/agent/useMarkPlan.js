@@ -1075,10 +1075,20 @@ export const useMarkPlan = ({
     const activeSessionNum = opts.sessionId ? Number(opts.sessionId) : 1
     activeRunningSessionIdRef.current = activeSessionNum
 
-    if (!tgContext && activeSessionsRef.current.has(activeSessionNum)) {
+    if (activeSessionsRef.current.has(activeSessionNum)) {
       console.log(
         `[useMarkPlan] Menolak prompt masuk untuk Sesi ${activeSessionNum} karena sedang berjalan (Lock active).`
       )
+      if (tgContext?.msgId && tgContext?.chatId) {
+        window.api?.sendTgAgentExecutionDone?.({
+          chatId: tgContext.chatId,
+          result: {
+            answer:
+              'Agen sedang sibuk menjalankan tugas sebelumnya. Kirim /stop bila ingin membatalkan tugas yang sedang berjalan.'
+          },
+          msgId: tgContext.msgId
+        })
+      }
       return
     }
 
