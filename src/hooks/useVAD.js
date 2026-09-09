@@ -59,12 +59,13 @@ export const useVAD = ({
     return pendingAudio
   }
 
-  const finishSpeechAndTranscribe = () => {
+  const finishSpeechAndTranscribe = (force = false) => {
     if (isProcessingSpeechRef.current) return
     isProcessingSpeechRef.current = true
 
     const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
-    if (totalLength < 8000) {
+    const minSamples = force ? 3200 : 6400
+    if (totalLength < minSamples) {
       stopVADCleanup()
       return
     }
@@ -76,8 +77,6 @@ export const useVAD = ({
       offset += arr.length
     }
 
-    // Hapus pemotongan silence agresif. Whisper bisa menangani sedikit silence di akhir.
-    // Menyimpan sedikit silence di akhir justru mencegah plosif terakhir terpotong.
     const trimmedAudio = merged
 
     stopVADCleanup()
@@ -90,7 +89,7 @@ export const useVAD = ({
         if (text && text.trim() !== '') {
           const cleanText = text.replace(
             /\b(mbak|mak|makh|marg|mart|marck|marc|mac|mag)\b/gi,
-            'Mark'
+            'Abelink'
           )
           onTranscript(cleanText.trim())
         }
@@ -222,7 +221,17 @@ export const useVAD = ({
       streamRef.current = stream
 
       const AudioContext = window.AudioContext || window.webkitAudioContext
-      const audioContext = new AudioContext({ sampleRate: 16000 })
+      let audioContext = null
+      try {
+        audioContext = new AudioContext({ sampleRate: 16000 })
+      } catch {
+        audioContext = new AudioContext()
+      }
+      if (audioContext.state === 'suspended') {
+        try {
+          await audioContext.resume()
+        } catch (_) {}
+      }
       audioContextRef.current = audioContext
 
       const source = audioContext.createMediaStreamSource(stream)
@@ -241,9 +250,9 @@ export const useVAD = ({
       silenceFramesRef.current = 0
 
       // Each buffer is 4096 samples at 16000Hz = 0.256s (256ms)
-      // 8 frames silence = ~2.0s silence (memberi waktu jeda nafas/berpikir sedikit)
+      // 8 frames silence = ~2.0s silence
       const MAX_SILENCE_FRAMES = 8
-      const RMS_THRESHOLD = 0.01 // Diturunkan agar suara pelan/ujung kata tidak dianggap silence
+      const RMS_THRESHOLD = 0.005 // Ambang batas lebih sensitif untuk mikrofon Linux
 
       processor.onaudioprocess = (e) => {
         if (window.isMarkSpeaking || isProcessingSpeechRef.current) return
@@ -253,14 +262,13 @@ export const useVAD = ({
         for (let i = 0; i < input.length; i++) sum += input[i] * input[i]
         const rms = Math.sqrt(sum / input.length)
 
-        // Normalisasi RMS untuk visualisasi (RMS biasanya berkisar antara 0.01 - 0.15)
-        const normalized = Math.min(1, (rms - RMS_THRESHOLD) * 15)
+        // Normalisasi RMS untuk visualisasi yang responsif terhadap bisikan maupun suara normal
+        const normalized = Math.min(1, rms * 25)
         setAudioIntensity(Math.max(0, normalized))
 
         if (rms > RMS_THRESHOLD) {
           if (!isSpeakingRef.current) {
             isSpeakingRef.current = true
-            audioChunksRef.current = []
           }
           silenceFramesRef.current = 0
           audioChunksRef.current.push(new Float32Array(input))
@@ -272,7 +280,13 @@ export const useVAD = ({
           // Total recording length check (hard max 15 seconds)
           const totalSamples = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
           if (silenceFramesRef.current >= MAX_SILENCE_FRAMES || totalSamples >= 240000) {
-            finishSpeechAndTranscribe()
+            finishSpeechAndTranscribe(false)
+          }
+        } else {
+          // Rolling pre-roll buffer (maksimal 3 frame ~0.75s) agar suku kata awal tidak terpotong
+          audioChunksRef.current.push(new Float32Array(input))
+          if (audioChunksRef.current.length > 3) {
+            audioChunksRef.current.shift()
           }
         }
       }
@@ -291,30 +305,7 @@ export const useVAD = ({
 
   const toggleRecording = () => {
     if (isRecordingRef.current) {
-      const pendingAudio = stopVADCleanup()
-
-      if (pendingAudio) {
-        // Jika user secara eksplisit mematikan mic saat ngomong, transkrip!
-        setIsProcessing(true)
-        setTimeout(async () => {
-          try {
-            const text = await executeSpeechToText(pendingAudio)
-            setIsProcessing(false)
-            if (text && text.trim() !== '') {
-              const cleanText = text.replace(
-                /\b(mbak|mak|makh|marg|mart|marck|marc|mac|mag)\b/gi,
-                'Mark'
-              )
-              onTranscript(cleanText.trim())
-            }
-          } catch (err) {
-            setIsProcessing(false)
-            console.error('[VAD] STT Error:', err)
-            setToastMessage(`Gagal memproses STT: ${err.message}`)
-            setTimeout(() => setToastMessage(''), 5000)
-          }
-        }, 150)
-      }
+      finishSpeechAndTranscribe(true)
     } else {
       startVADRecording()
     }
@@ -330,7 +321,8 @@ export const useVAD = ({
     audioIntensity,
     toggleRecording,
     startRecording: startVADRecording,
-    stopRecording: finishSpeechAndTranscribe,
+    stopRecording: () => finishSpeechAndTranscribe(true),
+    cancelRecording: stopVADCleanup,
     toastMessage
   }
 }
