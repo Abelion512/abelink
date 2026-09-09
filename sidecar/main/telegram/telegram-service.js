@@ -105,24 +105,24 @@ export const startTelegramBot = async (token, mainWindow) => {
       if (chatId && authorizedAdminIds.has(chatId)) {
         // Admin terpercaya: hapus status pending dan sambut normal.
         pendingChatIdsSet.delete(chatId)
-        ctx.reply('Halo! Saya Mark (AI OS Companion). Bot Telegram ini telah terhubung. Kamu terdaftar sebagai admin.')
+        ctx.reply('Halo! Saya Abelink (AI OS Companion). Bot Telegram ini telah terhubung. Kamu terdaftar sebagai admin.')
       } else if (chatId) {
         // Pendaftaran mandiri tetap masuk daftar broadcast, tapi ditandai PENDING:
         // tidak akan menerima screenshot/approval sampai id-nya masuk tgAdminIds.
         pendingChatIdsSet.add(chatId)
         ctx.reply(
-          'Halo! Saya Mark (AI OS Companion). Bot Telegram ini telah terhubung.\n\n' +
+          'Halo! Saya Abelink (AI OS Companion). Bot Telegram ini telah terhubung.\n\n' +
           `ID kamu (${chatId}) terdaftar sebagai PENDING. Tambahkan ID tersebut ke tgAdminIds ` +
-          'di konfigurasi MARK agar menerima screenshot & approval.'
+          'di konfigurasi Abelink agar menerima screenshot & approval.'
         )
       } else {
-        ctx.reply('Halo! Saya Mark (AI OS Companion). Bot Telegram ini telah terhubung.')
+        ctx.reply('Halo! Saya Abelink (AI OS Companion). Bot Telegram ini telah terhubung.')
       }
     })
 
     bot.command('info', (ctx) => {
       ctx.reply(
-        '**Daftar Perintah MARK:**\n\n' +
+        '**Daftar Perintah Abelink:**\n\n' +
         '/start - Memulai bot\n' +
         '/info - Menampilkan daftar perintah\n' +
         '/abort - Menghentikan proses AI yang sedang berjalan\n' +
@@ -666,7 +666,7 @@ export const sendAgentExecutionDone = async (data) => {
   const uiReplyPayload = {
     id: Date.now(),
     chatId: chatId,
-    sender: 'Mark',
+    sender: 'Abelink',
     text: reqObj?.text || '',
     reply: replyText,
     toolsUsed: result?.toolsUsed || [],

@@ -2574,8 +2574,8 @@ export const useMarkPlan = ({
       } else {
         if (isSystem && !isAutonomous) {
           const fallbackGreetings = [
-            'Sistem aktif. Halo, saya Mark. Ada yang bisa saya bantu hari ini?',
-            'Mark sudah online. Silakan berikan perintah.',
+            'Sistem aktif. Halo, saya Abelink. Ada yang bisa saya bantu hari ini?',
+            'Abelink sudah online. Silakan berikan perintah.',
             'Halo bro! Sistem berhasil diinisialisasi. Ada yang perlu saya kerjakan?'
           ]
           const randomGreeting =

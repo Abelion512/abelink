@@ -142,12 +142,15 @@ pub(crate) fn confirm_on_main_thread(app: &AppHandle, description: String) -> bo
     let dispatched = app.run_on_main_thread(move || {
         // rfd 0.15: tombol pakai MessageButtons, hasilnya enum MessageDialogResult.
         let result = rfd::MessageDialog::new()
-            .set_title("MARK - Perlu Persetujuan")
+            .set_title("Abelink - Perlu Persetujuan")
             .set_description(&description)
             .set_buttons(rfd::MessageButtons::OkCancel)
             .show();
-        // OkCancel: OK -> Yes, Cancel -> No
-        let approved = matches!(result, rfd::MessageDialogResult::Yes);
+        // OkCancel: OK -> Ok/Yes, Cancel -> Cancel/No
+        let approved = matches!(
+            result,
+            rfd::MessageDialogResult::Ok | rfd::MessageDialogResult::Yes
+        );
         let _ = tx.send(approved);
     });
     if dispatched.is_err() {
