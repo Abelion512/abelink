@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import { getAllConfig } from './db';
 
 // Mengkonversi Float32Array PCM (hasil ScriptProcessorNode) ke format WAV
-function pcmToWav(buffer, sampleRate = 16000) {
+export function pcmToWav(buffer, sampleRate = 16000) {
   const numChannels = 1;
   const bytesPerSample = 2; // 16-bit
   const blockAlign = numChannels * bytesPerSample;

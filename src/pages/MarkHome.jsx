@@ -153,6 +153,30 @@ const MarkHome = () => {
     dragStartXRef.current = null
   }
 
+  // Keyboard navigation untuk beralih Orb (ArrowLeft / ArrowRight)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const tag = e.target?.tagName?.toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) {
+        return
+      }
+
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault()
+        setOrbStyle((prev) => {
+          const next = prev === 'jarvis' ? 'mark' : 'jarvis'
+          try {
+            localStorage.setItem('mark:orb_style', next)
+          } catch (_) {}
+          return next
+        })
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   const handleModeChange = (newMode) => {
     setCurrentMode(newMode)
     try {
@@ -745,42 +769,6 @@ const MarkHome = () => {
                 : 'w-full h-full'
             }`}
           >
-            {/* Quick Orb Style Segmented Switcher */}
-            <div className="flex items-center gap-1 bg-black/45 backdrop-blur-2xl border border-white/10 rounded-full p-1 shadow-lg mb-3 pointer-events-auto z-20 select-none">
-              <button
-                type="button"
-                onClick={() => {
-                  setOrbStyle('jarvis')
-                  try {
-                    localStorage.setItem('mark:orb_style', 'jarvis')
-                  } catch (_) {}
-                }}
-                className={`px-3 py-1 rounded-full text-xs font-mono transition-all ${
-                  orbStyle === 'jarvis'
-                    ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(34,211,238,0.35)]'
-                    : 'text-white/50 hover:text-white'
-                }`}
-              >
-                Jarvis 3D
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setOrbStyle('mark')
-                  try {
-                    localStorage.setItem('mark:orb_style', 'mark')
-                  } catch (_) {}
-                }}
-                className={`px-3 py-1 rounded-full text-xs font-mono transition-all ${
-                  orbStyle === 'mark'
-                    ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(34,211,238,0.35)]'
-                    : 'text-white/50 hover:text-white'
-                }`}
-              >
-                Hologram
-              </button>
-            </div>
-
             <div
               onMouseDown={handleOrbMouseDown}
               onMouseUp={handleOrbMouseUp}
@@ -790,7 +778,7 @@ const MarkHome = () => {
               style={{
                 transform: showRichCardInVoice ? 'scale(0.68)' : 'scale(1)'
               }}
-              title="Klik tombol di atas atau geser kursor untuk beralih gaya Orb"
+              title="Tekan tombol panah (Arrow Left / Right), geser kursor, atau klik indikator di bawah untuk beralih gaya Orb"
             >
               {orbStyle === 'mark' ? (
                 <OrbVisualizer

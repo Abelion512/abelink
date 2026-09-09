@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { transcribeAudioLocal } from '../api/localWhisper'
-import { transcribeAudioGroq } from '../api/groq'
-import { getAllConfig } from '../api/db'
+import { transcribeAudioUnified } from '../api/sttRouter'
 import { resolveMicConstraints, micCoolingDown, noteMicFailure } from '../api/mic'
 
 // Resampling linear audio PCM Float32Array dari sampleRate asal ke 16,000 Hz target Whisper
@@ -131,63 +129,11 @@ export const useVAD = ({
     }, 120)
   }
 
-  // ── Unified Robust Speech-to-Text Pipeline ──────────────────────────────
+  // Unified Speech-to-Text Pipeline (Groq, Custom STT, Combo Fallback, Local)
   const executeSpeechToText = async (audioBuffer) => {
-    const config = await getAllConfig()
-    const hasGroqKey = Boolean(config[0]?.groqApiKey?.trim())
-    const configuredEngine = config[0]?.localWhisperModel
-    const isGroqSelected = configuredEngine?.startsWith('groq')
-
-    // Jika user secara eksplisit memilih Groq di Konfigurasi
-    if (isGroqSelected) {
-      if (!hasGroqKey) {
-        throw new Error('Groq API Key belum disetel di Konfigurasi')
-      }
-      setToastMessage('Mentranskrip via Groq API...')
-      try {
-        const res = await transcribeAudioGroq(audioBuffer)
-        setToastMessage('')
-        return res
-      } catch (err) {
-        setToastMessage('')
-        throw err
-      }
-    }
-
-    // Default: Jalankan Local Whisper sesuai preferensi pengguna
-    try {
-      let highestProgress = 0
-      const fileProgressMap = {}
-
-      const text = await transcribeAudioLocal(audioBuffer, (progressData) => {
-        if (progressData?.file && progressData.progress !== undefined) {
-          fileProgressMap[progressData.file] = progressData.progress
-          const vals = Object.values(fileProgressMap)
-          const avg = Math.round(vals.reduce((a, b) => a + b, 0) / Math.max(3, vals.length))
-          // Progress monotonik: hanya naik, tidak pernah mundur
-          if (avg > highestProgress) {
-            highestProgress = Math.min(100, avg)
-            setToastMessage(`Menyiapkan model AI Suara... ${highestProgress}%`)
-          }
-        }
-      })
-      setToastMessage('')
-      return text
-    } catch (localErr) {
-      console.warn('[VAD] Local Whisper gagal:', localErr.message)
-      if (hasGroqKey) {
-        setToastMessage('Fallback ke Groq API...')
-        try {
-          const res = await transcribeAudioGroq(audioBuffer)
-          setToastMessage('')
-          return res
-        } catch (groqErr) {
-          setToastMessage('')
-          throw groqErr
-        }
-      }
-      throw new Error(`Whisper lokal gagal (${localErr.message || 'WASM SIMD tidak didukung'}). Masukkan Groq API Key di Konfigurasi jika ingin fallback cloud.`)
-    }
+    return transcribeAudioUnified(audioBuffer, null, (msg) => {
+      setToastMessage(msg)
+    })
   }
 
   const startVADRecording = async () => {
