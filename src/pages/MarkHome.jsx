@@ -702,32 +702,68 @@ const MarkHome = () => {
 
       {/* ── MODE 1: VOICE MODE (JARVIS DEFAULT) ──────────────────────────────── */}
       {currentMode === 'voice' && (
-        <div className="relative z-10 w-full h-screen flex flex-col items-center justify-center px-4 overflow-hidden select-none">
-          {/* Centered Jarvis / Mark Hero Orb */}
+        <div
+          className={`relative z-10 w-full h-screen flex ${
+            showRichCardInVoice
+              ? 'flex-col md:flex-row items-center justify-between px-6 lg:px-12 pt-14 pb-20 gap-6'
+              : 'flex-col items-center justify-center px-4'
+          } overflow-hidden select-none transition-all duration-500`}
+        >
+          {/* Centered or Left Jarvis / Mark Hero Orb */}
           <div
-            onMouseDown={handleOrbMouseDown}
-            onMouseUp={handleOrbMouseUp}
-            onTouchStart={handleOrbTouchStart}
-            onTouchEnd={handleOrbTouchEnd}
-            className="flex flex-col items-center justify-center cursor-grab active:cursor-grabbing transition-transform duration-300"
-            title="Geser kursor ke kiri/kanan untuk beralih gaya Orb"
+            className={`flex flex-col items-center justify-center transition-all duration-700 ease-out ${
+              showRichCardInVoice
+                ? 'w-full md:w-5/12 h-[35vh] md:h-full shrink-0'
+                : 'w-full h-full'
+            }`}
           >
-            {orbStyle === 'mark' ? (
-              <OrbVisualizer
-                status={orbStatus}
-                intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
-                mood={currentResponse?.mood || 'neutral'}
-                size="hero"
-              />
-            ) : (
-              <JarvisOrb
-                status={orbStatus}
-                intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
-                size={540}
-              />
-            )}
-
+            <div
+              onMouseDown={handleOrbMouseDown}
+              onMouseUp={handleOrbMouseUp}
+              onTouchStart={handleOrbTouchStart}
+              onTouchEnd={handleOrbTouchEnd}
+              className="flex flex-col items-center justify-center cursor-grab active:cursor-grabbing transition-transform duration-500 ease-out"
+              style={{
+                transform: showRichCardInVoice ? 'scale(0.68)' : 'scale(1)'
+              }}
+              title="Geser kursor ke kiri/kanan untuk beralih gaya Orb"
+            >
+              {orbStyle === 'mark' ? (
+                <OrbVisualizer
+                  status={orbStatus}
+                  intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
+                  mood={currentResponse?.mood || 'neutral'}
+                  size="hero"
+                />
+              ) : (
+                <JarvisOrb
+                  status={orbStatus}
+                  intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
+                  size={540}
+                />
+              )}
+            </div>
           </div>
+
+          {/* Right Side: Rich Data Telemetry Card dengan viewport penuh */}
+          {showRichCardInVoice && (
+            <div className="w-full md:w-7/12 h-[55vh] md:h-[calc(100vh-140px)] flex flex-col bg-black/75 backdrop-blur-2xl border border-cyan-500/30 rounded-3xl p-5 shadow-[0_12px_48px_rgba(34,211,238,0.25)] animate-[holo-enter_0.35s_ease-out_forwards] pointer-events-auto">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10 text-xs font-mono text-cyan-300 shrink-0">
+                <span className="flex items-center gap-2 tracking-wider uppercase font-semibold">
+                  <Eye className="w-4 h-4 text-cyan-400 animate-pulse" /> DATA OUTPUT
+                </span>
+                <button
+                  onClick={() => handleModeChange('chat')}
+                  className="btn btn-ghost btn-xs text-white/70 hover:text-white gap-1.5 rounded-full px-3 hover:bg-white/10 transition-colors"
+                >
+                  <Maximize2 className="w-3 h-3" /> Mode Chat
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto no-scrollbar pr-1 text-sm text-white/90 leading-relaxed font-sans">
+                <ResponseArea currentResponse={currentResponse} />
+              </div>
+            </div>
+          )}
 
           {/* Bottom Dock Melayang: Audio Meter di Kiri, Status & Orb Dots di Tengah */}
           <div className="fixed bottom-6 inset-x-0 z-20 flex items-center justify-between px-8 pointer-events-none">
@@ -781,26 +817,6 @@ const MarkHome = () => {
             {/* Kanan: Spacer penyeimbang */}
             <div className="w-16 opacity-0" />
           </div>
-
-          {/* Rich Data Telemetry Card: HANYA tampil jika ada data terstruktur */}
-          {showRichCardInVoice && (
-            <div className="mt-6 max-w-xl w-full bg-black/70 backdrop-blur-2xl border border-cyan-500/30 rounded-2xl p-4 shadow-[0_8px_32px_rgba(34,211,238,0.2)] animate-[holo-enter_0.3s_ease-out_forwards] max-h-56 overflow-y-auto no-scrollbar">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-xs font-mono text-cyan-300">
-                <span className="flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5" /> DATA OUTPUT
-                </span>
-                <button
-                  onClick={() => handleModeChange('chat')}
-                  className="btn btn-ghost btn-xs text-white/60 hover:text-white gap-1"
-                >
-                  <Maximize2 className="w-3 h-3" /> Mode Chat
-                </button>
-              </div>
-              <div className="text-xs text-white/90 leading-relaxed font-sans">
-                <ResponseArea currentResponse={currentResponse} />
-              </div>
-            </div>
-          )}
         </div>
       )}
 

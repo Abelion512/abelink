@@ -130,7 +130,7 @@ export const fetchAI = async (
       try {
         logAi(`[ai] POST gemini-web model=${modelName} promptChars=${fullPrompt.length}`)
 
-        let answer = await generateGeminiResponse(fullPrompt, modelName + pld.substring(999, 1000))
+        let answer = await generateGeminiResponse(fullPrompt, modelName)
 
         let reasoning = null
         if (answer.includes('<think>')) {
