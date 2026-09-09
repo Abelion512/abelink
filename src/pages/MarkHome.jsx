@@ -37,7 +37,7 @@ import musicCoverFallback from '../assets/music-cover.png'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useVAD } from '../hooks/useVAD'
 import { useMemoryGroomer } from '../hooks/useMemoryGroomer'
-import { db, setSessionWorkspace } from '../api/db'
+import { db, setSessionWorkspace, getAllConfig, saveConfiguration } from '../api/db'
 
 /**
  * Deteksi apakah respons AI mengandung data terstruktur/kaya (rich content)
@@ -111,6 +111,27 @@ const MarkHome = () => {
       return 'jarvis'
     }
   })
+  const [isMicMuted, setIsMicMuted] = useState(false)
+  const [showVoiceSetupModal, setShowVoiceSetupModal] = useState(false)
+
+  // Reset mute state & Smart Voice Onboarding saat berganti mode
+  useEffect(() => {
+    setIsMicMuted(false)
+    if (currentMode === 'voice') {
+      getAllConfig().then((cfgs) => {
+        const c = cfgs[0] || {}
+        const hasValidCustom =
+          Array.isArray(c.sttConnections) &&
+          c.sttConnections.some((conn) => conn.enabled && conn.endpoint?.trim())
+        const hasLegacy = c.customSttEndpoint?.trim()
+        const isWhisper = c.sttProvider === 'whisper'
+
+        if (!hasValidCustom && !hasLegacy && !isWhisper) {
+          setShowVoiceSetupModal(true)
+        }
+      })
+    }
+  }, [currentMode])
 
   // Drag / Slide with cursor handler untuk beralih Orb (klik biasa untuk toggle mic di mode voice)
   const dragStartXRef = useRef(null)
@@ -127,7 +148,13 @@ const MarkHome = () => {
         localStorage.setItem('mark:orb_style', nextStyle)
       } catch (_) {}
     } else if (currentMode === 'voice') {
-      toggleRecording()
+      if (isRecording) {
+        setIsMicMuted(true)
+        cancelRecording()
+      } else {
+        setIsMicMuted(false)
+        startRecording()
+      }
     }
     dragStartXRef.current = null
   }
@@ -147,7 +174,13 @@ const MarkHome = () => {
           localStorage.setItem('mark:orb_style', nextStyle)
         } catch (_) {}
       } else if (currentMode === 'voice') {
-        toggleRecording()
+        if (isRecording) {
+          setIsMicMuted(true)
+          cancelRecording()
+        } else {
+          setIsMicMuted(false)
+          startRecording()
+        }
       }
     }
     dragStartXRef.current = null
@@ -394,7 +427,7 @@ const MarkHome = () => {
 
       setMessage(finalPrompt)
       setIsSpeak(true)
-      handlePlanningCommand(finalPrompt, null, false, null, { forceSpeak: true })
+      handlePlanningCommand(finalPrompt, null, false, null, { forceSpeak: true, isVoice: true })
     },
     [currentMode, captureCameraFrame, captureScreenFrame, setMessage, setIsSpeak, handlePlanningCommand]
   )
@@ -406,6 +439,7 @@ const MarkHome = () => {
     toggleRecording,
     startRecording,
     stopRecording,
+    cancelRecording,
     toastMessage
   } = useVAD({
     onTranscript: handleVoiceTranscript
@@ -443,19 +477,12 @@ const MarkHome = () => {
   const handleStartScreenShare = async () => {
     setScreenError(null)
     try {
-      let stream = null
-      try {
-        stream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: false
-        })
-      } catch (firstErr) {
-        if (firstErr.name === 'OverconstrainedError' || firstErr.message?.includes('constraint')) {
-          stream = await navigator.mediaDevices.getDisplayMedia()
-        } else {
-          throw firstErr
-        }
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        throw new Error('Screen capture API tidak didukung pada browser/webview ini.')
       }
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true
+      })
       setScreenStream(stream)
       if (screenVideoRef.current) {
         screenVideoRef.current.srcObject = stream
@@ -465,18 +492,23 @@ const MarkHome = () => {
         handleStopScreenShare()
       }
     } catch (err) {
-      console.warn('[Screen] getDisplayMedia error:', err)
       if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
         setScreenError(null)
         return
       }
-      if (err.name === 'OverconstrainedError' || err.message?.includes('Invalid constraint')) {
+      if (err.name === 'InvalidStateError') {
+        console.warn('[Screen] getDisplayMedia requires direct user gesture')
+        setScreenError('Akses share screen memerlukan interaksi/klik tombol langsung.')
+        return
+      }
+      if (err.name === 'OverconstrainedError' || err.message?.includes('constraint')) {
         setScreenError(
           'Portal ScreenCast belum aktif di sistem Linux ini. Pastikan portal desktop aktif atau gunakan mode screenshot.'
         )
-      } else {
-        setScreenError(`Gagal mengakses live share screen: ${err.message}`)
+        return
       }
+      console.warn('[Screen] getDisplayMedia error:', err)
+      setScreenError(`Gagal mengakses live share screen: ${err.message}`)
     }
   }
 
@@ -507,19 +539,19 @@ const MarkHome = () => {
     }
   }, [location.state?.autoToggleMic, toggleRecording, isLoading, isAgentBusy])
 
-  // Di mode Voice: otomatis aktifkan listening jika belum merekam dan sistem standby
+  // Di mode Voice: otomatis aktifkan listening jika belum merekam, sistem standby, dan tidak di-mute
   useEffect(() => {
     if (currentMode === 'voice') {
-      if (!isRecording && !isLoading && !isAgentBusy && !isProcessing && !window.isMarkSpeaking) {
+      if (!isMicMuted && !isRecording && !isLoading && !isAgentBusy && !isProcessing && !window.isMarkSpeaking) {
         const timer = setTimeout(() => {
           startRecording()
         }, 250)
         return () => clearTimeout(timer)
       }
     } else if (currentMode !== 'voice' && isRecording) {
-      stopRecording()
+      cancelRecording()
     }
-  }, [currentMode, isRecording, isLoading, isAgentBusy, isProcessing, startRecording, stopRecording])
+  }, [currentMode, isMicMuted, isRecording, isLoading, isAgentBusy, isProcessing, startRecording, cancelRecording])
 
   // Music widget exit animation
   useEffect(() => {
@@ -832,15 +864,27 @@ const MarkHome = () => {
             {/* Tengah: Status Typography & Subtle Carousel Dots Indicator */}
             <div className="flex flex-col items-center gap-1.5 pointer-events-auto select-none">
               <div
-                onClick={toggleRecording}
+                onClick={() => {
+                  if (isRecording) {
+                    setIsMicMuted(true)
+                    cancelRecording()
+                  } else {
+                    setIsMicMuted(false)
+                    startRecording()
+                  }
+                }}
                 className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                title="Klik untuk menyalakan/mematikan mikrofon"
+                title="Klik untuk menyalakan/menjeda mikrofon"
               >
                 <span className="font-mono text-xs tracking-widest text-cyan-400/90 animate-pulse">
-                  {isRecording
-                    ? 'listening...'
+                  {toastMessage
+                    ? toastMessage
+                    : isMicMuted
+                    ? 'mic paused (klik untuk bicara)'
+                    : isRecording
+                    ? 'listening... (klik untuk jeda)'
                     : isProcessing
-                    ? 'thinking...'
+                    ? 'transcribing / thinking...'
                     : window.isMarkSpeaking
                     ? 'speaking...'
                     : 'standby (klik untuk bicara)'}
@@ -1159,6 +1203,77 @@ const MarkHome = () => {
         onClose={() => setIsChatStudioOpen(false)}
         chatContext={chatContext}
       />
+
+      {/* Smart Voice Setup Prompt Modal */}
+      {showVoiceSetupModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-xl p-4 animate-fade-in pointer-events-auto">
+          <div className="max-w-md w-full p-6 rounded-3xl bg-base-200/95 border border-cyan-500/30 shadow-[0_20px_60px_rgba(0,0,0,0.9),0_0_35px_rgba(6,182,212,0.25)] space-y-4 text-white">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
+                <Mic size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Setup Audio & Voice Engine</h3>
+                <p className="text-[11px] opacity-60">Abelink belum mendeteksi konfigurasi STT aktif.</p>
+              </div>
+            </div>
+
+            <p className="text-xs opacity-80 leading-relaxed">
+              Untuk mengobrol menggunakan suara tanpa kendala, pilih salah satu opsi cepat di bawah:
+            </p>
+
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  const cfgs = await getAllConfig()
+                  const c = cfgs[0] || {}
+                  const defaultConn = {
+                    id: 'conn-quick-local',
+                    name: 'Local Gateway (127.0.0.1:20128)',
+                    endpoint: 'http://127.0.0.1:20128/v1/audio/transcriptions',
+                    apiKey: '',
+                    model: 'selfhosted-stt/whisper-1',
+                    enabled: true
+                  }
+                  await saveConfiguration({
+                    ...c,
+                    sttProvider: 'custom',
+                    sttStrategy: 'fallback',
+                    sttConnections: [defaultConn]
+                  })
+                  setShowVoiceSetupModal(false)
+                }}
+                className="btn btn-sm btn-primary w-full justify-between text-xs"
+              >
+                <span>Pakai Preset Cepat (127.0.0.1:20128)</span>
+                <span className="badge badge-xs badge-neutral">Rekomendasi</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVoiceSetupModal(false)
+                  navigate('/config#cfg-voice')
+                }}
+                className="btn btn-sm btn-outline btn-info w-full text-xs"
+              >
+                Buka Pengaturan Audio & Provider
+              </button>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setShowVoiceSetupModal(false)}
+                className="btn btn-xs btn-ghost opacity-60 hover:opacity-100 text-[11px]"
+              >
+                Nanti saja (Tutup)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

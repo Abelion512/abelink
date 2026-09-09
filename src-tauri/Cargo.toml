@@ -1,5 +1,5 @@
 [package]
-name = "mark"
+name = "abelink"
 version = "1.0.0-alpha.3"
 description = "Abelink: Privacy-first Autonomous AI OS Companion for Linux (Tauri v2 shell)"
 authors = ["Abelion512"]
@@ -11,7 +11,7 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "mark_light_lib"
+name = "abelink_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -25,7 +25,7 @@ chrono = "0.4"
 tauri-plugin-global-shortcut = "2"
 log = "0.4"
 tokio = { version = "1", features = ["full"] }
-tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri = { version = "2", features = ["tray-icon", "image-png", "devtools"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"

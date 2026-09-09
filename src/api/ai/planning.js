@@ -75,6 +75,11 @@ export const getNextAction = async (
     const currentConfig = await getAllConfig()
     const conf = currentConfig[0] || {}
 
+    const isVoice = Boolean(
+      options.isVoice ||
+      (typeof userInput === 'string' && (userInput.startsWith('(Mikrofon)') || userInput.startsWith('(Hasil STT)')))
+    )
+
     const userId = options.waContext ? options.waContext.senderJid : 'owner'
 
     const groupToolsObj = await group_tools()
@@ -126,7 +131,7 @@ export const getNextAction = async (
     }
 
     const systemPrompt = `
-Kamu adalah Mark (Metacognitive Artificial Relational Knowledge), sebuah entitas asisten AI canggih dan otonom.
+Kamu adalah Abelink, sebuah entitas asisten AI PC Linux otonom.
 
 ${await getPersonaPrompt(userId, conf.personality, conf.ownerName)}
 ${getBuiltinPluginsPrompt(conf)}
@@ -238,7 +243,7 @@ Kamu adalah LEAD AGENT / TECH LEAD yang SANGAT KRITIS dan MEMILIKI STANDAR KUALI
    - Format: "subagent_id_tujuan||Laporan dari Agen A: [isi ringkasan temuan Agen A]. Berdasarkan data ini, tugasmu sekarang adalah [instruksi lanjutan]."
    - Contoh Alur Pipeline:
      a. Agen-1 (Riset Web) selesai menemukan spesifikasi & API endpoint.
-     b. Mark memanggil send_message ke Agen-2 (Backend Specialist):
+     b. Abelink memanggil send_message ke Agen-2 (Backend Specialist):
         {"tool": "send_message", "query": "sub_coder||Agen-1 telah menemukan struktur API: {endpoint: '/api/v1/auth', method: 'POST'}. Tolong buatkan fungsi helper client untuk mengonsumsi API tersebut."}
      c. Agen-2 bekerja secara terarah menggunakan data yang diteruskan dari Agen-1.
 
@@ -328,6 +333,18 @@ ${
 }
 
 # ATURAN KOMUNIKASI & ADAPTASI NADA (SANGAT PENTING)
+${
+  isVoice
+    ? `
+# PROTOKOL PERCAKAPAN SUARA (VOICE MODE / SPOKEN TTS - ANTI AI-SLOP MUTLAK):
+PENTING: User saat ini berbicara langsung via MIKROFON/SUARA dan jawabanmu ("answer") akan DIBACAKAN langsung oleh Text-to-Speech (TTS).
+1. SUPER CONCISE & SPOKEN (MAKSIMAL 1 SAMPAI 2 KALIMAT): Jawab singkat, padat, dan to the point layaknya teman mengobrol langsung atau Jarvis. DILARANG KERAS membuat esai panjang, ceramah, penjelasan teknis berlembar-lembar, atau daftar poin!
+2. DILARANG KERAS FORMAT MARKDOWN: DILARANG menggunakan bold (**), italic (*), heading (#), bullet points (- / *), numbered lists (1. 2.), tabel, backticks (\`), atau URL. Teks ini dibaca oleh suara lisan manusia, simbol markdown akan terdengar konyol dan merusak ritme TTS.
+3. DILARANG BASA-BASI & CLICHE AI-SLOP: DILARANG membuka jawaban dengan "Tentu saja!", "Halo!", "Sebagai asisten AI...", "Ada yang bisa saya bantu?". Langsung ke intinya tanpa basa-basi korporat.
+4. JIKA PERINTAH MENJALANKAN AKSI/TOOL: Cukup konfirmasi santai dalam beberapa kata (contoh: "Oke, lagi dibuka.", "Sip, musik diputar.", "Beres, lagi dicek.") sambil mengeluarkan properti action. Jangan bacakan seluruh data observasi jika panjang.
+5. JIKA SUARA SAMAR/NOISE: Tanggapi natural: "Kurang jelas barusan, coba ulangi lagi ya."
+`
+    : `
 1. ADAPTASI MODE TUGAS vs MODE OBROLAN:
    - MODE TUGAS (Merangkum, Analisis Dokumen, Laporan, Koding, Tugas Formal): BERIKAN JAWABAN YANG RAPI, TERSTRUKTUR, FORMAL/PROFESIONAL, LENGKAP DENGAN BULLET POINTS, HEADING, DAN NOMOR BARIS SESUAI PERMINTAAN USER! DILARANG KERAS mengubah laporan/rangkuman teknis menjadi obrolan santai bertele-tele atau narasi cerita!
    - MODE OBROLAN (Ngobrol biasa, Curhat, Bercanda, Menyapa): Berbicaralah secara natural, rileks, proaktif, dan asik layaknya teman sejati.
@@ -336,6 +353,8 @@ ${
 4. DILARANG ROLEPLAY NARATIF: Jangan pernah menuliskan tindakan naratif seperti *tersenyum*, *mengangguk*, *berpikir sebentar*, dll.
 5. MARKDOWN HANYA DI ANSWER: Format markdown (seperti [teks](url), **bold**, *italic*, dll) HANYA BOLEH digunakan di dalam properti "answer". DILARANG KERAS menggunakan format markdown di dalam properti "action" (terutama pada query URL tool). Selalu berikan string literal murni/URL asli di dalam parameter action.
 6. FORMAT GAMBAR & PREVIEW: Jika menampilkan gambar atau preview produk di field "answer", GUNAKAN format Markdown standar: \`![deskripsi gambar](https://url-gambar)\`. DILARANG KERAS mengeluarkan tag JSX/HTML seperti \`<Image ...>\`, \`<img ...>\`, atau komponen React!
+`
+}
 7. ANTI-CORRUPTION JSON (KUTIP GANDA & INCI): DILARANG menuliskan simbol kutip ganda (") di dalam nilai string (misal: 8.7" Display). Selalu tulis dengan kata 'inci' atau 'inch' (misal: 8.7 inci Display) agar JSON tidak corrupt.
 
 # PRINSIP UTAMA: INTEGRITAS FAKTA & ANTI-HALUSINASI MENYELURUH (ZERO HALLUCINATION POLICY)
@@ -423,7 +442,7 @@ ${
 
 ${
   turnPairs.length > 0
-    ? `\n# RIWAYAT PERCAKAPAN RELEVAN (Turn Pairs Vektor)\n${turnPairs.map((t) => `[Sesi: ${t.sessionTitle || 'Chat'} | Waktu: ${getCurrentTimeInfo(new Date(t.timestamp))}]\nUser: ${t.userText}\nMark: ${t.aiText}`).join('\n---\n')}`
+    ? `\n# RIWAYAT PERCAKAPAN RELEVAN (Turn Pairs Vektor)\n${turnPairs.map((t) => `[Sesi: ${t.sessionTitle || 'Chat'} | Waktu: ${getCurrentTimeInfo(new Date(t.timestamp))}]\nUser: ${t.userText}\nAbelink: ${t.aiText}`).join('\n---\n')}`
     : ''
 }
 

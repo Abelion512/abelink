@@ -89,6 +89,28 @@ fn window_get_state(app: tauri::AppHandle) -> serde_json::Value {
     }
 }
 
+#[tauri::command]
+fn window_set_mode(app: tauri::AppHandle, mode: String) -> Result<String, String> {
+    if let Some(w) = app.get_webview_window("main") {
+        use tauri::Emitter;
+        if mode == "spotlight" {
+            let _ = w.set_size(tauri::LogicalSize::new(680.0, 84.0));
+            let _ = w.set_always_on_top(true);
+            let _ = w.center();
+            let _ = app.emit("window-mode-changed", "spotlight");
+            Ok("spotlight".into())
+        } else {
+            let _ = w.set_size(tauri::LogicalSize::new(1280.0, 800.0));
+            let _ = w.set_always_on_top(false);
+            let _ = w.center();
+            let _ = app.emit("window-mode-changed", "dashboard");
+            Ok("dashboard".into())
+        }
+    } else {
+        Err("Window main tidak ditemukan".into())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -107,7 +129,7 @@ pub fn run() {
             tauri_plugin_log::Builder::new()
                 .targets([
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
-                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: Some("mark-light".into()) }),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: Some("abelink".into()) }),
                 ])
                 .level(log::LevelFilter::Info)
                 .build(),
@@ -138,11 +160,11 @@ pub fn run() {
             // (state di-manage di builder chain atas agar tersedia sebelum setup)
 
             // ---- Tray (Linux: Ayatana AppIndicator) ----
-            let show = MenuItem::with_id(app, "show", "Tampilkan MARK", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Tampilkan Abelink", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Keluar", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
-            let mut tray = TrayIconBuilder::with_id("mark-tray")
-                .tooltip("MARK - Mark Agent")
+            let mut tray = TrayIconBuilder::with_id("abelink-tray")
+                .tooltip("Abelink - Autonomous Linux AI OS Companion")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -185,7 +207,7 @@ pub fn run() {
                 }
             }
 
-            // ---- Global shortcut Ctrl+Alt+M: toggle tampil/sembunyi ----
+            // ---- Global shortcut Ctrl+Alt+M: toggle Spotlight Launcher ----
             use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
             app.global_shortcut()
                 .on_shortcut("Ctrl+Alt+M", |app, _sc, event| {
@@ -194,6 +216,11 @@ pub fn run() {
                             if w.is_visible().unwrap_or(false) && w.is_focused().unwrap_or(true) {
                                 let _ = w.hide();
                             } else {
+                                use tauri::Emitter;
+                                let _ = w.set_size(tauri::LogicalSize::new(680.0, 84.0));
+                                let _ = w.set_always_on_top(true);
+                                let _ = w.center();
+                                let _ = app.emit("window-mode-changed", "spotlight");
                                 let _ = w.show();
                                 let _ = w.set_focus();
                             }
@@ -292,7 +319,8 @@ pub fn run() {
             window_maximize_toggle,
             window_fullscreen_toggle,
             window_close,
-            window_get_state
+            window_get_state,
+            window_set_mode
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

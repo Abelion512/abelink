@@ -3,7 +3,7 @@ import { useChat } from '../contexts/ChatContext'
 import { CameraPreview } from './camera/CameraPreview'
 
 export const GlobalCameraManager = () => {
-  const { requestCameraCaptureRef } = useChat()
+  const { requestCameraCaptureRef } = useChat() || {}
   const [isCameraOpen, setIsCameraOpen] = useState(false)
   const [cameraIsAutonomous, setCameraIsAutonomous] = useState(false)
   const [cameraDeviceId, setCameraDeviceId] = useState(null)

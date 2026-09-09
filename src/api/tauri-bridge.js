@@ -61,14 +61,35 @@ const clampData = (data, max = 20000) => {
   return data
 }
 
+const isAutomationAction = (action) => {
+  if (typeof action !== 'string') return false
+  return (
+    action.startsWith('browser:') ||
+    action.startsWith('os:') ||
+    action === 'run-shell' ||
+    action === 'run-bash' ||
+    action.startsWith('tools_run_shell')
+  )
+}
+
 const call = async (action, ...args) => {
-  const res = await invoke('node_invoke', { action, payload: args })
-  if (!res?.success) {
-    const errText =
-      typeof res?.error === 'string' ? res.error : res?.error?.message || 'Sidecar error'
-    throw new Error(errText)
+  const isAuto = isAutomationAction(action)
+  if (isAuto && typeof window !== 'undefined' && window.dispatchEvent) {
+    window.dispatchEvent(new CustomEvent('mark:automation-start', { detail: { action } }))
   }
-  return clampData(res.data)
+  try {
+    const res = await invoke('node_invoke', { action, payload: args })
+    if (!res?.success) {
+      const errText =
+        typeof res?.error === 'string' ? res.error : res?.error?.message || 'Sidecar error'
+      throw new Error(errText)
+    }
+    return clampData(res.data)
+  } finally {
+    if (isAuto && typeof window !== 'undefined' && window.dispatchEvent) {
+      window.dispatchEvent(new CustomEvent('mark:automation-end', { detail: { action } }))
+    }
+  }
 }
 const callSafe = async (action, ...args) => {
   try {
@@ -355,6 +376,8 @@ export const api = {
   windowMaximize: () => invoke('window_maximize_toggle'),
   windowFullscreen: () => invoke('window_fullscreen_toggle'),
   windowClose: () => invoke('window_close'),
+  windowSetMode: (mode) => invoke('window_set_mode', { mode }),
+  onWindowModeChanged: on('window-mode-changed'),
   onWindowMaximized: on('window-maximized'),
   onWindowState: on('window-state'),
   getWindowState: () => invoke('window_get_state'),

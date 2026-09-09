@@ -86,7 +86,10 @@ export const useVAD = ({
     const minSamples = Math.round((force ? 0.12 : 0.25) * actualRate)
 
     if (totalLength < minSamples) {
-      console.log('[VAD] Audio terlalu singkat:', totalLength, 'sampel pada', actualRate, 'Hz')
+      if (totalLength > 0) {
+        console.log('[VAD] Audio terlalu singkat:', totalLength, 'sampel pada', actualRate, 'Hz')
+      }
+      isProcessingSpeechRef.current = false
       stopVADCleanup()
       return
     }
@@ -229,7 +232,7 @@ export const useVAD = ({
       // Each buffer is 4096 samples at 16000Hz = 0.256s (256ms)
       // 8 frames silence = ~2.0s silence
       const MAX_SILENCE_FRAMES = 8
-      const RMS_THRESHOLD = 0.005 // Ambang batas lebih sensitif untuk mikrofon Linux
+      const RMS_THRESHOLD = 0.003 // Ambang batas lebih responsif untuk mikrofon Linux
 
       processor.onaudioprocess = (e) => {
         if (window.isMarkSpeaking || isProcessingSpeechRef.current) return
@@ -282,7 +285,15 @@ export const useVAD = ({
 
   const toggleRecording = () => {
     if (isRecordingRef.current) {
-      finishSpeechAndTranscribe(true)
+      const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
+      const actualRate = sampleRateRef.current || 16000
+      const minSamples = Math.round(0.15 * actualRate)
+
+      if (isSpeakingRef.current && totalLength >= minSamples) {
+        finishSpeechAndTranscribe(true)
+      } else {
+        stopVADCleanup()
+      }
     } else {
       startVADRecording()
     }

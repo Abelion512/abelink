@@ -25,7 +25,11 @@ import {
   FaHeart,
   FaBolt,
   FaSmile,
-  FaSlidersH
+  FaSlidersH,
+  FaPlus,
+  FaArrowUp,
+  FaArrowDown,
+  FaMicrophone
 } from 'react-icons/fa'
 import {
   getAllMemory,
@@ -44,6 +48,8 @@ import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/ChatContext'
 import ConfigSidebar from '../components/ConfigSidebar'
 import CapabilitiesHub from '../components/config/CapabilitiesHub'
+import { transcribeToEndpoint, getHardwareSttSupport } from '../api/sttRouter'
+import { loadWhisper } from '../api/localWhisper'
 
 // Plausibilitas endpoint custom: cukup base /v1 (OpenAI maupun Anthropic),
 // URL lengkap /chat/completions, atau domain yang jelas anthropic.
@@ -195,6 +201,120 @@ const Configuration = ({
     energy: 0.5,
     obedience: 0.8
   })
+
+  const [testingStt, setTestingStt] = useState(false)
+  const [sttTestResult, setSttTestResult] = useState(null)
+  const [hardwareSupport, setHardwareSupport] = useState(null)
+  const [whisperLoading, setWhisperLoading] = useState(false)
+  const [whisperLoaded, setWhisperLoaded] = useState(false)
+  const [whisperProgress, setWhisperProgress] = useState(null)
+  const [testingConnId, setTestingConnId] = useState(null)
+  const [connTestResults, setConnTestResults] = useState({})
+
+  useEffect(() => {
+    getHardwareSttSupport().then(setHardwareSupport)
+  }, [])
+
+  const handleDownloadWhisper = async () => {
+    setWhisperLoading(true)
+    setWhisperProgress('Mengunduh model Whisper lokal...')
+    try {
+      await loadWhisper((progress) => {
+        if (progress?.status === 'progress' && progress?.total) {
+          const pct = Math.round((progress.loaded / progress.total) * 100)
+          setWhisperProgress(`Mengunduh ${progress.file || 'model'}: ${pct}%`)
+        } else if (progress?.status === 'done') {
+          setWhisperProgress('Model berhasil dimuat ke memori.')
+        }
+      })
+      setWhisperLoaded(true)
+      setWhisperProgress('Model Whisper lokal siap digunakan!')
+    } catch (err) {
+      setWhisperProgress(`Gagal memuat model: ${err.message}`)
+    } finally {
+      setWhisperLoading(false)
+    }
+  }
+
+  const handleAddConnection = (preset = null) => {
+    const newConn = preset || {
+      id: `conn-${Date.now()}`,
+      name: 'Custom Gateway',
+      endpoint: 'http://127.0.0.1:20128/v1/audio/transcriptions',
+      apiKey: '',
+      model: 'selfhosted-stt/whisper-1',
+      enabled: true
+    }
+    setConfig((prev) => ({
+      ...prev,
+      sttConnections: [...(prev.sttConnections || []), newConn]
+    }))
+  }
+
+  const handleUpdateConnection = (id, field, value) => {
+    setConfig((prev) => ({
+      ...prev,
+      sttConnections: (prev.sttConnections || []).map((c) =>
+        c.id === id ? { ...c, [field]: value } : c
+      )
+    }))
+  }
+
+  const handleRemoveConnection = (id) => {
+    setConfig((prev) => ({
+      ...prev,
+      sttConnections: (prev.sttConnections || []).filter((c) => c.id !== id)
+    }))
+  }
+
+  const handleMoveConnection = (idx, delta) => {
+    setConfig((prev) => {
+      const list = [...(prev.sttConnections || [])]
+      const targetIdx = idx + delta
+      if (targetIdx < 0 || targetIdx >= list.length) return prev
+      const temp = list[idx]
+      list[idx] = list[targetIdx]
+      list[targetIdx] = temp
+      return { ...prev, sttConnections: list }
+    })
+  }
+
+  const handleTestConnection = async (conn) => {
+    if (!conn.endpoint || !conn.endpoint.trim()) {
+      setConnTestResults((prev) => ({
+        ...prev,
+        [conn.id]: { ok: false, msg: 'Endpoint URL belum diisi.' }
+      }))
+      return
+    }
+    setTestingConnId(conn.id)
+    const t0 = performance.now()
+    try {
+      const dummyPcm = new Float32Array(8000)
+      const text = await transcribeToEndpoint(dummyPcm, {
+        endpoint: conn.endpoint.trim(),
+        apiKey: conn.apiKey?.trim() || '',
+        model: conn.model?.trim() || 'selfhosted-stt/whisper-1',
+        language: config.sttLanguage || 'id'
+      })
+      const latency = Math.round(performance.now() - t0)
+      setConnTestResults((prev) => ({
+        ...prev,
+        [conn.id]: {
+          ok: true,
+          latency,
+          msg: `Aktif (${latency}ms): "${text || 'Audio diterima'}"`
+        }
+      }))
+    } catch (err) {
+      setConnTestResults((prev) => ({
+        ...prev,
+        [conn.id]: { ok: false, msg: err.message }
+      }))
+    } finally {
+      setTestingConnId(null)
+    }
+  }
 
   useEffect(() => {
     getRelationship('owner').then((rel) => {
@@ -1483,251 +1603,403 @@ const Configuration = ({
                   Audio & Voice Engine
                 </h2>
 
-                {/* Speech To Text (STT) Engine: Custom & Multi-Provider Combo ala 9router */}
-                <div id="tour-stt-provider" className="space-y-4 p-4 rounded-2xl bg-base-200/40 border border-white/5">
+                {/* Speech To Text (STT) Engine: Custom Multi-Provider Audio Router & Local Whisper */}
+                <div id="tour-stt-provider" className="space-y-4 p-4.5 rounded-2xl bg-base-200/40 border border-white/5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-white">Speech To Text (STT) Engine</p>
-                        <span className="badge badge-sm badge-primary text-[10px] font-mono">OpenAI Compatible</span>
-                      </div>
-                      <p className="text-xs opacity-60 mt-0.5">
-                        Transkripsi via HTTP POST ke endpoint OpenAI-compatible (9router, Groq, atau Whisper server). Memproses audio secara remote sehingga laptop tetap dingin dan responsif.
+                      <p className="text-sm font-semibold text-white">Speech To Text (STT) Engine</p>
+                      <p className="text-xs opacity-60">
+                        Multi-Provider Audio Router (OpenAI /v1/audio/transcriptions) & Local Whisper On-Device
                       </p>
                     </div>
                   </div>
 
-                  {/* Preset Pills */}
-                  <div className="space-y-1.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider opacity-60">Preset Cepat Endpoint</p>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-xs btn-outline hover:btn-primary text-xs"
-                        onClick={() => {
-                          setConfig((prev) => ({
-                            ...prev,
-                            customSttEndpoint: 'http://localhost:20128/v1/audio/transcriptions',
-                            customSttModel: 'selfhosted-stt/whisper-1'
-                          }))
-                        }}
-                      >
-                        9router (localhost:20128)
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-xs btn-outline hover:btn-secondary text-xs"
-                        onClick={() => {
-                          setConfig((prev) => ({
-                            ...prev,
-                            customSttEndpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
-                            customSttModel: 'whisper-large-v3-turbo',
-                            customSttApiKey: prev.customSttApiKey || prev.groqApiKey || ''
-                          }))
-                        }}
-                      >
-                        Groq Cloud (Turbo)
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-xs btn-outline hover:btn-accent text-xs"
-                        onClick={() => {
-                          setConfig((prev) => ({
-                            ...prev,
-                            customSttEndpoint: 'http://localhost:8080/v1/audio/transcriptions',
-                            customSttModel: 'whisper-1'
-                          }))
-                        }}
-                      >
-                        Whisper.cpp (localhost:8080)
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-xs btn-outline text-xs"
-                        onClick={() => {
-                          setConfig((prev) => ({
-                            ...prev,
-                            customSttEndpoint: 'https://api.openai.com/v1/audio/transcriptions',
-                            customSttModel: 'whisper-1'
-                          }))
-                        }}
-                      >
-                        OpenAI Official
-                      </button>
+                  {/* Hardware Auto-Detect Notice */}
+                  {hardwareSupport && (
+                    <div
+                      className={`text-xs p-3 rounded-xl border flex items-start gap-2.5 ${
+                        hardwareSupport.isLowEnd
+                          ? 'bg-warning/10 border-warning/30 text-warning'
+                          : 'bg-info/10 border-info/30 text-info'
+                      }`}
+                    >
+                      {hardwareSupport.isLowEnd ? (
+                        <FaExclamationTriangle className="text-sm shrink-0 mt-0.5" />
+                      ) : (
+                        <FaCheckCircle className="text-sm shrink-0 mt-0.5" />
+                      )}
+                      <div>
+                        <span className="font-bold">
+                          {hardwareSupport.isLowEnd
+                            ? 'Laptop Spek Terbatas:'
+                            : 'Hardware Memadai:'}
+                        </span>{' '}
+                        {hardwareSupport.reason} ({hardwareSupport.cores} CPU cores terdeteksi)
+                      </div>
                     </div>
+                  )}
+
+                  {/* Mode Switcher: Custom vs Local Whisper */}
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-base-300/60 rounded-xl border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setConfig((prev) => ({ ...prev, sttProvider: 'custom' }))}
+                      className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                        config.sttProvider !== 'whisper'
+                          ? 'bg-primary text-primary-content shadow-md'
+                          : 'opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <FaBolt className="text-xs" />
+                      <span>Custom Audio Router (Multi-Provider)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfig((prev) => ({ ...prev, sttProvider: 'whisper' }))}
+                      className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                        config.sttProvider === 'whisper'
+                          ? 'bg-primary text-primary-content shadow-md'
+                          : 'opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <FaMicrophone className="text-xs" />
+                      <span>Local Whisper (On-Device)</span>
+                    </button>
                   </div>
 
-                  {/* Primary Connection */}
-                  <div className="space-y-3 p-3.5 rounded-xl bg-base-300/40 border border-cyan-500/20">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                        <p className="text-xs font-semibold text-cyan-300">Koneksi Utama (Primary STT)</p>
+                  {/* PANEL 1: LOCAL WHISPER */}
+                  {config.sttProvider === 'whisper' && (
+                    <div className="space-y-3 p-4 rounded-xl bg-base-300/40 border border-white/10 animate-fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-white">Model Whisper Lokal</span>
+                        <span className="badge badge-xs badge-primary font-mono">ON-DEVICE</span>
                       </div>
-                      <span className="text-[10px] font-mono opacity-50">POST /v1/audio/transcriptions</span>
-                    </div>
+                      <p className="text-xs opacity-60">
+                        Memproses ucapan sepenuhnya di dalam laptop via WebAssembly. Bebas kuota dan tanpa koneksi internet, namun membutuhkan RAM dan CPU yang cukup.
+                      </p>
 
-                    <div className="space-y-1">
-                      <p className="text-xs opacity-75 font-semibold">Endpoint URL</p>
-                      <input
-                        type="text"
-                        placeholder="http://localhost:20128/v1/audio/transcriptions"
-                        className="input input-bordered input-sm w-full font-mono text-xs"
-                        value={config.customSttEndpoint || ''}
-                        onChange={(e) =>
-                          setConfig((prev) => ({ ...prev, customSttEndpoint: e.target.value }))
-                        }
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="space-y-1">
-                        <p className="text-xs opacity-75 font-semibold">API Key (Opsional bila self-hosted)</p>
-                        <div className="relative w-full">
-                          <input
-                            type={showCustomSttKey ? 'text' : 'password'}
-                            placeholder="sk-..."
-                            className="input input-bordered input-sm w-full pr-8 font-mono text-xs"
-                            value={config.customSttApiKey || ''}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <p className="text-xs opacity-75 font-semibold">Pilihan Model</p>
+                          <select
+                            className="select select-bordered select-sm w-full font-mono text-xs"
+                            value={config.localWhisperModel || 'whisper-small'}
                             onChange={(e) =>
-                              setConfig((prev) => ({ ...prev, customSttApiKey: e.target.value }))
+                              setConfig((prev) => ({ ...prev, localWhisperModel: e.target.value }))
                             }
-                          />
+                          >
+                            <option value="whisper-tiny">whisper-tiny (~75 MB, Paling Cepat)</option>
+                            <option value="whisper-small">whisper-small (~150 MB, Akurasi Standar)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1 flex flex-col justify-end">
                           <button
                             type="button"
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                            onClick={() => setShowCustomSttKey((prev) => !prev)}
-                            title={showCustomSttKey ? 'Sembunyikan' : 'Tampilkan'}
+                            disabled={whisperLoading}
+                            onClick={handleDownloadWhisper}
+                            className="btn btn-sm btn-primary gap-2"
                           >
-                            {showCustomSttKey ? (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
+                            {whisperLoading ? (
+                              <>
+                                <span className="loading loading-spinner loading-xs" />
+                                <span>Mengunduh Model...</span>
+                              </>
+                            ) : whisperLoaded ? (
+                              <>
+                                <FaCheckCircle />
+                                <span>Model Siap di Memori</span>
+                              </>
                             ) : (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                              <>
+                                <FaMicrophone />
+                                <span>Unduh & Siapkan Model</span>
+                              </>
                             )}
                           </button>
                         </div>
                       </div>
 
-                      <div className="space-y-1">
-                        <p className="text-xs opacity-75 font-semibold">Model Name</p>
-                        <input
-                          type="text"
-                          placeholder="selfhosted-stt/whisper-1 atau whisper-large-v3-turbo"
-                          className="input input-bordered input-sm w-full font-mono text-xs"
-                          value={config.customSttModel || ''}
-                          onChange={(e) =>
-                            setConfig((prev) => ({ ...prev, customSttModel: e.target.value }))
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Multi-Provider Combo Fallback ala 9router */}
-                  <div className="p-3.5 rounded-xl bg-base-300/30 border border-purple-500/20 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="sttEnableComboToggle"
-                          className="toggle toggle-primary toggle-sm"
-                          checked={Boolean(config.sttEnableCombo)}
-                          onChange={(e) =>
-                            setConfig((prev) => ({ ...prev, sttEnableCombo: e.target.checked }))
-                          }
-                        />
-                        <label htmlFor="sttEnableComboToggle" className="cursor-pointer">
-                          <span className="text-xs font-semibold text-purple-300">
-                            Multi-Provider Combo (Auto-Fallback)
-                          </span>
-                        </label>
-                      </div>
-                      <span className="badge badge-xs badge-outline text-[10px] opacity-70">
-                        {config.sttEnableCombo ? 'Aktif' : 'Nonaktif'}
-                      </span>
-                    </div>
-
-                    <p className="text-xs opacity-60 leading-relaxed">
-                      Jika koneksi utama gagal (misal 9router atau self-hosted offline/overload), sistem otomatis mengalihkan transkripsi ke fallback provider di bawah tanpa menghentikan percakapan.
-                    </p>
-
-                    {config.sttEnableCombo && (
-                      <div className="space-y-3 pt-2 border-t border-white/5">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold text-purple-200">Koneksi Cadangan (Fallback STT)</p>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-xs text-[10px] text-purple-400 hover:text-purple-200"
-                            onClick={() => {
-                              setConfig((prev) => ({
-                                ...prev,
-                                sttFallbackEndpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
-                                sttFallbackApiKey: prev.sttFallbackApiKey || prev.groqApiKey || '',
-                                sttFallbackModel: 'whisper-large-v3-turbo'
-                              }))
-                            }}
-                          >
-                            Set ke Groq Cloud Turbo
-                          </button>
+                      {whisperProgress && (
+                        <div className="p-2.5 rounded-lg bg-base-200 border border-white/10 text-xs font-mono text-cyan-300">
+                          {whisperProgress}
                         </div>
+                      )}
+                    </div>
+                  )}
 
-                        <div className="space-y-1">
-                          <p className="text-xs opacity-75 font-semibold">Fallback Endpoint URL</p>
-                          <input
-                            type="text"
-                            placeholder="https://api.groq.com/openai/v1/audio/transcriptions"
-                            className="input input-bordered input-sm w-full font-mono text-xs"
-                            value={config.sttFallbackEndpoint || ''}
+                  {/* PANEL 2: CUSTOM AUDIO ROUTER (MULTI-PROVIDER COMBO) */}
+                  {config.sttProvider !== 'whisper' && (
+                    <div className="space-y-4 animate-fade-in">
+                      {/* Strategy & Language Controls */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-base-300/40 border border-white/10">
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-semibold opacity-75">Strategi Routing</p>
+                          <select
+                            className="select select-bordered select-sm w-full text-xs font-semibold"
+                            value={config.sttStrategy || 'fallback'}
                             onChange={(e) =>
-                              setConfig((prev) => ({ ...prev, sttFallbackEndpoint: e.target.value }))
+                              setConfig((prev) => ({ ...prev, sttStrategy: e.target.value }))
                             }
-                          />
+                          >
+                            <option value="fallback">Fallback (Priority Chain: Failover jika Error)</option>
+                            <option value="round-robin">Round Robin (Distribusi Bergantian)</option>
+                          </select>
+                          <span className="text-[10px] opacity-50 block">
+                            {config.sttStrategy === 'round-robin'
+                              ? 'Request audio digilir antar seluruh koneksi aktif untuk meratakan kuota.'
+                              : 'Mencoba koneksi urutan #1. Jika gagal (CORS/429/timeout), otomatis failover ke urutan berikutnya.'}
+                          </span>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          <div className="space-y-1">
-                            <p className="text-xs opacity-75 font-semibold">Fallback API Key</p>
-                            <div className="relative w-full">
-                              <input
-                                type={showFallbackSttKey ? 'text' : 'password'}
-                                placeholder="gsk_... atau sk-..."
-                                className="input input-bordered input-sm w-full pr-8 font-mono text-xs"
-                                value={config.sttFallbackApiKey || ''}
-                                onChange={(e) =>
-                                  setConfig((prev) => ({ ...prev, sttFallbackApiKey: e.target.value }))
-                                }
-                              />
-                              <button
-                                type="button"
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                                onClick={() => setShowFallbackSttKey((prev) => !prev)}
-                                title={showFallbackSttKey ? 'Sembunyikan' : 'Tampilkan'}
-                              >
-                                {showFallbackSttKey ? (
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
-                                ) : (
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
-                                )}
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1">
-                            <p className="text-xs opacity-75 font-semibold">Fallback Model Name</p>
-                            <input
-                              type="text"
-                              placeholder="whisper-large-v3-turbo"
-                              className="input input-bordered input-sm w-full font-mono text-xs"
-                              value={config.sttFallbackModel || ''}
-                              onChange={(e) =>
-                                setConfig((prev) => ({ ...prev, sttFallbackModel: e.target.value }))
-                              }
-                            />
-                          </div>
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-semibold opacity-75">Bahasa Transkripsi Utama</p>
+                          <select
+                            className="select select-bordered select-sm w-full text-xs font-semibold"
+                            value={config.sttLanguage || 'id'}
+                            onChange={(e) =>
+                              setConfig((prev) => ({ ...prev, sttLanguage: e.target.value }))
+                            }
+                          >
+                            <option value="id">Bahasa Indonesia (id)</option>
+                            <option value="en">English (en)</option>
+                            <option value="zh">Mandarin / Chinese (zh)</option>
+                          </select>
+                          <span className="text-[10px] opacity-50 block">
+                            Bahasa yang dikirim ke parameter model transkripsi.
+                          </span>
                         </div>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Connection Cards List */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold uppercase tracking-wider opacity-60">
+                            Daftar Koneksi Gateway ({(config.sttConnections || []).length})
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleAddConnection({
+                                  id: `conn-${Date.now()}`,
+                                  name: 'Local Gateway (127.0.0.1)',
+                                  endpoint: 'http://127.0.0.1:20128/v1/audio/transcriptions',
+                                  apiKey: '',
+                                  model: 'selfhosted-stt/whisper-1',
+                                  enabled: true
+                                })
+                              }
+                              className="btn btn-xs btn-outline hover:btn-info text-[11px]"
+                            >
+                              + 127.0.0.1
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleAddConnection({
+                                  id: `conn-${Date.now()}`,
+                                  name: 'Groq Whisper Cloud',
+                                  endpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
+                                  apiKey: config.groqApiKey || '',
+                                  model: 'whisper-large-v3-turbo',
+                                  enabled: true
+                                })
+                              }
+                              className="btn btn-xs btn-outline hover:btn-success text-[11px]"
+                            >
+                              + Groq Cloud
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleAddConnection({
+                                  id: `conn-${Date.now()}`,
+                                  name: 'Whisper.cpp Local',
+                                  endpoint: 'http://127.0.0.1:8080/v1/audio/transcriptions',
+                                  apiKey: '',
+                                  model: 'whisper-1',
+                                  enabled: true
+                                })
+                              }
+                              className="btn btn-xs btn-outline hover:btn-accent text-[11px]"
+                            >
+                              + Whisper.cpp
+                            </button>
+                          </div>
+                        </div>
+
+                        {(config.sttConnections || []).map((conn, idx) => {
+                          const testResult = connTestResults[conn.id]
+                          const isTesting = testingConnId === conn.id
+
+                          return (
+                            <div
+                              key={conn.id}
+                              className={`p-3.5 rounded-xl border transition-all space-y-3 ${
+                                conn.enabled
+                                  ? 'bg-base-300/50 border-cyan-500/25 shadow-sm'
+                                  : 'bg-base-300/20 border-white/5 opacity-60'
+                              }`}
+                            >
+                              {/* Header Card */}
+                              <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="badge badge-sm badge-neutral font-mono font-bold">
+                                    #{idx + 1}
+                                  </span>
+                                  {idx === 0 && config.sttStrategy === 'fallback' && (
+                                    <span className="badge badge-xs badge-info font-bold">PRIORITAS UTAMA</span>
+                                  )}
+                                  <input
+                                    type="text"
+                                    className="input input-xs input-ghost font-bold text-xs text-white max-w-[180px] p-0 focus:px-1"
+                                    value={conn.name}
+                                    onChange={(e) =>
+                                      handleUpdateConnection(conn.id, 'name', e.target.value)
+                                    }
+                                    placeholder="Nama Koneksi..."
+                                  />
+                                </div>
+
+                                <div className="flex items-center gap-1.5">
+                                  {/* Toggle Active */}
+                                  <label className="flex items-center gap-1 cursor-pointer mr-1">
+                                    <input
+                                      type="checkbox"
+                                      className="toggle toggle-xs toggle-primary"
+                                      checked={conn.enabled}
+                                      onChange={(e) =>
+                                        handleUpdateConnection(conn.id, 'enabled', e.target.checked)
+                                      }
+                                    />
+                                  </label>
+
+                                  {/* Reorder Buttons */}
+                                  <button
+                                    type="button"
+                                    disabled={idx === 0}
+                                    onClick={() => handleMoveConnection(idx, -1)}
+                                    className="btn btn-ghost btn-xs btn-square text-xs disabled:opacity-20"
+                                    title="Pindahkan Ke Atas"
+                                  >
+                                    <FaArrowUp />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={idx === (config.sttConnections || []).length - 1}
+                                    onClick={() => handleMoveConnection(idx, 1)}
+                                    className="btn btn-ghost btn-xs btn-square text-xs disabled:opacity-20"
+                                    title="Pindahkan Ke Bawah"
+                                  >
+                                    <FaArrowDown />
+                                  </button>
+
+                                  {/* Delete Button */}
+                                  {(config.sttConnections || []).length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveConnection(conn.id)}
+                                      className="btn btn-ghost btn-xs btn-square text-error hover:bg-error/15 ml-1"
+                                      title="Hapus Koneksi"
+                                    >
+                                      <FaTrash />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Form Inputs */}
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                                <div className="space-y-1 sm:col-span-2">
+                                  <span className="opacity-70 font-semibold">Endpoint URL</span>
+                                  <input
+                                    type="text"
+                                    placeholder="http://127.0.0.1:20128/v1/audio/transcriptions"
+                                    className="input input-bordered input-xs w-full font-mono"
+                                    value={conn.endpoint || ''}
+                                    onChange={(e) =>
+                                      handleUpdateConnection(conn.id, 'endpoint', e.target.value)
+                                    }
+                                  />
+                                </div>
+
+                                <div className="space-y-1">
+                                  <span className="opacity-70 font-semibold">Model Name</span>
+                                  <input
+                                    type="text"
+                                    placeholder="whisper-large-v3-turbo"
+                                    className="input input-bordered input-xs w-full font-mono"
+                                    value={conn.model || ''}
+                                    onChange={(e) =>
+                                      handleUpdateConnection(conn.id, 'model', e.target.value)
+                                    }
+                                  />
+                                </div>
+
+                                <div className="space-y-1 sm:col-span-3">
+                                  <span className="opacity-70 font-semibold">API Key / Token (Opsional bila lokal)</span>
+                                  <input
+                                    type="password"
+                                    placeholder="sk-..."
+                                    className="input input-bordered input-xs w-full font-mono"
+                                    value={conn.apiKey || ''}
+                                    onChange={(e) =>
+                                      handleUpdateConnection(conn.id, 'apiKey', e.target.value)
+                                    }
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Test Button & Result */}
+                              <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  disabled={isTesting}
+                                  onClick={() => handleTestConnection(conn)}
+                                  className="btn btn-xs btn-outline btn-info gap-1.5"
+                                >
+                                  {isTesting ? (
+                                    <>
+                                      <span className="loading loading-spinner loading-xs" />
+                                      <span>Menguji Latensi...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FaBolt className="text-[10px]" />
+                                      <span>Test Koneksi</span>
+                                    </>
+                                  )}
+                                </button>
+
+                                {testResult && (
+                                  <span
+                                    className={`text-[11px] font-mono px-2 py-0.5 rounded border ${
+                                      testResult.ok
+                                        ? 'bg-success/15 border-success/30 text-success'
+                                        : 'bg-error/15 border-error/30 text-error'
+                                    }`}
+                                  >
+                                    {testResult.msg}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+
+                        {/* Add Connection Bottom Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleAddConnection()}
+                          className="btn btn-sm btn-outline btn-block border-dashed border-white/20 hover:border-cyan-400/50 hover:bg-cyan-500/10 gap-2 text-xs"
+                        >
+                          <FaPlus />
+                          <span>Tambah Koneksi Gateway Kustom Baru</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Microphone Source Selection */}

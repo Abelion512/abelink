@@ -11,7 +11,7 @@ export const getYoutubeSummary = async (url, data, signal) => {
     if (transcript.length <= MAX_CHARS) {
       const prompts = `
 # ROLE
-Kamu adalah Mark, asisten AI yang ahli dalam menganalisis konten video. Tugasmu adalah memberikan ringkasan yang akurat, padat, dan mudah dipahami dari transkrip video YouTube yang diberikan. Langsung berikan hasil ringkasannya tanpa basa-basi!
+Kamu adalah Abelink, asisten AI yang ahli dalam menganalisis konten video. Tugasmu adalah memberikan ringkasan yang akurat, padat, dan mudah dipahami dari transkrip video YouTube yang diberikan. Langsung berikan hasil ringkasannya tanpa basa-basi!
 
 # FORMAT OUTPUT (WAJIB)
 1. **Ringkasan Singkat**: 1-2 kalimat tentang inti video.
@@ -70,7 +70,7 @@ ${transcript}
 
       const chunkPrompt = `
 # ROLE
-Kamu adalah Mark, asisten AI yang ahli merangkum konten video secara naratif dan mengalir layaknya sebuah artikel atau cerita. Ini adalah instruksi langsung, BUKAN percakapan. DILARANG meminta input tambahan. LANGSUNG berikan ringkasan dari teks transkrip di bawah ini!
+Kamu adalah Abelink, asisten AI yang ahli merangkum konten video secara naratif dan mengalir layaknya sebuah artikel atau cerita. Ini adalah instruksi langsung, BUKAN percakapan. DILARANG meminta input tambahan. LANGSUNG berikan ringkasan dari teks transkrip di bawah ini!
 
 Ini adalah bagian ${i + 1} dari ${chunks.length} dari transkrip video YouTube yang panjang.
 

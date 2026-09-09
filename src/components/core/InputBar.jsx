@@ -17,7 +17,12 @@ import {
 import ConfirmModal from './ConfirmModal'
 import { NATIVE_SKILLS } from './native-skills'
 import { getCachedSkills } from '../../api/skillsCache'
-import { dedupeAttachments, extractDroppedItems, resolveDroppedFile } from '../../utils/attachments'
+import {
+  dedupeAttachments,
+  extractDroppedItems,
+  extractClipboardFiles,
+  resolveDroppedFile
+} from '../../utils/attachments'
 
 // Command history recall (gaya TUI) + draft persistence anti-crash.
 const PROMPT_HISTORY_KEY = 'mark:prompt-history'
@@ -241,6 +246,22 @@ const InputBar = ({
       }
     } catch (err) {
       console.error('[InputBar] drop error:', err)
+    }
+  }
+
+  const handlePaste = async (e) => {
+    const items = Array.from(e.clipboardData?.items || [])
+    const hasFile = items.some((it) => it.kind === 'file')
+    if (hasFile) {
+      e.preventDefault()
+      try {
+        const droppedItems = await extractClipboardFiles(e.clipboardData)
+        if (droppedItems.length > 0) {
+          setAttachedFiles((prev) => dedupeAttachments(prev, droppedItems))
+        }
+      } catch (err) {
+        console.error('[InputBar] paste error:', err)
+      }
     }
   }
 
@@ -631,6 +652,7 @@ const InputBar = ({
           value={inputText}
           onChange={handleTextChange}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           placeholder={
             isLoading
               ? 'Beri intervensi ke Abelink...'

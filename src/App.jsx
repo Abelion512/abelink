@@ -28,6 +28,8 @@ import whatsNewData from './data/whats-new.json'
 import { initErrorGuard } from './utils/errorGuard'
 import DropAnywhere from './components/core/DropAnywhere'
 import WindowControls from './components/core/WindowControls'
+import SpotlightBar from './components/core/SpotlightBar'
+import AutomationHUD from './components/core/AutomationHUD'
 
 const GlobalListener = () => {
   const navigate = useNavigate()
@@ -70,6 +72,20 @@ const MainLayout = ({ isStandalone = false }) => {
   const location = useLocation()
   const isHome = location.pathname === '/'
   const isTelegram = location.pathname === '/telegram-bot'
+  const [windowMode, setWindowMode] = useState('dashboard')
+
+  useEffect(() => {
+    if (window.api?.onWindowModeChanged) {
+      const unlisten = window.api.onWindowModeChanged((mode) => {
+        if (mode === 'spotlight' || mode === 'dashboard') {
+          setWindowMode(mode)
+        }
+      })
+      return () => {
+        if (typeof unlisten === 'function') unlisten()
+      }
+    }
+  }, [])
 
   // Drop global satu titik: event 'mark:files-dropped' (detail = array item
   // {name,path,size,type}) bisa dikonsumsi InputBar/komponen lain mana pun.
@@ -79,49 +95,66 @@ const MainLayout = ({ isStandalone = false }) => {
     }
   }, [])
 
+  const isSpotlight = windowMode === 'spotlight'
+
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-transparent rounded-xl">
-      {/* Tampilkan WindowControls di sub-page agar user tetap bisa minimize/maximize/close */}
-      {!isStandalone && !isTelegram && !isHome && (
-        <div className="absolute top-2.5 right-4 z-[9999] pointer-events-auto">
-          <WindowControls />
-        </div>
+    <div className={`relative h-screen w-screen overflow-hidden bg-transparent rounded-xl flex items-center justify-center ${isSpotlight ? 'p-1' : ''}`}>
+      {isSpotlight && (
+        <SpotlightBar
+          onExpandDashboard={() => {
+            setWindowMode('dashboard')
+            window.api?.windowSetMode?.('dashboard')
+          }}
+        />
       )}
-      <DropAnywhere onFilesDropped={handleGlobalDrop} />
+
       {/* Base Home Page - Always Mounted so AI Agent & Telegram Listeners Never Die */}
-      {/* Hidden on Telegram page to prevent overlap with TelegramBot's own header */}
-      <div className={`h-full w-full ${isTelegram ? 'hidden' : ''}`}>
+      {/* Hidden when not on home or in spotlight to prevent overlapping headers & controls */}
+      <div className={`h-full w-full ${!isHome || isSpotlight ? 'hidden' : ''}`}>
         <MarkHome />
       </div>
 
-      {/* Floating Glass Sub-page Overlay */}
-      {!isHome && (
-        <div className="fixed inset-0 z-50 flex flex-col animate-fade-in bg-transparent pointer-events-none">
-          <div className="flex-1 pointer-events-auto h-full w-full flex flex-col min-h-0 overflow-hidden">
-            <Suspense
-              fallback={
-                <div className="h-full w-full flex flex-col items-center justify-center gap-4">
-                  <span className="loading loading-infinity w-12 text-primary"></span>
-                  <p className="text-xs font-semibold tracking-[0.2em] text-white/40 uppercase animate-pulse">
-                    Memuat modul
-                  </p>
-                </div>
-              }
-            >
-              <Routes>
-                <Route path="/chat" element={<ChatStudio />} />
-                <Route path="/config" element={<Configuration />} />
-                <Route path="/live-audio" element={<Navigate to="/?mode=voice" replace />} />
-                <Route path="/telegram-bot" element={<TelegramBot />} />
-                <Route path="/knowledge" element={<Knowledge />} />
-                <Route path="/guidebook" element={<Guidebook />} />
-                <Route path="/relational" element={<RelationalGrowth />} />
-                <Route path="/subagents" element={<Subagents />} />
-                <Route path="/trajectory" element={<Trajectory />} />
-              </Routes>
-            </Suspense>
-          </div>
-        </div>
+      {!isSpotlight && (
+        <>
+          {/* Tampilkan satu WindowControls konsisten di sub-page agar user tetap bisa minimize/maximize/close */}
+          {!isStandalone && !isHome && (
+            <div className="absolute top-2.5 right-4 z-[9999] pointer-events-auto">
+              <WindowControls />
+            </div>
+          )}
+          <DropAnywhere onFilesDropped={handleGlobalDrop} />
+          <AutomationHUD />
+
+          {/* Floating Glass Sub-page Overlay */}
+          {!isHome && (
+            <div className="fixed inset-0 z-50 flex flex-col animate-fade-in bg-transparent pointer-events-none">
+              <div className="flex-1 pointer-events-auto h-full w-full flex flex-col min-h-0 overflow-hidden">
+                <Suspense
+                  fallback={
+                    <div className="h-full w-full flex flex-col items-center justify-center gap-4">
+                      <span className="loading loading-infinity w-12 text-primary"></span>
+                      <p className="text-xs font-semibold tracking-[0.2em] text-white/40 uppercase animate-pulse">
+                        Memuat modul
+                      </p>
+                    </div>
+                  }
+                >
+                  <Routes>
+                    <Route path="/chat" element={<ChatStudio />} />
+                    <Route path="/config" element={<Configuration />} />
+                    <Route path="/live-audio" element={<Navigate to="/?mode=voice" replace />} />
+                    <Route path="/telegram-bot" element={<TelegramBot />} />
+                    <Route path="/knowledge" element={<Knowledge />} />
+                    <Route path="/guidebook" element={<Guidebook />} />
+                    <Route path="/relational" element={<RelationalGrowth />} />
+                    <Route path="/subagents" element={<Subagents />} />
+                    <Route path="/trajectory" element={<Trajectory />} />
+                  </Routes>
+                </Suspense>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

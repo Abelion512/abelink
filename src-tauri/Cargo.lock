@@ -3,6 +3,26 @@
 version = 4
 
 [[package]]
+name = "abelink"
+version = "1.0.0-alpha.3"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "log",
+ "reqwest 0.12.28",
+ "rfd",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-log",
+ "tauri-plugin-single-instance",
+ "tokio",
+ "webkit2gtk",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2218,26 +2238,6 @@ name = "log"
 version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
-
-[[package]]
-name = "mark"
-version = "1.0.0-alpha.3"
-dependencies = [
- "base64 0.22.1",
- "chrono",
- "log",
- "reqwest 0.12.28",
- "rfd",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-log",
- "tauri-plugin-single-instance",
- "tokio",
- "webkit2gtk",
-]
 
 [[package]]
 name = "markup5ever"

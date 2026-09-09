@@ -215,12 +215,21 @@ function showPCOverlay() {
   }
   if (isStopActive() || pendingAskResolve) return
 
-  if (overlayWindow && !overlayWindow.isDestroyed()) {
-    overlayWindow.showInactive()
-    overlayWindow.setAlwaysOnTop(true, 'screen-saver')
-    try {
-      overlayWindow.webContents.executeJavaScript('if (typeof resetBanner === "function") resetBanner();')
-    } catch (err) {}
+  try {
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      if (typeof overlayWindow.showInactive === 'function') {
+        overlayWindow.showInactive()
+      }
+      if (typeof overlayWindow.setAlwaysOnTop === 'function') {
+        overlayWindow.setAlwaysOnTop(true, 'screen-saver')
+      }
+      try {
+        overlayWindow.webContents?.executeJavaScript?.('if (typeof resetBanner === "function") resetBanner();')
+      } catch (err) {}
+      return
+    }
+  } catch (err) {
+    console.warn('[PC-Agent] Overlay window update warning (non-fatal):', err?.message || err)
     return
   }
 

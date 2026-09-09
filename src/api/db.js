@@ -138,13 +138,57 @@ db.version(24).stores({
 }).upgrade(tx => {
   return tx.table('config').toCollection().modify(config => {
     config.sttProvider = 'custom'
-    config.customSttEndpoint = config.customSttEndpoint || (config.groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : 'http://localhost:20128/v1/audio/transcriptions')
+    config.customSttEndpoint = config.customSttEndpoint || (config.groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : 'http://127.0.0.1:20128/v1/audio/transcriptions')
     config.customSttApiKey = config.customSttApiKey ?? ''
     config.customSttModel = config.customSttModel || 'selfhosted-stt/whisper-1'
     config.sttEnableCombo = config.sttEnableCombo ?? false
     config.sttFallbackEndpoint = config.sttFallbackEndpoint || (config.groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : '')
     config.sttFallbackApiKey = config.sttFallbackApiKey || config.groqApiKey || ''
     config.sttFallbackModel = config.sttFallbackModel || 'whisper-large-v3-turbo'
+  })
+})
+
+db.version(25).stores({
+  config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, tgBotToken, tgAdminIds, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled, geminiWebModel, windowOpacity, localWhisperModel, sttProvider, customSttEndpoint, customSttApiKey, customSttModel, sttEnableCombo, sttFallbackEndpoint, sttFallbackApiKey, sttFallbackModel, sttStrategy, sttLanguage'
+}).upgrade(tx => {
+  return tx.table('config').toCollection().modify(config => {
+    config.sttProvider = config.sttProvider || 'custom'
+    config.sttStrategy = config.sttStrategy || 'fallback'
+    config.sttLanguage = config.sttLanguage || 'id'
+    if (!Array.isArray(config.sttConnections) || config.sttConnections.length === 0) {
+      const connections = []
+      if (config.customSttEndpoint) {
+        connections.push({
+          id: 'conn-primary',
+          name: config.customSttEndpoint.includes('groq') ? 'Groq Whisper' : 'Primary Gateway',
+          endpoint: config.customSttEndpoint,
+          apiKey: config.customSttApiKey || '',
+          model: config.customSttModel || 'selfhosted-stt/whisper-1',
+          enabled: true
+        })
+      }
+      if (config.sttFallbackEndpoint && config.sttFallbackEndpoint !== config.customSttEndpoint) {
+        connections.push({
+          id: 'conn-fallback',
+          name: 'Fallback Gateway',
+          endpoint: config.sttFallbackEndpoint,
+          apiKey: config.sttFallbackApiKey || '',
+          model: config.sttFallbackModel || 'whisper-large-v3-turbo',
+          enabled: true
+        })
+      }
+      if (connections.length === 0) {
+        connections.push({
+          id: 'conn-default-1',
+          name: 'Local Gateway (127.0.0.1:20128)',
+          endpoint: 'http://127.0.0.1:20128/v1/audio/transcriptions',
+          apiKey: '',
+          model: 'selfhosted-stt/whisper-1',
+          enabled: true
+        })
+      }
+      config.sttConnections = connections
+    }
   })
 })
 
@@ -312,8 +356,14 @@ export async function getAllConfig() {
       if (!data[0].sttProvider) {
         data[0].sttProvider = 'custom'
       }
+      if (!data[0].sttStrategy) {
+        data[0].sttStrategy = 'fallback'
+      }
+      if (!data[0].sttLanguage) {
+        data[0].sttLanguage = 'id'
+      }
       if (data[0].customSttEndpoint === undefined) {
-        data[0].customSttEndpoint = data[0].groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : 'http://localhost:20128/v1/audio/transcriptions'
+        data[0].customSttEndpoint = data[0].groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : 'http://127.0.0.1:20128/v1/audio/transcriptions'
       }
       if (data[0].customSttApiKey === undefined) {
         data[0].customSttApiKey = ''
@@ -332,6 +382,40 @@ export async function getAllConfig() {
       }
       if (data[0].sttFallbackModel === undefined) {
         data[0].sttFallbackModel = 'whisper-large-v3-turbo'
+      }
+      if (!Array.isArray(data[0].sttConnections) || data[0].sttConnections.length === 0) {
+        const connections = []
+        if (data[0].customSttEndpoint) {
+          connections.push({
+            id: 'conn-primary',
+            name: data[0].customSttEndpoint.includes('groq') ? 'Groq Whisper Cloud' : 'Primary Gateway',
+            endpoint: data[0].customSttEndpoint,
+            apiKey: data[0].customSttApiKey || '',
+            model: data[0].customSttModel || 'selfhosted-stt/whisper-1',
+            enabled: true
+          })
+        }
+        if (data[0].sttFallbackEndpoint && data[0].sttFallbackEndpoint !== data[0].customSttEndpoint) {
+          connections.push({
+            id: 'conn-fallback',
+            name: 'Fallback Gateway',
+            endpoint: data[0].sttFallbackEndpoint,
+            apiKey: data[0].sttFallbackApiKey || '',
+            model: data[0].sttFallbackModel || 'whisper-large-v3-turbo',
+            enabled: true
+          })
+        }
+        if (connections.length === 0) {
+          connections.push({
+            id: 'conn-default-1',
+            name: 'Local Gateway (127.0.0.1:20128)',
+            endpoint: 'http://127.0.0.1:20128/v1/audio/transcriptions',
+            apiKey: '',
+            model: 'selfhosted-stt/whisper-1',
+            enabled: true
+          })
+        }
+        data[0].sttConnections = connections
       }
     }
     return data || []

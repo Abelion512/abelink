@@ -6,7 +6,7 @@ import { insertArchiveToOrama } from '../oramaStore'
 export async function summarizeAndArchive(recentMessages, activeTopic, config) {
   if (!recentMessages || recentMessages.length === 0) return
 
-  const systemPrompt = `Kamu adalah sistem internal Mark. Tugasmu merangkum percakapan di bawah ini menjadi 2-3 kalimat ringkas namun informatif.
+  const systemPrompt = `Kamu adalah sistem internal Abelink. Tugasmu merangkum percakapan di bawah ini menjadi 2-3 kalimat ringkas namun informatif.
 
 Aturan:
 1. Sebutkan SIAPA yang membicarakan APA.
@@ -17,7 +17,7 @@ Aturan:
 6. HANYA OUTPUT TEKS RANGKUMAN, tanpa penjelasan tambahan apapun.`;
 
   const userPrompt = recentMessages
-    .map(m => `${m.role === 'ai' ? 'Mark' : 'User'}: ${m.content}`)
+    .map(m => `${m.role === 'ai' ? 'Abelink' : 'User'}: ${m.content}`)
     .join('\n')
 
   try {

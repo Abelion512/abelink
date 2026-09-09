@@ -19,14 +19,35 @@ export const getCurrentTimeInfo = (dateObj = new Date()) => {
 
 let ttsAudioContext = null;
 
+export const cleanTtsText = (text) => {
+  if (!text || typeof text !== 'string') return ''
+  return text
+    .replace(/```[\s\S]*?```/g, '') // buang code block
+    .replace(/`([^`]+)`/g, '$1')     // buang inline code backtick
+    .replace(/#{1,6}\s+/g, '')       // buang heading
+    .replace(/[*_]{1,3}([^*_]+)[*_]{1,3}/g, '$1') // buang bold/italics
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // buang markdown link, ambil labelnya
+    .replace(/^[*\-+]\s+/gm, '')     // buang bullet list
+    .replace(/^\d+\.\s+/gm, '')      // buang numbered list
+    .replace(/<[^>]+>/g, '')         // buang tag html/jsx
+    .replace(/\s+/g, ' ')            // normalisasi spasi berlebih
+    .trim()
+}
+
 export const playVoice = async (text, onStart, onEnd) => {
   try {
     const config = await getAllConfig()
     const rate = config[0]?.ttsRate ?? 0
     const pitch = config[0]?.ttsPitch ?? 0
 
+    const cleanedText = cleanTtsText(text)
+    if (!cleanedText) {
+      if (onEnd) onEnd()
+      return
+    }
+
     // 1. Minta data audio (base64) ke backend
-    const audioBase64 = await window.api.textToSpeech(text, rate, pitch)
+    const audioBase64 = await window.api.textToSpeech(cleanedText, rate, pitch)
 
     if (audioBase64) {
       // 2. Bikin object Audio baru dari string base64 tadi

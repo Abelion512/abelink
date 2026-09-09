@@ -1107,8 +1107,13 @@ export const useMarkPlan = ({
     setIsAgentBusy(true)
 
     let finalIsSpeak = opts.forceSpeak !== undefined ? opts.forceSpeak : isSpeak
+    const isVoiceInput = Boolean(
+      opts.isVoice ||
+      finalIsSpeak ||
+      (typeof userInput === 'string' && (userInput.startsWith('(Mikrofon)') || userInput.startsWith('(Hasil STT)')))
+    )
     if (userInput && typeof userInput === 'string') {
-      if (userInput.startsWith('(Mikrofon)')) {
+      if (userInput.startsWith('(Mikrofon)') || userInput.startsWith('(Hasil STT)')) {
         finalIsSpeak = true
       } else if (!isAutonomous && !isSystem) {
         finalIsSpeak = false
@@ -1538,6 +1543,7 @@ export const useMarkPlan = ({
             activeTopic,
             {
               ...opts,
+              isVoice: isVoiceInput,
               intentQuery: searchQuery,
               tgContext,
               currentMusicTrack,
@@ -2082,7 +2088,7 @@ export const useMarkPlan = ({
 
           // OS Notification
           if (window.api.showNotification && !document.hasFocus() && decision.answer) {
-            window.api.showNotification('Mark', decision.answer)
+            window.api.showNotification('Abelink', decision.answer)
           }
 
           // Tampilkan balasan final di chat UI (lewati jika benar-benar tidak ada jawaban)

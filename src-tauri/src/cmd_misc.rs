@@ -207,7 +207,7 @@ pub fn misc_save_temp_file(data: Vec<u8>, name: Option<String>) -> Result<String
     if matches!(clean.as_str(), "" | "." | "..") {
         clean = format!("attachment_{}.png", chrono::Local::now().timestamp_millis());
     }
-    let dir = std::env::temp_dir().join("mark-attachments");
+    let dir = std::env::temp_dir().join("abelink-attachments");
     std::fs::create_dir_all(&dir).map_err(|e| format!("Gagal menyiapkan folder sementara: {e}"))?;
     let target = dir.join(&clean);
     std::fs::write(&target, &data).map_err(|e| format!("Gagal menulis file sementara: {e}"))?;
@@ -239,7 +239,7 @@ pub fn misc_open_external(app: AppHandle, url: String) -> Result<bool, String> {
 pub fn misc_show_notification(title: Option<String>, body: Option<String>) -> bool {
     let title = title
         .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| "MARK".into());
+        .unwrap_or_else(|| "Abelink".into());
     let mut cmd = Command::new("notify-send");
     cmd.arg(title);
     if let Some(b) = body.filter(|b| !b.is_empty()) {

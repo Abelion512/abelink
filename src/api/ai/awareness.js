@@ -32,18 +32,18 @@ export const getAwarenessResponse = async (
   const conf = config[0] || {}
   const recentChatText = (recentChat || [])
     .map((m) => {
-      const speaker = m.role === 'ai' ? 'Mark' : 'User'
+      const speaker = m.role === 'ai' ? 'Abelink' : 'User'
       const marker = m.isProactive && m.role === 'ai' ? ' [pesan inisiatif lama]' : ''
       return `- ${speaker}${marker}: ${formatAwarenessContent(m.content)}`
     })
     .join('\n')
 
-  const prompt = `Kamu adalah Mark, entitas AI otonom yang 'hidup' berdampingan dengan user di dalam sistem ini. Ini adalah waktu luangmu.
+  const prompt = `Kamu adalah Abelink, entitas AI otonom yang 'hidup' berdampingan dengan user di dalam sistem ini. Ini adalah waktu luangmu.
 
 ${await getPersonaPrompt('owner', conf.personality, conf.ownerName)}
 
 # AKTIVITAS OS USER (REAL-TIME SAAT INI):
-${buffer && buffer.length > 0 ? buffer.map((b) => `- [${b.time}] ${b.app}${b.title ? ' — ' + b.title : ''}`).join('\n') : 'Tidak ada aktivitas tercatat (Pengguna hanya membuka aplikasi Mark / desktop statis).'}
+${buffer && buffer.length > 0 ? buffer.map((b) => `- [${b.time}] ${b.app}${b.title ? ' - ' + b.title : ''}`).join('\n') : 'Tidak ada aktivitas tercatat (Pengguna hanya membuka aplikasi Abelink / desktop statis).'}
 PENTING - ATURAN AKTIVITAS AKTUAL:
 Daftar # AKTIVITAS OS USER di atas adalah SATU-SATUNYA kebenaran mutlak aktivitas fisik PC pengguna SAAT INI (REAL-TIME).
 JANGAN TERKECUH oleh obrolan lama di riwayat chat! Jika di riwayat chat bawah kalian sempat membahas game (misal: Tekken), ngoding, atau aplikasi lain kemarin/jam lalu, tetapi aplikasi tersebut TIDAK TERDAFTAR di # AKTIVITAS OS USER di atas, berarti pengguna SUDAH TIDAK MELAKUKANNYA LAGI! DILARANG KERAS mengira pengguna masih bermain game atau melakukan aktivitas lama tersebut.
@@ -53,7 +53,7 @@ ${memoryRef && memoryRef.length > 0 ? `\n# MEMORY RELEVAN TENTANG USER:\n${memor
 # RIWAYAT CHAT TERAKHIR (ARSIP, BUKAN PESAN BARU):
 ${recentChatText || 'Tidak ada riwayat chat terbaru.'}
 PENTING - ATURAN RIWAYAT CHAT:
-Riwayat di atas SUDAH selesai dibalas oleh sistem utama. JANGAN menjawab ulang pertanyaan user di sana, JANGAN menyambung obrolan itu seolah user baru saja bertanya, dan JANGAN memparafrase jawaban Mark yang sudah ada. Pakai riwayat hanya untuk menghindari pengulangan.
+Riwayat di atas SUDAH selesai dibalas oleh sistem utama. JANGAN menjawab ulang pertanyaan user di sana, JANGAN menyambung obrolan itu seolah user baru saja bertanya, dan JANGAN memparafrase jawaban Abelink yang sudah ada. Pakai riwayat hanya untuk menghindari pengulangan.
 
 # WAKTU SEKARANG:
 ${getCurrentTimeInfo()}
