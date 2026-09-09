@@ -1470,6 +1470,15 @@ export const useMarkPlan = ({
           activeTaskObjectiveRef.current = null
           sessionOutcome = 'failed'
           lastTerminalReason = 'step-budget-exhausted'
+          if (durableTask) {
+            await transitionAgentTask(
+              durableTask.id,
+              'failed',
+              'Batas langkah keamanan tercapai.'
+            ).catch(() => {})
+            durableTask = null
+            durableActiveStep = null
+          }
         }
 
         // Loading thinking indicator
@@ -1846,7 +1855,8 @@ export const useMarkPlan = ({
           intent === INTENT.FINAL ||
           intent === INTENT.BLOCKED ||
           intent === INTENT.NEEDS_USER ||
-          intent === INTENT.SELF_TERMINATE
+          intent === INTENT.SELF_TERMINATE ||
+          decision?.is_done === true
         let isDoneSignal = opts.disableTools || isDurableClaim || terminalPlain
 
         // Rem darurat: penanda self-terminate eksplisit mengalahkan action yang
@@ -2529,7 +2539,7 @@ export const useMarkPlan = ({
 
       if (
         durableTaskForRecovery &&
-        (error.name === 'AbortError' || error.message.includes('AbortError'))
+        (error?.name === 'AbortError' || errorMsg.includes('AbortError'))
       ) {
         targetPushProcess({
           id: agenticProcessId,
