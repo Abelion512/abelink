@@ -144,10 +144,14 @@ const Configuration = ({
     awarenessEnabled: true,
     cameraDeviceId: 'default',
     cameraEnabled: true,
-    sttProvider: 'groq',
-    customSttEndpoint: '',
+    sttProvider: 'custom',
+    customSttEndpoint: 'http://localhost:20128/v1/audio/transcriptions',
     customSttApiKey: '',
-    customSttModel: 'whisper-1'
+    customSttModel: 'selfhosted-stt/whisper-1',
+    sttEnableCombo: false,
+    sttFallbackEndpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
+    sttFallbackApiKey: '',
+    sttFallbackModel: 'whisper-large-v3-turbo'
   })
   const [relationalTraits, setRelationalTraits] = useState(null)
   const [memories, setMemories] = useState([])
@@ -172,6 +176,7 @@ const Configuration = ({
   const [showGroqKey, setShowGroqKey] = useState(false)
   const [showCustomKey, setShowCustomKey] = useState(false)
   const [showCustomSttKey, setShowCustomSttKey] = useState(false)
+  const [showFallbackSttKey, setShowFallbackSttKey] = useState(false)
   const [activeSection, setActiveSection] = useState('cfg-general')
   const [saveStatus, setSaveStatus] = useState(null)
   const savedSnapshotRef = useRef('')
@@ -536,26 +541,12 @@ const Configuration = ({
   const handleSaveConfiguration = async () => {
     // Validasi API Key
     let effectiveConfig = config
-    if (config.sttProvider === 'groq' && !config.groqApiKey?.trim()) {
+    if (!config.customSttEndpoint?.trim() && !config.sttFallbackEndpoint?.trim()) {
       if (!isFirstSetup) {
         await confirm({
-          title: 'Groq API Key Kosong',
+          title: 'Endpoint STT Kosong',
           message:
-            'Engine STT dipilih Groq Cloud, tetapi API Key masih kosong. Silakan isi Groq API Key di bagian Audio & Voice Engine.',
-          isError: true,
-          hideCancel: true,
-          confirmText: 'Tutup'
-        })
-        return
-      }
-    }
-
-    if (config.sttProvider === 'custom' && !config.customSttEndpoint?.trim()) {
-      if (!isFirstSetup) {
-        await confirm({
-          title: 'Custom STT Endpoint Kosong',
-          message:
-            'Engine STT dipilih Custom Endpoint, tetapi Endpoint URL masih kosong. Silakan isi URL endpoint (contoh: https://api.openai.com/v1 atau 9router).',
+            'Endpoint STT belum diisi. Masukkan URL endpoint STT (contoh: http://localhost:20128/v1/audio/transcriptions atau gunakan preset 9router/Groq).',
           isError: true,
           hideCancel: true,
           confirmText: 'Tutup'
@@ -1492,116 +1483,95 @@ const Configuration = ({
                   Audio & Voice Engine
                 </h2>
 
-                {/* STT Engine Selection: Multi-Provider (Groq / Custom / Combo / Local) */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold">Mesin Transkripsi Suara (STT)</p>
-                    <span className="badge badge-sm badge-outline text-xs opacity-70">
-                      {config.sttProvider === 'groq'
-                        ? 'Cloud (Cepat & Ringan)'
-                        : config.sttProvider === 'custom'
-                          ? 'OpenAI / 9router'
-                          : config.sttProvider === 'combo'
-                            ? 'Multi-Provider Auto-Fallback'
-                            : 'On-Device Offline'}
-                    </span>
-                  </div>
-                  <select
-                    className="select select-bordered w-full"
-                    value={config.sttProvider || 'groq'}
-                    onChange={(e) =>
-                      setConfig((prev) => ({ ...prev, sttProvider: e.target.value }))
-                    }
-                  >
-                    <option value="groq">Groq Cloud API (Whisper Large-v3) : Ringan untuk Laptop</option>
-                    <option value="custom">Custom STT Endpoint (OpenAI Compatible / 9router)</option>
-                    <option value="combo">Combo Multi-Provider (Auto-Fallback: Custom STT + Groq)</option>
-                    <option value="whisper-small">Local Offline (Whisper Small WASM) : Boros RAM & CPU</option>
-                  </select>
-                  <p className="text-xs opacity-50 leading-relaxed">
-                    {config.sttProvider === 'whisper-small'
-                      ? 'Peringatan: Local Whisper menjalankan model AI langsung di CPU laptop yang dapat menyebabkan sistem lambat.'
-                      : config.sttProvider === 'combo'
-                        ? 'Mode Combo: Menjalankan Custom STT terlebih dahulu, lalu otomatis fallback ke Groq jika rate limit atau offline.'
-                        : config.sttProvider === 'custom'
-                          ? 'Mendukung endpoint STT kustom yang kompatibel dengan format audio OpenAI (seperti 9router, self-hosted, dsb).'
-                          : 'Groq Cloud mentranskripsi audio secara instan di cloud tanpa membebani memori dan prosesor laptop.'}
-                  </p>
-                </div>
-
-                {/* Groq Model Selector jika provider adalah groq */}
-                {config.sttProvider === 'groq' && (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold opacity-75">Model Groq Whisper</p>
-                    <select
-                      className="select select-bordered select-sm w-full"
-                      value={config.localWhisperModel || 'groq-whisper-turbo'}
-                      onChange={(e) =>
-                        setConfig((prev) => ({ ...prev, localWhisperModel: e.target.value }))
-                      }
-                    >
-                      <option value="groq-whisper-turbo">Whisper Large-v3 Turbo (Tercepat & Paling Awet Kuota)</option>
-                      <option value="groq-whisper">Whisper Large-v3 (Akurasi Maksimal)</option>
-                    </select>
-                  </div>
-                )}
-
-                {/* Groq API Key Input jika mode groq atau combo */}
-                {(config.sttProvider === 'groq' || config.sttProvider === 'combo') && (
-                  <div id="tour-groq-key" className="space-y-1.5 p-3 rounded-xl bg-base-200/50 border border-white/5">
-                    <div className="flex justify-between items-center">
-                      <p className="text-sm font-semibold">
-                        Groq API Key{' '}
-                        <span className="text-xs font-normal opacity-60">
-                          (Untuk Voice Speech-to-Text)
-                        </span>
+                {/* Speech To Text (STT) Engine: Custom & Multi-Provider Combo ala 9router */}
+                <div id="tour-stt-provider" className="space-y-4 p-4 rounded-2xl bg-base-200/40 border border-white/5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-white">Speech To Text (STT) Engine</p>
+                        <span className="badge badge-sm badge-primary text-[10px] font-mono">OpenAI Compatible</span>
+                      </div>
+                      <p className="text-xs opacity-60 mt-0.5">
+                        Transkripsi via HTTP POST ke endpoint OpenAI-compatible (9router, Groq, atau Whisper server). Memproses audio secara remote sehingga laptop tetap dingin dan responsif.
                       </p>
-                      <a
-                        href="https://console.groq.com/keys"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-xs btn-outline btn-primary"
-                      >
-                        Ambil API Key
-                      </a>
                     </div>
-                    <div className="relative w-full">
-                      <input
-                        type={showGroqKey ? 'text' : 'password'}
-                        placeholder="gsk_xxxxxxxxxxxxxxxxx"
-                        className="input input-bordered w-full pr-10"
-                        value={config.groqApiKey || ''}
-                        onChange={handleGroqApiKeyChange}
-                      />
+                  </div>
+
+                  {/* Preset Pills */}
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider opacity-60">Preset Cepat Endpoint</p>
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                        onClick={handleToggleGroqKey}
-                        title={showGroqKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
+                        className="btn btn-xs btn-outline hover:btn-primary text-xs"
+                        onClick={() => {
+                          setConfig((prev) => ({
+                            ...prev,
+                            customSttEndpoint: 'http://localhost:20128/v1/audio/transcriptions',
+                            customSttModel: 'selfhosted-stt/whisper-1'
+                          }))
+                        }}
                       >
-                        {showGroqKey ? (
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
-                        ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
-                        )}
+                        9router (localhost:20128)
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-outline hover:btn-secondary text-xs"
+                        onClick={() => {
+                          setConfig((prev) => ({
+                            ...prev,
+                            customSttEndpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
+                            customSttModel: 'whisper-large-v3-turbo',
+                            customSttApiKey: prev.customSttApiKey || prev.groqApiKey || ''
+                          }))
+                        }}
+                      >
+                        Groq Cloud (Turbo)
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-outline hover:btn-accent text-xs"
+                        onClick={() => {
+                          setConfig((prev) => ({
+                            ...prev,
+                            customSttEndpoint: 'http://localhost:8080/v1/audio/transcriptions',
+                            customSttModel: 'whisper-1'
+                          }))
+                        }}
+                      >
+                        Whisper.cpp (localhost:8080)
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-outline text-xs"
+                        onClick={() => {
+                          setConfig((prev) => ({
+                            ...prev,
+                            customSttEndpoint: 'https://api.openai.com/v1/audio/transcriptions',
+                            customSttModel: 'whisper-1'
+                          }))
+                        }}
+                      >
+                        OpenAI Official
                       </button>
                     </div>
                   </div>
-                )}
 
-                {/* Custom STT Endpoint Settings jika mode custom atau combo */}
-                {(config.sttProvider === 'custom' || config.sttProvider === 'combo') && (
-                  <div className="space-y-3 p-3.5 rounded-xl bg-base-200/50 border border-purple-500/25">
+                  {/* Primary Connection */}
+                  <div className="space-y-3 p-3.5 rounded-xl bg-base-300/40 border border-cyan-500/20">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-purple-300">Custom STT (OpenAI Compatible / 9router)</p>
-                      <span className="text-[11px] font-mono opacity-60">POST /v1/audio/transcriptions</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                        <p className="text-xs font-semibold text-cyan-300">Koneksi Utama (Primary STT)</p>
+                      </div>
+                      <span className="text-[10px] font-mono opacity-50">POST /v1/audio/transcriptions</span>
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-xs font-semibold opacity-75">Custom Endpoint URL</p>
+                      <p className="text-xs opacity-75 font-semibold">Endpoint URL</p>
                       <input
                         type="text"
-                        placeholder="https://api.openai.com/v1 atau URL 9router / self-hosted"
+                        placeholder="http://localhost:20128/v1/audio/transcriptions"
                         className="input input-bordered input-sm w-full font-mono text-xs"
                         value={config.customSttEndpoint || ''}
                         onChange={(e) =>
@@ -1610,9 +1580,9 @@ const Configuration = ({
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div className="space-y-1">
-                        <p className="text-xs font-semibold opacity-75">Custom API Key</p>
+                        <p className="text-xs opacity-75 font-semibold">API Key (Opsional bila self-hosted)</p>
                         <div className="relative w-full">
                           <input
                             type={showCustomSttKey ? 'text' : 'password'}
@@ -1627,6 +1597,7 @@ const Configuration = ({
                             type="button"
                             className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
                             onClick={() => setShowCustomSttKey((prev) => !prev)}
+                            title={showCustomSttKey ? 'Sembunyikan' : 'Tampilkan'}
                           >
                             {showCustomSttKey ? (
                               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
@@ -1638,10 +1609,10 @@ const Configuration = ({
                       </div>
 
                       <div className="space-y-1">
-                        <p className="text-xs font-semibold opacity-75">Model Name</p>
+                        <p className="text-xs opacity-75 font-semibold">Model Name</p>
                         <input
                           type="text"
-                          placeholder="whisper-1 atau whisper-large-v3"
+                          placeholder="selfhosted-stt/whisper-1 atau whisper-large-v3-turbo"
                           className="input input-bordered input-sm w-full font-mono text-xs"
                           value={config.customSttModel || ''}
                           onChange={(e) =>
@@ -1651,7 +1622,113 @@ const Configuration = ({
                       </div>
                     </div>
                   </div>
-                )}
+
+                  {/* Multi-Provider Combo Fallback ala 9router */}
+                  <div className="p-3.5 rounded-xl bg-base-300/30 border border-purple-500/20 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="sttEnableComboToggle"
+                          className="toggle toggle-primary toggle-sm"
+                          checked={Boolean(config.sttEnableCombo)}
+                          onChange={(e) =>
+                            setConfig((prev) => ({ ...prev, sttEnableCombo: e.target.checked }))
+                          }
+                        />
+                        <label htmlFor="sttEnableComboToggle" className="cursor-pointer">
+                          <span className="text-xs font-semibold text-purple-300">
+                            Multi-Provider Combo (Auto-Fallback)
+                          </span>
+                        </label>
+                      </div>
+                      <span className="badge badge-xs badge-outline text-[10px] opacity-70">
+                        {config.sttEnableCombo ? 'Aktif' : 'Nonaktif'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs opacity-60 leading-relaxed">
+                      Jika koneksi utama gagal (misal 9router atau self-hosted offline/overload), sistem otomatis mengalihkan transkripsi ke fallback provider di bawah tanpa menghentikan percakapan.
+                    </p>
+
+                    {config.sttEnableCombo && (
+                      <div className="space-y-3 pt-2 border-t border-white/5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-purple-200">Koneksi Cadangan (Fallback STT)</p>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-xs text-[10px] text-purple-400 hover:text-purple-200"
+                            onClick={() => {
+                              setConfig((prev) => ({
+                                ...prev,
+                                sttFallbackEndpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
+                                sttFallbackApiKey: prev.sttFallbackApiKey || prev.groqApiKey || '',
+                                sttFallbackModel: 'whisper-large-v3-turbo'
+                              }))
+                            }}
+                          >
+                            Set ke Groq Cloud Turbo
+                          </button>
+                        </div>
+
+                        <div className="space-y-1">
+                          <p className="text-xs opacity-75 font-semibold">Fallback Endpoint URL</p>
+                          <input
+                            type="text"
+                            placeholder="https://api.groq.com/openai/v1/audio/transcriptions"
+                            className="input input-bordered input-sm w-full font-mono text-xs"
+                            value={config.sttFallbackEndpoint || ''}
+                            onChange={(e) =>
+                              setConfig((prev) => ({ ...prev, sttFallbackEndpoint: e.target.value }))
+                            }
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <div className="space-y-1">
+                            <p className="text-xs opacity-75 font-semibold">Fallback API Key</p>
+                            <div className="relative w-full">
+                              <input
+                                type={showFallbackSttKey ? 'text' : 'password'}
+                                placeholder="gsk_... atau sk-..."
+                                className="input input-bordered input-sm w-full pr-8 font-mono text-xs"
+                                value={config.sttFallbackApiKey || ''}
+                                onChange={(e) =>
+                                  setConfig((prev) => ({ ...prev, sttFallbackApiKey: e.target.value }))
+                                }
+                              />
+                              <button
+                                type="button"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+                                onClick={() => setShowFallbackSttKey((prev) => !prev)}
+                                title={showFallbackSttKey ? 'Sembunyikan' : 'Tampilkan'}
+                              >
+                                {showFallbackSttKey ? (
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
+                                ) : (
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <p className="text-xs opacity-75 font-semibold">Fallback Model Name</p>
+                            <input
+                              type="text"
+                              placeholder="whisper-large-v3-turbo"
+                              className="input input-bordered input-sm w-full font-mono text-xs"
+                              value={config.sttFallbackModel || ''}
+                              onChange={(e) =>
+                                setConfig((prev) => ({ ...prev, sttFallbackModel: e.target.value }))
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* Microphone Source Selection */}
                 <div className="space-y-1.5">
