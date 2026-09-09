@@ -10,6 +10,9 @@ export const normalizeSttUrl = (rawUrl) => {
   let cleaned = rawUrl.trim().replace(/\/+$/, '')
   if (!cleaned) return ''
 
+  // Linux WebKit: konversi localhost ke 127.0.0.1 agar bebas dari isu resolusi IPv6 [::1]
+  cleaned = cleaned.replace(/^(https?:\/\/)(localhost)(:\d+)?/i, '$1127.0.0.1$3')
+
   if (cleaned.endsWith('/audio/transcriptions')) {
     return cleaned
   }
@@ -74,13 +77,43 @@ export const transcribeToEndpoint = async (pcmBuffer, { endpoint, apiKey, model,
     if (err.name === 'AbortError') {
       throw new Error(`Koneksi ke STT ${targetUrl} timeout (20 detik)`)
     }
+    if (err.message === 'Load failed' || err.name === 'TypeError') {
+      throw new Error(`Koneksi ke STT ${targetUrl} gagal (Network/CORS/DNS error)`)
+    }
     throw err
   }
 }
 
+let roundRobinCounter = 0
+
 /**
- * Router STT Terpadu (Custom STT & Multi-Provider Combo Fallback ala 9router)
- * Tidak lagi menggunakan model WASM lokal di CPU laptop agar performa laptop tetap ringan.
+ * Deteksi kapabilitas CPU & RAM laptop untuk rekomendasi Local Whisper vs Custom STT
+ */
+export const getHardwareSttSupport = async () => {
+  const cores = typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency || 2) : 2
+  let isLiteMode = false
+  try {
+    if (window.api && window.api.getLiteMode) {
+      isLiteMode = await window.api.getLiteMode()
+    }
+  } catch (_) {}
+
+  const isLowEnd = cores <= 4 || isLiteMode
+  return {
+    cores,
+    isLiteMode,
+    isLowEnd,
+    recommendation: isLowEnd ? 'custom' : 'whisper',
+    reason: isLowEnd
+      ? 'CPU/RAM laptop terbatas. Disarankan menggunakan Custom STT (Remote/Gateway) agar sistem tidak terbebani.'
+      : 'Spesifikasi laptop mencukupi untuk menjalankan model Whisper on-device secara lokal.'
+  }
+}
+
+/**
+ * Router STT Terpadu (Custom Multi-Connection Combo & Local Whisper)
+ * Mengadopsi arsitektur AI Gateway (9router & OmniRoute):
+ * Mendukung unlimited connections dengan strategi Fallback (Priority Chain) & Round Robin.
  */
 export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMessage) => {
   const configs = await getAllConfig()
@@ -92,61 +125,120 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
     }
   }
 
-  // Primary Endpoint: Default ke 9router localhost atau Groq jika ada key
-  const primaryEndpoint =
-    cfg.customSttEndpoint?.trim() ||
-    (cfg.groqApiKey?.trim() ? 'https://api.groq.com/openai/v1/audio/transcriptions' : 'http://localhost:20128/v1/audio/transcriptions')
-  const primaryKey = cfg.customSttApiKey?.trim() || cfg.groqApiKey?.trim() || ''
-  const primaryModel = cfg.customSttModel?.trim() || (cfg.groqApiKey?.trim() ? 'whisper-large-v3-turbo' : 'selfhosted-stt/whisper-1')
-
-  // Fallback Endpoint (Combo mode)
-  const fallbackEndpoint = cfg.sttFallbackEndpoint?.trim() || (cfg.groqApiKey?.trim() ? 'https://api.groq.com/openai/v1/audio/transcriptions' : '')
-  const fallbackKey = cfg.sttFallbackApiKey?.trim() || cfg.groqApiKey?.trim() || ''
-  const fallbackModel = cfg.sttFallbackModel?.trim() || 'whisper-large-v3-turbo'
-
-  const isComboEnabled = Boolean(cfg.sttEnableCombo && fallbackEndpoint && fallbackEndpoint !== primaryEndpoint)
-
-  if (!primaryEndpoint && !fallbackEndpoint) {
-    throw new Error('Endpoint STT belum diisi. Buka Konfigurasi > Audio & Voice Engine untuk menyetel endpoint.')
+  // JALUR 1: Local Whisper (On-Device Inference)
+  if (cfg.sttProvider === 'whisper') {
+    updateStatus('Mentranskrip via Local Whisper (On-Device)...')
+    try {
+      const { transcribeAudioLocal } = await import('./localWhisper.js')
+      const text = await transcribeAudioLocal(pcmBuffer, onProgress)
+      updateStatus('')
+      return text
+    } catch (localErr) {
+      console.warn('[sttRouter] Local Whisper gagal:', localErr.message)
+      updateStatus(`Local Whisper gagal (${localErr.message.slice(0, 40)}...). Beralih ke Custom Gateway...`)
+      // Otomatis fallback ke Custom jika lokal gagal
+    }
   }
 
-  // Langkah 1: Coba Primary Connection (misal 9router / self-hosted STT)
-  updateStatus('Mentranskrip audio...')
-  try {
-    const text = await transcribeToEndpoint(pcmBuffer, {
-      endpoint: primaryEndpoint,
-      apiKey: primaryKey,
-      model: primaryModel,
-      language: 'id',
-      prompt: 'Halo Abelink, percakapan asisten Linux berbahasa Indonesia.'
-    })
-    updateStatus('')
-    return text
-  } catch (primaryErr) {
-    console.warn('[sttRouter] Primary STT gagal:', primaryErr.message)
+  // JALUR 2: Custom Multi-Provider Audio Router (OpenAI /v1/audio/transcriptions)
+  let connections = Array.isArray(cfg.sttConnections)
+    ? cfg.sttConnections.filter((c) => c && c.enabled !== false && c.endpoint?.trim())
+    : []
 
-    // Langkah 2: Fallback ke Secondary Connection jika mode Combo aktif
-    if (isComboEnabled) {
-      updateStatus('Koneksi utama gagal, beralih ke Fallback Provider...')
-      try {
-        const text = await transcribeToEndpoint(pcmBuffer, {
-          endpoint: fallbackEndpoint,
-          apiKey: fallbackKey,
-          model: fallbackModel,
-          language: 'id',
-          prompt: 'Halo Abelink, percakapan asisten Linux berbahasa Indonesia.'
-        })
-        updateStatus('')
-        return text
-      } catch (fallbackErr) {
-        updateStatus('')
-        throw new Error(
-          `Semua provider STT gagal. Utama (${primaryEndpoint}): ${primaryErr.message}. Fallback (${fallbackEndpoint}): ${fallbackErr.message}`
-        )
+  // Fallback bootstrap jika array connections belum terisi
+  if (connections.length === 0) {
+    let defaultEndpoint = cfg.customSttEndpoint?.trim()
+    if (defaultEndpoint && defaultEndpoint.includes('dashscope')) {
+      defaultEndpoint = ''
+    }
+    if (!defaultEndpoint) {
+      defaultEndpoint = cfg.groqApiKey?.trim()
+        ? 'https://api.groq.com/openai/v1/audio/transcriptions'
+        : 'http://127.0.0.1:20128/v1/audio/transcriptions'
+    }
+    const defaultKey = cfg.customSttApiKey?.trim() || cfg.groqApiKey?.trim() || ''
+    const defaultModel =
+      cfg.customSttModel?.trim() ||
+      (defaultEndpoint.includes('groq') ? 'whisper-large-v3-turbo' : 'selfhosted-stt/whisper-1')
+
+    connections = [
+      {
+        id: 'conn-bootstrap-1',
+        name: defaultEndpoint.includes('groq') ? 'Groq Whisper Cloud' : 'Local STT Gateway',
+        endpoint: defaultEndpoint,
+        apiKey: defaultKey,
+        model: defaultModel,
+        enabled: true
+      }
+    ]
+
+    if (cfg.sttFallbackEndpoint && cfg.sttFallbackEndpoint !== defaultEndpoint) {
+      connections.push({
+        id: 'conn-bootstrap-2',
+        name: 'Secondary Fallback',
+        endpoint: cfg.sttFallbackEndpoint,
+        apiKey: cfg.sttFallbackApiKey || cfg.groqApiKey || '',
+        model: cfg.sttFallbackModel || 'whisper-large-v3-turbo',
+        enabled: true
+      })
+    }
+  }
+
+  const strategy = cfg.sttStrategy || 'fallback'
+  const lang = cfg.sttLanguage || 'id'
+  const promptText =
+    lang === 'zh'
+      ? '你好 Abelink，Linux 桌面助手对话。'
+      : lang === 'en'
+      ? 'Hello Abelink, Linux desktop companion conversation.'
+      : 'Halo Abelink, percakapan asisten Linux berbahasa Indonesia.'
+
+  // Susun urutan eksekusi berdasarkan strategi
+  let executionList = [...connections]
+  if (strategy === 'round-robin' && connections.length > 1) {
+    const startIndex = Math.abs(roundRobinCounter++) % connections.length
+    executionList = [
+      ...connections.slice(startIndex),
+      ...connections.slice(0, startIndex)
+    ]
+  }
+
+  const failureReports = []
+
+  for (let i = 0; i < executionList.length; i++) {
+    const conn = executionList[i]
+    const providerName = conn.name || `Provider #${i + 1}`
+    const isLast = i === executionList.length - 1
+
+    updateStatus(`Mentranskrip via [${providerName}]...`)
+    const t0 = performance.now()
+
+    try {
+      const text = await transcribeToEndpoint(pcmBuffer, {
+        endpoint: conn.endpoint,
+        apiKey: conn.apiKey || '',
+        model: conn.model || 'selfhosted-stt/whisper-1',
+        language: lang,
+        prompt: promptText
+      })
+
+      const elapsed = Math.round(performance.now() - t0)
+      console.log(`[sttRouter] Sukses transkripsi via [${providerName}] dalam ${elapsed}ms`)
+      updateStatus('')
+      return text
+    } catch (err) {
+      const elapsed = Math.round(performance.now() - t0)
+      const reason = err.message || 'Error tidak diketahui'
+      console.warn(`[sttRouter] [${providerName}] gagal (${elapsed}ms):`, reason)
+      failureReports.push(`[${providerName}]: ${reason}`)
+
+      if (!isLast) {
+        const nextProvider = executionList[i + 1].name || `Provider #${i + 2}`
+        updateStatus(`[${providerName}] gagal. Failover ke [${nextProvider}]...`)
       }
     }
-
-    updateStatus('')
-    throw primaryErr
   }
+
+  updateStatus('')
+  throw new Error(`Semua provider STT gagal:\n${failureReports.join('\n')}`)
 }

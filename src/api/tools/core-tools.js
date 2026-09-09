@@ -19,7 +19,7 @@ export const core_tools = {
   "os-open": "Membuka file lokal atau aplikasi desktop di PC host via xdg-open. Query: nama executable/aplikasi atau path file (misal: nautilus, /path/to/file.pdf). DILARANG KERAS untuk membuka website/URL! Untuk membuka website, WAJIB gunakan browser-navigate.",
   "run-shell": "Menjalankan perintah terminal bash/zsh singkat di PC user (Linux Debian/Ubuntu). Query: perintah_shell. DILARANG mengambil halaman web via curl/wget/python (otomatis ditolak); gunakan browser-navigate/browser-extract.",
   "spawn_subagent": "Mendelegasikan tugas ke agen spesialis baru yang bekerja di lingkungan terisolasi. Query: name||role||goal||initial_message||tools (tools opsional dipisah koma, misal: 'read-file,write-file'). Mengembalikan subagent_id dan balasan awal.",
-  "send_message": "Mengirim pesan instruksi, evaluasi, atau feedback dari Mark ke Sub-Agent aktif. Query: subagent_id||pesan_instruksi. Mengembalikan balasan langsung dari Sub-Agent.",
+  "send_message": "Mengirim pesan instruksi, evaluasi, atau feedback dari Abelink ke Sub-Agent aktif. Query: subagent_id||pesan_instruksi. Mengembalikan balasan langsung dari Sub-Agent.",
   "list_subagents": "Melihat daftar seluruh sub-agent yang sedang aktif atau sudah selesai beserta statusnya. Query: kosongkan atau masukkan status (running/idle/completed).",
   "wait_subagents": "Menunggu dan mengumpulkan laporan hasil eksekusi dari sub-agent yang sedang berjalan secara paralel di background. Query: 'all' atau daftar ID dipisah koma (misal: 'sub_1,sub_2') atau beserta batas waktu (misal: 'all||30').",
   "kill_subagent": "Menghentikan paksa eksekusi sub-agent yang sedang berjalan. Query: subagent_id||alasan."

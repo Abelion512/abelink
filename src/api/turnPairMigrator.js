@@ -72,7 +72,7 @@ export function extractTurnPairsFromSession(sessionData, sessionId, sessionTitle
         const rawTs = msg.timestamp || aiMsgTimestamp || Date.now()
         const timestamp = normalizeTimestamp(rawTs)
         const pairId = `turn-${sessionId}-${timestamp}-${i}`
-        const combinedText = `[User]: ${userText}\n[Mark]: ${aiText || '(Menjalankan instruksi)'}`
+        const combinedText = `[User]: ${userText}\n[Abelink]: ${aiText || '(Menjalankan instruksi)'}`
 
         pairs.push({
           pairId,
@@ -169,7 +169,7 @@ export async function indexSingleTurn(sessionId, sessionTitle, userMsg, aiMsg) {
 
     const timestamp = Date.now()
     const pairId = `turn-${sessionId}-${timestamp}`
-    const combinedText = `[User]: ${userText}\n[Mark]: ${aiText || '(Menjalankan instruksi)'}`
+    const combinedText = `[User]: ${userText}\n[Abelink]: ${aiText || '(Menjalankan instruksi)'}`
 
     const vector = await generateVector(combinedText)
     if (!vector || vector.length !== 384) {

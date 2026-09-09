@@ -22,6 +22,7 @@
     "harness": "bun sidecar/engine.mjs",
     "build:sidecar": "bun build sidecar/engine.mjs --compile --minify --outfile=dist-sidecar/mark-engine && chmod +x dist-sidecar/mark-engine",
     "build:deb": "bun run build:sidecar && tauri build --bundles deb",
+    "deb": "bun run build:deb",
     "build:dist": "bun run build:sidecar && tauri build",
     "app": "tauri dev",
     "dev:smart": "bash scripts/dev.sh",

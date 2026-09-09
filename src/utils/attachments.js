@@ -164,7 +164,8 @@ export const isPublicHttpUrl = (raw) => {
 
 export const resolveDroppedFile = async (f) => {
   let resolvedPath = ''
-  if (window.api?.getPathForFile) {
+  const hasWindowApi = typeof window !== 'undefined' && window.api
+  if (hasWindowApi && window.api.getPathForFile) {
     try {
       resolvedPath = window.api.getPathForFile(f)
     } catch (e) {
@@ -177,7 +178,7 @@ export const resolveDroppedFile = async (f) => {
     resolvedPath = f.path
   }
 
-  if (!looksLikePath(resolvedPath) && window.api?.saveTempFile) {
+  if (!looksLikePath(resolvedPath) && hasWindowApi && window.api.saveTempFile) {
     try {
       const buffer = await f.arrayBuffer()
       if (buffer && buffer.byteLength > 0) {
@@ -259,3 +260,31 @@ export const mergeAttachments = async (prev, incoming) => {
   const unique = incoming.filter((item) => item.path && !existingPaths.has(item.path))
   return [...prev, ...(await Promise.all(unique.map(enrichWithStat)))]
 }
+
+// Ekstraksi file atau gambar dari ClipboardEvent (paste Ctrl+V)
+export const extractClipboardFiles = async (clipboardData) => {
+  if (!clipboardData) return []
+  const files = []
+  const items = Array.from(clipboardData.items || [])
+  for (const item of items) {
+    if (item.kind === 'file') {
+      const f = item.getAsFile()
+      if (f) {
+        const name =
+          f.name && f.name !== 'image.png' ? f.name : `screenshot-${Date.now()}.png`
+        const namedFile = new File([f], name, { type: f.type || 'image/png' })
+        files.push(namedFile)
+      }
+    }
+  }
+  if (files.length === 0 && clipboardData.files?.length > 0) {
+    for (const f of Array.from(clipboardData.files)) {
+      files.push(f)
+    }
+  }
+  if (files.length > 0) {
+    return Promise.all(files.map(resolveDroppedFile))
+  }
+  return []
+}
+

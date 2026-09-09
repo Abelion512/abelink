@@ -41,22 +41,40 @@ const DOM_PARSER_SCRIPT = `
     blocker = document.createElement('div');
     blocker.id = 'mark-user-blocker';
     blocker.innerHTML = \`
-      <div style="background: rgba(25, 54, 45, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(31, 184, 84, 0.4); border-radius: 30px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; color: #1fb854; font-family: system-ui, sans-serif; font-weight: 600; font-size: 14px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); pointer-events: none;">
-        <svg class="mark-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
-        </svg>
-        <span class="mark-pulse">Mark is working...</span>
+      <div style="position: fixed; top: 16px; right: 24px; z-index: 2147483647; display: flex; align-items: center; gap: 10px; font-family: system-ui, -apple-system, sans-serif;">
+        <div style="background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px); border: 1px solid rgba(6, 182, 212, 0.4); border-radius: 9999px; padding: 8px 16px; display: flex; align-items: center; gap: 8px; color: #38bdf8; font-weight: 600; font-size: 13px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); pointer-events: none;">
+          <svg class="mark-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+          </svg>
+          <span class="mark-pulse">Abelink sedang beraksi...</span>
+        </div>
+        <button id="mark-emergency-stop-btn" style="pointer-events: auto; cursor: pointer; background: #dc2626; border: 1px solid rgba(255,255,255,0.25); border-radius: 9999px; padding: 8px 16px; color: #ffffff; font-weight: 700; font-size: 12px; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.5);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+          <span>PAKSA BERHENTI (Ctrl+Shift+S)</span>
+        </button>
       </div>
     \`;
     Object.assign(blocker.style, {
       position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-      background: 'rgba(0,0,0,0.1)', zIndex: '2147483647', cursor: 'not-allowed',
+      background: 'rgba(0,0,0,0.12)', zIndex: '2147483646', cursor: 'not-allowed',
       display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-      paddingTop: '24px', pointerEvents: 'auto', transition: 'all 0.3s'
+      pointerEvents: 'auto', transition: 'all 0.3s'
     });
     
     blocker.addEventListener('wheel', e => e.preventDefault(), { passive: false });
     blocker.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+    const stopBtn = blocker.querySelector('#mark-emergency-stop-btn');
+    if (stopBtn) {
+      stopBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.__markEmergencyStopRequested = true;
+        if (window.electronAPI?.emergencyStop || window.api?.emergencyStop) {
+          (window.electronAPI?.emergencyStop || window.api?.emergencyStop)();
+        }
+      });
+    }
+
     document.body.appendChild(blocker);
   }
   blocker.style.display = 'flex';

@@ -29,7 +29,7 @@ const groomerSchema = {
 
 export function buildGroomerPrompt(clusters) {
   const payload = JSON.stringify(clusters, null, 2)
-  return `Kamu adalah Mark Hippocampus Engine — mesin konsolidasi memori otonom.
+  return `Kamu adalah Abelink Hippocampus Engine - mesin konsolidasi memori otonom.
 Tugasmu adalah memeriksa kelompok-kelompok (clusters) ingatan tentang user yang mirip atau memiliki kesinambungan kronologis, lalu mengonsolidasi setiap cluster menjadi SATU kalimat yang utuh dan runtut secara kronologis.
 
 # ATURAN EMAS (THE GOLDEN RULE - MERGE THEN PRUNE):
