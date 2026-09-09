@@ -45,7 +45,7 @@ export default function JarvisOrb({
 
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(45, 1, 1, 1000)
-    camera.position.z = 75
+    camera.position.z = 96
 
     // Particles
     const geo = new THREE.BufferGeometry()
@@ -56,7 +56,7 @@ export default function JarvisOrb({
     for (let i = 0; i < N; i++) {
       const theta = Math.random() * Math.PI * 2
       const phi = Math.acos(2 * Math.random() - 1)
-      const r = Math.pow(Math.random(), 0.5) * 25
+      const r = Math.pow(Math.random(), 0.5) * 22
       pos[i * 3] = r * Math.sin(phi) * Math.cos(theta)
       pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
       pos[i * 3 + 2] = r * Math.cos(phi)
@@ -122,8 +122,8 @@ export default function JarvisOrb({
     let lastElectronSpawn = 0
     let activeConnections = []
 
-    let targetRadius = 25
-    let currentRadius = 25
+    let targetRadius = 22
+    let currentRadius = 22
     let targetSpeed = 0.3
     let currentSpeed = 0.3
     let targetBright = 0.6
@@ -419,22 +419,22 @@ export default function JarvisOrb({
   return (
     <div
       ref={containerRef}
-      className={`relative flex items-center justify-center select-none ${className}`}
-      style={{ width: `${size}px`, height: `${size}px` }}
+      className={`relative flex items-center justify-center select-none overflow-visible ${className}`}
+      style={{ width: `${size}px`, height: `${size}px`, maxWidth: '100%', maxHeight: '100%' }}
     >
       <div
-        className="absolute rounded-full pointer-events-none transition-opacity duration-700 blur-2xl"
+        className="absolute inset-0 m-auto rounded-full pointer-events-none transition-opacity duration-700 blur-3xl"
         style={{
-          width: `${size * 0.75}px`,
-          height: `${size * 0.75}px`,
-          backgroundColor:
+          width: `${size * 0.65}px`,
+          height: `${size * 0.65}px`,
+          background:
             status === 'speaking'
-              ? 'rgba(56, 189, 248, 0.22)'
+              ? 'radial-gradient(circle, rgba(56, 189, 248, 0.28) 0%, rgba(56, 189, 248, 0) 75%)'
               : status === 'listening'
-                ? 'rgba(14, 165, 233, 0.18)'
+                ? 'radial-gradient(circle, rgba(14, 165, 233, 0.22) 0%, rgba(14, 165, 233, 0) 75%)'
                 : status === 'thinking'
-                  ? 'rgba(125, 211, 252, 0.25)'
-                  : 'rgba(56, 189, 248, 0.08)'
+                  ? 'radial-gradient(circle, rgba(125, 211, 252, 0.3) 0%, rgba(125, 211, 252, 0) 75%)'
+                  : 'radial-gradient(circle, rgba(56, 189, 248, 0.1) 0%, rgba(56, 189, 248, 0) 75%)'
         }}
       />
       <canvas ref={canvasRef} className="relative z-10 w-full h-full cursor-grab active:cursor-grabbing" />

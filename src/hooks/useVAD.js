@@ -4,6 +4,24 @@ import { transcribeAudioGroq } from '../api/groq'
 import { getAllConfig } from '../api/db'
 import { resolveMicConstraints, micCoolingDown, noteMicFailure } from '../api/mic'
 
+// Resampling linear audio PCM Float32Array dari sampleRate asal ke 16,000 Hz target Whisper
+function resampleTo16k(audioBuffer, origSampleRate) {
+  if (!origSampleRate || origSampleRate === 16000 || audioBuffer.length === 0) {
+    return audioBuffer
+  }
+  const ratio = origSampleRate / 16000
+  const newLength = Math.round(audioBuffer.length / ratio)
+  const result = new Float32Array(newLength)
+  for (let i = 0; i < newLength; i++) {
+    const origIdx = i * ratio
+    const idxFloor = Math.floor(origIdx)
+    const idxCeil = Math.min(audioBuffer.length - 1, idxFloor + 1)
+    const fraction = origIdx - idxFloor
+    result[i] = audioBuffer[idxFloor] * (1 - fraction) + audioBuffer[idxCeil] * fraction
+  }
+  return result
+}
+
 export const useVAD = ({
   onTranscript // Function to call when STT finishes
 }) => {
@@ -14,6 +32,7 @@ export const useVAD = ({
 
   const streamRef = useRef(null)
   const audioContextRef = useRef(null)
+  const sampleRateRef = useRef(16000)
   const processorRef = useRef(null)
   const isSpeakingRef = useRef(false)
   const audioChunksRef = useRef([])
@@ -27,7 +46,7 @@ export const useVAD = ({
 
     // Jika ada pending audio saat user menekan stop manual
     let pendingAudio = null
-    if (totalLength >= 8000) {
+    if (totalLength >= 4000) {
       pendingAudio = new Float32Array(totalLength)
       let offset = 0
       for (let arr of audioChunksRef.current) {
@@ -64,8 +83,11 @@ export const useVAD = ({
     isProcessingSpeechRef.current = true
 
     const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
-    const minSamples = force ? 3200 : 6400
+    const actualRate = sampleRateRef.current || 16000
+    const minSamples = Math.round((force ? 0.12 : 0.25) * actualRate)
+
     if (totalLength < minSamples) {
+      console.log('[VAD] Audio terlalu singkat:', totalLength, 'sampel pada', actualRate, 'Hz')
       stopVADCleanup()
       return
     }
@@ -77,13 +99,15 @@ export const useVAD = ({
       offset += arr.length
     }
 
-    const trimmedAudio = merged
+    // Resample buffer audio ke 16000Hz untuk pipeline Whisper
+    const trimmedAudio = resampleTo16k(merged, actualRate)
 
     stopVADCleanup()
     setIsProcessing(true)
 
     setTimeout(async () => {
       try {
+        console.log('[VAD] Memulai transkripsi STT, total sampel 16k:', trimmedAudio.length)
         const text = await executeSpeechToText(trimmedAudio)
         setIsProcessing(false)
         if (text && text.trim() !== '') {
@@ -91,7 +115,12 @@ export const useVAD = ({
             /\b(mbak|mak|makh|marg|mart|marck|marc|mac|mag)\b/gi,
             'Abelink'
           )
+          console.log('[VAD] Hasil transkripsi:', cleanText)
           onTranscript(cleanText.trim())
+        } else {
+          console.log('[VAD] Transkripsi menghasilkan teks kosong')
+          setToastMessage('Suara tidak terdengar jelas. Coba ulangi.')
+          setTimeout(() => setToastMessage(''), 4000)
         }
       } catch (err) {
         setIsProcessing(false)
@@ -99,7 +128,7 @@ export const useVAD = ({
         setToastMessage(`Gagal memproses STT: ${err.message}`)
         setTimeout(() => setToastMessage(''), 5000)
       }
-    }, 150)
+    }, 120)
   }
 
   // ── Unified Robust Speech-to-Text Pipeline ──────────────────────────────
@@ -233,6 +262,7 @@ export const useVAD = ({
         } catch (_) {}
       }
       audioContextRef.current = audioContext
+      sampleRateRef.current = audioContext.sampleRate || 16000
 
       const source = audioContext.createMediaStreamSource(stream)
       const processor = audioContext.createScriptProcessor(4096, 1, 1)
