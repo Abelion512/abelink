@@ -1,25 +1,17 @@
 import { useState, useContext, createContext, useRef, useCallback, useEffect } from 'react'
+import { db, insertMemory, getAllConfig } from '../api/db'
 
 /**
- * Mesin musik MARK Linux — pengganti total pendekatan <webview> Electron.
+ * Mesin musik Abelink Linux — Embedded YouTube IFrame API Player.
  *
- * Kenapa ditulis ulang: <webview> adalah elemen khusus Electron yang tidak
- * dikenal WebKitGTK (Tauri), sehingga seluruh kontrol (loadURL/
- * executeJavaScript) mati diam-diam. Sekarang: audio-only player resmi via
- * YouTube IFrame API + antrean milik kita; metadata lagu datang dari hasil
- * pencarian ternormalisasi (bukan scraping DOM halaman YouTube Music).
- *
- * Kontrak yang dipertahankan agar konsumen lama tak rusak:
- * - playUrl(watchUrl, initialTrack) — url tipe watch?v=ID
- * - nextTrack / prevTrack / playPause / pauseTrack / resumeTrack
- * - isPlaying, currentTrack {id,title,artist,duration,thumbnail}, playId,
- *   isPlayerOpen/setIsPlayerOpen/togglePlayer
- * - musicUrl (read-only compat: watch URL lagu terakhir)
+ * Murni embedded di dalam antarmuka aplikasi tanpa jendela popup OS eksternal:
+ * - Audio dimainkan langsung via embedded YouTube Player API terisolasi.
+ * - Riwayat pemutaran otomatis disinkronkan ke Last.fm & dipelajari ke Dexie db.memory.
+ * - Kontrol playback lengkap (play, pause, next, prev, jump, volume).
  */
 
 const YoutubeMusicContext = createContext()
 
-// Muat IFrame API sekali untuk seluruh aplikasi (promise di-cache modul-level).
 let ytApiPromise = null
 let ytApiLoadAttempts = 0
 const MAX_YT_API_ATTEMPTS = 3
@@ -32,11 +24,7 @@ function loadYTApi() {
   ytApiPromise = new Promise((resolve, reject) => {
     const attemptLoad = (attempt) => {
       ytApiLoadAttempts = attempt
-
-      if (window.YT && window.YT.Player) {
-        resolve(window.YT)
-        return
-      }
+      if (window.YT && window.YT.Player) return resolve(window.YT)
 
       if (attempt >= MAX_YT_API_ATTEMPTS) {
         const timeoutId = setTimeout(() => {
@@ -46,10 +34,12 @@ function loadYTApi() {
           }
         }, YT_API_TIMEOUT)
 
-        window.addEventListener('onYouTubeIframeAPIReady', () => {
+        const prev = window.onYouTubeIframeAPIReady
+        window.onYouTubeIframeAPIReady = () => {
           clearTimeout(timeoutId)
+          if (typeof prev === 'function') prev()
           resolve(window.YT)
-        })
+        }
         injectScript()
         return
       }
@@ -58,24 +48,16 @@ function loadYTApi() {
     }
 
     const injectScript = () => {
-      if (document.head.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
-        return
-      }
-
       const script = document.createElement('script')
       script.src = 'https://www.youtube.com/iframe_api'
       script.async = true
-      script.dataset.markLoaded = '1'
-      script.onerror = () => {
-        // Let the retry loop handle it.
-      }
+      script.onerror = () => {}
       document.head.appendChild(script)
     }
 
     injectScript()
     attemptLoad(1)
   })
-
   return ytApiPromise
 }
 
@@ -92,7 +74,6 @@ export const YoutubeMusicProvider = ({ children }) => {
   const queueRef = useRef([])
   const currentRef = useRef(current)
 
-  // Mirror refs supaya fungsi kontrol stabil tanpa perlu re-create callback.
   useEffect(() => {
     queueRef.current = queue
   }, [queue])
@@ -100,69 +81,36 @@ export const YoutubeMusicProvider = ({ children }) => {
     currentRef.current = current
   }, [current])
 
-  // Boot player sekali (audio-only, disembunyikan dari layout).
   const hostRef = useRef(null)
-  // Set once when the provider mounts so the values do not drift between
-  // re-renders. `origin` is optional; when omitted the YouTube wrapper treats
-  // the page as the default recipient and the orphaned postMessage noise shown
-  // by the bundled www-widgetapi shim is avoided.
-  const playerVars = {
-    autoplay: 0,
-    rel: 0,
-    origin: window.location.origin || undefined
-  }
-
   useEffect(() => {
     if (playerRef.current || !hostRef.current) return
-
-    const tryAttach = () => {
-      if (typeof window.YT !== 'object' || !window.YT || typeof window.YT.Player !== 'function') {
-        return
-      }
-
-      playerRef.current = new window.YT.Player(hostRef.current, {
-        height: '90',
-        width: '160',
-        playerVars,
-        events: {
-          onReady: (e) => {
-            readyRef.current = true
-            if (pendingPlayRef.current) {
-              e.target.loadVideoById(pendingPlayRef.current)
-              pendingPlayRef.current = null
-              setIsPlaying(true)
-            }
+    loadYTApi()
+      .then((YT) => {
+        if (!hostRef.current) return
+        playerRef.current = new YT.Player(hostRef.current, {
+          height: '100',
+          width: '160',
+          playerVars: {
+            autoplay: 1,
+            rel: 0,
+            origin: window.location.origin
           },
-          onStateChange: (e) => setIsPlaying(e.data === 1)
-        }
+          events: {
+            onReady: (e) => {
+              readyRef.current = true
+              if (pendingPlayRef.current) {
+                e.target.loadVideoById(pendingPlayRef.current)
+                pendingPlayRef.current = null
+                setIsPlaying(true)
+              }
+            },
+            onStateChange: (e) => {
+              setIsPlaying(e.data === 1)
+            }
+          }
+        })
       })
-
-      return () => {
-        if (playerRef.current) {
-          playerRef.current.destroy()
-          playerRef.current = null
-        }
-        readyRef.current = false
-      }
-    }
-
-    const cleanup = tryAttach()
-
-    const onReadyEvent = () => {
-      if (playerRef.current) return
-
-      const nextCleanup = tryAttach()
-      if (nextCleanup) {
-        cleanup && cleanup()
-      }
-    }
-
-    window.addEventListener('onYouTubeIframeAPIReady', onReadyEvent)
-
-    return () => {
-      window.removeEventListener('onYouTubeIframeAPIReady', onReadyEvent)
-      cleanup && cleanup()
-    }
+      .catch((err) => console.error('[MusicEngine] Gagal inisialisasi IFrame:', err.message))
   }, [])
 
   const loadIntoPlayer = useCallback((videoId) => {
@@ -183,16 +131,40 @@ export const YoutubeMusicProvider = ({ children }) => {
       loadIntoPlayer(item.id)
       setIsPlayerOpen(true)
       setPlayId((p) => p + 1)
+
+      // Event Scrobbler untuk Last.fm & Web Scrobbler
+      try {
+        window.dispatchEvent(new CustomEvent('lastfm-track-playing', { detail: item }))
+      } catch (_) {}
+
+      // Auto-memory learning preferensi musik
+      if (item.title) {
+        getAllConfig().then((cfg) => {
+          if (cfg[0]?.aiAutoLearn !== false) {
+            db.memory
+              .where('type')
+              .equals('preference')
+              .filter((m) => m.summary === 'Music Preference' && m.memory.includes(item.title))
+              .first()
+              .then((existing) => {
+                if (!existing) {
+                  insertMemory({
+                    type: 'preference',
+                    summary: 'Music Preference',
+                    memory: `Pengguna mendengarkan musik: "${item.title}" oleh ${item.artist || 'Various Artists'}.`
+                  }).catch(console.error)
+                }
+              })
+              .catch(console.error)
+          }
+        })
+      }
+
       return true
     },
     [loadIntoPlayer]
   )
 
-  /**
-   * Kompatibel dgn pemanggil lama: url watch?v=ID + metadata opsional.
-   * Dipakai handleMusic (useMarkMusic), listener WA, dan tombol UI.
-   * Di Tauri, pakai iframe YouTube Music via window.open / browser.
-   */
   const playUrl = useCallback(
     (url, initialTrack = null) => {
       const match = String(url || '').match(/[?&]v=([^&]+)/)
@@ -203,10 +175,10 @@ export const YoutubeMusicProvider = ({ children }) => {
       }
       return playTrack({
         id,
-        title: initialTrack?.title || 'Lagu',
-        artist: initialTrack?.artist || '',
+        title: initialTrack?.title || 'Lagu Pilihan',
+        artist: initialTrack?.artist || 'YouTube Music',
         duration: initialTrack?.duration || '',
-        thumbnail: initialTrack?.thumbnail || ''
+        thumbnail: initialTrack?.thumbnail || (id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : '')
       })
     },
     [playTrack]
@@ -219,7 +191,7 @@ export const YoutubeMusicProvider = ({ children }) => {
       const cur = currentRef.current
       let i = q.findIndex((x) => x.id === cur?.id)
       i = i < 0 ? 0 : i + dir
-      if (i >= q.length) i = 0 // wrap-around: cocok utk sesi chill
+      if (i >= q.length) i = 0
       if (i < 0) i = q.length - 1
       playTrack(q[i])
     },
@@ -249,7 +221,6 @@ export const YoutubeMusicProvider = ({ children }) => {
 
   const togglePlayer = useCallback(() => setIsPlayerOpen((prev) => !prev), [])
 
-  // Compat: string watch URL lagu terakhir (ada konsumen lama yang membaca ini).
   const musicUrl = current.id ? `https://music.youtube.com/watch?v=${current.id}` : 'https://music.youtube.com'
 
   const value = {
@@ -272,21 +243,19 @@ export const YoutubeMusicProvider = ({ children }) => {
   return (
     <YoutubeMusicContext.Provider value={value}>
       {children}
-      {/* Host player audio-only: tetap hidup walau panel ditutup.
-          allow attribute penting untuk autoplay + encrypted-media di WebKitGTK/Linux. */}
+      {/* Host IFrame Embedded audio player: selalu aktif di background aplikasi tanpa popup OS */}
       <div
         aria-hidden="true"
         style={{
           position: 'fixed',
-          width: 1,
-          height: 1,
+          width: '1px',
+          height: '1px',
           overflow: 'hidden',
-          left: -9999,
-          bottom: 0,
+          left: '-9999px',
+          bottom: '0',
           pointerEvents: 'none',
           opacity: 0.01
         }}
-        allow="autoplay; encrypted-media; fullscreen"
       >
         <div ref={hostRef} />
       </div>

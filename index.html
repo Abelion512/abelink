@@ -16,7 +16,7 @@
          img-src tanpa http wildcard. Policy produksi juga diset di tauri.conf.json. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; script-src 'self' 'wasm-unsafe-eval' blob: https://www.youtube.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost blob: data: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://*; object-src 'none'; base-uri 'self'"
+      content="default-src 'self'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; script-src 'self' 'wasm-unsafe-eval' blob: https://www.youtube.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; media-src 'self' data: blob: https://*.googlevideo.com https://*.youtube.com https:; connect-src 'self' ipc: http://ipc.localhost blob: data: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://*; object-src 'none'; base-uri 'self'"
     />
   </head>
 

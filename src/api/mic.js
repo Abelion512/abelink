@@ -6,7 +6,7 @@
 // 2. Gagal getUserMedia meledak berulang (warn x5 + alert blocking).
 //    Solusi: cooldown global 60 detik; selama cooldown, caller diam.
 let lastFailAt = 0
-const COOLDOWN_MS = 60000
+const COOLDOWN_MS = 4000
 
 export function micCoolingDown() {
   return Date.now() - lastFailAt < COOLDOWN_MS
@@ -14,6 +14,10 @@ export function micCoolingDown() {
 
 export function noteMicFailure() {
   lastFailAt = Date.now()
+}
+
+export function resetMicFailure() {
+  lastFailAt = 0
 }
 
 export async function resolveMicConstraints(savedId, audioSettings = {}) {

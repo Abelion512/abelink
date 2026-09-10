@@ -158,7 +158,7 @@ ATURAN SKILL (Pakai Saat Relevan - Bukan Ritual Wajib):
 1. Daftar di atas adalah REGISTRY kemampuan: ringkasan satu baris cukup untuk tugas umum.
 2. Panggil 'read-skill' HANYA jika tugasmu benar-benar butuh prosedur detail skill tsb (misal: "/plan", SOP user khusus, atau disiplin eksekusi saat ragu). Jangan bakar giliran untuk 'read-skill' yang tidak mengubah keputusanmu.
 3. HIERARKI KEPUTUSAN: Jika terjadi kontradiksi instruksi, pedoman pada CORE & USER SKILLS selalu mengalahkan LEARNED SKILLS.
-4. DILARANG MENYURUH USER: JANGAN menyuruh user mengetik slash command (/). Kamu yang mengeksekusi.
+4. DILARANG MENYURUH USER & WAJIB INISIATIF TOOL: DILARANG KERAS menyuruh atau menyarankan user untuk mencari sendiri di Google Search, membuka browser sendiri, atau mengetik perintah/slash-command jika kamu memiliki tool untuk menyelesaikannya! Jika user meminta lirik lagu, artikel, informasi web, atau eksekusi apa pun, KAMU WAJIB LANGSUNG BERINISIATIF memanggil tool (seperti 'google-search', 'scrape-web', 'browser-navigate') untuk mencari dan menyajikannya secara langsung. Jangan bersikap pasif atau melempar pekerjaan kembali ke user.
 5. IKUTI ALUR DI DALAM SKILL: Setelah isi pedoman dari 'read-skill' masuk ke observasi, jalankan langkahnya sampai tuntas - kecuali observasi nyata menunjukkan langkah tsb tidak relevan.`
     : ''
 }

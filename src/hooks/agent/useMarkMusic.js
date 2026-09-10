@@ -1,4 +1,5 @@
 import { getBestMusicMatch } from '../../api/ai/tools'
+import { db, insertMemory } from '../../api/db'
 
 export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools) => {
   const { playUrl, nextTrack, prevTrack, playPause } = youtubeMusicTools
@@ -9,8 +10,35 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
     if (action === 'music-prev') { prevTrack(); return 'Memutar lagu sebelumnya.' }
     if (action === 'music-toggle') { playPause(); return 'Pause/Resume lagu.' }
 
-    targetSet((prev) => [...prev, { role: 'ai', content: 'Mencari lagu...', isSearchingMusic: true }])
-    const music = await window.api.searchMusic(query)
+    let effectiveQuery = (query || '').trim()
+
+    // Self-improvement (Hermes-style): Resolve vague preference queries from memory
+    const isVagueQuery = !effectiveQuery || /^(lagu favorit|musik favorit|lagu kesukaan|musik kesukaan|lagu santai|musik santai|lagu biasa|musik biasa|favorit|kesukaan|biasa|bebas|apa aja)$/i.test(effectiveQuery)
+    if (isVagueQuery) {
+      try {
+        const savedMusic = await db.memory
+          .where('type')
+          .equals('preference')
+          .filter(m => m.summary === 'Music Preference')
+          .reverse()
+          .toArray()
+
+        if (savedMusic.length > 0) {
+          // Ambil referensi lagu yang paling sering atau terakhir diputar
+          const randomSaved = savedMusic[Math.floor(Math.random() * Math.min(savedMusic.length, 3))]
+          const match = randomSaved.memory.match(/"([^"]+)"/)
+          if (match && match[1]) {
+            effectiveQuery = match[1]
+          }
+        }
+      } catch (err) {
+        console.warn('[useMarkMusic] Error retrieving saved music preferences:', err)
+      }
+      if (!effectiveQuery) effectiveQuery = 'lofi hip hop radio'
+    }
+
+    targetSet((prev) => [...prev, { role: 'ai', content: `Mencari lagu "${effectiveQuery}"...`, isSearchingMusic: true }])
+    const music = await window.api.searchMusic(effectiveQuery)
     const isAutoplay = action === 'music-play'
 
     let selectedMusicList = [...music]
@@ -22,7 +50,7 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
         { role: 'ai', content: 'Menganalisis versi lagu terbaik...', isSearchingMusic: true }
       ])
       
-      const bestMatch = await getBestMusicMatch(query, music.slice(0, 10), abortControllerRef.current?.signal)
+      const bestMatch = await getBestMusicMatch(effectiveQuery, music.slice(0, 10), abortControllerRef.current?.signal)
       if (bestMatch && bestMatch.selectedId) {
         selectedId = bestMatch.selectedId
         const found = music.find((m) => m.id === selectedId)
@@ -42,10 +70,10 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
         ...prev.filter((item) => !item.isSearchingMusic),
         {
           role: 'ai',
-          content: `Hasil Pencarian Lagu untuk "${query}": \n ${music.map((item) => item.title).join('\n')}`,
+          content: `Hasil Pencarian Lagu untuk "${effectiveQuery}": \n ${music.map((item) => item.title).join('\n')}`,
           isMusic: true,
           isMusicAutoplay: false,
-          musicQuery: query,
+          musicQuery: effectiveQuery,
           musicList: [...music]
         }
       ])
@@ -55,11 +83,35 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
 
     if (isAutoplay && selectedId) {
       playUrl(`https://music.youtube.com/watch?v=${selectedId}`, selectedMusicList[0])
+
+      // Self-improvement (Hermes-style): Persist song preference automatically
+      try {
+        const trackTitle = selectedMusicList[0]?.title
+        const trackArtist = selectedMusicList[0]?.artist || ''
+        if (trackTitle) {
+          const existing = await db.memory
+            .where('type')
+            .equals('preference')
+            .filter(m => m.summary === 'Music Preference' && m.memory.includes(trackTitle))
+            .first()
+
+          if (!existing) {
+            await insertMemory({
+              type: 'preference',
+              summary: 'Music Preference',
+              memory: `Pengguna menyukai lagu: "${trackTitle}" oleh ${trackArtist}.`
+            })
+          }
+        }
+      } catch (memErr) {
+        console.warn('[useMarkMusic] Gagal persist music memory:', memErr)
+      }
+
       return `[SYSTEM LOG] Berhasil memutar lagu: ${selectedMusicList[0].title} oleh ${selectedMusicList[0].artist}`
     }
 
     const resultText = music.slice(0, 5).map(m => `${m.title} oleh ${m.artist}`).join(', ')
-    return `[SYSTEM LOG] Hasil pencarian lagu untuk "${query}": ${resultText}`
+    return `[SYSTEM LOG] Hasil pencarian lagu untuk "${effectiveQuery}": ${resultText}`
   }
 
 

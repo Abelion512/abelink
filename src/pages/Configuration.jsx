@@ -29,7 +29,8 @@ import {
   FaPlus,
   FaArrowUp,
   FaArrowDown,
-  FaMicrophone
+  FaMicrophone,
+  FaHeartbeat
 } from 'react-icons/fa'
 import {
   getAllMemory,
@@ -105,7 +106,7 @@ const ConfigCameraPreview = ({ deviceId, enabled }) => {
         <p className="text-xs opacity-60 text-center px-4">{camError}</p>
       ) : (
         <>
-          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
           <div className="absolute top-2 left-2 flex items-center gap-2 px-2 py-1 bg-black/60 rounded text-xs font-mono text-white backdrop-blur-md">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
             Live Preview
@@ -1366,158 +1367,25 @@ const Configuration = ({
                 </div>
               </div>
 
-              {/* Card 2: Persona & Writing Style Presets */}
-              <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
-                <div>
+              {/* Card 2: Relational Growth Bridge */}
+              <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-1">
                   <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-                    <FaRobot className="text-primary" size={14} />
-                    Kloning Gaya Bicara &amp; Persona
+                    <FaHeartbeat className="text-primary" size={14} />
+                    Dinamika Relasi, Emosi &amp; Persona
                   </h3>
+                  <p className="text-xs text-white/50 leading-relaxed">
+                    Evolusi kepribadian, level sarkasme, empati, kepercayaan, dan kepatuhan dikelola secara sentral di halaman Relational Growth.
+                  </p>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {[
-                    {
-                      id: 'digital-twin',
-                      name: 'Digital Twin',
-                      badge: 'Clone Mode',
-                      icon: FaUser
-                    },
-                    {
-                      id: 'jarvis',
-                      name: 'Jarvis Protocol',
-                      badge: 'Executive',
-                      icon: FaRobot
-                    },
-                    {
-                      id: 'cynical-partner',
-                      name: 'Cynical Partner',
-                      badge: 'Data-Driven',
-                      icon: FaTerminal
-                    },
-                    {
-                      id: 'autonomous-engineer',
-                      name: 'Autonomous Engineer',
-                      badge: 'Superpowers',
-                      icon: FaCubes
-                    },
-                    {
-                      id: 'casual-buddy',
-                      name: 'Teman Akrab',
-                      badge: 'Companion',
-                      icon: FaSmile
-                    },
-                    {
-                      id: 'custom',
-                      name: 'Kustom Mandiri',
-                      badge: 'Manual',
-                      icon: FaSlidersH
-                    }
-                  ].map((preset) => {
-                    const IconComponent = preset.icon
-                    const isSelected = (config.personaPreset || 'cynical-partner') === preset.id
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => handlePresetSelect(preset.id)}
-                        className={`text-left p-3 rounded-xl border transition-all flex items-center justify-between gap-2 ${
-                          isSelected
-                            ? 'bg-primary/15 border-primary/40 shadow-sm'
-                            : 'bg-base-100/50 border-white/5 hover:border-white/15 hover:bg-base-100/80'
-                        }`}
-                      >
-                        <span className="text-xs font-semibold text-white/90 flex items-center gap-2">
-                          <IconComponent className={isSelected ? 'text-primary' : 'text-white/40'} size={13} />
-                          {preset.name}
-                        </span>
-                        <span
-                          className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md ${
-                            isSelected
-                              ? 'bg-primary/30 text-primary-content font-bold'
-                              : 'bg-white/5 text-white/40'
-                          }`}
-                        >
-                          {preset.badge}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Card 3: Relational Growth Trait Dials */}
-              <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-                    <FaSlidersH className="text-primary" size={13} />
-                    Dinamika Relasi &amp; Emosi
-                  </h3>
-                </div>
-
-                <div className="space-y-3.5 pt-1">
-                  {[
-                    {
-                      key: 'sarcasm_level',
-                      name: 'Level Sarkasme & Roasting',
-                      icon: FaFire,
-                      color: 'text-orange-400'
-                    },
-                    {
-                      key: 'warmth',
-                      name: 'Empati & Kehangatan',
-                      icon: FaHeart,
-                      color: 'text-pink-400'
-                    },
-                    {
-                      key: 'trust',
-                      name: 'Kepercayaan Relasional',
-                      icon: FaShieldAlt,
-                      color: 'text-emerald-400'
-                    },
-                    {
-                      key: 'energy',
-                      name: 'Energi & Proaktivitas',
-                      icon: FaBolt,
-                      color: 'text-amber-400'
-                    },
-                    {
-                      key: 'obedience',
-                      name: 'Kepatuhan Instruksi',
-                      icon: FaRobot,
-                      color: 'text-blue-400'
-                    }
-                  ].map((trait) => {
-                    const TraitIcon = trait.icon
-                    const val = (relationship && relationship[trait.key]) ?? 0.5
-                    const percent = Math.round(val * 100)
-                    return (
-                      <div
-                        key={trait.key}
-                        className="p-3 rounded-xl bg-base-100/40 border border-white/5 space-y-2"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <TraitIcon className={trait.color} size={13} />
-                            <span className="text-xs font-semibold text-white/80">{trait.name}</span>
-                          </div>
-                          <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-lg">
-                            {percent}%
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={val}
-                          className="range range-primary range-xs w-full"
-                          onChange={(e) => handleTraitChange(trait.key, parseFloat(e.target.value))}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/relational')}
+                  className="btn btn-sm btn-primary rounded-xl shrink-0 gap-2 font-medium"
+                >
+                  <FaSlidersH size={12} />
+                  Buka Relational Growth
+                </button>
               </div>
 
               {/* Card 4: System Directives Prompt */}
