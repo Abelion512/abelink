@@ -12,6 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # gitleaks-action memanggil GET /pulls/{n}/commits pada event
+      # pull_request (ScanPullRequest) — tanpa ini 403 dan job merah
+      # padahal tidak ada secret yang bocor.
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
