@@ -6,9 +6,20 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
 
   const handleMusic = async (action, query, customSetChatData) => {
     const targetSet = customSetChatData || setChatData
-    if (action === 'music-next') { nextTrack(); return 'Memutar lagu selanjutnya.' }
-    if (action === 'music-prev') { prevTrack(); return 'Memutar lagu sebelumnya.' }
-    if (action === 'music-toggle') { playPause(); return 'Pause/Resume lagu.' }
+    // Return value engine itu JUJUR sekarang: false/null = player belum siap/gagal.
+    // Jangan pernah laporkan sukses palsu ke AI — itu yang bikin user kira musik nyala.
+    if (action === 'music-next') {
+      return nextTrack() ? 'Memutar lagu selanjutnya.' : '[SYSTEM LOG] Antrean kosong — tidak ada lagu berikutnya.'
+    }
+    if (action === 'music-prev') {
+      return prevTrack() ? 'Memutar lagu sebelumnya.' : '[SYSTEM LOG] Antrean kosong — tidak ada lagu sebelumnya.'
+    }
+    if (action === 'music-toggle') {
+      const state = playPause()
+      if (state === 'playing') return 'Lagu dilanjutkan.'
+      if (state === 'paused') return 'Lagu dijeda.'
+      return '[SYSTEM LOG] Engine pemutar musik belum siap — coba lagi sebentar atau putar ulang lagunya.'
+    }
 
     let effectiveQuery = (query || '').trim()
 
@@ -82,7 +93,11 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
     }
 
     if (isAutoplay && selectedId) {
-      playUrl(`https://music.youtube.com/watch?v=${selectedId}`, selectedMusicList[0])
+      const started = playUrl(`https://music.youtube.com/watch?v=${selectedId}`, selectedMusicList[0])
+      if (!started) {
+        targetSet((prev) => prev.filter((item) => !item.isSearchingMusic))
+        return `[SYSTEM LOG] GAGAL memutar lagu: engine pemutar musik belum siap. Laporkan ke user bahwa musik tidak bisa diputar saat ini.`
+      }
 
       // Self-improvement (Hermes-style): Persist song preference automatically
       try {

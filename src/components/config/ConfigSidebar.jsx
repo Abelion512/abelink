@@ -11,7 +11,7 @@ import {
 
 // IA: General → Personalization → Model → Voice & Video →
 // Capabilities → Shortcuts → Data Controls / Developer.
-// Ekspor sections untuk kontrak test (tests/configSidebar.test.js).
+// Ekspor sections untuk kontrak test (tests/configCapabilities.test.js).
 export const sections = [
   { id: 'cfg-general', label: 'General', icon: FaCog },
   { id: 'cfg-personalization', label: 'Personalization', icon: FaUserCog },
@@ -26,15 +26,43 @@ export const sectionsLogged = [
   { id: 'cfg-developer', label: 'Developer', icon: FaCode }
 ]
 
-export default function ConfigSidebar({ isFirstSetup = false, activeSection, onNavigate }) {
-  const allSections = isFirstSetup ? sections : [...sections, ...sectionsLogged]
+const IT_KEYWORDS = [
+  'software',
+  'developer',
+  'devops',
+  'data scientist',
+  'programmer',
+  'sysadmin',
+  'engineer',
+  'researcher',
+  'it'
+]
+
+export const isItDomain = (occ) => {
+  if (!occ || typeof occ !== 'string') return false
+  const lower = occ.toLowerCase().trim()
+  return IT_KEYWORDS.some((kw) => lower.includes(kw))
+}
+
+export default function ConfigSidebar({
+  isFirstSetup = false,
+  activeSection,
+  onNavigate,
+  occupation = '',
+  isDevMode = false
+}) {
+  const showDev = isDevMode || isItDomain(occupation)
+  const filteredLogged = showDev
+    ? sectionsLogged
+    : sectionsLogged.filter((s) => s.id !== 'cfg-developer')
+
+  const allSections = isFirstSetup ? sections : [...sections, ...filteredLogged]
   const activeIdx = Math.max(
     0,
     allSections.findIndex((s) => s.id === activeSection)
   )
 
   const handleKeyDown = (e) => {
-    // Enter/Space tidak perlu ditangani: tombol punya fokus DOM asli, aktivasi native.
     if (e.key === 'ArrowDown' || e.key === 'j') {
       e.preventDefault()
       onNavigate(allSections[Math.min(activeIdx + 1, allSections.length - 1)].id)
@@ -65,12 +93,11 @@ export default function ConfigSidebar({ isFirstSetup = false, activeSection, onN
               role="tab"
               aria-selected={isActive}
               onClick={() => onNavigate(sec.id)}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-left transition-all duration-150 cursor-pointer
-                ${
-                  isActive
-                    ? 'bg-white/10 text-white shadow-sm font-semibold border border-white/10'
-                    : 'text-white/50 hover:text-white/90 hover:bg-white/[0.04] border border-transparent'
-                }`}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-left transition-all duration-150 cursor-pointer ${
+                isActive
+                  ? 'bg-white/10 text-white shadow-sm font-semibold border border-white/10'
+                  : 'text-white/50 hover:text-white/90 hover:bg-white/[0.04] border border-transparent'
+              }`}
             >
               <Icon size={14} className={isActive ? 'text-primary' : 'opacity-40'} />
               <span className="truncate">{sec.label}</span>

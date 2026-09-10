@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 
 /**
@@ -16,8 +16,16 @@ export const YoutubeMusicPlayer = () => {
     nextTrack,
     prevTrack,
     playUrl,
-    playPause
+    playPause,
+    playbackError
   } = useYoutubeMusic()
+
+  // Thumbnail YT Music (lh3.googleusercontent) sering 429 (rate limit).
+  // Gagal -> fallback ke thumbnail default img.youtube.com -> gagal lagi -> placeholder.
+  const [thumbFailed, setThumbFailed] = useState(false)
+  useEffect(() => {
+    setThumbFailed(false)
+  }, [currentTrack.id, currentTrack.thumbnail])
 
   // Ref agar listener IPC selalu memanggil versi fungsi terbaru
   const playUrlRef = useRef(playUrl)
@@ -94,8 +102,21 @@ export const YoutubeMusicPlayer = () => {
           {/* Metadata + kontrol */}
           <div className="p-4 space-y-3">
             <div className="flex items-center gap-3">
-              {currentTrack.thumbnail ? (
-                <img src={currentTrack.thumbnail} alt="" className="w-14 h-14 rounded-lg object-cover border border-white/10" />
+              {currentTrack.thumbnail && !thumbFailed ? (
+                <img
+                  src={currentTrack.thumbnail}
+                  alt=""
+                  onError={(e) => {
+                    const img = e.currentTarget
+                    const fallback = currentTrack.id ? `https://img.youtube.com/vi/${currentTrack.id}/hqdefault.jpg` : ''
+                    if (fallback && !img.src.includes('img.youtube.com')) {
+                      img.src = fallback
+                    } else {
+                      setThumbFailed(true)
+                    }
+                  }}
+                  className="w-14 h-14 rounded-lg object-cover border border-white/10"
+                />
               ) : (
                 <div className="w-14 h-14 rounded-lg bg-base-200 border border-white/5 flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="white" className="opacity-40">
@@ -126,6 +147,12 @@ export const YoutubeMusicPlayer = () => {
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
               </button>
             </div>
+
+            {playbackError && (
+              <p className="text-[11px] text-red-400/90 leading-snug bg-red-500/10 rounded-md px-2 py-1.5 border border-red-500/20">
+                {playbackError}
+              </p>
+            )}
 
             <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/40">
               <span className="truncate">Pemutar Musik Internal</span>

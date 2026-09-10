@@ -6,58 +6,78 @@ import { db, insertMemory, getAllConfig } from '../api/db'
  *
  * Murni embedded di dalam antarmuka aplikasi tanpa jendela popup OS eksternal:
  * - Audio dimainkan langsung via embedded YouTube Player API terisolasi.
- * - Riwayat pemutaran otomatis disinkronkan ke Last.fm & dipelajari ke Dexie db.memory.
- * - Kontrol playback lengkap (play, pause, next, prev, jump, volume).
+ * - Riwayat pemutaran otomatis dipelajari ke Dexie db.memory.
+ * - Kontrol playback lengkap (play, pause, next, prev, jump).
+ *
+ * Kontrak stabil untuk konsumen (useMarkMusic, YoutubeMusicPlayer, MarkHome):
+ * - playUrl(watchUrl, initialTrack) -> boolean nyata (false = gagal, bukan no-op sunyi)
+ * - nextTrack / prevTrack -> boolean
+ * - playPause() -> 'playing' | 'paused' | null (null = engine tidak siap)
+ * - pauseTrack / resumeTrack -> boolean
+ * - playbackError: string|null — pesan error terakhir dari engine (mis. embed blocked)
  */
 
 const YoutubeMusicContext = createContext()
 
+// ---------------------------------------------------------------- YT IFrame API loader
+// Deterministik: pasang window.onYouTubeIframeAPIReady SEBELUM inject script,
+// inject sekali saja, dan resolve via polling window.YT (API boleh set window.YT
+// tanpa memanggil callback kita jika callback dipasang terlambat).
 let ytApiPromise = null
-let ytApiLoadAttempts = 0
-const MAX_YT_API_ATTEMPTS = 3
-const YT_API_RETRY_DELAY = 2000
-const YT_API_TIMEOUT = 5000
 
 function loadYTApi() {
   if (ytApiPromise) return ytApiPromise
 
   ytApiPromise = new Promise((resolve, reject) => {
-    const attemptLoad = (attempt) => {
-      ytApiLoadAttempts = attempt
-      if (window.YT && window.YT.Player) return resolve(window.YT)
+    const API_URL = 'https://www.youtube.com/iframe_api'
+    const INJECT_TIMEOUT_MS = 15000
+    const POLL_MS = 100
 
-      if (attempt >= MAX_YT_API_ATTEMPTS) {
-        const timeoutId = setTimeout(() => {
-          if (!window.YT || !window.YT.Player) {
-            console.error('[YouTubeMusic] API load timeout')
-            reject(new Error('YouTube IFrame API load timeout'))
-          }
-        }, YT_API_TIMEOUT)
+    // Guard dedup: retry lama meninggalkan banyak tag <script> iframe_api duplikat
+    // saat attempt ladder; YouTube juga bisa resolve callback lama, bukan milik kita.
+    let existing = document.querySelector(`script[src="${API_URL}"]`)
+    if (existing && window.YT && window.YT.Player) {
+      resolve(window.YT)
+      return
+    }
+    if (!existing) {
+      existing = document.createElement('script')
+      existing.src = API_URL
+      existing.async = true
+      existing.onerror = () => {
+        ytApiPromise = null // biarkan pemanggil berikutnya retry
+        reject(new Error('YouTube IFrame API script gagal dimuat (network/CSP)'))
+      }
+      document.head.appendChild(existing)
+    }
 
-        const prev = window.onYouTubeIframeAPIReady
-        window.onYouTubeIframeAPIReady = () => {
-          clearTimeout(timeoutId)
-          if (typeof prev === 'function') prev()
-          resolve(window.YT)
-        }
-        injectScript()
+    // Pasang callback GLOBAL sebelum script selesai load. Jika API sudah load
+    // tanpa memanggil callback (callback dipasang terlambat), polling menangkapnya.
+    const prev = window.onYouTubeIframeAPIReady
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof prev === 'function') {
+        try {
+          prev()
+        } catch (_) {}
+      }
+      resolve(window.YT)
+    }
+
+    const startedAt = Date.now()
+    const poll = setInterval(() => {
+      if (window.YT && window.YT.Player) {
+        clearInterval(poll)
+        resolve(window.YT)
         return
       }
-
-      setTimeout(() => attemptLoad(attempt + 1), YT_API_RETRY_DELAY)
-    }
-
-    const injectScript = () => {
-      const script = document.createElement('script')
-      script.src = 'https://www.youtube.com/iframe_api'
-      script.async = true
-      script.onerror = () => {}
-      document.head.appendChild(script)
-    }
-
-    injectScript()
-    attemptLoad(1)
+      if (Date.now() - startedAt > INJECT_TIMEOUT_MS) {
+        clearInterval(poll)
+        ytApiPromise = null
+        reject(new Error('YouTube IFrame API load timeout (15s)'))
+      }
+    }, POLL_MS)
   })
+
   return ytApiPromise
 }
 
@@ -67,10 +87,12 @@ export const YoutubeMusicProvider = ({ children }) => {
   const [playId, setPlayId] = useState(0)
   const [current, setCurrent] = useState({ id: '', title: '', artist: '', duration: '', thumbnail: '' })
   const [queue, setQueue] = useState([])
+  const [playbackError, setPlaybackError] = useState(null)
 
   const playerRef = useRef(null)
   const readyRef = useRef(false)
   const pendingPlayRef = useRef(null)
+  const initFailedRef = useRef(false)
   const queueRef = useRef([])
   const currentRef = useRef(current)
 
@@ -82,49 +104,98 @@ export const YoutubeMusicProvider = ({ children }) => {
   }, [current])
 
   const hostRef = useRef(null)
+  // Boot player sekali. StrictMode double-mount aman: pemanggilan kedua loadYTApi()
+  // reuse promise yang sama, dan instance player yang dibuat pada unmount pertama
+  // DIBUANG (discard) agar tidak menimpa playerRef milik mount aktif.
   useEffect(() => {
-    if (playerRef.current || !hostRef.current) return
+    if (playerRef.current) return
+    let cancelled = false
+    const host = hostRef.current
+    if (!host) return
+
     loadYTApi()
       .then((YT) => {
-        if (!hostRef.current) return
-        playerRef.current = new YT.Player(hostRef.current, {
-          height: '100',
-          width: '160',
-          playerVars: {
-            autoplay: 1,
-            rel: 0,
-            origin: window.location.origin
-          },
-          events: {
-            onReady: (e) => {
-              readyRef.current = true
-              if (pendingPlayRef.current) {
-                e.target.loadVideoById(pendingPlayRef.current)
-                pendingPlayRef.current = null
-                setIsPlaying(true)
-              }
+        if (cancelled || !hostRef.current || playerRef.current) return
+        try {
+          playerRef.current = new YT.Player(hostRef.current, {
+            height: '100',
+            width: '160',
+            // TANPA autoplay: player boot kosong (belum ada videoId). autoplay:1
+            // pada player kosong membuat YT menolaknya dengan onError(2)
+            // "Video ID tidak valid" di log setiap boot. loadVideoById +
+            // playVideo() eksplisit di loadIntoPlayer sudah memulai pemutaran.
+            playerVars: {
+              rel: 0,
+              origin: window.location.origin || undefined
             },
-            onStateChange: (e) => {
-              setIsPlaying(e.data === 1)
+            events: {
+              onReady: (e) => {
+                if (cancelled) return
+                readyRef.current = true
+                if (pendingPlayRef.current) {
+                  e.target.loadVideoById(pendingPlayRef.current)
+                  pendingPlayRef.current = null
+                }
+              },
+              onStateChange: (e) => {
+                if (cancelled) return
+                setIsPlaying(e.data === 1)
+              },
+              onError: (e) => {
+                if (cancelled) return
+                const REASONS = {
+                  2: 'Video ID tidak valid.',
+                  5: 'HTML5 player error.',
+                  100: 'Video tidak ditemukan atau sudah dihapus.',
+                  101: 'Video melarang pemutaran embedded — coba lagu lain.',
+                  150: 'Video melarang pemutaran embedded — coba lagu lain.'
+                }
+                const msg = REASONS[e?.data] || `Player error ${e?.data ?? '?'}`
+                console.error('[MusicEngine]', msg)
+                setIsPlaying(false)
+                setPlaybackError(msg)
+              }
             }
-          }
-        })
+          })
+        } catch (err) {
+          console.error('[MusicEngine] Gagal membuat player IFrame:', err?.message || err)
+        }
       })
-      .catch((err) => console.error('[MusicEngine] Gagal inisialisasi IFrame:', err.message))
+      .catch((err) => {
+        initFailedRef.current = true
+        if (!cancelled) console.error('[MusicEngine] Gagal inisialisasi IFrame:', err.message)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
+  // Renderer tidak memiliki cara patuh autoplay tanpa gesture di WebKitGTK;
+  // playVideo() setelah loadVideoById cukup karena WebKitGTK di-set
+  // media_playback_requires_user_gesture(false) di Rust shell (lib.rs).
   const loadIntoPlayer = useCallback((videoId) => {
-    if (playerRef.current?.loadVideoById && readyRef.current) {
-      playerRef.current.loadVideoById(videoId)
+    const p = playerRef.current
+    if (p?.loadVideoById && readyRef.current) {
+      setPlaybackError(null)
+      p.loadVideoById(videoId)
+      p.playVideo?.()
       setIsPlaying(true)
     } else {
       pendingPlayRef.current = videoId
+      setPlaybackError(null)
     }
   }, [])
 
   const playTrack = useCallback(
     (item) => {
       if (!item?.id) return false
+      // Engine mati total (API gagal dimuat) -> gagal eksplisit, JANGAN pura-pura
+      // mengantrikan lagu yang tidak akan pernah diputar.
+      if (initFailedRef.current) {
+        console.error('[MusicEngine] playTrack ditolak: engine gagal inisialisasi.')
+        return false
+      }
       currentRef.current = item
       setCurrent(item)
       setQueue((q) => (q.some((x) => x.id === item.id) ? q : [...q, item]))
@@ -139,25 +210,27 @@ export const YoutubeMusicProvider = ({ children }) => {
 
       // Auto-memory learning preferensi musik
       if (item.title) {
-        getAllConfig().then((cfg) => {
-          if (cfg[0]?.aiAutoLearn !== false) {
-            db.memory
-              .where('type')
-              .equals('preference')
-              .filter((m) => m.summary === 'Music Preference' && m.memory.includes(item.title))
-              .first()
-              .then((existing) => {
-                if (!existing) {
-                  insertMemory({
-                    type: 'preference',
-                    summary: 'Music Preference',
-                    memory: `Pengguna mendengarkan musik: "${item.title}" oleh ${item.artist || 'Various Artists'}.`
-                  }).catch(console.error)
-                }
-              })
-              .catch(console.error)
-          }
-        })
+        getAllConfig()
+          .then((cfg) => {
+            if (cfg[0]?.aiAutoLearn !== false) {
+              db.memory
+                .where('type')
+                .equals('preference')
+                .filter((m) => m.summary === 'Music Preference' && m.memory.includes(item.title))
+                .first()
+                .then((existing) => {
+                  if (!existing) {
+                    insertMemory({
+                      type: 'preference',
+                      summary: 'Music Preference',
+                      memory: `Pengguna mendengarkan musik: "${item.title}" oleh ${item.artist || 'Various Artists'}.`
+                    }).catch(console.error)
+                  }
+                })
+                .catch(console.error)
+            }
+          })
+          .catch(console.error)
       }
 
       return true
@@ -187,13 +260,14 @@ export const YoutubeMusicProvider = ({ children }) => {
   const jump = useCallback(
     (dir) => {
       const q = queueRef.current
-      if (q.length === 0) return
+      if (q.length === 0) return false
       const cur = currentRef.current
       let i = q.findIndex((x) => x.id === cur?.id)
       i = i < 0 ? 0 : i + dir
       if (i >= q.length) i = 0
       if (i < 0) i = q.length - 1
       playTrack(q[i])
+      return true
     },
     [playTrack]
   )
@@ -201,23 +275,29 @@ export const YoutubeMusicProvider = ({ children }) => {
   const nextTrack = useCallback(() => jump(1), [jump])
   const prevTrack = useCallback(() => jump(-1), [jump])
 
-  const playerCommand = useCallback((fn) => {
+  // Bukan no-op sunyi lagi: null berarti engine belum siap — konsumen bisa
+  // melaporkan kegagalan ke user/AI alih-alih pura-pura sukses.
+  const withPlayer = useCallback((fn) => {
     const p = playerRef.current
-    if (!p || !readyRef.current) return
-    if (typeof p.playVideo !== 'function' || typeof p.pauseVideo !== 'function') return
-    fn(p)
+    if (!p || !readyRef.current) return null
+    if (typeof p.playVideo !== 'function' || typeof p.pauseVideo !== 'function') return null
+    return fn(p)
   }, [])
 
   const playPause = useCallback(() => {
-    playerCommand((p) => {
+    return withPlayer((p) => {
       const state = typeof p.getPlayerState === 'function' ? p.getPlayerState() : null
-      if (state === 1) p.pauseVideo()
-      else p.playVideo()
+      if (state === 1) {
+        p.pauseVideo()
+        return 'paused'
+      }
+      p.playVideo()
+      return 'playing'
     })
-  }, [playerCommand])
+  }, [withPlayer])
 
-  const pauseTrack = useCallback(() => playerCommand((p) => p.pauseVideo()), [playerCommand])
-  const resumeTrack = useCallback(() => playerCommand((p) => p.playVideo()), [playerCommand])
+  const pauseTrack = useCallback(() => withPlayer((p) => (p.pauseVideo(), true)), [withPlayer])
+  const resumeTrack = useCallback(() => withPlayer((p) => (p.playVideo(), true)), [withPlayer])
 
   const togglePlayer = useCallback(() => setIsPlayerOpen((prev) => !prev), [])
 
@@ -237,7 +317,8 @@ export const YoutubeMusicProvider = ({ children }) => {
     prevTrack,
     playPause,
     pauseTrack,
-    resumeTrack
+    resumeTrack,
+    playbackError
   }
 
   return (
