@@ -44,7 +44,7 @@ const initWorker = () => {
   }
 }
 
-export const loadWhisper = async (onProgress) => {
+export const loadWhisper = async (onProgress, modelId) => {
   globalOnProgress = onProgress;
 
   if (isLoaded) return true;
@@ -62,7 +62,7 @@ export const loadWhisper = async (onProgress) => {
   });
   loadPromise.promise = promise;
   
-  worker.postMessage({ type: 'load' });
+  worker.postMessage({ type: 'load', model: modelId || 'whisper-small' });
   
   return promise;
 };

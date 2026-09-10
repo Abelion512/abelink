@@ -1,5 +1,6 @@
 import { getAllConfig } from '../db'
 import { jsonrepair } from 'jsonrepair'
+import { stripImageContent, stripDataUrls } from './contextCompactor'
 import { resolveEffortLevel, SYSTEM_DEFAULT_EFFORT } from './effortEstimator'
 import { EffortLevel, resolve_effort } from './effortSystem'
 
@@ -90,8 +91,28 @@ export const fetchAI = async (
       console.groupEnd()
     }
 
+    // Guard anti-bloat: gambar hanya dipertahankan di pesan TERAKHIR yang
+    // membawanya; pesan lama + dataURL string disanitasi agar payload raksasa
+    // (~1M token) tidak pernah sampai ke sidecar/provider manapun.
+    let lastImageIdx = -1
+    messages.forEach((m, i) => {
+      if (Array.isArray(m?.content) && m.content.some((p) => p?.type === 'image_url')) {
+        lastImageIdx = i
+      }
+    })
+    const safeMessages = messages.map((m, i) => {
+      if (Array.isArray(m?.content)) {
+        return { ...m, content: stripImageContent(m.content, i === lastImageIdx) }
+      }
+      if (typeof m?.content === 'string' && m.content.length > 2000) {
+        const clean = stripDataUrls(m.content)
+        return clean === m.content ? m : { ...m, content: clean }
+      }
+      return m
+    })
+
     window.api
-      .fetchAI({ messages, config: conf, isSmallTask: smallTask, jsonSchema: schema })
+      .fetchAI({ messages: safeMessages, config: conf, isSmallTask: smallTask, jsonSchema: schema })
       .then((result) => {
         if (hasResolved) return
         hasResolved = true

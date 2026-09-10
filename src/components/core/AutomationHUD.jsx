@@ -3,7 +3,7 @@ import { FaStop, FaCircleNotch } from 'react-icons/fa'
 import { useChat } from '../../contexts/ChatContext'
 
 export default function AutomationHUD() {
-  const { handleStop } = useChat()
+  const { handleStop } = useChat() || {}
   const [activeAutomation, setActiveAutomation] = useState(null)
 
   useEffect(() => {

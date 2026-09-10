@@ -239,6 +239,43 @@ export const listConnectors = () =>
 
 export const getConnector = (id) => CONNECTORS.get(String(id || '')) || null
 
+// ------------------------------------------------- runtime registration (seam)
+// TITIK KONTRIBUSI seam kapabilitas (pola deepseek-harness: definisi +
+// provider + konsumen terpisah): connector eksternal (mis. MCP custom dari UI)
+// didaftarkan saat runtime tanpa patch katalog. Transport 'mcp' berarti
+// eksekusi di-route ke MCP client (Fase F3); sebelum itu execute fail-fast
+// jujur (Lihat executeCapability), tidak pernah sukses palsu.
+export function registerConnector(def = {}) {
+  const id = String(def.id || '').trim()
+  if (!id || /[^a-z0-9_-]/i.test(id)) {
+    throw new Error(`ID connector tidak valid: '${def.id}' (huruf/angka/dash/underscore).`)
+  }
+  const url = String(def.url || '').trim()
+  if (!/^https?:\/\//i.test(url)) {
+    throw new Error(`URL connector '${id}' harus http(s).`)
+  }
+  // Header auth opsional (mis. API key): objek string->string, disimpan di
+  // connections.json 0600 + memori — tidak pernah ke renderer/log.
+  let headers = {}
+  if (def.headers && typeof def.headers === 'object') {
+    for (const [k, v] of Object.entries(def.headers)) {
+      if (typeof k === 'string' && typeof v === 'string' && k && v) headers[k] = v
+    }
+  }
+  const connector = {
+    id,
+    name: String(def.name || id),
+    description: String(def.description || 'Custom MCP Server'),
+    url,
+    headers,
+    transport: 'mcp',
+    scopes: [],
+    actions: {}
+  }
+  CONNECTORS.set(id, connector)
+  return { id, name: connector.name, transport: 'mcp' }
+}
+
 // Action guide ala OpenConnector: schema + scopes + connection identity + contoh.
 export const getActionGuide = (connectorId, actionId) => {
   const c = getConnector(connectorId)

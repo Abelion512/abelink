@@ -5,6 +5,7 @@
 // (native path via Tauri, fallback saveTempFile untuk drop web).
 import { useEffect, useState } from 'react'
 import { FaPaperclip, FaRegImage } from 'react-icons/fa'
+import { listen } from '@tauri-apps/api/event'
 import { extractDroppedItems, extractClipboardFiles } from '../../utils/attachments'
 
 export default function DropAnywhere({ onFilesDropped, enabled = true }) {
@@ -12,6 +13,35 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
 
   useEffect(() => {
     if (!enabled) return
+
+    // Drop native Tauri (file manager OS → webview): HTML5 dataTransfer kosong
+    // di kasus ini, Tauri mengirim event 'tauri://drag-drop' berisi filePaths.
+    // Disatukan ke pintu yang sama (onFilesDropped) agar area mana pun tetap bisa.
+    let unlistenNative = null
+    ;(async () => {
+      try {
+        unlistenNative = await listen('tauri://drag-drop', async (event) => {
+          const paths = event?.payload?.paths ?? []
+          if (!Array.isArray(paths) || paths.length === 0) return
+          const items = await Promise.all(
+            paths.map(async (p) => {
+              const item = { name: String(p).split(/[/\\]/).pop(), path: p, size: 0, type: '' }
+              try {
+                const [size, isDir] = await window.api.statPath(p)
+                item.size = Number(size) || 0
+                item.isDir = !!isDir
+              } catch {
+                // stat gagal — lampirkan tanpa ukuran
+              }
+              return item
+            })
+          )
+          if (items.length > 0) onFilesDropped?.(items)
+        })
+      } catch {
+        // Bukan env Tauri / event tak tersedia — jalur HTML5 di bawah tetap jalan.
+      }
+    })()
 
     let depth = 0
     const hasDropData = (e) => {
@@ -68,6 +98,7 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
     window.addEventListener('drop', onDrop)
     window.addEventListener('paste', onPaste)
     return () => {
+      if (typeof unlistenNative === 'function') unlistenNative()
       window.removeEventListener('dragenter', onEnter)
       window.removeEventListener('dragleave', onLeave)
       window.removeEventListener('dragover', onOver)

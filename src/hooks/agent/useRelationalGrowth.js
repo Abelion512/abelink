@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { getRelationship, saveRelationship, insertMemory } from '../../api/db'
 import { evaluateTraitDrift } from '../../api/ai/relationship'
+import { stripDataUrls } from '../../api/ai/contextCompactor'
 
 export const useRelationalGrowth = ({ chatData }) => {
   const lastEvalChatLenRef = useRef(0)
@@ -31,7 +32,7 @@ export const useRelationalGrowth = ({ chatData }) => {
                   ? `[${new Date(m.timestamp).toLocaleString('id-ID')}] ` 
                   : `[${m.timestamp}] `
               }
-              return `${timeStr}${m.role === 'user' ? 'User' : 'Mark'}: ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`
+              return `${timeStr}${m.role === 'user' ? 'User' : 'Mark'}: ${stripDataUrls(typeof m.content === 'string' ? m.content : '[Gambar terlampir]')}`
             })
             .join('\n')
 

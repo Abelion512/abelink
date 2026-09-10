@@ -1,6 +1,10 @@
 import Dexie from 'dexie'
 import { generateVector } from './vectorLoader'
-import { insertMemoryToOrama, updateMemoryInOrama, deleteMemoryFromOrama } from './oramaStore'
+
+// Lazy (bukan impor statis) agar tidak ada siklus modul db<->oramaStore:
+// oramaStore sudah lazy-import db untuk hydrate; sisi ini simetris.
+const syncMemoryToOrama = (fn, ...args) =>
+  import('./oramaStore').then((m) => m[fn](...args)).catch(console.error)
 
 export const db = new Dexie('mark-db')
 
@@ -192,6 +196,40 @@ db.version(25).stores({
   })
 })
 
+// v26: STT dikunci ke gateway lokal (9router) sebagai primary; Groq hanya cadangan.
+// Sebelumnya primary ikut groqApiKey sehingga primary+fallback dua-duanya Groq.
+db.version(26).upgrade(tx => {
+  return tx.table('config').toCollection().modify(config => {
+    const LOCAL_STT = 'http://127.0.0.1:20128/v1/audio/transcriptions'
+    const GROQ_STT = 'https://api.groq.com/openai/v1/audio/transcriptions'
+    const primaryIsGroq = (config.customSttEndpoint || '').includes('groq')
+    if (primaryIsGroq) {
+      config.customSttEndpoint = LOCAL_STT
+      config.customSttApiKey = ''
+      config.customSttModel = 'selfhosted-stt/whisper-1'
+      if (!config.sttFallbackEndpoint || config.sttFallbackEndpoint === config.customSttEndpoint) {
+        config.sttFallbackEndpoint = GROQ_STT
+        config.sttFallbackApiKey = config.sttFallbackApiKey || config.groqApiKey || ''
+        config.sttFallbackModel = config.sttFallbackModel || 'whisper-large-v3-turbo'
+      }
+      // Bangun ulang koneksi auto (jangan sentuh koneksi custom manual user).
+      const ids = (config.sttConnections || []).map((c) => c?.id)
+      const autoIds = ['conn-primary', 'conn-fallback', 'conn-bootstrap-1', 'conn-bootstrap-2', 'conn-default-1']
+      if (ids.length === 0 || ids.every((id) => autoIds.includes(id))) {
+        config.sttConnections = [
+          { id: 'conn-primary', name: 'Local Gateway (127.0.0.1:20128)', endpoint: LOCAL_STT, apiKey: '', model: 'selfhosted-stt/whisper-1', enabled: true },
+          { id: 'conn-fallback', name: 'Groq Whisper (cadangan)', endpoint: GROQ_STT, apiKey: config.sttFallbackApiKey || config.groqApiKey || '', model: 'whisper-large-v3-turbo', enabled: true }
+        ]
+      }
+    } else {
+      if (config.customSttEndpoint === undefined) config.customSttEndpoint = LOCAL_STT
+      if (config.sttFallbackEndpoint === undefined) {
+        config.sttFallbackEndpoint = config.groqApiKey ? GROQ_STT : ''
+      }
+    }
+  })
+})
+
 // --- APP CONFIG (feature flags, hardware profile, etc.) ---
 export async function getAppConfig(key, fallback = null) {
   try {
@@ -230,7 +268,7 @@ export async function insertMemory(data) {
       memory: memoryText,
       vector: vector
     })
-    insertMemoryToOrama({ id, type, summary: data.summary || '', memory: memoryText, vector }).catch(console.error)
+    syncMemoryToOrama('insertMemoryToOrama', { id, type, summary: data.summary || '', memory: memoryText, vector })
   } catch (error) {
     console.error('Error Save Memory:', error)
   }
@@ -282,7 +320,7 @@ export async function updateMemory(data, maybeMemory, maybeType) {
 
     if (id && !isNaN(id)) {
       await db.memory.update(id, updatePayload)
-      updateMemoryInOrama(id, { ...updatePayload, id: id }).catch(console.error)
+      syncMemoryToOrama('updateMemoryInOrama', id, { ...updatePayload, id: id })
       console.log(`✅ Memory ID ${id} berhasil di-update.`)
     } else {
       console.warn('⚠️ Gagal update: ID tidak ditemukan.')
@@ -298,7 +336,7 @@ export async function deleteMemory(data) {
     const id = typeof data === 'object' && data !== null ? data.id : Number(data)
     if (id && !isNaN(id)) {
       await db.memory.delete(id)
-      deleteMemoryFromOrama(id).catch(console.error)
+      syncMemoryToOrama('deleteMemoryFromOrama', id)
       console.log(`🗑️ Memory ID ${id} berhasil dihapus oleh Mark.`)
       return { success: true }
     }
@@ -363,7 +401,8 @@ export async function getAllConfig() {
         data[0].sttLanguage = 'id'
       }
       if (data[0].customSttEndpoint === undefined) {
-        data[0].customSttEndpoint = data[0].groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : 'http://127.0.0.1:20128/v1/audio/transcriptions'
+        // Primary dikunci ke gateway lokal; Groq hanya cadangan (lihat migrasi v26).
+        data[0].customSttEndpoint = 'http://127.0.0.1:20128/v1/audio/transcriptions'
       }
       if (data[0].customSttApiKey === undefined) {
         data[0].customSttApiKey = ''
@@ -432,8 +471,10 @@ export async function saveConfiguration(data) {
       window.api.syncConfig(data)
     }
     window.dispatchEvent(new CustomEvent('config-updated', { detail: data }))
-    // Jangan pernah print payload utuh — berisi API key & tgBotToken
-    console.log('Configuration saved:', Object.keys(data))
+    // Jangan pernah print payload utuh — berisi API key & tgBotToken.
+    // debug level: autosave debounce menulis puluhan kali per sesi Configuration
+    // dan menenggelamkan log yang berguna.
+    console.debug('Configuration saved:', Object.keys(data).length, 'keys')
   } catch (error) {
     console.error('Error in saveConfiguration logic:', error)
   }

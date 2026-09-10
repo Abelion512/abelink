@@ -1,0 +1,232 @@
+// Dispatcher eksekusi tool (dipindah dari useMarkPlan.executeSingleTool).
+// Pola seam: domain media/vision/knowledge/agent dipisah per-modul; dispatcher
+// ini hanya menangani ask-user, native-tool (+kasus khusus run-shell), dan
+// fallback plugin — lalu formatting hasil TERPUSAT (satu bentuk return).
+import { checkTools } from '../../../api/tools/index'
+import {
+  logToolCall as trajectoryLogTool,
+  logReasoning
+} from '../../../api/trajectory'
+import { runMediaTool } from './mediaTools'
+import { runVisionTool } from './visionTools'
+import { runKnowledgeTool } from './knowledgeTools'
+import { runAgentTool } from './agentTools'
+
+const formatRes = (tool, query, res) => {
+  let resultString
+  if (res && res.success) {
+    resultString =
+      res.data !== undefined
+        ? typeof res.data === 'string'
+          ? res.data
+          : JSON.stringify(res.data)
+        : res.message || 'Success'
+
+    // Pemotongan isi dokumen jika terlalu panjang
+    if (tool === 'read-document') {
+      const parts = query.split('||')
+      const fullText =
+        typeof res.data === 'object' && res.data !== null
+          ? res.data.content || ''
+          : String(res.data || '')
+      if (fullText && fullText.length > 2500) {
+        resultString = `${fullText.slice(0, 2500)}\n\n[DOKUMEN DIPOTONG (Total: ${fullText.length} karakter). Gunakan read-document dengan query "${parts[0]}||kata_kunci" untuk pencarian spesifik]`
+      }
+    }
+    // Log tool call to trajectory buffer
+    trajectoryLogTool({ tool, query, success: true, result: resultString.slice(0, 200) })
+  } else {
+    resultString = `[ERROR] ${tool} gagal: ${(res && (res.message || res.error)) || 'Unknown error'}`
+    // Log failed tool call to trajectory buffer
+    trajectoryLogTool({ tool, query, success: false, result: resultString.slice(0, 200) })
+  }
+  return {
+    resultString,
+    rejected: false,
+    toolExecution: { action: tool, query, result: resultString }
+  }
+}
+
+const raceWithAbort = (promise, currentSignal) => {
+  let onAbort = null
+  const abortPromise = new Promise((_, reject) => {
+    onAbort = () => reject(new Error('AbortError'))
+    if (currentSignal?.aborted) return onAbort()
+    currentSignal?.addEventListener('abort', onAbort)
+  })
+  return { race: Promise.race([promise, abortPromise]), onAbort }
+}
+
+/**
+ * Eksekusi satu tool. ctx = {...callCtx(tgContext, workspaceRoot, turnId,
+ * signal, ...), targetSetChatData, currentSignal, config, requestApproval,
+ * requestUserInput, requestCameraCapture, handleMusic, getYoutubeData,
+ * targetPushProcess, pluginProcessId }.
+ */
+export const executeSingleTool = async (tool, query, ctx) => {
+  const {
+    targetSetChatData,
+    currentSignal,
+    config,
+    requestApproval,
+    requestUserInput,
+    targetPushProcess,
+    pluginProcessId
+  } = ctx
+  let resultString = 'Tidak ada hasil.'
+
+  try {
+    // Domain media / vision / knowledge: resultString final langsung.
+    const media = await runMediaTool(tool, query, ctx)
+    if (media !== undefined) {
+      return { resultString: media, rejected: false, toolExecution: { action: tool, query, result: media } }
+    }
+    const vision = await runVisionTool(tool, query, ctx)
+    if (vision !== undefined) {
+      return { resultString: vision, rejected: false, toolExecution: { action: tool, query, result: vision } }
+    }
+    const knowledge = await runKnowledgeTool(tool, query)
+    if (knowledge !== undefined) {
+      return { resultString: knowledge, rejected: false, toolExecution: { action: tool, query, result: knowledge } }
+    }
+    // 3a. Interactive User Pause & Ask (Human-in-the-Loop)
+    if (
+      tool === 'browser-ask-user' ||
+      tool === 'os-ask-user' ||
+      tool === 'os-ask' ||
+      tool === 'ask-user' ||
+      tool === 'user-ask'
+    ) {
+      if (typeof requestUserInput === 'function') {
+        const userResponse = await requestUserInput({
+          title: tool.startsWith('browser') ? 'Browser Paused for Input' : 'Abelink Paused for Input',
+          message: query || 'Abelink memerlukan tindakan atau informasi dari Anda sebelum melanjutkan tugas.',
+          placeholder: 'Tambahkan komentar atau instruksi untuk Abelink (opsional)...'
+        })
+        if (userResponse?.confirmed) {
+          resultString = `[LAPORAN USER]: ${userResponse.comment || 'User telah menyelesaikan tindakan manual dan meminta Anda melanjutkan.'}`
+        } else {
+          resultString = '[DIBATALKAN]: User membatalkan permintaan bantuan.'
+        }
+      } else {
+        resultString = `[USER PROMPT]: ${query}. Menunggu intervensi user.`
+      }
+      return { resultString, rejected: false, toolExecution: { action: tool, query, result: resultString } }
+    }
+    // 9. Built-in Native Tools (+ sub-agent & skill tools via domain agent)
+    if (checkTools(tool)) {
+      const approvalCheck = await window.api.checkToolApproval(tool, query)
+
+      if (approvalCheck.needsApproval && requestApproval) {
+        const userApproved = await requestApproval(approvalCheck.message, tool, query)
+        if (!userApproved) {
+          resultString = `[DITOLAK] User menolak eksekusi "${tool}". Cari cara lain atau tanyakan user.`
+          return {
+            resultString,
+            rejected: true,
+            toolExecution: { action: tool, query, result: resultString }
+          }
+        }
+      }
+
+      // Domain multi-agent: kembalikan res -> formatting terpusat.
+      const agentRes = await runAgentTool(tool, query, ctx)
+      if (agentRes !== undefined) {
+        return formatRes(tool, query, agentRes)
+      }
+
+      let res
+      if (tool === 'run-shell') {
+        // Fix: detect URL scheme commands (xdg-open "https://...") that fail in headless/Tauri env.
+        // Fallback ke os-open (Tauri IPC) yang bisa buka URL di browser user's PC.
+        const q = String(query || '').trim()
+        if (/^xdg-open\s/.test(q) || /^open\s/.test(q)) {
+          // Extract URL dari quotes/braces
+          const urlMatch = q.match(/(?:xdg-open|open)\s+["']?([^"'\s]+)["']?/i)
+          const url = urlMatch ? urlMatch[1] : q.replace(/^(xdg-open|open)\s+/i, '').trim()
+          if (url) {
+            try {
+              const urlRes = await window.api.osOpen(url)
+              resultString = typeof urlRes === 'string' ? urlRes : JSON.stringify(urlRes)
+              logReasoning({ prompt: `Shell URL fallback ke os-open: ${url}` })
+            } catch (e) {
+              resultString = `[ERROR] Gagal buka URL: ${(e && e.message) || 'unknown'}`
+              logReasoning({ prompt: `Shell URL gagal: ${url}`, suggested_mode: 'direct' })
+            }
+            return {
+              resultString,
+              rejected: false,
+              toolExecution: { action: tool, query, result: resultString }
+            }
+          }
+        }
+      }
+      // Kalau bukan URL scheme, lanjut ke native tool handler biasa
+      const activeConfig = {
+        ...(Array.isArray(config) ? config[0] : config),
+        workspaceRoot: ctx?.workspaceRoot,
+        turnId: ctx?.turnId || ctx?.agenticProcessId
+      }
+      const nativePromise = window.api.executeNativeTool(tool, query, activeConfig)
+      const { race, onAbort } = raceWithAbort(nativePromise, currentSignal)
+      try {
+        res = await race
+      } finally {
+        // Lepas listener abort agar tidak menumpuk di signal (memory leak)
+        if (onAbort) currentSignal?.removeEventListener('abort', onAbort)
+      }
+      return formatRes(tool, query, res)
+    }
+    // 10. Plugin Execution
+    targetPushProcess({
+      id: pluginProcessId,
+      type: 'plugin-execution',
+      status: 'active',
+      data: { action: tool, query }
+    })
+
+    const pluginPromise = window.api.executePlugin(tool, query)
+    const { race: pluginRace, onAbort: onPluginAbort } = raceWithAbort(pluginPromise, currentSignal)
+    let pluginRes
+    try {
+      pluginRes = await pluginRace
+    } finally {
+      // Lepas listener abort agar tidak menumpuk di signal (memory leak)
+      if (onPluginAbort) currentSignal?.removeEventListener('abort', onPluginAbort)
+    }
+
+    resultString = pluginRes.success
+      ? typeof pluginRes.data === 'string'
+        ? pluginRes.data
+        : JSON.stringify(pluginRes.data)
+      : `[ERROR] Plugin ${tool} gagal: ${pluginRes.error}`
+
+    targetPushProcess({
+      id: pluginProcessId,
+      type: 'plugin-execution',
+      status: 'done',
+      data: { action: tool, query, result: resultString }
+    })
+
+    return {
+      resultString,
+      rejected: false,
+      toolExecution: { action: tool, query, result: resultString }
+    }
+  } catch (toolError) {
+    // Error bisa berupa Error instance ATAU string mentah dari reject invoke
+    // Tauri — jangan pernah asumsi selalu punya .message.
+    const toolErrMsg =
+      typeof toolError === 'string' ? toolError : toolError?.message || String(toolError)
+    if (toolError?.name === 'AbortError' || toolErrMsg.includes('AbortError')) {
+      throw toolError
+    }
+    resultString = `[ERROR] Tool ${tool} gagal: ${toolErrMsg}`
+  }
+
+  return {
+    resultString,
+    rejected: false,
+    toolExecution: { action: tool, query, result: resultString }
+  }
+}

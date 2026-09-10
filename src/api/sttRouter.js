@@ -152,14 +152,12 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
       defaultEndpoint = ''
     }
     if (!defaultEndpoint) {
-      defaultEndpoint = cfg.groqApiKey?.trim()
-        ? 'https://api.groq.com/openai/v1/audio/transcriptions'
-        : 'http://127.0.0.1:20128/v1/audio/transcriptions'
+      // Primary dikunci ke gateway lokal; Groq hanya cadangan.
+      defaultEndpoint = 'http://127.0.0.1:20128/v1/audio/transcriptions'
     }
-    const defaultKey = cfg.customSttApiKey?.trim() || cfg.groqApiKey?.trim() || ''
+    const defaultKey = cfg.customSttApiKey?.trim() || ''
     const defaultModel =
-      cfg.customSttModel?.trim() ||
-      (defaultEndpoint.includes('groq') ? 'whisper-large-v3-turbo' : 'selfhosted-stt/whisper-1')
+      cfg.customSttModel?.trim() || 'selfhosted-stt/whisper-1'
 
     connections = [
       {
@@ -179,6 +177,16 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
         endpoint: cfg.sttFallbackEndpoint,
         apiKey: cfg.sttFallbackApiKey || cfg.groqApiKey || '',
         model: cfg.sttFallbackModel || 'whisper-large-v3-turbo',
+        enabled: true
+      })
+    } else if (cfg.groqApiKey?.trim() && !defaultEndpoint.includes('groq')) {
+      // Groq key ada tapi belum jadi cadangan → jadikan fallback, bukan primary.
+      connections.push({
+        id: 'conn-bootstrap-groq',
+        name: 'Groq Whisper (cadangan)',
+        endpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
+        apiKey: cfg.groqApiKey.trim(),
+        model: 'whisper-large-v3-turbo',
         enabled: true
       })
     }

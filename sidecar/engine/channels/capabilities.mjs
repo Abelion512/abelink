@@ -82,7 +82,23 @@ on('capabilities:revoke', async (connectorId) => {
   return revokeConnector(String(connectorId || ''))
 })
 
-on('capabilities:audit', async (limit) => {
+on('capabilities:audit', async (limit, offset) => {
   const { readAudit } = await getManager()
-  return readAudit(limit)
+  return readAudit(limit, offset)
+})
+
+// Registrasi runtime connector eksternal (custom MCP dari UI). Dipanggil
+// tiap load hub agar sidecar (proses terpisah, tanpa localStorage) mengenal
+// id custom sebelum authorize/execute. Idempotent: daftar ulang = replace.
+on('capabilities:register-custom', async (list) => {
+  const { registerConnector } = await getManager()
+  const out = []
+  for (const def of Array.isArray(list) ? list : []) {
+    try {
+      out.push({ ...(await registerConnector(def)), ok: true })
+    } catch (e) {
+      out.push({ id: def?.id || null, ok: false, error: e.message })
+    }
+  }
+  return out
 })

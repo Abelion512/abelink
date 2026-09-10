@@ -27,6 +27,39 @@ export const compactCodeBlocks = (text) => {
 }
 
 /**
+ * Sanitasi payload vision agar base64 tidak meracuni history/embedding:
+ * - Array content: part image_url diganti placeholder, kecuali keepImages=true
+ * - String: dataURL base64 panjang dipotong jadi placeholder
+ * Dipakai saat persist chat dan saat merakit history lama.
+ */
+export const IMAGE_PLACEHOLDER = '[Gambar terlampir]'
+const DATA_URL_RE = /data:image\/[a-zA-Z+.-]+;base64,[A-Za-z0-9+/=]{100,}/g
+
+/** Potong dataURL base64 dari teks bebas (query embedding, ringkasan, log). */
+export const stripDataUrls = (text) => {
+  if (typeof text !== 'string' || !text.includes('data:image')) return text ?? ''
+  return text.replace(DATA_URL_RE, IMAGE_PLACEHOLDER)
+}
+
+export const stripImageContent = (content, keepImages = false) => {
+  if (Array.isArray(content)) {
+    if (keepImages) return content
+    const hasText = content.some((p) => p?.type === 'text')
+    const out = content
+      .filter((p) => p?.type === 'text' || typeof p === 'string')
+      .map((p) => (typeof p === 'string' ? { type: 'text', text: p } : p))
+    if (out.length === 0 && hasText === false) return [{ type: 'text', text: IMAGE_PLACEHOLDER }]
+    if (out.length === 0) return [{ type: 'text', text: IMAGE_PLACEHOLDER }]
+    return out
+  }
+  if (typeof content === 'string') {
+    if (content.length < 10000 && !content.includes('data:image')) return content
+    return content.replace(DATA_URL_RE, IMAGE_PLACEHOLDER)
+  }
+  return content || ''
+}
+
+/**
  * Mengompaksi daftar riwayat percakapan untuk prompt LLM
  */
 export const buildOptimizedChatSession = (sourceChatData, maxTurns = 10) => {
@@ -93,6 +126,16 @@ export const buildOptimizedChatSession = (sourceChatData, maxTurns = 10) => {
         msgContent = `[RIWAYAT TOOL TURN INI]:\n${toolLog}\n\n[JAWABAN]:\n${formattedBody}`
       } else {
         msgContent = formattedBody
+      }
+    } else {
+      // Pesan user: gambar hanya dipertahankan di giliran TERAKHIR.
+      // Giliran lama selalu di-strip agar base64 tidak terkirim ulang tiap turn.
+      const isLast = idx === totalCount - 1
+      msgContent = stripImageContent(msgContent, isLast)
+      if (typeof msgContent === 'string' && !isLast && !isRecentTurn && msgContent.length > 1500) {
+        msgContent =
+          msgContent.slice(0, 1200) +
+          '\n\n[... sisa teks lampau diringkas. Gunakan tool terkait jika butuh detail lengkap ...]'
       }
     }
 

@@ -29,4 +29,20 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  build: {
+    // Pisah vendor berat ke chunk sendiri: cache stabil + load paralel.
+    // (Lihat plan optimasi bundle: entry 2.4MB didominasi depTransitif ini.)
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-monaco': ['@monaco-editor/react', 'monaco-editor'],
+          'vendor-graph': ['react-force-graph-2d', 'three'],
+          'vendor-md': ['react-markdown', 'remark-gfm', 'react-syntax-highlighter'],
+          'vendor-icons': ['react-icons', 'lucide-react'],
+          'vendor-db': ['dexie', 'dexie-export-import', '@orama/orama']
+        }
+      }
+    }
+  },
 }));
