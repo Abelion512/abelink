@@ -12,37 +12,58 @@ const CODE_EXTENSIONS = new Set([
 
 const IGNORE_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', '.next',
-  '.vite', '.mark', 'out', 'coverage', 'tmp', '.cache',
+  '.vite', '.mark', '.abelink', '.abelink-dev', 'out', 'coverage', 'tmp', '.cache',
   'obj', 'bin', '__pycache__', '.turbo'
 ])
 
+const isDevEnv = () =>
+  process.env.NODE_ENV === 'development' ||
+  process.env.MARK_DEV === '1' ||
+  process.env.ABELINK_DEV === '1'
+
+export function getWorkspaceDir(workspaceRoot) {
+  if (!workspaceRoot) return null
+  if (fs.existsSync(path.join(workspaceRoot, '.abelink-dev'))) {
+    return path.join(workspaceRoot, '.abelink-dev')
+  }
+  if (fs.existsSync(path.join(workspaceRoot, '.abelink'))) {
+    return path.join(workspaceRoot, '.abelink')
+  }
+  if (fs.existsSync(path.join(workspaceRoot, '.mark'))) {
+    return path.join(workspaceRoot, '.mark')
+  }
+  const folderName = isDevEnv() ? '.abelink-dev' : '.abelink'
+  return path.join(workspaceRoot, folderName)
+}
+
 /**
- * Memastikan folder .mark/ ada dan mendaftarkannya ke .gitignore
+ * Memastikan folder workspace metadata (.abelink / .abelink-dev) ada dan mendaftarkannya ke .gitignore
  */
 export function ensureMarkWorkspace(workspaceRoot) {
   if (!workspaceRoot || !fs.existsSync(workspaceRoot)) return null
-  const markDir = path.join(workspaceRoot, '.mark')
+  const targetDir = getWorkspaceDir(workspaceRoot)
+  const dirName = path.basename(targetDir)
 
   try {
-    if (!fs.existsSync(markDir)) {
-      fs.mkdirSync(markDir, { recursive: true })
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true })
     }
 
     // Auto-update .gitignore jika ada
     const gitignorePath = path.join(workspaceRoot, '.gitignore')
     if (fs.existsSync(gitignorePath)) {
       const gitignoreContent = fs.readFileSync(gitignorePath, 'utf-8')
-      if (!gitignoreContent.includes('.mark') && !gitignoreContent.includes('.mark/')) {
+      if (!gitignoreContent.includes(dirName) && !gitignoreContent.includes(`${dirName}/`)) {
         const appended = gitignoreContent.endsWith('\n')
-          ? `${gitignoreContent}.mark/\n`
-          : `${gitignoreContent}\n.mark/\n`
+          ? `${gitignoreContent}${dirName}/\n`
+          : `${gitignoreContent}\n${dirName}/\n`
         fs.writeFileSync(gitignorePath, appended, 'utf-8')
-        console.log('[WorkspaceRAG] Auto-added .mark/ to .gitignore')
+        console.log(`[WorkspaceRAG] Auto-added ${dirName}/ to .gitignore`)
       }
     }
 
     // Pastikan working-memory.json ada
-    const memoryPath = path.join(markDir, 'working-memory.json')
+    const memoryPath = path.join(targetDir, 'working-memory.json')
     if (!fs.existsSync(memoryPath)) {
       fs.writeFileSync(memoryPath, JSON.stringify({
         lastUpdated: Date.now(),
@@ -52,7 +73,7 @@ export function ensureMarkWorkspace(workspaceRoot) {
       }, null, 2), 'utf-8')
     }
 
-    return markDir
+    return targetDir
   } catch (err) {
     console.error('[WorkspaceRAG] ensureMarkWorkspace error:', err.message)
     return null
@@ -65,7 +86,8 @@ export function ensureMarkWorkspace(workspaceRoot) {
 export function readWorkingMemory(workspaceRoot) {
   if (!workspaceRoot) return null
   try {
-    const memoryPath = path.join(workspaceRoot, '.mark', 'working-memory.json')
+    const targetDir = getWorkspaceDir(workspaceRoot)
+    const memoryPath = path.join(targetDir, 'working-memory.json')
     if (fs.existsSync(memoryPath)) {
       return JSON.parse(fs.readFileSync(memoryPath, 'utf-8'))
     }
@@ -76,13 +98,14 @@ export function readWorkingMemory(workspaceRoot) {
 }
 
 /**
- * Menyimpan Working Memory ke .mark/working-memory.json
+ * Menyimpan Working Memory ke working-memory.json
  */
 export function saveWorkingMemory(workspaceRoot, memoryData) {
   if (!workspaceRoot || !memoryData) return false
   try {
-    ensureMarkWorkspace(workspaceRoot)
-    const memoryPath = path.join(workspaceRoot, '.mark', 'working-memory.json')
+    const targetDir = ensureMarkWorkspace(workspaceRoot)
+    if (!targetDir) return false
+    const memoryPath = path.join(targetDir, 'working-memory.json')
     const existing = readWorkingMemory(workspaceRoot) || {}
     const updated = {
       ...existing,
@@ -254,7 +277,9 @@ export async function indexWorkspace(workspaceRoot) {
  */
 export function queryCodebase(workspaceRoot, queryText, topK = 4) {
   if (!workspaceRoot || !queryText) return []
-  const indexPath = path.join(workspaceRoot, '.mark', 'codebase-index.json')
+  const targetDir = getWorkspaceDir(workspaceRoot)
+  if (!targetDir) return []
+  const indexPath = path.join(targetDir, 'codebase-index.json')
 
   if (!fs.existsSync(indexPath)) return []
 

@@ -32,6 +32,16 @@ let extractor = null
 let isDownloading = false
 let vectorDisabled = false // CSP block failover — skip vector ops permanently after first failure
 
+// Main thread TIDAK PERNAH memuat model embedding (worker-only oleh desain).
+// Lite Mode (hash embedding via vectorMemory) diaktifkan di boot sebelumnya:
+// import vectorCore dari thread utama akan selalu memutar fallback ladder yang
+// gagal dan menulis error merah was-simd/cpu di console. Lewati sejak awal.
+try {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('mark:wasm-broken') === '1') {
+    vectorDisabled = true
+  }
+} catch (_) {}
+
 // We export this so we can manually trigger download from config page
 export const getExtractor = async (onProgress) => {
   if (vectorDisabled) return null
@@ -45,40 +55,19 @@ export const getExtractor = async (onProgress) => {
   }
   isDownloading = true
   try {
-    // Fallback ladder: wasm SIMD -> wasm scalar (non-SIMD, WebKitGTK) -> CPU.
-    // Semua attempt tetap model MiniLM nyata — hash embedding hanya jalan
-    // bila SEMUA attempt gagal (vectorDisabled), menjaga kualitas pencarian.
-    const attempts = [{ device: 'wasm' }, { device: 'wasm', noSimd: true }, { device: 'cpu' }]
-    let lastErr = null
-    for (const attempt of attempts) {
-      try {
-        if (attempt.noSimd) {
-          env.backends.onnx.wasm.simd = false
-          env.backends.onnx.wasm.threads = false
-        }
-        extractor = await pipeline(
-          'feature-extraction',
-          'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-          {
-            device: attempt.device,
-            progress_callback: onProgress
-          }
-        )
-        if (attempt.noSimd || attempt.device === 'cpu') {
-          console.warn(
-            `[vectorCore] Init sukses via fallback device=${attempt.device}${attempt.noSimd ? ' (non-SIMD)' : ''} — embedding nyata aktif.`
-          )
-        }
-        lastErr = null
-        break
-      } catch (err) {
-        lastErr = err
-        console.warn(
-          `[vectorCore] Attempt device=${attempt.device}${attempt.noSimd ? ' non-SIMD' : ''} gagal: ${err?.message || err}`
-        )
+    // Fallback ladder REALISTIS: ort-wasm modern TIDAK lagi menyertakan binary
+    // non-SIMD ("wasm-simd is not enabled" = modul scalar dihapus), dan device
+    // "cpu" tidak ada di browser (transformers.js hanya punya "wasm"). Mencoba
+    // keduanya hanya menghasilkan dua error merah tambahan yang pasti gagal.
+    // Satu attempt: wasm dengan flag SIMD sesuai deteksi module-level.
+    extractor = await pipeline(
+      'feature-extraction',
+      'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+      {
+        device: 'wasm',
+        progress_callback: onProgress
       }
-    }
-    if (lastErr) throw lastErr
+    )
   } catch (e) {
     console.error('Failed to load transformer model', e)
     vectorDisabled = true

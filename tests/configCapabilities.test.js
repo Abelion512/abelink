@@ -8,7 +8,7 @@ import path from 'path'
 const readSrc = (rel) => fs.readFileSync(path.join(process.cwd(), rel), 'utf8')
 
 describe('ConfigSidebar sections', async () => {
-  const mod = await import('../src/components/ConfigSidebar.jsx')
+  const mod = await import('../src/components/config/ConfigSidebar.jsx')
 
   it('menyediakan entry capabilites dan voice & video', () => {
     const ids = mod.sections.map((s) => s.id)
