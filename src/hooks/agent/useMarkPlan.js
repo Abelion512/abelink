@@ -29,6 +29,8 @@ import { buildOptimizedChatSession, stripImageContent, stripDataUrls } from '../
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
 import { classifyMainDecision, INTENT, isExplicitSelfTerminate } from '../../api/ai/agentDecision'
 import { createCircuitBreaker } from '../../api/ai/circuitBreaker'
+import { createTrajectorySupervisor } from '../../api/ai/trajectorySupervisor'
+import { logStep as trajectoryLogStep } from '../../api/trajectory'
 import { executeSingleTool } from './plan/toolDispatcher'
 import {
   classifyObjectiveKind,
@@ -602,6 +604,17 @@ export const useMarkPlan = ({
       let verifyReplanCount = 0
       let lastVerification = VERIFICATION_STATE.NOT_RUN
       let pendingVerifyObservation = null
+      // ---- Trajectory Supervisor Fase 1 (trajectorySupervisor.js) --------
+      // Trajectory-level policy across attempts: records each tool execution
+      // and stages a short strategy hint when the same approach repeats
+      // without progress. Exempt for conversational / non-tool sessions
+      // (nothing strategic to govern). Per-session instance: fresh state per
+      // mission, no cross-task leakage. Additive: never throws, never blocks.
+      const supervisor =
+        objectiveKind === 'conversational' || opts.disableTools
+          ? null
+          : createTrajectorySupervisor()
+      let pendingSupervisorHint = null
       let execSteps = [{ task: 'Menganalisis Konteks...' }]
 
       while (!isDone) {
@@ -1628,6 +1641,34 @@ export const useMarkPlan = ({
                   : execResult.resultString
             })
 
+            // Trajectory Supervisor: record the attempt, maybe stage a hint.
+            // Runs only on real executions (the identical-repeat cache above
+            // already `continue`s before this point). Additive: guarded so a
+            // supervisor fault can never break the tool loop.
+            if (supervisor) {
+              try {
+                const supResult = supervisor.update({
+                  tool,
+                  query,
+                  success: !String(execResult.resultString || '').startsWith('[ERROR]'),
+                  verificationState: lastVerification,
+                  stepsLeft: MAX_PLAN_STEPS - stepCount,
+                  verifyGateActive: pendingVerifyObservation != null
+                })
+                if (supResult.hintText && !pendingSupervisorHint) {
+                  pendingSupervisorHint = supResult.hintText
+                  try {
+                    trajectoryLogStep({
+                      step: stepCount,
+                      total: MAX_PLAN_STEPS,
+                      description: `supervisor:${supResult.directive}`,
+                      status: 'supervisor-directive'
+                    })
+                  } catch (_) {}
+                }
+              } catch (_) {}
+            }
+
             if (isBatch) {
               batchResults.push(`[${tool}] ${execResult.resultString}`)
             } else {
@@ -1666,6 +1707,14 @@ export const useMarkPlan = ({
                 content: `[OBSERVATION] Hasil eksekusi batch ${actionList.length} tools: ${obsStr}`
               }
             )
+          }
+
+          // Flush a staged supervisor hint as its own user message (single
+          // injection slot: verify-gate already took precedence inside
+          // update(), so the two can never collide in one turn).
+          if (pendingSupervisorHint) {
+            loopMessages.push({ role: 'user', content: pendingSupervisorHint })
+            pendingSupervisorHint = null
           }
 
           continue
