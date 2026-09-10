@@ -1,6 +1,6 @@
 // Channel: YouTube Music player bridge (Tauri), pencarian lagu, stub fase B/C.
 // Modul ini hanya mendaftarkan handler; semua I/O via helper registry.
-import { on, handlers, lazy, unsupported } from '../registry.mjs'
+import { on, lazy } from '../registry.mjs'
 
 const getYtm = lazy(async () => {
   const mod = await import('ytmusic-api')
@@ -87,22 +87,9 @@ on('ping', () => 'pong')
 // ------------------------------------------- Dipindah ke fase B/C (Tauri native)
 // dialog:open-file / dialog:open-directory -> Rust native `misc_open_*_dialog`
 // take-screenshot                            -> Rust native `misc_take_screenshot`
-// browser:* -> pindah ke engine/channels/browser.mjs (Fase C3 Jalur A:
-// ekstensi browser + bridge lokal). Stub `unsupported` untuk browser:*
-// DIHAPUS — jangan didaftarkan dua kali.
-for (const ch of [
-  'os:read',
-  'os:click',
-  'os:type',
-  'os:key',
-  'os:scroll',
-  'os:open',
-  'os:list-windows',
-  'os:focus-window',
-  'os:ask-user'
-]) {
-  handlers[ch] = unsupported('Fase B6')
-}
+// browser:* -> engine/channels/browser.mjs (Fase C3 Jalur A).
+// os:* (colon) -> engine/channels/os.mjs (Fase B6: alias ke NATIVE_TOOLS dash
+// yang LIVE via pc-agent.js). JANGAN daftarkan stub di sini dua kali.
 
 // ------------------------------------------------------- PC emergency stop
 // Ctrl+Shift+S (global shortcut, Rust) -> renderer -> channel ini.

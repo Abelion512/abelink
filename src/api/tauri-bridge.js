@@ -237,7 +237,8 @@ export const api = {
   authorizeCapability: (connectorId, grantedScopes) =>
     call('capabilities:authorize', connectorId, grantedScopes),
   revokeCapability: (connectorId) => call('capabilities:revoke', connectorId),
-  readCapabilityAudit: (limit) => call('capabilities:audit', limit),
+  readCapabilityAudit: (limit, offset) => call('capabilities:audit', limit, offset),
+  registerCustomConnectors: (list) => call('capabilities:register-custom', list || []),
   getSystemInfo: () => invoke('system_get_info'),
   ping: () => call('ping'),
 
@@ -283,6 +284,12 @@ export const api = {
   searchYoutube: (q) => call('youtube-search', q),
   searchMusic: (q) => call('search-music', q),
   textToSpeech: (text, rate, pitch) => call('tts-speak', text, rate, pitch),
+  // Alias objek untuk tombol Uji Suara (VoiceVideoSection): backend mengembalikan
+  // data-URL string; dibungkus { audioBase64 } agar konsisten satu facade.
+  speakTTS: async ({ text, rate, pitch } = {}) => {
+    const dataUrl = await call('tts-speak', text, rate, pitch)
+    return dataUrl ? { audioBase64: String(dataUrl).replace(/^data:audio\/mp3;base64,/, '') } : null
+  },
   sendRemoteMusicCommand: (command, payload) => call('remote-music-command', command, payload),
   onExecuteMusicCommand: on('execute-music-command'),
   // onExecuteMusicCommandTg dihapus: emit 'execute-music-command-tg' mati

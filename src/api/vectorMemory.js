@@ -1,4 +1,6 @@
-import { pipeline } from '@huggingface/transformers'
+// NOTE: JANGAN impor statis '@huggingface/transformers' di sini — menyeret
+// ort-wasm 23MB ke entry bundle. Fallback main-thread di bawah memakai
+// dynamic import (getDirectExtractor).
 import {
   searchArchives,
   searchDocuments,
@@ -136,6 +138,7 @@ async function getDirectExtractor(onProgress) {
     isDirectDownloading = true
     try {
       const device = typeof window !== 'undefined' && typeof caches !== 'undefined' ? 'wasm' : 'cpu'
+      const { pipeline } = await import('@huggingface/transformers')
       directExtractor = await pipeline(
         'feature-extraction',
         'Xenova/paraphrase-multilingual-MiniLM-L12-v2',

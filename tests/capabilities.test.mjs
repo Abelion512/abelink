@@ -5,7 +5,7 @@
 // - shell-tool diuji via mock NATIVE_TOOLS (setDangerousOverride) sehingga
 //   perilaku approval terverifikasi tanpa spawn proses sungguhan.
 // - Sisa connector (time/fs) dieksekusi nyata — 100% offline.
-import { describe, it, expect, afterAll } from 'vitest'
+import { describe, it, expect, afterAll, beforeAll } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -21,7 +21,8 @@ const {
   listConnections,
   getActionGuide,
   readAudit,
-  getConnector
+  getConnector,
+  registerConnector
 } = await import('../sidecar/main/capabilities/manager.mjs')
 const { setDangerousOverride } = await import('../sidecar/main/capabilities/shell-tool.mjs')
 
@@ -72,7 +73,7 @@ describe('executeCapability (offline connectors)', () => {
   it('time.now jalan dan ter-audit', async () => {
     const out = await executeCapability({ connectorId: 'time', actionId: 'now', sessionId: 's1' })
     expect(out.iso).toBeTruthy()
-    const audit = readAudit(5)
+    const audit = await readAudit(5)
     expect(audit.some((a) => a.op === 'execute.result' && a.status === 'ok')).toBe(true)
   })
 
@@ -162,36 +163,111 @@ describe('executeCapability (offline connectors)', () => {
         deniedScopes: ['fs.delete']
       })
     ).rejects.toThrow(/dilarang/)
-    const audit = readAudit(10)
+    const audit = await readAudit(10)
     expect(audit.some((a) => a.op === 'execute.result' && a.status === 'policy-denied')).toBe(true)
   })
 })
 
 describe('connections (authorize/revoke)', () => {
-  it('connector connection-less melaporkan status jujur tanpa menulis koneksi', () => {
-    const r = authorizeConnector('time')
+  it('connector connection-less melaporkan status jujur tanpa menulis koneksi', async () => {
+    const r = await authorizeConnector('time')
     expect(r.connectionless).toBe(true)
-    expect(listConnections().time).toBeUndefined()
+    expect((await listConnections()).time).toBeUndefined()
   })
 
-  it('fs: authorize -> tercatat; revoke -> hilang', () => {
-    const a = authorizeConnector('fs', ['fs.read', 'fs.write', 'scope-hantu'])
+  it('fs: authorize -> tercatat; revoke -> hilang', async () => {
+    const a = await authorizeConnector('fs', ['fs.read', 'fs.write', 'scope-hantu'])
     expect(a.grantedScopes).toEqual(['fs.read', 'fs.write']) // scope asing disaring
-    expect(listConnections().fs.scopes).toEqual(['fs.read', 'fs.write'])
-    expect(revokeConnector('fs').revoked).toBe(true)
-    expect(listConnections().fs).toBeUndefined()
-    expect(revokeConnector('fs').revoked).toBe(false)
+    expect((await listConnections()).fs.scopes).toEqual(['fs.read', 'fs.write'])
+    expect((await revokeConnector('fs')).revoked).toBe(true)
+    expect((await listConnections()).fs).toBeUndefined()
+    expect((await revokeConnector('fs')).revoked).toBe(false)
   })
 
-  it('connector tidak dikenal melempar error', () => {
-    expect(() => authorizeConnector('hantu')).toThrow(/Connector tidak dikenal/)
-    expect(() => revokeConnector('hantu')).toThrow(/Connector tidak dikenal/)
+  it('connector tidak dikenal melempar error', async () => {
+    await expect(authorizeConnector('hantu')).rejects.toThrow(/Connector tidak dikenal/)
+    await expect(revokeConnector('hantu')).rejects.toThrow(/Connector tidak dikenal/)
+  })
+})
+
+describe('custom MCP registration (seam)', () => {
+  it('registerConnector menolak id/URL tidak valid', () => {
+    expect(() => registerConnector({ id: 'bad id!', url: 'https://x.test' })).toThrow(/ID connector/)
+    expect(() => registerConnector({ id: 'ok-id', url: 'ftp://x.test' })).toThrow(/http/)
+  })
+})
+
+describe('MCP transport (Streamable HTTP, server tiruan lokal)', () => {
+  let server
+  let baseUrl
+  const seenAuth = {}
+
+  beforeAll(async () => {
+    const http = await import('node:http')
+    server = http.createServer((req, res) => {
+      let body = ''
+      req.on('data', (c) => (body += c))
+      req.on('end', () => {
+        seenAuth.value = req.headers['x-test-key'] || null
+        let msg = {}
+        try {
+          msg = JSON.parse(body || '{}')
+        } catch {}
+        const reply = (result) => {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ jsonrpc: '2.0', id: msg.id ?? 1, result }))
+        }
+        if (msg.method === 'initialize') {
+          reply({ protocolVersion: '2024-11-05', capabilities: {}, serverInfo: { name: 'fake', version: '0' } })
+        } else if (msg.method === 'tools/list') {
+          reply({ tools: [{ name: 'lookup', description: 'Cari docs', inputSchema: { type: 'object' } }] })
+        } else if (msg.method === 'tools/call') {
+          reply({ content: [{ type: 'text', text: `hasil:${msg.params?.arguments?.q || '-'}` }] })
+        } else if (msg.method === 'notifications/initialized') {
+          res.writeHead(202)
+          res.end()
+        } else {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ jsonrpc: '2.0', id: msg.id ?? 1, error: { code: -32601, message: 'nope' } }))
+        }
+      })
+    })
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+    baseUrl = `http://127.0.0.1:${server.address().port}/mcp`
+  })
+
+  afterAll(() => {
+    server?.close()
+  })
+
+  it('authorize probe tools, simpan koneksi; execute panggil tool', async () => {
+    registerConnector({ id: 'ctx7', name: 'Ctx7', url: baseUrl, headers: { 'X-Test-Key': 's3cr3t' } })
+    const a = await authorizeConnector('ctx7', [])
+    expect(a.transport).toBe('mcp')
+    expect(a.tools.map((t) => t.name)).toEqual(['lookup'])
+    expect((await listConnections()).ctx7.url).toBe(baseUrl)
+    expect(seenAuth.value).toBe('s3cr3t')
+    const out = await executeCapability({ connectorId: 'ctx7', actionId: 'lookup', args: { q: 'halo' } })
+    expect(out).toContain('hasil:halo')
+    expect((await revokeConnector('ctx7')).revoked).toBe(true)
+  })
+
+  it('authorize ke server mati gagal eksplisit (MCP_UNREACHABLE)', async () => {
+    registerConnector({ id: 'mati', url: 'http://127.0.0.1:1/mcp' })
+    await expect(authorizeConnector('mati', [])).rejects.toMatchObject({ code: 'MCP_UNREACHABLE' })
+  })
+
+  it('execute tanpa authorize gagal eksplisit (MCP_NOT_AUTHORIZED)', async () => {
+    registerConnector({ id: 'belum', url: baseUrl })
+    await expect(
+      executeCapability({ connectorId: 'belum', actionId: 'lookup', args: {} })
+    ).rejects.toMatchObject({ code: 'MCP_NOT_AUTHORIZED' })
   })
 })
 
 describe('audit', () => {
-  it('jejak audit adalah JSONL dengan ts + op', () => {
-    const entries = readAudit(500)
+  it('jejak audit adalah JSONL dengan ts + op', async () => {
+    const entries = await readAudit(500)
     expect(entries.length).toBeGreaterThan(0)
     for (const e of entries) {
       expect(typeof e.op).toBe('string')

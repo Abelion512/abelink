@@ -2,12 +2,13 @@ import { useEffect, useRef } from 'react'
 import { getAllMemory } from '../api/db'
 import { getRelevantMemory } from '../api/vectorMemory'
 import { getAwarenessResponse } from '../api/ai/awareness'
+import { stripDataUrls } from '../api/ai/contextCompactor'
 
 const CHECKIN_INTERVAL = 10 * 60 * 1000
 const INITIAL_DELAY = 60 * 1000
 
 const formatAwarenessContent = (content) => {
-  if (typeof content === 'string') return content
+  if (typeof content === 'string') return stripDataUrls(content)
   if (content == null) return ''
 
   if (Array.isArray(content)) {

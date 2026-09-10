@@ -1,9 +1,10 @@
 import { fetchAI, cleanAndParse } from './core'
 import { getCurrentTimeInfo } from './utils'
 import { getPersonaPrompt } from './persona'
+import { stripDataUrls } from './contextCompactor'
 
 const formatAwarenessContent = (content) => {
-  if (typeof content === 'string') return content
+  if (typeof content === 'string') return stripDataUrls(content)
   if (content == null) return ''
 
   if (Array.isArray(content)) {
@@ -124,7 +125,26 @@ Hiduplah dan berekspresilah sesukamu! JANGAN TULIS format markdown json.`
           '[SISTEM AWARENESS]\nEvaluasi kondisi real-time dari aktivitas OS dan berikan output JSON.\nRiwayat chat di system prompt hanyalah arsip tertutup untuk anti-repetisi, bukan pesan user yang harus dijawab.\nIni adalah waktu luangmu. Bebas bertingkah (mulai topik baru, observasi layar, otonom hobi sendiri, atau diam) sesuai dengan emosi dan karakter aslimu.'
       }
     ]
-    const aiResponse = await fetchAI(messages, signal, false, awarenessSchema, { aiProvider: 'gemini-web' })
+    // Timeout cap untuk check-in background: tanpa ini, satu fetchAI menggantung
+    // hingga 300s (timeout sidecar penuh) dan log merah "Request timeout (300s)"
+    // muncul berulang tanpa nilai apapun. Cek-in awareness bersifat opsi —
+    // kalau 60 detik tidak ada jawaban, skip saja ke siklus berikutnya.
+    const timeoutController = new AbortController()
+    const timer = setTimeout(() => timeoutController.abort(new Error('awareness-timeout')), 60000)
+    let aiResponse = null
+    try {
+      aiResponse = await fetchAI(messages, timeoutController.signal, false, awarenessSchema, {
+        aiProvider: 'gemini-web'
+      })
+    } catch (err) {
+      clearTimeout(timer)
+      if (err.name === 'AbortError' || /abort/i.test(String(err.message))) {
+        console.warn('[Awareness AI] Check-in melewati siklus ini (timeout 60s).')
+        return { should_act: false, message: null, autonomous_prompt: null, mood: 'normal' }
+      }
+      throw err
+    }
+    clearTimeout(timer)
     if (aiResponse && aiResponse.content) {
       try {
         const parsed = cleanAndParse(aiResponse.content)

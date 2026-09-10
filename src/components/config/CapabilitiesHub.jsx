@@ -35,39 +35,9 @@ import { getCachedSkills } from '../../api/skillsCache'
 const PLANNED_MCP_CONNECTORS = [
   {
     id: 'context7',
-    name: 'Context7',
+    name: 'Context7 MCP',
     url: 'https://mcp.context7.com/mcp/oauth',
     description: 'Dokumentasi pustaka, snippet kode real-time, dan referensi API resmi.'
-  },
-  {
-    id: 'drive',
-    name: 'Google Drive MCP',
-    url: 'https://drivemcp.googleapis.com/mcp/v1',
-    description: 'Pencarian, pembacaan, dan pengindeksan file cloud Google Drive.'
-  },
-  {
-    id: 'calendar',
-    name: 'Google Calendar MCP',
-    url: 'https://calendarmcp.googleapis.com/mcp/v1',
-    description: 'Inspeksi jadwal dan pembuatan acara kalender otomatis.'
-  },
-  {
-    id: 'gmail',
-    name: 'Gmail MCP',
-    url: 'https://gmailmcp.googleapis.com/mcp/v1',
-    description: 'Pencarian arsip email dan pembuatan draf pesan.'
-  },
-  {
-    id: 'mermaid',
-    name: 'Mermaid Visualizer',
-    url: 'https://chatgpt.mermaid.ai/anthropic/mcp',
-    description: 'Diagram arsitektur sistem, alur flowchart, dan visualisasi skema.'
-  },
-  {
-    id: 'lastfm',
-    name: 'Last.fm Scrobbler',
-    url: 'https://ws.audioscrobbler.com/2.0/',
-    description: 'Sinkronisasi riwayat putar musik dan preferensi rekomendasi lagu.'
   }
 ]
 
@@ -193,18 +163,20 @@ export default function CapabilitiesHub({
   const [busyConnectorKey, setBusyConnectorKey] = useState(null)
   const [showAuditDrawer, setShowAuditDrawer] = useState(false)
   const [addMcpModalOpen, setAddMcpModalOpen] = useState(false)
-  const [newMcpForm, setNewMcpForm] = useState({ id: '', name: '', url: '', description: '' })
+  const [newMcpForm, setNewMcpForm] = useState({ id: '', name: '', url: '', description: '', headers: '' })
+
+  const AUDIT_PAGE = 30
 
   const loadMcpData = useCallback(async () => {
     setMcpLoading(true)
     try {
       let cat = null
       let aud = []
-      if (window.api?.capabilityCatalogGet) {
-        cat = await window.api.capabilityCatalogGet().catch(() => null)
+      if (window.api?.listCapabilities) {
+        cat = await window.api.listCapabilities().catch(() => null)
       }
-      if (window.api?.capabilityAuditGet) {
-        aud = await window.api.capabilityAuditGet({ limit: 30 }).catch(() => [])
+      if (window.api?.readCapabilityAudit) {
+        aud = await window.api.readCapabilityAudit(AUDIT_PAGE, 0).catch(() => [])
       }
 
       let customMcp = []
@@ -212,7 +184,17 @@ export default function CapabilitiesHub({
         customMcp = JSON.parse(localStorage.getItem('mark:custom_mcp') || '[]')
       } catch (_) {}
 
-      const combined = [...PLANNED_MCP_CONNECTORS, ...(cat?.connectors || []), ...customMcp]
+      // Daftarkan custom MCP ke sidecar (proses terpisah) agar authorize/
+      // revoke mengenal id-nya; tanpa ini authorize selalu "tidak dikenal".
+      if (customMcp.length > 0 && window.api?.registerCustomConnectors) {
+        await window.api.registerCustomConnectors(customMcp).catch(() => [])
+      }
+
+      const combined = [
+        ...PLANNED_MCP_CONNECTORS,
+        ...(cat?.connectors || []),
+        ...customMcp.map((c) => ({ ...c, transport: 'mcp', custom: true }))
+      ]
       const unique = Array.from(new Map(combined.map((c) => [c.id, c])).values())
 
       setConnectors(unique)
@@ -225,11 +207,35 @@ export default function CapabilitiesHub({
     }
   }, [])
 
+  // Refresh ringan: hanya koneksi + audit terbaru, tanpa refetch katalog.
+  const refreshCapabilityState = useCallback(async () => {
+    try {
+      const [conns, aud] = await Promise.all([
+        window.api?.listCapabilityConnections?.().catch(() => ({})),
+        window.api?.readCapabilityAudit?.(AUDIT_PAGE, 0).catch(() => [])
+      ])
+      if (conns) setConnections(conns)
+      setAuditLogs(Array.isArray(aud) ? aud : aud?.entries || [])
+    } catch (e) {
+      console.error('[CapabilitiesHub] Refresh connections error:', e)
+    }
+  }, [])
+
+  const handleLoadMoreAudit = async () => {
+    try {
+      const more = await window.api?.readCapabilityAudit?.(AUDIT_PAGE, auditLogs.length).catch(() => [])
+      const list = Array.isArray(more) ? more : more?.entries || []
+      if (list.length > 0) setAuditLogs((prev) => [...prev, ...list])
+    } catch (e) {
+      console.error('[CapabilitiesHub] Load more audit error:', e)
+    }
+  }
+
   const handleAuthorizeConnector = async (connectorId, scopes) => {
     setBusyConnectorKey(`${connectorId}:auth`)
     try {
-      await window.api?.capabilityAuthorize?.(connectorId, scopes)
-      await loadMcpData()
+      await window.api?.authorizeCapability?.(connectorId, scopes)
+      await refreshCapabilityState()
     } catch (e) {
       alert(`Gagal otorisasi: ${e.message || e}`)
     } finally {
@@ -248,8 +254,8 @@ export default function CapabilitiesHub({
 
     setBusyConnectorKey(`${connectorId}:revoke`)
     try {
-      await window.api?.capabilityRevoke?.(connectorId)
-      await loadMcpData()
+      await window.api?.revokeCapability?.(connectorId)
+      await refreshCapabilityState()
     } catch (e) {
       alert(`Gagal memutuskan: ${e.message || e}`)
     } finally {
@@ -263,6 +269,19 @@ export default function CapabilitiesHub({
       return
     }
     try {
+      let parsedHeaders = {}
+      if (newMcpForm.headers.trim()) {
+        try {
+          const parsed = JSON.parse(newMcpForm.headers)
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            throw new Error('format')
+          }
+          parsedHeaders = parsed
+        } catch (_) {
+          alert('Header harus JSON objek, misal {"CONTEXT7_API_KEY": "..."}.')
+          return
+        }
+      }
       const current = JSON.parse(localStorage.getItem('mark:custom_mcp') || '[]')
       const updated = [
         ...current.filter((c) => c.id !== newMcpForm.id.trim()),
@@ -270,12 +289,13 @@ export default function CapabilitiesHub({
           id: newMcpForm.id.trim(),
           name: newMcpForm.name.trim() || newMcpForm.id.trim(),
           url: newMcpForm.url.trim(),
-          description: newMcpForm.description.trim() || 'Custom MCP Server'
+          description: newMcpForm.description.trim() || 'Custom MCP Server',
+          headers: parsedHeaders
         }
       ]
       localStorage.setItem('mark:custom_mcp', JSON.stringify(updated))
       setAddMcpModalOpen(false)
-      setNewMcpForm({ id: '', name: '', url: '', description: '' })
+      setNewMcpForm({ id: '', name: '', url: '', description: '', headers: '' })
       loadMcpData()
     } catch (e) {
       alert(`Gagal menyimpan server MCP: ${e.message || e}`)
@@ -632,13 +652,10 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-white/90">Browser Bridge (browse_use)</span>
-                <span className="badge badge-xs badge-success gap-1 text-[10px]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Siap
-                </span>
+                <span className="text-sm font-semibold text-white/90">Browse Use</span>
               </div>
               <p className="text-xs text-white/50">
-                Otomasi Chromium via ekstensi browser tanpa instalasi driver biner berat.
+                Control Chrome via extension
               </p>
               <div className="flex items-center gap-2 pt-1">
                 <label className="text-[11px] text-white/60 flex items-center gap-2 cursor-pointer select-none">
@@ -753,9 +770,6 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   <span className="text-sm font-semibold text-white/90">MCP Connectors</span>
                   <span className="badge badge-xs badge-neutral opacity-80">{filteredConnectors.length}</span>
                 </div>
-                <p className="text-xs text-white/50">
-                  Integrasi alat eksternal melalui antarmuka Model Context Protocol.
-                </p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -812,6 +826,9 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-white/90">{c.name || c.id}</span>
                           <span className="font-mono text-[10px] text-white/40">{c.id}</span>
+                          {c.custom && (
+                            <span className="badge badge-xs badge-info text-[9px]" title="Terdaftar & terotorisasi; eksekusi tool menyusul Fase F3">MCP</span>
+                          )}
                           {isConnected ? (
                             <span className="badge badge-xs badge-success text-[9px]">Terhubung</span>
                           ) : (
@@ -870,24 +887,33 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   {auditLogs.length === 0 ? (
                     <p className="text-[11px] text-white/40 italic py-1">Belum ada jejak eksekusi.</p>
                   ) : (
-                    auditLogs.slice(0, 10).map((log, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-base-100/50 border border-white/5 text-[11px]"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${log.status === 'ok' ? 'bg-success' : 'bg-error'}`}
-                          />
-                          <span className="font-mono text-white/80 truncate">
-                            {log.connectorId || 'system'}:{log.op || 'call'}
+                    <>
+                      {auditLogs.map((log, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-base-100/50 border border-white/5 text-[11px]"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${log.status === 'ok' ? 'bg-success' : 'bg-error'}`}
+                            />
+                            <span className="font-mono text-white/80 truncate">
+                              {log.connectorId || log.connector || 'system'}:{log.op || 'call'}
+                            </span>
+                          </div>
+                          <span className="text-white/40 text-[10px]">
+                            {log.ts ? new Date(log.ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : (log.timestamp ? new Date(log.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-')}
                           </span>
                         </div>
-                        <span className="text-white/40 text-[10px]">
-                          {log.timestamp ? new Date(log.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}
-                        </span>
-                      </div>
-                    ))
+                      ))}
+                      <button
+                        type="button"
+                        onClick={handleLoadMoreAudit}
+                        className="w-full py-1 text-[11px] text-white/50 hover:text-white/80 transition-colors"
+                      >
+                        Muat lagi
+                      </button>
+                    </>
                   )}
                 </div>
               )}
@@ -1455,6 +1481,18 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, description: e.target.value })}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-white/70">Header Auth (opsional, JSON)</label>
+                <input
+                  type="text"
+                  placeholder='misal {"CONTEXT7_API_KEY": "..."}'
+                  value={newMcpForm.headers}
+                  onChange={(e) => setNewMcpForm({ ...newMcpForm, headers: e.target.value })}
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
+                />
+                <p className="text-[10px] text-white/40">Disimpan lokal + sidecar saja, tidak pernah ke chat/model.</p>
               </div>
             </div>
 

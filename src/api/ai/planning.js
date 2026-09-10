@@ -774,9 +774,14 @@ ${
             active_topic: activeTopic
           }
         }
-      }      // Jika data null (output bukan JSON valid), dorong AI untuk memperbaiki format responsnya
+      }      // Jika data null (output bukan JSON valid), dorong AI untuk memperbaiki format responsnya.
+      // VARIATION OPERATORS (pelajaran AVO: retry dengan strategi BERBEDA, bukan
+      // prompt sama): attempt 1 = teguran format penuh; attempt 2 = sederhanakan
+      // (minta 4 field inti saja, tekanan schema dikurangi); attempt 3+ =
+      // larang prose + terima jawaban parsial via recovery.
       if (attempts < MAX_RETRIES) {
-        console.warn(`[planning] AI output invalid JSON or missing schema (Attempt ${attempts}/${MAX_RETRIES}). Continuing loop...`)
+        const strategy = attempts === 1 ? 'format-penuh' : attempts === 2 ? 'skema-minimal' : 'tanpa-prose'
+        console.warn(`[planning] AI output invalid JSON or missing schema (Attempt ${attempts}/${MAX_RETRIES}, strategi: ${strategy}). Continuing loop...`)
         const rawOutput = response.content || response.reasoning || ''
         // Efisiensi token (requirement "retries burning ~16k"): jangan echo output
         // mentah utuh balik ke konteks — sering berisi reasoning dump ribuan token.
@@ -788,7 +793,9 @@ ${
         messages.push({
           role: 'user',
           content:
-            '[CRITICAL ERROR] Respons Anda tidak mengandung format JSON yang valid. Anda WAJIB merespon HANYA dengan format JSON valid sesuai schema:\n{\n  "thought": "analisis singkat langkah berikutnya",\n  "action": null atau {"tool": "nama_tool", "query": "parameter"},\n  "answer": "jawaban akhir jika tugas selesai" atau null,\n  "is_done": true/false\n}'
+            attempts === 1
+              ? '[CRITICAL ERROR] Respons Anda tidak mengandung format JSON yang valid. Anda WAJIB merespon HANYA dengan format JSON valid sesuai schema:\n{\n  "thought": "analisis singkat langkah berikutnya",\n  "action": null atau {"tool": "nama_tool", "query": "parameter"},\n  "answer": "jawaban akhir jika tugas selesai" atau null,\n  "is_done": true/false\n}'
+              : '[FORMAT ULANG — VERSI SEDERHANA] Abaikan field lain. Keluarkan HANYA 4 field ini sebagai JSON valid satu objek:\n{\n  "thought": "1 kalimat",\n  "action": null,\n  "answer": "jawaban akhir bila selesai, atau null bila butuh tool",\n  "is_done": true/false\n}\nDILARANG prose di luar JSON. Nilai string wajib satu baris.'
         })
         continue
       }
@@ -811,7 +818,7 @@ ${
     }
   } catch (error) {
     const errorMsg = error?.message || ''
-    if (error.name !== 'AbortError' && !errorMsg.includes('AbortError')) {
+    if (error?.name !== 'AbortError' && !errorMsg.includes('AbortError')) {
       console.error('Error in getNextAction:', error)
     }
     throw error

@@ -46,7 +46,7 @@ export const GEMINI_WEB_MODELS = {
 
 const DEFAULT_BL = 'boq_assistant-bard-web-server_20260730.01_p1'
 
-function httpPost(urlStr, headers, bodyData) {
+function httpPost(urlStr, headers, bodyData, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(urlStr)
     const options = {
@@ -62,6 +62,9 @@ function httpPost(urlStr, headers, bodyData) {
       res.on('end', () => resolve(data))
     })
     req.on('error', (err) => reject(err))
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error(`Timeout ${timeoutMs / 1000}s menunggu respons Gemini Web.`))
+    })
     req.write(bodyData)
     req.end()
   })

@@ -37,8 +37,14 @@ env.fetch = async (url, init) => {
 
 let transcriber = null;
 
-async function createTranscriber(device, progress_callback) {
-  return pipeline('automatic-speech-recognition', 'onnx-community/whisper-small', {
+const WHISPER_MODELS = {
+  'whisper-tiny': 'onnx-community/whisper-tiny',
+  'whisper-small': 'onnx-community/whisper-small'
+};
+
+async function createTranscriber(device, progress_callback, modelId) {
+  const model = WHISPER_MODELS[modelId] || WHISPER_MODELS['whisper-small'];
+  return pipeline('automatic-speech-recognition', model, {
     device,
     dtype: 'fp32',
     progress_callback
@@ -49,6 +55,7 @@ self.onmessage = async (e) => {
   const { type, data } = e.data;
 
   if (type === 'load') {
+    const modelId = e.data?.model || 'whisper-small';
     if (!transcriber) {
       try {
         const hasWebGPU = typeof navigator !== 'undefined' && navigator.gpu;
@@ -57,18 +64,18 @@ self.onmessage = async (e) => {
         };
         // Rantai fallback: webgpu -> wasm SIMD -> wasm non-SIMD.
         try {
-          transcriber = await createTranscriber(hasWebGPU ? 'webgpu' : 'wasm', progress_callback);
+          transcriber = await createTranscriber(hasWebGPU ? 'webgpu' : 'wasm', progress_callback, modelId);
         } catch (err) {
           const msg = err?.message || String(err);
           if (hasWebGPU && !/SIMD|no available backend/i.test(msg)) throw err;
           if (/webgpu/i.test(msg)) {
             // WebGPU ada tapi gagal inisialisasi -> turun ke wasm biasa.
-            transcriber = await createTranscriber('wasm', progress_callback);
+            transcriber = await createTranscriber('wasm', progress_callback, modelId);
           } else if (/SIMD|no available backend/i.test(msg)) {
             // Sekali info (bukan warn berulang): retry non-SIMD di bawah ini
             // yang menentukan; bila itu pun gagal, satu error ringkas saja.
             env.backends.onnx.wasm.simd = false;
-            transcriber = await createTranscriber('wasm', progress_callback);
+            transcriber = await createTranscriber('wasm', progress_callback, modelId);
           } else {
             throw err;
           }

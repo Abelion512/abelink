@@ -83,15 +83,23 @@ const APPROVAL_ACTIONS: &[&str] = &[
     "tg:stop",
     "google:connect",
     "google:disconnect",
-    // Capability Manager (fase Kapabilitas): satu gate untuk SEMUA eksekusi
-    // connector. Konektor berbahaya (shell-tool) tidak bisa diandalkan lewat
-    // jalur native-tool:* di sini, jadi setiap capabilities:execute dikonfirmasi
-    // native (rfd) di main thread — keputusan di luar renderer/model.
+    // Capability Manager (fase Kapabilitas): eksekusi connector yang BERISIKO
+    // (tulis/hapus/shell/authorize) dikonfirmasi native (rfd) di main thread —
+    // keputusan di luar renderer/model. Aksi read-only aman (weather/time,
+    // fs list/read, status extension) lolos via is_readonly_capability.
     "capabilities:execute",
     // Authorize/revoke = memberi/mencabut izin kredensial connector — setara
     // keamanan dgn connect google / start tg. Wajib gate native (rfd).
     "capabilities:authorize",
     "capabilities:revoke",
+    // OS automation namespace colon (Fase B6, engine/channels/os.mjs): aksi
+    // MUTASI fisik (klik/ketik/shortcut/scroll/buka) wajib dialog native.
+    // Baca/list/fokus/tanya = observasi, lolos (verifier butuh sunyi).
+    "os:click",
+    "os:type",
+    "os:key",
+    "os:scroll",
+    "os:open",
 ];
 
 /// Peta aksi -> family kebijakan approval berjenjang (approval_policy.rs).
@@ -112,8 +120,14 @@ fn action_family(action: &str) -> &'static str {
 /// Kembalikan Some(deskripsi) bila aksi butuh persetujuan native.
 /// Kebijakan berjenjang: family "always" -> tanpa dialog; "session" ->
 /// grant in-memory sekali tanya; "ask" -> dialog rfd tiap kali.
-fn approval_reason(action: &str, _payload: &Option<serde_json::Value>) -> Option<String> {
+fn approval_reason(action: &str, payload: &Option<serde_json::Value>) -> Option<String> {
     if APPROVAL_ACTIONS.contains(&action) {
+        // Tiering capabilities: aksi read-only yang aman lolos tanpa dialog
+        // (weather/time, status/faq extension, fs list/read). Tulis/hapus,
+        // shell, dan connector tak dikenal tetap lewat dialog.
+        if action == "capabilities:execute" && is_readonly_capability(payload) {
+            return None;
+        }
         let family = action_family(action);
         let eff = crate::approval_policy::effective_policy(family);
         if eff == crate::approval_policy::POLICY_ALWAYS || eff == crate::approval_policy::POLICY_SESSION {
@@ -122,6 +136,28 @@ fn approval_reason(action: &str, _payload: &Option<serde_json::Value>) -> Option
         return Some(format!("Aksi \"{action}\" membutuhkan izin."));
     }
     None
+}
+
+/// Pasangan (connector, aksi) capabilities yang read-only dan aman:
+/// cuaca/waktu, status/faq extension, baca/list file workspace.
+/// Payload capabilities:execute = [connectorId, actionId, args, opts].
+fn is_readonly_capability(payload: &Option<serde_json::Value>) -> bool {
+    let arr = match payload.as_ref().and_then(|p| p.as_array()) {
+        Some(a) => a,
+        None => return false,
+    };
+    let conn = arr.first().and_then(|v| v.as_str()).unwrap_or("");
+    let act = arr.get(1).and_then(|v| v.as_str()).unwrap_or("");
+    matches!(
+        (conn, act),
+        ("weather", _)
+            | ("time", _)
+            | ("browser-extension", "status")
+            | ("browser-extension", "guide-install")
+            | ("browser-extension", "close-session")
+            | ("fs", "list")
+            | ("fs", "read")
+    )
 }
 
 pub(crate) fn payload_preview(payload: &Option<serde_json::Value>) -> String {
