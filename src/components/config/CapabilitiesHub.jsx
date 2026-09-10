@@ -19,13 +19,15 @@ import {
   FaUnlock,
   FaHistory,
   FaCode,
-  FaSlidersH,
   FaCalendarAlt,
   FaHdd,
   FaEnvelope,
-  FaTelegramPlane,
   FaGithub,
-  FaTerminal
+  FaTerminal,
+  FaChevronDown,
+  FaChevronUp,
+  FaCopy,
+  FaExternalLinkAlt
 } from 'react-icons/fa'
 import { useConfirm } from '../../hooks/useConfirm'
 import { getCachedSkills } from '../../api/skillsCache'
@@ -33,39 +35,39 @@ import { getCachedSkills } from '../../api/skillsCache'
 const PLANNED_MCP_CONNECTORS = [
   {
     id: 'context7',
-    name: 'CONTEXT7',
+    name: 'Context7',
     url: 'https://mcp.context7.com/mcp/oauth',
-    description: 'Library documentation, real-time code snippet lookup, and API reference.'
+    description: 'Dokumentasi pustaka, snippet kode real-time, dan referensi API resmi.'
   },
   {
     id: 'drive',
-    name: 'Google Drive',
+    name: 'Google Drive MCP',
     url: 'https://drivemcp.googleapis.com/mcp/v1',
-    description: 'Google Drive MCP server for searching, reading, and indexing cloud files.'
+    description: 'Pencarian, pembacaan, dan pengindeksan file cloud Google Drive.'
   },
   {
     id: 'calendar',
-    name: 'Google Calendar',
+    name: 'Google Calendar MCP',
     url: 'https://calendarmcp.googleapis.com/mcp/v1',
-    description: 'Google Calendar MCP server for schedule inspection and event creation.'
+    description: 'Inspeksi jadwal dan pembuatan acara kalender otomatis.'
   },
   {
     id: 'gmail',
-    name: 'Gmail',
+    name: 'Gmail MCP',
     url: 'https://gmailmcp.googleapis.com/mcp/v1',
-    description: 'Google Gmail MCP server for email search and drafting.'
+    description: 'Pencarian arsip email dan pembuatan draf pesan.'
   },
   {
     id: 'mermaid',
-    name: 'Mermaid',
+    name: 'Mermaid Visualizer',
     url: 'https://chatgpt.mermaid.ai/anthropic/mcp',
-    description: 'Architecture diagramming, flowchart, and visual schema generation.'
+    description: 'Diagram arsitektur sistem, alur flowchart, dan visualisasi skema.'
   },
   {
     id: 'lastfm',
     name: 'Last.fm Scrobbler',
     url: 'https://ws.audioscrobbler.com/2.0/',
-    description: 'Music scrobbler, top tracks & artists sync, and listening history memory for preference tuning.'
+    description: 'Sinkronisasi riwayat putar musik dan preferensi rekomendasi lagu.'
   }
 ]
 
@@ -73,25 +75,25 @@ const BUILTIN_SKILLS = [
   {
     id: 'systematic-engineering',
     name: 'Systematic Engineering',
-    badge: 'Disiplin Rekayasa',
+    desc: 'Disiplin investigasi bertahap sebelum modifikasi kode.',
     icon: FaCubes
   },
   {
     id: 'execution-discipline',
     name: 'Execution Discipline',
-    badge: 'Stabilitas Sistem',
+    desc: 'Verifikasi deterministik via test suite sebelum commit.',
     icon: FaTerminal
   },
   {
     id: 'durable-planner',
     name: 'Durable Task Planner (/plan)',
-    badge: 'Multi-Step Tasks',
+    desc: 'Rencana kerja persisten untuk tugas bertahap multi-langkah.',
     icon: FaBrain
   },
   {
     id: 'root-cause-debugger',
     name: 'Root-Cause Debugger',
-    badge: 'Analisis Mendalam',
+    desc: 'Analisis akar masalah mendalam sebelum memberikan solusi.',
     icon: FaSearch
   }
 ]
@@ -107,7 +109,26 @@ export default function CapabilitiesHub({
   const { confirm, ModalComponent } = useConfirm()
   const [activeTab, setActiveTab] = useState('connectors')
 
-  // ── Google Workspace Connectors State ─────────────────────────────────────
+  // ── Browser Extension State & Modal ───────────────────────────────────────
+  const [extInstall, setExtInstall] = useState(null)
+  const [extGuideOpen, setExtGuideOpen] = useState(false)
+  const [copiedPath, setCopiedPath] = useState(false)
+
+  const handleInitExtension = async () => {
+    try {
+      if (!window.api?.ensureExtensionFiles) {
+        setExtInstall({ error: 'Runtime desktop belum mendukung.' })
+        return
+      }
+      const dir = await window.api.ensureExtensionFiles()
+      setExtInstall({ dir })
+      setExtGuideOpen(true)
+    } catch (e) {
+      setExtInstall({ error: e?.message || String(e) })
+    }
+  }
+
+  // ── Google Workspace State & Modal ────────────────────────────────────────
   const [googleConnected, setGoogleConnected] = useState(false)
   const [googleModalOpen, setGoogleModalOpen] = useState(false)
   const [googleClientId, setGoogleClientId] = useState('')
@@ -121,7 +142,7 @@ export default function CapabilitiesHub({
         setGoogleConnected(!!isConn)
       }
     } catch (e) {
-      console.warn('[CapabilitiesHub] Gagal cek status Google:', e)
+      console.warn('[CapabilitiesHub] Status Google check warning:', e)
     }
   }, [])
 
@@ -149,7 +170,7 @@ export default function CapabilitiesHub({
   const handleGoogleDisconnect = async () => {
     const res = await confirm({
       title: 'Putuskan Google Workspace?',
-      message: 'Abelink tidak lagi dapat mengakses Google Calendar, Google Drive, dan Gmail.',
+      message: 'Akses ke Google Calendar, Drive, dan Gmail akan dinonaktifkan.',
       confirmText: 'Putuskan',
       isError: true
     })
@@ -163,13 +184,16 @@ export default function CapabilitiesHub({
     }
   }
 
-  // ── MCP Connectors State ──────────────────────────────────────────────────
+  // ── MCP Connectors State & Modal ──────────────────────────────────────────
   const [connectors, setConnectors] = useState([])
   const [connections, setConnections] = useState({})
   const [auditLogs, setAuditLogs] = useState([])
   const [mcpLoading, setMcpLoading] = useState(true)
   const [mcpSearch, setMcpSearch] = useState('')
   const [busyConnectorKey, setBusyConnectorKey] = useState(null)
+  const [showAuditDrawer, setShowAuditDrawer] = useState(false)
+  const [addMcpModalOpen, setAddMcpModalOpen] = useState(false)
+  const [newMcpForm, setNewMcpForm] = useState({ id: '', name: '', url: '', description: '' })
 
   const loadMcpData = useCallback(async () => {
     setMcpLoading(true)
@@ -195,7 +219,7 @@ export default function CapabilitiesHub({
       setConnections(cat?.connections || {})
       setAuditLogs(Array.isArray(aud) ? aud : aud?.entries || [])
     } catch (e) {
-      console.error('[CapabilitiesHub] Gagal memuat data MCP:', e)
+      console.error('[CapabilitiesHub] Data MCP error:', e)
     } finally {
       setMcpLoading(false)
     }
@@ -215,8 +239,8 @@ export default function CapabilitiesHub({
 
   const handleRevokeConnector = async (connectorId) => {
     const res = await confirm({
-      title: 'Putuskan Koneksi?',
-      message: `Yakin ingin memutuskan koneksi connector "${connectorId}"?`,
+      title: 'Putuskan Koneksi MCP?',
+      message: `Putuskan koneksi dari connector "${connectorId}"?`,
       confirmText: 'Putuskan',
       isError: true
     })
@@ -233,6 +257,31 @@ export default function CapabilitiesHub({
     }
   }
 
+  const handleSaveNewMcp = () => {
+    if (!newMcpForm.id.trim() || !newMcpForm.url.trim()) {
+      alert('ID dan URL MCP server wajib diisi.')
+      return
+    }
+    try {
+      const current = JSON.parse(localStorage.getItem('mark:custom_mcp') || '[]')
+      const updated = [
+        ...current.filter((c) => c.id !== newMcpForm.id.trim()),
+        {
+          id: newMcpForm.id.trim(),
+          name: newMcpForm.name.trim() || newMcpForm.id.trim(),
+          url: newMcpForm.url.trim(),
+          description: newMcpForm.description.trim() || 'Custom MCP Server'
+        }
+      ]
+      localStorage.setItem('mark:custom_mcp', JSON.stringify(updated))
+      setAddMcpModalOpen(false)
+      setNewMcpForm({ id: '', name: '', url: '', description: '' })
+      loadMcpData()
+    } catch (e) {
+      alert(`Gagal menyimpan server MCP: ${e.message || e}`)
+    }
+  }
+
   // ── Plugins State & Modal ─────────────────────────────────────────────────
   const [plugins, setPlugins] = useState([])
   const [pluginsLoading, setPluginsLoading] = useState(true)
@@ -242,11 +291,10 @@ export default function CapabilitiesHub({
   const [pluginForm, setPluginForm] = useState({
     name: '',
     description: '',
-    actions: [{ name: '', description: '', triggerHint: '', code: '' }],
+    actions: [{ name: 'run', description: '', triggerHint: '', code: 'return "ok";' }],
     isEdit: false
   })
   const [pluginSyntaxErrors, setPluginSyntaxErrors] = useState([])
-  const [extInstall, setExtInstall] = useState(null)
 
   const loadPlugins = useCallback(async () => {
     if (!window.api?.getPlugins) {
@@ -258,7 +306,7 @@ export default function CapabilitiesHub({
       const data = await window.api.getPlugins()
       setPlugins(Array.isArray(data) ? data : [])
     } catch (e) {
-      console.error('[CapabilitiesHub] Gagal memuat plugins:', e)
+      console.error('[CapabilitiesHub] Gagal memuat plugin:', e)
     } finally {
       setPluginsLoading(false)
     }
@@ -286,7 +334,7 @@ export default function CapabilitiesHub({
   const handleInstallGitPlugin = async () => {
     const url = gitPluginUrl.trim()
     if (!url) {
-      alert('Masukkan URL atau shorthand repository GitHub (contoh: owner/repo)')
+      alert('Masukkan shorthand GitHub (owner/repo) atau tautan URL.')
       return
     }
     setGitPluginLoading(true)
@@ -297,13 +345,13 @@ export default function CapabilitiesHub({
           setGitPluginUrl('')
           await loadPlugins()
         } else {
-          alert(`Gagal memasang plugin: ${res?.error || 'Terjadi kesalahan'}`)
+          alert(`Gagal memasang plugin: ${res?.error || 'Kesalahan repositori'}`)
         }
       } else {
-        alert('Fitur instalasi git plugin belum aktif di sidecar.')
+        alert('Fitur instalasi git plugin belum aktif di runtime sidecar.')
       }
     } catch (e) {
-      alert(`Gagal memasang plugin dari GitHub: ${e.message || e}`)
+      alert(`Gagal mengunduh plugin: ${e.message || e}`)
     } finally {
       setGitPluginLoading(false)
     }
@@ -318,7 +366,7 @@ export default function CapabilitiesHub({
           name: 'run',
           description: 'Fungsi utama plugin',
           triggerHint: 'ketika user meminta ...',
-          code: '// query berisi parameter dari prompt user\nreturn "Hasil eksekusi plugin";'
+          code: `// query berisi argumen dari pengguna\nreturn "Hasil eksekusi plugin";`
         }
       ],
       isEdit: false
@@ -333,7 +381,7 @@ export default function CapabilitiesHub({
       actions:
         plugin.actions && plugin.actions.length > 0
           ? plugin.actions.map((a) => ({ ...a }))
-          : [{ name: 'run', description: '', triggerHint: '', code: '' }],
+          : [{ name: 'run', description: '', triggerHint: '', code: 'return "ok";' }],
       isEdit: true
     })
     setEditingPlugin({ mode: 'edit', originalName: plugin.name })
@@ -344,9 +392,8 @@ export default function CapabilitiesHub({
       alert('Nama plugin wajib diisi.')
       return
     }
-    const hasSyntaxErr = pluginSyntaxErrors.some(Boolean)
-    if (hasSyntaxErr) {
-      alert('Terdapat syntax error pada kode JavaScript action.')
+    if (pluginSyntaxErrors.some(Boolean)) {
+      alert('Perbaiki syntax error JavaScript pada aksi sebelum menyimpan.')
       return
     }
 
@@ -367,7 +414,7 @@ export default function CapabilitiesHub({
   const handleDeletePlugin = async (name) => {
     const res = await confirm({
       title: 'Hapus Plugin?',
-      message: `Yakin ingin menghapus plugin "${name}"? Kode akan dihapus permanen.`,
+      message: `Hapus plugin "${name}" secara permanen dari sistem?`,
       confirmText: 'Ya, Hapus',
       isError: true
     })
@@ -386,7 +433,7 @@ export default function CapabilitiesHub({
       await window.api?.togglePlugin?.(name, !currentStatus)
       await loadPlugins()
     } catch (e) {
-      alert(`Gagal mengubah status plugin: ${e.message || e}`)
+      alert(`Gagal mengubah status: ${e.message || e}`)
     }
   }
 
@@ -412,17 +459,17 @@ export default function CapabilitiesHub({
   const handleOpenNewSkill = () => {
     const defaultTemplate = `---
 name: skill-baru
-description: Deskripsi singkat tentang keahlian operasional ini...
+description: Deskripsi singkat keahlian operasional ini...
 ---
 
-# Instruksi Operasional
+# Panduan Operasional
 
-Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
-- [ ] Langkah 1
-- [ ] Langkah 2
+Petunjuk eksekusi dan batasan tindakan untuk AI:
+1. Langkah inspeksi awal
+2. Langkah eksekusi solusi
 
 ## Critical Rules
-- Selalu patuhi batas aman eksekusi sistem.
+- Selalu uji asumsi sebelum melakukan modifikasi file.
 `
     setSkillFormName('')
     setSkillFormContent(defaultTemplate)
@@ -500,7 +547,7 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
       const list = await window.api.approvalPolicyList()
       setApprovalPolicies(Array.isArray(list) ? list : [])
     } catch (e) {
-      console.error('[CapabilitiesHub] Gagal memuat kebijakan approval:', e)
+      console.error('[CapabilitiesHub] Gagal memuat kebijakan:', e)
     } finally {
       setPoliciesLoading(false)
     }
@@ -530,35 +577,27 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
     <div className="space-y-6">
       <ModalComponent />
 
-      {/* ── Sub-Nav Tabs (Pill style ala Claude Customize) ── */}
-      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-base-100/50 border border-white/5 backdrop-blur-md">
+      {/* ── Sub-Nav Tabs (Clean Floating Pills ala Claude.ai) ── */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-base-200/50 border border-white/5 backdrop-blur-xl">
         <button
           type="button"
           onClick={() => setActiveTab('connectors')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-            activeTab === 'connectors'
-              ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm'
-              : 'text-white/60 hover:text-white hover:bg-white/[0.04]'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'connectors' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
           <FaPlug size={12} />
           <span>Connectors</span>
           <span className="badge badge-xs badge-neutral opacity-80">
-            {connectors.length + (googleConnected ? 3 : 0)}
+            {connectors.length + (googleConnected ? 3 : 0) + 1}
           </span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('plugins')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-            activeTab === 'plugins'
-              ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm'
-              : 'text-white/60 hover:text-white hover:bg-white/[0.04]'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'plugins' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
           <FaCubes size={12} />
-          <span>Plugins &amp; Otomasi</span>
+          <span>Plugins</span>
           {plugins.length > 0 && (
             <span className="badge badge-xs badge-neutral opacity-80">{plugins.length}</span>
           )}
@@ -567,11 +606,7 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
         <button
           type="button"
           onClick={() => setActiveTab('skills')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-            activeTab === 'skills'
-              ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm'
-              : 'text-white/60 hover:text-white hover:bg-white/[0.04]'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'skills' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
           <FaBrain size={12} />
           <span>Skills</span>
@@ -583,108 +618,146 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
         <button
           type="button"
           onClick={() => setActiveTab('security')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-            activeTab === 'security'
-              ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm'
-              : 'text-white/60 hover:text-white hover:bg-white/[0.04]'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'security' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
           <FaShieldAlt size={12} />
-          <span>Kebijakan Keamanan</span>
+          <span>Keamanan</span>
         </button>
       </div>
 
       {/* ── TAB 1: CONNECTORS ── */}
       {activeTab === 'connectors' && (
-        <div className="space-y-6">
-          {/* Built-in Connectors: Google Workspace */}
-          <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
+        <div className="space-y-4">
+          {/* Card: Browser Companion Bridge */}
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-white/90">Browser Bridge (browse_use)</span>
+                <span className="badge badge-xs badge-success gap-1 text-[10px]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Siap
+                </span>
+              </div>
+              <p className="text-xs text-white/50">
+                Otomasi Chromium via ekstensi browser tanpa instalasi driver biner berat.
+              </p>
+              <div className="flex items-center gap-2 pt-1">
+                <label className="text-[11px] text-white/60 flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="toggle toggle-primary toggle-xs"
+                    checked={!!config.browserAutoCloseTabs}
+                    onChange={(e) =>
+                      setConfig((prev) => ({ ...prev, browserAutoCloseTabs: e.target.checked }))
+                    }
+                  />
+                  <span>Tutup tab grup otomatis saat tugas selesai</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+              <button
+                type="button"
+                onClick={handleInitExtension}
+                className="btn btn-xs btn-outline border-white/10 hover:border-primary/50 text-white/80 rounded-xl"
+              >
+                Panduan Pemasangan
+              </button>
+              {extInstall?.dir && (
+                <button
+                  type="button"
+                  onClick={() => window.api?.openFolder?.(extInstall.dir)}
+                  className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
+                  title="Buka folder berkas ekstensi di file manager"
+                >
+                  <FaFolderOpen size={11} />
+                  <span>Buka Folder</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Card: Google Workspace */}
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-                  <FaPlug className="text-primary" size={14} />
-                  Built-in Connectors: Google Workspace
-                </h3>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-white/90">Google Workspace</span>
+                  {googleConnected ? (
+                    <span className="badge badge-xs badge-success gap-1 text-[10px]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Terhubung
+                    </span>
+                  ) : (
+                    <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">Offline</span>
+                  )}
+                </div>
+                <p className="text-xs text-white/50">
+                  Sinkronisasi Google Calendar, Drive, dan Gmail via OAuth 2.0 resmi.
+                </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div>
                 {googleConnected ? (
                   <button
                     type="button"
                     onClick={handleGoogleDisconnect}
-                    className="btn btn-xs btn-outline border-error/40 text-error hover:bg-error/10 rounded-xl gap-1.5"
+                    className="btn btn-xs btn-outline border-error/40 text-error hover:bg-error/10 rounded-xl gap-1"
                   >
                     <FaUnlock size={10} />
-                    <span>Putuskan Akun Google</span>
+                    <span>Putuskan</span>
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={() => setGoogleModalOpen(true)}
-                    className="btn btn-xs btn-primary rounded-xl gap-1.5"
+                    className="btn btn-xs btn-primary rounded-xl gap-1"
                   >
                     <FaLock size={10} />
-                    <span>Hubungkan Google Workspace</span>
+                    <span>Hubungkan</span>
                   </button>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+            {/* Clean service status row */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
               {[
-                {
-                  id: 'google-calendar',
-                  name: 'Google Calendar',
-                  icon: FaCalendarAlt,
-                  color: 'text-blue-400'
-                },
-                {
-                  id: 'google-drive',
-                  name: 'Google Drive',
-                  icon: FaHdd,
-                  color: 'text-amber-400'
-                },
-                {
-                  id: 'gmail',
-                  name: 'Gmail',
-                  icon: FaEnvelope,
-                  color: 'text-red-400'
-                }
-              ].map((prod) => {
-                const ProdIcon = prod.icon
+                { name: 'Calendar', icon: FaCalendarAlt, color: 'text-blue-400' },
+                { name: 'Drive', icon: FaHdd, color: 'text-amber-400' },
+                { name: 'Gmail', icon: FaEnvelope, color: 'text-red-400' }
+              ].map((svc) => {
+                const SvcIcon = svc.icon
                 return (
                   <div
-                    key={prod.id}
-                    className="p-3.5 rounded-2xl bg-base-100/60 border border-white/5 flex items-center justify-between gap-2"
+                    key={svc.name}
+                    className="px-3 py-2 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <ProdIcon className={prod.color} size={15} />
-                      <span className="text-xs font-semibold text-white/90">{prod.name}</span>
+                    <div className="flex items-center gap-2">
+                      <SvcIcon className={svc.color} size={12} />
+                      <span className="text-xs font-medium text-white/80">{svc.name}</span>
                     </div>
-                    {googleConnected ? (
-                      <span className="badge badge-xs badge-success gap-1 text-[10px]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Terhubung
-                      </span>
-                    ) : (
-                      <span className="badge badge-xs badge-ghost border-white/10 text-[10px] opacity-70">
-                        Belum Terhubung
-                      </span>
-                    )}
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${googleConnected ? 'bg-success animate-pulse' : 'bg-white/20'}`}
+                    />
                   </div>
                 )
               })}
             </div>
           </div>
 
-          {/* Custom Connectors: MCP Protocol */}
-          <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
+          {/* Section: MCP Protocol Gateway */}
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-                  <FaPlug className="text-primary" size={14} />
-                  Custom Connectors: Gateway Protokol MCP
-                </h3>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-white/90">MCP Connectors</span>
+                  <span className="badge badge-xs badge-neutral opacity-80">{filteredConnectors.length}</span>
+                </div>
+                <p className="text-xs text-white/50">
+                  Integrasi alat eksternal melalui antarmuka Model Context Protocol.
+                </p>
               </div>
+
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <input
@@ -692,16 +765,24 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                     placeholder="Cari connector..."
                     value={mcpSearch}
                     onChange={(e) => setMcpSearch(e.target.value)}
-                    className="input input-xs input-bordered rounded-xl pl-7 pr-3 bg-base-100/60 border-white/10 text-xs w-44 focus:w-56 transition-all"
+                    className="input input-xs input-bordered rounded-xl pl-7 pr-3 bg-base-100/60 border-white/10 text-xs w-40 focus:w-48 transition-all"
                   />
                   <FaSearch className="absolute left-2.5 top-2 text-white/30" size={10} />
                 </div>
                 <button
                   type="button"
+                  onClick={() => setAddMcpModalOpen(true)}
+                  className="btn btn-xs btn-primary rounded-xl gap-1"
+                >
+                  <FaPlus size={9} />
+                  <span>Tambah MCP</span>
+                </button>
+                <button
+                  type="button"
                   onClick={loadMcpData}
                   disabled={mcpLoading}
                   className="btn btn-xs btn-ghost border border-white/10 hover:bg-white/5 rounded-xl"
-                  title="Segarkan daftar connector"
+                  title="Segarkan daftar"
                 >
                   <FaSyncAlt size={10} className={mcpLoading ? 'animate-spin text-primary' : ''} />
                 </button>
@@ -709,62 +790,40 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
             </div>
 
             {mcpLoading ? (
-              <div className="p-8 text-center text-white/40 text-xs flex flex-col items-center gap-2">
+              <div className="p-6 text-center text-white/40 text-xs flex flex-col items-center gap-2">
                 <span className="loading loading-spinner loading-sm text-primary"></span>
-                Memuat katalog connector...
+                Memuat katalog MCP...
               </div>
             ) : filteredConnectors.length === 0 ? (
-              <div className="p-8 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10">
-                <FaPlug className="mx-auto text-white/20 mb-2" size={24} />
-                <p className="text-xs text-white/60 font-medium">Belum ada connector MCP eksternal yang terdeteksi.</p>
-                <p className="text-[11px] text-white/40 mt-1">
-                  Tambahkan server MCP ke konfigurasi sistem Abelink atau periksa sidecar runtime.
-                </p>
+              <div className="p-6 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10 text-xs text-white/50">
+                Tidak ada connector MCP yang cocok dengan pencarian.
               </div>
             ) : (
-              <div className="grid gap-3">
+              <div className="grid gap-2">
                 {filteredConnectors.map((c) => {
                   const isConnected = !!connections[c.id]
                   const isBusy = busyConnectorKey?.startsWith(`${c.id}:`)
                   return (
                     <div
                       key={c.id}
-                      className="rounded-2xl border border-white/5 bg-base-100/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-white/15 transition-colors"
+                      className="rounded-xl border border-white/5 bg-base-100/40 p-3.5 flex items-center justify-between gap-3 hover:border-white/15 transition-all"
                     >
-                      <div className="space-y-1 min-w-0">
+                      <div className="min-w-0 flex-1 space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm text-white/90">{c.name || c.id}</span>
-                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/60 border border-white/5">
-                            {c.id}
-                          </span>
+                          <span className="text-xs font-semibold text-white/90">{c.name || c.id}</span>
+                          <span className="font-mono text-[10px] text-white/40">{c.id}</span>
                           {isConnected ? (
-                            <span className="badge badge-xs badge-success gap-1 text-[10px]">
-                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Terhubung
-                            </span>
+                            <span className="badge badge-xs badge-success text-[9px]">Terhubung</span>
                           ) : (
-                            <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">Offline</span>
+                            <span className="badge badge-xs badge-ghost border-white/10 text-[9px] opacity-60">Offline</span>
                           )}
                         </div>
-                        {c.url && (
-                          <div className="font-mono text-[11px] text-cyan-400/80 truncate max-w-lg">
-                            {c.url}
-                          </div>
-                        )}
-                        <p className="text-xs text-white/50 leading-relaxed line-clamp-2">
-                          {c.description || 'Tidak ada deskripsi.'}
+                        <p className="text-[11px] text-white/50 truncate max-w-xl">
+                          {c.description || c.url || 'Tidak ada deskripsi.'}
                         </p>
-                        {c.scopes && c.scopes.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {c.scopes.map((s) => (
-                              <span key={s} className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-base-300/60 text-white/50">
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <div className="shrink-0">
                         {isConnected ? (
                           <button
                             type="button"
@@ -772,18 +831,16 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                             onClick={() => handleRevokeConnector(c.id)}
                             className="btn btn-xs btn-outline border-error/40 text-error hover:bg-error/10 rounded-xl"
                           >
-                            <FaUnlock size={10} />
-                            <span>Putus</span>
+                            Putus
                           </button>
                         ) : (
                           <button
                             type="button"
                             disabled={isBusy}
                             onClick={() => handleAuthorizeConnector(c.id, c.scopes || [])}
-                            className="btn btn-xs btn-primary rounded-xl"
+                            className="btn btn-xs btn-ghost border border-white/10 hover:border-primary/40 text-white/80 rounded-xl"
                           >
-                            <FaLock size={10} />
-                            <span>Otorisasi</span>
+                            Otorisasi
                           </button>
                         )}
                       </div>
@@ -792,214 +849,115 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                 })}
               </div>
             )}
-          </div>
 
-          {/* Jejak Audit MCP */}
-          <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-white/70 flex items-center gap-2">
-                <FaHistory className="text-info" size={12} />
-                Jejak Audit Eksekusi MCP Terakhir
-              </h4>
-              <span className="text-[11px] text-white/40">{auditLogs.length} entri</span>
+            {/* Collapsible MCP Audit Log Drawer */}
+            <div className="pt-2 border-t border-white/5">
+              <button
+                type="button"
+                onClick={() => setShowAuditDrawer(!showAuditDrawer)}
+                className="w-full flex items-center justify-between py-1 text-xs text-white/50 hover:text-white/80 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <FaHistory size={11} className="text-info" />
+                  <span>Riwayat Audit Eksekusi MCP</span>
+                  <span className="badge badge-xs badge-neutral text-[9px]">{auditLogs.length}</span>
+                </span>
+                {showAuditDrawer ? <FaChevronUp size={10} /> : <FaChevronDown size={10} />}
+              </button>
+
+              {showAuditDrawer && (
+                <div className="mt-3 space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                  {auditLogs.length === 0 ? (
+                    <p className="text-[11px] text-white/40 italic py-1">Belum ada jejak eksekusi.</p>
+                  ) : (
+                    auditLogs.slice(0, 10).map((log, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-base-100/50 border border-white/5 text-[11px]"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${log.status === 'ok' ? 'bg-success' : 'bg-error'}`}
+                          />
+                          <span className="font-mono text-white/80 truncate">
+                            {log.connectorId || 'system'}:{log.op || 'call'}
+                          </span>
+                        </div>
+                        <span className="text-white/40 text-[10px]">
+                          {log.timestamp ? new Date(log.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
-
-            {auditLogs.length === 0 ? (
-              <p className="text-xs text-white/40 italic py-2">Belum ada aktivitas eksekusi capability tercatat.</p>
-            ) : (
-              <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-1">
-                {auditLogs.slice(0, 15).map((log, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-base-100/40 border border-white/5 text-xs hover:bg-base-100/70 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className={`w-2 h-2 rounded-full shrink-0 ${
-                          log.status === 'ok' ? 'bg-success' : log.status === 'error' ? 'bg-error' : 'bg-warning'
-                        }`}
-                      />
-                      <span className="font-mono text-[11px] font-semibold text-white/80 truncate">
-                        {log.connectorId || log.capabilityId || 'system'}:{log.op || 'call'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0 text-[11px] text-white/40">
-                      <span>{log.durationMs ? `${log.durationMs}ms` : ''}</span>
-                      <span>
-                        {log.timestamp ? new Date(log.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}
 
-      {/* ── TAB 2: PLUGINS & AUTOMATION ── */}
+      {/* ── TAB 2: PLUGINS ── */}
       {activeTab === 'plugins' && (
-        <div className="space-y-6">
-          {/* Built-in Plugins: Otomasi & Kesadaran OS */}
-          <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-                <FaRobot className="text-primary" size={14} />
-                Built-in Plugins: Otomasi &amp; Kesadaran OS
-              </h3>
-              <p className="text-xs text-white/50 mt-0.5">
-                Modul otomasi desktop, background window watcher, dan ekstensi browser bawaan sistem.
-              </p>
+        <div className="space-y-4">
+          {/* Built-in Automations (Compact Grid) */}
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-white/90">Built-in Automations</span>
+              <span className="badge badge-xs badge-neutral opacity-80">4 Aktif</span>
             </div>
 
-            <div className="divide-y divide-white/5 space-y-3">
-              {/* Awareness Engine */}
-              <div className="flex items-start justify-between gap-4 pt-2">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-white/90">Awareness Engine</span>
-                    <span className="badge badge-xs badge-neutral text-[9px]">OS Proaktif</span>
-                  </div>
-                  <p className="text-[11px] text-white/50 leading-relaxed">
-                    Membaca aktivitas window aktif secara berkala untuk memulai dialog atau menawarkan bantuan proaktif.
-                  </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
+              {/* Awareness */}
+              <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-white/90">Awareness Engine</div>
+                  <p className="text-[11px] text-white/50 truncate">Pantau window aktif untuk inisiatif proaktif.</p>
                 </div>
                 <input
                   type="checkbox"
-                  className="toggle toggle-primary toggle-sm shrink-0"
+                  className="toggle toggle-primary toggle-xs shrink-0"
                   checked={config.awarenessEnabled !== false}
                   onChange={handleAwarenessEnabledChange}
                 />
               </div>
 
-              {/* Browser Automation */}
-              <div className="pt-3 space-y-2">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-0.5 pr-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-white/90">Browser Automation</span>
-                      <span className="badge badge-xs badge-neutral text-[9px]">Chromium</span>
-                    </div>
-                    <p className="text-[11px] text-white/50 leading-relaxed">
-                      Otomatis menutup tab grup yang dibuka oleh task otomatisasi setelah tugas tuntas. Tab manual tetap aman.
-                    </p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="toggle toggle-primary toggle-sm shrink-0"
-                    checked={!!config.browserAutoCloseTabs}
-                    onChange={(e) =>
-                      setConfig((prev) => ({ ...prev, browserAutoCloseTabs: e.target.checked }))
-                    }
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2 pt-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-xs btn-outline border-white/10 hover:border-primary/50 text-xs"
-                      onClick={async () => {
-                        setExtInstall(null)
-                        try {
-                          if (!window.api?.ensureExtensionFiles) {
-                            setExtInstall({ error: 'Butuh desktop runtime terbaru.' })
-                            return
-                          }
-                          const dir = await window.api.ensureExtensionFiles()
-                          setExtInstall({ dir })
-                        } catch (e) {
-                          setExtInstall({ error: e?.message || String(e) })
-                        }
-                      }}
-                    >
-                      Pasang Extension Browser
-                    </button>
-                    {extInstall?.dir && (
-                      <button
-                        type="button"
-                        onClick={() => window.api?.openFolder?.(extInstall.dir)}
-                        className="btn btn-xs btn-primary text-xs gap-1.5"
-                      >
-                        <FaFolderOpen size={11} />
-                        <span>Buka Folder Ekstensi</span>
-                      </button>
-                    )}
-                    {extInstall?.error && (
-                      <span className="text-[11px] text-error">Gagal: {extInstall.error}</span>
-                    )}
-                  </div>
-                  {extInstall?.dir && (
-                    <div className="p-2.5 rounded-lg bg-black/40 border border-white/10 text-[11px] space-y-1 text-white/80">
-                      <p className="text-success font-semibold flex items-center gap-1.5">
-                        ✓ Folder ekstensi siap di: <code className="font-mono text-[10px] px-1 py-0.5 bg-black/50 rounded text-primary">{extInstall.dir}</code>
-                      </p>
-                      <p className="text-white/60">
-                        Langkah aktivasi di Chrome / Chromium / Brave / Edge:
-                      </p>
-                      <ol className="list-decimal list-inside space-y-0.5 text-white/70 pl-1">
-                        <li>Buka URL <code className="font-mono text-[10px] text-primary">chrome://extensions</code> di browser.</li>
-                        <li>Aktifkan toggle <b>Developer mode</b> di pojok kanan atas.</li>
-                        <li>Klik <b>Load unpacked</b> (Muat yang belum dibongkar), lalu pilih folder di atas.</li>
-                        <li>Selesai! Ekstensi otomatis terhubung hijau tanpa perlu token manual.</li>
-                      </ol>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Ponytail */}
-              <div className="flex items-start justify-between gap-4 pt-3">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-white/90">Ponytail</span>
-                    <span className="badge badge-xs badge-ghost border-white/10 text-[9px]">YAGNI</span>
-                  </div>
-                  <p className="text-[11px] text-white/50 leading-relaxed">
-                    Prioritaskan pemanfaatan pustaka dan kode yang sudah ada sebelum mengusulkan pembuatan modul baru.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary toggle-sm shrink-0"
-                  checked={config.builtinPlugins?.ponytail !== false}
-                  onChange={handleBuiltinPluginChange('ponytail')}
-                />
-              </div>
-
               {/* Caveman */}
-              <div className="flex items-start justify-between gap-4 pt-3">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-white/90">Caveman</span>
-                    <span className="badge badge-xs badge-ghost border-white/10 text-[9px]">Token Saver</span>
-                  </div>
-                  <p className="text-[11px] text-white/50 leading-relaxed">
-                    Jawaban ringkas dan padat tanpa pengantar basa-basi. Blok kode dan output terminal tetap utuh.
-                  </p>
+              <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-white/90">Caveman Mode</div>
+                  <p className="text-[11px] text-white/50 truncate">Kompresi respons padat tanpa basa-basi pengantar.</p>
                 </div>
                 <input
                   type="checkbox"
-                  className="toggle toggle-primary toggle-sm shrink-0"
+                  className="toggle toggle-primary toggle-xs shrink-0"
                   checked={config.builtinPlugins?.caveman !== false}
                   onChange={handleBuiltinPluginChange('caveman')}
                 />
               </div>
 
-              {/* Rtk */}
-              <div className="flex items-start justify-between gap-4 pt-3">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-white/90">Rtk</span>
-                    <span className="badge badge-xs badge-ghost border-white/10 text-[9px]">Kompresi Output</span>
-                  </div>
-                  <p className="text-[11px] text-white/50 leading-relaxed">
-                    Kompresi cerdas pada luaran terminal berukuran besar sebelum disuntikkan ke prompt AI.
-                  </p>
+              {/* Ponytail */}
+              <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-white/90">Ponytail (YAGNI)</div>
+                  <p className="text-[11px] text-white/50 truncate">Prioritaskan modul yang sudah ada di sistem.</p>
                 </div>
                 <input
                   type="checkbox"
-                  className="toggle toggle-primary toggle-sm shrink-0"
+                  className="toggle toggle-primary toggle-xs shrink-0"
+                  checked={config.builtinPlugins?.ponytail !== false}
+                  onChange={handleBuiltinPluginChange('ponytail')}
+                />
+              </div>
+
+              {/* Rtk */}
+              <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-white/90">Rtk Output Compression</div>
+                  <p className="text-[11px] text-white/50 truncate">Kompresi cerdas pada luaran terminal masif.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  className="toggle toggle-primary toggle-xs shrink-0"
                   checked={config.rtkCompress !== false}
                   onChange={handleRtkCompressChange}
                 />
@@ -1008,15 +966,15 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
           </div>
 
           {/* Custom Plugins */}
-          <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-                  <FaCubes className="text-primary" size={14} />
-                  Custom Plugins
-                </h3>
-                <p className="text-xs text-white/50 mt-0.5">
-                  Pasang ekstensi mandiri dari repositori GitHub atau folder lokal.
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-white/90">Custom Plugins</span>
+                  <span className="badge badge-xs badge-neutral opacity-80">{plugins.length}</span>
+                </div>
+                <p className="text-xs text-white/50">
+                  Ekstensi JavaScript mandiri untuk menambah kemampuan agen.
                 </p>
               </div>
 
@@ -1024,108 +982,79 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                 <button
                   type="button"
                   onClick={() => window.api?.openPluginFolder?.()}
-                  className="btn btn-xs btn-ghost border border-white/10 hover:bg-white/5 rounded-xl gap-1.5"
+                  className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
                 >
                   <FaFolderOpen size={11} />
                   <span>Buka Folder</span>
                 </button>
-
                 {isDevMode && (
                   <button
                     type="button"
                     onClick={handleOpenNewPluginModal}
-                    className="btn btn-xs btn-primary rounded-xl gap-1.5"
+                    className="btn btn-xs btn-primary rounded-xl gap-1"
                   >
                     <FaCode size={10} />
-                    <span>Tulis Kode (Monaco)</span>
+                    <span>Tulis Kode</span>
                   </button>
                 )}
               </div>
             </div>
 
-            {/* GitHub Installer Form */}
-            <div className="p-3.5 rounded-xl bg-base-100/50 border border-white/5 space-y-2">
-              <label className="text-xs font-semibold text-white/80 flex items-center gap-2">
-                <FaGithub size={13} />
-                <span>Pasang Plugin via GitHub / URL</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="owner/repo atau https://github.com/owner/repo"
-                  value={gitPluginUrl}
-                  onChange={(e) => setGitPluginUrl(e.target.value)}
-                  className="input input-xs input-bordered rounded-xl bg-base-200/80 border-white/10 font-mono text-xs flex-1"
-                />
-                <button
-                  type="button"
-                  onClick={handleInstallGitPlugin}
-                  disabled={gitPluginLoading || !gitPluginUrl.trim()}
-                  className="btn btn-xs btn-primary rounded-xl shrink-0"
-                >
-                  {gitPluginLoading ? 'Mengunduh...' : 'Pasang'}
-                </button>
-              </div>
+            {/* Compact GitHub Installer */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Pasang via GitHub (contoh: owner/repo)..."
+                value={gitPluginUrl}
+                onChange={(e) => setGitPluginUrl(e.target.value)}
+                className="input input-xs input-bordered rounded-xl bg-base-100/60 border-white/10 font-mono text-xs flex-1"
+              />
+              <button
+                type="button"
+                onClick={handleInstallGitPlugin}
+                disabled={gitPluginLoading || !gitPluginUrl.trim()}
+                className="btn btn-xs btn-primary rounded-xl shrink-0"
+              >
+                {gitPluginLoading ? 'Mengunduh...' : 'Pasang'}
+              </button>
             </div>
 
             {pluginsLoading ? (
-              <div className="p-8 text-center text-white/40 text-xs flex flex-col items-center gap-2">
+              <div className="p-6 text-center text-white/40 text-xs flex flex-col items-center gap-2">
                 <span className="loading loading-spinner loading-sm text-primary"></span>
                 Memuat plugin kustom...
               </div>
             ) : plugins.length === 0 ? (
-              <div className="p-8 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10">
-                <FaCubes className="mx-auto text-white/20 mb-2" size={24} />
-                <p className="text-xs text-white/60 font-medium">Belum ada custom plugin yang terpasang.</p>
-                <p className="text-[11px] text-white/40 mt-1">
-                  Masukkan link repositori GitHub di atas untuk memasang ekstensi baru.
-                </p>
+              <div className="p-6 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10 text-xs text-white/50">
+                Belum ada plugin kustom yang terpasang.
               </div>
             ) : (
-              <div className="grid gap-3">
+              <div className="grid gap-2">
                 {plugins.map((p) => {
                   const isEnabled = p.isEnabled !== false
                   return (
                     <div
                       key={p.name}
-                      className="rounded-2xl border border-white/5 bg-base-100/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-white/15 transition-colors"
+                      className="rounded-xl border border-white/5 bg-base-100/40 p-3.5 flex items-center justify-between gap-3 hover:border-white/15 transition-all"
                     >
-                      <div className="space-y-1 min-w-0">
+                      <div className="min-w-0 flex-1 space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm text-white/90">{p.name}</span>
-                          <span className="badge badge-xs badge-neutral border-white/10 text-[10px]">
-                            {p.actions?.length || 0} aksi
-                          </span>
-                          <span
-                            className={`badge badge-xs text-[10px] ${
-                              isEnabled ? 'badge-success' : 'badge-ghost opacity-50'
-                            }`}
-                          >
+                          <span className="text-xs font-semibold text-white/90">{p.name}</span>
+                          <span className="badge badge-xs badge-neutral text-[9px]">{p.actions?.length || 0} aksi</span>
+                          <span className={`badge badge-xs text-[9px] ${isEnabled ? 'badge-success' : 'badge-ghost opacity-50'}`}>
                             {isEnabled ? 'Aktif' : 'Mati'}
                           </span>
                         </div>
-                        <p className="text-xs text-white/50 leading-relaxed">
+                        <p className="text-[11px] text-white/50 truncate">
                           {p.description || 'Tidak ada deskripsi.'}
                         </p>
-                        {p.actions && p.actions.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {p.actions.map((act, i) => (
-                              <span
-                                key={i}
-                                className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-base-300/80 text-white/60"
-                              >
-                                {act.name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           type="button"
                           onClick={() => handleTogglePlugin(p.name, isEnabled)}
-                          className="btn btn-xs btn-ghost border border-white/10 rounded-xl"
+                          className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl text-[11px]"
                         >
                           {isEnabled ? 'Nonaktifkan' : 'Aktifkan'}
                         </button>
@@ -1133,10 +1062,10 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                           <button
                             type="button"
                             onClick={() => handleOpenEditPluginModal(p)}
-                            className="btn btn-xs btn-ghost border border-white/10 hover:bg-white/5 rounded-xl gap-1"
+                            className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
+                            title="Edit kode plugin"
                           >
                             <FaEdit size={11} />
-                            <span>Edit</span>
                           </button>
                         )}
                         <button
@@ -1159,31 +1088,29 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
 
       {/* ── TAB 3: SKILLS ── */}
       {activeTab === 'skills' && (
-        <div className="space-y-6">
-          {/* Built-in Skills (Superpowers) */}
-          <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-                <FaBrain className="text-primary" size={14} />
-                Built-in Skills: Superpowers Discipline
-              </h3>
+        <div className="space-y-4">
+          {/* Built-in Skills */}
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-white/90">Built-in Superpowers</span>
+              <span className="badge badge-xs badge-neutral opacity-80">4 Pola</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
               {BUILTIN_SKILLS.map((skill) => {
                 const SkillIcon = skill.icon
                 const isSkillActive = config?.builtinSkills?.[skill.id] !== false
                 return (
                   <div
                     key={skill.id}
-                    className="p-3.5 rounded-2xl bg-base-100/60 border border-white/5 flex items-center justify-between gap-3"
+                    className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <SkillIcon className="text-primary shrink-0" size={14} />
-                      <span className="text-xs font-semibold text-white/90 truncate">{skill.name}</span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 shrink-0">
-                        {skill.badge}
-                      </span>
+                      <SkillIcon className="text-primary shrink-0" size={13} />
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="text-xs font-semibold text-white/90 truncate">{skill.name}</div>
+                        <p className="text-[11px] text-white/50 truncate">{skill.desc}</p>
+                      </div>
                     </div>
 
                     <input
@@ -1206,16 +1133,16 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
             </div>
           </div>
 
-          {/* Custom Skills */}
-          <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
+          {/* Custom Skills (SKILL.md) */}
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-                  <FaBrain className="text-primary" size={14} />
-                  Custom Skills (SKILL.md)
-                </h3>
-                <p className="text-xs text-white/50 mt-0.5">
-                  Keterampilan operasional terstruktur format Markdown yang dipelajari atau diimpor mandiri.
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-white/90">Custom Skills (SKILL.md)</span>
+                  <span className="badge badge-xs badge-neutral opacity-80">{skills.length}</span>
+                </div>
+                <p className="text-xs text-white/50">
+                  Keahlian operasional berbasis berkas instruksi Markdown terstruktur.
                 </p>
               </div>
 
@@ -1223,7 +1150,7 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                 <button
                   type="button"
                   onClick={() => window.api?.openSkillsFolder?.()}
-                  className="btn btn-xs btn-ghost border border-white/10 hover:bg-white/5 rounded-xl gap-1.5"
+                  className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
                 >
                   <FaFolderOpen size={11} />
                   <span>Buka Folder</span>
@@ -1231,61 +1158,56 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                 <button
                   type="button"
                   onClick={handleInstallSkillPackage}
-                  className="btn btn-xs btn-ghost border border-white/10 hover:bg-white/5 rounded-xl gap-1.5"
+                  className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
+                  title="Impor arsip skill .zip atau .tar.gz"
                 >
-                  <span>Impor (.zip / .tar.gz)</span>
+                  <span>Impor Arsip</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleOpenNewSkill}
-                  className="btn btn-xs btn-primary rounded-xl gap-1.5"
+                  className="btn btn-xs btn-primary rounded-xl gap-1"
                 >
-                  <FaPlus size={10} />
+                  <FaPlus size={9} />
                   <span>Skill Baru</span>
                 </button>
               </div>
             </div>
 
             {skillsLoading ? (
-              <div className="p-8 text-center text-white/40 text-xs flex flex-col items-center gap-2">
+              <div className="p-6 text-center text-white/40 text-xs flex flex-col items-center gap-2">
                 <span className="loading loading-spinner loading-sm text-primary"></span>
-                Memuat skills lokal...
+                Memuat skills...
               </div>
             ) : skills.length === 0 ? (
-              <div className="p-8 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10">
-                <FaBrain className="mx-auto text-white/20 mb-2" size={24} />
-                <p className="text-xs text-white/60 font-medium">Belum ada custom skill tersimpan.</p>
-                <p className="text-[11px] text-white/40 mt-1">
-                  Impor arsip package (.zip / .tar.gz) atau klik Skill Baru untuk membuat manual.
-                </p>
+              <div className="p-6 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10 text-xs text-white/50">
+                Belum ada skill kustom tersimpan. Klik "Skill Baru" untuk menulis instruksi.
               </div>
             ) : (
-              <div className="grid gap-3">
+              <div className="grid gap-2">
                 {skills.map((s) => (
                   <div
                     key={s.name}
-                    className="rounded-2xl border border-white/5 bg-base-100/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-white/15 transition-colors"
+                    className="rounded-xl border border-white/5 bg-base-100/40 p-3.5 flex items-center justify-between gap-3 hover:border-white/15 transition-all"
                   >
-                    <div className="space-y-1 min-w-0">
+                    <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-white/90">{s.name}</span>
-                        <span className="badge badge-xs badge-neutral border-white/10 font-mono text-[10px]">
-                          XDG
-                        </span>
+                        <span className="text-xs font-semibold text-white/90">{s.name}</span>
+                        <span className="badge badge-xs badge-ghost border-white/10 font-mono text-[9px]">XDG</span>
                       </div>
-                      <p className="text-xs text-white/50 leading-relaxed line-clamp-2">
-                        {s.description || 'Tidak ada deskripsi spesifik.'}
+                      <p className="text-[11px] text-white/50 truncate">
+                        {s.description || 'Tidak ada deskripsi.'}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleOpenEditSkill(s.name)}
-                        className="btn btn-xs btn-ghost border border-white/10 hover:bg-white/5 rounded-xl gap-1"
+                        className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
+                        title="Edit instruksi skill"
                       >
                         <FaEdit size={11} />
-                        <span>Edit</span>
                       </button>
                       <button
                         type="button"
@@ -1304,63 +1226,49 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
         </div>
       )}
 
-      {/* ── TAB 4: SECURITY POLICIES (3-TIER MATRIX) ── */}
+      {/* ── TAB 4: SECURITY ── */}
       {activeTab === 'security' && (
-        <div className="space-y-6">
-          {/* 3-Tier Security Overview */}
-          <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-                <FaShieldAlt className="text-warning" size={14} />
-                Matriks Keamanan 3-Tier Abelink
-              </h3>
-              <p className="text-xs text-white/50 mt-0.5">
-                Klasifikasi hak akses deterministik untuk menjamin kedaulatan sistem operasi Anda.
+        <div className="space-y-4">
+          {/* 3-Tier Overview (Spacious horizontal cards) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-success">Tier 1: Read-Only</span>
+                <span className="badge badge-xs badge-success text-[9px]">Otomatis</span>
+              </div>
+              <p className="text-[11px] text-white/50 leading-relaxed">
+                Membaca file, cek status sistem, dan inspeksi window aktif tanpa konfirmasi.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-              <div className="p-4 rounded-2xl bg-base-100/50 border border-success/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-success">Tier 1: Read-Only</span>
-                  <span className="badge badge-xs badge-success">Aman Otomatis</span>
-                </div>
-                <p className="text-[11px] text-white/50 leading-relaxed">
-                  Membaca berkas lokal, memeriksa status sistem, dan inspeksi window aktif. Tidak memerlukan konfirmasi.
-                </p>
+            <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-info">Tier 2: Netral</span>
+                <span className="badge badge-xs badge-info text-[9px]">Per Sesi</span>
               </div>
+              <p className="text-[11px] text-white/50 leading-relaxed">
+                Perintah shell non-destruktif dan scraping web. Izin diberikan sekali per sesi.
+              </p>
+            </div>
 
-              <div className="p-4 rounded-2xl bg-base-100/50 border border-info/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-info">Tier 2: Netral</span>
-                  <span className="badge badge-xs badge-info">Sesi Aktif</span>
-                </div>
-                <p className="text-[11px] text-white/50 leading-relaxed">
-                  Menjalankan perintah shell non-destruktif, scraping web, dan pencarian dokumen. Konfirmasi sekali per sesi.
-                </p>
+            <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-error">Tier 3: Destruktif</span>
+                <span className="badge badge-xs badge-error text-[9px]">Native RFD</span>
               </div>
-
-              <div className="p-4 rounded-2xl bg-base-100/50 border border-error/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-error">Tier 3: Destruktif</span>
-                  <span className="badge badge-xs badge-error">Native RFD</span>
-                </div>
-                <p className="text-[11px] text-white/50 leading-relaxed">
-                  Menulis/menghapus file OS, git commit/revert, kill proses, dan modifikasi plugin. Selalu konfirmasi dialog OS.
-                </p>
-              </div>
+              <p className="text-[11px] text-white/50 leading-relaxed">
+                Menulis/hapus file OS, git commit, dan plugin. Selalu verifikasi dialog sistem.
+              </p>
             </div>
           </div>
 
-          {/* Detail Approval Policies Table */}
-          <div className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
+          {/* Granular Policies */}
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-white/70">
-                  Konfigurasi Granular Per Famili Aksi
-                </h4>
-                <p className="text-[11px] text-white/40 mt-0.5">
-                  Tentukan respon approval untuk masing-masing kategori aksi sidecar.
+              <div className="space-y-0.5">
+                <span className="text-sm font-semibold text-white/90">Kebijakan Approval Granular</span>
+                <p className="text-xs text-white/50">
+                  Tentukan respon konfirmasi untuk tiap kategori aksi sidecar.
                 </p>
               </div>
 
@@ -1371,30 +1279,23 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                   try {
                     await window.api?.approvalPolicyResetSession?.()
                     await loadApprovalPolicies()
-                  } catch {
-                    /* best-effort */
-                  }
+                  } catch {}
                 }}
               >
-                Reset Izin Sesi Ini
+                Reset Izin Sesi
               </button>
             </div>
 
             {policiesLoading ? (
-              <div className="p-8 text-center text-white/40 text-xs flex flex-col items-center gap-2">
-                <span className="loading loading-spinner loading-sm text-primary"></span>
-                Memuat kebijakan approval...
-              </div>
+              <div className="p-6 text-center text-white/40 text-xs">Memuat kebijakan...</div>
             ) : (
-              <div className="grid gap-2">
+              <div className="grid gap-2 pt-1">
                 {approvalPolicies.map((p) => (
                   <div
                     key={p.family}
-                    className="flex items-center justify-between gap-3 p-3 rounded-xl bg-base-100/50 border border-white/5 hover:border-white/10 transition-colors"
+                    className="flex items-center justify-between gap-3 p-3 rounded-xl bg-base-100/40 border border-white/5 hover:border-white/10 transition-colors"
                   >
-                    <div className="min-w-0 flex-1">
-                      <span className="text-xs font-mono font-medium text-white/90">{p.family}</span>
-                    </div>
+                    <span className="text-xs font-mono text-white/80">{p.family}</span>
                     <select
                       className="select select-bordered select-xs bg-base-300/80 rounded-lg text-xs"
                       value={p.policy}
@@ -1405,9 +1306,7 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                           setApprovalPolicies((prev) =>
                             prev.map((x) => (x.family === p.family ? { ...x, policy: next } : x))
                           )
-                        } catch {
-                          /* best-effort */
-                        }
+                        } catch {}
                       }}
                     >
                       <option value="ask">Tanya tiap kali</option>
@@ -1422,7 +1321,164 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
         </div>
       )}
 
-      {/* ── MODAL: GOOGLE WORKSPACE OAUTH ── */}
+      {/* ── MODAL 1: PANDUAN EKSTENSI BROWSER ── */}
+      {extGuideOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
+                <FaPlug className="text-primary" size={13} />
+                Pemasangan Ekstensi Browser
+              </h3>
+              <button
+                type="button"
+                onClick={() => setExtGuideOpen(false)}
+                className="btn btn-xs btn-circle btn-ghost text-white/60 hover:text-white"
+              >
+                <FaTimes size={13} />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-white/70">
+              <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1.5">
+                <span className="text-[11px] text-white/40 block">Folder Berkas Ekstensi:</span>
+                <div className="flex items-center justify-between gap-2">
+                  <code className="font-mono text-[10px] text-primary truncate">
+                    {extInstall?.dir || 'Memeriksa folder...'}
+                  </code>
+                  {extInstall?.dir && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(extInstall.dir)
+                        setCopiedPath(true)
+                        setTimeout(() => setCopiedPath(false), 2000)
+                      }}
+                      className="btn btn-xs btn-ghost border border-white/10 rounded-lg shrink-0"
+                      title="Salin path folder"
+                    >
+                      {copiedPath ? <FaCheckCircle size={10} className="text-success" /> : <FaCopy size={10} />}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <p className="font-medium text-white/90">3 Langkah Mudah di Chrome / Brave / Edge:</p>
+              <ol className="list-decimal list-inside space-y-1 pl-1 text-white/70">
+                <li>Buka <code className="font-mono text-primary px-1 py-0.5 rounded bg-black/40">chrome://extensions</code> di browser Anda.</li>
+                <li>Aktifkan sakelar <b>Developer mode</b> di pojok kanan atas.</li>
+                <li>Klik tombol <b>Load unpacked</b> dan pilih folder di atas.</li>
+              </ol>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-white/5 pt-3">
+              {extInstall?.dir && (
+                <button
+                  type="button"
+                  onClick={() => window.api?.openFolder?.(extInstall.dir)}
+                  className="btn btn-sm btn-ghost rounded-xl gap-1.5"
+                >
+                  <FaFolderOpen size={11} />
+                  <span>Buka di File Manager</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setExtGuideOpen(false)}
+                className="btn btn-sm btn-primary rounded-xl"
+              >
+                Selesai
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 2: TAMBAH MCP CUSTOM ── */}
+      {addMcpModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
+                <FaPlug className="text-primary" size={13} />
+                Tambah Server MCP Kustom
+              </h3>
+              <button
+                type="button"
+                onClick={() => setAddMcpModalOpen(false)}
+                className="btn btn-xs btn-circle btn-ghost text-white/60 hover:text-white"
+              >
+                <FaTimes size={13} />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="font-semibold text-white/70">ID Server (kebab-case)</label>
+                <input
+                  type="text"
+                  placeholder="contoh: sqlite-mcp"
+                  value={newMcpForm.id}
+                  onChange={(e) => setNewMcpForm({ ...newMcpForm, id: e.target.value })}
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-white/70">Nama Tampilan</label>
+                <input
+                  type="text"
+                  placeholder="contoh: SQLite Database Connector"
+                  value={newMcpForm.name}
+                  onChange={(e) => setNewMcpForm({ ...newMcpForm, name: e.target.value })}
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-white/70">URL Endpoint Gateway</label>
+                <input
+                  type="text"
+                  placeholder="https://... atau http://localhost:..."
+                  value={newMcpForm.url}
+                  onChange={(e) => setNewMcpForm({ ...newMcpForm, url: e.target.value })}
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-white/70">Deskripsi Singkat</label>
+                <input
+                  type="text"
+                  placeholder="Deskripsi alat atau scope akses..."
+                  value={newMcpForm.description}
+                  onChange={(e) => setNewMcpForm({ ...newMcpForm, description: e.target.value })}
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-white/5 pt-3">
+              <button
+                type="button"
+                onClick={() => setAddMcpModalOpen(false)}
+                className="btn btn-sm btn-ghost rounded-xl"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveNewMcp}
+                className="btn btn-sm btn-primary rounded-xl"
+              >
+                Simpan Connector
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 3: GOOGLE OAUTH ── */}
       {googleModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
@@ -1487,7 +1543,7 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
         </div>
       )}
 
-      {/* ── MODAL: EDIT / CREATE PLUGIN (MONACO EDITOR) ── */}
+      {/* ── MODAL 4: EDIT/CREATE PLUGIN (MONACO) ── */}
       {editingPlugin && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-3xl max-h-[90vh] bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col space-y-4">
@@ -1517,17 +1573,17 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                     placeholder="misal: stock-checker"
                     value={pluginForm.name}
                     onChange={(e) => setPluginForm({ ...pluginForm, name: e.target.value })}
-                    className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10"
+                    className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
                   />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-white/70">Deskripsi Singkat</label>
                   <input
                     type="text"
-                    placeholder="Penjelasan fungsi plugin..."
+                    placeholder="Fungsi utama plugin..."
                     value={pluginForm.description}
                     onChange={(e) => setPluginForm({ ...pluginForm, description: e.target.value })}
-                    className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10"
+                    className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
                   />
                 </div>
               </div>
@@ -1557,7 +1613,7 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
-                        placeholder="Nama aksi (contoh: check)"
+                        placeholder="Nama aksi (misal: query)"
                         value={act.name}
                         onChange={(e) => {
                           const updated = [...pluginForm.actions]
@@ -1568,7 +1624,7 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                       />
                       <input
                         type="text"
-                        placeholder="Trigger hint (contoh: ketika user tanya harga saham...)"
+                        placeholder="Trigger hint..."
                         value={act.triggerHint}
                         onChange={(e) => {
                           const updated = [...pluginForm.actions]
@@ -1642,7 +1698,7 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
         </div>
       )}
 
-      {/* ── MODAL: EDIT / CREATE SKILL (MARKDOWN EDITOR) ── */}
+      {/* ── MODAL 5: EDIT/CREATE SKILL (MONACO) ── */}
       {editingSkill && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-3xl max-h-[90vh] bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col space-y-4">
@@ -1671,7 +1727,7 @@ Tuliskan petunjuk operasional dan aturan mutlak untuk AI di sini.
                   placeholder="misal: git-commit-helper"
                   value={skillFormName}
                   onChange={(e) => setSkillFormName(e.target.value)}
-                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono"
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
                 />
               </div>
 
