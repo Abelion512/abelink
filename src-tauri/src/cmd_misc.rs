@@ -359,16 +359,16 @@ pub fn misc_take_screenshot() -> Result<String, String> {
     ));
     let path_str = path.to_string_lossy().into_owned();
     let attempts: Vec<(&str, Vec<String>)> = vec![
-        ("gnome-screenshot", vec!["-f".into(), path_str.clone()]),
-        ("scrot", vec!["-z".into(), path_str.clone()]),
         ("maim", vec![path_str.clone()]),
+        ("scrot", vec!["-z".into(), path_str.clone()]),
         (
             "import",
-            vec!["-window".into(), "root".into(), path_str.clone()],
+            vec!["-window".into(), "root".into(), "-silent".into(), path_str.clone()],
         ),
+        ("gnome-screenshot", vec!["-f".into(), path_str.clone()]),
     ];
     let mut last_err = String::from(
-        "Tidak ada tool screenshot terpasang (coba: sudo apt install scrot / gnome-screenshot)",
+        "Tidak ada tool screenshot terpasang (coba: sudo apt install scrot / maim)",
     );
     for (prog, args) in attempts {
         match Command::new(prog).args(&args).output() {

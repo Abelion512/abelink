@@ -60,6 +60,12 @@ const PLANNED_MCP_CONNECTORS = [
     name: 'Mermaid',
     url: 'https://chatgpt.mermaid.ai/anthropic/mcp',
     description: 'Architecture diagramming, flowchart, and visual schema generation.'
+  },
+  {
+    id: 'lastfm',
+    name: 'Last.fm Scrobbler',
+    url: 'https://ws.audioscrobbler.com/2.0/',
+    description: 'Music scrobbler, top tracks & artists sync, and listening history memory for preference tuning.'
   }
 ]
 

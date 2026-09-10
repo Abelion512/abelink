@@ -127,16 +127,10 @@ export const YoutubeMusicPlayer = () => {
               </button>
             </div>
 
-            {currentTrack.id && (
-              <a
-                href={`https://music.youtube.com/watch?v=${currentTrack.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="block text-center text-[11px] text-white/40 hover:text-primary transition-colors"
-              >
-                Buka di YouTube Music ↗
-              </a>
-            )}
+            <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/40">
+              <span className="truncate">Pemutar Musik Internal</span>
+              <span className="text-cyan-400 font-mono text-[10px]">Embedded API</span>
+            </div>
           </div>
         </div>
       </div>

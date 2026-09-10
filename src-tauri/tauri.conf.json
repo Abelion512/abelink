@@ -15,15 +15,15 @@
         "title": "Abelink",
         "width": 1280,
         "height": 800,
-        "minWidth": 940,
-        "minHeight": 600,
+        "minWidth": 480,
+        "minHeight": 76,
         "decorations": false,
         "transparent": true,
         "dragDropEnabled": false
       }
     ],
     "security": {
-      "csp": "default-src 'self'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; script-src 'self' 'wasm-unsafe-eval' blob: https://www.youtube.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost blob: data: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://*; object-src 'none'; base-uri 'self'"
+      "csp": "default-src 'self'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://music.youtube.com; script-src 'self' 'wasm-unsafe-eval' blob: https://www.youtube.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' ipc: http://ipc.localhost blob: data: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://*; object-src 'none'; base-uri 'self'"
     }
   },
   "bundle": {

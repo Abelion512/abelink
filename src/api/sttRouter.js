@@ -239,6 +239,21 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
     }
   }
 
+  // Fallback darurat ke Local Whisper jika seluruh endpoint gateway gagal
+  if (cfg.sttProvider !== 'whisper') {
+    try {
+      console.warn('[sttRouter] Semua gateway remote gagal. Mencoba fallback ke Local Whisper...')
+      updateStatus('Gateway STT gagal. Mencoba Local Whisper...')
+      const { transcribeAudioLocal } = await import('./localWhisper.js')
+      const localText = await transcribeAudioLocal(pcmBuffer, onProgress)
+      updateStatus('')
+      return localText
+    } catch (localErr) {
+      console.warn('[sttRouter] Fallback Local Whisper juga gagal:', localErr.message)
+      failureReports.push(`[Local Whisper Fallback]: ${localErr.message}`)
+    }
+  }
+
   updateStatus('')
   throw new Error(`Semua provider STT gagal:\n${failureReports.join('\n')}`)
 }

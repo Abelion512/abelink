@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { getAllConfig } from '../api/db'
 import { transcribeAudioUnified } from '../api/sttRouter'
-import { resolveMicConstraints, micCoolingDown, noteMicFailure } from '../api/mic'
+import { resolveMicConstraints, micCoolingDown, noteMicFailure, resetMicFailure } from '../api/mic'
 
 // Resampling linear audio PCM Float32Array dari sampleRate asal ke 16,000 Hz target Whisper
 function resampleTo16k(audioBuffer, origSampleRate) {
@@ -140,7 +140,7 @@ export const useVAD = ({
     })
   }
 
-  const startVADRecording = async () => {
+  const startVADRecording = async (force = false) => {
     if (isStartingRef.current || isRecordingRef.current) return
     isStartingRef.current = true
 
@@ -150,6 +150,10 @@ export const useVAD = ({
     try {
       stopVADCleanup()
       isStartingRef.current = true
+
+      if (force) {
+        resetMicFailure()
+      }
 
       const config = await getAllConfig()
       if (!isActive || !isStartingRef.current) return
@@ -161,8 +165,8 @@ export const useVAD = ({
         autoGainControl: false
       }
 
-      // Cooldown global: jangan spam getUserMedia tiap toggle saat mic mati.
-      if (micCoolingDown()) {
+      // Cooldown global: jangan spam getUserMedia tiap background auto-check saat mic mati.
+      if (!force && micCoolingDown()) {
         isStartingRef.current = false
         return
       }
@@ -284,6 +288,7 @@ export const useVAD = ({
   }, [isRecording])
 
   const toggleRecording = () => {
+    resetMicFailure()
     if (isRecordingRef.current) {
       const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
       const actualRate = sampleRateRef.current || 16000
@@ -295,7 +300,7 @@ export const useVAD = ({
         stopVADCleanup()
       }
     } else {
-      startVADRecording()
+      startVADRecording(true)
     }
   }
 

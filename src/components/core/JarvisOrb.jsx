@@ -45,7 +45,7 @@ export default function JarvisOrb({
 
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(45, 1, 1, 1000)
-    camera.position.z = 96
+    camera.position.z = 135
 
     // Particles
     const geo = new THREE.BufferGeometry()
@@ -67,9 +67,9 @@ export default function JarvisOrb({
 
     const mat = new THREE.PointsMaterial({
       color: 0x38bdf8,
-      size: 0.52,
+      size: 0.72,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.85,
       sizeAttenuation: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false
@@ -258,7 +258,8 @@ export default function JarvisOrb({
         vel[i3 + 2] += Math.sin(t * 0.022 + px * 0.9 + x * 0.1) * 0.0008 * currentSpeed
 
         const dist = Math.sqrt(x * x + y * y + z * z) || 0.01
-        const pull = Math.max(0, dist - currentRadius) * 0.002 + 0.0003
+        const excess = dist - currentRadius
+        const pull = excess > 0 ? excess * 0.008 + (excess * excess) * 0.0015 : 0.0004
         vel[i3] -= (x / dist) * pull
         vel[i3 + 1] -= (y / dist) * pull
         vel[i3 + 2] -= (z / dist) * pull
@@ -316,7 +317,7 @@ export default function JarvisOrb({
         }
         lineGeo.setDrawRange(0, lineCount * 2)
         lp.needsUpdate = true
-        lineMat.opacity = lineAmount * 0.16
+        lineMat.opacity = lineAmount * 0.22
 
         activeConnections = []
         for (let c = 0; c < Math.min(lineCount, 400); c++) {
@@ -425,8 +426,8 @@ export default function JarvisOrb({
       <div
         className="absolute inset-0 m-auto rounded-full pointer-events-none transition-opacity duration-700 blur-3xl"
         style={{
-          width: `${size * 0.65}px`,
-          height: `${size * 0.65}px`,
+          width: `${size * 0.55}px`,
+          height: `${size * 0.55}px`,
           background:
             status === 'speaking'
               ? 'radial-gradient(circle, rgba(56, 189, 248, 0.28) 0%, rgba(56, 189, 248, 0) 75%)'

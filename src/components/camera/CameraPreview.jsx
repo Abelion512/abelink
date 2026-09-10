@@ -49,6 +49,8 @@ export const CameraPreview = ({
 
       canvas.width = width
       canvas.height = height
+      ctx.translate(width, 0)
+      ctx.scale(-1, 1)
       ctx.drawImage(video, 0, 0, width, height)
 
       // Convert to base64 JPEG 70%
@@ -215,7 +217,7 @@ export const CameraPreview = ({
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover scale-x-[-1]"
               />
               <canvas ref={canvasRef} className="hidden" />
             </>

@@ -54,6 +54,9 @@ function loadAlwaysTools() {
 export const ApprovalProvider = ({ children }) => {
   const [approvalData, setApprovalData] = useState(null)
   const approvalRef = useRef(null)
+  const [askUserData, setAskUserData] = useState(null)
+  const askUserRef = useRef(null)
+  const [userComment, setUserComment] = useState('')
   const [alwaysAllowedPaths, setAlwaysAllowedPaths] = useState([])
   // Grant per family: session (RAM, hilang saat reload) + always (localStorage).
   const sessionGrantedRef = useRef(new Set())
@@ -284,17 +287,59 @@ export const ApprovalProvider = ({ children }) => {
     }
   }
 
+  const requestUserInput = useCallback(({ title, message, placeholder, defaultValue = '' }) => {
+    return new Promise((resolve) => {
+      setUserComment(defaultValue)
+      const data = {
+        title: title || 'Abelink Paused for Input',
+        message: message || 'Silakan selesaikan aksi manual atau berikan respon yang diperlukan.',
+        placeholder: placeholder || 'Tambahkan komentar atau instruksi untuk Abelink (opsional)...',
+        resolve
+      }
+      askUserRef.current = data
+      setAskUserData(data)
+    })
+  }, [])
+
+  const handleResumeAutomation = () => {
+    const current = askUserRef.current || askUserData
+    askUserRef.current = null
+    setAskUserData(null)
+    if (current && typeof current.resolve === 'function') {
+      current.resolve({ confirmed: true, comment: userComment.trim() })
+    }
+    setUserComment('')
+  }
+
+  const handleCancelAutomation = () => {
+    const current = askUserRef.current || askUserData
+    askUserRef.current = null
+    setAskUserData(null)
+    if (current && typeof current.resolve === 'function') {
+      current.resolve({ confirmed: false, comment: '' })
+    }
+    setUserComment('')
+  }
+
   return (
-    <ApprovalContext.Provider value={{ requestApproval, alwaysAllowedPaths, setAlwaysAllowedPaths }}>
+    <ApprovalContext.Provider
+      value={{
+        requestApproval,
+        requestUserInput,
+        alwaysAllowedPaths,
+        setAlwaysAllowedPaths
+      }}
+    >
       {children}
+      {/* Modal Izin Keamanan */}
       {approvalData && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[response-fade-in_0.15s_ease-out_forwards]">
           <div className="bg-base-200 border border-white/10 p-6 rounded-2xl shadow-2xl max-w-lg w-full">
             <h3 className="text-lg font-bold text-error mb-2 flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-error" /> Mark Meminta Izin
+              <ShieldAlert className="w-5 h-5 text-error" /> Abelink Meminta Izin
             </h3>
             <p className="mb-3 text-xs text-base-content/70">
-              Mark membutuhkan persetujuan Anda untuk mengeksekusi aksi berikut.
+              Abelink membutuhkan persetujuan Anda untuk mengeksekusi aksi berikut.
             </p>
             <div className="whitespace-pre-wrap font-mono text-xs bg-base-300 p-3.5 rounded-xl overflow-x-auto max-h-56 overflow-y-auto shadow-inner border border-white/5 mb-4 text-base-content/90">
               {approvalData.message ||
@@ -315,6 +360,72 @@ export const ApprovalProvider = ({ children }) => {
                   Selalu
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Interaktif: Pause for User Input / Human Intervention */}
+      {askUserData && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 backdrop-blur-md animate-[response-fade-in_0.2s_ease-out_forwards]">
+          <div className="bg-base-200/95 border border-primary/40 p-6 rounded-3xl shadow-2xl max-w-md w-full flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                  <path d="M2 17l10 5 10-5" />
+                  <path d="M2 12l10 5 10-5" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-base-content tracking-tight">
+                  {askUserData.title}
+                </h3>
+                <span className="text-[11px] text-primary/80 font-medium">
+                  Automation paused — menunggu tindakan Anda
+                </span>
+              </div>
+            </div>
+
+            <div className="text-xs text-base-content/85 leading-relaxed bg-base-300/80 p-3.5 rounded-2xl border-l-4 border-primary shadow-inner">
+              {askUserData.message}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold text-base-content/60">
+                Komentar / Respon Balasan (Opsional):
+              </label>
+              <textarea
+                value={userComment}
+                onChange={(e) => setUserComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleResumeAutomation()
+                  }
+                }}
+                placeholder={askUserData.placeholder}
+                rows={3}
+                className="textarea textarea-bordered w-full bg-base-300/90 text-xs rounded-xl focus:border-primary focus:outline-hidden"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm text-xs text-base-content/60 hover:text-base-content"
+                onClick={handleCancelAutomation}
+              >
+                Batalkan
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm text-xs font-semibold px-4 shadow-lg shadow-primary/25"
+                onClick={handleResumeAutomation}
+              >
+                Lanjutkan (Resume)
+              </button>
             </div>
           </div>
         </div>

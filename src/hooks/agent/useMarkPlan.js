@@ -102,6 +102,7 @@ export const useMarkPlan = ({
   setActiveTopic,
   currentMusicTrack,
   requestApproval,
+  requestUserInput,
   requestCameraCapture
 }) => {
   // Map menyimpan sesi yang sedang berjalan: key = sessionId, value = { abortController, startTime, prompt }
@@ -257,6 +258,29 @@ export const useMarkPlan = ({
       // 3. Music Control
       else if (tool.startsWith('music')) {
         resultString = await handleMusic(tool, query, targetSetChatData)
+      }
+      // 3a. Interactive User Pause & Ask (Human-in-the-Loop)
+      else if (
+        tool === 'browser-ask-user' ||
+        tool === 'os-ask-user' ||
+        tool === 'os-ask' ||
+        tool === 'ask-user' ||
+        tool === 'user-ask'
+      ) {
+        if (typeof requestUserInput === 'function') {
+          const userResponse = await requestUserInput({
+            title: tool.startsWith('browser') ? 'Browser Paused for Input' : 'Abelink Paused for Input',
+            message: query || 'Abelink memerlukan tindakan atau informasi dari Anda sebelum melanjutkan tugas.',
+            placeholder: 'Tambahkan komentar atau instruksi untuk Abelink (opsional)...'
+          })
+          if (userResponse?.confirmed) {
+            resultString = `[LAPORAN USER]: ${userResponse.comment || 'User telah menyelesaikan tindakan manual dan meminta Anda melanjutkan.'}`
+          } else {
+            resultString = '[DIBATALKAN]: User membatalkan permintaan bantuan.'
+          }
+        } else {
+          resultString = `[USER PROMPT]: ${query}. Menunggu intervensi user.`
+        }
       }
       // 4. Memory Vector Search
       else if (tool === 'memory-search') {

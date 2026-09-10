@@ -288,23 +288,15 @@ export const api = {
   // onExecuteMusicCommandTg dihapus: emit 'execute-music-command-tg' mati
   // bersama botWindow era Electron (9923989) dan tidak punya konsumen.
 
-  // --- YouTube Music player bridge (Electron parity) ---
-  // Load YouTube URL in dedicated hidden window
-  ytLoad: (url) => call('yt:load', url),
-  // Show the YouTube player window
-  ytShow: () => call('yt:show'),
-  // Hide the YouTube player window
-  ytHide: () => call('yt:hide'),
-  // Send keyboard/mouse commands to YouTube player
-  ytCommand: (command) => call('yt:command', command),
-  // Get current track duration
+  // --- YouTube Music player bridge (Tauri Native) ---
+  ytLoad: (url) => invoke('music_player_play_url', { url }),
+  ytShow: () => invoke('music_player_show'),
+  ytHide: () => invoke('music_player_hide'),
+  ytToggle: () => invoke('music_player_toggle'),
+  ytCommand: (command) => invoke('music_player_command', { command }),
   ytGetDuration: () => call('yt:get-duration'),
-  // Track metadata updates from main process
-  onYtTrackUpdated: on('yt:track-updated'),
-  // Play/pause state sync (real video element state)
-  onYtPlayState: on('yt:play-state'),
-  // Native repeat mode sync (NONE/ALL/ONE)
-  onYtRepeatState: on('yt:repeat-state'),
+  onYtTrackUpdated: on('ytm-track-changed'),
+  onYtWindowState: on('ytm-window-state'),
   // Screenshot → Telegram via jalur NATIVE (misc_take_screenshot +
   // telegram_send_photo). Channel sidecar lama tg:take-screenshot sudah tidak
   // punya handler sejak pembersihan electron (9923989).

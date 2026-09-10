@@ -3,6 +3,7 @@ mod approval_policy;
 mod cmd_fs;
 mod cmd_harness;
 mod cmd_misc;
+mod cmd_music;
 mod cmd_node_bridge;
 mod mission_scope;
 mod watchdog;
@@ -170,6 +171,12 @@ pub fn run() {
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
                         if let Some(w) = app.get_webview_window("main") {
+                            use tauri::Emitter;
+                            let _ = w.unminimize();
+                            let _ = w.set_size(tauri::LogicalSize::new(1280.0, 800.0));
+                            let _ = w.set_always_on_top(false);
+                            let _ = w.center();
+                            let _ = app.emit("window-mode-changed", "dashboard");
                             let _ = w.show();
                             let _ = w.set_focus();
                         }
@@ -198,6 +205,8 @@ pub fn run() {
                         if let Some(settings) = wv.settings() {
                             settings.set_enable_media_stream(true);
                             settings.set_enable_mediasource(true);
+                            settings.set_media_playback_requires_user_gesture(false);
+                            settings.set_media_playback_allows_inline(true);
                         }
                         wv.connect_permission_request(|_, req| {
                             req.allow();
@@ -207,7 +216,7 @@ pub fn run() {
                 }
             }
 
-            // ---- Global shortcut Ctrl+Alt+M: toggle Spotlight Launcher ----
+            // ---- Global shortcut Ctrl+Alt+M: toggle Dashboard Window ----
             use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
             app.global_shortcut()
                 .on_shortcut("Ctrl+Alt+M", |app, _sc, event| {
@@ -217,10 +226,11 @@ pub fn run() {
                                 let _ = w.hide();
                             } else {
                                 use tauri::Emitter;
-                                let _ = w.set_size(tauri::LogicalSize::new(680.0, 84.0));
-                                let _ = w.set_always_on_top(true);
+                                let _ = w.unminimize();
+                                let _ = w.set_size(tauri::LogicalSize::new(1280.0, 800.0));
+                                let _ = w.set_always_on_top(false);
                                 let _ = w.center();
-                                let _ = app.emit("window-mode-changed", "spotlight");
+                                let _ = app.emit("window-mode-changed", "dashboard");
                                 let _ = w.show();
                                 let _ = w.set_focus();
                             }
@@ -320,7 +330,12 @@ pub fn run() {
             window_fullscreen_toggle,
             window_close,
             window_get_state,
-            window_set_mode
+            window_set_mode,
+            cmd_music::music_player_toggle,
+            cmd_music::music_player_show,
+            cmd_music::music_player_hide,
+            cmd_music::music_player_play_url,
+            cmd_music::music_player_command
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

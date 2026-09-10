@@ -10,7 +10,7 @@ import { useChatArchiver } from './useChatArchiver'
 import { formatForTelegram } from '../api/ai/utils'
 
 export const useMarkAgent = () => {
-  const { requestApproval } = useApproval()
+  const { requestApproval, requestUserInput } = useApproval()
   const youtubeMusicTools = useYoutubeMusic()
 
   const state = useMarkState()
@@ -72,6 +72,7 @@ export const useMarkAgent = () => {
     ...state,
     ...tools,
     requestApproval,
+    requestUserInput,
     requestCameraCapture: async (args) => {
       console.log(
         '[useMarkAgent] requestCameraCapture called, ref.current:',

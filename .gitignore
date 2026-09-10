@@ -98,8 +98,9 @@ docs/ss_report
 /project-tracker.html
 /mark-agent-tracker.html
 
-# Agent-CLI local configs (Codex, etc.)
+# Agent-CLI local configs (Codex, Antigravity, etc.)
 /.codex/
+/.agents/
 
 # Browser use feature artifacts
 # Chrome profile used by browser-use (never commit - local only)

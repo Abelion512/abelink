@@ -66,7 +66,7 @@ export const GROUP_TOOLS_DEFINITION = {
         'Alat pencari video di YouTube. Gunakan ini jika kamu merasa informasi lebih baik didapat dari video/tutorial visual.',
       'yt-summary':
         'Merangkum isi video YouTube. Sangat berguna untuk mengekstrak informasi/pembelajaran dari video panjang.',
-      'music-play': 'Memutar lagu di YouTube Music.',
+      'music-play': 'Memutar lagu di YouTube Music. Query: "judul lagu/artis". Jika user meminta lagu favorit/biasa didengarkan, cek bagian MEMORY USER untuk melihat judul lagu yang disukai pengguna.',
       'music-toggle': 'Pause/lanjut memutar lagu.',
       'music-search': 'Mencari lagu spesifik di YT Music.',
       'music-next': 'Mengganti lagu ke track selanjutnya.',
