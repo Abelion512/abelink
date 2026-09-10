@@ -74,6 +74,8 @@ jobs:
           workspaces: src-tauri
       - name: Install dependencies (frozen lockfile)
         run: bun install --frozen-lockfile
+      - name: Build sidecar (tauri build script embeds ../dist-sidecar/mark-engine)
+        run: bun run build:sidecar
       - name: Rust check + tests
         run: |
           cargo check

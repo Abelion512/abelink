@@ -10,7 +10,7 @@ const browserSessions = new Map()
 // perilaku lama. Tidak pernah throw.
 const tryExtensionAct = async (payload, sessionId = 'default') => {
   try {
-    const { listSessions, dispatchCommand } = await import('./browser/bridge-core.mjs')
+    const { listSessions, dispatchCommand } = await import('../browser/bridge-core.mjs')
     const sessions = listSessions()
     const targetSession = payload?.sessionId || sessionId || 'default'
     const pick =
@@ -29,7 +29,7 @@ const tryExtensionAct = async (payload, sessionId = 'default') => {
 // Baca DOM dari tab aktif ekstensi browser fisik.
 const tryExtensionReadDom = async (sessionId = 'default') => {
   try {
-    const { listSessions, dispatchCommand } = await import('./browser/bridge-core.mjs')
+    const { listSessions, dispatchCommand } = await import('../browser/bridge-core.mjs')
     const sessions = listSessions()
     const targetSession = sessionId || 'default'
     const pick =
@@ -48,7 +48,7 @@ const tryExtensionReadDom = async (sessionId = 'default') => {
 // Dipakai browser-read dan browser-extract (dulu via this['browser-read']
 // yang selalu crash di modul ESM karena this === undefined).
 const browserReadFetch = async (query) => {
-  const { extractUrl } = await import('./browser/bridge-core.mjs')
+  const { extractUrl } = await import('../browser/bridge-core.mjs')
   const url = extractUrl(query) || query
   const axios = (await import('axios')).default
   const htmlRes = await axios.get(url, {
@@ -202,7 +202,7 @@ export const browserTools = {
     needsApproval: false,
     handler: async (query, config) => {
       try {
-        const { extractUrl, listSessions, dispatchCommand } = await import('./browser/bridge-core.mjs')
+        const { extractUrl, listSessions, dispatchCommand } = await import('../browser/bridge-core.mjs')
         const url = extractUrl(query)
         if (!url) return { success: false, error: `URL tidak valid: '${String(query).slice(0, 120)}'. Sertakan alamat http(s).` }
         const targetSession = config?.sessionId || 'default'
@@ -232,7 +232,7 @@ export const browserTools = {
     handler: async (query, config) => {
       try {
         const q = String(query ?? '').trim()
-        const { extractUrl } = await import('./browser/bridge-core.mjs')
+        const { extractUrl } = await import('../browser/bridge-core.mjs')
         const url = extractUrl(q)
 
         // Jika URL spesifik diberikan, utamakan fetch
@@ -464,7 +464,7 @@ export const browserTools = {
     handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const [urlPart, ...rest] = String(query ?? '').split('||')
-      const { extractUrl } = await import('./browser/bridge-core.mjs')
+      const { extractUrl } = await import('../browser/bridge-core.mjs')
       const url = extractUrl(query) || (urlPart || '').trim()
       const fileName = rest.join('||').trim() || undefined
       const ext = await tryExtensionAct({ action: 'download', value: { url, fileName } }, targetSession)
