@@ -36,6 +36,22 @@ const asText = (visionResponse) =>
     ? visionResponse.content
     : String(visionResponse)
 
+// Shared vision capture: thinking bubble -> image -> fetchVisionAI -> text.
+const runVisionCapture = async ({ thinkingLabel, imageUrl, prompt, logTag, currentSignal, targetSetChatData }) => {
+  targetSetChatData((prev) => [
+    ...prev.filter((item) => !item.isThinking),
+    { role: 'ai', content: thinkingLabel, isThinking: true }
+  ])
+  const contentArray = [
+    { type: 'text', text: prompt },
+    { type: 'image_url', image_url: { url: imageUrl } }
+  ]
+  const visionResponse = await fetchVisionAI(contentArray, currentSignal)
+  const textContent = asText(visionResponse)
+  console.log(`[Vision AI - ${logTag}] Hasil analisis:`, textContent)
+  return textContent
+}
+
 /**
  * @returns {string|undefined} resultString bila tool milik domain ini.
  */
@@ -45,11 +61,6 @@ export const runVisionTool = async (tool, query, ctx) => {
     try {
       const screens = await window.api.takeScreenshot()
       if (screens && screens.length > 0) {
-        targetSetChatData((prev) => [
-          ...prev.filter((item) => !item.isThinking),
-          { role: 'ai', content: 'Memproses Vision AI...', isThinking: true }
-        ])
-
         const imageUrl = Array.isArray(screens)
           ? screens[0]
           : typeof screens === 'string'
@@ -58,18 +69,14 @@ export const runVisionTool = async (tool, query, ctx) => {
               ? `data:image/png;base64,${screens.base64}`
               : null
 
-        const contentArray = [
-          {
-            type: 'text',
-            text: query || 'Jelaskan apa yang kamu lihat di layar ini secara ringkas.'
-          },
-          { type: 'image_url', image_url: { url: imageUrl } }
-        ]
-
-        const visionResponse = await fetchVisionAI(contentArray, currentSignal)
-        const textContent = asText(visionResponse)
-
-        console.log(`[Vision AI - analyze-screen] Hasil analisis:`, textContent)
+        const textContent = await runVisionCapture({
+          thinkingLabel: 'Memproses Vision AI...',
+          imageUrl,
+          prompt: query || 'Jelaskan apa yang kamu lihat di layar ini secara ringkas.',
+          logTag: 'analyze-screen',
+          currentSignal,
+          targetSetChatData
+        })
         return `Hasil Analisis Layar:\n${textContent}`
       }
       return 'Gagal mengambil screenshot layar untuk analisis.'
@@ -96,23 +103,14 @@ export const runVisionTool = async (tool, query, ctx) => {
       })
 
       if (cameraFrame) {
-        targetSetChatData((prev) => [
-          ...prev.filter((item) => !item.isThinking),
-          { role: 'ai', content: 'Menganalisis hasil kamera...', isThinking: true }
-        ])
-
-        const contentArray = [
-          {
-            type: 'text',
-            text: query || 'Jelaskan dengan detail apa yang terlihat dari kamera ini.'
-          },
-          { type: 'image_url', image_url: { url: cameraFrame } }
-        ]
-
-        const visionResponse = await fetchVisionAI(contentArray, currentSignal)
-        const textContent = asText(visionResponse)
-
-        console.log(`[Vision AI - camera-look] Hasil analisis:`, textContent)
+        const textContent = await runVisionCapture({
+          thinkingLabel: 'Menganalisis hasil kamera...',
+          imageUrl: cameraFrame,
+          prompt: query || 'Jelaskan dengan detail apa yang terlihat dari kamera ini.',
+          logTag: 'camera-look',
+          currentSignal,
+          targetSetChatData
+        })
         return `Hasil Analisis Kamera:\n${textContent}`
       }
       return 'Gagal mengambil gambar dari kamera.'

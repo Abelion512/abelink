@@ -42,12 +42,34 @@ impl NodeBridgeState {
 }
 
 /// Bunuh proses sidecar (dipanggil saat aplikasi keluar).
+/// Sidecar dijalankan sebagai pemimpin process group sendiri, sehingga
+/// kill di sini memakai killpg: cucu-cucu (linux-daemon.py, background
+/// task, dsb.) ikut mati dan tidak jadi orphan yang nyangkut.
 pub fn kill_engine(state: &Arc<NodeBridgeState>) {
     if let Ok(mut guard) = state.child.try_lock() {
         if let Some(mut c) = guard.take() {
             log::warn!("[NodeBridge] Menghentikan sidecar engine...");
+            if let Some(pid) = c.id() {
+                // Matikan seluruh grup dulu (cucu ikut mati), lalu anak langsung.
+                // Guard comm: jangan kill grup bila PID sudah dipakai ulang
+                // proses lain (race task pendek selesai sebelum exit).
+                if group_is_ours(pid, &["bun", "mark-engine"]) {
+                    unsafe {
+                        libc::kill(-(pid as libc::pid_t), libc::SIGKILL);
+                    }
+                }
+            }
             let _ = c.start_kill();
         }
+    }
+}
+
+/// Cek /proc/<pid>/comm agar killpg tidak mengenai grup proses lain bila
+/// PID sudah dipakai ulang. Linux-only (sesuai target proyek).
+pub(crate) fn group_is_ours(pid: u32, names: &[&str]) -> bool {
+    match std::fs::read_to_string(format!("/proc/{pid}/comm")) {
+        Ok(comm) => names.iter().any(|n| comm.trim() == *n),
+        Err(_) => false,
     }
 }
 
@@ -253,6 +275,9 @@ pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> R
         );
         let mut c = Command::new("bun");
         c.arg("--watch").arg("run").arg(&engine_path);
+        // Grup proses sendiri: kill_engine memakai killpg agar cucu sidecar
+        // (daemon python, background task) ikut mati saat aplikasi keluar.
+        c.process_group(0);
         c
     } else {
         let resource_dir = app
@@ -278,6 +303,9 @@ pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> R
         if let Some(dir) = scripts {
             c.env("MARK_RESOURCE_DIR", dir);
         }
+        // Grup proses sendiri: kill_engine memakai killpg agar cucu sidecar
+        // ikut mati saat aplikasi keluar (tidak jadi orphan yang nyangkut).
+        c.process_group(0);
         c
     };
 

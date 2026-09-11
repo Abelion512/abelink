@@ -13,10 +13,11 @@ pub struct ToolResult {
 
 fn is_dangerous(query: &str) -> bool {
     let lower = query.to_lowercase();
+    // Linux-only (AGENTS.md): Windows-only tokens removed (never match here
+    // and only add confusion/false positives).
     [
-        "remove-item", "rm ", "del ", "rmdir", "format-", "clear-disk",
-        "stop-process", "kill ", "taskkill", "set-executionpolicy", "restart-computer",
-        "shutdown", "reg delete",
+        "rm ", "del ", "rmdir",
+        "kill ", "shutdown",
     ]
     .iter()
     .any(|kw| lower.contains(kw))

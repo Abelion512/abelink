@@ -7,7 +7,6 @@ import { useMarkState, useMarkYoutube, useMarkMusic, useMarkPlan } from './agent
 import { useAwareness } from './useAwareness'
 import { useRelationalGrowth } from './agent/useRelationalGrowth'
 import { useChatArchiver } from './useChatArchiver'
-import { formatForTelegram } from '../api/ai/utils'
 
 export const useMarkAgent = () => {
   const { requestApproval, requestUserInput } = useApproval()
@@ -253,7 +252,7 @@ export const useMarkAgent = () => {
         lastSyncedMsgIdRef.current = msgKey
         window.api?.sendTgAgentExecutionDone({
           chatId: activeTgRequestRef.current.chatId,
-          result: { answer: formatForTelegram(lastAiMsg.content) },
+          result: { answer: (lastAiMsg.content || '').trim() },
           msgId: activeTgRequestRef.current.msgId
         })
         activeTgRequestRef.current = null

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { CodeBlock } from '../Chat/CodeBlock'
+import { sharedMarkdownComponents } from '../Chat/SharedMarkdown'
 import { subagentStore } from '../../api/subagent/subagentStore'
 import {
   Bot,
@@ -20,22 +20,6 @@ import { runSubagentTurn, killSubagentExecution } from '../../api/subagent/subag
 import { useConfirm } from '../../hooks/useConfirm'
 import { getAllConfig } from '../../api/db'
 import { stripAgentTags } from '../../utils/messageTags'
-
-const markdownComponents = {
-  code({ node, inline, className, children, ...props }) {
-    const match = /language-(\w+)/.exec(className || '')
-    return !inline ? (
-      <CodeBlock match={match}>{children}</CodeBlock>
-    ) : (
-      <code
-        className="bg-base-300/90 text-accent font-mono text-[11px] px-1.5 py-0.5 rounded border border-base-content/10"
-        {...props}
-      >
-        {children}
-      </code>
-    )
-  }
-}
 
 // Komponen Single Unified Bubble untuk Sub-Agent
 function SubagentUnifiedBubble({ turn, subagentName, isRunning }) {
@@ -156,7 +140,7 @@ function SubagentUnifiedBubble({ turn, subagentName, isRunning }) {
         {/* 3. Final Content / Answer or Loading */}
         {turn.answer ? (
           <div className="prose prose-invert prose-sm max-w-none text-xs leading-relaxed font-normal pt-1 text-zinc-200">
-            <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            <Markdown remarkPlugins={[remarkGfm]} components={sharedMarkdownComponents}>
               {stripAgentTags(turn.answer)}
             </Markdown>
           </div>

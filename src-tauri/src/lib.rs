@@ -256,6 +256,15 @@ pub fn run() {
             if matches!(event, tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Focused(_)) {
                 emit_window_state(window.app_handle());
             }
+            // Quit-on-close: tanpa ini, menutup window utama (X/Alt+F4) hanya
+            // menghancurkan window sementara tray menahan event loop — proses
+            // tetap jalan tak terlihat dan user mengira aplikasi sudah tutup.
+            if window.label() == "main" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    window.app_handle().exit(0);
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             cmd_fs::fs_read_file,
@@ -340,9 +349,14 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            // Pastikan proses sidecar tidak jadi orphan saat aplikasi keluar.
+            // Pastikan tidak ada proses anak/cucu yang jadi orphan dan
+            // nyangkut setelah aplikasi keluar: sidecar segrup-proses
+            // (killpg) + semua run_task yang masih running.
             if let tauri::RunEvent::Exit = event {
                 cmd_node_bridge::kill_engine(app_handle.state::<Arc<NodeBridgeState>>().inner());
+                commands_tools_tasks::kill_all_tasks(
+                    app_handle.state::<commands_tools_tasks::TasksState>().inner(),
+                );
             }
         });
 }

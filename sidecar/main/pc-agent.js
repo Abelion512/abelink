@@ -25,7 +25,6 @@ let lastStopReason = null
 let overlayHideTimeout = null
 let pendingAskResolve = null
 let isSessionOpen = false
-let mouseLockerProcess = null
 
 export function isPCSessionOpen() {
   return isSessionOpen
@@ -341,12 +340,6 @@ function triggerEmergencyStop() {
     } catch (err) {}
     activeChildProcess = null
   }
-  if (mouseLockerProcess) {
-    try {
-      mouseLockerProcess.kill()
-    } catch (err) {}
-    mouseLockerProcess = null
-  }
   if (daemonProcess) {
     try { daemonProcess.kill() } catch(e){}
     daemonProcess = null
@@ -367,19 +360,6 @@ function triggerEmergencyStop() {
   }
 }
 
-function startMouseLocker() {
-  // Linux-native: xdotool menangani event injection sendiri — tidak perlu locker eksternal
-}
-
-function stopMouseLocker() {
-  if (mouseLockerProcess) {
-    try {
-      mouseLockerProcess.kill()
-    } catch (err) {}
-    mouseLockerProcess = null
-  }
-}
-
 /**
  * Open a persistent PC Automation session
  */
@@ -395,7 +375,6 @@ export async function openPCSession() {
   // Sesi otomasi baru dimulai: titik reset stop darurat antar-sesi.
   resetEmergencyStop()
   showPCOverlay()
-  startMouseLocker()
   try {
     await startDaemon()
   } catch (err) {
@@ -415,7 +394,6 @@ export async function closePCSession() {
   isSessionOpen = false
   resetEmergencyStop()
   hidePCOverlay()
-  stopMouseLocker()
   stopDaemon()
   return JSON.stringify({
     status: 'success',
@@ -437,26 +415,9 @@ export async function askUserPC(query = '') {
   // Lanjutan sesi berjalan (alur os-ask setelah stop): reset eksplisat lewat helper.
   resetEmergencyStop()
   showPCOverlay()
-  if (overlayWindow && !overlayWindow.isDestroyed()) {
-    try {
-      overlayWindow.setFocusable(true)
-      overlayWindow.show()
-      overlayWindow.setSize(420, 360)
-      const cleanMsg = query.replace(/'/g, "\\'").replace(/"/g, '\\"')
-      overlayWindow.webContents.executeJavaScript(
-        `showAskModal("❓ MARK Needs Your Help", "${cleanMsg}", "#3b82f6")`
-      )
-    } catch (err) {}
-  }
   const comment = await new Promise((resolve) => {
     pendingAskResolve = (val) => resolve(val)
   })
-  
-  // Restart mouse locker because the automation is resuming
-  // (unless the user clicked cancel, which closes the session)
-  if (isSessionOpen) {
-    startMouseLocker()
-  }
   
   return JSON.stringify({
     status: 'success',
@@ -523,7 +484,16 @@ function startDaemon() {
     })
     
     daemonProcess.stderr.on('data', (data) => {
-      console.warn('[PC-Agent] Daemon stderr:', data.toString())
+      // Saring noise: DeprecationWarning python bukan error operasional.
+      // Baris selain itu tetap warn agar error daemon asli tidak hilang.
+      const text = data.toString()
+      const lines = text.split('\n')
+      const noisy = lines.filter((l) => /DeprecationWarning|warnings\.warn/.test(l))
+      const rest = lines.filter((l) => !/DeprecationWarning|warnings\.warn/.test(l)).join('\n').trim()
+      for (const l of noisy) {
+        if (l.trim()) console.debug('[PC-Agent] Daemon warning:', l.trim())
+      }
+      if (rest) console.warn('[PC-Agent] Daemon stderr:', rest)
     })
     
     daemonProcess.on('close', (code) => {

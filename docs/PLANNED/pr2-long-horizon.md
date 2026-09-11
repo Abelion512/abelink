@@ -49,3 +49,21 @@ Model baru, provider baru, rewrite arsitektur.
 - Anti-duplication gate 2026-09-11: grep `long-horizon|trajectory supervisor`
   → hanya MODEL-MATRIX.md (matriks model, tak duplikat); git log tak ada plan
   serupa. Rencana ini baru.
+
+## Update 2026-09-12: lapisan Fase 2 dibuang
+
+Tidak ada bukti pengukuran bahwa lineage + scoring + taksonomi 6 strategi
+mengalahkan ladder tipis 4 rung. Modul `trajLineage.js` dan `scoring.js` dihapus
+beserta tesnya; `strategyLib.js` sekarang hanya `getNextStrategy()`
+(MODIFY -> EXPLORE/RETRIEVE -> STOP) dan `trajectorySupervisor.js` memakai field
+Fase 1 saja.
+
+Dampak ke rencana ini:
+
+- Kriteria terima "Skor `avo` >= `basic` >= `vanilla`" tidak bisa diukur lagi:
+  `avo` kini alias legacy dari `basic` (lihat `src/api/ai/benchArch.js`), jadi
+  laporan lama berlabel `avo` setara `basic` secara perilaku. Sumbu yang masih
+  bermakna: `vanilla` vs `basic`.
+- Fase C "BACKTRACK vs RETRIEVE_MEMORY" dipangkas jadi RETRIEVE saja.
+- Sisa scope Fase A (budget skala-effort, resume durable, trace injeksi) tetap
+  berlaku dan sudah punya tes.

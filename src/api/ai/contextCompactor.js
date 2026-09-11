@@ -44,11 +44,9 @@ export const stripDataUrls = (text) => {
 export const stripImageContent = (content, keepImages = false) => {
   if (Array.isArray(content)) {
     if (keepImages) return content
-    const hasText = content.some((p) => p?.type === 'text')
     const out = content
       .filter((p) => p?.type === 'text' || typeof p === 'string')
       .map((p) => (typeof p === 'string' ? { type: 'text', text: p } : p))
-    if (out.length === 0 && hasText === false) return [{ type: 'text', text: IMAGE_PLACEHOLDER }]
     if (out.length === 0) return [{ type: 'text', text: IMAGE_PLACEHOLDER }]
     return out
   }

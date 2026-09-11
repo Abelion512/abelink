@@ -6,7 +6,6 @@ import {
   db
 } from '../api/db'
 import { getExtractor } from '../api/vectorMemory'
-import 'driver.js/dist/driver.css'
 import { useLocation } from 'react-router-dom'
 import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/useChat'

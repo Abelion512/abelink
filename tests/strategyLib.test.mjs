@@ -1,31 +1,28 @@
-// tests/strategyLib.test.mjs
+// tests/strategyLib.test.mjs — thin ladder.
 import { describe, it, expect } from 'vitest'
-import { STRATEGIES, rankNextStrategy } from '../src/api/ai/strategyLib.js'
+import { getNextStrategy } from '../src/api/ai/strategyLib.js'
 
-const base = { failedKeys: [], preferredKeys: [], attemptedStrategies: [], verificationRank: 1, stagnation: 0, hasProofTool: false }
-
-describe('rankNextStrategy', () => {
-  it('exposes exactly the 6 locked strategies', () => {
-    expect([...STRATEGIES].sort()).toEqual(['BACKTRACK', 'DECOMPOSE', 'DIRECT', 'EXPLORE', 'RETRIEVE_MEMORY', 'VERIFY'].sort())
+describe('getNextStrategy ladder', () => {
+  it('repeat same approach => MODIFY, still stuck => EXPLORE (or RETRIEVE when an anchor exists)', () => {
+    expect(getNextStrategy(null, { repeat: 1 }).strategy).toBe('MODIFY')
+    expect(getNextStrategy(null, { repeat: 3 }).strategy).toBe('EXPLORE')
+    expect(getNextStrategy(null, { repeat: 3, hasPriorSuccess: true }).strategy).toBe('RETRIEVE')
   })
 
-  it('prefers RETRIEVE when a preferred key exists', () => {
-    const r = rankNextStrategy({ ...base, preferredKeys: ['read-file:src/a.js'] })
-    expect(r.strategy).toBe('RETRIEVE_MEMORY')
+  it('verification blocked with prior success => RETRIEVE, without => VERIFY', () => {
+    expect(
+      getNextStrategy(null, { repeat: 2, verificationBlocked: true, hasPriorSuccess: true }).strategy
+    ).toBe('RETRIEVE')
+    expect(
+      getNextStrategy(null, { repeat: 2, verificationBlocked: true, hasPriorSuccess: false }).strategy
+    ).toBe('VERIFY')
   })
 
-  it('never returns a strategy whose key class failed', () => {
-    const r = rankNextStrategy({ ...base, failedKeys: ['DIRECT'], attemptedStrategies: ['DIRECT'] })
-    expect(r.strategy).not.toBe('DIRECT')
+  it('nothing works => STOP', () => {
+    expect(getNextStrategy(null, { repeat: 5 }).strategy).toBe('STOP')
   })
 
-  it('BACKTRACK when stagnation high', () => {
-    const r = rankNextStrategy({ ...base, stagnation: 0.8 })
-    expect(r.strategy).toBe('BACKTRACK')
-  })
-
-  it('VERIFY when rank is unverified and a proof tool exists', () => {
-    const r = rankNextStrategy({ ...base, verificationRank: 1, hasProofTool: true })
-    expect(r.strategy).toBe('VERIFY')
+  it('fresh call keeps current strategy', () => {
+    expect(getNextStrategy('MODIFY', { repeat: 0 }).strategy).toBe('MODIFY')
   })
 })

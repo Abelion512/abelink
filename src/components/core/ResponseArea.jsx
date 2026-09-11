@@ -4,7 +4,7 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import HoloCard from './HoloCard'
-import { CodeBlock } from '../Chat/CodeBlock'
+import { sharedMarkdownComponents } from '../Chat/SharedMarkdown'
 import PluginExecutionBubble from '../Chat/PluginExecutionBubble'
 
 const ResponseArea = ({ currentResponse }) => {
@@ -40,57 +40,7 @@ const ResponseArea = ({ currentResponse }) => {
         : ''
 
   const renderContent = () => {
-    const markdownComponents = {
-      code({ node, inline, className, children, ...props }) {
-        const match = /language-(\w+)/.exec(className || '')
-        return !inline ? (
-          <CodeBlock match={match}>{children}</CodeBlock>
-        ) : (
-          <code className={className} {...props}>
-            {children}
-          </code>
-        )
-      },
-      a: ({ node, ...props }) => {
-        let url = props.href || '#'
-        if (url !== '#' && !url.startsWith('http://') && !url.startsWith('https://')) {
-          url = 'https://' + url
-        }
-        return (
-          <a
-            {...props}
-            onClick={(e) => {
-              e.preventDefault()
-              if (window.api && window.api.openExternal && url !== '#') {
-                window.api.openExternal(url)
-              }
-            }}
-          />
-        )
-      },
-      table: ({ children, ...props }) => (
-        <div className="overflow-x-auto my-4">
-          <table {...props}>{children}</table>
-        </div>
-      ),
-      img: ({ node, ...props }) => (
-        <span className="block my-3 text-center">
-          <img
-            {...props}
-            className="max-h-72 w-auto mx-auto rounded-lg object-contain border border-white/10 shadow-lg max-w-full bg-black/40 cursor-pointer hover:scale-[1.02] transition-transform"
-            loading="lazy"
-            onClick={() => {
-              if (props.src && window.api?.openExternal) {
-                window.api.openExternal(props.src)
-              }
-            }}
-            onError={(e) => {
-              e.target.style.display = 'none'
-            }}
-          />
-        </span>
-      )
-    }
+    const markdownComponents = sharedMarkdownComponents
 
     const cleanText = (raw) => {
       if (!raw || typeof raw !== 'string') return ''

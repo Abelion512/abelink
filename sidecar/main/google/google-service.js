@@ -4,7 +4,7 @@ import url from 'url'
 import path from 'path'
 import os from 'os'
 import fs from 'fs/promises'
-import open from 'open'
+import { spawn } from 'child_process'
 
 // File to store the OAuth tokens safely (pengganti app.getPath('userData') era
 // Electron: XDG data dir Linux, konsisten dengan skills/telegram).
@@ -218,9 +218,10 @@ export async function connectGoogle(clientId, clientSecret) {
         prompt: 'consent'
       })
 
-      // Pengganti shell.openExternal (Electron): open@11 memakai xdg-open di Linux.
-      open(authorizeUrl).catch((err) =>
-        console.error('[Google] Gagal membuka browser OAuth:', err)
+      // Pengganti shell.openExternal (Electron): xdg-open via stdlib.
+      spawn('xdg-open', [authorizeUrl], { detached: true, stdio: 'ignore' }).on(
+        'error',
+        (err) => console.error('[Google] Gagal membuka browser OAuth:', err)
       )
     })
   })

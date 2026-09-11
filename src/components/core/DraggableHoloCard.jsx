@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { HoloChrome } from './HoloChrome';
 
 const DraggableHoloCard = ({ 
   children, 
@@ -80,18 +81,8 @@ const DraggableHoloCard = ({
       className={`fixed ${animationClass} ${dragClass} transition-transform duration-75`}
       style={{ left: pos.x, top: pos.y, width: 'fit-content' }}
     >
-      <div className="relative overflow-hidden rounded-sm bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[0_4px_30px_oklch(var(--p)/0.1)]">
+      <HoloChrome className="shadow-[0_4px_30px_oklch(var(--p)/0.1)]">
         
-        {/* Animated Border Flow (Top & Bottom) */}
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-[var(--color-holo-border)] bg-[length:200%_auto] animate-[holo-border-flow_3s_linear_infinite]" />
-        <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-[var(--color-holo-border)] bg-[length:200%_auto] animate-[holo-border-flow_3s_linear_infinite] rotate-180" />
-        
-        {/* HUD Brackets */}
-        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/30 pointer-events-none" />
-        <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/30 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white/30 pointer-events-none" />
-        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white/30 pointer-events-none" />
-
         {/* Header / Drag Handle */}
         <div 
           className="flex items-center justify-between px-4 py-2 bg-base-300/50 cursor-grab active:cursor-grabbing border-b border-white/5 select-none"
@@ -117,7 +108,7 @@ const DraggableHoloCard = ({
         <div className="p-4 overflow-y-auto max-h-[60vh] custom-scrollbar">
           {children}
         </div>
-      </div>
+      </HoloChrome>
     </div>
   );
 };

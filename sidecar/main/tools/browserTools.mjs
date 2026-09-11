@@ -1,9 +1,5 @@
 // Tool browser/web (dipindah murni dari main/node-tools.js).
 import { normalizeMarkId } from '../browser/bridge-core.mjs'
-import { navigateTo, readDOM, executeAction, closeBrowser, executeScript, extractData, takeScreenshot, downloadFile } from '../browser-agent.js'
-
-let browserSessionId = 0
-const browserSessions = new Map()
 
 // Extension-first untuk tool browser: coba browser fisik bila ADA sesi yang
 // terhubung (preferensi 'default'), kembalikan null agar caller fallback ke
@@ -392,32 +388,6 @@ export const browserTools = {
       }
     }
   },
-  'ask_user': {
-    needsApproval: false,
-    handler: async (query) => {
-      const { chatId, question, options, timeoutMs } = query || {}
-      if (!chatId) return { success: false, error: 'chatId wajib diisi' }
-      if (!question) return { success: false, error: 'Pertanyaan wajib diisi' }
-      if (!options || options.length < 2) return { success: false, error: 'Minimal 2 opsi pilihan' }
-
-      const tgMod = { getConnectionStatus, sendInlineKeyboard, waitForAskUserAnswer }
-      if (tgMod.getConnectionStatus().status !== 'connected') {
-        return { success: false, error: 'Bot Telegram belum terhubung' }
-      }
-
-      const sent = await tgMod.sendInlineKeyboard(String(chatId), String(question), options)
-      if (!sent || sent.success === false) {
-        return { success: false, error: sent?.error || 'Gagal mengirim keyboard ke Telegram' }
-      }
-
-      // Tunggu jawaban callback bmk_* (dikorelasikan via waitForAskUserAnswer).
-      const answer = await tgMod.waitForAskUserAnswer(String(chatId), Number(timeoutMs) || 120000)
-      if (answer == null) {
-        return { success: false, error: 'ask_user timeout: tidak ada jawaban dari user' }
-      }
-      return { success: true, data: { status: 'answered', chatId, answer } }
-    }
-  },
   'browser-ask-user': {
     needsApproval: false,
     handler: async (query) => {
@@ -460,7 +430,7 @@ export const browserTools = {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'close' }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
-      return { success: true, message: 'Browser session closed or already idle' }
+      return { success: false, error: 'browser-close: extension tidak tersambung. Sambungkan extension Mark Bridge.' }
     }
   },
   'browser-screenshot': {

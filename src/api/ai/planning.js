@@ -1,8 +1,7 @@
 import { fetchAI, cleanAndParse, extractLenientField } from './core'
 import { getAllConfig, getAllLearnedSkills } from '../db'
 import { getCurrentTimeInfo } from './utils'
-import { generateVector, cosineSimilarity } from '../vectorLoader'
-import { getPersonaPrompt, getTraitContext } from './persona'
+import { getPersonaPrompt } from './persona'
 import { getBuiltinPluginsPrompt } from './builtinPlugins'
 import { core_tools } from '../tools/core-tools'
 import { group_tools } from '../tools/group-tools'
@@ -10,8 +9,6 @@ import { NATIVE_SKILLS } from '../../components/core/native-skills'
 import { getWorkspaceContext } from '../workspaceRag'
 import { getCachedSkills } from '../skillsCache'
 import { logReasoning as trajectoryLogReasoning, logStep as trajectoryLogStep } from '../trajectory'
-
-let pluginVectorCache = new Map()
 
 // Audit injeksi: snapshot system prompt terakhir (diambil via getLastSystemPrompt).
 let lastSystemPrompt = ''
@@ -34,30 +31,6 @@ export function findSuspiciousName(systemPrompt) {
     snippet: stripped
       .slice(Math.max(0, idx - 120), idx + 120)
       .replace(/\s+/g, ' ')
-  }
-}
-
-// Inline helper to get plugin actions (replaces pluginHelper.js)
-const getPluginActions = async () => {
-  try {
-    const plugins = await window.api.getPlugins()
-    if (!plugins || plugins.length === 0) return []
-    const actions = []
-    plugins.forEach((plugin) => {
-      if (plugin.isEnabled !== false && plugin.actions) {
-        plugin.actions.forEach((act) => {
-          actions.push({
-            name: act.name,
-            description: act.description,
-            triggerHint: act.triggerHint
-          })
-        })
-      }
-    })
-    return actions
-  } catch (e) {
-    console.error(e)
-    return []
   }
 }
 

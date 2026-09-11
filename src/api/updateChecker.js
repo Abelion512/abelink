@@ -1,4 +1,5 @@
-import semver from 'semver'
+import { gt as semverGt, rcompare as semverRcompare } from './semverLite.js'
+const semver = { gt: semverGt, rcompare: semverRcompare }
 
 const REPO = 'Abelion512/abelink'
 const CACHE_KEY = 'mark:update-cache'

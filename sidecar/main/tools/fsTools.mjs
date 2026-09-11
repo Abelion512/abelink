@@ -4,7 +4,7 @@ import path from 'path'
 import os from 'os'
 import { validateFileSyntax } from '../syntax-validator.js'
 import { assertContained } from '../utils/fsGuard.js'
-import { getWorkspaceDir, parsePagination, rtkFilter } from './_shared.mjs'
+import { getWorkspaceDir } from './_shared.mjs'
 
 export const fsTools = {
   'read-skill': {
@@ -252,21 +252,9 @@ export const fsTools = {
             }
           }
 
-          // 2b. Orama Semantic Vector Search
-          // Orama search berjalan di Renderer process, tidak bisa diakses dari Main
-          let oramaText = ''
-          try {
-            oramaText = ''
-          } catch (oramaErr) {
-            // Silently skip
-          }
-
           let combinedContent = ''
           if (matchedSections.length > 0) {
             combinedContent += `--- HASIL PENCOCOKAN KATAKUNCI PERSIS ---\n${matchedSections.join('\n\n')}\n\n`
-          }
-          if (oramaText) {
-            combinedContent += `--- HASIL VEKTOR SEMANTIK ORAMA ---\n${oramaText}`
           }
 
           if (combinedContent) {
@@ -675,13 +663,10 @@ export const fsTools = {
           success: true,
           total: matchedFiles.length,
           files: matchedFiles,
-          result: await rtkFilter(
+          result:
             matchedFiles.length > 0
               ? `Ditemukan ${matchedFiles.length} berkas di '${path.basename(targetDir)}':\n${matchedFiles.map((f) => `- ${f}`).join('\n')}`
               : `Tidak ditemukan berkas yang cocok dengan pola "${pattern}" di folder tersebut.`,
-            'find',
-            config
-          )
         }
       } catch (e) {
         return { success: false, error: e.message }
@@ -802,7 +787,7 @@ export const fsTools = {
 
         return {
           success: true,
-          result: await rtkFilter(matches.join('\n'), 'grep', config),
+          result: matches.join('\n'),
           total_matches: matches.length
         }
       } catch (e) {

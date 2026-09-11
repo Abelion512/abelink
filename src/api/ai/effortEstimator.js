@@ -14,9 +14,6 @@ import {
   EffortLevel,
   EffortPolicy,
   resolve_effort,
-  AUTO_SCALE,
-  AUTO_MIN,
-  AUTO_MAX,
 } from './effortSystem'
 
 // Sinyal kompleksitas (bobot kasar, kalibrasi manual — bisa di-evolve via test)

@@ -1,5 +1,6 @@
 use serde::Serialize;
 use std::collections::HashMap;
+use std::os::unix::process::CommandExt;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
 
@@ -73,6 +74,9 @@ pub async fn run_task(
     tauri::async_runtime::spawn(async move {
         let mut cmd = std::process::Command::new("bash");
         cmd.arg("-c").arg(&command).current_dir(&cwd_path);
+        // Grup proses sendiri: kill_task/kill_all_tasks memakai killpg agar
+        // anak-cucu task ikut mati (bash -c menelurkan proses anak sendiri).
+        cmd.process_group(0);
         cmd.stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
 
@@ -166,7 +170,8 @@ pub fn read_task_output(
         .unwrap_or_default())
 }
 
-/// Kill task (mark stopped)
+/// Kill task: bunuh grup prosesnya (bukan cuma tandai status, yang
+/// membiarkan proses anak jalan terus sebagai orphan).
 #[tauri::command]
 pub fn kill_task(
     state: State<'_, TasksState>,
@@ -174,9 +179,153 @@ pub fn kill_task(
 ) -> Result<bool, String> {
     let mut map = state.0.lock().unwrap();
     if let Some(t) = map.get_mut(&task_id) {
+        if t.status == "running" {
+            if let Some(pid) = t.pid {
+                if crate::cmd_node_bridge::group_is_ours(pid, &["bash"]) {
+                    unsafe {
+                        libc::kill(-(pid as libc::pid_t), libc::SIGKILL);
+                    }
+                }
+            }
+        }
         t.status = "stopped".into();
         Ok(true)
     } else {
         Ok(false)
+    }
+}
+
+/// Bunuh semua task yang masih running (dipanggil saat aplikasi keluar agar
+/// tidak ada proses anak yang nyangkut setelah window ditutup).
+pub fn kill_all_tasks(state: &TasksState) {
+    if let Ok(mut map) = state.0.lock() {
+        for t in map.values_mut() {
+            if t.status == "running" {
+                if let Some(pid) = t.pid {
+                    if crate::cmd_node_bridge::group_is_ours(pid, &["bash"]) {
+                        unsafe {
+                            libc::kill(-(pid as libc::pid_t), libc::SIGKILL);
+                        }
+                    }
+                }
+                t.status = "stopped".into();
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    fn proc_gone(pid: u32) -> bool {
+        // Hilang dari /proc ATAU sudah zombie (mati, tinggal nunggu reparent
+        // me-reap) dihitung mati: SIGKILL-nya terbukti sampai.
+        match std::fs::read_to_string(format!("/proc/{pid}/stat")) {
+            Err(_) => true,
+            Ok(stat) => stat
+                .rfind(')')
+                .and_then(|i| stat[i + 2..].split_whitespace().next())
+                == Some("Z"),
+        }
+    }
+
+    fn wait_gone(pid: u32) -> bool {
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_secs(5) {
+            if proc_gone(pid) {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        proc_gone(pid)
+    }
+
+    #[test]
+    fn group_is_ours_matches_bash_child_only() {
+        use std::os::unix::process::CommandExt;
+        let mut cmd = std::process::Command::new("bash");
+        cmd.arg("-c").arg("sleep 60").process_group(0);
+        let child = cmd.spawn().expect("spawn bash test");
+        let pid = child.id();
+        assert!(crate::cmd_node_bridge::group_is_ours(pid, &["bash"]));
+        assert!(!crate::cmd_node_bridge::group_is_ours(pid, &["tidak-ada"]));
+        // PID yang tidak ada -> false (tidak pernah kill buta).
+        assert!(!crate::cmd_node_bridge::group_is_ours(u32::MAX, &["bash"]));
+        unsafe {
+            libc::kill(-(pid as libc::pid_t), libc::SIGKILL);
+        }
+        assert!(wait_gone(pid), "grup bash harus mati oleh killpg");
+    }
+
+    #[test]
+    fn kill_all_tasks_kills_grandchildren_too() {
+        use std::os::unix::process::CommandExt;
+        // `& wait` memaksa bash menelurkan cucu sleep (tanpa exec langsung).
+        let mut cmd = std::process::Command::new("bash");
+        cmd.arg("-c").arg("sleep 60 & wait").process_group(0);
+        let child = cmd.spawn().expect("spawn bash test");
+        let pid = child.id();
+        // Tunggu cucu sleep muncul di grup yang sama.
+        let grandchild: Option<u32> = {
+            let start = Instant::now();
+            let mut found = None;
+            while start.elapsed() < Duration::from_secs(5) && found.is_none() {
+                if let Ok(entries) = std::fs::read_dir("/proc") {
+                    for e in entries.flatten() {
+                        let name = e.file_name().to_string_lossy().into_owned();
+                        if let Ok(p) = name.parse::<u32>() {
+                            if p == pid {
+                                continue;
+                            }
+                            let stat = std::fs::read_to_string(format!("/proc/{p}/stat"))
+                                .unwrap_or_default();
+                            // field 4 = ppid, field 5 = pgrp (dalam tanda kurung nama bisa ada spasi).
+                            if let Some(rparen) = stat.rfind(')') {
+                                let fields: Vec<&str> =
+                                    stat[rparen + 2..].split_whitespace().collect();
+                                if fields.len() >= 3
+                                    && fields[1] == pid.to_string()
+                                    && fields[2] == pid.to_string()
+                                {
+                                    found = Some(p);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                if found.is_none() {
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+            }
+            found
+        };
+        assert!(grandchild.is_some(), "cucu sleep harus ada di grup bash");
+
+        let state = TasksState(Arc::new(Mutex::new(HashMap::new())));
+        state.0.lock().unwrap().insert(
+            "t1".into(),
+            TaskInfo {
+                id: "t1".into(),
+                command: "sleep 60 & wait".into(),
+                cwd: "/tmp".into(),
+                status: "running".into(),
+                started_at: String::new(),
+                pid: Some(pid),
+            },
+        );
+        kill_all_tasks(&state);
+
+        assert_eq!(
+            state.0.lock().unwrap().get("t1").unwrap().status,
+            "stopped"
+        );
+        assert!(wait_gone(pid), "bash induk harus mati");
+        assert!(
+            wait_gone(grandchild.unwrap()),
+            "cucu sleep harus ikut mati (inilah bug orphan kemarin)"
+        );
     }
 }

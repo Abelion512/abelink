@@ -9,6 +9,7 @@ import os
 import json
 import subprocess
 import time
+import tempfile
 
 # Ensure stdout/stderr use UTF-8
 if hasattr(sys.stdout, 'reconfigure'):
@@ -17,11 +18,17 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8')
 
 # ─── Dependencies ────────────────────────────────────────────────────
+# Impor terpisah per pustaka: Pillow yang hilang tidak boleh ikut
+# mematikan screenshot, dan sebaliknya.
 try:
-    from mss import mss
+    from mss import MSS
+except ImportError:
+    MSS = None
+
+try:
     from PIL import Image
 except ImportError:
-    mss = None
+    Image = None
 
 try:
     import pytesseract
@@ -135,9 +142,9 @@ def get_window_rect(title: str) -> dict:
 
 def capture_screen(rect: dict = None) -> str:
     """Capture screen or region, return temp PNG path."""
-    if mss is None:
+    if MSS is None or Image is None:
         return None
-    with mss() as sct:
+    with MSS() as sct:
         if rect:
             monitor = {
                 'left': rect['x'],
@@ -151,7 +158,6 @@ def capture_screen(rect: dict = None) -> str:
         sct_img = sct.grab(monitor)
         img = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
 
-        import tempfile
         fd, tmp = tempfile.mkstemp(suffix='.png')
         os.close(fd)
         img.save(tmp, 'PNG')
@@ -249,7 +255,7 @@ def handle_read_ui(cmd_obj):
     elements = []
     method = 'ocr'
 
-    if rect and mss is not None:
+    if rect and MSS is not None and Image is not None:
         png_path = capture_screen(rect)
         if png_path:
             ocr_results = run_ocr(png_path)
@@ -278,7 +284,7 @@ def handle_ocr(cmd_obj):
     rect = get_window_rect(title)
 
     elements = []
-    if rect and mss is not None:
+    if rect and MSS is not None and Image is not None:
         png_path = capture_screen(rect)
         if png_path:
             elements = run_ocr(png_path)

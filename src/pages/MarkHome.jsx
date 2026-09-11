@@ -11,7 +11,6 @@ import HistoryDrawer from '../components/core/HistoryDrawer'
 import ProcessPanel from '../components/core/ProcessPanel'
 import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
 import MemoryVisualizer from '../components/core/MemoryVisualizer'
-import BrowserPreviewWidget from '../components/core/BrowserPreviewWidget'
 import { ChatStudioModal } from '../components/core/ChatStudioModal'
 import WindowControls from '../components/core/WindowControls'
 import {
@@ -300,7 +299,6 @@ const MarkHome = () => {
   }, [isCamMirrored])
 
   // ── Stop Screen Share helper ────────────────────────────────────────────
-  // eslint-disable-next-line react-compiler/react-compiler
   const handleStopScreenShare = useCallback(() => {
     isScreenStreamingRef.current = false
     if (liveMirrorIntervalRef.current) {
@@ -315,7 +313,7 @@ const MarkHome = () => {
     setScreenStream(null)
     setLiveScreenFrame(null)
     handleModeChange('voice')
-  }, [screenStream, handleModeChange])
+  }, [screenStream, handleModeChange, setScreenStream, setLiveScreenFrame])
 
   // ── Continuous Live Desktop Mirror Loop ──────────────────────────────────
   const startLiveMirrorLoop = useCallback(() => {
@@ -778,7 +776,6 @@ const MarkHome = () => {
       <FloatingMenu onOpenHistory={() => setIsHistoryOpen(true)} />
       <StatusIndicator notifications={notifications} />
       <ProcessPanel processes={activeProcesses} onDismiss={dismissProcess} />
-      <BrowserPreviewWidget />
       <LiteBadge />
 
       {toastMessage && (
