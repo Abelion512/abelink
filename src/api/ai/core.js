@@ -218,7 +218,9 @@ export const cleanAndParse = (rawResponse) => {
     let cleaned = jsonStr
       .replace(/\r?\n/g, ' ')
       .replace(/\t/g, ' ')
-      // eslint-disable-next-line no-control-regex -- stripping control chars is the point
+      // Escape sequence, bukan karakter kontrol literal: no-control-regex tidak
+      // menyala di sini, jadi directive disable-nya dibuang (pernah memicu
+      // "Unused eslint-disable directive").
       .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
 
     try {
