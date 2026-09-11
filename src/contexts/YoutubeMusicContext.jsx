@@ -124,9 +124,11 @@ export const YoutubeMusicProvider = ({ children }) => {
             // pada player kosong membuat YT menolaknya dengan onError(2)
             // "Video ID tidak valid" di log setiap boot. loadVideoById +
             // playVideo() eksplisit di loadIntoPlayer sudah memulai pemutaran.
+            host: 'https://www.youtube-nocookie.com',
             playerVars: {
               rel: 0,
-              origin: window.location.origin || undefined
+              enablejsapi: 1,
+              origin: window.location.origin || 'http://localhost:1420'
             },
             events: {
               onReady: (e) => {

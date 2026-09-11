@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useChat } from '../contexts/ChatContext'
+import { useChat } from '../contexts/useChat'
 import OrbVisualizer from '../components/core/OrbVisualizer'
 import JarvisOrb from '../components/core/JarvisOrb'
 import InputBar from '../components/core/InputBar'

@@ -283,5 +283,95 @@ export const runAgentTool = async (tool, query, ctx) => {
       message: `Skill "${skillName}" tidak ditemukan.`
     }
   }
+  if (tool === 'delegate_coding') {
+    const { detectInstalledAgents, buildCodingCommand } = await import(
+      '../../../api/ai/codingAgentBridge.js'
+    )
+    const parts = (query || '').split('||')
+    const requestedAgent = parts[0]?.trim() || 'auto'
+    const instruction = parts[1]?.trim() || ''
+    const customBranch = parts[2]?.trim()
+
+    if (!instruction) {
+      return {
+        success: false,
+        error: 'Instruksi tugas coding tidak boleh kosong. Gunakan format: agent_name||instruksi||nama_branch'
+      }
+    }
+
+    const availableAgents = await detectInstalledAgents()
+    if (availableAgents.length === 0) {
+      return {
+        success: false,
+        error: 'Tidak ditemukan CLI coding agent yang terpasang di sistem (Claude Code, Hermes, Codex, OpenCode). Mohon pasang minimal satu CLI agent terlebih dahulu.'
+      }
+    }
+
+    let selectedAgent = null
+    if (requestedAgent === 'auto') {
+      selectedAgent = availableAgents[0]
+    } else {
+      selectedAgent = availableAgents.find(
+        (a) =>
+          a.id.toLowerCase() === requestedAgent.toLowerCase() ||
+          a.name.toLowerCase().includes(requestedAgent.toLowerCase())
+      )
+      if (!selectedAgent) {
+        selectedAgent = availableAgents[0]
+      }
+    }
+
+    const branch = customBranch || `auto/delegate-${Date.now().toString(36)}`
+    const taskId = `code-${Date.now().toString(36)}`
+    const workspaceRoot = ctx?.workspaceRoot || '.'
+
+    const { command, agent } = buildCodingCommand({
+      agentId: selectedAgent.id,
+      prompt: instruction,
+      branch,
+      workdir: workspaceRoot
+    })
+
+    if (ctx?.requestApproval) {
+      const approved = await ctx.requestApproval(
+        `Abelink ingin mendelegasikan tugas ke CLI Agent [${agent.name}] di branch [${branch}]:\n\n"${instruction}"\n\nCommand: ${command}`,
+        'delegate_coding',
+        query
+      )
+      if (!approved) {
+        return {
+          success: false,
+          error: 'User menolak pendelegasian tugas coding ini.'
+        }
+      }
+    }
+
+    let spawnRes = null
+    if (window.api && window.api.executeNativeTool) {
+      try {
+        spawnRes = await window.api.executeNativeTool('run-task', `${taskId}||${command}`)
+      } catch (err) {
+        spawnRes = { success: false, error: err.message }
+      }
+    }
+
+    if (spawnRes && !spawnRes.success) {
+      return {
+        success: false,
+        error: `Gagal meluncurkan background task koding: ${spawnRes.message || spawnRes.error}`
+      }
+    }
+
+    return {
+      success: true,
+      data: `[TUGAS KODING BERHASIL DIDELEGASIKAN KE BACKGROUND]\n` +
+        `- Agen Pelaksana: ${agent.name} (${selectedAgent.binaryPath})\n` +
+        `- Task ID: ${taskId}\n` +
+        `- Sandbox Git Branch: ${branch}\n` +
+        `- Status: Berjalan di background (nice -n 10, non-blocking).\n` +
+        `Petunjuk: Gunakan tool 'read-task-output' dengan query "${taskId}||30" untuk memeriksa status output kapan saja.`
+    }
+  }
   return undefined
 }
+

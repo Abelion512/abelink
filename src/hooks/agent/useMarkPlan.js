@@ -46,6 +46,11 @@ import {
   VERIFICATION_STATE
 } from '../../api/ai/objectiveVerifier'
 import { resolvePlanStepBudget, DEFAULT_PLAN_STEPS } from '../../api/ai/planStepBudget'
+import {
+  getErrorSignature,
+  isRepairAllowed,
+  createSelfRepairMission
+} from '../../api/ai/selfHealingEngine'
 
 // ============================================================================
 // HELPER UTILITIES
@@ -1998,9 +2003,33 @@ export const useMarkPlan = ({
             prev.filter((item) => !item.isThinking && !item.isSearching && !item.isProactive)
           )
         } else {
+          let extraHelp = ''
+          const isConnectionError =
+            /Gagal menghubungi server AI|Unable to connect|ECONNREFUSED|ENOTFOUND|502|503|504|timeout/i.test(
+              errorMsg
+            )
+
+          if (isConnectionError) {
+            extraHelp =
+              '\n\n**Diagnosis Sistem:**\n- Server endpoint AI (9Router / model lokal) tidak merespons.\n- Pastikan daemon 9Router aktif (`http://127.0.0.1:20128`) dan koneksi upstream/proxy tidak terputus.'
+          } else {
+            const sig = getErrorSignature(error)
+            if (isRepairAllowed(sig)) {
+              extraHelp = `\n\n**Self-Healing Diagnostic:**\n- Error Signature: \`${sig.slice(0, 80)}\`\n- Kamu dapat memicu perbaikan mandiri via CLI Agent (Claude Code / Hermes / Codex / OpenCode) dengan mendelegasikan perbaikan pada file terkait.`
+            }
+          }
+
           targetSetChatData((prev) => [
             ...prev.filter((item) => !item.isThinking && !item.isSearching),
-            { role: 'ai', content: `Maaf, terjadi kesalahan: ${error.message}` }
+            {
+              role: 'ai',
+              content: `⚠️ **Gagal Mengeksekusi Rencana**\n\n${error.message}${extraHelp}`,
+              isError: true,
+              timestamp: new Date().toLocaleTimeString('id-ID', {
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            }
           ])
         }
       }

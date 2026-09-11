@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useChat } from '../contexts/ChatContext'
+import { useChat } from '../contexts/useChat'
 import { CameraPreview } from './camera/CameraPreview'
 
 export const GlobalCameraManager = () => {

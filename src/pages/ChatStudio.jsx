@@ -14,7 +14,7 @@ import {
   Bot,
   Folder
 } from 'lucide-react'
-import { useChat } from '../contexts/ChatContext'
+import { useChat } from '../contexts/useChat'
 import {
   getAllSessions,
   createSession,

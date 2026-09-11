@@ -115,6 +115,12 @@ export const executeSingleTool = async (tool, query, ctx) => {
     }
     // 9. Built-in Native Tools (+ sub-agent & skill tools via domain agent)
     if (checkTools(tool)) {
+      // Domain multi-agent & delegation: tangani lebih awal dengan protokol internalnya
+      const agentRes = await runAgentTool(tool, query, ctx)
+      if (agentRes !== undefined) {
+        return formatRes(tool, query, agentRes)
+      }
+
       const approvalCheck = await window.api.checkToolApproval(tool, query)
 
       if (approvalCheck.needsApproval && requestApproval) {
@@ -127,12 +133,6 @@ export const executeSingleTool = async (tool, query, ctx) => {
             toolExecution: { action: tool, query, result: resultString }
           }
         }
-      }
-
-      // Domain multi-agent: kembalikan res -> formatting terpusat.
-      const agentRes = await runAgentTool(tool, query, ctx)
-      if (agentRes !== undefined) {
-        return formatRes(tool, query, agentRes)
       }
 
       let res

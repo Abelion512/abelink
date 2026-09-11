@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { FaMicrophone, FaMicrophoneSlash, FaPaperPlane, FaExpand, FaTimes } from 'react-icons/fa'
-import { useChat } from '../../contexts/ChatContext'
+import { useChat } from '../../contexts/useChat'
 import { useVAD } from '../../hooks/useVAD'
 
 export default function SpotlightBar({ onExpandDashboard }) {
