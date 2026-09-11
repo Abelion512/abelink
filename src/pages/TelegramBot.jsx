@@ -95,12 +95,12 @@ const TelegramBot = () => {
             </div>
             <div>
               <h1 className="font-bold text-lg text-base-content">Telegram Bot Monitor</h1>
-              <div className="flex items-center gap-2 text-xs opacity-70">
-                <div
+              <p className="flex items-center gap-2 text-xs opacity-70">
+                <span
                   className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-warning animate-pulse' : 'bg-error'}`}
-                ></div>
+                />
                 <span className="capitalize">{status}</span>
-              </div>
+              </p>
             </div>
           </div>
         </div>
@@ -222,7 +222,7 @@ const TelegramBot = () => {
         {isThinking && (
           <div className="chat chat-end animate-fade-in">
             <div className="chat-header opacity-50 text-xs mb-1">
-              Mark sedang memproses pesan {currentSender}...
+              Abelink sedang memproses pesan {currentSender}...
             </div>
             <div className="chat-bubble chat-bubble-info bg-info/20 text-info border border-info/30">
               <span className="loading loading-dots loading-sm"></span>
@@ -252,7 +252,7 @@ const TelegramBot = () => {
             <div className="space-y-4 text-left">
               <div className="form-control w-full">
                 <label className="label">
-                  <span className="label-text font-semibold">Telegram Bot Token</span>
+                  <span className="label-text font-semibold">Bot Token</span>
                 </label>
                 <input
                   type="password"
@@ -268,7 +268,7 @@ const TelegramBot = () => {
 
               <div className="form-control w-full">
                 <label className="label">
-                  <span className="label-text font-semibold">Telegram Admin Usernames</span>
+                  <span className="label-text font-semibold">Usernames</span>
                 </label>
                 <input
                   type="text"
@@ -277,16 +277,6 @@ const TelegramBot = () => {
                   onChange={(e) => setAdminIdsInput(e.target.value)}
                   className="input input-bordered w-full font-mono text-sm"
                 />
-                <span className="text-xs opacity-60 mt-1">
-                  Daftar username Telegram (@username) yang diizinkan mengontrol Mark. Pisahkan dengan koma.
-                </span>
-              </div>
-
-              <div className="alert alert-info bg-info/10 border-info/30 text-xs text-white">
-                <span>
-                  Buka aplikasi Telegram & ketik <b>/start</b> ke bot kamu setidaknya 1x agar bot
-                  bisa mencatat Chat ID kamu untuk mengirim balasan & notifikasi dari PC.
-                </span>
               </div>
             </div>
 

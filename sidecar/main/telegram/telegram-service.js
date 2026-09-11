@@ -460,34 +460,70 @@ export const startTelegramBot = async (token, mainWindow) => {
     }
     if (!alive()) return { success: false, error: 'dibatalkan' }
 
-    // Launch dengan retry: JANGAN tandai connected sebelum polling
-    // benar-benar jalan (sebelumnya updateStatus('connected') dipanggil
-    // sinkron lalu disconnect saat launch gagal — "connect lalu putus").
-    // Gangguan jaringan sesaat me-retry dengan backoff; hanya 401/404
-    // (token mati) yang berhenti permanen.
+    // Launch dengan race: Telegraf startPolling() hanya resolve bila loop
+    // BERAKHIR — saat sehat ia pending selamanya (long-poll). Jadi timeout
+    // 25s = polling berjalan = connected. Tanpa race ini, await launch()
+    // tak pernah kembali dan status macet 'connecting' selamanya.
+    // (Jangan tandai connected sebelum ini: connect-lalu-putus.)
+    const LAUNCH_HEALTHY_MS = 25000
     const RETRY_DELAYS_MS = [2000, 4000, 8000, 16000, 30000]
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
     let launched = false
     let lastError = null
+    // Kematian loop yang TERLAMBAT (setelah dinyatakan connected): validasi
+    // ringan, gagal -> putus jujur (jangan diam-diam mati).
+    const noteLateDeath = () => {
+      if (!alive()) return
+      bot.telegram.getMe().catch(() => {
+        if (alive()) {
+          console.warn('[Telegram] Polling mati (terlambat terdeteksi). Memutus.')
+          stopTelegramBot()
+        }
+      })
+    }
     for (let attempt = 0; ; attempt++) {
       if (!alive()) return { success: false, error: 'dibatalkan' }
-      try {
-        await bot.launch({ allowedUpdates: ['message', 'callback_query'] })
+      const lp = bot.launch({ allowedUpdates: ['message', 'callback_query'] })
+      lp.then(
+        () => noteLateDeath(),
+        (e) => {
+          const code = e?.response?.error_code
+          if ((code === 401 || code === 404) && alive()) {
+            console.warn(`[Telegram] Token error (${code}). Berhenti permanen.`)
+            stopTelegramBot()
+            return
+          }
+          noteLateDeath()
+        }
+      )
+      const res = await Promise.race([
+        lp.then(
+          () => ({ ended: true }),
+          (e) => ({ error: e })
+        ),
+        sleep(LAUNCH_HEALTHY_MS).then(() => ({ started: true }))
+      ])
+      if (res.started) {
         launched = true
         break
-      } catch (err) {
-        lastError = err
-        const code = err?.response?.error_code
+      }
+      // Launch gagal cepat (getMe/deleteWebhook di dalamnya).
+      lastError = res.error
+      {
+        const code = res.error?.response?.error_code
         if (code === 401 || code === 404) {
           console.warn(`[Telegram] Token error (${code}). Berhenti permanen.`)
-          stopTelegramBot()
-          return { success: false, error: err?.message || 'Token tidak valid' }
+          if (alive()) stopTelegramBot()
+          return { success: false, error: res.error?.message || 'Token tidak valid' }
         }
-        if (attempt >= RETRY_DELAYS_MS.length) break
+      }
+      if (attempt >= RETRY_DELAYS_MS.length) break
+      {
         const waitMs = RETRY_DELAYS_MS[attempt]
         console.warn(
-          `[Telegram] Launch gagal (${err?.message || err}). Retry ${attempt + 1}/${RETRY_DELAYS_MS.length} dalam ${waitMs / 1000}s...`
+          `[Telegram] Launch gagal (${lastError?.message || lastError}). Retry ${attempt + 1}/${RETRY_DELAYS_MS.length} dalam ${waitMs / 1000}s...`
         )
-        await new Promise((r) => setTimeout(r, waitMs))
+        await sleep(waitMs)
       }
     }
     if (!launched || !alive()) {
