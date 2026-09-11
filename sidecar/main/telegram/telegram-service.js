@@ -229,13 +229,8 @@ export const startTelegramBot = async (token, mainWindow) => {
       sendEvent('tg:message', uiMsgPayload)
       sendEvent('tg:thinking', { sender: senderName, chatId })
 
-      let loadingMsgId = null
-      try {
-        const loadingMsg = await ctx.reply('[LOADING]: Sedang diproses...', { disable_notification: true })
-        loadingMsgId = loadingMsg.message_id
-      } catch (e) {}
-
-      // Kirim typing action segera dan jaga status mengetik setiap 4 detik
+      // Indikator mengetik SAJA (tanpa bubble [LOADING]): bubble loading +
+      // typing bersamaan = info progres ganda yang mengganggu.
       try { ctx.sendChatAction('typing').catch(() => {}) } catch (_) {}
       const typingInterval = setInterval(() => {
         if (bot && chatId) {
@@ -243,7 +238,7 @@ export const startTelegramBot = async (token, mainWindow) => {
         }
       }, 4000)
 
-      pendingRequestsMap.set(msgId, { ctx, chatId, text, loadingMsgId, typingInterval })
+      pendingRequestsMap.set(msgId, { ctx, chatId, text, loadingMsgId: null, typingInterval })
       setTimeout(() => {
         const req = pendingRequestsMap.get(msgId)
         if (req?.typingInterval) clearInterval(req.typingInterval)
@@ -350,7 +345,7 @@ export const startTelegramBot = async (token, mainWindow) => {
           text = `[FILE DOKUMEN]: "${savePath}"\n(Nama berkas: ${originalName}, Ukuran: ${(buffer.byteLength / 1024).toFixed(1)} KB)\n${caption ? `Instruksi user: ${caption}` : 'Baca atau analisa berkas ini.'}`
         }
 
-        await ctx.telegram.editMessageText(chatId, statusMsg.message_id, undefined, `[INFO]: Berhasil mengunduh: ${originalName}\n[LOADING]: Sedang diproses...`)
+        await ctx.telegram.editMessageText(chatId, statusMsg.message_id, undefined, `[INFO]: Berhasil mengunduh: ${originalName}`)
 
         const msgId = `${chatId}-${ctx.message.message_id}`
         const uiMsgPayload = {
