@@ -263,6 +263,13 @@ function App() {
         console.error('[App] Failed to get lite mode status:', e)
       }
 
+      // Parkir task running dari sesi sebelumnya agar tidak menggantung saat restart
+      try {
+        await pauseStaleAgentTasks('app_restart')
+      } catch (e) {
+        console.warn('[App] Failed to pause stale agent tasks:', e)
+      }
+
       // 1. Init Orama + Hydrate  -  SELALU jalan (fitur tidak pernah mati);
       // profil hanya mengatur urutan. ensureIndices() di oramaStore idempoten,
       // jadi pemanggilan eksplisit di sini hanyalah eager-load.
