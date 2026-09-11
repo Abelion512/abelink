@@ -35,7 +35,7 @@ on('sync-config', async (config) => {
   aiMod.setGlobalConfig(config)
   setLatestConfig(config)
   const { setBrowserConfig } = await import('../../main/browser/bridge-core.mjs')
-  setBrowserConfig({ autoCloseTabs: !!config?.browserAutoCloseTabs, autoLaunch: !!config?.browserAutoLaunch })
+  setBrowserConfig({ autoCloseTabs: !!config?.browserAutoCloseTabs, autoLaunch: config?.browserAutoLaunch !== false })
   const tgMod = await import('../../main/telegram/telegram-service.js')
   if (
     config?.tgBotToken &&

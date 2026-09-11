@@ -682,7 +682,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   <input
                     type="checkbox"
                     className="toggle toggle-primary toggle-xs"
-                    checked={!!config.browserAutoLaunch}
+                    checked={config.browserAutoLaunch !== false}
                     onChange={(e) =>
                       setConfig((prev) => ({ ...prev, browserAutoLaunch: e.target.checked }))
                     }
