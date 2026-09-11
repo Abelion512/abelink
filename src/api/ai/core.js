@@ -39,9 +39,7 @@ export const fetchAI = async (
     .slice(-4000)
   const effortDecision = resolveEffortLevel(conf, taskText)
   conf.effortLevel = effortDecision.effort
-  if (effortDecision.auto && import.meta.env?.DEV && typeof console !== 'undefined') {
-    console.info(`[effort-auto] ${effortDecision.transparent}`)
-  }
+  // (Log effort-auto dihapus: tiap call = spam; keputusan tetap tercatat di trajectory.)
 
   // Proactive effort metadata attached to the fetch context for observability.
   // This does not change canonical policy; it is read-only metadata flowing into

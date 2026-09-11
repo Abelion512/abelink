@@ -113,7 +113,7 @@ export const useAwareness = ({
           return
         }
 
-        if (import.meta.env?.DEV) console.log('[useAwareness] Mengirim buffer ke AI:', buffer)
+        if (import.meta.env?.DEV) console.log('[useAwareness] Mengirim buffer ke AI:', buffer.length, 'entri')
         const allMemory = await getAllMemory()
         const memoryRef = await getRelevantMemory('aktivitas user bekerja dan rutinitas', allMemory)
 
@@ -131,9 +131,6 @@ export const useAwareness = ({
           .slice(-5)
           .map((m) => ({ role: m.role, content: m.content }))
 
-        if (import.meta.env?.DEV)
-          console.log('[useAwareness] chatDataRef.current length:', chatDataRef.current?.length)
-
         // Clear buffer right away so we don't send the exact same bulk again later
         if (window.api.clearActivityBuffer) {
           window.api.clearActivityBuffer()
@@ -146,8 +143,6 @@ export const useAwareness = ({
           recentChat,
           currentMusicTrackRef.current
         )
-        if (import.meta.env?.DEV) console.log('[useAwareness] AI Response:', result)
-
         // Filter terakhir di UI layer: awareness tidak boleh memparafrase pesan terbaru.
         const recentVisibleMessages = (chatDataRef.current || [])
           .filter((m) => !m.isThinking && !m.isSearching && !m.isSummarizing)

@@ -639,10 +639,8 @@ ${
 
     while (attempts < MAX_RETRIES) {
       attempts++
-      if (import.meta.env?.DEV) console.log(`[planning] Calling fetchAI (Attempt ${attempts})...`)
 
       const response = await fetchAI(messages, signal, false, schema)
-      if (import.meta.env?.DEV) console.log('[planning] fetchAI returned, parsing...')
 
       if (!response.content?.trim() && response.reasoning) {
         console.warn(
@@ -690,7 +688,7 @@ ${
           })
         }
       } catch (_) {}
-      if (import.meta.env?.DEV) console.log('[planning] parse finished:', data)
+      // (Log parse dihapus: tiap giliran = spam; error parse tetap dilempar.)
 
       // Jaring penyelamat anti-diskoneksi: bila JSON rusak tapi output mengandung
       // field kunci, pulihkan field tersebut (terutama "answer") sebagai objek
