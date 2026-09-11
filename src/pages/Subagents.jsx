@@ -160,7 +160,7 @@ export default function Subagents() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 mr-32">
               {/* View Mode Toggle: Topologi vs Intercom */}
               <div className="flex items-center p-1 bg-black/40 rounded-xl border border-white/[0.08] font-mono text-xs">
                 <button

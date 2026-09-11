@@ -104,7 +104,7 @@ const TelegramBot = () => {
             </div>
           </div>
         </div>
-        <div className="flex-none gap-2 px-4">
+        <div className="flex-none gap-2 px-4 mr-32">
           <button
             onClick={() => {
               loadConfigData()

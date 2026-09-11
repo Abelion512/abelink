@@ -124,15 +124,33 @@ export async function startAgentTask(taskId) {
   return updateAgentTask(taskId, { status: 'running', error: null })
 }
 
-// Resume hanya membuka kembali task paused dan mengaktifkan step pointer terakhir.
+// Resume membuka kembali task paused/pending dan memastikan step pointer konsisten.
 export async function resumeAgentTask(taskId) {
   const task = await getAgentTaskWithSteps(taskId)
   if (!task) throw new Error('Task tidak ditemukan')
   if (!['paused', 'pending'].includes(task.status)) {
     throw new Error('Task tidak bisa di-resume dari status ' + task.status)
   }
-  if (!task.activeStepId) return updateAgentTask(taskId, { status: 'completed', error: null })
-  return startAgentTaskStep(taskId, task.activeStepId)
+
+  let targetStepId = task.activeStepId
+  const allSteps = task.steps || []
+  let targetStep = allSteps.find((s) => s.id === targetStepId)
+
+  // Jika activeStepId belum ada atau sudah selesai, cari step pertama yang belum selesai
+  if (!targetStep || targetStep.status === 'completed') {
+    targetStep = allSteps
+      .filter((item) => ['pending', 'needs_revision', 'running'].includes(item.status))
+      .sort((a, b) => a.index - b.index)[0]
+    targetStepId = targetStep?.id || null
+  }
+
+  if (!targetStepId) {
+    await updateAgentTask(taskId, { status: 'completed', error: null, completedAt: now() })
+    return getAgentTaskWithSteps(taskId)
+  }
+
+  await startAgentTaskStep(taskId, targetStepId)
+  return getAgentTaskWithSteps(taskId)
 }
 
 // Retry manual mengulang step failed/needs_revision dengan batas yang sama seperti executor.
@@ -155,13 +173,21 @@ export async function startAgentTaskStep(taskId, stepId) {
   return db.transaction('rw', db.agentTasks, db.agentTaskSteps, async () => {
     const step = await db.agentTaskSteps.get(stepId)
     if (!step || step.taskId !== taskId) throw new Error('Task step tidak ditemukan')
+    // Hanya naikkan attempts bila berpindah dari status non-running ke running
+    const attempts = step.status === 'running' ? (step.attempts || 1) : (step.attempts || 0) + 1
     await db.agentTaskSteps.update(stepId, {
-      status: 'running', attempts: (step.attempts || 0) + 1,
-      startedAt: step.startedAt || timestamp, error: null, updatedAt: timestamp
+      status: 'running',
+      attempts,
+      startedAt: step.startedAt || timestamp,
+      error: null,
+      updatedAt: timestamp
     })
     await db.agentTasks.update(taskId, {
-      status: 'running', activeStepId: stepId,
-      currentStepIndex: step.index, updatedAt: timestamp
+      status: 'running',
+      activeStepId: stepId,
+      currentStepIndex: step.index,
+      error: null,
+      updatedAt: timestamp
     })
     return db.agentTaskSteps.get(stepId)
   })
@@ -176,14 +202,15 @@ export async function checkpointAgentTaskStep(taskId, stepId, checkpoint = {}) {
     if (!step || step.taskId !== taskId || !task) throw new Error('Task checkpoint tidak ditemukan')
     if (checkpoint.status) assertStepStatus(checkpoint.status)
     await db.agentTaskSteps.update(stepId, {
-      ...checkpoint, updatedAt: timestamp,
+      ...checkpoint,
+      updatedAt: timestamp,
       ...(checkpoint.status === 'completed' ? { completedAt: checkpoint.completedAt || timestamp } : {})
     })
     const taskChanges = { updatedAt: timestamp }
     if (checkpoint.status === 'completed') {
       const allSteps = await db.agentTaskSteps.where('taskId').equals(taskId).toArray()
       const next = allSteps
-        .filter(item => item.id !== stepId && ['pending', 'needs_revision'].includes(item.status))
+        .filter((item) => item.id !== stepId && ['pending', 'needs_revision'].includes(item.status))
         .sort((a, b) => a.index - b.index)[0]
       taskChanges.activeStepId = next?.id || null
       taskChanges.currentStepIndex = next?.index ?? step.index
@@ -199,8 +226,38 @@ export async function checkpointAgentTaskStep(taskId, stepId, checkpoint = {}) {
 
 export async function transitionAgentTask(taskId, status, error = null) {
   assertTaskStatus(status)
-  return updateAgentTask(taskId, {
-    status, error, ...(status === 'completed' ? { completedAt: now() } : {})
+  const timestamp = now()
+  return db.transaction('rw', db.agentTasks, db.agentTaskSteps, async () => {
+    const task = await db.agentTasks.get(taskId)
+    if (!task) throw new Error('Task tidak ditemukan')
+
+    // Bila task diparkir (paused) atau dibatalkan/gagal, sinkronkan step yang sedang running
+    if (['paused', 'cancelled', 'failed'].includes(status)) {
+      const runningSteps = await db.agentTaskSteps
+        .where('taskId')
+        .equals(taskId)
+        .and((step) => step.status === 'running')
+        .toArray()
+
+      const stepStatus = status === 'paused' ? 'pending' : status
+      await Promise.all(
+        runningSteps.map((s) =>
+          db.agentTaskSteps.update(s.id, {
+            status: stepStatus,
+            error: error || status,
+            updatedAt: timestamp
+          })
+        )
+      )
+    }
+
+    await db.agentTasks.update(taskId, {
+      status,
+      error,
+      updatedAt: timestamp,
+      ...(status === 'completed' ? { completedAt: timestamp } : {})
+    })
+    return getAgentTaskWithSteps(taskId)
   })
 }
 
@@ -209,10 +266,32 @@ export async function pauseStaleAgentTasks(reason = 'app_restart') {
   const active = await db.agentTasks.where('status').anyOf(['running', 'waiting_user']).toArray()
   if (!active.length) return 0
   const timestamp = now()
-  await db.transaction('rw', db.agentTasks, async () => {
-    await Promise.all(active.map(task => db.agentTasks.update(task.id, {
-      status: 'paused', error: reason, updatedAt: timestamp
-    })))
+  const activeIds = active.map((t) => t.id)
+  await db.transaction('rw', db.agentTasks, db.agentTaskSteps, async () => {
+    await Promise.all(
+      active.map((task) =>
+        db.agentTasks.update(task.id, {
+          status: 'paused',
+          error: reason,
+          updatedAt: timestamp
+        })
+      )
+    )
+    // Sinkronkan juga step running agar tidak tertinggal sebagai running saat task sudah paused
+    const runningSteps = await db.agentTaskSteps
+      .where('taskId')
+      .anyOf(activeIds)
+      .and((step) => step.status === 'running')
+      .toArray()
+    await Promise.all(
+      runningSteps.map((step) =>
+        db.agentTaskSteps.update(step.id, {
+          status: 'pending',
+          error: reason,
+          updatedAt: timestamp
+        })
+      )
+    )
   })
   return active.length
 }
