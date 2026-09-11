@@ -14,7 +14,7 @@ export const shellTools = {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
       // Pagar anti-spiral: ambil + parse halaman web bukan tugas shell.
       // (Observasi nyata: curl|grep|sed berulang 20 turn lalu give up.)
-      const { isWebScrapeCommand } = await import('./browser/bridge-core.mjs')
+      const { isWebScrapeCommand } = await import('../browser/bridge-core.mjs')
       if (isWebScrapeCommand(query)) {
         return {
           success: false,

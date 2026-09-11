@@ -18,10 +18,16 @@
 //     (resolveTaskEffort di mark-adapter.mjs).
 //
 // Effort direkam di SETIAP task result & per-run detail, bukan hanya di config
-// laporan. Laporan JSON memakai schemaVersion 2.
+// laporan. Laporan JSON memakai schemaVersion 3 (+arch axis +worldState).
 
 import fs from 'node:fs'
-import { TASKS, runTask } from './terminal-bench.mjs'
+import os from 'node:os'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { join, relative } from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import AdmZip from 'adm-zip'
+import { ALL_TASKS, runTask, mkSentinel } from './terminal-bench.mjs'
 import {
   resolveTaskEffort,
   normalizeEffort,
@@ -29,12 +35,27 @@ import {
   EFFORT_VALUES,
   AGENT_ARCH_VERSION,
   BENCH_SCHEMA_VERSION,
+  ARCH_VALUES,
+  resolveBenchArch,
 } from './mark-adapter.mjs'
 
 const DEFAULT_RUNS = 3
 const REGRESSION_THRESHOLD = 5 // persen pass-rate; default tanpa --compare = tidak dieksekusi
 
 // Synchronous alias kept for legacy importers of the effort ladder.
+
+// ---- Fixture root WAJIB di dalam workspace sidecar (pilot-found fix) ----
+// Handler file sidecar (fsGuard.js) menolak path absolut dan me-resolve path
+// relatif terhadap <xdg>/mark/workspace. Bila workdir bench di luar root itu,
+// write-file selalu "Akses ditolak" (atau file tersesat di XDG) dan SEMUA
+// task dunia auto-FAIL. Penyelesaian berlapis:
+//   - Seeder/verifier memakai ABSOLUT (fs lokal node).
+//   - Prompt + contoh preamble memakai RELATIF-terhadap-workspace
+//     (markbench-<runId>/...) agar lolos fsGuard dan mendarat di dir yang sama.
+export function sidecarWorkspaceRoot() {
+  const xdg = process.env.XDG_DATA_HOME || join(os.homedir(), '.local', 'share')
+  return join(xdg, 'mark', 'workspace')
+}
 
 // ---- Anti-cheat ----
 // Task sentinel dianggap curang jika keluarannya persis `expected` (jawaban
@@ -47,6 +68,84 @@ export function detectCheat(task, result, sentinel) {
 }
 
 const avg = (arr) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null)
+
+// ---- Report shell v3 (diuji smoke CI tanpa LLM) ----
+// arch: vanilla|basic|avo. worldState menunjuk base dir fixture per-run;
+// sentinel per-iterasi dicatat di details tiap task.
+export function buildReportShell({ arch = 'basic', runId = 'smoke' } = {}) {
+  const resolved = resolveBenchArch(arch)
+  return {
+    schemaVersion: 3,
+    arch: resolved,
+    runId,
+    // Base absolut di dalam workspace sidecar; prompt memakai bentuk relatif
+    // (lihat promptRelWorkdir di main) agar lolos fsGuard.
+    worldState: { workdir: join(sidecarWorkspaceRoot(), `markbench-${runId}`), sentinel: null },
+    results: [],
+  }
+}
+
+// ---- Fixture seeding per-run (offline, tanpa LLM/network) ----
+// Dipanggil SEBELUM agent jalan. Setiap iterasi dapat sentinel + workdir
+// unik: kuliah.txt / fungsi.js / code-fix/* / git-repo / sumber.docx.
+const TEMPLATE_DOCX = fileURLToPath(new URL('./fixtures/sumber-template.docx', import.meta.url))
+
+export function seedFixtures(workdir, sentinel) {
+  rmSync(workdir, { recursive: true, force: true })
+  mkdirSync(workdir, { recursive: true })
+  mkdirSync(join(workdir, 'code-fix'), { recursive: true })
+  writeFileSync(
+    join(workdir, 'kuliah.txt'),
+    `Catatan kuliah: Energi Surya untuk Sekolah Pedesaan.\n\nPanel surya mengubah cahaya matahari menjadi arus listrik searah melalui efek fotovoltaik. Arus disimpan dalam baterai lewat pengatur muatan, lalu diubah menjadi arus bolak-balik oleh inverter untuk peralatan elektronik standar sekolah.\n\nPerawatan rutin meliputi pembersihan panel dari debu, pemeriksaan kabel, dan pemantauan kapasitas baterai setiap semester agar umur pakai mencapai dua puluh tahun.\n\nKode referensi arsip: ${sentinel}\n`
+  )
+  writeFileSync(
+    join(workdir, 'fungsi.js'),
+    'function total(harga, pajak) {\n  return harga + harga * pajak\n}\n'
+  )
+  writeFileSync(
+    join(workdir, 'code-fix', 'bug.js'),
+    '// Jumlah 1..n — ada off-by-one: loop berhenti satu iterasi terlalu awal.\n' +
+      'export function sumTo(n) {\n  let total = 0\n  for (let i = 1; i < n; i++) total += i\n  return total\n}\n'
+  )
+  writeFileSync(
+    join(workdir, 'code-fix', 'bug.test.js'),
+    "import { describe, it, expect } from 'vitest'\n" +
+      "import { sumTo } from './bug.js'\n\n" +
+      "describe('sumTo', () => {\n" +
+      "  it('menjumlah 1..100 = 5050', () => {\n" +
+      '    expect(sumTo(100)).toBe(5050)\n' +
+      '  })\n' +
+      '})\n'
+  )
+  // Nearest config wins (vitest searches upward): tanpa ini, vitest.config.mjs
+  // repo root (include tests/**) ikut kepakai dan bug.test.js tak ditemukan.
+  writeFileSync(
+    join(workdir, 'code-fix', 'vitest.config.mjs'),
+    "import { defineConfig } from 'vitest/config'\n" +
+      'export default defineConfig({ test: { include: ["*.test.js"] } })\n'
+  )
+  // sumber.docx: salin template lalu patch sentinel nyata ke word/document.xml
+  // via adm-zip (dependensi repo, offline). Template memakai __SENTINEL__.
+  const zip = new AdmZip(TEMPLATE_DOCX)
+  const entry = zip.getEntry('word/document.xml')
+  const xml = entry.getData().toString('utf8').split('__SENTINEL__').join(sentinel)
+  zip.updateFile('word/document.xml', Buffer.from(xml, 'utf8'))
+  zip.writeZip(join(workdir, 'sumber.docx'))
+  // git-repo: init + 1 commit awal (tb-git-01/02 menambah commit bersentinel).
+  const repo = join(workdir, 'git-repo')
+  mkdirSync(repo, { recursive: true })
+  const git = (...args) =>
+    spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8', timeout: 30000 })
+  git('init', '-q')
+  // Identitas repo-lokal: commit polos agen (`git commit -m ...` tanpa -c)
+  // harus berhasil tanpabergantung pada git config global mesin.
+  git('config', 'user.email', 'markbench@local')
+  git('config', 'user.name', 'markbench')
+  writeFileSync(join(repo, 'awal.txt'), `markbench fixture ${sentinel}\n`)
+  git('add', '.')
+  git('commit', '-qm', 'fixture awal')
+  return workdir
+}
 
 // ---- Agregasi (pure, diuji smoke CI tanpa LLM) ----
 // rawRuns: [{ taskId, effort, passed, durationMs, steps, toolCalls,
@@ -124,6 +223,7 @@ export function aggregateRuns(rawRuns, config = {}) {
         cheatSuspected: r.cheatSuspected,
         outputPreview: (r.output || '').slice(0, 120),
         sentinel: r.sentinel || null,
+        workdir: r.workdir || null, // fixture dir unik iterasi ini
       })),
     }
   }
@@ -176,8 +276,14 @@ export function aggregateRuns(rawRuns, config = {}) {
     schemaVersion: BENCH_SCHEMA_VERSION,
     kind: 'markbench-report',
     generatedAt: new Date().toISOString(),
+    arch: config.arch || 'basic', // vanilla|basic|avo — sumbu arsitektur Fase 2
+    worldState: {
+      workdir: config.workdir || null, // base dir fixture tmp/markbench-<runId>
+      sentinel: null, // sentinel per-iterasi ada di details tiap task
+    },
     config: {
       runs: config.runs,
+      arch: config.arch || 'basic',
       model: config.model,
       provider: config.provider,
       effort: config.effort ?? null, // benchmark default
@@ -187,7 +293,7 @@ export function aggregateRuns(rawRuns, config = {}) {
       model: config.model || null,
       provider: config.provider || null,
       architectureVersion: AGENT_ARCH_VERSION,
-      benchmarkVersion: BENCH_SCHEMA_VERSION === 2 ? '1.0' : '0.9',
+      benchmarkVersion: BENCH_SCHEMA_VERSION >= 2 ? '1.0' : '0.9',
       toolConfig: config.toolConfig || 'core+groups',
       runId: config.runId ?? null,
     },
@@ -246,6 +352,7 @@ function parseArgs(argv) {
     efforts: null, // sweep: [effort...]
     runId: null,
     toolConfig: null,
+    arch: null, // vanilla|basic|avo (default basic)
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -264,6 +371,7 @@ function parseArgs(argv) {
         .filter((e) => e)
     } else if (a === '--run-id') args.runId = argv[++i]
     else if (a === '--tool-config') args.toolConfig = argv[++i]
+    else if (a === '--arch') args.arch = argv[++i]
   }
   return args
 }
@@ -273,7 +381,7 @@ function printTable(report) {
     ? `sweep(${report.config.efforts.join(',')})`
     : report.config.effort || 'default'
   console.log(
-    `MarkBench — ${report.config.runs}x run per task (model=${report.meta.model || 'default'}, effort=${effortLabel})`
+    `MarkBench — ${report.config.runs}x run per task (model=${report.meta.model || 'default'}, effort=${effortLabel}, arch=${report.arch || report.config.arch || 'basic'})`
   )
   console.log('─'.repeat(72))
   for (const t of Object.values(report.tasks)) {
@@ -298,7 +406,23 @@ function printTable(report) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
-  const tasks = args.tasks && args.tasks.length ? args.tasks : Object.keys(TASKS)
+
+  // Sumbu arsitektur Fase 2: --arch > MARK_BENCH_ARCH > 'basic'. Nilai tak
+  // dikenal ditolak dengan exit 2 (bukan fallback diam-diam).
+  if (args.arch != null && !ARCH_VALUES.includes(String(args.arch).trim().toLowerCase())) {
+    console.error(`--arch tidak dikenal: ${args.arch} (pilihan: ${ARCH_VALUES.join('|')})`)
+    process.exit(2)
+  }
+  const arch = resolveBenchArch(args.arch ?? process.env.MARK_BENCH_ARCH)
+  process.env.MARK_BENCH_ARCH = arch // dibaca adapter + executor wiring
+  const runId = args.runId || `r${Date.now().toString(36)}`
+  // Absolut (fs lokal) + relatif-workspace (prompt): pasangan yang menunjuk
+  // direktori fisik SAMA. Lihat blok sidecarWorkspaceRoot di atas.
+  const baseDir = join(sidecarWorkspaceRoot(), `markbench-${runId}`)
+  const promptBase = relative(sidecarWorkspaceRoot(), baseDir)
+  mkdirSync(baseDir, { recursive: true })
+
+  const tasks = args.tasks && args.tasks.length ? args.tasks : Object.keys(ALL_TASKS)
 
   // Benchmark default effort: --effort / --efforts > env MARK_BENCH_EFFORT > 'low'
   const envEffort = normalizeEffort(process.env.MARK_BENCH_EFFORT, null)
@@ -315,10 +439,12 @@ async function main() {
   }
 
   // Jalankan setiap task sebanyak `runs` kali. Sentinel acak dibuat per run
-  // (di dalam runTask) untuk task bertipe sentinel — anti-hafalan.
+  // (di sini, milik orchestrator) untuk task bertipe sentinel — anti-hafalan.
+  // Fixture dunia di-seed per iterasi SEBELUM agent jalan.
   const rawRuns = []
   for (const taskId of tasks) {
-    const taskEffort = TASKS[taskId]?.effort // task-level override
+    const taskEffort = ALL_TASKS[taskId]?.effort // task-level override
+    if (!ALL_TASKS[taskId]) throw new Error(`Unknown task: ${taskId}`)
     const perTaskEfforts = sweepEfforts
       ? sweepEfforts
       : // resolveTaskEffort akan memakai taskEffort bila ada; kirim benchmark
@@ -326,11 +452,19 @@ async function main() {
         [await resolveTaskEffort({ taskEffort, benchmarkEffort, envEffort: null })]
     for (const eff of perTaskEfforts) {
       for (let i = 0; i < args.runs; i++) {
+        const iterSentinel = mkSentinel()
+        const iterDir = join(baseDir, `${taskId}-r${i + 1}`)
+        seedFixtures(iterDir, iterSentinel)
+        process.env.MARKBENCH_GIT_REPO = join(iterDir, 'git-repo')
         const r = await runTask(taskId, args.model, args.provider, {
           effort: eff,
           // Sweep = eksperimen eksplisit: effort per run menang atas pin task
           // agar task yang SAMA bisa dibandingkan low vs medium vs high.
           overrideTaskEffort: Boolean(sweepEfforts),
+          sentinel: iterSentinel,
+          workdir: iterDir,
+          // Bentuk relatif-workspace untuk {{WORKDIR}} di prompt.
+          promptWorkdir: join(promptBase, `${taskId}-r${i + 1}`),
         })
         rawRuns.push({
           taskId: r.taskId,
@@ -341,7 +475,8 @@ async function main() {
           toolCalls: r.toolCalls,
           output: r.output,
           sentinel: r.sentinel || null,
-          cheatSuspected: detectCheat(TASKS[taskId], r, r.sentinel),
+          workdir: r.workdir || null,
+          cheatSuspected: detectCheat(ALL_TASKS[taskId], r, r.sentinel),
         })
       }
     }
@@ -349,11 +484,13 @@ async function main() {
 
   const report = aggregateRuns(rawRuns, {
     runs: args.runs,
+    arch,
+    workdir: baseDir,
     model: args.model,
     provider: args.provider,
     effort: sweepEfforts ? null : benchmarkEffort,
     efforts: sweepEfforts,
-    runId: args.runId,
+    runId,
     toolConfig: args.toolConfig,
   })
 

@@ -11,6 +11,9 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { ARCH_VALUES, resolveBenchArch, currentBenchArch } from '../src/api/ai/benchArch.js'
+
+export { ARCH_VALUES, resolveBenchArch, currentBenchArch }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -64,7 +67,7 @@ function _getBenchSchemaVersion() {
   if (_effortModule && _effortModule.BENCH_SCHEMA_VERSION != null) {
     return _effortModule.BENCH_SCHEMA_VERSION
   }
-  return 2
+  return 3 // v3: +arch axis +worldState (Fase 2 bench)
 }
 
 export const EFFORT_VALUES = _getEffortValues() // real constants from the typed effort system when available; otherwise real constants
@@ -76,7 +79,7 @@ export const BENCH_SCHEMA_VERSION = _getBenchSchemaVersion() // real constants f
 // synchronous values from the evaluation package.
 export const EFFORT_VALUES_sync = _resolvedValues
 export const AGENT_ARCH_VERSION_sync = 'linux-1.0'
-export const BENCH_SCHEMA_VERSION_sync = 2
+export const BENCH_SCHEMA_VERSION_sync = 3
 
 
 export function resolveTaskEffortSync({ taskEffort, benchmarkEffort, envEffort } = {}) {
@@ -107,10 +110,12 @@ export function normalizeEffort(value, fallback = 'low') {
 
 
 // ---- Persistent sidecar child with id-multiplexed JSON-lines RPC ----
-function createSidecar() {
+function createSidecar(arch = 'basic') {
   const child = spawn(BUN, [SIDECAR], {
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, MARK_DEBUG_AI: '0' },
+    // MARK_BENCH_ARCH propagates the arch axis to the engine so executor-side
+    // wiring (renderer Task 5 lineage/scoring, future engine gates) can read it.
+    env: { ...process.env, MARK_DEBUG_AI: '0', MARK_BENCH_ARCH: arch },
   })
 
   const pending = new Map() // id -> { resolve, reject, timer }
@@ -188,54 +193,168 @@ const newId = () => (Date.now() + Math.random() * 1e6) | 0
 
 // ---- Parse tool calls from LLM text ----
 // Format: [tool: name(key=value, key2="value with, comma")]
-// Quote-aware so commas inside quoted values do not split pairs.
+// Scanner seimbang (bukan regex `[^)]*`): konten tak-berquote yang memuat
+// ')' — mis. "(efek fotovoltaik)" — previously menggagalkan SELURUH call
+// (pilot vanilla: tools 0 padahal model sudah bertindak). Quote-aware agar
+// koma di dalam quote tidak memecah pasangan.
 // Diekspor untuk smoke test CI (pure function, tanpa efek samping).
+function splitArgs(argsStr) {
+  const args = {}
+  let cur = ''
+  const pairs = []
+  let quote = null
+  for (const ch of argsStr) {
+    if (quote) {
+      cur += ch
+      if (ch === quote) quote = null
+    } else if (ch === '"' || ch === "'") {
+      quote = ch
+      cur += ch
+    } else if (ch === ',') {
+      pairs.push(cur)
+      cur = ''
+    } else {
+      cur += ch
+    }
+  }
+  if (cur.trim()) pairs.push(cur)
+  for (const pair of pairs) {
+    const eq = pair.indexOf('=')
+    if (eq === -1) continue
+    const key = pair.slice(0, eq).trim()
+    let v = pair.slice(eq + 1).trim()
+    if (
+      (v.startsWith('"') && v.endsWith('"')) ||
+      (v.startsWith("'") && v.endsWith("'"))
+    ) {
+      v = v.slice(1, -1)
+    } else if (v === 'true' || v === 'false') {
+      v = v === 'true'
+    } else if (/^-?\d+$/.test(v)) {
+      v = parseInt(v, 10)
+    }
+    args[key] = v
+  }
+  return args
+}
+
 export function parseToolCalls(text) {
   const calls = []
-  const callRe = /\[tool:\s*([^\s()]+)\(([^)]*)\)\]/g
-  let m
-  while ((m = callRe.exec(text)) !== null) {
-    const name = m[1]
-    const argsStr = m[2]
-    const args = {}
-    let cur = ''
-    const pairs = []
+  const src = String(text || '')
+  let i = 0
+  for (;;) {
+    const at = src.indexOf('[tool:', i)
+    if (at === -1) break
+    let j = at + 6
+    while (j < src.length && /\s/.test(src[j])) j++
+    let k = j
+    while (k < src.length && !/[\s()]/.test(src[k])) k++
+    const name = src.slice(j, k)
+    let m = k
+    while (m < src.length && /\s/.test(src[m])) m++
+    if (!name || src[m] !== '(') {
+      i = k
+      continue
+    }
+    // Pindai argumen dengan hitung depth + quote: ')' di dalam quote atau
+    // depth>0 bukan penutup. Penutup = ')' yang mengembalikan depth ke 0
+    // dan langsung diikuti ']'.
+    let depth = 0
     let quote = null
-    for (const ch of argsStr) {
+    let argsStr = null
+    let end = -1
+    for (let p = m; p < src.length; p++) {
+      const ch = src[p]
       if (quote) {
-        cur += ch
         if (ch === quote) quote = null
       } else if (ch === '"' || ch === "'") {
         quote = ch
-        cur += ch
-      } else if (ch === ',') {
-        pairs.push(cur)
-        cur = ''
-      } else {
-        cur += ch
+      } else if (ch === '(') {
+        depth++
+      } else if (ch === ')') {
+        depth--
+        if (depth === 0) {
+          argsStr = src.slice(m + 1, p)
+          end = p
+          break
+        }
       }
     }
-    if (cur.trim()) pairs.push(cur)
-    for (const pair of pairs) {
-      const eq = pair.indexOf('=')
-      if (eq === -1) continue
-      const key = pair.slice(0, eq).trim()
-      let v = pair.slice(eq + 1).trim()
-      if (
-        (v.startsWith('"') && v.endsWith('"')) ||
-        (v.startsWith("'") && v.endsWith("'"))
-      ) {
-        v = v.slice(1, -1)
-      } else if (v === 'true' || v === 'false') {
-        v = v === 'true'
-      } else if (/^-?\d+$/.test(v)) {
-        v = parseInt(v, 10)
-      }
-      args[key] = v
+    if (argsStr === null || src[end + 1] !== ']') {
+      i = m + 1
+      continue
     }
-    calls.push({ name, arguments: args })
+    calls.push({ name, arguments: splitArgs(argsStr) })
+    i = end + 2
   }
   return calls
+}
+
+// ---- Bench tool-call bridge (pilot-found fix) ----
+// Dua bug yang membuat SEMUA task dunia gagal 0 tool call:
+//  1. Protokol `[tool: ...]` tidak pernah diajarkan ke model (prompt mentah).
+//  2. `native-tool:execute` menerima query STRING delimiter-'||'
+//     (write-file: path||content, run-shell: perintah, git-commit:
+//     message||cwd), tetapi adapter mengirim OBJECT arguments mentah ->
+//     `query.split is not a function` di setiap handler.
+// Preamble + mapper ini HANYA untuk bench; perilaku aplikasi tidak berubah.
+
+// Argumen per tool yang dipakai task bench (sumber: sidecar/main/tools/*).
+const TOOL_ARG_DOCS = {
+  'write-file': 'path="..." content="..."',
+  'read-file': 'path="..."',
+  'run-shell': 'command="..." (awali dengan `cd <dir> &&` bila perintah harus jalan di direktori tertentu)',
+  'git-commit': 'message="..." cwd="..."',
+  'list-dir': 'path="..."'
+}
+
+export function toolPreamble(requiredTools = [], hint = {}) {
+  const tools = (requiredTools || []).filter((t) => TOOL_ARG_DOCS[t])
+  if (tools.length === 0) return ''
+  const lines = tools.map((t) => `- ${t}: [tool: ${t}(${TOOL_ARG_DOCS[t]})]`)
+  const dir = typeof hint.workdir === 'string' && hint.workdir ? hint.workdir : 'WORKDIR'
+  return (
+    `\n\n[ALAT] Kamu memiliki akses tool berikut untuk menyelesaikan tugas ini:\n${lines.join('\n')}\n` +
+    `Cara memakai tool: tulis satu baris persis berformat [tool: nama(kunci="nilai")].\n` +
+    `Contoh (satu baris, tanpa blok kode):\n[tool: write-file(path="${dir}/report.md", content="laporan lengkap di sini")]\n` +
+    `Mohon: mulai respons pertamamu langsung dengan satu baris tool call; ` +
+    `tulis isi content dengan baris baru asli (bukan teks \\n); ` +
+    `laporkan file tersimpan hanya setelah observasi tool mengonfirmasi. ` +
+    `Setelah tiap observasi, lanjutkan tool berikutnya hingga tugas selesai, lalu jawab singkat.`
+  )
+}
+
+// Ubah OBJECT arguments model menjadi query STRING sidecar.
+export function toNativeQuery(name, args = {}) {
+  const a = args && typeof args === 'object' ? args : { query: String(args ?? '') }
+  const s = (v) => (v === undefined || v === null ? '' : String(v))
+  const joinTail = (parts) => parts.filter((x, i) => i === 0 || x !== '').join('||')
+  switch (name) {
+    case 'write-file':
+      return `${s(a.path)}||${s(a.content)}`
+    case 'read-file':
+      return joinTail([s(a.path), s(a.startLine ?? a.start), s(a.endLine ?? a.end)])
+    case 'run-shell':
+    case 'run-bash':
+      return s(a.command ?? a.query ?? a.cmd)
+    case 'run-task':
+      return s(a.taskId) ? `${s(a.taskId)}||${s(a.command ?? a.query)}` : s(a.command ?? a.query)
+    case 'git-commit':
+      return joinTail([s(a.message ?? a.query), s(a.cwd ?? a.repo ?? a.path)])
+    case 'list-dir':
+      return s(a.path ?? a.query ?? '')
+    case 'git-status':
+    case 'git-diff':
+    case 'git-revert':
+      return s(a.query ?? a.path ?? a.cwd ?? '')
+    default: {
+      if (typeof a.query === 'string') return a.query
+      const keys = Object.keys(a)
+      if (keys.length === 1) return s(a[keys[0]])
+      if (typeof a.path === 'string' && typeof a.content === 'string') return `${a.path}||${a.content}`
+      return keys.map((k) => s(a[k])).join('||')
+    }
+  }
 }
 
 // Normalized step shape consumed by MARK-Eval (evaluation/mark-eval.mjs):
@@ -263,6 +382,9 @@ export async function runMarkAgent(task, model, provider, options = {}) {
     benchmarkEffort: options?.effort,
     envEffort: process.env.MARK_BENCH_EFFORT,
   })
+  // Arch axis (Fase 2 bench): vanilla = model-only, basic = Fase 1 supervisor,
+  // avo = full Fase 2. Default basic; executor-side wiring reads the same env.
+  const arch = currentBenchArch()
   const config = {
     aiProvider: provider || 'gemini-web',
     geminiWebModel: model || 'gemini-3.6-flash',
@@ -271,14 +393,18 @@ export async function runMarkAgent(task, model, provider, options = {}) {
   }
 
   const startedAt = Date.now()
-  const messages = [{ role: 'user', content: task.prompt }]
+  // Prompt mentah + protokol tool (hanya bila task mendeklarasikan requiredTools).
+  // Tanpa ini model tidak tahu sintaks [tool: ...] dan loop berhenti di turn 1.
+  const messages = [
+    { role: 'user', content: `${task.prompt}${toolPreamble(task.requiredTools, { workdir: task.workdir })}` }
+  ]
   const trace = [] // normalized trajectory for MARK-Eval verifiers
   const stepLog = []
   let steps = 0
   let toolCalls = 0
   let response = ''
 
-  const sidecar = createSidecar()
+  const sidecar = createSidecar(arch)
   try {
     // Turn budget: task.maxTurns menimpa default MAX_ITER (ala turn-limit
     // eval — MCP Atlas memakai limit 100 turn). Tidak ada loop tak terbatas.
@@ -313,10 +439,12 @@ export async function runMarkAgent(task, model, provider, options = {}) {
       for (const call of calls) {
         let toolResult
         try {
+          // Sidecar menunggu query STRING '||', bukan OBJECT arguments model.
+          const nativeQuery = toNativeQuery(call.name, call.arguments)
           const toolResp = await sidecar.rpc({
             id: newId(),
             action: 'native-tool:execute',
-            payload: [call.name, call.arguments, {}],
+            payload: [call.name, nativeQuery, {}],
           })
           toolResult = toolResp.success
             ? toolResp.data || 'ok'
@@ -327,12 +455,18 @@ export async function runMarkAgent(task, model, provider, options = {}) {
 
         const toolText =
           typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult)
+        // Cap sukses eksplisit: RPC ok + bukan {success:false} + bukan "ERROR:".
+        // tasks-student-corporate hasToolEvidence membaca field ini dulu.
+        const toolOk =
+          !toolText.startsWith('ERROR:') &&
+          !(typeof toolResult === 'object' && toolResult !== null && toolResult.success === false)
         messages.push({ role: 'tool', content: toolText, toolName: call.name })
         stepLog.push({
           step: steps,
           type: 'tool',
           tool: call.name,
           result: toolText.slice(0, 200),
+          success: toolOk,
         })
         // Normalized step: MARK-Eval reads toolCalls[].tool/query + observation
         // to score orchestration, recovery and termination correctness.
@@ -340,7 +474,7 @@ export async function runMarkAgent(task, model, provider, options = {}) {
           toolCalls: [
             {
               tool: call.name,
-              query: String(call.arguments?.query ?? JSON.stringify(call.arguments ?? {})),
+              query: toNativeQuery(call.name, call.arguments),
               result: toolText,
             },
           ],
@@ -362,6 +496,7 @@ export async function runMarkAgent(task, model, provider, options = {}) {
     finishedAt,
     durationMs: finishedAt - startedAt,      meta: {
       effort,
+      arch,
       model,
       provider: provider || 'gemini-web',
       architectureVersion: AGENT_ARCH_VERSION,
@@ -372,8 +507,13 @@ export async function runMarkAgent(task, model, provider, options = {}) {
 
   return {
     effort,
+    arch,
     response: response.trim(),
     trajectory,
+    // Additive top-level aliases so bench verifiers get evidence without
+    // digging into trajectory (fix C ctx plumbing: { sentinel, workdir, stepLog }).
+    stepLog,
+    trace,
     tokenUsage: { promptTokens: null, completionTokens: null, totalTokens: null, estimated: false },
   }
 }

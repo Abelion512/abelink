@@ -1,16 +1,38 @@
 import { jsonrepair } from 'jsonrepair'
 import { generateGeminiResponse } from './services/gemini-web'
 
-const LM_STUDIO_OFFLINE_MESSAGE = 'LM Studio mati atau belum jalan. Nyalakan dulu di port 1234.'
+// Pesan offline sesuai provider yang DIPAKAI (bukan tebakan generik).
+// Sebelumnya: endpoint apapun yang mati selalu dilaporkan sebagai
+// "LM Studio mati ... port 1234" — menyesatkan saat user memakai 9Router,
+// Groq, atau Custom API. Fungsi murni agar bisa di-unit-test.
+export const providerOfflineMessage = (aiProvider, endpoint) => {
+  const ep = String(endpoint || '').replace(/\/v1\/chat\/completions\/?$/, '')
+  if (aiProvider === 'custom') {
+    return (
+      `Custom API tidak merespons${ep ? ` di ${ep}` : ''}. ` +
+      'Cek URL endpoint, API key, dan koneksi internet, lalu coba lagi.'
+    )
+  }
+  if (aiProvider === 'groq') {
+    return 'Groq API tidak merespons. Cek koneksi internet dan API key Groq, lalu coba lagi.'
+  }
+  // Jalur default: komposit 9Router (meneruskan ke LM Studio/model lokal).
+  return (
+    'Server AI lokal tidak merespons di localhost:20128 (9Router/LM Studio). ' +
+    'Nyalakan dulu aplikasinya, lalu coba lagi.'
+  )
+}
 
-const createLMStudioOfflineError = (cause) => {
-  const error = new Error(LM_STUDIO_OFFLINE_MESSAGE)
+const createLMStudioOfflineError = (cause, conf) => {
+  const error = new Error(providerOfflineMessage(conf?.aiProvider, conf?.__endpoint))
   error.code = 'LM_STUDIO_OFFLINE'
   if (cause) error.cause = cause
   return error
 }
 
 const isLMStudioOfflineError = (error) => {
+  const code = String(error?.code || error?.cause?.code || '')
+  if (/ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|ConnectionRefused/i.test(code)) return true
   return (
     error?.code === 'LM_STUDIO_OFFLINE' ||
     error?.name === 'TypeError' ||
@@ -66,6 +88,9 @@ export const fetchAI = async (
   jsonSchema = null,
   onStatus = null
 ) => {
+  // Endpoint aktif dicatat di scope fungsi agar blok catch tetap bisa
+  // menyebutkannya di pesan error provider-aware.
+  let activeEndpoint = ''
   try {
     const conf = config || globalConfig
     let messages = inputMessages.map((m) => ({ ...m }))
@@ -242,6 +267,7 @@ export const fetchAI = async (
       endpoint = `http://localhost:20128/v1/chat/completions` // 9Router composite
       body.model = conf.model || 'google/gemma-3-4b'
     }
+    activeEndpoint = endpoint
 
     // Effort ladder: canonical effort policy terpisah dari parameternya di provider.
     // Parameter provider disuntik lewat ModelProviderAdapter.applyEffort; policy
@@ -399,7 +425,12 @@ export const fetchAI = async (
           return executeFetch(fallbackBody, true, trafficRetryCount) // Retry tanpa constraint format
         }
 
-        const errorProvider = conf.aiProvider === 'custom' ? 'Custom API' : 'LM Studio'
+        const errorProvider =
+          conf.aiProvider === 'custom'
+            ? 'Custom API'
+            : conf.aiProvider === 'groq'
+              ? 'Groq'
+              : '9Router/LM Studio'
         let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
 
         // Auto-retry: sebagian endpoint (mis. DeepSeek) menolak payload gambar
@@ -693,7 +724,7 @@ export const fetchAI = async (
           `Koneksi ke Custom API gagal atau ditolak. Pastikan URL benar: ${error.message}`
         )
       }
-      throw createLMStudioOfflineError(error)
+      throw createLMStudioOfflineError(error, { aiProvider: conf.aiProvider, __endpoint: activeEndpoint })
     }
 
     throw error

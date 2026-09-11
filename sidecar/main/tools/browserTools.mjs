@@ -8,16 +8,44 @@ const browserSessions = new Map()
 // Extension-first untuk tool browser: coba browser fisik bila ADA sesi yang
 // terhubung (preferensi 'default'), kembalikan null agar caller fallback ke
 // perilaku lama. Tidak pernah throw.
+const pickConnected = (sessions = [], targetSession = 'default') =>
+  sessions.find((s) => s.id === targetSession && s.connected) ||
+  sessions.find((s) => s.id === 'default' && s.connected) ||
+  sessions.find((s) => s.connected) ||
+  null
+
+// Auto-launch satu pintu: bila tidak ada sesi connected dan config
+// browserAutoLaunch aktif, bukakan browser user yang terpasang extension,
+// tunggu handshake bounded, lalu kembalikan sesinya. Gagal/null -> caller
+// memakai fallback lama. Tidak pernah throw.
+const ensureExtensionUp = async ({ url = null, sessionId = 'default' } = {}) => {
+  try {
+    const core = await import('../browser/bridge-core.mjs')
+    const launcher = await import('../browser/launcher.mjs')
+    if (!core.getBrowserConfig()?.autoLaunch) return null
+    const r = await launcher.ensureBrowserUp({
+      url,
+      sessionId,
+      autoLaunch: true,
+      listSessions: core.listSessions
+    })
+    return r.ok ? r.session : null
+  } catch {
+    return null
+  }
+}
+
 const tryExtensionAct = async (payload, sessionId = 'default') => {
   try {
-    const { listSessions, dispatchCommand } = await import('./browser/bridge-core.mjs')
+    const { listSessions, dispatchCommand } = await import('../browser/bridge-core.mjs')
     const sessions = listSessions()
     const targetSession = payload?.sessionId || sessionId || 'default'
-    const pick =
-      sessions.find((s) => s.id === targetSession && s.connected) ||
-      sessions.find((s) => s.id === 'default' && s.connected) ||
-      sessions.find((s) => s.connected)
-    if (!pick) return null
+    let pick = pickConnected(sessions, targetSession)
+    if (!pick) {
+      const up = await ensureExtensionUp({ sessionId: targetSession })
+      if (!up) return null
+      pick = up
+    }
     const enriched = { ...payload, sessionId: targetSession }
     const res = await dispatchCommand(pick.id, 'act', enriched)
     return res && res.ok ? res : null
@@ -29,7 +57,7 @@ const tryExtensionAct = async (payload, sessionId = 'default') => {
 // Baca DOM dari tab aktif ekstensi browser fisik.
 const tryExtensionReadDom = async (sessionId = 'default') => {
   try {
-    const { listSessions, dispatchCommand } = await import('./browser/bridge-core.mjs')
+    const { listSessions, dispatchCommand } = await import('../browser/bridge-core.mjs')
     const sessions = listSessions()
     const targetSession = sessionId || 'default'
     const pick =
@@ -48,7 +76,7 @@ const tryExtensionReadDom = async (sessionId = 'default') => {
 // Dipakai browser-read dan browser-extract (dulu via this['browser-read']
 // yang selalu crash di modul ESM karena this === undefined).
 const browserReadFetch = async (query) => {
-  const { extractUrl } = await import('./browser/bridge-core.mjs')
+  const { extractUrl } = await import('../browser/bridge-core.mjs')
   const url = extractUrl(query) || query
   const axios = (await import('axios')).default
   const htmlRes = await axios.get(url, {
@@ -202,18 +230,20 @@ export const browserTools = {
     needsApproval: false,
     handler: async (query, config) => {
       try {
-        const { extractUrl, listSessions, dispatchCommand } = await import('./browser/bridge-core.mjs')
+        const { extractUrl, listSessions, dispatchCommand } = await import('../browser/bridge-core.mjs')
         const url = extractUrl(query)
         if (!url) return { success: false, error: `URL tidak valid: '${String(query).slice(0, 120)}'. Sertakan alamat http(s).` }
         const targetSession = config?.sessionId || 'default'
-        // Extension dulu bila terhubung (hasil DOM + tab ber-grup); fallback
-        // fetch polos bila extension tidak ada. Tanpa extension tidak menunggu.
+        // Extension dulu bila terhubung (hasil DOM + tab ber-grup); bila tidak
+        // dan auto-launch aktif, minta OS membukakan browser lalu coba lagi
+        // bounded; fallback fetch polos bila extension tetap tidak ada.
         try {
           const sessions = listSessions()
-          const pick =
-            sessions.find((s) => s.id === targetSession && s.connected) ||
-            sessions.find((s) => s.id === 'default' && s.connected) ||
-            sessions.find((s) => s.connected)
+          let pick = pickConnected(sessions, targetSession)
+          if (!pick) {
+            const up = await ensureExtensionUp({ url, sessionId: targetSession })
+            if (up) pick = up
+          }
           if (pick) {
             const res = await dispatchCommand(pick.id, 'navigate', { url, sessionId: targetSession })
             if (res && res.ok) return { success: true, data: res.data, via: 'extension' }
@@ -232,7 +262,7 @@ export const browserTools = {
     handler: async (query, config) => {
       try {
         const q = String(query ?? '').trim()
-        const { extractUrl } = await import('./browser/bridge-core.mjs')
+        const { extractUrl } = await import('../browser/bridge-core.mjs')
         const url = extractUrl(q)
 
         // Jika URL spesifik diberikan, utamakan fetch
@@ -255,7 +285,7 @@ export const browserTools = {
         return {
           success: false,
           error:
-            'browser-read: Ekstensi browser tidak tersambung dan tidak ada URL untuk dibaca. Pastikan ekstensi Mark Bridge terpasang dan tab aktif terbuka, atau masukkan URL lengkap.'
+            'browser-read: Ekstensi browser tidak tersambung dan tidak ada URL untuk dibaca. Buka browser yang terpasang extension Mark Bridge (ia tersambung sendiri), atau aktifkan "Bukakan browser OS otomatis" di Capabilities agar Mark membukakannya, atau masukkan URL lengkap.'
         }
       } catch (e) {
         return { success: false, error: e.message }
@@ -464,7 +494,7 @@ export const browserTools = {
     handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const [urlPart, ...rest] = String(query ?? '').split('||')
-      const { extractUrl } = await import('./browser/bridge-core.mjs')
+      const { extractUrl } = await import('../browser/bridge-core.mjs')
       const url = extractUrl(query) || (urlPart || '').trim()
       const fileName = rest.join('||').trim() || undefined
       const ext = await tryExtensionAct({ action: 'download', value: { url, fileName } }, targetSession)

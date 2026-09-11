@@ -530,7 +530,7 @@ export const SYSTEM_DEFAULT_EFFORT = EffortLevel.LOW.value
  * Architecture + schema constants (spec §§6, 46).
  */
 export const AGENT_ARCH_VERSION = 'linux-1.0'
-export const BENCH_SCHEMA_VERSION = 2
+export const BENCH_SCHEMA_VERSION = 3 // v3: +arch axis +worldState (Fase 2 bench)
 
 /**
  * Provider adapter abstraction (spec §§30-31).

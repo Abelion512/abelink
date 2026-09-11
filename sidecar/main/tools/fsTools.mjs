@@ -408,7 +408,7 @@ export const fsTools = {
         // Pagar crawler: jangan tulis skrip scraper web (pola kabur observasi
         // nyata: tulis fetch_webinar.py lalu eksekusi via shell). Arahkan ke
         // browser-navigate/browser-extract.
-        const { looksLikeCrawlerSource } = await import('./browser/bridge-core.mjs')
+        const { looksLikeCrawlerSource } = await import('../browser/bridge-core.mjs')
         if (looksLikeCrawlerSource(content)) {
           return {
             success: false,

@@ -172,8 +172,13 @@ export default function CapabilitiesHub({
     try {
       let cat = null
       let aud = []
+      let conns = {}
       if (window.api?.listCapabilities) {
+        // capabilities:list mengembalikan ARRAY connector (bukan {connectors}).
         cat = await window.api.listCapabilities().catch(() => null)
+      }
+      if (window.api?.listCapabilityConnections) {
+        conns = await window.api.listCapabilityConnections().catch(() => ({}))
       }
       if (window.api?.readCapabilityAudit) {
         aud = await window.api.readCapabilityAudit(AUDIT_PAGE, 0).catch(() => [])
@@ -190,15 +195,17 @@ export default function CapabilitiesHub({
         await window.api.registerCustomConnectors(customMcp).catch(() => [])
       }
 
+      const builtin = Array.isArray(cat) ? cat : cat?.connectors || []
       const combined = [
         ...PLANNED_MCP_CONNECTORS,
-        ...(cat?.connectors || []),
+        ...builtin,
         ...customMcp.map((c) => ({ ...c, transport: 'mcp', custom: true }))
       ]
+      // Custom MCP menang atas built-in dengan id sama (idempoten dgn sidecar).
       const unique = Array.from(new Map(combined.map((c) => [c.id, c])).values())
 
       setConnectors(unique)
-      setConnections(cat?.connections || {})
+      setConnections(conns || {})
       setAuditLogs(Array.isArray(aud) ? aud : aud?.entries || [])
     } catch (e) {
       console.error('[CapabilitiesHub] Data MCP error:', e)
@@ -668,6 +675,19 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     }
                   />
                   <span>Tutup tab grup otomatis saat tugas selesai</span>
+                </label>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <label className="text-[11px] text-white/60 flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="toggle toggle-primary toggle-xs"
+                    checked={config.browserAutoLaunch !== false}
+                    onChange={(e) =>
+                      setConfig((prev) => ({ ...prev, browserAutoLaunch: e.target.checked }))
+                    }
+                  />
+                  <span>Bukakan browser OS otomatis bila extension belum tersambung</span>
                 </label>
               </div>
             </div>

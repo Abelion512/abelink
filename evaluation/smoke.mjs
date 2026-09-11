@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict'
 import { TASKS, listTasks, mkSentinel } from './terminal-bench.mjs'
-import { parseToolCalls, normalizeEffort, resolveTaskEffort } from './mark-adapter.mjs'
+import { parseToolCalls, normalizeEffort, resolveTaskEffort, toNativeQuery, toolPreamble } from './mark-adapter.mjs'
 import { aggregateRuns, detectCheat, compareReports } from './run.mjs'
 import { runSmoke as runMarkEvalSmoke, aggregateMarkEval } from './mark-eval.mjs'
 import { BENCHMARK_MATRIX, CORE_SET, summarizeMatrix } from './matrix.mjs'
@@ -98,6 +98,35 @@ assert.deepEqual(parsed[0].arguments, { path: 'a,b.txt', content: 'hello, world'
 assert.deepEqual(parsed[1].arguments, { path: 'c.txt' })
 console.log('[ok] parser tool-call quote-aware')
 
+// 8b2. Parser tahan paren tak-berquote di dalam content (bug pilot vanilla:
+// call dengan "(efek fotovoltaik)" tak-berquote membuat tools 0).
+const parenParsed = parseToolCalls(
+  '[tool: write-file(path="r/riset.md", content="# Energi (efek fotovoltaik) dan surya, murah")]'
+)
+assert.equal(parenParsed.length, 1, 'call berparen harus ter-parse')
+assert.equal(parenParsed[0].name, 'write-file', 'nama tool benar')
+assert.ok(
+  String(parenParsed[0].arguments.content).includes('(efek fotovoltaik)'),
+  'konten berparen utuh'
+)
+assert.equal(parseToolCalls('teks biasa tanpa call').length, 0, 'tanpa pola = kosong')
+assert.equal(parseToolCalls('[tool: broken').length, 0, 'kurung tak-tutup = diabaikan')
+console.log('[ok] parser tool-call tahan paren')
+
+// 8b. Bench tool-call bridge: OBJECT model -> STRING sidecar '||' (pilot-blocker fix).
+assert.equal(toNativeQuery('write-file', { path: 'a/b.md', content: '# H' }), 'a/b.md||# H', 'write-file path||content')
+assert.equal(toNativeQuery('read-file', { path: 'x.txt' }), 'x.txt', 'read-file path polos')
+assert.equal(toNativeQuery('run-shell', { command: 'ls' }), 'ls', 'run-shell perintah mentah')
+assert.equal(toNativeQuery('git-commit', { message: 'S3N-x', cwd: '/tmp/r' }), 'S3N-x||/tmp/r', 'git-commit message||cwd')
+assert.equal(toNativeQuery('list-dir', { path: 'd' }), 'd', 'list-dir path polos')
+assert.equal(typeof toNativeQuery('write-file', { path: 'a', content: 'b' }), 'string', 'selalu string (handler .split aman)')
+assert.equal(toolPreamble(['write-file']).includes('[tool: write-file(path="..." content="...")]'), true, 'preamble mengajar sintaks write-file')
+assert.equal(toolPreamble(['write-file'], { workdir: 'tmp/wd' }).includes('tmp/wd/report.md'), true, 'preamble mencontohkan path nyata')
+assert.equal(toolPreamble(['write-file']).includes('satu baris persis berformat'), true, 'preamble mengajar format call')
+assert.equal(toolPreamble([]), '', 'tanpa requiredTools = tanpa preamble (task teks tidak berubah)')
+assert.equal(toolPreamble(undefined), '', 'tanpa argumen = tanpa preamble')
+console.log('[ok] bench tool-call bridge (preamble + toNativeQuery)')
+
 // 9. Anti-cheat: detectCheat
 assert.equal(detectCheat({ sentinel: true, expected: 'X' }, { output: 'X' }, 'S3N-abc'), true, 'output = expected tanpa sentinel = curang')
 assert.equal(detectCheat({ sentinel: true, expected: 'X' }, { output: 'X S3N-abc' }, 'S3N-abc'), false, 'output memuat sentinel = wajar')
@@ -115,7 +144,7 @@ const agg = aggregateRuns(
   ],
   { runs: 3, model: 'm', provider: 'p' }
 )
-assert.equal(agg.schemaVersion, 2)
+assert.equal(agg.schemaVersion, 3)
 assert.equal(agg.tasks.a.passed, 2)
 assert.equal(agg.tasks.a.runs, 3)
 assert.equal(agg.tasks.a.passRate, 0.667) // +toFixed(3) => dibulatkan
@@ -150,7 +179,7 @@ const sweepAgg = aggregateRuns([
   { taskId: 'x', effort: 'high', passed: true, durationMs: 400, steps: 3, toolCalls: 2 },
   { taskId: 'x', effort: 'high', passed: false, durationMs: 500, steps: 5, toolCalls: 3 },
 ])
-assert.equal(sweepAgg.schemaVersion, 2)
+assert.equal(sweepAgg.schemaVersion, 3)
 assert.equal(sweepAgg.tasks['x@low'].effort, 'low')
 assert.equal(sweepAgg.tasks['x@low'].passRate, 1)
 assert.equal(sweepAgg.tasks['x@high'].effort, 'high')
@@ -200,4 +229,53 @@ assert.equal(matrixSummary.rows.length, BENCHMARK_MATRIX.length)
 assert.equal(matrixSummary.rows.find((r) => r.id === 'terminal-bench-4.0').score, 0.612)
 console.log('[ok] benchmark matrix (pilar + core set)')
 
+// Fase 2: world-state verifier contract — text without tool evidence MUST fail.
+import { VERIFY_WORLD } from './tasks-student-corporate.mjs'
+const fakeCtx = (over = {}) => ({ sentinel: 'S3N-test', workdir: '/tmp/markbench-smoke', stepLog: [], ...over })
+assert.equal(VERIFY_WORLD.corpReportTextOnly('laporan berisi S3N-test', fakeCtx()), false, 'text-only without write evidence fails')
+assert.equal(VERIFY_WORLD.corpReportTextOnly('nope', fakeCtx({ stepLog: [{ toolCalls: [{ tool: 'write-file', success: true }] }] })), false, 'missing sentinel fails')
+// Bentuk stepLog adapter nyata (tanpa field success) dihitung sebagai evidence,
+// kecuali result berawalan ERROR: — kompatibilitas mark-adapter.mjs.
+import { hasToolEvidence } from './tasks-student-corporate.mjs'
+assert.equal(hasToolEvidence([{ step: 1, type: 'tool', tool: 'write-file', result: 'ok' }], ['write-file']), true, 'adapter-shape success counts')
+assert.equal(hasToolEvidence([{ step: 1, type: 'tool', tool: 'write-file', result: 'ERROR: denied' }], ['write-file']), false, 'adapter-shape ERROR does not count')
+
 console.log('MarkBench smoke: LOLOS')
+
+// ---- Task 7: arch axis + report shell v3 (offline) ----
+import { buildReportShell, sidecarWorkspaceRoot } from './run.mjs'
+import { resolveBenchArch, ARCH_VALUES } from './mark-adapter.mjs'
+import { join as joinWs } from 'node:path'
+const shell = buildReportShell({ arch: 'avo', runId: 'smoke-1' })
+assert.equal(shell.schemaVersion, 3, 'report shell is v3')
+assert.equal(shell.arch, 'avo', 'arch recorded')
+assert.equal(shell.worldState.workdir, joinWs(sidecarWorkspaceRoot(), 'markbench-smoke-1'), 'per-run workdir di dalam workspace sidecar')
+assert.deepEqual([...ARCH_VALUES], ['vanilla', 'basic', 'avo'], 'arch axis locked')
+assert.equal(resolveBenchArch('bogus'), 'basic', 'unknown arch falls back to basic')
+assert.equal(resolveBenchArch(undefined), 'basic', 'unset arch defaults to basic')
+console.log('[ok] arch axis + report shell v3')
+
+// ---- Task 7 fix B: tb-git-01 memakai sentinel dunia bila truthy ----
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join as joinPath } from 'node:path'
+import { spawnSync as spawnSyncGit } from 'node:child_process'
+const gitTmp = mkdtempSync(joinPath(tmpdir(), 'markbench-git-'))
+const gitRun = (...a) => spawnSyncGit('git', ['-C', gitTmp, ...a], { encoding: 'utf8', timeout: 30000 })
+gitRun('init', '-q')
+import { writeFileSync as writeTmpFile } from 'node:fs'
+writeTmpFile(joinPath(gitTmp, 'f.txt'), 'x\n')
+gitRun('add', '.')
+gitRun('-c', 'user.email=s@local', '-c', 'user.name=s', 'commit', '-qm', 'isi S3N-dunia01 akhir')
+process.env.MARKBENCH_GIT_REPO = gitTmp
+assert.equal(gitTask.verifier('teks apa pun', 'S3N-dunia01'), true, 'commit bersentinel di fixture repo = PASS')
+assert.equal(gitTask.verifier('teks apa pun', 'S3N-tidak-ada'), false, 'sentinel tanpa commit = FAIL')
+delete process.env.MARKBENCH_GIT_REPO
+assert.equal(
+  gitTask.verifier('git add .\ngit commit -m "pesan"\ngit push'),
+  true,
+  'tanpa sentinel = fallback teks warisan tetap PASS'
+)
+import { rmSync as rmTmp } from 'node:fs'
+rmTmp(gitTmp, { recursive: true, force: true })
+console.log('[ok] tb-git-01 world-state sentinel path + legacy fallback')

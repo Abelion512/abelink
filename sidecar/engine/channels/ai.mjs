@@ -16,7 +16,12 @@ handlers['ai:fetch'] = async (payload) => {
     const result = await fetchAI(messages || [], config, !!isSmallTask, jsonSchema ?? null, onStatus)
     return { success: true, data: result ?? null }
   } catch (err) {
-    return { success: false, error: { message: err.message, code: err.code || 'AI_FETCH_ERROR' } }
+    // Jaminan: pesan tidak pernah kosong — renderer hanya punya fallback
+    // generik bila message hilang (kasus "AI fetch gagal" tanpa sebab).
+    const raw = typeof err === 'string' ? err : err?.message || String(err ?? '')
+    const message = (String(raw).trim() || 'AI fetch gagal di sidecar').slice(0, 500)
+    const code = typeof err === 'object' && err !== null ? err.code || 'AI_FETCH_ERROR' : 'AI_FETCH_ERROR'
+    return { success: false, error: { message, code } }
   }
 }
 on('ai:abort-fetch', async () => (await getAi()).abortAllFetches())
@@ -30,7 +35,7 @@ on('sync-config', async (config) => {
   aiMod.setGlobalConfig(config)
   setLatestConfig(config)
   const { setBrowserConfig } = await import('../../main/browser/bridge-core.mjs')
-  setBrowserConfig({ autoCloseTabs: !!config?.browserAutoCloseTabs })
+  setBrowserConfig({ autoCloseTabs: !!config?.browserAutoCloseTabs, autoLaunch: config?.browserAutoLaunch !== false })
   const tgMod = await import('../../main/telegram/telegram-service.js')
   if (
     config?.tgBotToken &&
