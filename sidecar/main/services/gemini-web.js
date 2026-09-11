@@ -46,6 +46,42 @@ export const GEMINI_WEB_MODELS = {
 
 const DEFAULT_BL = 'boq_assistant-bard-web-server_20260730.01_p1'
 
+// Anti-hammer: Google menjawab halaman /sorry (bot-detection) bila
+// request menumpuk. Menghantam ulang tiap giliran hanya memperpanjang blokir
+// — setelah 3 gagal sorry beruntun, gagal-cepat 5 menit tanpa HTTP call.
+// Sukses apa pun me-reset. State modul (per proses sidecar).
+let sorryStreak = 0
+let sorryBlockedUntil = 0
+const SORRY_COOLDOWN_MS = 5 * 60 * 1000
+
+const isSorryPage = (text = '') =>
+  /google\.com\/sorry|302 Moved|unusual traffic|our systems have detected/i.test(
+    String(text || '').slice(0, 2000)
+  )
+
+const sorryError = () => {
+  const e = new Error(
+    'Gemini Web dibatasi Google (halaman verifikasi / rate-limit). ' +
+      'Tunggu 1-2 menit lalu coba lagi, atau ganti provider di Configuration > Model.'
+  )
+  e.code = 'GEMINI_WEB_LIMITED'
+  return e
+}
+
+// Diekspor untuk unit test (logika murni, tanpa network).
+export const __geminiWebTest = {
+  isSorryPage,
+  sorryError,
+  resetCircuit: () => {
+    sorryStreak = 0
+    sorryBlockedUntil = 0
+  },
+  tripCircuit: () => {
+    sorryStreak = 3
+    sorryBlockedUntil = Date.now() + SORRY_COOLDOWN_MS
+  }
+}
+
 function httpPost(urlStr, headers, bodyData, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(urlStr)
@@ -88,6 +124,10 @@ export async function generateGeminiResponse(
   cookie = '',
   bl = DEFAULT_BL
 ) {
+  // Gagal-cepat selama cooldown blokir (tanpa menghantam Google lagi).
+  if (Date.now() < sorryBlockedUntil) {
+    throw sorryError()
+  }
   const reqModel = (modelName || 'gemini-3.6-flash').toLowerCase()
 
   let selected = GEMINI_WEB_MODELS[reqModel]
@@ -165,10 +205,20 @@ export async function generateGeminiResponse(
 
   if (!finalAnswer) {
     if (rawText.includes('BardErrorInfo')) {
+      sorryStreak = 0
       throw new Error('Google menolak request (Session / Cookie mungkin expired atau terblokir).')
     }
-    throw new Error('Gagal mengekstrak jawaban dari Gemini Web. Balasan mentah: ' + rawText.substring(0, 200))
+    // Halaman sorry/rate-limit Google: JANGAN dump HTML mentah ke user
+    // (noise), dan mulai hitung streak anti-hammer.
+    if (isSorryPage(rawText)) {
+      sorryStreak++
+      if (sorryStreak >= 3) sorryBlockedUntil = Date.now() + SORRY_COOLDOWN_MS
+      throw sorryError()
+    }
+    sorryStreak = 0
+    throw new Error('Gagal mengekstrak jawaban dari Gemini Web (balasan bukan format yang diharapkan).')
   }
+  sorryStreak = 0
 
   return finalAnswer
 }
