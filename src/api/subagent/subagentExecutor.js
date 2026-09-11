@@ -7,8 +7,12 @@ import {
   evaluateEvidence,
   gateCompletion,
   buildReplanObservation,
+  classifyObjectiveKind,
   MAX_VERIFY_REPLANS
 } from '../ai/objectiveVerifier'
+import { createTrajectorySupervisor, normalizeAttemptKey } from '../ai/trajectorySupervisor'
+import { createLineage, appendAttempt, bestAttempt } from '../ai/trajLineage'
+import { scoreAttempt, RANK_OF } from '../ai/scoring'
 import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
 import { GROUP_TOOLS_DEFINITION } from '../tools/group-tools'
@@ -130,6 +134,19 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   let verifyReplansUsed = 0
   // Internal terminal classification of the pause: final | blocked | needs_input
   let terminalType = 'final'
+  // ---- Trajectory lineage Fase 2 (trajLineage.js + scoring.js) -----------
+  // Per-sub-agent search memory + supervisor. Mirrors the main-loop wiring in
+  // useMarkPlan.js: score each tool attempt, feed extended fields back, stage
+  // hintText for the observation path. Additive: faults stay silent, the ReAct
+  // loop below is untouched.
+  const subSupervisor = createTrajectorySupervisor()
+  const subLineage = createLineage({
+    taskId: subagent.id || subagentId,
+    goal: subagent.goal || '',
+    objectiveKind: classifyObjectiveKind(subagent.goal || '')
+  })
+  const subRecentSuccess = [] // sliding window (last 5) for scoring
+  let pendingSubHint = null
 
   try {
     while (!abortController.signal.aborted) {
@@ -344,6 +361,43 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               : `[ERROR] ${res.error}`
 
             observations.push(`[${act.tool}] ${resultStr}`)
+
+            // Fase 2: score this attempt into the lineage, feed the extended
+            // fields back. Staged hintText flushes with the observation below.
+            try {
+              const attemptOk = res.success === true
+              const attemptRank = attemptOk ? RANK_OF.not_run : RANK_OF.failed
+              const attemptKey = normalizeAttemptKey(act.tool, act.query || '')
+              subRecentSuccess.push(attemptOk)
+              const attemptWindow = subRecentSuccess.slice(-5)
+              const attemptScore = scoreAttempt({
+                verificationRank: attemptRank,
+                isNewSuccessKey: attemptOk && !subLineage.preferredKeys.includes(attemptKey),
+                toolSuccessRate: attemptWindow.filter(Boolean).length / attemptWindow.length
+              })
+              appendAttempt(subLineage, {
+                strategy: 'DIRECT',
+                tool: act.tool,
+                targetKey: attemptKey,
+                success: attemptOk,
+                verificationRank: attemptRank,
+                score: attemptScore
+              })
+              const subSupResult = subSupervisor.update({
+                tool: act.tool,
+                query: act.query || '',
+                success: attemptOk,
+                verificationState: attemptOk ? 'not_run' : 'failed',
+                strategy: 'DIRECT',
+                verificationRank: attemptRank,
+                score: attemptScore,
+                stagnation: subLineage.stagnation,
+                bestKey: (bestAttempt(subLineage) || {}).targetKey || null
+              })
+              if (subSupResult.hintText && !pendingSubHint) pendingSubHint = subSupResult.hintText
+            } catch (e) {
+              console.warn('[subagentExecutor] trajectory supervisor error:', e?.message)
+            }
           } catch (err) {
             observations.push(`[${act.tool} ERROR] ${err.message}`)
           }
@@ -364,6 +418,17 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
           role: 'user',
           content: `[OBSERVATION]:\n${combinedObservation}`
         })
+
+        // Flush a staged supervisor hint as its own message (single slot,
+        // mirrors the main loop; never collides with the verify-gate replan).
+        if (pendingSubHint) {
+          await subagentStore.addMessage(subagentId, {
+            sender: 'tool',
+            role: 'user',
+            content: pendingSubHint
+          })
+          pendingSubHint = null
+        }
       }
     }
 

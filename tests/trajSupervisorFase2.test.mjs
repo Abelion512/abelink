@@ -41,3 +41,14 @@ describe('supervisor Fase 2 outputs', () => {
     expect(third.directive).toBe(DIRECTIVE.MODIFY)
   })
 })
+
+it('executor call shape: score feeds supervisor without throwing', async () => {
+  const { scoreAttempt } = await import('../src/api/ai/scoring.js')
+  const { createLineage, appendAttempt } = await import('../src/api/ai/trajLineage.js')
+  const lin = createLineage({ taskId: 't', goal: 'g', objectiveKind: 'file' })
+  const s = scoreAttempt({ verificationRank: 2, isNewSuccessKey: true, toolSuccessRate: 0.8 })
+  const e = appendAttempt(lin, { id: 1, strategy: 'DIRECT', tool: 'read-file', targetKey: 'read-file:src/a.js', success: true, verificationRank: 2, score: s })
+  const sup = createTrajectorySupervisor()
+  const r = sup.update({ tool: 'read-file', query: 'src/a.js', success: true, verificationState: 'partially_verified', stepsLeft: 20, verifyGateActive: false, strategy: 'DIRECT', verificationRank: 2, score: s, stagnation: 0, bestKey: e.targetKey })
+  expect(r.directive).toBe(DIRECTIVE.CONTINUE)
+})
