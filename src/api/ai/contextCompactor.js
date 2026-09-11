@@ -88,10 +88,16 @@ export const buildOptimizedChatSession = (sourceChatData, maxTurns = 10) => {
       let toolLog = ''
       if (item.executedTools && item.executedTools.length > 0) {
         if (isInProgress) {
-          // Smart Retention: Pertahankan detail hasil tool (read-file, grep, list-dir) secara utuh
+          // Smart Retention: Pertahankan detail hasil tool secara terukur (maks 2000 char)
           toolLog = item.executedTools
             .map((t) => {
-              const res = t.fullResult || t.resultSummary || 'OK'
+              let res = t.fullResult || t.resultSummary || 'OK'
+              if (typeof res === 'string' && res.length > 2000) {
+                res =
+                  res.slice(0, 1200) +
+                  '\n... [hasil dipangkas demi efisiensi token] ...\n' +
+                  res.slice(-500)
+              }
               return `  * [Tool: ${t.tool}] query: "${t.query || ''}"\n    Hasil:\n${res}`
             })
             .join('\n\n')

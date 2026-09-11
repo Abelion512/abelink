@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { FaStop, FaCircleNotch } from 'react-icons/fa'
-import { useChat } from '../../contexts/ChatContext'
+import { useChat } from '../../contexts/useChat'
 
 export default function AutomationHUD() {
   const { handleStop } = useChat() || {}

@@ -388,6 +388,11 @@ export async function runMarkAgent(task, model, provider, options = {}) {
   const config = {
     aiProvider: provider || 'gemini-web',
     geminiWebModel: model || 'gemini-3.6-flash',
+    customEndpoint: process.env.CUSTOM_ENDPOINT || process.env.OPENAI_BASE_URL || 'http://localhost:20128/v1',
+    customApiKey: process.env.CUSTOM_API_KEY || process.env.OPENAI_API_KEY || '',
+    customModel: model || process.env.CUSTOM_MODEL || 'gemini/gemini-2.5-flash',
+    groqApiKey: process.env.GROQ_API_KEY || '',
+    groqModel: model || 'llama-3.1-8b-instant',
     temperature: 0,
     effortLevel: effort,
   }
