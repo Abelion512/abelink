@@ -1148,10 +1148,25 @@ export const useMarkPlan = ({
               role: 'user',
               content: continueMsg
             })
-            targetSetChatData((prev) => [
-              ...prev.filter((item) => !item.isThinking),
-              { role: 'ai', content: decision.answer, isProactive: false, isIntermediate: true }
-            ])
+            // Anti double-bubble: model kadang mengulang kalimat yang sama di
+            // giliran intermediate beruntun — bubble identik berurutan tidak
+            // ditampilkan dua kali (loop tetap lanjut via loopMessages).
+            targetSetChatData((prev) => {
+              const visible = prev.filter((item) => !item.isThinking)
+              const last = visible[visible.length - 1]
+              if (
+                last &&
+                last.role === 'ai' &&
+                typeof last.content === 'string' &&
+                last.content.trim() === String(decision.answer).trim()
+              ) {
+                return prev
+              }
+              return [
+                ...prev.filter((item) => !item.isThinking),
+                { role: 'ai', content: decision.answer, isProactive: false, isIntermediate: true }
+              ]
+            })
             continue
           }
         }
