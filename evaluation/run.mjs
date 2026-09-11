@@ -456,6 +456,7 @@ async function main() {
         const iterDir = join(baseDir, `${taskId}-r${i + 1}`)
         seedFixtures(iterDir, iterSentinel)
         process.env.MARKBENCH_GIT_REPO = join(iterDir, 'git-repo')
+        process.stdout.write(`  [${arch}] ${taskId.padEnd(22)} (r${i + 1}/${args.runs}, ${eff}) ... `)
         const r = await runTask(taskId, args.model, args.provider, {
           effort: eff,
           // Sweep = eksperimen eksplisit: effort per run menang atas pin task
@@ -466,6 +467,7 @@ async function main() {
           // Bentuk relatif-workspace untuk {{WORKDIR}} di prompt.
           promptWorkdir: join(promptBase, `${taskId}-r${i + 1}`),
         })
+        process.stdout.write(`${r.passed ? 'PASS' : 'FAIL'} (${r.durationMs}ms, steps=${r.steps}, tools=${r.toolCalls})\n`)
         rawRuns.push({
           taskId: r.taskId,
           effort: r.effort,

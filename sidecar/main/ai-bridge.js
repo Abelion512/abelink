@@ -197,7 +197,7 @@ export const fetchAI = async (
       }
     }
 
-    let endpoint = `http://localhost:20128/v1/chat/completions` // 9Router composite (abelink: DeepSeek V4 + Nemotron + Mimo 2.5)
+    let endpoint = `http://127.0.0.1:20128/v1/chat/completions` // 9Router composite
     let headers = {
       'Content-Type': 'application/json'
     }
@@ -264,8 +264,11 @@ export const fetchAI = async (
       }
       body.model = conf.customModel || 'default-model'
     } else {
-      endpoint = `http://localhost:20128/v1/chat/completions` // 9Router composite
-      body.model = conf.model || 'google/gemma-3-4b'
+      endpoint = `http://127.0.0.1:20128/v1/chat/completions` // 9Router composite
+      body.model = conf.model || conf.customModel || 'claude-work'
+      if (conf.customApiKey) {
+        headers['Authorization'] = `Bearer ${conf.customApiKey}`
+      }
     }
     activeEndpoint = endpoint
 
@@ -324,6 +327,20 @@ export const fetchAI = async (
         clearTimeout(timeoutId)
         if (parentAbortController.signal.aborted) {
           throw new Error('AbortError')
+        }
+        // Resilient 10x Network Retry ala Claude CLI
+        if (trafficRetryCount < 10) {
+          const backoffDelay = Math.min(25000, Math.round(Math.pow(1.4, trafficRetryCount) * 1000 + Math.random() * 500))
+          onStatus?.(`Koneksi AI (${endpoint}) terputus/sibuk. Mencoba ulang (${trafficRetryCount + 1}/10) dalam ${Math.round(backoffDelay / 1000)}s...`)
+          logAi(`[ai-bridge retry] Network failure: ${err.message}. Retrying in ${backoffDelay}ms (Attempt ${trafficRetryCount + 1}/10)`)
+          await new Promise((res, rej) => {
+            const timer = setTimeout(res, backoffDelay)
+            parentAbortController.signal.addEventListener('abort', () => {
+              clearTimeout(timer)
+              rej(new Error('AbortError'))
+            }, { once: true })
+          })
+          return executeFetch(currentBody, isRetry, trafficRetryCount + 1)
         }
         if (
           abortController.signal.reason?.message ===
@@ -470,15 +487,15 @@ export const fetchAI = async (
           isHighTraffic = false
         }
 
-        if (isHighTraffic && trafficRetryCount < 3) {
-          let backoffDelay = (trafficRetryCount + 1) * 2000
+        if (isHighTraffic && trafficRetryCount < 10) {
+          let backoffDelay = Math.min(30000, (trafficRetryCount + 1) * 2000)
           let retryBody = { ...currentBody }
 
           if (onStatus)
-            onStatus(`Server sibuk, mencoba ulang dalam ${Math.round(backoffDelay / 1000)}s...`)
+            onStatus(`Server sibuk (${response.status}), mencoba ulang (${trafficRetryCount + 1}/10) dalam ${Math.round(backoffDelay / 1000)}s...`)
 
           console.log(
-            `[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/3)`
+            `[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/10)`
           )
 
           await new Promise((resolve, reject) => {

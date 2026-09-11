@@ -5,7 +5,10 @@ import { getAwarenessResponse } from '../api/ai/awareness'
 import { stripDataUrls } from '../api/ai/contextCompactor'
 
 const CHECKIN_INTERVAL = 10 * 60 * 1000
-const INITIAL_DELAY = 60 * 1000
+const INITIAL_DELAY = 180 * 1000 // Berikan jeda 3 menit setelah startup
+
+// Module-level singleton: tidak ter-reset meskipun komponen me-remount karena HMR atau routing
+let lastGlobalCheckIn = Date.now()
 
 const formatAwarenessContent = (content) => {
   if (typeof content === 'string') return stripDataUrls(content)
@@ -87,32 +90,34 @@ export const useAwareness = ({
 
       const now = Date.now()
 
-      // Guard against accidental timer drift on slow CAD surfaces. If the last
-      // check-in was unusually recent (under a minute), skip this tick so
-      // awareness does not start hammering the AI provider on every mount.
-      if (now - lastCheckInRef.current < 60000) {
-        console.log('[useAwareness] Skip check-in: interval terlalu cepat (drift).')
+      // Minimal harus menunggu 9 menit (540,000 ms) dari check-in terakhir (global singleton)
+      if (now - lastGlobalCheckIn < 540000) {
         return
       }
 
-      // Minimal harus nunggu 9 menit (540,000 ms) dari check-in terakhir buat nge-trigger lagi
-      if (now - lastCheckInRef.current < 540000) {
-        console.log('[useAwareness] Skip check-in: Belum waktunya (terlalu cepat).')
+      // Jangan ganggu user jika user baru saja berinteraksi dalam 3 menit terakhir
+      const hasRecentUserChat = (chatDataRef.current || []).some((m) => {
+        const time = m.created_at || (m.timestamp ? Date.parse(m.timestamp) : 0)
+        return m.role === 'user' && time && now - time < 180000
+      })
+      if (hasRecentUserChat) {
         return
       }
 
       try {
         isRequestingRef.current = true
-        lastCheckInRef.current = Date.now()
-        console.log('[useAwareness] Memulai check-in...')
+        lastGlobalCheckIn = Date.now()
+        lastCheckInRef.current = lastGlobalCheckIn
+        if (import.meta.env?.DEV) console.log('[useAwareness] Memulai check-in...')
 
-        const buffer = await window.api.getActivityBuffer()
-        if (!buffer || buffer.length < 1) {
-          console.log('[useAwareness] Skip check-in: Buffer kosong')
+        const rawBuffer = await window.api.getActivityBuffer()
+        if (!rawBuffer || rawBuffer.length < 1) {
           isRequestingRef.current = false
           return
         }
 
+        // Pangkas buffer ke maksimal 5 entri terakhir demi efisiensi token
+        const buffer = rawBuffer.slice(-5)
         if (import.meta.env?.DEV) console.log('[useAwareness] Mengirim buffer ke AI:', buffer.length, 'entri')
         const allMemory = await getAllMemory()
         const memoryRef = await getRelevantMemory('aktivitas user bekerja dan rutinitas', allMemory)

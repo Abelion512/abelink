@@ -93,7 +93,7 @@ export default function Trajectory() {
           <FaChartLine className="text-primary" size={20} />
           <h1 className="text-xl font-bold">Trajectory Logger</h1>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 mr-32">
           <button
             onClick={handleExport}
             className="btn btn-sm btn-outline gap-1"

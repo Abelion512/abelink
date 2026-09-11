@@ -9,12 +9,12 @@ permissions:
   contents: read
 
 jobs:
-  target-linux:
-    name: PRs harus menargetkan branch linux
+  guard-base-branch:
+    name: Tolak PR yang menargetkan master
     runs-on: ubuntu-latest
     steps:
-      - name: Tolak PR yang menargetkan master
+      - name: Validasi branch target
         if: ${{ github.event.pull_request.base.ref == 'master' }}
         run: |
-          echo "::error::PR menargetkan 'master'. Semua PR abelink harus menargetkan 'main' atau 'linux' (master hanya untuk sinkronisasi upstream)."
+          echo "::error::PR menargetkan 'master'. Di repo abelink, branch 'master' murni melacak upstream resmi Mazees/mark-agent. Semua PR harus menargetkan 'main' (pengembangan aktif) atau 'linux' (sinkronisasi public-upstream)."
           exit 1

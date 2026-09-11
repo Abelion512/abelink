@@ -103,24 +103,29 @@ const nudgeFor = (key = '') => {
   return hit ? hit.tip : 'baca langsung targetnya, ubah kata kunci, atau cek asumsi yang berbeda'
 }
 
-function buildHint(directive, key, repeat, retrievedKey = null) {
+function buildHint(directive, key, repeat, retrievedKey = null, nextStrategy = null, restoreHint = null) {
   const label = shortKey(key)
+  const stratTag = nextStrategy ? `[STRATEGI: ${nextStrategy}] ` : ''
   if (directive === DIRECTIVE.ABANDON) {
+    const restoreText = restoreHint ? ` Kembali ke checkpoint: ${restoreHint}.` : ''
     return (
-      `[TRAJECTORY HINT] Tinggalkan pendekatan ${label}: ${repeat}x tanpa kemajuan, terbukti buntu. ` +
-        `Jangan ulangi tool+target yang sama. ${nudgeFor(key)[0].toUpperCase()}${nudgeFor(key).slice(1)}.`
+      `[TRAJECTORY HINT] ${stratTag}Tinggalkan pendekatan ${label}: ${repeat}x tanpa kemajuan, terbukti buntu. ` +
+        `Jangan ulangi tool+target yang sama.${restoreText} ${nudgeFor(key)[0].toUpperCase()}${nudgeFor(key).slice(1)}.`
     ).slice(0, MAX_HINT_CHARS)
   }
   if (directive === DIRECTIVE.RETRIEVE && retrievedKey) {
     return (
-      `[TRAJECTORY HINT] Pendekatan ${label} macet (${repeat}x). ` +
+      `[TRAJECTORY HINT] ${stratTag}Pendekatan ${label} macet (${repeat}x). ` +
         `Pola ${shortKey(retrievedKey)} pernah berhasil di task ini — adaptasi polanya ke target sekarang.`
     ).slice(0, MAX_HINT_CHARS)
   }
   // MODIFY (default injection shape).
+  const stratNudge = nextStrategy === 'BACKTRACK' && restoreHint
+    ? `Kembali ke checkpoint: ${restoreHint}.`
+    : nudgeFor(key)
   return (
-    `[TRAJECTORY HINT] Pendekatan ${label} sudah ${repeat}x tanpa kemajuan. ` +
-      `Coba strategi BERBEDA: ${nudgeFor(key)}. Jangan ulangi tool+target yang sama.`
+    `[TRAJECTORY HINT] ${stratTag}Pendekatan ${label} sudah ${repeat}x tanpa kemajuan. ` +
+      `Coba strategi BERBEDA (${nextStrategy || 'BARU'}): ${stratNudge}. Jangan ulangi tool+target yang sama.`
   ).slice(0, MAX_HINT_CHARS)
 }
 
@@ -259,7 +264,12 @@ export function createTrajectorySupervisor() {
           failedStrategies.add(key)
           hintsUsed++
           cooldownLeft = HINT_COOLDOWN_TURNS
-          return { directive: DIRECTIVE.ABANDON, hintText: buildHint(DIRECTIVE.ABANDON, key, repeat), nextStrategy, restoreHint: restoreHint(DIRECTIVE.ABANDON) }
+          return {
+            directive: DIRECTIVE.ABANDON,
+            hintText: buildHint(DIRECTIVE.ABANDON, key, repeat, null, nextStrategy, restoreHint(DIRECTIVE.ABANDON)),
+            nextStrategy,
+            restoreHint: restoreHint(DIRECTIVE.ABANDON)
+          }
         }
 
         // Modify / retrieve: same key stuck at the no-progress scale.
@@ -269,7 +279,12 @@ export function createTrajectorySupervisor() {
           failedStrategies.add(key) // one directive per key per task (hysteresis)
           hintsUsed++
           cooldownLeft = HINT_COOLDOWN_TURNS
-          return { directive, hintText: buildHint(directive, key, repeat, retrievedKey), nextStrategy, restoreHint: restoreHint(directive) }
+          return {
+            directive,
+            hintText: buildHint(directive, key, repeat, retrievedKey, nextStrategy, restoreHint(directive)),
+            nextStrategy,
+            restoreHint: restoreHint(directive)
+          }
         }
 
         // Semantic tripwire (conservative, once per task): many successful
@@ -285,15 +300,17 @@ export function createTrajectorySupervisor() {
           semanticHintGiven = true
           hintsUsed++
           cooldownLeft = HINT_COOLDOWN_TURNS
+          const directive = lastStagnation >= 0.6 && bestKey ? DIRECTIVE.ABANDON : DIRECTIVE.MODIFY
+          const restore = restoreHint(directive)
+          const tripwireHint =
+            nextStrategy === 'BACKTRACK' && bestKey
+              ? `[TRAJECTORY HINT] [STRATEGI: BACKTRACK] Kemacetan terdeteksi. Kembali ke checkpoint: ${bestKey}.`
+              : `[TRAJECTORY HINT] [STRATEGI: ${nextStrategy}] Beberapa tool sukses tapi verifikasi tidak bergerak dan pencarian berputar di tempat. Berhenti mengulang target lama: pilih SATU hipotesis baru yang bisa dibuktikan (read-back, test, atau konfirmasi halaman).`
           return {
-            directive: DIRECTIVE.MODIFY,
-            hintText:
-              '[TRAJECTORY HINT] Beberapa tool sukses tapi verifikasi tidak bergerak dan pencarian berputar di tempat. Berhenti mengulang target lama: pilih SATU hipotesis baru yang bisa dibuktikan (read-back, test, atau konfirmasi halaman).'.slice(
-                0,
-                MAX_HINT_CHARS
-              ),
+            directive,
+            hintText: tripwireHint.slice(0, MAX_HINT_CHARS),
             nextStrategy,
-            restoreHint: restoreHint(DIRECTIVE.MODIFY)
+            restoreHint: restore
           }
         }
 
