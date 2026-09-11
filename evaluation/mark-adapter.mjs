@@ -382,8 +382,8 @@ export async function runMarkAgent(task, model, provider, options = {}) {
     benchmarkEffort: options?.effort,
     envEffort: process.env.MARK_BENCH_EFFORT,
   })
-  // Arch axis (Fase 2 bench): vanilla = model-only, basic = Fase 1 supervisor,
-  // avo = full Fase 2. Default basic; executor-side wiring reads the same env.
+  // Arch axis: vanilla = model-only, basic = thin supervisor. Default basic;
+  // executor-side wiring reads the same env. `avo` dihapus 2026-09-12.
   const arch = currentBenchArch()
   const config = {
     aiProvider: provider || 'gemini-web',

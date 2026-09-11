@@ -636,7 +636,7 @@ export const useMarkPlan = ({
       // (nothing strategic to govern). Per-session instance: fresh state per
       // mission, no cross-task leakage. Additive: never throws, never blocks.
       // Bench arch axis (MARK_BENCH_ARCH, default basic): vanilla = model-only
-      // (no supervisor, no verify-gate replan); basic/avo = thin supervisor
+      // (no supervisor, no verify-gate replan); basic = thin supervisor
       // (trajectory log + stagnation ladder). Production default basic.
       const benchArch = currentBenchArch()
       const supervisor =
