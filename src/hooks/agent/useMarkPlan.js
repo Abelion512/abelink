@@ -22,7 +22,9 @@ import {
   createAgentTask,
   startAgentTaskStep,
   checkpointAgentTaskStep,
-  transitionAgentTask
+  transitionAgentTask,
+  resumeAgentTask,
+  getAgentTaskWithSteps
 } from '../../api/taskStore'
 import { searchMemoriesInOrama } from '../../api/oramaStore'
 import { buildOptimizedChatSession, stripImageContent, stripDataUrls } from '../../api/ai/contextCompactor'
@@ -43,6 +45,7 @@ import {
   MAX_VERIFY_REPLANS,
   VERIFICATION_STATE
 } from '../../api/ai/objectiveVerifier'
+import { resolvePlanStepBudget, DEFAULT_PLAN_STEPS } from '../../api/ai/planStepBudget'
 
 // ============================================================================
 // HELPER UTILITIES
@@ -50,8 +53,8 @@ import {
 
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp']
 
-// Batas keamanan loop ReAct: jumlah langkah maksimum sebelum eksekusi dipaksa selesai
-const MAX_PLAN_STEPS = 25
+// Batas keamanan loop ReAct fallback: nilai dasar sebelum disesuaikan via effortSystem
+const MAX_PLAN_STEPS = DEFAULT_PLAN_STEPS
 // Batas giliran tanpa kemajuan (bicara intermediate tanpa action) sebelum dipaksa selesai
 const MAX_NO_PROGRESS_STREAK = 3
 
@@ -466,6 +469,22 @@ export const useMarkPlan = ({
       let durableTask = null
       let durableActiveStep = null
 
+      // Resume durable task jika diminta via options
+      if (opts.resumeTaskId) {
+        try {
+          const resumed = await resumeAgentTask(opts.resumeTaskId)
+          if (resumed && ['running', 'pending'].includes(resumed.status)) {
+            durableTask = resumed
+            durableTaskForRecovery = durableTask
+            durableActiveStep =
+              durableTask.steps?.find((s) => s.id === durableTask.activeStepId) || null
+            activeTaskObjectiveRef.current = durableActiveStep?.objective || durableTask.objective
+          }
+        } catch (err) {
+          console.warn('[useMarkPlan] Gagal me-resume task dari id:', opts.resumeTaskId, err)
+        }
+      }
+
       const allMemory = await getAllMemory()
       let searchQuery = stripDataUrls(userInput)
       if (chatSession.length > 1) {
@@ -622,15 +641,43 @@ export const useMarkPlan = ({
           ? null
           : createTrajectorySupervisor()
       let pendingSupervisorHint = null
+      // ---- Budget skala-effort (effortSystem) -----------------------------
+      // Budget langkah dinamis mengikuti level effort (low: 8, medium: 16,
+      // high: 32, xhigh: 64 untuk task kompleks ~50 langkah, max: 128, ultra: 256).
+      const maxPlanSteps = resolvePlanStepBudget({
+        config,
+        userInput,
+        options: opts
+      })
       // ---- Trajectory lineage Fase 2 (trajLineage.js + scoring.js) ---------
       // Per-session search memory: each scored attempt is appended here and
       // fed back into supervisor.update(). avo only; null otherwise.
+      // Lineage window ikut skala dengan budget langkah (maxAttempts).
       const lineage =
         benchArch === 'avo' && supervisor
-          ? createLineage({ taskId: agenticProcessId, goal: userInput, objectiveKind })
+          ? createLineage({
+              taskId: agenticProcessId,
+              goal: userInput,
+              objectiveKind,
+              maxAttempts: maxPlanSteps
+            })
           : null
-      const recentToolSuccess = [] // sliding window (last 5) for scoring
-      let execSteps = [{ task: 'Menganalisis Konteks...' }]
+      let execSteps =
+        durableTask?.steps?.length > 0
+          ? durableTask.steps.map((s) => ({ task: s.title }))
+          : [{ task: 'Menganalisis Konteks...' }]
+      if (durableTask) {
+        targetPushProcess({
+          id: agenticProcessId,
+          type: 'planning',
+          status: 'active',
+          data: {
+            steps: execSteps,
+            currentStep: durableTask.currentStepIndex || 0,
+            reasoning: `Melanjutkan durable task: ${durableTask.title}`
+          }
+        })
+      }
 
       while (!isDone) {
         // Cek Abort Signal
@@ -696,21 +743,21 @@ export const useMarkPlan = ({
 
         // Stopping policy eksplisit (bukan cuma guard keras): model diberi tahu
         // sisa budget agar konvergen — jawab final / rangkum, bukan eksplorasi baru.
-        const stepsLeft = MAX_PLAN_STEPS - stepCount
+        const stepsLeft = maxPlanSteps - stepCount
         if (stepsLeft <= 7 && stepsLeft > 0 && !isDone) {
           loopMessages.push({
             role: 'user',
-            content: `[SYSTEM / BUDGET] Sisa ${stepsLeft} langkah dari ${MAX_PLAN_STEPS}. WAJIB konvergen: selesaikan jawaban final ("answer", "is_done": true) atau satu aksi penutup. DILARANG memulai eksplorasi/tool baru yang butuh >1 langkah.`
+            content: `[SYSTEM / BUDGET] Sisa ${stepsLeft} langkah dari ${maxPlanSteps}. WAJIB konvergen: selesaikan jawaban final ("answer", "is_done": true) atau satu aksi penutup. DILARANG memulai eksplorasi/tool baru yang butuh >1 langkah.`
           })
         }
 
-        // Guard batas langkah keamanan: bila MAX_PLAN_STEPS tercapai, isi keputusan
+        // Guard batas langkah keamanan: bila maxPlanSteps tercapai, isi keputusan
         // paksa-selesai di sini sehingga pemanggilan AI dilewati dan finish-path
         // normal (arsip, TTS, notifikasi) tetap berjalan.
         let decision = null
-        if (stepCount >= MAX_PLAN_STEPS) {
+        if (stepCount >= maxPlanSteps) {
           console.warn(
-            `[useMarkPlan] Batas ${MAX_PLAN_STEPS} langkah tercapai. Eksekusi dipaksa berhenti.`
+            `[useMarkPlan] Batas ${maxPlanSteps} langkah tercapai. Eksekusi dipaksa berhenti.`
           )
           decision = {
             thought: 'Batas langkah tercapai...',
@@ -1708,7 +1755,7 @@ export const useMarkPlan = ({
                     query,
                     success: toolSuccess,
                     verificationState: lastVerification,
-                    stepsLeft: MAX_PLAN_STEPS - stepCount,
+                    stepsLeft: maxPlanSteps - stepCount,
                     verifyGateActive: pendingVerifyObservation != null,
                     strategy: entry.strategy,
                     verificationRank,
@@ -1722,7 +1769,7 @@ export const useMarkPlan = ({
                     query,
                     success: toolSuccess,
                     verificationState: lastVerification,
-                    stepsLeft: MAX_PLAN_STEPS - stepCount,
+                    stepsLeft: maxPlanSteps - stepCount,
                     verifyGateActive: pendingVerifyObservation != null
                   })
                 }
@@ -1731,7 +1778,7 @@ export const useMarkPlan = ({
                   try {
                     trajectoryLogStep({
                       step: stepCount,
-                      total: MAX_PLAN_STEPS,
+                      total: maxPlanSteps,
                       description: `supervisor:${supResult.directive}`,
                       status: 'supervisor-directive'
                     })

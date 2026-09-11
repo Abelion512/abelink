@@ -2,8 +2,9 @@
 // Caller builds targetKey via normalizeAttemptKey(tool, query) from trajectorySupervisor.js.
 export const MAX_LINEAGE_ATTEMPTS = 25
 
-export function createLineage({ taskId = '', goal = '', objectiveKind = 'general' } = {}) {
-  return { taskId, goal, objectiveKind, attempts: [], bestAttemptId: null, failedKeys: new Set(), preferredKeys: [], stagnation: 0 }
+export function createLineage({ taskId = '', goal = '', objectiveKind = 'general', maxAttempts = MAX_LINEAGE_ATTEMPTS } = {}) {
+  const cap = Number.isFinite(maxAttempts) && maxAttempts > 0 ? Math.floor(maxAttempts) : MAX_LINEAGE_ATTEMPTS
+  return { taskId, goal, objectiveKind, maxAttempts: cap, attempts: [], bestAttemptId: null, failedKeys: new Set(), preferredKeys: [], stagnation: 0 }
 }
 
 export function appendAttempt(lineage, attempt = {}) {
@@ -18,8 +19,9 @@ export function appendAttempt(lineage, attempt = {}) {
     ts: attempt.ts ?? Date.now()
   }
   lineage.attempts.push(entry)
-  if (lineage.attempts.length > MAX_LINEAGE_ATTEMPTS) {
-    lineage.attempts = lineage.attempts.slice(-MAX_LINEAGE_ATTEMPTS)
+  const limit = Number.isFinite(lineage?.maxAttempts) && lineage.maxAttempts > 0 ? lineage.maxAttempts : MAX_LINEAGE_ATTEMPTS
+  if (lineage.attempts.length > limit) {
+    lineage.attempts = lineage.attempts.slice(-limit)
   }
   if (entry.success && entry.targetKey && !lineage.preferredKeys.includes(entry.targetKey)) {
     lineage.preferredKeys.push(entry.targetKey)
