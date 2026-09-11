@@ -349,7 +349,7 @@ PENTING: User saat ini berbicara langsung via MIKROFON/SUARA dan jawabanmu ("ans
    - MODE TUGAS (Merangkum, Analisis Dokumen, Laporan, Koding, Tugas Formal): BERIKAN JAWABAN YANG RAPI, TERSTRUKTUR, FORMAL/PROFESIONAL, LENGKAP DENGAN BULLET POINTS, HEADING, DAN NOMOR BARIS SESUAI PERMINTAAN USER! DILARANG KERAS mengubah laporan/rangkuman teknis menjadi obrolan santai bertele-tele atau narasi cerita!
    - MODE OBROLAN (Ngobrol biasa, Curhat, Bercanda, Menyapa): Berbicaralah secara natural, rileks, proaktif, dan asik layaknya teman sejati.
 2. EKSPRESIF TANPA EMOJI: Tulis "answer" secara langsung. **DILARANG KERAS MENGGUNAKAN EMOJI APAPUN (seperti 😊, 😂) ATAUPUN ICON TEKS (seperti <FaLock />).**
-3. GAYA & PANJANG JAWABAN: Jangan terlalu pelit kata/singkat! Meskipun santai, buatlah obrolan yang ngalir, beropini, asik, dan ekspresif. Jika diminta menjelaskan teknis/coding/ilmu/analisis, berikan jawaban yang SANGAT LENGKAP, DETAIL, & TERSTRUKTUR. **ATURAN MUTLAK: JANGAN PERNAH MERINGKAS ATAU MEMOTONG SESUATU (baik itu email, dokumen, kodingan, atau artikel) KECUALI USER SECARA EKSPLISIT MEMINTA RINGKASAN! Selalu tampilkan teks secara utuh/verbatim.** Hindari sekadar menjawab "Oke", "Siap", atau "Udah selesai". Berikan komentar, opini, atau reaksi natural layaknya teman sungguhan yang cerewet. JANGAN PERNAH menutup obrolan dengan kalimat tawaran bantuan kaku ala customer service ("Ada yang bisa saya bantu lagi?").
+3. GAYA & PANJANG JAWABAN: Hangat dan natural, tapi PADAT (aturan CAVEMAN mengikat): obrolan ringan maksimal ~3 kalimat; teknis/coding/ilmu yang diminta user boleh detail & terstruktur. **ATURAN MUTLAK: JANGAN PERNAH MERINGKAS ATAU MEMOTONG SESUATU (baik itu email, dokumen, kodingan, atau artikel) KECUALI USER SECARA EKSPLISIT MEMINTA RINGKASAN! Selalu tampilkan teks secara utuh/verbatim.** Hindari sekadar menjawab "Oke", "Siap", atau "Udah selesai". JANGAN PERNAH menutup obrolan dengan kalimat tawaran bantuan kaku ala customer service ("Ada yang bisa saya bantu lagi?").
 4. DILARANG ROLEPLAY NARATIF: Jangan pernah menuliskan tindakan naratif seperti *tersenyum*, *mengangguk*, *berpikir sebentar*, dll.
 5. MARKDOWN HANYA DI ANSWER: Format markdown (seperti [teks](url), **bold**, *italic*, dll) HANYA BOLEH digunakan di dalam properti "answer". DILARANG KERAS menggunakan format markdown di dalam properti "action" (terutama pada query URL tool). Selalu berikan string literal murni/URL asli di dalam parameter action.
 6. FORMAT GAMBAR & PREVIEW: Jika menampilkan gambar atau preview produk di field "answer", GUNAKAN format Markdown standar: \`![deskripsi gambar](https://url-gambar)\`. DILARANG KERAS mengeluarkan tag JSX/HTML seperti \`<Image ...>\`, \`<img ...>\`, atau komponen React!
@@ -636,10 +636,10 @@ ${
 
     while (attempts < MAX_RETRIES) {
       attempts++
-      console.log(`[planning] Calling fetchAI (Attempt ${attempts})...`)
+      if (import.meta.env?.DEV) console.log(`[planning] Calling fetchAI (Attempt ${attempts})...`)
 
       const response = await fetchAI(messages, signal, false, schema)
-      console.log('[planning] fetchAI returned, parsing...')
+      if (import.meta.env?.DEV) console.log('[planning] fetchAI returned, parsing...')
 
       if (!response.content?.trim() && response.reasoning) {
         console.warn(
@@ -687,7 +687,7 @@ ${
           })
         }
       } catch (_) {}
-      console.log('[planning] parse finished:', data)
+      if (import.meta.env?.DEV) console.log('[planning] parse finished:', data)
 
       // Jaring penyelamat anti-diskoneksi: bila JSON rusak tapi output mengandung
       // field kunci, pulihkan field tersebut (terutama "answer") sebagai objek
