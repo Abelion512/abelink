@@ -131,7 +131,7 @@ Additions:
 - Input per `update()` gains `{ strategy, verificationRank, score, stagnation, bestKey }` (all passed by executor, never fetched).
 - Output gains `{ directive, hintText, nextStrategy, restoreHint }` where `restoreHint` = bestAttempt's tool+target summary when directive is BACKTRACK (executor decides how to re-read/re-navigate; supervisor never executes).
 - Semantic tripwire kept (5+ successes, 6+ attempts, rank<=1, staleRun>=3) and additionally fires BACKTRACK when stagnation>=0.6 and bestAttempt exists.
-- `snapshot()` gains `{ bestAttemptId, stagnation, nextStrategy }` for trajectory UI + bench stepLog.
+- `snapshot()` keeps its exact Fase 1 shape (locked pin `toEqual` at `tests/trajectorySupervisor.test.mjs:211`); Fase 2 state travels via `update()` return only.
 - Wiring: `useMarkPlan.js` (~10 lines: build lineage alongside supervisor.update, append attempt with score, inject `hintText` as single system observation — existing staged-hint slot reused) + `subagentExecutor.js` (same, smaller: sub-agents share lineage shape so main/sub comparisons are apples-to-apples).
 
 ## 8. Real-activity benchmark (Fase 2 C — core anti-gaming design)

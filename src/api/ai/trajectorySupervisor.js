@@ -34,6 +34,10 @@ export const DIRECTIVE = {
   ESCALATE: 'escalate'
 }
 
+// Fase 2 (additive): deterministic next-strategy ranking over the closed
+// strategy set. Pure module, no cycle (strategyLib imports nothing).
+import { rankNextStrategy } from './strategyLib.js'
+
 // Locked thresholds (named exports so tests pin them, not magic numbers).
 export const MODIFY_REPEAT = 3
 export const ABANDON_REPEAT = 5
@@ -132,6 +136,11 @@ export function createTrajectorySupervisor() {
   let lastVerificationRank = 1
   let semanticHintGiven = false
   let lastNewKeyAt = -1 // attempts index of the latest NEW succeeded key
+  // Fase 2 additive state: strategy attempts seen, best-key hint for
+  // backtrack restore, latest stagnation signal from the executor lineage.
+  let attemptedStrategies = []
+  let bestKey = null
+  let lastStagnation = 0
 
   const trailingRepeat = () => {
     if (attempts.length === 0) return { key: null, repeat: 0 }
@@ -169,6 +178,7 @@ export function createTrajectorySupervisor() {
 
   return {
     update(input = {}) {
+      let fallbackNext = 'DIRECT'
       try {
         const {
           tool = '',
@@ -176,41 +186,71 @@ export function createTrajectorySupervisor() {
           success = false,
           verificationState = null,
           stepsLeft = null,
-          verifyGateActive = false
+          verifyGateActive = false,
+          strategy = null,
+          score = null,
+          stagnation = null,
+          bestKey: incomingBest = null
         } = input || {}
 
         record({ tool, query, success, verificationState })
+
+        // Fase 2 additive tracking (no effect on Fase 1 branches below).
+        // `score` is accepted for call-shape compat (executor scores); the
+        // supervisor ranks strategies, it does not rescore attempts.
+        void score
+        if (typeof stagnation === 'number') lastStagnation = stagnation
+        if (typeof strategy === 'string' && !attemptedStrategies.includes(strategy)) attemptedStrategies.push(strategy)
+        if (typeof incomingBest === 'string') bestKey = incomingBest
+
+        // Fase 2 outputs, computed once per call. Fase 1 branch conditions
+        // below are untouched; these fields ride along on every return.
+        const nextStrategy = rankNextStrategy({
+          failedKeys: [...failedStrategies],
+          preferredKeys: successfulStrategies,
+          attemptedStrategies,
+          verificationRank: lastVerificationRank,
+          stagnation: lastStagnation,
+          hasProofTool: /read-file|read-document|run-shell|run-task|browser-read|os-read/i.test(
+            normalizeAttemptKey(tool, query)
+          )
+        }).strategy
+        fallbackNext = nextStrategy
+        const restoreHint = (directive) => (directive === DIRECTIVE.ABANDON && bestKey ? bestKey : null)
 
         // Verification improved toward proven states: strategy works, stay out.
         if (verificationMoved) {
           verificationMoved = false
           if (cooldownLeft > 0) cooldownLeft--
-          return { directive: DIRECTIVE.CONTINUE, hintText: null }
+          return { directive: DIRECTIVE.CONTINUE, hintText: null, nextStrategy, restoreHint: restoreHint(DIRECTIVE.CONTINUE) }
         }
 
         // Cooldown after an injection: record silently, never stack hints.
         if (cooldownLeft > 0) {
           cooldownLeft--
-          return { directive: DIRECTIVE.CONTINUE, hintText: null }
+          return { directive: DIRECTIVE.CONTINUE, hintText: null, nextStrategy, restoreHint: restoreHint(DIRECTIVE.CONTINUE) }
         }
 
         // Budget guard owns convergence: stay silent when steps run thin.
         if (typeof stepsLeft === 'number' && stepsLeft <= BUDGET_SILENCE_STEPS_LEFT) {
-          return { directive: DIRECTIVE.CONTINUE, hintText: null }
+          return { directive: DIRECTIVE.CONTINUE, hintText: null, nextStrategy, restoreHint: restoreHint(DIRECTIVE.CONTINUE) }
         }
 
         // Verify gate owns this turn: defer, don't compete for one slot.
         if (verifyGateActive === true) {
-          return { directive: DIRECTIVE.CONTINUE, hintText: null }
+          return { directive: DIRECTIVE.CONTINUE, hintText: null, nextStrategy, restoreHint: restoreHint(DIRECTIVE.CONTINUE) }
         }
 
         const { key, repeat } = trailingRepeat()
 
         // Hint budget exhausted: hand over to existing guards, silently.
         if (hintsUsed >= MAX_HINTS_PER_TASK) {
+          const directive = repeat >= MODIFY_REPEAT ? DIRECTIVE.ESCALATE : DIRECTIVE.CONTINUE
           return {
-            directive: repeat >= MODIFY_REPEAT ? DIRECTIVE.ESCALATE : DIRECTIVE.CONTINUE,
-            hintText: null
+            directive,
+            hintText: null,
+            nextStrategy,
+            restoreHint: restoreHint(directive)
           }
         }
 
@@ -219,7 +259,7 @@ export function createTrajectorySupervisor() {
           failedStrategies.add(key)
           hintsUsed++
           cooldownLeft = HINT_COOLDOWN_TURNS
-          return { directive: DIRECTIVE.ABANDON, hintText: buildHint(DIRECTIVE.ABANDON, key, repeat) }
+          return { directive: DIRECTIVE.ABANDON, hintText: buildHint(DIRECTIVE.ABANDON, key, repeat), nextStrategy, restoreHint: restoreHint(DIRECTIVE.ABANDON) }
         }
 
         // Modify / retrieve: same key stuck at the no-progress scale.
@@ -229,7 +269,7 @@ export function createTrajectorySupervisor() {
           failedStrategies.add(key) // one directive per key per task (hysteresis)
           hintsUsed++
           cooldownLeft = HINT_COOLDOWN_TURNS
-          return { directive, hintText: buildHint(directive, key, repeat, retrievedKey) }
+          return { directive, hintText: buildHint(directive, key, repeat, retrievedKey), nextStrategy, restoreHint: restoreHint(directive) }
         }
 
         // Semantic tripwire (conservative, once per task): many successful
@@ -251,14 +291,16 @@ export function createTrajectorySupervisor() {
               '[TRAJECTORY HINT] Beberapa tool sukses tapi verifikasi tidak bergerak dan pencarian berputar di tempat. Berhenti mengulang target lama: pilih SATU hipotesis baru yang bisa dibuktikan (read-back, test, atau konfirmasi halaman).'.slice(
                 0,
                 MAX_HINT_CHARS
-              )
+              ),
+            nextStrategy,
+            restoreHint: restoreHint(DIRECTIVE.MODIFY)
           }
         }
 
-        return { directive: DIRECTIVE.CONTINUE, hintText: null }
+        return { directive: DIRECTIVE.CONTINUE, hintText: null, nextStrategy, restoreHint: restoreHint(DIRECTIVE.CONTINUE) }
       } catch {
         // Additive contract: a supervisor fault must never break the loop.
-        return { directive: DIRECTIVE.CONTINUE, hintText: null }
+        return { directive: DIRECTIVE.CONTINUE, hintText: null, nextStrategy: fallbackNext, restoreHint: null }
       }
     },
 
@@ -274,6 +316,9 @@ export function createTrajectorySupervisor() {
       lastVerificationRank = 1
       semanticHintGiven = false
       lastNewKeyAt = -1
+      attemptedStrategies = []
+      bestKey = null
+      lastStagnation = 0
     },
 
     snapshot() {
