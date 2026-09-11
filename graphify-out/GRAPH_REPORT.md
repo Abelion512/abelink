@@ -1,16 +1,16 @@
 # Graph Report - mark-agent-linux  (2026-09-11)
 
 ## Corpus Check
-- 376 files · ~617,303 words
+- 380 files · ~617,810 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2965 nodes · 5999 edges · 170 communities (148 shown, 15 thin omitted)
+- 2972 nodes · 6008 edges · 175 communities (151 shown, 17 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 73 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e54812a7`
+- Built from commit: `400fbbc9`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -20,27 +20,27 @@
 - catalog.mjs
 - os.rs
 - background.js
-- TelegramBot.jsx
+- react
 - cmd_node_bridge.rs
 - release-helper.mjs
 - tauri-bridge.js
-- trajectorySupervisor.js
+- vitest
 - linux-daemon.py
 - cmd_misc.rs
 - pc-agent.js
-- vitest
-- react
+- toolDispatcher.js
+- MarkHome.jsx
 - package.json
 - dependencies
 - InputBar.jsx
-- useMarkPlan.js
+- subagentExecutor.js
 - Abelink Cognitive Runtime — Fase 2 Design (A+C: Trajectory Search + Real-Activity Bench)
 - oramaStore.js
 - trajectory.js
 - Configuration.jsx
 - approval_policy.rs
 - mission_scope.rs
-- browser.mjs
+- server.mjs
 - mark-update.mjs
 - vectorMemory.js
 - mark-eval.mjs
@@ -48,7 +48,7 @@
 - mark-adapter.mjs
 - scripts
 - ai-bridge.js
-- useMarkAgent.js
+- getAllConfig
 - db.js
 - googleTools.mjs
 - effort-fixtures.mjs
@@ -56,9 +56,9 @@
 - manifest.json
 - watchdog.rs
 - BudgetSnapshot
-- server.mjs
+- sttRouter.js
 - agentDecision.js
-- taskStore.js
+- useMarkPlan.js
 - selfModel.js
 - bot.rs
 - run.mjs
@@ -71,8 +71,8 @@
 - stress-watermark-v2.harness.mjs
 - devDependencies
 - Freebuff conversation
-- window-tracker.js
-- core.js
+- services.mjs
+- effortEstimator.test.js
 - perf-gate.mjs
 - browserTools.mjs
 - Mark-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification
@@ -91,7 +91,7 @@
 - File Structure
 - stress-watermark.harness.mjs
 - Parity Matrix (A-F Status Legend)
-- SubagentIntercom.jsx
+- ChatStudio.jsx
 - Session Log: Mark-Linux Effort System Integration
 - Workflow
 - MARK Smart Orchestrator Architecture Design Document
@@ -109,19 +109,19 @@
 - build-manifest.mjs
 - MARK Smart Orchestrator Architecture Design Document
 - Session 2026-09-11 — Vision-bloat fix, capabilities overhaul, modularisasi agentic (F0–F5)
-- fetchAI
+- planning.js
 - Evaluasi Arah Arsitektur Masa Depan (RFC)
 - rules
 - mark-audit.js
 - Mark Linux — Roadmap & Arah Pengembangan
 - default.json
-- selfHealingEngine.js
+- MemoryVisualizer.jsx
 - dev-sh.test.bash
 - mark-bridge-host.mjs
 - popup.js
 - bump-version.mjs
 - linux-action.sh
-- toolDispatcher.js
+- ApprovalContext.jsx
 - gemini-web.js
 - release-scenarios.test.mjs
 - pre-commit
@@ -133,7 +133,7 @@
 - abelink
 - driverTour.js
 - Architecture Learnings — dari Anthropic Research ke MARK
-- ConfigSidebar.jsx
+- useVAD.js
 - Agent Contribution Guidelines (Abelink OS)
 - resolveTrustedBroadcastTargets
 - create_music_window
@@ -148,7 +148,7 @@
 - Migration Gaps — Electron → Tauri (fase A/B)
 - MarkBench — Harness Evaluasi Mark Linux
 - Abelink: Autonomous AI OS Companion (Linux Edition)
-- objectiveVerifier.js
+- semver-lite.mjs
 - MARK Linux — Architecture (agent-oriented)
 - Fitur Inti
 - App.jsx
@@ -168,21 +168,26 @@
 - Assistant
 - generateVector
 - os.mjs
-- loadVectorPolicy
+- useMemoryGroomer.js
 - capabilities.md
 - Knowledge.jsx
 - bench-gate.mjs
 - media.mjs
 - Session Log — PR2: Long-Horizon Fase A (Offline)
-- Guidebook.jsx
-- messageTags.js
+- RelationalGrowth.jsx
+- LiteModeContext.jsx
 - errorGuard.js
 - run-bench-sweep.sh
+- builtinPlugins.js
+- browserReadFetch
+- overrides
+- rules/graphify.md
+- workflows/graphify.md
 
 ## God Nodes (most connected - your core abstractions)
 1. `Freebuff conversation` - 131 edges
 2. `Mark-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification` - 73 edges
-3. `react` - 69 edges
+3. `react` - 70 edges
 4. `vitest` - 59 edges
 5. `useMarkPlan()` - 49 edges
 6. `getAllConfig()` - 29 edges
@@ -206,7 +211,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (170 total, 15 thin omitted)
+## Communities (175 total, 17 thin omitted)
 
 ### Community 0 - "bench-contract.test.mjs"
 Cohesion: 0.07
@@ -228,9 +233,9 @@ Nodes (40): Command, awareness_clear_buffer(), awareness_get_buffer(), get_activ
 Cohesion: 0.12
 Nodes (39): act(), actionFn(), activeGroups, apiGet(), apiPost(), base(), closeActiveGroupTabs(), closeGroupTabs() (+31 more)
 
-### Community 5 - "TelegramBot.jsx"
-Cohesion: 0.09
-Nodes (21): react-markdown, react-syntax-highlighter, rehype-external-links, remark-gfm, getMainThread(), saveConfiguration(), TelegramBot, CodeBlock (+13 more)
+### Community 5 - "react"
+Cohesion: 0.11
+Nodes (20): lucide-react, react, react-markdown, react-syntax-highlighter, rehype-external-links, remark-gfm, saveConfiguration(), TelegramBot (+12 more)
 
 ### Community 6 - "cmd_node_bridge.rs"
 Cohesion: 0.10
@@ -244,9 +249,9 @@ Nodes (35): buildChanges(), buildPRBody(), CHANGELOG_PATH, classifyChange(), com
 Cohesion: 0.08
 Nodes (28): friendlyAiFetchError(), TRANSLATIONS, append(), enabled(), harnessEnabled, logBenchmarkResource(), logBenchmarkResult(), logBenchmarkRun() (+20 more)
 
-### Community 9 - "trajectorySupervisor.js"
-Cohesion: 0.09
-Nodes (22): rankNextStrategy(), STRATEGIES, ABANDON_REPEAT, BUDGET_SILENCE_STEPS_LEFT, buildHint(), DIRECTIVE, FAIL_STATES, HINT_COOLDOWN_TURNS (+14 more)
+### Community 9 - "vitest"
+Cohesion: 0.07
+Nodes (34): vitest, DEFAULT_PLAN_STEPS, rankNextStrategy(), STRATEGIES, ABANDON_REPEAT, BUDGET_SILENCE_STEPS_LEFT, buildHint(), createTrajectorySupervisor() (+26 more)
 
 ### Community 10 - "linux-daemon.py"
 Cohesion: 0.12
@@ -260,45 +265,45 @@ Nodes (33): b64_encode(), copy_dir_recursive(), is_private_host(), misc_ensure_e
 Cohesion: 0.06
 Nodes (70): execFilePromise, getGitDiff(), getGitStatus(), gitCommit(), gitRevert(), runGit(), getNativeToolsDefinition(), askUserPC() (+62 more)
 
-### Community 13 - "vitest"
-Cohesion: 0.09
-Nodes (24): vitest, BUILTIN_PLUGIN_DEFAULTS, getBuiltinPluginsPrompt(), getCavemanReportRules(), resolvePluginToggles(), extractLenientField(), findSuspiciousName(), getNextAction() (+16 more)
+### Community 13 - "toolDispatcher.js"
+Cohesion: 0.12
+Nodes (19): AGENT_CANDIDATES, buildCodingCommand(), detectInstalledAgents(), core_tools, browserExtensionStatusLine(), group_tools(), GROUP_TOOLS_DEFINITION, group_tools_flat (+11 more)
 
-### Community 14 - "react"
-Cohesion: 0.10
-Nodes (18): react, react-router-dom, three, BrowserPreviewWidget(), DraggableHoloCard(), FloatingMenu(), JarvisOrb(), LiteBadge() (+10 more)
+### Community 14 - "MarkHome.jsx"
+Cohesion: 0.12
+Nodes (14): BrowserPreviewWidget(), DraggableHoloCard(), FloatingMenu(), formatHistoryContent(), HistoryDrawer(), JarvisOrb(), CubeVisualizer(), ProcessPanel() (+6 more)
 
 ### Community 15 - "package.json"
-Cohesion: 0.06
-Nodes (32): author, description, homepage, name, overrides, adm-zip, dompurify, tar (+24 more)
+Cohesion: 0.07
+Nodes (28): author, description, homepage, name, type, version, daisyui, dexie (+20 more)
 
 ### Community 16 - "dependencies"
 Cohesion: 0.06
 Nodes (32): dependencies, axios, dexie, dexie-export-import, driver.js, duck-duck-scrape, @fontsource/poppins, googleapis (+24 more)
 
 ### Community 17 - "InputBar.jsx"
-Cohesion: 0.12
-Nodes (23): @monaco-editor/react, react-dom, getCachedSkills(), invalidateSkillsCache(), wireInvalidation(), BUILTIN_SKILLS, CapabilitiesHub(), PLANNED_MCP_CONNECTORS (+15 more)
+Cohesion: 0.15
+Nodes (19): react-dom, getCachedSkills(), invalidateSkillsCache(), wireInvalidation(), ConfirmModal(), DropAnywhere(), formatFileSize(), getFileIcon() (+11 more)
 
-### Community 18 - "useMarkPlan.js"
-Cohesion: 0.17
-Nodes (22): currentBenchArch(), buildReplanObservation(), gateCompletion(), DEFAULT_PLAN_STEPS, clamp01(), RANK_OF, scoreAttempt(), createTrajectorySupervisor() (+14 more)
+### Community 18 - "subagentExecutor.js"
+Cohesion: 0.11
+Nodes (29): currentBenchArch(), aggregateCriteria(), buildReplanObservation(), classifyObjectiveKind(), deriveSuccessCriteria(), evaluateEvidence(), findLastIdx(), gateCompletion() (+21 more)
 
 ### Community 19 - "Abelink Cognitive Runtime — Fase 2 Design (A+C: Trajectory Search + Real-Activity Bench)"
 Cohesion: 0.11
 Nodes (18): 10. Harness & rollout, 11. Rejected alternatives, 1. Problem & goal, 2. Constraints (locked from brainstorm), 3. Architecture, 4. Trajectory search memory (`trajLineage.js`), 5. Scoring function (`scoring.js`), 6. Strategy library (`strategyLib.js`) (+10 more)
 
 ### Community 20 - "oramaStore.js"
-Cohesion: 0.18
-Nodes (16): ARCHIVE_SCHEMA, deleteArchiveFromOrama(), deleteMemoryFromOrama(), DOCUMENT_SCHEMA, ensureArchiveIndex(), ensureIndices(), ensureMemoryIndex(), hydrateFromDexie() (+8 more)
+Cohesion: 0.16
+Nodes (18): ARCHIVE_SCHEMA, deleteArchiveFromOrama(), deleteMemoryFromOrama(), deleteTurnPairsBySessionFromOrama(), DOCUMENT_SCHEMA, ensureArchiveIndex(), ensureIndices(), ensureMemoryIndex() (+10 more)
 
 ### Community 21 - "trajectory.js"
-Cohesion: 0.16
-Nodes (28): _buffer, clearTrajectoryBuffer(), getTrajectoryBuffer(), _listeners, loadTrajectoryBuffer(), logReasoning(), logStep(), logSubAgentSpawn() (+20 more)
+Cohesion: 0.17
+Nodes (27): _buffer, clearTrajectoryBuffer(), getTrajectoryBuffer(), _listeners, loadTrajectoryBuffer(), logReasoning(), logStep(), logSubAgentSpawn() (+19 more)
 
 ### Community 22 - "Configuration.jsx"
-Cohesion: 0.09
-Nodes (23): getAllConfig(), pcmToWav(), transcribeAudioGroq(), initWorker(), loadWhisper(), requestResolvers, transcribeAudioLocal(), getHardwareSttSupport() (+15 more)
+Cohesion: 0.08
+Nodes (16): react-router-dom, Configuration, ConfigSidebar(), isItDomain(), IT_KEYWORDS, sections, sectionsLogged, DataControlsSection() (+8 more)
 
 ### Community 23 - "approval_policy.rs"
 Cohesion: 0.13
@@ -308,25 +313,25 @@ Nodes (24): approval_policy_get(), approval_policy_grant_session(), approval_pol
 Cohesion: 0.17
 Nodes (28): canonicalize_for_check(), check_canonical(), check_path(), check_tool(), clear_restores_open(), clear_scope(), dir_prefix_and_symlink_escape(), empty_tools_deny_all() (+20 more)
 
-### Community 25 - "browser.mjs"
-Cohesion: 0.20
-Nodes (15): ensureBridge(), finishSessionTask(), run(), shutdownBrowserChannels(), sleep(), BROWSER_BRIDGE, dispatchCommand(), ensureSession() (+7 more)
+### Community 25 - "server.mjs"
+Cohesion: 0.16
+Nodes (22): ensureBridge(), finishSessionTask(), run(), shutdownBrowserChannels(), sleep(), BROWSER_BRIDGE, getSession(), getSessionGroups() (+14 more)
 
 ### Community 26 - "mark-update.mjs"
 Cohesion: 0.12
 Nodes (27): banner(), bumpVersion(), DO_CHANGELOG, DO_LIST, DO_REBASE, DO_TAG, DO_WHATS_NEW, execLinear() (+19 more)
 
 ### Community 27 - "vectorMemory.js"
-Cohesion: 0.16
-Nodes (14): cosineSimilarity(), emitLiteAuto(), fnv1a(), generateStorableVector(), getDirectExtractor(), getExtractor(), getWorker(), hashEmbedding() (+6 more)
+Cohesion: 0.15
+Nodes (23): loadVectorPolicy(), rowModelCompatible(), searchArchives(), searchDocuments(), searchMemoriesInOrama(), searchTurnPairsInOrama(), cosineSimilarity(), emitLiteAuto() (+15 more)
 
 ### Community 28 - "mark-eval.mjs"
 Cohesion: 0.21
 Nodes (25): aggregateMarkEval(), countToolCalls(), ERROR_OBSERVATION_RE, evalEfficiency(), evalHumanInterventionRate(), evalMemory(), evalObjectiveCompletion(), evalPlanning() (+17 more)
 
 ### Community 29 - "registry.mjs"
-Cohesion: 0.13
-Nodes (19): ytmusic-api, getAi, getNt, getManager, lazyManager(), getYtm, getGsvc, getTg (+11 more)
+Cohesion: 0.14
+Nodes (19): ytmusic-api, getAi, getNt, getManager, lazyManager(), getYtm, getTg, latestConfig (+11 more)
 
 ### Community 30 - "mark-adapter.mjs"
 Cohesion: 0.11
@@ -340,13 +345,13 @@ Nodes (26): scripts, app, bench:quick, bench:save, benchmark:adapter, benchmark:
 Cohesion: 0.23
 Nodes (12): jsonrepair, activeAbortControllers, cleanAndParse(), createLMStudioOfflineError(), fetchAI(), globalConfig, isLMStudioOfflineError(), listCustomModels() (+4 more)
 
-### Community 33 - "useMarkAgent.js"
-Cohesion: 0.11
-Nodes (25): getBestMusicMatch(), getYoutubeSummary(), normMusic(), QUERY_NOISE, queryTokens(), trustworthyTopHit(), VERSION_KEYWORDS, formatForTelegram() (+17 more)
+### Community 33 - "getAllConfig"
+Cohesion: 0.12
+Nodes (22): getBestMusicMatch(), getYoutubeSummary(), normMusic(), QUERY_NOISE, queryTokens(), trustworthyTopHit(), VERSION_KEYWORDS, cleanTtsText() (+14 more)
 
 ### Community 34 - "db.js"
-Cohesion: 0.07
-Nodes (40): react-force-graph-2d, buildGroomerPrompt(), groomerSchema, parseGroomerResponse(), runBatchConsolidation(), DEFAULT_TRAITS, deleteChatArchive(), deleteMemory() (+32 more)
+Cohesion: 0.15
+Nodes (10): DEFAULT_TRAITS, getAppConfig(), getSession(), setAppConfig(), VALID_TYPES, applyProfile(), detectHardwareProfile(), getActiveProfile() (+2 more)
 
 ### Community 35 - "googleTools.mjs"
 Cohesion: 0.14
@@ -357,8 +362,8 @@ Cohesion: 0.19
 Nodes (20): baseResult(), BudgetExhausted, check(), finish(), LEVEL_BY_VALUE, parseLevel(), readAttemptCount(), runTask() (+12 more)
 
 ### Community 37 - "cmd_fs.rs"
-Cohesion: 0.30
-Nodes (22): Into, ensure_workspace(), err(), fs_delete_file(), fs_detect_legacy_profiles(), fs_grep_search(), fs_import_pick_and_read(), fs_list_dir() (+14 more)
+Cohesion: 0.20
+Nodes (27): Into, ensure_workspace(), err(), fs_delete_file(), fs_detect_legacy_profiles(), fs_grep_search(), fs_import_pick_and_read(), fs_list_dir() (+19 more)
 
 ### Community 38 - "manifest.json"
 Cohesion: 0.09
@@ -368,21 +373,21 @@ Nodes (21): action, default_icon, default_popup, default_title, background, serv
 Cohesion: 0.18
 Nodes (15): Instant, Breach, destructive_cap_fires_once_then_latches(), hard_rate_wins_and_self_heals(), normal_use_never_trips(), record_action(), FnOnce, Option (+7 more)
 
-### Community 41 - "server.mjs"
-Cohesion: 0.31
-Nodes (14): getSessionGroups(), groupSession(), handshake(), now(), resolveCommand(), takeNext(), tokenOk(), checkHost() (+6 more)
+### Community 41 - "sttRouter.js"
+Cohesion: 0.19
+Nodes (14): dexie-export-import, openai, pcmToWav(), transcribeAudioGroq(), initWorker(), loadWhisper(), requestResolvers, transcribeAudioLocal() (+6 more)
 
 ### Community 42 - "agentDecision.js"
 Cohesion: 0.22
 Nodes (17): classifyMainDecision(), classifySubagentAnswer(), explicitState(), hasActionShape(), INTENT, isBlockedText(), isExplicitSelfTerminate(), isQuestionText() (+9 more)
 
-### Community 43 - "taskStore.js"
-Cohesion: 0.17
-Nodes (23): db, buildDurableStepCheckpoint(), assertStepStatus(), assertTaskStatus(), cancelAgentTask(), checkpointAgentTaskStep(), createAgentTask(), getAgentTask() (+15 more)
+### Community 43 - "useMarkPlan.js"
+Cohesion: 0.12
+Nodes (35): createSelfRepairMission(), getErrorSignature(), isRepairAllowed(), MAX_REPAIR_ATTEMPTS, recordRepairAttempt(), REPAIR_COOLDOWN_MS, repairHistory, db (+27 more)
 
 ### Community 44 - "selfModel.js"
-Cohesion: 0.16
-Nodes (15): describeLevel(), getPersonaPrompt(), getTraitContext(), APP_IDENTITY, getSelfIdentityBlock(), BROWSER_ENV, DESIGN, ERROR_HANDLING (+7 more)
+Cohesion: 0.15
+Nodes (14): describeLevel(), getTraitContext(), APP_IDENTITY, getSelfIdentityBlock(), BROWSER_ENV, DESIGN, ERROR_HANDLING, getSelfModelBlock() (+6 more)
 
 ### Community 45 - "bot.rs"
 Cohesion: 0.30
@@ -393,16 +398,16 @@ Cohesion: 0.26
 Nodes (15): normalizeEffort(), aggregateRuns(), avg(), buildReportShell(), compareReports(), detectCheat(), main(), parseArgs() (+7 more)
 
 ### Community 47 - "plugin-loader.js"
-Cohesion: 0.19
-Nodes (16): getPl, execFilePromise, getPluginsDir(), isValidNpmDependency(), loadedPlugins, loadPlugins(), openInFileManager(), pluginCreate() (+8 more)
+Cohesion: 0.20
+Nodes (15): execFilePromise, getPluginsDir(), isValidNpmDependency(), loadedPlugins, loadPlugins(), openInFileManager(), pluginCreate(), pluginDelete() (+7 more)
 
 ### Community 48 - "tauri.conf.json"
 Cohesion: 0.11
 Nodes (18): app, security, windows, build, beforeBuildCommand, beforeDevCommand, devUrl, frontendDist (+10 more)
 
 ### Community 49 - "bridge-core.mjs"
-Cohesion: 0.11
-Nodes (29): axios, htmlparser2, browserConfig, deriveGroupName(), dropSession(), extractUrl(), getBrowserConfig(), GROUP_COLORS (+21 more)
+Cohesion: 0.13
+Nodes (33): browserConfig, deriveGroupName(), dispatchCommand(), dropSession(), ensureSession(), getBrowserConfig(), GROUP_COLORS, handshake() (+25 more)
 
 ### Community 50 - "smoke.mjs"
 Cohesion: 0.10
@@ -428,12 +433,12 @@ Nodes (16): devDependencies, daisyui, eslint, eslint-plugin-react, eslint-plugin
 Cohesion: 0.02
 Nodes (127): 10. Risks to avoid, 11. Summary, 1. Perbandingan Arsitektur: Bagaimana "Model Kecil" Menjadi Cerdas, 1. Principles worth adopting from your brief, 1. What “full automation” actually requires, 2. Desain Arsitektur "Smart Orchestrator" untuk Model Lokal, 2. Mapping to MARK’s current architecture, 2. Reference architecture (+119 more)
 
-### Community 56 - "window-tracker.js"
-Cohesion: 0.25
-Nodes (7): getTracker, activeWindow(), buffer, getSystemIdleSeconds(), pushToBuffer(), run(), startTracking()
+### Community 56 - "services.mjs"
+Cohesion: 0.18
+Nodes (10): getGsvc, getPl, getTracker, getWs, activeWindow(), buffer, getSystemIdleSeconds(), pushToBuffer() (+2 more)
 
-### Community 57 - "core.js"
-Cohesion: 0.25
+### Community 57 - "effortEstimator.test.js"
+Cohesion: 0.24
 Nodes (14): EFFORT_LEVELS, EFFORT_VALUES, estimateEffort(), resolveEffortLevel(), SIGNALS, SYSTEM_DEFAULT_EFFORT, SYSTEM_DEFAULT_EFFORT_sync, AUTO_MAX (+6 more)
 
 ### Community 58 - "perf-gate.mjs"
@@ -441,8 +446,8 @@ Cohesion: 0.17
 Nodes (7): BASELINE_PATH, median(), results, ROOT, runWorkload(), saveMode, WORKLOADS
 
 ### Community 59 - "browserTools.mjs"
-Cohesion: 0.18
-Nodes (20): closeBrowser(), downloadFile(), executeAction(), executeScript(), extractData(), getOrCreateBrowser(), getSession(), navigateTo() (+12 more)
+Cohesion: 0.20
+Nodes (18): closeBrowser(), downloadFile(), executeAction(), executeScript(), extractData(), getOrCreateBrowser(), getSession(), navigateTo() (+10 more)
 
 ### Community 60 - "Mark-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification"
 Cohesion: 0.03
@@ -472,10 +477,6 @@ Nodes (12): abortAllFetches(), ensureTrustedAdmin(), getConnectionStatus(), reso
 Cohesion: 0.30
 Nodes (9): checkForUpdate(), fetchReleases(), getCache(), getChannel(), initUpdateChecker(), isNewer(), maybeNotify(), selectChannelRelease() (+1 more)
 
-### Community 68 - "skills.mjs"
-Cohesion: 0.20
-Nodes (3): emitSkillsUpdated(), SKILLS_DIR, emit()
-
 ### Community 69 - "deepeval-runner.mjs"
 Cohesion: 0.50
 Nodes (3): NOTE: metrics require a DeepEval model/API key at runtime; without one this, runAllWithDeepEval(), runWithDeepEval()
@@ -489,8 +490,8 @@ Cohesion: 0.33
 Nodes (9): checkTaintGate(), isStateChangingTool(), isTaintingTool(), isTurnTainted(), markTurnTainted(), resetTurnTaint(), setTurnId(), STATE_CHANGING_TOOLS (+1 more)
 
 ### Community 72 - "workspace-rag.js"
-Cohesion: 0.24
-Nodes (13): getWs, chunkFileContent(), CODE_EXTENSIONS, ensureMarkWorkspace(), getFileHash(), getWorkspaceDir(), IGNORE_DIRS, indexWorkspace() (+5 more)
+Cohesion: 0.27
+Nodes (12): chunkFileContent(), CODE_EXTENSIONS, ensureMarkWorkspace(), getFileHash(), getWorkspaceDir(), IGNORE_DIRS, indexWorkspace(), scanDir() (+4 more)
 
 ### Community 73 - "File Structure"
 Cohesion: 0.15
@@ -504,9 +505,9 @@ Nodes (5): attackerKeys, GENUINE, genuineSig, { privateKey, publicKey }, NOTE: N
 Cohesion: 0.11
 Nodes (18): Changes Implemented (from audit), Confirmed Classification Summary (Canonical), Future Improvements (Optional), Known Platform Limitations, MARK Linux: Electron → Tauri Parity Audit, Must Document, Must Fix Before Linux Release, Parity Matrix (A-F Status Legend) (+10 more)
 
-### Community 76 - "SubagentIntercom.jsx"
-Cohesion: 0.23
-Nodes (17): lucide-react, createSession(), deleteSession(), getAllSessions(), getChatData(), renameSession(), saveSession(), setSessionWorkspace() (+9 more)
+### Community 76 - "ChatStudio.jsx"
+Cohesion: 0.25
+Nodes (15): @monaco-editor/react, createSession(), deleteSession(), getAllSessions(), getChatData(), renameSession(), saveSession(), setSessionWorkspace() (+7 more)
 
 ### Community 77 - "Session Log: Mark-Linux Effort System Integration"
 Cohesion: 0.13
@@ -545,8 +546,8 @@ Cohesion: 0.29
 Nodes (6): analyze(), AUDIT, now, pctl(), rows, WINDOW_DAYS
 
 ### Community 87 - "wallet.js"
-Cohesion: 0.20
-Nodes (19): dexie, BUDGET_POLICIES, checkModelBudget(), DEFAULT_POLICY, estimateCost(), getModelBudgetStatus(), setAllocationWithPricing(), addLedgerEntry() (+11 more)
+Cohesion: 0.21
+Nodes (18): BUDGET_POLICIES, checkModelBudget(), DEFAULT_POLICY, estimateCost(), getModelBudgetStatus(), setAllocationWithPricing(), addLedgerEntry(), getBalance() (+10 more)
 
 ### Community 88 - "tools_run_shell"
 Cohesion: 0.43
@@ -572,9 +573,9 @@ Nodes (14): 10. Observability and Benchmarking, 11. Mapping to MARK, 12. Suggest
 Cohesion: 0.22
 Nodes (8): Agent Learnings, Callback, File Invariants, Files Modified, Ringkasan, Session 2026-09-11 — Vision-bloat fix, capabilities overhaul, modularisasi agentic (F0–F5), Temuan dan Fix, Verification Checklist
 
-### Community 94 - "fetchAI"
-Cohesion: 0.12
-Nodes (29): formatAwarenessContent(), getAwarenessResponse(), buildOptimizedChatSession(), compactCodeBlocks(), IMAGE_PLACEHOLDER, stripDataUrls(), stripImageContent(), cleanAndParse() (+21 more)
+### Community 94 - "planning.js"
+Cohesion: 0.10
+Nodes (32): formatAwarenessContent(), getAwarenessResponse(), buildOptimizedChatSession(), compactCodeBlocks(), IMAGE_PLACEHOLDER, stripDataUrls(), stripImageContent(), cleanAndParse() (+24 more)
 
 ### Community 95 - "Evaluasi Arah Arsitektur Masa Depan (RFC)"
 Cohesion: 0.15
@@ -596,9 +597,9 @@ Nodes (12): 1. Packaging & Distribusi, 2. Capability & Connector Ecosystem (gene
 Cohesion: 0.33
 Nodes (5): description, identifier, permissions, $schema, windows
 
-### Community 100 - "selfHealingEngine.js"
-Cohesion: 0.17
-Nodes (15): AGENT_CANDIDATES, buildCodingCommand(), detectInstalledAgents(), createSelfRepairMission(), getErrorSignature(), isRepairAllowed(), MAX_REPAIR_ATTEMPTS, recordRepairAttempt() (+7 more)
+### Community 100 - "MemoryVisualizer.jsx"
+Cohesion: 0.18
+Nodes (15): react-force-graph-2d, deleteChatArchive(), getAllChatArchives(), getAllMemory(), getRelevantMemory(), ForceGraph2D, GRAPH_ROOTS, LiteGraphView() (+7 more)
 
 ### Community 101 - "dev-sh.test.bash"
 Cohesion: 0.73
@@ -613,16 +614,16 @@ Cohesion: 0.80
 Nodes (4): autoConnect(), refresh(), refreshTask(), setPill()
 
 ### Community 104 - "bump-version.mjs"
-Cohesion: 0.22
-Nodes (14): detectBumpType(), getCurrentVersion(), git(), main(), REPO, semverBump(), updateTauriConf(), compare() (+6 more)
+Cohesion: 0.39
+Nodes (7): detectBumpType(), getCurrentVersion(), git(), main(), REPO, semverBump(), updateTauriConf()
 
 ### Community 105 - "linux-action.sh"
 Cohesion: 0.70
 Nodes (4): err(), get_flag(), pos(), linux-action.sh script
 
-### Community 106 - "toolDispatcher.js"
-Cohesion: 0.23
-Nodes (11): cleanTtsText(), playVoice(), checkTools(), runMediaTool(), executeSingleTool(), formatRes(), raceWithAbort(), asText() (+3 more)
+### Community 106 - "ApprovalContext.jsx"
+Cohesion: 0.33
+Nodes (9): addAlwaysAllowedPath(), getAlwaysAllowedPaths(), ApprovalContext, ApprovalProvider(), familyOfTool(), getFolderFromPath(), getPathFromQuery(), loadAlwaysTools() (+1 more)
 
 ### Community 107 - "gemini-web.js"
 Cohesion: 0.39
@@ -636,9 +637,9 @@ Nodes (6): driver.js, filterExistingSteps(), isElementVisible(), startDriverTour
 Cohesion: 0.17
 Nodes (11): 1. Patterns and Problems in Emerging Multiagent Systems (Frontier Red Team, 13 Agu 2026), 1a. Low variance / conformity failure, 1b. Epistemic failures (trust calibration), 1c. Coordination via shared forum, 1d. Incompatible goals → turf war, 2. Teaching Claude Why (Alignment, 8 Mei 2026), 3. How Claude Code is Used in Practice (Economics, 16 Jun 2026), 4. A global workspace in language models (Interpretability, 6 Jul 2026) (+3 more)
 
-### Community 124 - "ConfigSidebar.jsx"
-Cohesion: 0.29
-Nodes (5): ConfigSidebar(), isItDomain(), IT_KEYWORDS, sections, sectionsLogged
+### Community 124 - "useVAD.js"
+Cohesion: 0.44
+Nodes (7): micCoolingDown(), noteMicFailure(), resetMicFailure(), resolveMicConstraints(), SpotlightBar(), resampleTo16k(), useVAD()
 
 ### Community 125 - "Agent Contribution Guidelines (Abelink OS)"
 Cohesion: 0.20
@@ -696,9 +697,9 @@ Nodes (7): Komponen, MarkBench — Harness Evaluasi Mark Linux, Menjalankan, Orc
 Cohesion: 0.25
 Nodes (8): Abelink: Autonomous AI OS Companion (Linux Edition), Arsitektur Sistem, Kebutuhan Sistem (Linux Mint / Ubuntu / Debian / Arch), Lisensi & Atribusi, Perintah Pengembangan, Prasyarat & Instalasi, Setup Cepat, Standar Kontribusi & Kebijakan Repositori
 
-### Community 139 - "objectiveVerifier.js"
-Cohesion: 0.27
-Nodes (11): aggregateCriteria(), classifyObjectiveKind(), deriveSuccessCriteria(), evaluateEvidence(), findLastIdx(), KIND_VERIFY_HINT, MAX_VERIFY_REPLANS, normalizeOps() (+3 more)
+### Community 139 - "semver-lite.mjs"
+Cohesion: 0.56
+Nodes (7): compare(), compareIdentifiers(), eq(), gt(), lt(), parse(), valid()
 
 ### Community 140 - "MARK Linux — Architecture (agent-oriented)"
 Cohesion: 0.29
@@ -709,8 +710,8 @@ Cohesion: 0.29
 Nodes (7): 1. Multi-Provider Hybrid AI Routing, 2. Autonomous Multi-Agent (Mission Control), 3. Durable Agent Tasks, 4. Epistemic Grounding & Hybrid Memory System, 5. Desktop Awareness & OS Automation, 6. Voice & Audio Pipeline, Fitur Inti
 
 ### Community 142 - "App.jsx"
-Cohesion: 0.11
-Nodes (22): micCoolingDown(), noteMicFailure(), resetMicFailure(), resolveMicConstraints(), ChatStudio, Knowledge, Subagents, CameraPreview() (+14 more)
+Cohesion: 0.09
+Nodes (17): ChatStudio, Guidebook, Subagents, Trajectory, CameraPreview(), AutomationHUD(), GlobalCameraManager(), WhatNew() (+9 more)
 
 ### Community 143 - "Model Capability Matrix 2026 — untuk MarkBench & prompt MARK"
 Cohesion: 0.33
@@ -753,8 +754,8 @@ Cohesion: 0.50
 Nodes (3): Architecture Benchmark — `evaluation/bench/`, File, Menjalankan
 
 ### Community 154 - "turnPairMigrator.js"
-Cohesion: 0.29
-Nodes (12): sanitizeTurnForStorage(), saveBatchChatTurns(), saveChatTurn(), insertBatchTurnPairsToOrama(), insertTurnPairToOrama(), cleanMessageContent(), extractTurnPairsFromSession(), indexSingleTurn() (+4 more)
+Cohesion: 0.35
+Nodes (10): sanitizeTurnForStorage(), saveBatchChatTurns(), saveChatTurn(), insertBatchTurnPairsToOrama(), insertTurnPairToOrama(), cleanMessageContent(), extractTurnPairsFromSession(), indexSingleTurn() (+2 more)
 
 ### Community 156 - "6. Evaluation model"
 Cohesion: 0.67
@@ -765,20 +766,20 @@ Cohesion: 0.67
 Nodes (3): Assistant, Prompt benchmark yang saya sarankan, Trajectory: dimana dan apa yang harus ada
 
 ### Community 158 - "generateVector"
-Cohesion: 0.27
-Nodes (8): summarizeAndArchive(), insertChatArchive(), insertArchiveToOrama(), searchDocumentWithOrama(), generateVector(), getExtractor(), generateVector(), loadVectorCore()
+Cohesion: 0.24
+Nodes (9): summarizeAndArchive(), insertChatArchive(), insertArchiveToOrama(), searchDocumentWithOrama(), generateVector(), getExtractor(), cosineSimilarity(), generateVector() (+1 more)
 
 ### Community 159 - "os.mjs"
 Cohesion: 0.67
 Nodes (3): COLON_TO_DASH, getTools(), runDash()
 
-### Community 160 - "loadVectorPolicy"
-Cohesion: 0.27
-Nodes (12): deleteTurnPairsBySessionFromOrama(), ensureTurnPairIndex(), findSimilarMemoryClusters(), loadVectorPolicy(), rowModelCompatible(), searchArchives(), searchDocuments(), searchMemoriesInOrama() (+4 more)
+### Community 160 - "useMemoryGroomer.js"
+Cohesion: 0.22
+Nodes (14): buildGroomerPrompt(), groomerSchema, parseGroomerResponse(), runBatchConsolidation(), deleteMemory(), getMemory(), getValidType(), insertMemory() (+6 more)
 
 ### Community 162 - "Knowledge.jsx"
-Cohesion: 0.45
-Nodes (9): bulkInsertDocuments(), deleteDocumentByName(), getAllDocuments(), deleteDocumentFromOrama(), ensureDocumentIndex(), insertDocumentChunksToOrama(), ingestDocument(), splitTextIntoChunks() (+1 more)
+Cohesion: 0.39
+Nodes (10): bulkInsertDocuments(), deleteDocumentByName(), getAllDocuments(), deleteDocumentFromOrama(), ensureDocumentIndex(), insertDocumentChunksToOrama(), ingestDocument(), splitTextIntoChunks() (+2 more)
 
 ### Community 163 - "bench-gate.mjs"
 Cohesion: 0.22
@@ -792,32 +793,48 @@ Nodes (4): youtube-transcript-plus, yt-search, getYt, getYts
 Cohesion: 0.29
 Nodes (6): Agent Learnings, File Invariants, Files Modified, Ringkasan, Session Log — PR2: Long-Horizon Fase A (Offline), Temuan dan Fix
 
-### Community 167 - "messageTags.js"
-Cohesion: 0.53
-Nodes (4): SubagentUnifiedBubble(), CREATOR_TAG, LEAD_AGENT_TAG, stripAgentTags()
+### Community 166 - "RelationalGrowth.jsx"
+Cohesion: 0.36
+Nodes (8): getRelationship(), saveRelationship(), RelationalGrowth, describeLevel(), describePersonality(), RelationalGrowth(), TRAIT_META, TraitRing()
+
+### Community 167 - "LiteModeContext.jsx"
+Cohesion: 0.43
+Nodes (4): LiteBadge(), LiteModeContext, LiteModeProvider(), useLiteMode()
 
 ### Community 168 - "errorGuard.js"
 Cohesion: 0.40
 Nodes (4): errorLog, initErrorGuard(), KNOWN_FIXES, pushLog()
 
+### Community 170 - "builtinPlugins.js"
+Cohesion: 0.67
+Nodes (4): BUILTIN_PLUGIN_DEFAULTS, getBuiltinPluginsPrompt(), getCavemanReportRules(), resolvePluginToggles()
+
+### Community 171 - "browserReadFetch"
+Cohesion: 0.40
+Nodes (5): axios, htmlparser2, extractUrl(), browserReadFetch(), webFetch()
+
+### Community 172 - "overrides"
+Cohesion: 0.50
+Nodes (4): overrides, adm-zip, dompurify, tar
+
 ## Knowledge Gaps
-- **910 isolated node(s):** `@commitlint/config-conventional`, `type-enum`, `subject-case`, `saveMode`, `compareArgIdx` (+905 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1182 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **15 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **912 isolated node(s):** `@commitlint/config-conventional`, `type-enum`, `subject-case`, `saveMode`, `compareArgIdx` (+907 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1186 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **17 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `vitest` connect `vitest` to `bench-contract.test.mjs`, `catalog.mjs`, `tauri-bridge.js`, `trajectorySupervisor.js`, `objectiveVerifier.js`, `pc-agent.js`, `package.json`, `InputBar.jsx`, `useMarkPlan.js`, `oramaStore.js`, `Configuration.jsx`, `browser.mjs`, `vectorMemory.js`, `mark-eval.mjs`, `mark-adapter.mjs`, `ai-bridge.js`, `useMarkAgent.js`, `db.js`, `effort-fixtures.mjs`, `messageTags.js`, `agentDecision.js`, `taskStore.js`, `selfModel.js`, `bridge-core.mjs`, `core.js`, `startTelegramBot`, `taint-gate.mjs`, `native-host.mjs`, `launcher.mjs`, `wallet.js`, `fetchAI`, `selfHealingEngine.js`, `bump-version.mjs`, `gemini-web.js`, `release-scenarios.test.mjs`, `driverTour.js`, `ConfigSidebar.jsx`?**
-  _High betweenness centrality (0.167) - this node is a cross-community bridge._
-- **Why does `react` connect `react` to `useMarkAgent.js`, `db.js`, `Knowledge.jsx`, `TelegramBot.jsx`, `Guidebook.jsx`, `SubagentIntercom.jsx`, `App.jsx`, `package.json`, `InputBar.jsx`, `useMarkPlan.js`, `trajectory.js`, `Configuration.jsx`, `turnPairMigrator.js`, `fetchAI`?**
-  _High betweenness centrality (0.026) - this node is a cross-community bridge._
+- **Why does `vitest` connect `vitest` to `bench-contract.test.mjs`, `catalog.mjs`, `tauri-bridge.js`, `semver-lite.mjs`, `pc-agent.js`, `toolDispatcher.js`, `package.json`, `InputBar.jsx`, `subagentExecutor.js`, `oramaStore.js`, `Configuration.jsx`, `server.mjs`, `vectorMemory.js`, `mark-eval.mjs`, `mark-adapter.mjs`, `ai-bridge.js`, `getAllConfig`, `db.js`, `effort-fixtures.mjs`, `sttRouter.js`, `agentDecision.js`, `builtinPlugins.js`, `useMarkPlan.js`, `selfModel.js`, `bridge-core.mjs`, `effortEstimator.test.js`, `startTelegramBot`, `taint-gate.mjs`, `native-host.mjs`, `launcher.mjs`, `wallet.js`, `planning.js`, `bump-version.mjs`, `gemini-web.js`, `release-scenarios.test.mjs`, `driverTour.js`?**
+  _High betweenness centrality (0.168) - this node is a cross-community bridge._
+- **Why does `react` connect `react` to `useMemoryGroomer.js`, `getAllConfig`, `Knowledge.jsx`, `MemoryVisualizer.jsx`, `RelationalGrowth.jsx`, `LiteModeContext.jsx`, `ApprovalContext.jsx`, `useMarkPlan.js`, `ChatStudio.jsx`, `MarkHome.jsx`, `App.jsx`, `package.json`, `InputBar.jsx`, `subagentExecutor.js`, `trajectory.js`, `Configuration.jsx`, `useVAD.js`, `planning.js`?**
+  _High betweenness centrality (0.025) - this node is a cross-community bridge._
 - **Why does `dependencies` connect `dependencies` to `package.json`?**
   _High betweenness centrality (0.017) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `useMarkPlan()` (e.g. with `deleteMemory()` and `insertMemory()`) actually correct?**
   _`useMarkPlan()` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `@commitlint/config-conventional`, `type-enum`, `subject-case` to the rest of the system?**
-  _910 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _912 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `bench-contract.test.mjs` be split into smaller, more focused modules?**
   _Cohesion score 0.06767109295199183 - nodes in this community are weakly interconnected._
 - **Should `telegram-service.js` be split into smaller, more focused modules?**

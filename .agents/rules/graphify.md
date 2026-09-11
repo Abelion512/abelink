@@ -12,3 +12,5 @@ Rules:
 - If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context
 - After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
+- Merge policy: `graphify-out/graph.json` uses `merge=ours` in `.gitattributes`. After any git merge, simply run `graphify update .` to sync the AST graph without conflict markers.
+
