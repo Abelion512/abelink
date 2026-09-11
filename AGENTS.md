@@ -77,7 +77,7 @@ mark-agent/
 | `api/ai/skillSynthesizer.js`           | Synthesizes learned skills into the `learnedSkills` store.                                                                                                                                                                                                             |
 | `api/ai/trajectorySupervisor.js`       | Tool-governance supervisor (Fase 1): detects repeat/stagnation, emits `directive` + `hintText` staged observations and the `nextStrategy` trace tag; never throws (internal fault degrades to CONTINUE). Consumes Fase 1 fields only; caller scores are ignored.                                                                                  |
 | `api/ai/strategyLib.js`                | Pure adaptive ladder, single entry point `getNextStrategy(current, { repeat, verificationBlocked, hasPriorSuccess })` returning MODIFY / EXPLORE / RETRIEVE / VERIFY / STOP. Replaces the removed Fase 2 closed 6-taxonomy set.                                               |
-| `api/ai/benchArch.js`                  | MarkBench architecture axis from `MARK_BENCH_ARCH`: `vanilla` (model-only baseline), `basic` (thin supervisor, default). `avo` is accepted only as a legacy alias of `basic` so older reports stay parseable.                                                                |
+| `api/ai/benchArch.js`                  | MarkBench architecture axis from `MARK_BENCH_ARCH`: `vanilla` (model-only baseline), `basic` (thin supervisor, default). `avo` was removed 2026-09-12 and is now fail-fast: `--arch avo` exits 2 with the valid list (`evaluation/run.mjs`); legacy report files carrying `"arch": "avo"` stay readable as history and compare as `basic` runs. |
 | `api/ai/taskPlanner.js`                | Step planner for Durable Agent Tasks (Agent Workflows).                                                                                                                                                                                                                |
 | `api/ai/tools.js`                      | YouTube & music AI: transcript summarization (4000-char chunks, 12s cooldown), best-match song ranker.                                                                                                                                                                  |
 | `api/ai/utils.js`                      | Shared utilities: Indonesian locale time info, voice playback helpers.                                                                                                                                                                                                 |
@@ -125,9 +125,11 @@ mark-agent/
 ### Build, Verify & CI
 
 - `scripts/sync-version.mjs`: propagates the version from `src-tauri/tauri.conf.json` into package.json/Cargo.toml (single source of truth for versioning).
-- `scripts/verify.sh`: release gate, must be green before push: vitest -> eslint (0 error) -> crypto watermark harness -> perf gate -> MarkBench quick -> vite build -> cargo check.
+- `scripts/verify.sh`: release gate, must be green before push: vitest -> eslint (0 error) -> crypto watermark harness -> perf gate -> MarkBench quick -> vite build -> cargo check -> clippy (warnings denied).
 - Lint is a hard gate: `bun run lint` must exit 0 (warnings are registered tech debt, not failures). CI `tauri.yml` runs lint in the frontend job before vitest, so an undefined rule name or an unpreservable `useCallback` dependency fails the build instead of sitting unnoticed.
-- `.github/workflows/`: `tauri.yml` (build/check + lint), `release.yml` (tagged releases), `codeql.yml` (security scan), `upstream-sync.yml` (upstream tracker).
+- Rust lint is a hard gate too: `cargo clippy --all-targets -- -D warnings` must be clean and runs in both `scripts/verify.sh` and the `rust` CI job.
+- ESLint does NOT read `.gitignore`, so build output must be listed in `eslint.config.mjs` `ignores` (`**/target`, `**/dist`, `**/dist-sidecar`, `**/out`, `**/coverage`, `**/graphify-out`). Without this, copies under `src-tauri/target/debug/_up_/` get linted and inflate the warning baseline.
+- `.github/workflows/`: `tauri.yml` (build/check + lint + clippy), `release.yml` (tagged releases), `codeql.yml` (security scan), `upstream-sync.yml` (upstream tracker).
 
 ## 4. Key Implementation Invariants & Gotchas
 
@@ -170,7 +172,7 @@ Removed from the old table: Category Router threshold 0.35 (`CATEGORY_TEXTS` no 
 
 ### Removed Layers (do not re-add without measurement)
 
-- **Fase 2 cognitive runtime** (2026-09-12): `src/api/ai/trajLineage.js`, `src/api/ai/scoring.js`, the closed 6-strategy taxonomy (`rankNextStrategy`) and their tests were deleted. `trajectorySupervisor.js` now carries only Fase 1 fields plus the thin ladder from `strategyLib.js`. The `avo` value of `MARK_BENCH_ARCH` survives as a legacy alias of `basic`, so a report labelled `avo` is behaviourally a `basic` run.
+- **Fase 2 cognitive runtime** (2026-09-12): `src/api/ai/trajLineage.js`, `src/api/ai/scoring.js`, the closed 6-strategy taxonomy (`rankNextStrategy`) and their tests were deleted. `trajectorySupervisor.js` now carries only Fase 1 fields plus the thin ladder from `strategyLib.js`. The `avo` value was removed from `ARCH_VALUES` (now `vanilla`/`basic`), so `--arch avo` fails fast with exit 2 instead of silently running `basic`; old report files that still carry `"arch": "avo"` are history and compare as `basic` runs.
 - **rtk output compression**: the `rtk` binary was an undeclared external toolchain dependency (silent no-op when missing). Tool output is clamped at the bridge instead (`tauri-bridge.js`, ~20k chars). `rtkFilter`/`_rtkFilterForTest` and `tests/rtkFilter.test.mjs` are gone.
 - **`open` and `driver.js` npm dependencies**: external links go through the native `misc_open_external` command, the Google OAuth browser launch uses `spawn('xdg-open')` from stdlib, and the guided tour (`src/utils/driverTour.js`) was removed.
 - **Electron-era `main/browser-agent.js`**: replaced by the extension bridge under `sidecar/main/browser/` (see the sidecar table).

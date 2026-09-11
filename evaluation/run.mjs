@@ -70,7 +70,7 @@ export function detectCheat(task, result, sentinel) {
 const avg = (arr) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null)
 
 // ---- Report shell v3 (diuji smoke CI tanpa LLM) ----
-// arch: vanilla|basic|avo. worldState menunjuk base dir fixture per-run;
+// arch: vanilla|basic. worldState menunjuk base dir fixture per-run;
 // sentinel per-iterasi dicatat di details tiap task.
 export function buildReportShell({ arch = 'basic', runId = 'smoke' } = {}) {
   const resolved = resolveBenchArch(arch)
@@ -276,7 +276,7 @@ export function aggregateRuns(rawRuns, config = {}) {
     schemaVersion: BENCH_SCHEMA_VERSION,
     kind: 'markbench-report',
     generatedAt: new Date().toISOString(),
-    arch: config.arch || 'basic', // vanilla|basic|avo — sumbu arsitektur Fase 2
+    arch: config.arch || 'basic', // vanilla|basic - sumbu arsitektur (avo dihapus)
     worldState: {
       workdir: config.workdir || null, // base dir fixture tmp/markbench-<runId>
       sentinel: null, // sentinel per-iterasi ada di details tiap task
@@ -352,7 +352,7 @@ function parseArgs(argv) {
     efforts: null, // sweep: [effort...]
     runId: null,
     toolConfig: null,
-    arch: null, // vanilla|basic|avo (default basic)
+    arch: null, // vanilla|basic (default basic; avo dihapus 2026-09-12)
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]

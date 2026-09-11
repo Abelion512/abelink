@@ -88,15 +88,38 @@ ini. Patch baru, bukan duplikat.
 ## Verification Checklist
 
 - [x] `bunx vitest run` → 54 file, 569 test, semua pass
-- [x] `bun run lint` → 0 error, 972 warning (tech-debt terdaftar)
+- [x] `bun run lint` → 0 error, 850 warning (setelah artefak build di-ignore; sebelumnya 972)
 - [x] `bunx vite build` → sukses
 - [x] `cargo check` (src-tauri) → bersih
-- [x] `bun evaluation/smoke.mjs` dijalankan sebagai bagian gate
+- [x] `cargo clippy --all-targets -- -D warnings` → bersih
+- [x] `cargo test` (src-tauri) → 21 tes pass
+- [x] `bun evaluation/smoke.mjs` → LOLOS (termasuk assert baru: `avo` fallback ke `basic`)
+- [x] `--arch avo` ditolak exit 2 dengan daftar nilai valid
 - [x] Tidak ada emoji dan tidak ada em dash di output/dokumen baru
 - [ ] `bash scripts/verify.sh` penuh (butuh perangkat user: bootstrap dev + perf gate)
 
+## Update 2026-09-12 (lanjutan: clippy gate, artefak build, hapus avo)
+
+Tiga tindak lanjut dikerjakan di sesi yang sama setelah review PR.
+
+| Finding | File | Root Cause | Fix | Status |
+| --- | --- | --- | --- | --- |
+| ESLint melintasi artefak build | `eslint.config.mjs` | ESLint tidak membaca `.gitignore`; `src-tauri/target/` (salinan sidecar + extension hasil `tauri build`) ikut ter-lint dan menyumbang 121 dari 972 warning, jadi baseline tech-debt bias dan lint lambat | `ignores` ditambah `**/target`, `**/dist-sidecar`, `**/coverage`, `**/graphify-out`; 972 -> 850 warning | DONE |
+| Directive disable tanpa efek | `src/api/ai/core.js:221` | Escape sequence `\u0000-\u001F` tidak memicu `no-control-regex`, jadi directive-nya dilaporkan sebagai "Unused eslint-disable directive" | Directive dihapus + komentar penjelas | DONE |
+| 9 warning clippy | `cmd_fs.rs`, `cmd_node_bridge.rs`, `commands/tools/{shell,git,tasks}.rs`, `commands/telegram/bot.rs` | Utang lama: `and_then(\|x\| Some(y))`, `int_plus_one`, `if let Err(e) = ... return Err(e)` alih-alih `?`, `splitn().nth(1)`, doc comment dipisah baris kosong, dan 2 `spawn()` tanpa `wait()` (zombie) | Semua diperbaiki; `cargo clippy --all-targets -- -D warnings` bersih | DONE |
+| Nilai arch `avo` menyesatkan | `src/api/ai/benchArch.js`, `evaluation/{smoke,run,matrix,mark-adapter}.mjs`, `src/hooks/agent/useMarkPlan.js` | `avo` diterima sebagai pengali legacy, tetapi `--arch avo` lalu berjalan sebagai `basic` tanpa peringatan: laporan bisa salah label | `ARCH_VALUES` jadi `['vanilla','basic']`; `--arch avo` gagal-cepat exit 2 (validasi sudah ada di `run.mjs`), resolver tetap jatuh ke `basic` agar laporan lama terbaca | DONE |
+| Gate clippy tidak ada | `scripts/verify.sh`, `.github/workflows/tauri.yml` | Sama seperti lint: tidak ada gerbang yang memanggil clippy, jadi 9 warning menumpuk | Langkah `[8/9]` di verify.sh + langkah clippy di job `rust` CI | DONE |
+
+Catatan urutan tes: `let _ = child.wait()` di `commands/tools/tasks.rs` ditempatkan
+**setelah** assert `wait_gone()`. Kalau `wait()` ditaruh di depan, zombie langsung
+di-reap oleh test sendiri dan assertnya lolos tanpa membuktikan apa pun.
+
+Perubahan `cmd_fs.rs` (range baris) memakai `skip(start - 1)` + `take(...)`,
+ekuivalen dengan filter index lama tetapi bebas `clippy::int_plus_one`. Ini area
+terkontrak, jadi `cargo test` (21 tes) dijalankan ulang dan hijau.
+
 ## Callback
 
-Apakah `avo` sebaiknya tetap diterima sebagai alias legacy (kompatibilitas laporan
-`reports/bench-avo-live.json`), atau dihapus total dari `ARCH_VALUES` sekalian
-sehingga `--arch avo` gagal cepat?
+Apakah `cmd_fs.rs` perlu tes unit khusus untuk kombinasi `start_line`/`end_line`
+(termasuk `start > end` dan `start` melewati akhir file), mengingat logikanya baru
+saja ditulis ulang dari filter index ke `skip`/`take`?

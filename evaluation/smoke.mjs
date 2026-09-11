@@ -246,11 +246,14 @@ console.log('MarkBench smoke: LOLOS')
 import { buildReportShell, sidecarWorkspaceRoot } from './run.mjs'
 import { resolveBenchArch, ARCH_VALUES } from './mark-adapter.mjs'
 import { join as joinWs } from 'node:path'
-const shell = buildReportShell({ arch: 'avo', runId: 'smoke-1' })
+const shell = buildReportShell({ arch: 'basic', runId: 'smoke-1' })
 assert.equal(shell.schemaVersion, 3, 'report shell is v3')
-assert.equal(shell.arch, 'avo', 'arch recorded')
+assert.equal(shell.arch, 'basic', 'arch recorded')
 assert.equal(shell.worldState.workdir, joinWs(sidecarWorkspaceRoot(), 'markbench-smoke-1'), 'per-run workdir di dalam workspace sidecar')
-assert.deepEqual([...ARCH_VALUES], ['vanilla', 'basic', 'avo'], 'arch axis locked')
+assert.deepEqual([...ARCH_VALUES], ['vanilla', 'basic'], 'arch axis locked (avo dihapus 2026-09-12)')
+// `avo` tidak lagi selectable: CLI menolak dengan exit 2, dan resolver jatuh ke basic
+// supaya laporan lama berlabel avo tetap bisa dibaca sebagai run basic.
+assert.equal(resolveBenchArch('avo'), 'basic', 'avo legacy fallback ke basic')
 assert.equal(resolveBenchArch('bogus'), 'basic', 'unknown arch falls back to basic')
 assert.equal(resolveBenchArch(undefined), 'basic', 'unset arch defaults to basic')
 console.log('[ok] arch axis + report shell v3')

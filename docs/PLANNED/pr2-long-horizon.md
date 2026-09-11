@@ -10,6 +10,8 @@ Tesis: model sama, sistem lebih baik — tanpa klaim persen sebelum data.
 - Primitif ada: `src/api/ai/trajectorySupervisor.js` (Fase 1),
   `trajLineage.js`, `scoring.js`, `strategyLib.js`, `benchArch.js`
   (axis `vanilla/basic/avo` via `MARK_BENCH_ARCH`, default `basic` = produksi stabil).
+  Catatan: `trajLineage.js`, `scoring.js`, dan nilai arch `avo` sudah dihapus,
+  lihat bagian Update 2026-09-12 di bawah.
 - Bench task real-activity + world-state verifier: `evaluation/` (lihat commit
   `1e363c2`, `a8273c0`).
 
@@ -61,8 +63,10 @@ Fase 1 saja.
 Dampak ke rencana ini:
 
 - Kriteria terima "Skor `avo` >= `basic` >= `vanilla`" tidak bisa diukur lagi:
-  `avo` kini alias legacy dari `basic` (lihat `src/api/ai/benchArch.js`), jadi
-  laporan lama berlabel `avo` setara `basic` secara perilaku. Sumbu yang masih
+  `avo` dihapus dari `ARCH_VALUES` (kini `vanilla`/`basic`), jadi `--arch avo`
+  gagal-cepat dengan exit 2 (lihat `src/api/ai/benchArch.js` dan
+  `evaluation/run.mjs`). Laporan lama berlabel `avo` tetap terbaca sebagai
+  sejarah dan diperlakukan setara `basic` saat dibandingkan. Sumbu yang masih
   bermakna: `vanilla` vs `basic`.
 - Fase C "BACKTRACK vs RETRIEVE_MEMORY" dipangkas jadi RETRIEVE saja.
 - Sisa scope Fase A (budget skala-effort, resume durable, trace injeksi) tetap
