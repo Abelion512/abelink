@@ -142,12 +142,18 @@ pub fn mission_scope_get() -> serde_json::Value {
 mod tests {
     use super::*;
 
+    // Scope disimpan di static global — test Rust jalan paralel antar-thread,
+    // jadi tiap test wajib menahan kunci ini selama berjalan. Tanpa ini,
+    // set_scope satu test bocor ke assert test lain (gagal acak tiap run).
+    static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     fn reset() {
         clear_scope();
     }
 
     #[test]
     fn inactive_allows_everything() {
+        let _serial = SERIAL.lock().unwrap();
         reset();
         assert!(check_tool("run-shell").is_ok());
         assert!(check_path("/etc/passwd").is_ok());
@@ -155,6 +161,7 @@ mod tests {
 
     #[test]
     fn typo_dir_rejected_at_set() {
+        let _serial = SERIAL.lock().unwrap();
         reset();
         assert!(set_scope(vec!["/tidak/ada/dir-ini-xyz".into()], None).is_err());
         // Scope gagal = tetap nonaktif, bukan setengah jadi.
@@ -163,6 +170,7 @@ mod tests {
 
     #[test]
     fn tool_allowlist_exact_match() {
+        let _serial = SERIAL.lock().unwrap();
         reset();
         set_scope(vec![], Some(vec!["read-file".into()])).unwrap();
         assert!(check_tool("read-file").is_ok());
@@ -173,6 +181,7 @@ mod tests {
 
     #[test]
     fn empty_tools_deny_all() {
+        let _serial = SERIAL.lock().unwrap();
         reset();
         set_scope(vec![], Some(vec![])).unwrap();
         assert!(check_tool("read-file").is_err());
@@ -181,6 +190,7 @@ mod tests {
 
     #[test]
     fn dir_prefix_and_symlink_escape() {
+        let _serial = SERIAL.lock().unwrap();
         reset();
         let base = std::env::temp_dir().join("mark-scope-test");
         let inner = base.join("inner");
@@ -205,6 +215,7 @@ mod tests {
 
     #[test]
     fn clear_restores_open() {
+        let _serial = SERIAL.lock().unwrap();
         reset();
         set_scope(vec![], Some(vec!["read-file".into()])).unwrap();
         assert!(check_tool("run-shell").is_err());
