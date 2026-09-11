@@ -32,9 +32,18 @@ const compareArgIdx = process.argv.indexOf('--compare')
 const comparePath = compareArgIdx > -1 ? process.argv[compareArgIdx + 1] : null
 
 // ---- 1. MARK-Eval offline (6 dimensi) ------------------------------------
-const t0 = performance.now()
-const smoke = runSmoke()
-const elapsedMs = performance.now() - t0
+// Latensi diambil dari MEDIAN 3 run: single-sample wall-clock flake di mesin
+// berbeban (observasi 2026-09-11: 5-12ms acak di main murni, nol perubahan
+// kode). Dimensi deterministik — pakai run median untuk keduanya.
+const latRuns = []
+for (let i = 0; i < 3; i++) {
+  const t = performance.now()
+  const r = runSmoke()
+  latRuns.push({ r, ms: performance.now() - t })
+}
+latRuns.sort((a, b) => a.ms - b.ms)
+const smoke = latRuns[1].r
+const elapsedMs = latRuns[1].ms
 
 const dims = smoke.report.dimensions
 const tested = Object.entries(dims).filter(([, v]) => v !== null)
