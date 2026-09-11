@@ -31,9 +31,7 @@ import { buildOptimizedChatSession, stripImageContent, stripDataUrls } from '../
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
 import { classifyMainDecision, INTENT, isExplicitSelfTerminate } from '../../api/ai/agentDecision'
 import { createCircuitBreaker } from '../../api/ai/circuitBreaker'
-import { createTrajectorySupervisor, normalizeAttemptKey } from '../../api/ai/trajectorySupervisor'
-import { createLineage, appendAttempt, bestAttempt } from '../../api/ai/trajLineage'
-import { scoreAttempt, RANK_OF } from '../../api/ai/scoring'
+import { createTrajectorySupervisor } from '../../api/ai/trajectorySupervisor'
 import { currentBenchArch } from '../../api/ai/benchArch'
 import { logStep as trajectoryLogStep } from '../../api/trajectory'
 import { executeSingleTool } from './plan/toolDispatcher'
@@ -638,8 +636,8 @@ export const useMarkPlan = ({
       // (nothing strategic to govern). Per-session instance: fresh state per
       // mission, no cross-task leakage. Additive: never throws, never blocks.
       // Bench arch axis (MARK_BENCH_ARCH, default basic): vanilla = model-only
-      // (no supervisor, no verify-gate replan); basic = Fase 1 supervisor;
-      // avo = full Fase 2 lineage+scoring. Production default basic.
+      // (no supervisor, no verify-gate replan); basic/avo = thin supervisor
+      // (trajectory log + stagnation ladder). Production default basic.
       const benchArch = currentBenchArch()
       const supervisor =
         benchArch === 'vanilla' || objectiveKind === 'conversational' || opts.disableTools
@@ -654,19 +652,6 @@ export const useMarkPlan = ({
         userInput,
         options: opts
       })
-      // ---- Trajectory lineage Fase 2 (trajLineage.js + scoring.js) ---------
-      // Per-session search memory: each scored attempt is appended here and
-      // fed back into supervisor.update(). avo only; null otherwise.
-      // Lineage window ikut skala dengan budget langkah (maxAttempts).
-      const lineage =
-        benchArch === 'avo' && supervisor
-          ? createLineage({
-              taskId: agenticProcessId,
-              goal: userInput,
-              objectiveKind,
-              maxAttempts: maxPlanSteps
-            })
-          : null
       let execSteps =
         durableTask?.steps?.length > 0
           ? durableTask.steps.map((s) => ({ task: s.title }))
@@ -1731,53 +1716,18 @@ export const useMarkPlan = ({
             // supervisor fault can never break the tool loop.
             if (supervisor) {
               try {
-                // Fase 2 (avo only): score the attempt into the lineage, feed
-                // the extended fields back. basic = Fase 1 fields only.
-                // hintText still flows only through the existing
-                // pendingSupervisorHint staged-observation path.
+                // Thin supervisor: Fase 1 fields only. hintText still flows
+                // only through the existing pendingSupervisorHint
+                // staged-observation path.
                 const toolSuccess = !String(execResult.resultString || '').startsWith('[ERROR]')
-                let supResult
-                if (benchArch === 'avo' && lineage) {
-                  const verificationRank = RANK_OF[lastVerification] ?? 1
-                  const targetKey = normalizeAttemptKey(tool, query)
-                  recentToolSuccess.push(toolSuccess)
-                  const rateWindow = recentToolSuccess.slice(-5)
-                  const score = scoreAttempt({
-                    verificationRank,
-                    isNewSuccessKey: toolSuccess && !lineage.preferredKeys.includes(targetKey),
-                    toolSuccessRate: rateWindow.filter(Boolean).length / rateWindow.length
-                  })
-                  const entry = appendAttempt(lineage, {
-                    strategy: 'DIRECT',
-                    tool,
-                    targetKey,
-                    success: toolSuccess,
-                    verificationRank,
-                    score
-                  })
-                  supResult = supervisor.update({
-                    tool,
-                    query,
-                    success: toolSuccess,
-                    verificationState: lastVerification,
-                    stepsLeft: maxPlanSteps - stepCount,
-                    verifyGateActive: pendingVerifyObservation != null,
-                    strategy: entry.strategy,
-                    verificationRank,
-                    score,
-                    stagnation: lineage.stagnation,
-                    bestKey: (bestAttempt(lineage) || {}).targetKey || null
-                  })
-                } else {
-                  supResult = supervisor.update({
-                    tool,
-                    query,
-                    success: toolSuccess,
-                    verificationState: lastVerification,
-                    stepsLeft: maxPlanSteps - stepCount,
-                    verifyGateActive: pendingVerifyObservation != null
-                  })
-                }
+                const supResult = supervisor.update({
+                  tool,
+                  query,
+                  success: toolSuccess,
+                  verificationState: lastVerification,
+                  stepsLeft: maxPlanSteps - stepCount,
+                  verifyGateActive: pendingVerifyObservation != null
+                })
                 if (supResult.hintText && !pendingSupervisorHint) {
                   pendingSupervisorHint = supResult.hintText
                   try {

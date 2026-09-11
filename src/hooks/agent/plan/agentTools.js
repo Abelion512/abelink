@@ -205,8 +205,7 @@ export const runAgentTool = async (tool, query, ctx) => {
     return { success: true, data: `Sub-agent ${targetId} berhasil dihentikan paksa.` }
   }
   if (tool === 'read-tools') {
-    const { group_tools } = await import('../../../api/tools/group-tools.js')
-    const groups = await group_tools()
+    const { loadGroupToolsText } = await import('../../../api/tools/group-tools.js')
     const groupName = query.trim()
     if (!groupName) {
       return {
@@ -214,21 +213,12 @@ export const runAgentTool = async (tool, query, ctx) => {
         message: 'Harap sebutkan nama_grup yang ingin dimuat (misal: "advanced_browser").'
       }
     }
-    if (groups[groupName]) {
-      const toolDescriptions = Object.entries(groups[groupName].tools)
-        .map(([k, v]) => `- ${k}: ${v}`)
-        .join('\n')
-      let extLine = ''
-      if (groupName === 'advanced_browser') {
-        const { browserExtensionStatusLine } = await import(
-          '../../../api/tools/group-tools.js'
-        )
-        extLine = (await browserExtensionStatusLine()) + '\n'
-      }
+    const text = await loadGroupToolsText(groupName)
+    if (text) {
       return {
         success: true,
         loaded_group: groupName,
-        message: `BERHASIL MEMUAT GRUP TOOL: ${groupName}.\n${extLine}Dokumentasi tool:\n${toolDescriptions}`
+        message: `BERHASIL MEMUAT GRUP TOOL: ${groupName}.\nDokumentasi tool:\n${text}`
       }
     }
     return {

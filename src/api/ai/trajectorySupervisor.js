@@ -25,6 +25,10 @@
 //   - Success on an already-succeeded key is neutral, not progress. Progress
 //     = a NEW successful key, or verification state moving toward verified.
 //   - The supervisor never throws: any internal error degrades to CONTINUE.
+//   - nextStrategy (thin ladder from strategyLib.js: modify -> explore ->
+//     retrieve/inspect -> stop) rides along on every return as a trace tag.
+//     It is derived from Fase 1 state only (trailing repeat depth,
+//     verification-blocked-on-proof-tool, prior success exists).
 
 export const DIRECTIVE = {
   CONTINUE: 'continue',
@@ -34,9 +38,9 @@ export const DIRECTIVE = {
   ESCALATE: 'escalate'
 }
 
-// Fase 2 (additive): deterministic next-strategy ranking over the closed
-// strategy set. Pure module, no cycle (strategyLib imports nothing).
-import { rankNextStrategy } from './strategyLib.js'
+// Thin adaptive layer over the closed taxonomy: a 4-rung ladder
+// (modify -> explore -> retrieve/inspect -> stop). Pure module, no cycle.
+import { getNextStrategy } from './strategyLib.js'
 
 // Locked thresholds (named exports so tests pin them, not magic numbers).
 export const MODIFY_REPEAT = 3
@@ -120,7 +124,7 @@ function buildHint(directive, key, repeat, retrievedKey = null, nextStrategy = n
     ).slice(0, MAX_HINT_CHARS)
   }
   // MODIFY (default injection shape).
-  const stratNudge = nextStrategy === 'BACKTRACK' && restoreHint
+  const stratNudge = nextStrategy === 'RETRIEVE' && restoreHint
     ? `Kembali ke checkpoint: ${restoreHint}.`
     : nudgeFor(key)
   return (
@@ -141,11 +145,6 @@ export function createTrajectorySupervisor() {
   let lastVerificationRank = 1
   let semanticHintGiven = false
   let lastNewKeyAt = -1 // attempts index of the latest NEW succeeded key
-  // Fase 2 additive state: strategy attempts seen, best-key hint for
-  // backtrack restore, latest stagnation signal from the executor lineage.
-  let attemptedStrategies = []
-  let bestKey = null
-  let lastStagnation = 0
 
   const trailingRepeat = () => {
     if (attempts.length === 0) return { key: null, repeat: 0 }
@@ -183,7 +182,7 @@ export function createTrajectorySupervisor() {
 
   return {
     update(input = {}) {
-      let fallbackNext = 'DIRECT'
+      let fallbackNext = 'MODIFY'
       try {
         const {
           tool = '',
@@ -200,28 +199,35 @@ export function createTrajectorySupervisor() {
 
         record({ tool, query, success, verificationState })
 
-        // Fase 2 additive tracking (no effect on Fase 1 branches below).
-        // `score` is accepted for call-shape compat (executor scores); the
-        // supervisor ranks strategies, it does not rescore attempts.
+        // Thin-ladder inputs, derived from Fase 1 state only. Extra caller
+        // fields (strategy/score/stagnation/bestKey) are ignored: the
+        // supervisor observes the trajectory, it does not consume executor scores.
+        void strategy
         void score
-        if (typeof stagnation === 'number') lastStagnation = stagnation
-        if (typeof strategy === 'string' && !attemptedStrategies.includes(strategy)) attemptedStrategies.push(strategy)
-        if (typeof incomingBest === 'string') bestKey = incomingBest
+        void stagnation
+        void incomingBest
 
-        // Fase 2 outputs, computed once per call. Fase 1 branch conditions
-        // below are untouched; these fields ride along on every return.
-        const nextStrategy = rankNextStrategy({
-          failedKeys: [...failedStrategies],
-          preferredKeys: successfulStrategies,
-          attemptedStrategies,
-          verificationRank: lastVerificationRank,
-          stagnation: lastStagnation,
-          hasProofTool: /read-file|read-document|run-shell|run-task|browser-read|os-read/i.test(
-            normalizeAttemptKey(tool, query)
-          )
+        // nextStrategy rides along on every return: trailing repeat depth +
+        // whether verification is blocked on a proof tool + whether a prior
+        // success exists to retrieve. No closed taxonomy, no ranking table.
+        const { key: currentKey, repeat: currentRepeat } = trailingRepeat()
+        void currentKey
+        const nextStrategy = getNextStrategy(null, {
+          repeat: currentRepeat,
+          verificationBlocked:
+            lastVerificationRank <= 1 &&
+            /read-file|read-document|run-shell|run-task|browser-read|os-read/i.test(
+              normalizeAttemptKey(tool, query)
+            ),
+          hasPriorSuccess: successfulStrategies.length > 0
         }).strategy
         fallbackNext = nextStrategy
-        const restoreHint = (directive) => (directive === DIRECTIVE.ABANDON && bestKey ? bestKey : null)
+        const lastPriorSuccess =
+          successfulStrategies.length > 0
+            ? successfulStrategies[successfulStrategies.length - 1]
+            : null
+        const restoreHint = (directive) =>
+          directive === DIRECTIVE.ABANDON && lastPriorSuccess ? shortKey(lastPriorSuccess) : null
 
         // Verification improved toward proven states: strategy works, stay out.
         if (verificationMoved) {
@@ -300,12 +306,10 @@ export function createTrajectorySupervisor() {
           semanticHintGiven = true
           hintsUsed++
           cooldownLeft = HINT_COOLDOWN_TURNS
-          const directive = lastStagnation >= 0.6 && bestKey ? DIRECTIVE.ABANDON : DIRECTIVE.MODIFY
+          const directive = DIRECTIVE.MODIFY
           const restore = restoreHint(directive)
           const tripwireHint =
-            nextStrategy === 'BACKTRACK' && bestKey
-              ? `[TRAJECTORY HINT] [STRATEGI: BACKTRACK] Kemacetan terdeteksi. Kembali ke checkpoint: ${bestKey}.`
-              : `[TRAJECTORY HINT] [STRATEGI: ${nextStrategy}] Beberapa tool sukses tapi verifikasi tidak bergerak dan pencarian berputar di tempat. Berhenti mengulang target lama: pilih SATU hipotesis baru yang bisa dibuktikan (read-back, test, atau konfirmasi halaman).`
+            `[TRAJECTORY HINT] [STRATEGI: ${nextStrategy}] Beberapa tool sukses tapi verifikasi tidak bergerak dan pencarian berputar di tempat. Berhenti mengulang target lama: pilih SATU hipotesis baru yang bisa dibuktikan (read-back, test, atau konfirmasi halaman).`
           return {
             directive,
             hintText: tripwireHint.slice(0, MAX_HINT_CHARS),
@@ -333,9 +337,6 @@ export function createTrajectorySupervisor() {
       lastVerificationRank = 1
       semanticHintGiven = false
       lastNewKeyAt = -1
-      attemptedStrategies = []
-      bestKey = null
-      lastStagnation = 0
     },
 
     snapshot() {

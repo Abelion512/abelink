@@ -1,7 +1,7 @@
 import { getAllConfig } from '../db'
 import { jsonrepair } from 'jsonrepair'
 import { stripImageContent, stripDataUrls } from './contextCompactor'
-import { resolveEffortLevel, SYSTEM_DEFAULT_EFFORT } from './effortEstimator'
+import { resolveEffortLevel } from './effortEstimator'
 import { EffortLevel, resolve_effort } from './effortSystem'
 
 export const fetchAI = async (

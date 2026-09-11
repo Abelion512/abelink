@@ -37,6 +37,8 @@ jobs:
           bun-version: 1.3.14
       - name: Install dependencies (frozen lockfile)
         run: bun install --frozen-lockfile
+      - name: Lint (eslint)
+        run: bun run lint
       - name: Unit tests (vitest)
         run: bunx vitest run
       - name: Frontend build (vite)

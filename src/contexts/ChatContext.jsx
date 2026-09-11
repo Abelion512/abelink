@@ -1,5 +1,9 @@
+import { createContext, useContext } from 'react'
 import { useMarkAgent } from '../hooks/useMarkAgent'
-import { ChatContext } from './chatContextDef'
+
+export const ChatContext = createContext(null)
+
+export const useChat = () => useContext(ChatContext)
 
 export const ChatProvider = ({ children }) => {
   const markAgent = useMarkAgent()

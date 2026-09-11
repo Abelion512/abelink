@@ -7,12 +7,9 @@ import {
   evaluateEvidence,
   gateCompletion,
   buildReplanObservation,
-  classifyObjectiveKind,
   MAX_VERIFY_REPLANS
 } from '../ai/objectiveVerifier'
-import { createTrajectorySupervisor, normalizeAttemptKey } from '../ai/trajectorySupervisor'
-import { createLineage, appendAttempt, bestAttempt } from '../ai/trajLineage'
-import { scoreAttempt, RANK_OF } from '../ai/scoring'
+import { createTrajectorySupervisor } from '../ai/trajectorySupervisor'
 import { currentBenchArch } from '../ai/benchArch'
 import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
@@ -135,24 +132,13 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   let verifyReplansUsed = 0
   // Internal terminal classification of the pause: final | blocked | needs_input
   let terminalType = 'final'
-  // ---- Trajectory lineage Fase 2 (trajLineage.js + scoring.js) -----------
-  // Per-sub-agent search memory + supervisor. Mirrors the main-loop wiring in
-  // useMarkPlan.js: score each tool attempt, feed extended fields back, stage
-  // hintText for the observation path. Bench arch axis (MARK_BENCH_ARCH,
-  // default basic): vanilla = no supervisor, no verify-gate replan;
-  // basic = Fase 1 fields only; avo = full Fase 2. Additive: faults stay
-  // silent, the ReAct loop below is untouched.
+  // ---- Thin trajectory supervisor (trajectorySupervisor.js) ---------------
+  // Per-sub-agent stagnation policy. Mirrors the main-loop wiring in
+  // useMarkPlan.js: Fase 1 fields only. Bench arch axis (MARK_BENCH_ARCH,
+  // default basic): vanilla = no supervisor, no verify-gate replan.
+  // Additive: faults stay silent, the ReAct loop below is untouched.
   const benchArch = currentBenchArch()
   const subSupervisor = benchArch === 'vanilla' ? null : createTrajectorySupervisor()
-  const subLineage =
-    benchArch === 'avo' && subSupervisor
-      ? createLineage({
-          taskId: subagent.id || subagentId,
-          goal: subagent.goal || '',
-          objectiveKind: classifyObjectiveKind(subagent.goal || '')
-        })
-      : null
-  const subRecentSuccess = [] // sliding window (last 5) for scoring
   let pendingSubHint = null
 
   try {
@@ -324,29 +310,21 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
           try {
             let res
             if (act.tool === 'read-tools') {
-              const { group_tools } = await import('../tools/group-tools.js')
-              const groups = await group_tools()
+              const { loadGroupToolsText } = await import('../tools/group-tools.js')
               const groupName = (act.query || '').trim()
               if (!groupName) {
                 res = {
                   success: false,
                   error: 'Harap sebutkan nama_grup (misal: "advanced_browser").'
                 }
-              } else if (groups[groupName]) {
-                const formatted = Object.entries(groups[groupName].tools)
-                  .map(([k, v]) => `- ${k}: ${v}`)
-                  .join('\n')
-                let extLine = ''
-                if (groupName === 'advanced_browser') {
-                  const { browserExtensionStatusLine } = await import('../tools/group-tools.js')
-                  extLine = (await browserExtensionStatusLine()) + '\n'
-                }
-                res = {
-                  success: true,
-                  data: `[PANDUAN TOOL ${groupName.toUpperCase()}]:\n${extLine}${formatted}`
-                }
               } else {
-                res = { success: false, error: `Grup tool '${groupName}' tidak ditemukan.` }
+                const text = await loadGroupToolsText(groupName)
+                res = text
+                  ? {
+                      success: true,
+                      data: `[PANDUAN TOOL ${groupName.toUpperCase()}]:\n${text}`
+                    }
+                  : { success: false, error: `Grup tool '${groupName}' tidak ditemukan.` }
               }
             } else if (act.tool === 'memory-search') {
               const { executeMemorySearch } = await import('../vectorMemory.js')
@@ -369,50 +347,17 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
 
             observations.push(`[${act.tool}] ${resultStr}`)
 
-            // Fase 2 (avo only): score this attempt into the lineage, feed the
-            // extended fields back. basic = Fase 1 fields only; vanilla has no
+            // Thin supervisor: Fase 1 fields only; vanilla has no
             // supervisor at all. Staged hintText flushes with the observation below.
             try {
               if (subSupervisor) {
                 const attemptOk = res.success === true
-                let subSupResult
-                if (benchArch === 'avo' && subLineage) {
-                  const attemptRank = attemptOk ? RANK_OF.not_run : RANK_OF.failed
-                  const attemptKey = normalizeAttemptKey(act.tool, act.query || '')
-                  subRecentSuccess.push(attemptOk)
-                  const attemptWindow = subRecentSuccess.slice(-5)
-                  const attemptScore = scoreAttempt({
-                    verificationRank: attemptRank,
-                    isNewSuccessKey: attemptOk && !subLineage.preferredKeys.includes(attemptKey),
-                    toolSuccessRate: attemptWindow.filter(Boolean).length / attemptWindow.length
-                  })
-                  appendAttempt(subLineage, {
-                    strategy: 'DIRECT',
-                    tool: act.tool,
-                    targetKey: attemptKey,
-                    success: attemptOk,
-                    verificationRank: attemptRank,
-                    score: attemptScore
-                  })
-                  subSupResult = subSupervisor.update({
-                    tool: act.tool,
-                    query: act.query || '',
-                    success: attemptOk,
-                    verificationState: attemptOk ? 'not_run' : 'failed',
-                    strategy: 'DIRECT',
-                    verificationRank: attemptRank,
-                    score: attemptScore,
-                    stagnation: subLineage.stagnation,
-                    bestKey: (bestAttempt(subLineage) || {}).targetKey || null
-                  })
-                } else {
-                  subSupResult = subSupervisor.update({
-                    tool: act.tool,
-                    query: act.query || '',
-                    success: attemptOk,
-                    verificationState: attemptOk ? 'not_run' : 'failed'
-                  })
-                }
+                const subSupResult = subSupervisor.update({
+                  tool: act.tool,
+                  query: act.query || '',
+                  success: attemptOk,
+                  verificationState: attemptOk ? 'not_run' : 'failed'
+                })
                 if (subSupResult.hintText && !pendingSubHint) pendingSubHint = subSupResult.hintText
               }
             } catch (e) {

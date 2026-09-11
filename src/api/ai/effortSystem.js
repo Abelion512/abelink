@@ -580,3 +580,12 @@ export class TokenBudgetProviderAdapter extends ModelProviderAdapter {
     }
   }
 }
+
+// ReasoningPolicy mapping (docs-only, no runtime): Abelink controls WHAT
+// happens after the model thinks, never HOW the model thinks internally.
+// Native thinking differs per provider, agentic policy stays identical:
+//   Claude  -> effort maps to Anthropic thinking/effort controls.
+//   Gemini  -> effort maps to Gemini reasoning configuration.
+//   No native thinking -> effort maps to multiple calls + verification loop
+//     (outer ReAct + objectiveVerifier gate + trajectory stagnation ladder).
+// New provider adapters subclass ModelProviderAdapter above; no new policy shape.

@@ -118,11 +118,3 @@ export const playVoice = async (text, onStart, onEnd) => {
 // ==========================================
 // TELEGRAM UTILS
 // ==========================================
-export const formatForTelegram = (text) => {
-  if (!text) return ''
-  return text.trim()
-}
-
-// ==========================================
-// PLANNING (AGENTIC) FUNCTIONS
-// ==========================================

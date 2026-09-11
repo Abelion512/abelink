@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { HoloChrome } from './HoloChrome';
 
 const HoloCard = ({ children, title, defaultExpanded = false }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
@@ -14,21 +15,7 @@ const HoloCard = ({ children, title, defaultExpanded = false }) => {
   }, [children]);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-sm bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] animate-[holo-enter_0.4s_ease-out_forwards] shadow-xl [transform:translateZ(0)]">
-      
-      {/* Animated Border Flow (Top) */}
-      <div className="absolute top-0 left-0 right-0 h-[1px] bg-[var(--color-holo-border)] bg-[length:200%_auto] animate-[holo-border-flow_3s_linear_infinite]" />
-      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-[var(--color-holo-border)] bg-[length:200%_auto] animate-[holo-border-flow_3s_linear_infinite] rotate-180" />
-      
-      {/* HUD Brackets */}
-      <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/30" />
-      <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/30" />
-      <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white/30" />
-      <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white/30" />
-
-      {/* Scan lines effect */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[repeating-linear-gradient(transparent,transparent_2px,oklch(var(--p))_3px,transparent_4px)] mix-blend-screen" />
-
+    <HoloChrome className="w-full animate-[holo-enter_0.4s_ease-out_forwards] shadow-xl [transform:translateZ(0)]">
       <div className="relative z-10 flex flex-col p-5">
         {title && (
           <h3 className="text-success font-semibold text-xs mb-3 uppercase tracking-[0.2em] flex items-center gap-2">
@@ -57,7 +44,7 @@ const HoloCard = ({ children, title, defaultExpanded = false }) => {
           </button>
         )}
       </div>
-    </div>
+    </HoloChrome>
   );
 };
 

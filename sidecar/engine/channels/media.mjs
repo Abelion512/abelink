@@ -1,6 +1,9 @@
 // Channel: TTS, transkrip & pencarian YouTube.
 // Modul ini hanya mendaftarkan handler; semua I/O via helper registry.
 import { on, lazy } from '../registry.mjs'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 
 const getYt = lazy(async () => {
   // Paket CJS: fungsi utama bisa di default atau namespace (normalkan).
@@ -59,7 +62,3 @@ on('youtube-search', async (query) => {
     author: item.author?.name
   }))
 })
-
-import fs from 'fs'
-import os from 'os'
-import path from 'path'

@@ -227,20 +227,6 @@ export const googleTools = {
       }
     }
   },
-  'new-gmail-list': {
-    needsApproval: false,
-    handler: async (query, config) => {
-      try {
-        const { start, end, fetchCount } = parsePagination(query)
-        const clientId = config?.[0]?.googleClientId
-        const clientSecret = config?.[0]?.googleClientSecret
-        const rawResult = await searchEmails(clientId, clientSecret, 'is:unread', fetchCount)
-        return { success: true, data: rawResult.slice(start, end) }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
-  },
   'gmail-read': {
     needsApproval: false,
     handler: async (query, config) => {

@@ -38,12 +38,13 @@ stdin. Semua handler didaftarkan lewat `registry.mjs`.
 
 | Modul | Channel | Keterangan |
 | --- | --- | --- |
-| `registry.mjs` | — | `send`/`emit`/`ok`/`fail`, map `handlers`, `on()`, `unsupported()`, `lazy()` |
+| `registry.mjs` | — | `send`/`emit`/`ok`/`fail`, map `handlers`, `on()`, `lazy()` (helper `unsupported()` sudah dibuang; channel yang belum jalan mengembalikan `success: false` eksplisit atau `throw`) |
 | `channels/ai.mjs` | `ai:fetch`, `ai:abort-fetch`, `ai:list-models`, `sync-config`, `native-tool:*`, `parse-document` | `sync-config` juga menyalin config ke modul telegram (auto-start bot) |
 | `channels/media.mjs` | `tts-speak`, `get-youtube-transcript`, `youtube-search` | Edge-TTS + youtube-transcript-plus + yt-search (lazy) |
 | `channels/telegram.mjs` | `tg:*`, `benchmark:telegram`, `remote-music-command` | Dashboard benchmark + broadcast admin (config via `setLatestConfig`) |
 | `channels/services.mjs` | `plugin:*`, `plugins:list`, `google:*`, `workspace:*`, `awareness:*` | Plugin loader tanpa Electron; workspace RAG `.mark/` |
-| `channels/music.mjs` | `yt:*`, `search-music`, `ping`, stub `os:*` | Stub eksplisit fase B6 — jangan diberi respons palsu sukses |
+| `channels/music.mjs` | `yt:*`, `search-music`, `ping` | ytmusic-api + yt-search (lazy). `yt:load/show/hide/command/get-duration` butuh Tauri WebviewWindow: respons `success: false` jujur, bukan sukses palsu |
+| `channels/os.mjs` | `os:read/click/type/key/scroll/open/list-windows/focus-window/ask-user` | Fase B6: namespace colon alias ke implementasi dash yang LIVE di `NATIVE_TOOLS` (`node-tools.js` -> `pc-agent.js` + primitif Linux), lazy import; gagal = `throw`, bukan stub |
 | `channels/browser.mjs` | `browser:navigate/read-dom/action/close/show/status` | Fase C3 Jalur A (ekstensi browser + bridge): perintah nyata via `main/browser/` — long-poll HTTP 127.0.0.1 token-auth ke ekstensi Mark; tanpa ekstensi = error eksplisit + petunjuk pemasangan |
 | `channels/skills.mjs` | `skills:*` (15 channel) | Agent Skills store: SKILL.md + anti path-traversal; `skills:open-folder` (xdg-open ter-kontinemen) untuk workflow drop folder skill + auto-scan |
 | `channels/capabilities.mjs` | `capabilities:list/inspect/guide/execute/connections/authorize/revoke/audit` | Capability Manager (fase Kapabilitas, referensi OpenConnector): catalog connector → policy → eksekusi ter-audit. Connector built-in: `weather` (Open-Meteo), `time` (offline), `fs` (workspace via fsGuard), `shell-tool` (run-shell; dynamic dangerous-keyword check saat runtime). `capabilities:execute` WAJIB di `APPROVAL_ACTIONS` (rfd native). Kredensial koneksi di XDG mode 0600; audit JSONL append-only (trim 1MB). Implementasi: `main/capabilities/` (lazy import) |
@@ -80,8 +81,9 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
    (`resolve_contained`, `sanitizeSkillRelPath`) hidup di lapisan eksekusi,
    bukan di lapisan keputusan AI. Model tidak bisa meng-approve dirinya.
 5. **Fail-fast capability signaling.** Channel yang belum di-port tidak
-   mengembalikan sukses palsu — `unsupported()` eksplisit agar konsumen tahu
-   batas kemampuan, bukan diam-diam percaya fitur jalan.
+   mengembalikan sukses palsu: handler mengembalikan `success: false` dengan
+   `message`/`error` eksplisit (atau melempar) agar konsumen tahu batas
+   kemampuan, bukan diam-diam percaya fitur jalan.
 
 ## 4. Alur Data Kritis
 
@@ -123,7 +125,7 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
 ## 5. Batasan yang Masih Sengaja Dibiarkan (jangan "perbaiki" diam-diam)
 
 - `browser:*` → LIVE (Fase C3 Jalur A): `engine/channels/browser.mjs` + `main/browser/{bridge-core,server}.mjs` + ekstensi MV3 di `extension/`. Jalur B (spawn Chromium per profil) menyusul sebagai fallback; smoke frame end-to-end dengan browser sungguhan belum dijalankan — lihat `extension/README.md`.
-- `os:*` stub di sidecar; renderer memakai Rust native `os_*` commands.
+- `os:*` di sidecar sudah LIVE (Fase B6, `engine/channels/os.mjs`): alias tipis ke `NATIVE_TOOLS` dash; renderer tetap memakai Rust native `os_*` commands untuk jalur utamanya.
 - Dead code era Electron (skill-manager.js + 3 handler `ipcMain.on`
   telegram) sudah dibuang 2026-09-03 — lihat `docs/MIGRATION-GAPS.md` §
   Dead code.

@@ -245,6 +245,23 @@ export const group_tools = async () => {
   return dynamicGroups
 }
 
+// Shared read-tools body: formatted group text + extension status line.
+// Returns null when the group does not exist; never throws.
+export async function loadGroupToolsText(groupName) {
+  const name = (groupName || '').trim()
+  if (!name) return null
+  const groups = await group_tools()
+  if (!groups[name]) return null
+  const formatted = Object.entries(groups[name].tools)
+    .map(([k, v]) => `- ${k}: ${v}`)
+    .join('\n')
+  let extLine = ''
+  if (name === 'advanced_browser') {
+    extLine = (await browserExtensionStatusLine()) + '\n'
+  }
+  return `${extLine}${formatted}`
+}
+
 // Generate flat map sekali aja buat fast O(1) lookup
 export const group_tools_flat = {}
 for (const group of Object.values(GROUP_TOOLS_DEFINITION)) {
