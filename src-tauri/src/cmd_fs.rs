@@ -111,11 +111,13 @@ pub async fn fs_read_file(path: String, start_line: Option<u32>, end_line: Optio
         }
         let start = start_line.unwrap_or(1).max(1) as usize;
         let end = end_line.unwrap_or(u32::MAX) as usize;
+        // skip/take, bukan filter index: `i + 1 >= start` memicu clippy
+        // int_plus_one dan bentuknya lebih sulit dibaca. start >= 1 (max(1)),
+        // jadi tidak ada underflow; end < start menghasilkan slice kosong -> error.
         let selected: Vec<&str> = content
             .lines()
-            .enumerate()
-            .filter(|(i, _)| *i + 1 >= start && *i + 1 <= end)
-            .map(|(_, l)| l)
+            .skip(start - 1)
+            .take(end.saturating_sub(start).saturating_add(1))
             .collect();
         if selected.is_empty() {
             return Err(format!("Range baris {start}-{end} di luar cakupan file."));

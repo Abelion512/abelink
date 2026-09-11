@@ -32,12 +32,12 @@ pub async fn run_task(
 ) -> Result<TaskInfo, String> {
     let workspace = crate::cmd_fs::workspace_root();
     let cwd_path = cwd
-        .and_then(|c| {
+        .map(|c| {
             let p = std::path::PathBuf::from(c);
             if p.is_absolute() {
-                Some(p)
+                p
             } else {
-                Some(workspace.join(p))
+                workspace.join(p)
             }
         })
         .unwrap_or(workspace);
@@ -247,7 +247,7 @@ mod tests {
         use std::os::unix::process::CommandExt;
         let mut cmd = std::process::Command::new("bash");
         cmd.arg("-c").arg("sleep 60").process_group(0);
-        let child = cmd.spawn().expect("spawn bash test");
+        let mut child = cmd.spawn().expect("spawn bash test");
         let pid = child.id();
         assert!(crate::cmd_node_bridge::group_is_ours(pid, &["bash"]));
         assert!(!crate::cmd_node_bridge::group_is_ours(pid, &["tidak-ada"]));
@@ -257,6 +257,9 @@ mod tests {
             libc::kill(-(pid as libc::pid_t), libc::SIGKILL);
         }
         assert!(wait_gone(pid), "grup bash harus mati oleh killpg");
+        // Reap setelah assert: urutan penting, wait() di depan akan membuat
+        // wait_gone() lolos hanya karena kita sendiri yang membersihkan zombie.
+        let _ = child.wait();
     }
 
     #[test]
@@ -265,7 +268,7 @@ mod tests {
         // `& wait` memaksa bash menelurkan cucu sleep (tanpa exec langsung).
         let mut cmd = std::process::Command::new("bash");
         cmd.arg("-c").arg("sleep 60 & wait").process_group(0);
-        let child = cmd.spawn().expect("spawn bash test");
+        let mut child = cmd.spawn().expect("spawn bash test");
         let pid = child.id();
         // Tunggu cucu sleep muncul di grup yang sama.
         let grandchild: Option<u32> = {
@@ -327,5 +330,6 @@ mod tests {
             wait_gone(grandchild.unwrap()),
             "cucu sleep harus ikut mati (inilah bug orphan kemarin)"
         );
+        let _ = child.wait();
     }
 }

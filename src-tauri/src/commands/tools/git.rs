@@ -10,10 +10,11 @@ pub struct GitResult {
 
 fn resolve_cwd(cwd: Option<String>) -> PathBuf {
     let root = crate::cmd_fs::workspace_root();
-    cwd.and_then(|c| {
+    cwd.map(|c| {
         let p = PathBuf::from(c);
-        if p.is_absolute() { Some(p) } else { Some(root.join(p)) }
-    }).unwrap_or(root)
+        if p.is_absolute() { p } else { root.join(p) }
+    })
+    .unwrap_or(root)
 }
 
 fn git(cwd: &std::path::Path, args: &[&str]) -> GitResult {
