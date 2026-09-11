@@ -17,11 +17,28 @@
 // mark-adapter.mjs.
 
 import { runMarkAgent } from './mark-adapter.mjs'
+import { spawnSync } from 'node:child_process'
 
 // Token acak per-run untuk anti-cheat (diekspor agar smoke test bisa menguji).
 export function mkSentinel() {
   const rnd = Math.random().toString(36).slice(2, 10)
   return `S3N-${rnd}`
+}
+
+// Cek dunia nyata: repo <repoDir> punya commit (5 teratas) yang pesannya
+// memuat `message` (biasanya sentinel per-run). False bila repo hilang/git gagal.
+export function hasGitCommitWithMessage(repoDir, message) {
+  if (!repoDir || !message) return false
+  try {
+    const r = spawnSync('git', ['-C', repoDir, 'log', '--oneline', '-5'], {
+      encoding: 'utf8',
+      timeout: 15000,
+    })
+    if (r.status !== 0) return false
+    return String(r.stdout || '').includes(message)
+  } catch {
+    return false
+  }
 }
 
 // Terminal-Bench-style tasks (adapted, not copied wholesale).
@@ -62,11 +79,17 @@ export const TASKS = {
     effort: 'medium',
   },
 
-  // Terminal competence: verifier memeriksa urutan perintah git nyata.
+  // Terminal competence: cek DUNIA (commit nyata di fixture repo) bila sentinel
+  // tersedia (bench run; run.mjs mengeset MARKBENCH_GIT_REPO per-run di Task 7);
+  // tanpa sentinel (smoke offline) pakai cek teks warisan.
   'tb-git-01': {
     prompt:
       'Jelaskan langkah menyimpan perubahan Git: tuliskan 3 perintah git berurutan, satu per baris, tanpa teks lain.',
-    verifier: (output) => {
+    verifier: (output, sentinel) => {
+      if (sentinel) {
+        const repo = process.env.MARKBENCH_GIT_REPO || 'tmp/markbench-git'
+        return hasGitCommitWithMessage(repo, sentinel)
+      }
       const cmds = output
         .split('\n')
         .map((l) => l.trim().toLowerCase())
