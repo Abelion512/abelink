@@ -29,6 +29,11 @@ import { buildOptimizedChatSession, stripImageContent, stripDataUrls } from '../
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
 import { classifyMainDecision, INTENT, isExplicitSelfTerminate } from '../../api/ai/agentDecision'
 import { createCircuitBreaker } from '../../api/ai/circuitBreaker'
+import { createTrajectorySupervisor, normalizeAttemptKey } from '../../api/ai/trajectorySupervisor'
+import { createLineage, appendAttempt, bestAttempt } from '../../api/ai/trajLineage'
+import { scoreAttempt, RANK_OF } from '../../api/ai/scoring'
+import { currentBenchArch } from '../../api/ai/benchArch'
+import { logStep as trajectoryLogStep } from '../../api/trajectory'
 import { executeSingleTool } from './plan/toolDispatcher'
 import {
   classifyObjectiveKind,
@@ -602,6 +607,29 @@ export const useMarkPlan = ({
       let verifyReplanCount = 0
       let lastVerification = VERIFICATION_STATE.NOT_RUN
       let pendingVerifyObservation = null
+      // ---- Trajectory Supervisor Fase 1 (trajectorySupervisor.js) --------
+      // Trajectory-level policy across attempts: records each tool execution
+      // and stages a short strategy hint when the same approach repeats
+      // without progress. Exempt for conversational / non-tool sessions
+      // (nothing strategic to govern). Per-session instance: fresh state per
+      // mission, no cross-task leakage. Additive: never throws, never blocks.
+      // Bench arch axis (MARK_BENCH_ARCH, default basic): vanilla = model-only
+      // (no supervisor, no verify-gate replan); basic = Fase 1 supervisor;
+      // avo = full Fase 2 lineage+scoring. Production default basic.
+      const benchArch = currentBenchArch()
+      const supervisor =
+        benchArch === 'vanilla' || objectiveKind === 'conversational' || opts.disableTools
+          ? null
+          : createTrajectorySupervisor()
+      let pendingSupervisorHint = null
+      // ---- Trajectory lineage Fase 2 (trajLineage.js + scoring.js) ---------
+      // Per-session search memory: each scored attempt is appended here and
+      // fed back into supervisor.update(). avo only; null otherwise.
+      const lineage =
+        benchArch === 'avo' && supervisor
+          ? createLineage({ taskId: agenticProcessId, goal: userInput, objectiveKind })
+          : null
+      const recentToolSuccess = [] // sliding window (last 5) for scoring
       let execSteps = [{ task: 'Menganalisis Konteks...' }]
 
       while (!isDone) {
@@ -1027,8 +1055,10 @@ export const useMarkPlan = ({
                   verification: evidence.state,
                   kind: objectiveKind
                 })
-                if (gate.complete) {
-                  lastTerminalReason = `${classification.reason || 'explicit-done'}+verify:${gate.reason}`
+                // vanilla skips the verify-gate: the model-only baseline trusts
+                // its own completion claim (A/B control arm, bench-only path).
+                if (gate.complete || benchArch === 'vanilla') {
+                  lastTerminalReason = `${classification.reason || 'explicit-done'}+verify:${benchArch === 'vanilla' ? 'skipped-vanilla' : gate.reason}`
                   return true
                 }
                 if (gate.replan && verifyReplanCount < MAX_VERIFY_REPLANS) {
@@ -1118,10 +1148,25 @@ export const useMarkPlan = ({
               role: 'user',
               content: continueMsg
             })
-            targetSetChatData((prev) => [
-              ...prev.filter((item) => !item.isThinking),
-              { role: 'ai', content: decision.answer, isProactive: false, isIntermediate: true }
-            ])
+            // Anti double-bubble: model kadang mengulang kalimat yang sama di
+            // giliran intermediate beruntun — bubble identik berurutan tidak
+            // ditampilkan dua kali (loop tetap lanjut via loopMessages).
+            targetSetChatData((prev) => {
+              const visible = prev.filter((item) => !item.isThinking)
+              const last = visible[visible.length - 1]
+              if (
+                last &&
+                last.role === 'ai' &&
+                typeof last.content === 'string' &&
+                last.content.trim() === String(decision.answer).trim()
+              ) {
+                return prev
+              }
+              return [
+                ...prev.filter((item) => !item.isThinking),
+                { role: 'ai', content: decision.answer, isProactive: false, isIntermediate: true }
+              ]
+            })
             continue
           }
         }
@@ -1628,6 +1673,73 @@ export const useMarkPlan = ({
                   : execResult.resultString
             })
 
+            // Trajectory Supervisor: record the attempt, maybe stage a hint.
+            // Runs only on real executions (the identical-repeat cache above
+            // already `continue`s before this point). Additive: guarded so a
+            // supervisor fault can never break the tool loop.
+            if (supervisor) {
+              try {
+                // Fase 2 (avo only): score the attempt into the lineage, feed
+                // the extended fields back. basic = Fase 1 fields only.
+                // hintText still flows only through the existing
+                // pendingSupervisorHint staged-observation path.
+                const toolSuccess = !String(execResult.resultString || '').startsWith('[ERROR]')
+                let supResult
+                if (benchArch === 'avo' && lineage) {
+                  const verificationRank = RANK_OF[lastVerification] ?? 1
+                  const targetKey = normalizeAttemptKey(tool, query)
+                  recentToolSuccess.push(toolSuccess)
+                  const rateWindow = recentToolSuccess.slice(-5)
+                  const score = scoreAttempt({
+                    verificationRank,
+                    isNewSuccessKey: toolSuccess && !lineage.preferredKeys.includes(targetKey),
+                    toolSuccessRate: rateWindow.filter(Boolean).length / rateWindow.length
+                  })
+                  const entry = appendAttempt(lineage, {
+                    strategy: 'DIRECT',
+                    tool,
+                    targetKey,
+                    success: toolSuccess,
+                    verificationRank,
+                    score
+                  })
+                  supResult = supervisor.update({
+                    tool,
+                    query,
+                    success: toolSuccess,
+                    verificationState: lastVerification,
+                    stepsLeft: MAX_PLAN_STEPS - stepCount,
+                    verifyGateActive: pendingVerifyObservation != null,
+                    strategy: entry.strategy,
+                    verificationRank,
+                    score,
+                    stagnation: lineage.stagnation,
+                    bestKey: (bestAttempt(lineage) || {}).targetKey || null
+                  })
+                } else {
+                  supResult = supervisor.update({
+                    tool,
+                    query,
+                    success: toolSuccess,
+                    verificationState: lastVerification,
+                    stepsLeft: MAX_PLAN_STEPS - stepCount,
+                    verifyGateActive: pendingVerifyObservation != null
+                  })
+                }
+                if (supResult.hintText && !pendingSupervisorHint) {
+                  pendingSupervisorHint = supResult.hintText
+                  try {
+                    trajectoryLogStep({
+                      step: stepCount,
+                      total: MAX_PLAN_STEPS,
+                      description: `supervisor:${supResult.directive}`,
+                      status: 'supervisor-directive'
+                    })
+                  } catch (_) {}
+                }
+              } catch (_) {}
+            }
+
             if (isBatch) {
               batchResults.push(`[${tool}] ${execResult.resultString}`)
             } else {
@@ -1666,6 +1778,14 @@ export const useMarkPlan = ({
                 content: `[OBSERVATION] Hasil eksekusi batch ${actionList.length} tools: ${obsStr}`
               }
             )
+          }
+
+          // Flush a staged supervisor hint as its own user message (single
+          // injection slot: verify-gate already took precedence inside
+          // update(), so the two can never collide in one turn).
+          if (pendingSupervisorHint) {
+            loopMessages.push({ role: 'user', content: pendingSupervisorHint })
+            pendingSupervisorHint = null
           }
 
           continue

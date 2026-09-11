@@ -112,3 +112,16 @@ berhenti dan catat, jangan lanjut.
 4. Anti salah-klik: ID angka (`3`) dinormalisasi ke `mk3`; elemen yang
    tidak ada → error eksplisit menyuruh read-dom ulang, bukan klik buta.
    Tanpa extension: click/type/screenshot gagal jujur dengan petunjuk.
+
+## Auto-launch browser via OS (aktif default)
+
+Bila browser user tutup saat tool browser dibutuhkan, Mark meminta OS
+membukakan browser default (`xdg-open`, Linux-only) — extension lalu
+auto-connect sendiri (onStartup + keepalive), tanpa klik apa pun:
+
+- Aktif default. Matikan via **"Bukakan browser OS otomatis"** di
+  Configuration > Capabilities bila tidak mau browser dibukakan otomatis
+  (default AKTIF per kehendak owner: agen harus otomatis).
+- Alur: tidak ada sesi connected → `xdg-open <url|about:blank>` → tunggu
+  handshake maks 20 detik → lanjut via extension; gagal → fallback lama
+  (fetch polos / error eksplisit). Tidak mengunduh/menginstal apa pun.

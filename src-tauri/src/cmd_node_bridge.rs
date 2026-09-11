@@ -51,6 +51,45 @@ pub fn kill_engine(state: &Arc<NodeBridgeState>) {
     }
 }
 
+/// Ambil pesan error dari frame respons engine.
+///
+/// Engine mengirim `error` sebagai string ATAU objek `{message, code}`
+/// (mis. channel `ai:fetch`). Versi lama hanya membaca bentuk string —
+/// pesan objek (termasuk seluruh error provider AI) diam-diam hilang dan
+/// renderer hanya melihat `error: null` ("AI fetch gagal" tanpa sebab).
+/// Helper murni agar bisa di-unit-test.
+pub fn error_message(value: &serde_json::Value) -> Option<String> {
+    match value.get("error") {
+        Some(serde_json::Value::String(s)) => {
+            let t = s.trim();
+            if t.is_empty() {
+                None
+            } else {
+                Some(t.to_string())
+            }
+        }
+        Some(serde_json::Value::Object(map)) => {
+            // Objek tanpa message yang bisa dipakai tidak ada gunanya untuk
+            // user (JSON mentah) — kembalikan None agar renderer memakai
+            // fallback ramah yang memberi langkah perbaikan.
+            match map.get("message").and_then(|v| v.as_str()) {
+                Some(m) if !m.trim().is_empty() => Some(m.to_string()),
+                _ => None,
+            }
+        }
+        // Angka/bool sebagai error: teruskan apa adanya; null/absen -> None.
+        Some(other) => {
+            let s = other.to_string();
+            if s.trim().is_empty() || s == "null" {
+                None
+            } else {
+                Some(s.trim_matches('"').to_string())
+            }
+        }
+        None => None,
+    }
+}
+
 #[derive(Serialize)]
 pub struct NodeResponse {
     pub success: bool,
@@ -407,10 +446,7 @@ pub async fn node_invoke(
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
             let data = response_json.get("data").cloned();
-            let error = response_json
-                .get("error")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
+            let error = error_message(&response_json);
 
             Ok(NodeResponse { success, data, error })
         }
@@ -420,5 +456,51 @@ pub async fn node_invoke(
             map.remove(&req_id);
             Err(format!("Request timeout (300s) untuk aksi '{}'", action))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::error_message;
+
+    fn frame(json: serde_json::Value) -> Option<String> {
+        error_message(&json)
+    }
+
+    #[test]
+    fn string_error_passes_through() {
+        let v = serde_json::json!({ "success": false, "error": "Sidecar engine tidak aktif" });
+        assert_eq!(frame(v).as_deref(), Some("Sidecar engine tidak aktif"));
+    }
+
+    #[test]
+    fn object_error_keeps_message_field() {
+        // Bentuk yang dikirim channel ai:fetch — inilah yang dulu hilang.
+        let v = serde_json::json!({
+            "success": false,
+            "error": { "message": "9Router tidak jalan di localhost:20128", "code": "FETCH_FAILED" }
+        });
+        assert_eq!(
+            frame(v).as_deref(),
+            Some("9Router tidak jalan di localhost:20128")
+        );
+    }
+
+    #[test]
+    fn object_error_without_usable_message_is_none() {
+        // Objek tanpa message: renderer memakai fallback ramah, bukan JSON mentah.
+        let v = serde_json::json!({ "success": false, "error": { "code": "X" } });
+        assert_eq!(frame(v), None);
+    }
+
+    #[test]
+    fn missing_or_null_error_is_none() {
+        assert_eq!(frame(serde_json::json!({ "success": true })), None);
+        assert_eq!(frame(serde_json::json!({ "success": false, "error": null })), None);
+        assert_eq!(frame(serde_json::json!({ "success": false, "error": "" })), None);
+        assert_eq!(
+            frame(serde_json::json!({ "success": false, "error": { "message": "  " } })),
+            None
+        );
     }
 }

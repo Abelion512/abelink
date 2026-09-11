@@ -8,6 +8,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { splitTgAdminIds } from '../utils/telegramTargets'
 import { stripDataUrlPrefix } from '../utils/dataUrl'
+import { friendlyAiFetchError } from './ai/fetchError'
 
 // ---- FB#1: router file-ops -> Rust cmd_fs ----
 // Query format AI tools: "path||arg2||arg3"
@@ -249,7 +250,9 @@ export const api = {
       payload: [{ messages, config, isSmallTask, jsonSchema }]
     }).then((res) => {
       if (!res?.success) {
-        const msg = res?.error?.message || (typeof res?.error === 'string' ? res.error : null) || 'AI fetch gagal'
+        // Pesan ramah + informatif (fetchError.js): menyebut sebab & aksi,
+        // bukan "AI fetch gagal" yang buta.
+        const msg = friendlyAiFetchError(res)
         throw Object.assign(new Error(msg), { code: res?.error?.code || 'AI_FETCH_ERROR' })
       }
       return res.data

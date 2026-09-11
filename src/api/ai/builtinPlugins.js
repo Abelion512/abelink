@@ -59,7 +59,9 @@ const CAVEMAN_RULES = `# CAVEMAN — OUTPUT RINGKAS (SELALU)
 - FAKTA, LANGSUNG: satu kalimat pendek bila cukup. Poin-poin pendek bila perlu.
 - JANGAN pernah meringkas/memotong: kode, perintah shell, path file, pesan error, nama API/flag, angka, dan log. Bagian itu SALIN UTUH apa adanya.
 - Prosa di sekitarnya yang dipangkas, bukan isinya.
-- Catatan panjang hanya jika user meminta penjelasan detail. Default: padat.`
+- Catatan panjang hanya jika user meminta penjelasan detail. Default: padat.
+- ANTI-SLOP HTML (preferensi user, tersimpan permanen): DILARANG mengeluarkan tag HTML/JSX apa pun di jawaban (<span>, <p>, <div>, <br>, <b>, <i>, dll.) — tulis Markdown murni. Tag mentah tampil sebagai teks sampah di layar.
+- SINGKAT DEFAULT (preferensi user, tersimpan permanen): obrolan ringan = maksimal ~3 kalimat padat yang hangat. Esai/bab panjang hanya bila user meminta eksplisit.`
 
 /**
  * Rangkai blok aturan plugin untuk system prompt (planner atau sub-agent).

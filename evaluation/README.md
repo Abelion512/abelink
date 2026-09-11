@@ -10,7 +10,7 @@ dan **anti-cheat validator** — bukan angka simulasi.
 
 | File | Peran |
 | --- | --- |
-| `run.mjs` | **Orchestrator multi-run** (`bun run benchmark:run`). Menjalankan tiap task N kali (default 3x, praktik standar "averaged over three runs" Kimi K3/DeepSWE), menyuntikkan **sentinel acak per run** untuk task bertipe sentinel (anti-hafalan), menghitung mean + pass-rate, menulis laporan JSON (`schemaVersion: 1`), dan membandingkan antar-commit via `--compare` (regression gate). |
+| `run.mjs` | **Orchestrator multi-run** (`bun run benchmark:run`). Menjalankan tiap task N kali (default 3x, praktik standar "averaged over three runs" Kimi K3/DeepSWE), menyuntikkan **sentinel acak per run** untuk task bertipe sentinel (anti-hafalan), menghitung mean + pass-rate, menulis laporan JSON (`schemaVersion: 3`), dan membandingkan antar-commit via `--compare` (regression gate). |
 | `terminal-bench.mjs` | Registry task Terminal-Bench-style. Setiap task punya `prompt` + `verifier` — predikat deterministik yang benar-benar dieksekusi terhadap respons — plus `maxTurns` (turn budget, ala MCP Atlas 100-turn) dan flag `sentinel` untuk anti-cheat. |
 | `mark-adapter.mjs` | Adapter agent: satu child sidecar persisten per run, RPC JSON-lines ter-multipleks per id via `ai:fetch` + `native-tool:execute`. Cleanup dijamin (`SIGTERM` → `SIGKILL` 5s). Durasi wall-clock nyata dicatat di trajectory. `task.maxTurns` menimpa default iterasi (tidak ada loop tak terbatas). |
 | `deepeval-runner.mjs` | Metrik sekunder opsional (GEval + TaskCompleteness). Dynamic-import; jika paket `deepeval` tidak terpasang atau API key tidak ada, degrade gracefully dan verdict official tetap dipakai. |
@@ -77,7 +77,7 @@ Exit code 1 jika ada task yang pass-rate-nya turun lebih dari threshold
       (`detectCheat`), diuji di smoke.
 - [x] **Multi-run averaging** — `run.mjs` menjalankan tiap task 3x (default),
       melaporkan mean + pass-rate.
-- [x] **Laporan JSON berversi** (`schemaVersion: 1`) per run + perbandingan
+- [x] **Laporan JSON berversi** (`schemaVersion: 3`) per run + perbandingan
       antar-commit (`--compare`, regression gate: skor task tidak boleh turun
       > X%).
 - [~] **Task suite lebih berat** — constraint adherence, context/sentinel, git,

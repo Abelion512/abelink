@@ -21,6 +21,30 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef(null)
   const navigate = useNavigate()
+  // Status live sendiri: induk (MarkHome) tidak mengoper tgStatus sehingga
+  // prop selalu default 'disconnected' (dot merah abadi). Berlangganan event
+  // koneksi + ambil status awal langsung di sini.
+  const [tgLive, setTgLive] = useState(tgStatus)
+  useEffect(() => {
+    let alive = true
+    try {
+      window.api?.tgGetStatus?.().then((res) => {
+        if (alive && res?.status) setTgLive(res.status)
+      }).catch(() => {})
+    } catch (_) {}
+    let unlisten = null
+    try {
+      unlisten = window.api?.onTgConnection?.((s) => {
+        if (alive && s) setTgLive(s)
+      })
+    } catch (_) {}
+    return () => {
+      alive = false
+      if (typeof unlisten === 'function') {
+        try { unlisten() } catch (_) {}
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -141,10 +165,10 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
             onClick={() => handleNav('/telegram-bot')}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/5 cursor-pointer text-white/80 text-sm font-medium"
           >
-            <FaTelegram className={tgStatus === 'connected' ? 'text-info' : 'text-white/30'} />
+            <FaTelegram className={tgLive === 'connected' ? 'text-info' : 'text-white/30'} />
             <div className="flex-1 text-left">Telegram Bot</div>
             <div
-              className={`w-2 h-2 rounded-full ${tgStatus === 'connected' ? 'bg-info shadow-[0_0_8px_oklch(var(--in))]' : 'bg-error'}`}
+              className={`w-2 h-2 rounded-full ${tgLive === 'connected' ? 'bg-info shadow-[0_0_8px_oklch(var(--in))]' : tgLive === 'connecting' ? 'bg-warning animate-pulse' : 'bg-error'}`}
             />
           </button>
         </div>

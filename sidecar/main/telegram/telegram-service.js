@@ -7,9 +7,14 @@ import { getGlobalConfig, abortAllFetches, activeAbortControllers } from '../ai-
 
 let bot = null
 let currentStatus = 'disconnected'
+// Generasi start: startTelegramBot yang lebih baru membatalkan loop retry
+// milik start lama (mencegah start ganda berebut satu token polling).
+let launchGeneration = 0
 export const uiMessageHistory = []
 const MAX_UI_HISTORY = 100
 const pendingRequestsMap = new Map()
+// msgId yang balasannya sudah terkirim (anti double-respon).
+const completedReplyIds = new Set()
 
 
 export const getConnectionStatus = () => {
@@ -17,6 +22,7 @@ export const getConnectionStatus = () => {
 }
 
 export const stopTelegramBot = () => {
+  launchGeneration++
   for (const [, req] of pendingRequestsMap.entries()) {
     if (req?.typingInterval) {
       try { clearInterval(req.typingInterval) } catch (_) {}
@@ -69,10 +75,12 @@ export const startTelegramBot = async (token, mainWindow) => {
     return
   }
 
-  // Tauri: tidak ada botWindow — event UI dikirim via sendEvent() (stdout JSON-lines).
-  if (bot) {
-    stopTelegramBot()
-  }
+  // Hentikan instance lama DULU (unconditional): dua start berurutan/bersamaan
+  // (klik ganda, sync-config + manual) sebelumnya bisa menghasilkan DUA
+  // poller blade-runner pada token yang sama -> setiap pesan diproses 2x
+  // (double respon). stop menaikkan generasi sehingga start basi gugur.
+  stopTelegramBot()
+  const myGeneration = ++launchGeneration
 
   updateStatus('connecting')
 
@@ -83,7 +91,11 @@ export const startTelegramBot = async (token, mainWindow) => {
       telegramOpts.apiRoot = config.tgApiRoot.trim()
     }
 
-    bot = new Telegraf(token.trim(), { telegram: telegramOpts })
+    const myBot = new Telegraf(token.trim(), { telegram: telegramOpts })
+    bot = myBot
+    // Hidup hanya bila generasi ini masih pemilik DAN instance global masih
+    // milik start ini. Dicek ulang setiap melewati await.
+    const alive = () => myGeneration === launchGeneration && bot === myBot
 
     if (config.tgAdminIds) {
       const ids = config.tgAdminIds.split(',').map((s) => s.trim()).filter(Boolean)
@@ -217,13 +229,8 @@ export const startTelegramBot = async (token, mainWindow) => {
       sendEvent('tg:message', uiMsgPayload)
       sendEvent('tg:thinking', { sender: senderName, chatId })
 
-      let loadingMsgId = null
-      try {
-        const loadingMsg = await ctx.reply('[LOADING]: Sedang diproses...', { disable_notification: true })
-        loadingMsgId = loadingMsg.message_id
-      } catch (e) {}
-
-      // Kirim typing action segera dan jaga status mengetik setiap 4 detik
+      // Indikator mengetik SAJA (tanpa bubble [LOADING]): bubble loading +
+      // typing bersamaan = info progres ganda yang mengganggu.
       try { ctx.sendChatAction('typing').catch(() => {}) } catch (_) {}
       const typingInterval = setInterval(() => {
         if (bot && chatId) {
@@ -231,7 +238,7 @@ export const startTelegramBot = async (token, mainWindow) => {
         }
       }, 4000)
 
-      pendingRequestsMap.set(msgId, { ctx, chatId, text, loadingMsgId, typingInterval })
+      pendingRequestsMap.set(msgId, { ctx, chatId, text, loadingMsgId: null, typingInterval })
       setTimeout(() => {
         const req = pendingRequestsMap.get(msgId)
         if (req?.typingInterval) clearInterval(req.typingInterval)
@@ -338,7 +345,7 @@ export const startTelegramBot = async (token, mainWindow) => {
           text = `[FILE DOKUMEN]: "${savePath}"\n(Nama berkas: ${originalName}, Ukuran: ${(buffer.byteLength / 1024).toFixed(1)} KB)\n${caption ? `Instruksi user: ${caption}` : 'Baca atau analisa berkas ini.'}`
         }
 
-        await ctx.telegram.editMessageText(chatId, statusMsg.message_id, undefined, `[INFO]: Berhasil mengunduh: ${originalName}\n[LOADING]: Sedang diproses...`)
+        await ctx.telegram.editMessageText(chatId, statusMsg.message_id, undefined, `[INFO]: Berhasil mengunduh: ${originalName}`)
 
         const msgId = `${chatId}-${ctx.message.message_id}`
         const uiMsgPayload = {
@@ -442,16 +449,85 @@ export const startTelegramBot = async (token, mainWindow) => {
       await bot.telegram.getMe()
     } catch (authErr) {
       console.warn(`[Telegram] Autentikasi token gagal (${authErr.message || authErr}). Bot tidak dijalankan.`)
-      stopTelegramBot()
+      // Hanya matikan bila start ini masih pemilik — jangan bunuh start baru.
+      if (alive()) stopTelegramBot()
       return { success: false, error: authErr.message || 'Token tidak valid' }
     }
+    if (!alive()) return { success: false, error: 'dibatalkan' }
 
-    bot.launch({ allowedUpdates: ['message', 'callback_query'] }).catch((err) => {
-      console.error('[Telegram] Polling error:', err?.message || err)
-      stopTelegramBot()
-    })
+    // Launch dengan race: Telegraf startPolling() hanya resolve bila loop
+    // BERAKHIR — saat sehat ia pending selamanya (long-poll). Jadi timeout
+    // 25s = polling berjalan = connected. Tanpa race ini, await launch()
+    // tak pernah kembali dan status macet 'connecting' selamanya.
+    // (Jangan tandai connected sebelum ini: connect-lalu-putus.)
+    const LAUNCH_HEALTHY_MS = 25000
+    const RETRY_DELAYS_MS = [2000, 4000, 8000, 16000, 30000]
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+    let launched = false
+    let lastError = null
+    // Kematian loop yang TERLAMBAT (setelah dinyatakan connected): validasi
+    // ringan, gagal -> putus jujur (jangan diam-diam mati).
+    const noteLateDeath = () => {
+      if (!alive()) return
+      bot.telegram.getMe().catch(() => {
+        if (alive()) {
+          console.warn('[Telegram] Polling mati (terlambat terdeteksi). Memutus.')
+          stopTelegramBot()
+        }
+      })
+    }
+    for (let attempt = 0; ; attempt++) {
+      if (!alive()) return { success: false, error: 'dibatalkan' }
+      const lp = bot.launch({ allowedUpdates: ['message', 'callback_query'] })
+      lp.then(
+        () => noteLateDeath(),
+        (e) => {
+          const code = e?.response?.error_code
+          if ((code === 401 || code === 404) && alive()) {
+            console.warn(`[Telegram] Token error (${code}). Berhenti permanen.`)
+            stopTelegramBot()
+            return
+          }
+          noteLateDeath()
+        }
+      )
+      const res = await Promise.race([
+        lp.then(
+          () => ({ ended: true }),
+          (e) => ({ error: e })
+        ),
+        sleep(LAUNCH_HEALTHY_MS).then(() => ({ started: true }))
+      ])
+      if (res.started) {
+        launched = true
+        break
+      }
+      // Launch gagal cepat (getMe/deleteWebhook di dalamnya).
+      lastError = res.error
+      {
+        const code = res.error?.response?.error_code
+        if (code === 401 || code === 404) {
+          console.warn(`[Telegram] Token error (${code}). Berhenti permanen.`)
+          if (alive()) stopTelegramBot()
+          return { success: false, error: res.error?.message || 'Token tidak valid' }
+        }
+      }
+      if (attempt >= RETRY_DELAYS_MS.length) break
+      {
+        const waitMs = RETRY_DELAYS_MS[attempt]
+        console.warn(
+          `[Telegram] Launch gagal (${lastError?.message || lastError}). Retry ${attempt + 1}/${RETRY_DELAYS_MS.length} dalam ${waitMs / 1000}s...`
+        )
+        await sleep(waitMs)
+      }
+    }
+    if (!launched || !alive()) {
+      if (alive()) stopTelegramBot()
+      return { success: false, error: lastError?.message || 'Gagal menjalankan polling' }
+    }
     updateStatus('connected')
     console.log('[Telegram] Bot successfully started and listening')
+    return { success: true }
   } catch (err) {
     console.error('[Telegram] Failed to start bot:', err?.message || err)
     stopTelegramBot()
@@ -709,6 +785,19 @@ export const broadcastToAdminsSidecar = async (text) => {
 
 export const sendAgentExecutionDone = async (data) => {
   const { chatId, result, msgId } = data || {}
+  // Idempotensi balasan: eksekusi yang sama (msgId sama, mis. efek renderer
+  // menyala 2x / channel dipanggil ulang) hanya membalas SEKALI. Tanpa ini
+  // user menerima jawaban ganda untuk satu perintah.
+  if (msgId) {
+    if (completedReplyIds.has(String(msgId))) {
+      return { success: true, deduped: true }
+    }
+    completedReplyIds.add(String(msgId))
+    if (completedReplyIds.size > 200) {
+      const first = completedReplyIds.values().next().value
+      completedReplyIds.delete(first)
+    }
+  }
   const reqObj = pendingRequestsMap.get(msgId)
   if (reqObj?.typingInterval) {
     try { clearInterval(reqObj.typingInterval) } catch (_) {}
