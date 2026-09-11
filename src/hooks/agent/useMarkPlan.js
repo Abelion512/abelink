@@ -29,7 +29,9 @@ import { buildOptimizedChatSession, stripImageContent, stripDataUrls } from '../
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
 import { classifyMainDecision, INTENT, isExplicitSelfTerminate } from '../../api/ai/agentDecision'
 import { createCircuitBreaker } from '../../api/ai/circuitBreaker'
-import { createTrajectorySupervisor } from '../../api/ai/trajectorySupervisor'
+import { createTrajectorySupervisor, normalizeAttemptKey } from '../../api/ai/trajectorySupervisor'
+import { createLineage, appendAttempt, bestAttempt } from '../../api/ai/trajLineage'
+import { scoreAttempt, RANK_OF } from '../../api/ai/scoring'
 import { logStep as trajectoryLogStep } from '../../api/trajectory'
 import { executeSingleTool } from './plan/toolDispatcher'
 import {
@@ -615,6 +617,13 @@ export const useMarkPlan = ({
           ? null
           : createTrajectorySupervisor()
       let pendingSupervisorHint = null
+      // ---- Trajectory lineage Fase 2 (trajLineage.js + scoring.js) ---------
+      // Per-session search memory: each scored attempt is appended here and
+      // fed back into supervisor.update(). Null when the supervisor is off.
+      const lineage = supervisor
+        ? createLineage({ taskId: agenticProcessId, goal: userInput, objectiveKind })
+        : null
+      const recentToolSuccess = [] // sliding window (last 5) for scoring
       let execSteps = [{ task: 'Menganalisis Konteks...' }]
 
       while (!isDone) {
@@ -1647,13 +1656,39 @@ export const useMarkPlan = ({
             // supervisor fault can never break the tool loop.
             if (supervisor) {
               try {
+                // Fase 2: score the attempt into the lineage, feed the
+                // extended fields back. hintText still flows only through the
+                // existing pendingSupervisorHint staged-observation path.
+                const toolSuccess = !String(execResult.resultString || '').startsWith('[ERROR]')
+                const verificationRank = RANK_OF[lastVerification] ?? 1
+                const targetKey = normalizeAttemptKey(tool, query)
+                recentToolSuccess.push(toolSuccess)
+                const rateWindow = recentToolSuccess.slice(-5)
+                const score = scoreAttempt({
+                  verificationRank,
+                  isNewSuccessKey: toolSuccess && !lineage.preferredKeys.includes(targetKey),
+                  toolSuccessRate: rateWindow.filter(Boolean).length / rateWindow.length
+                })
+                const entry = appendAttempt(lineage, {
+                  strategy: 'DIRECT',
+                  tool,
+                  targetKey,
+                  success: toolSuccess,
+                  verificationRank,
+                  score
+                })
                 const supResult = supervisor.update({
                   tool,
                   query,
-                  success: !String(execResult.resultString || '').startsWith('[ERROR]'),
+                  success: toolSuccess,
                   verificationState: lastVerification,
                   stepsLeft: MAX_PLAN_STEPS - stepCount,
-                  verifyGateActive: pendingVerifyObservation != null
+                  verifyGateActive: pendingVerifyObservation != null,
+                  strategy: entry.strategy,
+                  verificationRank,
+                  score,
+                  stagnation: lineage.stagnation,
+                  bestKey: (bestAttempt(lineage) || {}).targetKey || null
                 })
                 if (supResult.hintText && !pendingSupervisorHint) {
                   pendingSupervisorHint = supResult.hintText
