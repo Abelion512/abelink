@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import Markdown from 'react-markdown'
 import { useNavigate } from 'react-router-dom'
 import {
   FaArrowLeft,
@@ -1238,13 +1239,7 @@ try {
                     <input type="checkbox" defaultChecked={idx === 0} />
                     <div className="collapse-title text-lg font-bold">{faq.q}</div>
                     <div className="collapse-content text-white/70">
-                      <p
-                        dangerouslySetInnerHTML={{
-                          __html: faq.a
-                            .replace(/`(.*?)`/g, '<code>$1</code>')
-                            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                        }}
-                      />
+                      <Markdown className="prose prose-sm max-w-none text-white/70 prose-a:text-primary">{faq.a}</Markdown>
                     </div>
                   </div>
                 ))}
