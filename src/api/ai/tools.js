@@ -104,6 +104,63 @@ ${chunks[i]}
 }
 
 
+// Deterministic pre-check sebelum getBestMusicMatch (hemat 1 LLM call +
+// latensi di jalur umum "setel lagu X" yang hasilnya sudah jelas).
+// Aturan konservatif: hanya skip LLM bila (a) query TIDAK meminta varian
+// versi (cover/live/karaoke/...) DAN (b) hit teratas cocok kuat dengan query.
+// Selain itu -> null (caller memakai LLM rank seperti biasa). Murni & testable.
+const VERSION_KEYWORDS = [
+  'cover', 'live', 'karaoke', 'akustik', 'acoustic', 'unplugged', 'remix',
+  'sped up', 'slowed', '8d', 'reverb', 'mashup', 'parody', 'lofi', 'nightcore',
+  'mv', 'm/v', 'video klip', 'official video', 'lirik', 'lyric', 'terjemahan'
+]
+const QUERY_NOISE = new Set([
+  'lagu', 'lagunya', 'lagu nya', 'musik', 'musiknya', 'muter', 'mutar', 'putar',
+  'putarkan', 'setel', 'setelkan', 'setelin', 'mainkan', 'play', 'dong', 'deh',
+  'ya', 'yuk', 'tolong', 'coba', 'aja', 'saja', 'the', 'a', 'an', 'di', 'ke',
+  'dari', 'yang', 'ini', 'itu', 'nya', 'kesukaan', 'favorit', 'kesukaanmu'
+])
+
+const normMusic = (s = '') =>
+  String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const queryTokens = (s = '') =>
+  normMusic(s)
+    .split(' ')
+    .filter((t) => t && t.length > 1 && !QUERY_NOISE.has(t))
+
+export function trustworthyTopHit(userInput, musicList) {
+  try {
+    const list = Array.isArray(musicList) ? musicList : []
+    if (list.length === 0) return null
+    const qNorm = normMusic(userInput)
+    if (!qNorm) return null
+    // Varian versi -> serahkan ke LLM (butuh penilaian).
+    if (VERSION_KEYWORDS.some((k) => qNorm.includes(k))) return null
+    const top = list[0] || {}
+    const hay = `${normMusic(top.title)} ${normMusic(top.artist)}`
+    if (!hay.trim()) return null
+    const tokens = queryTokens(userInput)
+    if (tokens.length === 0) return null
+    // Kuat: seluruh token query ada di judul+artis hit teratas.
+    const strong = tokens.every((t) => hay.includes(t))
+    if (!strong) return null
+    // Anti-salah-pilih: bila hit kedua cocok SAMA kuatnya, tetap ke LLM.
+    const second = list[1]
+    if (second) {
+      const hay2 = `${normMusic(second.title)} ${normMusic(second.artist)}`
+      if (tokens.every((t) => hay2.includes(t))) return null
+    }
+    return { selectedId: top.id, via: 'deterministic' }
+  } catch {
+    return null
+  }
+}
+
 export const getBestMusicMatch = async (userInput, musicList, signal) => {
   try {
     const systemPrompt = `
