@@ -11,6 +11,9 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { ARCH_VALUES, resolveBenchArch, currentBenchArch } from '../src/api/ai/benchArch.js'
+
+export { ARCH_VALUES, resolveBenchArch, currentBenchArch }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -64,7 +67,7 @@ function _getBenchSchemaVersion() {
   if (_effortModule && _effortModule.BENCH_SCHEMA_VERSION != null) {
     return _effortModule.BENCH_SCHEMA_VERSION
   }
-  return 2
+  return 3 // v3: +arch axis +worldState (Fase 2 bench)
 }
 
 export const EFFORT_VALUES = _getEffortValues() // real constants from the typed effort system when available; otherwise real constants
@@ -76,7 +79,7 @@ export const BENCH_SCHEMA_VERSION = _getBenchSchemaVersion() // real constants f
 // synchronous values from the evaluation package.
 export const EFFORT_VALUES_sync = _resolvedValues
 export const AGENT_ARCH_VERSION_sync = 'linux-1.0'
-export const BENCH_SCHEMA_VERSION_sync = 2
+export const BENCH_SCHEMA_VERSION_sync = 3
 
 
 export function resolveTaskEffortSync({ taskEffort, benchmarkEffort, envEffort } = {}) {
@@ -107,10 +110,12 @@ export function normalizeEffort(value, fallback = 'low') {
 
 
 // ---- Persistent sidecar child with id-multiplexed JSON-lines RPC ----
-function createSidecar() {
+function createSidecar(arch = 'basic') {
   const child = spawn(BUN, [SIDECAR], {
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, MARK_DEBUG_AI: '0' },
+    // MARK_BENCH_ARCH propagates the arch axis to the engine so executor-side
+    // wiring (renderer Task 5 lineage/scoring, future engine gates) can read it.
+    env: { ...process.env, MARK_DEBUG_AI: '0', MARK_BENCH_ARCH: arch },
   })
 
   const pending = new Map() // id -> { resolve, reject, timer }
@@ -263,6 +268,9 @@ export async function runMarkAgent(task, model, provider, options = {}) {
     benchmarkEffort: options?.effort,
     envEffort: process.env.MARK_BENCH_EFFORT,
   })
+  // Arch axis (Fase 2 bench): vanilla = model-only, basic = Fase 1 supervisor,
+  // avo = full Fase 2. Default basic; executor-side wiring reads the same env.
+  const arch = currentBenchArch()
   const config = {
     aiProvider: provider || 'gemini-web',
     geminiWebModel: model || 'gemini-3.6-flash',
@@ -278,7 +286,7 @@ export async function runMarkAgent(task, model, provider, options = {}) {
   let toolCalls = 0
   let response = ''
 
-  const sidecar = createSidecar()
+  const sidecar = createSidecar(arch)
   try {
     // Turn budget: task.maxTurns menimpa default MAX_ITER (ala turn-limit
     // eval — MCP Atlas memakai limit 100 turn). Tidak ada loop tak terbatas.
@@ -362,6 +370,7 @@ export async function runMarkAgent(task, model, provider, options = {}) {
     finishedAt,
     durationMs: finishedAt - startedAt,      meta: {
       effort,
+      arch,
       model,
       provider: provider || 'gemini-web',
       architectureVersion: AGENT_ARCH_VERSION,
@@ -372,8 +381,13 @@ export async function runMarkAgent(task, model, provider, options = {}) {
 
   return {
     effort,
+    arch,
     response: response.trim(),
     trajectory,
+    // Additive top-level aliases so bench verifiers get evidence without
+    // digging into trajectory (fix C ctx plumbing: { sentinel, workdir, stepLog }).
+    stepLog,
+    trace,
     tokenUsage: { promptTokens: null, completionTokens: null, totalTokens: null, estimated: false },
   }
 }

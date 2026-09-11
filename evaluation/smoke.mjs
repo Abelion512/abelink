@@ -115,7 +115,7 @@ const agg = aggregateRuns(
   ],
   { runs: 3, model: 'm', provider: 'p' }
 )
-assert.equal(agg.schemaVersion, 2)
+assert.equal(agg.schemaVersion, 3)
 assert.equal(agg.tasks.a.passed, 2)
 assert.equal(agg.tasks.a.runs, 3)
 assert.equal(agg.tasks.a.passRate, 0.667) // +toFixed(3) => dibulatkan
@@ -150,7 +150,7 @@ const sweepAgg = aggregateRuns([
   { taskId: 'x', effort: 'high', passed: true, durationMs: 400, steps: 3, toolCalls: 2 },
   { taskId: 'x', effort: 'high', passed: false, durationMs: 500, steps: 5, toolCalls: 3 },
 ])
-assert.equal(sweepAgg.schemaVersion, 2)
+assert.equal(sweepAgg.schemaVersion, 3)
 assert.equal(sweepAgg.tasks['x@low'].effort, 'low')
 assert.equal(sweepAgg.tasks['x@low'].passRate, 1)
 assert.equal(sweepAgg.tasks['x@high'].effort, 'high')
@@ -212,3 +212,40 @@ assert.equal(hasToolEvidence([{ step: 1, type: 'tool', tool: 'write-file', resul
 assert.equal(hasToolEvidence([{ step: 1, type: 'tool', tool: 'write-file', result: 'ERROR: denied' }], ['write-file']), false, 'adapter-shape ERROR does not count')
 
 console.log('MarkBench smoke: LOLOS')
+
+// ---- Task 7: arch axis + report shell v3 (offline) ----
+import { buildReportShell } from './run.mjs'
+import { resolveBenchArch, ARCH_VALUES } from './mark-adapter.mjs'
+const shell = buildReportShell({ arch: 'avo', runId: 'smoke-1' })
+assert.equal(shell.schemaVersion, 3, 'report shell is v3')
+assert.equal(shell.arch, 'avo', 'arch recorded')
+assert.equal(shell.worldState.workdir, 'tmp/markbench-smoke-1', 'per-run workdir recorded')
+assert.deepEqual([...ARCH_VALUES], ['vanilla', 'basic', 'avo'], 'arch axis locked')
+assert.equal(resolveBenchArch('bogus'), 'basic', 'unknown arch falls back to basic')
+assert.equal(resolveBenchArch(undefined), 'basic', 'unset arch defaults to basic')
+console.log('[ok] arch axis + report shell v3')
+
+// ---- Task 7 fix B: tb-git-01 memakai sentinel dunia bila truthy ----
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join as joinPath } from 'node:path'
+import { spawnSync as spawnSyncGit } from 'node:child_process'
+const gitTmp = mkdtempSync(joinPath(tmpdir(), 'markbench-git-'))
+const gitRun = (...a) => spawnSyncGit('git', ['-C', gitTmp, ...a], { encoding: 'utf8', timeout: 30000 })
+gitRun('init', '-q')
+import { writeFileSync as writeTmpFile } from 'node:fs'
+writeTmpFile(joinPath(gitTmp, 'f.txt'), 'x\n')
+gitRun('add', '.')
+gitRun('-c', 'user.email=s@local', '-c', 'user.name=s', 'commit', '-qm', 'isi S3N-dunia01 akhir')
+process.env.MARKBENCH_GIT_REPO = gitTmp
+assert.equal(gitTask.verifier('teks apa pun', 'S3N-dunia01'), true, 'commit bersentinel di fixture repo = PASS')
+assert.equal(gitTask.verifier('teks apa pun', 'S3N-tidak-ada'), false, 'sentinel tanpa commit = FAIL')
+delete process.env.MARKBENCH_GIT_REPO
+assert.equal(
+  gitTask.verifier('git add .\ngit commit -m "pesan"\ngit push'),
+  true,
+  'tanpa sentinel = fallback teks warisan tetap PASS'
+)
+import { rmSync as rmTmp } from 'node:fs'
+rmTmp(gitTmp, { recursive: true, force: true })
+console.log('[ok] tb-git-01 world-state sentinel path + legacy fallback')
