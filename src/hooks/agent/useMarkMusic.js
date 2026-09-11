@@ -1,4 +1,4 @@
-import { getBestMusicMatch } from '../../api/ai/tools'
+import { getBestMusicMatch, trustworthyTopHit } from '../../api/ai/tools'
 import { db, insertMemory } from '../../api/db'
 
 export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools) => {
@@ -60,8 +60,11 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
         ...prev.filter((item) => !item.isSearchingMusic),
         { role: 'ai', content: 'Menganalisis versi lagu terbaik...', isSearchingMusic: true }
       ])
-      
-      const bestMatch = await getBestMusicMatch(effectiveQuery, music.slice(0, 10), abortControllerRef.current?.signal)
+
+      // Jalur cepat deterministik: hit teratas cocok kuat + tidak minta
+      // varian versi -> langsung putar tanpa 1 LLM call tambahan.
+      const fast = trustworthyTopHit(effectiveQuery, music.slice(0, 10))
+      const bestMatch = fast || (await getBestMusicMatch(effectiveQuery, music.slice(0, 10), abortControllerRef.current?.signal))
       if (bestMatch && bestMatch.selectedId) {
         selectedId = bestMatch.selectedId
         const found = music.find((m) => m.id === selectedId)
