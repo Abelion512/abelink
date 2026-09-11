@@ -39,7 +39,7 @@ export const fetchAI = async (
     .slice(-4000)
   const effortDecision = resolveEffortLevel(conf, taskText)
   conf.effortLevel = effortDecision.effort
-  if (effortDecision.auto && typeof console !== 'undefined') {
+  if (effortDecision.auto && import.meta.env?.DEV && typeof console !== 'undefined') {
     console.info(`[effort-auto] ${effortDecision.transparent}`)
   }
 

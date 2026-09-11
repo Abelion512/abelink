@@ -397,10 +397,6 @@ export async function searchArchives(queryVector, limit = 3) {
     const hits = results.hits.filter((h) =>
       rowModelCompatible(h.document.vectorModel, currentModel)
     )
-    console.debug(
-      `[Orama] Found ${hits.length} archives. Scores:`,
-      hits.map((h) => h.score)
-    )
     return hits.map((hit) => hit.document)
   } catch (err) {
     console.error('[Orama] Error in searchArchives:', err)
@@ -416,9 +412,6 @@ export async function searchDocuments(queryText, queryVector, limit = 5) {
     return []
   }
   try {
-    console.debug(
-      `[Orama] Searching documents for: "${queryText}", vector length: ${queryVector?.length}`
-    )
     const results = await search(docIdx, {
       term: queryText,
       mode: 'hybrid',
@@ -431,10 +424,6 @@ export async function searchDocuments(queryText, queryVector, limit = 5) {
     const currentModel = getVectorModel()
     const hits = results.hits.filter((h) =>
       rowModelCompatible(h.document.vectorModel, currentModel)
-    )
-    console.debug(
-      `[Orama] Found ${hits.length} documents. Scores:`,
-      hits.map((h) => h.score)
     )
     return hits.map((hit) => hit.document)
   } catch (error) {
