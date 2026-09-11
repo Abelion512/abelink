@@ -10,7 +10,8 @@ import { describe, it, expect } from 'vitest'
 import {
   startTelegramBot,
   stopTelegramBot,
-  getConnectionStatus
+  getConnectionStatus,
+  sendAgentExecutionDone
 } from '../sidecar/main/telegram/telegram-service.js'
 
 const online = async () => {
@@ -42,5 +43,14 @@ describe('telegram start/stop lifecycle', () => {
   it('token kosong -> disconnected tanpa throw', async () => {
     await startTelegramBot('   ', null)
     expect(getConnectionStatus().status).toBe('disconnected')
+  })
+
+  it('eksekusi sama (msgId sama) hanya dibalas sekali', async () => {
+    const data = { chatId: '1', result: { answer: 'ok' }, msgId: 'dup-1' }
+    const first = await sendAgentExecutionDone(data)
+    const second = await sendAgentExecutionDone(data)
+    expect(first.success).toBe(true)
+    expect(second.success).toBe(true)
+    expect(second.deduped).toBe(true)
   })
 })
