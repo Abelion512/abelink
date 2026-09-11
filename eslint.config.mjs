@@ -9,8 +9,22 @@ import eslintPluginReactRefresh from 'eslint-plugin-react-refresh'
 // terpasang di devDependencies. Layer prettier-compat dihapus bersama paket
 // yang hilang (rules formatting sudah deprecated di ESLint 9, jadi dampaknya
 // praktis nol); rules inti proyek tetap didefinisikan eksplisit di bawah.
+// ESLint tidak membaca .gitignore, jadi direktori build WAJIB didaftarkan di
+// sini. Audit 2026-09-12: `src-tauri/target/` (salinan sidecar + extension hasil
+// `tauri build`) ikut ter-lint dan menyumbang 121 dari 972 warning, sehingga
+// angka baseline tech-debt jadi bias dan lint lambat.
 export default [
-  { ignores: ['**/node_modules', '**/dist', '**/out'] },
+  {
+    ignores: [
+      '**/node_modules',
+      '**/dist',
+      '**/dist-sidecar',
+      '**/out',
+      '**/target',
+      '**/coverage',
+      '**/graphify-out'
+    ]
+  },
   eslintPluginReact.configs.flat.recommended,
   eslintPluginReact.configs.flat['jsx-runtime'],
   {
