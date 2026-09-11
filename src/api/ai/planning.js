@@ -80,7 +80,10 @@ export const getNextAction = async (
       (typeof userInput === 'string' && (userInput.startsWith('(Mikrofon)') || userInput.startsWith('(Hasil STT)')))
     )
 
-    const userId = options.waContext ? options.waContext.senderJid : 'owner'
+    // Single-user: Abelink adalah asisten pribadi SATU owner. Cabang
+    // multi-sender lama (options.waContext, tidak pernah diisi — satu-satunya
+    // pemanggil mengirim null) dihapus agar asumsi satu user eksplisit.
+    const userId = 'owner'
 
     const groupToolsObj = await group_tools()
 

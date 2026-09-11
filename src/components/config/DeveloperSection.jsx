@@ -37,7 +37,7 @@ export default function DeveloperSection({
         </label>
       </div>
 
-      <div className="pt-2">
+      <div className="pt-2 flex flex-wrap gap-2">
         <button
           type="button"
           className="btn btn-outline btn-sm rounded-xl font-mono text-xs"
@@ -45,6 +45,9 @@ export default function DeveloperSection({
         >
           Dump System Prompt (Audit)
         </button>
+        <a href="#/trajectory" className="btn btn-outline btn-sm rounded-xl font-mono text-xs">
+          Buka Trajectory
+        </a>
       </div>
     </section>
   )
