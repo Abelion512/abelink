@@ -266,6 +266,12 @@ fn create_music_window(app: &AppHandle, start_url: &str, start_visible: bool) ->
     .build()
     .map_err(|e| format!("Failed to build music player window: {e}"))?;
 
+    // Samakan ikon dengan window utama: tanpa ini window kedua (music player)
+    // tampil tanpa logo Mark di taskbar/titlebar.
+    if let Some(icon) = app.default_window_icon() {
+        let _ = win.set_icon(icon.clone());
+    }
+
     let win_clone = win.clone();
     win.on_window_event(move |event| {
         if let WindowEvent::CloseRequested { api, .. } = event {

@@ -159,7 +159,7 @@ export const useMarkAgent = () => {
         try {
           await handlePlanningCommand(
             `Aplikasi baru saja dinyalakan. Sapa pengguna dengan singkat, natural, hangat, dan tidak kaku layaknya teman dekat/asisten pribadi yang hidup (gunakan nama pengguna dari profil jika ada).${timeContext}${topicContext}\nTunjukkan bahwa kamu siap dan aktif merespons tanpa bersikap seperti robot kaku atau customer service.`,
-            null, // waContext
+            null, // tgContext
             false, // isAutonomous
             null, // autonomousInitialMessage
             { disableTools: true }, // options
