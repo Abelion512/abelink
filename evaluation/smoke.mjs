@@ -200,4 +200,15 @@ assert.equal(matrixSummary.rows.length, BENCHMARK_MATRIX.length)
 assert.equal(matrixSummary.rows.find((r) => r.id === 'terminal-bench-4.0').score, 0.612)
 console.log('[ok] benchmark matrix (pilar + core set)')
 
+// Fase 2: world-state verifier contract — text without tool evidence MUST fail.
+import { VERIFY_WORLD } from './tasks-student-corporate.mjs'
+const fakeCtx = (over = {}) => ({ sentinel: 'S3N-test', workdir: '/tmp/markbench-smoke', stepLog: [], ...over })
+assert.equal(VERIFY_WORLD.corpReportTextOnly('laporan berisi S3N-test', fakeCtx()), false, 'text-only without write evidence fails')
+assert.equal(VERIFY_WORLD.corpReportTextOnly('nope', fakeCtx({ stepLog: [{ toolCalls: [{ tool: 'write-file', success: true }] }] })), false, 'missing sentinel fails')
+// Bentuk stepLog adapter nyata (tanpa field success) dihitung sebagai evidence,
+// kecuali result berawalan ERROR: — kompatibilitas mark-adapter.mjs.
+import { hasToolEvidence } from './tasks-student-corporate.mjs'
+assert.equal(hasToolEvidence([{ step: 1, type: 'tool', tool: 'write-file', result: 'ok' }], ['write-file']), true, 'adapter-shape success counts')
+assert.equal(hasToolEvidence([{ step: 1, type: 'tool', tool: 'write-file', result: 'ERROR: denied' }], ['write-file']), false, 'adapter-shape ERROR does not count')
+
 console.log('MarkBench smoke: LOLOS')
