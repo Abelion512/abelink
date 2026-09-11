@@ -24,3 +24,8 @@
 *.woff binary
 *.woff2 binary
 *.zip binary
+
+# Knowledge Graph (Graphify): cegah ledakan merge conflict 3MB JSON
+graphify-out/graph.json merge=ours -diff
+graphify-out/manifest.json merge=ours
+
