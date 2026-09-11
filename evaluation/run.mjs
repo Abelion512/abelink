@@ -21,8 +21,9 @@
 // laporan. Laporan JSON memakai schemaVersion 3 (+arch axis +worldState).
 
 import fs from 'node:fs'
+import os from 'node:os'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import AdmZip from 'adm-zip'
@@ -42,6 +43,19 @@ const DEFAULT_RUNS = 3
 const REGRESSION_THRESHOLD = 5 // persen pass-rate; default tanpa --compare = tidak dieksekusi
 
 // Synchronous alias kept for legacy importers of the effort ladder.
+
+// ---- Fixture root WAJIB di dalam workspace sidecar (pilot-found fix) ----
+// Handler file sidecar (fsGuard.js) menolak path absolut dan me-resolve path
+// relatif terhadap <xdg>/mark/workspace. Bila workdir bench di luar root itu,
+// write-file selalu "Akses ditolak" (atau file tersesat di XDG) dan SEMUA
+// task dunia auto-FAIL. Penyelesaian berlapis:
+//   - Seeder/verifier memakai ABSOLUT (fs lokal node).
+//   - Prompt + contoh preamble memakai RELATIF-terhadap-workspace
+//     (markbench-<runId>/...) agar lolos fsGuard dan mendarat di dir yang sama.
+export function sidecarWorkspaceRoot() {
+  const xdg = process.env.XDG_DATA_HOME || join(os.homedir(), '.local', 'share')
+  return join(xdg, 'mark', 'workspace')
+}
 
 // ---- Anti-cheat ----
 // Task sentinel dianggap curang jika keluarannya persis `expected` (jawaban
@@ -64,7 +78,9 @@ export function buildReportShell({ arch = 'basic', runId = 'smoke' } = {}) {
     schemaVersion: 3,
     arch: resolved,
     runId,
-    worldState: { workdir: `tmp/markbench-${runId}`, sentinel: null },
+    // Base absolut di dalam workspace sidecar; prompt memakai bentuk relatif
+    // (lihat promptRelWorkdir di main) agar lolos fsGuard.
+    worldState: { workdir: join(sidecarWorkspaceRoot(), `markbench-${runId}`), sentinel: null },
     results: [],
   }
 }
@@ -121,9 +137,13 @@ export function seedFixtures(workdir, sentinel) {
   const git = (...args) =>
     spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8', timeout: 30000 })
   git('init', '-q')
+  // Identitas repo-lokal: commit polos agen (`git commit -m ...` tanpa -c)
+  // harus berhasil tanpabergantung pada git config global mesin.
+  git('config', 'user.email', 'markbench@local')
+  git('config', 'user.name', 'markbench')
   writeFileSync(join(repo, 'awal.txt'), `markbench fixture ${sentinel}\n`)
   git('add', '.')
-  git('-c', 'user.email=markbench@local', '-c', 'user.name=markbench', 'commit', '-qm', 'fixture awal')
+  git('commit', '-qm', 'fixture awal')
   return workdir
 }
 
@@ -396,7 +416,10 @@ async function main() {
   const arch = resolveBenchArch(args.arch ?? process.env.MARK_BENCH_ARCH)
   process.env.MARK_BENCH_ARCH = arch // dibaca adapter + executor wiring
   const runId = args.runId || `r${Date.now().toString(36)}`
-  const baseDir = join('tmp', `markbench-${runId}`)
+  // Absolut (fs lokal) + relatif-workspace (prompt): pasangan yang menunjuk
+  // direktori fisik SAMA. Lihat blok sidecarWorkspaceRoot di atas.
+  const baseDir = join(sidecarWorkspaceRoot(), `markbench-${runId}`)
+  const promptBase = relative(sidecarWorkspaceRoot(), baseDir)
   mkdirSync(baseDir, { recursive: true })
 
   const tasks = args.tasks && args.tasks.length ? args.tasks : Object.keys(ALL_TASKS)
@@ -440,6 +463,8 @@ async function main() {
           overrideTaskEffort: Boolean(sweepEfforts),
           sentinel: iterSentinel,
           workdir: iterDir,
+          // Bentuk relatif-workspace untuk {{WORKDIR}} di prompt.
+          promptWorkdir: join(promptBase, `${taskId}-r${i + 1}`),
         })
         rawRuns.push({
           taskId: r.taskId,

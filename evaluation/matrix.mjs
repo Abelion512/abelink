@@ -25,7 +25,7 @@ export const BENCHMARK_MATRIX = [
     arch: ['vanilla', 'basic', 'avo'],
     reportSchema: 3,
     metrics: ['task_success', 'steps', 'time', 'tool_calls', 'retries', 'token_usage'],
-    note: 'Runner adaptasi TB-style dengan sentinel anti-cheat; sumbu arch vanilla|basic|avo via --arch (default basic); fixture per-run di tmp/markbench-<runId>; upgrade verifikator ke skema TB 4.0 long-horizon menyusul.'
+    note: 'Runner adaptasi TB-style dengan sentinel anti-cheat; sumbu arch vanilla|basic|avo via --arch (default basic); fixture per-run di <workspace-sidecar>/markbench-<runId>; upgrade verifikator ke skema TB 4.0 long-horizon menyusul.'
   },
   {
     id: 'swe-bench',

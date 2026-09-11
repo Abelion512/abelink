@@ -9,7 +9,24 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { hasGitCommitWithMessage } from './terminal-bench.mjs'
+
+// Cek dunia nyata: repo <repoDir> punya commit (5 teratas) yang pesannya
+// memuat `message` (biasanya sentinel per-run). False bila repo hilang/git gagal.
+// Tinggal di sini (bukan terminal-bench.mjs) agar dependensi satu arah:
+// terminal-bench -> modul ini, bukan sebaliknya (bebas circular import).
+export function hasGitCommitWithMessage(repoDir, message) {
+  if (!repoDir || !message) return false
+  try {
+    const r = spawnSync('git', ['-C', repoDir, 'log', '--oneline', '-5'], {
+      encoding: 'utf8',
+      timeout: 15000,
+    })
+    if (r.status !== 0) return false
+    return String(r.stdout || '').includes(message)
+  } catch {
+    return false
+  }
+}
 
 // True bila setiap tool di `tools` punya >=1 pemanggilan sukses di stepLog.
 // Bentuk step yang didukung: { toolCalls: [{ tool, success }] } atau { tool, success } datar.
@@ -135,8 +152,12 @@ export const CORP_TASKS = {
 
   'code-fix-01': {
     prompt:
-      'Perbaiki bug di {{WORKDIR}}/code-fix/ sehingga `bunx vitest run` lolos di direktori itu. Tulis penjelasan singkat + kode {{SENTINEL}} ke {{WORKDIR}}/code-fix/PERBAIKAN.md. Jangan mengubah test, hanya kode sumber. Jawab singkat setelah selesai.',
-    requiredTools: ['write-file'],
+      'Perbaiki bug di {{WORKDIR}}/code-fix/ sehingga `bunx vitest run` lolos di direktori itu. Verifikasi via run-shell dengan perintah berawalan `cd {{WORKDIR}}/code-fix &&` (contoh: cd {{WORKDIR}}/code-fix && bunx vitest run) — jangan menjalankan vitest di direktori lain. Tulis penjelasan singkat + kode {{SENTINEL}} ke {{WORKDIR}}/code-fix/PERBAIKAN.md. Jangan mengubah test, hanya kode sumber. Jawab singkat setelah selesai.',
+    // read-file agar model bisa membaca bug.js dulu; run-shell agar model bisa
+    // MENJALANKAN vitest dan memverifikasi klaimnya (pilot vanilla: 0/3 karena
+    // model menulis catatan tanpa pernah memperbaiki/menguji). Verifier tetap:
+    // PERBAIKAN + vitest hijau.
+    requiredTools: ['read-file', 'write-file', 'run-shell'],
     maxTurns: 20,
     effort: 'high',
     verifier: (output, { sentinel, workdir, stepLog } = {}) => {
