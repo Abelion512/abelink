@@ -70,12 +70,16 @@ export function deriveGroupName(status, task) {
 
 // ------------------------------------------------------- config browser
 // Diisi dari renderer via channel sync-config (ai.mjs). Default: jangan
-// auto-close (user masih butuh lihat hasil kerja).
-const browserConfig = { autoCloseTabs: false }
+// auto-close (user masih butuh lihat hasil kerja), jangan auto-launch
+// (membuka aplikasi user butuh persetujuan eksplisit).
+const browserConfig = { autoCloseTabs: false, autoLaunch: false }
 
 export function setBrowserConfig(partial = {}) {
   if (typeof partial.autoCloseTabs === 'boolean') {
     browserConfig.autoCloseTabs = partial.autoCloseTabs
+  }
+  if (typeof partial.autoLaunch === 'boolean') {
+    browserConfig.autoLaunch = partial.autoLaunch
   }
   return { ...browserConfig }
 }
