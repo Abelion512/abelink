@@ -18,6 +18,15 @@
 /build/
 /dist-sidecar/
 /graphify-out/
+/target/
+/src-tauri/target/
+*.bundle
+*.appimage
+*.deb
+*.rpm
+*.dmg
+*.msi
+*.exe
 
 # ─────────────────────────────────────────────────────────────────
 # Rust
@@ -35,6 +44,18 @@
 .env.development.local
 .env.test.local
 .env.production.local
+*.token
+*token*.json
+oauth*.json
+client_secret*.json
+credentials.json
+*-credentials.json
+browser-bridge-token
+telegram-session*.json
+*.id_rsa
+*.id_ed25519
+*.p12
+*.pfx
 
 # ─────────────────────────────────────────────────────────────────
 # Logs & cache
@@ -46,6 +67,24 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+bun-debug.log*
+/reports/log-*.txt
+/reports/*.log
+/reports/runs/
+/reports/tmp-*
+/evaluation/runs/
+/evaluation/logs/
+/evaluation/temp/
+/evaluation/tmp-*
+.vitest/
+/test-results/
+/playwright-report/
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+*.tsbuildinfo
 
 # ─────────────────────────────────────────────────────────────────
 # Test coverage
@@ -59,6 +98,14 @@ pnpm-debug.log*
 .idea/
 .DS_Store
 *.swp
+*.swo
+*~
+.directory
+Thumbs.db
+.project
+.classpath
+.settings/
+.sublime-*
 
 # ─────────────────────────────────────────────────────────────────
 # Local worktrees & agent scratch
@@ -73,6 +120,26 @@ pnpm-debug.log*
 /.remember/
 /.superpowers/
 /.plans/
+/.gemini/
+/.antigravity/
+/.cursor/
+/.windsurf/
+/.copilot/
+/.agent/
+/.subagents/
+/brain/
+/scratch/
+scratch/
+tmp/
+temp/
+*.tmp
+*.temp
+*.patch
+*.diff
+*.rej
+*.orig
+agent-transcripts/
+harness-logs/
 __pycache__/
 
 # ─────────────────────────────────────────────────────────────────

@@ -399,7 +399,9 @@ async function finishTaskGroup(sessionId, task, status = 'done', autoClose = fal
   }
   await markGroupDone(groupId, label)
   const closed = autoClose ? await closeGroupTabs(groupId).catch(() => 0) : 0
-  if (closed > 0) {
+  if (closed > 0 || autoClose) {
+    delete activeGroups[sessionId]
+    delete sessionTask[sessionId]
     delete primaryTabs[sessionId]
     await saveSessionState()
   }
@@ -409,8 +411,15 @@ async function finishTaskGroup(sessionId, task, status = 'done', autoClose = fal
 // Tutup tab grup aktif sesi (tombol manual). Mengembalikan jumlah ditutup.
 async function closeActiveGroupTabs(sessionId) {
   const group = activeGroups[sessionId]
-  if (!group?.groupId) return 0
-  return closeGroupTabs(group.groupId).catch(() => 0)
+  let closed = 0
+  if (group?.groupId != null) {
+    closed = await closeGroupTabs(group.groupId).catch(() => 0)
+  }
+  delete activeGroups[sessionId]
+  delete sessionTask[sessionId]
+  delete primaryTabs[sessionId]
+  await saveSessionState()
+  return closed
 }
 
 // Masukkan tab ke grup sesi (format judul ikut status). Dipakai navigate
@@ -1070,8 +1079,29 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     } else if (msg?.type === 'get-active-task') {
       const cfg = await getCfg()
       const session = msg.session || cfg.session
-      const group = activeGroups[session]
-      sendResponse({ ok: true, hasTask: !!group?.groupId, task: group?.taskId || null })
+      let group = activeGroups[session]
+      let hasTask = false
+      let taskId = null
+      if (group?.groupId != null) {
+        try {
+          const tabs = await chrome.tabs.query({ groupId: group.groupId })
+          if (tabs && tabs.length > 0) {
+            hasTask = true
+            taskId = group.taskId
+          } else {
+            delete activeGroups[session]
+            delete sessionTask[session]
+            delete primaryTabs[session]
+            await saveSessionState()
+          }
+        } catch {
+          delete activeGroups[session]
+          delete sessionTask[session]
+          delete primaryTabs[session]
+          await saveSessionState()
+        }
+      }
+      sendResponse({ ok: true, hasTask, task: taskId })
     } else if (msg?.type === 'status') {
       const cfg = await getCfg()
       sendResponse({
@@ -1157,5 +1187,49 @@ chrome.runtime.onStartup.addListener(() => {
   tryAutoResume()
 })
 
+// Listener tab & group agar state activeGroups sinkron secara reaktif
+if (typeof chrome !== 'undefined') {
+  if (chrome.tabGroups?.onRemoved) {
+    chrome.tabGroups.onRemoved.addListener((group) => {
+      for (const [s, g] of Object.entries(activeGroups)) {
+        if (g?.groupId === group.id) {
+          delete activeGroups[s]
+          delete sessionTask[s]
+          delete primaryTabs[s]
+          saveSessionState()
+        }
+      }
+    })
+  }
+
+  if (chrome.tabs?.onRemoved) {
+    chrome.tabs.onRemoved.addListener(async (tabId) => {
+      for (const [s, pId] of Object.entries(primaryTabs)) {
+        if (pId === tabId) {
+          delete primaryTabs[s]
+        }
+      }
+      for (const [s, g] of Object.entries(activeGroups)) {
+        if (g?.groupId != null) {
+          try {
+            const tabs = await chrome.tabs.query({ groupId: g.groupId })
+            if (!tabs || tabs.length === 0) {
+              delete activeGroups[s]
+              delete sessionTask[s]
+              delete primaryTabs[s]
+            }
+          } catch {
+            delete activeGroups[s]
+            delete sessionTask[s]
+            delete primaryTabs[s]
+          }
+        }
+      }
+      saveSessionState()
+    })
+  }
+}
+
 tryAutoResume()
+
 
