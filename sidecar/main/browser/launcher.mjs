@@ -7,8 +7,10 @@
 // sidecar menunggu handshake bounded di sini.
 //
 // Keamanan & privasi:
-// - Opt-in via config `browserAutoLaunch` (default MATI). Tanpa persetujuan
-//   eksplisit user, perilaku lama dipertahankan (fail-fast + fallback).
+// - Aktif via config `browserAutoLaunch` (default AKTIF per kehendak owner:
+//   agen harus otomatis; user mematikan via toggle Capabilities bila tidak
+//   mau browsernya dibukakan). Tanpa itu, perilaku lama dipertahankan
+//   (fail-fast + fallback).
 // - Tidak mengunduh/menginstal apa pun; hanya membuka browser user.
 // - Executor di-inject lewat `deps` agar bisa di-unit-test tanpa OS.
 
