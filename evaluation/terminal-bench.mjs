@@ -18,28 +18,12 @@
 
 import { runMarkAgent } from './mark-adapter.mjs'
 import { spawnSync } from 'node:child_process'
-import { CORP_TASKS } from './tasks-student-corporate.mjs'
+import { CORP_TASKS, hasGitCommitWithMessage } from './tasks-student-corporate.mjs'
 
 // Token acak per-run untuk anti-cheat (diekspor agar smoke test bisa menguji).
 export function mkSentinel() {
   const rnd = Math.random().toString(36).slice(2, 10)
   return `S3N-${rnd}`
-}
-
-// Cek dunia nyata: repo <repoDir> punya commit (5 teratas) yang pesannya
-// memuat `message` (biasanya sentinel per-run). False bila repo hilang/git gagal.
-export function hasGitCommitWithMessage(repoDir, message) {
-  if (!repoDir || !message) return false
-  try {
-    const r = spawnSync('git', ['-C', repoDir, 'log', '--oneline', '-5'], {
-      encoding: 'utf8',
-      timeout: 15000,
-    })
-    if (r.status !== 0) return false
-    return String(r.stdout || '').includes(message)
-  } catch {
-    return false
-  }
 }
 
 // Terminal-Bench-style tasks (adapted, not copied wholesale).
@@ -85,7 +69,8 @@ export const TASKS = {
   // tanpa sentinel (smoke offline) pakai cek teks warisan.
   'tb-git-01': {
     prompt:
-      'Di {{WORKDIR}}/git-repo sudah ada repo git terinisialisasi berisi satu commit. Stage semua perubahan dan buat satu commit baru dengan pesan yang memuat kode {{SENTINEL}} tepat apa adanya. Jawab singkat setelah selesai.',
+      'Di {{WORKDIR}}/git-repo sudah ada repo git terinisialisasi berisi satu commit. Via SATU perintah shell yang diawali `cd {{WORKDIR}}/git-repo &&`, stage semua perubahan dan buat satu commit baru dengan pesan yang memuat kode {{SENTINEL}} tepat apa adanya (contoh: cd {{WORKDIR}}/git-repo && git add -A && git commit -m "{{SENTINEL}}"). Jangan menjalankan git di direktori lain mana pun. Jawab singkat setelah selesai.',
+    requiredTools: ['run-shell'],
     verifier: (output, sentinel) => {
       if (sentinel) {
         const repo = process.env.MARKBENCH_GIT_REPO || 'tmp/markbench-git'
@@ -152,9 +137,13 @@ export async function runTask(taskId, model, provider, opts = {}) {
   }
   const verifierSentinel = sentinel || opts.sentinel || null
   // Fixture dir per-run milik orchestrator (run.mjs seed sebelum agent jalan).
+  // workdir = ABSOLUT untuk seeder/verifier (fs lokal). promptWorkdir =
+  // RELATIF-terhadap-workspace-sidecar untuk {{WORKDIR}} di prompt — path
+  // absolut ditolak fsGuard, path relatif mendarat di dir fisik yang sama.
   const workdir = opts.workdir || null
-  if (workdir && prompt.includes('{{WORKDIR}}')) {
-    prompt = prompt.split('{{WORKDIR}}').join(workdir)
+  const promptWorkdir = opts.promptWorkdir || workdir
+  if (promptWorkdir && prompt.includes('{{WORKDIR}}')) {
+    prompt = prompt.split('{{WORKDIR}}').join(promptWorkdir)
   }
 
   // --- Real Mark execution (maxTurns = budget langkah, ala turn-limit eval) ---
@@ -171,6 +160,12 @@ export async function runTask(taskId, model, provider, opts = {}) {
     prompt,
     maxTurns: task.maxTurns,
     effort: opts.overrideTaskEffort ? undefined : task.effort,
+    // Diteruskan agar adapter bisa menempelkan protokol tool [tool: ...].
+    // Tanpa ini preamble kosong dan model tak pernah memanggil tool.
+    requiredTools: task.requiredTools || null,
+    // Contoh path nyata di preamble (model tinggal salin, tak perlu menebak).
+    // Relatif-workspace agar lolos fsGuard sidecar.
+    workdir: promptWorkdir || null,
   }
   const result = await runMarkAgent(taskDef, model, provider, { effort: opts.effort })
 

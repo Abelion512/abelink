@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict'
 import { TASKS, listTasks, mkSentinel } from './terminal-bench.mjs'
-import { parseToolCalls, normalizeEffort, resolveTaskEffort } from './mark-adapter.mjs'
+import { parseToolCalls, normalizeEffort, resolveTaskEffort, toNativeQuery, toolPreamble } from './mark-adapter.mjs'
 import { aggregateRuns, detectCheat, compareReports } from './run.mjs'
 import { runSmoke as runMarkEvalSmoke, aggregateMarkEval } from './mark-eval.mjs'
 import { BENCHMARK_MATRIX, CORE_SET, summarizeMatrix } from './matrix.mjs'
@@ -97,6 +97,35 @@ assert.equal(parsed.length, 2, 'dua tool call harus ter-parse')
 assert.deepEqual(parsed[0].arguments, { path: 'a,b.txt', content: 'hello, world', overwrite: true })
 assert.deepEqual(parsed[1].arguments, { path: 'c.txt' })
 console.log('[ok] parser tool-call quote-aware')
+
+// 8b2. Parser tahan paren tak-berquote di dalam content (bug pilot vanilla:
+// call dengan "(efek fotovoltaik)" tak-berquote membuat tools 0).
+const parenParsed = parseToolCalls(
+  '[tool: write-file(path="r/riset.md", content="# Energi (efek fotovoltaik) dan surya, murah")]'
+)
+assert.equal(parenParsed.length, 1, 'call berparen harus ter-parse')
+assert.equal(parenParsed[0].name, 'write-file', 'nama tool benar')
+assert.ok(
+  String(parenParsed[0].arguments.content).includes('(efek fotovoltaik)'),
+  'konten berparen utuh'
+)
+assert.equal(parseToolCalls('teks biasa tanpa call').length, 0, 'tanpa pola = kosong')
+assert.equal(parseToolCalls('[tool: broken').length, 0, 'kurung tak-tutup = diabaikan')
+console.log('[ok] parser tool-call tahan paren')
+
+// 8b. Bench tool-call bridge: OBJECT model -> STRING sidecar '||' (pilot-blocker fix).
+assert.equal(toNativeQuery('write-file', { path: 'a/b.md', content: '# H' }), 'a/b.md||# H', 'write-file path||content')
+assert.equal(toNativeQuery('read-file', { path: 'x.txt' }), 'x.txt', 'read-file path polos')
+assert.equal(toNativeQuery('run-shell', { command: 'ls' }), 'ls', 'run-shell perintah mentah')
+assert.equal(toNativeQuery('git-commit', { message: 'S3N-x', cwd: '/tmp/r' }), 'S3N-x||/tmp/r', 'git-commit message||cwd')
+assert.equal(toNativeQuery('list-dir', { path: 'd' }), 'd', 'list-dir path polos')
+assert.equal(typeof toNativeQuery('write-file', { path: 'a', content: 'b' }), 'string', 'selalu string (handler .split aman)')
+assert.equal(toolPreamble(['write-file']).includes('[tool: write-file(path="..." content="...")]'), true, 'preamble mengajar sintaks write-file')
+assert.equal(toolPreamble(['write-file'], { workdir: 'tmp/wd' }).includes('tmp/wd/report.md'), true, 'preamble mencontohkan path nyata')
+assert.equal(toolPreamble(['write-file']).includes('satu baris persis berformat'), true, 'preamble mengajar format call')
+assert.equal(toolPreamble([]), '', 'tanpa requiredTools = tanpa preamble (task teks tidak berubah)')
+assert.equal(toolPreamble(undefined), '', 'tanpa argumen = tanpa preamble')
+console.log('[ok] bench tool-call bridge (preamble + toNativeQuery)')
 
 // 9. Anti-cheat: detectCheat
 assert.equal(detectCheat({ sentinel: true, expected: 'X' }, { output: 'X' }, 'S3N-abc'), true, 'output = expected tanpa sentinel = curang')
@@ -214,12 +243,13 @@ assert.equal(hasToolEvidence([{ step: 1, type: 'tool', tool: 'write-file', resul
 console.log('MarkBench smoke: LOLOS')
 
 // ---- Task 7: arch axis + report shell v3 (offline) ----
-import { buildReportShell } from './run.mjs'
+import { buildReportShell, sidecarWorkspaceRoot } from './run.mjs'
 import { resolveBenchArch, ARCH_VALUES } from './mark-adapter.mjs'
+import { join as joinWs } from 'node:path'
 const shell = buildReportShell({ arch: 'avo', runId: 'smoke-1' })
 assert.equal(shell.schemaVersion, 3, 'report shell is v3')
 assert.equal(shell.arch, 'avo', 'arch recorded')
-assert.equal(shell.worldState.workdir, 'tmp/markbench-smoke-1', 'per-run workdir recorded')
+assert.equal(shell.worldState.workdir, joinWs(sidecarWorkspaceRoot(), 'markbench-smoke-1'), 'per-run workdir di dalam workspace sidecar')
 assert.deepEqual([...ARCH_VALUES], ['vanilla', 'basic', 'avo'], 'arch axis locked')
 assert.equal(resolveBenchArch('bogus'), 'basic', 'unknown arch falls back to basic')
 assert.equal(resolveBenchArch(undefined), 'basic', 'unset arch defaults to basic')
