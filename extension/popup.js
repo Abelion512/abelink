@@ -89,12 +89,14 @@ $('closeTabs').addEventListener('click', async () => {
   const el = $('status')
   if (res?.ok) {
     el.className = 'ok'
-    el.textContent = `Tab task ditutup: ${res.closed ?? 0}.`
+    el.textContent = res.closed > 0 
+      ? `Tab task ditutup: ${res.closed}.` 
+      : 'Task aktif dibersihkan.'
   } else {
     el.className = 'err'
     el.textContent = 'Gagal menutup tab task.'
   }
-  refreshTask()
+  await refreshTask()
 })
 
 autoConnect()
