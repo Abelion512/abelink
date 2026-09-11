@@ -62,14 +62,16 @@ pub async fn tools_run_shell(
     }
 
     let workspace = crate::cmd_fs::workspace_root();
-    let cwd_path = cwd.and_then(|c| {
-        let p = std::path::PathBuf::from(c);
-        if p.is_absolute() {
-            Some(p)
-        } else {
-            Some(workspace.join(&p))
-        }
-    }).unwrap_or(workspace);
+    let cwd_path = cwd
+        .map(|c| {
+            let p = std::path::PathBuf::from(c);
+            if p.is_absolute() {
+                p
+            } else {
+                workspace.join(&p)
+            }
+        })
+        .unwrap_or(workspace);
 
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<ToolResult, String> {
         let mut cmd = Command::new("bash");

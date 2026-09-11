@@ -114,7 +114,7 @@ pub fn telegram_send_photo(
     // ("data:image/png;base64,...") sebagai pertahanan di sisi Rust.
     let raw = png_base64.trim();
     let b64 = if raw.starts_with("data:") {
-        raw.splitn(2, "base64,").nth(1).unwrap_or("").trim()
+        raw.split_once("base64,").map(|x| x.1).unwrap_or("").trim()
     } else {
         raw
     };

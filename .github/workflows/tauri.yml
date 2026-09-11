@@ -82,6 +82,9 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Build sidecar (tauri build script embeds ../dist-sidecar/mark-engine)
         run: bun run build:sidecar
+      - name: Rust clippy (warnings denied)
+        run: cargo clippy --all-targets -- -D warnings
+        working-directory: src-tauri
       - name: Rust check + tests
         run: |
           cargo check

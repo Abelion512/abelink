@@ -120,8 +120,10 @@ pub struct NodeResponse {
 }
 
 // ---- Gerbang otorisasi ----------------------------------------------------
-/// (deny-by-default dihapus — bypass semua aksi; APPROVAL_ACTIONS tetap melindungi
-/// operasi berbahaya. Jika butuh allowlist, baca dari config file di sini.)
+// (deny-by-default dihapus — bypass semua aksi; APPROVAL_ACTIONS tetap melindungi
+// operasi berbahaya. Jika butuh allowlist, baca dari config file di sini.)
+// Catatan blok ini sengaja komentar biasa (bukan `///`): doc comment yang diikuti
+// baris kosong lalu doc comment kedua memicu clippy::empty_line_after_doc_comments.
 
 /// Channel sidecar yang selalu butuh persetujuan native.
 /// (open-external pindah ke cmd_misc.rs::misc_open_external dengan gate rfd yang sama.)
@@ -419,9 +421,7 @@ pub async fn node_invoke(
 
     // 1.6) Mission scope Fase 3: penolakan deterministik tanpa dialog bila aksi
     //    di luar tool yang dideklarasikan misi. Nonaktif secara default.
-    if let Err(e) = crate::mission_scope::check_tool(&action) {
-        return Err(e);
-    }
+    crate::mission_scope::check_tool(&action)?;
 
     // 2) Persetujuan NATIVE untuk aksi/tool berbahaya (di luar kendali renderer).
     if let Some(desc) = approval_reason(&action, &payload) {
