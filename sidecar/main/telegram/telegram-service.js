@@ -7,6 +7,9 @@ import { getGlobalConfig, abortAllFetches, activeAbortControllers } from '../ai-
 
 let bot = null
 let currentStatus = 'disconnected'
+// Generasi start: startTelegramBot yang lebih baru membatalkan loop retry
+// milik start lama (mencegah start ganda berebut satu token polling).
+let launchGeneration = 0
 export const uiMessageHistory = []
 const MAX_UI_HISTORY = 100
 const pendingRequestsMap = new Map()
@@ -17,6 +20,7 @@ export const getConnectionStatus = () => {
 }
 
 export const stopTelegramBot = () => {
+  launchGeneration++
   for (const [, req] of pendingRequestsMap.entries()) {
     if (req?.typingInterval) {
       try { clearInterval(req.typingInterval) } catch (_) {}
@@ -446,12 +450,44 @@ export const startTelegramBot = async (token, mainWindow) => {
       return { success: false, error: authErr.message || 'Token tidak valid' }
     }
 
-    bot.launch({ allowedUpdates: ['message', 'callback_query'] }).catch((err) => {
-      console.error('[Telegram] Polling error:', err?.message || err)
-      stopTelegramBot()
-    })
+    // Launch dengan retry: JANGAN tandai connected sebelum polling
+    // benar-benar jalan (sebelumnya updateStatus('connected') dipanggil
+    // sinkron lalu disconnect saat launch gagal — "connect lalu putus").
+    // Gangguan jaringan sesaat me-retry dengan backoff; hanya 401/404
+    // (token mati) yang berhenti permanen.
+    const myGeneration = ++launchGeneration
+    const RETRY_DELAYS_MS = [2000, 4000, 8000, 16000, 30000]
+    let launched = false
+    let lastError = null
+    for (let attempt = 0; ; attempt++) {
+      if (myGeneration !== launchGeneration || !bot) return { success: false, error: 'dibatalkan' }
+      try {
+        await bot.launch({ allowedUpdates: ['message', 'callback_query'] })
+        launched = true
+        break
+      } catch (err) {
+        lastError = err
+        const code = err?.response?.error_code
+        if (code === 401 || code === 404) {
+          console.warn(`[Telegram] Token error (${code}). Berhenti permanen.`)
+          stopTelegramBot()
+          return { success: false, error: err?.message || 'Token tidak valid' }
+        }
+        if (attempt >= RETRY_DELAYS_MS.length) break
+        const waitMs = RETRY_DELAYS_MS[attempt]
+        console.warn(
+          `[Telegram] Launch gagal (${err?.message || err}). Retry ${attempt + 1}/${RETRY_DELAYS_MS.length} dalam ${waitMs / 1000}s...`
+        )
+        await new Promise((r) => setTimeout(r, waitMs))
+      }
+    }
+    if (!launched || myGeneration !== launchGeneration || !bot) {
+      if (myGeneration === launchGeneration) stopTelegramBot()
+      return { success: false, error: lastError?.message || 'Gagal menjalankan polling' }
+    }
     updateStatus('connected')
     console.log('[Telegram] Bot successfully started and listening')
+    return { success: true }
   } catch (err) {
     console.error('[Telegram] Failed to start bot:', err?.message || err)
     stopTelegramBot()
