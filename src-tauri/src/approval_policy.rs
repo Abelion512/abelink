@@ -46,10 +46,13 @@ pub const ACTION_FAMILIES: &[&str] = &[
 ];
 
 /// Kebijakan default per family. Read-only = always (permintaan owner);
-/// sisanya ask. Family yang tidak tercantum = ask.
+/// tg-control = session (start/stop bot milik sendiri: tanya nol kali per
+/// runtime, user bisa menaikkan ke ask di Capabilities bila mau dialog
+/// kembali). Sisanya ask. Family yang tidak tercantum = ask.
 fn default_policy(family: &str) -> &'static str {
     match family {
         "fs-read" | "os-read" => POLICY_ALWAYS,
+        "tg-control" => POLICY_SESSION,
         _ => POLICY_ASK,
     }
 }
@@ -235,6 +238,14 @@ mod tests {
             assert_eq!(default_policy(f), POLICY_ASK, "{f} harus ask");
         }
         assert_eq!(default_policy("family-baru-aneh"), POLICY_ASK);
+    }
+
+    #[test]
+    fn tg_control_defaults_to_session_not_ask() {
+        // Start/stop bot milik sendiri: sunyi per runtime, user bisa
+        // menaikkan ke ask via Capabilities. Proteksi anti-hijack token
+        // tetap ada di sisi validasi, bukan dialog berulang.
+        assert_eq!(default_policy("tg-control"), POLICY_SESSION);
     }
 
     #[test]
