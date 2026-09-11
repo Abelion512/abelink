@@ -39,6 +39,7 @@ Abelink membagi beban kerja ke dalam tiga lapisan terisolasi:
 - **LARANGAN KERAS**: Tidak boleh mengimpor modul Node.js (`fs`, `path`, `child_process`) atau sisa dependensi Electron.
 - Seluruh komunikasi sistemik WAJIB melalui facade `window.api` di `src/api/tauri-bridge.js`.
 - Semua data state berat dan Turn Pairs obrolan disimpan di IndexedDB via `src/api/db.js` (Dexie) dan Web Worker (`embedding.worker.js`). UI thread tidak boleh dibebani komputasi embedding atau transformasi data besar.
+- **Anti-Slop Markup (aturan agen)**: Dilarang membungkus teks dengan elemen yang tidak dibutuhkan (`<span>`, `<p>`, `<div>` sekadar pembungkus). Teks polos = teks polos; satu elemen per peran visual. Styling lewat utility Tailwind/DaisyUI langsung di elemen yang sudah ada (tidak ada `<div>` tambahan hanya demi satu class). Tidak ada inline `style={{...}}` kecuali nilainya dinamis dari runtime. Komponen berulang (kartu, badge, tombol) wajib memakai ulang pola yang sudah ada (`HoloCard`, token di `src/assets/main.css`), bukan merakit ulang dari nol.
 
 ### B. Shell Layer (`src-tauri/`)
 - Mengontrol lifecycle jendela desktop, tray indicator, dan sistem keamanan sandboxing.
