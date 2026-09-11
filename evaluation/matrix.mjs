@@ -22,8 +22,10 @@ export const BENCHMARK_MATRIX = [
     status: 'implemented',
     what: 'coding, shell, system tasks',
     runner: 'evaluation/terminal-bench.mjs',
+    arch: ['vanilla', 'basic', 'avo'],
+    reportSchema: 3,
     metrics: ['task_success', 'steps', 'time', 'tool_calls', 'retries', 'token_usage'],
-    note: 'Runner adaptasi TB-style dengan sentinel anti-cheat; upgrade verifikator ke skema TB 4.0 long-horizon menyusul.'
+    note: 'Runner adaptasi TB-style dengan sentinel anti-cheat; sumbu arch vanilla|basic|avo via --arch (default basic); fixture per-run di tmp/markbench-<runId>; upgrade verifikator ke skema TB 4.0 long-horizon menyusul.'
   },
   {
     id: 'swe-bench',
@@ -154,6 +156,18 @@ export const BENCHMARK_MATRIX = [
   },
 
   // ---- MARK-specific ----
+  {
+    id: 'abelink-fase2-corp',
+    layer: 'mark',
+    name: 'Abelink Fase 2 Corp',
+    priority: 'P0',
+    status: 'implemented',
+    what: 'real-activity student/corporate tasks with world-state verifiers',
+    runner: 'evaluation/tasks-student-corporate.mjs',
+    arch: ['vanilla', 'basic', 'avo'],
+    reportSchema: 3,
+    metrics: ['task_success', 'steps', 'time', 'tool_calls', 'recovery_success_rate', 'verification_accuracy', 'premature_termination_rate']
+  },
   {
     id: 'mark-eval',
     layer: 'mark',

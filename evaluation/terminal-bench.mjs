@@ -18,6 +18,7 @@
 
 import { runMarkAgent } from './mark-adapter.mjs'
 import { spawnSync } from 'node:child_process'
+import { CORP_TASKS } from './tasks-student-corporate.mjs'
 
 // Token acak per-run untuk anti-cheat (diekspor agar smoke test bisa menguji).
 export function mkSentinel() {
@@ -84,7 +85,7 @@ export const TASKS = {
   // tanpa sentinel (smoke offline) pakai cek teks warisan.
   'tb-git-01': {
     prompt:
-      'Jelaskan langkah menyimpan perubahan Git: tuliskan 3 perintah git berurutan, satu per baris, tanpa teks lain.',
+      'Di {{WORKDIR}}/git-repo sudah ada repo git terinisialisasi berisi satu commit. Stage semua perubahan dan buat satu commit baru dengan pesan yang memuat kode {{SENTINEL}} tepat apa adanya. Jawab singkat setelah selesai.',
     verifier: (output, sentinel) => {
       if (sentinel) {
         const repo = process.env.MARKBENCH_GIT_REPO || 'tmp/markbench-git'
@@ -128,16 +129,32 @@ export function listTasks() {
   }))
 }
 
+// Gabungan registry legacy + CORP (Fase 2 real-activity) untuk orchestrator.
+export const ALL_TASKS = { ...TASKS, ...CORP_TASKS }
+
 export async function runTask(taskId, model, provider, opts = {}) {
-  const task = TASKS[taskId]
+  const task = TASKS[taskId] || CORP_TASKS[taskId]
   if (!task) throw new Error(`Unknown task: ${taskId}`)
+  const isCorp = !TASKS[taskId]
 
   // --- Anti-cheat sentinel: token acak per-run untuk task bertipe sentinel ---
   let sentinel = null
   let prompt = task.prompt
   if (task.sentinel) {
     sentinel = opts.sentinel || mkSentinel()
-    prompt = prompt.replace('{{SENTINEL}}', sentinel)
+    prompt = prompt.split('{{SENTINEL}}').join(sentinel)
+  }
+  // Run sentinel milik orchestrator (run.mjs): me-resolve placeholder yang
+  // tersisa pada task non-sentinel (mis. tb-git-01 pesan commit) tanpa
+  // menimpa sentinel milik task bertipe sentinel (nilainya sama).
+  if (opts.sentinel && prompt.includes('{{SENTINEL}}')) {
+    prompt = prompt.split('{{SENTINEL}}').join(opts.sentinel)
+  }
+  const verifierSentinel = sentinel || opts.sentinel || null
+  // Fixture dir per-run milik orchestrator (run.mjs seed sebelum agent jalan).
+  const workdir = opts.workdir || null
+  if (workdir && prompt.includes('{{WORKDIR}}')) {
+    prompt = prompt.split('{{WORKDIR}}').join(workdir)
   }
 
   // --- Real Mark execution (maxTurns = budget langkah, ala turn-limit eval) ---
@@ -158,16 +175,26 @@ export async function runTask(taskId, model, provider, opts = {}) {
   const result = await runMarkAgent(taskDef, model, provider, { effort: opts.effort })
 
   // --- Deterministic verifier (explicit predicate, actually executed) ---
-  const passed = task.verifier(result.response, sentinel)
+  // ctx dunia untuk verifier Fase 2: { sentinel, workdir, stepLog }. Legacy
+  // TASKS keeps (output, sentinel) — argumen ctx ketiga diabaikan signature
+  // lama; tb-git-01 memakai sentinel hanya bila truthy (fallback teks warisan
+  // saat smoke offline). CORP verifier memakai (output, ctx).
+  const stepLog = result.stepLog || result.trajectory?.stepLog || []
+  const ctx = { sentinel: verifierSentinel, workdir, stepLog }
+  const passed = isCorp
+    ? task.verifier(result.response, ctx)
+    : task.verifier(result.response, verifierSentinel, ctx)
 
   return {
     taskId,
     prompt,
     output: result.response,
     passed,
-    sentinel,
-    verifier: 'deterministic-predicate',
+    sentinel: verifierSentinel,
+    verifier: isCorp ? 'world-state-predicate' : 'deterministic-predicate',
     trajectory: result.trajectory,
+    stepLog,
+    workdir,
     // Effort direkam di SETIAP task result (bukan hanya config laporan) —
     // syarat A/B per-effort & analisis effort-scaling.
     effort: result.effort,

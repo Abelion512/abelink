@@ -13,6 +13,7 @@ import {
 import { createTrajectorySupervisor, normalizeAttemptKey } from '../ai/trajectorySupervisor'
 import { createLineage, appendAttempt, bestAttempt } from '../ai/trajLineage'
 import { scoreAttempt, RANK_OF } from '../ai/scoring'
+import { currentBenchArch } from '../ai/benchArch'
 import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
 import { GROUP_TOOLS_DEFINITION } from '../tools/group-tools'
@@ -137,14 +138,20 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   // ---- Trajectory lineage Fase 2 (trajLineage.js + scoring.js) -----------
   // Per-sub-agent search memory + supervisor. Mirrors the main-loop wiring in
   // useMarkPlan.js: score each tool attempt, feed extended fields back, stage
-  // hintText for the observation path. Additive: faults stay silent, the ReAct
-  // loop below is untouched.
-  const subSupervisor = createTrajectorySupervisor()
-  const subLineage = createLineage({
-    taskId: subagent.id || subagentId,
-    goal: subagent.goal || '',
-    objectiveKind: classifyObjectiveKind(subagent.goal || '')
-  })
+  // hintText for the observation path. Bench arch axis (MARK_BENCH_ARCH,
+  // default basic): vanilla = no supervisor, no verify-gate replan;
+  // basic = Fase 1 fields only; avo = full Fase 2. Additive: faults stay
+  // silent, the ReAct loop below is untouched.
+  const benchArch = currentBenchArch()
+  const subSupervisor = benchArch === 'vanilla' ? null : createTrajectorySupervisor()
+  const subLineage =
+    benchArch === 'avo' && subSupervisor
+      ? createLineage({
+          taskId: subagent.id || subagentId,
+          goal: subagent.goal || '',
+          objectiveKind: classifyObjectiveKind(subagent.goal || '')
+        })
+      : null
   const subRecentSuccess = [] // sliding window (last 5) for scoring
   let pendingSubHint = null
 
@@ -245,7 +252,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               verification: evidence.state,
               kind: evidence.kind
             })
-            if (!gate.complete && verifyReplansUsed < MAX_VERIFY_REPLANS) {
+            if (benchArch !== 'vanilla' && !gate.complete && verifyReplansUsed < MAX_VERIFY_REPLANS) {
               verifyReplansUsed++
               await subagentStore.addMessage(subagentId, {
                 sender: 'tool',
@@ -362,39 +369,52 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
 
             observations.push(`[${act.tool}] ${resultStr}`)
 
-            // Fase 2: score this attempt into the lineage, feed the extended
-            // fields back. Staged hintText flushes with the observation below.
+            // Fase 2 (avo only): score this attempt into the lineage, feed the
+            // extended fields back. basic = Fase 1 fields only; vanilla has no
+            // supervisor at all. Staged hintText flushes with the observation below.
             try {
-              const attemptOk = res.success === true
-              const attemptRank = attemptOk ? RANK_OF.not_run : RANK_OF.failed
-              const attemptKey = normalizeAttemptKey(act.tool, act.query || '')
-              subRecentSuccess.push(attemptOk)
-              const attemptWindow = subRecentSuccess.slice(-5)
-              const attemptScore = scoreAttempt({
-                verificationRank: attemptRank,
-                isNewSuccessKey: attemptOk && !subLineage.preferredKeys.includes(attemptKey),
-                toolSuccessRate: attemptWindow.filter(Boolean).length / attemptWindow.length
-              })
-              appendAttempt(subLineage, {
-                strategy: 'DIRECT',
-                tool: act.tool,
-                targetKey: attemptKey,
-                success: attemptOk,
-                verificationRank: attemptRank,
-                score: attemptScore
-              })
-              const subSupResult = subSupervisor.update({
-                tool: act.tool,
-                query: act.query || '',
-                success: attemptOk,
-                verificationState: attemptOk ? 'not_run' : 'failed',
-                strategy: 'DIRECT',
-                verificationRank: attemptRank,
-                score: attemptScore,
-                stagnation: subLineage.stagnation,
-                bestKey: (bestAttempt(subLineage) || {}).targetKey || null
-              })
-              if (subSupResult.hintText && !pendingSubHint) pendingSubHint = subSupResult.hintText
+              if (subSupervisor) {
+                const attemptOk = res.success === true
+                let subSupResult
+                if (benchArch === 'avo' && subLineage) {
+                  const attemptRank = attemptOk ? RANK_OF.not_run : RANK_OF.failed
+                  const attemptKey = normalizeAttemptKey(act.tool, act.query || '')
+                  subRecentSuccess.push(attemptOk)
+                  const attemptWindow = subRecentSuccess.slice(-5)
+                  const attemptScore = scoreAttempt({
+                    verificationRank: attemptRank,
+                    isNewSuccessKey: attemptOk && !subLineage.preferredKeys.includes(attemptKey),
+                    toolSuccessRate: attemptWindow.filter(Boolean).length / attemptWindow.length
+                  })
+                  appendAttempt(subLineage, {
+                    strategy: 'DIRECT',
+                    tool: act.tool,
+                    targetKey: attemptKey,
+                    success: attemptOk,
+                    verificationRank: attemptRank,
+                    score: attemptScore
+                  })
+                  subSupResult = subSupervisor.update({
+                    tool: act.tool,
+                    query: act.query || '',
+                    success: attemptOk,
+                    verificationState: attemptOk ? 'not_run' : 'failed',
+                    strategy: 'DIRECT',
+                    verificationRank: attemptRank,
+                    score: attemptScore,
+                    stagnation: subLineage.stagnation,
+                    bestKey: (bestAttempt(subLineage) || {}).targetKey || null
+                  })
+                } else {
+                  subSupResult = subSupervisor.update({
+                    tool: act.tool,
+                    query: act.query || '',
+                    success: attemptOk,
+                    verificationState: attemptOk ? 'not_run' : 'failed'
+                  })
+                }
+                if (subSupResult.hintText && !pendingSubHint) pendingSubHint = subSupResult.hintText
+              }
             } catch (e) {
               console.warn('[subagentExecutor] trajectory supervisor error:', e?.message)
             }
