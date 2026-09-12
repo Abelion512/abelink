@@ -1506,6 +1506,14 @@ export const useAbelinkPlan = ({
               outcome: sessionOutcome,
               reason: lastTerminalReason ?? null
             })
+            import('../../api/harness').then(({ logAnswer }) =>
+              logAnswer({
+                answer: typeof finalOutput === 'string' ? finalOutput.slice(0, 4000) : null,
+                outcome: sessionOutcome,
+                sessionId: activeSessionNum,
+                turn: stepCount
+              })
+            ).catch(() => {})
           } catch (_) {}
 
           if (window.api && window.api.browserAction) {
@@ -1819,10 +1827,12 @@ export const useAbelinkPlan = ({
                   sessionId: activeSessionNum,
                   turn: stepCount
                 })
+                import('../../api/harness').then(({ logObservation }) =>
+                  logObservation({ observation: obsStr, tool, sessionId: activeSessionNum, turn: stepCount })
+                ).catch(() => {})
               } catch (_) {}
             }
           }
-
           if (isBatch) {
             const combinedResult = `[BATCH ${actionList.length} actions]\n${batchResults.join('\n')}`
             let obsStr = combinedResult
@@ -1848,6 +1858,9 @@ export const useAbelinkPlan = ({
                 sessionId: activeSessionNum,
                 turn: stepCount
               })
+              import('../../api/harness').then(({ logObservation }) =>
+                logObservation({ observation: obsStr, tool: `batch:${actionList.length}`, sessionId: activeSessionNum, turn: stepCount })
+              ).catch(() => {})
             } catch (_) {}
           }
 
@@ -1928,7 +1941,17 @@ export const useAbelinkPlan = ({
       }
 
       try {
-        if (window.api && window.api.executeNativeTool) {
+        // Teardown sesi kontrol PC hanya bila model sempat membukanya di run
+        // ini (flag renderer). Tutup-buta tiap run pernah memblokir 20s+.
+        const { isOsControlSessionOpen, markOsControlSession } = await import(
+          './plan/toolDispatcher'
+        ).catch(() => ({}))
+        if (
+          window.api &&
+          window.api.executeNativeTool &&
+          (!isOsControlSessionOpen || isOsControlSessionOpen(activeSessionNum))
+        ) {
+          if (markOsControlSession) markOsControlSession(activeSessionNum, false)
           window.api.executeNativeTool('os-control-close').catch(() => {})
         }
       } catch (e) {}

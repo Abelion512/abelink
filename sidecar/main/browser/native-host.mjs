@@ -83,9 +83,32 @@ def send(obj):
     sys.stdout.buffer.write(struct.pack("<I", len(raw)) + raw)
     sys.stdout.buffer.flush()
 
+def read_exact(n):
+    chunks = []
+    while sum(len(c) for c in chunks) < n:
+        part = sys.stdin.buffer.read(n - sum(len(c) for c in chunks))
+        if not part:
+            break
+        chunks.append(part)
+    return b"".join(chunks)
+
 try:
-    data_home = os.environ.get("ABELINK_DATA_HOME") or os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
-    token_file = os.path.join(data_home, "browser-bridge-token")
+    raw_in = read_exact(4)
+    namespace = ""
+    if len(raw_in) == 4:
+        body_len = struct.unpack("<I", raw_in)[0]
+        try:
+            payload = read_exact(body_len).decode("utf-8")
+            namespace = (json.loads(payload) or {}).get("namespace") or ""
+        except Exception:
+            namespace = ""
+    home = os.path.expanduser("~")
+    xdg = os.environ.get("XDG_DATA_HOME") or os.path.join(home, ".local", "share")
+    if namespace in ("dev", "49713"):
+        token_file = os.path.join(xdg, "abelink-dev", "browser-bridge-token")
+    else:
+        data_home = os.environ.get("ABELINK_DATA_HOME") or xdg
+        token_file = os.path.join(data_home, "browser-bridge-token")
     if os.path.exists(token_file):
         with open(token_file, "r", encoding="utf-8") as f:
             raw = f.read().strip()

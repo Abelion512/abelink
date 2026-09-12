@@ -52,6 +52,26 @@ describe('host: protokol get-token', () => {
     }
   })
 
+  it('namespace dev membaca file token dev (XDG/abelink-dev)', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-'))
+    const devDir = path.join(home, 'abelink-dev')
+    fs.mkdirSync(devDir, { recursive: true })
+    fs.writeFileSync(path.join(devDir, 'browser-bridge-token'), 'tok-dev', { mode: 0o600 })
+    fs.writeFileSync(path.join(home, 'browser-bridge-token'), 'tok-prod', { mode: 0o600 })
+    const child = spawn(process.execPath, [HOST], { env: { ...process.env, XDG_DATA_HOME: home }, stdio: ['pipe', 'pipe', 'ignore'] })
+    try {
+      let p = readOne(child)
+      sendMsg(child, { type: 'get-token', namespace: 'dev' })
+      expect((await p).token).toBe('tok-dev')
+      p = readOne(child)
+      sendMsg(child, { type: 'get-token' })
+      expect((await p).token).toBe('tok-prod')
+    } finally {
+      child.kill()
+      fs.rmSync(home, { recursive: true, force: true })
+    }
+  })
+
   it('file hilang -> ok:false, bukan crash', async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-'))
     const child = spawn(process.execPath, [HOST], { env: { ...process.env, XDG_DATA_HOME: home }, stdio: ['pipe', 'pipe', 'ignore'] })

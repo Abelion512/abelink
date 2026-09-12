@@ -3,12 +3,17 @@
 // Kontrak: opt-in (default mati), bounded wait, tidak pernah throw —
 // gagal -> reason eksplisit dan caller memakai fallback lama.
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   openInOsBrowser,
   waitForConnected,
-  ensureBrowserUp
+  ensureBrowserUp,
+  __resetLaunchThrottleForTest
 } from '../sidecar/main/browser/launcher.mjs'
+
+beforeEach(() => {
+  __resetLaunchThrottleForTest()
+})
 
 const noSleep = () => Promise.resolve()
 const connected = (id = 'default') => [{ id, connected: true, lastSeenAt: Date.now() }]
@@ -97,6 +102,51 @@ describe('ensureBrowserUp', () => {
       deps: { execFile: vi.fn((c, a, o, cb) => cb(null, '', '')) }
     })
     expect(r.ok).toBe(false)
+  })
+
+  it('gagal beruntun -> budget habis, stop buka tab (anti tab-storm)', async () => {
+    const execFile = vi.fn((cmd, args, opts, cb) => cb(null, '', ''))
+    const opts = {
+      autoLaunch: true,
+      sessionId: 'storm-test',
+      listSessions: async () => [],
+      timeoutMs: 20,
+      deps: { execFile }
+    }
+    expect((await ensureBrowserUp(opts)).reason).toBe('no-handshake')
+    expect((await ensureBrowserUp(opts)).reason).toBe('no-handshake')
+    expect((await ensureBrowserUp(opts)).reason).toBe('no-handshake')
+    // ke-4: tidak ada xdg-open lagi
+    const before = execFile.mock.calls.length
+    expect((await ensureBrowserUp(opts)).reason).toBe('launch-budget-exhausted')
+    expect(execFile.mock.calls.length).toBe(before)
+  })
+
+  it('peluncuran bersamaan digabung (single in-flight)', async () => {
+    let resolveExec
+    const execFile = vi.fn(
+      (cmd, args, opts, cb) =>
+        new Promise((res) => {
+          resolveExec = () => {
+            cb(null, '', '')
+            res()
+          }
+        })
+    )
+    const opts = {
+      autoLaunch: true,
+      sessionId: 'inflight-test',
+      listSessions: async () => [],
+      timeoutMs: 30,
+      deps: { execFile }
+    }
+    const p1 = ensureBrowserUp(opts)
+    const p2 = ensureBrowserUp(opts)
+    // beri kesempatan microtask mencapai execFile sebelum resolve
+    await new Promise((r) => setTimeout(r, 20))
+    resolveExec()
+    await Promise.all([p1, p2])
+    expect(execFile).toHaveBeenCalledOnce()
   })
 })
 

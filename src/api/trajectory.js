@@ -66,11 +66,39 @@ export const validateHarnessEvent = (e) => {
 let _buffer = []
 let _listeners = new Set()
 
+// Persist di-throttle (trailing 2s): stringify ±500 entri sinkron tiap log
+// memblokir main thread (UI freeze) saat loop agent padat.
+let _persistTimer = null
+let _persistQueued = false
 const persist = () => {
+  _persistQueued = true
+  if (_persistTimer) return
+  _persistTimer = setTimeout(() => {
+    _persistTimer = null
+    if (!_persistQueued) return
+    _persistQueued = false
+    try {
+      const trimmed = _buffer.slice(-MAX_ENTRIES)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
+    } catch {
+      /* localStorage penuh/nonaktif — buffer in-memory tetap jalan */
+    }
+  }, 2000)
+}
+
+// Flush sinkron untuk titik akhir sesi (clear/unload) agar jejak tak hilang.
+export const flushTrajectoryBuffer = () => {
+  if (_persistTimer) {
+    clearTimeout(_persistTimer)
+    _persistTimer = null
+  }
+  _persistQueued = false
   try {
     const trimmed = _buffer.slice(-MAX_ENTRIES)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
-  } catch (_) {}
+  } catch {
+    /* abaikan */
+  }
 }
 
 // BUGFIX: listener dulu dipanggil tanpa argumen (`fn()`), sementara konsumen
@@ -123,7 +151,7 @@ export const getTrajectoryBuffer = () => _buffer
 // Clear
 export const clearTrajectoryBuffer = () => {
   _buffer = []
-  persist()
+  flushTrajectoryBuffer()
   notify()
 }
 
@@ -214,3 +242,15 @@ export const logStep = ({ step, total, description, status, ...rest } = {}) => {
 
 // Init on import
 loadTrajectoryBuffer()
+
+// Flush saat halaman disembunyikan/ditutup agar jejak sesi tak hilang
+// (persist normal di-throttle trailing).
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('pagehide', () => {
+    try {
+      flushTrajectoryBuffer()
+    } catch {
+      /* abaikan */
+    }
+  })
+}

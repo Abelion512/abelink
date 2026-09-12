@@ -3,6 +3,13 @@
 Ekstensi Chrome/Chromium yang menghubungkan browser user (dengan profil dan
 login yang sudah ada) ke sidecar Abelink lewat HTTP lokal `127.0.0.1`.
 
+## Dua instansi: Prod + Dev
+
+Popup mendeteksi **kedua** bridge (prod `49712`, dev `49713`), menampilkan
+status tiap port, dan menyambung ke yang hidup (token disimpan per-port;
+satu loop aktif — tak ada perintah ganda). Pilih manual via tombol "Pakai"
+atau field Port bila perlu.
+
 > Prasyarat: aplikasi Abelink HARUS berjalan (binary atau `bun run app`) —
 > server bridge hidup di dalam sidecar. Tanpa Abelink berjalan, extension
 > tidak tersambung ke apa pun (pill merah, "sidecar tidak terjangkau").

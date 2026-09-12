@@ -69,6 +69,7 @@ const PATTERNS = [
   { name: 'VERIFICATION GATE (klaim done ditolak)', re: /VERIFICATION GATE/i },
   { name: 'ask-choice dibatalkan', re: /DIBATALKAN/i },
   { name: 'taint gate block', re: /TAINT GATE BLOCKED/i },
+  { name: 'thought kosong (parse fallback)', re: /"emptyThought":\s*true/ },
   { name: 'circuit breaker open', re: /CIRCUIT BREAKER OPEN/i }
 ]
 

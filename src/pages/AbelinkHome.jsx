@@ -1033,7 +1033,7 @@ const AbelinkHome = () => {
             onStop={handleStop}
             source={inputSource}
             workspaceRoot={workspaceRoot}
-            onSelectWorkspace={handleSelectSessionWorkspace}
+            onSelectWorkspace={handleSelectWorkspace}
             sessionId={1}
           />
         </div>

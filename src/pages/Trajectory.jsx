@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaChartLine, FaPlay, FaPause, FaTrash, FaDownload, FaArrowLeft } from 'react-icons/fa'
+import { FaChartLine, FaTrash, FaDownload, FaArrowLeft } from 'react-icons/fa'
 import {
   onTrajectoryUpdate,
   getTrajectoryBuffer,
@@ -54,15 +54,13 @@ const getKindLabel = (kind) => {
 
 export default function Trajectory() {
   const navigate = useNavigate()
-  const [entries, setEntries] = useState([])
-  const [isPlaying, setIsPlaying] = useState(false)
+  const [entries, setEntries] = useState(() => {
+    loadTrajectoryBuffer()
+    return getTrajectoryBuffer()
+  })
   const [selectedEntry, setSelectedEntry] = useState(null)
 
   useEffect(() => {
-    loadTrajectoryBuffer()
-    const loaded = getTrajectoryBuffer()
-    setEntries(loaded)
-
     const unsubscribe = onTrajectoryUpdate((newEntries) => {
       setEntries(newEntries)
     })

@@ -59,3 +59,16 @@ describe('browser-ask-user gate', () => {
     expect(r.resultString).toMatch('LAPORAN USER')
   })
 })
+
+describe('os-control session flag', () => {
+  it('tutup-buta bisa digerbang: default tertutup, terbuka setelah open sukses', async () => {
+    const { markOsControlSession, isOsControlSessionOpen } = await import(
+      '../src/hooks/agent/plan/toolDispatcher.js'
+    )
+    expect(isOsControlSessionOpen('flag-test-sesi')).toBe(false)
+    markOsControlSession('flag-test-sesi', true)
+    expect(isOsControlSessionOpen('flag-test-sesi')).toBe(true)
+    markOsControlSession('flag-test-sesi', false)
+    expect(isOsControlSessionOpen('flag-test-sesi')).toBe(false)
+  })
+})

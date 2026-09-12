@@ -17,6 +17,16 @@
 export const LAUNCH_WAIT_MS = 20000
 export const LAUNCH_POLL_MS = 500
 
+// Rem tab-storm: tanpa ini tiap tool gagal = satu xdg-open baru sampai OOM.
+// Cooldown 60s + maks 3 peluncuran per jendela per sesi + single in-flight
+// (peluncuran bersamaan digabung). Lewat batas -> reason eksplisit, caller
+// memberi blocked jujur ("klik Connect di popup") alih-alih tab ke-N.
+export const LAUNCH_COOLDOWN_MS = 60000
+export const LAUNCH_MAX_PER_WINDOW = 3
+const launchState = new Map()
+export const __resetLaunchThrottleForTest = () => launchState.clear()
+const nowMs = (deps) => (typeof deps?.now === 'function' ? deps.now() : Date.now())
+
 // Jalankan perintah OS dan kembalikan { ok, stdout, error }. Default memakai
 // execFile Node; test meng-inject versi palsu.
 export async function runOs(cmd, args, { execFile } = {}) {
@@ -89,9 +99,36 @@ export async function ensureBrowserUp({
     /* lanjut ke peluncuran */
   }
   if (!autoLaunch) return { ok: false, reason: 'auto-launch-off' }
-  const opened = await openInOsBrowser(url, deps)
-  if (!opened.ok) return { ok: false, reason: 'launch-failed', detail: opened.error }
-  const session = await waitForConnected(listSessions, { timeoutMs, sessionId })
-  if (!session) return { ok: false, reason: 'no-handshake' }
-  return { ok: true, reused: false, session }
+  return throttledLaunch({ url, sessionId, listSessions, timeoutMs, deps })
+}
+
+// Peluncuran ber-rem: gabung in-flight, batasi budget per jendela cooldown.
+async function throttledLaunch({ url, sessionId, listSessions, timeoutMs, deps }) {
+  const t = nowMs(deps)
+  let st = launchState.get(sessionId)
+  if (!st) {
+    st = { attempts: [], inflight: null }
+    launchState.set(sessionId, st)
+  }
+  st.attempts = st.attempts.filter((ts) => t - ts < LAUNCH_COOLDOWN_MS)
+  if (st.inflight) return st.inflight
+  if (st.attempts.length >= LAUNCH_MAX_PER_WINDOW) {
+    return { ok: false, reason: 'launch-budget-exhausted' }
+  }
+  st.attempts.push(t)
+  const p = (async () => {
+    try {
+      const opened = await openInOsBrowser(url, deps)
+      if (!opened.ok) return { ok: false, reason: 'launch-failed', detail: opened.error }
+      const session = await waitForConnected(listSessions, { timeoutMs, sessionId })
+      if (!session) return { ok: false, reason: 'no-handshake' }
+      launchState.delete(sessionId) // sukses = budget reset
+      return { ok: true, reused: false, session }
+    } finally {
+      const cur = launchState.get(sessionId)
+      if (cur) cur.inflight = null
+    }
+  })()
+  st.inflight = p
+  return p
 }
