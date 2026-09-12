@@ -1,4 +1,4 @@
-# MARK Linux — Architecture (agent-oriented)
+# ABELINK Linux — Architecture (agent-oriented)
 
 Dokumen ini referensi utama untuk AI agent (dan manusia) yang menulis kode di
 repo ini. Aturan membacanya: pahami dulu peta modul dan alur data di bawah,
@@ -9,7 +9,7 @@ secara penuh (aturan `AGENTS.md` § Development Guidelines tetap berlaku).
 
 ```
 ┌────────────────────────── Renderer (src/, React 19) ──────────────────────────┐
-│  UI (pages/, components/)  +  hooks/ (orchestrator useMarkAgent)              │
+│  UI (pages/, components/)  +  hooks/ (orchestrator useAbelinkAgent)              │
 │  api/tauri-bridge.js  = SATU-SATUNYA pintu keluar; tanpa Node API langsung    │
 └───────┬───────────────────────────────┬───────────────────────────────────────┘
         │ invoke() (Tauri IPC)          │ node_invoke(action, ...args)
@@ -42,10 +42,10 @@ stdin. Semua handler didaftarkan lewat `registry.mjs`.
 | `channels/ai.mjs` | `ai:fetch`, `ai:abort-fetch`, `ai:list-models`, `sync-config`, `native-tool:*`, `parse-document` | `sync-config` juga menyalin config ke modul telegram (auto-start bot) |
 | `channels/media.mjs` | `tts-speak`, `get-youtube-transcript`, `youtube-search` | Edge-TTS + youtube-transcript-plus + yt-search (lazy) |
 | `channels/telegram.mjs` | `tg:*`, `benchmark:telegram`, `remote-music-command` | Dashboard benchmark + broadcast admin (config via `setLatestConfig`) |
-| `channels/services.mjs` | `plugin:*`, `plugins:list`, `google:*`, `workspace:*`, `awareness:*` | Plugin loader tanpa Electron; workspace RAG `.mark/` |
+| `channels/services.mjs` | `plugin:*`, `plugins:list`, `google:*`, `workspace:*`, `awareness:*` | Plugin loader tanpa Electron; workspace RAG `.abelink/` |
 | `channels/music.mjs` | `yt:*`, `search-music`, `ping` | ytmusic-api + yt-search (lazy). `yt:load/show/hide/command/get-duration` butuh Tauri WebviewWindow: respons `success: false` jujur, bukan sukses palsu |
 | `channels/os.mjs` | `os:read/click/type/key/scroll/open/list-windows/focus-window/ask-user` | Fase B6: namespace colon alias ke implementasi dash yang LIVE di `NATIVE_TOOLS` (`node-tools.js` -> `pc-agent.js` + primitif Linux), lazy import; gagal = `throw`, bukan stub |
-| `channels/browser.mjs` | `browser:navigate/read-dom/action/close/show/status` | Fase C3 Jalur A (ekstensi browser + bridge): perintah nyata via `main/browser/` — long-poll HTTP 127.0.0.1 token-auth ke ekstensi Mark; tanpa ekstensi = error eksplisit + petunjuk pemasangan |
+| `channels/browser.mjs` | `browser:navigate/read-dom/action/close/show/status` | Fase C3 Jalur A (ekstensi browser + bridge): perintah nyata via `main/browser/` — long-poll HTTP 127.0.0.1 token-auth ke ekstensi Abelink; tanpa ekstensi = error eksplisit + petunjuk pemasangan |
 | `channels/skills.mjs` | `skills:*` (15 channel) | Agent Skills store: SKILL.md + anti path-traversal; `skills:open-folder` (xdg-open ter-kontinemen) untuk workflow drop folder skill + auto-scan |
 | `channels/capabilities.mjs` | `capabilities:list/inspect/guide/execute/connections/authorize/revoke/audit` | Capability Manager (fase Kapabilitas, referensi OpenConnector): catalog connector → policy → eksekusi ter-audit. Connector built-in: `weather` (Open-Meteo), `time` (offline), `fs` (workspace via fsGuard), `shell-tool` (run-shell; dynamic dangerous-keyword check saat runtime). `capabilities:execute` WAJIB di `APPROVAL_ACTIONS` (rfd native). Kredensial koneksi di XDG mode 0600; audit JSONL append-only (trim 1MB). Implementasi: `main/capabilities/` (lazy import) |
 
@@ -87,18 +87,18 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
 
 ## 4. Alur Data Kritis
 
-- **Chat/plan:** renderer `useMarkAgent` → `planning.js` → `node_invoke('ai:fetch')`
+- **Chat/plan:** renderer `useAbelinkAgent` → `planning.js` → `node_invoke('ai:fetch')`
   → bridge → `channels/ai.mjs` → `main/ai-bridge.js` (multi-provider) →
   status event `ai:status` mengalir balik via `emit()`.
 - **Tool berbahaya:** model memutuskan → renderer `node_invoke('native-tool:execute')`
   → Rust cek `APPROVAL_ACTIONS`/`needsApproval` → dialog rfd native →
   baru diteruskan ke sidecar `main/node-tools.js`.
-- **Benchmark (MarkBench):** `evaluation/run.mjs` (orchestrator multi-run:
+- **Benchmark (AbelinkBench):** `evaluation/run.mjs` (orchestrator multi-run:
   averaging 3x per task ala Terminal-Bench 2.1/Kimi K3, anti-cheat sentinel
   acak per run, laporan JSON `schemaVersion: 1`, regression gate `--compare`)
   → `evaluation/terminal-bench.mjs` (registry task + verifier deterministik +
   `maxTurns`, script `bun run benchmark:run`/`benchmark:echo`) →
-  `mark-adapter.mjs` (spawn sidecar persisten, multiplex per id, turn budget
+  `abelink-adapter.mjs` (spawn sidecar persisten, multiplex per id, turn budget
   per task) → jawaban diverifier predikat yang dieksekusi → laporan JSON.
    Smoke tanpa network: `bun evaluation/smoke.mjs` (registry, verifier
    PASS/FAIL, agregasi + anti-cheat).
@@ -115,11 +115,11 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
   soul/planning/io) → `capture.mjs` (kontrak boundary
   `startRun`/`sendPrompt`/`endRun`/`abortRun` + normalisasi) →
   `evaluator.mjs` (rubrik 0/1 deterministik) → `runner-stub.mjs`
-  (otomatisasi penuh menunggu boundary MARK nyata, lihat
+  (otomatisasi penuh menunggu boundary ABELINK nyata, lihat
   `boundary-spec.mjs`). Fixtures deterministik effort:
   `evaluation/effort-fixtures.mjs` + `tests/effort-fixtures.test.mjs`.
 - **Knowledge:** dokumen → `ragPipeline.js` (chunk 500/50) → Dexie + Orama;
-  workspace `.mark/` → `workspace:*` channel → working memory disuntikkan ke
+  workspace `.abelink/` → `workspace:*` channel → working memory disuntikkan ke
   system prompt.
 
 ## 5. Batasan yang Masih Sengaja Dibiarkan (jangan "perbaiki" diam-diam)

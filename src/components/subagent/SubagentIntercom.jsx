@@ -161,7 +161,7 @@ function groupSubagentMessages(rawMessages) {
   let currentSubTurn = null
 
   for (const msg of rawMessages) {
-    if (msg.sender === 'user' || msg.sender === 'mark') {
+    if (msg.sender === 'user' || msg.sender === 'abelink') {
       if (currentSubTurn) {
         grouped.push(currentSubTurn)
         currentSubTurn = null

@@ -3,16 +3,16 @@ import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useApproval } from '../contexts/ApprovalContext'
 import { fetchAI } from '../api/ai/core'
 import { db, getCoreMemory } from '../api/db'
-import { useMarkState, useMarkYoutube, useMarkMusic, useMarkPlan } from './agent'
+import { useAbelinkState, useAbelinkYoutube, useAbelinkMusic, useAbelinkPlan } from './agent'
 import { useAwareness } from './useAwareness'
 import { useRelationalGrowth } from './agent/useRelationalGrowth'
 import { useChatArchiver } from './useChatArchiver'
 
-export const useMarkAgent = () => {
+export const useAbelinkAgent = () => {
   const { requestApproval, requestUserInput } = useApproval()
   const youtubeMusicTools = useYoutubeMusic()
 
-  const state = useMarkState()
+  const state = useAbelinkState()
   const {
     chatData,
     setChatData,
@@ -54,8 +54,8 @@ export const useMarkAgent = () => {
     setIsBooting
   } = state
 
-  const { handleYoutubeSearch, handleYoutubeSummary, getYoutubeData } = useMarkYoutube(setChatData)
-  const { handleMusic } = useMarkMusic(setChatData, abortControllerRef, youtubeMusicTools)
+  const { handleYoutubeSearch, handleYoutubeSummary, getYoutubeData } = useAbelinkYoutube(setChatData)
+  const { handleMusic } = useAbelinkMusic(setChatData, abortControllerRef, youtubeMusicTools)
 
   const tools = {
     handleYoutubeSearch,
@@ -67,21 +67,21 @@ export const useMarkAgent = () => {
 
   const requestCameraCaptureRef = useRef(null)
 
-  const { handlePlanningCommand, handleIntervention, handleStop: planHandleStop } = useMarkPlan({
+  const { handlePlanningCommand, handleIntervention, handleStop: planHandleStop } = useAbelinkPlan({
     ...state,
     ...tools,
     requestApproval,
     requestUserInput,
     requestCameraCapture: async (args) => {
       console.log(
-        '[useMarkAgent] requestCameraCapture called, ref.current:',
+        '[useAbelinkAgent] requestCameraCapture called, ref.current:',
         !!requestCameraCaptureRef.current
       )
       if (requestCameraCaptureRef.current) {
         return await requestCameraCaptureRef.current(args)
       }
       console.warn(
-        '[useMarkAgent] requestCameraCaptureRef.current is null! MarkHome belum set callback.'
+        '[useAbelinkAgent] requestCameraCaptureRef.current is null! AbelinkHome belum set callback.'
       )
       return null
     }
@@ -109,7 +109,7 @@ export const useMarkAgent = () => {
   useEffect(() => {
     if (isChatLoaded && !hasGreetedRef.current) {
       hasGreetedRef.current = true
-      console.log('[useMarkAgent] Memicu pesan sambutan (Boot sequence)...')
+      console.log('[useAbelinkAgent] Memicu pesan sambutan (Boot sequence)...')
 
       const bootSequence = async () => {
         let timeContext = ''
@@ -165,7 +165,7 @@ export const useMarkAgent = () => {
             true // isSystem
           )
         } catch (err) {
-          console.error('[useMarkAgent] Gagal greeting via handlePlanningCommand:', err)
+          console.error('[useAbelinkAgent] Gagal greeting via handlePlanningCommand:', err)
         } finally {
           setTimeout(() => {
             setIsBooting(false)
@@ -186,7 +186,7 @@ export const useMarkAgent = () => {
 
       if (data.msgId) {
         if (processedTgMsgIdsRef.current.has(data.msgId)) {
-          console.warn('[useMarkAgent] Mengabaikan duplikasi pesan Telegram:', data.msgId)
+          console.warn('[useAbelinkAgent] Mengabaikan duplikasi pesan Telegram:', data.msgId)
           return
         }
         processedTgMsgIdsRef.current.add(data.msgId)

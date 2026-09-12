@@ -187,7 +187,7 @@ export const CameraPreview = ({
         <div className="px-4 py-3 flex items-center justify-between border-b border-white/5 bg-base-200/50">
           <div className="flex items-center gap-2">
             <Camera className="w-4 h-4 text-primary" />
-            <span className="font-semibold text-sm">Mark Glance</span>
+            <span className="font-semibold text-sm">Abelink Glance</span>
           </div>
           {error ? (
             <div className="badge badge-sm border-0 bg-error/20 text-error font-bold">Error</div>

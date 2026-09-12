@@ -10,7 +10,7 @@ import { spawn } from 'child_process'
 // Electron: XDG data dir Linux, konsisten dengan skills/telegram).
 const TOKEN_PATH = path.join(
   process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'),
-  'mark',
+  'abelink',
   'google-tokens.json'
 )
 
@@ -98,7 +98,7 @@ export async function connectGoogle(clientId, clientSecret) {
               <!DOCTYPE html>
               <html>
               <head>
-                <title>Mark AI - Auth Failed</title>
+                <title>Abelink AI - Auth Failed</title>
                 <style>
                   body { margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center; background: #0b110e; color: #ebecf0; font-family: 'Poppins', system-ui, sans-serif; }
                   .card { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(20px); padding: 40px; border-radius: 16px; text-align: center; border: 1px solid rgba(255, 82, 82, 0.3); box-shadow: 0 0 25px rgba(255, 82, 82, 0.15); }
@@ -130,7 +130,7 @@ export async function connectGoogle(clientId, clientSecret) {
             <!DOCTYPE html>
             <html>
             <head>
-              <title>Mark AI - Connected</title>
+              <title>Abelink AI - Connected</title>
               <style>
                 body { margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center; background: #0b110e; color: #ebecf0; font-family: 'Poppins', system-ui, sans-serif; }
                 .card { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(20px); padding: 40px 50px; border-radius: 16px; text-align: center; box-shadow: 0 0 35px rgba(30, 184, 84, 0.2); border: 1px solid rgba(30, 184, 84, 0.3); animation: holo-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -147,7 +147,7 @@ export async function connectGoogle(clientId, clientSecret) {
                   <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                 </div>
                 <h1>Authentication Successful</h1>
-                <p>Mark AI is now connected to your Google Workspace.<br/>You can safely close this window.</p>
+                <p>Abelink AI is now connected to your Google Workspace.<br/>You can safely close this window.</p>
                 <div class="loader">Closing tab automatically in 3 seconds...</div>
               </div>
               <script>setTimeout(() => window.close(), 3000)</script>
@@ -164,7 +164,7 @@ export async function connectGoogle(clientId, clientSecret) {
           <!DOCTYPE html>
           <html>
           <head>
-            <title>Mark AI - Error</title>
+            <title>Abelink AI - Error</title>
             <style>
               body { margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center; background: #0b110e; color: #ebecf0; font-family: 'Poppins', system-ui, sans-serif; }
               .card { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(20px); padding: 40px; border-radius: 16px; text-align: center; border: 1px solid rgba(255, 82, 82, 0.3); box-shadow: 0 0 25px rgba(255, 82, 82, 0.15); max-width: 500px; }

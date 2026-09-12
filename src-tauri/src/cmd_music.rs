@@ -267,7 +267,7 @@ fn create_music_window(app: &AppHandle, start_url: &str, start_visible: bool) ->
     .map_err(|e| format!("Failed to build music player window: {e}"))?;
 
     // Samakan ikon dengan window utama: tanpa ini window kedua (music player)
-    // tampil tanpa logo Mark di taskbar/titlebar.
+    // tampil tanpa logo Abelink di taskbar/titlebar.
     if let Some(icon) = app.default_window_icon() {
         let _ = win.set_icon(icon.clone());
     }

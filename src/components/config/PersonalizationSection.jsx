@@ -97,7 +97,7 @@ export default function PersonalizationSection({
         </header>
         <textarea
           className="textarea w-full h-44 leading-relaxed no-scrollbar resize-none font-mono text-xs bg-base-100/60 border-white/10 rounded-xl"
-          placeholder="Tambahkan instruksi kustom atau gaya penulisan spesifik untuk Mark..."
+          placeholder="Tambahkan instruksi kustom atau gaya penulisan spesifik untuk Abelink..."
           value={config.personality || ''}
           onChange={handlePersonalityChange}
         />

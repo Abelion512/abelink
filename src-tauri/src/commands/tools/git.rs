@@ -67,7 +67,7 @@ pub fn git_commit(app: tauri::AppHandle, message: String, cwd: Option<String>) -
     // Approval berjenjang (family git-write): always/session lolos tanpa dialog.
     let eff = crate::approval_policy::effective_policy("git-write");
     if eff != crate::approval_policy::POLICY_ALWAYS && eff != crate::approval_policy::POLICY_SESSION {
-        let desc = format!("Mark ingin git commit:\n\n{}\n\nPath: {}", message, path.display());
+        let desc = format!("Abelink ingin git commit:\n\n{}\n\nPath: {}", message, path.display());
         if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
             return GitResult { success: false, output: String::new(), error: Some("Ditolak pengguna.".into()) };
         }
@@ -86,7 +86,7 @@ pub fn git_revert(app: tauri::AppHandle, target: String, cwd: Option<String>) ->
     }
     let eff = crate::approval_policy::effective_policy("git-write");
     if eff != crate::approval_policy::POLICY_ALWAYS && eff != crate::approval_policy::POLICY_SESSION {
-        let desc = format!("Mark ingin revert git:\n\nTarget: {}\nPath: {}", target, path.display());
+        let desc = format!("Abelink ingin revert git:\n\nTarget: {}\nPath: {}", target, path.display());
         if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
             return GitResult { success: false, output: String::new(), error: Some("Ditolak pengguna.".into()) };
         }

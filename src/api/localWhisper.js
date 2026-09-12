@@ -88,9 +88,9 @@ export const transcribeAudioLocal = async (pcmBuffer, onProgress) => {
 };
 
 // Memory pressure cleanup — terminate worker để hemat RAM
-// Trigger via window 'mark:cleanup-heavy' event (dari App.jsx memoryPressure)
+// Trigger via window 'abelink:cleanup-heavy' event (dari App.jsx memoryPressure)
 if (typeof window !== 'undefined') {
-  window.addEventListener('mark:cleanup-heavy', () => {
+  window.addEventListener('abelink:cleanup-heavy', () => {
     if (worker) {
       worker.terminate()
       worker = null

@@ -37,7 +37,7 @@ export const fsTools = {
 
       return {
         success: false,
-        error: `Skill '${skillName}' tidak ditemukan di folder 'Documents/Mark Skills'.`
+        error: `Skill '${skillName}' tidak ditemukan di folder 'Documents/Abelink Skills'.`
       }
     }
   },
@@ -381,7 +381,7 @@ export const fsTools = {
   },
   'write-file': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin menulis/membuat file:\n${query.split('||')[0].trim()}`,
+    approvalMessage: (query) => `Abelink ingin menulis/membuat file:\n${query.split('||')[0].trim()}`,
     handler: async (query, config) => {
       try {
         const parts = query.split('||')
@@ -439,7 +439,7 @@ export const fsTools = {
     needsApproval: true,
     approvalMessage: (query) => {
       const parts = query.split('||')
-      return `Mark ingin mengedit isi kode pada berkas:\n${parts[0]?.trim()}`
+      return `Abelink ingin mengedit isi kode pada berkas:\n${parts[0]?.trim()}`
     },
     handler: async (query, config) => {
       try {
@@ -508,7 +508,7 @@ export const fsTools = {
     needsApproval: true,
     approvalMessage: (query) => {
       const parts = query.split('||')
-      return `Mark ingin mengganti baris ${parts[1]} hingga ${parts[2]} di file:\n${parts[0].trim()}`
+      return `Abelink ingin mengganti baris ${parts[1]} hingga ${parts[2]} di file:\n${parts[0].trim()}`
     },
     handler: async (query, config) => {
       try {
@@ -554,7 +554,7 @@ export const fsTools = {
   },
   'delete-file': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin MENGHAPUS file secara permanen:\n${query}`,
+    approvalMessage: (query) => `Abelink ingin MENGHAPUS file secara permanen:\n${query}`,
     handler: async (query, config) => {
       try {
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()

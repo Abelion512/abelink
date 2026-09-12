@@ -1,4 +1,4 @@
-// Eksekutor tool domain VISION (dipindah murni dari useMarkPlan.executeSingleTool).
+// Eksekutor tool domain VISION (dipindah murni dari useAbelinkPlan.executeSingleTool).
 // Vision dikunci ke 9router (private) — gemini-web RPC tidak mendukung image.
 import { fetchAI } from '../../../api/ai/core'
 

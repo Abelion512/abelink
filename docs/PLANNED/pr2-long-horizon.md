@@ -9,7 +9,7 @@ Tesis: model sama, sistem lebih baik — tanpa klaim persen sebelum data.
 - Spesifikasi Fase 2: commit `f4af085` (cognitive runtime — trajectory search).
 - Primitif ada: `src/api/ai/trajectorySupervisor.js` (Fase 1),
   `trajLineage.js`, `scoring.js`, `strategyLib.js`, `benchArch.js`
-  (axis `vanilla/basic/avo` via `MARK_BENCH_ARCH`, default `basic` = produksi stabil).
+  (axis `vanilla/basic/avo` via `ABELINK_BENCH_ARCH`, default `basic` = produksi stabil).
   Catatan: `trajLineage.js`, `scoring.js`, dan nilai arch `avo` sudah dihapus,
   lihat bagian Update 2026-09-12 di bawah.
 - Bench task real-activity + world-state verifier: `evaluation/` (lihat commit
@@ -18,7 +18,7 @@ Tesis: model sama, sistem lebih baik — tanpa klaim persen sebelum data.
 ## Scope (tidak lebih, tidak kurang)
 
 ### Fase A — Fondasi offline (agent, tanpa LLM)
-1. **Budget skala-effort**: `MAX_PLAN_STEPS=25` hardcoded di `useMarkPlan` →
+1. **Budget skala-effort**: `MAX_PLAN_STEPS=25` hardcoded di `useAbelinkPlan` →
    baca policy `effortSystem` (target ~50 langkah task kompleks). Lineage
    window ikut skala. Unit test.
 2. **Resume durable terverifikasi**: audit `taskStore`/`taskExecutor` —

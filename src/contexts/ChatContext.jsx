@@ -1,15 +1,15 @@
 import { createContext, useContext } from 'react'
-import { useMarkAgent } from '../hooks/useMarkAgent'
+import { useAbelinkAgent } from '../hooks/useAbelinkAgent'
 
 export const ChatContext = createContext(null)
 
 export const useChat = () => useContext(ChatContext)
 
 export const ChatProvider = ({ children }) => {
-  const markAgent = useMarkAgent()
+  const abelinkAgent = useAbelinkAgent()
 
   return (
-    <ChatContext.Provider value={markAgent ?? {}}>
+    <ChatContext.Provider value={abelinkAgent ?? {}}>
       {children}
     </ChatContext.Provider>
   )

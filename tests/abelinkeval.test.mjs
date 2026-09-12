@@ -12,13 +12,13 @@ import {
   evalRecoverySuccessRate,
   evalUnnecessaryActionRate,
   evalHumanInterventionRate,
-  aggregateMarkEval,
+  aggregateAbelinkEval,
   mkMemoryScenario,
   runSmoke
-} from '../evaluation/mark-eval.mjs'
+} from '../evaluation/abelink-eval.mjs'
 import { BENCHMARK_MATRIX, CORE_SET, summarizeMatrix } from '../evaluation/matrix.mjs'
 
-// MARK-Eval = pengukur KUALITAS ARSITEKTUR. Verifier wajib deterministik.
+// ABELINK-Eval = pengukur KUALITAS ARSITEKTUR. Verifier wajib deterministik.
 
 describe('evalPlanning', () => {
   it('PASS: rencana berurutan + artefak + tanpa dead-end', () => {
@@ -121,7 +121,7 @@ describe('evalEfficiency & aggregate', () => {
     expect(evalEfficiency(wasteful, { maxToolCalls: 10 }).score).toBe(0)
   })
   it('null tidak dihitung rata-rata', () => {
-    const agg = aggregateMarkEval({ a: 1, b: null, c: [1, 0] })
+    const agg = aggregateAbelinkEval({ a: 1, b: null, c: [1, 0] })
     expect(agg.dimensions.b).toBeNull()
     expect(agg.overall).toBeCloseTo((1 + 0.5) / 2, 3)
   })
@@ -313,17 +313,17 @@ describe('benchmark matrix', () => {
     expect(ids).toContain('webarena-verified')
     expect(ids).toContain('workarena-pp')
     expect(ids).toContain('automationbench')
-    expect(ids).toContain('mark-eval')
+    expect(ids).toContain('abelink-eval')
   })
-  it('core set = 5 pilar + mark-eval', () => {
+  it('core set = 5 pilar + abelink-eval', () => {
     expect(CORE_SET).toHaveLength(6)
-    expect(CORE_SET).toContain('mark-eval')
+    expect(CORE_SET).toContain('abelink-eval')
   })
   it('summarizer menghasilkan rows lengkap + meta arsitektur', () => {
     const s = summarizeMatrix({ 'terminal-bench-4.0': { score: 0.612 } })
     expect(s.rows).toHaveLength(BENCHMARK_MATRIX.length)
     expect(s.rows.find((r) => r.id === 'terminal-bench-4.0').score).toBe(0.612)
     expect(s.meta.tools).toContain('trading-support')
-    expect(s.kind).toBe('markbench-matrix')
+    expect(s.kind).toBe('abelinkbench-matrix')
   })
 })

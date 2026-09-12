@@ -27,6 +27,7 @@ import {
 import ChatList from '../components/ChatList'
 import InputBar from '../components/core/InputBar'
 import { useConfirm } from '../hooks/useConfirm'
+import { useManualCompaction } from '../hooks/useManualCompaction'
 
 const ChatStudio = () => {
   const navigate = useNavigate()
@@ -77,6 +78,16 @@ const ChatStudio = () => {
 
   // Direct display pipeline: Main Thread uses mainChatData directly with 0ms lag
   const currentDisplayMessages = activeSessionId === 1 ? mainChatData || [] : activeSessionData
+
+  // Kompaksi manual + tracker gauge (session compaction).
+  useManualCompaction({
+    messages: currentDisplayMessages,
+    setMessages: (updater) => {
+      if (Number(activeSessionId) === 1) setMainChatData?.(updater)
+      else setActiveSessionData(updater)
+    },
+    sessionId: activeSessionId
+  })
 
   const isCurrentLoading =
     runningSessionIds.map(Number).includes(Number(activeSessionId)) ||
@@ -487,7 +498,7 @@ const ChatStudio = () => {
                 <div className="max-w-sm space-y-1">
                   <h4 className="text-sm font-bold text-white">Sesi Percakapan Baru</h4>
                   <p className="text-xs text-white/50">
-                    Tulis instruksi atau diskusikan kebutuhanmu dengan Mark.
+                    Tulis instruksi atau diskusikan kebutuhanmu dengan Abelink.
                   </p>
                 </div>
               </div>
@@ -507,6 +518,7 @@ const ChatStudio = () => {
                     sources={msg.sources}
                     executedTools={msg.executedTools}
                     isMemorySaved={msg.isMemorySaved}
+                    choice={msg.choice}
                     isMemoryUpdated={msg.isMemoryUpdated}
                     isMemoryDeleted={msg.isMemoryDeleted}
                     timestamp={msg.timestamp}
@@ -533,6 +545,7 @@ const ChatStudio = () => {
               source={inputSource || 'pc'}
               workspaceRoot={activeSessionObj?.workspaceRoot}
               onSelectWorkspace={handleSelectSessionWorkspace}
+              sessionId={activeSessionId}
             />
           </div>
         </div>

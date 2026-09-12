@@ -1,5 +1,5 @@
 /**
- * Gemini Web RPC Engine for MARK
+ * Gemini Web RPC Engine for ABELINK
  * Ported from gemini-core.js by Mazees (https://github.com/Mazees)
  */
 import https from 'https'

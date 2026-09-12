@@ -1,4 +1,4 @@
-// MarkBench real-activity tasks (Fase 2): mahasiswa + pekerja korporat.
+// AbelinkBench real-activity tasks (Fase 2): mahasiswa + pekerja korporat.
 // Verifier memeriksa DUNIA (artefak di workdir + tool evidence di stepLog),
 // bukan teks chat. Tanpa LLM, tanpa network — predikat kecil deterministik.
 //
@@ -30,7 +30,7 @@ export function hasGitCommitWithMessage(repoDir, message) {
 
 // True bila setiap tool di `tools` punya >=1 pemanggilan sukses di stepLog.
 // Bentuk step yang didukung: { toolCalls: [{ tool, success }] } atau { tool, success } datar.
-// Catatan adapter nyata (mark-adapter.mjs): entry tool datar TIDAK punya field
+// Catatan adapter nyata (abelink-adapter.mjs): entry tool datar TIDAK punya field
 // success — kegagalan dikodekan sebagai result berawalan "ERROR: ". Entry tanpa
 // success dihitung sukses kecuali result-nya jelas ERROR.
 const isErrorResult = (c) => typeof c?.result === 'string' && c.result.startsWith('ERROR:')

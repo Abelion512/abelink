@@ -14,7 +14,7 @@ const MAX_AUDIT_TAIL = 500 // baris yang dipertahankan saat trim
 
 export const capDir = () => {
   const xdg = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
-  return path.join(xdg, 'mark', 'capabilities')
+  return path.join(xdg, 'abelink', 'capabilities')
 }
 
 const connectionsFile = () => path.join(capDir(), 'connections.json')

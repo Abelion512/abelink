@@ -1,4 +1,4 @@
-// Dispatcher eksekusi tool (dipindah dari useMarkPlan.executeSingleTool).
+// Dispatcher eksekusi tool (dipindah dari useAbelinkPlan.executeSingleTool).
 // Pola seam: domain media/vision/knowledge/agent dipisah per-modul; dispatcher
 // ini hanya menangani ask-user, native-tool (+kasus khusus run-shell), dan
 // fallback plugin — lalu formatting hasil TERPUSAT (satu bentuk return).
@@ -11,8 +11,26 @@ import { runMediaTool } from './mediaTools'
 import { runVisionTool } from './visionTools'
 import { runKnowledgeTool } from './knowledgeTools'
 import { runAgentTool } from './agentTools'
+import { parseChoiceQuery, requestChoice, dropChoice } from '../../../api/choiceBus.js'
 
-const formatRes = (tool, query, res) => {
+// Indikator dinding-login untuk evidence gate browser-ask.
+export const LOGIN_WALL_RE = /login|log in|masuk|captcha|cloudflare|verify.*human|human.*verif|two-factor|2fa|otp|verifikasi|sign ?in/i
+
+// True bila alasan query atau observasi terakhir mengandung bukti login wall.
+export const hasLoginWallEvidence = (query, loopMessages) => {
+  if (LOGIN_WALL_RE.test(String(query || ''))) return true
+  if (Array.isArray(loopMessages)) {
+    for (let i = loopMessages.length - 1; i >= 0; i--) {
+      const c = loopMessages[i]?.content
+      if (typeof c === 'string' && c.includes('[OBSERVATION]')) {
+        return LOGIN_WALL_RE.test(c)
+      }
+    }
+  }
+  return false
+}
+
+const formatRes = (tool, query, res, ctx = null) => {
   let resultString
   if (res && res.success) {
     resultString =
@@ -34,11 +52,11 @@ const formatRes = (tool, query, res) => {
       }
     }
     // Log tool call to trajectory buffer
-    trajectoryLogTool({ tool, query, success: true, result: resultString.slice(0, 200) })
+    trajectoryLogTool({ tool, query, success: true, result: resultString, sessionId: ctx?.sessionId ?? null, turn: ctx?.turn ?? null })
   } else {
     resultString = `[ERROR] ${tool} gagal: ${(res && (res.message || res.error)) || 'Unknown error'}`
     // Log failed tool call to trajectory buffer
-    trajectoryLogTool({ tool, query, success: false, result: resultString.slice(0, 200) })
+    trajectoryLogTool({ tool, query, success: false, result: resultString, sessionId: ctx?.sessionId ?? null, turn: ctx?.turn ?? null })
   }
   return {
     resultString,
@@ -47,8 +65,7 @@ const formatRes = (tool, query, res) => {
   }
 }
 
-const raceWithAbort = (promise, currentSignal) => {
-  let onAbort = null
+const raceWithAbort = (promise, currentSignal) => {  let onAbort = null
   const abortPromise = new Promise((_, reject) => {
     onAbort = () => reject(new Error('AbortError'))
     if (currentSignal?.aborted) return onAbort()
@@ -97,6 +114,14 @@ export const executeSingleTool = async (tool, query, ctx) => {
       tool === 'ask-user' ||
       tool === 'user-ask'
     ) {
+      // Evidence gate (browser saja): browser-ask tanpa bukti login wall di
+      // alasan atau observasi terakhir = DITOLAK + replan, bukan terminal.
+      // Mencegah pola menyerah-setelah-baca (kasus debat ChatGPT).
+      if (tool.startsWith('browser') && !hasLoginWallEvidence(query, ctx?.loopMessages)) {
+        resultString =
+          '[DITOLAK-HUMAN-LOOP] browser-ask-user ditolak: tidak ada bukti login wall (login/captcha/2FA) di alasan maupun observasi terakhir. Baca tab dulu (browser-read); bila butuh keputusan user pakai ask-choice; bila form login benar ada, panggil browser-ask-user lagi dengan alasan spesifik.'
+        return { resultString, rejected: false, toolExecution: { action: tool, query, result: resultString } }
+      }
       if (typeof requestUserInput === 'function') {
         const userResponse = await requestUserInput({
           title: tool.startsWith('browser') ? 'Browser Paused for Input' : 'Abelink Paused for Input',
@@ -113,12 +138,67 @@ export const executeSingleTool = async (tool, query, ctx) => {
       }
       return { resultString, rejected: false, toolExecution: { action: tool, query, result: resultString } }
     }
+    // 3b. Inline Choice (tombol opsi di chat — loop lanjut otomatis setelah klik)
+    if (tool === 'ask-choice' || tool === 'user-choice') {
+      const parsed = parseChoiceQuery(query)
+      if (!parsed) {
+        resultString =
+          '[FORMAT SALAH] Query ask-choice wajib "pertanyaan||opsi1;opsi2[;opsi3;opsi4]" (maks 4 opsi). Contoh: "Lanjut debat di history mana?||Percakapan A;Percakapan B". Perbaiki lalu panggil ulang.'
+        return {
+          resultString,
+          rejected: false,
+          toolExecution: { action: tool, query, result: resultString }
+        }
+      }
+      const choiceId = `choice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const choiceTimestamp = new Date().toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+      targetSetChatData((prev) => [
+        ...prev.filter((item) => !item.isThinking),
+        {
+          role: 'ai',
+          content: parsed.question,
+          choice: { id: choiceId, options: parsed.options, selected: null },
+          isIntermediate: true,
+          timestamp: choiceTimestamp,
+          created_at: Date.now()
+        }
+      ])
+      let selected = null
+      const { race, onAbort } = raceWithAbort(requestChoice(choiceId), currentSignal)
+      try {
+        selected = await race
+      } catch (e) {
+        // Abort (tombol stop): janji ditolak — anggap batal, bersihkan slot.
+        selected = null
+      } finally {
+        if (onAbort) currentSignal?.removeEventListener('abort', onAbort)
+        dropChoice(choiceId)
+      }
+      if (selected == null) {
+        resultString =
+          '[DIBATALKAN] User tidak memilih opsi. Lanjut dengan default terbaik atau laporkan blocked yang spesifik.'
+      } else {
+        targetSetChatData((prev) => [
+          ...prev
+            .filter((item) => !item.isThinking)
+            .map((m) =>
+              m.choice?.id === choiceId ? { ...m, choice: { ...m.choice, selected } } : m
+            ),
+          { role: 'user', content: selected, timestamp: choiceTimestamp, created_at: Date.now() }
+        ])
+        resultString = `[PILIHAN USER]: ${selected}`
+      }
+      return { resultString, rejected: false, toolExecution: { action: tool, query, result: resultString } }
+    }
     // 9. Built-in Native Tools (+ sub-agent & skill tools via domain agent)
     if (checkTools(tool)) {
       // Domain multi-agent & delegation: tangani lebih awal dengan protokol internalnya
       const agentRes = await runAgentTool(tool, query, ctx)
       if (agentRes !== undefined) {
-        return formatRes(tool, query, agentRes)
+        return formatRes(tool, query, agentRes, ctx)
       }
 
       const approvalCheck = await window.api.checkToolApproval(tool, query)
@@ -175,7 +255,7 @@ export const executeSingleTool = async (tool, query, ctx) => {
         // Lepas listener abort agar tidak menumpuk di signal (memory leak)
         if (onAbort) currentSignal?.removeEventListener('abort', onAbort)
       }
-      return formatRes(tool, query, res)
+      return formatRes(tool, query, res, ctx)
     }
     // 10. Plugin Execution
     targetPushProcess({

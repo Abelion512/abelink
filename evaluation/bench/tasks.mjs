@@ -1,7 +1,7 @@
-// Mark Architecture Benchmark — task catalog.
+// Abelink Architecture Benchmark — task catalog.
 //
 // These are architecture probes, not terminal-style endpoint tests.
-// They are designed to exercise MARK's memory, planning, native I/O,
+// They are designed to exercise ABELINK's memory, planning, native I/O,
 // relational/persona behavior, and loop discipline, then produce a
 // structured trajectory that can be scored by the evaluator.
 //

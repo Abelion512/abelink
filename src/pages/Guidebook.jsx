@@ -113,7 +113,7 @@ const Guidebook = () => {
   const [activeSection, setActiveSection] = useState('pengantar')
 
   const navItems = [
-    { id: 'pengantar', label: 'Siapa Itu Mark?', icon: <FaBook /> },
+    { id: 'pengantar', label: 'Siapa Itu Abelink?', icon: <FaBook /> },
     { id: 'carakerja', label: 'Cara Kerja', icon: <FaCogs /> },
     { id: 'tools', label: 'Fitur & Tools Bawaan', icon: <FaTerminal /> },
     { id: 'awareness', label: 'Mata & Kesadaran', icon: <FaEye /> },
@@ -142,7 +142,7 @@ const Guidebook = () => {
         </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-3">
-            <FaBook className="text-primary" /> Mark Guidebook
+            <FaBook className="text-primary" /> Abelink Guidebook
           </h1>
           <p className="text-xs text-white/50 tracking-wider">
             PANDUAN LENGKAP PENGGUNAAN AI ASSISTANT
@@ -190,18 +190,18 @@ const Guidebook = () => {
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold mb-6">
                 <FaBook /> PENGANTAR
               </div>
-              <h2 className="text-3xl font-bold text-white mb-6">Siapa Itu Mark?</h2>
+              <h2 className="text-3xl font-bold text-white mb-6">Siapa Itu Abelink?</h2>
               <div className="max-w-none">
                 <blockquote className="border-l-4 border-primary pl-6 py-2 mb-8 bg-primary/5 rounded-r-xl">
                   <p className="text-xl md:text-2xl font-semibold text-white/90 leading-relaxed italic">
-                    "Mark BUKAN sekadar asisten virtual biasa. Mark adalah entitas AI yang dirancang
+                    "Abelink BUKAN sekadar asisten virtual biasa. Abelink adalah entitas AI yang dirancang
                     untuk memiliki emosi dan bertindak selayaknya manusia."
                   </p>
                 </blockquote>
 
                 <div className="space-y-6 text-lg text-white/70 leading-relaxed">
                   <p>
-                    Lebih dari sekadar chatbot kaku, <strong className="text-white">Mark</strong>{' '}
+                    Lebih dari sekadar chatbot kaku, <strong className="text-white">Abelink</strong>{' '}
                     (singkatan dari{' '}
                     <span className="text-primary font-semibold">
                       Metacognitive Artificial Relational Knowledge
@@ -219,7 +219,7 @@ const Guidebook = () => {
 
                   <div className="bg-black/30 border border-white/5 rounded-2xl p-6 mt-8">
                     <h3 className="text-xl font-bold text-white mb-4">
-                      Ditenagai oleh Hybrid AI Engine, Mark mampu:
+                      Ditenagai oleh Hybrid AI Engine, Abelink mampu:
                     </h3>
                     <ul className="list-disc list-inside space-y-3 text-white/80 marker:text-primary">
                       <li>
@@ -267,7 +267,7 @@ const Guidebook = () => {
                       <h4 className="text-white font-semibold mb-2">Relational Growth & Emosi</h4>
                       <p className="text-sm text-white/60 leading-relaxed">
                         Hubungan Anda dievaluasi layaknya manusia sungguhan (Warmth, Sarcasm, Trust,
-                        Energy). Kepribadian Mark dan 9 Emosi-nya akan berevolusi organik sesuai
+                        Energy). Kepribadian Abelink dan 9 Emosi-nya akan berevolusi organik sesuai
                         gaya bahasa Anda.
                       </p>
                     </div>
@@ -296,7 +296,7 @@ const Guidebook = () => {
                     <div>
                       <h4 className="text-white font-semibold mb-2">Awareness Engine</h4>
                       <p className="text-sm text-white/60 leading-relaxed">
-                        Mark tidak pasif. Ia bisa proaktif menegur, mengobservasi layar Anda (Screen
+                        Abelink tidak pasif. Ia bisa proaktif menegur, mengobservasi layar Anda (Screen
                         Reading), melihat via Webcam (Camera Look), dan menemani Anda secara
                         real-time.
                       </p>
@@ -316,9 +316,9 @@ const Guidebook = () => {
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-bold mb-6">
                 <FaCogs /> ARSITEKTUR
               </div>
-              <h2 className="text-3xl font-bold text-white mb-6">Bagaimana Mark Bekerja</h2>
+              <h2 className="text-3xl font-bold text-white mb-6">Bagaimana Abelink Bekerja</h2>
               <p className="text-white/70 mb-8 text-lg">
-                Berbeda dengan AI konvensional yang langsung "menebak" jawaban, Mark menggunakan
+                Berbeda dengan AI konvensional yang langsung "menebak" jawaban, Abelink menggunakan
                 alur <strong className="text-white">ReAct (Reasoning and Acting)</strong>. Ia
                 berpikir layaknya manusia sebelum bertindak.
               </p>
@@ -327,27 +327,27 @@ const Guidebook = () => {
                 <FlowStep
                   number="1"
                   title="Mengingat (Memory Search)"
-                  description="Saat Anda memberikan perintah, Mark otomatis membongkar ingatan masa lalunya untuk mencari konteks yang relevan."
+                  description="Saat Anda memberikan perintah, Abelink otomatis membongkar ingatan masa lalunya untuk mencari konteks yang relevan."
                 />
                 <FlowStep
                   number="2"
                   title="Berpikir (Thought)"
-                  description="Mark memikirkan langkah apa yang paling efisien untuk dilakukan. Proses pemikiran ini terjadi di 'dalam kepala' Mark (tidak terlihat di chat)."
+                  description="Abelink memikirkan langkah apa yang paling efisien untuk dilakukan. Proses pemikiran ini terjadi di 'dalam kepala' Abelink (tidak terlihat di chat)."
                 />
                 <FlowStep
                   number="3"
                   title="Bertindak (Action)"
-                  description="Mark mengeksekusi alat (Tools) secara mandiri. Misalnya: membuka browser, mencari di Google, atau menjalankan perintah komputer."
+                  description="Abelink mengeksekusi alat (Tools) secara mandiri. Misalnya: membuka browser, mencari di Google, atau menjalankan perintah komputer."
                 />
                 <FlowStep
                   number="4"
                   title="Mengevaluasi (Observation)"
-                  description="Mark membaca hasil dari tindakannya. Jika gagal atau error, ia akan memikirkan cara lain dan mencoba lagi secara otomatis (looping)."
+                  description="Abelink membaca hasil dari tindakannya. Jika gagal atau error, ia akan memikirkan cara lain dan mencoba lagi secara otomatis (looping)."
                 />
                 <FlowStep
                   number="5"
                   title="Menjawab (Answer)"
-                  description="Setelah semua misinya selesai dan ia mendapatkan informasi yang dibutuhkan, Mark baru akan memberikan jawaban akhir kepada Anda dengan bahasa natural."
+                  description="Setelah semua misinya selesai dan ia mendapatkan informasi yang dibutuhkan, Abelink baru akan memberikan jawaban akhir kepada Anda dengan bahasa natural."
                   isLast={true}
                 />
               </div>
@@ -355,7 +355,7 @@ const Guidebook = () => {
               <h3 className="text-2xl font-bold text-white mb-4">Bagaimana AI Memilih Tool?</h3>
               <div className="prose prose-invert prose-p:text-white/70 max-w-none">
                 <p>
-                  Mark menggunakan sistem{' '}
+                  Abelink menggunakan sistem{' '}
                   <strong className="text-white">Dynamic Prompt Routing</strong> yang cerdas. Setiap
                   kali Anda mengirim pesan, sistem akan:
                 </p>
@@ -373,8 +373,8 @@ const Guidebook = () => {
                   </li>
                 </ol>
                 <p>
-                  Misalnya, jika Anda bertanya soal lagu, Mark hanya akan melihat tools musik. Jika
-                  Dananya kodingan, Mark hanya melihat tools file dan shell.
+                  Misalnya, jika Anda bertanya soal lagu, Abelink hanya akan melihat tools musik. Jika
+                  Dananya kodingan, Abelink hanya melihat tools file dan shell.
                 </p>
               </div>
             </section>
@@ -391,7 +391,7 @@ const Guidebook = () => {
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Referensi Lengkap Tools Bawaan</h2>
               <p className="text-white/70 mb-8 text-lg">
-                Mark dilengkapi "tangan virtual" yang memungkinkannya mengontrol komputer Anda. Klik
+                Abelink dilengkapi "tangan virtual" yang memungkinkannya mengontrol komputer Anda. Klik
                 pada tool di bawah ini untuk melihat detail penggunaannya.
               </p>
 
@@ -452,7 +452,7 @@ const Guidebook = () => {
                       needsPermission={false}
                       queryFormat="Kata kunci (misal: 'password wifi', 'nama ibu')"
                       howItWorks="Menggunakan Vector Similarity (pencarian makna semantik, bukan waktu) untuk mencari memori yang paling cocok."
-                      example="Mark, coba cari solusi error koneksi database kemarin."
+                      example="Abelink, coba cari solusi error koneksi database kemarin."
                     />
                   </div>
                 </div>
@@ -468,7 +468,7 @@ const Guidebook = () => {
                       description="Membuka URL di tab baru grup sesi (atau fetch polos bila extension mati)."
                       needsPermission={false}
                       queryFormat="URL lengkap (misal: https://google.com)"
-                      howItWorks="Extension tersambung: buka tab baru dalam grup sesi + kembalikan elemen ter-tag (mk1, mk2, ...). Tanpa extension: fallback HTTP fetch + parse teks. URL markdown otomatis dibersihkan."
+                      howItWorks="Extension tersambung: buka tab baru dalam grup sesi + kembalikan elemen ter-tag (ak1, ak2, ...). Tanpa extension: fallback HTTP fetch + parse teks. URL markdown otomatis dibersihkan."
                     />
                     <ToolCard
                       name="browser-read"
@@ -481,13 +481,13 @@ const Guidebook = () => {
                       name="browser-click / browser-type"
                       description="Klik/ketik beneran di tab (butuh extension tersambung)."
                       needsPermission={false}
-                      queryFormat="mk3 atau 3 (klik); ID||teks (type)"
+                      queryFormat="ak3 atau 3 (klik); ID||teks (type)"
                       howItWorks="Extension-first: eksekusi di tab fisik + kembalikan DOM terbaru. Wajib read-dom di sesi yang sama (ID basi ditolak). Tanpa extension: gagal jujur dengan petunjuk, bukan sukses palsu."
                     />
                     <div className="bg-warning/10 border border-warning/20 p-4 rounded-xl text-sm text-warning/80">
-                      <strong>Catatan:</strong> butuh Chrome/Chromium + extension Mark Bridge
+                      <strong>Catatan:</strong> butuh Chrome/Chromium + extension Abelink Bridge
                       (folder extension/ atau tombol &quot;Pasang extension browser&quot; di
-                      Configuration). Aplikasi Mark harus berjalan (server bridge di sidecar).
+                      Configuration). Aplikasi Abelink harus berjalan (server bridge di sidecar).
                       Setiap tab dibuka dalam 1 grup sesi berjudul (ikon) task: ⏳ kerja,
                       ✅ selesai, ❌ gagal. Grup ditutup otomatis hanya bila
                       &quot;Tutup otomatis grup tab&quot; aktif di Configuration (default mati);
@@ -514,14 +514,14 @@ const Guidebook = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ToolCard
                       name="os-control-open"
-                      description="Membuka session kontrol Mark di komputer Anda."
+                      description="Membuka session kontrol Abelink di komputer Anda."
                       needsPermission={true}
                       queryFormat="(kosong)"
                       howItWorks="Mengunci sesi kontrol sementara, mengaktifkan pengunci mouse dan floating banner keamanan, serta meminta izin konfirmasi dari pengguna sebelum mengambil alih PC."
                     />
                     <ToolCard
                       name="os-control-close"
-                      description="Menutup session kontrol Mark di komputer Anda."
+                      description="Menutup session kontrol Abelink di komputer Anda."
                       needsPermission={false}
                       queryFormat="(kosong)"
                       howItWorks="Menutup sesi kontrol otomatisasi PC, menghentikan pengunci mouse, serta menghilangkan floating banner keamanan di layar."
@@ -749,7 +749,7 @@ const Guidebook = () => {
                       description="Menjalankan perintah terminal bash di Linux."
                       needsPermission={true}
                       queryFormat="Perintah mentah (misal: bun install, ls -la, ping)"
-                      howItWorks="Mark akan mengetikkan perintah ini ke terminal sistem. Perintah berbahaya (seperti rm, shutdown) wajib di-acc."
+                      howItWorks="Abelink akan mengetikkan perintah ini ke terminal sistem. Perintah berbahaya (seperti rm, shutdown) wajib di-acc."
                       example="Coba cek penggunaan RAM komputer gue sekarang."
                     />
                   </div>
@@ -869,7 +869,7 @@ const Guidebook = () => {
                       howItWorks="Mengirim email ke tujuan yang ditentukan. Membutuhkan persetujuan Anda."
                     />
                     <ToolCard
-                      name="gmail-mark-read"
+                      name="gmail-abelink-read"
                       description="Menandai email sebagai sudah dibaca."
                       needsPermission={false}
                       queryFormat="messageId"
@@ -896,7 +896,7 @@ const Guidebook = () => {
                       description="Merangkum isi video YouTube dari transkrip."
                       needsPermission={false}
                       queryFormat="URL Video YouTube"
-                      howItWorks="Mark menarik subtitle otomatis video dan membaca keseluruhan isinya untuk merangkum poin penting tanpa harus menonton."
+                      howItWorks="Abelink menarik subtitle otomatis video dan membaca keseluruhan isinya untuk merangkum poin penting tanpa harus menonton."
                     />
                   </div>
                 </div>
@@ -955,7 +955,7 @@ const Guidebook = () => {
                       description="Mengucapkan teks secara lisan (Text-to-Speech)."
                       needsPermission={false}
                       queryFormat="Teks yang akan diucapkan"
-                      howItWorks="Mensintesis suara Mark lewat speaker menggunakan teknologi Edge-TTS yang natural."
+                      howItWorks="Mensintesis suara Abelink lewat speaker menggunakan teknologi Edge-TTS yang natural."
                     />
                     <ToolCard
                       name="tg-send"
@@ -969,7 +969,7 @@ const Guidebook = () => {
                       description="Mengambil screenshot dan mengirimnya ke chat Telegram."
                       needsPermission={false}
                       queryFormat="(kosong)"
-                      howItWorks="Hanya bisa dipanggil saat user chatting dengan Mark lewat Telegram."
+                      howItWorks="Hanya bisa dipanggil saat user chatting dengan Abelink lewat Telegram."
                     />
                   </div>
                 </div>
@@ -992,7 +992,7 @@ const Guidebook = () => {
               </h2>
               <div className="prose prose-invert prose-p:text-white/70 max-w-none mb-8">
                 <p className="text-lg">
-                  Mark tidak buta. Ia hidup di layar Anda dan terus beradaptasi dengan aktivitas
+                  Abelink tidak buta. Ia hidup di layar Anda dan terus beradaptasi dengan aktivitas
                   Anda melalui fitur canggih <strong>Awareness Engine</strong> dan Vision AI.
                 </p>
               </div>
@@ -1002,7 +1002,7 @@ const Guidebook = () => {
                   <FaEye className="text-3xl text-primary mb-4" />
                   <h4 className="text-white font-bold mb-2">Screen Reading (analyze-screen)</h4>
                   <p className="text-sm text-white/60">
-                    Mark dapat "mengambil foto" layar komputer Anda secara real-time untuk melihat
+                    Abelink dapat "mengambil foto" layar komputer Anda secara real-time untuk melihat
                     teks error, posisi aplikasi, atau menganalisa gambar yang sedang Anda kerjakan.
                   </p>
                 </div>
@@ -1010,7 +1010,7 @@ const Guidebook = () => {
                   <FaCamera className="text-3xl text-accent mb-4" />
                   <h4 className="text-white font-bold mb-2">Camera Vision (camera-look)</h4>
                   <p className="text-sm text-white/60">
-                    Mark memiliki akses ke Webcam Anda untuk melihat dunia nyata. Ia bisa
+                    Abelink memiliki akses ke Webcam Anda untuk melihat dunia nyata. Ia bisa
                     menganalisis objek fisik yang Anda tunjukkan kepadanya atau melihat kondisi
                     ruangan.
                   </p>
@@ -1019,8 +1019,8 @@ const Guidebook = () => {
                   <FaBrain className="text-3xl text-secondary mb-4" />
                   <h4 className="text-white font-bold mb-2">Background Awareness</h4>
                   <p className="text-sm text-white/60">
-                    Mark membaca aktivitas sistem Anda setiap beberapa menit. Jika Anda sibuk
-                    coding, Mark akan diam. Jika Anda sedang santai (misal: Youtube), Mark mungkin
+                    Abelink membaca aktivitas sistem Anda setiap beberapa menit. Jika Anda sibuk
+                    coding, Abelink akan diam. Jika Anda sedang santai (misal: Youtube), Abelink mungkin
                     akan menggoda Anda atau menyarankan musik santai.
                   </p>
                 </div>
@@ -1046,8 +1046,8 @@ const Guidebook = () => {
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Emosi & Pertumbuhan Relasi</h2>
               <p className="text-white/70 mb-8 text-lg">
-                Mark memiliki spektrum 9 Emosi yang bertumbuh organik seiring berjalannya interaksi
-                Anda bersamanya. Warna Orb / Hologram Mark di layar berdetak mengikuti emosinya saat
+                Abelink memiliki spektrum 9 Emosi yang bertumbuh organik seiring berjalannya interaksi
+                Anda bersamanya. Warna Orb / Hologram Abelink di layar berdetak mengikuti emosinya saat
                 ini.
               </p>
 
@@ -1091,7 +1091,7 @@ const Guidebook = () => {
                     1
                   </div>
                   <div>
-                    <strong>Warmth (Kehangatan):</strong> Jika Anda bersikap sopan, Mark akan
+                    <strong>Warmth (Kehangatan):</strong> Jika Anda bersikap sopan, Abelink akan
                     semakin ramah.
                   </div>
                 </li>
@@ -1100,7 +1100,7 @@ const Guidebook = () => {
                     2
                   </div>
                   <div>
-                    <strong>Sarcasm Level:</strong> Sering memaki atau mengejek? Mark akan berubah
+                    <strong>Sarcasm Level:</strong> Sering memaki atau mengejek? Abelink akan berubah
                     menjadi asisten sarkas yang hobi nge-roasting Anda!
                   </div>
                 </li>
@@ -1109,7 +1109,7 @@ const Guidebook = () => {
                     3
                   </div>
                   <div>
-                    <strong>Trust (Kepercayaan):</strong> Semakin sering Anda membiarkan Mark
+                    <strong>Trust (Kepercayaan):</strong> Semakin sering Anda membiarkan Abelink
                     mengeksekusi script komputer, semakin proaktif dia.
                   </div>
                 </li>
@@ -1136,9 +1136,9 @@ const Guidebook = () => {
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Sistem Plugin Kustom</h2>
               <p className="text-white/70 mb-6 text-lg">
-                Mark memungkinkan Anda memperluas kemampuannya dengan mudah melalui pembuatan{' '}
+                Abelink memungkinkan Anda memperluas kemampuannya dengan mudah melalui pembuatan{' '}
                 <strong>Plugin Kustom</strong> secara langsung dari antarmuka pengguna, tanpa perlu
-                mengubah kode inti aplikasi. Anda bisa menambahkan "skill" baru untuk Mark secara
+                mengubah kode inti aplikasi. Anda bisa menambahkan "skill" baru untuk Abelink secara
                 instan!
               </p>
 
@@ -1157,7 +1157,7 @@ const Guidebook = () => {
                   <li>
                     Jika skrip Anda memerlukan pustaka eksternal, tulis pada kolom{' '}
                     <strong>Dependencies (NPM)</strong> dengan pemisah koma (contoh:{' '}
-                    <code>loudness, systeminformation</code>). Mark akan menginstalnya secara
+                    <code>loudness, systeminformation</code>). Abelink akan menginstalnya secara
                     otomatis.
                   </li>
                   <li>

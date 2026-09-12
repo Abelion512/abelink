@@ -1,4 +1,4 @@
-// Eksekutor tool domain KNOWLEDGE (dipindah murni dari useMarkPlan.executeSingleTool):
+// Eksekutor tool domain KNOWLEDGE (dipindah murni dari useAbelinkPlan.executeSingleTool):
 // memory vector search, Capability Manager connectors, trading wallet lokal.
 // Modul ini murni: hanya window.api + dynamic import, tanpa state hook.
 import { executeMemorySearch } from '../../../api/vectorMemory'
@@ -59,7 +59,7 @@ export const runKnowledgeTool = async (tool, query) => {
           if (window.api?.nativeConfirm) {
             try {
               approved = await window.api.nativeConfirm(
-                `Mark ingin menjalankan connector "${connectorId}" aksi "${actionId}". Lanjutkan?`
+                `Abelink ingin menjalankan connector "${connectorId}" aksi "${actionId}". Lanjutkan?`
               )
             } catch (_) {
               approved = false
@@ -123,7 +123,7 @@ export const runKnowledgeTool = async (tool, query) => {
       if (window.api?.nativeConfirm) {
         try {
           approved = await window.api.nativeConfirm(
-            `Mark ingin menambah saldo wallet trading sebesar ${amount}${note ? ` (${note})` : ''}. Lanjutkan?`
+            `Abelink ingin menambah saldo wallet trading sebesar ${amount}${note ? ` (${note})` : ''}. Lanjutkan?`
           )
         } catch (_) {
           approved = false

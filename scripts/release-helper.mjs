@@ -268,7 +268,7 @@ function writeChangelogFile() {
   ]
 
   const lines = [
-    '# Changelog MARK Linux',
+    '# Changelog ABELINK Linux',
     '',
     'Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.',
     '',
@@ -318,7 +318,7 @@ function writeWhatsNewFile(version, changes) {
       security: changes.security || [],
       docs: changes.docs || []
     }),
-    linearUrl: 'https://linear.app/abelion/project/mark-agent-for-linux-10ceec65c326',
+    linearUrl: 'https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326',
     changes: flatChanges
   }
   fs.writeFileSync(WHATSNEW_PATH, JSON.stringify(data, null, 2) + '\n')

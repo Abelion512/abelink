@@ -95,7 +95,7 @@ export default function VoiceVideoSection({
         testAudioRef.current = null
       }
       const response = await window.api?.speakTTS({
-        text: 'Halo bro, gue Mark. Ada yang bisa dibantu?',
+        text: 'Halo bro, gue Abelink. Ada yang bisa dibantu?',
         rate: config.ttsRate || 0,
         pitch: config.ttsPitch || 0,
         returnAudio: true

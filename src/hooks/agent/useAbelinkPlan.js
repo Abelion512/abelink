@@ -34,6 +34,10 @@ import { createCircuitBreaker } from '../../api/ai/circuitBreaker'
 import { createTrajectorySupervisor } from '../../api/ai/trajectorySupervisor'
 import { currentBenchArch } from '../../api/ai/benchArch'
 import { logStep as trajectoryLogStep } from '../../api/trajectory'
+import { logObservation as trajectoryLogObservation } from '../../api/trajectory'
+import { logAnswer as trajectoryLogAnswer } from '../../api/trajectory'
+import { logTurnStart as trajectoryLogTurnStart } from '../../api/trajectory'
+import { logTurnEnd as trajectoryLogTurnEnd } from '../../api/trajectory'
 import { executeSingleTool } from './plan/toolDispatcher'
 import {
   classifyObjectiveKind,
@@ -71,16 +75,16 @@ const convertFilePathToBase64 = async (filePath) => {
   try {
     return await window.api.readFileBase64(filePath)
   } catch (err) {
-    console.error('[useMarkPlan] Failed to convert image file to Base64:', filePath, err)
+    console.error('[useAbelinkPlan] Failed to convert image file to Base64:', filePath, err)
     return null
   }
 }
 
 // ============================================================================
-// MAIN HOOK: useMarkPlan
+// MAIN HOOK: useAbelinkPlan
 // ============================================================================
 
-export const useMarkPlan = ({
+export const useAbelinkPlan = ({
   chatData,
   setChatData,
   config,
@@ -271,7 +275,7 @@ export const useMarkPlan = ({
 
     if (activeSessionsRef.current.has(activeSessionNum)) {
       console.log(
-        `[useMarkPlan] Menolak prompt masuk untuk Sesi ${activeSessionNum} karena sedang berjalan (Lock active).`
+        `[useAbelinkPlan] Menolak prompt masuk untuk Sesi ${activeSessionNum} karena sedang berjalan (Lock active).`
       )
       if (tgContext?.msgId && tgContext?.chatId) {
         window.api?.sendTgAgentExecutionDone?.({
@@ -344,7 +348,7 @@ export const useMarkPlan = ({
         if (skillContent) {
           finalContent = `[SYSTEM INSTRUCTION - SKILL ACTIVATED]: Kamu sekarang harus bertindak dan mengikuti seluruh instruksi dalam dokumen skill berikut ini secara ketat:\n\n=== SKILL: ${skillName} ===\n${skillContent}\n====================\n\nInstruksi dari user: ${userInput.replace('/' + skillName, '').trim() || 'Jalankan skill ini sekarang!'}`
         } else {
-          finalContent = `Skill "${skillName}" tidak ditemukan di direktori Mark Skills.`
+          finalContent = `Skill "${skillName}" tidak ditemukan di direktori Abelink Skills.`
         }
       } catch (err) {
         console.error('Error loading skill:', err)
@@ -422,7 +426,7 @@ export const useMarkPlan = ({
 
         // 1. Direct persistent DB write
         saveSession(activeSessionNum, next).catch((err) => {
-          console.warn(`[useMarkPlan] Gagal auto-save session ${activeSessionNum}:`, err)
+          console.warn(`[useAbelinkPlan] Gagal auto-save session ${activeSessionNum}:`, err)
         })
 
         // 2. Broadcast reactive event to UI (listeners filter by activeSessionId)
@@ -444,6 +448,31 @@ export const useMarkPlan = ({
     const sourceChatData = activeSessionNum === 1 ? chatData : inMemorySessionData
     const optimizedHistory = buildOptimizedChatSession(sourceChatData, config[0]?.context || 10)
     let chatSession = [...optimizedHistory, userMessage]
+
+    // Session Compaction (ATM upstream contextManager, budget 525k).
+    // Default ON (toggle Configuration > Capabilities); prompt-only, riwayat
+    // asli di Dexie tidak diubah (non-destruktif). Gagal -> history penuh.
+    try {
+      if ((config?.[0] || {}).sessionCompactionEnabled !== false) {
+        const { executeSessionCompaction } = await import('../../api/ai/sessionCompactor.js')
+        const comp = await executeSessionCompaction({
+          sessionId: String(activeSessionNum),
+          messages: chatSession,
+          activeConfig: config?.[0] || {},
+          persist: false
+        })
+        if (comp?.isCompacted) {
+          const tail = comp.tailMessages?.length ? comp.tailMessages : comp.compactedMessages
+          const summaryMsg = comp.newSummaryBlock
+            ? [{ role: 'user', content: `[ COMPACTED MESSAGE SUMMARY ] ${comp.newSummaryBlock}` }]
+            : []
+          chatSession = [...summaryMsg, ...tail]
+          if (chatSession[chatSession.length - 1] !== userMessage) chatSession.push(userMessage)
+        }
+      }
+    } catch (e) {
+      console.warn('[useAbelinkPlan] session compaction gagal, pakai history penuh:', e?.message)
+    }
 
     if (!isAutonomous && !isSystem) {
       // Persist versi STRIP (placeholder) agar base64 tidak menumpuk di Dexie;
@@ -484,7 +513,7 @@ export const useMarkPlan = ({
             activeTaskObjectiveRef.current = durableActiveStep?.objective || durableTask.objective
           }
         } catch (err) {
-          console.warn('[useMarkPlan] Gagal me-resume task dari id:', opts.resumeTaskId, err)
+          console.warn('[useAbelinkPlan] Gagal me-resume task dari id:', opts.resumeTaskId, err)
         }
       }
 
@@ -635,7 +664,7 @@ export const useMarkPlan = ({
       // without progress. Exempt for conversational / non-tool sessions
       // (nothing strategic to govern). Per-session instance: fresh state per
       // mission, no cross-task leakage. Additive: never throws, never blocks.
-      // Bench arch axis (MARK_BENCH_ARCH, default basic): vanilla = model-only
+      // Bench arch axis (ABELINK_BENCH_ARCH, default basic): vanilla = model-only
       // (no supervisor, no verify-gate replan); basic = thin supervisor
       // (trajectory log + stagnation ladder). Production default basic.
       const benchArch = currentBenchArch()
@@ -731,6 +760,10 @@ export const useMarkPlan = ({
 
         stepCount++
 
+        try {
+          trajectoryLogTurnStart({ turn: stepCount, sessionId: activeSessionNum })
+        } catch (_) {}
+
         // Stopping policy eksplisit (bukan cuma guard keras): model diberi tahu
         // sisa budget agar konvergen — jawab final / rangkum, bukan eksplorasi baru.
         const stepsLeft = maxPlanSteps - stepCount
@@ -747,7 +780,7 @@ export const useMarkPlan = ({
         let decision = null
         if (stepCount >= maxPlanSteps) {
           console.warn(
-            `[useMarkPlan] Batas ${maxPlanSteps} langkah tercapai. Eksekusi dipaksa berhenti.`
+            `[useAbelinkPlan] Batas ${maxPlanSteps} langkah tercapai. Eksekusi dipaksa berhenti.`
           )
           decision = {
             thought: 'Batas langkah tercapai...',
@@ -822,7 +855,9 @@ export const useMarkPlan = ({
               tgContext,
               currentMusicTrack,
               activeTaskObjective: activeTaskObjectiveRef.current,
-              existingSubagents
+              existingSubagents,
+              sessionId: activeSessionNum,
+              turn: stepCount
             }
           )
         }
@@ -851,7 +886,7 @@ export const useMarkPlan = ({
           !tgContext &&
           !opts.disableTools
         ) {
-          console.log('[useMarkPlan] Interceptor triggered: mode=durable. Creating task plan...')
+          console.log('[useAbelinkPlan] Interceptor triggered: mode=durable. Creating task plan...')
           const taskRoute = {
             mode: 'durable',
             reason: decision.thought,
@@ -866,7 +901,7 @@ export const useMarkPlan = ({
 
           const documentsPath = await window.api.getDocumentsPath?.()
           const artifactRoot = documentsPath
-            ? `${documentsPath.replace(/[\\/]$/, '')}/Mark Tasks/${Date.now()}`
+            ? `${documentsPath.replace(/[\\/]$/, '')}/Abelink Tasks/${Date.now()}`
             : null
 
           durableTask = await createAgentTask({
@@ -1033,7 +1068,7 @@ export const useMarkPlan = ({
             noActionStreak++
             if (noActionStreak >= MAX_NO_PROGRESS_STREAK) {
               console.warn(
-                `[useMarkPlan] Tidak ada kemajuan ${noActionStreak} giliran berturut-turut. Memaksa penyelesaian dengan jawaban terakhir.`
+                `[useAbelinkPlan] Tidak ada kemajuan ${noActionStreak} giliran berturut-turut. Memaksa penyelesaian dengan jawaban terakhir.`
               )
               decision = {
                 ...decision,
@@ -1109,7 +1144,7 @@ export const useMarkPlan = ({
               } catch (e) {
                 // The verifier is an additive layer: its own failure must not
                 // kill a legitimate completion claim.
-                console.warn('[useMarkPlan] objectiveVerifier error:', e?.message)
+                console.warn('[useAbelinkPlan] objectiveVerifier error:', e?.message)
                 lastTerminalReason = classification.reason || 'explicit-done'
                 return true
               }
@@ -1456,6 +1491,22 @@ export const useMarkPlan = ({
             }
             return [...filtered, aiMsg]
           })
+          try {
+            trajectoryLogAnswer({
+              answer: typeof finalOutput === 'string' ? finalOutput : decision.answer,
+              outcome: sessionOutcome,
+              verification: lastVerification ?? null,
+              objectiveKind: objectiveKind ?? null,
+              sessionId: activeSessionNum,
+              turn: stepCount
+            })
+            trajectoryLogTurnEnd({
+              turn: stepCount,
+              sessionId: activeSessionNum,
+              outcome: sessionOutcome,
+              reason: lastTerminalReason ?? null
+            })
+          } catch (_) {}
 
           if (window.api && window.api.browserAction) {
             window.api.browserAction({ action: 'finish' }).catch(() => {})
@@ -1482,16 +1533,16 @@ export const useMarkPlan = ({
                   .then((saved) => {
                     if (saved) {
                       console.log(
-                        `[useMarkPlan] ✨ Keahlian baru berhasil dipelajari: /${saved.name}`
+                        `[useAbelinkPlan] ✨ Keahlian baru berhasil dipelajari: /${saved.name}`
                       )
                     }
                   })
                   .catch((err) => {
-                    console.error('[useMarkPlan] Gagal mensintesis skill:', err)
+                    console.error('[useAbelinkPlan] Gagal mensintesis skill:', err)
                   })
               })
               .catch((err) => {
-                console.error('[useMarkPlan] Gagal import skillSynthesizer:', err)
+                console.error('[useAbelinkPlan] Gagal import skillSynthesizer:', err)
               })
           }
 
@@ -1642,6 +1693,8 @@ export const useMarkPlan = ({
               targetSetChatData,
               workspaceRoot: opts.workspaceRoot,
               turnId: agenticProcessId,
+              sessionId: activeSessionNum,
+              turn: stepCount,
               signal: sessionAbortController.signal,
               currentSignal: sessionAbortController.signal,
               config,
@@ -1759,6 +1812,14 @@ export const useMarkPlan = ({
                 },
                 { role: 'user', content: `[OBSERVATION] Hasil eksekusi tool "${tool}": ${obsStr}` }
               )
+              try {
+                trajectoryLogObservation({
+                  observation: obsStr,
+                  tool,
+                  sessionId: activeSessionNum,
+                  turn: stepCount
+                })
+              } catch (_) {}
             }
           }
 
@@ -1780,6 +1841,14 @@ export const useMarkPlan = ({
                 content: `[OBSERVATION] Hasil eksekusi batch ${actionList.length} tools: ${obsStr}`
               }
             )
+            try {
+              trajectoryLogObservation({
+                observation: obsStr,
+                tool: `batch:${actionList.length}`,
+                sessionId: activeSessionNum,
+                turn: stepCount
+              })
+            } catch (_) {}
           }
 
           // Flush a staged supervisor hint as its own user message (single
@@ -1795,7 +1864,7 @@ export const useMarkPlan = ({
 
         // Kasus 4: Fallback jika AI tidak mengisi action maupun answer
         if (durableTask && durableActiveStep) {
-          console.warn('[useMarkPlan] AI returned empty for durable task. Forcing retry.')
+          console.warn('[useAbelinkPlan] AI returned empty for durable task. Forcing retry.')
           loopMessages.push({
             role: 'user',
             content: `[SYSTEM INSTRUCTION] Kamu WAJIB menggunakan "action" untuk menjalankan tool demi menyelesaikan step: "${durableActiveStep.title}"! Kamu tidak bisa hanya diam atau membalas kosong.`
@@ -1808,7 +1877,7 @@ export const useMarkPlan = ({
         // streak and MAX_PLAN_STEPS) instead of silently ending a live objective.
         if (!opts.disableTools && noActionStreak < MAX_NO_PROGRESS_STREAK) {
           noActionStreak++ // kosong berulang = tidak ada kemajuan, batasi seperti bicara-tanpa-action
-          console.warn('[useMarkPlan] AI returned neither action nor answer. Re-prompting.')
+          console.warn('[useAbelinkPlan] AI returned neither action nor answer. Re-prompting.')
           loopMessages.push({
             role: 'user',
             content:
@@ -1818,7 +1887,7 @@ export const useMarkPlan = ({
         }
 
         console.warn(
-          '[useMarkPlan] AI returned neither action nor answer. Forcing done with fallback.'
+          '[useAbelinkPlan] AI returned neither action nor answer. Forcing done with fallback.'
         )
         isDone = true
         sessionOutcome = 'failed'

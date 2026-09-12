@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-linux-daemon.py - Linux-native MARK PC Automation daemon
-Mirrors pc-daemon.ps1: JSON-over-stdio protocol with ---MARK_DONE--- delimiter.
+linux-daemon.py - Linux-native ABELINK PC Automation daemon
+Mirrors pc-daemon.ps1: JSON-over-stdio protocol with ---ABELINK_DONE--- delimiter.
 Uses xdotool/wmctrl for desktop automation, mss+pytesseract for OCR fallback.
 """
 import sys
@@ -38,19 +38,20 @@ except ImportError:
 # ─── State ───────────────────────────────────────────────────────────
 element_cache = {}   # id -> {rect: [x,y,w,h], bbox}
 screenshots_cache = {}
-MARK_WINDOW_KEYWORDS = [
-    'mark agent', 'mark pc automation', 'mark_unblock', 'mark_pc_stop',
+ABELINK_WINDOW_KEYWORDS = [
+    'abelink agent', 'abelink pc automation', 'abelink_unblock', 'abelink_pc_stop',
+    'abelink (dev)',
 ]
 
 # ─── Helpers ─────────────────────────────────────────────────────────
 
-def is_mark_window(title: str) -> bool:
+def is_abelink_window(title: str) -> bool:
     t = (title or '').strip().lower()
     if not t:
         return True
-    if t.startswith('mark -') or t.startswith('mark_pc_') or t.startswith('mark_'):
+    if t.startswith('abelink -') or t.startswith('abelink_pc_') or t.startswith('abelink_'):
         return True
-    return any(k in t for k in MARK_WINDOW_KEYWORDS)
+    return any(k in t for k in ABELINK_WINDOW_KEYWORDS)
 
 def flush():
     sys.stdout.flush()
@@ -58,7 +59,7 @@ def flush():
 def emit(obj):
     sys.stdout.write(json.dumps(obj, separators=(',', ':'), ensure_ascii=False))
     sys.stdout.write('\n')
-    sys.stdout.write('---MARK_DONE---\n')
+    sys.stdout.write('---ABELINK_DONE---\n')
     flush()
 
 def xdotool(*args) -> str:
@@ -87,21 +88,21 @@ def wmctrl_list() -> str:
         return ''
 
 def get_target_window_title() -> str:
-    """Equivalent to MarkWin32::GetTargetWindow() + GetWindowText."""
+    """Ambil judul window terfokus (cermin perilaku era Win32)."""
     # Get the currently focused window title
     title = xdotool('getwindowfocus', 'getwindowname')
     if not title:
         return ''
-    if not is_mark_window(title):
+    if not is_abelink_window(title):
         return title
 
-    # Focused window is Mark — find another visible, non-Mark window
+    # Focused window is Abelink — find another visible, non-Abelink window
     lines = wmctrl_list().splitlines()
     for line in lines:
         parts = line.split(None, 2)
         if len(parts) >= 3:
             win_title = parts[2]
-            if not is_mark_window(win_title):
+            if not is_abelink_window(win_title):
                 win_id = parts[0]
                 xdotool('windowactivate', '--sync', win_id)
                 xdotool('windowfocus', '--sync', win_id)
@@ -109,7 +110,7 @@ def get_target_window_title() -> str:
     return title
 
 def ensure_target_window_focused():
-    """Equivalent to MarkWin32::EnsureTargetWindowFocused() - activates target window."""
+    """Fokuskan window target (cermin perilaku era Win32)."""
     get_target_window_title()  # This already handles the logic
 
 def get_window_rect(title: str) -> dict:
@@ -393,7 +394,7 @@ def handle_list_windows(cmd_obj):
         if len(parts) >= 3:
             win_id = parts[0]
             title = parts[2]
-            if not is_mark_window(title):
+            if not is_abelink_window(title):
                 windows.append({'hwnd': win_id, 'title': title})
     return windows
 
@@ -407,7 +408,7 @@ def handle_focus_window(cmd_obj):
         parts = line.split(None, 2)
         if len(parts) >= 3:
             win_title = parts[2]
-            if title_query in win_title.lower() and not is_mark_window(win_title):
+            if title_query in win_title.lower() and not is_abelink_window(win_title):
                 win_id = parts[0]
                 xdotool('windowactivate', '--sync', win_id)
                 xdotool('windowfocus', '--sync', win_id)

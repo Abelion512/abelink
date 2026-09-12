@@ -1,7 +1,7 @@
 {
   "name": "abelink",
   "version": "1.0.0-alpha.3",
-  "description": "Abelink (MARK - Metacognitive Artificial Relational Knowledge): Privacy-first Autonomous AI OS Companion for Linux",
+  "description": "Abelink (ABELINK - Metacognitive Artificial Relational Knowledge): Privacy-first Autonomous AI OS Companion for Linux",
   "author": "Abelion512",
   "homepage": "https://github.com/Abelion512/abelink/",
   "scripts": {
@@ -20,16 +20,17 @@
     "verify": "bash scripts/verify.sh",
     "sync-version": "node scripts/sync-version.mjs",
     "harness": "bun sidecar/engine.mjs",
-    "build:sidecar": "bun build sidecar/engine.mjs --compile --minify --outfile=dist-sidecar/mark-engine && chmod +x dist-sidecar/mark-engine",
+    "harness:export": "node scripts/harness-export.mjs",
+    "harness:diagnose": "node scripts/harness-diagnose.mjs",
+    "build:sidecar": "bun build sidecar/engine.mjs --compile --minify --outfile=dist-sidecar/abelink-engine && chmod +x dist-sidecar/abelink-engine",
     "build:deb": "bun run build:sidecar && tauri build --bundles deb",
-    "deb": "bun run build:deb",
     "build:dist": "bun run build:sidecar && tauri build",
-    "app": "tauri dev",
-    "dev:smart": "bash scripts/dev.sh",
+    "app": "bash scripts/dev.sh",
+    "app:raw": "tauri dev",
     "benchmark:echo": "node evaluation/terminal-bench.mjs",
     "benchmark:run": "node evaluation/run.mjs",
     "benchmark:deepeval": "node evaluation/deepeval-runner.mjs",
-    "benchmark:adapter": "node evaluation/mark-adapter.mjs"
+    "benchmark:adapter": "node evaluation/abelink-adapter.mjs"
   },
   "type": "module",
   "overrides": {

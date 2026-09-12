@@ -22,7 +22,7 @@ on('tts-speak', async (text, rate, pitch) => {
       globalTTS = new MsEdgeTTS()
       await globalTTS.setMetadata('id-ID-ArdiNeural', OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3 || 'audio-24khz-48kbitrate-mono-mp3')
     }
-    const tmpPath = path.join(os.tmpdir(), 'mark-tts-folder')
+    const tmpPath = path.join(os.tmpdir(), 'abelink-tts-folder')
     fs.mkdirSync(tmpPath, { recursive: true })
     const { audioFilePath } = await globalTTS.toFile(tmpPath, text, {
       rate: `${rate || 0}%`,

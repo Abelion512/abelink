@@ -12,13 +12,12 @@ const CODE_EXTENSIONS = new Set([
 
 const IGNORE_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', '.next',
-  '.vite', '.mark', '.abelink', '.abelink-dev', 'out', 'coverage', 'tmp', '.cache',
+  '.vite', '.abelink', '.abelink', '.abelink-dev', 'out', 'coverage', 'tmp', '.cache',
   'obj', 'bin', '__pycache__', '.turbo'
 ])
 
 const isDevEnv = () =>
   process.env.NODE_ENV === 'development' ||
-  process.env.MARK_DEV === '1' ||
   process.env.ABELINK_DEV === '1'
 
 export function getWorkspaceDir(workspaceRoot) {
@@ -29,8 +28,8 @@ export function getWorkspaceDir(workspaceRoot) {
   if (fs.existsSync(path.join(workspaceRoot, '.abelink'))) {
     return path.join(workspaceRoot, '.abelink')
   }
-  if (fs.existsSync(path.join(workspaceRoot, '.mark'))) {
-    return path.join(workspaceRoot, '.mark')
+  if (fs.existsSync(path.join(workspaceRoot, '.abelink'))) {
+    return path.join(workspaceRoot, '.abelink')
   }
   const folderName = isDevEnv() ? '.abelink-dev' : '.abelink'
   return path.join(workspaceRoot, folderName)
@@ -39,7 +38,7 @@ export function getWorkspaceDir(workspaceRoot) {
 /**
  * Memastikan folder workspace metadata (.abelink / .abelink-dev) ada dan mendaftarkannya ke .gitignore
  */
-export function ensureMarkWorkspace(workspaceRoot) {
+export function ensureAbelinkWorkspace(workspaceRoot) {
   if (!workspaceRoot || !fs.existsSync(workspaceRoot)) return null
   const targetDir = getWorkspaceDir(workspaceRoot)
   const dirName = path.basename(targetDir)
@@ -75,13 +74,13 @@ export function ensureMarkWorkspace(workspaceRoot) {
 
     return targetDir
   } catch (err) {
-    console.error('[WorkspaceRAG] ensureMarkWorkspace error:', err.message)
+    console.error('[WorkspaceRAG] ensureAbelinkWorkspace error:', err.message)
     return null
   }
 }
 
 /**
- * Membaca Working Memory aktif dari .mark/working-memory.json
+ * Membaca Working Memory aktif dari .abelink/working-memory.json
  */
 export function readWorkingMemory(workspaceRoot) {
   if (!workspaceRoot) return null
@@ -103,7 +102,7 @@ export function readWorkingMemory(workspaceRoot) {
 export function saveWorkingMemory(workspaceRoot, memoryData) {
   if (!workspaceRoot || !memoryData) return false
   try {
-    const targetDir = ensureMarkWorkspace(workspaceRoot)
+    const targetDir = ensureAbelinkWorkspace(workspaceRoot)
     if (!targetDir) return false
     const memoryPath = path.join(targetDir, 'working-memory.json')
     const existing = readWorkingMemory(workspaceRoot) || {}
@@ -168,17 +167,17 @@ function chunkFileContent(filePath, content, relativePath) {
 }
 
 /**
- * Memindai dan mengindeks seluruh berkas kode proyek ke .mark/codebase-index.json secara inkremental
+ * Memindai dan mengindeks seluruh berkas kode proyek ke .abelink/codebase-index.json secara inkremental
  */
 export async function indexWorkspace(workspaceRoot) {
   if (!workspaceRoot || !fs.existsSync(workspaceRoot)) {
     return { success: false, error: 'Workspace root tidak ditemukan.' }
   }
 
-  const markDir = ensureMarkWorkspace(workspaceRoot)
-  if (!markDir) return { success: false, error: 'Gagal menginisialisasi folder .mark' }
+  const abelinkDir = ensureAbelinkWorkspace(workspaceRoot)
+  if (!abelinkDir) return { success: false, error: 'Gagal menginisialisasi folder .abelink' }
 
-  const indexPath = path.join(markDir, 'codebase-index.json')
+  const indexPath = path.join(abelinkDir, 'codebase-index.json')
   let existingIndex = { files: {}, chunks: [], lastIndexed: 0 }
 
   if (fs.existsSync(indexPath)) {
@@ -260,7 +259,7 @@ export async function indexWorkspace(workspaceRoot) {
 
   try {
     fs.writeFileSync(indexPath, JSON.stringify(updatedIndex, null, 2), 'utf-8')
-    console.log(`[WorkspaceRAG] Indexed ${Object.keys(newFilesMap).length} files (${allChunks.length} chunks) in .mark/`)
+    console.log(`[WorkspaceRAG] Indexed ${Object.keys(newFilesMap).length} files (${allChunks.length} chunks) in .abelink/`)
     return {
       success: true,
       totalFiles: Object.keys(newFilesMap).length,
@@ -273,7 +272,7 @@ export async function indexWorkspace(workspaceRoot) {
 }
 
 /**
- * Mencari potongan kode yang paling relevan dari .mark/codebase-index.json
+ * Mencari potongan kode yang paling relevan dari .abelink/codebase-index.json
  */
 export function queryCodebase(workspaceRoot, queryText, topK = 4) {
   if (!workspaceRoot || !queryText) return []

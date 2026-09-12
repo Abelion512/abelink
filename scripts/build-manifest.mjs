@@ -30,8 +30,8 @@ for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
   const skillPath = path.join(skillsDir, entry.name, 'SKILL.md')
   if (!existsSync(skillPath)) continue
   const content = readFileSync(skillPath, 'utf8')
-  // Only core (mark-agent-fork) skills go into the manifest
-  if (!/^origin:\s*mark-agent-fork\s*$/m.test(getFrontmatter(content))) continue
+  // Only core (abelink-core) skills go into the manifest
+  if (!/^origin:\s*abelink-core\s*$/m.test(getFrontmatter(content))) continue
   const body = getSkillBody(content)
   manifest.skills[entry.name] = { sha256: createHash('sha256').update(body).digest('hex') }
 }

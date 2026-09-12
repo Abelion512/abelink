@@ -1,4 +1,4 @@
-# PROJECT-STATUS — Mark Agent Linux
+# PROJECT-STATUS — Abelink Agent Linux
 
 > Dokumen publik untuk dibaca manager AI via GitHub. Sanitized: tanpa isi
 > percakapan, tanpa detail internal. Diperbarui tiap sesi besar oleh agen lokal.
@@ -11,7 +11,7 @@
 - Sistem effort/budget (LOW–ULTRA + AUTO) terimplementasi + teruji deterministik
   (spesifikasi: `docs/effort-system-spec.md`).
 - Benchmark arsitektur (`evaluation/bench/`) berjalan di stub boundary;
-  otomatisasi penuh menunggu boundary MARK nyata (`boundary-spec.mjs`).
+  otomatisasi penuh menunggu boundary ABELINK nyata (`boundary-spec.mjs`).
 
 ## Kesehatan terakhir (terverifikasi 2026-09-07)
 
@@ -32,7 +32,7 @@
 
 ## Langkah berikut
 
-1. Boundary MARK nyata (`startRun`/`sendPrompt`/`endRun`/`abortRun`) agar
+1. Boundary ABELINK nyata (`startRun`/`sendPrompt`/`endRun`/`abortRun`) agar
    benchmark arsitektur otomatis penuh.
 2. Fase migrasi C3 (browser automation multi-session).
 3. Packaging AppImage/.deb + auto-update CI.

@@ -1,4 +1,4 @@
-// Sinkronisasi versi fork MARK Linux.
+// Sinkronisasi versi fork ABELINK Linux.
 // Single source of truth: src-tauri/tauri.conf.json -> "version"
 // Target sinkron: package.json + src-tauri/Cargo.toml (+ Cargo.lock via cargo metadata saat build).
 //

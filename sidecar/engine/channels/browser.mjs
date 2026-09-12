@@ -1,7 +1,7 @@
 // Channel: browser automation (Fase C3 Jalur A — ekstensi browser + bridge).
 //
 // Lima channel lama (`browser:navigate/read-dom/action/close/show`) kini
-// benar-benar dieksekusi: perintah diantrekan ke ekstensi Mark yang terpasang
+// benar-benar dieksekusi: perintah diantrekan ke ekstensi Abelink yang terpasang
 // di Chrome/Chromium user lewat `main/browser/server.mjs` (long-poll HTTP
 // lokal, token auth). Tanpa ekstensi -> error eksplisit berisi petunjuk
 // pemasangan (fail-fast, bukan sukses palsu).
@@ -9,7 +9,7 @@
 // Kontrak response TIDAK berubah dari era stub:
 //   navigate  (url, sessionId)        -> { title, url, elements: [...] }
 //   read-dom  (sessionId)             -> { title, url, elements: [...] }
-//   action    ({markId, action, value}, sessionId) -> hasil aksi / read-dom ulang
+//   action    ({abelinkId, action, value}, sessionId) -> hasil aksi / read-dom ulang
 //   close     (sessionId | 'all')     -> pesan sukses
 //   show      (sessionId)             -> tab difokuskan
 // Argumen ke-2+ tetap spread oleh registry `on()` (payload array).
@@ -22,7 +22,9 @@ import {
   ensureSession,
   getSession,
   getBrowserConfig,
-  listSessions
+  listSessions,
+  setLastUrl,
+  getLastUrl
 } from '../../main/browser/bridge-core.mjs'
 import { BROWSER_BRIDGE } from '../../main/browser/bridge-core.mjs'
 
@@ -70,19 +72,20 @@ on('browser:navigate', async (url, sessionId = 'default') => {
   }
   const res = await run(sessionId, 'navigate', { url: parsed.toString() })
   if (!res.ok) throw new Error(res.error || 'Ekstensi gagal navigasi.')
+  setLastUrl(sessionId, parsed.toString())
   return JSON.parse(res.data)
 })
 
 // ---------------------------------------------------------------- action
-// data: { markId, action: click|type|scroll|press|select, value?, url? }
+// data: { abelinkId, action: click|type|scroll|press|select, value?, url? }
 // Aksi destruktif (submit) tetap dibatasi di sisi tool AI (`browser-click`
 // dst. di node-tools) lewat approval; channel ini level rendah.
 on('browser:action', async (data, sessionId = 'default') => {
   await ensureBridge()
   ensureSession(sessionId)
   if (!data || typeof data !== 'object') throw new Error('Payload aksi browser tidak valid.')
-  const { markId, action, value, url } = data
-  const NO_MARK_ID_ACTIONS = [
+  const { abelinkId, action, value, url } = data
+  const NO_ABELINK_ID_ACTIONS = [
     'scroll',
     'press',
     'screenshot',
@@ -93,12 +96,14 @@ on('browser:action', async (data, sessionId = 'default') => {
     'forward',
     'reload',
     'go-back',
-    'go-forward'
+    'go-forward',
+    'overlay-show',
+    'overlay-hide'
   ]
-  if (!markId && !NO_MARK_ID_ACTIONS.includes(action)) {
-    throw new Error('Aksi butuh markId elemen (dari browser:read-dom).')
+  if (!abelinkId && !NO_ABELINK_ID_ACTIONS.includes(action)) {
+    throw new Error('Aksi butuh abelinkId elemen (dari browser:read-dom).')
   }
-  const res = await run(sessionId, 'act', { markId, action, value, url })
+  const res = await run(sessionId, 'act', { abelinkId, action, value, url })
   if (!res.ok) throw new Error(res.error || 'Ekstensi gagal mengeksekusi aksi.')
   if (typeof res.data === 'string') {
     try {

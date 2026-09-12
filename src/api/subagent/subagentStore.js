@@ -80,7 +80,7 @@ export const subagentStore = {
     if (!subagentId) return null
     const msg = {
       subagentId,
-      sender, // 'mark' | 'subagent' | 'system' | 'tool'
+      sender, // 'abelink' | 'subagent' | 'system' | 'tool'
       role, // 'user' | 'assistant' | 'system'
       content: typeof content === 'string' ? content : JSON.stringify(content),
       thought: thought || null,

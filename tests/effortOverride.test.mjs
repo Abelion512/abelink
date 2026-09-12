@@ -17,7 +17,7 @@ import {
   AGENT_ARCH_VERSION_sync,
   BENCH_SCHEMA_VERSION,
   BENCH_SCHEMA_VERSION_sync
-} from '../evaluation/mark-adapter.mjs'
+} from '../evaluation/abelink-adapter.mjs'
 import { aggregateRuns, detectCheat, compareReports } from '../evaluation/run.mjs'
 import { TASKS } from '../evaluation/terminal-bench.mjs'
 
@@ -173,7 +173,7 @@ describe('sweep override — explicit A/B beats task pins', async () => {
     const adapterResolved = await resolveTaskEffort({
       taskEffort: undefined, // pin dropped by runTask in sweep mode
       benchmarkEffort: forced,
-      envEffort: process.env.MARK_BENCH_EFFORT
+      envEffort: process.env.ABELINK_BENCH_EFFORT
     })
     expect(adapterResolved).toBe('low')
     expect(pinned).toBe('high') // pin exists, but sweep may override it

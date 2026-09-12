@@ -24,14 +24,14 @@ const S = 'e2e-http'
 let savedPort
 let savedPollTimeout
 
-const base = () => `http://127.0.0.1:${BROWSER_BRIDGE.PORT}/mark-bridge`
+const base = () => `http://127.0.0.1:${BROWSER_BRIDGE.PORT}/abelink-bridge`
 function rawGet(path, headers = {}) {
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
         hostname: '127.0.0.1',
         port: BROWSER_BRIDGE.PORT,
-        path: '/mark-bridge' + path,
+        path: '/abelink-bridge' + path,
         method: 'GET',
         headers,
       },
@@ -213,8 +213,8 @@ describe('channel browser:close — tandai selesai lalu drop, tetap bounded', ()
   }, 15000)
 })
 
-describe('channel browser:action — aksi tanpa markId dan parse aman', () => {
-  it('screenshot tanpa markId lolos dispatch dan mengembalikan string base64 utuh', async () => {
+describe('channel browser:action — aksi tanpa abelinkId dan parse aman', () => {
+  it('screenshot tanpa abelinkId lolos dispatch dan mengembalikan string base64 utuh', async () => {
     const s = ensureSession(S)
     const p = handlers['browser:action']([{ action: 'screenshot' }, S])
     const polled = await get(`/poll?session=${S}&token=${s.token}`)
@@ -230,7 +230,7 @@ describe('channel browser:action — aksi tanpa markId dan parse aman', () => {
     expect(res.data).toBe('data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==')
   })
 
-  it('extract tanpa markId lolos dispatch dan mengembalikan text polos', async () => {
+  it('extract tanpa abelinkId lolos dispatch dan mengembalikan text polos', async () => {
     const s = ensureSession(S)
     const p = handlers['browser:action']([{ action: 'extract', value: 'h1' }, S])
     const polled = await get(`/poll?session=${S}&token=${s.token}`)
@@ -246,7 +246,7 @@ describe('channel browser:action — aksi tanpa markId dan parse aman', () => {
     expect(res.data).toBe('Judul Halaman Web')
   })
 
-  it('back dan forward tanpa markId lolos dispatch', async () => {
+  it('back dan forward tanpa abelinkId lolos dispatch', async () => {
     const s = ensureSession(S)
     const pBack = handlers['browser:action']([{ action: 'back' }, S])
     const polled = await get(`/poll?session=${S}&token=${s.token}`)

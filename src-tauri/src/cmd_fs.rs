@@ -1,6 +1,6 @@
 // FB#1 — File operations native Rust (menggantikan handler node-tools.js)
 // KEAMANAN (audit 2026-08-26): semua path DIBATASI di dalam workspace root
-// (XDG_DATA_HOME/mark/workspace). Path absolut, '..', dan '~' DITOLAK;
+// (XDG_DATA_HOME/abelink/workspace). Path absolut, '..', dan '~' DITOLAK;
 // symlink & escape dicek lewat fs::canonicalize + prefix check.
 // Operasi berat berjalan di spawn_blocking agar tidak membekukan main thread.
 use serde::Serialize;
@@ -14,10 +14,7 @@ const MAX_READ_BYTES: u64 = 10 * 1024 * 1024;
 const MAX_GREP_FILE_BYTES: u64 = 1024 * 1024;
 
 pub fn workspace_root() -> PathBuf {
-    let xdg = std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| {
-        format!("{}/.local/share", std::env::var("HOME").unwrap_or_default())
-    });
-    PathBuf::from(xdg).join("mark").join("workspace")
+    crate::data_home().join("abelink").join("workspace")
 }
 
 /// Pastikan workspace ada dan kembalikan bentuk kanoniknya.
@@ -341,7 +338,7 @@ pub fn fs_detect_legacy_profiles() -> Vec<String> {
 pub fn fs_import_pick_and_read() -> Result<LegacyPick, String> {
     let file = rfd::FileDialog::new()
         .add_filter("Dexie Export JSON", &["json"])
-        .set_title("Pilih file export database Mark lama")
+        .set_title("Pilih file export database Abelink lama")
         .pick_file();
     match file {
         Some(f) => {

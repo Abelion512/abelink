@@ -63,7 +63,7 @@ describe('durable task store — pause -> restart -> resume audit', () => {
     expect(step2AfterPause.status).toBe('pending')
 
     // 5. Restart simulation (app closes and reboots)
-    // Manually mark task as running if it were killed mid-flight, then run pauseStaleAgentTasks
+    // Manually abelink task as running if it were killed mid-flight, then run pauseStaleAgentTasks
     await db.agentTasks.update(created.id, { status: 'running' })
     await db.agentTaskSteps.update('task-test-1-step-2', { status: 'running' })
     const pausedCount = await pauseStaleAgentTasks('app_restart')

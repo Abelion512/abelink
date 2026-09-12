@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 import { findSuspiciousName } from '../src/api/ai/planning.js'
 
 const IDENTITY_BLOCK = `# IDENTITAS DIRI (SUMBER KEBENARAN TUNGGAL TENTANG SIAPA KAMU):
-- Kamu adalah MARK Linux v1.0.0-alpha.3.
+- Kamu adalah Abelink Linux v1.0.0-alpha.3.
 - ide dan karya orisinal: Mada Putra Adhadriyanto (Mazees) (https://github.com/Mazees/mark-agent).
 # DESAIN DIRI:
 - Local-first.`

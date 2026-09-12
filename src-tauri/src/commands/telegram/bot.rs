@@ -127,7 +127,7 @@ pub fn telegram_send_photo(
     if png.len() > 10 * 1024 * 1024 {
         return Err("Foto melebihi batas 10MB Bot API.".into());
     }
-    let name = format!("mark-screen-{}.png", chrono::Local::now().timestamp_millis());
+    let name = format!("abelink-screen-{}.png", chrono::Local::now().timestamp_millis());
 
     let runtime = tokio::runtime::Runtime::new().map_err(|e| format!("RT: {e}"))?;
     runtime.block_on(async {

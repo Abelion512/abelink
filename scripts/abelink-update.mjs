@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 /**
- * mark update — auto-stash local changes, pull official (upstream), then pop stash.
+ * abelink update — auto-stash local changes, pull official (upstream), then pop stash.
  * Resolves merge conflicts by reporting them; does NOT auto-resolve.
  *
  * Usage:
- *   node scripts/mark-update.mjs                # safe path: pull upstream, merge into local
- *   node scripts/mark-update.mjs --rebase       # rebase your local commits atop upstream
- *   node scripts/mark-update.mjs --sync-linear  # create Linear issues for pending commits
- *   node scripts/mark-update.mjs --list         # print pending commits table
- *   node scripts/mark-update.mjs --tag          # create atm/<short-hash> tags for ATM commits
- *   node scripts/mark-update.mjs --changelog    # auto-update CHANGELOG.md from upstream-diff-report.json
- *   node scripts/mark-update.mjs --whats-new    # generate whats-new.json for in-app display
- *   node scripts/mark-update.mjs --restore-stash  # restore a previously stashed update
+ *   node scripts/abelink-update.mjs                # safe path: pull upstream, merge into local
+ *   node scripts/abelink-update.mjs --rebase       # rebase your local commits atop upstream
+ *   node scripts/abelink-update.mjs --sync-linear  # create Linear issues for pending commits
+ *   node scripts/abelink-update.mjs --list         # print pending commits table
+ *   node scripts/abelink-update.mjs --tag          # create atm/<short-hash> tags for ATM commits
+ *   node scripts/abelink-update.mjs --changelog    # auto-update CHANGELOG.md from upstream-diff-report.json
+ *   node scripts/abelink-update.mjs --whats-new    # generate whats-new.json for in-app display
+ *   node scripts/abelink-update.mjs --restore-stash  # restore a previously stashed update
  *
  * Flags can be combined:
- *   node scripts/mark-update.mjs --sync-linear --tag --changelog --whats-new
+ *   node scripts/abelink-update.mjs --sync-linear --tag --changelog --whats-new
  *
  * Environment:
- *   MARK_UPDATE_REMOTE=upstream  (default) or 'origin'
- *   MARK_UPDATE_BRANCH=master    (default)
+ *   ABELINK_UPDATE_REMOTE=upstream  (default) or 'origin'
+ *   ABELINK_UPDATE_BRANCH=master    (default)
  *   NO_STASH=1                   # skip stash (use only if you have no local changes or manage them)
  */
 import { spawnSync, execFileSync } from 'child_process';
@@ -27,8 +27,8 @@ import path from 'path';
 
 const REPO_ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 
-const REMOTE = process.env.MARK_UPDATE_REMOTE || 'upstream';
-const BRANCH = process.env.MARK_UPDATE_BRANCH || 'master';
+const REMOTE = process.env.ABELINK_UPDATE_REMOTE || 'upstream';
+const BRANCH = process.env.ABELINK_UPDATE_BRANCH || 'master';
 const DO_REBASE = process.argv.includes('--rebase');
 const SYNC_LINEAR = process.argv.includes('--sync-linear');
 const DO_LIST = process.argv.includes('--list');
@@ -241,7 +241,7 @@ function linearCreateArgs(commit) {
     'issue', 'create',
     '--title', title,
     '--description', description,
-    '--project', 'mark-agent-for-linux',
+    '--project', 'abelink-agent-for-linux',
     '--team', 'Abelion Space',
     '--label', commit.overall,
   ];
@@ -282,7 +282,7 @@ function syncLinear() {
 
   if (!linearAvailable()) {
     console.error('⚠️  `linear` CLI not found. Install: https://www.linear.app/cli');
-    console.error('   Then run: node scripts/mark-update.mjs --sync-linear');
+    console.error('   Then run: node scripts/abelink-update.mjs --sync-linear');
     console.error('\n   Commits that would be created:');
     pending.forEach(c => console.error(`   • [${c.overall}] ${c.msg}  (${c.github_url})`));
     process.exit(1);
@@ -325,7 +325,7 @@ async function main() {
   const didStash = !process.env.NO_STASH && hasChanges();
   if (didStash) {
     banner('Local changes detected → stashing...');
-    git(`stash push -m "mark-update auto-stash: $(date -u +%Y%m%dT%H%M%SZ)"`);
+    git(`stash push -m "abelink-update auto-stash: $(date -u +%Y%m%dT%H%M%SZ)"`);
     stashInfo();
   } else {
     console.log('✅ No local changes to stash.');
@@ -347,7 +347,7 @@ async function main() {
       conflicts.forEach(f => console.error('  • ' + f));
       console.error('\nResolve, then continue:');
       console.error(DO_REBASE ? '  git rebase --continue' : '  git commit');
-      console.error('After resolving, run: node scripts/mark-update.mjs --restore-stash');
+      console.error('After resolving, run: node scripts/abelink-update.mjs --restore-stash');
       if (didStash) stashInfo();
       process.exit(1);
     }

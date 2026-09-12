@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Mark agent adapter for MarkBench — talks to sidecar/engine.mjs over JSON-lines RPC.
+// Abelink agent adapter for AbelinkBench — talks to sidecar/engine.mjs over JSON-lines RPC.
 // One persistent sidecar child per run; requests are multiplexed by id.
 //
 // Effort override contract (owner request: task-level A/B, NOT process-global):
 //   resolveTaskEffort precedence: task.effort > benchmark effort (opts) >
-//   MARK_BENCH_EFFORT env > system default ('low').
+//   ABELINK_BENCH_EFFORT env > system default ('low').
 // Effort is stamped into every task result + trajectory so reports can answer
 // "which effort ran, did success/recovery/termination improve" per task.
 
@@ -93,7 +93,7 @@ export function resolveTaskEffortSync({ taskEffort, benchmarkEffort, envEffort }
 // Precedence (explicit, spec-compliant):
 //   1. task.effort            (task-level override in terminal-bench registry)
 //   2. benchmark effort       (run.mjs --effort / --efforts value)
-//   3. environment default    (MARK_BENCH_EFFORT, kept for CLI experiments)
+//   3. environment default    (ABELINK_BENCH_EFFORT, kept for CLI experiments)
 //   4. system default         ('low')
 export async function resolveTaskEffort({ taskEffort, benchmarkEffort, envEffort } = {}) {
   const values = _getEffortValues()
@@ -113,9 +113,9 @@ export function normalizeEffort(value, fallback = 'low') {
 function createSidecar(arch = 'basic') {
   const child = spawn(BUN, [SIDECAR], {
     stdio: ['pipe', 'pipe', 'pipe'],
-    // MARK_BENCH_ARCH propagates the arch axis to the engine so executor-side
+    // ABELINK_BENCH_ARCH propagates the arch axis to the engine so executor-side
     // wiring (renderer Task 5 lineage/scoring, future engine gates) can read it.
-    env: { ...process.env, MARK_DEBUG_AI: '0', MARK_BENCH_ARCH: arch },
+    env: { ...process.env, ABELINK_DEBUG_AI: '0', ABELINK_BENCH_ARCH: arch },
   })
 
   const pending = new Map() // id -> { resolve, reject, timer }
@@ -357,7 +357,7 @@ export function toNativeQuery(name, args = {}) {
   }
 }
 
-// Normalized step shape consumed by MARK-Eval (evaluation/mark-eval.mjs):
+// Normalized step shape consumed by ABELINK-Eval (evaluation/abelink-eval.mjs):
 // { step, kind, toolCalls: [{ tool, query, result }], observation, response }
 function pushTrace(trace, step, kind, payload) {
   trace.push({
@@ -370,17 +370,17 @@ function pushTrace(trace, step, kind, payload) {
   return trace
 }
 
-// ---- Run one Mark agent task ----
-// runMarkAgent(task, model, provider, options)
+// ---- Run one Abelink agent task ----
+// runAbelinkAgent(task, model, provider, options)
 //   options.effort = benchmark-level default (from run.mjs --effort/--efforts)
 //   task.effort    = task-level override (terminal-bench registry)
-export async function runMarkAgent(task, model, provider, options = {}) {
+export async function runAbelinkAgent(task, model, provider, options = {}) {
   // Task-level effort override: task.effort > options.effort (benchmark
-  // default) > MARK_BENCH_EFFORT (env) > 'low' (system default).
+  // default) > ABELINK_BENCH_EFFORT (env) > 'low' (system default).
   const effort = await resolveTaskEffort({
     taskEffort: task?.effort,
     benchmarkEffort: options?.effort,
-    envEffort: process.env.MARK_BENCH_EFFORT,
+    envEffort: process.env.ABELINK_BENCH_EFFORT,
   })
   // Arch axis: vanilla = model-only, basic = thin supervisor. Default basic;
   // executor-side wiring reads the same env. `avo` dihapus 2026-09-12.
@@ -403,7 +403,7 @@ export async function runMarkAgent(task, model, provider, options = {}) {
   const messages = [
     { role: 'user', content: `${task.prompt}${toolPreamble(task.requiredTools, { workdir: task.workdir })}` }
   ]
-  const trace = [] // normalized trajectory for MARK-Eval verifiers
+  const trace = [] // normalized trajectory for ABELINK-Eval verifiers
   const stepLog = []
   let steps = 0
   let toolCalls = 0
@@ -473,7 +473,7 @@ export async function runMarkAgent(task, model, provider, options = {}) {
           result: toolText.slice(0, 200),
           success: toolOk,
         })
-        // Normalized step: MARK-Eval reads toolCalls[].tool/query + observation
+        // Normalized step: ABELINK-Eval reads toolCalls[].tool/query + observation
         // to score orchestration, recovery and termination correctness.
         pushTrace(trace, steps, 'tool', {
           toolCalls: [
@@ -495,7 +495,7 @@ export async function runMarkAgent(task, model, provider, options = {}) {
   const trajectory = {
     steps, // count of AI decision iterations
     toolCalls,
-    trace, // normalized steps consumed by MARK-Eval verifiers
+    trace, // normalized steps consumed by ABELINK-Eval verifiers
     stepLog,
     startedAt,
     finishedAt,
@@ -525,9 +525,9 @@ export async function runMarkAgent(task, model, provider, options = {}) {
 
 // ---- CLI self-test ----
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const task = { taskId: 'echo-01', prompt: 'Please respond with exactly: MarkBench is active' }
+  const task = { taskId: 'echo-01', prompt: 'Please respond with exactly: AbelinkBench is active' }
   const start = Date.now()
-  runMarkAgent(task, 'gemini-3.6-flash', 'gemini-web')
+  runAbelinkAgent(task, 'gemini-3.6-flash', 'gemini-web')
     .then((r) => {
       console.log('RESPONSE:', r.response.slice(0, 200))
       console.log('EFFORT:', r.effort)

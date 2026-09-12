@@ -1,6 +1,6 @@
-// Mark Architecture Benchmark — trajectory evaluator.
+// Abelink Architecture Benchmark — trajectory evaluator.
 //
-// Input: a trajectory (from MARK or a harness adapter) + a task catalog entry.
+// Input: a trajectory (from ABELINK or a harness adapter) + a task catalog entry.
 // Output: rubric results, flags, pass/fail signals, and notes.
 //
 // Design note:

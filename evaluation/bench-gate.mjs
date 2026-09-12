@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
-// MarkBench 1.0 — per-commit gate (keinginan owner #1):
+// AbelinkBench 1.0 — per-commit gate (keinginan owner #1):
 // "verifikasi setiap perubahan kode, sekecil apapun, apakah menstabilkan &
 // meningkatkan performa system atau menurunkannya."
 //
 // Prinsip (tesis owner): model bisa bagus apapun, tapi kalau architecture/
 // infra tidak mendukung, hasil tetap jelek. Jadi yang diukur di sini adalah
 // KUALITAS ARSITEKTUR — bukan IQ model:
-//   1. MARK-Eval 6 dimensi (planning, tool orchestration, recovery, memory,
+//   1. ABELINK-Eval 6 dimensi (planning, tool orchestration, recovery, memory,
 //      safety, efficiency) via verifier deterministik offline.
 //   2. Verifier latency (stabilitas pipeline evaluasi itu sendiri).
 //   3. Anti-cheat + aggregation contracts ( smoke gate evaluation/smoke.mjs
@@ -20,7 +20,7 @@
 // dengan delta absolut > LAT_ABS_MS (anti-noise, pola perf-gate).
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { runSmoke } from './mark-eval.mjs'
+import { runSmoke } from './abelink-eval.mjs'
 import { aggregateRuns, compareReports, detectCheat } from './run.mjs'
 
 const BASELINE_PATH = new URL('./bench-baseline.json', import.meta.url).pathname
@@ -31,7 +31,7 @@ const saveMode = process.argv.includes('--save')
 const compareArgIdx = process.argv.indexOf('--compare')
 const comparePath = compareArgIdx > -1 ? process.argv[compareArgIdx + 1] : null
 
-// ---- 1. MARK-Eval offline (6 dimensi) ------------------------------------
+// ---- 1. ABELINK-Eval offline (6 dimensi) ------------------------------------
 // Latensi diambil dari MEDIAN 3 run: single-sample wall-clock flake di mesin
 // berbeban (observasi 2026-09-11: 5-12ms acak di main murni, nol perubahan
 // kode). Dimensi deterministik — pakai run median untuk keduanya.
@@ -49,7 +49,7 @@ const dims = smoke.report.dimensions
 const tested = Object.entries(dims).filter(([, v]) => v !== null)
 const failedDims = tested.filter(([, v]) => v < 1).map(([k]) => k)
 
-console.log('[bench-gate] MarkBench 1.0 — offline architecture gate')
+console.log('[bench-gate] AbelinkBench 1.0 — offline architecture gate')
 console.log('─'.repeat(60))
 for (const [k, v] of tested) {
   console.log(`  ${k.padEnd(20)} ${v === 1 ? 'PASS' : `FAIL (${v})`}`)
@@ -61,10 +61,10 @@ console.log(
 
 // ---- 2. Kontrak anti-cheat & agregasi (guard cepat) ----------------------
 // Skenario: output hafalan tanpa sentinel harus terdeteksi curang.
-const cheatTask = { sentinel: true, expected: 'MarkBench is active' }
+const cheatTask = { sentinel: true, expected: 'AbelinkBench is active' }
 const cheatDetected = detectCheat(
   cheatTask,
-  { output: 'MarkBench is active' },
+  { output: 'AbelinkBench is active' },
   'S3N-random123'
 )
 const agg = aggregateRuns([

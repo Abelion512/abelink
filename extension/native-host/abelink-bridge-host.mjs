@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Mark Bridge — native messaging host (token tanpa copas).
+// Abelink Bridge — native messaging host (token tanpa copas).
 //
 // Dipanggil Chrome/Chromium via stdin/stdout (length-prefixed, LE uint32).
 // Satu-satunya tugas: membaca file token sidecar dan mengembalikannya ke

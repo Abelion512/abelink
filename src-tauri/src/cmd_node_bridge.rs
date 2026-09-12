@@ -53,7 +53,7 @@ pub fn kill_engine(state: &Arc<NodeBridgeState>) {
                 // Matikan seluruh grup dulu (cucu ikut mati), lalu anak langsung.
                 // Guard comm: jangan kill grup bila PID sudah dipakai ulang
                 // proses lain (race task pendek selesai sebelum exit).
-                if group_is_ours(pid, &["bun", "mark-engine"]) {
+                if group_is_ours(pid, &["bun", "abelink-engine"]) {
                     unsafe {
                         libc::kill(-(pid as libc::pid_t), libc::SIGKILL);
                     }
@@ -286,12 +286,12 @@ pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> R
             .path()
             .resource_dir()
             .map_err(|e| format!("Gagal resolve resource dir: {e}"))?;
-        let exe = ["mark-engine", "_up_/dist-sidecar/mark-engine"]
+        let exe = ["abelink-engine", "_up_/dist-sidecar/abelink-engine"]
             .iter()
             .map(|p| resource_dir.join(p))
             .find(|p| p.exists())
             .ok_or_else(|| {
-                "mark-engine tidak ditemukan di bundle (rilis: jalankan `bun run build:sidecar` sebelum `tauri build`)".to_string()
+                "abelink-engine tidak ditemukan di bundle (rilis: jalankan `bun run build:sidecar` sebelum `tauri build`)".to_string()
             })?;
         log::info!(
             "[NodeBridge] Memulai sidecar engine (binary) di path: {}",
@@ -303,7 +303,7 @@ pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> R
             .map(|p| resource_dir.join(p))
             .find(|p| p.is_dir());
         if let Some(dir) = scripts {
-            c.env("MARK_RESOURCE_DIR", dir);
+            c.env("ABELINK_RESOURCE_DIR", dir);
         }
         // Grup proses sendiri: kill_engine memakai killpg agar cucu sidecar
         // ikut mati saat aplikasi keluar (tidak jadi orphan yang nyangkut).

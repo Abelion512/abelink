@@ -34,6 +34,7 @@ const ChatList = ({
   currentStep,
   isPlanConclusion = false,
   pluginExecution = null,
+  choice = null,
   mood = 'neutral',
   timestamp = '',
   source = null,
@@ -89,7 +90,7 @@ const ChatList = ({
 
       {/* Header (Sender Name & Time) */}
       <div className="chat-header text-[11px] font-semibold opacity-75 mb-1 flex items-center gap-2 px-1">
-        <span>{isUser ? (isTelegram ? (sender || 'Telegram Admin') : 'You') : 'Mark'}</span>
+        <span>{isUser ? (isTelegram ? (sender || 'Telegram Admin') : 'You') : 'Abelink'}</span>
         {isTelegram && (
           <span className="badge badge-xs bg-[#229ED9]/15 text-[#229ED9] border-[#229ED9]/30 gap-1 font-mono text-[9px] py-0.5 px-1.5 flex items-center font-normal">
             <FaTelegramPlane className="w-2.5 h-2.5" /> {isUser ? 'Telegram' : 'Telegram Reply'}
@@ -134,6 +135,7 @@ const ChatList = ({
               sources={sources}
               executedTools={executedTools}
               isPlanConclusion={isPlanConclusion}
+              choice={choice}
             />
           </div>
         )}

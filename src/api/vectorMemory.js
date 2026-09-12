@@ -24,7 +24,7 @@ let isTauriEnvironment =
 // Flag persisten: WASM pernah terbukti rusak di webview ini -> boot
 // berikutnya langsung Lite Mode tanpa mencoba (tanpa error merah berulang).
 // Ditulis SEKALI saat auto-Lite aktif; dibaca SEKALI saat modul dimuat.
-const WASM_BROKEN_KEY = 'mark:wasm-broken'
+const WASM_BROKEN_KEY = 'abelink:wasm-broken'
 
 function readWasmBroken() {
   try {
@@ -45,7 +45,7 @@ if (readWasmBroken() && !isLiteMode) {
   // per-sesi bila gagal - jangan kunci Lite dari flag persisten.
   let fullMode = null
   try {
-    fullMode = typeof localStorage !== 'undefined' ? localStorage.getItem('mark:fullmode') : null
+    fullMode = typeof localStorage !== 'undefined' ? localStorage.getItem('abelink:fullmode') : null
   } catch (_) {}
   if (fullMode !== '1') {
     isLiteMode = true
@@ -59,7 +59,7 @@ function emitLiteAuto() {
   liteAutoNotified = true
   try {
     window.dispatchEvent(
-      new CustomEvent('mark:auto-lite', { detail: { reason: 'wasm-unsupported' } })
+      new CustomEvent('abelink:auto-lite', { detail: { reason: 'wasm-unsupported' } })
     )
   } catch (_) {}
 }

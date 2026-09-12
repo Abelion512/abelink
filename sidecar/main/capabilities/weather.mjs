@@ -1,7 +1,7 @@
 // Connector plugin: cuaca via Open-Meteo (tanpa API key).
 // Geocoding + forecast; fetch eksplisit dengan timeout agar tidak menggantung.
 
-const UA = 'Mozilla/5.0 (X11; Linux x86_64) MarkAgentCapabilities/1.0'
+const UA = 'Mozilla/5.0 (X11; Linux x86_64) AbelinkAgentCapabilities/1.0'
 const FETCH_TIMEOUT_MS = 15000
 
 async function fetchJson(url) {

@@ -29,8 +29,8 @@ ini. Patch baru, bukan duplikat.
 
 | Finding | File | Root Cause | Fix | Status |
 | --- | --- | --- | --- | --- |
-| 2 error ESLint di `main` | `src/pages/MarkHome.jsx:302` | Directive `// eslint-disable-next-line react-compiler/react-compiler` menunjuk rule yang TIDAK terdaftar di `eslint.config.mjs`; ESLint melaporkan "Definition for rule ... was not found" sebagai error | Directive usang dihapus | DONE |
-| Memoization tidak bisa dipreservasi | `src/pages/MarkHome.jsx:303` | `useCallback(handleStopScreenShare, [screenStream, handleModeChange])` tidak memuat state setter stabil yang dipakai body, sehingga React Compiler melewati komponen dan rule `react-hooks/preserve-manual-memoization` error | Setter stabil (`setScreenStream`, `setLiveScreenFrame`) dimasukkan ke dependency array; 0 error dan tanpa warning `exhaustive-deps` | DONE |
+| 2 error ESLint di `main` | `src/pages/AbelinkHome.jsx:302` | Directive `// eslint-disable-next-line react-compiler/react-compiler` menunjuk rule yang TIDAK terdaftar di `eslint.config.mjs`; ESLint melaporkan "Definition for rule ... was not found" sebagai error | Directive usang dihapus | DONE |
+| Memoization tidak bisa dipreservasi | `src/pages/AbelinkHome.jsx:303` | `useCallback(handleStopScreenShare, [screenStream, handleModeChange])` tidak memuat state setter stabil yang dipakai body, sehingga React Compiler melewati komponen dan rule `react-hooks/preserve-manual-memoization` error | Setter stabil (`setScreenStream`, `setLiveScreenFrame`) dimasukkan ke dependency array; 0 error dan tanpa warning `exhaustive-deps` | DONE |
 | Gerbang lint tidak ada | `scripts/verify.sh`, `.github/workflows/tauri.yml` | `bun run lint` tidak dipanggil gate mana pun, jadi error lint tidak pernah menggagalkan apa pun | Lint jadi langkah `[2/8]` di verify.sh dan langkah "Lint (eslint)" di job `frontend` sebelum vitest | DONE |
 | Kontrak sumbu arch bohong | `src/api/ai/benchArch.js`, `evaluation/matrix.mjs` | Komentar menyatakan `avo` = Fase 2 penuh (lineage + scoring), padahal modulnya sudah dihapus; laporan berlabel `avo` sebenarnya berperilaku `basic` | Komentar kontrak ditulis ulang (avo = alias legacy, jangan diiklankan sebagai arsitektur berbeda) + catatan di 2 entri matriks bench | DONE |
 | Docs menunjuk file yang sudah dihapus | `AGENTS.md` | Tabel file masih memuat `main/browser-agent.js`, `BrowserPreviewWidget.jsx`, `systemInfo.js`; stack masih menyebut Driver.js; konstanta `MAX_ELEMENTS` masih dipetakan ke file yang sudah tidak ada | Baris tabel diganti ke lokasi nyata (`sidecar/main/browser/`, `extension/background.js` `taggerFn()` `MAX = 80`), modul baru didokumentasikan, ditambah subbagian "Removed Layers" | DONE |
@@ -41,7 +41,7 @@ ini. Patch baru, bukan duplikat.
 
 | File | Perubahan |
 | --- | --- |
-| `src/pages/MarkHome.jsx` | Hapus directive disable usang; dependency `useCallback` diselaraskan |
+| `src/pages/AbelinkHome.jsx` | Hapus directive disable usang; dependency `useCallback` diselaraskan |
 | `scripts/verify.sh` | Lint jadi langkah `[2/8]` (renumber 0..7 dari 8) |
 | `.github/workflows/tauri.yml` | Langkah "Lint (eslint)" di job `frontend` |
 | `src/api/ai/benchArch.js` | Komentar kontrak sumbu arch ditulis ulang (avo = alias legacy) |
@@ -107,7 +107,7 @@ Tiga tindak lanjut dikerjakan di sesi yang sama setelah review PR.
 | ESLint melintasi artefak build | `eslint.config.mjs` | ESLint tidak membaca `.gitignore`; `src-tauri/target/` (salinan sidecar + extension hasil `tauri build`) ikut ter-lint dan menyumbang 121 dari 972 warning, jadi baseline tech-debt bias dan lint lambat | `ignores` ditambah `**/target`, `**/dist-sidecar`, `**/coverage`, `**/graphify-out`; 972 -> 850 warning | DONE |
 | Directive disable tanpa efek | `src/api/ai/core.js:221` | Escape sequence `\u0000-\u001F` tidak memicu `no-control-regex`, jadi directive-nya dilaporkan sebagai "Unused eslint-disable directive" | Directive dihapus + komentar penjelas | DONE |
 | 9 warning clippy | `cmd_fs.rs`, `cmd_node_bridge.rs`, `commands/tools/{shell,git,tasks}.rs`, `commands/telegram/bot.rs` | Utang lama: `and_then(\|x\| Some(y))`, `int_plus_one`, `if let Err(e) = ... return Err(e)` alih-alih `?`, `splitn().nth(1)`, doc comment dipisah baris kosong, dan 2 `spawn()` tanpa `wait()` (zombie) | Semua diperbaiki; `cargo clippy --all-targets -- -D warnings` bersih | DONE |
-| Nilai arch `avo` menyesatkan | `src/api/ai/benchArch.js`, `evaluation/{smoke,run,matrix,mark-adapter}.mjs`, `src/hooks/agent/useMarkPlan.js` | `avo` diterima sebagai pengali legacy, tetapi `--arch avo` lalu berjalan sebagai `basic` tanpa peringatan: laporan bisa salah label | `ARCH_VALUES` jadi `['vanilla','basic']`; `--arch avo` gagal-cepat exit 2 (validasi sudah ada di `run.mjs`), resolver tetap jatuh ke `basic` agar laporan lama terbaca | DONE |
+| Nilai arch `avo` menyesatkan | `src/api/ai/benchArch.js`, `evaluation/{smoke,run,matrix,abelink-adapter}.mjs`, `src/hooks/agent/useAbelinkPlan.js` | `avo` diterima sebagai pengali legacy, tetapi `--arch avo` lalu berjalan sebagai `basic` tanpa peringatan: laporan bisa salah label | `ARCH_VALUES` jadi `['vanilla','basic']`; `--arch avo` gagal-cepat exit 2 (validasi sudah ada di `run.mjs`), resolver tetap jatuh ke `basic` agar laporan lama terbaca | DONE |
 | Gate clippy tidak ada | `scripts/verify.sh`, `.github/workflows/tauri.yml` | Sama seperti lint: tidak ada gerbang yang memanggil clippy, jadi 9 warning menumpuk | Langkah `[8/9]` di verify.sh + langkah clippy di job `rust` CI | DONE |
 
 Catatan urutan tes: `let _ = child.wait()` di `commands/tools/tasks.rs` ditempatkan

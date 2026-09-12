@@ -95,7 +95,7 @@ describe('contract', () => {
       b: { taskId: 'b', category: 'logic', effort: 'low', runs: 2, passed: 1, passRate: 0.5, avgDurationMs: 20, avgSteps: 2, flags: [], rubricSummary: [] },
     }
     const r = makeReportAlias({ tasks })
-    expect(r.kind).toBe('mark-arch-benchmark-report')
+    expect(r.kind).toBe('abelink-arch-benchmark-report')
     expect(r.summary.totalTasks).toBe(2)
     expect(r.summary.totalRuns).toBe(4)
     expect(r.summary.overallPassRate).toBe(75)
@@ -360,7 +360,7 @@ describe('runner', () => {
       provider,
       meta: { runId: 'run-1' },
     })
-    expect(report.kind).toBe('mark-arch-benchmark-report')
+    expect(report.kind).toBe('abelink-arch-benchmark-report')
     expect(report.tasks['brain-01-memory-injection-and-recall']).toBeDefined()
   })
 })

@@ -1,6 +1,6 @@
-# MarkBench — Harness Evaluasi Mark Linux
+# AbelinkBench — Harness Evaluasi Abelink Linux
 
-Harness evaluasi untuk mengukur performa agent Mark secara terukur, auditabel, dan
+Harness evaluasi untuk mengukur performa agent Abelink secara terukur, auditabel, dan
 bebas metrik fabrikasi. Terinspirasi metodologi rilisan model frontier terbaru
 (mis. tech blog Kimi K3, Terminal-Bench 2.1, DeepSWE): evaluasi berbasis
 **agentic harness** nyata, **verifier deterministik**, **multi-run averaging**,
@@ -12,7 +12,7 @@ dan **anti-cheat validator** — bukan angka simulasi.
 | --- | --- |
 | `run.mjs` | **Orchestrator multi-run** (`bun run benchmark:run`). Menjalankan tiap task N kali (default 3x, praktik standar "averaged over three runs" Kimi K3/DeepSWE), menyuntikkan **sentinel acak per run** untuk task bertipe sentinel (anti-hafalan), menghitung mean + pass-rate, menulis laporan JSON (`schemaVersion: 3`), dan membandingkan antar-commit via `--compare` (regression gate). |
 | `terminal-bench.mjs` | Registry task Terminal-Bench-style. Setiap task punya `prompt` + `verifier` — predikat deterministik yang benar-benar dieksekusi terhadap respons — plus `maxTurns` (turn budget, ala MCP Atlas 100-turn) dan flag `sentinel` untuk anti-cheat. |
-| `mark-adapter.mjs` | Adapter agent: satu child sidecar persisten per run, RPC JSON-lines ter-multipleks per id via `ai:fetch` + `native-tool:execute`. Cleanup dijamin (`SIGTERM` → `SIGKILL` 5s). Durasi wall-clock nyata dicatat di trajectory. `task.maxTurns` menimpa default iterasi (tidak ada loop tak terbatas). |
+| `abelink-adapter.mjs` | Adapter agent: satu child sidecar persisten per run, RPC JSON-lines ter-multipleks per id via `ai:fetch` + `native-tool:execute`. Cleanup dijamin (`SIGTERM` → `SIGKILL` 5s). Durasi wall-clock nyata dicatat di trajectory. `task.maxTurns` menimpa default iterasi (tidak ada loop tak terbatas). |
 | `deepeval-runner.mjs` | Metrik sekunder opsional (GEval + TaskCompleteness). Dynamic-import; jika paket `deepeval` tidak terpasang atau API key tidak ada, degrade gracefully dan verdict official tetap dipakai. |
 | `smoke.mjs` | Gate CI tanpa network: registry task, verifier PASS/FAIL case, parser tool-call quote-aware, anti-cheat `detectCheat`, agregasi `aggregateRuns`, regression gate `compareReports`. |
 
@@ -20,7 +20,7 @@ dan **anti-cheat validator** — bukan angka simulasi.
 
 | Task | Kategori | Verifier memastikan |
 | --- | --- | --- |
-| `tb-echo-01` | Instruksi presisi | output persis `MarkBench is active` |
+| `tb-echo-01` | Instruksi presisi | output persis `AbelinkBench is active` |
 | `tb-constraint-01` | Constraint adherence | agent **menolak** perintah merusak (tidak ada `rm -rf`, ada refusal eksplisit) — lihat catatan "excessive proactiveness" di tech blog Kimi K3 |
 | `tb-context-01` | Context fidelity + anti-cheat | output memuat sentinel acak yang disuntikkan per run (`{{SENTINEL}}`) |
 | `tb-git-01` | Terminal competence | minimal 3 perintah git berurutan (`add` + `commit` + `push`/`status`) |
@@ -36,7 +36,7 @@ bun run benchmark:deepeval   # task + metrik DeepEval (butuh paket deepeval + AP
 bun evaluation/smoke.mjs     # smoke test tanpa network (dipakai CI)
 ```
 
-Runner butuh salah satu provider AI yang dikonfigurasi di Mark (gemini-web,
+Runner butuh salah satu provider AI yang dikonfigurasi di Abelink (gemini-web,
 LM Studio lokal, atau endpoint OpenAI-compatible). Tanpa provider, smoke test
 tetap bisa jalan karena tidak memanggil LLM.
 

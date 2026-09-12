@@ -1,4 +1,4 @@
-# MARK Linux: Electron → Tauri Validation Report
+# ABELINK Linux: Electron → Tauri Validation Report
 **Date**: 2026-08-30  
 **Purpose**: Validate initial P0 claims from parity audit, classify root causes accurately  
 **Method**: Trace complete UI→API→backend→OS paths for each claimed regression  
@@ -10,7 +10,7 @@
 ### 1. Window Transparency — **Platform Limitation** (Distinguish native vs blur)
 **Original claim**: "Window not transparent — `transparent: false` in config"  
 **Validation**:
-- **Electron upstream** (`tmp/mark-agent-audit/src/main/index.js:78`): `transparent: true` + `backgroundColor: '#00000000'`  
+- **Electron upstream** (`tmp/abelink-agent-audit/src/main/index.js:78`): `transparent: true` + `backgroundColor: '#00000000'`  
 - **Tauri Linux fork**: Initially had `transparent: true` (commit `4a11f29` scaffold)  
 - **Change made**: Commit `866d872` explicitly set `transparent: false` + `#0b0f0c` background  
 - **Reason documented**: *"WebKitGTK tidak menggambar backdrop"* — WebKitGTK does NOT render CSS backdrop-filter/transparency effects in the same way as Chromium  
@@ -41,7 +41,7 @@
 ### 3. Save File Dialog — **NEW FEATURE / NOT PARITY GAP** (reclassified from P0)
 **Original claim**: "Save file dialog missing — P0 core regression"  
 **Validation**:
-- **Electron upstream**: No `showSaveDialog` or `save-file` IPC found in audit (`tmp/mark-agent-audit/src/main/index.js` search returned zero results). Electron saves files implicitly via node `fs` modules with temp-file creation — there was never a user-facing "Save As" dialog in the reference codebase.
+- **Electron upstream**: No `showSaveDialog` or `save-file` IPC found in audit (`tmp/abelink-agent-audit/src/main/index.js` search returned zero results). Electron saves files implicitly via node `fs` modules with temp-file creation — there was never a user-facing "Save As" dialog in the reference codebase.
 - **Tauri Linux frontend**: `src/api/tauri-bridge.js:294` has `saveSkillFile` (skill-specific), `misc_save_temp_file` (temp workspace files) — same functional coverage as Electron's implicit fs writes.
 - **UI inspection**: All file operations in UI use either:
   - `window.api.saveTempFile()` (InputBar.jsx:201-206) — creates temp files in workspace  
@@ -60,7 +60,7 @@
 ### 4. Auto-launch at Login — **INTENTIONAL LINUX DIFFERENCE** (not "missing")
 **Original claim**: "Auto-launch at login not implemented"  
 **Validation**:
-- **Electron upstream**: Uses `app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true })` (tmp/mark-agent-audit/src/main/index.js:409-418)  
+- **Electron upstream**: Uses `app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true })` (tmp/abelink-agent-audit/src/main/index.js:409-418)  
 - **Tauri Linux frontend**: Zero references to auto-launch, login item, or autostart  
 - **Linux/Tauri context**: Auto-launch on Linux requires `.desktop` file in `~/.config/autostart/` or systemd user service  
 - **Product decision check**: Searching codebase and docs shows **no requirement** for auto-launch on Linux fork. This is a deliberate platform-native omission — Linux users manage autostart via config files, not app-internal settings.  
@@ -86,7 +86,7 @@
   - WebKitGTK version with CSS filter support  
   - No guarantee of consistent behavior across Linux desktop environments  
 - **Root cause**: **Platform limitation** — WebKitGTK does not fully implement CSS backdrop-filter; Layer D/E unverified at runtime  
-- **Correct classification**: **P1** — Works conditionally, document as platform-dependent, mark Layer E UNVERIFIED
+- **Correct classification**: **P1** — Works conditionally, document as platform-dependent, abelink Layer E UNVERIFIED
 
 ### 7. Window Opacity via CSS Var — **KNOWN TAURI v1 API GAP** (reclassified from migration issue)
 **Original claim**: "Window opacity only via CSS var, not window-level"  
@@ -158,9 +158,9 @@ Layer E: Compositor blur (KWin/Compton/Mutter — UNVERIFIED on target DE)
 ```
 UI: None (intentionally omitted)
    ↓ Product decision — Linux-native
-Linux: User creates ~/.config/autostart/mark.desktop with Exec=/path/to/mark
+Linux: User creates ~/.config/autostart/abelink.desktop with Exec=/path/to/abelink
    ↓ OR
-Systemd: User creates ~/.config/systemd/user/mark.service
+Systemd: User creates ~/.config/systemd/user/abelink.service
    ↓
 OS: Desktop environment or systemd launches app on login
 ```

@@ -1,6 +1,6 @@
 /**
  * Workspace RAG & Working Memory Service (Renderer API)
- * Menghubungkan UI/Planning Engine dengan .mark/ Codebase Index & Scratchpad
+ * Menghubungkan UI/Planning Engine dengan .abelink/ Codebase Index & Scratchpad
  */
 
 let lastIndexScanTime = {}
@@ -17,7 +17,7 @@ export async function getWorkspaceContext(workspaceRoot, userInput) {
   }
 
   try {
-    // 1. Pastikan folder .mark ada
+    // 1. Pastikan folder .abelink ada
     await window.api.workspaceEnsure(workspaceRoot)
 
     // 2. Trigger scan inkremental jika sudah lebih dari 60 detik sejak scan terakhir
@@ -63,7 +63,7 @@ export async function getWorkspaceContext(workspaceRoot, userInput) {
 }
 
 /**
- * Menyimpan pembaruan Working Memory ke .mark/working-memory.json
+ * Menyimpan pembaruan Working Memory ke .abelink/working-memory.json
  */
 export async function saveWorkspaceWorkingMemory(workspaceRoot, data) {
   if (!workspaceRoot || !window.api?.workspaceSaveMemory) return false

@@ -1,8 +1,8 @@
-# Mark-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification
+# Abelink-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification
 
 ## 1. Objective
 
-Implement a provider-agnostic Reasoning/Effort System for Mark-Linux with these user-facing levels:
+Implement a provider-agnostic Reasoning/Effort System for Abelink-Linux with these user-facing levels:
 
 ```text
 LOW
@@ -993,7 +993,7 @@ assert ultra.workflow_node_budget > 0
 Core runtime MUST be provider-independent.
 
 ```text
-Mark EffortPolicy
+Abelink EffortPolicy
         ↓
 Provider Adapter
         ↓
@@ -1028,7 +1028,7 @@ OR
 verification/retry behavior
 ```
 
-The canonical Mark policy remains unchanged.
+The canonical Abelink policy remains unchanged.
 
 ---
 
@@ -1401,7 +1401,7 @@ Recommended layout:
 
 ```text
 <test-temp-root>/
-└── mark-effort-fixtures/
+└── abelink-effort-fixtures/
     ├── fixture-01-trivial/
     ├── fixture-02-rename/
     ├── fixture-03-repair/
@@ -1735,7 +1735,7 @@ fixture-07-dependency/
 Contents:
 
 ```text
-MARK_TEST
+ABELINK_TEST
 ```
 
 Required workflow:
@@ -1743,7 +1743,7 @@ Required workflow:
 ```text
 A = read input
 B = transform to lowercase
-C = verify "mark_test"
+C = verify "abelink_test"
 ```
 
 Graph:
@@ -2234,7 +2234,7 @@ bounded budget
 
 ## 68. Backward Compatibility
 
-Existing Mark configuration MUST continue working without specifying effort.
+Existing Abelink configuration MUST continue working without specifying effort.
 
 Required:
 

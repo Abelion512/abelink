@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 /**
  * LiveAudio legacy redirect.
  * Ponytail Ultra YAGNI: seluruh fungsi live audio telah diintegrasikan langsung
- * ke MarkHome sebagai mode default (Jarvis Mode).
+ * ke AbelinkHome sebagai mode default (Jarvis Mode).
  */
 const LiveAudio = () => {
   const navigate = useNavigate()

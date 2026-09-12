@@ -1,8 +1,8 @@
-// Mark Architecture Benchmark — runner.
+// Abelink Architecture Benchmark — runner.
 //
 // This module does NOT drive the UI and does NOT require a CLI today.
 // It expects a trajectory provider function that returns a structured
-// trajectory for each task. When MARK gains an execution boundary, this
+// trajectory for each task. When ABELINK gains an execution boundary, this
 // runner becomes the place to plug that boundary in.
 //
 // Today it can still be used with manually captured trajectories.

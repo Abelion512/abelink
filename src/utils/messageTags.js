@@ -11,7 +11,6 @@ export const CREATOR_TAG = '[DARI CREATOR / USER (MADA)]:'
 export function stripAgentTags(text) {
   if (typeof text !== 'string') return text
   return text
-    .replace(/^\[DARI LEAD AGENT \((ABELINK|MARK)\)\]:\s*/, '')
+    .replace(/^\[DARI LEAD AGENT \((ABELINK|ABELINK)\)\]:\s*/, '')
     .replace(/^\[DARI CREATOR \/ USER \([\s\S]*?\)\]:\s*/, '')
-    .replace(/^\[DARI CREATOR \/ USER \([^)]*\)\]:\s*/, '')
 }

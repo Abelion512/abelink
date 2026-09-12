@@ -32,7 +32,7 @@ export const useRelationalGrowth = ({ chatData }) => {
                   ? `[${new Date(m.timestamp).toLocaleString('id-ID')}] ` 
                   : `[${m.timestamp}] `
               }
-              return `${timeStr}${m.role === 'user' ? 'User' : 'Mark'}: ${stripDataUrls(typeof m.content === 'string' ? m.content : '[Gambar terlampir]')}`
+              return `${timeStr}${m.role === 'user' ? 'User' : 'Abelink'}: ${stripDataUrls(typeof m.content === 'string' ? m.content : '[Gambar terlampir]')}`
             })
             .join('\n')
 

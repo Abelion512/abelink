@@ -50,7 +50,7 @@ pub async fn tools_run_shell(
             && eff != crate::approval_policy::POLICY_SESSION
         {
             let desc =
-                format!("Mark ingin mengeksekusi perintah shell:\n\n{}", query);
+                format!("Abelink ingin mengeksekusi perintah shell:\n\n{}", query);
             if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
                 return Ok(ToolResult {
                     success: false,

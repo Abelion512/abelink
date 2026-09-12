@@ -7,7 +7,7 @@ export const GROUP_TOOLS_DEFINITION = {
         'Buka URL di browser fisik. Query: URL lengkap. Mengembalikan daftar elemen interaktif bernomor (ID).',
       'browser-read': 'Scan ulang elemen halaman saat ini. Gunakan setelah menunggu loading.',
       'browser-click':
-        'Klik elemen. Query: ID (mk1, mk2, ...). WAJIB read-dom/browser-navigate di SESI YANG SAMA dulu; ID dari turn/sesi lain = basi, JANGAN diklik. Mengembalikan DOM terbaru setelah klik.',
+        'Klik elemen. Query: ID (ak1, ak2, ...). WAJIB read-dom/browser-navigate di SESI YANG SAMA dulu; ID dari turn/sesi lain = basi, JANGAN diklik. Mengembalikan DOM terbaru setelah klik.',
       'browser-type':
         'Ketik teks di kolom input. Query: ID||teks. WAJIB read-dom di SESI YANG SAMA dulu; ID basi JANGAN dipakai.',
       'browser-scroll': 'Scroll halaman. Query: "up" atau "down".',
@@ -106,7 +106,7 @@ export const GROUP_TOOLS_DEFINITION = {
       'gmail-read': 'Membaca isi pesan email tertentu. Query: messageId.',
       'gmail-send':
         'Mengirim email baru (Butuh persetujuan user). Query: email_tujuan||Subjek||Isi_pesan.',
-      'gmail-mark-read': 'Menandai email sebagai sudah dibaca. Query: messageId.'
+      'gmail-abelink-read': 'Menandai email sebagai sudah dibaca. Query: messageId.'
     }
   },
   system_vision_tg: {
@@ -142,7 +142,7 @@ export const GROUP_TOOLS_DEFINITION = {
   },
   trading_support: {
     description:
-      'Buku kas & budget trading-support Mark (wallet lokal, fase 1: pencatatan — TANPA eksekusi order exchange). Gunakan untuk melaporkan saldo, mengalokasikan budget model murah (mis. deepseek/glm), dan mencatat pengeluaran inference.',
+      'Buku kas & budget trading-support Abelink (wallet lokal, fase 1: pencatatan — TANPA eksekusi order exchange). Gunakan untuk melaporkan saldo, mengalokasikan budget model murah (mis. deepseek/glm), dan mencatat pengeluaran inference.',
     tools: {
       'trading-status':
         'Ringkasan wallet: saldo kas, status budget & burn rate per model, usage. Query: KOSONG.',

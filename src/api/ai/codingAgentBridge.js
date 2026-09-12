@@ -80,18 +80,9 @@ export async function detectInstalledAgents(options = {}) {
         return false
       }
     }
-    // Fallback Node/Bun/Sidecar/Testing environment
-    try {
-      const fs = await import('fs')
-      if (bin.startsWith('/') && fs.existsSync(bin)) {
-        return true
-      }
-      const cp = await import('child_process')
-      const out = cp.execSync(`which ${bin} 2>/dev/null || true`, { encoding: 'utf8' })
-      return Boolean(out && out.trim().length > 0)
-    } catch {
-      return false
-    }
+    // Renderer tidak boleh menyentuh Node API (fs/child_process) langsung —
+    // semua akses OS lewat window.api (Tauri IPC). Tanpa bridge = tidak ada agent.
+    return false
   })
 
   const available = []

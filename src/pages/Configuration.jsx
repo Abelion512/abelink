@@ -52,7 +52,7 @@ const Configuration = ({
     tgAdminIds: '',
     micDeviceId: 'default',
     awarenessEnabled: true,
-    cameraDeviceId: 'default',
+    sessionCompactionEnabled: true,    cameraDeviceId: 'default',
     cameraEnabled: true,
     sttProvider: 'custom',
     customSttEndpoint: 'http://localhost:20128/v1/audio/transcriptions',
@@ -70,7 +70,7 @@ const Configuration = ({
   const [downloadProgress, setDownloadProgress] = useState(0)
   const [fullMode, setFullMode] = useState(() => {
     try {
-      return localStorage.getItem('mark:fullmode') === '1'
+      return localStorage.getItem('abelink:fullmode') === '1'
     } catch (_) {
       return false
     }
@@ -225,7 +225,8 @@ const Configuration = ({
         aiProvider: data[0].aiProvider || 'gemini-web',
         geminiWebModel: data[0].geminiWebModel || 'gemini-3.6-flash',
         micDeviceId: data[0].micDeviceId || 'default',
-        awarenessEnabled: data[0].awarenessEnabled ?? true
+        awarenessEnabled: data[0].awarenessEnabled ?? true,
+        sessionCompactionEnabled: data[0].sessionCompactionEnabled ?? true
       }
       setConfig(merged)
       savedSnapshotRef.current = JSON.stringify(merged)
@@ -364,13 +365,15 @@ const Configuration = ({
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `mark-chat-history-${Date.now()}.json`
+    a.download = `abelink-chat-history-${Date.now()}.json`
     a.click()
     URL.revokeObjectURL(url)
   }
 
   const handleAwarenessEnabledChange = (e) =>
     setConfig((prev) => ({ ...prev, awarenessEnabled: e.target.checked }))
+  const handleCompactionEnabledChange = (e) =>
+    setConfig((prev) => ({ ...prev, sessionCompactionEnabled: e.target.checked }))
   const handleBuiltinPluginChange = (key) => (e) =>
     setConfig((prev) => ({
       ...prev,
@@ -517,6 +520,7 @@ const Configuration = ({
                 config={config}
                 setConfig={setConfig}
                 handleAwarenessEnabledChange={handleAwarenessEnabledChange}
+                handleCompactionEnabledChange={handleCompactionEnabledChange}
                 handleBuiltinPluginChange={handleBuiltinPluginChange}
                 handleRtkCompressChange={handleRtkCompressChange}
                 isDevMode={devHarness}
