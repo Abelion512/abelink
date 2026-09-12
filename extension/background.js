@@ -12,6 +12,10 @@
 // proses-lokal). Tanpa telemetri; trafik hanya ke 127.0.0.1.
 
 const DEFAULT_PORT = 49712
+// Dua instansi yang didukung: prod 49712 + dev 49713. SATU loop aktif
+// (port tersimpan); probe hanya membaca, tak mengubah state.
+const KNOWN_PORTS = [49712, 49713]
+const PORT_LABELS = { 49712: 'Prod', 49713: 'Dev' }
 const POLL_BACKOFF_MS = 1500
 const NAV_TIMEOUT_MS = 60000
 const SETTLE_MS = 2000
@@ -31,6 +35,66 @@ async function getCfg() {
 
 function base(cfg) {
   return `http://127.0.0.1:${cfg.port}/abelink-bridge`
+}
+
+// Token per-port (dev & prod = sidecar berbeda = token berbeda). Legacy
+// `bridgeToken` tunggal dipakai sebagai fallback terakhir.
+async function getPortToken(port) {
+  try {
+    const kept = await chrome.storage.local.get('bridgeTokens')
+    if (kept?.bridgeTokens?.[port]) return kept.bridgeTokens[port]
+    const legacy = await chrome.storage.local.get('bridgeToken')
+    if (legacy?.bridgeToken) return legacy.bridgeToken
+  } catch {
+    /* storage tak ada */
+  }
+  return ''
+}
+
+async function setPortToken(port, token) {
+  try {
+    const kept = await chrome.storage.local.get('bridgeTokens')
+    const map = (kept && typeof kept.bridgeTokens === 'object' ? kept.bridgeTokens : {}) || {}
+    map[port] = token
+    await chrome.storage.local.set({ bridgeTokens: map, bridgeToken: token })
+  } catch {
+    /* abaikan */
+  }
+}
+
+// Probe cepat kedua port tanpa mengubah state (untuk pemilih Prod/Dev).
+async function probePorts() {
+  const out = []
+  for (const port of KNOWN_PORTS) {
+    const token = await getPortToken(port)
+    let reachable = false
+    let authed = false
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 3000)
+      const res = await fetch(
+        `http://127.0.0.1:${port}/abelink-bridge/handshake?session=default&token=${encodeURIComponent(token)}`,
+        { signal: ctrl.signal }
+      ).catch(() => null)
+      clearTimeout(timer)
+      if (res) {
+        reachable = true
+        authed = res.status !== 401
+        if (res.status === 200) {
+          try {
+            const body = await res.json().catch(() => ({}))
+            if (body?.newToken) await setPortToken(port, body.newToken)
+          } catch {
+            /* abaikan */
+          }
+        }
+      }
+    } catch {
+      /* unreachable */
+    }
+    out.push({ port, label: PORT_LABELS[port] || String(port), reachable, authed })
+  }
+  return out
 }
 
 // GET dengan token via query (kontrak bridge: token ada di ?token=).
@@ -71,17 +135,20 @@ async function loop() {
       )
       if (res.status === 401) {
         // Token berubah (restart sidecar). Coba refresh senyap via helper lokal
-        let fresh = await getTokenViaNativeHost()
+        // dengan namespace port aktif (tanpa ini token prod dipakai ke dev).
+        let fresh = await getTokenViaNativeHost(cfg.port)
         if (fresh.token) {
           cfg.token = fresh.token
           await chrome.storage.session.set({ token: fresh.token, lastError: null })
+          await setPortToken(cfg.port, fresh.token)
           continue
         }
         await sleep(2000)
-        fresh = await getTokenViaNativeHost()
+        fresh = await getTokenViaNativeHost(cfg.port)
         if (fresh.token) {
           cfg.token = fresh.token
           await chrome.storage.session.set({ token: fresh.token, lastError: null })
+          await setPortToken(cfg.port, fresh.token)
           continue
         }
         running = false
@@ -116,9 +183,14 @@ function sleep(ms) {
 // caller jatuh ke token tempel manual. Helper dipasang otomatis sidecar.
 // Mengembalikan { token, detail } agar popup bisa menampilkan sebab
 // sebenarnya (host tak ada vs ID tak cocok vs host crash).
-async function getTokenViaNativeHost() {
+// Minta token langsung ke helper lokal (tanpa copas). `port` memilih
+// namespace token (dev 49713 vs prod): tanpa ini token prod dipakai ke dev
+// dan sebaliknya -> 401 silih-berganti.
+async function getTokenViaNativeHost(port) {
+  const msg = { type: 'get-token' }
+  if (port === 49713 || port === '49713') msg.namespace = 'dev'
   try {
-    const res = await chrome.runtime.sendNativeMessage('id.abelink.bridge', { type: 'get-token' })
+    const res = await chrome.runtime.sendNativeMessage('id.abelink.bridge', msg)
     if (res?.ok && res.token) return { token: res.token, detail: '' }
     return { token: '', detail: res?.error || 'helper menolak permintaan' }
   } catch (e) {
@@ -485,19 +557,65 @@ async function activeOrFindTab(urlFilter) {
   return null
 }
 
-async function navigate({ url, reuse = true }, sessionId = 'default') {
-  // Tab PRIMER per task dipakai ulang (anti ledakan tab). Tab baru hanya bila
+// Budget tab per sesi: penuh -> pakai-ulang, jangan create (anti OOM).
+const MAX_TABS_PER_SESSION = 6
+
+// Adopsi tab yatim MILIK KITA SAJA: tak-bergrup DAN (about:blank ATAU url
+// persis sama dengan target). Tidak pernah menyentuh tab user lain (privasi).
+async function adoptOrphanTab(sessionId, url) {
+  try {
+    const tabs = await chrome.tabs.query({})
+    const ungrouped = tabs.filter((t) => t.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE)
+    const exact = ungrouped.find((t) => t.url === url)
+    if (exact) return exact
+    const blank = ungrouped.find((t) => t.url === 'about:blank' || t.url === 'chrome://newtab/')
+    return blank || null
+  } catch {
+    return null
+  }
+}
+
+// Buat tab dengan budget: grup sesi penuh -> pakai-ulang tab grup terlama.
+async function createBoundedTab(sessionId, url) {
+  try {
+    const group = activeGroups[sessionId]
+    if (group?.groupId != null) {
+      const groupTabs = await chrome.tabs.query({ groupId: group.groupId })
+      if (groupTabs.length >= MAX_TABS_PER_SESSION) {
+        const oldest = groupTabs.slice().sort((a, b) => (a.lastAccessed || 0) - (b.lastAccessed || 0))[0]
+        if (oldest) return { tab: oldest, reused: true }
+      }
+    }
+  } catch {
+    /* jatuh ke create */
+  }
+  const tab = await chrome.tabs.create({ url, active: false })
+  return { tab, reused: false }
+}
+
+async function navigate({ url, reuse = true }, sessionId = 'default') {  // Tab PRIMER per task dipakai ulang (anti ledakan tab). Tab baru hanya bila
   // belum ada / sudah ditutup / reuse=false eksplisit. Tidak merebut fokus.
   let tab = null
   let reused = false
+  let adopted = false
   if (reuse !== false) tab = await getPrimaryTab(sessionId)
+  if (!tab && reuse !== false) {
+    tab = await adoptOrphanTab(sessionId, url)
+    if (tab) adopted = true
+  }
   if (!tab) {
-    tab = await chrome.tabs.create({ url, active: false })
+    const created = await createBoundedTab(sessionId, url)
+    tab = created.tab
+    if (created.reused) reused = true
     primaryTabs[sessionId] = tab.id
     await saveSessionState()
   } else {
     reused = true
     await chrome.tabs.update(tab.id, { url })
+    if (adopted) {
+      primaryTabs[sessionId] = tab.id
+      await saveSessionState()
+    }
   }
   await waitForLoad(tab.id, NAV_TIMEOUT_MS)
   await sleep(SETTLE_MS)
@@ -1139,7 +1257,11 @@ async function act({ abelinkId, action, value }, sessionId = 'default') {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   ;(async () => {
     if (msg?.type === 'start') {
-      // Urutan token: tempelan manual > helper lokal > simpanan persisten.
+      // Urutan token: tempelan manual > helper lokal > simpanan per-port.
+      const keptCfg = await getCfg()
+      // Jangan reset port tersimpan bila popup tak mengirimnya (autoConnect
+      // dengan field kosong sempat mengembalikan 49713 -> 49712 diam-diam).
+      const targetPort = msg.port || keptCfg.port || DEFAULT_PORT
       let token = (msg.token || '').trim()
       if (token.startsWith('{')) {
         try {
@@ -1149,17 +1271,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       let nativeDetail = ''
       if (!token) {
-        const via = await getTokenViaNativeHost()
+        const via = await getTokenViaNativeHost(targetPort)
         token = via.token
         nativeDetail = via.detail
       }
       if (!token) {
-        try {
-          const kept = await chrome.storage.local.get('bridgeToken')
-          if (kept?.bridgeToken) token = kept.bridgeToken
-        } catch {
-          /* storage tak ada */
-        }
+        token = await getPortToken(targetPort)
       }
       if (!token) {
         await chrome.storage.session.set({
@@ -1169,9 +1286,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return
       }
       const cfg = {
-        session: msg.session || 'default',
+        session: msg.session || keptCfg.session || 'default',
         token,
-        port: msg.port || DEFAULT_PORT
+        port: targetPort
       }
       // Verifikasi token sebelum masuk loop: error langsung terlihat di popup
       // (token salah vs sidecar mati dibedakan).
@@ -1188,11 +1305,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         // Tukar diam-diam + simpan persisten - tanpa tempel ulang selamanya.
         if (hs.body?.newToken) {
           cfg.token = hs.body.newToken
-          try {
-            await chrome.storage.local.set({ bridgeToken: cfg.token })
-          } catch {
-            /* abaikan */
-          }
+          await setPortToken(cfg.port, cfg.token)
         }
         if (hs.status === 403 || hs.status === 0) {
           await chrome.storage.session.set({
@@ -1214,11 +1327,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         port: cfg.port,
         lastError: null
       })
-      try {
-        await chrome.storage.local.set({ bridgeToken: cfg.token })
-      } catch {
-        /* abaikan */
-      }
+      await setPortToken(cfg.port, cfg.token)
       if (!running) {
         running = true
         console.log(`[Abelink] loop poll jalan (session: ${cfg.session}, port: ${cfg.port}).`)
@@ -1283,6 +1392,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         }
       }
       sendResponse({ ok: true, hasTask, task: taskId })
+    } else if (msg?.type === 'probe') {
+      // Baca-saja: status Prod+Dev tanpa mengubah loop/sesi aktif.
+      const ports = await probePorts()
+      const cfg = await getCfg()
+      sendResponse({ ok: true, ports, activePort: cfg.port })
     } else if (msg?.type === 'status') {
       const cfg = await getCfg()
       sendResponse({
@@ -1290,6 +1404,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         running,
         hasToken: !!cfg.token,
         session: cfg.session,
+        port: cfg.port,
         lastError: (await chrome.storage.session.get('lastError')).lastError
       })
     }
@@ -1314,18 +1429,24 @@ async function tryAutoResume() {
 
   // Jika token di session storage kosong, ambil otomatis via native host atau local storage
   if (!cfg.token) {
-    const via = await getTokenViaNativeHost()
+    const via = await getTokenViaNativeHost(cfg.port)
     if (via?.token) {
       cfg.token = via.token
       await chrome.storage.session.set({ token: via.token })
     } else {
-      try {
-        const kept = await chrome.storage.local.get('bridgeToken')
-        if (kept?.bridgeToken) {
-          cfg.token = kept.bridgeToken
-          await chrome.storage.session.set({ token: kept.bridgeToken })
-        }
-      } catch {}
+      const stored = await getPortToken(cfg.port)
+      if (stored) {
+        cfg.token = stored
+        await chrome.storage.session.set({ token: stored })
+      } else {
+        try {
+          const kept = await chrome.storage.local.get('bridgeToken')
+          if (kept?.bridgeToken) {
+            cfg.token = kept.bridgeToken
+            await chrome.storage.session.set({ token: kept.bridgeToken })
+          }
+        } catch {}
+      }
     }
   }
 
@@ -1336,9 +1457,7 @@ async function tryAutoResume() {
         if (hs.body?.newToken) {
           cfg.token = hs.body.newToken
           await chrome.storage.session.set({ token: cfg.token })
-          try {
-            await chrome.storage.local.set({ bridgeToken: cfg.token })
-          } catch {}
+          await setPortToken(cfg.port, cfg.token)
         }
         running = true
         await chrome.storage.session.set({ lastError: null })

@@ -1,5 +1,15 @@
 import { getAllConfig } from './db'
 import { pcmToWav } from './groq'
+import { detectProviderFromUrl } from './ai/providerDetect.js'
+
+/**
+ * Nama tampilan koneksi: nama provider terdeteksi dari URL bila dikenal,
+ * fallback generik bila tidak (mis. endpoint privat tanpa keyword/port umum).
+ */
+export const connectionDisplayName = (endpoint, fallback) => {
+  const detected = detectProviderFromUrl(endpoint)
+  return detected.id === 'custom' ? fallback : detected.name
+}
 
 /**
  * Normalisasi URL target endpoint STT.
@@ -162,7 +172,7 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
     connections = [
       {
         id: 'conn-bootstrap-1',
-        name: defaultEndpoint.includes('groq') ? 'Groq Whisper Cloud' : 'Local STT Gateway',
+        name: connectionDisplayName(defaultEndpoint, 'Local STT Gateway'),
         endpoint: defaultEndpoint,
         apiKey: defaultKey,
         model: defaultModel,
@@ -173,7 +183,7 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
     if (cfg.sttFallbackEndpoint && cfg.sttFallbackEndpoint !== defaultEndpoint) {
       connections.push({
         id: 'conn-bootstrap-2',
-        name: 'Secondary Fallback',
+        name: connectionDisplayName(cfg.sttFallbackEndpoint, 'Secondary Fallback'),
         endpoint: cfg.sttFallbackEndpoint,
         apiKey: cfg.sttFallbackApiKey || cfg.groqApiKey || '',
         model: cfg.sttFallbackModel || 'whisper-large-v3-turbo',

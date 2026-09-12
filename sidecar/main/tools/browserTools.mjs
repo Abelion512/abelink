@@ -1,5 +1,9 @@
 // Tool browser/web (dipindah murni dari main/node-tools.js).
+import fs from 'node:fs'
+import path from 'node:path'
 import { normalizeAbelinkId } from '../browser/bridge-core.mjs'
+import { getWorkspaceDir } from './_shared.mjs'
+import { assertContained } from '../utils/fsGuard.js'
 
 // Extension-first untuk tool browser: coba browser fisik bila ADA sesi yang
 // terhubung (preferensi 'default'), kembalikan null agar caller fallback ke

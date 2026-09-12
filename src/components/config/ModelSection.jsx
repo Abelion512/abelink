@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { FaRobot, FaTerminal, FaPlug } from 'react-icons/fa'
+import { detectProviderFromUrl } from '../../api/ai/providerDetect.js'
 
 export const isCustomEndpointPlausible = (raw, protocol) => {
   const ep = (raw || '').trim().replace(/\/+$/, '')
@@ -207,6 +208,22 @@ export default function ModelSection({
               value={config.customEndpoint || ''}
               onChange={(e) => setConfig((prev) => ({ ...prev, customEndpoint: e.target.value }))}
             />
+            {(() => {
+              const detected = detectProviderFromUrl(config.customEndpoint)
+              if (detected.id === 'custom' || !config.customEndpoint?.trim()) return null
+              const protoHint =
+                detected.protocol !== 'auto' &&
+                (config.customApiProtocol || 'auto') !== 'auto' &&
+                (config.customApiProtocol || 'auto') !== detected.protocol
+                  ? ` • coba protokol ${detected.protocol === 'anthropic' ? 'Anthropic' : 'OpenAI'}`
+                  : ''
+              return (
+                <p className="text-xs text-white/40">
+                  Terdeteksi: {detected.name}
+                  {protoHint}
+                </p>
+              )
+            })()}
           </div>
 
           <div className="space-y-1.5">

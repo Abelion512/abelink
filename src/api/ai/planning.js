@@ -645,6 +645,7 @@ ${
       // dan mencegah fallback rapi di akhir fungsi.
       const reasoningData = {
         thought: data?.thought ?? null,
+        emptyThought: !data?.thought,
         suggested_mode: data?.suggested_mode ?? null,
         task_status: data?.task_status ?? null,
         objective: data?.objective ?? null,

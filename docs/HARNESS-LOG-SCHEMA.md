@@ -59,6 +59,9 @@ Rust: 256K/baris, rotasi 50MB/kind/hari. Export: utuh apa adanya.
 - UI: localStorage `abelink:trajectory-buffer` (500 entri, survive reload).
 - File: `~/.local/share/abelink/harness/<YYYY-MM-DD>/<kind>.jsonl`
   (tiap baris: `{"ts","kind","line"}` dengan `line` = JSON string envelope).
+  Kind file: `reasoning`, `tool-calls` (termasuk `resultSummary≤2000`),
+  `observations`, `answers`, `bench-*`. Reasoning membawa `emptyThought:true`
+  bila parse fallback (jejak tak hilang sunyi).
 - Portabel: `bun run harness:export --session <id> [--date YYYY-MM-DD] [--kinds a,b] [--out file]`
   → satu JSONL terurut-ts. Baris pertama SELALU header
   `{v:1, type:'header', schema:'harness-log/v1', session, date, count, exportedAt}`,

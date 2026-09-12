@@ -30,9 +30,23 @@ export const hasLoginWallEvidence = (query, loopMessages) => {
   return false
 }
 
+// Sesi os-control yang dibuka model (per sesi chat). Dipakai agar
+// teardown os-control-close hanya dipanggil bila sesi pernah dibuka —
+// sebelumnya dipanggil buta tiap akhir run (bahkan sapaan), kadang blokir 20s+.
+const osControlOpenSessions = new Set()
+export const markOsControlSession = (sessionId, open) => {
+  const key = String(sessionId ?? 'default')
+  if (open) osControlOpenSessions.add(key)
+  else osControlOpenSessions.delete(key)
+}
+export const isOsControlSessionOpen = (sessionId) =>
+  osControlOpenSessions.has(String(sessionId ?? 'default'))
+
 const formatRes = (tool, query, res, ctx = null) => {
   let resultString
   if (res && res.success) {
+    if (tool === 'os-control-open') markOsControlSession(ctx?.sessionId, true)
+    if (tool === 'os-control-close') markOsControlSession(ctx?.sessionId, false)
     resultString =
       res.data !== undefined
         ? typeof res.data === 'string'

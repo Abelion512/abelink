@@ -414,12 +414,17 @@ export const api = {
     } finally {
       try {
         const h = await import('./harness')
+        let resultSummary = null
+        try {
+          resultSummary = JSON.stringify(result)?.slice(0, 2000) ?? null
+        } catch (_) {}
         h.logToolCall({
           tool: toolName,
           query: String(query).slice(0, 200),
           durMs: Date.now() - t0,
           ok: !error && result?.success !== false,
-          error
+          error,
+          resultSummary
         })
       } catch (_) {}
     }

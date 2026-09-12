@@ -6,11 +6,20 @@
 // extension. Tidak ada akses lain, tidak ada network, tidak ada state.
 // Dipasang otomatis oleh sidecar saat bridge start (native-host.mjs).
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 
-function tokenFile() {
-  const dataHome = process.env.XDG_DATA_HOME || `${process.env.HOME}/.local/share`
-  return path.join(dataHome, 'browser-bridge-token')
+function xdgBase() {
+  return process.env.XDG_DATA_HOME || path.join(os.homedir() || process.env.HOME || '', '.local', 'share')
+}
+
+function tokenFile(namespace) {
+  // Konvensi dev tetap (lihat scripts/dev.sh): token dev di
+  // <xdg>/abelink-dev/browser-bridge-token. Prod memakai XDG standar.
+  if (namespace === 'dev' || namespace === '49713') {
+    return path.join(xdgBase(), 'abelink-dev', 'browser-bridge-token')
+  }
+  return path.join(xdgBase(), 'browser-bridge-token')
 }
 
 function writeMsg(obj) {
@@ -26,7 +35,7 @@ function handle(msg) {
     return
   }
   try {
-    const raw = fs.readFileSync(tokenFile(), 'utf8').trim()
+    const raw = fs.readFileSync(tokenFile(msg.namespace), 'utf8').trim()
     if (!raw) {
       writeMsg({ ok: false, error: 'file token kosong (sidecar belum start?)' })
       return
