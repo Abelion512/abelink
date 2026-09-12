@@ -93,7 +93,6 @@ on('parse-document', async (b64OrBytes, isDocx) => {
     const result = await mammoth.extractRawText({ buffer })
     return result.value
   }
-  const pdfParse = (await import('pdf-parse')).default
-  const data = await pdfParse(buffer)
-  return data.text
+  const { extractPdfText } = await import('../pdf-parse-shim.mjs')
+  return extractPdfText(buffer)
 })

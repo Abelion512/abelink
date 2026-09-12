@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { getYoutubeSummary } from '../../api/ai/tools'
 
-export const useMarkYoutube = (setChatData) => {
+export const useAbelinkYoutube = (setChatData) => {
   const handleYoutubeSearch = async (answer, signal, customSetChatData) => {
     const targetSet = customSetChatData || setChatData
     try {

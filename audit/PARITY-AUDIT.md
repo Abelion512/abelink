@@ -1,4 +1,4 @@
-# MARK Linux: Electron → Tauri Parity Audit
+# ABELINK Linux: Electron → Tauri Parity Audit
 
 ## Parity Matrix (A-F Status Legend)
 

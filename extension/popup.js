@@ -27,7 +27,7 @@ async function refresh() {
   } else {
     setPill('warn', 'belum tersambung')
     el.className = ''
-    el.textContent = 'Menunggu sidecar Mark...'
+    el.textContent = 'Menunggu sidecar Abelink...'
     if (reconnectBtn) reconnectBtn.hidden = false
   }
   await refreshTask()
@@ -60,7 +60,7 @@ async function autoConnect() {
 $('reconnect')?.addEventListener('click', async () => {
   setPill('warn', 'menghubungkan…')
   $('status').className = ''
-  $('status').textContent = 'Menghubungkan otomatis ke sidecar Mark…'
+  $('status').textContent = 'Menghubungkan otomatis ke sidecar Abelink…'
   await autoConnect()
 })
 

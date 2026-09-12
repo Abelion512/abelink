@@ -7,7 +7,7 @@ export const shellTools = {
   'run-shell': {
     needsApproval: (query) => isDangerousCommand(query),
     approvalMessage: (query) =>
-      `Mark ingin mengeksekusi perintah shell yang berpotensi BERBAHAYA:\n\n${query}`,
+      `Abelink ingin mengeksekusi perintah shell yang berpotensi BERBAHAYA:\n\n${query}`,
     handler: async (query, config) => {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
       // Pagar anti-spiral: ambil + parse halaman web bukan tugas shell.
@@ -64,10 +64,10 @@ export const shellTools = {
   },
   'git-commit': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin melakukan git commit dengan pesan:\n"${query}"`,
+    approvalMessage: (query) => `Abelink ingin melakukan git commit dengan pesan:\n"${query}"`,
     handler: async (query, config) => {
       const parts = query ? query.split('||') : []
-      const message = parts[0]?.trim() || 'Mark Agent Commit'
+      const message = parts[0]?.trim() || 'Abelink Agent Commit'
       const customCwd = parts[1]?.trim()
       const activeRoot = customCwd || config?.workspaceRoot || getWorkspaceDir()
       return await gitCommit(activeRoot, message)
@@ -75,7 +75,7 @@ export const shellTools = {
   },
   'git-revert': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin me-rollback perubahan git:\n"${query || 'Seluruh file (reset --hard)'}`,
+    approvalMessage: (query) => `Abelink ingin me-rollback perubahan git:\n"${query || 'Seluruh file (reset --hard)'}`,
     handler: async (query, config) => {
       const activeRoot = config?.workspaceRoot || getWorkspaceDir()
       return await gitRevert(activeRoot, query?.trim() || '')
@@ -83,7 +83,7 @@ export const shellTools = {
   },
   'run-task': {
     needsApproval: (query) => isDangerousCommand(query?.split('||')[1] || query || ''),
-    approvalMessage: (query) => `Mark ingin menjalankan background task:\n${query}`,
+    approvalMessage: (query) => `Abelink ingin menjalankan background task:\n${query}`,
     handler: async (query, config) => {
       const parts = query.split('||')
       if (parts.length < 2) {

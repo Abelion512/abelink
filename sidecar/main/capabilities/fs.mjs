@@ -1,4 +1,4 @@
-// Connector plugin: berkas DI DALAM workspace mark (XDG data dir).
+// Connector plugin: berkas DI DALAM workspace abelink (XDG data dir).
 // Kontainmen path lewat utils/fsGuard.js — persis konvensi node-tools.js.
 // Baca: teks saja, maks 2MB, tampil 400 baris awal (hemat konteks LLM).
 
@@ -12,7 +12,7 @@ const MAX_READ_LINES = 400
 
 const workspaceRoot = () => {
   const xdg = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
-  return path.join(xdg, 'mark', 'workspace')
+  return path.join(xdg, 'abelink', 'workspace')
 }
 
 export async function runFs(actionId, args) {

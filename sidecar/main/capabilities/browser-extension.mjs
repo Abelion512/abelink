@@ -1,4 +1,4 @@
-// Connector browser-extension — lifecycle resmi extension Mark Bridge.
+// Connector browser-extension — lifecycle resmi extension Abelink Bridge.
 //
 // Extension BUKAN folder lepas: status (terpasang/terhubung), panduan pasang,
 // dan tutup sesi dibaca dari sini (capabilities:list/inspect/guide).
@@ -23,10 +23,10 @@ export async function runBrowserExtension(actionId, args = {}) {
     case 'guide-install': {
       return {
         steps: [
-          'Di app Mark: tekan tombol "Pasang extension browser" (salin folder ke data dir).',
+          'Di app Abelink: tekan tombol "Pasang extension browser" (salin folder ke data dir).',
           'Buka chrome://extensions, aktifkan Developer mode, Load unpacked, pilih folder itu.',
           'Pastikan ID extension = kdcfgmlamndkapaiakhlplckfhmjieml.',
-          'Buka popup Mark Bridge: harus hijau tanpa klik (token tersimpan otomatis).'
+          'Buka popup Abelink Bridge: harus hijau tanpa klik (token tersimpan otomatis).'
         ]
       }
     }

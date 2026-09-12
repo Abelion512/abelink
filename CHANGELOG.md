@@ -1,4 +1,4 @@
-# Changelog MARK Linux
+# Changelog ABELINK Linux
 
 Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.
 
@@ -17,7 +17,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Capability Manager — OpenConnector-style catalog/policy/audit engine channel
 - Fase C3 stage 1 — real browser:* channels via extension bridge
 - Drop-anywhere attachments, multi-select upload, real size preview, Telegram UI events via Tauri
-- MarkBench Phase 2A-2D — auditable benchmark harness for Mark Linux
+- AbelinkBench Phase 2A-2D — auditable benchmark harness for Abelink Linux
 - Automated release system with prepare/finalize stages
 - Initial release v1.0.0-alpha.1
 - Automated release system with prepare/finalize stages
@@ -81,9 +81,9 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 ### Dokumentasi
 - Finalize Fase C3 staged plan
 - Route-level lazy loading + Prism language trimming
-- Multi-run MarkBench orchestrator + release automation
+- Multi-run AbelinkBench orchestrator + release automation
 - Modular channel registry + agent-oriented architecture
-- Bun toolchain hardening, benchmark smoke gate, MarkBench
+- Bun toolchain hardening, benchmark smoke gate, AbelinkBench
 - Align AGENTS.md with #17, cache TG status guard, real benchmark scripts
 - Restore src-tauri shell and release automation removed without justification
 - Tighten branch strategy wording + branch guard
@@ -99,7 +99,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Reconcile parity matrix
 - Add parity audit matrix + validation report for Electron→Tauri port
 - Linux branch coverage, upstream sync, dependabot, policy
-- Add ROADMAP.md, refine .gitignore for mark-linux open-source
+- Add ROADMAP.md, refine .gitignore for abelink-linux open-source
 - Filter , tests, scripts, src-tauri, HTML trackers for open-source
 - Replace auto-detect with first-boot resource mode chooser
 - Clean up junk files from tracking, config identifier
@@ -112,7 +112,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.0.0-alpha.1 — 26 Agustus 2026
 
-**Ringkasan:** Initial alpha release of MARK Linux. First public release for Tauri-native Linux fork.
+**Ringkasan:** Initial alpha release of ABELINK Linux. First public release for Tauri-native Linux fork.
 
 _Tidak ada perubahan pengguna yang tercatat._
 

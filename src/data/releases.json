@@ -32,7 +32,7 @@
             "msg": "Drop-anywhere attachments, multi-select upload, real size preview, Telegram UI events via Tauri"
           },
           {
-            "msg": "MarkBench Phase 2A-2D — auditable benchmark harness for Mark Linux"
+            "msg": "AbelinkBench Phase 2A-2D — auditable benchmark harness for Abelink Linux"
           },
           {
             "msg": "Automated release system with prepare/finalize stages"
@@ -217,13 +217,13 @@
             "msg": "Route-level lazy loading + Prism language trimming"
           },
           {
-            "msg": "Multi-run MarkBench orchestrator + release automation"
+            "msg": "Multi-run AbelinkBench orchestrator + release automation"
           },
           {
             "msg": "Modular channel registry + agent-oriented architecture"
           },
           {
-            "msg": "Bun toolchain hardening, benchmark smoke gate, MarkBench"
+            "msg": "Bun toolchain hardening, benchmark smoke gate, AbelinkBench"
           },
           {
             "msg": "Align AGENTS.md with #17, cache TG status guard, real benchmark scripts"
@@ -271,7 +271,7 @@
             "msg": "Linux branch coverage, upstream sync, dependabot, policy"
           },
           {
-            "msg": "Add ROADMAP.md, refine .gitignore for mark-linux open-source"
+            "msg": "Add ROADMAP.md, refine .gitignore for abelink open-source"
           },
           {
             "msg": "Filter , tests, scripts, src-tauri, HTML trackers for open-source"
@@ -306,7 +306,7 @@
     {
       "version": "1.0.0-alpha.1",
       "date": "26 Agustus 2026",
-      "summary": "Initial alpha release of MARK Linux. First public release for Tauri-native Linux fork.",
+      "summary": "Initial alpha release of Abelink Linux. First public release for Tauri-native Linux fork.",
       "sections": {
         "features": [],
         "fixes": [],

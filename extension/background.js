@@ -1,4 +1,4 @@
-// Mark Browser Bridge - service worker (MV3).
+// Abelink Browser Bridge - service worker (MV3).
 /* global chrome */
 //
 // Loop:
@@ -6,7 +6,7 @@
 //   2. long-poll /poll -> dapat perintah -> jalankan lewat chrome.tabs
 //   3. POST /result -> kembali ke 2
 //
-// Token dibaca user dari file token sidecar (~/.local/share/mark/
+// Token dibaca user dari file token sidecar (~/.local/share/abelink/
 // browser-bridge-token) dan ditempel lewat popup ekstensi. Disimpan di
 // chrome.storage.session (hilang saat browser mati - tepat untuk token
 // proses-lokal). Tanpa telemetri; trafik hanya ke 127.0.0.1.
@@ -21,7 +21,7 @@ let pollAbort = null
 
 // Log kunci agar console service worker jadi dasbor mini (bukan kuburan):
 // versi saat bangun, handshake, perintah masuk + hasil, error poll.
-console.log('[Mark] bridge service worker aktif (jalur E2E grup-tab + token persisten).')
+console.log('[Abelink] bridge service worker aktif (jalur E2E grup-tab + token persisten).')
 
 // ------------------------------------------------------------- helpers
 async function getCfg() {
@@ -30,7 +30,7 @@ async function getCfg() {
 }
 
 function base(cfg) {
-  return `http://127.0.0.1:${cfg.port}/mark-bridge`
+  return `http://127.0.0.1:${cfg.port}/abelink-bridge`
 }
 
 // GET dengan token via query (kontrak bridge: token ada di ?token=).
@@ -93,7 +93,7 @@ async function loop() {
       }
       const { command } = await res.json()
       if (command) {
-        console.log(`[Mark] perintah masuk: ${command.type} (${command.id || 'tanpa-id'})`)
+        console.log(`[Abelink] perintah masuk: ${command.type} (${command.id || 'tanpa-id'})`)
         await runCommand(cfg, command)
       }
       // Tanpa jeda saat ada perintah (agar cepat); backoff hanya saat idle.
@@ -118,14 +118,14 @@ function sleep(ms) {
 // sebenarnya (host tak ada vs ID tak cocok vs host crash).
 async function getTokenViaNativeHost() {
   try {
-    const res = await chrome.runtime.sendNativeMessage('id.mark.bridge', { type: 'get-token' })
+    const res = await chrome.runtime.sendNativeMessage('id.abelink.bridge', { type: 'get-token' })
     if (res?.ok && res.token) return { token: res.token, detail: '' }
     return { token: '', detail: res?.error || 'helper menolak permintaan' }
   } catch (e) {
     const msg = String(e?.message || e)
     // Klasifikasi sebab agar user tidak menebak-nebak.
     let detail = msg
-    if (/not found|No such host/i.test(msg)) detail = 'helper belum terpasang (pakai Mark terbaru / picu channel browser:* sekali)'
+    if (/not found|No such host/i.test(msg)) detail = 'helper belum terpasang (pakai Abelink terbaru / picu channel browser:* sekali)'
     else if (/exited|exit/i.test(msg)) detail = 'helper crash saat start (cek executable + runtime path)'
     else if (/permission|allowed|origin|ID/i.test(msg)) detail = 'ID extension tak cocok (verifikasi ID di chrome://extensions)'
     return { token: '', detail }
@@ -141,6 +141,7 @@ async function execute(cfg, command) {
   if (type === 'group-session') {
     const { task, status, autoClose } = payload || {}
     if (!task) return { ok: false, error: 'task wajib.' }
+    delete overlayStopped[cfg.session || 'default'] // task baru = resume eksplisit
     if (task) sessionTask[cfg.session || 'default'] = task
     await ensureGroup(cfg.session || 'default', task, status || 'acting', !!autoClose)
     return { ok: true }
@@ -162,6 +163,16 @@ async function execute(cfg, command) {
 
   const targetSession = payload?.sessionId || cfg.session || 'default'
 
+  // Stop user via overlay: semua perintah tab sesi ini gagal jujur sampai
+  // task selesai/ditutup atau overlay-show eksplisit (resume).
+  if (
+    overlayStopped[targetSession] &&
+    ['navigate', 'read-dom', 'act', 'show'].includes(type) &&
+    !(type === 'act' && payload?.action === 'overlay-show')
+  ) {
+    return { ok: false, error: OVERLAY_STOP_MSG(targetSession) }
+  }
+
   switch (type) {
     case 'navigate':
       return navigate(payload, targetSession)
@@ -178,12 +189,22 @@ async function execute(cfg, command) {
 
 async function runCommand(cfg, command) {
   let result
+  const sessionKey = command.payload?.sessionId || cfg.session || 'default'
+  inflight[sessionKey] = { id: command.id, cfg }
   try {
     result = await execute(cfg, command)
   } catch (e) {
     result = { ok: false, error: String(e?.message || e) }
   }
-  console.log(`[Mark] hasil ${command.type}: ${result.ok ? 'ok' : `gagal (${result.error || 'tanpa pesan'})`}`)
+  delete inflight[sessionKey]
+  // Navigasi menghapus DOM injeksi: veil dipasang ulang otomatis (best-effort,
+  // tidak boleh menggagalkan tool). Perintah overlay sendiri dikecualikan.
+  if (result?.ok && ['navigate', 'act', 'read-dom', 'show'].includes(command.type)) {
+    if (!(command.type === 'act' && String(command.payload?.action || '').startsWith('overlay-'))) {
+      await ensureOverlay(sessionKey)
+    }
+  }
+  console.log(`[Abelink] hasil ${command.type}: ${result.ok ? 'ok' : `gagal (${result.error || 'tanpa pesan'})`}`)
   try {
     await apiPost(
       cfg,
@@ -196,7 +217,7 @@ async function runCommand(cfg, command) {
       }
     )
   } catch (e) {
-    console.warn('[Mark] gagal kirim hasil:', e)
+    console.warn('[Abelink] gagal kirim hasil:', e)
   }
 }
 
@@ -219,6 +240,16 @@ const sessionTask = {}
 // Tab primer per sesi: SEMUA navigate dalam satu task memakai ulang tab ini
 // (anti ledakan tab). Tab baru hanya untuk task baru / perintah eksplisit.
 const primaryTabs = {}
+
+// ------------------------------------------------- overlay lock (Fase A)
+// Full-veil lock: saat agent bekerja di tab sesi, veil transparan menelan
+// input user + pill tengah-bawah berisi status + tombol Stop (scope sesi-tab).
+// Stop user = observasi jujur, bukan retry buta (aturan di planning.js).
+const OVERLAY_STOP_MSG = (s) =>
+  `[STOP OVERLAY] User menekan Stop di tab browser (sesi "${s}"). Berhenti total untuk sesi-tab ini: JANGAN panggil tool browser* lagi. Akhiri dengan answer + is_done:true + task_status yang jujur (blocked bila tugas belum selesai).`
+// Flag stop per sesi + perintah inflight per sesi (di-resolve saat Stop diklik).
+const overlayStopped = {}
+const inflight = {}
 
 async function saveSessionState() {
   try {
@@ -276,7 +307,7 @@ async function targetTabForSession(sessionId = 'default') {
   const primary = await getPrimaryTab(sessionId)
   if (primary && primary.url?.startsWith('http')) return primary
 
-  // Cari tab yang berada di dalam grup Mark untuk sesi ini (isolasi privasi)
+  // Cari tab yang berada di dalam grup Abelink untuk sesi ini (isolasi privasi)
   const group = activeGroups[sessionId]
   if (group?.groupId != null) {
     try {
@@ -300,7 +331,7 @@ async function ensureGroup(sessionId, task, status, autoClose = false, anchorTab
   // tidak mengantre - spawn grup baru tidak diblokir teardown grup lama).
   const prev = activeGroups[sessionId]
   if (prev && prev.taskId !== task) {
-    await markGroupDone(prev.groupId, prev.taskId)
+    await abelinkGroupDone(prev.groupId, prev.taskId)
     // Auto-close tab grup lama hanya jika diminta (default: dibiarkan).
     if (autoClose && prev.groupId != null) {
       closeGroupTabs(prev.groupId).catch(() => {})
@@ -367,12 +398,12 @@ async function ensureGroup(sessionId, task, status, autoClose = false, anchorTab
   return groupId
 }
 
-async function markGroupDone(groupId, taskId) {
+async function abelinkGroupDone(groupId, taskId) {
   if (groupId == null) return
   await chrome.tabGroups.update(groupId, { title: groupTitle('done', taskId) })
 }
 
-async function markGroupError(groupId, taskId) {
+async function abelinkGroupError(groupId, taskId) {
   if (groupId == null) return
   await chrome.tabGroups.update(groupId, { title: groupTitle('error', taskId) })
 }
@@ -390,14 +421,16 @@ async function closeGroupTabs(groupId) {
 // Selesaikan grup task sesi: tandai ✅/❌ + tutup tab hanya bila autoClose
 // dan status bukan error (tab error selalu disisakan untuk inspeksi).
 async function finishTaskGroup(sessionId, task, status = 'done', autoClose = false) {
+  await hideOverlayDom(sessionId) // tab sukses disisakan terbuka: veil wajib lepas
+  delete overlayStopped[sessionId]
   const label = task || sessionTask[sessionId] || 'browser'
   const group = activeGroups[sessionId]
   const groupId = group?.groupId ?? null
   if (status === 'error' || status === 'failed') {
-    await markGroupError(groupId, label)
+    await abelinkGroupError(groupId, label)
     return { groupId, status: 'error', closed: 0 }
   }
-  await markGroupDone(groupId, label)
+  await abelinkGroupDone(groupId, label)
   const closed = autoClose ? await closeGroupTabs(groupId).catch(() => 0) : 0
   if (closed > 0 || autoClose) {
     delete activeGroups[sessionId]
@@ -410,6 +443,8 @@ async function finishTaskGroup(sessionId, task, status = 'done', autoClose = fal
 
 // Tutup tab grup aktif sesi (tombol manual). Mengembalikan jumlah ditutup.
 async function closeActiveGroupTabs(sessionId) {
+  await hideOverlayDom(sessionId)
+  delete overlayStopped[sessionId]
   const group = activeGroups[sessionId]
   let closed = 0
   if (group?.groupId != null) {
@@ -423,7 +458,7 @@ async function closeActiveGroupTabs(sessionId) {
 }
 
 // Masukkan tab ke grup sesi (format judul ikut status). Dipakai navigate
-// agar setiap tab yang dibuka Mark langsung ber-grup. Error DILEMPAR ke
+// agar setiap tab yang dibuka Abelink langsung ber-grup. Error DILEMPAR ke
 // caller (dilaporkan di hasil, bukan ditelan) - pelajaran 7 tab yatim.
 async function groupTabIntoSession(sessionId, tabId, task, status = 'acting') {
   const label = task || sessionTask[sessionId] || 'browser'
@@ -466,7 +501,7 @@ async function navigate({ url, reuse = true }, sessionId = 'default') {
   }
   await waitForLoad(tab.id, NAV_TIMEOUT_MS)
   await sleep(SETTLE_MS)
-  // Setiap tab yang dibuka Mark langsung masuk grup sesi (judul ikut task
+  // Setiap tab yang dibuka Abelink langsung masuk grup sesi (judul ikut task
   // terakhir sesi, atau hostname bila belum ada task).
   let label = sessionTask[sessionId]
   if (!label) {
@@ -533,13 +568,118 @@ async function showTab(sessionId = 'default') {
   return { ok: true, data: 'ok' }
 }
 
+// ------------------------------------------------- overlay lock (Fase A)
+// DI-SERIALISASI ke konteks halaman - self-contained (lihat taggerFn/actionFn).
+// Isolated world: bisa chrome.runtime.sendMessage, tidak bentrok CSS situs
+// (Shadow DOM). Listener basi jadi no-op via guard HOST_ID.
+function overlayFn({ mode, text, session }) {
+  const HOST_ID = 'abelink-agent-lock'
+  if (mode === 'hide') {
+    const gone = document.getElementById(HOST_ID)
+    if (gone) gone.remove()
+    return { ok: true, shown: false }
+  }
+  const stale = document.getElementById(HOST_ID)
+  if (stale) stale.remove()
+  const host = document.createElement('div')
+  host.id = HOST_ID
+  const shadow = host.attachShadow({ mode: 'open' })
+  const style = document.createElement('style')
+  style.textContent = [
+    '#abelink-veil{position:fixed;inset:0;z-index:2147483640;background:rgba(0,0,0,0.18);cursor:not-allowed;}',
+    '#abelink-frame{position:fixed;inset:0;z-index:2147483642;pointer-events:none;border:3px solid #1fb854;box-shadow:0 0 24px rgba(31,184,84,0.55),inset 0 0 24px rgba(31,184,84,0.25);animation:abelink-frame-pulse 1.6s ease-in-out infinite;}',
+    '@keyframes abelink-frame-pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}',
+    '#abelink-pill{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483641;',
+    'display:flex;align-items:center;gap:12px;background:#0b1510;color:#e8f5ec;border:1px solid #1fb854;',
+    'border-radius:999px;padding:10px 12px 10px 16px;font:500 13px/1.4 system-ui,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,0.5);}',
+    '#abelink-pill small{opacity:0.65;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '#abelink-stop{background:#b3261e;color:#fff;border:0;border-radius:999px;padding:8px 16px;font:700 13px system-ui,sans-serif;cursor:pointer;}'
+  ].join('')
+  const veil = document.createElement('div')
+  veil.id = 'abelink-veil'
+  // Bingkai sinyal kerja agent: murni visual (pointer-events none via CSS),
+  // tidak memblokir — yang mengunci input adalah veil di bawahnya.
+  const frame = document.createElement('div')
+  frame.id = 'abelink-frame'
+  const pill = document.createElement('div')
+  pill.id = 'abelink-pill'
+  const label = document.createElement('span')
+  label.textContent = 'Abelink bekerja di tab ini'
+  const stop = document.createElement('button')
+  stop.id = 'abelink-stop'
+  stop.textContent = 'Stop'
+  stop.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    try {
+      chrome.runtime.sendMessage({ type: 'overlay-stop', session })
+    } catch (err) {}
+  })
+  pill.appendChild(label)
+  if (text) {
+    const sub = document.createElement('small')
+    sub.textContent = String(text).slice(0, 60)
+    pill.appendChild(sub)
+  }
+  pill.appendChild(stop)
+  shadow.appendChild(style)
+  shadow.appendChild(veil)
+  shadow.appendChild(frame)
+  shadow.appendChild(pill)
+  ;(document.documentElement || document.body).appendChild(host)
+  // Blokir keyboard di luar pill (klik sudah ditelan veil). Guard HOST_ID
+  // membuat listener basi dari show sebelumnya jadi no-op.
+  const guard = (e) => {
+    if (!document.getElementById(HOST_ID)) return
+    const path = typeof e.composedPath === 'function' ? e.composedPath() : []
+    if (path.includes(stop)) return
+    e.preventDefault()
+    e.stopPropagation()
+  }
+  window.addEventListener('keydown', guard, true)
+  window.addEventListener('keyup', guard, true)
+  return { ok: true, shown: true }
+}
+
+async function setOverlay(tabId, mode, text = '', session = 'default') {
+  const [injection] = await chrome.scripting.executeScript({
+    target: { tabId },
+    args: [{ mode, text, session }],
+    func: overlayFn
+  })
+  return injection?.result || { ok: false, error: 'Injection overlay gagal.' }
+}
+
+// Pasang veil (best-effort). Dipanggil ulang tiap perintah tab berhasil
+// karena navigasi menghapus DOM injeksi (lihat runCommand).
+async function ensureOverlay(sessionId) {
+  try {
+    if (overlayStopped[sessionId]) return
+    const tab = await targetTabForSession(sessionId)
+    if (!tab) return
+    await setOverlay(tab.id, 'show', sessionTask[sessionId] || 'browser', sessionId)
+  } catch {
+    /* overlay tidak boleh menggagalkan tool */
+  }
+}
+
+// Hapus veil dari DOM. Flag stop TIDAK ikut dihapus (lihat stop handler).
+async function hideOverlayDom(sessionId) {
+  try {
+    const tab = await targetTabForSession(sessionId)
+    if (tab) await setOverlay(tab.id, 'hide', '', sessionId)
+  } catch {
+    /* abaikan */
+  }
+}
+
 // --------------------------------------------------------------- tagging
 // Sama dengan pola browser-agent.js era Electron: maks 80 elemen interaktif,
-// data-mark-id, teks dipendekkan.
+// data-abelink-id, teks dipendekkan.
 // PENTING: fungsi ini DI-SERIALISASI lalu dijalankan di konteks halaman -
 // WAJIB self-contained, tidak boleh menutup variabel dari service worker.
 function taggerFn() {
-  document.querySelectorAll('[data-mark-id]').forEach((el) => el.removeAttribute('data-mark-id'))
+  document.querySelectorAll('[data-abelink-id]').forEach((el) => el.removeAttribute('data-abelink-id'))
   const SELECTORS = [
     'a[href]',
     'button',
@@ -572,15 +712,15 @@ function taggerFn() {
     const style = getComputedStyle(el)
     if (style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0') continue
 
-    const id = 'mk' + n++
-    el.setAttribute('data-mark-id', id)
+    const id = 'ak' + n++
+    el.setAttribute('data-abelink-id', id)
     const text = (el.innerText || el.value || el.getAttribute('aria-label') || el.placeholder || '')
       .trim()
       .slice(0, MAX_TEXT)
     const inViewport = rect.top >= 0 && rect.left >= 0 && rect.top <= vh && rect.left <= vw
 
     out.push({
-      markId: id,
+      abelinkId: id,
       tag: el.tagName.toLowerCase(),
       type: el.getAttribute('type') || el.getAttribute('role') || '',
       text,
@@ -606,23 +746,23 @@ async function readDomInTab(tabId) {
 // state dikirim lewat `args`. Aksi yang butuh API ekstensi (chrome.scripting,
 // chrome.tabs, chrome.downloads) TIDAK BOLEH ditaruh di sini - tangani di
 // fungsi act() pada konteks service worker (lihat bawah).
-async function actionFn({ markId, action, value }) {
-  const el = markId ? document.querySelector(`[data-mark-id="${markId}"]`) : null
-  if (markId && !el)
+async function actionFn({ abelinkId, action, value }) {
+  const el = abelinkId ? document.querySelector(`[data-abelink-id="${abelinkId}"]`) : null
+  if (abelinkId && !el)
     return {
       ok: false,
-      error: `Elemen ${markId} tidak ditemukan (DOM berubah? Panggil read-dom lagi).`
+      error: `Elemen ${abelinkId} tidak ditemukan (DOM berubah? Panggil read-dom lagi).`
     }
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
   // Visual helper kursor & ripple ala browser-use
   const ensureStyles = () => {
-    if (document.getElementById('mark-agent-visual-styles')) return
+    if (document.getElementById('abelink-agent-visual-styles')) return
     const s = document.createElement('style')
-    s.id = 'mark-agent-visual-styles'
+    s.id = 'abelink-agent-visual-styles'
     s.textContent = `
-      #mark-cursor-pointer {
+      #abelink-cursor-pointer {
         position: absolute;
         width: 22px;
         height: 22px;
@@ -632,16 +772,16 @@ async function actionFn({ markId, action, value }) {
         filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
         transform: translate(-2px, -2px);
       }
-      .mark-click-ripple {
+      .abelink-click-ripple {
         position: absolute;
         border: 2px solid #1fb854;
         background: rgba(31, 184, 84, 0.25);
         border-radius: 50%;
         pointer-events: none;
         z-index: 2147483646;
-        animation: mark-ripple-anim 0.45s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        animation: abelink-ripple-anim 0.45s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
       }
-      @keyframes mark-ripple-anim {
+      @keyframes abelink-ripple-anim {
         0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
         100% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
       }
@@ -651,10 +791,10 @@ async function actionFn({ markId, action, value }) {
 
   const showCursorAt = async (x, y) => {
     ensureStyles()
-    let cur = document.getElementById('mark-cursor-pointer')
+    let cur = document.getElementById('abelink-cursor-pointer')
     if (!cur) {
       cur = document.createElement('div')
-      cur.id = 'mark-cursor-pointer'
+      cur.id = 'abelink-cursor-pointer'
       cur.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22">
           <path d="M4 3L11 21L14 13L21 9L4 3Z" fill="#1fb854" stroke="#06130b" stroke-width="1.8" stroke-linejoin="round"/>
@@ -672,7 +812,7 @@ async function actionFn({ markId, action, value }) {
   const triggerRippleAt = (x, y) => {
     ensureStyles()
     const rip = document.createElement('div')
-    rip.className = 'mark-click-ripple'
+    rip.className = 'abelink-click-ripple'
     rip.style.width = '36px'
     rip.style.height = '36px'
     rip.style.left = `${x}px`
@@ -685,7 +825,7 @@ async function actionFn({ markId, action, value }) {
 
   const hideCursor = (delayMs = 600) => {
     setTimeout(() => {
-      const cur = document.getElementById('mark-cursor-pointer')
+      const cur = document.getElementById('abelink-cursor-pointer')
       if (cur) cur.style.opacity = '0'
     }, delayMs)
   }
@@ -821,7 +961,7 @@ async function actionFn({ markId, action, value }) {
   }
 }
 
-async function act({ markId, action, value }, sessionId = 'default') {
+async function act({ abelinkId, action, value }, sessionId = 'default') {
   if (action === 'close') {
     const closed = await closeActiveGroupTabs(sessionId)
     return { ok: true, data: JSON.stringify({ closed }) }
@@ -954,17 +1094,36 @@ async function act({ markId, action, value }, sessionId = 'default') {
   if (action === 'download') {
     return {
       ok: false,
-      error: 'browser-download via ekstensi dinonaktifkan demi minimasi permission (keamanan user). Gunakan native download dari Mark sidecar.'
+      error: 'browser-download via ekstensi dinonaktifkan demi minimasi permission (keamanan user). Gunakan native download dari Abelink sidecar.'
     }
   }
   if (action === 'ask') {
     return { ok: false, error: 'browser-ask-user belum didukung versi ekstensi ini.' }
   }
+  // --- Overlay lock (Fase A): show = resume eksplisit (bersihkan flag stop).
+  if (action === 'overlay-show') {
+    delete overlayStopped[sessionId]
+    try {
+      const label = value && typeof value === 'object' ? value.text : value
+      const r = await setOverlay(tab.id, 'show', String(label || ''), sessionId)
+      return { ok: true, data: JSON.stringify(r) }
+    } catch (e) {
+      return { ok: false, error: `overlay-show gagal: ${String(e?.message || e)}` }
+    }
+  }
+  if (action === 'overlay-hide') {
+    try {
+      const r = await setOverlay(tab.id, 'hide', '', sessionId)
+      return { ok: true, data: JSON.stringify(r) }
+    } catch (e) {
+      return { ok: false, error: `overlay-hide gagal: ${String(e?.message || e)}` }
+    }
+  }
 
   // --- Aksi DOM via injeksi halaman (click/type/select/press/scroll/extract) ---
   const [injection] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    args: [{ markId: markId || null, action, value: value ?? null }],
+    args: [{ abelinkId: abelinkId || null, action, value: value ?? null }],
     func: actionFn
   })
   const step = injection?.result
@@ -1037,7 +1196,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         }
         if (hs.status === 403 || hs.status === 0) {
           await chrome.storage.session.set({
-            lastError: 'Sidecar tidak terjangkau di 127.0.0.1. Pastikan Mark berjalan.'
+            lastError: 'Sidecar tidak terjangkau di 127.0.0.1. Pastikan Abelink berjalan.'
           })
           sendResponse({ ok: false, error: 'unreachable' })
           return
@@ -1062,7 +1221,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       if (!running) {
         running = true
-        console.log(`[Mark] loop poll jalan (session: ${cfg.session}, port: ${cfg.port}).`)
+        console.log(`[Abelink] loop poll jalan (session: ${cfg.session}, port: ${cfg.port}).`)
         loop()
       }
       sendResponse({ ok: true })
@@ -1076,6 +1235,26 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const session = msg.session || cfg.session
       const closed = await closeActiveGroupTabs(session)
       sendResponse({ ok: true, closed })
+    } else if (msg?.type === 'overlay-stop') {
+      // Stop dari pill di tab (scope sesi-tab): resolve inflight sebagai error
+      // jujur agar loop pause; flag menahan perintah tab berikut.
+      const session = msg.session || (await getCfg()).session
+      const cur = inflight[session]
+      overlayStopped[session] = true
+      await hideOverlayDom(session)
+      if (cur?.id) {
+        try {
+          await apiPost(
+            cur.cfg,
+            `result?session=${encodeURIComponent(session)}&token=${encodeURIComponent(cur.cfg.token)}`,
+            { commandId: cur.id, ok: false, error: OVERLAY_STOP_MSG(session) }
+          )
+        } catch {
+          /* sidecar akan timeout jujur */
+        }
+        delete inflight[session]
+      }
+      sendResponse({ ok: true, stopped: !!cur?.id })
     } else if (msg?.type === 'get-active-task') {
       const cfg = await getCfg()
       const session = msg.session || cfg.session
@@ -1092,12 +1271,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             delete activeGroups[session]
             delete sessionTask[session]
             delete primaryTabs[session]
+            delete overlayStopped[session]
             await saveSessionState()
           }
         } catch {
           delete activeGroups[session]
           delete sessionTask[session]
           delete primaryTabs[session]
+          delete overlayStopped[session]
           await saveSessionState()
         }
       }
@@ -1161,7 +1342,7 @@ async function tryAutoResume() {
         }
         running = true
         await chrome.storage.session.set({ lastError: null })
-        console.log(`[Mark] auto-resume service worker aktif (session: ${cfg.session}, port: ${cfg.port}).`)
+        console.log(`[Abelink] auto-resume service worker aktif (session: ${cfg.session}, port: ${cfg.port}).`)
         loop()
         return
       }
@@ -1176,11 +1357,11 @@ async function tryAutoResume() {
 
 if (typeof chrome !== 'undefined' && chrome.alarms) {
   chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'mark-bridge-keepalive') {
+    if (alarm.name === 'abelink-bridge-keepalive') {
       tryAutoResume()
     }
   })
-  chrome.alarms.create('mark-bridge-keepalive', { periodInMinutes: 1 })
+  chrome.alarms.create('abelink-bridge-keepalive', { periodInMinutes: 1 })
 }
 
 chrome.runtime.onStartup.addListener(() => {
@@ -1196,6 +1377,7 @@ if (typeof chrome !== 'undefined') {
           delete activeGroups[s]
           delete sessionTask[s]
           delete primaryTabs[s]
+          delete overlayStopped[s]
           saveSessionState()
         }
       }
@@ -1207,6 +1389,7 @@ if (typeof chrome !== 'undefined') {
       for (const [s, pId] of Object.entries(primaryTabs)) {
         if (pId === tabId) {
           delete primaryTabs[s]
+          delete overlayStopped[s]
         }
       }
       for (const [s, g] of Object.entries(activeGroups)) {
@@ -1217,11 +1400,13 @@ if (typeof chrome !== 'undefined') {
               delete activeGroups[s]
               delete sessionTask[s]
               delete primaryTabs[s]
+              delete overlayStopped[s]
             }
           } catch {
             delete activeGroups[s]
             delete sessionTask[s]
             delete primaryTabs[s]
+            delete overlayStopped[s]
           }
         }
       }

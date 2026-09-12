@@ -8,7 +8,7 @@ import { group_tools } from '../tools/group-tools'
 import { NATIVE_SKILLS } from '../../components/core/native-skills'
 import { getWorkspaceContext } from '../workspaceRag'
 import { getCachedSkills } from '../skillsCache'
-import { logReasoning as trajectoryLogReasoning, logStep as trajectoryLogStep } from '../trajectory'
+import { logReasoning as trajectoryLogReasoning, logStep as trajectoryLogStep, estimateTokens } from '../trajectory'
 
 // Audit injeksi: snapshot system prompt terakhir (diambil via getLastSystemPrompt).
 let lastSystemPrompt = ''
@@ -95,13 +95,13 @@ export const getNextAction = async (
         )
         const sections = []
         if (workingMemoryText) {
-          sections.push(`## 1. ACTIVE WORKING MEMORY (.mark/)\n${workingMemoryText}`)
+          sections.push(`## 1. ACTIVE WORKING MEMORY (.abelink/)\n${workingMemoryText}`)
         }
         if (codeRagText) {
-          sections.push(`## 2. RELEVAN CODEBASE CONTEXT (.mark/ RAG)\n${codeRagText}`)
+          sections.push(`## 2. RELEVAN CODEBASE CONTEXT (.abelink/ RAG)\n${codeRagText}`)
         }
         if (sections.length > 0) {
-          workspaceRagSection = `\n# ACTIVE WORKSPACE CONTEXT & RAG (.mark/)\n${sections.join('\n\n')}\n`
+          workspaceRagSection = `\n# ACTIVE WORKSPACE CONTEXT & RAG (.abelink/)\n${sections.join('\n\n')}\n`
         }
       } catch (_) {}
     }
@@ -158,12 +158,16 @@ Tool GAGAL/ERROR bukan alasan berhenti: error → diagnosa → strategi alternat
 - Gunakan "thought" untuk alasan keputusanmu. isi dengan detail
 - Jika tool sebelumnya GAGAL/ERROR, analisis errornya di "thought" lalu coba strategi lain.
 - PENGGUNAAN BROWSER WEB: Untuk membuka website/URL apa pun (seperti TradingView, Google, YouTube, dll.), riset web, atau navigasi browser, WAJIB gunakan tool 'browser-navigate'. DILARANG KERAS menggunakan 'os-open' atau 'run-shell' untuk membuka website! 'os-open' HANYA untuk membuka file lokal di PC.
-- BROWSER HUMAN-IN-THE-LOOP (LOGIN / CAPTCHA): Jika saat membuka web kamu terbentur halaman login akun (Google, TradingView, dsb.), Cloudflare verification, atau Captcha, JANGAN looping coba klik/ketik buta. Panggil tool 'browser-ask' dengan query berisi alasan bantuan, lalu set "task_status": "needs_user" agar user menyelesaikan interaksi tersebut di tab browser Chrome yang sedang aktif.
+- BROWSER HUMAN-IN-THE-LOOP (LOGIN / CAPTCHA): Jika saat membuka web kamu terbentur halaman login akun (Google, TradingView, dsb.), Cloudflare verification, atau Captcha, JANGAN looping coba klik/ketik buta. Panggil tool 'browser-ask' dengan query berisi alasan bantuan, lalu set "task_status": "needs_user" agar user menyelesaikan interaksi tersebut di tab browser Chrome yang sedang aktif. 'browser-ask' DITOLAK sistem bila observasi read-dom terakhir tidak menunjukkan form login/captcha — pastikan bukti ada sebelum memanggilnya.- TANYA VIA TOMBOL (ANTI-CHATBOT): Jika butuh keputusan user di antara opsi konkret yang bisa dienumerasi (daftar history, pilihan A/B, maks 4 opsi), WAJIB panggil tool 'ask-choice' — user klik tombol di chat dan loop lanjut otomatis. DILARANG mengakhiri giliran dengan pertanyaan teks untuk hal yang bisa jadi tombol.
+- AKHIRI needs_user HANYA UNTUK AKSI FISIK: "task_status": "needs_user" sesi-akhir hanya bila user harus bertindak fisik di luar jangkauan tool (login/captcha/2FA via 'browser-ask'). Ambiguitas pilihan = 'ask-choice', bukan needs_user.
+- RECOVERY DISCONNECT (PROAKTIF, JANGAN LEMPAR KE USER): Jika tool browser gagal karena extension/tab tidak tersambung, JANGAN meminta user membuka tab manual. Tangga wajib: (1) panggil 'browser-navigate' dengan URL lengkap untuk membuka tab baru, (2) lanjutkan tugas, (3) hanya bila itu pun gagal, akhiri blocked dengan bukti (no-handshake/timeout). Parafrase error menjadi perintah manual = kegagalan.
+- STOP OVERLAY BROWSER: Jika observasi tool mengandung '[STOP OVERLAY]', user menekan Stop di tab (sesi-tab itu berhenti). JANGAN panggil tool browser* lagi untuk sesi tersebut — akhiri giliran dengan answer + is_done:true + task_status yang jujur (blocked bila tugas belum selesai).
+- TAB DITUTUP USER ≠ KONEKSI PUTUS: sistem membuka ulang URL terakhir otomatis saat read gagal. JANGAN menyerah atau meminta user membuka tab — bila recovery gagal, sistem memberi error ber-bukti; laporkan blocked spesifik, bukan instruksi manual.
 - KEAMANAN TAINT GATE: Sistem memiliki pengaman Taint Gate aktif. Setelah kamu membaca konten web luar ('browser-navigate', 'browser-read', 'browser-extract'), seluruh aksi modifikasi sistem ('run-shell', 'write-file', 'delete-file', 'os-open') otomatis DITOLAK di giliran yang sama untuk mencegah prompt injection. Jika sebuah aksi diblokir dengan pesan '[TAINT GATE BLOCKED]', jangan panik atau retry. Laporkan apa yang kamu temukan di web kepada user, jelaskan bahwa eksekusi sistem ditahan demi keamanan, dan minta user mengetik 'lanjutkan' jika ia mengizinkan eksekusi tersebut di pesan berikutnya.
 - ATURAN NOL-BUKTI (ANTI SOK-TAHU): Jika retrieval memori/dokumen 0 hasil DAN tool web gagal/mengembalikan cangkang kosong, DILARANG menyimpulkan isi. Wajib jawab jujur ("tidak ada data…") atau minta arahan. Klaim "berhasil buka/baca" WAJIB menunjuk artefak tool nyata (judul/URL/elemen hasil observasi); tanpa artefak = BELUM selesai, bukan done.
 
 # ATURAN PENULISAN & PENYUNTINGAN FILE (SANGAT KETAT)
-1. Jika membuat file baru dan tidak diminta lokasi khusus, gunakan nama file sederhana (misal: "index.html" atau "app.js"). Sistem akan menyimpannya ke workspace aktif. Jika kamu butuh path absolut untuk 'run-shell', gunakan '~/.local/share/mark/workspace/'.
+1. Jika membuat file baru dan tidak diminta lokasi khusus, gunakan nama file sederhana (misal: "index.html" atau "app.js"). Sistem akan menyimpannya ke workspace aktif. Jika kamu butuh path absolut untuk 'run-shell', gunakan '~/.local/share/abelink/workspace/'.
 2. STRATEGI EDITING PRESISI (UTAMA):
    - JIKA BERKAS SUDAH ADA, GUNAKAN tool 'replace-content' (BUKAN 'write-file').
    - Format: filePath||targetContent||replacementContent.
@@ -580,7 +584,7 @@ ${
         working_memory: {
           type: ['string', 'null'],
           description:
-            'Catatan ringkas progres koding, lokasi baris/fungsi yang telah dipetakan, atau rencana teknis untuk disimpan ke .mark/working-memory.json.'
+            'Catatan ringkas progres koding, lokasi baris/fungsi yang telah dipetakan, atau rencana teknis untuk disimpan ke .abelink/working-memory.json.'
         },
         should_learn: {
           type: ['boolean', 'null'],
@@ -658,6 +662,13 @@ ${
         trajectoryLogReasoning({
           prompt: userInput,
           model: conf.model || conf.engine || 'unknown',
+          sessionId: options.sessionId ?? null,
+          turn: options.turn ?? null,
+          tokensEst: estimateTokens(
+            typeof userInput === 'string' ? userInput : '',
+            ...loopMessages.slice(-5).map((m) => (typeof m?.content === 'string' ? m.content : ''))
+          ),
+          tokensEstMethod: 'chars/2.5',
           ...reasoningData
         })
         if (data?.task_status === 'in_progress' && data?.objective) {
@@ -665,7 +676,9 @@ ${
             step: loopMessages.filter((m) => m.role === 'assistant').length,
             total: MAX_RETRIES * 2,
             description: data.objective,
-            status: 'in_progress'
+            status: 'in_progress',
+            sessionId: options.sessionId ?? null,
+            turn: options.turn ?? null
           })
         }
       } catch (_) {}

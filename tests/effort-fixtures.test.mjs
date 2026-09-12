@@ -131,7 +131,7 @@ describe('fixture 06 independent (MAX vs ULTRA)', () => {
 describe('fixture 07 dependency chain', () => {
   it('A->B->C gating', async () => {
     await withFixtureDir('fixture-07-dependency', async (root) => {
-      fs.writeFileSync(path.join(root, 'input.txt'), 'MARK_TEST')
+      fs.writeFileSync(path.join(root, 'input.txt'), 'ABELINK_TEST')
       const ctx = await runTask('dependency', 'ultra', { root })
       const { wf } = ctx
       wf.refresh()
@@ -140,20 +140,20 @@ describe('fixture 07 dependency chain', () => {
       // run A
       wf.node('A').status = 'ready'
       const a = wf.node('A')
-      a.status = 'running'; a.result = 'MARK_TEST'; a.status = 'completed'
+      a.status = 'running'; a.result = 'ABELINK_TEST'; a.status = 'completed'
       wf.refresh()
       expect(wf.node('A').status).toBe('completed')
       expect(['ready', 'running']).toContain(wf.node('B').status)
       expect(wf.node('C').status).toBe('blocked')
       // run B
       const b = wf.node('B')
-      b.status = 'running'; b.result = 'mark_test'; b.status = 'completed'
+      b.status = 'running'; b.result = 'abelink_test'; b.status = 'completed'
       wf.refresh()
       expect(wf.node('B').status).toBe('completed')
       expect(['ready', 'running']).toContain(wf.node('C').status)
       // run C
       const c = wf.node('C')
-      c.status = 'running'; c.result = 'mark_test'; c.status = 'completed'
+      c.status = 'running'; c.result = 'abelink_test'; c.status = 'completed'
       expect(wf.node('C').status).toBe('completed')
     })
   })

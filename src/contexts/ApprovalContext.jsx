@@ -39,7 +39,7 @@ export function familyOfTool(tool) {
   return `tool:${t || 'unknown'}`
 }
 
-const ALWAYS_TOOLS_KEY = 'mark:approval-always-tools'
+const ALWAYS_TOOLS_KEY = 'abelink:approval-always-tools'
 
 function loadAlwaysTools() {
   try {

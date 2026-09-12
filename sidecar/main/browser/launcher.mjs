@@ -2,7 +2,7 @@
 //
 // Prinsip: Abelink TIDAK menebak-nebak binary browser di PATH. Cukup minta
 // OS membukakan browser default (`xdg-open`, Linux-only sesuai target
-// proyek). Extension Mark auto-connect sendiri saat browser dibuka
+// proyek). Extension Abelink auto-connect sendiri saat browser dibuka
 // (tryAutoResume di background.js: onStartup + alarm keepalive), lalu
 // sidecar menunggu handshake bounded di sini.
 //

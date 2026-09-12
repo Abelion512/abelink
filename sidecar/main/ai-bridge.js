@@ -49,8 +49,8 @@ let abortGeneration = 0
 let globalConfig = {}
 
 // Log debug AI mati secara default supaya isi prompt/response tidak ikut tercetak ke log.
-// Aktifkan hanya saat debugging dengan env MARK_DEBUG_AI=1.
-const DEBUG_AI_LOG = process.env.MARK_DEBUG_AI === '1'
+// Aktifkan hanya saat debugging dengan env ABELINK_DEBUG_AI=1.
+const DEBUG_AI_LOG = process.env.ABELINK_DEBUG_AI === '1'
 
 // Buang pola rahasia (api key gaya sk-... / header Authorization) sebelum pesan dicetak.
 const redactSecrets = (message) =>
@@ -585,7 +585,7 @@ export const fetchAI = async (
         body.response_format = {
           type: 'json_schema',
           json_schema: {
-            name: 'mark_schema',
+            name: 'abelink_schema',
             strict: true,
             schema: jsonSchema
           }
@@ -808,14 +808,16 @@ export const listCustomModels = async (rawEndpoint, apiKey, protocolConf) => {
   const controller = new AbortController()
   // Race manual: sinyal abort Bun tidak selalu membatalkan fase connect,
   // jadi janji fetch dilombakan dengan timer penolak sendiri.
-  const timeoutErr = () => new Error('Timeout deteksi model (15s). Endpoint tidak merespons.')
+  // Batas 120s: server agregator lambat terbukti butuh >70s untuk daftar ~1900 model.
+  const DETECT_TIMEOUT_MS = 120000
+  const timeoutErr = () => new Error('Timeout deteksi model (120s). Endpoint tidak merespons.')
   const timer = setTimeout(() => {
     controller.abort(timeoutErr())
-  }, 15000)
+  }, DETECT_TIMEOUT_MS)
   try {
     const res = await Promise.race([
       fetch(url, { method: 'GET', headers, signal: controller.signal }),
-      new Promise((_, reject) => setTimeout(() => reject(timeoutErr()), 15000))
+      new Promise((_, reject) => setTimeout(() => reject(timeoutErr()), DETECT_TIMEOUT_MS))
     ])
     if (!res.ok) {
       const text = await res.text().catch(() => '')
@@ -827,8 +829,26 @@ export const listCustomModels = async (rawEndpoint, apiKey, protocolConf) => {
       (Array.isArray(data?.models) && data.models.map((m) => m.id || m.name)) ||
       (Array.isArray(data) && data.map((m) => m.id || m.name)) ||
       []
-    return [...new Set(ids.filter(Boolean))].sort((a, b) => a.localeCompare(b))
+    return orderModelsPreferFree(ids)
   } finally {
     clearTimeout(timer)
   }
+}
+
+// Urutan server DIHORMATI (bukan sort abjad): server kurasi favorit di depan
+// (mis. abelink, claude-work, ...). Di dalamnya, yang gratis (:free ala
+// OpenRouter atau segmen path `free`) naik duluan — stabil, sisanya tetap
+// pada posisi relatif server.
+export const isFreeModelId = (id) => {
+  const s = String(id || '')
+  const tail = s.split('/').pop()
+  return tail.toLowerCase() === 'free' || /:free$/i.test(s)
+}
+
+export const orderModelsPreferFree = (ids) => {
+  const uniq = [...new Set((ids || []).filter(Boolean))]
+  const free = []
+  const paid = []
+  for (const id of uniq) (isFreeModelId(id) ? free : paid).push(id)
+  return [...free, ...paid]
 }

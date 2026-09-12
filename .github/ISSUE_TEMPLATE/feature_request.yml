@@ -1,5 +1,5 @@
 name: ✨ Feature Request
-description: Suggest an idea for Mark Agent
+description: Suggest an idea for Abelink Agent
 labels: [enhancement]
 body:
   - type: markdown
@@ -11,7 +11,7 @@ body:
     id: problem
     attributes:
       label: What problem does this solve?
-      placeholder: "When I'm doing X, I wish Mark could..."
+      placeholder: "When I'm doing X, I wish Abelink could..."
     validations:
       required: true
 

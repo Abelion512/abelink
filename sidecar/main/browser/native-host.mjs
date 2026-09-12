@@ -6,20 +6,28 @@
 //
 // ID extension di-pin via field "key" di extension/manifest.json sehingga
 // SAMA di semua mesin. Konstanta di bawah wajib cocok (ada test penjaga).
-export const NATIVE_HOST_NAME = 'id.mark.bridge'
+export const NATIVE_HOST_NAME = 'id.abelink.bridge'
 export const NATIVE_HOST_VERSION = 1
 // Turunan sha256 public key manifest (lihat extension/manifest.json "key").
 export const EXTENSION_ID = 'kdcfgmlamndkapaiakhlplckfhmjieml'
+
+// Home data dir: ABELINK_DATA_HOME menang atas XDG_DATA_HOME (pemisah dev/prod;
+// dev.sh men-set-nya agar dev & prod bisa jalan bersamaan).
+export function resolveDataHome(env = process.env) {
+  const over = env?.ABELINK_DATA_HOME
+  if (typeof over === 'string' && over.trim()) return over
+  return env?.XDG_DATA_HOME || `${env?.HOME ?? ''}/.local/share`
+}
 
 const MANIFEST_BODY = (hostPath) =>
   JSON.stringify(
     {
       name: NATIVE_HOST_NAME,
-      description: 'Mark Bridge token helper (baca file token lokal, tanpa network).',
+      description: 'Abelink Bridge token helper (baca file token lokal, tanpa network).',
       path: hostPath,
       type: 'stdio',
       allowed_origins: [`chrome-extension://${EXTENSION_ID}/`],
-      'x-mark-version': NATIVE_HOST_VERSION
+      'x-abelink-version': NATIVE_HOST_VERSION
     },
     null,
     2
@@ -27,7 +35,7 @@ const MANIFEST_BODY = (hostPath) =>
 
 export async function ensureNativeHost({
   configHome = process.env.HOME + '/.config',
-  dataHome = process.env.XDG_DATA_HOME || process.env.HOME + '/.local/share',
+  dataHome = resolveDataHome(),
   sourceFile = null,
   browsers = [
     'google-chrome',
@@ -41,10 +49,18 @@ export async function ensureNativeHost({
   const fs = await import('node:fs')
   const path = await import('node:path')
 
-  const destDir = path.join(dataHome, 'mark', 'native-host')
+  // Migrasi sekali-jalan brand lama (best-effort, silent): XDG/abelink -> XDG/abelink.
+  // Migrasi utama di Rust setup (lib.rs); penjaga ini menutup ras headless-sidecar.
+  try {
+    const legacy = path.join(dataHome, 'mark')
+    const current = path.join(dataHome, 'abelink')
+    if (fs.existsSync(legacy) && !fs.existsSync(current)) fs.renameSync(legacy, current)
+  } catch {}
+
+  const destDir = path.join(dataHome, 'abelink', 'native-host')
   fs.mkdirSync(destDir, { recursive: true })
 
-  const destMjs = path.join(destDir, 'mark-bridge-host.mjs')
+  const destMjs = path.join(destDir, 'abelink-bridge-host.mjs')
   const src = sourceFile?.pathname ?? String(sourceFile ?? '')
   if (src && fs.existsSync(src)) {
     try {
@@ -55,9 +71,9 @@ export async function ensureNativeHost({
 
   // Wrapper shell mandiri: menggunakan python3 yang selalu tersedia di Linux Mint / Ubuntu.
   // Tidak bergantung pada keberadaan Bun atau Node di mesin pengguna rilis .deb.
-  const wrapper = path.join(destDir, 'mark-bridge-host.sh')
+  const wrapper = path.join(destDir, 'abelink-bridge-host.sh')
   const wrapperScript = `#!/bin/sh
-# Mark Bridge native messaging host wrapper (mark-bridge-host.mjs fallback)
+# Abelink Bridge native messaging host wrapper (abelink-bridge-host.mjs fallback)
 if [ -x "/usr/bin/python3" ]; then
   exec /usr/bin/python3 -c '
 import sys, json, os, struct
@@ -68,7 +84,7 @@ def send(obj):
     sys.stdout.buffer.flush()
 
 try:
-    data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    data_home = os.environ.get("ABELINK_DATA_HOME") or os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
     token_file = os.path.join(data_home, "browser-bridge-token")
     if os.path.exists(token_file):
         with open(token_file, "r", encoding="utf-8") as f:
@@ -102,6 +118,11 @@ fi
     if (!fs.existsSync(browserDir)) continue
     const dir = path.join(browserDir, 'NativeMessagingHosts')
     fs.mkdirSync(dir, { recursive: true })
+    // Bersihkan manifest brand lama agar tidak yatim (rename id.abelink.bridge).
+    try {
+      const legacyFile = path.join(dir, 'id.mark.bridge.json')
+      if (fs.existsSync(legacyFile)) fs.unlinkSync(legacyFile)
+    } catch {}
     const file = path.join(dir, `${NATIVE_HOST_NAME}.json`)
     const prev = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null
     if (prev === body) {

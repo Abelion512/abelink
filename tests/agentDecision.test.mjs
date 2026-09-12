@@ -1,6 +1,6 @@
 // Regression tests: objective-aware termination semantics (PR #22 audit).
 // Target: src/api/ai/agentDecision.js — pure classification shared by the main
-// ReAct loop (useMarkPlan) and the sub-agent executor.
+// ReAct loop (useAbelinkPlan) and the sub-agent executor.
 //
 // These tests pin the NON-NEGOTIABLE agentic contract:
 //   - `answer` alone is NOT a termination signal.

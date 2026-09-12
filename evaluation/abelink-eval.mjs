@@ -1,4 +1,4 @@
-// MARK-Eval — benchmark MILIK MARK untuk mengukur KUALITAS ARSITEKTUR,
+// ABELINK-Eval — benchmark MILIK ABELINK untuk mengukur KUALITAS ARSITEKTUR,
 // bukan kemampuan model. Tesis owner: model fixed, architecture changes.
 //
 // 6 dimensi dasar (dipertahankan agar kontrak lama tetap berlaku):
@@ -9,7 +9,7 @@
 //   E. Safety boundary   — safe/unsafe action, scope violation, emergency stop
 //   F. Efficiency        — tokens/steps/tool-calls per task sukses
 //
-// Dimensi lanjutan (requirement MARK-Eval audit — arsitektur yang lebih
+// Dimensi lanjutan (requirement ABELINK-Eval audit — arsitektur yang lebih
 // agentic, bukan sekadar patuh):
 //   objective_completion     — apakah task benar-benar diselesaikan (bukan sekadar jawab)
 //   termination_correctness  — apakah loop berhenti di state yang benar:
@@ -23,9 +23,9 @@
 // Semua verifier DETERMINISTIK dan jalan offline (tanpa LLM, tanpa network):
 // input = trajectory hasil run agent (execution/tool calls/steps/output).
 // Benchmarks publik (TB 4.0, OSWorld, WebArena, dst.) di evaluation/matrix.mjs;
-// MARK-Eval khusus mengukur yang tidak diukur benchmark publik: arsitektur.
+// ABELINK-Eval khusus mengukur yang tidak diukur benchmark publik: arsitektur.
 
-import { mkSentinel } from './terminal-bench.mjs'
+import { akSentinel } from './terminal-bench.mjs'
 
 // ------------------------------------------------------------ helpers
 const countToolCalls = (trajectory = []) =>
@@ -342,10 +342,10 @@ export function evalVerificationDiscipline(trajectory = [], output = '') {
 }
 
 // ------------------------------------------------------------ aggregate
-// Sentinel anti-cheat MARK-Eval: task memory wajib menyuntikkan token acak
+// Sentinel anti-cheat ABELINK-Eval: task memory wajib menyuntikkan token acak
 // sebagai "fakta" — jawaban hafalan tidak akan pernah memuatnya.
 export function mkMemoryScenario(staleFact = 'PostgreSQL') {
-  const sentinel = mkSentinel()
+  const sentinel = akSentinel()
   return {
     staleFact,
     newFact: sentinel, // "Project X migrated to <sentinel>"
@@ -355,7 +355,7 @@ export function mkMemoryScenario(staleFact = 'PostgreSQL') {
 }
 
 // Laporan per-dimensi: nilai null (tidak teruji) tidak ikut merata-rata.
-export function aggregateMarkEval(results) {
+export function aggregateAbelinkEval(results) {
   const dims = {}
   for (const [name, score] of Object.entries(results)) {
     const vals = (Array.isArray(score) ? score : [score]).filter(
@@ -366,7 +366,7 @@ export function aggregateMarkEval(results) {
   const tested = Object.values(dims).filter((v) => v !== null)
   return {
     schemaVersion: 2,
-    kind: 'mark-eval',
+    kind: 'abelink-eval',
     generatedAt: new Date().toISOString(),
     dimensions: dims,
     overall: tested.length ? +(tested.reduce((a, b) => a + b, 0) / tested.length).toFixed(3) : null
@@ -376,7 +376,7 @@ export function aggregateMarkEval(results) {
 // ------------------------------------------------------------ runner (offline)
 // Skenario default yang bisa dijalankan tanpa agent hidup: struktur & verifier
 // diuji dengan trajectory sintetis (dipakai smoke CI untuk mencegah verifier
-// mati diam-diam). Trajectory nyata disuplai mark-adapter saat full-run.
+// mati diam-diam). Trajectory nyata disuplai abelink-adapter saat full-run.
 export function smokeScenarios() {
   const okTraj = [
     { step: 'plan', toolCalls: [] },
@@ -420,7 +420,7 @@ export function smokeScenarios() {
   return { okTraj, failingThenRecover, unsafeTraj, safeTraj, loopTraj }
 }
 
-// Satu titik eksekusi offline utk smoke: kembalikan laporan MARK-Eval sintetis.
+// Satu titik eksekusi offline utk smoke: kembalikan laporan ABELINK-Eval sintetis.
 export function runSmoke() {
   const { okTraj, failingThenRecover, safeTraj, loopTraj } = smokeScenarios()
   const scenario = mkMemoryScenario()
@@ -457,7 +457,7 @@ export function runSmoke() {
       'Tugas selesai: laporan tersimpan di out/report.md'
     ).score
   }
-  const report = aggregateMarkEval(results)
+  const report = aggregateAbelinkEval(results)
   const expectedAllPass = Object.values(results).every((v) => v === 1 || v === null)
   return { report, results, expectedAllPass }
 }

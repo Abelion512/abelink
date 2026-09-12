@@ -12,7 +12,7 @@ echo "[3/9] Crypto harness (watermark signing)"
 bun run test:harness
 echo "[4/9] Perf gate (regresi performa nyata >15% = gagal)"
 bun run perf
-echo "[5/9] MarkBench 1.0 gate (kualitas arsitektur 6 dimensi MARK-Eval)"
+echo "[5/9] AbelinkBench 1.0 gate (kualitas arsitektur 6 dimensi ABELINK-Eval)"
 bun run bench:quick
 echo "[6/9] Frontend build (vite + tailwind)"
 bun run build

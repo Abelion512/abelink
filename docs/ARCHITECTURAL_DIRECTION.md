@@ -23,7 +23,7 @@ Dokumen ini menganalisis tiga opsi arsitektur teknis untuk arah masa depan **Abe
 ### Kekurangan (Cons)
 1. **Multi-Runtime Overhead**: Membutuhkan toolchain Rust dan Bun sekaligus saat proses build dan development.
 2. **Overhead IPC Stdio**: Data berukuran sangat besar (misalnya transfer gambar screenshot resolusi 4K atau riwayat obrolan puluhan megabyte) harus diserialisasi menjadi JSON string melalui pipe stdio, menimbulkan latensi mikro.
-3. **Distribusi Biner Multi-Lapisan**: Paket rilis harus menyertakan binary executable sidecar (`mark-engine` / `abelink-engine`) di dalam bundle resource aplikasi.
+3. **Distribusi Biner Multi-Lapisan**: Paket rilis harus menyertakan binary executable sidecar (`abelink-engine` / `abelink-engine`) di dalam bundle resource aplikasi.
 
 ### Analisis Jangka Panjang (Long-Term ROI)
 - **Benefit**: Kemampuan beradaptasi dengan tren AI (sub-agents, durable workflows, MCP) tanpa friksi ekosistem.

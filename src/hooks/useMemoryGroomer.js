@@ -15,7 +15,10 @@ export function useMemoryGroomer(enableAutoOnStartup = false) {
   const [isGrooming, setIsGrooming] = useState(false)
   const [groomResult, setGroomResult] = useState(() => {
     try {
-      const saved = localStorage.getItem('mark_last_groom_result')
+      // Kunci pra-rebrand dibaca sekali sebagai fallback migrasi.
+      const saved =
+        localStorage.getItem('abelink_last_groom_result') ??
+        localStorage.getItem('mark_last_groom_result')
       return saved ? JSON.parse(saved) : {
         timestamp: null,
         mergedCount: 0,
@@ -61,7 +64,7 @@ export function useMemoryGroomer(enableAutoOnStartup = false) {
           lastChecked: Date.now()
         }
         setGroomResult(currentRes)
-        localStorage.setItem('mark_last_groom_result', JSON.stringify(currentRes))
+        localStorage.setItem('abelink_last_groom_result', JSON.stringify(currentRes))
         notifyListeners({ groomResult: currentRes, isGrooming: false })
         setIsGrooming(false)
         return currentRes
@@ -140,7 +143,7 @@ export function useMemoryGroomer(enableAutoOnStartup = false) {
       }
 
       setGroomResult(updatedResult)
-      localStorage.setItem('mark_last_groom_result', JSON.stringify(updatedResult))
+      localStorage.setItem('abelink_last_groom_result', JSON.stringify(updatedResult))
       notifyListeners({ groomResult: updatedResult, isGrooming: false })
       setIsGrooming(false)
 

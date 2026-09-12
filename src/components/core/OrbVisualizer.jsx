@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 
 /**
- * Sentient Cybernetic Digital Face (Mark Core Avatar)
+ * Sentient Cybernetic Digital Face (Abelink Core Avatar)
  * Desain avatar AI holografik murni tanpa kotak kaku, dengan ekspresi mata digital
  * ekspresif yang langsung mencerminkan 10 emosi secara jelas dan dinamis.
  */
@@ -325,7 +325,7 @@ const SentientCyberEyes = ({
         )}
       </svg>
 
-      {/* Gelombang Suara (Voice Waveform) saat Mark Berbicara */}
+      {/* Gelombang Suara (Voice Waveform) saat Abelink Berbicara */}
       {status === 'speaking' && (
         <div className="flex items-center gap-1 mt-1 h-3.5">
           <span

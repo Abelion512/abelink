@@ -27,7 +27,11 @@ const getKindColor = (kind) => {
   switch (kind) {
     case 'reasoning': return 'bg-info/20 text-info'
     case 'tool-call': return 'bg-primary/20 text-primary'
+    case 'observation': return 'bg-warning/20 text-warning'
+    case 'answer': return 'bg-success/20 text-success'
     case 'sub-agent': return 'bg-accent/20 text-accent'
+    case 'turn-start': return 'bg-white/10 text-white/70'
+    case 'turn-end': return 'bg-white/10 text-white/70'
     case 'step': return 'bg-success/20 text-success'
     default: return 'bg-base-300 text-base-content'
   }
@@ -38,7 +42,11 @@ const getKindLabel = (kind) => {
   switch (kind) {
     case 'reasoning': return 'Reasoning'
     case 'tool-call': return 'Tool Call'
+    case 'observation': return 'Observation'
+    case 'answer': return 'Answer'
     case 'sub-agent': return 'Sub-Agent'
+    case 'turn-start': return 'Turn Start'
+    case 'turn-end': return 'Turn End'
     case 'step': return 'Step'
     default: return kind
   }
@@ -74,7 +82,7 @@ export default function Trajectory() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `mark-trajectory-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `abelink-trajectory-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -122,8 +130,8 @@ export default function Trajectory() {
               <FaChartLine size={48} className="opacity-20 mb-4" />
               <p className="text-lg font-medium mb-2">Belum ada data trajectory</p>
               <p className="text-sm opacity-60 max-w-sm">
-                Aktifkan logging dari Configuration → Developer, lalu lakukan interaksi dengan Mark
-                untuk melihat trace di sini.
+                Logging trajectory selalu aktif — lakukan interaksi dengan Abelink
+                untuk melihat trace di sini (thought → tool → observation → answer).
               </p>
             </div>
           ) : (
@@ -148,6 +156,9 @@ export default function Trajectory() {
                     {entry.name && <span>{entry.name}</span>}
                     {entry.step !== undefined && (
                       <span>Step {entry.step}/{entry.total}</span>
+                    )}
+                    {(entry.kind === 'turn-start' || entry.kind === 'turn-end') && entry.turn != null && (
+                      <span className="font-mono">Turn {entry.turn}</span>
                     )}
                     {entry.duration && (
                       <span className="text-xs text-white/40 ml-2">{formatDuration(entry.duration)}</span>
@@ -205,6 +216,37 @@ export default function Trajectory() {
                         ? selectedEntry.result.slice(0, 2000)
                         : JSON.stringify(selectedEntry.result, null, 2).slice(0, 2000)}
                     </pre>
+                  </div>
+                )}
+                {selectedEntry.observation && (
+                  <div>
+                    <label className="text-xs uppercase tracking-wider opacity-50 mb-1 block">Observation (apa yang model lihat)</label>
+                    <pre className="text-xs whitespace-pre-wrap break-words font-mono bg-base-300 p-2 rounded max-h-48 overflow-y-auto">
+                      {typeof selectedEntry.observation === 'string'
+                        ? selectedEntry.observation
+                        : JSON.stringify(selectedEntry.observation, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                {selectedEntry.answer && (
+                  <div>
+                    <label className="text-xs uppercase tracking-wider opacity-50 mb-1 block">Answer (jawaban final)</label>
+                    <pre className="text-xs whitespace-pre-wrap break-words font-mono bg-base-300 p-2 rounded max-h-48 overflow-y-auto">
+                      {typeof selectedEntry.answer === 'string'
+                        ? selectedEntry.answer
+                        : JSON.stringify(selectedEntry.answer, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                {selectedEntry.outcome && (
+                  <div>
+                    <label className="text-xs uppercase tracking-wider opacity-50 mb-1 block">Outcome</label>
+                    <div className="font-mono text-sm">
+                      {selectedEntry.outcome}
+                      {selectedEntry.reason && (
+                        <span className="opacity-60"> ({selectedEntry.reason})</span>
+                      )}
+                    </div>
                   </div>
                 )}
                 {selectedEntry.name && (

@@ -57,7 +57,7 @@ tidak pernah turun ke renderer.
   `tg:trigger-music-download`, `tg:trigger-music-ui`) dihapus beserta
   impor `electron`/`desktopCapturer`/`yts`/`ffmpeg`/`execFile` yang hanya
   dipakai blok itu. Path chat/admin ids pindah dari
-  `app.getPath('userData')` ke XDG (`~/.local/share/mark/`).
+  `app.getPath('userData')` ke XDG (`~/.local/share/abelink/`).
 - `skills/skill-manager.js`: dihapus (tidak pernah di-import; paritas
   fitur sudah di `engine/channels/skills.mjs`).
 - `window-tracker.js`: impor `powerMonitor` (electron) diganti deteksi

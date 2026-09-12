@@ -1,4 +1,4 @@
-// Mark Sidecar Engine — Node/Bun runtime untuk fase A/B migrasi Tauri.
+// Abelink Sidecar Engine — Node/Bun runtime untuk fase A/B migrasi Tauri.
 //
 // Composition root tipis: satu-satunya tugasnya adalah memuat semua modul
 // channel (yang masing-masing mendaftarkan handler ke registry), lalu

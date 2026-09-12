@@ -4,6 +4,7 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import HoloCard from './HoloCard'
+import { ChoiceButtons } from '../Chat/ChoiceButtons'
 import { sharedMarkdownComponents } from '../Chat/SharedMarkdown'
 import PluginExecutionBubble from '../Chat/PluginExecutionBubble'
 
@@ -29,7 +30,7 @@ const ResponseArea = ({ currentResponse }) => {
 
   if (!displayResponse) return null
 
-  const { text, type, sources, pluginResult, youtubeData, youtubeSummary, isProactive, mood } =
+  const { text, type, sources, pluginResult, youtubeData, youtubeSummary, isProactive, mood, choice } =
     displayResponse
 
   const animationClass =
@@ -157,6 +158,11 @@ const ResponseArea = ({ currentResponse }) => {
   return (
     <div className={`w-full flex flex-col items-center gap-4 ${animationClass}`}>
       {renderContent()}
+
+      {/* Tombol opsi ask-choice (klik lanjutkan loop — sama seperti di chat) */}
+      <div className="w-full max-w-2xl">
+        <ChoiceButtons choice={choice} />
+      </div>
 
       {/* Plugin Execution Result Chip */}
       {pluginResult && (

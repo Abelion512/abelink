@@ -30,9 +30,23 @@ export default defineConfig(async () => ({
     },
   },
   build: {
+    // Tauri desktop = file lokal, bukan network. Chunk besar (monaco 7MB,
+    // ort-wasm 23MB, transformers) disengaja; jangan spam warning 500kB.
+    chunkSizeWarningLimit: 1500,
     // Pisah vendor berat ke chunk sendiri: cache stabil + load paralel.
     // (Lihat plan optimasi bundle: entry 2.4MB didominasi depTransitif ini.)
     rollupOptions: {
+      // Lazy db<->oramaStore (pemutus siklus) + vectorMemory (kebijakan
+      // transformers) disengaja: modul inti memang di main chunk, dynamic
+      // import di sana untuk lazy-init, bukan code-split. Bungkam warn itu saja.
+      onwarn(warning, warn) {
+        if (
+          warning?.message?.includes('dynamically imported') &&
+          warning?.message?.includes('statically imported')
+        )
+          return
+        warn(warning)
+      },
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],

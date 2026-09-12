@@ -13,7 +13,7 @@
 //     owner "read only always allow")
 //   - jenis lain         : "ask"
 //
-// Keputusan persisten tersimpan di `<XDG>/mark/capabilities/approval-policy.json`
+// Keputusan persisten tersimpan di `<XDG>/abelink/capabilities/approval-policy.json`
 // (sama seperti connections.json — lokal penuh, tanpa telemetri). Renderer
 // TIDAK pernah menulis file ini: pengaturan kebijakan lewat rfd dialog juga
 // ("Remember for this session / Always allow this type").
@@ -93,14 +93,8 @@ struct PolicyState {
 }
 
 fn policy_path() -> PathBuf {
-    let xdg = std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| {
-        format!(
-            "{}/.local/share",
-            std::env::var("HOME").unwrap_or_default()
-        )
-    });
-    PathBuf::from(xdg)
-        .join("mark")
+    crate::data_home()
+        .join("abelink")
         .join("capabilities")
         .join("approval-policy.json")
 }

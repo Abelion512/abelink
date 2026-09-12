@@ -1,4 +1,4 @@
-// Mark Sidecar — channel registry core.
+// Abelink Sidecar — channel registry core.
 // Satu-satunya tempat yang tahu bentuk frame protokol; modul channel hanya
 // mendaftarkan handler lewat on() dan tidak pernah menulis stdout langsung.
 //

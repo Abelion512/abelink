@@ -164,7 +164,7 @@ export const useAwareness = ({
         if (result.should_act || result.autonomous_prompt) {
           if (isLoadingRef.current) {
             console.log(
-              '[useAwareness] Skip triggering action karena Mark sedang sibuk (isLoading true)'
+              '[useAwareness] Skip triggering action karena Abelink sedang sibuk (isLoading true)'
             )
             return
           }

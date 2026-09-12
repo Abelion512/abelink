@@ -1,4 +1,4 @@
-// circuitBreaker.js — session-scoped failure circuit for MARK loops.
+// circuitBreaker.js — session-scoped failure circuit for ABELINK loops.
 //
 // N consecutive tool failures -> OPEN -> destructive tools blocked until reset.
 // New session = new breaker (auto-reset); user can also reset mid-session.

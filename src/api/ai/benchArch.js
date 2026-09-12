@@ -1,4 +1,4 @@
-// benchArch.js - MarkBench architecture axis (pure, env-only, no I/O).
+// benchArch.js - AbelinkBench architecture axis (pure, env-only, no I/O).
 // vanilla = model-only baseline (no supervisor, no verify-gate replan).
 // basic   = thin trajectory supervisor (tool governance + stagnation ladder).
 // Default 'basic' so production (env unset) keeps the stable baseline.
@@ -18,7 +18,7 @@ export function resolveBenchArch(value) {
   return ARCH_VALUES.includes(v) ? v : 'basic'
 }
 
-// Reads MARK_BENCH_ARCH from an explicit env object, else globalThis.process.
+// Reads ABELINK_BENCH_ARCH from an explicit env object, else globalThis.process.
 // Never throws, never touches window/db/network.
 export function currentBenchArch(env) {
   const table =
@@ -28,7 +28,7 @@ export function currentBenchArch(env) {
     globalThis.process.env
       ? globalThis.process.env
       : {})
-  return resolveBenchArch(table.MARK_BENCH_ARCH)
+  return resolveBenchArch(table.ABELINK_BENCH_ARCH)
 }
 
 export default { ARCH_VALUES, resolveBenchArch, currentBenchArch }

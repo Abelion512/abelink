@@ -13,7 +13,8 @@ import { createTrajectorySupervisor } from '../ai/trajectorySupervisor'
 import { currentBenchArch } from '../ai/benchArch'
 import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
-import { GROUP_TOOLS_DEFINITION } from '../tools/group-tools'
+import { GROUP_TOOLS_DEFINITION, loadGroupToolsText } from '../tools/group-tools'
+import { executeMemorySearch } from '../vectorMemory.js'
 import { LEAD_AGENT_TAG, CREATOR_TAG } from '../../utils/messageTags'
 
 // Registry AbortController aktif per sub-agent
@@ -31,10 +32,10 @@ const MAX_AUTO_RECOVER = 2
 /**
  * Menjalankan satu putaran eksekusi ReAct untuk sub-agent
  * @param {string} subagentId ID sub-agent
- * @param {string|null} incomingMessage Pesan baru dari Lead Agent (Mark) atau User
- * @param {string} senderType 'mark' | 'user'
+ * @param {string|null} incomingMessage Pesan baru dari Lead Agent (Abelink) atau User
+ * @param {string} senderType 'abelink' | 'user'
  */
-export async function runSubagentTurn(subagentId, incomingMessage = null, senderType = 'mark') {
+export async function runSubagentTurn(subagentId, incomingMessage = null, senderType = 'abelink') {
   const subagent = await subagentStore.getSubagent(subagentId)
   if (!subagent) {
     return { success: false, error: 'Sub-agent tidak ditemukan.' }
@@ -80,7 +81,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   subagentAbortControllers.set(subagentId, abortController)
   await subagentStore.updateSubagent(subagentId, { status: 'running' })
 
-  // Format tool bawaan (core) dan kelompok tool tambahan persis seperti Lead Agent (Mark)
+  // Format tool bawaan (core) dan kelompok tool tambahan persis seperti Lead Agent (Abelink)
   const forbiddenTools = ['spawn_subagent', 'send_message', 'kill_subagent', 'wait_subagents']
   const specificAllowed =
     Array.isArray(subagent.allowedTools) &&
@@ -134,7 +135,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   let terminalType = 'final'
   // ---- Thin trajectory supervisor (trajectorySupervisor.js) ---------------
   // Per-sub-agent stagnation policy. Mirrors the main-loop wiring in
-  // useMarkPlan.js: Fase 1 fields only. Bench arch axis (MARK_BENCH_ARCH,
+  // useAbelinkPlan.js: Fase 1 fields only. Bench arch axis (ABELINK_BENCH_ARCH,
   // default basic): vanilla = no supervisor, no verify-gate replan.
   // Additive: faults stay silent, the ReAct loop below is untouched.
   const benchArch = currentBenchArch()
@@ -195,7 +196,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
         noProgress = 0
       }
 
-      // KONDISI 1: Sub-Agent Ingin Berbicara / Melapor ke Mark (action null)
+      // KONDISI 1: Sub-Agent Ingin Berbicara / Melapor ke Abelink (action null)
       if (!decision.action && decision.answer) {
         // Objective-aware classification: an answer produced right after a
         // recoverable tool error, or a question the sub-agent could answer by
@@ -310,7 +311,6 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
           try {
             let res
             if (act.tool === 'read-tools') {
-              const { loadGroupToolsText } = await import('../tools/group-tools.js')
               const groupName = (act.query || '').trim()
               if (!groupName) {
                 res = {
@@ -327,7 +327,6 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
                   : { success: false, error: `Grup tool '${groupName}' tidak ditemukan.` }
               }
             } else if (act.tool === 'memory-search') {
-              const { executeMemorySearch } = await import('../vectorMemory.js')
               const formatted = await executeMemorySearch(act.query || '')
               res = { success: true, data: formatted }
             } else if (window.api && window.api.executeNativeTool) {

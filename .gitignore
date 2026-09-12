@@ -148,10 +148,10 @@ __pycache__/
 # Project-specific runtime artefacts
 # ─────────────────────────────────────────────────────────────────
 workflow
-mark_chrome_profile
+abelink_chrome_profile
 web.whatsapp.com.html
 /web.whatsapp.com_files
-.mark/
+.abelink/
 social-data-engine/
 /scripts/tmp-*
 
@@ -163,14 +163,14 @@ social-data-engine/
 
 # Generated HTML trackers (open in browser, never commit)
 /project-tracker.html
-/mark-agent-tracker.html
+/abelink-agent-tracker.html
 
 # Agent-CLI local configs (Codex, Antigravity, etc.)
 /.codex/
 
 # Browser use feature artifacts
 # Chrome profile used by browser-use (never commit - local only)
-.mark_chrome_profile/
+.abelink_chrome_profile/
 
 # Browser-use session state (per-session tab groups)
 .browser-use-state/

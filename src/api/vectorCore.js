@@ -37,7 +37,7 @@ let vectorDisabled = false // CSP block failover — skip vector ops permanently
 // import vectorCore dari thread utama akan selalu memutar fallback ladder yang
 // gagal dan menulis error merah was-simd/cpu di console. Lewati sejak awal.
 try {
-  if (typeof localStorage !== 'undefined' && localStorage.getItem('mark:wasm-broken') === '1') {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('abelink:wasm-broken') === '1') {
     vectorDisabled = true
   }
 } catch (_) {}

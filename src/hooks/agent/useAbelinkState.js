@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getAllConfig, saveMainThread, getMainThread } from '../../api/db'
 
-export const useMarkState = () => {
+export const useAbelinkState = () => {
   const [chatData, setChatData] = useState([])
   const [config, setConfig] = useState([])
   const [message, setMessage] = useState('')

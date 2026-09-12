@@ -1,6 +1,6 @@
-// agentDecision.js — shared, deterministic termination semantics for MARK loops.
+// agentDecision.js — shared, deterministic termination semantics for ABELINK loops.
 //
-// Problem this module solves: both the main ReAct loop (useMarkPlan) and the
+// Problem this module solves: both the main ReAct loop (useAbelinkPlan) and the
 // sub-agent executor treated `answer` (text without an action) as an implicit
 // termination signal. That collapses five genuinely different runtime states
 // into one: task completed, task failed, task blocked, task needs a user
@@ -43,7 +43,7 @@ const BLOCKED_TEXT =
 const NEEDS_USER_TEXT =
   /(apakah|bisakah|bolehkah|maukah|haruskah|perlukah|boleh\s+(saya|aku)|setujukah|can you|could you|should i|may i|do you (want|need|mind)|would you|is it (ok|okay)|apakah saya|boleh saya)/i
 
-// text ends with a question mark OR asks an explicit question AND is short
+// text ends with a question abelink OR asks an explicit question AND is short
 // enough to be a real request-for-decision (not a long report containing a
 // rhetorical question).
 export function isQuestionText(text = '') {

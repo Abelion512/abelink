@@ -1,4 +1,4 @@
-// Mark Architecture Benchmark — before/after comparator.
+// Abelink Architecture Benchmark — before/after comparator.
 //
 // Compares two architecture benchmark reports and returns structured diffs,
 // regressions, improvements, and behavior-flag changes.

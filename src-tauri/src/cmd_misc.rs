@@ -9,6 +9,7 @@
 //   di luar renderer sehingga renderer kompromi tetap tidak bisa membuka URL.
 // - Skema URL dibatasi http/https/mailto: xdg-open bisa mengeksekusi launcher
 //   .desktop untuk skema/file arbitrer, jadi jangan diteruskan mentah-mentah.
+use base64::Engine as _;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
@@ -324,29 +325,8 @@ pub fn misc_open_directory_dialog(app: AppHandle) -> Option<String> {
 // set_opacity hanya ada di v1). Limitasi platform didokumentasikan di
 // session log; slider UI tidak dibuat agar tidak menjanjikan hal mustahil.
 
-const B64_ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
 fn b64_encode(data: &[u8]) -> String {
-    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
-    for chunk in data.chunks(3) {
-        let b0 = chunk[0] as u32;
-        let b1 = *chunk.get(1).unwrap_or(&0) as u32;
-        let b2 = *chunk.get(2).unwrap_or(&0) as u32;
-        let n = (b0 << 16) | (b1 << 8) | b2;
-        out.push(B64_ALPHABET[((n >> 18) & 63) as usize] as char);
-        out.push(B64_ALPHABET[((n >> 12) & 63) as usize] as char);
-        out.push(if chunk.len() > 1 {
-            B64_ALPHABET[((n >> 6) & 63) as usize] as char
-        } else {
-            '='
-        });
-        out.push(if chunk.len() > 2 {
-            B64_ALPHABET[(n & 63) as usize] as char
-        } else {
-            '='
-        });
-    }
-    out
+    base64::engine::general_purpose::STANDARD.encode(data)
 }
 
 /// Screenshot layar penuh via tool sistem yang tersedia (X11). Kembalikan
@@ -354,7 +334,7 @@ fn b64_encode(data: &[u8]) -> String {
 #[tauri::command]
 pub fn misc_take_screenshot() -> Result<String, String> {
     let path = std::env::temp_dir().join(format!(
-        "mark-screenshot-{}.png",
+        "abelink-screenshot-{}.png",
         chrono::Local::now().timestamp_millis()
     ));
     let path_str = path.to_string_lossy().into_owned();

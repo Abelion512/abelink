@@ -1,4 +1,4 @@
-// Mark Light — Tauri v2 shell (Linux-native)
+// Abelink — Tauri v2 shell (Linux-native)
 mod approval_policy;
 mod cmd_fs;
 mod cmd_harness;
@@ -24,12 +24,31 @@ mod commands_telegram_bot;
 
 use cmd_node_bridge::{start_node_engine, NodeBridgeState};
 use std::collections::{HashMap, VecDeque};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::{
     Manager,
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
 };
+
+/// Home data dir: ABELINK_DATA_HOME menang atas XDG_DATA_HOME.
+/// (dev.sh men-set-nya ke .../abelink-dev agar mode dev & prod bisa jalan
+/// bersamaan tanpa berebut data, lock single-instance, dan WM_CLASS.)
+pub(crate) fn data_home() -> PathBuf {
+    let base = std::env::var("ABELINK_DATA_HOME")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| {
+            std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| {
+                format!(
+                    "{}/.local/share",
+                    std::env::var("HOME").unwrap_or_default()
+                )
+            })
+        });
+    PathBuf::from(base)
+}
 
 fn emit_window_state(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -140,6 +159,27 @@ pub fn run() {
         .manage(commands_tools_tasks::TaskOutputsState(Arc::new(Mutex::new(HashMap::new()))))
         .manage(commands_telegram_bot::TelegramState(Arc::new(Mutex::new(commands_telegram_bot::TelegramInner::new(String::new())))))
         .setup(|app| {
+            // ---- Migrasi data dir sekali-jalan: XDG/abelink (brand lama) -> XDG/abelink.
+            // Idempoten + silent: hanya rename bila lama ada dan baru belum ada.
+            // (Native-host/sidecar hanya menulis file regenerable; workspace +
+            // approval-policy milik user ikut pindah di sini.)
+            {
+                let xdg = data_home();
+                let old = xdg.join("mark");
+                let new = xdg.join("abelink");
+                if old.is_dir() && !new.exists() {
+                    let _ = std::fs::rename(&old, &new);
+                }
+            }
+
+            // Judul pembeda visual khusus dev (debug profile): "Abelink (dev)".
+            // Rilis (.deb) tidak tersentuh. Identifier/lock/WM_CLASS dipisah
+            // lewat TAURI_CONFIG di dev.sh, bukan di sini.
+            #[cfg(debug_assertions)]
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.set_title("Abelink (dev)");
+            }
+
             // ---- Sidecar node engine ----
             let handle = app.handle().clone();
             let state = Arc::clone(&app.state::<Arc<NodeBridgeState>>());
@@ -165,7 +205,11 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "Keluar", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
             let mut tray = TrayIconBuilder::with_id("abelink-tray")
-                .tooltip("Abelink - Autonomous Linux AI OS Companion")
+                .tooltip(if cfg!(debug_assertions) {
+                    "Abelink (dev) - Autonomous Linux AI OS Companion"
+                } else {
+                    "Abelink - Autonomous Linux AI OS Companion"
+                })
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -217,8 +261,11 @@ pub fn run() {
             }
 
             // ---- Global shortcut Ctrl+Alt+M: toggle Dashboard Window ----
-            use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
-            app.global_shortcut()
+            // Rilis saja (alasan sama seperti Ctrl+Shift+S di bawah).
+            #[cfg(not(debug_assertions))]
+            {
+                use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+                app.global_shortcut()
                 .on_shortcut("Ctrl+Alt+M", |app, _sc, event| {
                     if event.state() == ShortcutState::Pressed {
                         if let Some(w) = app.get_webview_window("main") {
@@ -237,10 +284,17 @@ pub fn run() {
                         }
                     }
                 })?;
+            }
 
             // ---- Global shortcut Ctrl+Shift+S: emergency stop otomasi PC ----
             // (broadcast event; channel sidecar menyusul saat os-* diporting Fase B)
-            app.global_shortcut()
+            // Rilis saja: hotkey system-wide milik SATU instansi. Dev (debug)
+            // sengaja dilewati agar dev & prod bisa jalan bersamaan — setup
+            // panic bila rebutan justru mengalahkan tujuan koeksistensi.
+            #[cfg(not(debug_assertions))]
+            {
+                use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+                app.global_shortcut()
                 .on_shortcut("Ctrl+Shift+S", |app, _sc, event| {
                     if event.state() == ShortcutState::Pressed {
                         use tauri::Emitter;
@@ -248,6 +302,9 @@ pub fn run() {
                         log::warn!("[Shortcut] Emergency stop diminta (Ctrl+Shift+S)");
                     }
                 })?;
+            }
+            #[cfg(debug_assertions)]
+            log::warn!("[Shortcut] global shortcut dilewati (dev): pakai prod untuk hotkey");
 
             Ok(())
         })

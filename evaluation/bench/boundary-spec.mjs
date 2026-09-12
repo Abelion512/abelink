@@ -1,6 +1,6 @@
-// MARK Architecture Benchmark — execution boundary specification (MARK side).
+// ABELINK Architecture Benchmark — execution boundary specification (ABELINK side).
 //
-// This document defines what the MARK execution boundary MUST implement for
+// This document defines what the ABELINK execution boundary MUST implement for
 // the architecture benchmark to become fully automatable.
 //
 // It is the counterpart to evaluation/bench/capture.mjs, which defines the
@@ -8,7 +8,7 @@
 //
 // Purpose:
 //   - remove ambiguity about what “automated benchmark execution” means,
-//   - make the missing MARK side concrete and testable,
+//   - make the missing ABELINK side concrete and testable,
 //   - keep the boundary independent of UI automation.
 
 // ---- 1. Scope ------------------------------------------------------------

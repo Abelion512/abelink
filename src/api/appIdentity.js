@@ -5,13 +5,13 @@ import pkg from '../../package.json'
 
 export const APP_IDENTITY = {
   product: 'Abelink',
-  variant: 'Abelink (MARK)',
-  engine: 'MARK (Metacognitive Artificial Relational Knowledge)',
+  variant: 'Abelink (ABELINK)',
+  engine: 'ABELINK (Metacognitive Artificial Relational Knowledge)',
   version: pkg.version || 'dev',
   upstream: {
     author: 'Mazees',
     repo: 'https://github.com/Mazees/mark-agent',
-    role: 'fondasi arsitektur orisinal MARK'
+    role: 'fondasi arsitektur orisinal ABELINK'
   },
   fork: {
     maintainer: 'Abelion512',
@@ -27,4 +27,4 @@ export const getSelfIdentityBlock = (id = APP_IDENTITY) => `
 - ${id.upstream.role}: ${id.upstream.author} (${id.upstream.repo}).
 - ${id.fork.role}: ${id.fork.maintainer} (${id.fork.repo}).
 - Kamu berjalan ${id.runtime}. Jejak arsitektur: folder src-tauri/ (Rust) dan sidecar/ (Bun).
-- Jika ditanya siapa kamu dan siapa pembuatmu: jawab jelas bahwa kamu adalah Abelink (arsitektur MARK), asisten otonom Linux yang dikelola oleh Abelink/Abelion512.`
+- Jika ditanya siapa kamu dan siapa pembuatmu: jawab jelas bahwa kamu adalah Abelink (arsitektur ABELINK), asisten otonom Linux yang dikelola oleh Abelink/Abelion512.`

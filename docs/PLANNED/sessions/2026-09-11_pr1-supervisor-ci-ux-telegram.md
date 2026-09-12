@@ -12,7 +12,7 @@ Sesi raksasa multi-agen: (a) Trajectory Supervisor Fase 1 deterministik (penulis
 
 | Finding | File | Root Cause | Fix | Status |
 |---|---|---|---|---|
-| CI Rust exit 101 tiap push | `.github/workflows/tauri.yml` | Tauri build script embed `../dist-sidecar/mark-engine`, tidak ada di runner fresh; deadlock (job bundle yang membuatnya butuh Rust hijau) | Step `bun run build:sidecar` sebelum `cargo check` | ✅ CI hijau |
+| CI Rust exit 101 tiap push | `.github/workflows/tauri.yml` | Tauri build script embed `../dist-sidecar/abelink-engine`, tidak ada di runner fresh; deadlock (job bundle yang membuatnya butuh Rust hijau) | Step `bun run build:sidecar` sebelum `cargo check` | ✅ CI hijau |
 | `bun run build:sidecar` rusak | `sidecar/main/tools/{browserTools,fsTools,shellTools}.mjs` | 8 dynamic import `./browser/bridge-core.mjs` (tidak ada; yang benar `../browser/`) | Betulkan path (1x replaceAll kebablasan line 2, diperbaiki) | ✅ build OK |
 | CodeQL merah semua job | `.github/workflows/codeql.yml` | Repo private tanpa GHAS → upload SARIF 403 selamanya | Hapus file (owner setuju); catat restore saat GHAS ada | ✅ |
 | Gitleaks merah di PR (bukan bocor) | `tauri.yml` secrets job | `contents:read` saja → `GET /pulls/{n}/commits` 403 | Tambah `pull-requests:read` | ✅ |
@@ -30,10 +30,10 @@ Sesi raksasa multi-agen: (a) Trajectory Supervisor Fase 1 deterministik (penulis
 | Console spam | `oramaStore.js`, `planning.js`, `core.js`, `useAwareness.js` | Debug per-turn/query; DEV-gate sia-sia (owner jalan dev) | Hapus (estimasi token dipertahankan) | ✅ |
 | Ikon hilang window-2 | `cmd_music.rs` | music_player tanpa set_icon | set default_window_icon (clone, bukan move) | ✅ cargo |
 | Trajectory yatim | `FloatingMenu.jsx`, `DeveloperSection.jsx` | Route ada, link tidak ada | Sempat hamburger → pindah Developer saja (non-IT) | ✅ |
-| Hamburger dot merah abadi | `FloatingMenu.jsx` | MarkHome tak oper tgStatus → default disconnected | Berlangganan sendiri (initial + event) + state connecting | ✅ |
-| Multi-sender mati | `planning.js`, `useMarkAgent.js` | `options.waContext` tak pernah diisi | userId selalu 'owner' (single-user eksplisit) | ✅ |
+| Hamburger dot merah abadi | `FloatingMenu.jsx` | AbelinkHome tak oper tgStatus → default disconnected | Berlangganan sendiri (initial + event) + state connecting | ✅ |
+| Multi-sender mati | `planning.js`, `useAbelinkAgent.js` | `options.waContext` tak pernah diisi | userId selalu 'owner' (single-user eksplisit) | ✅ |
 | Browser tutup = tool mati | `browser/launcher.mjs` (baru) | Tak ada yang membukakan browser | xdg-open + tunggu handshake 20s, default AKTIF (owner mau otomatis) | ✅ 9 test |
-| Musik 1 LLM call sia-sia | `ai/tools.js`, `useMarkMusic.js` | Rank LLM selalu jalan walau top-1 jelas | `trustworthyTopHit()` deterministik konservatif | ✅ 5 test |
+| Musik 1 LLM call sia-sia | `ai/tools.js`, `useAbelinkMusic.js` | Rank LLM selalu jalan walau top-1 jelas | `trustworthyTopHit()` deterministik konservatif | ✅ 5 test |
 | bench-gate flake | `evaluation/bench-gate.mjs` | Single-sample 5-12ms di mesin beban (terbukti di main murni) | Median 3 run, threshold utuh | ✅ stabil 0.9ms |
 
 ## Files Modified

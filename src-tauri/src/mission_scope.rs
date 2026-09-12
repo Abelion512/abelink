@@ -192,7 +192,7 @@ mod tests {
     fn dir_prefix_and_symlink_escape() {
         let _serial = SERIAL.lock().unwrap();
         reset();
-        let base = std::env::temp_dir().join("mark-scope-test");
+        let base = std::env::temp_dir().join("abelink-scope-test");
         let inner = base.join("inner");
         let _ = std::fs::remove_dir_all(&base);
         std::fs::create_dir_all(&inner).unwrap();

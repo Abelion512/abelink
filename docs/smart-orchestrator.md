@@ -1,6 +1,6 @@
-# MARK Smart Orchestrator Architecture Design Document
+# ABELINK Smart Orchestrator Architecture Design Document
 
-Owner: MARK Linux agent architecture
+Owner: ABELINK Linux agent architecture
 Relevance: lower-tier model capability through system architecture, not raw model strength
 Scope: local file automation, web browsing, terminal execution, bounded reasoning, session safety
 Source: extracted from docs/sessions/2026-09-07.md conversation (2026-09-07 session), saved as file during take-over.
@@ -140,7 +140,7 @@ Recommended properties:
 - Destructive or sensitive actions require approval or are blocked.
 - Tool results are normalized into a stable observation shape.
 
-For MARK, this maps to the existing split:
+For ABELINK, this maps to the existing split:
 - Tauri IPC for renderer and Rust shell,
 - sidecar bridge for engine-level services,
 - approval-gated native tool execution,
@@ -203,9 +203,9 @@ Every run should expose:
 
 This is what makes the system testable. It also supports the architecture benchmark approach: judge behavior and control signals first, then judge outcome second.
 
-## 11. Mapping to MARK
+## 11. Mapping to ABELINK
 
-MARK already has parts of this architecture. The main upgrade is to make them explicit and coordinated:
+ABELINK already has parts of this architecture. The main upgrade is to make them explicit and coordinated:
 
 - Memory routing: align vector memory, Orama, Dexie, session state, and workspace RAG under a clearer per-turn selection policy.
 - ReAct discipline: make the agent loop emit explicit actions/observations and enforce stop/repeat/verify rules.

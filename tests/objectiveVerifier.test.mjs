@@ -19,7 +19,8 @@ import {
   deriveSuccessCriteria,
   evaluateEvidence,
   gateCompletion,
-  buildReplanObservation
+  buildReplanObservation,
+  escalateKindFromEvidence
 } from '../src/api/ai/objectiveVerifier.js'
 
 const exec = (tool, result) => ({ tool, fullResult: result || 'success' })
@@ -41,6 +42,20 @@ describe('classifyObjectiveKind — task-awareness', () => {
 
   it('browser objective detected from form/submit vocabulary', () => {
     expect(classifyObjectiveKind('Submit form registrasi di halaman web itu')).toBe('browser')
+  })
+
+  it('teks saja tidak cukup untuk situs asing: tanpa daftar nama, jujur general', () => {
+    expect(classifyObjectiveKind('buka travelsoka lalu cek ulang detailnya')).toBe('general')
+  })
+
+  it('pola linguistik umum tetap browser: buka + URL/situs/web', () => {
+    expect(classifyObjectiveKind('buka https://example.com dan cek harga')).toBe('browser')
+    expect(classifyObjectiveKind('buka situs itu dan cari info kontak')).toBe('browser')
+  })
+
+  it('os/file guards survive the browser site pattern', () => {
+    expect(classifyObjectiveKind('buka aplikasi kalkulator')).toBe('os')
+    expect(classifyObjectiveKind('buka file laporan.md')).toBe('file')
   })
 
   it('empty prompt defaults to conversational (no fake criteria)', () => {
@@ -219,6 +234,68 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     expect(bad.state).toBe(VERIFICATION_STATE.FAILED)
   })
 
+  it('general multi-action: 1 sukses = progres, bukan bukti selesai', () => {
+    const one = evaluateEvidence({
+      kind: 'general',
+      objectiveText: 'cek memori lalu rapikan folder arsip',
+      tools: [exec('memory-search')]
+    })
+    expect(one.criteria.find((c) => c.id === 'multi-step-progress').state).toBe('unresolved')
+    expect(one.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+    const gate = gateCompletion({ modelClaimDone: true, verification: one.state, kind: 'general' })
+    expect(gate.complete).toBe(false)
+    expect(gate.replan).toBe(true)
+  })
+
+  it('general multi-action: 0 tool = belum ada bukti (bukan NOT_RUN)', () => {
+    const none = evaluateEvidence({
+      kind: 'general',
+      objectiveText: 'cek memori lalu rapikan folder arsip',
+      tools: []
+    })
+    expect(none.state).toBe(VERIFICATION_STATE.UNAVAILABLE)
+    const gate = gateCompletion({ modelClaimDone: true, verification: none.state, kind: 'general' })
+    expect(gate.complete).toBe(false)
+    expect(gate.replan).toBe(true)
+  })
+
+  it('general multi-action: 2 sukses => verified', () => {
+    const two = evaluateEvidence({
+      kind: 'general',
+      objectiveText: 'cek memori lalu rapikan folder arsip',
+      tools: [exec('memory-search'), exec('list-dir', 'arsip/')]
+    })
+    expect(two.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('eskalasi bukti: general + aksi browser = lensa browser, situs apapun', () => {
+    expect(escalateKindFromEvidence('general', [{ tool: 'browser-navigate' }])).toBe('browser')
+    expect(escalateKindFromEvidence('general', [{ tool: 'read-file' }])).toBe('general')
+    expect(escalateKindFromEvidence('file', [{ tool: 'browser-navigate' }])).toBe('file')
+    expect(escalateKindFromEvidence('conversational', [{ tool: 'browser-navigate' }])).toBe(
+      'conversational'
+    )
+  })
+
+  it('komposisi lapangan: situs asing + 1 navigate => replan menunjuk ask-choice', () => {
+    const prompt = 'buka travelsoka lalu cek ulang detailnya'
+    expect(classifyObjectiveKind(prompt)).toBe('general')
+    const evidence = evaluateEvidence({
+      objectiveText: prompt,
+      tools: [exec('browser-navigate', 'Travelsoka terbuka')]
+    })
+    expect(evidence.kind).toBe('browser')
+    expect(evidence.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+    const gate = gateCompletion({
+      modelClaimDone: true,
+      verification: evidence.state,
+      kind: evidence.kind
+    })
+    expect(gate.complete).toBe(false)
+    expect(gate.replan).toBe(true)
+    expect(buildReplanObservation(evidence)).toContain('ask-choice')
+  })
+
   it('unobservable criteria are na and never fake verification', () => {
     const r = evaluateEvidence({
       kind: 'file',
@@ -327,6 +404,17 @@ describe('buildReplanObservation — bounded replan demand', () => {
     expect(obs).toContain('[VERIFICATION GATE]')
     expect(obs).toContain('DITOLAK')
     expect(obs).toContain('browser-read')
+  })
+
+  it('replan untuk klaim prematur menunjuk ask-choice, bukan pertanyaan teks', () => {
+    const evidence = evaluateEvidence({
+      kind: 'browser',
+      objectiveText: 'buka situs itu dan lanjutkan percakapan sebelumnya',
+      tools: [exec('browser-navigate', 'Halaman terbuka')]
+    })
+    const obs = buildReplanObservation(evidence)
+    expect(obs).toContain('[VERIFICATION GATE]')
+    expect(obs).toContain('ask-choice')
   })
 
   it('MAX_VERIFY_REPLANS is bounded (no infinite verify loop)', () => {

@@ -22,12 +22,12 @@ export const execPromise = util.promisify(exec)
 // Linux-native: XDG data dir
 export const getWorkspaceDir = () => {
   const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
-  return path.join(xdgData, 'mark', 'workspace')
+  return path.join(xdgData, 'abelink', 'workspace')
 }
 
 export const getSkillsDir = () => {
   const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
-  return path.join(xdgData, 'mark', 'skills')
+  return path.join(xdgData, 'abelink', 'skills')
 }
 
 export const parsePagination = (str) => {

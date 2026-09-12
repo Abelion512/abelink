@@ -1,7 +1,7 @@
 import { getBestMusicMatch, trustworthyTopHit } from '../../api/ai/tools'
 import { db, insertMemory } from '../../api/db'
 
-export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools) => {
+export const useAbelinkMusic = (setChatData, abortControllerRef, youtubeMusicTools) => {
   const { playUrl, nextTrack, prevTrack, playPause } = youtubeMusicTools
 
   const handleMusic = async (action, query, customSetChatData) => {
@@ -43,7 +43,7 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
           }
         }
       } catch (err) {
-        console.warn('[useMarkMusic] Error retrieving saved music preferences:', err)
+        console.warn('[useAbelinkMusic] Error retrieving saved music preferences:', err)
       }
       if (!effectiveQuery) effectiveQuery = 'lofi hip hop radio'
     }
@@ -122,7 +122,7 @@ export const useMarkMusic = (setChatData, abortControllerRef, youtubeMusicTools)
           }
         }
       } catch (memErr) {
-        console.warn('[useMarkMusic] Gagal persist music memory:', memErr)
+        console.warn('[useAbelinkMusic] Gagal persist music memory:', memErr)
       }
 
       return `[SYSTEM LOG] Berhasil memutar lagu: ${selectedMusicList[0].title} oleh ${selectedMusicList[0].artist}`

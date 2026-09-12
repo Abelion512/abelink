@@ -1,9 +1,9 @@
-// Mark Browser Bridge — server HTTP lokal (Fase C3 Jalur A).
+// Abelink Browser Bridge — server HTTP lokal (Fase C3 Jalur A).
 //
-// Endpoint (semuanya di bawah /mark-bridge/, bind 127.0.0.1 saja):
-//   GET  /mark-bridge/handshake?session=&token=  -> validasi token + info poll
-//   GET  /mark-bridge/poll?session=&token=       -> long-poll, 1 perintah atau null
-//   POST /mark-bridge/result?session=&token=     -> hasil eksekusi perintah
+// Endpoint (semuanya di bawah /abelink-bridge/, bind 127.0.0.1 saja):
+//   GET  /abelink-bridge/handshake?session=&token=  -> validasi token + info poll
+//   GET  /abelink-bridge/poll?session=&token=       -> long-poll, 1 perintah atau null
+//   POST /abelink-bridge/result?session=&token=     -> hasil eksekusi perintah
 //
 // Semua logika antrean ada di bridge-core.mjs; file ini murni transport HTTP:
 // verifikasi token, batas ukuran body, dan JSON-safe response. Tanpa token
@@ -79,7 +79,7 @@ function checkOrigin(req) {
 
 async function route(req, res) {
   const url = new URL(req.url, `http://${BROWSER_BRIDGE.HOST}`)
-  if (!url.pathname.startsWith('/mark-bridge/')) {
+  if (!url.pathname.startsWith('/abelink-bridge/')) {
     return json(res, 404, { error: 'Not found.' })
   }
   if (!checkHost(req)) {
@@ -91,7 +91,7 @@ async function route(req, res) {
 
   const sessionId = url.searchParams.get('session') || 'default'
   const token = url.searchParams.get('token') || ''
-  const endpoint = url.pathname.slice('/mark-bridge/'.length)
+  const endpoint = url.pathname.slice('/abelink-bridge/'.length)
 
   if (endpoint === 'handshake' && req.method === 'GET') {
     const r = handshake(sessionId, token)
@@ -167,7 +167,7 @@ export function startBrowserBridge() {
     server.once('error', (e) => {
       startError =
         e.code === 'EADDRINUSE'
-          ? `Port bridge ${BROWSER_BRIDGE.PORT} sudah dipakai (instansi Mark lain berjalan?).`
+          ? `Port bridge ${BROWSER_BRIDGE.PORT} sudah dipakai (instansi Abelink lain berjalan?).`
           : `Bridge gagal start: ${e.message}`
       listening = false
       resolve({ ok: false, error: startError })
@@ -208,5 +208,9 @@ export function stopBrowserBridge() {
 }
 
 function xdgDataDir() {
-  return process.env.XDG_DATA_HOME || `${process.env.HOME}/.local/share`
+  return (
+    process.env.ABELINK_DATA_HOME ||
+    process.env.XDG_DATA_HOME ||
+    `${process.env.HOME}/.local/share`
+  )
 }

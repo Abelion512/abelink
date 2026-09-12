@@ -2,7 +2,7 @@ import { gt as semverGt, rcompare as semverRcompare } from './semverLite.js'
 const semver = { gt: semverGt, rcompare: semverRcompare }
 
 const REPO = 'Abelion512/abelink'
-const CACHE_KEY = 'mark:update-cache'
+const CACHE_KEY = 'abelink:update-cache'
 const CACHE_TTL = 24 * 60 * 60 * 1000 // 24 hours
 const CHECK_INTERVAL = 60 * 60 * 1000 // 1 hour
 
@@ -95,11 +95,11 @@ function maybeNotify(releases, channel) {
   if (!isNewer(latest, currentVersion)) return
 
   // Check if already seen
-  const lastSeen = localStorage.getItem('mark:last-seen-whats-new')
+  const lastSeen = localStorage.getItem('abelink:last-seen-whats-new')
   if (lastSeen === latest.version) return
 
   // Emit event
-  const event = new CustomEvent('mark:update-available', {
+  const event = new CustomEvent('abelink:update-available', {
     detail: {
       version: latest.version,
       url: latest.html_url,
@@ -130,7 +130,7 @@ function setCache(data) {
 
 export function markAsSeen(version) {
   try {
-    localStorage.setItem('mark:last-seen-whats-new', version)
+    localStorage.setItem('abelink:last-seen-whats-new', version)
   } catch {
     // ignore
   }

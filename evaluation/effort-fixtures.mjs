@@ -50,7 +50,7 @@ export function parseLevel(v) {
 
 // ---- fixture dirs (§47-§48) ----
 export async function withFixtureDir(name, fn) {
-  const base = path.join(os.tmpdir(), 'mark-effort-fixtures')
+  const base = path.join(os.tmpdir(), 'abelink-effort-fixtures')
   fs.mkdirSync(base, { recursive: true })
   const root = fs.mkdtempSync(path.join(base, `${name}-`))
   try {
@@ -150,7 +150,7 @@ export class Workflow {
   }
   async runAll({ parallel = false } = {}) {
     this.refresh()
-    // ponytail: sequential topological loop; parallel honored only as bounded batch size
+    // ponytail: sequential topological loop, parallel honored only as bounded batch size; true Promise.all fan-out if eval nodes gain real async I/O
     const order = []
     const pending = new Set(this.nodes.keys())
     let guard = 0
@@ -280,7 +280,7 @@ export async function runTask(kind, effort = 'low', opts = {}) {
       wf.add(new WorkflowNode('B', ['A'], async () => input.toLowerCase()))
       wf.add(new WorkflowNode('C', ['B'], async () => {
         check(state, policy, 'verification'); consumeVerification(state)
-        return input.toLowerCase() === 'mark_test' ? 'mark_test' : 'mismatch'
+        return input.toLowerCase() === 'abelink_test' ? 'abelink_test' : 'mismatch'
       }))
       return { wf, events, state, policy, canonical, effective, resolved: resolved0 }
     }

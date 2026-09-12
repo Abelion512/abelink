@@ -4,7 +4,9 @@ import { useChat } from '../contexts/useChat'
 import OrbVisualizer from '../components/core/OrbVisualizer'
 import JarvisOrb from '../components/core/JarvisOrb'
 import InputBar from '../components/core/InputBar'
+import { useManualCompaction } from '../hooks/useManualCompaction'
 import ResponseArea from '../components/core/ResponseArea'
+import { mapChatItemToResponse } from '../api/choiceBus'
 import StatusIndicator from '../components/core/StatusIndicator'
 import FloatingMenu from '../components/core/FloatingMenu'
 import HistoryDrawer from '../components/core/HistoryDrawer'
@@ -55,11 +57,12 @@ const isRichContent = (text, resp) => {
   return false
 }
 
-const MarkHome = () => {
+const AbelinkHome = () => {
   const chatContext = useChat()
   const safeContext = chatContext ?? {}
   const {
     chatData = [],
+    setChatData,
     message,
     setMessage,
     isLoading,
@@ -90,14 +93,14 @@ const MarkHome = () => {
   const queryParams = new URLSearchParams(location.search)
   const initialMode =
     queryParams.get('mode') ||
-    localStorage.getItem('mark:preferred_mode') ||
+    localStorage.getItem('abelink:preferred_mode') ||
     'voice'
 
   const [currentMode, setCurrentMode] = useState(initialMode)
   const [capsuleInput, setCapsuleInput] = useState('')
   const [orbStyle, setOrbStyle] = useState(() => {
     try {
-      return localStorage.getItem('mark:orb_style') || 'jarvis'
+      return localStorage.getItem('abelink:orb_style') || 'jarvis'
     } catch (_) {
       return 'jarvis'
     }
@@ -133,10 +136,10 @@ const MarkHome = () => {
     if (dragStartXRef.current === null) return
     const deltaX = e.clientX - dragStartXRef.current
     if (Math.abs(deltaX) > 30) {
-      const nextStyle = orbStyle === 'jarvis' ? 'mark' : 'jarvis'
+      const nextStyle = orbStyle === 'jarvis' ? 'abelink' : 'jarvis'
       setOrbStyle(nextStyle)
       try {
-        localStorage.setItem('mark:orb_style', nextStyle)
+        localStorage.setItem('abelink:orb_style', nextStyle)
       } catch (_) {}
     } else if (currentMode === 'voice') {
       if (isRecording) {
@@ -159,10 +162,10 @@ const MarkHome = () => {
     if (e.changedTouches && e.changedTouches[0]) {
       const deltaX = e.changedTouches[0].clientX - dragStartXRef.current
       if (Math.abs(deltaX) > 30) {
-        const nextStyle = orbStyle === 'jarvis' ? 'mark' : 'jarvis'
+        const nextStyle = orbStyle === 'jarvis' ? 'abelink' : 'jarvis'
         setOrbStyle(nextStyle)
         try {
-          localStorage.setItem('mark:orb_style', nextStyle)
+          localStorage.setItem('abelink:orb_style', nextStyle)
         } catch (_) {}
       } else if (currentMode === 'voice') {
         if (isRecording) {
@@ -183,7 +186,7 @@ const MarkHome = () => {
     cancelRecordingRef.current?.()
     setCurrentMode(newMode)
     try {
-      localStorage.setItem('mark:preferred_mode', newMode)
+      localStorage.setItem('abelink:preferred_mode', newMode)
     } catch (_) {}
   }, [])
 
@@ -205,7 +208,7 @@ const MarkHome = () => {
   const [camError, setCamError] = useState(null)
   const [isCamMirrored, setIsCamMirrored] = useState(() => {
     try {
-      const saved = localStorage.getItem('mark:camera_mirrored')
+      const saved = localStorage.getItem('abelink:camera_mirrored')
       return saved !== null ? saved === 'true' : true
     } catch (_) {
       return true
@@ -248,14 +251,14 @@ const MarkHome = () => {
   useEffect(() => {
     const handleTtsIntensity = (e) => {
       setTtsIntensity(e.detail || 0)
-      if (window.isMarkSpeaking) {
+      if (window.isAbelinkSpeaking) {
         setOrbStatus('speaking')
       } else {
         setOrbStatus((prev) => (prev === 'speaking' ? 'idle' : prev))
       }
     }
-    window.addEventListener('mark-intensity', handleTtsIntensity)
-    return () => window.removeEventListener('mark-intensity', handleTtsIntensity)
+    window.addEventListener('abelink-intensity', handleTtsIntensity)
+    return () => window.removeEventListener('abelink-intensity', handleTtsIntensity)
   }, [setOrbStatus])
 
   useEffect(() => {
@@ -517,7 +520,7 @@ const MarkHome = () => {
   // Di mode Voice: otomatis aktifkan listening jika belum merekam, sistem standby, dan tidak di-mute
   useEffect(() => {
     if (currentMode === 'voice') {
-      if (!isMicMuted && !isRecording && !isLoading && !isAgentBusy && !isProcessing && !window.isMarkSpeaking) {
+      if (!isMicMuted && !isRecording && !isLoading && !isAgentBusy && !isProcessing && !window.isAbelinkSpeaking) {
         const timer = setTimeout(() => {
           startRecording()
         }, 250)
@@ -605,13 +608,13 @@ const MarkHome = () => {
         return
       }
 
-      // ArrowLeft / ArrowRight: beralih visual Orb (Jarvis <-> Mark)
+      // ArrowLeft / ArrowRight: beralih visual Orb (Jarvis <-> Abelink)
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault()
         setOrbStyle((prev) => {
-          const next = prev === 'jarvis' ? 'mark' : 'jarvis'
+          const next = prev === 'jarvis' ? 'abelink' : 'jarvis'
           try {
-            localStorage.setItem('mark:orb_style', next)
+            localStorage.setItem('abelink:orb_style', next)
           } catch (_) {}
           return next
         })
@@ -640,6 +643,9 @@ const MarkHome = () => {
     }
   }, [isPlaying, currentTrack?.title, showMusicWidget])
 
+  // Kompaksi manual + tracker gauge (session compaction, sesi utama).
+  useManualCompaction({ messages: chatData, setMessages: setChatData, sessionId: 1 })
+
   // Orb Status Sync
   useEffect(() => {
     if (isRecording) {
@@ -660,33 +666,13 @@ const MarkHome = () => {
     }
   }, [isLoading, chatData, isRecording, isProcessing, setOrbStatus])
 
-  // Response extraction
+  // Response extraction (mapping via mapChatItemToResponse agar `choice`
+  // ask-choice selamat sampai ResponseArea — regresi tombol hilang).
   useEffect(() => {
     if (chatData && chatData.length > 0) {
       const lastItem = chatData[chatData.length - 1]
       if (lastItem.role === 'ai') {
-        if (lastItem.isThinking || lastItem.isSearching) {
-          setCurrentResponse({
-            text: lastItem.content || 'Memproses instruksi...',
-            type: 'short',
-            isThinking: true,
-            mood: lastItem.mood || 'neutral'
-          })
-        } else {
-          setCurrentResponse({
-            text: lastItem.content,
-            type:
-              lastItem.content?.length > 200 || lastItem.content?.includes('\n')
-                ? 'long'
-                : 'short',
-            sources: lastItem.sources || [],
-            youtubeData: lastItem.youtubeData,
-            youtubeSummary: lastItem.youtubeLink,
-            pluginResult: lastItem.pluginExecution,
-            isProactive: lastItem.isProactive,
-            mood: lastItem.mood || 'neutral'
-          })
-        }
+        setCurrentResponse(mapChatItemToResponse(lastItem))
       } else {
         if (isLoading) {
           setCurrentResponse({
@@ -861,7 +847,7 @@ const MarkHome = () => {
               : 'flex-col items-center justify-center px-4'
           } overflow-hidden select-none transition-all duration-500`}
         >
-          {/* Centered or Left Jarvis / Mark Hero Orb */}
+          {/* Centered or Left Jarvis / Abelink Hero Orb */}
           <div
             className={`flex flex-col items-center justify-center transition-all duration-700 ease-out ${
               showRichCardInVoice
@@ -880,7 +866,7 @@ const MarkHome = () => {
               }}
               title="Tekan tombol panah (Arrow Left / Right), geser kursor, atau klik indikator di bawah untuk beralih gaya Orb"
             >
-              {orbStyle === 'mark' ? (
+              {orbStyle === 'abelink' ? (
                 <OrbVisualizer
                   status={orbStatus}
                   intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
@@ -953,7 +939,7 @@ const MarkHome = () => {
                     ? 'listening... (klik untuk jeda)'
                     : isProcessing
                     ? 'transcribing / thinking...'
-                    : window.isMarkSpeaking
+                    : window.isAbelinkSpeaking
                     ? 'speaking...'
                     : 'standby (klik untuk bicara)'}
                 </span>
@@ -961,10 +947,10 @@ const MarkHome = () => {
               <div
                 className="flex items-center gap-1.5 cursor-pointer opacity-40 hover:opacity-100 transition-opacity"
                 onClick={() => {
-                  const nextStyle = orbStyle === 'jarvis' ? 'mark' : 'jarvis'
+                  const nextStyle = orbStyle === 'jarvis' ? 'abelink' : 'jarvis'
                   setOrbStyle(nextStyle)
                   try {
-                    localStorage.setItem('mark:orb_style', nextStyle)
+                    localStorage.setItem('abelink:orb_style', nextStyle)
                   } catch (_) {}
                 }}
                 title="Klik untuk beralih gaya Orb"
@@ -976,7 +962,7 @@ const MarkHome = () => {
                 />
                 <span
                   className={`h-1 rounded-full transition-all ${
-                    orbStyle === 'mark' ? 'bg-cyan-400 w-3.5' : 'bg-white/40 w-1'
+                    orbStyle === 'abelink' ? 'bg-cyan-400 w-3.5' : 'bg-white/40 w-1'
                   }`}
                 />
               </div>
@@ -1047,7 +1033,8 @@ const MarkHome = () => {
             onStop={handleStop}
             source={inputSource}
             workspaceRoot={workspaceRoot}
-            onSelectWorkspace={handleSelectWorkspace}
+            onSelectWorkspace={handleSelectSessionWorkspace}
+            sessionId={1}
           />
         </div>
       )}
@@ -1331,4 +1318,4 @@ const MarkHome = () => {
   )
 }
 
-export default MarkHome
+export default AbelinkHome

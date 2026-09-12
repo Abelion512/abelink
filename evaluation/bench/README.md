@@ -11,9 +11,9 @@ dinilai rubrik 0/1 deterministik.
 | `contract.mjs` | Skema trajectory + step + rubrik + laporan |
 | `tasks.mjs` | Katalog probe: brain/logic/body/soul/planning/io |
 | `capture.mjs` | Kontrak boundary + normalisasi raw step → trajectory |
-| `boundary-spec.mjs` | Spesifikasi sisi MARK: `startRun`/`sendPrompt`/`endRun`/`abortRun` |
+| `boundary-spec.mjs` | Spesifikasi sisi ABELINK: `startRun`/`sendPrompt`/`endRun`/`abortRun` |
 | `evaluator.mjs` | Rubrik deterministik (pure function) |
-| `runner-stub.mjs` | Pipeline end-to-end via stub boundary (tanpa MARK nyata) |
+| `runner-stub.mjs` | Pipeline end-to-end via stub boundary (tanpa ABELINK nyata) |
 | `runner.mjs` | Runner laporan |
 | `compare.mjs` | Perbandingan antar run (regression gate) |
 
@@ -31,6 +31,6 @@ const report = await runStubBenchmark({})
 console.log(report.summary)
 ```
 
-Otomatisasi penuh menunggu boundary MARK nyata yang memenuhi
+Otomatisasi penuh menunggu boundary ABELINK nyata yang memenuhi
 `boundary-spec.mjs`; verifikasi kepatuhan dengan `wrapBoundary()` /
 `describeBoundary()` dari `runner-stub.mjs` / `capture.mjs`.

@@ -72,6 +72,7 @@ export default function CapabilitiesHub({
   config,
   setConfig,
   handleAwarenessEnabledChange,
+  handleCompactionEnabledChange,
   handleBuiltinPluginChange,
   handleRtkCompressChange,
   isDevMode = false
@@ -186,7 +187,7 @@ export default function CapabilitiesHub({
 
       let customMcp = []
       try {
-        customMcp = JSON.parse(localStorage.getItem('mark:custom_mcp') || '[]')
+        customMcp = JSON.parse(localStorage.getItem('abelink:custom_mcp') || '[]')
       } catch (_) {}
 
       // Daftarkan custom MCP ke sidecar (proses terpisah) agar authorize/
@@ -289,7 +290,7 @@ export default function CapabilitiesHub({
           return
         }
       }
-      const current = JSON.parse(localStorage.getItem('mark:custom_mcp') || '[]')
+      const current = JSON.parse(localStorage.getItem('abelink:custom_mcp') || '[]')
       const updated = [
         ...current.filter((c) => c.id !== newMcpForm.id.trim()),
         {
@@ -300,7 +301,7 @@ export default function CapabilitiesHub({
           headers: parsedHeaders
         }
       ]
-      localStorage.setItem('mark:custom_mcp', JSON.stringify(updated))
+      localStorage.setItem('abelink:custom_mcp', JSON.stringify(updated))
       setAddMcpModalOpen(false)
       setNewMcpForm({ id: '', name: '', url: '', description: '', headers: '' })
       loadMcpData()
@@ -964,6 +965,20 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   className="toggle toggle-primary toggle-xs shrink-0"
                   checked={config.awarenessEnabled !== false}
                   onChange={handleAwarenessEnabledChange}
+                />
+              </div>
+
+              {/* Session Compaction */}
+              <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-white/90">Session Compaction</div>
+                  <p className="text-[11px] text-white/50 truncate">Ringkas konteks sesi (budget 525K) agar debat panjang tetap muat.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  className="toggle toggle-primary toggle-xs shrink-0"
+                  checked={config.sessionCompactionEnabled !== false}
+                  onChange={handleCompactionEnabledChange}
                 />
               </div>
 
