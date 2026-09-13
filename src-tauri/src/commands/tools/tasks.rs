@@ -260,8 +260,11 @@ mod tests {
     #[test]
     fn group_is_ours_matches_bash_child_only() {
         use std::os::unix::process::CommandExt;
+        // PENTING: `bash -c "sleep 60"` (tunggal) memicu tail-exec — bash exec
+        // langsung menjadi `sleep`, jadi comm TIDAK PERNAH "bash". Tambahkan
+        // builtin `true` di ekor agar bash tetap resident saat kita menilai.
         let mut cmd = std::process::Command::new("bash");
-        cmd.arg("-c").arg("sleep 60").process_group(0);
+        cmd.arg("-c").arg("sleep 60; true").process_group(0);
         let mut child = cmd.spawn().expect("spawn bash test");
         let pid = child.id();
         // Tunggu exec() anak selesai sebelum menilai comm (lihat wait_comm_is).
