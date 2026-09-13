@@ -192,7 +192,7 @@ const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }) => (
 function App() {
   const [hasConfig, setHasConfig] = useState(true)
   const [isChecking, setIsChecking] = useState(true)
-  const [loadingText, setLoadingText] = useState('Membangunkan Abelink...')
+  const [loadingText] = useState('Membangunkan Abelink...')
   const [showRecovery, setShowRecovery] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
   const [legacyProfiles, setLegacyProfiles] = useState(null) // null = belum dicek
@@ -233,113 +233,34 @@ function App() {
   }, [])
 
   useEffect(() => {
+    let alive = true
     const checkConfig = async () => {
       // 0. Detect lite mode FIRST  -  set flag before any hydration so generateVector
       //    uses hash embeddings instead of triggering WASM extractor load.
       let lm = null
+      let fullMode = null
+      try {
+        fullMode = localStorage.getItem('abelink:fullmode')
+      } catch (_) {}
       try {
         lm = await window.api.getLiteMode()
-        // Mode penuh: ditawarkan SEKALI saat boot, hanya bila RAM > 16GB.
-        // Bila user memilih penuh, gate RAM diabaikan sesi ini dan seterusnya
-        // (pilihan tersimpan; diubah via Configuration).
-        let fullMode = null
-        try {
-          fullMode = localStorage.getItem('abelink:fullmode')
-        } catch (_) {}
-        if (fullMode === null && lm?.totalRAMGB > 16 && window.api?.nativeConfirm) {
-          try {
-            const yes = await window.api.nativeConfirm(
-              'RAM di atas 16GB terdeteksi. Aktifkan Mode Penuh (coba fitur berat dulu, degradasi hanya bila benar-benar gagal)?'
-            )
-            fullMode = yes ? '1' : '0'
-            try {
-              localStorage.setItem('abelink:fullmode', fullMode)
-              localStorage.setItem('abelink:fullmode-asked', '1')
-            } catch (_) {}
-          } catch (_) {}
-        }
-        setLiteMode(fullMode === '1' ? false : lm.isLite)
+        if (alive) setLiteMode(fullMode === '1' ? false : lm.isLite)
       } catch (e) {
         console.error('[App] Failed to get lite mode status:', e)
       }
 
-      // Parkir task running dari sesi sebelumnya agar tidak menggantung saat restart
-      try {
-        await pauseStaleAgentTasks('app_restart')
-      } catch (e) {
+      // Parkir task running dari sesi sebelumnya  -  fire-and-forget, idempoten
+      // (pauseStaleAgentTasks: running/waiting_user -> paused, step running -> pending).
+      pauseStaleAgentTasks('app_restart').catch((e) => {
         console.warn('[App] Failed to pause stale agent tasks:', e)
-      }
+      })
 
-      // 1. Init Orama + Hydrate  -  SELALU jalan (fitur tidak pernah mati);
-      // profil hanya mengatur urutan. ensureIndices() di oramaStore idempoten,
-      // jadi pemanggilan eksplisit di sini hanyalah eager-load.
-      // Analogy: n8n spawn worker saat boot kalau profile-nya kencang.
-      let profileConfig = null
-      try {
-        let ramGB = null
-        if (lm?.totalRAMGB && lm.totalRAMGB > 0) ramGB = lm.totalRAMGB
-        profileConfig = getProfileConfig(detectHardwareProfile(ramGB))
-        if (profileConfig.eagerLoad.includes('orama')) {
-          setLoadingText('Memuat Knowledge Base...')
-          await initOramaIndices()
-          await hydrateFromDexie((current, total) => {
-            setLoadingText(`Mengindeks memori percakapan lama (${current}/${total})...`)
-          })
-          console.log('[App] Orama indices ready (eager)')
-        } else {
-          console.log('[App] Orama lazy  -  dibuat on-demand saat pertama dipakai')
-        }
-      } catch (e) {
-        console.error('[App] Failed to init Orama:', e)
-      }
-
-      // 1.5 Load Embeddings Model  -  TETAP dimuat walau lite mode: lite hanya
-      // berarti WASM mungkin lambat, bukan alasan kehilangan embedding nyata.
-      // Worker punya fallback ladder SIMD -> scalar -> CPU (embedding.worker.js).
-      try {
-        const shouldLoadVectors = profileConfig?.eagerLoad.includes('vectors')
-        if (shouldLoadVectors) {
-          setLoadingText('Memuat Memori Kognitif...')
-          const { getExtractor } = await import('./api/vectorMemory')
-          let memStats = {}
-          await getExtractor((info) => {
-            if (info.status === 'initiate') {
-              memStats[info.file] = { loaded: 0, total: info.total || 0 }
-            } else if (info.status === 'progress') {
-              if (memStats[info.file]) {
-                memStats[info.file].loaded = info.loaded
-                memStats[info.file].total = info.total
-              }
-              const values = Object.values(memStats)
-              const totalBytes = values.reduce((acc, curr) => acc + curr.total, 0)
-              const loadedBytes = values.reduce((acc, curr) => acc + curr.loaded, 0)
-              if (totalBytes > 0) {
-                const percent = Math.round((loadedBytes / totalBytes) * 100)
-                const loadedMB = (loadedBytes / 1024 / 1024).toFixed(1)
-                const totalMB = (totalBytes / 1024 / 1024).toFixed(1)
-                setLoadingText(`Mengunduh Memori AI... ${percent}% (${loadedMB}MB / ${totalMB}MB)`)
-              }
-            } else if (info.status === 'done' || info.status === 'ready') {
-              setLoadingText('Membangunkan Abelink...')
-            }
-          })
-        } else {
-          console.log('[App] Vector model skipped  -  lazy-load on demand')
-        }
-      } catch (e) {
-        console.error('[App] Failed to load Transformers:', e)
-      }
-
-      // 1.6 Voice Engine (Whisper) sengaja TIDAK di-preload di boot  - 
-      // transcribeAudioLocal memuat model saat pertama kali dipakai
-      // (lazy by design, lihat src/api/localWhisper.js). Boot jadi lebih cepat.
-
-      // 2. Load config
+      // 2. Load config  -  runs BEFORE heavy background work so first paint is fast.
       const data = await getAllConfig()
       if (!data || data.length === 0) {
-        setHasConfig(false)
+        if (alive) setHasConfig(false)
       } else {
-        setHasConfig(true)
+        if (alive) setHasConfig(true)
         if (window.api && window.api.syncConfig) {
           window.api.syncConfig(data[0])
         }
@@ -375,9 +296,78 @@ function App() {
         console.warn('[Profile] Detection failed, using default STANDARD:', e)
       }
 
-      setIsChecking(false)
+      if (alive) setIsChecking(false)
+
+      // Post-boot: full-mode prompt (once, same localStorage keys) + heavy
+      // preloads (Orama hydrate, vector model)  -  non-blocking background work.
+      // Mode penuh: ditawarkan SEKALI saat boot, hanya bila RAM > 16GB.
+      // Bila user memilih penuh, gate RAM diabaikan sesi ini dan seterusnya
+      // (pilihan tersimpan; diubah via Configuration).
+      ;(async () => {
+        try {
+          if (fullMode === null && lm?.totalRAMGB > 16 && window.api?.nativeConfirm) {
+            try {
+              const yes = await window.api.nativeConfirm(
+                'RAM di atas 16GB terdeteksi. Aktifkan Mode Penuh (coba fitur berat dulu, degradasi hanya bila benar-benar gagal)?'
+              )
+              fullMode = yes ? '1' : '0'
+              try {
+                localStorage.setItem('abelink:fullmode', fullMode)
+                localStorage.setItem('abelink:fullmode-asked', '1')
+              } catch (_) {}
+              if (alive && fullMode === '1') setLiteMode(false)
+            } catch (_) {}
+          }
+        } catch (e) {
+          console.warn('[App] Full-mode prompt failed:', e)
+        }
+
+        // 1. Init Orama + Hydrate  -  SELALU jalan (fitur tidak pernah mati);
+        // profil hanya mengatur urutan. ensureIndices() di oramaStore idempoten,
+        // jadi pemanggilan eksplisit di sini hanyalah eager-load.
+        // Analogy: n8n spawn worker saat boot kalau profile-nya kencang.
+        let profileConfig = null
+        try {
+          let ramGB = null
+          if (lm?.totalRAMGB && lm.totalRAMGB > 0) ramGB = lm.totalRAMGB
+          profileConfig = getProfileConfig(detectHardwareProfile(ramGB))
+          if (profileConfig.eagerLoad.includes('orama')) {
+            await initOramaIndices()
+            await hydrateFromDexie()
+            console.log('[App] Orama indices ready (eager, background)')
+          } else {
+            console.log('[App] Orama lazy  -  dibuat on-demand saat pertama dipakai')
+          }
+        } catch (e) {
+          console.error('[App] Failed to init Orama:', e)
+        }
+
+        // 1.5 Load Embeddings Model  -  TETAP dimuat walau lite mode: lite hanya
+        // berarti WASM mungkin lambat, bukan alasan kehilangan embedding nyata.
+        // Worker punya fallback ladder SIMD -> scalar -> CPU (embedding.worker.js).
+        try {
+          const shouldLoadVectors = profileConfig?.eagerLoad.includes('vectors')
+          if (shouldLoadVectors) {
+            const { getExtractor } = await import('./api/vectorMemory')
+            await getExtractor()
+          } else {
+            console.log('[App] Vector model skipped  -  lazy-load on demand')
+          }
+        } catch (e) {
+          console.error('[App] Failed to load Transformers:', e)
+        }
+
+        // 1.6 Voice Engine (Whisper) sengaja TIDAK di-preload di boot  -
+        // transcribeAudioLocal memuat model saat pertama kali dipakai
+        // (lazy by design, lihat src/api/localWhisper.js). Boot jadi lebih cepat.
+      })().catch((e) => {
+        console.error('[App] Background preload failed:', e)
+      })
     }
     checkConfig()
+    return () => {
+      alive = false
+    }
   }, [])
 
   const settleChoice = useCallback(async (value) => {

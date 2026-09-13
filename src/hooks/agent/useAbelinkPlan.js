@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { getNextAction } from '../../api/ai/planning'
+import { getNextAction, getLastSystemPrompt } from '../../api/ai/planning'
 import { playVoice, getCurrentTimeInfo } from '../../api/ai/utils'
 import {
   db,
@@ -33,7 +33,7 @@ import { classifyMainDecision, INTENT, isExplicitSelfTerminate } from '../../api
 import { createCircuitBreaker } from '../../api/ai/circuitBreaker'
 import { createTrajectorySupervisor } from '../../api/ai/trajectorySupervisor'
 import { currentBenchArch } from '../../api/ai/benchArch'
-import { logStep as trajectoryLogStep } from '../../api/trajectory'
+import { logStep as trajectoryLogStep, estimateTokens as trajectoryEstimateTokens } from '../../api/trajectory'
 import { logObservation as trajectoryLogObservation } from '../../api/trajectory'
 import { logAnswer as trajectoryLogAnswer } from '../../api/trajectory'
 import { logTurnStart as trajectoryLogTurnStart } from '../../api/trajectory'
@@ -915,6 +915,23 @@ export const useAbelinkPlan = ({
             }
           )
         }
+
+        // Ukur prompt per-turn (observability, tanpa ubah perilaku): log
+        // estimasi token system prompt terakhir via jalur trajectory yang ada.
+        // Tak pernah throw; fallback 0 bila prompt tak tersedia.
+        try {
+          const _sys = typeof getLastSystemPrompt === 'function' ? getLastSystemPrompt() : ''
+          const _tok = trajectoryEstimateTokens(typeof _sys === 'string' ? _sys : '')
+          trajectoryLogStep({
+            step: stepCount,
+            total: maxPlanSteps,
+            description: 'prompt-measure',
+            status: 'prompt-tokens',
+            promptTokens: _tok || 0,
+            sessionId: activeSessionNum,
+            turn: stepCount
+          })
+        } catch (_) {}
 
         // Penanganan jika disableTools aktif
         if (opts.disableTools) {
