@@ -19,14 +19,12 @@
  * dari kapasitas input summarizer diproses bertahap (chunk, paling lama dulu)
  * dan pointer hanya maju sejauh chunk yang selesai; sisanya dilanjutkan
  * kompaksi berikutnya. Ringkasan tidak pernah memotong ekor lalu mengklaim
- * seluruh rentang sudah tercakup.
+ * seluruh rentang sudah tercakup. Kegagalan AI pada sebuah chunk TIDAK
+ * menghitung cakupan chunk itu (tanpa stub "N pesan dikompaksi").
  *
- * INVARIANT RETENSI (pilihan sadar caller): pada giliran non-kompaksi caller
- * mengirim summary + window pesan terbaru, sehingga pesan di dalam window yang
- * sudah tercakup ringkasan ikut terkirim lagi (duplikasi terbatas ±1,2k char
- * per pesan karena caller memangkas pesan lama) — itu sebabnya akuntansi
- * men-skip pre-pointer. Jangan memotong window untuk menghilangkan duplikasi:
- * retensi turn terbaru lebih penting daripada angka akuntansi.
+ * INVARIANT POINTER: summary tanpa pointer yang bisa diresolvakan terhadap
+ * riwayat aktif dianggap stale — dikecualikan dari akuntansi, tidak disuntik
+ * ke prompt, dan dibuang dari store saat terdeteksi.
  *
  * persist=true menulis prunedMessages ke store `sessions` (memotong riwayat
  * asli). Pemanggil yang hanya butuh ringkasan untuk prompt WAJIB persist=false.
@@ -37,7 +35,7 @@
  */
 import { fetchAI } from './core'
 import { compactCodeBlocks } from './contextCompactor'
-import { getSessionCompact, saveSessionCompact, saveSession } from '../db'
+import { clearSessionCompact, getSessionCompact, saveSessionCompact, saveSession } from '../db'
 
 // Sama persis upstream: 525.000 karakter.
 export const MAX_SESSION_CHARS = 525000
@@ -45,9 +43,43 @@ export const MAX_SESSION_CHARS = 525000
 // Giliran terbaru yang selalu dipertahankan utuh (tanpa prune penuh).
 export const PRESERVE_RECENT_TURNS = 4
 
+// Budget karakter untuk SATU panggilan summarizer (upstream: 90k).
+export const MAX_SUMMARY_INPUT_CHARS = 90000
+// Batas teks per pesan di dalam input summarizer (head+tail tetap dipertahankan).
+export const SUMMARY_PER_MESSAGE_CHARS = 2500
+// Batas jumlah panggilan AI per kompaksi; sisanya dilanjutkan kompaksi berikutnya.
+export const MAX_SUMMARY_CHUNKS_PER_RUN = 4
+
+const isPresentId = (value) => value !== undefined && value !== null && value !== ''
+
+// Ordered candidates deliberately include legacy timestamp values. New messages
+// carry an `id`; older persisted sessions can still be matched by their original
+// `created_at` or timestamp pointer during migration.
+const messageIdCandidates = (msg, fallbackIndex = 0) => {
+  if (!msg) return [`msg-${fallbackIndex}`]
+  const ids = [msg.id, msg.messageId, msg.created_at, msg.createdAt, msg.timestamp]
+    .filter(isPresentId)
+    .map(String)
+  return ids.length > 0 ? [...new Set(ids)] : [`msg-${fallbackIndex}`]
+}
+
 export function getMessageId(msg, fallbackIndex = 0) {
-  if (!msg) return `msg-${fallbackIndex}`
-  return String(msg.id || msg.created_at || msg.timestamp || `msg-${fallbackIndex}`)
+  return messageIdCandidates(msg, fallbackIndex)[0]
+}
+
+export function findMessageIndex(messages = [], messageId = null) {
+  if (!Array.isArray(messages) || !isPresentId(messageId)) return -1
+  const targetId = String(messageId)
+  return messages.findIndex((msg, index) => messageIdCandidates(msg, index).includes(targetId))
+}
+
+const hasUsablePointer = (messages, summaryBlock, lastCompactedMessageId) =>
+  Boolean(summaryBlock && isPresentId(lastCompactedMessageId) && findMessageIndex(messages, lastCompactedMessageId) !== -1)
+
+export function getCompactionTail(messages = [], summaryBlock = '', lastCompactedMessageId = null) {
+  if (!Array.isArray(messages)) return []
+  if (!hasUsablePointer(messages, summaryBlock, lastCompactedMessageId)) return messages
+  return messages.slice(findMessageIndex(messages, lastCompactedMessageId) + 1)
 }
 
 export function calculateMessageChars(msg) {
@@ -84,23 +116,14 @@ export function calculateSessionChars(
 ) {
   if (!Array.isArray(messages)) return 0
   const cap = Number.isFinite(maxChars) && maxChars > 0 ? maxChars : MAX_SESSION_CHARS
-  let total = typeof summaryBlock === 'string' ? summaryBlock.length : 0
-  let startIndex = 0
-  if (lastCompactedMessageId) {
-    const targetId = String(lastCompactedMessageId)
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i]
-      if (
-        getMessageId(msg, i) === targetId ||
-        String(msg?.id) === targetId ||
-        String(msg?.created_at) === targetId ||
-        String(msg?.timestamp) === targetId
-      ) {
-        startIndex = i + 1
-        break
-      }
-    }
-  }
+  // INVARIANT: summary tanpa pointer yang bisa diresolvakan sengaja dikecualikan.
+  // Kepemilikannya tidak bisa dibuktikan, jadi menghitung/menyuntikkannya justru
+  // membuat summary stale terlihat seperti konteks valid.
+  const cutIndex = isPresentId(lastCompactedMessageId)
+    ? findMessageIndex(messages, String(lastCompactedMessageId))
+    : -1
+  let total = cutIndex !== -1 && typeof summaryBlock === 'string' ? summaryBlock.length : 0
+  const startIndex = cutIndex + 1
   if (total >= cap) return cap
   for (let i = startIndex; i < messages.length; i++) {
     if (isSkipped(messages[i])) continue
@@ -157,17 +180,6 @@ export function pruneOldToolResultsInMemory(messages = [], preserveRecentTurns =
   return cloned
 }
 
-/**
- * Tahap 2: ringkas AI inkremental (delta). Dipanggil hanya bila tahap 1
- * tidak cukup. Provider aktif sesi (tanpa Gemini-dulu — adaptasi dari upstream).
- */
-// Budget karakter untuk SATU panggilan summarizer (upstream: 90k).
-export const MAX_SUMMARY_INPUT_CHARS = 90000
-// Batas teks per pesan di dalam input summarizer (head+tail tetap dipertahankan).
-export const SUMMARY_PER_MESSAGE_CHARS = 2500
-// Batas jumlah panggilan AI per kompaksi; sisanya dilanjutkan kompaksi berikutnya.
-export const MAX_SUMMARY_CHUNKS_PER_RUN = 4
-
 const renderSummaryLine = (msg, index, maxChars = SUMMARY_PER_MESSAGE_CHARS) => {
   if (isSkipped(msg)) return null
   const sender = msg.role === 'user' ? 'User' : 'Abelink'
@@ -219,8 +231,12 @@ export function buildSummaryChunks(messagesToSummarize = [], maxChars = MAX_SUMM
 
 /**
  * Satu panggilan summarizer untuk satu chunk (fold ke ringkasan lama).
+ * Return { summaryBlock, usedFallback }: usedFallback=true berarti AI gagal —
+ * TIDAK ada stub "N pesan telah dikompaksi": pointer tidak boleh maju di atas
+ * konten yang tidak pernah dilihat model, dan ringkasan tidak boleh mengklaim
+ * cakupan palsu.
  */
-async function summarizeChunk(messagesText, existingSummaryBlock, activeConfig, messageCount) {
+async function summarizeChunk(messagesText, existingSummaryBlock, activeConfig) {
   const systemPrompt = `Kamu adalah sistem internal Abelink untuk context compaction.
 Tugasmu: Buat SATU ringkasan padat dan komprehensif yang memperbarui ringkasan lama dengan percakapan baru.
 
@@ -249,21 +265,18 @@ Aturan Ringkasan:
   } catch (err) {
     console.warn('[sessionCompactor] summarizer provider aktif gagal:', err?.message)
   }
-  return {
-    summaryBlock: `${existingSummaryBlock ? existingSummaryBlock + '\n\n' : ''}[Arsip percakapan lampau: ${messageCount} pesan telah dikompaksi pada ${new Date().toLocaleString('id-ID')}]`,
-    usedFallback: true
-  }
+  return { summaryBlock: null, usedFallback: true }
 }
 
 /**
- * Ringkas rentang pesan secara bertahap (chunk paling lama dulu, fold ke
- * ringkasan sebelumnya). Kembalikan `coveredCount` = jumlah pesan (dari awal
+ * Tahap 2: ringkas rentang pesan secara bertahap (chunk paling lama dulu, fold
+ * ke ringkasan sebelumnya). Kembalikan `coveredCount` = jumlah pesan (dari awal
  * rentang) yang benar-benar sudah masuk ringkasan, sehingga caller bisa
  * memajukan pointer hanya sejauh itu.
  *
- * Jika provider gagal, chunk itu diisi catatan arsip (bukan hilang) dan loop
- * berhenti: tidak ada ledakan panggilan AI, pointer tetap jujur, sisanya diulang
- * pada kompaksi berikutnya.
+ * Jika provider gagal pada sebuah chunk, loop berhenti DI CHUNK ITU: cakupan
+ * TIDAK maju melewatinya (pointer tetap jujur), fold sejauh chunk sukses
+ * dipertahankan, dan sisanya diulang pada kompaksi berikutnya.
  */
 export async function summarizeMiddle(messagesToSummarize = [], existingSummaryBlock = '', activeConfig = {}, options = {}) {
   if (!Array.isArray(messagesToSummarize) || messagesToSummarize.length === 0) {
@@ -287,14 +300,15 @@ export async function summarizeMiddle(messagesToSummarize = [], existingSummaryB
   let usedFallback = false
   for (const chunk of chunks) {
     if (processed >= maxChunks) break
-    processed++
-    const result = await summarizeChunk(chunk.text, summaryBlock, activeConfig, chunk.count)
-    summaryBlock = result.summaryBlock
-    coveredCount = chunk.lastIndex + 1
+    const result = await summarizeChunk(chunk.text, summaryBlock, activeConfig)
     if (result.usedFallback) {
+      // Chunk gagal: berhenti TANPA menghitung cakupan chunk ini.
       usedFallback = true
       break
     }
+    summaryBlock = result.summaryBlock
+    coveredCount = chunk.lastIndex + 1
+    processed++
   }
   const total = messagesToSummarize.length
   return {
@@ -334,12 +348,20 @@ export async function executeSessionCompaction({
   } catch (err) {
     console.warn('[sessionCompactor] Gagal mengambil session_compact lama:', err?.message)
   }
+  if (existingSummaryBlock && !hasUsablePointer(messages, existingSummaryBlock, existingLastCompactedId)) {
+    console.warn('[sessionCompactor] Pointer ringkasan tidak cocok dengan riwayat aktif; membuang ringkasan stale.')
+    const cleared = await clearSessionCompact(sessionId)
+    if (!cleared) console.warn('[sessionCompactor] Gagal menghapus session_compact stale dari penyimpanan.')
+    existingSummaryBlock = ''
+    existingLastCompactedId = null
+  }
   const currentChars = calculateSessionChars(messages, existingSummaryBlock, existingLastCompactedId)
   if (!force && currentChars < MAX_SESSION_CHARS) {
     return {
       success: true,
       isCompacted: false,
       compactedMessages: messages,
+      tailMessages: getCompactionTail(messages, existingSummaryBlock, existingLastCompactedId),
       newSummaryBlock: existingSummaryBlock,
       summaryBlock: existingSummaryBlock,
       lastCompactedMessageId: existingLastCompactedId,
@@ -364,7 +386,7 @@ export async function executeSessionCompaction({
       isCompacted: true,
       prunedOnly: true,
       compactedMessages: prunedMessages,
-      tailMessages: prunedMessages,
+      tailMessages: getCompactionTail(prunedMessages, existingSummaryBlock, existingLastCompactedId),
       newSummaryBlock: existingSummaryBlock,
       summaryBlock: existingSummaryBlock,
       lastCompactedMessageId: existingLastCompactedId,
@@ -375,27 +397,15 @@ export async function executeSessionCompaction({
     onProgress({ stage: 'summarizing', text: 'Merangkum konteks percakapan lama...' })
   }
   const tailStartIndex = Math.max(0, prunedMessages.length - 1)
-  let startIndexToSummarize = 0
-  if (existingLastCompactedId) {
-    const targetId = String(existingLastCompactedId)
-    for (let i = 0; i < prunedMessages.length; i++) {
-      const msg = prunedMessages[i]
-      if (
-        getMessageId(msg, i) === targetId ||
-        String(msg?.id) === targetId ||
-        String(msg?.created_at) === targetId ||
-        String(msg?.timestamp) === targetId
-      ) {
-        startIndexToSummarize = i + 1
-        break
-      }
-    }
-  }
+  const pointerIndex = hasUsablePointer(prunedMessages, existingSummaryBlock, existingLastCompactedId)
+    ? findMessageIndex(prunedMessages, existingLastCompactedId)
+    : -1
+  const startIndexToSummarize = pointerIndex + 1
   const effectiveTailIndex = Math.max(tailStartIndex, startIndexToSummarize)
   const messagesToSummarize = prunedMessages.slice(startIndexToSummarize, effectiveTailIndex)
-  const tailMessages = prunedMessages.slice(effectiveTailIndex)
   let newSummaryBlock = existingSummaryBlock
   let lastCompactedMessageId = existingLastCompactedId
+  let lastCoveredIndex = -1
   let summaryCoverage = null
   if (messagesToSummarize.length > 0) {
     const run = await summarizeMiddle(messagesToSummarize, existingSummaryBlock, activeConfig)
@@ -405,7 +415,10 @@ export async function executeSessionCompaction({
     if (run.coveredCount > 0) {
       const coveredIndex = startIndexToSummarize + run.coveredCount - 1
       const coveredMsg = prunedMessages[coveredIndex]
-      if (coveredMsg) lastCompactedMessageId = getMessageId(coveredMsg, coveredIndex)
+      if (coveredMsg) {
+        lastCompactedMessageId = getMessageId(coveredMsg, coveredIndex)
+        lastCoveredIndex = coveredIndex
+      }
     }
     summaryCoverage = {
       covered: run.coveredCount,
@@ -415,14 +428,52 @@ export async function executeSessionCompaction({
       usedFallback: run.usedFallback
     }
   }
+  // AI gagal di chunk pertama: TIDAK ADA konten baru yang terwakili. Jangan
+  // tulis apapun; pertahankan summary+pointer lama bila ada, atau laporkan
+  // gagal agar caller memakai riwayat aktif utuh (bukan summary kosong).
+  if (summaryCoverage && summaryCoverage.covered === 0 && !newSummaryBlock) {
+    return {
+      success: false,
+      error: 'Summarizer gagal merangkum konteks; gunakan riwayat aktif tanpa ringkasan.',
+      isCompacted: false,
+      compactedMessages: prunedMessages,
+      tailMessages: prunedMessages,
+      lastCompactedMessageId: null,
+      newSummaryBlock: '',
+      summaryBlock: '',
+      currentChars: calculateSessionChars(prunedMessages)
+    }
+  }
+  // Tail jendela prompt dihitung dari pointer yang SUDAH disesuaikan coverage:
+  // - coverage maju: pesan SETELAH pointer tercakup tampil verbatim (termasuk
+  //   yang belum terwakili — tidak ada gap).
+  // - coverage 0 dengan summary lama: pointer tak bergerak, seluruh delta
+  //   (setelah pointer lama) tetap verbatim di window sambil menunggu retry.
+  const tailMessages = lastCoveredIndex !== -1
+    ? prunedMessages.slice(lastCoveredIndex + 1)
+    : prunedMessages.slice(startIndexToSummarize)
+  let compactSaved = false
   try {
-    await saveSessionCompact(sessionId, {
+    compactSaved = await saveSessionCompact(sessionId, {
       summaryBlock: newSummaryBlock,
       lastCompactedMessageId,
       lastCompactedAt: Date.now()
     })
   } catch (err) {
     console.error('[sessionCompactor] Gagal menyimpan session_compact:', err?.message)
+  }
+  if (!compactSaved) {
+    return {
+      success: false,
+      error: 'Ringkasan konteks gagal disimpan; gunakan riwayat aktif tanpa ringkasan.',
+      isCompacted: false,
+      compactedMessages: prunedMessages,
+      tailMessages: prunedMessages,
+      lastCompactedMessageId: null,
+      newSummaryBlock: '',
+      summaryBlock: '',
+      currentChars: calculateSessionChars(prunedMessages)
+    }
   }
   if (persist) {
     try {
@@ -444,6 +495,10 @@ export async function executeSessionCompaction({
     newSummaryBlock,
     summaryBlock: newSummaryBlock,
     summaryCoverage,
+    summarizedCount: summaryCoverage ? summaryCoverage.covered : 0,
+    pendingSummarizeCount: summaryCoverage
+      ? Math.max(0, summaryCoverage.total - summaryCoverage.covered)
+      : 0,
     currentChars: finalChars
   }
 }
@@ -457,17 +512,8 @@ export function assembleCompactedPayload({ messages = [], sessionCompact = null,
   if (systemPrompt) payload.push({ role: 'system', content: systemPrompt })
   const summaryBlock = sessionCompact?.summaryBlock
   const lastCompactedId = sessionCompact?.lastCompactedMessageId
-  if (summaryBlock) {
-    let cutIndex = -1
-    if (lastCompactedId) {
-      for (let i = 0; i < messages.length; i++) {
-        if (getMessageId(messages[i], i) === String(lastCompactedId)) {
-          cutIndex = i
-          break
-        }
-      }
-    }
-    const activeSlice = cutIndex !== -1 ? messages.slice(cutIndex + 1) : messages
+  if (hasUsablePointer(messages, summaryBlock, lastCompactedId)) {
+    const activeSlice = getCompactionTail(messages, summaryBlock, lastCompactedId)
     payload.push({ role: 'user', content: `[ COMPACTED MESSAGE SUMMARY ] ${summaryBlock}` })
     for (const msg of activeSlice) {
       if (isSkipped(msg)) continue
