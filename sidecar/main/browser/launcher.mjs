@@ -23,8 +23,16 @@ export const LAUNCH_POLL_MS = 500
 // memberi blocked jujur ("klik Connect di popup") alih-alih tab ke-N.
 export const LAUNCH_COOLDOWN_MS = 60000
 export const LAUNCH_MAX_PER_WINDOW = 3
+// Budget global lintas sesi: tiap subagen punya sessionId sendiri sehingga
+// budget per-sesi saja tidak menghentikan tab-storm (3N xdg-open/menit).
+// Lewat batas global -> reason eksplisit tanpa memanggil xdg-open.
+export const LAUNCH_GLOBAL_MAX_PER_WINDOW = 6
 const launchState = new Map()
-export const __resetLaunchThrottleForTest = () => launchState.clear()
+const globalLaunchAttempts = []
+export const __resetLaunchThrottleForTest = () => {
+  launchState.clear()
+  globalLaunchAttempts.length = 0
+}
 const nowMs = (deps) => (typeof deps?.now === 'function' ? deps.now() : Date.now())
 
 // Jalankan perintah OS dan kembalikan { ok, stdout, error }. Default memakai
@@ -111,11 +119,18 @@ async function throttledLaunch({ url, sessionId, listSessions, timeoutMs, deps }
     launchState.set(sessionId, st)
   }
   st.attempts = st.attempts.filter((ts) => t - ts < LAUNCH_COOLDOWN_MS)
+  const freshGlobal = globalLaunchAttempts.filter((ts) => t - ts < LAUNCH_COOLDOWN_MS)
+  globalLaunchAttempts.length = 0
+  globalLaunchAttempts.push(...freshGlobal)
   if (st.inflight) return st.inflight
   if (st.attempts.length >= LAUNCH_MAX_PER_WINDOW) {
     return { ok: false, reason: 'launch-budget-exhausted' }
   }
+  if (globalLaunchAttempts.length >= LAUNCH_GLOBAL_MAX_PER_WINDOW) {
+    return { ok: false, reason: 'launch-budget-exhausted' }
+  }
   st.attempts.push(t)
+  globalLaunchAttempts.push(t)
   const p = (async () => {
     try {
       const opened = await openInOsBrowser(url, deps)

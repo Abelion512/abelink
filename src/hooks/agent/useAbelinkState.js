@@ -122,6 +122,11 @@ export const useAbelinkState = () => {
     if (!window.api?.onPcEmergencyStop) return
     const off = window.api.onPcEmergencyStop(() => {
       abortControllerRef.current?.abort()
+      // Putus juga retry sleep ai-bridge (tanpa ini Ctrl+Shift+S tak hentikan
+      // loop "Mencoba ulang (N/10)"; pola sama seperti core.js abortFetchAI).
+      if (window.api?.abortFetchAI) {
+        window.api.abortFetchAI().catch(() => {})
+      }
       window.api.pcEmergencyStop?.().catch(() => {})
     })
     return () => {
