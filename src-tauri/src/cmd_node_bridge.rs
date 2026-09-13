@@ -66,11 +66,19 @@ pub fn kill_engine(state: &Arc<NodeBridgeState>) {
 
 /// Cek /proc/<pid>/comm agar killpg tidak mengenai grup proses lain bila
 /// PID sudah dipakai ulang. Linux-only (sesuai target proyek).
+/// Baca procfs sesaat bisa gagal transien (EACCES/EAGAIN saat sistem terbeban);
+/// kegagalan persisten (ENOENT = proses mati) tetap cepat-false. Retry pendek
+/// HANYA pada kegagalan baca: keputusan kill tidak boleh terlewat karena
+/// pembacaan sekali yang sial (dulu: daemon bisa lolos jadi orphan).
 pub(crate) fn group_is_ours(pid: u32, names: &[&str]) -> bool {
-    match std::fs::read_to_string(format!("/proc/{pid}/comm")) {
-        Ok(comm) => names.iter().any(|n| comm.trim() == *n),
-        Err(_) => false,
+    for attempt in 0..3 {
+        match std::fs::read_to_string(format!("/proc/{pid}/comm")) {
+            Ok(comm) => return names.iter().any(|n| comm.trim() == *n),
+            Err(_) if attempt < 2 => std::thread::sleep(std::time::Duration::from_millis(15)),
+            Err(_) => return false,
+        }
     }
+    false
 }
 
 /// Ambil pesan error dari frame respons engine.
