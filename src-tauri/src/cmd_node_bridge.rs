@@ -269,7 +269,8 @@ pub(crate) fn confirm_on_main_thread(app: &AppHandle, description: String) -> bo
 
 pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> Result<(), String> {
     // Rilis: binary single-file hasil `bun run build:sidecar` — tanpa butuh
-    // bun/node_modules di mesin user. Dev: source tree via `bun run` (+ --watch).
+    // bun/node_modules di mesin user. Dev: source tree via `bun run`;
+    // sidecar edits need app relaunch (no --watch: mid-flight restart orphans requests).
     // Kandidat ganda karena Tauri memetakan resource `..` ke `_up_/` di bundle.
     let mut cmd = if cfg!(debug_assertions) {
         let candidates = [
@@ -284,7 +285,7 @@ pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> R
             engine_path.display()
         );
         let mut c = Command::new("bun");
-        c.arg("--watch").arg("run").arg(&engine_path);
+        c.arg("run").arg(&engine_path);
         // Grup proses sendiri: kill_engine memakai killpg agar cucu sidecar
         // (daemon python, background task) ikut mati saat aplikasi keluar.
         c.process_group(0);

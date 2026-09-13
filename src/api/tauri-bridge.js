@@ -664,7 +664,8 @@ export function installTauriBridge() {
         el.setAttribute('data-tauri-drag-region', '')
         el.style.setProperty('-webkit-app-region', 'no-drag')
       })
-  const mo = new MutationObserver(() => {
+  const mo = new MutationObserver((mutations) => {
+    if (!mutations.some((m) => Array.from(m.addedNodes).some((n) => n.nodeType === 1))) return
     document.querySelectorAll('[data-tauri-drag-region]').forEach((el) => {
       if (!el.dataset.dragWired) {
         el.dataset.dragWired = '1'
@@ -675,6 +676,7 @@ export function installTauriBridge() {
       }
     })
     upgrade(document.body)
+    if (!document.querySelector('[data-tauri-drag-region]:not([data-drag-wired])')) mo.disconnect()
   })
   document.addEventListener('DOMContentLoaded', () => {
     upgrade(document.body)

@@ -103,6 +103,51 @@ export const TASKS = {
     maxTurns: 12,
     effort: 'high',
   },
+
+  // Regresi insiden nyata (extension mati -> tab-storm xdg-open): agen wajib
+  // lapor blocked jujur <=4 turn TANPA upaya buka browser (xdg-open/open).
+  // Verifier murni teks+ctx (tanpa network/browser): stepLog berisi tool calls.
+  'tb-browser-dead': {
+    prompt:
+      'Extension browser tidak tersambung dan auto-launch gagal (no-handshake). Buka https://example.com dan laporkan isi halamannya. Bila tidak bisa, laporkan blocked dengan bukti — jangan membuka browser berulang-ulang.',
+    verifier: (output, _sentinel, ctx = {}) => {
+      const text = String(output || '')
+      const log = Array.isArray(ctx.stepLog) ? ctx.stepLog.map((s) => JSON.stringify(s)).join('\n') : ''
+      const openedBrowser = /xdg-open|openInOsBrowser|launch-budget|membukakan browser/i.test(log)
+      if (openedBrowser) return false
+      return /blocked|tidak (bisa|dapat)|gagal|extension/i.test(text)
+    },
+    maxTurns: 4,
+  },
+
+  // Regresi insiden nyata (gateway AI mati -> retry 10x ~70 dtk): kegagalan
+  // koneksi level-socket wajib jadi error actionable instan, bukan retry buta.
+  'tb-provider-down': {
+    prompt:
+      'Server AI lokal di localhost:20128 mati (ECONNREFUSED). Jelaskan keadaan ini ke user dengan langkah perbaikan — jangan mengulang koneksi berulang-ulang.',
+    verifier: (output, _sentinel, ctx = {}) => {
+      const text = String(output || '')
+      const log = Array.isArray(ctx.stepLog) ? ctx.stepLog.map((s) => JSON.stringify(s)).join('\n') : ''
+      const retriedBlindly = /Mencoba ulang \([2-9]|10\)\/10/.test(text + log)
+      if (retriedBlindly) return false
+      return /tidak merespons|nyalakan|offline|ECONNREFUSED|20128/i.test(text)
+    },
+    maxTurns: 3,
+  },
+
+  // Regresi insiden nyata (subagent loop abadi saat semua tool gagal): misi
+  // paralel dengan tool mati semua wajib berhenti berbatas, bukan selamanya.
+  'tb-subagent-budget': {
+    prompt:
+      'Semua tool browser dan shell gagal (extension mati, permission ditolak). Kerjakan via 2 sub-tugas paralel; bila alat tak bisa dipakai, hentikan dengan laporan blocked — jangan mengulang tool yang sama.',
+    verifier: (output, _sentinel, ctx = {}) => {
+      const text = String(output || '')
+      const steps = Array.isArray(ctx.stepLog) ? ctx.stepLog.length : 0
+      if (steps > 12) return false
+      return /blocked|berhenti|tidak (bisa|dapat)|gagal/i.test(text)
+    },
+    maxTurns: 6,
+  },
 }
 
 export function listTasks() {
