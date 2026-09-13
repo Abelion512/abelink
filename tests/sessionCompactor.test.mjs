@@ -10,7 +10,8 @@ import {
   pruneOldToolResultsInMemory,
   assembleCompactedPayload,
   executeSessionCompaction,
-  summarizeMiddle
+  summarizeMiddle,
+  buildSummaryChunks
 } from '../src/api/ai/sessionCompactor.js'
 
 const msg = (content, extra = {}) => ({ role: 'user', content, ...extra })
@@ -36,6 +37,11 @@ describe('akuntansi presisi', () => {
   it('melewati thinking/command', () => {
     expect(calculateSessionChars([{ role: 'ai', content: 'x', isThinking: true }])).toBe(0)
     expect(calculateSessionChars([{ role: 'command', content: 'yyyy' }])).toBe(0)
+  })
+
+  it('ber-saturasi di budget (pesan raksasa tidak dilaporkan mentah)', () => {
+    const huge = msg('x'.repeat(MAX_SESSION_CHARS * 3))
+    expect(calculateSessionChars([huge])).toBe(MAX_SESSION_CHARS)
   })
 
   it('pointer mencegah double-count pesan terangkum', () => {
@@ -135,7 +141,56 @@ describe('orkestrator', () => {
     expect(r.summaryBlock).toBe(r.newSummaryBlock)
   })
 
-  it('summarizeMiddle kosong -> kembalikan existing', async () => {
-    expect(await summarizeMiddle([], 'LAMA')).toBe('LAMA')
+  it('summarizeMiddle kosong -> kembalikan existing + cakupan 0', async () => {
+    const run = await summarizeMiddle([], 'LAMA')
+    expect(run.summaryBlock).toBe('LAMA')
+    expect(run.coveredCount).toBe(0)
+    expect(run.partial).toBe(false)
+  })
+})
+
+describe('coverage pointer (INVARIANT COVERAGE)', () => {
+  // 1 pesan = 1 tag h<N>; teksnya besar supaya chunking benar-benar terjadi.
+  const tagged = (i, size = 3000) => ({
+    role: i % 2 ? 'user' : 'ai',
+    content: `h${i}|` + 'x'.repeat(size),
+    timestamp: `ts-h${i}`
+  })
+
+  it('chunk menutup SEMUA pesan (tidak ada yang dibuang oleh potongan ekor)', () => {
+    const messages = Array.from({ length: 40 }, (_, i) => tagged(i + 1))
+    const chunks = buildSummaryChunks(messages, 20000)
+    const seen = new Set()
+    for (const chunk of chunks) {
+      for (const m of chunk.text.matchAll(/(?:User|Abelink): (h\d+)\|/g)) seen.add(m[1])
+    }
+    expect(seen.size).toBe(40)
+    expect(chunks.every((c) => c.text.length <= 20000)).toBe(true)
+    expect(chunks.at(-1).lastIndex).toBe(39)
+  })
+
+  it('summarizeMiddle melaporkan cakupan parsial, bukan mengklaim seluruh rentang', async () => {
+    const messages = Array.from({ length: 6 }, (_, i) => tagged(i + 1, 4000))
+    const run = await summarizeMiddle(messages, '', {}, { maxInputChars: 12000, maxChunks: 2 })
+    expect(run.coveredCount).toBeGreaterThan(0)
+    expect(run.coveredCount).toBeLessThan(messages.length)
+    expect(run.partial).toBe(true)
+    expect(run.summaryBlock).toMatch('dikompaksi')
+  })
+
+  it('executeSessionCompaction tidak memajukan pointer melewati cakupan ringkasan', async () => {
+    const messages = Array.from({ length: 60 }, (_, i) => tagged(i + 1))
+    const r = await executeSessionCompaction({
+      sessionId: 'test-coverage',
+      messages,
+      persist: false,
+      force: true
+    })
+    expect(r.isCompacted).toBe(true)
+    expect(r.summaryCoverage).toBeTruthy()
+    expect(r.summaryCoverage.partial).toBe(true)
+    // Pointer = pesan terakhir yang BENAR-BENAR diringkas, bukan pesan terakhir rentang.
+    expect(r.lastCompactedMessageId).toBe(`ts-h${r.summaryCoverage.covered}`)
+    expect(r.lastCompactedMessageId).not.toBe('ts-h60')
   })
 })

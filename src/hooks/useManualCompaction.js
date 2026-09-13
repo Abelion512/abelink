@@ -20,9 +20,15 @@ const dispatchTracker = (sessionId, currentChars, lastCompactedAt = null) => {
 // props: messages (array tampil), setMessages (setter), sessionId.
 // Mendengar `request-manual-compaction`; menghitung tracker tiap jumlah
 // pesan berubah; banner progres role system (difilter dari hitungan).
+//
+// Tracker memakai metrik yang SAMA dengan jalur kompaksi otomatis (setelah
+// pointer lastCompactedMessageId, atas riwayat penuh) supaya persentase gauge
+// memprediksi kapan kompaksi benar-benar menyala. Provider untuk summarizer
+// diambil dari config sesi (bukan fallback hardcoded).
 export function useManualCompaction({ messages, setMessages, sessionId }) {
   const sid = String(sessionId ?? 1)
   const latest = useRef({ messages, setMessages })
+  const activeConfigRef = useRef({})
 
   useEffect(() => {
     latest.current = { messages, setMessages }
@@ -36,11 +42,17 @@ export function useManualCompaction({ messages, setMessages, sessionId }) {
     let cancelled = false
     ;(async () => {
       try {
-        const [{ calculateSessionChars }, { getSessionCompact }] = await Promise.all([
+        const [{ calculateSessionChars }, { getSessionCompact, getAllConfig }] = await Promise.all([
           import('../api/ai/sessionCompactor'),
           import('../api/db')
         ])
-        const compact = await getSessionCompact(sid).catch(() => null)
+        const [compact, configRows] = await Promise.all([
+          getSessionCompact(sid).catch(() => null),
+          getAllConfig().catch(() => [])
+        ])
+        if (Array.isArray(configRows) && configRows[0]) {
+          activeConfigRef.current = configRows[0]
+        }
         const chars = calculateSessionChars(
           (latest.current.messages || []).filter((m) => !m?.isCompacting),
           compact?.summaryBlock || '',
@@ -80,11 +92,18 @@ export function useManualCompaction({ messages, setMessages, sessionId }) {
             messages: (msgs || []).filter((m) => !m.isCompacting),
             force: true,
             persist: false,
+            activeConfig: activeConfigRef.current,
             onProgress: (p) => setProgress(p?.text || 'Merangkum konteks percakapan lama...')
           })
+          const coverage = res?.summaryCoverage
+          const summarized = coverage ? coverage.covered : before
+          const partialNote =
+            coverage && coverage.partial
+              ? ` Cakupan ringkasan ${coverage.covered}/${coverage.total} pesan — sisanya diproses kompaksi berikutnya.`
+              : ''
           setProgress(
             res?.isCompacted
-              ? `Selesai: ${before} pesan, ${Number(res.currentChars || 0).toLocaleString('id-ID')} chars dalam budget.`
+              ? `Selesai: ${summarized} pesan masuk ringkasan, ${Number(res.currentChars || 0).toLocaleString('id-ID')} chars dalam budget.${partialNote}`
               : 'Tidak ada yang perlu dikompaksi (masih di bawah budget).',
             true
           )

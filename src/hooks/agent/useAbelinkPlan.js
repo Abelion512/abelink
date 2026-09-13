@@ -452,27 +452,29 @@ export const useAbelinkPlan = ({
     // Session Compaction (ATM upstream contextManager, budget 525k).
     // Default ON (toggle Configuration > Capabilities); prompt-only, riwayat
     // asli di Dexie tidak diubah (non-destruktif). Gagal -> history penuh.
+    //
+    // Input = riwayat sesi PENUH (tanpa pesan user saat ini) supaya budget 525k
+    // benar-benar per-sesi dan metriknya identik dengan ContextGauge; ini juga
+    // menjaga pointer delta tetap stabil. Prompt TIDAK ikut membesar: bentuknya
+    // selalu `[summary?] + window terbaru + pesan user`, sama pada giliran
+    // kompaksi maupun non-kompaksi (tidak ada penurunan konteks mendadak di
+    // giliran kompaksi, tidak ada pesan terkirim dua kali).
     try {
       if ((config?.[0] || {}).sessionCompactionEnabled !== false) {
         const { executeSessionCompaction } = await import('../../api/ai/sessionCompactor.js')
         const comp = await executeSessionCompaction({
           sessionId: String(activeSessionNum),
-          messages: chatSession,
+          messages: Array.isArray(sourceChatData) ? sourceChatData : [],
           activeConfig: config?.[0] || {},
           persist: false
         })
         if (comp) {
           const activeSummary = comp.summaryBlock || comp.newSummaryBlock || ''
-          if (comp.isCompacted) {
-            const tail = comp.tailMessages?.length ? comp.tailMessages : comp.compactedMessages
-            const summaryMsg = activeSummary
-              ? [{ role: 'user', content: `[ COMPACTED MESSAGE SUMMARY ] ${activeSummary}` }]
-              : []
-            chatSession = [...summaryMsg, ...tail]
-          } else if (activeSummary) {
+          if (activeSummary) {
             chatSession = [
               { role: 'user', content: `[ COMPACTED MESSAGE SUMMARY ] ${activeSummary}` },
-              ...chatSession
+              ...optimizedHistory,
+              userMessage
             ]
           }
           // Pastikan pesan user terakhir ada persis satu kali di akhir
