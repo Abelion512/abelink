@@ -35,5 +35,23 @@
 - Pointer `lastCompactedMessageId` TIDAK BOLEH maju melewati pesan yang tidak terwakili di `summaryBlock`. Setiap perubahan di `summarizeMiddle*` wajib mempertahankan return `coveredCount` dan mappingnya di orchestrator.
 - `summarizeChunk` dilarang mengembalikan stub teks pada kegagalan AI (dulu menyebabkan pointer palsu).
 
+## CI Saga (pasca-push)
+| Push | Hasil | Penyebab | Fix |
+|---|---|---|---|
+| `84bea87` (merge chunker + integrity layer) | Tauri CI merah: `commands_tools_tasks::tests::group_is_ours_matches_bash_child_only` | Dianggap flake (rasa fork/exec): `spawn()` kembali sebelum `exec()` anak, comm sesaat memuat nama induk | `wait_comm_is` polling 5s — MASIH MERAH di CI |
+| `b3122a2` (polling hardening + retry read procfs) | Tauri CI merah lagi, KALI INI di assert polling (baris 268, budget 5s habis) | Bukan race: **bash tail-exec optimization**. `bash -c "sleep 60"` (tunggal) membuat bash `exec` menjadi `sleep` — comm = `sleep`, TIDAK PERNAH `bash` | Trailing builtin `; true` agar bash tetap resident (`0aee7c9`) |
+| `0aee7c9` | Tauri CI + Branch Guard HIJAU | - | - |
+
+**Diagnosis empiris (otentik, bukan tebakan):**
+```
+bash -c 'sleep 2'   -> comm=sleep   (tail-exec: bash digantikan sleep)
+bash -c ':; sleep 2'    -> comm=sleep   (tetap tail-exec)
+bash -c 'sleep 2; true'  -> comm=bash    (builtin ekor mencegah exec)
+bash -c 'sleep 2 & wait' -> comm=bash    (compound, bash resident) <- kenapa test sibling selalu lulus
+```
+Simpulan: asumsi test "comm = bash setelah spawn" mustahil dipenuhi untuk bentuk perintah tunggal. Polling 5s yang kubuat hanya menyembunyikan kegagalannya di mesin lokal (belum exec) dan kalah di CI (exec cepat). Sibling test lulus karena compound command menonaktifkan tail-exec — asimetri inilah yang menunjuk akar masalah.
+
+**Verifikasi akhir:** 15/15 run lokal `cargo test --lib commands_tools_tasks` hijau, `cargo test --lib` 22/22, clippy `-D warnings` bersih, CI `0aee7c9` hijau (Tauri CI + Branch Guard). Merge `0aee7c9` ke test premis-correct, polling `wait_comm_is` dipertahankan sebagai guard rasu fork/exec sungguhan di CI terbeban.
+
 ## Callback
 Tail window saat coverage parsial memuat pesan belum-terwakili verbatim (bisa >context biasa bila run-limit tercapai berulang kali tanpa keberhasilan chunk berikutnya). Apakah kita perlu cap tambahan di sisi `useAbelinkPlan` (fallback ke `buildOptimizedChatSession` bila tail > N pesan), atau biarkan demikian karena budget 525k tetap terjaga?
