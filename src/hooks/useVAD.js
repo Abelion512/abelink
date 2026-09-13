@@ -177,14 +177,23 @@ export const useVAD = ({
         isStartingRef.current = false
         return
       }
+      // getUserMedia tanpa timeout bisa pending selamanya saat pipewire stall;
+      // race 8s agar isStartingRef tidak nyangkut dan path gagal yang ada tetap jalan.
+      const gumWithTimeout = (c) =>
+        Promise.race([
+          navigator.mediaDevices.getUserMedia(c),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('getUserMedia timeout (8s)')), 8000)
+          )
+        ])
       let stream
       try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints)
+        stream = await gumWithTimeout(constraints)
       } catch (err) {
         // Fallback WebKitGTK / Linux: beberapa backend audio menolak DSP constraints (echoCancellation/noiseSuppression)
         // dengan "Invalid constraint". Coba fallback ke stream dasar { audio: true } sebelum menyerah.
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          stream = await gumWithTimeout({ audio: true })
         } catch (fallbackErr) {
           noteMicFailure()
           console.warn('[useVAD] getUserMedia gagal (no device?), matikan VAD:', fallbackErr.message || fallbackErr)

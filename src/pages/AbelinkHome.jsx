@@ -262,10 +262,14 @@ const AbelinkHome = () => {
   }, [setOrbStatus])
 
   useEffect(() => {
-    if (window.api?.onWindowMaximized) {
-      window.api.onWindowMaximized((isMax) => {
-        setIsMaxWindow(isMax)
+    // 'window-maximized' tidak pernah di-emit Rust (hanya 'window-state') —
+    // dengar yang benar + state awal, pola sama seperti WindowControls.
+    let unsubWin = null
+    if (window.api?.onWindowState) {
+      unsubWin = window.api.onWindowState((s) => {
+        setIsMaxWindow(!!s?.isMaximized)
       })
+      window.api.getWindowState?.().then((s) => setIsMaxWindow(!!s?.isMaximized)).catch(() => {})
     }
 
     const handleOpenMap = () => setIsMemoryMapOpen(true)
@@ -275,6 +279,7 @@ const AbelinkHome = () => {
     window.addEventListener('open-chat-studio', handleOpenChat)
 
     return () => {
+      if (typeof unsubWin === 'function') unsubWin()
       window.removeEventListener('open-memory-map', handleOpenMap)
       window.removeEventListener('open-chat-studio', handleOpenChat)
     }

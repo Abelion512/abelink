@@ -328,6 +328,13 @@ export const fetchAI = async (
         if (parentAbortController.signal.aborted) {
           throw new Error('AbortError')
         }
+        // Fail-fast attempt-0: koneksi level-socket (daemon mati) tidak akan
+        // sembuh dalam 10x retry — langsung jadi offline error yang actionable
+        // (~70 dtk stuck -> instan). Backoff 10x hanya untuk 429/5xx transien.
+        // Reuse isLMStudioOfflineError agar satu definisi offline (lihat :33).
+        if (trafficRetryCount === 0 && isLMStudioOfflineError(err)) {
+          throw createLMStudioOfflineError(err, { aiProvider: conf?.aiProvider, __endpoint: endpoint })
+        }
         // Resilient 10x Network Retry ala Claude CLI
         if (trafficRetryCount < 10) {
           const backoffDelay = Math.min(25000, Math.round(Math.pow(1.4, trafficRetryCount) * 1000 + Math.random() * 500))

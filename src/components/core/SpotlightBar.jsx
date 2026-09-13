@@ -15,7 +15,6 @@ export default function SpotlightBar({ onExpandDashboard }) {
     isProcessing,
     audioIntensity,
     toggleRecording,
-    startRecording,
     cancelRecording,
     toastMessage
   } = useVAD({
@@ -26,9 +25,9 @@ export default function SpotlightBar({ onExpandDashboard }) {
     }
   })
 
-  // Auto-listen saat SpotlightBar pertama kali aktif
+  // Mic hanya dari tombol mic (user gesture); auto-start dihapus agar
+  // getUserMedia tanpa gesture/pipewire stall tidak menggantung saat mount.
   useEffect(() => {
-    startRecording()
     inputRef.current?.focus()
     return () => {
       cancelRecording()

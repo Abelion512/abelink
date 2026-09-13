@@ -16,21 +16,32 @@ const pickConnected = (sessions = [], targetSession = 'default') =>
 
 // Auto-launch satu pintu: bila tidak ada sesi connected dan config
 // browserAutoLaunch aktif, bukakan browser user yang terpasang extension,
-// tunggu handshake bounded, lalu kembalikan sesinya. Gagal/null -> caller
-// memakai fallback lama. Tidak pernah throw.
+// tunggu handshake bounded, lalu kembalikan sesinya. Gagal -> null (kontrak
+// lama: caller lain cukup cek `!up`), dengan alasan disalin ke
+// `ensureExtensionUp.lastReason` agar browser-navigate bisa blocked jujur.
+// Tidak pernah throw.
 const ensureExtensionUp = async ({ url = null, sessionId = 'default' } = {}) => {
   try {
     const core = await import('../browser/bridge-core.mjs')
     const launcher = await import('../browser/launcher.mjs')
-    if (!core.getBrowserConfig()?.autoLaunch) return null
+    if (!core.getBrowserConfig()?.autoLaunch) {
+      ensureExtensionUp.lastReason = 'auto-launch-off'
+      return null
+    }
     const r = await launcher.ensureBrowserUp({
       url,
       sessionId,
       autoLaunch: true,
       listSessions: core.listSessions
     })
-    return r.ok ? r.session : null
+    if (r.ok) {
+      ensureExtensionUp.lastReason = null
+      return r.session
+    }
+    ensureExtensionUp.lastReason = r.reason || 'no-handshake'
+    return null
   } catch {
+    ensureExtensionUp.lastReason = 'no-handshake'
     return null
   }
 }
@@ -270,26 +281,47 @@ export const browserTools = {
     needsApproval: false,
     handler: async (query, config) => {
       try {
-        const { extractUrl, listSessions, dispatchCommand } = await import('../browser/bridge-core.mjs')
+        const { extractUrl, listSessions, dispatchCommand, getBrowserConfig } = await import('../browser/bridge-core.mjs')
         const url = extractUrl(query)
         if (!url) return { success: false, error: `URL tidak valid: '${String(query).slice(0, 120)}'. Sertakan alamat http(s).` }
         const targetSession = config?.sessionId || 'default'
         // Extension dulu bila terhubung (hasil DOM + tab ber-grup); bila tidak
         // dan auto-launch aktif, minta OS membukakan browser lalu coba lagi
-        // bounded; fallback fetch polos bila extension tetap tidak ada.
+        // bounded. Extension gagal -> blocked jujur (sukses palsu via fetch
+        // me-reset circuit-breaker agen sehingga subagen loop navigate dan
+        // tiap upaya memicu xdg-open baru). Fetch polos hanya bila user
+        // mematikan auto-launch di Capabilities.
+        let extensionAttempted = false
+        let failReason = null
         try {
           const sessions = listSessions()
           let pick = pickConnected(sessions, targetSession)
           if (!pick) {
+            extensionAttempted = true
             const up = await ensureExtensionUp({ url, sessionId: targetSession })
             if (up) pick = up
+            else failReason = ensureExtensionUp.lastReason || 'no-handshake'
           }
           if (pick) {
-            const res = await dispatchCommand(pick.id, 'navigate', { url, sessionId: targetSession })
+            extensionAttempted = true
+            let res = null
+            try {
+              res = await dispatchCommand(pick.id, 'navigate', { url, sessionId: targetSession })
+            } catch {
+              res = null
+            }
             if (res && res.ok) return { success: true, data: res.data, via: 'extension' }
+            failReason = failReason || 'no-handshake'
           }
         } catch {
-          /* jatuh ke fetch polos */
+          failReason = failReason || 'no-handshake'
+        }
+        // Fetch polos hanya bila user mematikan auto-launch di Capabilities
+        // (perilaku lama bagi yang tak ingin browser OS dibuka); bila ON dan
+        // extension gagal -> blocked jujur, bukan sukses palsu.
+        const autoLaunchOff = !getBrowserConfig()?.autoLaunch
+        if (!autoLaunchOff && (extensionAttempted || failReason)) {
+          return { success: false, error: `${failReason || 'no-handshake'}. ` + NO_EXTENSION_HINT }
         }
         return await webFetch(url)
       } catch (e) {
