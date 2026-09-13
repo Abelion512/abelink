@@ -2,6 +2,810 @@
 
 Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.
 
+## v1.0.0-alpha.4 — 13 September 2026
+
+**Ringkasan:** 305 fitur baru, 238 perbaikan, 1 peningkatan keamanan dan 248 pembaruan dokumentasi.
+
+### Fitur Baru
+- Trajectory v1.1, diagnose, evidence-gated ask, tab recovery, compaction UI, visualizer perf
+- PR2 long-horizon Fase A
+- Implement external coding CLI delegation, self-healing engine, and resilient runtime
+- PR2 long-horizon Phase A - effort step budget, durable resume, and strategy trace
+- Arch axis vanilla/basic/avo + per-run fixtures, schema v3
+- Real-activity student/corporate tasks with world-state verifiers
+- Wire Fase 2 lineage+scoring into main loop and sub-agents
+- Supervisor Fase 2 — nextStrategy + restoreHint
+- Fase 2 deterministic strategy library
+- Fase 2 per-session trajectory lineage
+- Fase 2 deterministic attempt scorer
+- Auto-launch browser OS bila extension belum tersambung
+- Trajectory Supervisor Fase 1
+- Vision-bloat , capabilities overhaul, modular split F0-F5
+- Embed music player, chat mic , monaco csp, ssot relational growth, and auto-clone workflow
+- Streamline configuration to custom stt with 9router presets and multi-provider fallback combo
+- Restore clean orb with keyboard arrow navigation and multi-provider stt router
+- Quick orb switcher, screen share mini dock, audio resampling for stt, and continuous telegram typing
+- Retain MARK architecture branding and modernize subagents UI with obsidian glassmorphism
+- Implement live screen share, TTS constructor & STT fallback, polish voice mode layout
+- Convert header to pure floating HUD, enlarge jarvis orb, switch theme to cyan, and graceful screen share
+- Integrate header window controls, floating HUD overlay, and deprecation fixes
+- Clone jarvis 3d orb, rebrand to abelink, window controls order, resolve studio collision, and eliminate ai-slop
+- Integrate Jarvis voice as default mode with 4-mode switcher, ponytail cleanup, and abelink branding
+- Upgrade LiveAudio to Jarvis cybernetic orb, enable Groq STT fallback, and TTS MP3 format
+- Enable true desktop window transparency and restore voice and video configuration tab
+- Zero-config auto-connect native host, auto-start bridge, and guided installation UI
+- Implement Jarvis taint gate, browser-ask HITL, and WebKitGTK glass liquid UI
+- Music playback, browser CDP, InputBar hover preview
+- Objective Completion & Verification Layer
+- Browser CDP tools, music retry logic, guidebook
+- Browser use - tab grouping, auto-close, group-session channel
+- Objective Completion & Verification Layer — model claim vs system proof
+- Official font/orb parity + web drag-drop + attachment previews
+- Objective-aware termination, task-level effort A/B, agentic MARK-Eval
+- Per-provider model lists, Groq voice-only + quota tips, auto effort ladder
+- Per-effort bench reports, Anthropic prompt caching, Groq chat provider
+- 2026 model matrix, effort ladder, guidebook approval alignment
+- MarkBench 1.0 per-commit gate, low-tier skill injection, graduated approval
+- Live capability sections — plugins, skills, connectors
+- Connectors page — catalog browse, scope authorization, audit trail
+- No-feature-loss profiles, native RAM detect, connectors tooling for agent
+- SIMD fallback ladder, Dexie-first groomer, budget monitor, MARK-Eval matrix
+- Perf gate per commit, anti-disconnect parser, wallet fase 1
+- Built-in always-on plugin system — ponytail + caveman prompts, rtk output compression
+- Official font/orb parity + web drag-drop + attachment previews
+- Capability Manager — OpenConnector-style catalog/policy/audit engine channel
+- Fase C3 stage 1 — real browser:* channels via extension bridge
+- Drop-anywhere attachments, multi-select upload, real size preview, Telegram UI events via Tauri
+- MarkBench Phase 2A-2D — auditable benchmark harness for Mark Linux
+- Automated release system with prepare/finalize stages
+- Initial release v1.0.0-alpha.1
+- Automated release system with prepare/finalize stages
+- Baseline for Tauri native Linux migration
+- UI cleanup — telegram page isolation, WhatNew redesign, prune dead nav, add config sections
+- Add X11/Wayland detection for PC automation
+- Auto-detect hardware profile + lazy-load RAG/STT by default
+- Awareness window tracker — replace sidecar window-tracker.js with xdotool
+- PC automation os-* commands — replace sidecar stubs with xdotool
+- Awareness window tracker — replace sidecar window-tracker.js with xdotool
+- Awareness window tracker — replace sidecar window-tracker.js with xdotool
+- Route run-shell/git/tasks to Rust commands
+- Run_task/read_task_output/kill_task/list_tasks — replace task-daemon
+- Git_status/diff/commit/revert — replace sidecar git-service with spawn git
+- System_get_info — replace sidecar systemInfo with native /proc parser
+- Tools_run_shell — replace sidecar run-shell with native Rust
+- Tur setup minimal + lazy load menyeluruh + window controls wizard
+- Deteksi model /v1/models + perbaiki blok save Groq & vision
+- Custom API Anthropic-compatible + fallback SIMD dan kamera
+- Reset versi fork ke garis 1.x + pipeline rilis ketat
+- Browser tab menampilkan papan pengumuman + script 'app' alias tauri dev
+- Per-section config render, sidebar polish, MEM UX tanpa upload, tests + automation hooks
+- F-STYLE + MEM + DEV-MODE
+- Tauri-plugin-log + rtk output compressor di run-shell
+- Rtk-style output limiter + ponytail coding rule + tauri-plugin-log
+- Default windowOpacity 100% solid — target RAM 4GB
+- Enhance README with new memory architecture and zero-hallucination policy details
+- Implement chat turns storage and migration to Orama
+- FB#1 — file-ops native Rust
+- A5 — tray, single-instance, Ctrl+Alt+M, window commands + state events
+- A3+A4 — tauri-bridge facade + Node sidecar engine
+- A1+A2 — scaffold src-tauri standard + migrasi renderer ke src/
+- Add fullscreen window control button
+- Two-column home layout on long answers — orb+answer left, page never scrolls on lg
+- Dismissible LiteBadge top-left
+- Hash embedding fallback + skip boot model load
+- MemoryVisualizer list fallback
+- Context provider + hook
+- RAM detection + IPC bridge
+- Optimize development flow
+- Enhance search functionality with improved directory traversal and keyword matching
+- Enhance cleanAndParse function to improve response handling and validation
+- Setup development tools
+- Add context compactor for optimizing chat session payload and implement optimized chat session builder
+- Add ChatStudioModal and ChatStudio components for enhanced chat session managementi
+- Implement learned skills management and synthesis for dynamic skill improvement
+- Implement skill watcher and update skills handling for real-time updates
+- Add boot trigger + dismiss save version
+- Add SubagentTopologyMap component and integrate with Subagents page
+- Enhance feedback prompts for sub-agent failure handling and critical report evaluation in useMarkPlan hook
+- Add reject command handling and improve approval context for better user interaction
+- Add loading state to SubagentUnifiedBubble for improved user feedback
+- Enhance sub-agent reporting with failure handling and mood tracking
+- Implement subagent system with prompt builder, store management, and intercom UI
+- Linux-native PC automation backend
+- Enhance planning command with improved error handling and JSON output validation
+- Image preview on hover + loop one/all backend
+- Implement durable task creation handling in planning command
+- Enhance Telegram bot commands with approval handling and file download notifications
+- Add normalizeChatCompletionsUrl helper for /v1 custom endpoints
+- Adopt Gemini free config from official
+- Native loop + queue
+- Scan models by endpoint hit + selectable results in config
+- Music-recent tool + local playback history
+- Reuse LiveAudio page in 4-mode voice panel, drop hamburger item + route
+- Chips pilihan + sidebar
+- Marketplace research gate + silent guard rejection
+- Last.fm runtime config + YouTube Music auto-scrobble
+- Wire skillLibrary hints into planning loop
+- SKILL.md skills registry
+- Wire Reflexion-lite session lessons into planning + tool failure memory
+- Model circuit breaker + error taxonomy
+- Tool error feedback retry
+- Session failure memory
+- Auto-save config on change
+- Compact AI layout — two-column home on long answers, TLDR under orb, remove Proses Pemikiran dropdown
+- Detail Informasi moves to right column on long answers; TLDR stays under orb Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+- Two-column home layout on long answers — orb+answer left, page never scrolls on lg
+- Detail Informasi moves to right column on long answers; TLDR stays under orb Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+- TikTok stealth - WARP exclude + cookie import + Chrome UA
+- Two-column home layout on long answers — orb+answer left, page never scrolls on lg
+- TikTok stealth - WARP exclude + cookie import + Chrome UA
+- Performance & readability overhaul + auto-learn model hints
+- Auto-learn model hints from usage analytics
+- P0 + P1 performance + .gitignore cleanup
+- P0 + P1 performance + .gitignore cleanup
+- Create-agent-skill IPC with Ed25519 auto-signing
+- Trust badge + priority boost + content safety in skill injection
+- Add skill-sanitizer.js — content safety scanner
+- Verify skill origin via manifest + Ed25519 signature
+- Add agent-keyring.js — Ed25519 signing identity
+- Add SHA-256 manifest for core skills + script
+- Add contributed skill template
+- Add session-log core skill
+- Create .agents/artifacts/ and .agents/inbox/
+- Create .agents/skills/ directory
+- User-friendly AI error messages in Indonesian
+- 4-mode bar — chat morphs into InputBar at bottom-8
+- 4-mode bar — chat morphs into InputBar at bottom-8
+- 4-mode bar expand/collapse + YT hologram card
+- 4-mode bar expand/collapse + YT hologram card
+- OS Control Phase 1 + Session Knowledge Auto-Extract
+- OS Control Phase 1 + Session Knowledge Auto-Extract
+- Phase 0 — steer buffer, configurable turns, approval modes, package cleanup
+- Phase 0 — steer buffer, configurable turns, approval modes, package cleanup
+- Memory architecture v16 — autonomousTasks, taskHistory, auditLog, primingLog + checkpoint manager
+- Memory architecture v16 — autonomousTasks, taskHistory, auditLog, primingLog + checkpoint manager
+- Enhance user interaction and context awareness in Mark Agent's greeting sequence
+- Enhance user interaction and context awareness in Mark Agent's greeting sequence
+- Enhance memory management with Orama integration for real-time updates and deduplication
+- Enhance memory management with Orama integration for real-time updates and deduplication
+- Replace YT webview with BrowserWindow — context + component rewritten
+- Wire youtube-player IPC handlers + preload bridge
+- Youtube-player.js — dedicated BrowserWindow with UA spoofing, CSP removal, OAuth popup handling
+- YT Login via physical browser button — partition shared, one auth for all
+- Wire PC Agent IPC handlers + preload + AI tool dispatch
+- Pc-agent.js — Linux-native PC Agent
+- Screenshot-ocr.py -- mss+Tesseract OCR for Linux
+- Read-ui.py — AT-SPI accessibility tree reader for Linux
+- Linux-agent.sh — bash wrapper for xdotool/wmctrl/xclip/Tesseract
+- RAG .json support + session knowledge import
+- Voice fast path — common commands skip tool-info
+- Vector-based tool discovery for 100+ tools scalability
+- Progressive Disclosure tool system
+- Dynamic model registry JSON + retry 10x + analytics + readable console
+- Model combo 'abelink' + dynamic retry + RSI observability
+- Enhance YouTube Music integration by refining request headers and improving UI handling for login prompts
+- Update Guidebook content and add AGENTS.md for project overview and technology stack
+- Update license to MARK Agent Source Available License v1.0 and modify README warning section
+- Inject OS platform awareness into AI system prompt
+- Linux adaptation + RSI coding tool orchestration
+- Linux adaptation — cross-platform fixes
+- Improve screenshot capture handling and increase load URL timeout to 60 seconds
+- Prevent application crash due to GPU process limits and enhance browser close instructions
+- Enhance browser window handling and improve awareness check-in logic
+- Enhance browser interaction with screenshot capture on close and add intervention handling in planning
+- Enhance AI proactive messaging and improve chat session memory handling
+- Enhance browser window management and improve proactive messaging in AI responses
+- Add Guidebook component with detailed tool descriptions and usage instructions
+- Enhance memory management by adding 'learn' type and implementing extended memory search functionality
+- Implement browser preview widget and enhance browser management features
+- Remove mark-locked class usage for improved user interaction and input handling
+- Enhance awareness and planning response formatting for improved user interaction
+- Enhance autonomous handling in useMarkPlan and useAwareness for improved user interaction
+- Implement event-based relational growth evaluation and adjust trait drift limits
+- Enhance awareness and persona handling with new relational traits and dynamic prompts
+- Implement GlobalCameraManager for enhanced camera handling and preview functionality
+- Implement relational growth feature with trait evaluation and UI
+- New camera functionality and enhanced AI capabilities
+- Enhance context handling in planning command with previous message integration
+- Enhance AI message handling and add browser close functionality
+- Add configuration handlers for AI provider, models, and admin management
+- Update README and enhance planning functionality with new AI features and commands
+- Enhance user experience with boot sequence greeting and mood-based visual feedback
+- Implement AI greeting functionality in useMarkAgent hook
+- Add browser automation features with IPC handlers and native tools
+- WhatsApp agent and enhance memory visualizer
+- Integrate memory visualization feature and remove chat archive page
+- Implement chat archiving and document ingestion features
+- Update audio input handling and configuration; improve awareness response logic
+- Enhance adaptive memory
+- Update README to include download badge and remove roadmap section
+- Update README to enhance descriptions and features in Indonesian
+- Implement voice activity detection and enhance voice command handling
+- Update search result logging to include song titles and artists
+- Implement error handling and retry mechanism in planning command execution
+- Enhance planning command handling with additional command checks and improve context messaging for music playback
+- Enhance music handling with detailed responses and improve planning command execution
+- Enhance AI awareness capabilities with autonomous actions and improved response handling
+- Enhance memory storage instructions and improve API key visibility in configuration
+- Update version to 2.1.0, enhance AI capabilities with custom API support, and improve configuration options
+- Implement asynchronous WhatsApp message sending and enhance screenshot handling
+- Add screenshot handling in planning command and improve music widget animation
+- Enhance mood representation with new emotional states and update color coding in OrbVisualizer
+- Integrate awareness engine and proactive nudges
+- Add WhatsApp formatting using marked library and integrate into response handling
+- Implement abort functionality for AI fetch and enhance error handling in planning and chat hooks
+- Enhance AI fetch and WhatsApp agent with improved error handling, web search modularity, and response optimization
+- Enhance AI fetch and plugin execution with improved error handling and logging
+- Enhance WhatsApp bot with tool usage tracking and improved response handling
+- Enhance WhatsApp agent with improved chat session handling and command execution
+- Enhance WhatsApp agent capabilities with plugin execution and screenshot features
+- Implement WhatsApp message handling flow with AI integration and media features
+- Enhance AI fetching with status updates and improved traffic handling
+- Add Monaco Editor for code editing and integrate SweetAlert2 for confirmation dialogs
+- Add dependency management for plugins and enhance plugin capabilities in UI
+- Enhance plugin system with improved execution handling and UI updates
+- Implement plugin system with dynamic loading and execution
+- Update message processing to include recent conversation history for improved context
+- Increase recent messages retrieval from 5 to 10 for enhanced context in message processing
+- Enhance audio processing by integrating ffmpeg and youtube-dl for improved media handling
+- Update README and package version for enhanced WhatsApp bot capabilities
+- Add music playback feature and improve admin notifications
+- Add jsonrepair for improved JSON parsing and error handling in AI responses
+- Enhance WhatsApp bot with message history retrieval and improved UI message handling
+- Optimize music command handling and enforce strict JSON output format
+- Update WhatsApp bot to display all admins and enhance markdown rendering in messages
+- Implement WhatsApp Bot with AI integration and message handling
+- Enhance WhatsApp bot functionality with timeout handling and readiness reporting
+- Improve WhatsApp window management with off-screen rendering and centering
+- Enhance WhatsApp bot configuration with admin name guidance and update section styling
+- Implement WhatsApp bot window management and remote music command handling
+- Enhance WhatsApp bot functionality with web search capabilities and admin controls for music playback
+- Update quoted message handling in WhatsApp bot and disable dev tools in main window
+- Update version to 1.2.0 in package.json
+- Add WhatsApp bot integration with context-aware message handling and UI updates
+- Implement WhatsApp bot functionality with auto-reply and message handling
+- Update webview event listeners to use 'dom-ready' instead of 'did-stop-loading' for improved loading handling
+- Refine YouTube summary instructions and enhance ThinkingBubble component styling
+- Implement copy functionality in ChatList component and remove unused code from MessageBubble
+- Disable opening DevTools on window ready to show
+- Update README with improved descriptions and localization for core capabilities and installation steps
+- Update SVG paths in ThinkingBubble component for improved visual representation
+- Enhance YouTube summary handling and add plan conclusion indication in chat components
+- Update README and chat and planning components to enhance functionality and remove YouTube search option
+- Enhance guided tour with new popover steps and improve configuration UI elements
+- Update version to 1.1.1, add driver.js for guided tours, and enhance configuration and chat components
+- Update README for modular LLM integration and enhance Chat component UI logic
+- Add new chat components and hooks for enhanced functionality
+- Remove web search option from dropdown menu in Chat component, all web search now include
+- Reduce cloud fetch delay to 2.5 seconds and enhance command structure for dynamic web search
+- Enhance fetchAI with traffic retry logic and update command run checks in ChatProvider
+- Update README to enhance clarity and structure of core capabilities
+- Enhance memory handling in ChatProvider and integrate current time info for memory entries
+- Enhance error handling in fetchAI and optimize ChatList component with memoization
+- Add CodeBlock component for enhanced code display and copy functionality in ChatList
+- Enhance fetchAI error handling for Cerebras API and update ChatList styling for better UI
+- Integrate Cerebras API, add JSON schema auto-retry, and dynamic config UI
+- Add support for Cerebras API in configuration and enhance API key management
+- Implement rate limiting for GROQ requests in fetchAI function
+- Enhance fetchAI function to support JSON schema validation and update response handling
+- Enhance Chat functionality with memory reference and improve Markdown rendering; update CSS for custom tables
+- Add custom tools and prompt templates to README; update CSS font size for better readability
+- Enhance AI response handling with reasoning and add secondary model toggle in configuration
+- Add music play, pause, next, prev, search
+- ReferrerPolicy and error chatSession
+- Implement play music from chat
+- Ytb embedd error and improve deep search
+- Change webview and add captcha handle
+- Configuration, yt search, ui improvement
+- Add configuration page and improve ui
+- Implement error "Gagal dapet info dari internet nih, koneksi atau captcha mungkin bermasalah." if search result empty
+- Implement web search with webview and improve ui
+- Add ai google summary result in web search
+- Implement ChatContext for session management and enhance chat functionality with session creation and data handling
+- Add rehype-external-links and remark-gfm packages; enhance Markdown rendering in ChatList component
+- Update README to remove 'Command Running' feature from the roadmap
+- Enhance chat functionality with improved memory handling and multi-turn message support
+- Add YouTube transcript fetching and summarization functionality
+- Web search functionality to use Electron's BrowserWindow and remove Puppeteer dependency; update README and package files accordingly
+- Enhance web search functionality with improved timeout and abort controller integration
+- Update README with new features, enhance AI integration, and improve chat functionality : streamline browser instance management and improve web search handling in main process : adjust AI fetch endpoint and modify temperature setting for better response quality : optimize vector generation and memory retrieval processes in AI module style: correct JSX attributes and improve button functionality in Chat component
+- Integrate vector memory for enhanced AI responses
+- Enhance chat functionality with loading states and abort controller
+- Enhance preload API and implement setup screen
+
+### Perbaikan
+- Garis rilis main + anti-deadlock bootstrap tanpa tag
+- Make group_is_ours deterministic under bash tail-exec
+- Make group_is_ours tests deterministic under slow
+- Make summary coverage honest and budget session-scoped
+- Trajectory staleRun rebasing, bench sweep avo removal, adapter async import, sync
+- Retain context on normal turns, deduplicate user message, and pointer ID
+- Dual-port Prod+Dev, namespace tokens, tab-storm rem, log payloads
+- Clear all clippy warnings and gate them with -D warnings
+- Stop linting artifacts and drop a no-op disable directive
+- Prevent repo bloat and git merge conflict explosions for graphify artifacts
+- Clean up ghost tasks on tab closure and harden .gitignore for agent workflows
+- Rename branch guard job to accurately reflect abelink base branch policy
+- Single progress signal, anti double-bubble
+- Dot telegram hamburger ikut status live
+- Launch race + stuck connecting; trajectory ke developer saja
+- Halaman sorry Google -> error ramah + anti-hammer; hapus spam log/turn
+- Pilot-blockers — tool preamble, arg bridge, workspace-root fixtures, paren-proof parser
+- Double-respon + izin tg:start dilonggarkan
+- Connect-lalu-putus — retry backoff + status jujur
+- Ikon window kedua, menu Trajectory, asumsi single-user
+- Bench-gate latency median 3 run
+- Auto-launch default AKTIF + guideline flat-DOM/teks pendek
+- Anti-slop jawaban + console tidak berisik
+- Jangan telan pesan error provider, ramah & informatif
+- Grant pull-requests:read so gitleaks can list PR commits
+- Sidecar before cargo check; bridge-core import paths; drop codeql
+- Import getAllConfig to resolve mic start reference error
+- Lock concurrent sessions and VAD audio capture in voice mode
+- Solve approval paradox, listener multiplication leak, and brand naming
+- Prevent runaway step-budget loop and safe errorMsg access; : remove unsupported cursor constraint
+- Remove dangling pld reference; : adaptive split-side Voice Mode with dynamic Orb scaling
+- Route isolated tabs per subagent session, add pipe fallback, purge upstream backdoor
+- Enforce physical browser delegation for external AI debates and clarify cross-divisional identity
+- Break conversational react runaway loops, respect local whisper, and prune ai-slop
+- Unmirror camera, eliminate STT progress jump & repeated download, streamline WebRTC display stream
+- Make compareReports synchronous for smoke gate compliance
+- LiveAudio setIsLive crash, enable audio input, and harden bridge auto-reconnect
+- Handle Invalid constraint with plain audio fallback and Configuration.jsx syntax error
+- Use react portal for abort dialog, add nativeMessaging permission, and enable webkitgtk media capture
+- Resolve extension folder across dev and bundle modes, regenerate app window icons
+- Perbaiki import useMarkPlan.js, panggilan osOpen, dan tag </div> Configuration.jsx pasca merge PR #26
+- Hapus ketergantungan paket semver tak terdaftar di gerbang rilis
+- Bersihkan interval saat unmount, gate tombol data , rapikan import
+- Kirim snapshot entries ke listener + pangkas buffer in-memory
+- Kontrak payload browser:* via field value; tanpa routing ke command Rust non-eksisten
+- Label Trajectory tanpa emoji + newline akhir file
+- Resolusi konflik dengan linux + perbaikan hasil review PR #26
+- Hasil audit repo — eslint config, host permissions ekstensi, bug tab-group, hygiene
+- InputBar JSX syntax, Rust dead code; : browser CDP, music retry, hover preview
+- Consolidate config menus, improve WhatNew, InputBar positioning
+- VectorMemory auto-Lite Mode on wasm-unsupported; React render bug in Connectors
+- Skip rtk ENOENT when rtk installed; improve .gitignore for browser-use artifacts
+- RtkFilter ENOENT now clears PATH to force subcommand spawn failure
+- Approval_policy borrow fixes — owned String family, &family refs
+- Normalize_family lifetime — return owned String instead of &'static str
+- Move web-drop fetch to native Rust — clears CodeQL SSRF for good
+- SSRF guard for web-drop URL fetch + IPv6 coverage
+- Repair tools.js syntax break, add rtk toggle UI + tests
+- Release.yml — add workflow_dispatch + tag-aware guard/checkout for finalize chain
+- Release-prepare — git identity, label guard, staged-diff commit check, workflow_dispatch
+- Resolve 18 lint errors including 6 runtime crash bugs
+- Purge Windows-era shell remnants + fallback crash
+- Strip data-URL prefix before base64 decode in sendPhoto path
+- Restore native screenshot-to-tg, wire tg token, parallel hydrate
+- Resolve 18 lint errors incl. 6 runtime crash bugs
+- Remove electron imports from live channels — tg/awareness/google crash on first use
+- Remove stale .gitignore dir rules that broke Release Prepare
+- Remove no-op nested overrides breaking frozen-lockfile, pin Bun version
+- Restore plugin/skills/tg channels with approval gates, dependency hardening, migration-gap
+- Deterministic drain-exit, correlated ask_user, honest TG commands
+- Real durations, executed verifier, persistent sidecar RPC
+- Point homepage to mark-agent-linux fork
+- Restore stale branches in tauri.yml
+- Remove stray closing brace in dispatchReleaseWorkflow
+- Gh workflow run --ref linux -f tag=TAG, remove dependency on master branch for workflow_dispatch
+- Workflow_dispatch integration with explicit tag passing, actions:write permission, version-scoped concurrency, tag validation
+- Explicitly dispatch release.yml via workflow_dispatch, add PR filter and manual validation guards
+- Branch selection before file mutation in prepareRelease, add integration tests for PR update ordering
+- Wire update checker into App lifecycle — startup init + cleanup on unmount
+- Replace non-existent semver.format with string template in nextAlphaVersion, add 31 scenario tests
+- Final hardening - semver in package.json, reachable tag detection, linux merge into release branch
+- Idempotency via releases.json, after-merge re-release prevention, and tag-reachable-only tag detection
+- Correct idempotency and update detection, add semver dependency
+- Use htmlparser2 DOM parser for script/style sanitization
+- Use full tag-matching regex for script/style stripping
+- Improve HTML sanitization regex to match closing tags with optional whitespace
+- Add permissions blocks to workflow, improve HTML sanitization regex
+- Persona identity — strip upstream 'Mazees'/'Mada' defaults on linux fork
+- Simplify Configuration labels, restore occupation, rename AI Engine to Model
+- Remove easter egg, clean memory button, first-boot flow final
+- FirstBootChoiceScreen as modal overlay, auto-skip config wizard
+- Skip config wizard on first boot, sidebar nav + remove tour dead code
+- Remove tour guide, cache camera enumeration, external links
+- DevUrl 1420 to match vite default port
+- Correct import path in autoProfile.js
+- Wrap first-boot Configuration with HashRouter to prevent useNavigate crash
+- PlayUrl missing destructure crash + WASM SIMD fallback + init spam
+- Deklarasikan vitest di devDependencies
+- Paritas bridge, privasi clear-all, integritas vektor lite-mode
+- Pengaman terminasi loop ReAct renderer
+- Restorasi hardening sidecar yang hilang saat migrasi
+- Containment fs native, allowlist IPC deny-by-default, approval rfd
+- Browser-mode stub — vite di browser tanpa Tauri kini ramah
+- Sidecar electron stub ter-commit , CSP ipc: utk devtools, rust warnings
+- Html/body opaque paint + data-theme forest pindah ke <html> asli
+- Opaque window — WebKitGTK tidak menggambar backdrop; drop electron lama
+- Green lint — sync lockfile, dedupe preload keys, drop max-warnings gate
+- Re-apply config sidebar wiring on synced upstream tree
+- Update confirmation check to prevent errors on session deletion
+- P2 tray + P10 WhatNew + P11 sidebar + icon imports
+- P2 - tray icon Linux + before-quit handler
+- WhatNew FaTag import + ConfigSidebar FaCamera
+- Revert P5 preload .mjs — upstream builds index.js ; P5 obsolete
+- Apply stash Linux-migration patches
+- Re-apply P1-P5 overlay patches post-upstream merge
+- Update background glow color for disgust mood in MarkHome component
+- Preload .mjs — electron-vite 5 ESM output
+- Tray icon Linux + window controls unblockable + Telegram standalone
+- Sync deps to official + re-apply Linux 9Router patch
+- Wrap Configuration first-setup in HashRouter + add useMemoryGroomer stub
+- Dock YT Music as bottom-right mini-player
+- Music official UI + robust controls + orb->voice morph
+- Restore createWindow call — lost in 25c8b06 merge
+- Defer markSession init to app.whenReady — Session error on boot
+- Browser-agent missing session import — ReferenceError on boot
+- Playback via official YT Music + track-event fallback utk judul tanpa ' - '
+- Music-recent risk green + rewrite ATURAN memory-first di planning.js + degraded list
+- Pindah trigger live-audio ke tombol Voice Mode di 4-mode bar, bukan embed
+- Filter synthetic / rows from audit feed
+- Unlock riset hanya kalau URL search beneran
+- Alias @renderer di vitest.config.mjs
+- YouTube oEmbed CORS — proxy via main process IPC
+- Compressor protectLastN 20→8 + NaN timestamp guard
+- Adaptive retry for empty/truncated AI responses
+- OnDownloadStateChange not defined in Configuration scope
+- Resolve vite peer conflict — downgrade vite@^6, @vitejs/plugin-react@^5
+- Resolve merge conflict markers from cd/friendly-visvesvaraya-3a533a
+- Vision globalConfig + MaxListeners + empty content retry
+- Render ConfirmModal as component in RelationalGrowth page
+- Import-tiktok-cookies argv index + disableHardwareAcceleration + per-cookie try/catch
+- Render ConfirmModal as component in RelationalGrowth page
+- Restore 'Membangunkan Mark...' boot loading like official
+- Preload index.mjs path — window.api undefined
+- Preload path .mjs mismatch — window.api undefined at runtime
+- Drop unused catch param in model-hints block
+- Align body hashing across manifest/IPC/loader
+- CSP allow unsafe-eval — Transformers.js WASM embeddings blocked, memory MMS degraded
+- CSP allow unsafe-eval — Transformers.js WASM embeddings blocked, memory MMS degraded
+- Strengthen E2/F3/B4 assertions in stress tests
+- Restore getYoutubeSummary import — all tools crashed with ReferenceError after dispatch
+- Restore getYoutubeSummary import — all tools crashed with ReferenceError after dispatch
+- Signature on own line in create-agent-skill frontmatter
+- Block threshold >= 3 in classifyContentRisk
+- Remove unused imports in agent-skills-loader
+- Consistent frontmatter extraction in -manifest
+- Count tool crashes toward guardrail hard-stop; dismiss process on all exits
+- Count tool crashes toward guardrail hard-stop; dismiss process on all exits
+- Retry instead of dumping CoT as answer on parse failure
+- Retry instead of dumping CoT as answer on parse failure
+- CoT bocor ke jawaban + tambah panel Proses Pemikiran
+- CoT bocor ke jawaban + tambah panel Proses Pemikiran
+- Stay in chat mode after submit
+- Stay in chat mode after submit
+- 0.1s fade-up for low-end devices
+- 0.1s fade-up for low-end devices
+- Faster fade-up for 4-mode bar morph
+- Faster fade-up for 4-mode bar morph
+- 4-mode bar — InputBar fluid, single fixed container for morph
+- 4-mode bar — InputBar fluid, single fixed container for morph
+- Rollback colors to forest green, keep fluid layout + 4-mode bar
+- Rollback colors to forest green, keep fluid layout + 4-mode bar
+- Remove response card boundary — natural flow
+- Remove response card boundary — natural flow
+- Connect orb to YT player — orb turns purple when music playing
+- Connect orb to YT player — orb turns purple when music playing
+- Integrate YT player into MarkHome, remove floating card
+- Integrate YT player into MarkHome, remove floating card
+- Music UI — remove redundant title text, add inline controls, YouTube hidden-by-default
+- Music UI — remove redundant title text, add inline controls, YouTube hidden-by-default
+- Rollback music routing from core — dedicated YT player + showPlayer alias intact
+- Rollback music routing from core — dedicated YT player + showPlayer alias intact
+- Dedicated YT player routing + showPlayer alias + catch-all music regex
+- Dedicated YT player routing + showPlayer alias + catch-all music regex
+- Music fast-path regex — support "tolong putarin lagu" / "cariin dong" / "setop"
+- Music fast-path regex — support "tolong putarin lagu" / "cariin dong" / "setop"
+- Music routing — AI pake browser not music player
+- Music routing — AI pake browser not music player
+- Browser preview stale state — remove auto-show, notify renderer on close, clear preview when window null
+- Browser preview stale state — remove auto-show, notify renderer on close, clear preview when window null
+- YT track info sync + hidden-by-default + IPC channel alignment
+- YT track info sync + hidden-by-default + IPC channel alignment
+- Track info sync — browser-agent.ts YouTube title → yt:track-updated IPC. Add .youtube-protection.yml guard.
+- Track info sync — browser-agent.ts YouTube title → yt:track-updated IPC. Add .youtube-protection.yml guard.
+- YT — no restart on toggle . BrowserWindow shows after did-finish-load
+- Browser-agent.js — add Chrome UA spoofing, CSP removal, anti-fingerprint injection via did-start-navigation + dom-ready
+- Show YT BrowserWindow before navigation. Context: use physical browser-agent as primary player, fallback to hidden BrowserWindow
+- Vision-service — resolve model from registry instead of hardcoded LM Studio. Routes through resolveVisionModel + getModelEndpoint
+- YT webview CSS — hide all page elements except player, keep ad-block, fit 280px height
+- Model registry case-insensitive lookup . YT player: webview flex, resize 480x360→w-full h-[280px]
+- Handle AI content=null gracefully — retry with instruction instead of silent failure
+- YouTube webview script injection — catch unhandled rejections causing GUEST_VIEW_MANAGER_CALL errors
+- Override transitive CVEs — protobufjs RCE, node-fetch SSRF, minimatch ReDoS, braces, sharp
+- .gitignore — exclude heap/har/gz . Knowledge.jsx — add .json to accept
+- — template literal in pc-agent.js, jsonrepair top-level await in ai-bridge.js, missing resolveVisionModel export
+- Post-review — add Ctrl+Shift+S emergency shortcut, add pc-screenshot/os-ask dispatch cases
+- Read-ui.py — address review: try/except on all AT-SPI calls, recursive focus search, depth guard
+- Linux-agent.sh — address spec + code review findings
+- Voice fast path gate — risk assessment before execute
+- Reasoning model fallback + chat summarizer raw JSON guard
+- Bug hunt — ai-bridge, native-tools, ytdl-service, config
+- YouTube widget — hide page clutter, show only video player
+- Mark process cannot close — 3 quit blockers + YT player sizing
+- Catch EIO on console.log when stdout pipe is broken
+- Handle SIGINT/SIGTERM for clean exit on Linux
+- Guard Tray handlers against destroyed BrowserWindow
+- Add 'learn' type to memory schema, Guidebook grep description
+- Add missing ytmusic-api dep and linux.icon config
+- Add event dispatch for configuration updates and enhance logging in CameraPreview
+- Enhance captureFrame error handling and logging for improved debugging
+- Enhance character emotional response rules and adaptive persona guidelines for improved interaction
+- Refine character rules and emotional responses for improved interaction realism
+- Update non-intrusive action rules and clarify camera usage instructions for awareness
+- Optimize AI message handling and update screenshot tool naming for clarity
+- Refine image analysis prompt for clarity and focus on visual elements
+- Update intent query handling in planning command for improved context processing
+- Correct music category text and refine browser automation guidelines
+- Improve memory management and output formatting in AI processing functions
+- Optimize message handling and memory management in WhatsApp bot
+- Update loading condition to check isAgentBusy in useMarkAgent hook
+- Adjust autonomous message handling in useMarkPlan and enable tools in useAwareness
+- Memory leak and json scheme
+- Ensure memory key is trimmed and lowercased before insertion and update
+- Update check-in interval and initial delay in useAwareness hook; improve awareness response conditions
+- Correct project title in README from "Memory Adaptive Response Knowledge" to "Metacognitive Artificial Relational Knowledge"
+- Music player cannot change music when playing music from whatsapp and ai insert memory in english
+- Update isAction state to enable planning mode in ChatContext
+- Youtube tidak tampil saat summary
+- Update section title from "Roadmap Masa Depan" to "Roadmap Plan" in README
+
+### Keamanan
+- Pc-agent.js — execSync→spawn , input sanitize, remove unused fs import, XSS escape question
+
+### Dokumentasi
+- Drop Fase 2 runtime, add lint gate, and sync with the codebase
+- Simplify outcome learning roadmap
+- Record root cause in session log
+- Port pointer-integrity layer onto d92538b chunked summarizer
+- Add Abelink personal growth design outputs
+- Remove the phantom avo arch instead of letting it lie
+- Drop Fase 2 runtime, add lint gate, sync with code
+- Track graphify knowledge graph, agent workflows, and relax doc rules for multi-agent collaboration
+- Session log PR1 + rencana PR2 long-horizon
+- Add session log for PR2 long-horizon Phase A
+- Session log PR1 + rencana PR2 long-horizon
+- Session log PR1 + rencana PR2 long-horizon
+- Abelink cognitive runtime Fase 2 — trajectory search + real-activity bench
+- Larang markup slop
+- Skip LLM rank bila top-1 cocok kuat
+- Split Configuration ke komponen config/* + workspace .abelink
+- Simplify CapabilitiesHub layout and text ala Claude Customize
+- Update AGENTS.md branding to Abelink, remove em dashes, and link guidelines
+- Adopt planned mcp capabilities, remove telegram redundancy, and eliminate ai-slop descriptions
+- Enlarge hero orb, add dual orb switcher , and eliminate telemetry text clutter
+- Merge release/v1.0.0-alpha.3 into linux
+- Hapus file ERROR
+- Update perf baseline
+- Ignore local worktrees directories
+- V1.0.0-alpha.3
+- V1.0.0-alpha.2
+- Finalize Fase C3 staged plan
+- Route-level lazy loading + Prism language trimming
+- Multi-run MarkBench orchestrator + release automation
+- Modular channel registry + agent-oriented architecture
+- Bun toolchain hardening, benchmark smoke gate, MarkBench
+- Align AGENTS.md with #17, cache TG status guard, real benchmark scripts
+- Restore src-tauri shell and release automation removed without justification
+- Tighten branch strategy wording + branch guard
+- Merge linux changes and resolve conflicts
+- Document master and linux branch governance
+- Update RELEASE-AUTOMATION.md with explicit workflow_dispatch chain and safety checks
+- Visual parity audit — evidence-accurate
+- Visual parity audit — evidence-accurate
+- Visual parity audit — Electron vs Tauri/Linux
+- Clarify linux-as-baseline — never open PRs against master
+- Remove internal files from open-source repo
+- Add cargo to , update AGENTS.md branch strategy, bump-version for Tauri
+- Reconcile parity matrix
+- Add parity audit matrix + validation report for Electron→Tauri port
+- Linux branch coverage, upstream sync, dependabot, policy
+- Add ROADMAP.md, refine .gitignore for mark-linux open-source
+- Filter , tests, scripts, src-tauri, HTML trackers for open-source
+- Replace auto-detect with first-boot resource mode chooser
+- Clean up junk files from tracking, config identifier
+- Remove migrated tools from ALLOWED_ACTIONS
+- Remove migrated tools from ALLOWED_ACTIONS
+- Restore tests/harness/ required by :harness workflow
+- Update log deteksi model, blok groq, vision retry
+- Rapikan struktur root + dokumen cara jalan lokal
+- Catat hasil rilis perdana v1.0.0-alpha.1
+- AGENTS.md layout Tauri terverifikasi, arsip scan lama, planning 1.x
+- Gerbang verify lengkap dan workflow yang benar-benar jalan
+- Retire electron-era release/bump workflows
+- A6 — tauri.yml
+- Pindah migration plan ke branch tauri + status eksekusi
+- Purge Windows/macOS — native Linux murni
+- Linear tracking integrasi 5.5.0
+- Lazy-load transformers wasm out of entry bundle
+- CSP allow unsafe-eval + blob — dari cd/loving-solomon-613d68
+- Remove Proses Pemikiran dropdown from execution panel
+- Lite Mode
+- Orb easter eggs dari pr-orb-
+- Trigger workflow for PRs targeting 5.5.0 branch
+- Lite Mode feature bullet
+- Drop unused loading var in MemoryVisualizer
+- Session log update — upstream sync 0281791 + sidebar re-apply
+- Apply upstream delta b8b0d6f..0281791 onto linux integration line
+- Simplify ConfirmModal and enhance useConfirm hook functionality
+- Update dependencies and improve AI response handling
+- Update status base 2026-08-22 + deprecate P5
+- Header buttons across multiple pages to use SVG icons and improve accessibility; update styles for consistency and responsiveness.
+- Setup-linux-pc-agent.sh daemon deps
+- Update README.md + add agents.md
+- Checkpoint dirty tree for 1202dec cherry-pick
+- Register P5 preload .mjs
+- LINUX_PATCHES.md — overlay patch registry + merge-upstream workflow
+- Reset src/ to upstream/master
+- Drift manifest mark-agent-fork vs upstream/master
+- Glass UI sweep checkpoint pre-drift-cutoff
+- Clarify Groq is STT-only, not a chat provider
+- Replace LM Studio UI references with Custom API/General
+- Keep YT Music floating centered
+- Remove duplicate show-notification IPC handler
+- Untrack backups/ + ignore
+- Exclude merge artifacts — local-only files
+- Preload self-check boot log
+- Remove dead session-knowledge IPC — extractor removed YAGNI 6b3bd84, 0 callers in renderer; marked spec-only
+- IMPROVE - rsi-improve.mjs
+- EVALUATE - rsi-evaluate.mjs + weekly cron
+- COLLECT - persist model-calls.jsonl audit feed
+- Restore original font sizes, keep layout improvements
+- Remove all sessionKnowledge references
+- Remove sessionKnowledge.js
+- Tighter markdown spacing + responsive breakpoint lg→md
+- Split ConfigAI into 3 focused sections
+- Sidebar navigation for config page
+- Renderer memo + browser semi-visible + pipeline fixes
+- Archive non-public files from GitHub — .claude, , tests, session-report, AGENTS.md, CLAUDE.md all untracked + ignored
+- Ignore nested artifacts — 260MB heapsnapshot blocked push
+- P0 — compact system prompt 45% + per-provider context compaction
+- Cd/loving-solomon-613d68 — keep 5.5.0 wasm-unsafe-eval CSP per documented decision
+- Cd/friendly-visvesvaraya-3a533a — keep 5.5.0 layout/Turn Governor on conflict
+- Track all + artifacts
+- Track remaining /PLANNED
+- Track /PLANNED + tests, ignore large artifact
+- Track PLANNED session + codeql workflow
+- Remove Proses Pemikiran dropdown from execution panel
+- Track /PLANNED/sessions session logs in gitignore
+- Session log tiktok-stealth-cookie-import
+- Lazy-load transformers wasm out of entry bundle
+- Soften side-tab accent
+- Remove Proses Pemikiran dropdown from execution panel
+- Soften side-tab accent
+- Untrack tests, add CONTRIBUTING.md for human contributors
+- Bump openai from 6.49.0 to 7.1.0
+- Bump youtube-transcript-plus from 1.2.0 to 2.0.0
+- Bump three from 0.182.0 to 0.185.1
+- Bump the dev group with 4 updates
+- Bump actions/setup-node from 4 to 7
+- Bump actions/checkout from 4 to 7
+- Bump softprops/action-gh-release from 2 to 3
+- Bump actions/upload-artifact from 4 to 7
+- Bump openai from 6.49.0 to 7.1.0
+- Bump youtube-transcript-plus from 1.2.0 to 2.0.0
+- Bump three from 0.182.0 to 0.185.1
+- Bump the dev group with 4 updates
+- Bump actions/setup-node from 4 to 7
+- Bump actions/checkout from 4 to 7
+- Bump softprops/action-gh-release from 2 to 3
+- Bump actions/upload-artifact from 4 to 7
+- Sync branch
+- Untrack AI/dev — end-user repo only
+- Extend gitignore
+- Untrack agent artifacts
+- Untrack agent artifacts, extend gitignore
+- Watermark v2 agent-skill signing + trust system into branch
+- WATERMARK v2 stress tests — 8 attack vectors
+- Add vitest harness + unit tests
+- Add vitest harness + unit tests
+- Remove unused imports
+- Remove unused imports
+- Slim AGENTS.md , move internals to /ARCHITECTURE-INTERNALS.md
+- Slim AGENTS.md , move internals to /ARCHITECTURE-INTERNALS.md
+- Split Configuration.jsx into per-section components
+- Split Configuration.jsx into per-section components
+- Lazy-load all route pages
+- Lazy-load all route pages
+- Extract tool dispatch from useMarkPlan into agent/tools modules
+- Extract tool dispatch from useMarkPlan into agent/tools modules
+- Unify cleanAndParse into src/shared
+- Unify cleanAndParse into src/shared
+- InputBar — leaner, smaller icons, lighter padding, 0.1s anim
+- InputBar — leaner, smaller icons, lighter padding, 0.1s anim
+- Guidebook code block amber-400
+- Guidebook code block amber-400
+- Dot amber-400, remove ping halo
+- Dot amber-400, remove ping halo
+- Fluid layout, inline music controls, 4-mode bar placeholder
+- Fluid layout, inline music controls, 4-mode bar placeholder
+- Orb → sky+amber palette, no playing scale
+- Orb → sky+amber palette, no playing scale
+- Theme → monochrome+amber, fade animations
+- Theme → monochrome+amber, fade animations
+- Untrack model-registry.json
+- Untrack model-registry.json
+- Improve .gitignore — *.bak, .env.*, .nvmrc, agent memory
+- Improve .gitignore — *.bak, .env.*, .nvmrc, agent memory
+- Remove leaked .env.bak and .nvmrc from tracking
+- Remove leaked .env.bak and .nvmrc from tracking
+- Update version to 5.0.0 in package.json
+- Update version to 5.0.0 in package.json
+- Session log — Linux PC Agent + YouTube BrowserWindow integration
+- Session log — Linux PC Agent + YouTube BrowserWindow integration
+- Add permanent rule — NEVER push without user approval
+- Add permanent rule — NEVER push without user approval
+- Untrack youtube HAR file
+- Untrack youtube HAR file
+- Remove webview anti-detection from index.js — BrowserWindow handles its own UA/CSP
+- Remove large files from git tracking
+- Session lifecycle — auto knowledge extraction on session end
+- Debounce pointermove, React.memo ResponseArea, optimize InputBar reflow
+- Code-split heavy pages via React.lazy to reduce bundle 4.8MB→4.6MB
+- Improve .gitignore — explicit sectioned, protect tracked , exclude agent workspaces
+- Gitignore .superpowers/ and quest.md
+- Update AGENTS.md with Linux PC Agent components
+- Add setup-linux-pc-agent.sh dependency installer
+- Universal Session Knowledge Schema — cross-agent knowledge preservation
+- Add structured session knowledge — preserve chat reasoning
+- Add self-preservation rule — MARK cannot delete itself
+- Tool-registry, vision-service, MCP SDK — future use for tri-layer tools + dual-path vision
+- Housekeeping sprint
+- Quarantine vs delete — malware dilemma solution
+- Add scoped permissions — anti-generalization
+- Add transparency, privacy, human safety to OS control architecture
+- OS control architecture — -first computer control
+- Remove active-win dep, finalize Linux-only text references
+- Checkpoint before switching to /linux-adaptation-merge
+- Strip Windows/macOS — Linux-only fork
+- Gitignore .superpowers/ and quest.md
+- Remove unused imports to silence warnings
+- Rename unpackFfmpeg→ffmpegPath, update Guidebook for cross-platform shell
+- Add Linux adaptation design spec
+- Vision awareness and json parsing error
+- Update version to 4.0.0 in package.json and refine README features
+- Improve communication guidelines and greeting logic in AI assistant
+- Simplify browser window visibility logic in navigation function
+- Implement screenshot functionality, enhance vision analysis, and improve loading state management
+- Integrate chat context for dynamic configuration updates and enhance setup flow
+- Enhance fetchAI debug logging, add memory deletion functionality, and improve configuration page navigation
+- Enhance loading state messages, update vector generation logic, and improve configuration handling
+- Enhance timeout logic, improve state management, and update awareness hook parameters
+- Implement native tools with approval mechanism and enhance awareness features
+- Update dynamic plan initialization and loading state messages for improved clarity
+- Update CLOUD_DELAY_MS to 3000ms for improved rate limiting and remove hardware acceleration to prevent GPU crashes
+- Update fetchAI function to improve error handling and remove custom token limit for OpenRouter : enhance getNextAction documentation and clarify coding rules for AI responses delete: remove DotGrid component for better code maintainability
+- Banner repositories
+- Banner
+- Update plugin execution handling and improve awareness instructions for autonomous actions
+- Rename OrbVisualizer to CubeVisualizer and enhance visual effects based on status and mood
+- Disable opening DevTools on main window ready event
+- Update session handling and improve chat history management
+- Remove ThinkingBubble and NowPlayingWidget components; update ChatList and ResponseArea for improved functionality
+- Rename waAutonomous to waAgent, update runWhatsappAgent parameters, and enhance awareness response with recent chat history
+- Update version to 2.0.0 and code for improved readability
+- Core chat system and remove folder context system
+- Remove unnecessary configuration from package.json
+- Disable opening DevTools on main window ready
+- Update version from 1.2.2 to 1.3.0 in package.json
+- Update chat assistant prompts and memory handling for improved user interaction and clarity
+- Increment version to 1.1.0 and enhance README with Secondary Model and Transparent Reasoning UI
+- Implement AI music selection logic for YouTube Music Player
+- Add AGENTS.md to .gitignore and enhance API with live audio shortcuts
+- Transformer embedding
+- Menerapkan live audio beta
+- Default value pitch and rate tts
+- Rate & pitch configuration
+- Live audio page
+- Text to speech
+- Shift enter to submit message
+- Readme
+- Music player
+- Update layout structure in App component and enhance Markdown styling
+
 ## v1.0.0-alpha.3 — 4 September 2026
 
 **Ringkasan:** 1 perbaikan dalam rilis ini.
@@ -99,7 +903,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Reconcile parity matrix
 - Add parity audit matrix + validation report for Electron→Tauri port
 - Linux branch coverage, upstream sync, dependabot, policy
-- Add ROADMAP.md, refine .gitignore for abelink-linux open-source
+- Add ROADMAP.md, refine .gitignore for abelink open-source
 - Filter , tests, scripts, src-tauri, HTML trackers for open-source
 - Replace auto-detect with first-boot resource mode chooser
 - Clean up junk files from tracking, config identifier
@@ -112,7 +916,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.0.0-alpha.1 — 26 Agustus 2026
 
-**Ringkasan:** Initial alpha release of ABELINK Linux. First public release for Tauri-native Linux fork.
+**Ringkasan:** Initial alpha release of Abelink Linux. First public release for Tauri-native Linux fork.
 
 _Tidak ada perubahan pengguna yang tercatat._
 
