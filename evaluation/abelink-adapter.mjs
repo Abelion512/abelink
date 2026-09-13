@@ -28,58 +28,64 @@ const TIMEOUT_MS = 300000
 // benchmark harness can still import these symbols without depending on a
 // browser/worker module graph.
 
-// Prefer the typed effort system constants when the module is loadable.
-// The module exports real sync values; do not wrap them in promises here.
-const _effortModule = (() => {
-  try {
-    return import('../src/api/ai/effortSystem.js')
-  } catch (_err) {
-    return null
-  }
-})()
-
-const _resolvedValues = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']
-
 // Real constants from the typed effort system when available; otherwise
 // real constants so tests and harness do not rely on a broken promise shape.
+const _resolvedValues = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']
+
+// The typed effort system exports real sync values; import() returns a
+// Promise, so the module must be awaited before its exports are readable.
+// Synchronous top-level consumers get the fallback values; the real
+// constants are loaded lazily on first use via _loadEffortSystem().
+let _effortModule = null
+let _effortModulePromise = null
+
+async function _loadEffortSystem() {
+  if (_effortModule) return _effortModule
+  if (_effortModulePromise) return _effortModulePromise
+  _effortModulePromise = import('../src/api/ai/effortSystem.js')
+    .then((mod) => {
+      _effortModule = mod
+      return mod
+    })
+    .catch(() => null)
+  return _effortModulePromise
+}
+
+// Real constants from the typed effort system when available.
 function _getEffortValues() {
-  if (_effortModule && _effortModule.EFFORT_VALUES) {
-    return _effortModule.EFFORT_VALUES
-  }
+  if (_effortModule && _effortModule.EFFORT_VALUES) return _effortModule.EFFORT_VALUES
   return _resolvedValues
 }
 
 function _getSystemDefaultEffort() {
-  if (_effortModule && _effortModule.SYSTEM_DEFAULT_EFFORT != null) {
-    return _effortModule.SYSTEM_DEFAULT_EFFORT
-  }
+  if (_effortModule && _effortModule.SYSTEM_DEFAULT_EFFORT != null) return _effortModule.SYSTEM_DEFAULT_EFFORT
   return 'low'
 }
 
 function _getAgentArchVersion() {
-  if (_effortModule && _effortModule.AGENT_ARCH_VERSION != null) {
-    return _effortModule.AGENT_ARCH_VERSION
-  }
+  if (_effortModule && _effortModule.AGENT_ARCH_VERSION != null) return _effortModule.AGENT_ARCH_VERSION
   return 'linux-1.0'
 }
 
 function _getBenchSchemaVersion() {
-  if (_effortModule && _effortModule.BENCH_SCHEMA_VERSION != null) {
-    return _effortModule.BENCH_SCHEMA_VERSION
-  }
+  if (_effortModule && _effortModule.BENCH_SCHEMA_VERSION != null) return _effortModule.BENCH_SCHEMA_VERSION
   return 3 // v3: +arch axis +worldState (Fase 2 bench)
 }
 
-export const EFFORT_VALUES = _getEffortValues() // real constants from the typed effort system when available; otherwise real constants
-export const SYSTEM_DEFAULT_EFFORT = _getSystemDefaultEffort() // real constants from the typed effort system when available; otherwise real constants
-export const AGENT_ARCH_VERSION = _getAgentArchVersion() // real constants from the typed effort system when available; otherwise real constants
-export const BENCH_SCHEMA_VERSION = _getBenchSchemaVersion() // real constants from the typed effort system when available; otherwise real constants
+export const EFFORT_VALUES = _getEffortValues()
+export const SYSTEM_DEFAULT_EFFORT = _getSystemDefaultEffort()
+export const AGENT_ARCH_VERSION = _getAgentArchVersion()
+export const BENCH_SCHEMA_VERSION = _getBenchSchemaVersion()
 
 // Backward-compatible sync aliases kept for existing importers that expect
 // synchronous values from the evaluation package.
 export const EFFORT_VALUES_sync = _resolvedValues
 export const AGENT_ARCH_VERSION_sync = 'linux-1.0'
 export const BENCH_SCHEMA_VERSION_sync = 3
+
+// Lazily resolve the real constants after module load. This is best-effort;
+// synchronous consumers continue to use the fallback values above.
+_loadEffortSystem()
 
 
 export function resolveTaskEffortSync({ taskEffort, benchmarkEffort, envEffort } = {}) {

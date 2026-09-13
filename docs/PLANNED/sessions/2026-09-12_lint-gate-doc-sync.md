@@ -79,7 +79,7 @@ ini. Patch baru, bukan duplikat.
 
 | File | Invariant |
 | --- | --- |
-| `src/api/ai/benchArch.js` | `ARCH_VALUES` tetap `['vanilla','basic','avo']` (laporan lama harus tetap terbaca). `avo` = alias `basic`; jangan dokumentasikan sebagai arsitektur berbeda tanpa mengembalikan lapisan Fase 2. |
+| `src/api/ai/benchArch.js` | `ARCH_VALUES` adalah `['vanilla','basic']`; `avo` dihapus dari sumbu aktif (`--arch avo` exit 2). Laporan lama berisi `avo` tetap terbaca sebagai history. Jangan dokumentasikan `avo` sebagai arsitektur berbeda tanpa mengembalikan lapisan Fase 2. |
 | `src/api/ai/strategyLib.js` | Satu entry point `getNextStrategy()`; jangan tambah taksonomi strategi baru tanpa data bench. |
 | `src/api/ai/trajectorySupervisor.js` | Hanya field Fase 1 yang dibaca; caller `score`/`stagnation`/`bestKey` sengaja di-`void`. Jangan pernah throw (fault harus degrade ke CONTINUE). |
 | `scripts/verify.sh` | Urutan langkah 8 tahap dan `set -e`; langkah baru harus ditambahkan, bukan menggantikan langkah lama. |

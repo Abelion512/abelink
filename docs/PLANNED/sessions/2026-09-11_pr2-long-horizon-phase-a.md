@@ -10,7 +10,7 @@ Sesi eksekusi Fase A untuk PR2 Long-Horizon (tanpa LLM, tanpa benchmark eksterna
 1. Penggantian hardcoded `MAX_PLAN_STEPS=25` di `useAbelinkPlan.js` dengan budget dinamis dari `effortSystem` (`low: 8`, `medium: 16`, `high: 32`, `xhigh: 64`, `max: 128`, `ultra: 256`). Lineage window (`maxAttempts`) ikut diskalakan.
 2. Audit & perbaikan kebocoran status durable task di `taskStore.js`: step running kini disinkronkan atomik ke pending saat task di-pause atau aplikasi restart (`App.jsx`).
 3. Verifikasi trace supervisor ReAct di `trajectorySupervisor.js` + simulasi loop: membuktikan repetisi/stagnasi memicu direktif strategi (`[STRATEGI: BACKTRACK]`) yang mendivergensikan tool call agent berikutnya ke checkpoint restore.
-4. Dokumentasi perintah bench arch-axis (`vanilla`, `basic`, `avo`) dan tabel hasil untuk pengujian Fase B oleh user.
+4. Dokumentasi perintah bench arch-axis (`vanilla`, `basic`) dan tabel hasil untuk pengujian Fase B oleh user.
 
 ## Temuan dan Fix
 
