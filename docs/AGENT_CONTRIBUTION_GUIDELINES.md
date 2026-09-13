@@ -91,7 +91,7 @@ Setiap agent yang menyelesaikan tugas wajib menjalankan rangkaian gerbang penguj
    ```
    Seluruh test file wajib berstatus pass tanpa regresi.
 
-2. **MarkBench Determinism Smoke Gate**:
+2. **AbelinkBench Determinism Smoke Gate**:
    ```bash
    bun evaluation/smoke.mjs
    ```

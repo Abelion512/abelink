@@ -7,24 +7,21 @@ const KNOWN_FIXES = [
     name: 'WASM_SIMD',
     fix: () => {
       try {
-        localStorage.setItem('mark:lite-mode', '1')
+        localStorage.setItem('abelink:lite-mode', '1')
       } catch (_) {}
     }
   },
   {
     test: (msg) => /playVideo is not a function|pauseVideo is not a function/i.test(msg),
-    name: 'YT_PLAYER_NOT_READY',
-    fix: () => {}
+    name: 'YT_PLAYER_NOT_READY'
   },
   {
     test: (msg) => /deleteMemoryFromOrama.*undefined is not an object/i.test(msg),
-    name: 'ORAMA_DELETE_ID',
-    fix: () => {}
+    name: 'ORAMA_DELETE_ID'
   },
   {
     test: (msg) => /useNavigate\(\).*<Router>/i.test(msg),
-    name: 'USE_NAVIGATE_ROUTER',
-    fix: () => {}
+    name: 'USE_NAVIGATE_ROUTER'
   }
 ]
 
@@ -35,7 +32,7 @@ function pushLog(entry) {
   errorLog.push(entry)
   if (errorLog.length > MAX_LOG) errorLog.shift()
   try {
-    localStorage.setItem('mark:error-guard', JSON.stringify(errorLog.slice(-20)))
+    localStorage.setItem('abelink:error-guard', JSON.stringify(errorLog.slice(-20)))
   } catch (_) {}
 }
 
@@ -53,7 +50,7 @@ export function initErrorGuard() {
     seen.add(key)
 
     const match = KNOWN_FIXES.find((f) => f.test(text))
-    if (match) {
+    if (match?.fix) {
       try {
         match.fix()
       } catch (_) {}
@@ -68,7 +65,7 @@ export function initErrorGuard() {
 
 export function getErrorLog() {
   try {
-    return JSON.parse(localStorage.getItem('mark:error-guard') || '[]')
+    return JSON.parse(localStorage.getItem('abelink:error-guard') || '[]')
   } catch (_) {
     return []
   }

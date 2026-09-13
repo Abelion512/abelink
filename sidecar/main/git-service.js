@@ -47,7 +47,7 @@ export async function getGitDiff(cwd, filePath = '') {
 /**
  * Membuat checkpoint commit git otomatis
  */
-export async function gitCommit(cwd, message = 'Mark Agent Checkpoint') {
+export async function gitCommit(cwd, message = 'Abelink Agent Checkpoint') {
   try {
     await runGit(['add', '-A'], cwd)
     // Pesan commit dikirim sebagai satu elemen argv, tidak perlu escaping shell.

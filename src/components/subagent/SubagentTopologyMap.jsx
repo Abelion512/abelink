@@ -134,7 +134,7 @@ export default function SubagentTopologyMap({
                 Belum Ada Sub-Agent
               </p>
               <p className="text-xs text-base-content/40 mt-0.5 max-w-sm">
-                Saat Mark mendelegasikan tugas ke sub-agent, topologi tim akan muncul di sini.
+                Saat Abelink mendelegasikan tugas ke sub-agent, topologi tim akan muncul di sini.
               </p>
             </div>
           </div>
@@ -199,7 +199,7 @@ export default function SubagentTopologyMap({
                 )
               })}
 
-              {/* Center Node: Mark (Lead Agent) */}
+              {/* Center Node: Abelink (Lead Agent) */}
               <g transform={`translate(${center.x}, ${center.y})`} className="cursor-pointer">
                 {/* Subtle Ambient Breath Ring */}
                 <circle

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
-import MarkHome from './pages/MarkHome'
+import AbelinkHome from './pages/AbelinkHome'
 // Route-level code splitting: halaman berat (Monaco, force-graph, syntax
 // highlighter, Monaco-based editor) hanya diunduh saat pertama kali dibuka.
-// MarkHome tetap eager  -  wajib selalu mounted agar listener AI/Telegram
+// AbelinkHome tetap eager  -  wajib selalu mounted agar listener AI/Telegram
 // tidak pernah mati (lihat komentar di MainLayout).
 const Configuration = lazy(() => import('./pages/Configuration'))
 const TelegramBot = lazy(() => import('./pages/TelegramBot'))
@@ -36,7 +36,7 @@ const GlobalListener = () => {
 
   useEffect(() => {
     const handleShortcut = (event, action) => {
-      // Navigate to Home (MarkHome) and trigger microphone auto-toggle
+      // Navigate to Home (AbelinkHome) and trigger microphone auto-toggle
       navigate('/', { state: { autoToggleMic: Date.now() } })
     }
 
@@ -87,11 +87,11 @@ const MainLayout = ({ isStandalone = false }) => {
     }
   }, [])
 
-  // Drop global satu titik: event 'mark:files-dropped' (detail = array item
+  // Drop global satu titik: event 'abelink:files-dropped' (detail = array item
   // {name,path,size,type}) bisa dikonsumsi InputBar/komponen lain mana pun.
   const handleGlobalDrop = useCallback((items) => {
     if (items && items.length > 0) {
-      window.dispatchEvent(new CustomEvent('mark:files-dropped', { detail: items }))
+      window.dispatchEvent(new CustomEvent('abelink:files-dropped', { detail: items }))
     }
   }, [])
 
@@ -111,7 +111,7 @@ const MainLayout = ({ isStandalone = false }) => {
       {/* Base Home Page - Always Mounted so AI Agent & Telegram Listeners Never Die */}
       {/* Hidden when not on home or in spotlight to prevent overlapping headers & controls */}
       <div className={`h-full w-full ${!isHome || isSpotlight ? 'hidden' : ''}`}>
-        <MarkHome />
+        <AbelinkHome />
       </div>
 
       {!isSpotlight && (
@@ -167,11 +167,11 @@ const MainLayout = ({ isStandalone = false }) => {
 const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }) => (
   <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
     <div className="max-w-md w-full bg-base-200/95 border border-white/10 rounded-2xl shadow-2xl p-7 space-y-4 animate-fade-in">
-      <h2 className="text-xl font-bold">Data Mark versi lama terdeteksi</h2>
+      <h2 className="text-xl font-bold">Data Abelink versi lama terdeteksi</h2>
       <p className="text-sm opacity-70 leading-relaxed">
-        Ditemukan {profiles.length} profil Mark era lama di folder konfigurasi. Karena mesin browser
+        Ditemukan {profiles.length} profil Abelink era lama di folder konfigurasi. Karena mesin browser
         berbeda (Chromium → WebKit), datanya tidak bisa dibaca langsung  -  tapi tetap aman dan bisa
-        dipulihkan lewat file export JSON dari Mark versi lama (Settings → Export DB).
+        dipulihkan lewat file export JSON dari Abelink versi lama (Settings → Export DB).
       </p>
       <div className="flex flex-col gap-2 pt-1">
         <button className="btn btn-primary" onClick={onRestore}>
@@ -192,7 +192,7 @@ const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }) => (
 function App() {
   const [hasConfig, setHasConfig] = useState(true)
   const [isChecking, setIsChecking] = useState(true)
-  const [loadingText, setLoadingText] = useState('Membangunkan Mark...')
+  const [loadingText, setLoadingText] = useState('Membangunkan Abelink...')
   const [showRecovery, setShowRecovery] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
   const [legacyProfiles, setLegacyProfiles] = useState(null) // null = belum dicek
@@ -228,8 +228,8 @@ function App() {
   // What's New dibuka manual dari item teratas hamburger (bukan auto-popup).
   useEffect(() => {
     const openWhatNew = () => setShowWhatsNew(true)
-    window.addEventListener('mark:open-whats-new', openWhatNew)
-    return () => window.removeEventListener('mark:open-whats-new', openWhatNew)
+    window.addEventListener('abelink:open-whats-new', openWhatNew)
+    return () => window.removeEventListener('abelink:open-whats-new', openWhatNew)
   }, [])
 
   useEffect(() => {
@@ -244,7 +244,7 @@ function App() {
         // (pilihan tersimpan; diubah via Configuration).
         let fullMode = null
         try {
-          fullMode = localStorage.getItem('mark:fullmode')
+          fullMode = localStorage.getItem('abelink:fullmode')
         } catch (_) {}
         if (fullMode === null && lm?.totalRAMGB > 16 && window.api?.nativeConfirm) {
           try {
@@ -253,8 +253,8 @@ function App() {
             )
             fullMode = yes ? '1' : '0'
             try {
-              localStorage.setItem('mark:fullmode', fullMode)
-              localStorage.setItem('mark:fullmode-asked', '1')
+              localStorage.setItem('abelink:fullmode', fullMode)
+              localStorage.setItem('abelink:fullmode-asked', '1')
             } catch (_) {}
           } catch (_) {}
         }
@@ -320,7 +320,7 @@ function App() {
                 setLoadingText(`Mengunduh Memori AI... ${percent}% (${loadedMB}MB / ${totalMB}MB)`)
               }
             } else if (info.status === 'done' || info.status === 'ready') {
-              setLoadingText('Membangunkan Mark...')
+              setLoadingText('Membangunkan Abelink...')
             }
           })
         } else {
@@ -353,8 +353,8 @@ function App() {
         // --- What's New: TIDAK auto-popup lagi. Modal dibuka dari item
         // teratas hamburger; badge dihitung dari mirror localStorage.
         try {
-          if (localStorage.getItem('mark:last-seen-whats-new') === null) {
-            localStorage.setItem('mark:last-seen-whats-new', '')
+          if (localStorage.getItem('abelink:last-seen-whats-new') === null) {
+            localStorage.setItem('abelink:last-seen-whats-new', '')
           }
         } catch (_) {}
         // -----------------
@@ -363,11 +363,11 @@ function App() {
       // 2.5 Apply hardware profile (auto-detected, saved to localStorage)
       // No modal  -  detection runs silently in background. User can change in Settings.
       try {
-        const savedProfile = localStorage.getItem('mark:resource-mode')
+        const savedProfile = localStorage.getItem('abelink:resource-mode')
         if (!savedProfile) {
           const detected = detectHardwareProfile()
           const cfg = getProfileConfig(detected)
-          localStorage.setItem('mark:resource-mode', detected)
+          localStorage.setItem('abelink:resource-mode', detected)
           console.log(`[Profile] Auto-detected: ${cfg.label} (${detected})`)
           window.dispatchEvent(new CustomEvent('profile-applied', { detail: cfg }))
         }
@@ -381,7 +381,7 @@ function App() {
   }, [])
 
   const settleChoice = useCallback(async (value) => {
-    localStorage.setItem('mark:first-boot-choice', value)
+    localStorage.setItem('abelink:first-boot-choice', value)
     const defaultConfig = {
       id: 1,
       model: 'google/gemma-3-4b',
@@ -397,7 +397,7 @@ function App() {
     setHasConfig(true)
     if (value === 'restore') {
       // Restore dijalankan DI LATAR BELAKANG: user langsung diarahkan ke
-      // MarkHome dan diberi tahu lewat toast kanan-atas saat impor selesai
+      // AbelinkHome dan diberi tahu lewat toast kanan-atas saat impor selesai
       // (tidak memblokir first-run experience). Impor manual tetap tersedia
       // di Configuration > Data Controls bila user melewatkan file ini.
       window.location.replace('/#/config?legacy-import=1')
@@ -407,7 +407,7 @@ function App() {
   }, [])
 
   // First-boot logic: legacy profile chooser as modal overlay
-  const choiceMade = localStorage.getItem('mark:first-boot-choice')
+  const choiceMade = localStorage.getItem('abelink:first-boot-choice')
   const showLegacyChooser =
     !hasConfig &&
     Array.isArray(legacyProfiles) &&
@@ -472,7 +472,7 @@ function App() {
       }
       // Mirror untuk badge hamburger.
       try {
-        localStorage.setItem('mark:last-seen-whats-new', whatsNewData.version)
+        localStorage.setItem('abelink:last-seen-whats-new', whatsNewData.version)
       } catch (_) {}
     } catch (e) {
       console.error('[App] Gagal simpan lastSeenWhatsNewVersion:', e)

@@ -1,7 +1,7 @@
 # Contributing to Abelink (Linux Edition)
 
 Terima kasih sudah mau berkontribusi! Repo ini adalah **Linux-only fork** dari
-Mark Agent, dioptimalkan untuk performa desktop Linux. Panduan ini untuk kontributor manusia. Untuk agen AI, baca [docs/AGENT_CONTRIBUTION_GUIDELINES.md](docs/AGENT_CONTRIBUTION_GUIDELINES.md).
+Abelink Agent, dioptimalkan untuk performa desktop Linux. Panduan ini untuk kontributor manusia. Untuk agen AI, baca [docs/AGENT_CONTRIBUTION_GUIDELINES.md](docs/AGENT_CONTRIBUTION_GUIDELINES.md).
 
 ## Quick Start
 
@@ -9,20 +9,17 @@ Mark Agent, dioptimalkan untuk performa desktop Linux. Panduan ini untuk kontrib
 git clone https://github.com/Abelion512/abelink.git
 cd abelink
 bun install
-bun tauri dev        # dev server (Vite HMR + Tauri shell)
+bun run app         # nyalakan dev (Vite HMR + Tauri shell, terisolasi)
 bun tauri build      # production build -> src-tauri/target/release/bundle/
 ```
 
 Catatan: project pakai **bun**: lockfile resmi `bun.lock`.
 `node_modules/` tidak pernah di-commit (sudah di `.gitignore`).
 
-### Alternatif: `bun run dev:smart` (bootstrap otomatis)
-
-Untuk workstation Linux yang baru pertama kali clone (belum ada `bun`, atau
-port 1420 masih di-hold sesi sebelumnya), pakai:
+### Baru pertama kali clone? Satu perintah cukup
 
 ```bash
-bun run dev:smart        # atau: bash scripts/dev.sh
+bun run app              # atau: bash scripts/dev.sh
 ```
 
 `scripts/dev.sh` akan, secara berurutan:
@@ -32,7 +29,7 @@ bun run dev:smart        # atau: bash scripts/dev.sh
 3. Bersihkan holder port 1420 dan `cargo` build-lock yang tertinggal dari sesi
    sebelumnya (hanya target proses yang jelas milik repo ini: kalau holder
    bukan milik kita, wrapper akan **abort** agar tidak membunuh proses lain).
-4. Lanjut ke `bun run app` (= `tauri dev`).
+4. Lanjut ke `bun run app` (= `bash scripts/dev.sh`, dev terisolasi; mentah: `bun run app:raw`).
 
 CI tidak berubah: `.github/workflows/tauri.yml` tetap pakai `oven-sh/setup-bun@v2`
 dengan `bun-version: 1.3.14`. Versi itu adalah satu-satunya versi yang

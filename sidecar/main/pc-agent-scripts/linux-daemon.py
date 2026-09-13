@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-linux-daemon.py - Linux-native MARK PC Automation daemon
-Mirrors pc-daemon.ps1: JSON-over-stdio protocol with ---MARK_DONE--- delimiter.
+linux-daemon.py - Linux-native ABELINK PC Automation daemon
+Mirrors pc-daemon.ps1: JSON-over-stdio protocol with ---ABELINK_DONE--- delimiter.
 Uses xdotool/wmctrl for desktop automation, mss+pytesseract for OCR fallback.
 """
 import sys
@@ -9,6 +9,7 @@ import os
 import json
 import subprocess
 import time
+import tempfile
 
 # Ensure stdout/stderr use UTF-8
 if hasattr(sys.stdout, 'reconfigure'):
@@ -17,11 +18,17 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8')
 
 # ─── Dependencies ────────────────────────────────────────────────────
+# Impor terpisah per pustaka: Pillow yang hilang tidak boleh ikut
+# mematikan screenshot, dan sebaliknya.
 try:
-    from mss import mss
+    from mss import MSS
+except ImportError:
+    MSS = None
+
+try:
     from PIL import Image
 except ImportError:
-    mss = None
+    Image = None
 
 try:
     import pytesseract
@@ -31,19 +38,20 @@ except ImportError:
 # ─── State ───────────────────────────────────────────────────────────
 element_cache = {}   # id -> {rect: [x,y,w,h], bbox}
 screenshots_cache = {}
-MARK_WINDOW_KEYWORDS = [
-    'mark agent', 'mark pc automation', 'mark_unblock', 'mark_pc_stop',
+ABELINK_WINDOW_KEYWORDS = [
+    'abelink agent', 'abelink pc automation', 'abelink_unblock', 'abelink_pc_stop',
+    'abelink (dev)',
 ]
 
 # ─── Helpers ─────────────────────────────────────────────────────────
 
-def is_mark_window(title: str) -> bool:
+def is_abelink_window(title: str) -> bool:
     t = (title or '').strip().lower()
     if not t:
         return True
-    if t.startswith('mark -') or t.startswith('mark_pc_') or t.startswith('mark_'):
+    if t.startswith('abelink -') or t.startswith('abelink_pc_') or t.startswith('abelink_'):
         return True
-    return any(k in t for k in MARK_WINDOW_KEYWORDS)
+    return any(k in t for k in ABELINK_WINDOW_KEYWORDS)
 
 def flush():
     sys.stdout.flush()
@@ -51,7 +59,7 @@ def flush():
 def emit(obj):
     sys.stdout.write(json.dumps(obj, separators=(',', ':'), ensure_ascii=False))
     sys.stdout.write('\n')
-    sys.stdout.write('---MARK_DONE---\n')
+    sys.stdout.write('---ABELINK_DONE---\n')
     flush()
 
 def xdotool(*args) -> str:
@@ -80,21 +88,21 @@ def wmctrl_list() -> str:
         return ''
 
 def get_target_window_title() -> str:
-    """Equivalent to MarkWin32::GetTargetWindow() + GetWindowText."""
+    """Ambil judul window terfokus (cermin perilaku era Win32)."""
     # Get the currently focused window title
     title = xdotool('getwindowfocus', 'getwindowname')
     if not title:
         return ''
-    if not is_mark_window(title):
+    if not is_abelink_window(title):
         return title
 
-    # Focused window is Mark — find another visible, non-Mark window
+    # Focused window is Abelink — find another visible, non-Abelink window
     lines = wmctrl_list().splitlines()
     for line in lines:
         parts = line.split(None, 2)
         if len(parts) >= 3:
             win_title = parts[2]
-            if not is_mark_window(win_title):
+            if not is_abelink_window(win_title):
                 win_id = parts[0]
                 xdotool('windowactivate', '--sync', win_id)
                 xdotool('windowfocus', '--sync', win_id)
@@ -102,7 +110,7 @@ def get_target_window_title() -> str:
     return title
 
 def ensure_target_window_focused():
-    """Equivalent to MarkWin32::EnsureTargetWindowFocused() - activates target window."""
+    """Fokuskan window target (cermin perilaku era Win32)."""
     get_target_window_title()  # This already handles the logic
 
 def get_window_rect(title: str) -> dict:
@@ -135,9 +143,9 @@ def get_window_rect(title: str) -> dict:
 
 def capture_screen(rect: dict = None) -> str:
     """Capture screen or region, return temp PNG path."""
-    if mss is None:
+    if MSS is None or Image is None:
         return None
-    with mss() as sct:
+    with MSS() as sct:
         if rect:
             monitor = {
                 'left': rect['x'],
@@ -151,7 +159,6 @@ def capture_screen(rect: dict = None) -> str:
         sct_img = sct.grab(monitor)
         img = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
 
-        import tempfile
         fd, tmp = tempfile.mkstemp(suffix='.png')
         os.close(fd)
         img.save(tmp, 'PNG')
@@ -249,7 +256,7 @@ def handle_read_ui(cmd_obj):
     elements = []
     method = 'ocr'
 
-    if rect and mss is not None:
+    if rect and MSS is not None and Image is not None:
         png_path = capture_screen(rect)
         if png_path:
             ocr_results = run_ocr(png_path)
@@ -278,7 +285,7 @@ def handle_ocr(cmd_obj):
     rect = get_window_rect(title)
 
     elements = []
-    if rect and mss is not None:
+    if rect and MSS is not None and Image is not None:
         png_path = capture_screen(rect)
         if png_path:
             elements = run_ocr(png_path)
@@ -387,7 +394,7 @@ def handle_list_windows(cmd_obj):
         if len(parts) >= 3:
             win_id = parts[0]
             title = parts[2]
-            if not is_mark_window(title):
+            if not is_abelink_window(title):
                 windows.append({'hwnd': win_id, 'title': title})
     return windows
 
@@ -401,7 +408,7 @@ def handle_focus_window(cmd_obj):
         parts = line.split(None, 2)
         if len(parts) >= 3:
             win_title = parts[2]
-            if title_query in win_title.lower() and not is_mark_window(win_title):
+            if title_query in win_title.lower() and not is_abelink_window(win_title):
                 win_id = parts[0]
                 xdotool('windowactivate', '--sync', win_id)
                 xdotool('windowfocus', '--sync', win_id)

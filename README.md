@@ -3,7 +3,7 @@
 ![Abelink Banner](./assets/banner-repo.png)
 [![Download Terbaru](https://img.shields.io/badge/Download-Linux-blue?style=for-the-badge&logo=linux)](https://github.com/Abelion512/abelink/releases/)
 
-> **Abelink** (berbasis arsitektur **MARK: Metacognitive Artificial Relational Knowledge**) adalah asisten otonom berbasis Linux dengan fokus pada privasi, otomatisasi sistem operasi, dan eksekusi tugas multi-langkah. Berjalan langsung di workstation lokal menggunakan arsitektur hybrid Tauri v2 (Rust) dan Bun runtime sidecar.
+> **Abelink** (berbasis arsitektur **ABELINK: Metacognitive Artificial Relational Knowledge**) adalah asisten otonom berbasis Linux dengan fokus pada privasi, otomatisasi sistem operasi, dan eksekusi tugas multi-langkah. Berjalan langsung di workstation lokal menggunakan arsitektur hybrid Tauri v2 (Rust) dan Bun runtime sidecar.
 
 > [!NOTE]
 > Proyek ini merupakan Linux-only fork independen dari basis fondasi [Mazees/mark-agent](https://github.com/Mazees/mark-agent).
@@ -20,8 +20,8 @@ abelink/
 ├── src/                  # React 19 frontend (UI, visualizer, local DB, Web Workers)
 │   ├── api/              # AI routing, planning, Dexie DB, vectorMemory worker
 │   ├── components/       # Komponen antarmuka (HUD, Jarvis Orb, Mission Control)
-│   ├── hooks/            # Lifecycle orchestrators (useMarkAgent, useVAD, useAwareness)
-│   └── pages/            # View routing (MarkHome, Configuration, Subagents, Studio)
+│   ├── hooks/            # Lifecycle orchestrators (useAbelinkAgent, useVAD, useAwareness)
+│   └── pages/            # View routing (AbelinkHome, Configuration, Subagents, Studio)
 ├── src-tauri/            # Shell native Rust: windowing, tray, secure sandboxing, rfd modals
 ├── sidecar/              # Bun sidecar daemon: JSON-lines RPC stdio, tool handlers, MCP
 ├── resources/            # Binary helper pendukung (ffmpeg, yt-dlp)
@@ -90,32 +90,29 @@ abelink/
    cd abelink
    ```
 
-2. **Smart Bootstrap & Launch:**
+2. **Jalankan aplikasinya:**
    ```bash
-   bun run dev:smart
+   bun run app
    ```
-   Perintah ini memverifikasi environment, memasang dependensi, membersihkan lock port yang menggantung, dan menjalankan `tauri dev`.
-
-3. **Alternatif Perintah Dev:**
-   ```bash
-   bun install
-   bun run app       # Alias untuk: bun tauri dev
-   ```
+   Satu perintah ini mengurus semuanya: cek environment, pasang dependensi,
+   rapikan port yang nyangkut, lalu nyalakan Abelink dalam mode dev yang
+   terisolasi (aman jalan bareng versi install-an). Butuh `tauri dev`
+   polos tanpa isolasi? `bun run app:raw` — tapi jangan bareng versi prod.
 
 ---
 
 ## Perintah Pengembangan
 
-| Perintah | Deskripsi |
+| Perintah | Buat apa |
 | --- | --- |
-| `bun run dev:smart` | Idempotent bootstrap + launch dev server. |
-| `bun run app` | Jalankan aplikasi dev mode (Vite HMR + Tauri). |
-| `bun test` | Jalankan seluruh unit test (Vitest). |
-| `bun evaluation/smoke.mjs` | Jalankan MarkBench smoke test gate. |
-| `bun run sync-version` | Sinkronisasi versi dari `tauri.conf.json` ke seluruh manifest. |
-| `bun run build:sidecar` | Kompilasi sidecar Bun menjadi binary mandiri. |
-| `bun run build:deb` | Build paket rilis `.deb` untuk Debian/Ubuntu/Mint. |
-| `bun run build:dist` | Build paket rilis lengkap (`.deb` dan `.AppImage`). |
+| `bun run app` | Nyalakan Abelink mode dev (pintu utama, sudah terisolasi). |
+| `bun run app:raw` | `tauri dev` polos tanpa isolasi — jangan dipakai bareng versi prod. |
+| `bun test` | Jalankan seluruh unit test. |
+| `bun evaluation/smoke.mjs` | Smoke test AbelinkBench (gerbang cepat). |
+| `bun run sync-version` | Samakan versi dari `tauri.conf.json` ke semua manifest. |
+| `bun run build:sidecar` | Kompilasi sidecar jadi binary mandiri. |
+| `bun run build:deb` | Bungkus rilis `.deb` (Debian/Ubuntu/Mint). |
+| `bun run build:dist` | Bungkus rilis lengkap (`.deb` + `.AppImage`). |
 
 ---
 

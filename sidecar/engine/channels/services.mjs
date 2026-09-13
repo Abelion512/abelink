@@ -38,7 +38,7 @@ on('google:connect', async (clientId, clientSecret) => {
 on('google:disconnect', async () => (await getGsvc()).disconnectGoogle())
 on('google:status', async () => (await getGsvc()).getGoogleStatus())
 
-// ------------------------------------------------------- Workspace RAG (.mark)
+// ------------------------------------------------------- Workspace RAG (.abelink)
 on('workspace:index', async (root) => (await getWs()).indexWorkspace(root))
 on(
   'workspace:query',
@@ -49,7 +49,7 @@ on(
   'workspace:save-memory',
   async ({ workspaceRoot, memoryData }) => (await getWs()).saveWorkingMemory(workspaceRoot, memoryData)
 )
-on('workspace:ensure', async (root) => (await getWs()).ensureMarkWorkspace(root))
+on('workspace:ensure', async (root) => (await getWs()).ensureAbelinkWorkspace(root))
 
 // ---------------------------------------------------------------- Awareness
 // Nama fungsi asli modul: startTracking/getBuffer/flushBuffer. get-buffer

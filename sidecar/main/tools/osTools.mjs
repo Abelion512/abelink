@@ -58,7 +58,7 @@ export const osTools = {
   'os-key': {
     needsApproval: (query) => isDangerousKeyCombo(query),
     approvalMessage: (query) =>
-      `Mark ingin menekan shortcut keyboard yang berpotensi BERBAHAYA:\n\n${query}`,
+      `Abelink ingin menekan shortcut keyboard yang berpotensi BERBAHAYA:\n\n${query}`,
     handler: async (query) => {
       try {
         const message = await executeKey((query || '').trim())
@@ -188,7 +188,7 @@ export const osTools = {
   'os-control-open': {
     needsApproval: () => !isPCSessionOpen(),
     approvalMessage: () =>
-      'Mark ingin mengontrol fisik PC/desktop-mu (mengunci sesi sementara dan memunculkan overlay kontrol PC). Apakah kamu mengizinkan?',
+      'Abelink ingin mengontrol fisik PC/desktop-mu (mengunci sesi sementara dan memunculkan overlay kontrol PC). Apakah kamu mengizinkan?',
     handler: async () => {
       try {
         const result = await openPCSession()

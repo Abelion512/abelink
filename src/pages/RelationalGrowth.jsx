@@ -103,7 +103,7 @@ function describePersonality(traits) {
   if (obedience >= 0.7) parts.push('sangat penurut')
   else if (obedience <= 0.3) parts.push('berani membantah')
 
-  return `Mark saat ini bersikap ${parts.join(', ')}.`
+  return `Abelink saat ini bersikap ${parts.join(', ')}.`
 }
 
 const TraitRing = ({ value, color, icon: Icon, label, desc, ring }) => {
@@ -169,7 +169,7 @@ const RelationalGrowth = () => {
   const handleReset = async () => {
     const result = await confirm({
       title: 'Reset Sifat Hubungan?',
-      message: 'Ini akan mereset semua trait Mark ke netral (0.5). Hubungan akan dimulai dari awal. Lanjutkan?',
+      message: 'Ini akan mereset semua trait Abelink ke netral (0.5). Hubungan akan dimulai dari awal. Lanjutkan?',
       isError: true,
       confirmText: 'Ya, Reset'
     })
@@ -213,7 +213,7 @@ const RelationalGrowth = () => {
                 <h1 className="text-2xl font-bold text-primary">
                   Relational Growth
                 </h1>
-                <p className="text-xs text-base-content/50 mt-1">Statistik kepribadian & hubungan Mark denganmu</p>
+                <p className="text-xs text-base-content/50 mt-1">Statistik kepribadian & hubungan Abelink denganmu</p>
               </div>
             </div>
             <button onClick={handleReset} className="btn btn-sm btn-error btn-outline gap-1">

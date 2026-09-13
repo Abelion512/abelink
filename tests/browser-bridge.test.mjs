@@ -16,7 +16,7 @@ import {
   setBrowserConfig,
   getBrowserConfig,
   extractUrl,
-  normalizeMarkId,
+  normalizeAbelinkId,
   isWebScrapeCommand,
   looksLikeCrawlerSource,
   tokenOk,
@@ -71,7 +71,7 @@ describe('browser bridge core', () => {
   it('perintah yang tidak pernah dijawab melempar timeout eksplisit (bukan sukses palsu)', async () => {
     const orig = BROWSER_BRIDGE.COMMAND_TIMEOUT_MS
     BROWSER_BRIDGE.COMMAND_TIMEOUT_MS = 40
-    await expect(dispatchCommand(S, 'act', { markId: 'mk1' })).rejects.toThrow(/kedaluwarsa/)
+    await expect(dispatchCommand(S, 'act', { abelinkId: 'ak1' })).rejects.toThrow(/kedaluwarsa/)
     BROWSER_BRIDGE.COMMAND_TIMEOUT_MS = orig
     // Antrean kembali bersih setelah timeout.
     expect(getSession(S).pending.length).toBe(0)
@@ -224,11 +224,11 @@ describe('sanitasi URL model', () => {
 })
 
 describe('normalisasi ID elemen klik', () => {
-  it('"3" -> "mk3", "mk3" tetap, "MK3" dilowercase', () => {
-    expect(normalizeMarkId('3')).toBe('mk3')
-    expect(normalizeMarkId('mk3')).toBe('mk3')
-    expect(normalizeMarkId('MK3')).toBe('mk3')
-    expect(normalizeMarkId(' mk12 ')).toBe('mk12')
+  it('"3" -> "ak3", "ak3" tetap, "AK3" dilowercase', () => {
+    expect(normalizeAbelinkId('3')).toBe('ak3')
+    expect(normalizeAbelinkId('ak3')).toBe('ak3')
+    expect(normalizeAbelinkId('AK3')).toBe('ak3')
+    expect(normalizeAbelinkId(' ak12 ')).toBe('ak12')
   })
 })
 
@@ -259,7 +259,7 @@ describe('rotasi token refresh-on-use', () => {
     const fs = await import('node:fs')
     const os = await import('node:os')
     const path = await import('node:path')
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mark-tok-'))
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-tok-'))
     fs.writeFileSync(path.join(dir, 'browser-bridge-token'), 'tok-lama-123')
     const r = writeTokenFile(dir)
     expect(r.token).toBe('tok-lama-123')
@@ -274,15 +274,15 @@ describe('rotasi token refresh-on-use', () => {
     const fs = await import('node:fs')
     const os = await import('node:os')
     const path = await import('node:path')
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mark-tok-'))
-    const saved = process.env.MARK_TOKEN_ROTATE_MS
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-tok-'))
+    const saved = process.env.ABELINK_TOKEN_ROTATE_MS
     try {
       const w = writeTokenFile(dir)
       const fresh = handshake('default', w.token)
       expect(fresh.ok).toBe(true)
       expect(fresh.newToken).toBeUndefined()
 
-      process.env.MARK_TOKEN_ROTATE_MS = '1'
+      process.env.ABELINK_TOKEN_ROTATE_MS = '1'
       await new Promise((r) => setTimeout(r, 5))
       const rot = handshake('default', w.token)
       expect(rot.ok).toBe(true)
@@ -300,8 +300,8 @@ describe('rotasi token refresh-on-use', () => {
       expect(tokenOk(s, w.token)).toBe(false)
       expect(tokenOk(s, rot.newToken)).toBe(true)
     } finally {
-      if (saved === undefined) delete process.env.MARK_TOKEN_ROTATE_MS
-      else process.env.MARK_TOKEN_ROTATE_MS = saved
+      if (saved === undefined) delete process.env.ABELINK_TOKEN_ROTATE_MS
+      else process.env.ABELINK_TOKEN_ROTATE_MS = saved
       fs.rmSync(dir, { recursive: true, force: true })
       dropSession('default')
     }

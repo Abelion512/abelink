@@ -18,22 +18,16 @@ export default function DeveloperSection({
       <div className="space-y-2">
         <p className="text-sm font-semibold">Debug Logging (JSONL)</p>
         <p className="text-xs opacity-60">
-          Rekam reasoning &amp; tool-call ke file JSONL di folder data aplikasi. Default OFF. Rotasi otomatis 50MB.
+          Rekam reasoning &amp; tool-call ke file JSONL di folder data aplikasi. Selalu aktif (100% lokal, tanpa cloud). Rotasi otomatis 50MB.
         </p>
-        <label className="flex items-center gap-3 cursor-pointer w-fit">
+        <label className="flex items-center gap-3 cursor-pointer w-fit opacity-50" title="Logging selalu aktif — toggle ini peninggalan versi lama">
           <input
             type="checkbox"
             className="toggle toggle-warning toggle-sm"
-            checked={devHarness}
-            onChange={(e) => {
-              const v = e.target.checked
-              setDevHarness(v)
-              try {
-                localStorage.setItem('devHarnessLogging', v ? '1' : '0')
-              } catch (_) {}
-            }}
+            checked
+            readOnly
           />
-          <span className="text-sm font-mono">{devHarness ? 'AKTIF' : 'OFF'}</span>
+          <span className="text-sm font-mono">AKTIF (selalu)</span>
         </label>
       </div>
 

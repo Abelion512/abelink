@@ -5,10 +5,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import { ensureNativeHost, NATIVE_HOST_NAME, EXTENSION_ID } from '../sidecar/main/browser/native-host.mjs'
+import { ensureNativeHost, NATIVE_HOST_NAME, EXTENSION_ID, resolveDataHome } from '../sidecar/main/browser/native-host.mjs'
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
-const HOST = path.join(ROOT, 'extension', 'native-host', 'mark-bridge-host.mjs')
+const HOST = path.join(ROOT, 'extension', 'native-host', 'abelink-bridge-host.mjs')
 
 function sendMsg(child, obj) {
   const body = Buffer.from(JSON.stringify(obj), 'utf8')
@@ -37,7 +37,7 @@ function readOne(child) {
 
 describe('host: protokol get-token', () => {
   it('mengembalikan token dari file', async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'mark-host-'))
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-'))
     fs.writeFileSync(path.join(home, 'browser-bridge-token'), 'tok-rahasia', { mode: 0o600 })
     const child = spawn(process.execPath, [HOST], { env: { ...process.env, XDG_DATA_HOME: home }, stdio: ['pipe', 'pipe', 'ignore'] })
     try {
@@ -52,8 +52,28 @@ describe('host: protokol get-token', () => {
     }
   })
 
+  it('namespace dev membaca file token dev (XDG/abelink-dev)', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-'))
+    const devDir = path.join(home, 'abelink-dev')
+    fs.mkdirSync(devDir, { recursive: true })
+    fs.writeFileSync(path.join(devDir, 'browser-bridge-token'), 'tok-dev', { mode: 0o600 })
+    fs.writeFileSync(path.join(home, 'browser-bridge-token'), 'tok-prod', { mode: 0o600 })
+    const child = spawn(process.execPath, [HOST], { env: { ...process.env, XDG_DATA_HOME: home }, stdio: ['pipe', 'pipe', 'ignore'] })
+    try {
+      let p = readOne(child)
+      sendMsg(child, { type: 'get-token', namespace: 'dev' })
+      expect((await p).token).toBe('tok-dev')
+      p = readOne(child)
+      sendMsg(child, { type: 'get-token' })
+      expect((await p).token).toBe('tok-prod')
+    } finally {
+      child.kill()
+      fs.rmSync(home, { recursive: true, force: true })
+    }
+  })
+
   it('file hilang -> ok:false, bukan crash', async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'mark-host-'))
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-'))
     const child = spawn(process.execPath, [HOST], { env: { ...process.env, XDG_DATA_HOME: home }, stdio: ['pipe', 'pipe', 'ignore'] })
     try {
       const p = readOne(child)
@@ -71,7 +91,7 @@ describe('host: protokol get-token', () => {
 
 describe('installer', () => {
   it('salin skrip + tulis manifest, idempoten kedua kali', async () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mark-host-inst-'))
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-inst-'))
     const configHome = path.join(tmp, 'config')
     const dataHome = path.join(tmp, 'data')
     fs.mkdirSync(path.join(configHome, 'google-chrome'), { recursive: true })
@@ -82,12 +102,12 @@ describe('installer', () => {
     expect(fs.existsSync(manifest)).toBe(true)
     const body = JSON.parse(fs.readFileSync(manifest, 'utf8'))
     expect(body.allowed_origins).toEqual([`chrome-extension://${EXTENSION_ID}/`])
-    expect(body.path).toBe(path.join(dataHome, 'mark', 'native-host', 'mark-bridge-host.sh'))
+    expect(body.path).toBe(path.join(dataHome, 'abelink', 'native-host', 'abelink-bridge-host.sh'))
     expect(fs.existsSync(body.path)).toBe(true)
     // Wrapper memakai runtime absolut (bukan env PATH).
     const wrapperSrc = fs.readFileSync(body.path, 'utf8')
     expect(wrapperSrc.startsWith('#!/bin/sh')).toBe(true)
-    expect(wrapperSrc).toContain('mark-bridge-host.mjs')
+    expect(wrapperSrc).toContain('abelink-bridge-host.mjs')
     expect(r1.installed[0].changed).toBe(true)
     const r2 = await ensureNativeHost(opts)
     expect(r2.installed[0].changed).toBe(false)
@@ -95,7 +115,7 @@ describe('installer', () => {
   })
 
   it('browser tanpa config dir dilewati, bukan gagal', async () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mark-host-inst-'))
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-inst-'))
     const r = await ensureNativeHost({ configHome: path.join(tmp, 'cfg'), dataHome: path.join(tmp, 'data'), sourceFile: { pathname: HOST } })
     expect(r.ok).toBe(true)
     expect(r.installed).toEqual([])
@@ -103,13 +123,22 @@ describe('installer', () => {
   })
 })
 
-describe('pin ID extension', () => {
-  it('EXTENSION_ID cocok turunan key manifest (anti-drift)', () => {
+describe('pin ID extension', () => {  it('EXTENSION_ID cocok turunan key manifest (anti-drift)', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'extension', 'manifest.json'), 'utf8'))
     expect(typeof manifest.key).toBe('string')
     const der = Buffer.from(manifest.key, 'base64')
     const h = crypto.createHash('sha256').update(der).digest().subarray(0, 16)
     const id = [...h].map((b) => String.fromCharCode(97 + (b >> 4)) + String.fromCharCode(97 + (b & 15))).join('')
     expect(id).toBe(EXTENSION_ID)
+  })
+})
+
+describe('resolveDataHome (pemisah dev/prod)', () => {
+  it('ABELINK_DATA_HOME menang atas XDG_DATA_HOME', () => {
+    expect(resolveDataHome({ ABELINK_DATA_HOME: '/dev-data', XDG_DATA_HOME: '/xdg', HOME: '/home/u' })).toBe('/dev-data')
+  })
+  it('fallback XDG lalu HOME bila override kosong', () => {
+    expect(resolveDataHome({ ABELINK_DATA_HOME: '  ', XDG_DATA_HOME: '/xdg', HOME: '/home/u' })).toBe('/xdg')
+    expect(resolveDataHome({ HOME: '/home/u' })).toBe('/home/u/.local/share')
   })
 })

@@ -30,11 +30,11 @@ describe('codingAgentBridge', () => {
     const result = buildCodingCommand({
       agentId: 'claude',
       prompt: 'Perbaiki bug koneksi AI',
-      workdir: '/media/abelion/Isaf/ican/project/mark-agent-linux',
+      workdir: '/media/abelion/Isaf/ican/project/abelink',
       branch: 'auto/fix-connection'
     })
 
-    expect(result.command).toContain("cd '/media/abelion/Isaf/ican/project/mark-agent-linux'")
+    expect(result.command).toContain("cd '/media/abelion/Isaf/ican/project/abelink'")
     expect(result.command).toContain('git checkout -B auto/fix-connection')
     expect(result.command).toContain('nice -n 10')
     expect(result.command).toContain('--dangerously-skip-permissions')

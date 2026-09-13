@@ -1,4 +1,4 @@
-# Mark Linux — Roadmap & Arah Pengembangan
+# Abelink Linux — Roadmap & Arah Pengembangan
 
 > **Branch:** linux · **Target:** v1.0.0 · **Updated:** 2026-08-30
 
@@ -6,7 +6,7 @@
 
 ## Visi
 
-MARK Linux adalah desktop assistant native untuk Linux — ringan, offline-first, dan mengintegrasikan AI multimodal (teks, suara, kamera) langsung di desktop tanpa cloud dependency untuk operasi dasar.
+ABELINK Linux adalah desktop assistant native untuk Linux — ringan, offline-first, dan mengintegrasikan AI multimodal (teks, suara, kamera) langsung di desktop tanpa cloud dependency untuk operasi dasar.
 
 ---
 
@@ -31,7 +31,7 @@ MARK Linux adalah desktop assistant native untuk Linux — ringan, offline-first
 - Distribution ke AUR / PPA
 
 ### 2. Capability & Connector Ecosystem (general-pluggable)
-- Capability Manager jadi poros pluggability — MARK tidak condong ke satu
+- Capability Manager jadi poros pluggability — ABELINK tidak condong ke satu
   task. Referensi desain: Claude connectors/plugins/marketplace (catalog ->
   connection/scope -> action schema -> execution -> policy -> audit).
 - [x] Channel `capabilities:*` (list/inspect/guide/execute/connections/

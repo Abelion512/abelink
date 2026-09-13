@@ -8,7 +8,7 @@
 // disiplin eksekusi dengan alasan eksplisit di tiap langkah.
 //
 // Skill ini masuk registry NATIVE_SKILLS sehingga otomatis terdaftar di
-// MARK SKILLS & CAPABILITY REGISTRY (prioritas #1) dan bisa dibaca agent
+// ABELINK SKILLS & CAPABILITY REGISTRY (prioritas #1) dan bisa dibaca agent
 // via 'read-skill' (progressive disclosure — hanya 1 baris deskripsi di
 // system prompt, isi penuh dimuat saat dipakai).
 

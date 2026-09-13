@@ -1,6 +1,6 @@
 // FB#1 — File operations native Rust (menggantikan handler node-tools.js)
 // KEAMANAN (audit 2026-08-26): semua path DIBATASI di dalam workspace root
-// (XDG_DATA_HOME/mark/workspace). Path absolut, '..', dan '~' DITOLAK;
+// (XDG_DATA_HOME/abelink/workspace). Path absolut, '..', dan '~' DITOLAK;
 // symlink & escape dicek lewat fs::canonicalize + prefix check.
 // Operasi berat berjalan di spawn_blocking agar tidak membekukan main thread.
 use serde::Serialize;
@@ -14,10 +14,7 @@ const MAX_READ_BYTES: u64 = 10 * 1024 * 1024;
 const MAX_GREP_FILE_BYTES: u64 = 1024 * 1024;
 
 pub fn workspace_root() -> PathBuf {
-    let xdg = std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| {
-        format!("{}/.local/share", std::env::var("HOME").unwrap_or_default())
-    });
-    PathBuf::from(xdg).join("mark").join("workspace")
+    crate::data_home().join("abelink").join("workspace")
 }
 
 /// Pastikan workspace ada dan kembalikan bentuk kanoniknya.
@@ -111,11 +108,13 @@ pub async fn fs_read_file(path: String, start_line: Option<u32>, end_line: Optio
         }
         let start = start_line.unwrap_or(1).max(1) as usize;
         let end = end_line.unwrap_or(u32::MAX) as usize;
+        // skip/take, bukan filter index: `i + 1 >= start` memicu clippy
+        // int_plus_one dan bentuknya lebih sulit dibaca. start >= 1 (max(1)),
+        // jadi tidak ada underflow; end < start menghasilkan slice kosong -> error.
         let selected: Vec<&str> = content
             .lines()
-            .enumerate()
-            .filter(|(i, _)| *i + 1 >= start && *i + 1 <= end)
-            .map(|(_, l)| l)
+            .skip(start - 1)
+            .take(end.saturating_sub(start).saturating_add(1))
             .collect();
         if selected.is_empty() {
             return Err(format!("Range baris {start}-{end} di luar cakupan file."));
@@ -339,7 +338,7 @@ pub fn fs_detect_legacy_profiles() -> Vec<String> {
 pub fn fs_import_pick_and_read() -> Result<LegacyPick, String> {
     let file = rfd::FileDialog::new()
         .add_filter("Dexie Export JSON", &["json"])
-        .set_title("Pilih file export database Mark lama")
+        .set_title("Pilih file export database Abelink lama")
         .pick_file();
     match file {
         Some(f) => {

@@ -5,7 +5,7 @@ describe('stripAgentTags', () => {
   it('melepas tag lead agent di awal pesan', () => {
     expect(stripAgentTags(`${LEAD_AGENT_TAG} halo dari abelink`)).toBe('halo dari abelink')
     expect(stripAgentTags('[DARI LEAD AGENT (ABELINK)]:  perintah eksekusi')).toBe('perintah eksekusi')
-    expect(stripAgentTags('[DARI LEAD AGENT (MARK)]:  perintah eksekusi')).toBe('perintah eksekusi')
+    expect(stripAgentTags('[DARI LEAD AGENT (ABELINK)]:  perintah eksekusi')).toBe('perintah eksekusi')
   })
 
   it('melepas tag creator dengan nama apa pun (termasuk karakter regex)', () => {
@@ -15,7 +15,7 @@ describe('stripAgentTags', () => {
   })
 
   it('hanya melepas tag di awal pesan', () => {
-    const mid = 'teks [DARI LEAD AGENT (MARK)]: di tengah'
+    const mid = 'teks [DARI LEAD AGENT (ABELINK)]: di tengah'
     expect(stripAgentTags(mid)).toBe(mid)
   })
 
@@ -26,12 +26,12 @@ describe('stripAgentTags', () => {
 
   it('dua tag beruntun -> keduanya terlepas (lazy match per-regex)', () => {
     expect(
-      stripAgentTags('[DARI LEAD AGENT (MARK)]: [DARI CREATOR / USER (MADA)]: isi')
+      stripAgentTags('[DARI LEAD AGENT (ABELINK)]: [DARI CREATOR / USER (MADA)]: isi')
     ).toBe('isi')
   })
 
   it('menjaga spasi awal baris dalam isi pesan', () => {
-    expect(stripAgentTags('[DARI LEAD AGENT (MARK)]: baris1\n  baris2')).toBe('baris1\n  baris2')
+    expect(stripAgentTags('[DARI LEAD AGENT (ABELINK)]: baris1\n  baris2')).toBe('baris1\n  baris2')
   })
 
   it('aman untuk input non-string (passthrough)', () => {

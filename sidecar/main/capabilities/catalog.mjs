@@ -91,7 +91,7 @@ const fsConnector = {
   id: 'fs',
   name: 'Workspace Files',
   description:
-    'Baca/tulis/hapus berkas DI DALAM workspace XDG mark via fsGuard (path containment ketat).',
+    'Baca/tulis/hapus berkas DI DALAM workspace XDG abelink via fsGuard (path containment ketat).',
   scopes: ['fs.read', 'fs.write', 'fs.delete'],
   actions: {
     list: {
@@ -176,9 +176,9 @@ const shellToolConnector = {
 
 const browserExtensionConnector = {
   id: 'browser-extension',
-  name: 'Browser Extension (Mark Bridge)',
+  name: 'Browser Extension (Abelink Bridge)',
   description:
-    'Lifecycle resmi extension browser Mark: status koneksi, panduan pasang, tutup sesi. Aksi tab (navigate/klik) tetap lewat channel browser:* dan tool advanced_browser.',
+    'Lifecycle resmi extension browser Abelink: status koneksi, panduan pasang, tutup sesi. Aksi tab (navigate/klik) tetap lewat channel browser:* dan tool advanced_browser.',
   scopes: [],
   actions: {
     status: {

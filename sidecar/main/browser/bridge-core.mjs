@@ -1,4 +1,4 @@
-// Mark Browser Bridge — inti logika antara sidecar dan ekstensi browser (Fase C3 Jalur A).
+// Abelink Browser Bridge — inti logika antara sidecar dan ekstensi browser (Fase C3 Jalur A).
 //
 // Model komunikasi (tanpa dependensi eksternal):
 //   - Ekstensi Chrome/Chromium melakukan LONG-POLL keluar ke server HTTP lokal
@@ -12,7 +12,7 @@
 //
 // Keamanan:
 //   - Token auth acak per proses. Ekstensi mengambil token lewat file token
-//     yang ditulis di direktori data XDG mark (mode 0600) — bukan env var
+//     yang ditulis di direktori data XDG abelink (mode 0600) — bukan env var
 //     global, bukan hardcode. Tanpa token, endpoint menolak (401).
 //   - Bind 127.0.0.1 saja; tidak pernah 0.0.0.0.
 //   - Tidak ada eksekusi JS arbitrer dari sisi ekstensi ke sidecar; arah
@@ -24,7 +24,7 @@ import path from 'path'
 
 // --------------------------------------------------------------- konstanta
 export const BROWSER_BRIDGE = {
-  PORT: Number(process.env.MARK_BRIDGE_PORT || 49712),
+  PORT: Number(process.env.ABELINK_BRIDGE_PORT || 49712),
   HOST: '127.0.0.1',
   // Long-poll: ekstensi menunggu perintah maksimal selama ini sebelum
   // reconnect. Harus lebih kecil dari timeout HTTP default ekstensi.
@@ -89,11 +89,11 @@ export function getBrowserConfig() {
   return { ...browserConfig }
 }
 
-// Normalisasi ID elemen: "3" -> "mk3" (format data-mark-id); "mk3" tetap.
-export function normalizeMarkId(q) {
+// Normalisasi ID elemen: "3" -> "ak3" (format data-abelink-id); "ak3" tetap.
+export function normalizeAbelinkId(q) {
   const t = String(q ?? '').trim()
-  if (/^mk\d+$/i.test(t)) return t.toLowerCase()
-  if (/^\d+$/.test(t)) return `mk${t}`
+  if (/^ak\d+$/i.test(t)) return t.toLowerCase()
+  if (/^\d+$/.test(t)) return `ak${t}`
   return t
 }
 
@@ -145,6 +145,17 @@ function now() {
 // ------------------------------------------------------------ session mgmt
 export function getSession(sessionId = 'default') {
   return sessions.get(sessionId) || null
+}
+
+// URL terakhir yang sukses di-navigate per sesi — untuk recovery tab yang
+// ditutup user (buka ulang otomatis, bukan menyerah). Bukan persistensi.
+export function setLastUrl(sessionId = 'default', url) {
+  if (!url) return
+  ensureSession(sessionId).lastUrl = String(url)
+}
+
+export function getLastUrl(sessionId = 'default') {
+  return sessions.get(sessionId)?.lastUrl || null
 }
 
 export function ensureSession(sessionId = 'default') {
@@ -334,7 +345,7 @@ export function dispatchCommand(sessionId, type, payload) {
       reject(
         new Error(
           `Perintah browser '${type}' kedaluwarsa (${BROWSER_BRIDGE.COMMAND_TIMEOUT_MS}ms). ` +
-            'Kemungkinan ekstensi Mark tidak terpasang/tidak berjalan di browser tujuan.'
+            'Kemungkinan ekstensi Abelink tidak terpasang/tidak berjalan di browser tujuan.'
         )
       )
     }, BROWSER_BRIDGE.COMMAND_TIMEOUT_MS)
@@ -351,13 +362,13 @@ export function dispatchCommand(sessionId, type, payload) {
 //   token baru, token lama tetap diterima selama masa grace (poll yang sedang
 //   jalan tidak putus). Token baru dikembalikan di respons handshake agar
 //   extension menukar diam-diam — tanpa tempel ulang, tanpa putus sesi.
-// - Batas default 30 hari, grace 24 jam (env MARK_TOKEN_ROTATE_MS untuk test).
+// - Batas default 30 hari, grace 24 jam (env ABELINK_TOKEN_ROTATE_MS untuk test).
 function rotateMs() {
-  return Number(process.env.MARK_TOKEN_ROTATE_MS || 30 * 24 * 3600 * 1000)
+  return Number(process.env.ABELINK_TOKEN_ROTATE_MS || 30 * 24 * 3600 * 1000)
 }
 const TOKEN_GRACE_MS = 24 * 3600 * 1000
 
-// Lokasi file token: ikuti pola XDG modul lain (~/.local/share/mark).
+// Lokasi file token: ikuti pola XDG modul lain (~/.local/share/abelink).
 export function tokenFilePath(xdgDataDir) {
   return path.join(xdgDataDir, 'browser-bridge-token')
 }

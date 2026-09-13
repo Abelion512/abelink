@@ -49,10 +49,16 @@ function routeFsTool(toolName, query) {
   }
 }
 
-// rtk-style: potong output tool yang kegedean sebelum masuk konteks AI
+// rtk-style: potong output tool yang kegedean sebelum masuk konteks AI.
+// Payload media (data-URL audio/gambar) JANGAN dipotong: dipotong = korup
+// (atob/Image melempar InvalidCharacterError — bug tes suara Config).
 const clampData = (data, max = 20000) => {
-  if (typeof data === 'string' && data.length > max) {
-    return data.slice(0, max) + `\n\n…[output dipotong ${data.length} → ${max} chars — rtk-style]`
+  if (typeof data === 'string') {
+    if (/^data:(audio|image)\//.test(data)) return data
+    if (data.length > max) {
+      return data.slice(0, max) + `\n\n…[output dipotong ${data.length} → ${max} chars — rtk-style]`
+    }
+    return data
   }
   if (data && typeof data === 'object') {
     for (const k of Object.keys(data)) {
@@ -76,7 +82,7 @@ const isAutomationAction = (action) => {
 const call = async (action, ...args) => {
   const isAuto = isAutomationAction(action)
   if (isAuto && typeof window !== 'undefined' && window.dispatchEvent) {
-    window.dispatchEvent(new CustomEvent('mark:automation-start', { detail: { action } }))
+    window.dispatchEvent(new CustomEvent('abelink:automation-start', { detail: { action } }))
   }
   try {
     const res = await invoke('node_invoke', { action, payload: args })
@@ -88,7 +94,7 @@ const call = async (action, ...args) => {
     return clampData(res.data)
   } finally {
     if (isAuto && typeof window !== 'undefined' && window.dispatchEvent) {
-      window.dispatchEvent(new CustomEvent('mark:automation-end', { detail: { action } }))
+      window.dispatchEvent(new CustomEvent('abelink:automation-end', { detail: { action } }))
     }
   }
 }
@@ -291,7 +297,16 @@ export const api = {
   // data-URL string; dibungkus { audioBase64 } agar konsisten satu facade.
   speakTTS: async ({ text, rate, pitch } = {}) => {
     const dataUrl = await call('tts-speak', text, rate, pitch)
-    return dataUrl ? { audioBase64: String(dataUrl).replace(/^data:audio\/mp3;base64,/, '') } : null
+    if (!dataUrl) return null
+    // Prefix MIME apa pun (mp3/mpeg/wav + parameter) dilucuti generik +
+    // whitespace dibuang; sisa yang bukan base64 murni = korup -> null
+    // (atob di pemanggil melempar InvalidCharacterError bila lolos).
+    const raw = String(dataUrl).replace(/^data:audio\/[^;]+(?:;[^;,]+)*;base64,/, '').replace(/\s+/g, '')
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(raw) || raw.length % 4 === 1) {
+      console.warn('[tauri-bridge] speakTTS: payload audio bukan base64 murni, dibuang')
+      return null
+    }
+    return { audioBase64: raw }
   },
   sendRemoteMusicCommand: (command, payload) => call('remote-music-command', command, payload),
   onExecuteMusicCommand: on('execute-music-command'),
@@ -399,12 +414,17 @@ export const api = {
     } finally {
       try {
         const h = await import('./harness')
+        let resultSummary = null
+        try {
+          resultSummary = JSON.stringify(result)?.slice(0, 2000) ?? null
+        } catch (_) {}
         h.logToolCall({
           tool: toolName,
           query: String(query).slice(0, 200),
           durMs: Date.now() - t0,
           ok: !error && result?.success !== false,
-          error
+          error,
+          resultSummary
         })
       } catch (_) {}
     }
@@ -433,12 +453,12 @@ export const api = {
   browserReadDom: (sessionId = 'default') => call('browser:read-dom', sessionId),
   browserAction: (data, sessionId = 'default') => call('browser:action', data, sessionId),
   // Shortcut aksi browser granular. Kontrak payload ekstensi (background.js):
-  // { action, markId, value } — argumen SELALU lewat field `value`, karena
-  // handler ekstensi mendestruktur { markId, action, value }. (Fix review PR #26.)
+  // { action, abelinkId, value } — argumen SELALU lewat field `value`, karena
+  // handler ekstensi mendestruktur { abelinkId, action, value }. (Fix review PR #26.)
   browserClick: (elementId, sessionId = 'default') =>
-    call('browser:action', { action: 'click', markId: elementId }, sessionId),
+    call('browser:action', { action: 'click', abelinkId: elementId }, sessionId),
   browserType: (elementId, text, sessionId = 'default') =>
-    call('browser:action', { action: 'type', markId: elementId, value: text }, sessionId),
+    call('browser:action', { action: 'type', abelinkId: elementId, value: text }, sessionId),
   browserScroll: (direction, amount, sessionId = 'default') =>
     call('browser:action', { action: 'scroll', value: { direction, amount } }, sessionId),
   browserExtract: (selector, sessionId = 'default') =>
@@ -619,13 +639,13 @@ export function installTauriBridge() {
     document.body.innerHTML = `
       <div style="position:fixed;inset:0;background:#0b0f0c;color:#e5e7eb;display:flex;align-items:center;justify-content:center;font-family:system-ui;padding:2rem;z-index:999999">
         <div style="max-width:560px;border:1px solid #2a3a2f;border-radius:16px;padding:2rem;background:#101713">
-          <h1 style="margin:0 0 .5rem;font-size:1.3rem;color:#4ade80">MARK berjalan di window terpisah</h1>
+          <h1 style="margin:0 0 .5rem;font-size:1.3rem;color:#4ade80">ABELINK berjalan di window terpisah</h1>
           <p style="margin:0 0 1rem;line-height:1.6;opacity:.85">
             Tab browser ini hanya <b>preview frontend</b> — tanpa API native, tanpa engine.
           </p>
           <p style="margin:0 0 .5rem">Jalankan aplikasi asli dari folder proyek:</p>
           <pre style="background:#0b0f0c;border:1px solid #2a3a2f;border-radius:8px;padding:.75rem 1rem;overflow:auto"><code>bun tauri dev</code></pre>
-          <p style="margin:.75rem 0 0;opacity:.6;font-size:.85rem">Window berjudul <b>MARK</b> akan muncul terpisah dari browser ini.</p>
+          <p style="margin:.75rem 0 0;opacity:.6;font-size:.85rem">Window berjudul <b>ABELINK</b> akan muncul terpisah dari browser ini.</p>
         </div>
       </div>
       <div id="root" style="display:none"></div>`

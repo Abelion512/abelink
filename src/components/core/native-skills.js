@@ -1,4 +1,4 @@
-// Native skills — di-registry di sini agar masuk MARK SKILLS & CAPABILITY
+// Native skills — di-registry di sini agar masuk ABELINK SKILLS & CAPABILITY
 // REGISTRY (prioritas #1) dan dibaca agent via 'read-skill'.
 // NATIVE_SKILL_LOW_TIER: disiplin eksekusi untuk model apapun (injeksi
 // perilaku via skill.md — kompensasi model low-tier, lihat native-skill-lowtier.js).

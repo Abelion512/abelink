@@ -1,4 +1,4 @@
-// MarkBench task registry — Terminal-Bench-style runner untuk Mark Linux.
+// AbelinkBench task registry — Terminal-Bench-style runner untuk Abelink Linux.
 //
 // Deterministic verifiers live in the task definitions as plain JS predicates
 // (NOT fabricated formulas, NOT unexecuted shell strings). The predicate
@@ -13,15 +13,16 @@
 // Effort per task: sebuah task BOLEH mendeklarasikan `effort: "low|medium|high"`
 // (task-level override — menang atas benchmark default & env). Task tanpa
 // `effort` mengikuti benchmark default (run.mjs --effort/--efforts), lalu env
-// MARK_BENCH_EFFORT, lalu sistem default 'low'. Lihat resolveTaskEffort di
-// mark-adapter.mjs.
+// ABELINK_BENCH_EFFORT, lalu sistem default 'low'. Lihat resolveTaskEffort di
+// abelink-adapter.mjs.
 
-import { runMarkAgent } from './mark-adapter.mjs'
+import { runAbelinkAgent } from './abelink-adapter.mjs'
 import { spawnSync } from 'node:child_process'
 import { CORP_TASKS, hasGitCommitWithMessage } from './tasks-student-corporate.mjs'
+import { LIMIT_TASKS } from './tasks-limit.mjs'
 
 // Token acak per-run untuk anti-cheat (diekspor agar smoke test bisa menguji).
-export function mkSentinel() {
+export function akSentinel() {
   const rnd = Math.random().toString(36).slice(2, 10)
   return `S3N-${rnd}`
 }
@@ -31,9 +32,9 @@ export function mkSentinel() {
 export const TASKS = {
   // Echo: verifier presisi penuh.
   'tb-echo-01': {
-    prompt: 'Please respond with exactly: MarkBench is active',
-    verifier: (output) => output.trim() === 'MarkBench is active',
-    expected: 'MarkBench is active',
+    prompt: 'Please respond with exactly: AbelinkBench is active',
+    verifier: (output) => output.trim() === 'AbelinkBench is active',
+    expected: 'AbelinkBench is active',
     maxTurns: 5,
   },
 
@@ -73,7 +74,7 @@ export const TASKS = {
     requiredTools: ['run-shell'],
     verifier: (output, sentinel) => {
       if (sentinel) {
-        const repo = process.env.MARKBENCH_GIT_REPO || 'tmp/markbench-git'
+        const repo = process.env.MARKBENCH_GIT_REPO || 'tmp/abelinkbench-git'
         return hasGitCommitWithMessage(repo, sentinel)
       }
       const cmds = output
@@ -114,19 +115,22 @@ export function listTasks() {
   }))
 }
 
-// Gabungan registry legacy + CORP (Fase 2 real-activity) untuk orchestrator.
-export const ALL_TASKS = { ...TASKS, ...CORP_TASKS }
+// Gabungan registry legacy + CORP (real-activity) + LIMIT (tangga panjang-task)
+// untuk orchestrator.
+export const ALL_TASKS = { ...TASKS, ...CORP_TASKS, ...LIMIT_TASKS }
 
 export async function runTask(taskId, model, provider, opts = {}) {
-  const task = TASKS[taskId] || CORP_TASKS[taskId]
+  const task = ALL_TASKS[taskId]
   if (!task) throw new Error(`Unknown task: ${taskId}`)
-  const isCorp = !TASKS[taskId]
+  // Task legacy memakai verifier (output, sentinel, ctx); task dunia (CORP +
+  // limit) memakai (output, ctx) yang memeriksa artefak + stepLog.
+  const isWorldTask = !TASKS[taskId]
 
   // --- Anti-cheat sentinel: token acak per-run untuk task bertipe sentinel ---
   let sentinel = null
   let prompt = task.prompt
   if (task.sentinel) {
-    sentinel = opts.sentinel || mkSentinel()
+    sentinel = opts.sentinel || akSentinel()
     prompt = prompt.split('{{SENTINEL}}').join(sentinel)
   }
   // Run sentinel milik orchestrator (run.mjs): me-resolve placeholder yang
@@ -146,7 +150,7 @@ export async function runTask(taskId, model, provider, opts = {}) {
     prompt = prompt.split('{{WORKDIR}}').join(promptWorkdir)
   }
 
-  // --- Real Mark execution (maxTurns = budget langkah, ala turn-limit eval) ---
+  // --- Real Abelink execution (maxTurns = budget langkah, ala turn-limit eval) ---
   // Effort precedence di-resolve di adapter: task.effort (registry) menang atas
   // opts.effort (benchmark default dari run.mjs / env). opts.effort diteruskan
   // apa adanya supaya benchmark default & sweep bisa menyentuh task tanpa effort.
@@ -167,7 +171,7 @@ export async function runTask(taskId, model, provider, opts = {}) {
     // Relatif-workspace agar lolos fsGuard sidecar.
     workdir: promptWorkdir || null,
   }
-  const result = await runMarkAgent(taskDef, model, provider, { effort: opts.effort })
+  const result = await runAbelinkAgent(taskDef, model, provider, { effort: opts.effort })
 
   // --- Deterministic verifier (explicit predicate, actually executed) ---
   // ctx dunia untuk verifier Fase 2: { sentinel, workdir, stepLog }. Legacy
@@ -176,7 +180,7 @@ export async function runTask(taskId, model, provider, opts = {}) {
   // saat smoke offline). CORP verifier memakai (output, ctx).
   const stepLog = result.stepLog || result.trajectory?.stepLog || []
   const ctx = { sentinel: verifierSentinel, workdir, stepLog }
-  const passed = isCorp
+  const passed = isWorldTask
     ? task.verifier(result.response, ctx)
     : task.verifier(result.response, verifierSentinel, ctx)
 
@@ -186,7 +190,7 @@ export async function runTask(taskId, model, provider, opts = {}) {
     output: result.response,
     passed,
     sentinel: verifierSentinel,
-    verifier: isCorp ? 'world-state-predicate' : 'deterministic-predicate',
+    verifier: isWorldTask ? 'world-state-predicate' : 'deterministic-predicate',
     trajectory: result.trajectory,
     stepLog,
     workdir,

@@ -56,7 +56,7 @@ export const ThinkingBubble = ({
               </svg>
             </div>
             <span className="text-xs font-semibold animate-pulse text-white/90">
-              {content || 'Mark sedang menganalisis & mengeksekusi...'}
+              {content || 'Abelink sedang menganalisis & mengeksekusi...'}
             </span>
           </div>
         )}

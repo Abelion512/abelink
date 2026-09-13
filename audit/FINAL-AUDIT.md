@@ -1,4 +1,4 @@
-# MARK Linux: Final Audit — Application Parity + CI/CD + Release Infrastructure
+# ABELINK Linux: Final Audit — Application Parity + CI/CD + Release Infrastructure
 
 **Date**: 2026-08-30  
 **Branch**: `linux` (`Abelion512/mark-agent-linux`)  
@@ -176,7 +176,7 @@ on:
 | `secrets` | push + PR to monitored branches | ✅ Yes | `gitleaks/gitleaks-action@v2` full-history scan | None |
 | `frontend` | push + PR to monitored branches | ✅ Yes | `bun install` → `vitest run` → `vite build` | None |
 | `rust` | push + PR to monitored branches | ✅ Yes | Install WebKitGTK deps → `cargo check` | None |
-| `bundle` | `if: github.ref == 'refs/heads/tauri-migration' \|\| startsWith(github.ref, 'refs/tags/')` | ❌ **NO** | Full `bun tauri build` → upload AppImage+deb | `mark-light-linux` |
+| `bundle` | `if: github.ref == 'refs/heads/tauri-migration' \|\| startsWith(github.ref, 'refs/tags/')` | ❌ **NO** | Full `bun tauri build` → upload AppImage+deb | `abelink-light-linux` |
 
 **Issues found:**
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-action.sh — Linux single-shot executor for MARK PC automation fallback.
+# linux-action.sh — Linux single-shot executor for ABELINK PC automation fallback.
 # Pengganti langsung win-action.ps1 era Windows. Dipanggil dari
 # sidecar/main/pc-agent.js (runScriptFallback) dengan gaya named-flag:
 #   linux-action.sh --action click --x 100 --y 200
@@ -168,9 +168,9 @@ case "$ACTION" in
     echo '['
     first=1
     while read -r id desk host title; do
-      # Saring window internal mark-agent
+      # Saring window internal Abelink (window utama + overlay otomatisasi).
       case "$title" in
-        mark\ agent*|mark\ pc\ automation*|mark_unblock|mark_pc_stop) continue ;;
+        [Aa]belink*|abelink_unblock|abelink_pc_stop) continue ;;
       esac
       title="${title//\"/\\\"}"
       [ -z "$title" ] && continue

@@ -1,6 +1,6 @@
-// Mark Architecture Benchmark — trajectory capture contract.
+// Abelink Architecture Benchmark — trajectory capture contract.
 //
-// This module defines the interface a MARK execution boundary must satisfy
+// This module defines the interface a ABELINK execution boundary must satisfy
 // for the architecture benchmark to become fully automatable.
 //
 // It does NOT drive the UI and does NOT require a CLI today.
@@ -16,7 +16,7 @@ import {
 
 // ---- Execution boundary contract -----------------------------------------
 
-/** Shape of a single MARK execution step as exposed by the capture adapter. */
+/** Shape of a single ABELINK execution step as exposed by the capture adapter. */
 export function makeRawStep({
   index = 0,
   kind = 'decision',
@@ -43,7 +43,7 @@ export function makeRawStep({
   }
 }
 
-/** Minimal controller interface a MARK harness/CLI/IPC boundary can implement. */
+/** Minimal controller interface a ABELINK harness/CLI/IPC boundary can implement. */
 export const EXECUTION_BOUNDARY_API = {
   /** Start a benchmark run and return a run context. */
   startRun: 'function(request) -> runContext',
@@ -161,15 +161,15 @@ export function isFailed(status) {
   return /gagal|error|failed|aborted|timed out/i.test(status.notes + ' ' + (status.status || ''))
 }
 
-// ---- MARK execution boundary specification ------------------------------
+// ---- ABELINK execution boundary specification ------------------------------
 
 /**
- * A MARK execution boundary is the only part of this benchmark that depends
- * on MARK itself.
+ * A ABELINK execution boundary is the only part of this benchmark that depends
+ * on ABELINK itself.
  *
- * Full specification for the MARK-side implementation:
+ * Full specification for the ABELINK-side implementation:
  *   evaluation/bench/boundary-spec.mjs It must expose the following operations in whatever
- * transport MARK supports: CLI, IPC, RPC, harness API, or a future Tauri
+ * transport ABELINK supports: CLI, IPC, RPC, harness API, or a future Tauri
  * invoke channel.
  *
  * Required operations:
@@ -193,7 +193,7 @@ export function isFailed(status) {
  * interface exists and can be invoked programmatically.
  */
 
-/** Minimal runtime checklist for a compliant MARK execution boundary. */
+/** Minimal runtime checklist for a compliant ABELINK execution boundary. */
 export const BOUNDARY_REQUIREMENTS = [
   'startRun accepts makeRunRequest shape',
   'sendPrompt returns an async iterable of raw steps',

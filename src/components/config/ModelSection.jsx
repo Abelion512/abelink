@@ -1,11 +1,50 @@
 import { useState, useEffect } from 'react'
 import { FaRobot, FaTerminal, FaPlug } from 'react-icons/fa'
+import { detectProviderFromUrl } from '../../api/ai/providerDetect.js'
 
 export const isCustomEndpointPlausible = (raw, protocol) => {
   const ep = (raw || '').trim().replace(/\/+$/, '')
   if (!/^https?:\/\//i.test(ep)) return false
   if (/\/(chat\/completions|v1)$/.test(ep)) return true
   return /anthropic/i.test(ep) || protocol === 'anthropic'
+}
+
+// Cache daftar model per endpoint (localStorage, ringan & sinkron).
+// Daftar model berubah tiap ada rilis baru, tapi fetch ulang tiap buka panel
+// itu mahal (server agregator bisa >1 menit untuk ~1900 model). Jadi: tampilkan
+// cache instan, Deteksi Ulang hanya untuk refresh.
+const LM_STUDIO_ENDPOINT = 'http://localhost:1234/v1'
+
+const modelsCacheKey = (endpoint) =>
+  `abelink_models_${(endpoint || '').trim().toLowerCase().replace(/\/+$/, '')}`
+
+export const readModelsCache = (endpoint) => {
+  try {
+    const raw = localStorage.getItem(modelsCacheKey(endpoint))
+    if (!raw) return null
+    const rec = JSON.parse(raw)
+    if (!rec || !Array.isArray(rec.models)) return null
+    return rec
+  } catch {
+    return null
+  }
+}
+
+export const writeModelsCache = (endpoint, models) => {
+  try {
+    localStorage.setItem(modelsCacheKey(endpoint), JSON.stringify({ at: Date.now(), models }))
+  } catch {
+    // storage penuh/diblokir: cache opsional, abaikan diam-diam
+  }
+}
+
+export const formatCacheAge = (at) => {
+  const mins = Math.max(0, Math.round((Date.now() - (at || 0)) / 60000))
+  if (mins < 1) return 'baru saja'
+  if (mins < 60) return `${mins} mnt lalu`
+  const hours = Math.round(mins / 60)
+  if (hours < 48) return `${hours} jam lalu`
+  return `${Math.round(hours / 24)} hari lalu`
 }
 
 export default function ModelSection({
@@ -15,28 +54,45 @@ export default function ModelSection({
 }) {
   const [showCustomKey, setShowCustomKey] = useState(false)
   const [customModels, setCustomModels] = useState([])
+  const [customModelsAt, setCustomModelsAt] = useState(null)
   const [detectingModels, setDetectingModels] = useState(false)
   const [modelDetectError, setModelDetectError] = useState('')
-  const [lmStudioModels, setLmStudioModels] = useState([])
+  const [lmStudioModels, setLmStudioModels] = useState(() => readModelsCache(LM_STUDIO_ENDPOINT)?.models ?? [])
+  const [lmModelsAt, setLmModelsAt] = useState(() => readModelsCache(LM_STUDIO_ENDPOINT)?.at ?? null)
   const [lmDetectAttempted, setLmDetectAttempted] = useState(false)
+  const [lmDetecting, setLmDetecting] = useState(false)
+  const [lmDetectError, setLmDetectError] = useState('')
+
+  const detectLmStudio = async () => {
+    if (!window.api?.detectCustomModels) return false
+    setLmDetecting(true)
+    setLmDetectError('')
+    try {
+      const list = await window.api.detectCustomModels(LM_STUDIO_ENDPOINT, '', 'openai')
+      if (Array.isArray(list) && list.length > 0) {
+        setLmStudioModels(list)
+        setLmModelsAt(Date.now())
+        writeModelsCache(LM_STUDIO_ENDPOINT, list)
+        return true
+      }
+      setLmDetectError('LM Studio tidak mengembalikan daftar model. Pastikan ada model ter-load di LM Studio.')
+      return false
+    } catch (err) {
+      setLmDetectError(`LM Studio tidak terjangkau di localhost:1234 (${err?.message || err}). Nyalakan server-nya lalu Deteksi Ulang.`)
+      return false
+    } finally {
+      setLmDetecting(false)
+    }
+  }
 
   useEffect(() => {
     if (activeSection !== 'cfg-model' || config.aiProvider !== 'lm-studio' || lmDetectAttempted) {
       return
     }
     setLmDetectAttempted(true)
-    let alive = true
-    if (window.api?.detectCustomModels) {
-      window.api
-        .detectCustomModels('http://localhost:1234/v1', '', 'openai')
-        .then((list) => {
-          if (alive && Array.isArray(list) && list.length > 0) setLmStudioModels(list)
-        })
-        .catch(() => {})
-    }
-    return () => {
-      alive = false
-    }
+    // Gagal diam-diam di sini disengaja (hindari noise saat buka panel);
+    // error tampil saat user tekan Deteksi Ulang.
+    detectLmStudio().catch(() => {})
   }, [activeSection, config.aiProvider, lmDetectAttempted])
 
   const handleDetectModels = async () => {
@@ -51,6 +107,8 @@ export default function ModelSection({
       )
       if (Array.isArray(list) && list.length > 0) {
         setCustomModels(list)
+        setCustomModelsAt(Date.now())
+        writeModelsCache(config.customEndpoint, list)
         if (!config.customModel && list.length > 0) {
           setConfig((prev) => ({ ...prev, customModel: list[0] }))
         }
@@ -63,6 +121,14 @@ export default function ModelSection({
       setDetectingModels(false)
     }
   }
+
+  // Ganti endpoint -> tampilkan cache endpoint itu (kalau ada), bukan daftar basi.
+  useEffect(() => {
+    const cached = readModelsCache(config.customEndpoint)
+    setCustomModels(cached?.models ?? [])
+    setCustomModelsAt(cached?.at ?? null)
+    setModelDetectError('')
+  }, [config.customEndpoint])
 
   return (
     <section
@@ -142,6 +208,22 @@ export default function ModelSection({
               value={config.customEndpoint || ''}
               onChange={(e) => setConfig((prev) => ({ ...prev, customEndpoint: e.target.value }))}
             />
+            {(() => {
+              const detected = detectProviderFromUrl(config.customEndpoint)
+              if (detected.id === 'custom' || !config.customEndpoint?.trim()) return null
+              const protoHint =
+                detected.protocol !== 'auto' &&
+                (config.customApiProtocol || 'auto') !== 'auto' &&
+                (config.customApiProtocol || 'auto') !== detected.protocol
+                  ? ` • coba protokol ${detected.protocol === 'anthropic' ? 'Anthropic' : 'OpenAI'}`
+                  : ''
+              return (
+                <p className="text-xs text-white/40">
+                  Terdeteksi: {detected.name}
+                  {protoHint}
+                </p>
+              )
+            })()}
           </div>
 
           <div className="space-y-1.5">
@@ -178,6 +260,28 @@ export default function ModelSection({
             </div>
             {modelDetectError && (
               <p className="text-xs text-error mt-1">{modelDetectError}</p>
+            )}
+            {customModels.length > 0 && (
+              <>
+                <p className="text-xs text-success">
+                  {customModels.length} model terdeteksi dari endpoint
+                  {customModelsAt ? ` • tersimpan ${formatCacheAge(customModelsAt)}` : ''}
+                </p>
+                <select
+                  className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) setConfig((prev) => ({ ...prev, customModel: e.target.value }))
+                  }}
+                >
+                  <option value="">-- Pilih model terdeteksi --</option>
+                  {customModels.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </>
             )}
             <input
               type="text"
@@ -248,7 +352,30 @@ export default function ModelSection({
         </div>
       ) : (
         <div className="space-y-1.5">
-          <label className="text-sm font-semibold">Model</label>
+          <div className="flex justify-between items-center">
+            <label className="text-sm font-semibold">Model</label>
+            <button
+              type="button"
+              className="btn btn-xs btn-outline rounded-lg"
+              disabled={lmDetecting}
+              onClick={() => detectLmStudio().catch(() => {})}
+              title="Deteksi ulang model dari LM Studio (GET localhost:1234/v1/models)"
+            >
+              {lmDetecting ? (
+                <span className="loading loading-spinner loading-xs"></span>
+              ) : (
+                'Deteksi Ulang'
+              )}
+            </button>
+          </div>
+          {lmModelsAt && lmStudioModels.length > 0 && (
+            <p className="text-xs text-white/40">
+              Tersimpan lokal • diperbarui {formatCacheAge(lmModelsAt)} • Deteksi Ulang untuk refresh
+            </p>
+          )}
+          {lmDetectError && (
+            <p className="text-xs text-error mt-1">{lmDetectError}</p>
+          )}
           {lmStudioModels.length > 0 && (
             <>
               <p className="text-xs text-success">

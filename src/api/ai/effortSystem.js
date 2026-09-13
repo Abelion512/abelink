@@ -1,4 +1,4 @@
-// Mark-Linux Adaptive Reasoning/Effort System — typed core.
+// Abelink-Linux Adaptive Reasoning/Effort System — typed core.
 // Canonical policy table + runtime budget accounting + AUTO resolver + provider adapters.
 // Spec: docs/effort-system-spec.md
 
@@ -550,8 +550,8 @@ export class ModelProviderAdapter {
     // canonical policy.
     return {
       ...request,
-      _mark_effort_policy: effortPolicy,
-      _mark_effort_metadata: {
+      _abelink_effort_policy: effortPolicy,
+      _abelink_effort_metadata: {
         level: effortPolicy.level.value,
         reasoning_mode: effortPolicy.reasoning_mode,
         planning_mode: effortPolicy.planning_mode,
@@ -576,7 +576,16 @@ export class TokenBudgetProviderAdapter extends ModelProviderAdapter {
     return {
       ...super.applyEffort(request, effortPolicy),
       max_tokens: budget,
-      _mark_effort_provider_fallback: 'token_budget',
+      _abelink_effort_provider_fallback: 'token_budget',
     }
   }
 }
+
+// ReasoningPolicy mapping (docs-only, no runtime): Abelink controls WHAT
+// happens after the model thinks, never HOW the model thinks internally.
+// Native thinking differs per provider, agentic policy stays identical:
+//   Claude  -> effort maps to Anthropic thinking/effort controls.
+//   Gemini  -> effort maps to Gemini reasoning configuration.
+//   No native thinking -> effort maps to multiple calls + verification loop
+//     (outer ReAct + objectiveVerifier gate + trajectory stagnation ladder).
+// New provider adapters subclass ModelProviderAdapter above; no new policy shape.

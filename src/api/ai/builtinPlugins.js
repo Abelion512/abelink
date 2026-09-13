@@ -18,7 +18,6 @@
 export const BUILTIN_PLUGIN_DEFAULTS = Object.freeze({
   ponytail: true,
   caveman: true
-  // rtk dievaluasi di sidecar (config.rtkCompress !== false) — tetap kompatibel
 })
 
 // Ambil toggle dari config apapun yang punya key `builtinPlugins`

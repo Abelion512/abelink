@@ -1,4 +1,4 @@
-// objectiveVerifier.js — Objective Completion & Verification Layer for MARK.
+// objectiveVerifier.js — Objective Completion & Verification Layer for ABELINK.
 //
 // agentDecision.js classifies the MODEL CLAIM (done / blocked / needs_user /
 // in_progress). That claim alone is NOT proof that the real-world objective is
@@ -77,6 +77,12 @@ const SEND_CONFIRM_RE =
 
 const FILE_REQUEST_RE = /(file|berkas|laporan|report|dokumen|\.md\b|\.txt\b|\.csv\b|\.docx\b)/i
 
+// Penanda objective multi-langkah: klaim done setelah 1 aksi = prematur.
+// Murni struktur bahasa (konjungsi), nol nama produk — buta-contoh.
+const MULTI_ACTION_RE = /(\bdan\b|\blalu\b|\bkemudian\b|\bsetelah itu\b|\bterus\b|\bthen\b|\band\b)/i
+
+export const isMultiActionObjective = (text = '') => MULTI_ACTION_RE.test(String(text || ''))
+
 // ---------------------------------------------------------------------------
 // 1. Objective kind classification (task-awareness for verification)
 // ---------------------------------------------------------------------------
@@ -122,7 +128,7 @@ export function classifyObjectiveKind(prompt = '', hints = {}) {
     return 'code'
   }
   if (
-    /(\bform\b|login|daftar|checkout|bayar|submit|kirim form|halaman web|website|browser|scraping|scrape|crawl|navigasi ke|buka url)/i.test(
+    /(\bform\b|login|daftar|checkout|bayar|submit|kirim form|halaman web|website|browser|scraping|scrape|crawl|navigasi ke|buka url|(buka|open)\s+https?:\/\/|(buka|open)\s+(halaman|situs|web|url|link|tab|browser)\b)/i.test(
       p
     )
   ) {
@@ -207,7 +213,18 @@ export function deriveSuccessCriteria(kind = 'general', objectiveText = '') {
       return []
     case 'general':
     default:
-      return [{ id: 'last-execution-success', label: 'Eksekusi tool terakhir sukses tanpa error' }]
+      // Objective multi-langkah dengan 1 aksi sukses = progres, bukan bukti
+      // selesai. Tanpa kriteria ini, satu navigate sukses langsung VERIFIED
+      // dan klaim done prematur lolos (kasus "buka X dan ...").
+      return isMultiActionObjective(text)
+        ? [
+            { id: 'last-execution-success', label: 'Eksekusi tool terakhir sukses tanpa error' },
+            {
+              id: 'multi-step-progress',
+              label: 'Objective multi-langkah: minimal 2 aksi tool sukses tereksekusi'
+            }
+          ]
+        : [{ id: 'last-execution-success', label: 'Eksekusi tool terakhir sukses tanpa error' }]
   }
 }
 
@@ -236,6 +253,18 @@ const normalizeOps = (tools = [], observations = []) => {
 }
 
 const opFailed = (op) => FAIL_RE.test(op.text)
+
+// Eskalasi kind dari bukti tool, bukan dari kosakata prompt. Jika klasifikasi
+// teks menghasilkan 'general' tetapi eksekusi nyata mengandung aksi browser,
+// verifikasi memakai lensa 'browser' (tuntut konfirmasi, bukan sekadar
+// "klik tereksekusi"). Berlaku untuk situs apapun — dikenal maupun yang baru
+// muncul — karena yang dibaca adalah perilaku. 'conversational' tidak pernah
+// dieskalasi. Murni & unit-testable.
+export function escalateKindFromEvidence(kind = 'general', ops = []) {
+  if (kind !== 'general') return kind
+  const acted = (ops || []).some((op) => BROWSER_ACTION_RE.test(op?.tool || ''))
+  return acted ? 'browser' : kind
+}
 
 /**
  * Evaluate world-state evidence for an objective.
@@ -270,20 +299,28 @@ export function evaluateEvidence({
   }
 
   if (ops.length === 0) {
+    const criteria = deriveSuccessCriteria(resolvedKind, objectiveText).map((c) => ({
+      ...c,
+      state: 'unresolved'
+    }))
+    // Objective multi-langkah tanpa tool sama sekali = belum ada bukti, bukan
+    // "tidak ada kriteria" — JANGAN lolos lewat pengecualian general+NOT_RUN.
+    // Selain kasus itu, perilaku lama dipertahankan (NOT_RUN).
+    const multiGeneral =
+      resolvedKind === 'general' && criteria.some((c) => c.id === 'multi-step-progress')
     return {
-      state: VERIFICATION_STATE.NOT_RUN,
+      state: multiGeneral ? VERIFICATION_STATE.UNAVAILABLE : VERIFICATION_STATE.NOT_RUN,
       kind: resolvedKind,
-      criteria: deriveSuccessCriteria(resolvedKind, objectiveText).map((c) => ({
-        ...c,
-        state: 'unresolved'
-      })),
+      criteria,
       evidence: { ops: 0, failures: 0, lastTool: null }
     }
   }
 
   const failures = ops.filter(opFailed).length
   const lastOp = ops[ops.length - 1]
-  const criteria = deriveSuccessCriteria(resolvedKind, objectiveText).map((c) => ({
+  // Kind final mengikuti bukti: general + aksi browser tereksekusi = lensa browser.
+  const effectiveKind = escalateKindFromEvidence(resolvedKind, ops)
+  const criteria = deriveSuccessCriteria(effectiveKind, objectiveText).map((c) => ({
     ...c,
     state: 'na'
   }))
@@ -303,7 +340,7 @@ export function evaluateEvidence({
     return { lastWrite, writeOk, readBackOk }
   }
 
-  switch (resolvedKind) {
+  switch (effectiveKind) {
     case 'file':
     case 'code': {
       const { lastWrite, writeOk, readBackOk } = artifactReadBack()
@@ -311,7 +348,7 @@ export function evaluateEvidence({
         'artifact-exists',
         writeOk || readBackOk ? 'pass' : lastWrite ? 'fail' : 'unresolved'
       )
-      if (resolvedKind === 'code') {
+      if (effectiveKind === 'code') {
         setState('syntax-valid', lastWrite ? (opFailed(lastWrite) ? 'fail' : 'pass') : 'unresolved')
         if (TEST_REQUEST_RE.test(String(objectiveText))) {
           const testOps = ops.filter((op) => /(run-shell|run-task)/i.test(op.tool || ''))
@@ -373,13 +410,20 @@ export function evaluateEvidence({
     case 'general':
     default: {
       setState('last-execution-success', opFailed(lastOp) ? 'fail' : 'pass')
+      if (criteria.some((c) => c.id === 'multi-step-progress')) {
+        const successes = ops.filter((op) => !opFailed(op)).length
+        setState(
+          'multi-step-progress',
+          opFailed(lastOp) ? 'fail' : successes >= 2 ? 'pass' : 'unresolved'
+        )
+      }
       break
     }
   }
 
   return {
-    state: aggregateCriteria(criteria, { opsCount: ops.length, kind: resolvedKind }),
-    kind: resolvedKind,
+    state: aggregateCriteria(criteria, { opsCount: ops.length, kind: effectiveKind }),
+    kind: effectiveKind,
     criteria,
     evidence: { ops: ops.length, failures, lastTool: lastOp.tool }
   }
@@ -443,13 +487,14 @@ const KIND_VERIFY_HINT = {
   file: 'Buktikan artifact tersimpan: jalankan read-file atau list-dir pada path-nya dan lampirkan hasilnya.',
   code: 'Buktikan perubahan: read-file hasil edit, dan bila test diminta jalankan test/lint via run-shell lalu lampirkan output lulusnya.',
   browser:
-    'Jangan berhenti di "klik tereksekusi". Baca ulang halaman (browser-read/browser-extract) dan buktikan konfirmasi sukses (submission/pembayaran/pesan konfirmasi).',
+    'Jangan berhenti di "klik tereksekusi". Baca ulang halaman (browser-read/browser-extract) dan buktikan konfirmasi sukses (submission/pembayaran/pesan konfirmasi). Jika butuh pilihan user (mis. pilih history chat), panggil tool ask-choice dengan opsi konkret — JANGAN mengakhiri dengan pertanyaan teks.',
   os: 'Buktikan state aplikasi via os-read, os-list-windows, atau screenshot setelah aksi terakhir.',
   research:
     'Lampirkan sumber yang sudah dibaca (browser-search/read-document) dan pastikan fakta yang diminta ada di jawaban.',
   communication:
     'Buktikan pesan benar-benar terkirim (konfirmasi pengiriman dari tool Telegram/Email).',
-  general: 'Jalankan aksi verifikasi yang membuktikan objective tercapai, lalu laporkan selesai.',
+  general:
+    'Satu aksi sukses bukan bukti objective multi-langkah selesai — lanjutkan aksi berikutnya. Jika butuh pilihan user, panggil tool ask-choice dengan opsi konkret, bukan pertanyaan teks.',
   conversational: ''
 }
 
@@ -484,5 +529,7 @@ export default {
   deriveSuccessCriteria,
   evaluateEvidence,
   gateCompletion,
-  buildReplanObservation
+  buildReplanObservation,
+  isMultiActionObjective,
+  escalateKindFromEvidence
 }

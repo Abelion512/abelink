@@ -56,7 +56,7 @@ html {
 }
 
 /* Linux Tauri/WebKitGTK: transparent window background allows the OS compositor
-   to show windows behind MARK when windowOpacity < 1.0. */
+   to show windows behind ABELINK when windowOpacity < 1.0. */
 html, body, #root {
   background-color: transparent !important;
   color: #e5e7eb;

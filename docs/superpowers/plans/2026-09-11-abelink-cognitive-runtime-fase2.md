@@ -4,7 +4,7 @@
 
 **Goal:** Implement Fase 2 (trajectory search memory + scoring + strategy ranking + supervisor Fase 2 + real-activity bench tasks) on `feat/trajectory-supervisor` without breaking the existing harness.
 
-**Architecture:** Three new pure modules (`scoring.js`, `trajLineage.js`, `strategyLib.js`) with zero I/O; additive extension of `trajectorySupervisor.js` keeping all Fase 1 guards; thin wiring (≤15 lines) in `useMarkPlan.js` + `subagentExecutor.js`; new eval task module with world-state verifiers plus `--arch` axis in the bench runner.
+**Architecture:** Three new pure modules (`scoring.js`, `trajLineage.js`, `strategyLib.js`) with zero I/O; additive extension of `trajectorySupervisor.js` keeping all Fase 1 guards; thin wiring (≤15 lines) in `useAbelinkPlan.js` + `subagentExecutor.js`; new eval task module with world-state verifiers plus `--arch` axis in the bench runner.
 
 **Tech Stack:** Bun + Vitest (`.mjs` tests, node environment), existing `normalizeAttemptKey` reuse, existing `run.mjs` orchestrator + `smoke.mjs` CI gate.
 
@@ -35,11 +35,11 @@
 | `tests/trajLineage.test.mjs` (create) | Pins for lineage append/best/stagnation |
 | `tests/strategyLib.test.mjs` (create) | Pins for ranking vs failed/preferred keys |
 | `tests/trajSupervisorFase2.test.mjs` (create) | Pins for new supervisor outputs + Fase 1 regression (do NOT edit `trajectorySupervisor.test.mjs`) |
-| `src/hooks/agent/useMarkPlan.js` (modify, ~10 lines) | Build lineage alongside `supervisor.update()`, append scored attempt, inject `hintText` via existing staged-hint slot |
+| `src/hooks/agent/useAbelinkPlan.js` (modify, ~10 lines) | Build lineage alongside `supervisor.update()`, append scored attempt, inject `hintText` via existing staged-hint slot |
 | `src/api/subagent/subagentExecutor.js` (modify, ~8 lines) | Same lineage shape for sub-agents |
 | `evaluation/tasks-student-corporate.mjs` (create) | 8 real-activity tasks with world-state verifiers + `requiredTools` declarations |
 | `evaluation/terminal-bench.mjs` (modify, `tb-git-01` only) | Upgrade git task verifier from string-match to real `git status/log` check in fixture repo |
-| `evaluation/run.mjs` (modify) | `--arch vanilla|basic|avo` flag, per-run temp dir `tmp/markbench-<runId>/`, `schemaVersion: 3`, `arch` + `worldState` fields |
+| `evaluation/run.mjs` (modify) | `--arch vanilla|basic|avo` flag, per-run temp dir `tmp/abelinkbench-<runId>/`, `schemaVersion: 3`, `arch` + `worldState` fields |
 | `evaluation/smoke.mjs` (modify, additive) | PASS/FAIL/cheat cases for scorer + 2 world verifiers using temp-dir fixtures |
 
 ---
@@ -437,7 +437,7 @@ git commit -m "feat(agent): supervisor Fase 2 — nextStrategy + restoreHint (ad
 ### Task 5: Thin wiring — main loop + sub-agent executor
 
 **Files:**
-- Modify: `src/hooks/agent/useMarkPlan.js` (~10 lines at supervisor section + update call site)
+- Modify: `src/hooks/agent/useAbelinkPlan.js` (~10 lines at supervisor section + update call site)
 - Modify: `src/api/subagent/subagentExecutor.js` (~8 lines at its supervisor/verifier section)
 
 **Interfaces:**
@@ -466,7 +466,7 @@ it('executor call shape: score feeds supervisor without throwing', async () => {
 Run: `bunx vitest run tests/trajSupervisorFase2.test.mjs`
 Expected: PASS.
 
-- [ ] **Step 3: Wire `useMarkPlan.js` (minimal diff)**
+- [ ] **Step 3: Wire `useAbelinkPlan.js` (minimal diff)**
 
 At the supervisor instantiation (~line 613): create `const lineage = createLineage({ taskId: <existing session/task id var>, goal: userInput, objectiveKind })` beside `createTrajectorySupervisor()` (reuse the in-scope id variable, do not invent a new id scheme). At the existing `supervisor.update({...})` call site (~line 1650): compute `score` via `scoreAttempt` from the tool result + current `lastVerification`, `appendAttempt(lineage, {...})`, pass `{ strategy: <last planner strategy or 'DIRECT'>, verificationRank, score, stagnation: lineage.stagnation, bestKey: <bestAttempt targetKey or null> }` into `update()`. Inject returned `hintText` through the existing `pendingSupervisorHint` staged-observation path (no new message path). Imports: add `trajLineage` + `scoring` to the existing supervisor import block.
 
@@ -482,7 +482,7 @@ Expected: PASS + no lint errors (fix any import-order complaints inline).
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/hooks/agent/useMarkPlan.js src/api/subagent/subagentExecutor.js tests/trajSupervisorFase2.test.mjs
+git add src/hooks/agent/useAbelinkPlan.js src/api/subagent/subagentExecutor.js tests/trajSupervisorFase2.test.mjs
 git commit -m "feat(agent): wire Fase 2 lineage+scoring into main loop and sub-agents"
 ```
 
@@ -496,7 +496,7 @@ git commit -m "feat(agent): wire Fase 2 lineage+scoring into main loop and sub-a
 - Modify: `evaluation/smoke.mjs` (additive cases)
 
 **Interfaces:**
-- Consumes: `runMarkAgent` (existing adapter), `mkSentinel` (existing), per-run `workdir` passed by `run.mjs` (Task 7).
+- Consumes: `runAbelinkAgent` (existing adapter), `akSentinel` (existing), per-run `workdir` passed by `run.mjs` (Task 7).
 - Produces: `CORP_TASKS` registry `{ id: { prompt, verifier, requiredTools, maxTurns, effort } }`; verifier signature `(output, ctx) -> boolean` where `ctx = { sentinel, workdir, stepLog }`.
 
 - [ ] **Step 1: Write smoke cases first (cheat-proof contract)**
@@ -506,7 +506,7 @@ Append to `evaluation/smoke.mjs` (follow its existing `assert` style):
 ```js
 // Fase 2: world-state verifier contract — text without tool evidence MUST fail.
 import { VERIFY_WORLD } from './tasks-student-corporate.mjs'
-const fakeCtx = (over = {}) => ({ sentinel: 'S3N-test', workdir: '/tmp/markbench-smoke', stepLog: [], ...over })
+const fakeCtx = (over = {}) => ({ sentinel: 'S3N-test', workdir: '/tmp/abelinkbench-smoke', stepLog: [], ...over })
 assert.equal(VERIFY_WORLD.corpReportTextOnly('laporan berisi S3N-test', fakeCtx()), false, 'text-only without write evidence fails')
 assert.equal(VERIFY_WORLD.corpReportTextOnly('nope', fakeCtx({ stepLog: [{ toolCalls: [{ tool: 'write-file', success: true }] }] })), false, 'missing sentinel fails')
 ```
@@ -541,9 +541,9 @@ git commit -m "feat(eval): real-activity student/corporate tasks with world-stat
 ### Task 7: `--arch` axis + temp-dir fixtures + schema v3
 
 **Files:**
-- Modify: `evaluation/run.mjs` (`--arch` flag, per-run `tmp/markbench-<runId>/`, placeholder resolution, `schemaVersion: 3`)
+- Modify: `evaluation/run.mjs` (`--arch` flag, per-run `tmp/abelinkbench-<runId>/`, placeholder resolution, `schemaVersion: 3`)
 - Modify: `evaluation/matrix.mjs` (arch column entries)
-- Modify: `evaluation/mark-adapter.mjs` (arch-gated wiring toggle, env-driven)
+- Modify: `evaluation/abelink-adapter.mjs` (arch-gated wiring toggle, env-driven)
 
 **Interfaces:**
 - Consumes: `TASKS` (terminal-bench) + `CORP_TASKS` (Task 6).
@@ -567,11 +567,11 @@ Expected: FAIL (`buildReportShell` not exported).
 
 - [ ] **Step 3: Implement `run.mjs` changes**
 
-Export `buildReportShell({ arch, runId })` returning `{ schemaVersion: 3, arch, runId, worldState: { workdir: 'tmp/markbench-<runId>', sentinel: null }, results: [] }`. Parse `--arch vanilla|basic|avo` (default `basic` = current behavior so old reports stay comparable; reject unknown with exit 2). Per run: `mkdir tmp/markbench-<runId>`, `sentinel = mkSentinel()`, resolve `{{SENTINEL}}`/`{{WORKDIR}}` in prompt, set `MARK_BENCH_ARCH` env for the adapter, pass `{ sentinel, workdir, stepLog }` to verifiers, record `worldState` in the report. Set exit code 1 only on regression beyond threshold (existing rule).
+Export `buildReportShell({ arch, runId })` returning `{ schemaVersion: 3, arch, runId, worldState: { workdir: 'tmp/abelinkbench-<runId>', sentinel: null }, results: [] }`. Parse `--arch vanilla|basic|avo` (default `basic` = current behavior so old reports stay comparable; reject unknown with exit 2). Per run: `mkdir tmp/abelinkbench-<runId>`, `sentinel = akSentinel()`, resolve `{{SENTINEL}}`/`{{WORKDIR}}` in prompt, set `ABELINK_BENCH_ARCH` env for the adapter, pass `{ sentinel, workdir, stepLog }` to verifiers, record `worldState` in the report. Set exit code 1 only on regression beyond threshold (existing rule).
 
-- [ ] **Step 4: Adapter arch toggle (mark-adapter.mjs)**
+- [ ] **Step 4: Adapter arch toggle (abelink-adapter.mjs)**
 
-Read `MARK_BENCH_ARCH`: `vanilla` = skip supervisor + skip verify-gate replan; `basic` = current behavior; `avo` = Fase 2 extended fields (Task 5 wiring, already in code — adapter just sets an env/flag the executor reads; default `basic` when unset). No new processes, no new ports.
+Read `ABELINK_BENCH_ARCH`: `vanilla` = skip supervisor + skip verify-gate replan; `basic` = current behavior; `avo` = Fase 2 extended fields (Task 5 wiring, already in code — adapter just sets an env/flag the executor reads; default `basic` when unset). No new processes, no new ports.
 
 - [ ] **Step 5: matrix.mjs arch column**
 
@@ -579,13 +579,13 @@ Add `arch: ['vanilla', 'basic', 'avo']` + `reportSchema: 3` notes to the `termin
 
 - [ ] **Step 6: Run smoke + a dry single-task run**
 
-Run: `bun evaluation/smoke.mjs` then `node evaluation/run.mjs --tasks tb-echo-01 --runs 1 --arch basic --out /tmp/markbench-dry.json`
+Run: `bun evaluation/smoke.mjs` then `node evaluation/run.mjs --tasks tb-echo-01 --runs 1 --arch basic --out /tmp/abelinkbench-dry.json`
 Expected: smoke PASS; dry run completes (needs provider — if no provider configured, record the exact error as the pilot blocker and stop; do not fake it).
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add evaluation/run.mjs evaluation/matrix.mjs evaluation/mark-adapter.mjs evaluation/smoke.mjs
+git add evaluation/run.mjs evaluation/matrix.mjs evaluation/abelink-adapter.mjs evaluation/smoke.mjs
 git commit -m "feat(eval): arch axis vanilla/basic/avo + per-run fixtures, schema v3"
 ```
 
@@ -607,14 +607,14 @@ Expected: both green. `verify.sh` runs vitest + watermark harness + vite build +
 
 - [ ] **Step 3: Inspect disk usage (evidence before delete)**
 
-Run: `df -h /media/abelion/Isaf && du -sh /tmp/markbench-* tmp/markbench-* evaluation/reports dist 2>/dev/null; ls ~/.local/share/abelink 2>/dev/null; du -sh ~/.local/share/abelink 2>/dev/null`
+Run: `df -h /media/abelion/Isaf && du -sh /tmp/abelinkbench-* tmp/abelinkbench-* evaluation/reports dist 2>/dev/null; ls ~/.local/share/abelink 2>/dev/null; du -sh ~/.local/share/abelink 2>/dev/null`
 Expected: numbers on screen. Baseline known: partition 127G with 87G free (29% used) — NOT full; the 15G `src-tauri/target` is Rust build cache, NOT junk (deleting forces a full rebuild).
 
 - [ ] **Step 4: Delete only proven junk (never build cache, never source)**
 
 Run (each guarded, stop on first surprise):
 ```bash
-rm -rf /tmp/markbench-* tmp/markbench-* /tmp/markbench-dry.json
+rm -rf /tmp/abelinkbench-* tmp/abelinkbench-* /tmp/abelinkbench-dry.json
 find . -maxdepth 2 -name "*.log" -not -path "./node_modules/*" -delete
 rm -rf dist
 ```
@@ -629,7 +629,7 @@ Expected: clean (all work committed per-task). If strays exist, stage only inten
 
 ## Self-Review
 
-**1. Spec coverage:** §4 lineage → Task 2+5. §5 scoring → Task 1+5. §6 strategy lib → Task 3+4. §7 supervisor → Task 4+5. §8.1 world verifiers → Task 6. §8.2 fixtures → Task 7. §8.3 forced tool-use → Task 6 (`requiredTools` + `hasToolEvidence`). §8.4 suite → Task 6 (8 tasks). §8.5 matrix + metrics → Task 7 (+ existing `mark-eval.mjs` fns reused, no new metric code needed). §8.6 anti-gaming checklist → Tasks 6+7 (items 1-6 each mapped: 1=text-only-fail test, 2=sentinel-in-artifact, 3=per-run dirs, 4=separate verifier process, 5=stepLog, 6=smoke cheat cases). §9 safety/budgets → Tasks 4+5 (guards preserved) + Task 8. §10 rollout order → task order 1→8. §11 rejections respected (no per-model forks, no LLM judge, no multi-model).
+**1. Spec coverage:** §4 lineage → Task 2+5. §5 scoring → Task 1+5. §6 strategy lib → Task 3+4. §7 supervisor → Task 4+5. §8.1 world verifiers → Task 6. §8.2 fixtures → Task 7. §8.3 forced tool-use → Task 6 (`requiredTools` + `hasToolEvidence`). §8.4 suite → Task 6 (8 tasks). §8.5 matrix + metrics → Task 7 (+ existing `abelink-eval.mjs` fns reused, no new metric code needed). §8.6 anti-gaming checklist → Tasks 6+7 (items 1-6 each mapped: 1=text-only-fail test, 2=sentinel-in-artifact, 3=per-run dirs, 4=separate verifier process, 5=stepLog, 6=smoke cheat cases). §9 safety/budgets → Tasks 4+5 (guards preserved) + Task 8. §10 rollout order → task order 1→8. §11 rejections respected (no per-model forks, no LLM judge, no multi-model).
 
 **2. Placeholder scan:** no TBD/TODO/"similar to"/"appropriate handling" — every code step ships concrete code; `tb-git-02` vs upgraded `tb-git-01`: Task 6 names the new registry `tb-git-02` to avoid colliding with the upgraded `tb-git-01` in terminal-bench (both real-git; the `-02` variant lives in the corp module with `requiredTools`). Consistent.
 

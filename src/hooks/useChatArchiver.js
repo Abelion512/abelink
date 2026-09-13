@@ -14,7 +14,7 @@ export const useChatArchiver = ({
   const lastIndexedPairIdRef = useRef(null)
 
   useEffect(() => {
-    // Deteksi transisi ketika Mark selesai merespons (isLoading: true -> false)
+    // Deteksi transisi ketika Abelink selesai merespons (isLoading: true -> false)
     const justFinishedLoading = wasLoadingRef.current && !isLoading
     wasLoadingRef.current = isLoading
 

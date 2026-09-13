@@ -13,10 +13,11 @@ pub struct ToolResult {
 
 fn is_dangerous(query: &str) -> bool {
     let lower = query.to_lowercase();
+    // Linux-only (AGENTS.md): Windows-only tokens removed (never match here
+    // and only add confusion/false positives).
     [
-        "remove-item", "rm ", "del ", "rmdir", "format-", "clear-disk",
-        "stop-process", "kill ", "taskkill", "set-executionpolicy", "restart-computer",
-        "shutdown", "reg delete",
+        "rm ", "del ", "rmdir",
+        "kill ", "shutdown",
     ]
     .iter()
     .any(|kw| lower.contains(kw))
@@ -49,7 +50,7 @@ pub async fn tools_run_shell(
             && eff != crate::approval_policy::POLICY_SESSION
         {
             let desc =
-                format!("Mark ingin mengeksekusi perintah shell:\n\n{}", query);
+                format!("Abelink ingin mengeksekusi perintah shell:\n\n{}", query);
             if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
                 return Ok(ToolResult {
                     success: false,
@@ -61,14 +62,16 @@ pub async fn tools_run_shell(
     }
 
     let workspace = crate::cmd_fs::workspace_root();
-    let cwd_path = cwd.and_then(|c| {
-        let p = std::path::PathBuf::from(c);
-        if p.is_absolute() {
-            Some(p)
-        } else {
-            Some(workspace.join(&p))
-        }
-    }).unwrap_or(workspace);
+    let cwd_path = cwd
+        .map(|c| {
+            let p = std::path::PathBuf::from(c);
+            if p.is_absolute() {
+                p
+            } else {
+                workspace.join(&p)
+            }
+        })
+        .unwrap_or(workspace);
 
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<ToolResult, String> {
         let mut cmd = Command::new("bash");

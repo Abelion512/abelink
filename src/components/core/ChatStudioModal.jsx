@@ -31,6 +31,7 @@ import {
 import ChatList from '../ChatList'
 import InputBar from './InputBar'
 import { useConfirm } from '../../hooks/useConfirm'
+import { useManualCompaction } from '../../hooks/useManualCompaction'
 
 export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
   const {
@@ -82,6 +83,16 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
 
   // Direct display pipeline: Main Thread uses mainChatData directly with 0ms lag
   const currentDisplayMessages = activeSessionId === 1 ? mainChatData || [] : activeSessionData
+
+  // Kompaksi manual + tracker gauge (session compaction).
+  useManualCompaction({
+    messages: currentDisplayMessages,
+    setMessages: (updater) => {
+      if (Number(activeSessionId) === 1) setMainChatData?.(updater)
+      else setActiveSessionData(updater)
+    },
+    sessionId: activeSessionId
+  })
 
   const isCurrentLoading =
     runningSessionIds.map(Number).includes(Number(activeSessionId)) ||
@@ -233,7 +244,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
         workspaceRoot: currentSession?.workspaceRoot
       })
     } else {
-      // Local workspace session execution via useMarkPlan
+      // Local workspace session execution via useAbelinkPlan
       handlePlanningCommand(prompt, false, false, {
         sessionId: activeSessionId,
         customChatData: activeSessionData,
@@ -511,7 +522,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                 <div className="max-w-sm space-y-1">
                   <h4 className="text-sm font-bold text-white">Sesi Obrolan Bersih</h4>
                   <p className="text-xs text-white/50">
-                    Tanyakan apapun, analisis kode, atau diskusikan ide riset bersama Mark.
+                    Tanyakan apapun, analisis kode, atau diskusikan ide riset bersama Abelink.
                   </p>
                 </div>
               </div>
@@ -531,6 +542,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                     sources={msg.sources}
                     executedTools={msg.executedTools}
                     isMemorySaved={msg.isMemorySaved}
+                    choice={msg.choice}
                     isMemoryUpdated={msg.isMemoryUpdated}
                     isMemoryDeleted={msg.isMemoryDeleted}
                     timestamp={msg.timestamp}
@@ -558,6 +570,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
               source={inputSource || 'pc'}
               workspaceRoot={activeSessionObj?.workspaceRoot}
               onSelectWorkspace={handleSelectSessionWorkspace}
+              sessionId={activeSessionId}
             />
           </div>
         </div>

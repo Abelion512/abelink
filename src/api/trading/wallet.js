@@ -1,8 +1,8 @@
 import Dexie from 'dexie'
 
-// Mark Trading Support — fondasi fase 1 (read-only market + self-funding budget).
+// Abelink Trading Support — fondasi fase 1 (read-only market + self-funding budget).
 //
-// Filosofi (permintaan owner): Mark sebagai asisten trading dengan "wallet"
+// Filosofi (permintaan owner): Abelink sebagai asisten trading dengan "wallet"
 // sendiri — agent bisa bekerja membayar token model murah & pintar (model
 // China) dari hasil aktivitasnya, tanpa owner harus top-up manual.
 //
@@ -15,7 +15,7 @@ import Dexie from 'dexie'
 // TIDAK pernah mengeksekusi order. Semua angka uang disimpan apa adanya (user
 // yang memilih mata uang/satuan), tanpa pembulatan tersirat.
 
-export const TRADING_DB_NAME = 'mark-trading'
+export const TRADING_DB_NAME = 'abelink-trading'
 
 export const tradingDb = new Dexie(TRADING_DB_NAME)
 

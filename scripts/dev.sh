@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev.sh — Smart bootstrap + launch for MARK Linux dev workstation.
+# dev.sh — Smart bootstrap + launch for ABELINK Linux dev workstation.
 #
 # What it does (idempotent, non-destructive, never modifies package.json or CI):
 #   1. Ensures Bun is installed at $BUN_INSTALL (default ~/.bun), version-locked
@@ -7,12 +7,27 @@
 #   2. Ensures node_modules/ is present and fresh relative to bun.lock / package.json.
 #   3. Detects and auto-clears leftover port 1420 / cargo build-lock holders from
 #      previous dev sessions, with a concise log of what was killed.
-#   4. Forwards to `bun run app` (i.e. `tauri dev`).
+#   4. Launches `tauri dev -c tauri.dev.json` (dev overlay: identifier +
+#      GTK app ID + productName "(dev)"). `bun run app` is the same thing
+#      (it forwards here); `bun run app:raw` is the unisolated escape hatch.
+#   5. Isolates the dev instance into its own namespace so dev & prod can run
+#      side by side: ABELINK_DATA_HOME, dev bridge port, dev app identifier
+#      (src-tauri/tauri.dev.json overlay via `tauri dev -c`), dev window title
+#      "(dev)", and abelink-dev.desktop. Global shortcuts are skipped in debug
+#      builds (hotkey system-wide milik prod). Prod (installed .deb) never
+#      sees these vars and keeps ~/.local/share/abelink.
 #
 # Usage:
 #   bash scripts/dev.sh                # full smart bootstrap + launch
 #   bash scripts/dev.sh --no-launch    # only bootstrap (no tauri dev)
 #   bash scripts/dev.sh --help
+#
+# Dev/prod coexistence:
+#   - Single-instance lock, WM_CLASS/taskbar grouping, and data dir are all
+#     namespaced to the dev identity. Prod keeps running untouched.
+#   - The browser extension pairs to ONE instance at a time (native host
+#     manifest is global per browser profile): switch port in the extension
+#     popup (dev = 49713, prod = 49712) to move it between instances.
 #
 # Notes:
 #   - Does NOT use sudo. Bun install writes to ~/.bun only. The full system
@@ -47,7 +62,7 @@ for arg in "$@"; do
   case "$arg" in
     --no-launch) LAUNCH=0 ;;
     --help|-h)
-      sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,34p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) die "unknown arg: $arg (try --help)" ;;
@@ -146,7 +161,7 @@ free_dev_port() {
     cmd="$(ps -p "$pid" -o args= 2>/dev/null | head -c 200 || true)"
     if [ -z "$cmd" ]; then continue; fi
     # Only kill if the process is clearly this project's dev server.
-    if echo "$cmd" | grep -qE '(mark-agent-linux|abelink).*(\.bin/(vite|tauri)|node_modules/@tauri-apps/cli)'; then
+    if echo "$cmd" | grep -qE 'abelink.*(\.bin/(vite|tauri)|node_modules/@tauri-apps/cli)'; then
       log "  killing $pid — $cmd"
       kill "$pid" 2>/dev/null || true
     else
@@ -204,8 +219,8 @@ free_cargo_lock() {
 }
 
 ensure_sidecar() {
-  if [ ! -f "dist-sidecar/mark-engine" ]; then
-    log "dist-sidecar/mark-engine missing - compiling sidecar binary"
+  if [ ! -f "dist-sidecar/abelink-engine" ]; then
+    log "dist-sidecar/abelink-engine missing - compiling sidecar binary"
     bun run build:sidecar
     ok "sidecar binary built"
   else
@@ -213,10 +228,70 @@ ensure_sidecar() {
   fi
 }
 
+# --- 4. dev namespace (coexist with prod) ------------------------------------
+# Everything here is env-only: prod (installed .deb) never sees these vars.
+setup_dev_namespace() {
+  export ABELINK_DATA_HOME="${ABELINK_DATA_HOME:-$HOME/.local/share/abelink-dev}"
+  export ABELINK_BRIDGE_PORT="${ABELINK_BRIDGE_PORT:-49713}"
+  # Dev config overlay (merge di atas tauri.conf.json, fitur tauri-cli -c):
+  # identifier beda => lock single-instance + WM_CLASS terpisah dari prod.
+  # (TAURI_CONFIG env TIDAK dipakai: tidak terbukti mempan di CLI ini.)
+  DEV_OVERLAY="$PROJECT_ROOT/src-tauri/tauri.dev.json"
+  [ -f "$DEV_OVERLAY" ] || die "dev overlay hilang: $DEV_OVERLAY"
+  mkdir -p "$ABELINK_DATA_HOME"
+  install_dev_desktop
+  remove_stale_desktops
+  ok "dev namespace: data=$ABELINK_DATA_HOME bridge=$ABELINK_BRIDGE_PORT id=abelink.linux.dev"
+}
+
+# Local .desktop so the dev window gets its icon/taskbar group in dev mode
+# (dev binary has no installed bundle). Idempotent: rewrite only on change.
+# NOTE: StartupWMClass MUST be the real GTK class (res_class), which Tauri
+# cannot change per flavor on Linux (window_classname is Windows-only, and
+# the GTK app ID does not surface in WM_CLASS): both flavors are res_name
+# `abelink` / res_class `Abelink`. So dev+prod share ONE taskbar group with
+# a proper icon instead of a generic/duplicate entry. Verified via xprop.
+install_dev_desktop() {
+  local dir="$HOME/.local/share/applications"
+  local file="$dir/abelink-dev.desktop"
+  mkdir -p "$dir"
+  local body
+  body="[Desktop Entry]
+Name=Abelink (dev)
+Comment=Abelink dev instance (tauri dev)
+Exec=$PROJECT_ROOT/src-tauri/target/debug/abelink
+Icon=$PROJECT_ROOT/src-tauri/icons/icon.png
+Terminal=false
+Type=Application
+Categories=Utility;
+StartupWMClass=Abelink
+StartupNotify=false
+"
+  if [ -f "$file" ] && [ "$(cat "$file")" = "$body" ]; then return 0; fi
+  printf '%s' "$body" >"$file"
+  update-desktop-database "$dir" >/dev/null 2>&1 || true
+  log "installed $file"
+}
+
+# Fossil .desktop entries (dead Exec paths, missing icons) hijack taskbar
+# matching — e.g. mark.desktop from the Electron era. Remove when harmful.
+remove_stale_desktops() {
+  local dir="$HOME/.local/share/applications"
+  [ -d "$dir" ] || return 0
+  local f
+  for f in "$dir"/mark.desktop "$dir"/mark-agent.desktop; do
+    if [ -f "$f" ]; then
+      warn "removing stale desktop entry: $f"
+      rm -f "$f"
+    fi
+  done
+}
+
 # --- main ---------------------------------------------------------------------
 ensure_bun
 ensure_deps
 ensure_sidecar
+setup_dev_namespace
 free_dev_port "$EXPECTED_PORT"
 free_cargo_lock
 
@@ -225,5 +300,5 @@ if [ "$LAUNCH" -eq 0 ]; then
   exit 0
 fi
 
-log "launching: bun run app"
-exec bun run app
+log "launching: tauri dev -c tauri.dev.json (namespace dev)"
+exec bunx tauri dev -c "$PROJECT_ROOT/src-tauri/tauri.dev.json"

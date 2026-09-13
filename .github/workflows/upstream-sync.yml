@@ -3,7 +3,7 @@
 #   - repository_dispatch fires when upstream pushes; cron harian 06:00 UTC sebagai fallback.
 #   - Langkah "Sync to Linear" dihapus (2026-08-26): memanggil CLI `linear` yang tidak
 #     ada di runner dan selalu gagal -> daily cron merah tanpa arti. Sinkronisasi Linear
-#     kini manual via `node scripts/mark-update.mjs --sync-linear` dengan CLI terpasang.
+#     kini manual via `node scripts/abelink-update.mjs --sync-linear` dengan CLI terpasang.
 #   - Laporan diff diunggah sebagai artefak agar bisa ditinjau tanpa commit ke repo.
 name: Upstream Sync
 

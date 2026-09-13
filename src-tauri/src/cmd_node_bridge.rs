@@ -42,13 +42,43 @@ impl NodeBridgeState {
 }
 
 /// Bunuh proses sidecar (dipanggil saat aplikasi keluar).
+/// Sidecar dijalankan sebagai pemimpin process group sendiri, sehingga
+/// kill di sini memakai killpg: cucu-cucu (linux-daemon.py, background
+/// task, dsb.) ikut mati dan tidak jadi orphan yang nyangkut.
 pub fn kill_engine(state: &Arc<NodeBridgeState>) {
     if let Ok(mut guard) = state.child.try_lock() {
         if let Some(mut c) = guard.take() {
             log::warn!("[NodeBridge] Menghentikan sidecar engine...");
+            if let Some(pid) = c.id() {
+                // Matikan seluruh grup dulu (cucu ikut mati), lalu anak langsung.
+                // Guard comm: jangan kill grup bila PID sudah dipakai ulang
+                // proses lain (race task pendek selesai sebelum exit).
+                if group_is_ours(pid, &["bun", "abelink-engine"]) {
+                    unsafe {
+                        libc::kill(-(pid as libc::pid_t), libc::SIGKILL);
+                    }
+                }
+            }
             let _ = c.start_kill();
         }
     }
+}
+
+/// Cek /proc/<pid>/comm agar killpg tidak mengenai grup proses lain bila
+/// PID sudah dipakai ulang. Linux-only (sesuai target proyek).
+/// Baca procfs sesaat bisa gagal transien (EACCES/EAGAIN saat sistem terbeban);
+/// kegagalan persisten (ENOENT = proses mati) tetap cepat-false. Retry pendek
+/// HANYA pada kegagalan baca: keputusan kill tidak boleh terlewat karena
+/// pembacaan sekali yang sial (dulu: daemon bisa lolos jadi orphan).
+pub(crate) fn group_is_ours(pid: u32, names: &[&str]) -> bool {
+    for attempt in 0..3 {
+        match std::fs::read_to_string(format!("/proc/{pid}/comm")) {
+            Ok(comm) => return names.iter().any(|n| comm.trim() == *n),
+            Err(_) if attempt < 2 => std::thread::sleep(std::time::Duration::from_millis(15)),
+            Err(_) => return false,
+        }
+    }
+    false
 }
 
 /// Ambil pesan error dari frame respons engine.
@@ -98,8 +128,10 @@ pub struct NodeResponse {
 }
 
 // ---- Gerbang otorisasi ----------------------------------------------------
-/// (deny-by-default dihapus — bypass semua aksi; APPROVAL_ACTIONS tetap melindungi
-/// operasi berbahaya. Jika butuh allowlist, baca dari config file di sini.)
+// (deny-by-default dihapus — bypass semua aksi; APPROVAL_ACTIONS tetap melindungi
+// operasi berbahaya. Jika butuh allowlist, baca dari config file di sini.)
+// Catatan blok ini sengaja komentar biasa (bukan `///`): doc comment yang diikuti
+// baris kosong lalu doc comment kedua memicu clippy::empty_line_after_doc_comments.
 
 /// Channel sidecar yang selalu butuh persetujuan native.
 /// (open-external pindah ke cmd_misc.rs::misc_open_external dengan gate rfd yang sama.)
@@ -253,18 +285,21 @@ pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> R
         );
         let mut c = Command::new("bun");
         c.arg("--watch").arg("run").arg(&engine_path);
+        // Grup proses sendiri: kill_engine memakai killpg agar cucu sidecar
+        // (daemon python, background task) ikut mati saat aplikasi keluar.
+        c.process_group(0);
         c
     } else {
         let resource_dir = app
             .path()
             .resource_dir()
             .map_err(|e| format!("Gagal resolve resource dir: {e}"))?;
-        let exe = ["mark-engine", "_up_/dist-sidecar/mark-engine"]
+        let exe = ["abelink-engine", "_up_/dist-sidecar/abelink-engine"]
             .iter()
             .map(|p| resource_dir.join(p))
             .find(|p| p.exists())
             .ok_or_else(|| {
-                "mark-engine tidak ditemukan di bundle (rilis: jalankan `bun run build:sidecar` sebelum `tauri build`)".to_string()
+                "abelink-engine tidak ditemukan di bundle (rilis: jalankan `bun run build:sidecar` sebelum `tauri build`)".to_string()
             })?;
         log::info!(
             "[NodeBridge] Memulai sidecar engine (binary) di path: {}",
@@ -276,8 +311,11 @@ pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> R
             .map(|p| resource_dir.join(p))
             .find(|p| p.is_dir());
         if let Some(dir) = scripts {
-            c.env("MARK_RESOURCE_DIR", dir);
+            c.env("ABELINK_RESOURCE_DIR", dir);
         }
+        // Grup proses sendiri: kill_engine memakai killpg agar cucu sidecar
+        // ikut mati saat aplikasi keluar (tidak jadi orphan yang nyangkut).
+        c.process_group(0);
         c
     };
 
@@ -391,9 +429,7 @@ pub async fn node_invoke(
 
     // 1.6) Mission scope Fase 3: penolakan deterministik tanpa dialog bila aksi
     //    di luar tool yang dideklarasikan misi. Nonaktif secara default.
-    if let Err(e) = crate::mission_scope::check_tool(&action) {
-        return Err(e);
-    }
+    crate::mission_scope::check_tool(&action)?;
 
     // 2) Persetujuan NATIVE untuk aksi/tool berbahaya (di luar kendali renderer).
     if let Some(desc) = approval_reason(&action, &payload) {
