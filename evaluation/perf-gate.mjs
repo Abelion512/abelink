@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Perf Gate MARK Linux — pengukur performa nyata per commit.
+// Perf Gate ABELINK Linux — pengukur performa nyata per commit.
 //
 // Requirement owner: "setiap commit harus di real test apakah meningkatkan
 // performa atau bahkan menurunkan performa nyata."

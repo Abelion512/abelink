@@ -141,7 +141,7 @@ describe('runner stub', () => {
       tasks: [findTask('brain-01-memory-injection-and-recall')],
       meta: { runId: 'stub-1' },
     })
-    expect(report.kind).toBe('mark-arch-benchmark-report')
+    expect(report.kind).toBe('abelink-arch-benchmark-report')
     expect(report.tasks['brain-01-memory-injection-and-recall']).toBeDefined()
   })
 
@@ -218,7 +218,7 @@ describe('runner stub', () => {
     const tasks = [findTask('brain-01-memory-injection-and-recall')]
     const before = await runStubBenchmark({ tasks, meta: { runId: 'before' } })
     const after = await runBenchmark({ tasks, boundary, meta: { runId: 'after' } })
-    expect(after.kind).toBe('mark-arch-benchmark-report')
+    expect(after.kind).toBe('abelink-arch-benchmark-report')
     expect(after.tasks['brain-01-memory-injection-and-recall']).toBeDefined()
     const cmp = await compareBenchmarkRuns(after, before, { thresholdPct: 5 })
     expect(Array.isArray(cmp.diffs)).toBe(true)

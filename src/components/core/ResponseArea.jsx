@@ -4,7 +4,8 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import HoloCard from './HoloCard'
-import { CodeBlock } from '../Chat/CodeBlock'
+import { ChoiceButtons } from '../Chat/ChoiceButtons'
+import { sharedMarkdownComponents } from '../Chat/SharedMarkdown'
 import PluginExecutionBubble from '../Chat/PluginExecutionBubble'
 
 const ResponseArea = ({ currentResponse }) => {
@@ -29,7 +30,7 @@ const ResponseArea = ({ currentResponse }) => {
 
   if (!displayResponse) return null
 
-  const { text, type, sources, pluginResult, youtubeData, youtubeSummary, isProactive, mood } =
+  const { text, type, sources, pluginResult, youtubeData, youtubeSummary, isProactive, mood, choice } =
     displayResponse
 
   const animationClass =
@@ -40,57 +41,7 @@ const ResponseArea = ({ currentResponse }) => {
         : ''
 
   const renderContent = () => {
-    const markdownComponents = {
-      code({ node, inline, className, children, ...props }) {
-        const match = /language-(\w+)/.exec(className || '')
-        return !inline ? (
-          <CodeBlock match={match}>{children}</CodeBlock>
-        ) : (
-          <code className={className} {...props}>
-            {children}
-          </code>
-        )
-      },
-      a: ({ node, ...props }) => {
-        let url = props.href || '#'
-        if (url !== '#' && !url.startsWith('http://') && !url.startsWith('https://')) {
-          url = 'https://' + url
-        }
-        return (
-          <a
-            {...props}
-            onClick={(e) => {
-              e.preventDefault()
-              if (window.api && window.api.openExternal && url !== '#') {
-                window.api.openExternal(url)
-              }
-            }}
-          />
-        )
-      },
-      table: ({ children, ...props }) => (
-        <div className="overflow-x-auto my-4">
-          <table {...props}>{children}</table>
-        </div>
-      ),
-      img: ({ node, ...props }) => (
-        <span className="block my-3 text-center">
-          <img
-            {...props}
-            className="max-h-72 w-auto mx-auto rounded-lg object-contain border border-white/10 shadow-lg max-w-full bg-black/40 cursor-pointer hover:scale-[1.02] transition-transform"
-            loading="lazy"
-            onClick={() => {
-              if (props.src && window.api?.openExternal) {
-                window.api.openExternal(props.src)
-              }
-            }}
-            onError={(e) => {
-              e.target.style.display = 'none'
-            }}
-          />
-        </span>
-      )
-    }
+    const markdownComponents = sharedMarkdownComponents
 
     const cleanText = (raw) => {
       if (!raw || typeof raw !== 'string') return ''
@@ -207,6 +158,11 @@ const ResponseArea = ({ currentResponse }) => {
   return (
     <div className={`w-full flex flex-col items-center gap-4 ${animationClass}`}>
       {renderContent()}
+
+      {/* Tombol opsi ask-choice (klik lanjutkan loop — sama seperti di chat) */}
+      <div className="w-full max-w-2xl">
+        <ChoiceButtons choice={choice} />
+      </div>
 
       {/* Plugin Execution Result Chip */}
       {pluginResult && (

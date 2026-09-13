@@ -6,7 +6,7 @@ import { generateVector } from './vectorLoader'
 const syncMemoryToOrama = (fn, ...args) =>
   import('./oramaStore').then((m) => m[fn](...args)).catch(console.error)
 
-export const db = new Dexie('mark-db')
+export const db = new Dexie('abelink-db')
 
 db.version(1).stores({
   // Index gabungan hanya [type+key] agar data lain (summary, confidence) bisa diubah
@@ -197,7 +197,6 @@ db.version(25).stores({
 })
 
 // v26: STT dikunci ke gateway lokal (9router) sebagai primary; Groq hanya cadangan.
-// Sebelumnya primary ikut groqApiKey sehingga primary+fallback dua-duanya Groq.
 db.version(26).upgrade(tx => {
   return tx.table('config').toCollection().modify(config => {
     const LOCAL_STT = 'http://127.0.0.1:20128/v1/audio/transcriptions'
@@ -228,6 +227,12 @@ db.version(26).upgrade(tx => {
       }
     }
   })
+})
+
+// v27: store sessionCompacts untuk Session Compactor (ATM upstream
+// contextManager): pointer ringkasan per sesi, bukan isi riwayat.
+db.version(27).stores({
+  sessionCompacts: 'sessionId'
 })
 
 // --- APP CONFIG (feature flags, hardware profile, etc.) ---
@@ -337,7 +342,7 @@ export async function deleteMemory(data) {
     if (id && !isNaN(id)) {
       await db.memory.delete(id)
       syncMemoryToOrama('deleteMemoryFromOrama', id)
-      console.log(`🗑️ Memory ID ${id} berhasil dihapus oleh Mark.`)
+      console.log(`🗑️ Memory ID ${id} berhasil dihapus oleh Abelink.`)
       return { success: true }
     }
     
@@ -671,6 +676,10 @@ export async function deleteSession(id) {
       // Main Thread tidak boleh dihapus barisnya, hanya dikosongkan pesannya
       await db.sessions.put({ id: 1, title: 'Main Thread', data: [], timestamp: Date.now() })
       await db.chatTurns.where('sessionId').equals(1).delete()
+      // Ringkasan kompaksi hanya valid untuk riwayat yang melahirkannya. Main
+      // Thread memakai ID yang sama setelah di-clear, jadi row lama wajib ikut
+      // dibuang agar ringkasan percakapan sebelumnya tidak bocor ke chat baru.
+      await db.sessionCompacts.delete('1')
       try {
         const { deleteTurnPairsBySessionFromOrama } = await import('./oramaStore')
         await deleteTurnPairsBySessionFromOrama(1)
@@ -679,6 +688,7 @@ export async function deleteSession(id) {
     }
     await db.sessions.delete(numId)
     await db.chatTurns.where('sessionId').equals(Number(numId)).delete()
+    await db.sessionCompacts.delete(String(numId))
     try {
       const { deleteTurnPairsBySessionFromOrama } = await import('./oramaStore')
       await deleteTurnPairsBySessionFromOrama(numId)
@@ -751,6 +761,33 @@ export async function getAllDocuments() {
   } catch (error) {
     console.error('Error in getAllDocuments:', error)
     return []
+  }
+}
+
+// Meta ringan untuk visualizer (tanpa content — konten penuh dimuat on-select).
+export async function getAllDocumentsMeta() {
+  try {
+    const rows = await db.documents.toArray()
+    return (rows || []).map((d) => ({
+      id: d.id,
+      docName: d.docName,
+      chunkIndex: d.chunkIndex,
+      timestamp: d.timestamp
+    }))
+  } catch (error) {
+    console.error('Error in getAllDocumentsMeta:', error)
+    return []
+  }
+}
+
+export async function getDocumentChunk(id) {
+  try {
+    const numId = Number(id)
+    if (!numId || isNaN(numId)) return null
+    return (await db.documents.get(numId)) || null
+  } catch (error) {
+    console.error('Error in getDocumentChunk:', error)
+    return null
   }
 }
 
@@ -827,7 +864,7 @@ export async function saveLearnedSkill({ name, description, content }) {
     const skillData = {
       id,
       name: cleanName,
-      description: description || 'Prosedur teknis teruji buatan Mark',
+      description: description || 'Prosedur teknis teruji buatan Abelink',
       content: content.trim(),
       createdAt: existing?.createdAt || Date.now(),
       updatedAt: Date.now()
@@ -974,3 +1011,32 @@ export async function getChatTurnCount() {
   }
 }
 
+// --- SESSION COMPACTS (pointer ringkasan Session Compactor) ---
+export async function getSessionCompact(sessionId) {
+  try {
+    return (await db.sessionCompacts.get(String(sessionId))) || null
+  } catch (err) {
+    console.error('[DB] Error getSessionCompact:', err)
+    return null
+  }
+}
+
+export async function saveSessionCompact(sessionId, data = {}) {
+  try {
+    await db.sessionCompacts.put({ sessionId: String(sessionId), ...data })
+    return true
+  } catch (err) {
+    console.error('[DB] Error saveSessionCompact:', err)
+    return false
+  }
+}
+
+export async function clearSessionCompact(sessionId) {
+  try {
+    await db.sessionCompacts.delete(String(sessionId))
+    return true
+  } catch (err) {
+    console.error('[DB] Error clearSessionCompact:', err)
+    return false
+  }
+}

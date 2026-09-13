@@ -73,7 +73,7 @@ export const playVoice = async (text, onStart, onEnd) => {
       let animationId = null
 
       const updateIntensity = () => {
-        if (!window.isMarkSpeaking) return
+        if (!window.isAbelinkSpeaking) return
         analyser.getFloatTimeDomainData(dataArray)
         let sum = 0
         for (let i = 0; i < bufferLength; i++) {
@@ -83,19 +83,19 @@ export const playVoice = async (text, onStart, onEnd) => {
         
         // Normalisasi RMS untuk visualisasi (RMS biasanya berkisar antara 0.01 - 0.15)
         const normalized = Math.min(1, Math.max(0, rms - 0.01) * 8)
-        window.dispatchEvent(new CustomEvent('mark-intensity', { detail: normalized }))
+        window.dispatchEvent(new CustomEvent('abelink-intensity', { detail: normalized }))
         animationId = requestAnimationFrame(updateIntensity)
       }
 
       audio.onended = () => {
-        window.isMarkSpeaking = false
-        window.dispatchEvent(new CustomEvent('mark-intensity', { detail: 0 }))
+        window.isAbelinkSpeaking = false
+        window.dispatchEvent(new CustomEvent('abelink-intensity', { detail: 0 }))
         if (animationId) cancelAnimationFrame(animationId)
         if (onEnd) onEnd()
       }
 
       // 3. Mainkan!
-      window.isMarkSpeaking = true
+      window.isAbelinkSpeaking = true
       await audio.play()
       updateIntensity()
       if (onStart) onStart()
@@ -108,8 +108,8 @@ export const playVoice = async (text, onStart, onEnd) => {
     if (window.api && window.api.showNotification) {
       window.api.showNotification('Error TTS', String(error.message || error))
     }
-    window.isMarkSpeaking = false
-    window.dispatchEvent(new CustomEvent('mark-intensity', { detail: 0 }))
+    window.isAbelinkSpeaking = false
+    window.dispatchEvent(new CustomEvent('abelink-intensity', { detail: 0 }))
     if (onStart) onStart()
     if (onEnd) onEnd()
   }
@@ -117,12 +117,4 @@ export const playVoice = async (text, onStart, onEnd) => {
 
 // ==========================================
 // TELEGRAM UTILS
-// ==========================================
-export const formatForTelegram = (text) => {
-  if (!text) return ''
-  return text.trim()
-}
-
-// ==========================================
-// PLANNING (AGENTIC) FUNCTIONS
 // ==========================================

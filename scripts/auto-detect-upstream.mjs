@@ -7,8 +7,9 @@
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const REPO_ROOT = '/media/abelion/Isaf/ican/project/AGENT/mark-agent-fork';
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UPSTREAM = 'upstream/master';
 const LOCAL = 'linux';
 

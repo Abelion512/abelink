@@ -3,6 +3,7 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import { CodeBlock } from './CodeBlock'
+import { ChoiceButtons } from './ChoiceButtons'
 import { Brain, ChevronRight, ExternalLink, Sparkles, Activity, Check } from 'lucide-react'
 
 export const MessageBubble = React.memo(({
@@ -12,7 +13,8 @@ export const MessageBubble = React.memo(({
   sources = [],
   executedTools = [],
   isPlanConclusion = false,
-  isLearned = false
+  isLearned = false,
+  choice = null
 }) => {
   const [isCopied, setIsCopied] = useState(false)
 
@@ -223,6 +225,9 @@ export const MessageBubble = React.memo(({
           </div>
         )
       )}
+
+      {/* Inline Choice (tombol opsi ask-choice — klik lanjutkan loop, tanpa ketik) */}
+      {!isUser && <ChoiceButtons choice={choice} />}
 
       {/* Sources */}
       {sources && sources.length > 0 && (

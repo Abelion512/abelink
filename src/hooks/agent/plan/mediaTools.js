@@ -1,4 +1,4 @@
-// Eksekutor tool domain MEDIA (dipindah murni dari useMarkPlan.executeSingleTool):
+// Eksekutor tool domain MEDIA (dipindah murni dari useAbelinkPlan.executeSingleTool):
 // YouTube search/summary, music control, TTS speak, screenshot-to-Telegram.
 import { getYoutubeSummary } from '../../../api/ai/tools'
 import { playVoice } from '../../../api/ai/utils'

@@ -115,7 +115,7 @@ export async function sendEmail(clientId, clientSecret, to, subject, bodyText) {
 }
 
 /**
- * gmail-mark-read: Mark an email as read.
+ * gmail-abelink-read: tandai email sebagai sudah dibaca.
  */
 export async function markAsRead(clientId, clientSecret, messageId) {
   const gmail = await getGmailApi(clientId, clientSecret)

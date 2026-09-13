@@ -9,7 +9,7 @@
 
 ## Reporting a vulnerability
 
-Mark Agent stores credentials (API keys, tokens) locally in Dexie/IndexedDB.
+Abelink Agent stores credentials (API keys, tokens) locally in Dexie/IndexedDB.
 If you discover a credential leak, remote code execution, or sandbox escape:
 
 1. **DO NOT** open a public GitHub issue.

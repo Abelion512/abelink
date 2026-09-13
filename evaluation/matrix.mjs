@@ -1,9 +1,9 @@
-// MarkBench Benchmark Matrix — peta benchmark multi-layer (bukan satu angka
-// sakral). Usulan GPT-5.6 Luna, diadaptasi untuk mark-agent-linux.
+// AbelinkBench Benchmark Matrix — peta benchmark multi-layer (bukan satu angka
+// sakral). Usulan GPT-5.6 Luna, diadaptasi untuk abelink-agent-linux.
 //
 // Tesis owner: "Model memang tidak bisa dirubah, tapi architecture and
 // infrastructure bisa dibuat lebih smart." Benchmark publik mengukur
-// capability model; MARK-Eval (mark-eval.mjs) mengukur kualitas arsitektur.
+// capability model; ABELINK-Eval (abelink-eval.mjs) mengukur kualitas arsitektur.
 //
 // STATUS jujur per entri:
 //   implemented = runner + verifier deterministik ada di repo ini
@@ -22,10 +22,10 @@ export const BENCHMARK_MATRIX = [
     status: 'implemented',
     what: 'coding, shell, system tasks',
     runner: 'evaluation/terminal-bench.mjs',
-    arch: ['vanilla', 'basic', 'avo'],
+    arch: ['vanilla', 'basic'],
     reportSchema: 3,
     metrics: ['task_success', 'steps', 'time', 'tool_calls', 'retries', 'token_usage'],
-    note: 'Runner adaptasi TB-style dengan sentinel anti-cheat; sumbu arch vanilla|basic|avo via --arch (default basic); fixture per-run di <workspace-sidecar>/markbench-<runId>; upgrade verifikator ke skema TB 4.0 long-horizon menyusul.'
+    note: 'Runner adaptasi TB-style dengan sentinel anti-cheat; sumbu arch vanilla|basic via --arch (default basic), nilai lain ditolak exit 2 (avo dihapus 2026-09-12, lihat benchArch.js); fixture per-run di <workspace-sidecar>/abelinkbench-<runId>; upgrade verifikator ke skema TB 4.0 long-horizon menyusul.'
   },
   {
     id: 'swe-bench',
@@ -155,27 +155,27 @@ export const BENCHMARK_MATRIX = [
     metrics: ['task_success', 'data_integrity']
   },
 
-  // ---- MARK-specific ----
+  // ---- ABELINK-specific ----
   {
     id: 'abelink-fase2-corp',
-    layer: 'mark',
+    layer: 'abelink',
     name: 'Abelink Fase 2 Corp',
     priority: 'P0',
     status: 'implemented',
     what: 'real-activity student/corporate tasks with world-state verifiers',
     runner: 'evaluation/tasks-student-corporate.mjs',
-    arch: ['vanilla', 'basic', 'avo'],
+    arch: ['vanilla', 'basic'],
     reportSchema: 3,
     metrics: ['task_success', 'steps', 'time', 'tool_calls', 'recovery_success_rate', 'verification_accuracy', 'premature_termination_rate']
   },
   {
-    id: 'mark-eval',
-    layer: 'mark',
-    name: 'MARK-Eval',
+    id: 'abelink-eval',
+    layer: 'abelink',
+    name: 'ABELINK-Eval',
     priority: 'P0',
     status: 'implemented',
     what: 'memory, planning, safety, recovery, efficiency — arsitektur, bukan model',
-    runner: 'evaluation/mark-eval.mjs',
+    runner: 'evaluation/abelink-eval.mjs',
     metrics: [
       'plan_quality',
       'unnecessary_steps',
@@ -195,17 +195,17 @@ export const BENCHMARK_MATRIX = [
 ]
 
 // Core set = 5 pilar (Luna): TB 4.0, OSWorld 2.0, WebArena-Verified,
-// WorkArena++, AutomationBench + MARK-Eval (milik sendiri).
+// WorkArena++, AutomationBench + ABELINK-Eval (milik sendiri).
 export const CORE_SET = [
   'terminal-bench-4.0',
   'osworld-2.0',
   'webarena-verified',
   'workarena-pp',
   'automationbench',
-  'mark-eval'
+  'abelink-eval'
 ]
 
-// Leaderboard-style summary (Luna): bukan "MARK score = 73%", tapi matrix
+// Leaderboard-style summary (Luna): bukan "ABELINK score = 73%", tapi matrix
 // per-layer dengan metadata arsitektur agar "model capability != agent
 // capability" terbukti.
 export function summarizeMatrix(runReports = {}) {
@@ -223,13 +223,13 @@ export function summarizeMatrix(runReports = {}) {
   })
   return {
     schemaVersion: 1,
-    kind: 'markbench-matrix',
+    kind: 'abelinkbench-matrix',
     generatedAt: new Date().toISOString(),
     coreSet: CORE_SET,
     rows,
     meta: {
       model: 'user-configured',
-      architecture: 'MARK Linux (Tauri v2 + sidecar + MMS)',
+      architecture: 'ABELINK Linux (Tauri v2 + sidecar + MMS)',
       tools: [
         'shell',
         'filesystem',
@@ -247,7 +247,7 @@ export function summarizeMatrix(runReports = {}) {
 // CLI: `bun evaluation/matrix.mjs` — cetak matrix + status.
 if (import.meta.url === `file://${process.argv[1]}`) {
   const summary = summarizeMatrix()
-  console.log('MarkBench Benchmark Matrix')
+  console.log('AbelinkBench Benchmark Matrix')
   console.log('─'.repeat(78))
   for (const r of summary.rows) {
     const score = r.score !== null ? `${(r.score * 100).toFixed(1)}%` : '-'

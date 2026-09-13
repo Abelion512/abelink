@@ -1,9 +1,9 @@
-// Mark Architecture Benchmark — shared contract.
+// Abelink Architecture Benchmark — shared contract.
 //
 // This module defines the schema and pure helpers used by the architecture
 // benchmark pipeline: task catalog, evaluator, runner, comparator, and report.
 //
-// Design goal: the benchmark system is automatable once MARK exposes an
+// Design goal: the benchmark system is automatable once ABELINK exposes an
 // execution boundary. It does not depend on UI scraping or manual recall.
 // It does depend on a structured trajectory artifact from the run.
 
@@ -296,7 +296,7 @@ export function makeReport({
   }
 
   return {
-    kind: 'mark-arch-benchmark-report',
+    kind: 'abelink-arch-benchmark-report',
     generatedAt,
     meta: meta ?? null,
     config: config ?? null,

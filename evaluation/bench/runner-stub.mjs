@@ -1,7 +1,7 @@
-// Mark Architecture Benchmark — end-to-end runner stub.
+// Abelink Architecture Benchmark — end-to-end runner stub.
 //
-// This stub exists to show the intended automation wiring once MARK exposes
-// an execution boundary. It does NOT execute MARK directly and does NOT rely
+// This stub exists to show the intended automation wiring once ABELINK exposes
+// an execution boundary. It does NOT execute ABELINK directly and does NOT rely
 // on UI automation.
 //
 // Wiring order:

@@ -1,11 +1,17 @@
 import React, { useEffect, useState, useRef, useMemo, Suspense, lazy } from 'react'
 import { useLiteMode } from '../../contexts/LiteModeContext'
-import { getAllChatArchives, getAllMemory, getAllDocuments, deleteMemory, deleteChatArchive } from '../../api/db'
+import { getAllChatArchives, getAllMemory, getAllDocumentsMeta, getDocumentChunk, deleteMemory, deleteChatArchive } from '../../api/db'
 import { FiCheckCircle, FiClock, FiGitMerge, FiTrash2, FiRefreshCw, FiLoader } from 'react-icons/fi'
 import { useMemoryGroomer } from '../../hooks/useMemoryGroomer'
 import ConfirmModal from './ConfirmModal'
 
 const ForceGraph2D = lazy(() => import('react-force-graph-2d'))
+
+// Batas node daun per grup (hemat RAM/heap + fisika): terbaru didahulukan,
+// sisanya dihitung di label "X dari Y". Full content TIDAK masuk node.
+const MAX_GRAPH_LEAVES = 200
+// Di atas ambang ini paksa tampilan senarai walau bukan lite mode.
+const AUTO_LITE_NODE_THRESHOLD = 400
 
 // Roots that anchor the memory graph (color + id match the ForceGraph nodes)
 const GRAPH_ROOTS = [
@@ -47,9 +53,10 @@ function useGraphChildren(graphData) {
   }, [graphData])
 }
 
-function LiteGraphView({ graphData, setSelectedNode }) {
+function LiteGraphView({ graphData, setSelectedNode, totalCounts }) {
   const childrenByRoot = useGraphChildren(graphData)
   const totalItems = graphData?.nodes?.length || 0
+  const grandTotal = (totalCounts?.archives || 0) + (totalCounts?.memories || 0) + (totalCounts?.documents || 0)
   const [openRoot, setOpenRoot] = useState(null)
 
   return (
@@ -57,6 +64,7 @@ function LiteGraphView({ graphData, setSelectedNode }) {
       <div className="max-w-2xl mx-auto space-y-4">
         <div className="text-xs text-base-content/40">
           Lite mode — {totalItems} node sebagai senarai (hemat RAM)
+          {grandTotal > totalItems ? ` (dari ${grandTotal} entri)` : ''}
         </div>
         {GRAPH_ROOTS.map((r) => {
           const items = childrenByRoot[r.id] || []
@@ -132,18 +140,25 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
     }
   }, [isOpen])
 
-  // Fetch and format data
+  // Fetch and format data (ringan: tanpa vektor embedding, tanpa isi dokumen
+  // penuh — fullText dokumen dimuat on-select via getDocumentChunk).
+  const [totalCounts, setTotalCounts] = useState({ archives: 0, memories: 0, documents: 0 })
   const loadMemories = async () => {
     const archives = await getAllChatArchives();
-    const explicitMemories = await getAllMemory();
-    const documents = await getAllDocuments();
+    const explicitMemories = (await getAllMemory()).map((m) => ({
+      id: m.id,
+      type: m.type,
+      memory: m.memory,
+      timestamp: m.timestamp
+    }));
+    const documents = await getAllDocumentsMeta();
     
     const nodes = [];
     const links = [];
 
         // 0. Core Node
         const coreNodeId = 'core';
-        nodes.push({ id: coreNodeId, name: 'Mark Neural Core', group: 0, val: 25, color: '#00ff66' });
+        nodes.push({ id: coreNodeId, name: 'Abelink Neural Core', group: 0, val: 25, color: '#00ff66' });
 
         // 1. Sub-Cores (Main Branches)
         nodes.push({ id: 'archives-root', name: 'Chat History', group: 1, val: 15, color: '#00e5ff' });
@@ -161,7 +176,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           links.push({ source: 'archives-root', target: `topic-${topic}`, color: 'rgba(255,255,255,0.1)' });
         });
 
-        archives.forEach(arc => {
+        archives.slice(-MAX_GRAPH_LEAVES).forEach(arc => {
           const topicId = `topic-${arc.topic || 'General'}`;
           nodes.push({
             id: `arc-${arc.id}`,
@@ -183,7 +198,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           links.push({ source: 'vector-root', target: `type-${type}`, color: 'rgba(255,255,255,0.1)' });
         });
 
-        explicitMemories.forEach(mem => {
+        explicitMemories.slice(-MAX_GRAPH_LEAVES).forEach(mem => {
           const typeId = `type-${mem.type || 'other'}`;
           nodes.push({
             id: `mem-${mem.id}`,
@@ -198,19 +213,21 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           links.push({ source: typeId, target: `mem-${mem.id}`, color: 'rgba(255,255,255,0.1)' });
         });
 
-        // 2 & 3. Process Documents (PDFs)
+        // 2 & 3. Process Documents (PDFs) — daun dibatasi terbaru dulu.
         const docNames = [...new Set(documents.map(d => d.docName || 'Unknown Document'))];
         docNames.forEach(docName => {
           nodes.push({ id: `docGroup-${docName}`, name: docName, group: 2, val: 12, color: '#ffaa00' });
           links.push({ source: 'doc-root', target: `docGroup-${docName}`, color: 'rgba(255,255,255,0.1)' });
         });
 
-        documents.forEach(doc => {
+        const docLeaves = documents.slice(-MAX_GRAPH_LEAVES);
+        docLeaves.forEach(doc => {
           const docGroupId = `docGroup-${doc.docName || 'Unknown Document'}`;
           nodes.push({
             id: `doc-${doc.id}`,
             name: `Chunk ${doc.chunkIndex}`,
-            fullText: doc.content,
+            fullText: null,
+            chunkId: doc.id,
             date: doc.timestamp ? new Date(doc.timestamp).toLocaleDateString() : 'Parsed Document',
             group: 3,
             val: 4,
@@ -220,6 +237,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           links.push({ source: docGroupId, target: `doc-${doc.id}`, color: 'rgba(255,255,255,0.1)' });
         });
 
+    setTotalCounts({ archives: archives.length, memories: explicitMemories.length, documents: documents.length });
     setGraphData({ nodes, links });
   };
 
@@ -358,8 +376,8 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
 
       {/* Graph Area */}
       <div className="absolute inset-0 cursor-crosshair">
-        {isLite ? (
-          <LiteGraphView graphData={graphData} setSelectedNode={setSelectedNode} />
+        {(isLite || graphData.nodes.length > AUTO_LITE_NODE_THRESHOLD) ? (
+          <LiteGraphView graphData={graphData} setSelectedNode={setSelectedNode} totalCounts={totalCounts} />
         ) : (
           <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-sm text-base-content/50">Memuat graf neural…</div>}>
             <ForceGraph2D
@@ -373,16 +391,26 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           linkColor={(link) => 'rgba(255,255,255,0.15)'}
           linkWidth={(link) => (link.source.id === 'core' || link.source === 'core' ? 2 : 1)}
           linkCurvature={0.25}
-          linkDirectionalParticles={2}
-          linkDirectionalParticleWidth={1.5}
-          linkDirectionalParticleSpeed={0.005}
+          linkDirectionalParticles={0}
           cooldownTicks={60}
           onEngineStop={() => fgRef.current?.zoomToFit(400, 50)}
           d3VelocityDecay={0.3}
           onNodeClick={(node) => {
             // Only select leaf nodes (group 3 for our dual-tree structure)
             if (node.group === 3) {
-              setSelectedNode(node)
+              // Konten dokumen dimuat on-demand (tidak dibawa di node).
+              if (node.typeLabel === 'Document Chunk' && !node.fullText && node.chunkId != null) {
+                setSelectedNode({ ...node, fullText: 'Memuat...' })
+                getDocumentChunk(node.chunkId)
+                  .then((row) => {
+                    setSelectedNode({ ...node, fullText: row?.content || '(konten tidak tersedia)' })
+                  })
+                  .catch(() => {
+                    setSelectedNode({ ...node, fullText: '(gagal memuat konten)' })
+                  })
+              } else {
+                setSelectedNode(node)
+              }
               fgRef.current.centerAt(node.x, node.y, 1000)
               fgRef.current.zoom(3, 1000)
             } else {

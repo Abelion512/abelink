@@ -1,5 +1,5 @@
 // Channel: Skills (Agent Skills filesystem store).
-// Layout: XDG ~/.local/share/mark/skills ; folder skill = <nama>/SKILL.md ;
+// Layout: XDG ~/.local/share/abelink/skills ; folder skill = <nama>/SKILL.md ;
 // legacy *.md standalone tetap didukung. Semua nama skill & path relatif
 // disanitasi anti path-traversal.
 //
@@ -14,8 +14,8 @@ import path from 'path'
 const SKILLS_DIR = (() => {
   const xdg = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
   const dir = process.platform === 'win32'
-    ? path.join(os.homedir(), 'Documents', 'Mark Skills')
-    : path.join(xdg, 'mark', 'skills')
+    ? path.join(os.homedir(), 'Documents', 'Abelink Skills')
+    : path.join(xdg, 'abelink', 'skills')
   fs.mkdirSync(dir, { recursive: true })
   return dir
 })()

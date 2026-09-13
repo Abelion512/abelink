@@ -4,7 +4,7 @@ import path from 'path'
 import os from 'os'
 import { validateFileSyntax } from '../syntax-validator.js'
 import { assertContained } from '../utils/fsGuard.js'
-import { getWorkspaceDir, parsePagination, rtkFilter } from './_shared.mjs'
+import { getWorkspaceDir } from './_shared.mjs'
 
 export const fsTools = {
   'read-skill': {
@@ -37,7 +37,7 @@ export const fsTools = {
 
       return {
         success: false,
-        error: `Skill '${skillName}' tidak ditemukan di folder 'Documents/Mark Skills'.`
+        error: `Skill '${skillName}' tidak ditemukan di folder 'Documents/Abelink Skills'.`
       }
     }
   },
@@ -252,21 +252,9 @@ export const fsTools = {
             }
           }
 
-          // 2b. Orama Semantic Vector Search
-          // Orama search berjalan di Renderer process, tidak bisa diakses dari Main
-          let oramaText = ''
-          try {
-            oramaText = ''
-          } catch (oramaErr) {
-            // Silently skip
-          }
-
           let combinedContent = ''
           if (matchedSections.length > 0) {
             combinedContent += `--- HASIL PENCOCOKAN KATAKUNCI PERSIS ---\n${matchedSections.join('\n\n')}\n\n`
-          }
-          if (oramaText) {
-            combinedContent += `--- HASIL VEKTOR SEMANTIK ORAMA ---\n${oramaText}`
           }
 
           if (combinedContent) {
@@ -393,7 +381,7 @@ export const fsTools = {
   },
   'write-file': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin menulis/membuat file:\n${query.split('||')[0].trim()}`,
+    approvalMessage: (query) => `Abelink ingin menulis/membuat file:\n${query.split('||')[0].trim()}`,
     handler: async (query, config) => {
       try {
         const parts = query.split('||')
@@ -451,7 +439,7 @@ export const fsTools = {
     needsApproval: true,
     approvalMessage: (query) => {
       const parts = query.split('||')
-      return `Mark ingin mengedit isi kode pada berkas:\n${parts[0]?.trim()}`
+      return `Abelink ingin mengedit isi kode pada berkas:\n${parts[0]?.trim()}`
     },
     handler: async (query, config) => {
       try {
@@ -520,7 +508,7 @@ export const fsTools = {
     needsApproval: true,
     approvalMessage: (query) => {
       const parts = query.split('||')
-      return `Mark ingin mengganti baris ${parts[1]} hingga ${parts[2]} di file:\n${parts[0].trim()}`
+      return `Abelink ingin mengganti baris ${parts[1]} hingga ${parts[2]} di file:\n${parts[0].trim()}`
     },
     handler: async (query, config) => {
       try {
@@ -566,7 +554,7 @@ export const fsTools = {
   },
   'delete-file': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin MENGHAPUS file secara permanen:\n${query}`,
+    approvalMessage: (query) => `Abelink ingin MENGHAPUS file secara permanen:\n${query}`,
     handler: async (query, config) => {
       try {
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
@@ -675,13 +663,10 @@ export const fsTools = {
           success: true,
           total: matchedFiles.length,
           files: matchedFiles,
-          result: await rtkFilter(
+          result:
             matchedFiles.length > 0
               ? `Ditemukan ${matchedFiles.length} berkas di '${path.basename(targetDir)}':\n${matchedFiles.map((f) => `- ${f}`).join('\n')}`
               : `Tidak ditemukan berkas yang cocok dengan pola "${pattern}" di folder tersebut.`,
-            'find',
-            config
-          )
         }
       } catch (e) {
         return { success: false, error: e.message }
@@ -802,7 +787,7 @@ export const fsTools = {
 
         return {
           success: true,
-          result: await rtkFilter(matches.join('\n'), 'grep', config),
+          result: matches.join('\n'),
           total_matches: matches.length
         }
       } catch (e) {

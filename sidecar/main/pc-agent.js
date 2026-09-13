@@ -1,5 +1,5 @@
 // src/main/pc-agent.js
-// MARK PC Automation Engine - Zero Vision Cost Desktop Controller
+// ABELINK PC Automation Engine - Zero Vision Cost Desktop Controller
 // Linux-only (Debian/Ubuntu): JSON-over-stdio daemon (linux-daemon.py) utama,
 // fallback bash scripts (linux-action.sh / read-ui.sh / ocr-region.sh, xdotool+OCR).
 
@@ -25,7 +25,6 @@ let lastStopReason = null
 let overlayHideTimeout = null
 let pendingAskResolve = null
 let isSessionOpen = false
-let mouseLockerProcess = null
 
 export function isPCSessionOpen() {
   return isSessionOpen
@@ -88,10 +87,10 @@ function getOverlayHTML() {
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    @keyframes mark-spin { 100% { transform: rotate(360deg); } }
-    .mark-spin { animation: mark-spin 1.5s linear infinite; }
-    @keyframes mark-pulse { 50% { opacity: 0.7; } }
-    .mark-pulse { animation: mark-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes abelink-spin { 100% { transform: rotate(360deg); } }
+    .abelink-spin { animation: abelink-spin 1.5s linear infinite; }
+    @keyframes abelink-pulse { 50% { opacity: 0.7; } }
+    .abelink-pulse { animation: abelink-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
     .title { font-size: 14px; font-weight: 600; letter-spacing: 0.3px; color: #1fb854; display: flex; align-items: center; gap: 6px; }
     .subtitle { font-size: 11px; color: #94a3b8; font-weight: 400; margin-top: 1px; }
@@ -138,11 +137,11 @@ function getOverlayHTML() {
 </head>
 <body>
   <div class="banner" id="banner">
-    <svg class="mark-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <svg class="abelink-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
     </svg>
     <div>
-      <div class="title mark-pulse">Mark is working...</div>
+      <div class="title abelink-pulse">Abelink is working...</div>
       <div class="subtitle" id="banner-subtitle">Mouse locked. Press <strong style="color: #cbd5e1;">[Ctrl+Shift+S]</strong> to stop</div>
     </div>
   </div>
@@ -154,10 +153,10 @@ function getOverlayHTML() {
         <path d="M2 17l10 5 10-5"></path>
         <path d="M2 12l10 5 10-5"></path>
       </svg>
-      <div class="modal-title">Mark paused for input</div>
+      <div class="modal-title">Abelink paused for input</div>
     </div>
     <div class="modal-subtitle">Menunggu respon atau instruksi...</div>
-    <input type="text" id="reason-input" placeholder="Add a comment for Mark (optional)..." autocomplete="off" />
+    <input type="text" id="reason-input" placeholder="Add a comment for Abelink (optional)..." autocomplete="off" />
     <div style="display: flex; gap: 8px; margin-top: auto;">
       <button style="flex: 1; padding: 12px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(239, 68, 68, 0.25)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.15)'" onclick="onCancel()">
         Batalkan Otomasi
@@ -170,7 +169,7 @@ function getOverlayHTML() {
 
   <script>
     function onStop() {
-      document.title = 'MARK_PC_STOP_CLICKED:' + Date.now();
+      document.title = 'ABELINK_PC_STOP_CLICKED:' + Date.now();
     }
     function showAskModal(titleText, subtitleText, btnColor) {
       document.getElementById('banner').style.display = 'none';
@@ -186,10 +185,10 @@ function getOverlayHTML() {
     }
     function onSend() {
       const val = document.getElementById('reason-input').value;
-      document.title = 'MARK_PC_STOP_REASON:' + (val.trim() || 'User stopped PC automation without comment.');
+      document.title = 'ABELINK_PC_STOP_REASON:' + (val.trim() || 'User stopped PC automation without comment.');
     }
     function onCancel() {
-      document.title = 'MARK_PC_ABORT_SESSION';
+      document.title = 'ABELINK_PC_ABORT_SESSION';
     }
     function resetBanner() {
       document.getElementById('modal').style.display = 'none';
@@ -258,10 +257,10 @@ function showPCOverlay() {
     overlayWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(getOverlayHTML())}`)
 
     overlayWindow.on('page-title-updated', (event, title) => {
-      if (title.startsWith('MARK_PC_STOP_CLICKED:')) {
+      if (title.startsWith('ABELINK_PC_STOP_CLICKED:')) {
         triggerEmergencyStop()
-      } else if (title.startsWith('MARK_PC_STOP_REASON:')) {
-        const reason = title.replace('MARK_PC_STOP_REASON:', '').trim()
+      } else if (title.startsWith('ABELINK_PC_STOP_REASON:')) {
+        const reason = title.replace('ABELINK_PC_STOP_REASON:', '').trim()
         lastStopReason = reason
         if (pendingAskResolve) {
           const resolveFn = pendingAskResolve
@@ -269,7 +268,7 @@ function showPCOverlay() {
           resolveFn(reason)
         }
         hidePCOverlay()
-      } else if (title.startsWith('MARK_PC_ABORT_SESSION')) {
+      } else if (title.startsWith('ABELINK_PC_ABORT_SESSION')) {
         closePCSession()
         if (pendingAskResolve) {
           const resolveFn = pendingAskResolve
@@ -341,12 +340,6 @@ function triggerEmergencyStop() {
     } catch (err) {}
     activeChildProcess = null
   }
-  if (mouseLockerProcess) {
-    try {
-      mouseLockerProcess.kill()
-    } catch (err) {}
-    mouseLockerProcess = null
-  }
   if (daemonProcess) {
     try { daemonProcess.kill() } catch(e){}
     daemonProcess = null
@@ -367,19 +360,6 @@ function triggerEmergencyStop() {
   }
 }
 
-function startMouseLocker() {
-  // Linux-native: xdotool menangani event injection sendiri — tidak perlu locker eksternal
-}
-
-function stopMouseLocker() {
-  if (mouseLockerProcess) {
-    try {
-      mouseLockerProcess.kill()
-    } catch (err) {}
-    mouseLockerProcess = null
-  }
-}
-
 /**
  * Open a persistent PC Automation session
  */
@@ -395,7 +375,6 @@ export async function openPCSession() {
   // Sesi otomasi baru dimulai: titik reset stop darurat antar-sesi.
   resetEmergencyStop()
   showPCOverlay()
-  startMouseLocker()
   try {
     await startDaemon()
   } catch (err) {
@@ -415,7 +394,6 @@ export async function closePCSession() {
   isSessionOpen = false
   resetEmergencyStop()
   hidePCOverlay()
-  stopMouseLocker()
   stopDaemon()
   return JSON.stringify({
     status: 'success',
@@ -437,26 +415,9 @@ export async function askUserPC(query = '') {
   // Lanjutan sesi berjalan (alur os-ask setelah stop): reset eksplisat lewat helper.
   resetEmergencyStop()
   showPCOverlay()
-  if (overlayWindow && !overlayWindow.isDestroyed()) {
-    try {
-      overlayWindow.setFocusable(true)
-      overlayWindow.show()
-      overlayWindow.setSize(420, 360)
-      const cleanMsg = query.replace(/'/g, "\\'").replace(/"/g, '\\"')
-      overlayWindow.webContents.executeJavaScript(
-        `showAskModal("❓ MARK Needs Your Help", "${cleanMsg}", "#3b82f6")`
-      )
-    } catch (err) {}
-  }
   const comment = await new Promise((resolve) => {
     pendingAskResolve = (val) => resolve(val)
   })
-  
-  // Restart mouse locker because the automation is resuming
-  // (unless the user clicked cancel, which closes the session)
-  if (isSessionOpen) {
-    startMouseLocker()
-  }
   
   return JSON.stringify({
     status: 'success',
@@ -467,10 +428,10 @@ export async function askUserPC(query = '') {
 const DAEMON_SCRIPT = 'linux-daemon.py'
 
 // import.meta.dir (bun) menunjuk direktori file ini — tetap benar saat
-// dibundel single-file. MARK_RESOURCE_DIR di-set Rust spawner saat produksi.
+// dibundel single-file. ABELINK_RESOURCE_DIR di-set Rust spawner saat produksi.
 const SCRIPT_DIRS = [
-  process.env.MARK_RESOURCE_DIR
-    ? join(process.env.MARK_RESOURCE_DIR, 'pc-agent-scripts')
+  process.env.ABELINK_RESOURCE_DIR
+    ? join(process.env.ABELINK_RESOURCE_DIR, 'pc-agent-scripts')
     : null,
   join(import.meta.dir ?? process.cwd(), 'pc-agent-scripts'),
   join(process.cwd(), 'sidecar', 'main', 'pc-agent-scripts')
@@ -497,14 +458,14 @@ function startDaemon() {
     daemonBuffer = ''
     daemonReady = false
     
-    // Handle daemon stdout - accumulate until ---MARK_DONE--- delimiter
+    // Handle daemon stdout - accumulate until ---ABELINK_DONE--- delimiter
     daemonProcess.stdout.on('data', (chunk) => {
       daemonBuffer += chunk.toString()
       
       let delimiterIndex;
-      while ((delimiterIndex = daemonBuffer.indexOf('---MARK_DONE---')) !== -1) {
+      while ((delimiterIndex = daemonBuffer.indexOf('---ABELINK_DONE---')) !== -1) {
         const response = daemonBuffer.substring(0, delimiterIndex).trim()
-        daemonBuffer = daemonBuffer.substring(delimiterIndex + '---MARK_DONE---'.length).trimStart()
+        daemonBuffer = daemonBuffer.substring(delimiterIndex + '---ABELINK_DONE---'.length).trimStart()
         
         if (!daemonReady) {
           // First response is the startup {"status":"ready"} message
@@ -523,7 +484,16 @@ function startDaemon() {
     })
     
     daemonProcess.stderr.on('data', (data) => {
-      console.warn('[PC-Agent] Daemon stderr:', data.toString())
+      // Saring noise: DeprecationWarning python bukan error operasional.
+      // Baris selain itu tetap warn agar error daemon asli tidak hilang.
+      const text = data.toString()
+      const lines = text.split('\n')
+      const noisy = lines.filter((l) => /DeprecationWarning|warnings\.warn/.test(l))
+      const rest = lines.filter((l) => !/DeprecationWarning|warnings\.warn/.test(l)).join('\n').trim()
+      for (const l of noisy) {
+        if (l.trim()) console.debug('[PC-Agent] Daemon warning:', l.trim())
+      }
+      if (rest) console.warn('[PC-Agent] Daemon stderr:', rest)
     })
     
     daemonProcess.on('close', (code) => {

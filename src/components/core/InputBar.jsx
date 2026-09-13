@@ -15,6 +15,7 @@ import {
   FaPlus
 } from 'react-icons/fa'
 import ConfirmModal from './ConfirmModal'
+import { ContextGauge } from './ContextGauge'
 import { NATIVE_SKILLS } from './native-skills'
 import { getCachedSkills } from '../../api/skillsCache'
 import {
@@ -25,8 +26,8 @@ import {
 } from '../../utils/attachments'
 
 // Command history recall (gaya TUI) + draft persistence anti-crash.
-const PROMPT_HISTORY_KEY = 'mark:prompt-history'
-const DRAFT_KEY = 'mark:draft'
+const PROMPT_HISTORY_KEY = 'abelink:prompt-history'
+const DRAFT_KEY = 'abelink:draft'
 
 const formatFileSize = (bytes) => {
   if (!bytes) return ''
@@ -58,7 +59,8 @@ const InputBar = ({
   inline = false,
   className = '',
   workspaceRoot = null,
-  onSelectWorkspace = null
+  onSelectWorkspace = null,
+  sessionId = 1
 }) => {
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -134,8 +136,8 @@ const InputBar = ({
         setAttachedFiles((prev) => dedupeAttachments(prev, items))
       }
     }
-    window.addEventListener('mark:files-dropped', onGlobalDrop)
-    return () => window.removeEventListener('mark:files-dropped', onGlobalDrop)
+    window.addEventListener('abelink:files-dropped', onGlobalDrop)
+    return () => window.removeEventListener('abelink:files-dropped', onGlobalDrop)
   }, [])
 
   useEffect(() => {
@@ -665,6 +667,8 @@ const InputBar = ({
 
         {/* Action Buttons — right side */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Context gauge (session compaction) */}
+          <ContextGauge sessionId={sessionId} />
           {/* Stop replaces Send when loading */}
           {isLoading ? (
             <button
@@ -769,7 +773,7 @@ const InputBar = ({
       <ConfirmModal
         isOpen={showAbortConfirm}
         title="Hard Abort Proses?"
-        message="Yakin mau memberhentikan proses Mark secara paksa? Tindakan ini akan menghentikan secara langsung semua alat yang sedang berjalan dan memutuskan koneksi ke otak AI-nya seketika."
+        message="Yakin mau memberhentikan proses Abelink secara paksa? Tindakan ini akan menghentikan secara langsung semua alat yang sedang berjalan dan memutuskan koneksi ke otak AI-nya seketika."
         confirmText="Berhentikan"
         cancelText="Batal"
         isError={true}

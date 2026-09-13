@@ -1,6 +1,9 @@
 // Channel: TTS, transkrip & pencarian YouTube.
 // Modul ini hanya mendaftarkan handler; semua I/O via helper registry.
 import { on, lazy } from '../registry.mjs'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 
 const getYt = lazy(async () => {
   // Paket CJS: fungsi utama bisa di default atau namespace (normalkan).
@@ -19,7 +22,7 @@ on('tts-speak', async (text, rate, pitch) => {
       globalTTS = new MsEdgeTTS()
       await globalTTS.setMetadata('id-ID-ArdiNeural', OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3 || 'audio-24khz-48kbitrate-mono-mp3')
     }
-    const tmpPath = path.join(os.tmpdir(), 'mark-tts-folder')
+    const tmpPath = path.join(os.tmpdir(), 'abelink-tts-folder')
     fs.mkdirSync(tmpPath, { recursive: true })
     const { audioFilePath } = await globalTTS.toFile(tmpPath, text, {
       rate: `${rate || 0}%`,
@@ -59,7 +62,3 @@ on('youtube-search', async (query) => {
     author: item.author?.name
   }))
 })
-
-import fs from 'fs'
-import os from 'os'
-import path from 'path'

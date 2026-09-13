@@ -36,8 +36,8 @@ export default function GeneralSection({
               const v = e.target.checked
               setFullMode(v)
               try {
-                localStorage.setItem('mark:fullmode', v ? '1' : '0')
-                localStorage.setItem('mark:fullmode-asked', '1')
+                localStorage.setItem('abelink:fullmode', v ? '1' : '0')
+                localStorage.setItem('abelink:fullmode-asked', '1')
               } catch (_) {}
             }}
           />

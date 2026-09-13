@@ -30,7 +30,7 @@
     "active": true,
     "targets": "all",
     "resources": [
-      "../dist-sidecar/mark-engine",
+      "../dist-sidecar/abelink-engine",
       "../sidecar/main/pc-agent-scripts",
       "../extension"
     ],

@@ -9,14 +9,16 @@ Tesis: model sama, sistem lebih baik — tanpa klaim persen sebelum data.
 - Spesifikasi Fase 2: commit `f4af085` (cognitive runtime — trajectory search).
 - Primitif ada: `src/api/ai/trajectorySupervisor.js` (Fase 1),
   `trajLineage.js`, `scoring.js`, `strategyLib.js`, `benchArch.js`
-  (axis `vanilla/basic/avo` via `MARK_BENCH_ARCH`, default `basic` = produksi stabil).
+  (axis `vanilla/basic` via `ABELINK_BENCH_ARCH`, default `basic` = produksi stabil).
+  Catatan: `trajLineage.js`, `scoring.js`, dan nilai arch `avo` sudah dihapus,
+  lihat bagian Update 2026-09-12 di bawah.
 - Bench task real-activity + world-state verifier: `evaluation/` (lihat commit
   `1e363c2`, `a8273c0`).
 
 ## Scope (tidak lebih, tidak kurang)
 
 ### Fase A — Fondasi offline (agent, tanpa LLM)
-1. **Budget skala-effort**: `MAX_PLAN_STEPS=25` hardcoded di `useMarkPlan` →
+1. **Budget skala-effort**: `MAX_PLAN_STEPS=25` hardcoded di `useAbelinkPlan` →
    baca policy `effortSystem` (target ~50 langkah task kompleks). Lineage
    window ikut skala. Unit test.
 2. **Resume durable terverifikasi**: audit `taskStore`/`taskExecutor` —
@@ -41,7 +43,7 @@ Model baru, provider baru, rewrite arsitektur.
 
 - [ ] Task 50-langkah selesai tanpa kehabisan konteks.
 - [ ] Pause → restart app → resume checkpoint identik.
-- [ ] Skor `avo` ≥ `basic` ≥ `vanilla` di bench real-activity (diukur).
+- [ ] Skor `basic` ≥ `vanilla` di bench real-activity (diukur). `avo` dihapus 2026-09-12.
 - [ ] `bunx vitest run`, `verify.sh`, CI PR hijau.
 
 ## Jejak keputusan
@@ -49,3 +51,23 @@ Model baru, provider baru, rewrite arsitektur.
 - Anti-duplication gate 2026-09-11: grep `long-horizon|trajectory supervisor`
   → hanya MODEL-MATRIX.md (matriks model, tak duplikat); git log tak ada plan
   serupa. Rencana ini baru.
+
+## Update 2026-09-12: lapisan Fase 2 dibuang
+
+Tidak ada bukti pengukuran bahwa lineage + scoring + taksonomi 6 strategi
+mengalahkan ladder tipis 4 rung. Modul `trajLineage.js` dan `scoring.js` dihapus
+beserta tesnya; `strategyLib.js` sekarang hanya `getNextStrategy()`
+(MODIFY -> EXPLORE/RETRIEVE -> STOP) dan `trajectorySupervisor.js` memakai field
+Fase 1 saja.
+
+Dampak ke rencana ini:
+
+- Kriteria terima "Skor `avo` >= `basic` >= `vanilla`" tidak bisa diukur lagi:
+  `avo` dihapus dari `ARCH_VALUES` (kini `vanilla`/`basic`), jadi `--arch avo`
+  gagal-cepat dengan exit 2 (lihat `src/api/ai/benchArch.js` dan
+  `evaluation/run.mjs`). Laporan lama berlabel `avo` tetap terbaca sebagai
+  sejarah dan diperlakukan setara `basic` saat dibandingkan. Sumbu yang masih
+  bermakna: `vanilla` vs `basic`.
+- Fase C "BACKTRACK vs RETRIEVE_MEMORY" dipangkas jadi RETRIEVE saja.
+- Sisa scope Fase A (budget skala-effort, resume durable, trace injeksi) tetap
+  berlaku dan sudah punya tes.

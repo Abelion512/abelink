@@ -49,7 +49,7 @@ Channel sidecar `os:*` (`sidecar/engine/channels/music.mjs`, daftar
 `native-tool:execute`, bukan channel `os:*`.
 
 **Emergency stop `Ctrl+Shift+S` kini end-to-end:** Rust
-(`pc-emergency-stop` event) → renderer (`useMarkState` listener +
+(`pc-emergency-stop` event) → renderer (`useAbelinkState` listener +
 `window.api.pcEmergencyStop`) → channel sidecar `os:emergency-stop` →
 `triggerEmergencyStopExternal()` (kill daemon + tandai stop di
 pc-agent; reset eksplisit via `os-control-open`/`os-ask`).
@@ -60,7 +60,7 @@ pc-agent; reset eksplisit via `os-control-open`/`os-ask`).
 
 Keputusan arsitektur (dua jalur, A primer):
 
-- **Jalur A — Ekstensi browser + CDP attach (PRIMER).** Mark memasang
+- **Jalur A — Ekstensi browser + CDP attach (PRIMER).** Abelink memasang
   ekstensi Chrome/Chromium (pola [BrowserMCP](https://github.com/BrowserMCP/mcp),
   pendekatan browser-use/manus: kontrol browser yang sudah login, profil user
   menempel sehingga tidak perlu login ulang). Ekstensi berkomunikasi dengan
@@ -83,7 +83,7 @@ Titik masuk implementasi (urutan kerja):
    bila ekstensi handshake OK, jatuh ke Jalur B otomatis.
 3. Baru: `extension/` di root repo — manifest v3 + content script
    (tag elemen interaktif ala `browser-agent.js`: maks 80 elemen,
-   `data-mark-id`, baca DOM, eksekusi aksi klik/scroll/capture).
+   `data-abelink-id`, baca DOM, eksekusi aksi klik/scroll/capture).
 4. `src-tauri/` — TIDAK dibutuhkan untuk Jalur A (murni sidecar + ekstensi);
    Jalur B hanya butuh spawn proses yang sudah aman lewat `run-shell` gate.
    Approval: aksi `browser:*` destruktif (submit form, download) WAJIB
@@ -128,7 +128,7 @@ Pemetaan lengkap + alasan: `MIGRATION-GAPS.md` bagian "Jalur Telegram native".
 - `sidecar/main/telegram/telegram-service.js` — 3 handler `ipcMain.on`
   (`tg:trigger-screenshot`, `tg:trigger-music-download`, `tg:trigger-music-ui`)
   dihapus; impor electron/desktopCapturer/yts/ffmpeg ikut dibuang; path
-  chat/admin ids pindah ke XDG `~/.local/share/mark/`.
+  chat/admin ids pindah ke XDG `~/.local/share/abelink/`.
 - `awareness/window-tracker.js` — powerMonitor diganti `xprintidle` (fallback
   tidak idle). `google/google-service.js` — `app`/`shell` diganti XDG + `open`.
 

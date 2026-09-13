@@ -93,7 +93,7 @@ const WhatNew = ({ onClose }) => {
         <div className="p-4 border-t border-white/10 flex gap-2 flex-shrink-0">
           <button
             onClick={() => {
-              try { localStorage.setItem('mark:last-seen-whats-new', whatsNewData.version) }
+              try { localStorage.setItem('abelink:last-seen-whats-new', whatsNewData.version) }
               catch (_) {}
               onClose()
             }}

@@ -1,15 +1,13 @@
 // Tool shell/git/task (dipindah murni dari main/node-tools.js).
-import { exec, spawn } from 'child_process'
-import util from 'util'
 import { getGitStatus, getGitDiff, gitCommit, gitRevert } from '../git-service.js'
 import { spawnBackgroundTask, readBackgroundTaskOutput, killBackgroundTask, listBackgroundTasks } from '../task-daemon.js'
-import { execPromise, isDangerousCommand, DANGEROUS_KEYWORDS } from './_shared.mjs'
+import { execPromise, isDangerousCommand } from './_shared.mjs'
 
 export const shellTools = {
   'run-shell': {
     needsApproval: (query) => isDangerousCommand(query),
     approvalMessage: (query) =>
-      `Mark ingin mengeksekusi perintah shell yang berpotensi BERBAHAYA:\n\n${query}`,
+      `Abelink ingin mengeksekusi perintah shell yang berpotensi BERBAHAYA:\n\n${query}`,
     handler: async (query, config) => {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
       // Pagar anti-spiral: ambil + parse halaman web bukan tugas shell.
@@ -34,20 +32,6 @@ export const shellTools = {
           maxBuffer: 10 * 1024 * 1024
         })
         let output = stdout.trim() || 'Perintah berhasil dieksekusi tanpa output teks.'
-        // rtk: kompres output panjang sebelum masuk konteks LLM (hemat token)
-        if (output.length > 4000 && config?.rtkCompress !== false) {
-          try {
-            const { execFileSync } = await import('child_process')
-            const filtered = execFileSync('rtk', ['log'], {
-              input: output,
-              encoding: 'utf8',
-              timeout: 10000
-            })
-            if (filtered && filtered.trim().length > 0 && filtered.length < output.length) {
-              output = filtered.trim()
-            }
-          } catch {}
-        }
         return {
           success: true,
           output,
@@ -67,8 +51,6 @@ export const shellTools = {
     handler: async (query, config) => {
       const activeRoot = config?.workspaceRoot || (query?.trim() ? query.trim() : getWorkspaceDir())
       const res = await getGitStatus(activeRoot)
-      // rtk always-on: status panjang dikompres sebelum masuk konteks.
-      if (res?.success) res.status = await rtkFilter(res.status, 'git-status', config)
       return res
     }
   },
@@ -77,17 +59,15 @@ export const shellTools = {
     handler: async (query, config) => {
       const activeRoot = config?.workspaceRoot || getWorkspaceDir()
       const res = await getGitDiff(activeRoot, query?.trim() || '')
-      // rtk always-on: diff gemuk adalah kontributor token terbesar.
-      if (res?.success) res.diff = await rtkFilter(res.diff, 'git-diff', config)
       return res
     }
   },
   'git-commit': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin melakukan git commit dengan pesan:\n"${query}"`,
+    approvalMessage: (query) => `Abelink ingin melakukan git commit dengan pesan:\n"${query}"`,
     handler: async (query, config) => {
       const parts = query ? query.split('||') : []
-      const message = parts[0]?.trim() || 'Mark Agent Commit'
+      const message = parts[0]?.trim() || 'Abelink Agent Commit'
       const customCwd = parts[1]?.trim()
       const activeRoot = customCwd || config?.workspaceRoot || getWorkspaceDir()
       return await gitCommit(activeRoot, message)
@@ -95,7 +75,7 @@ export const shellTools = {
   },
   'git-revert': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin me-rollback perubahan git:\n"${query || 'Seluruh file (reset --hard)'}`,
+    approvalMessage: (query) => `Abelink ingin me-rollback perubahan git:\n"${query || 'Seluruh file (reset --hard)'}`,
     handler: async (query, config) => {
       const activeRoot = config?.workspaceRoot || getWorkspaceDir()
       return await gitRevert(activeRoot, query?.trim() || '')
@@ -103,7 +83,7 @@ export const shellTools = {
   },
   'run-task': {
     needsApproval: (query) => isDangerousCommand(query?.split('||')[1] || query || ''),
-    approvalMessage: (query) => `Mark ingin menjalankan background task:\n${query}`,
+    approvalMessage: (query) => `Abelink ingin menjalankan background task:\n${query}`,
     handler: async (query, config) => {
       const parts = query.split('||')
       if (parts.length < 2) {

@@ -12,7 +12,7 @@ let pluginHandlers = {}
 // Folder plugin: XDG documents (tanpa Electron). Bisa dioverride lewat env.
 export const getPluginsDir = () => {
   const docPath = process.env.XDG_DOCUMENTS_DIR || path.join(os.homedir(), 'Documents')
-  const pluginDir = path.join(docPath, 'Mark Plugins')
+  const pluginDir = path.join(docPath, 'Abelink Plugins')
   if (!fs.existsSync(pluginDir)) {
     fs.mkdirSync(pluginDir, { recursive: true })
   }

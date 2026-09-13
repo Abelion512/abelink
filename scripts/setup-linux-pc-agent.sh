@@ -1,8 +1,8 @@
 #!/bin/bash
-# setup-linux-pc-agent.sh — Install Linux PC Agent dependencies for MARK
+# setup-linux-pc-agent.sh — Install Linux PC Agent dependencies for ABELINK
 set -e
 
-echo "[MARK] Installing Linux PC Agent dependencies..."
+echo "[ABELINK] Installing Linux PC Agent dependencies..."
 
 # System packages
 if command -v apt &>/dev/null; then
@@ -16,7 +16,7 @@ fi
 # Python packages for linux-daemon.py (OCR fallback + screen capture)
 pip3 install --break-system-packages mss pytesseract Pillow 2>/dev/null || pip3 install --user mss pytesseract Pillow
 
-echo "[MARK] Linux PC Agent dependencies installed successfully!"
+echo "[ABELINK] Linux PC Agent dependencies installed successfully!"
 echo "  - xdotool: $(which xdotool)"
 echo "  - wmctrl: $(which wmctrl)"
 echo "  - tesseract: $(tesseract --version 2>&1 | head -1)"

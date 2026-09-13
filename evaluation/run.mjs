@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// MarkBench orchestrator — multi-run runner.
+// AbelinkBench orchestrator — multi-run runner.
 //
 // Metodologi mengikuti praktik frontier (Terminal-Bench 2.1 / DeepSWE /
 // tech blog Kimi K3): tiap task dijalankan beberapa kali (default 3x) dan
@@ -13,9 +13,9 @@
 //   - `--efforts low,medium,high` menjalankan SWEEP: setiap task (tanpa
 //     task-level effort) dijalankan pada tiap effort sehingga kurva
 //     effort-scaling bisa diamati pada task/lingkungan yang SAMA.
-//   - Lingkungan: env MARK_BENCH_EFFORT tetap didukung (default level).
+//   - Lingkungan: env ABELINK_BENCH_EFFORT tetap didukung (default level).
 //   - Precedence: task.effort > benchmark override > env > sistem 'low'
-//     (resolveTaskEffort di mark-adapter.mjs).
+//     (resolveTaskEffort di abelink-adapter.mjs).
 //
 // Effort direkam di SETIAP task result & per-run detail, bukan hanya di config
 // laporan. Laporan JSON memakai schemaVersion 3 (+arch axis +worldState).
@@ -27,7 +27,7 @@ import { join, relative } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import AdmZip from 'adm-zip'
-import { ALL_TASKS, runTask, mkSentinel } from './terminal-bench.mjs'
+import { ALL_TASKS, runTask, akSentinel } from './terminal-bench.mjs'
 import {
   resolveTaskEffort,
   normalizeEffort,
@@ -37,7 +37,7 @@ import {
   BENCH_SCHEMA_VERSION,
   ARCH_VALUES,
   resolveBenchArch,
-} from './mark-adapter.mjs'
+} from './abelink-adapter.mjs'
 
 const DEFAULT_RUNS = 3
 const REGRESSION_THRESHOLD = 5 // persen pass-rate; default tanpa --compare = tidak dieksekusi
@@ -46,15 +46,15 @@ const REGRESSION_THRESHOLD = 5 // persen pass-rate; default tanpa --compare = ti
 
 // ---- Fixture root WAJIB di dalam workspace sidecar (pilot-found fix) ----
 // Handler file sidecar (fsGuard.js) menolak path absolut dan me-resolve path
-// relatif terhadap <xdg>/mark/workspace. Bila workdir bench di luar root itu,
+// relatif terhadap <xdg>/abelink/workspace. Bila workdir bench di luar root itu,
 // write-file selalu "Akses ditolak" (atau file tersesat di XDG) dan SEMUA
 // task dunia auto-FAIL. Penyelesaian berlapis:
 //   - Seeder/verifier memakai ABSOLUT (fs lokal node).
 //   - Prompt + contoh preamble memakai RELATIF-terhadap-workspace
-//     (markbench-<runId>/...) agar lolos fsGuard dan mendarat di dir yang sama.
+//     (abelinkbench-<runId>/...) agar lolos fsGuard dan mendarat di dir yang sama.
 export function sidecarWorkspaceRoot() {
   const xdg = process.env.XDG_DATA_HOME || join(os.homedir(), '.local', 'share')
-  return join(xdg, 'mark', 'workspace')
+  return join(xdg, 'abelink', 'workspace')
 }
 
 // ---- Anti-cheat ----
@@ -70,7 +70,7 @@ export function detectCheat(task, result, sentinel) {
 const avg = (arr) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null)
 
 // ---- Report shell v3 (diuji smoke CI tanpa LLM) ----
-// arch: vanilla|basic|avo. worldState menunjuk base dir fixture per-run;
+// arch: vanilla|basic. worldState menunjuk base dir fixture per-run;
 // sentinel per-iterasi dicatat di details tiap task.
 export function buildReportShell({ arch = 'basic', runId = 'smoke' } = {}) {
   const resolved = resolveBenchArch(arch)
@@ -80,7 +80,7 @@ export function buildReportShell({ arch = 'basic', runId = 'smoke' } = {}) {
     runId,
     // Base absolut di dalam workspace sidecar; prompt memakai bentuk relatif
     // (lihat promptRelWorkdir di main) agar lolos fsGuard.
-    worldState: { workdir: join(sidecarWorkspaceRoot(), `markbench-${runId}`), sentinel: null },
+    worldState: { workdir: join(sidecarWorkspaceRoot(), `abelinkbench-${runId}`), sentinel: null },
     results: [],
   }
 }
@@ -139,9 +139,9 @@ export function seedFixtures(workdir, sentinel) {
   git('init', '-q')
   // Identitas repo-lokal: commit polos agen (`git commit -m ...` tanpa -c)
   // harus berhasil tanpabergantung pada git config global mesin.
-  git('config', 'user.email', 'markbench@local')
-  git('config', 'user.name', 'markbench')
-  writeFileSync(join(repo, 'awal.txt'), `markbench fixture ${sentinel}\n`)
+  git('config', 'user.email', 'abelinkbench@local')
+  git('config', 'user.name', 'abelinkbench')
+  writeFileSync(join(repo, 'awal.txt'), `abelinkbench fixture ${sentinel}\n`)
   git('add', '.')
   git('commit', '-qm', 'fixture awal')
   return workdir
@@ -274,11 +274,11 @@ export function aggregateRuns(rawRuns, config = {}) {
 
   return {
     schemaVersion: BENCH_SCHEMA_VERSION,
-    kind: 'markbench-report',
+    kind: 'abelinkbench-report',
     generatedAt: new Date().toISOString(),
-    arch: config.arch || 'basic', // vanilla|basic|avo — sumbu arsitektur Fase 2
+    arch: config.arch || 'basic', // vanilla|basic - sumbu arsitektur (avo dihapus)
     worldState: {
-      workdir: config.workdir || null, // base dir fixture tmp/markbench-<runId>
+      workdir: config.workdir || null, // base dir fixture tmp/abelinkbench-<runId>
       sentinel: null, // sentinel per-iterasi ada di details tiap task
     },
     config: {
@@ -352,7 +352,7 @@ function parseArgs(argv) {
     efforts: null, // sweep: [effort...]
     runId: null,
     toolConfig: null,
-    arch: null, // vanilla|basic|avo (default basic)
+    arch: null, // vanilla|basic (default basic; avo dihapus 2026-09-12)
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -381,7 +381,7 @@ function printTable(report) {
     ? `sweep(${report.config.efforts.join(',')})`
     : report.config.effort || 'default'
   console.log(
-    `MarkBench — ${report.config.runs}x run per task (model=${report.meta.model || 'default'}, effort=${effortLabel}, arch=${report.arch || report.config.arch || 'basic'})`
+    `AbelinkBench — ${report.config.runs}x run per task (model=${report.meta.model || 'default'}, effort=${effortLabel}, arch=${report.arch || report.config.arch || 'basic'})`
   )
   console.log('─'.repeat(72))
   for (const t of Object.values(report.tasks)) {
@@ -407,25 +407,25 @@ function printTable(report) {
 async function main() {
   const args = parseArgs(process.argv.slice(2))
 
-  // Sumbu arsitektur Fase 2: --arch > MARK_BENCH_ARCH > 'basic'. Nilai tak
+  // Sumbu arsitektur Fase 2: --arch > ABELINK_BENCH_ARCH > 'basic'. Nilai tak
   // dikenal ditolak dengan exit 2 (bukan fallback diam-diam).
   if (args.arch != null && !ARCH_VALUES.includes(String(args.arch).trim().toLowerCase())) {
     console.error(`--arch tidak dikenal: ${args.arch} (pilihan: ${ARCH_VALUES.join('|')})`)
     process.exit(2)
   }
-  const arch = resolveBenchArch(args.arch ?? process.env.MARK_BENCH_ARCH)
-  process.env.MARK_BENCH_ARCH = arch // dibaca adapter + executor wiring
+  const arch = resolveBenchArch(args.arch ?? process.env.ABELINK_BENCH_ARCH)
+  process.env.ABELINK_BENCH_ARCH = arch // dibaca adapter + executor wiring
   const runId = args.runId || `r${Date.now().toString(36)}`
   // Absolut (fs lokal) + relatif-workspace (prompt): pasangan yang menunjuk
   // direktori fisik SAMA. Lihat blok sidecarWorkspaceRoot di atas.
-  const baseDir = join(sidecarWorkspaceRoot(), `markbench-${runId}`)
+  const baseDir = join(sidecarWorkspaceRoot(), `abelinkbench-${runId}`)
   const promptBase = relative(sidecarWorkspaceRoot(), baseDir)
   mkdirSync(baseDir, { recursive: true })
 
   const tasks = args.tasks && args.tasks.length ? args.tasks : Object.keys(ALL_TASKS)
 
-  // Benchmark default effort: --effort / --efforts > env MARK_BENCH_EFFORT > 'low'
-  const envEffort = normalizeEffort(process.env.MARK_BENCH_EFFORT, null)
+  // Benchmark default effort: --effort / --efforts > env ABELINK_BENCH_EFFORT > 'low'
+  const envEffort = normalizeEffort(process.env.ABELINK_BENCH_EFFORT, null)
   const benchmarkEffort = normalizeEffort(args.effort, envEffort || SYSTEM_DEFAULT_EFFORT)
   let sweepEfforts = null
   if (args.efforts?.length) {
@@ -452,7 +452,7 @@ async function main() {
         [await resolveTaskEffort({ taskEffort, benchmarkEffort, envEffort: null })]
     for (const eff of perTaskEfforts) {
       for (let i = 0; i < args.runs; i++) {
-        const iterSentinel = mkSentinel()
+        const iterSentinel = akSentinel()
         const iterDir = join(baseDir, `${taskId}-r${i + 1}`)
         seedFixtures(iterDir, iterSentinel)
         process.env.MARKBENCH_GIT_REPO = join(iterDir, 'git-repo')

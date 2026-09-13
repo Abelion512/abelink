@@ -1,10 +1,13 @@
-// Eksekutor tool domain MULTI-AGENT (dipindah murni dari useMarkPlan.executeSingleTool):
+// Eksekutor tool domain MULTI-AGENT (dipindah murni dari useAbelinkPlan.executeSingleTool):
 // spawn/wait/send/list/kill sub-agent, read-tools, read-skill.
 //
 // Kontrak: kembalikan objek `res` ({ success, data?, message?, error? ...})
 // atau undefined bila tool bukan domain ini. Formatting resultString +
 // trajectory log dilakukan TERPUSAT di toolDispatcher (sama seperti sebelumnya).
 import { logSubAgentSpawn as trajectoryLogSub } from '../../../api/trajectory'
+import { loadGroupToolsText } from '../../../api/tools/group-tools.js'
+import { getLearnedSkill } from '../../../api/db.js'
+import { NATIVE_SKILLS } from '../../../components/core/native-skills.js'
 
 /**
  * @returns {object|undefined} res bila tool milik domain ini.
@@ -205,8 +208,6 @@ export const runAgentTool = async (tool, query, ctx) => {
     return { success: true, data: `Sub-agent ${targetId} berhasil dihentikan paksa.` }
   }
   if (tool === 'read-tools') {
-    const { group_tools } = await import('../../../api/tools/group-tools.js')
-    const groups = await group_tools()
     const groupName = query.trim()
     if (!groupName) {
       return {
@@ -214,21 +215,12 @@ export const runAgentTool = async (tool, query, ctx) => {
         message: 'Harap sebutkan nama_grup yang ingin dimuat (misal: "advanced_browser").'
       }
     }
-    if (groups[groupName]) {
-      const toolDescriptions = Object.entries(groups[groupName].tools)
-        .map(([k, v]) => `- ${k}: ${v}`)
-        .join('\n')
-      let extLine = ''
-      if (groupName === 'advanced_browser') {
-        const { browserExtensionStatusLine } = await import(
-          '../../../api/tools/group-tools.js'
-        )
-        extLine = (await browserExtensionStatusLine()) + '\n'
-      }
+    const text = await loadGroupToolsText(groupName)
+    if (text) {
       return {
         success: true,
         loaded_group: groupName,
-        message: `BERHASIL MEMUAT GRUP TOOL: ${groupName}.\n${extLine}Dokumentasi tool:\n${toolDescriptions}`
+        message: `BERHASIL MEMUAT GRUP TOOL: ${groupName}.\nDokumentasi tool:\n${text}`
       }
     }
     return {
@@ -242,7 +234,6 @@ export const runAgentTool = async (tool, query, ctx) => {
       return { success: false, message: 'Harap sebutkan nama_skill yang ingin dibaca.' }
     }
     // 1. Cek Dexie learnedSkills (Self-Improved / Dynamic Native Skills)
-    const { getLearnedSkill } = await import('../../../api/db.js')
     const learned = await getLearnedSkill(skillName)
     if (learned && learned.content) {
       return {
@@ -251,7 +242,6 @@ export const runAgentTool = async (tool, query, ctx) => {
       }
     }
     // 2. Cek NATIVE_SKILLS bawaan
-    const { NATIVE_SKILLS } = await import('../../../components/core/native-skills.js')
     const native = NATIVE_SKILLS.find(
       (s) => s.name.toLowerCase() === skillName.toLowerCase()
     )
@@ -262,7 +252,7 @@ export const runAgentTool = async (tool, query, ctx) => {
       }
     }
     if (window.api && window.api.readSkill) {
-      // 3. Cek berkas disk di Documents/Mark Skills
+      // 3. Cek berkas disk di Documents/Abelink Skills
       const skillData = await window.api.readSkill(skillName)
       if (skillData) {
         const content = typeof skillData === 'string' ? skillData : skillData.content
@@ -275,7 +265,7 @@ export const runAgentTool = async (tool, query, ctx) => {
       }
       return {
         success: false,
-        message: `Skill "${skillName}" tidak ditemukan di keahlian internal maupun folder Mark Skills.`
+        message: `Skill "${skillName}" tidak ditemukan di keahlian internal maupun folder Abelink Skills.`
       }
     }
     return {

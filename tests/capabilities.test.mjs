@@ -10,7 +10,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mark-cap-test-'))
+const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-cap-test-'))
 process.env.XDG_DATA_HOME = tmpRoot
 
 const {
@@ -275,7 +275,7 @@ describe('audit', () => {
   })
 
   it('file audit & koneksi ber-mode 0600 di XDG dir', () => {
-    const capDir = path.join(tmpRoot, 'mark', 'capabilities')
+    const capDir = path.join(tmpRoot, 'abelink', 'capabilities')
     const auditFile = path.join(capDir, 'audit.jsonl')
     expect(fs.existsSync(auditFile)).toBe(true)
     const mode = fs.statSync(auditFile).mode & 0o777

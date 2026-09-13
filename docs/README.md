@@ -1,4 +1,4 @@
-# MARK Linux — Documentation Index
+# ABELINK Linux — Documentation Index
 
 Peta dokumen untuk agent (dan manusia). Urutan baca yang disarankan saat
 mulai bekerja di repo ini:
@@ -15,7 +15,7 @@ mulai bekerja di repo ini:
    verifikasi, catatan toolchain Rust+Bun.
 6. `MIGRATION-PLAN.md` — rencana fase migrasi tersisa (B5/B6/C3/C4),
    lengkap dengan titik masuk implementasi + verifikasi per fase.
-7. `../evaluation/README.md` — MarkBench: harness evaluasi, verifier
+7. `../evaluation/README.md` — AbelinkBench: harness evaluasi, verifier
    deterministik, anti-fabrication principles, roadmap.
 8. `../PROJECT-STATUS.md` — ringkasan status sanitized untuk dibaca manager
    AI via GitHub (tanpa detail internal): milestone, kesehatan CI, keputusan

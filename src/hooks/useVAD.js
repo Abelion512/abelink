@@ -239,7 +239,7 @@ export const useVAD = ({
       const RMS_THRESHOLD = 0.003 // Ambang batas lebih responsif untuk mikrofon Linux
 
       processor.onaudioprocess = (e) => {
-        if (window.isMarkSpeaking || isProcessingSpeechRef.current) return
+        if (window.isAbelinkSpeaking || isProcessingSpeechRef.current) return
 
         const input = e.inputBuffer.getChannelData(0)
         let sum = 0

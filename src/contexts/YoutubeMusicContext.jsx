@@ -9,7 +9,7 @@ import { db, insertMemory, getAllConfig } from '../api/db'
  * - Riwayat pemutaran otomatis dipelajari ke Dexie db.memory.
  * - Kontrol playback lengkap (play, pause, next, prev, jump).
  *
- * Kontrak stabil untuk konsumen (useMarkMusic, YoutubeMusicPlayer, MarkHome):
+ * Kontrak stabil untuk konsumen (useAbelinkMusic, YoutubeMusicPlayer, AbelinkHome):
  * - playUrl(watchUrl, initialTrack) -> boolean nyata (false = gagal, bukan no-op sunyi)
  * - nextTrack / prevTrack -> boolean
  * - playPause() -> 'playing' | 'paused' | null (null = engine tidak siap)

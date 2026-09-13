@@ -1,9 +1,9 @@
 // Tool browser/web (dipindah murni dari main/node-tools.js).
-import { normalizeMarkId } from '../browser/bridge-core.mjs'
-import { navigateTo, readDOM, executeAction, closeBrowser, executeScript, extractData, takeScreenshot, downloadFile } from '../browser-agent.js'
-
-let browserSessionId = 0
-const browserSessions = new Map()
+import fs from 'node:fs'
+import path from 'node:path'
+import { normalizeAbelinkId } from '../browser/bridge-core.mjs'
+import { getWorkspaceDir } from './_shared.mjs'
+import { assertContained } from '../utils/fsGuard.js'
 
 // Extension-first untuk tool browser: coba browser fisik bila ADA sesi yang
 // terhubung (preferensi 'default'), kembalikan null agar caller fallback ke
@@ -54,23 +54,63 @@ const tryExtensionAct = async (payload, sessionId = 'default') => {
   }
 }
 
+// Hint disconnect yang machine-actionable: menyatakan apa yang sudah dicoba
+// otomatis + langkah model berikutnya. Jangan kembalikan instruksi manual
+// ke user (model memparafrasenya menjadi "silakan buka tab...").
+export const NO_EXTENSION_HINT =
+  'Extension tidak tersambung setelah auto-launch bounded (atau auto-launch nonaktif di Capabilities). ' +
+  'Langkah berikutnya: panggil browser-navigate <url-lengkap> untuk membuka tab baru; ' +
+  'bila itu pun gagal, laporkan blocked dengan bukti. Jangan meminta user membuka tab manual.'
+
 // Baca DOM dari tab aktif ekstensi browser fisik.
-const tryExtensionReadDom = async (sessionId = 'default') => {
+const tryExtensionReadDom = async (sessionId = 'default', deps = {}) => {
   try {
-    const { listSessions, dispatchCommand } = await import('../browser/bridge-core.mjs')
-    const sessions = listSessions()
+    const core = deps.core ?? (await import('../browser/bridge-core.mjs'))
+    const ensureUp = deps.ensureExtensionUp ?? ensureExtensionUp
+    const sessions = core.listSessions()
     const targetSession = sessionId || 'default'
-    const pick =
+    let pick =
       sessions.find((s) => s.id === targetSession && s.connected) ||
       sessions.find((s) => s.id === 'default' && s.connected) ||
       sessions.find((s) => s.connected)
-    if (!pick) return null
-    const res = await dispatchCommand(pick.id, 'read-dom', { sessionId: targetSession })
-    return res && res.ok ? res : null
+    // Sama seperti tryExtensionAct: tidak ada sesi -> bukakan browser OS
+    // (bounded) lalu coba lagi, bukan langsung menyerah ke user.
+    if (!pick) {
+      const up = await ensureUp({ sessionId: targetSession })
+      if (!up) return null
+      pick = up
+    }
+    const dispatch = deps.dispatchCommand ?? core.dispatchCommand
+    const attemptRead = async () => {
+      try {
+        const res = await dispatch(pick.id, 'read-dom', { sessionId: targetSession })
+        return res && res.ok ? res : null
+      } catch {
+        return null
+      }
+    }
+    let ext = await attemptRead()
+    if (!ext) {
+      // Tab ditutup user tapi sesi hidup: buka ulang URL terakhir sekali,
+      // lalu baca lagi. Gagal lagi -> null (caller memakai error jujur).
+      const lastUrl = deps.getLastUrl ? deps.getLastUrl(targetSession) : core.getLastUrl?.(targetSession)
+      if (lastUrl) {
+        try {
+          const nav = await dispatch(pick.id, 'navigate', { url: lastUrl, sessionId: targetSession })
+          if (nav && nav.ok) ext = await attemptRead()
+        } catch {
+          /* jatuh ke null */
+        }
+      }
+    }
+    return ext
   } catch {
     return null
   }
 }
+
+// Hook uji untuk recovery read (lihat tests/browserReadRecovery.test.mjs).
+export const tryExtensionReadDomForTest = tryExtensionReadDom
 
 // Fetch + parse HTML polos (fallback bila extension tidak tersambung).
 // Dipakai browser-read dan browser-extract (dulu via this['browser-read']
@@ -285,7 +325,7 @@ export const browserTools = {
         return {
           success: false,
           error:
-            'browser-read: Ekstensi browser tidak tersambung dan tidak ada URL untuk dibaca. Buka browser yang terpasang extension Mark Bridge (ia tersambung sendiri), atau aktifkan "Bukakan browser OS otomatis" di Capabilities agar Mark membukakannya, atau masukkan URL lengkap.'
+            'browser-read: tidak ada sesi extension dan tidak ada URL untuk dibaca (auto-launch sudah dicoba bila aktif). Panggil browser-navigate <url-lengkap>, lalu browser-read lagi. Bila navigate gagal juga, laporkan blocked dengan bukti.'
         }
       } catch (e) {
         return { success: false, error: e.message }
@@ -300,7 +340,7 @@ export const browserTools = {
         success: true,
         waiting_for_user: true,
         needs_user: true,
-        data: `[BROWSER HUMAN-IN-THE-LOOP] Menunggu bantuan pengguna di tab browser: "${reason}". Silakan selesaikan interaksi (login akun / captcha / 2FA) di browser Chrome yang sedang aktif, lalu beri tahu Mark bila sudah selesai agar tugas bisa dilanjutkan.`
+        data: `[BROWSER HUMAN-IN-THE-LOOP] Menunggu bantuan pengguna di tab browser: "${reason}". Silakan selesaikan interaksi (login akun / captcha / 2FA) di browser Chrome yang sedang aktif, lalu beri tahu Abelink bila sudah selesai agar tugas bisa dilanjutkan.`
       }
     }
   },
@@ -308,11 +348,11 @@ export const browserTools = {
     needsApproval: false,
     handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
-      const ext = await tryExtensionAct({ markId: normalizeMarkId(query), action: 'click' }, targetSession)
+      const ext = await tryExtensionAct({ abelinkId: normalizeAbelinkId(query), action: 'click' }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
-        error: 'browser-click: extension tidak tersambung. Sambungkan extension Mark Bridge lalu read-dom dulu untuk ID elemen (mk1, mk2, ...).'
+        error: 'browser-click: ' + NO_EXTENSION_HINT + ' Butuh ID elemen (ak1, ak2, ...) dari browser-read yang sukses.'
       }
     }
   },
@@ -335,11 +375,11 @@ export const browserTools = {
         id = raw
         value = ''
       }
-      const ext = await tryExtensionAct({ markId: normalizeMarkId(id), action: 'type', value }, targetSession)
+      const ext = await tryExtensionAct({ abelinkId: normalizeAbelinkId(id), action: 'type', value }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
-        error: 'browser-type: extension tidak tersambung. Format query: ID||teks.'
+        error: 'browser-type: ' + NO_EXTENSION_HINT + ' Format query: ID||teks.'
       }
     }
   },
@@ -352,7 +392,7 @@ export const browserTools = {
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
-        error: 'browser-scroll: extension tidak tersambung.'
+        error: 'browser-scroll: ' + NO_EXTENSION_HINT
       }
     }
   },
@@ -364,7 +404,7 @@ export const browserTools = {
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
-        error: 'browser-back: extension tidak tersambung. Sambungkan extension Mark Bridge.'
+        error: 'browser-back: ' + NO_EXTENSION_HINT
       }
     }
   },
@@ -376,7 +416,7 @@ export const browserTools = {
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
-        error: 'browser-forward: extension tidak tersambung. Sambungkan extension Mark Bridge.'
+        error: 'browser-forward: ' + NO_EXTENSION_HINT
       }
     }
   },
@@ -388,34 +428,8 @@ export const browserTools = {
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
-        error: 'browser-reload: extension tidak tersambung. Sambungkan extension Mark Bridge.'
+        error: 'browser-reload: ' + NO_EXTENSION_HINT
       }
-    }
-  },
-  'ask_user': {
-    needsApproval: false,
-    handler: async (query) => {
-      const { chatId, question, options, timeoutMs } = query || {}
-      if (!chatId) return { success: false, error: 'chatId wajib diisi' }
-      if (!question) return { success: false, error: 'Pertanyaan wajib diisi' }
-      if (!options || options.length < 2) return { success: false, error: 'Minimal 2 opsi pilihan' }
-
-      const tgMod = { getConnectionStatus, sendInlineKeyboard, waitForAskUserAnswer }
-      if (tgMod.getConnectionStatus().status !== 'connected') {
-        return { success: false, error: 'Bot Telegram belum terhubung' }
-      }
-
-      const sent = await tgMod.sendInlineKeyboard(String(chatId), String(question), options)
-      if (!sent || sent.success === false) {
-        return { success: false, error: sent?.error || 'Gagal mengirim keyboard ke Telegram' }
-      }
-
-      // Tunggu jawaban callback bmk_* (dikorelasikan via waitForAskUserAnswer).
-      const answer = await tgMod.waitForAskUserAnswer(String(chatId), Number(timeoutMs) || 120000)
-      if (answer == null) {
-        return { success: false, error: 'ask_user timeout: tidak ada jawaban dari user' }
-      }
-      return { success: true, data: { status: 'answered', chatId, answer } }
     }
   },
   'browser-ask-user': {
@@ -430,14 +444,14 @@ export const browserTools = {
   'browser-script': {
     needsApproval: true,
     approvalMessage: (query) =>
-      `Mark ingin mengeksekusi script JavaScript di browser Anda (berpotensi mengakses data halaman/sesi login):\n\n${query}`,
+      `Abelink ingin mengeksekusi script JavaScript di browser Anda (berpotensi mengakses data halaman/sesi login):\n\n${query}`,
     handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'script', value: String(query ?? '') }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       return {
         success: false,
-        error: 'browser-script: extension tidak tersambung.'
+        error: 'browser-script: ' + NO_EXTENSION_HINT
       }
     }
   },
@@ -460,7 +474,7 @@ export const browserTools = {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'close' }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
-      return { success: true, message: 'Browser session closed or already idle' }
+      return { success: false, error: 'browser-close: ' + NO_EXTENSION_HINT }
     }
   },
   'browser-screenshot': {
@@ -484,13 +498,13 @@ export const browserTools = {
       }
       return {
         success: false,
-        error: 'browser-screenshot: extension tidak tersambung (butuh akses visual browser).'
+        error: 'browser-screenshot: ' + NO_EXTENSION_HINT + ' (butuh akses visual browser).'
       }
     }
   },
   'browser-download': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin mendownload file dari browser:\n\n${query}`,
+    approvalMessage: (query) => `Abelink ingin mendownload file dari browser:\n\n${query}`,
     handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const [urlPart, ...rest] = String(query ?? '').split('||')

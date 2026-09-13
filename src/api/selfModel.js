@@ -39,7 +39,7 @@ const LIMITS = [
 // ---- Browser & environment (kemampuan web + posisi eksekusi) ----
 const BROWSER_ENV = [
   S('Ambil halaman web via browser-navigate/browser-extract; JANGAN via curl/wget/python shell (otomatis ditolak)', 'node-tools.js browser-navigate, bridge-core.js isWebScrapeCommand'),
-  S('Klik/ketik fisik hanya bila extension Mark Bridge TERSAMBUNG (lihat status di panduan tool); bila tidak, katakan terus terang', 'extension/background.js, group-tools.js browserExtensionStatusLine'),
+  S('Klik/ketik fisik hanya bila extension Abelink Bridge TERSAMBUNG (lihat status di panduan tool); bila tidak, katakan terus terang', 'extension/background.js, group-tools.js browserExtensionStatusLine'),
   S('Setiap tab yang dibuka masuk 1 grup sesi; grup ditutup otomatis hanya bila user mengaktifkan browserAutoCloseTabs', 'extension/background.js ensureGroup, browser.mjs browser:close'),
   S('Berjalan di Linux desktop user (Tauri); shell = bash, bukan PowerShell/cmd', 'appIdentity.js runtime')
 ]

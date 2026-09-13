@@ -1,4 +1,4 @@
-# Release otomatis MARK Linux (fork) — dipicu tag v*, dijaga gerbang ketat.
+# Release otomatis ABELINK Linux (fork) — dipicu tag v*, dijaga gerbang ketat.
 # Alur: guard (tag==versi) -> verify (gitleaks+vitest+vite+cargo) -> publish (bundle + GitHub Release).
 name: Release
 
@@ -111,7 +111,7 @@ jobs:
         run: bun run build:sidecar
       - name: Smoke test sidecar binary
         run: |
-          printf '%s\n' '{"id":1,"action":"ping","payload":[]}' | timeout 20 ./dist-sidecar/mark-engine | grep -q engine:ready
+          printf '%s\n' '{"id":1,"action":"ping","payload":[]}' | timeout 20 ./dist-sidecar/abelink-engine | grep -q engine:ready
       - name: Build Tauri (AppImage + deb)
         run: bun tauri build
       - name: Kumpulkan artefak
@@ -122,7 +122,7 @@ jobs:
           ls -la release-assets
       - uses: actions/upload-artifact@v4
         with:
-          name: mark-linux-${{ inputs.tag || github.ref_name }}
+          name: abelink-linux-${{ inputs.tag || github.ref_name }}
           path: release-assets/*
       - name: Attach SLSA provenance (attest-build-provenance)
         uses: actions/attest-build-provenance@v2
@@ -139,4 +139,4 @@ jobs:
           esac
           gh release create "$TAG" release-assets/* \
             --verify-tag --generate-notes $FLAGS \
-            --title "MARK Linux $TAG"
+            --title "ABELINK Linux $TAG"

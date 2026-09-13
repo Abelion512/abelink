@@ -58,7 +58,7 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
           turns.push(currentTurn);
           currentTurn = null;
         } else {
-          turns.push({ id: i, user: '🤖 [Inisiatif Mark]', ai: msg });
+          turns.push({ id: i, user: '🤖 [Inisiatif Abelink]', ai: msg });
         }
       }
     }

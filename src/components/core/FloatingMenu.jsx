@@ -21,7 +21,7 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef(null)
   const navigate = useNavigate()
-  // Status live sendiri: induk (MarkHome) tidak mengoper tgStatus sehingga
+  // Status live sendiri: induk (AbelinkHome) tidak mengoper tgStatus sehingga
   // prop selalu default 'disconnected' (dot merah abadi). Berlangganan event
   // koneksi + ambil status awal langsung di sini.
   const [tgLive, setTgLive] = useState(tgStatus)
@@ -82,7 +82,7 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
           {/* What's New: item teratas dengan badge saat ada versi baru */}
           <button
             onClick={() => {
-              window.dispatchEvent(new CustomEvent('mark:open-whats-new'))
+              window.dispatchEvent(new CustomEvent('abelink:open-whats-new'))
               setIsOpen(false)
             }}
             className="flex items-center gap-3 w-full p-3 rounded-xl bg-info/10 hover:bg-info/20 transition-colors text-white text-sm font-semibold text-left border border-info/20"
@@ -93,7 +93,7 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
               try {
                 return (
                   (whatsNewData.version || '') !==
-                  (localStorage.getItem('mark:last-seen-whats-new') || '')
+                  (localStorage.getItem('abelink:last-seen-whats-new') || '')
                 )
               } catch (_) {
                 return false
@@ -133,7 +133,7 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
 
           <button
             onClick={() => {
-              // Custom event to open memory map in MarkHome
+              // Custom event to open memory map in AbelinkHome
               window.dispatchEvent(new CustomEvent('open-memory-map'))
               setIsOpen(false)
             }}

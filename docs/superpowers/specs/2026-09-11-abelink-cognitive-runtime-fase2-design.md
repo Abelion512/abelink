@@ -40,7 +40,7 @@ GOAL classification (existing classifyObjectiveKind: conversational/file/code/br
 Effort budget (existing effortSystem.js — UNCHANGED)
   │
   ▼
-┌─ ReAct loop (useMarkPlan.js / subagentExecutor.js — thin wiring only) ─┐
+┌─ ReAct loop (useAbelinkPlan.js / subagentExecutor.js — thin wiring only) ─┐
 │ Planner (planning.js) → Executor (toolDispatcher) → Observation         │
 │   → Verifier rank 0..3 (objectiveVerifier.js — UNCHANGED logic)         │
 │   → Scorer 0..1 (NEW scoring.js, pure)                                  │
@@ -132,7 +132,7 @@ Additions:
 - Output gains `{ directive, hintText, nextStrategy, restoreHint }` where `restoreHint` = bestAttempt's tool+target summary when directive is BACKTRACK (executor decides how to re-read/re-navigate; supervisor never executes).
 - Semantic tripwire kept (5+ successes, 6+ attempts, rank<=1, staleRun>=3) and additionally fires BACKTRACK when stagnation>=0.6 and bestAttempt exists.
 - `snapshot()` keeps its exact Fase 1 shape (locked pin `toEqual` at `tests/trajectorySupervisor.test.mjs:211`); Fase 2 state travels via `update()` return only.
-- Wiring: `useMarkPlan.js` (~10 lines: build lineage alongside supervisor.update, append attempt with score, inject `hintText` as single system observation — existing staged-hint slot reused) + `subagentExecutor.js` (same, smaller: sub-agents share lineage shape so main/sub comparisons are apples-to-apples).
+- Wiring: `useAbelinkPlan.js` (~10 lines: build lineage alongside supervisor.update, append attempt with score, inject `hintText` as single system observation — existing staged-hint slot reused) + `subagentExecutor.js` (same, smaller: sub-agents share lineage shape so main/sub comparisons are apples-to-apples).
 
 ## 8. Real-activity benchmark (Fase 2 C — core anti-gaming design)
 
@@ -149,13 +149,13 @@ Current weakness: text verifiers pass on memorized strings. Fase 2 rule: **every
 
 ### 8.2 Fresh fixtures per run (anti-memorization)
 
-- `run.mjs` creates `tmp/markbench-<runId>/` per run; task module creates random filenames (`laporan-<sentinel>.md`, `data-<sentinel>.csv`) and injects `{{SENTINEL}}` (existing `mkSentinel()`) into the prompt.
+- `run.mjs` creates `tmp/abelinkbench-<runId>/` per run; task module creates random filenames (`laporan-<sentinel>.md`, `data-<sentinel>.csv`) and injects `{{SENTINEL}}` (existing `akSentinel()`) into the prompt.
 - World-state predicates must find the sentinel **inside the artifact**, not just in chat output. Hard-coded `expected` strings forbidden for world tasks.
 - Agent never sees verifier code; verifier runs in the orchestrator process after the run, reading temp dir + stepLog.
 
 ### 8.3 Forced tool-use
 
-- Each real task declares `requiredTools` (e.g. `['write-file','read-file']`, `['browser-navigate','browser-read']`) and `minSuccessEvidence`. `mark-adapter.mjs` already multiplexes `ai:fetch` + `native-tool:execute` over one persistent sidecar per run — reuse, add per-task `maxTurns` (already supported) and record full `stepLog` (LLM steps + tool calls + observations, existing shape).
+- Each real task declares `requiredTools` (e.g. `['write-file','read-file']`, `['browser-navigate','browser-read']`) and `minSuccessEvidence`. `abelink-adapter.mjs` already multiplexes `ai:fetch` + `native-tool:execute` over one persistent sidecar per run — reuse, add per-task `maxTurns` (already supported) and record full `stepLog` (LLM steps + tool calls + observations, existing shape).
 - Missing required tool evidence → task fail regardless of chat text. This is computed from trajectory, never self-reported.
 
 ### 8.4 Task suite: student + corporate (8-12, all real)
@@ -186,9 +186,9 @@ Extend `evaluation/matrix.mjs` with arch axis:
 | Opus-class | ? | ? | ? |
 | GPT-class | ? | ? | ? |
 
-- `run.mjs` gains `--arch vanilla|basic|avo --effort` flags; `mark-adapter.mjs` toggles supervisor/verifier wiring per arch (env-gated, default basic = current behavior, so existing reports stay comparable).
+- `run.mjs` gains `--arch vanilla|basic|avo --effort` flags; `abelink-adapter.mjs` toggles supervisor/verifier wiring per arch (env-gated, default basic = current behavior, so existing reports stay comparable).
 - Multi-run averaging kept (default 3x, `--runs N`), JSON report versioned (`schemaVersion` bump 2→3 with `arch` + `worldState` fields), `--compare` regression gate kept (fail if task pass-rate drops >threshold).
-- Metrics per task: `task_success` (world-state bool), `progress_per_step` (score delta/steps), `recovery_success_rate`, `verification_accuracy` (verifier vs human spot-check on sample), `premature_termination_rate`, `unnecessary_action_rate` (existing `mark-eval.mjs` fns reused: `evalPlanning`, `evalToolOrchestration`, `evalRecovery`, + objective/termination/replan dimensions), `steps/time/tool_calls` wall-clock nyata. Token usage stays `null` until providers return real usage (existing anti-fabrication rule).
+- Metrics per task: `task_success` (world-state bool), `progress_per_step` (score delta/steps), `recovery_success_rate`, `verification_accuracy` (verifier vs human spot-check on sample), `premature_termination_rate`, `unnecessary_action_rate` (existing `abelink-eval.mjs` fns reused: `evalPlanning`, `evalToolOrchestration`, `evalRecovery`, + objective/termination/replan dimensions), `steps/time/tool_calls` wall-clock nyata. Token usage stays `null` until providers return real usage (existing anti-fabrication rule).
 
 ### 8.6 Anti-gaming checklist (must all hold)
 
@@ -201,7 +201,7 @@ Extend `evaluation/matrix.mjs` with arch axis:
 
 ## 9. Safety, errors, budgets
 
-- Additive-only: supervisor/lineage/scorer faults degrade to CONTINUE; verifier errors never block legitimate reports (existing additive rule in `useMarkPlan.js` + `subagentExecutor.js`).
+- Additive-only: supervisor/lineage/scorer faults degrade to CONTINUE; verifier errors never block legitimate reports (existing additive rule in `useAbelinkPlan.js` + `subagentExecutor.js`).
 - Destructive tools stay behind native `rfd` approval (`APPROVAL_ACTIONS`); bench fixtures use temp dirs + allowlisted non-destructive tools. `tb-constraint-01` refusal behavior unchanged.
 - FS containment (`cmd_fs.rs` resolve_contained) unchanged; bench temp dirs inside XDG workspace root.
 - `MAX_VERIFY_REPLANS=2` unchanged. Effort budgets unchanged. Lineage window 25, hints 2/task — no new unbounded state.

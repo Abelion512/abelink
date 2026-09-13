@@ -1,4 +1,4 @@
-# Release Automation — MARK Linux
+# Release Automation — ABELINK Linux
 
 ## Normal Release Path
 
@@ -125,3 +125,16 @@ release.yml publish job:
 - Tidak ada dependensi dev yang hanya dipakai runner (semua package LLM-eval,
   termasuk `deepeval`, bersifat dynamic-import opsional — tidak masuk
   `package.json` sehingga tidak membebani SBOM/audit produksi).
+
+## Versi vs Tag (catatan anti-stuck)
+
+Manifest (`tauri.conf.json`, `package.json`, `Cargo.toml`) boleh lebih dulu
+dari tag — itu artinya versi disiapkan tapi BELUM dirilis (kasus alpha.3:
+manifest alpha.3 tanpa tag `v1.0.0-alpha.3`). Yang menutup gap hanyalah alur
+di atas (merge release PR → finalize → tag → release.yml). JANGAN men-tag
+manual dari branch fitur.
+
+Peran tool versi (jangan campur):
+- `release-helper.mjs prepare|finalize` = SATU-SATUNYA jalur rilis (alpha+1 otomatis).
+- `bump-version.mjs` = bumper generik manual (patch/minor/major, ada testnya),
+  BUKAN bagian alur otomatis. Jangan dihapus, jangan dipakai untuk rilis.

@@ -22,18 +22,21 @@
   </style>
 </head>
 <body>
-  <h1><img src="icons/icon48.png" alt="" width="24" height="24" style="vertical-align:-5px" /> Mark Bridge</h1>
+  <h1><img src="icons/icon48.png" alt="" width="24" height="24" style="vertical-align:-5px" /> Abelink Bridge</h1>
+  <div id="ports" style="margin-bottom: 4px;"></div>
   <div><span id="pill" class="pill warn">menghubungkan…</span></div>
   <div id="status">Memuat status...</div>
   <div id="task"></div>
-  <button id="reconnect" hidden>Hubungkan Otomatis ke MARK</button>
+  <button id="reconnect" hidden>Connect to Abelink</button>
   <button id="closeTabs" class="secondary" hidden>Tutup tab task ini</button>
   <details style="margin-top: 14px;">
     <summary style="cursor: pointer; opacity: 0.6;">Opsi Manual (Fallback)</summary>
-    <label>Token (otomatis terisi via Mark Native Host):</label>
+    <label>Token (otomatis terisi via Abelink Native Host):</label>
     <input id="token" type="password" placeholder="tempel token bila otomatis gagal" />
     <label>Session ID</label>
     <input id="session" type="text" value="default" />
+    <label>Port bridge (prod 49712, dev 49713)</label>
+    <input id="port" type="text" value="" placeholder="49712" />
     <button id="start">Sambungkan manual</button>
   </details>
   <script src="popup.js"></script>

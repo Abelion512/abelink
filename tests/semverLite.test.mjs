@@ -3,7 +3,7 @@
 // Kontrak yang dipatok di sini: gerbang rilis (release-finalize.yml) TIDAK
 // boleh lagi bergantung pada paket `semver` yang tidak terdaftar di
 // package.json. Perbandingan versi harus benar termasuk urutan prerelease,
-// karena jalur rilis MARK memakai versi seperti 1.0.0-alpha.2 -> alpha.3.
+// karena jalur rilis ABELINK memakai versi seperti 1.0.0-alpha.2 -> alpha.3.
 
 import { describe, it, expect } from 'vitest'
 import { parse, valid, compare, gt, lt, eq } from '../scripts/semver-lite.mjs'
@@ -69,7 +69,7 @@ describe('compare — urutan versi', () => {
   })
 })
 
-describe('kasus nyata jalur rilis MARK', () => {
+describe('kasus nyata jalur rilis ABELINK', () => {
   it('alpha.3 dianggap lebih baru dari alpha.2 (gerbang release-finalize)', () => {
     expect(gt('1.0.0-alpha.3', '1.0.0-alpha.2')).toBe(true)
     expect(gt('1.0.0-alpha.2', '1.0.0-alpha.3')).toBe(false)

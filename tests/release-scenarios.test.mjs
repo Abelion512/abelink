@@ -3,7 +3,8 @@
  * Validates helper functions in isolation (no git remote needed).
  */
 import { describe, it, expect } from 'vitest'
-import semver from 'semver'
+import { parse as semverParse, gt as semverGt, rcompare as semverRcompare } from '../src/api/semverLite.js'
+const semver = { parse: semverParse, gt: semverGt, rcompare: semverRcompare }
 
 // ── Helper under test (inline to avoid module-level side effects) ──────────
 
@@ -13,7 +14,7 @@ function nextAlphaVersion(current) {
   if (!parsed.prerelease.length || !parsed.prerelease[0].toString().startsWith('alpha')) {
     throw new Error(`Version ${current} is not in alpha channel.`)
   }
-  const alphaNum = (parsed.prerelease[1] || 0) + 1
+  const alphaNum = Number(parsed.prerelease[1] || 0) + 1
   return `${parsed.major}.${parsed.minor}.${parsed.patch}-alpha.${alphaNum}`
 }
 

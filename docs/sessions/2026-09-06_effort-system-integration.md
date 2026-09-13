@@ -1,14 +1,14 @@
-# Session Log: Mark-Linux Effort System Integration
+# Session Log: Abelink-Linux Effort System Integration
 
 Tanggal: 2026-09-06
-Topik: Integrate Mark-Linux Adaptive Reasoning/Effort System typed core into existing marker pipeline + fix evaluation adapter contract.
+Topik: Integrate Abelink-Linux Adaptive Reasoning/Effort System typed core into existing marker pipeline + fix evaluation adapter contract.
 
 ## Ringkasan
 - Menggunakan dokumen spesifikasi utama: docs/effort-system-spec.md (§1-§72).
-- Memverifikasi implementasi yang ada di src/api/ai/effortSystem.js + src/api/ai/effortEstimator.js sudah ada, lalu menyelaraskan evaluasi/benchmark (evaluation/mark-adapter.mjs, evaluation/run.mjs, tests/effortOverride.test.mjs) supaya mengimpor konstanta yang benar dari effort system berbasis ESM.
+- Memverifikasi implementasi yang ada di src/api/ai/effortSystem.js + src/api/ai/effortEstimator.js sudah ada, lalu menyelaraskan evaluasi/benchmark (evaluation/abelink-adapter.mjs, evaluation/run.mjs, tests/effortOverride.test.mjs) supaya mengimpor konstanta yang benar dari effort system berbasis ESM.
 - Perbaikan utama: export effort-system constants through adapter menggunakan fungsi pembantu sync (_getEffortValues() dst), memperbaiki compareReports handle null input, dan menyelaraskan test suite terhadap bentuk export real.
 - Perbaikan tambahan: sidecar ai-bridge.js effort fallback map diperluas agar xhigh/max/ultra punya budget anthropic + reasoning_effort yang masuk akal.
-- Perbaikan tambahan: evaluation adapter runMarkAgent tidak lagi menyuntik _mark_effort_metadata dalam request RPC; observability metadata disederhanakan.
+- Perbaikan tambahan: evaluation adapter runAbelinkAgent tidak lagi menyuntik _abelink_effort_metadata dalam request RPC; observability metadata disederhanakan.
 
 ## Hasil
 - tests/effortOverride.test.mjs: 18/18 pass (0 fail).
@@ -26,12 +26,12 @@ Topik: Integrate Mark-Linux Adaptive Reasoning/Effort System typed core into exi
 - bun test seluruh suite: 308 pass, 1 skip, 24 fail (fail yang ada bukan berasal dari effort-system integration, melainkan suite trading/wallet + driver + semacamnya yang terpisah dan tidak relevan dengan scope sesi ini).
 
 ## Keterbatasan / Tidak Diselesaikan di Sesi Ini
-- Penyisipan effort/request metadata ke dalam harness evaluasi otomatis (evaluation/mark-adapter.mjs runMarkAgent stamping effort) sudah distabilkan sekadar kontrak export; penggunaan efektif di task runner Tauri tidak diubah dalam sesi ini.
-- Fixtures MarkBench tingkat fixture (deterministic task fixtures §49-§58) belum dijalankan karena memerlukan runner benchmark sidecar nyata; scope uji difokuskan ke integration contract + effort resolver + policy/budget/type correctness.
+- Penyisipan effort/request metadata ke dalam harness evaluasi otomatis (evaluation/abelink-adapter.mjs runAbelinkAgent stamping effort) sudah distabilkan sekadar kontrak export; penggunaan efektif di task runner Tauri tidak diubah dalam sesi ini.
+- Fixtures AbelinkBench tingkat fixture (deterministic task fixtures §49-§58) belum dijalankan karena memerlukan runner benchmark sidecar nyata; scope uji difokuskan ke integration contract + effort resolver + policy/budget/type correctness.
 - Laporan mesin §72 disajikan sebagai ringkasan uji yang relevan; bagian fixture/benchmark belum dijalankan sehingga diberi status unverified/n/a sesuai spesifikasi (tidak dibolehkan mengubah ke passed).
 
 ## File yang Diubah
-- evaluation/mark-adapter.mjs
+- evaluation/abelink-adapter.mjs
 - evaluation/run.mjs
 - tests/effortOverride.test.mjs
 - sidecar/main/ai-bridge.js
@@ -39,11 +39,11 @@ Topik: Integrate Mark-Linux Adaptive Reasoning/Effort System typed core into exi
 
 ## Notes Tambahan
 - Sidecar AI bridge effort fallback tetap berjalan di jalur yang tidak melewati core.js (mis. Telegram). Tidak ada perubahan perilaku kecuali penambahan level fallback yang lebih lengkap.
-- Adapter evaluation tidak lagi menyuntik _mark_effort_metadata dalam request RPC; kontrak observability cukup lewat metadata epoch saat ini.
+- Adapter evaluation tidak lagi menyuntik _abelink_effort_metadata dalam request RPC; kontrak observability cukup lewat metadata epoch saat ini.
 
 ## Validasi Tambahan Selepas Perubahan
 - Sidecar: `node --check sidecar/main/ai-bridge.js` lolos.
-- Adapter: `node --check evaluation/mark-adapter.mjs` lolos.
+- Adapter: `node --check evaluation/abelink-adapter.mjs` lolos.
 - Contract test effort: `bun test tests/effortOverride.test.mjs tests/effortEstimator.test.js` 38/38 pass.
 - Seluruh suite: `bun test` 308 pass / 1 skip / 24 fail (fail tidak berasal dari scope effort-system integration).
 
@@ -116,7 +116,7 @@ Topik: Integrate Mark-Linux Adaptive Reasoning/Effort System typed core into exi
 
 ## Verifikasi Akhir
 - `node --check sidecar/main/ai-bridge.js` setelah penambahan effort fallback map: exit clean.
-- `node --check evaluation/mark-adapter.mjs` setelah penyesuaian export konstanta effort: exit clean.
+- `node --check evaluation/abelink-adapter.mjs` setelah penyesuaian export konstanta effort: exit clean.
 - `bun test tests/effortOverride.test.mjs tests/effortEstimator.test.js`: 38 pass, 0 fail.
 - `bun test` seluruh suite: 308 pass, 1 skip, 24 fail (fail tidak berasal dari scope effort-system integration sesuai catatan sebelumnya).
 

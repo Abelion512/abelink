@@ -2,18 +2,22 @@
 # Verifikasi penuh sebelum push / rilis — WAJIB hijau.
 set -e
 cd "$(dirname "$0")/.."
-echo "[0/7] Bootstrap (bun install, port/cargo cleanup)"
+echo "[0/9] Bootstrap (bun install, port/cargo cleanup)"
 bash scripts/dev.sh --no-launch
-echo "[1/7] Unit tests (vitest)"
+echo "[1/9] Unit tests (vitest)"
 bunx vitest run
-echo "[2/7] Crypto harness (watermark signing)"
+echo "[2/9] ESLint (0 error; warning = tech-debt terdaftar)"
+bun run lint
+echo "[3/9] Crypto harness (watermark signing)"
 bun run test:harness
-echo "[3/7] Perf gate (regresi performa nyata >15% = gagal)"
+echo "[4/9] Perf gate (regresi performa nyata >15% = gagal)"
 bun run perf
-echo "[4/7] MarkBench 1.0 gate (kualitas arsitektur 6 dimensi MARK-Eval)"
+echo "[5/9] AbelinkBench 1.0 gate (kualitas arsitektur 6 dimensi ABELINK-Eval)"
 bun run bench:quick
-echo "[5/7] Frontend build (vite + tailwind)"
+echo "[6/9] Frontend build (vite + tailwind)"
 bun run build
-echo "[6/7] Rust check (src-tauri)"
+echo "[7/9] Rust check (src-tauri)"
 (cd src-tauri && cargo check)
+echo "[8/9] Rust clippy (warning diperlakukan sebagai error)"
+(cd src-tauri && cargo clippy --all-targets -- -D warnings)
 echo "OK VERIFY LOLOS"

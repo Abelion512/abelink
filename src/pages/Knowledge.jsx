@@ -72,7 +72,7 @@ const Knowledge = () => {
   const handleDeleteDocument = async (docName) => {
     const result = await confirm({
       title: 'Hapus Dokumen?',
-      message: `Yakin ingin menghapus dokumen "${docName}"? Mark tidak akan bisa mengingat informasi dari dokumen ini lagi.`,
+      message: `Yakin ingin menghapus dokumen "${docName}"? Abelink tidak akan bisa mengingat informasi dari dokumen ini lagi.`,
       isError: true,
       confirmText: 'Ya, Hapus',
       cancelText: 'Batal'
@@ -132,7 +132,7 @@ const Knowledge = () => {
             <div>
               <h1 className="text-2xl font-bold">Document Knowledge</h1>
               <p className="opacity-50 text-sm mt-1">
-                Inject dokumen lokal untuk dipelajari oleh Mark AI.
+                Inject dokumen lokal untuk dipelajari oleh Abelink AI.
               </p>
             </div>
           </div>
@@ -144,7 +144,7 @@ const Knowledge = () => {
                   Upload Dokumen Baru
                 </h2>
                 <p className="text-sm opacity-50 mb-2">
-                  Pilih file PDF, TXT, MD, atau DOCX. Mark akan membaca dan memprosesnya menjadi
+                  Pilih file PDF, TXT, MD, atau DOCX. Abelink akan membaca dan memprosesnya menjadi
                   bagian dari ingatannya (RAG).
                 </p>
 

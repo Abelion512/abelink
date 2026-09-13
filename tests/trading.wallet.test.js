@@ -12,7 +12,7 @@ import {
   LEDGER_KINDS
 } from '../src/api/trading/wallet.js'
 
-// Buku kas & alokasi — fondasi wallet self-funding Mark (100% lokal Dexie).
+// Buku kas & alokasi — fondasi wallet self-funding Abelink (100% lokal Dexie).
 
 beforeEach(async () => {
   await tradingDb.ledger.clear()

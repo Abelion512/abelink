@@ -17,14 +17,14 @@ export default function AutomationHUD() {
       setActiveAutomation(null)
     }
 
-    window.addEventListener('mark:automation-start', handleStart)
-    window.addEventListener('mark:automation-end', handleEnd)
-    window.addEventListener('mark:emergency-stop', handleEmergency)
+    window.addEventListener('abelink:automation-start', handleStart)
+    window.addEventListener('abelink:automation-end', handleEnd)
+    window.addEventListener('abelink:emergency-stop', handleEmergency)
 
     return () => {
-      window.removeEventListener('mark:automation-start', handleStart)
-      window.removeEventListener('mark:automation-end', handleEnd)
-      window.removeEventListener('mark:emergency-stop', handleEmergency)
+      window.removeEventListener('abelink:automation-start', handleStart)
+      window.removeEventListener('abelink:automation-end', handleEnd)
+      window.removeEventListener('abelink:emergency-stop', handleEmergency)
     }
   }, [])
 
@@ -37,7 +37,7 @@ export default function AutomationHUD() {
       console.error('[AutomationHUD] handleStop error:', e)
     }
     if (window.dispatchEvent) {
-      window.dispatchEvent(new CustomEvent('mark:emergency-stop'))
+      window.dispatchEvent(new CustomEvent('abelink:emergency-stop'))
     }
     setActiveAutomation(null)
   }

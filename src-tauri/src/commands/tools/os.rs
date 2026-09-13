@@ -61,7 +61,7 @@ pub fn os_click(app: AppHandle, query: String) -> Result<ToolResult, String> {
         // Approval berjenjang (family os-control).
         let eff = crate::approval_policy::effective_policy("os-control");
         if eff != crate::approval_policy::POLICY_ALWAYS && eff != crate::approval_policy::POLICY_SESSION {
-            let desc = format!("Mark ingin klik mouse:\n{}", query);
+            let desc = format!("Abelink ingin klik mouse:\n{}", query);
             if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
                 return Ok(ToolResult {
                     success: false,
@@ -87,7 +87,7 @@ pub fn os_double_click(app: AppHandle, query: String) -> Result<ToolResult, Stri
         // Approval berjenjang (family os-control).
         let eff = crate::approval_policy::effective_policy("os-control");
         if eff != crate::approval_policy::POLICY_ALWAYS && eff != crate::approval_policy::POLICY_SESSION {
-            let desc = format!("Mark ingin double-click mouse:\n{}", query);
+            let desc = format!("Abelink ingin double-click mouse:\n{}", query);
             if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
                 return Ok(ToolResult {
                     success: false,
@@ -125,7 +125,7 @@ pub fn os_type(app: AppHandle, text: String) -> Result<ToolResult, String> {
         // Approval berjenjang (family os-control): owner bisa set always/session.
         let eff = crate::approval_policy::effective_policy("os-control");
         if eff != crate::approval_policy::POLICY_ALWAYS && eff != crate::approval_policy::POLICY_SESSION {
-            let desc = format!("Mark ingin mengetik teks berbahaya:\n{}", text);
+            let desc = format!("Abelink ingin mengetik teks berbahaya:\n{}", text);
             if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
                 return Ok(ToolResult {
                     success: false,
@@ -151,7 +151,7 @@ pub fn os_key(app: AppHandle, key: String) -> Result<ToolResult, String> {
         // Approval berjenjang (family os-control): owner bisa set always/session.
         let eff = crate::approval_policy::effective_policy("os-control");
         if eff != crate::approval_policy::POLICY_ALWAYS && eff != crate::approval_policy::POLICY_SESSION {
-            let desc = format!("Mark ingin menekan shortcut berbahaya:\n{}", key);
+            let desc = format!("Abelink ingin menekan shortcut berbahaya:\n{}", key);
             if !crate::cmd_node_bridge::confirm_on_main_thread(&app, desc) {
                 return Ok(ToolResult {
                     success: false,

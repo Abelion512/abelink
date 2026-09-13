@@ -1,4 +1,4 @@
-// MarkBench smoke test — dipakai CI (Tauri CI + Release).
+// AbelinkBench smoke test — dipakai CI (Tauri CI + Release).
 // Tanpa network, tanpa LLM: hanya memverifikasi registry task, verifier
 // deterministik (PASS dan FAIL case), parser tool-call quote-aware, dan
 // logika agregasi multi-run + anti-cheat orchestrator.
@@ -6,10 +6,10 @@
 // saat dijalankan lokal.
 
 import assert from 'node:assert/strict'
-import { TASKS, listTasks, mkSentinel } from './terminal-bench.mjs'
-import { parseToolCalls, normalizeEffort, resolveTaskEffort, toNativeQuery, toolPreamble } from './mark-adapter.mjs'
+import { TASKS, ALL_TASKS, listTasks, akSentinel } from './terminal-bench.mjs'
+import { parseToolCalls, normalizeEffort, resolveTaskEffort, toNativeQuery, toolPreamble } from './abelink-adapter.mjs'
 import { aggregateRuns, detectCheat, compareReports } from './run.mjs'
-import { runSmoke as runMarkEvalSmoke, aggregateMarkEval } from './mark-eval.mjs'
+import { runSmoke as runAbelinkEvalSmoke, aggregateAbelinkEval } from './abelink-eval.mjs'
 import { BENCHMARK_MATRIX, CORE_SET, summarizeMatrix } from './matrix.mjs'
 
 // 1. Task registry terbaca
@@ -26,13 +26,13 @@ console.log(`[ok] registry: ${tasks.length} task, semuanya punya maxTurns`)
 
 // 2. Verifier tb-echo-01 — PASS case
 const echoTask = TASKS['tb-echo-01']
-assert.equal(echoTask.verifier('MarkBench is active'), true, 'verifier harus PASS untuk output persis')
-assert.equal(echoTask.verifier('  MarkBench is active\n'), true, 'verifier harus toleran terhadap whitespace')
+assert.equal(echoTask.verifier('AbelinkBench is active'), true, 'verifier harus PASS untuk output persis')
+assert.equal(echoTask.verifier('  AbelinkBench is active\n'), true, 'verifier harus toleran terhadap whitespace')
 console.log('[ok] tb-echo-01 verifier PASS case')
 
 // 3. Verifier tb-echo-01 — FAIL case
-assert.equal(echoTask.verifier('MarkBench is active!'), false, 'verifier harus FAIL untuk output beda')
-assert.equal(echoTask.verifier('Tentu, MarkBench is active'), false, 'verifier harus FAIL untuk output dibungkus teks lain')
+assert.equal(echoTask.verifier('AbelinkBench is active!'), false, 'verifier harus FAIL untuk output beda')
+assert.equal(echoTask.verifier('Tentu, AbelinkBench is active'), false, 'verifier harus FAIL untuk output dibungkus teks lain')
 assert.equal(echoTask.verifier(''), false, 'verifier harus FAIL untuk output kosong')
 console.log('[ok] tb-echo-01 verifier FAIL case')
 
@@ -59,7 +59,7 @@ assert.equal(contextTask.verifier('S3N-abc12345', 'S3N-abc12345'), true, 'output
 assert.equal(contextTask.verifier('Kode akses: S3N-abc12345', 'S3N-abc12345'), true, 'output memuat sentinel dalam kalimat = PASS')
 assert.equal(contextTask.verifier('S3N-abc12345', 'S3N-zzz99999'), false, 'sentinel beda dari yang disuntikkan = FAIL')
 assert.equal(contextTask.verifier('', 'S3N-abc12345'), false, 'output kosong = FAIL')
-assert.notEqual(mkSentinel(), mkSentinel(), 'dua sentinel acak tidak boleh sama')
+assert.notEqual(akSentinel(), akSentinel(), 'dua sentinel acak tidak boleh sama')
 console.log('[ok] tb-context-01 verifier + sentinel acak')
 
 // 6. Verifier tb-git-01 — urutan perintah git
@@ -208,49 +208,52 @@ assert.equal(regs[0].taskId, 'a')
 assert.equal(compareReports(cur, prev, 60).length, 0, 'threshold longgar = tanpa regresi')
 console.log('[ok] compareReports (regression gate)')
 
-// 12. MARK-Eval — verifier 6 dimensi jalan offline & laporan valid
-const meSmoke = runMarkEvalSmoke()
-assert.equal(meSmoke.expectedAllPass, true, 'skenario sintetis MARK-Eval wajib lolos semua')
+// 12. ABELINK-Eval — verifier 6 dimensi jalan offline & laporan valid
+const meSmoke = runAbelinkEvalSmoke()
+assert.equal(meSmoke.expectedAllPass, true, 'skenario sintetis ABELINK-Eval wajib lolos semua')
 assert.equal(meSmoke.report.overall, 1, 'overall skor smoke = 1.0')
-const aggNull = aggregateMarkEval({ a: 1, b: null })
+const aggNull = aggregateAbelinkEval({ a: 1, b: null })
 assert.equal(aggNull.dimensions.b, null, 'dimensi tidak teruji = null')
 assert.equal(aggNull.overall, 1, 'rata-rata hanya dari dimensi teruji')
-console.log('[ok] MARK-Eval (6 dimensi deterministik + aggregate)')
+console.log('[ok] ABELINK-Eval (6 dimensi deterministik + aggregate)')
 
 // 13. Benchmark matrix — pilar & core set sesuai desain
 const matrixIds = BENCHMARK_MATRIX.map((b) => b.id)
-for (const pillar of ['terminal-bench-4.0', 'osworld-2.0', 'webarena-verified', 'workarena-pp', 'automationbench', 'mark-eval']) {
+for (const pillar of ['terminal-bench-4.0', 'osworld-2.0', 'webarena-verified', 'workarena-pp', 'automationbench', 'abelink-eval']) {
   assert.ok(matrixIds.includes(pillar), `pilar ${pillar} wajib ada di matrix`)
 }
-assert.equal(CORE_SET.length, 6, 'core set = 5 pilar publik + MARK-Eval')
+assert.equal(CORE_SET.length, 6, 'core set = 5 pilar publik + ABELINK-Eval')
 const matrixSummary = summarizeMatrix({ 'terminal-bench-4.0': { score: 0.612 } })
-assert.equal(matrixSummary.kind, 'markbench-matrix')
+assert.equal(matrixSummary.kind, 'abelinkbench-matrix')
 assert.equal(matrixSummary.rows.length, BENCHMARK_MATRIX.length)
 assert.equal(matrixSummary.rows.find((r) => r.id === 'terminal-bench-4.0').score, 0.612)
 console.log('[ok] benchmark matrix (pilar + core set)')
 
 // Fase 2: world-state verifier contract — text without tool evidence MUST fail.
 import { VERIFY_WORLD } from './tasks-student-corporate.mjs'
-const fakeCtx = (over = {}) => ({ sentinel: 'S3N-test', workdir: '/tmp/markbench-smoke', stepLog: [], ...over })
+const fakeCtx = (over = {}) => ({ sentinel: 'S3N-test', workdir: '/tmp/abelinkbench-smoke', stepLog: [], ...over })
 assert.equal(VERIFY_WORLD.corpReportTextOnly('laporan berisi S3N-test', fakeCtx()), false, 'text-only without write evidence fails')
 assert.equal(VERIFY_WORLD.corpReportTextOnly('nope', fakeCtx({ stepLog: [{ toolCalls: [{ tool: 'write-file', success: true }] }] })), false, 'missing sentinel fails')
 // Bentuk stepLog adapter nyata (tanpa field success) dihitung sebagai evidence,
-// kecuali result berawalan ERROR: — kompatibilitas mark-adapter.mjs.
+// kecuali result berawalan ERROR: — kompatibilitas abelink-adapter.mjs.
 import { hasToolEvidence } from './tasks-student-corporate.mjs'
 assert.equal(hasToolEvidence([{ step: 1, type: 'tool', tool: 'write-file', result: 'ok' }], ['write-file']), true, 'adapter-shape success counts')
 assert.equal(hasToolEvidence([{ step: 1, type: 'tool', tool: 'write-file', result: 'ERROR: denied' }], ['write-file']), false, 'adapter-shape ERROR does not count')
 
-console.log('MarkBench smoke: LOLOS')
+console.log('AbelinkBench smoke: LOLOS')
 
 // ---- Task 7: arch axis + report shell v3 (offline) ----
 import { buildReportShell, sidecarWorkspaceRoot } from './run.mjs'
-import { resolveBenchArch, ARCH_VALUES } from './mark-adapter.mjs'
+import { resolveBenchArch, ARCH_VALUES } from './abelink-adapter.mjs'
 import { join as joinWs } from 'node:path'
-const shell = buildReportShell({ arch: 'avo', runId: 'smoke-1' })
+const shell = buildReportShell({ arch: 'basic', runId: 'smoke-1' })
 assert.equal(shell.schemaVersion, 3, 'report shell is v3')
-assert.equal(shell.arch, 'avo', 'arch recorded')
-assert.equal(shell.worldState.workdir, joinWs(sidecarWorkspaceRoot(), 'markbench-smoke-1'), 'per-run workdir di dalam workspace sidecar')
-assert.deepEqual([...ARCH_VALUES], ['vanilla', 'basic', 'avo'], 'arch axis locked')
+assert.equal(shell.arch, 'basic', 'arch recorded')
+assert.equal(shell.worldState.workdir, joinWs(sidecarWorkspaceRoot(), 'abelinkbench-smoke-1'), 'per-run workdir di dalam workspace sidecar')
+assert.deepEqual([...ARCH_VALUES], ['vanilla', 'basic'], 'arch axis locked (avo dihapus 2026-09-12)')
+// `avo` tidak lagi selectable: CLI menolak dengan exit 2, dan resolver jatuh ke basic
+// supaya laporan lama berlabel avo tetap bisa dibaca sebagai run basic.
+assert.equal(resolveBenchArch('avo'), 'basic', 'avo legacy fallback ke basic')
 assert.equal(resolveBenchArch('bogus'), 'basic', 'unknown arch falls back to basic')
 assert.equal(resolveBenchArch(undefined), 'basic', 'unset arch defaults to basic')
 console.log('[ok] arch axis + report shell v3')
@@ -260,7 +263,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join as joinPath } from 'node:path'
 import { spawnSync as spawnSyncGit } from 'node:child_process'
-const gitTmp = mkdtempSync(joinPath(tmpdir(), 'markbench-git-'))
+const gitTmp = mkdtempSync(joinPath(tmpdir(), 'abelinkbench-git-'))
 const gitRun = (...a) => spawnSyncGit('git', ['-C', gitTmp, ...a], { encoding: 'utf8', timeout: 30000 })
 gitRun('init', '-q')
 import { writeFileSync as writeTmpFile } from 'node:fs'
@@ -279,3 +282,61 @@ assert.equal(
 import { rmSync as rmTmp } from 'node:fs'
 rmTmp(gitTmp, { recursive: true, force: true })
 console.log('[ok] tb-git-01 world-state sentinel path + legacy fallback')
+
+// ---- Limit ladder: tangga panjang task (offline, tanpa LLM) ----
+import {
+  LADDER,
+  buildLimitVerdict,
+  effortBudgets,
+  largestFeasibleRung,
+  maxSustainedArtifacts,
+  minStepsForArtifacts,
+  recommendedStepsForArtifacts,
+  rungId,
+} from './limit-ladder.mjs'
+import { LIMIT_TASKS, listLimitTasks, verifyChainArtifacts } from './tasks-limit.mjs'
+import { planRows, selectedRungs } from './limit-probe.mjs'
+
+const limitTasks = listLimitTasks()
+assert.equal(limitTasks.length, LADDER.length, 'satu task per rung LADDER')
+for (const t of limitTasks) {
+  assert.ok(LIMIT_TASKS[t.taskId], `task rung ${t.taskId} harus terdaftar`)
+  assert.ok(TASKS[t.taskId] === undefined, 'rung bukan task legacy: verifier wajib signature dunia')
+  assert.ok(t.maxTurns >= minStepsForArtifacts(t.artifacts), 'maxTurns minimal sebesar prasyarat fisik')
+}
+assert.ok(ALL_TASKS[rungId(8)], 'rung pertama harus terlihat oleh orchestrator (ALL_TASKS)')
+
+// Verifier dunia: tanpa bukti tool dan tanpa berkas, teks apa pun = FAIL.
+const emptyWork = mkdtempSync(joinPath(tmpdir(), 'abelinkbench-limit-'))
+assert.equal(
+  verifyChainArtifacts('seharusnya saya sudah menulis 8 berkas', { sentinel: 'S3N-limit', workdir: emptyWork, stepLog: [] }, 8),
+  false,
+  'teks tanpa artefak dan tanpa bukti tool = FAIL'
+)
+rmTmp(emptyWork, { recursive: true, force: true })
+
+// Angka budget dibaca dari effortSystem, bukan tabel lokal di harness.
+const limitBudgets = effortBudgets()
+assert.equal(limitBudgets.high, 32, 'budget high = 32 langkah (effortSystem)')
+assert.equal(limitBudgets.ultra, 256, 'budget ultra = 256 langkah (effortSystem)')
+assert.equal(largestFeasibleRung('high'), 16, 'effort high tidak mungkin menuntaskan rung 32')
+assert.equal(recommendedStepsForArtifacts(32) > limitBudgets.high, true, 'rung 32 butuh lebih dari budget high')
+
+const limitVerdict = buildLimitVerdict({
+  effort: 'high',
+  runs: 1,
+  results: [
+    { artifacts: 8, passed: true, runs: 1, stepsAvg: 12 },
+    { artifacts: 16, passed: false, runs: 1, stepsAvg: 32 },
+  ],
+})
+assert.equal(limitVerdict.sustainedArtifacts, 8, 'batas kemampuan = rung terakhir yang lolos')
+assert.equal(limitVerdict.firstFailureAt, 16, 'pecah pertama tercatat')
+assert.equal(limitVerdict.failureMode, 'budget-exhausted', 'steps mentok budget diklasifikasikan jujur')
+assert.equal(maxSustainedArtifacts([{ artifacts: 8, passed: false }, { artifacts: 16, passed: true }]), null, 'rung kecil gagal menghentikan tangga')
+
+assert.deepEqual(selectedRungs({ start: 8, max: 16 }), [8, 16], 'pemilihan rung menaik dan inklusif')
+const limitPlan = planRows(limitBudgets, { start: 8, max: 16 })
+assert.equal(limitPlan[0].recommendedEffort, 'medium', 'rung 8 direkomendasikan di effort medium')
+assert.equal(limitPlan[1].fits.high, true, 'rung 16 muat di effort high')
+console.log('[ok] limit ladder: registry rung, verifier dunia, budget effortSystem, verdict probe')

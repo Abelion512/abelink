@@ -200,7 +200,7 @@ export const startTelegramBot = async (token, mainWindow) => {
 
       if (!isAdmin) {
         console.log(`[Telegram] Access denied for user ${senderId} (@${senderUsername})`)
-        await ctx.reply('Maaf, kamu belum punya akses ke MARK.')
+        await ctx.reply('Maaf, kamu belum punya akses ke ABELINK.')
         return
       }
 
@@ -279,7 +279,7 @@ export const startTelegramBot = async (token, mainWindow) => {
       const isAdmin = adminList.includes(senderId.toLowerCase()) || (senderUsername && adminList.includes(senderUsername))
 
       if (!isAdmin) {
-        await ctx.reply('Maaf, kamu belum punya akses ke MARK.')
+        await ctx.reply('Maaf, kamu belum punya akses ke ABELINK.')
         return
       }
       
@@ -305,7 +305,7 @@ export const startTelegramBot = async (token, mainWindow) => {
         const statusMsg = await ctx.reply(`[INFO]: Sedang mengunduh file ${originalName}...`)
 
         const fileUrl = await ctx.telegram.getFileLink(fileId)
-        const saveDir = path.join(os.homedir(), 'Documents', 'Mark Workspace', 'Telegram')
+        const saveDir = path.join(os.homedir(), 'Documents', 'Abelink Workspace', 'Telegram')
         if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true })
 
         const savePath = resolveContainedSavePath(saveDir, originalName)
@@ -604,13 +604,16 @@ const pendingChatIdsSet = new Set()
 const authorizedAdminIds = new Set()
 
 // Pengganti app.getPath('userData') era Electron: XDG data dir Linux.
-const MARK_DATA_DIR = path.join(
-  process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'),
-  'mark'
+// ABELINK_DATA_HOME menang (pemisah dev/prod, lihat dev.sh).
+const ABELINK_DATA_DIR = path.join(
+  process.env.ABELINK_DATA_HOME ||
+    process.env.XDG_DATA_HOME ||
+    path.join(os.homedir(), '.local', 'share'),
+  'abelink'
 )
-fs.mkdirSync(MARK_DATA_DIR, { recursive: true })
-const CHAT_IDS_FILE = path.join(MARK_DATA_DIR, 'tg_chat_ids.json')
-const ADMIN_IDS_FILE = path.join(MARK_DATA_DIR, 'tg_admin_ids.json')
+fs.mkdirSync(ABELINK_DATA_DIR, { recursive: true })
+const CHAT_IDS_FILE = path.join(ABELINK_DATA_DIR, 'tg_chat_ids.json')
+const ADMIN_IDS_FILE = path.join(ABELINK_DATA_DIR, 'tg_admin_ids.json')
 
 const loadSavedAdminIds = () => {
   try {
@@ -748,7 +751,7 @@ export const sendTelegramToAdmins = async (text) => {
   const targetChatIds = resolveTrustedBroadcastTargets()
 
   if (targetChatIds.size === 0) {
-    console.warn('[Telegram Broadcast] Tidak ada admin terpercaya. Tambahkan ID Telegram ke tgAdminIds di konfigurasi MARK, lalu kirim /start dari akun tersebut.')
+    console.warn('[Telegram Broadcast] Tidak ada admin terpercaya. Tambahkan ID Telegram ke tgAdminIds di konfigurasi ABELINK, lalu kirim /start dari akun tersebut.')
     return
   }
 
@@ -869,7 +872,7 @@ export const sendReport = async (runId, targetChatId) => {
   if (!report) return { success: false, error: 'No benchmark result found.' }
 
   const lines = [
-    `<b>MarkBench Report</b>`,
+    `<b>AbelinkBench Report</b>`,
     `<code>Run:</code> ${escapeHtml(report.runId)}`,
     `<code>Variant:</code> ${escapeHtml(report.agentVariant)}`,
     `<code>Model:</code> ${escapeHtml(report.model)}`,

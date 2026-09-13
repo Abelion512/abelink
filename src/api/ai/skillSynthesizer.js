@@ -86,7 +86,7 @@ Tugasmu adalah menyaring alur kerja teknis yang baru saja BERHASIL diselesaikan 
 
     const savedSkill = await saveLearnedSkill({
       name: parsed.name,
-      description: parsed.description || 'Prosedur teknis teruji buatan Mark',
+      description: parsed.description || 'Prosedur teknis teruji buatan Abelink',
       content: parsed.content
     })
 

@@ -2,7 +2,8 @@ import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import semver from 'semver'
+import { parse as semverParse, valid as semverValid, lt as semverLt, rcompare as semverRcompare } from './semver-lite.mjs'
+const semver = { parse: semverParse, valid: semverValid, lt: semverLt, rcompare: semverRcompare }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -267,7 +268,7 @@ function writeChangelogFile() {
   ]
 
   const lines = [
-    '# Changelog MARK Linux',
+    '# Changelog ABELINK Linux',
     '',
     'Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.',
     '',
@@ -317,7 +318,7 @@ function writeWhatsNewFile(version, changes) {
       security: changes.security || [],
       docs: changes.docs || []
     }),
-    linearUrl: 'https://linear.app/abelion/project/mark-agent-for-linux-10ceec65c326',
+    linearUrl: 'https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326',
     changes: flatChanges
   }
   fs.writeFileSync(WHATSNEW_PATH, JSON.stringify(data, null, 2) + '\n')
@@ -355,7 +356,7 @@ function nextAlphaVersion(current) {
     throw new Error(`Version ${current} is not in alpha channel. Promotion must be done manually.`)
   }
 
-  const alphaNum = (parsed.prerelease[1] || 0) + 1
+  const alphaNum = Number(parsed.prerelease[1] || 0) + 1
   return `${parsed.major}.${parsed.minor}.${parsed.patch}-alpha.${alphaNum}`
 }
 

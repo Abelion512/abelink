@@ -67,7 +67,7 @@ export const googleTools = {
   'gdrive-upload': {
     needsApproval: true,
     approvalMessage: (query) =>
-      `Mark ingin mengunggah file ke Google Drive-mu:\n${query.split('||')[0]}`,
+      `Abelink ingin mengunggah file ke Google Drive-mu:\n${query.split('||')[0]}`,
     handler: async (query, config) => {
       try {
         const parts = query.split('||')
@@ -86,7 +86,7 @@ export const googleTools = {
     needsApproval: true,
     approvalMessage: (query) => {
       const parts = query.split('||')
-      return `Mark ingin membuat dokumen kosong baru di Google Drive:\nNama: ${parts[0]}\nTipe: ${parts[1] || 'doc'}`
+      return `Abelink ingin membuat dokumen kosong baru di Google Drive:\nNama: ${parts[0]}\nTipe: ${parts[1] || 'doc'}`
     },
     handler: async (query, config) => {
       try {
@@ -105,7 +105,7 @@ export const googleTools = {
   'gdrive-move': {
     needsApproval: true,
     approvalMessage: (query) =>
-      `Mark ingin memindahkan file di Google Drive.\nFile ID: ${query.split('||')[0]}\nFolder Tujuan ID: ${query.split('||')[1]}`,
+      `Abelink ingin memindahkan file di Google Drive.\nFile ID: ${query.split('||')[0]}\nFolder Tujuan ID: ${query.split('||')[1]}`,
     handler: async (query, config) => {
       try {
         const parts = query.split('||')
@@ -123,7 +123,7 @@ export const googleTools = {
   'gdrive-copy': {
     needsApproval: true,
     approvalMessage: (query) =>
-      `Mark ingin menduplikasi file di Google Drive.\nFile ID: ${query.split('||')[0]}\nNama Baru: ${query.split('||')[1]}`,
+      `Abelink ingin menduplikasi file di Google Drive.\nFile ID: ${query.split('||')[0]}\nNama Baru: ${query.split('||')[1]}`,
     handler: async (query, config) => {
       try {
         const parts = query.split('||')
@@ -158,7 +158,7 @@ export const googleTools = {
     needsApproval: true,
     approvalMessage: (query) => {
       const parts = query.split('||')
-      return `Mark ingin membuat jadwal baru di kalendermu:\nJudul: ${parts[0]}\nWaktu Mulai: ${parts[2]}`
+      return `Abelink ingin membuat jadwal baru di kalendermu:\nJudul: ${parts[0]}\nWaktu Mulai: ${parts[2]}`
     },
     handler: async (query, config) => {
       try {
@@ -185,7 +185,7 @@ export const googleTools = {
   },
   'gcalendar-delete': {
     needsApproval: true,
-    approvalMessage: (query) => `Mark ingin MENGHAPUS jadwal/event ini:\nEvent ID: ${query}`,
+    approvalMessage: (query) => `Abelink ingin MENGHAPUS jadwal/event ini:\nEvent ID: ${query}`,
     handler: async (query, config) => {
       try {
         const clientId = config?.[0]?.googleClientId
@@ -227,20 +227,6 @@ export const googleTools = {
       }
     }
   },
-  'new-gmail-list': {
-    needsApproval: false,
-    handler: async (query, config) => {
-      try {
-        const { start, end, fetchCount } = parsePagination(query)
-        const clientId = config?.[0]?.googleClientId
-        const clientSecret = config?.[0]?.googleClientSecret
-        const rawResult = await searchEmails(clientId, clientSecret, 'is:unread', fetchCount)
-        return { success: true, data: rawResult.slice(start, end) }
-      } catch (e) {
-        return { success: false, error: e.message }
-      }
-    }
-  },
   'gmail-read': {
     needsApproval: false,
     handler: async (query, config) => {
@@ -258,7 +244,7 @@ export const googleTools = {
     needsApproval: true,
     approvalMessage: (query) => {
       const parts = query.split('||')
-      return `Mark ingin MENGIRIM EMAIL baru.\nTujuan: ${parts[0]}\nSubjek: ${parts[1]}\nIsi Pesan:\n${parts[2].slice(0, 100)}...`
+      return `Abelink ingin MENGIRIM EMAIL baru.\nTujuan: ${parts[0]}\nSubjek: ${parts[1]}\nIsi Pesan:\n${parts[2].slice(0, 100)}...`
     },
     handler: async (query, config) => {
       try {
@@ -275,7 +261,7 @@ export const googleTools = {
       }
     }
   },
-  'gmail-mark-read': {
+  'gmail-abelink-read': {
     needsApproval: false,
     handler: async (query, config) => {
       try {

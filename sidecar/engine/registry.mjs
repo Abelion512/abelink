@@ -1,4 +1,4 @@
-// Mark Sidecar — channel registry core.
+// Abelink Sidecar — channel registry core.
 // Satu-satunya tempat yang tahu bentuk frame protokol; modul channel hanya
 // mendaftarkan handler lewat on() dan tidak pernah menulis stdout langsung.
 //
@@ -16,9 +16,6 @@ export const handlers = {}
 export const on = (action, fn) => {
   handlers[action] = async (payload) => ok(await fn(...(Array.isArray(payload) ? payload : [payload])))
 }
-
-export const unsupported = (phase) => async () =>
-  ok({ unsupported: true, message: `Channel ini dipindah ke ${phase} (lihat docs/MIGRATION-PLAN.md)` })
 
 // Prinsip load-when-needed: modul berat hanya di-import saat channel-nya
 // dipakai pertama kali. Startup sidecar jadi instan, dan efek samping modul
