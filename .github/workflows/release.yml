@@ -81,6 +81,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      # tauri.conf.json bundle ../dist-sidecar/abelink-engine — build script
+      # Tauri gagal bila resource tidak ada (ikuti pola tauri.yml job rust).
+      - name: Build sidecar (single-file, untuk resource bundle)
+        run: bun run build:sidecar
       - name: Rust check
         run: cargo check
         working-directory: src-tauri
