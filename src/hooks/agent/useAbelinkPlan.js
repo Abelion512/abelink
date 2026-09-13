@@ -65,6 +65,14 @@ const MAX_PLAN_STEPS = DEFAULT_PLAN_STEPS
 // Batas giliran tanpa kemajuan (bicara intermediate tanpa action) sebelum dipaksa selesai
 const MAX_NO_PROGRESS_STREAK = 3
 
+let messageIdSequence = 0
+const createMessageId = () => {
+  const uuid = globalThis.crypto?.randomUUID?.()
+  if (uuid) return `msg-${uuid}`
+  messageIdSequence += 1
+  return `msg-${Date.now().toString(36)}-${messageIdSequence.toString(36)}`
+}
+
 const isImagePath = (filePath = '') => {
   const ext = filePath.split('.').pop().toLowerCase()
   return IMAGE_EXTS.includes(`.${ext}`)
@@ -383,6 +391,7 @@ export const useAbelinkPlan = ({
     }
 
     const userMessage = {
+      id: createMessageId(),
       role: 'user',
       content: payloadContent,
       timestamp: timestampStr,
@@ -393,6 +402,7 @@ export const useAbelinkPlan = ({
         tgContext?.from?.username ||
         (tgContext ? 'Telegram Admin' : undefined)
     }
+    const currentPromptMessage = { role: 'user', content: userMessage.content }
 
     // Penyiapan data sesi terisolasi (Database-First Persistent Pipeline)
     let inMemorySessionData = []
@@ -446,8 +456,9 @@ export const useAbelinkPlan = ({
     // FASE 3: PENYIAPAN HISTORY CHAT & RETRIEVAL KONTEKS
     // ------------------------------------------------------------------------
     const sourceChatData = activeSessionNum === 1 ? chatData : inMemorySessionData
-    const optimizedHistory = buildOptimizedChatSession(sourceChatData, config[0]?.context || 10)
-    let chatSession = [...optimizedHistory, userMessage]
+    const sessionHistory = Array.isArray(sourceChatData) ? sourceChatData : []
+    const optimizedHistory = buildOptimizedChatSession(sessionHistory, config[0]?.context || 10)
+    let chatSession = [...optimizedHistory, currentPromptMessage]
 
     // Session Compaction (ATM upstream contextManager, budget 525k).
     // Default ON (toggle Configuration > Capabilities); prompt-only, riwayat
@@ -459,6 +470,8 @@ export const useAbelinkPlan = ({
     // selalu `[summary?] + window terbaru + pesan user`, sama pada giliran
     // kompaksi maupun non-kompaksi (tidak ada penurunan konteks mendadak di
     // giliran kompaksi, tidak ada pesan terkirim dua kali).
+    // Kompaksi yang gagal jujur (success:false) -> pakai bentuk non-ringkasan
+    // biasa, JANGAN menyuntik summary tanpa pointer yang bisa diverifikasi.
     try {
       if ((config?.[0] || {}).sessionCompactionEnabled !== false) {
         const { executeSessionCompaction } = await import('../../api/ai/sessionCompactor.js')
@@ -468,23 +481,46 @@ export const useAbelinkPlan = ({
           activeConfig: config?.[0] || {},
           persist: false
         })
-        if (comp) {
+        if (comp?.success) {
           const activeSummary = comp.summaryBlock || comp.newSummaryBlock || ''
-          if (activeSummary) {
+          const hasVerifiedPointer = Boolean(
+            activeSummary &&
+            comp.lastCompactedMessageId &&
+            findMessageIndex(sessionHistory, comp.lastCompactedMessageId) !== -1
+          )
+          if (hasVerifiedPointer) {
+            // Summary + pointer terverifikasi terhadap riwayat sesi: bentuk
+            // prompt tetap `[summary?] + window + pesan user` (satu bentuk untuk
+            // semua giliran). Window dipotong dari riwayat ASLI di belakang
+            // pointer; pesan <= pointer diwakili ringkasan.
+            const cutIndex = findMessageIndex(sessionHistory, comp.lastCompactedMessageId)
+            const windowMessages = sessionHistory.slice(cutIndex + 1)
             chatSession = [
               { role: 'user', content: `[ COMPACTED MESSAGE SUMMARY ] ${activeSummary}` },
-              ...optimizedHistory,
-              userMessage
+              ...buildOptimizedChatSession(windowMessages, config[0]?.context || 10),
+              currentPromptMessage
+            ]
+          } else {
+            // Tanpa ringkasan yang durabel (belum pernah kompaksi, gagal AI,
+            // atau persist gagal): pertahankan batas context biasa. Current user
+            // message sengaja ditambahkan terpisah agar selalu utuh.
+            chatSession = [
+              ...buildOptimizedChatSession(
+                sessionHistory,
+                config[0]?.context || 10
+              ),
+              currentPromptMessage
             ]
           }
           // Pastikan pesan user terakhir ada persis satu kali di akhir
           const lastMsg = chatSession[chatSession.length - 1]
           const lastIsCurrent =
-            lastMsg === userMessage ||
+            lastMsg === currentPromptMessage ||
+            lastMsg?.id === userMessage.id ||
             (lastMsg?.role === 'user' &&
               JSON.stringify(lastMsg?.content) === JSON.stringify(userMessage.content))
           if (!lastIsCurrent) {
-            chatSession.push(userMessage)
+            chatSession.push(currentPromptMessage)
           }
         }
       }
@@ -1468,6 +1504,7 @@ export const useAbelinkPlan = ({
             }
 
             const aiMsg = {
+              id: createMessageId(),
               role: 'ai',
               content: finalOutput,
               executedTools: executedToolsList.length > 0 ? executedToolsList : null,

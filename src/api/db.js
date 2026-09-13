@@ -676,6 +676,10 @@ export async function deleteSession(id) {
       // Main Thread tidak boleh dihapus barisnya, hanya dikosongkan pesannya
       await db.sessions.put({ id: 1, title: 'Main Thread', data: [], timestamp: Date.now() })
       await db.chatTurns.where('sessionId').equals(1).delete()
+      // Ringkasan kompaksi hanya valid untuk riwayat yang melahirkannya. Main
+      // Thread memakai ID yang sama setelah di-clear, jadi row lama wajib ikut
+      // dibuang agar ringkasan percakapan sebelumnya tidak bocor ke chat baru.
+      await db.sessionCompacts.delete('1')
       try {
         const { deleteTurnPairsBySessionFromOrama } = await import('./oramaStore')
         await deleteTurnPairsBySessionFromOrama(1)
@@ -684,6 +688,7 @@ export async function deleteSession(id) {
     }
     await db.sessions.delete(numId)
     await db.chatTurns.where('sessionId').equals(Number(numId)).delete()
+    await db.sessionCompacts.delete(String(numId))
     try {
       const { deleteTurnPairsBySessionFromOrama } = await import('./oramaStore')
       await deleteTurnPairsBySessionFromOrama(numId)
@@ -1026,3 +1031,12 @@ export async function saveSessionCompact(sessionId, data = {}) {
   }
 }
 
+export async function clearSessionCompact(sessionId) {
+  try {
+    await db.sessionCompacts.delete(String(sessionId))
+    return true
+  } catch (err) {
+    console.error('[DB] Error clearSessionCompact:', err)
+    return false
+  }
+}

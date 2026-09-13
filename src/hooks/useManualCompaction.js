@@ -95,6 +95,9 @@ export function useManualCompaction({ messages, setMessages, sessionId }) {
             activeConfig: activeConfigRef.current,
             onProgress: (p) => setProgress(p?.text || 'Merangkum konteks percakapan lama...')
           })
+          if (!res?.success) {
+            throw new Error(res?.error || 'Ringkasan konteks gagal disimpan.')
+          }
           const coverage = res?.summaryCoverage
           const summarized = coverage ? coverage.covered : before
           const partialNote =
