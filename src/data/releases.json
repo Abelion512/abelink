@@ -1,6 +1,2397 @@
 {
-  "generatedAt": "2026-09-04T04:00:37.580Z",
+  "generatedAt": "2026-09-13T13:26:24.491Z",
   "releases": [
+    {
+      "version": "1.0.0-alpha.4",
+      "date": "13 September 2026",
+      "summary": "305 fitur baru, 238 perbaikan, 1 peningkatan keamanan dan 248 pembaruan dokumentasi.",
+      "sections": {
+        "features": [
+          {
+            "msg": "Trajectory v1.1, diagnose, evidence-gated ask, tab recovery, compaction UI, visualizer perf"
+          },
+          {
+            "msg": "PR2 long-horizon Fase A"
+          },
+          {
+            "msg": "Implement external coding CLI delegation, self-healing engine, and resilient runtime"
+          },
+          {
+            "msg": "PR2 long-horizon Phase A - effort step budget, durable resume, and strategy trace"
+          },
+          {
+            "msg": "Arch axis vanilla/basic/avo + per-run fixtures, schema v3"
+          },
+          {
+            "msg": "Real-activity student/corporate tasks with world-state verifiers"
+          },
+          {
+            "msg": "Wire Fase 2 lineage+scoring into main loop and sub-agents"
+          },
+          {
+            "msg": "Supervisor Fase 2 — nextStrategy + restoreHint"
+          },
+          {
+            "msg": "Fase 2 deterministic strategy library"
+          },
+          {
+            "msg": "Fase 2 per-session trajectory lineage"
+          },
+          {
+            "msg": "Fase 2 deterministic attempt scorer"
+          },
+          {
+            "msg": "Auto-launch browser OS bila extension belum tersambung"
+          },
+          {
+            "msg": "Trajectory Supervisor Fase 1"
+          },
+          {
+            "msg": "Vision-bloat , capabilities overhaul, modular split F0-F5"
+          },
+          {
+            "msg": "Embed music player, chat mic , monaco csp, ssot relational growth, and auto-clone workflow"
+          },
+          {
+            "msg": "Streamline configuration to custom stt with 9router presets and multi-provider fallback combo"
+          },
+          {
+            "msg": "Restore clean orb with keyboard arrow navigation and multi-provider stt router"
+          },
+          {
+            "msg": "Quick orb switcher, screen share mini dock, audio resampling for stt, and continuous telegram typing"
+          },
+          {
+            "msg": "Retain MARK architecture branding and modernize subagents UI with obsidian glassmorphism"
+          },
+          {
+            "msg": "Implement live screen share, TTS constructor & STT fallback, polish voice mode layout"
+          },
+          {
+            "msg": "Convert header to pure floating HUD, enlarge jarvis orb, switch theme to cyan, and graceful screen share"
+          },
+          {
+            "msg": "Integrate header window controls, floating HUD overlay, and deprecation fixes"
+          },
+          {
+            "msg": "Clone jarvis 3d orb, rebrand to abelink, window controls order, resolve studio collision, and eliminate ai-slop"
+          },
+          {
+            "msg": "Integrate Jarvis voice as default mode with 4-mode switcher, ponytail cleanup, and abelink branding"
+          },
+          {
+            "msg": "Upgrade LiveAudio to Jarvis cybernetic orb, enable Groq STT fallback, and TTS MP3 format"
+          },
+          {
+            "msg": "Enable true desktop window transparency and restore voice and video configuration tab"
+          },
+          {
+            "msg": "Zero-config auto-connect native host, auto-start bridge, and guided installation UI"
+          },
+          {
+            "msg": "Implement Jarvis taint gate, browser-ask HITL, and WebKitGTK glass liquid UI"
+          },
+          {
+            "msg": "Music playback, browser CDP, InputBar hover preview"
+          },
+          {
+            "msg": "Objective Completion & Verification Layer"
+          },
+          {
+            "msg": "Browser CDP tools, music retry logic, guidebook"
+          },
+          {
+            "msg": "Browser use - tab grouping, auto-close, group-session channel"
+          },
+          {
+            "msg": "Objective Completion & Verification Layer — model claim vs system proof"
+          },
+          {
+            "msg": "Official font/orb parity + web drag-drop + attachment previews"
+          },
+          {
+            "msg": "Objective-aware termination, task-level effort A/B, agentic MARK-Eval"
+          },
+          {
+            "msg": "Per-provider model lists, Groq voice-only + quota tips, auto effort ladder"
+          },
+          {
+            "msg": "Per-effort bench reports, Anthropic prompt caching, Groq chat provider"
+          },
+          {
+            "msg": "2026 model matrix, effort ladder, guidebook approval alignment"
+          },
+          {
+            "msg": "MarkBench 1.0 per-commit gate, low-tier skill injection, graduated approval"
+          },
+          {
+            "msg": "Live capability sections — plugins, skills, connectors"
+          },
+          {
+            "msg": "Connectors page — catalog browse, scope authorization, audit trail"
+          },
+          {
+            "msg": "No-feature-loss profiles, native RAM detect, connectors tooling for agent"
+          },
+          {
+            "msg": "SIMD fallback ladder, Dexie-first groomer, budget monitor, MARK-Eval matrix"
+          },
+          {
+            "msg": "Perf gate per commit, anti-disconnect parser, wallet fase 1"
+          },
+          {
+            "msg": "Built-in always-on plugin system — ponytail + caveman prompts, rtk output compression"
+          },
+          {
+            "msg": "Official font/orb parity + web drag-drop + attachment previews"
+          },
+          {
+            "msg": "Capability Manager — OpenConnector-style catalog/policy/audit engine channel"
+          },
+          {
+            "msg": "Fase C3 stage 1 — real browser:* channels via extension bridge"
+          },
+          {
+            "msg": "Drop-anywhere attachments, multi-select upload, real size preview, Telegram UI events via Tauri"
+          },
+          {
+            "msg": "MarkBench Phase 2A-2D — auditable benchmark harness for Mark Linux"
+          },
+          {
+            "msg": "Automated release system with prepare/finalize stages"
+          },
+          {
+            "msg": "Initial release v1.0.0-alpha.1"
+          },
+          {
+            "msg": "Automated release system with prepare/finalize stages"
+          },
+          {
+            "msg": "Baseline for Tauri native Linux migration"
+          },
+          {
+            "msg": "UI cleanup — telegram page isolation, WhatNew redesign, prune dead nav, add config sections"
+          },
+          {
+            "msg": "Add X11/Wayland detection for PC automation"
+          },
+          {
+            "msg": "Auto-detect hardware profile + lazy-load RAG/STT by default"
+          },
+          {
+            "msg": "Awareness window tracker — replace sidecar window-tracker.js with xdotool"
+          },
+          {
+            "msg": "PC automation os-* commands — replace sidecar stubs with xdotool"
+          },
+          {
+            "msg": "Awareness window tracker — replace sidecar window-tracker.js with xdotool"
+          },
+          {
+            "msg": "Awareness window tracker — replace sidecar window-tracker.js with xdotool"
+          },
+          {
+            "msg": "Route run-shell/git/tasks to Rust commands"
+          },
+          {
+            "msg": "Run_task/read_task_output/kill_task/list_tasks — replace task-daemon"
+          },
+          {
+            "msg": "Git_status/diff/commit/revert — replace sidecar git-service with spawn git"
+          },
+          {
+            "msg": "System_get_info — replace sidecar systemInfo with native /proc parser"
+          },
+          {
+            "msg": "Tools_run_shell — replace sidecar run-shell with native Rust"
+          },
+          {
+            "msg": "Tur setup minimal + lazy load menyeluruh + window controls wizard"
+          },
+          {
+            "msg": "Deteksi model /v1/models + perbaiki blok save Groq & vision"
+          },
+          {
+            "msg": "Custom API Anthropic-compatible + fallback SIMD dan kamera"
+          },
+          {
+            "msg": "Reset versi fork ke garis 1.x + pipeline rilis ketat"
+          },
+          {
+            "msg": "Browser tab menampilkan papan pengumuman + script 'app' alias tauri dev"
+          },
+          {
+            "msg": "Per-section config render, sidebar polish, MEM UX tanpa upload, tests + automation hooks"
+          },
+          {
+            "msg": "F-STYLE + MEM + DEV-MODE"
+          },
+          {
+            "msg": "Tauri-plugin-log + rtk output compressor di run-shell"
+          },
+          {
+            "msg": "Rtk-style output limiter + ponytail coding rule + tauri-plugin-log"
+          },
+          {
+            "msg": "Default windowOpacity 100% solid — target RAM 4GB"
+          },
+          {
+            "msg": "Enhance README with new memory architecture and zero-hallucination policy details"
+          },
+          {
+            "msg": "Implement chat turns storage and migration to Orama"
+          },
+          {
+            "msg": "FB#1 — file-ops native Rust"
+          },
+          {
+            "msg": "A5 — tray, single-instance, Ctrl+Alt+M, window commands + state events"
+          },
+          {
+            "msg": "A3+A4 — tauri-bridge facade + Node sidecar engine"
+          },
+          {
+            "msg": "A1+A2 — scaffold src-tauri standard + migrasi renderer ke src/"
+          },
+          {
+            "msg": "Add fullscreen window control button"
+          },
+          {
+            "msg": "Two-column home layout on long answers — orb+answer left, page never scrolls on lg"
+          },
+          {
+            "msg": "Dismissible LiteBadge top-left"
+          },
+          {
+            "msg": "Hash embedding fallback + skip boot model load"
+          },
+          {
+            "msg": "MemoryVisualizer list fallback"
+          },
+          {
+            "msg": "Context provider + hook"
+          },
+          {
+            "msg": "RAM detection + IPC bridge"
+          },
+          {
+            "msg": "Optimize development flow"
+          },
+          {
+            "msg": "Enhance search functionality with improved directory traversal and keyword matching"
+          },
+          {
+            "msg": "Enhance cleanAndParse function to improve response handling and validation"
+          },
+          {
+            "msg": "Setup development tools"
+          },
+          {
+            "msg": "Add context compactor for optimizing chat session payload and implement optimized chat session builder"
+          },
+          {
+            "msg": "Add ChatStudioModal and ChatStudio components for enhanced chat session managementi"
+          },
+          {
+            "msg": "Implement learned skills management and synthesis for dynamic skill improvement"
+          },
+          {
+            "msg": "Implement skill watcher and update skills handling for real-time updates"
+          },
+          {
+            "msg": "Add boot trigger + dismiss save version"
+          },
+          {
+            "msg": "Add SubagentTopologyMap component and integrate with Subagents page"
+          },
+          {
+            "msg": "Enhance feedback prompts for sub-agent failure handling and critical report evaluation in useMarkPlan hook"
+          },
+          {
+            "msg": "Add reject command handling and improve approval context for better user interaction"
+          },
+          {
+            "msg": "Add loading state to SubagentUnifiedBubble for improved user feedback"
+          },
+          {
+            "msg": "Enhance sub-agent reporting with failure handling and mood tracking"
+          },
+          {
+            "msg": "Implement subagent system with prompt builder, store management, and intercom UI"
+          },
+          {
+            "msg": "Linux-native PC automation backend"
+          },
+          {
+            "msg": "Enhance planning command with improved error handling and JSON output validation"
+          },
+          {
+            "msg": "Image preview on hover + loop one/all backend"
+          },
+          {
+            "msg": "Implement durable task creation handling in planning command"
+          },
+          {
+            "msg": "Enhance Telegram bot commands with approval handling and file download notifications"
+          },
+          {
+            "msg": "Add normalizeChatCompletionsUrl helper for /v1 custom endpoints"
+          },
+          {
+            "msg": "Adopt Gemini free config from official"
+          },
+          {
+            "msg": "Native loop + queue"
+          },
+          {
+            "msg": "Scan models by endpoint hit + selectable results in config"
+          },
+          {
+            "msg": "Music-recent tool + local playback history"
+          },
+          {
+            "msg": "Reuse LiveAudio page in 4-mode voice panel, drop hamburger item + route"
+          },
+          {
+            "msg": "Chips pilihan + sidebar"
+          },
+          {
+            "msg": "Marketplace research gate + silent guard rejection"
+          },
+          {
+            "msg": "Last.fm runtime config + YouTube Music auto-scrobble"
+          },
+          {
+            "msg": "Wire skillLibrary hints into planning loop"
+          },
+          {
+            "msg": "SKILL.md skills registry"
+          },
+          {
+            "msg": "Wire Reflexion-lite session lessons into planning + tool failure memory"
+          },
+          {
+            "msg": "Model circuit breaker + error taxonomy"
+          },
+          {
+            "msg": "Tool error feedback retry"
+          },
+          {
+            "msg": "Session failure memory"
+          },
+          {
+            "msg": "Auto-save config on change"
+          },
+          {
+            "msg": "Compact AI layout — two-column home on long answers, TLDR under orb, remove Proses Pemikiran dropdown"
+          },
+          {
+            "msg": "Detail Informasi moves to right column on long answers; TLDR stays under orb Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
+          },
+          {
+            "msg": "Two-column home layout on long answers — orb+answer left, page never scrolls on lg"
+          },
+          {
+            "msg": "Detail Informasi moves to right column on long answers; TLDR stays under orb Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
+          },
+          {
+            "msg": "TikTok stealth - WARP exclude + cookie import + Chrome UA"
+          },
+          {
+            "msg": "Two-column home layout on long answers — orb+answer left, page never scrolls on lg"
+          },
+          {
+            "msg": "TikTok stealth - WARP exclude + cookie import + Chrome UA"
+          },
+          {
+            "msg": "Performance & readability overhaul + auto-learn model hints"
+          },
+          {
+            "msg": "Auto-learn model hints from usage analytics"
+          },
+          {
+            "msg": "P0 + P1 performance + .gitignore cleanup"
+          },
+          {
+            "msg": "P0 + P1 performance + .gitignore cleanup"
+          },
+          {
+            "msg": "Create-agent-skill IPC with Ed25519 auto-signing"
+          },
+          {
+            "msg": "Trust badge + priority boost + content safety in skill injection"
+          },
+          {
+            "msg": "Add skill-sanitizer.js — content safety scanner"
+          },
+          {
+            "msg": "Verify skill origin via manifest + Ed25519 signature"
+          },
+          {
+            "msg": "Add agent-keyring.js — Ed25519 signing identity"
+          },
+          {
+            "msg": "Add SHA-256 manifest for core skills + script"
+          },
+          {
+            "msg": "Add contributed skill template"
+          },
+          {
+            "msg": "Add session-log core skill"
+          },
+          {
+            "msg": "Create .agents/artifacts/ and .agents/inbox/"
+          },
+          {
+            "msg": "Create .agents/skills/ directory"
+          },
+          {
+            "msg": "User-friendly AI error messages in Indonesian"
+          },
+          {
+            "msg": "4-mode bar — chat morphs into InputBar at bottom-8"
+          },
+          {
+            "msg": "4-mode bar — chat morphs into InputBar at bottom-8"
+          },
+          {
+            "msg": "4-mode bar expand/collapse + YT hologram card"
+          },
+          {
+            "msg": "4-mode bar expand/collapse + YT hologram card"
+          },
+          {
+            "msg": "OS Control Phase 1 + Session Knowledge Auto-Extract"
+          },
+          {
+            "msg": "OS Control Phase 1 + Session Knowledge Auto-Extract"
+          },
+          {
+            "msg": "Phase 0 — steer buffer, configurable turns, approval modes, package cleanup"
+          },
+          {
+            "msg": "Phase 0 — steer buffer, configurable turns, approval modes, package cleanup"
+          },
+          {
+            "msg": "Memory architecture v16 — autonomousTasks, taskHistory, auditLog, primingLog + checkpoint manager"
+          },
+          {
+            "msg": "Memory architecture v16 — autonomousTasks, taskHistory, auditLog, primingLog + checkpoint manager"
+          },
+          {
+            "msg": "Enhance user interaction and context awareness in Mark Agent's greeting sequence"
+          },
+          {
+            "msg": "Enhance user interaction and context awareness in Mark Agent's greeting sequence"
+          },
+          {
+            "msg": "Enhance memory management with Orama integration for real-time updates and deduplication"
+          },
+          {
+            "msg": "Enhance memory management with Orama integration for real-time updates and deduplication"
+          },
+          {
+            "msg": "Replace YT webview with BrowserWindow — context + component rewritten"
+          },
+          {
+            "msg": "Wire youtube-player IPC handlers + preload bridge"
+          },
+          {
+            "msg": "Youtube-player.js — dedicated BrowserWindow with UA spoofing, CSP removal, OAuth popup handling"
+          },
+          {
+            "msg": "YT Login via physical browser button — partition shared, one auth for all"
+          },
+          {
+            "msg": "Wire PC Agent IPC handlers + preload + AI tool dispatch"
+          },
+          {
+            "msg": "Pc-agent.js — Linux-native PC Agent"
+          },
+          {
+            "msg": "Screenshot-ocr.py -- mss+Tesseract OCR for Linux"
+          },
+          {
+            "msg": "Read-ui.py — AT-SPI accessibility tree reader for Linux"
+          },
+          {
+            "msg": "Linux-agent.sh — bash wrapper for xdotool/wmctrl/xclip/Tesseract"
+          },
+          {
+            "msg": "RAG .json support + session knowledge import"
+          },
+          {
+            "msg": "Voice fast path — common commands skip tool-info"
+          },
+          {
+            "msg": "Vector-based tool discovery for 100+ tools scalability"
+          },
+          {
+            "msg": "Progressive Disclosure tool system"
+          },
+          {
+            "msg": "Dynamic model registry JSON + retry 10x + analytics + readable console"
+          },
+          {
+            "msg": "Model combo 'abelink' + dynamic retry + RSI observability"
+          },
+          {
+            "msg": "Enhance YouTube Music integration by refining request headers and improving UI handling for login prompts"
+          },
+          {
+            "msg": "Update Guidebook content and add AGENTS.md for project overview and technology stack"
+          },
+          {
+            "msg": "Update license to MARK Agent Source Available License v1.0 and modify README warning section"
+          },
+          {
+            "msg": "Inject OS platform awareness into AI system prompt"
+          },
+          {
+            "msg": "Linux adaptation + RSI coding tool orchestration"
+          },
+          {
+            "msg": "Linux adaptation — cross-platform fixes"
+          },
+          {
+            "msg": "Improve screenshot capture handling and increase load URL timeout to 60 seconds"
+          },
+          {
+            "msg": "Prevent application crash due to GPU process limits and enhance browser close instructions"
+          },
+          {
+            "msg": "Enhance browser window handling and improve awareness check-in logic"
+          },
+          {
+            "msg": "Enhance browser interaction with screenshot capture on close and add intervention handling in planning"
+          },
+          {
+            "msg": "Enhance AI proactive messaging and improve chat session memory handling"
+          },
+          {
+            "msg": "Enhance browser window management and improve proactive messaging in AI responses"
+          },
+          {
+            "msg": "Add Guidebook component with detailed tool descriptions and usage instructions"
+          },
+          {
+            "msg": "Enhance memory management by adding 'learn' type and implementing extended memory search functionality"
+          },
+          {
+            "msg": "Implement browser preview widget and enhance browser management features"
+          },
+          {
+            "msg": "Remove mark-locked class usage for improved user interaction and input handling"
+          },
+          {
+            "msg": "Enhance awareness and planning response formatting for improved user interaction"
+          },
+          {
+            "msg": "Enhance autonomous handling in useMarkPlan and useAwareness for improved user interaction"
+          },
+          {
+            "msg": "Implement event-based relational growth evaluation and adjust trait drift limits"
+          },
+          {
+            "msg": "Enhance awareness and persona handling with new relational traits and dynamic prompts"
+          },
+          {
+            "msg": "Implement GlobalCameraManager for enhanced camera handling and preview functionality"
+          },
+          {
+            "msg": "Implement relational growth feature with trait evaluation and UI"
+          },
+          {
+            "msg": "New camera functionality and enhanced AI capabilities"
+          },
+          {
+            "msg": "Enhance context handling in planning command with previous message integration"
+          },
+          {
+            "msg": "Enhance AI message handling and add browser close functionality"
+          },
+          {
+            "msg": "Add configuration handlers for AI provider, models, and admin management"
+          },
+          {
+            "msg": "Update README and enhance planning functionality with new AI features and commands"
+          },
+          {
+            "msg": "Enhance user experience with boot sequence greeting and mood-based visual feedback"
+          },
+          {
+            "msg": "Implement AI greeting functionality in useMarkAgent hook"
+          },
+          {
+            "msg": "Add browser automation features with IPC handlers and native tools"
+          },
+          {
+            "msg": "WhatsApp agent and enhance memory visualizer"
+          },
+          {
+            "msg": "Integrate memory visualization feature and remove chat archive page"
+          },
+          {
+            "msg": "Implement chat archiving and document ingestion features"
+          },
+          {
+            "msg": "Update audio input handling and configuration; improve awareness response logic"
+          },
+          {
+            "msg": "Enhance adaptive memory"
+          },
+          {
+            "msg": "Update README to include download badge and remove roadmap section"
+          },
+          {
+            "msg": "Update README to enhance descriptions and features in Indonesian"
+          },
+          {
+            "msg": "Implement voice activity detection and enhance voice command handling"
+          },
+          {
+            "msg": "Update search result logging to include song titles and artists"
+          },
+          {
+            "msg": "Implement error handling and retry mechanism in planning command execution"
+          },
+          {
+            "msg": "Enhance planning command handling with additional command checks and improve context messaging for music playback"
+          },
+          {
+            "msg": "Enhance music handling with detailed responses and improve planning command execution"
+          },
+          {
+            "msg": "Enhance AI awareness capabilities with autonomous actions and improved response handling"
+          },
+          {
+            "msg": "Enhance memory storage instructions and improve API key visibility in configuration"
+          },
+          {
+            "msg": "Update version to 2.1.0, enhance AI capabilities with custom API support, and improve configuration options"
+          },
+          {
+            "msg": "Implement asynchronous WhatsApp message sending and enhance screenshot handling"
+          },
+          {
+            "msg": "Add screenshot handling in planning command and improve music widget animation"
+          },
+          {
+            "msg": "Enhance mood representation with new emotional states and update color coding in OrbVisualizer"
+          },
+          {
+            "msg": "Integrate awareness engine and proactive nudges"
+          },
+          {
+            "msg": "Add WhatsApp formatting using marked library and integrate into response handling"
+          },
+          {
+            "msg": "Implement abort functionality for AI fetch and enhance error handling in planning and chat hooks"
+          },
+          {
+            "msg": "Enhance AI fetch and WhatsApp agent with improved error handling, web search modularity, and response optimization"
+          },
+          {
+            "msg": "Enhance AI fetch and plugin execution with improved error handling and logging"
+          },
+          {
+            "msg": "Enhance WhatsApp bot with tool usage tracking and improved response handling"
+          },
+          {
+            "msg": "Enhance WhatsApp agent with improved chat session handling and command execution"
+          },
+          {
+            "msg": "Enhance WhatsApp agent capabilities with plugin execution and screenshot features"
+          },
+          {
+            "msg": "Implement WhatsApp message handling flow with AI integration and media features"
+          },
+          {
+            "msg": "Enhance AI fetching with status updates and improved traffic handling"
+          },
+          {
+            "msg": "Add Monaco Editor for code editing and integrate SweetAlert2 for confirmation dialogs"
+          },
+          {
+            "msg": "Add dependency management for plugins and enhance plugin capabilities in UI"
+          },
+          {
+            "msg": "Enhance plugin system with improved execution handling and UI updates"
+          },
+          {
+            "msg": "Implement plugin system with dynamic loading and execution"
+          },
+          {
+            "msg": "Update message processing to include recent conversation history for improved context"
+          },
+          {
+            "msg": "Increase recent messages retrieval from 5 to 10 for enhanced context in message processing"
+          },
+          {
+            "msg": "Enhance audio processing by integrating ffmpeg and youtube-dl for improved media handling"
+          },
+          {
+            "msg": "Update README and package version for enhanced WhatsApp bot capabilities"
+          },
+          {
+            "msg": "Add music playback feature and improve admin notifications"
+          },
+          {
+            "msg": "Add jsonrepair for improved JSON parsing and error handling in AI responses"
+          },
+          {
+            "msg": "Enhance WhatsApp bot with message history retrieval and improved UI message handling"
+          },
+          {
+            "msg": "Optimize music command handling and enforce strict JSON output format"
+          },
+          {
+            "msg": "Update WhatsApp bot to display all admins and enhance markdown rendering in messages"
+          },
+          {
+            "msg": "Implement WhatsApp Bot with AI integration and message handling"
+          },
+          {
+            "msg": "Enhance WhatsApp bot functionality with timeout handling and readiness reporting"
+          },
+          {
+            "msg": "Improve WhatsApp window management with off-screen rendering and centering"
+          },
+          {
+            "msg": "Enhance WhatsApp bot configuration with admin name guidance and update section styling"
+          },
+          {
+            "msg": "Implement WhatsApp bot window management and remote music command handling"
+          },
+          {
+            "msg": "Enhance WhatsApp bot functionality with web search capabilities and admin controls for music playback"
+          },
+          {
+            "msg": "Update quoted message handling in WhatsApp bot and disable dev tools in main window"
+          },
+          {
+            "msg": "Update version to 1.2.0 in package.json"
+          },
+          {
+            "msg": "Add WhatsApp bot integration with context-aware message handling and UI updates"
+          },
+          {
+            "msg": "Implement WhatsApp bot functionality with auto-reply and message handling"
+          },
+          {
+            "msg": "Update webview event listeners to use 'dom-ready' instead of 'did-stop-loading' for improved loading handling"
+          },
+          {
+            "msg": "Refine YouTube summary instructions and enhance ThinkingBubble component styling"
+          },
+          {
+            "msg": "Implement copy functionality in ChatList component and remove unused code from MessageBubble"
+          },
+          {
+            "msg": "Disable opening DevTools on window ready to show"
+          },
+          {
+            "msg": "Update README with improved descriptions and localization for core capabilities and installation steps"
+          },
+          {
+            "msg": "Update SVG paths in ThinkingBubble component for improved visual representation"
+          },
+          {
+            "msg": "Enhance YouTube summary handling and add plan conclusion indication in chat components"
+          },
+          {
+            "msg": "Update README and chat and planning components to enhance functionality and remove YouTube search option"
+          },
+          {
+            "msg": "Enhance guided tour with new popover steps and improve configuration UI elements"
+          },
+          {
+            "msg": "Update version to 1.1.1, add driver.js for guided tours, and enhance configuration and chat components"
+          },
+          {
+            "msg": "Update README for modular LLM integration and enhance Chat component UI logic"
+          },
+          {
+            "msg": "Add new chat components and hooks for enhanced functionality"
+          },
+          {
+            "msg": "Remove web search option from dropdown menu in Chat component, all web search now include"
+          },
+          {
+            "msg": "Reduce cloud fetch delay to 2.5 seconds and enhance command structure for dynamic web search"
+          },
+          {
+            "msg": "Enhance fetchAI with traffic retry logic and update command run checks in ChatProvider"
+          },
+          {
+            "msg": "Update README to enhance clarity and structure of core capabilities"
+          },
+          {
+            "msg": "Enhance memory handling in ChatProvider and integrate current time info for memory entries"
+          },
+          {
+            "msg": "Enhance error handling in fetchAI and optimize ChatList component with memoization"
+          },
+          {
+            "msg": "Add CodeBlock component for enhanced code display and copy functionality in ChatList"
+          },
+          {
+            "msg": "Enhance fetchAI error handling for Cerebras API and update ChatList styling for better UI"
+          },
+          {
+            "msg": "Integrate Cerebras API, add JSON schema auto-retry, and dynamic config UI"
+          },
+          {
+            "msg": "Add support for Cerebras API in configuration and enhance API key management"
+          },
+          {
+            "msg": "Implement rate limiting for GROQ requests in fetchAI function"
+          },
+          {
+            "msg": "Enhance fetchAI function to support JSON schema validation and update response handling"
+          },
+          {
+            "msg": "Enhance Chat functionality with memory reference and improve Markdown rendering; update CSS for custom tables"
+          },
+          {
+            "msg": "Add custom tools and prompt templates to README; update CSS font size for better readability"
+          },
+          {
+            "msg": "Enhance AI response handling with reasoning and add secondary model toggle in configuration"
+          },
+          {
+            "msg": "Add music play, pause, next, prev, search"
+          },
+          {
+            "msg": "ReferrerPolicy and error chatSession"
+          },
+          {
+            "msg": "Implement play music from chat"
+          },
+          {
+            "msg": "Ytb embedd error and improve deep search"
+          },
+          {
+            "msg": "Change webview and add captcha handle"
+          },
+          {
+            "msg": "Configuration, yt search, ui improvement"
+          },
+          {
+            "msg": "Add configuration page and improve ui"
+          },
+          {
+            "msg": "Implement error \"Gagal dapet info dari internet nih, koneksi atau captcha mungkin bermasalah.\" if search result empty"
+          },
+          {
+            "msg": "Implement web search with webview and improve ui"
+          },
+          {
+            "msg": "Add ai google summary result in web search"
+          },
+          {
+            "msg": "Implement ChatContext for session management and enhance chat functionality with session creation and data handling"
+          },
+          {
+            "msg": "Add rehype-external-links and remark-gfm packages; enhance Markdown rendering in ChatList component"
+          },
+          {
+            "msg": "Update README to remove 'Command Running' feature from the roadmap"
+          },
+          {
+            "msg": "Enhance chat functionality with improved memory handling and multi-turn message support"
+          },
+          {
+            "msg": "Add YouTube transcript fetching and summarization functionality"
+          },
+          {
+            "msg": "Web search functionality to use Electron's BrowserWindow and remove Puppeteer dependency; update README and package files accordingly"
+          },
+          {
+            "msg": "Enhance web search functionality with improved timeout and abort controller integration"
+          },
+          {
+            "msg": "Update README with new features, enhance AI integration, and improve chat functionality : streamline browser instance management and improve web search handling in main process : adjust AI fetch endpoint and modify temperature setting for better response quality : optimize vector generation and memory retrieval processes in AI module style: correct JSX attributes and improve button functionality in Chat component"
+          },
+          {
+            "msg": "Integrate vector memory for enhanced AI responses"
+          },
+          {
+            "msg": "Enhance chat functionality with loading states and abort controller"
+          },
+          {
+            "msg": "Enhance preload API and implement setup screen"
+          }
+        ],
+        "fixes": [
+          {
+            "msg": "Garis rilis main + anti-deadlock bootstrap tanpa tag"
+          },
+          {
+            "msg": "Make group_is_ours deterministic under bash tail-exec"
+          },
+          {
+            "msg": "Make group_is_ours tests deterministic under slow"
+          },
+          {
+            "msg": "Make summary coverage honest and budget session-scoped"
+          },
+          {
+            "msg": "Trajectory staleRun rebasing, bench sweep avo removal, adapter async import, sync"
+          },
+          {
+            "msg": "Retain context on normal turns, deduplicate user message, and pointer ID"
+          },
+          {
+            "msg": "Dual-port Prod+Dev, namespace tokens, tab-storm rem, log payloads"
+          },
+          {
+            "msg": "Clear all clippy warnings and gate them with -D warnings"
+          },
+          {
+            "msg": "Stop linting artifacts and drop a no-op disable directive"
+          },
+          {
+            "msg": "Prevent repo bloat and git merge conflict explosions for graphify artifacts"
+          },
+          {
+            "msg": "Clean up ghost tasks on tab closure and harden .gitignore for agent workflows"
+          },
+          {
+            "msg": "Rename branch guard job to accurately reflect abelink base branch policy"
+          },
+          {
+            "msg": "Single progress signal, anti double-bubble"
+          },
+          {
+            "msg": "Dot telegram hamburger ikut status live"
+          },
+          {
+            "msg": "Launch race + stuck connecting; trajectory ke developer saja"
+          },
+          {
+            "msg": "Halaman sorry Google -> error ramah + anti-hammer; hapus spam log/turn"
+          },
+          {
+            "msg": "Pilot-blockers — tool preamble, arg bridge, workspace-root fixtures, paren-proof parser"
+          },
+          {
+            "msg": "Double-respon + izin tg:start dilonggarkan"
+          },
+          {
+            "msg": "Connect-lalu-putus — retry backoff + status jujur"
+          },
+          {
+            "msg": "Ikon window kedua, menu Trajectory, asumsi single-user"
+          },
+          {
+            "msg": "Bench-gate latency median 3 run"
+          },
+          {
+            "msg": "Auto-launch default AKTIF + guideline flat-DOM/teks pendek"
+          },
+          {
+            "msg": "Anti-slop jawaban + console tidak berisik"
+          },
+          {
+            "msg": "Jangan telan pesan error provider, ramah & informatif"
+          },
+          {
+            "msg": "Grant pull-requests:read so gitleaks can list PR commits"
+          },
+          {
+            "msg": "Sidecar before cargo check; bridge-core import paths; drop codeql"
+          },
+          {
+            "msg": "Import getAllConfig to resolve mic start reference error"
+          },
+          {
+            "msg": "Lock concurrent sessions and VAD audio capture in voice mode"
+          },
+          {
+            "msg": "Solve approval paradox, listener multiplication leak, and brand naming"
+          },
+          {
+            "msg": "Prevent runaway step-budget loop and safe errorMsg access; : remove unsupported cursor constraint"
+          },
+          {
+            "msg": "Remove dangling pld reference; : adaptive split-side Voice Mode with dynamic Orb scaling"
+          },
+          {
+            "msg": "Route isolated tabs per subagent session, add pipe fallback, purge upstream backdoor"
+          },
+          {
+            "msg": "Enforce physical browser delegation for external AI debates and clarify cross-divisional identity"
+          },
+          {
+            "msg": "Break conversational react runaway loops, respect local whisper, and prune ai-slop"
+          },
+          {
+            "msg": "Unmirror camera, eliminate STT progress jump & repeated download, streamline WebRTC display stream"
+          },
+          {
+            "msg": "Make compareReports synchronous for smoke gate compliance"
+          },
+          {
+            "msg": "LiveAudio setIsLive crash, enable audio input, and harden bridge auto-reconnect"
+          },
+          {
+            "msg": "Handle Invalid constraint with plain audio fallback and Configuration.jsx syntax error"
+          },
+          {
+            "msg": "Use react portal for abort dialog, add nativeMessaging permission, and enable webkitgtk media capture"
+          },
+          {
+            "msg": "Resolve extension folder across dev and bundle modes, regenerate app window icons"
+          },
+          {
+            "msg": "Perbaiki import useMarkPlan.js, panggilan osOpen, dan tag </div> Configuration.jsx pasca merge PR #26"
+          },
+          {
+            "msg": "Hapus ketergantungan paket semver tak terdaftar di gerbang rilis"
+          },
+          {
+            "msg": "Bersihkan interval saat unmount, gate tombol data , rapikan import"
+          },
+          {
+            "msg": "Kirim snapshot entries ke listener + pangkas buffer in-memory"
+          },
+          {
+            "msg": "Kontrak payload browser:* via field value; tanpa routing ke command Rust non-eksisten"
+          },
+          {
+            "msg": "Label Trajectory tanpa emoji + newline akhir file"
+          },
+          {
+            "msg": "Resolusi konflik dengan linux + perbaikan hasil review PR #26"
+          },
+          {
+            "msg": "Hasil audit repo — eslint config, host permissions ekstensi, bug tab-group, hygiene"
+          },
+          {
+            "msg": "InputBar JSX syntax, Rust dead code; : browser CDP, music retry, hover preview"
+          },
+          {
+            "msg": "Consolidate config menus, improve WhatNew, InputBar positioning"
+          },
+          {
+            "msg": "VectorMemory auto-Lite Mode on wasm-unsupported; React render bug in Connectors"
+          },
+          {
+            "msg": "Skip rtk ENOENT when rtk installed; improve .gitignore for browser-use artifacts"
+          },
+          {
+            "msg": "RtkFilter ENOENT now clears PATH to force subcommand spawn failure"
+          },
+          {
+            "msg": "Approval_policy borrow fixes — owned String family, &family refs"
+          },
+          {
+            "msg": "Normalize_family lifetime — return owned String instead of &'static str"
+          },
+          {
+            "msg": "Move web-drop fetch to native Rust — clears CodeQL SSRF for good"
+          },
+          {
+            "msg": "SSRF guard for web-drop URL fetch + IPv6 coverage"
+          },
+          {
+            "msg": "Repair tools.js syntax break, add rtk toggle UI + tests"
+          },
+          {
+            "msg": "Release.yml — add workflow_dispatch + tag-aware guard/checkout for finalize chain"
+          },
+          {
+            "msg": "Release-prepare — git identity, label guard, staged-diff commit check, workflow_dispatch"
+          },
+          {
+            "msg": "Resolve 18 lint errors including 6 runtime crash bugs"
+          },
+          {
+            "msg": "Purge Windows-era shell remnants + fallback crash"
+          },
+          {
+            "msg": "Strip data-URL prefix before base64 decode in sendPhoto path"
+          },
+          {
+            "msg": "Restore native screenshot-to-tg, wire tg token, parallel hydrate"
+          },
+          {
+            "msg": "Resolve 18 lint errors incl. 6 runtime crash bugs"
+          },
+          {
+            "msg": "Remove electron imports from live channels — tg/awareness/google crash on first use"
+          },
+          {
+            "msg": "Remove stale .gitignore dir rules that broke Release Prepare"
+          },
+          {
+            "msg": "Remove no-op nested overrides breaking frozen-lockfile, pin Bun version"
+          },
+          {
+            "msg": "Restore plugin/skills/tg channels with approval gates, dependency hardening, migration-gap"
+          },
+          {
+            "msg": "Deterministic drain-exit, correlated ask_user, honest TG commands"
+          },
+          {
+            "msg": "Real durations, executed verifier, persistent sidecar RPC"
+          },
+          {
+            "msg": "Point homepage to mark-agent-linux fork"
+          },
+          {
+            "msg": "Restore stale branches in tauri.yml"
+          },
+          {
+            "msg": "Remove stray closing brace in dispatchReleaseWorkflow"
+          },
+          {
+            "msg": "Gh workflow run --ref linux -f tag=TAG, remove dependency on master branch for workflow_dispatch"
+          },
+          {
+            "msg": "Workflow_dispatch integration with explicit tag passing, actions:write permission, version-scoped concurrency, tag validation"
+          },
+          {
+            "msg": "Explicitly dispatch release.yml via workflow_dispatch, add PR filter and manual validation guards"
+          },
+          {
+            "msg": "Branch selection before file mutation in prepareRelease, add integration tests for PR update ordering"
+          },
+          {
+            "msg": "Wire update checker into App lifecycle — startup init + cleanup on unmount"
+          },
+          {
+            "msg": "Replace non-existent semver.format with string template in nextAlphaVersion, add 31 scenario tests"
+          },
+          {
+            "msg": "Final hardening - semver in package.json, reachable tag detection, linux merge into release branch"
+          },
+          {
+            "msg": "Idempotency via releases.json, after-merge re-release prevention, and tag-reachable-only tag detection"
+          },
+          {
+            "msg": "Correct idempotency and update detection, add semver dependency"
+          },
+          {
+            "msg": "Use htmlparser2 DOM parser for script/style sanitization"
+          },
+          {
+            "msg": "Use full tag-matching regex for script/style stripping"
+          },
+          {
+            "msg": "Improve HTML sanitization regex to match closing tags with optional whitespace"
+          },
+          {
+            "msg": "Add permissions blocks to workflow, improve HTML sanitization regex"
+          },
+          {
+            "msg": "Persona identity — strip upstream 'Mazees'/'Mada' defaults on linux fork"
+          },
+          {
+            "msg": "Simplify Configuration labels, restore occupation, rename AI Engine to Model"
+          },
+          {
+            "msg": "Remove easter egg, clean memory button, first-boot flow final"
+          },
+          {
+            "msg": "FirstBootChoiceScreen as modal overlay, auto-skip config wizard"
+          },
+          {
+            "msg": "Skip config wizard on first boot, sidebar nav + remove tour dead code"
+          },
+          {
+            "msg": "Remove tour guide, cache camera enumeration, external links"
+          },
+          {
+            "msg": "DevUrl 1420 to match vite default port"
+          },
+          {
+            "msg": "Correct import path in autoProfile.js"
+          },
+          {
+            "msg": "Wrap first-boot Configuration with HashRouter to prevent useNavigate crash"
+          },
+          {
+            "msg": "PlayUrl missing destructure crash + WASM SIMD fallback + init spam"
+          },
+          {
+            "msg": "Deklarasikan vitest di devDependencies"
+          },
+          {
+            "msg": "Paritas bridge, privasi clear-all, integritas vektor lite-mode"
+          },
+          {
+            "msg": "Pengaman terminasi loop ReAct renderer"
+          },
+          {
+            "msg": "Restorasi hardening sidecar yang hilang saat migrasi"
+          },
+          {
+            "msg": "Containment fs native, allowlist IPC deny-by-default, approval rfd"
+          },
+          {
+            "msg": "Browser-mode stub — vite di browser tanpa Tauri kini ramah"
+          },
+          {
+            "msg": "Sidecar electron stub ter-commit , CSP ipc: utk devtools, rust warnings"
+          },
+          {
+            "msg": "Html/body opaque paint + data-theme forest pindah ke <html> asli"
+          },
+          {
+            "msg": "Opaque window — WebKitGTK tidak menggambar backdrop; drop electron lama"
+          },
+          {
+            "msg": "Green lint — sync lockfile, dedupe preload keys, drop max-warnings gate"
+          },
+          {
+            "msg": "Re-apply config sidebar wiring on synced upstream tree"
+          },
+          {
+            "msg": "Update confirmation check to prevent errors on session deletion"
+          },
+          {
+            "msg": "P2 tray + P10 WhatNew + P11 sidebar + icon imports"
+          },
+          {
+            "msg": "P2 - tray icon Linux + before-quit handler"
+          },
+          {
+            "msg": "WhatNew FaTag import + ConfigSidebar FaCamera"
+          },
+          {
+            "msg": "Revert P5 preload .mjs — upstream builds index.js ; P5 obsolete"
+          },
+          {
+            "msg": "Apply stash Linux-migration patches"
+          },
+          {
+            "msg": "Re-apply P1-P5 overlay patches post-upstream merge"
+          },
+          {
+            "msg": "Update background glow color for disgust mood in MarkHome component"
+          },
+          {
+            "msg": "Preload .mjs — electron-vite 5 ESM output"
+          },
+          {
+            "msg": "Tray icon Linux + window controls unblockable + Telegram standalone"
+          },
+          {
+            "msg": "Sync deps to official + re-apply Linux 9Router patch"
+          },
+          {
+            "msg": "Wrap Configuration first-setup in HashRouter + add useMemoryGroomer stub"
+          },
+          {
+            "msg": "Dock YT Music as bottom-right mini-player"
+          },
+          {
+            "msg": "Music official UI + robust controls + orb->voice morph"
+          },
+          {
+            "msg": "Restore createWindow call — lost in 25c8b06 merge"
+          },
+          {
+            "msg": "Defer markSession init to app.whenReady — Session error on boot"
+          },
+          {
+            "msg": "Browser-agent missing session import — ReferenceError on boot"
+          },
+          {
+            "msg": "Playback via official YT Music + track-event fallback utk judul tanpa ' - '"
+          },
+          {
+            "msg": "Music-recent risk green + rewrite ATURAN memory-first di planning.js + degraded list"
+          },
+          {
+            "msg": "Pindah trigger live-audio ke tombol Voice Mode di 4-mode bar, bukan embed"
+          },
+          {
+            "msg": "Filter synthetic / rows from audit feed"
+          },
+          {
+            "msg": "Unlock riset hanya kalau URL search beneran"
+          },
+          {
+            "msg": "Alias @renderer di vitest.config.mjs"
+          },
+          {
+            "msg": "YouTube oEmbed CORS — proxy via main process IPC"
+          },
+          {
+            "msg": "Compressor protectLastN 20→8 + NaN timestamp guard"
+          },
+          {
+            "msg": "Adaptive retry for empty/truncated AI responses"
+          },
+          {
+            "msg": "OnDownloadStateChange not defined in Configuration scope"
+          },
+          {
+            "msg": "Resolve vite peer conflict — downgrade vite@^6, @vitejs/plugin-react@^5"
+          },
+          {
+            "msg": "Resolve merge conflict markers from cd/friendly-visvesvaraya-3a533a"
+          },
+          {
+            "msg": "Vision globalConfig + MaxListeners + empty content retry"
+          },
+          {
+            "msg": "Render ConfirmModal as component in RelationalGrowth page"
+          },
+          {
+            "msg": "Import-tiktok-cookies argv index + disableHardwareAcceleration + per-cookie try/catch"
+          },
+          {
+            "msg": "Render ConfirmModal as component in RelationalGrowth page"
+          },
+          {
+            "msg": "Restore 'Membangunkan Mark...' boot loading like official"
+          },
+          {
+            "msg": "Preload index.mjs path — window.api undefined"
+          },
+          {
+            "msg": "Preload path .mjs mismatch — window.api undefined at runtime"
+          },
+          {
+            "msg": "Drop unused catch param in model-hints block"
+          },
+          {
+            "msg": "Align body hashing across manifest/IPC/loader"
+          },
+          {
+            "msg": "CSP allow unsafe-eval — Transformers.js WASM embeddings blocked, memory MMS degraded"
+          },
+          {
+            "msg": "CSP allow unsafe-eval — Transformers.js WASM embeddings blocked, memory MMS degraded"
+          },
+          {
+            "msg": "Strengthen E2/F3/B4 assertions in stress tests"
+          },
+          {
+            "msg": "Restore getYoutubeSummary import — all tools crashed with ReferenceError after dispatch"
+          },
+          {
+            "msg": "Restore getYoutubeSummary import — all tools crashed with ReferenceError after dispatch"
+          },
+          {
+            "msg": "Signature on own line in create-agent-skill frontmatter"
+          },
+          {
+            "msg": "Block threshold >= 3 in classifyContentRisk"
+          },
+          {
+            "msg": "Remove unused imports in agent-skills-loader"
+          },
+          {
+            "msg": "Consistent frontmatter extraction in -manifest"
+          },
+          {
+            "msg": "Count tool crashes toward guardrail hard-stop; dismiss process on all exits"
+          },
+          {
+            "msg": "Count tool crashes toward guardrail hard-stop; dismiss process on all exits"
+          },
+          {
+            "msg": "Retry instead of dumping CoT as answer on parse failure"
+          },
+          {
+            "msg": "Retry instead of dumping CoT as answer on parse failure"
+          },
+          {
+            "msg": "CoT bocor ke jawaban + tambah panel Proses Pemikiran"
+          },
+          {
+            "msg": "CoT bocor ke jawaban + tambah panel Proses Pemikiran"
+          },
+          {
+            "msg": "Stay in chat mode after submit"
+          },
+          {
+            "msg": "Stay in chat mode after submit"
+          },
+          {
+            "msg": "0.1s fade-up for low-end devices"
+          },
+          {
+            "msg": "0.1s fade-up for low-end devices"
+          },
+          {
+            "msg": "Faster fade-up for 4-mode bar morph"
+          },
+          {
+            "msg": "Faster fade-up for 4-mode bar morph"
+          },
+          {
+            "msg": "4-mode bar — InputBar fluid, single fixed container for morph"
+          },
+          {
+            "msg": "4-mode bar — InputBar fluid, single fixed container for morph"
+          },
+          {
+            "msg": "Rollback colors to forest green, keep fluid layout + 4-mode bar"
+          },
+          {
+            "msg": "Rollback colors to forest green, keep fluid layout + 4-mode bar"
+          },
+          {
+            "msg": "Remove response card boundary — natural flow"
+          },
+          {
+            "msg": "Remove response card boundary — natural flow"
+          },
+          {
+            "msg": "Connect orb to YT player — orb turns purple when music playing"
+          },
+          {
+            "msg": "Connect orb to YT player — orb turns purple when music playing"
+          },
+          {
+            "msg": "Integrate YT player into MarkHome, remove floating card"
+          },
+          {
+            "msg": "Integrate YT player into MarkHome, remove floating card"
+          },
+          {
+            "msg": "Music UI — remove redundant title text, add inline controls, YouTube hidden-by-default"
+          },
+          {
+            "msg": "Music UI — remove redundant title text, add inline controls, YouTube hidden-by-default"
+          },
+          {
+            "msg": "Rollback music routing from core — dedicated YT player + showPlayer alias intact"
+          },
+          {
+            "msg": "Rollback music routing from core — dedicated YT player + showPlayer alias intact"
+          },
+          {
+            "msg": "Dedicated YT player routing + showPlayer alias + catch-all music regex"
+          },
+          {
+            "msg": "Dedicated YT player routing + showPlayer alias + catch-all music regex"
+          },
+          {
+            "msg": "Music fast-path regex — support \"tolong putarin lagu\" / \"cariin dong\" / \"setop\""
+          },
+          {
+            "msg": "Music fast-path regex — support \"tolong putarin lagu\" / \"cariin dong\" / \"setop\""
+          },
+          {
+            "msg": "Music routing — AI pake browser not music player"
+          },
+          {
+            "msg": "Music routing — AI pake browser not music player"
+          },
+          {
+            "msg": "Browser preview stale state — remove auto-show, notify renderer on close, clear preview when window null"
+          },
+          {
+            "msg": "Browser preview stale state — remove auto-show, notify renderer on close, clear preview when window null"
+          },
+          {
+            "msg": "YT track info sync + hidden-by-default + IPC channel alignment"
+          },
+          {
+            "msg": "YT track info sync + hidden-by-default + IPC channel alignment"
+          },
+          {
+            "msg": "Track info sync — browser-agent.ts YouTube title → yt:track-updated IPC. Add .youtube-protection.yml guard."
+          },
+          {
+            "msg": "Track info sync — browser-agent.ts YouTube title → yt:track-updated IPC. Add .youtube-protection.yml guard."
+          },
+          {
+            "msg": "YT — no restart on toggle . BrowserWindow shows after did-finish-load"
+          },
+          {
+            "msg": "Browser-agent.js — add Chrome UA spoofing, CSP removal, anti-fingerprint injection via did-start-navigation + dom-ready"
+          },
+          {
+            "msg": "Show YT BrowserWindow before navigation. Context: use physical browser-agent as primary player, fallback to hidden BrowserWindow"
+          },
+          {
+            "msg": "Vision-service — resolve model from registry instead of hardcoded LM Studio. Routes through resolveVisionModel + getModelEndpoint"
+          },
+          {
+            "msg": "YT webview CSS — hide all page elements except player, keep ad-block, fit 280px height"
+          },
+          {
+            "msg": "Model registry case-insensitive lookup . YT player: webview flex, resize 480x360→w-full h-[280px]"
+          },
+          {
+            "msg": "Handle AI content=null gracefully — retry with instruction instead of silent failure"
+          },
+          {
+            "msg": "YouTube webview script injection — catch unhandled rejections causing GUEST_VIEW_MANAGER_CALL errors"
+          },
+          {
+            "msg": "Override transitive CVEs — protobufjs RCE, node-fetch SSRF, minimatch ReDoS, braces, sharp"
+          },
+          {
+            "msg": ".gitignore — exclude heap/har/gz . Knowledge.jsx — add .json to accept"
+          },
+          {
+            "msg": "— template literal in pc-agent.js, jsonrepair top-level await in ai-bridge.js, missing resolveVisionModel export"
+          },
+          {
+            "msg": "Post-review — add Ctrl+Shift+S emergency shortcut, add pc-screenshot/os-ask dispatch cases"
+          },
+          {
+            "msg": "Read-ui.py — address review: try/except on all AT-SPI calls, recursive focus search, depth guard"
+          },
+          {
+            "msg": "Linux-agent.sh — address spec + code review findings"
+          },
+          {
+            "msg": "Voice fast path gate — risk assessment before execute"
+          },
+          {
+            "msg": "Reasoning model fallback + chat summarizer raw JSON guard"
+          },
+          {
+            "msg": "Bug hunt — ai-bridge, native-tools, ytdl-service, config"
+          },
+          {
+            "msg": "YouTube widget — hide page clutter, show only video player"
+          },
+          {
+            "msg": "Mark process cannot close — 3 quit blockers + YT player sizing"
+          },
+          {
+            "msg": "Catch EIO on console.log when stdout pipe is broken"
+          },
+          {
+            "msg": "Handle SIGINT/SIGTERM for clean exit on Linux"
+          },
+          {
+            "msg": "Guard Tray handlers against destroyed BrowserWindow"
+          },
+          {
+            "msg": "Add 'learn' type to memory schema, Guidebook grep description"
+          },
+          {
+            "msg": "Add missing ytmusic-api dep and linux.icon config"
+          },
+          {
+            "msg": "Add event dispatch for configuration updates and enhance logging in CameraPreview"
+          },
+          {
+            "msg": "Enhance captureFrame error handling and logging for improved debugging"
+          },
+          {
+            "msg": "Enhance character emotional response rules and adaptive persona guidelines for improved interaction"
+          },
+          {
+            "msg": "Refine character rules and emotional responses for improved interaction realism"
+          },
+          {
+            "msg": "Update non-intrusive action rules and clarify camera usage instructions for awareness"
+          },
+          {
+            "msg": "Optimize AI message handling and update screenshot tool naming for clarity"
+          },
+          {
+            "msg": "Refine image analysis prompt for clarity and focus on visual elements"
+          },
+          {
+            "msg": "Update intent query handling in planning command for improved context processing"
+          },
+          {
+            "msg": "Correct music category text and refine browser automation guidelines"
+          },
+          {
+            "msg": "Improve memory management and output formatting in AI processing functions"
+          },
+          {
+            "msg": "Optimize message handling and memory management in WhatsApp bot"
+          },
+          {
+            "msg": "Update loading condition to check isAgentBusy in useMarkAgent hook"
+          },
+          {
+            "msg": "Adjust autonomous message handling in useMarkPlan and enable tools in useAwareness"
+          },
+          {
+            "msg": "Memory leak and json scheme"
+          },
+          {
+            "msg": "Ensure memory key is trimmed and lowercased before insertion and update"
+          },
+          {
+            "msg": "Update check-in interval and initial delay in useAwareness hook; improve awareness response conditions"
+          },
+          {
+            "msg": "Correct project title in README from \"Memory Adaptive Response Knowledge\" to \"Metacognitive Artificial Relational Knowledge\""
+          },
+          {
+            "msg": "Music player cannot change music when playing music from whatsapp and ai insert memory in english"
+          },
+          {
+            "msg": "Update isAction state to enable planning mode in ChatContext"
+          },
+          {
+            "msg": "Youtube tidak tampil saat summary"
+          },
+          {
+            "msg": "Update section title from \"Roadmap Masa Depan\" to \"Roadmap Plan\" in README"
+          }
+        ],
+        "security": [
+          {
+            "msg": "Pc-agent.js — execSync→spawn , input sanitize, remove unused fs import, XSS escape question"
+          }
+        ],
+        "docs": [
+          {
+            "msg": "Drop Fase 2 runtime, add lint gate, and sync with the codebase"
+          },
+          {
+            "msg": "Simplify outcome learning roadmap"
+          },
+          {
+            "msg": "Record root cause in session log"
+          },
+          {
+            "msg": "Port pointer-integrity layer onto d92538b chunked summarizer"
+          },
+          {
+            "msg": "Add Abelink personal growth design outputs"
+          },
+          {
+            "msg": "Remove the phantom avo arch instead of letting it lie"
+          },
+          {
+            "msg": "Drop Fase 2 runtime, add lint gate, sync with code"
+          },
+          {
+            "msg": "Track graphify knowledge graph, agent workflows, and relax doc rules for multi-agent collaboration"
+          },
+          {
+            "msg": "Session log PR1 + rencana PR2 long-horizon"
+          },
+          {
+            "msg": "Add session log for PR2 long-horizon Phase A"
+          },
+          {
+            "msg": "Session log PR1 + rencana PR2 long-horizon"
+          },
+          {
+            "msg": "Session log PR1 + rencana PR2 long-horizon"
+          },
+          {
+            "msg": "Abelink cognitive runtime Fase 2 — trajectory search + real-activity bench"
+          },
+          {
+            "msg": "Larang markup slop"
+          },
+          {
+            "msg": "Skip LLM rank bila top-1 cocok kuat"
+          },
+          {
+            "msg": "Split Configuration ke komponen config/* + workspace .abelink"
+          },
+          {
+            "msg": "Simplify CapabilitiesHub layout and text ala Claude Customize"
+          },
+          {
+            "msg": "Update AGENTS.md branding to Abelink, remove em dashes, and link guidelines"
+          },
+          {
+            "msg": "Adopt planned mcp capabilities, remove telegram redundancy, and eliminate ai-slop descriptions"
+          },
+          {
+            "msg": "Enlarge hero orb, add dual orb switcher , and eliminate telemetry text clutter"
+          },
+          {
+            "msg": "Merge release/v1.0.0-alpha.3 into linux"
+          },
+          {
+            "msg": "Hapus file ERROR"
+          },
+          {
+            "msg": "Update perf baseline"
+          },
+          {
+            "msg": "Ignore local worktrees directories"
+          },
+          {
+            "msg": "V1.0.0-alpha.3"
+          },
+          {
+            "msg": "V1.0.0-alpha.2"
+          },
+          {
+            "msg": "Finalize Fase C3 staged plan"
+          },
+          {
+            "msg": "Route-level lazy loading + Prism language trimming"
+          },
+          {
+            "msg": "Multi-run MarkBench orchestrator + release automation"
+          },
+          {
+            "msg": "Modular channel registry + agent-oriented architecture"
+          },
+          {
+            "msg": "Bun toolchain hardening, benchmark smoke gate, MarkBench"
+          },
+          {
+            "msg": "Align AGENTS.md with #17, cache TG status guard, real benchmark scripts"
+          },
+          {
+            "msg": "Restore src-tauri shell and release automation removed without justification"
+          },
+          {
+            "msg": "Tighten branch strategy wording + branch guard"
+          },
+          {
+            "msg": "Merge linux changes and resolve conflicts"
+          },
+          {
+            "msg": "Document master and linux branch governance"
+          },
+          {
+            "msg": "Update RELEASE-AUTOMATION.md with explicit workflow_dispatch chain and safety checks"
+          },
+          {
+            "msg": "Visual parity audit — evidence-accurate"
+          },
+          {
+            "msg": "Visual parity audit — evidence-accurate"
+          },
+          {
+            "msg": "Visual parity audit — Electron vs Tauri/Linux"
+          },
+          {
+            "msg": "Clarify linux-as-baseline — never open PRs against master"
+          },
+          {
+            "msg": "Remove internal files from open-source repo"
+          },
+          {
+            "msg": "Add cargo to , update AGENTS.md branch strategy, bump-version for Tauri"
+          },
+          {
+            "msg": "Reconcile parity matrix"
+          },
+          {
+            "msg": "Add parity audit matrix + validation report for Electron→Tauri port"
+          },
+          {
+            "msg": "Linux branch coverage, upstream sync, dependabot, policy"
+          },
+          {
+            "msg": "Add ROADMAP.md, refine .gitignore for mark-linux open-source"
+          },
+          {
+            "msg": "Filter , tests, scripts, src-tauri, HTML trackers for open-source"
+          },
+          {
+            "msg": "Replace auto-detect with first-boot resource mode chooser"
+          },
+          {
+            "msg": "Clean up junk files from tracking, config identifier"
+          },
+          {
+            "msg": "Remove migrated tools from ALLOWED_ACTIONS"
+          },
+          {
+            "msg": "Remove migrated tools from ALLOWED_ACTIONS"
+          },
+          {
+            "msg": "Restore tests/harness/ required by :harness workflow"
+          },
+          {
+            "msg": "Update log deteksi model, blok groq, vision retry"
+          },
+          {
+            "msg": "Rapikan struktur root + dokumen cara jalan lokal"
+          },
+          {
+            "msg": "Catat hasil rilis perdana v1.0.0-alpha.1"
+          },
+          {
+            "msg": "AGENTS.md layout Tauri terverifikasi, arsip scan lama, planning 1.x"
+          },
+          {
+            "msg": "Gerbang verify lengkap dan workflow yang benar-benar jalan"
+          },
+          {
+            "msg": "Retire electron-era release/bump workflows"
+          },
+          {
+            "msg": "A6 — tauri.yml"
+          },
+          {
+            "msg": "Pindah migration plan ke branch tauri + status eksekusi"
+          },
+          {
+            "msg": "Purge Windows/macOS — native Linux murni"
+          },
+          {
+            "msg": "Linear tracking integrasi 5.5.0"
+          },
+          {
+            "msg": "Lazy-load transformers wasm out of entry bundle"
+          },
+          {
+            "msg": "CSP allow unsafe-eval + blob — dari cd/loving-solomon-613d68"
+          },
+          {
+            "msg": "Remove Proses Pemikiran dropdown from execution panel"
+          },
+          {
+            "msg": "Lite Mode"
+          },
+          {
+            "msg": "Orb easter eggs dari pr-orb-"
+          },
+          {
+            "msg": "Trigger workflow for PRs targeting 5.5.0 branch"
+          },
+          {
+            "msg": "Lite Mode feature bullet"
+          },
+          {
+            "msg": "Drop unused loading var in MemoryVisualizer"
+          },
+          {
+            "msg": "Session log update — upstream sync 0281791 + sidebar re-apply"
+          },
+          {
+            "msg": "Apply upstream delta b8b0d6f..0281791 onto linux integration line"
+          },
+          {
+            "msg": "Simplify ConfirmModal and enhance useConfirm hook functionality"
+          },
+          {
+            "msg": "Update dependencies and improve AI response handling"
+          },
+          {
+            "msg": "Update status base 2026-08-22 + deprecate P5"
+          },
+          {
+            "msg": "Header buttons across multiple pages to use SVG icons and improve accessibility; update styles for consistency and responsiveness."
+          },
+          {
+            "msg": "Setup-linux-pc-agent.sh daemon deps"
+          },
+          {
+            "msg": "Update README.md + add agents.md"
+          },
+          {
+            "msg": "Checkpoint dirty tree for 1202dec cherry-pick"
+          },
+          {
+            "msg": "Register P5 preload .mjs"
+          },
+          {
+            "msg": "LINUX_PATCHES.md — overlay patch registry + merge-upstream workflow"
+          },
+          {
+            "msg": "Reset src/ to upstream/master"
+          },
+          {
+            "msg": "Drift manifest mark-agent-fork vs upstream/master"
+          },
+          {
+            "msg": "Glass UI sweep checkpoint pre-drift-cutoff"
+          },
+          {
+            "msg": "Clarify Groq is STT-only, not a chat provider"
+          },
+          {
+            "msg": "Replace LM Studio UI references with Custom API/General"
+          },
+          {
+            "msg": "Keep YT Music floating centered"
+          },
+          {
+            "msg": "Remove duplicate show-notification IPC handler"
+          },
+          {
+            "msg": "Untrack backups/ + ignore"
+          },
+          {
+            "msg": "Exclude merge artifacts — local-only files"
+          },
+          {
+            "msg": "Preload self-check boot log"
+          },
+          {
+            "msg": "Remove dead session-knowledge IPC — extractor removed YAGNI 6b3bd84, 0 callers in renderer; marked spec-only"
+          },
+          {
+            "msg": "IMPROVE - rsi-improve.mjs"
+          },
+          {
+            "msg": "EVALUATE - rsi-evaluate.mjs + weekly cron"
+          },
+          {
+            "msg": "COLLECT - persist model-calls.jsonl audit feed"
+          },
+          {
+            "msg": "Restore original font sizes, keep layout improvements"
+          },
+          {
+            "msg": "Remove all sessionKnowledge references"
+          },
+          {
+            "msg": "Remove sessionKnowledge.js"
+          },
+          {
+            "msg": "Tighter markdown spacing + responsive breakpoint lg→md"
+          },
+          {
+            "msg": "Split ConfigAI into 3 focused sections"
+          },
+          {
+            "msg": "Sidebar navigation for config page"
+          },
+          {
+            "msg": "Renderer memo + browser semi-visible + pipeline fixes"
+          },
+          {
+            "msg": "Archive non-public files from GitHub — .claude, , tests, session-report, AGENTS.md, CLAUDE.md all untracked + ignored"
+          },
+          {
+            "msg": "Ignore nested artifacts — 260MB heapsnapshot blocked push"
+          },
+          {
+            "msg": "P0 — compact system prompt 45% + per-provider context compaction"
+          },
+          {
+            "msg": "Cd/loving-solomon-613d68 — keep 5.5.0 wasm-unsafe-eval CSP per documented decision"
+          },
+          {
+            "msg": "Cd/friendly-visvesvaraya-3a533a — keep 5.5.0 layout/Turn Governor on conflict"
+          },
+          {
+            "msg": "Track all + artifacts"
+          },
+          {
+            "msg": "Track remaining /PLANNED"
+          },
+          {
+            "msg": "Track /PLANNED + tests, ignore large artifact"
+          },
+          {
+            "msg": "Track PLANNED session + codeql workflow"
+          },
+          {
+            "msg": "Remove Proses Pemikiran dropdown from execution panel"
+          },
+          {
+            "msg": "Track /PLANNED/sessions session logs in gitignore"
+          },
+          {
+            "msg": "Session log tiktok-stealth-cookie-import"
+          },
+          {
+            "msg": "Lazy-load transformers wasm out of entry bundle"
+          },
+          {
+            "msg": "Soften side-tab accent"
+          },
+          {
+            "msg": "Remove Proses Pemikiran dropdown from execution panel"
+          },
+          {
+            "msg": "Soften side-tab accent"
+          },
+          {
+            "msg": "Untrack tests, add CONTRIBUTING.md for human contributors"
+          },
+          {
+            "msg": "Bump openai from 6.49.0 to 7.1.0"
+          },
+          {
+            "msg": "Bump youtube-transcript-plus from 1.2.0 to 2.0.0"
+          },
+          {
+            "msg": "Bump three from 0.182.0 to 0.185.1"
+          },
+          {
+            "msg": "Bump the dev group with 4 updates"
+          },
+          {
+            "msg": "Bump actions/setup-node from 4 to 7"
+          },
+          {
+            "msg": "Bump actions/checkout from 4 to 7"
+          },
+          {
+            "msg": "Bump softprops/action-gh-release from 2 to 3"
+          },
+          {
+            "msg": "Bump actions/upload-artifact from 4 to 7"
+          },
+          {
+            "msg": "Bump openai from 6.49.0 to 7.1.0"
+          },
+          {
+            "msg": "Bump youtube-transcript-plus from 1.2.0 to 2.0.0"
+          },
+          {
+            "msg": "Bump three from 0.182.0 to 0.185.1"
+          },
+          {
+            "msg": "Bump the dev group with 4 updates"
+          },
+          {
+            "msg": "Bump actions/setup-node from 4 to 7"
+          },
+          {
+            "msg": "Bump actions/checkout from 4 to 7"
+          },
+          {
+            "msg": "Bump softprops/action-gh-release from 2 to 3"
+          },
+          {
+            "msg": "Bump actions/upload-artifact from 4 to 7"
+          },
+          {
+            "msg": "Sync branch"
+          },
+          {
+            "msg": "Untrack AI/dev — end-user repo only"
+          },
+          {
+            "msg": "Extend gitignore"
+          },
+          {
+            "msg": "Untrack agent artifacts"
+          },
+          {
+            "msg": "Untrack agent artifacts, extend gitignore"
+          },
+          {
+            "msg": "Watermark v2 agent-skill signing + trust system into branch"
+          },
+          {
+            "msg": "WATERMARK v2 stress tests — 8 attack vectors"
+          },
+          {
+            "msg": "Add vitest harness + unit tests"
+          },
+          {
+            "msg": "Add vitest harness + unit tests"
+          },
+          {
+            "msg": "Remove unused imports"
+          },
+          {
+            "msg": "Remove unused imports"
+          },
+          {
+            "msg": "Slim AGENTS.md , move internals to /ARCHITECTURE-INTERNALS.md"
+          },
+          {
+            "msg": "Slim AGENTS.md , move internals to /ARCHITECTURE-INTERNALS.md"
+          },
+          {
+            "msg": "Split Configuration.jsx into per-section components"
+          },
+          {
+            "msg": "Split Configuration.jsx into per-section components"
+          },
+          {
+            "msg": "Lazy-load all route pages"
+          },
+          {
+            "msg": "Lazy-load all route pages"
+          },
+          {
+            "msg": "Extract tool dispatch from useMarkPlan into agent/tools modules"
+          },
+          {
+            "msg": "Extract tool dispatch from useMarkPlan into agent/tools modules"
+          },
+          {
+            "msg": "Unify cleanAndParse into src/shared"
+          },
+          {
+            "msg": "Unify cleanAndParse into src/shared"
+          },
+          {
+            "msg": "InputBar — leaner, smaller icons, lighter padding, 0.1s anim"
+          },
+          {
+            "msg": "InputBar — leaner, smaller icons, lighter padding, 0.1s anim"
+          },
+          {
+            "msg": "Guidebook code block amber-400"
+          },
+          {
+            "msg": "Guidebook code block amber-400"
+          },
+          {
+            "msg": "Dot amber-400, remove ping halo"
+          },
+          {
+            "msg": "Dot amber-400, remove ping halo"
+          },
+          {
+            "msg": "Fluid layout, inline music controls, 4-mode bar placeholder"
+          },
+          {
+            "msg": "Fluid layout, inline music controls, 4-mode bar placeholder"
+          },
+          {
+            "msg": "Orb → sky+amber palette, no playing scale"
+          },
+          {
+            "msg": "Orb → sky+amber palette, no playing scale"
+          },
+          {
+            "msg": "Theme → monochrome+amber, fade animations"
+          },
+          {
+            "msg": "Theme → monochrome+amber, fade animations"
+          },
+          {
+            "msg": "Untrack model-registry.json"
+          },
+          {
+            "msg": "Untrack model-registry.json"
+          },
+          {
+            "msg": "Improve .gitignore — *.bak, .env.*, .nvmrc, agent memory"
+          },
+          {
+            "msg": "Improve .gitignore — *.bak, .env.*, .nvmrc, agent memory"
+          },
+          {
+            "msg": "Remove leaked .env.bak and .nvmrc from tracking"
+          },
+          {
+            "msg": "Remove leaked .env.bak and .nvmrc from tracking"
+          },
+          {
+            "msg": "Update version to 5.0.0 in package.json"
+          },
+          {
+            "msg": "Update version to 5.0.0 in package.json"
+          },
+          {
+            "msg": "Session log — Linux PC Agent + YouTube BrowserWindow integration"
+          },
+          {
+            "msg": "Session log — Linux PC Agent + YouTube BrowserWindow integration"
+          },
+          {
+            "msg": "Add permanent rule — NEVER push without user approval"
+          },
+          {
+            "msg": "Add permanent rule — NEVER push without user approval"
+          },
+          {
+            "msg": "Untrack youtube HAR file"
+          },
+          {
+            "msg": "Untrack youtube HAR file"
+          },
+          {
+            "msg": "Remove webview anti-detection from index.js — BrowserWindow handles its own UA/CSP"
+          },
+          {
+            "msg": "Remove large files from git tracking"
+          },
+          {
+            "msg": "Session lifecycle — auto knowledge extraction on session end"
+          },
+          {
+            "msg": "Debounce pointermove, React.memo ResponseArea, optimize InputBar reflow"
+          },
+          {
+            "msg": "Code-split heavy pages via React.lazy to reduce bundle 4.8MB→4.6MB"
+          },
+          {
+            "msg": "Improve .gitignore — explicit sectioned, protect tracked , exclude agent workspaces"
+          },
+          {
+            "msg": "Gitignore .superpowers/ and quest.md"
+          },
+          {
+            "msg": "Update AGENTS.md with Linux PC Agent components"
+          },
+          {
+            "msg": "Add setup-linux-pc-agent.sh dependency installer"
+          },
+          {
+            "msg": "Universal Session Knowledge Schema — cross-agent knowledge preservation"
+          },
+          {
+            "msg": "Add structured session knowledge — preserve chat reasoning"
+          },
+          {
+            "msg": "Add self-preservation rule — MARK cannot delete itself"
+          },
+          {
+            "msg": "Tool-registry, vision-service, MCP SDK — future use for tri-layer tools + dual-path vision"
+          },
+          {
+            "msg": "Housekeeping sprint"
+          },
+          {
+            "msg": "Quarantine vs delete — malware dilemma solution"
+          },
+          {
+            "msg": "Add scoped permissions — anti-generalization"
+          },
+          {
+            "msg": "Add transparency, privacy, human safety to OS control architecture"
+          },
+          {
+            "msg": "OS control architecture — -first computer control"
+          },
+          {
+            "msg": "Remove active-win dep, finalize Linux-only text references"
+          },
+          {
+            "msg": "Checkpoint before switching to /linux-adaptation-merge"
+          },
+          {
+            "msg": "Strip Windows/macOS — Linux-only fork"
+          },
+          {
+            "msg": "Gitignore .superpowers/ and quest.md"
+          },
+          {
+            "msg": "Remove unused imports to silence warnings"
+          },
+          {
+            "msg": "Rename unpackFfmpeg→ffmpegPath, update Guidebook for cross-platform shell"
+          },
+          {
+            "msg": "Add Linux adaptation design spec"
+          },
+          {
+            "msg": "Vision awareness and json parsing error"
+          },
+          {
+            "msg": "Update version to 4.0.0 in package.json and refine README features"
+          },
+          {
+            "msg": "Improve communication guidelines and greeting logic in AI assistant"
+          },
+          {
+            "msg": "Simplify browser window visibility logic in navigation function"
+          },
+          {
+            "msg": "Implement screenshot functionality, enhance vision analysis, and improve loading state management"
+          },
+          {
+            "msg": "Integrate chat context for dynamic configuration updates and enhance setup flow"
+          },
+          {
+            "msg": "Enhance fetchAI debug logging, add memory deletion functionality, and improve configuration page navigation"
+          },
+          {
+            "msg": "Enhance loading state messages, update vector generation logic, and improve configuration handling"
+          },
+          {
+            "msg": "Enhance timeout logic, improve state management, and update awareness hook parameters"
+          },
+          {
+            "msg": "Implement native tools with approval mechanism and enhance awareness features"
+          },
+          {
+            "msg": "Update dynamic plan initialization and loading state messages for improved clarity"
+          },
+          {
+            "msg": "Update CLOUD_DELAY_MS to 3000ms for improved rate limiting and remove hardware acceleration to prevent GPU crashes"
+          },
+          {
+            "msg": "Update fetchAI function to improve error handling and remove custom token limit for OpenRouter : enhance getNextAction documentation and clarify coding rules for AI responses delete: remove DotGrid component for better code maintainability"
+          },
+          {
+            "msg": "Banner repositories"
+          },
+          {
+            "msg": "Banner"
+          },
+          {
+            "msg": "Update plugin execution handling and improve awareness instructions for autonomous actions"
+          },
+          {
+            "msg": "Rename OrbVisualizer to CubeVisualizer and enhance visual effects based on status and mood"
+          },
+          {
+            "msg": "Disable opening DevTools on main window ready event"
+          },
+          {
+            "msg": "Update session handling and improve chat history management"
+          },
+          {
+            "msg": "Remove ThinkingBubble and NowPlayingWidget components; update ChatList and ResponseArea for improved functionality"
+          },
+          {
+            "msg": "Rename waAutonomous to waAgent, update runWhatsappAgent parameters, and enhance awareness response with recent chat history"
+          },
+          {
+            "msg": "Update version to 2.0.0 and code for improved readability"
+          },
+          {
+            "msg": "Core chat system and remove folder context system"
+          },
+          {
+            "msg": "Remove unnecessary configuration from package.json"
+          },
+          {
+            "msg": "Disable opening DevTools on main window ready"
+          },
+          {
+            "msg": "Update version from 1.2.2 to 1.3.0 in package.json"
+          },
+          {
+            "msg": "Update chat assistant prompts and memory handling for improved user interaction and clarity"
+          },
+          {
+            "msg": "Increment version to 1.1.0 and enhance README with Secondary Model and Transparent Reasoning UI"
+          },
+          {
+            "msg": "Implement AI music selection logic for YouTube Music Player"
+          },
+          {
+            "msg": "Add AGENTS.md to .gitignore and enhance API with live audio shortcuts"
+          },
+          {
+            "msg": "Transformer embedding"
+          },
+          {
+            "msg": "Menerapkan live audio beta"
+          },
+          {
+            "msg": "Default value pitch and rate tts"
+          },
+          {
+            "msg": "Rate & pitch configuration"
+          },
+          {
+            "msg": "Live audio page"
+          },
+          {
+            "msg": "Text to speech"
+          },
+          {
+            "msg": "Shift enter to submit message"
+          },
+          {
+            "msg": "Readme"
+          },
+          {
+            "msg": "Music player"
+          },
+          {
+            "msg": "Update layout structure in App component and enhance Markdown styling"
+          }
+        ]
+      }
+    },
     {
       "version": "1.0.0-alpha.3",
       "date": "4 September 2026",
