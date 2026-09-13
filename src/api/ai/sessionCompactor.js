@@ -25,7 +25,7 @@ export const PRESERVE_RECENT_TURNS = 4
 
 export function getMessageId(msg, fallbackIndex = 0) {
   if (!msg) return `msg-${fallbackIndex}`
-  return String(msg.id || msg.timestamp || `msg-${fallbackIndex}`)
+  return String(msg.id || msg.created_at || msg.timestamp || `msg-${fallbackIndex}`)
 }
 
 export function calculateMessageChars(msg) {
@@ -63,6 +63,7 @@ export function calculateSessionChars(messages = [], summaryBlock = '', lastComp
       if (
         getMessageId(msg, i) === targetId ||
         String(msg?.id) === targetId ||
+        String(msg?.created_at) === targetId ||
         String(msg?.timestamp) === targetId
       ) {
         startIndex = i + 1
@@ -205,7 +206,15 @@ export async function executeSessionCompaction({
   }
   const currentChars = calculateSessionChars(messages, existingSummaryBlock, existingLastCompactedId)
   if (!force && currentChars < MAX_SESSION_CHARS) {
-    return { success: true, isCompacted: false, compactedMessages: messages, currentChars }
+    return {
+      success: true,
+      isCompacted: false,
+      compactedMessages: messages,
+      newSummaryBlock: existingSummaryBlock,
+      summaryBlock: existingSummaryBlock,
+      lastCompactedMessageId: existingLastCompactedId,
+      currentChars
+    }
   }
   if (typeof onProgress === 'function') {
     onProgress({ stage: 'pruning', text: 'Memangkas log tool di memori...' })
@@ -220,7 +229,17 @@ export async function executeSessionCompaction({
         console.warn('[sessionCompactor] Gagal menyimpan pruned messages:', e?.message)
       }
     }
-    return { success: true, isCompacted: true, prunedOnly: true, compactedMessages: prunedMessages, currentChars: prunedChars }
+    return {
+      success: true,
+      isCompacted: true,
+      prunedOnly: true,
+      compactedMessages: prunedMessages,
+      tailMessages: prunedMessages,
+      newSummaryBlock: existingSummaryBlock,
+      summaryBlock: existingSummaryBlock,
+      lastCompactedMessageId: existingLastCompactedId,
+      currentChars: prunedChars
+    }
   }
   if (typeof onProgress === 'function') {
     onProgress({ stage: 'summarizing', text: 'Merangkum konteks percakapan lama...' })
@@ -234,6 +253,7 @@ export async function executeSessionCompaction({
       if (
         getMessageId(msg, i) === targetId ||
         String(msg?.id) === targetId ||
+        String(msg?.created_at) === targetId ||
         String(msg?.timestamp) === targetId
       ) {
         startIndexToSummarize = i + 1
@@ -276,6 +296,7 @@ export async function executeSessionCompaction({
     tailMessages,
     lastCompactedMessageId,
     newSummaryBlock,
+    summaryBlock: newSummaryBlock,
     currentChars: finalChars
   }
 }
@@ -289,15 +310,17 @@ export function assembleCompactedPayload({ messages = [], sessionCompact = null,
   if (systemPrompt) payload.push({ role: 'system', content: systemPrompt })
   const summaryBlock = sessionCompact?.summaryBlock
   const lastCompactedId = sessionCompact?.lastCompactedMessageId
-  if (summaryBlock && lastCompactedId) {
+  if (summaryBlock) {
     let cutIndex = -1
-    for (let i = 0; i < messages.length; i++) {
-      if (getMessageId(messages[i], i) === String(lastCompactedId)) {
-        cutIndex = i
-        break
+    if (lastCompactedId) {
+      for (let i = 0; i < messages.length; i++) {
+        if (getMessageId(messages[i], i) === String(lastCompactedId)) {
+          cutIndex = i
+          break
+        }
       }
     }
-    const activeSlice = cutIndex !== -1 ? messages.slice(cutIndex + 1) : messages.slice(-1)
+    const activeSlice = cutIndex !== -1 ? messages.slice(cutIndex + 1) : messages
     payload.push({ role: 'user', content: `[ COMPACTED MESSAGE SUMMARY ] ${summaryBlock}` })
     for (const msg of activeSlice) {
       if (isSkipped(msg)) continue

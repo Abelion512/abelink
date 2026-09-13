@@ -22,7 +22,7 @@ publik agar tidak menjadi format bikinan sendiri:
 |---|---|---|---|
 | `v` | int | ya | `1` |
 | `ts` | string | ya | RFC3339 UTC (`new Date().toISOString()` renderer / `rfc3339` Rust) |
-| `kind` | enum | ya | `reasoning \| tool-call \| observation \| answer \| step \| sub-agent \| session` |
+| `kind` | enum | ya | `reasoning \| tool-call \| observation \| answer \| step \| sub-agent \| session \| turn-start \| turn-end` |
 | `id` | string | ya (UI) | unik per entri (`<kind>-<ts>-<rand>`) |
 | `seq` | int | ya (v1.1) | monotonik menaik per buffer, bertahan reload |
 | `sessionId` | int/string/null | anjuran | sesi chat (`1` = utama); null bila tak tersedia |

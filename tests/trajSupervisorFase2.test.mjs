@@ -22,7 +22,7 @@ describe('supervisor Fase 2 outputs', () => {
     expect(typeof third.nextStrategy).toBe('string')
   })
 
-  it('BACKTRACK surfaces restoreHint naming the best key when stagnation high', () => {
+  it('stagnation ladder surfaces nextStrategy when repeated failures occur', () => {
     const sup = createTrajectorySupervisor()
     sup.update({ tool: 'read-file', query: 'src/a.js', success: true, verificationRank: 1, score: 0.8, ...base })
     let r = null
