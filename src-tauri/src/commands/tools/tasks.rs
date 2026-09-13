@@ -242,6 +242,21 @@ mod tests {
         proc_gone(pid)
     }
 
+    // spawn() kembali setelah fork tapi SEBELUM exec() anak selesai — pada
+    // CI yang lambat/terbeban, /proc/<pid>/comm sesaat masih memuat nama
+    // induknya (rusak asumsi "comm = bash langsung setelah spawn").
+    // Polling dengan batas waktu membuat test deterministik.
+    fn wait_comm_is(pid: u32, expected: &str) -> bool {
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_secs(5) {
+            if crate::cmd_node_bridge::group_is_ours(pid, &[expected]) {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        crate::cmd_node_bridge::group_is_ours(pid, &[expected])
+    }
+
     #[test]
     fn group_is_ours_matches_bash_child_only() {
         use std::os::unix::process::CommandExt;
@@ -249,7 +264,8 @@ mod tests {
         cmd.arg("-c").arg("sleep 60").process_group(0);
         let mut child = cmd.spawn().expect("spawn bash test");
         let pid = child.id();
-        assert!(crate::cmd_node_bridge::group_is_ours(pid, &["bash"]));
+        // Tunggu exec() anak selesai sebelum menilai comm (lihat wait_comm_is).
+        assert!(wait_comm_is(pid, "bash"), "comm anak harus jadi 'bash' setelah exec");
         assert!(!crate::cmd_node_bridge::group_is_ours(pid, &["tidak-ada"]));
         // PID yang tidak ada -> false (tidak pernah kill buta).
         assert!(!crate::cmd_node_bridge::group_is_ours(u32::MAX, &["bash"]));
@@ -270,6 +286,9 @@ mod tests {
         cmd.arg("-c").arg("sleep 60 & wait").process_group(0);
         let mut child = cmd.spawn().expect("spawn bash test");
         let pid = child.id();
+        // exec() anak harus selesai dulu agar grup-0-nya pasti ada (kommutator
+        // 'bash' sebagai penanda); sekaligus deterministik di CI lambat.
+        assert!(wait_comm_is(pid, "bash"), "comm anak harus jadi 'bash' setelah exec");
         // Tunggu cucu sleep muncul di grup yang sama.
         let grandchild: Option<u32> = {
             let start = Instant::now();
