@@ -9,7 +9,7 @@ Tesis: model sama, sistem lebih baik — tanpa klaim persen sebelum data.
 - Spesifikasi Fase 2: commit `f4af085` (cognitive runtime — trajectory search).
 - Primitif ada: `src/api/ai/trajectorySupervisor.js` (Fase 1),
   `trajLineage.js`, `scoring.js`, `strategyLib.js`, `benchArch.js`
-  (axis `vanilla/basic/avo` via `ABELINK_BENCH_ARCH`, default `basic` = produksi stabil).
+  (axis `vanilla/basic` via `ABELINK_BENCH_ARCH`, default `basic` = produksi stabil).
   Catatan: `trajLineage.js`, `scoring.js`, dan nilai arch `avo` sudah dihapus,
   lihat bagian Update 2026-09-12 di bawah.
 - Bench task real-activity + world-state verifier: `evaluation/` (lihat commit
@@ -43,7 +43,7 @@ Model baru, provider baru, rewrite arsitektur.
 
 - [ ] Task 50-langkah selesai tanpa kehabisan konteks.
 - [ ] Pause → restart app → resume checkpoint identik.
-- [ ] Skor `avo` ≥ `basic` ≥ `vanilla` di bench real-activity (diukur).
+- [ ] Skor `basic` ≥ `vanilla` di bench real-activity (diukur). `avo` dihapus 2026-09-12.
 - [ ] `bunx vitest run`, `verify.sh`, CI PR hijau.
 
 ## Jejak keputusan

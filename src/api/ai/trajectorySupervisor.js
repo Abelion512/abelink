@@ -154,16 +154,22 @@ export function createTrajectorySupervisor() {
     return { key, repeat }
   }
 
-  const record = ({ tool, query, success, verificationState }) => {
+  // Monotonic counters immune to window slicing.
+// lastNewKeyAt tracks the total-attempt sequence of the last NEW success;
+// staleRun() compares it against the current total attempt count.
+let totalAttempts = 0
+
+const record = ({ tool, query, success, verificationState }) => {
     const key = normalizeAttemptKey(tool, query)
     attempts.push({ key, success: success === true })
     if (attempts.length > MAX_ATTEMPTS) attempts = attempts.slice(-MAX_ATTEMPTS)
+    totalAttempts++
     if (success === true) {
       successCount++
       if (!succeededKeys.has(key)) {
         succeededKeys.add(key)
         successfulStrategies.push(key)
-        lastNewKeyAt = attempts.length - 1
+        lastNewKeyAt = totalAttempts  // absolute sequence of last NEW success
       }
     }
     if (typeof verificationState === 'string') {
@@ -175,10 +181,9 @@ export function createTrajectorySupervisor() {
     }
   }
 
-  // Stale run: attempts since the last NEW succeeded key. A high count with
-  // many banked successes and unmoving verification means circling, even
-  // when every individual tool call "succeeds".
-  const staleRun = () => (lastNewKeyAt < 0 ? attempts.length : attempts.length - 1 - lastNewKeyAt)
+  // Stale run: attempts since the last NEW succeeded key.
+  // lastNewKeyAt is a monotonically increasing sequence; subtract from total.
+  const staleRun = () => lastNewKeyAt < 0 ? attempts.length : totalAttempts - lastNewKeyAt
 
   return {
     update(input = {}) {
@@ -337,6 +342,7 @@ export function createTrajectorySupervisor() {
       lastVerificationRank = 1
       semanticHintGiven = false
       lastNewKeyAt = -1
+      totalAttempts = 0
     },
 
     snapshot() {
