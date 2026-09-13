@@ -63,8 +63,41 @@ const SEARCH_TOOLS_RE =
 // actions, so a proof read after the last action can satisfy the criterion.
 const OS_ACTION_RE =
   /(os-click|os-double-click|os-type|os-key|os-scroll|os-search|os-open|os-delay)/i
-const BROWSER_ACTION_RE =
-  /(browser-navigate|browser-click|browser-type|browser-scroll|browser-script|browser-download)/i
+// Browser actions split by what they prove. Interaction actions MUTATE page
+// state (click/type/scroll/script/download): "executed" is not "confirmed" —
+// only an explicit confirmation observation proves them. Read-class actions
+// (navigate/read/extract/read-dom, dash or colon tool forms) RETURN page
+// data: substantive returned content is itself the proof. Transport-only
+// navigation never counts as interaction.
+const BROWSER_INTERACT_RE =
+  /(browser[-:]click|browser[-:]type|browser[-:]scroll|browser[-:]script|browser[-:]download)/i
+const BROWSER_READ_RE =
+  /(browser[-:]navigate|browser[-:]read|browser[-:]extract|read-dom)/i
+
+// Minimum trimmed characters for a read-class observation to count as
+// substantive returned data. Guards: "" and "OK" never verify; real page
+// data (titles + element lists, extracts) is far longer. Aligned with the
+// research 'facts-present' floor (50 chars).
+const MIN_READ_PROOF_CHARS = 50
+const hasReadSubstance = (text = '') =>
+  String(text || '').trim().length >= MIN_READ_PROOF_CHARS
+
+// Latest browser read-class result, raw tools first: normalizeOps() drops
+// empty-text ops, so an empty extract after a good navigate would vanish and
+// the navigate alone would look like proof. Reading the raw entry keeps
+// "extract returned nothing" visible as no-proof. Falls back to classified
+// ops for observations-only (sub-agent) evidence.
+const lastBrowserReadText = (tools = [], ops = []) => {
+  for (let i = (tools || []).length - 1; i >= 0; i--) {
+    const t = tools[i]
+    if (!BROWSER_READ_RE.test(t?.tool || '')) continue
+    return String(t.fullResult || t.resultSummary || '')
+  }
+  for (let i = ops.length - 1; i >= 0; i--) {
+    if (BROWSER_READ_RE.test(ops[i].tool || '')) return ops[i].text
+  }
+  return ''
+}
 
 const TEST_REQUEST_RE = /(test|uji|unittest|vitest|jest|pytest|lint)/i
 const TEST_PASS_RE = /(passing|passed|\btests?\s+(lulus|pass)\b|berhasil lulus|all tests)/i
@@ -262,7 +295,10 @@ const opFailed = (op) => FAIL_RE.test(op.text)
 // dieskalasi. Murni & unit-testable.
 export function escalateKindFromEvidence(kind = 'general', ops = []) {
   if (kind !== 'general') return kind
-  const acted = (ops || []).some((op) => BROWSER_ACTION_RE.test(op?.tool || ''))
+  // Only genuine page-state interaction escalates: bare navigation is
+  // transport, and a read-class pass alone is proof of retrieval, not a
+  // demand for interaction confirmation.
+  const acted = (ops || []).some((op) => BROWSER_INTERACT_RE.test(op?.tool || ''))
   return acted ? 'browser' : kind
 }
 
@@ -364,14 +400,22 @@ export function evaluateEvidence({
       break
     }
     case 'browser': {
-      const lastActionIdx = findLastIdx(ops, (op) => BROWSER_ACTION_RE.test(op.tool || ''))
+      const lastInteractIdx = findLastIdx(ops, (op) => BROWSER_INTERACT_RE.test(op.tool || ''))
       if (opFailed(lastOp)) {
         setState('action-confirmed', 'fail')
-      } else if (lastActionIdx >= 0 && ops.length - 1 > lastActionIdx) {
-        // A post-action observation (DOM/read) exists: look for confirmation.
-        setState('action-confirmed', BROWSER_CONFIRM_RE.test(lastOp.text) ? 'pass' : 'unresolved')
+      } else if (lastInteractIdx >= 0) {
+        // Genuine interaction ran: confirmation vocabulary in the post-action
+        // observation slice (not just the final op — a later file write must
+        // not be tested for page-confirmation words).
+        const slice = ops.slice(lastInteractIdx + 1)
+        const sliceText = slice.map((op) => op.text).join('\n')
+        setState('action-confirmed', BROWSER_CONFIRM_RE.test(sliceText) ? 'pass' : 'unresolved')
       } else {
-        setState('action-confirmed', 'unresolved')
+        // Read-class only (navigate/read/extract): substantive returned
+        // content IS the proof. Empty/trivial output is no-proof (unresolved),
+        // never a free pass.
+        const readText = lastBrowserReadText(tools, ops)
+        setState('action-confirmed', hasReadSubstance(readText) ? 'pass' : 'unresolved')
       }
       break
     }
