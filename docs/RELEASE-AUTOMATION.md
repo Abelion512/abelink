@@ -1,9 +1,7 @@
-# Release Automation — ABELINK Linux
-
-## Normal Release Path
+# Release Automation — Abelink (repo abelink, base: main)
 
 ```
-Release PR (head: release/vX, label: release) merged → linux
+Release PR (head: release/vX, label: release) merged → main
 ↓
 release-finalize.yml (finalize job)
   → validate release PR (branch starts with release/v, has release label)
@@ -13,7 +11,7 @@ release-finalize.yml (finalize job)
     → check version is newer than last release
     → create tag vX
     → git push origin vX
-    → gh workflow run release.yml --ref vX -f tag=vX
+    → gh workflow run release.yml --ref main -f tag=vX
 ↓
 release.yml
   → guard: tag matches tauri.conf.json
@@ -30,7 +28,7 @@ Manual finalization is available via `workflow_dispatch` on `release-finalize.ym
 **Mandatory safety checks (all enforced in CI):**
 
 1. `git rev-parse --verify ref` — ref resolves to a valid commit
-2. `git merge-base --is-ancestor ref origin/linux` — ref belongs to the `linux` release line
+2. `git merge-base --is-ancestor ref origin/main` — ref belongs to the `main` release line
 3. `semver.valid(version)` — version is valid SemVer
 4. `bun run sync-version --check` — all manifests are synchronized
 5. `git tag -l tag` not found — tag does not already exist
@@ -38,33 +36,34 @@ Manual finalization is available via `workflow_dispatch` on `release-finalize.ym
 7. `releases.json` contains the version entry — release metadata exists
 
 Manual promotion requires:
-- `ref` on the `linux` branch
+- `ref` on the `main` branch
 - A matching entry in `src/data/releases.json`
 - All manifest files synchronized to the version
 - The tag must not already exist
 
 ## Release PR Preparation
 
-The prepare stage runs on every push to `linux`:
+The prepare stage runs on every push to `main` (and dispatch manual):
 
 ```
-push → linux
+push → main
 ↓
 release-prepare.yml
   → node scripts/release-helper.mjs prepare
     → check last reachable tag (git tag --merged HEAD)
+    → fallback baseline: max releases.json bila remote belum punya tag (anti-deadlock bootstrap repo baru)
     → find releasable commits since last tag
     → calculate next alpha version
     → idempotency: check releases.json for existing version entry
     → if release PR exists (release/vX branch):
       → checkout release/vX BEFORE any file mutation
-      → merge origin/linux (fetch + -X theirs)
+      → merge origin/main (fetch + -X theirs)
       → regenerate releases.json, whats-new.json, manifests
       → commit if changed
       → push normally (no force)
       → update PR metadata
     → if no release PR:
-      → create release/vX branch from linux HEAD
+      → create release/vX branch from main HEAD
       → generate files
       → commit + push + create PR with `release` label
 ```
