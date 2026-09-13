@@ -13,6 +13,11 @@ const RELEASES_PATH = path.join(ROOT, 'src/data/releases.json')
 const WHATSNEW_PATH = path.join(ROOT, 'src/data/whats-new.json')
 const CHANGELOG_PATH = path.join(ROOT, 'CHANGELOG.md')
 
+// Garis rilis repo abelink: main adalah default branch. Cabang linux hanya
+// milik histori fork (public-upstream) dan tidak ada di origin repo ini.
+const RELEASE_BASE = 'main'
+const RELEASE_REMOTE = `origin/${RELEASE_BASE}`
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -155,7 +160,7 @@ function ensureReleaseLabel() {
 function findReleasePR(version) {
   const targetBranch = `release/v${version}`
   try {
-    const out = run(`gh pr list --base linux --label release --state open --json number,headRefName --jq '.[] | select(.headRefName == "${targetBranch}") | .number'`)
+    const out = run(`gh pr list --base ${RELEASE_BASE} --label release --state open --json number,headRefName --jq '.[] | select(.headRefName == "${targetBranch}") | .number'`)
     if (!out) return null
     return parseInt(out)
   } catch {
@@ -170,7 +175,7 @@ function createReleasePR(version, changes) {
 
   ensureGitIdentity()
 
-  // Create branch from current linux HEAD (already on linux when called)
+  // Create branch from current RELEASE_BASE HEAD (already on main when called)
   run(`git checkout -b ${branch}`)
 
   // Generate files on the new branch
@@ -198,7 +203,7 @@ function createReleasePR(version, changes) {
   ensureReleaseLabel()
 
   // Create PR
-  run(`gh pr create --base linux --head ${branch} --title "Release v${version}" --body "${prBody}" --label release`)
+  run(`gh pr create --base ${RELEASE_BASE} --head ${branch} --title "Release v${version}" --body "${prBody}" --label release`)
 }
 
 // ============================================================
@@ -379,7 +384,17 @@ export function prepareRelease() {
   }
 
   // === Calculate candidate version (pure, no git state mutation) ===
+  // Anti-deadlock: bila remote kehilangan tag (repo baru / tag belum push),
+  // baseline diambil dari releases.json agar tidak mundur ke alpha.1 lalu
+  // terjebak guard idempoten selamanya.
   const lastTagVersion = getLastReleaseTag()
+  const releasesMax = existingReleases
+    .map(r => r.version)
+    .filter(v => semver.valid(v))
+    .sort((a, b) => semver.rcompare(a, b))[0] || null
+  const baseline = lastTagVersion && releasesMax
+    ? (semver.lt(lastTagVersion, releasesMax) ? releasesMax : lastTagVersion)
+    : (lastTagVersion || releasesMax)
   const commits = getCommitsSince(lastTagVersion)
 
   const releasable = commits.filter(isReleasable)
@@ -390,7 +405,7 @@ export function prepareRelease() {
     return null
   }
 
-  const currentVersion = lastTagVersion || '1.0.0-alpha.1'
+  const currentVersion = baseline || '1.0.0-alpha.1'
   const newVersion = nextAlphaVersion(currentVersion)
 
   // === Idempotency: does releases.json already have this version? ===
@@ -403,7 +418,7 @@ export function prepareRelease() {
       console.log(`[release-helper] Version ${newVersion} already in releases.json. Updating PR #${existingPR} with latest commits (same version).`)
       // Branch selection happens BEFORE any file mutation
       run(`git checkout ${existingPR_branch(newVersion)}`)
-      syncWithLinux()
+      syncWithReleaseBase()
       const changes = buildChanges(includable)
       writeAllFiles(newVersion, changes)
       commitAndPushIfChanged(newVersion, 'chore(release): update release data')
@@ -423,7 +438,7 @@ export function prepareRelease() {
     console.log(`[release-helper] Updating existing Release PR #${existingPR} for v${newVersion}`)
     // Branch selection before file mutation — prevents checkout failure
     run(`git checkout release/v${newVersion}`)
-    syncWithLinux()
+    syncWithReleaseBase()
     // Regenerate files on the release branch
     writeAllFiles(newVersion, changes)
     run('bun run sync-version')
@@ -444,13 +459,13 @@ function existingPR_branch(version) {
   return `release/v${version}`
 }
 
-function syncWithLinux() {
-  // Fetch latest linux and merge into current release branch.
-  // Strategy: -X theirs lets linux win non-generated conflicts;
+function syncWithReleaseBase() {
+  // Fetch latest release base and merge into current release branch.
+  // Strategy: -X theirs lets the base win non-generated conflicts;
   // generated files are overwritten in writeAllFiles anyway.
   // No force push. Errors propagate (no `|| true` or `||` swallowing).
-  run(`git fetch origin linux`)
-  run(`git merge origin/linux -m "Merge linux into release branch" -X theirs`)
+  run(`git fetch origin ${RELEASE_BASE}`)
+  run(`git merge ${RELEASE_REMOTE} -m "Merge ${RELEASE_BASE} into release branch" -X theirs`)
   run(`git pull origin HEAD`)
 }
 
@@ -565,9 +580,9 @@ function dispatchReleaseWorkflow(tag) {
   // This guarantees: tag created → release build starts → GitHub Release published.
   const workflowId = 'release.yml'
   console.log(`[release-helper] Dispatching ${workflowId} for tag ${tag}`)
-  // --ref linux: workflow definition lives on linux branch
+  // --ref: workflow definition lives on the release base branch
   // -f tag=...: pass tag as workflow input (release.yml validates this)
-  run(`gh workflow run ${workflowId} --ref linux -f tag=${tag}`)
+  run(`gh workflow run ${workflowId} --ref ${RELEASE_BASE} -f tag=${tag}`)
 }
 
 // ============================================================

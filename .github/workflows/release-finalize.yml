@@ -44,7 +44,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   manual:
-    # Manual finalization: only for linux release line, valid SemVer, synchronized manifests
+    # Manual finalization: only for main release line, valid SemVer, synchronized manifests
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.ref != '' }}
     runs-on: ubuntu-latest
     steps:
@@ -67,13 +67,14 @@ jobs:
         run: |
           # 1. ref resolves
           git rev-parse --verify "$INPUT_REF"
-          # 2. ref is on release line (ancestor of main or linux HEAD)
+          # 2. ref is on release line (ancestor of main HEAD)
           RELEASE_BASE="origin/main"
           if ! git rev-parse --verify origin/main >/dev/null 2>&1; then
-            RELEASE_BASE="origin/linux"
+            echo "::error::origin/main not found — release line is main"
+            exit 1
           fi
-          if ! git merge-base --is-ancestor "$INPUT_REF" "$RELEASE_BASE" && ! git merge-base --is-ancestor "$INPUT_REF" origin/linux; then
-            echo "::error::Ref $INPUT_REF is not an ancestor of $RELEASE_BASE or origin/linux"
+          if ! git merge-base --is-ancestor "$INPUT_REF" "$RELEASE_BASE"; then
+            echo "::error::Ref $INPUT_REF is not an ancestor of $RELEASE_BASE"
             exit 1
           fi
           # 3. version is valid SemVer
@@ -92,6 +93,10 @@ jobs:
           fi
           # 6. version is newer than existing releases
           LAST=$(git tag --merged "$RELEASE_BASE" -l 'v*' | sed 's/^v//' | grep -E '^(alpha|beta|[0-9])' | sort -V | tail -1)
+          # Bootstrap repo baru tanpa tag: fallback ke releases.json sebagai baseline.
+          if [ -z "$LAST" ] && [ -f src/data/releases.json ]; then
+            LAST=$(node -e "const fs=require('fs'); try { const r=JSON.parse(fs.readFileSync('src/data/releases.json','utf8')).releases||[]; const v=r.map(x=>x.version).filter(Boolean).sort(); console.log(v[v.length-1]||'') } catch { console.log('') }")
+          fi
           if [ -n "$LAST" ] && ! node scripts/semver-lite.mjs gt "$VERSION" "$LAST"; then
             echo "::error::Version ${VERSION} is not newer than ${LAST}"
             exit 1
