@@ -268,24 +268,35 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     expect(two.state).toBe(VERIFICATION_STATE.VERIFIED)
   })
 
-  it('eskalasi bukti: general + aksi browser = lensa browser, situs apapun', () => {
-    expect(escalateKindFromEvidence('general', [{ tool: 'browser-navigate' }])).toBe('browser')
+  it('eskalasi bukti: general + interaksi browser = lensa browser; navigate saja tidak', () => {
+    expect(escalateKindFromEvidence('general', [{ tool: 'browser-click' }])).toBe('browser')
+    expect(escalateKindFromEvidence('general', [{ tool: 'browser-navigate' }])).toBe('general')
+    expect(escalateKindFromEvidence('general', [{ tool: 'browser-read' }])).toBe('general')
     expect(escalateKindFromEvidence('general', [{ tool: 'read-file' }])).toBe('general')
-    expect(escalateKindFromEvidence('file', [{ tool: 'browser-navigate' }])).toBe('file')
+    expect(escalateKindFromEvidence('file', [{ tool: 'browser-click' }])).toBe('file')
     expect(escalateKindFromEvidence('conversational', [{ tool: 'browser-navigate' }])).toBe(
       'conversational'
     )
   })
 
-  it('komposisi lapangan: situs asing + 1 navigate => replan menunjuk ask-choice', () => {
+  it('komposisi lapangan: navigate saja tidak menuntut konfirmasi interaksi', () => {
     const prompt = 'buka travelsoka lalu cek ulang detailnya'
     expect(classifyObjectiveKind(prompt)).toBe('general')
     const evidence = evaluateEvidence({
       objectiveText: prompt,
-      tools: [exec('browser-navigate', 'Travelsoka terbuka')]
+      tools: [
+        exec(
+          'browser-navigate',
+          'Travelsoka terbuka: judul halaman, daftar penerbangan dan harga tersedia'
+        )
+      ]
     })
-    expect(evidence.kind).toBe('browser')
-    expect(evidence.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+    // Tetap general (tanpa eskalasi browser), dan satu aksi pada objective
+    // multi-langkah = progres (partially) dengan replan lanjutan — bukan
+    // tuntutan konfirmasi interaksi, bukan klaim selesai.
+    expect(evidence.kind).toBe('general')
+    expect(evidence.criteria.map((c) => c.id)).not.toContain('action-confirmed')
+    expect(evidence.state).toBe(VERIFICATION_STATE.PARTIALLY)
     const gate = gateCompletion({
       modelClaimDone: true,
       verification: evidence.state,
@@ -293,7 +304,6 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     })
     expect(gate.complete).toBe(false)
     expect(gate.replan).toBe(true)
-    expect(buildReplanObservation(evidence)).toContain('ask-choice')
   })
 
   it('unobservable criteria are na and never fake verification', () => {
@@ -329,6 +339,125 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     // last op is a successful read => confirmation not found => unresolved,
     // but NOT failed — generic vocabulary is not an error marker.
     expect(r.state).not.toBe(VERIFICATION_STATE.FAILED)
+  })
+})
+
+describe('browser read-class verification — substantive content, not vocabulary', () => {
+  it('1. scrape/extract dengan data nyata => verified', () => {
+    const r = evaluateEvidence({
+      kind: 'browser',
+      objectiveText: 'scrape harga GPU dari halaman web itu',
+      tools: [
+        exec('browser-navigate', 'Halaman katalog terbuka: daftar produk dan harga tampil'),
+        exec(
+          'browser-extract',
+          '[{"nama":"RTX 4070","harga":"Rp 9.500.000"},{"nama":"RTX 4080","harga":"Rp 14.200.000"}]'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'action-confirmed').state).toBe('pass')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('2. read-class kosong/trivial => unresolved, bukan verified gratis', () => {
+    const empty = evaluateEvidence({
+      kind: 'browser',
+      objectiveText: 'scrape harga GPU dari halaman web itu',
+      tools: [exec('browser-navigate', 'Halaman katalog terbuka'), exec('browser-extract', '')]
+    })
+    expect(empty.criteria.find((c) => c.id === 'action-confirmed').state).toBe('unresolved')
+    expect(empty.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+
+    const trivial = evaluateEvidence({
+      kind: 'browser',
+      objectiveText: 'baca halaman status',
+      tools: [exec('browser-navigate', 'OK')]
+    })
+    expect(trivial.criteria.find((c) => c.id === 'action-confirmed').state).toBe('unresolved')
+    expect(trivial.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('3. click tanpa bukti konfirmasi => tetap blocked/unavailable', () => {
+    const r = evaluateEvidence({
+      kind: 'browser',
+      objectiveText: 'submit form registrasi di halaman web itu',
+      tools: [
+        exec('browser-navigate', 'Halaman form terbuka dengan kolom nama dan email'),
+        exec('browser-click', 'Elemen ak3 diklik, DOM terbaru dikembalikan tanpa pesan status')
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'action-confirmed').state).toBe('unresolved')
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+    const gate = gateCompletion({ modelClaimDone: true, verification: r.state, kind: r.kind })
+    expect(gate.complete).toBe(false)
+    expect(gate.replan).toBe(true)
+  })
+
+  it('4. general: navigate + write + read-back => verified via kriteria general', () => {
+    const r = evaluateEvidence({
+      kind: 'general',
+      objectiveText: 'kumpulkan info lalu simpan ringkasan',
+      tools: [
+        exec('browser-navigate', 'Halaman sumber terbuka dengan artikel lengkap'),
+        exec('write-file', 'file tersimpan'),
+        exec('read-file', 'ringkasan hasil pengumpulan info')
+      ]
+    })
+    expect(r.kind).toBe('general')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('5. navigate insidental tidak mengeskalasi kriteria browser', () => {
+    const r = evaluateEvidence({
+      kind: 'general',
+      objectiveText: 'kumpulkan info lalu simpan ringkasan',
+      tools: [
+        exec('browser-navigate', 'Halaman sumber terbuka dengan artikel lengkap'),
+        exec('write-file', 'file tersimpan'),
+        exec('read-file', 'ringkasan hasil pengumpulan info')
+      ]
+    })
+    expect(r.kind).toBe('general')
+    expect(r.criteria.map((c) => c.id)).not.toContain('action-confirmed')
+  })
+
+  it('5b. general satu-langkah: navigate berisi data => verified tanpa kosakata konfirmasi', () => {
+    const r = evaluateEvidence({
+      kind: 'general',
+      objectiveText: 'cek harga tiket hari ini',
+      tools: [
+        exec(
+          'browser-navigate',
+          'Halaman maskapai terbuka: daftar jadwal penerbangan dan harga tiket tampil'
+        )
+      ]
+    })
+    expect(r.kind).toBe('general')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('6. campuran: navigate + click + write/read-back => interaksi tetap butuh konfirmasi', () => {
+    const r = evaluateEvidence({
+      kind: 'general',
+      objectiveText: 'isi form lalu simpan hasilnya',
+      tools: [
+        exec('browser-navigate', 'Halaman form terbuka dengan kolom input lengkap'),
+        exec('browser-click', 'Elemen ak1 diklik, DOM terbaru tanpa pesan konfirmasi'),
+        exec('write-file', 'file tersimpan'),
+        exec('read-file', 'hasil isian form')
+      ]
+    })
+    expect(r.kind).toBe('browser')
+    expect(r.criteria.find((c) => c.id === 'action-confirmed').state).toBe('unresolved')
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('7. passthrough NOT_RUN general tanpa kriteria observabel tetap utuh', () => {
+    const r = evaluateEvidence({ kind: 'general', objectiveText: 'x', tools: [] })
+    expect(r.state).toBe(VERIFICATION_STATE.NOT_RUN)
+    const g = gateCompletion({ modelClaimDone: true, verification: r.state, kind: 'general' })
+    expect(g.complete).toBe(true)
+    expect(g.reason).toBe('no-observable-criteria')
   })
 })
 
