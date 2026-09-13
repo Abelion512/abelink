@@ -461,13 +461,29 @@ export const useAbelinkPlan = ({
           activeConfig: config?.[0] || {},
           persist: false
         })
-        if (comp?.isCompacted) {
-          const tail = comp.tailMessages?.length ? comp.tailMessages : comp.compactedMessages
-          const summaryMsg = comp.newSummaryBlock
-            ? [{ role: 'user', content: `[ COMPACTED MESSAGE SUMMARY ] ${comp.newSummaryBlock}` }]
-            : []
-          chatSession = [...summaryMsg, ...tail]
-          if (chatSession[chatSession.length - 1] !== userMessage) chatSession.push(userMessage)
+        if (comp) {
+          const activeSummary = comp.summaryBlock || comp.newSummaryBlock || ''
+          if (comp.isCompacted) {
+            const tail = comp.tailMessages?.length ? comp.tailMessages : comp.compactedMessages
+            const summaryMsg = activeSummary
+              ? [{ role: 'user', content: `[ COMPACTED MESSAGE SUMMARY ] ${activeSummary}` }]
+              : []
+            chatSession = [...summaryMsg, ...tail]
+          } else if (activeSummary) {
+            chatSession = [
+              { role: 'user', content: `[ COMPACTED MESSAGE SUMMARY ] ${activeSummary}` },
+              ...chatSession
+            ]
+          }
+          // Pastikan pesan user terakhir ada persis satu kali di akhir
+          const lastMsg = chatSession[chatSession.length - 1]
+          const lastIsCurrent =
+            lastMsg === userMessage ||
+            (lastMsg?.role === 'user' &&
+              JSON.stringify(lastMsg?.content) === JSON.stringify(userMessage.content))
+          if (!lastIsCurrent) {
+            chatSession.push(userMessage)
+          }
         }
       }
     } catch (e) {

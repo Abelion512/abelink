@@ -93,13 +93,25 @@ describe('assembly non-destruktif', () => {
     const messages = [msg('a'), msg('b')]
     expect(assembleCompactedPayload({ messages })).toHaveLength(2)
   })
+
+  it('pointer tidak ditemukan di windowed array -> seluruh messages dipertahankan setelah summary', () => {
+    const messages = [msg('pesan-9'), msg('pesan-10')]
+    const payload = assembleCompactedPayload({
+      messages,
+      sessionCompact: { summaryBlock: 'RINGKASAN_LAMA', lastCompactedMessageId: 'msg-ancient' }
+    })
+    expect(payload[0].content).toMatch('COMPACTED MESSAGE SUMMARY')
+    expect(payload[1].content).toBe('pesan-9')
+    expect(payload[2].content).toBe('pesan-10')
+  })
 })
 
 describe('orkestrator', () => {
-  it('di bawah budget -> no-op tanpa AI', async () => {
+  it('di bawah budget -> no-op tanpa AI tapi tetap sertakan summaryBlock', async () => {
     const r = await executeSessionCompaction({ sessionId: 'test-noop', messages: [msg('hai')] })
     expect(r.success).toBe(true)
     expect(r.isCompacted).toBe(false)
+    expect('summaryBlock' in r).toBe(true)
   })
 
   it('over budget tapi prune cukup -> prunedOnly, tanpa AI, tanpa persist', async () => {
@@ -120,6 +132,7 @@ describe('orkestrator', () => {
     // sehingga lanjut ke ringkas — AI tak tersedia di test -> stub darurat.
     expect(r.isCompacted).toBe(true)
     expect(r.newSummaryBlock || '').toMatch('dikompaksi')
+    expect(r.summaryBlock).toBe(r.newSummaryBlock)
   })
 
   it('summarizeMiddle kosong -> kembalikan existing', async () => {
