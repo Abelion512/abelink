@@ -4,15 +4,14 @@
 
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
 import { assertContained } from '../utils/fsGuard.js'
+import { brandDir } from '../utils/dataHome.mjs'
 
 const MAX_READ_BYTES = 2 * 1024 * 1024
 const MAX_READ_LINES = 400
 
 const workspaceRoot = () => {
-  const xdg = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
-  return path.join(xdg, 'abelink', 'workspace')
+  return path.join(brandDir(), 'workspace')
 }
 
 export async function runFs(actionId, args) {

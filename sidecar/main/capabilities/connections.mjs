@@ -7,14 +7,13 @@
 
 import fsp from 'fs/promises'
 import path from 'path'
-import os from 'os'
+import { brandDir } from '../utils/dataHome.mjs'
 
 const MAX_AUDIT_BYTES = 1024 * 1024 // 1MB
 const MAX_AUDIT_TAIL = 500 // baris yang dipertahankan saat trim
 
 export const capDir = () => {
-  const xdg = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
-  return path.join(xdg, 'abelink', 'capabilities')
+  return path.join(brandDir(), 'capabilities')
 }
 
 const connectionsFile = () => path.join(capDir(), 'connections.json')

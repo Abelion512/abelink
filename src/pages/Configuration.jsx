@@ -132,7 +132,12 @@ const Configuration = ({
     setTestingConnId(conn.id)
     const t0 = performance.now()
     try {
+      // Nada uji 440Hz 0.5s (bukan sunyi digital): verifikasi konektivitas
+      // tanpa memicu jalur halusinasi sunyi Whisper.
       const dummyPcm = new Float32Array(8000)
+      for (let i = 0; i < dummyPcm.length; i++) {
+        dummyPcm[i] = 0.3 * Math.sin((2 * Math.PI * 440 * i) / 16000)
+      }
       const text = await transcribeToEndpoint(dummyPcm, {
         endpoint: conn.endpoint.trim(),
         apiKey: conn.apiKey?.trim() || '',
