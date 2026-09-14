@@ -1,8 +1,7 @@
-import fs from 'fs'
 import path from 'path'
-import os from 'os'
 import { exec, spawn } from 'child_process'
 import util from 'util'
+import { brandDir } from '../utils/dataHome.mjs'
 
 export const DANGEROUS_KEY_COMBOS = [
   'alt+f4',
@@ -21,13 +20,11 @@ export const execPromise = util.promisify(exec)
 
 // Linux-native: XDG data dir
 export const getWorkspaceDir = () => {
-  const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
-  return path.join(xdgData, 'abelink', 'workspace')
+  return path.join(brandDir(), 'workspace')
 }
 
 export const getSkillsDir = () => {
-  const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
-  return path.join(xdgData, 'abelink', 'skills')
+  return path.join(brandDir(), 'skills')
 }
 
 export const parsePagination = (str) => {

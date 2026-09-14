@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { getAllConfig } from '../api/db'
 import { transcribeAudioUnified } from '../api/sttRouter'
+import { isSpeechValid, isHallucinationText } from '../api/sttGuard'
 import { resolveMicConstraints, micCoolingDown, noteMicFailure, resetMicFailure } from '../api/mic'
 
 // Resampling linear audio PCM Float32Array dari sampleRate asal ke 16,000 Hz target Whisper
@@ -39,6 +40,10 @@ export const useVAD = ({
   const isRecordingRef = useRef(false)
   const silenceFramesRef = useRef(0)
   const isProcessingSpeechRef = useRef(false)
+  // Instrumentasi anti-halusinasi: statistik energi per sesi ucap.
+  const speechFramesRef = useRef(0)
+  const totalFramesRef = useRef(0)
+  const peakRmsRef = useRef(0)
 
   const stopVADCleanup = () => {
     const totalLength = audioChunksRef.current.reduce((acc, val) => acc + val.length, 0)
@@ -73,6 +78,9 @@ export const useVAD = ({
     isStartingRef.current = false
     silenceFramesRef.current = 0
     isProcessingSpeechRef.current = false
+    speechFramesRef.current = 0
+    totalFramesRef.current = 0
+    peakRmsRef.current = 0
 
     return pendingAudio
   }
@@ -103,6 +111,31 @@ export const useVAD = ({
 
     // Resample buffer audio ke 16000Hz untuk pipeline Whisper
     const trimmedAudio = resampleTo16k(merged, actualRate)
+    const durationSec = trimmedAudio.length / 16000
+    const peakRms = peakRmsRef.current
+    const totalFrames = totalFramesRef.current
+    const speechFrames = speechFramesRef.current
+
+    console.log(
+      '[VAD] stats: durasi',
+      durationSec.toFixed(2) + 's,',
+      'peakRMS',
+      peakRms.toFixed(4) + ',',
+      `speech ${speechFrames}/${totalFrames},`,
+      trimmedAudio.length,
+      'sampel 16k'
+    )
+
+    // Pre-STT gate: tolak noise lantai / blip sebelum request STT dikirim.
+    const gate = isSpeechValid({ peakRms, speechFrames, totalFrames, durationSec })
+    if (!gate.ok) {
+      console.log('[VAD] Gate pra-STT menolak:', gate.reason)
+      setToastMessage('Suara tidak terdengar jelas. Coba ulangi.')
+      setTimeout(() => setToastMessage(''), 4000)
+      isProcessingSpeechRef.current = false
+      stopVADCleanup()
+      return
+    }
 
     stopVADCleanup()
     setIsProcessing(true)
@@ -113,6 +146,14 @@ export const useVAD = ({
         const text = await executeSpeechToText(trimmedAudio)
         setIsProcessing(false)
         if (text && text.trim() !== '') {
+          // Post-filter: buang halusinasi Whisper pada noise/sunyi.
+          const verdict = isHallucinationText(text, durationSec)
+          if (verdict.drop) {
+            console.log('[VAD] Halusinasi dibuang:', verdict.reason)
+            setToastMessage('Suara tidak terdengar jelas. Coba ulangi.')
+            setTimeout(() => setToastMessage(''), 4000)
+            return
+          }
           const cleanText = text.replace(
             /\b(mbak|mak|makh|marg|mart|marck|marc|mac|mag)\b/gi,
             'Abelink'
@@ -142,6 +183,10 @@ export const useVAD = ({
 
   const startVADRecording = async (force = false) => {
     if (isStartingRef.current || isRecordingRef.current) return
+    // Cooldown pasca-TTS: ekor audio speaker butuh ~800ms hilang dari mic.
+    // Manual toggle (force) tetap lolos; auto-restart voice mode yang ditunda.
+    if (!force && window.isAbelinkSpeaking) return
+    if (!force && Date.now() - (window.abelinkTtsEndedAt || 0) < 800) return
     isStartingRef.current = true
 
     let isActive = true
@@ -160,8 +205,8 @@ export const useVAD = ({
 
       const micId = config[0]?.micDeviceId
       const audioSettings = {
-        echoCancellation: false,
-        noiseSuppression: false,
+        echoCancellation: true,
+        noiseSuppression: true,
         autoGainControl: false
       }
 
@@ -241,6 +286,9 @@ export const useVAD = ({
       isRecordingRef.current = true
       setIsRecording(true)
       silenceFramesRef.current = 0
+      speechFramesRef.current = 0
+      totalFramesRef.current = 0
+      peakRmsRef.current = 0
 
       // Each buffer is 4096 samples at 16000Hz = 0.256s (256ms)
       // 8 frames silence = ~2.0s silence
@@ -252,8 +300,15 @@ export const useVAD = ({
 
         const input = e.inputBuffer.getChannelData(0)
         let sum = 0
-        for (let i = 0; i < input.length; i++) sum += input[i] * input[i]
+        let peak = 0
+        for (let i = 0; i < input.length; i++) {
+          sum += input[i] * input[i]
+          const a = Math.abs(input[i])
+          if (a > peak) peak = a
+        }
         const rms = Math.sqrt(sum / input.length)
+        if (peak > peakRmsRef.current) peakRmsRef.current = peak
+        totalFramesRef.current += 1
 
         // Normalisasi RMS untuk visualisasi yang responsif terhadap bisikan maupun suara normal
         const normalized = Math.min(1, rms * 25)
@@ -264,6 +319,7 @@ export const useVAD = ({
             isSpeakingRef.current = true
           }
           silenceFramesRef.current = 0
+          speechFramesRef.current += 1
           audioChunksRef.current.push(new Float32Array(input))
         } else if (isSpeakingRef.current) {
           // Push low audio chunk so end of word isn't clipped

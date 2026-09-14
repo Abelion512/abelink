@@ -23,6 +23,7 @@ import {
   tokenOk
 } from './bridge-core.mjs'
 import { EXTENSION_ID } from './native-host.mjs'
+import { brandDir } from '../utils/dataHome.mjs'
 
 const MAX_BODY = 1024 * 1024 // 1MB — hasil read-dom jauh di bawah ini (dipotong di core)
 
@@ -208,9 +209,6 @@ export function stopBrowserBridge() {
 }
 
 function xdgDataDir() {
-  return (
-    process.env.ABELINK_DATA_HOME ||
-    process.env.XDG_DATA_HOME ||
-    `${process.env.HOME}/.local/share`
-  )
+  // Selaras bridge-core (token di dir data abelink) + hormati namespace dev.
+  return brandDir()
 }
