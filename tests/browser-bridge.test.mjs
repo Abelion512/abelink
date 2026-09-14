@@ -21,6 +21,10 @@ import {
   looksLikeCrawlerSource,
   tokenOk,
   writeTokenFile,
+  readTokenRecord,
+  tokenFilePath,
+  tokenPathFor,
+  flavorFromPort,
   STATUS_ICON
 } from '../sidecar/main/browser/bridge-core.mjs'
 
@@ -260,10 +264,12 @@ describe('rotasi token refresh-on-use', () => {
     const os = await import('node:os')
     const path = await import('node:path')
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-tok-'))
-    fs.writeFileSync(path.join(dir, 'browser-bridge-token'), 'tok-lama-123')
-    const r = writeTokenFile(dir)
+    const brand = path.join(dir, 'abelink')
+    fs.mkdirSync(brand, { recursive: true })
+    fs.writeFileSync(path.join(brand, 'browser-bridge-token'), 'tok-lama-123')
+    const r = writeTokenFile(brand)
     expect(r.token).toBe('tok-lama-123')
-    const rec = JSON.parse(fs.readFileSync(path.join(dir, 'browser-bridge-token'), 'utf8'))
+    const rec = JSON.parse(fs.readFileSync(path.join(brand, 'browser-bridge-token'), 'utf8'))
     expect(rec.token).toBe('tok-lama-123')
     expect(typeof rec.createdAt).toBe('number')
     fs.rmSync(dir, { recursive: true, force: true })
@@ -303,6 +309,60 @@ describe('rotasi token refresh-on-use', () => {
       if (saved === undefined) delete process.env.ABELINK_TOKEN_ROTATE_MS
       else process.env.ABELINK_TOKEN_ROTATE_MS = saved
       fs.rmSync(dir, { recursive: true, force: true })
+      dropSession('default')
+    }
+  })
+})
+
+describe('isolasi token prod/dev', () => {
+  it('tokenPathFor kanonik: prod <xdg>/abelink/token, dev <over>/token atau <xdg>/abelink-dev/token', async () => {
+    const path = await import('node:path')
+    expect(tokenPathFor({ base: '/x/xdg/abelink', flavor: 'prod' })).toBe(
+      path.join('/x/xdg/abelink', 'browser-bridge-token')
+    )
+    expect(tokenPathFor({ base: '/x/xdg/abelink-dev', flavor: 'dev', env: {} })).toBe(
+      path.join('/x/xdg/abelink-dev', 'browser-bridge-token')
+    )
+    expect(tokenPathFor({ base: '/x/xdg/abelink-dev', flavor: 'dev', env: { ABELINK_DATA_HOME: '/over/dev' } })).toBe(
+      path.join('/over/dev', 'browser-bridge-token')
+    )
+    expect(tokenPathFor({ base: '/x/xdg', flavor: 'prod', env: { XDG_DATA_HOME: '/x/xdg' } })).toBe(
+      path.join('/x/xdg/abelink', 'browser-bridge-token')
+    )
+    expect(tokenPathFor({ base: '/x/xdg', flavor: 'dev', env: { XDG_DATA_HOME: '/x/xdg' } })).toBe(
+      path.join('/x/xdg/abelink-dev', 'browser-bridge-token')
+    )
+    // prod tak pernah bocor ke ABELINK_DATA_HOME dev
+    expect(
+      tokenPathFor({ base: '/x/xdg/abelink', flavor: 'prod', env: { ABELINK_DATA_HOME: '/over/dev', XDG_DATA_HOME: '/x/xdg' } })
+    ).toBe(path.join('/x/xdg/abelink', 'browser-bridge-token'))
+  })
+
+  it('flavorFromPort: 49713=dev, lainnya prod', () => {
+    expect(flavorFromPort(49713)).toBe('dev')
+    expect(flavorFromPort('49713')).toBe('dev')
+    expect(flavorFromPort(49712)).toBe('prod')
+    expect(flavorFromPort(undefined)).toBe('prod')
+  })
+
+  it('writer==reader prod+dev: file terpisah, token terpisah', async () => {
+    const fs = await import('node:fs')
+    const os = await import('node:os')
+    const path = await import('node:path')
+    const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-flav-xdg-'))
+    const envProd = { XDG_DATA_HOME: xdg }
+    const envDev = { XDG_DATA_HOME: xdg, ABELINK_DATA_HOME: path.join(xdg, 'abelink-dev') }
+    try {
+      const wProd = writeTokenFile(path.join(xdg, 'abelink'), 'prod', envProd)
+      const wDev = writeTokenFile(path.join(xdg, 'abelink-dev'), 'dev', envDev)
+      expect(wProd.file).toBe(path.join(xdg, 'abelink', 'browser-bridge-token'))
+      expect(wDev.file).toBe(path.join(xdg, 'abelink-dev', 'browser-bridge-token'))
+      expect(wProd.token).not.toBe(wDev.token)
+      expect(readTokenRecord(path.join(xdg, 'abelink'), 'prod', envProd).token).toBe(wProd.token)
+      expect(readTokenRecord(path.join(xdg, 'abelink-dev'), 'dev', envDev).token).toBe(wDev.token)
+      expect(readTokenRecord(path.join(xdg, 'abelink'), 'prod', envDev).token).toBe(wProd.token)
+    } finally {
+      fs.rmSync(xdg, { recursive: true, force: true })
       dropSession('default')
     }
   })
