@@ -41,6 +41,8 @@ jobs:
         run: bun run lint
       - name: Unit tests (vitest)
         run: bunx vitest run
+      - name: Extension gate (ID pin, token path, flavor isolation)
+        run: bunx vitest run tests/browser-e2e.test.mjs tests/native-host.test.mjs tests/browser-flavor.test.mjs
       - name: Frontend build (vite)
         run: bun run build
 

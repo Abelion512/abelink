@@ -16,6 +16,42 @@ const DEFAULT_PORT = 49712
 // (port tersimpan); probe hanya membaca, tak mengubah state.
 const KNOWN_PORTS = [49712, 49713]
 const PORT_LABELS = { 49712: 'Prod', 49713: 'Dev' }
+// Peta kanonik flavor <-> port <-> native-host (satu-satunya definisi;
+// test tests/browser-flavor.test.mjs membaca literal di bawah langsung).
+const FLAVOR_PORTS = { prod: 49712, dev: 49713 }
+const NATIVE_HOSTS = { prod: 'id.abelink.bridge', dev: 'id.abelink.bridge.dev' }
+function flavorForPort(port) {
+  return Number(port) === FLAVOR_PORTS.dev ? 'dev' : 'prod'
+}
+function hostNameForPort(port) {
+  return NATIVE_HOSTS[flavorForPort(port)]
+}
+// Pairing terpin: { flavor, port, hostName }. Dibuat saat klik Pakai/Connect
+// pertama; resume hanya menyentuh flavor ini (tanpa auto-switch).
+async function getPairing() {
+  try {
+    const kept = await chrome.storage.local.get('abelink.pairing')
+    const p = kept?.['abelink.pairing']
+    if (p && KNOWN_PORTS.includes(Number(p.port))) {
+      const port = Number(p.port)
+      return { flavor: flavorForPort(port), port, hostName: hostNameForPort(port) }
+    }
+  } catch {
+    /* abaikan */
+  }
+  return null
+}
+async function setPairing(port) {
+  const p = Number(port)
+  if (!KNOWN_PORTS.includes(p)) return null
+  const pairing = { flavor: flavorForPort(p), port: p, hostName: hostNameForPort(p) }
+  try {
+    await chrome.storage.local.set({ 'abelink.pairing': pairing })
+  } catch {
+    /* abaikan */
+  }
+  return pairing
+}
 const POLL_BACKOFF_MS = 1500
 const NAV_TIMEOUT_MS = 60000
 const SETTLE_MS = 2000
@@ -187,21 +223,29 @@ function sleep(ms) {
 // namespace token (dev 49713 vs prod): tanpa ini token prod dipakai ke dev
 // dan sebaliknya -> 401 silih-berganti.
 async function getTokenViaNativeHost(port) {
+  // Host flavor terpin dicoba dulu; host tunggal lama sebagai fallback
+  // (sidecar lama hanya memasang id.abelink.bridge + namespace dev).
+  const primary = hostNameForPort(port)
+  const hosts = primary === 'id.abelink.bridge' ? [primary] : [primary, 'id.abelink.bridge']
   const msg = { type: 'get-token' }
-  if (port === 49713 || port === '49713') msg.namespace = 'dev'
-  try {
-    const res = await chrome.runtime.sendNativeMessage('id.abelink.bridge', msg)
-    if (res?.ok && res.token) return { token: res.token, detail: '' }
-    return { token: '', detail: res?.error || 'helper menolak permintaan' }
-  } catch (e) {
-    const msg = String(e?.message || e)
-    // Klasifikasi sebab agar user tidak menebak-nebak.
-    let detail = msg
-    if (/not found|No such host/i.test(msg)) detail = 'helper belum terpasang (pakai Abelink terbaru / picu channel browser:* sekali)'
-    else if (/exited|exit/i.test(msg)) detail = 'helper crash saat start (cek executable + runtime path)'
-    else if (/permission|allowed|origin|ID/i.test(msg)) detail = 'ID extension tak cocok (verifikasi ID di chrome://extensions)'
-    return { token: '', detail }
+  // namespace dev dipertahankan untuk host lama; host flavor baru abaikan field ini.
+  if (flavorForPort(port) === 'dev') msg.namespace = 'dev'
+  let detail = ''
+  for (const hostName of hosts) {
+    try {
+      const res = await chrome.runtime.sendNativeMessage(hostName, msg)
+      if (res?.ok && res.token) return { token: res.token, detail: '' }
+      detail = res?.error || `helper menolak permintaan (${hostName})`
+    } catch (e) {
+      const m = String(e?.message || e)
+      // Klasifikasi sebab agar user tidak menebak-nebak.
+      if (/not found|No such host/i.test(m)) detail = `helper belum terpasang (${hostName}; pakai Abelink terbaru / picu channel browser:* sekali)`
+      else if (/exited|exit/i.test(m)) detail = 'helper crash saat start (cek executable + runtime path)'
+      else if (/permission|allowed|origin|ID/i.test(m)) detail = 'ID extension tak cocok (verifikasi ID di chrome://extensions)'
+      else detail = m
+    }
   }
+  return { token: '', detail }
 }
 
 // -------------------------------------------------------------- commands
@@ -1257,11 +1301,12 @@ async function act({ abelinkId, action, value }, sessionId = 'default') {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   ;(async () => {
     if (msg?.type === 'start') {
-      // Urutan token: tempelan manual > helper lokal > simpanan per-port.
+      // Urutan token: tempelan manual > helper lokal (host flavor terpin) > simpanan per-port.
       const keptCfg = await getCfg()
-      // Jangan reset port tersimpan bila popup tak mengirimnya (autoConnect
-      // dengan field kosong sempat mengembalikan 49713 -> 49712 diam-diam).
-      const targetPort = msg.port || keptCfg.port || DEFAULT_PORT
+      const pairing = await getPairing()
+      // Flavor terpin menang atas port sesi lama; klik eksplisit (msg.port)
+      // membuat/mengganti pairing. Tanpa keduanya -> fallback default.
+      const targetPort = msg.port || pairing?.port || keptCfg.port || DEFAULT_PORT
       let token = (msg.token || '').trim()
       if (token.startsWith('{')) {
         try {
@@ -1328,6 +1373,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         lastError: null
       })
       await setPortToken(cfg.port, cfg.token)
+      // Klik eksplisit = keputusan pairing: pin flavor ini untuk resume.
+      await setPairing(cfg.port)
       if (!running) {
         running = true
         console.log(`[Abelink] loop poll jalan (session: ${cfg.session}, port: ${cfg.port}).`)
@@ -1396,7 +1443,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       // Baca-saja: status Prod+Dev tanpa mengubah loop/sesi aktif.
       const ports = await probePorts()
       const cfg = await getCfg()
-      sendResponse({ ok: true, ports, activePort: cfg.port })
+      sendResponse({ ok: true, ports, activePort: cfg.port, pairing: await getPairing() })
     } else if (msg?.type === 'status') {
       const cfg = await getCfg()
       sendResponse({
@@ -1405,6 +1452,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         hasToken: !!cfg.token,
         session: cfg.session,
         port: cfg.port,
+        pairing: await getPairing(),
         lastError: (await chrome.storage.session.get('lastError')).lastError
       })
     }
@@ -1425,9 +1473,21 @@ function scheduleAutoResume(delayMs = 5000) {
 async function tryAutoResume() {
   if (running) return
   await loadSessionState()
+  // Resume TANPA pairing = dilarang: user belum memilih flavor sekali pun.
+  // Ini mematikan auto-switch lama (resume port sesi basi diam-diam).
+  const pairing = await getPairing()
+  if (!pairing) return
   let cfg = await getCfg()
+  // Paksa port sesi ke flavor terpin (alasan sesi basi berbeda flavor).
+  cfg = { ...cfg, port: pairing.port }
+  try {
+    await chrome.storage.session.set({ port: pairing.port })
+  } catch {
+    /* abaikan */
+  }
 
-  // Jika token di session storage kosong, ambil otomatis via native host atau local storage
+  // Jika token di session storage kosong, ambil otomatis via native host (host
+  // flavor terpin) atau local storage.
   if (!cfg.token) {
     const via = await getTokenViaNativeHost(cfg.port)
     if (via?.token) {

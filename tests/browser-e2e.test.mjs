@@ -14,7 +14,16 @@ import {
   dispatchCommand,
   dropSession,
   setBrowserConfig,
+  writeTokenFile,
+  readTokenRecord,
+  tokenPathFor,
 } from '../sidecar/main/browser/bridge-core.mjs'
+import {
+  ensureNativeHost,
+  NATIVE_HOST_NAME,
+  NATIVE_HOST_NAME_DEV,
+  EXTENSION_ID,
+} from '../sidecar/main/browser/native-host.mjs'
 import { startBrowserBridge, stopBrowserBridge } from '../sidecar/main/browser/server.mjs'
 import { handlers } from '../sidecar/engine/registry.mjs'
 import '../sidecar/engine/channels/browser.mjs'
@@ -184,6 +193,78 @@ describe('bridge HTTP — perintah grup baru ikut mengalir', () => {
       expect(posted.status).toBe(200)
       await expect(pending).resolves.toMatchObject({ ok: true })
     }
+  })
+})
+
+describe('bridge — publish gate: path kanonik, isolasi flavor, pin ID', () => {
+  it('tokenPathFor kanonik: prod <xdg>/abelink, dev <xdg>/abelink-dev (tanpa double-brand)', async () => {
+    const e = {}
+    const prod = tokenPathFor({ base: '/x/xdg/abelink', flavor: 'prod', env: e })
+    const dev = tokenPathFor({ base: '/x/xdg/abelink-dev', flavor: 'dev', env: e })
+    expect(prod.endsWith('abelink/browser-bridge-token')).toBe(true)
+    expect(dev.endsWith('abelink-dev/browser-bridge-token')).toBe(true)
+    expect(dev).not.toContain('abelink-dev/abelink')
+    expect(prod).not.toBe(dev)
+  })
+
+  it('writeTokenFile prod lalu dev di tmp: file terpisah, isi tidak menimpa', async () => {
+    const fs = await import('node:fs')
+    const os = await import('node:os')
+    const path = await import('node:path')
+    const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-gate-'))
+    try {
+      const prodBase = path.join(xdg, 'abelink')
+      const devBase = path.join(xdg, 'abelink-dev')
+      const wProd = writeTokenFile(prodBase, 'prod', {})
+      const wDev = writeTokenFile(devBase, 'dev', {})
+      expect(wProd.file).not.toBe(wDev.file)
+      expect(readTokenRecord(prodBase, 'prod', {}).token).toBe(wProd.token)
+      expect(readTokenRecord(devBase, 'dev', {}).token).toBe(wDev.token)
+      expect(readTokenRecord(prodBase, 'prod', {}).token).not.toBe(wDev.token)
+    } finally {
+      fs.rmSync(xdg, { recursive: true, force: true })
+      dropSession('default')
+    }
+  })
+
+  it('ensureNativeHost prod lalu dev: dua manifest, dua host, origin pin ID', async () => {
+    const fs = await import('node:fs')
+    const os = await import('node:os')
+    const path = await import('node:path')
+    const crypto = await import('node:crypto')
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-gate-'))
+    const configHome = path.join(tmp, 'config')
+    fs.mkdirSync(path.join(configHome, 'google-chrome'), { recursive: true })
+    try {
+      const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
+      const host = path.join(root, 'extension', 'native-host', 'abelink-bridge-host.mjs')
+      const rProd = await ensureNativeHost({ configHome, dataHome: path.join(tmp, 'xdg', 'abelink'), sourceFile: { pathname: host } })
+      const rDev = await ensureNativeHost({ configHome, dataHome: path.join(tmp, 'xdg', 'abelink-dev'), sourceFile: { pathname: host }, flavor: 'dev' })
+      expect(rProd.ok).toBe(true)
+      expect(rDev.ok).toBe(true)
+      expect(fs.existsSync(rProd.host)).toBe(true)
+      expect(fs.existsSync(rDev.host)).toBe(true)
+      expect(rDev.host).not.toBe(rProd.host)
+      const dir = path.join(configHome, 'google-chrome', 'NativeMessagingHosts')
+      for (const name of [NATIVE_HOST_NAME, NATIVE_HOST_NAME_DEV]) {
+        const body = JSON.parse(fs.readFileSync(path.join(dir, `${name}.json`), 'utf8'))
+        expect(body.allowed_origins).toEqual([`chrome-extension://${EXTENSION_ID}/`])
+      }
+      // EXTENSION_ID = turunan sha256 key manifest (anti-drift).
+      const manifest = JSON.parse(fs.readFileSync(path.join(root, 'extension', 'manifest.json'), 'utf8'))
+      const der = Buffer.from(manifest.key, 'base64')
+      const h = crypto.createHash('sha256').update(der).digest().subarray(0, 16)
+      const id = [...h].map((b) => String.fromCharCode(97 + (b >> 4)) + String.fromCharCode(97 + (b & 15))).join('')
+      expect(id).toBe(EXTENSION_ID)
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('handshake token asing -> 401 (tidak bocor lintas sesi)', async () => {
+    const s = ensureSession(S)
+    const r = await get(`/handshake?session=${S}&token=${s.token}-asing`)
+    expect(r.status).toBe(401)
   })
 })
 

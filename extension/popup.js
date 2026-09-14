@@ -22,11 +22,12 @@ async function refresh() {
   const reconnectBtn = $('reconnect')
   // Tampilkan port tersimpan agar tak terisi ulang diam-diam.
   if ($('port') && !$('port').value && res?.port) $('port').value = res.port
+  const pin = res?.pairing ? ` [${res.pairing.flavor} :${res.pairing.port} terpin]` : ' [belum pilih flavor]'
   const target = `127.0.0.1:${res?.port || '?'}`
   if (res?.running) {
     setPill('ok', 'tersambung')
     el.className = 'ok'
-    el.textContent = `Session: ${res.session} @ ${target}. Menunggu perintah...`
+    el.textContent = `Session: ${res.session} @ ${target}${pin}. Menunggu perintah...`
     if (reconnectBtn) reconnectBtn.hidden = true
   } else if (res?.lastError) {
     setPill('err', 'terputus')
@@ -60,15 +61,20 @@ async function refreshTask() {
 }
 
 async function autoConnect() {
-  // Coba port tersimpan dulu; kalau mati, probe Prod+Dev dan pakai yang hidup.
+  // Dengan pairing: resume flavor terpin. Tanpa pairing: tampilkan pilihan,
+  // JANGAN auto-start diam-diam (matikan silent auto-pilih-port-hidup).
   try {
-    const probe = await chrome.runtime.sendMessage({ type: 'probe' })
-    renderPorts(probe?.ports || [], probe?.activePort)
-    const alive = (probe?.ports || []).filter((p) => p.reachable)
-    if (alive.length > 0) {
-      const active = alive.find((p) => p.port === probe?.activePort) || alive[0]
-      const res = await chrome.runtime.sendMessage({ type: 'start', token: '', session: 'default', port: active.port })
-      if (res?.ok === true) {
+    const probe = await chrome.runtime.sendMessage({ type: 'probe' }).catch(() => null)
+    if (probe) {
+      renderPorts(probe.ports || [], probe.activePort, probe.pairing)
+      if (probe.pairing) {
+        const res = await chrome.runtime.sendMessage({ type: 'start', token: '', session: 'default', port: probe.pairing.port }).catch(() => null)
+        if (res?.ok === true) {
+          await refresh()
+          return
+        }
+      } else {
+        setPill('warn', 'pilih flavor sekali')
         await refresh()
         return
       }
@@ -76,7 +82,7 @@ async function autoConnect() {
   } catch {
     /* jatuh ke start langsung */
   }
-  // Token kosong = background mencoba helper lokal dulu.
+  // Token kosong = background mencoba helper lokal dulu (port = pairing/pin tersimpan).
   const msg = { type: 'start', token: '', session: 'default' }
   const port = readPort()
   if (port) msg.port = port
@@ -85,10 +91,16 @@ async function autoConnect() {
   await refresh()
 }
 
-function renderPorts(ports, activePort) {
+function renderPorts(ports, activePort, pairing) {
   const box = $('ports')
   if (!box) return
   box.innerHTML = ''
+  if (!pairing && ports.length > 0) {
+    const hint = document.createElement('div')
+    hint.style.cssText = 'font-size:11px;opacity:0.7;margin:2px 0 4px;'
+    hint.textContent = 'Pilih Prod atau Dev sekali — pilihan tersimpan otomatis.'
+    box.appendChild(hint)
+  }
   for (const p of ports) {
     const row = document.createElement('div')
     row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:11px;margin:2px 0;'
@@ -97,10 +109,14 @@ function renderPorts(ports, activePort) {
     dot.style.cssText = `width:8px;height:8px;border-radius:999px;background:${color};flex-shrink:0;`
     const label = document.createElement('span')
     label.style.opacity = '0.85'
-    label.textContent = `${p.label || ''} :${p.port} — ${!p.reachable ? 'mati' : p.port === activePort ? 'aktif' : 'siap'}`
+    const pinned = pairing && p.port === pairing.port ? 'terpin · ' : ''
+    label.textContent = `${p.label || ''} :${p.port} — ${pinned}${!p.reachable ? 'mati' : p.port === activePort ? 'aktif' : 'siap'}`
     row.appendChild(dot)
     row.appendChild(label)
-    if (p.reachable && p.port !== activePort) {
+    // Tombol eksplisit per baris non-pin: klik = start + pin pairing baru.
+    // Tanpa pairing semua baris dapat tombol (pilih sekali); dengan pairing
+    // hanya flavor lain (switch eksplisit, tanpa auto-switch).
+    if (!pinned) {
       const btn = document.createElement('button')
       btn.textContent = 'Pakai'
       btn.style.cssText = 'margin:0 0 0 auto;width:auto;padding:2px 10px;font-size:11px;'
