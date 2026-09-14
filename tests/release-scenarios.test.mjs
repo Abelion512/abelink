@@ -4,6 +4,13 @@
  */
 import { describe, it, expect } from 'vitest'
 import { parse as semverParse, gt as semverGt, rcompare as semverRcompare } from '../src/api/semverLite.js'
+import {
+  nextVersion,
+  nextAlphaVersion as nextAlphaVersionReal,
+  detectBumpType,
+  bumpRank,
+} from '../scripts/release-version.mjs'
+import { appToExtVersion } from '../scripts/ext-version.mjs'
 const semver = { parse: semverParse, gt: semverGt, rcompare: semverRcompare }
 
 // ── Helper under test (inline to avoid module-level side effects) ──────────
@@ -280,5 +287,114 @@ describe('Edge cases', () => {
     expect(getChannel('1.0.0-beta.1')).toBe('beta')
     expect(getChannel('1.0.0')).toBe('stable')
     expect(getChannel(null)).toBe('stable')
+  })
+})
+
+// ── SemVer penuh: basis ikut commit, counter monoton (standar) ──────────────
+
+describe('nextVersion (SemVer penuh, kanal alpha)', () => {
+  it('fix -> patch bump, counter monoton', () => {
+    expect(nextVersion('1.0.0-alpha.4', 'patch')).toBe('1.0.1-alpha.5')
+  })
+
+  it('feat -> minor bump, patch reset, counter monoton', () => {
+    expect(nextVersion('1.0.0-alpha.4', 'minor')).toBe('1.1.0-alpha.5')
+  })
+
+  it('breaking -> major bump, minor+patch reset, counter monoton', () => {
+    expect(nextVersion('1.1.0-alpha.5', 'major')).toBe('2.0.0-alpha.6')
+  })
+
+  it('basis lebih tinggi menang lintas counter (SemVer §11: basis dulu)', () => {
+    expect(semverGt('1.1.0-alpha.5', '1.0.1-alpha.6')).toBe(true)
+  })
+
+  it('rilis berurutan selalu naik (monoton generasional)', () => {
+    expect(nextVersion('1.0.0-alpha.4', 'minor')).toBe('1.1.0-alpha.5')
+    expect(semverGt('1.1.0-alpha.5', '1.0.0-alpha.4')).toBe(true)
+  })
+})
+
+describe('monoton pipeline: kandidat dari baseline selalu lebih baru', () => {
+  // Invarian anti-mundur: pipeline menghitung kandidat DARI baseline
+  // (= rilis maksimum terakhir), jadi apa pun jenis commitnya hasilnya
+  // selalu naik. Ini menggantikan kebutuhan helper anti-mundur terpisah.
+  const baselines = ['1.0.0-alpha.4', '1.1.0-alpha.5', '1.0.9-alpha.12', '2.3.4-alpha.99']
+  for (const base of baselines) {
+    for (const bump of ['patch', 'minor', 'major']) {
+      it(`${base} + ${bump} > ${base}`, () => {
+        expect(semverGt(nextVersion(base, bump), base)).toBe(true)
+      })
+    }
+  }
+
+  it('menolak stabil (promosi manual)', () => {
+    expect(() => nextVersion('1.0.0', 'patch')).toThrow('not in alpha channel')
+  })
+
+  it('menolak bump tak dikenal', () => {
+    expect(() => nextVersion('1.0.0-alpha.1', 'banana')).toThrow('Unknown bump type')
+  })
+
+  it('kompat mundur: nextAlphaVersion modul = patch bump', () => {
+    expect(nextAlphaVersionReal('1.0.0-alpha.4')).toBe('1.0.1-alpha.5')
+  })
+})
+
+describe('detectBumpType (tertinggi menang)', () => {
+  it('feat mengalahkan fix', () => {
+    expect(detectBumpType([{ msg: 'fix: x' }, { msg: 'feat: y' }])).toBe('minor')
+  })
+
+  it('breaking mengalahkan semua', () => {
+    expect(detectBumpType([{ msg: 'feat: y' }, { msg: 'feat!: zap' }])).toBe('major')
+  })
+
+  it('BREAKING CHANGE di badan terdeteksi', () => {
+    expect(bumpRank({ msg: 'fix: x\n\nBREAKING CHANGE: api berubah' })).toBe('major')
+  })
+
+  it('tanpa commit -> patch konservatif', () => {
+    expect(detectBumpType([])).toBe('patch')
+  })
+
+  it('non-releasable saja -> null rank, patch konservatif', () => {
+    expect(detectBumpType([{ msg: 'chore: rapikan' }])).toBe('patch')
+  })
+})
+
+// ── Pemetaan versi extension Chrome ─────────────────────────────────────────
+
+describe('appToExtVersion (Chrome: angka saja + version_name)', () => {
+  it('alpha -> 4 komponen + nama penuh', () => {
+    expect(appToExtVersion('1.0.0-alpha.4')).toEqual({ version: '1.0.0.4', versionName: '1.0.0-alpha.4' })
+  })
+
+  it('basis bump ikut terbawa', () => {
+    expect(appToExtVersion('1.1.0-alpha.5')).toEqual({ version: '1.1.0.5', versionName: '1.1.0-alpha.5' })
+  })
+
+  it('stabil -> apa adanya', () => {
+    expect(appToExtVersion('1.0.0')).toEqual({ version: '1.0.0', versionName: '1.0.0' })
+  })
+
+  it('beta counter ikut', () => {
+    expect(appToExtVersion('1.0.0-beta.11')).toEqual({ version: '1.0.0.11', versionName: '1.0.0-beta.11' })
+  })
+
+  it('tanpa angka pra-rilis -> counter 0', () => {
+    expect(appToExtVersion('1.0.0-alpha')).toEqual({ version: '1.0.0.0', versionName: '1.0.0-alpha' })
+  })
+
+  it('menolak counter > 65535 (batas Chrome)', () => {
+    expect(() => appToExtVersion('1.0.0-alpha.70000')).toThrow('65535')
+  })
+
+  it('menolak semua-nol (aturan Chrome)', () => {
+    expect(() => appToExtVersion('0.0.0')).toThrow('semua nol')
+  })
+
+  it('menolak bukan SemVer', () => {
+    expect(() => appToExtVersion('bogus')).toThrow('bukan SemVer')
   })
 })
