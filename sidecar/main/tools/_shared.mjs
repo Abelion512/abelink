@@ -18,7 +18,7 @@ export const isDangerousKeyCombo = (combo = '') => {
 
 export const execPromise = util.promisify(exec)
 
-// Linux-native: XDG data dir
+// Linux-native: data-home terpusat (hormati ABELINK_DATA_HOME dev/prod).
 export const getWorkspaceDir = () => {
   return path.join(brandDir(), 'workspace')
 }
@@ -47,28 +47,19 @@ export const parsePagination = (str) => {
 }
 
 // Helper: Cek apakah command shell berbahaya (bash/zsh, Linux Debian/Ubuntu).
-// Daftar mencakup keyword era Windows (taskkill, Set-ExecutionPolicy, ...) agar
-// perintah warisan upstream tetap tertangkap, PLUS keyword destruktif khas Linux.
+// Linux-only: keyword era Windows (Remove-Item/taskkill/del/dsb) DIBUANG —
+// alias kompat `run-powershell` tetap hidup sebagai alias di node-tools.js.
 export const DANGEROUS_KEYWORDS = [
-  'Remove-Item',
   'rm ',
   'rm -rf',
-  'del ',
   'rmdir',
-  'Format-',
-  'Clear-Disk',
-  'Stop-Process',
   'kill ',
   'killall',
-  'taskkill',
-  'Set-ExecutionPolicy',
-  'Restart-Computer',
   'shutdown',
   'reboot',
   'poweroff',
   'halt',
   'init 0',
-  'reg delete',
   'mkfs',
   'dd if=',
   'fdisk',
