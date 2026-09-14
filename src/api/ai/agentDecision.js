@@ -235,11 +235,7 @@ export function classifySubagentAnswer(decision = {}, ctx = {}) {
   }
 
   const explicit = explicitState(decision)
-  if (explicit === 'final') return { type: 'final', reason: 'explicit-done' }
-  if (explicit === 'blocked') return { type: 'blocked', reason: 'explicit-blocked' }
-  if (explicit === 'needs_user') return { type: 'needs_input', reason: 'explicit-needs-user' }
   if (explicit === 'self_terminated') return { type: 'self_terminated', reason: 'explicit-self-terminate' }
-  if (explicit === 'in_progress') return { type: 'continue', reason: 'explicit-continue' }
 
   const answer = typeof decision.answer === 'string' && decision.answer.trim() ? decision.answer : ''
   if (!answer) return { type: 'continue', reason: 'empty-decision' }
@@ -252,6 +248,11 @@ export function classifySubagentAnswer(decision = {}, ctx = {}) {
   if (isTruncatedOutput(answer) || isTruncatedOutput(lastObservation)) {
     return { type: 'continue', reason: 'truncated-subagent-output' }
   }
+
+  if (explicit === 'final') return { type: 'final', reason: 'explicit-done' }
+  if (explicit === 'blocked') return { type: 'blocked', reason: 'explicit-blocked' }
+  if (explicit === 'needs_user') return { type: 'needs_input', reason: 'explicit-needs-user' }
+  if (explicit === 'in_progress') return { type: 'continue', reason: 'explicit-continue' }
 
   const lastFailed = /(\[ERROR\]|\[DITOLAK\]|failed|timeout|ECONNREFUSED|HTTP [45]\d\d)/i.test(
     String(lastObservation || '')

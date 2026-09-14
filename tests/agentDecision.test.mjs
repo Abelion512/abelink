@@ -238,3 +238,67 @@ describe('classifySubagentAnswer — truncated output never becomes a silent fin
     expect(r.reason).not.toBe('truncated-subagent-output')
   })
 })
+
+describe('classifySubagentAnswer — explicit done never beats truncation', () => {
+  it("completion done + truncated answer => continue (truncated-subagent-output)", () => {
+    const r = classifySubagentAnswer(
+      {
+        thought: 'x',
+        action: null,
+        answer: 'Parsial... [SISA OUTPUT DIPOTONG (Total: 9 karakter)]',
+        completion: 'done'
+      },
+      { hasExecutedTools: true }
+    )
+    expect(r.type).toBe('continue')
+    expect(r.reason).toBe('truncated-subagent-output')
+  })
+
+  it('completion done + clean answer + truncated observation => continue (truncated-subagent-output)', () => {
+    const r = classifySubagentAnswer(
+      { thought: 'x', action: null, answer: 'Laporan lengkap.', completion: 'done' },
+      {
+        hasExecutedTools: true,
+        lastObservation: '[run-shell] ok\n\n[SISA DATA DIPOTONG (Total: 5 karakter)]'
+      }
+    )
+    expect(r.type).toBe('continue')
+    expect(r.reason).toBe('truncated-subagent-output')
+  })
+
+  it('self-terminate still beats truncation (explicit marker and text)', () => {
+    const viaMarker = classifySubagentAnswer(
+      {
+        thought: 'x',
+        action: null,
+        answer: 'Parsial... [SISA OUTPUT DIPOTONG (Total: 9 karakter)]',
+        completion: 'self_terminate'
+      },
+      { hasExecutedTools: true }
+    )
+    expect(viaMarker.type).toBe('self_terminated')
+
+    const viaText = classifySubagentAnswer(
+      {
+        thought: 'x',
+        action: null,
+        answer: 'Saya menghentikan diri karena di luar scope. [SISA DATA DIPOTONG (Total: 5 karakter)]'
+      },
+      { hasExecutedTools: true }
+    )
+    expect(viaText.type).toBe('self_terminated')
+  })
+
+  it('emitted action still beats truncation => continue (action)', () => {
+    const r = classifySubagentAnswer(
+      {
+        thought: 'x',
+        action,
+        answer: 'Parsial... [SISA OUTPUT DIPOTONG (Total: 9 karakter)]'
+      },
+      { hasExecutedTools: true }
+    )
+    expect(r.type).toBe('continue')
+    expect(r.reason).toBe('action')
+  })
+})
