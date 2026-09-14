@@ -74,14 +74,19 @@ if (ext.version !== extVersion || ext.version_name !== extName) {
     ext.version = extVersion
     ext.version_name = extName
     writeFileSync(EXT_MANIFEST_PATH, JSON.stringify(ext, null, 2) + '\n')
-    console.log(`[sync-version] ${EXT_MANIFEST_PATH}: ${extRaw.match(/"version":\s*"([^"]+)"/)?.[1]} -> ${extVersion} (name: ${extName})`)
+    console.log(`[sync-version] ${EXT_MANIFEST_PATH}: ${extRaw.match(/"version":\s*"([^"]+)"/) ?.[1]} -> ${extVersion} (name: ${extName})`)
   }
 }
 
 if (drift.length > 0) {
-  console.error(
-    `[sync-version] Drift versi vs ${CONF_PATH} (${version}): ${drift.join(', ')} — jalankan \`bun run sync-version\` lalu commit.`
-  )
-  process.exit(1)
+  if (checkOnly) {
+    // --check: tidak menulis, exit 1 menandakan drift ke CI.
+    console.error(
+      `[sync-version] Drift terdeteksi vs ${CONF_PATH} (${version}): ${drift.join(', ')} — jalankan \`bun run sync-version\` lalu commit.`
+    )
+    process.exit(1)
+  }
+  // Write mode: berhasil update semua file di atas. Laporkan apa yang diubah.
+  console.log(`[sync-version] Update selesai: ${drift.join(', ')} -> ${version}`)
 }
 console.log(`[sync-version] Semua manifest sinkron di ${version}`)

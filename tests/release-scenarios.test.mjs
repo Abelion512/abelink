@@ -354,6 +354,22 @@ describe('detectBumpType (tertinggi menang)', () => {
     expect(bumpRank({ msg: 'fix: x\n\nBREAKING CHANGE: api berubah' })).toBe('major')
   })
 
+  it('fix!: adalah major (bukan patch)', () => {
+    expect(bumpRank({ msg: 'fix!: hapus endpoint lama' })).toBe('major')
+  })
+
+  it('refactor!: adalah major', () => {
+    expect(bumpRank({ msg: 'refactor!: ubah API publik' })).toBe('major')
+  })
+
+  it('chore(scope)!: adalah major', () => {
+    expect(bumpRank({ msg: 'chore(deps)!: hapus dependensi lama' })).toBe('major')
+  })
+
+  it('BREAKING-CHANGE (dengan strip) di badan terdeteksi', () => {
+    expect(bumpRank({ msg: 'fix: x\n\nBREAKING-CHANGE: api berubah' })).toBe('major')
+  })
+
   it('tanpa commit -> patch konservatif', () => {
     expect(detectBumpType([])).toBe('patch')
   })
@@ -398,3 +414,77 @@ describe('appToExtVersion (Chrome: angka saja + version_name)', () => {
     expect(() => appToExtVersion('bogus')).toThrow('bukan SemVer')
   })
 })
+
+// ── sync-version exit code ─────────────────────────────────────────────────
+// Verifikasi bahwa mode write (tanpa --check) exit 0 setelah berhasil update,
+// dan mode --check exit 1 saat drift. Bug lama: write mode exit 1 juga.
+
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, mkdirSync, writeFileSync as fsWrite, symlinkSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
+import { dirname as _dirname } from 'node:path'
+
+const ROOT = join(_dirname(fileURLToPath(import.meta.url)), '..')
+
+function makeMinimalProject(dir, tauriVersion) {
+  // tauri.conf.json
+  mkdirSync(join(dir, 'src-tauri'), { recursive: true })
+  fsWrite(join(dir, 'src-tauri', 'tauri.conf.json'), JSON.stringify({ version: tauriVersion }))
+  // package.json - versi sengaja beda (drift)
+  fsWrite(join(dir, 'package.json'), JSON.stringify({ version: '0.0.0' }) + '\n')
+  // Cargo.toml - versi sengaja beda
+  fsWrite(join(dir, 'src-tauri', 'Cargo.toml'), `[package]\nname = "abelink"\nversion = "0.0.0"\n`)
+  // extension/manifest.json - versi sengaja beda
+  mkdirSync(join(dir, 'extension'), { recursive: true })
+  fsWrite(join(dir, 'extension', 'manifest.json'), JSON.stringify({ manifest_version: 3, name: 'test', version: '0.0.0.0' }) + '\n')
+  // scripts yang dibutuhkan - symlink ke project asli
+  mkdirSync(join(dir, 'scripts'), { recursive: true })
+  for (const f of ['sync-version.mjs', 'ext-version.mjs', 'semver-lite.mjs']) {
+    try { symlinkSync(join(ROOT, 'scripts', f), join(dir, 'scripts', f)) } catch { /* symlink sudah ada */ }
+  }
+}
+
+describe('sync-version exit code (regression: write mode tidak boleh exit 1)', { timeout: 10000 }, () => {
+  it('write mode: ada drift, berhasil update, exit 0', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'abelink-sv-'))
+    try {
+      makeMinimalProject(dir, '1.0.0-alpha.5')
+      let code = 0
+      try {
+        execFileSync(process.execPath, [join(dir, 'scripts', 'sync-version.mjs')], {
+          cwd: dir,
+          env: { ...process.env },
+          stdio: 'pipe',
+        })
+      } catch (e) {
+        code = e.status || 1
+      }
+      expect(code).toBe(0)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('check mode: ada drift, exit 1', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'abelink-sv-'))
+    try {
+      makeMinimalProject(dir, '1.0.0-alpha.5')
+      let code = 0
+      try {
+        execFileSync(process.execPath, [join(dir, 'scripts', 'sync-version.mjs'), '--check'], {
+          cwd: dir,
+          env: { ...process.env },
+          stdio: 'pipe',
+        })
+      } catch (e) {
+        code = e.status || 1
+      }
+      expect(code).toBe(1)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
