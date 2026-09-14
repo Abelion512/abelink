@@ -17,14 +17,31 @@ use tauri::{AppHandle, Manager};
 /// Paritas dgn engine.mjs (`os.totalmem() <= 4.5e9`).
 pub(crate) const LITE_RAM_THRESHOLD_BYTES: u64 = 4_500_000_000;
 
-/// Namespace /tmp per flavor: dev (debug profile, ABELINK_DATA_HOME set oleh
-/// dev.sh) memakai subdir -dev agar file sementara tak dibaca instansi prod.
+fn is_dev() -> bool {
+    if cfg!(debug_assertions) {
+        return true;
+    }
+    if let Ok(val) = std::env::var("ABELINK_DEV") {
+        if val == "1" || val.eq_ignore_ascii_case("true") {
+            return true;
+        }
+    }
+    if let Ok(data_home) = std::env::var("ABELINK_DATA_HOME") {
+        if data_home.contains("abelink-dev") || data_home.ends_with("-dev") {
+            return true;
+        }
+    }
+    false
+}
+
+/// Namespace /tmp per flavor: dev (debug profile, ABELINK_DEV set, atau
+/// ABELINK_DATA_HOME berakhiran -dev) memakai subdir -dev agar file sementara tak dibaca instansi prod.
 fn tmp_flavored(top: &str) -> std::path::PathBuf {
-    let dev = std::env::var("ABELINK_DATA_HOME")
-        .ok()
-        .filter(|s| !s.trim().is_empty())
-        .is_some();
-    let name = if dev { format!("{top}-dev") } else { top.to_string() };
+    let name = if is_dev() {
+        format!("{top}-dev")
+    } else {
+        top.to_string()
+    };
     std::env::temp_dir().join(name)
 }
 

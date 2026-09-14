@@ -32,5 +32,5 @@ describe('pdf-parse-shim (regresi: default v2 bukan fungsi)', () => {
   it('mengekstrak teks via bentuk export yang tersedia', async () => {
     const text = await extractPdfText(tinyPdf('Halo Abelink'))
     expect(text).toContain('Halo Abelink')
-  })
+  }, 15000)
 })

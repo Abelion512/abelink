@@ -4,6 +4,7 @@ import path from 'path'
 import os from 'os'
 import { fileURLToPath } from 'url'
 import { getGlobalConfig, abortAllFetches, activeAbortControllers } from '../ai-bridge.js'
+import { isDev } from '../utils/dataHome.mjs'
 
 let bot = null
 let currentStatus = 'disconnected'
@@ -307,7 +308,7 @@ export const startTelegramBot = async (token, mainWindow) => {
         const fileUrl = await ctx.telegram.getFileLink(fileId)
         // Namespace dev/prod: dev memakai subfolder -dev agar unduhan
         // sesi dev tak bercampur arsip prod (lihat dev.sh ABELINK_DATA_HOME).
-        const tgFolder = process.env.ABELINK_DATA_HOME ? 'Telegram-dev' : 'Telegram'
+        const tgFolder = isDev() ? 'Telegram-dev' : 'Telegram'
         const saveDir = path.join(os.homedir(), 'Documents', 'Abelink Workspace', tgFolder)
         if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true })
 

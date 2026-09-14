@@ -15,3 +15,12 @@ export function resolveDataHome(env = process.env) {
 export function brandDir(env = process.env) {
   return path.join(resolveDataHome(env), 'abelink')
 }
+
+export function isDev(env = process.env) {
+  if (env?.NODE_ENV === 'development' || env?.ABELINK_DEV === '1' || env?.ABELINK_DEV === 'true') {
+    return true
+  }
+  const over = env?.ABELINK_DATA_HOME || ''
+  return over.includes('abelink-dev') || over.endsWith('-dev')
+}
+
