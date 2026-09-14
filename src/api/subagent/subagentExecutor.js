@@ -368,6 +368,24 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
                 : JSON.stringify(res.data)
               : `[ERROR] ${res.error}`
 
+            if (act.tool === 'read-tools' || act.tool === 'memory-search' || !window.api?.executeNativeTool) {
+              try {
+                import('../harness')
+                  .then(({ logToolCall }) =>
+                    logToolCall({
+                      tool: act.tool,
+                      query: String(act.query || '').slice(0, 200),
+                      ok: res.success === true,
+                      rejected: false,
+                      resultSummary: String(resultStr || '').slice(0, 2000),
+                      sessionId: subagentId,
+                      turn: currentTurn
+                    })
+                  )
+                  .catch(() => {})
+              } catch (_) {}
+            }
+
             observations.push(`[${act.tool}] ${resultStr}`)
 
             // Thin supervisor: Fase 1 fields only; vanilla has no

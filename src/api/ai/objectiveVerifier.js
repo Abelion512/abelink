@@ -113,9 +113,21 @@ const SEND_CONFIRM_RE =
 
 const FILE_REQUEST_RE = /(file|berkas|laporan|report|dokumen|\.md\b|\.txt\b|\.csv\b|\.docx\b)/i
 
+// Intent menyimpan/menulis artifact: harus ada aksi simpan/tulis/buat/ekspor
+// atau nama berkas berekstensi (mis. laporan.md, hasil.txt), bukan sekadar topik
+// riset yang memuat kata 'laporan' atau 'dokumen' (mis. "riset laporan keuangan Q3").
+export const ARTIFACT_INTENT_RE =
+  /(?:simpan|tulis|buatkan|buat|ekspor|export|save|write|catat)\s+(?:ke|dalam|sebagai|ke dalam)?\s*.*(?:file|berkas|laporan|report|dokumen|\.(?:md|txt|csv|docx|pdf))\b|\b[a-zA-Z0-9_-]+\.(?:md|txt|csv|docx|pdf)\b/i
+
+// Penanda permohonan maaf / kegagalan eksplisit pada jawaban: jawaban yang hanya
+// meminta maaf atau menyatakan tidak menemukan info BUKAN bukti fakta hadir.
+export const APOLOGY_OR_FAILURE_RE =
+  /(maaf|mohon maaf|tidak (dapat|bisa) menemukan|tidak ada informasi|unable to find|cannot find|could not find|no information available|saya gagal|saya tidak berhasil)/i
+
 // RI-13: semantic no-result markers: a "successful" search returning zero
 // results is not fetch proof (tool-level FAIL_RE never fires on these).
-const NO_RESULT_RE = /tidak ditemukan hasil|no results? found|tidak ada hasil/i
+const NO_RESULT_RE =
+  /(tidak ditemukan hasil|no results? found|tidak ada hasil|hasil tidak ditemukan|0 results|did not match any documents|halaman tidak ditemukan|404 not found)/i
 
 // Penanda objective multi-langkah: klaim done setelah 1 aksi = prematur.
 // Murni struktur bahasa (konjungsi), nol nama produk — buta-contoh.
@@ -243,7 +255,7 @@ export function deriveSuccessCriteria(kind = 'general', objectiveText = '') {
       return [
         { id: 'sources-found', label: 'Sumber ditemukan dan dibaca' },
         { id: 'facts-present', label: 'Fakta yang diminta tersedia di jawaban' },
-        ...(FILE_REQUEST_RE.test(text)
+        ...(ARTIFACT_INTENT_RE.test(text)
           ? [{ id: 'artifact-exists', label: 'Output laporan tersimpan sebagai artifact' }]
           : [])
       ]
@@ -448,10 +460,12 @@ export function evaluateEvidence({
           !NO_RESULT_RE.test(op.text || '') &&
           hasReadSubstance(op.text)
       )
-      const factsOk = String(answer || '').trim().length >= 50
+      const factsOk =
+        String(answer || '').trim().length >= 50 &&
+        !APOLOGY_OR_FAILURE_RE.test(String(answer || ''))
       setState('sources-found', sourcesOk ? 'pass' : 'unresolved')
       setState('facts-present', factsOk ? 'pass' : 'unresolved')
-      if (FILE_REQUEST_RE.test(String(objectiveText))) {
+      if (ARTIFACT_INTENT_RE.test(String(objectiveText))) {
         const { lastWrite, readBackOk } = artifactReadBack()
         // File requested => write-only is unresolved, read-back required.
         setState(
