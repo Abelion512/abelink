@@ -42,13 +42,20 @@ const rejectInvalidSkillName = () => {
   throw new Error('Nama skill tidak valid')
 }
 
-// Sanitasi path relatif skill: buang semua segmen '..' dan '.' (anti path traversal).
-const sanitizeSkillRelPath = (relativePath) =>
-  path
-    .normalize(String(relativePath || ''))
-    .split(path.sep)
-    .filter((s) => s !== '..' && s !== '.')
-    .join(path.sep)
+// Sanitasi path relatif skill: TOLAK (null) bila mengandung segmen '..'
+// atau path absolut — fail-closed anti path traversal. Versi lama me-strip
+// '..' diam-diam (fail-open: 'a/../../x' jadi 'a/x' tanpa jejak).
+const sanitizeSkillRelPath = (relativePath) => {
+  const raw = String(relativePath || '')
+  if (!raw || path.isAbsolute(raw) || raw.startsWith('~')) return null
+  const segs = path.normalize(raw).split(path.sep)
+  if (segs.some((s) => s === '..')) return null
+  return segs.filter((s) => s !== '.' && s !== '').join(path.sep)
+}
+
+const rejectTraversal = () => {
+  throw new Error('Path skill di luar folder (traversal ditolak)')
+}
 
 const emitSkillsUpdated = () => emit('skills-updated', { name: null })
 
@@ -107,8 +114,8 @@ on('skills:delete', async (name) => {
 
 on('skills:read-file', async (name, relativePath) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
-  // Buang SEMUA segmen '..' dan '.' agar file tetap di dalam folder skill.
   const safe = sanitizeSkillRelPath(relativePath)
+  if (safe == null) rejectTraversal()
   return await fs.promises.readFile(path.join(SKILLS_DIR, name, safe), 'utf8')
 })
 
@@ -154,6 +161,7 @@ on('skills:save-file', async (name, relativePath, content) => {
   try {
     const standalonePath = path.join(SKILLS_DIR, `${name}.md`)
     const safe = sanitizeSkillRelPath(relativePath)
+    if (safe == null) rejectTraversal()
     if (safe === 'SKILL.md' && fs.existsSync(standalonePath) && !fs.statSync(standalonePath).isDirectory()) {
       await fs.promises.writeFile(standalonePath, content, 'utf8')
       return true
@@ -180,6 +188,7 @@ on('skills:create-item', async (name, relativePath, isFolder) => {
       await fs.promises.rename(standalonePath, path.join(folderPath, 'SKILL.md'))
     }
     const safe = sanitizeSkillRelPath(relativePath)
+    if (safe == null) rejectTraversal()
     const targetPath = path.join(SKILLS_DIR, name, safe)
     if (isFolder) {
       await fs.promises.mkdir(targetPath, { recursive: true })
@@ -199,6 +208,7 @@ on('skills:delete-item', async (name, relativePath) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   try {
     const safe = sanitizeSkillRelPath(relativePath)
+    if (safe == null) rejectTraversal()
     const targetPath = path.join(SKILLS_DIR, name, safe)
     if (fs.existsSync(targetPath)) {
       const stat = await fs.promises.stat(targetPath)
@@ -220,8 +230,11 @@ on('skills:delete-item', async (name, relativePath) => {
 on('skills:rename-item', async (name, oldRelativePath, newRelativePath) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   try {
-    const oldPath = path.join(SKILLS_DIR, name, sanitizeSkillRelPath(oldRelativePath))
-    const newPath = path.join(SKILLS_DIR, name, sanitizeSkillRelPath(newRelativePath))
+    const oldSafe = sanitizeSkillRelPath(oldRelativePath)
+    const newSafe = sanitizeSkillRelPath(newRelativePath)
+    if (oldSafe == null || newSafe == null) rejectTraversal()
+    const oldPath = path.join(SKILLS_DIR, name, oldSafe)
+    const newPath = path.join(SKILLS_DIR, name, newSafe)
     if (fs.existsSync(oldPath)) {
       await fs.promises.rename(oldPath, newPath)
       emitSkillsUpdated()

@@ -18,7 +18,8 @@ const SCOPES = [
 ]
 
 export async function saveTokens(tokens) {
-  await fs.writeFile(TOKEN_PATH, JSON.stringify(tokens))
+  // 0600: OAuth token hanya boleh dibaca user (paritas connections.mjs).
+  await fs.writeFile(TOKEN_PATH, JSON.stringify(tokens), { mode: 0o600 })
 }
 
 export async function getTokens() {

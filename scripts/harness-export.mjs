@@ -56,7 +56,12 @@ export const readSessionEvents = ({ session, date, kinds = null, dir }) => {
       }
     }
   }
-  events.sort((a, b) => String(a.ts).localeCompare(String(b.ts)))
+  // Urut numerik bila ts epoch, leksikal bila ISO-8601 (keduanya monoton).
+  const tsNum = (v) => {
+    const n = typeof v === 'number' ? v : Date.parse(v)
+    return Number.isFinite(n) ? n : 0
+  }
+  events.sort((a, b) => tsNum(a.ts) - tsNum(b.ts) || String(a.ts).localeCompare(String(b.ts)))
   return events
 }
 

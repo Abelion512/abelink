@@ -306,11 +306,11 @@ const Configuration = ({
       await navigator.clipboard.writeText(prompt)
       copied = true
     } catch (_) {}
+    const ownerName = config.ownerName?.trim()
+    // Guard: tanpa ownerName, pola (owner|user) hanya false-positive.
     const leak =
-      !config.ownerName?.trim() &&
-      new RegExp(`\\b(${config.ownerName || 'owner'}|${config.ownerName || 'user'})\\b`, 'i').test(
-        prompt
-      )
+      !!ownerName &&
+      new RegExp(`\\b(${ownerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'i').test(prompt)
     await confirm({
       title: 'Dump System Prompt',
       message:

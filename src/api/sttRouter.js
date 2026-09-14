@@ -123,7 +123,7 @@ export const transcribeToEndpoint = async (pcmBuffer, { endpoint, apiKey, model,
     if (err.name === 'AbortError') {
       throw new Error(`Koneksi ke STT ${targetUrl} timeout (20 detik)`)
     }
-    if (err.message === 'Load failed' || err.name === 'TypeError') {
+    if (err.message === 'Load failed' || (err.name === 'TypeError' && err.message === 'Failed to fetch')) {
       throw new Error(`Koneksi ke STT ${targetUrl} gagal (Network/CORS/DNS error)`)
     }
     throw err
