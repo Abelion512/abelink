@@ -5,6 +5,13 @@
 // (min_speech_duration, min_silence_duration) + OpenAI verbose_json metrics
 // (no_speech_prob, avg_logprob, compression_ratio).
 
+// Model STT default: routing 9router namespaced ke Groq turbo.
+// Placeholder lama 'selfhosted-stt/whisper-1' tidak ada di sisi server —
+// hanya ditulis ulang oleh migrasi v28 bila nilainya persis placeholder
+// (pilihan manual user tak tersentuh).
+export const DEFAULT_STT_MODEL = 'groq/whisper-large-v3-turbo'
+export const PLACEHOLDER_STT_MODELS = ['selfhosted-stt/whisper-1']
+
 // Ambang batas verbose_json (lihat OpenAI API ref: avg_logprob <-1 gagal,
 // compression_ratio >2.4 gagal; faster-whisper default no_speech 0.6).
 export const NO_SPEECH_PROB_DROP = 0.6

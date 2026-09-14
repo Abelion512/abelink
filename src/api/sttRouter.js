@@ -1,7 +1,7 @@
 import { getAllConfig } from './db'
 import { pcmToWav } from './groq'
 import { detectProviderFromUrl } from './ai/providerDetect.js'
-import { filterSegments } from './sttGuard.js'
+import { DEFAULT_STT_MODEL, filterSegments } from './sttGuard.js'
 
 /**
  * Nama tampilan koneksi: nama provider terdeteksi dari URL bila dikenal,
@@ -57,7 +57,7 @@ export const transcribeToEndpoint = async (pcmBuffer, { endpoint, apiKey, model,
   const buildForm = (responseFormat) => {
     const formData = new FormData()
     formData.append('file', wavFile, 'audio.wav')
-    formData.append('model', model || 'selfhosted-stt/whisper-1')
+    formData.append('model', model || DEFAULT_STT_MODEL)
     formData.append('response_format', responseFormat)
     formData.append('temperature', '0')
     if (language) formData.append('language', language)
@@ -203,7 +203,7 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
     }
     const defaultKey = cfg.customSttApiKey?.trim() || ''
     const defaultModel =
-      cfg.customSttModel?.trim() || 'selfhosted-stt/whisper-1'
+      cfg.customSttModel?.trim() || DEFAULT_STT_MODEL
 
     connections = [
       {
@@ -268,7 +268,7 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
       const text = await transcribeToEndpoint(pcmBuffer, {
         endpoint: conn.endpoint,
         apiKey: conn.apiKey || '',
-        model: conn.model || 'selfhosted-stt/whisper-1',
+        model: conn.model || DEFAULT_STT_MODEL,
         language: lang
       })
 

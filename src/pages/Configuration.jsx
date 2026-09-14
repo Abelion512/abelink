@@ -20,6 +20,7 @@ import DataControlsSection from '../components/config/DataControlsSection'
 import DeveloperSection from '../components/config/DeveloperSection'
 import { getHardwareSttSupport, transcribeToEndpoint } from '../api/sttRouter'
 import { loadWhisper } from '../api/localWhisper'
+import { DEFAULT_STT_MODEL } from '../api/sttGuard'
 
 let mediaInfoLogged = false
 
@@ -57,7 +58,7 @@ const Configuration = ({
     sttProvider: 'custom',
     customSttEndpoint: 'http://localhost:20128/v1/audio/transcriptions',
     customSttApiKey: '',
-    customSttModel: 'selfhosted-stt/whisper-1',
+    customSttModel: DEFAULT_STT_MODEL,
     sttEnableCombo: false,
     sttFallbackEndpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
     sttFallbackApiKey: '',
@@ -141,7 +142,7 @@ const Configuration = ({
       const text = await transcribeToEndpoint(dummyPcm, {
         endpoint: conn.endpoint.trim(),
         apiKey: conn.apiKey?.trim() || '',
-        model: conn.model?.trim() || 'selfhosted-stt/whisper-1',
+        model: conn.model?.trim() || DEFAULT_STT_MODEL,
         language: config.sttLanguage || 'id'
       })
       const latency = Math.round(performance.now() - t0)

@@ -39,6 +39,7 @@ import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useVAD } from '../hooks/useVAD'
 import { useMemoryGroomer } from '../hooks/useMemoryGroomer'
 import { db, setSessionWorkspace, getAllConfig, saveConfiguration } from '../api/db'
+import { DEFAULT_STT_MODEL } from '../api/sttGuard'
 
 /**
  * Deteksi apakah respons AI mengandung data terstruktur/kaya (rich content)
@@ -1282,7 +1283,7 @@ const AbelinkHome = () => {
                     name: 'Local Gateway (127.0.0.1:20128)',
                     endpoint: 'http://127.0.0.1:20128/v1/audio/transcriptions',
                     apiKey: '',
-                    model: 'selfhosted-stt/whisper-1',
+                    model: DEFAULT_STT_MODEL,
                     enabled: true
                   }
                   await saveConfiguration({
