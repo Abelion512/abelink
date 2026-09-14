@@ -10,9 +10,12 @@ let loadedPlugins = []
 let pluginHandlers = {}
 
 // Folder plugin: XDG documents (tanpa Electron). Bisa dioverride lewat env.
+// Namespace dev/prod: dev memakai 'Abelink Plugins-dev' agar plugin
+// eksperimental sesi dev tak terbaca instansi prod (lihat dev.sh).
 export const getPluginsDir = () => {
   const docPath = process.env.XDG_DOCUMENTS_DIR || path.join(os.homedir(), 'Documents')
-  const pluginDir = path.join(docPath, 'Abelink Plugins')
+  const folder = process.env.ABELINK_DATA_HOME ? 'Abelink Plugins-dev' : 'Abelink Plugins'
+  const pluginDir = path.join(docPath, folder)
   if (!fs.existsSync(pluginDir)) {
     fs.mkdirSync(pluginDir, { recursive: true })
   }
