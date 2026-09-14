@@ -224,13 +224,16 @@ export const useVAD = ({
       }
       // getUserMedia tanpa timeout bisa pending selamanya saat pipewire stall;
       // race 8s agar isStartingRef tidak nyangkut dan path gagal yang ada tetap jalan.
-      const gumWithTimeout = (c) =>
-        Promise.race([
-          navigator.mediaDevices.getUserMedia(c),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('getUserMedia timeout (8s)')), 8000)
-          )
-        ])
+      // Timer dibersihkan saat settle agar tak bocor tiap auto-check.
+      const gumWithTimeout = (c) => {
+        let timer = null
+        const timeout = new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error('getUserMedia timeout (8s)')), 8000)
+        })
+        return Promise.race([navigator.mediaDevices.getUserMedia(c), timeout]).finally(() => {
+          if (timer) clearTimeout(timer)
+        })
+      }
       let stream
       try {
         stream = await gumWithTimeout(constraints)
@@ -317,6 +320,9 @@ export const useVAD = ({
         if (rms > RMS_THRESHOLD) {
           if (!isSpeakingRef.current) {
             isSpeakingRef.current = true
+            // Utterance dimulai: totalFrames mencakup pre-roll buffer yang tersimpan
+            totalFramesRef.current = audioChunksRef.current.length
+            peakRmsRef.current = peak
           }
           silenceFramesRef.current = 0
           speechFramesRef.current += 1

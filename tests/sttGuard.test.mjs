@@ -34,6 +34,10 @@ describe('isSpeechValid (pre-STT gate)', () => {
     const r = isSpeechValid({ peakRms: PEAK_RMS_MIN + 0.05, speechFrames: 8, totalFrames: 10, durationSec: VOCAL_SEC_MIN + 1 })
     expect(r.ok).toBe(true)
   })
+  it('menerima ucapan pendek (2 frame speech + 8 frame trailing silence)', () => {
+    const r = isSpeechValid({ peakRms: 0.05, speechFrames: 2, totalFrames: 10, durationSec: 0.512 })
+    expect(r.ok).toBe(true)
+  })
   it('batas tepat di ambang diterima', () => {
     const r = isSpeechValid({
       peakRms: PEAK_RMS_MIN,
@@ -71,6 +75,10 @@ describe('isHallucinationText (post-filter teks)', () => {
     expect(isHallucinationText('Please open the terminal and list files', 3).drop).toBe(false)
     expect(isHallucinationText('你好请打开浏览器', 2).drop).toBe(false)
   })
+  it('melewatkan ucapan cepat berimbuhan bahasa Indonesia (35 cps)', () => {
+    // 35 karakter dalam 1.0 detik
+    expect(isHallucinationText('Pertanggungjawabkan laporan ini segera', 1.0).drop).toBe(false)
+  })
   it('tanpa durasi: hanya denylist yang berlaku', () => {
     expect(isHallucinationText('kata '.repeat(100), 0).drop).toBe(false)
     expect(isHallucinationText('Saya adalah asisten virtual', 0).drop).toBe(true)
@@ -87,6 +95,12 @@ describe('filterSegments (verbose_json)', () => {
       { text: '   ', no_speech_prob: 0.1, avg_logprob: -0.2, compression_ratio: 1.1 },
     ])
     expect(out).toBe('halo dunia')
+  })
+  it('mempertahankan segmen dengan avg_logprob wajar untuk bahasa non-Inggris (-1.2)', () => {
+    const out = filterSegments([
+      { text: 'selamat pagi kawan', no_speech_prob: 0.05, avg_logprob: -1.2, compression_ratio: 1.2 }
+    ])
+    expect(out).toBe('selamat pagi kawan')
   })
   it('semua segmen dibuang -> string kosong', () => {
     expect(filterSegments([{ text: 'x', no_speech_prob: 0.99 }])).toBe('')

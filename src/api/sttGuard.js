@@ -12,22 +12,22 @@
 export const DEFAULT_STT_MODEL = 'groq/whisper-large-v3-turbo'
 export const PLACEHOLDER_STT_MODELS = ['selfhosted-stt/whisper-1']
 
-// Ambang batas verbose_json (lihat OpenAI API ref: avg_logprob <-1 gagal,
+// Ambang batas verbose_json (lihat OpenAI API ref: avg_logprob <-1.5 gagal,
 // compression_ratio >2.4 gagal; faster-whisper default no_speech 0.6).
 export const NO_SPEECH_PROB_DROP = 0.6
-export const AVG_LOGPROB_DROP = -1
+export const AVG_LOGPROB_DROP = -1.5
 export const COMPRESSION_RATIO_DROP = 2.4
 
 // Gate pra-STT: energi puncak minimum + rasio frame vokal + durasi vokal.
 // RMS_THRESHOLD VAD (0.003) sengaja sensitif agar suku kata awal tak terpotong;
-// gate ini yang menolak noise lantai sebelum request STT dikirim.
+// SPEECH_RATIO_MIN 0.15 mengantisipasi window trailing silence (8 frame ~2 detik).
 export const PEAK_RMS_MIN = 0.02
-export const SPEECH_RATIO_MIN = 0.25
+export const SPEECH_RATIO_MIN = 0.15
 export const VOCAL_SEC_MIN = 0.5
 
-// Kecepatan wicara manusia wajar <30 char/detik; di atas itu = halusinasi
+// Kecepatan wicara manusia wajar <40 char/detik; di atas itu = halusinasi
 // Whisper pada noise/sunyi (kasus nyata: 4.096s -> 400+ char intro asisten).
-export const CPS_DROP = 30
+export const CPS_DROP = 40
 
 // Denylist halusinasi Whisper umum (id/en/zh + template subtitle).
 const HALLUCINATION_PATTERNS = [
