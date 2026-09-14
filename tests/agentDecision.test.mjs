@@ -184,3 +184,57 @@ describe('classifySubagentAnswer — recoverable tool failure must not terminate
     expect(r.type).toBe('continue')
   })
 })
+
+describe('classifySubagentAnswer — truncated output never becomes a silent final', () => {
+  it('marker SISA DATA DIPOTONG in answer => continue (truncated-subagent-output)', () => {
+    const r = classifySubagentAnswer(
+      { thought: 'x', action: null, answer: 'Parsial... [SISA DATA DIPOTONG (Total: 5 karakter)]' },
+      { hasExecutedTools: true }
+    )
+    expect(r.type).toBe('continue')
+    expect(r.reason).toBe('truncated-subagent-output')
+  })
+
+  it('marker SISA OUTPUT DIPOTONG in lastObservation => continue (truncated-subagent-output)', () => {
+    const r = classifySubagentAnswer(
+      { thought: 'x', action: null, answer: 'Laporan lengkap.' },
+      {
+        hasExecutedTools: true,
+        lastObservation: '[run-shell] ok\n\n[SISA OUTPUT DIPOTONG (Total: 9 karakter)]'
+      }
+    )
+    expect(r.type).toBe('continue')
+    expect(r.reason).toBe('truncated-subagent-output')
+  })
+
+  it('truncation marker beats an explicit done claim (is_done)', () => {
+    const r = classifySubagentAnswer(
+      {
+        thought: 'x',
+        action: null,
+        answer: 'Parsial... [SISA OUTPUT DIPOTONG (Total: 9 karakter)]',
+        is_done: true
+      },
+      { hasExecutedTools: true }
+    )
+    expect(r.type).toBe('continue')
+    expect(r.reason).toBe('truncated-subagent-output')
+  })
+
+  it('clean answer with no marker still resolves FINAL', () => {
+    const r = classifySubagentAnswer(
+      { thought: 'x', action: null, answer: 'Laporan lengkap tanpa potongan.' },
+      { hasExecutedTools: true }
+    )
+    expect(r.type).toBe('final')
+  })
+
+  it("unrelated prose with 'dipotong' but no SISA marker is not flagged", () => {
+    const r = classifySubagentAnswer(
+      { thought: 'x', action: null, answer: 'Anggaran dipotong tahun ini, laporan tetap lengkap.' },
+      { hasExecutedTools: true }
+    )
+    expect(r.type).toBe('final')
+    expect(r.reason).not.toBe('truncated-subagent-output')
+  })
+})

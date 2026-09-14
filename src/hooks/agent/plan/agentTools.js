@@ -8,6 +8,79 @@ import { logSubAgentSpawn as trajectoryLogSub } from '../../../api/trajectory'
 import { loadGroupToolsText } from '../../../api/tools/group-tools.js'
 import { getLearnedSkill } from '../../../api/db.js'
 import { NATIVE_SKILLS } from '../../../components/core/native-skills.js'
+import { isTruncatedOutput } from '../../../api/ai/agentDecision.js'
+
+// Kelengkapan satu agen sub-agent untuk gerbang wait_subagents (RI-11/12/13):
+// laporan yang dibangun di atas output terpotong tidak boleh diam-diam
+// menjadi bahan sintesis.
+export const getAgentCompleteness = (agent = {}) => {
+  const status = String(agent.status || '').toLowerCase()
+  if (status === 'failed' || status === 'killed') return 'FAILED'
+  if (status === 'running') return 'RUNNING'
+  const answer = typeof agent.finalAnswer === 'string' ? agent.finalAnswer : ''
+  if (isTruncatedOutput(answer)) return 'TRUNCATED'
+  return answer.trim() ? 'COMPLETE' : 'FAILED'
+}
+
+// success:true HANYA bila semua agen COMPLETE. TRUNCATED/FAILED/RUNNING =>
+// success:false + pemulihan konkret. Failure membawa `error` karena dispatcher
+// membaca res.message||res.error (tanpanya laporan hilang jadi generic error).
+export const buildWaitReport = (agents = []) => {
+  const list = Array.isArray(agents) ? agents.filter(Boolean) : []
+  if (list.length === 0) {
+    const data =
+      '[STATUS SUB-AGENTS (TIDAK ADA DATA)]:\n\nTidak ada sub-agent yang cocok dengan ID yang diminta (TIDAK ADA DATA). Tidak ada bahan sintesis — jangan mengarang laporan.'
+    return { success: false, data, error: data }
+  }
+  const rows = list.map((a) => ({ agent: a, completeness: getAgentCompleteness(a) }))
+  const allComplete = rows.every((r) => r.completeness === 'COMPLETE')
+  const failedRows = rows.filter((r) => r.completeness === 'FAILED')
+  const truncatedRows = rows.filter((r) => r.completeness === 'TRUNCATED')
+  const runningRows = rows.filter((r) => r.completeness === 'RUNNING')
+
+  const summaryBits = []
+  if (failedRows.length > 0) {
+    summaryBits.push(`ADA AGEN GAGAL (${failedRows.map((r) => r.agent.id).join(', ')})`)
+  }
+  if (truncatedRows.length > 0) {
+    summaryBits.push(`ADA AGEN TERPOTONG (${truncatedRows.map((r) => r.agent.id).join(', ')})`)
+  }
+  if (runningRows.length > 0) {
+    summaryBits.push(`${runningRows.length} AGEN MASIH RUNNING`)
+  }
+  const statusSummary = allComplete ? 'SEMUA SELESAI' : summaryBits.join('; ')
+
+  const reports = rows
+    .map(({ agent: a, completeness }) => {
+      const answer = a.finalAnswer || '(Belum ada output)'
+      let note = ''
+      if (completeness === 'TRUNCATED') {
+        note = `\n\n[CATATAN: OUTPUT TERPOTONG — laporan ini tidak lengkap dan TIDAK BOLEH dijadikan bahan sintesis akhir. Kirim 'send_message' ke "${a.id}" dengan instruksi meminta bagian yang hilang dalam potongan yang lebih kecil.]`
+      } else if (completeness === 'FAILED') {
+        note = `\n\n[CATATAN: agen "${a.id}" GAGAL/berhenti sebelum mencapai goal. Kirim 'send_message' ke "${a.id}" dengan instruksi perbaikan/query alternatif.]`
+      } else if (completeness === 'RUNNING') {
+        note = `\n\n[CATATAN: agen "${a.id}" masih RUNNING di background. Jika kamu butuh hasilnya, panggil kembali 'wait_subagents'.]`
+      }
+      return `### LAPORAN ${a.name} (${a.role}) - ID: ${a.id}\nStatus: [${completeness}] (Total Turns: ${a.turnCount || 0})\nGoal: ${a.goal}\nHasil Akhir:\n${answer}${note}`
+    })
+    .join('\n\n---\n\n')
+
+  let prompt = ''
+  if (failedRows.length > 0) {
+    const failedInfo = failedRows.map((r) => `"${r.agent.id}" (${r.agent.name})`).join(', ')
+    prompt = `\n\n[PENGINGAT ORCHESTRATOR - EARLY FAIL INTERRUPT]: Sub-agent ${failedInfo} GAGAL saat sub-agent lain masih bekerja! Kamu WAJIB SEGERA mengirim pesan instruksi perbaikan/query alternatif ke ID tersebut menggunakan 'send_message' (format: "ID||instruksi kamu"). Sub-agent lain yang berstatus RUNNING akan tetap bekerja di background.`
+  } else if (truncatedRows.length > 0) {
+    const truncatedInfo = truncatedRows.map((r) => `"${r.agent.id}" (${r.agent.name})`).join(', ')
+    prompt = `\n\n[PENGINGAT ORCHESTRATOR - OUTPUT TERPOTONG]: Sub-agent ${truncatedInfo} melaporkan OUTPUT TERPOTONG sehingga laporannya belum lengkap dan TIDAK BOLEH disintesis apa adanya. Kirim 'send_message' ke ID tersebut (format: "ID||instruksi kamu") dengan instruksi meminta bagian yang hilang dalam potongan yang lebih kecil.`
+  } else if (runningRows.length > 0) {
+    prompt = `\n\n[PENGINGAT ORCHESTRATOR]: Masih ada ${runningRows.length} sub-agent yang sedang bekerja di background. Jika kamu butuh menunggu mereka, panggil kembali 'wait_subagents'.`
+  } else {
+    prompt = `\n\n[PENGINGAT ORCHESTRATOR - PROTOKOL PEER-REVIEW & PIPELINE RELAY]: Sub-agent telah memberikan laporan. Sebagai Lead Orchestrator:\n1. RELAY DATA: Kamu BISA meneruskan/menyalurkan temuan dari satu agen ke agen lain yang membutuhkan via 'send_message' (misal: "id_agen_2||Temuan dari Agen 1: ... Tolong lanjutkan dengan menganalisis ...").\n2. REVIEW KRITIS: Evaluasi temuan agen secara mendalam sebelum menyusun kesimpulan akhir.`
+  }
+
+  const data = `[STATUS SUB-AGENTS (${statusSummary})]:\n\n${reports}${prompt}`
+  return allComplete ? { success: true, data } : { success: false, data, error: data }
+}
 
 /**
  * @returns {object|undefined} res bila tool milik domain ini.
@@ -119,47 +192,7 @@ export const runAgentTool = async (tool, query, ctx) => {
       await new Promise((r) => setTimeout(r, 1500))
     }
 
-    const failedAgents = finalAgents.filter(
-      (a) => a.status === 'failed' || a.status === 'killed'
-    )
-    const runningAgents = finalAgents.filter((a) => a.status === 'running')
-
-    const reports = finalAgents
-      .map((a) => {
-        const isFailed = a.status === 'failed' || a.status === 'killed'
-        const isRunning = a.status === 'running'
-        const statusTag = isFailed
-          ? `[PERHATIAN: STATUS ${a.status.toUpperCase()} - GAGAL/PERLU RETRY DENGAN send_message]`
-          : isRunning
-            ? `[STATUS: RUNNING - SEDANG BERJALAN DI BACKGROUND]`
-            : `[STATUS: COMPLETED - SELESAI]`
-        return `### LAPORAN ${a.name} (${a.role}) - ID: ${a.id}\nStatus: ${statusTag} (Total Turns: ${a.turnCount || 0})\nGoal: ${a.goal}\nHasil Akhir:\n${a.finalAnswer || (isFailed ? 'Eksekusi agen ini terhenti atau mengalami kegagalan sebelum mencapai goal.' : isRunning ? '(Sedang aktif memproses langkah di background secara paralel)' : '(Belum ada output)')}`
-      })
-      .join('\n\n---\n\n')
-
-    let statusSummary = 'SEMUA SELESAI'
-    if (failedAgents.length > 0 && runningAgents.length > 0) {
-      statusSummary = `ADA AGEN GAGAL (${failedAgents.map((a) => a.id).join(', ')}), ${runningAgents.length} AGEN LAIN MASIH RUNNING`
-    } else if (failedAgents.length > 0) {
-      statusSummary = `ADA AGEN GAGAL (${failedAgents.map((a) => a.id).join(', ')})`
-    } else if (runningAgents.length > 0) {
-      statusSummary = `${runningAgents.length} AGEN MASIH RUNNING`
-    }
-
-    let failPrompt = ''
-    if (failedAgents.length > 0) {
-      const failedInfo = failedAgents.map((a) => `"${a.id}" (${a.name})`).join(', ')
-      failPrompt = `\n\n[PENGINGAT ORCHESTRATOR - EARLY FAIL INTERRUPT]: Sub-agent ${failedInfo} GAGAL saat sub-agent lain masih bekerja! Kamu WAJIB SEGERA mengirim pesan instruksi perbaikan/query alternatif ke ID tersebut menggunakan 'send_message' (format: "ID||instruksi kamu"). Sub-agent lain yang berstatus RUNNING akan tetap bekerja di background.`
-    } else if (runningAgents.length > 0) {
-      failPrompt = `\n\n[PENGINGAT ORCHESTRATOR]: Masih ada ${runningAgents.length} sub-agent yang sedang bekerja di background. Jika kamu butuh menunggu mereka, panggil kembali 'wait_subagents'.`
-    } else {
-      failPrompt = `\n\n[PENGINGAT ORCHESTRATOR - PROTOKOL PEER-REVIEW & PIPELINE RELAY]: Sub-agent telah memberikan laporan. Sebagai Lead Orchestrator:\n1. RELAY DATA: Kamu BISA meneruskan/menyalurkan temuan dari satu agen ke agen lain yang membutuhkan via 'send_message' (misal: "id_agen_2||Temuan dari Agen 1: ... Tolong lanjutkan dengan menganalisis ...").\n2. REVIEW KRITIS: Evaluasi temuan agen secara mendalam sebelum menyusun kesimpulan akhir.`
-    }
-
-    return {
-      success: true,
-      data: `[STATUS SUB-AGENTS (${statusSummary})]:\n\n${reports}${failPrompt}`
-    }
+    return buildWaitReport(finalAgents)
   }
   if (tool === 'send_message') {
     const { runSubagentTurn } = await import('../../../api/subagent/subagentExecutor.js')

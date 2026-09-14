@@ -1963,12 +1963,12 @@ export const useAbelinkPlan = ({
             try {
               trajectoryLogObservation({
                 observation: obsStr,
-                tool: `batch:${actionList.length}`,
+                tool: `batch:${actionList.length}:${actionList.map((a) => a?.tool).filter(Boolean).join(',')}`,
                 sessionId: activeSessionNum,
                 turn: stepCount
               })
               import('../../api/harness').then(({ logObservation }) =>
-                logObservation({ observation: obsStr, tool: `batch:${actionList.length}`, sessionId: activeSessionNum, turn: stepCount })
+                logObservation({ observation: obsStr, tool: `batch:${actionList.length}:${actionList.map((a) => a?.tool).filter(Boolean).join(',')}`, sessionId: activeSessionNum, turn: stepCount })
               ).catch(() => {})
             } catch (_) {}
           }
