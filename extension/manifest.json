@@ -1,12 +1,25 @@
 {
   "manifest_version": 3,
   "name": "Abelink Browser Bridge",
-  "version": "0.1.4",
+  "version": "1.0.0.4",
   "description": "Abelink Extension",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwXQbNEemweRiM7FMMf8uz1wdgW2V+3/HHmHC+sE8qCzjn6ByoVHOOM/ttutDp2VN+VHXE77qHOdfWFvML/qmPK5nANVwEIEd0xA+wlRNvzprlM06FywKXoa1YiovwXUZKISNf7vXRa89rn/faWJUAIjCJUtUuyDVVKUZhbGHv86XgCWX/gKv1F8Lo3loH6mxwy8e0ekcpJR/mRbRQggLqLO+5L6DKwe/sMsPM+Qx67pP/EMYTC/iDfIVeHB/LOubeB+2NvlV53XNGZ2DKObvsAjZJpTW1A4L14ZVErrS3oNKOLpglHNaPNGALFfI0iSwrSiqxQgRQcWUfjoSwAhkSQIDAQAB",
-  "permissions": ["scripting", "tabs", "storage", "tabGroups", "nativeMessaging", "alarms"],
-  "host_permissions": ["http://127.0.0.1/*", "http://*/*", "https://*/*"],
-  "background": { "service_worker": "background.js" },
+  "permissions": [
+    "scripting",
+    "tabs",
+    "storage",
+    "tabGroups",
+    "nativeMessaging",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_title": "Abelink Bridge",
     "default_popup": "popup.html",
@@ -21,5 +34,6 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "version_name": "1.0.0-alpha.4"
 }

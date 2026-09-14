@@ -8,7 +8,7 @@
 - `main` (primary / default for private repo `origin` git@github.com:Abelion512/abelink.git): Standard default branch on Git/GitHub, menerima seluruh pengembangan aktif dan commit.
 - `linux`: Cabang pelacak untuk remote publik `public-upstream` (Abelion512/mark-agent-linux).
 - `master`: Melacak upstream resmi Mazees/mark-agent untuk keperluan sinkronisasi berkala.
-- Version bumping: jalankan `bun run sync-version` setelah bump di `tauri.conf.json`
+- Version bumping: jalankan `bun run sync-version` setelah bump di `tauri.conf.json` (propagasi: package.json + Cargo.toml + extension/manifest.json). Skema penomoran: [docs/RELEASE-VERSIONING.md](docs/RELEASE-VERSIONING.md) (SemVer penuh, basis ikut commit, counter alpha monoton, extension ikut app).
 - Aturan PR: SEMUA perubahan selain patch kecil wajib lewat branch + open PR ke `main` (jangan commit langsung ke `main`). Patch kecil = typo/komentar/format satu-dua baris tanpa ubah perilaku.
 - Pedoman Kontribusi Agent: baca [docs/AGENT_CONTRIBUTION_GUIDELINES.md](docs/AGENT_CONTRIBUTION_GUIDELINES.md)
 - RFC Arsitektur Masa Depan: baca [docs/ARCHITECTURAL_DIRECTION.md](docs/ARCHITECTURAL_DIRECTION.md)
@@ -126,7 +126,7 @@ abelink-agent/
 
 ### Build, Verify & CI
 
-- `scripts/sync-version.mjs`: propagates the version from `src-tauri/tauri.conf.json` into package.json/Cargo.toml (single source of truth for versioning).
+- `scripts/sync-version.mjs`: propagates the version from `src-tauri/tauri.conf.json` into package.json/Cargo.toml + extension/manifest.json (version angka Chrome + version_name penuh, via `scripts/ext-version.mjs`). Bump logic: `scripts/release-version.mjs` (`nextVersion`/`detectBumpType`, dipakai pipeline + manual). Skema: [docs/RELEASE-VERSIONING.md](docs/RELEASE-VERSIONING.md).
 - `scripts/verify.sh`: release gate, must be green before push: vitest -> eslint (0 error) -> crypto watermark harness -> perf gate -> AbelinkBench quick -> vite build -> cargo check -> clippy (warnings denied).
 - Lint is a hard gate: `bun run lint` must exit 0 (warnings are registered tech debt, not failures). CI `tauri.yml` runs lint in the frontend job before vitest, so an undefined rule name or an unpreservable `useCallback` dependency fails the build instead of sitting unnoticed.
 - Rust lint is a hard gate too: `cargo clippy --all-targets -- -D warnings` must be clean and runs in both `scripts/verify.sh` and the `rust` CI job.

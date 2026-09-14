@@ -2,8 +2,9 @@ import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parse as semverParse, valid as semverValid, lt as semverLt, rcompare as semverRcompare } from './semver-lite.mjs'
-const semver = { parse: semverParse, valid: semverValid, lt: semverLt, rcompare: semverRcompare }
+import { parse as semverParse, valid as semverValid, gt as semverGt, lt as semverLt, rcompare as semverRcompare } from './semver-lite.mjs'
+import { nextVersion, nextAlphaVersion, detectBumpType } from './release-version.mjs'
+const semver = { parse: semverParse, valid: semverValid, gt: semverGt, lt: semverLt, rcompare: semverRcompare }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -183,7 +184,7 @@ function createReleasePR(version, changes) {
   run('bun run sync-version')
 
   // Stage and commit generated files
-  run('git add src/data/releases.json src/data/whats-new.json CHANGELOG.md src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
+  run('git add src/data/releases.json src/data/whats-new.json CHANGELOG.md src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml extension/manifest.json')
   // "No changes" must be detected via the staged diff, NEVER via commit
   // failure — a failed commit here used to be swallowed as "nothing to
   // commit" and silently pushed an empty release branch.
@@ -350,20 +351,11 @@ function generateSummary(sections) {
 }
 
 // ============================================================
-// Version management
+// Version management (implementasi di ./release-version.mjs)
 // ============================================================
 
-function nextAlphaVersion(current) {
-  const parsed = semver.parse(current)
-  if (!parsed) throw new Error(`Cannot parse version: ${current}`)
-
-  if (!parsed.prerelease.length || !parsed.prerelease[0].toString().startsWith('alpha')) {
-    throw new Error(`Version ${current} is not in alpha channel. Promotion must be done manually.`)
-  }
-
-  const alphaNum = Number(parsed.prerelease[1] || 0) + 1
-  return `${parsed.major}.${parsed.minor}.${parsed.patch}-alpha.${alphaNum}`
-}
+// Re-ekspor agar import lama tak rusak; pipeline memakai nextVersion penuh.
+export { nextAlphaVersion } from './release-version.mjs'
 
 // ============================================================
 // Stage A: Prepare
@@ -406,7 +398,13 @@ export function prepareRelease() {
   }
 
   const currentVersion = baseline || '1.0.0-alpha.1'
-  const newVersion = nextAlphaVersion(currentVersion)
+  // SemVer penuh: basis ikut jenis commit tertinggi (feat->minor,
+  // fix/security->patch, feat!/BREAKING->major), counter alpha monoton.
+  const bumpType = detectBumpType(releasable)
+  // Monoton terjamin: kandidat dihitung dari baseline (= rilis maksimum),
+  // jadi selalu lebih baru apa pun jenis commitnya.
+  const newVersion = nextVersion(currentVersion, bumpType)
+  console.log(`[release-helper] Bump ${bumpType}: ${currentVersion} -> ${newVersion}`)
 
   // === Idempotency: does releases.json already have this version? ===
   // This is the PRIMARY guard — if the version entry exists, this run
@@ -491,7 +489,7 @@ function writeAllFiles(version, changes) {
 
 function commitAndPushIfChanged(version, msg) {
   ensureGitIdentity()
-  run('git add src/data/releases.json src/data/whats-new.json CHANGELOG.md src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml')
+  run('git add src/data/releases.json src/data/whats-new.json CHANGELOG.md src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml extension/manifest.json')
   try {
     run('git diff --cached --quiet')
     // No changes — nothing to commit
