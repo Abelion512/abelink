@@ -134,3 +134,65 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
 Rencana fase: `docs/MIGRATION-PLAN.md` (status per fase + verifikasi).
 Audit gap lengkap: `docs/MIGRATION-GAPS.md`. Triage risiko dependency:
 `docs/SECURITY-TRIAGE.md`.
+
+## 6. Namespace Dev/Prod (pemisahan total)
+
+Satu prinsip: **`ABELINK_DATA_HOME` menang atas `XDG_DATA_HOME`**
+(`scripts/dev.sh` men-set-nya ke `~/.local/share/abelink-dev`; prod tidak
+pernah melihat var ini). Brand `abelink` di-append SEKALI oleh helper
+terpusat — Rust `data_home()` (`src-tauri/src/lib.rs:38`) + join brand di
+tiap pemakai; sidecar `brandDir()` (`sidecar/main/utils/dataHome.mjs`).
+JANGAN append brand manual di modul pemanggil (pernah jadi bug
+double-brand + reader salah dir; bukti: `git log fix/vad-hallucination-guard`).
+
+| Lapisan | Prod | Dev |
+| --- | --- | --- |
+| Data root | `$XDG_DATA_HOME/abelink/` | `$ABELINK_DATA_HOME/abelink/` |
+| Harness | `.../abelink/harness/<tgl>/` (Rust selalu append brand) | `.../abelink-dev/abelink/harness/<tgl>/` |
+| Workspace/skills/capabilities/google-tokens | `.../abelink/...` | `...-dev/abelink/...` |
+| Bridge token | `<xdg>/abelink/browser-bridge-token` (tak pernah override) | `<override>/browser-bridge-token` (strict-flavor, `tokenPathFor`) |
+| Telegram unduhan | `~/Documents/Abelink Workspace/Telegram/` | `.../Telegram-dev/` |
+| Plugins | `~/Documents/Abelink Plugins/` | `~/Documents/Abelink Plugins-dev/` |
+| /tmp | `abelink-attachments/`, `abelink-screenshots/` | `*-dev/` (`tmp_flavored`, `cmd_misc.rs`) |
+| WebView/IndexedDB/cache/log | identifier `abelink-linux` (otomatis Tauri) | identifier `abelink.linux.dev` (`tauri.dev.json`) |
+
+PENGECUALIAN by OS design (sengaja bersama, jangan "diperbaiki"):
+root `~/Documents`, cache WebKit di luar identifier, file `/tmp` tanpa
+prefix abelink.
+
+## 7. Pipeline VAD/STT Anti-Halusinasi
+
+`useVAD.js` → `sttGuard.js` → `sttRouter.js` (endpoint 9router
+`127.0.0.1:20128`, model default `groq/whisper-large-v3-turbo`,
+Groq cloud cadangan; `src/api/groq.js` legacy). Bahasa id/en/zh lewat
+param `language` — prompt teks SELALU kosong (prompt kalimat intro terbukti
+memandu Whisper mengarang pada audio sunyi; insiden: noise 65536 sampel →
+intro asisten).
+
+Pertahanan berlapis (standar OpenAI Whisper + faster-whisper + verbose_json):
+pre-gate `isSpeechValid` (peak RMS, rasio speech-frame, durasi vokal) →
+request `temperature=0`, coba `verbose_json` lalu fallback `json` →
+`filterSegments` (`no_speech_prob>0.6`, `avg_logprob<-1`,
+`compression_ratio>2.4`) → `isHallucinationText` (denylist id/en/zh +
+heuristik cps>30). Anti-loopback TTS: `echoCancellation`/`noiseSuppression`
+aktif + cooldown 800ms pasca `isAbelinkSpeaking` (`AbelinkHome.jsx` voice
+auto-restart + `utils.js` stempel `abelinkTtsEndedAt`).
+
+## 8. Kontrak Path Harness (reader = writer)
+
+Writer tunggal: Rust `cmd_harness.rs` (`data_home()/abelink/harness/<tgl>/`,
+rotasi 50MB x 3). Reader WAJIB rumus sama: `scripts/harness-common.mjs`
+(`parseArgs` + `harnessRoot` bersama untuk export + diagnose).
+Evaluasi: `evaluation/run.mjs` `sidecarWorkspaceRoot()` = rumus sama +
+`workspace`. Kategori log baca langsung dari file (`bun run
+harness:diagnose`), bukan copas user.
+
+## 9. Kebijakan Toolchain Linux-Only
+
+Stdlib/platform dulu sebelum kode baru (`AbortSignal.timeout` ditunda
+sampai WebKitGTK target terverifikasi — lihat `ponytail:` di
+`sttRouter.js`). Tanpa cabang `win32`, tanpa keyword Windows-era di
+deteksi perintah (alias `run-powershell` tetap sebagai alias).
+Deferral sadar ditandai `ponytail: <ceiling>, <upgrade>` (ledger:
+`eslint.config.mjs:46`, `effort-fixtures.mjs:153`,
+`window_tracker.rs:61`, `sttRouter.js` AbortSignal).
