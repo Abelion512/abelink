@@ -16,6 +16,23 @@ import { parseChoiceQuery, requestChoice, dropChoice } from '../../../api/choice
 // Indikator dinding-login untuk evidence gate browser-ask.
 export const LOGIN_WALL_RE = /login|log in|masuk|captcha|cloudflare|verify.*human|human.*verif|two-factor|2fa|otp|verifikasi|sign ?in/i
 
+// Cakupan forensik tool-calls JSONL: tauri-bridge hanya mencatat tool yang
+// lewat executeNativeTool. Domain yang return lebih awal di bawah (media,
+// vision, knowledge, ask, agent, fallback osOpen run-shell skema-URL, cabang
+// plugin bila checkTools gagal) lolos tanpa jejak. Predikat ini tinggal di
+// sini (bukan di caller) agar definisi "native-backed" tidak drift dari
+// routing aktual saat tool baru ditambah.
+const NON_NATIVE_TOOL_RE =
+  /^(yt-search|yt-summary|speak|screenshot-to-tg|analyze-screen|camera-look|memory-search|browser-ask-user|os-ask-user|os-ask|ask-user|user-ask|ask-choice|user-choice|spawn_subagent|wait_subagents|send_message|list_subagents|kill_subagent|read-tools|read-skill|delegate_coding)$/
+const NON_NATIVE_TOOL_PREFIXES = ['music', 'connector-', 'trading-']
+export const isNativeBacked = (tool, query) => {
+  if (!checkTools(tool)) return false
+  if (NON_NATIVE_TOOL_RE.test(tool)) return false
+  if (NON_NATIVE_TOOL_PREFIXES.some((p) => String(tool).startsWith(p))) return false
+  if (tool === 'run-shell' && /^(xdg-open|open)\s/i.test(String(query || '').trim())) return false
+  return true
+}
+
 // True bila alasan query atau observasi terakhir mengandung bukti login wall.
 export const hasLoginWallEvidence = (query, loopMessages) => {
   if (LOGIN_WALL_RE.test(String(query || ''))) return true

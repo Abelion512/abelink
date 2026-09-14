@@ -192,7 +192,7 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
   })
 
   // RI-13: plain exec() default result is 'success' (7 chars < 50) so it no
-  // longer counts as fetch proof — sources-found requires >=50 substantive
+  // longer counts as fetch proof: sources-found requires >=50 substantive
   // chars with no no-result markers. Search results must carry real content.
   it('research: sources + facts => verified; no answer => partially_verified', () => {
     const ok = evaluateEvidence({
