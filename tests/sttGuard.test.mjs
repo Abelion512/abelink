@@ -4,6 +4,8 @@ import {
   isSpeechValid,
   isHallucinationText,
   filterSegments,
+  DEFAULT_STT_MODEL,
+  PLACEHOLDER_STT_MODELS,
   PEAK_RMS_MIN,
   SPEECH_RATIO_MIN,
   VOCAL_SEC_MIN,
@@ -189,6 +191,33 @@ describe('transcribeToEndpoint (anti-halusinasi request)', () => {
       vi.restoreAllMocks()
     }
   })
+
+  it('bootstrap tanpa model mengirim default 9router namespaced', async () => {
+    vi.spyOn(db, 'getAllConfig').mockResolvedValue([
+      {
+        sttProvider: 'custom',
+        sttStrategy: 'fallback',
+        sttLanguage: 'id',
+        customSttEndpoint: 'http://127.0.0.1:20128/v1/audio/transcriptions',
+        customSttApiKey: '',
+        sttConnections: [],
+      },
+    ])
+    const seen = []
+    const originalFetch = global.fetch
+    global.fetch = vi.fn().mockImplementation(async (url, opts) => {
+      seen.push([...opts.body.entries()].find(([k]) => k === 'model')?.[1])
+      return { ok: true, json: async () => ({ text: 'halo' }) }
+    })
+    try {
+      const { transcribeAudioUnified } = await import('../src/api/sttRouter.js')
+      await transcribeAudioUnified(new Float32Array(1600), null, () => {})
+      expect(seen).toEqual([DEFAULT_STT_MODEL])
+    } finally {
+      global.fetch = originalFetch
+      vi.restoreAllMocks()
+    }
+  })
 })
 
 describe('dataHome (unifikasi namespace)', () => {
@@ -199,5 +228,36 @@ describe('dataHome (unifikasi namespace)', () => {
   it('tanpa override: XDG + brand sekali', () => {
     expect(brandDir({ XDG_DATA_HOME: '/x', HOME: '/h' })).toBe('/x/abelink')
     expect(brandDir({ HOME: '/h' })).toBe('/h/.local/share/abelink')
+  })
+})
+
+describe('model STT default (placeholder -> 9router namespaced)', () => {
+  it('default = groq/whisper-large-v3-turbo; placeholder lama terdaftar', () => {
+    expect(DEFAULT_STT_MODEL).toBe('groq/whisper-large-v3-turbo')
+    expect(PLACEHOLDER_STT_MODELS).toContain('selfhosted-stt/whisper-1')
+  })
+  it('migrasi v28: logika rewrite hanya sentuh placeholder', () => {
+    // Simulasi fungsi modify v28 tanpa Dexie: placeholder -> default,
+    // model custom user dipertahankan.
+    const isPlaceholder = (m) => PLACEHOLDER_STT_MODELS.includes((m || '').trim())
+    const rewrite = (config) => {
+      if (isPlaceholder(config.customSttModel)) config.customSttModel = DEFAULT_STT_MODEL
+      for (const c of config.sttConnections || []) {
+        if (c && isPlaceholder(c.model)) c.model = DEFAULT_STT_MODEL
+      }
+      return config
+    }
+    const out = rewrite({
+      customSttModel: 'selfhosted-stt/whisper-1',
+      sttConnections: [
+        { id: 'a', model: 'selfhosted-stt/whisper-1' },
+        { id: 'b', model: 'whisper-large-v3' },
+        { id: 'c', model: '  selfhosted-stt/whisper-1  ' },
+      ],
+    })
+    expect(out.customSttModel).toBe(DEFAULT_STT_MODEL)
+    expect(out.sttConnections[0].model).toBe(DEFAULT_STT_MODEL)
+    expect(out.sttConnections[1].model).toBe('whisper-large-v3')
+    expect(out.sttConnections[2].model).toBe(DEFAULT_STT_MODEL)
   })
 })

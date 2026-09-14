@@ -1,5 +1,6 @@
 import Dexie from 'dexie'
 import { generateVector } from './vectorLoader'
+import { DEFAULT_STT_MODEL, PLACEHOLDER_STT_MODELS } from './sttGuard.js'
 
 // Lazy (bukan impor statis) agar tidak ada siklus modul db<->oramaStore:
 // oramaStore sudah lazy-import db untuk hydrate; sisi ini simetris.
@@ -144,7 +145,7 @@ db.version(24).stores({
     config.sttProvider = 'custom'
     config.customSttEndpoint = config.customSttEndpoint || (config.groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : 'http://127.0.0.1:20128/v1/audio/transcriptions')
     config.customSttApiKey = config.customSttApiKey ?? ''
-    config.customSttModel = config.customSttModel || 'selfhosted-stt/whisper-1'
+    config.customSttModel = config.customSttModel || DEFAULT_STT_MODEL
     config.sttEnableCombo = config.sttEnableCombo ?? false
     config.sttFallbackEndpoint = config.sttFallbackEndpoint || (config.groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : '')
     config.sttFallbackApiKey = config.sttFallbackApiKey || config.groqApiKey || ''
@@ -167,7 +168,7 @@ db.version(25).stores({
           name: config.customSttEndpoint.includes('groq') ? 'Groq Whisper' : 'Primary Gateway',
           endpoint: config.customSttEndpoint,
           apiKey: config.customSttApiKey || '',
-          model: config.customSttModel || 'selfhosted-stt/whisper-1',
+          model: config.customSttModel || DEFAULT_STT_MODEL,
           enabled: true
         })
       }
@@ -187,7 +188,7 @@ db.version(25).stores({
           name: 'Local Gateway (127.0.0.1:20128)',
           endpoint: 'http://127.0.0.1:20128/v1/audio/transcriptions',
           apiKey: '',
-          model: 'selfhosted-stt/whisper-1',
+          model: DEFAULT_STT_MODEL,
           enabled: true
         })
       }
@@ -205,7 +206,7 @@ db.version(26).upgrade(tx => {
     if (primaryIsGroq) {
       config.customSttEndpoint = LOCAL_STT
       config.customSttApiKey = ''
-      config.customSttModel = 'selfhosted-stt/whisper-1'
+      config.customSttModel = DEFAULT_STT_MODEL
       if (!config.sttFallbackEndpoint || config.sttFallbackEndpoint === config.customSttEndpoint) {
         config.sttFallbackEndpoint = GROQ_STT
         config.sttFallbackApiKey = config.sttFallbackApiKey || config.groqApiKey || ''
@@ -216,7 +217,7 @@ db.version(26).upgrade(tx => {
       const autoIds = ['conn-primary', 'conn-fallback', 'conn-bootstrap-1', 'conn-bootstrap-2', 'conn-default-1']
       if (ids.length === 0 || ids.every((id) => autoIds.includes(id))) {
         config.sttConnections = [
-          { id: 'conn-primary', name: 'Local Gateway (127.0.0.1:20128)', endpoint: LOCAL_STT, apiKey: '', model: 'selfhosted-stt/whisper-1', enabled: true },
+          { id: 'conn-primary', name: 'Local Gateway (127.0.0.1:20128)', endpoint: LOCAL_STT, apiKey: '', model: DEFAULT_STT_MODEL, enabled: true },
           { id: 'conn-fallback', name: 'Groq Whisper (cadangan)', endpoint: GROQ_STT, apiKey: config.sttFallbackApiKey || config.groqApiKey || '', model: 'whisper-large-v3-turbo', enabled: true }
         ]
       }
@@ -233,6 +234,20 @@ db.version(26).upgrade(tx => {
 // contextManager): pointer ringkasan per sesi, bukan isi riwayat.
 db.version(27).stores({
   sessionCompacts: 'sessionId'
+})
+
+// v28: rewrite placeholder STT yang tak ada di server -> default 9router namespaced.
+// Hanya nilai persis placeholder; pilihan manual user tak tersentuh.
+db.version(28).upgrade(tx => {
+  return tx.table('config').toCollection().modify(config => {
+    const isPlaceholder = (m) => PLACEHOLDER_STT_MODELS.includes((m || '').trim())
+    if (isPlaceholder(config.customSttModel)) config.customSttModel = DEFAULT_STT_MODEL
+    if (Array.isArray(config.sttConnections)) {
+      for (const c of config.sttConnections) {
+        if (c && isPlaceholder(c.model)) c.model = DEFAULT_STT_MODEL
+      }
+    }
+  })
 })
 
 // --- APP CONFIG (feature flags, hardware profile, etc.) ---
@@ -413,7 +428,7 @@ export async function getAllConfig() {
         data[0].customSttApiKey = ''
       }
       if (data[0].customSttModel === undefined) {
-        data[0].customSttModel = 'selfhosted-stt/whisper-1'
+        data[0].customSttModel = DEFAULT_STT_MODEL
       }
       if (data[0].sttEnableCombo === undefined) {
         data[0].sttEnableCombo = false
@@ -435,7 +450,7 @@ export async function getAllConfig() {
             name: data[0].customSttEndpoint.includes('groq') ? 'Groq Whisper Cloud' : 'Primary Gateway',
             endpoint: data[0].customSttEndpoint,
             apiKey: data[0].customSttApiKey || '',
-            model: data[0].customSttModel || 'selfhosted-stt/whisper-1',
+            model: data[0].customSttModel || DEFAULT_STT_MODEL,
             enabled: true
           })
         }
@@ -455,7 +470,7 @@ export async function getAllConfig() {
             name: 'Local Gateway (127.0.0.1:20128)',
             endpoint: 'http://127.0.0.1:20128/v1/audio/transcriptions',
             apiKey: '',
-            model: 'selfhosted-stt/whisper-1',
+            model: DEFAULT_STT_MODEL,
             enabled: true
           })
         }

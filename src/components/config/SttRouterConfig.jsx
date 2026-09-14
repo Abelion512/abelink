@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { DEFAULT_STT_MODEL } from '../../api/sttGuard'
 import {
   FaBolt,
   FaMicrophone,
@@ -49,7 +50,7 @@ export default function SttRouterConfig({
       name: `Provider ${(config.sttConnections || []).length + 1}`,
       endpoint: 'http://127.0.0.1:20128/v1/audio/transcriptions',
       apiKey: '',
-      model: 'selfhosted-stt/whisper-1',
+      model: DEFAULT_STT_MODEL,
       enabled: true
     }
     setConfig((prev) => ({
