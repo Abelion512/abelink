@@ -2,7 +2,7 @@ import { fetchAI, cleanAndParse } from '../ai/core'
 import { subagentStore } from './subagentStore'
 import { buildSubagentSystemPrompt } from './subagentPrompt'
 import { getBuiltinPluginsPrompt } from '../ai/builtinPlugins'
-import { classifySubagentAnswer } from '../ai/agentDecision'
+import { classifySubagentAnswer, isTruncatedOutput } from '../ai/agentDecision'
 import {
   evaluateEvidence,
   gateCompletion,
@@ -211,6 +211,30 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
 
         if (pause.type === 'continue') {
           if (pause.reason === 'recover-after-error') autoRecoverUsed++
+          // Material terpotong: laporan di atas output yang dipotong tidak
+          // boleh diam-diam menjadi final. Fail loudly memakai status store
+          // yang sudah ada ('failed') + titip prompt pemulihan agar retry
+          // Lead via send_message meminta bagian hilang dalam potongan kecil.
+          if (pause.reason === 'truncated-subagent-output') {
+            await subagentStore.addMessage(subagentId, {
+              sender: 'tool',
+              role: 'user',
+              content:
+                '[OBSERVATION]: Output tool terakhir TERPOTONG (SISA DATA/OUTPUT DIPOTONG) sehingga laporanmu belum lengkap dan TIDAK BOLEH dianggap selesai. Ambil bagian yang hilang dalam potongan yang lebih kecil: ulangi query terakhir dengan rentang lebih sempit (startLine||endLine, grep kata kunci spesifik, atau halaman/offset berikutnya), lalu laporkan HANYA setelah seluruh bagian terverifikasi oleh observasi tool.'
+            })
+            await subagentStore.updateSubagent(subagentId, {
+              status: 'failed',
+              finalAnswer: decision.answer
+            })
+            return {
+              success: false,
+              subagentId,
+              error:
+                'Output sub-agent terpotong (SISA DATA/OUTPUT DIPOTONG): laporan tidak lengkap. Minta bagian yang hilang dalam potongan lebih kecil via send_message.',
+              turnCount: currentTurn,
+              terminalReason: pause.reason
+            }
+          }
           const corrective =
             pause.reason === 'recover-after-error'
               ? '[OBSERVATION]: Tool terakhir GAGAL dan misi belum selesai. Jangan berhenti dan jangan bertanya dulu: analisis error di "thought", pilih strategi alternatif (tool atau argumen berbeda), lalu isi "action" untuk melanjutkan. Laporkan selesai HANYA setelah deliverable terverifikasi oleh observasi tool.'
@@ -396,8 +420,12 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
       }
     }
 
+    // Loop habis tanpa abort maupun laporan: hanya jawaban kosong tulen yang
+    // boleh memakai fallback generik. Ekor terpotong gagal keras (status
+    // 'failed' yang sudah ada) agar tidak diam-diam menjadi bahan sintesis.
+    const truncatedTail = isTruncatedOutput(latestSubagentReply)
     await subagentStore.updateSubagent(subagentId, {
-      status: 'idle',
+      status: truncatedTail ? 'failed' : 'idle',
       finalAnswer: latestSubagentReply || 'Misi sub-agent selesai.'
     })
 
@@ -407,7 +435,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
       reply: latestSubagentReply || 'Misi selesai.',
       turnCount: currentTurn,
       terminal: terminalType,
-      terminalReason: 'loop-exhausted'
+      terminalReason: truncatedTail ? 'truncated-subagent-output' : 'loop-exhausted'
     }
   } catch (err) {
     if (abortController.signal.aborted) {
