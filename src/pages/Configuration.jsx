@@ -24,13 +24,6 @@ import { DEFAULT_STT_MODEL } from '../api/sttGuard'
 
 let mediaInfoLogged = false
 
-const withSttFallback = (cfg) => {
-  if (cfg.sttProvider === 'groq' && !cfg.groqApiKey?.trim()) {
-    return { ...cfg }
-  }
-  return cfg
-}
-
 const Configuration = ({
   isFirstSetup = false,
   onSetupComplete = null,
@@ -249,7 +242,7 @@ const Configuration = ({
     autosaveTimerRef.current = setTimeout(async () => {
       try {
         setSaveStatus({ state: 'saving' })
-        const eff = withSttFallback(config)
+        const eff = config
         await saveConfiguration(eff)
         savedSnapshotRef.current = JSON.stringify(eff)
         if (chatContext?.setConfig) chatContext.setConfig([eff])

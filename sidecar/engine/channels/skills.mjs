@@ -8,14 +8,12 @@
 // SKILL.md baru dibaca saat skill dipakai.
 import { on, emit } from '../registry.mjs'
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 import { brandDir } from '../../main/utils/dataHome.mjs'
 
 const SKILLS_DIR = (() => {
-  const dir = process.platform === 'win32'
-    ? path.join(os.homedir(), 'Documents', 'Abelink Skills')
-    : path.join(brandDir(), 'skills')
+  // Linux-only (kebijakan toolchain): tanpa cabang win32.
+  const dir = path.join(brandDir(), 'skills')
   fs.mkdirSync(dir, { recursive: true })
   return dir
 })()
