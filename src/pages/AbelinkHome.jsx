@@ -526,9 +526,13 @@ const AbelinkHome = () => {
   useEffect(() => {
     if (currentMode === 'voice') {
       if (!isMicMuted && !isRecording && !isLoading && !isAgentBusy && !isProcessing && !window.isAbelinkSpeaking) {
+        // Tunda hingga ekor TTS hilang dari mic (stempel di utils.js),
+        // minimal 800ms, agar loopback speaker tak ditranskrip.
+        const sinceTts = Date.now() - (window.abelinkTtsEndedAt || 0)
+        const delay = Math.max(250, 800 - Math.max(0, sinceTts))
         const timer = setTimeout(() => {
           startRecording()
-        }, 250)
+        }, delay)
         return () => clearTimeout(timer)
       }
     }

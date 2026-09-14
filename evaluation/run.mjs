@@ -53,8 +53,9 @@ const REGRESSION_THRESHOLD = 5 // persen pass-rate; default tanpa --compare = ti
 //   - Prompt + contoh preamble memakai RELATIF-terhadap-workspace
 //     (abelinkbench-<runId>/...) agar lolos fsGuard dan mendarat di dir yang sama.
 export function sidecarWorkspaceRoot() {
-  const xdg = process.env.XDG_DATA_HOME || join(os.homedir(), '.local', 'share')
-  return join(xdg, 'abelink', 'workspace')
+  const base = process.env.ABELINK_DATA_HOME || process.env.XDG_DATA_HOME || join(os.homedir(), '.local', 'share')
+  const brand = process.env.ABELINK_DATA_HOME ? '' : 'abelink'
+  return join(base, brand, 'workspace')
 }
 
 // ---- Anti-cheat ----

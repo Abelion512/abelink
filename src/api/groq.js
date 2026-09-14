@@ -68,7 +68,6 @@ export const transcribeAudioGroq = async (pcmBuffer) => {
     model: configs[0]?.localWhisperModel === 'groq-whisper-turbo' ? 'whisper-large-v3-turbo' : 'whisper-large-v3',
     language: 'id', // WAJIB untuk mencegah halusinasi bahasa Rusia/Welsh pada audio kosong/noise
     temperature: 0.0,
-    prompt: 'Umm, halo? Ini percakapan asisten virtual berbahasa Indonesia. Putar lagu, nyalakan musik, coding, open YouTube, play music, you know what I mean.',
     response_format: 'json'
   });
 

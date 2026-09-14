@@ -10,12 +10,12 @@ import { on, emit } from '../registry.mjs'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import { brandDir } from '../../main/utils/dataHome.mjs'
 
 const SKILLS_DIR = (() => {
-  const xdg = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
   const dir = process.platform === 'win32'
     ? path.join(os.homedir(), 'Documents', 'Abelink Skills')
-    : path.join(xdg, 'abelink', 'skills')
+    : path.join(brandDir(), 'skills')
   fs.mkdirSync(dir, { recursive: true })
   return dir
 })()

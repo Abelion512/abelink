@@ -89,6 +89,9 @@ export const playVoice = async (text, onStart, onEnd) => {
 
       audio.onended = () => {
         window.isAbelinkSpeaking = false
+        // Stempel akhir TTS: VAD menunda auto-restart 800ms agar ekor
+        // audio speaker tak tertangkap mic sebagai "ucapan" (loopback).
+        window.abelinkTtsEndedAt = Date.now()
         window.dispatchEvent(new CustomEvent('abelink-intensity', { detail: 0 }))
         if (animationId) cancelAnimationFrame(animationId)
         if (onEnd) onEnd()

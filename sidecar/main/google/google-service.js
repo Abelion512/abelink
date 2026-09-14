@@ -2,17 +2,13 @@ import { google } from 'googleapis'
 import http from 'http'
 import url from 'url'
 import path from 'path'
-import os from 'os'
 import fs from 'fs/promises'
 import { spawn } from 'child_process'
+import { brandDir } from '../utils/dataHome.mjs'
 
 // File to store the OAuth tokens safely (pengganti app.getPath('userData') era
 // Electron: XDG data dir Linux, konsisten dengan skills/telegram).
-const TOKEN_PATH = path.join(
-  process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'),
-  'abelink',
-  'google-tokens.json'
-)
+const TOKEN_PATH = path.join(brandDir(), 'google-tokens.json')
 
 // Scopes we need access to
 const SCOPES = [

@@ -1,6 +1,7 @@
 import { getAllConfig } from './db'
 import { pcmToWav } from './groq'
 import { detectProviderFromUrl } from './ai/providerDetect.js'
+import { filterSegments } from './sttGuard.js'
 
 /**
  * Nama tampilan koneksi: nama provider terdeteksi dari URL bila dikenal,
@@ -36,54 +37,89 @@ export const normalizeSttUrl = (rawUrl) => {
  * Eksekusi panggilan HTTP multipart audio transcription ke server OpenAI-compatible STT.
  * Format request identik dengan cURL spesifikasi 9router dan OpenAI:
  * curl -X POST <endpoint> -H "Authorization: Bearer <key>" -F "file=@audio.wav" -F "model=<model>" -F "response_format=json"
+ *
+ * Anti-halusinasi (standar OpenAI Whisper + faster-whisper):
+ * - prompt DIKOSONGKAN: prompt kalimat intro terbukti memandu Whisper
+ *   mengarang teks asisten pada audio sunyi/noise.
+ * - temperature 0 (greedy deterministik).
+ * - response_format verbose_json bila didukung agar segmen bermetrik
+ *   (no_speech_prob/avg_logprob/compression_ratio) bisa difilter; fallback
+ *   ke json untuk endpoint yang menolak verbose_json.
  */
-export const transcribeToEndpoint = async (pcmBuffer, { endpoint, apiKey, model, language = 'id', prompt = '' }) => {
+export const transcribeToEndpoint = async (pcmBuffer, { endpoint, apiKey, model, language = 'id' }) => {
   const targetUrl = normalizeSttUrl(endpoint)
   if (!targetUrl) {
     throw new Error('Endpoint STT kosong atau tidak valid')
   }
 
   const wavFile = pcmToWav(pcmBuffer, 16000)
-  const formData = new FormData()
-  formData.append('file', wavFile, 'audio.wav')
-  formData.append('model', model || 'selfhosted-stt/whisper-1')
-  formData.append('response_format', 'json')
-  if (language) formData.append('language', language)
-  if (prompt) formData.append('prompt', prompt)
+
+  const buildForm = (responseFormat) => {
+    const formData = new FormData()
+    formData.append('file', wavFile, 'audio.wav')
+    formData.append('model', model || 'selfhosted-stt/whisper-1')
+    formData.append('response_format', responseFormat)
+    formData.append('temperature', '0')
+    if (language) formData.append('language', language)
+    return formData
+  }
 
   const headers = {}
   if (apiKey && apiKey.trim()) {
     headers['Authorization'] = `Bearer ${apiKey.trim()}`
   }
 
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 20000) // 20s timeout
-
-  try {
-    const res = await fetch(targetUrl, {
-      method: 'POST',
-      headers,
-      body: formData,
-      signal: controller.signal
-    })
-
-    clearTimeout(timeoutId)
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '')
-      throw new Error(`HTTP ${res.status}: ${errText || res.statusText}`)
+  const postOnce = async (responseFormat, timeoutMs) => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const res = await fetch(targetUrl, {
+        method: 'POST',
+        headers,
+        body: buildForm(responseFormat),
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        const err = new Error(`HTTP ${res.status}: ${errText || res.statusText}`)
+        err.httpStatus = res.status
+        throw err
+      }
+      return await res.json()
+    } catch (err) {
+      clearTimeout(timeoutId)
+      throw err
     }
+  }
 
-    const data = await res.json()
+  const parseText = (data) => {
     if (typeof data?.text === 'string') {
+      // Segmen bermetrik verbose_json -> filter sunyi/tak-percaya-diri/repetitif.
+      if (Array.isArray(data?.segments)) {
+        const filtered = filterSegments(data.segments)
+        if (typeof filtered === 'string' && filtered) return filtered
+        if (typeof filtered === 'string') return ''
+      }
       return data.text
     }
     if (typeof data === 'string') {
       return data
     }
     throw new Error('Format respon STT tidak memuat teks transkripsi')
+  }
+
+  try {
+    try {
+      return parseText(await postOnce('verbose_json', 20000)) // 20s timeout
+    } catch (err) {
+      // Endpoint yang tak kenal verbose_json (400/422/415) -> fallback json polos.
+      if (err?.httpStatus === 400 || err?.httpStatus === 422 || err?.httpStatus === 415) {
+        return parseText(await postOnce('json', 20000))
+      }
+      throw err
+    }
   } catch (err) {
-    clearTimeout(timeoutId)
     if (err.name === 'AbortError') {
       throw new Error(`Koneksi ke STT ${targetUrl} timeout (20 detik)`)
     }
@@ -204,12 +240,9 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
 
   const strategy = cfg.sttStrategy || 'fallback'
   const lang = cfg.sttLanguage || 'id'
-  const promptText =
-    lang === 'zh'
-      ? '你好 Abelink，Linux 桌面助手对话。'
-      : lang === 'en'
-      ? 'Hello Abelink, Linux desktop companion conversation.'
-      : 'Halo Abelink, percakapan asisten Linux berbahasa Indonesia.'
+  // Prompt kalimat intro DIHAPUS (anti-halusinasi): prompt Whisper memandu
+  // gaya/kelanjutan segmen — kalimat asisten + audio sunyi = karangan intro.
+  // Bahasa (id/en/zh) tetap dikirim via `language`, tanpa prompt teks.
 
   // Susun urutan eksekusi berdasarkan strategi
   let executionList = [...connections]
@@ -236,8 +269,7 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
         endpoint: conn.endpoint,
         apiKey: conn.apiKey || '',
         model: conn.model || 'selfhosted-stt/whisper-1',
-        language: lang,
-        prompt: promptText
+        language: lang
       })
 
       const elapsed = Math.round(performance.now() - t0)
