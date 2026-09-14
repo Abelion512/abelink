@@ -24,9 +24,11 @@ browser).
 ## Cara pakai (dev)
 
 1. Jalankan Abelink (sidecar hidup). Saat channel `browser:*` pertama dipakai,
-   sidecar menulis token ke `~/.local/share/browser-bridge-token`
-   (mode 0600) + memasang native host (`~/.config/google-chrome/` atau
-   `chromium/.../NativeMessagingHosts/id.abelink.bridge.json`, otomatis).
+   sidecar menulis token ke `~/.local/share/abelink/browser-bridge-token`
+   (mode 0600; dev: `$ABELINK_DATA_HOME/browser-bridge-token`, default
+   `~/.local/share/abelink-dev/browser-bridge-token`) + memasang native host
+   (`~/.config/google-chrome/` atau `chromium/.../NativeMessagingHosts/`
+   `id.abelink.bridge.json` prod / `id.abelink.bridge.dev.json` dev, otomatis).
    Untuk memaksa token dibuat, panggil channel `browser:status`
    (mis. lewat `bun run harness` + frame `{"id":1,"action":"browser:status","payload":[]}`).
 2. Buka `chrome://extensions` -> aktifkan **Developer mode** ->
@@ -80,7 +82,8 @@ berhenti dan catat, jangan lanjut.
    Diharapkan: baris `engine:ready` memuat `browser:status`, baris
    `[BrowserBridge] listening on 127.0.0.1:49712`, dan respons
    `{"id":1,"success":true,"data":{"ready":true,"port":49712,...}}`.
-2. **Token ada.** `ls -l ~/.local/share/browser-bridge-token`
+2. **Token ada.** `ls -l ~/.local/share/abelink/browser-bridge-token`
+   (dev: `ls -l ~/.local/share/abelink-dev/browser-bridge-token`).
    Diharapkan: file ada, mode `-rw-------` (0600).
 3. **Handshake ditolak tanpa token benar.**
    `curl -s 'http://127.0.0.1:49712/abelink-bridge/handshake?session=default&token=salah'`

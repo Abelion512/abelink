@@ -20,7 +20,8 @@ import {
   groupSession,
   getSessionGroups,
   getSession,
-  tokenOk
+  tokenOk,
+  flavorFromPort
 } from './bridge-core.mjs'
 import { EXTENSION_ID } from './native-host.mjs'
 import { brandDir } from '../utils/dataHome.mjs'
@@ -175,17 +176,19 @@ export function startBrowserBridge() {
     })
     server.listen(BROWSER_BRIDGE.PORT, BROWSER_BRIDGE.HOST, () => {
       listening = true
+      const flavor = flavorFromPort(BROWSER_BRIDGE.PORT)
       try {
-        const { file } = writeTokenFile(xdgDataDir())
+        const { file } = writeTokenFile(xdgDataDir(flavor), flavor)
         console.log(
-          `[BrowserBridge] listening on ${BROWSER_BRIDGE.HOST}:${BROWSER_BRIDGE.PORT} (token: ${file})`
+          `[BrowserBridge] listening on ${BROWSER_BRIDGE.HOST}:${BROWSER_BRIDGE.PORT} (flavor: ${flavor}, token: ${file})`
         )
       } catch (e) {
         console.warn('[BrowserBridge] token file gagal ditulis:', e.message)
       }
       // Helper token tanpa copas (best-effort; tidak menggagalkan bridge).
+      // Teruskan flavor dari port (49713=dev) agar hanya file flavor-nya ditulis.
       import('./native-host.mjs')
-        .then((m) => m.ensureNativeHost())
+        .then((m) => m.ensureNativeHost({ flavor }))
         .then((r) => {
           if (r?.ok) console.log('[BrowserBridge] native host siap:', JSON.stringify(r.installed))
         })
@@ -208,7 +211,12 @@ export function stopBrowserBridge() {
   listening = false
 }
 
-function xdgDataDir() {
-  // Selaras bridge-core (token di dir data abelink) + hormati namespace dev.
-  return brandDir()
+function xdgDataDir(flavor = flavorFromPort(BROWSER_BRIDGE.PORT)) {
+  // Prod: brandDir() = resolveDataHome()+/abelink (canonical, sesuai PR #12).
+  // Dev: ABELINK_DATA_HOME bila di-set; fallback XDG/home + abelink-dev.
+  if (flavor !== 'dev') return brandDir()
+  const over = (process.env.ABELINK_DATA_HOME || '').trim()
+  if (over) return over
+  const xdg = process.env.XDG_DATA_HOME || `${process.env.HOME}/.local/share`
+  return `${xdg}/abelink-dev`
 }

@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import { ensureNativeHost, NATIVE_HOST_NAME, EXTENSION_ID, resolveDataHome } from '../sidecar/main/browser/native-host.mjs'
+import { ensureNativeHost, NATIVE_HOST_NAME, NATIVE_HOST_NAME_DEV, EXTENSION_ID, resolveDataHome, hostNameForFlavor, hostDirFor } from '../sidecar/main/browser/native-host.mjs'
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const HOST = path.join(ROOT, 'extension', 'native-host', 'abelink-bridge-host.mjs')
@@ -35,10 +35,12 @@ function readOne(child) {
   })
 }
 
-describe('host: protokol get-token', () => {
-  it('mengembalikan token dari file', async () => {
+describe('host: protokol get-token (strict per-flavor)', () => {
+  it('host prod membaca path kanonik prod', async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-'))
-    fs.writeFileSync(path.join(home, 'browser-bridge-token'), 'tok-rahasia', { mode: 0o600 })
+    const brand = path.join(home, 'abelink')
+    fs.mkdirSync(brand, { recursive: true })
+    fs.writeFileSync(path.join(brand, 'browser-bridge-token'), 'tok-rahasia', { mode: 0o600 })
     const child = spawn(process.execPath, [HOST], { env: { ...process.env, XDG_DATA_HOME: home }, stdio: ['pipe', 'pipe', 'ignore'] })
     try {
       const p = readOne(child)
@@ -52,22 +54,32 @@ describe('host: protokol get-token', () => {
     }
   })
 
-  it('namespace dev membaca file token dev (XDG/abelink-dev)', async () => {
+  it('host prod menolak namespace dev; host dev membaca file dev + menolak prod', async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-'))
     const devDir = path.join(home, 'abelink-dev')
     fs.mkdirSync(devDir, { recursive: true })
     fs.writeFileSync(path.join(devDir, 'browser-bridge-token'), 'tok-dev', { mode: 0o600 })
-    fs.writeFileSync(path.join(home, 'browser-bridge-token'), 'tok-prod', { mode: 0o600 })
-    const child = spawn(process.execPath, [HOST], { env: { ...process.env, XDG_DATA_HOME: home }, stdio: ['pipe', 'pipe', 'ignore'] })
+    const prodBrand = path.join(home, 'abelink')
+    fs.mkdirSync(prodBrand, { recursive: true })
+    fs.writeFileSync(path.join(prodBrand, 'browser-bridge-token'), 'tok-prod', { mode: 0o600 })
+    const prod = spawn(process.execPath, [HOST], { env: { ...process.env, XDG_DATA_HOME: home }, stdio: ['pipe', 'pipe', 'ignore'] })
+    const dev = spawn(process.execPath, [HOST, '--flavor=dev'], { env: { ...process.env, XDG_DATA_HOME: home }, stdio: ['pipe', 'pipe', 'ignore'] })
     try {
-      let p = readOne(child)
-      sendMsg(child, { type: 'get-token', namespace: 'dev' })
-      expect((await p).token).toBe('tok-dev')
-      p = readOne(child)
-      sendMsg(child, { type: 'get-token' })
+      let p = readOne(prod)
+      sendMsg(prod, { type: 'get-token', namespace: 'dev' })
+      expect((await p).ok).toBe(false)
+      p = readOne(prod)
+      sendMsg(prod, { type: 'get-token' })
       expect((await p).token).toBe('tok-prod')
+      p = readOne(dev)
+      sendMsg(dev, { type: 'get-token', namespace: 'dev' })
+      expect((await p).token).toBe('tok-dev')
+      p = readOne(dev)
+      sendMsg(dev, { type: 'get-token' })
+      expect((await p).ok).toBe(false)
     } finally {
-      child.kill()
+      prod.kill()
+      dev.kill()
       fs.rmSync(home, { recursive: true, force: true })
     }
   })
@@ -130,6 +142,88 @@ describe('pin ID extension', () => {  it('EXTENSION_ID cocok turunan key manifes
     const h = crypto.createHash('sha256').update(der).digest().subarray(0, 16)
     const id = [...h].map((b) => String.fromCharCode(97 + (b >> 4)) + String.fromCharCode(97 + (b & 15))).join('')
     expect(id).toBe(EXTENSION_ID)
+  })
+})
+
+describe('dua host prod/dev', () => {
+  it('hostNameForFlavor + hostDirFor flavor-aware (anti double-brand)', () => {
+    expect(hostNameForFlavor('prod')).toBe(NATIVE_HOST_NAME)
+    expect(hostNameForFlavor('dev')).toBe(NATIVE_HOST_NAME_DEV)
+    expect(NATIVE_HOST_NAME_DEV).toBe('id.abelink.bridge.dev')
+    expect(hostDirFor('/x/abelink', 'prod')).toBe(path.join('/x/abelink', 'native-host'))
+    expect(hostDirFor('/x/abelink-dev', 'dev')).toBe(path.join('/x/abelink-dev', 'native-host'))
+    expect(hostDirFor('/x/abelink-dev', 'dev')).not.toContain(path.join('abelink-dev', 'abelink'))
+  })
+
+  it('kedua manifest ada + idempoten + dev tak ubah byte prod', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-flav-'))
+    const configHome = path.join(tmp, 'config')
+    fs.mkdirSync(path.join(configHome, 'google-chrome'), { recursive: true })
+    const prodData = path.join(tmp, 'xdg', 'abelink')
+    const devData = path.join(tmp, 'xdg', 'abelink-dev')
+    const prodOpts = { configHome, dataHome: prodData, sourceFile: { pathname: HOST } }
+    const devOpts = { configHome, dataHome: devData, sourceFile: { pathname: HOST }, flavor: 'dev' }
+    const rProd = await ensureNativeHost(prodOpts)
+    const prodManifest = path.join(configHome, 'google-chrome', 'NativeMessagingHosts', `${NATIVE_HOST_NAME}.json`)
+    const prodBytes = fs.readFileSync(rProd.host, 'utf8')
+    const rDev = await ensureNativeHost(devOpts)
+    const devManifest = path.join(configHome, 'google-chrome', 'NativeMessagingHosts', `${NATIVE_HOST_NAME_DEV}.json`)
+    expect(fs.existsSync(prodManifest)).toBe(true)
+    expect(fs.existsSync(devManifest)).toBe(true)
+    // Dev tak menyentuh byte wrapper prod
+    expect(fs.readFileSync(rProd.host, 'utf8')).toBe(prodBytes)
+    // Manifest menunjuk wrapper masing-masing + nama benar
+    expect(JSON.parse(fs.readFileSync(prodManifest, 'utf8')).name).toBe(NATIVE_HOST_NAME)
+    expect(JSON.parse(fs.readFileSync(devManifest, 'utf8')).name).toBe(NATIVE_HOST_NAME_DEV)
+    // Wrapper strict: prod menolak namespace dev, dev menolak prod
+    expect(prodBytes).toContain('flavor mismatch')
+    expect(fs.readFileSync(rDev.host, 'utf8')).toContain('ABELINK_BRIDGE_FLAVOR=dev')
+    expect(prodBytes).toContain('ABELINK_BRIDGE_FLAVOR=prod')
+    // Idempoten kedua kali per flavor
+    expect((await ensureNativeHost(prodOpts)).installed[0].changed).toBe(false)
+    expect((await ensureNativeHost(devOpts)).installed[0].changed).toBe(false)
+    fs.rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('strict cross-flavor: wrapper prod + request dev = ok:false', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-strict-'))
+    const xdg = path.join(tmp, 'xdg')
+    const prodBrand = path.join(xdg, 'abelink')
+    fs.mkdirSync(prodBrand, { recursive: true })
+    fs.writeFileSync(path.join(prodBrand, 'browser-bridge-token'), 'tok-prod-only', { mode: 0o600 })
+    const configHome = path.join(tmp, 'config')
+    fs.mkdirSync(path.join(configHome, 'google-chrome'), { recursive: true })
+    const r = await ensureNativeHost({ configHome, dataHome: prodBrand, sourceFile: { pathname: HOST } })
+    // Ekstrak blok python wrapper, jalankan langsung dengan XDG terisolasi
+    const src = fs.readFileSync(r.host, 'utf8')
+    const pyStart = src.indexOf("exec /usr/bin/python3 -c '")
+    const pyEnd = src.indexOf("\n'", pyStart)
+    const py = src.slice(pyStart + "exec /usr/bin/python3 -c '".length, pyEnd)
+    const pyFile = path.join(tmp, 'wrap.py')
+    fs.writeFileSync(pyFile, py)
+    const run = (msg) =>
+      new Promise((resolve, reject) => {
+        const child = spawn('/usr/bin/python3', [pyFile], {
+          env: { ...process.env, XDG_DATA_HOME: xdg, ABELINK_DATA_HOME: '' },
+          stdio: ['pipe', 'pipe', 'ignore']
+        })
+        let buf = Buffer.alloc(0)
+        const timer = setTimeout(() => reject(new Error('timeout wrapper')), 10000)
+        child.stdout.on('data', (c) => {
+          buf = Buffer.concat([buf, c])
+          if (buf.length >= 4 && buf.length >= 4 + buf.readUInt32LE(0)) {
+            clearTimeout(timer)
+            resolve(JSON.parse(buf.subarray(4, 4 + buf.readUInt32LE(0)).toString('utf8')))
+          }
+        })
+        const body = Buffer.from(JSON.stringify(msg), 'utf8')
+        const head = Buffer.alloc(4)
+        head.writeUInt32LE(body.length, 0)
+        child.stdin.write(Buffer.concat([head, body]))
+      })
+    expect(await run({ namespace: 'dev' })).toMatchObject({ ok: false })
+    expect(await run({})).toMatchObject({ ok: true, token: 'tok-prod-only' })
+    fs.rmSync(tmp, { recursive: true, force: true })
   })
 })
 
