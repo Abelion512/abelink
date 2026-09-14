@@ -104,14 +104,42 @@ Setiap agent yang menyelesaikan tugas wajib menjalankan rangkaian gerbang penguj
    Memastikan tidak ada ketidakcocokan versi antara Tauri, Cargo, dan Node manifest.
 
 4. **Kompilasi Rust Shell**:
-   ```bash
-   cargo check --manifest-path src-tauri/Cargo.toml
-   ```
-   Memastikan type checking dan bridge Rust tidak rusak oleh perubahan konfigurasi.
+    ```bash
+    cargo check --manifest-path src-tauri/Cargo.toml
+    ```
+    Memastikan type checking dan bridge Rust tidak rusak oleh perubahan konfigurasi.
 
 ---
 
-## 6. Standar Pesan Commit (Conventional Commits)
+## 6. Kontrak Verifikasi Klaim Selesai (RI-11/12/13)
+
+Empat invariant di bawah ditegakkan kode di `objectiveVerifier.js`,
+`agentDecision.js`, `agentTools.js`, `subagentExecutor.js`, dan
+`useAbelinkPlan.js`. Jangan dilonggarkan tanpa regression test:
+
+1. **Klaim research + artifact tidak VERIFIED tanpa bukti semantik.**
+   `sources-found` butuh tool search/fetch yang hasilnya substantif
+   (>=50 char, tanpa penanda no-result seperti "tidak ditemukan hasil").
+   Bila artifact diminta, `artifact-exists` butuh read-back sukses:
+   write-only = unresolved. Op orkestrasi (`wait_subagents`,
+   `spawn_subagent`) adalah observasi, bukan bukti fetch.
+2. **Status laporan artifact terikat ke evidence, bukan prosa model.**
+   Menulis "Verified" di file tanpa fetch yang mendukung = pelanggaran
+   kontrak, walau struktur file lengkap.
+3. **Output sub-agent terpotong memicu recovery, bukan sintesis.**
+   Marker `SISA DATA/OUTPUT DIPOTONG` memaksa `continue` (bahkan melawan
+   `completion: done`; hanya action dan self-terminate yang menang).
+   `wait_subagents` success:true hanya bila semua target COMPLETE;
+   TRUNCATED/FAILED/RUNNING memaksa `send_message` retry atau re-wait.
+4. **Semua eksekusi tool tercatat di tool-calls JSONL.** Definisi
+   "native-backed" (sudah dicatat bridge) hidup di `toolDispatcher.js`
+   sebagai `isNativeBacked`: tool baru wajib diklasifikasikan di sana,
+   bukan dengan menduplikasi tabel di caller. Batch record membawa nama
+   tool individu, bukan hanya `batch:N`.
+
+---
+
+## 7. Standar Pesan Commit (Conventional Commits)
 
 Format commit pesan:
 ```

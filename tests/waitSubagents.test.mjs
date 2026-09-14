@@ -4,9 +4,8 @@
 // input (RI-11/12/13).
 //
 // Pure-function style: tests buildWaitReport/getAgentCompleteness directly
-// with plain agent objects. No store mock needed — the report builder takes
+// with plain agent objects. No store mock needed: the report builder takes
 // final agent snapshots, never touches Dexie itself.
-import 'fake-indexeddb/auto'
 import { describe, it, expect } from 'vitest'
 import { buildWaitReport, getAgentCompleteness } from '../src/hooks/agent/plan/agentTools.js'
 
@@ -42,7 +41,7 @@ describe('getAgentCompleteness', () => {
   })
 })
 
-describe('buildWaitReport — success hanya bila semua COMPLETE', () => {
+describe('buildWaitReport: success hanya bila semua COMPLETE', () => {
   it('semua COMPLETE => success:true', () => {
     const r = buildWaitReport([agent(), agent({ id: 'sub_2', name: 'Analis' })])
     expect(r.success).toBe(true)

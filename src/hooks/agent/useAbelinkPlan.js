@@ -38,8 +38,7 @@ import { logObservation as trajectoryLogObservation } from '../../api/trajectory
 import { logAnswer as trajectoryLogAnswer } from '../../api/trajectory'
 import { logTurnStart as trajectoryLogTurnStart } from '../../api/trajectory'
 import { logTurnEnd as trajectoryLogTurnEnd } from '../../api/trajectory'
-import { executeSingleTool } from './plan/toolDispatcher'
-import { checkTools } from '../../api/tools/index'
+import { executeSingleTool, isNativeBacked } from './plan/toolDispatcher'
 import {
   classifyObjectiveKind,
   evaluateEvidence,
@@ -89,22 +88,9 @@ const convertFilePathToBase64 = async (filePath) => {
   }
 }
 
-// Cakupan forensik tool-calls JSONL: tauri-bridge hanya mencatat tool yang
-// lewat executeNativeTool. Dispatcher (toolDispatcher.js) mengembalikan lebih
-// awal untuk domain media/vision/knowledge/ask/agent (+ fallback osOpen untuk
-// run-shell skema-URL, + cabang plugin bila checkTools gagal) — semua itu
-// lolos tanpa jejak. Predikat ini mendeteksi cabang native (sudah dicatat
-// bridge) agar choke point di bawah tidak mencatat ganda.
-const NON_NATIVE_TOOL_RE =
-  /^(yt-search|yt-summary|speak|screenshot-to-tg|analyze-screen|camera-look|memory-search|browser-ask-user|os-ask-user|os-ask|ask-user|user-ask|ask-choice|user-choice|spawn_subagent|wait_subagents|send_message|list_subagents|kill_subagent|read-tools|read-skill|delegate_coding)$/
-const NON_NATIVE_TOOL_PREFIXES = ['music', 'connector-', 'trading-']
-export const isBridgeLoggedTool = (tool, query) => {
-  if (!checkTools(tool)) return false
-  if (NON_NATIVE_TOOL_RE.test(tool)) return false
-  if (NON_NATIVE_TOOL_PREFIXES.some((p) => String(tool).startsWith(p))) return false
-  if (tool === 'run-shell' && /^(xdg-open|open)\s/i.test(String(query || '').trim())) return false
-  return true
-}
+// Cakupan forensik tool-calls JSONL: definisi "native-backed" (sudah dicatat
+// bridge) hidup di toolDispatcher sebagai isNativeBacked agar tidak drift
+// dari routing aktual. Choke point di bawah mencatat sisanya.
 
 // ============================================================================
 // MAIN HOOK: useAbelinkPlan
@@ -1805,7 +1791,7 @@ export const useAbelinkPlan = ({
               abortControllerRef
             })
 
-            if (!isBridgeLoggedTool(tool, query)) {
+            if (!isNativeBacked(tool, query)) {
               try {
                 const ok = !String(execResult.resultString || '').startsWith('[ERROR]')
                 import('../../api/harness')

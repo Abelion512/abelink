@@ -185,7 +185,7 @@ describe('classifySubagentAnswer — recoverable tool failure must not terminate
   })
 })
 
-describe('classifySubagentAnswer — truncated output never becomes a silent final', () => {
+describe('classifySubagentAnswer: truncated output never becomes a silent final', () => {
   it('marker SISA DATA DIPOTONG in answer => continue (truncated-subagent-output)', () => {
     const r = classifySubagentAnswer(
       { thought: 'x', action: null, answer: 'Parsial... [SISA DATA DIPOTONG (Total: 5 karakter)]' },
@@ -239,7 +239,7 @@ describe('classifySubagentAnswer — truncated output never becomes a silent fin
   })
 })
 
-describe('classifySubagentAnswer — explicit done never beats truncation', () => {
+describe('classifySubagentAnswer: explicit done never beats truncation', () => {
   it("completion done + truncated answer => continue (truncated-subagent-output)", () => {
     const r = classifySubagentAnswer(
       {

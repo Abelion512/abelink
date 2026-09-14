@@ -113,7 +113,7 @@ const SEND_CONFIRM_RE =
 
 const FILE_REQUEST_RE = /(file|berkas|laporan|report|dokumen|\.md\b|\.txt\b|\.csv\b|\.docx\b)/i
 
-// RI-13: semantic no-result markers — a "successful" search returning zero
+// RI-13: semantic no-result markers: a "successful" search returning zero
 // results is not fetch proof (tool-level FAIL_RE never fires on these).
 const NO_RESULT_RE = /tidak ditemukan hasil|no results? found|tidak ada hasil/i
 
@@ -438,7 +438,7 @@ export function evaluateEvidence({
       break
     }
     case 'research': {
-      // RI-13: semantic success required — a search returning "no results"
+      // RI-13: semantic success required: a search returning "no results"
       // with substantive-looking surrounding text is not fetch proof.
       const sourcesOk = ops.some(
         (op) =>

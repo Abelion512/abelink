@@ -29,7 +29,7 @@ export const buildWaitReport = (agents = []) => {
   const list = Array.isArray(agents) ? agents.filter(Boolean) : []
   if (list.length === 0) {
     const data =
-      '[STATUS SUB-AGENTS (TIDAK ADA DATA)]:\n\nTidak ada sub-agent yang cocok dengan ID yang diminta (TIDAK ADA DATA). Tidak ada bahan sintesis — jangan mengarang laporan.'
+      '[STATUS SUB-AGENTS (TIDAK ADA DATA)]:\n\nTidak ada sub-agent yang cocok dengan ID yang diminta (TIDAK ADA DATA). Tidak ada bahan sintesis: jangan mengarang laporan.'
     return { success: false, data, error: data }
   }
   const rows = list.map((a) => ({ agent: a, completeness: getAgentCompleteness(a) }))
@@ -55,7 +55,7 @@ export const buildWaitReport = (agents = []) => {
       const answer = a.finalAnswer || '(Belum ada output)'
       let note = ''
       if (completeness === 'TRUNCATED') {
-        note = `\n\n[CATATAN: OUTPUT TERPOTONG — laporan ini tidak lengkap dan TIDAK BOLEH dijadikan bahan sintesis akhir. Kirim 'send_message' ke "${a.id}" dengan instruksi meminta bagian yang hilang dalam potongan yang lebih kecil.]`
+        note = `\n\n[CATATAN: OUTPUT TERPOTONG: laporan ini tidak lengkap dan TIDAK BOLEH dijadikan bahan sintesis akhir. Kirim 'send_message' ke "${a.id}" dengan instruksi meminta bagian yang hilang dalam potongan yang lebih kecil.]`
       } else if (completeness === 'FAILED') {
         note = `\n\n[CATATAN: agen "${a.id}" GAGAL/berhenti sebelum mencapai goal. Kirim 'send_message' ke "${a.id}" dengan instruksi perbaikan/query alternatif.]`
       } else if (completeness === 'RUNNING') {
