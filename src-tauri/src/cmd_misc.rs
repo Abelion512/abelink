@@ -17,6 +17,17 @@ use tauri::{AppHandle, Manager};
 /// Paritas dgn engine.mjs (`os.totalmem() <= 4.5e9`).
 pub(crate) const LITE_RAM_THRESHOLD_BYTES: u64 = 4_500_000_000;
 
+/// Namespace /tmp per flavor: dev (debug profile, ABELINK_DATA_HOME set oleh
+/// dev.sh) memakai subdir -dev agar file sementara tak dibaca instansi prod.
+fn tmp_flavored(top: &str) -> std::path::PathBuf {
+    let dev = std::env::var("ABELINK_DATA_HOME")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .is_some();
+    let name = if dev { format!("{top}-dev") } else { top.to_string() };
+    std::env::temp_dir().join(name)
+}
+
 /// Spawn fire-and-forget: child ditunggu thread terpisah agar tidak menjadi zombie.
 fn spawn_detached(cmd: &mut Command) -> Result<(), String> {
     let mut child = cmd
@@ -208,7 +219,7 @@ pub fn misc_save_temp_file(data: Vec<u8>, name: Option<String>) -> Result<String
     if matches!(clean.as_str(), "" | "." | "..") {
         clean = format!("attachment_{}.png", chrono::Local::now().timestamp_millis());
     }
-    let dir = std::env::temp_dir().join("abelink-attachments");
+    let dir = tmp_flavored("abelink-attachments");
     std::fs::create_dir_all(&dir).map_err(|e| format!("Gagal menyiapkan folder sementara: {e}"))?;
     let target = dir.join(&clean);
     std::fs::write(&target, &data).map_err(|e| format!("Gagal menulis file sementara: {e}"))?;
@@ -333,7 +344,9 @@ fn b64_encode(data: &[u8]) -> String {
 /// data URL PNG; Err berisi alasan tool terakhir bila semua gagal.
 #[tauri::command]
 pub fn misc_take_screenshot() -> Result<String, String> {
-    let path = std::env::temp_dir().join(format!(
+    let dir = tmp_flavored("abelink-screenshots");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Gagal menyiapkan folder screenshot: {e}"))?;
+    let path = dir.join(format!(
         "abelink-screenshot-{}.png",
         chrono::Local::now().timestamp_millis()
     ));

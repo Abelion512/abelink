@@ -305,7 +305,10 @@ export const startTelegramBot = async (token, mainWindow) => {
         const statusMsg = await ctx.reply(`[INFO]: Sedang mengunduh file ${originalName}...`)
 
         const fileUrl = await ctx.telegram.getFileLink(fileId)
-        const saveDir = path.join(os.homedir(), 'Documents', 'Abelink Workspace', 'Telegram')
+        // Namespace dev/prod: dev memakai subfolder -dev agar unduhan
+        // sesi dev tak bercampur arsip prod (lihat dev.sh ABELINK_DATA_HOME).
+        const tgFolder = process.env.ABELINK_DATA_HOME ? 'Telegram-dev' : 'Telegram'
+        const saveDir = path.join(os.homedir(), 'Documents', 'Abelink Workspace', tgFolder)
         if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true })
 
         const savePath = resolveContainedSavePath(saveDir, originalName)
