@@ -4,6 +4,8 @@ import path from 'path'
 import { execFile } from 'child_process'
 import util from 'util'
 
+import { isDev } from '../utils/dataHome.mjs'
+
 const execFilePromise = util.promisify(execFile)
 
 let loadedPlugins = []
@@ -14,7 +16,7 @@ let pluginHandlers = {}
 // eksperimental sesi dev tak terbaca instansi prod (lihat dev.sh).
 export const getPluginsDir = () => {
   const docPath = process.env.XDG_DOCUMENTS_DIR || path.join(os.homedir(), 'Documents')
-  const folder = process.env.ABELINK_DATA_HOME ? 'Abelink Plugins-dev' : 'Abelink Plugins'
+  const folder = isDev() ? 'Abelink Plugins-dev' : 'Abelink Plugins'
   const pluginDir = path.join(docPath, folder)
   if (!fs.existsSync(pluginDir)) {
     fs.mkdirSync(pluginDir, { recursive: true })

@@ -140,7 +140,7 @@ Audit gap lengkap: `docs/MIGRATION-GAPS.md`. Triage risiko dependency:
 Satu prinsip: **`ABELINK_DATA_HOME` menang atas `XDG_DATA_HOME`**
 (`scripts/dev.sh` men-set-nya ke `~/.local/share/abelink-dev`; prod tidak
 pernah melihat var ini). Brand `abelink` di-append SEKALI oleh helper
-terpusat — Rust `data_home()` (`src-tauri/src/lib.rs:38`) + join brand di
+terpusat: Rust `data_home()` (`src-tauri/src/lib.rs:38`) + join brand di
 tiap pemakai; sidecar `brandDir()` (`sidecar/main/utils/dataHome.mjs`).
 JANGAN append brand manual di modul pemanggil (pernah jadi bug
 double-brand + reader salah dir; bukti: `git log fix/vad-hallucination-guard`).
@@ -165,7 +165,7 @@ prefix abelink.
 `useVAD.js` → `sttGuard.js` → `sttRouter.js` (endpoint 9router
 `127.0.0.1:20128`, model default `groq/whisper-large-v3-turbo`,
 Groq cloud cadangan; `src/api/groq.js` legacy). Bahasa id/en/zh lewat
-param `language` — prompt teks SELALU kosong (prompt kalimat intro terbukti
+param `language` - prompt teks SELALU kosong (prompt kalimat intro terbukti
 memandu Whisper mengarang pada audio sunyi; insiden: noise 65536 sampel →
 intro asisten).
 
@@ -190,7 +190,7 @@ harness:diagnose`), bukan copas user.
 ## 9. Kebijakan Toolchain Linux-Only
 
 Stdlib/platform dulu sebelum kode baru (`AbortSignal.timeout` ditunda
-sampai WebKitGTK target terverifikasi — lihat `ponytail:` di
+sampai WebKitGTK target terverifikasi - lihat `ponytail:` di
 `sttRouter.js`). Tanpa cabang `win32`, tanpa keyword Windows-era di
 deteksi perintah (alias `run-powershell` tetap sebagai alias).
 Deferral sadar ditandai `ponytail: <ceiling>, <upgrade>` (ledger:

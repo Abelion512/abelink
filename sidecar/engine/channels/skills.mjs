@@ -43,7 +43,7 @@ const rejectInvalidSkillName = () => {
 // Sanitasi path relatif skill: TOLAK (null) bila mengandung segmen '..'
 // atau path absolut — fail-closed anti path traversal. Versi lama me-strip
 // '..' diam-diam (fail-open: 'a/../../x' jadi 'a/x' tanpa jejak).
-const sanitizeSkillRelPath = (relativePath) => {
+export const sanitizeSkillRelPath = (relativePath) => {
   const raw = String(relativePath || '')
   if (!raw || path.isAbsolute(raw) || raw.startsWith('~')) return null
   const segs = path.normalize(raw).split(path.sep)
