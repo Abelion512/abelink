@@ -13,13 +13,29 @@ function xdgBase() {
   return process.env.XDG_DATA_HOME || path.join(os.homedir() || process.env.HOME || '', '.local', 'share')
 }
 
-function tokenFile(namespace) {
-  // Konvensi dev tetap (lihat scripts/dev.sh): token dev di
-  // <xdg>/abelink-dev/browser-bridge-token. Prod memakai XDG standar.
-  if (namespace === 'dev' || namespace === '49713') {
-    return path.join(xdgBase(), 'abelink-dev', 'browser-bridge-token')
+// Flavor host ini: --flavor=dev (dipasang installer dev) atau prod default.
+// STRICT: hanya membaca path token flavor sendiri; request namespace silang
+// -> ok:false. Selaras sidecar tokenPathFor:
+// prod <xdg>/abelink/browser-bridge-token;
+// dev <ABELINK_DATA_HOME>/browser-bridge-token (else <xdg>/abelink-dev/...).
+const HOST_FLAVOR = (() => {
+  for (const a of process.argv.slice(2)) {
+    const m = /^--flavor=(dev|prod)$/.exec(a)
+    if (m) return m[1]
   }
-  return path.join(xdgBase(), 'browser-bridge-token')
+  return process.env.ABELINK_BRIDGE_FLAVOR === 'dev' ? 'dev' : 'prod'
+})()
+
+function tokenFile() {
+  const over = (process.env.ABELINK_DATA_HOME || '').trim()
+  if (HOST_FLAVOR === 'dev') {
+    return path.join(over || path.join(xdgBase(), 'abelink-dev'), 'browser-bridge-token')
+  }
+  return path.join(xdgBase(), 'abelink', 'browser-bridge-token')
+}
+
+function namespaceIsDev(namespace) {
+  return namespace === 'dev' || namespace === '49713'
 }
 
 function writeMsg(obj) {
@@ -34,8 +50,12 @@ function handle(msg) {
     writeMsg({ ok: false, error: 'perintah tidak dikenal (hanya get-token)' })
     return
   }
+  if (namespaceIsDev(msg.namespace) !== (HOST_FLAVOR === 'dev')) {
+    writeMsg({ ok: false, error: `flavor mismatch: host ${HOST_FLAVOR}` })
+    return
+  }
   try {
-    const raw = fs.readFileSync(tokenFile(msg.namespace), 'utf8').trim()
+    const raw = fs.readFileSync(tokenFile(), 'utf8').trim()
     if (!raw) {
       writeMsg({ ok: false, error: 'file token kosong (sidecar belum start?)' })
       return

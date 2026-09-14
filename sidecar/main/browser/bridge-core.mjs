@@ -368,14 +368,37 @@ function rotateMs() {
 }
 const TOKEN_GRACE_MS = 24 * 3600 * 1000
 
-// Lokasi file token: ikuti pola XDG modul lain (~/.local/share/abelink).
-export function tokenFilePath(xdgDataDir) {
-  return path.join(xdgDataDir, 'browser-bridge-token')
+// Kanonik path token per-flavor (isolasi prod/dev):
+//   prod: <root>/abelink/browser-bridge-token (tak pernah ABELINK_DATA_HOME)
+//   dev:  <override>/browser-bridge-token (override = ABELINK_DATA_HOME bila set,
+//         else <root>/abelink-dev)
+// `base` = resolveDataHome()/brandDir/XDG base/tmp uji. Normalisasi dulu
+// (strip brand + trailing slash), lalu satu cabang prod/dev — idempoten.
+const TOKEN_FILE = 'browser-bridge-token'
+const nonEmpty = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null)
+export function tokenPathFor({ base, flavor = 'prod', env = process.env } = {}) {
+  const isDev = flavor === 'dev' || flavor === '49713'
+  const over = nonEmpty(env?.ABELINK_DATA_HOME)
+  if (isDev && over) return path.join(over, TOKEN_FILE)
+  const xdg = nonEmpty(env?.XDG_DATA_HOME) || (nonEmpty(env?.HOME) ? `${nonEmpty(env?.HOME)}/.local/share` : null)
+  const root = String(base || xdg || '/tmp')
+    .replace(/\/+$/, '')
+    .replace(/\/(abelink|abelink-dev)$/, '')
+  return path.join(root, isDev ? 'abelink-dev' : 'abelink', TOKEN_FILE)
 }
 
-export function readTokenRecord(xdgDataDir) {
+export function flavorFromPort(port) {
+  return String(port ?? '') === '49713' ? 'dev' : 'prod'
+}
+
+// Legacy: satu arg = brandDir prod. Flavor default 'prod' agar kompatibel.
+export function tokenFilePath(xdgDataDir, flavor = 'prod', env = process.env) {
+  return tokenPathFor({ base: xdgDataDir, flavor, env })
+}
+
+export function readTokenRecord(xdgDataDir, flavor = 'prod', env = process.env) {
   try {
-    const raw = fs.readFileSync(tokenFilePath(xdgDataDir), 'utf8').trim()
+    const raw = fs.readFileSync(tokenFilePath(xdgDataDir, flavor, env), 'utf8').trim()
     if (!raw) return null
     try {
       const rec = JSON.parse(raw)
@@ -399,22 +422,22 @@ export function readTokenRecord(xdgDataDir) {
   return null
 }
 
-function persistTokenRecord(xdgDataDir, rec) {
-  const file = tokenFilePath(xdgDataDir)
+function persistTokenRecord(xdgDataDir, rec, flavor = 'prod', env = process.env) {
+  const file = tokenFilePath(xdgDataDir, flavor, env)
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, JSON.stringify(rec), { mode: 0o600 })
   return file
 }
 
-export function writeTokenFile(xdgDataDir) {
-  let rec = readTokenRecord(xdgDataDir)
+export function writeTokenFile(xdgDataDir, flavor = 'prod', env = process.env) {
+  let rec = readTokenRecord(xdgDataDir, flavor, env)
   if (!rec) {
     rec = { token: prng(), createdAt: Date.now(), prevToken: null, prevExpiresAt: 0 }
-    persistTokenRecord(xdgDataDir, rec)
+    persistTokenRecord(xdgDataDir, rec, flavor, env)
   } else if (!rec.createdAt || rec.adopted) {
     rec.createdAt = rec.createdAt || Date.now()
     delete rec.adopted
-    persistTokenRecord(xdgDataDir, rec)
+    persistTokenRecord(xdgDataDir, rec, flavor, env)
   }
   // 0600: hanya user yang boleh baca. Server mengizinkan salah satu dari
   // banyak token sesi; file ini menyimpan token sesi 'default'.
@@ -424,7 +447,9 @@ export function writeTokenFile(xdgDataDir) {
   s.prevToken = rec.prevToken
   s.prevExpiresAt = rec.prevExpiresAt
   s.tokenXdg = xdgDataDir
-  return { file: tokenFilePath(xdgDataDir), token: s.token }
+  s.tokenFlavor = flavor
+  s.tokenEnv = env
+  return { file: tokenFilePath(xdgDataDir, flavor, env), token: s.token }
 }
 
 function safeTokenCompare(a, b) {
@@ -458,7 +483,7 @@ function maybeRotate(s) {
   s.tokenCreatedAt = rotated.createdAt
   if (s.tokenXdg) {
     try {
-      persistTokenRecord(s.tokenXdg, rotated)
+      persistTokenRecord(s.tokenXdg, rotated, s.tokenFlavor || 'prod', s.tokenEnv || process.env)
     } catch {
       /* file gagal ditulis: rotasi tetap berlaku sesi ini */
     }
