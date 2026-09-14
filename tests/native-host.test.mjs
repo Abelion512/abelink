@@ -54,7 +54,7 @@ describe('host: protokol get-token (strict per-flavor)', () => {
     }
   })
 
-  it('host prod menolak namespace dev; host dev membaca file dev + menolak prod', async () => {
+  it('host prod menolak namespace dev; host dev (FLAVOR_PINNED) melayani tanpa namespace', async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-'))
     const devDir = path.join(home, 'abelink-dev')
     fs.mkdirSync(devDir, { recursive: true })
@@ -65,24 +65,29 @@ describe('host: protokol get-token (strict per-flavor)', () => {
     const prod = spawn(process.execPath, [HOST], { env: { ...process.env, XDG_DATA_HOME: home }, stdio: ['pipe', 'pipe', 'ignore'] })
     const dev = spawn(process.execPath, [HOST, '--flavor=dev'], { env: { ...process.env, XDG_DATA_HOME: home }, stdio: ['pipe', 'pipe', 'ignore'] })
     try {
+      // Host prod (tidak FLAVOR_PINNED): masih check namespace -> namespace dev ditolak.
       let p = readOne(prod)
       sendMsg(prod, { type: 'get-token', namespace: 'dev' })
       expect((await p).ok).toBe(false)
       p = readOne(prod)
       sendMsg(prod, { type: 'get-token' })
       expect((await p).token).toBe('tok-prod')
+      // Host dev (FLAVOR_PINNED via --flavor=dev): skip namespace check.
+      // background.js baru tidak kirim namespace; host melayani langsung.
+      p = readOne(dev)
+      sendMsg(dev, { type: 'get-token' })
+      expect((await p).token).toBe('tok-dev')
+      // Dengan namespace='dev' pun tetap dilayani (FLAVOR_PINNED = field diabaikan).
       p = readOne(dev)
       sendMsg(dev, { type: 'get-token', namespace: 'dev' })
       expect((await p).token).toBe('tok-dev')
-      p = readOne(dev)
-      sendMsg(dev, { type: 'get-token' })
-      expect((await p).ok).toBe(false)
     } finally {
       prod.kill()
       dev.kill()
       fs.rmSync(home, { recursive: true, force: true })
     }
   })
+
 
   it('file hilang -> ok:false, bukan crash', async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-'))

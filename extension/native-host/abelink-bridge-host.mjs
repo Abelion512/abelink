@@ -26,6 +26,11 @@ const HOST_FLAVOR = (() => {
   return process.env.ABELINK_BRIDGE_FLAVOR === 'dev' ? 'dev' : 'prod'
 })()
 
+// Host baru: dijalankan dengan --flavor atau ABELINK_BRIDGE_FLAVOR (flavor-aware).
+// Host lama: tanpa flag itu, hanya prod, dan menerima namespace field legacy.
+const FLAVOR_PINNED = process.argv.slice(2).some((a) => /^--flavor=/.test(a)) ||
+  !!process.env.ABELINK_BRIDGE_FLAVOR
+
 function tokenFile() {
   const over = (process.env.ABELINK_DATA_HOME || '').trim()
   if (HOST_FLAVOR === 'dev') {
@@ -50,7 +55,11 @@ function handle(msg) {
     writeMsg({ ok: false, error: 'perintah tidak dikenal (hanya get-token)' })
     return
   }
-  if (namespaceIsDev(msg.namespace) !== (HOST_FLAVOR === 'dev')) {
+  // Host flavor-aware (FLAVOR_PINNED): host sudah tahu flavornya dari --flavor flag;
+  // namespace field diabaikan (background.js baru tidak mengirimnya).
+  // Host lama (tidak FLAVOR_PINNED): periksa namespace untuk backward compat
+  // dengan background.js lama yang masih mengirim namespace='dev'.
+  if (!FLAVOR_PINNED && namespaceIsDev(msg.namespace) !== (HOST_FLAVOR === 'dev')) {
     writeMsg({ ok: false, error: `flavor mismatch: host ${HOST_FLAVOR}` })
     return
   }
