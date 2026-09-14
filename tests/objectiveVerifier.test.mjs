@@ -322,6 +322,30 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
   })
 
+  it('research: topik mengandung kata "laporan keuangan" tanpa intent simpan TIDAK menuntut artifact', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset laporan keuangan Q3 Apple',
+      answer: 'Pendapatan Apple pada kuartal 3 mencapai 85 miliar dolar menurut rilis keuangan resmi.',
+      tools: [exec('browser-search', 'Apple Q3 revenue hits 85 billion dollars driven by Services segment')]
+    })
+    expect(r.criteria.some((c) => c.id === 'artifact-exists')).toBe(false)
+    expect(r.criteria.find((c) => c.id === 'sources-found').state).toBe('pass')
+    expect(r.criteria.find((c) => c.id === 'facts-present').state).toBe('pass')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research: jawaban hanya permohonan maaf / pengakuan gagal >50 char TIDAK lolos facts-present', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset data pasar X',
+      answer: 'Maaf, saya tidak dapat menemukan informasi yang relevan mengenai data pasar tersebut setelah mencari.',
+      tools: [exec('browser-search', 'Data pasar X menunjukkan pertumbuhan positif sebesar 15 persen tahun ini')]
+    })
+    expect(r.criteria.find((c) => c.id === 'facts-present').state).toBe('unresolved')
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
   it('communication: send confirmation => verified', () => {
     const r = evaluateEvidence({
       kind: 'communication',

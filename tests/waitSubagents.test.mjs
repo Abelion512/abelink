@@ -29,6 +29,13 @@ describe('getAgentCompleteness', () => {
       getAgentCompleteness(agent({ finalAnswer: 'Data... [...SISA DATA DIPOTONG (Total: 9 karakter)...]' }))
     ).toBe('TRUNCATED')
   })
+  it('status failed tapi finalAnswer memuat DIPOTONG => tetap TRUNCATED (precedence)', () => {
+    expect(
+      getAgentCompleteness(
+        agent({ status: 'failed', finalAnswer: 'Data parsial... [SISA OUTPUT DIPOTONG (Total: 10)]' })
+      )
+    ).toBe('TRUNCATED')
+  })
   it('failed/killed => FAILED', () => {
     expect(getAgentCompleteness(agent({ status: 'failed' }))).toBe('FAILED')
     expect(getAgentCompleteness(agent({ status: 'killed' }))).toBe('FAILED')

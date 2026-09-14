@@ -14,11 +14,11 @@ import { isTruncatedOutput } from '../../../api/ai/agentDecision.js'
 // laporan yang dibangun di atas output terpotong tidak boleh diam-diam
 // menjadi bahan sintesis.
 export const getAgentCompleteness = (agent = {}) => {
+  const answer = typeof agent.finalAnswer === 'string' ? agent.finalAnswer : ''
+  if (isTruncatedOutput(answer)) return 'TRUNCATED'
   const status = String(agent.status || '').toLowerCase()
   if (status === 'failed' || status === 'killed') return 'FAILED'
   if (status === 'running') return 'RUNNING'
-  const answer = typeof agent.finalAnswer === 'string' ? agent.finalAnswer : ''
-  if (isTruncatedOutput(answer)) return 'TRUNCATED'
   return answer.trim() ? 'COMPLETE' : 'FAILED'
 }
 
