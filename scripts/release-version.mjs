@@ -22,7 +22,10 @@ export function parseChannel(version) {
 export function bumpRank(commit) {
   const msg = String(commit?.msg || commit || '')
   const type = String(commit?.type || '').toLowerCase()
-  if (/^feat!|^feat\([^)]*\)!:|breaking change/i.test(msg) || type === 'breaking') return 'major'
+  // Conventional Commits: setiap type dengan ! sebelum : -> breaking change.
+  // Contoh: feat!:, fix!:, refactor!:, feat(scope)!:
+  // Footer 'BREAKING CHANGE:' atau 'BREAKING-CHANGE:' juga major.
+  if (/^[a-z]+(\([^)]*\))?!:/.test(msg) || /breaking[ -]change/i.test(msg) || type === 'breaking') return 'major'
   if (/^feat(\(|:)/i.test(msg) || type === 'feat') return 'minor'
   if (/^(fix|security|perf|patch)(\(|:)/i.test(msg) || ['fix', 'security'].includes(type)) return 'patch'
   return null
