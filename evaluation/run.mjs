@@ -54,8 +54,9 @@ const REGRESSION_THRESHOLD = 5 // persen pass-rate; default tanpa --compare = ti
 //     (abelinkbench-<runId>/...) agar lolos fsGuard dan mendarat di dir yang sama.
 export function sidecarWorkspaceRoot() {
   const base = process.env.ABELINK_DATA_HOME || process.env.XDG_DATA_HOME || join(os.homedir(), '.local', 'share')
-  const brand = process.env.ABELINK_DATA_HOME ? '' : 'abelink'
-  return join(base, brand, 'workspace')
+  // Selaras Rust cmd_fs.rs: data_home().join("abelink").join("workspace").
+  // ABELINK_DATA_HOME (.../abelink-dev) belum termasuk brand.
+  return join(base, 'abelink', 'workspace')
 }
 
 // ---- Anti-cheat ----

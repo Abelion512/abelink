@@ -32,9 +32,9 @@ const harnessRoot = (overrideDir) => {
   if (overrideDir) return overrideDir
   const base =
     process.env.ABELINK_DATA_HOME || process.env.XDG_DATA_HOME || path.join(homedir(), '.local', 'share')
-  // ABELINK_DATA_HOME sudah termasuk brand (dev.sh); XDG perlu append.
-  const brand = process.env.ABELINK_DATA_HOME ? '' : 'abelink'
-  return path.join(base, brand, 'harness')
+  // Selaras Rust cmd_harness.rs: data_home().join("abelink").join("harness").
+  // ABELINK_DATA_HOME (.../abelink-dev) belum termasuk brand.
+  return path.join(base, 'abelink', 'harness')
 }
 
 // Dibaca scripts/harness-diagnose.mjs — kembalikan event satu sesi terurut-ts.
