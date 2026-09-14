@@ -191,23 +191,135 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
   })
 
+  // RI-13: plain exec() default result is 'success' (7 chars < 50) so it no
+  // longer counts as fetch proof — sources-found requires >=50 substantive
+  // chars with no no-result markers. Search results must carry real content.
   it('research: sources + facts => verified; no answer => partially_verified', () => {
     const ok = evaluateEvidence({
       kind: 'research',
       objectiveText: 'riset harga GPU',
       answer:
         'Harga GPU saat ini berkisar Rp 10-15 juta untuk kelas high-end menurut beberapa toko.',
+      tools: [
+        exec(
+          'browser-search',
+          'Hasil pencarian: RTX 4070 Rp 9,5 juta, RTX 4080 Rp 14,2 juta dari beberapa toko'
+        )
+      ]
+    })
+    expect(ok.criteria.find((c) => c.id === 'sources-found').state).toBe('pass')
+    expect(ok.state).toBe(VERIFICATION_STATE.VERIFIED)
+
+    const thinSearch = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset harga GPU',
+      answer:
+        'Harga GPU saat ini berkisar Rp 10-15 juta untuk kelas high-end menurut beberapa toko.',
       tools: [exec('browser-search')]
     })
-    expect(ok.state).toBe(VERIFICATION_STATE.VERIFIED)
+    expect(thinSearch.criteria.find((c) => c.id === 'sources-found').state).toBe('unresolved')
+    expect(thinSearch.state).not.toBe(VERIFICATION_STATE.VERIFIED)
 
     const noAnswer = evaluateEvidence({
       kind: 'research',
       objectiveText: 'riset harga GPU',
       answer: '',
-      tools: [exec('browser-search')]
+      tools: [
+        exec(
+          'browser-search',
+          'Hasil pencarian: RTX 4070 Rp 9,5 juta, RTX 4080 Rp 14,2 juta dari beberapa toko'
+        )
+      ]
     })
     expect(noAnswer.state).toBe(VERIFICATION_STATE.PARTIALLY)
+  })
+
+  it('RI-13 repro: semantically-failed search + write/read + long answer => NOT verified', () => {
+    const longAnswer =
+      'Laporan riset komprehensif mengenai topik yang diminta dengan analisis mendalam, ' +
+      'perbandingan beberapa sudut pandang, dan kesimpulan yang panjang lebar melebihi batas.'
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset topik X',
+      answer: longAnswer,
+      tools: [
+        exec(
+          'browser-search',
+          'Tidak ditemukan hasil pencarian web langsung untuk topik X yang diminta pengguna'
+        ),
+        exec('write-file', 'laporan tersimpan'),
+        exec('read-file', 'isi laporan hasil riset yang cukup panjang untuk dibaca kembali')
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'sources-found').state).toBe('unresolved')
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+    const gate = gateCompletion({
+      modelClaimDone: true,
+      verification: r.state,
+      kind: r.kind
+    })
+    expect(gate.complete).toBe(false)
+    expect(gate.replan).toBe(true)
+  })
+
+  it('RI-11 repro: write-file only, no search/fetch => not verified', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset topik X',
+      answer:
+        'Jawaban panjang yang mengklaim hasil riset lengkap dengan banyak detail melebihi lima puluh karakter.',
+      tools: [exec('write-file', 'laporan tersimpan')]
+    })
+    expect(r.criteria.find((c) => c.id === 'sources-found').state).toBe('unresolved')
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research artifact: write-only with file requested => unresolved, not verified', () => {
+    const longAnswer =
+      'Laporan riset komprehensif mengenai topik yang diminta dengan analisis mendalam ' +
+      'dan kesimpulan yang panjang lebar melebihi batas minimum karakter.'
+    const writeOnly = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset topik X, simpan laporan.md',
+      answer: longAnswer,
+      tools: [
+        exec(
+          'browser-search',
+          'Hasil pencarian: data pasar X kuartal ini naik 12 persen menurut tiga sumber analis'
+        ),
+        exec('write-file', 'laporan tersimpan')
+      ]
+    })
+    expect(writeOnly.criteria.find((c) => c.id === 'artifact-exists').state).toBe('unresolved')
+    expect(writeOnly.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+
+    const withReadBack = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset topik X, simpan laporan.md',
+      answer: longAnswer,
+      tools: [
+        exec(
+          'browser-search',
+          'Hasil pencarian: data pasar X kuartal ini naik 12 persen menurut tiga sumber analis'
+        ),
+        exec('write-file', 'laporan tersimpan'),
+        exec('read-file', 'isi laporan hasil riset yang cukup panjang untuk dibaca kembali')
+      ]
+    })
+    expect(withReadBack.criteria.find((c) => c.id === 'artifact-exists').state).toBe('pass')
+    expect(withReadBack.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research: wait_subagents alone is not fetch proof', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset topik X',
+      answer:
+        'Jawaban panjang yang mengklaim hasil riset lengkap dengan banyak detail melebihi lima puluh karakter.',
+      tools: [exec('wait_subagents', 'sub-agent selesai dengan ringkasan temuan yang panjang')]
+    })
+    expect(r.criteria.find((c) => c.id === 'sources-found').state).toBe('unresolved')
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
   })
 
   it('communication: send confirmation => verified', () => {

@@ -59,6 +59,9 @@ const VERIFY_TOOLS_RE =
   /(read-file|read-document|list-dir|find-files|grep-search|file-outline|run-shell|run-task|browser-read|browser-extract|os-read|os-list-windows|os-focus-window|analyze-screen)/i
 const SEARCH_TOOLS_RE =
   /(browser-search|browser-navigate|read-document|memory-search|gdrive-search|connector-run)/i
+// Orchestration ops are observations, never fetch proof (RI-13): explicit
+// exclusion even though SEARCH_TOOLS_RE does not substring-match them today.
+const SUBAGENT_ORCH_RE = /(wait_subagents|spawn_subagent)/i
 // OS ACTION tools only — os-read/os-list-windows are VERIFICATION ops, not
 // actions, so a proof read after the last action can satisfy the criterion.
 const OS_ACTION_RE =
@@ -109,6 +112,10 @@ const SEND_CONFIRM_RE =
   /(terkirim|sent|message_id|delivered|berhasil mengirim|berhasil dikirim|berhasil mengunggah)/i
 
 const FILE_REQUEST_RE = /(file|berkas|laporan|report|dokumen|\.md\b|\.txt\b|\.csv\b|\.docx\b)/i
+
+// RI-13: semantic no-result markers — a "successful" search returning zero
+// results is not fetch proof (tool-level FAIL_RE never fires on these).
+const NO_RESULT_RE = /tidak ditemukan hasil|no results? found|tidak ada hasil/i
 
 // Penanda objective multi-langkah: klaim done setelah 1 aksi = prematur.
 // Murni struktur bahasa (konjungsi), nol nama produk — buta-contoh.
@@ -431,15 +438,25 @@ export function evaluateEvidence({
       break
     }
     case 'research': {
-      const sourcesOk = ops.some((op) => SEARCH_TOOLS_RE.test(op.tool || '') && !opFailed(op))
+      // RI-13: semantic success required — a search returning "no results"
+      // with substantive-looking surrounding text is not fetch proof.
+      const sourcesOk = ops.some(
+        (op) =>
+          SEARCH_TOOLS_RE.test(op.tool || '') &&
+          !SUBAGENT_ORCH_RE.test(op.tool || '') &&
+          !opFailed(op) &&
+          !NO_RESULT_RE.test(op.text || '') &&
+          hasReadSubstance(op.text)
+      )
       const factsOk = String(answer || '').trim().length >= 50
       setState('sources-found', sourcesOk ? 'pass' : 'unresolved')
       setState('facts-present', factsOk ? 'pass' : 'unresolved')
       if (FILE_REQUEST_RE.test(String(objectiveText))) {
-        const { lastWrite, writeOk, readBackOk } = artifactReadBack()
+        const { lastWrite, readBackOk } = artifactReadBack()
+        // File requested => write-only is unresolved, read-back required.
         setState(
           'artifact-exists',
-          writeOk || readBackOk ? 'pass' : lastWrite ? 'fail' : 'unresolved'
+          readBackOk ? 'pass' : lastWrite ? (opFailed(lastWrite) ? 'fail' : 'unresolved') : 'unresolved'
         )
       }
       break

@@ -68,6 +68,16 @@ export function isSelfTerminateText(text = '') {
   return SELF_TERMINATE_TEXT.test(String(text || ''))
 }
 
+// Truncation marker: a report built on cut-off tool output must never pass
+// as a verified final. Single narrow marker (executor 'SISA DATA DIPOTONG',
+// main-loop 'SISA OUTPUT DIPOTONG') so unrelated prose mentioning
+// "dipotong" cannot force a recovery loop.
+const TRUNCATED_OUTPUT = /SISA (DATA|OUTPUT) DIPOTONG/i
+
+export function isTruncatedOutput(text = '') {
+  return TRUNCATED_OUTPUT.test(String(text || ''))
+}
+
 // Explicit protocol-level self-stop: completion/status marker. The ONLY signal
 // allowed to beat an emitted action (emergency brake direction: stop > act).
 export function isExplicitSelfTerminate(decision = {}) {
@@ -235,6 +245,13 @@ export function classifySubagentAnswer(decision = {}, ctx = {}) {
   if (!answer) return { type: 'continue', reason: 'empty-decision' }
 
   if (isSelfTerminateText(answer)) return { type: 'self_terminated', reason: 'self-terminate-reported' }
+
+  // Truncated material: a report built on cut-off tool output is not proof of
+  // completion. Force recovery instead of a silent final (same 'continue'
+  // taxonomy, distinct reason so the executor can inject a targeted prompt).
+  if (isTruncatedOutput(answer) || isTruncatedOutput(lastObservation)) {
+    return { type: 'continue', reason: 'truncated-subagent-output' }
+  }
 
   const lastFailed = /(\[ERROR\]|\[DITOLAK\]|failed|timeout|ECONNREFUSED|HTTP [45]\d\d)/i.test(
     String(lastObservation || '')
