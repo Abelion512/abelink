@@ -38,3 +38,39 @@ describe('anti-drift pairing terpin', () => {
     expect(pop).toContain('pilih flavor sekali')
   })
 })
+
+describe('isolasi flavor strict: getTokenViaNativeHost', () => {
+  it('tidak ada fallback cross-flavor (hosts array multi-elemen untuk dev)', () => {
+    const bg = read('background.js')
+    // Verifikasi bahwa konstruksi hosts-array dengan fallback lintas flavor sudah dihapus.
+    // Pola lama: `[primary, 'id.abelink.bridge']` saat primary = dev host.
+    // Setelah fix: hostNameForPort(port) dipakai langsung (single host, no array for fallback).
+    expect(bg).not.toMatch(/hosts\s*=\s*primary\s*===\s*['"]id\.abelink\.bridge['"]/)
+    expect(bg).not.toMatch(/\[primary,\s*['"]id\.abelink\.bridge['"]\]/)
+  })
+
+  it('getTokenViaNativeHost menggunakan satu host tanpa loop fallback', () => {
+    const bg = read('background.js')
+    // Cari fungsi getTokenViaNativeHost dan verifikasi tidak ada 'for' loop di dalamnya
+    // (fallback array loop dihapus; kini langsung sendNativeMessage ke satu host).
+    const fnMatch = bg.match(/async function getTokenViaNativeHost[\s\S]*?\n}/)
+    expect(fnMatch).not.toBeNull()
+    const fnBody = fnMatch[0]
+    expect(fnBody).not.toMatch(/for\s*\(/)
+    expect(fnBody).toContain('hostNameForPort(port)')
+    // Memastikan hanya satu sendNativeMessage call (bukan di dalam loop).
+    const nmCalls = fnBody.match(/sendNativeMessage/g) || []
+    expect(nmCalls.length).toBe(1)
+  })
+
+  it('host dev tidak pernah fall back ke id.abelink.bridge (prod)', () => {
+    const bg = read('background.js')
+    // Cari blok di dalam getTokenViaNativeHost saja -- bukan di tempat lain.
+    const fnMatch = bg.match(/async function getTokenViaNativeHost[\s\S]*?\n}/)
+    expect(fnMatch).not.toBeNull()
+    const fnBody = fnMatch[0]
+    // id.abelink.bridge (tanpa .dev) tidak boleh muncul sebagai string literal fallback.
+    expect(fnBody).not.toMatch(/'id\.abelink\.bridge'(?!\s*\+|\.dev)/)
+  })
+})
+

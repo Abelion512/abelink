@@ -223,29 +223,24 @@ function sleep(ms) {
 // namespace token (dev 49713 vs prod): tanpa ini token prod dipakai ke dev
 // dan sebaliknya -> 401 silih-berganti.
 async function getTokenViaNativeHost(port) {
-  // Host flavor terpin dicoba dulu; host tunggal lama sebagai fallback
-  // (sidecar lama hanya memasang id.abelink.bridge + namespace dev).
-  const primary = hostNameForPort(port)
-  const hosts = primary === 'id.abelink.bridge' ? [primary] : [primary, 'id.abelink.bridge']
+  // STRICT: satu host per flavor. Tidak ada fallback lintas flavor.
+  // Dev port (49713) = id.abelink.bridge.dev ONLY.
+  // Prod port (49712) = id.abelink.bridge ONLY.
+  // Fallback ke host flavor lain berarti token prod masuk ke dev (401 senyap) - dilarang.
+  const hostName = hostNameForPort(port)
   const msg = { type: 'get-token' }
-  // namespace dev dipertahankan untuk host lama; host flavor baru abaikan field ini.
-  if (flavorForPort(port) === 'dev') msg.namespace = 'dev'
-  let detail = ''
-  for (const hostName of hosts) {
-    try {
-      const res = await chrome.runtime.sendNativeMessage(hostName, msg)
-      if (res?.ok && res.token) return { token: res.token, detail: '' }
-      detail = res?.error || `helper menolak permintaan (${hostName})`
-    } catch (e) {
-      const m = String(e?.message || e)
-      // Klasifikasi sebab agar user tidak menebak-nebak.
-      if (/not found|No such host/i.test(m)) detail = `helper belum terpasang (${hostName}; pakai Abelink terbaru / picu channel browser:* sekali)`
-      else if (/exited|exit/i.test(m)) detail = 'helper crash saat start (cek executable + runtime path)'
-      else if (/permission|allowed|origin|ID/i.test(m)) detail = 'ID extension tak cocok (verifikasi ID di chrome://extensions)'
-      else detail = m
-    }
+  try {
+    const res = await chrome.runtime.sendNativeMessage(hostName, msg)
+    if (res?.ok && res.token) return { token: res.token, detail: '' }
+    return { token: '', detail: res?.error || `helper menolak permintaan (${hostName})` }
+  } catch (e) {
+    const m = String(e?.message || e)
+    let detail = m
+    if (/not found|No such host/i.test(m)) detail = `helper belum terpasang (${hostName}; pakai Abelink terbaru / picu channel browser:* sekali)`
+    else if (/exited|exit/i.test(m)) detail = 'helper crash saat start (cek executable + runtime path)'
+    else if (/permission|allowed|origin|ID/i.test(m)) detail = 'ID extension tak cocok (verifikasi ID di chrome://extensions)'
+    return { token: '', detail }
   }
-  return { token: '', detail }
 }
 
 // -------------------------------------------------------------- commands
