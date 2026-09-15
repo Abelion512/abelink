@@ -1,0 +1,29 @@
+# Gitleaks config — ABELINK Linux.
+#
+# Tauri CI memindai 1 komit (--log-opts=-1) sehingga hijau; release.yml
+# memindai SELURUH histori (--full-history --all) dan menemukan 4 temuan
+# generic-api-key di komit lama (repo privat, tidak ada di HEAD).
+# Allowlist di bawah DIPIN per-komit (SHA penuh) — presisi bedah, bukan
+# pengecualian pola. Kebocoran BARU di komit mana pun tetap terdeteksi.
+# Jangan tambah entri tanpa jejak audit (tanggal + alasan + verifikator).
+
+[allowlist]
+description = "Temuan historis 2026-07/09, tak ada di HEAD (verifikasi: 2026-09-15)"
+commits = [
+  # bd05123 (2026-09-08): extension/manifest.json L6 "key": "MIIBIjAN...".
+  # FALSE POSITIVE — manifest key ekstensi Chrome adalah PUBLIC key
+  # (header DER RSA, penentu extension ID, terlihat di semua instalasi).
+  # Bukan secret secara kriptografis.
+  "bd051234aa218cdcbb3b7028bcbf1a3aadac69c4",
+  # aadbd81 + 5a290db (2026-07-29): .env.bak L2 GROQ_API_KEY=gsk_....
+  # Kunci REAL di histori (file sudah tak ada di HEAD, .env* di-gitignore).
+  # Repo privat; rotasi kunci disarankan ke pemilik akun Groq (di luar repo).
+  # Allowlist agar pipeline tidak merah selamanya — histori tak ditulis ulang
+  # (847 komit + tag; rewrite = force-push main, tak proporsional).
+  "aadbd813000a2ab1289ab06c7077930d1d8ae28a",
+  "5a290dbdd1615729994dd05f5dc18d3424942e0f",
+  # c5846d9 (2026-07-25): src/main/lastfm-service.js L9 API_KEY Last.fm
+  # era Electron. File sudah tak ada di HEAD. Risiko rendah (kunci app
+  # publik-scrobble, bukan kredensial user), allowlist historis.
+  "c5846d969530ff26cab01d58c460a34cbb8dc2b4",
+]
