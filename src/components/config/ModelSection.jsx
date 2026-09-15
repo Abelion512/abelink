@@ -176,24 +176,30 @@ export default function ModelSection({
         <div className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-sm font-semibold">Model</label>
-            <select
-              className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
+            <input
+              type="text"
+              list="gemini-web-model-options"
+              placeholder="gemini-latest"
+              title="Nama bebas — server RPC hanya membaca angka mode (Flash=1, Thinking=2, Pro=3, Auto=4). Nama baru (mis. gemini-3.9-flash) otomatis dipetakan ke mode Flash."
+              className="input input-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
               value={config.geminiWebModel || 'gemini-latest'}
               onChange={(e) =>
                 setConfig((prev) => ({ ...prev, geminiWebModel: e.target.value }))
               }
-            >
-              <option value="gemini-latest">gemini-latest (Flash terbaru, auto-maju)</option>
-              <option value="gemini-3.8-flash">gemini-3.8-flash (Terbaru Sep 2026)</option>
-              <option value="gemini-3.8-flash-cyber">gemini-3.8-flash-cyber</option>
-              <option value="gemini-3.7-flash">gemini-3.7-flash (Agu 2026)</option>
-              <option value="gemini-3.6-flash">gemini-3.6-flash (Model Utama Terbaru)</option>
-              <option value="gemini-3.5-flash">gemini-3.5-flash (Stabil &amp; Seimbang)</option>
-              <option value="gemini-3.5-flash-thinking">gemini-3.5-flash-thinking (Penalaran Mendalam)</option>
-              <option value="gemini-3.5-flash-thinking-lite">gemini-3.5-flash-thinking-lite (Penalaran Cepat)</option>
-              <option value="gemini-auto">gemini-auto (Otomatis Server)</option>
-              <option value="gemini-flash-lite">gemini-flash-lite (Super Cepat)</option>
-            </select>
+            />
+            <datalist id="gemini-web-model-options">
+              <option value="gemini-latest" />
+              <option value="gemini-3.8-flash" />
+              <option value="gemini-3.8-flash-cyber" />
+              <option value="gemini-3.7-flash" />
+              <option value="gemini-3.6-flash" />
+              <option value="gemini-3.5-flash" />
+              <option value="gemini-3.5-flash-thinking" />
+              <option value="gemini-3.5-flash-thinking-lite" />
+              <option value="gemini-auto" />
+              <option value="gemini-flash-lite" />
+              <option value="gemini-3.1-pro" />
+            </datalist>
           </div>
         </div>
       ) : config.aiProvider === 'custom' ? (
