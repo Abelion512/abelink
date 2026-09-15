@@ -199,9 +199,10 @@ Tauri GUI, sidecar, dan CLI/API mendatang — tanpa GUI memiliki state eksekusi.
                               │
              ┌────────────────┼────────────────┐
              ▼                ▼                ▼
-        React GUI       sidecar tasks:*      future CLI
-  (useAbelinkPlan,          │                (belum ada)
-   App startup)    engine/channels/tasks.mjs
+        React GUI     sidecar tasks:*       future CLI
+  (useAbelinkPlan,    (DITUNDA — kembali     (belum ada)
+   App startup)        bersama headless
+                       store permanen)
              │                │
              └────────────────┼────────────────┘
                               ▼
@@ -227,9 +228,12 @@ toolDispatcher → node_invoke → Rust APPROVAL_ACTIONS (rfd) → native tool
   `taskStore.js`/`taskExecutor.js` 1:1 — tanpa state machine kedua, tanpa
   persistensi baru, tanpa logika verifikasi baru. `taskStore.js` tetap
   otoritatif selama ekstraksi ini.
-- **Headless:** facade tanpa top-level import; default Dexie lazy-load hanya
-  bila IndexedDB ada. Tanpa IndexedDB → error eksplisit, bukan sukses palsu.
-  Buktikan via `bun scripts/headless-task-runtime.mjs`.
+- **Headless (dua bukti terpisah):** facade tanpa top-level import; default
+  Dexie lazy-load hanya bila IndexedDB ada. Tanpa IndexedDB dan tanpa adapter
+  → error eksplisit, bukan sukses palsu. Bukti 1 (import murni):
+  `bun scripts/headless-task-runtime.mjs`. Bukti 2 (lifecycle + storage
+  kompatibel via shim test): `bun scripts/headless-task-runtime-lifecycle.mjs`.
+  Keduanya bukan klaim "Bun production siap" — itu butuh headless store permanen.
 - **Event:** hanya yang didukung — `task.created/updated/progress/completed/
   failed/cancelled` via `emit()` sidecar / sink injeksi. `waiting_user` dan
   `approval_required` BELUM ada (tanpa stream palsu sebelum wiring dispatcher).
