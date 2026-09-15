@@ -18,8 +18,9 @@ describe('alias latest + versi 2026', () => {
     expect(resolveGeminiWebModel('gemini-3.7-flash').mode).toBe(1)
   })
 
-  it('nama tak dikenal jatuh ke latest (bukan 3.6 pin)', () => {
-    expect(resolveGeminiWebModel('gemini-9.9-xyz').name).toBe('gemini-latest')
+  it('nama tak dikenal langsung mode Flash (tanpa entri baru)', () => {
+    expect(resolveGeminiWebModel('gemini-9.9-xyz')).toMatchObject({ mode: 1, think: 4 })
+    expect(resolveGeminiWebModel('gemini-3.9-flash').mode).toBe(1)
   })
 
   it('mode PRO tersedia (3)', () => {
