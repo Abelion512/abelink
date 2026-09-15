@@ -19,8 +19,6 @@ import './engine/channels/skills.mjs'
 import './engine/channels/browser.mjs'
 import './engine/channels/capabilities.mjs'
 import './engine/channels/os.mjs'
-// NOTE: tasks:* channel deferred (post-merge audit PR #26) — Bun has no
-// IndexedDB and the channel failed every op. Returns with headless store.
 
 // ------------------------------------------------------------------- Main loop
 send({ event: 'engine:ready', payload: Object.keys(handlers) })
