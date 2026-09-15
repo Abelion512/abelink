@@ -14,8 +14,6 @@ on:
 
 permissions:
   contents: write
-  id-token: write # SLSA provenance (attest-build-provenance)
-  attestations: write # persist SLSA attestation (tanpa ini: Resource not accessible by integration)
 
 concurrency:
   group: release-${{ github.ref }}
@@ -129,10 +127,10 @@ jobs:
         with:
           name: abelink-linux-${{ inputs.tag || github.ref_name }}
           path: release-assets/*
-      - name: Attach SLSA provenance (attest-build-provenance)
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: release-assets/*
+      # SLSA provenance DIHAPUS (2026-09-15): API attestations tak tersedia
+      # untuk repo privat milik user ("Feature not available for user-owned
+      # private repositories"). Aktifkan lagi saat repo publik.
+      # ponytail: hapus step, bukan conditional — dead path di pipeline rilis.
       - name: Buat GitHub Release (+ changelog otomatis dari commit)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
