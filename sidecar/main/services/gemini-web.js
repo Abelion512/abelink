@@ -6,6 +6,33 @@ import https from 'https'
 import crypto from 'crypto'
 
 export const GEMINI_WEB_MODELS = {
+  // 'gemini-latest' = alias Flash terbaru (mode 1). RPC tidak punya konsep
+  // "latest" — server hanya kenal angka mode; alias ini yang dimajukan manual
+  // tiap rilis (3.8 per Sep 2026). Default disarankan ke ini, bukan versi pin.
+  'gemini-latest': {
+    mode: 1,
+    think: 4,
+    name: 'gemini-latest',
+    desc: 'Flash terbaru (alias, dimajukan tiap rilis)'
+  },
+  'gemini-3.8-flash': {
+    mode: 1,
+    think: 4,
+    name: 'gemini-3.8-flash',
+    desc: 'Flash terbaru (Sep 2026)'
+  },
+  'gemini-3.8-flash-cyber': {
+    mode: 1,
+    think: 4,
+    name: 'gemini-3.8-flash-cyber',
+    desc: 'Flash terbaru varian cyber'
+  },
+  'gemini-3.7-flash': {
+    mode: 1,
+    think: 4,
+    name: 'gemini-3.7-flash',
+    desc: 'Flash Agustus 2026 (sebelumnya jatuh ke 3.6 tanpa efek)'
+  },
   'gemini-3.6-flash': {
     mode: 1,
     think: 4,
@@ -35,6 +62,12 @@ export const GEMINI_WEB_MODELS = {
     think: 4,
     name: 'gemini-auto',
     desc: 'Penyesuaian model otomatis oleh server'
+  },
+  'gemini-3.1-pro': {
+    mode: 3,
+    think: 4,
+    name: 'gemini-3.1-pro',
+    desc: 'Model PRO (butuh akun berbayar; akun gratis di-route ke Flash)'
   },
   'gemini-flash-lite': {
     mode: 6,
@@ -80,6 +113,21 @@ export const __geminiWebTest = {
     sorryStreak = 3
     sorryBlockedUntil = Date.now() + SORRY_COOLDOWN_MS
   }
+}
+
+export function resolveGeminiWebModel(modelName) {
+  const reqModel = (modelName || 'gemini-latest').toLowerCase()
+  let selected = GEMINI_WEB_MODELS[reqModel]
+  if (!selected) {
+    if (reqModel.includes('thinking-lite')) selected = GEMINI_WEB_MODELS['gemini-3.5-flash-thinking-lite']
+    else if (reqModel.includes('think')) selected = GEMINI_WEB_MODELS['gemini-3.5-flash-thinking']
+    else if (reqModel.includes('auto')) selected = GEMINI_WEB_MODELS['gemini-auto']
+    else if (reqModel.includes('lite') || reqModel.includes('fast')) selected = GEMINI_WEB_MODELS['gemini-flash-lite']
+    else if (reqModel.includes('pro')) selected = GEMINI_WEB_MODELS['gemini-3.1-pro']
+    else if (reqModel.includes('latest') || reqModel.includes('3.8') || reqModel.includes('3.7')) selected = GEMINI_WEB_MODELS['gemini-latest']
+    else selected = GEMINI_WEB_MODELS['gemini-latest']
+  }
+  return selected
 }
 
 function httpPost(urlStr, headers, bodyData, timeoutMs = 120000) {
@@ -128,16 +176,9 @@ export async function generateGeminiResponse(
   if (Date.now() < sorryBlockedUntil) {
     throw sorryError()
   }
-  const reqModel = (modelName || 'gemini-3.6-flash').toLowerCase()
+  const reqModel = (modelName || 'gemini-latest').toLowerCase()
 
-  let selected = GEMINI_WEB_MODELS[reqModel]
-  if (!selected) {
-    if (reqModel.includes('thinking-lite')) selected = GEMINI_WEB_MODELS['gemini-3.5-flash-thinking-lite']
-    else if (reqModel.includes('think')) selected = GEMINI_WEB_MODELS['gemini-3.5-flash-thinking']
-    else if (reqModel.includes('auto')) selected = GEMINI_WEB_MODELS['gemini-auto']
-    else if (reqModel.includes('lite') || reqModel.includes('fast')) selected = GEMINI_WEB_MODELS['gemini-flash-lite']
-    else selected = GEMINI_WEB_MODELS['gemini-3.6-flash']
-  }
+  const selected = resolveGeminiWebModel(reqModel)
 
   const modelId = selected.mode
   const thinkMode = selected.think

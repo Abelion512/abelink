@@ -375,7 +375,7 @@ function App() {
     const defaultConfig = {
       id: 1,
       model: 'google/gemma-3-4b',
-      geminiWebModel: 'gemini-3.6-flash',
+      geminiWebModel: 'gemini-latest',
       temperature: 1.0,
       context: 10,
       aiProvider: 'gemini-web',

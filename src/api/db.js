@@ -396,7 +396,7 @@ export async function getAllConfig() {
     const data = await db.config.toArray()
     if (data && data.length > 0) {
       if (!data[0].geminiWebModel) {
-        data[0].geminiWebModel = 'gemini-3.6-flash'
+        data[0].geminiWebModel = 'gemini-latest'
       }
       if (!data[0].aiProvider) {
         data[0].aiProvider = 'gemini-web'

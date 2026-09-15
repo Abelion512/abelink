@@ -178,12 +178,15 @@ export default function ModelSection({
             <label className="text-sm font-semibold">Model</label>
             <select
               className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
-              value={config.geminiWebModel || 'gemini-3.6-flash'}
+              value={config.geminiWebModel || 'gemini-latest'}
               onChange={(e) =>
                 setConfig((prev) => ({ ...prev, geminiWebModel: e.target.value }))
               }
             >
-              <option value="gemini-3.7-flash">gemini-3.7-flash (Terbaru 2026)</option>
+              <option value="gemini-latest">gemini-latest (Flash terbaru, auto-maju)</option>
+              <option value="gemini-3.8-flash">gemini-3.8-flash (Terbaru Sep 2026)</option>
+              <option value="gemini-3.8-flash-cyber">gemini-3.8-flash-cyber</option>
+              <option value="gemini-3.7-flash">gemini-3.7-flash (Agu 2026)</option>
               <option value="gemini-3.6-flash">gemini-3.6-flash (Model Utama Terbaru)</option>
               <option value="gemini-3.5-flash">gemini-3.5-flash (Stabil &amp; Seimbang)</option>
               <option value="gemini-3.5-flash-thinking">gemini-3.5-flash-thinking (Penalaran Mendalam)</option>
@@ -301,6 +304,8 @@ export default function ModelSection({
               {customModels.map((m) => (
                 <option key={m} value={m} />
               ))}
+              <option value="deepseek-chat" />
+              <option value="deepseek-reasoner" />
               <option value="deepseek-v3.2" />
               <option value="deepseek-r1-0528" />
               <option value="qwen3.8-max" />
@@ -315,6 +320,15 @@ export default function ModelSection({
               <option value="nemotron-3-ultra" />
               <option value="nemotron-3.5-lightning" />
             </datalist>
+            {customModels.length > 0 && (config.customModel || '').trim() &&
+              !customModels.includes((config.customModel || '').trim()) && (
+              <p className="text-xs text-warning mt-1">
+                Model ini tidak ada di daftar terdeteksi endpoint — server kemungkinan
+                menolaknya (401 ModelError). Tekan Deteksi Ulang lalu pilih dari daftar,
+                atau pastikan gateway meneruskan nama custom (mis. 9router meneruskan
+                ID oc/... walau tak muncul di /v1/models).
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
