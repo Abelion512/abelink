@@ -10,7 +10,9 @@ export const YoutubeMusicPlayer = () => {
   const {
     isPlayerOpen,
     setIsPlayerOpen,
-    togglePlayer,
+    playLastOrToggle,
+    loopMode,
+    cycleLoop,
     isPlaying,
     currentTrack,
     nextTrack,
@@ -136,6 +138,17 @@ export const YoutubeMusicPlayer = () => {
               <button onClick={prevTrack} className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white" title="Sebelumnya">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
               </button>
+              <button
+                onClick={cycleLoop}
+                className={`btn btn-ghost btn-sm btn-circle ${loopMode === 'off' ? 'text-white/40 hover:text-white' : 'text-cyan-400 hover:text-cyan-300'}`}
+                title={loopMode === 'off' ? 'Loop: mati (klik = ulangi satu lagu)' : loopMode === 'one' ? 'Loop: satu lagu (klik = ulangi antrean)' : 'Loop: antrean (klik = matikan)'}
+              >
+                {loopMode === 'one' ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" /><path d="M11 10h1v4" /></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" /></svg>
+                )}
+              </button>
               <button onClick={playPause} className="btn btn-circle bg-red-600 hover:bg-red-700 border-none text-white shadow-lg shadow-red-500/20" title={isPlaying ? 'Jeda' : 'Putar'}>
                 {isPlaying ? (
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z" /></svg>
@@ -162,9 +175,10 @@ export const YoutubeMusicPlayer = () => {
         </div>
       </div>
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button: fresh-boot tanpa lagu aktif = lanjutkan
+          lagu terakhir tersimpan; selebihnya buka/tutup panel biasa. */}
       <button
-        onClick={togglePlayer}
+        onClick={playLastOrToggle}
         className={`
           group relative w-14 h-14 rounded-full flex items-center justify-center pointer-events-auto
           shadow-lg shadow-black/30 border border-white/10

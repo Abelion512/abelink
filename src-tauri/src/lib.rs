@@ -3,7 +3,6 @@ mod approval_policy;
 mod cmd_fs;
 mod cmd_harness;
 mod cmd_misc;
-mod cmd_music;
 mod cmd_node_bridge;
 mod mission_scope;
 mod watchdog;
@@ -396,12 +395,7 @@ pub fn run() {
             window_fullscreen_toggle,
             window_close,
             window_get_state,
-            window_set_mode,
-            cmd_music::music_player_toggle,
-            cmd_music::music_player_show,
-            cmd_music::music_player_hide,
-            cmd_music::music_player_play_url,
-            cmd_music::music_player_command
+            window_set_mode
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -313,15 +313,8 @@ export const api = {
   // onExecuteMusicCommandTg dihapus: emit 'execute-music-command-tg' mati
   // bersama botWindow era Electron (9923989) dan tidak punya konsumen.
 
-  // --- YouTube Music player bridge (Tauri Native) ---
-  ytLoad: (url) => invoke('music_player_play_url', { url }),
-  ytShow: () => invoke('music_player_show'),
-  ytHide: () => invoke('music_player_hide'),
-  ytToggle: () => invoke('music_player_toggle'),
-  ytCommand: (command) => invoke('music_player_command', { command }),
-  ytGetDuration: () => call('yt:get-duration'),
-  onYtTrackUpdated: on('ytm-track-changed'),
-  onYtWindowState: on('ytm-window-state'),
+  // Native music window (cmd_music.rs) DIHAPUS: dead code pembuat window hantu
+  // music_player tak bertuan. Pemutaran murni embed (YoutubeMusicContext).
   // Screenshot → Telegram via jalur NATIVE (misc_take_screenshot +
   // telegram_send_photo). Channel sidecar lama tg:take-screenshot sudah tidak
   // punya handler sejak pembersihan electron (9923989).

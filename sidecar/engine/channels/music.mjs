@@ -11,13 +11,9 @@ const getYtm = lazy(async () => {
 })
 
 // ---------------------------------------------------- YouTube Music player bridge (Tauri)
-// Player windowing (load/show/hide/command/get-duration) belum ada di Tauri
-// (needs WebviewWindow): satu catch-all jujur sampai fase B/C tiba.
-on('yt:load', async () => ({ success: false, message: 'yt:* player not yet implemented in Tauri (needs WebviewWindow)' }))
-on('yt:show', async () => ({ success: false, message: 'yt:* player not yet implemented in Tauri (needs WebviewWindow)' }))
-on('yt:hide', async () => ({ success: false, message: 'yt:* player not yet implemented in Tauri (needs WebviewWindow)' }))
-on('yt:command', async (command) => ({ success: false, message: `yt:command '${command}' not yet implemented in Tauri` }))
-on('yt:get-duration', async () => ({ success: false, data: 0, message: 'yt:* player not yet implemented in Tauri' }))
+// DIHAPUS: stub yt:load/show/hide/command/get-duration + native music window
+// (cmd_music.rs). Pemutaran murni embed (YoutubeMusicContext); stub jujur-gagal
+// dan window music_player hanya jadi sumber window hantu tak bertuan.
 
 // Pencarian lagu via ytmusic-api (lazy; instance di-init sekali). Hasil
 // DINORMALKAN ke kontrak lama yt-search ({id,title,artist,duration,url,...})

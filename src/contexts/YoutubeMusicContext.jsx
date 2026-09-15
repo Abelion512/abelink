@@ -19,6 +19,42 @@ import { db, insertMemory, getAllConfig } from '../api/db'
 
 const YoutubeMusicContext = createContext()
 
+// Lagu terakhir tersimpan (localStorage, sinkron, ~200 byte): FAB saat
+// fresh-boot tanpa lagu aktif lanjutkan ini alih-alih buka panel kosong.
+// Pola sama seperti 'abelink:orb_style' — tanpa migrasi Dexie.
+const LAST_TRACK_KEY = 'abelink:last_track'
+
+function readLastTrack() {
+  try {
+    const raw = localStorage.getItem(LAST_TRACK_KEY)
+    if (!raw) return null
+    const t = JSON.parse(raw)
+    if (!t || typeof t.id !== 'string' || !t.id) return null
+    return {
+      id: t.id,
+      title: typeof t.title === 'string' ? t.title : 'Lagu Pilihan',
+      artist: typeof t.artist === 'string' ? t.artist : 'YouTube Music',
+      duration: typeof t.duration === 'string' ? t.duration : '',
+      thumbnail: typeof t.thumbnail === 'string' ? t.thumbnail : ''
+    }
+  } catch (_) {
+    return null
+  }
+}
+
+function writeLastTrack(item) {
+  try {
+    if (!item?.id) return
+    localStorage.setItem(LAST_TRACK_KEY, JSON.stringify({
+      id: item.id,
+      title: item.title || '',
+      artist: item.artist || '',
+      duration: item.duration || '',
+      thumbnail: item.thumbnail || ''
+    }))
+  } catch (_) {}
+}
+
 // ---------------------------------------------------------------- YT IFrame API loader
 // Deterministik: pasang window.onYouTubeIframeAPIReady SEBELUM inject script,
 // inject sekali saja, dan resolve via polling window.YT (API boleh set window.YT
@@ -88,6 +124,15 @@ export const YoutubeMusicProvider = ({ children }) => {
   const [current, setCurrent] = useState({ id: '', title: '', artist: '', duration: '', thumbnail: '' })
   const [queue, setQueue] = useState([])
   const [playbackError, setPlaybackError] = useState(null)
+  // Loop 3-state: 'off' | 'one' | 'all'. Persist agar selamat restart.
+  const [loopMode, setLoopMode] = useState(() => {
+    try {
+      const v = localStorage.getItem('abelink:loop_mode')
+      return v === 'one' || v === 'all' ? v : 'off'
+    } catch (_) {
+      return 'off'
+    }
+  })
 
   const playerRef = useRef(null)
   const readyRef = useRef(false)
@@ -95,6 +140,10 @@ export const YoutubeMusicProvider = ({ children }) => {
   const initFailedRef = useRef(false)
   const queueRef = useRef([])
   const currentRef = useRef(current)
+  const loopModeRef = useRef(loopMode)
+  useEffect(() => {
+    loopModeRef.current = loopMode
+  }, [loopMode])
 
   useEffect(() => {
     queueRef.current = queue
@@ -141,6 +190,11 @@ export const YoutubeMusicProvider = ({ children }) => {
               },
               onStateChange: (e) => {
                 if (cancelled) return
+                // YT.PlayerState: 0 = ENDED, 1 = PLAYING.
+                if (e.data === 0) {
+                  handleEndedRef.current?.()
+                  return
+                }
                 setIsPlaying(e.data === 1)
               },
               onError: (e) => {
@@ -201,6 +255,7 @@ export const YoutubeMusicProvider = ({ children }) => {
       currentRef.current = item
       setCurrent(item)
       setQueue((q) => (q.some((x) => x.id === item.id) ? q : [...q, item]))
+      writeLastTrack(item)
       loadIntoPlayer(item.id)
       setIsPlayerOpen(true)
       setPlayId((p) => p + 1)
@@ -277,6 +332,49 @@ export const YoutubeMusicProvider = ({ children }) => {
   const nextTrack = useCallback(() => jump(1), [jump])
   const prevTrack = useCallback(() => jump(-1), [jump])
 
+  // Loop alami saat video berakhir (YT state ENDED=0): one = ulangi lagu aktif,
+  // all = maju antrean (jump sudah wrap-around), off = berhenti seperti dulu.
+  const handleEnded = useCallback(() => {
+    const mode = loopModeRef.current
+    if (mode === 'one') {
+      const cur = currentRef.current
+      if (cur?.id) {
+        loadIntoPlayer(cur.id)
+        return
+      }
+    } else if (mode === 'all') {
+      if (jump(1)) return
+    }
+    setIsPlaying(false)
+  }, [jump, loadIntoPlayer])
+
+  const handleEndedRef = useRef(handleEnded)
+  useEffect(() => {
+    handleEndedRef.current = handleEnded
+  }, [handleEnded])
+
+  // FAB saat fresh-boot tanpa lagu aktif: lanjutkan lagu terakhir tersimpan
+  // alih-alih buka panel kosong. Lagu aktif / tak ada simpanan = toggle biasa.
+  const playLastOrToggle = useCallback(() => {
+    if (!currentRef.current?.id) {
+      const last = readLastTrack()
+      if (last) return playTrack(last)
+    }
+    setIsPlayerOpen((prev) => !prev)
+    return true
+  }, [playTrack])
+
+  // Siklus 3-state: off -> one -> all -> off. Persist agar selamat restart.
+  const cycleLoop = useCallback(() => {
+    const next = loopModeRef.current === 'off' ? 'one' : loopModeRef.current === 'one' ? 'all' : 'off'
+    loopModeRef.current = next
+    setLoopMode(next)
+    try {
+      localStorage.setItem('abelink:loop_mode', next)
+    } catch (_) {}
+    return next
+  }, [])
+
   // Bukan no-op sunyi lagi: null berarti engine belum siap — konsumen bisa
   // melaporkan kegagalan ke user/AI alih-alih pura-pura sukses.
   const withPlayer = useCallback((fn) => {
@@ -312,6 +410,9 @@ export const YoutubeMusicProvider = ({ children }) => {
     isPlayerOpen,
     setIsPlayerOpen,
     togglePlayer,
+    playLastOrToggle,
+    loopMode,
+    cycleLoop,
     isPlaying,
     currentTrack: current,
     queue,
