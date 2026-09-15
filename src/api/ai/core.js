@@ -127,6 +127,20 @@ export const fetchAI = async (
           reject(err)
           return
         }
+        // Sukses: catat model custom ke riwayat endpoint (MRU, max 10) agar
+        // ID yang tak terlist /v1/models (mis. oc/...) tetap bisa dipakai
+        // ulang. Inline localStorage — tanpa import komponen (bebas cycle).
+        try {
+          if (conf.aiProvider === 'custom' && conf.customEndpoint && conf.customModel) {
+            const k = `abelink_recent_models_${String(conf.customEndpoint).trim().toLowerCase().replace(/\/+$/, '')}`
+            const mdl = String(conf.customModel).trim()
+            if (mdl) {
+              const prev = JSON.parse(localStorage.getItem(k) || '[]')
+              const next = [mdl, ...(Array.isArray(prev) ? prev.filter((m) => m !== mdl) : [])].slice(0, 10)
+              localStorage.setItem(k, JSON.stringify(next))
+            }
+          }
+        } catch (_) {}
         resolve(result)
       })
       .catch((e) => {

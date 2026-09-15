@@ -38,6 +38,22 @@ export const writeModelsCache = (endpoint, models) => {
   }
 }
 
+// Riwayat model custom yang pernah SUKSES dipakai per endpoint (MRU, max 10).
+// Ditulis inline oleh core.js setelah fetchAI sukses (tanpa import komponen).
+// Model tak terlist /v1/models (mis. oc/...) tetap bisa dipakai ulang dari sini.
+export const recentModelsKey = (endpoint) =>
+  `abelink_recent_models_${(endpoint || '').trim().toLowerCase().replace(/\/+$/, '')}`
+
+export const readRecentModels = (endpoint) => {
+  try {
+    const raw = localStorage.getItem(recentModelsKey(endpoint))
+    const arr = JSON.parse(raw || '[]')
+    return Array.isArray(arr) ? arr.filter((m) => typeof m === 'string' && m) : []
+  } catch {
+    return []
+  }
+}
+
 export const formatCacheAge = (at) => {
   const mins = Math.max(0, Math.round((Date.now() - (at || 0)) / 60000))
   if (mins < 1) return 'baru saja'
@@ -176,21 +192,24 @@ export default function ModelSection({
         <div className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-sm font-semibold">Model</label>
-            <select
-              className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
-              value={config.geminiWebModel || 'gemini-3.6-flash'}
+            <input
+              type="text"
+              list="gemini-web-model-options"
+              placeholder="gemini-latest"
+              title="Nama bebas — server RPC hanya membaca angka mode (Flash=1, Thinking=2, Pro=3, Auto=4). Nama baru (mis. gemini-3.9-flash) otomatis dipetakan ke mode Flash."
+              className="input input-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
+              value={config.geminiWebModel || 'gemini-latest'}
               onChange={(e) =>
                 setConfig((prev) => ({ ...prev, geminiWebModel: e.target.value }))
               }
-            >
-              <option value="gemini-3.7-flash">gemini-3.7-flash (Terbaru 2026)</option>
-              <option value="gemini-3.6-flash">gemini-3.6-flash (Model Utama Terbaru)</option>
-              <option value="gemini-3.5-flash">gemini-3.5-flash (Stabil &amp; Seimbang)</option>
-              <option value="gemini-3.5-flash-thinking">gemini-3.5-flash-thinking (Penalaran Mendalam)</option>
-              <option value="gemini-3.5-flash-thinking-lite">gemini-3.5-flash-thinking-lite (Penalaran Cepat)</option>
-              <option value="gemini-auto">gemini-auto (Otomatis Server)</option>
-              <option value="gemini-flash-lite">gemini-flash-lite (Super Cepat)</option>
-            </select>
+            />
+            <datalist id="gemini-web-model-options">
+              <option value="gemini-latest" />
+              <option value="gemini-auto" />
+              <option value="gemini-3.5-flash-thinking" />
+              <option value="gemini-3.5-flash-thinking-lite" />
+              <option value="gemini-flash-lite" />
+            </datalist>
           </div>
         </div>
       ) : config.aiProvider === 'custom' ? (
@@ -297,24 +316,75 @@ export default function ModelSection({
                 setConfig((prev) => ({ ...prev, customModel: e.target.value }))
               }
             />
-            <datalist id="custom-model-options">
-              {customModels.map((m) => (
-                <option key={m} value={m} />
-              ))}
-              <option value="deepseek-v3.2" />
-              <option value="deepseek-r1-0528" />
-              <option value="qwen3.8-max" />
-              <option value="qwen3.5-plus" />
-              <option value="glm-5.3" />
-              <option value="glm-5.3-flash" />
-              <option value="kimi-k3" />
-              <option value="claude-opus-4.8" />
-              <option value="claude-sonnet-4.6" />
-              <option value="gpt-5.6-sol" />
-              <option value="gpt-6-astra" />
-              <option value="nemotron-3-ultra" />
-              <option value="nemotron-3.5-lightning" />
-            </datalist>
+            {(() => {
+              const recent = readRecentModels(config.customEndpoint)
+              const cur = (config.customModel || '').trim()
+              const known = cur && (customModels.includes(cur) || recent.includes(cur))
+              return (
+                <>
+                  {recent.length > 0 && (
+                    <>
+                      <p className="text-xs text-success">
+                        {recent.length} model pernah sukses di endpoint ini — klik untuk pakai ulang
+                      </p>
+                      <select
+                        className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) setConfig((prev) => ({ ...prev, customModel: e.target.value }))
+                        }}
+                      >
+                        <option value="">-- Pilih dari riwayat sukses --</option>
+                        {recent.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+                  <datalist id="custom-model-options">
+                    {customModels.map((m) => (
+                      <option key={m} value={m} />
+                    ))}
+                    {recent.filter((m) => !customModels.includes(m)).map((m) => (
+                      <option key={`recent-${m}`} value={m} />
+                    ))}
+                    <option value="deepseek-v3.2" />
+                    <option value="deepseek-r1-0528" />
+                    <option value="qwen3.8-max" />
+                    <option value="qwen3.5-plus" />
+                    <option value="glm-5.3" />
+                    <option value="glm-5.3-flash" />
+                    <option value="kimi-k3" />
+                    <option value="claude-opus-4.8" />
+                    <option value="claude-sonnet-4.6" />
+                    <option value="gpt-5.6-sol" />
+                    <option value="gpt-6-astra" />
+                    <option value="nemotron-3-ultra" />
+                    <option value="nemotron-3.5-lightning" />
+                    <option value="deepseek-r1-0528" />
+                    <option value="glm-5.3" />
+                    <option value="glm-5.3-flash" />
+                    <option value="kimi-k3" />
+                    <option value="claude-opus-4.8" />
+                    <option value="claude-sonnet-4.6" />
+                    <option value="gpt-5.6-sol" />
+                    <option value="gpt-6-astra" />
+                    <option value="nemotron-3-ultra" />
+                    <option value="nemotron-3.5-lightning" />
+                  </datalist>
+                  {(customModels.length > 0 || recent.length > 0) && cur && !known && (
+                    <p className="text-xs text-warning mt-1">
+                      Model ini tidak ada di daftar terdeteksi maupun riwayat sukses —
+                      server kemungkinan menolaknya (401 ModelError). Pilih dari daftar,
+                      atau pastikan gateway meneruskan nama custom (mis. 9router
+                      meneruskan ID oc/... walau tak muncul di /v1/models).
+                    </p>
+                  )}
+                </>
+              )
+            })()}
           </div>
 
           <div className="space-y-1.5">

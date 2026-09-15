@@ -20,7 +20,7 @@ import { YoutubeMusicPlayer } from './components/YoutubeMusicPlayer'
 import { GlobalCameraManager } from './components/GlobalCameraManager'
 import { getAllConfig, saveConfiguration } from './api/db'
 import { initOramaIndices, hydrateFromDexie } from './api/oramaStore'
-import { pauseStaleAgentTasks } from './api/taskStore'
+import { pauseStaleTasks } from './api/engine/taskRuntime'
 import { setLiteMode } from './api/vectorMemory'
 import WhatNew from './components/WhatNew'
 import { detectHardwareProfile, getProfileConfig } from './utils/autoProfile'
@@ -250,8 +250,8 @@ function App() {
       }
 
       // Parkir task running dari sesi sebelumnya  -  fire-and-forget, idempoten
-      // (pauseStaleAgentTasks: running/waiting_user -> paused, step running -> pending).
-      pauseStaleAgentTasks('app_restart').catch((e) => {
+      // (pauseStaleTasks: running/waiting_user -> paused, step running -> pending).
+      pauseStaleTasks('app_restart').catch((e) => {
         console.warn('[App] Failed to pause stale agent tasks:', e)
       })
 
@@ -375,7 +375,7 @@ function App() {
     const defaultConfig = {
       id: 1,
       model: 'google/gemma-3-4b',
-      geminiWebModel: 'gemini-3.6-flash',
+      geminiWebModel: 'gemini-latest',
       temperature: 1.0,
       context: 10,
       aiProvider: 'gemini-web',
