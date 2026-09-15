@@ -444,7 +444,17 @@ export function prepareRelease() {
     updatePRMetadata(newVersion, changes)
     return { version: newVersion, prNumber: existingPR, updated: true, idempotent: false }
   } else {
-    // New Release PR: create branch from linux HEAD, generate, commit, push
+    // New Release PR: create branch from main HEAD, generate, commit, push.
+    // Orphan-branch guard: a stale remote branch with the same name (from a
+    // prior failed run) would make the push fail non-fast-forward and kill
+    // Release Prepare. No `gh pr` exists for it, so delete and recreate —
+    // the branch is pure pipeline output, regenerable from main + releases.json.
+    // ponytail: delete+recreate, bukan merge; state basi tak layak di-merge.
+    const stale = run(`git ls-remote origin ${branch}`).trim()
+    if (stale && !findReleasePR(version)) {
+      console.log(`[release-helper] Deleting stale remote branch ${branch} (no open Release PR)`)
+      run(`git push origin --delete ${branch}`)
+    }
     console.log(`[release-helper] Creating Release PR for v${newVersion}`)
     createReleasePR(newVersion, changes)
     return { version: newVersion, prNumber: null, updated: false }

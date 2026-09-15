@@ -24,8 +24,13 @@ export function bumpRank(commit) {
   const type = String(commit?.type || '').toLowerCase()
   // Conventional Commits: setiap type dengan ! sebelum : -> breaking change.
   // Contoh: feat!:, fix!:, refactor!:, feat(scope)!:
-  // Footer 'BREAKING CHANGE:' atau 'BREAKING-CHANGE:' juga major.
-  if (/^[a-z]+(\([^)]*\))?!:/.test(msg) || /breaking[ -]change/i.test(msg) || type === 'breaking') return 'major'
+  // Footer 'BREAKING CHANGE:' / 'BREAKING-CHANGE:' juga major — TAPI hanya
+  // bila berbentuk footer (token di awal baris + titik dua). Kata "breaking
+  // change(s)" di prosa subjek (mis. "fix: ... bumpRank breaking changes ...")
+  // BUKAN penanda breaking dan tidak boleh memicu major. Tanpa jangkar ini,
+  // commit f797564 menghitung 2.0.0-alpha.5 dan mematikan Release Prepare.
+  // ponytail: regex footer, bukan parser full-spec; cukup sampai ada kasus nyata.
+  if (/^[a-z]+(\([^)]*\))?!:/.test(msg) || /(?:^|\n)[ \t]*breaking[ -]change[ \t]*:/i.test(msg) || type === 'breaking') return 'major'
   if (/^feat(\(|:)/i.test(msg) || type === 'feat') return 'minor'
   if (/^(fix|security|perf|patch)(\(|:)/i.test(msg) || ['fix', 'security'].includes(type)) return 'patch'
   return null
