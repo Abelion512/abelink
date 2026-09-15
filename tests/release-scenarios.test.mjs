@@ -370,6 +370,13 @@ describe('detectBumpType (tertinggi menang)', () => {
     expect(bumpRank({ msg: 'fix: x\n\nBREAKING-CHANGE: api berubah' })).toBe('major')
   })
 
+  it('kata "breaking changes" di prosa subjek BUKAN major (regresi f797564)', () => {
+    // Commit fix yang membahas bumpRank sempat menghitung 2.0.0-alpha.5
+    // dan mematikan Release Prepare (push non-fast-forward).
+    expect(bumpRank({ msg: 'fix(release): exit code sync-version + bumpRank breaking changes + regression tests', type: 'fix' })).toBe('patch')
+    expect(bumpRank({ msg: 'docs: breaking changes overview', type: 'docs' })).not.toBe('major')
+  })
+
   it('tanpa commit -> patch konservatif', () => {
     expect(detectBumpType([])).toBe('patch')
   })

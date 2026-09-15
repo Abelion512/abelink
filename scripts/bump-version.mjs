@@ -69,7 +69,12 @@ function detectBumpType() {
 
   for (const line of commits.split('\n')) {
     const msg = line.toLowerCase()
-    if (msg.includes('feat!:') || msg.includes('breaking change')) hasMajor = true
+    // Breaking = penanda '!' conventional ATAU footer BREAKING[ -]CHANGE:
+    // (token di awal baris + titik dua). Prosa "breaking change(s)" di subjek
+    // (mis. commit fix yang membahas bumpRank) bukan penanda — lihat
+    // release-version.mjs bumpRank untuk aturan kanonik.
+    // ponytail: substring 'feat!:' + regex footer; parser full-spec overkill.
+    if (msg.includes('feat!:') || /(?:^|\n)[ \t]*breaking[ -]change[ \t]*:/.test(line.toLowerCase())) hasMajor = true
     else if (msg.startsWith('feat:') || msg.startsWith('feat(')) hasMinor = true
     else if (msg.startsWith('fix:') || msg.startsWith('fix(') || msg.startsWith('patch:')) continue
     // unknown prefix: treat as patch (conservative)
