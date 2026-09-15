@@ -1,7 +1,7 @@
 {
   "version": "1.2.0-alpha.6",
   "date": "15 September 2026",
-  "summary": "5 fitur baru, 1 perbaikan dan 2 pembaruan dokumentasi.",
+  "summary": "5 fitur baru, 3 perbaikan dan 2 pembaruan dokumentasi.",
   "linearUrl": "https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326",
   "changes": [
     {
@@ -23,6 +23,14 @@
     {
       "type": "AUTO",
       "msg": "Gemini-latest alias, fallback Gemini->custom, warning model tak dikenal"
+    },
+    {
+      "type": "ATM",
+      "msg": "Defer tasks:* channel, split headless proof"
+    },
+    {
+      "type": "ATM",
+      "msg": "Defer tasks:* channel, split headless proof"
     },
     {
       "type": "ATM",

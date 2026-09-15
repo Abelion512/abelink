@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-15T23:19:00.381Z",
+  "generatedAt": "2026-09-15T23:33:26.564Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
       "date": "15 September 2026",
-      "summary": "5 fitur baru, 1 perbaikan dan 2 pembaruan dokumentasi.",
+      "summary": "5 fitur baru, 3 perbaikan dan 2 pembaruan dokumentasi.",
       "sections": {
         "features": [
           {
@@ -24,6 +24,12 @@
           }
         ],
         "fixes": [
+          {
+            "msg": "Defer tasks:* channel, split headless proof"
+          },
+          {
+            "msg": "Defer tasks:* channel, split headless proof"
+          },
           {
             "msg": "EnsureGitIdentity di syncWithReleaseBase"
           }

@@ -4,7 +4,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.2.0-alpha.6 — 15 September 2026
 
-**Ringkasan:** 5 fitur baru, 1 perbaikan dan 2 pembaruan dokumentasi.
+**Ringkasan:** 5 fitur baru, 3 perbaikan dan 2 pembaruan dokumentasi.
 
 ### Fitur Baru
 - Extract taskRuntime boundary
@@ -14,6 +14,8 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Gemini-latest alias, fallback Gemini->custom, warning model tak dikenal
 
 ### Perbaikan
+- Defer tasks:* channel, split headless proof
+- Defer tasks:* channel, split headless proof
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
