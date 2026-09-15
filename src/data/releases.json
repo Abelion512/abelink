@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-15T06:11:57.790Z",
+  "generatedAt": "2026-09-15T21:37:57.498Z",
   "releases": [
     {
       "version": "1.1.1-alpha.6",
       "date": "15 September 2026",
-      "summary": "1 perbaikan dalam rilis ini.",
+      "summary": "1 perbaikan dan 1 pembaruan dokumentasi.",
       "sections": {
         "features": [],
         "fixes": [
@@ -13,7 +13,11 @@
           }
         ],
         "security": [],
-        "docs": []
+        "docs": [
+          {
+            "msg": "Define first-class engine client direction"
+          }
+        ]
       }
     },
     {

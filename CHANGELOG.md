@@ -4,10 +4,13 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.1.1-alpha.6 — 15 September 2026
 
-**Ringkasan:** 1 perbaikan dalam rilis ini.
+**Ringkasan:** 1 perbaikan dan 1 pembaruan dokumentasi.
 
 ### Perbaikan
 - EnsureGitIdentity di syncWithReleaseBase
+
+### Dokumentasi
+- Define first-class engine client direction
 
 ## v1.1.0-alpha.5 — 15 September 2026
 

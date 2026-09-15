@@ -1,12 +1,16 @@
 {
   "version": "1.1.1-alpha.6",
   "date": "15 September 2026",
-  "summary": "1 perbaikan dalam rilis ini.",
+  "summary": "1 perbaikan dan 1 pembaruan dokumentasi.",
   "linearUrl": "https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326",
   "changes": [
     {
       "type": "ATM",
       "msg": "EnsureGitIdentity di syncWithReleaseBase"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Define first-class engine client direction"
     }
   ]
 }
