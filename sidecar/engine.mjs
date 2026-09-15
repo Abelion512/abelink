@@ -19,6 +19,7 @@ import './engine/channels/skills.mjs'
 import './engine/channels/browser.mjs'
 import './engine/channels/capabilities.mjs'
 import './engine/channels/os.mjs'
+import './engine/channels/tasks.mjs'
 
 // ------------------------------------------------------------------- Main loop
 send({ event: 'engine:ready', payload: Object.keys(handlers) })

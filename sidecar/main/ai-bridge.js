@@ -150,7 +150,7 @@ export const fetchAI = async (
       }
       fullPrompt += '\n[ASSISTANT]:'
 
-      const modelName = conf.geminiWebModel || 'gemini-3.6-flash'
+      const modelName = conf.geminiWebModel || 'gemini-latest'
 
       try {
         logAi(`[ai] POST gemini-web model=${modelName} promptChars=${fullPrompt.length}`)
@@ -188,6 +188,21 @@ export const fetchAI = async (
         return { content: answer, reasoning }
       } catch (err) {
         console.error('[Gemini Web Error]', err)
+        const sessionBroken =
+          err.code === 'GEMINI_WEB_LIMITED' ||
+          err.message?.includes('Session') ||
+          err.message?.includes('BardErrorInfo') ||
+          err.message?.includes('dibatasi Google') ||
+          err.message?.includes('Gagal mengekstrak jawaban')
+        if (sessionBroken && (conf.customEndpoint || '').trim()) {
+          // Fallback antar-provider (1×): sesi/limit Gemini Web mati ->
+          // teruskan pesan yang sama ke custom endpoint (DeepSeek-free-api,
+          // 9router, LM Studio) via pemanggilan ulang dengan provider
+          // dioverride. Tanpa custom terkonfigurasi: error jujur di bawah.
+          onStatus?.('⚠️ Gemini Web bermasalah, oper ke provider custom...')
+          logAi('[ai] gemini-web -> custom fallback')
+          return fetchAI(workMessages, { ...conf, aiProvider: 'custom' }, isSmallTask, jsonSchema ?? null, onStatus)
+        }
         if (err.message?.includes('Session') || err.message?.includes('BardErrorInfo')) {
           onStatus?.('⚠️ Session Gemini Web bermasalah, mencoba fallback ke gemini-flash-lite...')
           let answer = await generateGeminiResponse(fullPrompt, 'gemini-flash-lite')
