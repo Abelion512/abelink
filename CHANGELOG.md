@@ -2,6 +2,24 @@
 
 Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.
 
+## v1.2.0-alpha.6 — 15 September 2026
+
+**Ringkasan:** 5 fitur baru, 1 perbaikan dan 2 pembaruan dokumentasi.
+
+### Fitur Baru
+- Extract taskRuntime boundary
+- Extract taskRuntime boundary
+- Riwayat model sukses, auto-latest pola, revert deepseek
+- Input bebas model gemini-web + saran
+- Gemini-latest alias, fallback Gemini->custom, warning model tak dikenal
+
+### Perbaikan
+- EnsureGitIdentity di syncWithReleaseBase
+
+### Dokumentasi
+- Define first-class engine client direction
+- Hapus DeepSeek
+
 ## v1.1.0-alpha.5 — 15 September 2026
 
 **Ringkasan:** 4 fitur baru, 20 perbaikan dan 8 pembaruan dokumentasi.

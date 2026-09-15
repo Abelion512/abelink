@@ -1,6 +1,44 @@
 {
-  "generatedAt": "2026-09-15T04:28:36.710Z",
+  "generatedAt": "2026-09-15T23:19:00.381Z",
   "releases": [
+    {
+      "version": "1.2.0-alpha.6",
+      "date": "15 September 2026",
+      "summary": "5 fitur baru, 1 perbaikan dan 2 pembaruan dokumentasi.",
+      "sections": {
+        "features": [
+          {
+            "msg": "Extract taskRuntime boundary"
+          },
+          {
+            "msg": "Extract taskRuntime boundary"
+          },
+          {
+            "msg": "Riwayat model sukses, auto-latest pola, revert deepseek"
+          },
+          {
+            "msg": "Input bebas model gemini-web + saran"
+          },
+          {
+            "msg": "Gemini-latest alias, fallback Gemini->custom, warning model tak dikenal"
+          }
+        ],
+        "fixes": [
+          {
+            "msg": "EnsureGitIdentity di syncWithReleaseBase"
+          }
+        ],
+        "security": [],
+        "docs": [
+          {
+            "msg": "Define first-class engine client direction"
+          },
+          {
+            "msg": "Hapus DeepSeek"
+          }
+        ]
+      }
+    },
     {
       "version": "1.1.0-alpha.5",
       "date": "15 September 2026",
