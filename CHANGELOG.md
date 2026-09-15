@@ -7,7 +7,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 **Ringkasan:** 1 perbaikan dalam rilis ini.
 
 ### Perbaikan
-- Attestations write untuk SLSA provenance
+- EnsureGitIdentity di syncWithReleaseBase
 
 ## v1.1.0-alpha.5 — 15 September 2026
 

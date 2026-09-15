@@ -6,7 +6,7 @@
   "changes": [
     {
       "type": "ATM",
-      "msg": "Attestations write untuk SLSA provenance"
+      "msg": "EnsureGitIdentity di syncWithReleaseBase"
     }
   ]
 }
