@@ -171,9 +171,10 @@ describe('taskRuntime — injected store + events', () => {
     expect(names).toContain('task.progress')
     expect(names).toContain('task.completed')
     expect(names).toContain('task.cancelled')
-    // Honest passthrough: the underlying store permits the completed ->
-    // cancelled transition, and the facade does not invent its own guard
-    // (taskStore.js stays authoritative for transition semantics).
+    // CONTRACT DETECTOR (bukan endorsement): store mengizinkan completed ->
+    // cancelled dan facade meneruskannya apa adanya (taskStore.js otoritatif,
+    // facade dilarang menciptakan guard sendiri). Jangan jadikan ini semantik
+    // lifecycle yang didesain — CLI masa depan tidak boleh mengandalkannya.
     expect((await getTask('rt-ev')).status).toBe('cancelled')
   })
 
@@ -192,42 +193,6 @@ describe('taskRuntime — injected store + events', () => {
   })
 })
 
-describe('tasks:* sidecar channel', () => {
-  it('registers every runtime op without lifecycle logic', async () => {
-    const { handlers } = await import('../sidecar/engine/registry.mjs')
-    await import('../sidecar/engine/channels/tasks.mjs')
-    for (const action of [
-      'tasks:create',
-      'tasks:get',
-      'tasks:get-with-steps',
-      'tasks:list',
-      'tasks:start',
-      'tasks:start-step',
-      'tasks:checkpoint',
-      'tasks:transition',
-      'tasks:pause',
-      'tasks:resume',
-      'tasks:cancel',
-      'tasks:result'
-    ]) {
-      expect(typeof handlers[action]).toBe('function')
-    }
-  })
-
-  it('create -> result round-trips through the channel', async () => {
-    resetTaskRuntimeConfig()
-    const { handlers } = await import('../sidecar/engine/registry.mjs')
-    await import('../sidecar/engine/channels/tasks.mjs')
-
-    const created = await handlers['tasks:create']([twoSteps('rt-ch')])
-    expect(created.success).toBe(true)
-    await handlers['tasks:start-step'](['rt-ch', 'rt-ch-s1'])
-    await handlers['tasks:checkpoint'](['rt-ch', 'rt-ch-s1', { status: 'completed', outputSummary: 'satu' }])
-    await handlers['tasks:start-step'](['rt-ch', 'rt-ch-s2'])
-    await handlers['tasks:checkpoint'](['rt-ch', 'rt-ch-s2', { status: 'completed', outputSummary: 'dua' }])
-    const result = await handlers['tasks:result'](['rt-ch'])
-    expect(result.success).toBe(true)
-    expect(result.data.status).toBe('completed')
-    expect(result.data.text).toContain('satu')
-  })
-})
+// NOTE (post-merge audit PR #26): the tasks:* sidecar channel was deferred —
+// Bun has no IndexedDB so every channel op failed. The 1:1 mapping returns
+// with the headless-store PR; facade + GUI routing stay covered above.

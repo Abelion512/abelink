@@ -17,9 +17,12 @@ kedua. Bila butuh semantik transisi baru, ubah `taskStore.js` — bukan facade.
 - `src/api/engine/taskRuntime.js` (baru): facade isomorfik delegate-only
   (create/get/list/start/checkpoint/pause/resume/cancel/getResult +
   `configureTaskRuntime`/`pauseStaleTasks`/`deleteTask`/`buildStepCheckpoint`).
-- `sidecar/engine/channels/tasks.mjs` (baru): `tasks:*` → facade + fan-out
-  event via `emit()` registry.
-- `sidecar/engine.mjs`: import channel tasks.
+- ~~`sidecar/engine/channels/tasks.mjs`: `tasks:*` → facade~~ **DITUNDA
+  (post-merge audit PR #26):** Bun tidak punya IndexedDB sehingga setiap op
+  channel fail — channel mati yang terdaftar lebih buruk daripada channel
+  yang belum ada. Kembali bersama headless store permanen. Facade + GUI
+  routing tidak terpengaruh.
+- `sidecar/engine.mjs`: penanda deferral (tanpa registrasi channel).
 - `src/hooks/agent/useAbelinkPlan.js`: durable calls lewat facade
   (create/start-step/checkpoint/transition/resume); `buildStepCheckpoint`
   async (lazy import) — perilaku sama.
@@ -32,13 +35,19 @@ kedua. Bila butuh semantik transisi baru, ubah `taskStore.js` — bukan facade.
   dipakai CLI sebelum headless store permanen mendarat.
 - `docs/ARCHITECTURE.md` §9: diagram + aturan boundary.
 
-## Headless status
+## Headless status (dua bukti terpisah, post-merge audit PR #26)
 
-`bun scripts/headless-task-runtime.mjs` LOLOS: create→start→checkpoint→
-pause→resume→cancel→getResult tanpa window/React/Tauri lewat store ASLI.
-Tanpa IndexedDB dan tanpa shim → facade error eksplisit (fail-fast), bukan
-sukses palsu. In-memory store buatan tangan DITOLAK saat ponytail review:
-duplikasi semantik store; shim yang sama dengan vitest lebih jujur.
+1. **Import murni** — `bun scripts/headless-task-runtime.mjs` LOLOS: facade
+   ter-load di Bun stock tanpa browser globals dan tanpa shim IndexedDB;
+   jalur default fail-fast eksplisit (`IndexedDB missing`), bukan sukses palsu.
+2. **Lifecycle + storage kompatibel** —
+   `bun scripts/headless-task-runtime-lifecycle.mjs` LOLOS: create→start→
+   checkpoint→pause→resume→cancel→getResult tanpa window/React/Tauri lewat
+   store ASLI (Dexie + fake-indexeddb, shim yang sama dipakai vitest).
+
+Keduanya BUKAN klaim "Bun production siap": itu butuh headless store permanen
+(langkah 1 di bawah). In-memory store buatan tangan DITOLAK saat ponytail
+review: duplikasi semantik store; shim yang sama dengan vitest lebih jujur.
 
 ## Batasan dikenal
 
