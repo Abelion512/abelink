@@ -473,6 +473,9 @@ function syncWithReleaseBase() {
   // Strategy: -X theirs lets the base win non-generated conflicts;
   // generated files are overwritten in writeAllFiles anyway.
   // No force push. Errors propagate (no `|| true` or `||` swallowing).
+  // Identity dulu: runner CI tanpa git identity membuat merge commit
+  // gagal "Committer identity unknown" (run 34935419959).
+  ensureGitIdentity()
   run(`git fetch origin ${RELEASE_BASE}`)
   run(`git merge ${RELEASE_REMOTE} -m "Merge ${RELEASE_BASE} into release branch" -X theirs`)
   run(`git pull origin HEAD`)
