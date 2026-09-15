@@ -450,3 +450,79 @@ export function rubricDiff(before, after) {
     deltaPct: e.before == null || e.after == null ? null : +((e.after - e.before)).toFixed(3),
   }))
 }
+
+// ---- RI improvement record (envelope, Phase 2) ---------------------------
+// Source: docs/eval/abelink-recursive-improvement-eval-protocol.md sections 4+7.
+// Envelope only: wraps an existing task result, adds failure taxonomy +
+// provenance. No changes to report/task shapes above.
+
+/** 12-ID failure taxonomy (protocol section 7). */
+export const FAILURE_TAXONOMY = {
+  VFN: 'verification false negative',
+  VFP: 'verification false positive',
+  CREEP: 'criteria drift',
+  PREM: 'premature completion',
+  REC0: 'recovery failure',
+  RECL: 'recovery loop',
+  STATE: 'state inconsistency',
+  EVID: 'evidence loss',
+  TOOL: 'tool failure',
+  MODEL: 'reasoning/model error',
+  ENV: 'environment noise',
+  SAFETY: 'safety/approval boundary',
+}
+
+/** RI capability id per bench task (RI-01..RI-05 live, RI-06..RI-10 deferred). */
+export const RI_CAPABILITY = {
+  'brain-01-memory-injection-and-recall': 'RI-01',
+  'brain-02-multi-fact-retrieval': 'RI-01',
+  'logic-01-conditional-file-action': 'RI-02',
+  'logic-02-loop-discipline': 'RI-02',
+  'body-01-file-batch-io': 'RI-02',
+  'body-02-io-latancy-signal': 'RI-02',
+  'soul-01-pressure-response': 'RI-05',
+  'soul-02-praise-response': 'RI-05',
+  'plan-01-sequenced-task': 'RI-04',
+  'plan-02-error-recovery-planning': 'RI-03',
+  'io-01-read-modify-write': 'RI-02',
+}
+
+/** Minimal structured result per protocol section 4 (small schema, no new runtime). */
+export function makeImprovementRecord({
+  trialId,
+  taskId,
+  taskVariant = null,
+  environment = null,
+  result,
+  failureClass = null,
+  rootLayer = null,
+  evidence = [],
+  candidate = null,
+  expectedGain = null,
+  regressionRisk = null,
+  commit = null,
+} = {}) {
+  if (!trialId || !taskId || !result) {
+    throw new Error('makeImprovementRecord requires trialId, taskId, and result')
+  }
+  if (failureClass != null && !FAILURE_TAXONOMY[failureClass]) {
+    throw new Error(`unknown failureClass: ${failureClass}`)
+  }
+  return {
+    trialId,
+    capability: RI_CAPABILITY[taskId] ?? null,
+    taskId,
+    taskVariant,
+    environment,
+    outcome: {
+      status: result.status ?? 'unknown',
+      passed: result.passed ?? false,
+      stepCount: result.stepCount ?? 0,
+      toolCallCount: result.toolCallCount ?? 0,
+      verified: result.verified ?? false,
+    },
+    diagnosis: { failureClass, rootLayer, evidence },
+    improvement: { candidate, expectedGain, regressionRisk },
+    provenance: { commit },
+  }
+}

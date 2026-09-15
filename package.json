@@ -17,6 +17,8 @@
     "perf:save": "bun evaluation/perf-gate.mjs --save",
     "bench:quick": "bun evaluation/bench-gate.mjs",
     "bench:save": "bun evaluation/bench-gate.mjs --save",
+    "bench:local": "bun evaluation/bench/run-local.mjs",
+    "bench:local-stub": "bun evaluation/bench/run-local.mjs --stub",
     "verify": "bash scripts/verify.sh",
     "sync-version": "node scripts/sync-version.mjs",
     "harness": "bun sidecar/engine.mjs",

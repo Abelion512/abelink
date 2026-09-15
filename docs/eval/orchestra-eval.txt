@@ -1,0 +1,252 @@
+**Yes, revised.** The previous structure was directionally right, but the role boundary was wrong for Abelink's current phase.
+
+Your actual architecture should be:
+
+```text
+                    USER
+                      │
+                 voice / text
+                      │
+                      ▼
+              ┌────────────────┐
+              │    ABELINK     │
+              │ Head Manager   │
+              │ / Orchestrator │
+              └───────┬────────┘
+                      │
+       ┌──────────────┼──────────────┐
+       ▼              ▼              ▼
+   Research       Self-review     Task planning
+       │              │              │
+       └──────────────┼──────────────┘
+                      ▼
+                Agent Routing
+                      │
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+     OpenCode      Claude Code     Codex
+        │             │             │
+        └─────────────┼─────────────┘
+                      ▼
+                  Hermes / etc.
+                      │
+                      ▼
+             Result / artifacts
+                      │
+                      ▼
+              ABELINK VERIFIER
+                      │
+          ┌───────────┴───────────┐
+          ▼                       ▼
+       verified                failed
+          │                       │
+          ▼                       ▼
+       report              recover / reroute
+```
+
+### Jadi 5 test tadi jangan dibuang
+
+Justru sekarang fungsinya menjadi **benchmark untuk Head Manager**, bukan benchmark coding agent.
+
+| Test                            | Fungsi Abelink                                                               |
+| ------------------------------- | ---------------------------------------------------------------------------- |
+| RI-01 Research                  | Apakah Abelink bisa mencari + menyusun evidence?                             |
+| RI-02 Cross-tool                | Apakah Abelink bisa membawa context dari research → artifact → verification? |
+| RI-03 Recovery                  | Apakah Abelink bisa menangani agent/tool failure?                            |
+| RI-04 Long-horizon              | Apakah Abelink bisa manage task panjang tanpa kehilangan state?              |
+| RI-05 Verification              | Apakah Abelink tahu kapan pekerjaan benar-benar selesai?                     |
+| RI-06 Routing                   | Apakah Abelink memilih agent yang tepat?                                     |
+| RI-07 Handoff                   | Apakah brief ke coding agent cukup lengkap?                                  |
+| RI-08 Multi-agent               | Apakah beberapa agent dapat dikoordinasikan secara efektif?                  |
+| RI-09 Agent-result verification | Apakah Abelink memverifikasi klaim agent?                                    |
+| RI-10 Self-review               | Apakah Abelink menemukan kelemahan arsitektur/dokumentasinya sendiri?        |
+
+Ini malah **lebih cocok** dengan arah yang kamu jelaskan.
+
+Anthropic sendiri menggambarkan agent sebagai sistem yang merencanakan, bertindak, mengamati, menyesuaikan diri, dan mengulang, serta merekomendasikan eval sebagai proses berkelanjutan sepanjang lifecycle agent. Mereka juga secara khusus membahas self-improvement loop yang menggunakan feedback untuk memperbaiki skill agent. ([Anthropic][1])
+
+## Prompt Abelink juga harus berubah
+
+Jangan lagi:
+
+```text
+Implement...
+Fix...
+Modify...
+Write code...
+Refactor...
+```
+
+Untuk fase sekarang, prompt utama harus seperti ini:
+
+```text
+You are Abelink, the user's Head Manager and Agent Orchestrator.
+
+Your current role is NOT to write or modify Abelink source code.
+
+Your responsibilities are to:
+
+1. Understand the user's actual objective.
+2. Research and gather the information required to accomplish it.
+3. Inspect relevant documentation, files, repositories, and available evidence.
+4. Decompose the objective into concrete sub-tasks.
+5. Decide which parts Abelink should handle directly and which parts should be delegated.
+6. Route implementation work to the most appropriate external coding agent available, such as OpenCode, Claude Code, Codex, Hermes, or another compatible agent.
+7. Prepare a precise execution brief for delegated work, including:
+   - objective
+   - context
+   - relevant files
+   - constraints
+   - acceptance criteria
+   - expected artifacts
+   - verification requirements
+8. Monitor delegated work and preserve task state.
+9. Inspect returned results rather than trusting an agent's claim that the task is complete.
+10. Verify the result against the original objective and acceptance criteria.
+11. When an agent fails, determine whether to:
+    - retry,
+    - change strategy,
+    - provide missing context,
+    - route to another agent,
+    - split the task,
+    - or report a genuine blocker.
+12. Do not abandon a task merely because one tool, source, or agent failed.
+13. Review the final result for:
+    - missing requirements
+    - incorrect assumptions
+    - weak evidence
+    - contradictions
+    - incomplete artifacts
+    - premature completion
+14. Report clearly:
+    - what was requested
+    - what Abelink did
+    - which external agents were used
+    - what each agent contributed
+    - what was independently verified
+    - what remains incomplete
+    - what failed and why
+    - what should happen next
+
+For coding-related tasks:
+Abelink is the manager, not the primary implementer.
+
+Do not modify Abelink source code.
+Do not pretend to have implemented code when an external coding agent must do it.
+Do not fabricate tool results, files, tests, or verification.
+Do not treat an agent's "done" message as proof of completion.
+
+Optimize for:
+- fewer user interactions
+- better delegation
+- better context handoff
+- reliable verification
+- recovery from ordinary failures
+- persistent task continuity
+- efficient use of available agents
+- minimal unnecessary complexity
+
+The user should be able to state the goal once and let Abelink coordinate the work.
+```
+
+### Dan self-review prompt
+
+Ini justru sangat penting untuk loop improvement:
+
+```text
+Review Abelink's current documentation, architecture, behavior, and orchestration model.
+
+Do NOT modify code.
+
+Identify the highest-impact weaknesses that prevent Abelink from being a better Head Manager, Research Agent, or Agent Orchestrator.
+
+Focus on:
+
+- poor task understanding
+- premature completion
+- weak verification
+- poor research quality
+- lost context
+- broken task continuity
+- weak external-agent handoffs
+- incorrect agent routing
+- inability to recover from failures
+- unnecessary user micromanagement
+- inconsistent documentation
+- contradictions between documentation and actual behavior
+
+For every finding provide:
+
+- severity
+- evidence
+- failure mode
+- likely root cause
+- impact on real-world task completion
+- smallest useful improvement
+- affected component/document
+- validation method
+
+Do not propose new features merely because they are interesting.
+
+Prioritize improvements that make Abelink better at:
+research → planning → delegation → monitoring → verification → recovery → reporting.
+```
+
+### Ini juga mengubah cara kita melakukan "recursive improvement"
+
+Bukan:
+
+```text
+Abelink
+  ↓
+menulis ulang Abelink
+  ↓
+Abelink makin pintar
+```
+
+Untuk sekarang:
+
+```text
+Abelink
+  ↓
+RUN REAL TASK
+  ↓
+TRACE
+  ↓
+EVALUATE
+  ↓
+IDENTIFY FAILURE
+  ↓
+PROPOSE IMPROVEMENT
+  ↓
+SEND IMPLEMENTATION BRIEF
+  ↓
+OpenCode / Claude Code / Codex / Hermes
+  ↓
+IMPLEMENT
+  ↓
+ABELINK REVIEWS RESULT
+  ↓
+REGRESSION
+  ↓
+UNSEEN TASK
+  ↓
+PROMOTE
+  ↓
+repeat
+```
+
+**Ini lebih masuk akal untuk Abelink.** Abelink tidak perlu menjadi "Claude Code kedua". Ia menjadi **lapisan koordinasi di atas agent-agent yang sudah jago coding**.
+
+Dan ini memberi Abelink satu kemampuan yang jauh lebih bernilai: **menentukan siapa yang harus melakukan apa, dengan context apa, kapan pekerjaan benar-benar selesai, dan apa yang harus dilakukan ketika agent gagal.**
+
+Saya juga sudah mengganti dokumentasinya agar sesuai dengan posisi tersebut, tanpa mengarahkan Abelink untuk coding.
+
+[Download DOCX: Abelink Agent Orchestrator & Recursive Improvement Eval Protocol](sandbox:/mnt/data/abelink-agent-orchestrator-eval-protocol.docx)
+
+[Download Markdown: Abelink Agent Orchestrator & Recursive Improvement Eval Protocol](sandbox:/mnt/data/abelink-agent-orchestrator-eval-protocol.md)
+
+Dan dari sini, **benchmark utama Abelink bukan lagi "seberapa bagus Abelink ngoding", tetapi "seberapa bagus Abelink membuat kumpulan agent yang sudah ada menghasilkan outcome yang benar".** Itu target yang jauh lebih tepat untuk head manager.
+
+[1]: https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents?utm_source=chatgpt.com "Demystifying evals for AI agents \ Anthropic"
+
