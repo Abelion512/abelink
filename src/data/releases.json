@@ -1,6 +1,116 @@
 {
-  "generatedAt": "2026-09-13T13:26:24.491Z",
+  "generatedAt": "2026-09-15T04:28:36.710Z",
   "releases": [
+    {
+      "version": "1.1.0-alpha.5",
+      "date": "15 September 2026",
+      "summary": "4 fitur baru, 20 perbaikan dan 8 pembaruan dokumentasi.",
+      "sections": {
+        "features": [
+          {
+            "msg": "RI envelope + live boundary + run-local"
+          },
+          {
+            "msg": "SemVer penuh + extension ikut app"
+          },
+          {
+            "msg": "Pairing pinned-flavor + zero-click resume, hapus silent auto-switch"
+          },
+          {
+            "msg": "Dua native host prod/dev, installer tanpa overwrite lintas flavor"
+          }
+        ],
+        "fixes": [
+          {
+            "msg": "Guard orphan-branch pakai staleBranch/newVersion"
+          },
+          {
+            "msg": "BumpRank footer-anchored + orphan release-branch guard"
+          },
+          {
+            "msg": "Exit code sync-version + bumpRank breaking changes + regression tests"
+          },
+          {
+            "msg": "Strict flavor isolation + FLAVOR_PINNED backcompat"
+          },
+          {
+            "msg": "Kanonikalisasi path token per-flavor + strict flavor reader"
+          },
+          {
+            "msg": "Robust isDev detection, fail-closed skills path traversal, and tests"
+          },
+          {
+            "msg": "Correctness dari audit - 0600, fail-closed, sort, guard"
+          },
+          {
+            "msg": "Namespace dev/prod untuk telegram, plugins, tmp"
+          },
+          {
+            "msg": "Prevent false rejection of short speech, tune logprob threshold, and clean up gum timer"
+          },
+          {
+            "msg": "Selaraskan reader harness/workspace dengan writer Rust"
+          },
+          {
+            "msg": "Default model groq/whisper-large-v3-turbo, hapus placeholder selfhosted"
+          },
+          {
+            "msg": "Anti-halusinasi STT + unifikasi data-home dev/prod"
+          },
+          {
+            "msg": "Precedence TRUNCATED over failed, filter artifact intent, and audit subagent tools"
+          },
+          {
+            "msg": "Em dash cleanup, isNativeBacked single source, RI contract"
+          },
+          {
+            "msg": "Truncation check beats explicit done in subagent classifier"
+          },
+          {
+            "msg": "Wait_subagents completeness gate + truncation recovery + batch tool tags"
+          },
+          {
+            "msg": "RI-13 root-cause patch F1/F3-partial/F4 + regression tests"
+          },
+          {
+            "msg": "Fail-fast offline paths, non-blocking boot, tab-storm guard"
+          },
+          {
+            "msg": "Fail-fast offline paths, non-blocking boot, tab-storm guard"
+          },
+          {
+            "msg": "Action-class-aware browser verification, narrow escalation"
+          }
+        ],
+        "security": [],
+        "docs": [
+          {
+            "msg": "Isolasi prod/dev browser bridge + pairing PR#11"
+          },
+          {
+            "msg": "Namespace dev/prod, pipeline VAD/STT, kontrak harness, toolchain"
+          },
+          {
+            "msg": "DataHome tunggal + helper harness bersama + potongan ponytail"
+          },
+          {
+            "msg": "Final RI verification-gate log with PR state"
+          },
+          {
+            "msg": "Cargo.lock alpha.4 via cargo check"
+          },
+          {
+            "msg": "RI verification-gate patch log"
+          },
+          {
+            "msg": "V1.0.0-alpha.4"
+          },
+          {
+            "msg": "V1.0.0-alpha.4"
+          }
+        ]
+      }
+    },
     {
       "version": "1.0.0-alpha.4",
       "date": "13 September 2026",
