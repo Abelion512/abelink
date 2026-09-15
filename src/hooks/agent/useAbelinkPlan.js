@@ -17,15 +17,14 @@ import {
   generateVector,
   executeMemorySearch
 } from '../../api/vectorMemory'
-import { buildDurableStepCheckpoint } from '../../api/taskExecutor'
 import {
-  createAgentTask,
-  startAgentTaskStep,
-  checkpointAgentTaskStep,
-  transitionAgentTask,
-  resumeAgentTask,
-  getAgentTaskWithSteps
-} from '../../api/taskStore'
+  createTask,
+  startTaskStep,
+  checkpointStep,
+  transitionTask,
+  resumeTask,
+  buildStepCheckpoint
+} from '../../api/engine/taskRuntime'
 import { searchMemoriesInOrama } from '../../api/oramaStore'
 import { buildOptimizedChatSession, stripImageContent, stripDataUrls } from '../../api/ai/contextCompactor'
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
@@ -562,7 +561,7 @@ export const useAbelinkPlan = ({
       // Resume durable task jika diminta via options
       if (opts.resumeTaskId) {
         try {
-          const resumed = await resumeAgentTask(opts.resumeTaskId)
+          const resumed = await resumeTask(opts.resumeTaskId)
           if (resumed && ['running', 'pending'].includes(resumed.status)) {
             durableTask = resumed
             durableTaskForRecovery = durableTask
@@ -760,7 +759,7 @@ export const useAbelinkPlan = ({
         // Cek Abort Signal
         if (sessionAbortController.signal.aborted) {
           if (durableTask && durableTask.status === 'running') {
-            await transitionAgentTask(durableTask.id, 'paused', 'user_abort')
+            await transitionTask(durableTask.id, 'paused', 'user_abort')
           }
           break
         }
@@ -851,7 +850,7 @@ export const useAbelinkPlan = ({
           sessionOutcome = 'failed'
           lastTerminalReason = 'step-budget-exhausted'
           if (durableTask) {
-            await transitionAgentTask(
+            await transitionTask(
               durableTask.id,
               'failed',
               'Batas langkah keamanan tercapai.'
@@ -979,7 +978,7 @@ export const useAbelinkPlan = ({
             ? `${documentsPath.replace(/[\\/]$/, '')}/Abelink Tasks/${Date.now()}`
             : null
 
-          durableTask = await createAgentTask({
+          durableTask = await createTask({
             title: durablePlan.title,
             objective: durablePlan.objective,
             mode: 'durable',
@@ -998,7 +997,7 @@ export const useAbelinkPlan = ({
           })
 
           durableTaskForRecovery = durableTask
-          durableActiveStep = await startAgentTaskStep(durableTask.id, durableTask.activeStepId)
+          durableActiveStep = await startTaskStep(durableTask.id, durableTask.activeStepId)
           activeTaskObjectiveRef.current = durableActiveStep?.objective || durableTask.objective
 
           targetPushProcess({
@@ -1322,7 +1321,7 @@ export const useAbelinkPlan = ({
         if (isDoneSignal || (!hasAction && durableTask)) {
           if (durableTask && durableActiveStep) {
             const currentStep = durableActiveStep
-            const checkpoint = buildDurableStepCheckpoint(
+            const checkpoint = await buildStepCheckpoint(
               currentStep,
               decision.answer,
               durableTask.maxRetries,
@@ -1372,14 +1371,14 @@ export const useAbelinkPlan = ({
               !checkpointCompleted && currentStep.attempts < durableTask.maxRetries + 1
             const checkpointNeedsRevision = !checkpointCompleted && checkpointCanRetry
 
-            const checkpointedTask = await checkpointAgentTaskStep(
+            const checkpointedTask = await checkpointStep(
               durableTask.id,
               durableActiveStep.id,
               checkpointData
             )
 
             if (!checkpointCompleted && !checkpointCanRetry) {
-              await transitionAgentTask(
+              await transitionTask(
                 durableTask.id,
                 'failed',
                 'Step gagal memenuhi validasi setelah batas retry.'
@@ -1411,7 +1410,7 @@ export const useAbelinkPlan = ({
                 role: 'user',
                 content: `[REVISI DURABLE STEP] Ulangi step "${currentStep.title}". Kekurangan validasi: ${stepValidation.missingRequirements.join('; ')}`
               })
-              await startAgentTaskStep(durableTask.id, durableActiveStep.id)
+              await startTaskStep(durableTask.id, durableActiveStep.id)
               continue
             }
 
@@ -1426,7 +1425,7 @@ export const useAbelinkPlan = ({
               if (nextStep.acceptanceCriteria?.length > 0) {
                 contextMsgStr += `[DURABLE STEP ACCEPTANCE]\n${nextStep.acceptanceCriteria.map((item) => `- ${item}`).join('\n')}\n`
               }
-              await startAgentTaskStep(durableTask.id, nextStep.id)
+              await startTaskStep(durableTask.id, nextStep.id)
               targetPushProcess({
                 id: agenticProcessId,
                 type: 'planning',
@@ -2059,7 +2058,7 @@ export const useAbelinkPlan = ({
         durableTaskForRecovery &&
         (error.name === 'AbortError' || errorMsg.includes('AbortError'))
       ) {
-        await transitionAgentTask(durableTaskForRecovery.id, 'paused', 'user_abort').catch(() => {})
+        await transitionTask(durableTaskForRecovery.id, 'paused', 'user_abort').catch(() => {})
       }
       if (error.name !== 'AbortError' && !errorMsg.includes('AbortError')) {
         console.error('Planning Error:', error)

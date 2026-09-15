@@ -187,7 +187,61 @@ Evaluasi: `evaluation/run.mjs` `sidecarWorkspaceRoot()` = rumus sama +
 `workspace`. Kategori log baca langsung dari file (`bun run
 harness:diagnose`), bukan copas user.
 
-## 9. Kebijakan Toolchain Linux-Only
+## 9. Engine Task Runtime Boundary (taskRuntime.js)
+
+Durable task/session execution punya batas engine-owned yang bisa dikonsumsi
+Tauri GUI, sidecar, dan CLI/API mendatang — tanpa GUI memiliki state eksekusi.
+
+```
+                    Abelink Engine Runtime
+                         taskRuntime.js
+               (src/api/engine/taskRuntime.js)
+                              │
+             ┌────────────────┼────────────────┐
+             ▼                ▼                ▼
+        React GUI       sidecar tasks:*      future CLI
+  (useAbelinkPlan,          │                (belum ada)
+   App startup)    engine/channels/tasks.mjs
+             │                │
+             └────────────────┼────────────────┘
+                              ▼
+                         taskStore.js
+                 (otoritatif: persistensi +
+                  transisi state, 7 status)
+                              │
+                     storage adapter
+                              │
+                    ┌─────────┴─────────┐
+                    ▼                   ▼
+                 Dexie/DB        future headless storage
+              (default GUI)       (via configureTaskRuntime)
+```
+
+Dan terpisah, jalur approval tidak pernah lewat runtime:
+
+```
+toolDispatcher → node_invoke → Rust APPROVAL_ACTIONS (rfd) → native tool
+```
+
+- **Delegate-only (mengikat):** `taskRuntime.js` meneruskan ke
+  `taskStore.js`/`taskExecutor.js` 1:1 — tanpa state machine kedua, tanpa
+  persistensi baru, tanpa logika verifikasi baru. `taskStore.js` tetap
+  otoritatif selama ekstraksi ini.
+- **Headless:** facade tanpa top-level import; default Dexie lazy-load hanya
+  bila IndexedDB ada. Tanpa IndexedDB → error eksplisit, bukan sukses palsu.
+  Buktikan via `bun scripts/headless-task-runtime.mjs`.
+- **Event:** hanya yang didukung — `task.created/updated/progress/completed/
+  failed/cancelled` via `emit()` sidecar / sink injeksi. `waiting_user` dan
+  `approval_required` BELUM ada (tanpa stream palsu sebelum wiring dispatcher).
+- **Result:** `getResult(taskId)` = derived view (status, steps, text) — tanpa
+  rekontruksi dari chat history, tanpa perubahan skema.
+- **Approval:** runtime tidak mengeksekusi tool dan tidak meng-approve.
+  Destruktif tetap lewat `node_invoke` → dialog rfd Rust.
+- **Cancel kooperatif:** `cancelTask` = persist `cancelled` + event. Operasi
+  native in-flight TIDAK di-kill (tanpa abort propagation; timeout bridge 300s).
+  Penelepon tetap abort loop/signal sendiri.
+
+## 10. Kebijakan Toolchain Linux-Only
 
 Stdlib/platform dulu sebelum kode baru (`AbortSignal.timeout` ditunda
 sampai WebKitGTK target terverifikasi - lihat `ponytail:` di
