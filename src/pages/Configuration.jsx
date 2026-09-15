@@ -39,7 +39,7 @@ const Configuration = ({
     ttsPitch: 0,
     groqApiKey: '',
     aiProvider: 'gemini-web',
-    geminiWebModel: 'gemini-3.6-flash',
+    geminiWebModel: 'gemini-latest',
     customApiProtocol: 'auto',
     groqModel: 'llama-3.1-8b-instant',
     tgBotToken: '',
@@ -222,7 +222,7 @@ const Configuration = ({
         ...data[0],
         effortLevel: data[0].effortLevel || 'auto',
         aiProvider: data[0].aiProvider || 'gemini-web',
-        geminiWebModel: data[0].geminiWebModel || 'gemini-3.6-flash',
+        geminiWebModel: data[0].geminiWebModel || 'gemini-latest',
         micDeviceId: data[0].micDeviceId || 'default',
         awarenessEnabled: data[0].awarenessEnabled ?? true,
         sessionCompactionEnabled: data[0].sessionCompactionEnabled ?? true
