@@ -5,76 +5,29 @@
 import https from 'https'
 import crypto from 'crypto'
 
+// Server RPC hanya membaca ANGKA mode (inner[79]): 1=Flash, 2=Thinking,
+// 3=Pro, 4=Auto, 5=Thinking-lite, 6=Flash-lite. Nama model = label lokal.
+// ponytail: pola mode, bukan entri per versi (semua Flash = mode 1,
+// nama baru otomatis ikut tanpa update map).
+const MODES = {
+  flash: { mode: 1, think: 4 },
+  thinking: { mode: 2, think: 0 },
+  pro: { mode: 3, think: 4 },
+  auto: { mode: 4, think: 4 },
+  'thinking-lite': { mode: 5, think: 0 },
+  'flash-lite': { mode: 6, think: 4 }
+}
+const modeEntry = (kind, name, desc) => ({ ...MODES[kind], name, desc })
+
 export const GEMINI_WEB_MODELS = {
-  // 'gemini-latest' = alias Flash terbaru (mode 1). RPC tidak punya konsep
-  // "latest" — server hanya kenal angka mode; alias ini yang dimajukan manual
-  // tiap rilis (3.8 per Sep 2026). Default disarankan ke ini, bukan versi pin.
-  'gemini-latest': {
-    mode: 1,
-    think: 4,
-    name: 'gemini-latest',
-    desc: 'Flash terbaru (alias, dimajukan tiap rilis)'
-  },
-  'gemini-3.8-flash': {
-    mode: 1,
-    think: 4,
-    name: 'gemini-3.8-flash',
-    desc: 'Flash terbaru (Sep 2026)'
-  },
-  'gemini-3.8-flash-cyber': {
-    mode: 1,
-    think: 4,
-    name: 'gemini-3.8-flash-cyber',
-    desc: 'Flash terbaru varian cyber'
-  },
-  'gemini-3.7-flash': {
-    mode: 1,
-    think: 4,
-    name: 'gemini-3.7-flash',
-    desc: 'Flash Agustus 2026 (sebelumnya jatuh ke 3.6 tanpa efek)'
-  },
-  'gemini-3.6-flash': {
-    mode: 1,
-    think: 4,
-    name: 'gemini-3.6-flash',
-    desc: 'Model utama serbaguna versi terbaru'
-  },
-  'gemini-3.5-flash': {
-    mode: 1,
-    think: 4,
-    name: 'gemini-3.5-flash',
-    desc: 'Model Flash seimbang dan stabil'
-  },
-  'gemini-3.5-flash-thinking': {
-    mode: 2,
-    think: 0,
-    name: 'gemini-3.5-flash-thinking',
-    desc: 'Mode penalaran mendalam untuk analisis rumit'
-  },
-  'gemini-3.5-flash-thinking-lite': {
-    mode: 5,
-    think: 0,
-    name: 'gemini-3.5-flash-thinking-lite',
-    desc: 'Mode penalaran cepat dengan kedalaman fleksibel'
-  },
-  'gemini-auto': {
-    mode: 4,
-    think: 4,
-    name: 'gemini-auto',
-    desc: 'Penyesuaian model otomatis oleh server'
-  },
-  'gemini-3.1-pro': {
-    mode: 3,
-    think: 4,
-    name: 'gemini-3.1-pro',
-    desc: 'Model PRO (butuh akun berbayar; akun gratis di-route ke Flash)'
-  },
-  'gemini-flash-lite': {
-    mode: 6,
-    think: 4,
-    name: 'gemini-flash-lite',
-    desc: 'Model super ringan dengan respon instan'
-  }
+  'gemini-latest': modeEntry('flash', 'gemini-latest', 'Flash terbaru (alias, dimajukan tiap rilis)'),
+  'gemini-3.6-flash': modeEntry('flash', 'gemini-3.6-flash', 'Pin lama (backward-compat; setara latest)'),
+  'gemini-3.5-flash': modeEntry('flash', 'gemini-3.5-flash', 'Flash seimbang dan stabil'),
+  'gemini-3.5-flash-thinking': modeEntry('thinking', 'gemini-3.5-flash-thinking', 'Penalaran mendalam'),
+  'gemini-3.5-flash-thinking-lite': modeEntry('thinking-lite', 'gemini-3.5-flash-thinking-lite', 'Penalaran cepat'),
+  'gemini-auto': modeEntry('auto', 'gemini-auto', 'Otomatis server'),
+  'gemini-3.1-pro': modeEntry('pro', 'gemini-3.1-pro', 'PRO (berbayar; gratis di-route ke Flash)'),
+  'gemini-flash-lite': modeEntry('flash-lite', 'gemini-flash-lite', 'Super ringan, respon instan')
 }
 
 const DEFAULT_BL = 'boq_assistant-bard-web-server_20260730.01_p1'
@@ -116,18 +69,18 @@ export const __geminiWebTest = {
 }
 
 export function resolveGeminiWebModel(modelName) {
+  // Auto-latest: pola kata kunci -> mode (lihat MODES). Nama tak dikenal
+  // (mis. gemini-3.9-flash) langsung mode Flash tanpa perlu entri baru —
+  // urutan if-else = prioritas pola; ponytail: 1 rantai, bukan map+rantai.
   const reqModel = (modelName || 'gemini-latest').toLowerCase()
-  let selected = GEMINI_WEB_MODELS[reqModel]
-  if (!selected) {
-    if (reqModel.includes('thinking-lite')) selected = GEMINI_WEB_MODELS['gemini-3.5-flash-thinking-lite']
-    else if (reqModel.includes('think')) selected = GEMINI_WEB_MODELS['gemini-3.5-flash-thinking']
-    else if (reqModel.includes('auto')) selected = GEMINI_WEB_MODELS['gemini-auto']
-    else if (reqModel.includes('lite') || reqModel.includes('fast')) selected = GEMINI_WEB_MODELS['gemini-flash-lite']
-    else if (reqModel.includes('pro')) selected = GEMINI_WEB_MODELS['gemini-3.1-pro']
-    else if (reqModel.includes('latest') || reqModel.includes('3.8') || reqModel.includes('3.7')) selected = GEMINI_WEB_MODELS['gemini-latest']
-    else selected = GEMINI_WEB_MODELS['gemini-latest']
-  }
-  return selected
+  const direct = GEMINI_WEB_MODELS[reqModel]
+  if (direct) return direct
+  if (reqModel.includes('thinking-lite')) return modeEntry('thinking-lite', reqModel, '')
+  if (reqModel.includes('think')) return modeEntry('thinking', reqModel, '')
+  if (reqModel.includes('auto')) return modeEntry('auto', reqModel, '')
+  if (reqModel.includes('lite') || reqModel.includes('fast')) return modeEntry('flash-lite', reqModel, '')
+  if (reqModel.includes('pro')) return modeEntry('pro', reqModel, '')
+  return modeEntry('flash', reqModel, '')
 }
 
 function httpPost(urlStr, headers, bodyData, timeoutMs = 120000) {
