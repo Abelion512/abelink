@@ -450,10 +450,11 @@ export function prepareRelease() {
     // Release Prepare. No `gh pr` exists for it, so delete and recreate —
     // the branch is pure pipeline output, regenerable from main + releases.json.
     // ponytail: delete+recreate, bukan merge; state basi tak layak di-merge.
-    const stale = run(`git ls-remote origin ${branch}`).trim()
-    if (stale && !findReleasePR(version)) {
-      console.log(`[release-helper] Deleting stale remote branch ${branch} (no open Release PR)`)
-      run(`git push origin --delete ${branch}`)
+    const staleBranch = existingPR_branch(newVersion)
+    const stale = run(`git ls-remote origin ${staleBranch}`).trim()
+    if (stale && !findReleasePR(newVersion)) {
+      console.log(`[release-helper] Deleting stale remote branch ${staleBranch} (no open Release PR)`)
+      run(`git push origin --delete ${staleBranch}`)
     }
     console.log(`[release-helper] Creating Release PR for v${newVersion}`)
     createReleasePR(newVersion, changes)
