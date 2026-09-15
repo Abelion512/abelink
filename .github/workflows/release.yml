@@ -15,6 +15,7 @@ on:
 permissions:
   contents: write
   id-token: write # SLSA provenance (attest-build-provenance)
+  attestations: write # persist SLSA attestation (tanpa ini: Resource not accessible by integration)
 
 concurrency:
   group: release-${{ github.ref }}
