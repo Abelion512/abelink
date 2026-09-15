@@ -2,6 +2,48 @@
 
 Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.
 
+## v1.1.0-alpha.5 — 15 September 2026
+
+**Ringkasan:** 4 fitur baru, 20 perbaikan dan 8 pembaruan dokumentasi.
+
+### Fitur Baru
+- RI envelope + live boundary + run-local
+- SemVer penuh + extension ikut app
+- Pairing pinned-flavor + zero-click resume, hapus silent auto-switch
+- Dua native host prod/dev, installer tanpa overwrite lintas flavor
+
+### Perbaikan
+- Guard orphan-branch pakai staleBranch/newVersion
+- BumpRank footer-anchored + orphan release-branch guard
+- Exit code sync-version + bumpRank breaking changes + regression tests
+- Strict flavor isolation + FLAVOR_PINNED backcompat
+- Kanonikalisasi path token per-flavor + strict flavor reader
+- Robust isDev detection, fail-closed skills path traversal, and tests
+- Correctness dari audit - 0600, fail-closed, sort, guard
+- Namespace dev/prod untuk telegram, plugins, tmp
+- Prevent false rejection of short speech, tune logprob threshold, and clean up gum timer
+- Selaraskan reader harness/workspace dengan writer Rust
+- Default model groq/whisper-large-v3-turbo, hapus placeholder selfhosted
+- Anti-halusinasi STT + unifikasi data-home dev/prod
+- Precedence TRUNCATED over failed, filter artifact intent, and audit subagent tools
+- Em dash cleanup, isNativeBacked single source, RI contract
+- Truncation check beats explicit done in subagent classifier
+- Wait_subagents completeness gate + truncation recovery + batch tool tags
+- RI-13 root-cause patch F1/F3-partial/F4 + regression tests
+- Fail-fast offline paths, non-blocking boot, tab-storm guard
+- Fail-fast offline paths, non-blocking boot, tab-storm guard
+- Action-class-aware browser verification, narrow escalation
+
+### Dokumentasi
+- Isolasi prod/dev browser bridge + pairing PR#11
+- Namespace dev/prod, pipeline VAD/STT, kontrak harness, toolchain
+- DataHome tunggal + helper harness bersama + potongan ponytail
+- Final RI verification-gate log with PR state
+- Cargo.lock alpha.4 via cargo check
+- RI verification-gate patch log
+- V1.0.0-alpha.4
+- V1.0.0-alpha.4
+
 ## v1.0.0-alpha.4 — 13 September 2026
 
 **Ringkasan:** 305 fitur baru, 238 perbaikan, 1 peningkatan keamanan dan 248 pembaruan dokumentasi.
