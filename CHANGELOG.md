@@ -2,6 +2,13 @@
 
 Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.
 
+## v1.1.1-alpha.6 — 15 September 2026
+
+**Ringkasan:** 1 perbaikan dalam rilis ini.
+
+### Perbaikan
+- Attestations write untuk SLSA provenance
+
 ## v1.1.0-alpha.5 — 15 September 2026
 
 **Ringkasan:** 4 fitur baru, 20 perbaikan dan 8 pembaruan dokumentasi.
