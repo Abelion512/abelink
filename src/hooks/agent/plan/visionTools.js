@@ -77,7 +77,10 @@ export const runVisionTool = async (tool, query, ctx) => {
           currentSignal,
           targetSetChatData
         })
-        return `Hasil Analisis Layar:\n${textContent}`
+        // Lampirkan screenshot ke pesan agar user melihat bukti visual langsung.
+        // Render: MessageBubble attachedImages grid (sudah ada). Batas ikut
+        // capToolImages dispatcher (4 × 2MB).
+        return { text: `Hasil Analisis Layar:\n${textContent}`, images: imageUrl ? [imageUrl] : [] }
       }
       return 'Gagal mengambil screenshot layar untuk analisis.'
     } catch (e) {

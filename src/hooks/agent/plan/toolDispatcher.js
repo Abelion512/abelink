@@ -59,8 +59,48 @@ export const markOsControlSession = (sessionId, open) => {
 export const isOsControlSessionOpen = (sessionId) =>
   osControlOpenSessions.has(String(sessionId ?? 'default'))
 
-const formatRes = (tool, query, res, ctx = null) => {
+// STREAM D: tool results boleh membawa images[] (data URL). Cap jujur —
+/// maks 4 gambar, 2MB per gambar. Murni & unit-testable.
+export const MAX_TOOL_IMAGES = 4
+export const MAX_TOOL_IMAGE_BYTES = 2 * 1024 * 1024
+
+const estimateDataUrlBytes = (src = '') => {
+  const comma = String(src).indexOf(',')
+  const b64 = comma === -1 ? String(src) : String(src).slice(comma + 1)
+  return Math.floor(b64.length * 3 / 4)
+}
+
+export const capToolImages = (images = []) => {
+  const list = Array.isArray(images)
+    ? images.filter((s) => typeof s === 'string' && s.length > 0)
+    : []
+  let oversized = 0
+  const sized = list.filter((src) => {
+    if (src.startsWith('data:') && estimateDataUrlBytes(src) > MAX_TOOL_IMAGE_BYTES) {
+      oversized++
+      return false
+    }
+    return true
+  })
+  const kept = sized.slice(0, MAX_TOOL_IMAGES)
+  const notes = []
+  if (oversized > 0) {
+    notes.push(
+      `[GAMBAR DITOLAK] ${oversized} gambar melebihi 2MB — tidak dilampirkan. Minta versi kecil/resolusi rendah bila gambar itu penting.`
+    )
+  }
+  if (sized.length > kept.length) {
+    notes.push(`[GAMBAR DIPOTONG] Hanya ${kept.length} gambar pertama dilampirkan (dari ${sized.length}).`)
+  }
+  return { images: kept, notice: notes.join('\n') }
+}
+
+export const formatRes = (tool, query, res, ctx = null) => {
+  // Jejak trajectory tak pernah sessionId null ('system' bila tanpa konteks sesi).
+  const sid = ctx?.sessionId ?? 'system'
+  const turn = ctx?.turn ?? null
   let resultString
+  let carriedImages = null
   if (res && res.success) {
     if (tool === 'os-control-open') markOsControlSession(ctx?.sessionId, true)
     if (tool === 'os-control-close') markOsControlSession(ctx?.sessionId, false)
@@ -82,17 +122,24 @@ const formatRes = (tool, query, res, ctx = null) => {
         resultString = `${fullText.slice(0, 2500)}\n\n[DOKUMEN DIPOTONG (Total: ${fullText.length} karakter). Gunakan read-document dengan query "${parts[0]}||kata_kunci" untuk pencarian spesifik]`
       }
     }
+    // Tool result boleh membawa images[] (data URL) — cap jujur maks 4 × 2MB.
+    if (res.images !== undefined) {
+      const capped = capToolImages(res.images)
+      if (capped.images.length > 0) carriedImages = capped.images
+      if (capped.notice) resultString += `\n\n${capped.notice}`
+    }
     // Log tool call to trajectory buffer
-    trajectoryLogTool({ tool, query, success: true, result: resultString, sessionId: ctx?.sessionId ?? null, turn: ctx?.turn ?? null })
+    trajectoryLogTool({ tool, query, success: true, result: resultString, sessionId: sid, turn })
   } else {
     resultString = `[ERROR] ${tool} gagal: ${(res && (res.message || res.error)) || 'Unknown error'}`
     // Log failed tool call to trajectory buffer
-    trajectoryLogTool({ tool, query, success: false, result: resultString, sessionId: ctx?.sessionId ?? null, turn: ctx?.turn ?? null })
+    trajectoryLogTool({ tool, query, success: false, result: resultString, sessionId: sid, turn })
   }
   return {
     resultString,
     rejected: false,
-    toolExecution: { action: tool, query, result: resultString }
+    toolExecution: { action: tool, query, result: resultString },
+    ...(carriedImages ? { images: carriedImages } : {})
   }
 }
 
@@ -131,7 +178,17 @@ export const executeSingleTool = async (tool, query, ctx) => {
     }
     const vision = await runVisionTool(tool, query, ctx)
     if (vision !== undefined) {
-      return { resultString: vision, rejected: false, toolExecution: { action: tool, query, result: vision } }
+      // Hasil vision boleh objek { text, images[] } — gambar diteruskan
+      // ke pesan via kontrak images (cap di bawah), teks jadi resultString.
+      const vText = typeof vision === 'string' ? vision : vision?.text || ''
+      const vImages = typeof vision === 'object' && vision !== null && Array.isArray(vision.images) ? vision.images : []
+      const vCapped = capToolImages(vImages)
+      return {
+        resultString: vText + (vCapped.notice ? `\n\n${vCapped.notice}` : ''),
+        rejected: false,
+        toolExecution: { action: tool, query, result: vText },
+        ...(vCapped.images.length > 0 ? { images: vCapped.images } : {})
+      }
     }
     const knowledge = await runKnowledgeTool(tool, query)
     if (knowledge !== undefined) {
@@ -259,10 +316,10 @@ export const executeSingleTool = async (tool, query, ctx) => {
             try {
               const urlRes = await window.api.osOpen(url)
               resultString = typeof urlRes === 'string' ? urlRes : JSON.stringify(urlRes)
-              logReasoning({ prompt: `Shell URL fallback ke os-open: ${url}` })
+              logReasoning({ prompt: `Shell URL fallback ke os-open: ${url}`, sessionId: ctx?.sessionId ?? 'system' })
             } catch (e) {
               resultString = `[ERROR] Gagal buka URL: ${(e && e.message) || 'unknown'}`
-              logReasoning({ prompt: `Shell URL gagal: ${url}`, suggested_mode: 'direct' })
+              logReasoning({ prompt: `Shell URL gagal: ${url}`, suggested_mode: 'direct', sessionId: ctx?.sessionId ?? 'system' })
             }
             return {
               resultString,

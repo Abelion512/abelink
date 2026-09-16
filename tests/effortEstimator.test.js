@@ -62,9 +62,9 @@ describe('resolveEffortLevel', () => {
     expect(r.effort).toBe('high')
   })
 
-  it('default tanpa config = low', () => {
+  it('default tanpa config = medium (auto floor)', () => {
     const r = resolveEffortLevel({}, 'halo')
-    expect(r.effort).toBe('low')
+    expect(r.effort).toBe('medium')
   })
 
   it('auto menaikkan hanya untuk tugas kompleks', () => {

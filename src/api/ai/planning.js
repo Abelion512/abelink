@@ -1,4 +1,6 @@
 import { fetchAI, cleanAndParse, extractLenientField } from './core'
+import { resolveEffortLevel } from './effortEstimator'
+import { playbookLookup, playbookRecord, configKeyFor } from './playbooks'
 import { getAllConfig, getAllLearnedSkills } from '../db'
 import { getCurrentTimeInfo } from './utils'
 import { getPersonaPrompt } from './persona'
@@ -179,7 +181,7 @@ Tool GAGAL/ERROR bukan alasan berhenti: error → diagnosa → strategi alternat
 
 # ATURAN DIRECTOR MODE & AUTONOMOUS CODING
 Kamu adalah LEAD ARCHITECT, COWORK COMPANION & DIRECTOR ORCHESTRATOR. Abelink BUKAN monolithic coding bot yang mengedit puluhan file sendirian di thread utama sampai context window membengkak atau koneksi timeout!
-1. **DELEGASI KODING BERAT / REFACTOR / META-PROMPT (UTAMA)**: Jika user meminta coding berskala besar, refactoring arsitektur, tugas koding multi-file, atau prompt meta terbuka ("lakukan hal hebat", "perbaiki dirimu sendiri", "optimasi codebase ini"), JANGAN melakukan loop eksplorasi/edit kode berpuluh-puluh giliran di thread utama. WAJIB GUNAKAN 'delegate_coding' untuk mendelegasikan tugas ke CLI coding agent lokal (Claude Code, Hermes, Codex, OpenCode) di branch terisolasi (auto/...), atau pecah menjadi 'spawn_subagent' untuk riset/audit modular.
+1. **DELEGASI KODING BERAT / REFACTOR / META-PROMPT (UTAMA)**: Jika user meminta coding berskala besar, refactoring arsitektur, tugas koding multi-file, atau prompt meta terbuka ("lakukan hal hebat", "perbaiki dirimu sendiri", "optimasi codebase ini"), JANGAN melakukan loop eksplorasi/edit kode berpuluh-puluh giliran di thread utama. WAJIB GUNAKAN 'delegate_coding' untuk mendelegasikan tugas ke CLI coding agent lokal (opencode, hermes) di branch terisolasi (auto/...), atau pecah menjadi 'spawn_subagent' untuk riset/audit modular.
 2. **KODE RINGAN / EDIT TERTARGET**: Gunakan 'replace-content' (revisi file ada) atau 'write-file' (file baru dari nol) HANYA untuk perbaikan kecil/spesifik (1-2 file) yang sudah pasti lokasinya.
 3. **NAVIGASI CODEBASE**: Jangan menebak struktur proyek. Gunakan 'find-files' untuk menemukan lokasi berkas (mengabaikan node_modules/.git secara otomatis) dan 'grep-search' untuk mencari deklarasi simbol/fungsi.
 4. **SELF-HEALING SYNTAX RECOVERY (KRITIS)**: Jika tool 'write-file' atau 'replace-content' mengembalikan peringatan 'FILE_CREATED_WITH_SYNTAX_ERROR' atau 'FILE_UPDATED_WITH_SYNTAX_ERROR', kamu WAJIB membaca pesan SyntaxError tersebut dan memperbaikinya segera pada giliran ReAct berikutnya sebelum menyelesaikan tugas!
@@ -622,6 +624,38 @@ ${
     let attempts = 0
     const MAX_RETRIES = 3
 
+    // Low-effort deterministic replay: exact repeat of a previous successful
+    // prompt + config returns the cached answer with zero LLM calls.
+    // Miss → normal LLM path (effort untouched, no escalation change).
+    let playbookPrompt = null
+    let playbookKey = null
+    if (typeof userInput === 'string' && userInput) {
+      try {
+        playbookPrompt = userInput
+        playbookKey = configKeyFor(conf)
+        if (resolveEffortLevel(conf, userInput).effort === 'low') {
+          const hit = playbookLookup({ prompt: userInput, configKey: playbookKey })
+          if (hit?.answer) {
+            return {
+              thought: 'playbook replay (exact repeat, no LLM call)',
+              intermediate_answer: null,
+              is_done: hit.taskStatus === 'done' || hit.taskStatus === 'simple',
+              suggested_mode: 'direct',
+              action: null,
+              answer: hit.answer,
+              should_learn: false,
+              task_status: hit.taskStatus || 'done',
+              objective: null,
+              working_memory: null,
+              memory: null,
+              mood: 'neutral',
+              active_topic: activeTopic
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
     while (attempts < MAX_RETRIES) {
       attempts++
 
@@ -655,7 +689,11 @@ ${
       }
       try {
         const h = await import('../harness')
-        h.logReasoning(reasoningData)
+        h.logReasoning({
+          ...reasoningData,
+          sessionId: options.sessionId ?? null,
+          turn: options.turn ?? null
+        })
       } catch (_) {}
       // Trajectory UI buffer (in-memory + localStorage) — pantau pikiran agen
       // per giliran. Tidak await; non-blocking, fire-and-forget.
@@ -730,6 +768,16 @@ ${
           )
           finalAnswer = '...'
         }
+        try {
+          if (playbookPrompt && finalAnswer && typeof finalAnswer === 'string') {
+            playbookRecord({
+              prompt: playbookPrompt,
+              configKey: playbookKey,
+              answer: finalAnswer,
+              taskStatus: effective.task_status || 'done'
+            })
+          }
+        } catch (_) {}
         return {
           thought: effective.thought || response.reasoning || '',
           intermediate_answer: effective.intermediate_answer || null,

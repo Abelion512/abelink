@@ -295,16 +295,30 @@ export const fetchAI = async (
     if (effortConf === 'auto') {
       const joined = JSON.stringify(body.messages || []).slice(-4000).toLowerCase()
       const heavy = /spawn_subagent|migrasi|refactor|audit|implementasi|riset|research|benchmark|analisis/.test(joined)
-      effortConf = heavy ? 'high' : 'low'
+      effortConf = heavy ? 'high' : 'medium'
     }
     const effort = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(effortConf)
       ? effortConf
-      : 'low'
-    // Fallback maps hanya untuk level yang memang punya native knop di provider.
-    const effortReasoningMap = { low: 'low', medium: 'medium', high: 'high' }
+      : 'medium'
+    // Pass-through per vendor (riset terverifikasi): OpenAI kenal
+    // low/medium/high/xhigh/max; Anthropic low/medium/high/xhigh/max;
+    // DeepSeek low/high/max (+ultra alias ke max); Kimi k3 low/high/max.
+    // Hanya 'ultra' yang dialias ke 'max' (ultra = max + orkestrator lokal).
+    // Gemini RPC / LM-Studio / generik: tanpa effort fields samasekali
+    // (di-strip di bawah); budget_tokens hanya endpoint Anthropic tulen.
     const effortAnthropicBudget = { low: 1024, medium: 4096, high: 16384, xhigh: 32768, max: 65536, ultra: 65536 }
-    body.reasoning_effort = effortReasoningMap[effort] || 'low' // OpenAI-compatible
-    body.thinking = { type: 'enabled', budget_tokens: effortAnthropicBudget[effort] || 1024 } // Anthropic
+    const effortForWire = effort === 'ultra' ? 'max' : effort
+    // Provider tanpa dukungan effort terdokumentasi: 9Router composite
+    // (teruskan apa adanya — composite yang menerjemahkan), LM-Studio,
+    // endpoint OpenAI-compatible generik. Hanya kirim reasoning_effort bila
+    // endpoint eksplisit custom/Groq (Anthropic-native menyusul di blok
+    // konversi di bawah).
+    const isAnthropicNative = customProtocol === 'anthropic'
+    const isGenericPassthrough =
+      conf.aiProvider !== 'custom' && conf.aiProvider !== 'groq' && !isAnthropicNative
+    if (!isGenericPassthrough) {
+      body.reasoning_effort = effortForWire
+    }
 
     const parentAbortController = new AbortController()
     activeAbortControllers.add(parentAbortController)

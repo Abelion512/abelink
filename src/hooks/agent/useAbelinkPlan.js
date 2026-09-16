@@ -1581,14 +1581,24 @@ export const useAbelinkPlan = ({
               outcome: sessionOutcome,
               reason: lastTerminalReason ?? null
             })
-            import('../../api/harness').then(({ logAnswer }) =>
+            import('../../api/harness').then(({ logAnswer, logTurnEnd }) => {
               logAnswer({
                 answer: typeof finalOutput === 'string' ? finalOutput.slice(0, 4000) : null,
                 outcome: sessionOutcome,
                 sessionId: activeSessionNum,
                 turn: stepCount
               })
-            ).catch(() => {})
+              // TurnEnd ke file (sejajar buffer in-memory) agar batas turn
+              // bisa direkonstruksi dari JSONL, bukan hanya answers.
+              if (typeof logTurnEnd === 'function') {
+                logTurnEnd({
+                  turn: stepCount,
+                  sessionId: activeSessionNum,
+                  outcome: sessionOutcome,
+                  reason: lastTerminalReason ?? null
+                })
+              }
+            }).catch(() => {})
           } catch (_) {}
 
           if (window.api && window.api.browserAction) {

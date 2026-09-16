@@ -165,13 +165,22 @@ export const MessageBubble = React.memo(({
         </details>
       )}
 
-      {/* Attached Images Preview Grid */}
+      {/* Attached Images Preview Grid — adaptif: 1 kolom ≤2 gambar,
+          2 kolom s/d 6, scroll horizontal beyond (tanpa batas jumlah). */}
       {attachedImages && attachedImages.length > 0 && (
-        <div className="flex flex-wrap gap-2 my-1.5">
+        <div
+          className={
+            attachedImages.length <= 2
+              ? 'flex flex-wrap gap-2 my-1.5'
+              : attachedImages.length <= 6
+                ? 'grid grid-cols-2 gap-2 my-1.5'
+                : 'flex gap-2 my-1.5 overflow-x-auto pb-1'
+          }
+        >
           {attachedImages.map((imgSrc, idx) => (
             <div
               key={idx}
-              className="relative group/img rounded-xl overflow-hidden border border-white/20 shadow-md bg-black/40 max-w-xs"
+              className="relative group/img rounded-xl overflow-hidden border border-white/20 shadow-md bg-black/40 max-w-xs flex-shrink-0"
             >
               <img
                 src={imgSrc}
