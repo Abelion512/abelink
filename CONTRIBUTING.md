@@ -1,7 +1,22 @@
 # Contributing to Abelink (Linux Edition)
 
-Terima kasih sudah mau berkontribusi! Repo ini adalah **Linux-only fork** dari
-Abelink Agent, dioptimalkan untuk performa desktop Linux. Panduan ini untuk kontributor manusia. Untuk agen AI, baca [docs/AGENT_CONTRIBUTION_GUIDELINES.md](docs/AGENT_CONTRIBUTION_GUIDELINES.md).
+Repo ini adalah **Linux-only fork** dari Abelink Agent, dioptimalkan untuk
+performa desktop Linux.
+
+## Siapa yang mengerjakan apa
+
+Project ini dibangun **dari agent, oleh agent, untuk agent**. Satu-satunya
+human dalam loop:
+
+- **Founder (human):** Abelion512, pemilik Abelion of Group. Abelink adalah AI
+  buatannya. Keputusan arsitektur final dan approval merge ada di founder.
+- **Agen AI:** seluruh kontributor kerja (OpenCode, Claude Code, Codex,
+  Hermes, dan agen kompatibel lain). Agen membaca `AGENTS.md` dan
+  `docs/AGENT_CONTRIBUTION_GUIDELINES.md` sebagai sumber kebenaran operasional,
+  bukan dokumen ini. Dokumen ini hanya ringkasan pintu masuk.
+
+Aturan untuk agen: baca [docs/AGENT_CONTRIBUTION_GUIDELINES.md](docs/AGENT_CONTRIBUTION_GUIDELINES.md)
+sebelum menyentuh kode apapun.
 
 ## Quick Start
 
@@ -38,34 +53,44 @@ workstation lokal tetap diterima dengan log `[dev.sh] ... major >=, OK`.
 
 ## Branch Convention
 
-`linux` adalah mainline: semua fitur dan fix masuk ke sini. `master` hanya
-mirror upstream (sync-only, dijaga `branch-guard.yml`): jangan pernah targetkan
-PR ke `master` dan jangan merge `linux` ke `master`.
+`main` adalah mainline: semua fitur dan fix masuk ke sini via PR. Jangan
+commit langsung ke `main` kecuali patch kecil (typo/komentar/format satu-dua
+baris tanpa ubah perilaku).
 
 | Branch     | Kegunaan                                              |
 |------------|-------------------------------------------------------|
-| `linux`    | Mainline: semua fitur yang lolos testing di-merge ke sini |
-| `master`   | Mirror upstream, sync-only: jangan sentuh manual     |
-| `feat/*`   | Fitur baru (dibuat dari `linux`)                      |
+| `main`     | Mainline: semua fitur yang lolos testing di-merge ke sini |
+| `linux`    | Cabang pelacak remote publik `public-upstream`: jangan pakai untuk kerja fitur |
+| `master`   | Mirror upstream Mazees/mark-agent, sync-only: jangan sentuh manual |
+| `feat/*`   | Fitur baru (dibuat dari `main`)                      |
 | `fix/*`    | Bug fix                                               |
 | `chore/*`  | Tooling, deps, CI, refactoring                        |
 
 Alur:
 
-1. Buat branch fitur dari mainline: `git checkout -b feat/xyz linux`
+1. Buat branch fitur dari mainline: `git checkout -b feat/xyz main`
 2. Kerjakan, commit, push
 3. Testing di branch fitur (lint + build + run app)
-4. Jika lolos → open PR ke `linux`
-5. Jika semua beres → merge ke `linux`
+4. Jika lolos → open PR ke `main`
+5. Jika semua beres → merge ke `main`
+6. Hapus branch lokal setelah merge: jangan biarkan branch merged menumpuk
 
-Jangan pernah push langsung ke `linux` atau `master`.
+Jangan pernah push langsung ke `main`, `linux`, atau `master`.
 
 ## PR Workflow
 
 1. Open PR dengan title deskriptif
 2. CI otomatis menjalankan: gitleaks → vite build → cargo check (lihat `.github/workflows/tauri.yml`)
-3. Minimal 1 review approval
+3. Minimal 1 review approval (founder untuk perubahan arsitektur)
 4. Merge dengan pesan commit yang jelas
+5. Perubahan arsitektur wajib memperbarui `docs/ARCHITECTURE.md` di PR yang sama
+
+## Session Log (wajib untuk setiap perubahan kode)
+
+Setiap sesi kerja yang mengubah kode WAJIB ditutup dengan session log di
+`docs/PLANNED/sessions/YYYY-MM-DD_<topik>.md`: keputusan, berkas berubah,
+hasil verifikasi, batasan dikenal. Tanpa session log, pekerjaan dianggap
+belum selesai.
 
 ## Code Style
 
