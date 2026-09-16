@@ -18,15 +18,69 @@ const SKILLS_DIR = (() => {
   return dir
 })()
 
+// Hermes-style: baca 1KB pertama (frontmatter) SAJA untuk index.
+// Full body HANYA via skills:read on-demand. Mencegah jebol konteks saat
+// puluhan skill terdaftar — get-all = ringan (nama + deskripsi + sumber).
 async function readDescription(folderPath) {
+  const MAX_HEAD = 1024
   try {
-    const raw = await fs.promises.readFile(path.join(folderPath, 'SKILL.md'), 'utf8')
-    const m = raw.match(/^---[\s\S]*?description:\s*(.+)$/m)
-    if (!m) return raw.split('\n').find(Boolean)?.slice(0, 120) || ''
-    return m[1].trim().replace(/^["']|["']$/g, '')
+    const fh = await fs.promises.open(path.join(folderPath, 'SKILL.md'), 'r')
+    try {
+      const buf = Buffer.alloc(MAX_HEAD)
+      const { bytesRead } = await fh.read(buf, 0, MAX_HEAD, 0)
+      const head = buf.subarray(0, bytesRead).toString('utf8')
+      const m = head.match(/^---[\s\S]*?description:\s*(.+)$/m)
+      if (m) return m[1].trim().replace(/^["']|["']$/g, '').slice(0, 200)
+      return head.split('\n').find(Boolean)?.slice(0, 120) || ''
+    } finally {
+      await fh.close()
+    }
   } catch {
     return ''
   }
+}
+
+// Direktori skill eksternal (Hermes/claude/opencode pola): tiap folder
+// berisi SKILL.md dengan frontmatter name/description. Read-only scan —
+// tanpa import kode, tanpa eksekusi. Sanitasi: hanya baca, tolak symlink
+// keluar (realpath prefix check).
+const EXTERNAL_SKILL_DIRS = (() => {
+  const home = process.env.HOME || ''
+  const cands = [
+    process.env.ABELINK_SKILLS_EXTRA,
+    home ? path.join(home, '.agents', 'skills') : null,
+    home ? path.join(home, '.claude', 'skills') : null,
+    path.join(process.cwd(), '.opencode', 'skills')
+  ].filter(Boolean)
+  return [...new Set(cands)]
+})()
+
+const isSafeSkillDir = (dir, base) => {
+  try {
+    const real = fs.realpathSync(dir)
+    const realBase = fs.realpathSync(base)
+    return real === realBase || real.startsWith(realBase + path.sep)
+  } catch {
+    return false
+  }
+}
+
+const scanExternalDir = async (base) => {
+  const out = []
+  let entries
+  try {
+    entries = await fs.promises.readdir(base, { withFileTypes: true })
+  } catch {
+    return out
+  }
+  for (const e of entries) {
+    if (!e.isDirectory() || e.name.startsWith('.')) continue
+    const full = path.join(base, e.name)
+    if (!isSafeSkillDir(full, base)) continue
+    const desc = await readDescription(full)
+    if (desc) out.push({ name: e.name, description: desc, type: 'external', path: full, source: base })
+  }
+  return out
 }
 
 // Nama skill wajib sederhana tanpa slash dan tanpa titik di depan agar tidak
@@ -61,14 +115,26 @@ on('skills:get-all', async () => {
   await fs.promises.mkdir(SKILLS_DIR, { recursive: true })
   const entries = await fs.promises.readdir(SKILLS_DIR, { withFileTypes: true })
   const skills = []
+  const seen = new Set()
   for (const e of entries) {
     if (e.name.startsWith('.')) continue
     const full = path.join(SKILLS_DIR, e.name)
     if (e.isDirectory()) {
       skills.push({ name: e.name, description: await readDescription(full), type: 'folder', path: full })
+      seen.add(e.name)
     } else if (e.name.endsWith('.md')) {
       const content = await fs.promises.readFile(full, 'utf8')
       skills.push({ name: e.name.replace(/\.md$/, ''), description: content.split('\n')[0] || '', type: 'file', path: full })
+      seen.add(e.name.replace(/\.md$/, ''))
+    }
+  }
+  // Skill eksternal (hermes/claude/opencode): index ringan, full body lazy.
+  // Skill lokal menang bila nama sama.
+  for (const base of EXTERNAL_SKILL_DIRS) {
+    for (const s of await scanExternalDir(base)) {
+      if (seen.has(s.name)) continue
+      seen.add(s.name)
+      skills.push(s)
     }
   }
   return skills
@@ -80,6 +146,12 @@ on('skills:read', async (name) => {
   if (fs.existsSync(folder)) return await fs.promises.readFile(folder, 'utf8')
   const single = path.join(SKILLS_DIR, `${name}.md`)
   if (fs.existsSync(single)) return await fs.promises.readFile(single, 'utf8')
+  // Fallback eksternal: baca penuh HANYA saat skill dipakai (lazy).
+  for (const base of EXTERNAL_SKILL_DIRS) {
+    const ext = path.join(base, name, 'SKILL.md')
+    if (!isSafeSkillDir(path.join(base, name), base)) continue
+    if (fs.existsSync(ext)) return await fs.promises.readFile(ext, 'utf8')
+  }
   return null
 })
 

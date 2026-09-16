@@ -89,6 +89,19 @@ export const ApprovalProvider = ({ children }) => {
     approvalRef.current = approvalData
   }, [approvalData])
 
+  // ESC = batalkan dialog ask-user (eksplisit, bukan diam). Approval keamanan
+  // TIDAK kena ESC (harus klik Tolak/Izinkan — keputusan destruktif).
+  // Dipasang via ref agar tidak kena TDZ (handleCancelAutomation di bawah).
+  const cancelRef = useRef(null)
+  useEffect(() => {
+    if (!askUserData) return
+    const onKey = (e) => {
+      if (e.key === 'Escape' && typeof cancelRef.current === 'function') cancelRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [askUserData])
+
   const handleApproveAlwaysInternal = useCallback(async (targetQuery) => {
     const rawPath = getPathFromQuery(targetQuery)
     const folderPath = getFolderFromPath(rawPath)
@@ -320,6 +333,10 @@ export const ApprovalProvider = ({ children }) => {
     }
     setUserComment('')
   }
+  // Sinkron ref di effect (bukan saat render — melanggar rules-of-hooks).
+  useEffect(() => {
+    cancelRef.current = handleCancelAutomation
+  })
 
   return (
     <ApprovalContext.Provider

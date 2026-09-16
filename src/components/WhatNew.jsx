@@ -22,18 +22,20 @@ const WhatNew = ({ onClose }) => {
     'security': 'Keamanan'
   }
 
-  const renderCategory = (title, items, colorClass) => {
+  // Founder report: ringkasan dampak bisnis per kategori (tanpa border
+  // per poin — daftar bersih dengan pemisah hairline, bahasa non-teknis).
+  const renderCategory = (title, items) => {
     if (items.length === 0) return null
     return (
-      <div className="mb-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wider opacity-60 mb-2">{title}</h4>
-        <div className="space-y-2">
+      <div className="mb-5">
+        <h4 className="text-xs font-semibold uppercase tracking-wider opacity-60 mb-1.5">{title}</h4>
+        <ul className="divide-y divide-white/5">
           {items.map((c, i) => (
-            <div key={i} className={`px-3 py-2 rounded-lg text-sm text-white/80 border-l-1 ${colorClass}`}>
+            <li key={i} className="py-1.5 text-sm text-white/80 leading-relaxed">
               {c.msg}
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     )
   }
@@ -62,9 +64,14 @@ const WhatNew = ({ onClose }) => {
           </button>
         </div>
 
-        {/* Summary */}
+        {/* Laporan Rilis (bahasa bisnis untuk founder) + ringkasan teknis */}
         <div className="px-6 py-4 border-b border-white/10 flex-shrink-0">
-          <p className="text-sm text-white/70 leading-relaxed">
+          {whatsNewData.founderReport && (
+            <p className="text-sm text-white/90 leading-relaxed mb-2">
+              {whatsNewData.founderReport}
+            </p>
+          )}
+          <p className="text-xs text-white/50 leading-relaxed">
             {whatsNewData.summary || (changes.length > 0 ? `${changes.length} perubahan dalam rilis ini` : 'Tidak ada perubahan terbaru')}
           </p>
           <div className="flex gap-3 mt-3">
@@ -81,10 +88,10 @@ const WhatNew = ({ onClose }) => {
             <p className="text-center text-white/40 py-8">Belum ada perubahan untuk versi ini.</p>
           ) : (
             <div>
-              {renderCategory('✨ Fitur Baru', newFeatures, 'border-success/40 bg-success/5')}
-              {renderCategory('🔧 Perbaikan', improvements, 'border-primary/40 bg-primary/5')}
-              {renderCategory('🐛 Bug Fixes', fixes, 'border-warning/40 bg-warning/5')}
-              {renderCategory('🔒 Keamanan', security, 'border-error/40 bg-error/5')}
+              {renderCategory('Fitur Baru', newFeatures)}
+              {renderCategory('Perbaikan', improvements)}
+              {renderCategory('Bug Fixes', fixes)}
+              {renderCategory('Keamanan', security)}
             </div>
           )}
         </div>
