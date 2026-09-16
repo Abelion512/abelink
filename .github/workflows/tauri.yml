@@ -1,10 +1,25 @@
 name: Tauri CI
 
+# Hemat menit runner: push beruntun di branch sama membatalkan run lama;
+# PR dari branch yang sama tidak memicu run push ganda (skip_push_on_pr).
+concurrency:
+  group: tauri-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: ["main", "linux"]
+    # Docs-only push tidak perlu CI penuh (hemat menit runner).
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - ".github/ISSUE_TEMPLATE/**"
   pull_request:
     branches: ["main", "linux"]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - ".github/ISSUE_TEMPLATE/**"
 
 jobs:
   secrets:
@@ -98,7 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: github.ref == 'refs/heads/tauri-migration' || github.ref == 'refs/heads/linux' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/linux' || startsWith(github.ref, 'refs/tags/')
     needs: [secrets, frontend, benchmark, rust]
     steps:
       - uses: actions/checkout@v4
