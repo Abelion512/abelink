@@ -144,6 +144,29 @@ describe('browser bridge core', () => {
     dropSession('sweep-alive')
   })
 
+  it('dispatch ke sesi basi (extension mati > TTL) fail-fast tanpa tunggu timeout', async () => {
+    ensureSession('stale-test')
+    const s = getSession('stale-test')
+    s.lastSeenAt = Date.now() - BROWSER_BRIDGE.SESSION_TTL_MS - 1000
+    const t0 = Date.now()
+    await expect(dispatchCommand('stale-test', 'read-dom', {})).rejects.toThrow(/terputus/)
+    // Jauh di bawah COMMAND_TIMEOUT (default 90s): tidak menunggu penuh.
+    expect(Date.now() - t0).toBeLessThan(BROWSER_BRIDGE.COMMAND_TIMEOUT_MS)
+    expect(getSession('stale-test').pending.length).toBe(0)
+    dropSession('stale-test')
+  })
+
+  it('sesi baru (belum handshake) tetap memakai jalur normal, bukan fail-fast basi', async () => {
+    ensureSession('fresh-test')
+    // lastSeenAt=0 = belum pernah handshake -> bukan "terputus".
+    expect(getSession('fresh-test').lastSeenAt).toBe(0)
+    const orig = BROWSER_BRIDGE.COMMAND_TIMEOUT_MS
+    BROWSER_BRIDGE.COMMAND_TIMEOUT_MS = 40
+    await expect(dispatchCommand('fresh-test', 'read-dom', {})).rejects.toThrow(/kedaluwarsa/)
+    BROWSER_BRIDGE.COMMAND_TIMEOUT_MS = orig
+    dropSession('fresh-test')
+  })
+
   it('listSessions melaporkan status koneksi berdasar lastSeenAt', () => {
     ensureSession('list-test')
     const s = getSession('list-test')

@@ -14,7 +14,7 @@
 //   show      (sessionId)             -> tab difokuskan
 // Argumen ke-2+ tetap spread oleh registry `on()` (payload array).
 
-import { on } from '../registry.mjs'
+import { on, emit } from '../registry.mjs'
 import { startBrowserBridge, bridgeReady, stopBrowserBridge } from '../../main/browser/server.mjs'
 import {
   dispatchCommand,
@@ -24,7 +24,8 @@ import {
   getBrowserConfig,
   listSessions,
   setLastUrl,
-  getLastUrl
+  getLastUrl,
+  sweepSessions
 } from '../../main/browser/bridge-core.mjs'
 import { BROWSER_BRIDGE } from '../../main/browser/bridge-core.mjs'
 
@@ -167,6 +168,41 @@ on('browser:status', async () => {
     ready: bridgeReady(),
     port: BROWSER_BRIDGE.PORT,
     sessions: listSessions()
+  }
+})
+
+// --------------------------------------- reconnect (tombol UI Capabilities)
+// Satu pintu manual: sweep sesi mati -> status segar -> bila belum ada sesi
+// connected dan autoLaunch aktif, bukakan browser OS (bounded) lalu coba lagi.
+// Tidak pernah throw; gagal -> { ok:false, reason } untuk ditampilkan jujur
+// di UI (termasuk launch-budget-exhausted dari throttle launcher).
+on('browser:reconnect', async () => {
+  try {
+    await ensureBridge()
+    const dropped = sweepSessions()
+    const pick = (arr = []) =>
+      arr.find((s) => s.id === 'default' && s.connected) ||
+      arr.find((s) => s.connected) ||
+      null
+    let sessions = listSessions()
+    let hit = pick(sessions)
+    if (hit) return { ok: true, reused: true, session: hit.id, dropped }
+    if (!getBrowserConfig()?.autoLaunch) {
+      return { ok: false, reason: 'auto-launch-off', dropped }
+    }
+    const launcher = await import('../../main/browser/launcher.mjs')
+    const core = await import('../../main/browser/bridge-core.mjs')
+    const r = await launcher.ensureBrowserUp({
+      url: core.getLastUrl('default'),
+      sessionId: 'default',
+      autoLaunch: true,
+      listSessions: core.listSessions,
+      onStatus: (m) => { try { emit('browser:status', m) } catch {} }
+    })
+    if (r.ok) return { ok: true, reused: !!r.reused, session: r.session?.id || 'default', dropped }
+    return { ok: false, reason: r.reason || 'no-handshake', dropped }
+  } catch (e) {
+    return { ok: false, reason: e?.message || String(e) }
   }
 })
 

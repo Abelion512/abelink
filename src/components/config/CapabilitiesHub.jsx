@@ -84,6 +84,51 @@ export default function CapabilitiesHub({
   const [extInstall, setExtInstall] = useState(null)
   const [extGuideOpen, setExtGuideOpen] = useState(false)
   const [copiedPath, setCopiedPath] = useState(false)
+  // Watchdog Fase C3: pill status + reconnect manual (bounded di sidecar).
+  const [browserConnected, setBrowserConnected] = useState(null)
+  const [browserReconnecting, setBrowserReconnecting] = useState(false)
+  const [browserNote, setBrowserNote] = useState('')
+
+  const checkBrowserStatus = useCallback(async () => {
+    try {
+      if (!window.api?.runNodeFunction) {
+        setBrowserConnected(null)
+        return
+      }
+      const st = await window.api.runNodeFunction('browser:status')
+      const live = Array.isArray(st?.sessions) && st.sessions.some((s) => s.connected)
+      setBrowserConnected(!!live)
+    } catch {
+      setBrowserConnected(null)
+    }
+  }, [])
+
+  const handleBrowserReconnect = useCallback(async () => {
+    if (browserReconnecting) return
+    setBrowserReconnecting(true)
+    setBrowserNote('')
+    try {
+      const r = await window.api?.runNodeFunction('browser:reconnect')
+      if (r?.ok) {
+        setBrowserConnected(true)
+        setBrowserNote(r.reused ? 'Extension tersambung (sesi dipakai ulang).' : 'Extension tersambung kembali.')
+      } else {
+        setBrowserConnected(false)
+        setBrowserNote(
+          r?.reason === 'launch-budget-exhausted'
+            ? 'Batas peluncuran tercapai — tunggu ~1 menit atau klik Connect di popup extension.'
+            : r?.reason === 'auto-launch-off'
+              ? 'Auto-launch nonaktif — aktifkan toggle di atas atau buka browser manual.'
+              : `Reconnect gagal (${r?.reason || 'no-handshake'}) — pastikan extension aktif.`
+        )
+      }
+    } catch (e) {
+      setBrowserConnected(false)
+      setBrowserNote(`Reconnect gagal: ${e?.message || String(e)}`)
+    } finally {
+      setBrowserReconnecting(false)
+    }
+  }, [browserReconnecting])
 
   const handleInitExtension = async () => {
     try {
@@ -584,11 +629,22 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
   // ── Initial Mount ─────────────────────────────────────────────────────────
   useEffect(() => {
     checkGoogleStatus()
+    checkBrowserStatus()
     loadMcpData()
     loadPlugins()
     loadSkills()
     loadApprovalPolicies()
-  }, [checkGoogleStatus, loadMcpData, loadPlugins, loadSkills, loadApprovalPolicies])
+  }, [checkGoogleStatus, checkBrowserStatus, loadMcpData, loadPlugins, loadSkills, loadApprovalPolicies])
+
+  // Progres launch/reconnect dari sidecar (pola ai:status): tampilkan sebagai
+  // catatan di card Browse Use selama proses bounded berjalan.
+  useEffect(() => {
+    if (!window.api?.onBrowserStatus) return undefined
+    const off = window.api.onBrowserStatus((msg) => {
+      if (typeof msg === 'string' && msg) setBrowserNote(msg)
+    })
+    return () => { try { off?.() } catch {} }
+  }, [])
 
   const filteredConnectors = useMemo(() => {
     if (!mcpSearch.trim()) return connectors
@@ -661,10 +717,20 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-white/90">Browse Use</span>
+                {browserConnected === true ? (
+                  <span className="badge badge-xs badge-success gap-1 text-[10px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Tersambung
+                  </span>
+                ) : browserConnected === false ? (
+                  <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">Terputus</span>
+                ) : null}
               </div>
               <p className="text-xs text-white/50">
                 Control Chrome via extension
               </p>
+              {browserNote ? (
+                <p className="text-[11px] text-white/50">{browserNote}</p>
+              ) : null}
               <div className="flex items-center gap-2 pt-1">
                 <label className="text-[11px] text-white/60 flex items-center gap-2 cursor-pointer select-none">
                   <input
@@ -694,6 +760,16 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             </div>
 
             <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+              <button
+                type="button"
+                onClick={handleBrowserReconnect}
+                disabled={browserReconnecting}
+                className="btn btn-xs btn-primary rounded-xl gap-1"
+                title="Sapu sesi mati lalu sambungkan ulang extension (bounded, hormati throttle)"
+              >
+                <FaSyncAlt size={10} className={browserReconnecting ? 'animate-spin' : ''} />
+                <span>{browserReconnecting ? 'Menghubungkan...' : 'Hubungkan Ulang'}</span>
+              </button>
               <button
                 type="button"
                 onClick={handleInitExtension}
