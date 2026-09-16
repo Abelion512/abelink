@@ -4,12 +4,14 @@
 
 ## Status terakhir (2026-09-16)
 
-- Branch kerja: `feat/memory-write-dedup` (PR #41 open, tanpa merge;
-  stacked #37-#40 — merge berurutan, rebase tiap lapis).
-- Isi: write-gate dedup di insertMemory (Lapis 1 duplikat memori).
-- Verifikasi: vitest 864 passed (860+4), lint 0 errors (927 = baseline).
-  Observe: fix trajectory Paket 1 bekerja (tool-calls gabung grup benar).
-  (lihat `2026-09-16_memory-write-dedup.md`).
+- Main LOKAL di `22eeeb8`: stack PR #37-#41 difast-forward lokal (10 commit,
+  FF bersih tanpa konflik). TIDAK push — PR GitHub dibiarkan sampai billing
+  Actions normal.
+- Isi: workspaceRoot + thinking streaming + skill autoload + browse
+  transparan + watchdog + blocked-challenge + keepalive/trajectory +
+  memory write-dedup.
+- Verifikasi di main: vitest 864 passed, lint 0 errors (927 = baseline).
+  (lihat `2026-09-16_stack-merge-local.md`).
 
 ## Topik berikutnya (pilih SATU)
 
