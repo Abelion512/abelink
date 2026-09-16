@@ -12,29 +12,29 @@
   default: false;
   prefersdark: false;
   color-scheme: "dark";
-  --color-base-100: oklch(20.84% 0.008 17.911);
-  --color-base-200: oklch(18.522% 0.007 17.911);
-  --color-base-300: oklch(16.203% 0.007 17.911);
-  --color-base-content: #cac9c9;
-  --color-primary: #00e5ff;
-  --color-primary-content: oklch(0% 0 0);
+  --color-base-100: #1c1c1e;
+  --color-base-200: #101012;
+  --color-base-300: #000000;
+  --color-base-content: #f5f5f7;
+  --color-primary: #0071e3;
+  --color-primary-content: #ffffff;
   --color-secondary: oklch(72% 0.14 220);
   --color-secondary-content: oklch(14% 0.03 220);
-  --color-accent: #38bdf8;
-  --color-accent-content: oklch(14% 0.02 220);
-  --color-neutral: #0b192c;
-  --color-neutral-content: oklch(86% 0.01 220);
-  --color-info: oklch(72.06% 0.191 231.6);
-  --color-info-content: oklch(0% 0 0);
-  --color-success: #00e5ff;
-  --color-success-content: oklch(0% 0 0);
+  --color-accent: #0a84ff;
+  --color-accent-content: #ffffff;
+  --color-neutral: #1c1c1e;
+  --color-neutral-content: #f5f5f7;
+  --color-info: #0a84ff;
+  --color-info-content: #ffffff;
+  --color-success: #30d158;
+  --color-success-content: #000000;
   --color-warning: oklch(84.71% 0.199 83.87);
   --color-warning-content: oklch(0% 0 0);
   --color-error: oklch(71.76% 0.221 22.18);
   --color-error-content: oklch(0% 0 0);
-  --radius-selector: 0.25rem;
-  --radius-field: 0.25rem;
-  --radius-box: 0.25rem;
+  --radius-selector: 0.625rem;
+  --radius-field: 0.625rem;
+  --radius-box: 0.75rem;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 1px;
@@ -43,7 +43,7 @@
 }
 
 @theme {
-  --font-sans: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, Poppins, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
@@ -52,7 +52,7 @@ html {
 }
 
 * {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, Poppins, "Segoe UI", sans-serif;
 }
 
 /* Linux Tauri/WebKitGTK: transparent window background allows the OS compositor
