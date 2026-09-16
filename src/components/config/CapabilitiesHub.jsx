@@ -346,6 +346,8 @@ export default function CapabilitiesHub({
     pluginForm.actions.forEach((act, idx) => {
       if (act.code) {
         try {
+          // Compile-check sintaks SAJA — konstruktor tidak mengeksekusi body.
+          // Kode connector user tidak pernah dijalankan di renderer.
           const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
           new AsyncFunction('query', act.code)
           errors[idx] = null
