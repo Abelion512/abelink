@@ -1,5 +1,5 @@
 import Dexie from 'dexie'
-import { generateVector } from './vectorLoader'
+import { generateVector, cosineSimilarity } from './vectorLoader'
 import { DEFAULT_STT_MODEL, PLACEHOLDER_STT_MODELS } from './sttGuard.js'
 
 // Lazy (bukan impor statis) agar tidak ada siklus modul db<->oramaStore:
@@ -276,12 +276,28 @@ function getValidType(type) {
 }
 
 // --- CREATE ---
+// Write-gate dedup: near-duplikat (>= threshold) tidak ditulis ulang.
+// Satu pintu untuk SEMUA caller (plan loop, music, relational, YT context) —
+// dulu cek hanya di plan loop via Orama sehingga 3 penulis lain lolos.
+// ponytail: threshold tinggi sengaja (hanya near-duplikat); mirip-tapi-beda
+// tetap ditulis dan diurus groomer berkala (threshold 0.60).
+export const MEMORY_WRITE_DEDUP_SIMILARITY = 0.85
+
 export async function insertMemory(data) {
   const memoryText = data.memory.trim()
   const type = getValidType(data.type)
   const vector = (await generateVector(memoryText)) || []
 
   try {
+    if (vector.length > 0 && (type === 'profile' || type === 'preference')) {
+      const existing = await db.memory.where('type').equals(type).toArray()
+      for (const row of existing) {
+        if (!Array.isArray(row.vector) || row.vector.length !== vector.length) continue
+        if (cosineSimilarity(vector, row.vector) >= MEMORY_WRITE_DEDUP_SIMILARITY) {
+          return row.id
+        }
+      }
+    }
     const id = await db.memory.add({
       type: type,
       summary: data.summary || '',
