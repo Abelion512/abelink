@@ -43,6 +43,8 @@ const sorryError = () => {
 export const __geminiWebTest = {
   isSorryPage,
   sorryError,
+  extractGeminiText,
+  diffStreamText,
   resetCircuit: () => {
     sorryStreak = 0
     sorryBlockedUntil = 0
@@ -64,7 +66,7 @@ export function resolveGeminiWebModel(modelName) {
   return modeEntry(1, 4, req)
 }
 
-function httpPost(urlStr, headers, bodyData, timeoutMs = 120000) {
+function httpPost(urlStr, headers, bodyData, timeoutMs = 120000, onData = null) {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(urlStr)
     const options = {
@@ -76,7 +78,13 @@ function httpPost(urlStr, headers, bodyData, timeoutMs = 120000) {
     }
     const req = https.request(options, (res) => {
       let data = ''
-      res.on('data', (chunk) => (data += chunk.toString()))
+      res.on('data', (chunk) => {
+        const text = chunk.toString()
+        data += text
+        try {
+          onData?.(text)
+        } catch {}
+      })
       res.on('end', () => resolve(data))
     })
     req.on('error', (err) => reject(err))
@@ -100,11 +108,43 @@ function findRc(arr) {
   return null
 }
 
+// Murni (tanpa network): teks terpanjang dari garis wrb.fr dalam buffer.
+// Dipakai jawaban final SEKALIGUS incremental streaming (buffer parsial ->
+// delta vs teks terakhir yang sudah di-emit). Function declaration (hoisted)
+// agar __geminiWebTest di atas bisa mereferensikannya tanpa TDZ.
+export function extractGeminiText(rawText = '') {
+  let best = ''
+  for (const line of String(rawText).split('\n')) {
+    if (line.trim().startsWith('[["wrb.fr"')) {
+      try {
+        const parsed = JSON.parse(line.trim())
+        const innerStr = parsed[0][2]
+        if (innerStr) {
+          const text = findRc(JSON.parse(innerStr))
+          if (typeof text === 'string' && text.length > best.length) {
+            best = text
+          }
+        }
+      } catch (e) {}
+    }
+  }
+  return best
+}
+
+// Murni: porsi teks yang belum di-emit (kasus umum = prefix tumbuh).
+export function diffStreamText(prev = '', cur = '') {
+  const p = String(prev)
+  const c = String(cur)
+  if (!c || c === p) return ''
+  return c.startsWith(p) ? c.slice(p.length) : c
+}
+
 export async function generateGeminiResponse(
   prompt,
   modelName = 'gemini-latest',
   cookie = '',
-  bl = DEFAULT_BL
+  bl = DEFAULT_BL,
+  onToken = null
 ) {
   // Gagal-cepat selama cooldown blokir (tanpa menghantam Google lagi).
   if (Date.now() < sorryBlockedUntil) {
@@ -158,25 +198,30 @@ export async function generateGeminiResponse(
     headers['cookie'] = cookie
   }
 
-  const rawText = await httpPost(url, headers, bodyParams.toString())
-
-  let finalAnswer = ''
-  const lines = rawText.split('\n')
-  for (const line of lines) {
-    if (line.trim().startsWith('[["wrb.fr"')) {
-      try {
-        const parsed = JSON.parse(line.trim())
-        const innerStr = parsed[0][2]
-        if (innerStr) {
-          const innerParsed = JSON.parse(innerStr)
-          const text = findRc(innerParsed)
-          if (text && text.length > finalAnswer.length) {
-            finalAnswer = text
+  // Streaming incremental: tiap potongan body diakumulasi, teks terpanjang
+  // sejauh ini di-diff vs yang sudah di-emit -> delta dikirim via onToken.
+  // Tanpa onToken = jalur buffer lama (hasil akhir identik).
+  let streamBuf = ''
+  let streamEmitted = ''
+  const rawText = await httpPost(
+    url,
+    headers,
+    bodyParams.toString(),
+    undefined,
+    onToken
+      ? (piece) => {
+          streamBuf += String(piece ?? '')
+          const cur = extractGeminiText(streamBuf)
+          const delta = diffStreamText(streamEmitted, cur)
+          if (delta) {
+            streamEmitted = cur
+            onToken({ text: delta, done: false })
           }
         }
-      } catch (e) {}
-    }
-  }
+      : null
+  )
+
+  const finalAnswer = extractGeminiText(rawText)
 
   if (!finalAnswer) {
     if (rawText.includes('BardErrorInfo')) {
@@ -194,6 +239,15 @@ export async function generateGeminiResponse(
     throw new Error('Gagal mengekstrak jawaban dari Gemini Web (balasan bukan format yang diharapkan).')
   }
   sorryStreak = 0
+
+  // Sisa delta (garis terakhir yang tiba bersamaan dengan 'end') + sinyal selesai.
+  if (onToken) {
+    try {
+      const tail = diffStreamText(streamEmitted, finalAnswer)
+      if (tail) onToken({ text: tail, done: false })
+      onToken({ text: '', done: true })
+    } catch {}
+  }
 
   return finalAnswer
 }

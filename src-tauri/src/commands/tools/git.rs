@@ -8,8 +8,9 @@ pub struct GitResult {
     pub error: Option<String>,
 }
 
-fn resolve_cwd(cwd: Option<String>) -> PathBuf {
-    let root = crate::cmd_fs::workspace_root();
+fn resolve_cwd(cwd: Option<String>, workspace_root: Option<String>) -> PathBuf {
+    let root =
+        crate::cmd_fs::resolve_base(workspace_root).unwrap_or_else(|_| crate::cmd_fs::workspace_root());
     cwd.map(|c| {
         let p = PathBuf::from(c);
         if p.is_absolute() { p } else { root.join(p) }
@@ -44,20 +45,29 @@ fn git(cwd: &std::path::Path, args: &[&str]) -> GitResult {
 }
 
 #[tauri::command]
-pub fn git_status(cwd: Option<String>) -> GitResult {
-    git(&resolve_cwd(cwd), &["status", "--short"])
+pub fn git_status(cwd: Option<String>, workspace_root: Option<String>) -> GitResult {
+    git(&resolve_cwd(cwd, workspace_root), &["status", "--short"])
 }
 
 #[tauri::command]
-pub fn git_diff(cwd: Option<String>, range: Option<String>) -> GitResult {
+pub fn git_diff(
+    cwd: Option<String>,
+    range: Option<String>,
+    workspace_root: Option<String>,
+) -> GitResult {
     let mut args: Vec<&str> = vec!["diff"];
     if let Some(ref r) = range { args.push(r); }
-    git(&resolve_cwd(cwd), &args)
+    git(&resolve_cwd(cwd, workspace_root), &args)
 }
 
 #[tauri::command]
-pub fn git_commit(app: tauri::AppHandle, message: String, cwd: Option<String>) -> GitResult {
-    let path = resolve_cwd(cwd);
+pub fn git_commit(
+    app: tauri::AppHandle,
+    message: String,
+    cwd: Option<String>,
+    workspace_root: Option<String>,
+) -> GitResult {
+    let path = resolve_cwd(cwd, workspace_root);
     if let Err(e) = crate::mission_scope::check_tool("git-commit") {
         return GitResult { success: false, output: String::new(), error: Some(e) };
     }
@@ -76,8 +86,13 @@ pub fn git_commit(app: tauri::AppHandle, message: String, cwd: Option<String>) -
 }
 
 #[tauri::command]
-pub fn git_revert(app: tauri::AppHandle, target: String, cwd: Option<String>) -> GitResult {
-    let path = resolve_cwd(cwd);
+pub fn git_revert(
+    app: tauri::AppHandle,
+    target: String,
+    cwd: Option<String>,
+    workspace_root: Option<String>,
+) -> GitResult {
+    let path = resolve_cwd(cwd, workspace_root);
     if let Err(e) = crate::mission_scope::check_tool("git-revert") {
         return GitResult { success: false, output: String::new(), error: Some(e) };
     }

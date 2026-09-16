@@ -9,13 +9,15 @@ export const fetchAI = async (
   signalOrOptions = null,
   isSmallTask = false,
   jsonSchema = null,
-  configOverride = null
+  configOverride = null,
+  onTokenPositional = null
 ) => {
   let signal = signalOrOptions
   let smallTask = isSmallTask
   let schema = jsonSchema
   let override = configOverride
 
+  let onToken = null
   if (
     signalOrOptions &&
     typeof signalOrOptions === 'object' &&
@@ -26,7 +28,9 @@ export const fetchAI = async (
     smallTask = signalOrOptions.isSmallTask ?? isSmallTask
     schema = signalOrOptions.jsonSchema ?? jsonSchema
     override = signalOrOptions.configOverride ?? configOverride
+    onToken = typeof signalOrOptions.onToken === 'function' ? signalOrOptions.onToken : null
   }
+  if (!onToken && typeof onTokenPositional === 'function') onToken = onTokenPositional
 
   const currentConfig = await getAllConfig()
   const conf = { ...(currentConfig[0] || {}), ...(override || {}) }
@@ -61,10 +65,16 @@ export const fetchAI = async (
 
   return new Promise((resolve, reject) => {
     let hasResolved = false
+    // Holder agar onAbort (didefinisikan duluan) bisa melepas listener token
+    // yang baru dipasang belakangan.
+    let releaseTokenEarly = null
 
     const onAbort = () => {
       if (hasResolved) return
       hasResolved = true
+      try {
+        releaseTokenEarly?.()
+      } catch (_) {}
       if (window.api && window.api.abortFetchAI) window.api.abortFetchAI()
       const err = new Error('AbortError')
       err.name = 'AbortError'
@@ -109,11 +119,40 @@ export const fetchAI = async (
       return m
     })
 
+    // Stream opt-in: pasang listener ai:token hanya bila onToken ada;
+    // dilepas saat resolve/reject/abort agar tidak bocor antar giliran.
+    let unlistenToken = null
+    if (onToken && window.api?.onAiToken) {
+      try {
+        unlistenToken = window.api.onAiToken((chunk) => {
+          try {
+            onToken(chunk)
+          } catch (_) {}
+        })
+      } catch (_) {
+        unlistenToken = null
+      }
+    }
+    const releaseToken = () => {
+      try {
+        unlistenToken?.()
+      } catch (_) {}
+      unlistenToken = null
+    }
+    releaseTokenEarly = releaseToken
+
     window.api
-      .fetchAI({ messages: safeMessages, config: conf, isSmallTask: smallTask, jsonSchema: schema })
+      .fetchAI({
+        messages: safeMessages,
+        config: conf,
+        isSmallTask: smallTask,
+        jsonSchema: schema,
+        stream: !!onToken
+      })
       .then((result) => {
         if (hasResolved) return
         hasResolved = true
+        releaseToken()
         if (signal && typeof signal.removeEventListener === 'function')
           signal.removeEventListener('abort', onAbort)
 
@@ -160,6 +199,7 @@ export const fetchAI = async (
       .catch((e) => {
         if (hasResolved) return
         hasResolved = true
+        releaseToken()
         if (signal) signal.removeEventListener('abort', onAbort)
         reject(e)
       })

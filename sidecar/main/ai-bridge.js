@@ -81,12 +81,68 @@ export const setGlobalConfig = (config) => {
 
 export const getGlobalConfig = () => globalConfig
 
+// Murni (unit-testable): rakit chunk OpenAI SSE `data:` jadi teks penuh.
+// Satu-satunya sumber kebenaran perakitan stream; jalur network di bawah
+// memakai ini per baris, test memakai ini per urutan chunk simulasi.
+export const assembleStreamChunks = (lines, onToken = null) => {
+  let fullContent = ''
+  let fullReasoning = ''
+  for (const line of lines) {
+    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+      try {
+        const chunk = JSON.parse(line.substring(6).trim())
+        const delta = chunk.choices?.[0]?.delta || {}
+        if (delta.content) {
+          fullContent += delta.content
+          onToken?.({ text: delta.content, done: false })
+        }
+        if (delta.reasoning_content) {
+          fullReasoning += delta.reasoning_content
+          onToken?.({ text: delta.reasoning_content, done: false })
+        }
+      } catch (e) {}
+    }
+  }
+  return { fullContent, fullReasoning }
+}
+
+export const __aiBridgeTest = { assembleStreamChunks, providerOfflineMessage }
+
+// Incremental body reader: garis SSE lengkap di-emit langsung via onToken;
+// body JSON biasa menumpuk diam sampai selesai (tanpa token parsial).
+// Mengembalikan body mentah utuh agar parse akhir identik dengan jalur blocking.
+const readBodyIncremental = async (response, onToken) => {
+  // Tanpa body stream (respons kosong) = fallback buffer biasa.
+  if (!response.body?.getReader) return response.text()
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+  let raw = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (!done) {
+      const piece = decoder.decode(value, { stream: true })
+      raw += piece
+      buf += piece
+    }
+    if (buf.includes('data:')) {
+      const lines = buf.split('\n')
+      buf = done ? '' : lines.pop()
+      assembleStreamChunks(lines, onToken)
+    }
+    if (done) break
+  }
+  onToken?.({ text: '', done: true })
+  return raw
+}
+
 export const fetchAI = async (
   inputMessages,
   config,
   isSmallTask = false,
   jsonSchema = null,
-  onStatus = null
+  onStatus = null,
+  onToken = null
 ) => {
   // Endpoint aktif dicatat di scope fungsi agar blok catch tetap bisa
   // menyebutkannya di pesan error provider-aware.
@@ -155,7 +211,7 @@ export const fetchAI = async (
       try {
         logAi(`[ai] POST gemini-web model=${modelName} promptChars=${fullPrompt.length}`)
 
-        let answer = await generateGeminiResponse(fullPrompt, modelName)
+        let answer = await generateGeminiResponse(fullPrompt, modelName, '', undefined, onToken)
 
         let reasoning = null
         if (answer.includes('<think>')) {
@@ -201,11 +257,11 @@ export const fetchAI = async (
           // dioverride. Tanpa custom terkonfigurasi: error jujur di bawah.
           onStatus?.('⚠️ Gemini Web bermasalah, oper ke provider custom...')
           logAi('[ai] gemini-web -> custom fallback')
-          return fetchAI(workMessages, { ...conf, aiProvider: 'custom' }, isSmallTask, jsonSchema ?? null, onStatus)
+          return fetchAI(workMessages, { ...conf, aiProvider: 'custom' }, isSmallTask, jsonSchema ?? null, onStatus, onToken)
         }
         if (err.message?.includes('Session') || err.message?.includes('BardErrorInfo')) {
           onStatus?.('⚠️ Session Gemini Web bermasalah, mencoba fallback ke gemini-flash-lite...')
-          let answer = await generateGeminiResponse(fullPrompt, 'gemini-flash-lite')
+          let answer = await generateGeminiResponse(fullPrompt, 'gemini-flash-lite', '', undefined, onToken)
           return { content: answer, reasoning: null }
         }
         throw err
@@ -556,25 +612,17 @@ export const fetchAI = async (
         throw err
       }
 
-      let rawText = await response.text()
+      // Tanpa onToken = jalur buffer lama (byte-identik dengan sebelumnya).
+      // Dengan onToken = tiap garis SSE lengkap dirakit langsung saat tiba
+      // (token keluar saat network tiba, bukan di akhir); rakitan akhir di
+      // bawah tanpa onToken agar tidak emit ganda.
+      const rawText = onToken ? await readBodyIncremental(response, onToken) : await response.text()
 
       let cleanText = rawText.trim()
 
       if (cleanText.includes('data: {') || cleanText.includes('"chat.completion.chunk"')) {
         logAi(`[ai] RES ${endpoint} format=sse-stream`)
-        let fullContent = ''
-        let fullReasoning = ''
-        const lines = cleanText.split('\n')
-        for (const line of lines) {
-          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-            try {
-              const chunk = JSON.parse(line.substring(6).trim())
-              const delta = chunk.choices?.[0]?.delta || {}
-              if (delta.content) fullContent += delta.content
-              if (delta.reasoning_content) fullReasoning += delta.reasoning_content
-            } catch (e) {}
-          }
-        }
+        const { fullContent, fullReasoning } = assembleStreamChunks(cleanText.split('\n'))
         logAi(`[ai] SSE assembled chars=${fullContent.length}`)
         return {
           choices: [

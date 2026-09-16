@@ -24,6 +24,21 @@ fn ensure_workspace() -> Result<PathBuf, String> {
     fs::canonicalize(&root).map_err(|e| format!("Gagal resolusi workspace: {e}"))
 }
 
+/// Basis resolusi path: root proyek pilihan user (absolut, harus ada) atau
+/// fallback workspace XDG bila tidak diberikan. Containment tetap dijamin
+/// `resolve_contained` (kanonikalisasi + prefix check terhadap basis ini).
+pub(crate) fn resolve_base(workspace_root: Option<String>) -> Result<PathBuf, String> {
+    let t = workspace_root.map(|s| s.trim().to_string()).unwrap_or_default();
+    if t.is_empty() {
+        return ensure_workspace();
+    }
+    let p = Path::new(&t);
+    if !p.is_absolute() {
+        return Err("Workspace root harus path absolut.".into());
+    }
+    fs::canonicalize(p).map_err(|e| format!("Workspace root tidak valid '{t}': {e}"))
+}
+
 /// Resolusi path yang DIJAMIN tetap di dalam `base`.
 /// - string kosong setelah trim -> base
 /// - tolak '~', path absolut, dan komponen '..'
@@ -84,8 +99,13 @@ fn err(e: impl Into<String>) -> FsResult {
 }
 
 #[tauri::command]
-pub async fn fs_read_file(path: String, start_line: Option<u32>, end_line: Option<u32>) -> FsResult {
-    let p = match ensure_workspace().and_then(|b| resolve_contained(&b, &path, true)) {
+pub async fn fs_read_file(
+    path: String,
+    start_line: Option<u32>,
+    end_line: Option<u32>,
+    workspace_root: Option<String>,
+) -> FsResult {
+    let p = match resolve_base(workspace_root).and_then(|b| resolve_contained(&b, &path, true)) {
         Ok(p) => p,
         Err(e) => return err(e),
     };
@@ -136,11 +156,11 @@ pub async fn fs_read_file(path: String, start_line: Option<u32>, end_line: Optio
 }
 
 #[tauri::command]
-pub async fn fs_write_file(path: String, content: String) -> FsResult {
+pub async fn fs_write_file(path: String, content: String, workspace_root: Option<String>) -> FsResult {
     if content.len() > 20 * 1024 * 1024 {
         return err("Konten terlalu besar (batas tulis 20MB).");
     }
-    let p = match ensure_workspace().and_then(|b| resolve_contained(&b, &path, false)) {
+    let p = match resolve_base(workspace_root).and_then(|b| resolve_contained(&b, &path, false)) {
         Ok(p) => p,
         Err(e) => return err(e),
     };
@@ -165,8 +185,8 @@ pub async fn fs_write_file(path: String, content: String) -> FsResult {
 }
 
 #[tauri::command]
-pub async fn fs_delete_file(path: String) -> FsResult {
-    let base = match ensure_workspace() {
+pub async fn fs_delete_file(path: String, workspace_root: Option<String>) -> FsResult {
+    let base = match resolve_base(workspace_root) {
         Ok(b) => b,
         Err(e) => return err(e),
     };
@@ -196,8 +216,8 @@ pub async fn fs_delete_file(path: String) -> FsResult {
 }
 
 #[tauri::command]
-pub async fn fs_list_dir(path: String) -> FsResult {
-    let p = match ensure_workspace().and_then(|b| resolve_contained(&b, &path, true)) {
+pub async fn fs_list_dir(path: String, workspace_root: Option<String>) -> FsResult {
+    let p = match resolve_base(workspace_root).and_then(|b| resolve_contained(&b, &path, true)) {
         Ok(p) => p,
         Err(e) => return err(e),
     };
@@ -242,20 +262,20 @@ const IGNORED_DIRS: &[&str] = &[
 ];
 
 #[tauri::command]
-pub async fn fs_grep_search(dir: String, keyword: String) -> FsResult {
+pub async fn fs_grep_search(dir: String, keyword: String, workspace_root: Option<String>) -> FsResult {
     if keyword.is_empty() {
         return err("Kata kunci tidak boleh kosong.");
     }
-    let root_display = workspace_root();
-    let base = match ensure_workspace().and_then(|b| resolve_contained(&b, &dir, true)) {
+    let base = match resolve_base(workspace_root).and_then(|b| resolve_contained(&b, &dir, true)) {
         Ok(b) => b,
         Err(e) => return err(e),
     };
+    let root_display = base.display().to_string();
     if let Err(e) = crate::mission_scope::check_canonical(&base) {
         return err(e);
     }
     let kw_msg = keyword.clone();
-    let base_disp = base.display().to_string();
+    let base_disp = root_display.clone();
     let hits = tauri::async_runtime::spawn_blocking(move || -> Result<Vec<String>, String> {
         let kw = keyword.to_lowercase();
         let mut hits: Vec<String> = Vec::new();
@@ -335,8 +355,7 @@ pub fn fs_detect_legacy_profiles() -> Vec<String> {
 /// Aman secara desain: path dipilih user lewat dialog native (command sinkron
 /// di main thread), bukan dikirim dari renderer/AI.
 #[tauri::command]
-pub fn fs_import_pick_and_read() -> Result<LegacyPick, String> {
-    let file = rfd::FileDialog::new()
+pub fn fs_import_pick_and_read() -> Result<LegacyPick, String> {    let file = rfd::FileDialog::new()
         .add_filter("Dexie Export JSON", &["json"])
         .set_title("Pilih file export database Abelink lama")
         .pick_file();
@@ -348,5 +367,64 @@ pub fn fs_import_pick_and_read() -> Result<LegacyPick, String> {
             Ok(LegacyPick { path, content })
         }
         None => Err("__canceled__".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tmp_base(tag: &str) -> PathBuf {
+        let base = std::env::temp_dir().join(format!("abelink-wsroot-test-{tag}"));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("sub")).unwrap();
+        fs::canonicalize(&base).unwrap()
+    }
+
+    #[test]
+    fn resolve_base_rejects_non_absolute_root() {
+        assert!(resolve_base(Some("relatif/saja".into())).is_err());
+    }
+
+    #[test]
+    fn resolve_base_rejects_missing_root() {
+        assert!(resolve_base(Some("/tidak/ada/root-ini-xyz".into())).is_err());
+    }
+
+    #[test]
+    fn containment_holds_against_custom_root() {
+        let base = tmp_base("contained");
+        fs::write(base.join("sub").join("a.txt"), "x").unwrap();
+        // Relatif valid di dalam root kustom -> lolos.
+        assert!(resolve_contained(&base, "sub/a.txt", true).is_ok());
+        // Absolut / '..' / '~' ditolak terhadap root kustom.
+        assert!(resolve_contained(&base, "/etc/passwd", true).is_err());
+        assert!(resolve_contained(&base, "../keluar.txt", false).is_err());
+        assert!(resolve_contained(&base, "~/x", false).is_err());
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn symlink_escape_rejected_against_custom_root() {
+        let base = tmp_base("symlink");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let link = base.join("escape");
+            let _ = symlink("/etc", &link);
+            if link.exists() || fs::symlink_metadata(&link).is_ok() {
+                let target = link.join("passwd");
+                if target.exists() {
+                    let rel = target
+                        .strip_prefix(&base)
+                        .map(|p| p.to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                    if !rel.is_empty() {
+                        assert!(resolve_contained(&base, &rel, true).is_err());
+                    }
+                }
+            }
+        }
+        let _ = fs::remove_dir_all(&base);
     }
 }

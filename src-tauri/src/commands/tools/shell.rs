@@ -28,6 +28,7 @@ pub async fn tools_run_shell(
     app: AppHandle,
     query: String,
     cwd: Option<String>,
+    workspace_root: Option<String>,
 ) -> Result<ToolResult, String> {
     if query.trim().is_empty() {
         return Ok(ToolResult {
@@ -61,17 +62,22 @@ pub async fn tools_run_shell(
         }
     }
 
-    let workspace = crate::cmd_fs::workspace_root();
+    let base = match crate::cmd_fs::resolve_base(workspace_root) {
+        Ok(b) => b,
+        Err(e) => {
+            return Ok(ToolResult { success: false, output: None, error: Some(e) });
+        }
+    };
     let cwd_path = cwd
         .map(|c| {
             let p = std::path::PathBuf::from(c);
             if p.is_absolute() {
                 p
             } else {
-                workspace.join(&p)
+                base.join(&p)
             }
         })
-        .unwrap_or(workspace);
+        .unwrap_or(base);
 
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<ToolResult, String> {
         let mut cmd = Command::new("bash");
