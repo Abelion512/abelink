@@ -424,7 +424,11 @@ export const api = {
           durMs: Date.now() - t0,
           ok: !error && result?.success !== false,
           error,
-          resultSummary
+          resultSummary,
+          // Jejak tak pernah sessionId null: config.turnId bila ada,
+          // else 'system' (panggilan teardown langsung, bukan loop ReAct).
+          sessionId: config?.turnId ?? config?.sessionId ?? 'system',
+          turn: config?.turn ?? null
         })
       } catch (_) {}
     }

@@ -51,6 +51,17 @@ export const useAbelinkMusic = (setChatData, abortControllerRef, youtubeMusicToo
     targetSet((prev) => [...prev, { role: 'ai', content: `Mencari lagu "${effectiveQuery}"...`, isSearchingMusic: true }])
     const music = await window.api.searchMusic(effectiveQuery)
     const isAutoplay = action === 'music-play'
+    // Query kabur + hasil tak meyakinkan -> kembalikan kandidat agar pemanggil
+    // menawarkan tombol (ask-choice), bukan autoplay buta music[0].
+    const vagueNoMemory = isVagueQuery && effectiveQuery === 'lofi hip hop radio'
+    if (isAutoplay && (vagueNoMemory || music.length === 0)) {
+      targetSet((prev) => prev.filter((item) => !item.isSearchingMusic))
+      if (music.length === 0) return '[SYSTEM LOG] Tidak ada hasil pencarian lagu. Minta query lebih spesifik.'
+      return {
+        candidates: music.slice(0, 4),
+        question: `Query "${query || 'musik'}" terlalu umum — lagu mana yang dimaksud?`
+      }
+    }
 
     let selectedMusicList = [...music]
     let selectedId = music[0]?.id
@@ -71,11 +82,20 @@ export const useAbelinkMusic = (setChatData, abortControllerRef, youtubeMusicToo
         if (found) {
           selectedMusicList = [found]
         } else {
-          selectedMusicList = [music[0]]
-          selectedId = music[0].id
+          // ID tak ada di hasil -> tawarkan kandidat, bukan autoplay buta.
+          targetSet((prev) => prev.filter((item) => !item.isSearchingMusic))
+          return {
+            candidates: music.slice(0, 4),
+            question: `Hasil "${effectiveQuery}" ambigu — lagu mana yang dimaksud?`
+          }
         }
       } else {
-        selectedMusicList = [music[0]]
+        // Tak ada kecocokan yakin -> tawarkan kandidat, bukan music[0] buta.
+        targetSet((prev) => prev.filter((item) => !item.isSearchingMusic))
+        return {
+          candidates: music.slice(0, 4),
+          question: `Hasil "${effectiveQuery}" ambigu — lagu mana yang dimaksud?`
+        }
       }
     }
 

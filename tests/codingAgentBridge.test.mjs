@@ -14,16 +14,22 @@ describe('codingAgentBridge', () => {
     expect(ids).toContain('opencode')
   })
 
+  it('PREFERRED_CODING_AGENTS hanya opencode+hermes', async () => {
+    const { PREFERRED_CODING_AGENTS } = await import('../src/api/ai/codingAgentBridge.js')
+    expect(PREFERRED_CODING_AGENTS).toEqual(['opencode', 'hermes'])
+  })
+
   it('detectInstalledAgents memfilter binary yang ada via checker', async () => {
     const mockChecker = async (bin) => {
-      return bin.includes('claude') || bin.includes('hermes')
+      return bin.includes('opencode') || bin.includes('hermes')
     }
 
     const detected = await detectInstalledAgents({ fileChecker: mockChecker })
     const ids = detected.map((d) => d.id)
-    expect(ids).toContain('claude')
+    expect(ids).toContain('opencode')
     expect(ids).toContain('hermes')
     expect(ids).not.toContain('codex')
+    expect(ids).not.toContain('claude')
   })
 
   it('buildCodingCommand menyusun perintah non-interactive dengan nice dan sandbox branch', () => {

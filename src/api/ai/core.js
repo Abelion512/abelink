@@ -131,12 +131,26 @@ export const fetchAI = async (
         // ID yang tak terlist /v1/models (mis. oc/...) tetap bisa dipakai
         // ulang. Inline localStorage — tanpa import komponen (bebas cycle).
         try {
-          if (conf.aiProvider === 'custom' && conf.customEndpoint && conf.customModel) {
-            const k = `abelink_recent_models_${String(conf.customEndpoint).trim().toLowerCase().replace(/\/+$/, '')}`
-            const mdl = String(conf.customModel).trim()
-            if (mdl) {
+          // ponytail: satu skema kunci recent untuk custom + lm-studio
+          // (endpoint dinormalisasi sama seperti recentModelsKey).
+          const ep =
+            conf.aiProvider === 'custom'
+              ? conf.customEndpoint
+              : conf.aiProvider === 'lm-studio'
+                ? 'http://localhost:1234/v1'
+                : null
+          const mdl =
+            conf.aiProvider === 'custom'
+              ? conf.customModel
+              : conf.aiProvider === 'lm-studio'
+                ? conf.model
+                : null
+          if (ep && mdl) {
+            const k = `abelink_recent_models_${String(ep).trim().toLowerCase().replace(/\/+$/, '')}`
+            const name = String(mdl).trim()
+            if (name) {
               const prev = JSON.parse(localStorage.getItem(k) || '[]')
-              const next = [mdl, ...(Array.isArray(prev) ? prev.filter((m) => m !== mdl) : [])].slice(0, 10)
+              const next = [name, ...(Array.isArray(prev) ? prev.filter((m) => m !== name) : [])].slice(0, 10)
               localStorage.setItem(k, JSON.stringify(next))
             }
           }
