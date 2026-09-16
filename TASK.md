@@ -4,21 +4,22 @@
 
 ## Status terakhir (2026-09-16)
 
-- Branch kerja: `feat/blocked-challenge` (PR #39 open, tanpa merge;
-  stacked #37 + #38 — merge berurutan, rebase tiap lapis).
-- Isi: blocked-challenge 1x — klaim blocked 0-tool ditantang sekali via
-  slot verify-gate (main loop + subagent); ulangan diterima.
-- Verifikasi: vitest 860 passed (855+5), lint 0 errors. Dev direstart fresh
-  (vite 200, bridge 401) — bisa dicoba langsung di jendela dev.
-  (lihat `2026-09-16_agent-grit-blocked-challenge.md`).
+- Branch kerja: `feat/extension-keepalive-trajectory` (PR #40 open, tanpa
+  merge; stacked #37+#38+#39 — merge berurutan, rebase tiap lapis).
+- Isi: extension alarms-resume + trajectory sessionId/turn + overlay tebal.
+- Verifikasi: vitest 860 passed, lint 0 errors (927 = baseline). Dev fresh
+  (vite 200, bridge 401). Sisa verifikasi user: reload extension di Chrome,
+  tutup popup 6+ mnt, cek browser:status tetap connected.
+  (lihat `2026-09-16_keepalive-trajectory.md`).
 
 ## Topik berikutnya (pilih SATU)
 
-1. Review + merge PR berurutan #37 -> #38 -> #39 (butuh billing CI pulih).
-2. Skill registry tahap 2 (skor relevansi index, bukan abjad — gap sudah
-   dipetakan: tanpa fungsi skor, scan 1 level, basePath putus).
-3. ~~Extension watchdog + tombol reconnect UI~~ SELESAI (PR #38).
-4. Qwen/DeepSeek sebagai custom provider (DITUNDA — bahas dulu).
+1. Review + merge PR berurutan #37->#38->#39->#40 (butuh billing CI pulih).
+2. Paket 2 scan: identitas subagent + os channels + main_chat hardcode +
+   write-file config.
+3. Paket 3 scan: logging bypass sisa + bug || 0.5 + satukan konstanta.
+4. Skill registry tahap 2 (skor relevansi index, bukan abjad).
+5. Qwen/DeepSeek sebagai custom provider (DITUNDA — bahas dulu).
 
 ## Prompt sesi baru (copy-paste)
 
