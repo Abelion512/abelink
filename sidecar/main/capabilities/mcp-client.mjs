@@ -75,12 +75,20 @@ async function initialize(url, headers) {
     clientInfo: { name: 'abelink', version: '1.0.0-alpha.3' }
   })
   // Notifikasi initialized: best-effort, kegagalan diabaikan.
+  // Timeout ikut pola rpc() agar MCP lambat tidak menahan authorize.
   try {
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...headers },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })
-    })
+    const nCtrl = new AbortController()
+    const nTimer = setTimeout(() => nCtrl.abort(), RPC_TIMEOUT_MS)
+    try {
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...headers },
+        body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
+        signal: nCtrl.signal
+      })
+    } finally {
+      clearTimeout(nTimer)
+    }
   } catch {}
   return result
 }

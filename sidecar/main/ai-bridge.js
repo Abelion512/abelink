@@ -784,33 +784,101 @@ export const fetchAI = async (
   }
 }
 
+// Paritas dengan src/api/ai/core.js (renderer): think-strip, ekstraksi
+// brace/bracket, control-char clean, lalu jsonrepair. Dua salinan wajib
+// berperilaku sama — tests/core.parse.test.js mengunci paritasnya.
 export const cleanAndParse = (rawResponse) => {
   try {
     if (!rawResponse) return null
 
+    // Model reasoning sering membungkus JSON dalam <think>.
+    if (typeof rawResponse === 'string') {
+      rawResponse = rawResponse.replace(/<think>[\s\S]*?<\/think>/gi, '').trim() || rawResponse
+    }
+
+    if (typeof rawResponse === 'object') {
+      if (
+        rawResponse.thought !== undefined ||
+        rawResponse.action !== undefined ||
+        rawResponse.answer !== undefined
+      ) {
+        return rawResponse
+      }
+      if (typeof rawResponse.content === 'string' && rawResponse.content.trim().length > 0) {
+        rawResponse = rawResponse.content
+      } else if (
+        typeof rawResponse.reasoning === 'string' &&
+        rawResponse.reasoning.includes('{') &&
+        rawResponse.reasoning.includes('}')
+      ) {
+        rawResponse = rawResponse.reasoning
+      } else if (typeof rawResponse.text === 'string' && rawResponse.text.trim().length > 0) {
+        rawResponse = rawResponse.text
+      } else if (typeof rawResponse.message === 'string' && rawResponse.message.trim().length > 0) {
+        rawResponse = rawResponse.message
+      } else {
+        try {
+          rawResponse = JSON.stringify(rawResponse)
+        } catch (_) {
+          return null
+        }
+      }
+    }
+
+    if (typeof rawResponse !== 'string') {
+      rawResponse = String(rawResponse || '')
+    }
+
+    let text = String(rawResponse)
+      .replace(/```json\s*/gi, '')
+      .replace(/```\s*/g, '')
+      .replace(/^\xEF\xBB\xBF/, '')
+      .trim()
+
     // 1. Parse langsung tanpa modifikasi (paling aman)
     try {
-      return JSON.parse(rawResponse)
+      return JSON.parse(text)
     } catch (_) {}
 
-    // 2. Gunakan jsonrepair untuk membereskan json berantakan dari LLM
-    const repaired = jsonrepair(rawResponse)
+    // 2. Ekstraksi brace/bracket terluar
+    const firstBrace = text.indexOf('{')
+    const lastBrace = text.lastIndexOf('}')
+    const firstBracket = text.indexOf('[')
+    const lastBracket = text.lastIndexOf(']')
+    let firstIndex = -1
+    let lastIndex = -1
+    if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+      firstIndex = firstBrace
+    } else if (firstBracket !== -1) {
+      firstIndex = firstBracket
+    }
+    if (lastBrace !== -1 && (lastBracket === -1 || lastBrace > lastBracket)) {
+      lastIndex = lastBrace
+    } else if (lastBracket !== -1) {
+      lastIndex = lastBracket
+    }
+    if (firstIndex === -1 || lastIndex === -1) return null
+    const jsonStr = text.substring(firstIndex, lastIndex + 1)
+    try {
+      return JSON.parse(jsonStr)
+    } catch (_) {}
+
+    // 3. Gunakan jsonrepair untuk membereskan json berantakan dari LLM
+    try {
+      const cleaned = jsonStr
+        .replace(/\r?\n/g, ' ')
+        .replace(/\t/g, ' ')
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+      return JSON.parse(cleaned)
+    } catch (_) {}
+    const repaired = jsonrepair(jsonStr)
     return JSON.parse(repaired)
   } catch (error) {
     console.error(
       'Gagal Parse JSON menggunakan jsonrepair:',
       redactSecrets(error?.message || String(error))
     )
-    // Upaya terakhir: coba bersihkan BOM dan extract ulang manual
-    try {
-      const lastResort = String(rawResponse)
-        .trim()
-        .replace(/^\xEF\xBB\xBF/, '')
-      const match = lastResort.match(/\{[\s\S]*\}/)
-      return match ? JSON.parse(match[0]) : null
-    } catch (e) {
-      return null
-    }
+    return null
   }
 }
 

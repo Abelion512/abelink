@@ -324,8 +324,16 @@ export const startTelegramBot = async (token, mainWindow) => {
           return
         }
         
-        const response = await fetch(fileUrl)
-        const buffer = await response.arrayBuffer()
+        // Timeout 60s: unduhan gantung memblokir jalur reply bot.
+        const dlCtrl = new AbortController()
+        const dlTimer = setTimeout(() => dlCtrl.abort(), 60000)
+        let buffer
+        try {
+          const response = await fetch(fileUrl, { signal: dlCtrl.signal })
+          buffer = await response.arrayBuffer()
+        } finally {
+          clearTimeout(dlTimer)
+        }
         fs.writeFileSync(savePath, Buffer.from(buffer))
 
         const isPhoto = Boolean(ctx.message.photo)
@@ -745,10 +753,18 @@ const updateStatus = (status) => {
   }
 }
 
+// Cap antrean broadcast: bot offline lama + pengirim rajin = RAM tumbuh
+// tanpa batas + banjir reconnect. Pesan terlama dibuang jujur (log).
+const MAX_BROADCAST_QUEUE = 100
 export const sendTelegramToAdmins = async (text) => {
   if (!bot || currentStatus !== 'connected') {
     console.log('[Telegram] Bot belum terhubung. Menampung pesan ke antrean broadcast...')
     pendingBroadcastQueue.push(text)
+    if (pendingBroadcastQueue.length > MAX_BROADCAST_QUEUE) {
+      const dropped = pendingBroadcastQueue.length - MAX_BROADCAST_QUEUE
+      pendingBroadcastQueue.splice(0, dropped)
+      console.warn(`[Telegram] Antrean penuh: ${dropped} pesan terlama dibuang.`)
+    }
     return
   }
   // Hanya kirim ke admin terpercaya (config tgAdminIds yang terdaftar), bukan chat pending.
