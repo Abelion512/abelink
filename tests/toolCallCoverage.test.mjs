@@ -29,7 +29,10 @@ describe('isNativeBacked', () => {
     expect(isNativeBacked('run-shell', 'open https://x.test')).toBe(false)
   })
 
-  it('unknown tool -> true (checkTools lolos -> jatuh ke executeNativeTool -> bridge mencatat)', () => {
-    expect(isNativeBacked('some-unknown-plugin', 'q')).toBe(true)
+  it('unknown tool -> false (dicatat choke point dengan sessionId benar, bukan grup agentic-xxx)', () => {
+    // Dulu true via `!![toolName]` yang selalu true: tool asing jatuh ke
+    // executeNativeTool dan tercatat di grup sesi salah. Sekarang false agar
+    // choke point mencatat dengan sessionId/turn yang benar.
+    expect(isNativeBacked('some-unknown-plugin', 'q')).toBe(false)
   })
 })

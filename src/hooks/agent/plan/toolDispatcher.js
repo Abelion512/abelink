@@ -348,10 +348,14 @@ export const executeSingleTool = async (tool, query, ctx) => {
         }
       }
       // Kalau bukan URL scheme, lanjut ke native tool handler biasa
+      // Identitas sesi diteruskan agar bridge mencatat tool-call di grup
+      // sesi yang benar (bukan "agentic-xxx"/system).
       const activeConfig = {
         ...(Array.isArray(config) ? config[0] : config),
         workspaceRoot: ctx?.workspaceRoot,
-        turnId: ctx?.turnId || ctx?.agenticProcessId
+        turnId: ctx?.turnId || ctx?.agenticProcessId,
+        sessionId: ctx?.sessionId,
+        turn: ctx?.turn
       }
       const nativePromise = window.api.executeNativeTool(tool, query, activeConfig)
       const { race, onAbort } = raceWithAbort(nativePromise, currentSignal)

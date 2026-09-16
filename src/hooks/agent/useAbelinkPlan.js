@@ -714,6 +714,20 @@ export const useAbelinkPlan = ({
       // Evidence source = executedToolsList (tool + fullResult per eksekusi).
       let verifyReplanCount = 0
       let blockedChallengeCount = 0
+      // Observasi sintetis (repeat-cache / spiral / circuit) juga ditulis ke
+      // file trajectory agar audit lengkap — best-effort, tanpa throw.
+      const logSyntheticObservation = (text) => {
+        import('../../api/harness')
+          .then(({ logObservation }) =>
+            logObservation({
+              observation: text,
+              tool: 'system',
+              sessionId: activeSessionNum,
+              turn: stepCount
+            })
+          )
+          .catch(() => {})
+      }
       let lastVerification = VERIFICATION_STATE.NOT_RUN
       let pendingVerifyObservation = null
       // ---- Trajectory Supervisor Fase 1 (trajectorySupervisor.js) --------
@@ -1730,6 +1744,9 @@ export const useAbelinkPlan = ({
                     'Variasikan pendekatan (tool/query berbeda) atau akhiri dengan jawaban jujur.'
                 }
               )
+              logSyntheticObservation(
+                `[REPEAT-CACHE] Tool "${tool}" query identik ke-${repeatCount}x — tidak dieksekusi ulang.`
+              )
               if (!spiralStopped && breaker.shouldSpiralStop()) {
                 spiralStopped = true
                 loopMessages.push(
@@ -1743,6 +1760,9 @@ export const useAbelinkPlan = ({
                       `[SYSTEM] ${breaker.failures()} kegagalan/pengulangan beruntun. ` +
                       'Berhenti. Tulis "answer" final yang JUJUR + "is_done": true. JANGAN panggil tool lagi.'
                   }
+                )
+                logSyntheticObservation(
+                  `[SPIRAL-STOP] ${breaker.failures()} gagal/pengulangan beruntun — loop dihentikan, minta jawaban final jujur.`
                 )
                 break
               }
@@ -1779,6 +1799,9 @@ export const useAbelinkPlan = ({
                   role: 'user',
                   content: `[OBSERVATION] [CIRCUIT BREAKER OPEN] Tool "${tool}" DIBLOKIR: ${breaker.failures()} gagal tool beruntun (ambang ${breaker.threshold()}). Perbaiki akar masalah atau minta user mereset misi. Tool baca/tulis non-destruktif tetap jalan.`
                 }
+              )
+              logSyntheticObservation(
+                `[CIRCUIT-OPEN] Tool "${tool}" diblokir: ${breaker.failures()} gagal beruntun.`
               )
               continue
             }
