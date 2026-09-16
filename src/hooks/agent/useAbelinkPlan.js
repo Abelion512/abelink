@@ -28,7 +28,7 @@ import {
 import { searchMemoriesInOrama } from '../../api/oramaStore'
 import { buildOptimizedChatSession, stripImageContent, stripDataUrls } from '../../api/ai/contextCompactor'
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
-import { classifyMainDecision, INTENT, isExplicitSelfTerminate } from '../../api/ai/agentDecision'
+import { classifyMainDecision, INTENT, isExplicitSelfTerminate, shouldChallengeBlocked, BLOCKED_CHALLENGE_TEXT } from '../../api/ai/agentDecision'
 import { createCircuitBreaker } from '../../api/ai/circuitBreaker'
 import { createTrajectorySupervisor } from '../../api/ai/trajectorySupervisor'
 import { currentBenchArch } from '../../api/ai/benchArch'
@@ -713,6 +713,7 @@ export const useAbelinkPlan = ({
       })
       // Evidence source = executedToolsList (tool + fullResult per eksekusi).
       let verifyReplanCount = 0
+      let blockedChallengeCount = 0
       let lastVerification = VERIFICATION_STATE.NOT_RUN
       let pendingVerifyObservation = null
       // ---- Trajectory Supervisor Fase 1 (trajectorySupervisor.js) --------
@@ -1184,10 +1185,32 @@ export const useAbelinkPlan = ({
               lastTerminalReason = 'no-progress-streak-exhausted'
             }
           } else if (intent === INTENT.BLOCKED) {
-            noActionStreak = 0
-            sessionOutcome = 'blocked'
-            activeTaskObjectiveRef.current = null
-            lastTerminalReason = classification.reason || 'blocked-reported'
+            // BLOCKED CHALLENGE (simetri verify-gate): klaim blocked tanpa satu
+            // pun eksekusi tool = belum terbukti buntu. Tantang 1x via slot
+            // observasi yang sama; ulangan kedua diterima seperti biasa.
+            if (
+              shouldChallengeBlocked({
+                toolsExecuted: executedToolsList.length,
+                challengesUsed: blockedChallengeCount,
+                conversational: objectiveKind === 'conversational'
+              })
+            ) {
+              blockedChallengeCount++
+              pendingVerifyObservation = BLOCKED_CHALLENGE_TEXT
+              intent = INTENT.CONTINUE
+              decision = {
+                ...decision,
+                is_done: false,
+                action: null,
+                task_status: 'in_progress',
+                objective: activeTaskObjectiveRef.current || decision.objective
+              }
+            } else {
+              noActionStreak = 0
+              sessionOutcome = 'blocked'
+              activeTaskObjectiveRef.current = null
+              lastTerminalReason = classification.reason || 'blocked-reported'
+            }
           } else if (intent === INTENT.NEEDS_USER) {
             noActionStreak = 0
             sessionOutcome = 'needs_user'
