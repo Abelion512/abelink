@@ -107,7 +107,8 @@ export const runAgentTool = async (tool, query, ctx) => {
       role,
       goal,
       allowedTools: tools,
-      parentSessionId: 'main_chat'
+      parentSessionId: 'main_chat',
+      workspaceRoot: ctx?.workspaceRoot ?? null
     })
 
     // Log sub-agent spawn to trajectory buffer
@@ -374,7 +375,10 @@ export const runAgentTool = async (tool, query, ctx) => {
     let spawnRes = null
     if (window.api && window.api.executeNativeTool) {
       try {
-        spawnRes = await window.api.executeNativeTool('run-task', `${taskId}||${command}`)
+        // cwd eksplisit: workspaceRoot sesi atau '.' — jangan mendarat di XDG root.
+        spawnRes = await window.api.executeNativeTool('run-task', `${taskId}||${command}`, {
+          workspaceRoot: ctx?.workspaceRoot || '.'
+        })
       } catch (err) {
         spawnRes = { success: false, error: err.message }
       }

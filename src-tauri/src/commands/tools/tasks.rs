@@ -29,18 +29,20 @@ pub async fn run_task(
     task_id: String,
     command: String,
     cwd: Option<String>,
+    workspace_root: Option<String>,
 ) -> Result<TaskInfo, String> {
-    let workspace = crate::cmd_fs::workspace_root();
+    let base =
+        crate::cmd_fs::resolve_base(workspace_root).unwrap_or_else(|_| crate::cmd_fs::workspace_root());
     let cwd_path = cwd
         .map(|c| {
             let p = std::path::PathBuf::from(c);
             if p.is_absolute() {
                 p
             } else {
-                workspace.join(p)
+                base.join(p)
             }
         })
-        .unwrap_or(workspace);
+        .unwrap_or(base);
 
     let now = chrono::Local::now().to_rfc3339();
 

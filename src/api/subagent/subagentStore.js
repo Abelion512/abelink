@@ -9,7 +9,8 @@ export const subagentStore = {
     role = 'Technical Specialist',
     goal = 'Selesaikan misi yang ditugaskan',
     allowedTools = ['*'],
-    parentSessionId = 'default'
+    parentSessionId = 'default',
+    workspaceRoot = null
   }) {
     const secureIdPart =
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -28,6 +29,7 @@ export const subagentStore = {
       allowedTools,
       status: 'running',
       parentSessionId,
+      workspaceRoot,
       turnCount: 0,
       createdAt: Date.now(),
       updatedAt: Date.now(),

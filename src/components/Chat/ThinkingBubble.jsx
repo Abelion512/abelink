@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import { Check, Music, Brain, ChevronRight, ListOrdered } from 'lucide-react'
 import { FaYoutube } from 'react-icons/fa'
 
@@ -12,6 +12,14 @@ export const ThinkingBubble = ({
   executedTools = []
 }) => {
   const executingToolCount = executedTools ? executedTools.length : 0
+  // WS-2: kunci scroll ke bawah saat chunk stream masuk (reasoning tumbuh).
+  const reasoningRef = useRef(null)
+  useEffect(() => {
+    try {
+      const el = reasoningRef.current
+      if (el) el.scrollTop = el.scrollHeight
+    } catch (_) {}
+  }, [reasoning])
 
   return (
     <div className="flex flex-col gap-2.5 py-1 text-sm select-text">
@@ -75,7 +83,10 @@ export const ThinkingBubble = ({
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 group-open/details:rotate-90 transition-transform opacity-60" />
               </summary>
-              <div className="text-[11px] opacity-80 border-l-2 border-primary/40 pl-2.5 my-1.5 font-mono whitespace-pre-wrap leading-relaxed text-base-content/90 max-h-48 overflow-y-auto custom-scrollbar">
+              <div
+                ref={reasoningRef}
+                className="text-[11px] opacity-80 border-l-2 border-primary/40 pl-2.5 my-1.5 font-mono whitespace-pre-wrap leading-relaxed text-base-content/90 max-h-48 overflow-y-auto custom-scrollbar"
+              >
                 {typeof reasoning === 'string' ? reasoning : JSON.stringify(reasoning, null, 2)}
               </div>
             </details>

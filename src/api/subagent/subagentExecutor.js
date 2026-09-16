@@ -354,9 +354,12 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               const formatted = await executeMemorySearch(act.query || '')
               res = { success: true, data: formatted }
             } else if (window.api && window.api.executeNativeTool) {
+              // workspaceRoot warisan sesi induk (disimpan di record) — plumbing
+              // yang sama seperti loop utama, bukan root baru.
               res = await window.api.executeNativeTool(act.tool, act.query || '', {
                 sessionId: subagentId,
-                turnId: `${subagentId}-${Date.now()}`
+                turnId: `${subagentId}-${Date.now()}`,
+                workspaceRoot: subagent.workspaceRoot ?? null
               })
             } else {
               res = { success: false, error: 'IPC executeNativeTool tidak tersedia.' }

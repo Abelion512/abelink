@@ -897,7 +897,26 @@ export const useAbelinkPlan = ({
 
         // Request keputusan giliran ke AI (getNextAction) — dilewati bila sudah
         // dipaksa selesai oleh guard batas langkah di atas.
+        // WS-2: akumulasi token mentah per-turn ke bubble thinking yang HIDUP
+        // (patch reasoning item isThinking, bukan append bubble baru).
+        // Final thought per-turn dari decision tetap otoritatif (fallback bila
+        // tidak ada stream, mis. provider non-streaming).
         if (!decision) {
+          let streamedThought = ''
+          const patchLiveThought = (text) => {
+            if (!text) return
+            streamedThought += text
+            const snapshot = streamedThought
+            try {
+              targetSetChatData((prev) => {
+                const idx = prev.findIndex((item) => item.isThinking)
+                if (idx === -1) return prev
+                const next = [...prev]
+                next[idx] = { ...next[idx], reasoning: snapshot }
+                return next
+              })
+            } catch (_) {}
+          }
           decision = await getNextAction(
             userInput,
             loopMessages,
@@ -914,7 +933,12 @@ export const useAbelinkPlan = ({
               activeTaskObjective: activeTaskObjectiveRef.current,
               existingSubagents,
               sessionId: activeSessionNum,
-              turn: stepCount
+              turn: stepCount,
+              onToken: (chunk) => {
+                try {
+                  if (chunk && !chunk.done && chunk.text) patchLiveThought(chunk.text)
+                } catch (_) {}
+              }
             }
           )
         }
