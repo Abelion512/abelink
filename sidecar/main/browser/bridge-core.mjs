@@ -333,6 +333,18 @@ const inflight = new Map()
 // Varian dispatch yang memakai inflight map (dipakai channel browser:*).
 export function dispatchCommand(sessionId, type, payload) {
   const s = ensureSession(sessionId)
+  // Fail-fast watchdog: sesi dikenal tapi basi (extension mati > TTL) dan
+  // tidak ada perintah tertunda -> tolak langsung tanpa menunggu
+  // COMMAND_TIMEOUT_MS penuh. Sesi baru (lastSeenAt=0) dan sesi yang masih
+  // punya antrean memakai jalur normal.
+  if (s.lastSeenAt && now() - s.lastSeenAt > BROWSER_BRIDGE.SESSION_TTL_MS && s.pending.length === 0) {
+    return Promise.reject(
+      new Error(
+        `Sesi browser '${sessionId}' terputus (tidak ada kabar extension). ` +
+          'Kemungkinan ekstensi Abelink tidak berjalan di browser tujuan.'
+      )
+    )
+  }
   if (s.pending.length >= BROWSER_BRIDGE.MAX_QUEUE) {
     return Promise.reject(new Error(`Antrean browser session '${sessionId}' penuh.`))
   }

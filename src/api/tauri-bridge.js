@@ -291,6 +291,9 @@ export const api = {
 
   // ---------- AI status stream ----------
   onAiStatus: on('ai:status'),
+  // Browser bridge status (watchdog Fase C3): string progres launch/reconnect
+  // (pola ai:status). Objek status lengkap via runNodeFunction('browser:status').
+  onBrowserStatus: on('browser:status'),
   // Token stream opt-in (WS-2): tanpa subscriber tidak ada yang berubah;
   // core.js fetchAI memasang listener ini hanya bila onToken diberikan.
   onAiToken: on('ai:token'),
