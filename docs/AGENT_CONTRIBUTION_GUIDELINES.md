@@ -139,7 +139,24 @@ Empat invariant di bawah ditegakkan kode di `objectiveVerifier.js`,
 
 ---
 
-## 7. Standar Pesan Commit (Conventional Commits)
+## 7. Session Log Wajib (Change Documentation)
+
+Setiap sesi kerja yang mengubah kode WAJIB ditutup dengan session log di
+`docs/PLANNED/sessions/YYYY-MM-DD_<topik>.md`. Tanpa session log, pekerjaan
+dianggap belum selesai. Isi minimal:
+
+1. Keputusan yang diambil (dan alternatif yang ditolak, bila ada).
+2. Berkas yang berubah (baru/diubah/dihapus).
+3. Hasil verifikasi (vitest, smoke, lint, sync-version, cargo check).
+4. Batasan yang dikenal + langkah aman berikutnya.
+
+Perubahan arsitektur WAJIB memperbarui `docs/ARCHITECTURE.md` di PR yang sama,
+bukan PR susulan. Aturan branch: kerja di branch, hapus branch lokal setelah
+merge, jangan biarkan branch merged menumpuk.
+
+---
+
+## 8. Standar Pesan Commit (Conventional Commits)
 
 Format commit pesan:
 ```
