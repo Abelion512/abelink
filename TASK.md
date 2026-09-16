@@ -4,14 +4,22 @@
 
 ## Status terakhir (2026-09-16)
 
-- Main LOKAL di `22eeeb8`: stack PR #37-#41 difast-forward lokal (10 commit,
-  FF bersih tanpa konflik). TIDAK push — PR GitHub dibiarkan sampai billing
-  Actions normal.
-- Isi: workspaceRoot + thinking streaming + skill autoload + browse
-  transparan + watchdog + blocked-challenge + keepalive/trajectory +
-  memory write-dedup.
-- Verifikasi di main: vitest 864 passed, lint 0 errors (927 = baseline).
-  (lihat `2026-09-16_stack-merge-local.md`).
+- Main SUDAH PUSH ke origin (`e6e0077` + log sesi ini): PR #36-#41 MERGED
+  (auto-merge oleh push). Branch feat/* lokal+remote dihapus.
+- Gate lokal penuh pengganti CI: vitest 864, lint 0, harness 8+25,
+  bench 13/13, perf LOLOS-rerun (regresi awal = noise), build OK,
+  cargo+clippy bersih, gitleaks no leaks.
+  (lihat `2026-09-16_push-merge-cleanup.md`).
+- PR open tersisa #33-35 (audit/security/docs sesi lain) — jangan sentuh.
+
+## Topik berikutnya (pilih SATU)
+
+1. Paket 2 scan: identitas subagent + os channels + main_chat hardcode +
+   write-file config.
+2. Paket 3 scan: logging bypass sisa + bug || 0.5 + satukan konstanta.
+3. Skill registry tahap 2 (skor relevansi index, bukan abjad).
+4. Lapis 2 memori (groomer berkala) — bila duplikat masih terlihat.
+5. Qwen/DeepSeek sebagai custom provider (DITUNDA — bahas dulu).
 
 ## Topik berikutnya (pilih SATU)
 
