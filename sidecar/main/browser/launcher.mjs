@@ -63,17 +63,22 @@ export async function openInOsBrowser(url, deps = {}) {
 }
 
 // Tunggu sampai ada sesi connected (poll bounded).
+// Transparansi 20s: onStatus dipanggil tiap ~5s agar user melihat progres
+// ("Menunggu handshake extension (n/20s)…") alih-alih diam lalu gagal.
 export async function waitForConnected(
   listSessions,
-  { timeoutMs = LAUNCH_WAIT_MS, intervalMs = LAUNCH_POLL_MS, sessionId = 'default', sleep } = {}
+  { timeoutMs = LAUNCH_WAIT_MS, intervalMs = LAUNCH_POLL_MS, sessionId = 'default', sleep, onStatus } = {}
 ) {
   const wait = typeof sleep === 'function' ? sleep : (ms) => new Promise((r) => setTimeout(r, ms))
+  const tell = typeof onStatus === 'function' ? onStatus : null
   const pick = (sessions = []) =>
     sessions.find((s) => s.id === sessionId && s.connected) ||
     sessions.find((s) => s.id === 'default' && s.connected) ||
     sessions.find((s) => s.connected) ||
     null
   const started = Date.now()
+  const totalS = Math.max(1, Math.round(timeoutMs / 1000))
+  let lastTick = -1
   for (;;) {
     let sessions = []
     try {
@@ -83,7 +88,16 @@ export async function waitForConnected(
     }
     const hit = pick(sessions)
     if (hit) return hit
-    if (Date.now() - started >= timeoutMs) return null
+    const elapsed = Date.now() - started
+    if (elapsed >= timeoutMs) return null
+    // Tick tiap ~5 detik (atau tiap poll bila timeout pendek di test).
+    const tick = Math.floor(elapsed / 5000)
+    if (tick !== lastTick && tell) {
+      lastTick = tick
+      try {
+        tell(`Menunggu handshake extension (${Math.min(totalS, Math.round(elapsed / 1000))}/${totalS}s)… Buka browser bila belum terbuka, pastikan extension Abelink aktif.`)
+      } catch {}
+    }
     await wait(intervalMs)
   }
 }
@@ -98,20 +112,24 @@ export async function ensureBrowserUp({
   autoLaunch = false,
   listSessions,
   timeoutMs = LAUNCH_WAIT_MS,
-  deps = {}
+  deps = {},
+  onStatus = null
 } = {}) {
   try {
-    const now = await waitForConnected(listSessions, { timeoutMs: 0, sessionId })
+    const now = await waitForConnected(listSessions, { timeoutMs: 0, sessionId, onStatus })
     if (now) return { ok: true, reused: true, session: now }
   } catch {
     /* lanjut ke peluncuran */
   }
   if (!autoLaunch) return { ok: false, reason: 'auto-launch-off' }
-  return throttledLaunch({ url, sessionId, listSessions, timeoutMs, deps })
+  if (typeof onStatus === 'function') {
+    try { onStatus('Membuka browser default OS…') } catch {}
+  }
+  return throttledLaunch({ url, sessionId, listSessions, timeoutMs, deps, onStatus })
 }
 
 // Peluncuran ber-rem: gabung in-flight, batasi budget per jendela cooldown.
-async function throttledLaunch({ url, sessionId, listSessions, timeoutMs, deps }) {
+async function throttledLaunch({ url, sessionId, listSessions, timeoutMs, deps, onStatus = null }) {
   const t = nowMs(deps)
   let st = launchState.get(sessionId)
   if (!st) {
@@ -135,7 +153,7 @@ async function throttledLaunch({ url, sessionId, listSessions, timeoutMs, deps }
     try {
       const opened = await openInOsBrowser(url, deps)
       if (!opened.ok) return { ok: false, reason: 'launch-failed', detail: opened.error }
-      const session = await waitForConnected(listSessions, { timeoutMs, sessionId })
+      const session = await waitForConnected(listSessions, { timeoutMs, sessionId, onStatus })
       if (!session) return { ok: false, reason: 'no-handshake' }
       launchState.delete(sessionId) // sukses = budget reset
       return { ok: true, reused: false, session }

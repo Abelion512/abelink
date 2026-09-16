@@ -20,7 +20,7 @@ const pickConnected = (sessions = [], targetSession = 'default') =>
 // lama: caller lain cukup cek `!up`), dengan alasan disalin ke
 // `ensureExtensionUp.lastReason` agar browser-navigate bisa blocked jujur.
 // Tidak pernah throw.
-const ensureExtensionUp = async ({ url = null, sessionId = 'default' } = {}) => {
+const ensureExtensionUp = async ({ url = null, sessionId = 'default', onStatus = null } = {}) => {
   try {
     const core = await import('../browser/bridge-core.mjs')
     const launcher = await import('../browser/launcher.mjs')
@@ -28,11 +28,23 @@ const ensureExtensionUp = async ({ url = null, sessionId = 'default' } = {}) => 
       ensureExtensionUp.lastReason = 'auto-launch-off'
       return null
     }
+    // Transparansi 20s: status handshake diteruskan sebagai event
+    // browser:status agar UI/renderer menampilkannya (pola ai:status).
+    // onStatus dari pemanggil menang; fallback emit langsung.
+    const emitBrowserStatus = typeof onStatus === 'function'
+      ? onStatus
+      : async (msg) => {
+          try {
+            const { emit } = await import('../../engine/registry.mjs')
+            emit('browser:status', msg)
+          } catch {}
+        }
     const r = await launcher.ensureBrowserUp({
       url,
       sessionId,
       autoLaunch: true,
-      listSessions: core.listSessions
+      listSessions: core.listSessions,
+      onStatus: (m) => { emitBrowserStatus(m) }
     })
     if (r.ok) {
       ensureExtensionUp.lastReason = null
@@ -53,7 +65,15 @@ const tryExtensionAct = async (payload, sessionId = 'default') => {
     const targetSession = payload?.sessionId || sessionId || 'default'
     let pick = pickConnected(sessions, targetSession)
     if (!pick) {
-      const up = await ensureExtensionUp({ sessionId: targetSession })
+      const up = await ensureExtensionUp({
+        sessionId: targetSession,
+        onStatus: async (m) => {
+          try {
+            const { emit } = await import('../../engine/registry.mjs')
+            emit('browser:status', m)
+          } catch {}
+        }
+      })
       if (!up) return null
       pick = up
     }

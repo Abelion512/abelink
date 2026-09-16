@@ -210,14 +210,32 @@ export const executeSingleTool = async (tool, query, ctx) => {
           '[DITOLAK-HUMAN-LOOP] browser-ask-user ditolak: tidak ada bukti login wall (login/captcha/2FA) di alasan maupun observasi terakhir. Baca tab dulu (browser-read); bila butuh keputusan user pakai ask-choice; bila form login benar ada, panggil browser-ask-user lagi dengan alasan spesifik.'
         return { resultString, rejected: false, toolExecution: { action: tool, query, result: resultString } }
       }
+      // Auto-detect login: TIDAK ada (default OFF, privasi) — resume SELALU
+      // klik manual Lanjutkan. Bila extension overlay-stop aktif, user perlu
+      // tahu cara resume-nya (dijelaskan di pesan modal browser).
       if (typeof requestUserInput === 'function') {
+        const overlayHint = tool.startsWith('browser')
+          ? '\n\nCatatan: bila extension menampilkan overlay Stop di tab, klik resume/tutup overlay-nya; lalu klik Lanjutkan di sini agar loop verifikasi ulang tab.'
+          : ''
         const userResponse = await requestUserInput({
           title: tool.startsWith('browser') ? 'Browser Paused for Input' : 'Abelink Paused for Input',
-          message: query || 'Abelink memerlukan tindakan atau informasi dari Anda sebelum melanjutkan tugas.',
+          message: (query || 'Abelink memerlukan tindakan atau informasi dari Anda sebelum melanjutkan tugas.') + overlayHint,
           placeholder: 'Tambahkan komentar atau instruksi untuk Abelink (opsional)...'
         })
         if (userResponse?.confirmed) {
           resultString = `[LAPORAN USER]: ${userResponse.comment || 'User telah menyelesaikan tindakan manual dan meminta Anda melanjutkan.'}`
+          // Verifikasi pasca-resume untuk browser: baca tab aktif agar loop
+          // lanjut berdasar state nyata (sudah login?), bukan asumsi.
+          // Gagal baca = lanjut dengan laporan user (jangan blokir).
+          // _verifying flag: cegah rekursi bila browser-read sendiri
+          // memicu jalur ini.
+          if (tool.startsWith('browser') && !ctx?._verifying) {
+            try {
+              const verify = await executeSingleTool('browser-read', '', { ...ctx, _verifying: true, loopMessages: [...(ctx?.loopMessages || [])] })
+              const vText = typeof verify === 'string' ? verify : verify?.resultString || ''
+              if (vText) resultString += `\n\n[VERIFIKASI PASCA-RESUME browser-read]:\n${String(vText).slice(0, 2000)}`
+            } catch {}
+          }
         } else {
           resultString = '[DIBATALKAN]: User membatalkan permintaan bantuan.'
         }
