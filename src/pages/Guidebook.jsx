@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useNavigate } from 'react-router-dom'
 import {
   FaArrowLeft,
@@ -1238,13 +1240,10 @@ try {
                     <input type="checkbox" defaultChecked={idx === 0} />
                     <div className="collapse-title text-lg font-bold">{faq.q}</div>
                     <div className="collapse-content text-white/70">
-                      <p
-                        dangerouslySetInnerHTML={{
-                          __html: faq.a
-                            .replace(/`(.*?)`/g, '<code>$1</code>')
-                            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                        }}
-                      />
+                      {/* Markdown aman (tanpa dangerouslySetInnerHTML): konten
+                          FAQ dirender sebagai teks + inline code/emphasis oleh
+                          react-markdown, bukan HTML mentah. */}
+                      <Markdown remarkPlugins={[remarkGfm]}>{faq.a}</Markdown>
                     </div>
                   </div>
                 ))}
