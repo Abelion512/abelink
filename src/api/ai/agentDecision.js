@@ -78,6 +78,23 @@ export function isTruncatedOutput(text = '') {
   return TRUNCATED_OUTPUT.test(String(text || ''))
 }
 
+// Blocked-challenge: a `blocked` claim with zero tool executions is untested,
+// symmetric to an unverified `done` claim (verify-gate). Challenge once per
+// run with a corrective observation; accept the repeat. Shared by main loop
+// and sub-agent executor so both route through one rule.
+// ponytail: single shared predicate, two callers. Ceiling: 1 challenge; raise
+// MAX (constant below) only with trajectory evidence of repeat give-ups.
+export const MAX_BLOCKED_CHALLENGES = 1
+
+export function shouldChallengeBlocked({ toolsExecuted = 0, challengesUsed = 0, conversational = false } = {}) {
+  return !conversational && toolsExecuted === 0 && challengesUsed < MAX_BLOCKED_CHALLENGES
+}
+
+export const BLOCKED_CHALLENGE_TEXT =
+  '[BLOCKED CHALLENGE] Klaim "blocked"-mu DITOLAK: belum ada eksekusi tool yang tercatat sesi ini, jadi belum ada bukti semua jalan buntu. ' +
+  'Analisis hambatan di "thought", pilih strategi alternatif (tool atau argumen berbeda), lalu isi "action" untuk melanjutkan. ' +
+  'Ulangi klaim blocked HANYA bila hambatannya konkret di luar jangkauan tool (izin ditolak, kredensial hilang, user harus bertindak fisik) — tulis bukti spesifiknya.'
+
 // Explicit protocol-level self-stop: completion/status marker. The ONLY signal
 // allowed to beat an emitted action (emergency brake direction: stop > act).
 export function isExplicitSelfTerminate(decision = {}) {
@@ -278,4 +295,4 @@ export function classifySubagentAnswer(decision = {}, ctx = {}) {
     : { type: 'final', reason: 'report-no-tools' }
 }
 
-export default { INTENT, classifyMainDecision, classifySubagentAnswer, isBlockedText, isQuestionText, isSelfTerminateText, isExplicitSelfTerminate }
+export default { INTENT, classifyMainDecision, classifySubagentAnswer, isBlockedText, isQuestionText, isSelfTerminateText, isExplicitSelfTerminate, shouldChallengeBlocked, BLOCKED_CHALLENGE_TEXT, MAX_BLOCKED_CHALLENGES }
