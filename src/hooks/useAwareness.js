@@ -137,8 +137,11 @@ export const useAwareness = ({
           .map((m) => ({ role: m.role, content: m.content }))
 
         // Clear buffer right away so we don't send the exact same bulk again later
+        // catch: gagal clear = unhandled rejection + kirim ganda di loop 10 mnt.
         if (window.api.clearActivityBuffer) {
-          window.api.clearActivityBuffer()
+          try {
+            await window.api.clearActivityBuffer()
+          } catch (_) {}
         }
 
         const result = await getAwarenessResponse(
