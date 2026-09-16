@@ -39,6 +39,16 @@ pub fn telegram_configure(state: State<TelegramState>, token: String) -> Result<
     Ok(serde_json::json!({ "status": "configured", "token_set": !token.is_empty() }))
 }
 
+/// Hapus token + daftar admin dari memori Rust (rotasi credential / disconnect
+/// penuh). Tanpa ini token hidup selama proses berjalan walau user "disconnect".
+#[tauri::command]
+pub fn telegram_forget(state: State<TelegramState>) -> Result<serde_json::Value, String> {
+    let mut guard = state.0.lock().map_err(|e| format!("Lock: {}", e))?;
+    guard.token = String::new();
+    guard.chat_ids.clear();
+    Ok(serde_json::json!({ "status": "forgotten" }))
+}
+
 #[tauri::command]
 pub fn telegram_send_message(
     state: State<TelegramState>,

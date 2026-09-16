@@ -276,6 +276,8 @@ export const api = {
     tgAdminIdsCache = { targets: splitTgAdminIds(config?.tgAdminIds), at: Date.now() }
     return call('sync-config', config)
   },
+  // Hapus token + admin dari memori Rust (rotasi credential / disconnect penuh).
+  tgForget: () => invoke('telegram_forget'),
   // Deteksi daftar model dari endpoint custom (GET /models via sidecar).
   detectCustomModels: (endpoint, apiKey, protocol) =>
     call('ai:list-models', endpoint || '', apiKey || '', protocol || 'auto'),
