@@ -2,6 +2,65 @@
 // YouTube search/summary, music control, TTS speak, screenshot-to-Telegram.
 import { getYoutubeSummary } from '../../../api/ai/tools'
 import { playVoice } from '../../../api/ai/utils'
+import { parseChoiceQuery, requestChoice, dropChoice } from '../../../api/choiceBus.js'
+
+// Race helper (cermin toolDispatcher agar media mandiri tanpa import silang).
+const raceWithAbort = (promise, currentSignal) => {
+  let onAbort = null
+  const abortPromise = new Promise((_, reject) => {
+    onAbort = () => reject(new Error('AbortError'))
+    if (currentSignal?.aborted) return onAbort()
+    currentSignal?.addEventListener('abort', onAbort)
+  })
+  return { race: Promise.race([promise, abortPromise]), onAbort }
+}
+
+const musicLabel = (m) => {
+  const t = typeof m === 'string' ? m : m?.title || m?.id || ''
+  const a = typeof m === 'string' ? '' : m?.artist || ''
+  return `${t}${a ? ` — ${a}` : ''}`.slice(0, 120)
+}
+
+// Tawarkan kandidat lagu via tombol inline (format ask-choice, maks 4).
+// Kembalikan item kandidat terpilih atau null (batal/abort).
+const offerMusicChoice = async (candidates, question, ctx) => {
+  const { targetSetChatData, currentSignal } = ctx || {}
+  const opts = candidates.slice(0, 4)
+  const parsed = parseChoiceQuery(`${question || 'Lagu mana yang dimaksud?'}||${opts.map(musicLabel).join(';')}`)
+  if (!parsed || typeof targetSetChatData !== 'function') return null
+  const choiceId = `choice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const choiceTimestamp = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+  targetSetChatData((prev) => [
+    ...prev.filter((item) => !item.isThinking),
+    {
+      role: 'ai',
+      content: parsed.question,
+      choice: { id: choiceId, options: parsed.options, selected: null },
+      isIntermediate: true,
+      timestamp: choiceTimestamp,
+      created_at: Date.now()
+    }
+  ])
+  let selected = null
+  const { race, onAbort } = raceWithAbort(requestChoice(choiceId), currentSignal)
+  try {
+    selected = await race
+  } catch (e) {
+    selected = null
+  } finally {
+    if (onAbort) currentSignal?.removeEventListener('abort', onAbort)
+    dropChoice(choiceId)
+  }
+  if (selected == null) return null
+  const idx = parsed.options.indexOf(selected)
+  targetSetChatData((prev) => [
+    ...prev
+      .filter((item) => !item.isThinking)
+      .map((m) => (m.choice?.id === choiceId ? { ...m, choice: { ...m.choice, selected } } : m)),
+    { role: 'user', content: selected, timestamp: choiceTimestamp, created_at: Date.now() }
+  ])
+  return opts[idx >= 0 ? idx : 0] ?? null
+}
 
 /**
  * @returns {string|undefined} resultString bila tool milik domain ini.
@@ -31,7 +90,15 @@ export const runMediaTool = async (tool, query, ctx) => {
   }
   // 3. Music Control
   if (tool.startsWith('music')) {
-    return await handleMusic(tool, query, targetSetChatData)
+    const out = await handleMusic(tool, query, targetSetChatData)
+    // Kandidat ambigu -> tawarkan tombol inline (ask-choice), bukan autoplay buta.
+    // Kontrak: handleMusic kembalikan { candidates } bila tak yakin.
+    if (out && typeof out === 'object' && Array.isArray(out.candidates) && out.candidates.length > 0) {
+      const picked = await offerMusicChoice(out.candidates, out.question, ctx)
+      if (!picked) return '[DIBATALKAN] User tidak memilih lagu. Minta query lebih spesifik bila masih dibutuhkan.'
+      return await handleMusic('music-play', picked.id || picked.url || picked.title, targetSetChatData)
+    }
+    return out
   }
   // 5. Speak (TTS)
   if (tool === 'speak') {

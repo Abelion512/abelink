@@ -88,7 +88,7 @@ export function estimateEffort(text = '') {
 
 // AUTO resolver: estimasi awal melewati AUTO_SCALE, lalu ResolvedEffort.
 export function resolveEffortLevel(conf, taskText = '') {
-  const configured = conf?.effortLevel || 'low'
+  const configured = conf?.effortLevel || 'medium'
   if (configured !== 'auto') {
     return { effort: configured, auto: false, transparent: `effort=${configured} (dipilih user)` }
   }

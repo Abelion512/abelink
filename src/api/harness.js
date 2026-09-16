@@ -19,6 +19,7 @@ export const logToolCall = (data) => append('tool-calls', data)
 // Isi observasi & jawaban (cap jujur — sink Rust menolak >256K/baris).
 export const logObservation = (data) => append('observations', data)
 export const logAnswer = (data) => append('answers', data)
+export const logTurnEnd = (data) => append('turn-end', data)
 
 // ---- AbelinkBench instrumentation (Phase 2A) ----
 // Benchmark events share the same JSONL pipeline (selalu aktif, lokal).

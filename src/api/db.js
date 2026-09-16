@@ -296,7 +296,27 @@ export async function insertMemory(data) {
 
 export async function saveMainThread(data) {
   try {
-    await db.sessions.put({ id: 1, title: 'Main Thread', data: data, timestamp: Date.now() })
+    // Strip base64 image_url -> placeholder agar IndexedDB tidak bloat
+    // (screenshot 1080p ~1-2MB × N turn). Gambar hidup di memori sesi saja.
+    const slim = Array.isArray(data)
+      ? data.map((m) => {
+          if (!m || typeof m !== 'object') return m
+          const c = m.content
+          if (typeof c === 'string' && c.startsWith('data:image/')) {
+            return { ...m, content: '[Gambar: dilampirkan saat sesi, tidak dipersist]' }
+          }
+          if (Array.isArray(c)) {
+            const slimC = c.map((p) =>
+              p && typeof p === 'object' && typeof p.image_url?.url === 'string' && p.image_url.url.startsWith('data:')
+                ? { ...p, image_url: { url: '[Gambar: tidak dipersist]' } }
+                : p
+            )
+            return { ...m, content: slimC }
+          }
+          return m
+        })
+      : data
+    await db.sessions.put({ id: 1, title: 'Main Thread', data: slim, timestamp: Date.now() })
   } catch (error) {
     console.error('Error saving main thread:', error)
   }

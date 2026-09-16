@@ -307,6 +307,8 @@ export const runAgentTool = async (tool, query, ctx) => {
     }
   }
   if (tool === 'delegate_coding') {
+    // STREAM D: hanya opencode/hermes yang didukung (cermin core-tools.js).
+    const PREFERRED_CODING_AGENTS = ['opencode', 'hermes']
     const { detectInstalledAgents, buildCodingCommand } = await import(
       '../../../api/ai/codingAgentBridge.js'
     )
@@ -326,7 +328,7 @@ export const runAgentTool = async (tool, query, ctx) => {
     if (availableAgents.length === 0) {
       return {
         success: false,
-        error: 'Tidak ditemukan CLI coding agent yang terpasang di sistem (Claude Code, Hermes, Codex, OpenCode). Mohon pasang minimal satu CLI agent terlebih dahulu.'
+        error: `Tidak ditemukan CLI coding agent yang terpasang di sistem (${(PREFERRED_CODING_AGENTS || ['opencode', 'hermes']).join(', ')}). Mohon pasang minimal satu CLI agent terlebih dahulu.`
       }
     }
 

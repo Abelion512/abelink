@@ -8,7 +8,7 @@ describe('delegate_coding integration', () => {
   beforeEach(() => {
     mockExecuteNativeTool = vi.fn().mockImplementation(async (tool, query) => {
       if (tool === 'run-bash' && query?.startsWith('which')) {
-        return '/usr/bin/claude'
+        return '/usr/bin/opencode'
       }
       return { success: true }
     })
@@ -22,12 +22,13 @@ describe('delegate_coding integration', () => {
 
   it('terdaftar di core_tools dengan deskripsi lengkap', () => {
     expect(core_tools['delegate_coding']).toBeTruthy()
-    expect(core_tools['delegate_coding']).toContain('Claude Code')
+    expect(core_tools['delegate_coding']).toContain('opencode')
+    expect(core_tools['delegate_coding']).toContain('hermes')
     expect(core_tools['delegate_coding']).toContain('auto/...')
   })
 
   it('menolak query jika instruksi kosong', async () => {
-    const res = await runAgentTool('delegate_coding', 'claude||', {})
+    const res = await runAgentTool('delegate_coding', 'opencode||', {})
     expect(res).toBeDefined()
     expect(res.success).toBe(false)
     expect(res.error).toContain('Instruksi tugas coding tidak boleh kosong')
@@ -35,7 +36,7 @@ describe('delegate_coding integration', () => {
 
   it('menolak query jika tidak ada agent terpasang', async () => {
     globalThis.window.api.executeNativeTool = vi.fn().mockResolvedValue('')
-    const res = await runAgentTool('delegate_coding', 'claude||Refactor X||auto/test', {})
+    const res = await runAgentTool('delegate_coding', 'opencode||Refactor X||auto/test', {})
     expect(res).toBeDefined()
     expect(res.success).toBe(false)
     expect(res.error).toContain('Tidak ditemukan CLI coding agent')
@@ -48,7 +49,7 @@ describe('delegate_coding integration', () => {
       workspaceRoot: '/mock/workspace'
     }
 
-    const res = await runAgentTool('delegate_coding', 'claude||Refactor feature X||auto/refactor', ctx)
+    const res = await runAgentTool('delegate_coding', 'opencode||Refactor feature X||auto/refactor', ctx)
     expect(res).toBeDefined()
     expect(mockRequestApproval).toHaveBeenCalled()
     expect(res.success).toBe(false)
@@ -62,7 +63,7 @@ describe('delegate_coding integration', () => {
       workspaceRoot: '/mock/workspace'
     }
 
-    const res = await runAgentTool('delegate_coding', 'claude||Perbaiki bug ABC||auto/fix-abc', ctx)
+    const res = await runAgentTool('delegate_coding', 'opencode||Perbaiki bug ABC||auto/fix-abc', ctx)
     expect(res).toBeDefined()
     expect(mockRequestApproval).toHaveBeenCalled()
     expect(mockExecuteNativeTool).toHaveBeenCalledWith('run-task', expect.stringContaining('auto/fix-abc'))
