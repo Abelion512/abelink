@@ -7,28 +7,13 @@ import crypto from 'crypto'
 
 // Server RPC hanya membaca ANGKA mode (inner[79]): 1=Flash, 2=Thinking,
 // 3=Pro, 4=Auto, 5=Thinking-lite, 6=Flash-lite. Nama model = label lokal.
-// ponytail: pola mode, bukan entri per versi (semua Flash = mode 1,
-// nama baru otomatis ikut tanpa update map).
-const MODES = {
-  flash: { mode: 1, think: 4 },
-  thinking: { mode: 2, think: 0 },
-  pro: { mode: 3, think: 4 },
-  auto: { mode: 4, think: 4 },
-  'thinking-lite': { mode: 5, think: 0 },
-  'flash-lite': { mode: 6, think: 4 }
-}
-const modeEntry = (kind, name, desc) => ({ ...MODES[kind], name, desc })
+// ponytail: satu rantai kata kunci, tanpa map per versi (nama baru otomatis
+// mode Flash; yang tak dikenal pun = mode 1).
+const modeEntry = (mode, think, name) => ({ mode, think, name, desc: '' })
 
-export const GEMINI_WEB_MODELS = {
-  'gemini-latest': modeEntry('flash', 'gemini-latest', 'Flash terbaru (alias, dimajukan tiap rilis)'),
-  'gemini-3.6-flash': modeEntry('flash', 'gemini-3.6-flash', 'Pin lama (backward-compat; setara latest)'),
-  'gemini-3.5-flash': modeEntry('flash', 'gemini-3.5-flash', 'Flash seimbang dan stabil'),
-  'gemini-3.5-flash-thinking': modeEntry('thinking', 'gemini-3.5-flash-thinking', 'Penalaran mendalam'),
-  'gemini-3.5-flash-thinking-lite': modeEntry('thinking-lite', 'gemini-3.5-flash-thinking-lite', 'Penalaran cepat'),
-  'gemini-auto': modeEntry('auto', 'gemini-auto', 'Otomatis server'),
-  'gemini-3.1-pro': modeEntry('pro', 'gemini-3.1-pro', 'PRO (berbayar; gratis di-route ke Flash)'),
-  'gemini-flash-lite': modeEntry('flash-lite', 'gemini-flash-lite', 'Super ringan, respon instan')
-}
+// ponytail: map per-model dihapus — resolver kata kunci di bawah satu-satunya
+// sumber kebenaran. Nama export dipertahankan untuk kompatibilitas (`{}`).
+export const GEMINI_WEB_MODELS = {}
 
 const DEFAULT_BL = 'boq_assistant-bard-web-server_20260730.01_p1'
 
@@ -69,18 +54,14 @@ export const __geminiWebTest = {
 }
 
 export function resolveGeminiWebModel(modelName) {
-  // Auto-latest: pola kata kunci -> mode (lihat MODES). Nama tak dikenal
-  // (mis. gemini-3.9-flash) langsung mode Flash tanpa perlu entri baru —
-  // urutan if-else = prioritas pola; ponytail: 1 rantai, bukan map+rantai.
-  const reqModel = (modelName || 'gemini-latest').toLowerCase()
-  const direct = GEMINI_WEB_MODELS[reqModel]
-  if (direct) return direct
-  if (reqModel.includes('thinking-lite')) return modeEntry('thinking-lite', reqModel, '')
-  if (reqModel.includes('think')) return modeEntry('thinking', reqModel, '')
-  if (reqModel.includes('auto')) return modeEntry('auto', reqModel, '')
-  if (reqModel.includes('lite') || reqModel.includes('fast')) return modeEntry('flash-lite', reqModel, '')
-  if (reqModel.includes('pro')) return modeEntry('pro', reqModel, '')
-  return modeEntry('flash', reqModel, '')
+  // Kata kunci -> mode 1-6, tak dikenal -> mode 1 (flash).
+  const req = String(modelName || 'gemini-latest').toLowerCase()
+  if (req.includes('thinking-lite')) return modeEntry(5, 0, req)
+  if (req.includes('think')) return modeEntry(2, 0, req)
+  if (req.includes('auto')) return modeEntry(4, 4, req)
+  if (req.includes('lite') || req.includes('fast')) return modeEntry(6, 4, req)
+  if (req.includes('pro')) return modeEntry(3, 4, req)
+  return modeEntry(1, 4, req)
 }
 
 function httpPost(urlStr, headers, bodyData, timeoutMs = 120000) {
@@ -121,7 +102,7 @@ function findRc(arr) {
 
 export async function generateGeminiResponse(
   prompt,
-  modelName = 'gemini-3.6-flash',
+  modelName = 'gemini-latest',
   cookie = '',
   bl = DEFAULT_BL
 ) {

@@ -192,24 +192,9 @@ export default function ModelSection({
         <div className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-sm font-semibold">Model</label>
-            <input
-              type="text"
-              list="gemini-web-model-options"
-              placeholder="gemini-latest"
-              title="Nama bebas — server RPC hanya membaca angka mode (Flash=1, Thinking=2, Pro=3, Auto=4). Nama baru (mis. gemini-3.9-flash) otomatis dipetakan ke mode Flash."
-              className="input input-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
-              value={config.geminiWebModel || 'gemini-latest'}
-              onChange={(e) =>
-                setConfig((prev) => ({ ...prev, geminiWebModel: e.target.value }))
-              }
-            />
-            <datalist id="gemini-web-model-options">
-              <option value="gemini-latest" />
-              <option value="gemini-auto" />
-              <option value="gemini-3.5-flash-thinking" />
-              <option value="gemini-3.5-flash-thinking-lite" />
-              <option value="gemini-flash-lite" />
-            </datalist>
+            <p className="text-xs text-white/60 rounded-xl bg-base-100/60 border border-white/10 px-3 py-2.5">
+              Gemini Web — selalu Flash terbaru (mode 1)
+            </p>
           </div>
         </div>
       ) : config.aiProvider === 'custom' ? (
@@ -350,29 +335,6 @@ export default function ModelSection({
                     {recent.filter((m) => !customModels.includes(m)).map((m) => (
                       <option key={`recent-${m}`} value={m} />
                     ))}
-                    <option value="deepseek-v3.2" />
-                    <option value="deepseek-r1-0528" />
-                    <option value="qwen3.8-max" />
-                    <option value="qwen3.5-plus" />
-                    <option value="glm-5.3" />
-                    <option value="glm-5.3-flash" />
-                    <option value="kimi-k3" />
-                    <option value="claude-opus-4.8" />
-                    <option value="claude-sonnet-4.6" />
-                    <option value="gpt-5.6-sol" />
-                    <option value="gpt-6-astra" />
-                    <option value="nemotron-3-ultra" />
-                    <option value="nemotron-3.5-lightning" />
-                    <option value="deepseek-r1-0528" />
-                    <option value="glm-5.3" />
-                    <option value="glm-5.3-flash" />
-                    <option value="kimi-k3" />
-                    <option value="claude-opus-4.8" />
-                    <option value="claude-sonnet-4.6" />
-                    <option value="gpt-5.6-sol" />
-                    <option value="gpt-6-astra" />
-                    <option value="nemotron-3-ultra" />
-                    <option value="nemotron-3.5-lightning" />
                   </datalist>
                   {(customModels.length > 0 || recent.length > 0) && cur && !known && (
                     <p className="text-xs text-warning mt-1">
@@ -470,27 +432,45 @@ export default function ModelSection({
           <input
             type="text"
             list="lmstudio-model-options"
-            placeholder="Contoh: google/gemma-3-4b, glm-5.3, deepseek-v3.2, kimi-k3"
+            placeholder="Ketik nama model lokal, atau Deteksi Ulang"
             className="input input-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs"
             value={config.model || ''}
             onChange={(e) => setConfig((prev) => ({ ...prev, model: e.target.value }))}
           />
+          {(() => {
+            const recent = readRecentModels(LM_STUDIO_ENDPOINT)
+            if (recent.length === 0) return null
+            return (
+              <>
+                <p className="text-xs text-success">
+                  {recent.length} model pernah sukses di endpoint ini — klik untuk pakai ulang
+                </p>
+                <select
+                  className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) setConfig((prev) => ({ ...prev, model: e.target.value }))
+                  }}
+                >
+                  <option value="">-- Pilih dari riwayat sukses --</option>
+                  {recent.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )
+          })()}
           <datalist id="lmstudio-model-options">
             {lmStudioModels.map((m) => (
               <option key={m} value={m} />
             ))}
-            <option value="deepseek-v3.2" />
-            <option value="deepseek-r1-0528" />
-            <option value="qwen3.8-max" />
-            <option value="glm-5.3" />
-            <option value="glm-5.3-flash" />
-            <option value="kimi-k3" />
-            <option value="claude-opus-4.8" />
-            <option value="claude-sonnet-4.6" />
-            <option value="gpt-5.6-sol" />
-            <option value="gpt-6-astra" />
-            <option value="nemotron-3-ultra" />
-            <option value="nemotron-3.5-lightning" />
+            {readRecentModels(LM_STUDIO_ENDPOINT)
+              .filter((m) => !lmStudioModels.includes(m))
+              .map((m) => (
+                <option key={`recent-${m}`} value={m} />
+              ))}
           </datalist>
         </div>
       )}

@@ -6,6 +6,9 @@
 // 3. Codex CLI (/home/abelion/.nvm/versions/node/v24.18.0/bin/codex)
 // 4. OpenCode (/home/abelion/.opencode/bin/opencode)
 
+// Sumber tunggal daftar agen coding yang didukung (STREAM D: hanya opencode/hermes).
+export const PREFERRED_CODING_AGENTS = ['opencode', 'hermes']
+
 export const AGENT_CANDIDATES = [
   {
     id: 'claude',
@@ -87,6 +90,7 @@ export async function detectInstalledAgents(options = {}) {
 
   const available = []
   for (const candidate of AGENT_CANDIDATES) {
+    if (!PREFERRED_CODING_AGENTS.includes(candidate.id)) continue
     for (const bin of candidate.binaries) {
       const exists = await checkExists(bin)
       if (exists) {
@@ -112,8 +116,8 @@ export async function detectInstalledAgents(options = {}) {
  * @param {string} [params.branch] - Nama branch sandbox (misal 'auto/fix-xxx')
  * @returns {{ command: string, agent: Object }}
  */
-export function buildCodingCommand({ agentId = 'claude', prompt, workdir, branch }) {
-  const candidate = AGENT_CANDIDATES.find((a) => a.id === agentId) || AGENT_CANDIDATES[0]
+export function buildCodingCommand({ agentId = 'opencode', prompt, workdir, branch }) {
+  const candidate = AGENT_CANDIDATES.find((a) => a.id === agentId) || AGENT_CANDIDATES.find((a) => a.id === PREFERRED_CODING_AGENTS[0])
   const bin = candidate.binaries[0]
   
   let branchSetup = ''
