@@ -74,6 +74,7 @@ pnpm-debug.log*
 bun-debug.log*
 /reports/log-*.txt
 /reports/*.log
+/reports/*.json
 /reports/runs/
 /reports/tmp-*
 /evaluation/runs/
