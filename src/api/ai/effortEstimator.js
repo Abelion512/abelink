@@ -73,9 +73,10 @@ export function estimateEffort(text = '') {
     if (lenScore > 0) reasons.push('prompt panjang')
   }
 
-  // Threshold: >=3 high, >=1.5 medium, else low
+  // Threshold: >=5 xhigh, >=3 high, >=1.5 medium, else low
   let effort = 'low'
-  if (score >= 3) effort = 'high'
+  if (score >= 5) effort = 'xhigh'
+  else if (score >= 3) effort = 'high'
   else if (score >= 1.5) effort = 'medium'
 
   return {
@@ -92,7 +93,7 @@ export function resolveEffortLevel(conf, taskText = '') {
   if (configured !== 'auto') {
     return { effort: configured, auto: false, transparent: `effort=${configured} (dipilih user)` }
   }
-  // Tentukan level awal dari heuristik; AUTO_SCALE memetakan ke MEDIUM/HIGH.
+  // Tentukan level awal dari heuristik; AUTO_SCALE memetakan ke MEDIUM..XHIGH.
   const est = estimateEffort(taskText)
   let suggested = est.effort
   if (suggested === 'low') suggested = 'medium'
