@@ -9,7 +9,19 @@ const getTracker = lazy(() => import('../../main/awareness/window-tracker.js'))
 
 // ------------------------------------------------------- Plugins (fase B: tanpa Electron)
 // Loader lama memakai ipcMain.handle — di Tauri channel-nya didaftarkan langsung di sini.
-on('plugin:execute', async (action, query) => (await getPl()).pluginExecute(action, query))
+// plugin:execute = alias legacy ke rute terpadu capabilities (manager:
+// policy + audit). Format action `<plugin>:<aksi>` atau bare `<aksi>`;
+// argumen string legacy dibungkus {query} oleh manager.
+on('plugin:execute', async (action, query) => {
+  try {
+    const { executeCapability } = await import('../../main/capabilities/manager.mjs')
+    const args = typeof query === 'string' ? { query } : query && typeof query === 'object' ? query : {}
+    const data = await executeCapability({ connectorId: 'plugin', actionId: String(action || ''), args })
+    return { success: true, data }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
 on('plugin:open-folder', async () => (await getPl()).pluginOpenFolder())
 on('plugin:open-specific-folder', async (targetPath) => (await getPl()).pluginOpenSpecificFolder(targetPath))
 on('plugin:toggle', async (pluginName, isEnabled) => (await getPl()).pluginToggle(pluginName, isEnabled))

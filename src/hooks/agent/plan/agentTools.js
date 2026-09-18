@@ -9,6 +9,7 @@ import { loadGroupToolsText } from '../../../api/tools/group-tools.js'
 import { getLearnedSkill } from '../../../api/db.js'
 import { NATIVE_SKILLS } from '../../../components/core/native-skills.js'
 import { isTruncatedOutput } from '../../../api/ai/agentDecision.js'
+import { waitWithTimeout } from './waitHelper.js'
 
 // Kelengkapan satu agen sub-agent untuk gerbang wait_subagents (RI-11/12/13):
 // laporan yang dibangun di atas output terpotong tidak boleh diam-diam
@@ -154,16 +155,8 @@ export const runAgentTool = async (tool, query, ctx) => {
         data: `Tidak ada sub-agent yang sedang berjalan.\nRiwayat sub-agent:\n${summary || 'Kosong'}`
       }
     }
-    const startTime = Date.now()
     let finalAgents = []
-
-    while (Date.now() - startTime < maxWaitSeconds * 1000) {
-      // Pakai signal sesi lokal (bukan abortControllerRef milik sesi 1) agar
-      // sesi lain tidak ikut terpengaruh; fallback aman bila signal tak tersedia.
-      if (currentSignal?.aborted ?? false) break
-      const agents = await Promise.all(targetIds.map((id) => subagentStore.getSubagent(id)))
-      finalAgents = agents.filter(Boolean)
-
+    const tick = () => {
       // Update status thinking secara live agar pengguna tahu sub-agent sedang bekerja
       targetSetChatData((prev) => {
         const filtered = prev.filter((item) => !item.isThinking)
@@ -176,21 +169,24 @@ export const runAgentTool = async (tool, query, ctx) => {
           }
         ]
       })
-
-      // Early-Fail Interrupt: Jika ada subagent yang gagal/error, langsung keluar dari loop tanpa menunggu yang lain
-      const hasFailed = finalAgents.some(
-        (a) => a.status === 'failed' || a.status === 'killed'
-      )
-      if (hasFailed) {
-        break
-      }
-
-      const stillRunning = finalAgents.some((a) => a.status === 'running')
-      if (!stillRunning) {
-        break
-      }
-      await new Promise((r) => setTimeout(r, 1500))
     }
+    const res = await waitWithTimeout({
+      timeoutMs: maxWaitSeconds * 1000,
+      intervalMs: 1500,
+      signal: currentSignal,
+      onTick: tick,
+      check: async () => {
+        const agents = await Promise.all(targetIds.map((id) => subagentStore.getSubagent(id)))
+        finalAgents = agents.filter(Boolean)
+        const hasFailed = finalAgents.some(
+          (a) => a.status === 'failed' || a.status === 'killed'
+        )
+        if (hasFailed) return { done: false, failed: true, value: finalAgents }
+        const stillRunning = finalAgents.some((a) => a.status === 'running')
+        return { done: !stillRunning, value: finalAgents }
+      }
+    })
+    finalAgents = res.value ?? finalAgents
 
     return buildWaitReport(finalAgents)
   }
