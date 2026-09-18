@@ -364,8 +364,7 @@ describe('isolasi token prod/dev', () => {
     expect(flavorFromPort(undefined)).toBe('prod')
   })
 
-  it('writer==reader prod+dev: file terpisah, token terpisah', async () => {
-    const fs = await import('node:fs')
+    it('writer==reader prod+dev: file terpisah, token terpisah', async () => {    const fs = await import('node:fs')
     const os = await import('node:os')
     const path = await import('node:path')
     const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-flav-xdg-'))
@@ -381,6 +380,41 @@ describe('isolasi token prod/dev', () => {
       expect(readTokenRecord(path.join(xdg, 'abelink-dev'), 'dev', envDev).token).toBe(wDev.token)
       expect(readTokenRecord(path.join(xdg, 'abelink'), 'prod', envDev).token).toBe(wProd.token)
     } finally {
+      fs.rmSync(xdg, { recursive: true, force: true })
+      dropSession('default')
+    }
+  })
+
+  it('reseed: drop+ensure default memakai token file lagi (bukan acak)', async () => {
+    const fs = await import('node:fs')
+    const os = await import('node:os')
+    const path = await import('node:path')
+    // Simulasi file token dev via XDG temp: tokenPathFor dev tanpa override
+    // -> <xdg>/abelink-dev/browser-bridge-token.
+    const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-reseed-'))
+    const savedXdg = process.env.XDG_DATA_HOME
+    const savedOver = process.env.ABELINK_DATA_HOME
+    const savedPort = process.env.ABELINK_BRIDGE_PORT
+    try {
+      process.env.XDG_DATA_HOME = xdg
+      delete process.env.ABELINK_DATA_HOME
+      // BROWSER_BRIDGE.PORT dibaca saat import (default 49712=prod); reseed
+      // memakai flavor dari port itu. Di sini cukup verifikasi prod path:
+      // tulis file prod, drop+ensure, token harus sama dengan file.
+      const w = writeTokenFile(path.join(xdg, 'abelink'), 'prod', { XDG_DATA_HOME: xdg })
+      dropSession('default')
+      const s = ensureSession('default')
+      // NOTE: reseed hanya untuk flavor port aktif (prod di test env).
+      // Token sesi harus sama dengan file (bukan acak baru).
+      expect(s.token).toBe(w.token)
+      expect(tokenOk(s, w.token)).toBe(true)
+    } finally {
+      if (savedXdg === undefined) delete process.env.XDG_DATA_HOME
+      else process.env.XDG_DATA_HOME = savedXdg
+      if (savedOver === undefined) delete process.env.ABELINK_DATA_HOME
+      else process.env.ABELINK_DATA_HOME = savedOver
+      if (savedPort === undefined) delete process.env.ABELINK_BRIDGE_PORT
+      else process.env.ABELINK_BRIDGE_PORT = savedPort
       fs.rmSync(xdg, { recursive: true, force: true })
       dropSession('default')
     }

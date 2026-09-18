@@ -170,6 +170,25 @@ export function ensureSession(sessionId = 'default') {
       groups: {} // browser-use: { [task]: { status, color, lastUpdate } }
     }
     sessions.set(sessionId, s)
+    // Reseed dari file token: sesi yang di-drop lalu dibuat ulang (sweep,
+    // browser:close) WAJIB memakai token file lagi — token acak baru membuat
+    // extension yang pegang token file benar ditolak 401 selamanya sampai
+    // klik manual. Best-effort: gagal baca -> acak. (Sesi 'default' saja
+    // yang punya file token.) Tanpa import baru: path via tokenPathFor.
+    if (sessionId === 'default') {
+      try {
+        const flavor = flavorFromPort(BROWSER_BRIDGE.PORT)
+        const rec = readTokenRecord(undefined, flavor)
+        if (rec?.token) {
+          s.token = rec.token
+          s.tokenCreatedAt = rec.createdAt
+          s.prevToken = rec.prevToken
+          s.prevExpiresAt = rec.prevExpiresAt
+        }
+      } catch {
+        /* file belum ada — token acak tetap dipakai */
+      }
+    }
   }
   return s
 }
