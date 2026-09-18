@@ -7,7 +7,7 @@ export const GROUP_TOOLS_DEFINITION = {
         'Buka URL di browser fisik. Query: URL lengkap. Mengembalikan daftar elemen interaktif bernomor (ID).',
       'browser-read': 'Scan ulang elemen halaman saat ini. Gunakan setelah menunggu loading.',
       'browser-click':
-        'Klik elemen. Query: ID (ak1, ak2, ...). WAJIB read-dom/browser-navigate di SESI YANG SAMA dulu; ID dari turn/sesi lain = basi, JANGAN diklik. Mengembalikan DOM terbaru setelah klik.',
+        'Klik elemen. Query: ID (ak1, ak2, ...) atau ID||teks-yang-diharapkan (mis. ak5||Chat) — format jangkar WAJIB bila halaman bisa bergeser (klik dibatalkan bila teks tidak cocok, bukan klik buta). WAJIB read-dom/browser-navigate di SESI YANG SAMA dulu; ID dari turn/sesi lain = basi, JANGAN diklik. Mengembalikan DOM terbaru setelah klik.',
       'browser-type':
         'Ketik teks di kolom input. Query: ID||teks. WAJIB read-dom di SESI YANG SAMA dulu; ID basi JANGAN dipakai.',
       'browser-scroll': 'Scroll halaman. Query: "up" atau "down".',
@@ -38,7 +38,7 @@ export const GROUP_TOOLS_DEFINITION = {
       'os-read':
         'Membaca elemen GUI desktop. Query: Kosongkan untuk scan seluruh layar (LAMBAT, 1-3 detik), atau isi dengan kata "focus" untuk HANYA membaca 1 elemen yang saat ini sedang aktif/tersorot (INSTAN, 1 ms). Gunakan query "focus" setelah kamu menekan tombol TAB/Panah untuk memverifikasi posisimu dengan cepat!',
       'os-click':
-        'Klik mouse pada elemen GUI desktop. Query: ID elemen dari os-read atau x||y koordinat absolut.',
+        'Klik mouse pada elemen GUI desktop. Query: ID elemen dari os-read atau x||y koordinat absolut, plus jangkar opsional: ID||teks-yang-diharapkan (mis. 7||Login) atau x||y||teks. Format jangkar WAJIB bila layar bisa bergeser (posisi dibaca ulang + teks dicocokkan; klik dibatalkan bila tidak cocok, bukan klik buta).',
       'os-type':
         'Ketik teks ke elemen input di aplikasi desktop. Query: ID||teks atau teks langsung. PENTING: DILARANG KERAS MENGETIKKAN EMOJI! DILARANG KERAS menggunakan format markdown link seperti [teks](url) saat mengetik URL! Ketik raw teks saja.',
       'os-key':
