@@ -87,6 +87,25 @@ export const getNextAction = async (
       description: s.description
     }))
 
+    // Registry kapabilitas terpadu (Tahap 3): plugin + connector one-liners
+    // dari sidecar via capabilities:registry; gagal = blok dilewati diam-diam.
+    let registryPluginLines = []
+    let registryConnectorLines = []
+    try {
+      const registry =
+        typeof window !== 'undefined' && window.api?.listCapabilityRegistry
+          ? await window.api.listCapabilityRegistry()
+          : []
+      const items = Array.isArray(registry) ? registry : []
+      for (const d of items) {
+        if (!d || typeof d.id !== 'string') continue
+        if (d.kind === 'plugin') registryPluginLines.push(`- ${d.id} — ${d.description ?? ''}`)
+        else if (d.kind === 'connector') registryConnectorLines.push(`- ${d.id} — ${d.description ?? ''}`)
+      }
+    } catch {
+      // Registry opsional: gagal dimuat = blok plugin/connector dilewati.
+    }
+
     const targetWorkspace = options.workspaceRoot || conf.workspaceRoot || null
     let workspaceRagSection = ''
     if (targetWorkspace) {
@@ -116,6 +135,7 @@ ${getBuiltinPluginsPrompt(conf)}
 ${options.currentMusicTrack ? `\n# STATUS PLAYER MUSIK (REAL-TIME):\nLagu yang AKTIF DIPUTAR SEKARANG: "${options.currentMusicTrack.title}" oleh ${options.currentMusicTrack.artist}.\nPENTING: Lagu di playlist bisa berganti otomatis. JANGAN TERKECUH oleh riwayat chat lama yang menyebutkan lagu sebelumnya! Untuk semua pertanyaan atau obrolan tentang musik yang sedang berjalan, HANYA gunakan data REAL-TIME ini sebagai referensi utama!` : ''}
 ${
   userSkillsList.length > 0 || learnedSkillsList.length > 0
+    || registryPluginLines.length > 0 || registryConnectorLines.length > 0
     ? `\n# ABELINK SKILLS & CAPABILITY REGISTRY (PRIORITAS TERTINGGI #1)
 ${
   userSkillsList.length > 0
@@ -129,6 +149,16 @@ ${
     ? `\n## 2. INTERNAL LEARNED SKILLS (KEAHLIAN HASIL BELAJAR INTERNAL ABELINK)
 Berikut adalah prosedur teruji yang pernah berhasil kamu pelajari dari pengalaman sebelumnya:
 ${learnedSkillsList.map((s) => `- ${s.name}: ${s.description}`).join('\n')}`
+    : ''
+}
+${
+  registryPluginLines.length > 0
+    ? `\n## 3. PLUGINS (detail via read-tools/plugin-execute)\n${registryPluginLines.join('\n')}`
+    : ''
+}
+${
+  registryConnectorLines.length > 0
+    ? `\n## 4. CONNECTORS (detail via connector-guide, eksekusi via connector-run)\n${registryConnectorLines.join('\n')}`
     : ''
 }
 

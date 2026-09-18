@@ -245,7 +245,13 @@ describe('MCP transport (Streamable HTTP, server tiruan lokal)', () => {
     const a = await authorizeConnector('ctx7', [])
     expect(a.transport).toBe('mcp')
     expect(a.tools.map((t) => t.name)).toEqual(['lookup'])
-    expect((await listConnections()).ctx7.url).toBe(baseUrl)
+    // Tahap 4: listConnections disanitasi — tanpa url mentah/headers, hanya
+    // hostname + jumlah tool + transport.
+    const sanitized = await listConnections()
+    expect(sanitized.ctx7.urlHost).toBe('127.0.0.1')
+    expect(sanitized.ctx7.toolCount).toBe(1)
+    expect('headers' in sanitized.ctx7).toBe(false)
+    expect(JSON.stringify(sanitized.ctx7)).not.toMatch(/s3cr3t/)
     expect(seenAuth.value).toBe('s3cr3t')
     const out = await executeCapability({ connectorId: 'ctx7', actionId: 'lookup', args: { q: 'halo' } })
     expect(out).toContain('hasil:halo')

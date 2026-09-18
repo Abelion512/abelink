@@ -320,6 +320,25 @@ on('skills:open-folder', async () => {
   })
 })
 
+// Proyeksi meta skill untuk registry terpadu (aditif; handler tidak diubah).
+// Memakai ulang logika daftar yang sama dengan handler get-all.
+export const listSkillsMeta = async () => {
+  await fs.promises.mkdir(SKILLS_DIR, { recursive: true })
+  const entries = await fs.promises.readdir(SKILLS_DIR, { withFileTypes: true })
+  const skills = []
+  for (const e of entries) {
+    if (e.name.startsWith('.')) continue
+    const full = path.join(SKILLS_DIR, e.name)
+    if (e.isDirectory()) {
+      skills.push({ name: e.name, description: await readDescription(full) })
+    } else if (e.name.endsWith('.md')) {
+      const content = await fs.promises.readFile(full, 'utf8')
+      skills.push({ name: e.name.replace(/\.md$/, ''), description: content.split('\n')[0] || '' })
+    }
+  }
+  return skills
+}
+
 // Proyeksi skill ke CapabilityDescriptor terpadu (aditif; handler tidak diubah).
 // Skills tidak punya argumen (isi dimuat via read-skill) dan tidak punya toggle.
 export const skillToDescriptor = (input) => {

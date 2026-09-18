@@ -11,7 +11,14 @@
 //   (approvalMessage) diteruskan ke atas; dialog rfd di Rust main thread yang
 //   menampilkan dan memutuskan — tidak ada blok diam-diam.
 
-import { NATIVE_TOOLS } from '../node-tools.js'
+// Import node-tools LAZY (dinamis, bukan statis): rantai node-tools ->
+// googleapis butuh ~2 detik saat import, yang membuat listRegistry()/
+// capabilities:list melebihi timeout test. Semua pemakaian NATIVE_TOOLS
+// di bawah lewat getRunShell() yang mengimpor saat dibutuhkan saja.
+async function getRunShell() {
+  const { NATIVE_TOOLS } = await import('../node-tools.js')
+  return NATIVE_TOOLS['run-shell']
+}
 
 // Test hook: override perilaku isDangerousCommand untuk keperluan pengujian
 // (null = pakai perilaku asli). Import node-tools tetap jalan normal; hanya
@@ -26,7 +33,7 @@ export async function runShellTool(actionId, args, ctx) {
   const command = String(args?.command || '').trim()
   if (!command) throw new Error('Parameter command wajib diisi.')
 
-  const tool = NATIVE_TOOLS['run-shell']
+  const tool = await getRunShell()
   if (!tool) throw new Error('Tool run-shell tidak tersedia.')
 
   const needsApproval =

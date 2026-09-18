@@ -246,6 +246,10 @@ export const api = {
   revokeCapability: (connectorId) => call('capabilities:revoke', connectorId),
   readCapabilityAudit: (limit, offset) => call('capabilities:audit', limit, offset),
   registerCustomConnectors: (list) => call('capabilities:register-custom', list || []),
+  listCapabilityRegistry: () => call('capabilities:registry'),
+  installCapabilityBundle: (bundle) => call('capabilities:bundle-install', bundle || {}),
+  listCapabilityBundles: () => call('capabilities:bundle-list'),
+  removeCapabilityBundle: (id) => call('capabilities:bundle-remove', id),
   getSystemInfo: () => invoke('system_get_info'),
   ping: () => call('ping'),
 
