@@ -903,7 +903,7 @@ async function readDomInTab(tabId) {
 // state dikirim lewat `args`. Aksi yang butuh API ekstensi (chrome.scripting,
 // chrome.tabs, chrome.downloads) TIDAK BOLEH ditaruh di sini - tangani di
 // fungsi act() pada konteks service worker (lihat bawah).
-async function actionFn({ abelinkId, action, value }) {
+async function actionFn({ abelinkId, action, value, expectedText }) {
   const el = abelinkId ? document.querySelector(`[data-abelink-id="${abelinkId}"]`) : null
   if (abelinkId && !el)
     return {
@@ -990,6 +990,24 @@ async function actionFn({ abelinkId, action, value }) {
   try {
     switch (action) {
       case 'click': {
+        // Verifikasi anti-stale-ID: akN = urutan dokumen, DOM bisa bergeser
+        // antara browser-read dan browser-click. Bila caller menyertakan
+        // expectedText, pastikan elemen yang ditunjuk masih teks yang sama
+        // SEBELUM klik. Absen -> jalur lama byte-identik (tanpa biaya).
+        const want = String(expectedText ?? '').trim()
+        if (want) {
+          const hay = [
+            typeof el.innerText === 'string' ? el.innerText.slice(0, 120) : '',
+            typeof el.getAttribute === 'function' ? (el.getAttribute('aria-label') || '') : '',
+            typeof el.value === 'string' ? el.value : ''
+          ].join(' ')
+          if (!hay.toLowerCase().includes(want.toLowerCase())) {
+            return {
+              ok: false,
+              error: `Elemen ${abelinkId} berubah (diharapkan "${want}") — lakukan browser-read ulang.`
+            }
+          }
+        }
         el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
         await sleep(150)
         const rect = el.getBoundingClientRect()
@@ -1118,7 +1136,7 @@ async function actionFn({ abelinkId, action, value }) {
   }
 }
 
-async function act({ abelinkId, action, value }, sessionId = 'default') {
+async function act({ abelinkId, action, value, expectedText }, sessionId = 'default') {
   if (action === 'close') {
     const closed = await closeActiveGroupTabs(sessionId)
     return { ok: true, data: JSON.stringify({ closed }) }
@@ -1280,7 +1298,7 @@ async function act({ abelinkId, action, value }, sessionId = 'default') {
   // --- Aksi DOM via injeksi halaman (click/type/select/press/scroll/extract) ---
   const [injection] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    args: [{ abelinkId: abelinkId || null, action, value: value ?? null }],
+    args: [{ abelinkId: abelinkId || null, action, value: value ?? null, expectedText: expectedText ?? null }],
     func: actionFn
   })
   const step = injection?.result

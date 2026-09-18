@@ -46,7 +46,7 @@ const ensureExtensionUp = async ({ url = null, sessionId = 'default' } = {}) => 
   }
 }
 
-const tryExtensionAct = async (payload, sessionId = 'default') => {
+const tryExtensionAct = async (payload, sessionId = 'default', opts = {}) => {
   try {
     const { listSessions, dispatchCommand } = await import('../browser/bridge-core.mjs')
     const sessions = listSessions()
@@ -59,6 +59,10 @@ const tryExtensionAct = async (payload, sessionId = 'default') => {
     }
     const enriched = { ...payload, sessionId: targetSession }
     const res = await dispatchCommand(pick.id, 'act', enriched)
+    // raw:true mengembalikan hasil apa adanya (ok maupun !ok) agar caller
+    // bisa meneruskan error spesifik extension (mis. mismatch verifikasi
+    // teks klik). Default tetap kontrak lama: hanya ok, selain itu null.
+    if (opts.raw) return res ?? null
     return res && res.ok ? res : null
   } catch {
     return null
@@ -122,6 +126,32 @@ const tryExtensionReadDom = async (sessionId = 'default', deps = {}) => {
 
 // Hook uji untuk recovery read (lihat tests/browserReadRecovery.test.mjs).
 export const tryExtensionReadDomForTest = tryExtensionReadDom
+
+// Parse target klik: `akN` atau `akN||teks-yang-diharapkan` (verifikasi
+// anti-stale-ID). `||` pertama pemisah; `||` berikutnya bagian expected.
+export function parseClickTarget(query) {
+  const raw = String(query ?? '')
+  const sep = raw.indexOf('||')
+  if (sep < 0) return { id: raw, expected: '' }
+  return { id: raw.slice(0, sep), expected: raw.slice(sep + 2).trim() }
+}
+
+// Pure matcher untuk verifikasi teks klik (unit-testable; DOM Element
+// diganti objek duck-type { innerText, getAttribute, value }).
+// expected kosong -> true (jalur lama tanpa biaya tambahan).
+export function elementTextMatches(el, expected) {
+  const want = String(expected ?? '').trim().toLowerCase()
+  if (!want) return true
+  if (!el) return false
+  const hay = [
+    typeof el.innerText === 'string' ? el.innerText.slice(0, 120) : '',
+    typeof el.getAttribute === 'function' ? (el.getAttribute('aria-label') || '') : '',
+    typeof el.value === 'string' ? el.value : ''
+  ]
+    .join(' ')
+    .toLowerCase()
+  return hay.includes(want)
+}
 
 // Fetch + parse HTML polos (fallback bila extension tidak tersambung).
 // Dipakai browser-read dan browser-extract (dulu via this['browser-read']
@@ -380,8 +410,16 @@ export const browserTools = {
     needsApproval: false,
     handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
-      const ext = await tryExtensionAct({ abelinkId: normalizeAbelinkId(query), action: 'click' }, targetSession)
-      if (ext) return { success: true, data: ext.data, via: 'extension' }
+      const { id, expected } = parseClickTarget(query)
+      const payload = { abelinkId: normalizeAbelinkId(id), action: 'click' }
+      // Backward compatible: field expectedText hanya dikirim bila ada.
+      if (expected) payload.expectedText = expected
+      const ext = await tryExtensionAct(payload, targetSession, expected ? { raw: true } : undefined)
+      if (ext?.ok) return { success: true, data: ext.data, via: 'extension' }
+      // Dengan expected: error spesifik extension (mismatch teks / elemen
+      // tak ditemukan) diteruskan apa adanya. Tanpa expected: jalur lama —
+      // tryExtensionAct menelan !ok menjadi null -> hint generik di bawah.
+      if (expected && ext && ext.error) return { success: false, error: 'browser-click: ' + ext.error }
       return {
         success: false,
         error: 'browser-click: ' + NO_EXTENSION_HINT + ' Butuh ID elemen (ak1, ak2, ...) dari browser-read yang sukses.'
