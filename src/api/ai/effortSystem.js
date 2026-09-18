@@ -589,3 +589,40 @@ export class TokenBudgetProviderAdapter extends ModelProviderAdapter {
 //   No native thinking -> effort maps to multiple calls + verification loop
 //     (outer ReAct + objectiveVerifier gate + trajectory stagnation ladder).
 // New provider adapters subclass ModelProviderAdapter above; no new policy shape.
+
+/**
+ * Thread-safe-ish step counter (ADDITIVE, Hermes pattern (a)).
+ * Pure accounting: no side effects, no policy coupling.
+ */
+export class StepBudget {
+  constructor(budget) {
+    this._budget = budget
+    this._used = 0
+  }
+
+  consume(n = 1) {
+    this._used += n
+    return this
+  }
+
+  refund(n = 1) {
+    this._used = Math.max(0, this._used - n)
+    return this
+  }
+
+  get remaining() {
+    return Math.max(0, this._budget - this._used)
+  }
+
+  get used() {
+    return this._used
+  }
+
+  get isExhausted() {
+    return this._used >= this._budget
+  }
+
+  isPastWarnLevel(ratio = 0.8) {
+    return this._used / this._budget >= ratio
+  }
+}

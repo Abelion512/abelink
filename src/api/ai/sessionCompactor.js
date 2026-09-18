@@ -40,6 +40,18 @@ import { clearSessionCompact, getSessionCompact, saveSessionCompact, saveSession
 // Sama persis upstream: 525.000 karakter.
 export const MAX_SESSION_CHARS = 525000
 
+// Progressive thresholds (fraksi MAX_SESSION_CHARS): prompt-only murni.
+export const COMPACT_WARN_AT = 0.75
+export const COMPACT_SUGGEST_AT = 0.9
+
+export function compactZone(currentChars = 0) {
+  const ratio = (Number(currentChars) || 0) / MAX_SESSION_CHARS
+  if (ratio >= 1) return 'full'
+  if (ratio >= COMPACT_SUGGEST_AT) return 'suggest'
+  if (ratio >= COMPACT_WARN_AT) return 'warn'
+  return 'ok'
+}
+
 // Giliran terbaru yang selalu dipertahankan utuh (tanpa prune penuh).
 export const PRESERVE_RECENT_TURNS = 4
 

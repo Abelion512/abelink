@@ -9,11 +9,11 @@ let lastIndexScanTime = {}
  * Mengambil konteks RAG dan Working Memory aktif untuk disuntikkan ke System Prompt AI
  * @param {string} workspaceRoot Direktori root proyek aktif
  * @param {string} userInput Pesan / perintah dari pengguna
- * @returns {Promise<{ workingMemoryText: string, codeRagText: string }>}
+ * @returns {Promise<{ workingMemoryText: string, codeRagText: string, sessionFactsText: string }>}
  */
 export async function getWorkspaceContext(workspaceRoot, userInput) {
   if (!workspaceRoot || typeof window === 'undefined' || !window.api?.workspaceQuery) {
-    return { workingMemoryText: '', codeRagText: '' }
+    return { workingMemoryText: '', codeRagText: '', sessionFactsText: '' }
   }
 
   try {
@@ -31,6 +31,7 @@ export async function getWorkspaceContext(workspaceRoot, userInput) {
     // 3. Baca Working Memory
     const workingMemory = await window.api.workspaceGetMemory(workspaceRoot)
     let workingMemoryText = ''
+    let sessionFactsText = ''
     if (workingMemory && (workingMemory.notes || workingMemory.activeObjective)) {
       const parts = []
       if (workingMemory.activeObjective) parts.push(`- Target/Tujuan Aktif: ${workingMemory.activeObjective}`)
@@ -39,6 +40,11 @@ export async function getWorkspaceContext(workspaceRoot, userInput) {
       }
       if (workingMemory.notes) parts.push(`- Catatan Konteks: ${workingMemory.notes}`)
       workingMemoryText = parts.join('\n')
+    }
+    // Fakta sesi verbatim (cap 2000 char); kosong = dilewati pemanggil.
+    if (workingMemory) {
+      const rawText = typeof workingMemory === 'string' ? workingMemory : JSON.stringify(workingMemory)
+      if (rawText && rawText.trim() && rawText !== '{}') sessionFactsText = rawText.slice(0, 2000)
     }
 
     // 4. Query Codebase RAG jika ada input user
@@ -55,10 +61,10 @@ export async function getWorkspaceContext(workspaceRoot, userInput) {
       }
     }
 
-    return { workingMemoryText, codeRagText }
+    return { workingMemoryText, codeRagText, sessionFactsText }
   } catch (err) {
     console.warn('[WorkspaceRAG] Gagal mengambil workspace context:', err.message)
-    return { workingMemoryText: '', codeRagText: '' }
+    return { workingMemoryText: '', codeRagText: '', sessionFactsText: '' }
   }
 }
 

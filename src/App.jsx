@@ -30,6 +30,10 @@ import DropAnywhere from './components/core/DropAnywhere'
 import WindowControls from './components/core/WindowControls'
 import SpotlightBar from './components/core/SpotlightBar'
 import AutomationHUD from './components/core/AutomationHUD'
+import AppSidebar from './components/core/AppSidebar'
+import BootScreen from './components/core/BootScreen'
+import { DotGridSpotlight } from './components/core/DotGridSpotlight'
+import { MobiusLoader } from './components/core/MobiusLoader'
 
 const GlobalListener = () => {
   const navigate = useNavigate()
@@ -98,7 +102,7 @@ const MainLayout = ({ isStandalone = false }) => {
   const isSpotlight = windowMode === 'spotlight'
 
   return (
-    <div className={`relative h-screen w-screen overflow-hidden bg-transparent rounded-xl flex items-center justify-center ${isSpotlight ? 'p-1' : ''}`}>
+    <div className={`relative h-screen w-screen overflow-hidden bg-transparent rounded-xl flex items-stretch justify-start ${isSpotlight ? 'p-1 items-center justify-center' : ''}`}>
       {isSpotlight && (
         <SpotlightBar
           onExpandDashboard={() => {
@@ -108,6 +112,13 @@ const MainLayout = ({ isStandalone = false }) => {
         />
       )}
 
+      {/* Persistent macOS-style sidebar: lives at MainLayout level so it
+          persists across home + sub-page overlay (AbelinkHome owns History
+          state and listens for 'abelink:open-history'). */}
+      {!isSpotlight && <AppSidebar />}
+
+      {/* Content area beside the sidebar */}
+      <div className="flex-1 h-full min-w-0 flex flex-col min-h-0">
       {/* Base Home Page - Always Mounted so AI Agent & Telegram Listeners Never Die */}
       {/* Hidden when not on home or in spotlight to prevent overlapping headers & controls */}
       <div className={`h-full w-full ${!isHome || isSpotlight ? 'hidden' : ''}`}>
@@ -127,15 +138,21 @@ const MainLayout = ({ isStandalone = false }) => {
 
           {/* Floating Glass Sub-page Overlay */}
           {!isHome && (
-            <div className="fixed inset-0 z-50 flex flex-col animate-fade-in bg-transparent pointer-events-none">
-              <div className="flex-1 pointer-events-auto h-full w-full flex flex-col min-h-0 overflow-hidden">
+            <div className="relative flex-1 flex flex-col animate-fade-in bg-transparent pointer-events-none min-h-0">
+              <DotGridSpotlight
+                dotColor="rgba(255,255,255,0.05)"
+                activeDotColor="rgba(10,132,255,0.12)"
+                spacing={12}
+                className="pointer-events-none"
+              />
+              <div className="relative flex-1 pointer-events-auto h-full w-full flex flex-col min-h-0 overflow-hidden">
                 <Suspense
                   fallback={
                     <div className="h-full w-full flex flex-col items-center justify-center gap-4">
-                      <span className="loading loading-infinity w-12 text-primary"></span>
-                      <p className="text-xs font-semibold tracking-[0.2em] text-white/40 uppercase animate-pulse">
-                        Memuat modul
-                      </p>
+                        <MobiusLoader size={48} className="text-primary" />
+                        <p className="text-xs font-semibold tracking-[0.2em] text-white/60 uppercase animate-pulse">
+                          Memuat modul
+                        </p>
                     </div>
                   }
                 >
@@ -156,6 +173,7 @@ const MainLayout = ({ isStandalone = false }) => {
           )}
         </>
       )}
+      </div>
     </div>
   )
 }
@@ -192,7 +210,6 @@ const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }) => (
 function App() {
   const [hasConfig, setHasConfig] = useState(true)
   const [isChecking, setIsChecking] = useState(true)
-  const [loadingText] = useState('Membangunkan Abelink...')
   const [showRecovery, setShowRecovery] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
   const [legacyProfiles, setLegacyProfiles] = useState(null) // null = belum dicek
@@ -377,7 +394,7 @@ function App() {
       model: 'google/gemma-3-4b',
       geminiWebModel: 'gemini-latest',
       temperature: 1.0,
-      context: 10,
+      context: 20,
       aiProvider: 'gemini-web',
       awarenessEnabled: false,
       windowOpacity: 1,
@@ -413,40 +430,22 @@ function App() {
   }, [hasConfig, showLegacyChooser, choiceMade, wizardAutoImport, settleChoice])
 
   if (isChecking) {
+    const handleClearCache = async () => {
+      try {
+        await caches.delete('transformers-cache')
+        console.log('Cache cleared')
+        window.location.reload()
+      } catch (e) {
+        console.error('Failed to clear cache', e)
+        window.location.reload()
+      }
+    }
     return (
       <div className="relative h-screen w-screen overflow-hidden bg-base-300 rounded-xl flex flex-col">
         <div className="absolute top-2.5 right-4 z-50">
           <WindowControls />
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center gap-5">
-          <span className="loading loading-infinity w-16 text-primary"></span>
-          <p className="text-sm font-semibold tracking-[0.2em] text-white/40 uppercase animate-pulse text-center px-4">
-            {loadingText}
-          </p>
-          {showRecovery && (
-            <div className="absolute bottom-10 flex flex-col items-center animate-fade-in">
-              <p className="text-xs text-white/40 mb-3 text-center max-w-xs">
-                Proses pemuatan memakan waktu lebih lama dari biasanya. Jika terjebak, bersihkan
-                cache model.
-              </p>
-              <button
-                onClick={async () => {
-                  try {
-                    await caches.delete('transformers-cache')
-                    console.log('Cache cleared')
-                    window.location.reload()
-                  } catch (e) {
-                    console.error('Failed to clear cache', e)
-                    window.location.reload()
-                  }
-                }}
-                className="btn btn-outline btn-error btn-sm"
-              >
-                Hapus Cache Model & Muat Ulang
-              </button>
-            </div>
-          )}
-        </div>
+        <BootScreen showRecovery={showRecovery} onClearCache={handleClearCache} />
       </div>
     )
   }
