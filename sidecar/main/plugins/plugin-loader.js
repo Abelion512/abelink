@@ -319,6 +319,12 @@ export const pluginInstallFromGit = async (rawUrlOrShorthand) => {
     }
 
     await loadPlugins()
+    // Jejak audit install plugin (fire-and-forget; audit tak boleh menggagalkan install).
+    import('../capabilities/connections.mjs')
+      .then(({ appendAudit }) =>
+        appendAudit({ op: 'plugin.install-git', plugin: sanitizedName, url: cloneUrl, status: 'ok' })
+      )
+      .catch(() => {})
     return { success: true, name: sanitizedName }
   } catch (err) {
     console.error('[plugins] pluginInstallFromGit gagal:', err)

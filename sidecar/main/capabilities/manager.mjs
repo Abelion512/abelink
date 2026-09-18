@@ -14,6 +14,7 @@
 
 import { listConnectors, getConnector, getActionGuide, registerConnector } from './catalog.mjs'
 import { appendAudit, readAudit, readConnections, writeConnections } from './connections.mjs'
+import { validateArgs } from './validation.mjs'
 import fs from 'fs'
 import path from 'path'
 import { brandDir } from '../utils/dataHome.mjs'
@@ -87,6 +88,20 @@ export async function executeCapability({ connectorId, actionId, args, sessionId
     }
     const { callMcpTool } = await import('./mcp-client.mjs')
     appendAudit({ op: 'execute.request', connector: connectorId, action: String(actionId), session: sessionId || null, transport: 'mcp' })
+    // Tahap 4: validasi args terhadap inputSchema tool MCP tersimpan
+    // (fail-open bila skema longgar; menolak sebelum panggilan jaringan).
+    const storedTool = Array.isArray(conn.tools)
+      ? conn.tools.find((t) => String(t?.name) === String(actionId))
+      : null
+    const mcpChecked = validateArgs(storedTool?.inputSchema, args || {})
+    if (!mcpChecked.ok) {
+      const e = new Error(
+        `Argumen tidak valid untuk ${connectorId}.${actionId}: ${mcpChecked.errors.join('; ')}`
+      )
+      e.code = 'CAPABILITY_INVALID_ARGS'
+      appendAudit({ op: 'execute.result', connector: connectorId, action: String(actionId), status: 'invalid-args', error: mcpChecked.errors.join('; ').slice(0, 300), session: sessionId || null, transport: 'mcp' })
+      throw e
+    }
     try {
       const text = await callMcpTool(conn.url, conn.headers || {}, String(actionId), args || {})
       appendAudit({ op: 'execute.result', connector: connectorId, action: String(actionId), status: 'ok', session: sessionId || null, transport: 'mcp' })
@@ -101,6 +116,25 @@ export async function executeCapability({ connectorId, actionId, args, sessionId
     throw new Error(
       `Aksi tidak dikenal pada connector ${connectorId}: ${actionId} (lihat capabilities:guide)`
     )
+  }
+
+  // Tahap 4: validasi args terhadap inputSchema SEBELUM run (fail-fast,
+  // bukan sukses palsu). Skema tak dikenal -> fail-open (validateArgs ok).
+  const checked = validateArgs(action.inputSchema, args || {})
+  if (!checked.ok) {
+    const e = new Error(
+      `Argumen tidak valid untuk ${connectorId}.${actionId}: ${checked.errors.join('; ')}`
+    )
+    e.code = 'CAPABILITY_INVALID_ARGS'
+    await appendAudit({
+      op: 'execute.result',
+      connector: connectorId,
+      action: String(actionId),
+      status: 'invalid-args',
+      error: checked.errors.join('; ').slice(0, 300),
+      session: sessionId || null
+    })
+    throw e
   }
 
   const policy = resolvePolicy(connector, action, { deniedScopes })
@@ -254,6 +288,30 @@ async function executePluginAction({ actionId, args, sessionId }) {
     return fail(new Error(`Handler plugin tidak ditemukan: '${hit.plugin}:${hit.action}'.`))
   }
   const params = typeof args === 'string' ? { query: args } : args || {}
+  // Tahap 4: validasi params terhadap inputSchema deskriptor aksi yang kena
+  // (pluginToDescriptors bangun properties dari parameters manifes). Tanpa
+  // parameters, skema = {query: string} dan string legacy sudah dibungkus.
+  // Cari di daftar aksi tervalidasi yang SAMA urutannya dengan descriptors
+  // (bukan indeks mentah manifest — aksi tanpa nama difilter loader).
+  const validActions = (hit.manifest.actions || []).filter((a) => a && typeof a === 'object' && a.name)
+  const hitIdx = validActions.findIndex((a) => norm(a.name) === norm(hit.action))
+  const hitSchema = hitIdx >= 0 ? descriptors[hitIdx]?.inputSchema : null
+  const checked = validateArgs(hitSchema, params)
+  if (!checked.ok) {
+    const e = new Error(
+      `Argumen tidak valid untuk plugin ${hit.plugin}:${hit.action}: ${checked.errors.join('; ')}`
+    )
+    e.code = 'CAPABILITY_INVALID_ARGS'
+    await appendAudit({
+      op: 'execute.result',
+      connector: 'plugin',
+      action: raw,
+      status: 'invalid-args',
+      error: checked.errors.join('; ').slice(0, 300),
+      session: sessionId || null
+    })
+    throw e
+  }
   try {
     const result = await handler(params)
     await appendAudit({
@@ -373,7 +431,31 @@ export async function revokeConnector(connectorId) {
   return { revoked: true }
 }
 
-/** Daftar koneksi aktif (untuk UI/inspeksi; tanpa kredensial — hanya scopes). */
-export function listConnections() {
-  return readConnections()
+/**
+ * Daftar koneksi aktif untuk UI/inspeksi — SELALU disanitasi: TIDAK PERNAH
+ * headers/kredensial/token. Per id hanya: authorizedAt, scopes, urlHost
+ * (hostname saja, tanpa path/query), toolCount, transport.
+ */
+export async function listConnections() {
+  const map = await readConnections()
+  const out = {}
+  for (const [id, conn] of Object.entries(map || {})) {
+    if (!conn || typeof conn !== 'object') continue
+    const entry = {}
+    if (conn.authorizedAt) entry.authorizedAt = conn.authorizedAt
+    if (Array.isArray(conn.scopes)) entry.scopes = conn.scopes
+    if (typeof conn.url === 'string' && conn.url) {
+      try {
+        entry.urlHost = new URL(conn.url).hostname
+      } catch {
+        // URL tidak parseable: jangan bocorkan mentahnya — tandai saja.
+        entry.urlHost = '(invalid-url)'
+      }
+    }
+    if (Array.isArray(conn.tools)) entry.toolCount = conn.tools.length
+    if (conn.transport) entry.transport = conn.transport
+    else if (conn.url) entry.transport = 'mcp'
+    out[id] = entry
+  }
+  return out
 }

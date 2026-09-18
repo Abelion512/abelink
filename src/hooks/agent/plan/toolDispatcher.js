@@ -353,21 +353,24 @@ export const executeSingleTool = async (tool, query, ctx) => {
       data: { action: tool, query }
     })
 
-    const pluginPromise = window.api.executePlugin(tool, query)
+    // Tahap 4: fallback plugin lewat rute terpadu capabilities (policy +
+    // audit di manager). tool = `<plugin>:<aksi>` atau bare `<aksi>`; query
+    // string legacy = argumen {query}. Bentuk return SAMA seperti sebelumnya.
+    const argsObj =
+      query && typeof query === 'object' ? query : query != null && query !== '' ? { query } : {}
+    const pluginPromise = window.api.executeCapability('plugin', tool, argsObj)
     const { race: pluginRace, onAbort: onPluginAbort } = raceWithAbort(pluginPromise, currentSignal)
-    let pluginRes
     try {
-      pluginRes = await pluginRace
+      const pluginRes = await pluginRace
+      resultString = typeof pluginRes === 'string' ? pluginRes : JSON.stringify(pluginRes)
+    } catch (e) {
+      const msg = typeof e === 'string' ? e : e?.message || String(e)
+      if (e?.name === 'AbortError' || String(msg).includes('AbortError')) throw e
+      resultString = `[ERROR] Plugin ${tool} gagal: ${msg}`
     } finally {
       // Lepas listener abort agar tidak menumpuk di signal (memory leak)
       if (onPluginAbort) currentSignal?.removeEventListener('abort', onPluginAbort)
     }
-
-    resultString = pluginRes.success
-      ? typeof pluginRes.data === 'string'
-        ? pluginRes.data
-        : JSON.stringify(pluginRes.data)
-      : `[ERROR] Plugin ${tool} gagal: ${pluginRes.error}`
 
     targetPushProcess({
       id: pluginProcessId,

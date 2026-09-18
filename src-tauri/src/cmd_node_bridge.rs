@@ -150,6 +150,11 @@ const APPROVAL_ACTIONS: &[&str] = &[
     "skills:install",
     "plugin:create",
     "plugin:delete",
+    // Rute plugin legacy + network (Tahap 4): plugin:execute = alias lama yang
+    // tetap dipakai renderer lama; install-git = fetch+eksekusi kode asing
+    // dari jaringan. Keduanya WAJIB dialog native (plugin pairs = gated).
+    "plugin:execute",
+    "plugin:install-git",
     "tg:start",
     "tg:stop",
     "google:connect",
@@ -179,7 +184,7 @@ fn action_family(action: &str) -> &'static str {
     match action {
         "skills:save" | "skills:delete" | "skills:save-file" | "skills:create-item"
         | "skills:delete-item" | "skills:rename-item" | "skills:install" => "skills-write",
-        "plugin:create" | "plugin:delete" => "plugin-write",
+        "plugin:create" | "plugin:delete" | "plugin:execute" | "plugin:install-git" => "plugin-write",
         "tg:start" | "tg:stop" => "tg-control",
         "google:connect" | "google:disconnect" => "google-auth",
         "capabilities:execute" => "capabilities-execute",
@@ -228,6 +233,10 @@ fn is_readonly_capability(payload: &Option<serde_json::Value>) -> bool {
             | ("browser-extension", "close-session")
             | ("fs", "list")
             | ("fs", "read")
+            // Skill exec = baca body teks SKILL.md lokal (read-only), tetap sunyi.
+            // Pasangan plugin ("plugin", _) SENGAJA tidak ada di sini: kode plugin
+            // pihak ketiga tetap lewat dialog (default false di bawah).
+            | ("skill", _)
     )
 }
 
