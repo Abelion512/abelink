@@ -69,6 +69,19 @@ const tryExtensionAct = async (payload, sessionId = 'default', opts = {}) => {
   }
 }
 
+// E3: alasan launch spesifik -> instruksi agen yang tepat (berhenti + lapor,
+// bukan mengulang xdg-open). launch-budget-exhausted = rem tab-storm aktif.
+const LAUNCH_REASON_HINT = {
+  'launch-budget-exhausted':
+    'Rem tab-storm aktif (terlalu banyak buka browser). BERHENTI: jangan panggil browser-navigate lagi. Laporkan ke user: klik Connect di popup extension, lalu minta lanjutkan.',
+  'auto-launch-off':
+    'Auto-launch dimatikan di Capabilities. Jangan buka browser paksa. Tawarkan user membuka manual, atau lanjutkan via fetch.',
+  'launch-failed':
+    'Browser OS gagal dibuka (xdg-open). Cek browser default user, lalu laporkan.',
+  'no-handshake':
+    'Extension tidak menjawab handshake. Minta user klik Connect di popup ABELINK BRIDGE, lalu coba sekali lagi (maks 1x).'
+}
+
 // Hint disconnect yang machine-actionable: menyatakan apa yang sudah dicoba
 // otomatis + langkah model berikutnya. Jangan kembalikan instruksi manual
 // ke user (model memparafrasenya menjadi "silakan buka tab...").
@@ -76,6 +89,10 @@ export const NO_EXTENSION_HINT =
   'Extension tidak tersambung setelah auto-launch bounded (atau auto-launch nonaktif di Capabilities). ' +
   'Langkah berikutnya: panggil browser-navigate <url-lengkap> untuk membuka tab baru; ' +
   'bila itu pun gagal, laporkan blocked dengan bukti. Jangan meminta user membuka tab manual.'
+
+// E3: gabung reason + hint spesifik. Dipakai browser-navigate saat blocked.
+export const launchBlockMessage = (reason) =>
+  `${reason || 'no-handshake'}. ${LAUNCH_REASON_HINT[reason] || LAUNCH_REASON_HINT['no-handshake']}`
 
 // Baca DOM dari tab aktif ekstensi browser fisik.
 const tryExtensionReadDom = async (sessionId = 'default', deps = {}) => {
@@ -425,7 +442,7 @@ export const browserTools = {
         // extension gagal -> blocked jujur, bukan sukses palsu.
         const autoLaunchOff = !getBrowserConfig()?.autoLaunch
         if (!autoLaunchOff && (extensionAttempted || failReason)) {
-          return { success: false, error: `${failReason || 'no-handshake'}. ` + NO_EXTENSION_HINT }
+          return { success: false, error: launchBlockMessage(failReason) }
         }
         return await webFetch(url)
       } catch (e) {

@@ -170,6 +170,13 @@ async function loop() {
         }
       )
       if (res.status === 401) {
+        // E2: baca sebab server bila ada (token-stale = helper bisa pulihkan).
+        let serverReason = ''
+        try {
+          serverReason = (await res.clone().json())?.reason || ''
+        } catch {
+          /* body bukan JSON */
+        }
         // Token berubah (restart sidecar). Coba refresh senyap via helper lokal
         // dengan namespace port aktif (tanpa ini token prod dipakai ke dev).
         let fresh = await getTokenViaNativeHost(cfg.port)
@@ -188,9 +195,11 @@ async function loop() {
           continue
         }
         running = false
-        await chrome.storage.session.set({
-          lastError: `Token ditolak (401). Helper: ${fresh.detail || 'tidak ada'}. Mencoba auto-reconnect berkala...`
-        })
+        const hint =
+          serverReason === 'token-stale'
+            ? 'Token basi — helper tak memberi token baru. Restart Abelink / picu browser:* sekali, lalu Connect.'
+            : `Helper: ${fresh.detail || 'tidak ada'}. Mencoba auto-reconnect berkala...`
+        await chrome.storage.session.set({ lastError: `Token ditolak (401). ${hint}` })
         scheduleAutoResume(5000)
         break
       }
@@ -1351,13 +1360,33 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       // Verifikasi token sebelum masuk loop: error langsung terlihat di popup
       // (token salah vs sidecar mati dibedakan).
       try {
-        const hs = await apiGet(cfg, 'handshake')
+        let hs = await apiGet(cfg, 'handshake')
         if (hs.status === 401) {
-          await chrome.storage.session.set({
-            lastError: 'Token ditolak sidecar (401). Sambungkan ulang sekali.'
-          })
-          sendResponse({ ok: false, error: 'token' })
-          return
+          // E2: sebab 401 dibedakan — token basi (helper bisa pulihkan) vs
+          // token asing (tempel manual) vs sesi tak dikenal.
+          const reason = hs.body?.reason || ''
+          if (reason === 'token-stale') {
+            // E1: token basi = sidecar restart/rotasi. Ambil baru via helper
+            // lalu handshake ulang OTOMATIS sekali — user tidak perlu klik.
+            const via = await getTokenViaNativeHost(targetPort)
+            if (via.token) {
+              cfg.token = via.token
+              await setPortToken(cfg.port, via.token)
+              hs = await apiGet(cfg, 'handshake')
+            }
+          }
+          if (hs.status === 401) {
+            const reason2 = hs.body?.reason || reason
+            const msg2 =
+              reason2 === 'token-stale'
+                ? 'Token basi dan helper tak memberi token baru. Restart Abelink / picu browser:* sekali, lalu Connect.'
+                : reason2 === 'session-unknown'
+                  ? 'Sesi tidak dikenal sidecar. Mulai ulang pairing dari popup.'
+                  : 'Token ditolak sidecar (401). Tempel token manual sekali, atau sambungkan ulang.'
+            await chrome.storage.session.set({ lastError: msg2 })
+            sendResponse({ ok: false, error: 'token', reason: reason2 })
+            return
+          }
         }
         // Rotasi refresh-on-use: server menitipkan token baru di handshake.
         // Tukar diam-diam + simpan persisten - tanpa tempel ulang selamanya.
