@@ -135,6 +135,40 @@ const MULTI_ACTION_RE = /(\bdan\b|\blalu\b|\bkemudian\b|\bsetelah itu\b|\bterus\
 
 export const isMultiActionObjective = (text = '') => MULTI_ACTION_RE.test(String(text || ''))
 
+// Anti-halusinasi: klaim bernama (model/produk/versi) harus dikutip dari ISI
+// observasi tool, bukan dari URL/judul tab. Ekstraksi kasar: frasa kapital
+// multi-kata + token kapital ber-digit ("Muse 1.3", "GPT-6 Astra"). Kata
+// generik di tepi frasa dikupas; sisa satu kata tanpa digit = bukan klaim.
+const CLAIM_PHRASE_RE = /[A-Z][\w-]*(?:\s+(?:[A-Z][\w.-]*|\d+\.\d[\w.-]*))+/g
+const CLAIM_TOKEN_RE = /\b[A-Z][\w-]*\d[\w.-]*\b/g
+const CLAIM_STOPWORDS = new Set(
+  'model flash pro team search browser openai anthropic google harga laporan hasil data pasar toko bulan tahun kuartal pendapatan perusahaan layanan info informasi rp q1 q2 q3 q4'.split(
+    ' '
+  )
+)
+
+const stripClaimStopwords = (phrase = '') => {
+  const words = String(phrase).split(/\s+/).filter(Boolean)
+  while (words.length && CLAIM_STOPWORDS.has(words[0].toLowerCase())) words.shift()
+  while (words.length && CLAIM_STOPWORDS.has(words[words.length - 1].toLowerCase())) words.pop()
+  return words.join(' ')
+}
+
+const extractClaimEntities = (answer = '') => {
+  const text = String(answer || '')
+  const found = new Map()
+  for (const re of [CLAIM_PHRASE_RE, CLAIM_TOKEN_RE]) {
+    for (const m of text.matchAll(re)) {
+      const cleaned = stripClaimStopwords(m[0])
+      if (!cleaned || !/[A-Za-z]/.test(cleaned)) continue
+      if (!/\s/.test(cleaned) && !/\d/.test(cleaned)) continue
+      if (!found.has(cleaned.toLowerCase())) found.set(cleaned.toLowerCase(), cleaned)
+    }
+  }
+  const all = [...found.values()]
+  return all.filter((c) => !all.some((o) => o !== c && o.toLowerCase().includes(c.toLowerCase())))
+}
+
 // ---------------------------------------------------------------------------
 // 1. Objective kind classification (task-awareness for verification)
 // ---------------------------------------------------------------------------
@@ -255,6 +289,10 @@ export function deriveSuccessCriteria(kind = 'general', objectiveText = '') {
       return [
         { id: 'sources-found', label: 'Sumber ditemukan dan dibaca' },
         { id: 'facts-present', label: 'Fakta yang diminta tersedia di jawaban' },
+        {
+          id: 'claim-quoted',
+          label: 'Klaim bernama (model/produk/versi) dikutip dari isi observasi'
+        },
         ...(ARTIFACT_INTENT_RE.test(text)
           ? [{ id: 'artifact-exists', label: 'Output laporan tersimpan sebagai artifact' }]
           : [])
@@ -465,6 +503,21 @@ export function evaluateEvidence({
         !APOLOGY_OR_FAILURE_RE.test(String(answer || ''))
       setState('sources-found', sourcesOk ? 'pass' : 'unresolved')
       setState('facts-present', factsOk ? 'pass' : 'unresolved')
+      const claims = extractClaimEntities(answer)
+      if (claims.length === 0) {
+        setState('claim-quoted', 'na')
+      } else {
+        const quoted = claims.filter((c) =>
+          ops.some((op) => String(op.text || '').toLowerCase().includes(c.toLowerCase()))
+        )
+        setState('claim-quoted', quoted.length === claims.length ? 'pass' : 'unresolved')
+        const pending = claims.filter((c) => !quoted.includes(c))
+        if (pending.length) {
+          criteria
+            .find((c) => c.id === 'claim-quoted')
+            .label += ` — klaim ${pending.map((c) => `<${c}>`).join(', ')} tanpa kutipan isi: extract dulu, klaim kemudian`
+        }
+      }
       if (ARTIFACT_INTENT_RE.test(String(objectiveText))) {
         const { lastWrite, readBackOk } = artifactReadBack()
         // File requested => write-only is unresolved, read-back required.

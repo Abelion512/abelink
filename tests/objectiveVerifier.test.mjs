@@ -346,6 +346,60 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
   })
 
+  it('research claim-quoted: klaim bernama tanpa kutipan isi => unresolved, NOT verified', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset model AI terbaru dari Anthropic',
+      answer: 'Muse 1.3 tersedia di Anthropic sebagai model terbaru yang dirilis resmi.',
+      tools: [
+        exec(
+          'browser-navigate',
+          'Navigated to https://docs.anthropic.com/claude/docs/overview-page-for-model-release'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'claim-quoted').state).toBe('unresolved')
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+    expect(buildReplanObservation(r)).toContain('Muse 1.3')
+  })
+
+  it('research claim-quoted: klaim dikutip dari browser-extract => verified', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset model AI terbaru dari Anthropic',
+      answer: 'Muse 1.3 tersedia di Anthropic sebagai model terbaru yang dirilis resmi.',
+      tools: [
+        exec(
+          'browser-navigate',
+          'Navigated to https://docs.anthropic.com/claude/docs/overview-page-for-model-release'
+        ),
+        exec(
+          'browser-extract',
+          'Halaman dokumentasi Anthropic: Muse 1.3 adalah model terbaru dengan kemampuan reasoning yang ditingkatkan.'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'claim-quoted').state).toBe('pass')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research claim-quoted: jawaban generik tanpa entitas => na, verified (no regression)', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset harga GPU',
+      answer:
+        'Harga GPU saat ini berkisar Rp 10-15 juta untuk kelas high-end menurut beberapa toko.',
+      tools: [
+        exec(
+          'browser-search',
+          'Hasil pencarian: RTX 4070 Rp 9,5 juta, RTX 4080 Rp 14,2 juta dari beberapa toko'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'claim-quoted').state).toBe('na')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
   it('communication: send confirmation => verified', () => {
     const r = evaluateEvidence({
       kind: 'communication',

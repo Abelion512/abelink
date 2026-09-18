@@ -672,7 +672,11 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     className="toggle toggle-primary toggle-xs"
                     checked={!!config.browserAutoCloseTabs}
                     onChange={(e) =>
-                      setConfig((prev) => ({ ...prev, browserAutoCloseTabs: e.target.checked }))
+                      setConfig((prev) => {
+                        const updated = { ...prev, browserAutoCloseTabs: e.target.checked }
+                        if (window.api?.syncConfig) window.api.syncConfig(updated)
+                        return updated
+                      })
                     }
                   />
                   <span>Tutup tab grup otomatis saat tugas selesai</span>

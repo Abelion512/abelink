@@ -194,6 +194,33 @@ const webFetch = async (query) => {
   }
 }
 
+// Ekstrak link hasil dari DOM halaman google.com/search (pure, unit-testable).
+// Bentuk DOM extension bervariasi -> terima beberapa bentuk umum: array
+// elements {text,href|url}, links [{title,url}], atau html string.
+export function extractGoogleResults(dom) {
+  if (!dom) return []
+  if (Array.isArray(dom.links)) {
+    return dom.links
+      .filter((l) => l && (l.url || l.href))
+      .slice(0, 5)
+      .map((l) => ({ title: l.title || l.text || 'Web Result', url: l.url || l.href, snippet: l.snippet || '' }))
+  }
+  const els = Array.isArray(dom.elements) ? dom.elements : Array.isArray(dom) ? dom : null
+  if (els) {
+    const links = els
+      .filter((e) => e && (e.href || e.url) && !/google\.com\/(search|url)/.test(e.href || e.url || ''))
+      .slice(0, 5)
+      .map((e) => ({ title: e.text || e.title || 'Web Result', url: e.href || e.url, snippet: e.snippet || '' }))
+    if (links.length > 0) return links
+  }
+  const html = typeof dom === 'string' ? dom : dom.html || dom.markdown || ''
+  if (typeof html !== 'string' || !html) return []
+  const hrefs = [...html.matchAll(/<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([^<]{3,120})<\/a>/g)]
+    .map((m) => ({ title: m[2].trim(), url: m[1] }))
+    .filter((l) => !/google\.com/.test(l.url) && !/support\.google|accounts\.google/.test(l.url))
+  return hrefs.slice(0, 5).map((l) => ({ ...l, snippet: '' }))
+}
+
 // Cooldown pencarian web: DDG melempar rate-limit bila dihantam retry loop.
 // Cache hasil (sukses maupun gagal) 60 detik per query agar loop planner
 // tidak menembak DDG berkali-kali dalam sedetik.
@@ -205,7 +232,7 @@ let lastDdgWarnAt = 0
 export const browserTools = {
   'browser-search': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       try {
         const searchQuery = query ? query.trim() : ''
         if (!searchQuery) return { success: false, message: 'Query pencarian kosong.' }
@@ -213,6 +240,8 @@ export const browserTools = {
         const cacheKey = searchQuery.toLowerCase()
         const cached = searchCooldown.get(cacheKey)
         if (cached && Date.now() - cached.at < SEARCH_CACHE_MS) return cached.data
+        // Cache success-only: hanya hasil berisi yang diingat, agar kegagalan
+        // tiap layer tidak membekukan query selama 60 detik.
         const remember = (data) => {
           searchCooldown.set(cacheKey, { at: Date.now(), data })
           if (searchCooldown.size > 200) {
@@ -223,78 +252,123 @@ export const browserTools = {
         }
 
         let results = []
-        const now = Date.now()
-        const isRateLimited = now < ddgRateLimitedUntil
+        let routerErr = null
+        let extErr = null
 
-        if (!isRateLimited) {
+        // Layer (a): 9Router dulu. Key dari handler `config` (pola ai-bridge:
+        // config?.customApiKey) dengan fallback env; tanpa key -> skip.
+        if (results.length === 0) {
           try {
-            const { search: ddgSearch, SafeSearchType } = await import('duck-duck-scrape')
-            const searchRes = await ddgSearch(searchQuery, {
-              safeSearch: SafeSearchType.OFF
-            })
-            if (searchRes && searchRes.results && searchRes.results.length > 0) {
-              results = searchRes.results.slice(0, 5).map((r) => ({
-                title: r.title,
-                url: r.url,
-                snippet: r.description || r.snippet || ''
-              }))
-            }
-          } catch (ddgErr) {
-            const isAnomaly = /anomaly|too quickly|rate limit|429/i.test(ddgErr?.message || '')
-            if (isAnomaly) {
-              ddgRateLimitedUntil = Date.now() + 60000
-            }
+            const { searchViaRouter, DEFAULT_ROUTER_ENDPOINT } = await import('./routerSearch.mjs')
+            const endpoint = process.env.ROUTER_ENDPOINT || DEFAULT_ROUTER_ENDPOINT
+            const apiKey = config?.customApiKey || process.env.ROUTER_API_KEY
+            results = await searchViaRouter(searchQuery, { endpoint, apiKey })
+          } catch (rErr) {
+            routerErr = rErr?.message || String(rErr)
             if (Date.now() - lastDdgWarnAt > 30000) {
               lastDdgWarnAt = Date.now()
-              console.warn('[browser-search] duck-duck-scrape failed, trying HTTP fallback:', ddgErr?.message || ddgErr)
+              console.warn('[browser-search] router search failed, trying next layer:', routerErr)
             }
           }
         }
 
+        // Layer (b): browser fisik google.com via extension — hanya bila ada
+        // sesi connected. Gagal -> layer berikut, error jujur, tanpa fake.
         if (results.length === 0) {
           try {
-            const axios = (await import('axios')).default
-            const htmlRes = await axios.get(
-              `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`,
-              {
-                headers: {
-                  'User-Agent':
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                },
-                timeout: 10000
-              }
-            )
-            const html = htmlRes.data || ''
-            const matches = [...html.matchAll(/<a class="result__url" href="([^"]+)">/g)]
-            const snippetMatches = [...html.matchAll(/<a class="result__snippet[^>]*>([^<]+)<\/a>/g)]
-            const titleMatches = [...html.matchAll(/<a class="result__a"[^>]*>([^<]+)<\/a>/g)]
+            const { listSessions, dispatchCommand } = await import('../browser/bridge-core.mjs')
+            const targetSession = config?.sessionId || 'default'
+            const pick = pickConnected(listSessions(), targetSession)
+            if (!pick) throw new Error('extension tidak tersambung')
+            const gUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`
+            const nav = await dispatchCommand(pick.id, 'navigate', { url: gUrl, sessionId: targetSession })
+            if (!nav || !nav.ok) throw new Error(nav?.error || 'navigate google gagal')
+            const ext = await tryExtensionReadDom(targetSession)
+            results = extractGoogleResults(ext?.data)
+            if (results.length === 0) throw new Error('tidak ada link hasil di DOM google')
+          } catch (e) {
+            extErr = e?.message || String(e)
+          }
+        }
 
-            for (let i = 0; i < Math.min(5, titleMatches.length); i++) {
-              results.push({
-                title: titleMatches[i]?.[1] || 'Web Result',
-                url: matches[i]?.[1] || '',
-                snippet: snippetMatches[i]?.[1] || ''
+        // Layer (c): legacy duck-duck-scrape + DDG-HTML sebagai last resort.
+        if (results.length === 0) {
+          const now = Date.now()
+          const isRateLimited = now < ddgRateLimitedUntil
+
+          if (!isRateLimited) {
+            try {
+              const { search: ddgSearch, SafeSearchType } = await import('duck-duck-scrape')
+              const searchRes = await ddgSearch(searchQuery, {
+                safeSearch: SafeSearchType.OFF
               })
+              if (searchRes && searchRes.results && searchRes.results.length > 0) {
+                results = searchRes.results.slice(0, 5).map((r) => ({
+                  title: r.title,
+                  url: r.url,
+                  snippet: r.description || r.snippet || ''
+                }))
+              }
+            } catch (ddgErr) {
+              const isAnomaly = /anomaly|too quickly|rate limit|429/i.test(ddgErr?.message || '')
+              if (isAnomaly) {
+                ddgRateLimitedUntil = Date.now() + 60000
+              }
+              if (Date.now() - lastDdgWarnAt > 30000) {
+                lastDdgWarnAt = Date.now()
+                console.warn('[browser-search] duck-duck-scrape failed, trying HTTP fallback:', ddgErr?.message || ddgErr)
+              }
             }
-          } catch (fetchErr) {
-            if (Date.now() - lastDdgWarnAt > 30000) {
-              lastDdgWarnAt = Date.now()
-              console.error('[browser-search] HTTP fallback error:', fetchErr?.message || fetchErr)
+          }
+
+          if (results.length === 0) {
+            try {
+              const axios = (await import('axios')).default
+              const htmlRes = await axios.get(
+                `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`,
+                {
+                  headers: {
+                    'User-Agent':
+                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                  },
+                  timeout: 10000
+                }
+              )
+              const html = htmlRes.data || ''
+              const matches = [...html.matchAll(/<a class="result__url" href="([^"]+)">/g)]
+              const snippetMatches = [...html.matchAll(/<a class="result__snippet[^>]*>([^<]+)<\/a>/g)]
+              const titleMatches = [...html.matchAll(/<a class="result__a"[^>]*>([^<]+)<\/a>/g)]
+
+              for (let i = 0; i < Math.min(5, titleMatches.length); i++) {
+                results.push({
+                  title: titleMatches[i]?.[1] || 'Web Result',
+                  url: matches[i]?.[1] || '',
+                  snippet: snippetMatches[i]?.[1] || ''
+                })
+              }
+            } catch (fetchErr) {
+              if (Date.now() - lastDdgWarnAt > 30000) {
+                lastDdgWarnAt = Date.now()
+                console.error('[browser-search] HTTP fallback error:', fetchErr?.message || fetchErr)
+              }
             }
           }
         }
 
         if (results.length === 0) {
-          return remember({
-            success: true,
-            data: `Tidak ditemukan hasil pencarian web langsung untuk "${searchQuery}".`
-          })
+          // Marker machine-readable utk verifier (Agent V3): kegagalan router
+          // vs hasil kosong dibedakan eksplisit. Tanpa cache (success-only).
+          const bits = []
+          if (routerErr) bits.push(`[SEARCH-ERROR] router: ${routerErr}`)
+          if (extErr) bits.push(`[SEARCH-ERROR] extension: ${extErr}`)
+          bits.push(`[NO-RESULTS] Tidak ditemukan hasil pencarian web langsung untuk "${searchQuery}".`)
+          return { success: true, data: bits.join('\n') }
         }
 
         const formatted = results
           .map(
             (r, idx) =>
-              `${idx + 1}. [${r.title}](${r.url})\n   Snippet: ${r.snippet.replace(/\n+/g, ' ')}`
+              `${idx + 1}. [${r.title}](${r.url})\n   Snippet: ${String(r.snippet || '').replace(/\n+/g, ' ')}`
           )
           .join('\n\n')
 
