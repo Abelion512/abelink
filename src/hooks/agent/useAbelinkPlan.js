@@ -57,6 +57,11 @@ import {
 // HELPER UTILITIES
 // ============================================================================
 
+// Pure: hanya outcome 'completed' yang boleh menutup sesi browser otomatis.
+// failed/blocked/needs_user/self_terminated menyimpan tab untuk inspeksi
+// (sejajar semantik extension: sesi error tidak pernah auto-close).
+export const shouldAutoCloseBrowser = (sessionOutcome) => sessionOutcome === 'completed'
+
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp']
 
 // Batas keamanan loop ReAct fallback: nilai dasar sebelum disesuaikan via effortSystem
@@ -2075,6 +2080,17 @@ export const useAbelinkPlan = ({
           setIsLoading(false)
         }
         lastUserPromptRef.current = ''
+      }
+
+      // Auto-close sesi browser hanya saat loop selesai dengan 'completed'.
+      // Sidecar (browser:close -> finishSessionTask) menghormati flag
+      // autoCloseTabs dari sync-config; outcome lain menyimpan tab.
+      if (shouldAutoCloseBrowser(sessionOutcome) && window.api?.browserClose) {
+        try {
+          await window.api.browserClose(activeSessionNum === 1 ? 'default' : String(activeSessionNum))
+        } catch (e) {
+          console.warn('browserClose otomatis gagal:', e?.message)
+        }
       }
 
       try {
