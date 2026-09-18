@@ -9,8 +9,8 @@ describe('planStepBudget — effort-scaled plan budget', () => {
 
   it('resolves explicit effort levels from canonical effortSystem', () => {
     expect(resolvePlanStepBudget({ config: { effortLevel: 'low' } })).toBe(8)
-    expect(resolvePlanStepBudget({ config: { effortLevel: 'medium' } })).toBe(16)
-    expect(resolvePlanStepBudget({ config: { effortLevel: 'high' } })).toBe(32)
+    expect(resolvePlanStepBudget({ config: { effortLevel: 'medium' } })).toBe(24)
+    expect(resolvePlanStepBudget({ config: { effortLevel: 'high' } })).toBe(48)
     // Complex tasks scaled to ~50-64 steps
     expect(resolvePlanStepBudget({ config: { effortLevel: 'xhigh' } })).toBe(64)
     expect(resolvePlanStepBudget({ config: { effortLevel: 'max' } })).toBe(128)
@@ -41,18 +41,18 @@ describe('planStepBudget — effort-scaled plan budget', () => {
   })
 
   it('resolves auto effort based on task complexity', () => {
-    // Simple prompt in auto resolves to medium (16)
+    // Simple prompt in auto resolves to medium (24)
     const simple = resolvePlanStepBudget({
       config: { effortLevel: 'auto' },
       userInput: 'halo apa kabar'
     })
-    expect(simple).toBe(16)
+    expect(simple).toBe(24)
 
-    // Complex task in auto resolves to high (32) or above
+    // Complex task in auto resolves to xhigh (64): spawn(3) + tugas berat(2)
     const complex = resolvePlanStepBudget({
       config: { effortLevel: 'auto' },
       userInput: 'spawn_subagent untuk investigasi mendalam, riset komprehensif arsitektur kode dan buatkan laporan'
     })
-    expect(complex).toBeGreaterThanOrEqual(32)
+    expect(complex).toBe(64)
   })
 })

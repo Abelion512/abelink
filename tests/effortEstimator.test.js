@@ -30,11 +30,11 @@ describe('estimateEffort', () => {
     expect(r.score).toBe(0)
   })
 
-  it('spawn_subagent menaikkan skor ke high', () => {
+  it('spawn_subagent menaikkan skor ke xhigh', () => {
     const r = estimateEffort(
       'spawn_subagent untuk riset kompetitor, lalu buatkan laporan analisis data'
     )
-    expect(r.effort).toBe('high')
+    expect(r.effort).toBe('xhigh')
     expect(r.reasons.length).toBeGreaterThan(0)
   })
 
@@ -76,7 +76,7 @@ describe('resolveEffortLevel', () => {
       { effortLevel: 'auto' },
       'spawn_subagent untuk audit arsitektur dan migrasi kode menyeluruh'
     )
-    expect(complex.effort).toBe('high')
+    expect(complex.effort).toBe('xhigh')
     expect(complex.transparent).toContain('[auto]')
   })
 })
@@ -94,7 +94,7 @@ describe('effortSystem — typed core from spec', () => {
 
   it('canonical policy numeric values', () => {
     expect(resolve_effort(EffortLevel.LOW).policy.execution_step_budget).toBe(8)
-    expect(resolve_effort(EffortLevel.MEDIUM).policy.tool_call_budget).toBe(8)
+    expect(resolve_effort(EffortLevel.MEDIUM).policy.tool_call_budget).toBe(12)
     expect(resolve_effort(EffortLevel.HIGH).policy.verification_budget).toBe(2)
     expect(resolve_effort(EffortLevel.XHIGH).policy.reflection_budget).toBe(2)
     expect(resolve_effort(EffortLevel.MAX).policy.retry_budget).toBe(4)
@@ -189,11 +189,11 @@ describe('effortSystem — typed core from spec', () => {
     expect(policy.tool_call_budget).toBe(originalToolCalls)
   })
 
-  it('AUTO_SCALE bound maps auto to medium/high-like region', () => {
+  it('AUTO_SCALE bound maps auto to medium/xhigh-like region', () => {
     expect(AUTO_MIN.effective_level.value).toBe('medium')
-    expect(AUTO_MAX.effective_level.value).toBe('high')
+    expect(AUTO_MAX.effective_level.value).toBe('xhigh')
     expect(AUTO_SCALE.min).toBe('medium')
-    expect(AUTO_SCALE.max).toBe('high')
+    expect(AUTO_SCALE.max).toBe('xhigh')
   })
 
   it('EffortPolicy.planning_mode and reasoning_mode literals', () => {

@@ -199,8 +199,8 @@ const CANONICAL = {
     verification_score: 0.20,
     reflection_score: 0.00,
     workflow_score: 0.00,
-    execution_step_budget: 16,
-    tool_call_budget: 8,
+    execution_step_budget: 24,
+    tool_call_budget: 12,
     retry_budget: 1,
     reflection_budget: 0,
     verification_budget: 1,
@@ -228,8 +228,8 @@ const CANONICAL = {
     verification_score: 0.50,
     reflection_score: 0.25,
     workflow_score: 0.00,
-    execution_step_budget: 32,
-    tool_call_budget: 16,
+    execution_step_budget: 48,
+    tool_call_budget: 24,
     retry_budget: 2,
     reflection_budget: 1,
     verification_budget: 2,
@@ -412,11 +412,11 @@ function resolve_auto(requested_level, initial_level, options = {}) {
  */
 export const AUTO_SCALE = {
   min: EffortLevel.MEDIUM.value,
-  max: EffortLevel.HIGH.value,
+  max: EffortLevel.XHIGH.value,
 }
 
 export const AUTO_MIN = resolve_effort(EffortLevel.AUTO, { classifierInitial: EffortLevel.MEDIUM })
-export const AUTO_MAX = resolve_effort(EffortLevel.AUTO, { classifierInitial: EffortLevel.HIGH })
+export const AUTO_MAX = resolve_effort(EffortLevel.AUTO, { classifierInitial: EffortLevel.XHIGH })
 
 /**
  * Effective budget calculation (spec §§17, 37-38).

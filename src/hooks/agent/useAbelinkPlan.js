@@ -731,13 +731,18 @@ export const useAbelinkPlan = ({
           : createTrajectorySupervisor()
       let pendingSupervisorHint = null
       // ---- Budget skala-effort (effortSystem) -----------------------------
-      // Budget langkah dinamis mengikuti level effort (low: 8, medium: 16,
-      // high: 32, xhigh: 64 untuk task kompleks ~50 langkah, max: 128, ultra: 256).
-      const maxPlanSteps = resolvePlanStepBudget({
+      // Budget langkah dinamis mengikuti level effort (low: 8, medium: 24,
+      // high: 48, xhigh: 64 untuk task kompleks, max: 128, ultra: 256).
+      // Eskalasi satu-kali: saat budget habis tapi kerja produktif (tool
+      // sukses baru-baru ini), tambah +16 langkah sekali per sesi agar tugas
+      // besar tidak mati di tengah jalan. Dicatat di trajectory.
+      let maxPlanSteps = resolvePlanStepBudget({
         config,
         userInput,
         options: opts
       })
+      const BUDGET_EXTENSION_STEPS = 16
+      let budgetExtended = false
       let execSteps =
         durableTask?.steps?.length > 0
           ? durableTask.steps.map((s) => ({ task: s.title }))
@@ -836,6 +841,33 @@ export const useAbelinkPlan = ({
         // normal (arsip, TTS, notifikasi) tetap berjalan.
         let decision = null
         if (stepCount >= maxPlanSteps) {
+          // Eskalasi satu-kali: budget habis tapi ada progress tool yang sukses
+          // dalam 5 langkah terakhir -> tambah jatah, catat, lanjutkan loop.
+          const recentTools = executedToolsList.slice(-5)
+          const hasRecentProgress =
+            recentTools.length > 0 &&
+            recentTools.some(
+              (t) => typeof t?.resultString === 'string' && !t.resultString.startsWith('[ERROR]')
+            )
+          if (!budgetExtended && hasRecentProgress) {
+            budgetExtended = true
+            maxPlanSteps += BUDGET_EXTENSION_STEPS
+            console.warn(
+              `[useAbelinkPlan] Budget +${BUDGET_EXTENSION_STEPS} langkah (total ${maxPlanSteps}): progres terdeteksi, eskalasi satu-kali.`
+            )
+            try {
+              trajectoryLogStep({
+                step: stepCount,
+                total: maxPlanSteps,
+                description: `Eskalasi budget satu-kali: +${BUDGET_EXTENSION_STEPS} langkah (total ${maxPlanSteps}) — progres tool terdeteksi.`,
+                status: 'budget-extended'
+              })
+            } catch (_) {}
+            loopMessages.push({
+              role: 'user',
+              content: `[SYSTEM / BUDGET] Jatah langkah ditambah ${BUDGET_EXTENSION_STEPS} (total ${maxPlanSteps}) karena progres terdeteksi. Selesaikan dengan konvergen: jawaban final ("answer", "is_done": true) atau aksi penutup. DILARANG memulai eksplorasi baru.`
+            })
+          } else {
           console.warn(
             `[useAbelinkPlan] Batas ${maxPlanSteps} langkah tercapai. Eksekusi dipaksa berhenti.`
           )
@@ -857,6 +889,7 @@ export const useAbelinkPlan = ({
             ).catch(() => {})
             durableTask = null
             durableActiveStep = null
+          }
           }
         }
 

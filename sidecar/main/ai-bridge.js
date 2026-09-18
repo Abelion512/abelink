@@ -198,10 +198,19 @@ export const fetchAI = async (
           // Fallback antar-provider (1×): sesi/limit Gemini Web mati ->
           // teruskan pesan yang sama ke custom endpoint (DeepSeek-free-api,
           // 9router, LM Studio) via pemanggilan ulang dengan provider
-          // dioverride. Tanpa custom terkonfigurasi: error jujur di bawah.
+          // dioverride. Tanpa custom terkonfigurasi: fallback lokal di bawah.
           onStatus?.('⚠️ Gemini Web bermasalah, oper ke provider custom...')
           logAi('[ai] gemini-web -> custom fallback')
           return fetchAI(workMessages, { ...conf, aiProvider: 'custom' }, isSmallTask, jsonSchema ?? null, onStatus)
+        }
+        if (sessionBroken) {
+          // Fallback rantai ke komposit lokal (9Router/LM Studio di
+          // 127.0.0.1:20128): tanpa custom terkonfigurasi pun user tetap
+          // dapat jawaban bila server lokal hidup; bila mati, error lokal
+          // yang provider-aware (bukan spam GEMINI_WEB_LIMITED).
+          onStatus?.('⚠️ Gemini Web dibatasi, oper ke server AI lokal...')
+          logAi('[ai] gemini-web -> local fallback')
+          return fetchAI(workMessages, { ...conf, aiProvider: 'local' }, isSmallTask, jsonSchema ?? null, onStatus)
         }
         if (err.message?.includes('Session') || err.message?.includes('BardErrorInfo')) {
           onStatus?.('⚠️ Session Gemini Web bermasalah, mencoba fallback ke gemini-flash-lite...')
