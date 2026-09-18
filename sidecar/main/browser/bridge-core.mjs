@@ -467,6 +467,23 @@ export function tokenOk(s, token) {
   return !!(s.prevToken && safeTokenCompare(s.prevToken, token) && Date.now() < (s.prevExpiresAt || 0))
 }
 
+// Kode sebab 401 (machine-readable, untuk popup/poll extension):
+// - token-stale: sesi dikenal, token salah, TAPI token lama dalam grace ATAU
+//   file token masih ada (sidecar restart / rotasi — ambil baru via helper).
+// - token-unknown: sesi dikenal, token salah total (tempel manual / sesi asing).
+// - session-unknown: sesi tidak dikenal sama sekali.
+export const TOKEN_REJECT_STALE = 'token-stale'
+export const TOKEN_REJECT_UNKNOWN = 'token-unknown'
+export const TOKEN_REJECT_NO_SESSION = 'session-unknown'
+
+export function tokenRejectReason(sessionId, token) {
+  const s = sessions.get(sessionId)
+  if (!s) return TOKEN_REJECT_NO_SESSION
+  if (safeTokenCompare(s.token, token)) return null
+  if (s.prevToken && safeTokenCompare(s.prevToken, token)) return TOKEN_REJECT_STALE
+  return TOKEN_REJECT_UNKNOWN
+}
+
 // Rotasi bila kedaluwarsa. Dipanggil HANYA dari handshake valid (jalur
 // terautentikasi) — tidak pernah dari jalur gagal.
 function maybeRotate(s) {

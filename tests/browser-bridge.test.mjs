@@ -20,6 +20,10 @@ import {
   isWebScrapeCommand,
   looksLikeCrawlerSource,
   tokenOk,
+  tokenRejectReason,
+  TOKEN_REJECT_STALE,
+  TOKEN_REJECT_UNKNOWN,
+  TOKEN_REJECT_NO_SESSION,
   writeTokenFile,
   readTokenRecord,
   tokenFilePath,
@@ -50,6 +54,21 @@ describe('browser bridge core', () => {
     expect(handshake('hs-test', 'token-palsu').ok).toBe(false)
     expect(handshake('session-aneh', s.token).ok).toBe(false)
     dropSession('hs-test')
+  })
+
+  it('tokenRejectReason membedakan basi vs asing vs sesi tak dikenal', () => {
+    const s = ensureSession('hs-reason')
+    // Token benar -> null (tidak ditolak).
+    expect(tokenRejectReason('hs-reason', s.token)).toBeNull()
+    // Sesi tak dikenal.
+    expect(tokenRejectReason('hs-tak-ada', 'apapun')).toBe(TOKEN_REJECT_NO_SESSION)
+    // Token salah total -> unknown.
+    expect(tokenRejectReason('hs-reason', 'token-palsu')).toBe(TOKEN_REJECT_UNKNOWN)
+    // Token lama dalam grace (simulasi rotasi) -> stale.
+    s.prevToken = 'token-lama-123'
+    s.prevExpiresAt = Date.now() + 60000
+    expect(tokenRejectReason('hs-reason', 'token-lama-123')).toBe(TOKEN_REJECT_STALE)
+    dropSession('hs-reason')
   })
 
   it('dispatchCommand -> takeNext menyerahkan perintah yang sama (id, type, payload)', async () => {
