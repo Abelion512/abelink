@@ -110,7 +110,7 @@ export const getNextAction = async (
     let workspaceRagSection = ''
     if (targetWorkspace) {
       try {
-        const { workingMemoryText, codeRagText } = await getWorkspaceContext(
+        const { workingMemoryText, codeRagText, sessionFactsText } = await getWorkspaceContext(
           targetWorkspace,
           userInput
         )
@@ -120,6 +120,10 @@ export const getNextAction = async (
         }
         if (codeRagText) {
           sections.push(`## 2. RELEVAN CODEBASE CONTEXT (.abelink/ RAG)\n${codeRagText}`)
+        }
+        // Fakta sesi: working memory mentah verbatim (cap 2000 char); skip diam-diam bila kosong.
+        if (sessionFactsText) {
+          sections.push(`FAKTA SESAAT (working memory)\n${sessionFactsText}`)
         }
         if (sections.length > 0) {
           workspaceRagSection = `\n# ACTIVE WORKSPACE CONTEXT & RAG (.abelink/)\n${sections.join('\n\n')}\n`

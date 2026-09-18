@@ -129,6 +129,15 @@ export const APOLOGY_OR_FAILURE_RE =
 const NO_RESULT_RE =
   /(tidak ditemukan hasil|no results? found|tidak ada hasil|hasil tidak ditemukan|0 results|did not match any documents|halaman tidak ditemukan|404 not found)/i
 
+// Broken search transport (browser-search emits "[SEARCH-ERROR] <layer>: ..."
+// on tool failure, e.g. router 401 or extension disconnect). FAIL_RE never
+// fires on it and the marker text is long enough to pass hasReadSubstance,
+// so without this check a broken weapon reads as fetch proof. Genuine
+// [NO-RESULTS] (search executed, zero hits) is NOT an error — current
+// behavior preserved for that case.
+const SEARCH_ERROR_RE = /\[SEARCH-ERROR\]/i
+const SEARCH_ERROR_LAYER_RE = /\[SEARCH-ERROR\]\s*([^:\]\n]+)/i
+
 // Penanda objective multi-langkah: klaim done setelah 1 aksi = prematur.
 // Murni struktur bahasa (konjungsi), nol nama produk — buta-contoh.
 const MULTI_ACTION_RE = /(\bdan\b|\blalu\b|\bkemudian\b|\bsetelah itu\b|\bterus\b|\bthen\b|\band\b)/i
@@ -490,18 +499,31 @@ export function evaluateEvidence({
     case 'research': {
       // RI-13: semantic success required: a search returning "no results"
       // with substantive-looking surrounding text is not fetch proof.
-      const sourcesOk = ops.some(
-        (op) =>
-          SEARCH_TOOLS_RE.test(op.tool || '') &&
-          !SUBAGENT_ORCH_RE.test(op.tool || '') &&
-          !opFailed(op) &&
-          !NO_RESULT_RE.test(op.text || '') &&
-          hasReadSubstance(op.text)
-      )
+      // Broken transport poisons the batch: ANY [SEARCH-ERROR] op forces
+      // sources-found unresolved regardless of other ops — a broken weapon
+      // is not "info does not exist".
+      const searchErrorOp = ops.find((op) => SEARCH_ERROR_RE.test(op.text || ''))
+      const sourcesOk =
+        !searchErrorOp &&
+        ops.some(
+          (op) =>
+            SEARCH_TOOLS_RE.test(op.tool || '') &&
+            !SUBAGENT_ORCH_RE.test(op.tool || '') &&
+            !opFailed(op) &&
+            !NO_RESULT_RE.test(op.text || '') &&
+            hasReadSubstance(op.text)
+        )
       const factsOk =
         String(answer || '').trim().length >= 50 &&
         !APOLOGY_OR_FAILURE_RE.test(String(answer || ''))
       setState('sources-found', sourcesOk ? 'pass' : 'unresolved')
+      if (searchErrorOp) {
+        const layer =
+          String(searchErrorOp.text || '').match(SEARCH_ERROR_LAYER_RE)?.[1]?.trim() ||
+          'unknown'
+        criteria.find((c) => c.id === 'sources-found').label +=
+          ` — senjata riset rusak (${layer}) — perbaiki akses search, JANGAN simpulkan info tidak ada`
+      }
       setState('facts-present', factsOk ? 'pass' : 'unresolved')
       const claims = extractClaimEntities(answer)
       if (claims.length === 0) {

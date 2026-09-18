@@ -262,6 +262,52 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     expect(gate.replan).toBe(true)
   })
 
+  it('research search-error poisons batch: [SEARCH-ERROR] + good op => unresolved + error label', () => {
+    const longAnswer =
+      'Laporan riset komprehensif mengenai topik yang diminta dengan analisis mendalam, ' +
+      'perbandingan beberapa sudut pandang, dan kesimpulan yang panjang lebar melebihi batas.'
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset topik X',
+      answer: longAnswer,
+      tools: [
+        exec(
+          'browser-search',
+          'Hasil pencarian: data pasar X kuartal ini naik 12 persen menurut tiga sumber analis'
+        ),
+        exec(
+          'browser-search',
+          '[SEARCH-ERROR] router: 401 Unauthorized — perbaiki akses search sebelum menyimpulkan apapun'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'sources-found').state).toBe('unresolved')
+    expect(r.criteria.find((c) => c.id === 'sources-found').label).toContain('senjata riset rusak (router)')
+    expect(r.criteria.find((c) => c.id === 'sources-found').label).toContain(
+      'JANGAN simpulkan info tidak ada'
+    )
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research genuine [NO-RESULTS] keeps current behavior: unresolved, no error label', () => {
+    const longAnswer =
+      'Laporan riset komprehensif mengenai topik yang diminta dengan analisis mendalam, ' +
+      'perbandingan beberapa sudut pandang, dan kesimpulan yang panjang lebar melebihi batas.'
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset topik X',
+      answer: longAnswer,
+      tools: [
+        exec('browser-search', '[NO-RESULTS] Tidak ditemukan hasil pencarian web langsung untuk "topik X".')
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'sources-found').state).toBe('unresolved')
+    expect(r.criteria.find((c) => c.id === 'sources-found').label).toBe(
+      'Sumber ditemukan dan dibaca'
+    )
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
   it('RI-11 repro: write-file only, no search/fetch => not verified', () => {
     const r = evaluateEvidence({
       kind: 'research',

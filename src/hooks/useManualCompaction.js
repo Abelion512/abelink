@@ -91,6 +91,9 @@ export function useManualCompaction({ messages, setMessages, sessionId }) {
             sessionId: sid,
             messages: (msgs || []).filter((m) => !m.isCompacting),
             force: true,
+            // persist:false disengaja: ringkasan tetap disimpan via
+            // saveSessionCompact; persist:true hanya menambah tulis pruned ke
+            // store `sessions` (destruktif, UI tak sinkron) — tanpa manfaat.
             persist: false,
             activeConfig: activeConfigRef.current,
             onProgress: (p) => setProgress(p?.text || 'Merangkum konteks percakapan lama...')

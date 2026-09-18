@@ -34,7 +34,7 @@ const Configuration = ({
     model: 'google/gemma-3-4b',
     effortLevel: 'auto',
     temperature: 1,
-    context: 10,
+    context: 20,
     ttsRate: 0,
     ttsPitch: 0,
     groqApiKey: '',
@@ -436,7 +436,7 @@ const Configuration = ({
                       saveStatus.state === 'error'
                         ? 'badge-error'
                         : saveStatus.state === 'saved'
-                          ? 'badge-success badge-outline'
+                          ? 'badge-info badge-outline'
                           : 'badge-warning badge-outline'
                     }`}
                   >
