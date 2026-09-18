@@ -319,3 +319,31 @@ on('skills:open-folder', async () => {
     resolve({ success: true, path: SKILLS_DIR })
   })
 })
+
+// Proyeksi skill ke CapabilityDescriptor terpadu (aditif; handler tidak diubah).
+// Skills tidak punya argumen (isi dimuat via read-skill) dan tidak punya toggle.
+export const skillToDescriptor = (input) => {
+  const raw = typeof input?.name === 'string' ? input.name : ''
+  const slug = raw
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9_-]/g, '')
+    .replace(/^-+|-+$/g, '')
+  if (!slug) return null
+  const description =
+    typeof input?.description === 'string' && input.description.trim()
+      ? input.description
+      : 'Skill tanpa deskripsi'
+  return {
+    id: `skill:${slug}`,
+    kind: 'skill',
+    version: '1',
+    description,
+    inputSchema: { type: 'object', properties: {} },
+    scopes: [],
+    guide: { steps: [`Gunakan read-skill:${slug} untuk memuat isi penuh.`], examples: [] },
+    enabled: true,
+    source: { type: 'skill', name: raw.trim() },
+  }
+}
