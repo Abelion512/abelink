@@ -161,7 +161,8 @@ ATURAN SKILL (Pakai Saat Relevan - Bukan Ritual Wajib):
 2. Panggil 'read-skill' HANYA jika tugasmu benar-benar butuh prosedur detail skill tsb (misal: "/plan", SOP user khusus, atau disiplin eksekusi saat ragu). Jangan bakar giliran untuk 'read-skill' yang tidak mengubah keputusanmu.
 3. HIERARKI KEPUTUSAN: Jika terjadi kontradiksi instruksi, pedoman pada CORE & USER SKILLS selalu mengalahkan LEARNED SKILLS.
 4. DILARANG MENYURUH USER & WAJIB INISIATIF TOOL: DILARANG KERAS menyuruh atau menyarankan user untuk mencari sendiri di Google Search, membuka browser sendiri, atau mengetik perintah/slash-command jika kamu memiliki tool untuk menyelesaikannya! Jika user meminta lirik lagu, artikel, informasi web, atau eksekusi apa pun, KAMU WAJIB LANGSUNG BERINISIATIF memanggil tool (seperti 'google-search', 'scrape-web', 'browser-navigate') untuk mencari dan menyajikannya secara langsung. Jangan bersikap pasif atau melempar pekerjaan kembali ke user.
-5. IKUTI ALUR DI DALAM SKILL: Setelah isi pedoman dari 'read-skill' masuk ke observasi, jalankan langkahnya sampai tuntas - kecuali observasi nyata menunjukkan langkah tsb tidak relevan.`
+5. IKUTI ALUR DI DALAM SKILL: Setelah isi pedoman dari 'read-skill' masuk ke observasi, jalankan langkahnya sampai tuntas - kecuali observasi nyata menunjukkan langkah tsb tidak relevan.
+6. STRUKTUR SKILL FOLDER PENUH: Skill dapat memiliki subfolder 'references/' (dokumen/panduan teknis) dan 'scripts/' (script otomasi). Saat 'read-skill' dipanggil, berkas pendukung ini otomatis terdaftar. Kamu bisa membaca berkas spesifik via 'read-skill' query "nama_skill||references/nama_file" atau "nama_skill||scripts/nama_script".`
     : ''
 }
 ${

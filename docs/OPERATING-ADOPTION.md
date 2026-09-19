@@ -25,6 +25,7 @@ di repo → file; belum → backlog berprioritas.
 | /goal kontrak misi | skill native + floor budget 48 |
 | Memory router | `src/api/ai/memoryRouter.js` (per-turn context selection & assembly) |
 | Tool search deferred | `src/api/tools/toolCatalog.js` + `tests/toolSearchDeferred.test.mjs` |
+| Skill folder bundle | `src/api/skills/skillFolder.js` + `sidecar/engine/channels/skills.mjs` |
 | Budget counter murni | `StepBudget`, `wrapUpNotice` (`effortSystem.js`, `budgetNotice.js`) |
 | Eval gate | `scripts/verify.sh` + AbelinkBench |
 
@@ -34,8 +35,7 @@ di repo → file; belum → backlog berprioritas.
 2. **Sensitive-write umum** — SELESAI (feat/sensitive-write-guardian).
 3. **Memory router eksplisit** — SELESAI (feat/memory-router).
 4. **Tool search deferred penuh** — SELESAI (feat/tool-search-deferred).
-5. **Skill folder penuh** — `references/` + `scripts/` per skill
-   (sekarang SKILL.md tunggal + content Dexie).
+5. **Skill folder penuh** — SELESAI (feat/skill-folder-bundle).
 6. **Handoff contract JSON** — objective/done/remaining/blocked/
    artifacts/verified/next_action tertulis tiap sesi durable.
 7. **Nudge + eval mini skill** — pemicu graduateTrialSkill otomatis

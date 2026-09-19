@@ -74,14 +74,123 @@ on('skills:get-all', async () => {
   return skills
 })
 
-on('skills:read', async (name) => {
+// Scan subfolder (misal references/ atau scripts/) untuk daftar berkas
+async function scanSubfolderFiles(dirPath, prefix) {
+  if (!fs.existsSync(dirPath)) return []
+  try {
+    const entries = await fs.promises.readdir(dirPath, { withFileTypes: true })
+    const files = []
+    for (const e of entries) {
+      if (e.name.startsWith('.')) continue
+      const full = path.join(dirPath, e.name)
+      if (e.isFile()) {
+        const stat = await fs.promises.stat(full).catch(() => null)
+        files.push({
+          name: e.name,
+          path: `${prefix}/${e.name}`,
+          sizeBytes: stat?.size ?? 0
+        })
+      }
+    }
+    return files.sort((a, b) => a.name.localeCompare(b.name))
+  } catch {
+    return []
+  }
+}
+
+export async function getSkillFolderManifest(name) {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
-  const folder = path.join(SKILLS_DIR, name, 'SKILL.md')
-  if (fs.existsSync(folder)) return await fs.promises.readFile(folder, 'utf8')
+  const folderPath = path.join(SKILLS_DIR, name)
+  const isDir = fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()
+
+  if (isDir) {
+    const skillMdPath = path.join(folderPath, 'SKILL.md')
+    let content = ''
+    if (fs.existsSync(skillMdPath)) {
+      content = await fs.promises.readFile(skillMdPath, 'utf8')
+    }
+    const references = await scanSubfolderFiles(path.join(folderPath, 'references'), 'references')
+    const scripts = await scanSubfolderFiles(path.join(folderPath, 'scripts'), 'scripts')
+
+    return {
+      name,
+      content,
+      type: 'folder',
+      basePath: folderPath,
+      references,
+      scripts
+    }
+  }
+
   const single = path.join(SKILLS_DIR, `${name}.md`)
-  if (fs.existsSync(single)) return await fs.promises.readFile(single, 'utf8')
+  if (fs.existsSync(single)) {
+    const content = await fs.promises.readFile(single, 'utf8')
+    return {
+      name,
+      content,
+      type: 'file',
+      basePath: SKILLS_DIR,
+      references: [],
+      scripts: []
+    }
+  }
+
   return null
+}
+
+on('skills:read', async (name, relativePath) => {
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
+  if (relativePath) {
+    const safe = sanitizeSkillRelPath(relativePath)
+    if (safe == null) rejectTraversal()
+    const targetFile = path.join(SKILLS_DIR, name, safe)
+    if (fs.existsSync(targetFile)) {
+      return await fs.promises.readFile(targetFile, 'utf8')
+    }
+    return null
+  }
+
+  const manifest = await getSkillFolderManifest(name)
+  if (!manifest) return null
+
+  let text = manifest.content || ''
+  const extraSections = []
+
+  if (manifest.references.length > 0) {
+    const refList = manifest.references
+      .map((r) => `  - ${r.path} (${r.sizeBytes} bytes)`)
+      .join('\n')
+    extraSections.push(
+      `\n[BERKAS REFERENSI TERSEDIA (references/)]:\n${refList}\n-> Baca spesifik via: read-skill query: "${name}||references/<nama_file>"`
+    )
+  }
+
+  if (manifest.scripts.length > 0) {
+    const scriptList = manifest.scripts
+      .map((s) => `  - ${s.path} (${s.sizeBytes} bytes)`)
+      .join('\n')
+    extraSections.push(
+      `\n[SCRIPTS OTOMASI TERSEDIA (scripts/)]:\n${scriptList}\n-> Baca kode via: read-skill query: "${name}||scripts/<nama_file>"`
+    )
+  }
+
+  if (extraSections.length > 0) {
+    text = `${text}\n\n${extraSections.join('\n\n')}`
+  }
+
+  return {
+    content: text,
+    basePath: manifest.basePath,
+    references: manifest.references,
+    scripts: manifest.scripts,
+    type: manifest.type
+  }
 })
+
+on('skills:get-manifest', async (name) => {
+  return await getSkillFolderManifest(name)
+})
+
 
 on('skills:save', async (name, content) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
