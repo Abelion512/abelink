@@ -41,12 +41,12 @@
     "adm-zip": "^0.6.0"
   },
   "dependencies": {
-    "@fontsource/poppins": "^5.2.7",
     "@huggingface/transformers": "^4.2.0",
     "@monaco-editor/react": "^4.7.0",
     "@orama/orama": "^3.1.18",
     "@tauri-apps/api": "^2",
     "axios": "^1.13.4",
+    "date-fns": "^4.4.0",
     "dexie": "^4.3.0",
     "dexie-export-import": "^4.1.4",
     "duck-duck-scrape": "^2.2.7",
@@ -55,6 +55,7 @@
     "jsonrepair": "^3.14.0",
     "lucide-react": "^1.25.0",
     "mammoth": "^1.12.0",
+    "motion": "^13.4.0",
     "msedge-tts": "^2.0.4",
     "openai": "^6.17.0",
     "pdf-parse": "^2.4.5",
