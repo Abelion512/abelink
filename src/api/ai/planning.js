@@ -792,13 +792,14 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
         }
       }
 
-      // Last resort SEBELUM retry: kalau tidak ada JSON sama sekali tapi output
-      // berisi kalimat jawaban panjang, perlakukan sebagai jawaban akhir (banyak
-      // model kecil mengabaikan format JSON saat menjawab panjang).
-      if (!recovered && attempts >= MAX_RETRIES - 1) {
+      // Prose recovery AWAL (bukan last-resort): model kecil sering menjawab
+      // panjang tanpa JSON. Bila output prose murni (>=40 char, tanpa field
+      // JSON), langsung jadikan jawaban akhir — hemat 2 retry sia-sia.
+      // ponytail: ambang 40 char; naikkan bila jawaban pendek ikut lolos.
+      if (!recovered) {
         const prose = String(response.content || '').trim()
         const hasJsonField = /"(answer|action|thought)"\s*:/.test(prose)
-        if (prose && !hasJsonField) {
+        if (prose && !hasJsonField && prose.length >= 40) {
           console.warn('[planning] Output prose tanpa JSON — dipakai sebagai jawaban akhir')
           return {
             thought: response.reasoning || 'Prose answer recovery',
@@ -812,7 +813,8 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
             active_topic: activeTopic
           }
         }
-      }      // Jika data null (output bukan JSON valid), dorong AI untuk memperbaiki format responsnya.
+      }
+      // Jika data null (output bukan JSON valid), dorong AI untuk memperbaiki format responsnya.
       // VARIATION OPERATORS (pelajaran AVO: retry dengan strategi BERBEDA, bukan
       // prompt sama): attempt 1 = teguran format penuh; attempt 2 = sederhanakan
       // (minta 4 field inti saja, tekanan schema dikurangi); attempt 3+ =
@@ -821,12 +823,14 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
         const strategy = attempts === 1 ? 'format-penuh' : attempts === 2 ? 'skema-minimal' : 'tanpa-prose'
         console.warn(`[planning] AI output invalid JSON or missing schema (Attempt ${attempts}/${MAX_RETRIES}, strategi: ${strategy}). Continuing loop...`)
         const rawOutput = response.content || response.reasoning || ''
-        // Efisiensi token (requirement "retries burning ~16k"): jangan echo output
-        // mentah utuh balik ke konteks — sering berisi reasoning dump ribuan token.
-        // Cukup petik inti agar model tahu apa yang salah, lalu ulangi formatnya.
+        // Efisiensi token (retry burn): jangan echo output mentah balik ke
+        // konteks — reasoning dump ribuan token tiap attempt menumpuk. Cukup
+        // digest 120 char agar model tahu apa yang salah.
+        // ponytail: digest 120 char; naikkan bila model butuh konteks lebih.
         if (rawOutput) {
-          const trimmed = rawOutput.length > 600 ? `${rawOutput.slice(0, 600)}\n...[dipotong ${rawOutput.length} chars]` : rawOutput
-          messages.push({ role: 'assistant', content: trimmed })
+          const flat = String(rawOutput).replace(/\s+/g, ' ').trim()
+          const digest = flat.length > 120 ? `${flat.slice(0, 120)}...[${flat.length} chars]` : flat
+          messages.push({ role: 'assistant', content: `[output-invalid: ${digest}]` })
         }
         messages.push({
           role: 'user',

@@ -443,10 +443,22 @@ export async function insertArchiveToOrama(data) {
 export async function insertDocumentChunksToOrama(chunks) {
   const idx = await ensureDocumentIndex()
   if (!idx) return
-  const tagged = (chunks || []).map((c) => ({
-    ...c,
-    vectorModel: c.vectorModel || LEGACY_VECTOR_MODEL
-  }))
+  const { getVectorModel } = await loadVectorPolicy()
+  const currentModel = getVectorModel()
+  const tagged = (chunks || []).map((c) =>
+    toIndexRow(
+      {
+        docName: c.docName,
+        chunkIndex: c.chunkIndex,
+        content: c.content,
+        timestamp: c.timestamp,
+        dexieId: c.dexieId
+      },
+      c.vector,
+      c.vectorModel || LEGACY_VECTOR_MODEL,
+      currentModel
+    )
+  )
   await insertMultiple(idx, tagged)
 }
 
