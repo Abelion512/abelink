@@ -676,7 +676,7 @@ const pickAdoptableTab = (tabs = [], url = '', excludeIds = []) => {
   )
 }
 
-export const sessionKeyOf = (sid) => String(sid ?? 'default')
+const sessionKeyOf = (sid) => String(sid ?? 'default')
 
 // Buat tab dengan budget: grup sesi penuh -> pakai-ulang tab grup terlama.
 async function createBoundedTab(sessionId, url) {
