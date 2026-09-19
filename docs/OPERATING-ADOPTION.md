@@ -23,6 +23,7 @@ di repo → file; belum → backlog berprioritas.
 | Snapshot konten | `browser-snapshot`/`wait-for`, extract tanpa selector |
 | Isolasi tab sesi | sessionId propagation + anti-curi adopsi/grup |
 | /goal kontrak misi | skill native + floor budget 48 |
+| Memory router | `src/api/ai/memoryRouter.js` (per-turn context selection & assembly) |
 | Budget counter murni | `StepBudget`, `wrapUpNotice` (`effortSystem.js`, `budgetNotice.js`) |
 | Eval gate | `scripts/verify.sh` + AbelinkBench |
 
@@ -30,8 +31,7 @@ di repo → file; belum → backlog berprioritas.
 
 1. **Rust kenal hardline** — SELESAI (9d1a3f8).
 2. **Sensitive-write umum** — SELESAI (feat/sensitive-write-guardian).
-3. **Memory router eksplisit** — jadikan pemilihan konteks subsystem
-   sendiri (sekarang fungsi tersebar di planner).
+3. **Memory router eksplisit** — SELESAI (feat/memory-router).
 4. **Tool search deferred penuh** — `defer_loading` + contoh pemakaian
    per tool (sekarang registry 1-baris + read manual).
 5. **Skill folder penuh** — `references/` + `scripts/` per skill
