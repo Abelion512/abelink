@@ -15,6 +15,7 @@ import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
 import { GROUP_TOOLS_DEFINITION, loadGroupToolsText } from '../tools/group-tools'
 import { executeMemorySearch } from '../vectorMemory.js'
+import { executeMemoryTool } from '../ai/memoryTool.js'
 import { LEAD_AGENT_TAG, CREATOR_TAG } from '../../utils/messageTags'
 
 // Registry AbortController aktif per sub-agent
@@ -353,6 +354,13 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
             } else if (act.tool === 'memory-search') {
               const formatted = await executeMemorySearch(act.query || '')
               res = { success: true, data: formatted }
+            } else if (act.tool === 'memory') {
+              const out = await executeMemoryTool(act.query || '', {
+                turnId: subagentId,
+                sessionId: subagentId
+              })
+              const isErr = out.startsWith('[MEMORY-ERROR]') || out.startsWith('[MEMORY-FAILURE-CAP]')
+              res = { success: !isErr, data: out }
             } else if (window.api && window.api.executeNativeTool) {
               res = await window.api.executeNativeTool(act.tool, act.query || '', {
                 sessionId: subagentId,
@@ -368,7 +376,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
                 : JSON.stringify(res.data)
               : `[ERROR] ${res.error}`
 
-            if (act.tool === 'read-tools' || act.tool === 'memory-search' || !window.api?.executeNativeTool) {
+            if (act.tool === 'read-tools' || act.tool === 'memory-search' || act.tool === 'memory' || !window.api?.executeNativeTool) {
               try {
                 import('../harness')
                   .then(({ logToolCall }) =>

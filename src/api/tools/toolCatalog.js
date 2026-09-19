@@ -39,6 +39,21 @@ export const CORE_TOOL_SPECS = {
     ],
     tags: ['memory', 'ingatan', 'profil', 'turn', 'history', 'preferensi', 'search']
   },
+  'memory': {
+    name: 'memory',
+    group: 'core',
+    defer_loading: false,
+    summary: 'Catat, ganti, atau hapus memori profil/preferensi (add, replace, remove, batch) secara atomic.',
+    description: 'Catat, ganti, atau hapus memori profil/preferensi. Batch atomic: semua operasi dalam satu panggilan berhasil atau tidak ada yang diterapkan.',
+    queryFormat: 'JSON string { action, target, ... } atau format action||target||...',
+    examples: [
+      { query: '{"action":"add","target":"user","new_text":"User menyukai gaya bahasa to-the-point"}', description: 'Menambahkan preferensi pengguna baru' },
+      { query: '{"action":"replace","target":"user","old_text":"tema terang","new_text":"tema dark mode"}', description: 'Memperbarui preferensi pengguna' },
+      { query: '{"action":"remove","target":"memory","old_text":"catatan meeting lama"}', description: 'Menghapus catatan memori' },
+      { query: '{"action":"batch","target":"memory","operations":[{"action":"add","target":"user","new_text":"A"},{"action":"remove","target":"memory","old_text":"B"}]}', description: 'Batch atomic beberapa operasi sekaligus' }
+    ],
+    tags: ['memory', 'profil', 'preferensi', 'ingatan', 'add', 'replace', 'remove', 'batch', 'store']
+  },
   'read-file': {
     name: 'read-file',
     group: 'core',
