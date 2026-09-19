@@ -332,6 +332,7 @@ export const executeSingleTool = async (tool, query, ctx) => {
       // Kalau bukan URL scheme, lanjut ke native tool handler biasa
       const activeConfig = {
         ...(Array.isArray(config) ? config[0] : config),
+        sessionId: String(ctx?.sessionId ?? 'default'),
         workspaceRoot: ctx?.workspaceRoot,
         turnId: ctx?.turnId || ctx?.agenticProcessId
       }
