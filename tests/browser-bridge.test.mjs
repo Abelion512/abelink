@@ -419,4 +419,29 @@ describe('isolasi token prod/dev', () => {
       dropSession('default')
     }
   })
+
+  it('unified queue draining: polling sesi default dapat menguras perintah dari subagent session', async () => {
+    const subId = 'subagent-test-worker-1'
+    ensureSession(subId)
+    ensureSession('default')
+    const defToken = ensureSession('default').token
+
+    // Subagent mengantrekan perintah ke sesinya sendiri
+    const p = dispatchCommand(subId, 'navigate', { url: 'https://example.com/sub' })
+
+    // Ekstensi yang mem-poll sesi 'default' mengambil perintah tersebut
+    const cmd = await takeNext('default', defToken)
+    expect(cmd).not.toBeNull()
+    expect(cmd.type).toBe('navigate')
+    expect(cmd.payload?.url).toBe('https://example.com/sub')
+
+    // Selesaikan via resolveCommand
+    const res = resolveCommand('default', defToken, cmd.id, { ok: true, data: 'Navigated to sub url' })
+    expect(res.ok).toBe(true)
+    await expect(p).resolves.toMatchObject({ ok: true, data: 'Navigated to sub url' })
+
+    dropSession(subId)
+    dropSession('default')
+  })
 })
+

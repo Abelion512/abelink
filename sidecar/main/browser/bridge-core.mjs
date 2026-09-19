@@ -170,11 +170,8 @@ export function ensureSession(sessionId = 'default') {
       groups: {} // browser-use: { [task]: { status, color, lastUpdate } }
     }
     sessions.set(sessionId, s)
-    // Reseed dari file token: sesi yang di-drop lalu dibuat ulang (sweep,
-    // browser:close) WAJIB memakai token file lagi — token acak baru membuat
-    // extension yang pegang token file benar ditolak 401 selamanya sampai
-    // klik manual. Best-effort: gagal baca -> acak. (Sesi 'default' saja
-    // yang punya file token.) Tanpa import baru: path via tokenPathFor.
+    // Reseed dari file token: sesi 'default' WAJIB memakai token file lagi.
+    // Token acak baru membuat extension yang pegang token file benar ditolak 401 selamanya.
     if (sessionId === 'default') {
       try {
         const flavor = flavorFromPort(BROWSER_BRIDGE.PORT)
@@ -293,15 +290,41 @@ export function takeNext(sessionId, token) {
   if (!s || !tokenOk(s, token))
     return Promise.reject(new Error('Sesi tidak dikenal atau token salah.'))
   s.lastSeenAt = now()
+
+  // 1. Cek antrean pending sesi sendiri
   const existing = s.pending[0]
   if (existing) return Promise.resolve(serializeCommand(existing, s))
+
+  // 2. Jika sesi 'default', ekstensi tunggal dapat membantu menguras antrean pending dari sesi lain (misal subagents)
+  if (sessionId === 'default') {
+    for (const [id, otherSession] of sessions.entries()) {
+      if (id !== 'default' && otherSession.pending.length > 0) {
+        const otherCmd = otherSession.pending[0]
+        if (otherCmd) {
+          return Promise.resolve(serializeCommand(otherCmd, otherSession))
+        }
+      }
+    }
+  }
+
   return new Promise((resolve) => {
     const w = { resolve: null, timer: null }
     w.resolve = (cmd) => {
       const i = s.waiting.indexOf(w)
       if (i >= 0) s.waiting.splice(i, 1)
       const next = s.pending[0]
-      resolve(next ? serializeCommand(next, s) : cmd)
+      if (next) return resolve(serializeCommand(next, s))
+      if (sessionId === 'default') {
+        for (const [id, otherSession] of sessions.entries()) {
+          if (id !== 'default' && otherSession.pending.length > 0) {
+            const otherCmd = otherSession.pending[0]
+            if (otherCmd) {
+              return resolve(serializeCommand(otherCmd, otherSession))
+            }
+          }
+        }
+      }
+      resolve(cmd)
     }
     w.timer = setTimeout(() => w.resolve(null), BROWSER_BRIDGE.POLL_TIMEOUT_MS)
     s.waiting.push(w)
@@ -371,6 +394,10 @@ export function dispatchCommand(sessionId, type, payload) {
     inflight.set(commandId, { resolve, reject, timer })
     s.pending.push({ id: commandId, type, payload })
     wake(s)
+    if (sessionId !== 'default') {
+      const def = sessions.get('default')
+      if (def) wake(def)
+    }
   })
 }
 
