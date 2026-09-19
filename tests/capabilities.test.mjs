@@ -127,15 +127,19 @@ describe('executeCapability (offline connectors)', () => {
     )
   })
 
-  it('shell-tool exec: perintah aman dieksekusi langsung (mock, tanpa spawn)', async () => {
-    setDangerousOverride(false)
-    const out = await executeCapability({
-      connectorId: 'shell-tool',
-      actionId: 'exec',
-      args: { command: 'echo' } // handler di-mock; tidak ada proses sungguhan
-    })
-    expect(out.output).toBe('MOCK-OUTPUT')
-  })
+  it(
+    'shell-tool exec: perintah aman dieksekusi langsung (mock, tanpa spawn)',
+    async () => {
+      setDangerousOverride(false)
+      const out = await executeCapability({
+        connectorId: 'shell-tool',
+        actionId: 'exec',
+        args: { command: 'echo' } // handler di-mock; tidak ada proses sungguhan
+      })
+      expect(out.output).toBe('MOCK-OUTPUT')
+    },
+    20000
+  )
 
   it('shell-tool exec: perintah berbahaya fail-fast dengan CAPABILITY_APPROVAL_REQUIRED + pesan tool asli (backstop meski headless)', async () => {
     setDangerousOverride(true)

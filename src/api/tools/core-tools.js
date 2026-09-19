@@ -1,5 +1,5 @@
 export const core_tools = {
-  "read-tools": "WAJIB dipanggil SEBELUM menggunakan tool yang tidak kamu ketahui query-nya! Kamu hanya bisa mengeksekusi tool jika kamu tahu pasti format query-nya. Query: nama_grup (misal: \"advanced_browser\", \"pc_automation\", \"git_vcs\", \"task_terminal\").",
+  "read-tools": "WAJIB dipanggil SEBELUM menggunakan tool yang tidak kamu ketahui query-nya! Mendukung nama_grup (misal: \"advanced_browser\", \"pc_automation\", \"git_vcs\", \"task_terminal\"), nama_tool spesifik (misal: \"browser-click\", \"replace-content\"), atau pencarian bebas (misal: \"search: terminal background\" atau \"?snapshot\"). Query: nama_grup ATAU nama_tool ATAU search: kata_kunci.",
   "memory-search": "ALAT PENCARIAN INGATAN (WAJIB DIGUNAKAN). Mencari ingatan masa lalu, preferensi/catatan user, solusi historis, dan riwayat chat percakapan asli (Turn Pairs). ATURAN MUTLAK: Selalu coba cari di tool ini sebelum bertanya balik ke user. ATURAN ANTI-HALUSINASI (GROUNDEDNESS): Jika setelah dicari hasilnya KOSONG atau hanya sedikit, KAMU WAJIB JUJUR dan DILARANG KERAS MENGARANG/MENAMBAH-NAMBAHKAN DAFTAR/FAKTA FIKTIF yang tidak ada di memori! Query: kata_kunci atau kata_kunci||threshold||limit (contoh: 'solusi error CORS' atau 'password wifi||0.6||3' atau 'konfigurasi vite||0.5||10'). Threshold (0.1 - 0.9, default 0.5): atur lebih tinggi untuk pencarian sangat ketat atau lebih rendah untuk pencarian luas. Limit (default 5): jumlah maksimal memori/chat yang ingin diambil.",
   "read-file": "Membaca isi file teks biasa. Query: path_absolut atau path_relatif. Baca spesifik baris: path||startLine||endLine.",
   "write-file": "Menulis/buat file baru dari nol. Query: path||isi_file. (Perlu persetujuan user). Otomatis divalidasi sintaksnya. PENTING: Gunakan 'replace-content' jika file sudah ada!",
@@ -30,4 +30,16 @@ export const core_tools = {
 // STREAM D: hanya agen ini yang didukung delegate_coding (cermin di
 // codingAgentBridge.js + agentTools.js).
 export const PREFERRED_CODING_AGENTS = ['opencode', 'hermes']
+
+export {
+  CORE_TOOL_SPECS,
+  DEFERRED_GROUP_SPECS,
+  UNIFIED_TOOL_CATALOG,
+  getToolSpec,
+  searchTools,
+  formatToolDocumentation,
+  formatGroupDocumentation,
+  resolveReadToolsQuery
+} from './toolCatalog'
+
 

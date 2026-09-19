@@ -5,7 +5,6 @@
 // atau undefined bila tool bukan domain ini. Formatting resultString +
 // trajectory log dilakukan TERPUSAT di toolDispatcher (sama seperti sebelumnya).
 import { logSubAgentSpawn as trajectoryLogSub } from '../../../api/trajectory'
-import { loadGroupToolsText } from '../../../api/tools/group-tools.js'
 import { getLearnedSkill, bumpLearnedSkillUse } from '../../../api/db.js'
 import { NATIVE_SKILLS } from '../../../components/core/native-skills.js'
 import { isTruncatedOutput } from '../../../api/ai/agentDecision.js'
@@ -237,24 +236,24 @@ export const runAgentTool = async (tool, query, ctx) => {
     return { success: true, data: `Sub-agent ${targetId} berhasil dihentikan paksa.` }
   }
   if (tool === 'read-tools') {
-    const groupName = query.trim()
-    if (!groupName) {
-      return {
-        success: false,
-        message: 'Harap sebutkan nama_grup yang ingin dimuat (misal: "advanced_browser").'
+    const rawQuery = (query || '').trim()
+    const { resolveReadToolsQuery, group_tools, browserExtensionStatusLine } = await import('../../../api/tools/group-tools.js')
+    const dynamicGroups = await group_tools().catch(() => ({}))
+    const resolved = await resolveReadToolsQuery(rawQuery, { customGroups: dynamicGroups })
+    if (resolved && resolved.success) {
+      let extLine = ''
+      if (resolved.groupName === 'advanced_browser' || rawQuery.toLowerCase().includes('browser')) {
+        extLine = (await browserExtensionStatusLine()) + '\n'
       }
-    }
-    const text = await loadGroupToolsText(groupName)
-    if (text) {
       return {
         success: true,
-        loaded_group: groupName,
-        message: `BERHASIL MEMUAT GRUP TOOL: ${groupName}.\nDokumentasi tool:\n${text}`
+        loaded_target: resolved.groupName || resolved.toolName || resolved.query || rawQuery,
+        message: `BERHASIL MEMUAT DOKUMENTASI TOOL:\n${extLine}${resolved.message}`
       }
     }
     return {
       success: false,
-      message: `Grup tool "${groupName}" tidak ditemukan.`
+      message: resolved?.message || `Grup atau tool "${rawQuery}" tidak ditemukan.`
     }
   }
   if (tool === 'read-skill') {
