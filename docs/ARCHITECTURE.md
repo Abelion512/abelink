@@ -254,3 +254,29 @@ deteksi perintah (alias `run-powershell` tetap sebagai alias).
 Deferral sadar ditandai `ponytail: <ceiling>, <upgrade>` (ledger:
 `eslint.config.mjs:46`, `effort-fixtures.mjs:153`,
 `window_tracker.rs:61`, `sttRouter.js` AbortSignal).
+
+## 11. Operating Model & Autonomy Subsystems (Hermes × Anthropic Adoption)
+
+Adopsi pola operasi mandiri dan batasan keamanan (merujuk `docs/OPERATING-MODEL.md` & `docs/OPERATING-ADOPTION.md`):
+
+1. **Sensitive-Write Hardline (Hermes 3-tier):**
+   - Boundary penjaga di Rust shell (`src-tauri/src/hardline.rs`) dan Node sidecar (`sidecar/main/tools/_shared.mjs`).
+   - Melindungi path sensitif user (`~/.ssh`, `.env`, `.bashrc`, `.zshrc`, credentials) dengan penolakan langsung atau wajib rfd approval.
+2. **Explicit Memory Router Subsystem:**
+   - Pemilihan dan perakitan konteks terpusat (`src/api/ai/memoryRouter.js`) memisahkan budget prompt dari long-term memory.
+   - Groundedness guard mutlak: jika pencarian kosong atau parsial, LLM dilarang keras mengarang fakta historis fiktif.
+3. **Unified Memory Tool & Atomic Engine:**
+   - Single tool `memory` (`src/api/ai/memoryTool.js`) untuk mutasi ingatan (`add`, `replace`, `remove`, `batch`).
+   - Sifat transaksi atomic (all-or-nothing pada batch) dan penegakan `perTurnFailureCap: 3` untuk memutus loop spinning model.
+4. **Deferred Tool Search Catalog:**
+   - `src/api/tools/toolCatalog.js`: registry kaya metadata dengan deskripsi, query format, tags, dan contoh pemakaian.
+   - Mengurangi overhead prompt dengan pemuatan definisi on-demand via `read-tools`.
+5. **Skill Folder Bundle & Manifest Traversal:**
+   - `src/api/skills/skillFolder.js` + `sidecar/engine/channels/skills.mjs`: mendukung struktur folder skill penuh (`SKILL.md`, `references/`, `scripts/`).
+   - Query format `nama_skill||subpath` dengan proteksi fail-closed path traversal (`sanitizeSkillRelPath`).
+6. **Durable Handoff Contract JSON:**
+   - `src/api/ai/handoffContract.js`: kontrak terstruktur 7 field kanonis (`objective`, `done`, `remaining`, `blocked`, `artifacts`, `verified`, `next_action`) yang ter-persist di checkpoint step dan `taskRuntime`.
+7. **RSI Telemetry, Nudge, & Mini Evaluation Engine:**
+   - `src/api/ai/skillMiniEval.js`: evaluasi kualitas skill (substansi, struktur, tindakan, sanitasi pola berbahaya).
+   - Auto-graduation empiris: promosi status skill dari `trial` ke `active` saat digunakan kembali (`read-skill` use count > 0) atau saat evaluasi mini lolos, menutup siklus Recursive Self-Improvement.
+
