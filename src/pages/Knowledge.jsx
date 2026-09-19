@@ -106,14 +106,14 @@ const Knowledge = () => {
   }
 
   return (
-    <div className="h-screen bg-base-300 text-base-content overflow-hidden relative font-['Poppins',sans-serif]">
+    <div className="h-screen bg-base-300 text-base-content overflow-hidden relative">
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
 
       {/* Main Content Area */}
       <div className="relative z-10 w-full h-full overflow-y-auto custom-scrollbar">
-        <div className="max-w-2xl mx-auto px-4 py-8 pb-32 space-y-8">
+        <div className="px-4 py-8 pb-32 space-y-8">
           {/* Page Header */}
           <div className="flex items-center gap-4">
             <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm btn-circle">
@@ -186,7 +186,7 @@ const Knowledge = () => {
 
             <div className="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
               {documents.length === 0 ? (
-                <div className="text-center py-10 opacity-30 bg-base-200/30 rounded-xl border border-base-content/5">
+                <div className="text-center py-10 opacity-60 bg-base-200/30 rounded-xl border border-base-content/5">
                   <p className="text-sm">Belum ada dokumen yang di-inject.</p>
                 </div>
               ) : (
@@ -201,7 +201,7 @@ const Knowledge = () => {
                       </p>
                       <div className="flex gap-2 mt-1 items-center">
                         <span className="badge badge-xs badge-secondary">{doc.chunks} chunks</span>
-                        <span className="text-xs opacity-40">
+                        <span className="text-xs opacity-60">
                           Diunggah {new Date(doc.timestamp).toLocaleDateString()}
                         </span>
                       </div>
@@ -222,8 +222,8 @@ const Knowledge = () => {
       <ModalComponent />
       
       {toastMessage && (
-        <div className="toast toast-top toast-end z-[9999]">
-          <div className="alert alert-success shadow-lg rounded-xl flex items-center gap-2">
+        <div className="toast toast-bottom toast-end z-50">
+          <div className="alert alert-info shadow-lg rounded-xl flex items-center gap-2">
             <span className="text-sm font-medium">{toastMessage}</span>
           </div>
         </div>

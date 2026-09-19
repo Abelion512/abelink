@@ -129,7 +129,7 @@ const MainLayout = ({ isStandalone = false }) => {
         <>
           {/* Tampilkan satu WindowControls konsisten di sub-page agar user tetap bisa minimize/maximize/close */}
           {!isStandalone && !isHome && (
-            <div className="absolute top-2.5 right-4 z-[9999] pointer-events-auto">
+            <div className="absolute top-2.5 right-4 z-30 pointer-events-auto">
               <WindowControls />
             </div>
           )}
@@ -183,8 +183,8 @@ const MainLayout = ({ isStandalone = false }) => {
 // profiles Electron lama terdeteksi. Restore = alur export/import JSON
 // (engine beda: Chromium LevelDB tak bisa dibaca langsung oleh WebKit).
 const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }) => (
-  <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
-    <div className="max-w-md w-full bg-base-200/95 border border-white/10 rounded-2xl shadow-2xl p-7 space-y-4 animate-fade-in">
+  <div className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+      <div className="max-w-md w-full bg-base-200/95 border border-white/10 rounded-xl shadow-2xl p-7 space-y-4 animate-fade-in">
       <h2 className="text-xl font-bold">Data Abelink versi lama terdeteksi</h2>
       <p className="text-sm opacity-70 leading-relaxed">
         Ditemukan {profiles.length} profil Abelink era lama di folder konfigurasi. Karena mesin browser

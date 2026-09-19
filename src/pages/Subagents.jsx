@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   Bot,
   ArrowLeft,
@@ -16,10 +15,10 @@ import SubagentIntercom from '../components/subagent/SubagentIntercom'
 import SubagentTopologyMap from '../components/subagent/SubagentTopologyMap'
 import { runSubagentTurn } from '../api/subagent/subagentExecutor'
 import { subagentStore } from '../api/subagent/subagentStore'
+import { MobiusLoader } from '../components/core/MobiusLoader'
 import { useConfirm } from '../hooks/useConfirm'
 
 export default function Subagents() {
-  const navigate = useNavigate()
   const [selectedSubagentId, setSelectedSubagentId] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
   const [subagents, setSubagents] = useState([])
@@ -113,43 +112,24 @@ export default function Subagents() {
   }
 
   return (
-    <div className="h-screen bg-[#080B09] text-zinc-200 overflow-hidden relative font-['Poppins',sans-serif]">
+    <div className="h-screen bg-[#080B09] text-zinc-200 overflow-hidden relative">
       {/* Background Ambience */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(6,182,212,0.08),transparent_50%)] pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,rgba(16,185,129,0.04),transparent_40%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(10,132,255,0.08),transparent_50%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,rgba(10,132,255,0.04),transparent_40%)] pointer-events-none" />
 
       {/* Main Content Area */}
       <div className="relative z-10 w-full h-full overflow-hidden flex flex-col">
-        <div className="max-w-6xl mx-auto px-4 py-6 space-y-5 w-full flex-1 flex flex-col overflow-hidden">
+        <div className="px-4 py-6 space-y-5 w-full flex-1 flex flex-col overflow-hidden">
           {/* Page Header */}
           <div className="flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3.5">
-              <button
-                type="button"
-                onClick={() => navigate('/')}
-                className="w-8 h-8 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-zinc-300 hover:text-white transition-all shrink-0"
-                style={{ WebkitAppRegion: 'no-drag' }}
-                title="Kembali ke Dashboard"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="1.1em"
-                  height="1.1em"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
               <div>
                 <div className="flex items-center gap-2.5">
                   <h1 className="text-xl font-semibold text-white tracking-tight">Sub-Agents</h1>
                   <span className="text-[11px] text-zinc-500 font-mono tracking-wide">/ Mission Control</span>
                   {activeCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-primary/10 text-info border border-primary/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-info animate-pulse" />
                       {activeCount} active
                     </span>
                   )}
@@ -160,7 +140,7 @@ export default function Subagents() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 mr-32">
+            <div className="flex items-center gap-2.5">
               {/* View Mode Toggle: Topologi vs Intercom */}
               <div className="flex items-center p-1 bg-black/40 rounded-xl border border-white/[0.08] font-mono text-xs">
                 <button
@@ -168,7 +148,7 @@ export default function Subagents() {
                   onClick={() => setViewMode('topology')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                     viewMode === 'topology'
-                      ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm'
+                      ? 'bg-primary/15 text-info border border-primary/30 shadow-sm'
                       : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
                   }`}
                   style={{ WebkitAppRegion: 'no-drag' }}
@@ -181,7 +161,7 @@ export default function Subagents() {
                   onClick={() => setViewMode('intercom')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                     viewMode === 'intercom'
-                      ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm'
+                      ? 'bg-primary/15 text-info border border-primary/30 shadow-sm'
                       : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
                   }`}
                   style={{ WebkitAppRegion: 'no-drag' }}
@@ -194,7 +174,7 @@ export default function Subagents() {
               <button
                 type="button"
                 onClick={() => setIsSpawnModalOpen(true)}
-                className="btn btn-sm rounded-xl gap-1.5 px-3.5 font-medium bg-cyan-500 text-black hover:bg-cyan-400 border-none shadow-sm shadow-cyan-500/20 transition-all text-xs"
+                className="btn btn-sm rounded-xl gap-1.5 px-3.5 font-medium bg-primary text-white hover:bg-primary/80 border-none shadow-sm shadow-primary/20 transition-all text-xs"
                 style={{ WebkitAppRegion: 'no-drag' }}
               >
                 <Plus className="w-3.5 h-3.5" /> New Agent
@@ -203,7 +183,7 @@ export default function Subagents() {
           </div>
 
           {/* Main Workspace Area */}
-          <div className="flex-1 flex overflow-hidden rounded-3xl bg-black/40 border border-white/[0.08] p-3.5 gap-3.5 backdrop-blur-xl shadow-2xl">
+          <div className="flex-1 flex overflow-hidden rounded-lg bg-black/40 border border-white/[0.08] p-4 gap-4 backdrop-blur-xl shadow-2xl">
             {viewMode === 'topology' ? (
               <SubagentTopologyMap
                 subagents={subagents}
@@ -218,7 +198,7 @@ export default function Subagents() {
             ) : (
               <>
                 {/* Left Panel: Clean Agent List */}
-                <div className="w-72 flex flex-col bg-white/[0.02] rounded-2xl border border-white/[0.06] overflow-hidden flex-none">
+                <div className="w-72 flex flex-col bg-white/[0.02] rounded-xl border border-white/[0.06] overflow-hidden flex-none">
                   {/* Filter Tabs */}
                   <div className="p-2 border-b border-white/[0.06]">
                     <div className="flex gap-1 p-0.5 bg-black/40 rounded-xl w-full border border-white/[0.05]">
@@ -238,7 +218,7 @@ export default function Subagents() {
                         onClick={() => setFilterStatus('running')}
                         className={`flex-1 py-1 text-[11px] font-medium rounded-lg transition-all ${
                           filterStatus === 'running'
-                            ? 'bg-cyan-500/20 text-cyan-300 shadow-sm font-semibold'
+                            ? 'bg-primary/20 text-info shadow-sm font-semibold'
                             : 'text-zinc-400 hover:text-zinc-200'
                         }`}
                       >
@@ -260,7 +240,7 @@ export default function Subagents() {
                         onClick={() => setFilterStatus('completed')}
                         className={`flex-1 py-1 text-[11px] font-medium rounded-lg transition-all ${
                           filterStatus === 'completed'
-                            ? 'bg-emerald-500/20 text-emerald-300 shadow-sm font-semibold'
+                            ? 'bg-info/20 text-info shadow-sm font-semibold'
                             : 'text-zinc-400 hover:text-zinc-200'
                         }`}
                       >
@@ -287,7 +267,7 @@ export default function Subagents() {
                             onClick={() => setSelectedSubagentId(agent.id)}
                             className={`p-3 rounded-xl border transition-all cursor-pointer relative group ${
                               isSelected
-                                ? 'bg-cyan-950/30 border-cyan-500/40 text-cyan-100 shadow-[0_0_15px_rgba(6,182,212,0.08)]'
+                                ? 'bg-primary/15 border-primary/40 text-primary shadow-[0_0_15px_rgba(10,132,255,0.08)]'
                                 : 'bg-white/[0.02] border-white/[0.05] hover:border-white/[0.1] hover:bg-white/[0.04]'
                             }`}
                           >
@@ -296,11 +276,11 @@ export default function Subagents() {
                                 <span
                                   className={`w-2 h-2 rounded-full flex-none ${
                                     isRunning
-                                      ? 'bg-cyan-400 animate-pulse'
+                                      ? 'bg-info animate-pulse'
                                       : isIdle
-                                        ? 'bg-cyan-600/70'
+                                        ? 'bg-primary/70'
                                         : agent.status === 'completed'
-                                          ? 'bg-emerald-400'
+                                          ? 'bg-info'
                                           : agent.status === 'failed' || agent.status === 'killed'
                                             ? 'bg-rose-400'
                                             : 'bg-zinc-600'
@@ -338,7 +318,7 @@ export default function Subagents() {
                 </div>
 
                 {/* Right Panel: Intercom Conversation */}
-                <div className="flex-1 flex flex-col bg-white/[0.01] rounded-2xl border border-white/[0.06] overflow-hidden">
+                <div className="flex-1 flex flex-col bg-white/[0.01] rounded-xl border border-white/[0.06] overflow-hidden">
                   {selectedSubagentId ? (
                     <SubagentIntercom
                       subagentId={selectedSubagentId}
@@ -346,7 +326,7 @@ export default function Subagents() {
                     />
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 gap-3 p-8 text-center">
-                      <div className="p-4 bg-white/[0.03] rounded-2xl border border-white/[0.06]">
+                      <div className="p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
                         <Bot className="w-8 h-8 stroke-[1.5] text-zinc-400" />
                       </div>
                       <p className="text-xs font-medium text-zinc-400">
@@ -364,10 +344,10 @@ export default function Subagents() {
       {/* Modal Spawn Agent */}
       {isSpawnModalOpen && (
         <div className="modal modal-open bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0e1311] border border-white/[0.1] rounded-2xl max-w-md w-full shadow-2xl p-5 text-zinc-200">
+          <div className="bg-[#0e1311] border border-white/[0.1] rounded-xl max-w-md w-full shadow-2xl p-5 text-zinc-200">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-sm flex items-center gap-2 text-white">
-                <Cpu className="w-4 h-4 text-cyan-400" /> Spawn Sub-Agent Baru
+                <Cpu className="w-4 h-4 text-primary" /> Spawn Sub-Agent Baru
               </h3>
               <button
                 type="button"
@@ -385,7 +365,7 @@ export default function Subagents() {
                   placeholder="misal: Code-Refactorer / Web-Researcher"
                   value={newAgentName}
                   onChange={(e) => setNewAgentName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/[0.1] focus:border-cyan-500/50 text-xs text-zinc-200 outline-none transition-all placeholder:text-zinc-600"
+                  className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/[0.1] focus:border-primary/50 text-xs text-zinc-200 outline-none transition-all placeholder:text-zinc-600"
                   required
                 />
               </div>
@@ -396,7 +376,7 @@ export default function Subagents() {
                   placeholder="misal: Frontend Developer / Security Researcher"
                   value={newAgentRole}
                   onChange={(e) => setNewAgentRole(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/[0.1] focus:border-cyan-500/50 text-xs text-zinc-200 outline-none transition-all placeholder:text-zinc-600"
+                  className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/[0.1] focus:border-primary/50 text-xs text-zinc-200 outline-none transition-all placeholder:text-zinc-600"
                   required
                 />
               </div>
@@ -406,7 +386,7 @@ export default function Subagents() {
                   placeholder="Deskripsikan instruksi teknis yang harus diselesaikan sub-agent..."
                   value={newAgentGoal}
                   onChange={(e) => setNewAgentGoal(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/[0.1] focus:border-cyan-500/50 text-xs text-zinc-200 outline-none transition-all placeholder:text-zinc-600 h-24 resize-none"
+                  className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/[0.1] focus:border-primary/50 text-xs text-zinc-200 outline-none transition-all placeholder:text-zinc-600 h-24 resize-none"
                   required
                 />
               </div>
@@ -422,9 +402,9 @@ export default function Subagents() {
                 <button
                   type="submit"
                   disabled={!newAgentName.trim() || !newAgentGoal.trim() || isSpawning}
-                  className="px-4 py-1.5 rounded-xl bg-cyan-500 text-black hover:bg-cyan-400 disabled:opacity-50 text-xs font-medium shadow-sm shadow-cyan-500/20 transition-all flex items-center gap-1.5"
+                  className="px-4 py-1.5 rounded-xl bg-primary text-white hover:bg-primary/80 disabled:opacity-50 text-xs font-medium shadow-sm shadow-primary/20 transition-all flex items-center gap-1.5"
                 >
-                  {isSpawning ? <span className="loading loading-spinner loading-xs" /> : 'Mulai Eksekusi'}
+                  {isSpawning ? <MobiusLoader size={14} /> : 'Mulai Eksekusi'}
                 </button>
               </div>
             </form>
