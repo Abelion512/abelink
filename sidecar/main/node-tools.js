@@ -30,4 +30,4 @@ NATIVE_TOOLS['run-bash'] = NATIVE_TOOLS['run-shell']
 export const getNativeToolsDefinition = () => NATIVE_TOOLS
 
 // Re-ekspor helper yang dipakai konsumen luar (tes + tool lain).
-export { isDangerousKeyCombo, isDangerousCommand } from './tools/_shared.mjs'
+export { isDangerousKeyCombo, isDangerousCommand, isHardlineCommand, classifyCommand } from './tools/_shared.mjs'

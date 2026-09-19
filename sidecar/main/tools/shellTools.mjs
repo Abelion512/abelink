@@ -1,15 +1,28 @@
 // Tool shell/git/task (dipindah murni dari main/node-tools.js).
 import { getGitStatus, getGitDiff, gitCommit, gitRevert } from '../git-service.js'
 import { spawnBackgroundTask, readBackgroundTaskOutput, killBackgroundTask, listBackgroundTasks } from '../task-daemon.js'
-import { execPromise, isDangerousCommand } from './_shared.mjs'
+import { execPromise, isDangerousCommand, isHardlineCommand, classifyCommand } from './_shared.mjs'
 
 export const shellTools = {
   'run-shell': {
     needsApproval: (query) => isDangerousCommand(query),
     approvalMessage: (query) =>
-      `Abelink ingin mengeksekusi perintah shell yang berpotensi BERBAHAYA:\n\n${query}`,
+      classifyCommand(query) === 'hardline'
+        ? `DITOLAK OTOMATIS (hardline, tanpa approval): perintah merusak tanpa jalan pulih:\n\n${query}`
+        : `Abelink ingin mengeksekusi perintah shell yang berpotensi BERBAHAYA:\n\n${query}`,
     handler: async (query, config) => {
       if (!query) return { success: false, message: 'Tidak ada perintah yang diberikan.' }
+      // Guardian hardline (ala Hermes): auto-deny TANPA approval — bahkan bila
+      // user pernah grant session. Approval tidak berlaku untuk wipe/mkfs/dd.
+      if (isHardlineCommand(query)) {
+        return {
+          success: false,
+          message:
+            'DITOLAK OTOMATIS (hardline): perintah merusak tanpa jalan pulih ' +
+            '(wipe sistem/home, mkfs, dd ke block device, fork bomb, matikan mesin). ' +
+            'Tidak bisa di-approve. Rumuskan ulang tanpa pola tersebut.'
+        }
+      }
       // Pagar anti-spiral: ambil + parse halaman web bukan tugas shell.
       // (Observasi nyata: curl|grep|sed berulang 20 turn lalu give up.)
       const { isWebScrapeCommand } = await import('../browser/bridge-core.mjs')
