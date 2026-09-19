@@ -12,10 +12,14 @@ export const GROUP_TOOLS_DEFINITION = {
         'Ketik teks di kolom input. Query: ID||teks. WAJIB read-dom di SESI YANG SAMA dulu; ID basi JANGAN dipakai.',
       'browser-scroll': 'Scroll halaman. Query: "up" atau "down".',
       'browser-extract':
-        'Ekstrak teks/data via CSS Selector. Kembalikan JSON. Query: selector CSS (misal: ".product-price").',
+        'Ekstrak teks/data via CSS Selector (misal: ".product-price"). TANPA selector = kembalikan TEKS UTAMA halaman (termasuk sumber TeX MathJax). Pakai ini bila browser-read tidak memuat konten artikel/soal.',
       'browser-script':
         'Eksekusi custom Javascript di browser (Bisa untuk manipulasi DOM / bypass). Query: script JS murni.',
       'browser-screenshot': 'Ambil screenshot web utuh dan simpan ke OS. Query: namafile.png.',
+      'browser-snapshot':
+        'Baca SELURUH teks halaman (ala take_snapshot): teks utama + sumber TeX MathJax + daftar gambar soal. Pakai bila browser-read/extract kosong tapi halaman terlihat ada konten. Query: kosong.',
+      'browser-wait-for':
+        'Tunggu teks tertentu muncul di halaman (konten JS lambat), maks ~15 detik. Query: teks yang ditunggu (mis. "Soal No").',
       'browser-download': 'Download URL secara fisik ke OS. Query: URL||namafile.ext.',
       'browser-back':
         'Navigasi mundur (history back) di tab browser fisik tanpa terhalang CSP. Query: kosong.',

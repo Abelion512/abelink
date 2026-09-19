@@ -629,6 +629,31 @@ export const browserTools = {
       }
     }
   },
+  // B1: snapshot konten halaman (ala take_snapshot CDP) — teks utama +
+  // sumber TeX MathJax + daftar gambar. Untuk konten yang tak terjangkau
+  // tagger 80-elemen (teks soal, artikel).
+  'browser-snapshot': {
+    needsApproval: false,
+    handler: async (query, config) => {
+      const targetSession = config?.sessionId || 'default'
+      const ext = await tryExtensionAct({ action: 'snapshot' }, targetSession)
+      if (ext) return { success: true, data: ext.data, via: 'extension' }
+      return { success: false, error: 'browser-snapshot: ' + NO_EXTENSION_HINT }
+    }
+  },
+  // B1: tunggu teks muncul (ala wait_for CDP), maks ~15 detik di extension.
+  // Query: teks yang ditunggu (mis. "Soal No" atau "Mulai Tanding").
+  'browser-wait-for': {
+    needsApproval: false,
+    handler: async (query, config) => {
+      const targetSession = config?.sessionId || 'default'
+      const text = String(query ?? '').trim()
+      if (!text) return { success: false, error: 'browser-wait-for butuh teks pada query.' }
+      const ext = await tryExtensionAct({ action: 'wait-for', value: text }, targetSession)
+      if (ext) return { success: true, data: ext.data, via: 'extension' }
+      return { success: false, error: 'browser-wait-for: ' + NO_EXTENSION_HINT }
+    }
+  },
   'browser-close': {
     needsApproval: false,
     handler: async (_query, config) => {
