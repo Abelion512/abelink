@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
   MessageSquare,
   Plus,
@@ -7,7 +6,6 @@ import {
   Edit2,
   Search,
   Pin,
-  ArrowLeft,
   Sparkles,
   Check,
   RotateCcw,
@@ -26,11 +24,11 @@ import {
 } from '../api/db'
 import ChatList from '../components/ChatList'
 import InputBar from '../components/core/InputBar'
+import { TocMinimap, toMinimapAnchorId } from '../components/core/TocMinimap'
 import { useConfirm } from '../hooks/useConfirm'
 import { useManualCompaction } from '../hooks/useManualCompaction'
 
 const ChatStudio = () => {
-  const navigate = useNavigate()
   const chatContext = useChat()
   const {
     chatData: mainChatData,
@@ -77,7 +75,46 @@ const ChatStudio = () => {
   }, [])
 
   // Direct display pipeline: Main Thread uses mainChatData directly with 0ms lag
-  const currentDisplayMessages = activeSessionId === 1 ? mainChatData || [] : activeSessionData
+  // (memoized on raw sources so downstream memos keep stable deps).
+  const currentDisplayMessages = useMemo(
+    () => (activeSessionId === 1 ? mainChatData || [] : activeSessionData),
+    [activeSessionId, mainChatData, activeSessionData]
+  )
+
+  const visibleMessages = useMemo(
+    () => currentDisplayMessages.slice(-visibleMessageCount),
+    [currentDisplayMessages, visibleMessageCount]
+  )
+
+  // Minimap items mirror the visible slice: user = depth 2, assistant = depth 3.
+  const minimapItems = useMemo(
+    () =>
+      visibleMessages
+        .map((msg, idx) => {
+          const rawId = msg.id || msg.created_at || idx
+          const raw = msg.content
+          let text = ''
+          if (typeof raw === 'string') text = raw.startsWith('data:image/') ? '' : raw
+          else if (Array.isArray(raw)) {
+            text = raw
+              .map((item) => {
+                if (!item) return ''
+                if (typeof item === 'string') return item.startsWith('data:image/') ? '' : item
+                return item.type === 'text' ? item.text || '' : ''
+              })
+              .join('\n')
+          } else if (raw != null && typeof raw !== 'object') text = String(raw)
+          text = text.replace(/\s+/g, ' ').trim()
+          if (!text) return null
+          return {
+            id: toMinimapAnchorId(rawId),
+            title: text.slice(0, 60),
+            depth: msg.role === 'user' ? 2 : 3
+          }
+        })
+        .filter(Boolean),
+    [visibleMessages]
+  )
 
   // Kompaksi manual + tracker gauge (session compaction).
   useManualCompaction({
@@ -271,15 +308,6 @@ const ChatStudio = () => {
           className="flex items-center gap-4 pointer-events-auto"
           style={{ WebkitAppRegion: 'no-drag' }}
         >
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white cursor-pointer"
-            style={{ WebkitAppRegion: 'no-drag' }}
-            title="Kembali ke Dashboard Utama"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
           <div className="flex items-center gap-2">
             <Bot className="w-5 h-5 text-primary" />
             <h2 className="text-base font-bold text-white tracking-wide">Studio Percakapan</h2>
@@ -288,7 +316,7 @@ const ChatStudio = () => {
 
         {/* Right Action Buttons */}
         <div
-          className="flex items-center gap-2 pointer-events-auto mr-32"
+          className="flex items-center gap-2 pointer-events-auto"
           style={{ WebkitAppRegion: 'no-drag' }}
         >
           <button
@@ -310,7 +338,7 @@ const ChatStudio = () => {
           {/* Search bar */}
           <div className="p-4 border-b border-white/10">
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/60" />
               <input
                 type="text"
                 placeholder="Cari obrolan..."
@@ -354,7 +382,7 @@ const ChatStudio = () => {
 
             <div className="my-2 border-t border-white/5" />
 
-            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/40">
+            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/60">
               Workspace Threads
             </div>
 
@@ -404,7 +432,7 @@ const ChatStudio = () => {
                           <h4 className="text-xs font-medium truncate">
                             {s.title || 'Percakapan'}
                           </h4>
-                          <p className="text-[10px] opacity-40">
+                          <p className="text-[10px] opacity-60">
                             {s.timestamp
                               ? new Date(s.timestamp).toLocaleDateString('id-ID', {
                                   month: 'short',
@@ -423,7 +451,8 @@ const ChatStudio = () => {
                             e.stopPropagation()
                             handleSaveRename(s.id)
                           }}
-                          className="btn btn-ghost btn-xs p-1 text-success hover:bg-success/20"
+                          className="btn btn-ghost btn-xs p-1 text-info hover:bg-info/20"
+                          aria-label="Simpan judul sesi"
                         >
                           <Check className="w-3 h-3" />
                         </button>
@@ -431,15 +460,17 @@ const ChatStudio = () => {
                         <>
                           <button
                             onClick={(e) => handleStartRename(e, s)}
-                            className="btn btn-ghost btn-xs p-1 text-white/40 hover:text-white"
+                            className="btn btn-ghost btn-xs p-1 text-white/60 hover:text-white"
                             title="Ubah judul sesi"
+                            aria-label="Ubah judul sesi"
                           >
                             <Edit2 className="w-3 h-3" />
                           </button>
                           <button
                             onClick={(e) => handleDeleteSessionClick(e, s.id)}
-                            className="btn btn-ghost btn-xs p-1 text-white/40 hover:text-error"
+                            className="btn btn-ghost btn-xs p-1 text-white/60 hover:text-error"
                             title="Hapus sesi"
+                            aria-label="Hapus sesi"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -451,7 +482,7 @@ const ChatStudio = () => {
               })}
 
             {filteredSessions.filter((s) => s.id !== 1).length === 0 && (
-              <div className="text-center py-6 text-xs text-white/30">
+              <div className="text-center py-6 text-xs text-white/60">
                 Belum ada sesi workspace lain.
               </div>
             )}
@@ -469,45 +500,45 @@ const ChatStudio = () => {
                 </h3>
               </div>
             </div>
-            <span className="text-[11px] text-white/40">{currentDisplayMessages.length} pesan</span>
+            <span className="text-[11px] text-white/60">{currentDisplayMessages.length} pesan</span>
           </div>
 
-          <div
-            ref={messagesContainerRef}
-            onScroll={handleScroll}
-            className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-6 custom-scrollbar space-y-2 min-h-0"
-          >
-            {currentDisplayMessages.length > visibleMessageCount && (
-              <div className="flex justify-center py-2">
-                <button
-                  type="button"
-                  onClick={() => setVisibleMessageCount((prev) => prev + 30)}
-                  className="btn btn-xs btn-ghost text-[11px] text-white/50 hover:text-white border border-white/10 rounded-full px-4 normal-case cursor-pointer"
-                >
-                  Muat pesan sebelumnya ({currentDisplayMessages.length - visibleMessageCount} pesan
-                  lagi)
-                </button>
-              </div>
-            )}
+          <div className="relative flex-1 min-h-0 flex">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-6 custom-scrollbar space-y-2 min-h-0"
+            >
+              {currentDisplayMessages.length > visibleMessageCount && (
+                <div className="flex justify-center py-2">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleMessageCount((prev) => prev + 30)}
+                    className="btn btn-xs btn-ghost text-[11px] text-white/60 hover:text-white border border-white/10 rounded-full px-4 normal-case cursor-pointer"
+                  >
+                    Muat pesan sebelumnya ({currentDisplayMessages.length - visibleMessageCount}{' '}
+                    pesan lagi)
+                  </button>
+                </div>
+              )}
 
-            {currentDisplayMessages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-white/40 space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-base-200/80 border border-white/10 flex items-center justify-center text-primary shadow-xl">
-                  <Sparkles className="w-7 h-7 animate-pulse" />
+              {currentDisplayMessages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8 text-white/60 space-y-4">
+                  <div className="w-14 h-14 rounded-xl bg-base-200/80 border border-white/10 flex items-center justify-center text-primary shadow-xl">
+                    <Sparkles className="w-7 h-7 animate-pulse" />
+                  </div>
+                  <div className="max-w-sm space-y-1">
+                    <h4 className="text-sm font-bold text-white">Sesi Percakapan Baru</h4>
+                    <p className="text-xs text-white/60">
+                      Tulis instruksi atau diskusikan kebutuhanmu dengan Abelink.
+                    </p>
+                  </div>
                 </div>
-                <div className="max-w-sm space-y-1">
-                  <h4 className="text-sm font-bold text-white">Sesi Percakapan Baru</h4>
-                  <p className="text-xs text-white/50">
-                    Tulis instruksi atau diskusikan kebutuhanmu dengan Abelink.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              currentDisplayMessages
-                .slice(-visibleMessageCount)
-                .map((msg, idx) => (
+              ) : (
+                visibleMessages.map((msg, idx) => (
                   <ChatList
                     key={msg.id || msg.created_at || idx}
+                    msgId={msg.id || msg.created_at || idx}
                     role={msg.role}
                     content={msg.content}
                     reasoning={msg.reasoning}
@@ -527,8 +558,10 @@ const ChatStudio = () => {
                     sender={msg.sender}
                   />
                 ))
-            )}
-            <div ref={messagesEndRef} className="h-2" />
+              )}
+              <div ref={messagesEndRef} className="h-2" />
+            </div>
+            <TocMinimap items={minimapItems} scrollRoot={messagesContainerRef} />
           </div>
 
           <div className="p-3 border-t border-white/10 bg-base-200/40 shrink-0">

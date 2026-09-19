@@ -1,16 +1,15 @@
 import React, { useRef, useEffect, useState } from 'react'
 import { useTelegramBot } from '../hooks/telegram/useTelegramBot'
-import { FaTelegram, FaPlug, FaStop, FaArrowLeft, FaCog, FaSave, FaTimes } from 'react-icons/fa'
+import { FaTelegram, FaPlug, FaStop, FaCog, FaSave, FaTimes } from 'react-icons/fa'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import { CodeBlock } from '../components/Chat/CodeBlock'
-import { useNavigate } from 'react-router-dom'
+import { MobiusLoader } from '../components/core/MobiusLoader'
 import { getAllConfig, saveConfiguration } from '../api/db'
 
 const TelegramBot = () => {
   const { status, messages, isThinking, currentSender, startBot, stopBot } = useTelegramBot()
-  const navigate = useNavigate()
 
   const [tokenInput, setTokenInput] = useState('')
   const [adminIdsInput, setAdminIdsInput] = useState('')
@@ -85,9 +84,6 @@ const TelegramBot = () => {
       <div className="navbar bg-base-300/50 backdrop-blur-md border-b border-white/5 sticky top-0 z-10">
         <div className="flex-1">
           <div className="flex items-center gap-3 px-4">
-            <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm btn-circle">
-              <FaArrowLeft size={16} />
-            </button>
             <div className="avatar">
               <div className="w-10 rounded-full bg-info/20 p-2 text-info flex items-center justify-center">
                 <FaTelegram size={24} />
@@ -97,7 +93,7 @@ const TelegramBot = () => {
               <h1 className="font-bold text-lg text-base-content">Telegram Bot Monitor</h1>
               <p className="flex items-center gap-2 text-xs opacity-70">
                 <span
-                  className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-warning animate-pulse' : 'bg-error'}`}
+                  className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-info' : status === 'connecting' ? 'bg-warning animate-pulse' : 'bg-error'}`}
                 />
                 <span className="capitalize">{status}</span>
               </p>
@@ -129,7 +125,7 @@ const TelegramBot = () => {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto w-full max-w-4xl mx-auto p-4 flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto w-full p-4 flex flex-col gap-4">
         {status === 'disconnected' && (
           <div className="card bg-base-200 shadow-xl border border-white/10 p-6 max-w-md mx-auto my-auto text-center space-y-4">
             <FaTelegram className="text-6xl text-info mx-auto" />
@@ -171,7 +167,7 @@ const TelegramBot = () => {
         )}
 
         {status === 'connected' && messages.length === 0 && (
-          <div className="flex-1 flex flex-col items-center justify-center opacity-40 select-none">
+          <div className="flex-1 flex flex-col items-center justify-center opacity-60 select-none">
             <FaTelegram className="text-6xl mb-4 text-info" />
             <p className="text-lg font-semibold">Menunggu Pesan Masuk</p>
             <p className="text-sm">Bot terhubung. Pantau aktivitas Telegram di sini.</p>
@@ -225,7 +221,7 @@ const TelegramBot = () => {
               Abelink sedang memproses pesan {currentSender}...
             </div>
             <div className="chat-bubble chat-bubble-info bg-info/20 text-info border border-info/30">
-              <span className="loading loading-dots loading-sm"></span>
+              <MobiusLoader size={16} />
             </div>
           </div>
         )}

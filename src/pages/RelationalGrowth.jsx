@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getRelationship, saveRelationship } from '../api/db'
 import { useConfirm } from '../hooks/useConfirm'
+import { MobiusLoader } from '../components/core/MobiusLoader'
+import { UsageHeatmap } from '../components/core/UsageHeatmap'
 import {
   FaFire,
   FaTheaterMasks,
@@ -44,9 +46,9 @@ const TRAIT_META = [
     key: 'trust',
     label: 'Kepercayaan',
     desc: 'Kepercayaan & keterbukaan',
-    color: 'text-success',
-    bg: 'bg-success/10',
-    ring: 'ring-success/30',
+    color: 'text-info',
+    bg: 'bg-info/10',
+    ring: 'ring-info/30',
     icon: FaHandshake
   },
   {
@@ -126,7 +128,7 @@ const TraitRing = ({ value, color, icon: Icon, label, desc, ring }) => {
             strokeLinecap="round"
             strokeDasharray={circ}
             strokeDashoffset={offset}
-            className={`transition-all duration-1000 ease-out stroke-current ${color}`}
+            className={`transition-all duration-500 ease-out stroke-current ${color}`}
           />
         </svg>
         <div className={`absolute inset-0 flex flex-col items-center justify-center ${color}`}>
@@ -192,14 +194,14 @@ const RelationalGrowth = () => {
   }
 
   return (
-    <div className="h-screen bg-base-300 text-base-content overflow-hidden relative font-['Poppins',sans-serif]">
+    <div className="h-screen bg-base-300 text-base-content overflow-hidden relative">
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,oklch(var(--p)/0.08)_0%,transparent_50%)] pointer-events-none" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,oklch(var(--s)/0.06)_0%,transparent_50%)] pointer-events-none" />
 
       {/* Main Content */}
       <div className="relative z-10 w-full h-full overflow-y-auto custom-scrollbar">
-        <div className="max-w-3xl mx-auto px-4 py-8 pb-32 space-y-8">
+        <div className="px-4 py-8 pb-32 space-y-8">
 
           {/* Page Header */}
           <div className="flex items-center justify-between">
@@ -226,7 +228,7 @@ const RelationalGrowth = () => {
 
           {loading ? (
             <div className="flex items-center justify-center h-64">
-              <span className="loading loading-spinner loading-lg text-primary"></span>
+              <MobiusLoader size={48} />
             </div>
           ) : (
             <>
@@ -273,6 +275,14 @@ const RelationalGrowth = () => {
                 </div>
               )}
 
+              {/* Abelink Usage */}
+              <div>
+                <p className="text-sm font-semibold text-base-content/70 mb-4 flex items-center gap-2"><FaChartBar className="text-info/70" /> Abelink Usage</p>
+                <div className="p-4 rounded-2xl bg-base-200/50 border border-white/5">
+                  <UsageHeatmap />
+                </div>
+              </div>
+
               {/* Stats Grid */}
               <div>
                 <p className="text-sm font-semibold text-base-content/70 mb-4 flex items-center gap-2"><FaCubes className="text-primary/70" /> Statistik Hubungan</p>
@@ -280,7 +290,7 @@ const RelationalGrowth = () => {
                   {[
                     { label: 'Evaluasi Sifat', value: traits?.evalCount || 0, icon: FaChartBar, sub: 'Total drift evaluation', iconColor: 'text-primary' },
                     { label: 'Kehangatan', value: ((traits?.warmth || 0.5) * 100).toFixed(0) + '%', icon: FaFire, sub: describeLevel(traits?.warmth || 0.5), iconColor: 'text-error' },
-                    { label: 'Kepercayaan', value: ((traits?.trust || 0.5) * 100).toFixed(0) + '%', icon: FaShieldAlt, sub: describeLevel(traits?.trust || 0.5), iconColor: 'text-success' },
+                    { label: 'Kepercayaan', value: ((traits?.trust || 0.5) * 100).toFixed(0) + '%', icon: FaShieldAlt, sub: describeLevel(traits?.trust || 0.5), iconColor: 'text-info' },
                     { label: 'Sarkasme', value: ((traits?.sarcasm_level || 0.5) * 100).toFixed(0) + '%', icon: FaTheaterMasks, sub: describeLevel(traits?.sarcasm_level || 0.5), iconColor: 'text-warning' },
                     { label: 'Kepatuhan', value: ((traits?.obedience || 0.5) * 100).toFixed(0) + '%', icon: FaRobot, sub: describeLevel(traits?.obedience || 0.5), iconColor: 'text-secondary' }
                   ].map((stat, i) => {
