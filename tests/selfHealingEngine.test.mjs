@@ -41,4 +41,13 @@ describe('selfHealingEngine', () => {
     expect(mission.prompt).toContain('Null pointer exception di taskStore')
     expect(mission.command).toContain('git checkout -B auto/fix-runtime-')
   })
+
+  it('R1c: misi menuntut artefak vitest mentah (anti-hack DGM)', () => {
+    const err = new Error('Crash saat render')
+    const mission = createSelfRepairMission({ error: err, agentId: 'claude' })
+    expect(mission.allowed).toBe(true)
+    expect(mission.prompt).toMatch(/artefak/i)
+    expect(mission.prompt).toMatch(/exit code/i)
+    expect(mission.prompt).toMatch(/DITOLAK/i)
+  })
 })

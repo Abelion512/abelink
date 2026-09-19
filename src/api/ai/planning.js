@@ -82,10 +82,14 @@ export const getNextAction = async (
       ...(NATIVE_SKILLS || []).map((s) => ({ name: s.name, description: s.description })),
       ...(fileSkills || []).map((s) => ({ name: s.name, description: s.description }))
     ]
-    const learnedSkillsList = (learnedSkills || []).map((s) => ({
-      name: s.name,
-      description: s.description
-    }))
+    // RSI: skill archived tidak masuk registry prompt (recoverable via restore,
+    // bukan delete). Trial (R1b) masuk dengan penanda sampai lolos gate.
+    const learnedSkillsList = (learnedSkills || [])
+      .filter((s) => s?.state !== 'archived')
+      .map((s) => ({
+        name: s.state === 'trial' ? `${s.name} [TRIAL — pakai bila relevan, laporkan hasil]` : s.name,
+        description: s.description
+      }))
 
     // Registry kapabilitas terpadu (Tahap 3): plugin + connector one-liners
     // dari sidecar via capabilities:registry; gagal = blok dilewati diam-diam.

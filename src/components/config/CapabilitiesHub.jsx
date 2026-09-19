@@ -1014,6 +1014,20 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 />
               </div>
 
+              {/* Internet-First (D1) */}
+              <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-white/90">Internet-First Research</div>
+                  <p className="text-[11px] text-white/50 truncate">Fakta dunia luar wajib cari referensi dulu sebelum klaim.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  className="toggle toggle-primary toggle-xs shrink-0"
+                  checked={config.builtinPlugins?.internetFirst !== false}
+                  onChange={handleBuiltinPluginChange('internetFirst')}
+                />
+              </div>
+
               {/* Rtk */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">

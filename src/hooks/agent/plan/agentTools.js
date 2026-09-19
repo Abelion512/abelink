@@ -6,7 +6,7 @@
 // trajectory log dilakukan TERPUSAT di toolDispatcher (sama seperti sebelumnya).
 import { logSubAgentSpawn as trajectoryLogSub } from '../../../api/trajectory'
 import { loadGroupToolsText } from '../../../api/tools/group-tools.js'
-import { getLearnedSkill } from '../../../api/db.js'
+import { getLearnedSkill, bumpLearnedSkillUse } from '../../../api/db.js'
 import { NATIVE_SKILLS } from '../../../components/core/native-skills.js'
 import { isTruncatedOutput } from '../../../api/ai/agentDecision.js'
 import { waitWithTimeout } from './waitHelper.js'
@@ -265,6 +265,10 @@ export const runAgentTool = async (tool, query, ctx) => {
     // 1. Cek Dexie learnedSkills (Self-Improved / Dynamic Native Skills)
     const learned = await getLearnedSkill(skillName)
     if (learned && learned.content) {
+      // RSI telemetry: tiap pemakaian sukses menaikkan use_count.
+      try {
+        await bumpLearnedSkillUse(learned.id || skillName)
+      } catch {}
       return {
         success: true,
         data: `[PEDOMAN PROSEDUR KEAHLIAN (LEARNED/DEXIE): ${skillName.toUpperCase()}]\n${learned.content}`
