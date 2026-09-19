@@ -508,7 +508,8 @@ export const api = {
 
   // ---------- Skills ----------
   getSkills: () => call('skills:get-all'),
-  readSkill: (name) => call('skills:read', name),
+  readSkill: (name, relativePath) => call('skills:read', name, relativePath),
+  getSkillManifest: (name) => call('skills:get-manifest', name),
   saveSkill: (name, content) => call('skills:save', name, content),
   deleteSkill: (name) => call('skills:delete', name),
   installSkill: (sourcePath) => call('skills:install', sourcePath),

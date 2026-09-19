@@ -257,49 +257,133 @@ export const runAgentTool = async (tool, query, ctx) => {
     }
   }
   if (tool === 'read-skill') {
-    const skillName = (query || '').trim()
-    if (!skillName) {
-      return { success: false, message: 'Harap sebutkan nama_skill yang ingin dibaca.' }
+    const rawQuery = (query || '').trim()
+    if (!rawQuery) {
+      return { success: false, message: 'Harap sebutkan nama_skill yang ingin dibaca (misal: "goal", "plan", atau "nama_skill||references/file.md").' }
     }
+
+    const { parseSkillQuery, formatSkillFolderBundle, extractSkillSubfile } = await import(
+      '../../../api/skills/skillFolder.js'
+    )
+    const { skillName, subpath } = parseSkillQuery(rawQuery)
+
+    // A. KASUS 1: SUBPATH DIBERIKAN ("skillName||references/doc.md" atau "skillName||scripts/run.sh")
+    if (subpath) {
+      // 1. Cek Dexie learnedSkills
+      const learned = await getLearnedSkill(skillName)
+      if (learned) {
+        const subContent = extractSkillSubfile(learned, subpath)
+        if (subContent != null) {
+          return {
+            success: true,
+            data: `[BERKAS SUB-SKILL (DEXIE): ${skillName}/${subpath}]\n${subContent}`
+          }
+        }
+      }
+
+      // 2. Cek NATIVE_SKILLS bawaan
+      const native = NATIVE_SKILLS.find(
+        (s) => s.name.toLowerCase() === skillName.toLowerCase()
+      )
+      if (native) {
+        const subContent = extractSkillSubfile(native, subpath)
+        if (subContent != null) {
+          return {
+            success: true,
+            data: `[BERKAS SUB-SKILL (NATIVE): ${skillName}/${subpath}]\n${subContent}`
+          }
+        }
+      }
+
+      // 3. Cek disk via window.api
+      if (typeof window !== 'undefined' && window.api?.readSkillFile) {
+        try {
+          const fileContent = await window.api.readSkillFile(skillName, subpath)
+          if (fileContent != null) {
+            return {
+              success: true,
+              data: `[BERKAS SUB-SKILL (FILE): ${skillName}/${subpath}]\n${fileContent}`
+            }
+          }
+        } catch {}
+      }
+
+      return {
+        success: false,
+        message: `Berkas "${subpath}" tidak ditemukan pada skill "${skillName}".`
+      }
+    }
+
+    // B. KASUS 2: PEMBACAAN SKILL UTAMA / FOLDER BUNDLE
     // 1. Cek Dexie learnedSkills (Self-Improved / Dynamic Native Skills)
     const learned = await getLearnedSkill(skillName)
-    if (learned && learned.content) {
+    if (learned && (learned.content || learned.references || learned.scripts)) {
       // RSI telemetry: tiap pemakaian sukses menaikkan use_count.
       try {
         await bumpLearnedSkillUse(learned.id || skillName)
       } catch {}
+      const bundleText = formatSkillFolderBundle({
+        name: skillName,
+        content: learned.content || '',
+        references: learned.references || [],
+        scripts: learned.scripts || [],
+        sourceType: 'LEARNED/DEXIE'
+      })
       return {
         success: true,
-        data: `[PEDOMAN PROSEDUR KEAHLIAN (LEARNED/DEXIE): ${skillName.toUpperCase()}]\n${learned.content}`
+        data: bundleText
       }
     }
+
     // 2. Cek NATIVE_SKILLS bawaan
     const native = NATIVE_SKILLS.find(
       (s) => s.name.toLowerCase() === skillName.toLowerCase()
     )
-    if (native && native.content) {
+    if (native && (native.content || native.references || native.scripts)) {
+      const bundleText = formatSkillFolderBundle({
+        name: skillName,
+        content: native.content || '',
+        references: native.references || [],
+        scripts: native.scripts || [],
+        sourceType: 'NATIVE'
+      })
       return {
         success: true,
-        data: `[PEDOMAN SKILL BAWAAN: ${skillName.toUpperCase()}]\n${native.content}`
+        data: bundleText
       }
     }
-    if (window.api && window.api.readSkill) {
-      // 3. Cek berkas disk di Documents/Abelink Skills
-      const skillData = await window.api.readSkill(skillName)
-      if (skillData) {
-        const content = typeof skillData === 'string' ? skillData : skillData.content
-        const basePath =
-          typeof skillData === 'object' && skillData.basePath ? skillData.basePath : ''
-        return {
-          success: true,
-          data: `[PEDOMAN SKILL (FILE): ${skillName.toUpperCase()}]\n${basePath ? `[BASE PATH: ${basePath}]\n` : ''}${content}`
+
+    // 3. Cek berkas disk di store skills
+    if (typeof window !== 'undefined' && window.api?.readSkill) {
+      try {
+        const skillData = await window.api.readSkill(skillName)
+        if (skillData) {
+          const content = typeof skillData === 'string' ? skillData : skillData.content
+          const basePath = typeof skillData === 'object' && skillData.basePath ? skillData.basePath : ''
+          const references = typeof skillData === 'object' && Array.isArray(skillData.references) ? skillData.references : []
+          const scripts = typeof skillData === 'object' && Array.isArray(skillData.scripts) ? skillData.scripts : []
+
+          const bundleText = formatSkillFolderBundle({
+            name: skillName,
+            content: content || '',
+            references,
+            scripts,
+            basePath,
+            sourceType: 'FILE'
+          })
+
+          return {
+            success: true,
+            data: bundleText
+          }
         }
-      }
+      } catch {}
       return {
         success: false,
         message: `Skill "${skillName}" tidak ditemukan di keahlian internal maupun folder Abelink Skills.`
       }
     }
+
     return {
       success: false,
       message: `Skill "${skillName}" tidak ditemukan.`
