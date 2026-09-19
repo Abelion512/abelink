@@ -912,6 +912,54 @@ async function readDomInTab(tabId) {
 // state dikirim lewat `args`. Aksi yang butuh API ekstensi (chrome.scripting,
 // chrome.tabs, chrome.downloads) TIDAK BOLEH ditaruh di sini - tangani di
 // fungsi act() pada konteks service worker (lihat bawah).
+// ---------------------------------------------------------------- snapshot
+// Snapshot konten halaman (ala take_snapshot CDP, tanpa permission debugger):
+// teks utama yang terlihat + sumber TeX MathJax + daftar elemen interaktif.
+// Self-contained (di-serialisasi ke konteks halaman bersama actionFn).
+function snapshotPageText() {
+  try {
+    // 1. Teks terlihat utama (paragraf, heading, list, tabel — bukan nav/footer).
+    const parts = []
+    const main = document.querySelector('main, [role="main"], article') || document.body
+    const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT)
+    let node
+    while ((node = walker.nextNode())) {
+      const t = (node.nodeValue || '').trim()
+      if (!t) continue
+      const el = node.parentElement
+      if (!el) continue
+      const tag = el.tagName.toLowerCase()
+      if (['script', 'style', 'noscript', 'svg', 'nav', 'footer', 'header'].includes(tag)) continue
+      parts.push(t)
+      if (parts.join('\n').length > 6000) break
+    }
+    // 2. Sumber TeX MathJax (render visual, tapi sumber ada di DOM).
+    try {
+      document.querySelectorAll('script[type^="math/tex"], [data-tex], annotation[encoding="application/x-tex"]').forEach((m) => {
+        const tex = (m.textContent || m.getAttribute('data-tex') || '').trim()
+        if (tex) parts.push(`[TEX] ${tex.slice(0, 300)}`)
+      })
+    } catch {}
+    // 3. Alt/gambar soal (soal berupa gambar): kumpulkan alt + src.
+    try {
+      document.querySelectorAll('img').forEach((img) => {
+        const alt = (img.alt || '').trim()
+        if (alt) parts.push(`[GAMBAR alt="${alt.slice(0, 200)}"]`)
+        else if (img.src) parts.push(`[GAMBAR src="${String(img.src).slice(0, 120)}"]`)
+      })
+    } catch {}
+    return parts.join('\n').slice(0, 8000)
+  } catch {
+    return ''
+  }
+}
+
+function snapshotPage(full = false) {
+  const text = snapshotPageText()
+  if (!full) return { title: document.title, url: location.href, text }
+  return { title: document.title, url: location.href, text, at: Date.now() }
+}
+
 async function actionFn({ abelinkId, action, value, expectedText }) {
   const el = abelinkId ? document.querySelector(`[data-abelink-id="${abelinkId}"]`) : null
   if (abelinkId && !el)
@@ -1134,8 +1182,32 @@ async function actionFn({ abelinkId, action, value, expectedText }) {
         await sleep(250)
         break
       }
-      case 'extract':
-        return { ok: true, data: document.querySelector(String(value || ''))?.textContent || '' }
+      case 'extract': {
+        // Tanpa selector: kembalikan TEKS UTAMA halaman (snapshot konten ala
+        // take_snapshot CDP — judul + teks body yang terlihat, termasuk sumber
+        // TeX MathJax dari atribut/semantik DOM). Dengan selector: seperti dulu.
+        const sel = String(value || '').trim()
+        if (sel) return { ok: true, data: document.querySelector(sel)?.textContent || '' }
+        return { ok: true, data: snapshotPageText() }
+      }
+      case 'snapshot': {
+        // Snapshot konten penuh: teks utama + daftar elemen interaktif ringkas.
+        // Penerima: read tambahan saat tagger 80-elemen tidak memuat konten.
+        return { ok: true, data: JSON.stringify(snapshotPage(true)) }
+      }
+      case 'wait-for': {
+        // Tunggu teks muncul (ala wait_for CDP): poll ringan, maks ~15 detik.
+        // value: { text: "Soal No" } atau string langsung.
+        const needle = String((value && value.text) || value || '').trim().toLowerCase()
+        if (!needle) return { ok: false, error: 'wait-for butuh teks pada field value.' }
+        const t0 = Date.now()
+        for (;;) {
+          const hay = snapshotPageText().toLowerCase()
+          if (hay.includes(needle)) return { ok: true, data: `Teks ditemukan: "${needle}"` }
+          if (Date.now() - t0 > 15000) return { ok: false, error: `Timeout 15 dtk menunggu teks: "${needle}"` }
+          await sleep(750)
+        }
+      }
       default:
         return { ok: false, error: `Aksi tidak dikenal: ${action}` }
     }
@@ -1314,7 +1386,7 @@ async function act({ abelinkId, action, value, expectedText }, sessionId = 'defa
   if (!step?.ok) return step || { ok: false, error: 'Injection aksi gagal.' }
   // Aksi baca murni mengembalikan datanya langsung; aksi mutasi diikuti
   // read-dom ulang agar caller menerima DOM ter-tag terbaru.
-  if (action === 'extract') return step
+  if (action === 'extract' || action === 'snapshot' || action === 'wait-for') return step
   await sleep(300)
   return readDomInTab(tab.id)
 }
