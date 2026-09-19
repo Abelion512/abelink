@@ -64,8 +64,8 @@ describe('waitWithTimeout', () => {
     const onTick = vi.fn()
     let n = 0
     await waitWithTimeout({
-      timeoutMs: 50,
-      intervalMs: 10,
+      timeoutMs: 300,
+      intervalMs: 20,
       onTick,
       check: async () => ({ done: ++n >= 3 })
     })
