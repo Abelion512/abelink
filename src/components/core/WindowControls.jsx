@@ -21,7 +21,7 @@ export default function WindowControls({ className = '' }) {
       <button
         onClick={() => window.api?.windowFullscreen()}
         className="w-7 h-7 flex items-center justify-center rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-        title="Fullscreen"
+        title="Fullscreen" aria-label="Fullscreen"
       >
         <svg
           width="15"
@@ -44,7 +44,7 @@ export default function WindowControls({ className = '' }) {
       <button
         onClick={() => window.api?.windowMinimize()}
         className="w-7 h-7 flex items-center justify-center rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-        title="Minimize"
+        title="Minimize" aria-label="Minimize"
       >
         <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M2 7h12v2H2z" />
@@ -53,7 +53,7 @@ export default function WindowControls({ className = '' }) {
       <button
         onClick={() => window.api?.windowMaximize()}
         className="w-7 h-7 flex items-center justify-center rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-        title={isMax ? 'Restore' : 'Maximize'}
+        title={isMax ? 'Restore' : 'Maximize'} aria-label={isMax ? 'Restore' : 'Maximize'}
       >
         {isMax ? (
           <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
@@ -69,7 +69,7 @@ export default function WindowControls({ className = '' }) {
       <button
         onClick={() => window.api?.windowClose()}
         className="w-7 h-7 flex items-center justify-center rounded-lg text-white/70 hover:text-red-400 hover:bg-red-500/20 transition-colors"
-        title="Close"
+        title="Close" aria-label="Close"
       >
         <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
           <path

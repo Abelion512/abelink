@@ -54,8 +54,18 @@ function loadAlwaysTools() {
 export const ApprovalProvider = ({ children }) => {
   const [approvalData, setApprovalData] = useState(null)
   const approvalRef = useRef(null)
+  const approvalPrimaryRef = useRef(null)
   const [askUserData, setAskUserData] = useState(null)
   const askUserRef = useRef(null)
+  const askUserPrimaryRef = useRef(null)
+
+  useEffect(() => {
+    if (approvalData) approvalPrimaryRef.current?.focus()
+  }, [approvalData])
+
+  useEffect(() => {
+    if (askUserData) askUserPrimaryRef.current?.focus()
+  }, [askUserData])
   const [userComment, setUserComment] = useState('')
   const [alwaysAllowedPaths, setAlwaysAllowedPaths] = useState([])
   // Grant per family: session (RAM, hilang saat reload) + always (localStorage).
@@ -333,9 +343,10 @@ export const ApprovalProvider = ({ children }) => {
       {children}
       {/* Modal Izin Keamanan */}
       {approvalData && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[response-fade-in_0.15s_ease-out_forwards]">
-          <div className="bg-base-200 border border-white/10 p-6 rounded-2xl shadow-2xl max-w-lg w-full">
-            <h3 className="text-lg font-bold text-error mb-2 flex items-center gap-2">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[response-fade-in_0.15s_ease-out_forwards]">
+          <div role="dialog" aria-modal="true" aria-labelledby="approval-modal-title" className="bg-base-200 border border-white/10 p-6 rounded-xl shadow-2xl max-w-lg w-full">
+            <div aria-hidden="true" className="md:hidden mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
+            <h3 id="approval-modal-title" className="text-lg font-bold text-error mb-2 flex items-center gap-2">
               <ShieldAlert className="w-5 h-5 text-error" /> Abelink Meminta Izin
             </h3>
             <p className="mb-3 text-xs text-base-content/70">
@@ -356,7 +367,7 @@ export const ApprovalProvider = ({ children }) => {
                 <button className="btn btn-outline btn-sm" onClick={handleApproveSession}>
                   Sesi Ini
                 </button>
-                <button className="btn btn-error btn-sm shadow-md" onClick={handleApproveAlways}>
+                <button ref={approvalPrimaryRef} className="btn btn-error btn-sm shadow-md" onClick={handleApproveAlways}>
                   Selalu
                 </button>
               </div>
@@ -367,8 +378,9 @@ export const ApprovalProvider = ({ children }) => {
 
       {/* Modal Interaktif: Pause for User Input / Human Intervention */}
       {askUserData && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 backdrop-blur-md animate-[response-fade-in_0.2s_ease-out_forwards]">
-          <div className="bg-base-200/95 border border-primary/40 p-6 rounded-3xl shadow-2xl max-w-md w-full flex flex-col gap-4">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-md animate-[response-fade-in_0.2s_ease-out_forwards]">
+          <div role="dialog" aria-modal="true" aria-labelledby="askuser-modal-title" className="bg-base-200/95 border border-primary/40 p-6 rounded-[18px] shadow-2xl max-w-md w-full flex flex-col gap-4">
+            <div aria-hidden="true" className="md:hidden mx-auto h-1 w-10 rounded-full bg-white/20" />
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -378,7 +390,7 @@ export const ApprovalProvider = ({ children }) => {
                 </svg>
               </div>
               <div>
-                <h3 className="text-base font-bold text-base-content tracking-tight">
+                <h3 id="askuser-modal-title" className="text-base font-bold text-base-content tracking-tight">
                   {askUserData.title}
                 </h3>
                 <span className="text-[11px] text-primary/80 font-medium">
@@ -387,7 +399,7 @@ export const ApprovalProvider = ({ children }) => {
               </div>
             </div>
 
-            <div className="text-xs text-base-content/85 leading-relaxed bg-base-300/80 p-3.5 rounded-2xl border-l-4 border-primary shadow-inner">
+            <div className="text-xs text-base-content/85 leading-relaxed bg-base-300/80 p-3.5 rounded-xl border-l-4 border-primary shadow-inner">
               {askUserData.message}
             </div>
 
@@ -407,7 +419,6 @@ export const ApprovalProvider = ({ children }) => {
                 placeholder={askUserData.placeholder}
                 rows={3}
                 className="textarea textarea-bordered w-full bg-base-300/90 text-xs rounded-xl focus:border-primary focus:outline-hidden"
-                autoFocus
               />
             </div>
 
@@ -420,6 +431,7 @@ export const ApprovalProvider = ({ children }) => {
                 Batalkan
               </button>
               <button
+                ref={askUserPrimaryRef}
                 type="button"
                 className="btn btn-primary btn-sm text-xs font-semibold px-4 shadow-lg shadow-primary/25"
                 onClick={handleResumeAutomation}

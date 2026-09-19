@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react'
 import {
   Brain,
   Bot,
-  Activity,
   Send,
   Terminal,
   ExternalLink,
@@ -11,10 +10,10 @@ import {
   CheckCircle2,
   AlertTriangle
 } from 'lucide-react'
+import { MobiusLoader } from '../core/MobiusLoader'
 
-// Primary Abelink Cyan Theme
-const PRIMARY = '#06b6d4'
-const PRIMARY_DARK = '#083344'
+// Primary Abelink Blue (matches --color-primary #0071e3)
+const PRIMARY = '#0071e3'
 const WHITE = '#ffffff'
 
 export default function SubagentTopologyMap({
@@ -82,11 +81,11 @@ export default function SubagentTopologyMap({
   }
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden gap-4 font-['Poppins',sans-serif]">
+    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden gap-4">
       {/* Visual Canvas Area */}
       <div className="flex-1 bg-base-200/50 rounded-2xl border border-base-content/10 relative overflow-hidden flex flex-col items-center justify-center p-4 backdrop-blur-md">
         {/* Subtle Ambient Radial Highlight */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#1fb8540d_0%,transparent_70%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#0a84ff0d_0%,transparent_70%)] pointer-events-none" />
 
         {/* Top Minimal Telemetry Bar */}
         <div className="absolute top-3 left-4 right-4 flex items-center justify-between pointer-events-none z-10">
@@ -280,7 +279,7 @@ export default function SubagentTopologyMap({
                         {isFailed ? (
                           <AlertTriangle className="w-3.5 h-3.5 text-white" />
                         ) : isRunning ? (
-                          <Activity className="w-3.5 h-3.5 animate-spin" />
+                          <MobiusLoader size={14} />
                         ) : node.status === 'idle' ? (
                           <Bot className="w-3.5 h-3.5 text-white" />
                         ) : (
@@ -318,7 +317,7 @@ export default function SubagentTopologyMap({
               type="button"
               onClick={() => onOpenIntercom(selectedAgent.id)}
               className="btn btn-ghost btn-xs gap-1 text-[10px] text-primary hover:bg-primary/10"
-              title="Buka Chat Intercom Penuh"
+              title="Buka Chat Intercom Penuh" aria-label="Buka Chat Intercom Penuh"
             >
               Intercom <ExternalLink className="w-3 h-3" />
             </button>
@@ -377,7 +376,7 @@ export default function SubagentTopologyMap({
                   <p className="whitespace-pre-wrap">{selectedAgent.finalAnswer}</p>
                 ) : selectedAgent.status === 'running' ? (
                   <div className="flex items-center gap-2 text-primary opacity-80 py-2">
-                    <Activity className="w-3.5 h-3.5 animate-spin" />
+                    <MobiusLoader size={14} />
                     <span>Sedang memproses langkah...</span>
                   </div>
                 ) : (
@@ -404,9 +403,9 @@ export default function SubagentTopologyMap({
                   type="submit"
                   disabled={!quickInput.trim() || isSending}
                   className="btn btn-primary btn-xs rounded-lg px-2.5"
-                  title="Kirim Pesan ke Sub-Agent"
+                  title="Kirim Pesan ke Sub-Agent" aria-label="Kirim Pesan ke Sub-Agent"
                 >
-                  {isSending ? <span className="loading loading-spinner loading-xs" /> : <Send className="w-3 h-3" />}
+                  {isSending ? <MobiusLoader size={12} /> : <Send className="w-3 h-3" />}
                 </button>
               </div>
             </form>

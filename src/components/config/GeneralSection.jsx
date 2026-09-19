@@ -1,3 +1,5 @@
+import { ElasticSlider } from '../core/ElasticSlider'
+
 export default function GeneralSection({
   config,
   setConfig,
@@ -47,21 +49,10 @@ export default function GeneralSection({
 
       {/* Preferensi jendela: transparansi */}
       <div className="space-y-2 p-3 rounded-xl bg-base-200/50 border border-white/5">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold">Transparansi Jendela</p>
-          <span className="font-mono text-xs text-primary font-bold">
-            {Math.round((config.windowOpacity ?? 0.85) * 100)}%
-          </span>
-        </div>
-        <input
-          type="range"
-          min="0.1"
-          max="1.0"
-          step="0.05"
+        <ElasticSlider
+          label="Transparansi Jendela"
           value={config.windowOpacity ?? 0.85}
-          className="range range-primary range-xs w-full"
-          onChange={(e) => {
-            const val = parseFloat(e.target.value)
+          onValueChange={(val) => {
             document.documentElement.style.setProperty('--win-alpha', String(val))
             setConfig((prev) => {
               const newConfig = { ...prev, windowOpacity: val }
@@ -69,8 +60,12 @@ export default function GeneralSection({
               return newConfig
             })
           }}
+          min={0.1}
+          max={1.0}
+          step={0.05}
+          formatValue={(v) => `${Math.round(v * 100)}%`}
         />
-        <div className="flex justify-between mt-1 text-[11px] opacity-40">
+        <div className="flex justify-between mt-1 text-[11px] text-white/60">
           <span>10%</span>
           <span>100%</span>
         </div>

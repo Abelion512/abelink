@@ -12,7 +12,7 @@ export const MemoryFooterBubble = ({
     <div className="flex items-center gap-1.5 mt-1 px-1 text-[10px] font-medium opacity-80 select-none">
       <Database className="w-3 h-3 text-secondary" />
       {isMemorySaved && (
-        <span className="text-success flex items-center gap-1">
+        <span className="text-info flex items-center gap-1">
           <PlusCircle className="w-2.5 h-2.5" />
           Memori baru tersimpan
         </span>

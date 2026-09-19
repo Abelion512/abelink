@@ -18,8 +18,8 @@ const HoloCard = ({ children, title, defaultExpanded = false }) => {
     <HoloChrome className="w-full animate-[holo-enter_0.4s_ease-out_forwards] shadow-xl [transform:translateZ(0)]">
       <div className="relative z-10 flex flex-col p-5">
         {title && (
-          <h3 className="text-success font-semibold text-xs mb-3 uppercase tracking-[0.2em] flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse shadow-[0_0_8px_oklch(var(--su))]" />
+          <h3 className="text-primary font-semibold text-xs mb-3 uppercase tracking-[0.2em] flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_oklch(var(--p))]" />
             {title}
           </h3>
         )}
@@ -34,7 +34,7 @@ const HoloCard = ({ children, title, defaultExpanded = false }) => {
         {isOverflowing && (
           <button 
             onClick={() => setIsExpanded(!isExpanded)}
-            className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-success opacity-70 hover:opacity-100 hover:bg-white/10 transition-all bg-white/5 py-2 rounded-lg border border-white/5"
+            className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-primary opacity-70 hover:opacity-100 hover:bg-white/10 transition-all bg-white/5 py-2 rounded-lg border border-white/5"
           >
             {isExpanded ? (
               <>▲ Ringkas Detail</>

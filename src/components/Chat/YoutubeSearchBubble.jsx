@@ -21,7 +21,7 @@ export const YoutubeSearchBubble = ({ queryYoutube, youtubeLink }) => {
         {`Pencarian: ${queryYoutube.slice(0, 40)}`}
         {queryYoutube.length > 40 ? '...' : ''}
       </h1>
-      <div className="p-3 bg-base-300 flex flex-wrap rounded-2xl mt-2">
+      <div className="p-3 bg-base-300 flex flex-wrap rounded-xl mt-2">
         {youtubeLink.map((item, idx) => {
           const id = typeof item === 'object' ? item.videoId : item
           return (

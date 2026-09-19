@@ -72,6 +72,113 @@ pub(crate) fn hardline_reason(action: &str, payload: &Option<serde_json::Value>)
     None
 }
 
+const SENSITIVE_TARGETS: &[&str] = &[
+    "/abelink",
+    "abelink-dev",
+    "$abelink_data_home",
+    ".abelink",
+    "/skills/",
+    "/workspace/",
+    "~/.local/share",
+    "~/.ssh",
+    "$home/.ssh",
+    "${home}/.ssh",
+    ".ssh/",
+    ".ssh",
+    ".env",
+    ".env.local",
+    ".env.production",
+    ".env.development",
+    ".env.staging",
+    ".env.test",
+    ".envrc",
+    ".bashrc",
+    ".zshrc",
+    ".profile",
+    ".bash_profile",
+    ".zprofile",
+    ".netrc",
+    ".pgpass",
+    ".npmrc",
+    ".pypirc",
+    ".git-credentials",
+    "/etc/sudoers",
+    "/etc/shadow",
+    "/etc/passwd",
+    "/etc/environment",
+];
+
+pub(crate) fn has_sensitive_write_target(lower: &str) -> bool {
+    let is_write_op = lower.contains("rm ")
+        || lower.contains("rmdir")
+        || lower.contains("unlink ")
+        || lower.contains("mv ")
+        || lower.contains("cp ")
+        || lower.contains("install ")
+        || lower.contains('>')
+        || lower.contains("tee ")
+        || lower.contains("chmod ")
+        || lower.contains("chown ")
+        || lower.contains("sed -i")
+        || lower.contains("sed --in-place")
+        || (lower.contains("dd ") && lower.contains("of="));
+
+    if !is_write_op {
+        return false;
+    }
+
+    SENSITIVE_TARGETS.iter().any(|m| lower.contains(m))
+}
+
+/// True bila perintah shell berbahaya atau memodifikasi target sensitif (butuh persetujuan).
+pub(crate) fn is_dangerous_shell(cmd: &str) -> bool {
+    if is_hardline_shell(cmd) {
+        return true;
+    }
+    let c = cmd.trim();
+    if c.is_empty() {
+        return false;
+    }
+    let is_carrier = is_shell_carrier(c);
+    let scan: String;
+    let s: &str = if is_carrier {
+        c
+    } else {
+        scan = mask_quoted(c);
+        &scan
+    };
+    let lower = s.to_lowercase();
+
+    const DANGEROUS_KEYWORDS: &[&str] = &[
+        "rm ", "rmdir", "kill ", "killall", "shutdown", "reboot",
+        "poweroff", "halt", "init 0", "mkfs", "dd if=", "fdisk",
+        "chmod 777", "chown",
+    ];
+    if DANGEROUS_KEYWORDS.iter().any(|k| lower.contains(k)) {
+        return true;
+    }
+    has_sensitive_write_target(&lower)
+}
+
+/// Deskripsi persetujuan bila payload native-tool:execute memanggil shell berbahaya / mutasi sensitif.
+pub(crate) fn shell_approval_reason(action: &str, payload: &Option<serde_json::Value>) -> Option<String> {
+    if action != "native-tool:execute" {
+        return None;
+    }
+    let arr = payload.as_ref().and_then(|p| p.as_array())?;
+    let tool = arr.first().and_then(|v| v.as_str()).unwrap_or("");
+    if !matches!(tool, "run-shell" | "run-bash" | "run-powershell") {
+        return None;
+    }
+    let query = arr.get(1).and_then(|v| v.as_str()).unwrap_or("");
+    if is_dangerous_shell(query) {
+        return Some(format!(
+            "Eksekusi perintah shell berbahaya / mutasi file sensitif:\n{query}"
+        ));
+    }
+    None
+}
+
 fn is_shell_carrier(c: &str) -> bool {
     let l = c.to_lowercase();
     for prefix in ["sh ", "bash ", "zsh ", "dash ", "eval ", "source "] {
@@ -308,4 +415,36 @@ mod tests {
         assert!(!is_hardline_shell("sh -c \"chmod 777 x\"")); // chmod bukan hardline
         assert!(is_hardline_shell("sh -c \"rm -rf /\""));
     }
+
+    #[test]
+    fn sensitive_write_targets_detected() {
+        assert!(is_dangerous_shell("echo 'key' >> ~/.ssh/authorized_keys"));
+        assert!(is_dangerous_shell("cp id_rsa ~/.ssh/id_rsa"));
+        assert!(is_dangerous_shell("echo 'SECRET=1' > .env"));
+        assert!(is_dangerous_shell("rm .env"));
+        assert!(is_dangerous_shell("mv .env.production .env"));
+        assert!(is_dangerous_shell("sed -i 's/a/b/' ~/.bashrc"));
+        assert!(is_dangerous_shell("echo 'export X=1' >> ~/.zshrc"));
+        assert!(is_dangerous_shell("echo 'pass' > ~/.netrc"));
+        assert!(is_dangerous_shell("echo 'bad' >> /etc/sudoers"));
+        assert!(is_dangerous_shell("rm ~/.local/share/abelink-dev/token"));
+        // Read-only tetap aman
+        assert!(!is_dangerous_shell("cat .env"));
+        assert!(!is_dangerous_shell("ls -la ~/.ssh"));
+        assert!(!is_dangerous_shell("grep SECRET .env"));
+        assert!(!is_dangerous_shell("head ~/.bashrc"));
+        // Quote-masking
+        assert!(!is_dangerous_shell("echo \"cat .env\""));
+    }
+
+    #[test]
+    fn shell_approval_reason_gates_dangerous() {
+        let mk = |tool: &str, q: &str| Some(serde_json::json!([tool, q]));
+        assert!(shell_approval_reason("native-tool:execute", &mk("run-shell", "echo k >> ~/.ssh/authorized_keys")).is_some());
+        assert!(shell_approval_reason("native-tool:execute", &mk("run-bash", "echo SECRET=1 > .env")).is_some());
+        assert!(shell_approval_reason("native-tool:execute", &mk("run-shell", "ls -la")).is_none());
+        assert!(shell_approval_reason("native-tool:execute", &mk("run-shell", "cat .env")).is_none());
+        assert!(shell_approval_reason("other-action", &mk("run-shell", "echo k >> ~/.ssh/authorized_keys")).is_none());
+    }
 }
+

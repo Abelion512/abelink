@@ -12,6 +12,7 @@ import {
   FaCheckCircle,
   FaExclamationTriangle
 } from 'react-icons/fa'
+import { MobiusLoader } from '../core/MobiusLoader'
 
 export default function SttRouterConfig({
   config,
@@ -183,7 +184,7 @@ export default function SttRouterConfig({
               >
                 {whisperLoading ? (
                   <>
-                    <span className="loading loading-spinner loading-xs" />
+                    <MobiusLoader size={14} />
                     <span>Memuat Model...</span>
                   </>
                 ) : whisperLoaded ? (
@@ -202,7 +203,7 @@ export default function SttRouterConfig({
           </div>
 
           {whisperProgress && (
-            <p className="p-2.5 rounded-xl bg-base-100/60 border border-white/10 text-xs font-mono text-cyan-300">
+            <p className="p-2.5 rounded-xl bg-base-100/60 border border-white/10 text-xs font-mono text-info">
               {whisperProgress}
             </p>
           )}
@@ -256,7 +257,7 @@ export default function SttRouterConfig({
           {/* Scalable Provider List (Scrollable container to prevent endless page scroll) */}
           <div className="space-y-2 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
             {connections.length === 0 ? (
-              <div className="p-6 text-center border border-dashed border-white/10 rounded-xl text-xs text-white/40">
+              <div className="p-6 text-center border border-dashed border-white/10 rounded-xl text-xs text-white/60">
                 Belum ada provider STT. Klik "+ Tambah Provider" untuk menambahkan.
               </div>
             ) : (
@@ -281,7 +282,7 @@ export default function SttRouterConfig({
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         {/* Priority Badge */}
-                        <span className="font-mono text-[11px] font-bold text-white/40 shrink-0">
+                        <span className="font-mono text-[11px] font-bold text-white/60 shrink-0">
                           #{idx + 1}
                         </span>
 
@@ -310,7 +311,7 @@ export default function SttRouterConfig({
 
                         {/* Endpoint & Model Snippet */}
                         <span
-                          className="hidden md:inline font-mono text-[11px] text-white/40 truncate max-w-[220px]"
+                          className="hidden md:inline font-mono text-[11px] text-white/60 truncate max-w-[220px]"
                           title={conn.endpoint}
                         >
                           {conn.endpoint?.replace(/^https?:\/\//, '') || 'no-endpoint'}
@@ -321,7 +322,7 @@ export default function SttRouterConfig({
                           <span
                             className={`badge badge-xs font-mono text-[11px] shrink-0 px-2 py-0.5 ${
                               testResult.ok
-                                ? 'badge-success badge-outline'
+                                ? 'badge-info badge-outline'
                                 : 'badge-error badge-outline'
                             }`}
                             title={testResult.msg}
@@ -342,7 +343,7 @@ export default function SttRouterConfig({
                           title="Test Koneksi"
                         >
                           {isTesting ? (
-                            <span className="loading loading-spinner loading-xs text-info" />
+                            <MobiusLoader size={12} />
                           ) : (
                             <FaBolt size={11} />
                           )}
@@ -353,7 +354,7 @@ export default function SttRouterConfig({
                           type="button"
                           disabled={idx === 0}
                           onClick={() => handleMove(idx, -1)}
-                          className="btn btn-ghost btn-xs btn-square text-white/50 hover:text-white disabled:opacity-20"
+                          className="btn btn-ghost btn-xs btn-square text-white/60 hover:text-white disabled:opacity-20"
                           title="Naikkan Prioritas"
                         >
                           <FaArrowUp size={11} />
@@ -364,7 +365,7 @@ export default function SttRouterConfig({
                           type="button"
                           disabled={idx === connections.length - 1}
                           onClick={() => handleMove(idx, 1)}
-                          className="btn btn-ghost btn-xs btn-square text-white/50 hover:text-white disabled:opacity-20"
+                          className="btn btn-ghost btn-xs btn-square text-white/60 hover:text-white disabled:opacity-20"
                           title="Turunkan Prioritas"
                         >
                           <FaArrowDown size={11} />
@@ -436,7 +437,7 @@ export default function SttRouterConfig({
                           <div
                             className={`text-xs font-mono p-2 rounded-lg border ${
                               testResult.ok
-                                ? 'bg-success/10 border-success/20 text-success'
+                                ? 'bg-info/10 border-info/20 text-info'
                                 : 'bg-error/10 border-error/20 text-error'
                             }`}
                           >

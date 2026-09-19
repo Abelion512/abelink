@@ -131,7 +131,7 @@ export const useVAD = ({
     if (!gate.ok) {
       console.log('[VAD] Gate pra-STT menolak:', gate.reason)
       setToastMessage('Suara tidak terdengar jelas. Coba ulangi.')
-      setTimeout(() => setToastMessage(''), 4000)
+      setTimeout(() => setToastMessage(''), 3000)
       isProcessingSpeechRef.current = false
       stopVADCleanup()
       return
@@ -151,7 +151,7 @@ export const useVAD = ({
           if (verdict.drop) {
             console.log('[VAD] Halusinasi dibuang:', verdict.reason)
             setToastMessage('Suara tidak terdengar jelas. Coba ulangi.')
-            setTimeout(() => setToastMessage(''), 4000)
+            setTimeout(() => setToastMessage(''), 3000)
             return
           }
           const cleanText = text.replace(
@@ -163,13 +163,13 @@ export const useVAD = ({
         } else {
           console.log('[VAD] Transkripsi menghasilkan teks kosong')
           setToastMessage('Suara tidak terdengar jelas. Coba ulangi.')
-          setTimeout(() => setToastMessage(''), 4000)
+          setTimeout(() => setToastMessage(''), 3000)
         }
       } catch (err) {
         setIsProcessing(false)
         console.error('[VAD] STT Error:', err)
         setToastMessage(`Gagal memproses STT: ${err.message}`)
-        setTimeout(() => setToastMessage(''), 5000)
+        setTimeout(() => setToastMessage(''), 3000)
       }
     }, 120)
   }
@@ -350,7 +350,7 @@ export const useVAD = ({
       console.error('[VAD] Error starting mic:', error)
       currentStopVAD()
       setToastMessage('Gagal mengakses mikrofon.')
-      setTimeout(() => setToastMessage(''), 5000)
+      setTimeout(() => setToastMessage(''), 3000)
     }
   }
 

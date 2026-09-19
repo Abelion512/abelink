@@ -81,7 +81,7 @@ export default function ConfigSidebar({
       aria-label="Pengaturan"
     >
       <div className="px-3 py-3 mb-2">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/30">Pengaturan</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">Pengaturan</p>
       </div>
       <div className="flex-1 space-y-1">
         {allSections.map((sec) => {
@@ -96,7 +96,7 @@ export default function ConfigSidebar({
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-left transition-all duration-150 cursor-pointer ${
                 isActive
                   ? 'bg-white/10 text-white shadow-sm font-semibold border border-white/10'
-                  : 'text-white/50 hover:text-white/90 hover:bg-white/[0.04] border border-transparent'
+                  : 'text-white/60 hover:text-white/90 hover:bg-white/[0.04] border border-transparent'
               }`}
             >
               <Icon size={14} className={isActive ? 'text-primary' : 'opacity-40'} />

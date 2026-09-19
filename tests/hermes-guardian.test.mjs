@@ -59,7 +59,7 @@ describe('quote-masking (ala Hermes)', () => {
   })
 })
 
-describe('self-dir protection (agen tidak merusak dirinya)', () => {
+describe('self-dir & sensitive-write protection (ala Hermes)', () => {
   it('rm -rf ke home/diri sendiri = hardline (tanpa jalan pulih)', () => {
     // ~ cocok pola home-wipe: benar hardline, bukan sekadar dangerous.
     expect(classifyCommand('rm -rf ~/.local/share/abelink/skills/lama')).toBe('hardline')
@@ -75,6 +75,44 @@ describe('self-dir protection (agen tidak merusak dirinya)', () => {
     expect(classifyCommand('ls ~/.local/share/abelink/')).toBe('safe')
     expect(classifyCommand('cat ~/Documents/catatan.txt')).toBe('safe')
   })
+
+  it('mutasi file ~/.ssh butuh approval (dangerous)', () => {
+    expect(isDangerousCommand('echo "ssh-ed25519 AAA..." >> ~/.ssh/authorized_keys')).toBe(true)
+    expect(classifyCommand('echo "key" >> ~/.ssh/authorized_keys')).toBe('dangerous')
+    expect(isDangerousCommand('cp id_rsa ~/.ssh/id_rsa')).toBe(true)
+    expect(isDangerousCommand('chmod 600 ~/.ssh/id_ed25519')).toBe(true)
+    expect(isDangerousCommand('rm ~/.ssh/known_hosts')).toBe(true)
+  })
+
+  it('mutasi file .env butuh approval (dangerous)', () => {
+    expect(isDangerousCommand('echo "API_KEY=123" > .env')).toBe(true)
+    expect(isDangerousCommand('echo "KEY=x" > .env.local')).toBe(true)
+    expect(isDangerousCommand('rm .env')).toBe(true)
+    expect(isDangerousCommand('mv .env.production .env')).toBe(true)
+    expect(classifyCommand('echo "FOO=bar" > .env')).toBe('dangerous')
+  })
+
+  it('mutasi shell rc files butuh approval (dangerous)', () => {
+    expect(isDangerousCommand('sed -i "s/alias/alias2/" ~/.bashrc')).toBe(true)
+    expect(isDangerousCommand('echo "export PATH=/bad:$PATH" >> ~/.zshrc')).toBe(true)
+    expect(isDangerousCommand('cp evil.sh ~/.profile')).toBe(true)
+    expect(classifyCommand('sed -i "s/a/b/" ~/.bashrc')).toBe('dangerous')
+  })
+
+  it('mutasi kredensial dan file sistem sensitif butuh approval (dangerous)', () => {
+    expect(isDangerousCommand('echo "password" > ~/.netrc')).toBe(true)
+    expect(isDangerousCommand('rm ~/.npmrc')).toBe(true)
+    expect(isDangerousCommand('echo "bad ALL=(ALL) ALL" >> /etc/sudoers')).toBe(true)
+    expect(isDangerousCommand('echo "hacked" > /etc/passwd')).toBe(true)
+  })
+
+  it('baca file sensitif tetap safe (read-only)', () => {
+    expect(classifyCommand('cat .env')).toBe('safe')
+    expect(classifyCommand('ls -la ~/.ssh')).toBe('safe')
+    expect(classifyCommand('grep -i secret .env')).toBe('safe')
+    expect(classifyCommand('head ~/.bashrc')).toBe('safe')
+    expect(classifyCommand('cat ~/.profile')).toBe('safe')
+  })
 })
 
 describe('run-shell handler auto-deny hardline', () => {
@@ -85,3 +123,4 @@ describe('run-shell handler auto-deny hardline', () => {
     expect(r.message).toMatch(/HARDLINE|hardline/i)
   })
 })
+
