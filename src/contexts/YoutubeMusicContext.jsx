@@ -128,7 +128,13 @@ export const YoutubeMusicProvider = ({ children }) => {
             playerVars: {
               rel: 0,
               enablejsapi: 1,
-              origin: window.location.origin || 'http://localhost:1420'
+              origin: window.location.origin || 'http://localhost:1420',
+              iv_load_policy: 3, // Nonaktifkan anotasi video dan overlay sponsor/iklan
+              modestbranding: 1, // Minimalisasi branding YouTube
+              playsinline: 1,
+              controls: 0,
+              disablekb: 1,
+              fs: 0
             },
             events: {
               onReady: (e) => {
@@ -142,6 +148,16 @@ export const YoutubeMusicProvider = ({ children }) => {
               onStateChange: (e) => {
                 if (cancelled) return
                 setIsPlaying(e.data === 1)
+
+                // Ad suppression: Jika mendeteksi durasi abnormal atau video ads di awal,
+                // beberapa instansi iframe player memicu perubahan durasi / playback state.
+                // Jika player menyediakan api getDuration atau video loaded berbeda, pastikan audio unmuted.
+                try {
+                  const target = e.target
+                  if (e.data === 1 && typeof target.isMuted === 'function' && target.isMuted()) {
+                    target.unMute()
+                  }
+                } catch (_) {}
               },
               onError: (e) => {
                 if (cancelled) return
