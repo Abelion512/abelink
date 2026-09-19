@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { FaStop, FaCircleNotch } from 'react-icons/fa'
+import { FaStop } from 'react-icons/fa'
+import { MobiusLoader } from './MobiusLoader'
 import { useChat } from '../../contexts/useChat'
 
 export default function AutomationHUD() {
@@ -48,10 +49,10 @@ export default function AutomationHUD() {
       : 'Otomasi sedang berjalan...'
 
   return (
-    <div className="fixed top-3.5 right-20 z-[9999] flex items-center gap-2.5 animate-fade-in pointer-events-auto select-none">
+    <div className="fixed top-3.5 right-20 z-20 flex items-center gap-2.5 animate-fade-in pointer-events-auto select-none">
       {/* Status Pill */}
-      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-900/90 backdrop-blur-xl border border-cyan-500/40 shadow-[0_4px_20px_rgba(0,0,0,0.6),0_0_15px_rgba(6,182,212,0.2)] text-xs text-cyan-300 font-medium">
-        <FaCircleNotch className="animate-spin text-cyan-400" size={12} />
+      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-900/90 backdrop-blur-xl border border-primary/40 shadow-[0_4px_20px_rgba(0,0,0,0.6),0_0_15px_rgba(10,132,255,0.2)] text-xs text-info font-medium">
+        <MobiusLoader size={12} />
         <span className="tracking-wide">{label}</span>
       </div>
 

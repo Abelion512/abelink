@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import DraggableHoloCard from './DraggableHoloCard';
+import { ToolCallsSection } from './ToolCallsSection';
 
-import { FaCheckCircle, FaSearch, FaListUl, FaBolt, FaCheck, FaChevronRight } from 'react-icons/fa';
+import { FaCheckCircle, FaListUl, FaBolt, FaCheck, FaChevronRight } from 'react-icons/fa';
 
 const ProcessPanel = ({ processes, onDismiss }) => {
   const [renderedProcesses, setRenderedProcesses] = useState([]);
@@ -88,6 +89,23 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                 isVisible={!proc.isExiting}
               >
                 <div className="w-[320px] flex flex-col gap-2">
+                  {(() => {
+                    // Steps carrying tool/query/result detail render in the
+                    // shared ToolCallsSection; intent-only steps keep the
+                    // numbered list below.
+                    const toolCalls = (steps || [])
+                      .filter((s) => typeof s === 'object' && s && (s.tool || s.fullResult || s.resultSummary))
+                      .map((s) => ({
+                        tool_name: s.tool || s.task || 'tool',
+                        tool_category: s.tool || s.task || '',
+                        message: undefined,
+                        inputs: s.query,
+                        output: s.fullResult || s.resultSummary,
+                      }))
+                    return toolCalls.length > 0 ? (
+                      <ToolCallsSection toolCalls={toolCalls} defaultExpanded={false} className="mb-1" />
+                    ) : null
+                  })()}
                   {steps && steps.map((step, idx) => {
                     let prefix = idx + 1 + '.';
                     let opacity = 'opacity-50 text-white';
@@ -95,7 +113,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
 
                     if (idx < currentStep) {
                       prefix = <FaCheck className="inline" size={10} />;
-                      opacity = 'opacity-100 text-success font-bold';
+                      opacity = 'opacity-100 text-info font-bold';
                     } else if (idx === currentStep && !isDone) {
                       opacity = 'opacity-100 text-white animate-pulse';
                       suffix = '...';
@@ -142,7 +160,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                 isVisible={!proc.isExiting}
               >
                 <div className="w-[280px] text-xs font-mono text-white/80">
-                  <div className="mb-2">Mengeksekusi: <span className="text-success">{proc.data.query || proc.data.action}</span></div>
+                  <div className="mb-2">Mengeksekusi: <span className="text-info">{proc.data.query || proc.data.action}</span></div>
                   {proc.data.result && (
                     <div className="p-2 bg-info/10 text-info border border-info/20 rounded-md">
                       {proc.data.result}

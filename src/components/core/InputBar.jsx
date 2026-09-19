@@ -15,6 +15,7 @@ import {
   FaPlus
 } from 'react-icons/fa'
 import ConfirmModal from './ConfirmModal'
+import { MobiusLoader } from './MobiusLoader'
 import { ContextGauge } from './ContextGauge'
 import { NATIVE_SKILLS } from './native-skills'
 import { getCachedSkills } from '../../api/skillsCache'
@@ -528,7 +529,7 @@ const InputBar = ({
               )}
               <span className="max-w-[140px] truncate font-medium">{file.name}</span>
               {file.size > 0 && (
-                <span className="text-[10px] text-white/40">{formatFileSize(file.size)}</span>
+                <span className="text-[10px] text-white/60">{formatFileSize(file.size)}</span>
               )}
               <button
                 type="button"
@@ -536,7 +537,7 @@ const InputBar = ({
                   e.stopPropagation()
                   removeFile(idx)
                 }}
-                className="text-white/40 hover:text-error hover:bg-error/20 p-1 rounded-full transition-all"
+                className="text-white/60 hover:text-error hover:bg-error/20 p-1 rounded-full transition-all"
                 title="Hapus Lampiran"
               >
                 <FaTimes size={10} />
@@ -608,7 +609,7 @@ const InputBar = ({
           <button
             type="button"
             onClick={() => setShowAttachMenu((v) => !v)}
-            className="p-3 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-full transition-all"
+            className="p-3 text-white/60 hover:text-white/80 hover:bg-white/5 rounded-full transition-all"
             title="Lampirkan / Folder"
           >
             <FaPlus size={18} />
@@ -662,7 +663,7 @@ const InputBar = ({
                 ? 'Tambah instruksi untuk file terlampir...'
                 : 'Tanya apapun ke Abelink...'
           }
-          className="flex-1 resize-none bg-transparent border-none outline-none text-white px-3 py-2.5 text-sm md:text-base leading-normal placeholder:text-white/30 disabled:opacity-50 no-scrollbar"
+          className="flex-1 resize-none bg-transparent border-none outline-none text-white px-3 py-2.5 text-sm md:text-base leading-normal placeholder:text-white/60 disabled:opacity-50 no-scrollbar"
         />
 
         {/* Action Buttons — right side */}
@@ -694,7 +695,7 @@ const InputBar = ({
                         ? 'text-white/20 bg-white/5 cursor-not-allowed'
                         : isRecording
                           ? 'text-error bg-error/20'
-                          : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+                          : 'text-white/60 hover:text-white/80 hover:bg-white/5'
                   }`}
                   style={{
                     transform:
@@ -719,7 +720,7 @@ const InputBar = ({
                     />
                   )}
                   {isProcessing ? (
-                    <span className="loading loading-spinner w-[18px] h-[18px]"></span>
+                    <MobiusLoader size={18} />
                   ) : isLoading ? (
                     <FaLock size={18} />
                   ) : (
@@ -730,7 +731,7 @@ const InputBar = ({
                 <button
                   type="submit"
                   disabled={isSendDisabled}
-                  className="p-3 rounded-full bg-success text-success-content disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-success/80 hover:scale-105 active:scale-95 transition-all"
+                  className="p-3 rounded-full bg-primary text-white disabled:opacity-30 disabled:bg-white/10 disabled:text-white/60 hover:bg-primary/80 hover:scale-105 active:scale-95 transition-all"
                   title="Send Message"
                 >
                   <FaArrowUp size={16} />
@@ -753,13 +754,13 @@ const InputBar = ({
                   onClick={() => selectSkill(skillObj)}
                   className={`px-4 py-3 cursor-pointer transition-colors flex flex-col gap-1 border-b border-white/5 last:border-0 ${
                     idx === selectedSkillIndex
-                      ? 'bg-emerald-500/20 text-emerald-400'
+                      ? 'bg-primary/20 text-primary'
                       : 'hover:bg-white/10 text-gray-300'
                   }`}
                 >
                   <div className="font-semibold text-sm">/{skillObj.name}</div>
                   <div
-                    className={`text-xs ${idx === selectedSkillIndex ? 'text-emerald-400/80' : 'text-gray-400'} line-clamp-2`}
+                    className={`text-xs ${idx === selectedSkillIndex ? 'text-info/80' : 'text-gray-400'} line-clamp-2`}
                   >
                     {skillObj.description}
                   </div>
@@ -803,7 +804,7 @@ const InputBar = ({
                 <span className="text-lg flex-shrink-0">{getFileIcon(previewFile.name)}</span>
                 <span className="text-sm font-medium text-white truncate">{previewFile.name}</span>
                 {previewFile.size > 0 && (
-                  <span className="text-[10px] text-white/40 flex-shrink-0">
+                  <span className="text-[10px] text-white/60 flex-shrink-0">
                     {formatFileSize(previewFile.size)}
                   </span>
                 )}
@@ -834,7 +835,7 @@ const InputBar = ({
                     {getFileIcon(previewFile.name)}
                   </div>
                   <div className="text-sm">Tidak ada pratinjau visual untuk tipe file ini.</div>
-                  <div className="text-xs text-white/40 mt-1 font-mono break-all max-w-md mx-auto mt-2">
+                  <div className="text-xs text-white/60 mt-1 font-mono break-all max-w-md mx-auto mt-2">
                     {previewFile.path}
                   </div>
                 </div>

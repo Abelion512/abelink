@@ -72,7 +72,7 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
       </button>
 
       {isOpen && (
-        <div className="absolute top-11 left-0 w-64 bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-sm p-2 flex flex-col gap-1 shadow-[0_8px_32px_rgba(0,0,0,0.5)] animate-[holo-enter_0.2s_ease-out_forwards]">
+        <div className="absolute top-11 left-0 w-64 bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-xl p-2 flex flex-col gap-1 shadow-[0_8px_32px_rgba(0,0,0,0.5)] animate-[holo-enter_0.2s_ease-out_forwards]">
           {/* HUD Brackets */}
           <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-white/30 pointer-events-none z-10" />
           <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-white/30 pointer-events-none z-10" />
@@ -165,7 +165,7 @@ const FloatingMenu = ({ onOpenHistory, tgStatus = 'disconnected' }) => {
             onClick={() => handleNav('/telegram-bot')}
             className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-white/5 cursor-pointer text-white/80 text-sm font-medium"
           >
-            <FaTelegram className={tgLive === 'connected' ? 'text-info' : 'text-white/30'} />
+            <FaTelegram className={tgLive === 'connected' ? 'text-info' : 'text-white/60'} />
             <div className="flex-1 text-left">Telegram Bot</div>
             <div
               className={`w-2 h-2 rounded-full ${tgLive === 'connected' ? 'bg-info shadow-[0_0_8px_oklch(var(--in))]' : tgLive === 'connecting' ? 'bg-warning animate-pulse' : 'bg-error'}`}

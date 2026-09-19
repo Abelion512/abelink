@@ -14,7 +14,7 @@ const StatusIndicator = ({ notifications }) => {
           let Icon = FaInfoCircle;
           
           if (notif.type.includes('memory') || notif.type === 'plugin-done' || notif.type === 'success') {
-            alertType = 'alert-success';
+            alertType = 'alert-info';
             Icon = FaCheckCircle;
           } else if (notif.type === 'plugin-executing') {
             alertType = 'alert-warning';
@@ -41,7 +41,7 @@ const StatusIndicator = ({ notifications }) => {
   if (activeToasts.length === 0) return null;
 
   return (
-    <div className="toast toast-top toast-end z-[9999] p-4">
+    <div className="toast toast-bottom toast-end z-50 p-4">
       {activeToasts.map(toast => (
         <div 
           key={toast.id} 

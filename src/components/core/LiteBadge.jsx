@@ -9,7 +9,7 @@ export default function LiteBadge() {
   return (
     <button
       onClick={() => setDismissed(true)}
-      className="fixed top-8 left-20 z-40 flex items-center gap-1.5 rounded-full bg-emerald-900/80 px-2.5 py-1 text-xs text-emerald-300 backdrop-blur-sm hover:bg-emerald-800/80"
+      className="fixed top-8 left-20 z-40 flex items-center gap-1.5 rounded-full bg-primary/20 px-2.5 py-1 text-xs text-primary backdrop-blur-sm hover:bg-primary/30 border border-primary/30"
       title={`RAM ${totalRAMGB}GB — fitur berat dioptimalkan otomatis`}
     >
       <FaLeaf size={10} />

@@ -89,8 +89,8 @@ const DraggableHoloCard = ({
           onMouseDown={handleMouseDown}
         >
           <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse shadow-[0_0_8px_oklch(var(--su))]" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-success opacity-90">{title}</span>
+            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_oklch(var(--p))]" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary opacity-90">{title}</span>
           </div>
           
           <button 
