@@ -87,7 +87,10 @@ Tugasmu adalah menyaring alur kerja teknis yang baru saja BERHASIL diselesaikan 
     const savedSkill = await saveLearnedSkill({
       name: parsed.name,
       description: parsed.description || 'Prosedur teknis teruji buatan Abelink',
-      content: parsed.content
+      content: parsed.content,
+      // R1b: skill baru lahir sebagai trial — masuk prompt berpenanda sampai
+      // lolos gate empiris (reuse > 0 atau evalPassed) via graduateTrialSkill.
+      state: 'trial'
     })
 
     if (savedSkill) {

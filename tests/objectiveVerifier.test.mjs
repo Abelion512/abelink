@@ -159,6 +159,42 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     expect(r.state).toBe(VERIFICATION_STATE.FAILED)
   })
 
+  it('R1c: klaim test hijau + artefak vitest mentah => test-evidence pass', () => {
+    const r = evaluateEvidence({
+      kind: 'code',
+      objectiveText: 'perbaiki parser dan jalankan unit test',
+      answer: 'Bug diperbaiki, semua test hijau.',
+      tools: [
+        exec('replace-content', 'parser diperbarui'),
+        exec('run-shell', 'Test Files 3 passed (3)\n Tests 41 passed (41)')
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'test-evidence').state).toBe('pass')
+  })
+
+  it('R1c: klaim test hijau TANPA artefak => test-evidence unresolved (anti-hack)', () => {
+    const r = evaluateEvidence({
+      kind: 'code',
+      objectiveText: 'perbaiki parser dan jalankan unit test',
+      answer: 'Bug diperbaiki, semua test hijau dan lulus.',
+      tools: [exec('replace-content', 'parser diperbarui'), exec('run-shell', 'perintah dijalankan')]
+    })
+    const crit = r.criteria.find((c) => c.id === 'test-evidence')
+    expect(crit.state).toBe('unresolved')
+    expect(crit.label).toMatch(/tanpa artefak/)
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('R1c: jawaban tanpa klaim test => test-evidence na (no regression)', () => {
+    const r = evaluateEvidence({
+      kind: 'code',
+      objectiveText: 'perbaiki parser dan jalankan unit test',
+      answer: 'Parser diperbaiki, silakan cek ulang.',
+      tools: [exec('replace-content'), exec('run-shell', '3 passing, 0 failed')]
+    })
+    expect(r.criteria.find((c) => c.id === 'test-evidence').state).toBe('na')
+  })
+
   it('browser: click alone (no post-action confirmation read) => unresolved, not verified', () => {
     const r = evaluateEvidence({
       kind: 'browser',

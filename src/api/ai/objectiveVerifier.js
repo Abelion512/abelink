@@ -278,7 +278,14 @@ export function deriveSuccessCriteria(kind = 'general', objectiveText = '') {
         { id: 'syntax-valid', label: 'Sintaks valid setelah edit' },
         ...(TEST_REQUEST_RE.test(text)
           ? [{ id: 'tests-pass', label: 'Test/lint relevan lulus (output dibuktikan)' }]
-          : [])
+          : []),
+        // R1c (anti-hack ala DGM): klaim "test hijau" WAJIB artefak output
+        // mentah (exit code / ringkasan vitest), bukan teks model. Tanpa op
+        // eksekusi test yang membawa artefak -> unresolved, bukan pass.
+        {
+          id: 'test-evidence',
+          label: 'Klaim test hijau didukung artefak output mentah (bukan sekadar teks)'
+        }
       ]
     case 'browser':
       return [
@@ -457,6 +464,27 @@ export function evaluateEvidence({
           const testPass = testOps.some((op) => TEST_PASS_RE.test(op.text) && !opFailed(op))
           const testFail = testOps.some((op) => TEST_FAIL_RE.test(op.text) || opFailed(op))
           setState('tests-pass', testPass ? 'pass' : testFail ? 'fail' : 'unresolved')
+        }
+        // R1c: test-evidence — klaim "test hijau/lulus" di jawaban HANYA pass
+        // bila ada op eksekusi test dengan artefak (ringkasan angka mentah).
+        // Tanpa artefak -> unresolved (tolak klaim teks ala DGM reward-hack).
+        const claimsTestsGreen = /(test.*(hijau|lulus|pass)|semua.*(test|uji).*hijau|vitest.*(hijau|pass)|tests?\s+passed)/i.test(
+          String(answer || '')
+        )
+        if (!claimsTestsGreen) {
+          setState('test-evidence', 'na')
+        } else {
+          const artifactOps = ops.filter(
+            (op) =>
+              /(run-shell|run-task)/i.test(op.tool || '') &&
+              !opFailed(op) &&
+              /(\d+\s+passed|Test Files|Tests\s+\d+|passed\s*\(\d+\))/i.test(op.text || '')
+          )
+          setState('test-evidence', artifactOps.length > 0 ? 'pass' : 'unresolved')
+          if (artifactOps.length === 0) {
+            criteria.find((c) => c.id === 'test-evidence').label +=
+              ' — klaim test hijau tanpa artefak output mentah: lampirkan ringkasan vitest (exit code + angka), jangan mengarang'
+          }
         }
       } else {
         // Content conformance is not deterministically observable without an
