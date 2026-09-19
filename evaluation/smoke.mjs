@@ -361,9 +361,9 @@ rmTmp(emptyWork, { recursive: true, force: true })
 
 // Angka budget dibaca dari effortSystem, bukan tabel lokal di harness.
 const limitBudgets = effortBudgets()
-assert.equal(limitBudgets.high, 32, 'budget high = 32 langkah (effortSystem)')
+assert.equal(limitBudgets.high, 48, 'budget high = 48 langkah (effortSystem)')
 assert.equal(limitBudgets.ultra, 256, 'budget ultra = 256 langkah (effortSystem)')
-assert.equal(largestFeasibleRung('high'), 16, 'effort high tidak mungkin menuntaskan rung 32')
+assert.equal(largestFeasibleRung('high'), 32, 'effort high menuntaskan rung 32, bukan 64')
 assert.equal(recommendedStepsForArtifacts(32) > limitBudgets.high, true, 'rung 32 butuh lebih dari budget high')
 
 const limitVerdict = buildLimitVerdict({
@@ -371,12 +371,12 @@ const limitVerdict = buildLimitVerdict({
   runs: 1,
   results: [
     { artifacts: 8, passed: true, runs: 1, stepsAvg: 12 },
-    { artifacts: 16, passed: false, runs: 1, stepsAvg: 32 },
+    { artifacts: 16, passed: false, runs: 1, stepsAvg: 20 },
   ],
 })
 assert.equal(limitVerdict.sustainedArtifacts, 8, 'batas kemampuan = rung terakhir yang lolos')
 assert.equal(limitVerdict.firstFailureAt, 16, 'pecah pertama tercatat')
-assert.equal(limitVerdict.failureMode, 'budget-exhausted', 'steps mentok budget diklasifikasikan jujur')
+assert.equal(limitVerdict.failureMode, 'incorrect-artifact', 'gagal di bawah budget = masalah kemampuan, bukan budget')
 assert.equal(maxSustainedArtifacts([{ artifacts: 8, passed: false }, { artifacts: 16, passed: true }]), null, 'rung kecil gagal menghentikan tangga')
 
 assert.deepEqual(selectedRungs({ start: 8, max: 16 }), [8, 16], 'pemilihan rung menaik dan inklusif')
