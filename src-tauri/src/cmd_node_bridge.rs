@@ -197,6 +197,15 @@ fn action_family(action: &str) -> &'static str {
 /// Kebijakan berjenjang: family "always" -> tanpa dialog; "session" ->
 /// grant in-memory sekali tanya; "ask" -> dialog rfd tiap kali.
 fn approval_reason(action: &str, payload: &Option<serde_json::Value>) -> Option<String> {
+    if action == "native-tool:execute" {
+        if let Some(desc) = crate::hardline::shell_approval_reason(action, payload) {
+            let eff = crate::approval_policy::effective_policy("shell-exec");
+            if eff == crate::approval_policy::POLICY_ALWAYS || eff == crate::approval_policy::POLICY_SESSION {
+                return None;
+            }
+            return Some(desc);
+        }
+    }
     if APPROVAL_ACTIONS.contains(&action) {
         // Tiering capabilities: aksi read-only yang aman lolos tanpa dialog
         // (weather/time, status/faq extension, fs list/read). Tulis/hapus,
