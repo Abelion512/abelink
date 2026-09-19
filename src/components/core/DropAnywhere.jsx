@@ -3,8 +3,8 @@
 // Saat overlay aktif, pointer-events memblok interaksi di bawahnya agar drop
 // tidak jatuh ke elemen lain. Semua resolusi path via resolveDroppedFile
 // (native path via Tauri, fallback saveTempFile untuk drop web).
-import { useEffect, useState } from 'react'
-import { FaPaperclip, FaRegImage } from 'react-icons/fa'
+import React, { useEffect, useState } from 'react'
+import { UploadCloud } from 'lucide-react'
 import { listen } from '@tauri-apps/api/event'
 import { extractDroppedItems, extractClipboardFiles } from '../../utils/attachments'
 
@@ -17,10 +17,14 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
     // Drop native Tauri (file manager OS → webview): HTML5 dataTransfer kosong
     // di kasus ini, Tauri mengirim event 'tauri://drag-drop' berisi filePaths.
     // Disatukan ke pintu yang sama (onFilesDropped) agar area mana pun tetap bisa.
-    let unlistenNative = null
+    let unlistenNativeDrop = null
+    let unlistenNativeEnter = null
+    let unlistenNativeOver = null
+    let unlistenNativeLeave = null
     ;(async () => {
       try {
-        unlistenNative = await listen('tauri://drag-drop', async (event) => {
+        unlistenNativeDrop = await listen('tauri://drag-drop', async (event) => {
+          setIsDragging(false)
           const paths = event?.payload?.paths ?? []
           if (!Array.isArray(paths) || paths.length === 0) return
           const items = await Promise.all(
@@ -38,6 +42,16 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
           )
           if (items.length > 0) onFilesDropped?.(items)
         })
+
+        unlistenNativeEnter = await listen('tauri://drag-enter', () => {
+          setIsDragging(true)
+        })
+        unlistenNativeOver = await listen('tauri://drag-over', () => {
+          setIsDragging(true)
+        })
+        unlistenNativeLeave = await listen('tauri://drag-leave', () => {
+          setIsDragging(false)
+        })
       } catch {
         // Bukan env Tauri / event tak tersedia — jalur HTML5 di bawah tetap jalan.
       }
@@ -47,7 +61,12 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
     const hasDropData = (e) => {
       if (!e.dataTransfer) return false
       const types = Array.from(e.dataTransfer.types || [])
-      return types.includes('Files') || types.includes('text/uri-list')
+      return (
+        types.includes('Files') ||
+        types.includes('text/uri-list') ||
+        types.includes('text/html') ||
+        types.some((t) => t.startsWith('image/'))
+      )
     }
 
     const onEnter = (e) => {
@@ -75,11 +94,17 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
       }
     }
 
-    // Global Paste (Ctrl+V) listener: tangkap gambar dari clipboard / screenshot
+    // Global Paste (Ctrl+V) listener: tangkap gambar dari clipboard / screenshot / text/uri-list / text/html
     const onPaste = async (e) => {
       const items = Array.from(e.clipboardData?.items || [])
+      const types = Array.from(e.clipboardData?.types || [])
       const hasFile = items.some((it) => it.kind === 'file')
-      if (!hasFile) return
+      const hasUriList = types.includes('text/uri-list')
+      const rawText = e.clipboardData?.getData('text/plain') || ''
+      const hasFileUri = rawText.startsWith('file://')
+      const hasHtml = types.includes('text/html') && /<img[^>]+src=/i.test(e.clipboardData?.getData('text/html') || '')
+
+      if (!hasFile && !hasUriList && !hasFileUri && !hasHtml) return
 
       e.preventDefault()
       try {
@@ -98,7 +123,10 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
     window.addEventListener('drop', onDrop)
     window.addEventListener('paste', onPaste)
     return () => {
-      if (typeof unlistenNative === 'function') unlistenNative()
+      if (typeof unlistenNativeDrop === 'function') unlistenNativeDrop()
+      if (typeof unlistenNativeEnter === 'function') unlistenNativeEnter()
+      if (typeof unlistenNativeOver === 'function') unlistenNativeOver()
+      if (typeof unlistenNativeLeave === 'function') unlistenNativeLeave()
       window.removeEventListener('dragenter', onEnter)
       window.removeEventListener('dragleave', onLeave)
       window.removeEventListener('dragover', onOver)
@@ -111,20 +139,20 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-2xl flex items-center justify-center pointer-events-auto transition-all duration-300 animate-fade-in p-6"
+      className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xl flex items-center justify-center pointer-events-auto transition-all duration-200 animate-fade-in p-6"
       data-drop-anywhere
     >
-      <div className="flex flex-col items-center gap-4 p-8 sm:p-10 rounded-3xl bg-base-200/80 border-2 border-dashed border-info/80 shadow-[0_16px_48px_rgba(0,0,0,0.8),0_0_30px_rgba(10,132,255,0.3)] pointer-events-none max-w-md text-center transform scale-100">
-        <div className="w-16 h-16 rounded-2xl bg-primary/20 border border-info/40 flex items-center justify-center text-info shadow-[0_0_25px_rgba(10,132,255,0.4)] animate-bounce">
-          <FaRegImage size={32} />
+      <div className="flex flex-col items-center gap-4 p-8 sm:p-10 rounded-3xl bg-[#1c1c1e]/90 border-2 border-dashed border-[#0a84ff] shadow-2xl pointer-events-none max-w-md text-center">
+        <div className="w-16 h-16 rounded-2xl bg-[#0a84ff]/20 border border-[#0a84ff]/40 flex items-center justify-center text-[#0a84ff] shadow-lg shadow-[#0a84ff]/20 animate-bounce">
+          <UploadCloud size={32} />
         </div>
         <div className="space-y-1.5">
-          <div className="text-xl font-bold tracking-tight text-white">Lepaskan file di mana saja</div>
+          <div className="text-lg font-semibold tracking-tight text-white">Lepaskan file di mana saja</div>
           <div className="text-xs text-white/70 font-medium">
-            Multi-file didukung: gambar, screenshot, dokumen, arsip, dan kode
+            Mendukung gambar, dokumen, teks, arsip, dan kode
           </div>
         </div>
-        <div className="px-3.5 py-1.5 rounded-full bg-primary/10 border border-info/30 text-[11px] font-mono text-info">
+        <div className="px-3.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono text-[#0a84ff]">
           Paste (Ctrl+V) langsung dari clipboard juga didukung
         </div>
       </div>

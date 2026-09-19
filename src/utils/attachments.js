@@ -217,14 +217,59 @@ export const extractDroppedItems = async (dataTransfer) => {
     (typeof dataTransfer?.getData === 'function' &&
       (dataTransfer.getData('text/uri-list') || dataTransfer.getData('text/plain'))) ||
     ''
-  const urls = uriRaw
+
+  // 1) File lokal via URI (Linux file manager drag-drop saat dataTransfer.files kosong)
+  const localUris = uriRaw
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => s.startsWith('file://'))
+
+  if (localUris.length > 0) {
+    const localItems = await Promise.all(
+      localUris.map(async (u) => {
+        try {
+          const rawPath = decodeURIComponent(u.replace(/^file:\/\//, ''))
+          const name = rawPath.split(/[/\\]/).pop() || 'file'
+          const item = { name, path: rawPath, size: 0, type: '', isDir: false }
+          if (typeof window !== 'undefined' && window.api?.statPath) {
+            try {
+              const [size, isDir] = await window.api.statPath(rawPath)
+              item.size = Number(size) || 0
+              item.isDir = !!isDir
+            } catch {}
+          }
+          return item
+        } catch {
+          return null
+        }
+      })
+    )
+    const validLocals = localItems.filter(Boolean)
+    if (validLocals.length > 0) return validLocals
+  }
+
+  // 2) Ekstraksi URL publik dari uriRaw ATAU dari tag <img src="..."> di text/html
+  let rawUrls = uriRaw
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter(Boolean)
+
+  const html = typeof dataTransfer?.getData === 'function' ? dataTransfer.getData('text/html') : ''
+  if (html) {
+    const imgMatches = [...html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)]
+    for (const m of imgMatches) {
+      if (m[1]) rawUrls.push(m[1].trim())
+    }
+  }
+
+  const urls = rawUrls
     .map(isPublicHttpUrl)
     .filter(Boolean)
     .map((url) => url.href)
-  if (urls.length === 0) return []  // Fetch via NATIVE Rust (misc_fetch_web_resource): URL taint dari user tidak
+
+  if (urls.length === 0) return []
+
+  // Fetch via NATIVE Rust (misc_fetch_web_resource): URL taint dari user tidak
   // pernah menyentuh fetch renderer (CodeQL SSRF cleared), validasi host privat
   // diulang di native (defense in depth), dan bonus: bebas CORS situs tujuan.
   const results = await Promise.all(
@@ -285,6 +330,77 @@ export const extractClipboardFiles = async (clipboardData) => {
   if (files.length > 0) {
     return Promise.all(files.map(resolveDroppedFile))
   }
+
+  // Fallback 1: Local file URI dari Linux file manager (text/uri-list atau text/plain dengan file://)
+  const uriText =
+    (typeof clipboardData?.getData === 'function' &&
+      (clipboardData.getData('text/uri-list') || clipboardData.getData('text/plain'))) ||
+    ''
+  const localFileUris = uriText
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => s.startsWith('file://'))
+
+  if (localFileUris.length > 0) {
+    const localItems = await Promise.all(
+      localFileUris.map(async (u) => {
+        try {
+          const rawPath = decodeURIComponent(u.replace(/^file:\/\//, ''))
+          const name = rawPath.split(/[/\\]/).pop() || 'file'
+          const item = { name, path: rawPath, size: 0, type: '', isDir: false }
+          if (typeof window !== 'undefined' && window.api?.statPath) {
+            try {
+              const [size, isDir] = await window.api.statPath(rawPath)
+              item.size = Number(size) || 0
+              item.isDir = !!isDir
+            } catch {}
+          }
+          return item
+        } catch {
+          return null
+        }
+      })
+    )
+    const validLocals = localItems.filter(Boolean)
+    if (validLocals.length > 0) return validLocals
+  }
+
+  // Fallback 2: HTML tag <img> dari clipboard web
+  const html = typeof clipboardData?.getData === 'function' ? clipboardData.getData('text/html') : ''
+  if (html) {
+    const imgMatches = [...html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)]
+    const imgUrls = imgMatches
+      .map((m) => m[1]?.trim())
+      .filter(Boolean)
+      .map(isPublicHttpUrl)
+      .filter(Boolean)
+      .map((u) => u.href)
+
+    if (imgUrls.length > 0 && typeof window !== 'undefined' && window.api?.fetchWebResource) {
+      const fetched = await Promise.all(
+        imgUrls.map(async (u) => {
+          try {
+            const res = await window.api.fetchWebResource(u)
+            if (res?.dataB64) {
+              const bin = atob(res.dataB64)
+              const bytes = new Uint8Array(bin.length)
+              for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+              const mime = res.mime || 'image/png'
+              const ext = (mime.split('/')[1] || 'png').split(';')[0]
+              let name = decodeURIComponent((u.split('/').pop() || '').split('?')[0]) || `pasted-image.${ext}`
+              if (!name.includes('.')) name = `${name}.${ext}`
+              const file = new File([bytes], name, { type: mime })
+              return resolveDroppedFile(file)
+            }
+          } catch {}
+          return null
+        })
+      )
+      const validFetched = fetched.filter(Boolean)
+      if (validFetched.length > 0) return validFetched
+    }
+  }
+
   return []
 }
 
