@@ -106,10 +106,20 @@ export const useAbelinkAgent = () => {
   const hasGreetedRef = useRef(false)
 
   // Welcome Greeting on Startup
+  // Fallback di luar guard: overlay boot HARUS turun walau greeting gagal
+  // atau effect di-remount StrictMode (flag ref sudah true di pass kedua).
+  useEffect(() => {
+    if (!isBooting) return undefined
+    const t = setTimeout(() => setIsBooting(false), 6000)
+    return () => clearTimeout(t)
+  }, [isBooting])
+
   useEffect(() => {
     if (isChatLoaded && !hasGreetedRef.current) {
       hasGreetedRef.current = true
       console.log('[useAbelinkAgent] Memicu pesan sambutan (Boot sequence)...')
+
+      const bootFallback = setTimeout(() => setIsBooting(false), 6000)
 
       const bootSequence = async () => {
         let timeContext = ''
@@ -167,6 +177,7 @@ export const useAbelinkAgent = () => {
         } catch (err) {
           console.error('[useAbelinkAgent] Gagal greeting via handlePlanningCommand:', err)
         } finally {
+          clearTimeout(bootFallback)
           setTimeout(() => {
             setIsBooting(false)
           }, 800)
@@ -174,6 +185,7 @@ export const useAbelinkAgent = () => {
       }
 
       bootSequence()
+      return () => clearTimeout(bootFallback)
     }
   }, [isChatLoaded, chatData])
 
