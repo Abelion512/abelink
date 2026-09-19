@@ -114,8 +114,8 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
       className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-2xl flex items-center justify-center pointer-events-auto transition-all duration-300 animate-fade-in p-6"
       data-drop-anywhere
     >
-      <div className="flex flex-col items-center gap-4 p-8 sm:p-10 rounded-3xl bg-base-200/80 border-2 border-dashed border-cyan-400/80 shadow-[0_16px_48px_rgba(0,0,0,0.8),0_0_30px_rgba(6,182,212,0.3)] pointer-events-none max-w-md text-center transform scale-100">
-        <div className="w-16 h-16 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shadow-[0_0_25px_rgba(6,182,212,0.4)] animate-bounce">
+      <div className="flex flex-col items-center gap-4 p-8 sm:p-10 rounded-3xl bg-base-200/80 border-2 border-dashed border-info/80 shadow-[0_16px_48px_rgba(0,0,0,0.8),0_0_30px_rgba(10,132,255,0.3)] pointer-events-none max-w-md text-center transform scale-100">
+        <div className="w-16 h-16 rounded-2xl bg-primary/20 border border-info/40 flex items-center justify-center text-info shadow-[0_0_25px_rgba(10,132,255,0.4)] animate-bounce">
           <FaRegImage size={32} />
         </div>
         <div className="space-y-1.5">
@@ -124,7 +124,7 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
             Multi-file didukung: gambar, screenshot, dokumen, arsip, dan kode
           </div>
         </div>
-        <div className="px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-400/30 text-[11px] font-mono text-cyan-300">
+        <div className="px-3.5 py-1.5 rounded-full bg-primary/10 border border-info/30 text-[11px] font-mono text-info">
           Paste (Ctrl+V) langsung dari clipboard juga didukung
         </div>
       </div>
