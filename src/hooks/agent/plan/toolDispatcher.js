@@ -248,7 +248,13 @@ export const executeSingleTool = async (tool, query, ctx) => {
         {
           role: 'ai',
           content: parsed.question,
-          choice: { id: choiceId, options: parsed.options, selected: null },
+          choice: {
+            id: choiceId,
+            options: parsed.options,
+            rawOptions: parsed.rawOptions,
+            type: parsed.type,
+            selected: null
+          },
           isIntermediate: true,
           timestamp: choiceTimestamp,
           created_at: Date.now()

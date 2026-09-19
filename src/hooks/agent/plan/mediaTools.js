@@ -26,7 +26,19 @@ const musicLabel = (m) => {
 const offerMusicChoice = async (candidates, question, ctx) => {
   const { targetSetChatData, currentSignal } = ctx || {}
   const opts = candidates.slice(0, 4)
-  const parsed = parseChoiceQuery(`${question || 'Lagu mana yang dimaksud?'}||${opts.map(musicLabel).join(';')}`)
+  const choicePayload = {
+    question: question || 'Lagu mana yang dimaksud?',
+    type: 'music_preview',
+    options: opts.map((m) => ({
+      label: musicLabel(m),
+      title: m.title || m.name,
+      artist: m.artist || '',
+      duration: m.duration || '',
+      thumbnail: m.thumbnail || '',
+      id: m.id || m.videoId
+    }))
+  }
+  const parsed = parseChoiceQuery(choicePayload)
   if (!parsed || typeof targetSetChatData !== 'function') return null
   const choiceId = `choice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const choiceTimestamp = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
@@ -35,7 +47,13 @@ const offerMusicChoice = async (candidates, question, ctx) => {
     {
       role: 'ai',
       content: parsed.question,
-      choice: { id: choiceId, options: parsed.options, selected: null },
+      choice: {
+        id: choiceId,
+        options: parsed.options,
+        rawOptions: parsed.rawOptions,
+        type: 'music_preview',
+        selected: null
+      },
       isIntermediate: true,
       timestamp: choiceTimestamp,
       created_at: Date.now()

@@ -51,6 +51,18 @@ export const useAbelinkMusic = (setChatData, abortControllerRef, youtubeMusicToo
     targetSet((prev) => [...prev, { role: 'ai', content: `Mencari lagu "${effectiveQuery}"...`, isSearchingMusic: true }])
     const music = await window.api.searchMusic(effectiveQuery)
     const isAutoplay = action === 'music-play'
+
+    // Deteksi query multi-lagu/OST/Soundtrack/Album/Playlist:
+    // User meminta kompilasi lagu bertema (OST, soundtrack, album, theme song) yang memiliki banyak judul lagu berbeda
+    const isOstOrCompilation = /\b(ost|soundtrack|album|theme song|lagu tema|bgm)\b/i.test(effectiveQuery)
+    if (isAutoplay && isOstOrCompilation && music.length > 1) {
+      targetSet((prev) => prev.filter((item) => !item.isSearchingMusic))
+      return {
+        candidates: music.slice(0, 4),
+        question: `Ditemukan beberapa track untuk "${effectiveQuery}" — lagu mana yang ingin diputar?`
+      }
+    }
+
     // Query kabur + hasil tak meyakinkan -> kembalikan kandidat agar pemanggil
     // menawarkan tombol (ask-choice), bukan autoplay buta music[0].
     const vagueNoMemory = isVagueQuery && effectiveQuery === 'lofi hip hop radio'
