@@ -28,6 +28,7 @@ di repo → file; belum → backlog berprioritas.
 | Skill folder bundle | `src/api/skills/skillFolder.js` + `sidecar/engine/channels/skills.mjs` |
 | Handoff contract JSON | `src/api/ai/handoffContract.js` + `tests/handoffContract.test.mjs` |
 | Nudge + eval mini skill | `src/api/ai/skillMiniEval.js` + `tests/skillMiniEval.test.mjs` |
+| MEMORY_TOOL_SPEC wiring | `src/api/ai/memoryTool.js` + `tests/memory-tool-spec.test.mjs` |
 | Budget counter murni | `StepBudget`, `wrapUpNotice` (`effortSystem.js`, `budgetNotice.js`) |
 | Eval gate | `scripts/verify.sh` + AbelinkBench |
 
@@ -40,8 +41,7 @@ di repo → file; belum → backlog berprioritas.
 5. **Skill folder penuh** — SELESAI (feat/skill-folder-bundle).
 6. **Handoff contract JSON** — SELESAI (feat/handoff-contract).
 7. **Nudge + eval mini skill** — SELESAI (feat/skill-mini-eval).
-8. **MEMORY_TOOL_SPEC wiring** — single memory tool + failure cap
-   (spec ada, belum di-wire).
+8. **MEMORY_TOOL_SPEC wiring** — SELESAI (feat/memory-tool-spec-wiring).
 9. **Identifier rename** — `dev.abelink` / `dev.abelink.dev` (butuh audit
    tabrakan data dir dulu).
 10. **CDP mode kedua** — bila butuh heap/trace/network forensik

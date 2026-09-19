@@ -23,7 +23,7 @@ export const LOGIN_WALL_RE = /login|log in|masuk|captcha|cloudflare|verify.*huma
 // sini (bukan di caller) agar definisi "native-backed" tidak drift dari
 // routing aktual saat tool baru ditambah.
 const NON_NATIVE_TOOL_RE =
-  /^(yt-search|yt-summary|speak|screenshot-to-tg|analyze-screen|camera-look|memory-search|browser-ask-user|os-ask-user|os-ask|ask-user|user-ask|ask-choice|user-choice|spawn_subagent|wait_subagents|send_message|list_subagents|kill_subagent|read-tools|read-skill|delegate_coding)$/
+  /^(yt-search|yt-summary|speak|screenshot-to-tg|analyze-screen|camera-look|memory-search|memory|browser-ask-user|os-ask-user|os-ask|ask-user|user-ask|ask-choice|user-choice|spawn_subagent|wait_subagents|send_message|list_subagents|kill_subagent|read-tools|read-skill|delegate_coding)$/
 const NON_NATIVE_TOOL_PREFIXES = ['music', 'connector-', 'trading-']
 export const isNativeBacked = (tool, query) => {
   if (!checkTools(tool)) return false
@@ -190,7 +190,7 @@ export const executeSingleTool = async (tool, query, ctx) => {
         ...(vCapped.images.length > 0 ? { images: vCapped.images } : {})
       }
     }
-    const knowledge = await runKnowledgeTool(tool, query)
+    const knowledge = await runKnowledgeTool(tool, query, ctx)
     if (knowledge !== undefined) {
       return { resultString: knowledge, rejected: false, toolExecution: { action: tool, query, result: knowledge } }
     }

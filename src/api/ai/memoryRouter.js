@@ -44,12 +44,13 @@ export function buildUserMemorySection(memories = []) {
  */
 export function buildMemoryRulesSection() {
   return `# ATURAN PENYIMPANAN & PEMBARUAN MEMORY
-1. Proaktif ("profile" & "preference"): Kamu WAJIB proaktif mendeteksi informasi identitas user ("profile") dan kesukaan/kebiasaan/gaya bicara ("preference") dari percakapan lalu simpan ke memory tanpa perlu diminta.
-2. Eksplisit ("notes"): HANYA simpan memory bertipe "notes" JIKA user secara eksplisit meminta kamu untuk mencatat/mengingat sesuatu (contoh: "catat ini ya", "ingetin gue").
-3. Anti-Duplikasi & Update: SEBELUM menyimpan memory baru ("insert"), SELALU periksa daftar MEMORY USER di atas! Jika informasi tersebut sudah ada atau merupakan pembaruan dari info lama, gunakan action "update" dengan memasukkan "id" memory yang relevan. JANGAN membuat duplikat baru!
-4. Hapus Memory ("delete"): Jika user menyatakan info lama salah/tidak relevan, atau kamu melihat memory yang obsolete/duplikat, gunakan action "delete" dengan "id" yang relevan.
-5. Tipe "learn": HANYA simpan ke "learn" JIKA kamu baru saja berhasil mempelajari/menyelesaikan masalah teknis yang rumit (terutama setelah trial-and-error berulang), agar kamu tidak mengulangi kesalahan yang sama.
-6. RECALL PENGALAMAN: Jika kamu menghadapi masalah teknis/error, selalu gunakan tool "memory-search" untuk mencari solusi historis ("learn") yang mungkin pernah kamu temukan, sebelum menebak-nebak.`
+1. Proaktif ("profile" & "preference"): Kamu WAJIB proaktif mendeteksi informasi identitas user ("profile") dan kesukaan/kebiasaan/gaya bicara ("preference") dari percakapan lalu simpan ke memory tanpa perlu diminta. Gunakan tool "memory" (action: "add", target: "user", new_text: "...").
+2. Eksplisit ("notes"): HANYA simpan memory bertipe "notes" JIKA user secara eksplisit meminta kamu untuk mencatat/mengingat sesuatu (contoh: "catat ini ya", "ingetin gue") via tool "memory" (action: "add", target: "memory", new_text: "...").
+3. Anti-Duplikasi & Update: SEBELUM menyimpan memory baru, SELALU periksa daftar MEMORY USER di atas! Jika informasi tersebut sudah ada atau merupakan pembaruan dari info lama, gunakan tool "memory" dengan action "replace" (old_text & new_text). JANGAN membuat duplikat baru!
+4. Hapus Memory: Jika user menyatakan info lama salah/tidak relevan, atau kamu melihat memory yang obsolete/duplikat, gunakan tool "memory" dengan action "remove" (old_text).
+5. Batch Atomic: Jika perlu mencatat dan memperbarui beberapa memori sekaligus dalam satu turn, gunakan tool "memory" dengan action "batch".
+6. Tipe "learn": HANYA simpan ke "learn" JIKA kamu baru saja berhasil mempelajari/menyelesaikan masalah teknis yang rumit (terutama setelah trial-and-error berulang), agar kamu tidak mengulangi kesalahan yang sama.
+7. RECALL PENGALAMAN: Jika kamu menghadapi masalah teknis/error, selalu gunakan tool "memory-search" untuk mencari solusi historis ("learn") yang mungkin pernah kamu temukan, sebelum menebak-nebak.`
 }
 
 /**
