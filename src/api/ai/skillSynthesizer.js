@@ -95,6 +95,12 @@ Tugasmu adalah menyaring alur kerja teknis yang baru saja BERHASIL diselesaikan 
 
     if (savedSkill) {
       console.log(`[Meta-Learner] ✨ Keahlian baru berhasil dipelajari & disimpan ke Dexie: /${savedSkill.name}`)
+      try {
+        const { evaluateAndGraduateSkill } = await import('./skillMiniEval.js')
+        await evaluateAndGraduateSkill(savedSkill.id)
+      } catch (e) {
+        console.warn('[Meta-Learner] Gagal mengevaluasi mini-eval skill baru:', e)
+      }
     }
 
     return savedSkill

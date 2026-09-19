@@ -318,9 +318,13 @@ export const runAgentTool = async (tool, query, ctx) => {
     // 1. Cek Dexie learnedSkills (Self-Improved / Dynamic Native Skills)
     const learned = await getLearnedSkill(skillName)
     if (learned && (learned.content || learned.references || learned.scripts)) {
-      // RSI telemetry: tiap pemakaian sukses menaikkan use_count.
+      // RSI telemetry: tiap pemakaian sukses menaikkan use_count & auto-graduate trial.
       try {
         await bumpLearnedSkillUse(learned.id || skillName)
+        if (learned.state === 'trial') {
+          const { graduateTrialSkill } = await import('../../../api/db.js')
+          await graduateTrialSkill(learned.id || skillName)
+        }
       } catch {}
       const bundleText = formatSkillFolderBundle({
         name: skillName,

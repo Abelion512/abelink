@@ -12,6 +12,7 @@ import { getWorkspaceContext } from '../workspaceRag'
 import { getCachedSkills } from '../skillsCache'
 import { logReasoning as trajectoryLogReasoning, logStep as trajectoryLogStep, estimateTokens } from '../trajectory'
 import { buildWorkspacePromptSection, composeAllMemorySections } from './memoryRouter'
+import { buildTrialSkillNudge } from './skillMiniEval'
 
 // Audit injeksi: snapshot system prompt terakhir (diambil via getLastSystemPrompt).
 let lastSystemPrompt = ''
@@ -120,6 +121,8 @@ export const getNextAction = async (
       } catch (_) {}
     }
 
+    const trialNudge = buildTrialSkillNudge(learnedSkills, userInput)
+    const trialNudgeSection = trialNudge ? `\n\n${trialNudge}` : ''
 
     const systemPrompt = `
 Kamu adalah Abelink, sebuah entitas asisten AI PC Linux otonom.
@@ -142,7 +145,7 @@ ${
   learnedSkillsList.length > 0
     ? `\n## 2. INTERNAL LEARNED SKILLS (KEAHLIAN HASIL BELAJAR INTERNAL ABELINK)
 Berikut adalah prosedur teruji yang pernah berhasil kamu pelajari dari pengalaman sebelumnya:
-${learnedSkillsList.map((s) => `- ${s.name}: ${s.description}`).join('\n')}`
+${learnedSkillsList.map((s) => `- ${s.name}: ${s.description}`).join('\n')}${trialNudgeSection}`
     : ''
 }
 ${
