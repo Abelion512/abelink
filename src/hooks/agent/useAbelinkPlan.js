@@ -482,7 +482,9 @@ export const useAbelinkPlan = ({
     // biasa, JANGAN menyuntik summary tanpa pointer yang bisa diverifikasi.
     try {
       if ((config?.[0] || {}).sessionCompactionEnabled !== false) {
-        const { executeSessionCompaction } = await import('../../api/ai/sessionCompactor.js')
+        const { executeSessionCompaction, findMessageIndex } = await import(
+          '../../api/ai/sessionCompactor.js'
+        )
         const comp = await executeSessionCompaction({
           sessionId: String(activeSessionNum),
           messages: Array.isArray(sourceChatData) ? sourceChatData : [],
@@ -746,6 +748,14 @@ export const useAbelinkPlan = ({
         userInput,
         options: opts
       })
+      // L1 (/goal sebagai misi long-horizon): floor 48 langkah kecuali user
+      // override eksplisit via options. Misi goal tidak boleh mati di 8/16.
+      const GOAL_MODE_FLOOR = 48
+      const isGoalMode =
+        opts?.goalMode === true || /^\/goal(\s|$)/i.test(String(userInput || ''))
+      if (isGoalMode && !Number.isFinite(opts?.maxSteps) && !Number.isFinite(opts?.maxPlanSteps)) {
+        if (maxPlanSteps < GOAL_MODE_FLOOR) maxPlanSteps = GOAL_MODE_FLOOR
+      }
       const BUDGET_EXTENSION_STEPS = 16
       let budgetExtended = false
       let execSteps =

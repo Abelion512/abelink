@@ -357,8 +357,11 @@ const activeGroups = {}
 // Nama task terakhir per sesi (untuk grouping tab navigate tanpa label task).
 const sessionTask = {}
 
-// Tab primer per sesi: SEMUA navigate dalam satu task memakai ulang tab ini
-// (anti ledakan tab). Tab baru hanya untuk task baru / perintah eksplisit.
+// Tab primer per sesi: SATU tab primer per sessionId (single primary per
+// session), tetapi grup sesi boleh menampung N tab (multi-tab per grup,
+// budget MAX_TABS_PER_SESSION). SEMUA navigate dalam satu task memakai ulang
+// tab primer ini (anti ledakan tab). Tab baru hanya untuk task baru / perintah
+// eksplisit / guard anti-curi (tab yatim yang ternyata milik sesi lain).
 const primaryTabs = {}
 
 // ------------------------------------------------- overlay lock (Fase A)
@@ -581,11 +584,36 @@ async function closeActiveGroupTabs(sessionId) {
 // agar setiap tab yang dibuka Abelink langsung ber-grup. Error DILEMPAR ke
 // caller (dilaporkan di hasil, bukan ditelan) - pelajaran 7 tab yatim.
 async function groupTabIntoSession(sessionId, tabId, task, status = 'acting') {
+  const sid = String(sessionId ?? 'default')
+  // Anti-curi: tab yang sudah bergrup milik sesi LAIN jangan ditarik paksa
+  // (chrome.tabs.group akan mencabutnya dari grup pemilik). Buat tab sendiri
+  // (pola createBoundedTab) sebagai gantinya; caller memakai tabId efektif.
+  let cur = null
+  try {
+    cur = await chrome.tabs.get(tabId)
+  } catch {
+    cur = null
+  }
+  const gid = cur?.groupId
+  if (gid != null && gid !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+    const owner = Object.entries(activeGroups).find(([, g]) => g && g.groupId === gid)
+    if (owner && String(owner[0]) !== sid) {
+      const fallbackUrl = cur?.url?.startsWith('http') ? cur.url : 'about:blank'
+      const created = await createBoundedTab(sid, fallbackUrl)
+      const ownLabel = task || sessionTask[sid] || 'browser'
+      const ownGroupId = await ensureGroup(sid, ownLabel, status, false, created.tab.id)
+      if (ownGroupId == null) throw new Error('grup sesi tidak bisa dibuat (tidak ada tab anchor)')
+      await chrome.tabs.group({ tabIds: [created.tab.id], groupId: ownGroupId })
+      primaryTabs[sid] = created.tab.id
+      await saveSessionState()
+      return { groupId: ownGroupId, tabId: created.tab.id, replaced: true }
+    }
+  }
   const label = task || sessionTask[sessionId] || 'browser'
   const groupId = await ensureGroup(sessionId, label, status, false, tabId)
   if (groupId == null) throw new Error('grup sesi tidak bisa dibuat (tidak ada tab anchor)')
   await chrome.tabs.group({ tabIds: [tabId], groupId })
-  return groupId
+  return { groupId, tabId, replaced: false }
 }
 
 async function updateGroupStatus(sessionId, task, status) {
@@ -609,11 +637,22 @@ async function activeOrFindTab(urlFilter) {
 const MAX_TABS_PER_SESSION = 6
 
 // Adopsi tab yatim MILIK KITA SAJA: tak-bergrup DAN (about:blank ATAU url
-// persis sama dengan target). Tidak pernah menyentuh tab user lain (privasi).
-async function adoptOrphanTab(sessionId, url) {
+// persis sama dengan target). Tidak pernah menyentuh tab user lain (privasi)
+// maupun tab PRIMER sesi lain (anti-curi antar-sesi): daftar id primer milik
+// sesi lain dikecualikan eksplisit.
+async function adoptOrphanTab(sessionId, url, excludeTabIds = []) {
   try {
+    const sid = String(sessionId ?? 'default')
+    const excluded = new Set([
+      ...(Array.isArray(excludeTabIds) ? excludeTabIds : []),
+      ...Object.entries(primaryTabs)
+        .filter(([k]) => String(k) !== sid)
+        .map(([, id]) => id)
+    ])
     const tabs = await chrome.tabs.query({})
-    const ungrouped = tabs.filter((t) => t.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE)
+    const ungrouped = tabs.filter(
+      (t) => t.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE && !excluded.has(t.id)
+    )
     const exact = ungrouped.find((t) => t.url === url)
     if (exact) return exact
     const blank = ungrouped.find((t) => t.url === 'about:blank' || t.url === 'chrome://newtab/')
@@ -622,6 +661,22 @@ async function adoptOrphanTab(sessionId, url) {
     return null
   }
 }
+
+// Pure helper (unit-testable via node eval harness — service worker klasik
+// bukan modul, jadi ditempel ke globalThis, bukan export).
+const pickAdoptableTab = (tabs = [], url = '', excludeIds = []) => {
+  const excluded = new Set(Array.isArray(excludeIds) ? excludeIds : [])
+  const ungrouped = (Array.isArray(tabs) ? tabs : []).filter(
+    (t) => t && t.groupId !== 0 && t.groupId !== -1 && !excluded.has(t.id)
+  )
+  return (
+    ungrouped.find((t) => t.url === url) ||
+    ungrouped.find((t) => t.url === 'about:blank' || t.url === 'chrome://newtab/') ||
+    null
+  )
+}
+
+export const sessionKeyOf = (sid) => String(sid ?? 'default')
 
 // Buat tab dengan budget: grup sesi penuh -> pakai-ulang tab grup terlama.
 async function createBoundedTab(sessionId, url) {
@@ -678,17 +733,20 @@ async function navigate({ url, reuse = true }, sessionId = 'default') {  // Tab 
     }
   }
   let group = null
+  let effectiveTabId = tab.id
   try {
-    const groupId = await groupTabIntoSession(sessionId, tab.id, label, 'acting')
-    group = { grouped: true, groupId }
+    const res = await groupTabIntoSession(sessionId, tab.id, label, 'acting')
+    // Anti-curi: bila tab ternyata milik sesi lain, pakai tab pengganti.
+    effectiveTabId = res?.tabId ?? tab.id
+    group = { grouped: true, groupId: res?.groupId ?? null, replaced: !!res?.replaced }
   } catch (e) {
     group = { grouped: false, error: String(e?.message || e) }
   }
-  const dom = await readDomInTab(tab.id)
+  const dom = await readDomInTab(effectiveTabId)
   if (!dom.ok) return { ...dom, group }
   try {
     const parsed = JSON.parse(dom.data)
-    parsed._group = { tabId: tab.id, reused, ...group }
+    parsed._group = { tabId: effectiveTabId, reused, ...group }
     return { ok: true, data: JSON.stringify(parsed) }
   } catch {
     return { ...dom, group }
