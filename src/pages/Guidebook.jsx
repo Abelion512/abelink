@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
-  FaArrowLeft,
   FaBook,
   FaBrain,
   FaGlobe,
@@ -53,7 +51,7 @@ const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks,
                 <FaExclamationTriangle size={10} /> Perlu Izin
               </span>
             ) : (
-              <span className="badge badge-success badge-sm gap-1">
+              <span className="badge badge-info badge-sm gap-1">
                 <FaCheckCircle size={10} /> Bebas
               </span>
             )}
@@ -62,7 +60,7 @@ const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks,
           </div>
           <p className="text-white/70 text-sm">{description}</p>
         </div>
-        <div className="text-white/50">{isExpanded ? <FaChevronUp /> : <FaChevronDown />}</div>
+        <div className="text-white/60">{isExpanded ? <FaChevronUp /> : <FaChevronDown />}</div>
       </div>
 
       {isExpanded && (
@@ -109,7 +107,6 @@ const FlowStep = ({ number, title, description, isLast }) => (
 
 // --- Halaman Guidebook ---
 const Guidebook = () => {
-  const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState('pengantar')
 
   const navItems = [
@@ -133,18 +130,11 @@ const Guidebook = () => {
 
       {/* Header */}
       <header className="h-20 shrink-0 bg-base-300/80 backdrop-blur-xl border-b border-white/5 flex items-center px-8 z-20 relative">
-        <button
-          onClick={() => navigate('/')}
-          className="btn btn-ghost btn-sm gap-2 text-white/70 hover:text-white mr-6"
-          style={{ WebkitAppRegion: 'no-drag' }}
-        >
-          <FaArrowLeft /> Kembali
-        </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-3">
             <FaBook className="text-primary" /> Abelink Guidebook
           </h1>
-          <p className="text-xs text-white/50 tracking-wider">
+          <p className="text-xs text-white/60 tracking-wider">
             PANDUAN LENGKAP PENGGUNAAN AI ASSISTANT
           </p>
         </div>
@@ -154,7 +144,7 @@ const Guidebook = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar Nav (Desktop) */}
         <aside className="w-72 shrink-0 border-r border-white/5 bg-base-300/50 p-6 overflow-y-auto hidden md:block z-10">
-          <h3 className="text-xs font-bold text-white/40 mb-6 uppercase tracking-widest">
+          <h3 className="text-xs font-bold text-white/60 mb-6 uppercase tracking-widest">
             Daftar Isi
           </h3>
           <nav className="flex flex-col gap-2">
@@ -595,7 +585,7 @@ const Guidebook = () => {
                 {/* Kategori Autonomous Coding & Precision Editing */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaCode className="text-success" /> Autonomous Coding & Precision Editing
+                    <FaCode className="text-info" /> Autonomous Coding & Precision Editing
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ToolCard
@@ -1131,7 +1121,7 @@ const Guidebook = () => {
                 activeSection === 'plugin' ? 'block animate-[fade-in_0.3s_ease-out]' : 'hidden'
               }
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-success/10 border border-success/20 text-success text-xs font-bold mb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold mb-6">
                 <FaFolderOpen /> EKSTENSI
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Sistem Plugin Kustom</h2>
@@ -1188,7 +1178,7 @@ const Guidebook = () => {
                 <h3 className="text-xl font-bold text-white mb-4">
                   Contoh: Plugin Pengatur Volume
                 </h3>
-                <pre className="text-sm bg-black/60 p-4 rounded-xl text-green-400 overflow-x-auto whitespace-pre-wrap">
+                <pre className="text-sm bg-black/60 p-4 rounded-xl text-info overflow-x-auto whitespace-pre-wrap">
                   <code>{`const loudness = require('loudness')
 
 // Mengambil parameter angka volume yang diberikan oleh AI

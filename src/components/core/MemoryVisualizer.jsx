@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useMemo, Suspense, lazy } from 'rea
 import { useLiteMode } from '../../contexts/LiteModeContext'
 import { getAllChatArchives, getAllMemory, getAllDocumentsMeta, getDocumentChunk, deleteMemory, deleteChatArchive } from '../../api/db'
 import { FiCheckCircle, FiClock, FiGitMerge, FiTrash2, FiRefreshCw, FiLoader } from 'react-icons/fi'
+import { MobiusLoader } from './MobiusLoader'
 import { useMemoryGroomer } from '../../hooks/useMemoryGroomer'
 import ConfirmModal from './ConfirmModal'
 
@@ -15,7 +16,7 @@ const AUTO_LITE_NODE_THRESHOLD = 400
 
 // Roots that anchor the memory graph (color + id match the ForceGraph nodes)
 const GRAPH_ROOTS = [
-  { id: 'archives-root', name: 'Chat History', color: '#00e5ff' },
+  { id: 'archives-root', name: 'Chat History', color: '#0a84ff' },
   { id: 'vector-root', name: 'Knowledge Base', color: '#ff00aa' },
   { id: 'doc-root', name: 'Document Vault', color: '#ffaa00' }
 ]
@@ -158,10 +159,10 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
 
         // 0. Core Node
         const coreNodeId = 'core';
-        nodes.push({ id: coreNodeId, name: 'Abelink Neural Core', group: 0, val: 25, color: '#00ff66' });
+        nodes.push({ id: coreNodeId, name: 'Abelink Neural Core', group: 0, val: 25, color: '#0a84ff' });
 
         // 1. Sub-Cores (Main Branches)
-        nodes.push({ id: 'archives-root', name: 'Chat History', group: 1, val: 15, color: '#00e5ff' });
+        nodes.push({ id: 'archives-root', name: 'Chat History', group: 1, val: 15, color: '#0a84ff' });
         nodes.push({ id: 'vector-root', name: 'Knowledge Base', group: 1, val: 15, color: '#ff00aa' });
         nodes.push({ id: 'doc-root', name: 'Document Vault', group: 1, val: 15, color: '#ffaa00' });
         
@@ -172,7 +173,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
         // 2 & 3. Process Chat Archives
         const topics = [...new Set(archives.map(a => a.topic || 'General'))];
         topics.forEach(topic => {
-          nodes.push({ id: `topic-${topic}`, name: topic, group: 2, val: 10, color: '#00e5ff' });
+          nodes.push({ id: `topic-${topic}`, name: topic, group: 2, val: 10, color: '#0a84ff' });
           links.push({ source: 'archives-root', target: `topic-${topic}`, color: 'rgba(255,255,255,0.1)' });
         });
 
@@ -292,9 +293,9 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-base-300/95 animate-[fade-in_0.5s_ease-out_forwards]">
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-base-300/95 animate-[fade-in_0.5s_ease-out_forwards]">
       {/* Background Ambience */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,255,100,0.05)_0%,transparent_60%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(10,132,255,0.05)_0%,transparent_60%)] pointer-events-none" />
 
       {/* Close Button */}
       <button
@@ -321,7 +322,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
       <div className="absolute top-6 left-6 z-20 flex items-center gap-4 px-4 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-xs text-white/80 shadow-lg">
         {isGrooming ? (
           <div className="flex items-center gap-2 text-primary">
-            <FiLoader className="w-4 h-4 animate-spin" />
+            <MobiusLoader size={16} />
             <span>Sedang mengkonsolidasi & merapikan memori...</span>
           </div>
         ) : (
@@ -329,7 +330,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
             <div className="flex items-center gap-1.5">
               {groomResult.lastChecked ? (
                 <>
-                  <FiCheckCircle className="w-4 h-4 text-emerald-400" />
+                  <FiCheckCircle className="w-4 h-4 text-info" />
                   <span>
                     Terakhir dikonsolidasi:{' '}
                     {new Date(groomResult.lastChecked).toLocaleTimeString([], {
@@ -348,7 +349,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
             {(groomResult.mergedCount > 0 || groomResult.deletedCount > 0) && (
               <div className="flex items-center gap-3 pl-3 border-l border-white/10 text-white/70">
                 <span className="flex items-center gap-1">
-                  <FiGitMerge className="w-3.5 h-3.5 text-cyan-400" />
+                  <FiGitMerge className="w-3.5 h-3.5 text-info" />
                   {groomResult.mergedCount} digabung
                 </span>
                 <span className="flex items-center gap-1">

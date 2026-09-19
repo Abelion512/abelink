@@ -15,7 +15,7 @@ export const PluginExecutionBubble = ({ pluginExecution }) => {
         </summary>
         <div className="pl-4 pt-1 flex flex-col gap-1 border-l border-white/20 ml-1.5 mt-1.5 mb-2">
           <div className="flex items-start text-[11px] font-mono transition-opacity text-white">
-            <span className="opacity-100 text-success mr-1 font-bold inline-block w-3 text-center flex items-center justify-center">
+            <span className="opacity-100 text-info mr-1 font-bold inline-block w-3 text-center flex items-center justify-center">
               <FaCheck size={10} />
             </span>
             <div className="flex-1 w-full overflow-hidden">
@@ -26,7 +26,7 @@ export const PluginExecutionBubble = ({ pluginExecution }) => {
                 )}
               </div>
               {pluginExecution.result && (
-                <div className="mt-1.5 mb-1 opacity-80 text-[10px] text-info bg-info/10 p-2 rounded-md border border-info/20 whitespace-pre-wrap font-sans leading-relaxed break-words">
+                <div className="mt-1.5 mb-1 opacity-80 text-[10px] text-info bg-info/10 p-2 rounded-lg border border-info/20 whitespace-pre-wrap font-sans leading-relaxed break-words">
                   {pluginExecution.result}
                 </div>
               )}

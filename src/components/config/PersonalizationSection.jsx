@@ -73,7 +73,7 @@ export default function PersonalizationSection({
             <FaHeartbeat className="text-primary" size={14} />
             <span>Dinamika Relasi &amp; Persona</span>
           </h3>
-          <p className="text-xs text-white/50 leading-relaxed">
+          <p className="text-xs text-white/60 leading-relaxed">
             Evolusi kepribadian, level empati, kepercayaan, dan gaya komunikasi dikelola secara dinamis di halaman Relational Growth.
           </p>
         </div>

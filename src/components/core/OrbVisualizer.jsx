@@ -9,7 +9,7 @@ const SentientCyberEyes = ({
   mood = 'neutral',
   status = 'idle',
   intensity = 0,
-  colorHex = '#00e5ff'
+  colorHex = '#0a84ff'
 }) => {
   const [isBlinking, setIsBlinking] = useState(false)
 
@@ -355,8 +355,8 @@ const SentientCyberEyes = ({
 }
 
 const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral', size = 'normal' }) => {
-  const [glowClass, setGlowClass] = useState('bg-cyan-500/40')
-  const [colorHex, setColorHex] = useState('#00e5ff')
+  const [glowClass, setGlowClass] = useState('bg-primary/40')
+  const [colorHex, setColorHex] = useState('#0a84ff')
 
   useEffect(() => {
     if (status === 'error') {
@@ -381,16 +381,16 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral', size
           setColorHex('#ef4444')
           break
         case 'disgust':
-          setGlowClass('bg-lime-400/40')
-          setColorHex('#84cc16') // Acid Lime Green
+          setGlowClass('bg-info/40')
+          setColorHex('#0a84ff')
           break
         case 'anxiety':
           setGlowClass('bg-orange-500/40')
           setColorHex('#f97316')
           break
         case 'envy':
-          setGlowClass('bg-teal-500/40')
-          setColorHex('#14b8a6')
+          setGlowClass('bg-info/40')
+          setColorHex('#0a84ff')
           break
         case 'embarrassment':
           setGlowClass('bg-pink-500/40')
@@ -401,8 +401,8 @@ const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral', size
           setColorHex('#9ca3af')
           break
         default: // neutral
-          setGlowClass('bg-cyan-500/40')
-          setColorHex('#00e5ff') // Cyan signature blue
+          setGlowClass('bg-primary/40')
+          setColorHex('#0a84ff') // Apple blue signature
           break
       }
     }

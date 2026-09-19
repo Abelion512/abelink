@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FaRobot, FaTerminal, FaPlug } from 'react-icons/fa'
 import { detectProviderFromUrl } from '../../api/ai/providerDetect.js'
+import { MobiusLoader } from '../core/MobiusLoader'
 
 export const isCustomEndpointPlausible = (raw, protocol) => {
   const ep = (raw || '').trim().replace(/\/+$/, '')
@@ -180,7 +181,7 @@ export default function ModelSection({
                 <span className={`text-xs font-bold ${isSelected ? 'text-primary' : 'text-white/80'}`}>
                   {prov.name}
                 </span>
-                <ProvIcon size={13} className={isSelected ? 'text-primary' : 'text-white/30'} />
+                <ProvIcon size={13} className={isSelected ? 'text-primary' : 'text-white/60'} />
               </button>
             )
           })}
@@ -222,7 +223,7 @@ export default function ModelSection({
                   ? ` • coba protokol ${detected.protocol === 'anthropic' ? 'Anthropic' : 'OpenAI'}`
                   : ''
               return (
-                <p className="text-xs text-white/40">
+                <p className="text-xs text-white/60">
                   Terdeteksi: {detected.name}
                   {protoHint}
                 </p>
@@ -256,7 +257,7 @@ export default function ModelSection({
                 title="Ambil daftar model dari endpoint (GET /models)"
               >
                 {detectingModels ? (
-                  <span className="loading loading-spinner loading-xs"></span>
+                  <MobiusLoader size={14} />
                 ) : (
                   'Deteksi Model'
                 )}
@@ -267,7 +268,7 @@ export default function ModelSection({
             )}
             {customModels.length > 0 && (
               <>
-                <p className="text-xs text-success">
+                <p className="text-xs text-info">
                   {customModels.length} model terdeteksi dari endpoint
                   {customModelsAt ? ` • tersimpan ${formatCacheAge(customModelsAt)}` : ''}
                 </p>
@@ -309,7 +310,7 @@ export default function ModelSection({
                 <>
                   {recent.length > 0 && (
                     <>
-                      <p className="text-xs text-success">
+                      <p className="text-xs text-info">
                         {recent.length} model pernah sukses di endpoint ini — klik untuk pakai ulang
                       </p>
                       <select
@@ -394,14 +395,14 @@ export default function ModelSection({
               title="Deteksi ulang model dari LM Studio (GET localhost:1234/v1/models)"
             >
               {lmDetecting ? (
-                <span className="loading loading-spinner loading-xs"></span>
+                <MobiusLoader size={14} />
               ) : (
                 'Deteksi Ulang'
               )}
             </button>
           </div>
           {lmModelsAt && lmStudioModels.length > 0 && (
-            <p className="text-xs text-white/40">
+            <p className="text-xs text-white/60">
               Tersimpan lokal • diperbarui {formatCacheAge(lmModelsAt)} • Deteksi Ulang untuk refresh
             </p>
           )}
@@ -410,7 +411,7 @@ export default function ModelSection({
           )}
           {lmStudioModels.length > 0 && (
             <>
-              <p className="text-xs text-success">
+              <p className="text-xs text-info">
                 {lmStudioModels.length} model lokal terdeteksi di LM Studio (port 1234)
               </p>
               <select
@@ -442,7 +443,7 @@ export default function ModelSection({
             if (recent.length === 0) return null
             return (
               <>
-                <p className="text-xs text-success">
+                <p className="text-xs text-info">
                   {recent.length} model pernah sukses di endpoint ini — klik untuk pakai ulang
                 </p>
                 <select
