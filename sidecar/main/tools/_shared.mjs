@@ -98,8 +98,7 @@ const HARDLINE_PATTERNS = [
 ]
 
 // Direktori diri sendiri (agen tidak boleh merusak dirinya diam-diam).
-// Dicocokkan sebagai write/delete target, bukan substring bebas.
-const SELF_DIR_MARKERS = [
+export const SELF_DIR_MARKERS = [
   '/abelink',
   'abelink-dev',
   '$ABELINK_DATA_HOME',
@@ -109,18 +108,59 @@ const SELF_DIR_MARKERS = [
   '~/.local/share'
 ]
 
+// Target sensitif umum ala Hermes (approval_detection.py:17-42, file_safety.py):
+// SSH, env secrets, shell rc files, credential stores, system configs.
+export const SENSITIVE_TARGET_MARKERS = [
+  ...SELF_DIR_MARKERS,
+  // SSH keys, authorized_keys & configs
+  '~/.ssh',
+  '$HOME/.ssh',
+  '${HOME}/.ssh',
+  '.ssh/',
+  '.ssh',
+  // Environment secrets
+  '.env',
+  '.env.local',
+  '.env.production',
+  '.env.development',
+  '.env.staging',
+  '.env.test',
+  '.envrc',
+  // Shell RC & profile files
+  '.bashrc',
+  '.zshrc',
+  '.profile',
+  '.bash_profile',
+  '.zprofile',
+  // Credential files
+  '.netrc',
+  '.pgpass',
+  '.npmrc',
+  '.pypirc',
+  '.git-credentials',
+  // System sensitive configs
+  '/etc/sudoers',
+  '/etc/shadow',
+  '/etc/passwd',
+  '/etc/environment'
+]
+
 // Shell carrier: isi quote ADALAH kode -> pindai mentah (ala Hermes).
 const SHELL_CARRIERS_RE = /\b(sh|bash|zsh|dash|eval|source|\.)\s+(-c\s+)?['"]/i
 
 // Hapus teks dalam quote tunggal/ganda (bukan untuk shell carrier).
 const maskQuoted = (cmd) => String(cmd || '').replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, '""')
 
-const hasSelfTarget = (cmd = '') => {
+// Pola operasi tulis/mutasi/hapus (rm, mv, cp, redirect >, tee, chmod, chown, sed -i, dd of=).
+const SENSITIVE_WRITE_OPS_RE = /(rm|rmdir|unlink|mv\s+\S+\s+|cp\s+\S+\s+|install\s+|>+|tee\s+|chmod|chown|dd\s+[^;|&]*of=|sed\s+-[^\s]*i|sed\s+--in-place|perl\s+-[^\s]*i|ruby\s+-[^\s]*i)/i
+
+export const hasSensitiveWriteTarget = (cmd = '') => {
   const c = String(cmd || '')
-  // Pola tulis/hapus dengan target direktori sendiri.
-  if (!/(rm|rmdir|mv\s+\S+\s+|cp\s+\S+\s+|install\s+|>+|tee\s+|chmod|chown|dd\s+[^;|&]*of=)/i.test(c)) return false
-  return SELF_DIR_MARKERS.some((m) => c.includes(m))
+  if (!SENSITIVE_WRITE_OPS_RE.test(c)) return false
+  return SENSITIVE_TARGET_MARKERS.some((m) => c.includes(m))
 }
+
+export const hasSelfTarget = (cmd = '') => hasSensitiveWriteTarget(cmd)
 
 export const isHardlineCommand = (cmd = '') => {
   const raw = String(cmd || '')
@@ -136,7 +176,7 @@ export const isDangerousCommand = (cmd) => {
   if (isHardlineCommand(raw)) return true
   const scan = SHELL_CARRIERS_RE.test(raw) ? raw : maskQuoted(raw)
   if (DANGEROUS_KEYWORDS.some((k) => scan.toLowerCase().includes(k.toLowerCase()))) return true
-  return hasSelfTarget(raw)
+  return hasSensitiveWriteTarget(raw)
 }
 
 // Klasifikasi 3-tier untuk pesan approval yang tepat:

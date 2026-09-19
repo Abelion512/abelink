@@ -8,6 +8,7 @@ di repo → file; belum → backlog berprioritas.
 | Area | Bukti di repo |
 | ---- | ------------- |
 | Guardian 3-tier | `sidecar/main/tools/_shared.mjs` + `tests/hermes-guardian.test.mjs` |
+| Sensitive-write umum | `sidecar/main/tools/_shared.mjs` + `src-tauri/src/hardline.rs` (Hermes ~/.ssh, .env, rc) |
 | Approval native | `src-tauri/src/cmd_node_bridge.rs` APPROVAL_ACTIONS + rfd |
 | Watchdog independen | `src-tauri/src/watchdog.rs` (1000/100/60) |
 | Budget + eskalasi | `planStepBudget.js` + eskalasi +16 (`useAbelinkPlan.js`) |
@@ -27,10 +28,8 @@ di repo → file; belum → backlog berprioritas.
 
 ## Backlog (kuning — prioritas berurutan)
 
-1. **Rust kenal hardline** — teruskan klasifikasi agar hardline ditolak
-   tanpa dialog (gate Rust ↔ guardian sidecar).
-2. **Sensitive-write umum** — `~/.ssh`, `.env`, rc files ala Hermes
-   (sekarang hanya self-dir Abelink).
+1. **Rust kenal hardline** — SELESAI (9d1a3f8).
+2. **Sensitive-write umum** — SELESAI (feat/sensitive-write-guardian).
 3. **Memory router eksplisit** — jadikan pemilihan konteks subsystem
    sendiri (sekarang fungsi tersebar di planner).
 4. **Tool search deferred penuh** — `defer_loading` + contoh pemakaian
