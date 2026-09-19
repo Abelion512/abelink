@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { FaEye, FaVolumeUp } from 'react-icons/fa'
 import SttRouterConfig from './SttRouterConfig'
+import { ElasticSlider } from '../core/ElasticSlider'
+import { MobiusLoader } from '../core/MobiusLoader'
 
 export const ConfigCameraPreview = ({ deviceId, enabled }) => {
   const videoRef = useRef(null)
@@ -81,10 +83,10 @@ export default function VoiceVideoSection({
     setConfig((prev) => ({ ...prev, cameraDeviceId: e.target.value }))
   const handleMicDeviceIdChange = (e) =>
     setConfig((prev) => ({ ...prev, micDeviceId: e.target.value }))
-  const handleTtsRateChange = (e) =>
-    setConfig((prev) => ({ ...prev, ttsRate: e.target.value }))
-  const handleTtsPitchChange = (e) =>
-    setConfig((prev) => ({ ...prev, ttsPitch: e.target.value }))
+  const handleTtsRateChange = (v) =>
+    setConfig((prev) => ({ ...prev, ttsRate: v }))
+  const handleTtsPitchChange = (v) =>
+    setConfig((prev) => ({ ...prev, ttsPitch: v }))
 
   const handleTestVoice = async () => {
     if (playingTest) return
@@ -223,7 +225,7 @@ export default function VoiceVideoSection({
             <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
               <FaVolumeUp className="text-primary" />
               <span>Audio &amp; Suara</span>
-              <span className="text-[10px] font-normal text-white/40">(TTS Edge — butuh internet)</span>
+              <span className="text-[10px] font-normal text-white/60">(TTS Edge — butuh internet)</span>
             </h3>
           </header>
 
@@ -246,22 +248,16 @@ export default function VoiceVideoSection({
           {/* TTS Rate & Pitch Slider */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-white/70">Kecepatan Bicara</label>
-                <span className="font-mono text-xs text-primary font-semibold">
-                  {config.ttsRate || 0}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="-50"
-                max="50"
-                step="1"
-                value={config.ttsRate || 0}
-                className="range range-primary range-xs w-full"
-                onChange={handleTtsRateChange}
+              <ElasticSlider
+                label="Kecepatan Bicara"
+                value={Number(config.ttsRate) || 0}
+                onValueChange={handleTtsRateChange}
+                min={-50}
+                max={50}
+                step={1}
+                formatValue={(v) => `${v}%`}
               />
-              <div className="flex justify-between text-[11px] text-white/30">
+              <div className="flex justify-between text-[11px] text-white/60">
                 <span>-50%</span>
                 <span>0%</span>
                 <span>+50%</span>
@@ -269,22 +265,16 @@ export default function VoiceVideoSection({
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-white/70">Nada Suara</label>
-                <span className="font-mono text-xs text-primary font-semibold">
-                  {config.ttsPitch || 0}hz
-                </span>
-              </div>
-              <input
-                type="range"
-                min="-50"
-                max="50"
-                step="1"
-                value={config.ttsPitch || 0}
-                className="range range-primary range-xs w-full"
-                onChange={handleTtsPitchChange}
+              <ElasticSlider
+                label="Nada Suara"
+                value={Number(config.ttsPitch) || 0}
+                onValueChange={handleTtsPitchChange}
+                min={-50}
+                max={50}
+                step={1}
+                formatValue={(v) => `${v}hz`}
               />
-              <div className="flex justify-between text-[11px] text-white/30">
+              <div className="flex justify-between text-[11px] text-white/60">
                 <span>-50hz</span>
                 <span>0hz</span>
                 <span>+50hz</span>
@@ -303,7 +293,7 @@ export default function VoiceVideoSection({
               disabled={playingTest}
             >
               {playingTest ? (
-                <span className="loading loading-spinner loading-xs" />
+                <MobiusLoader size={14} />
               ) : (
                 <FaVolumeUp size={12} />
               )}

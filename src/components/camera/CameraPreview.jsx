@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Camera } from 'lucide-react'
+import { MobiusLoader } from '../core/MobiusLoader'
 
 export const CameraPreview = ({
   isOpen,
@@ -182,7 +183,7 @@ export const CameraPreview = ({
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
-      <div className="w-[320px] rounded-2xl border border-white/10 bg-base-100/70 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-[320px] rounded-xl border border-white/10 bg-base-100/70 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-4 py-3 flex items-center justify-between border-b border-white/5 bg-base-200/50">
           <div className="flex items-center gap-2">
@@ -192,7 +193,7 @@ export const CameraPreview = ({
           {error ? (
             <div className="badge badge-sm border-0 bg-error/20 text-error font-bold">Error</div>
           ) : !isReady ? (
-            <span className="loading loading-dots loading-xs text-primary"></span>
+            <MobiusLoader size={14} />
           ) : (
             <div className={`badge badge-sm border-0 font-bold ${
               timeLeft > 3 ? 'bg-primary/20 text-primary' : 
@@ -233,7 +234,7 @@ export const CameraPreview = ({
         {isReady && !error && (
           <div className="h-1 w-full bg-base-300/50">
             <div 
-              className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-1000 ease-linear"
+              className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500 ease-linear"
               style={{ width: `${(timeLeft / countdown) * 100}%` }}
             />
           </div>

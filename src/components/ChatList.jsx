@@ -1,4 +1,5 @@
 import React, { memo, useState } from 'react'
+import { toMinimapAnchorId } from './core/TocMinimap'
 import { Copy, Check, Bot, User, Sparkles } from 'lucide-react'
 import { FaTelegramPlane } from 'react-icons/fa'
 import {
@@ -12,6 +13,7 @@ import {
 } from './Chat'
 
 const ChatList = ({
+  msgId = null,
   role = 'user',
   content = '',
   reasoning = null,
@@ -59,13 +61,15 @@ const ChatList = ({
         plan={plan}
         resolvedCurrentStep={resolvedCurrentStep}
         reasoning={reasoning}
+        executedTools={executedTools}
       />
     )
   }
 
   return (
     <div
-      className={`chat ${isUser ? 'chat-end' : 'chat-start'} mb-4 group animate-[response-fade-in_0.2s_ease-out_forwards]`}
+      id={msgId != null ? toMinimapAnchorId(msgId) : undefined}
+      className={`chat ${isUser ? 'chat-end' : 'chat-start'} mb-4 group animate-[response-fade-in_0.2s_ease-out_forwards] scroll-mt-14`}
     >
       {/* Avatar */}
       <div className="chat-image avatar">
@@ -146,13 +150,13 @@ const ChatList = ({
         <div className="chat-footer opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 mt-1 px-1">
           <button
             onClick={handleCopy}
-            className="btn btn-ghost btn-xs text-white/50 hover:text-white p-1 h-auto min-h-0 flex items-center gap-1 rounded"
+            className="btn btn-ghost btn-xs text-white/60 hover:text-white p-1 h-auto min-h-0 flex items-center gap-1 rounded"
             title="Salin teks pesan"
           >
             {isCopied ? (
               <>
-                <Check className="w-3 h-3 text-success" />
-                <span className="text-[10px] text-success font-medium">Tersalin</span>
+                <Check className="w-3 h-3 text-info" />
+                <span className="text-[10px] text-info font-medium">Tersalin</span>
               </>
             ) : (
               <>

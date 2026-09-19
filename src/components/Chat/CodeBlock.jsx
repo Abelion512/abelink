@@ -58,7 +58,7 @@ export const CodeBlock = React.memo(({ node, inline, className, children, ...pro
   if (!inline && match) {
     return (
       <div className="relative group my-4 rounded-xl overflow-hidden border border-base-300 shadow-sm bg-base-200/50">
-        <div className="flex items-center justify-between px-4 py-1.5 bg-base-300/50 text-[10px] uppercase tracking-wider font-bold text-white/50 border-b border-base-300">
+        <div className="flex items-center justify-between px-4 py-1.5 bg-base-300/50 text-[10px] uppercase tracking-wider font-bold text-white/60 border-b border-base-300">
           <span>{match[1]}</span>
           <button
             onClick={handleCopy}
@@ -76,11 +76,11 @@ export const CodeBlock = React.memo(({ node, inline, className, children, ...pro
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="text-success"
+                  className="text-info"
                 >
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
-                <span className="text-success">Copied!</span>
+                <span className="text-info">Copied!</span>
               </>
             ) : (
               <>
@@ -118,7 +118,7 @@ export const CodeBlock = React.memo(({ node, inline, className, children, ...pro
   return (
     <code
       {...props}
-      className={`${className} bg-white/10 px-1.5 py-0.5 rounded-md text-[12px] font-mono`}
+      className={`${className} bg-white/10 px-1.5 py-0.5 rounded-lg text-[12px] font-mono`}
     >
       {children}
     </code>
