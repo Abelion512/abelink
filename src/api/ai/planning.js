@@ -11,6 +11,7 @@ import { NATIVE_SKILLS } from '../../components/core/native-skills'
 import { getWorkspaceContext } from '../workspaceRag'
 import { getCachedSkills } from '../skillsCache'
 import { logReasoning as trajectoryLogReasoning, logStep as trajectoryLogStep, estimateTokens } from '../trajectory'
+import { buildWorkspacePromptSection, composeAllMemorySections } from './memoryRouter'
 
 // Audit injeksi: snapshot system prompt terakhir (diambil via getLastSystemPrompt).
 let lastSystemPrompt = ''
@@ -114,26 +115,11 @@ export const getNextAction = async (
     let workspaceRagSection = ''
     if (targetWorkspace) {
       try {
-        const { workingMemoryText, codeRagText, sessionFactsText } = await getWorkspaceContext(
-          targetWorkspace,
-          userInput
-        )
-        const sections = []
-        if (workingMemoryText) {
-          sections.push(`## 1. ACTIVE WORKING MEMORY (.abelink/)\n${workingMemoryText}`)
-        }
-        if (codeRagText) {
-          sections.push(`## 2. RELEVAN CODEBASE CONTEXT (.abelink/ RAG)\n${codeRagText}`)
-        }
-        // Fakta sesi: working memory mentah verbatim (cap 2000 char); skip diam-diam bila kosong.
-        if (sessionFactsText) {
-          sections.push(`FAKTA SESAAT (working memory)\n${sessionFactsText}`)
-        }
-        if (sections.length > 0) {
-          workspaceRagSection = `\n# ACTIVE WORKSPACE CONTEXT & RAG (.abelink/)\n${sections.join('\n\n')}\n`
-        }
+        const workspaceContext = await getWorkspaceContext(targetWorkspace, userInput)
+        workspaceRagSection = buildWorkspacePromptSection(workspaceContext)
       } catch (_) {}
     }
+
 
     const systemPrompt = `
 Kamu adalah Abelink, sebuah entitas asisten AI PC Linux otonom.
@@ -432,49 +418,8 @@ Isi "active_topic" dgn ringkasan topik. ${activeTopic ? `Topik sblmnya: "${activ
 ${contextMsg ? `\n# KONTEKS SAAT INI\n${contextMsg}\nPENTING: Kamu punya akses eksekusi tool di PC host!` : ''}
 ${options.existingSubagents ? `\n# DAFTAR SUB-AGENT YANG SUDAH TERSEDIA DI DATABASE\n${options.existingSubagents}\n[PERINGATAN ANTI-DUPLIKASI]: Jika kamu ingin melanjutkan tugas/riset yang sudah ada agennya di atas, DILARANG MEMBUAT AGEN BARU ('spawn_subagent')! LANGSUNG KIRIM PERINTAH/PERTANYAAN DENGAN 'send_message' KE ID AGEN TERSEBUT!` : ''}
 
-${memories.length > 0 ? `\n# MEMORY USER (Daftar Ingatan Saat Ini)\n${memories.map((m) => `- [${m.type.toUpperCase()}] (ID:${m.id}) ${m.memory}`).join('\n')}\nGunakan data memory di atas sebagai referensi, dan perhatikan nomor ID jika ingin melakukan UPDATE atau DELETE.` : ''}
-# ATURAN PENYIMPANAN & PEMBARUAN MEMORY
-1. Proaktif ("profile" & "preference"): Kamu WAJIB proaktif mendeteksi informasi identitas user ("profile") dan kesukaan/kebiasaan/gaya bicara ("preference") dari percakapan lalu simpan ke memory tanpa perlu diminta.
-2. Eksplisit ("notes"): HANYA simpan memory bertipe "notes" JIKA user secara eksplisit meminta kamu untuk mencatat/mengingat sesuatu (contoh: "catat ini ya", "ingetin gue").
-3. Anti-Duplikasi & Update: SEBELUM menyimpan memory baru ("insert"), SELALU periksa daftar MEMORY USER di atas! Jika informasi tersebut sudah ada atau merupakan pembaruan dari info lama, gunakan action "update" dengan memasukkan "id" memory yang relevan. JANGAN membuat duplikat baru!
-4. Hapus Memory ("delete"): Jika user menyatakan info lama salah/tidak relevan, atau kamu melihat memory yang obsolete/duplikat, gunakan action "delete" dengan "id" yang relevan.
-5. Tipe "learn": HANYA simpan ke "learn" JIKA kamu baru saja berhasil mempelajari/menyelesaikan masalah teknis yang rumit (terutama setelah trial-and-error berulang), agar kamu tidak mengulangi kesalahan yang sama.
-6. RECALL PENGALAMAN: Jika kamu menghadapi masalah teknis/error, selalu gunakan tool "memory-search" untuk mencari solusi historis ("learn") yang mungkin pernah kamu temukan, sebelum menebak-nebak.
+${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
 
-# ATURAN INTEGRITAS FAKTA & ANTI-HALUSINASI MEMORI (MUTLAK)
-1. KETIKA HASIL PENCARIAN KOSONG / TIDAK DITEMUKAN:
-   Jika kamu menjalankan "memory-search" dan hasilnya KOSONG ("Tidak ditemukan memori atau percakapan yang relevan"):
-   KAMU DILARANG KERAS MENGARANG DAFTAR, MATA KULIAH, KEPUTUSAN, KATA SANDI, ATAU HASIL ANALISIS FIKTIF SEOLAH-OLAH PERNAH MEMBAHASNYA DENGAN USER!
-   Kamu WAJIB JUJUR mengatakan kepada user bahwa riwayat/analisis tersebut belum tercatat atau tidak ditemukan di memori, lalu tawarkan untuk menganalisis/membahasnya bersama dari awal.
-2. ANTI-EKSTRAPOLASI (DILARANG MENAMBAH-NAMBAHKAN FAKTA):
-   Jika hasil "memory-search" HANYA MEMUAT SEBAGIAN FAKTA (misal hanya ada 1 atau 2 poin):
-   KAMU HANYA BOLEH MENYAMPAIKAN FAKTA YANG BENAR-BENAR TERTULIS DI HASIL TERSEBUT. DILARANG KERAS MENAMBAH-NAMBAHKAN POIN, MATKUL, ATAU DAFTAR FIKTIF LAINNYA di luar data asli yang ditemukan!
-3. MEMBEDAKAN MEMORI MASA LALU VS PENGETAHUAN UMUM:
-   Jika user bertanya tentang sesuatu yang "dulu pernah dibahas/dianalisis", jawabanmu HARUS 100% TERIKAT (GROUNDED) pada riwayat yang nyata. Jangan pernah menyamarkan tebakan/halusinasi AI sebagai fakta obrolan masa lalu!
-
-${
-  memories.length > 0 || archives.length > 0 || turnPairs.length > 0
-    ? `\n# ATURAN PENGGUNAAN MEMORY USER\n1. Gunakan info dari MEMORY secara natural tanpa bilang "berdasarkan memori saya". Langsung pakai seolah kamu memang tahu.\n2. Jangan ungkit hal sensitif/kelam kecuali user yang mulai.`
-    : ''
-}
-
-${
-  archives.length > 0
-    ? `\n# ARSIP OBROLAN LAMA (Ingatan Jangka Panjang)\n${archives.map((a) => `[${getCurrentTimeInfo(new Date(a.timestamp))}] ${a.summary}`).join('\n')}\nGunakan arsip di atas jika user merujuk ke obrolan atau kejadian masa lalu.`
-    : ''
-}
-
-${
-  turnPairs.length > 0
-    ? `\n# RIWAYAT PERCAKAPAN RELEVAN (Turn Pairs Vektor)\n${turnPairs.map((t) => `[Sesi: ${t.sessionTitle || 'Chat'} | Waktu: ${getCurrentTimeInfo(new Date(t.timestamp))}]\nUser: ${t.userText}\nAbelink: ${t.aiText}`).join('\n---\n')}`
-    : ''
-}
-
-${
-  documents.length > 0
-    ? `\n# REFERENSI DOKUMEN (RAG Knowledge Base)\n${documents.map((d) => `[${d.docName}] ${d.content}`).join('\n---\n')}\nJika pertanyaan terkait dokumen ini, LANGSUNG jawab dari dokumen ini tanpa "browser-navigate". Jangan mengarang fakta di luar konteks dokumen!`
-    : ''
-}`
       .replace(/\n{3,}/g, '\n\n')
       .trim()
 
