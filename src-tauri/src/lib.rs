@@ -5,6 +5,7 @@ mod cmd_harness;
 mod cmd_misc;
 mod cmd_music;
 mod cmd_node_bridge;
+mod hardline;
 mod mission_scope;
 mod watchdog;
 #[path = "commands/tools/shell.rs"]
