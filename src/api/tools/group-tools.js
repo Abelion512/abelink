@@ -1,3 +1,5 @@
+import { resolveReadToolsQuery } from './toolCatalog'
+
 export const GROUP_TOOLS_DEFINITION = {
   advanced_browser: {
     description:
@@ -220,27 +222,29 @@ export const group_tools = async () => {
   const dynamicGroups = { ...GROUP_TOOLS_DEFINITION }
 
   try {
-    const plugins = await window.api.getPlugins()
-    if (plugins && plugins.length > 0) {
-      plugins.forEach((plugin) => {
-        if (plugin.isEnabled !== false && plugin.actions) {
-          const toolMap = {}
-          plugin.actions.forEach((act) => {
-            let paramDocs = ''
-            if (act.parameters) {
-              paramDocs = ` (Params: ${Object.entries(act.parameters)
-                .map(([k, v]) => `${k}: ${v}`)
-                .join(', ')})`
-            }
-            toolMap[act.name] = `${act.description}${paramDocs}`
-          })
+    if (typeof window !== 'undefined' && window.api?.getPlugins) {
+      const plugins = await window.api.getPlugins()
+      if (plugins && plugins.length > 0) {
+        plugins.forEach((plugin) => {
+          if (plugin.isEnabled !== false && plugin.actions) {
+            const toolMap = {}
+            plugin.actions.forEach((act) => {
+              let paramDocs = ''
+              if (act.parameters) {
+                paramDocs = ` (Params: ${Object.entries(act.parameters)
+                  .map(([k, v]) => `${k}: ${v}`)
+                  .join(', ')})`
+              }
+              toolMap[act.name] = `${act.description}${paramDocs}`
+            })
 
-          dynamicGroups[plugin.name] = {
-            description: plugin.description || 'Plugin Eksternal Tambahan',
-            tools: toolMap
+            dynamicGroups[plugin.name] = {
+              description: plugin.description || 'Plugin Eksternal Tambahan',
+              tools: toolMap
+            }
           }
-        }
-      })
+        })
+      }
     }
   } catch (err) {
     console.error('Gagal meload external plugin', err)
@@ -249,25 +253,29 @@ export const group_tools = async () => {
   return dynamicGroups
 }
 
-// Shared read-tools body: formatted group text + extension status line.
-// Returns null when the group does not exist; never throws.
-export async function loadGroupToolsText(groupName) {
-  const name = (groupName || '').trim()
+// Shared read-tools body: enriched tool/group text + examples + extension status line.
+// Returns null when the group/tool/query does not match; never throws.
+export async function loadGroupToolsText(query) {
+  const name = (query || '').trim()
   if (!name) return null
   const groups = await group_tools()
-  if (!groups[name]) return null
-  const formatted = Object.entries(groups[name].tools)
-    .map(([k, v]) => `- ${k}: ${v}`)
-    .join('\n')
+  const resolved = await resolveReadToolsQuery(name, { customGroups: groups })
+  if (!resolved || !resolved.success) {
+    return null
+  }
   let extLine = ''
-  if (name === 'advanced_browser') {
+  if (resolved.groupName === 'advanced_browser' || name.toLowerCase().includes('browser')) {
     extLine = (await browserExtensionStatusLine()) + '\n'
   }
-  return `${extLine}${formatted}`
+  return `${extLine}${resolved.message}`
 }
+
 
 // Generate flat map sekali aja buat fast O(1) lookup
 export const group_tools_flat = {}
 for (const group of Object.values(GROUP_TOOLS_DEFINITION)) {
   Object.assign(group_tools_flat, group.tools)
 }
+
+export { resolveReadToolsQuery }
+
