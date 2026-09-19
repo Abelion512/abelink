@@ -91,7 +91,7 @@ export const YoutubeMusicPlayer = () => {
             </div>
             <button
               onClick={() => setIsPlayerOpen(false)}
-              className="btn btn-ghost btn-xs btn-circle text-white/40 hover:text-white/80"
+              className="btn btn-ghost btn-xs btn-circle text-white/60 hover:text-white/80"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m6 9 6 6 6-6" />
@@ -128,7 +128,7 @@ export const YoutubeMusicPlayer = () => {
                 <p className="text-sm font-semibold text-white truncate" title={currentTrack.title}>
                   {currentTrack.title || 'Belum ada lagu'}
                 </p>
-                <p className="text-xs text-white/50 truncate">{currentTrack.artist || 'Pilih lagu lewat chat'}</p>
+                <p className="text-xs text-white/60 truncate">{currentTrack.artist || 'Pilih lagu lewat chat'}</p>
               </div>
             </div>
 
@@ -154,9 +154,9 @@ export const YoutubeMusicPlayer = () => {
               </p>
             )}
 
-            <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/40">
+              <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/60">
               <span className="truncate">Pemutar Musik Internal</span>
-              <span className="text-cyan-400 font-mono text-[10px]">Embedded API</span>
+              <span className="text-info font-mono text-[10px]">Embedded API</span>
             </div>
           </div>
         </div>

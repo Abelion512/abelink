@@ -726,7 +726,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-white/90">Google Workspace</span>
                   {googleConnected ? (
-                    <span className="badge badge-xs badge-success gap-1 text-[10px]">
+                    <span className="badge badge-xs badge-info gap-1 text-[10px]">
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Terhubung
                     </span>
                   ) : (
@@ -779,7 +779,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                       <span className="text-xs font-medium text-white/80">{svc.name}</span>
                     </div>
                     <span
-                      className={`w-1.5 h-1.5 rounded-full ${googleConnected ? 'bg-success animate-pulse' : 'bg-white/20'}`}
+                      className={`w-1.5 h-1.5 rounded-full ${googleConnected ? 'bg-info animate-pulse' : 'bg-white/20'}`}
                     />
                   </div>
                 )
@@ -855,7 +855,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                             <span className="badge badge-xs badge-info text-[9px]" title="Terdaftar & terotorisasi; eksekusi tool menyusul Fase F3">MCP</span>
                           )}
                           {isConnected ? (
-                            <span className="badge badge-xs badge-success text-[9px]">Terhubung</span>
+                            <span className="badge badge-xs badge-info text-[9px]">Terhubung</span>
                           ) : (
                             <span className="badge badge-xs badge-ghost border-white/10 text-[9px] opacity-60">Offline</span>
                           )}
@@ -920,7 +920,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             <span
-                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${log.status === 'ok' ? 'bg-success' : 'bg-error'}`}
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${log.status === 'ok' ? 'bg-info' : 'bg-error'}`}
                             />
                             <span className="font-mono text-white/80 truncate">
                               {log.connectorId || log.connector || 'system'}:{log.op || 'call'}
@@ -1120,7 +1120,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-white/90">{p.name}</span>
                           <span className="badge badge-xs badge-neutral text-[9px]">{p.actions?.length || 0} aksi</span>
-                          <span className={`badge badge-xs text-[9px] ${isEnabled ? 'badge-success' : 'badge-ghost opacity-50'}`}>
+                          <span className={`badge badge-xs text-[9px] ${isEnabled ? 'badge-info' : 'badge-ghost opacity-50'}`}>
                             {isEnabled ? 'Aktif' : 'Mati'}
                           </span>
                         </div>
@@ -1312,8 +1312,8 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-success">Tier 1: Read-Only</span>
-                <span className="badge badge-xs badge-success text-[9px]">Otomatis</span>
+                <span className="text-xs font-semibold text-info">Tier 1: Read-Only</span>
+                <span className="badge badge-xs badge-info text-[9px]">Otomatis</span>
               </div>
               <p className="text-[11px] text-white/50 leading-relaxed">
                 Membaca file, cek status sistem, dan inspeksi window aktif tanpa konfirmasi.
@@ -1436,7 +1436,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                       className="btn btn-xs btn-ghost border border-white/10 rounded-lg shrink-0"
                       title="Salin path folder"
                     >
-                      {copiedPath ? <FaCheckCircle size={10} className="text-success" /> : <FaCopy size={10} />}
+                      {copiedPath ? <FaCheckCircle size={10} className="text-info" /> : <FaCopy size={10} />}
                     </button>
                   )}
                 </div>
