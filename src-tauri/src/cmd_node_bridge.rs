@@ -441,6 +441,13 @@ pub async fn node_invoke(
     //    di luar tool yang dideklarasikan misi. Nonaktif secara default.
     crate::mission_scope::check_tool(&action)?;
 
+    // 1.7) Hardline guardian (OPERATING-SECURITY §1, backlog #1): perintah
+    //    merusak tanpa jalan pulih ditolak di Rust TANPA dialog approval —
+    //    approval tidak berlaku untuk hardline. Cermin sidecar _shared.mjs.
+    if let Some(reason) = crate::hardline::hardline_reason(&action, &payload) {
+        return Err(reason);
+    }
+
     // 2) Persetujuan NATIVE untuk aksi/tool berbahaya (di luar kendali renderer).
     if let Some(desc) = approval_reason(&action, &payload) {
         if !confirm_on_main_thread(&app, desc) {
