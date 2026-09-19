@@ -1709,7 +1709,16 @@ async function tryAutoResume() {
 if (typeof chrome !== 'undefined' && chrome.alarms) {
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === 'abelink-bridge-keepalive') {
-      tryAutoResume()
+      if (!running) {
+        tryAutoResume()
+      } else {
+        // Ping port aktif untuk memastikan background worker tetap terjaga
+        getCfg().then((cfg) => {
+          if (cfg.token && !pollAbort) {
+            loop()
+          }
+        }).catch(() => {})
+      }
     }
   })
   chrome.alarms.create('abelink-bridge-keepalive', { periodInMinutes: 1 })
