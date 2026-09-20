@@ -176,12 +176,11 @@ export function elementTextMatches(el, expected) {
 const browserReadFetch = async (query) => {
   const { extractUrl } = await import('../browser/bridge-core.mjs')
   const url = extractUrl(query) || query
-  const axios = (await import('axios')).default
-  const htmlRes = await axios.get(url, {
+  const htmlRes = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0' },
-    timeout: 30000
+    signal: AbortSignal.timeout(30000)
   })
-  const content = htmlRes.data || ''
+  const content = await htmlRes.text()
   const { Parser } = await import('htmlparser2')
   const cleanedText = await new Promise((resolve, reject) => {
     let text = ''
@@ -340,18 +339,17 @@ export const browserTools = {
 
           if (results.length === 0) {
             try {
-              const axios = (await import('axios')).default
-              const htmlRes = await axios.get(
+              const htmlRes = await fetch(
                 `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`,
                 {
                   headers: {
                     'User-Agent':
                       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                   },
-                  timeout: 10000
+                  signal: AbortSignal.timeout(10000)
                 }
               )
-              const html = htmlRes.data || ''
+              const html = await htmlRes.text()
               const matches = [...html.matchAll(/<a class="result__url" href="([^"]+)">/g)]
               const snippetMatches = [...html.matchAll(/<a class="result__snippet[^>]*>([^<]+)<\/a>/g)]
               const titleMatches = [...html.matchAll(/<a class="result__a"[^>]*>([^<]+)<\/a>/g)]
@@ -716,15 +714,15 @@ export const browserTools = {
       const ext = await tryExtensionAct({ action: 'download', value: { url, fileName } }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
       try {
-        const axios = (await import('axios')).default
-        const response = await axios.get(url, { responseType: 'blob', timeout: 60000 })
+        const response = await fetch(url, { signal: AbortSignal.timeout(60000) })
+        const buf = Buffer.from(await response.arrayBuffer())
         // Return info about download - actual file needs IPC bridge
         return {
           success: true,
           data: {
             url,
-            size: response.headers['content-length'],
-            type: response.headers['content-type']
+            size: response.headers.get('content-length') ?? String(buf.length),
+            type: response.headers.get('content-type')
           }
         }
       } catch (e) {

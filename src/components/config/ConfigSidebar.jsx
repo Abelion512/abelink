@@ -1,29 +1,29 @@
 import {
-  FaCog,
-  FaPuzzlePiece,
-  FaKeyboard,
-  FaDatabase,
-  FaCode,
-  FaRobot,
-  FaUserCog,
-  FaVolumeUp
-} from 'react-icons/fa'
+  Cog,
+  Puzzle,
+  Keyboard,
+  Database,
+  Code,
+  Bot,
+  UserCog,
+  Volume2
+} from 'lucide-react'
 
 // IA: General → Personalization → Model → Voice & Video →
 // Capabilities → Shortcuts → Data Controls / Developer.
 // Ekspor sections untuk kontrak test (tests/configCapabilities.test.js).
 export const sections = [
-  { id: 'cfg-general', label: 'General', icon: FaCog },
-  { id: 'cfg-personalization', label: 'Personalization', icon: FaUserCog },
-  { id: 'cfg-model', label: 'Model', icon: FaRobot },
-  { id: 'cfg-voice-video', label: 'Voice & Video', icon: FaVolumeUp },
-  { id: 'cfg-capabilities', label: 'Capabilities', icon: FaPuzzlePiece },
-  { id: 'cfg-shortcut', label: 'Shortcuts', icon: FaKeyboard }
+  { id: 'cfg-general', label: 'General', icon: Cog },
+  { id: 'cfg-personalization', label: 'Personalization', icon: UserCog },
+  { id: 'cfg-model', label: 'Model', icon: Bot },
+  { id: 'cfg-voice-video', label: 'Voice & Video', icon: Volume2 },
+  { id: 'cfg-capabilities', label: 'Capabilities', icon: Puzzle },
+  { id: 'cfg-shortcut', label: 'Shortcuts', icon: Keyboard }
 ]
 
 export const sectionsLogged = [
-  { id: 'cfg-memory-data', label: 'Data Controls', icon: FaDatabase },
-  { id: 'cfg-developer', label: 'Developer', icon: FaCode }
+  { id: 'cfg-memory-data', label: 'Data Controls', icon: Database },
+  { id: 'cfg-developer', label: 'Developer', icon: Code }
 ]
 
 const IT_KEYWORDS = [

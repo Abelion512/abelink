@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FaCheckCircle, FaInfoCircle, FaExclamationTriangle, FaTimesCircle } from 'react-icons/fa';
+import { CheckCircle2, Info, TriangleAlert, XCircle } from 'lucide-react';
 
 const StatusIndicator = ({ notifications }) => {
   const [activeToasts, setActiveToasts] = useState([]);
@@ -11,17 +11,17 @@ const StatusIndicator = ({ notifications }) => {
         // Prepare toasts with types
         const enhancedNotifs = newNotifs.map(notif => {
           let alertType = 'alert-info';
-          let Icon = FaInfoCircle;
+          let Icon = Info;
           
           if (notif.type.includes('memory') || notif.type === 'plugin-done' || notif.type === 'success') {
             alertType = 'alert-info';
-            Icon = FaCheckCircle;
+            Icon = CheckCircle2;
           } else if (notif.type === 'plugin-executing') {
             alertType = 'alert-warning';
-            Icon = FaExclamationTriangle;
+            Icon = TriangleAlert;
           } else if (notif.type === 'error') {
             alertType = 'alert-error';
-            Icon = FaTimesCircle;
+            Icon = XCircle;
           }
 
           return { ...notif, alertType, Icon };

@@ -1,14 +1,14 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { FaTimes, FaCheck, FaGift, FaStar, FaWrench, FaBug, FaShieldAlt, FaSearch } from 'react-icons/fa'
+import { X, Check, Gift, Star, Wrench, Bug, Shield, Search } from 'lucide-react'
 import whatsNewData from '../data/whats-new.json'
 
 // ponytail: satu komponen, tanpa lib baru. Timeline vertikal + filter chip +
 // search, menganut pola kategorisasi yang sudah ada (ATM/AUTO/FIX/SECURITY).
 const CATS = [
-  { key: 'AUTO', label: 'Fitur Baru', icon: FaStar, active: 'bg-info/20 text-info border-info/40', dot: 'bg-info' },
-  { key: 'ATM', label: 'Perbaikan', icon: FaWrench, active: 'bg-primary/20 text-primary border-primary/40', dot: 'bg-primary' },
-  { key: 'FIX', label: 'Bug Fixes', icon: FaBug, active: 'bg-warning/20 text-warning border-warning/40', dot: 'bg-warning' },
-  { key: 'SECURITY', label: 'Keamanan', icon: FaShieldAlt, active: 'bg-error/20 text-error border-error/40', dot: 'bg-error' },
+  { key: 'AUTO', label: 'Fitur Baru', icon: Star, active: 'bg-info/20 text-info border-info/40', dot: 'bg-info' },
+  { key: 'ATM', label: 'Perbaikan', icon: Wrench, active: 'bg-primary/20 text-primary border-primary/40', dot: 'bg-primary' },
+  { key: 'FIX', label: 'Bug Fixes', icon: Bug, active: 'bg-warning/20 text-warning border-warning/40', dot: 'bg-warning' },
+  { key: 'SECURITY', label: 'Keamanan', icon: Shield, active: 'bg-error/20 text-error border-error/40', dot: 'bg-error' },
 ]
 
 const norm = (t) => String(t || '').toUpperCase()
@@ -57,7 +57,7 @@ const WhatNew = ({ onClose }) => {
         <div className="p-6 border-b border-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <span className="w-11 h-11 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-              <FaGift className="text-primary text-xl" />
+              <Gift className="text-primary text-xl" />
             </span>
             <div>
               <h3 id="whatsnew-title" className="text-xl font-bold text-white tracking-tight">Apa yang Baru?</h3>
@@ -70,7 +70,7 @@ const WhatNew = ({ onClose }) => {
             aria-label="Tutup"
             className="w-9 h-9 rounded-full hover:bg-white/10 text-white/60 hover:text-white flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <FaTimes size={16} />
+            <X size={16} />
           </button>
         </div>
 
@@ -90,7 +90,7 @@ const WhatNew = ({ onClose }) => {
             </button>
           ))}
           <label className="relative ml-auto">
-            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
             <input
               type="search"
               value={query}
@@ -133,7 +133,7 @@ const WhatNew = ({ onClose }) => {
         {/* Footer */}
         <div className="p-4 border-t border-white/10 shrink-0">
           <button onClick={markSeen} className="btn btn-primary btn-sm w-full">
-            <FaCheck className="w-4 h-4 mr-1" /> Sudah Dilihat
+            <Check className="w-4 h-4 mr-1" /> Sudah Dilihat
           </button>
         </div>
       </div>
