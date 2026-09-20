@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { core_tools } from '../src/api/tools/core-tools.js'
 import { runAgentTool } from '../src/hooks/agent/plan/agentTools.js'
 
@@ -18,6 +18,10 @@ describe('delegate_coding integration', () => {
         executeNativeTool: mockExecuteNativeTool
       }
     }
+  })
+
+  afterEach(() => {
+    delete globalThis.window
   })
 
   it('terdaftar di core_tools dengan deskripsi lengkap', () => {

@@ -7,6 +7,11 @@ import { DEFAULT_STT_MODEL, PLACEHOLDER_STT_MODELS } from './sttGuard.js'
 const syncMemoryToOrama = (fn, ...args) =>
   import('./oramaStore').then((m) => m[fn](...args)).catch(console.error)
 
+if (typeof indexedDB !== 'undefined' && (!Dexie.dependencies?.indexedDB || !Dexie.dependencies?.IDBKeyRange)) {
+  Dexie.dependencies.indexedDB = indexedDB
+  if (typeof IDBKeyRange !== 'undefined') Dexie.dependencies.IDBKeyRange = IDBKeyRange
+}
+
 export const db = new Dexie('abelink-db')
 
 db.version(1).stores({

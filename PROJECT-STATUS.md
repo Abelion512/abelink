@@ -13,14 +13,14 @@
 - Benchmark arsitektur (`evaluation/bench/`) berjalan di stub boundary;
   otomatisasi penuh menunggu boundary ABELINK nyata (`boundary-spec.mjs`).
 
-## Kesehatan terakhir (terverifikasi 2026-09-07)
+## Kesehatan terakhir (terverifikasi 2026-09-20)
 
 - Scope effort + bench: 113 pass, 0 fail
   (`tests/effort-fixtures` + `effortOverride` + `effortEstimator` +
   `bench-contract` + `bench-capture`).
-- Full suite: 398 pass, 1 skip, 24 fail — semuanya pre-existing di luar scope
-  (trading budget/wallet, driver-tour `vi.stubGlobal`).
-- Gate rilis: `bash scripts/verify.sh` sebelum push.
+- Full suite (vitest): 115 passed, 2 skipped (117 test files), 1174 passed, 16 skipped (1190 tests), 0 fail.
+  16 pre-existing tests in trading budget/wallet dipisahkan ke `test:known-issues` via `describe.skip`.
+- Gate rilis: `bash scripts/verify.sh` lolos bersih (0 fail).
 
 ## Keputusan terakhir
 

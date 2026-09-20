@@ -58,7 +58,7 @@ describe('unified execute: plugin', () => {
     const out = await executeCapability({ connectorId: 'plugin', actionId: 'solo', args: {} })
     expect(out).toBe('sendiri:')
     await expect(executeCapability({ connectorId: 'plugin', actionId: 'sapa', args: {} })).rejects.toThrow(
-      /ambigu.*penyapa:sapa.*penyapa-dua:sapa/
+      /ambigu.*(penyapa:sapa.*penyapa-dua:sapa|penyapa-dua:sapa.*penyapa:sapa)/
     )
   })
 

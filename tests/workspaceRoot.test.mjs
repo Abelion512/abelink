@@ -3,7 +3,7 @@
 // session root instead of landing on the XDG root. Minimal mock style
 // (mirrors delegateCoding.test.mjs: window.api stub + pure helpers).
 import 'fake-indexeddb/auto'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { runAgentTool } from '../src/hooks/agent/plan/agentTools.js'
 import { buildCodingCommand } from '../src/api/ai/codingAgentBridge.js'
 
@@ -23,6 +23,10 @@ describe('workspaceRoot plumbing (WS-1)', () => {
         })
       }
     }
+  })
+
+  afterEach(() => {
+    delete globalThis.window
   })
 
   it('spawn_subagent menyimpan workspaceRoot ctx ke record', async () => {
