@@ -100,9 +100,9 @@ const isPrivateIPv4 = (a, b) => {
 }
 
 export const isPublicHttpUrl = (raw) => {
+  if (typeof raw !== 'string' || (!raw.startsWith('http://') && !raw.startsWith('https://'))) return null
   try {
     const url = new URL(raw)
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
     const host = url.hostname.toLowerCase()
     if (!host) return null
     // Strip IPv6 literal brackets if any remain

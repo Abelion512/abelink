@@ -1,7 +1,7 @@
 # Graph Report - abelink-apple  (2026-09-20)
 
 ## Corpus Check
-- 531 files · ~463,147 words
+- 531 files · ~463,152 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7cb59b8e`
+- Built from commit: `1a11f20e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
