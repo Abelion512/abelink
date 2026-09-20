@@ -1,34 +1,30 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import Editor from '@monaco-editor/react'
 import {
-  FaPlug,
-  FaCubes,
-  FaBrain,
-  FaShieldAlt,
-  FaRobot,
-  FaSearch,
-  FaSyncAlt,
-  FaPlus,
-  FaFolderOpen,
-  FaEdit,
-  FaTrash,
-  FaTimes,
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaLock,
-  FaUnlock,
-  FaHistory,
-  FaCode,
-  FaCalendarAlt,
-  FaHdd,
-  FaEnvelope,
-  FaGithub,
-  FaTerminal,
-  FaChevronDown,
-  FaChevronUp,
-  FaCopy,
-  FaExternalLinkAlt
-} from 'react-icons/fa'
+  Plug,
+  Boxes,
+  Brain,
+  Shield,
+  Search,
+  RefreshCw,
+  Plus,
+  FolderOpen,
+  Pencil,
+  Trash2,
+  X,
+  CheckCircle2,
+  AlertTriangle,
+  Lock,
+  Unlock,
+  History,
+  Code,
+  Calendar,
+  HardDrive,
+  Mail,
+  Terminal,
+  ChevronDown,
+  ChevronUp,
+  Copy
+} from 'lucide-react'
 import { useConfirm } from '../../hooks/useConfirm'
 import { getCachedSkills } from '../../api/skillsCache'
 
@@ -46,25 +42,25 @@ const BUILTIN_SKILLS = [
     id: 'systematic-engineering',
     name: 'Systematic Engineering',
     desc: 'Disiplin investigasi bertahap sebelum modifikasi kode.',
-    icon: FaCubes
+    icon: Boxes
   },
   {
     id: 'execution-discipline',
     name: 'Execution Discipline',
     desc: 'Verifikasi deterministik via test suite sebelum commit.',
-    icon: FaTerminal
+    icon: Terminal
   },
   {
     id: 'durable-planner',
     name: 'Durable Task Planner (/plan)',
     desc: 'Rencana kerja persisten untuk tugas bertahap multi-langkah.',
-    icon: FaBrain
+    icon: Brain
   },
   {
     id: 'root-cause-debugger',
     name: 'Root-Cause Debugger',
     desc: 'Analisis akar masalah mendalam sebelum memberikan solusi.',
-    icon: FaSearch
+    icon: Search
   }
 ]
 
@@ -612,7 +608,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           onClick={() => setActiveTab('connectors')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'connectors' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
-          <FaPlug size={12} />
+          <Plug size={12} />
           <span>Connectors</span>
           <span className="badge badge-xs badge-neutral opacity-80">
             {connectors.length + (googleConnected ? 3 : 0) + 1}
@@ -624,7 +620,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           onClick={() => setActiveTab('plugins')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'plugins' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
-          <FaCubes size={12} />
+          <Boxes size={12} />
           <span>Plugins</span>
           {plugins.length > 0 && (
             <span className="badge badge-xs badge-neutral opacity-80">{plugins.length}</span>
@@ -636,7 +632,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           onClick={() => setActiveTab('skills')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'skills' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
-          <FaBrain size={12} />
+          <Brain size={12} />
           <span>Skills</span>
           <span className="badge badge-xs badge-neutral opacity-80">
             {BUILTIN_SKILLS.length + skills.length}
@@ -648,7 +644,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           onClick={() => setActiveTab('security')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'security' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
-          <FaShieldAlt size={12} />
+          <Shield size={12} />
           <span>Keamanan</span>
         </button>
       </div>
@@ -712,7 +708,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
                   title="Buka folder berkas ekstensi di file manager"
                 >
-                  <FaFolderOpen size={11} />
+                  <FolderOpen size={11} />
                   <span>Buka Folder</span>
                 </button>
               )}
@@ -745,7 +741,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     onClick={handleGoogleDisconnect}
                     className="btn btn-xs btn-outline border-error/40 text-error hover:bg-error/10 rounded-xl gap-1"
                   >
-                    <FaUnlock size={10} />
+                    <Unlock size={10} />
                     <span>Putuskan</span>
                   </button>
                 ) : (
@@ -754,7 +750,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     onClick={() => setGoogleModalOpen(true)}
                     className="btn btn-xs btn-primary rounded-xl gap-1"
                   >
-                    <FaLock size={10} />
+                    <Lock size={10} />
                     <span>Hubungkan</span>
                   </button>
                 )}
@@ -764,9 +760,9 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             {/* Clean service status row */}
             <div className="grid grid-cols-3 gap-2 pt-1">
               {[
-                { name: 'Calendar', icon: FaCalendarAlt, color: 'text-blue-400' },
-                { name: 'Drive', icon: FaHdd, color: 'text-amber-400' },
-                { name: 'Gmail', icon: FaEnvelope, color: 'text-red-400' }
+                { name: 'Calendar', icon: Calendar, color: 'text-blue-400' },
+                { name: 'Drive', icon: HardDrive, color: 'text-amber-400' },
+                { name: 'Gmail', icon: Mail, color: 'text-red-400' }
               ].map((svc) => {
                 const SvcIcon = svc.icon
                 return (
@@ -806,14 +802,14 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     onChange={(e) => setMcpSearch(e.target.value)}
                     className="input input-xs input-bordered rounded-xl pl-7 pr-3 bg-base-100/60 border-white/10 text-xs w-40 focus:w-48 transition-all"
                   />
-                  <FaSearch className="absolute left-2.5 top-2 text-white/30" size={10} />
+                  <Search className="absolute left-2.5 top-2 text-white/30" size={10} />
                 </div>
                 <button
                   type="button"
                   onClick={() => setAddMcpModalOpen(true)}
                   className="btn btn-xs btn-primary rounded-xl gap-1"
                 >
-                  <FaPlus size={9} />
+                  <Plus size={9} />
                   <span>Tambah MCP</span>
                 </button>
                 <button
@@ -823,7 +819,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   className="btn btn-xs btn-ghost border border-white/10 hover:bg-white/5 rounded-xl"
                   title="Segarkan daftar"
                 >
-                  <FaSyncAlt size={10} className={mcpLoading ? 'animate-spin text-primary' : ''} />
+                  <RefreshCw size={10} className={mcpLoading ? 'animate-spin text-primary' : ''} />
                 </button>
               </div>
             </div>
@@ -900,11 +896,11 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 className="w-full flex items-center justify-between py-1 text-xs text-white/50 hover:text-white/80 transition-colors"
               >
                 <span className="flex items-center gap-2">
-                  <FaHistory size={11} className="text-info" />
+                  <History size={11} className="text-info" />
                   <span>Riwayat Audit Eksekusi MCP</span>
                   <span className="badge badge-xs badge-neutral text-[9px]">{auditLogs.length}</span>
                 </span>
-                {showAuditDrawer ? <FaChevronUp size={10} /> : <FaChevronDown size={10} />}
+                {showAuditDrawer ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
               </button>
 
               {showAuditDrawer && (
@@ -1063,7 +1059,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   onClick={() => window.api?.openPluginFolder?.()}
                   className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
                 >
-                  <FaFolderOpen size={11} />
+                  <FolderOpen size={11} />
                   <span>Buka Folder</span>
                 </button>
                 {isDevMode && (
@@ -1072,7 +1068,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     onClick={handleOpenNewPluginModal}
                     className="btn btn-xs btn-primary rounded-xl gap-1"
                   >
-                    <FaCode size={10} />
+                    <Code size={10} />
                     <span>Tulis Kode</span>
                   </button>
                 )}
@@ -1144,7 +1140,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                             className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
                             title="Edit kode plugin"
                           >
-                            <FaEdit size={11} />
+                            <Pencil size={11} />
                           </button>
                         )}
                         <button
@@ -1153,7 +1149,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                           className="btn btn-xs btn-ghost border border-white/10 text-error hover:bg-error/10 rounded-xl"
                           title="Hapus plugin"
                         >
-                          <FaTrash size={11} />
+                          <Trash2 size={11} />
                         </button>
                       </div>
                     </div>
@@ -1231,7 +1227,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   onClick={() => window.api?.openSkillsFolder?.()}
                   className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
                 >
-                  <FaFolderOpen size={11} />
+                  <FolderOpen size={11} />
                   <span>Buka Folder</span>
                 </button>
                 <button
@@ -1247,7 +1243,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   onClick={handleOpenNewSkill}
                   className="btn btn-xs btn-primary rounded-xl gap-1"
                 >
-                  <FaPlus size={9} />
+                  <Plus size={9} />
                   <span>Skill Baru</span>
                 </button>
               </div>
@@ -1286,7 +1282,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
                         title="Edit instruksi skill"
                       >
-                        <FaEdit size={11} />
+                        <Pencil size={11} />
                       </button>
                       <button
                         type="button"
@@ -1294,7 +1290,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         className="btn btn-xs btn-ghost border border-white/10 text-error hover:bg-error/10 rounded-xl"
                         title="Hapus skill"
                       >
-                        <FaTrash size={11} />
+                        <Trash2 size={11} />
                       </button>
                     </div>
                   </div>
@@ -1406,7 +1402,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           <div className="w-full max-w-md bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
-                <FaPlug className="text-primary" size={13} />
+                <Plug className="text-primary" size={13} />
                 Pemasangan Ekstensi Browser
               </h3>
               <button
@@ -1414,7 +1410,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 onClick={() => setExtGuideOpen(false)}
                 className="btn btn-xs btn-circle btn-ghost text-white/60 hover:text-white"
               >
-                <FaTimes size={13} />
+                <X size={13} />
               </button>
             </div>
 
@@ -1436,7 +1432,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                       className="btn btn-xs btn-ghost border border-white/10 rounded-lg shrink-0"
                       title="Salin path folder"
                     >
-                      {copiedPath ? <FaCheckCircle size={10} className="text-info" /> : <FaCopy size={10} />}
+                      {copiedPath ? <CheckCircle2 size={10} className="text-info" /> : <Copy size={10} />}
                     </button>
                   )}
                 </div>
@@ -1457,7 +1453,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   onClick={() => window.api?.openFolder?.(extInstall.dir)}
                   className="btn btn-sm btn-ghost rounded-xl gap-1.5"
                 >
-                  <FaFolderOpen size={11} />
+                  <FolderOpen size={11} />
                   <span>Buka di File Manager</span>
                 </button>
               )}
@@ -1479,7 +1475,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           <div className="w-full max-w-md bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
-                <FaPlug className="text-primary" size={13} />
+                <Plug className="text-primary" size={13} />
                 Tambah Server MCP Kustom
               </h3>
               <button
@@ -1487,7 +1483,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 onClick={() => setAddMcpModalOpen(false)}
                 className="btn btn-xs btn-circle btn-ghost text-white/60 hover:text-white"
               >
-                <FaTimes size={13} />
+                <X size={13} />
               </button>
             </div>
 
@@ -1575,7 +1571,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           <div className="w-full max-w-md bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
-                <FaLock className="text-primary" size={13} />
+                <Lock className="text-primary" size={13} />
                 Hubungkan Google Workspace
               </h3>
               <button
@@ -1583,7 +1579,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 onClick={() => setGoogleModalOpen(false)}
                 className="btn btn-xs btn-circle btn-ghost text-white/60 hover:text-white"
               >
-                <FaTimes size={13} />
+                <X size={13} />
               </button>
             </div>
 
@@ -1640,7 +1636,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           <div className="w-full max-w-3xl max-h-[90vh] bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col space-y-4">
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <div className="flex items-center gap-2">
-                <FaCubes className="text-primary" size={16} />
+                <Boxes className="text-primary" size={16} />
                 <h3 className="text-base font-bold text-white/90">
                   {editingPlugin.mode === 'new' ? 'Buat Plugin Baru' : `Edit Plugin: ${pluginForm.name}`}
                 </h3>
@@ -1650,7 +1646,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 onClick={() => setEditingPlugin(null)}
                 className="btn btn-xs btn-circle btn-ghost text-white/60 hover:text-white"
               >
-                <FaTimes size={14} />
+                <X size={14} />
               </button>
             </div>
 
@@ -1695,7 +1691,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     }
                     className="btn btn-xs btn-ghost border border-white/10 rounded-xl gap-1"
                   >
-                    <FaPlus size={9} /> Tambah Aksi
+                    <Plus size={9} /> Tambah Aksi
                   </button>
                 </div>
 
@@ -1733,34 +1729,29 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                           }}
                           className="btn btn-xs btn-ghost text-error rounded-lg"
                         >
-                          <FaTrash size={10} />
+                          <Trash2 size={10} />
                         </button>
                       )}
                     </div>
 
                     <div className="rounded-xl overflow-hidden border border-white/10">
-                      <Editor
-                        height="140px"
-                        language="javascript"
-                        theme="vs-dark"
+                      <textarea
+                        rows={6}
+                        spellCheck={false}
+                        placeholder="// kode aksi JavaScript (query)"
                         value={act.code}
-                        onChange={(val) => {
+                        onChange={(e) => {
                           const updated = [...pluginForm.actions]
-                          updated[index].code = val || ''
+                          updated[index].code = e.target.value
                           setPluginForm({ ...pluginForm, actions: updated })
                         }}
-                        options={{
-                          minimap: { enabled: false },
-                          fontSize: 12,
-                          lineNumbers: 'on',
-                          scrollBeyondLastLine: false
-                        }}
+                        className="textarea textarea-bordered w-full font-mono text-xs bg-base-200 border-white/10 min-h-[140px]"
                       />
                     </div>
 
                     {pluginSyntaxErrors[index] && (
                       <p className="text-xs text-error font-mono flex items-center gap-1.5">
-                        <FaExclamationTriangle size={11} />
+                        <AlertTriangle size={11} />
                         Syntax Error: {pluginSyntaxErrors[index]}
                       </p>
                     )}
@@ -1789,13 +1780,13 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
         </div>
       )}
 
-      {/* ── MODAL 5: EDIT/CREATE SKILL (MONACO) ── */}
+      {/* ── MODAL 5: EDIT/CREATE SKILL ── */}
       {editingSkill && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-3xl max-h-[90vh] bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col space-y-4">
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <div className="flex items-center gap-2">
-                <FaBrain className="text-primary" size={16} />
+                <Brain className="text-primary" size={16} />
                 <h3 className="text-base font-bold text-white/90">
                   {editingSkill.isNew ? 'Buat Skill Baru' : `Edit Skill: ${skillFormName}`}
                 </h3>
@@ -1805,7 +1796,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 onClick={() => setEditingSkill(null)}
                 className="btn btn-xs btn-circle btn-ghost text-white/60 hover:text-white"
               >
-                <FaTimes size={14} />
+                <X size={14} />
               </button>
             </div>
 
@@ -1825,19 +1816,13 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-white/70">Isi Berkas SKILL.md</label>
                 <div className="rounded-xl overflow-hidden border border-white/10">
-                  <Editor
-                    height="320px"
-                    language="markdown"
-                    theme="vs-dark"
+                  <textarea
+                    rows={14}
+                    spellCheck={false}
+                    placeholder="# SKILL.md"
                     value={skillFormContent}
-                    onChange={(val) => setSkillFormContent(val || '')}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 12,
-                      lineNumbers: 'on',
-                      scrollBeyondLastLine: false,
-                      wordWrap: 'on'
-                    }}
+                    onChange={(e) => setSkillFormContent(e.target.value)}
+                    className="textarea textarea-bordered w-full font-mono text-xs bg-base-200 border-white/10 min-h-[320px]"
                   />
                 </div>
               </div>

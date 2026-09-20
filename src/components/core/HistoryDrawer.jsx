@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getMainThread } from '../../api/db';
-import { FaTimes, FaCommentAlt } from 'react-icons/fa';
+import { X, MessageSquare } from 'lucide-react';
 import ResponseArea from './ResponseArea';
 
 const formatHistoryContent = (content) => {
@@ -101,14 +101,14 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
         <div aria-hidden="true" className="md:hidden mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/20" />
         <div className="flex items-center justify-between p-6 border-b border-[var(--glass-border)]">
           <h2 className="text-xl font-semibold flex items-center gap-2">
-            <FaCommentAlt className="text-primary" />
+            <MessageSquare className="text-primary" />
             Riwayat Obrolan
           </h2>
           <button 
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full bg-base-200 hover:bg-error hover:text-white transition-colors"
           >
-            <FaTimes />
+            <X />
           </button>
         </div>
 
@@ -149,7 +149,7 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
           <div className="bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-[18px] p-8 max-h-[80vh] overflow-y-auto custom-scrollbar shadow-[0_0_50px_rgba(0,0,0,0.5)] pointer-events-auto">
             <div className="flex justify-between items-center mb-6 sticky top-0 bg-base-300/95 backdrop-blur-md pb-4 border-b border-white/5 z-20">
               <span className="text-sm font-semibold tracking-widest uppercase text-primary">Preview Riwayat</span>
-              <button onClick={() => {setPreviewData(null); setSelectedTurnId(null)}} className="text-white/60 hover:text-error transition-colors"><FaTimes size={20}/></button>
+              <button onClick={() => {setPreviewData(null); setSelectedTurnId(null)}} className="text-white/60 hover:text-error transition-colors"><X size={20}/></button>
             </div>
             <div className="mt-4">
               <ResponseArea currentResponse={previewData} />

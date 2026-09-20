@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { FaMicrophone, FaMicrophoneSlash, FaPaperPlane, FaExpand, FaTimes } from 'react-icons/fa'
+import { Mic, MicOff, Send, Maximize2, X } from 'lucide-react'
 import { useChat } from '../../contexts/useChat'
 import { useVAD } from '../../hooks/useVAD'
 
@@ -114,10 +114,10 @@ export default function SpotlightBar({ onExpandDashboard }) {
               className="absolute inset-0 rounded-xl bg-info animate-ping opacity-30"
               style={{ transform: `scale(${1 + Math.min(audioIntensity * 2, 0.4)})` }}
             />
-            <FaMicrophone size={16} className="relative z-10 animate-pulse" />
+            <Mic size={16} className="relative z-10 animate-pulse" />
           </>
         ) : (
-          <FaMicrophoneSlash size={16} />
+          <MicOff size={16} />
         )}
       </button>
 
@@ -172,7 +172,7 @@ export default function SpotlightBar({ onExpandDashboard }) {
             title="Kirim (Enter)"
           aria-label="Kirim (Enter)"
           >
-            <FaPaperPlane size={12} />
+            <Send size={12} />
           </button>
         )}
 
@@ -190,7 +190,7 @@ export default function SpotlightBar({ onExpandDashboard }) {
           title="Buka Dashboard Penuh"
           aria-label="Buka Dashboard Penuh"
         >
-          <FaExpand size={13} />
+          <Maximize2 size={13} />
         </button>
 
         {/* Tombol Tutup / Sembunyi */}
@@ -207,7 +207,7 @@ export default function SpotlightBar({ onExpandDashboard }) {
           title="Tutup (Esc)"
           aria-label="Tutup (Esc)"
         >
-          <FaTimes size={13} />
+          <X size={13} />
         </button>
       </div>
     </div>

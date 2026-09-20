@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaChartLine, FaTrash, FaDownload, FaArrowLeft } from 'react-icons/fa'
+import { ChartLine, Trash2, Download, ArrowLeft } from 'lucide-react'
 import {
   onTrajectoryUpdate,
   getTrajectoryBuffer,
@@ -93,10 +93,10 @@ export default function Trajectory() {
           onClick={() => navigate(-1)}
           className="btn btn-ghost btn-sm btn-circle"
         >
-          <FaArrowLeft />
+          <ArrowLeft />
         </button>
         <div className="flex items-center gap-2">
-          <FaChartLine className="text-primary" size={20} />
+          <ChartLine className="text-primary" size={20} />
           <h1 className="text-xl font-bold">Trajectory Logger</h1>
         </div>
         <div className="ml-auto flex items-center gap-2 mr-32">
@@ -105,7 +105,7 @@ export default function Trajectory() {
             className="btn btn-sm btn-outline gap-1"
             disabled={entries.length === 0}
           >
-            <FaDownload size={14} />
+            <Download size={14} />
             Export JSON
           </button>
           <button
@@ -113,7 +113,7 @@ export default function Trajectory() {
             className="btn btn-sm btn-error btn-outline gap-1"
             disabled={entries.length === 0}
           >
-            <FaTrash size={14} />
+            <Trash2 size={14} />
             Clear
           </button>
         </div>
@@ -125,7 +125,7 @@ export default function Trajectory() {
         <div className="w-1/2 border-r border-white/5 overflow-y-auto">
           {entries.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-white/60 p-8 text-center">
-              <FaChartLine size={48} className="opacity-20 mb-4" />
+              <ChartLine size={48} className="opacity-20 mb-4" />
               <p className="text-lg font-medium mb-2">Belum ada data trajectory</p>
               <p className="text-sm opacity-60 max-w-sm">
                 Logging trajectory selalu aktif — lakukan interaksi dengan Abelink
