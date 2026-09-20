@@ -25,7 +25,10 @@ export const core_tools = {
   "list_subagents": "Melihat daftar seluruh sub-agent yang sedang aktif atau sudah selesai beserta statusnya. Query: kosongkan atau masukkan status (running/idle/completed).",
   "wait_subagents": "Menunggu dan mengumpulkan laporan hasil eksekusi dari sub-agent yang sedang berjalan secara paralel di background. Query: 'all' atau daftar ID dipisah koma (misal: 'sub_1,sub_2') atau beserta batas waktu (misal: 'all||30').",
   "kill_subagent": "Menghentikan paksa eksekusi sub-agent yang sedang berjalan. Query: subagent_id||alasan.",
-  "delegate_coding": "Mendelegasikan tugas pemrograman, refactor besar, atau perbaikan mandiri ke CLI coding agent lokal (opencode, hermes) di branch git terisolasi (auto/...). Query: agent_name||instruction||branch_name (contoh: 'opencode||Perbaiki memory leak di vectorMemory.js||auto/fix-memleak' atau 'auto||Implementasi fitur X||auto/feature-x'). Jika agent_name 'auto', agen terbaik yang terpasang akan dipilih otomatis."
+  "delegate_coding": "Mendelegasikan tugas pemrograman, refactor besar, atau perbaikan mandiri ke CLI coding agent lokal (opencode, hermes) di branch git terisolasi (auto/...). Query: agent_name||instruction||branch_name (contoh: 'opencode||Perbaiki memory leak di vectorMemory.js||auto/fix-memleak' atau 'auto||Implementasi fitur X||auto/feature-x'). Jika agent_name 'auto', agen terbaik yang terpasang akan dipilih otomatis.",
+  "web_search": "Alias untuk browser-search. Mencari informasi di internet secara langsung. Query: kata kunci pencarian.",
+  "web-search": "Alias untuk browser-search. Mencari informasi di internet secara langsung. Query: kata kunci pencarian.",
+  "advanced_search": "Alias untuk browser-search. Mencari informasi di internet secara langsung. Query: kata kunci pencarian."
 }
 
 // STREAM D: hanya agen ini yang didukung delegate_coding (cermin di

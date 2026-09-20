@@ -259,6 +259,42 @@ export const CORE_TOOL_SPECS = {
     ],
     tags: ['search', 'google', 'web', 'internet', 'query']
   },
+  'web_search': {
+    name: 'web_search',
+    group: 'core',
+    defer_loading: false,
+    summary: 'Alias untuk browser-search. Mencari informasi di internet secara langsung.',
+    description: 'Alias untuk browser-search. Mencari informasi di internet secara langsung via Searxng/Google/DDG.',
+    queryFormat: 'kata_kunci_pencarian',
+    examples: [
+      { query: 'harga bitcoin hari ini usd', description: 'Mencari kurs dan harga pasar kripto terbaru' }
+    ],
+    tags: ['search', 'google', 'web', 'internet', 'query']
+  },
+  'web-search': {
+    name: 'web-search',
+    group: 'core',
+    defer_loading: false,
+    summary: 'Alias untuk browser-search. Mencari informasi di internet secara langsung.',
+    description: 'Alias untuk browser-search. Mencari informasi di internet secara langsung via Searxng/Google/DDG.',
+    queryFormat: 'kata_kunci_pencarian',
+    examples: [
+      { query: 'harga bitcoin hari ini usd', description: 'Mencari kurs dan harga pasar kripto terbaru' }
+    ],
+    tags: ['search', 'google', 'web', 'internet', 'query']
+  },
+  'advanced_search': {
+    name: 'advanced_search',
+    group: 'core',
+    defer_loading: false,
+    summary: 'Alias untuk browser-search. Mencari informasi di internet secara langsung.',
+    description: 'Alias untuk browser-search. Mencari informasi di internet secara langsung via Searxng/Google/DDG.',
+    queryFormat: 'kata_kunci_pencarian',
+    examples: [
+      { query: 'harga bitcoin hari ini usd', description: 'Mencari kurs dan harga pasar kripto terbaru' }
+    ],
+    tags: ['search', 'google', 'web', 'internet', 'query']
+  },
   'os-open': {
     name: 'os-open',
     group: 'core',
