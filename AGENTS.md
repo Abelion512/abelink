@@ -181,6 +181,29 @@ Removed from the old table: Category Router threshold 0.35 (`CATEGORY_TEXTS` no 
 - **`open` and `driver.js` npm dependencies**: external links go through the native `misc_open_external` command, the Google OAuth browser launch uses `spawn('xdg-open')` from stdlib, and the guided tour (`src/utils/driverTour.js`) was removed.
 - **Electron-era `main/browser-agent.js`**: replaced by the extension bridge under `sidecar/main/browser/` (see the sidecar table).
 
+## 5. Research Reference Hierarchy for Agent Runtime Work
+
+For agentic-runtime, harness, context, browser, memory, and autonomy design, use primary references before blogs or derivative summaries:
+
+1. **Anthropic** — agent and context-engineering guidance, especially Engineering posts and Claude developer documentation.
+   - https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+2. **OpenAI** — official Agents/Responses documentation, Agent SDK material, and the OpenAI Cookbook for implementation patterns, tools, evaluation, tracing, browser/computer use, and long-running agents.
+   - https://platform.openai.com/docs
+   - https://cookbook.openai.com/
+3. **Hermes Agent / Nous Research** — architecture, skills, memory, tool gateways, delegation, autonomous learning, and practical agent-runtime patterns.
+   - https://hermes-agent.nousresearch.com/docs/
+   - https://github.com/NousResearch/hermes-agent
+4. **NVIDIA AVO** — reference for iterative hypothesis -> execution -> evaluation -> revision loops and long-horizon autonomous search. Treat it as one architectural pattern, not as Abelink's complete architecture.
+5. Secondary sources are allowed for discovery, but implementation decisions must be traced back to a primary source, repository code, benchmark, or reproducible experiment.
+
+### Coding-Agent Boundary
+
+Opencode and Hermes already cover software-engineering/delegated-coding workflows. Do not duplicate those capabilities in Abelink's General Agentic Runtime unless a concrete runtime integration problem requires it. Abelink's primary differentiation in this area is general-purpose orchestration across research, browser, OS automation, learning, memory, and long-horizon recovery.
+
+### Browser Representation Principle
+
+A browser observation is an information representation for the model, not a UI dump. Prefer semantic page content and relevant state over large collections of decorative or low-value UI controls. The runtime must preserve page identity, main text, task-relevant structure, and only the interactive elements needed for the next action. Use screenshot/visual evidence on demand when text/DOM representation is insufficient. Treat excessive UI density as an observability/context-engineering failure candidate before attributing it to model intelligence.
+
 ## 5. Development Guidelines for AI Agents
 
 - **Read Before Modify:** Always read the corresponding `src/api/`, `src/hooks/`, `sidecar/main/`, or `src-tauri/src/` file entirely before modifying state or logic.

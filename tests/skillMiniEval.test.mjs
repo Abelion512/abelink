@@ -81,9 +81,35 @@ describe('evaluateAndGraduateSkill & sweepTrialSkills', () => {
     await db.learnedSkills.clear()
   })
 
-  it('evaluateAndGraduateSkill otomatis meluluskan skill trial yang lolos', async () => {
+  it('evaluateAndGraduateSkill meluluskan trial terverifikasi yang lolos mini-eval', async () => {
     const skill = await saveLearnedSkill({
       name: 'auto-grad',
+      description: 'Prosedur pengujian otomatis berkala',
+      content: `
+# PROSEDUR TESTING OTOMATIS
+Langkah-langkah pengujian:
+1. Baca berkas konfigurasi pengujian via tool.
+2. Jalankan eksekusi test runner dan catat log.
+3. Periksa kriteria lulus dan verifikasi artefak.
+`,
+      state: 'trial',
+      // General Agentic Runtime: mini-eval deterministik hanya mengukur struktur
+      // SOP, bukan kebenaran faktual. Kelulusan via eval hanya sah bila trajectory
+      // asal sudah lolos verifikasi independen.
+      evidenceVerified: true
+    })
+
+    const res = await evaluateAndGraduateSkill(skill.id)
+    expect(res.newState).toBe('active')
+    expect(res.evalResult.evalPassed).toBe(true)
+
+    const updated = await db.learnedSkills.get(skill.id)
+    expect(updated.state).toBe('active')
+  })
+
+  it('evaluateAndGraduateSkill tidak meluluskan trial yang belum terverifikasi', async () => {
+    const skill = await saveLearnedSkill({
+      name: 'auto-grad-unverified',
       description: 'Prosedur pengujian otomatis berkala',
       content: `
 # PROSEDUR TESTING OTOMATIS
@@ -96,18 +122,34 @@ Langkah-langkah pengujian:
     })
 
     const res = await evaluateAndGraduateSkill(skill.id)
-    expect(res.newState).toBe('active')
+    // evalPassed bukan bukti: tanpa evidenceVerified, state tetap 'trial'.
     expect(res.evalResult.evalPassed).toBe(true)
+    expect(res.newState).toBe('trial')
 
     const updated = await db.learnedSkills.get(skill.id)
-    expect(updated.state).toBe('active')
+    expect(updated.state).toBe('trial')
   })
 
-  it('sweepTrialSkills meluluskan trial yang valid dan mengarsipkan yang kedaluwarsa', async () => {
-    // 1. Skill valid (harus lulus)
+  it('sweepTrialSkills meluluskan trial valid terverifikasi dan mengarsipkan yang kedaluwarsa', async () => {
+    // 1. Skill valid + bukti terverifikasi (harus lulus)
     await saveLearnedSkill({
       name: 'valid-trial',
       description: 'Prosedur valid untuk dievaluasi',
+      content: `
+# PANDUAN KERJA
+Langkah kerja:
+1. Baca data masukan dari file.
+2. Eksekusi proses analisis.
+3. Verifikasi konsistensi output.
+`,
+      state: 'trial',
+      evidenceVerified: true
+    })
+
+    // 1b. Skill valid secara struktur tapi belum terverifikasi (tetap trial)
+    await saveLearnedSkill({
+      name: 'valid-unverified-trial',
+      description: 'Prosedur valid tanpa bukti terverifikasi',
       content: `
 # PANDUAN KERJA
 Langkah kerja:
@@ -140,10 +182,13 @@ Langkah kerja:
 
     const sweepRes = await sweepTrialSkills({ autoEval: true, trialDays: 7 })
     expect(sweepRes.graduated).toContain('valid-trial')
+    expect(sweepRes.graduated).not.toContain('valid-unverified-trial')
+    expect(sweepRes.remainingTrial).toContain('valid-unverified-trial')
     expect(sweepRes.archived).toContain('old-trial')
     expect(sweepRes.remainingTrial).toContain('young-trial')
 
     expect((await db.learnedSkills.where('name').equals('valid-trial').first()).state).toBe('active')
+    expect((await db.learnedSkills.where('name').equals('valid-unverified-trial').first()).state).toBe('trial')
     expect((await db.learnedSkills.where('name').equals('old-trial').first()).state).toBe('archived')
     expect((await db.learnedSkills.where('name').equals('young-trial').first()).state).toBe('trial')
   })
