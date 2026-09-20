@@ -41,6 +41,7 @@ export const DIRECTIVE = {
 // Thin adaptive layer over the closed taxonomy: a 4-rung ladder
 // (modify -> explore -> retrieve/inspect -> stop). Pure module, no cycle.
 import { getNextStrategy } from './strategyLib.js'
+import { evaluateProgress, PROGRESS_OUTCOME } from './progressEvaluator.js'
 
 // Locked thresholds (named exports so tests pin them, not magic numbers).
 export const MODIFY_REPEAT = 3
@@ -145,6 +146,8 @@ export function createTrajectorySupervisor() {
   let lastVerificationRank = 1
   let semanticHintGiven = false
   let lastNewKeyAt = -1 // attempts index of the latest NEW succeeded key
+  let previousProgressEvidence = null
+  let semanticStagnationCount = 0
 
   const trailingRepeat = () => {
     if (attempts.length === 0) return { key: null, repeat: 0 }
@@ -196,11 +199,29 @@ const record = ({ tool, query, success, verificationState }) => {
           verificationState = null,
           stepsLeft = null,
           verifyGateActive = false,
+          observation = '',
+          result = '',
           strategy = null,
           score = null,
           stagnation = null,
           bestKey: incomingBest = null
         } = input || {}
+
+        const currentProgressEvidence = {
+          tool,
+          query,
+          success,
+          verificationState,
+          observation,
+          result
+        }
+        const progress = evaluateProgress({
+          previous: previousProgressEvidence,
+          current: currentProgressEvidence
+        })
+        previousProgressEvidence = currentProgressEvidence
+        if (progress.outcome === PROGRESS_OUTCOME.STAGNANT) semanticStagnationCount++
+        else if (progress.outcome === PROGRESS_OUTCOME.PROGRESS) semanticStagnationCount = 0
 
         record({ tool, query, success, verificationState })
 
@@ -298,15 +319,16 @@ const record = ({ tool, query, success, verificationState }) => {
           }
         }
 
-        // Semantic tripwire (conservative, once per task): many successful
-        // tools banked but nothing NEW for a while and verification never
-        // moved — circling on old ground, not exploring.
+        // Semantic tripwire (conservative, once per task): either the
+        // trajectory has stayed stale for several attempts, or the latest
+        // actions repeatedly produced identical evidence even when tool/query
+        // strings changed.
         if (
           !semanticHintGiven &&
           successCount >= SEMANTIC_MIN_SUCCESSES &&
           attempts.length >= SEMANTIC_MIN_ATTEMPTS &&
           lastVerificationRank <= 1 &&
-          staleRun() >= 3
+          (staleRun() >= 3 || semanticStagnationCount >= 3)
         ) {
           semanticHintGiven = true
           hintsUsed++
@@ -342,6 +364,8 @@ const record = ({ tool, query, success, verificationState }) => {
       lastVerificationRank = 1
       semanticHintGiven = false
       lastNewKeyAt = -1
+      previousProgressEvidence = null
+      semanticStagnationCount = 0
       totalAttempts = 0
     },
 
