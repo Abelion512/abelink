@@ -402,8 +402,9 @@ export const browserTools = {
     needsApproval: false,
     handler: async (query, config) => {
       try {
-        const { extractUrl, listSessions, dispatchCommand, getBrowserConfig } = await import('../browser/bridge-core.mjs')
-        const url = extractUrl(query)
+        const { listSessions, dispatchCommand, getBrowserConfig } = await import('../browser/bridge-core.mjs')
+        const { parseNavigateQuery } = await import('../browser/nav-query.mjs')
+        const { url, adoptUserTab } = parseNavigateQuery(query)
         if (!url) return { success: false, error: `URL tidak valid: '${String(query).slice(0, 120)}'. Sertakan alamat http(s).` }
         const targetSession = config?.sessionId || 'default'
         // Extension dulu bila terhubung (hasil DOM + tab ber-grup); bila tidak
@@ -427,11 +428,18 @@ export const browserTools = {
             extensionAttempted = true
             let res = null
             try {
-              res = await dispatchCommand(pick.id, 'navigate', { url, sessionId: targetSession })
+              // Tanpa flag adoptUserTab: jangan pernah curi tab user — teruskan
+              // flag ke extension; extension hanya boleh pakai tab primer sesi,
+              // tab yatim milik sendiri, atau tab baru. Extension menolak pakai
+              // tab user -> error jujur di bawah (bukan fallback diam-diam).
+              res = await dispatchCommand(pick.id, 'navigate', { url, sessionId: targetSession, adoptUserTab })
             } catch {
               res = null
             }
             if (res && res.ok) return { success: true, data: res.data, via: 'extension' }
+            if (res && !res.ok && /milik user|adoptUserTab/i.test(res.error || '')) {
+              return { success: false, error: `browser-navigate: ${res.error}` }
+            }
             failReason = failReason || 'no-handshake'
           }
         } catch {
@@ -487,12 +495,14 @@ export const browserTools = {
   },
   'browser-ask': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       const reason = String(query || 'Membutuhkan interaksi langsung pengguna di browser').trim()
       return {
         success: true,
+        paused: true,
         waiting_for_user: true,
         needs_user: true,
+        awaitUser: { reason, sessionId: config?.sessionId || 'default' },
         data: `[BROWSER HUMAN-IN-THE-LOOP] Menunggu bantuan pengguna di tab browser: "${reason}". Silakan selesaikan interaksi (login akun / captcha / 2FA) di browser Chrome yang sedang aktif, lalu beri tahu Abelink bila sudah selesai agar tugas bisa dilanjutkan.`
       }
     }
@@ -622,8 +632,14 @@ export const browserTools = {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'extract', value: String(query ?? '') }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
+      // Tanpa sesi extension: kontrak jujur — URL eksplisit/lastUrl atau
+      // error eksplisit. Jangan fetch buta (query kosong -> 403 + halu).
+      const { resolveExtractQuery } = await import('./extract-query.mjs')
+      const { getLastUrl } = await import('../browser/bridge-core.mjs')
+      const resolved = resolveExtractQuery(query, { hasSession: false, lastUrl: getLastUrl(targetSession) })
+      if (!resolved.ok) return { success: false, error: resolved.error }
       try {
-        return await browserReadFetch(query)
+        return await browserReadFetch(resolved.url)
       } catch (e) {
         return { success: false, error: e.message }
       }

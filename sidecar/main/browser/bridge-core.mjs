@@ -158,6 +158,20 @@ export function getLastUrl(sessionId = 'default') {
   return sessions.get(sessionId)?.lastUrl || null
 }
 
+// Tab fokus per sesi — identitas tab milik sesi ini (tabId + url), dicatat
+// tiap navigate sukses. Dipakai recovery jujur + observasi _tab.
+export function setFocusedTab(sessionId = 'default', tab) {
+  if (!tab || tab.tabId == null) return
+  ensureSession(sessionId).focusedTab = {
+    tabId: tab.tabId,
+    url: tab.url ? String(tab.url) : null
+  }
+}
+
+export function getFocusedTab(sessionId = 'default') {
+  return sessions.get(sessionId)?.focusedTab || null
+}
+
 export function ensureSession(sessionId = 'default') {
   let s = sessions.get(sessionId)
   if (!s) {
@@ -291,21 +305,10 @@ export function takeNext(sessionId, token) {
     return Promise.reject(new Error('Sesi tidak dikenal atau token salah.'))
   s.lastSeenAt = now()
 
-  // 1. Cek antrean pending sesi sendiri
+  // 1. Cek antrean pending sesi sendiri. TIDAK ada drain lintas-sesi:
+  // tiap sesi dilayani antreannya sendiri (anti-curi antar-sesi).
   const existing = s.pending[0]
   if (existing) return Promise.resolve(serializeCommand(existing, s))
-
-  // 2. Jika sesi 'default', ekstensi tunggal dapat membantu menguras antrean pending dari sesi lain (misal subagents)
-  if (sessionId === 'default') {
-    for (const [id, otherSession] of sessions.entries()) {
-      if (id !== 'default' && otherSession.pending.length > 0) {
-        const otherCmd = otherSession.pending[0]
-        if (otherCmd) {
-          return Promise.resolve(serializeCommand(otherCmd, otherSession))
-        }
-      }
-    }
-  }
 
   return new Promise((resolve) => {
     const w = { resolve: null, timer: null }
@@ -314,16 +317,6 @@ export function takeNext(sessionId, token) {
       if (i >= 0) s.waiting.splice(i, 1)
       const next = s.pending[0]
       if (next) return resolve(serializeCommand(next, s))
-      if (sessionId === 'default') {
-        for (const [id, otherSession] of sessions.entries()) {
-          if (id !== 'default' && otherSession.pending.length > 0) {
-            const otherCmd = otherSession.pending[0]
-            if (otherCmd) {
-              return resolve(serializeCommand(otherCmd, otherSession))
-            }
-          }
-        }
-      }
       resolve(cmd)
     }
     w.timer = setTimeout(() => w.resolve(null), BROWSER_BRIDGE.POLL_TIMEOUT_MS)
@@ -355,7 +348,18 @@ export function resolveCommand(sessionId, token, commandId, result) {
   inflight.delete(commandId)
   clearTimeout(waiter.timer)
   const text = typeof result?.data === 'string' ? result.data : JSON.stringify(result?.data ?? null)
-  const trimmed =
+  // Navigate sukses -> rekam identitas tab sesi ini (fokus-tab + lastUrl).
+  // Terpusat di sini agar jalur channel maupun tool sama-sama tercatat.
+  if (waiter.type === 'navigate' && result?.ok) {
+    try {
+      const parsed = typeof result.data === 'string' ? JSON.parse(result.data) : result.data
+      const g = parsed?._group
+      if (parsed?.url) setLastUrl(sessionId, parsed.url)
+      if (g?.tabId != null) setFocusedTab(sessionId, { tabId: g.tabId, url: parsed?.url })
+    } catch {
+      /* data non-JSON: identitas tak tercatat, bukan error */
+    }
+  }  const trimmed =
     text && text.length > BROWSER_BRIDGE.MAX_RESULT_CHARS
       ? text.slice(0, BROWSER_BRIDGE.MAX_RESULT_CHARS) + '…[dipotong]'
       : text
@@ -391,13 +395,9 @@ export function dispatchCommand(sessionId, type, payload) {
         )
       )
     }, BROWSER_BRIDGE.COMMAND_TIMEOUT_MS)
-    inflight.set(commandId, { resolve, reject, timer })
+    inflight.set(commandId, { resolve, reject, timer, type })
     s.pending.push({ id: commandId, type, payload })
     wake(s)
-    if (sessionId !== 'default') {
-      const def = sessions.get('default')
-      if (def) wake(def)
-    }
   })
 }
 
