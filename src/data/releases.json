@@ -1,12 +1,48 @@
 {
-  "generatedAt": "2026-09-20T13:27:45.969Z",
+  "generatedAt": "2026-09-20T23:02:06.436Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
       "date": "20 September 2026",
-      "summary": "51 fitur baru, 17 perbaikan dan 43 pembaruan dokumentasi.",
+      "summary": "63 fitur baru, 23 perbaikan dan 55 pembaruan dokumentasi.",
       "sections": {
         "features": [
+          {
+            "msg": "General agentic runtime for long-horizon autonomy"
+          },
+          {
+            "msg": "Require grounded evidence for skill promotion"
+          },
+          {
+            "msg": "Include semantic page text in DOM observations"
+          },
+          {
+            "msg": "Make read observations semantic-first"
+          },
+          {
+            "msg": "Add semantic-first observation formatter"
+          },
+          {
+            "msg": "Provide observations to trajectory supervisor"
+          },
+          {
+            "msg": "Ground skill synthesis in trajectory evidence"
+          },
+          {
+            "msg": "Inject general autonomy context contract"
+          },
+          {
+            "msg": "Feed evidence progress into trajectory supervisor"
+          },
+          {
+            "msg": "Ground trajectory learning inputs"
+          },
+          {
+            "msg": "Add general autonomy execution contract"
+          },
+          {
+            "msg": "Add deterministic progress evaluator"
+          },
           {
             "msg": "Apple-design + ponytail cleanup P1+P2"
           },
@@ -163,6 +199,24 @@
         ],
         "fixes": [
           {
+            "msg": "Classify failed trajectory evidence safely"
+          },
+          {
+            "msg": "Mark skill evidence provenance"
+          },
+          {
+            "msg": "Reapply precise observation patch"
+          },
+          {
+            "msg": "Reapply precise observation patch"
+          },
+          {
+            "msg": "Restore full file after partial-fetch edit"
+          },
+          {
+            "msg": "Restore full file after partial-fetch edit"
+          },
+          {
             "msg": "Remove stray brace from adoptOrphanTab edit"
           },
           {
@@ -216,6 +270,42 @@
         ],
         "security": [],
         "docs": [
+          {
+            "msg": "Record benchmark and standards adaptation session"
+          },
+          {
+            "msg": "Define runtime standards adaptation strategy"
+          },
+          {
+            "msg": "Define Abelink benchmark inventory and PR46 contract"
+          },
+          {
+            "msg": "Require grounded evidence for skill promotion"
+          },
+          {
+            "msg": "Add session log for general runtime work"
+          },
+          {
+            "msg": "Document general runtime and browser observation"
+          },
+          {
+            "msg": "Verify semantic-first observation formatting"
+          },
+          {
+            "msg": "Cover general autonomy contract"
+          },
+          {
+            "msg": "Cover progress and semantic stagnation"
+          },
+          {
+            "msg": "Establish primary research references and boundaries"
+          },
+          {
+            "msg": "Add general autonomy plan"
+          },
+          {
+            "msg": "Cover grounded trajectory learning"
+          },
           {
             "msg": "Resolve 16 konflik -> apple-design + cleanup intact"
           },

@@ -4,9 +4,21 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.2.0-alpha.6 — 20 September 2026
 
-**Ringkasan:** 51 fitur baru, 17 perbaikan dan 43 pembaruan dokumentasi.
+**Ringkasan:** 63 fitur baru, 23 perbaikan dan 55 pembaruan dokumentasi.
 
 ### Fitur Baru
+- General agentic runtime for long-horizon autonomy
+- Require grounded evidence for skill promotion
+- Include semantic page text in DOM observations
+- Make read observations semantic-first
+- Add semantic-first observation formatter
+- Provide observations to trajectory supervisor
+- Ground skill synthesis in trajectory evidence
+- Inject general autonomy context contract
+- Feed evidence progress into trajectory supervisor
+- Ground trajectory learning inputs
+- Add general autonomy execution contract
+- Add deterministic progress evaluator
 - Apple-design + ponytail cleanup P1+P2
 - Browser-ask pause-state payload, legacy HITL string kept
 - Tab identity in observations, explicit adoptUserTab, no cross-session drain
@@ -60,6 +72,12 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Gemini-latest alias, fallback Gemini->custom, warning model tak dikenal
 
 ### Perbaikan
+- Classify failed trajectory evidence safely
+- Mark skill evidence provenance
+- Reapply precise observation patch
+- Reapply precise observation patch
+- Restore full file after partial-fetch edit
+- Restore full file after partial-fetch edit
 - Remove stray brace from adoptOrphanTab edit
 - Honor adoptUserTab flag, never steal user tabs by default
 - Explicit empty-extract contract, prose validator bypass, gmail regression
@@ -79,6 +97,18 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
+- Record benchmark and standards adaptation session
+- Define runtime standards adaptation strategy
+- Define Abelink benchmark inventory and PR46 contract
+- Require grounded evidence for skill promotion
+- Add session log for general runtime work
+- Document general runtime and browser observation
+- Verify semantic-first observation formatting
+- Cover general autonomy contract
+- Cover progress and semantic stagnation
+- Establish primary research references and boundaries
+- Add general autonomy plan
+- Cover grounded trajectory learning
 - Resolve 16 konflik -> apple-design + cleanup intact
 - Ponytail cleanup P1+P2
 - Drop manualChunks mati
