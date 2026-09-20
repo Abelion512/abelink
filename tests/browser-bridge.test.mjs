@@ -420,28 +420,40 @@ describe('isolasi token prod/dev', () => {
     }
   })
 
-  it('unified queue draining: polling sesi default dapat menguras perintah dari subagent session', async () => {
-    const subId = 'subagent-test-worker-1'
-    ensureSession(subId)
-    ensureSession('default')
-    const defToken = ensureSession('default').token
+    it('isolasi antrean: polling sesi default TIDAK menguras perintah sesi lain', async () => {
+      const subId = 'subagent-test-worker-1'
+      ensureSession(subId)
+      ensureSession('default')
+      const defToken = ensureSession('default').token
 
-    // Subagent mengantrekan perintah ke sesinya sendiri
-    const p = dispatchCommand(subId, 'navigate', { url: 'https://example.com/sub' })
+      // Subagent mengantrekan perintah ke sesinya sendiri
+      const p = dispatchCommand(subId, 'navigate', { url: 'https://example.com/sub' })
 
-    // Ekstensi yang mem-poll sesi 'default' mengambil perintah tersebut
-    const cmd = await takeNext('default', defToken)
-    expect(cmd).not.toBeNull()
-    expect(cmd.type).toBe('navigate')
-    expect(cmd.payload?.url).toBe('https://example.com/sub')
+      // Ekstensi yang mem-poll sesi 'default' TIDAK mengambil perintah itu:
+      // tiap sesi dilayani antreannya sendiri (anti-curi antar-sesi).
+      const orig = BROWSER_BRIDGE.POLL_TIMEOUT_MS
+      BROWSER_BRIDGE.POLL_TIMEOUT_MS = 30
+      let cmdDefault = null
+      try {
+        cmdDefault = await takeNext('default', defToken)
+      } finally {
+        BROWSER_BRIDGE.POLL_TIMEOUT_MS = orig
+      }
+      expect(cmdDefault).toBeNull()
 
-    // Selesaikan via resolveCommand
-    const res = resolveCommand('default', defToken, cmd.id, { ok: true, data: 'Navigated to sub url' })
-    expect(res.ok).toBe(true)
-    await expect(p).resolves.toMatchObject({ ok: true, data: 'Navigated to sub url' })
+      // Perintah tetap ada di antrean sesi pemiliknya.
+      const cmd = await takeNext(subId, ensureSession(subId).token)
+      expect(cmd).not.toBeNull()
+      expect(cmd.type).toBe('navigate')
+      expect(cmd.payload?.url).toBe('https://example.com/sub')
 
-    dropSession(subId)
-    dropSession('default')
-  })
+      // Selesaikan via resolveCommand
+      const res = resolveCommand(subId, ensureSession(subId).token, cmd.id, { ok: true, data: 'Navigated to sub url' })
+      expect(res.ok).toBe(true)
+      await expect(p).resolves.toMatchObject({ ok: true, data: 'Navigated to sub url' })
+
+      dropSession(subId)
+      dropSession('default')
+    })
 })
 
