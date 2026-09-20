@@ -1,31 +1,31 @@
 {
-  "savedAt": "2026-09-06T13:41:54.471Z",
+  "savedAt": "2026-09-20T00:59:35.504Z",
   "commit": null,
   "results": {
     "parser-valid-json": {
-      "median": 0.6751645,
-      "min": 0.542116,
-      "max": 1.343137
+      "median": 0.942439,
+      "min": 0.396485,
+      "max": 3.640465
     },
     "parser-malformed-json": {
-      "median": 1.374634,
-      "min": 0.739982,
-      "max": 2.221668
+      "median": 1.268481,
+      "min": 0.648093,
+      "max": 2.680343
     },
     "lenient-field-recovery": {
-      "median": 0.8430615,
-      "min": 0.451503,
-      "max": 2.753747
+      "median": 1.099498,
+      "min": 0.851607,
+      "max": 4.434423
     },
     "url-guard-ssrf": {
-      "median": 1.241521,
-      "min": 0.850635,
-      "max": 3.513504
+      "median": 1.3527255,
+      "min": 0.72178,
+      "max": 4.943735
     },
     "prompt-assembly-scan": {
-      "median": 1.008336,
-      "min": 0.593644,
-      "max": 5.175568
+      "median": 1.778759,
+      "min": 0.900657,
+      "max": 5.191279
     }
   }
 }

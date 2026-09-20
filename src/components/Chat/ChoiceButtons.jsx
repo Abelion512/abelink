@@ -8,12 +8,14 @@ import { useYoutubeMusic } from '../../contexts/YoutubeMusicContext'
 // choiceBus sehingga loop agent lanjut otomatis, tanpa ketik.
 // Mendukung rendering kartu multimodal/music preview jika rawOptions membawa metadata.
 export const ChoiceButtons = React.memo(({ choice }) => {
+  const [playingAudio, setPlayingAudio] = useState(null)
+  const audioRef = useRef(null)
+  const musicCtx = useYoutubeMusic()
+  const { previewSnippet, isPlaying, pauseTrack } = musicCtx || {}
+
   if (!choice || !Array.isArray(choice.options) || choice.options.length === 0) return null
 
   const isMusicChoice = choice.type === 'music_preview' || (Array.isArray(choice.rawOptions) && choice.rawOptions.some(o => o && typeof o === 'object' && (o.thumbnail || o.artist || o.duration)))
-  const [playingAudio, setPlayingAudio] = useState(null)
-  const audioRef = useRef(null)
-  const { previewSnippet, isPlaying, pauseTrack } = useYoutubeMusic?.() || {}
 
   const togglePreview = (e, audioUrl, videoId) => {
     e.stopPropagation()
