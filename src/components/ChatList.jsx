@@ -55,62 +55,90 @@ const ChatList = ({
 
   if (isPlanSteps && plan && plan.length > 0) {
     return (
-      <PlanningBubble
-        plan={plan}
-        resolvedCurrentStep={resolvedCurrentStep}
-        reasoning={reasoning}
-      />
+      <div className="w-full mb-6 animate-[response-fade-in_0.2s_ease-out_forwards]">
+        <PlanningBubble
+          plan={plan}
+          resolvedCurrentStep={resolvedCurrentStep}
+          reasoning={reasoning}
+        />
+      </div>
     )
   }
 
-  return (
-    <div
-      className={`chat ${isUser ? 'chat-end' : 'chat-start'} mb-4 group animate-[response-fade-in_0.2s_ease-out_forwards]`}
-    >
-      {/* Avatar */}
-      <div className="chat-image avatar">
+  if (isUser) {
+    return (
+      <div className="w-full flex flex-col items-end mb-5 group animate-[response-fade-in_0.2s_ease-out_forwards]">
+        {/* User Header */}
+        <div className="flex items-center gap-2 mb-1.5 px-1 text-[11px] font-medium text-white/40 select-none">
+          <span>{isTelegram ? (sender || 'Telegram Admin') : 'You'}</span>
+          {isTelegram && (
+            <span className="badge badge-xs bg-[#229ED9]/15 text-[#229ED9] border-[#229ED9]/30 gap-1 font-mono text-[9px] py-0.5 px-1.5 flex items-center font-normal">
+              <FaTelegramPlane className="w-2.5 h-2.5" /> Telegram
+            </span>
+          )}
+          {timestamp && <span className="text-[10px] text-white/30 font-normal">{timestamp}</span>}
+        </div>
+
+        {/* User Bubble (Apple Pill / Card) */}
         <div
-          className={`w-8 h-8 rounded-full flex items-center justify-center border shadow-md ${
-            isTelegram && isUser
-              ? 'bg-[#229ED9]/20 border-[#229ED9]/50 text-[#229ED9]'
-              : isUser
-              ? 'bg-primary/20 border-primary/40 text-primary'
-              : 'bg-base-300 border-white/10 text-white'
+          className={`max-w-[85%] md:max-w-[75%] rounded-3xl rounded-tr-md px-5 py-3 shadow-md break-words transition-all duration-200 ${
+            isTelegram
+              ? 'bg-gradient-to-br from-[#229ED9] to-[#0088cc] text-white border border-[#229ED9]/40'
+              : 'bg-primary text-primary-content font-medium border border-primary/20 shadow-primary/10'
           }`}
         >
-          {isTelegram && isUser ? (
-            <FaTelegramPlane className="w-4 h-4" />
-          ) : isUser ? (
-            <User className="w-4 h-4" />
-          ) : (
-            <Bot className="w-4 h-4 text-primary" />
-          )}
+          <MessageBubble
+            isUser={true}
+            content={content}
+            sources={sources}
+          />
         </div>
       </div>
+    )
+  }
 
-      {/* Header (Sender Name & Time) */}
-      <div className="chat-header text-[11px] font-semibold opacity-75 mb-1 flex items-center gap-2 px-1">
-        <span>{isUser ? (isTelegram ? (sender || 'Telegram Admin') : 'You') : 'Abelink'}</span>
-        {isTelegram && (
-          <span className="badge badge-xs bg-[#229ED9]/15 text-[#229ED9] border-[#229ED9]/30 gap-1 font-mono text-[9px] py-0.5 px-1.5 flex items-center font-normal">
-            <FaTelegramPlane className="w-2.5 h-2.5" /> {isUser ? 'Telegram' : 'Telegram Reply'}
-          </span>
+  // AI Response: Clean Canvas Stream (Full width, borderless, unconstrained)
+  return (
+    <div className="w-full flex flex-col items-start mb-8 group animate-[response-fade-in_0.2s_ease-out_forwards]">
+      {/* AI Header & Actions Bar */}
+      <div className="flex items-center justify-between w-full mb-2 px-0.5 text-[11px] font-medium text-white/40 select-none">
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_6px_var(--color-primary)]" />
+          <span className="text-white/80 font-semibold tracking-wide">Abelink</span>
+          {isTelegram && (
+            <span className="badge badge-xs bg-[#229ED9]/15 text-[#229ED9] border-[#229ED9]/30 gap-1 font-mono text-[9px] py-0.5 px-1.5 flex items-center font-normal">
+              <FaTelegramPlane className="w-2.5 h-2.5" /> Telegram Reply
+            </span>
+          )}
+          {timestamp && <span className="text-[10px] text-white/30 font-normal">{timestamp}</span>}
+        </div>
+
+        {/* Copy Button (Apple Ghost pill on hover) */}
+        {content && !isThinking && !isSummarizing && !isSearchingMusic && (
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center">
+            <button
+              onClick={handleCopy}
+              className="px-2 py-0.5 text-[11px] text-white/40 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.1] rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Salin teks pesan"
+            >
+              {isCopied ? (
+                <>
+                  <Check className="w-3 h-3 text-success" />
+                  <span className="text-[10px] text-success font-medium">Tersalin</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3" />
+                  <span className="text-[10px]">Salin</span>
+                </>
+              )}
+            </button>
+          </div>
         )}
-        {timestamp && <span className="text-[10px] opacity-50 font-normal">{timestamp}</span>}
       </div>
 
-      {/* Bubble Container */}
-      <div
-        className={`chat-bubble max-w-[85%] md:max-w-[78%] shadow-lg transition-all duration-200 break-words overflow-hidden ${
-          isUser
-            ? isTelegram
-              ? 'bg-gradient-to-br from-[#229ED9] to-[#0088cc] text-white font-medium rounded-2xl rounded-tr-sm px-4 py-2.5 shadow-md shadow-[#229ED9]/20 border border-[#229ED9]/40'
-              : 'bg-primary text-primary-content font-medium rounded-2xl rounded-tr-sm px-4 py-2.5'
-            : isTelegram
-            ? 'bg-base-200/90 text-base-content border border-[#229ED9]/30 rounded-2xl rounded-tl-sm p-4 backdrop-blur-md border-l-4 border-l-[#229ED9]'
-            : 'bg-base-200/90 text-base-content border border-white/10 rounded-2xl rounded-tl-sm p-4 backdrop-blur-md'
-        }`}
-      >
+      {/* AI Body Stream (No outer card border, fluid document flow) */}
+      <div className={`w-full text-base-content leading-relaxed ${isTelegram ? 'border-l-2 border-[#229ED9]/40 pl-3.5' : ''}`}>
         {isThinking || isSummarizing || isSearchingMusic ? (
           <ThinkingBubble
             isThinking={isThinking}
@@ -122,14 +150,14 @@ const ChatList = ({
             executedTools={executedTools}
           />
         ) : (
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-3 w-full">
             {isYoutubeSummary && <YoutubeSummaryBubble youtubeLink={youtubeLink} />}
             {isYoutubeSearch && (
               <YoutubeSearchBubble queryYoutube={queryYoutube} youtubeLink={youtubeLink} />
             )}
             {pluginExecution && <PluginExecutionBubble pluginExecution={pluginExecution} />}
             <MessageBubble
-              isUser={isUser}
+              isUser={false}
               content={content}
               reasoning={reasoning}
               sources={sources}
@@ -140,29 +168,6 @@ const ChatList = ({
           </div>
         )}
       </div>
-
-      {/* Footer / Copy Button */}
-      {content && !isUser && !isThinking && !isSummarizing && !isSearchingMusic && (
-        <div className="chat-footer opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 mt-1 px-1">
-          <button
-            onClick={handleCopy}
-            className="btn btn-ghost btn-xs text-white/50 hover:text-white p-1 h-auto min-h-0 flex items-center gap-1 rounded"
-            title="Salin teks pesan"
-          >
-            {isCopied ? (
-              <>
-                <Check className="w-3 h-3 text-success" />
-                <span className="text-[10px] text-success font-medium">Tersalin</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3 h-3" />
-                <span className="text-[10px]">Salin</span>
-              </>
-            )}
-          </button>
-        </div>
-      )}
 
       <MemoryFooterBubble
         isMemorySaved={isMemorySaved}

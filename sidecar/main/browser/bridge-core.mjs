@@ -158,11 +158,43 @@ export function getLastUrl(sessionId = 'default') {
   return sessions.get(sessionId)?.lastUrl || null
 }
 
+// Cache metadata token default agar tidak teracak ulang saat sesi kedaluwarsa/idle.
+let defaultTokenCache = null
+
 export function ensureSession(sessionId = 'default') {
   let s = sessions.get(sessionId)
   if (!s) {
+    let initialToken = null
+    let initialCreatedAt = now()
+    let initialPrevToken = null
+    let initialPrevExpiresAt = 0
+
+    if (sessionId === 'default') {
+      if (defaultTokenCache?.token) {
+        initialToken = defaultTokenCache.token
+        initialCreatedAt = defaultTokenCache.createdAt || now()
+        initialPrevToken = defaultTokenCache.prevToken || null
+        initialPrevExpiresAt = defaultTokenCache.prevExpiresAt || 0
+      } else {
+        const diskRec = readTokenRecord(
+          process.env.ABELINK_DATA_HOME || process.env.XDG_DATA_HOME,
+          flavorFromPort(BROWSER_BRIDGE.PORT)
+        )
+        if (diskRec?.token) {
+          initialToken = diskRec.token
+          initialCreatedAt = diskRec.createdAt || now()
+          initialPrevToken = diskRec.prevToken || null
+          initialPrevExpiresAt = diskRec.prevExpiresAt || 0
+          defaultTokenCache = diskRec
+        }
+      }
+    }
+
     s = {
-      token: prng(),
+      token: initialToken || prng(),
+      tokenCreatedAt: initialCreatedAt,
+      prevToken: initialPrevToken,
+      prevExpiresAt: initialPrevExpiresAt,
       createdAt: now(),
       lastSeenAt: 0,
       pending: [],
@@ -190,6 +222,14 @@ export function dropSession(sessionId) {
       inflight.delete(p.id)
       w.reject(new Error('Sesi browser ditutup sebelum perintah dieksekusi.'))
     }
+  }
+  // Sesi 'default' adalah anchor bridge; jangan pernah hapus dari peta memori.
+  // Cukup bersihkan antrean dan reset status koneksi.
+  if (sessionId === 'default') {
+    s.pending = []
+    s.waiting = []
+    s.lastSeenAt = 0
+    return true
   }
   sessions.delete(sessionId)
   return true
@@ -237,6 +277,23 @@ export function getSessionGroups(sessionId) {
 // Dipanggil server.mjs saat ekstensi GET /handshake dengan token valid.
 export function handshake(sessionId, token) {
   const s = ensureSession(sessionId)
+  if (!tokenOk(s, token)) {
+    // Sesi default: coba refresh token dari disk bila token memori belum sinkron
+    if (sessionId === 'default') {
+      const diskRec = readTokenRecord(
+        s.tokenXdg || process.env.ABELINK_DATA_HOME || process.env.XDG_DATA_HOME,
+        s.tokenFlavor || flavorFromPort(BROWSER_BRIDGE.PORT),
+        s.tokenEnv || process.env
+      )
+      if (diskRec?.token) {
+        s.token = diskRec.token
+        s.tokenCreatedAt = diskRec.createdAt
+        s.prevToken = diskRec.prevToken
+        s.prevExpiresAt = diskRec.prevExpiresAt
+        defaultTokenCache = diskRec
+      }
+    }
+  }
   if (!tokenOk(s, token)) return { ok: false, error: 'Token tidak cocok.' }
   s.lastSeenAt = now()
   const out = { ok: true, pollTimeoutMs: BROWSER_BRIDGE.POLL_TIMEOUT_MS }
@@ -461,6 +518,15 @@ export function writeTokenFile(xdgDataDir, flavor = 'prod', env = process.env) {
   s.tokenXdg = xdgDataDir
   s.tokenFlavor = flavor
   s.tokenEnv = env
+  defaultTokenCache = {
+    token: rec.token,
+    createdAt: rec.createdAt,
+    prevToken: rec.prevToken,
+    prevExpiresAt: rec.prevExpiresAt,
+    tokenXdg: xdgDataDir,
+    tokenFlavor: flavor,
+    tokenEnv: env
+  }
   return { file: tokenFilePath(xdgDataDir, flavor, env), token: s.token }
 }
 

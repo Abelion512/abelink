@@ -469,11 +469,15 @@ export async function deleteDocumentFromOrama(docName) {
   const idx = await ensureDocumentIndex()
   if (!idx || !docName) return
   try {
-    // Filter eksak (bukan fuzzy term search) agar chunk dokumen sejenis tidak ikut terhapus
     const res = await search(idx, { where: { docName }, limit: 10000 })
-    const ids = res.hits.map((h) => h.id)
-    if (ids.length > 0) {
-      await removeMultiple(idx, ids)
+    if (res?.hits?.length > 0) {
+      for (const h of res.hits) {
+        if (h?.id) {
+          try {
+            await remove(idx, h.id)
+          } catch {}
+        }
+      }
     }
   } catch (err) {
     console.error('[Orama] Error deleteDocumentFromOrama:', err)
@@ -600,9 +604,14 @@ export async function deleteTurnPairsBySessionFromOrama(sessionId) {
     const results = await search(idx, {
       where: { sessionId: Number(sessionId) }
     })
-    if (results.hits.length > 0) {
-      const ids = results.hits.map((h) => h.id)
-      await removeMultiple(idx, ids)
+    if (results?.hits?.length > 0) {
+      for (const h of results.hits) {
+        if (h?.id) {
+          try {
+            await remove(idx, h.id)
+          } catch {}
+        }
+      }
     }
   } catch (err) {
     console.error('[Orama] Error deleteTurnPairsBySessionFromOrama:', err)

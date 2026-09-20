@@ -176,6 +176,7 @@ export const logReasoning = ({ prompt, model, tokens, duration, ...rest } = {}) 
   pushEntry({
     ...makeHarnessEvent({ kind: 'reasoning', ...rest }),
     prompt: typeof prompt === 'string' ? prompt.slice(0, 2000) : undefined,
+    thought: typeof rest.thought === 'string' ? rest.thought.slice(0, 4000) : rest.thought,
     model,
     tokens,
     duration
@@ -183,13 +184,22 @@ export const logReasoning = ({ prompt, model, tokens, duration, ...rest } = {}) 
 }
 
 export const logToolCall = ({ tool, args, result, success, duration, ...rest } = {}) => {
+  const finalArgs = args !== undefined ? args : (rest.query !== undefined ? rest.query : undefined)
+  const isSuccess = success !== undefined ? success !== false : (rest.ok !== false)
+  const finalResult =
+    typeof result === 'string'
+      ? result.slice(0, 2000)
+      : result !== undefined
+        ? (typeof result === 'object' ? JSON.stringify(result)?.slice(0, 2000) : String(result).slice(0, 2000))
+        : rest.resultSummary || undefined
+
   pushEntry({
     ...makeHarnessEvent({ kind: 'tool-call', ...rest }),
     tool,
-    args: typeof args === 'string' ? args.slice(0, 1000) : args,
-    result: typeof result === 'string' ? result.slice(0, 2000) : result,
-    success: success !== false,
-    duration
+    args: typeof finalArgs === 'string' ? finalArgs.slice(0, 1000) : finalArgs,
+    result: finalResult,
+    success: isSuccess,
+    duration: duration ?? rest.durMs
   })
 }
 

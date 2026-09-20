@@ -21,14 +21,27 @@ export const readSessionEvents = ({ session, date, kinds = null, dir }) => {
   const events = []
   for (const f of readdirSync(dir)) {
     if (!f.endsWith('.jsonl')) continue
-    const kind = f.slice(0, -'.jsonl'.length)
-    if (kinds && !kinds.includes(kind)) continue
+    const rawKind = f.slice(0, -'.jsonl'.length)
+    if (kinds && !kinds.includes(rawKind)) continue
+    const normalizedKind =
+      rawKind === 'tool-calls'
+        ? 'tool-call'
+        : rawKind === 'observations'
+          ? 'observation'
+          : rawKind === 'answers'
+            ? 'answer'
+            : rawKind
     for (const raw of readFileSync(path.join(dir, f), 'utf8').split('\n')) {
       if (!raw.trim()) continue
       try {
         const row = JSON.parse(raw)
         const env = typeof row.line === 'string' ? JSON.parse(row.line) : row.line
-        if (env && String(env.sessionId ?? '') === want) events.push(env)
+        if (env && String(env.sessionId ?? '') === want) {
+          events.push({
+            kind: env.kind || (row.kind === 'tool-calls' ? 'tool-call' : (row.kind === 'observations' ? 'observation' : (row.kind === 'answers' ? 'answer' : row.kind))) || normalizedKind,
+            ...env
+          })
+        }
       } catch {
         /* baris korup dilewati jujur */
       }

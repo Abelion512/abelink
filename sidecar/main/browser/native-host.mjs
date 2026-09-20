@@ -90,16 +90,13 @@ export async function ensureNativeHost({
   // hanya path token dev. Request namespace silang -> ok:false eksplisit.
   const wrapper = path.join(destDir, 'abelink-bridge-host.sh')
   const flavorLit = flavor === 'dev' ? 'dev' : 'prod'
-  const prodTokenPy = "os.path.join(xdg, 'abelink', 'browser-bridge-token')"
-  const devTokenPy = "(os.environ.get('ABELINK_DATA_HOME') or os.path.join(xdg, 'abelink-dev')) + '/browser-bridge-token'"
-  const tokenExpr = flavor === 'dev' ? devTokenPy : prodTokenPy
   const wrapperScript = `#!/bin/sh
 # Abelink Bridge native messaging host wrapper (flavor: ${flavorLit}; abelink-bridge-host.mjs fallback)
 # STRICT: hanya membaca token flavor ${flavorLit}; namespace silang ditolak.
 ABELINK_BRIDGE_FLAVOR=${flavorLit}
 export ABELINK_BRIDGE_FLAVOR
 if [ -x "/usr/bin/python3" ]; then
-  exec /usr/bin/python3 -c '
+  exec /usr/bin/python3 - << 'PYEOF'
 import sys, json, os, struct
 
 def send(obj):
@@ -126,14 +123,22 @@ try:
             namespace = (json.loads(payload) or {}).get("namespace") or ""
         except Exception:
             namespace = ""
-    req_dev = namespace in ("dev", "49713")
-    host_dev = "${flavorLit}" == "dev"
-    if req_dev != host_dev:
-        send({"ok": False, "error": "flavor mismatch: host ${flavorLit}"})
+
+    host_flavor = os.environ.get("ABELINK_BRIDGE_FLAVOR", "prod")
+    host_dev = host_flavor == "dev"
+    if host_dev and namespace in ("prod", "49712"):
+        send({"ok": False, "error": "flavor mismatch: host is dev"})
+    elif not host_dev and namespace in ("dev", "49713"):
+        send({"ok": False, "error": "flavor mismatch: host is prod"})
     else:
         home = os.path.expanduser("~")
         xdg = os.environ.get("XDG_DATA_HOME") or os.path.join(home, ".local", "share")
-        token_file = ${tokenExpr}
+        if host_dev:
+            data_home = os.environ.get("ABELINK_DATA_HOME") or os.path.join(xdg, "abelink-dev")
+        else:
+            data_home = os.path.join(xdg, "abelink")
+        token_file = os.path.join(data_home, "browser-bridge-token")
+
         if os.path.exists(token_file):
             with open(token_file, "r", encoding="utf-8") as f:
                 raw = f.read().strip()
@@ -144,10 +149,10 @@ try:
                 tok = raw
             send({"ok": True, "token": tok})
         else:
-            send({"ok": False, "error": "token file missing"})
+            send({"ok": False, "error": "token file missing: " + token_file})
 except Exception as e:
     send({"ok": False, "error": str(e)})
-'
+PYEOF
 fi
 
 if command -v bun >/dev/null 2>&1 && [ -f "${destMjs}" ]; then

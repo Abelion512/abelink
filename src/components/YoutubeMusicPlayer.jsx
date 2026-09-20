@@ -154,10 +154,7 @@ export const YoutubeMusicPlayer = () => {
               </p>
             )}
 
-            <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/40">
-              <span className="truncate">Pemutar Musik Internal</span>
-              <span className="text-cyan-400 font-mono text-[10px]">Embedded API</span>
-            </div>
+            <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/40"></div>
           </div>
         </div>
       </div>

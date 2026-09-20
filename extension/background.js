@@ -39,6 +39,24 @@ async function getPairing() {
   } catch {
     /* abaikan */
   }
+  // Auto-pairing out-of-the-box: bila belum ada pairing terpin, cek ketersediaan
+  // native host tanpa memaksa ritual klik popup manual oleh user.
+  try {
+    const devToken = await getTokenViaNativeHost(49713)
+    if (devToken?.token) {
+      const pair = { flavor: 'dev', port: 49713, hostName: hostNameForPort(49713) }
+      await chrome.storage.local.set({ 'abelink.pairing': pair })
+      return pair
+    }
+    const prodToken = await getTokenViaNativeHost(49712)
+    if (prodToken?.token) {
+      const pair = { flavor: 'prod', port: 49712, hostName: hostNameForPort(49712) }
+      await chrome.storage.local.set({ 'abelink.pairing': pair })
+      return pair
+    }
+  } catch {
+    /* abaikan */
+  }
   return null
 }
 async function setPairing(port) {
@@ -66,7 +84,12 @@ console.log('[Abelink] bridge service worker aktif (jalur E2E grup-tab + token p
 // ------------------------------------------------------------- helpers
 async function getCfg() {
   const { session, token, port } = await chrome.storage.session.get(['session', 'token', 'port'])
-  return { session: session || 'default', token: token || '', port: port || DEFAULT_PORT }
+  const pairing = await getPairing()
+  return {
+    session: session || 'default',
+    token: token || '',
+    port: port || pairing?.port || DEFAULT_PORT
+  }
 }
 
 function base(cfg) {
@@ -228,7 +251,8 @@ async function getTokenViaNativeHost(port) {
   // Prod port (49712) = id.abelink.bridge ONLY.
   // Fallback ke host flavor lain berarti token prod masuk ke dev (401 senyap) - dilarang.
   const hostName = hostNameForPort(port)
-  const msg = { type: 'get-token' }
+  const flavor = flavorForPort(port)
+  const msg = { type: 'get-token', namespace: flavor }
   try {
     const res = await chrome.runtime.sendNativeMessage(hostName, msg)
     if (res?.ok && res.token) return { token: res.token, detail: '' }
@@ -1482,14 +1506,18 @@ function scheduleAutoResume(delayMs = 5000) {
 async function tryAutoResume() {
   if (running) return
   await loadSessionState()
-  // Niat keepalive persist: hanya resume bila user pernah start dan belum
-  // stop eksplisit. Tanpa ini SW restart diam-diam (koneksi basi).
-  let want = false
+  // Niat keepalive persist: aktif secara default kecuali user pernah stop eksplisit.
+  let want = true
   try {
-    const kept = await chrome.storage.session.get('wantConnected')
-    want = !!kept?.wantConnected
+    const localKept = await chrome.storage.local.get('wantConnected')
+    if (typeof localKept?.wantConnected === 'boolean') {
+      want = localKept.wantConnected
+    } else {
+      const kept = await chrome.storage.session.get('wantConnected')
+      if (typeof kept?.wantConnected === 'boolean') want = kept.wantConnected
+    }
   } catch {
-    /* storage tak ada = jangan resume */
+    want = true
   }
   if (!want) return
   // Resume TANPA pairing = dilarang: user belum memilih flavor sekali pun.

@@ -41,8 +41,8 @@ export default function SubagentTopologyMap({
 
   // Layout geometry for constellation placement
   const totalAgents = displayAgents.length
-  const center = { x: 340, y: 240 }
-  const radius = Math.min(180, Math.max(130, totalAgents * 24))
+  const center = { x: 450, y: 280 }
+  const radius = Math.min(220, Math.max(150, totalAgents * 28))
 
   const nodes = useMemo(() => {
     if (totalAgents === 0) return []
@@ -82,42 +82,42 @@ export default function SubagentTopologyMap({
   }
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden gap-4 font-['Poppins',sans-serif]">
+    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden font-['Poppins',sans-serif]">
       {/* Visual Canvas Area */}
-      <div className="flex-1 bg-base-200/50 rounded-2xl border border-base-content/10 relative overflow-hidden flex flex-col items-center justify-center p-4 backdrop-blur-md">
+      <div className="flex-1 relative overflow-hidden flex flex-col items-center justify-center p-6 border-b md:border-b-0 md:border-r border-white/[0.08]">
         {/* Subtle Ambient Radial Highlight */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#1fb8540d_0%,transparent_70%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(6,182,212,0.06)_0%,transparent_70%)] pointer-events-none" />
 
         {/* Top Minimal Telemetry Bar */}
-        <div className="absolute top-3 left-4 right-4 flex items-center justify-between pointer-events-none z-10">
-          <div className="flex items-center gap-2 bg-base-300/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-base-content/5 text-xs shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="font-semibold text-[11px] tracking-wide text-base-content/80">
+        <div className="absolute top-4 left-5 right-5 flex items-center justify-between pointer-events-none z-10">
+          <div className="flex items-center gap-2.5 bg-black/40 backdrop-blur-xl px-3.5 py-1.5 rounded-2xl border border-white/[0.08] text-xs shadow-lg">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="font-semibold text-xs tracking-wide text-zinc-200">
               Topology Network {activeCount > 0 ? '(Active Squad)' : '(Standby)'}
             </span>
           </div>
 
           <div className="flex items-center gap-2 font-mono text-[11px]">
             {activeCount > 0 && (
-              <span className="px-2.5 py-1 bg-base-300/80 backdrop-blur-md rounded-lg border border-primary/30 flex items-center gap-1.5 text-primary shadow-sm font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
+              <span className="px-3 py-1 bg-cyan-500/10 backdrop-blur-xl rounded-xl border border-cyan-500/25 flex items-center gap-1.5 text-cyan-300 shadow-sm font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
                 {activeCount} Aktif
               </span>
             )}
             {idleCount > 0 && (
-              <span className="px-2.5 py-1 bg-base-300/80 backdrop-blur-md rounded-lg border border-base-content/5 flex items-center gap-1.5 text-base-content/80 shadow-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
+              <span className="px-3 py-1 bg-black/40 backdrop-blur-xl rounded-xl border border-white/[0.08] flex items-center gap-1.5 text-zinc-400 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
                 {idleCount} Standby
               </span>
             )}
             {completedCount > 0 && (
-              <span className="px-2.5 py-1 bg-base-300/80 backdrop-blur-md rounded-lg border border-base-content/5 flex items-center gap-1.5 text-base-content/80 shadow-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+              <span className="px-3 py-1 bg-black/40 backdrop-blur-xl rounded-xl border border-white/[0.08] flex items-center gap-1.5 text-zinc-400 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 {completedCount} Selesai
               </span>
             )}
             {failedCount > 0 && (
-              <span className="px-2.5 py-1 bg-base-300/80 backdrop-blur-md rounded-lg border border-error/30 text-error flex items-center gap-1.5 shadow-sm">
+              <span className="px-3 py-1 bg-rose-500/10 backdrop-blur-xl rounded-xl border border-rose-500/20 text-rose-400 flex items-center gap-1.5 shadow-sm">
                 {failedCount} Gagal
               </span>
             )}
@@ -125,15 +125,15 @@ export default function SubagentTopologyMap({
         </div>
 
         {totalAgents === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center p-8 z-10 text-base-content/40 space-y-2.5">
-            <div className="w-14 h-14 rounded-2xl bg-base-300/80 border border-base-content/10 flex items-center justify-center text-primary shadow-inner">
+          <div className="flex flex-col items-center justify-center text-center p-8 z-10 text-zinc-500 space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-cyan-400 shadow-inner">
               <Layers className="w-7 h-7 stroke-[1.5]" />
             </div>
             <div>
-              <p className="font-semibold text-sm text-base-content/70">
+              <p className="font-semibold text-sm text-zinc-200">
                 Belum Ada Sub-Agent
               </p>
-              <p className="text-xs text-base-content/40 mt-0.5 max-w-sm">
+              <p className="text-xs text-zinc-400 mt-1 max-w-sm">
                 Saat Abelink mendelegasikan tugas ke sub-agent, topologi tim akan muncul di sini.
               </p>
             </div>
@@ -142,8 +142,8 @@ export default function SubagentTopologyMap({
           <div className="relative w-full h-full flex items-center justify-center">
             {/* SVG Clean Topology Network */}
             <svg
-              viewBox="0 0 680 480"
-              className="w-full h-full max-w-[680px] max-h-[480px] select-none"
+              viewBox="0 0 900 560"
+              className="w-full h-full max-w-5xl max-h-[580px] select-none"
               style={{ overflow: 'visible' }}
             >
               {/* Single Clean Orbital Track - Slow Gentle Spin */}
@@ -307,17 +307,17 @@ export default function SubagentTopologyMap({
       </div>
 
       {/* Right Telemetry / Inspector Drawer */}
-      <div className="w-full md:w-80 flex flex-col bg-base-200/50 rounded-2xl border border-base-content/10 overflow-hidden flex-none backdrop-blur-md">
-        <div className="p-3.5 border-b border-base-content/10 flex items-center justify-between bg-base-300/40">
+      <div className="w-full md:w-96 lg:w-[420px] flex flex-col bg-white/[0.015] overflow-hidden flex-none">
+        <div className="p-3.5 border-b border-white/[0.08] flex items-center justify-between bg-white/[0.02]">
           <div className="flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-primary" />
-            <span className="font-semibold text-xs tracking-wide">Inspeksi Agen</span>
+            <Terminal className="w-4 h-4 text-cyan-400" />
+            <span className="font-semibold text-xs text-zinc-200 tracking-wide">Inspeksi Agen</span>
           </div>
           {selectedAgent && (
             <button
               type="button"
               onClick={() => onOpenIntercom(selectedAgent.id)}
-              className="btn btn-ghost btn-xs gap-1 text-[10px] text-primary hover:bg-primary/10"
+              className="btn btn-ghost btn-xs gap-1.5 text-[11px] text-cyan-400 hover:bg-cyan-500/10 rounded-lg"
               title="Buka Chat Intercom Penuh"
             >
               Intercom <ExternalLink className="w-3 h-3" />
@@ -326,95 +326,101 @@ export default function SubagentTopologyMap({
         </div>
 
         {selectedAgent ? (
-          <div className="flex-1 flex flex-col overflow-y-auto p-3.5 space-y-3.5 custom-scrollbar">
+          <div className="flex-1 flex flex-col overflow-y-auto p-4 space-y-3.5 custom-scrollbar">
             {/* Agent Header Card */}
-            <div className="p-3 bg-base-100/60 rounded-xl border border-base-content/10 space-y-2">
+            <div className="p-3.5 bg-white/[0.03] rounded-2xl border border-white/[0.06] space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-primary/15 border border-primary/30 text-primary flex items-center justify-center font-bold text-xs flex-none">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center font-bold text-xs flex-none">
                     {selectedAgent.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <h4 className="font-semibold text-xs truncate">{selectedAgent.name}</h4>
-                    <p className="text-[10px] opacity-60 truncate font-mono">{selectedAgent.role}</p>
+                    <h4 className="font-semibold text-xs text-zinc-100 truncate">{selectedAgent.name}</h4>
+                    <p className="text-[10px] text-zinc-400 truncate font-mono">{selectedAgent.role}</p>
                   </div>
                 </div>
                 <div className="flex-none">
                   {selectedAgent.status === 'running' ? (
-                    <span className="badge badge-primary badge-xs gap-1 font-mono text-[9px]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary-content animate-ping" />
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono text-[10px]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
                       RUNNING
                     </span>
                   ) : selectedAgent.status === 'idle' ? (
-                    <span className="badge badge-primary badge-outline badge-xs font-mono text-[9px]">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.05] text-zinc-400 border border-white/[0.1] font-mono text-[10px]">
                       IDLE / STANDBY
                     </span>
                   ) : selectedAgent.status === 'failed' || selectedAgent.status === 'killed' ? (
-                    <span className="badge badge-error badge-xs font-mono text-[9px]">FAILED</span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono text-[10px]">
+                      FAILED
+                    </span>
                   ) : (
-                    <span className="badge badge-primary badge-outline badge-xs font-mono text-[9px]">COMPLETED</span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono text-[10px]">
+                      COMPLETED
+                    </span>
                   )}
                 </div>
               </div>
 
-              <div className="text-[10px] text-base-content/70 font-mono bg-base-200/60 p-2.5 rounded-lg border border-base-content/5">
-                <span className="text-primary font-bold block text-[9px] mb-0.5 uppercase tracking-wider">Misi / Goal:</span>
-                <p className="line-clamp-2 leading-relaxed">{selectedAgent.goal}</p>
+              <div className="text-[11px] text-zinc-300 font-mono bg-black/40 p-3 rounded-xl border border-white/[0.05]">
+                <span className="text-cyan-400 font-bold block text-[9px] mb-1 uppercase tracking-wider">Misi / Goal:</span>
+                <p className="line-clamp-3 leading-relaxed">{selectedAgent.goal}</p>
               </div>
             </div>
 
             {/* Live Progress / Output Preview */}
-            <div className="flex-1 bg-base-100/40 rounded-xl border border-base-content/10 p-3 space-y-2 flex flex-col">
-              <div className="flex items-center justify-between text-[10px] font-semibold text-base-content/70">
+            <div className="flex-1 bg-white/[0.02] rounded-2xl border border-white/[0.06] p-3.5 space-y-2.5 flex flex-col">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-300">
                 <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-primary" /> Laporan Terkini:
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> Laporan Terkini:
                 </span>
-                <span className="font-mono text-[9px]">Turn #{selectedAgent.turnCount || 0}</span>
+                <span className="font-mono text-[10px] text-zinc-500">Turn #{selectedAgent.turnCount || 0}</span>
               </div>
 
-              <div className="flex-1 bg-base-200/50 rounded-lg p-2.5 text-[11px] font-mono leading-relaxed overflow-y-auto max-h-44 text-base-content/90 border border-base-content/5">
+              <div className="flex-1 bg-black/40 rounded-xl p-3 text-[11px] font-mono leading-relaxed overflow-y-auto max-h-56 text-zinc-300 border border-white/[0.05]">
                 {selectedAgent.finalAnswer ? (
                   <p className="whitespace-pre-wrap">{selectedAgent.finalAnswer}</p>
                 ) : selectedAgent.status === 'running' ? (
-                  <div className="flex items-center gap-2 text-primary opacity-80 py-2">
+                  <div className="flex items-center gap-2 text-cyan-400 opacity-80 py-2">
                     <Activity className="w-3.5 h-3.5 animate-spin" />
                     <span>Sedang memproses langkah...</span>
                   </div>
                 ) : (
-                  <span className="opacity-40 italic">Belum ada output yang tercatat.</span>
+                  <span className="text-zinc-500 italic">Belum ada output yang tercatat.</span>
                 )}
               </div>
             </div>
 
             {/* Quick Mentoring / Correction Dispatch */}
-            <form onSubmit={handleQuickSend} className="space-y-1.5 pt-1">
-              <label className="text-[10px] font-semibold text-base-content/70 flex items-center gap-1">
-                <Send className="w-2.5 h-2.5 text-primary" /> Kirim Arahan Cepat (Lead Agent):
+            <form onSubmit={handleQuickSend} className="space-y-2 pt-1">
+              <label className="text-[10px] font-semibold text-zinc-400 flex items-center gap-1">
+                <Send className="w-2.5 h-2.5 text-cyan-400" /> Kirim Arahan Cepat (Lead Agent):
               </label>
-              <div className="flex gap-1.5">
+              <div className="flex gap-2">
                 <input
                   type="text"
                   placeholder="Ketik instruksi koreksi..."
                   value={quickInput}
                   onChange={(e) => setQuickInput(e.target.value)}
-                  className="input input-xs input-bordered flex-1 rounded-lg text-[11px] bg-base-100/60 focus:border-primary"
+                  className="input input-xs flex-1 rounded-xl text-xs bg-white/[0.04] border border-white/[0.08] focus:border-cyan-400 focus:outline-none text-zinc-200 placeholder-zinc-500 px-3 py-2 h-8"
                   disabled={isSending}
                 />
                 <button
                   type="submit"
                   disabled={!quickInput.trim() || isSending}
-                  className="btn btn-primary btn-xs rounded-lg px-2.5"
+                  className="btn btn-xs rounded-xl px-3 bg-cyan-500 text-black hover:bg-cyan-400 border-none font-medium h-8"
                   title="Kirim Pesan ke Sub-Agent"
                 >
-                  {isSending ? <span className="loading loading-spinner loading-xs" /> : <Send className="w-3 h-3" />}
+                  {isSending ? <span className="loading loading-spinner loading-xs" /> : <Send className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </form>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-base-content/40 space-y-2">
-            <Bot className="w-8 h-8 stroke-[1.2] opacity-40 text-primary" />
-            <p className="text-xs">Klik salah satu node sub-agent pada diagram di samping untuk memeriksa status & memberikan arahan langsung.</p>
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-zinc-500 space-y-3">
+            <Bot className="w-10 h-10 stroke-[1.2] opacity-40 text-cyan-400" />
+            <p className="text-xs max-w-xs text-zinc-400">
+              Klik salah satu node sub-agent pada diagram di samping untuk memeriksa status dan memberikan arahan langsung.
+            </p>
           </div>
         )}
       </div>

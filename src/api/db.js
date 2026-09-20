@@ -725,7 +725,8 @@ export async function deleteSession(id) {
     const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
     if (numId === 1) {
       // Main Thread tidak boleh dihapus barisnya, hanya dikosongkan pesannya
-      await db.sessions.put({ id: 1, title: 'Main Thread', data: [], timestamp: Date.now() })
+      const existing = await db.sessions.get(1)
+      await db.sessions.put({ id: 1, title: existing?.title || 'Main Thread', data: [], timestamp: Date.now() })
       await db.chatTurns.where('sessionId').equals(1).delete()
       // Ringkasan kompaksi hanya valid untuk riwayat yang melahirkannya. Main
       // Thread memakai ID yang sama setelah di-clear, jadi row lama wajib ikut

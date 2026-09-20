@@ -26,45 +26,50 @@ const TRAIT_META = [
     key: 'warmth',
     label: 'Kehangatan',
     desc: 'Kehangatan & keakraban emosional',
-    color: 'text-error',
-    bg: 'bg-error/10',
-    ring: 'ring-error/30',
+    color: 'text-rose-400',
+    stroke: '#fb7185',
+    bg: 'bg-rose-500/10',
+    border: 'border-rose-500/20',
     icon: FaFire
   },
   {
     key: 'sarcasm_level',
     label: 'Sarkasme',
-    desc: 'Level sarkas & toxic-friendly',
-    color: 'text-warning',
-    bg: 'bg-warning/10',
-    ring: 'ring-warning/30',
+    desc: 'Level sarkas & witty roasting',
+    color: 'text-amber-400',
+    stroke: '#fbbf24',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/20',
     icon: FaTheaterMasks
   },
   {
     key: 'trust',
     label: 'Kepercayaan',
     desc: 'Kepercayaan & keterbukaan',
-    color: 'text-success',
-    bg: 'bg-success/10',
-    ring: 'ring-success/30',
+    color: 'text-emerald-400',
+    stroke: '#34d399',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/20',
     icon: FaHandshake
   },
   {
     key: 'energy',
     label: 'Energi',
-    desc: 'Baseline mood & energi',
-    color: 'text-info',
-    bg: 'bg-info/10',
-    ring: 'ring-info/30',
+    desc: 'Baseline mood & antusiasme',
+    color: 'text-cyan-400',
+    stroke: '#22d3ee',
+    bg: 'bg-cyan-500/10',
+    border: 'border-cyan-500/20',
     icon: FaBolt
   },
   {
     key: 'obedience',
     label: 'Kepatuhan',
-    desc: 'Pelayan vs mandiri',
-    color: 'text-secondary',
-    bg: 'bg-secondary/10',
-    ring: 'ring-secondary/30',
+    desc: 'Pelayan patuh vs mandiri kritis',
+    color: 'text-purple-400',
+    stroke: '#c084fc',
+    bg: 'bg-purple-500/10',
+    border: 'border-purple-500/20',
     icon: FaRobot
   }
 ]
@@ -88,11 +93,11 @@ function describePersonality(traits) {
   else if (warmth <= 0.3) parts.push('dingin dan berjarak')
   else parts.push('ramah standar')
 
-  if (sarcasm_level >= 0.7) parts.push('suka roasting')
-  else if (sarcasm_level <= 0.3) parts.push('sopan dan kalem')
-  else parts.push('witty tapi sopan')
+  if (sarcasm_level >= 0.7) parts.push('suka roasting tajam')
+  else if (sarcasm_level <= 0.3) parts.push('sopan dan santun')
+  else parts.push('witty tapi terkontrol')
 
-  if (trust >= 0.7) parts.push('blak-blakan')
+  if (trust >= 0.7) parts.push('blak-blakan jujur')
   else if (trust <= 0.3) parts.push('hati-hati dan formal')
   else parts.push('cukup terbuka')
 
@@ -101,43 +106,48 @@ function describePersonality(traits) {
   else parts.push('mood stabil')
 
   if (obedience >= 0.7) parts.push('sangat penurut')
-  else if (obedience <= 0.3) parts.push('berani membantah')
+  else if (obedience <= 0.3) parts.push('berani mendebat')
 
   return `Abelink saat ini bersikap ${parts.join(', ')}.`
 }
 
-const TraitRing = ({ value, color, icon: Icon, label, desc, ring }) => {
+const TraitRing = ({ value, color, stroke, icon: Icon, label, desc, bg, border }) => {
   const pct = value * 100
-  const r = 42
+  const r = 44
   const circ = 2 * Math.PI * r
   const offset = circ - (pct / 100) * circ
 
   return (
-    <div className={`flex flex-col items-center gap-2 p-3 rounded-2xl bg-base-200/50 border border-white/5 ring-1 ${ring} transition-all hover:scale-[1.03] hover:bg-base-200/80`}>
-      <div className="relative w-20 h-20">
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r={r} fill="none" strokeWidth="6" className="stroke-base-content/10" />
+    <div className={`flex flex-col items-center gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200 hover:bg-white/[0.04]`}>
+      <div className="relative w-24 h-24">
+        <svg className="w-full h-full -rotate-90" viewBox="0 0 108 108">
+          <circle cx="54" cy="54" r={r} fill="none" strokeWidth="6" stroke="rgba(255,255,255,0.06)" />
           <circle
-            cx="50"
-            cy="50"
+            cx="54"
+            cy="54"
             r={r}
             fill="none"
             strokeWidth="6"
             strokeLinecap="round"
             strokeDasharray={circ}
             strokeDashoffset={offset}
-            className={`transition-all duration-1000 ease-out stroke-current ${color}`}
+            stroke={stroke}
+            className="transition-all duration-1000 ease-out"
           />
         </svg>
         <div className={`absolute inset-0 flex flex-col items-center justify-center ${color}`}>
-          <Icon className="text-xl" />
-          <span className="text-sm font-bold font-mono mt-0.5">{value.toFixed(2)}</span>
+          <Icon className="text-lg" />
+          <span className="text-sm font-semibold font-mono mt-0.5 tracking-tight">{value.toFixed(2)}</span>
         </div>
       </div>
-      <div className="text-center">
-        <p className={`text-[13px] font-bold ${color}`}>{label}</p>
-        <p className="text-[10px] leading-tight text-base-content/50 mt-0.5">{desc}</p>
-        <p className={`text-[11px] font-semibold mt-1 ${color}`}>{describeLevel(value)}</p>
+      <div className="text-center w-full">
+        <p className={`text-xs font-semibold ${color} tracking-wide`}>{label}</p>
+        <p className="text-[10px] leading-tight text-zinc-400 mt-1 min-h-[24px] px-1">{desc}</p>
+        <div className="mt-2 pt-2 border-t border-white/[0.06] flex items-center justify-center">
+          <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${bg} ${border} ${color}`}>
+            {describeLevel(value)}
+          </span>
+        </div>
       </div>
     </div>
   )
@@ -146,7 +156,6 @@ const TraitRing = ({ value, color, icon: Icon, label, desc, ring }) => {
 const RelationalGrowth = () => {
   const navigate = useNavigate()
   const [traits, setTraits] = useState(null)
-  const [stats, setStats] = useState({})
   const [loading, setLoading] = useState(true)
   const { confirm, ModalComponent } = useConfirm()
 
@@ -169,7 +178,7 @@ const RelationalGrowth = () => {
   const handleReset = async () => {
     const result = await confirm({
       title: 'Reset Sifat Hubungan?',
-      message: 'Ini akan mereset semua trait Abelink ke netral (0.5). Hubungan akan dimulai dari awal. Lanjutkan?',
+      message: 'Ini akan mereset semua trait Abelink ke baseline netral (0.50). Hubungan evolusi akan dimulai kembali dari awal.',
       isError: true,
       confirmText: 'Ya, Reset'
     })
@@ -192,72 +201,103 @@ const RelationalGrowth = () => {
   }
 
   return (
-    <div className="h-screen bg-base-300 text-base-content overflow-hidden relative font-['Poppins',sans-serif]">
+    <div className="h-screen bg-[#080B09] text-zinc-200 overflow-hidden relative font-['Poppins',sans-serif]">
       {/* Background Ambience */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,oklch(var(--p)/0.08)_0%,transparent_50%)] pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,oklch(var(--s)/0.06)_0%,transparent_50%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(6,182,212,0.08),transparent_50%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,rgba(16,185,129,0.04),transparent_40%)] pointer-events-none" />
 
       {/* Main Content */}
       <div className="relative z-10 w-full h-full overflow-y-auto custom-scrollbar">
-        <div className="max-w-3xl mx-auto px-4 py-8 pb-32 space-y-8">
+        <div className="w-full max-w-6xl mx-auto px-6 lg:px-10 py-8 pb-32 space-y-8">
 
           {/* Page Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm btn-circle">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          <div className="flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3.5">
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="w-8 h-8 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-zinc-300 hover:text-white transition-all shrink-0"
+                style={{ WebkitAppRegion: 'no-drag' }}
+                title="Kembali ke Dashboard"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="1.1em"
+                  height="1.1em"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-primary">
-                  Relational Growth
-                </h1>
-                <p className="text-xs text-base-content/50 mt-1">Statistik kepribadian & hubungan Abelink denganmu</p>
+                <div className="flex items-center gap-2.5">
+                  <h1 className="text-xl font-semibold text-white tracking-tight">Relational Growth</h1>
+                  <span className="text-[11px] text-zinc-500 font-mono tracking-wide">/ Dynamic 4D Persona</span>
+                </div>
+                <p className="text-zinc-400 text-xs mt-0.5">
+                  Evolusi kepribadian, kedekatan, dan pola interaksi Abelink secara adaptif.
+                </p>
               </div>
             </div>
-            <button onClick={handleReset} className="btn btn-sm btn-error btn-outline gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
-              </svg>
-              Reset
+
+            <button
+              type="button"
+              onClick={handleReset}
+              className="btn btn-sm rounded-xl gap-1.5 px-3.5 font-medium bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 border border-rose-500/30 transition-all text-xs"
+              style={{ WebkitAppRegion: 'no-drag' }}
+            >
+              <FaUndo className="text-xs" /> Reset Trait
             </button>
           </div>
 
           {loading ? (
             <div className="flex items-center justify-center h-64">
-              <span className="loading loading-spinner loading-lg text-primary"></span>
+              <span className="loading loading-spinner loading-lg text-cyan-400"></span>
             </div>
           ) : (
-            <>
+            <div className="space-y-6">
               {/* Personality Summary Card */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-base-200/80 to-base-300/50 border border-white/5 backdrop-blur-sm">
-                <p className="text-sm font-semibold text-primary mb-2 flex items-center gap-2"><FaBrain className="text-primary" /> Kepribadian Saat Ini</p>
-                <p className="text-base-content/80 text-sm leading-relaxed">{describePersonality(traits)}</p>
-                {traits?.evalCount > 0 && (
-                  <div className="flex items-center gap-4 mt-3 text-xs text-base-content/40">
-                    <span className="flex items-center gap-1"><FaChartBar className="text-base-content/40" /> Evaluasi ke-{traits.evalCount}</span>
-                    {traits.lastEvaluation && (
-                      <span className="flex items-center gap-1"><FaClock className="text-base-content/40" /> {new Date(traits.lastEvaluation).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-                    )}
-                  </div>
-                )}
+              <div className="p-6 rounded-3xl bg-black/30 backdrop-blur-2xl border border-white/[0.08] shadow-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-cyan-400 flex items-center gap-2 tracking-wide uppercase">
+                    <FaBrain className="text-cyan-400" /> Karakter Dinamis Abelink
+                  </p>
+                  {traits?.evalCount > 0 && (
+                    <div className="flex items-center gap-3 text-[11px] text-zinc-500 font-mono">
+                      <span className="flex items-center gap-1"><FaChartBar /> Evolusi #{traits.evalCount}</span>
+                      {traits.lastEvaluation && (
+                        <span className="flex items-center gap-1">
+                          <FaClock /> {new Date(traits.lastEvaluation).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <p className="text-zinc-200 text-base leading-relaxed font-sans">
+                  {describePersonality(traits)}
+                </p>
               </div>
 
               {/* Trait Rings Grid */}
-              <div>
-                <p className="text-sm font-semibold text-base-content/70 mb-4 flex items-center gap-2"><FaChartLine className="text-primary/70" /> Trait Overview</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              <div className="p-6 rounded-3xl bg-black/30 backdrop-blur-2xl border border-white/[0.08] shadow-2xl space-y-4">
+                <p className="text-xs font-semibold text-zinc-400 flex items-center gap-2 uppercase tracking-wide">
+                  <FaChartLine className="text-cyan-400" /> Dimensi Trait Relasional
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                   {TRAIT_META.map(t => (
                     <TraitRing
                       key={t.key}
                       value={traits?.[t.key] ?? 0.5}
                       color={t.color}
+                      stroke={t.stroke}
                       icon={t.icon}
                       label={t.label}
                       desc={t.desc}
-                      text={t.text}
-                      ring={t.ring}
+                      bg={t.bg}
+                      border={t.border}
                     />
                   ))}
                 </div>
@@ -265,40 +305,44 @@ const RelationalGrowth = () => {
 
               {/* Reasoning Log */}
               {traits?.reasoning && (
-                <div>
-                  <p className="text-sm font-semibold text-base-content/70 mb-3 flex items-center gap-2"><FaCommentDots className="text-primary/70" /> Reasoning Terakhir</p>
-                  <div className="p-4 rounded-2xl bg-base-200/50 border border-white/5">
-                    <p className="text-sm text-base-content/70 italic leading-relaxed">&ldquo;{traits.reasoning}&rdquo;</p>
+                <div className="p-6 rounded-3xl bg-black/30 backdrop-blur-2xl border border-white/[0.08] shadow-2xl space-y-3">
+                  <p className="text-xs font-semibold text-zinc-400 flex items-center gap-2 uppercase tracking-wide">
+                    <FaCommentDots className="text-cyan-400" /> Analisis Drift Terakhir
+                  </p>
+                  <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+                    <p className="text-xs text-zinc-300 italic leading-relaxed">&ldquo;{traits.reasoning}&rdquo;</p>
                   </div>
                 </div>
               )}
 
               {/* Stats Grid */}
-              <div>
-                <p className="text-sm font-semibold text-base-content/70 mb-4 flex items-center gap-2"><FaCubes className="text-primary/70" /> Statistik Hubungan</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div className="p-6 rounded-3xl bg-black/30 backdrop-blur-2xl border border-white/[0.08] shadow-2xl space-y-4">
+                <p className="text-xs font-semibold text-zinc-400 flex items-center gap-2 uppercase tracking-wide">
+                  <FaCubes className="text-cyan-400" /> Matriks Metrik Hubungan
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                   {[
-                    { label: 'Evaluasi Sifat', value: traits?.evalCount || 0, icon: FaChartBar, sub: 'Total drift evaluation', iconColor: 'text-primary' },
-                    { label: 'Kehangatan', value: ((traits?.warmth || 0.5) * 100).toFixed(0) + '%', icon: FaFire, sub: describeLevel(traits?.warmth || 0.5), iconColor: 'text-error' },
-                    { label: 'Kepercayaan', value: ((traits?.trust || 0.5) * 100).toFixed(0) + '%', icon: FaShieldAlt, sub: describeLevel(traits?.trust || 0.5), iconColor: 'text-success' },
-                    { label: 'Sarkasme', value: ((traits?.sarcasm_level || 0.5) * 100).toFixed(0) + '%', icon: FaTheaterMasks, sub: describeLevel(traits?.sarcasm_level || 0.5), iconColor: 'text-warning' },
-                    { label: 'Kepatuhan', value: ((traits?.obedience || 0.5) * 100).toFixed(0) + '%', icon: FaRobot, sub: describeLevel(traits?.obedience || 0.5), iconColor: 'text-secondary' }
+                    { label: 'Siklus Evaluasi', value: traits?.evalCount || 0, icon: FaChartBar, sub: 'Total drift check', iconColor: 'text-cyan-400' },
+                    { label: 'Kehangatan', value: ((traits?.warmth || 0.5) * 100).toFixed(0) + '%', icon: FaFire, sub: describeLevel(traits?.warmth || 0.5), iconColor: 'text-rose-400' },
+                    { label: 'Kepercayaan', value: ((traits?.trust || 0.5) * 100).toFixed(0) + '%', icon: FaShieldAlt, sub: describeLevel(traits?.trust || 0.5), iconColor: 'text-emerald-400' },
+                    { label: 'Sarkasme', value: ((traits?.sarcasm_level || 0.5) * 100).toFixed(0) + '%', icon: FaTheaterMasks, sub: describeLevel(traits?.sarcasm_level || 0.5), iconColor: 'text-amber-400' },
+                    { label: 'Kepatuhan', value: ((traits?.obedience || 0.5) * 100).toFixed(0) + '%', icon: FaRobot, sub: describeLevel(traits?.obedience || 0.5), iconColor: 'text-purple-400' }
                   ].map((stat, i) => {
                     const StatIcon = stat.icon
                     return (
-                      <div key={i} className="p-3 rounded-xl bg-base-200/40 border border-white/5 hover:bg-base-200/60 transition-colors">
-                        <div className="flex items-center gap-1.5 mb-1.5">
+                      <div key={i} className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.04] transition-all">
+                        <div className="flex items-center gap-2 mb-2">
                           <StatIcon className={`text-sm ${stat.iconColor}`} />
-                          <span className="text-[11px] text-base-content/50 leading-none">{stat.label}</span>
+                          <span className="text-[11px] text-zinc-400 font-medium">{stat.label}</span>
                         </div>
-                        <p className={`text-lg font-bold font-mono leading-none ${stat.iconColor}`}>{stat.value}</p>
-                        <p className="text-[10px] text-base-content/40 mt-1.5 leading-none">{stat.sub}</p>
+                        <p className={`text-xl font-bold font-mono tracking-tight ${stat.iconColor}`}>{stat.value}</p>
+                        <p className="text-[10px] text-zinc-500 mt-1 font-mono">{stat.sub}</p>
                       </div>
                     )
                   })}
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
