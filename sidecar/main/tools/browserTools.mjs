@@ -716,4 +716,9 @@ export const browserTools = {
       }
     }
   }
-};
+}
+
+// Aliases untuk model LLM (Claude, OpenAI, Hermes) yang memanggil web_search / advanced_search
+browserTools['web_search'] = browserTools['browser-search']
+browserTools['web-search'] = browserTools['browser-search']
+browserTools['advanced_search'] = browserTools['browser-search']

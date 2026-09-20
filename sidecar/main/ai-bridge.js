@@ -521,14 +521,22 @@ export const fetchAI = async (
           return executeFetch(retryNoImage, true, trafficRetryCount)
         }
 
-        // Auto-retry fallback untuk High Traffic / Rate Limits (503, 429, 500)
+        // Auto-retry fallback untuk High Traffic / Rate Limits / Token Limits (503, 429, 500, quota/TPM)
+        const errMsgLower = finalErrorMessage.toLowerCase()
         let isHighTraffic =
           response.status === 429 ||
           response.status >= 500 ||
-          finalErrorMessage.toLowerCase().includes('high traffic') ||
-          finalErrorMessage.toLowerCase().includes('rate limit')
+          errMsgLower.includes('high traffic') ||
+          errMsgLower.includes('rate limit') ||
+          errMsgLower.includes('token limit') ||
+          errMsgLower.includes('tokens per min') ||
+          errMsgLower.includes('tpm') ||
+          errMsgLower.includes('quota exceeded') ||
+          errMsgLower.includes('insufficient_quota') ||
+          errMsgLower.includes('overloaded') ||
+          errMsgLower.includes('temporarily unavailable')
 
-        if (finalErrorMessage.toLowerCase().includes('request too large')) {
+        if (errMsgLower.includes('request too large') || errMsgLower.includes('context length exceeded')) {
           isHighTraffic = false
         }
 
@@ -537,7 +545,7 @@ export const fetchAI = async (
           let retryBody = { ...currentBody }
 
           if (onStatus)
-            onStatus(`Server sibuk (${response.status}), mencoba ulang (${trafficRetryCount + 1}/10) dalam ${Math.round(backoffDelay / 1000)}s...`)
+            onStatus(`Server sibuk atau limit sementara (${response.status}), mencoba ulang (${trafficRetryCount + 1}/10) dalam ${Math.round(backoffDelay / 1000)}s...`)
 
           console.log(
             `[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/10)`
