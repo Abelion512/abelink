@@ -45,8 +45,6 @@
     "@monaco-editor/react": "^4.7.0",
     "@orama/orama": "^3.1.18",
     "@tauri-apps/api": "^2",
-    "axios": "^1.13.4",
-    "date-fns": "^4.4.0",
     "dexie": "^4.3.0",
     "dexie-export-import": "^4.1.4",
     "duck-duck-scrape": "^2.2.7",
