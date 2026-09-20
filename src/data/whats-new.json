@@ -1,136 +1,453 @@
 {
-  "version": "1.1.0-alpha.5",
-  "date": "15 September 2026",
-  "summary": "4 fitur baru, 20 perbaikan dan 8 pembaruan dokumentasi.",
+  "version": "1.2.0-alpha.6",
+  "date": "20 September 2026",
+  "summary": "51 fitur baru, 17 perbaikan dan 43 pembaruan dokumentasi.",
+  "founderReport": "Yang baru untuk Anda: Apple-design + ponytail cleanup P1+P2; Browser-ask pause-state payload, legacy HITL string kept; Tab identity in observations, explicit adoptUserTab, no cross-session drain. Lebih stabil: Remove stray brace from adoptOrphanTab edit; Honor adoptUserTab flag, never steal user tabs by default; Explicit empty-extract contract, prose validator bypass, gmail regression.",
   "linearUrl": "https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326",
   "changes": [
     {
       "type": "AUTO",
-      "msg": "RI envelope + live boundary + run-local"
+      "msg": "Apple-design + ponytail cleanup P1+P2"
     },
     {
       "type": "AUTO",
-      "msg": "SemVer penuh + extension ikut app"
+      "msg": "Browser-ask pause-state payload, legacy HITL string kept"
     },
     {
       "type": "AUTO",
-      "msg": "Pairing pinned-flavor + zero-click resume, hapus silent auto-switch"
+      "msg": "Tab identity in observations, explicit adoptUserTab, no cross-session drain"
     },
     {
       "type": "AUTO",
-      "msg": "Dua native host prod/dev, installer tanpa overwrite lintas flavor"
+      "msg": "Hitl_discipline dimension, batch halt, no-surrender prompts"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Co-pilot HITL pause-resume, no veil steal, same-tab resume"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Co-pilot passive pill, no veil when awaiting user"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Tab identity via session focusedUrl, _group carries url+title"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Main-first tagger, cap 200, text 120"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Implement autonomous agent pillars"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Add progressive disclosure multi-root discovery for laptop host skills and research whitepaper"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Ad-free embedded player configuration with nocookie host and overlay suppression"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Rich multimodal choice bus and OST ambiguity disambiguation with audio preview"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Auto-detect drag drop and paste for Linux URI, screenshot, and web HTML img"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Wire MEMORY_TOOL_SPEC with atomic engine and failure cap"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Nudge and mini evaluation engine with auto-graduation"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Handoff contract JSON with 7 mandatory fields for durable tasks"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Full skill folder bundle with references/ and scripts/ support"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Tool search deferred catalog with rich specs and examples"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Explicit memoryRouter subsystem for per-turn context assembly and validation"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Sensitive-write protection ala Hermes"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Apply apple design system to pages and main app layout"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Redesign chat bubbles, subagent HUD, config sections and widgets"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Apple design system core components and loaders"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Add boot timeout fallback and controllable state hook"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Hardline guardian ditolak tanpa dialog"
+    },
+    {
+      "type": "AUTO",
+      "msg": "3-tier hardline/dangerous/self ala Hermes"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Isolasi tab antar-sesi + skill goal + floor budget"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Snapshot konten + wait-for + stop-loop konten kosong"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Telemetri reuse + trial gate + anti-hack + internet-first"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Sebab 401 dibedakan + auto-retry token + launch reason"
+    },
+    {
+      "type": "AUTO",
+      "msg": "V3 search-error + ingatan sesi + compact gap + Hermes-1"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Claim-quoted + rantai 9Router + auto-close grup"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Jangkar teks opsional untuk os-click + browser-click"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Tangga budget 24/48 + eskalasi satu-kali + gemini cooldown persisten"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Tahap 3 registry+bundle + Tahap 4 validasi+gate + lazy node-tools"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Tahap 2 pintu eksekusi terpadu + waitWithTimeout"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Tahap 1 kartu identitas standar + adapter plugin/skill"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Write-gate dedup di insertMemory"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Extension alarms resume + trajectory sessionId + overlay tebal"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Blocked-challenge 1x untuk klaim blocked tanpa eksekusi tool"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Sweep timer, fail-fast dispatch, channel reconnect, pill UI"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Autoload skill, browse transparan, ask-user , whatsnew rapi"
+    },
+    {
+      "type": "AUTO",
+      "msg": "WorkspaceRoot plumbing, thinking streaming, apple diagnostic"
+    },
+    {
+      "type": "AUTO",
+      "msg": "W1 token foundation"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Effort pass-through per vendor, music ask-choice, image preview, agent scope"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Effort pass-through per vendor, music ask-choice, image preview, agent scope"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Extract taskRuntime boundary"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Extract taskRuntime boundary"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Riwayat model sukses, auto-latest pola, revert deepseek"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Input bebas model gemini-web + saran"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Gemini-latest alias, fallback Gemini->custom, warning model tak dikenal"
     },
     {
       "type": "ATM",
-      "msg": "Guard orphan-branch pakai staleBranch/newVersion"
+      "msg": "Remove stray brace from adoptOrphanTab edit"
     },
     {
       "type": "ATM",
-      "msg": "BumpRank footer-anchored + orphan release-branch guard"
+      "msg": "Honor adoptUserTab flag, never steal user tabs by default"
     },
     {
       "type": "ATM",
-      "msg": "Exit code sync-version + bumpRank breaking changes + regression tests"
+      "msg": "Explicit empty-extract contract, prose validator bypass, gmail regression"
     },
     {
       "type": "ATM",
-      "msg": "Strict flavor isolation + FLAVOR_PINNED backcompat"
+      "msg": "Honest handshake status, loop-based pill"
     },
     {
       "type": "ATM",
-      "msg": "Kanonikalisasi path token per-flavor + strict flavor reader"
+      "msg": "Honest handshake status, loop-based pill"
     },
     {
       "type": "ATM",
-      "msg": "Robust isDev detection, fail-closed skills path traversal, and tests"
+      "msg": "Resolve trajectory search aliases, google tools import, and token limit resilience"
     },
     {
       "type": "ATM",
-      "msg": "Correctness dari audit - 0600, fail-closed, sort, guard"
+      "msg": "Resolve react rules-of-hooks in ChoiceButtons, optimize JSON parsing and URL guard, and stabilize perf baseline"
     },
     {
       "type": "ATM",
-      "msg": "Namespace dev/prod untuk telegram, plugins, tmp"
+      "msg": "Trajectory answer logging, objective verification for subagents, and apple design ui integration"
     },
     {
       "type": "ATM",
-      "msg": "Prevent false rejection of short speech, tune logprob threshold, and clean up gum timer"
+      "msg": "Unified queue draining and wake propagation for subagent browser execution"
     },
     {
       "type": "ATM",
-      "msg": "Selaraskan reader harness/workspace dengan writer Rust"
+      "msg": "Native-host wrapper quoting, Lite ingest fallback, prose-recovery awal"
     },
     {
       "type": "ATM",
-      "msg": "Default model groq/whisper-large-v3-turbo, hapus placeholder selfhosted"
+      "msg": "Hapus export ilegal di service worker + gate verify"
     },
     {
       "type": "ATM",
-      "msg": "Anti-halusinasi STT + unifikasi data-home dev/prod"
+      "msg": "Reseed token sesi default dari file setelah drop"
     },
     {
       "type": "ATM",
-      "msg": "Precedence TRUNCATED over failed, filter artifact intent, and audit subagent tools"
+      "msg": "Timeouts, queue cap, cleanAndParse parity, log hygiene"
     },
     {
       "type": "ATM",
-      "msg": "Em dash cleanup, isNativeBacked single source, RI contract"
+      "msg": "SSRF redirect policy, Guidebook Markdown, telegram forget"
     },
     {
       "type": "ATM",
-      "msg": "Truncation check beats explicit done in subagent classifier"
+      "msg": "Defer tasks:* channel, split headless proof"
     },
     {
       "type": "ATM",
-      "msg": "Wait_subagents completeness gate + truncation recovery + batch tool tags"
+      "msg": "Defer tasks:* channel, split headless proof"
     },
     {
       "type": "ATM",
-      "msg": "RI-13 root-cause patch F1/F3-partial/F4 + regression tests"
-    },
-    {
-      "type": "ATM",
-      "msg": "Fail-fast offline paths, non-blocking boot, tab-storm guard"
-    },
-    {
-      "type": "ATM",
-      "msg": "Fail-fast offline paths, non-blocking boot, tab-storm guard"
-    },
-    {
-      "type": "ATM",
-      "msg": "Action-class-aware browser verification, narrow escalation"
+      "msg": "EnsureGitIdentity di syncWithReleaseBase"
     },
     {
       "type": "DOCS",
-      "msg": "Isolasi prod/dev browser bridge + pairing PR#11"
+      "msg": "Resolve 16 konflik -> apple-design + cleanup intact"
     },
     {
       "type": "DOCS",
-      "msg": "Namespace dev/prod, pipeline VAD/STT, kontrak harness, toolchain"
+      "msg": "Ponytail cleanup P1+P2"
     },
     {
       "type": "DOCS",
-      "msg": "DataHome tunggal + helper harness bersama + potongan ponytail"
+      "msg": "Drop manualChunks mati"
     },
     {
       "type": "DOCS",
-      "msg": "Final RI verification-gate log with PR state"
+      "msg": "Ponytail cleanup P1+P2 log"
     },
     {
       "type": "DOCS",
-      "msg": "Cargo.lock alpha.4 via cargo check"
+      "msg": "React-icons->lucide, monaco->textarea"
     },
     {
       "type": "DOCS",
-      "msg": "RI verification-gate patch log"
+      "msg": "Motion+force-graph+highlighter+three -> native/CSS"
     },
     {
       "type": "DOCS",
-      "msg": "V1.0.0-alpha.4"
+      "msg": "Axios->fetch native, drop axios+date-fns"
     },
     {
       "type": "DOCS",
-      "msg": "V1.0.0-alpha.4"
+      "msg": "Hapus file mati"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Session log + ARCHITECTURE browser autonomy"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Ui-eval autonomy into apple-design"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Sidecar autonomy into apple-design"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Ext autonomy into apple-design"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Browser autonomy restoration P0-P3 + co-pilot HITL"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Update knowledge graph report"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Bridge helper crash + RAG Lite fallback + retry burn"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Add Section 11 documenting Operating Model subsystems adoption"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Loosen waitWithTimeout interval for busy host runs"
+    },
+    {
+      "type": "DOCS",
+      "msg": ": explicit memoryRouter subsystem"
+    },
+    {
+      "type": "DOCS",
+      "msg": ": sensitive-write protection ala Hermes"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Switch to abelink theme, add motion and date-fns dependencies"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Session logs and design plan for apple blue redesign"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Sync limit-ladder and smoke assertions to 24/48 step budget"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Operating model Hermes x Anthropic x Abelink + + ADR"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Master blueprint for auto-worktree engine and unified peer gateway"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Update perf-baseline and ignore reports/*.json"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Sync knowledge graph after merge & cleanup"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Branch cleanup, merge, and max capability audit log"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Trajectory + codebase audit log"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Timeouts, queue cap, cleanAndParse parity, log hygiene"
+    },
+    {
+      "type": "DOCS",
+      "msg": "SSRF redirect, Guidebook markdown, telegram forget"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Push merge cleanup log + TASK handoff"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Stack #37-#41 merge lokal + TASK handoff"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Memory write-dedup log + TASK handoff"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Keepalive-trajectory log + TASK handoff"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Agent-grit blocked-challenge log + TASK handoff"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Watchdog reconnect log + TASK handoff"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Trajectory + codebase audit log"
+    },
+    {
+      "type": "DOCS",
+      "msg": "PR merge + branch cleanup log"
+    },
+    {
+      "type": "DOCS",
+      "msg": "PR merge + branch cleanup log"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Hemat menit runner tanpa kurangi gate kualitas"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Branch cleanup + agent-first doc rules"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Define first-class engine client direction"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Hapus DeepSeek"
     }
   ]
 }
