@@ -495,12 +495,14 @@ export const browserTools = {
   },
   'browser-ask': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query, config) => {
       const reason = String(query || 'Membutuhkan interaksi langsung pengguna di browser').trim()
       return {
         success: true,
+        paused: true,
         waiting_for_user: true,
         needs_user: true,
+        awaitUser: { reason, sessionId: config?.sessionId || 'default' },
         data: `[BROWSER HUMAN-IN-THE-LOOP] Menunggu bantuan pengguna di tab browser: "${reason}". Silakan selesaikan interaksi (login akun / captcha / 2FA) di browser Chrome yang sedang aktif, lalu beri tahu Abelink bila sudah selesai agar tugas bisa dilanjutkan.`
       }
     }
