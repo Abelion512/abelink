@@ -916,7 +916,13 @@ export async function saveRelationship(data) {
 }
 
 // --- LEARNED SKILLS (METASYSTEM SELF-IMPROVEMENT) ---
-export async function saveLearnedSkill({ name, description, content, state }) {
+export async function saveLearnedSkill({
+  name,
+  description,
+  content,
+  state,
+  evidenceVerified = false
+}) {
   try {
     const cleanName = (name || '').toLowerCase().replace(/[^a-z0-9-_]/g, '-').replace(/^-+|-+$/g, '')
     if (!cleanName || !content) return null
@@ -937,7 +943,11 @@ export async function saveLearnedSkill({ name, description, content, state }) {
       last_used_at: existing?.last_used_at ?? null,
       // R1b: skill baru lahir sebagai 'trial' bila diminta; update
       // mempertahankan state lama kecuali dioverride eksplisit.
-      state: state ?? existing?.state ?? 'active'
+      state: state ?? existing?.state ?? 'active',
+      // General Agentic Runtime: structural mini-eval is not evidence.
+      // Promotion may use evalPassed only when the originating trajectory
+      // had independent completion verification.
+      evidenceVerified: Boolean(evidenceVerified || existing?.evidenceVerified)
     }
 
     await db.learnedSkills.put(skillData)
@@ -1006,7 +1016,8 @@ export async function bumpLearnedSkillUse(idOrName) {
 }
 
 // R1b: gate empiris skill trial (ala DGM/AlphaEvolve).
-// Trial lulus -> 'active' bila reuse_count > 0 ATAU evalPassed true.
+// Trial lulus -> 'active' bila reuse_count > 0 ATAU evalPassed true
+// AND originating evidence was independently verified.
 // Trial kedaluwarsa (> trialDays hari tanpa reuse) -> 'archived'.
 // Mengembalikan state akhir ('active' | 'trial' | 'archived') atau null.
 export async function graduateTrialSkill(idOrName, { evalPassed = false, trialDays = 7, now = Date.now() } = {}) {
@@ -1015,7 +1026,7 @@ export async function graduateTrialSkill(idOrName, { evalPassed = false, trialDa
     const existing = (await db.learnedSkills.get(idOrName)) || (await db.learnedSkills.where('name').equalsIgnoreCase(idOrName).first())
     if (!existing || existing.state !== 'trial') return existing?.state ?? null
     const uses = typeof existing.use_count === 'number' ? existing.use_count : 0
-    if (uses > 0 || evalPassed === true) {
+    if (uses > 0 || (evalPassed === true && existing.evidenceVerified === true)) {
       await db.learnedSkills.put({ ...existing, state: 'active', updatedAt: now })
       return 'active'
     }
