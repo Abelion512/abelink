@@ -2074,6 +2074,8 @@ export const useAbelinkPlan = ({
                   query,
                   success: toolSuccess,
                   verificationState: lastVerification,
+                  observation: execResult.resultString || '',
+                  result: execResult.resultString || '',
                   stepsLeft: maxPlanSteps - stepCount,
                   verifyGateActive: pendingVerifyObservation != null
                 })
