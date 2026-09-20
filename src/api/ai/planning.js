@@ -13,6 +13,8 @@ import { getCachedSkills } from '../skillsCache'
 import { logReasoning as trajectoryLogReasoning, logStep as trajectoryLogStep, estimateTokens } from '../trajectory'
 import { buildWorkspacePromptSection, composeAllMemorySections } from './memoryRouter'
 import { buildTrialSkillNudge } from './skillMiniEval'
+import { buildAutonomyContractSection } from './autonomyContract'
+import { classifyObjectiveKind } from './objectiveVerifier'
 
 // Audit injeksi: snapshot system prompt terakhir (diambil via getLastSystemPrompt).
 let lastSystemPrompt = ''
@@ -124,11 +126,33 @@ export const getNextAction = async (
     const trialNudge = buildTrialSkillNudge(learnedSkills, userInput)
     const trialNudgeSection = trialNudge ? `\n\n${trialNudge}` : ''
 
+    const classifiedKind = classifyObjectiveKind(userInput, {
+      disableTools: !!options.disableTools,
+      conversational: !!options.conversational
+    })
+    const autonomyDomain =
+      classifiedKind === 'browser'
+        ? 'browser'
+        : classifiedKind === 'os'
+          ? 'os_automation'
+          : classifiedKind === 'code'
+            ? 'code'
+            : classifiedKind === 'research'
+              ? 'research'
+              : /belajar|soal|latihan|pelajari|study|learn/i.test(String(userInput || ''))
+                ? 'learning'
+                : 'general'
+    const autonomyContractSection = buildAutonomyContractSection({
+      domain: autonomyDomain,
+      stepsLeft: typeof options.stepsLeft === 'number' ? options.stepsLeft : null
+    })
+
     const systemPrompt = `
 Kamu adalah Abelink, sebuah entitas asisten AI PC Linux otonom.
 
 ${await getPersonaPrompt(userId, conf.personality, conf.ownerName)}
 ${getBuiltinPluginsPrompt(conf)}
+${autonomyContractSection}
 ${options.currentMusicTrack ? `\n# STATUS PLAYER MUSIK (REAL-TIME):\nLagu yang AKTIF DIPUTAR SEKARANG: "${options.currentMusicTrack.title}" oleh ${options.currentMusicTrack.artist}.\nPENTING: Lagu di playlist bisa berganti otomatis. JANGAN TERKECUH oleh riwayat chat lama yang menyebutkan lagu sebelumnya! Untuk semua pertanyaan atau obrolan tentang musik yang sedang berjalan, HANYA gunakan data REAL-TIME ini sebagai referensi utama!` : ''}
 ${
   userSkillsList.length > 0 || learnedSkillsList.length > 0

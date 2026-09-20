@@ -85,7 +85,84 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
    `message`/`error` eksplisit (atau melempar) agar konsumen tahu batas
    kemampuan, bukan diam-diam percaya fitur jalan.
 
-## 4. Alur Data Kritis
+## 4. General Agentic Runtime Contract
+
+The agent runtime is domain-general rather than coding-specific. Opencode and Hermes remain the preferred external coding/delegation systems; Abelink focuses on orchestration, browser/OS automation, research, learning, memory, and long-horizon recovery.
+
+New runtime primitives:
+
+- `src/api/ai/autonomyContract.js` — compact model-facing protocol for research, browser, OS automation, code, learning, and general tasks. This is context/protocol engineering, not a replacement for model reasoning.
+- `src/api/ai/progressEvaluator.js` — deterministic comparison of consecutive observations. It distinguishes verification improvement, new evidence, semantic stagnation, regression, and neutral exploration.
+- `src/api/ai/trajectoryLearning.js` — bounds and separates successful trajectory evidence from failure diagnostics before model-based skill synthesis.
+
+Runtime flow:
+
+```
+objective
+  -> micro-plan / next hypothesis
+  -> policy + budget
+  -> tool execution
+  -> observation
+  -> objective verifier + progress evaluator
+  -> trajectory supervisor
+  -> continue / modify / explore / retrieve / stop
+  -> grounded trajectory learning
+```
+
+The objective verifier remains authoritative for completion. Progress evaluation must never bypass approval, watchdog, or budget guards.
+
+### Browser Observation Contract
+
+Browser observations are a reasoning interface, not a raw UI dump.
+
+The preferred payload order is:
+
+1. page identity (title, URL, session/tab identity)
+2. main semantic text
+3. relevant structured state
+4. task-relevant interactive elements
+5. visual/screenshot evidence only when text/DOM is insufficient
+
+`extension/background.js` now includes main-page text in the DOM observation. `extension/browser-observation.mjs` formats that payload with semantic text first and bounds the interactive control list before it reaches the model. This is intended to reduce context distraction on UI-heavy pages while preserving enough controls for the next action.
+
+### Evidence-Grounded Skill Promotion
+
+Structural mini-eval is not evidence. `runSkillMiniEval` (`src/api/ai/skillMiniEval.js`) only checks SOP shape, actionability, and safety, so a passing eval proves the *form* of a skill, never its factual correctness.
+
+`graduateTrialSkill` (`src/api/db.js`) therefore promotes a `trial` skill to `active` only when:
+
+- the skill was actually reused (`use_count > 0`), or
+- a structural eval passed **and** the originating trajectory carried independent completion verification (`evidenceVerified === true`).
+
+`evidenceVerified` is derived at exactly one place — the skill synthesizer (`src/api/ai/skillSynthesizer.js`) — through `isIndependentlyVerified({ verification, kind })` (`src/api/ai/objectiveVerifier.js`). The verifier module owns what counts as proof, including the exemption rule: `evaluateEvidence` reports a **conversational** objective as `verified` with zero criteria and zero ops purely as an *exemption* from verification, so that state must never be read as evidence. The flag is monotonic in storage (once true it is never cleared by a later save) and can never be granted from the model's final answer. Newly synthesized skills are always written as `trial`; they must not inherit `active` merely because their SOP reads well.
+
+Provenance chain:
+
+```text
+tool observations (executedToolsList)
+  -> evaluateEvidence (objectiveVerifier: world-state criteria, never the model's claim)
+  -> hook verdict `lastVerification` + `objectiveKind` (forwarded by the FINAL branch of useAbelinkPlan)
+  -> synthesizeSkillAndSave({ verificationState, objectiveKind })
+  -> isIndependentlyVerified() -> saveLearnedSkill({ evidenceVerified })
+  -> graduateTrialSkill({ evalPassed }) -> active | trial | archived
+```
+
+Consequence for callers and tests: asserting graduation requires declaring the evidence basis. A `trial` skill created without `evidenceVerified` stays `trial` (or is archived once older than `trialDays`), so `evalPassed` alone must never be asserted as a promotion trigger. Coverage: `tests/learnedSkillsTelemetry.test.mjs`, `tests/skillMiniEval.test.mjs`, `tests/skillSynthesizerEvidence.test.mjs`, `tests/objectiveVerifier.test.mjs`.
+
+**Wiring status (2026-09-21):** the main ReAct loop's synthesizer call (`src/hooks/agent/useAbelinkPlan.js`, FINAL branch) forwards the two values the runtime already owns — `verificationState: lastVerification` and `objectiveKind` — so the evidence branch of `graduateTrialSkill` is live in production. The caller only *forwards*: it must not re-derive the verdict (no `evaluateEvidence` / `isIndependentlyVerified` call at that site), because the derivation belongs to the synthesizer and the exemption rule belongs to the verifier. Both forwarded properties, and the absence of re-derivation, are pinned by `tests/skillSynthesizerEvidence.test.mjs` (`production caller forwards verifier evidence`). A trajectory that was not independently verified still yields a `trial` skill, reachable to `active` only through reuse (`use_count > 0`) — never by adding a hidden verdict side-channel, which would create a second source of truth for runtime state.
+
+### Research Reference Hierarchy
+
+Primary references for agent-runtime changes:
+
+- Anthropic context engineering and agent engineering: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+- OpenAI platform / agents / observability: https://platform.openai.com/docs
+- OpenAI Cookbook: https://cookbook.openai.com/
+- Hermes Agent docs and source: https://hermes-agent.nousresearch.com/docs/ and https://github.com/NousResearch/hermes-agent
+
+Secondary material is for discovery. Implementation decisions should be traceable to primary documentation, repository code, benchmarks, or reproducible tests.
+
+## 5. Alur Data Kritis
 
 - **Chat/plan:** renderer `useAbelinkAgent` → `planning.js` → `node_invoke('ai:fetch')`
   → bridge → `channels/ai.mjs` → `main/ai-bridge.js` (multi-provider) →
@@ -122,7 +199,7 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
   workspace `.abelink/` → `workspace:*` channel → working memory disuntikkan ke
   system prompt.
 
-## 5. Batasan yang Masih Sengaja Dibiarkan (jangan "perbaiki" diam-diam)
+## 6. Batasan yang Masih Sengaja Dibiarkan (jangan "perbaiki" diam-diam)
 
 - `browser:*` → LIVE (Fase C3 Jalur A): `engine/channels/browser.mjs` + `main/browser/{bridge-core,server}.mjs` + ekstensi MV3 di `extension/`. Jalur B (spawn Chromium per profil) menyusul sebagai fallback; smoke frame end-to-end dengan browser sungguhan belum dijalankan — lihat `extension/README.md`.
 - **Browser autonomy (2026-09-20, `apple-design`):** observasi tab beridentitas (`_tab={tabId,url,title,reused}`, `sessionFocusedUrl`, tolak primer yang URL-nya drift); tagger main-first cap 200/teks 120; `adoptUserTab` eksplisit (default: hanya blank/tab baru, tidak pernah curi tab user); `takeNext` tanpa drain lintas-sesi; HITL co-pilot = pause-state + pill pasif tanpa veil + resume `browser-read` tab sama (tanpa deadline); popup hijau hanya bila loop jalan; eval `hitl_discipline` (needs_user tanpa artefak = 0); validator lewati prosa `.md/.txt`. Detail: `docs/superpowers/plans/2026-09-20-browser-autonomy-restoration.md`, sesi: `docs/PLANNED/sessions/2026-09-20_browser-autonomy.md`.
@@ -136,7 +213,7 @@ Rencana fase: `docs/MIGRATION-PLAN.md` (status per fase + verifikasi).
 Audit gap lengkap: `docs/MIGRATION-GAPS.md`. Triage risiko dependency:
 `docs/SECURITY-TRIAGE.md`.
 
-## 6. Namespace Dev/Prod (pemisahan total)
+## 7. Namespace Dev/Prod (pemisahan total)
 
 Satu prinsip: **`ABELINK_DATA_HOME` menang atas `XDG_DATA_HOME`**
 (`scripts/dev.sh` men-set-nya ke `~/.local/share/abelink-dev`; prod tidak
@@ -161,7 +238,7 @@ PENGECUALIAN by OS design (sengaja bersama, jangan "diperbaiki"):
 root `~/Documents`, cache WebKit di luar identifier, file `/tmp` tanpa
 prefix abelink.
 
-## 7. Pipeline VAD/STT Anti-Halusinasi
+## 8. Pipeline VAD/STT Anti-Halusinasi
 
 `useVAD.js` → `sttGuard.js` → `sttRouter.js` (endpoint 9router
 `127.0.0.1:20128`, model default `groq/whisper-large-v3-turbo`,
@@ -179,7 +256,7 @@ heuristik cps>30). Anti-loopback TTS: `echoCancellation`/`noiseSuppression`
 aktif + cooldown 800ms pasca `isAbelinkSpeaking` (`AbelinkHome.jsx` voice
 auto-restart + `utils.js` stempel `abelinkTtsEndedAt`).
 
-## 8. Kontrak Path Harness (reader = writer)
+## 9. Kontrak Path Harness (reader = writer)
 
 Writer tunggal: Rust `cmd_harness.rs` (`data_home()/abelink/harness/<tgl>/`,
 rotasi 50MB x 3). Reader WAJIB rumus sama: `scripts/harness-common.mjs`
@@ -188,7 +265,7 @@ Evaluasi: `evaluation/run.mjs` `sidecarWorkspaceRoot()` = rumus sama +
 `workspace`. Kategori log baca langsung dari file (`bun run
 harness:diagnose`), bukan copas user.
 
-## 9. Engine Task Runtime Boundary (taskRuntime.js)
+## 10. Engine Task Runtime Boundary (taskRuntime.js)
 
 Durable task/session execution punya batas engine-owned yang bisa dikonsumsi
 Tauri GUI, sidecar, dan CLI/API mendatang — tanpa GUI memiliki state eksekusi.
@@ -246,7 +323,7 @@ toolDispatcher → node_invoke → Rust APPROVAL_ACTIONS (rfd) → native tool
   native in-flight TIDAK di-kill (tanpa abort propagation; timeout bridge 300s).
   Penelepon tetap abort loop/signal sendiri.
 
-## 10. Kebijakan Toolchain Linux-Only
+## 11. Kebijakan Toolchain Linux-Only
 
 Stdlib/platform dulu sebelum kode baru (`AbortSignal.timeout` ditunda
 sampai WebKitGTK target terverifikasi - lihat `ponytail:` di
@@ -256,7 +333,7 @@ Deferral sadar ditandai `ponytail: <ceiling>, <upgrade>` (ledger:
 `eslint.config.mjs:46`, `effort-fixtures.mjs:153`,
 `window_tracker.rs:61`, `sttRouter.js` AbortSignal).
 
-## 11. Operating Model & Autonomy Subsystems (Hermes × Anthropic Adoption)
+## 12. Operating Model & Autonomy Subsystems (Hermes × Anthropic Adoption)
 
 Adopsi pola operasi mandiri dan batasan keamanan (merujuk `docs/OPERATING-MODEL.md` & `docs/OPERATING-ADOPTION.md`):
 
