@@ -2,24 +2,22 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getRelationship, saveRelationship } from '../api/db'
 import { useConfirm } from '../hooks/useConfirm'
+import { MobiusLoader } from '../components/core/MobiusLoader'
+import { UsageHeatmap } from '../components/core/UsageHeatmap'
 import {
-  FaFire,
-  FaTheaterMasks,
-  FaHandshake,
-  FaBolt,
-  FaBrain,
-  FaChartLine,
-  FaCommentDots,
-  FaCubes,
-  FaInfoCircle,
-  FaChartBar,
-  FaClock,
-  FaHeart,
-  FaShieldAlt,
-  FaUndo,
-  FaSave,
-  FaRobot
-} from 'react-icons/fa'
+  Flame,
+  Drama,
+  Handshake,
+  Zap,
+  Brain,
+  ChartLine,
+  MessageCircleMore,
+  Boxes,
+  ChartColumn,
+  Clock,
+  Shield,
+  Bot
+} from 'lucide-react'
 
 const TRAIT_META = [
   {
@@ -29,7 +27,7 @@ const TRAIT_META = [
     color: 'text-error',
     bg: 'bg-error/10',
     ring: 'ring-error/30',
-    icon: FaFire
+    icon: Flame
   },
   {
     key: 'sarcasm_level',
@@ -38,16 +36,16 @@ const TRAIT_META = [
     color: 'text-warning',
     bg: 'bg-warning/10',
     ring: 'ring-warning/30',
-    icon: FaTheaterMasks
+    icon: Drama
   },
   {
     key: 'trust',
     label: 'Kepercayaan',
     desc: 'Kepercayaan & keterbukaan',
-    color: 'text-success',
-    bg: 'bg-success/10',
-    ring: 'ring-success/30',
-    icon: FaHandshake
+    color: 'text-info',
+    bg: 'bg-info/10',
+    ring: 'ring-info/30',
+    icon: Handshake
   },
   {
     key: 'energy',
@@ -56,7 +54,7 @@ const TRAIT_META = [
     color: 'text-info',
     bg: 'bg-info/10',
     ring: 'ring-info/30',
-    icon: FaBolt
+    icon: Zap
   },
   {
     key: 'obedience',
@@ -65,7 +63,7 @@ const TRAIT_META = [
     color: 'text-secondary',
     bg: 'bg-secondary/10',
     ring: 'ring-secondary/30',
-    icon: FaRobot
+    icon: Bot
   }
 ]
 
@@ -126,7 +124,7 @@ const TraitRing = ({ value, color, icon: Icon, label, desc, ring }) => {
             strokeLinecap="round"
             strokeDasharray={circ}
             strokeDashoffset={offset}
-            className={`transition-all duration-1000 ease-out stroke-current ${color}`}
+            className={`transition-all duration-500 ease-out stroke-current ${color}`}
           />
         </svg>
         <div className={`absolute inset-0 flex flex-col items-center justify-center ${color}`}>
@@ -192,19 +190,19 @@ const RelationalGrowth = () => {
   }
 
   return (
-    <div className="h-screen bg-base-300 text-base-content overflow-hidden relative font-['Poppins',sans-serif]">
+    <div className="h-screen bg-base-300 text-base-content overflow-hidden relative">
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,oklch(var(--p)/0.08)_0%,transparent_50%)] pointer-events-none" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,oklch(var(--s)/0.06)_0%,transparent_50%)] pointer-events-none" />
 
       {/* Main Content */}
       <div className="relative z-10 w-full h-full overflow-y-auto custom-scrollbar">
-        <div className="max-w-3xl mx-auto px-4 py-8 pb-32 space-y-8">
+        <div className="pl-16 pr-28 py-8 pb-32 space-y-8">
 
-          {/* Page Header */}
+          {/* Page Header with Safe Area Gutter */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm btn-circle">
+              <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm btn-circle cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                 </svg>
@@ -226,19 +224,19 @@ const RelationalGrowth = () => {
 
           {loading ? (
             <div className="flex items-center justify-center h-64">
-              <span className="loading loading-spinner loading-lg text-primary"></span>
+              <MobiusLoader size={48} />
             </div>
           ) : (
             <>
               {/* Personality Summary Card */}
               <div className="p-5 rounded-2xl bg-gradient-to-br from-base-200/80 to-base-300/50 border border-white/5 backdrop-blur-sm">
-                <p className="text-sm font-semibold text-primary mb-2 flex items-center gap-2"><FaBrain className="text-primary" /> Kepribadian Saat Ini</p>
+                <p className="text-sm font-semibold text-primary mb-2 flex items-center gap-2"><Brain className="text-primary" /> Kepribadian Saat Ini</p>
                 <p className="text-base-content/80 text-sm leading-relaxed">{describePersonality(traits)}</p>
                 {traits?.evalCount > 0 && (
                   <div className="flex items-center gap-4 mt-3 text-xs text-base-content/40">
-                    <span className="flex items-center gap-1"><FaChartBar className="text-base-content/40" /> Evaluasi ke-{traits.evalCount}</span>
+                    <span className="flex items-center gap-1"><ChartColumn className="text-base-content/40" /> Evaluasi ke-{traits.evalCount}</span>
                     {traits.lastEvaluation && (
-                      <span className="flex items-center gap-1"><FaClock className="text-base-content/40" /> {new Date(traits.lastEvaluation).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                      <span className="flex items-center gap-1"><Clock className="text-base-content/40" /> {new Date(traits.lastEvaluation).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</span>
                     )}
                   </div>
                 )}
@@ -246,7 +244,7 @@ const RelationalGrowth = () => {
 
               {/* Trait Rings Grid */}
               <div>
-                <p className="text-sm font-semibold text-base-content/70 mb-4 flex items-center gap-2"><FaChartLine className="text-primary/70" /> Trait Overview</p>
+                <p className="text-sm font-semibold text-base-content/70 mb-4 flex items-center gap-2"><ChartLine className="text-primary/70" /> Trait Overview</p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {TRAIT_META.map(t => (
                     <TraitRing
@@ -266,23 +264,31 @@ const RelationalGrowth = () => {
               {/* Reasoning Log */}
               {traits?.reasoning && (
                 <div>
-                  <p className="text-sm font-semibold text-base-content/70 mb-3 flex items-center gap-2"><FaCommentDots className="text-primary/70" /> Reasoning Terakhir</p>
+                  <p className="text-sm font-semibold text-base-content/70 mb-3 flex items-center gap-2"><MessageCircleMore className="text-primary/70" /> Reasoning Terakhir</p>
                   <div className="p-4 rounded-2xl bg-base-200/50 border border-white/5">
                     <p className="text-sm text-base-content/70 italic leading-relaxed">&ldquo;{traits.reasoning}&rdquo;</p>
                   </div>
                 </div>
               )}
 
+              {/* Abelink Usage */}
+              <div>
+                <p className="text-sm font-semibold text-base-content/70 mb-4 flex items-center gap-2"><ChartColumn className="text-info/70" /> Abelink Usage</p>
+                <div className="p-4 rounded-2xl bg-base-200/50 border border-white/5">
+                  <UsageHeatmap />
+                </div>
+              </div>
+
               {/* Stats Grid */}
               <div>
-                <p className="text-sm font-semibold text-base-content/70 mb-4 flex items-center gap-2"><FaCubes className="text-primary/70" /> Statistik Hubungan</p>
+                <p className="text-sm font-semibold text-base-content/70 mb-4 flex items-center gap-2"><Boxes className="text-primary/70" /> Statistik Hubungan</p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                   {[
-                    { label: 'Evaluasi Sifat', value: traits?.evalCount || 0, icon: FaChartBar, sub: 'Total drift evaluation', iconColor: 'text-primary' },
-                    { label: 'Kehangatan', value: ((traits?.warmth || 0.5) * 100).toFixed(0) + '%', icon: FaFire, sub: describeLevel(traits?.warmth || 0.5), iconColor: 'text-error' },
-                    { label: 'Kepercayaan', value: ((traits?.trust || 0.5) * 100).toFixed(0) + '%', icon: FaShieldAlt, sub: describeLevel(traits?.trust || 0.5), iconColor: 'text-success' },
-                    { label: 'Sarkasme', value: ((traits?.sarcasm_level || 0.5) * 100).toFixed(0) + '%', icon: FaTheaterMasks, sub: describeLevel(traits?.sarcasm_level || 0.5), iconColor: 'text-warning' },
-                    { label: 'Kepatuhan', value: ((traits?.obedience || 0.5) * 100).toFixed(0) + '%', icon: FaRobot, sub: describeLevel(traits?.obedience || 0.5), iconColor: 'text-secondary' }
+                    { label: 'Evaluasi Sifat', value: traits?.evalCount || 0, icon: ChartColumn, sub: 'Total drift evaluation', iconColor: 'text-primary' },
+                    { label: 'Kehangatan', value: ((traits?.warmth || 0.5) * 100).toFixed(0) + '%', icon: Flame, sub: describeLevel(traits?.warmth || 0.5), iconColor: 'text-error' },
+                    { label: 'Kepercayaan', value: ((traits?.trust || 0.5) * 100).toFixed(0) + '%', icon: Shield, sub: describeLevel(traits?.trust || 0.5), iconColor: 'text-info' },
+                    { label: 'Sarkasme', value: ((traits?.sarcasm_level || 0.5) * 100).toFixed(0) + '%', icon: Drama, sub: describeLevel(traits?.sarcasm_level || 0.5), iconColor: 'text-warning' },
+                    { label: 'Kepatuhan', value: ((traits?.obedience || 0.5) * 100).toFixed(0) + '%', icon: Bot, sub: describeLevel(traits?.obedience || 0.5), iconColor: 'text-secondary' }
                   ].map((stat, i) => {
                     const StatIcon = stat.icon
                     return (

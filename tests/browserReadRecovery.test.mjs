@@ -6,7 +6,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
   tryExtensionReadDomForTest,
-  NO_EXTENSION_HINT
+  NO_EXTENSION_HINT,
+  launchBlockMessage
 } from '../sidecar/main/tools/browserTools.mjs'
 import { setLastUrl, getLastUrl, dropSession } from '../sidecar/main/browser/bridge-core.mjs'
 
@@ -98,5 +99,18 @@ describe('NO_EXTENSION_HINT', () => {
     expect(NO_EXTENSION_HINT).toMatch('blocked')
     expect(NO_EXTENSION_HINT).not.toMatch('Buka browser')
     expect(NO_EXTENSION_HINT).not.toMatch('Sambungkan extension')
+  })
+})
+
+describe('launchBlockMessage (E3)', () => {
+  it('budget habis -> suruh berhenti + arahkan ke popup, bukan mengulang', () => {
+    const m = launchBlockMessage('launch-budget-exhausted')
+    expect(m).toMatch('launch-budget-exhausted')
+    expect(m).toMatch('BERHENTI')
+    expect(m).toMatch('Connect')
+  })
+  it('alasan tak dikenal -> fallback hint no-handshake', () => {
+    expect(launchBlockMessage('alasan-aneh')).toMatch('Connect')
+    expect(launchBlockMessage()).toMatch('Connect')
   })
 })

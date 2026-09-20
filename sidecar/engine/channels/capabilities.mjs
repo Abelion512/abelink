@@ -87,6 +87,26 @@ on('capabilities:audit', async (limit, offset) => {
   return readAudit(limit, offset)
 })
 
+on('capabilities:registry', async () => {
+  const { listRegistry } = await import('../../main/capabilities/registry.mjs')
+  return listRegistry()
+})
+
+on('capabilities:bundle-install', async (bundle) => {
+  const { installBundle } = await import('../../main/capabilities/bundles.mjs')
+  return installBundle(bundle || {})
+})
+
+on('capabilities:bundle-list', async () => {
+  const { listBundles } = await import('../../main/capabilities/bundles.mjs')
+  return listBundles()
+})
+
+on('capabilities:bundle-remove', async (id) => {
+  const { removeBundle } = await import('../../main/capabilities/bundles.mjs')
+  return removeBundle(id)
+})
+
 // Registrasi runtime connector eksternal (custom MCP dari UI). Dipanggil
 // tiap load hub agar sidecar (proses terpisah, tanpa localStorage) mengenal
 // id custom sebelum authorize/execute. Idempotent: daftar ulang = replace.

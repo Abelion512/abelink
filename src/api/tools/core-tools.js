@@ -1,6 +1,7 @@
 export const core_tools = {
-  "read-tools": "WAJIB dipanggil SEBELUM menggunakan tool yang tidak kamu ketahui query-nya! Kamu hanya bisa mengeksekusi tool jika kamu tahu pasti format query-nya. Query: nama_grup (misal: \"advanced_browser\", \"pc_automation\", \"git_vcs\", \"task_terminal\").",
+  "read-tools": "WAJIB dipanggil SEBELUM menggunakan tool yang tidak kamu ketahui query-nya! Mendukung nama_grup (misal: \"advanced_browser\", \"pc_automation\", \"git_vcs\", \"task_terminal\"), nama_tool spesifik (misal: \"browser-click\", \"replace-content\"), atau pencarian bebas (misal: \"search: terminal background\" atau \"?snapshot\"). Query: nama_grup ATAU nama_tool ATAU search: kata_kunci.",
   "memory-search": "ALAT PENCARIAN INGATAN (WAJIB DIGUNAKAN). Mencari ingatan masa lalu, preferensi/catatan user, solusi historis, dan riwayat chat percakapan asli (Turn Pairs). ATURAN MUTLAK: Selalu coba cari di tool ini sebelum bertanya balik ke user. ATURAN ANTI-HALUSINASI (GROUNDEDNESS): Jika setelah dicari hasilnya KOSONG atau hanya sedikit, KAMU WAJIB JUJUR dan DILARANG KERAS MENGARANG/MENAMBAH-NAMBAHKAN DAFTAR/FAKTA FIKTIF yang tidak ada di memori! Query: kata_kunci atau kata_kunci||threshold||limit (contoh: 'solusi error CORS' atau 'password wifi||0.6||3' atau 'konfigurasi vite||0.5||10'). Threshold (0.1 - 0.9, default 0.5): atur lebih tinggi untuk pencarian sangat ketat atau lebih rendah untuk pencarian luas. Limit (default 5): jumlah maksimal memori/chat yang ingin diambil.",
+  "memory": "Operasi memori profil/preferensi (add, replace, remove, batch). Operasi bersifat atomic. Query berupa JSON string atau format pipa: action||target||new_text (atau old_text||new_text untuk replace). Target yang didukung: 'user' (preferensi pengguna) atau 'memory' (fakta/catatan umum). Contoh: '{\"action\":\"add\",\"target\":\"user\",\"new_text\":\"User suka Tailwind CSS\"}' atau 'add||user||User suka Tailwind CSS' atau 'remove||memory||catatan meeting'.",
   "read-file": "Membaca isi file teks biasa. Query: path_absolut atau path_relatif. Baca spesifik baris: path||startLine||endLine.",
   "write-file": "Menulis/buat file baru dari nol. Query: path||isi_file. (Perlu persetujuan user). Otomatis divalidasi sintaksnya. PENTING: Gunakan 'replace-content' jika file sudah ada!",
   "replace-content": "MENGEDIT SEBAGIAN KODE (UTAMA). Mencocokkan teks target dan menggantinya secara presisi. Query: path||targetContent||replacementContent. Otomatis divalidasi sintaksnya.",
@@ -24,10 +25,24 @@ export const core_tools = {
   "list_subagents": "Melihat daftar seluruh sub-agent yang sedang aktif atau sudah selesai beserta statusnya. Query: kosongkan atau masukkan status (running/idle/completed).",
   "wait_subagents": "Menunggu dan mengumpulkan laporan hasil eksekusi dari sub-agent yang sedang berjalan secara paralel di background. Query: 'all' atau daftar ID dipisah koma (misal: 'sub_1,sub_2') atau beserta batas waktu (misal: 'all||30').",
   "kill_subagent": "Menghentikan paksa eksekusi sub-agent yang sedang berjalan. Query: subagent_id||alasan.",
-  "delegate_coding": "Mendelegasikan tugas pemrograman, refactor besar, atau perbaikan mandiri ke CLI coding agent lokal (opencode, hermes) di branch git terisolasi (auto/...). Query: agent_name||instruction||branch_name (contoh: 'opencode||Perbaiki memory leak di vectorMemory.js||auto/fix-memleak' atau 'auto||Implementasi fitur X||auto/feature-x'). Jika agent_name 'auto', agen terbaik yang terpasang akan dipilih otomatis."
+  "delegate_coding": "Mendelegasikan tugas pemrograman, refactor besar, atau perbaikan mandiri ke CLI coding agent lokal (opencode, hermes) di branch git terisolasi (auto/...). Query: agent_name||instruction||branch_name (contoh: 'opencode||Perbaiki memory leak di vectorMemory.js||auto/fix-memleak' atau 'auto||Implementasi fitur X||auto/feature-x'). Jika agent_name 'auto', agen terbaik yang terpasang akan dipilih otomatis.",
+  "web_search": "Alias untuk browser-search. Mencari informasi di internet secara langsung. Query: kata kunci pencarian.",
+  "web-search": "Alias untuk browser-search. Mencari informasi di internet secara langsung. Query: kata kunci pencarian.",
+  "advanced_search": "Alias untuk browser-search. Mencari informasi di internet secara langsung. Query: kata kunci pencarian."
 }
 
 // STREAM D: hanya agen ini yang didukung delegate_coding (cermin di
 // codingAgentBridge.js + agentTools.js).
 export const PREFERRED_CODING_AGENTS = ['opencode', 'hermes']
+
+export {
+  CORE_TOOL_SPECS,
+  DEFERRED_GROUP_SPECS,
+  UNIFIED_TOOL_CATALOG,
+  getToolSpec,
+  searchTools,
+  formatToolDocumentation,
+  formatGroupDocumentation,
+  resolveReadToolsQuery
+} from './toolCatalog'
 

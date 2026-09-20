@@ -23,6 +23,8 @@
 //   - Verification failure triggers a BOUNDED replan (MAX_VERIFY_REPLANS)
 //     telling the model exactly which criteria lack world-state proof.
 
+import { extractCitations, verifyVerbatimQuote } from './citationEngine.js'
+
 export const VERIFICATION_STATE = {
   VERIFIED: 'verified',
   PARTIALLY: 'partially_verified',
@@ -129,11 +131,55 @@ export const APOLOGY_OR_FAILURE_RE =
 const NO_RESULT_RE =
   /(tidak ditemukan hasil|no results? found|tidak ada hasil|hasil tidak ditemukan|0 results|did not match any documents|halaman tidak ditemukan|404 not found)/i
 
+// Broken search transport (browser-search emits "[SEARCH-ERROR] <layer>: ..."
+// on tool failure, e.g. router 401 or extension disconnect). FAIL_RE never
+// fires on it and the marker text is long enough to pass hasReadSubstance,
+// so without this check a broken weapon reads as fetch proof. Genuine
+// [NO-RESULTS] (search executed, zero hits) is NOT an error — current
+// behavior preserved for that case.
+const SEARCH_ERROR_RE = /\[SEARCH-ERROR\]/i
+const SEARCH_ERROR_LAYER_RE = /\[SEARCH-ERROR\]\s*([^:\]\n]+)/i
+
 // Penanda objective multi-langkah: klaim done setelah 1 aksi = prematur.
 // Murni struktur bahasa (konjungsi), nol nama produk — buta-contoh.
 const MULTI_ACTION_RE = /(\bdan\b|\blalu\b|\bkemudian\b|\bsetelah itu\b|\bterus\b|\bthen\b|\band\b)/i
 
 export const isMultiActionObjective = (text = '') => MULTI_ACTION_RE.test(String(text || ''))
+
+// Anti-halusinasi: klaim bernama (model/produk/versi) harus dikutip dari ISI
+// observasi tool, bukan dari URL/judul tab. Ekstraksi kasar: frasa kapital
+// multi-kata + token kapital ber-digit ("Muse 1.3", "GPT-6 Astra"). Kata
+// generik di tepi frasa dikupas; sisa satu kata tanpa digit = bukan klaim.
+const CLAIM_PHRASE_RE = /[A-Z][\w-]*(?:\s+(?:[A-Z][\w.-]*|\d+\.\d[\w.-]*))+/g
+const CLAIM_TOKEN_RE = /\b[A-Z][\w-]*\d[\w.-]*\b/g
+const CLAIM_STOPWORDS = new Set(
+  'model flash pro team search browser openai anthropic google harga laporan hasil data pasar toko bulan tahun kuartal pendapatan perusahaan layanan info informasi rp q1 q2 q3 q4'.split(
+    ' '
+  )
+)
+
+const stripClaimStopwords = (phrase = '') => {
+  const words = String(phrase).split(/\s+/).filter(Boolean)
+  while (words.length && CLAIM_STOPWORDS.has(words[0].toLowerCase())) words.shift()
+  while (words.length && CLAIM_STOPWORDS.has(words[words.length - 1].toLowerCase())) words.pop()
+  return words.join(' ')
+}
+
+const extractClaimEntities = (answer = '') => {
+  // Strip passage citation tags like [P-1], [P-1: "quote"] agar tidak dianggap entitas klaim
+  const text = String(answer || '').replace(/\[P-\d+[^\]]*\]/gi, '')
+  const found = new Map()
+  for (const re of [CLAIM_PHRASE_RE, CLAIM_TOKEN_RE]) {
+    for (const m of text.matchAll(re)) {
+      const cleaned = stripClaimStopwords(m[0])
+      if (!cleaned || !/[A-Za-z]/.test(cleaned)) continue
+      if (!/\s/.test(cleaned) && !/\d/.test(cleaned)) continue
+      if (!found.has(cleaned.toLowerCase())) found.set(cleaned.toLowerCase(), cleaned)
+    }
+  }
+  const all = [...found.values()]
+  return all.filter((c) => !all.some((o) => o !== c && o.toLowerCase().includes(c.toLowerCase())))
+}
 
 // ---------------------------------------------------------------------------
 // 1. Objective kind classification (task-awareness for verification)
@@ -235,7 +281,14 @@ export function deriveSuccessCriteria(kind = 'general', objectiveText = '') {
         { id: 'syntax-valid', label: 'Sintaks valid setelah edit' },
         ...(TEST_REQUEST_RE.test(text)
           ? [{ id: 'tests-pass', label: 'Test/lint relevan lulus (output dibuktikan)' }]
-          : [])
+          : []),
+        // R1c (anti-hack ala DGM): klaim "test hijau" WAJIB artefak output
+        // mentah (exit code / ringkasan vitest), bukan teks model. Tanpa op
+        // eksekusi test yang membawa artefak -> unresolved, bukan pass.
+        {
+          id: 'test-evidence',
+          label: 'Klaim test hijau didukung artefak output mentah (bukan sekadar teks)'
+        }
       ]
     case 'browser':
       return [
@@ -255,6 +308,10 @@ export function deriveSuccessCriteria(kind = 'general', objectiveText = '') {
       return [
         { id: 'sources-found', label: 'Sumber ditemukan dan dibaca' },
         { id: 'facts-present', label: 'Fakta yang diminta tersedia di jawaban' },
+        {
+          id: 'claim-quoted',
+          label: 'Klaim bernama (model/produk/versi) dikutip dari isi observasi'
+        },
         ...(ARTIFACT_INTENT_RE.test(text)
           ? [{ id: 'artifact-exists', label: 'Output laporan tersimpan sebagai artifact' }]
           : [])
@@ -411,6 +468,27 @@ export function evaluateEvidence({
           const testFail = testOps.some((op) => TEST_FAIL_RE.test(op.text) || opFailed(op))
           setState('tests-pass', testPass ? 'pass' : testFail ? 'fail' : 'unresolved')
         }
+        // R1c: test-evidence — klaim "test hijau/lulus" di jawaban HANYA pass
+        // bila ada op eksekusi test dengan artefak (ringkasan angka mentah).
+        // Tanpa artefak -> unresolved (tolak klaim teks ala DGM reward-hack).
+        const claimsTestsGreen = /(test.*(hijau|lulus|pass)|semua.*(test|uji).*hijau|vitest.*(hijau|pass)|tests?\s+passed)/i.test(
+          String(answer || '')
+        )
+        if (!claimsTestsGreen) {
+          setState('test-evidence', 'na')
+        } else {
+          const artifactOps = ops.filter(
+            (op) =>
+              /(run-shell|run-task)/i.test(op.tool || '') &&
+              !opFailed(op) &&
+              /(\d+\s+passed|Test Files|Tests\s+\d+|passed\s*\(\d+\))/i.test(op.text || '')
+          )
+          setState('test-evidence', artifactOps.length > 0 ? 'pass' : 'unresolved')
+          if (artifactOps.length === 0) {
+            criteria.find((c) => c.id === 'test-evidence').label +=
+              ' — klaim test hijau tanpa artefak output mentah: lampirkan ringkasan vitest (exit code + angka), jangan mengarang'
+          }
+        }
       } else {
         // Content conformance is not deterministically observable without an
         // LLM judge — honest 'na': it neither blocks nor fakes verification.
@@ -452,19 +530,91 @@ export function evaluateEvidence({
     case 'research': {
       // RI-13: semantic success required: a search returning "no results"
       // with substantive-looking surrounding text is not fetch proof.
-      const sourcesOk = ops.some(
-        (op) =>
-          SEARCH_TOOLS_RE.test(op.tool || '') &&
-          !SUBAGENT_ORCH_RE.test(op.tool || '') &&
-          !opFailed(op) &&
-          !NO_RESULT_RE.test(op.text || '') &&
-          hasReadSubstance(op.text)
+      // Broken transport poisons the batch: ANY [SEARCH-ERROR] op forces
+      // sources-found unresolved regardless of other ops — a broken weapon
+      // is not "info does not exist".
+      const searchErrorOp = ops.find((op) => SEARCH_ERROR_RE.test(op.text || ''))
+      const isLocalResearch = /(repo|codebase|arsitektur|kode|workspace|lokal)/i.test(
+        String(objectiveText || '')
       )
+      const isSubagentReport = (op) =>
+        op.tool === 'send_message' &&
+        /(\[BALASAN|evaluasi|hasil|temuan|analisis|audit|ringkasan)/i.test(op.text) &&
+        hasReadSubstance(op.text)
+
+      const isLocalCodebaseProof = (op) =>
+        isLocalResearch &&
+        READ_TOOLS_RE.test(op.tool || '') &&
+        hasReadSubstance(op.text)
+
+      const isDirectSearchProof = (op) =>
+        SEARCH_TOOLS_RE.test(op.tool || '') &&
+        !SUBAGENT_ORCH_RE.test(op.tool || '') &&
+        !NO_RESULT_RE.test(op.text || '') &&
+        hasReadSubstance(op.text)
+
+      const sourcesOk =
+        !searchErrorOp &&
+        ops.some(
+          (op) =>
+            !opFailed(op) &&
+            (isDirectSearchProof(op) || isSubagentReport(op) || isLocalCodebaseProof(op))
+        )
       const factsOk =
         String(answer || '').trim().length >= 50 &&
         !APOLOGY_OR_FAILURE_RE.test(String(answer || ''))
       setState('sources-found', sourcesOk ? 'pass' : 'unresolved')
+      if (searchErrorOp) {
+        const layer =
+          String(searchErrorOp.text || '').match(SEARCH_ERROR_LAYER_RE)?.[1]?.trim() ||
+          'unknown'
+        criteria.find((c) => c.id === 'sources-found').label +=
+          ` — senjata riset rusak (${layer}) — perbaiki akses search, JANGAN simpulkan info tidak ada`
+      }
       setState('facts-present', factsOk ? 'pass' : 'unresolved')
+      const claims = extractClaimEntities(answer)
+      const citations = extractCitations(answer)
+
+      if (claims.length === 0 && citations.length === 0) {
+        setState('claim-quoted', 'na')
+      } else {
+        const quoted = claims.filter((c) =>
+          ops.some((op) => String(op.text || '').toLowerCase().includes(c.toLowerCase()))
+        )
+        const pending = claims.filter((c) => !quoted.includes(c))
+
+        const invalidCitations = []
+        for (const cite of citations) {
+          if (cite.quote) {
+            const hasMatch = ops.some((op) => {
+              const v = verifyVerbatimQuote(cite.quote, op.text || '')
+              return v.valid
+            })
+            if (!hasMatch) {
+              invalidCitations.push(cite.quote)
+            }
+          }
+        }
+
+        const claimsPass = quoted.length === claims.length
+        const citationsPass = invalidCitations.length === 0
+        const allPass = claimsPass && citationsPass
+
+        setState('claim-quoted', allPass ? 'pass' : 'unresolved')
+
+        if (!allPass) {
+          const reasons = []
+          if (pending.length) {
+            reasons.push(`klaim ${pending.map((c) => `<${c}>`).join(', ')} tanpa kutipan isi`)
+          }
+          if (invalidCitations.length) {
+            reasons.push(`kutipan sitasi tidak cocok di observasi: ${invalidCitations.map((q) => `"${q}"`).join(', ')}`)
+          }
+          criteria
+            .find((c) => c.id === 'claim-quoted')
+            .label += ` (${reasons.join('; ')}: extract dulu, klaim kemudian)`
+        }
+      }
       if (ARTIFACT_INTENT_RE.test(String(objectiveText))) {
         const { lastWrite, readBackOk } = artifactReadBack()
         // File requested => write-only is unresolved, read-back required.

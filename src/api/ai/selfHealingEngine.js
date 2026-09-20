@@ -51,6 +51,11 @@ export function recordRepairAttempt(signature, now = Date.now()) {
 
 /**
  * Merumuskan instruksi perbaikan diri yang aman untuk CLI agent.
+ *
+ * R1c (anti-hack ala DGM): misi WAJIB menuntut artefak bukti — ringkasan
+ * output vitest mentah (exit code + baris ringkasan) dilampirkan di laporan,
+ * bukan sekadar klaim teks "test hijau". Verifier (objectiveVerifier,
+ * kriteria test-evidence) menolak klaim tanpa artefak.
  */
 export function createSelfRepairMission({ error, contextInfo = {}, agentId = 'claude' }) {
   const signature = getErrorSignature(error)
@@ -73,7 +78,7 @@ Konteks: ${JSON.stringify(contextInfo)}
 Tugas kamu:
 1. Analisis akar penyebab error pada file yang bersangkutan di repositori ini.
 2. Perbaiki bug tersebut tanpa merusak fungsionalitas lain.
-3. Jalankan "bunx vitest run" untuk memastikan seluruh unit test hijau.
+3. Jalankan "bunx vitest run" dan LAMPIRKAN artefak bukti mentah di laporan: exit code + 10 baris terakhir output (Test Files / Tests passed). Klaim "test hijau" TANPA artefak ini DITOLAK verifikasi — jangan mengarang angka.
 4. Buat commit git ringkas di branch saat ini (${branch}).`
 
   const { command, agent } = buildCodingCommand({

@@ -251,6 +251,10 @@ export const cleanAndParse = (rawResponse) => {
     }
 
     let text = rawResponse
+    if (text.includes('<think>')) {
+      text = text.replace(/<think>[\s\S]*?<\/think>/gi, '')
+    }
+    text = text
       .replace(/```json\s*/gi, '')
       .replace(/```\s*/g, '')
       .trim()

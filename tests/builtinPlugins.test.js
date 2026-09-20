@@ -10,7 +10,7 @@ import {
 
 describe('resolvePluginToggles', () => {
   it('config tanpa key builtinPlugins -> default semua ON', () => {
-    expect(resolvePluginToggles({})).toEqual({ ponytail: true, caveman: true })
+    expect(resolvePluginToggles({})).toEqual({ ponytail: true, caveman: true, internetFirst: true })
     expect(resolvePluginToggles(null)).toEqual(BUILTIN_PLUGIN_DEFAULTS)
     expect(resolvePluginToggles(undefined)).toEqual(BUILTIN_PLUGIN_DEFAULTS)
   })
@@ -18,18 +18,21 @@ describe('resolvePluginToggles', () => {
   it('config lama dengan builtinPlugins object parsial -> key hilang tetap ON (fail-open)', () => {
     expect(resolvePluginToggles({ builtinPlugins: { ponytail: false } })).toEqual({
       ponytail: false,
-      caveman: true
+      caveman: true,
+      internetFirst: true
     })
   })
 
   it('explicit false mematikan, explicit true menyalakan', () => {
     expect(resolvePluginToggles({ builtinPlugins: { ponytail: false, caveman: false } })).toEqual({
       ponytail: false,
-      caveman: false
+      caveman: false,
+      internetFirst: true
     })
     expect(resolvePluginToggles({ builtinPlugins: { ponytail: true, caveman: true } })).toEqual({
       ponytail: true,
-      caveman: true
+      caveman: true,
+      internetFirst: true
     })
   })
 
@@ -40,11 +43,12 @@ describe('resolvePluginToggles', () => {
 })
 
 describe('getBuiltinPluginsPrompt', () => {
-  it('default: berisi ladder ponytail + rules caveman', () => {
+  it('default: berisi ladder ponytail + rules caveman + internet-first', () => {
     const prompt = getBuiltinPluginsPrompt({})
     expect(prompt).toContain('PONYTAIL')
     expect(prompt).toContain('YAGNI')
     expect(prompt).toContain('CAVEMAN')
+    expect(prompt).toContain('INTERNET-FIRST')
   })
 
   it('overrides bisa mematikan satu plugin tanpa mengubah config', () => {
@@ -54,13 +58,20 @@ describe('getBuiltinPluginsPrompt', () => {
   })
 
   it('config false mematikan; semua off -> string kosong (tanpa blok palsu)', () => {
-    const conf = { builtinPlugins: { ponytail: false, caveman: false } }
+    const conf = { builtinPlugins: { ponytail: false, caveman: false, internetFirst: false } }
     expect(getBuiltinPluginsPrompt(conf)).toBe('')
+  })
+
+  it('internetFirst bisa dimatikan sendiri (D1 toggle)', () => {
+    const conf = { builtinPlugins: { internetFirst: false } }
+    const prompt = getBuiltinPluginsPrompt(conf)
+    expect(prompt).not.toContain('INTERNET-FIRST')
+    expect(prompt).toContain('PONYTAIL')
   })
 
   it('overrides menang atas config', () => {
     const conf = { builtinPlugins: { ponytail: true, caveman: true } }
-    expect(getBuiltinPluginsPrompt(conf, { ponytail: false, caveman: false })).toBe('')
+    expect(getBuiltinPluginsPrompt(conf, { ponytail: false, caveman: false, internetFirst: false })).toBe('')
   })
 
   it('aturan keamanan ponytail selalu disertakan (lazy not negligent)', () => {

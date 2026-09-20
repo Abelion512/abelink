@@ -1,7 +1,7 @@
-import axios from 'axios'
 import { getYoutubeSummary } from '../../api/ai/tools'
 
 export const useAbelinkYoutube = (setChatData) => {
+
   const handleYoutubeSearch = async (answer, signal, customSetChatData) => {
     const targetSet = customSetChatData || setChatData
     try {
@@ -37,8 +37,9 @@ export const useAbelinkYoutube = (setChatData) => {
     try {
       const endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
       // Timeout 15s: oembed gantung menahan alur ringkasan.
-      const response = await axios.get(endpoint, { timeout: 15000, signal: signal ?? undefined })
-      const data = response.data
+      const res = await fetch(endpoint, { signal: signal ?? AbortSignal.timeout(15000) })
+      if (!res.ok) throw new Error(`oembed ${res.status}`)
+      const data = await res.json()
       return {
         judul: data.title,
         author: data.author_name,

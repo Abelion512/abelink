@@ -78,8 +78,8 @@ describe('limit ladder - budget langkah kanonis', () => {
   it('membaca budget dari effortSystem, bukan tabel lokal', () => {
     const budgets = effortBudgets()
     expect(budgets.low).toBe(8)
-    expect(budgets.medium).toBe(16)
-    expect(budgets.high).toBe(32)
+    expect(budgets.medium).toBe(24)
+    expect(budgets.high).toBe(48)
     expect(budgets.xhigh).toBe(64)
     expect(budgets.max).toBe(128)
     expect(budgets.ultra).toBe(256)
@@ -101,10 +101,12 @@ describe('limit ladder - budget langkah kanonis', () => {
   })
 
   it('fitsBudget memakai prasyarat minimum, bukan rekomendasi', () => {
-    // high = 32 langkah: rung 16 (butuh 18) muat, rung 32 (butuh 34) tidak.
+    // high = 48 langkah: rung 16 (butuh 18) muat, rung 32 (butuh 34) muat,
+    // rung 64 (butuh 66) tidak.
     expect(fitsBudget(16, 'high')).toBe(true)
-    expect(fitsBudget(32, 'high')).toBe(false)
-    expect(largestFeasibleRung('high')).toBe(16)
+    expect(fitsBudget(32, 'high')).toBe(true)
+    expect(fitsBudget(64, 'high')).toBe(false)
+    expect(largestFeasibleRung('high')).toBe(32)
     expect(largestFeasibleRung('low')).toBe(null) // low=8 < 10 langkah rung 8
     expect(largestFeasibleRung('ultra')).toBe(128)
   })
@@ -145,12 +147,12 @@ describe('limit ladder - verdict probe', () => {
       results: [
         { artifacts: 8, passed: true, runs: 1, stepsAvg: 12, durationMsAvg: 1000 },
         { artifacts: 16, passed: true, runs: 1, stepsAvg: 30, durationMsAvg: 2000 },
-        { artifacts: 32, passed: false, runs: 1, stepsAvg: 32, durationMsAvg: 3000 },
+        { artifacts: 32, passed: false, runs: 1, stepsAvg: 48, durationMsAvg: 3000 },
       ],
     })
-    expect(verdict.stepBudget).toBe(32)
+    expect(verdict.stepBudget).toBe(48)
     expect(verdict.sustainedArtifacts).toBe(16)
-    // Rung 16 lolos dengan 30 langkah (<= 32), rung 8 dengan 12: keduanya muat.
+    // Rung 16 lolos dengan 30 langkah (<= 48), rung 8 dengan 12: keduanya muat.
     expect(verdict.maxWithinBudget).toBe(16)
     expect(verdict.firstFailureAt).toBe(32)
     expect(verdict.failureMode).toBe('budget-exhausted')
@@ -163,7 +165,7 @@ describe('limit ladder - verdict probe', () => {
       runs: 1,
       results: [
         { artifacts: 8, passed: true, runs: 1, stepsAvg: 10 },
-        { artifacts: 16, passed: true, runs: 1, stepsAvg: 40 },
+        { artifacts: 16, passed: true, runs: 1, stepsAvg: 50 },
       ],
     })
     expect(verdict.sustainedArtifacts).toBe(16)

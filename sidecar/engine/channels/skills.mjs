@@ -11,12 +11,47 @@ import fs from 'fs'
 import path from 'path'
 import { brandDir } from '../../main/utils/dataHome.mjs'
 
-const SKILLS_DIR = (() => {
-  // Linux-only (kebijakan toolchain): tanpa cabang win32.
-  const dir = path.join(brandDir(), 'skills')
-  fs.mkdirSync(dir, { recursive: true })
-  return dir
-})()
+import os from 'os'
+
+export const getSkillSearchRoots = () => {
+  const local = path.join(brandDir(), 'skills')
+  try {
+    fs.mkdirSync(local, { recursive: true })
+  } catch {}
+  return [
+    local,
+    path.join(os.homedir(), '.agents', 'skills'),
+    path.join(os.homedir(), '.claude', 'skills')
+  ]
+}
+
+export const SKILLS_DIR = path.join(brandDir(), 'skills')
+
+/**
+ * Cari folder atau file skill di seluruh search roots berdasarkan urutan prioritas:
+ * 1. ~/.local/share/abelink/skills
+ * 2. ~/.agents/skills
+ * 3. ~/.claude/skills
+ */
+export async function resolveSkillPath(name) {
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
+  const roots = getSkillSearchRoots()
+  for (const root of roots) {
+    if (!fs.existsSync(root)) continue
+    const folderPath = path.join(root, name)
+    if (fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
+      const skillMd = path.join(folderPath, 'SKILL.md')
+      if (fs.existsSync(skillMd)) {
+        return { type: 'folder', rootPath: root, folderPath, skillMdPath: skillMd }
+      }
+    }
+    const singleMd = path.join(root, `${name}.md`)
+    if (fs.existsSync(singleMd)) {
+      return { type: 'file', rootPath: root, filePath: singleMd }
+    }
+  }
+  return null
+}
 
 // Hermes-style: baca 1KB pertama (frontmatter) SAJA untuk index.
 // Full body HANYA via skills:read on-demand. Mencegah jebol konteks saat
@@ -112,48 +147,128 @@ const rejectTraversal = () => {
 const emitSkillsUpdated = () => emit('skills-updated', { name: null })
 
 on('skills:get-all', async () => {
-  await fs.promises.mkdir(SKILLS_DIR, { recursive: true })
-  const entries = await fs.promises.readdir(SKILLS_DIR, { withFileTypes: true })
-  const skills = []
-  const seen = new Set()
-  for (const e of entries) {
-    if (e.name.startsWith('.')) continue
-    const full = path.join(SKILLS_DIR, e.name)
-    if (e.isDirectory()) {
-      skills.push({ name: e.name, description: await readDescription(full), type: 'folder', path: full })
-      seen.add(e.name)
-    } else if (e.name.endsWith('.md')) {
-      const content = await fs.promises.readFile(full, 'utf8')
-      skills.push({ name: e.name.replace(/\.md$/, ''), description: content.split('\n')[0] || '', type: 'file', path: full })
-      seen.add(e.name.replace(/\.md$/, ''))
-    }
-  }
-  // Skill eksternal (hermes/claude/opencode): index ringan, full body lazy.
-  // Skill lokal menang bila nama sama.
-  for (const base of EXTERNAL_SKILL_DIRS) {
-    for (const s of await scanExternalDir(base)) {
-      if (seen.has(s.name)) continue
-      seen.add(s.name)
-      skills.push(s)
-    }
-  }
-  return skills
+  return await listSkillsMeta()
 })
 
-on('skills:read', async (name) => {
-  if (!isValidSkillName(name)) rejectInvalidSkillName()
-  const folder = path.join(SKILLS_DIR, name, 'SKILL.md')
-  if (fs.existsSync(folder)) return await fs.promises.readFile(folder, 'utf8')
-  const single = path.join(SKILLS_DIR, `${name}.md`)
-  if (fs.existsSync(single)) return await fs.promises.readFile(single, 'utf8')
-  // Fallback eksternal: baca penuh HANYA saat skill dipakai (lazy).
-  for (const base of EXTERNAL_SKILL_DIRS) {
-    const ext = path.join(base, name, 'SKILL.md')
-    if (!isSafeSkillDir(path.join(base, name), base)) continue
-    if (fs.existsSync(ext)) return await fs.promises.readFile(ext, 'utf8')
+// Scan subfolder (misal references/ atau scripts/) untuk daftar berkas
+async function scanSubfolderFiles(dirPath, prefix) {
+  if (!fs.existsSync(dirPath)) return []
+  try {
+    const entries = await fs.promises.readdir(dirPath, { withFileTypes: true })
+    const files = []
+    for (const e of entries) {
+      if (e.name.startsWith('.')) continue
+      const full = path.join(dirPath, e.name)
+      if (e.isFile()) {
+        const stat = await fs.promises.stat(full).catch(() => null)
+        files.push({
+          name: e.name,
+          path: `${prefix}/${e.name}`,
+          sizeBytes: stat?.size ?? 0
+        })
+      }
+    }
+    return files.sort((a, b) => a.name.localeCompare(b.name))
+  } catch {
+    return []
   }
+}
+
+export async function getSkillFolderManifest(name) {
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
+  const resolved = await resolveSkillPath(name)
+  if (!resolved) return null
+
+  if (resolved.type === 'folder') {
+    const folderPath = resolved.folderPath
+    let content = ''
+    if (fs.existsSync(resolved.skillMdPath)) {
+      content = await fs.promises.readFile(resolved.skillMdPath, 'utf8')
+    }
+    const references = await scanSubfolderFiles(path.join(folderPath, 'references'), 'references')
+    const scripts = await scanSubfolderFiles(path.join(folderPath, 'scripts'), 'scripts')
+
+    return {
+      name,
+      content,
+      type: 'folder',
+      basePath: folderPath,
+      references,
+      scripts
+    }
+  }
+
+  if (resolved.type === 'file') {
+    const content = await fs.promises.readFile(resolved.filePath, 'utf8')
+    return {
+      name,
+      content,
+      type: 'file',
+      basePath: resolved.rootPath,
+      references: [],
+      scripts: []
+    }
+  }
+
   return null
+}
+
+on('skills:read', async (name, relativePath) => {
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
+  if (relativePath) {
+    const safe = sanitizeSkillRelPath(relativePath)
+    if (safe == null) rejectTraversal()
+    const resolved = await resolveSkillPath(name)
+    if (resolved && resolved.type === 'folder') {
+      const targetFile = path.join(resolved.folderPath, safe)
+      if (fs.existsSync(targetFile)) {
+        return await fs.promises.readFile(targetFile, 'utf8')
+      }
+    }
+    return null
+  }
+
+  const manifest = await getSkillFolderManifest(name)
+  if (!manifest) return null
+
+  let text = manifest.content || ''
+  const extraSections = []
+
+  if (manifest.references.length > 0) {
+    const refList = manifest.references
+      .map((r) => `  - ${r.path} (${r.sizeBytes} bytes)`)
+      .join('\n')
+    extraSections.push(
+      `\n[BERKAS REFERENSI TERSEDIA (references/)]:\n${refList}\n-> Baca spesifik via: read-skill query: "${name}||references/<nama_file>"`
+    )
+  }
+
+  if (manifest.scripts.length > 0) {
+    const scriptList = manifest.scripts
+      .map((s) => `  - ${s.path} (${s.sizeBytes} bytes)`)
+      .join('\n')
+    extraSections.push(
+      `\n[SCRIPTS OTOMASI TERSEDIA (scripts/)]:\n${scriptList}\n-> Baca kode via: read-skill query: "${name}||scripts/<nama_file>"`
+    )
+  }
+
+  if (extraSections.length > 0) {
+    text = `${text}\n\n${extraSections.join('\n\n')}`
+  }
+
+  return {
+    content: text,
+    basePath: manifest.basePath,
+    references: manifest.references,
+    scripts: manifest.scripts,
+    type: manifest.type
+  }
 })
+
+on('skills:get-manifest', async (name) => {
+  return await getSkillFolderManifest(name)
+})
+
 
 on('skills:save', async (name, content) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
@@ -186,6 +301,13 @@ on('skills:read-file', async (name, relativePath) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   const safe = sanitizeSkillRelPath(relativePath)
   if (safe == null) rejectTraversal()
+  const resolved = await resolveSkillPath(name)
+  if (resolved && resolved.type === 'folder') {
+    const targetFile = path.join(resolved.folderPath, safe)
+    if (fs.existsSync(targetFile)) {
+      return await fs.promises.readFile(targetFile, 'utf8')
+    }
+  }
   return await fs.promises.readFile(path.join(SKILLS_DIR, name, safe), 'utf8')
 })
 
@@ -214,12 +336,14 @@ on('skills:get-tree', async (name) => {
     })
   }
   try {
-    const folderPath = name ? path.join(SKILLS_DIR, name) : SKILLS_DIR
-    if (name && fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
-      return buildTree(folderPath, folderPath)
+    if (name) {
+      const resolved = await resolveSkillPath(name)
+      if (resolved && resolved.type === 'folder') {
+        return buildTree(resolved.folderPath, resolved.folderPath)
+      }
+      return [{ name: 'SKILL.md', path: 'SKILL.md', type: 'file' }]
     }
-    if (!name) return buildTree(SKILLS_DIR, SKILLS_DIR)
-    return [{ name: 'SKILL.md', path: 'SKILL.md', type: 'file' }]
+    return buildTree(SKILLS_DIR, SKILLS_DIR)
   } catch (e) {
     console.error('Failed to get skill tree', e)
     return []
@@ -391,3 +515,81 @@ on('skills:open-folder', async () => {
     resolve({ success: true, path: SKILLS_DIR })
   })
 })
+
+// Proyeksi meta skill untuk registry terpadu (aditif; handler tidak diubah).
+// Memindai seluruh search roots (~/.local/share/abelink/skills, ~/.agents/skills, ~/.claude/skills)
+// secara progresif (hanya name + description + type + path) dengan dedup prioritas.
+export const listSkillsMeta = async () => {
+  const roots = getSkillSearchRoots()
+  const found = new Map()
+
+  for (const root of roots) {
+    if (!fs.existsSync(root)) continue
+    try {
+      const entries = await fs.promises.readdir(root, { withFileTypes: true })
+      for (const e of entries) {
+        if (e.name.startsWith('.')) continue
+        if (!isValidSkillName(e.name.replace(/\.md$/, ''))) continue
+
+        const full = path.join(root, e.name)
+        if (e.isDirectory()) {
+          const skillMd = path.join(full, 'SKILL.md')
+          if (fs.existsSync(skillMd) && !found.has(e.name)) {
+            const desc = await readDescription(full)
+            found.set(e.name, {
+              name: e.name,
+              description: desc,
+              type: 'folder',
+              path: full,
+              root
+            })
+          }
+        } else if (e.name.endsWith('.md')) {
+          const skillName = e.name.replace(/\.md$/, '')
+          if (!found.has(skillName)) {
+            const content = await fs.promises.readFile(full, 'utf8')
+            found.set(skillName, {
+              name: skillName,
+              description: content.split('\n')[0] || '',
+              type: 'file',
+              path: full,
+              root
+            })
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[skills] Gagal memindai root ${root}:`, err.message)
+    }
+  }
+
+  return Array.from(found.values()).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+// Proyeksi skill ke CapabilityDescriptor terpadu (aditif; handler tidak diubah).
+// Skills tidak punya argumen (isi dimuat via read-skill) dan tidak punya toggle.
+export const skillToDescriptor = (input) => {
+  const raw = typeof input?.name === 'string' ? input.name : ''
+  const slug = raw
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9_-]/g, '')
+    .replace(/^-+|-+$/g, '')
+  if (!slug) return null
+  const description =
+    typeof input?.description === 'string' && input.description.trim()
+      ? input.description
+      : 'Skill tanpa deskripsi'
+  return {
+    id: `skill:${slug}`,
+    kind: 'skill',
+    version: '1',
+    description,
+    inputSchema: { type: 'object', properties: {} },
+    scopes: [],
+    guide: { steps: [`Gunakan read-skill:${slug} untuk memuat isi penuh.`], examples: [] },
+    enabled: true,
+    source: { type: 'skill', name: raw.trim() },
+  }
+}

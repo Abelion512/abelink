@@ -21,6 +21,8 @@ import {
   getSessionGroups,
   getSession,
   tokenOk,
+  tokenRejectReason,
+  TOKEN_REJECT_STALE,
   sweepSessions,
   flavorFromPort
 } from './bridge-core.mjs'
@@ -121,7 +123,10 @@ async function route(req, res) {
 
   if (endpoint === 'handshake' && req.method === 'GET') {
     const r = handshake(sessionId, token)
-    return r.ok ? json(res, 200, r) : json(res, 401, r)
+    if (r.ok) return json(res, 200, r)
+    // E2: bedakan sebab 401 agar popup/poll tahu aksi yang tepat
+    // (ambil via helper vs tempel manual) — bukan "sambungkan ulang" generik.
+    return json(res, 401, { ...r, reason: tokenRejectReason(sessionId, token) })
   }
 
   if (endpoint === 'poll' && req.method === 'GET') {
@@ -129,13 +134,14 @@ async function route(req, res) {
       const cmd = await takeNext(sessionId, token) // null = idle timeout
       return json(res, 200, { command: cmd })
     } catch (e) {
-      return json(res, 401, { error: e.message })
+      return json(res, 401, { error: e.message, reason: tokenRejectReason(sessionId, token) })
     }
   }
 
   if (endpoint === 'group' && req.method === 'POST') {
     const s = getSession(sessionId)
-    if (!tokenOk(s, token)) return json(res, 401, { error: 'Token tidak cocok.' })
+    if (!tokenOk(s, token))
+      return json(res, 401, { error: 'Token tidak cocok.', reason: tokenRejectReason(sessionId, token) })
     let parsed
     try {
       parsed = JSON.parse(await readBody(req))
@@ -148,7 +154,8 @@ async function route(req, res) {
 
   if (endpoint === 'groups' && req.method === 'GET') {
     const s = getSession(sessionId)
-    if (!tokenOk(s, token)) return json(res, 401, { error: 'Token tidak cocok.' })
+    if (!tokenOk(s, token))
+      return json(res, 401, { error: 'Token tidak cocok.', reason: tokenRejectReason(sessionId, token) })
     const r = getSessionGroups(sessionId)
     return r.ok ? json(res, 200, r) : json(res, 404, r)
   }

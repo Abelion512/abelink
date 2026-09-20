@@ -158,6 +158,20 @@ export function getLastUrl(sessionId = 'default') {
   return sessions.get(sessionId)?.lastUrl || null
 }
 
+// Tab fokus per sesi — identitas tab milik sesi ini (tabId + url), dicatat
+// tiap navigate sukses. Dipakai recovery jujur + observasi _tab.
+export function setFocusedTab(sessionId = 'default', tab) {
+  if (!tab || tab.tabId == null) return
+  ensureSession(sessionId).focusedTab = {
+    tabId: tab.tabId,
+    url: tab.url ? String(tab.url) : null
+  }
+}
+
+export function getFocusedTab(sessionId = 'default') {
+  return sessions.get(sessionId)?.focusedTab || null
+}
+
 export function ensureSession(sessionId = 'default') {
   let s = sessions.get(sessionId)
   if (!s) {
@@ -170,6 +184,22 @@ export function ensureSession(sessionId = 'default') {
       groups: {} // browser-use: { [task]: { status, color, lastUpdate } }
     }
     sessions.set(sessionId, s)
+    // Reseed dari file token: sesi 'default' WAJIB memakai token file lagi.
+    // Token acak baru membuat extension yang pegang token file benar ditolak 401 selamanya.
+    if (sessionId === 'default') {
+      try {
+        const flavor = flavorFromPort(BROWSER_BRIDGE.PORT)
+        const rec = readTokenRecord(undefined, flavor)
+        if (rec?.token) {
+          s.token = rec.token
+          s.tokenCreatedAt = rec.createdAt
+          s.prevToken = rec.prevToken
+          s.prevExpiresAt = rec.prevExpiresAt
+        }
+      } catch {
+        /* file belum ada — token acak tetap dipakai */
+      }
+    }
   }
   return s
 }
@@ -274,15 +304,20 @@ export function takeNext(sessionId, token) {
   if (!s || !tokenOk(s, token))
     return Promise.reject(new Error('Sesi tidak dikenal atau token salah.'))
   s.lastSeenAt = now()
+
+  // 1. Cek antrean pending sesi sendiri. TIDAK ada drain lintas-sesi:
+  // tiap sesi dilayani antreannya sendiri (anti-curi antar-sesi).
   const existing = s.pending[0]
   if (existing) return Promise.resolve(serializeCommand(existing, s))
+
   return new Promise((resolve) => {
     const w = { resolve: null, timer: null }
     w.resolve = (cmd) => {
       const i = s.waiting.indexOf(w)
       if (i >= 0) s.waiting.splice(i, 1)
       const next = s.pending[0]
-      resolve(next ? serializeCommand(next, s) : cmd)
+      if (next) return resolve(serializeCommand(next, s))
+      resolve(cmd)
     }
     w.timer = setTimeout(() => w.resolve(null), BROWSER_BRIDGE.POLL_TIMEOUT_MS)
     s.waiting.push(w)
@@ -313,7 +348,18 @@ export function resolveCommand(sessionId, token, commandId, result) {
   inflight.delete(commandId)
   clearTimeout(waiter.timer)
   const text = typeof result?.data === 'string' ? result.data : JSON.stringify(result?.data ?? null)
-  const trimmed =
+  // Navigate sukses -> rekam identitas tab sesi ini (fokus-tab + lastUrl).
+  // Terpusat di sini agar jalur channel maupun tool sama-sama tercatat.
+  if (waiter.type === 'navigate' && result?.ok) {
+    try {
+      const parsed = typeof result.data === 'string' ? JSON.parse(result.data) : result.data
+      const g = parsed?._group
+      if (parsed?.url) setLastUrl(sessionId, parsed.url)
+      if (g?.tabId != null) setFocusedTab(sessionId, { tabId: g.tabId, url: parsed?.url })
+    } catch {
+      /* data non-JSON: identitas tak tercatat, bukan error */
+    }
+  }  const trimmed =
     text && text.length > BROWSER_BRIDGE.MAX_RESULT_CHARS
       ? text.slice(0, BROWSER_BRIDGE.MAX_RESULT_CHARS) + '…[dipotong]'
       : text
@@ -361,7 +407,7 @@ export function dispatchCommand(sessionId, type, payload) {
         )
       )
     }, BROWSER_BRIDGE.COMMAND_TIMEOUT_MS)
-    inflight.set(commandId, { resolve, reject, timer })
+    inflight.set(commandId, { resolve, reject, timer, type })
     s.pending.push({ id: commandId, type, payload })
     wake(s)
   })
@@ -477,6 +523,23 @@ export function tokenOk(s, token) {
   if (!s || !token) return false
   if (safeTokenCompare(s.token, token)) return true
   return !!(s.prevToken && safeTokenCompare(s.prevToken, token) && Date.now() < (s.prevExpiresAt || 0))
+}
+
+// Kode sebab 401 (machine-readable, untuk popup/poll extension):
+// - token-stale: sesi dikenal, token salah, TAPI token lama dalam grace ATAU
+//   file token masih ada (sidecar restart / rotasi — ambil baru via helper).
+// - token-unknown: sesi dikenal, token salah total (tempel manual / sesi asing).
+// - session-unknown: sesi tidak dikenal sama sekali.
+export const TOKEN_REJECT_STALE = 'token-stale'
+export const TOKEN_REJECT_UNKNOWN = 'token-unknown'
+export const TOKEN_REJECT_NO_SESSION = 'session-unknown'
+
+export function tokenRejectReason(sessionId, token) {
+  const s = sessions.get(sessionId)
+  if (!s) return TOKEN_REJECT_NO_SESSION
+  if (safeTokenCompare(s.token, token)) return null
+  if (s.prevToken && safeTokenCompare(s.prevToken, token)) return TOKEN_REJECT_STALE
+  return TOKEN_REJECT_UNKNOWN
 }
 
 // Rotasi bila kedaluwarsa. Dipanggil HANYA dari handshake valid (jalur

@@ -1,21 +1,20 @@
-import React, { useEffect, useState, useRef, useMemo, Suspense, lazy } from 'react'
-import { useLiteMode } from '../../contexts/LiteModeContext'
+import React, { useEffect, useState, useMemo } from 'react'
 import { getAllChatArchives, getAllMemory, getAllDocumentsMeta, getDocumentChunk, deleteMemory, deleteChatArchive } from '../../api/db'
-import { FiCheckCircle, FiClock, FiGitMerge, FiTrash2, FiRefreshCw, FiLoader } from 'react-icons/fi'
+import { CheckCircle2, Clock, GitMerge, Trash2, RefreshCw, Loader2 } from 'lucide-react'
+import { MobiusLoader } from './MobiusLoader'
 import { useMemoryGroomer } from '../../hooks/useMemoryGroomer'
 import ConfirmModal from './ConfirmModal'
 
-const ForceGraph2D = lazy(() => import('react-force-graph-2d'))
+// ponytail: LiteGraphView satu-satunya tampilan (force-graph dep dihapus);
+// senarai grup sudah cukup untuk navigasi memori + hemat RAM.
 
 // Batas node daun per grup (hemat RAM/heap + fisika): terbaru didahulukan,
 // sisanya dihitung di label "X dari Y". Full content TIDAK masuk node.
 const MAX_GRAPH_LEAVES = 200
-// Di atas ambang ini paksa tampilan senarai walau bukan lite mode.
-const AUTO_LITE_NODE_THRESHOLD = 400
 
-// Roots that anchor the memory graph (color + id match the ForceGraph nodes)
+// Roots that anchor the memory list (color + id match the grouped entries)
 const GRAPH_ROOTS = [
-  { id: 'archives-root', name: 'Chat History', color: '#00e5ff' },
+  { id: 'archives-root', name: 'Chat History', color: '#0a84ff' },
   { id: 'vector-root', name: 'Knowledge Base', color: '#ff00aa' },
   { id: 'doc-root', name: 'Document Vault', color: '#ffaa00' }
 ]
@@ -81,7 +80,7 @@ function LiteGraphView({ graphData, setSelectedNode, totalCounts }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-base-content/50">{items.length} entri</span>
-                  <FiLoader
+                  <Loader2
                     className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-90' : ''}`}
                     style={{ transformOrigin: 'center' }}
                   />
@@ -93,7 +92,7 @@ function LiteGraphView({ graphData, setSelectedNode, totalCounts }) {
                     <div
                       key={n.id}
                       className="text-xs p-2 rounded cursor-pointer hover:bg-base-300/50"
-                      onClick={() => setSelectedNode(n)}
+                      onClick={() => handleSelectNode(n)}
                       title={n.fullText}
                     >
                       <span className="truncate block">{n.name}</span>
@@ -111,34 +110,10 @@ function LiteGraphView({ graphData, setSelectedNode, totalCounts }) {
 }
 
 const MemoryVisualizer = ({ isOpen, onClose }) => {
-  const { isLite } = useLiteMode()
   const { isGrooming, groomResult, triggerGrooming } = useMemoryGroomer(false)
   const [graphData, setGraphData] = useState({ nodes: [], links: [] })
-  const [dimensions, setDimensions] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight
-  })
   const [selectedNode, setSelectedNode] = useState(null)
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, node: null })
-  const fgRef = useRef()
-
-  // Resize listener
-  useEffect(() => {
-    const handleResize = () =>
-      setDimensions({ width: window.innerWidth, height: window.innerHeight })
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
-  // Configure Physics Engine
-  useEffect(() => {
-    if (fgRef.current && isOpen) {
-      // Repel nodes more strongly so they don't clump
-      fgRef.current.d3Force('charge').strength(-150)
-      // Give links a bit more distance
-      fgRef.current.d3Force('link').distance(40)
-    }
-  }, [isOpen])
 
   // Fetch and format data (ringan: tanpa vektor embedding, tanpa isi dokumen
   // penuh — fullText dokumen dimuat on-select via getDocumentChunk).
@@ -158,10 +133,10 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
 
         // 0. Core Node
         const coreNodeId = 'core';
-        nodes.push({ id: coreNodeId, name: 'Abelink Neural Core', group: 0, val: 25, color: '#00ff66' });
+        nodes.push({ id: coreNodeId, name: 'Abelink Neural Core', group: 0, val: 25, color: '#0a84ff' });
 
         // 1. Sub-Cores (Main Branches)
-        nodes.push({ id: 'archives-root', name: 'Chat History', group: 1, val: 15, color: '#00e5ff' });
+        nodes.push({ id: 'archives-root', name: 'Chat History', group: 1, val: 15, color: '#0a84ff' });
         nodes.push({ id: 'vector-root', name: 'Knowledge Base', group: 1, val: 15, color: '#ff00aa' });
         nodes.push({ id: 'doc-root', name: 'Document Vault', group: 1, val: 15, color: '#ffaa00' });
         
@@ -172,7 +147,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
         // 2 & 3. Process Chat Archives
         const topics = [...new Set(archives.map(a => a.topic || 'General'))];
         topics.forEach(topic => {
-          nodes.push({ id: `topic-${topic}`, name: topic, group: 2, val: 10, color: '#00e5ff' });
+          nodes.push({ id: `topic-${topic}`, name: topic, group: 2, val: 10, color: '#0a84ff' });
           links.push({ source: 'archives-root', target: `topic-${topic}`, color: 'rgba(255,255,255,0.1)' });
         });
 
@@ -247,6 +222,22 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
+  // Konten dokumen dimuat on-select (tidak dibawa di node).
+  const handleSelectNode = (node) => {
+    if (node?.typeLabel === 'Document Chunk' && !node.fullText && node.chunkId != null) {
+      setSelectedNode({ ...node, fullText: 'Memuat...' })
+      getDocumentChunk(node.chunkId)
+        .then((row) => {
+          setSelectedNode({ ...node, fullText: row?.content || '(konten tidak tersedia)' })
+        })
+        .catch(() => {
+          setSelectedNode({ ...node, fullText: '(gagal memuat konten)' })
+        })
+    } else {
+      setSelectedNode(node)
+    }
+  }
+
   const handleDelete = () => {
     if (!selectedNode) return;
     setConfirmModal({ isOpen: true, node: selectedNode });
@@ -280,21 +271,12 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
     }
   };
 
-  // Handle graph physics on load
-  useEffect(() => {
-    if (fgRef.current && isOpen) {
-      fgRef.current.d3Force('charge').strength(-200)
-      fgRef.current.d3Force('link').distance(60)
-      fgRef.current.zoom(1.5, 1000)
-    }
-  }, [isOpen, graphData])
-
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-base-300/95 animate-[fade-in_0.5s_ease-out_forwards]">
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-base-300/95 animate-[fade-in_0.5s_ease-out_forwards]">
       {/* Background Ambience */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,255,100,0.05)_0%,transparent_60%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(10,132,255,0.05)_0%,transparent_60%)] pointer-events-none" />
 
       {/* Close Button */}
       <button
@@ -321,7 +303,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
       <div className="absolute top-6 left-6 z-20 flex items-center gap-4 px-4 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-xs text-white/80 shadow-lg">
         {isGrooming ? (
           <div className="flex items-center gap-2 text-primary">
-            <FiLoader className="w-4 h-4 animate-spin" />
+            <MobiusLoader size={16} />
             <span>Sedang mengkonsolidasi & merapikan memori...</span>
           </div>
         ) : (
@@ -329,7 +311,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
             <div className="flex items-center gap-1.5">
               {groomResult.lastChecked ? (
                 <>
-                  <FiCheckCircle className="w-4 h-4 text-emerald-400" />
+                  <CheckCircle2 className="w-4 h-4 text-info" />
                   <span>
                     Terakhir dikonsolidasi:{' '}
                     {new Date(groomResult.lastChecked).toLocaleTimeString([], {
@@ -340,7 +322,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
                 </>
               ) : (
                 <>
-                  <FiClock className="w-4 h-4 text-white/50" />
+                  <Clock className="w-4 h-4 text-white/50" />
                   <span>Belum ada riwayat konsolidasi</span>
                 </>
               )}
@@ -348,11 +330,11 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
             {(groomResult.mergedCount > 0 || groomResult.deletedCount > 0) && (
               <div className="flex items-center gap-3 pl-3 border-l border-white/10 text-white/70">
                 <span className="flex items-center gap-1">
-                  <FiGitMerge className="w-3.5 h-3.5 text-cyan-400" />
+                  <GitMerge className="w-3.5 h-3.5 text-info" />
                   {groomResult.mergedCount} digabung
                 </span>
                 <span className="flex items-center gap-1">
-                  <FiTrash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                   {groomResult.deletedCount} duplikat dibersihkan
                 </span>
               </div>
@@ -369,73 +351,14 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           className="btn btn-xs btn-primary rounded-full px-3 flex items-center gap-1 ml-2"
           title="Jalankan Hippocampus Engine untuk mengkonsolidasi dan merapikan ingatan"
         >
-          <FiRefreshCw className={`w-3 h-3 ${isGrooming ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3 h-3 ${isGrooming ? 'animate-spin' : ''}`} />
           <span>Konsolidasi Sekarang</span>
         </button>
       </div>
 
       {/* Graph Area */}
-      <div className="absolute inset-0 cursor-crosshair">
-        {(isLite || graphData.nodes.length > AUTO_LITE_NODE_THRESHOLD) ? (
-          <LiteGraphView graphData={graphData} setSelectedNode={setSelectedNode} totalCounts={totalCounts} />
-        ) : (
-          <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-sm text-base-content/50">Memuat graf neural…</div>}>
-            <ForceGraph2D
-              ref={fgRef}
-          width={dimensions.width}
-          height={dimensions.height}
-          graphData={graphData}
-          nodeLabel="name"
-          nodeColor={(node) => node.color}
-          nodeRelSize={4}
-          linkColor={(link) => 'rgba(255,255,255,0.15)'}
-          linkWidth={(link) => (link.source.id === 'core' || link.source === 'core' ? 2 : 1)}
-          linkCurvature={0.25}
-          linkDirectionalParticles={0}
-          cooldownTicks={60}
-          onEngineStop={() => fgRef.current?.zoomToFit(400, 50)}
-          d3VelocityDecay={0.3}
-          onNodeClick={(node) => {
-            // Only select leaf nodes (group 3 for our dual-tree structure)
-            if (node.group === 3) {
-              // Konten dokumen dimuat on-demand (tidak dibawa di node).
-              if (node.typeLabel === 'Document Chunk' && !node.fullText && node.chunkId != null) {
-                setSelectedNode({ ...node, fullText: 'Memuat...' })
-                getDocumentChunk(node.chunkId)
-                  .then((row) => {
-                    setSelectedNode({ ...node, fullText: row?.content || '(konten tidak tersedia)' })
-                  })
-                  .catch(() => {
-                    setSelectedNode({ ...node, fullText: '(gagal memuat konten)' })
-                  })
-              } else {
-                setSelectedNode(node)
-              }
-              fgRef.current.centerAt(node.x, node.y, 1000)
-              fgRef.current.zoom(3, 1000)
-            } else {
-              // Zoom into clusters
-              fgRef.current.centerAt(node.x, node.y, 1000)
-              fgRef.current.zoom(2.5, 1000)
-            }
-          }}
-          nodeCanvasObjectMode={() => 'after'}
-          nodeCanvasObject={(node, ctx, globalScale) => {
-            if (node.group === 0 || node.group === 1 || node.group === 2) {
-              // Core = 16, Sub-Core = 14, Topic/Type = 10
-              const fontSize = node.group === 0 ? 16 / globalScale : node.group === 1 ? 14 / globalScale : 10 / globalScale;
-              if (globalScale > 0.5) {
-                ctx.font = `${fontSize}px Sans-Serif`
-                ctx.textAlign = 'center'
-                ctx.textBaseline = 'middle'
-                ctx.fillStyle = 'rgba(255,255,255,0.8)'
-                ctx.fillText(node.name, node.x, node.y + node.val + (8 / globalScale))
-              }
-            }
-          }}
-            />
-          </Suspense>
-        )}
+      <div className="absolute inset-0">
+        <LiteGraphView graphData={graphData} setSelectedNode={handleSelectNode} totalCounts={totalCounts} />
       </div>
 
       {/* Info Panel for Selected Node */}

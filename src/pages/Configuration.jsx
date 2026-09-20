@@ -34,7 +34,7 @@ const Configuration = ({
     model: 'google/gemma-3-4b',
     effortLevel: 'auto',
     temperature: 1,
-    context: 10,
+    context: 20,
     ttsRate: 0,
     ttsPitch: 0,
     groqApiKey: '',
@@ -383,10 +383,8 @@ const Configuration = ({
   const handlePersonalityChange = (e) =>
     setConfig((prev) => ({ ...prev, personality: e.target.value }))
 
-  const handleBack = () => window.history.back()
-
   return (
-    <div className="h-screen text-white overflow-hidden relative font-['Poppins',sans-serif] bg-base-300/90 rounded-2xl border border-white/10 shadow-2xl flex">
+    <div className="h-screen text-white overflow-hidden relative bg-base-300/90 rounded-lg border border-white/10 shadow-2xl flex">
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(var(--n))_0%,transparent_70%)] opacity-20 pointer-events-none" />
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none" />
@@ -401,42 +399,22 @@ const Configuration = ({
           isDevMode={devHarness}
         />
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 custom-scrollbar">
-          <div className="p-6 sm:p-8 max-w-4xl mx-auto w-full">
+          <div className="p-6 sm:p-8 w-full">
             {/* Page Header */}
             <header className="flex items-center justify-between gap-4 mb-8 pb-4 border-b border-white/[0.06]">
               <div className="flex items-center gap-3.5">
-                {!isFirstSetup && (
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    className="btn btn-sm btn-circle btn-ghost border border-white/10 hover:bg-white/10 text-white/70 cursor-pointer"
-                    title="Kembali"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="1.1em"
-                      height="1.1em"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                )}
                 <div>
                   <h1 className="text-xl font-bold tracking-tight text-white/90">Pengaturan Abelink</h1>
                 </div>
               </div>
-              <div className="flex items-center gap-2 mr-44">
+              <div className="flex items-center gap-2">
                 {saveStatus && !isFirstSetup && (
                   <span
                     className={`badge badge-sm font-medium ${
                       saveStatus.state === 'error'
                         ? 'badge-error'
                         : saveStatus.state === 'saved'
-                          ? 'badge-success badge-outline'
+                          ? 'badge-info badge-outline'
                           : 'badge-warning badge-outline'
                     }`}
                   >

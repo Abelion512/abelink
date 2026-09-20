@@ -1,16 +1,39 @@
 import React from 'react'
-import { Check, CheckCircle2, Circle, Loader2, ListOrdered, Brain, ChevronRight } from 'lucide-react'
+import { Check, CheckCircle2, ListOrdered, Brain, ChevronRight } from 'lucide-react'
+import { MobiusLoader } from '../core/MobiusLoader'
+import { ToolCallsSection } from '../core/ToolCallsSection'
 
-export const PlanningBubble = ({ plan = [], resolvedCurrentStep = 0, reasoning = '' }) => {
+export const PlanningBubble = ({ plan = [], resolvedCurrentStep = 0, reasoning = '', executedTools = [] }) => {
   const isAllDone = plan.length > 0 && resolvedCurrentStep >= plan.length
+  // Execution evidence for the shared ToolCallsSection. Plan steps keep
+  // showing intent (title + objective/query detail) in the steps list, so
+  // plan-derived rows carry output only — no duplicated inputs.
+  const toolCalls = [
+    ...(Array.isArray(executedTools) ? executedTools : []).map((step) => ({
+      tool_name: step.tool || step.task || 'tool',
+      tool_category: step.tool || step.task || '',
+      message: step.status === 'running' ? 'mengeksekusi...' : undefined,
+      inputs: step.query,
+      output: step.fullResult || step.resultSummary,
+    })),
+    ...(Array.isArray(plan) ? plan : [])
+      .filter((s) => typeof s === 'object' && s && (s.fullResult || s.resultSummary))
+      .map((s) => ({
+        tool_name: s.tool || s.task || s.title || 'tool',
+        tool_category: s.tool || s.task || s.title || '',
+        message: s.title || s.task || undefined,
+        inputs: undefined,
+        output: s.fullResult || s.resultSummary,
+      })),
+  ]
 
   return (
-    <div className="bg-base-200/90 border border-primary/25 rounded-2xl p-4 shadow-xl flex flex-col gap-3 my-2 backdrop-blur-md max-w-full overflow-hidden">
+    <div className="bg-base-200/90 border border-primary/25 rounded-xl p-4 shadow-xl flex flex-col gap-3 my-2 backdrop-blur-md max-w-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-2.5 select-none">
         <div className="flex items-center gap-2">
           {isAllDone ? (
-            <CheckCircle2 className="w-4 h-4 text-success" />
+            <CheckCircle2 className="w-4 h-4 text-info" />
           ) : (
             <ListOrdered className="w-4 h-4 text-primary" />
           )}
@@ -39,6 +62,11 @@ export const PlanningBubble = ({ plan = [], resolvedCurrentStep = 0, reasoning =
         </details>
       )}
 
+      {/* Executed Tool Calls (shared section, above intent steps) */}
+      {toolCalls.length > 0 && (
+        <ToolCallsSection toolCalls={toolCalls} defaultExpanded={false} />
+      )}
+
       {/* Steps List (ProcessPanel Style) */}
       <div className="space-y-1.5 mt-0.5">
         {plan.map((step, idx) => {
@@ -54,10 +82,10 @@ export const PlanningBubble = ({ plan = [], resolvedCurrentStep = 0, reasoning =
           let suffix = ''
 
           if (isDone) {
-            prefix = <Check className="w-3.5 h-3.5 text-success font-bold" />
-            textStyle = 'opacity-90 text-success font-semibold'
+            prefix = <Check className="w-3.5 h-3.5 text-info font-bold" />
+            textStyle = 'opacity-90 text-info font-semibold'
           } else if (isCurrent) {
-            prefix = <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+            prefix = <MobiusLoader size={14} />
             textStyle = 'opacity-100 text-white font-bold animate-pulse'
             suffix = '...'
           }

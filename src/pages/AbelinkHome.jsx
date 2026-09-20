@@ -8,13 +8,13 @@ import { useManualCompaction } from '../hooks/useManualCompaction'
 import ResponseArea from '../components/core/ResponseArea'
 import { mapChatItemToResponse } from '../api/choiceBus'
 import StatusIndicator from '../components/core/StatusIndicator'
-import FloatingMenu from '../components/core/FloatingMenu'
 import HistoryDrawer from '../components/core/HistoryDrawer'
 import ProcessPanel from '../components/core/ProcessPanel'
 import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
 import MemoryVisualizer from '../components/core/MemoryVisualizer'
 import { ChatStudioModal } from '../components/core/ChatStudioModal'
 import WindowControls from '../components/core/WindowControls'
+import BootScreen from '../components/core/BootScreen'
 import {
   Mic,
   MicOff,
@@ -48,6 +48,8 @@ import { DEFAULT_STT_MODEL } from '../api/sttGuard'
  * agar layar tetap bersih, KECUALI jika AI memberikan data terstruktur.
  */
 const isRichContent = (text, resp) => {
+  // Dukung rendering kartu jika respons membawa opsi ask-choice (seperti pemilihan track musik / OST)
+  if (resp?.choice && Array.isArray(resp.choice.options) && resp.choice.options.length > 0) return true
   if (!text || typeof text !== 'string') return false
   // Jangan pernah buka tab samping untuk percakapan lisan biasa atau konfirmasi tool singkat
   if (text.includes('|') && text.includes('\n|')) return true // Tabel markdown terstruktur
@@ -89,6 +91,10 @@ const AbelinkHome = () => {
 
   const location = useLocation()
   const navigate = useNavigate()
+  const isHomeRoute = location.pathname === '/'
+  // ponytail: satu guard home-only untuk semua fixed chrome (kapsul mode,
+  // kapsul studio/controls, drag strip, bottom bar). Home selalu mounted tapi
+  // di-hidden di sub-page — tanpa ini fixed children menutupi semua page.
 
   // ── 4 MODE WORKSPACE: voice (Jarvis default) | chat | vision | screen ────
   const queryParams = new URLSearchParams(location.search)
@@ -108,6 +114,13 @@ const AbelinkHome = () => {
   })
   const [isMicMuted, setIsMicMuted] = useState(false)
   const [showVoiceSetupModal, setShowVoiceSetupModal] = useState(false)
+  // Watchdog independen: overlay boot TIDAK boleh nyangkut walau rantai
+  // hook (greeting AI / compaction) hang. Hidup per-mount, mati sendiri.
+  const [bootExpired, setBootExpired] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setBootExpired(true), 10000)
+    return () => clearTimeout(t)
+  }, [])
 
   // Reset mute state & Smart Voice Onboarding saat berganti mode
   useEffect(() => {
@@ -275,14 +288,19 @@ const AbelinkHome = () => {
 
     const handleOpenMap = () => setIsMemoryMapOpen(true)
     const handleOpenChat = () => setIsChatStudioOpen(true)
+    // Persistent AppSidebar (MainLayout level) dispatches this; AbelinkHome
+    // owns the History drawer state.
+    const handleOpenHistory = () => setIsHistoryOpen(true)
 
     window.addEventListener('open-memory-map', handleOpenMap)
     window.addEventListener('open-chat-studio', handleOpenChat)
+    window.addEventListener('abelink:open-history', handleOpenHistory)
 
     return () => {
       if (typeof unsubWin === 'function') unsubWin()
       window.removeEventListener('open-memory-map', handleOpenMap)
       window.removeEventListener('open-chat-studio', handleOpenChat)
+      window.removeEventListener('abelink:open-history', handleOpenHistory)
     }
   }, [])
 
@@ -735,62 +753,47 @@ const AbelinkHome = () => {
 
   return (
     <div
-      className="h-screen text-white overflow-hidden relative transition-colors duration-1000 bg-transparent rounded-xl border border-white/5 shadow-2xl font-['Inter',sans-serif]"
+      className="h-screen text-white overflow-hidden relative transition-colors duration-1000 bg-[#161618] rounded-xl border border-white/5 shadow-2xl font-sans"
       style={{
-        backgroundColor: `color-mix(in srgb, ${bgGlowColor} 10%, rgba(0,0,0,${config?.[0]?.windowOpacity ?? 0.88}))`
+        backgroundColor: `color-mix(in srgb, ${bgGlowColor} 10%, rgba(22, 22, 24, ${config?.[0]?.windowOpacity ?? 0.95}))`
       }}
     >
-      <style>{`
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes spin-slow-reverse {
-          from { transform: rotate(360deg); }
-          to { transform: rotate(0deg); }
-        }
-        @keyframes scanline-pass {
-          0% { transform: translateY(-100%); }
-          100% { transform: translateY(1000%); }
-        }
-      `}</style>
+      {/* Subtle Apple Ambient Glow */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_25%,rgba(10,132,255,0.06),transparent_60%)] pointer-events-none z-0" />
 
-      {/* Hologram Grid Backdrop */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.15)_50%)] bg-[length:100%_4px] opacity-25 pointer-events-none mix-blend-overlay z-0" />
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-[0.03] pointer-events-none mix-blend-screen z-0" />
-
-      {isBooting && (
-        <div className="fixed inset-0 bg-base-300 flex flex-col items-center justify-center gap-5 z-[999]">
-          <span className="loading loading-infinity w-16 text-primary"></span>
-          <p className="text-sm font-semibold tracking-[0.2em] text-white/40 uppercase animate-pulse">
-            Membangunkan Abelink...
-          </p>
+      {isBooting && !bootExpired && (
+        <div className="fixed inset-0 bg-[#161618] flex flex-col items-center justify-center z-[200]">
+          {/* z-[200]: boot veil harus di atas semua chrome (HUD z-50,
+              player z-120), di bawah drag-drop veil (9999). Dulu z-999,
+              turun ke z-40 saat rapihan z-index → HUD mengintip. */}
+          <BootScreen showRecovery={false} />
         </div>
       )}
 
-      {/* Floating System Menus */}
-      <FloatingMenu onOpenHistory={() => setIsHistoryOpen(true)} />
+      {/* Floating System Menus (nav moved to persistent AppSidebar in MainLayout) */}
       <StatusIndicator notifications={notifications} />
       <ProcessPanel processes={activeProcesses} onDismiss={dismissProcess} />
       <LiteBadge />
 
       {toastMessage && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 bg-error/90 text-white px-4 py-2 rounded-xl z-50 backdrop-blur shadow-lg animate-bounce text-sm">
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 bg-[#ff453a]/90 text-white px-4 py-2 rounded-2xl z-50 backdrop-blur shadow-lg animate-bounce text-sm">
           {toastMessage}
         </div>
       )}
 
-      {/* ── TOP FLOATING HUD: Transparent Drag Strip & Independent Floating Controls ─────── */}
-      <div data-tauri-drag-region="" className="fixed top-0 inset-x-0 h-14 z-30 pointer-events-auto" />
+      {/* ── TOP FLOATING HUD: hanya di home (guard tunggal, lih. isHomeRoute) ── */}
+      {isHomeRoute && (
+      <>
+      <div data-tauri-drag-region="" className="fixed top-0 left-60 right-0 h-14 z-30 pointer-events-auto" />
 
-      {/* Center: Floating 4-Mode Switcher Capsule (Icon-only) */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center bg-black/60 backdrop-blur-2xl border border-white/10 p-1 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.6)] gap-1 shrink-0 pointer-events-auto">
+      {/* Center: Floating 4-Mode Switcher Dynamic Island (Icon-only) */}
+      <div className="fixed top-3.5 left-1/2 -translate-x-1/2 z-30 flex items-center bg-[#1c1c1e]/80 backdrop-blur-2xl border border-white/15 p-1 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.4)] gap-1 shrink-0 pointer-events-auto">
         <button
           onClick={() => handleModeChange('chat')}
           className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${
             currentMode === 'chat'
-              ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_15px_rgba(var(--p)/0.3)]'
-              : 'text-white/60 hover:text-white hover:bg-white/5'
+              ? 'bg-[#0a84ff] text-white shadow-[0_0_15px_rgba(10,132,255,0.4)]'
+              : 'text-white/60 hover:text-white hover:bg-white/10'
           }`}
           title="Mode Chat"
         >
@@ -801,8 +804,8 @@ const AbelinkHome = () => {
           onClick={() => handleModeChange('voice')}
           className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${
             currentMode === 'voice'
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
-              : 'text-white/60 hover:text-white hover:bg-white/5'
+              ? 'bg-[#0a84ff] text-white shadow-[0_0_15px_rgba(10,132,255,0.4)]'
+              : 'text-white/60 hover:text-white hover:bg-white/10'
           }`}
           title="Mode Voice (Jarvis)"
         >
@@ -813,8 +816,8 @@ const AbelinkHome = () => {
           onClick={() => handleModeChange('vision')}
           className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${
             currentMode === 'vision'
-              ? 'bg-sky-500/20 text-sky-300 border border-sky-400/40 shadow-[0_0_15px_rgba(56,189,248,0.3)]'
-              : 'text-white/60 hover:text-white hover:bg-white/5'
+              ? 'bg-[#0a84ff] text-white shadow-[0_0_15px_rgba(10,132,255,0.4)]'
+              : 'text-white/60 hover:text-white hover:bg-white/10'
           }`}
           title="Mode Vision (Kamera)"
         >
@@ -825,8 +828,8 @@ const AbelinkHome = () => {
           onClick={() => handleModeChange('screen')}
           className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${
             currentMode === 'screen'
-              ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40 shadow-[0_0_15px_rgba(168,85,247,0.3)]'
-              : 'text-white/60 hover:text-white hover:bg-white/5'
+              ? 'bg-[#0a84ff] text-white shadow-[0_0_15px_rgba(10,132,255,0.4)]'
+              : 'text-white/60 hover:text-white hover:bg-white/10'
           }`}
           title="Mode Screen Share"
         >
@@ -834,19 +837,12 @@ const AbelinkHome = () => {
         </button>
       </div>
 
-      {/* Right: Floating Studio Button & Native Window Controls Capsule */}
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-black/60 backdrop-blur-2xl border border-white/10 px-2.5 py-1.5 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.6)] pointer-events-auto">
-        <button
-          onClick={() => setIsChatStudioOpen(true)}
-          className="h-7 px-2.5 btn btn-ghost btn-xs text-white/80 hover:text-white rounded-full flex items-center gap-1.5 transition-all hover:bg-white/10"
-          title="Buka Chat Studio"
-        >
-          <Layers className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-xs font-medium hidden md:inline">Studio</span>
-        </button>
-        <div className="h-3.5 w-px bg-white/15" />
+      {/* Right: Native Window Controls Capsule */}
+      <div className="fixed top-3.5 right-4 z-30 flex items-center bg-[#1c1c1e]/80 backdrop-blur-2xl border border-white/15 px-3 py-1.5 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.4)] pointer-events-auto">
         <WindowControls />
       </div>
+      </>
+      )}
 
       {/* ── MODE 1: VOICE MODE (JARVIS DEFAULT) ──────────────────────────────── */}
       {currentMode === 'voice' && (
@@ -895,14 +891,14 @@ const AbelinkHome = () => {
 
           {/* Right Side: Rich Data Telemetry Card dengan viewport penuh */}
           {showRichCardInVoice && (
-            <div className="w-full md:w-7/12 h-[55vh] md:h-[calc(100vh-140px)] flex flex-col bg-black/75 backdrop-blur-2xl border border-cyan-500/30 rounded-3xl p-5 shadow-[0_12px_48px_rgba(34,211,238,0.25)] animate-[holo-enter_0.35s_ease-out_forwards] pointer-events-auto">
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10 text-xs font-mono text-cyan-300 shrink-0">
-                <span className="flex items-center gap-2 tracking-wider uppercase font-semibold">
-                  <Eye className="w-4 h-4 text-cyan-400 animate-pulse" /> DATA OUTPUT
+            <div className="w-full md:w-7/12 h-[55vh] md:h-[calc(100vh-140px)] flex flex-col bg-[#1c1c1e]/85 backdrop-blur-2xl border border-white/15 rounded-2xl p-5 shadow-2xl animate-[holo-enter_0.35s_ease-out_forwards] pointer-events-auto">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10 text-xs text-[#0a84ff] shrink-0 font-medium">
+                <span className="flex items-center gap-2 uppercase tracking-wider font-semibold">
+                  <Eye className="w-4 h-4 text-[#0a84ff]" /> Data Output
                 </span>
                 <button
                   onClick={() => handleModeChange('chat')}
-                  className="btn btn-ghost btn-xs text-white/70 hover:text-white gap-1.5 rounded-full px-3 hover:bg-white/10 transition-colors"
+                  className="text-xs text-white/70 hover:text-white gap-1.5 rounded-full px-3 py-1 hover:bg-white/10 transition-colors flex items-center"
                 >
                   <Maximize2 className="w-3 h-3" /> Mode Chat
                 </button>
@@ -919,7 +915,7 @@ const AbelinkHome = () => {
             <div className="flex items-center gap-2 opacity-60 pointer-events-auto">
               <div className="w-16 h-0.5 bg-white/10 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-cyan-400 transition-all duration-75"
+                  className="h-full bg-info transition-all duration-75"
                   style={{ width: `${Math.min(100, Math.max(8, audioIntensity * 100))}%` }}
                 />
               </div>
@@ -940,7 +936,7 @@ const AbelinkHome = () => {
                 className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                 title="Klik untuk menyalakan/menjeda mikrofon"
               >
-                <span className="font-mono text-xs tracking-widest text-cyan-400/90 animate-pulse">
+                <span className="font-mono text-xs tracking-widest text-info/90 animate-pulse">
                   {toastMessage
                     ? toastMessage
                     : isMicMuted
@@ -967,12 +963,12 @@ const AbelinkHome = () => {
               >
                 <span
                   className={`h-1 rounded-full transition-all ${
-                    orbStyle === 'jarvis' ? 'bg-cyan-400 w-3.5' : 'bg-white/40 w-1'
+                    orbStyle === 'jarvis' ? 'bg-info w-3.5' : 'bg-white/40 w-1'
                   }`}
                 />
                 <span
                   className={`h-1 rounded-full transition-all ${
-                    orbStyle === 'abelink' ? 'bg-cyan-400 w-3.5' : 'bg-white/40 w-1'
+                    orbStyle === 'abelink' ? 'bg-info w-3.5' : 'bg-white/40 w-1'
                   }`}
                 />
               </div>
@@ -983,7 +979,6 @@ const AbelinkHome = () => {
           </div>
         </div>
       )}
-
       {/* ── MODE 2: CLASSIC CHAT MODE ────────────────────────────────────────── */}
       {currentMode === 'chat' && (
         <div className="relative z-10 flex flex-col md:flex-row w-full h-screen pt-14 pb-[110px] px-4 lg:px-12 overflow-hidden">
@@ -1071,14 +1066,14 @@ const AbelinkHome = () => {
           <div className="absolute inset-0 pointer-events-none p-6 flex flex-col justify-between">
 
             {/* Corner Brackets */}
-            <div className="absolute top-16 left-6 w-8 h-8 border-t-2 border-l-2 border-cyan-400/80" />
-            <div className="absolute top-16 right-6 w-8 h-8 border-t-2 border-r-2 border-cyan-400/80" />
-            <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-cyan-400/80" />
-            <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-cyan-400/80" />
+            <div className="absolute top-16 left-6 w-8 h-8 border-t-2 border-l-2 border-info/80" />
+            <div className="absolute top-16 right-6 w-8 h-8 border-t-2 border-r-2 border-info/80" />
+            <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-info/80" />
+            <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-info/80" />
 
             {/* Target Crosshair */}
-            <div className="absolute inset-0 m-auto w-16 h-16 border border-cyan-400/40 rounded-full flex items-center justify-center">
-              <div className="w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
+            <div className="absolute inset-0 m-auto w-16 h-16 border border-info/40 rounded-full flex items-center justify-center">
+              <div className="w-2 h-2 bg-info rounded-full animate-ping" />
             </div>
 
             {/* Top Right Mini Orb */}
@@ -1106,7 +1101,7 @@ const AbelinkHome = () => {
                   setCapsuleInput('')
                 }
               }}
-              className="btn btn-sm rounded-full bg-cyan-500 text-black font-semibold hover:bg-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.5)] px-6"
+              className="btn btn-sm rounded-full bg-primary text-white font-semibold hover:bg-info shadow-[0_0_20px_rgba(10,132,255,0.5)] px-6"
             >
               Snap &amp; Tanya
             </button>
@@ -1141,7 +1136,7 @@ const AbelinkHome = () => {
               </div>
 
               {/* Main Live Viewport Screen Stream (Google Meet / Zoom WebRTC Video or Native Desktop Mirror) */}
-              <div className="relative w-full h-full max-w-7xl max-h-[82vh] flex items-center justify-center rounded-2xl overflow-hidden border border-purple-500/20 bg-black/60 shadow-[0_0_50px_rgba(168,85,247,0.15)]">
+              <div className="relative w-full h-full max-w-7xl max-h-[82vh] flex items-center justify-center rounded-xl overflow-hidden border border-info/20 bg-black/60 shadow-[0_0_50px_rgba(10,132,255,0.15)]">
                 {screenStream ? (
                   <video
                     ref={screenVideoRef}
@@ -1165,7 +1160,7 @@ const AbelinkHome = () => {
               </div>
 
               {/* Bottom Center Floating Mini Dock for Screen Share */}
-              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-4 py-2 rounded-full bg-black/85 backdrop-blur-2xl border border-purple-500/40 shadow-[0_8px_32px_rgba(0,0,0,0.85),0_0_25px_rgba(168,85,247,0.3)] pointer-events-auto select-none">
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-4 py-2 rounded-full bg-black/85 backdrop-blur-2xl border border-info/40 shadow-[0_8px_32px_rgba(0,0,0,0.85),0_0_25px_rgba(10,132,255,0.3)] pointer-events-auto select-none">
                 {/* Live Indicator */}
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-[11px] font-bold tracking-wider">
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.9)]" />
@@ -1178,12 +1173,12 @@ const AbelinkHome = () => {
                   onClick={toggleRecording}
                   className={`w-8 h-8 flex items-center justify-center rounded-full transition-all border ${
                     isRecording
-                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
+                      ? 'bg-[#0a84ff]/20 text-[#0a84ff] border-[#0a84ff]/40 shadow-[0_0_10px_rgba(10,132,255,0.3)]'
                       : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:bg-white/10'
                   }`}
                   title={isRecording ? 'Matikan Mikrofon' : 'Nyalakan Mikrofon'}
                 >
-                  {isRecording ? <Mic className="w-4 h-4 text-cyan-400 animate-pulse" /> : <MicOff className="w-4 h-4" />}
+                  {isRecording ? <Mic className="w-4 h-4 text-[#0a84ff] animate-pulse" /> : <MicOff className="w-4 h-4" />}
                 </button>
 
                 {/* Mini Orb Indicator */}
@@ -1203,7 +1198,7 @@ const AbelinkHome = () => {
                       setCapsuleInput('')
                     }
                   }}
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-purple-500 hover:bg-purple-400 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-all"
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-[#0a84ff] hover:bg-[#0a84ff]/80 text-white shadow-[0_0_15px_rgba(10,132,255,0.4)] transition-all"
                   title="Tangkap frame layar dan analisa (Snap)"
                 >
                   <Camera className="w-4 h-4" />
@@ -1211,32 +1206,49 @@ const AbelinkHome = () => {
 
                 <div className="w-px h-4 bg-white/15" />
 
-                {/* Hentikan Share (Icon-only) */}
+                {/* Hentikan Share */}
                 <button
                   type="button"
                   onClick={handleStopScreenShare}
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ff453a] text-white hover:bg-[#ff453a]/80 transition-all text-xs font-semibold shadow-lg"
                   title="Hentikan berbagi layar"
                 >
-                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <Square size={13} className="fill-current" /> Berhenti Share
                 </button>
               </div>
+
+              {/* Video Player Display */}
+              {screenStream ? (
+                <video
+                  ref={screenVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl border border-white/10"
+                />
+              ) : (
+                <img
+                  src={liveScreenFrame}
+                  alt="Live Screen"
+                  className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl border border-white/10"
+                />
+              )}
             </div>
           ) : (
-            <div className="relative z-20 flex flex-col items-center gap-4 text-center p-6 select-none max-w-lg">
-              <Monitor className="w-16 h-16 text-purple-400/70 animate-pulse" />
+            <div className="flex flex-col items-center justify-center gap-4 text-center p-8 max-w-md">
+              <Monitor className="w-16 h-16 text-[#0a84ff]/70 animate-pulse" />
               <h3 className="text-lg font-bold text-white tracking-wide">Live Screen Share</h3>
               <p className="text-xs text-white/50 leading-relaxed">
                 Berbagi layar real-time untuk analisis visual.
               </p>
               <button
                 onClick={handleStartScreenShare}
-                className="btn btn-primary btn-sm rounded-full px-7 shadow-lg shadow-primary/30"
+                className="px-7 py-2.5 rounded-full bg-[#0a84ff] text-white text-xs font-semibold hover:bg-[#0a84ff]/80 transition-all shadow-lg"
               >
                 Mulai Share Screen
               </button>
               {screenError && (
-                <p className="text-error text-xs font-mono mt-2 bg-error/10 border border-error/20 p-2.5 rounded-xl">
+                <p className="text-[#ff453a] text-xs font-mono mt-2 bg-[#ff453a]/10 border border-[#ff453a]/20 p-2.5 rounded-xl">
                   {screenError}
                 </p>
               )}
@@ -1256,10 +1268,10 @@ const AbelinkHome = () => {
 
       {/* Smart Voice Setup Prompt Modal */}
       {showVoiceSetupModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-xl p-4 animate-fade-in pointer-events-auto">
-          <div className="max-w-md w-full p-6 rounded-3xl bg-base-200/95 border border-cyan-500/30 shadow-[0_20px_60px_rgba(0,0,0,0.9),0_0_35px_rgba(6,182,212,0.25)] space-y-4 text-white">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 backdrop-blur-xl p-4 animate-fade-in pointer-events-auto">
+          <div className="max-w-md w-full p-6 rounded-2xl bg-[#1c1c1e]/95 border border-white/15 shadow-2xl space-y-4 text-white">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
+              <div className="w-10 h-10 rounded-xl bg-[#0a84ff]/20 border border-[#0a84ff]/30 flex items-center justify-center text-[#0a84ff]">
                 <Mic size={20} />
               </div>
               <div>
@@ -1294,10 +1306,10 @@ const AbelinkHome = () => {
                   })
                   setShowVoiceSetupModal(false)
                 }}
-                className="btn btn-sm btn-primary w-full justify-between text-xs"
+                className="px-4 py-2.5 rounded-xl bg-[#0a84ff] text-white hover:bg-[#0a84ff]/90 transition-all flex items-center justify-between text-xs font-medium w-full"
               >
                 <span>Pakai Preset Cepat (127.0.0.1:20128)</span>
-                <span className="badge badge-xs badge-neutral">Rekomendasi</span>
+                <span className="px-2 py-0.5 rounded-full bg-white/15 text-[10px] text-white/80">Rekomendasi</span>
               </button>
 
               <button
@@ -1306,7 +1318,7 @@ const AbelinkHome = () => {
                   setShowVoiceSetupModal(false)
                   navigate('/config#cfg-voice')
                 }}
-                className="btn btn-sm btn-outline btn-info w-full text-xs"
+                className="px-4 py-2.5 rounded-xl border border-white/20 text-white hover:bg-white/10 transition-all text-xs font-medium w-full text-center"
               >
                 Buka Pengaturan Audio & Provider
               </button>
@@ -1316,7 +1328,7 @@ const AbelinkHome = () => {
               <button
                 type="button"
                 onClick={() => setShowVoiceSetupModal(false)}
-                className="btn btn-xs btn-ghost opacity-60 hover:opacity-100 text-[11px]"
+                className="px-3 py-1.5 text-xs text-white/50 hover:text-white transition-colors"
               >
                 Nanti saja (Tutup)
               </button>

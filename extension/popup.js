@@ -1,7 +1,7 @@
 /* global chrome */
-// Popup = indikator status, bukan ritual sambung/putus.
-// Dibuka -> auto-connect via helper lokal (fallback: token manual di details).
-// Tombol tutup tab hanya muncul bila ada task grup aktif.
+// Popup = indikator status loop bridge, bukan probe.
+// Pill hijau HANYA bila running===true (kontrak: popup-status.mjs).
+import { popupStatus } from './popup-status.mjs'
 const $ = (id) => document.getElementById(id)
 
 function setPill(kind, text) {
@@ -22,22 +22,23 @@ async function refresh() {
   const reconnectBtn = $('reconnect')
   // Tampilkan port tersimpan agar tak terisi ulang diam-diam.
   if ($('port') && !$('port').value && res?.port) $('port').value = res.port
-  const pin = res?.pairing ? ` [${res.pairing.flavor} :${res.pairing.port} terpin]` : ' [belum pilih flavor]'
+  // Kontrak popup-status.mjs: pill hijau HANYA bila running===true.
+  // pairing flavor:port + lastError selalu ditampilkan bila ada.
+  const st = popupStatus({ running: res?.running, lastError: res?.lastError, pairing: res?.pairing })
   const target = `127.0.0.1:${res?.port || '?'}`
-  if (res?.running) {
-    setPill('ok', 'tersambung')
+  const pin = res?.pairing ? ` [${res.pairing.flavor} :${res.pairing.port} terpin]` : ' [belum pilih flavor]'
+  setPill(st.kind, st.pill)
+  if (st.pill === 'tersambung') {
     el.className = 'ok'
     el.textContent = `Session: ${res.session} @ ${target}${pin}. Menunggu perintah...`
     if (reconnectBtn) reconnectBtn.hidden = true
-  } else if (res?.lastError) {
-    setPill('err', 'terputus')
+  } else if (st.pill === 'terputus') {
     el.className = 'err'
-    el.textContent = `Target: ${target}\nStatus: ${res.lastError}`
+    el.textContent = `Target: ${target}${pin}\nStatus: ${res.lastError}`
     if (reconnectBtn) reconnectBtn.hidden = false
   } else {
-    setPill('warn', 'belum tersambung')
     el.className = ''
-    el.textContent = `Target: ${target}\nMenunggu sidecar Abelink...`
+    el.textContent = `Target: ${target}${pin}\nMenunggu sidecar Abelink...`
     if (reconnectBtn) reconnectBtn.hidden = false
   }
   await refreshTask()

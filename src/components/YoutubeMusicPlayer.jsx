@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
+import { GripVertical, Trash2, ListMusic, Music2 } from 'lucide-react'
 
 /**
- * Kartu "Now Playing" — pengganti panel <webview> Electron.
- * Audio dimainkan oleh IFrame Player API tersembunyi (lihat Context);
- * kartu ini murni tampilan metadata + kontrol antrean milik kita.
+ * Kartu "Now Playing" — antarmuka musik gaya Apple Dark Glass minimalis.
+ * Menampilkan kontrol lagu aktif dan antrean (Queue) yang mendukung drag-and-drop reorder.
  */
 export const YoutubeMusicPlayer = () => {
   const {
@@ -13,12 +13,19 @@ export const YoutubeMusicPlayer = () => {
     togglePlayer,
     isPlaying,
     currentTrack,
+    queue,
     nextTrack,
     prevTrack,
     playUrl,
+    playTrack,
     playPause,
+    reorderQueue,
+    removeFromQueue,
     playbackError
   } = useYoutubeMusic()
+
+  const [draggedIndex, setDraggedIndex] = useState(null)
+  const [showQueue, setShowQueue] = useState(false)
 
   // Thumbnail YT Music (lh3.googleusercontent) sering 429 (rate limit).
   // Gagal -> fallback ke thumbnail default img.youtube.com -> gagal lagi -> placeholder.
@@ -89,76 +96,155 @@ export const YoutubeMusicPlayer = () => {
                 {isPlaying ? 'Sedang Memutar' : 'YouTube Music'}
               </span>
             </div>
-            <button
-              onClick={() => setIsPlayerOpen(false)}
-              className="btn btn-ghost btn-xs btn-circle text-white/40 hover:text-white/80"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m6 9 6 6 6-6" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowQueue(!showQueue)}
+                className={`btn btn-ghost btn-xs btn-circle ${showQueue ? 'text-primary bg-primary/20' : 'text-white/60 hover:text-white'}`}
+                title={showQueue ? 'Tutup Antrean' : 'Buka Antrean Lagu'}
+              >
+                <ListMusic className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setIsPlayerOpen(false)}
+                className="btn btn-ghost btn-xs btn-circle text-white/60 hover:text-white/80"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+            </div>
           </div>
 
-          {/* Metadata + kontrol */}
-          <div className="p-4 space-y-3">
-            <div className="flex items-center gap-3">
-              {currentTrack.thumbnail && !thumbFailed ? (
-                <img
-                  src={currentTrack.thumbnail}
-                  alt=""
-                  onError={(e) => {
-                    const img = e.currentTarget
-                    const fallback = currentTrack.id ? `https://img.youtube.com/vi/${currentTrack.id}/hqdefault.jpg` : ''
-                    if (fallback && !img.src.includes('img.youtube.com')) {
-                      img.src = fallback
-                    } else {
-                      setThumbFailed(true)
-                    }
-                  }}
-                  className="w-14 h-14 rounded-lg object-cover border border-white/10"
-                />
+          {/* Body: Mode Antrean atau Kontrol Utama */}
+          {showQueue ? (
+            <div className="p-3 max-h-[280px] overflow-y-auto space-y-2 select-none">
+              <div className="flex items-center justify-between pb-1.5 border-b border-white/5">
+                <span className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">Antrean Lagu ({queue.length})</span>
+                <span className="text-[10px] text-white/40">Tarik untuk urutkan</span>
+              </div>
+              {queue.length === 0 ? (
+                <div className="py-6 text-center text-xs text-white/40">Belum ada antrean lagu</div>
               ) : (
-                <div className="w-14 h-14 rounded-lg bg-base-200 border border-white/5 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="white" className="opacity-40">
-                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-                  </svg>
-                </div>
+                queue.map((track, idx) => {
+                  const isCur = track.id === currentTrack.id
+                  return (
+                    <div
+                      key={track.id || idx}
+                      draggable
+                      onDragStart={() => setDraggedIndex(idx)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        if (draggedIndex === null || draggedIndex === idx) return
+                        const newQ = [...queue]
+                        const [moved] = newQ.splice(draggedIndex, 1)
+                        newQ.splice(idx, 0, moved)
+                        reorderQueue(newQ)
+                        setDraggedIndex(null)
+                      }}
+                      className={`group flex items-center gap-2 p-1.5 rounded-xl border transition-all ${
+                        isCur
+                          ? 'bg-primary/20 border-primary/40 text-white'
+                          : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/80'
+                      }`}
+                    >
+                      <div className="cursor-grab active:cursor-grabbing text-white/30 hover:text-white/70">
+                        <GripVertical className="w-3.5 h-3.5" />
+                      </div>
+                      <div
+                        onClick={() => playTrack(track)}
+                        className="flex-1 min-w-0 cursor-pointer"
+                      >
+                        <p className="text-xs font-medium truncate">{track.title || 'Lagu'}</p>
+                        <p className="text-[10px] text-white/50 truncate">{track.artist || 'Artis'}</p>
+                      </div>
+                      {isCur && (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/30 text-primary font-semibold">
+                          PLAYING
+                        </span>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          removeFromQueue(track.id)
+                        }}
+                        className="opacity-0 group-hover:opacity-100 btn btn-ghost btn-xs btn-circle text-white/40 hover:text-red-400"
+                        title="Hapus dari antrean"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )
+                })
               )}
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-white truncate" title={currentTrack.title}>
-                  {currentTrack.title || 'Belum ada lagu'}
+            </div>
+          ) : (
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                {currentTrack.thumbnail && !thumbFailed ? (
+                  <img
+                    src={currentTrack.thumbnail}
+                    alt=""
+                    onError={(e) => {
+                      const img = e.currentTarget
+                      const fallback = currentTrack.id ? `https://img.youtube.com/vi/${currentTrack.id}/hqdefault.jpg` : ''
+                      if (fallback && !img.src.includes('img.youtube.com')) {
+                        img.src = fallback
+                      } else {
+                        setThumbFailed(true)
+                      }
+                    }}
+                    className="w-14 h-14 rounded-lg object-cover border border-white/10"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-lg bg-base-200 border border-white/5 flex items-center justify-center">
+                    <Music2 className="w-6 h-6 text-white/40" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white truncate" title={currentTrack.title}>
+                    {currentTrack.title || 'Belum ada lagu'}
+                  </p>
+                  <p className="text-xs text-white/60 truncate">{currentTrack.artist || 'Pilih lagu lewat chat'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center gap-4 pt-1">
+                <button onClick={prevTrack} className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white" title="Sebelumnya">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
+                </button>
+                <button onClick={playPause} className="btn btn-circle bg-red-600 hover:bg-red-700 border-none text-white shadow-lg shadow-red-500/20" title={isPlaying ? 'Jeda' : 'Putar'}>
+                  {isPlaying ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z" /></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                  )}
+                </button>
+                <button onClick={nextTrack} className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white" title="Selanjutnya">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
+                </button>
+              </div>
+
+              {playbackError && (
+                <p className="text-[11px] text-red-400/90 leading-snug bg-red-500/10 rounded-md px-2 py-1.5 border border-red-500/20">
+                  {playbackError}
                 </p>
-                <p className="text-xs text-white/50 truncate">{currentTrack.artist || 'Pilih lagu lewat chat'}</p>
+              )}
+
+              <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/60">
+                <span className="truncate flex items-center gap-1">
+                  <Music2 className="w-3 h-3 text-red-400" />
+                  {queue.length > 0 ? `${queue.length} lagu di antrean` : 'Antrean kosong'}
+                </span>
+                <button
+                  onClick={() => setShowQueue(true)}
+                  className="text-primary hover:underline font-mono text-[10px]"
+                >
+                  Kelola Antrean
+                </button>
               </div>
             </div>
-
-            <div className="flex items-center justify-center gap-4 pt-1">
-              <button onClick={prevTrack} className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white" title="Sebelumnya">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
-              </button>
-              <button onClick={playPause} className="btn btn-circle bg-red-600 hover:bg-red-700 border-none text-white shadow-lg shadow-red-500/20" title={isPlaying ? 'Jeda' : 'Putar'}>
-                {isPlaying ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z" /></svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                )}
-              </button>
-              <button onClick={nextTrack} className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white" title="Selanjutnya">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
-              </button>
-            </div>
-
-            {playbackError && (
-              <p className="text-[11px] text-red-400/90 leading-snug bg-red-500/10 rounded-md px-2 py-1.5 border border-red-500/20">
-                {playbackError}
-              </p>
-            )}
-
-            <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/40">
-              <span className="truncate">Pemutar Musik Internal</span>
-              <span className="text-cyan-400 font-mono text-[10px]">Embedded API</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 

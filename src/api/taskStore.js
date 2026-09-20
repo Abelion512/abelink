@@ -1,4 +1,5 @@
 import { db } from './db'
+import { buildHandoffContract } from './ai/handoffContract'
 
 export const TASK_STATUSES = ['pending', 'running', 'paused', 'waiting_user', 'failed', 'completed', 'cancelled']
 export const STEP_STATUSES = ['pending', 'running', 'needs_revision', 'completed', 'failed', 'skipped']
@@ -207,8 +208,8 @@ export async function checkpointAgentTaskStep(taskId, stepId, checkpoint = {}) {
       ...(checkpoint.status === 'completed' ? { completedAt: checkpoint.completedAt || timestamp } : {})
     })
     const taskChanges = { updatedAt: timestamp }
+    const allSteps = await db.agentTaskSteps.where('taskId').equals(taskId).sortBy('index')
     if (checkpoint.status === 'completed') {
-      const allSteps = await db.agentTaskSteps.where('taskId').equals(taskId).toArray()
       const next = allSteps
         .filter((item) => item.id !== stepId && ['pending', 'needs_revision'].includes(item.status))
         .sort((a, b) => a.index - b.index)[0]
@@ -219,6 +220,8 @@ export async function checkpointAgentTaskStep(taskId, stepId, checkpoint = {}) {
         taskChanges.completedAt = timestamp
       }
     }
+    const contract = buildHandoffContract({ ...task, ...taskChanges, steps: allSteps })
+    taskChanges.handoffContract = contract
     await db.agentTasks.update(taskId, taskChanges)
     return getAgentTaskWithSteps(taskId)
   })
@@ -251,14 +254,26 @@ export async function transitionAgentTask(taskId, status, error = null) {
       )
     }
 
+    const allSteps = await db.agentTaskSteps.where('taskId').equals(taskId).sortBy('index')
+    const contract = buildHandoffContract({ ...task, status, error, steps: allSteps })
+
     await db.agentTasks.update(taskId, {
       status,
       error,
+      handoffContract: contract,
       updatedAt: timestamp,
       ...(status === 'completed' ? { completedAt: timestamp } : {})
     })
     return getAgentTaskWithSteps(taskId)
   })
+}
+
+export async function generateTaskHandoff(taskId, options = {}) {
+  const task = await getAgentTaskWithSteps(taskId)
+  if (!task) throw new Error('Task tidak ditemukan: ' + taskId)
+  const contract = buildHandoffContract(task, options)
+  await db.agentTasks.update(taskId, { handoffContract: contract, updatedAt: now() })
+  return contract
 }
 
 export async function pauseStaleAgentTasks(reason = 'app_restart') {

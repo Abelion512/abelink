@@ -92,6 +92,8 @@ on('browser:action', async (data, sessionId = 'default') => {
     'screenshot',
     'download',
     'extract',
+    'snapshot',
+    'wait-for',
     'script',
     'back',
     'forward',

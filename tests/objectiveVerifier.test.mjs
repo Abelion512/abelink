@@ -159,6 +159,42 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     expect(r.state).toBe(VERIFICATION_STATE.FAILED)
   })
 
+  it('R1c: klaim test hijau + artefak vitest mentah => test-evidence pass', () => {
+    const r = evaluateEvidence({
+      kind: 'code',
+      objectiveText: 'perbaiki parser dan jalankan unit test',
+      answer: 'Bug diperbaiki, semua test hijau.',
+      tools: [
+        exec('replace-content', 'parser diperbarui'),
+        exec('run-shell', 'Test Files 3 passed (3)\n Tests 41 passed (41)')
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'test-evidence').state).toBe('pass')
+  })
+
+  it('R1c: klaim test hijau TANPA artefak => test-evidence unresolved (anti-hack)', () => {
+    const r = evaluateEvidence({
+      kind: 'code',
+      objectiveText: 'perbaiki parser dan jalankan unit test',
+      answer: 'Bug diperbaiki, semua test hijau dan lulus.',
+      tools: [exec('replace-content', 'parser diperbarui'), exec('run-shell', 'perintah dijalankan')]
+    })
+    const crit = r.criteria.find((c) => c.id === 'test-evidence')
+    expect(crit.state).toBe('unresolved')
+    expect(crit.label).toMatch(/tanpa artefak/)
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('R1c: jawaban tanpa klaim test => test-evidence na (no regression)', () => {
+    const r = evaluateEvidence({
+      kind: 'code',
+      objectiveText: 'perbaiki parser dan jalankan unit test',
+      answer: 'Parser diperbaiki, silakan cek ulang.',
+      tools: [exec('replace-content'), exec('run-shell', '3 passing, 0 failed')]
+    })
+    expect(r.criteria.find((c) => c.id === 'test-evidence').state).toBe('na')
+  })
+
   it('browser: click alone (no post-action confirmation read) => unresolved, not verified', () => {
     const r = evaluateEvidence({
       kind: 'browser',
@@ -262,6 +298,52 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     expect(gate.replan).toBe(true)
   })
 
+  it('research search-error poisons batch: [SEARCH-ERROR] + good op => unresolved + error label', () => {
+    const longAnswer =
+      'Laporan riset komprehensif mengenai topik yang diminta dengan analisis mendalam, ' +
+      'perbandingan beberapa sudut pandang, dan kesimpulan yang panjang lebar melebihi batas.'
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset topik X',
+      answer: longAnswer,
+      tools: [
+        exec(
+          'browser-search',
+          'Hasil pencarian: data pasar X kuartal ini naik 12 persen menurut tiga sumber analis'
+        ),
+        exec(
+          'browser-search',
+          '[SEARCH-ERROR] router: 401 Unauthorized — perbaiki akses search sebelum menyimpulkan apapun'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'sources-found').state).toBe('unresolved')
+    expect(r.criteria.find((c) => c.id === 'sources-found').label).toContain('senjata riset rusak (router)')
+    expect(r.criteria.find((c) => c.id === 'sources-found').label).toContain(
+      'JANGAN simpulkan info tidak ada'
+    )
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research genuine [NO-RESULTS] keeps current behavior: unresolved, no error label', () => {
+    const longAnswer =
+      'Laporan riset komprehensif mengenai topik yang diminta dengan analisis mendalam, ' +
+      'perbandingan beberapa sudut pandang, dan kesimpulan yang panjang lebar melebihi batas.'
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset topik X',
+      answer: longAnswer,
+      tools: [
+        exec('browser-search', '[NO-RESULTS] Tidak ditemukan hasil pencarian web langsung untuk "topik X".')
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'sources-found').state).toBe('unresolved')
+    expect(r.criteria.find((c) => c.id === 'sources-found').label).toBe(
+      'Sumber ditemukan dan dibaca'
+    )
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
   it('RI-11 repro: write-file only, no search/fetch => not verified', () => {
     const r = evaluateEvidence({
       kind: 'research',
@@ -322,6 +404,42 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
   })
 
+  it('research: sub-agent report via send_message counts as valid substantive sources', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset standar agen otonom',
+      answer:
+        'Laporan analisis arsitektur agen otonom menunjukkan kepatuhan terhadap isolasi sandbox dan protokol pesan.',
+      tools: [
+        exec(
+          'send_message',
+          '[BALASAN EVALUASI DARI SUB-AGENT (sub_123)]: Hasil Audit Arsitektur Abelink: Struktur repositori lokal berpusat pada evaluasi sandbox dan log harness harian.'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'sources-found').state).toBe('pass')
+    expect(r.criteria.find((c) => c.id === 'facts-present').state).toBe('pass')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research: local codebase research with read-file counts as valid source for repo objectives', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset arsitektur di repo lokal abelink',
+      answer:
+        'Hasil riset arsitektur repo lokal abelink menunjukkan engine sidecar dan tauri shell terhubung via stdio bridge.',
+      tools: [
+        exec(
+          'read-file',
+          'export const engineBridge = { stdio: true, bufferSize: 1024, channels: ["ai", "browser", "os"] }'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'sources-found').state).toBe('pass')
+    expect(r.criteria.find((c) => c.id === 'facts-present').state).toBe('pass')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
   it('research: topik mengandung kata "laporan keuangan" tanpa intent simpan TIDAK menuntut artifact', () => {
     const r = evaluateEvidence({
       kind: 'research',
@@ -343,6 +461,94 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
       tools: [exec('browser-search', 'Data pasar X menunjukkan pertumbuhan positif sebesar 15 persen tahun ini')]
     })
     expect(r.criteria.find((c) => c.id === 'facts-present').state).toBe('unresolved')
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research claim-quoted: klaim bernama tanpa kutipan isi => unresolved, NOT verified', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset model AI terbaru dari Anthropic',
+      answer: 'Muse 1.3 tersedia di Anthropic sebagai model terbaru yang dirilis resmi.',
+      tools: [
+        exec(
+          'browser-navigate',
+          'Navigated to https://docs.anthropic.com/claude/docs/overview-page-for-model-release'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'claim-quoted').state).toBe('unresolved')
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+    expect(buildReplanObservation(r)).toContain('Muse 1.3')
+  })
+
+  it('research claim-quoted: klaim dikutip dari browser-extract => verified', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset model AI terbaru dari Anthropic',
+      answer: 'Muse 1.3 tersedia di Anthropic sebagai model terbaru yang dirilis resmi.',
+      tools: [
+        exec(
+          'browser-navigate',
+          'Navigated to https://docs.anthropic.com/claude/docs/overview-page-for-model-release'
+        ),
+        exec(
+          'browser-extract',
+          'Halaman dokumentasi Anthropic: Muse 1.3 adalah model terbaru dengan kemampuan reasoning yang ditingkatkan.'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'claim-quoted').state).toBe('pass')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research claim-quoted: jawaban generik tanpa entitas => na, verified (no regression)', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset harga GPU',
+      answer:
+        'Harga GPU saat ini berkisar Rp 10-15 juta untuk kelas high-end menurut beberapa toko.',
+      tools: [
+        exec(
+          'browser-search',
+          'Hasil pencarian: RTX 4070 Rp 9,5 juta, RTX 4080 Rp 14,2 juta dari beberapa toko'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'claim-quoted').state).toBe('na')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research claim-quoted: sitasi [P-1: "kutipan"] cocok dengan teks observasi => verified', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset arsitektur Abelink',
+      answer:
+        'Sistem menggunakan model pool [P-1: "model pool multi-provider"] untuk redundansi.',
+      tools: [
+        exec(
+          'read-file',
+          'Arsitektur Abelink menggunakan model pool multi-provider dan Rust Tauri shell.'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'claim-quoted').state).toBe('pass')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research claim-quoted: sitasi [P-1: "kutipan palsu"] tidak cocok dengan teks observasi => unresolved', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset arsitektur Abelink',
+      answer:
+        'Sistem menggunakan fitur [P-1: "arsitektur monolitik electron 12"] secara default.',
+      tools: [
+        exec(
+          'read-file',
+          'Arsitektur Abelink menggunakan model pool multi-provider dan Rust Tauri shell.'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'claim-quoted').state).toBe('unresolved')
     expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
   })
 

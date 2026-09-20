@@ -4,6 +4,35 @@
  */
 import https from 'https'
 import crypto from 'crypto'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+
+// Cooldown PERSISTEN (file XDG, bukan memori): sidecar restart tidak boleh
+// menghapus ingatan blokir — restart lalu hantam lagi hanya memperpanjang
+// blokir Google. Best-effort: gagal I/O -> fallback memori saja.
+const cooldownFile = () => {
+  const base =
+    process.env.ABELINK_DATA_HOME || process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
+  return path.join(base, 'abelink', 'gemini-web-cooldown.json')
+}
+const loadPersistedCooldown = () => {
+  try {
+    const raw = fs.readFileSync(cooldownFile(), 'utf8')
+    const until = Number(JSON.parse(raw)?.blockedUntil || 0)
+    if (Number.isFinite(until) && until > Date.now()) sorryBlockedUntil = until
+  } catch {
+    // File belum ada / rusak: mulai tanpa ingatan blokir (fallback memori).
+  }
+}
+const persistCooldown = () => {
+  try {
+    fs.mkdirSync(path.dirname(cooldownFile()), { recursive: true })
+    fs.writeFileSync(cooldownFile(), JSON.stringify({ blockedUntil: sorryBlockedUntil }), { mode: 0o600 })
+  } catch {
+    // FS read-only dkk: cooldown tetap hidup di memori proses ini.
+  }
+}
 
 // Server RPC hanya membaca ANGKA mode (inner[79]): 1=Flash, 2=Thinking,
 // 3=Pro, 4=Auto, 5=Thinking-lite, 6=Flash-lite. Nama model = label lokal.
@@ -30,12 +59,14 @@ const isSorryPage = (text = '') =>
     String(text || '').slice(0, 2000)
   )
 
-const sorryError = () => {
-  const e = new Error(
-    'Gemini Web dibatasi Google (halaman verifikasi / rate-limit). ' +
-      'Tunggu 1-2 menit lalu coba lagi, atau ganti provider di Configuration > Model.'
-  )
+const sorryError = (retryAfterMs = 0) => {
+  const wait =
+    retryAfterMs > 0
+      ? ` Coba lagi dalam ${Math.max(1, Math.ceil(retryAfterMs / 60000))} menit, atau ganti provider di Configuration > Model.`
+      : ' Tunggu 1-2 menit lalu coba lagi, atau ganti provider di Configuration > Model.'
+  const e = new Error('Gemini Web dibatasi Google (halaman verifikasi / rate-limit).' + wait)
   e.code = 'GEMINI_WEB_LIMITED'
+  e.retryAfterMs = retryAfterMs
   return e
 }
 
@@ -43,17 +74,24 @@ const sorryError = () => {
 export const __geminiWebTest = {
   isSorryPage,
   sorryError,
+  cooldownFile,
+  remainingCooldownMs: () => Math.max(0, sorryBlockedUntil - Date.now()),
   extractGeminiText,
   diffStreamText,
   resetCircuit: () => {
     sorryStreak = 0
     sorryBlockedUntil = 0
+    persistCooldown()
   },
   tripCircuit: () => {
     sorryStreak = 3
     sorryBlockedUntil = Date.now() + SORRY_COOLDOWN_MS
+    persistCooldown()
   }
 }
+
+// Muat ingatan blokir saat modul pertama diimpor (proses sidecar baru).
+loadPersistedCooldown()
 
 export function resolveGeminiWebModel(modelName) {
   // Kata kunci -> mode 1-6, tak dikenal -> mode 1 (flash).
@@ -147,8 +185,10 @@ export async function generateGeminiResponse(
   onToken = null
 ) {
   // Gagal-cepat selama cooldown blokir (tanpa menghantam Google lagi).
+  // Cooldown dibaca ulang dari file: proses sidecar lain mungkin yang trip.
+  loadPersistedCooldown()
   if (Date.now() < sorryBlockedUntil) {
-    throw sorryError()
+    throw sorryError(sorryBlockedUntil - Date.now())
   }
   const reqModel = (modelName || 'gemini-latest').toLowerCase()
 
@@ -232,8 +272,11 @@ export async function generateGeminiResponse(
     // (noise), dan mulai hitung streak anti-hammer.
     if (isSorryPage(rawText)) {
       sorryStreak++
-      if (sorryStreak >= 3) sorryBlockedUntil = Date.now() + SORRY_COOLDOWN_MS
-      throw sorryError()
+      if (sorryStreak >= 3) {
+        sorryBlockedUntil = Date.now() + SORRY_COOLDOWN_MS
+        persistCooldown()
+      }
+      throw sorryError(Math.max(0, sorryBlockedUntil - Date.now()))
     }
     sorryStreak = 0
     throw new Error('Gagal mengekstrak jawaban dari Gemini Web (balasan bukan format yang diharapkan).')

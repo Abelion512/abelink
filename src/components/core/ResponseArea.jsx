@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { FaLightbulb } from 'react-icons/fa'
+import { Lightbulb } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
@@ -82,7 +82,7 @@ const ResponseArea = ({ currentResponse }) => {
 
           {/* TLDR Part */}
           {tldr && (
-            <div className="relative p-5 md:p-6 w-full max-w-2xl bg-black/20 backdrop-blur-sm border border-white/10 shadow-xl rounded-sm">
+            <div className="relative p-5 md:p-6 w-full max-w-2xl bg-black/20 backdrop-blur-sm border border-white/10 shadow-xl rounded-xl">
               {/* HUD Brackets */}
               <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/30" />
               <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/30" />
@@ -117,7 +117,7 @@ const ResponseArea = ({ currentResponse }) => {
     // Short type
     return (
       <div className="flex flex-col items-center relative gap-2 w-full px-4">
-        <div className="relative p-5 md:p-6 w-full max-w-2xl bg-black/20 backdrop-blur-sm border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.3)] rounded-sm">
+        <div className="relative p-5 md:p-6 w-full max-w-2xl bg-black/20 backdrop-blur-sm border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.3)] rounded-xl">
           {/* HUD Brackets */}
           <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/30" />
           <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/30" />
@@ -132,7 +132,7 @@ const ResponseArea = ({ currentResponse }) => {
                      <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="30 15" className="opacity-50" />
                      <circle cx="25" cy="25" r="15" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="20 10" className="opacity-80 animate-[spin_2s_linear_infinite_reverse]" style={{ transformOrigin: 'center' }} />
                    </svg>
-                   <FaLightbulb className="absolute animate-pulse" size={14} />
+                   <Lightbulb className="absolute animate-pulse" size={14} />
                 </div>
                 <div className="flex flex-col items-center">
                   <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-primary)] opacity-70 mb-2">{text !== 'Bentar, mikir dlu...' && text !== 'Memproses...' ? text : 'PROCESSING DATA...'}</div>

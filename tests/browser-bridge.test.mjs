@@ -20,6 +20,10 @@ import {
   isWebScrapeCommand,
   looksLikeCrawlerSource,
   tokenOk,
+  tokenRejectReason,
+  TOKEN_REJECT_STALE,
+  TOKEN_REJECT_UNKNOWN,
+  TOKEN_REJECT_NO_SESSION,
   writeTokenFile,
   readTokenRecord,
   tokenFilePath,
@@ -50,6 +54,21 @@ describe('browser bridge core', () => {
     expect(handshake('hs-test', 'token-palsu').ok).toBe(false)
     expect(handshake('session-aneh', s.token).ok).toBe(false)
     dropSession('hs-test')
+  })
+
+  it('tokenRejectReason membedakan basi vs asing vs sesi tak dikenal', () => {
+    const s = ensureSession('hs-reason')
+    // Token benar -> null (tidak ditolak).
+    expect(tokenRejectReason('hs-reason', s.token)).toBeNull()
+    // Sesi tak dikenal.
+    expect(tokenRejectReason('hs-tak-ada', 'apapun')).toBe(TOKEN_REJECT_NO_SESSION)
+    // Token salah total -> unknown.
+    expect(tokenRejectReason('hs-reason', 'token-palsu')).toBe(TOKEN_REJECT_UNKNOWN)
+    // Token lama dalam grace (simulasi rotasi) -> stale.
+    s.prevToken = 'token-lama-123'
+    s.prevExpiresAt = Date.now() + 60000
+    expect(tokenRejectReason('hs-reason', 'token-lama-123')).toBe(TOKEN_REJECT_STALE)
+    dropSession('hs-reason')
   })
 
   it('dispatchCommand -> takeNext menyerahkan perintah yang sama (id, type, payload)', async () => {
@@ -368,8 +387,7 @@ describe('isolasi token prod/dev', () => {
     expect(flavorFromPort(undefined)).toBe('prod')
   })
 
-  it('writer==reader prod+dev: file terpisah, token terpisah', async () => {
-    const fs = await import('node:fs')
+    it('writer==reader prod+dev: file terpisah, token terpisah', async () => {    const fs = await import('node:fs')
     const os = await import('node:os')
     const path = await import('node:path')
     const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-flav-xdg-'))
@@ -389,4 +407,76 @@ describe('isolasi token prod/dev', () => {
       dropSession('default')
     }
   })
+
+  it('reseed: drop+ensure default memakai token file lagi (bukan acak)', async () => {
+    const fs = await import('node:fs')
+    const os = await import('node:os')
+    const path = await import('node:path')
+    // Simulasi file token dev via XDG temp: tokenPathFor dev tanpa override
+    // -> <xdg>/abelink-dev/browser-bridge-token.
+    const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-reseed-'))
+    const savedXdg = process.env.XDG_DATA_HOME
+    const savedOver = process.env.ABELINK_DATA_HOME
+    const savedPort = process.env.ABELINK_BRIDGE_PORT
+    try {
+      process.env.XDG_DATA_HOME = xdg
+      delete process.env.ABELINK_DATA_HOME
+      // BROWSER_BRIDGE.PORT dibaca saat import (default 49712=prod); reseed
+      // memakai flavor dari port itu. Di sini cukup verifikasi prod path:
+      // tulis file prod, drop+ensure, token harus sama dengan file.
+      const w = writeTokenFile(path.join(xdg, 'abelink'), 'prod', { XDG_DATA_HOME: xdg })
+      dropSession('default')
+      const s = ensureSession('default')
+      // NOTE: reseed hanya untuk flavor port aktif (prod di test env).
+      // Token sesi harus sama dengan file (bukan acak baru).
+      expect(s.token).toBe(w.token)
+      expect(tokenOk(s, w.token)).toBe(true)
+    } finally {
+      if (savedXdg === undefined) delete process.env.XDG_DATA_HOME
+      else process.env.XDG_DATA_HOME = savedXdg
+      if (savedOver === undefined) delete process.env.ABELINK_DATA_HOME
+      else process.env.ABELINK_DATA_HOME = savedOver
+      if (savedPort === undefined) delete process.env.ABELINK_BRIDGE_PORT
+      else process.env.ABELINK_BRIDGE_PORT = savedPort
+      fs.rmSync(xdg, { recursive: true, force: true })
+      dropSession('default')
+    }
+  })
+
+    it('isolasi antrean: polling sesi default TIDAK menguras perintah sesi lain', async () => {
+      const subId = 'subagent-test-worker-1'
+      ensureSession(subId)
+      ensureSession('default')
+      const defToken = ensureSession('default').token
+
+      // Subagent mengantrekan perintah ke sesinya sendiri
+      const p = dispatchCommand(subId, 'navigate', { url: 'https://example.com/sub' })
+
+      // Ekstensi yang mem-poll sesi 'default' TIDAK mengambil perintah itu:
+      // tiap sesi dilayani antreannya sendiri (anti-curi antar-sesi).
+      const orig = BROWSER_BRIDGE.POLL_TIMEOUT_MS
+      BROWSER_BRIDGE.POLL_TIMEOUT_MS = 30
+      let cmdDefault = null
+      try {
+        cmdDefault = await takeNext('default', defToken)
+      } finally {
+        BROWSER_BRIDGE.POLL_TIMEOUT_MS = orig
+      }
+      expect(cmdDefault).toBeNull()
+
+      // Perintah tetap ada di antrean sesi pemiliknya.
+      const cmd = await takeNext(subId, ensureSession(subId).token)
+      expect(cmd).not.toBeNull()
+      expect(cmd.type).toBe('navigate')
+      expect(cmd.payload?.url).toBe('https://example.com/sub')
+
+      // Selesaikan via resolveCommand
+      const res = resolveCommand(subId, ensureSession(subId).token, cmd.id, { ok: true, data: 'Navigated to sub url' })
+      expect(res.ok).toBe(true)
+      await expect(p).resolves.toMatchObject({ ok: true, data: 'Navigated to sub url' })
+
+      dropSession(subId)
+      dropSession('default')
+    })
 })
+
