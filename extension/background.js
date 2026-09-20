@@ -1679,8 +1679,13 @@ async function tryAutoResume() {
   await loadSessionState()
   // Resume TANPA pairing = dilarang: user belum memilih flavor sekali pun.
   // Ini mematikan auto-switch lama (resume port sesi basi diam-diam).
+  // Tetap jadwalkan ulang + set lastError jujur agar popup tidak hijau palsu.
   const pairing = await getPairing()
-  if (!pairing) return
+  if (!pairing) {
+    await chrome.storage.session.set({ lastError: 'Pilih flavor sekali di popup (Prod/Dev)' })
+    scheduleAutoResume(15000)
+    return
+  }
   let cfg = await getCfg()
   // Paksa port sesi ke flavor terpin (alasan sesi basi berbeda flavor).
   cfg = { ...cfg, port: pairing.port }
