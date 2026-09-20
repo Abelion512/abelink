@@ -125,6 +125,7 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
 ## 5. Batasan yang Masih Sengaja Dibiarkan (jangan "perbaiki" diam-diam)
 
 - `browser:*` → LIVE (Fase C3 Jalur A): `engine/channels/browser.mjs` + `main/browser/{bridge-core,server}.mjs` + ekstensi MV3 di `extension/`. Jalur B (spawn Chromium per profil) menyusul sebagai fallback; smoke frame end-to-end dengan browser sungguhan belum dijalankan — lihat `extension/README.md`.
+- **Browser autonomy (2026-09-20, `apple-design`):** observasi tab beridentitas (`_tab={tabId,url,title,reused}`, `sessionFocusedUrl`, tolak primer yang URL-nya drift); tagger main-first cap 200/teks 120; `adoptUserTab` eksplisit (default: hanya blank/tab baru, tidak pernah curi tab user); `takeNext` tanpa drain lintas-sesi; HITL co-pilot = pause-state + pill pasif tanpa veil + resume `browser-read` tab sama (tanpa deadline); popup hijau hanya bila loop jalan; eval `hitl_discipline` (needs_user tanpa artefak = 0); validator lewati prosa `.md/.txt`. Detail: `docs/superpowers/plans/2026-09-20-browser-autonomy-restoration.md`, sesi: `docs/PLANNED/sessions/2026-09-20_browser-autonomy.md`.
 - `os:*` di sidecar sudah LIVE (Fase B6, `engine/channels/os.mjs`): alias tipis ke `NATIVE_TOOLS` dash; renderer tetap memakai Rust native `os_*` commands untuk jalur utamanya.
 - Dead code era Electron (skill-manager.js + 3 handler `ipcMain.on`
   telegram) sudah dibuang 2026-09-03 — lihat `docs/MIGRATION-GAPS.md` §
