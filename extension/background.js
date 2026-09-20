@@ -898,10 +898,9 @@ async function hideOverlayDom(sessionId) {
 }
 
 // --------------------------------------------------------------- tagging
-// Sama dengan pola browser-agent.js era Electron: maks 80 elemen interaktif,
-// data-abelink-id, teks dipendekkan.
-// PENTING: fungsi ini DI-SERIALISASI lalu dijalankan di konteks halaman -
-// WAJIB self-contained, tidak boleh menutup variabel dari service worker.
+// Kontrak: elemen dalam main/article/[role=main] diutamakan, maks 200
+// elemen, teks maks 120 char (lihat extension/tagger-rank.mjs — salinan
+// inline di bawah karena fungsi ini DI-SERIALISASI, wajib self-contained).
 function taggerFn() {
   document.querySelectorAll('[data-abelink-id]').forEach((el) => el.removeAttribute('data-abelink-id'))
   const SELECTORS = [
@@ -921,10 +920,19 @@ function taggerFn() {
     '[tabindex]:not([tabindex="-1"])'
   ].join(', ')
 
-  const els = document.querySelectorAll(SELECTORS)
+  // Ranking inline (salinan rankTaggerElements dari tagger-rank.mjs):
+  // scan scope konten utama dulu, lalu fallback seluruh dokumen.
+  const MAIN_SCOPE = 'main, [role="main"], article'
+  const scopeRoots = [...document.querySelectorAll(MAIN_SCOPE)]
+  const inMain = new Set()
+  for (const root of scopeRoots) {
+    for (const el of root.querySelectorAll(SELECTORS)) inMain.add(el)
+  }
+  const docEls = [...document.querySelectorAll(SELECTORS)]
+  const els = [...docEls.filter((el) => inMain.has(el)), ...docEls.filter((el) => !inMain.has(el))]
   const out = []
-  const MAX = 80
-  const MAX_TEXT = 80
+  const MAX = 200
+  const MAX_TEXT = 120
   let n = 1
   const vh = window.innerHeight || document.documentElement.clientHeight || 800
   const vw = window.innerWidth || document.documentElement.clientWidth || 1200
