@@ -319,9 +319,16 @@ async function runCommand(cfg, command) {
   delete inflight[sessionKey]
   // Navigasi menghapus DOM injeksi: veil dipasang ulang otomatis (best-effort,
   // tidak boleh menggagalkan tool). Perintah overlay sendiri dikecualikan.
+  // Co-pilot: sesi yang menunggu user TIDAK dipasangi veil (user butuh
+  // tabnya) — hanya pill pasif non-blocking. Salinan inline shouldOverlay
+  // dari extension/overlay-policy.mjs.
   if (result?.ok && ['navigate', 'act', 'read-dom', 'show'].includes(command.type)) {
     if (!(command.type === 'act' && String(command.payload?.action || '').startsWith('overlay-'))) {
-      await ensureOverlay(sessionKey)
+      if (!overlayStopped[sessionKey] && !awaitingUser[sessionKey]) {
+        await ensureOverlay(sessionKey)
+      } else if (awaitingUser[sessionKey]) {
+        await ensurePassivePill(sessionKey)
+      }
     }
   }
   console.log(`[Abelink] hasil ${command.type}: ${result.ok ? 'ok' : `gagal (${result.error || 'tanpa pesan'})`}`)
@@ -378,6 +385,9 @@ const OVERLAY_STOP_MSG = (s) =>
 // Flag stop per sesi + perintah inflight per sesi (di-resolve saat Stop diklik).
 const overlayStopped = {}
 const inflight = {}
+// Co-pilot HITL: sesi yang menunggu user — veil TIDAK dipasang (user butuh
+// tabnya), hanya pill pasif non-blocking. Bentuk: {reason, tabId, url, goal, since}.
+const awaitingUser = {}
 
 async function saveSessionState() {
   try {
@@ -827,6 +837,48 @@ function overlayFn({ mode, text, session }) {
     if (gone) gone.remove()
     return { ok: true, shown: false }
   }
+  if (mode === 'passive') {
+    // Pill pasif co-pilot: tanpa veil, tanpa keydown-guard, non-blocking.
+    // User tetap bisa memakai tab; pill hanya memberi tahu + tombol Lanjutkan.
+    const stale = document.getElementById(HOST_ID)
+    if (stale) stale.remove()
+    const host = document.createElement('div')
+    host.id = HOST_ID
+    const shadow = host.attachShadow({ mode: 'open' })
+    const style = document.createElement('style')
+    style.textContent = [
+      '#abelink-pill{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483641;',
+      'display:flex;align-items:center;gap:12px;background:#0b1510;color:#e8f5ec;border:1px solid #1fb854;',
+      'border-radius:999px;padding:10px 12px 10px 16px;font:500 13px/1.4 system-ui,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,0.5);}',
+      '#abelink-pill small{opacity:0.65;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+      '#abelink-go{background:#1fb854;color:#06130b;border:0;border-radius:999px;padding:8px 16px;font:700 13px system-ui,sans-serif;cursor:pointer;}'
+    ].join('')
+    const pill = document.createElement('div')
+    pill.id = 'abelink-pill'
+    const label = document.createElement('span')
+    label.textContent = 'Abelink menunggu'
+    pill.appendChild(label)
+    if (text) {
+      const sub = document.createElement('small')
+      sub.textContent = String(text).slice(0, 80)
+      pill.appendChild(sub)
+    }
+    const go = document.createElement('button')
+    go.id = 'abelink-go'
+    go.textContent = 'Lanjutkan'
+    go.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      try {
+        chrome.runtime.sendMessage({ type: 'overlay-resume', session })
+      } catch (err) {}
+    })
+    pill.appendChild(go)
+    shadow.appendChild(style)
+    shadow.appendChild(pill)
+    ;(document.documentElement || document.body).appendChild(host)
+    return { ok: true, shown: true, passive: true }
+  }
   const stale = document.getElementById(HOST_ID)
   if (stale) stale.remove()
   const host = document.createElement('div')
@@ -903,11 +955,25 @@ async function setOverlay(tabId, mode, text = '', session = 'default') {
 async function ensureOverlay(sessionId) {
   try {
     if (overlayStopped[sessionId]) return
+    if (awaitingUser[sessionId]) return // co-pilot: veil mati saat await-user
     const tab = await targetTabForSession(sessionId)
     if (!tab) return
     await setOverlay(tab.id, 'show', sessionTask[sessionId] || 'browser', sessionId)
   } catch {
     /* overlay tidak boleh menggagalkan tool */
+  }
+}
+
+// Pill pasif co-pilot: tanpa veil, tanpa keydown-guard, tidak memblokir.
+// Dipasang saat sesi menunggu user agar tab tetap bisa dipakai.
+async function ensurePassivePill(sessionId) {
+  try {
+    const tab = await targetTabForSession(sessionId)
+    if (!tab) return
+    const reason = awaitingUser[sessionId]?.reason || 'menunggu user'
+    await setOverlay(tab.id, 'passive', `Abelink menunggu — ${reason}`, sessionId)
+  } catch {
+    /* pill tidak boleh menggagalkan tool */
   }
 }
 
@@ -1446,15 +1512,35 @@ async function act({ abelinkId, action, value, expectedText }, sessionId = 'defa
   if (action === 'ask') {
     return { ok: false, error: 'browser-ask-user belum didukung versi ekstensi ini.' }
   }
-  // --- Overlay lock (Fase A): show = resume eksplisit (bersihkan flag stop).
+  // --- Overlay lock (Fase A): show = resume eksplisit (bersihkan flag stop + await).
   if (action === 'overlay-show') {
     delete overlayStopped[sessionId]
+    delete awaitingUser[sessionId]
     try {
       const label = value && typeof value === 'object' ? value.text : value
       const r = await setOverlay(tab.id, 'show', String(label || ''), sessionId)
       return { ok: true, data: JSON.stringify(r) }
     } catch (e) {
       return { ok: false, error: `overlay-show gagal: ${String(e?.message || e)}` }
+    }
+  }
+  // --- Co-pilot HITL: catat sesi menunggu user + tampilkan pill pasif
+  // (tanpa veil, tanpa keydown-guard, non-blocking). Dipanggil sidecar
+  // saat browser-ask masuk pause-state.
+  if (action === 'overlay-passive') {
+    const v = value && typeof value === 'object' ? value : {}
+    awaitingUser[sessionId] = {
+      reason: String(v.reason || v.text || 'menunggu user'),
+      tabId: tab.id,
+      url: tab.url || '',
+      goal: String(v.goal || ''),
+      since: Date.now()
+    }
+    try {
+      const r = await setOverlay(tab.id, 'passive', `Abelink menunggu — ${awaitingUser[sessionId].reason}`, sessionId)
+      return { ok: true, data: JSON.stringify({ ...r, awaitUser: awaitingUser[sessionId] }) }
+    } catch (e) {
+      return { ok: false, error: `overlay-passive gagal: ${String(e?.message || e)}` }
     }
   }
   if (action === 'overlay-hide') {
@@ -1615,6 +1701,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         delete inflight[session]
       }
       sendResponse({ ok: true, stopped: !!cur?.id })
+    } else if (msg?.type === 'overlay-resume') {
+      // Lanjutkan dari pill pasif co-pilot: bersihkan await, veil tetap
+      // mati sampai perintah tab berikutnya (runCommand memasang ulang).
+      const session = msg.session || (await getCfg()).session
+      delete awaitingUser[session]
+      await hideOverlayDom(session)
+      sendResponse({ ok: true, resumed: true })
     } else if (msg?.type === 'get-active-task') {
       const cfg = await getCfg()
       const session = msg.session || cfg.session
