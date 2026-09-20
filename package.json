@@ -42,7 +42,7 @@
     "adm-zip": "^0.6.0"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.2.0",
+    "@huggingface/transformers": "^4.3.0",
     "@orama/orama": "^3.1.18",
     "@tauri-apps/api": "^2",
     "dexie": "^4.3.0",
