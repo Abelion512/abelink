@@ -1,33 +1,42 @@
-import { motion, useReducedMotion } from 'motion/react'
+import React from 'react'
 
-const CIRCLE_1 = 'M12 4C16.42 4 20 7.58 20 12C20 16.42 16.42 20 12 20C7.58 20 4 16.42 4 12C4 7.58 7.58 4 12 4Z'
-const INFINITY = 'M 6 16 C 11 16 13 8 18 8 C 23.333 8 23.333 16 18 16 C 13 16 11 8 6 8 C 0.667 8 0.667 16 6 16 Z'
-const CIRCLE_2 = 'M12 20C16.42 20 20 16.42 20 12C20 7.58 16.42 4 12 4C7.58 4 4 7.58 4 12C4 16.42 7.58 20 12 20Z'
-
-export function MobiusLoader({ size = 64, className = '' }) {
-  const reduceMotion = useReducedMotion()
+/**
+ * Apple 12-Spoke Activity Indicator (macOS / iOS native style)
+ * Lightweight, hardware-accelerated, zero CPU overhead.
+ */
+export function MobiusLoader({ size = 20, className = '' }) {
+  const spokes = Array.from({ length: 12 })
   return (
-    <motion.svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={`text-primary ${className}`.trim()}
+    <div
+      className={`inline-flex items-center justify-center ${className}`}
+      style={{ width: size, height: size }}
+      role="status"
+      aria-label="Loading"
     >
-      {reduceMotion ? (
-        <path d={CIRCLE_1} />
-      ) : (
-        <motion.path
-          d={CIRCLE_1}
-          animate={{ d: [CIRCLE_1, INFINITY, CIRCLE_2, CIRCLE_1] }}
-          transition={{ duration: 3, ease: 'easeInOut', repeat: Infinity }}
-        />
-      )}
-    </motion.svg>
+      <svg
+        viewBox="0 0 24 24"
+        width={size}
+        height={size}
+        className="animate-[spin_1s_steps(12,end)_infinite]"
+        aria-hidden="true"
+      >
+        {spokes.map((_, i) => (
+          <rect
+            key={i}
+            x="11"
+            y="2"
+            width="2"
+            height="5"
+            rx="1"
+            fill="currentColor"
+            opacity={(i + 1) / 12}
+            transform={`rotate(${i * 30} 12 12)`}
+          />
+        ))}
+      </svg>
+    </div>
   )
 }
+
+export default MobiusLoader
+

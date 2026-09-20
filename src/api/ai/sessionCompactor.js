@@ -37,8 +37,9 @@ import { fetchAI } from './core'
 import { compactCodeBlocks } from './contextCompactor'
 import { clearSessionCompact, getSessionCompact, saveSessionCompact, saveSession } from '../db'
 
-// Sama persis upstream: 525.000 karakter.
-export const MAX_SESSION_CHARS = 525000
+// Hybrid compaction: 45.000 karakter (~11k token) & batas giliran aktif (Hermes/Anthropic pattern)
+export const MAX_SESSION_CHARS = 45000
+export const MAX_UNCOMPACTED_TURNS = 20
 
 // Progressive thresholds (fraksi MAX_SESSION_CHARS): prompt-only murni.
 export const COMPACT_WARN_AT = 0.75
@@ -368,7 +369,15 @@ export async function executeSessionCompaction({
     existingLastCompactedId = null
   }
   const currentChars = calculateSessionChars(messages, existingSummaryBlock, existingLastCompactedId)
-  if (!force && currentChars < MAX_SESSION_CHARS) {
+  const cutIndex = isPresentId(existingLastCompactedId)
+    ? findMessageIndex(messages, String(existingLastCompactedId))
+    : -1
+  const uncompactedMessages = cutIndex !== -1 ? messages.slice(cutIndex + 1) : messages
+  const uncompactedTurns = uncompactedMessages.filter((m) => !isSkipped(m)).length
+
+  const needsCompaction = force || currentChars >= MAX_SESSION_CHARS || uncompactedTurns >= MAX_UNCOMPACTED_TURNS
+
+  if (!needsCompaction) {
     return {
       success: true,
       isCompacted: false,
@@ -377,7 +386,8 @@ export async function executeSessionCompaction({
       newSummaryBlock: existingSummaryBlock,
       summaryBlock: existingSummaryBlock,
       lastCompactedMessageId: existingLastCompactedId,
-      currentChars
+      currentChars,
+      uncompactedTurns
     }
   }
   if (typeof onProgress === 'function') {
@@ -385,7 +395,10 @@ export async function executeSessionCompaction({
   }
   const prunedMessages = pruneOldToolResultsInMemory(messages, PRESERVE_RECENT_TURNS)
   const prunedChars = calculateSessionChars(prunedMessages, existingSummaryBlock, existingLastCompactedId)
-  if (!force && prunedChars < MAX_SESSION_CHARS) {
+  const uncompactedPruned = cutIndex !== -1 ? prunedMessages.slice(cutIndex + 1) : prunedMessages
+  const uncompactedPrunedTurns = uncompactedPruned.filter((m) => !isSkipped(m)).length
+
+  if (!force && prunedChars < MAX_SESSION_CHARS && uncompactedPrunedTurns < MAX_UNCOMPACTED_TURNS) {
     if (persist) {
       try {
         await saveSession(sessionId, prunedMessages)

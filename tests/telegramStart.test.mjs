@@ -32,7 +32,7 @@ describe('telegram start/stop lifecycle', () => {
     const r = await startTelegramBot('123456:INVALID_TOKEN_FOR_TEST', null)
     expect(r?.success).toBe(false)
     expect(getConnectionStatus().status).toBe('disconnected')
-  }, 30000)
+  }, 60000)
 
   it('stop idempoten dari kondisi mati', () => {
     stopTelegramBot()

@@ -162,6 +162,27 @@ export const isPublicHttpUrl = (raw) => {
   }
 }
 
+// Ekstrak URL gambar langsung bila URL berupa Google Images redirect (/imgres, /url?url=)
+export const sanitizeImageUrl = (rawUrl) => {
+  if (!rawUrl || typeof rawUrl !== 'string') return ''
+  try {
+    const parsed = new URL(rawUrl)
+    // 1. Google Images redirect: https://www.google.com/imgres?imgurl=...
+    if (parsed.searchParams.has('imgurl')) {
+      const realImg = parsed.searchParams.get('imgurl')
+      if (realImg && isPublicHttpUrl(realImg)) return realImg
+    }
+    // 2. Google redirect umum: https://www.google.com/url?url=...
+    if (parsed.searchParams.has('url')) {
+      const realTarget = parsed.searchParams.get('url')
+      if (realTarget && isPublicHttpUrl(realTarget)) return realTarget
+    }
+    return rawUrl
+  } catch {
+    return rawUrl
+  }
+}
+
 export const resolveDroppedFile = async (f) => {
   let resolvedPath = ''
   const hasWindowApi = typeof window !== 'undefined' && window.api
@@ -263,6 +284,7 @@ export const extractDroppedItems = async (dataTransfer) => {
   }
 
   const urls = rawUrls
+    .map(sanitizeImageUrl)
     .map(isPublicHttpUrl)
     .filter(Boolean)
     .map((url) => url.href)
@@ -277,10 +299,18 @@ export const extractDroppedItems = async (dataTransfer) => {
       try {
         const res = await window.api.fetchWebResource(u)
         if (!res?.dataB64) throw new Error(res?.error || 'Respons native kosong')
+        const mime = res.mime || 'application/octet-stream'
+
+        // Guard anti-landing-page: jika fetch mengembalikan text/html (mis. imgres.html / halaman web),
+        // JANGAN jadikan lampiran file biner/visual karena user berniat melampirkan gambar.
+        if (mime.includes('text/html')) {
+          console.warn('[attachments] Fetch mengembalikan dokumen HTML (bukan biner gambar), abaikan:', u)
+          return null
+        }
+
         const bin = atob(res.dataB64)
         const bytes = new Uint8Array(bin.length)
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-        const mime = res.mime || 'application/octet-stream'
         const ext = (mime.split('/')[1] || 'png').split(';')[0]
         let name =
           decodeURIComponent((u.split('/').pop() || '').split('?')[0]) || `gambar-web.${ext}`
@@ -288,11 +318,13 @@ export const extractDroppedItems = async (dataTransfer) => {
         const file = new File([bytes], name, { type: mime })
         return resolveDroppedFile(file)
       } catch (err) {
-        // Gagal (network/4xx/5xx/host privat): lampirkan sebagai link (jujur),
-        // supaya drop dari web tetap menghasilkan sesuatu yang bisa dipakai.
-        console.warn('[attachments] Fetch native drop URL gagal, dilampirkan sebagai link:', u, err?.message)
-        const name = decodeURIComponent((u.split('/').pop() || '').split('?')[0]) || u
-        return { name, path: u, size: 0, type: 'text/uri-list', previewUrl: '', linkOnly: true }
+        // Gagal (network/4xx/5xx/host privat): lampirkan sebagai link bila bukan landing page Google
+        if (!u.includes('google.com/imgres') && !u.includes('google.com/url')) {
+          console.warn('[attachments] Fetch native drop URL gagal, dilampirkan sebagai link:', u, err?.message)
+          const name = decodeURIComponent((u.split('/').pop() || '').split('?')[0]) || u
+          return { name, path: u, size: 0, type: 'text/uri-list', previewUrl: '', linkOnly: true }
+        }
+        return null
       }
     })
   )
@@ -372,6 +404,7 @@ export const extractClipboardFiles = async (clipboardData) => {
     const imgUrls = imgMatches
       .map((m) => m[1]?.trim())
       .filter(Boolean)
+      .map(sanitizeImageUrl)
       .map(isPublicHttpUrl)
       .filter(Boolean)
       .map((u) => u.href)
@@ -382,10 +415,11 @@ export const extractClipboardFiles = async (clipboardData) => {
           try {
             const res = await window.api.fetchWebResource(u)
             if (res?.dataB64) {
+              const mime = res.mime || 'image/png'
+              if (mime.includes('text/html')) return null
               const bin = atob(res.dataB64)
               const bytes = new Uint8Array(bin.length)
               for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-              const mime = res.mime || 'image/png'
               const ext = (mime.split('/')[1] || 'png').split(';')[0]
               let name = decodeURIComponent((u.split('/').pop() || '').split('?')[0]) || `pasted-image.${ext}`
               if (!name.includes('.')) name = `${name}.${ext}`
