@@ -28,6 +28,9 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import AdmZip from 'adm-zip'
 import { ALL_TASKS, runTask, akSentinel } from './terminal-bench.mjs'
+import { PR46_TASKS, seedPr46Fixture } from './pr46-matrix.mjs'
+import { buildMeasurementReport } from './metrics.mjs'
+import { makeModelIdentity } from './pr46-experiments.mjs'
 import {
   resolveTaskEffort,
   normalizeEffort,
@@ -226,6 +229,8 @@ export function aggregateRuns(rawRuns, config = {}) {
         outputPreview: (r.output || '').slice(0, 120),
         sentinel: r.sentinel || null,
         workdir: r.workdir || null, // fixture dir unik iterasi ini
+        // PR46 measurement plane: per-run metrics (null when unavailable).
+        metrics: r.metrics || null,
       })),
     }
   }
@@ -355,6 +360,9 @@ function parseArgs(argv) {
     runId: null,
     toolConfig: null,
     arch: null, // vanilla|basic (default basic; avo dihapus 2026-09-12)
+    suite: null, // legacy (default) | pr46
+    modelVersion: null, // exact resolved version (PR46 identity, never 'latest')
+    measurementOut: null, // optional separate path for the PR46 measurement report
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -374,6 +382,9 @@ function parseArgs(argv) {
     } else if (a === '--run-id') args.runId = argv[++i]
     else if (a === '--tool-config') args.toolConfig = argv[++i]
     else if (a === '--arch') args.arch = argv[++i]
+    else if (a === '--suite') args.suite = argv[++i]
+    else if (a === '--model-version') args.modelVersion = argv[++i]
+    else if (a === '--measurement-out') args.measurementOut = argv[++i]
   }
   return args
 }
@@ -418,13 +429,42 @@ async function main() {
   const arch = resolveBenchArch(args.arch ?? process.env.ABELINK_BENCH_ARCH)
   process.env.ABELINK_BENCH_ARCH = arch // dibaca adapter + executor wiring
   const runId = args.runId || `r${Date.now().toString(36)}`
+  // Suite selects the task registry: legacy (default) or PR46's 30-fixture
+  // matrix. Unknown suites are rejected fail-fast, never silently defaulted.
+  const suite = args.suite ? String(args.suite).trim().toLowerCase() : 'legacy'
+  if (!['legacy', 'pr46'].includes(suite)) {
+    console.error(`--suite tidak dikenal: ${args.suite} (pilihan: legacy|pr46)`)
+    process.exit(2)
+  }
+  const registry = suite === 'pr46' ? PR46_TASKS : ALL_TASKS
+
+  // Exact model identity for PR46 reports. Never fabricate: if any component
+  // is missing the identity stays null (recorded as unavailable).
+  let modelIdentity = null
+  if (args.model && args.provider && args.modelVersion) {
+    try {
+      modelIdentity = makeModelIdentity({
+        provider: args.provider,
+        modelId: args.model,
+        modelVersion: args.modelVersion,
+      })
+    } catch (e) {
+      console.error(`identitas model tidak valid: ${e.message}`)
+      process.exit(2)
+    }
+  } else if (suite === 'pr46') {
+    console.warn(
+      '[pr46] --provider/--model/--model-version tidak lengkap: identitas model dicatat null (tidak difabrikasi).'
+    )
+  }
+
   // Absolut (fs lokal) + relatif-workspace (prompt): pasangan yang menunjuk
   // direktori fisik SAMA. Lihat blok sidecarWorkspaceRoot di atas.
   const baseDir = join(sidecarWorkspaceRoot(), `abelinkbench-${runId}`)
   const promptBase = relative(sidecarWorkspaceRoot(), baseDir)
   mkdirSync(baseDir, { recursive: true })
 
-  const tasks = args.tasks && args.tasks.length ? args.tasks : Object.keys(ALL_TASKS)
+  const tasks = args.tasks && args.tasks.length ? args.tasks : Object.keys(registry)
 
   // Benchmark default effort: --effort / --efforts > env ABELINK_BENCH_EFFORT > 'low'
   const envEffort = normalizeEffort(process.env.ABELINK_BENCH_EFFORT, null)
@@ -445,8 +485,8 @@ async function main() {
   // Fixture dunia di-seed per iterasi SEBELUM agent jalan.
   const rawRuns = []
   for (const taskId of tasks) {
-    const taskEffort = ALL_TASKS[taskId]?.effort // task-level override
-    if (!ALL_TASKS[taskId]) throw new Error(`Unknown task: ${taskId}`)
+    const taskEffort = registry[taskId]?.effort // task-level override
+    if (!registry[taskId]) throw new Error(`Unknown task: ${taskId}`)
     const perTaskEfforts = sweepEfforts
       ? sweepEfforts
       : // resolveTaskEffort akan memakai taskEffort bila ada; kirim benchmark
@@ -456,7 +496,9 @@ async function main() {
       for (let i = 0; i < args.runs; i++) {
         const iterSentinel = akSentinel()
         const iterDir = join(baseDir, `${taskId}-r${i + 1}`)
-        seedFixtures(iterDir, iterSentinel)
+        // PR46 fixtures seed their own lane-specific deterministic world.
+        if (suite === 'pr46') seedPr46Fixture(registry[taskId], iterDir, iterSentinel)
+        else seedFixtures(iterDir, iterSentinel)
         process.env.MARKBENCH_GIT_REPO = join(iterDir, 'git-repo')
         process.stdout.write(`  [${arch}] ${taskId.padEnd(22)} (r${i + 1}/${args.runs}, ${eff}) ... `)
         const r = await runTask(taskId, args.model, args.provider, {
@@ -468,6 +510,10 @@ async function main() {
           workdir: iterDir,
           // Bentuk relatif-workspace untuk {{WORKDIR}} di prompt.
           promptWorkdir: join(promptBase, `${taskId}-r${i + 1}`),
+          // PR46: suite registry + exact identity + run id for evidence records.
+          registry,
+          runId,
+          modelIdentity,
         })
         process.stdout.write(`${r.passed ? 'PASS' : 'FAIL'} (${r.durationMs}ms, steps=${r.steps}, tools=${r.toolCalls})\n`)
         rawRuns.push({
@@ -480,7 +526,10 @@ async function main() {
           output: r.output,
           sentinel: r.sentinel || null,
           workdir: r.workdir || null,
-          cheatSuspected: detectCheat(ALL_TASKS[taskId], r, r.sentinel),
+          cheatSuspected: detectCheat(registry[taskId], r, r.sentinel),
+          // PR46: per-run metrics + normalized evidence (additive).
+          metrics: r.metrics || null,
+          evidence: r.evidence || [],
         })
       }
     }
@@ -498,11 +547,45 @@ async function main() {
     toolConfig: args.toolConfig,
   })
 
+  // PR46 measurement plane: wrap (never replace) the aggregate report. Per-run
+  // metrics are collected whether or not the run is independent-verified, and
+  // the aggregate always carries an explicit repeated-run count.
+  const measurement = buildMeasurementReport({
+    runs: rawRuns.map((r) => r.metrics).filter(Boolean),
+    config: {
+      suite,
+      arch,
+      runs: args.runs,
+      provider: args.provider,
+      modelId: args.model,
+      modelVersion: args.modelVersion,
+      effort: sweepEfforts ? null : benchmarkEffort,
+      toolConfig: args.toolConfig,
+      fixtureSet: suite === 'pr46' ? 'pr46-matrix' : 'legacy-registry',
+      environment: process.env.ABELINK_BENCH_ENV || 'local',
+      comparison: {
+        // A comparison is only valid when the exact identity is known.
+        valid: Boolean(modelIdentity),
+        baseline: 'main',
+        candidate: arch,
+      },
+    },
+  })
+  report.measurement = measurement
+
   printTable(report)
+  console.log(
+    `Measurement (suite=${suite}, runs/task=${args.runs}): pass=${measurement.aggregate.passRate} verified=${measurement.aggregate.verifiedSuccessRate} medianTurns=${measurement.aggregate.medianTurns} medianTools=${measurement.aggregate.medianToolCalls}`
+  )
 
   if (args.out) {
     fs.writeFileSync(args.out, JSON.stringify(report, null, 2) + '\n')
     console.log(`\nLaporan tersimpan: ${args.out}`)
+  }
+
+  if (args.measurementOut) {
+    fs.writeFileSync(args.measurementOut, JSON.stringify(measurement, null, 2) + '\n')
+    console.log(`Laporan pengukuran tersimpan: ${args.measurementOut}`)
   }
 
   if (args.compare) {

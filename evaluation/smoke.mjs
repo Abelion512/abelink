@@ -323,7 +323,7 @@ assert.equal(
   true,
   'tanpa sentinel = fallback teks warisan tetap PASS'
 )
-import { rmSync as rmTmp } from 'node:fs'
+import { rmSync as rmTmp, mkdirSync } from 'node:fs'
 rmTmp(gitTmp, { recursive: true, force: true })
 console.log('[ok] tb-git-01 world-state sentinel path + legacy fallback')
 
@@ -384,3 +384,109 @@ const limitPlan = planRows(limitBudgets, { start: 8, max: 16 })
 assert.equal(limitPlan[0].recommendedEffort, 'medium', 'rung 8 direkomendasikan di effort medium')
 assert.equal(limitPlan[1].fits.high, true, 'rung 16 muat di effort high')
 console.log('[ok] limit ladder: registry rung, verifier dunia, budget effortSystem, verdict probe')
+
+// ---- PR46: measurement plane + 30-fixture matrix (offline) ----
+import {
+  PR46_TASKS,
+  PR46_LANE_COUNTS,
+  PR46_TOTAL_FIXTURES,
+  PR46_ABLATION_PAIRS,
+  laneCounts,
+  seedPr46Fixture,
+} from './pr46-matrix.mjs'
+import { evidenceFromRun, summarizeEvidence } from './evidence.mjs'
+import { computeRunMetrics, aggregateMetrics, buildMeasurementReport } from './metrics.mjs'
+import {
+  makeModelIdentity,
+  baselineVsCandidateSpec,
+  validateAblationPair,
+} from './pr46-experiments.mjs'
+
+assert.equal(PR46_TOTAL_FIXTURES, 30, 'PR46 matrix = 30 fixture')
+assert.equal(Object.keys(PR46_TASKS).length, 30, 'PR46 registry memuat 30 fixture')
+assert.deepEqual(laneCounts(), PR46_LANE_COUNTS, 'lane PR46 sesuai kontrak (6/5/5/5/5/4)')
+for (const id of Object.keys(PR46_TASKS)) {
+  assert.equal(ALL_TASKS[id], undefined, `fixture PR46 ${id} tidak boleh menimpa registry legacy`)
+}
+console.log('[ok] PR46 matrix: 30 fixture, lane 6/5/5/5/5/4, tanpa tabrakan registry')
+
+// Ablation pair: identik kecuali representasi.
+const pair = PR46_ABLATION_PAIRS[0]
+assert.equal(
+  validateAblationPair(PR46_TASKS[pair.raw], PR46_TASKS[pair.semanticFirst]).valid,
+  true,
+  'pasangan ablasi representasi browser wajib identik kecuali representation'
+)
+assert.equal(PR46_TASKS[pair.raw].representation, 'raw')
+assert.equal(PR46_TASKS[pair.semanticFirst].representation, 'semantic-first')
+console.log('[ok] PR46 ablasi representasi browser utuh')
+
+// Identitas model: exact, bukan "latest".
+const identity = makeModelIdentity({ provider: 'openai', modelId: 'gpt-6-astra', modelVersion: '2026-09-01' })
+assert.equal(identity.modelVersion, '2026-09-01')
+assert.throws(() => makeModelIdentity({ provider: 'openai', modelId: 'gpt-6-astra', modelVersion: 'latest' }))
+const spec = baselineVsCandidateSpec({
+  fixed: {
+    provider: 'openai',
+    modelId: 'gpt-6-astra',
+    modelVersion: '2026-09-01',
+    systemPrompt: 'p',
+    protocol: '1.0',
+    tools: ['write-file'],
+    permissions: 'core',
+    fixture: 'pr46-matrix',
+    effort: 'high',
+    budget: 48,
+    environment: 'local',
+    verifier: 'world-state',
+  },
+  runs: 3,
+})
+assert.equal(spec.comparability.valid, true, 'A/B valid hanya bila semua variabel tetap sama')
+console.log('[ok] PR46 identitas model + integritas perbandingan baseline/kandidat')
+
+// Evidence + metrik: oracle independen, jawaban model hanya klaim.
+const pr46Evidence = evidenceFromRun({
+  runId: 'smoke',
+  taskId: 'pr46-os-01',
+  lane: 'os',
+  stepLog: [{ step: 1, type: 'tool', tool: 'write-file', result: 'ok', success: true }],
+})
+assert.equal(summarizeEvidence(pr46Evidence).toolCalls, 1)
+const metrics = computeRunMetrics({
+  run: { taskId: 'pr46-os-01', steps: 2, toolCalls: 1, durationMs: 100, tokenUsage: undefined },
+  task: { taskId: 'pr46-os-01', lane: 'os', maxTurns: 8 },
+  evidence: pr46Evidence,
+  oracle: { passed: true, independent: false, kind: 'answer-or-trajectory' },
+})
+assert.equal(metrics.taskSuccess, true)
+assert.equal(metrics.independentlyVerifiedSuccess, false, 'oracle tidak independen bukan verified success')
+assert.equal(metrics.tokenCost.available, false, 'token cost tak tersedia = eksplisit tidak tersedia')
+assert.equal(metrics.finalAnswerIsClaim, true, 'jawaban model selalu klaim, bukan bukti')
+assert.equal(aggregateMetrics([metrics]).verifiedSuccessRate, 0)
+const measurement = buildMeasurementReport({ runs: [metrics], config: { suite: 'pr46', runs: 3, comparison: { valid: true } } })
+assert.equal(measurement.kind, 'abelinkbench-measurement-report')
+assert.equal(measurement.repeatedRunsPerTask, 3, 'jumlah run berulang wajib eksplisit')
+console.log('[ok] PR46 evidence + metrik per-run + laporan pengukuran')
+
+// Fixture seeding + oracle dunia (tanpa LLM).
+const pr46Tmp = mkdtempSync(joinPath(tmpdir(), 'abelinkbench-pr46-'))
+seedPr46Fixture(PR46_TASKS['pr46-os-01'], pr46Tmp, 'S3N-pr46-smoke')
+assert.equal(
+  PR46_TASKS['pr46-os-01'].verify('klaim', { sentinel: 'S3N-pr46-smoke', workdir: pr46Tmp, stepLog: [] }),
+  false,
+  'klaim tanpa artefak = FAIL'
+)
+mkdirSync(joinPath(pr46Tmp, 'arsip', '2026'), { recursive: true })
+writeTmpFile(joinPath(pr46Tmp, 'arsip', '2026', 'catatan.txt'), 'S3N-pr46-smoke')
+assert.equal(
+  PR46_TASKS['pr46-os-01'].verify('klaim', {
+    sentinel: 'S3N-pr46-smoke',
+    workdir: pr46Tmp,
+    stepLog: [{ tool: 'write-file', result: 'ok' }],
+  }),
+  true,
+  'artefak dunia + bukti tool = PASS'
+)
+rmTmp(pr46Tmp, { recursive: true, force: true })
+console.log('[ok] PR46 fixture seeding + oracle dunia deterministik')

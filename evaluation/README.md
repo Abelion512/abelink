@@ -14,7 +14,11 @@ dan **anti-cheat validator** — bukan angka simulasi.
 | `terminal-bench.mjs` | Registry task Terminal-Bench-style. Setiap task punya `prompt` + `verifier` — predikat deterministik yang benar-benar dieksekusi terhadap respons — plus `maxTurns` (turn budget, ala MCP Atlas 100-turn) dan flag `sentinel` untuk anti-cheat. |
 | `abelink-adapter.mjs` | Adapter agent: satu child sidecar persisten per run, RPC JSON-lines ter-multipleks per id via `ai:fetch` + `native-tool:execute`. Cleanup dijamin (`SIGTERM` → `SIGKILL` 5s). Durasi wall-clock nyata dicatat di trajectory. `task.maxTurns` menimpa default iterasi (tidak ada loop tak terbatas). |
 | `deepeval-runner.mjs` | Metrik sekunder opsional (GEval + TaskCompleteness). Dynamic-import; jika paket `deepeval` tidak terpasang atau API key tidak ada, degrade gracefully dan verdict official tetap dipakai. |
-| `smoke.mjs` | Gate CI tanpa network: registry task, verifier PASS/FAIL case, parser tool-call quote-aware, anti-cheat `detectCheat`, agregasi `aggregateRuns`, regression gate `compareReports`. |
+| `smoke.mjs` | Gate CI tanpa network: registry task, verifier PASS/FAIL case, parser tool-call quote-aware, anti-cheat `detectCheat`, agregasi `aggregateRuns`, regression gate `compareReports`, plus assertion PR46 (matriks 30 fixture, ablasi representasi, identitas model, evidence + metrik). |
+| `evidence.mjs` | **PR46** measurement plane: normalizer observasi tool yang sudah ada menjadi record bukti in-memory berprovenance. Reuse `progressEvaluator` (stagnasi) dan `objectiveVerifier` (kosakata verification state). Tanpa store baru. |
+| `metrics.mjs` | **PR46** metrik per-run + `abelinkbench-measurement-report`. Task success dan verified success dipisah; metrik yang tidak diekspos runtime bernilai `null`/`available:false`. Membungkus `aggregateRuns`, tidak menggantikannya. |
+| `pr46-matrix.mjs` | **PR46** matriks 30 fixture (research 6, browser 5, os 5, study 5, recovery 5, reuse 4) dengan oracle world-state deterministik + seeder per-lane. |
+| `pr46-experiments.mjs` | **PR46** spesifikasi eksperimen: identitas model exact (tanpa "latest"), integritas baseline-vs-kandidat, dan ablasi representasi browser (raw vs semantic-first). |
 
 ## Task suite
 
@@ -39,6 +43,45 @@ bun evaluation/smoke.mjs     # smoke test tanpa network (dipakai CI)
 Runner butuh salah satu provider AI yang dikonfigurasi di Abelink (gemini-web,
 LM Studio lokal, atau endpoint OpenAI-compatible). Tanpa provider, smoke test
 tetap bisa jalan karena tidak memanggil LLM.
+
+### PR46 measurement plane (matriks 30 fixture)
+
+PR46 menambah lapisan pengukuran, bukan runtime baru. Registry lama tidak
+berubah; matriks PR46 hidup berdampingan.
+
+```bash
+# Matriks PR46 lewat runner yang sama (butuh provider AI nyata).
+node evaluation/run.mjs --suite pr46 --runs 3 \
+  --provider <provider> --model <model-id> --model-version <exact-version> \
+  --out reports/pr46.json --measurement-out reports/pr46-measurement.json
+
+# Smoke offline (dipakai CI).
+node evaluation/smoke.mjs
+bunx vitest run tests/pr46-evidence.test.mjs tests/pr46-metrics.test.mjs \
+  tests/pr46-matrix.test.mjs tests/pr46-experiments.test.mjs
+```
+
+Setiap run melaporkan (di `report.measurement`): task success, independently
+verified success, turn, tool call, retry, aksi berulang, stagnasi, recovery,
+latensi, biaya token bila tersedia, intervensi manusia, hasil oracle, dan alasan
+kegagalan. Agregat mencakup pass rate, verified-success rate, median/mean turn
+dan tool call, recovery success rate, unnecessary-action rate, verification
+discipline, latency, dan token cost.
+
+Batas eksplisit: adapter benchmark belum mengekspos verdict `objectiveVerifier`
+maupun kanal intervensi manusia, sehingga `runtimeVerificationState` biasanya
+`not_run` dan `humanInterventions` bernilai `null`. Nilai itu TIDAK difabrikasi;
+lihat batasan di PR description.
+
+Identitas model wajib exact (`--provider`, `--model`, `--model-version`). String
+seperti `latest` ditolak. Tanpa identitas lengkap, `report.measurement.identity`
+mencatat `null` dan `comparison.valid` bernilai `false`.
+
+Eksperimen yang didukung kode: (A) baseline main vs runtime PR45 dengan hanya
+`architecture` yang berbeda, (B) ablasi representasi browser raw vs
+semantic-first (`pr46-browser-04` vs `pr46-browser-05`), (C) matriks
+kompatibilitas model dengan identitas exact. Satu angka agregat BUKAN klaim
+rilis: perbandingan hanya valid bila variable tetap identik.
 
 ### Orchestrator (`benchmark:run`)
 

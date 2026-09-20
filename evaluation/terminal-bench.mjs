@@ -20,6 +20,8 @@ import { runAbelinkAgent } from './abelink-adapter.mjs'
 import { spawnSync } from 'node:child_process'
 import { CORP_TASKS, hasGitCommitWithMessage } from './tasks-student-corporate.mjs'
 import { LIMIT_TASKS } from './tasks-limit.mjs'
+import { evidenceFromRun } from './evidence.mjs'
+import { computeRunMetrics } from './metrics.mjs'
 
 // Token acak per-run untuk anti-cheat (diekspor agar smoke test bisa menguji).
 export function akSentinel() {
@@ -165,7 +167,10 @@ export function listTasks() {
 export const ALL_TASKS = { ...TASKS, ...CORP_TASKS, ...LIMIT_TASKS }
 
 export async function runTask(taskId, model, provider, opts = {}) {
-  const task = ALL_TASKS[taskId]
+  // Registry is injectable so PR46's fixture set reuses this runner without
+  // touching the legacy task maps. Default stays ALL_TASKS (no regression).
+  const registry = opts.registry || ALL_TASKS
+  const task = registry[taskId]
   if (!task) throw new Error(`Unknown task: ${taskId}`)
   // Task legacy memakai verifier (output, sentinel, ctx); task dunia (CORP +
   // limit) memakai (output, ctx) yang memeriksa artefak + stepLog.
@@ -229,6 +234,44 @@ export async function runTask(taskId, model, provider, opts = {}) {
     ? task.verifier(result.response, ctx)
     : task.verifier(result.response, verifierSentinel, ctx)
 
+  // --- PR46 measurement plane (additive): evidence + per-run metrics. ---
+  // The oracle verdict above stays authoritative; the model final answer is
+  // recorded as a claim for provenance, never as a success signal.
+  const trace = result.trace || result.trajectory?.trace || []
+  const modelIdentity = opts.modelIdentity || null
+  const oracleIndependent = task.oracleIndependent === true || isWorldTask
+  const evidence = evidenceFromRun({
+    runId: opts.runId || null,
+    taskId,
+    lane: task.lane || null,
+    arch: result.arch || 'basic',
+    model: modelIdentity,
+    trace,
+    stepLog,
+  })
+  const metrics = computeRunMetrics({
+    run: {
+      runId: opts.runId || null,
+      taskId,
+      arch: result.arch || 'basic',
+      effort: result.effort,
+      model: modelIdentity,
+      steps: result.trajectory.steps,
+      toolCalls: result.trajectory.toolCalls,
+      durationMs: result.trajectory.durationMs,
+      tokenUsage: result.tokenUsage,
+      status: 'completed',
+    },
+    task,
+    evidence,
+    oracle: {
+      passed,
+      kind: task.oracleKind || (isWorldTask ? 'world-state' : 'answer-or-trajectory'),
+      independent: oracleIndependent,
+      source: oracleIndependent ? 'deterministic-world-state-predicate' : 'deterministic-answer-predicate',
+    },
+  })
+
   return {
     taskId,
     prompt,
@@ -246,6 +289,9 @@ export async function runTask(taskId, model, provider, opts = {}) {
     steps: result.trajectory.steps,
     toolCalls: result.trajectory.toolCalls,
     tokenUsage: result.tokenUsage,
+    // PR46: normalized evidence + per-run metrics (additive, optional).
+    evidence,
+    metrics,
   }
 }
 

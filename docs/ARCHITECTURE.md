@@ -195,6 +195,22 @@ Secondary material is for discovery. Implementation decisions should be traceabl
   (otomatisasi penuh menunggu boundary ABELINK nyata, lihat
   `boundary-spec.mjs`). Fixtures deterministik effort:
   `evaluation/effort-fixtures.mjs` + `tests/effort-fixtures.test.mjs`.
+- **Measurement plane PR46 (bukan runtime baru):** `evaluation/evidence.mjs`
+  menormalkan observasi tool yang SUDAH ada (stepLog/trace adapter) menjadi
+  record bukti in-memory berprovenance (run/task, tool, status, payload, source)
+  tanpa store baru dan tanpa field berbentuk browser; `evaluation/metrics.mjs`
+  menghitung metrik per-run (task success vs verified success terpisah, turn,
+  tool call, retry, aksi berulang, stagnasi, recovery, latensi, biaya token
+  bila tersedia, intervensi manusia) dan membungkus `aggregateRuns` dengan
+  `abelinkbench-measurement-report` (jumlah run berulang eksplisit).
+  `evaluation/pr46-matrix.mjs` mendaftarkan matriks 30 fixture (research 6,
+  browser 5, os 5, study 5, recovery 5, reuse 4) dengan oracle world-state
+  deterministik; `evaluation/pr46-experiments.mjs` menegakkan identitas model
+  exact (provider/modelId/modelVersion, TIDAK pernah "latest"), integritas
+  perbandingan baseline-vs-kandidat, dan ablasi representasi browser.
+  `run.mjs --suite pr46` menjalankan matriks lewat runner yang sama.
+  Verdict task tetap milik oracle; jawaban akhir model hanya klaim
+  (`finalAnswerIsClaim: true`).
 - **Knowledge:** dokumen → `ragPipeline.js` (chunk 500/50) → Dexie + Orama;
   workspace `.abelink/` → `workspace:*` channel → working memory disuntikkan ke
   system prompt.
