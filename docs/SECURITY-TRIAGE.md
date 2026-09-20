@@ -24,33 +24,19 @@ Dokumen ini merekam keputusan triage atas temuan `bun audit` agar keputusan
   migrasi pencarian YouTube ke `youtube-transcript-plus`/API lain. Re-evaluasi
   tiap kali `bun audit` menandai advisory ReDoS baru untuk minimatch < 3.1.3.
 
-## Diterima (risk-accepted) — `sharp@0.34.5` via `@huggingface/transformers`
-
-- **Advisory:** GHSA-f88m-g3jw-g9cj (libvips inherited CVE: CVE-2026-33327,
-  CVE-2026-33328, CVE-2026-35590, CVE-2026-35591); patched di sharp >= 0.35.0.
-- **Rantai:** `@huggingface/transformers@4.2.0` (pin `sharp@^0.34.5`) ->
-  `sharp@0.34.5`.
-- **Justifikasi risiko:** sharp hanya dipakai transformers untuk preprocessing
-  gambar (jalur webcam vision, fitur opt-in yang tidak aktif by default).
-  Override flat ke 0.35.4 terbukti mematahkan import
-  `@huggingface/transformers` — dependensi native (libvips prebuilt) tidak
-  kompatibel lintas minor 0.34 -> 0.35, sehingga ABI bentrok dan modul gagal
-  dimuat (vitest fail). Karena itu sharp SENGAJA tidak di-override.
-- **Upgrade path:** tunggu transformers merilis versi dengan dependensi
-  `sharp@^0.35`, lalu update langsung tanpa override; Dependabot akan menandai
-  PR ketika tersedia. Re-evaluasi tiap ada advisory libvips baru.
-
-## Diperbaiki (commit ini)
+## Diperbaiki
 
 | Paket       | Dari        | Ke         | Kelas                          |
 | ----------- | ----------- | ---------- | ------------------------------ |
 | dompurify   | <= 3.4.11   | ^3.4.12    | XSS (hook pollution, dst.)     |
 | tar         | < 7.5.7     | ^7.5.7     | path traversal, DoS (critical) |
 | adm-zip     | < 0.6.0     | ^0.6.0     | 4GB alloc DoS                  |
+| sharp       | 0.34.5      | ^0.35.4    | libvips CVEs (via `@huggingface/transformers@^4.3.0`) |
 
 Catatan: `tar` di-override flat dan tetap kompatibel karena hanya dipakai
 build-time oleh node-pre-gyp (6 -> 7), bukan runtime aplikasi. `sharp`
-SENGAJA tidak di-override — lihat bagian risk-accepted di atas.
+telah teratasi bersih via rilis resmi `@huggingface/transformers@4.3.0`
+yang mem-pin `sharp@^0.35.4` secara natif tanpa perlu override.
 
 ## Proses
 
