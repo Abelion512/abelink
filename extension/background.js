@@ -1064,7 +1064,13 @@ function taggerFn() {
       y: Math.round(rect.y + window.scrollY)
     })
   }
-  return { title: document.title, url: location.href, elements: out }
+  const mainRoot = document.querySelector(MAIN_SCOPE) || document.body
+  const pageText = String(mainRoot?.innerText || '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, 5000)
+
+  return { title: document.title, url: location.href, text: pageText, elements: out }
 }
 
 async function readDomInTab(tabId) {
