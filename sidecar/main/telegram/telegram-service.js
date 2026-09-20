@@ -1,10 +1,18 @@
-import { Telegraf, Input } from 'telegraf'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { fileURLToPath } from 'url'
 import { getGlobalConfig, abortAllFetches, activeAbortControllers } from '../ai-bridge.js'
 import { isDev } from '../utils/dataHome.mjs'
+
+let _Telegraf = null
+async function getTelegraf() {
+  if (!_Telegraf) {
+    const mod = await import('telegraf')
+    _Telegraf = mod.Telegraf || mod.default?.Telegraf || mod.default
+  }
+  return _Telegraf
+}
 
 let bot = null
 let currentStatus = 'disconnected'
@@ -92,6 +100,7 @@ export const startTelegramBot = async (token, mainWindow) => {
       telegramOpts.apiRoot = config.tgApiRoot.trim()
     }
 
+    const Telegraf = await getTelegraf()
     const myBot = new Telegraf(token.trim(), { telegram: telegramOpts })
     bot = myBot
     // Hidup hanya bila generasi ini masih pemilik DAN instance global masih
