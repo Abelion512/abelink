@@ -5,7 +5,8 @@ import {
   runSkillMiniEval,
   evaluateAndGraduateSkill,
   sweepTrialSkills,
-  buildTrialSkillNudge
+  buildTrialSkillNudge,
+  exportSkillToDisk
 } from '../src/api/ai/skillMiniEval.js'
 
 describe('runSkillMiniEval (Mini Evaluation Engine)', () => {
@@ -168,5 +169,40 @@ describe('buildTrialSkillNudge', () => {
 
     expect(buildTrialSkillNudge(list, 'csv')).toBeNull()
     expect(buildTrialSkillNudge([], 'csv')).toBeNull()
+  })
+})
+
+describe('exportSkillToDisk (Pilar IV: Active Self-Learning Loop)', () => {
+  it('mengekspor skill teruji ke filesystem via window.api.saveSkill', async () => {
+    let savedName = ''
+    let savedContent = ''
+    globalThis.window = {
+      api: {
+        saveSkill: async (name, content) => {
+          savedName = name
+          savedContent = content
+          return true
+        }
+      }
+    }
+
+    const skill = {
+      name: 'linux-systemd-audit',
+      description: 'Audit service systemd yang gagal',
+      content: '# PANDUAN AUDIT SYSTEMD\n1. systemctl --failed\n2. journalctl -xe'
+    }
+
+    const success = await exportSkillToDisk(skill)
+    expect(success).toBe(true)
+    expect(savedName).toBe('linux-systemd-audit')
+    expect(savedContent).toContain('name: linux-systemd-audit')
+    expect(savedContent).toContain('description: Audit service systemd yang gagal')
+    expect(savedContent).toContain('systemctl --failed')
+  })
+
+  it('mengembalikan false jika window.api tidak tersedia', async () => {
+    delete globalThis.window
+    const success = await exportSkillToDisk({ name: 'dummy', content: 'test' })
+    expect(success).toBe(false)
   })
 })

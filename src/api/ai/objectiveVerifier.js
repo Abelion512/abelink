@@ -23,6 +23,8 @@
 //   - Verification failure triggers a BOUNDED replan (MAX_VERIFY_REPLANS)
 //     telling the model exactly which criteria lack world-state proof.
 
+import { extractCitations, verifyVerbatimQuote } from './citationEngine.js'
+
 export const VERIFICATION_STATE = {
   VERIFIED: 'verified',
   PARTIALLY: 'partially_verified',
@@ -164,7 +166,8 @@ const stripClaimStopwords = (phrase = '') => {
 }
 
 const extractClaimEntities = (answer = '') => {
-  const text = String(answer || '')
+  // Strip passage citation tags like [P-1], [P-1: "quote"] agar tidak dianggap entitas klaim
+  const text = String(answer || '').replace(/\[P-\d+[^\]]*\]/gi, '')
   const found = new Map()
   for (const re of [CLAIM_PHRASE_RE, CLAIM_TOKEN_RE]) {
     for (const m of text.matchAll(re)) {
@@ -570,18 +573,46 @@ export function evaluateEvidence({
       }
       setState('facts-present', factsOk ? 'pass' : 'unresolved')
       const claims = extractClaimEntities(answer)
-      if (claims.length === 0) {
+      const citations = extractCitations(answer)
+
+      if (claims.length === 0 && citations.length === 0) {
         setState('claim-quoted', 'na')
       } else {
         const quoted = claims.filter((c) =>
           ops.some((op) => String(op.text || '').toLowerCase().includes(c.toLowerCase()))
         )
-        setState('claim-quoted', quoted.length === claims.length ? 'pass' : 'unresolved')
         const pending = claims.filter((c) => !quoted.includes(c))
-        if (pending.length) {
+
+        const invalidCitations = []
+        for (const cite of citations) {
+          if (cite.quote) {
+            const hasMatch = ops.some((op) => {
+              const v = verifyVerbatimQuote(cite.quote, op.text || '')
+              return v.valid
+            })
+            if (!hasMatch) {
+              invalidCitations.push(cite.quote)
+            }
+          }
+        }
+
+        const claimsPass = quoted.length === claims.length
+        const citationsPass = invalidCitations.length === 0
+        const allPass = claimsPass && citationsPass
+
+        setState('claim-quoted', allPass ? 'pass' : 'unresolved')
+
+        if (!allPass) {
+          const reasons = []
+          if (pending.length) {
+            reasons.push(`klaim ${pending.map((c) => `<${c}>`).join(', ')} tanpa kutipan isi`)
+          }
+          if (invalidCitations.length) {
+            reasons.push(`kutipan sitasi tidak cocok di observasi: ${invalidCitations.map((q) => `"${q}"`).join(', ')}`)
+          }
           criteria
             .find((c) => c.id === 'claim-quoted')
-            .label += ` — klaim ${pending.map((c) => `<${c}>`).join(', ')} tanpa kutipan isi: extract dulu, klaim kemudian`
+            .label += ` (${reasons.join('; ')}: extract dulu, klaim kemudian)`
         }
       }
       if (ARTIFACT_INTENT_RE.test(String(objectiveText))) {

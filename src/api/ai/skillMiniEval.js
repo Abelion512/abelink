@@ -119,6 +119,10 @@ export async function evaluateAndGraduateSkill(idOrName) {
     now: Date.now()
   })
 
+  if (newState === 'active') {
+    await exportSkillToDisk(skill)
+  }
+
   return {
     skillId: skill.id,
     skillName: skill.name,
@@ -126,6 +130,30 @@ export async function evaluateAndGraduateSkill(idOrName) {
     newState,
     evalResult
   }
+}
+
+/**
+ * Ekspor berkas SKILL.md ke disk filesystem lokal (~/.local/share/abelink/skills)
+ * Mengadopsi Active Self-Learning loop agar skill teruji bisa dipakai multi-agent.
+ * @param {{ name: string, description?: string, content: string }} skill
+ * @returns {Promise<boolean>}
+ */
+export async function exportSkillToDisk(skill) {
+  if (!skill || !skill.name) return false
+  if (typeof window !== 'undefined' && window.api?.saveSkill) {
+    const rawContent = skill.content || ''
+    const contentWithFrontmatter = rawContent.startsWith('---')
+      ? rawContent
+      : `---\nname: ${skill.name}\ndescription: ${skill.description || 'Skill otomatis Abelink'}\n---\n\n${rawContent}`
+    try {
+      await window.api.saveSkill(skill.name, contentWithFrontmatter)
+      return true
+    } catch (e) {
+      console.warn(`[SkillMiniEval] Gagal ekspor skill /${skill.name} ke disk:`, e)
+      return false
+    }
+  }
+  return false
 }
 
 /**

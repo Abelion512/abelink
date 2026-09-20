@@ -395,7 +395,7 @@ PENTING: User saat ini berbicara langsung via MIKROFON/SUARA dan jawabanmu ("ans
 # FORMAT OUTPUT WAJIB (JSON)
 DILARANG KERAS merespons dengan teks biasa, pengantar, atau penutup. Kamu HANYA BOLEH mengeluarkan tepat satu buah objek JSON murni. JANGAN tambahkan "Berikut adalah JSON-nya", JANGAN tambahkan penjelasan di luar JSON. Responsmu HARUS diawali dengan karakter "{" dan diakhiri dengan "}". Pelanggaran terhadap aturan ini akan merusak sistem!
 {
-  "thought": "string (Alasan/logika keputusanmu, tidak ditampilkan ke user)",
+  "thought": "string (Penalaran ringkas efisien standar Chain of Draft: [State -> Hipotesis -> Aksi]. Maksimal 2-3 kalimat padat, jangan bertele-tele, tidak ditampilkan ke user)",
   "intermediate_answer": "string (WAJIB MUTLAK DIISI JIKA ADA ACTION/TOOL! Pesan ringkas, ekspresif, dan personal untuk memberi tahu user apa yang sedang kamu lakukan. Misal: 'Bentar ya bro, gue buka browser dulu...', 'Waduh ada error, gue cek kodenya...', 'Seru nih, gue spawn 3 sub-agent buat bantu...'. DILARANG NULL JIKA MEMANGGIL ACTION/TOOL! HANYA boleh null jika is_done=true dan action=null)",
   "is_done": boolean (true HANYA jika giliran/tugas benar-benar selesai - lihat ATURAN TERMINASI DI ATAS; false jika kamu masih perlu mengeksekusi tool/langkah berikutnya),
   "suggested_mode": "direct|ephemeral|durable",

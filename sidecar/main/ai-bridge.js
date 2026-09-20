@@ -544,6 +544,23 @@ export const fetchAI = async (
           let backoffDelay = Math.min(30000, (trafficRetryCount + 1) * 2000)
           let retryBody = { ...currentBody }
 
+          // Pilar II: Model Pool Resilience & Multi-Provider Rotation
+          if (trafficRetryCount >= 2) {
+            const nextModel = selectNextModelInPool(retryBody.model, {
+              fallbackModel: conf.fallbackModel || 'gemini-2.5-flash',
+              modelPool: conf.modelPool
+            })
+            if (nextModel && nextModel !== retryBody.model) {
+              console.log(
+                `[Model Pool Rotation] Rate limit/TPM pada ${retryBody.model}. Beralih ke ${nextModel}...`
+              )
+              if (onStatus) {
+                onStatus(`Rate limit pada ${retryBody.model}, beralih ke ${nextModel}...`)
+              }
+              retryBody.model = nextModel
+            }
+          }
+
           if (onStatus)
             onStatus(`Server sibuk atau limit sementara (${response.status}), mencoba ulang (${trafficRetryCount + 1}/10) dalam ${Math.round(backoffDelay / 1000)}s...`)
 
@@ -905,3 +922,18 @@ export const orderModelsPreferFree = (ids) => {
   for (const id of uniq) (isFreeModelId(id) ? free : paid).push(id)
   return [...free, ...paid]
 }
+
+export const selectNextModelInPool = (currentModel, { fallbackModel = 'gemini-2.5-flash', modelPool = [] } = {}) => {
+  if (Array.isArray(modelPool) && modelPool.length > 1) {
+    const idx = modelPool.indexOf(currentModel)
+    if (idx !== -1) {
+      return modelPool[(idx + 1) % modelPool.length]
+    }
+    return modelPool[0]
+  }
+  if (currentModel === 'claude-work') {
+    return fallbackModel
+  }
+  return fallbackModel || currentModel
+}
+

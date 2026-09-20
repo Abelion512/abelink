@@ -518,6 +518,40 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
   })
 
+  it('research claim-quoted: sitasi [P-1: "kutipan"] cocok dengan teks observasi => verified', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset arsitektur Abelink',
+      answer:
+        'Sistem menggunakan model pool [P-1: "model pool multi-provider"] untuk redundansi.',
+      tools: [
+        exec(
+          'read-file',
+          'Arsitektur Abelink menggunakan model pool multi-provider dan Rust Tauri shell.'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'claim-quoted').state).toBe('pass')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research claim-quoted: sitasi [P-1: "kutipan palsu"] tidak cocok dengan teks observasi => unresolved', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset arsitektur Abelink',
+      answer:
+        'Sistem menggunakan fitur [P-1: "arsitektur monolitik electron 12"] secara default.',
+      tools: [
+        exec(
+          'read-file',
+          'Arsitektur Abelink menggunakan model pool multi-provider dan Rust Tauri shell.'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'claim-quoted').state).toBe('unresolved')
+    expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
   it('communication: send confirmation => verified', () => {
     const r = evaluateEvidence({
       kind: 'communication',

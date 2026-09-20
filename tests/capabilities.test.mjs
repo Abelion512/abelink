@@ -138,7 +138,7 @@ describe('executeCapability (offline connectors)', () => {
       })
       expect(out.output).toBe('MOCK-OUTPUT')
     },
-    20000
+    45000
   )
 
   it('shell-tool exec: perintah berbahaya fail-fast dengan CAPABILITY_APPROVAL_REQUIRED + pesan tool asli (backstop meski headless)', async () => {

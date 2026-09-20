@@ -16,8 +16,8 @@
 // capabilities:list melebihi timeout test. Semua pemakaian NATIVE_TOOLS
 // di bawah lewat getRunShell() yang mengimpor saat dibutuhkan saja.
 async function getRunShell() {
-  const { NATIVE_TOOLS } = await import('../node-tools.js')
-  return NATIVE_TOOLS['run-shell']
+  const { shellTools } = await import('../tools/shellTools.mjs')
+  return shellTools['run-shell']
 }
 
 // Test hook: override perilaku isDangerousCommand untuk keperluan pengujian
