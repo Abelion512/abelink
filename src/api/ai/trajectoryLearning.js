@@ -5,7 +5,8 @@
 const MAX_SUCCESS_STEPS = 12
 const MAX_FAILURE_STEPS = 6
 const MAX_TEXT_CHARS = 800
-const ERROR_RE = /^\s*\[ERROR\]/i
+const FAILURE_RE = /^\s*\[(?:ERROR|DITOLAK|DIBATALKAN|SEARCH-ERROR|CIRCUIT-OPEN|SPIRAL-STOP|REPEAT-CACHE|NO-RESULTS)\]/i
+const FAILURE_STATUS = new Set(['failed', 'blocked', 'not-executed', 'cancelled', 'aborted'])
 
 const textOf = (step = {}) => String(
   step?.fullResult ?? step?.resultString ?? step?.result ?? step?.observation ?? ''
@@ -15,8 +16,8 @@ const compact = (value = '', limit = MAX_TEXT_CHARS) =>
   String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, limit)
 
 const successful = (step = {}) => {
-  if (step?.status === 'failed' || step?.is_error === true) return false
-  return !ERROR_RE.test(textOf(step))
+  if (FAILURE_STATUS.has(String(step?.status || '').toLowerCase()) || step?.is_error === true) return false
+  return !FAILURE_RE.test(textOf(step))
 }
 
 export function buildTrajectoryLearningPack({
