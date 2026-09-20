@@ -1,32 +1,37 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { useNavigate } from 'react-router-dom'
 import {
-  BookOpen,
+  ArrowLeft,
+  Book,
   Brain,
   Globe,
   FolderOpen,
   Terminal,
-  Video,
+  SquarePlay,
   Music,
   Eye,
-  MessageSquare,
-  Cpu,
+  MessagesSquare,
+  Settings,
   Lightbulb,
   ArrowRight,
   AlertTriangle,
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   ChevronDown,
   ChevronUp,
   Search,
   Network,
-  Activity,
+  HeartPulse,
   Camera,
   Mic,
   Send,
+  Globe2,
   Code,
   GitBranch,
   Users,
-  CheckSquare
+  ListChecks
 } from 'lucide-react'
 import { faqs } from '../data/faqData'
 
@@ -35,47 +40,49 @@ const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks,
   const [isExpanded, setIsExpanded] = useState(false)
 
   return (
-    <div className="bg-[#1c1c1e]/60 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden transition-all duration-200 hover:border-white/20">
+    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden transition-all duration-300 hover:bg-white/10">
       <div
         className="p-4 cursor-pointer flex justify-between items-center gap-4"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex flex-col gap-1 flex-1">
-          <div className="flex items-center gap-2.5">
-            <code className="bg-white/10 px-2 py-0.5 rounded-lg text-[#0a84ff] text-xs font-mono">
+          <div className="flex items-center gap-3">
+            <code className="bg-base-300/50 px-2 py-1 rounded text-primary text-sm font-mono">
               {name}
             </code>
             {needsPermission ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#ff9f0a]/15 text-[#ff9f0a] border border-[#ff9f0a]/30">
+              <span className="badge badge-warning badge-sm gap-1">
                 <AlertTriangle size={10} /> Perlu Izin
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#30d158]/15 text-[#30d158] border border-[#30d158]/30">
-                <CheckCircle size={10} /> Bebas
+              <span className="badge badge-success badge-sm gap-1">
+                <CheckCircle2 size={10} /> Bebas
               </span>
             )}
+            {/* Graduated approval note (fase Linux/Rust): izin per-jenis aksi
+                bisa diatur owner ke ask/session/always — read-only default bebas. */}
           </div>
-          <p className="text-white/70 text-xs leading-relaxed mt-1">{description}</p>
+          <p className="text-white/70 text-sm">{description}</p>
         </div>
-        <div className="text-white/40">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
+        <div className="text-white/50">{isExpanded ? <ChevronUp /> : <ChevronDown />}</div>
       </div>
 
       {isExpanded && (
-        <div className="p-4 pt-0 border-t border-white/5 bg-black/20 text-xs text-white/80 space-y-3">
+        <div className="p-4 pt-0 border-t border-white/5 bg-black/20 text-sm text-white/80 space-y-3">
           <div>
             <strong className="text-white">Format Query:</strong>
-            <div className="bg-white/5 p-2 rounded-xl mt-1 font-mono text-[11px] text-[#0a84ff]">
+            <div className="bg-base-300/50 p-2 rounded mt-1 font-mono text-xs text-primary/80">
               {queryFormat}
             </div>
           </div>
           <div>
             <strong className="text-white">Cara Kerja:</strong>
-            <p className="mt-1 leading-relaxed text-white/70">{howItWorks}</p>
+            <p className="mt-1 leading-relaxed">{howItWorks}</p>
           </div>
           {example && (
             <div>
               <strong className="text-white">Contoh:</strong>
-              <div className="bg-white/5 p-2 rounded-xl mt-1 text-white/50 italic">{example}</div>
+              <div className="bg-base-300/50 p-2 rounded mt-1 text-white/60 italic">{example}</div>
             </div>
           )}
         </div>
@@ -88,76 +95,85 @@ const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks,
 const FlowStep = ({ number, title, description, isLast }) => (
   <div className="flex items-start gap-4">
     <div className="flex flex-col items-center">
-      <div className="w-7 h-7 rounded-full bg-[#0a84ff]/20 border border-[#0a84ff] text-[#0a84ff] flex items-center justify-center font-bold text-xs shrink-0">
+      <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary text-primary flex items-center justify-center font-bold text-sm shrink-0 shadow-[0_0_10px_oklch(var(--p)/0.3)]">
         {number}
       </div>
       {!isLast && (
-        <div className="w-0.5 h-12 bg-gradient-to-b from-[#0a84ff]/50 to-transparent mt-2"></div>
+        <div className="w-0.5 h-12 bg-gradient-to-b from-primary/50 to-transparent mt-2"></div>
       )}
     </div>
-    <div className="pt-0.5 pb-6">
-      <h4 className="text-white text-sm font-semibold mb-1">{title}</h4>
-      <p className="text-white/60 text-xs leading-relaxed">{description}</p>
+    <div className="pt-1 pb-6">
+      <h4 className="text-white font-semibold mb-1">{title}</h4>
+      <p className="text-white/60 text-sm leading-relaxed">{description}</p>
     </div>
   </div>
 )
 
 // --- Halaman Guidebook ---
 const Guidebook = () => {
+  const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState('pengantar')
 
   const navItems = [
-    { id: 'pengantar', label: 'Siapa Itu Abelink?', icon: <BookOpen size={16} /> },
-    { id: 'carakerja', label: 'Cara Kerja', icon: <Cpu size={16} /> },
-    { id: 'tools', label: 'Fitur & Tools Bawaan', icon: <Terminal size={16} /> },
-    { id: 'awareness', label: 'Mata & Kesadaran', icon: <Eye size={16} /> },
-    { id: 'emosi', label: 'Emosi & Pertumbuhan', icon: <Brain size={16} /> },
-    { id: 'plugin', label: 'Sistem Plugin Kustom', icon: <FolderOpen size={16} /> },
-    { id: 'tips', label: 'Pertanyaan & FAQ', icon: <Lightbulb size={16} /> }
+    { id: 'pengantar', label: 'Siapa Itu Abelink?', icon: <Book /> },
+    { id: 'carakerja', label: 'Cara Kerja', icon: <Settings /> },
+    { id: 'tools', label: 'Fitur & Tools Bawaan', icon: <Terminal /> },
+    { id: 'awareness', label: 'Mata & Kesadaran', icon: <Eye /> },
+    { id: 'emosi', label: 'Emosi & Pertumbuhan', icon: <HeartPulse /> }, // Note: Assuming HeartPulse was meant for emotion or we use Brain/MessagesSquare
+    { id: 'plugin', label: 'Sistem Plugin Kustom', icon: <FolderOpen /> },
+    { id: 'tips', label: 'Pertanyaan', icon: <Lightbulb /> }
   ]
 
+  // Fix Icon (HeartPulse not imported above, I will use Brain)
+  navItems[4].icon = <Brain />
+
   return (
-    <div className="h-full w-full bg-[#161618] text-white flex flex-col relative overflow-hidden select-none">
-      {/* Header with Safe Area Gutter */}
-      <header className="h-14 shrink-0 bg-[#1c1c1e]/80 backdrop-blur-xl border-b border-white/10 flex items-center pl-16 pr-28 z-20 relative">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-[#0a84ff]/20 border border-[#0a84ff]/30 flex items-center justify-center text-[#0a84ff]">
-            <BookOpen size={16} />
-          </div>
-          <div>
-            <h1 className="text-sm font-semibold text-white">
-              Abelink Guidebook
-            </h1>
-            <p className="text-[10px] text-white/40 tracking-wider font-mono">
-              PANDUAN LENGKAP SISTEM &amp; ARSITEKTUR
-            </p>
-          </div>
+    <div className="h-full w-full bg-base-300 text-base-content flex flex-col relative overflow-hidden">
+      {/* Background Decor */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-primary/10 blur-[120px] rounded-full pointer-events-none"></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 blur-[120px] rounded-full pointer-events-none"></div>
+
+      {/* Header */}
+      <header className="h-20 shrink-0 bg-base-300/80 backdrop-blur-xl border-b border-white/5 flex items-center px-8 z-20 relative">
+        <button
+          onClick={() => navigate('/')}
+          className="btn btn-ghost btn-sm gap-2 text-white/70 hover:text-white mr-6"
+          style={{ WebkitAppRegion: 'no-drag' }}
+        >
+          <ArrowLeft /> Kembali
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-white flex items-center gap-3">
+            <Book className="text-primary" /> Abelink Guidebook
+          </h1>
+          <p className="text-xs text-white/50 tracking-wider">
+            PANDUAN LENGKAP PENGGUNAAN AI ASSISTANT
+          </p>
         </div>
       </header>
 
       {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar Nav (Desktop) */}
-        <aside className="w-64 shrink-0 border-r border-white/10 bg-[#1c1c1e]/40 p-4 overflow-y-auto hidden md:block z-10">
-          <div className="text-[10px] font-bold text-white/40 mb-3 px-3 uppercase tracking-wider">
+        <aside className="w-72 shrink-0 border-r border-white/5 bg-base-300/50 p-6 overflow-y-auto hidden md:block z-10">
+          <h3 className="text-xs font-bold text-white/40 mb-6 uppercase tracking-widest">
             Daftar Isi
-          </div>
-          <nav className="flex flex-col gap-1">
+          </h3>
+          <nav className="flex flex-col gap-2">
             {navItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => {
                   setActiveSection(item.id)
-                  document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' })
+                  document.querySelector('main').scrollTo({ top: 0, behavior: 'smooth' })
                 }}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all text-left ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left ${
                   activeSection === item.id
-                    ? 'bg-[#0a84ff] text-white shadow-md'
+                    ? 'bg-primary/20 text-primary border border-primary/30 shadow-[0_0_15px_oklch(var(--p)/0.2)]'
                     : 'text-white/60 hover:bg-white/5 hover:text-white'
                 }`}
               >
-                {item.icon}
-                <span>{item.label}</span>
+                {item.icon} {item.label}
               </button>
             ))}
           </nav>
@@ -173,12 +189,12 @@ const Guidebook = () => {
                 activeSection === 'pengantar' ? 'block animate-[fade-in_0.3s_ease-out]' : 'hidden'
               }
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0a84ff]/10 border border-[#0a84ff]/20 text-[#0a84ff] text-xs font-bold mb-6">
-                <BookOpen size={12} /> PENGANTAR
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold mb-6">
+                <Book /> PENGANTAR
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Siapa Itu Abelink?</h2>
               <div className="max-w-none">
-                <blockquote className="border-l-4 border-[#0a84ff] pl-6 py-2 mb-8 bg-[#0a84ff]/5 rounded-r-xl">
+                <blockquote className="border-l-4 border-primary pl-6 py-2 mb-8 bg-primary/5 rounded-r-xl">
                   <p className="text-xl md:text-2xl font-semibold text-white/90 leading-relaxed italic">
                     "Abelink BUKAN sekadar asisten virtual biasa. Abelink adalah entitas AI yang dirancang
                     untuk memiliki emosi dan bertindak selayaknya manusia."
@@ -189,7 +205,7 @@ const Guidebook = () => {
                   <p>
                     Lebih dari sekadar chatbot kaku, <strong className="text-white">Abelink</strong>{' '}
                     (singkatan dari{' '}
-                    <span className="text-[#0a84ff] font-semibold">
+                    <span className="text-primary font-semibold">
                       Metacognitive Artificial Relational Knowledge
                     </span>
                     ) adalah <em>Personal AI Assistant</em> yang hidup di ekosistem lokal Anda.
@@ -197,7 +213,7 @@ const Guidebook = () => {
 
                   <p>
                     Ia memadukan <strong className="text-white">Vector Memory</strong> jangka
-                    panjang dengan <strong className="text-[#ff453a]">Relational Growth System</strong>
+                    panjang dengan <strong className="text-error">Relational Growth System</strong>
                     —memungkinkannya mempelajari kebiasaan Anda dan meracik gaya komunikasi yang
                     berevolusi seiring waktu, semua itu{' '}
                     <strong>tanpa mengorbankan privasi Anda sedikit pun</strong>.
@@ -207,7 +223,7 @@ const Guidebook = () => {
                     <h3 className="text-xl font-bold text-white mb-4">
                       Ditenagai oleh Hybrid AI Engine, Abelink mampu:
                     </h3>
-                    <ul className="list-disc list-inside space-y-3 text-white/80 marker:text-[#0a84ff]">
+                    <ul className="list-disc list-inside space-y-3 text-white/80 marker:text-primary">
                       <li>
                         Beroperasi <strong>secara lokal</strong> untuk privasi maksimal (via LM
                         Studio).
@@ -232,8 +248,8 @@ const Guidebook = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
                   {/* Card 1: Vector Memory */}
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
-                    <div className="w-12 h-12 rounded-xl bg-[#0a84ff]/20 flex items-center justify-center shrink-0">
-                      <Brain className="text-[#0a84ff] text-xl" />
+                    <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                      <Brain className="text-primary text-xl" />
                     </div>
                     <div>
                       <h4 className="text-white font-semibold mb-2">Vector Memory</h4>
@@ -247,7 +263,7 @@ const Guidebook = () => {
                   {/* Card 2: Relational Growth */}
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
                     <div className="w-12 h-12 rounded-xl bg-error/20 flex items-center justify-center shrink-0">
-                      <Activity className="text-[#ff453a] text-xl" />
+                      <HeartPulse className="text-error text-xl" />
                     </div>
                     <div>
                       <h4 className="text-white font-semibold mb-2">Relational Growth & Emosi</h4>
@@ -277,7 +293,7 @@ const Guidebook = () => {
                   {/* Card 4: Awareness */}
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
                     <div className="w-12 h-12 rounded-xl bg-info/20 flex items-center justify-center shrink-0">
-                      <Eye className="text-[#0a84ff] text-xl" />
+                      <Eye className="text-info text-xl" />
                     </div>
                     <div>
                       <h4 className="text-white font-semibold mb-2">Awareness Engine</h4>
@@ -300,7 +316,7 @@ const Guidebook = () => {
               }
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-bold mb-6">
-                <Cpu size={12} /> ARSITEKTUR
+                <Settings /> ARSITEKTUR
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Bagaimana Abelink Bekerja</h2>
               <p className="text-white/70 mb-8 text-lg">
@@ -373,7 +389,7 @@ const Guidebook = () => {
               }
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold mb-6">
-                <Terminal size={12} /> KEMAMPUAN
+                <Terminal /> KEMAMPUAN
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Referensi Lengkap Tools Bawaan</h2>
               <p className="text-white/70 mb-8 text-lg">
@@ -385,7 +401,7 @@ const Guidebook = () => {
                 {/* Kategori Multi-Agent Orchestration */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <Users className="text-[#0a84ff]" /> Multi-Agent Orchestration (Sub-Agents)
+                    <Users className="text-primary" /> Multi-Agent Orchestration (Sub-Agents)
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ToolCard
@@ -429,7 +445,7 @@ const Guidebook = () => {
                 {/* Kategori Memory */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <Search className="text-[#0a84ff]" /> Memory & Ingatan
+                    <Search className="text-primary" /> Memory & Ingatan
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -490,7 +506,7 @@ const Guidebook = () => {
                   </h3>
                   <div className="p-3 mb-4 rounded-xl bg-info/5 border border-info/20">
                     <p className="text-xs text-white/70">
-                      <strong className="text-[#0a84ff]">Approval berjenjang (Linux):</strong> aksi
+                      <strong className="text-info">Approval berjenjang (Linux):</strong> aksi
                       read-only (os-read, lihat layar) selalu bebas. Aksi kontrol
                       (klik, ketik, shortcut berbahaya) default minta konfirmasi sekali
                       per jenis aksi — kamu bisa atur ke "Always allow" atau "Session"
@@ -581,7 +597,7 @@ const Guidebook = () => {
                 {/* Kategori Autonomous Coding & Precision Editing */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <Code className="text-[#0a84ff]" /> Autonomous Coding & Precision Editing
+                    <Code className="text-success" /> Autonomous Coding & Precision Editing
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ToolCard
@@ -690,7 +706,7 @@ const Guidebook = () => {
                 {/* Kategori Background Task & Terminal Daemon */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <CheckSquare className="text-[#0a84ff]" /> Background Task & Terminal Daemon
+                    <ListChecks className="text-info" /> Background Task & Terminal Daemon
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ToolCard
@@ -727,7 +743,7 @@ const Guidebook = () => {
                 {/* Kategori System & Shell */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <Terminal className="text-[#ff453a]" /> System Control
+                    <Terminal className="text-error" /> System Control
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -744,7 +760,7 @@ const Guidebook = () => {
                 {/* Kategori Google Workspace */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <Globe className="text-[#0a84ff]" /> Google Workspace
+                    <Globe2 className="text-info" /> Google Workspace
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -867,7 +883,7 @@ const Guidebook = () => {
                 {/* Kategori YouTube & Media */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <Video className="text-[#ff453a]" /> YouTube & Media
+                    <SquarePlay className="text-error" /> YouTube & Media
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -890,7 +906,7 @@ const Guidebook = () => {
                 {/* Kategori Music */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <Music className="text-[#0a84ff]" /> YouTube Music Player
+                    <Music className="text-info" /> YouTube Music Player
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -933,7 +949,7 @@ const Guidebook = () => {
                 {/* Kategori Communication */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <Send className="text-[#0a84ff]" /> Komunikasi & Suara
+                    <Send className="text-info" /> Komunikasi & Suara
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -970,7 +986,7 @@ const Guidebook = () => {
                 activeSection === 'awareness' ? 'block animate-[fade-in_0.3s_ease-out]' : 'hidden'
               }
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-info/10 border border-info/20 text-[#0a84ff] text-xs font-bold mb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-info/10 border border-info/20 text-info text-xs font-bold mb-6">
                 <Eye /> PENGAMATAN
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">
@@ -985,7 +1001,7 @@ const Guidebook = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
-                  <Eye className="text-3xl text-[#0a84ff] mb-4" />
+                  <Eye className="text-3xl text-primary mb-4" />
                   <h4 className="text-white font-bold mb-2">Screen Reading (analyze-screen)</h4>
                   <p className="text-sm text-white/60">
                     Abelink dapat "mengambil foto" layar komputer Anda secara real-time untuk melihat
@@ -1027,8 +1043,8 @@ const Guidebook = () => {
                 activeSection === 'emosi' ? 'block animate-[fade-in_0.3s_ease-out]' : 'hidden'
               }
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-error/10 border border-[#ff453a]/20 text-[#ff453a] text-xs font-bold mb-6">
-                <Activity /> KEPRIBADIAN
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-error/10 border border-error/20 text-error text-xs font-bold mb-6">
+                <HeartPulse /> KEPRIBADIAN
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Emosi & Pertumbuhan Relasi</h2>
               <p className="text-white/70 mb-8 text-lg">
@@ -1041,31 +1057,31 @@ const Guidebook = () => {
                 <h4 className="text-white font-bold mb-6 text-center">9 Spektrum Emosi</h4>
                 <div className="flex flex-wrap gap-3 justify-center">
                   <span className="badge badge-lg gap-2 bg-[#FFD700]/20 text-[#FFD700] border-[#FFD700]/50">
-                    <MessageSquare size={12} /> Joy
+                    <MessagesSquare /> Joy
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#1E90FF]/20 text-[#1E90FF] border-[#1E90FF]/50">
-                    <MessageSquare size={12} /> Sadness
+                    <MessagesSquare /> Sadness
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#FF4500]/20 text-[#FF4500] border-[#FF4500]/50">
-                    <MessageSquare size={12} /> Anger
+                    <MessagesSquare /> Anger
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#8A2BE2]/20 text-[#8A2BE2] border-[#8A2BE2]/50">
-                    <MessageSquare size={12} /> Fear
+                    <MessagesSquare /> Fear
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#32CD32]/20 text-[#32CD32] border-[#32CD32]/50">
-                    <MessageSquare size={12} /> Disgust
+                    <MessagesSquare /> Disgust
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#FFA500]/20 text-[#FFA500] border-[#FFA500]/50">
-                    <MessageSquare size={12} /> Anxiety
+                    <MessagesSquare /> Anxiety
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#00CED1]/20 text-[#00CED1] border-[#00CED1]/50">
-                    <MessageSquare size={12} /> Envy
+                    <MessagesSquare /> Envy
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#FF69B4]/20 text-[#FF69B4] border-[#FF69B4]/50">
-                    <MessageSquare size={12} /> Embarrassment
+                    <MessagesSquare /> Embarrassment
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#4B0082]/20 text-[#4B0082] border-[#4B0082]/50">
-                    <MessageSquare size={12} /> Ennui
+                    <MessagesSquare /> Ennui
                   </span>
                 </div>
               </div>
@@ -1117,8 +1133,8 @@ const Guidebook = () => {
                 activeSection === 'plugin' ? 'block animate-[fade-in_0.3s_ease-out]' : 'hidden'
               }
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0a84ff]/10 border border-[#0a84ff]/20 text-[#0a84ff] text-xs font-bold mb-6">
-                <FolderOpen size={12} /> EKSTENSI
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-success/10 border border-success/20 text-success text-xs font-bold mb-6">
+                <FolderOpen /> EKSTENSI
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Sistem Plugin Kustom</h2>
               <p className="text-white/70 mb-6 text-lg">
@@ -1174,7 +1190,7 @@ const Guidebook = () => {
                 <h3 className="text-xl font-bold text-white mb-4">
                   Contoh: Plugin Pengatur Volume
                 </h3>
-                <pre className="text-sm bg-black/60 p-4 rounded-xl text-[#0a84ff] overflow-x-auto whitespace-pre-wrap">
+                <pre className="text-sm bg-black/60 p-4 rounded-xl text-green-400 overflow-x-auto whitespace-pre-wrap">
                   <code>{`const loudness = require('loudness')
 
 // Mengambil parameter angka volume yang diberikan oleh AI
@@ -1209,7 +1225,7 @@ try {
               }
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-warning/10 border border-warning/20 text-warning text-xs font-bold mb-6">
-                <Lightbulb size={12} /> BANTUAN
+                <Lightbulb /> BANTUAN
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">
                 FAQ (Pertanyaan yang Sering Diajukan)
@@ -1224,13 +1240,10 @@ try {
                     <input type="checkbox" defaultChecked={idx === 0} />
                     <div className="collapse-title text-lg font-bold">{faq.q}</div>
                     <div className="collapse-content text-white/70">
-                      <p
-                        dangerouslySetInnerHTML={{
-                          __html: faq.a
-                            .replace(/`(.*?)`/g, '<code>$1</code>')
-                            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                        }}
-                      />
+                      {/* Markdown aman (tanpa dangerouslySetInnerHTML): konten
+                          FAQ dirender sebagai teks + inline code/emphasis oleh
+                          react-markdown, bukan HTML mentah. */}
+                      <Markdown remarkPlugins={[remarkGfm]}>{faq.a}</Markdown>
                     </div>
                   </div>
                 ))}

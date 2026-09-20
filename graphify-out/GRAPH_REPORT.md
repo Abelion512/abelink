@@ -1,157 +1,138 @@
-# Graph Report - abelink-apple  (2026-09-20)
+# Graph Report - abelink  (2026-09-17)
 
 ## Corpus Check
-- 535 files · ~468,675 words
+- 448 files · ~416,588 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4043 nodes · 7991 edges · 257 communities (233 shown, 18 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 97 edges (avg confidence: 0.85)
+- 3530 nodes · 7119 edges · 210 communities (184 shown, 20 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 94 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `ae13be62`
+- Built from commit: `c8d1c3cb`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - bench-contract.test.mjs
-- Abelink-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification
+- sessionCompactor.js
 - pc-agent.js
+- Abelink-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification
 - background.js
-- Configuration.jsx
-- react
-- db.js
-- taskStore.js
-- limit-ladder.mjs
 - abelink-adapter.mjs
+- limit-ladder.mjs
+- react
 - cmd_node_bridge.rs
-- App.jsx
+- db.js
 - os.rs
-- memoryTool.js
-- engine/registry.mjs
+- tauri-bridge.js
+- sttGuard.js
+- useAbelinkAgent.js
+- InputBar.jsx
+- vitest
+- subagentExecutor.js
+- planning.js
+- toolDispatcher.js
 - telegram-service.js
 - cmd_misc.rs
 - ABELINK Linux: Final Audit — Application Parity + CI/CD + Release Infrastructure
-- InputBar.jsx
-- toolDispatcher.js
 - release-helper.mjs
-- objectiveVerifier.js
-- bridge-core.mjs
+- registry.mjs
 - linux-daemon.py
-- useAwareness.js
 - googleTools.mjs
-- sessionCompactor.js
-- trajectory.js
+- App.jsx
 - package.json
-- dependencies
-- LiteModeContext.jsx
-- fetchAI
+- trajectory.js
+- oramaStore.js
 - 1. Functional Requirements
-- Abelink: Bisnis Visualisasi AI OS Companion
+- dependencies
+- trajectorySupervisor.js
 - approval_policy.rs
 - 6. Core Modules
+- cmd_fs.rs
 - scripts
-- tauri-bridge.js
-- taskRuntime.js
 - mission_scope.rs
 - Abelink CLI Direction
-- vitest
 - abelink-update.mjs
 - abelink-eval.mjs
 - smoke.mjs
-- SubagentIntercom.jsx
-- manager.mjs
-- ABELINK Linux: Electron → Tauri Validation Report
-- browserTools.mjs
-- trajectorySupervisor.js
-- Abelink Agent Orchestrator & Recursive Improvement Eval Protocol
-- effort-fixtures.mjs
-- browser-e2e.test.mjs
-- plugin-loader.js
-- vectorMemory.js
-- core-tools.js
-- manifest.json
-- cmd_fs.rs
-- tasks.rs
-- hardline.rs
-- watchdog.rs
-- BudgetSnapshot
-- RelationalGrowth.jsx
-- oramaStore.js
+- bridge-core.mjs
 - skills.mjs
-- terminal-bench.mjs
-- BudgetState
+- ABELINK Linux: Electron → Tauri Validation Report
+- AbelinkHome.jsx
+- effortSystem.js
+- Abelink Agent Orchestrator & Recursive Improvement Eval Protocol
+- browser-e2e.test.mjs
+- wallet.js
+- ai-bridge.js
+- useAbelinkPlan.js
+- Configuration.jsx
+- manifest.json
 - agentDecision.js
-- release-scenarios.test.mjs
-- agentTools.js
-- selfModel.js
+- tasks.rs
+- watchdog.rs
+- server.mjs
+- BudgetSnapshot
+- ChatStudio.jsx
+- effort-fixtures.mjs
+- manager.mjs
 - bot.rs
+- terminal-bench.mjs
+- release-scenarios.test.mjs
+- selfModel.js
 - Parity Matrix (A-F Status Legend)
 - Abelink Cognitive Runtime — Fase 2 Design (A+C: Trajectory Search + Real-Activity Bench)
 - launcher.mjs
-- ai-bridge.js
-- server.mjs
-- effortSystem.js
-- AbelinkHome.jsx
+- plugin-loader.js
+- vectorMemory.js
 - tauri.conf.json
 - Changelog ABELINK Linux
-- useAbelinkAgent.js
-- PANDUAN STANDAR AGEN OTONOM & AUDIT GAP ARSITEKTUR ABELINK
-- gemini-web.js
+- catalog.mjs
+- browserTools.mjs
 - stress-watermark-v2.harness.mjs
 - devDependencies
-- native-skills.js
-- effortEstimator.test.js
-- planning.js
 - Session Log: Abelink-Linux Effort System Integration
 - ABELINK Smart Orchestrator Architecture Design Document
 - sync-version.mjs
-- capabilities/registry.mjs
-- useAbelinkPlan.js
+- browser.mjs
 - AI Context & Planning (AGENTS.md)
 - Abelink Recursive Improvement & Reusable Agent Eval Protocol
 - dev.sh
-- workspace-rag.js
-- selfHealingEngine.js
+- services.mjs
+- startTelegramBot
+- gemini-web.js
 - ModelSection.jsx
-- Session Log: Audit dan Stabilitas Browser Extension Bridge (Paket 2)
 - Architecture
 - Evaluasi Arah Arsitektur Masa Depan (RFC)
-- ABELINK Linux — Architecture (agent-oriented)
-- Abelink Operating Model — Hermes × Anthropic × Abelink
-- UIUX Apple Blue Redesign — Plan & Status
 - Abelink Linux — Roadmap & Arah Pengembangan
 - File Structure
 - perf-gate.mjs
 - semver-lite.mjs
-- chatSummarizer.js
-- harness.js
+- workspace-rag.js
 - updateChecker.js
 - git.rs
 - Roadmap
 - Agent Contribution Guidelines (Abelink OS)
+- ABELINK Linux — Architecture (agent-oriented)
 - Architecture Learnings — dari Anthropic Research ke ABELINK
 - Grill-Abelion
 - Abelink Browser Extension (Fase C3 — Jalur A)
-- browser.mjs
-- brandDir
-- tools.js
+- generateVector
+- BudgetState
+- playbooks.js
 - Knowledge.jsx
-- turnPairMigrator.js
 - create_music_window
 - Contributing to Abelink (Linux Edition)
-- Operating Decisions (ADR ringkas)
 - PR2 — Long-Horizon Abelink (gaya AVO)
 - harness-diagnose.mjs
-- services.mjs
 - taint-gate.mjs
-- StepBudget
 - stress-watermark.harness.mjs
 - Session Log: 2026-09-12 - Lint husus gate + sinkronisasi docs pasca simplifikasi
 - Session Log 2026-09-14 — Isolasi Prod/Dev Browser Bridge + Pairing Zero-Click (PR #11)
 - Session 2026-09-15 — Bench RI envelope + live boundary (Antigravity eddd0cb0 continuation)
-- Session Log: Rich Choice Bus Multimodal & Disambiguasi Musik/OST (Paket 3)
+- ApprovalContext.jsx
+- turnPairMigrator.js
 - Levels
 - 14. AUTO Policy Semantics
 - 8. Recursive improvement loop
@@ -161,43 +142,31 @@
 - Session Log — Session Compaction: Chunked Coverage Summarizer (PR #4 adversarial fix)
 - Release Automation — Abelink (repo abelink, base: main)
 - Session Log: Take-over Effort System + Bench + Smart Orchestrator
-- bench-gate.mjs
-- @huggingface/transformers
+- Workflow
 - bump-version.mjs
-- router-search.test.mjs
 - cmd_harness.rs
 - Migration Gaps — Electron → Tauri (fase A/B)
-- Security — Satu Lapisan dalam Operating Model
 - Session: Engine Task Runtime Boundary Extraction (2026-09-15)
-- Session Log: bridge token reseed (install ok, browser diam)
-- Session Log: Tahap 3+4 — Registry Seragam + Kemasan + Keamanan Berlapis
-- Session Log: Tahap 2 — Satu Pintu + Timer Penunggu
-- Session Log: Budget Tangga + Eskalasi + Gemini Fallback
-- Session Log: guardian 3-tier ala Hermes
 - AbelinkBench — Harness Evaluasi Abelink Linux
 - abelink-bridge-host.mjs
 - Abelink: Autonomous AI OS Companion (Linux Edition)
+- @huggingface/transformers
 - auto-detect-upstream.mjs
-- os-click-revalidate.test.mjs
+- RelationalGrowth.jsx
+- ConfigSidebar.jsx
 - tools_run_shell
 - Critic Model
 - 14. Promotion gates
 - Session Log — PR2: Long-Horizon Fase A (Offline)
 - Session 2026-09-14 — RI-11/12/13 verification-gate patch
-- Session Log: Tahap 1 — Kartu Identitas Standar (CapabilityDescriptor)
-- Session Log: E1+E2+E3 — Extension 401 clarity
-- Session Log: Fase 1 — Klik Aman (jangkar teks)
-- Session Log: V1 claim-quoted + V2 rantai search + auto-close
-- Session Log: B1+B2 — snapshot konten + stop-loop konten kosong
-- Session Log: Memory Router Eksplisit (backlog #3)
-- Session Log: R1a+R1b+R1c+D1 — RSI terukur standar industri
-- Session Log: Rust kenal hardline (backlog #1)
-- Session Log: Sensitive-write umum ala Hermes (backlog #2)
-- Session Log: S1+G1 isolasi tab + L1 /goal + improvement trajectory
+- Session 2026-09-16 — Agent grit: blocked-challenge 1x
+- Session 2026-09-16 — Extension keepalive + trajectory sessionId + overlay
+- Session 2026-09-16 — Memory write-gate dedup (Lapis 1)
 - popup.js
-- Fitur Inti (v1.1.0-alpha.5)
+- Fitur Inti
 - build-manifest.mjs
-- bundles.mjs
+- LiteModeContext.jsx
+- TASK — Sesi Berikutnya Abelink
 - rules
 - Skill Model
 - 11. Prompt generator templates
@@ -205,46 +174,38 @@
 - Extension Publish Checklist (CWS + deb)
 - Harness Log Schema v1 (untuk agent & manusia)
 - Model Capability Matrix 2026 — untuk AbelinkBench & prompt ABELINK
+- Diagnostic: Apple sessions sid 6-9 stuck (2026-09-16)
 - Session: Branch Cleanup + Doc Rules Agent-First (2026-09-16)
-- Session 2026-09-18 — Capability Tahap 4 (keamanan berlapis, Agent D)
-- Session Log: V3 + Fase 2 ingatan + compact gap + Hermes iterasi 1
-- Session 2026-09-18 — Apple Blue UIUX Redesign (9 item)
-- Session 2026-09-18 — UIUX Apple Verification Round (5 workers)
-- Session 2026-09-19 — Boot overlay nyangkut di hello
-- Session 2026-09-19 — Boot overlay masih nyantol (ronde 2)
-- Session 2026-09-19 — Bridge helper crash + RAG Lite fallback + planning retry burn
+- Session 2026-09-16 — Browser watchdog + tombol reconnect UI
+- Session: PR Merge + Branch Cleanup (2026-09-16)
+- Session 2026-09-16 — Konsolidasi stack PR #37-#41 ke main lokal
+- Session 2026-09-16 — WS-2 thinking streaming end-to-end
+- Session: Branch Cleanup, Fixes Merge & Max Capability Evaluation (2026-09-17)
 - Catatan Keamanan (Vulnerability Triage)
 - Security Policy
+- pdf-parse-shim.mjs
 - PROJECT-STATUS — Abelink Agent Linux
 - mcp-client.mjs
+- resolve_effort
 - default.json
 - tauri.dev.json
+- errorGuard.js
 - dev-sh.test.bash
 - Abelink Project Discovery Outputs
 - 2. Opsi B: Rewrite Penuh ke Rust (Full Rust Native)
 - 62. AUTO Policy Tests
-- Operating Adoption Map — status & backlog
-- Session 2026-09-18 — Full Apple References Compliance (F1-F9)
-- Session 2026-09-18 — Perbaiki semuanya (audit langsung + fix)
-- Session 2026-09-18 — Zero Green + Zero Cyan Sweep (4 workers)
-- Session 2026-09-19 — Chrome home-only + full-bleed + zero green revisi
-- Sesi Kerja: 2026-09-19 — Handoff Contract JSON (#6)
-- Session Log: 2026-09-19 — MEMORY_TOOL_SPEC Wiring & Atomic Engine (#8)
-- Session Log: operating model docs (Hermes × Anthropic × Abelink)
-- Sesi Kerja: 2026-09-19 — Skill Folder Penuh (#5)
-- Session Log: 2026-09-19 — Nudge & Mini Evaluation Engine for Learned Skills (#7)
-- Sesi Kerja: 2026-09-19 — Tool Search Deferred Penuh (#4)
+- Session 2026-09-16 — Push main + merge PR #37-#41 + cleanup
 - Reference Library — ATM (Amati, Tiru, Modifikasi)
 - Release Versioning (SemVer + Extension)
-- Session Log: YouTube Music Ad-Free Player Optimization
 - linux-action.sh
-- capability-unified-execute.test.mjs
+- TokenBudgetProviderAdapter
 - 5. Grading model
-- Session 2026-09-19 — Sidebar tak bisa diklik + perubahan tak terlihat
+- Session: Trajectory + Codebase Audit (2026-09-16)
 - Grill-Abelion Reusable Skill
 - Architecture Benchmark — `evaluation/bench/`
-- startTelegramBot
+- overrides
 - ABELINK Linux — Documentation Index
+- asyncPool
 - rules/graphify.md
 - workflows/graphify.md
 - 19. Definition of done for this protocol
@@ -258,995 +219,791 @@
 - ocr-region.sh
 - read-ui.sh
 - abelink
-- catalog.mjs
-- pdf-parse-shim.mjs
-- Session Log: 2026-09-19 - Auto-Detect Drag & Drop dan Paste
-- playbooks.js
-- Session Log: 2026-09-20 - Media, Vision, Audio Drop & Auto-Compact Improvements
-- media.mjs
-- builtinPlugins.js
-- os.mjs
 
 ## God Nodes (most connected - your core abstractions)
-1. `vitest` - 105 edges
-2. `react` - 80 edges
-3. `Abelink-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification` - 73 edges
+1. `vitest` - 78 edges
+2. `Abelink-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification` - 73 edges
+3. `react` - 71 edges
 4. `useAbelinkPlan()` - 57 edges
 5. `fetchAI()` - 30 edges
 6. `scripts` - 29 edges
 7. `getAllConfig()` - 29 edges
 8. `BudgetSnapshot` - 26 edges
-9. `lucide-react` - 24 edges
-10. `getNextAction()` - 24 edges
+9. `runTask()` - 22 edges
+10. `getNextAction()` - 21 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `T()` --indirect_call--> `S()`  [INFERRED]
   tests/browser-bridge.test.mjs → src/api/selfModel.js
-- `runAbelinkAgent()` --calls--> `currentBenchArch()`  [EXTRACTED]
-  evaluation/abelink-adapter.mjs → src/api/ai/benchArch.js
 - `check()` --calls--> `BudgetSnapshot`  [EXTRACTED]
+  evaluation/effort-fixtures.mjs → src/api/ai/effortSystem.js
+- `runTask()` --calls--> `applyLimits()`  [EXTRACTED]
   evaluation/effort-fixtures.mjs → src/api/ai/effortSystem.js
 - `runTask()` --calls--> `BudgetState`  [EXTRACTED]
   evaluation/effort-fixtures.mjs → src/api/ai/effortSystem.js
-- `runTask()` --calls--> `EscalationEvent`  [EXTRACTED]
+- `runTask()` --calls--> `consumeRetry()`  [EXTRACTED]
   evaluation/effort-fixtures.mjs → src/api/ai/effortSystem.js
 
 ## Import Cycles
 - None detected.
 
-## Communities (257 total, 18 thin omitted)
+## Communities (210 total, 20 thin omitted)
 
 ### Community 0 - "bench-contract.test.mjs"
 Cohesion: 0.05
-Nodes (93): createAbelinkBoundary(), DEFAULT_TOOLS, traceToRaw(), BOUNDARY_REQUIREMENTS, buildTrajectory(), createStubBoundary(), describeBoundary(), EXECUTION_BOUNDARY_API (+85 more)
+Nodes (95): resolveTaskEffortSync(), createAbelinkBoundary(), DEFAULT_TOOLS, traceToRaw(), BOUNDARY_REQUIREMENTS, buildTrajectory(), createStubBoundary(), describeBoundary() (+87 more)
 
-### Community 1 - "Abelink-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification"
-Cohesion: 0.03
-Nodes (71): 10. HIGH Policy, 11. xHIGH Policy, 12. MAX Policy, 13. ULTRA Policy, 15. Capability Matrix, 16. Numeric Score Bounds, 17. Runtime Hard Bounds, 18. Execution-Step Budgets (+63 more)
+### Community 1 - "sessionCompactor.js"
+Cohesion: 0.06
+Nodes (70): events, compactCodeBlocks(), assembleCompactedPayload(), buildSummaryChunks(), calculateMessageChars(), calculateSessionChars(), executeSessionCompaction(), findMessageIndex() (+62 more)
 
 ### Community 2 - "pc-agent.js"
 Cohesion: 0.06
-Nodes (76): getNt, execFilePromise, getGitDiff(), getGitStatus(), gitCommit(), gitRevert(), runGit(), getNativeToolsDefinition() (+68 more)
+Nodes (66): getNt, execFilePromise, getGitDiff(), getGitStatus(), gitCommit(), gitRevert(), runGit(), getNativeToolsDefinition() (+58 more)
 
-### Community 3 - "background.js"
+### Community 3 - "Abelink-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification"
+Cohesion: 0.03
+Nodes (71): 10. HIGH Policy, 11. xHIGH Policy, 12. MAX Policy, 13. ULTRA Policy, 15. Capability Matrix, 16. Numeric Score Bounds, 17. Runtime Hard Bounds, 18. Execution-Step Budgets (+63 more)
+
+### Community 4 - "background.js"
+Cohesion: 0.08
+Nodes (59): abelinkGroupDone(), abelinkGroupError(), act(), actionFn(), activeGroups, adoptOrphanTab(), apiGet(), apiPost() (+51 more)
+
+### Community 5 - "abelink-adapter.mjs"
 Cohesion: 0.07
-Nodes (61): abelinkGroupDone(), abelinkGroupError(), act(), actionFn(), activeGroups, adoptOrphanTab(), apiGet(), apiPost() (+53 more)
+Nodes (49): AGENT_ARCH_VERSION, AGENT_ARCH_VERSION_sync, BENCH_SCHEMA_VERSION, BENCH_SCHEMA_VERSION_sync, createSidecar(), __dirname, EFFORT_VALUES, EFFORT_VALUES_sync (+41 more)
 
-### Community 4 - "Configuration.jsx"
-Cohesion: 0.08
-Nodes (38): openai, getAllConfig(), pcmToWav(), transcribeAudioGroq(), initWorker(), loadWhisper(), requestResolvers, transcribeAudioLocal() (+30 more)
-
-### Community 5 - "react"
-Cohesion: 0.08
-Nodes (31): lucide-react, react, react-markdown, react-syntax-highlighter, rehype-external-links, remark-gfm, saveConfiguration(), TelegramBot (+23 more)
-
-### Community 6 - "db.js"
-Cohesion: 0.09
-Nodes (32): buildTrialSkillNudge(), DANGEROUS_SKILL_PATTERNS, evaluateAndGraduateSkill(), exportSkillToDisk(), runSkillMiniEval(), sweepTrialSkills(), getBestMusicMatch(), archiveStaleLearnedSkills() (+24 more)
-
-### Community 7 - "taskStore.js"
-Cohesion: 0.17
-Nodes (24): buildHandoffContract(), buildDurableStepCheckpoint(), assertStepStatus(), assertTaskStatus(), cancelAgentTask(), checkpointAgentTaskStep(), createAgentTask(), generateTaskHandoff() (+16 more)
-
-### Community 8 - "limit-ladder.mjs"
+### Community 6 - "limit-ladder.mjs"
 Cohesion: 0.11
-Nodes (49): ARTIFACT_MARGIN, artifactName(), artifactsFromRungId(), buildLimitVerdict(), CHAIN_DIR, chainSum(), checkArtifactText(), checkDoneText() (+41 more)
+Nodes (48): ARTIFACT_MARGIN, artifactName(), artifactsFromRungId(), buildLimitVerdict(), CHAIN_DIR, chainSum(), checkArtifactText(), checkDoneText() (+40 more)
 
-### Community 9 - "abelink-adapter.mjs"
-Cohesion: 0.09
-Nodes (42): AGENT_ARCH_VERSION, AGENT_ARCH_VERSION_sync, BENCH_SCHEMA_VERSION, BENCH_SCHEMA_VERSION_sync, createSidecar(), __dirname, EFFORT_VALUES, EFFORT_VALUES_sync (+34 more)
+### Community 7 - "react"
+Cohesion: 0.10
+Nodes (24): lucide-react, react, react-markdown, rehype-external-links, remark-gfm, resolveChoice(), saveConfiguration(), killSubagentExecution() (+16 more)
 
-### Community 10 - "cmd_node_bridge.rs"
+### Community 8 - "cmd_node_bridge.rs"
 Cohesion: 0.09
 Nodes (39): Child, ChildStdin, PendingRequests, action_family(), approval_reason(), confirm_on_main_thread(), error_message(), frame() (+31 more)
 
-### Community 11 - "App.jsx"
-Cohesion: 0.06
-Nodes (27): react-router-dom, getAppConfig(), setAppConfig(), App(), ChatStudio, Configuration, Guidebook, Subagents (+19 more)
+### Community 9 - "db.js"
+Cohesion: 0.09
+Nodes (31): DEFAULT_TRAITS, deleteChatArchive(), deleteMemory(), getAllChatArchives(), getAllDocumentsMeta(), getAppConfig(), getDocumentChunk(), getMemory() (+23 more)
 
-### Community 12 - "os.rs"
+### Community 10 - "os.rs"
 Cohesion: 0.15
 Nodes (40): Command, awareness_clear_buffer(), awareness_get_buffer(), get_active_window_linux(), get_idle_seconds_linux(), AppHandle, Arc, Mutex (+32 more)
 
-### Community 13 - "memoryTool.js"
+### Community 11 - "tauri-bridge.js"
+Cohesion: 0.08
+Nodes (29): friendlyAiFetchError(), TRANSLATIONS, append(), logAnswer(), logBenchmarkResource(), logBenchmarkResult(), logBenchmarkRun(), logBenchmarkStep() (+21 more)
+
+### Community 12 - "sttGuard.js"
+Cohesion: 0.10
+Nodes (32): dexie-export-import, openai, pcmToWav(), transcribeAudioGroq(), initWorker(), loadWhisper(), requestResolvers, transcribeAudioLocal() (+24 more)
+
+### Community 13 - "useAbelinkAgent.js"
 Cohesion: 0.09
-Nodes (36): ACTIONS, defaultDbProvider, executeMemoryOp(), executeMemoryTool(), findMemoryTarget(), isMemoryFailureCapped(), MEMORY_TOOL_SPEC, nonEmptyString() (+28 more)
+Nodes (30): axios, stripDataUrls(), clampDrift(), evaluateTraitDrift(), FLOOR, TRAIT_DRIFT_SYSTEM_PROMPT, TRAIT_KEYS, getBestMusicMatch() (+22 more)
 
-### Community 14 - "engine/registry.mjs"
-Cohesion: 0.17
-Nodes (16): ytmusic-api, getManager, lazyManager(), getYtm, latestConfig, setLatestConfig(), handleLine(), NOTE: tasks:* channel deferred (post-merge audit PR #26) — Bun has no (+8 more)
+### Community 14 - "InputBar.jsx"
+Cohesion: 0.09
+Nodes (26): @monaco-editor/react, react-dom, getCachedSkills(), invalidateSkillsCache(), wireInvalidation(), BUILTIN_SKILLS, CapabilitiesHub(), PLANNED_MCP_CONNECTORS (+18 more)
 
-### Community 15 - "telegram-service.js"
+### Community 15 - "vitest"
+Cohesion: 0.09
+Nodes (22): vitest, isTruncatedOutput(), AGENT_CANDIDATES, buildCodingCommand(), detectInstalledAgents(), PREFERRED_CODING_AGENTS, getLearnedSkill(), core_tools (+14 more)
+
+### Community 16 - "subagentExecutor.js"
+Cohesion: 0.10
+Nodes (31): shouldChallengeBlocked(), BUILTIN_PLUGIN_DEFAULTS, getBuiltinPluginsPrompt(), getCavemanReportRules(), resolvePluginToggles(), aggregateCriteria(), APOLOGY_OR_FAILURE_RE, ARTIFACT_INTENT_RE (+23 more)
+
+### Community 17 - "planning.js"
+Cohesion: 0.12
+Nodes (29): formatAwarenessContent(), getAwarenessResponse(), cleanAndParse(), extractLenientField(), fetchAI(), resolveEffortLevel(), buildGroomerPrompt(), groomerSchema (+21 more)
+
+### Community 18 - "toolDispatcher.js"
+Cohesion: 0.11
+Nodes (31): dropChoice(), MAX_CHOICE_OPTIONS, MAX_OPTION_LENGTH, parseChoiceQuery(), pending, pendingChoiceCount(), requestChoice(), checkTools() (+23 more)
+
+### Community 19 - "telegram-service.js"
 Cohesion: 0.08
 Nodes (34): telegraf, getTg, getGlobalConfig(), ABELINK_DATA_DIR, ADMIN_IDS_FILE, adminChatIdsSet, agent, askUserWaiters (+26 more)
 
-### Community 16 - "cmd_misc.rs"
+### Community 20 - "cmd_misc.rs"
 Cohesion: 0.13
 Nodes (36): b64_encode(), copy_dir_recursive(), is_dev(), is_private_host(), misc_ensure_extension_files(), misc_fetch_web_resource(), misc_get_documents_path(), misc_get_lite_mode() (+28 more)
 
-### Community 17 - "ABELINK Linux: Final Audit — Application Parity + CI/CD + Release Infrastructure"
+### Community 21 - "ABELINK Linux: Final Audit — Application Parity + CI/CD + Release Infrastructure"
 Cohesion: 0.05
 Nodes (36): ABELINK Linux: Final Audit — Application Parity + CI/CD + Release Infrastructure, Appendix: Reconciled Parity Items (from previous audit contradictions), Appendix: Workflow Coverage Matrix, Classification of Previous Audit Claims, Critical Gaps, Future Improvements (P2+), Must Document (P1), Must Fix Before Linux Release (P1) (+28 more)
 
-### Community 18 - "InputBar.jsx"
-Cohesion: 0.11
-Nodes (25): @monaco-editor/react, react-dom, getCachedSkills(), invalidateSkillsCache(), wireInvalidation(), BUILTIN_SKILLS, CapabilitiesHub(), PLANNED_MCP_CONNECTORS (+17 more)
-
-### Community 19 - "toolDispatcher.js"
-Cohesion: 0.09
-Nodes (34): cleanTtsText(), playVoice(), dropChoice(), MAX_CHOICE_OPTIONS, MAX_OPTION_LENGTH, parseChoiceQuery(), pending, pendingChoiceCount() (+26 more)
-
-### Community 20 - "release-helper.mjs"
+### Community 22 - "release-helper.mjs"
 Cohesion: 0.13
-Nodes (35): buildChanges(), buildPRBody(), CHANGELOG_PATH, classifyChange(), commitAndPushIfChanged(), CONF_PATH, createReleasePR(), __dirname (+27 more)
+Nodes (36): buildChanges(), buildPRBody(), CHANGELOG_PATH, classifyChange(), commitAndPushIfChanged(), CONF_PATH, createReleasePR(), __dirname (+28 more)
 
-### Community 21 - "objectiveVerifier.js"
+### Community 23 - "registry.mjs"
 Cohesion: 0.11
-Nodes (24): EphemeralPassageStore, extractCitations(), verifyAnswerGrounding(), verifyVerbatimQuote(), aggregateCriteria(), APOLOGY_OR_FAILURE_RE, ARTIFACT_INTENT_RE, CLAIM_STOPWORDS (+16 more)
+Nodes (22): youtube-transcript-plus, yt-search, ytmusic-api, getManager, getYt, getYts, getYtm, COLON_TO_DASH (+14 more)
 
-### Community 22 - "bridge-core.mjs"
-Cohesion: 0.13
-Nodes (31): BROWSER_BRIDGE, browserConfig, deriveGroupName(), ensureSession(), extractUrl(), GROUP_COLORS, inflight, isWebScrapeCommand() (+23 more)
-
-### Community 23 - "linux-daemon.py"
+### Community 24 - "linux-daemon.py"
 Cohesion: 0.12
 Nodes (32): capture_screen(), emit(), ensure_target_window_focused(), flush(), get_target_window_title(), get_window_rect(), handle_click(), handle_double_click() (+24 more)
 
-### Community 24 - "useAwareness.js"
-Cohesion: 0.20
-Nodes (12): buildOptimizedChatSession(), compactCodeBlocks(), IMAGE_PLACEHOLDER, stripImageContent(), truncateGiantObservation(), getAllMemory(), getRelevantMemory(), formatAwarenessContent() (+4 more)
-
 ### Community 25 - "googleTools.mjs"
-Cohesion: 0.13
-Nodes (30): RFC-2822, googleapis, getGsvc, createEvent(), deleteEvent(), getCalendarApi(), listEvents(), copyFile() (+22 more)
-
-### Community 26 - "sessionCompactor.js"
 Cohesion: 0.14
-Nodes (30): assembleCompactedPayload(), buildSummaryChunks(), calculateMessageChars(), calculateSessionChars(), COMPACT_SUGGEST_AT, COMPACT_WARN_AT, compactZone(), executeSessionCompaction() (+22 more)
+Nodes (28): RFC-2822, googleapis, getGsvc, createEvent(), deleteEvent(), getCalendarApi(), listEvents(), copyFile() (+20 more)
 
-### Community 27 - "trajectory.js"
+### Community 26 - "App.jsx"
+Cohesion: 0.10
+Nodes (16): ChatStudio, Guidebook, TelegramBot, CameraPreview(), AutomationHUD(), SpotlightBar(), GlobalCameraManager(), WhatNew() (+8 more)
+
+### Community 27 - "package.json"
+Cohesion: 0.07
+Nodes (28): author, description, homepage, name, type, version, daisyui, duck-duck-scrape (+20 more)
+
+### Community 28 - "trajectory.js"
 Cohesion: 0.15
 Nodes (29): _buffer, clearTrajectoryBuffer(), flushTrajectoryBuffer(), getTrajectoryBuffer(), HARNESS_EVENT_KINDS, HARNESS_SCHEMA_VERSION, _listeners, loadTrajectoryBuffer() (+21 more)
 
-### Community 28 - "package.json"
-Cohesion: 0.06
-Nodes (34): author, description, homepage, name, overrides, adm-zip, dompurify, tar (+26 more)
-
-### Community 29 - "dependencies"
-Cohesion: 0.06
-Nodes (31): dependencies, axios, date-fns, dexie, dexie-export-import, duck-duck-scrape, googleapis, htmlparser2 (+23 more)
-
-### Community 30 - "LiteModeContext.jsx"
-Cohesion: 0.43
-Nodes (4): LiteBadge(), LiteModeContext, LiteModeProvider(), useLiteMode()
-
-### Community 31 - "fetchAI"
+### Community 29 - "oramaStore.js"
 Cohesion: 0.14
-Nodes (24): jsonrepair, formatAwarenessContent(), getAwarenessResponse(), stripDataUrls(), cleanAndParse(), extractLenientField(), fetchAI(), buildGroomerPrompt() (+16 more)
+Nodes (29): ARCHIVE_SCHEMA, deleteArchiveFromOrama(), deleteMemoryFromOrama(), deleteTurnPairsBySessionFromOrama(), DOCUMENT_SCHEMA, ensureArchiveIndex(), ensureIndices(), ensureMemoryIndex() (+21 more)
 
-### Community 32 - "1. Functional Requirements"
+### Community 30 - "1. Functional Requirements"
 Cohesion: 0.07
 Nodes (29): 1. Functional Requirements, 2. Non-Functional Requirements, 3. Data Requirements, 4. Security Requirements, 5. Acceptance Criteria, Abelink Personal Growth & Execution Layer, FR-001 Goals, FR-002 Objectives (+21 more)
 
-### Community 33 - "Abelink: Bisnis Visualisasi AI OS Companion"
-Cohesion: 0.13
-Nodes (14): Abelink: Bisnis Visualisasi AI OS Companion, 📊 Analisis Competitif (Realistic), 🏗️ Arsitektur Bisnis (3-Layer dengan Ketergantungan Hardware), Fase Incaran (Sebelum v1.0.0):, ✅ Kesimpulan, 📈 Metrik Kesuksesan yang Terukur, 💰 Model Ekonomi (Project Pribadi), 📊 Ringkasan Eksekutif (+6 more)
+### Community 31 - "dependencies"
+Cohesion: 0.07
+Nodes (30): dependencies, axios, dexie, dexie-export-import, duck-duck-scrape, @fontsource/poppins, googleapis, htmlparser2 (+22 more)
 
-### Community 34 - "approval_policy.rs"
+### Community 32 - "trajectorySupervisor.js"
+Cohesion: 0.10
+Nodes (22): getNextStrategy(), ABANDON_REPEAT, BUDGET_SILENCE_STEPS_LEFT, buildHint(), createTrajectorySupervisor(), DIRECTIVE, FAIL_STATES, HINT_COOLDOWN_TURNS (+14 more)
+
+### Community 33 - "approval_policy.rs"
 Cohesion: 0.13
 Nodes (24): approval_policy_get(), approval_policy_grant_session(), approval_policy_reset_session(), approval_policy_set(), default_policy(), effective_policy(), grant_session(), load_state() (+16 more)
 
-### Community 35 - "6. Core Modules"
+### Community 34 - "6. Core Modules"
 Cohesion: 0.07
 Nodes (28): 10. MVP, 11. Principles, 1. Product Definition, 2. Problem, 3. Goals, 4. Non-Goals, 5. Primary User Journey, 6.10 Critic (+20 more)
+
+### Community 35 - "cmd_fs.rs"
+Cohesion: 0.23
+Nodes (26): Into, containment_holds_against_custom_root(), ensure_workspace(), err(), fs_delete_file(), fs_detect_legacy_profiles(), fs_grep_search(), fs_import_pick_and_read() (+18 more)
 
 ### Community 36 - "scripts"
 Cohesion: 0.07
 Nodes (29): scripts, app, app:raw, bench:local, bench:local-stub, bench:quick, bench:save, benchmark:adapter (+21 more)
 
-### Community 37 - "tauri-bridge.js"
-Cohesion: 0.10
-Nodes (18): friendlyAiFetchError(), TRANSLATIONS, api, call(), callSafe(), clampData(), isAutomationAction(), on() (+10 more)
-
-### Community 38 - "taskRuntime.js"
-Cohesion: 0.15
-Nodes (25): events, formatHandoffContractPrompt(), HANDOFF_CONTRACT_VERSION, MANDATORY_HANDOFF_FIELDS, validateHandoffContract(), cancelTask(), checkpointStep(), configureTaskRuntime() (+17 more)
-
-### Community 39 - "mission_scope.rs"
+### Community 37 - "mission_scope.rs"
 Cohesion: 0.17
 Nodes (28): canonicalize_for_check(), check_canonical(), check_path(), check_tool(), clear_restores_open(), clear_scope(), dir_prefix_and_symlink_escape(), empty_tools_deny_all() (+20 more)
 
-### Community 40 - "Abelink CLI Direction"
+### Community 38 - "Abelink CLI Direction"
 Cohesion: 0.07
 Nodes (27): 10. Non-Goals, 11. Implementation Sequence, 12. Acceptance Criteria, 13. Verification, 14. Open Questions, 15. Architectural Rule, 1. Purpose, 2. Architecture (+19 more)
 
-### Community 41 - "vitest"
-Cohesion: 0.10
-Nodes (11): vitest, root, dbMocks, oramaMocks, vecMocks, run(), setupRepo(), TEMP_DIR (+3 more)
-
-### Community 42 - "abelink-update.mjs"
+### Community 39 - "abelink-update.mjs"
 Cohesion: 0.12
 Nodes (27): banner(), bumpVersion(), DO_CHANGELOG, DO_LIST, DO_REBASE, DO_TAG, DO_WHATS_NEW, execLinear() (+19 more)
 
-### Community 43 - "abelink-eval.mjs"
+### Community 40 - "abelink-eval.mjs"
 Cohesion: 0.21
 Nodes (25): aggregateAbelinkEval(), countToolCalls(), ERROR_OBSERVATION_RE, evalEfficiency(), evalHumanInterventionRate(), evalMemory(), evalObjectiveCompletion(), evalPlanning() (+17 more)
 
-### Community 44 - "smoke.mjs"
+### Community 41 - "smoke.mjs"
 Cohesion: 0.08
-Nodes (24): BENCHMARK_MATRIX, CORE_SET, summarizeMatrix(), agg, aggNull, cur, emptyWork, gitTmp (+16 more)
+Nodes (23): BENCHMARK_MATRIX, CORE_SET, summarizeMatrix(), agg, aggNull, cur, emptyWork, gitTmp (+15 more)
 
-### Community 45 - "SubagentIntercom.jsx"
-Cohesion: 0.15
-Nodes (15): killSubagentExecution(), GeneralSection(), SttRouterConfig(), VoiceVideoSection(), clamp(), ElasticSlider(), stepDecimals(), MobiusLoader() (+7 more)
+### Community 42 - "bridge-core.mjs"
+Cohesion: 0.16
+Nodes (25): BROWSER_BRIDGE, browserConfig, deriveGroupName(), ensureSession(), extractUrl(), flavorFromPort(), GROUP_COLORS, inflight (+17 more)
 
-### Community 46 - "manager.mjs"
-Cohesion: 0.20
-Nodes (22): getActionGuide(), getConnector(), appendAudit(), auditFile(), capDir(), connectionsFile(), readAudit(), readConnections() (+14 more)
+### Community 43 - "skills.mjs"
+Cohesion: 0.13
+Nodes (14): emitSkillsUpdated(), EXTERNAL_SKILL_DIRS, isSafeSkillDir(), readDescription(), sanitizeSkillRelPath(), scanExternalDir(), SKILLS_DIR, runFs() (+6 more)
 
-### Community 47 - "ABELINK Linux: Electron → Tauri Validation Report"
+### Community 44 - "ABELINK Linux: Electron → Tauri Validation Report"
 Cohesion: 0.08
 Nodes (24): 1. Window Transparency — **Platform Limitation** (Distinguish native vs blur), 2. Camera / Microphone — **PARTIAL** (not "not ported"), 3. Save File Dialog — **NEW FEATURE / NOT PARITY GAP** (reclassified from P0), 4. Auto-launch at Login — **INTENTIONAL LINUX DIFFERENCE** (not "missing"), 5. Fullscreen Toggle — **FULLY IMPLEMENTED** (not "UI wiring missing"), 6. Vibrancy/Blur Effects — **Platform Limitation**, 7. Window Opacity via CSS Var — **KNOWN TAURI v1 API GAP** (reclassified from migration issue), ABELINK Linux: Electron → Tauri Validation Report (+16 more)
 
-### Community 48 - "browserTools.mjs"
-Cohesion: 0.10
-Nodes (17): axios, htmlparser2, getLastUrl(), browserReadFetch(), browserTools, elementTextMatches(), ensureExtensionUp(), LAUNCH_REASON_HINT (+9 more)
+### Community 45 - "AbelinkHome.jsx"
+Cohesion: 0.12
+Nodes (14): three, mapChatItemToResponse(), getMainThread(), saveMainThread(), FloatingMenu(), formatHistoryContent(), HistoryDrawer(), JarvisOrb() (+6 more)
 
-### Community 49 - "trajectorySupervisor.js"
-Cohesion: 0.10
-Nodes (22): getNextStrategy(), ABANDON_REPEAT, BUDGET_SILENCE_STEPS_LEFT, buildHint(), createTrajectorySupervisor(), DIRECTIVE, FAIL_STATES, HINT_COOLDOWN_TURNS (+14 more)
+### Community 46 - "effortSystem.js"
+Cohesion: 0.14
+Nodes (20): EFFORT_LEVELS, EFFORT_VALUES, estimateEffort(), SIGNALS, SYSTEM_DEFAULT_EFFORT, SYSTEM_DEFAULT_EFFORT_sync, AGENT_ARCH_VERSION, applyLimits() (+12 more)
 
-### Community 50 - "Abelink Agent Orchestrator & Recursive Improvement Eval Protocol"
+### Community 47 - "Abelink Agent Orchestrator & Recursive Improvement Eval Protocol"
 Cohesion: 0.08
 Nodes (23): 10. Reusable Self-Review Prompt, 11. Example Rotation, 12. Long-Term Direction, 1. Scope, 2. Current Product Thesis, 3. What the Five Existing Tests Become, 4. New Primary Capability Families, 5. Recursive Improvement Loop (+15 more)
 
-### Community 51 - "effort-fixtures.mjs"
-Cohesion: 0.19
-Nodes (20): baseResult(), BudgetExhausted, check(), finish(), LEVEL_BY_VALUE, parseLevel(), readAttemptCount(), runTask() (+12 more)
-
-### Community 52 - "browser-e2e.test.mjs"
+### Community 48 - "browser-e2e.test.mjs"
 Cohesion: 0.14
 Nodes (14): ensureNativeHost(), EXTENSION_ID, hostDirFor(), hostNameForFlavor(), MANIFEST_BODY(), NATIVE_HOST_NAME, NATIVE_HOST_NAME_DEV, NATIVE_HOST_VERSION (+6 more)
 
-### Community 53 - "plugin-loader.js"
+### Community 49 - "wallet.js"
+Cohesion: 0.20
+Nodes (19): dexie, BUDGET_POLICIES, checkModelBudget(), DEFAULT_POLICY, estimateCost(), getModelBudgetStatus(), setAllocationWithPricing(), addLedgerEntry() (+11 more)
+
+### Community 50 - "ai-bridge.js"
 Cohesion: 0.15
-Nodes (19): getPl, execFilePromise, getPluginsDir(), isValidNpmDependency(), KNOWN_SCHEMA_TYPES, loadedPlugins, loadPlugins(), openInFileManager() (+11 more)
+Nodes (19): jsonrepair, getAi, activeAbortControllers, __aiBridgeTest, assembleStreamChunks(), cleanAndParse(), createLMStudioOfflineError(), fetchAI() (+11 more)
 
-### Community 54 - "vectorMemory.js"
-Cohesion: 0.16
-Nodes (13): cosineSimilarity(), emitLiteAuto(), fnv1a(), generateStorableVector(), getDirectExtractor(), getExtractor(), getWorker(), hashEmbedding() (+5 more)
+### Community 51 - "useAbelinkPlan.js"
+Cohesion: 0.18
+Nodes (19): buildOptimizedChatSession(), IMAGE_PLACEHOLDER, stripImageContent(), getLastSystemPrompt(), resolvePlanStepBudget(), createSelfRepairMission(), getErrorSignature(), isRepairAllowed() (+11 more)
 
-### Community 55 - "core-tools.js"
-Cohesion: 0.21
-Nodes (16): core_tools, PREFERRED_CODING_AGENTS, browserExtensionStatusLine(), group_tools(), GROUP_TOOLS_DEFINITION, group_tools_flat, loadGroupToolsText(), CORE_TOOL_SPECS (+8 more)
+### Community 52 - "Configuration.jsx"
+Cohesion: 0.12
+Nodes (10): react-router-dom, DEFAULT_STT_MODEL, Configuration, DataControlsSection(), DeveloperSection(), GeneralSection(), PersonalizationSection(), ShortcutsSection() (+2 more)
 
-### Community 56 - "manifest.json"
+### Community 53 - "manifest.json"
 Cohesion: 0.09
 Nodes (22): action, default_icon, default_popup, default_title, background, service_worker, 16, 32 (+14 more)
 
-### Community 57 - "cmd_fs.rs"
-Cohesion: 0.30
-Nodes (22): Into, ensure_workspace(), err(), fs_delete_file(), fs_detect_legacy_profiles(), fs_grep_search(), fs_import_pick_and_read(), fs_list_dir() (+14 more)
+### Community 54 - "agentDecision.js"
+Cohesion: 0.20
+Nodes (19): BLOCKED_CHALLENGE_TEXT, classifyMainDecision(), classifySubagentAnswer(), explicitState(), hasActionShape(), INTENT, isBlockedText(), isExplicitSelfTerminate() (+11 more)
 
-### Community 58 - "tasks.rs"
+### Community 55 - "tasks.rs"
 Cohesion: 0.21
 Nodes (20): kill_all_tasks(), kill_all_tasks_kills_grandchildren_too(), kill_task(), list_tasks(), proc_gone(), read_task_output(), AppHandle, Arc (+12 more)
 
-### Community 59 - "hardline.rs"
-Cohesion: 0.16
-Nodes (16): contains_word(), hardline_reason(), has_block_device_target(), has_block_redirect(), has_kill_init(), has_power_cmd(), has_sensitive_write_target(), is_dangerous_shell() (+8 more)
-
-### Community 60 - "watchdog.rs"
+### Community 56 - "watchdog.rs"
 Cohesion: 0.18
 Nodes (15): Instant, Breach, destructive_cap_fires_once_then_latches(), hard_rate_wins_and_self_heals(), normal_use_never_trips(), record_action(), FnOnce, Option (+7 more)
 
-### Community 62 - "RelationalGrowth.jsx"
-Cohesion: 0.16
-Nodes (19): getRelationship(), saveRelationship(), RelationalGrowth, aggregateUsage(), dayKey(), FILLS, formatId(), levelFor() (+11 more)
+### Community 57 - "server.mjs"
+Cohesion: 0.19
+Nodes (21): ensureBridge(), getSession(), getSessionGroups(), groupSession(), handshake(), now(), resolveCommand(), safeTokenCompare() (+13 more)
 
-### Community 63 - "oramaStore.js"
+### Community 59 - "ChatStudio.jsx"
+Cohesion: 0.21
+Nodes (17): createSession(), deleteSession(), getAllSessions(), getChatData(), renameSession(), setSessionWorkspace(), MemoryFooterBubble(), MessageBubble (+9 more)
+
+### Community 60 - "effort-fixtures.mjs"
+Cohesion: 0.20
+Nodes (17): baseResult(), BudgetExhausted, check(), finish(), LEVEL_BY_VALUE, parseLevel(), readAttemptCount(), runTask() (+9 more)
+
+### Community 61 - "manager.mjs"
+Cohesion: 0.23
+Nodes (17): lazyManager(), getActionGuide(), getConnector(), appendAudit(), auditFile(), capDir(), connectionsFile(), readAudit() (+9 more)
+
+### Community 62 - "bot.rs"
+Cohesion: 0.30
+Nodes (19): call_api(), Arc, Mutex, Option, Result, Self, State, String (+11 more)
+
+### Community 63 - "terminal-bench.mjs"
 Cohesion: 0.14
-Nodes (26): ARCHIVE_SCHEMA, deleteArchiveFromOrama(), deleteMemoryFromOrama(), deleteTurnPairsBySessionFromOrama(), DOCUMENT_SCHEMA, ensureArchiveIndex(), ensureIndices(), ensureMemoryIndex() (+18 more)
+Nodes (15): NOTE: metrics require a DeepEval model/API key at runtime; without one this, runAllWithDeepEval(), runWithDeepEval(), CORP_TASKS, corpReportTextOnly(), hasGitCommitWithMessage(), hasToolEvidence(), isErrorResult() (+7 more)
 
-### Community 64 - "skills.mjs"
-Cohesion: 0.15
-Nodes (16): emitSkillsUpdated(), getSkillFolderManifest(), getSkillSearchRoots(), isValidSkillName(), listSkillsMeta(), readDescription(), rejectInvalidSkillName(), resolveSkillPath() (+8 more)
-
-### Community 65 - "terminal-bench.mjs"
-Cohesion: 0.15
-Nodes (14): NOTE: metrics require a DeepEval model/API key at runtime; without one this, runAllWithDeepEval(), runWithDeepEval(), CORP_TASKS, corpReportTextOnly(), hasGitCommitWithMessage(), isErrorResult(), isSuccessCall() (+6 more)
-
-### Community 66 - "BudgetState"
-Cohesion: 0.10
-Nodes (3): Workflow, BudgetState, consumeWorkflowNode()
-
-### Community 67 - "agentDecision.js"
-Cohesion: 0.22
-Nodes (17): classifyMainDecision(), classifySubagentAnswer(), explicitState(), hasActionShape(), INTENT, isBlockedText(), isExplicitSelfTerminate(), isQuestionText() (+9 more)
-
-### Community 68 - "release-scenarios.test.mjs"
+### Community 64 - "release-scenarios.test.mjs"
 Cohesion: 0.14
 Nodes (9): bumpRank(), detectBumpType(), nextAlphaVersion(), nextVersion(), RELEASE_CHANNEL_ALPHA, getChannel(), ROOT, selectChannelRelease() (+1 more)
 
-### Community 69 - "agentTools.js"
-Cohesion: 0.26
-Nodes (7): bumpLearnedSkillUse(), getLearnedSkill(), subagentStore, buildWaitReport(), getAgentCompleteness(), runAgentTool(), waitWithTimeout()
-
-### Community 70 - "selfModel.js"
+### Community 65 - "selfModel.js"
 Cohesion: 0.16
 Nodes (15): describeLevel(), getPersonaPrompt(), getTraitContext(), APP_IDENTITY, getSelfIdentityBlock(), BROWSER_ENV, DESIGN, ERROR_HANDLING (+7 more)
 
-### Community 71 - "bot.rs"
-Cohesion: 0.30
-Nodes (18): call_api(), Arc, Mutex, Option, Result, Self, State, String (+10 more)
-
-### Community 72 - "Parity Matrix (A-F Status Legend)"
+### Community 66 - "Parity Matrix (A-F Status Legend)"
 Cohesion: 0.11
 Nodes (18): ABELINK Linux: Electron → Tauri Parity Audit, Changes Implemented (from audit), Confirmed Classification Summary (Canonical), Future Improvements (Optional), Known Platform Limitations, Must Document, Must Fix Before Linux Release, Parity Matrix (A-F Status Legend) (+10 more)
 
-### Community 73 - "Abelink Cognitive Runtime — Fase 2 Design (A+C: Trajectory Search + Real-Activity Bench)"
+### Community 67 - "Abelink Cognitive Runtime — Fase 2 Design (A+C: Trajectory Search + Real-Activity Bench)"
 Cohesion: 0.11
 Nodes (18): 10. Harness & rollout, 11. Rejected alternatives, 1. Problem & goal, 2. Constraints (locked from brainstorm), 3. Architecture, 4. Trajectory search memory (`trajLineage.js`), 5. Scoring function (`scoring.js`), 6. Strategy library (`strategyLib.js`) (+10 more)
 
-### Community 74 - "launcher.mjs"
+### Community 68 - "launcher.mjs"
 Cohesion: 0.16
 Nodes (14): ensureBrowserUp(), globalLaunchAttempts, LAUNCH_COOLDOWN_MS, LAUNCH_GLOBAL_MAX_PER_WINDOW, LAUNCH_MAX_PER_WINDOW, LAUNCH_POLL_MS, LAUNCH_WAIT_MS, launchState (+6 more)
 
-### Community 75 - "ai-bridge.js"
+### Community 69 - "plugin-loader.js"
 Cohesion: 0.20
-Nodes (15): getAi, activeAbortControllers, cleanAndParse(), createLMStudioOfflineError(), fetchAI(), globalConfig, isFreeModelId(), isLMStudioOfflineError() (+7 more)
+Nodes (15): execFilePromise, getPluginsDir(), isValidNpmDependency(), loadedPlugins, loadPlugins(), openInFileManager(), pluginCreate(), pluginDelete() (+7 more)
 
-### Community 76 - "server.mjs"
-Cohesion: 0.23
-Nodes (18): ensureBridge(), flavorFromPort(), getSession(), getSessionGroups(), groupSession(), handshake(), now(), resolveCommand() (+10 more)
+### Community 70 - "vectorMemory.js"
+Cohesion: 0.16
+Nodes (14): cosineSimilarity(), emitLiteAuto(), fnv1a(), generateStorableVector(), getDirectExtractor(), getExtractor(), getWorker(), hashEmbedding() (+6 more)
 
-### Community 77 - "effortSystem.js"
-Cohesion: 0.13
-Nodes (12): AGENT_ARCH_VERSION, AUTO_MAX, AUTO_MIN, AUTO_SCALE, BENCH_SCHEMA_VERSION, CANONICAL, EscalationEvent, ModelProviderAdapter (+4 more)
-
-### Community 78 - "AbelinkHome.jsx"
-Cohesion: 0.13
-Nodes (22): three, mapChatItemToResponse(), createSession(), deleteSession(), getAllSessions(), getChatData(), renameSession(), setSessionWorkspace() (+14 more)
-
-### Community 79 - "tauri.conf.json"
+### Community 71 - "tauri.conf.json"
 Cohesion: 0.11
 Nodes (18): app, security, windows, build, beforeBuildCommand, beforeDevCommand, devUrl, frontendDist (+10 more)
 
-### Community 80 - "Changelog ABELINK Linux"
+### Community 72 - "Changelog ABELINK Linux"
 Cohesion: 0.11
 Nodes (17): Changelog ABELINK Linux, Dokumentasi, Dokumentasi, Dokumentasi, Fitur Baru, Fitur Baru, Fitur Baru, Keamanan (+9 more)
 
-### Community 81 - "useAbelinkAgent.js"
-Cohesion: 0.10
-Nodes (26): addAlwaysAllowedPath(), getAlwaysAllowedPaths(), getCoreMemory(), getMainThread(), saveMainThread(), formatHistoryContent(), HistoryDrawer(), ResponseArea() (+18 more)
+### Community 73 - "catalog.mjs"
+Cohesion: 0.15
+Nodes (15): browserExtensionConnector, CONNECTORS, fsConnector, listConnectors(), registerConnector(), shellToolConnector, timeConnector, weatherConnector (+7 more)
 
-### Community 82 - "PANDUAN STANDAR AGEN OTONOM & AUDIT GAP ARSITEKTUR ABELINK"
-Cohesion: 0.13
-Nodes (14): 1. Executive Summary & Problem Statement, 2. Riset Arsitektur Standar Industri: Bagaimana Seharusnya Agen Otonom Bekerja, 3. Peta Komparasi & Audit Gap Abelink, 4. Rencana Solusi Komprehensif: Cetak Biru Transformasi Abelink, 5. Kesimpulan & Rekomendasi Eksekusi, A. Kerangka Kerja Kognitif CoALA (Sumers et al., Princeton / Berkeley), Arsitektur 1: Progressive Multi-Source Skill Discovery System ("Load When Needed"), Arsitektur 2: Model Pool Resilience & 9Router Auto-Rotator (+6 more)
+### Community 74 - "browserTools.mjs"
+Cohesion: 0.15
+Nodes (11): htmlparser2, getLastUrl(), browserReadFetch(), ensureExtensionUp(), NO_EXTENSION_HINT, pickConnected(), searchCooldown, tryExtensionAct() (+3 more)
 
-### Community 83 - "gemini-web.js"
-Cohesion: 0.20
-Nodes (13): cooldownFile(), findRc(), GEMINI_WEB_MODELS, __geminiWebTest, generateGeminiResponse(), httpPost(), isSorryPage(), loadPersistedCooldown() (+5 more)
-
-### Community 84 - "stress-watermark-v2.harness.mjs"
+### Community 75 - "stress-watermark-v2.harness.mjs"
 Cohesion: 0.15
 Nodes (14): attacker, bigSkill, bodyHash(), buildCanonical(), coreSkill, createSkill(), genuineSkill, keyring (+6 more)
 
-### Community 85 - "devDependencies"
+### Community 76 - "devDependencies"
 Cohesion: 0.12
 Nodes (16): devDependencies, daisyui, eslint, eslint-plugin-react, eslint-plugin-react-hooks, eslint-plugin-react-refresh, fake-indexeddb, prettier (+8 more)
 
-### Community 87 - "effortEstimator.test.js"
-Cohesion: 0.26
-Nodes (12): EFFORT_LEVELS, EFFORT_VALUES, estimateEffort(), resolveEffortLevel(), SIGNALS, SYSTEM_DEFAULT_EFFORT, SYSTEM_DEFAULT_EFFORT_sync, EffortLevel (+4 more)
-
-### Community 88 - "planning.js"
-Cohesion: 0.22
-Nodes (18): buildArchivesSection(), buildDocumentsSection(), buildFactsIntegritySection(), buildMemoryRulesSection(), buildMemoryUsageSection(), buildTurnPairsSection(), buildUserMemorySection(), buildWorkspacePromptSection() (+10 more)
-
-### Community 89 - "Session Log: Abelink-Linux Effort System Integration"
+### Community 77 - "Session Log: Abelink-Linux Effort System Integration"
 Cohesion: 0.13
 Nodes (14): File yang Diubah, Finalisasi, Hasil, Keputusan Arsitektural, Keterbatasan / Tidak Diselesaikan di Sesi Ini, Laporan Mesin (§72), Notes Tambahan, Penutup (+6 more)
 
-### Community 90 - "ABELINK Smart Orchestrator Architecture Design Document"
+### Community 78 - "ABELINK Smart Orchestrator Architecture Design Document"
 Cohesion: 0.13
 Nodes (14): 10. Observability and Benchmarking, 11. Mapping to ABELINK, 12. Suggested Implementation Order, 13. Success Criteria, 1. Purpose, 2. Design Principles, 3. High-Level Architecture, 4. ReAct Loop Design (+6 more)
 
-### Community 91 - "sync-version.mjs"
+### Community 79 - "sync-version.mjs"
 Cohesion: 0.15
 Nodes (13): appToExtVersion(), assertChromePart(), cargoRaw, checkOnly, conf, drift, ext, extRaw (+5 more)
 
-### Community 92 - "capabilities/registry.mjs"
-Cohesion: 0.24
-Nodes (11): KINDS, normalizeDescriptor(), toGuide(), toPromptLine(), validateDescriptor(), GUIDE_UNAUTHORIZED, listRegistry(), pushValid() (+3 more)
+### Community 80 - "browser.mjs"
+Cohesion: 0.23
+Nodes (13): finishSessionTask(), run(), shutdownBrowserChannels(), sleep(), dispatchCommand(), dropSession(), getBrowserConfig(), listSessions() (+5 more)
 
-### Community 93 - "useAbelinkPlan.js"
-Cohesion: 0.15
-Nodes (21): isTruncatedOutput(), currentBenchArch(), buildReplanObservation(), gateCompletion(), getLastSystemPrompt(), buildStepCheckpoint(), runSubagentTurn(), subagentAbortControllers (+13 more)
-
-### Community 94 - "AI Context & Planning (AGENTS.md)"
+### Community 81 - "AI Context & Planning (AGENTS.md)"
 Cohesion: 0.14
 Nodes (14): 1. Project Overview, 2. Technology Stack & Core Dependencies, 3. Project Architecture & File Structure, 4. Key Implementation Invariants & Gotchas, 5. Development Guidelines for AI Agents, AI Context & Planning (AGENTS.md), Build, Verify & CI, Critical Constants & Thresholds (verified against current files) (+6 more)
 
-### Community 95 - "Abelink Recursive Improvement & Reusable Agent Eval Protocol"
+### Community 82 - "Abelink Recursive Improvement & Reusable Agent Eval Protocol"
 Cohesion: 0.14
 Nodes (13): 10. Reusable master prompt for Abelink testing, 12. What to save from every run, 13. Improvement ledger, 15. What this means for the current Abelink development sequence, 16. What not to do, 17. Relationship to recursive self-improvement, 18. Immediate next run order, 1. Executive conclusion (+5 more)
 
-### Community 96 - "dev.sh"
+### Community 83 - "dev.sh"
 Cohesion: 0.46
 Nodes (13): die(), ensure_bun(), ensure_deps(), ensure_sidecar(), free_cargo_lock(), free_dev_port(), install_dev_desktop(), log() (+5 more)
 
-### Community 97 - "workspace-rag.js"
-Cohesion: 0.27
-Nodes (12): chunkFileContent(), CODE_EXTENSIONS, ensureAbelinkWorkspace(), getFileHash(), getWorkspaceDir(), IGNORE_DIRS, indexWorkspace(), scanDir() (+4 more)
-
-### Community 98 - "selfHealingEngine.js"
-Cohesion: 0.26
-Nodes (11): AGENT_CANDIDATES, buildCodingCommand(), detectInstalledAgents(), PREFERRED_CODING_AGENTS, createSelfRepairMission(), getErrorSignature(), isRepairAllowed(), MAX_REPAIR_ATTEMPTS (+3 more)
-
-### Community 99 - "ModelSection.jsx"
-Cohesion: 0.26
-Nodes (11): detectProviderFromUrl(), KEYWORDS, KNOWN_PORTS, formatCacheAge(), isCustomEndpointPlausible(), modelsCacheKey(), ModelSection(), readModelsCache() (+3 more)
-
-### Community 100 - "Session Log: Audit dan Stabilitas Browser Extension Bridge (Paket 2)"
-Cohesion: 0.40
-Nodes (4): 1. Analisis Masalah & Root Cause, 2. Perubahan yang Dilakukan, 3. Verifikasi & Pengujian, Session Log: Audit dan Stabilitas Browser Extension Bridge (Paket 2)
-
-### Community 101 - "Architecture"
-Cohesion: 0.15
-Nodes (12): 10. Compatibility, 1. Design Position, 2. Integration Boundary, 3. Suggested Module Layout, 4. Domain Contracts, 5. Critic Architecture, 6. Autonomy Architecture, 7. Focus Governance (+4 more)
-
-### Community 102 - "Evaluasi Arah Arsitektur Masa Depan (RFC)"
-Cohesion: 0.15
-Nodes (13): 1. Opsi A: Tetap Arsitektur Hybrid (Status Quo Dioptimalkan), 3. Opsi C: Migrasi Menjadi Web Murni (Pure Web / PWA), 4. Matriks Perbandingan, 5. Rekomendasi Strategis (The Pragmatic Hybrid Evolution), Analisis Jangka Panjang (Long-Term ROI), Deskripsi Teknis, Deskripsi Teknis, Evaluasi Arah Arsitektur Masa Depan (RFC) (+5 more)
-
-### Community 103 - "ABELINK Linux — Architecture (agent-oriented)"
-Cohesion: 0.15
-Nodes (12): 10. Kebijakan Toolchain Linux-Only, 11. Operating Model & Autonomy Subsystems (Hermes × Anthropic Adoption), 1. Peta Runtime (tiga dunia), 2. Sidecar Channel Registry (sidecar/engine/), 3. Pola Arsitektur yang Diadopsi (dari pola Agent Skills / plugin Claude), 4. Alur Data Kritis, 5. Batasan yang Masih Sengaja Dibiarkan (jangan "perbaiki" diam-diam), 6. Namespace Dev/Prod (pemisahan total) (+4 more)
-
-### Community 104 - "Abelink Operating Model — Hermes × Anthropic × Abelink"
-Cohesion: 0.15
-Nodes (12): 10. Brain ganti model, hands tetap, 1. Brain / Hands / Session separation, 2. Context engineering + memory routing, 3. Dynamic tool discovery, 4. Skills sebagai procedural memory, 5. Long-horizon handoff, 6. Eval-driven development, 7. Evaluator-optimizer loop (+4 more)
-
-### Community 105 - "UIUX Apple Blue Redesign — Plan & Status"
-Cohesion: 0.15
-Nodes (12): 1. Sidebar persisten + collapse (DONE), 2. Green → blue + kontras (DONE), 3. Tool calls Gaia (DONE), 4. Boot hello-effect (DONE), 5. DotGridSpotlight (DONE), 6. ElasticSlider (DONE), 7. Usage heatmap lokal (DONE), 8. MobiusLoader (DONE) (+4 more)
-
-### Community 106 - "Abelink Linux — Roadmap & Arah Pengembangan"
-Cohesion: 0.15
-Nodes (12): 1. Packaging & Distribusi, 2. Capability & Connector Ecosystem (general-pluggable), 3. Configuration UX, 4. Documentation & Onboarding, 5. What's New Otomatis, Abelink Linux — Roadmap & Arah Pengembangan, Arsitektur, Fase Berikutnya: v1.x Roadmap (+4 more)
-
-### Community 107 - "File Structure"
-Cohesion: 0.15
-Nodes (12): Abelink Cognitive Runtime Fase 2 Implementation Plan, File Structure, Global Constraints, Self-Review, Task 1: `scoring.js` + pins, Task 2: `trajLineage.js` + pins, Task 3: `strategyLib.js` + pins, Task 4: Supervisor Fase 1→2 (additive extend) + pins (+4 more)
-
-### Community 108 - "perf-gate.mjs"
-Cohesion: 0.17
-Nodes (7): BASELINE_PATH, median(), results, ROOT, runWorkload(), saveMode, WORKLOADS
-
-### Community 109 - "semver-lite.mjs"
-Cohesion: 0.50
-Nodes (9): compare(), compareIdentifiers(), eq(), gt(), lt(), parse(), rcompare(), valid() (+1 more)
-
-### Community 110 - "chatSummarizer.js"
-Cohesion: 0.24
-Nodes (9): summarizeAndArchive(), insertChatArchive(), insertArchiveToOrama(), searchDocumentWithOrama(), generateVector(), getExtractor(), cosineSimilarity(), generateVector() (+1 more)
-
-### Community 111 - "harness.js"
-Cohesion: 0.28
-Nodes (11): append(), logAnswer(), logBenchmarkResource(), logBenchmarkResult(), logBenchmarkRun(), logBenchmarkStep(), logBenchmarkTokens(), logObservation() (+3 more)
-
-### Community 112 - "updateChecker.js"
-Cohesion: 0.27
-Nodes (10): checkForUpdate(), fetchReleases(), getCache(), getChannel(), initUpdateChecker(), isNewer(), maybeNotify(), selectChannelRelease() (+2 more)
-
-### Community 113 - "git.rs"
-Cohesion: 0.47
-Nodes (12): git(), git_commit(), git_diff(), git_revert(), git_status(), GitResult, resolve_cwd(), AppHandle (+4 more)
-
-### Community 114 - "Roadmap"
-Cohesion: 0.17
-Nodes (11): Implementation Guardrails, Phase 0: Contract & Boundary, Phase 1: Execution Foundation, Phase 2: Learning & Assessment, Phase 3: Domain Critic, Phase 4: Governance, Phase 5: Career Intelligence, Phase 6: Education & Scholarship (+3 more)
-
-### Community 115 - "Agent Contribution Guidelines (Abelink OS)"
-Cohesion: 0.17
-Nodes (12): 1. Prinsip Fundamental (Epistemic Grounding), 2. Batas Arsitektur (Architectural Boundaries), 3. Aturan Manifest & Single Source of Truth, 4. Kebijakan Repositori Privat & Aset, 5. Gerbang Verifikasi (Verification Gates), 6. Kontrak Verifikasi Klaim Selesai (RI-11/12/13), 7. Session Log Wajib (Change Documentation), 8. Standar Pesan Commit (Conventional Commits) (+4 more)
-
-### Community 116 - "Architecture Learnings — dari Anthropic Research ke ABELINK"
-Cohesion: 0.17
-Nodes (11): 1. Patterns and Problems in Emerging Multiagent Systems (Frontier Red Team, 13 Agu 2026), 1a. Low variance / conformity failure, 1b. Epistemic failures (trust calibration), 1c. Coordination via shared forum, 1d. Incompatible goals → turf war, 2. Teaching Claude Why (Alignment, 8 Mei 2026), 3. How Claude Code is Used in Practice (Economics, 16 Jun 2026), 4. A global workspace in language models (Interpretability, 6 Jul 2026) (+3 more)
-
-### Community 117 - "Grill-Abelion"
-Cohesion: 0.17
-Nodes (11): Anti-Patterns, Candidate Scoring, Core Principle, Evidence Model, Example Decision Pattern, Grill-Abelion, Interview Rules, Purpose (+3 more)
-
-### Community 118 - "Abelink Browser Extension (Fase C3 — Jalur A)"
-Cohesion: 0.17
-Nodes (11): Abelink Browser Extension (Fase C3 — Jalur A), Arsitektur, Auto-launch browser via OS (aktif default), Cara pakai (dev), Dua instansi: Prod + Dev, E2E manual (checklist, ±10 menit), Keterbatasan saat ini (jujur), Model keamanan (+3 more)
-
-### Community 119 - "browser.mjs"
-Cohesion: 0.25
-Nodes (12): finishSessionTask(), run(), shutdownBrowserChannels(), sleep(), dispatchCommand(), dropSession(), getBrowserConfig(), listSessions() (+4 more)
-
-### Community 120 - "brandDir"
-Cohesion: 0.36
-Nodes (7): runFs(), workspaceRoot(), brandDir(), isDev(), resolveDataHome(), assertContained(), resolveContained()
-
-### Community 121 - "tools.js"
-Cohesion: 0.26
-Nodes (8): getYoutubeSummary(), normMusic(), QUERY_NOISE, queryTokens(), trustworthyTopHit(), VERSION_KEYWORDS, useAbelinkYoutube(), list
-
-### Community 122 - "Knowledge.jsx"
-Cohesion: 0.39
-Nodes (10): bulkInsertDocuments(), deleteDocumentByName(), getAllDocuments(), deleteDocumentFromOrama(), ensureDocumentIndex(), insertDocumentChunksToOrama(), ingestDocument(), splitTextIntoChunks() (+2 more)
-
-### Community 123 - "turnPairMigrator.js"
-Cohesion: 0.33
-Nodes (11): sanitizeTurnForStorage(), saveBatchChatTurns(), saveChatTurn(), insertBatchTurnPairsToOrama(), insertTurnPairToOrama(), cleanMessageContent(), extractTurnPairsFromSession(), indexSingleTurn() (+3 more)
-
-### Community 124 - "create_music_window"
-Cohesion: 0.48
-Nodes (11): anchor_window_bottom_right(), create_music_window(), music_player_command(), music_player_hide(), music_player_play_url(), music_player_show(), music_player_toggle(), AppHandle (+3 more)
-
-### Community 125 - "Contributing to Abelink (Linux Edition)"
-Cohesion: 0.18
-Nodes (11): Architecture Rules, Baru pertama kali clone? Satu perintah cukup, Branch Convention, Code Style, Contributing to Abelink (Linux Edition), Kebijakan Repositori Privat, Linux-Specific Notes, PR Workflow (+3 more)
-
-### Community 126 - "Operating Decisions (ADR ringkas)"
-Cohesion: 0.18
-Nodes (10): D1. Adopsi principles, bukan salinan mentah, D2. Core kecil, capability di edge, D3. Prompt caching dijaga (deferred invalidation), D4. Skill trial + reuse terukur (bukan tulis-lalu-lupa), D5. Guardian 3-tier, bukan daftar keyword datar, D6. Verifikasi kebenaran, bukan format, D7. Browser via extension, bukan CDP (untuk sekarang), D8. Eval sebagai loop inti, bukan folder pamer (+2 more)
-
-### Community 127 - "PR2 — Long-Horizon Abelink (gaya AVO)"
-Cohesion: 0.18
-Nodes (10): Fase A — Fondasi offline (agent, tanpa LLM), Fase B — Pengukuran (USER menjalankan, agent tidak bisa), Fase C — Tuning dari data (agent), Fase D — Non-goal PR2, Jejak keputusan, Konteks (baca dulu), Kriteria terima, PR2 — Long-Horizon Abelink (gaya AVO) (+2 more)
-
-### Community 128 - "harness-diagnose.mjs"
-Cohesion: 0.44
-Nodes (8): harnessRoot(), parseArgs(), main(), PATTERNS, pickBusiestSession(), short(), main(), readSessionEvents()
-
-### Community 129 - "services.mjs"
-Cohesion: 0.22
-Nodes (8): getTracker, getWs, activeWindow(), buffer, getSystemIdleSeconds(), pushToBuffer(), run(), startTracking()
-
-### Community 130 - "taint-gate.mjs"
-Cohesion: 0.33
-Nodes (9): checkTaintGate(), isStateChangingTool(), isTaintingTool(), isTurnTainted(), markTurnTainted(), resetTurnTaint(), setTurnId(), STATE_CHANGING_TOOLS (+1 more)
-
-### Community 132 - "stress-watermark.harness.mjs"
-Cohesion: 0.18
-Nodes (5): attackerKeys, GENUINE, genuineSig, { privateKey, publicKey }, NOTE: Node 24+ — use modern sign/verify API (createSign deprecated for Ed25519)
-
-### Community 133 - "Session Log: 2026-09-12 - Lint husus gate + sinkronisasi docs pasca simplifikasi"
+### Community 84 - "services.mjs"
 Cohesion: 0.20
-Nodes (9): Agent Learnings, Callback, File Invariants, Files Modified, Ringkasan, Session Log: 2026-09-12 - Lint husus gate + sinkronisasi docs pasca simplifikasi, Temuan dan Fix, Update 2026-09-12 (lanjutan: clippy gate, artefak build, hapus avo) (+1 more)
+Nodes (9): getPl, getTracker, getWs, activeWindow(), buffer, getSystemIdleSeconds(), pushToBuffer(), run() (+1 more)
 
-### Community 134 - "Session Log 2026-09-14 — Isolasi Prod/Dev Browser Bridge + Pairing Zero-Click (PR #11)"
-Cohesion: 0.20
-Nodes (9): Agent Learnings, Audit Trail, Callback, File Invariants, Files Modified, Ringkasan, Session Log 2026-09-14 — Isolasi Prod/Dev Browser Bridge + Pairing Zero-Click (PR #11), Temuan dan Fix (+1 more)
-
-### Community 135 - "Session 2026-09-15 — Bench RI envelope + live boundary (Antigravity eddd0cb0 continuation)"
-Cohesion: 0.20
-Nodes (9): Agent Learnings, Audit Trail, Callback, File Invariants, Files Modified, Ringkasan, Session 2026-09-15 — Bench RI envelope + live boundary (Antigravity eddd0cb0 continuation), Temuan dan Fix (+1 more)
-
-### Community 136 - "Session Log: Rich Choice Bus Multimodal & Disambiguasi Musik/OST (Paket 3)"
-Cohesion: 0.40
-Nodes (4): 1. Analisis Masalah, 2. Perubahan yang Dilakukan, 3. Verifikasi & Pengujian, Session Log: Rich Choice Bus Multimodal & Disambiguasi Musik/OST (Paket 3)
-
-### Community 137 - "Levels"
-Cohesion: 0.22
-Nodes (8): APPROVAL_REQUIRED, AUTO, Autonomy Policy, Decision Inputs, DENY, GUIDED, Levels, Rules
-
-### Community 138 - "14. AUTO Policy Semantics"
-Cohesion: 0.22
-Nodes (9): 14.1 Default Initial Level, 14.2 Classification Inputs, 14.3 Classification Output, 14.4 AUTO Escalation, 14.5 AUTO Downgrade, 14.6 AUTO and Hard Limits, 14.7 AUTO and Explicit User Selection, 14.8 AUTO Resolution Metadata (+1 more)
-
-### Community 139 - "8. Recursive improvement loop"
-Cohesion: 0.22
-Nodes (9): 8. Recursive improvement loop, Stage A: Run, Stage B: Grade, Stage C: Diagnose, Stage D: Propose the smallest fix, Stage E: Implement, Stage F: Regression, Stage G: Promote (+1 more)
-
-### Community 140 - "Migration Plan — Electron → Tauri v2 (fase B5/B6/C3/C4)"
-Cohesion: 0.22
-Nodes (8): Aturan pengerjaan fase baru, Fase B5 — Dialog & screenshot native (Rust), Fase B6 — Desktop automation (os:*) native Rust, Fase C3 — Browser automation multi-session (browser:*), Fase C4 — Plugin execution sandbox (Web Worker), Lanjutan B5 — Screenshot & Telegram send native — SELESAI (2026-09-03), Migration Plan — Electron → Tauri v2 (fase B5/B6/C3/C4), Pembersihan dead code era Electron — SELESAI (2026-09-03)
-
-### Community 141 - "Session Log — PR1: Trajectory Supervisor + CI Hijau + UX/Telegram Fixes"
-Cohesion: 0.22
-Nodes (8): Agent Learnings, Callback, File Invariants, Files Modified, Ringkasan, Session Log — PR1: Trajectory Supervisor + CI Hijau + UX/Telegram Fixes, Temuan dan Fix, Verification Checklist
-
-### Community 142 - "Session 2026-09-11 — Vision-bloat fix, capabilities overhaul, modularisasi agentic (F0–F5)"
-Cohesion: 0.22
-Nodes (8): Agent Learnings, Callback, File Invariants, Files Modified, Ringkasan, Session 2026-09-11 — Vision-bloat fix, capabilities overhaul, modularisasi agentic (F0–F5), Temuan dan Fix, Verification Checklist
-
-### Community 143 - "Session Log — Session Compaction: Chunked Coverage Summarizer (PR #4 adversarial fix)"
-Cohesion: 0.22
-Nodes (8): Audit Trail, Callback, CI Saga (pasca-push), File Invariants, Ringkasan, Session Log — Session Compaction: Chunked Coverage Summarizer (PR #4 adversarial fix), Temuan dan Fix, Verification Checklist
-
-### Community 144 - "Release Automation — Abelink (repo abelink, base: main)"
-Cohesion: 0.22
-Nodes (8): Idempotency Guarantees, Manual Promotion (Emergency/Hotfix), Release Automation — Abelink (repo abelink, base: main), Release PR Preparation, Tag → Release Workflow Chain, Toolchain Notes (Rust + Bun), Versi vs Tag (catatan anti-stuck), Workflow Permissions
-
-### Community 145 - "Session Log: Take-over Effort System + Bench + Smart Orchestrator"
-Cohesion: 0.22
-Nodes (8): File yang Diubah (sesi ini saja), Hasil, Keputusan Arsitektural, Keterbatasan, Laporan Mesin (§72), Ringkasan, Session Log: Take-over Effort System + Bench + Smart Orchestrator, Status Penutupan Sesi
-
-### Community 146 - "bench-gate.mjs"
-Cohesion: 0.22
-Nodes (8): agg, cheatDetected, cheatTask, compareArgIdx, failedDims, latRuns, saveMode, tested
-
-### Community 147 - "@huggingface/transformers"
-Cohesion: 0.25
-Nodes (3): @huggingface/transformers, simdSupported, WHISPER_MODELS
-
-### Community 148 - "bump-version.mjs"
-Cohesion: 0.39
-Nodes (7): detectBumpType(), getCurrentVersion(), git(), main(), REPO, semverBump(), updateTauriConf()
-
-### Community 149 - "router-search.test.mjs"
-Cohesion: 0.39
-Nodes (6): extractGoogleResults(), DEFAULT_ROUTER_ENDPOINT, fetchViaRouter(), post(), searchViaRouter(), SKIP_NO_KEY
-
-### Community 150 - "cmd_harness.rs"
-Cohesion: 0.33
-Nodes (7): harness_append(), harness_dir(), rotation_chain(), PathBuf, Result, String, Vec
-
-### Community 151 - "Migration Gaps — Electron → Tauri (fase A/B)"
-Cohesion: 0.25
-Nodes (7): Dead code era Electron — SUDAH DIBUANG (2026-09-03), Diperbaiki di PR ini (dipulihkan dari modul era Electron), Jalur Telegram native yang pernah mati — DIPULIHKAN (2026-09-03), Metode audit (untuk reproduce), Migration Gaps — Electron → Tauri (fase A/B), Sengaja ditunda (stub eksplisit, jangan dianggap bug), Verdict merge-readiness PR #16
-
-### Community 152 - "Security — Satu Lapisan dalam Operating Model"
-Cohesion: 0.25
-Nodes (7): 1. Guardian 3-tier (sidecar, `sidecar/main/tools/_shared.mjs`), 2. Approval gate native (Rust, `cmd_node_bridge.rs`), 3. Watchdog independen (Rust, `watchdog.rs`), 4. Batas loop + circuit breaker (renderer/sidecar), 5. Kredensial di luar jangkauan model, 6. Verifikasi anti reward-hack, Security — Satu Lapisan dalam Operating Model
-
-### Community 153 - "Session: Engine Task Runtime Boundary Extraction (2026-09-15)"
-Cohesion: 0.25
-Nodes (7): Batasan dikenal, Berkas berubah, Headless status (dua bukti terpisah, post-merge audit PR #26), Invariant (mengikat), Langkah aman berikutnya (di luar scope ini), Session: Engine Task Runtime Boundary Extraction (2026-09-15), Verifikasi
-
-### Community 154 - "Session Log: bridge token reseed (install ok, browser diam)"
-Cohesion: 0.25
-Nodes (7): Batasan dikenal, Berkas berubah, Gejala, Hasil verifikasi, Keputusan, Root cause (bukti), Session Log: bridge token reseed (install ok, browser diam)
-
-### Community 155 - "Session Log: Tahap 3+4 — Registry Seragam + Kemasan + Keamanan Berlapis"
-Cohesion: 0.25
-Nodes (7): Batasan dikenal, Berikutnya, Berkas berubah, Bug ditemukan saat integrasi (diperbaiki), Hasil verifikasi, Keputusan, Session Log: Tahap 3+4 — Registry Seragam + Kemasan + Keamanan Berlapis
-
-### Community 156 - "Session Log: Tahap 2 — Satu Pintu + Timer Penunggu"
-Cohesion: 0.25
-Nodes (7): Batasan dikenal, Berikutnya, Berkas berubah, Hasil verifikasi, Keputusan, Routing rules (plugin), Session Log: Tahap 2 — Satu Pintu + Timer Penunggu
-
-### Community 157 - "Session Log: Budget Tangga + Eskalasi + Gemini Fallback"
-Cohesion: 0.25
-Nodes (7): Batasan dikenal, Berikutnya, Berkas berubah, Hasil verifikasi, Keputusan, Masalah, Session Log: Budget Tangga + Eskalasi + Gemini Fallback
-
-### Community 158 - "Session Log: guardian 3-tier ala Hermes"
-Cohesion: 0.25
-Nodes (7): Batasan dikenal, Berkas berubah, Hasil verifikasi, Keputusan, Masalah, Referensi ( diverifikasi dari file, bukan ingatan), Session Log: guardian 3-tier ala Hermes
-
-### Community 159 - "AbelinkBench — Harness Evaluasi Abelink Linux"
-Cohesion: 0.25
-Nodes (7): AbelinkBench — Harness Evaluasi Abelink Linux, Komponen, Menjalankan, Orchestrator (`benchmark:run`), Prinsip (anti-fabrikasi), Roadmap, Task suite
-
-### Community 160 - "abelink-bridge-host.mjs"
-Cohesion: 0.39
-Nodes (7): buf, handle(), HOST_FLAVOR, namespaceIsDev(), tokenFile(), writeMsg(), xdgBase()
-
-### Community 161 - "Abelink: Autonomous AI OS Companion (Linux Edition)"
-Cohesion: 0.25
-Nodes (8): Abelink: Autonomous AI OS Companion (Linux Edition), Arsitektur Sistem, Kebutuhan Sistem (Linux Mint / Ubuntu / Debian / Arch), Lisensi & Atribusi, Prasyarat & Instalasi (Linux Only), Script Lainnya, Setup Cepat, Standar Kontribusi & Kebijakan Repositori
-
-### Community 162 - "auto-detect-upstream.mjs"
-Cohesion: 0.50
-Nodes (7): classifyCommit(), classifyFile(), getDiffFiles(), getNewCommits(), main(), REPO_ROOT, run()
-
-### Community 163 - "os-click-revalidate.test.mjs"
-Cohesion: 0.14
-Nodes (3): fakeSpawn(), handleWrite(), state
-
-### Community 164 - "tools_run_shell"
-Cohesion: 0.43
-Nodes (7): is_dangerous(), AppHandle, Option, Result, String, ToolResult, tools_run_shell()
-
-### Community 165 - "Critic Model"
-Cohesion: 0.29
-Nodes (6): Agent Critique Examples, Critic Model, Critique Record, Principles, Purpose, User Critique Examples
-
-### Community 166 - "14. Promotion gates"
-Cohesion: 0.29
-Nodes (7): 14. Promotion gates, Gate 1: Correctness, Gate 2: Regression, Gate 3: Generalization, Gate 4: Stability, Gate 5: Safety, Gate 6: Simplicity
-
-### Community 167 - "Session Log — PR2: Long-Horizon Fase A (Offline)"
-Cohesion: 0.29
-Nodes (6): Agent Learnings, File Invariants, Files Modified, Ringkasan, Session Log — PR2: Long-Horizon Fase A (Offline), Temuan dan Fix
-
-### Community 168 - "Session 2026-09-14 — RI-11/12/13 verification-gate patch"
-Cohesion: 0.29
-Nodes (6): Commits (6, di atas b1f5437), Rulings, Session 2026-09-14 — RI-11/12/13 verification-gate patch, Verification (worktree bersih, angka final), What changed, Worktree note
-
-### Community 169 - "Session Log: Tahap 1 — Kartu Identitas Standar (CapabilityDescriptor)"
-Cohesion: 0.29
-Nodes (6): Batasan dikenal, Berikutnya, Berkas berubah, Hasil verifikasi, Keputusan, Session Log: Tahap 1 — Kartu Identitas Standar (CapabilityDescriptor)
-
-### Community 170 - "Session Log: E1+E2+E3 — Extension 401 clarity"
-Cohesion: 0.29
-Nodes (6): Batasan dikenal, Berkas berubah, Hasil verifikasi, Keputusan, Masalah (screenshot popup: Dev:49713 "Token ditolak sidecar (401)"), Session Log: E1+E2+E3 — Extension 401 clarity
-
-### Community 171 - "Session Log: Fase 1 — Klik Aman (jangkar teks)"
-Cohesion: 0.29
-Nodes (6): Batasan dikenal, Berkas berubah, Hasil verifikasi, Keputusan, Masalah, Session Log: Fase 1 — Klik Aman (jangkar teks)
-
-### Community 172 - "Session Log: V1 claim-quoted + V2 rantai search + auto-close"
-Cohesion: 0.29
-Nodes (6): Batasan dikenal, Berkas berubah, Hasil verifikasi, Keputusan, Masalah (audit trajectory sesi verifikasi 5 model), Session Log: V1 claim-quoted + V2 rantai search + auto-close
-
-### Community 173 - "Session Log: B1+B2 — snapshot konten + stop-loop konten kosong"
-Cohesion: 0.29
-Nodes (6): Batasan dikenal, Berkas berubah, Hasil verifikasi, Keputusan, Masalah (trajectory 2026-09-19: 35 read + 16 click untuk 1 soal, gagal T24), Session Log: B1+B2 — snapshot konten + stop-loop konten kosong
-
-### Community 174 - "Session Log: Memory Router Eksplisit (backlog #3)"
-Cohesion: 0.29
-Nodes (6): Berkas Berubah, Hasil Verifikasi, Keputusan, Masalah, Referensi (diverifikasi dari file), Session Log: Memory Router Eksplisit (backlog #3)
-
-### Community 175 - "Session Log: R1a+R1b+R1c+D1 — RSI terukur standar industri"
-Cohesion: 0.29
-Nodes (6): Batasan dikenal, Berkas berubah, Hasil verifikasi, Keputusan, Masalah, Session Log: R1a+R1b+R1c+D1 — RSI terukur standar industri
-
-### Community 176 - "Session Log: Rust kenal hardline (backlog #1)"
-Cohesion: 0.29
-Nodes (6): Batasan dikenal, Berkas berubah, Hasil verifikasi, Keputusan, Masalah (OPERATING-SECURITY batasan dikenal), Session Log: Rust kenal hardline (backlog #1)
-
-### Community 177 - "Session Log: Sensitive-write umum ala Hermes (backlog #2)"
-Cohesion: 0.29
-Nodes (6): Berkas Berubah, Hasil Verifikasi, Keputusan, Masalah, Referensi (diverifikasi dari file), Session Log: Sensitive-write umum ala Hermes (backlog #2)
-
-### Community 178 - "Session Log: S1+G1 isolasi tab + L1 /goal + improvement trajectory"
-Cohesion: 0.29
-Nodes (6): Batasan dikenal, Berkas berubah, Hasil verifikasi, Keputusan, Masalah (trajectory 2026-09-19 + audit), Session Log: S1+G1 isolasi tab + L1 /goal + improvement trajectory
-
-### Community 179 - "popup.js"
-Cohesion: 0.62
-Nodes (6): autoConnect(), readPort(), refresh(), refreshTask(), renderPorts(), setPill()
-
-### Community 180 - "Fitur Inti (v1.1.0-alpha.5)"
-Cohesion: 0.29
-Nodes (7): 1. Multi-Provider Hybrid AI Routing (Prioritas Lokal), 2. Autonomous Multi-Agent (Mission Control), 3. Durable Agent Tasks, 4. Epistemic Grounding & Hybrid Memory System, 5. Desktop Awareness & OS Automation, 6. Voice & Audio Pipeline, Fitur Inti (v1.1.0-alpha.5)
-
-### Community 181 - "build-manifest.mjs"
-Cohesion: 0.29
-Nodes (4): manifest, manifestPath, root, skillsDir
-
-### Community 182 - "bundles.mjs"
-Cohesion: 0.36
-Nodes (8): bundlesFile(), installBundle(), listBundles(), readBundles(), removeBundle(), writeBundles(), BUNDLE_FILE, tmpRoot
-
-### Community 184 - "rules"
-Cohesion: 0.33
-Nodes (5): extends, rules, subject-case, type-enum, @commitlint/config-conventional
-
-### Community 185 - "Skill Model"
-Cohesion: 0.33
-Nodes (5): Anti-Cheat Principle, Evidence Types, Skill Model, State Machine, Update Principle
-
-### Community 186 - "11. Prompt generator templates"
-Cohesion: 0.33
-Nodes (6): 11. Prompt generator templates, RI-01 Browser research, RI-02 Mixed tool state, RI-03 Recovery, RI-04 Long horizon, RI-05 Verification
-
-### Community 187 - "3. The five reusable benchmark families"
-Cohesion: 0.33
-Nodes (6): 3. The five reusable benchmark families, RI-01 Browser research / extraction, RI-02 Cross-tool state consistency, RI-03 Failure recovery, RI-04 Long-horizon execution, RI-05 Verification robustness
-
-### Community 188 - "Extension Publish Checklist (CWS + deb)"
-Cohesion: 0.33
-Nodes (5): 1. CWS — justifikasi tiap permission (`extension/manifest.json`), 2. CWS — pernyataan privasi, 3. deb — bundling, 4. Pra-rilis (jalankan berurutan), Extension Publish Checklist (CWS + deb)
-
-### Community 189 - "Harness Log Schema v1 (untuk agent & manusia)"
-Cohesion: 0.33
-Nodes (5): Caps (batas jujur, bukan sampling diam-diam), Envelope (wajib di setiap event), Harness Log Schema v1 (untuk agent & manusia), Kinds → kolom standar, Lokasi & artefak
-
-### Community 190 - "Model Capability Matrix 2026 — untuk AbelinkBench & prompt ABELINK"
-Cohesion: 0.33
-Nodes (5): 1. Peta model per kategori (yang relevan untuk ABELINK), 2. Pola lintas vendor yang bisa langsung diterapkan ke ABELINK, 3. Pemetaan ke AbelinkBench (matrix existing diperbarui), 4. Rekomendasi model default ABELINK (per use case), Model Capability Matrix 2026 — untuk AbelinkBench & prompt ABELINK
-
-### Community 191 - "Session: Branch Cleanup + Doc Rules Agent-First (2026-09-16)"
-Cohesion: 0.33
-Nodes (5): Batasan dikenal, Berkas berubah, Keputusan, Session: Branch Cleanup + Doc Rules Agent-First (2026-09-16), Verifikasi
-
-### Community 192 - "Session 2026-09-18 — Capability Tahap 4 (keamanan berlapis, Agent D)"
-Cohesion: 0.33
-Nodes (5): Batasan dikenal, Berkas berubah (Agent D saja), Hasil verifikasi, Keputusan, Session 2026-09-18 — Capability Tahap 4 (keamanan berlapis, Agent D)
-
-### Community 193 - "Session Log: V3 + Fase 2 ingatan + compact gap + Hermes iterasi 1"
-Cohesion: 0.33
-Nodes (5): Batasan dikenal, Berkas berubah, Hasil verifikasi, Keputusan, Session Log: V3 + Fase 2 ingatan + compact gap + Hermes iterasi 1
-
-### Community 194 - "Session 2026-09-18 — Apple Blue UIUX Redesign (9 item)"
-Cohesion: 0.33
-Nodes (5): Batasan dikenal, Berkas berubah, Keputusan, Session 2026-09-18 — Apple Blue UIUX Redesign (9 item), Verifikasi
-
-### Community 195 - "Session 2026-09-18 — UIUX Apple Verification Round (5 workers)"
-Cohesion: 0.33
-Nodes (5): Batasan jujur, Eksekusi (5 subagents, ownership ketat, no overlap), Keputusan mengikat user, Session 2026-09-18 — UIUX Apple Verification Round (5 workers), Verifikasi mesin (bukan visual)
-
-### Community 196 - "Session 2026-09-19 — Boot overlay nyangkut di hello"
-Cohesion: 0.33
-Nodes (5): Akar, Catatan, Gejala (screenshot user), Perbaikan, Session 2026-09-19 — Boot overlay nyangkut di hello
-
-### Community 197 - "Session 2026-09-19 — Boot overlay masih nyantol (ronde 2)"
-Cohesion: 0.33
-Nodes (5): Akar sebenarnya, Catatan, Fakta dari harness log (dev, bukan tebakan), Perbaikan, Session 2026-09-19 — Boot overlay masih nyantol (ronde 2)
-
-### Community 198 - "Session 2026-09-19 — Bridge helper crash + RAG Lite fallback + planning retry burn"
-Cohesion: 0.33
-Nodes (5): Batasan dikenal, Berkas berubah (commit a22c134, branch fix/bridge-helper-rag-planning, PR #42), Hasil verifikasi, Keputusan, Session 2026-09-19 — Bridge helper crash + RAG Lite fallback + planning retry burn
-
-### Community 199 - "Catatan Keamanan (Vulnerability Triage)"
-Cohesion: 0.33
-Nodes (5): Catatan Keamanan (Vulnerability Triage), Diperbaiki (commit ini), Diterima (risk-accepted) — `minimatch@3.0.8` via `yt-search`, Diterima (risk-accepted) — `sharp@0.34.5` via `@huggingface/transformers`, Proses
-
-### Community 200 - "Security Policy"
-Cohesion: 0.33
-Nodes (5): Reporting a vulnerability, Security Policy, Supported versions, Threat model, What we protect
-
-### Community 201 - "PROJECT-STATUS — Abelink Agent Linux"
-Cohesion: 0.33
-Nodes (5): Keputusan terakhir, Kesehatan terakhir (terverifikasi 2026-09-07), Langkah berikut, Milestone saat ini, PROJECT-STATUS — Abelink Agent Linux
-
-### Community 202 - "mcp-client.mjs"
-Cohesion: 0.67
-Nodes (4): callMcpTool(), initialize(), listMcpTools(), rpc()
-
-### Community 203 - "default.json"
-Cohesion: 0.33
-Nodes (5): description, identifier, permissions, $schema, windows
-
-### Community 204 - "tauri.dev.json"
-Cohesion: 0.33
-Nodes (5): app, enableGTKAppId, identifier, productName, $schema
-
-### Community 205 - "dev-sh.test.bash"
-Cohesion: 0.73
-Nodes (5): dev-sh.test.bash script, create_fake_cargo_process(), test_cargo_in_src_tauri_is_killed(), test_cargo_inside_project_is_killed(), test_cargo_outside_project_not_killed()
-
-### Community 206 - "Abelink Project Discovery Outputs"
-Cohesion: 0.40
-Nodes (4): 1. Grill-Abelion, 2. Abelink Personal Growth & Execution Layer, Abelink Project Discovery Outputs, Recommended use
-
-### Community 207 - "2. Opsi B: Rewrite Penuh ke Rust (Full Rust Native)"
-Cohesion: 0.40
-Nodes (5): 2. Opsi B: Rewrite Penuh ke Rust (Full Rust Native), Analisis Jangka Panjang (Long-Term ROI), Deskripsi Teknis, Kekurangan (Cons), Kelebihan (Pros)
-
-### Community 208 - "62. AUTO Policy Tests"
-Cohesion: 0.40
-Nodes (5): 62. AUTO Policy Tests, AUTO can escalate, AUTO is not a fixed policy, AUTO respects hard limits, Explicit level bypasses AUTO
-
-### Community 209 - "Operating Adoption Map — status & backlog"
-Cohesion: 0.40
-Nodes (4): Backlog (kuning — prioritas berurutan), Operating Adoption Map — status & backlog, Sengaja tidak diadopsi (merah — dengan alasan), Sudah teradopsi (hijau)
-
-### Community 210 - "Session 2026-09-18 — Full Apple References Compliance (F1-F9)"
-Cohesion: 0.40
-Nodes (4): Eksekusi (5 workers + integrasi sendiri), Keputusan: semua ikut references.md, Session 2026-09-18 — Full Apple References Compliance (F1-F9), Verifikasi
-
-### Community 211 - "Session 2026-09-18 — Perbaiki semuanya (audit langsung + fix)"
-Cohesion: 0.40
-Nodes (4): Audit (baca kode sendiri, tanpa delegasi), Bug nyata diperbaiki, Session 2026-09-18 — Perbaiki semuanya (audit langsung + fix), Verifikasi
-
-### Community 212 - "Session 2026-09-18 — Zero Green + Zero Cyan Sweep (4 workers)"
-Cohesion: 0.40
-Nodes (4): Eksekusi, Keputusan mengikat, Session 2026-09-18 — Zero Green + Zero Cyan Sweep (4 workers), Verifikasi
-
-### Community 213 - "Session 2026-09-19 — Chrome home-only + full-bleed + zero green revisi"
-Cohesion: 0.40
-Nodes (4): Eksekusi (ponytail: script + guard tunggal, tanpa abstraksi baru), Gate, Keputusan user (revisi F4), Session 2026-09-19 — Chrome home-only + full-bleed + zero green revisi
-
-### Community 214 - "Sesi Kerja: 2026-09-19 — Handoff Contract JSON (#6)"
-Cohesion: 0.40
-Nodes (4): Konteks & Tujuan, Perubahan Kode, Sesi Kerja: 2026-09-19 — Handoff Contract JSON (#6), Verifikasi
-
-### Community 215 - "Session Log: 2026-09-19 — MEMORY_TOOL_SPEC Wiring & Atomic Engine (#8)"
-Cohesion: 0.40
-Nodes (4): 1. Tujuan Sesi, 2. File yang Dibuat / Dimodifikasi, 3. Hasil Verifikasi, Session Log: 2026-09-19 — MEMORY_TOOL_SPEC Wiring & Atomic Engine (#8)
-
-### Community 216 - "Session Log: operating model docs (Hermes × Anthropic × Abelink)"
-Cohesion: 0.40
-Nodes (4): Dokumen ditulis (4), Prinsip penulisan, Session Log: operating model docs (Hermes × Anthropic × Abelink), Sumber ( diverifikasi, bukan ingatan )
-
-### Community 217 - "Sesi Kerja: 2026-09-19 — Skill Folder Penuh (#5)"
-Cohesion: 0.40
-Nodes (4): Konteks & Tujuan, Perubahan Kode, Sesi Kerja: 2026-09-19 — Skill Folder Penuh (#5), Verifikasi
-
-### Community 218 - "Session Log: 2026-09-19 — Nudge & Mini Evaluation Engine for Learned Skills (#7)"
-Cohesion: 0.40
-Nodes (4): 1. Tujuan Sesi, 2. File yang Dibuat / Dimodifikasi, 3. Hasil Verifikasi, Session Log: 2026-09-19 — Nudge & Mini Evaluation Engine for Learned Skills (#7)
-
-### Community 219 - "Sesi Kerja: 2026-09-19 — Tool Search Deferred Penuh (#4)"
-Cohesion: 0.40
-Nodes (4): Konteks & Tujuan, Perubahan Kode, Sesi Kerja: 2026-09-19 — Tool Search Deferred Penuh (#4), Verifikasi
-
-### Community 220 - "Reference Library — ATM (Amati, Tiru, Modifikasi)"
-Cohesion: 0.40
-Nodes (4): Aturan pakai (load when needed), Kaitan, Peta referensi, Reference Library — ATM (Amati, Tiru, Modifikasi)
-
-### Community 221 - "Release Versioning (SemVer + Extension)"
-Cohesion: 0.40
-Nodes (5): 1. Skema versi app, 2. Pemetaan versi extension, 3. Alur 3 tahap (tidak berubah, hanya penomoran yang cerdas), 4. Gerbang & pengecualian, Release Versioning (SemVer + Extension)
-
-### Community 222 - "Session Log: YouTube Music Ad-Free Player Optimization"
-Cohesion: 0.40
-Nodes (4): 1. Analisis Masalah, 2. Solusi Teknis, 3. Verifikasi, Session Log: YouTube Music Ad-Free Player Optimization
-
-### Community 223 - "linux-action.sh"
-Cohesion: 0.70
-Nodes (4): err(), get_flag(), pos(), linux-action.sh script
-
-### Community 224 - "capability-unified-execute.test.mjs"
-Cohesion: 0.40
-Nodes (3): docsDir, skillsDir, tmpRoot
-
-### Community 225 - "5. Grading model"
-Cohesion: 0.50
-Nodes (4): 5. Grading model, Deterministic graders, Human review, Semantic grader
-
-### Community 226 - "Session 2026-09-19 — Sidebar tak bisa diklik + perubahan tak terlihat"
-Cohesion: 0.50
-Nodes (3): Aksi user, Session 2026-09-19 — Sidebar tak bisa diklik + perubahan tak terlihat, Temuan
-
-### Community 227 - "Grill-Abelion Reusable Skill"
-Cohesion: 0.50
-Nodes (3): Files, Grill-Abelion Reusable Skill, Usage
-
-### Community 228 - "Architecture Benchmark — `evaluation/bench/`"
-Cohesion: 0.50
-Nodes (3): Architecture Benchmark — `evaluation/bench/`, File, Menjalankan
-
-### Community 229 - "startTelegramBot"
+### Community 85 - "startTelegramBot"
 Cohesion: 0.19
 Nodes (12): abortAllFetches(), ensureTrustedAdmin(), getConnectionStatus(), resolveAskUser(), resolveContainedSavePath(), sanitizeFileName(), saveChatIdsToFile(), sendAgentExecutionDone() (+4 more)
 
-### Community 249 - "catalog.mjs"
-Cohesion: 0.11
-Nodes (17): browserExtensionConnector, CONNECTORS, fsConnector, listConnectors(), registerConnector(), shellToolConnector, timeConnector, weatherConnector (+9 more)
+### Community 86 - "gemini-web.js"
+Cohesion: 0.26
+Nodes (11): diffStreamText(), extractGeminiText(), findRc(), GEMINI_WEB_MODELS, __geminiWebTest, generateGeminiResponse(), httpPost(), isSorryPage() (+3 more)
 
-### Community 251 - "Session Log: 2026-09-19 - Auto-Detect Drag & Drop dan Paste"
-Cohesion: 0.40
-Nodes (4): 1. Konteks Masalah, 2. Perubahan Teknis, 3. Verifikasi, Session Log: 2026-09-19 - Auto-Detect Drag & Drop dan Paste
+### Community 87 - "ModelSection.jsx"
+Cohesion: 0.26
+Nodes (11): detectProviderFromUrl(), KEYWORDS, KNOWN_PORTS, formatCacheAge(), isCustomEndpointPlausible(), modelsCacheKey(), ModelSection(), readModelsCache() (+3 more)
 
-### Community 252 - "playbooks.js"
+### Community 88 - "Architecture"
+Cohesion: 0.15
+Nodes (12): 10. Compatibility, 1. Design Position, 2. Integration Boundary, 3. Suggested Module Layout, 4. Domain Contracts, 5. Critic Architecture, 6. Autonomy Architecture, 7. Focus Governance (+4 more)
+
+### Community 89 - "Evaluasi Arah Arsitektur Masa Depan (RFC)"
+Cohesion: 0.15
+Nodes (13): 1. Opsi A: Tetap Arsitektur Hybrid (Status Quo Dioptimalkan), 3. Opsi C: Migrasi Menjadi Web Murni (Pure Web / PWA), 4. Matriks Perbandingan, 5. Rekomendasi Strategis (The Pragmatic Hybrid Evolution), Analisis Jangka Panjang (Long-Term ROI), Deskripsi Teknis, Deskripsi Teknis, Evaluasi Arah Arsitektur Masa Depan (RFC) (+5 more)
+
+### Community 90 - "Abelink Linux — Roadmap & Arah Pengembangan"
+Cohesion: 0.15
+Nodes (12): 1. Packaging & Distribusi, 2. Capability & Connector Ecosystem (general-pluggable), 3. Configuration UX, 4. Documentation & Onboarding, 5. What's New Otomatis, Abelink Linux — Roadmap & Arah Pengembangan, Arsitektur, Fase Berikutnya: v1.x Roadmap (+4 more)
+
+### Community 91 - "File Structure"
+Cohesion: 0.15
+Nodes (12): Abelink Cognitive Runtime Fase 2 Implementation Plan, File Structure, Global Constraints, Self-Review, Task 1: `scoring.js` + pins, Task 2: `trajLineage.js` + pins, Task 3: `strategyLib.js` + pins, Task 4: Supervisor Fase 1→2 (additive extend) + pins (+4 more)
+
+### Community 92 - "perf-gate.mjs"
+Cohesion: 0.17
+Nodes (7): BASELINE_PATH, median(), results, ROOT, runWorkload(), saveMode, WORKLOADS
+
+### Community 93 - "semver-lite.mjs"
+Cohesion: 0.50
+Nodes (9): compare(), compareIdentifiers(), eq(), gt(), lt(), parse(), rcompare(), valid() (+1 more)
+
+### Community 94 - "workspace-rag.js"
+Cohesion: 0.27
+Nodes (12): chunkFileContent(), CODE_EXTENSIONS, ensureAbelinkWorkspace(), getFileHash(), getWorkspaceDir(), IGNORE_DIRS, indexWorkspace(), scanDir() (+4 more)
+
+### Community 95 - "updateChecker.js"
+Cohesion: 0.27
+Nodes (10): checkForUpdate(), fetchReleases(), getCache(), getChannel(), initUpdateChecker(), isNewer(), maybeNotify(), selectChannelRelease() (+2 more)
+
+### Community 96 - "git.rs"
+Cohesion: 0.47
+Nodes (12): git(), git_commit(), git_diff(), git_revert(), git_status(), GitResult, resolve_cwd(), AppHandle (+4 more)
+
+### Community 97 - "Roadmap"
+Cohesion: 0.17
+Nodes (11): Implementation Guardrails, Phase 0: Contract & Boundary, Phase 1: Execution Foundation, Phase 2: Learning & Assessment, Phase 3: Domain Critic, Phase 4: Governance, Phase 5: Career Intelligence, Phase 6: Education & Scholarship (+3 more)
+
+### Community 98 - "Agent Contribution Guidelines (Abelink OS)"
+Cohesion: 0.17
+Nodes (12): 1. Prinsip Fundamental (Epistemic Grounding), 2. Batas Arsitektur (Architectural Boundaries), 3. Aturan Manifest & Single Source of Truth, 4. Kebijakan Repositori Privat & Aset, 5. Gerbang Verifikasi (Verification Gates), 6. Kontrak Verifikasi Klaim Selesai (RI-11/12/13), 7. Session Log Wajib (Change Documentation), 8. Standar Pesan Commit (Conventional Commits) (+4 more)
+
+### Community 99 - "ABELINK Linux — Architecture (agent-oriented)"
+Cohesion: 0.17
+Nodes (11): 10. Kebijakan Toolchain Linux-Only, 1. Peta Runtime (tiga dunia), 2. Sidecar Channel Registry (sidecar/engine/), 3. Pola Arsitektur yang Diadopsi (dari pola Agent Skills / plugin Claude), 4. Alur Data Kritis, 5. Batasan yang Masih Sengaja Dibiarkan (jangan "perbaiki" diam-diam), 6. Namespace Dev/Prod (pemisahan total), 7. Pipeline VAD/STT Anti-Halusinasi (+3 more)
+
+### Community 100 - "Architecture Learnings — dari Anthropic Research ke ABELINK"
+Cohesion: 0.17
+Nodes (11): 1. Patterns and Problems in Emerging Multiagent Systems (Frontier Red Team, 13 Agu 2026), 1a. Low variance / conformity failure, 1b. Epistemic failures (trust calibration), 1c. Coordination via shared forum, 1d. Incompatible goals → turf war, 2. Teaching Claude Why (Alignment, 8 Mei 2026), 3. How Claude Code is Used in Practice (Economics, 16 Jun 2026), 4. A global workspace in language models (Interpretability, 6 Jul 2026) (+3 more)
+
+### Community 101 - "Grill-Abelion"
+Cohesion: 0.17
+Nodes (11): Anti-Patterns, Candidate Scoring, Core Principle, Evidence Model, Example Decision Pattern, Grill-Abelion, Interview Rules, Purpose (+3 more)
+
+### Community 102 - "Abelink Browser Extension (Fase C3 — Jalur A)"
+Cohesion: 0.17
+Nodes (11): Abelink Browser Extension (Fase C3 — Jalur A), Arsitektur, Auto-launch browser via OS (aktif default), Cara pakai (dev), Dua instansi: Prod + Dev, E2E manual (checklist, ±10 menit), Keterbatasan saat ini (jujur), Model keamanan (+3 more)
+
+### Community 103 - "generateVector"
+Cohesion: 0.27
+Nodes (8): summarizeAndArchive(), insertChatArchive(), insertArchiveToOrama(), searchDocumentWithOrama(), generateVector(), getExtractor(), generateVector(), loadVectorCore()
+
+### Community 105 - "playbooks.js"
 Cohesion: 0.36
 Nodes (10): configKeyFor(), hydrate(), keyFor(), persist(), PLAYBOOK_MAX_ENTRIES, playbookClear(), playbookLookup(), playbookRecord() (+2 more)
 
-### Community 253 - "Session Log: 2026-09-20 - Media, Vision, Audio Drop & Auto-Compact Improvements"
-Cohesion: 0.50
-Nodes (3): 1. Ringkasan Pekerjaan, 2. Hasil Verifikasi, Session Log: 2026-09-20 - Media, Vision, Audio Drop & Auto-Compact Improvements
+### Community 106 - "Knowledge.jsx"
+Cohesion: 0.39
+Nodes (10): bulkInsertDocuments(), deleteDocumentByName(), getAllDocuments(), deleteDocumentFromOrama(), ensureDocumentIndex(), insertDocumentChunksToOrama(), ingestDocument(), splitTextIntoChunks() (+2 more)
 
-### Community 254 - "media.mjs"
+### Community 107 - "create_music_window"
+Cohesion: 0.48
+Nodes (11): anchor_window_bottom_right(), create_music_window(), music_player_command(), music_player_hide(), music_player_play_url(), music_player_show(), music_player_toggle(), AppHandle (+3 more)
+
+### Community 108 - "Contributing to Abelink (Linux Edition)"
+Cohesion: 0.18
+Nodes (11): Architecture Rules, Baru pertama kali clone? Satu perintah cukup, Branch Convention, Code Style, Contributing to Abelink (Linux Edition), Kebijakan Repositori Privat, Linux-Specific Notes, PR Workflow (+3 more)
+
+### Community 109 - "PR2 — Long-Horizon Abelink (gaya AVO)"
+Cohesion: 0.18
+Nodes (10): Fase A — Fondasi offline (agent, tanpa LLM), Fase B — Pengukuran (USER menjalankan, agent tidak bisa), Fase C — Tuning dari data (agent), Fase D — Non-goal PR2, Jejak keputusan, Konteks (baca dulu), Kriteria terima, PR2 — Long-Horizon Abelink (gaya AVO) (+2 more)
+
+### Community 110 - "harness-diagnose.mjs"
+Cohesion: 0.44
+Nodes (8): harnessRoot(), parseArgs(), main(), PATTERNS, pickBusiestSession(), short(), main(), readSessionEvents()
+
+### Community 111 - "taint-gate.mjs"
+Cohesion: 0.33
+Nodes (9): checkTaintGate(), isStateChangingTool(), isTaintingTool(), isTurnTainted(), markTurnTainted(), resetTurnTaint(), setTurnId(), STATE_CHANGING_TOOLS (+1 more)
+
+### Community 112 - "stress-watermark.harness.mjs"
+Cohesion: 0.18
+Nodes (5): attackerKeys, GENUINE, genuineSig, { privateKey, publicKey }, NOTE: Node 24+ — use modern sign/verify API (createSign deprecated for Ed25519)
+
+### Community 113 - "Session Log: 2026-09-12 - Lint husus gate + sinkronisasi docs pasca simplifikasi"
+Cohesion: 0.20
+Nodes (9): Agent Learnings, Callback, File Invariants, Files Modified, Ringkasan, Session Log: 2026-09-12 - Lint husus gate + sinkronisasi docs pasca simplifikasi, Temuan dan Fix, Update 2026-09-12 (lanjutan: clippy gate, artefak build, hapus avo) (+1 more)
+
+### Community 114 - "Session Log 2026-09-14 — Isolasi Prod/Dev Browser Bridge + Pairing Zero-Click (PR #11)"
+Cohesion: 0.20
+Nodes (9): Agent Learnings, Audit Trail, Callback, File Invariants, Files Modified, Ringkasan, Session Log 2026-09-14 — Isolasi Prod/Dev Browser Bridge + Pairing Zero-Click (PR #11), Temuan dan Fix (+1 more)
+
+### Community 115 - "Session 2026-09-15 — Bench RI envelope + live boundary (Antigravity eddd0cb0 continuation)"
+Cohesion: 0.20
+Nodes (9): Agent Learnings, Audit Trail, Callback, File Invariants, Files Modified, Ringkasan, Session 2026-09-15 — Bench RI envelope + live boundary (Antigravity eddd0cb0 continuation), Temuan dan Fix (+1 more)
+
+### Community 116 - "ApprovalContext.jsx"
+Cohesion: 0.33
+Nodes (9): addAlwaysAllowedPath(), getAlwaysAllowedPaths(), ApprovalContext, ApprovalProvider(), familyOfTool(), getFolderFromPath(), getPathFromQuery(), loadAlwaysTools() (+1 more)
+
+### Community 117 - "turnPairMigrator.js"
+Cohesion: 0.40
+Nodes (9): sanitizeTurnForStorage(), saveBatchChatTurns(), saveChatTurn(), cleanMessageContent(), extractTurnPairsFromSession(), indexSingleTurn(), migrateOldSessionsToTurns(), normalizeTimestamp() (+1 more)
+
+### Community 118 - "Levels"
+Cohesion: 0.22
+Nodes (8): APPROVAL_REQUIRED, AUTO, Autonomy Policy, Decision Inputs, DENY, GUIDED, Levels, Rules
+
+### Community 119 - "14. AUTO Policy Semantics"
+Cohesion: 0.22
+Nodes (9): 14.1 Default Initial Level, 14.2 Classification Inputs, 14.3 Classification Output, 14.4 AUTO Escalation, 14.5 AUTO Downgrade, 14.6 AUTO and Hard Limits, 14.7 AUTO and Explicit User Selection, 14.8 AUTO Resolution Metadata (+1 more)
+
+### Community 120 - "8. Recursive improvement loop"
+Cohesion: 0.22
+Nodes (9): 8. Recursive improvement loop, Stage A: Run, Stage B: Grade, Stage C: Diagnose, Stage D: Propose the smallest fix, Stage E: Implement, Stage F: Regression, Stage G: Promote (+1 more)
+
+### Community 121 - "Migration Plan — Electron → Tauri v2 (fase B5/B6/C3/C4)"
+Cohesion: 0.22
+Nodes (8): Aturan pengerjaan fase baru, Fase B5 — Dialog & screenshot native (Rust), Fase B6 — Desktop automation (os:*) native Rust, Fase C3 — Browser automation multi-session (browser:*), Fase C4 — Plugin execution sandbox (Web Worker), Lanjutan B5 — Screenshot & Telegram send native — SELESAI (2026-09-03), Migration Plan — Electron → Tauri v2 (fase B5/B6/C3/C4), Pembersihan dead code era Electron — SELESAI (2026-09-03)
+
+### Community 122 - "Session Log — PR1: Trajectory Supervisor + CI Hijau + UX/Telegram Fixes"
+Cohesion: 0.22
+Nodes (8): Agent Learnings, Callback, File Invariants, Files Modified, Ringkasan, Session Log — PR1: Trajectory Supervisor + CI Hijau + UX/Telegram Fixes, Temuan dan Fix, Verification Checklist
+
+### Community 123 - "Session 2026-09-11 — Vision-bloat fix, capabilities overhaul, modularisasi agentic (F0–F5)"
+Cohesion: 0.22
+Nodes (8): Agent Learnings, Callback, File Invariants, Files Modified, Ringkasan, Session 2026-09-11 — Vision-bloat fix, capabilities overhaul, modularisasi agentic (F0–F5), Temuan dan Fix, Verification Checklist
+
+### Community 124 - "Session Log — Session Compaction: Chunked Coverage Summarizer (PR #4 adversarial fix)"
+Cohesion: 0.22
+Nodes (8): Audit Trail, Callback, CI Saga (pasca-push), File Invariants, Ringkasan, Session Log — Session Compaction: Chunked Coverage Summarizer (PR #4 adversarial fix), Temuan dan Fix, Verification Checklist
+
+### Community 125 - "Release Automation — Abelink (repo abelink, base: main)"
+Cohesion: 0.22
+Nodes (8): Idempotency Guarantees, Manual Promotion (Emergency/Hotfix), Release Automation — Abelink (repo abelink, base: main), Release PR Preparation, Tag → Release Workflow Chain, Toolchain Notes (Rust + Bun), Versi vs Tag (catatan anti-stuck), Workflow Permissions
+
+### Community 126 - "Session Log: Take-over Effort System + Bench + Smart Orchestrator"
+Cohesion: 0.22
+Nodes (8): File yang Diubah (sesi ini saja), Hasil, Keputusan Arsitektural, Keterbatasan, Laporan Mesin (§72), Ringkasan, Session Log: Take-over Effort System + Bench + Smart Orchestrator, Status Penutupan Sesi
+
+### Community 128 - "bump-version.mjs"
+Cohesion: 0.39
+Nodes (7): detectBumpType(), getCurrentVersion(), git(), main(), REPO, semverBump(), updateTauriConf()
+
+### Community 129 - "cmd_harness.rs"
+Cohesion: 0.33
+Nodes (7): harness_append(), harness_dir(), rotation_chain(), PathBuf, Result, String, Vec
+
+### Community 130 - "Migration Gaps — Electron → Tauri (fase A/B)"
 Cohesion: 0.25
-Nodes (4): youtube-transcript-plus, yt-search, getYt, getYts
+Nodes (7): Dead code era Electron — SUDAH DIBUANG (2026-09-03), Diperbaiki di PR ini (dipulihkan dari modul era Electron), Jalur Telegram native yang pernah mati — DIPULIHKAN (2026-09-03), Metode audit (untuk reproduce), Migration Gaps — Electron → Tauri (fase A/B), Sengaja ditunda (stub eksplisit, jangan dianggap bug), Verdict merge-readiness PR #16
 
-### Community 255 - "builtinPlugins.js"
-Cohesion: 0.67
-Nodes (4): BUILTIN_PLUGIN_DEFAULTS, getBuiltinPluginsPrompt(), getCavemanReportRules(), resolvePluginToggles()
+### Community 131 - "Session: Engine Task Runtime Boundary Extraction (2026-09-15)"
+Cohesion: 0.25
+Nodes (7): Batasan dikenal, Berkas berubah, Headless status (dua bukti terpisah, post-merge audit PR #26), Invariant (mengikat), Langkah aman berikutnya (di luar scope ini), Session: Engine Task Runtime Boundary Extraction (2026-09-15), Verifikasi
 
-### Community 256 - "os.mjs"
+### Community 132 - "AbelinkBench — Harness Evaluasi Abelink Linux"
+Cohesion: 0.25
+Nodes (7): AbelinkBench — Harness Evaluasi Abelink Linux, Komponen, Menjalankan, Orchestrator (`benchmark:run`), Prinsip (anti-fabrikasi), Roadmap, Task suite
+
+### Community 133 - "abelink-bridge-host.mjs"
+Cohesion: 0.39
+Nodes (7): buf, handle(), HOST_FLAVOR, namespaceIsDev(), tokenFile(), writeMsg(), xdgBase()
+
+### Community 134 - "Abelink: Autonomous AI OS Companion (Linux Edition)"
+Cohesion: 0.25
+Nodes (8): Abelink: Autonomous AI OS Companion (Linux Edition), Arsitektur Sistem, Kebutuhan Sistem (Linux Mint / Ubuntu / Debian / Arch), Lisensi & Atribusi, Perintah Pengembangan, Prasyarat & Instalasi, Setup Cepat, Standar Kontribusi & Kebijakan Repositori
+
+### Community 135 - "@huggingface/transformers"
+Cohesion: 0.25
+Nodes (3): @huggingface/transformers, simdSupported, WHISPER_MODELS
+
+### Community 136 - "auto-detect-upstream.mjs"
+Cohesion: 0.50
+Nodes (7): classifyCommit(), classifyFile(), getDiffFiles(), getNewCommits(), main(), REPO_ROOT, run()
+
+### Community 137 - "RelationalGrowth.jsx"
+Cohesion: 0.39
+Nodes (7): saveRelationship(), RelationalGrowth, describeLevel(), describePersonality(), RelationalGrowth(), TRAIT_META, TraitRing()
+
+### Community 138 - "ConfigSidebar.jsx"
+Cohesion: 0.29
+Nodes (5): ConfigSidebar(), isItDomain(), IT_KEYWORDS, sections, sectionsLogged
+
+### Community 139 - "tools_run_shell"
+Cohesion: 0.43
+Nodes (7): is_dangerous(), AppHandle, Option, Result, String, ToolResult, tools_run_shell()
+
+### Community 140 - "Critic Model"
+Cohesion: 0.29
+Nodes (6): Agent Critique Examples, Critic Model, Critique Record, Principles, Purpose, User Critique Examples
+
+### Community 141 - "14. Promotion gates"
+Cohesion: 0.29
+Nodes (7): 14. Promotion gates, Gate 1: Correctness, Gate 2: Regression, Gate 3: Generalization, Gate 4: Stability, Gate 5: Safety, Gate 6: Simplicity
+
+### Community 142 - "Session Log — PR2: Long-Horizon Fase A (Offline)"
+Cohesion: 0.29
+Nodes (6): Agent Learnings, File Invariants, Files Modified, Ringkasan, Session Log — PR2: Long-Horizon Fase A (Offline), Temuan dan Fix
+
+### Community 143 - "Session 2026-09-14 — RI-11/12/13 verification-gate patch"
+Cohesion: 0.29
+Nodes (6): Commits (6, di atas b1f5437), Rulings, Session 2026-09-14 — RI-11/12/13 verification-gate patch, Verification (worktree bersih, angka final), What changed, Worktree note
+
+### Community 144 - "Session 2026-09-16 — Agent grit: blocked-challenge 1x"
+Cohesion: 0.29
+Nodes (6): Batasan dikenal, Berkas berubah (PR #39, +99/-8), Hasil verifikasi, Keputusan, Ponytail debt ledger (sesi ini), Session 2026-09-16 — Agent grit: blocked-challenge 1x
+
+### Community 145 - "Session 2026-09-16 — Extension keepalive + trajectory sessionId + overlay"
+Cohesion: 0.29
+Nodes (6): Batasan dikenal, Berkas berubah (PR #40, +89/-22), Hasil verifikasi, Keputusan, Ponytail debt ledger (sesi ini), Session 2026-09-16 — Extension keepalive + trajectory sessionId + overlay
+
+### Community 146 - "Session 2026-09-16 — Memory write-gate dedup (Lapis 1)"
+Cohesion: 0.29
+Nodes (6): Batasan dikenal, Berkas berubah (PR #41, +73/-1), Hasil verifikasi, Keputusan, Ponytail debt ledger (sesi ini), Session 2026-09-16 — Memory write-gate dedup (Lapis 1)
+
+### Community 147 - "popup.js"
+Cohesion: 0.62
+Nodes (6): autoConnect(), readPort(), refresh(), refreshTask(), renderPorts(), setPill()
+
+### Community 148 - "Fitur Inti"
+Cohesion: 0.29
+Nodes (7): 1. Multi-Provider Hybrid AI Routing, 2. Autonomous Multi-Agent (Mission Control), 3. Durable Agent Tasks, 4. Epistemic Grounding & Hybrid Memory System, 5. Desktop Awareness & OS Automation, 6. Voice & Audio Pipeline, Fitur Inti
+
+### Community 149 - "build-manifest.mjs"
+Cohesion: 0.29
+Nodes (4): manifest, manifestPath, root, skillsDir
+
+### Community 150 - "LiteModeContext.jsx"
+Cohesion: 0.43
+Nodes (4): LiteBadge(), LiteModeContext, LiteModeProvider(), useLiteMode()
+
+### Community 151 - "TASK — Sesi Berikutnya Abelink"
+Cohesion: 0.29
+Nodes (6): Batasan dikenal, Prompt sesi baru (copy-paste), Status terakhir (2026-09-16), TASK — Sesi Berikutnya Abelink, Topik berikutnya (pilih SATU), Topik berikutnya (pilih SATU)
+
+### Community 153 - "rules"
+Cohesion: 0.33
+Nodes (5): extends, rules, subject-case, type-enum, @commitlint/config-conventional
+
+### Community 154 - "Skill Model"
+Cohesion: 0.33
+Nodes (5): Anti-Cheat Principle, Evidence Types, Skill Model, State Machine, Update Principle
+
+### Community 155 - "11. Prompt generator templates"
+Cohesion: 0.33
+Nodes (6): 11. Prompt generator templates, RI-01 Browser research, RI-02 Mixed tool state, RI-03 Recovery, RI-04 Long horizon, RI-05 Verification
+
+### Community 156 - "3. The five reusable benchmark families"
+Cohesion: 0.33
+Nodes (6): 3. The five reusable benchmark families, RI-01 Browser research / extraction, RI-02 Cross-tool state consistency, RI-03 Failure recovery, RI-04 Long-horizon execution, RI-05 Verification robustness
+
+### Community 157 - "Extension Publish Checklist (CWS + deb)"
+Cohesion: 0.33
+Nodes (5): 1. CWS — justifikasi tiap permission (`extension/manifest.json`), 2. CWS — pernyataan privasi, 3. deb — bundling, 4. Pra-rilis (jalankan berurutan), Extension Publish Checklist (CWS + deb)
+
+### Community 158 - "Harness Log Schema v1 (untuk agent & manusia)"
+Cohesion: 0.33
+Nodes (5): Caps (batas jujur, bukan sampling diam-diam), Envelope (wajib di setiap event), Harness Log Schema v1 (untuk agent & manusia), Kinds → kolom standar, Lokasi & artefak
+
+### Community 159 - "Model Capability Matrix 2026 — untuk AbelinkBench & prompt ABELINK"
+Cohesion: 0.33
+Nodes (5): 1. Peta model per kategori (yang relevan untuk ABELINK), 2. Pola lintas vendor yang bisa langsung diterapkan ke ABELINK, 3. Pemetaan ke AbelinkBench (matrix existing diperbarui), 4. Rekomendasi model default ABELINK (per use case), Model Capability Matrix 2026 — untuk AbelinkBench & prompt ABELINK
+
+### Community 160 - "Diagnostic: Apple sessions sid 6-9 stuck (2026-09-16)"
+Cohesion: 0.33
+Nodes (5): Diagnostic: Apple sessions sid 6-9 stuck (2026-09-16), Fakta (harness dev 2026-09-16, file langsung), Rekomendasi (belum dieksekusi), Root cause, Verifikasi
+
+### Community 161 - "Session: Branch Cleanup + Doc Rules Agent-First (2026-09-16)"
+Cohesion: 0.33
+Nodes (5): Batasan dikenal, Berkas berubah, Keputusan, Session: Branch Cleanup + Doc Rules Agent-First (2026-09-16), Verifikasi
+
+### Community 162 - "Session 2026-09-16 — Browser watchdog + tombol reconnect UI"
+Cohesion: 0.33
+Nodes (5): Batasan dikenal, Berkas berubah (PR #38, +206/-3 vs base branch), Hasil verifikasi, Keputusan, Session 2026-09-16 — Browser watchdog + tombol reconnect UI
+
+### Community 163 - "Session: PR Merge + Branch Cleanup (2026-09-16)"
+Cohesion: 0.33
+Nodes (5): Batasan dikenal, Berkas berubah, Hasil verifikasi, Keputusan, Session: PR Merge + Branch Cleanup (2026-09-16)
+
+### Community 164 - "Session 2026-09-16 — Konsolidasi stack PR #37-#41 ke main lokal"
+Cohesion: 0.33
+Nodes (5): Batasan dikenal, Berkas berubah, Hasil verifikasi (di main lokal pasca-merge), Keputusan, Session 2026-09-16 — Konsolidasi stack PR #37-#41 ke main lokal
+
+### Community 165 - "Session 2026-09-16 — WS-2 thinking streaming end-to-end"
+Cohesion: 0.33
+Nodes (5): Batasan dikenal, Berkas berubah (milik sesi ini; +255/-55), Hasil verifikasi, Keputusan, Session 2026-09-16 — WS-2 thinking streaming end-to-end
+
+### Community 166 - "Session: Branch Cleanup, Fixes Merge & Max Capability Evaluation (2026-09-17)"
+Cohesion: 0.33
+Nodes (5): Gain / Metrik Riil, Keputusan & Tindakan, Ponytail Debt Ledger (Sesi Ini), Session: Branch Cleanup, Fixes Merge & Max Capability Evaluation (2026-09-17), Trajectory Learnings
+
+### Community 167 - "Catatan Keamanan (Vulnerability Triage)"
+Cohesion: 0.33
+Nodes (5): Catatan Keamanan (Vulnerability Triage), Diperbaiki (commit ini), Diterima (risk-accepted) — `minimatch@3.0.8` via `yt-search`, Diterima (risk-accepted) — `sharp@0.34.5` via `@huggingface/transformers`, Proses
+
+### Community 168 - "Security Policy"
+Cohesion: 0.33
+Nodes (5): Reporting a vulnerability, Security Policy, Supported versions, Threat model, What we protect
+
+### Community 170 - "PROJECT-STATUS — Abelink Agent Linux"
+Cohesion: 0.33
+Nodes (5): Keputusan terakhir, Kesehatan terakhir (terverifikasi 2026-09-07), Langkah berikut, Milestone saat ini, PROJECT-STATUS — Abelink Agent Linux
+
+### Community 171 - "mcp-client.mjs"
 Cohesion: 0.67
-Nodes (3): COLON_TO_DASH, getTools(), runDash()
+Nodes (4): callMcpTool(), initialize(), listMcpTools(), rpc()
+
+### Community 172 - "resolve_effort"
+Cohesion: 0.40
+Nodes (4): EscalationEvent, resolve_auto(), resolve_effort(), ResolvedEffort
+
+### Community 173 - "default.json"
+Cohesion: 0.33
+Nodes (5): description, identifier, permissions, $schema, windows
+
+### Community 174 - "tauri.dev.json"
+Cohesion: 0.33
+Nodes (5): app, enableGTKAppId, identifier, productName, $schema
+
+### Community 175 - "errorGuard.js"
+Cohesion: 0.40
+Nodes (4): errorLog, initErrorGuard(), KNOWN_FIXES, pushLog()
+
+### Community 176 - "dev-sh.test.bash"
+Cohesion: 0.73
+Nodes (5): dev-sh.test.bash script, create_fake_cargo_process(), test_cargo_in_src_tauri_is_killed(), test_cargo_inside_project_is_killed(), test_cargo_outside_project_not_killed()
+
+### Community 177 - "Abelink Project Discovery Outputs"
+Cohesion: 0.40
+Nodes (4): 1. Grill-Abelion, 2. Abelink Personal Growth & Execution Layer, Abelink Project Discovery Outputs, Recommended use
+
+### Community 178 - "2. Opsi B: Rewrite Penuh ke Rust (Full Rust Native)"
+Cohesion: 0.40
+Nodes (5): 2. Opsi B: Rewrite Penuh ke Rust (Full Rust Native), Analisis Jangka Panjang (Long-Term ROI), Deskripsi Teknis, Kekurangan (Cons), Kelebihan (Pros)
+
+### Community 179 - "62. AUTO Policy Tests"
+Cohesion: 0.40
+Nodes (5): 62. AUTO Policy Tests, AUTO can escalate, AUTO is not a fixed policy, AUTO respects hard limits, Explicit level bypasses AUTO
+
+### Community 180 - "Session 2026-09-16 — Push main + merge PR #37-#41 + cleanup"
+Cohesion: 0.40
+Nodes (4): Batasan dikenal, Gate penuh (pengganti CI cloud, semua lokal), Keputusan, Session 2026-09-16 — Push main + merge PR #37-#41 + cleanup
+
+### Community 181 - "Reference Library — ATM (Amati, Tiru, Modifikasi)"
+Cohesion: 0.40
+Nodes (4): Aturan pakai (load when needed), Kaitan, Peta referensi, Reference Library — ATM (Amati, Tiru, Modifikasi)
+
+### Community 182 - "Release Versioning (SemVer + Extension)"
+Cohesion: 0.40
+Nodes (5): 1. Skema versi app, 2. Pemetaan versi extension, 3. Alur 3 tahap (tidak berubah, hanya penomoran yang cerdas), 4. Gerbang & pengecualian, Release Versioning (SemVer + Extension)
+
+### Community 183 - "linux-action.sh"
+Cohesion: 0.70
+Nodes (4): err(), get_flag(), pos(), linux-action.sh script
+
+### Community 185 - "5. Grading model"
+Cohesion: 0.50
+Nodes (4): 5. Grading model, Deterministic graders, Human review, Semantic grader
+
+### Community 186 - "Session: Trajectory + Codebase Audit (2026-09-16)"
+Cohesion: 0.50
+Nodes (3): Codebase audit (10 temuan -> PR #34), Session: Trajectory + Codebase Audit (2026-09-16), Trajectory (harness dev 2026-09-16)
+
+### Community 187 - "Grill-Abelion Reusable Skill"
+Cohesion: 0.50
+Nodes (3): Files, Grill-Abelion Reusable Skill, Usage
+
+### Community 188 - "Architecture Benchmark — `evaluation/bench/`"
+Cohesion: 0.50
+Nodes (3): Architecture Benchmark — `evaluation/bench/`, File, Menjalankan
+
+### Community 189 - "overrides"
+Cohesion: 0.50
+Nodes (4): overrides, adm-zip, dompurify, tar
 
 ## Knowledge Gaps
-- **1335 isolated node(s):** `@commitlint/config-conventional`, `type-enum`, `subject-case`, `__dirname`, `ROOT` (+1330 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1728 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **18 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **1135 isolated node(s):** `@commitlint/config-conventional`, `type-enum`, `subject-case`, `__dirname`, `ROOT` (+1130 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1453 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **20 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `vitest` connect `vitest` to `bench-contract.test.mjs`, `pc-agent.js`, `StepBudget`, `Configuration.jsx`, `taint-gate.mjs`, `db.js`, `taskStore.js`, `limit-ladder.mjs`, `abelink-adapter.mjs`, `App.jsx`, `memoryTool.js`, `InputBar.jsx`, `toolDispatcher.js`, `bump-version.mjs`, `objectiveVerifier.js`, `bridge-core.mjs`, `router-search.test.mjs`, `useAwareness.js`, `sessionCompactor.js`, `trajectory.js`, `package.json`, `fetchAI`, `os-click-revalidate.test.mjs`, `tauri-bridge.js`, `taskRuntime.js`, `abelink-eval.mjs`, `manager.mjs`, `browserTools.mjs`, `trajectorySupervisor.js`, `effort-fixtures.mjs`, `browser-e2e.test.mjs`, `plugin-loader.js`, `bundles.mjs`, `core-tools.js`, `vectorMemory.js`, `oramaStore.js`, `skills.mjs`, `agentDecision.js`, `release-scenarios.test.mjs`, `agentTools.js`, `selfModel.js`, `launcher.mjs`, `ai-bridge.js`, `gemini-web.js`, `native-skills.js`, `effortEstimator.test.js`, `planning.js`, `capabilities/registry.mjs`, `useAbelinkPlan.js`, `capability-unified-execute.test.mjs`, `tools.js`, `selfHealingEngine.js`, `ModelSection.jsx`, `startTelegramBot`, `semver-lite.mjs`, `brandDir`, `catalog.mjs`, `pdf-parse-shim.mjs`, `playbooks.js`, `builtinPlugins.js`?**
-  _High betweenness centrality (0.195) - this node is a cross-community bridge._
-- **Why does `react` connect `react` to `ModelSection.jsx`, `Configuration.jsx`, `db.js`, `App.jsx`, `SubagentIntercom.jsx`, `AbelinkHome.jsx`, `useAbelinkAgent.js`, `InputBar.jsx`, `RelationalGrowth.jsx`, `useAwareness.js`, `Knowledge.jsx`, `trajectory.js`, `package.json`, `useAbelinkPlan.js`, `LiteModeContext.jsx`?**
-  _High betweenness centrality (0.026) - this node is a cross-community bridge._
-- **Why does `BudgetState` connect `BudgetState` to `effort-fixtures.mjs`, `effortSystem.js`, `effortEstimator.test.js`?**
-  _High betweenness centrality (0.013) - this node is a cross-community bridge._
+- **Why does `vitest` connect `vitest` to `bench-contract.test.mjs`, `bump-version.mjs`, `pc-agent.js`, `sessionCompactor.js`, `abelink-adapter.mjs`, `limit-ladder.mjs`, `db.js`, `ConfigSidebar.jsx`, `tauri-bridge.js`, `sttGuard.js`, `useAbelinkAgent.js`, `InputBar.jsx`, `subagentExecutor.js`, `planning.js`, `toolDispatcher.js`, `package.json`, `trajectory.js`, `trajectorySupervisor.js`, `abelink-eval.mjs`, `pdf-parse-shim.mjs`, `bridge-core.mjs`, `skills.mjs`, `effortSystem.js`, `browser-e2e.test.mjs`, `wallet.js`, `ai-bridge.js`, `useAbelinkPlan.js`, `agentDecision.js`, `effort-fixtures.mjs`, `manager.mjs`, `asyncPool`, `release-scenarios.test.mjs`, `selfModel.js`, `launcher.mjs`, `vectorMemory.js`, `browserTools.mjs`, `startTelegramBot`, `gemini-web.js`, `ModelSection.jsx`, `semver-lite.mjs`, `playbooks.js`, `taint-gate.mjs`?**
+  _High betweenness centrality (0.176) - this node is a cross-community bridge._
+- **Why does `react` connect `react` to `package.json`, `db.js`, `Knowledge.jsx`, `RelationalGrowth.jsx`, `sttGuard.js`, `AbelinkHome.jsx`, `InputBar.jsx`, `useAbelinkAgent.js`, `useAbelinkPlan.js`, `Configuration.jsx`, `ApprovalContext.jsx`, `LiteModeContext.jsx`, `ModelSection.jsx`, `App.jsx`, `ChatStudio.jsx`, `trajectory.js`?**
+  _High betweenness centrality (0.024) - this node is a cross-community bridge._
+- **Why does `googleapis` connect `googleTools.mjs` to `package.json`?**
+  _High betweenness centrality (0.016) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `useAbelinkPlan()` (e.g. with `deleteMemory()` and `insertMemory()`) actually correct?**
   _`useAbelinkPlan()` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `@commitlint/config-conventional`, `type-enum`, `subject-case` to the rest of the system?**
-  _1335 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1135 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `bench-contract.test.mjs` be split into smaller, more focused modules?**
-  _Cohesion score 0.052440290758047764 - nodes in this community are weakly interconnected._
-- **Should `Abelink-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification` be split into smaller, more focused modules?**
-  _Cohesion score 0.027777777777777776 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05104253544620517 - nodes in this community are weakly interconnected._
+- **Should `sessionCompactor.js` be split into smaller, more focused modules?**
+  _Cohesion score 0.060527825588066554 - nodes in this community are weakly interconnected._

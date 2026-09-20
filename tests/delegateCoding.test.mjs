@@ -66,7 +66,11 @@ describe('delegate_coding integration', () => {
     const res = await runAgentTool('delegate_coding', 'opencode||Perbaiki bug ABC||auto/fix-abc', ctx)
     expect(res).toBeDefined()
     expect(mockRequestApproval).toHaveBeenCalled()
-    expect(mockExecuteNativeTool).toHaveBeenCalledWith('run-task', expect.stringContaining('auto/fix-abc'))
+    expect(mockExecuteNativeTool).toHaveBeenCalledWith(
+      'run-task',
+      expect.stringContaining('auto/fix-abc'),
+      expect.objectContaining({ workspaceRoot: '/mock/workspace' })
+    )
     expect(res.success).toBe(true)
     expect(res.data).toContain('TUGAS KODING BERHASIL DIDELEGASIKAN')
     expect(res.data).toContain('auto/fix-abc')

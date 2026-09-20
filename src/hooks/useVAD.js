@@ -116,15 +116,18 @@ export const useVAD = ({
     const totalFrames = totalFramesRef.current
     const speechFrames = speechFramesRef.current
 
-    console.log(
-      '[VAD] stats: durasi',
-      durationSec.toFixed(2) + 's,',
-      'peakRMS',
-      peakRms.toFixed(4) + ',',
-      `speech ${speechFrames}/${totalFrames},`,
-      trimmedAudio.length,
-      'sampel 16k'
-    )
+    // Statistik per-utterance hanya di dev (jalur mic panas — spam console).
+    if (import.meta.env?.DEV) {
+      console.log(
+        '[VAD] stats: durasi',
+        durationSec.toFixed(2) + 's,',
+        'peakRMS',
+        peakRms.toFixed(4) + ',',
+        `speech ${speechFrames}/${totalFrames},`,
+        trimmedAudio.length,
+        'sampel 16k'
+      )
+    }
 
     // Pre-STT gate: tolak noise lantai / blip sebelum request STT dikirim.
     const gate = isSpeechValid({ peakRms, speechFrames, totalFrames, durationSec })

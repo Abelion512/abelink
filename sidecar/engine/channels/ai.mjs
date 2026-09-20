@@ -9,11 +9,15 @@ const getNt = lazy(() => import('../../main/node-tools.js'))
 // tidak dibungkus ulang oleh ok().
 handlers['ai:fetch'] = async (payload) => {
   const data = Array.isArray(payload) ? payload[0] : payload
-  const { messages, config, isSmallTask, jsonSchema } = data || {}
+  const { messages, config, isSmallTask, jsonSchema, stream } = data || {}
   const onStatus = (msg) => emit('ai:status', msg)
+  // Opt-in: tanpa stream=true tidak ada event ai:token (jalur blocking lama).
+  // Rust meneruskan SEMUA frame {event} generik (cmd_node_bridge.rs) jadi
+  // tidak perlu perubahan native; registry.emit pun generik.
+  const onToken = stream ? (chunk) => emit('ai:token', chunk) : null
   try {
     const { fetchAI } = await getAi()
-    const result = await fetchAI(messages || [], config, !!isSmallTask, jsonSchema ?? null, onStatus)
+    const result = await fetchAI(messages || [], config, !!isSmallTask, jsonSchema ?? null, onStatus, onToken)
     return { success: true, data: result ?? null }
   } catch (err) {
     // Jaminan: pesan tidak pernah kosong — renderer hanya punya fallback

@@ -294,6 +294,33 @@ describe('channel browser:close — tandai selesai lalu drop, tetap bounded', ()
   }, 15000)
 })
 
+describe('channel browser:reconnect — sweep + reuse/gagal jujur', () => {
+  it('sesi connected ada -> reused tanpa membuka browser', async () => {
+    const s = ensureSession('default')
+    s.lastSeenAt = Date.now()
+    const res = await handlers['browser:reconnect']([])
+    expect(res.success).toBe(true)
+    expect(res.data.ok).toBe(true)
+    expect(res.data.reused).toBe(true)
+  })
+
+  it('sesi mati disapu -> auto-launch-off memberi reason jujur', async () => {
+    dropSession('default')
+    dropSession(S) // sesi e2e lain masih connected -> drop agar jalur gagal teruji
+    ensureSession('recon-dead')
+    getSession('recon-dead').lastSeenAt = Date.now() - BROWSER_BRIDGE.SESSION_TTL_MS - 1000
+    setBrowserConfig({ autoLaunch: false })
+    const res = await handlers['browser:reconnect']([])
+    expect(res.success).toBe(true)
+    expect(res.data.ok).toBe(false)
+    expect(res.data.reason).toBe('auto-launch-off')
+    expect(res.data.dropped).toContain('recon-dead')
+    expect(getSession('recon-dead')).toBeNull()
+    setBrowserConfig({ autoLaunch: true })
+    dropSession('default')
+  })
+})
+
 describe('channel browser:action — aksi tanpa abelinkId dan parse aman', () => {
   it('screenshot tanpa abelinkId lolos dispatch dan mengembalikan string base64 utuh', async () => {
     const s = ensureSession(S)

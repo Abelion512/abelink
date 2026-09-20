@@ -656,7 +656,13 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
     while (attempts < MAX_RETRIES) {
       attempts++
 
-      const response = await fetchAI(messages, signal, false, schema)
+      // WS-2: teruskan onToken pemanggil (useAbelinkPlan) agar thought
+      // mengalir ke ThinkingBubble selagi network berjalan; tanpa onToken =
+      // jalur blocking lama. Supervisor tetap per-turn (tidak disentuh).
+      const streamCb = typeof options.onToken === 'function' ? options.onToken : null
+      const response = streamCb
+        ? await fetchAI(messages, { signal, onToken: streamCb }, false, schema)
+        : await fetchAI(messages, signal, false, schema)
 
       if (!response.content?.trim() && response.reasoning) {
         console.warn(

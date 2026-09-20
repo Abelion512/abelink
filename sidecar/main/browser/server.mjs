@@ -23,6 +23,7 @@ import {
   tokenOk,
   tokenRejectReason,
   TOKEN_REJECT_STALE,
+  sweepSessions,
   flavorFromPort
 } from './bridge-core.mjs'
 import { EXTENSION_ID } from './native-host.mjs'
@@ -33,6 +34,29 @@ const MAX_BODY = 1024 * 1024 // 1MB — hasil read-dom jauh di bawah ini (dipoto
 let server = null
 let listening = false
 let startError = null
+let sweepTimer = null
+// Watchdog: sapu sesi mati tiap 60 detik agar `connected` tidak basi.
+// Hanya di prod/dev nyata — test (VITEST/NODE_ENV=test) dikecualikan agar
+// tidak ada timer menggantung di suite vitest.
+const SWEEP_INTERVAL_MS = 60000
+const isTestEnv = () => !!process.env.VITEST || process.env.NODE_ENV === 'test'
+function armSweepTimer() {
+  if (sweepTimer || isTestEnv()) return
+  sweepTimer = setInterval(() => {
+    try {
+      sweepSessions()
+    } catch {
+      /* sweep best-effort: jangan jatuhkan bridge */
+    }
+  }, SWEEP_INTERVAL_MS)
+  if (typeof sweepTimer.unref === 'function') sweepTimer.unref()
+}
+function disarmSweepTimer() {
+  if (sweepTimer) {
+    clearInterval(sweepTimer)
+    sweepTimer = null
+  }
+}
 
 function json(res, code, obj) {
   const body = JSON.stringify(obj)
@@ -183,6 +207,7 @@ export function startBrowserBridge() {
     })
     server.listen(BROWSER_BRIDGE.PORT, BROWSER_BRIDGE.HOST, () => {
       listening = true
+      armSweepTimer()
       const flavor = flavorFromPort(BROWSER_BRIDGE.PORT)
       try {
         const { file } = writeTokenFile(xdgDataDir(flavor), flavor)
@@ -216,6 +241,7 @@ export function stopBrowserBridge() {
     /* server sudah tertutup */
   }
   listening = false
+  disarmSweepTimer()
 }
 
 function xdgDataDir(flavor = flavorFromPort(BROWSER_BRIDGE.PORT)) {

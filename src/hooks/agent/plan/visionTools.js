@@ -49,7 +49,10 @@ const runVisionCapture = async ({ thinkingLabel, imageUrl, prompt, logTag, curre
   ]
   const visionResponse = await fetchVisionAI(contentArray, currentSignal)
   const textContent = asText(visionResponse)
-  console.log(`[Vision AI - ${logTag}] Hasil analisis:`, textContent)
+  // Dump analisis penuh (KBs per tool call) hanya di dev.
+  if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+    console.log(`[Vision AI - ${logTag}] Hasil analisis:`, textContent)
+  }
   return textContent
 }
 

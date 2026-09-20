@@ -28,7 +28,7 @@ import {
 import { searchMemoriesInOrama } from '../../api/oramaStore'
 import { buildOptimizedChatSession, stripImageContent, stripDataUrls } from '../../api/ai/contextCompactor'
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
-import { classifyMainDecision, INTENT, isExplicitSelfTerminate } from '../../api/ai/agentDecision'
+import { classifyMainDecision, INTENT, isExplicitSelfTerminate, shouldChallengeBlocked, BLOCKED_CHALLENGE_TEXT } from '../../api/ai/agentDecision'
 import { createCircuitBreaker } from '../../api/ai/circuitBreaker'
 import { createTrajectorySupervisor } from '../../api/ai/trajectorySupervisor'
 import { currentBenchArch } from '../../api/ai/benchArch'
@@ -747,6 +747,21 @@ export const useAbelinkPlan = ({
       })
       // Evidence source = executedToolsList (tool + fullResult per eksekusi).
       let verifyReplanCount = 0
+      let blockedChallengeCount = 0
+      // Observasi sintetis (repeat-cache / spiral / circuit) juga ditulis ke
+      // file trajectory agar audit lengkap — best-effort, tanpa throw.
+      const logSyntheticObservation = (text) => {
+        import('../../api/harness')
+          .then(({ logObservation }) =>
+            logObservation({
+              observation: text,
+              tool: 'system',
+              sessionId: activeSessionNum,
+              turn: stepCount
+            })
+          )
+          .catch(() => {})
+      }
       let lastVerification = VERIFICATION_STATE.NOT_RUN
       let pendingVerifyObservation = null
       // ---- Trajectory Supervisor Fase 1 (trajectorySupervisor.js) --------
@@ -972,7 +987,26 @@ export const useAbelinkPlan = ({
 
         // Request keputusan giliran ke AI (getNextAction) — dilewati bila sudah
         // dipaksa selesai oleh guard batas langkah di atas.
+        // WS-2: akumulasi token mentah per-turn ke bubble thinking yang HIDUP
+        // (patch reasoning item isThinking, bukan append bubble baru).
+        // Final thought per-turn dari decision tetap otoritatif (fallback bila
+        // tidak ada stream, mis. provider non-streaming).
         if (!decision) {
+          let streamedThought = ''
+          const patchLiveThought = (text) => {
+            if (!text) return
+            streamedThought += text
+            const snapshot = streamedThought
+            try {
+              targetSetChatData((prev) => {
+                const idx = prev.findIndex((item) => item.isThinking)
+                if (idx === -1) return prev
+                const next = [...prev]
+                next[idx] = { ...next[idx], reasoning: snapshot }
+                return next
+              })
+            } catch (_) {}
+          }
           decision = await getNextAction(
             userInput,
             loopMessages,
@@ -989,7 +1023,12 @@ export const useAbelinkPlan = ({
               activeTaskObjective: activeTaskObjectiveRef.current,
               existingSubagents,
               sessionId: activeSessionNum,
-              turn: stepCount
+              turn: stepCount,
+              onToken: (chunk) => {
+                try {
+                  if (chunk && !chunk.done && chunk.text) patchLiveThought(chunk.text)
+                } catch (_) {}
+              }
             }
           )
         }
@@ -1235,10 +1274,32 @@ export const useAbelinkPlan = ({
               lastTerminalReason = 'no-progress-streak-exhausted'
             }
           } else if (intent === INTENT.BLOCKED) {
-            noActionStreak = 0
-            sessionOutcome = 'blocked'
-            activeTaskObjectiveRef.current = null
-            lastTerminalReason = classification.reason || 'blocked-reported'
+            // BLOCKED CHALLENGE (simetri verify-gate): klaim blocked tanpa satu
+            // pun eksekusi tool = belum terbukti buntu. Tantang 1x via slot
+            // observasi yang sama; ulangan kedua diterima seperti biasa.
+            if (
+              shouldChallengeBlocked({
+                toolsExecuted: executedToolsList.length,
+                challengesUsed: blockedChallengeCount,
+                conversational: objectiveKind === 'conversational'
+              })
+            ) {
+              blockedChallengeCount++
+              pendingVerifyObservation = BLOCKED_CHALLENGE_TEXT
+              intent = INTENT.CONTINUE
+              decision = {
+                ...decision,
+                is_done: false,
+                action: null,
+                task_status: 'in_progress',
+                objective: activeTaskObjectiveRef.current || decision.objective
+              }
+            } else {
+              noActionStreak = 0
+              sessionOutcome = 'blocked'
+              activeTaskObjectiveRef.current = null
+              lastTerminalReason = classification.reason || 'blocked-reported'
+            }
           } else if (intent === INTENT.NEEDS_USER) {
             noActionStreak = 0
             sessionOutcome = 'needs_user'
@@ -1785,6 +1846,9 @@ export const useAbelinkPlan = ({
                     'Variasikan pendekatan (tool/query berbeda) atau akhiri dengan jawaban jujur.'
                 }
               )
+              logSyntheticObservation(
+                `[REPEAT-CACHE] Tool "${tool}" query identik ke-${repeatCount}x — tidak dieksekusi ulang.`
+              )
               if (!spiralStopped && breaker.shouldSpiralStop()) {
                 spiralStopped = true
                 loopMessages.push(
@@ -1798,6 +1862,9 @@ export const useAbelinkPlan = ({
                       `[SYSTEM] ${breaker.failures()} kegagalan/pengulangan beruntun. ` +
                       'Berhenti. Tulis "answer" final yang JUJUR + "is_done": true. JANGAN panggil tool lagi.'
                   }
+                )
+                logSyntheticObservation(
+                  `[SPIRAL-STOP] ${breaker.failures()} gagal/pengulangan beruntun — loop dihentikan, minta jawaban final jujur.`
                 )
                 break
               }
@@ -1834,6 +1901,9 @@ export const useAbelinkPlan = ({
                   role: 'user',
                   content: `[OBSERVATION] [CIRCUIT BREAKER OPEN] Tool "${tool}" DIBLOKIR: ${breaker.failures()} gagal tool beruntun (ambang ${breaker.threshold()}). Perbaiki akar masalah atau minta user mereset misi. Tool baca/tulis non-destruktif tetap jalan.`
                 }
+              )
+              logSyntheticObservation(
+                `[CIRCUIT-OPEN] Tool "${tool}" diblokir: ${breaker.failures()} gagal beruntun.`
               )
               continue
             }

@@ -897,8 +897,8 @@ function overlayFn({ mode, text, session }) {
   const style = document.createElement('style')
   style.textContent = [
     '#abelink-veil{position:fixed;inset:0;z-index:2147483640;background:rgba(0,0,0,0.18);cursor:not-allowed;}',
-    '#abelink-frame{position:fixed;inset:0;z-index:2147483642;pointer-events:none;border:3px solid #1fb854;box-shadow:0 0 24px rgba(31,184,84,0.55),inset 0 0 24px rgba(31,184,84,0.25);animation:abelink-frame-pulse 1.6s ease-in-out infinite;}',
-    '@keyframes abelink-frame-pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}',
+    '#abelink-frame{position:fixed;inset:0;z-index:2147483642;pointer-events:none;border:6px solid #1fb854;box-shadow:0 0 32px rgba(31,184,84,0.9),inset 0 0 32px rgba(31,184,84,0.5);animation:abelink-frame-pulse 1.6s ease-in-out infinite;}',
+    '@keyframes abelink-frame-pulse{0%,100%{opacity:1;}50%{opacity:0.7;}}',
     '#abelink-pill{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483641;',
     'display:flex;align-items:center;gap:12px;background:#0b1510;color:#e8f5ec;border:1px solid #1fb854;',
     'border-radius:999px;padding:10px 12px 10px 16px;font:500 13px/1.4 system-ui,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,0.5);}',
@@ -1144,8 +1144,8 @@ async function actionFn({ abelinkId, action, value, expectedText }) {
     s.textContent = `
       #abelink-cursor-pointer {
         position: absolute;
-        width: 22px;
-        height: 22px;
+        width: 32px;
+        height: 32px;
         pointer-events: none;
         z-index: 2147483647;
         transition: left 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), top 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
@@ -1154,16 +1154,16 @@ async function actionFn({ abelinkId, action, value, expectedText }) {
       }
       .abelink-click-ripple {
         position: absolute;
-        border: 2px solid #1fb854;
-        background: rgba(31, 184, 84, 0.25);
+        border: 4px solid #22e05f;
+        background: rgba(31, 184, 84, 0.45);
         border-radius: 50%;
         pointer-events: none;
         z-index: 2147483646;
-        animation: abelink-ripple-anim 0.45s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        animation: abelink-ripple-anim 0.7s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
       }
       @keyframes abelink-ripple-anim {
         0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
-        100% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
+        100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0; }
       }
     `
     document.documentElement.appendChild(s)
@@ -1176,8 +1176,8 @@ async function actionFn({ abelinkId, action, value, expectedText }) {
       cur = document.createElement('div')
       cur.id = 'abelink-cursor-pointer'
       cur.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22">
-          <path d="M4 3L11 21L14 13L21 9L4 3Z" fill="#1fb854" stroke="#06130b" stroke-width="1.8" stroke-linejoin="round"/>
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+          <path d="M4 3L11 21L14 13L21 9L4 3Z" fill="#1fb854" stroke="#ffffff" stroke-width="2.4" stroke-linejoin="round"/>
         </svg>
       `
       cur.style.opacity = '0'
@@ -1193,8 +1193,8 @@ async function actionFn({ abelinkId, action, value, expectedText }) {
     ensureStyles()
     const rip = document.createElement('div')
     rip.className = 'abelink-click-ripple'
-    rip.style.width = '36px'
-    rip.style.height = '36px'
+    rip.style.width = '60px'
+    rip.style.height = '60px'
     rip.style.left = `${x}px`
     rip.style.top = `${y}px`
     document.body.appendChild(rip)
@@ -1670,7 +1670,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         session: cfg.session,
         token: cfg.token,
         port: cfg.port,
-        lastError: null
+        lastError: null,
+        // Keepalive: niat tersambung persist di storage (bukan memori) agar
+        // survive service-worker suspend. Dibaca tryAutoResume + alarm.
+        wantConnected: true
       })
       await setPortToken(cfg.port, cfg.token)
       // Klik eksplisit = keputusan pairing: pin flavor ini untuk resume.
@@ -1684,7 +1687,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     } else if (msg?.type === 'stop') {
       running = false
       pollAbort?.abort()
-      await chrome.storage.session.set({ lastError: null })
+      // Stop eksplisit (pill overlay / popup) = cabut niat keepalive juga.
+      await chrome.storage.session.set({ lastError: null, wantConnected: false })
       sendResponse({ ok: true })
     } else if (msg?.type === 'close-task-tabs') {
       const cfg = await getCfg()
@@ -1769,8 +1773,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 let resumeTimeout = null
 
+// Resume via chrome.alarms (bukan setTimeout): alarm membangunkan service
+// worker yang tersuspend, setTimeout tidak. One-shot per jadwal.
 function scheduleAutoResume(delayMs = 5000) {
   if (running) return
+  try {
+    if (typeof chrome !== 'undefined' && chrome.alarms) {
+      chrome.alarms.create('abelink-bridge-resume', { when: Date.now() + Math.max(1000, delayMs) })
+      return
+    }
+  } catch {
+    /* fallback setTimeout di bawah */
+  }
   if (resumeTimeout) clearTimeout(resumeTimeout)
   resumeTimeout = setTimeout(() => {
     tryAutoResume()
@@ -1780,13 +1794,26 @@ function scheduleAutoResume(delayMs = 5000) {
 async function tryAutoResume() {
   if (running) return
   await loadSessionState()
+  // Niat keepalive persist: hanya resume bila user pernah start dan belum
+  // stop eksplisit. Tanpa ini SW restart diam-diam (koneksi basi).
+  let want = false
+  try {
+    const kept = await chrome.storage.session.get('wantConnected')
+    want = !!kept?.wantConnected
+  } catch {
+    /* storage tak ada = jangan resume */
+  }
+  if (!want) return
   // Resume TANPA pairing = dilarang: user belum memilih flavor sekali pun.
   // Ini mematikan auto-switch lama (resume port sesi basi diam-diam).
   // Tetap jadwalkan ulang + set lastError jujur agar popup tidak hijau palsu.
   const pairing = await getPairing()
   if (!pairing) {
-    await chrome.storage.session.set({ lastError: 'Pilih flavor sekali di popup (Prod/Dev)' })
-    scheduleAutoResume(15000)
+    // Tetap jadwalkan ulang + set lastError jujur agar popup tidak hijau palsu.
+    try {
+      await chrome.storage.session.set({ lastError: 'Pilih flavor sekali di popup (Prod/Dev)' })
+    } catch {}
+    scheduleAutoResume(30000)
     return
   }
   let cfg = await getCfg()
@@ -1848,7 +1875,9 @@ async function tryAutoResume() {
 
 if (typeof chrome !== 'undefined' && chrome.alarms) {
   chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'abelink-bridge-keepalive') {
+    if (alarm.name === 'abelink-bridge-resume') {
+      tryAutoResume()
+    } else if (alarm.name === 'abelink-bridge-keepalive') {
       if (!running) {
         tryAutoResume()
       } else {

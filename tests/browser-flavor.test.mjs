@@ -28,15 +28,12 @@ describe('anti-drift pairing terpin', () => {
   it('background.js resume terpagar pairing', () => {
     const bg = read('background.js')
     // tryAutoResume wajib menolak tanpa pairing (tanpa auto-switch sisa):
-    // set lastError jujur + jadwalkan ulang, TANPA handshake/loop.
-    // Ambil body tryAutoResume dan pastikan tak ada pemicu loop di jalur
-    // tanpa-pairing (running=true + loop() hanya boleh sesudah pairing ada).
-    const body = bg.slice(bg.indexOf('async function tryAutoResume'))
-    const noPairingBlock = body.slice(body.indexOf('if (!pairing)'), body.indexOf('let cfg = await getCfg()'))
-    expect(noPairingBlock).toMatch(/lastError/)
-    expect(noPairingBlock).toMatch(/scheduleAutoResume/)
-    expect(noPairingBlock).not.toMatch(/running\s*=\s*true/)
-    expect(noPairingBlock).not.toMatch(/[^a-zA-Z]loop\(\)/)
+    // Gabungan: lastError jujur + jadwalkan ulang, TANPA handshake/loop.
+    const segMatch = bg.match(/if \(!pairing\)([\s\S]*?)let cfg = await getCfg\(\)/)
+    expect(segMatch).not.toBeNull()
+    expect(segMatch[1]).toMatch(/lastError/)
+    expect(segMatch[1]).toMatch(/scheduleAutoResume/)
+    expect(segMatch[1]).not.toMatch(/apiGet|running\s*=\s*true|[^a-zA-Z]loop\(\)/)
   })
 
   it('popup.js tanpa silent auto-pilih-port-hidup', () => {
