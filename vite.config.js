@@ -30,8 +30,8 @@ export default defineConfig(async () => ({
     },
   },
   build: {
-    // Tauri desktop = file lokal, bukan network. Chunk besar (monaco 7MB,
-    // ort-wasm 23MB, transformers) disengaja; jangan spam warning 500kB.
+    // Tauri desktop = file lokal, bukan network. Chunk besar (ort-wasm 23MB,
+    // transformers) disengaja; jangan spam warning 500kB.
     chunkSizeWarningLimit: 1500,
     // Pisah vendor berat ke chunk sendiri: cache stabil + load paralel.
     // (Lihat plan optimasi bundle: entry 2.4MB didominasi depTransitif ini.)
@@ -50,10 +50,8 @@ export default defineConfig(async () => ({
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-monaco': ['@monaco-editor/react', 'monaco-editor'],
-          'vendor-graph': ['react-force-graph-2d', 'three'],
-          'vendor-md': ['react-markdown', 'remark-gfm', 'react-syntax-highlighter'],
-          'vendor-icons': ['react-icons', 'lucide-react'],
+          'vendor-md': ['react-markdown', 'remark-gfm'],
+          'vendor-icons': ['lucide-react'],
           'vendor-db': ['dexie', 'dexie-export-import', '@orama/orama']
         }
       }
