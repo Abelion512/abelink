@@ -1,16 +1,16 @@
 # Graph Report - abelink-apple  (2026-09-20)
 
 ## Corpus Check
-- 531 files · ~463,163 words
+- 535 files · ~468,675 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3997 nodes · 7922 edges · 255 communities (230 shown, 19 thin omitted)
+- 4043 nodes · 7991 edges · 257 communities (233 shown, 18 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 97 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `06576c07`
+- Built from commit: `ae13be62`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -22,7 +22,7 @@
 - Configuration.jsx
 - react
 - db.js
-- node-tools.js
+- taskStore.js
 - limit-ladder.mjs
 - abelink-adapter.mjs
 - cmd_node_bridge.rs
@@ -33,10 +33,10 @@
 - telegram-service.js
 - cmd_misc.rs
 - ABELINK Linux: Final Audit — Application Parity + CI/CD + Release Infrastructure
-- attachments.js
+- InputBar.jsx
 - toolDispatcher.js
 - release-helper.mjs
-- subagentExecutor.js
+- objectiveVerifier.js
 - bridge-core.mjs
 - linux-daemon.py
 - useAwareness.js
@@ -48,7 +48,7 @@
 - LiteModeContext.jsx
 - fetchAI
 - 1. Functional Requirements
-- shellTools.mjs
+- Abelink: Bisnis Visualisasi AI OS Companion
 - approval_policy.rs
 - 6. Core Modules
 - scripts
@@ -80,7 +80,7 @@
 - RelationalGrowth.jsx
 - oramaStore.js
 - skills.mjs
-- tasks-limit.mjs
+- terminal-bench.mjs
 - BudgetState
 - agentDecision.js
 - release-scenarios.test.mjs
@@ -96,8 +96,8 @@
 - AbelinkHome.jsx
 - tauri.conf.json
 - Changelog ABELINK Linux
-- useChat
-- fsTools.mjs
+- useAbelinkAgent.js
+- PANDUAN STANDAR AGEN OTONOM & AUDIT GAP ARSITEKTUR ABELINK
 - gemini-web.js
 - stress-watermark-v2.harness.mjs
 - devDependencies
@@ -113,7 +113,7 @@
 - Abelink Recursive Improvement & Reusable Agent Eval Protocol
 - dev.sh
 - workspace-rag.js
-- deepeval-runner.mjs
+- selfHealingEngine.js
 - ModelSection.jsx
 - Session Log: Audit dan Stabilitas Browser Extension Bridge (Paket 2)
 - Architecture
@@ -136,7 +136,7 @@
 - Abelink Browser Extension (Fase C3 — Jalur A)
 - browser.mjs
 - brandDir
-- useAbelinkAgent.js
+- tools.js
 - Knowledge.jsx
 - turnPairMigrator.js
 - create_music_window
@@ -178,7 +178,7 @@
 - abelink-bridge-host.mjs
 - Abelink: Autonomous AI OS Companion (Linux Edition)
 - auto-detect-upstream.mjs
-- ConfigSidebar.jsx
+- os-click-revalidate.test.mjs
 - tools_run_shell
 - Critic Model
 - 14. Promotion gates
@@ -195,7 +195,7 @@
 - Session Log: Sensitive-write umum ala Hermes (backlog #2)
 - Session Log: S1+G1 isolasi tab + L1 /goal + improvement trajectory
 - popup.js
-- Fitur Inti
+- Fitur Inti (v1.1.0-alpha.5)
 - build-manifest.mjs
 - bundles.mjs
 - rules
@@ -243,7 +243,7 @@
 - Session 2026-09-19 — Sidebar tak bisa diklik + perubahan tak terlihat
 - Grill-Abelion Reusable Skill
 - Architecture Benchmark — `evaluation/bench/`
-- overrides
+- startTelegramBot
 - ABELINK Linux — Documentation Index
 - rules/graphify.md
 - workflows/graphify.md
@@ -261,12 +261,14 @@
 - catalog.mjs
 - pdf-parse-shim.mjs
 - Session Log: 2026-09-19 - Auto-Detect Drag & Drop dan Paste
-- ragLiteFallback.test.mjs
+- playbooks.js
 - Session Log: 2026-09-20 - Media, Vision, Audio Drop & Auto-Compact Improvements
-- asyncPool
+- media.mjs
+- builtinPlugins.js
+- os.mjs
 
 ## God Nodes (most connected - your core abstractions)
-1. `vitest` - 104 edges
+1. `vitest` - 105 edges
 2. `react` - 80 edges
 3. `Abelink-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification` - 73 edges
 4. `useAbelinkPlan()` - 57 edges
@@ -280,31 +282,31 @@
 ## Surprising Connections (you probably didn't know these)
 - `T()` --indirect_call--> `S()`  [INFERRED]
   tests/browser-bridge.test.mjs → src/api/selfModel.js
+- `runAbelinkAgent()` --calls--> `currentBenchArch()`  [EXTRACTED]
+  evaluation/abelink-adapter.mjs → src/api/ai/benchArch.js
 - `check()` --calls--> `BudgetSnapshot`  [EXTRACTED]
   evaluation/effort-fixtures.mjs → src/api/ai/effortSystem.js
 - `runTask()` --calls--> `BudgetState`  [EXTRACTED]
   evaluation/effort-fixtures.mjs → src/api/ai/effortSystem.js
 - `runTask()` --calls--> `EscalationEvent`  [EXTRACTED]
   evaluation/effort-fixtures.mjs → src/api/ai/effortSystem.js
-- `runTask()` --calls--> `resolve_effort()`  [EXTRACTED]
-  evaluation/effort-fixtures.mjs → src/api/ai/effortSystem.js
 
 ## Import Cycles
 - None detected.
 
-## Communities (255 total, 19 thin omitted)
+## Communities (257 total, 18 thin omitted)
 
 ### Community 0 - "bench-contract.test.mjs"
 Cohesion: 0.05
-Nodes (94): createAbelinkBoundary(), DEFAULT_TOOLS, traceToRaw(), BOUNDARY_REQUIREMENTS, buildTrajectory(), createStubBoundary(), describeBoundary(), EXECUTION_BOUNDARY_API (+86 more)
+Nodes (93): createAbelinkBoundary(), DEFAULT_TOOLS, traceToRaw(), BOUNDARY_REQUIREMENTS, buildTrajectory(), createStubBoundary(), describeBoundary(), EXECUTION_BOUNDARY_API (+85 more)
 
 ### Community 1 - "Abelink-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification"
 Cohesion: 0.03
 Nodes (71): 10. HIGH Policy, 11. xHIGH Policy, 12. MAX Policy, 13. ULTRA Policy, 15. Capability Matrix, 16. Numeric Score Bounds, 17. Runtime Hard Bounds, 18. Execution-Step Budgets (+63 more)
 
 ### Community 2 - "pc-agent.js"
-Cohesion: 0.11
-Nodes (39): askUserPC(), centerOf(), clickAt(), closePCSession(), commandChain, dispatchDaemonCommand(), executeClick(), executeDoubleClick() (+31 more)
+Cohesion: 0.06
+Nodes (76): getNt, execFilePromise, getGitDiff(), getGitStatus(), gitCommit(), gitRevert(), runGit(), getNativeToolsDefinition() (+68 more)
 
 ### Community 3 - "background.js"
 Cohesion: 0.07
@@ -312,27 +314,27 @@ Nodes (61): abelinkGroupDone(), abelinkGroupError(), act(), actionFn(), activeGr
 
 ### Community 4 - "Configuration.jsx"
 Cohesion: 0.08
-Nodes (37): getAllConfig(), pcmToWav(), transcribeAudioGroq(), initWorker(), loadWhisper(), requestResolvers, transcribeAudioLocal(), micCoolingDown() (+29 more)
+Nodes (38): openai, getAllConfig(), pcmToWav(), transcribeAudioGroq(), initWorker(), loadWhisper(), requestResolvers, transcribeAudioLocal() (+30 more)
 
 ### Community 5 - "react"
-Cohesion: 0.07
-Nodes (31): lucide-react, react, subagentStore, Subagents, MemoryFooterBubble(), MessageBubble, PlanningBubble(), PluginExecutionBubble() (+23 more)
+Cohesion: 0.08
+Nodes (31): lucide-react, react, react-markdown, react-syntax-highlighter, rehype-external-links, remark-gfm, saveConfiguration(), TelegramBot (+23 more)
 
 ### Community 6 - "db.js"
-Cohesion: 0.08
-Nodes (28): events, buildTrialSkillNudge(), DANGEROUS_SKILL_PATTERNS, evaluateAndGraduateSkill(), runSkillMiniEval(), sweepTrialSkills(), addAlwaysAllowedPath(), archiveStaleLearnedSkills() (+20 more)
+Cohesion: 0.09
+Nodes (32): buildTrialSkillNudge(), DANGEROUS_SKILL_PATTERNS, evaluateAndGraduateSkill(), exportSkillToDisk(), runSkillMiniEval(), sweepTrialSkills(), getBestMusicMatch(), archiveStaleLearnedSkills() (+24 more)
 
-### Community 7 - "node-tools.js"
-Cohesion: 0.14
-Nodes (20): getNt, getNativeToolsDefinition(), NATIVE_TOOLS, googleTools, osTools, classifyCommand(), DANGEROUS_KEY_COMBOS, DANGEROUS_KEYWORDS (+12 more)
+### Community 7 - "taskStore.js"
+Cohesion: 0.17
+Nodes (24): buildHandoffContract(), buildDurableStepCheckpoint(), assertStepStatus(), assertTaskStatus(), cancelAgentTask(), checkpointAgentTaskStep(), createAgentTask(), generateTaskHandoff() (+16 more)
 
 ### Community 8 - "limit-ladder.mjs"
-Cohesion: 0.13
-Nodes (40): ARTIFACT_MARGIN, artifactsFromRungId(), buildLimitVerdict(), CHAIN_DIR, chainSum(), checkArtifactText(), checkDoneText(), classifyLimitFailure() (+32 more)
+Cohesion: 0.11
+Nodes (49): ARTIFACT_MARGIN, artifactName(), artifactsFromRungId(), buildLimitVerdict(), CHAIN_DIR, chainSum(), checkArtifactText(), checkDoneText() (+41 more)
 
 ### Community 9 - "abelink-adapter.mjs"
 Cohesion: 0.09
-Nodes (43): AGENT_ARCH_VERSION, AGENT_ARCH_VERSION_sync, BENCH_SCHEMA_VERSION, BENCH_SCHEMA_VERSION_sync, createSidecar(), __dirname, EFFORT_VALUES, EFFORT_VALUES_sync (+35 more)
+Nodes (42): AGENT_ARCH_VERSION, AGENT_ARCH_VERSION_sync, BENCH_SCHEMA_VERSION, BENCH_SCHEMA_VERSION_sync, createSidecar(), __dirname, EFFORT_VALUES, EFFORT_VALUES_sync (+34 more)
 
 ### Community 10 - "cmd_node_bridge.rs"
 Cohesion: 0.09
@@ -340,23 +342,23 @@ Nodes (39): Child, ChildStdin, PendingRequests, action_family(), approval_reason
 
 ### Community 11 - "App.jsx"
 Cohesion: 0.06
-Nodes (31): react-router-dom, getAppConfig(), setAppConfig(), initOramaIndices(), App(), ChatStudio, Configuration, Guidebook (+23 more)
+Nodes (27): react-router-dom, getAppConfig(), setAppConfig(), App(), ChatStudio, Configuration, Guidebook, Subagents (+19 more)
 
 ### Community 12 - "os.rs"
 Cohesion: 0.15
 Nodes (40): Command, awareness_clear_buffer(), awareness_get_buffer(), get_active_window_linux(), get_idle_seconds_linux(), AppHandle, Arc, Mutex (+32 more)
 
 ### Community 13 - "memoryTool.js"
-Cohesion: 0.08
-Nodes (47): ACTIONS, defaultDbProvider, executeMemoryOp(), executeMemoryTool(), findMemoryTarget(), isMemoryFailureCapped(), MEMORY_TOOL_SPEC, nonEmptyString() (+39 more)
+Cohesion: 0.09
+Nodes (36): ACTIONS, defaultDbProvider, executeMemoryOp(), executeMemoryTool(), findMemoryTarget(), isMemoryFailureCapped(), MEMORY_TOOL_SPEC, nonEmptyString() (+28 more)
 
 ### Community 14 - "engine/registry.mjs"
-Cohesion: 0.10
-Nodes (23): youtube-transcript-plus, yt-search, ytmusic-api, getManager, lazyManager(), getYt, getYts, getYtm (+15 more)
+Cohesion: 0.17
+Nodes (16): ytmusic-api, getManager, lazyManager(), getYtm, latestConfig, setLatestConfig(), handleLine(), NOTE: tasks:* channel deferred (post-merge audit PR #26) — Bun has no (+8 more)
 
 ### Community 15 - "telegram-service.js"
-Cohesion: 0.07
-Nodes (46): telegraf, getTg, abortAllFetches(), getGlobalConfig(), ABELINK_DATA_DIR, ADMIN_IDS_FILE, adminChatIdsSet, agent (+38 more)
+Cohesion: 0.08
+Nodes (34): telegraf, getTg, getGlobalConfig(), ABELINK_DATA_DIR, ADMIN_IDS_FILE, adminChatIdsSet, agent, askUserWaiters (+26 more)
 
 ### Community 16 - "cmd_misc.rs"
 Cohesion: 0.13
@@ -366,21 +368,21 @@ Nodes (36): b64_encode(), copy_dir_recursive(), is_dev(), is_private_host(), mis
 Cohesion: 0.05
 Nodes (36): ABELINK Linux: Final Audit — Application Parity + CI/CD + Release Infrastructure, Appendix: Reconciled Parity Items (from previous audit contradictions), Appendix: Workflow Coverage Matrix, Classification of Previous Audit Claims, Critical Gaps, Future Improvements (P2+), Must Document (P1), Must Fix Before Linux Release (P1) (+28 more)
 
-### Community 18 - "attachments.js"
-Cohesion: 0.23
-Nodes (11): DropAnywhere(), createPreviewUrl(), enrichWithStat(), extractClipboardFiles(), extractDroppedItems(), isImageFile(), isPrivateIPv4(), isPublicHttpUrl() (+3 more)
+### Community 18 - "InputBar.jsx"
+Cohesion: 0.11
+Nodes (25): @monaco-editor/react, react-dom, getCachedSkills(), invalidateSkillsCache(), wireInvalidation(), BUILTIN_SKILLS, CapabilitiesHub(), PLANNED_MCP_CONNECTORS (+17 more)
 
 ### Community 19 - "toolDispatcher.js"
-Cohesion: 0.11
-Nodes (27): dropChoice(), MAX_CHOICE_OPTIONS, MAX_OPTION_LENGTH, parseChoiceQuery(), pending, pendingChoiceCount(), requestChoice(), checkTools() (+19 more)
+Cohesion: 0.09
+Nodes (34): cleanTtsText(), playVoice(), dropChoice(), MAX_CHOICE_OPTIONS, MAX_OPTION_LENGTH, parseChoiceQuery(), pending, pendingChoiceCount() (+26 more)
 
 ### Community 20 - "release-helper.mjs"
 Cohesion: 0.13
 Nodes (35): buildChanges(), buildPRBody(), CHANGELOG_PATH, classifyChange(), commitAndPushIfChanged(), CONF_PATH, createReleasePR(), __dirname (+27 more)
 
-### Community 21 - "subagentExecutor.js"
+### Community 21 - "objectiveVerifier.js"
 Cohesion: 0.11
-Nodes (31): BUILTIN_PLUGIN_DEFAULTS, getBuiltinPluginsPrompt(), getCavemanReportRules(), resolvePluginToggles(), aggregateCriteria(), APOLOGY_OR_FAILURE_RE, ARTIFACT_INTENT_RE, buildReplanObservation() (+23 more)
+Nodes (24): EphemeralPassageStore, extractCitations(), verifyAnswerGrounding(), verifyVerbatimQuote(), aggregateCriteria(), APOLOGY_OR_FAILURE_RE, ARTIFACT_INTENT_RE, CLAIM_STOPWORDS (+16 more)
 
 ### Community 22 - "bridge-core.mjs"
 Cohesion: 0.13
@@ -392,23 +394,23 @@ Nodes (32): capture_screen(), emit(), ensure_target_window_focused(), flush(), g
 
 ### Community 24 - "useAwareness.js"
 Cohesion: 0.20
-Nodes (14): formatAwarenessContent(), getAwarenessResponse(), buildOptimizedChatSession(), IMAGE_PLACEHOLDER, stripDataUrls(), stripImageContent(), truncateGiantObservation(), getAllMemory() (+6 more)
+Nodes (12): buildOptimizedChatSession(), compactCodeBlocks(), IMAGE_PLACEHOLDER, stripImageContent(), truncateGiantObservation(), getAllMemory(), getRelevantMemory(), formatAwarenessContent() (+4 more)
 
 ### Community 25 - "googleTools.mjs"
-Cohesion: 0.14
-Nodes (28): RFC-2822, googleapis, getGsvc, createEvent(), deleteEvent(), getCalendarApi(), listEvents(), copyFile() (+20 more)
+Cohesion: 0.13
+Nodes (30): RFC-2822, googleapis, getGsvc, createEvent(), deleteEvent(), getCalendarApi(), listEvents(), copyFile() (+22 more)
 
 ### Community 26 - "sessionCompactor.js"
 Cohesion: 0.14
-Nodes (31): compactCodeBlocks(), assembleCompactedPayload(), buildSummaryChunks(), calculateMessageChars(), calculateSessionChars(), COMPACT_SUGGEST_AT, COMPACT_WARN_AT, compactZone() (+23 more)
+Nodes (30): assembleCompactedPayload(), buildSummaryChunks(), calculateMessageChars(), calculateSessionChars(), COMPACT_SUGGEST_AT, COMPACT_WARN_AT, compactZone(), executeSessionCompaction() (+22 more)
 
 ### Community 27 - "trajectory.js"
 Cohesion: 0.15
 Nodes (29): _buffer, clearTrajectoryBuffer(), flushTrajectoryBuffer(), getTrajectoryBuffer(), HARNESS_EVENT_KINDS, HARNESS_SCHEMA_VERSION, _listeners, loadTrajectoryBuffer() (+21 more)
 
 ### Community 28 - "package.json"
-Cohesion: 0.07
-Nodes (30): author, description, homepage, name, type, version, daisyui, date-fns (+22 more)
+Cohesion: 0.06
+Nodes (34): author, description, homepage, name, overrides, adm-zip, dompurify, tar (+26 more)
 
 ### Community 29 - "dependencies"
 Cohesion: 0.06
@@ -419,16 +421,16 @@ Cohesion: 0.43
 Nodes (4): LiteBadge(), LiteModeContext, LiteModeProvider(), useLiteMode()
 
 ### Community 31 - "fetchAI"
-Cohesion: 0.12
-Nodes (25): cleanAndParse(), extractLenientField(), fetchAI(), buildGroomerPrompt(), groomerSchema, parseGroomerResponse(), runBatchConsolidation(), clampDrift() (+17 more)
+Cohesion: 0.14
+Nodes (24): jsonrepair, formatAwarenessContent(), getAwarenessResponse(), stripDataUrls(), cleanAndParse(), extractLenientField(), fetchAI(), buildGroomerPrompt() (+16 more)
 
 ### Community 32 - "1. Functional Requirements"
 Cohesion: 0.07
 Nodes (29): 1. Functional Requirements, 2. Non-Functional Requirements, 3. Data Requirements, 4. Security Requirements, 5. Acceptance Criteria, Abelink Personal Growth & Execution Layer, FR-001 Goals, FR-002 Objectives (+21 more)
 
-### Community 33 - "shellTools.mjs"
-Cohesion: 0.22
-Nodes (15): execFilePromise, getGitDiff(), getGitStatus(), gitCommit(), gitRevert(), runGit(), activeTasks, FINISHED_STATUSES (+7 more)
+### Community 33 - "Abelink: Bisnis Visualisasi AI OS Companion"
+Cohesion: 0.13
+Nodes (14): Abelink: Bisnis Visualisasi AI OS Companion, 📊 Analisis Competitif (Realistic), 🏗️ Arsitektur Bisnis (3-Layer dengan Ketergantungan Hardware), Fase Incaran (Sebelum v1.0.0):, ✅ Kesimpulan, 📈 Metrik Kesuksesan yang Terukur, 💰 Model Ekonomi (Project Pribadi), 📊 Ringkasan Eksekutif (+6 more)
 
 ### Community 34 - "approval_policy.rs"
 Cohesion: 0.13
@@ -447,8 +449,8 @@ Cohesion: 0.10
 Nodes (18): friendlyAiFetchError(), TRANSLATIONS, api, call(), callSafe(), clampData(), isAutomationAction(), on() (+10 more)
 
 ### Community 38 - "taskRuntime.js"
-Cohesion: 0.09
-Nodes (48): buildHandoffContract(), formatHandoffContractPrompt(), HANDOFF_CONTRACT_VERSION, MANDATORY_HANDOFF_FIELDS, validateHandoffContract(), cancelTask(), checkpointStep(), configureTaskRuntime() (+40 more)
+Cohesion: 0.15
+Nodes (25): events, formatHandoffContractPrompt(), HANDOFF_CONTRACT_VERSION, MANDATORY_HANDOFF_FIELDS, validateHandoffContract(), cancelTask(), checkpointStep(), configureTaskRuntime() (+17 more)
 
 ### Community 39 - "mission_scope.rs"
 Cohesion: 0.17
@@ -459,8 +461,8 @@ Cohesion: 0.07
 Nodes (27): 10. Non-Goals, 11. Implementation Sequence, 12. Acceptance Criteria, 13. Verification, 14. Open Questions, 15. Architectural Rule, 1. Purpose, 2. Architecture (+19 more)
 
 ### Community 41 - "vitest"
-Cohesion: 0.16
-Nodes (7): vitest, root, run(), setupRepo(), TEMP_DIR, otherPrimaries(), sessionKeyOf()
+Cohesion: 0.10
+Nodes (11): vitest, root, dbMocks, oramaMocks, vecMocks, run(), setupRepo(), TEMP_DIR (+3 more)
 
 ### Community 42 - "abelink-update.mjs"
 Cohesion: 0.12
@@ -472,11 +474,11 @@ Nodes (25): aggregateAbelinkEval(), countToolCalls(), ERROR_OBSERVATION_RE, eval
 
 ### Community 44 - "smoke.mjs"
 Cohesion: 0.08
-Nodes (23): BENCHMARK_MATRIX, CORE_SET, summarizeMatrix(), agg, aggNull, cur, emptyWork, gitTmp (+15 more)
+Nodes (24): BENCHMARK_MATRIX, CORE_SET, summarizeMatrix(), agg, aggNull, cur, emptyWork, gitTmp (+16 more)
 
 ### Community 45 - "SubagentIntercom.jsx"
 Cohesion: 0.15
-Nodes (17): react-markdown, react-syntax-highlighter, rehype-external-links, remark-gfm, saveConfiguration(), killSubagentExecution(), TelegramBot, CodeBlock (+9 more)
+Nodes (15): killSubagentExecution(), GeneralSection(), SttRouterConfig(), VoiceVideoSection(), clamp(), ElasticSlider(), stepDecimals(), MobiusLoader() (+7 more)
 
 ### Community 46 - "manager.mjs"
 Cohesion: 0.20
@@ -507,16 +509,16 @@ Cohesion: 0.14
 Nodes (14): ensureNativeHost(), EXTENSION_ID, hostDirFor(), hostNameForFlavor(), MANIFEST_BODY(), NATIVE_HOST_NAME, NATIVE_HOST_NAME_DEV, NATIVE_HOST_VERSION (+6 more)
 
 ### Community 53 - "plugin-loader.js"
-Cohesion: 0.16
-Nodes (18): execFilePromise, getPluginsDir(), isValidNpmDependency(), KNOWN_SCHEMA_TYPES, loadedPlugins, loadPlugins(), openInFileManager(), pluginCreate() (+10 more)
+Cohesion: 0.15
+Nodes (19): getPl, execFilePromise, getPluginsDir(), isValidNpmDependency(), KNOWN_SCHEMA_TYPES, loadedPlugins, loadPlugins(), openInFileManager() (+11 more)
 
 ### Community 54 - "vectorMemory.js"
 Cohesion: 0.16
 Nodes (13): cosineSimilarity(), emitLiteAuto(), fnv1a(), generateStorableVector(), getDirectExtractor(), getExtractor(), getWorker(), hashEmbedding() (+5 more)
 
 ### Community 55 - "core-tools.js"
-Cohesion: 0.24
-Nodes (14): PREFERRED_CODING_AGENTS, browserExtensionStatusLine(), GROUP_TOOLS_DEFINITION, group_tools_flat, loadGroupToolsText(), CORE_TOOL_SPECS, DEFERRED_GROUP_SPECS, formatGroupDocumentation() (+6 more)
+Cohesion: 0.21
+Nodes (16): core_tools, PREFERRED_CODING_AGENTS, browserExtensionStatusLine(), group_tools(), GROUP_TOOLS_DEFINITION, group_tools_flat, loadGroupToolsText(), CORE_TOOL_SPECS (+8 more)
 
 ### Community 56 - "manifest.json"
 Cohesion: 0.09
@@ -539,36 +541,36 @@ Cohesion: 0.18
 Nodes (15): Instant, Breach, destructive_cap_fires_once_then_latches(), hard_rate_wins_and_self_heals(), normal_use_never_trips(), record_action(), FnOnce, Option (+7 more)
 
 ### Community 62 - "RelationalGrowth.jsx"
-Cohesion: 0.19
-Nodes (16): RelationalGrowth, aggregateUsage(), dayKey(), FILLS, formatId(), levelFor(), loadCache(), MONTHS_ID (+8 more)
+Cohesion: 0.16
+Nodes (19): getRelationship(), saveRelationship(), RelationalGrowth, aggregateUsage(), dayKey(), FILLS, formatId(), levelFor() (+11 more)
 
 ### Community 63 - "oramaStore.js"
-Cohesion: 0.16
-Nodes (25): @orama/orama, ARCHIVE_SCHEMA, deleteArchiveFromOrama(), deleteMemoryFromOrama(), deleteTurnPairsBySessionFromOrama(), DOCUMENT_SCHEMA, ensureArchiveIndex(), ensureDocumentIndex() (+17 more)
+Cohesion: 0.14
+Nodes (26): ARCHIVE_SCHEMA, deleteArchiveFromOrama(), deleteMemoryFromOrama(), deleteTurnPairsBySessionFromOrama(), DOCUMENT_SCHEMA, ensureArchiveIndex(), ensureIndices(), ensureMemoryIndex() (+18 more)
 
 ### Community 64 - "skills.mjs"
 Cohesion: 0.15
-Nodes (13): emitSkillsUpdated(), getSkillFolderManifest(), isValidSkillName(), listSkillsMeta(), readDescription(), rejectInvalidSkillName(), sanitizeSkillRelPath(), scanSubfolderFiles() (+5 more)
+Nodes (16): emitSkillsUpdated(), getSkillFolderManifest(), getSkillSearchRoots(), isValidSkillName(), listSkillsMeta(), readDescription(), rejectInvalidSkillName(), resolveSkillPath() (+8 more)
 
-### Community 65 - "tasks-limit.mjs"
-Cohesion: 0.14
-Nodes (20): artifactName(), buildChainPrompt(), LIMIT_TASKS, listLimitTasks(), pad3Name(), readWorldFile(), rungMaxTurns(), VERIFY_LIMIT (+12 more)
+### Community 65 - "terminal-bench.mjs"
+Cohesion: 0.15
+Nodes (14): NOTE: metrics require a DeepEval model/API key at runtime; without one this, runAllWithDeepEval(), runWithDeepEval(), CORP_TASKS, corpReportTextOnly(), hasGitCommitWithMessage(), isErrorResult(), isSuccessCall() (+6 more)
 
 ### Community 66 - "BudgetState"
 Cohesion: 0.10
 Nodes (3): Workflow, BudgetState, consumeWorkflowNode()
 
 ### Community 67 - "agentDecision.js"
-Cohesion: 0.21
-Nodes (18): classifyMainDecision(), classifySubagentAnswer(), explicitState(), hasActionShape(), INTENT, isBlockedText(), isExplicitSelfTerminate(), isQuestionText() (+10 more)
+Cohesion: 0.22
+Nodes (17): classifyMainDecision(), classifySubagentAnswer(), explicitState(), hasActionShape(), INTENT, isBlockedText(), isExplicitSelfTerminate(), isQuestionText() (+9 more)
 
 ### Community 68 - "release-scenarios.test.mjs"
 Cohesion: 0.14
 Nodes (9): bumpRank(), detectBumpType(), nextAlphaVersion(), nextVersion(), RELEASE_CHANNEL_ALPHA, getChannel(), ROOT, selectChannelRelease() (+1 more)
 
 ### Community 69 - "agentTools.js"
-Cohesion: 0.19
-Nodes (11): AGENT_CANDIDATES, buildCodingCommand(), detectInstalledAgents(), PREFERRED_CODING_AGENTS, bumpLearnedSkillUse(), getLearnedSkill(), core_tools, buildWaitReport() (+3 more)
+Cohesion: 0.26
+Nodes (7): bumpLearnedSkillUse(), getLearnedSkill(), subagentStore, buildWaitReport(), getAgentCompleteness(), runAgentTool(), waitWithTimeout()
 
 ### Community 70 - "selfModel.js"
 Cohesion: 0.16
@@ -591,8 +593,8 @@ Cohesion: 0.16
 Nodes (14): ensureBrowserUp(), globalLaunchAttempts, LAUNCH_COOLDOWN_MS, LAUNCH_GLOBAL_MAX_PER_WINDOW, LAUNCH_MAX_PER_WINDOW, LAUNCH_POLL_MS, LAUNCH_WAIT_MS, launchState (+6 more)
 
 ### Community 75 - "ai-bridge.js"
-Cohesion: 0.19
-Nodes (15): jsonrepair, getAi, activeAbortControllers, cleanAndParse(), createLMStudioOfflineError(), fetchAI(), globalConfig, isFreeModelId() (+7 more)
+Cohesion: 0.20
+Nodes (15): getAi, activeAbortControllers, cleanAndParse(), createLMStudioOfflineError(), fetchAI(), globalConfig, isFreeModelId(), isLMStudioOfflineError() (+7 more)
 
 ### Community 76 - "server.mjs"
 Cohesion: 0.23
@@ -603,8 +605,8 @@ Cohesion: 0.13
 Nodes (12): AGENT_ARCH_VERSION, AUTO_MAX, AUTO_MIN, AUTO_SCALE, BENCH_SCHEMA_VERSION, CANONICAL, EscalationEvent, ModelProviderAdapter (+4 more)
 
 ### Community 78 - "AbelinkHome.jsx"
-Cohesion: 0.10
-Nodes (33): @monaco-editor/react, react-dom, three, mapChatItemToResponse(), createSession(), deleteSession(), getAllSessions(), getChatData() (+25 more)
+Cohesion: 0.13
+Nodes (22): three, mapChatItemToResponse(), createSession(), deleteSession(), getAllSessions(), getChatData(), renameSession(), setSessionWorkspace() (+14 more)
 
 ### Community 79 - "tauri.conf.json"
 Cohesion: 0.11
@@ -614,13 +616,13 @@ Nodes (18): app, security, windows, build, beforeBuildCommand, beforeDevCommand,
 Cohesion: 0.11
 Nodes (17): Changelog ABELINK Linux, Dokumentasi, Dokumentasi, Dokumentasi, Fitur Baru, Fitur Baru, Fitur Baru, Keamanan (+9 more)
 
-### Community 81 - "useChat"
-Cohesion: 0.27
-Nodes (7): CameraPreview(), AutomationHUD(), SpotlightBar(), GlobalCameraManager(), ChatContext, ChatProvider(), useChat()
+### Community 81 - "useAbelinkAgent.js"
+Cohesion: 0.10
+Nodes (26): addAlwaysAllowedPath(), getAlwaysAllowedPaths(), getCoreMemory(), getMainThread(), saveMainThread(), formatHistoryContent(), HistoryDrawer(), ResponseArea() (+18 more)
 
-### Community 82 - "fsTools.mjs"
-Cohesion: 0.33
-Nodes (6): checkBracketBalance(), checkXmlTagBalance(), runCheck(), validateFileSyntax(), fsTools, getWorkspaceDir()
+### Community 82 - "PANDUAN STANDAR AGEN OTONOM & AUDIT GAP ARSITEKTUR ABELINK"
+Cohesion: 0.13
+Nodes (14): 1. Executive Summary & Problem Statement, 2. Riset Arsitektur Standar Industri: Bagaimana Seharusnya Agen Otonom Bekerja, 3. Peta Komparasi & Audit Gap Abelink, 4. Rencana Solusi Komprehensif: Cetak Biru Transformasi Abelink, 5. Kesimpulan & Rekomendasi Eksekusi, A. Kerangka Kerja Kognitif CoALA (Sumers et al., Princeton / Berkeley), Arsitektur 1: Progressive Multi-Source Skill Discovery System ("Load When Needed"), Arsitektur 2: Model Pool Resilience & 9Router Auto-Rotator (+6 more)
 
 ### Community 83 - "gemini-web.js"
 Cohesion: 0.20
@@ -639,8 +641,8 @@ Cohesion: 0.26
 Nodes (12): EFFORT_LEVELS, EFFORT_VALUES, estimateEffort(), resolveEffortLevel(), SIGNALS, SYSTEM_DEFAULT_EFFORT, SYSTEM_DEFAULT_EFFORT_sync, EffortLevel (+4 more)
 
 ### Community 88 - "planning.js"
-Cohesion: 0.14
-Nodes (29): buildArchivesSection(), buildDocumentsSection(), buildFactsIntegritySection(), buildMemoryRulesSection(), buildMemoryUsageSection(), buildTurnPairsSection(), buildUserMemorySection(), buildWorkspacePromptSection() (+21 more)
+Cohesion: 0.22
+Nodes (18): buildArchivesSection(), buildDocumentsSection(), buildFactsIntegritySection(), buildMemoryRulesSection(), buildMemoryUsageSection(), buildTurnPairsSection(), buildUserMemorySection(), buildWorkspacePromptSection() (+10 more)
 
 ### Community 89 - "Session Log: Abelink-Linux Effort System Integration"
 Cohesion: 0.13
@@ -659,8 +661,8 @@ Cohesion: 0.24
 Nodes (11): KINDS, normalizeDescriptor(), toGuide(), toPromptLine(), validateDescriptor(), GUIDE_UNAUTHORIZED, listRegistry(), pushValid() (+3 more)
 
 ### Community 93 - "useAbelinkPlan.js"
-Cohesion: 0.16
-Nodes (22): getLastSystemPrompt(), createSelfRepairMission(), getErrorSignature(), isRepairAllowed(), MAX_REPAIR_ATTEMPTS, recordRepairAttempt(), REPAIR_COOLDOWN_MS, repairHistory (+14 more)
+Cohesion: 0.15
+Nodes (21): isTruncatedOutput(), currentBenchArch(), buildReplanObservation(), gateCompletion(), getLastSystemPrompt(), buildStepCheckpoint(), runSubagentTurn(), subagentAbortControllers (+13 more)
 
 ### Community 94 - "AI Context & Planning (AGENTS.md)"
 Cohesion: 0.14
@@ -678,9 +680,9 @@ Nodes (13): die(), ensure_bun(), ensure_deps(), ensure_sidecar(), free_cargo_loc
 Cohesion: 0.27
 Nodes (12): chunkFileContent(), CODE_EXTENSIONS, ensureAbelinkWorkspace(), getFileHash(), getWorkspaceDir(), IGNORE_DIRS, indexWorkspace(), scanDir() (+4 more)
 
-### Community 98 - "deepeval-runner.mjs"
-Cohesion: 0.50
-Nodes (3): NOTE: metrics require a DeepEval model/API key at runtime; without one this, runAllWithDeepEval(), runWithDeepEval()
+### Community 98 - "selfHealingEngine.js"
+Cohesion: 0.26
+Nodes (11): AGENT_CANDIDATES, buildCodingCommand(), detectInstalledAgents(), PREFERRED_CODING_AGENTS, createSelfRepairMission(), getErrorSignature(), isRepairAllowed(), MAX_REPAIR_ATTEMPTS (+3 more)
 
 ### Community 99 - "ModelSection.jsx"
 Cohesion: 0.26
@@ -767,20 +769,20 @@ Cohesion: 0.25
 Nodes (12): finishSessionTask(), run(), shutdownBrowserChannels(), sleep(), dispatchCommand(), dropSession(), getBrowserConfig(), listSessions() (+4 more)
 
 ### Community 120 - "brandDir"
-Cohesion: 0.32
-Nodes (8): SKILLS_DIR, runFs(), workspaceRoot(), brandDir(), isDev(), resolveDataHome(), assertContained(), resolveContained()
+Cohesion: 0.36
+Nodes (7): runFs(), workspaceRoot(), brandDir(), isDev(), resolveDataHome(), assertContained(), resolveContained()
 
-### Community 121 - "useAbelinkAgent.js"
-Cohesion: 0.14
-Nodes (20): getBestMusicMatch(), getYoutubeSummary(), normMusic(), QUERY_NOISE, queryTokens(), trustworthyTopHit(), VERSION_KEYWORDS, resolveChoice() (+12 more)
+### Community 121 - "tools.js"
+Cohesion: 0.26
+Nodes (8): getYoutubeSummary(), normMusic(), QUERY_NOISE, queryTokens(), trustworthyTopHit(), VERSION_KEYWORDS, useAbelinkYoutube(), list
 
 ### Community 122 - "Knowledge.jsx"
-Cohesion: 0.49
-Nodes (8): bulkInsertDocuments(), deleteDocumentByName(), getAllDocuments(), deleteDocumentFromOrama(), ingestDocument(), splitTextIntoChunks(), Knowledge, Knowledge()
+Cohesion: 0.39
+Nodes (10): bulkInsertDocuments(), deleteDocumentByName(), getAllDocuments(), deleteDocumentFromOrama(), ensureDocumentIndex(), insertDocumentChunksToOrama(), ingestDocument(), splitTextIntoChunks() (+2 more)
 
 ### Community 123 - "turnPairMigrator.js"
-Cohesion: 0.32
-Nodes (10): sanitizeTurnForStorage(), saveBatchChatTurns(), saveChatTurn(), insertBatchTurnPairsToOrama(), cleanMessageContent(), extractTurnPairsFromSession(), indexSingleTurn(), migrateOldSessionsToTurns() (+2 more)
+Cohesion: 0.33
+Nodes (11): sanitizeTurnForStorage(), saveBatchChatTurns(), saveChatTurn(), insertBatchTurnPairsToOrama(), insertTurnPairToOrama(), cleanMessageContent(), extractTurnPairsFromSession(), indexSingleTurn() (+3 more)
 
 ### Community 124 - "create_music_window"
 Cohesion: 0.48
@@ -803,8 +805,8 @@ Cohesion: 0.44
 Nodes (8): harnessRoot(), parseArgs(), main(), PATTERNS, pickBusiestSession(), short(), main(), readSessionEvents()
 
 ### Community 129 - "services.mjs"
-Cohesion: 0.20
-Nodes (9): getPl, getTracker, getWs, activeWindow(), buffer, getSystemIdleSeconds(), pushToBuffer(), run() (+1 more)
+Cohesion: 0.22
+Nodes (8): getTracker, getWs, activeWindow(), buffer, getSystemIdleSeconds(), pushToBuffer(), run(), startTracking()
 
 ### Community 130 - "taint-gate.mjs"
 Cohesion: 0.33
@@ -928,15 +930,15 @@ Nodes (7): buf, handle(), HOST_FLAVOR, namespaceIsDev(), tokenFile(), writeMsg()
 
 ### Community 161 - "Abelink: Autonomous AI OS Companion (Linux Edition)"
 Cohesion: 0.25
-Nodes (8): Abelink: Autonomous AI OS Companion (Linux Edition), Arsitektur Sistem, Kebutuhan Sistem (Linux Mint / Ubuntu / Debian / Arch), Lisensi & Atribusi, Perintah Pengembangan, Prasyarat & Instalasi, Setup Cepat, Standar Kontribusi & Kebijakan Repositori
+Nodes (8): Abelink: Autonomous AI OS Companion (Linux Edition), Arsitektur Sistem, Kebutuhan Sistem (Linux Mint / Ubuntu / Debian / Arch), Lisensi & Atribusi, Prasyarat & Instalasi (Linux Only), Script Lainnya, Setup Cepat, Standar Kontribusi & Kebijakan Repositori
 
 ### Community 162 - "auto-detect-upstream.mjs"
 Cohesion: 0.50
 Nodes (7): classifyCommit(), classifyFile(), getDiffFiles(), getNewCommits(), main(), REPO_ROOT, run()
 
-### Community 163 - "ConfigSidebar.jsx"
-Cohesion: 0.29
-Nodes (5): ConfigSidebar(), isItDomain(), IT_KEYWORDS, sections, sectionsLogged
+### Community 163 - "os-click-revalidate.test.mjs"
+Cohesion: 0.14
+Nodes (3): fakeSpawn(), handleWrite(), state
 
 ### Community 164 - "tools_run_shell"
 Cohesion: 0.43
@@ -1002,9 +1004,9 @@ Nodes (6): Batasan dikenal, Berkas berubah, Hasil verifikasi, Keputusan, Masalah
 Cohesion: 0.62
 Nodes (6): autoConnect(), readPort(), refresh(), refreshTask(), renderPorts(), setPill()
 
-### Community 180 - "Fitur Inti"
+### Community 180 - "Fitur Inti (v1.1.0-alpha.5)"
 Cohesion: 0.29
-Nodes (7): 1. Multi-Provider Hybrid AI Routing, 2. Autonomous Multi-Agent (Mission Control), 3. Durable Agent Tasks, 4. Epistemic Grounding & Hybrid Memory System, 5. Desktop Awareness & OS Automation, 6. Voice & Audio Pipeline, Fitur Inti
+Nodes (7): 1. Multi-Provider Hybrid AI Routing (Prioritas Lokal), 2. Autonomous Multi-Agent (Mission Control), 3. Durable Agent Tasks, 4. Epistemic Grounding & Hybrid Memory System, 5. Desktop Awareness & OS Automation, 6. Voice & Audio Pipeline, Fitur Inti (v1.1.0-alpha.5)
 
 ### Community 181 - "build-manifest.mjs"
 Cohesion: 0.29
@@ -1194,9 +1196,9 @@ Nodes (3): Files, Grill-Abelion Reusable Skill, Usage
 Cohesion: 0.50
 Nodes (3): Architecture Benchmark — `evaluation/bench/`, File, Menjalankan
 
-### Community 229 - "overrides"
-Cohesion: 0.50
-Nodes (4): overrides, adm-zip, dompurify, tar
+### Community 229 - "startTelegramBot"
+Cohesion: 0.19
+Nodes (12): abortAllFetches(), ensureTrustedAdmin(), getConnectionStatus(), resolveAskUser(), resolveContainedSavePath(), sanitizeFileName(), saveChatIdsToFile(), sendAgentExecutionDone() (+4 more)
 
 ### Community 249 - "catalog.mjs"
 Cohesion: 0.11
@@ -1206,33 +1208,45 @@ Nodes (17): browserExtensionConnector, CONNECTORS, fsConnector, listConnectors()
 Cohesion: 0.40
 Nodes (4): 1. Konteks Masalah, 2. Perubahan Teknis, 3. Verifikasi, Session Log: 2026-09-19 - Auto-Detect Drag & Drop dan Paste
 
-### Community 252 - "ragLiteFallback.test.mjs"
-Cohesion: 0.40
-Nodes (3): dbMocks, oramaMocks, vecMocks
+### Community 252 - "playbooks.js"
+Cohesion: 0.36
+Nodes (10): configKeyFor(), hydrate(), keyFor(), persist(), PLAYBOOK_MAX_ENTRIES, playbookClear(), playbookLookup(), playbookRecord() (+2 more)
 
 ### Community 253 - "Session Log: 2026-09-20 - Media, Vision, Audio Drop & Auto-Compact Improvements"
 Cohesion: 0.50
 Nodes (3): 1. Ringkasan Pekerjaan, 2. Hasil Verifikasi, Session Log: 2026-09-20 - Media, Vision, Audio Drop & Auto-Compact Improvements
 
+### Community 254 - "media.mjs"
+Cohesion: 0.25
+Nodes (4): youtube-transcript-plus, yt-search, getYt, getYts
+
+### Community 255 - "builtinPlugins.js"
+Cohesion: 0.67
+Nodes (4): BUILTIN_PLUGIN_DEFAULTS, getBuiltinPluginsPrompt(), getCavemanReportRules(), resolvePluginToggles()
+
+### Community 256 - "os.mjs"
+Cohesion: 0.67
+Nodes (3): COLON_TO_DASH, getTools(), runDash()
+
 ## Knowledge Gaps
-- **1312 isolated node(s):** `@commitlint/config-conventional`, `type-enum`, `subject-case`, `__dirname`, `ROOT` (+1307 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1700 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **19 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **1335 isolated node(s):** `@commitlint/config-conventional`, `type-enum`, `subject-case`, `__dirname`, `ROOT` (+1330 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1728 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **18 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `vitest` connect `vitest` to `bench-contract.test.mjs`, `pc-agent.js`, `StepBudget`, `Configuration.jsx`, `taint-gate.mjs`, `db.js`, `node-tools.js`, `limit-ladder.mjs`, `abelink-adapter.mjs`, `App.jsx`, `memoryTool.js`, `telegram-service.js`, `attachments.js`, `toolDispatcher.js`, `bump-version.mjs`, `subagentExecutor.js`, `bridge-core.mjs`, `router-search.test.mjs`, `useAwareness.js`, `sessionCompactor.js`, `trajectory.js`, `package.json`, `fetchAI`, `ConfigSidebar.jsx`, `tauri-bridge.js`, `taskRuntime.js`, `abelink-eval.mjs`, `SubagentIntercom.jsx`, `manager.mjs`, `browserTools.mjs`, `trajectorySupervisor.js`, `effort-fixtures.mjs`, `browser-e2e.test.mjs`, `plugin-loader.js`, `bundles.mjs`, `core-tools.js`, `vectorMemory.js`, `skills.mjs`, `agentDecision.js`, `release-scenarios.test.mjs`, `agentTools.js`, `selfModel.js`, `launcher.mjs`, `ai-bridge.js`, `gemini-web.js`, `native-skills.js`, `effortEstimator.test.js`, `planning.js`, `capabilities/registry.mjs`, `useAbelinkPlan.js`, `capability-unified-execute.test.mjs`, `useAbelinkAgent.js`, `ModelSection.jsx`, `semver-lite.mjs`, `brandDir`, `catalog.mjs`, `pdf-parse-shim.mjs`, `ragLiteFallback.test.mjs`, `asyncPool`?**
-  _High betweenness centrality (0.204) - this node is a cross-community bridge._
-- **Why does `react` connect `react` to `ModelSection.jsx`, `Configuration.jsx`, `db.js`, `trajectory.js`, `App.jsx`, `SubagentIntercom.jsx`, `AbelinkHome.jsx`, `memoryTool.js`, `useChat`, `attachments.js`, `useAwareness.js`, `RelationalGrowth.jsx`, `useAbelinkAgent.js`, `Knowledge.jsx`, `turnPairMigrator.js`, `package.json`, `useAbelinkPlan.js`, `LiteModeContext.jsx`?**
-  _High betweenness centrality (0.035) - this node is a cross-community bridge._
-- **Why does `BudgetSnapshot` connect `BudgetSnapshot` to `effort-fixtures.mjs`, `effortSystem.js`, `effortEstimator.test.js`?**
-  _High betweenness centrality (0.020) - this node is a cross-community bridge._
+- **Why does `vitest` connect `vitest` to `bench-contract.test.mjs`, `pc-agent.js`, `StepBudget`, `Configuration.jsx`, `taint-gate.mjs`, `db.js`, `taskStore.js`, `limit-ladder.mjs`, `abelink-adapter.mjs`, `App.jsx`, `memoryTool.js`, `InputBar.jsx`, `toolDispatcher.js`, `bump-version.mjs`, `objectiveVerifier.js`, `bridge-core.mjs`, `router-search.test.mjs`, `useAwareness.js`, `sessionCompactor.js`, `trajectory.js`, `package.json`, `fetchAI`, `os-click-revalidate.test.mjs`, `tauri-bridge.js`, `taskRuntime.js`, `abelink-eval.mjs`, `manager.mjs`, `browserTools.mjs`, `trajectorySupervisor.js`, `effort-fixtures.mjs`, `browser-e2e.test.mjs`, `plugin-loader.js`, `bundles.mjs`, `core-tools.js`, `vectorMemory.js`, `oramaStore.js`, `skills.mjs`, `agentDecision.js`, `release-scenarios.test.mjs`, `agentTools.js`, `selfModel.js`, `launcher.mjs`, `ai-bridge.js`, `gemini-web.js`, `native-skills.js`, `effortEstimator.test.js`, `planning.js`, `capabilities/registry.mjs`, `useAbelinkPlan.js`, `capability-unified-execute.test.mjs`, `tools.js`, `selfHealingEngine.js`, `ModelSection.jsx`, `startTelegramBot`, `semver-lite.mjs`, `brandDir`, `catalog.mjs`, `pdf-parse-shim.mjs`, `playbooks.js`, `builtinPlugins.js`?**
+  _High betweenness centrality (0.195) - this node is a cross-community bridge._
+- **Why does `react` connect `react` to `ModelSection.jsx`, `Configuration.jsx`, `db.js`, `App.jsx`, `SubagentIntercom.jsx`, `AbelinkHome.jsx`, `useAbelinkAgent.js`, `InputBar.jsx`, `RelationalGrowth.jsx`, `useAwareness.js`, `Knowledge.jsx`, `trajectory.js`, `package.json`, `useAbelinkPlan.js`, `LiteModeContext.jsx`?**
+  _High betweenness centrality (0.026) - this node is a cross-community bridge._
+- **Why does `BudgetState` connect `BudgetState` to `effort-fixtures.mjs`, `effortSystem.js`, `effortEstimator.test.js`?**
+  _High betweenness centrality (0.013) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `useAbelinkPlan()` (e.g. with `deleteMemory()` and `insertMemory()`) actually correct?**
   _`useAbelinkPlan()` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `@commitlint/config-conventional`, `type-enum`, `subject-case` to the rest of the system?**
-  _1312 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1335 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `bench-contract.test.mjs` be split into smaller, more focused modules?**
-  _Cohesion score 0.05164797825348284 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.052440290758047764 - nodes in this community are weakly interconnected._
 - **Should `Abelink-Linux Adaptive Reasoning, Effort, Workflow, Policy, Budget, and Test Specification` be split into smaller, more focused modules?**
   _Cohesion score 0.027777777777777776 - nodes in this community are weakly interconnected._
