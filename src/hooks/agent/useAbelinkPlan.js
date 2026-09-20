@@ -1767,7 +1767,11 @@ export const useAbelinkPlan = ({
                   userPrompt: userInput || lastUserPromptRef.current || '',
                   executedTools: executedToolsList,
                   finalAnswer: decision.answer || '',
-                  thought: decision.thought || ''
+                  thought: decision.thought || '',
+                  // Grounding: verdict verifier + kind objective, keduanya sudah
+                  // ada di scope ini. Caller hanya meneruskan, bukan menurunkan.
+                  verificationState: lastVerification,
+                  objectiveKind
                 })
                   .then((saved) => {
                     if (saved) {

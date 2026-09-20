@@ -142,6 +142,12 @@ No repository code was modified in this session. Documentation changes were comm
 
 PR #45 CI status is currently not claimed as green because the connector returned no individual commit status entries.
 
+> Correction (2026-09-21, later session): PR #45 check status *is* available and the
+> `Frontend test + build (vitest, vite)` job was in fact failing on the skill-promotion gate.
+> The connector did not surface it at the time. See
+> [2026-09-21_pr45-mini-eval-gate-alignment.md](2026-09-21_pr45-mini-eval-gate-alignment.md)
+> for the audited check results and the fix.
+
 ## Next gate
 
 Review PR #45 and resolve any CI/review issues.

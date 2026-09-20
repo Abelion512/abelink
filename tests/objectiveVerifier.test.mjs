@@ -20,10 +20,58 @@ import {
   evaluateEvidence,
   gateCompletion,
   buildReplanObservation,
+  isIndependentlyVerified,
   escalateKindFromEvidence
 } from '../src/api/ai/objectiveVerifier.js'
 
 const exec = (tool, result) => ({ tool, fullResult: result || 'success' })
+
+describe('isIndependentlyVerified — exemption is not evidence', () => {
+  it('conversational "verified" is an EXEMPTION, never trusted evidence', () => {
+    // evaluateEvidence returns verified for conversational objectives with zero
+    // criteria and zero ops. Completion may accept that; trusted learning may not.
+    const verdict = evaluateEvidence({ kind: 'conversational', objectiveText: 'Apa itu git?' })
+    expect(verdict.state).toBe(VERIFICATION_STATE.VERIFIED)
+    expect(verdict.criteria).toEqual([])
+    expect(isIndependentlyVerified({ verification: verdict.state, kind: 'conversational' })).toBe(false)
+  })
+
+  it('world-state verified for a real objective kind IS evidence', () => {
+    const verdict = evaluateEvidence({
+      kind: 'file',
+      objectiveText: 'buat laporan.md',
+      tools: [exec('write-file', 'written'), exec('read-file', 'laporan isi')]
+    })
+    expect(verdict.state).toBe(VERIFICATION_STATE.VERIFIED)
+    expect(isIndependentlyVerified({ verification: verdict.state, kind: verdict.kind })).toBe(true)
+  })
+
+  it('non-verified states never count as evidence', () => {
+    for (const state of ['not_run', 'partially_verified', 'failed', 'unavailable', '']) {
+      expect(isIndependentlyVerified({ verification: state, kind: 'file' })).toBe(false)
+    }
+  })
+
+  it('missing or malformed input degrades to not-evidence', () => {
+    expect(isIndependentlyVerified()).toBe(false)
+    expect(isIndependentlyVerified({})).toBe(false)
+    expect(isIndependentlyVerified({ verification: 'verified' })).toBe(true)
+    expect(isIndependentlyVerified({ verification: 'VERIFIED', kind: 'file' })).toBe(false)
+    expect(isIndependentlyVerified({ verification: null, kind: null })).toBe(false)
+  })
+
+  it('a model claim cannot manufacture evidence: answer text is never an input', () => {
+    // Only verification + kind are read; a confident final answer changes nothing.
+    const withClaim = evaluateEvidence({
+      kind: 'browser',
+      objectiveText: 'submit form',
+      answer: 'SUCCESS! Everything submitted and confirmed, tests passed.',
+      tools: [exec('browser-click', 'clicked')]
+    })
+    expect(withClaim.state).not.toBe(VERIFICATION_STATE.VERIFIED)
+    expect(isIndependentlyVerified({ verification: withClaim.state, kind: withClaim.kind })).toBe(false)
+  })
+})
 
 describe('classifyObjectiveKind — task-awareness', () => {
   it('conversational questions deliver text in-chat: no external verification', () => {
