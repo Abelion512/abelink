@@ -319,9 +319,16 @@ async function runCommand(cfg, command) {
   delete inflight[sessionKey]
   // Navigasi menghapus DOM injeksi: veil dipasang ulang otomatis (best-effort,
   // tidak boleh menggagalkan tool). Perintah overlay sendiri dikecualikan.
+  // Co-pilot: sesi yang menunggu user TIDAK dipasangi veil (user butuh
+  // tabnya) — hanya pill pasif non-blocking. Salinan inline shouldOverlay
+  // dari extension/overlay-policy.mjs.
   if (result?.ok && ['navigate', 'act', 'read-dom', 'show'].includes(command.type)) {
     if (!(command.type === 'act' && String(command.payload?.action || '').startsWith('overlay-'))) {
-      await ensureOverlay(sessionKey)
+      if (!overlayStopped[sessionKey] && !awaitingUser[sessionKey]) {
+        await ensureOverlay(sessionKey)
+      } else if (awaitingUser[sessionKey]) {
+        await ensurePassivePill(sessionKey)
+      }
     }
   }
   console.log(`[Abelink] hasil ${command.type}: ${result.ok ? 'ok' : `gagal (${result.error || 'tanpa pesan'})`}`)
@@ -357,6 +364,11 @@ const activeGroups = {}
 // Nama task terakhir per sesi (untuk grouping tab navigate tanpa label task).
 const sessionTask = {}
 
+// URL fokus tercatat per sesi: di-set tiap navigate sukses. Bila tab primer
+// URL-nya berubah tanpa navigate tercatat (user menavigasi manual), tab
+// ditolak agar caller recovery jujur (bukan membaca tab yang salah).
+const sessionFocusedUrl = {}
+
 // Tab primer per sesi: SATU tab primer per sessionId (single primary per
 // session), tetapi grup sesi boleh menampung N tab (multi-tab per grup,
 // budget MAX_TABS_PER_SESSION). SEMUA navigate dalam satu task memakai ulang
@@ -373,23 +385,28 @@ const OVERLAY_STOP_MSG = (s) =>
 // Flag stop per sesi + perintah inflight per sesi (di-resolve saat Stop diklik).
 const overlayStopped = {}
 const inflight = {}
+// Co-pilot HITL: sesi yang menunggu user — veil TIDAK dipasang (user butuh
+// tabnya), hanya pill pasif non-blocking. Bentuk: {reason, tabId, url, goal, since}.
+const awaitingUser = {}
 
 async function saveSessionState() {
   try {
     await chrome.storage.session.set({
       _primaryTabs: primaryTabs,
       _activeGroups: activeGroups,
-      _sessionTask: sessionTask
+      _sessionTask: sessionTask,
+      _sessionFocusedUrl: sessionFocusedUrl
     })
   } catch {}
 }
 
 async function loadSessionState() {
   try {
-    const data = await chrome.storage.session.get(['_primaryTabs', '_activeGroups', '_sessionTask'])
+    const data = await chrome.storage.session.get(['_primaryTabs', '_activeGroups', '_sessionTask', '_sessionFocusedUrl'])
     if (data._primaryTabs) Object.assign(primaryTabs, data._primaryTabs)
     if (data._activeGroups) Object.assign(activeGroups, data._activeGroups)
     if (data._sessionTask) Object.assign(sessionTask, data._sessionTask)
+    if (data._sessionFocusedUrl) Object.assign(sessionFocusedUrl, data._sessionFocusedUrl)
   } catch {}
 }
 
@@ -412,7 +429,8 @@ async function getPrimaryTab(sessionId) {
   if (id == null) return null
   try {
     const tab = await chrome.tabs.get(id)
-    if (!tab) {
+    // Primer non-http (chrome://, about:) tidak bisa di-inject: buang.
+    if (!tab || !tab.url?.startsWith('http')) {
       delete primaryTabs[sessionId]
       await saveSessionState()
       return null
@@ -428,7 +446,14 @@ async function getPrimaryTab(sessionId) {
 async function targetTabForSession(sessionId = 'default') {
   await loadSessionState()
   const primary = await getPrimaryTab(sessionId)
-  if (primary && primary.url?.startsWith('http')) return primary
+  // Tolak primer yang URL-nya berubah dari focusedUrl sesi (salinan inline
+  // resolveSessionTab dari extension/tab-identity.mjs; abaikan hash).
+  const focused = sessionFocusedUrl[sessionId] ?? null
+  const stripHash = (u) => String(u || '').split('#')[0]
+  if (primary && primary.url?.startsWith('http')) {
+    if (focused == null || stripHash(primary.url) === stripHash(focused)) return primary
+    console.warn(`[Abelink] tolak tab primer sesi "${sessionId}": URL berubah (${primary.url} != ${focused})`)
+  }
 
   // Cari tab yang berada di dalam grup Abelink untuk sesi ini (isolasi privasi)
   const group = activeGroups[sessionId]
@@ -438,6 +463,7 @@ async function targetTabForSession(sessionId = 'default') {
       const valid = groupTabs.find((t) => t.url?.startsWith('http'))
       if (valid) {
         primaryTabs[sessionId] = valid.id
+        if (valid.url?.startsWith('http')) sessionFocusedUrl[sessionId] = valid.url
         await saveSessionState()
         return valid
       }
@@ -744,9 +770,17 @@ async function navigate({ url, reuse = true }, sessionId = 'default') {  // Tab 
   }
   const dom = await readDomInTab(effectiveTabId)
   if (!dom.ok) return { ...dom, group }
+  // Catat URL fokus sesi HANYA bila navigate sukses (DOM terbaca).
+  sessionFocusedUrl[sessionId] = url
+  let liveTitle = ''
+  try {
+    liveTitle = (await chrome.tabs.get(effectiveTabId))?.title || ''
+  } catch {
+    /* abaikan */
+  }
   try {
     const parsed = JSON.parse(dom.data)
-    parsed._group = { tabId: effectiveTabId, reused, ...group }
+    parsed._group = { tabId: effectiveTabId, url, title: liveTitle, reused, ...group }
     return { ok: true, data: JSON.stringify(parsed) }
   } catch {
     return { ...dom, group }
@@ -802,6 +836,48 @@ function overlayFn({ mode, text, session }) {
     const gone = document.getElementById(HOST_ID)
     if (gone) gone.remove()
     return { ok: true, shown: false }
+  }
+  if (mode === 'passive') {
+    // Pill pasif co-pilot: tanpa veil, tanpa keydown-guard, non-blocking.
+    // User tetap bisa memakai tab; pill hanya memberi tahu + tombol Lanjutkan.
+    const stale = document.getElementById(HOST_ID)
+    if (stale) stale.remove()
+    const host = document.createElement('div')
+    host.id = HOST_ID
+    const shadow = host.attachShadow({ mode: 'open' })
+    const style = document.createElement('style')
+    style.textContent = [
+      '#abelink-pill{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483641;',
+      'display:flex;align-items:center;gap:12px;background:#0b1510;color:#e8f5ec;border:1px solid #1fb854;',
+      'border-radius:999px;padding:10px 12px 10px 16px;font:500 13px/1.4 system-ui,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,0.5);}',
+      '#abelink-pill small{opacity:0.65;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+      '#abelink-go{background:#1fb854;color:#06130b;border:0;border-radius:999px;padding:8px 16px;font:700 13px system-ui,sans-serif;cursor:pointer;}'
+    ].join('')
+    const pill = document.createElement('div')
+    pill.id = 'abelink-pill'
+    const label = document.createElement('span')
+    label.textContent = 'Abelink menunggu'
+    pill.appendChild(label)
+    if (text) {
+      const sub = document.createElement('small')
+      sub.textContent = String(text).slice(0, 80)
+      pill.appendChild(sub)
+    }
+    const go = document.createElement('button')
+    go.id = 'abelink-go'
+    go.textContent = 'Lanjutkan'
+    go.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      try {
+        chrome.runtime.sendMessage({ type: 'overlay-resume', session })
+      } catch (err) {}
+    })
+    pill.appendChild(go)
+    shadow.appendChild(style)
+    shadow.appendChild(pill)
+    ;(document.documentElement || document.body).appendChild(host)
+    return { ok: true, shown: true, passive: true }
   }
   const stale = document.getElementById(HOST_ID)
   if (stale) stale.remove()
@@ -879,11 +955,25 @@ async function setOverlay(tabId, mode, text = '', session = 'default') {
 async function ensureOverlay(sessionId) {
   try {
     if (overlayStopped[sessionId]) return
+    if (awaitingUser[sessionId]) return // co-pilot: veil mati saat await-user
     const tab = await targetTabForSession(sessionId)
     if (!tab) return
     await setOverlay(tab.id, 'show', sessionTask[sessionId] || 'browser', sessionId)
   } catch {
     /* overlay tidak boleh menggagalkan tool */
+  }
+}
+
+// Pill pasif co-pilot: tanpa veil, tanpa keydown-guard, tidak memblokir.
+// Dipasang saat sesi menunggu user agar tab tetap bisa dipakai.
+async function ensurePassivePill(sessionId) {
+  try {
+    const tab = await targetTabForSession(sessionId)
+    if (!tab) return
+    const reason = awaitingUser[sessionId]?.reason || 'menunggu user'
+    await setOverlay(tab.id, 'passive', `Abelink menunggu — ${reason}`, sessionId)
+  } catch {
+    /* pill tidak boleh menggagalkan tool */
   }
 }
 
@@ -898,10 +988,9 @@ async function hideOverlayDom(sessionId) {
 }
 
 // --------------------------------------------------------------- tagging
-// Sama dengan pola browser-agent.js era Electron: maks 80 elemen interaktif,
-// data-abelink-id, teks dipendekkan.
-// PENTING: fungsi ini DI-SERIALISASI lalu dijalankan di konteks halaman -
-// WAJIB self-contained, tidak boleh menutup variabel dari service worker.
+// Kontrak: elemen dalam main/article/[role=main] diutamakan, maks 200
+// elemen, teks maks 120 char (lihat extension/tagger-rank.mjs — salinan
+// inline di bawah karena fungsi ini DI-SERIALISASI, wajib self-contained).
 function taggerFn() {
   document.querySelectorAll('[data-abelink-id]').forEach((el) => el.removeAttribute('data-abelink-id'))
   const SELECTORS = [
@@ -921,10 +1010,19 @@ function taggerFn() {
     '[tabindex]:not([tabindex="-1"])'
   ].join(', ')
 
-  const els = document.querySelectorAll(SELECTORS)
+  // Ranking inline (salinan rankTaggerElements dari tagger-rank.mjs):
+  // scan scope konten utama dulu, lalu fallback seluruh dokumen.
+  const MAIN_SCOPE = 'main, [role="main"], article'
+  const scopeRoots = [...document.querySelectorAll(MAIN_SCOPE)]
+  const inMain = new Set()
+  for (const root of scopeRoots) {
+    for (const el of root.querySelectorAll(SELECTORS)) inMain.add(el)
+  }
+  const docEls = [...document.querySelectorAll(SELECTORS)]
+  const els = [...docEls.filter((el) => inMain.has(el)), ...docEls.filter((el) => !inMain.has(el))]
   const out = []
-  const MAX = 80
-  const MAX_TEXT = 80
+  const MAX = 200
+  const MAX_TEXT = 120
   let n = 1
   const vh = window.innerHeight || document.documentElement.clientHeight || 800
   const vw = window.innerWidth || document.documentElement.clientWidth || 1200
@@ -1414,15 +1512,35 @@ async function act({ abelinkId, action, value, expectedText }, sessionId = 'defa
   if (action === 'ask') {
     return { ok: false, error: 'browser-ask-user belum didukung versi ekstensi ini.' }
   }
-  // --- Overlay lock (Fase A): show = resume eksplisit (bersihkan flag stop).
+  // --- Overlay lock (Fase A): show = resume eksplisit (bersihkan flag stop + await).
   if (action === 'overlay-show') {
     delete overlayStopped[sessionId]
+    delete awaitingUser[sessionId]
     try {
       const label = value && typeof value === 'object' ? value.text : value
       const r = await setOverlay(tab.id, 'show', String(label || ''), sessionId)
       return { ok: true, data: JSON.stringify(r) }
     } catch (e) {
       return { ok: false, error: `overlay-show gagal: ${String(e?.message || e)}` }
+    }
+  }
+  // --- Co-pilot HITL: catat sesi menunggu user + tampilkan pill pasif
+  // (tanpa veil, tanpa keydown-guard, non-blocking). Dipanggil sidecar
+  // saat browser-ask masuk pause-state.
+  if (action === 'overlay-passive') {
+    const v = value && typeof value === 'object' ? value : {}
+    awaitingUser[sessionId] = {
+      reason: String(v.reason || v.text || 'menunggu user'),
+      tabId: tab.id,
+      url: tab.url || '',
+      goal: String(v.goal || ''),
+      since: Date.now()
+    }
+    try {
+      const r = await setOverlay(tab.id, 'passive', `Abelink menunggu — ${awaitingUser[sessionId].reason}`, sessionId)
+      return { ok: true, data: JSON.stringify({ ...r, awaitUser: awaitingUser[sessionId] }) }
+    } catch (e) {
+      return { ok: false, error: `overlay-passive gagal: ${String(e?.message || e)}` }
     }
   }
   if (action === 'overlay-hide') {
@@ -1583,6 +1701,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         delete inflight[session]
       }
       sendResponse({ ok: true, stopped: !!cur?.id })
+    } else if (msg?.type === 'overlay-resume') {
+      // Lanjutkan dari pill pasif co-pilot: bersihkan await, veil tetap
+      // mati sampai perintah tab berikutnya (runCommand memasang ulang).
+      const session = msg.session || (await getCfg()).session
+      delete awaitingUser[session]
+      await hideOverlayDom(session)
+      sendResponse({ ok: true, resumed: true })
     } else if (msg?.type === 'get-active-task') {
       const cfg = await getCfg()
       const session = msg.session || cfg.session
@@ -1647,8 +1772,13 @@ async function tryAutoResume() {
   await loadSessionState()
   // Resume TANPA pairing = dilarang: user belum memilih flavor sekali pun.
   // Ini mematikan auto-switch lama (resume port sesi basi diam-diam).
+  // Tetap jadwalkan ulang + set lastError jujur agar popup tidak hijau palsu.
   const pairing = await getPairing()
-  if (!pairing) return
+  if (!pairing) {
+    await chrome.storage.session.set({ lastError: 'Pilih flavor sekali di popup (Prod/Dev)' })
+    scheduleAutoResume(15000)
+    return
+  }
   let cfg = await getCfg()
   // Paksa port sesi ke flavor terpin (alasan sesi basi berbeda flavor).
   cfg = { ...cfg, port: pairing.port }
