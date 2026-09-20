@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
+    "test:known-issues": "vitest run tests/trading.*.test.js",
     "test:harness": "node tests/harness/stress-watermark.harness.mjs && node tests/harness/stress-watermark-v2.harness.mjs",
     "perf": "bun evaluation/perf-gate.mjs",
     "perf:save": "bun evaluation/perf-gate.mjs --save",

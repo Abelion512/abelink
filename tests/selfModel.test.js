@@ -12,7 +12,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 // Cari basename file secara rekursif di pohon source (abaikan node_modules/dist).
 const findFile = (dir, name) => {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name === 'node_modules' || e.name === 'dist-sidecar' || e.name === '.git') continue
+    if (e.name === 'node_modules' || e.name === 'dist-sidecar' || e.name === '.git' || e.name === 'target') continue
     const p = path.join(dir, e.name)
     if (e.isFile() && e.name === name) return true
     if (e.isDirectory() && findFile(p, name)) return true
