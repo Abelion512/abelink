@@ -38,6 +38,7 @@ import { logAnswer as trajectoryLogAnswer } from '../../api/trajectory'
 import { logTurnStart as trajectoryLogTurnStart } from '../../api/trajectory'
 import { logTurnEnd as trajectoryLogTurnEnd } from '../../api/trajectory'
 import { executeSingleTool, isNativeBacked } from './plan/toolDispatcher'
+import { buildBrowserResume, isBrowserResumeRequest } from './plan/browserResume'
 import {
   classifyObjectiveKind,
   evaluateEvidence,
@@ -61,6 +62,17 @@ import {
 // failed/blocked/needs_user/self_terminated menyimpan tab untuk inspeksi
 // (sejajar semantik extension: sesi error tidak pernah auto-close).
 export const shouldAutoCloseBrowser = (sessionOutcome) => sessionOutcome === 'completed'
+
+// Pure: bangun pause-state co-pilot dari jejak tool terakhir.
+// Tab identity (tabId) milik extension (Task 2, worker lain) — null = baca
+// tab sesi via browser-read query kosong. Testable.
+export const capturePausedBrowser = (executedToolsList = [], sessionId = 'default', goal = '') => {
+  const list = Array.isArray(executedToolsList) ? executedToolsList : []
+  const lastBrowser = [...list].reverse().find((t) => String(t?.tool || '').startsWith('browser'))
+  const q = String(lastBrowser?.query || '')
+  const url = /^https?:\/\//i.test(q) ? q : ''
+  return { sessionId: String(sessionId ?? 'default'), tabId: null, url, goal: String(goal || '') }
+}
 
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp']
 
@@ -159,6 +171,10 @@ export const useAbelinkPlan = ({
   }, [setChatData])
 
   const activeTaskObjectiveRef = useRef(null)
+  // Co-pilot HITL pause-state (bukan terminal): browser-ask menyimpan konteks
+  // {sessionId, tabId, url, goal}; giliran 'lanjutkan' resume via browser-read
+  // tab SAMA (tidak pernah re-navigate). Persisten antar giliran via ref.
+  const pausedBrowserRef = useRef(null)
   // Buffer intervensi user, dipisah per sesi agar arahan tidak bocor antar sesi
   // ({ [sessionId]: string[] }, kunci 'main' untuk sesi utama)
   const interventionBufferRef = useRef({})
@@ -659,6 +675,16 @@ export const useAbelinkPlan = ({
       // FASE 4: AGENTIC REACT LOOP
       // ------------------------------------------------------------------------
       const loopMessages = [...chatSession]
+      // Co-pilot resume: user 'lanjutkan' + pause-state tersimpan -> injeksikan
+      // [RESUME] + instruksikan browser-read tab SAMA (jangan navigate ulang).
+      if (isBrowserResumeRequest(finalContent) && pausedBrowserRef.current) {
+        try {
+          const resume = buildBrowserResume(pausedBrowserRef.current)
+          pausedBrowserRef.current = null
+          loopMessages.push({ role: 'user', content: resume.observation })
+          contextMsgStr += `[RESUME BROWSER] User melanjutkan. WAJIB baca ulang tab yang SAMA via browser-read (query "${resume.resumeAction.query || '(tab sesi)'}"). DILARANG browser-navigate ulang.\n`
+        } catch (_) {}
+      }
       let isDone = false
       let stepCount = 0
       let noActionStreak = 0
@@ -1216,7 +1242,15 @@ export const useAbelinkPlan = ({
           } else if (intent === INTENT.NEEDS_USER) {
             noActionStreak = 0
             sessionOutcome = 'needs_user'
-            activeTaskObjectiveRef.current = null
+            // Pause-state co-pilot (BUKAN terminal): simpan konteks browser agar
+            // giliran 'lanjutkan' resume via browser-read tab SAMA.
+            try {
+              pausedBrowserRef.current = capturePausedBrowser(
+                executedToolsList,
+                activeSessionNum,
+                decision?.objective || activeTaskObjectiveRef.current || userInput
+              )
+            } catch (_) {}
             lastTerminalReason = classification.reason || 'question-asked'
           } else if (intent === INTENT.SELF_TERMINATE) {
             // Agen menghentikan dirinya sendiri (di luar scope/bahaya).
@@ -1698,6 +1732,9 @@ export const useAbelinkPlan = ({
           const actionList = Array.isArray(decision.action) ? decision.action : [decision.action]
           const isBatch = actionList.length > 1
           const batchResults = []
+          // Batch halt (pola Anthropic/OpenAI halt-text): kegagalan pertama ->
+          // sisa batch TIDAK dieksekusi ({is_error:true, halt:true}).
+          let batchFailed = false
 
           for (let actionIdx = 0; actionIdx < actionList.length; actionIdx++) {
             const tool = actionList[actionIdx].tool
@@ -1705,6 +1742,20 @@ export const useAbelinkPlan = ({
 
             if (!tool) continue
             if (sessionAbortController.signal.aborted) break
+            if (isBatch && batchFailed) {
+              const haltMsg = `[${tool}] Not executed: an earlier action failed.`
+              batchResults.push(haltMsg)
+              executedToolsList.push({
+                tool,
+                query,
+                status: 'not-executed',
+                fullResult: haltMsg,
+                resultSummary: haltMsg,
+                is_error: true,
+                halt: true
+              })
+              continue
+            }
 
             // Anti-pengulangan: query IDENTIK 3x beruntun tidak dieksekusi lagi.
             // Kembalikan hasil terakhir (cache) + hitung sebagai kegagalan loop
@@ -1872,6 +1923,13 @@ export const useAbelinkPlan = ({
             }
 
             if (execResult.rejected) {
+              if (isBatch) {
+                // Batch: hasil masuk combined observation di bawah (tanpa
+                // observasi tunggal agar tidak ganda).
+                batchFailed = true
+                batchResults.push(`[${tool}] ${execResult.resultString}`)
+                continue
+              }
               loopMessages.push(
                 {
                   role: 'assistant',
@@ -1889,6 +1947,10 @@ export const useAbelinkPlan = ({
             // mereset. Penolakan approval BUKAN malfungsi -> diabaikan breaker
             // (sudah di-continue di atas).
             breaker.record(!String(execResult.resultString || '').startsWith('[ERROR]'))
+            // Batch halt: hasil [ERROR] menghentikan sisa batch.
+            if (isBatch && String(execResult.resultString || '').startsWith('[ERROR]')) {
+              batchFailed = true
+            }
 
             // Spiral stop: streak mencapai batas -> hentikan loop, beri model
             // satu giliran terakhir untuk jawaban final yang jujur.
