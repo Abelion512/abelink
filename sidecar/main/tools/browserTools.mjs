@@ -630,8 +630,14 @@ export const browserTools = {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'extract', value: String(query ?? '') }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
+      // Tanpa sesi extension: kontrak jujur — URL eksplisit/lastUrl atau
+      // error eksplisit. Jangan fetch buta (query kosong -> 403 + halu).
+      const { resolveExtractQuery } = await import('./extract-query.mjs')
+      const { getLastUrl } = await import('../browser/bridge-core.mjs')
+      const resolved = resolveExtractQuery(query, { hasSession: false, lastUrl: getLastUrl(targetSession) })
+      if (!resolved.ok) return { success: false, error: resolved.error }
       try {
-        return await browserReadFetch(query)
+        return await browserReadFetch(resolved.url)
       } catch (e) {
         return { success: false, error: e.message }
       }
