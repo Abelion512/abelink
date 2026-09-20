@@ -85,6 +85,57 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
    `message`/`error` eksplisit (atau melempar) agar konsumen tahu batas
    kemampuan, bukan diam-diam percaya fitur jalan.
 
+## 4. General Agentic Runtime Contract
+
+The agent runtime is domain-general rather than coding-specific. Opencode and Hermes remain the preferred external coding/delegation systems; Abelink focuses on orchestration, browser/OS automation, research, learning, memory, and long-horizon recovery.
+
+New runtime primitives:
+
+- `src/api/ai/autonomyContract.js` — compact model-facing protocol for research, browser, OS automation, code, learning, and general tasks. This is context/protocol engineering, not a replacement for model reasoning.
+- `src/api/ai/progressEvaluator.js` — deterministic comparison of consecutive observations. It distinguishes verification improvement, new evidence, semantic stagnation, regression, and neutral exploration.
+- `src/api/ai/trajectoryLearning.js` — bounds and separates successful trajectory evidence from failure diagnostics before model-based skill synthesis.
+
+Runtime flow:
+
+```
+objective
+  -> micro-plan / next hypothesis
+  -> policy + budget
+  -> tool execution
+  -> observation
+  -> objective verifier + progress evaluator
+  -> trajectory supervisor
+  -> continue / modify / explore / retrieve / stop
+  -> grounded trajectory learning
+```
+
+The objective verifier remains authoritative for completion. Progress evaluation must never bypass approval, watchdog, or budget guards.
+
+### Browser Observation Contract
+
+Browser observations are a reasoning interface, not a raw UI dump.
+
+The preferred payload order is:
+
+1. page identity (title, URL, session/tab identity)
+2. main semantic text
+3. relevant structured state
+4. task-relevant interactive elements
+5. visual/screenshot evidence only when text/DOM is insufficient
+
+`extension/background.js` now includes main-page text in the DOM observation. `extension/browser-observation.mjs` formats that payload with semantic text first and bounds the interactive control list before it reaches the model. This is intended to reduce context distraction on UI-heavy pages while preserving enough controls for the next action.
+
+### Research Reference Hierarchy
+
+Primary references for agent-runtime changes:
+
+- Anthropic context engineering and agent engineering: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+- OpenAI platform / agents / observability: https://platform.openai.com/docs
+- OpenAI Cookbook: https://cookbook.openai.com/
+- Hermes Agent docs and source: https://hermes-agent.nousresearch.com/docs/ and https://github.com/NousResearch/hermes-agent
+
+Secondary material is for discovery. Implementation decisions should be traceable to primary documentation, repository code, benchmarks, or reproducible tests.
+
 ## 4. Alur Data Kritis
 
 - **Chat/plan:** renderer `useAbelinkAgent` → `planning.js` → `node_invoke('ai:fetch')`
