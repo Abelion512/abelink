@@ -1,6 +1,7 @@
 import { fetchAI, cleanAndParse } from './core'
 import { saveLearnedSkill } from '../db'
 import { buildTrajectoryLearningPack, formatTrajectoryLearningPack } from './trajectoryLearning.js'
+import { isIndependentlyVerified } from './objectiveVerifier.js'
 
 /**
  * Dedicated Skill Synthesizer (Abelink Meta-Learning Engine)
@@ -13,7 +14,8 @@ export async function synthesizeSkillAndSave({
   finalAnswer = '',
   thought = '',
   verificationState = 'not_run',
-  outcome = 'unknown'
+  outcome = 'unknown',
+  objectiveKind = 'general'
 }) {
   try {
     if (!executedTools || executedTools.length === 0) {
@@ -86,8 +88,14 @@ Tugasmu adalah menyaring alur kerja teknis yang baru saja BERHASIL diselesaikan 
       // General Agentic Runtime: structural mini-eval cannot establish factual
       // correctness. Only independently verified trajectories may unlock
       // eval-based graduation; all new skills remain trial by default.
+      // The verifier owns what counts as proof: a conversational objective is
+      // EXEMPT from verification, so its 'verified' verdict must never be read
+      // as evidence (see isIndependentlyVerified).
       state: 'trial',
-      evidenceVerified: verificationState === 'verified'
+      evidenceVerified: isIndependentlyVerified({
+        verification: verificationState,
+        kind: objectiveKind
+      })
     })
 
     if (savedSkill) {
