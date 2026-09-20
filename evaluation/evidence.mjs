@@ -76,6 +76,9 @@ export function classifyEvidenceStatus({ observation = '', success = null } = {}
  */
 export function normalizeEvidenceRecord({
   runId = null,
+  benchmarkRunId = null,
+  executionId = null,
+  representation = null,
   taskId = null,
   lane = null,
   arch = 'basic',
@@ -97,11 +100,18 @@ export function normalizeEvidenceRecord({
   claim = false,
 } = {}) {
   const payload = String(observation ?? '')
+  // Execution identity: benchmarkRunId is the benchmark session, executionId is
+  // one concrete execution (session + taskId + iteration). `runId` stays as an
+  // alias of executionId so existing readers keep working.
+  const execution = executionId || runId || null
   return {
-    runId,
+    benchmarkRunId,
+    executionId: execution,
+    runId: execution,
     taskId,
     lane,
     arch,
+    representation,
     model,
     step: Number.isInteger(step) ? step : 0,
     tool: tool || null,
@@ -131,9 +141,11 @@ export function normalizeEvidenceRecord({
  */
 export function evidenceFromRun({
   runId = null,
+  benchmarkRunId = null,
   taskId = null,
   lane = null,
   arch = 'basic',
+  representation = null,
   model = null,
   trace = [],
   stepLog = [],
@@ -171,9 +183,11 @@ export function evidenceFromRun({
 
     const record = normalizeEvidenceRecord({
       runId,
+      benchmarkRunId,
       taskId,
       lane,
       arch,
+      representation,
       model,
       step: entry.step,
       tool: entry.tool,
@@ -279,13 +293,15 @@ export function summarizeEvidence(records = []) {
 }
 
 /** Run-level in-memory ledger. No persistence, no schema migration. */
-export function createEvidenceLedger({ runId = null, taskId = null, lane = null, arch = 'basic', model = null } = {}) {
+export function createEvidenceLedger({ runId = null, benchmarkRunId = null, taskId = null, lane = null, arch = 'basic', representation = null, model = null } = {}) {
   const records = []
   return {
     runId,
+    benchmarkRunId,
     taskId,
     lane,
     arch,
+    representation,
     model,
     records,
     add(record) {
@@ -309,6 +325,8 @@ export function provenanceChain({ result = null, evidence = null, oracle = null,
     result: result
       ? {
           runId: result.runId ?? null,
+          executionId: result.executionId ?? result.runId ?? null,
+          benchmarkRunId: result.benchmarkRunId ?? null,
           taskId: result.taskId ?? null,
           passed: result.passed === true,
           // The model's final answer is a claim; it is recorded, never trusted.

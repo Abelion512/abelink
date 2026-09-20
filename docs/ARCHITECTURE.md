@@ -211,6 +211,23 @@ Secondary material is for discovery. Implementation decisions should be traceabl
   `run.mjs --suite pr46` menjalankan matriks lewat runner yang sama.
   Verdict task tetap milik oracle; jawaban akhir model hanya klaim
   (`finalAnswerIsClaim: true`).
+  - **Identitas eksekusi:** `benchmarkRunId` (sesi) dipisah dari `executionId`
+    (`<sesi>-<taskId>-r<n>@<effort>`); report merekam
+    `identity.architectureCommit` (+`Short`/`Dirty`) dari git HEAD.
+  - **Eksperimen A wajib dua arm:** `comparison.valid` hanya `true` setelah
+    baseline (`--arch vanilla`) dan kandidat (`--arch basic`) sama-sama terukur
+    dengan identitas identik (`compareArmReports`). Satu arm = tidak valid,
+    seberapa pun lengkap identitas modelnya.
+  - **Ablasi representasi nyata:** `representation` fixture diteruskan ke
+    execution path (`ABELINK_BROWSER_OBSERVATION` → `renderBrowserObservation()`
+    di `extension/browser-observation.mjs`, dipakai
+    `sidecar/main/tools/browserTools.mjs`); default tetap semantic-first.
+  - **Lane reuse bersifat artifact-mediated:** fixture menyemai artefak sesi
+    sebelumnya; ini BUKAN bukti reuse memory/skill persisten (dicatat di
+    `reuseKind`/`notMeasured` tiap fixture).
+  - **Tanpa metrik palsu:** `repeatActionRate` dilaporkan sebagai apa adanya;
+    `unnecessaryActionRate` tetap `null` + alasan selama belum ada instrumentasi
+    yang membedakan aksi tidak perlu dari pengulangan yang sah.
 - **Knowledge:** dokumen → `ragPipeline.js` (chunk 500/50) → Dexie + Orama;
   workspace `.abelink/` → `workspace:*` channel → working memory disuntikkan ke
   system prompt.

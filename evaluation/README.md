@@ -18,7 +18,7 @@ dan **anti-cheat validator** — bukan angka simulasi.
 | `evidence.mjs` | **PR46** measurement plane: normalizer observasi tool yang sudah ada menjadi record bukti in-memory berprovenance. Reuse `progressEvaluator` (stagnasi) dan `objectiveVerifier` (kosakata verification state). Tanpa store baru. |
 | `metrics.mjs` | **PR46** metrik per-run + `abelinkbench-measurement-report`. Task success dan verified success dipisah; metrik yang tidak diekspos runtime bernilai `null`/`available:false`. Membungkus `aggregateRuns`, tidak menggantikannya. |
 | `pr46-matrix.mjs` | **PR46** matriks 30 fixture (research 6, browser 5, os 5, study 5, recovery 5, reuse 4) dengan oracle world-state deterministik + seeder per-lane. |
-| `pr46-experiments.mjs` | **PR46** spesifikasi eksperimen: identitas model exact (tanpa "latest"), integritas baseline-vs-kandidat, dan ablasi representasi browser (raw vs semantic-first). |
+| `pr46-experiments.mjs` | **PR46** spesifikasi eksperimen: identitas model exact (tanpa "latest"), integritas baseline-vs-kandidat (`vanilla` vs `basic`), `compareArmReports` (perbandingan valid hanya bila kedua arm terukur), dan ablasi representasi browser (raw vs semantic-first, wajib benar-benar bisa dirender runtime). |
 
 ## Task suite
 
@@ -65,8 +65,17 @@ Setiap run melaporkan (di `report.measurement`): task success, independently
 verified success, turn, tool call, retry, aksi berulang, stagnasi, recovery,
 latensi, biaya token bila tersedia, intervensi manusia, hasil oracle, dan alasan
 kegagalan. Agregat mencakup pass rate, verified-success rate, median/mean turn
-dan tool call, recovery success rate, unnecessary-action rate, verification
+dan tool call, recovery success rate, `repeatActionRate`, verification
 discipline, latency, dan token cost.
+
+Identitas eksekusi dipisah: `benchmarkRunId` (sesi) vs `executionId`
+(`<sesi>-<taskId>-r<n>@<effort>`), dan tiap report merekam
+`identity.architectureCommit` (+ `…Short`, `…Dirty`) dari `git rev-parse HEAD`.
+
+Catatan metrik: `repeatActionRate` = aksi berulang / tool call. Ini BUKAN
+"unnecessary action rate" — berulang tidak identik dengan tidak perlu, sehingga
+`unnecessaryActionRate` sengaja `null` beserta alasannya sampai ada
+instrumentasi yang benar-benar membedakannya.
 
 Batas eksplisit: adapter benchmark belum mengekspos verdict `objectiveVerifier`
 maupun kanal intervensi manusia, sehingga `runtimeVerificationState` biasanya
@@ -75,13 +84,39 @@ lihat batasan di PR description.
 
 Identitas model wajib exact (`--provider`, `--model`, `--model-version`). String
 seperti `latest` ditolak. Tanpa identitas lengkap, `report.measurement.identity`
-mencatat `null` dan `comparison.valid` bernilai `false`.
+mencatat `null`.
 
-Eksperimen yang didukung kode: (A) baseline main vs runtime PR45 dengan hanya
-`architecture` yang berbeda, (B) ablasi representasi browser raw vs
-semantic-first (`pr46-browser-04` vs `pr46-browser-05`), (C) matriks
-kompatibilitas model dengan identitas exact. Satu angka agregat BUKAN klaim
-rilis: perbandingan hanya valid bila variable tetap identik.
+Eksperimen yang didukung kode:
+
+- **(A) baseline vs kandidat runtime.** Satu invokasi = SATU arm, jadi satu run
+  tidak pernah bisa dibandingkan. Jalankan arm baseline dulu, lalu ulangi dengan
+  `--baseline-report`:
+
+  ```bash
+  node evaluation/run.mjs --suite pr46 --arch vanilla --measurement-out reports/arm-vanilla.json
+  node evaluation/run.mjs --suite pr46 --arch basic \
+    --measurement-out reports/arm-basic.json --baseline-report reports/arm-vanilla.json
+  ```
+
+  `comparison.valid` hanya `true` bila kedua arm ada, identitasnya identik
+  (`provider`, `modelId`, `modelVersion`, `toolConfig`, `fixtureSet`, `effort`,
+  `verifier`, `environment`, jumlah run berulang), dan `architecture` berbeda.
+  Tanpa itu alasannya eksplisit (`baseline-arm-missing` / `identity-mismatch` /
+  `same-architecture`). `vanilla` = perilaku model-only (pre-PR45), `basic` =
+  runtime PR45. Label `pr45` bukan nilai arch yang bisa dijalankan dan tidak lagi
+  dipakai sebagai arm.
+- **(B) ablasi representasi browser.** `raw` vs `semantic-first`
+  (`pr46-browser-04` vs `pr46-browser-05`) benar-benar mengubah
+  execution path: fixture meneruskan `representation` → adapter mengekspor
+  `ABELINK_BROWSER_OBSERVATION` → `sidecar/main/tools/browserTools.mjs` memakai
+  `renderBrowserObservation()` dari `extension/browser-observation.mjs`. Env
+  kosong = semantic-first (perilaku app tidak berubah). Pair-nya juga ditolak
+  bila salah satu nilai bukan representasi yang bisa dirender.
+- **(C) kompatibilitas model** dengan identitas exact; ini eksperimen
+  kompatibilitas, bukan leaderboard.
+
+Satu angka agregat BUKAN klaim rilis: perbandingan hanya valid bila variable
+tetap identik dan kedua arm benar-benar terukur.
 
 ### Orchestrator (`benchmark:run`)
 

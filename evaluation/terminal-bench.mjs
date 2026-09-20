@@ -220,6 +220,10 @@ export async function runTask(taskId, model, provider, opts = {}) {
     // Contoh path nyata di preamble (model tinggal salin, tak perlu menebak).
     // Relatif-workspace agar lolos fsGuard sidecar.
     workdir: promptWorkdir || null,
+    // PR46 browser-representation ablation: diteruskan ke adapter, yang
+    // mengekspor ABELINK_BROWSER_OBSERVATION ke sidecar. Tanpa fixture
+    // representasi, nilainya null dan runtime memakai default (semantic-first).
+    representation: task.representation || null,
   }
   const result = await runAbelinkAgent(taskDef, model, provider, { effort: opts.effort })
 
@@ -234,27 +238,41 @@ export async function runTask(taskId, model, provider, opts = {}) {
     ? task.verifier(result.response, ctx)
     : task.verifier(result.response, verifierSentinel, ctx)
 
-  // --- PR46 measurement plane (additive): evidence + per-run metrics. ---
+  // PR46 measurement plane (additive): evidence + per-run metrics. ---
   // The oracle verdict above stays authoritative; the model final answer is
   // recorded as a claim for provenance, never as a success signal.
   const trace = result.trace || result.trajectory?.trace || []
   const modelIdentity = opts.modelIdentity || null
   const oracleIndependent = task.oracleIndependent === true || isWorldTask
+  // Execution identity: benchmarkRunId is the session, executionId is one
+  // concrete execution (benchmarkRunId + taskId + iteration["@"effort]).
+  const benchmarkRunId = opts.benchmarkRunId || opts.runId || null
+  const iteration = Number.isInteger(opts.iteration) ? opts.iteration : null
+  const executionId =
+    opts.executionId ||
+    (benchmarkRunId && iteration !== null
+      ? `${benchmarkRunId}-${taskId}-r${iteration}${result.effort ? `@${result.effort}` : ''}`
+      : null)
   const evidence = evidenceFromRun({
-    runId: opts.runId || null,
+    runId: executionId,
+    benchmarkRunId,
     taskId,
     lane: task.lane || null,
     arch: result.arch || 'basic',
+    representation: task.representation || null,
     model: modelIdentity,
     trace,
     stepLog,
   })
   const metrics = computeRunMetrics({
     run: {
-      runId: opts.runId || null,
+      runId: executionId,
+      benchmarkRunId,
+      iteration,
       taskId,
       arch: result.arch || 'basic',
       effort: result.effort,
+      representation: task.representation || null,
       model: modelIdentity,
       steps: result.trajectory.steps,
       toolCalls: result.trajectory.toolCalls,
@@ -282,6 +300,10 @@ export async function runTask(taskId, model, provider, opts = {}) {
     trajectory: result.trajectory,
     stepLog,
     workdir,
+    // PR46 execution identity + representation actually used.
+    executionId,
+    benchmarkRunId,
+    representation: result.representation ?? task.representation ?? null,
     // Effort direkam di SETIAP task result (bukan hanya config laporan) —
     // syarat A/B per-effort & analisis effort-scaling.
     effort: result.effort,

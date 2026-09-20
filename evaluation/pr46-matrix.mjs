@@ -113,6 +113,20 @@ const hasAnyTool = (stepLog, tools) => flattenCalls(stepLog).some((c) => !isFail
 const containsAll = (text, tokens) => typeof text === 'string' && tokens.every((t) => text.includes(t))
 const containsNone = (text, tokens) => typeof text === 'string' && tokens.every((t) => !text.includes(t))
 
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&')
+
+/**
+ * True when `a` and `b` occur within `maxGap` characters of each other (either
+ * order). Used so a provenance oracle checks a claim is actually tied to its
+ * source, instead of both strings merely appearing somewhere in the document.
+ */
+export function pairedWithin(text, a, b, maxGap = 40) {
+  if (typeof text !== 'string' || !text) return false
+  const A = escapeRe(a)
+  const B = escapeRe(b)
+  return new RegExp(`(${A}[\\s\\S]{0,${maxGap}}${B}|${B}[\\s\\S]{0,${maxGap}}${A})`).test(text)
+}
+
 function writeWorld(workdir, files) {
   for (const [rel, content] of Object.entries(files)) {
     const p = join(workdir, rel)
@@ -182,7 +196,10 @@ const RESEARCH = [
         'decoy.txt': `topik:lain\nfakta:FAKTA-X9\nkode:${sentinel}\n`,
       }),
     verify: (_output, { sentinel, workdir, stepLog }) => {
-      if (!hasToolEvidence(stepLog, ['write-file'])) return false
+      // A "negative evidence" research verdict must be grounded in an actual
+      // attempt to read the sources: without read-file the agent could skip
+      // inspection entirely and still write "not found".
+      if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'temuan.md')
       if (!containsAll(md, [sentinel]) || !containsNone(md, ['FAKTA-X9'])) return false
       return /(tidak ditemukan|tidak ada bukti|not found|no evidence)/i.test(md || '')
@@ -253,7 +270,12 @@ const RESEARCH = [
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'provenance.md')
       if (!containsAll(md, ['KLM-A1', 'KLM-B2', 'KLM-C3', 'SRC-A', 'SRC-B', 'SRC-C', sentinel])) return false
-      return /(KLM-A1[\s\S]{0,40}SRC-A|SRC-A[\s\S]{0,40}KLM-A1)/.test(md)
+      // Every claim must be tied to its own source, not just to one of them.
+      return [
+        ['KLM-A1', 'SRC-A'],
+        ['KLM-B2', 'SRC-B'],
+        ['KLM-C3', 'SRC-C'],
+      ].every(([claim, src]) => pairedWithin(md, claim, src))
     },
   },
 ]
@@ -787,7 +809,29 @@ function withDefaults(fixture) {
 
 const ALL = [...RESEARCH, ...BROWSER, ...OS, ...STUDY, ...RECOVERY, ...REUSE]
 
-export const PR46_TASKS = Object.fromEntries(ALL.map((f) => [f.taskId, withDefaults(f)]))
+// Lane meaning, recorded on every fixture so a report cannot overstate it. The
+// reuse lane is ARTIFACT-MEDIATED: the fixture seeds a previous-session artifact
+// and the agent reads it. It does not exercise the persistent memory/skill
+// subsystem, so it must never be reported as cross-session memory reuse.
+export const PR46_LANE_CLAIMS = Object.freeze({
+  [PR46_LANES.REUSE]: Object.freeze({
+    kind: 'artifact-mediated',
+    measuredClaim: 'reuse of a prior-session artifact present in the fixture world',
+    notMeasured: 'persistent memory/skill subsystem reuse across real sessions',
+  }),
+})
+
+export const PR46_TASKS = Object.fromEntries(
+  ALL.map((f) => {
+    const task = withDefaults(f)
+    if (task.lane === PR46_LANES.REUSE) {
+      task.reuseKind = PR46_LANE_CLAIMS[PR46_LANES.REUSE].kind
+      task.measuredClaim = PR46_LANE_CLAIMS[PR46_LANES.REUSE].measuredClaim
+      task.notMeasured = PR46_LANE_CLAIMS[PR46_LANES.REUSE].notMeasured
+    }
+    return [task.taskId, task]
+  })
+)
 
 // Browser representation ablation pair: same page, same task, same oracle;
 // only the observation representation differs.
@@ -828,6 +872,7 @@ export function seedPr46Fixture(task, workdir, sentinel) {
 export default {
   PR46_LANES,
   PR46_LANE_COUNTS,
+  PR46_LANE_CLAIMS,
   PR46_TOTAL_FIXTURES,
   PR46_TASKS,
   PR46_ABLATION_PAIRS,
@@ -837,4 +882,5 @@ export default {
   flattenCalls,
   failureThenSuccess,
   maxAdjacentRepeats,
+  pairedWithin,
 }

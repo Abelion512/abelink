@@ -16,6 +16,13 @@ import { summarizeEvidence, EVIDENCE_STATUS } from './evidence.mjs'
 
 export const MEASUREMENT_SCHEMA_VERSION = 1
 
+// Why `unnecessaryActionRate` is unavailable rather than derived: the runtime
+// exposes repeats, not intent. A repeated poll can be legitimate and a
+// non-repeated call can be redundant, so repeats/toolCalls is reported as
+// `repeatActionRate` and the unnecessary-action metric stays explicitly null.
+export const UNNECESSARY_ACTION_UNAVAILABLE_REASON =
+  'no instrumentation distinguishes an unnecessary action from a legitimate repeated action (see repeatActionRate)'
+
 // Explicit "unavailable" token cost. The adapter reports null token usage; we
 // never substitute a steps*N estimate.
 export const TOKEN_COST_UNAVAILABLE = Object.freeze({
@@ -97,11 +104,18 @@ export function computeRunMetrics({
   const independent = oracle.independent === true
 
   return {
+    // Execution identity: benchmarkRunId = session, executionId = one concrete
+    // execution (session + taskId + iteration). `runId` stays as an alias.
+    benchmarkRunId: run.benchmarkRunId ?? null,
+    executionId: run.runId ?? null,
     runId: run.runId ?? null,
+    iteration: Number.isInteger(run.iteration) ? run.iteration : null,
     taskId: run.taskId ?? task.taskId ?? null,
     lane: task.lane ?? run.lane ?? null,
     arch: run.arch ?? 'basic',
     effort: run.effort ?? null,
+    // Observation representation used at the execution path (null = runtime default).
+    representation: run.representation ?? null,
     model: run.model ?? null,
     // Oracle is authoritative; the final answer is a claim only.
     taskSuccess: passed,
@@ -157,6 +171,9 @@ export function aggregateMetrics(runs = []) {
   const repeated = list.reduce((a, r) => a + (r.repeatedActions || 0), 0)
   const toolCalls = list.reduce((a, r) => a + (r.toolCalls || 0), 0)
   const tokenRuns = list.filter((r) => r.tokenCost?.available)
+  // Distinct executions actually collected (guards against a session-level id
+  // being reused across tasks/iterations).
+  const executions = new Set(list.map((r) => r.executionId ?? r.runId).filter(Boolean))
 
   const byLane = {}
   for (const run of list) {
@@ -173,6 +190,7 @@ export function aggregateMetrics(runs = []) {
 
   return {
     runCount: total,
+    executionCount: executions.size,
     passRate: rate(passed, total),
     verifiedSuccessRate: rate(verified, total),
     medianTurns: median(list.map((r) => r.turns)),
@@ -181,8 +199,11 @@ export function aggregateMetrics(runs = []) {
     meanToolCalls: mean(list.map((r) => r.toolCalls)),
     // Recovery rate needs observed failures; null when nothing failed.
     recoverySuccessRate: failures > 0 ? rate(recoveryEvents, failures) : null,
-    // Unnecessary-action rate from existing instrumentation; null without calls.
-    unnecessaryActionRate: toolCalls > 0 ? rate(repeated, toolCalls) : null,
+    // Repeats over tool calls. Deliberately NOT called an unnecessary-action
+    // rate: repeats are observable, unnecessary-intent is not instrumented.
+    repeatActionRate: toolCalls > 0 ? rate(repeated, toolCalls) : null,
+    unnecessaryActionRate: null,
+    unnecessaryActionRateReason: UNNECESSARY_ACTION_UNAVAILABLE_REASON,
     // Verification discipline: how often an oracle pass was independently supported.
     verificationDiscipline: passed > 0 ? rate(verified, passed) : null,
     evidenceFailureCount: failures,
@@ -213,7 +234,9 @@ export function aggregateMetrics(runs = []) {
  */
 export function buildMeasurementReport({ runs = [], config = {} } = {}) {
   const aggregate = aggregateMetrics(runs)
-  const comparable = config.comparison?.valid !== false
+  // Only an explicit `valid: true` (set by a caller that actually has both
+  // arms) counts. A missing comparison block must never read as comparable.
+  const comparable = config.comparison?.valid === true
   return {
     schemaVersion: MEASUREMENT_SCHEMA_VERSION,
     kind: 'abelinkbench-measurement-report',
@@ -223,7 +246,10 @@ export function buildMeasurementReport({ runs = [], config = {} } = {}) {
     // Every report must be able to answer "which exact model/arch ran".
     identity: {
       architecture: config.arch || 'basic',
-      architectureCommit: config.commit || null,
+      // Which revision of the runtime was measured (reproducibility).
+      architectureCommit: config.commit?.sha ?? config.commit ?? null,
+      architectureCommitShort: config.commit?.short ?? null,
+      architectureCommitDirty: config.commit?.dirty ?? null,
       provider: config.provider || null,
       modelId: config.modelId || null,
       modelVersion: config.modelVersion || null,
@@ -236,6 +262,8 @@ export function buildMeasurementReport({ runs = [], config = {} } = {}) {
     comparison: {
       ...(config.comparison || {}),
       valid: comparable,
+      // Explicit: a run is one arm. Comparability requires both arms.
+      reason: comparable ? config.comparison.reason || 'both arms present' : config.comparison?.reason || 'baseline-arm-missing',
     },
     // Repeated runs are mandatory for stochastic models; count is explicit.
     note:
@@ -247,6 +275,7 @@ export function buildMeasurementReport({ runs = [], config = {} } = {}) {
 
 export default {
   MEASUREMENT_SCHEMA_VERSION,
+  UNNECESSARY_ACTION_UNAVAILABLE_REASON,
   TOKEN_COST_UNAVAILABLE,
   normalizeTokenCost,
   classifyFailure,

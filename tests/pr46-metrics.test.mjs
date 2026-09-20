@@ -15,7 +15,10 @@ const evidence = (stepLog) => evidenceFromRun({ taskId: 't', stepLog })
 const okEvidence = evidence([{ step: 1, type: 'tool', tool: 'write-file', result: 'ok', success: true }])
 
 const run = (over = {}) => ({
-  runId: 'r1',
+  // runId is the concrete execution; benchmarkRunId is the session.
+  runId: 'r1-t-r1@low',
+  benchmarkRunId: 'r1',
+  iteration: 1,
   taskId: 't',
   arch: 'basic',
   effort: 'low',
@@ -113,6 +116,38 @@ describe('computeRunMetrics', () => {
     expect(metrics.recoveryEvents).toBe(1)
     expect(metrics.retries).toBe(1)
   })
+
+  it('records execution identity separately from the benchmark session', () => {
+    const ev = evidenceFromRun({
+      runId: 'r1-t-r1@low',
+      benchmarkRunId: 'r1',
+      taskId: 't',
+      stepLog: [{ step: 1, type: 'tool', tool: 'write-file', result: 'ok', success: true }],
+    })
+    const metrics = computeRunMetrics({
+      run: run(),
+      task: { taskId: 't', lane: 'os', maxTurns: 10 },
+      evidence: ev,
+      oracle: { passed: true, independent: true, kind: 'world-state' },
+    })
+    expect(metrics.benchmarkRunId).toBe('r1')
+    expect(metrics.executionId).toBe('r1-t-r1@low')
+    expect(metrics.iteration).toBe(1)
+    // Evidence carries the same identity, so a report traces back per execution.
+    expect(ev[0].executionId).toBe('r1-t-r1@low')
+    expect(ev[0].runId).toBe('r1-t-r1@low')
+    expect(ev[0].benchmarkRunId).toBe('r1')
+  })
+
+  it('records the observation representation actually used', () => {
+    const metrics = computeRunMetrics({
+      run: run({ representation: 'raw' }),
+      task: { taskId: 't', lane: 'browser', maxTurns: 12 },
+      evidence: okEvidence,
+      oracle: { passed: true, independent: true, kind: 'world-state' },
+    })
+    expect(metrics.representation).toBe('raw')
+  })
 })
 
 describe('aggregateMetrics', () => {
@@ -138,11 +173,34 @@ describe('aggregateMetrics', () => {
     expect(+agg.passRate).toBeCloseTo(0.667, 3)
   })
 
-  it('recovery/unnecessary rates are null when nothing was observed', () => {
+  it('recovery/repeat rates are null when nothing was observed', () => {
     const agg = aggregateMetrics([metric({ run: { steps: 1, toolCalls: 0 }, passed: true })])
     expect(agg.recoverySuccessRate).toBeNull()
-    expect(agg.unnecessaryActionRate).toBeNull()
+    expect(agg.repeatActionRate).toBeNull()
     expect(agg.humanInterventionRate).toBeNull()
+  })
+
+  it('never fabricates an unnecessary-action rate from repeats', () => {
+    const repeated = evidence([
+      { step: 1, type: 'tool', tool: 'browser-read', result: 'same', success: true },
+      { step: 2, type: 'tool', tool: 'browser-read', result: 'same', success: true },
+    ])
+    const m = metric({ run: { toolCalls: 2 }, evidence: repeated, passed: true })
+    const agg = aggregateMetrics([m])
+    // Repeats over calls is reported as repeats, never relabeled as intent:
+    // one repeated call out of two tool calls.
+    expect(agg.repeatActionRate).toBe(0.5)
+    expect(agg.unnecessaryActionRate).toBeNull()
+    expect(agg.unnecessaryActionRateReason).toMatch(/repeatActionRate/)
+  })
+
+  it('counts distinct executions, not session labels', () => {
+    const agg = aggregateMetrics([
+      metric({ run: { runId: 's-t1-r1@low' }, taskId: 't1' }),
+      metric({ run: { runId: 's-t2-r1@low' }, taskId: 't2' }),
+    ])
+    expect(agg.runCount).toBe(2)
+    expect(agg.executionCount).toBe(2)
   })
 
   it('verification discipline counts verified passes', () => {
@@ -182,7 +240,7 @@ describe('buildMeasurementReport', () => {
         provider: 'prov',
         modelId: 'model-x',
         modelVersion: '2026-09-01',
-        comparison: { valid: true, baseline: 'main', candidate: 'pr45' },
+        comparison: { valid: true, baseline: 'vanilla', candidate: 'basic' },
       },
     })
     expect(report.kind).toBe('abelinkbench-measurement-report')
@@ -190,6 +248,7 @@ describe('buildMeasurementReport', () => {
     expect(report.repeatedRunsPerTask).toBe(3)
     expect(report.identity.modelVersion).toBe('2026-09-01')
     expect(report.comparison.valid).toBe(true)
+    expect(report.comparison.reason).toBe('both arms present')
     expect(report.aggregate.runCount).toBe(1)
     // Must survive JSON round-trip: reports are consumed by tooling.
     expect(JSON.parse(JSON.stringify(report)).aggregate.passRate).toBe(1)
@@ -201,6 +260,28 @@ describe('buildMeasurementReport', () => {
       config: { suite: 'pr46', runs: 1, comparison: { valid: false } },
     })
     expect(report.comparison.valid).toBe(false)
+  })
+
+  it('a missing comparison block is never comparable (identity alone is not proof)', () => {
+    const report = buildMeasurementReport({
+      runs: [],
+      config: { suite: 'pr46', runs: 3, provider: 'prov', modelId: 'model-x', modelVersion: '2026-09-01' },
+    })
+    expect(report.comparison.valid).toBe(false)
+    expect(report.comparison.reason).toBe('baseline-arm-missing')
+  })
+
+  it('records which architecture revision was measured', () => {
+    const sha = 'a'.repeat(40)
+    const report = buildMeasurementReport({
+      runs: [],
+      config: { suite: 'pr46', runs: 3, commit: { sha, short: sha.slice(0, 12), dirty: true } },
+    })
+    expect(report.identity.architectureCommit).toBe(sha)
+    expect(report.identity.architectureCommitShort).toBe(sha.slice(0, 12))
+    expect(report.identity.architectureCommitDirty).toBe(true)
+    // Absent commit stays null rather than being invented.
+    expect(buildMeasurementReport({ runs: [], config: {} }).identity.architectureCommit).toBeNull()
   })
 })
 

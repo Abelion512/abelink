@@ -226,8 +226,73 @@ describe('PR46 representation ablation pair', () => {
       const result = validateAblationPair(PR46_TASKS[pair.raw], PR46_TASKS[pair.semanticFirst])
       expect(result.valid, JSON.stringify(result.mismatches)).toBe(true)
       expect(result.representationDiffers).toBe(true)
+      // Both values must exist in the execution path, otherwise the pair runs
+      // identically and "raw vs semantic-first" would be a label-only claim.
+      expect(result.runtimeSupported).toBe(true)
       expect(PR46_TASKS[pair.raw].representation).toBe('raw')
       expect(PR46_TASKS[pair.semanticFirst].representation).toBe('semantic-first')
+    }
+  })
+})
+
+describe('PR46 oracle hardening (evidence provenance)', () => {
+  it('negative-evidence fixture requires an actual read, not just a write', () => {
+    const task = PR46_TASKS['pr46-research-03']
+    const dir = caseDir('negative-evidence')
+    seedPr46Fixture(task, dir, SENTINEL)
+    writeWorldFile(dir, 'temuan.md', `tidak ditemukan bukti, kode ${SENTINEL}`)
+    // Writing "not found" without inspecting any source is not research.
+    expect(
+      task.verify('x', { sentinel: SENTINEL, workdir: dir, stepLog: [{ tool: 'write-file', result: 'ok' }] })
+    ).toBe(false)
+    expect(
+      task.verify('x', {
+        sentinel: SENTINEL,
+        workdir: dir,
+        stepLog: [
+          { tool: 'read-file', result: 'ok' },
+          { tool: 'write-file', result: 'ok' },
+        ],
+      })
+    ).toBe(true)
+  })
+
+  it('provenance fixture ties every claim to its own source', () => {
+    const task = PR46_TASKS['pr46-research-06']
+    const dir = caseDir('provenance-pairing')
+    seedPr46Fixture(task, dir, SENTINEL)
+    const stepLog = [
+      { tool: 'read-file', result: 'ok' },
+      { tool: 'write-file', result: 'ok' },
+    ]
+    // Every token is present, but the claim/source pairs are far apart.
+    const scattered = [
+      'KLM-A1',
+      'KLM-B2',
+      'KLM-C3',
+      ...Array.from({ length: 6 }, (_, i) => `baris-${i} pengisi dokumen`),
+      'SRC-A',
+      'SRC-B',
+      'SRC-C',
+      SENTINEL,
+    ].join('\n')
+    writeWorldFile(dir, 'provenance.md', scattered)
+    expect(task.verify('x', { sentinel: SENTINEL, workdir: dir, stepLog })).toBe(false)
+
+    writeWorldFile(
+      dir,
+      'provenance.md',
+      `klaim:KLM-A1 sumber:SRC-A\nklaim:KLM-B2 sumber:SRC-B\nklaim:KLM-C3 sumber:SRC-C\nkode:${SENTINEL}\n`
+    )
+    expect(task.verify('x', { sentinel: SENTINEL, workdir: dir, stepLog })).toBe(true)
+  })
+
+  it('records the reuse lane as artifact-mediated, never as memory reuse', () => {
+    const reuse = Object.values(PR46_TASKS).filter((t) => t.lane === PR46_LANES.REUSE)
+    expect(reuse.length).toBe(4)
+    for (const t of reuse) {
+      expect(t.reuseKind).toBe('artifact-mediated')
+      expect(t.notMeasured).toMatch(/memory|skill/i)
     }
   })
 })

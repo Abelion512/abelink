@@ -249,3 +249,36 @@ These are methodology references. Their published scores must not be copied into
 Do not open PR #46 yet.
 
 First update PR #45 with this benchmark contract as documentation. After PR #45 is merged, create PR #46 from main and implement the measurement changes against the documented contract.
+
+## Status implementasi (2026-09-20)
+
+Keputusan di atas sudah dieksekusi: PR #45 merged (`main` @ `9f8ffdb`), PR #46
+dibuka dari `main` di branch `feat/typed-evidence-plane-agent-benchmark-matrix`.
+Patch PR #46 mengimplementasikan measurement plane + matriks 30 fixture terhadap
+kontrak dokumen ini.
+
+| Kontrak di dokumen ini | Implementasi | Catatan |
+|---|---|---|
+| Record bukti minimal berprovenance, tanpa store baru | `evaluation/evidence.mjs` | ledger in-memory; reuse `progressEvaluator.js` (stagnasi/fingerprint) + `objectiveVerifier.js` (kosakata verified). Tidak ada skema Dexie baru. |
+| Metrik per-run + report machine-readable | `evaluation/metrics.mjs` | `abelinkbench-measurement-report` membungkus `aggregateRuns` (schemaVersion 3 tetap hidup), tidak menggantikannya. |
+| Matriks 30 fixture (6/5/5/5/5/4) | `evaluation/pr46-matrix.mjs` | id + `variant` unik, nol tabrakan dengan `ALL_TASKS`/`ARCH_TASKS`; oracle world-state deterministik + sentinel per-run. |
+| Eksperimen A (main vs PR #45) | `pr46-experiments.mjs` + `run.mjs --baseline-report` | Arm = `vanilla` (baseline, perilaku model-only/pre-PR45) vs `basic` (kandidat, runtime PR45). `comparison.valid` hanya `true` bila kedua arm terukur dengan identitas identik. |
+| Eksperimen B (ablasi representasi) | `extension/browser-observation.mjs` + `sidecar/main/tools/browserTools.mjs` + adapter | Switch nyata lewat `ABELINK_BROWSER_OBSERVATION`; default `semantic-first`; pasangan ditolak bila representasinya tidak bisa dirender. |
+| Eksperimen C (kompatibilitas model) | `makeModelIdentity()` | `latest`/`default`/`stable`/… ditolak; eksperimen kompatibilitas, bukan leaderboard. |
+| Anti-cheat / anti-hallucination | verifier world-state + sentinel acak per-run + `pairedWithin()` (klaim terikat ke sumbernya) | Lihat ringkasan invarian di `../ARCHITECTURE.md` dan `../../AGENTS.md`. |
+
+Deviasi yang didokumentasikan (bukan disembunyikan):
+
+- **Lane cross-session reuse** diukur sebagai **artifact-mediated reuse** (fixture
+  menyemai artefak sesi sebelumnya), BUKAN reuse memory/skill persisten. Dicatat
+  di `reuseKind`/`measuredClaim`/`notMeasured` tiap fixture. Lane & jumlah tetap 4.
+- **Verdict `objectiveVerifier` runtime belum masuk report** karena adapter
+  benchmark belum mengeksposnya, sehingga verified-success bersumber dari oracle
+  world-state harness (`runtimeVerificationState` biasanya `not_run`). Ini butuh
+  perubahan kecil terpisah, bukan ditambal di PR #46.
+- **Belum ada hasil terukur.** Dokumen ini dan PR #46 tidak mengklaim bahwa PR #45
+  meningkatkan reliabilitas runtime; klaim semacam itu hanya sah setelah
+  perbandingan dua arm pada provider nyata dijalankan dan dilaporkan.
+- **Token cost & intervensi manusia** `null`/`available:false` (tidak ada kanal).
+  `repeatActionRate` dilaporkan apa adanya; `unnecessaryActionRate` tetap `null`
+  sampai ada instrumentasi yang membedakannya dari pengulangan yang sah.

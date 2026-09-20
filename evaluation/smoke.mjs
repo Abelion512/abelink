@@ -400,7 +400,13 @@ import {
   makeModelIdentity,
   baselineVsCandidateSpec,
   validateAblationPair,
+  representationAblationSpec,
+  compareArmReports,
 } from './pr46-experiments.mjs'
+import {
+  renderBrowserObservation,
+  resolveObservationRepresentation,
+} from '../extension/browser-observation.mjs'
 
 assert.equal(PR46_TOTAL_FIXTURES, 30, 'PR46 matrix = 30 fixture')
 assert.equal(Object.keys(PR46_TASKS).length, 30, 'PR46 registry memuat 30 fixture')
@@ -419,7 +425,30 @@ assert.equal(
 )
 assert.equal(PR46_TASKS[pair.raw].representation, 'raw')
 assert.equal(PR46_TASKS[pair.semanticFirst].representation, 'semantic-first')
-console.log('[ok] PR46 ablasi representasi browser utuh')
+assert.equal(
+  representationAblationSpec({
+    pairs: [{ id: pair.id, raw: PR46_TASKS[pair.raw], semanticFirst: PR46_TASKS[pair.semanticFirst] }],
+  }).runtimeSupported,
+  true,
+  'kedua representasi wajib ada di execution path, bukan label fixture saja'
+)
+console.log('[ok] PR46 ablasi representasi browser utuh + representasi benar-benar dirender')
+
+// Representasi = switch nyata: raw dan semantic-first harus menghasilkan
+// observasi berbeda, dan default runtime tetap semantic-first.
+const pr46Payload = {
+  title: 'Beranda-UTAMA',
+  url: 'https://example.test',
+  text: 'TEKS-UTAMA',
+  elements: [{ abelinkId: 'ak1', tag: 'a', text: 'TAUTAN-1', inViewport: true }],
+}
+const rawObservation = renderBrowserObservation(pr46Payload, { representation: 'raw' })
+const semanticObservation = renderBrowserObservation(pr46Payload, { representation: 'semantic-first' })
+assert.notEqual(rawObservation, semanticObservation, 'raw vs semantic-first wajib berbeda')
+assert.equal(semanticObservation, renderBrowserObservation(pr46Payload), 'default runtime tetap semantic-first')
+assert.equal(resolveObservationRepresentation(), 'semantic-first')
+assert.throws(() => resolveObservationRepresentation('nope'), 'representasi tak dikenal wajib gagal')
+console.log('[ok] PR46 switch representasi observasi (raw vs semantic-first) nyata')
 
 // Identitas model: exact, bukan "latest".
 const identity = makeModelIdentity({ provider: 'openai', modelId: 'gpt-6-astra', modelVersion: '2026-09-01' })
@@ -443,6 +472,29 @@ const spec = baselineVsCandidateSpec({
   runs: 3,
 })
 assert.equal(spec.comparability.valid, true, 'A/B valid hanya bila semua variabel tetap sama')
+// Experiment A memakai arch yang benar-benar bisa dijalankan runtime.
+assert.equal(spec.arms.baseline.architecture, 'vanilla', 'baseline = perilaku model-only (pre-PR45)')
+assert.equal(spec.arms.candidate.architecture, 'basic', 'kandidat = runtime PR45')
+assert.equal(spec.runnable, true)
+
+// Perbandingan valid hanya bila KEDUA arm benar-benar terukur.
+const armIdentity = (arch) => ({
+  repeatedRunsPerTask: 3,
+  identity: {
+    provider: 'openai',
+    modelId: 'gpt-6-astra',
+    modelVersion: '2026-09-01',
+    toolConfig: 'core+groups',
+    fixtureSet: 'pr46-matrix',
+    effort: 'high',
+    verifier: 'deterministic-world-state-predicate',
+    environment: 'local',
+    architecture: arch,
+  },
+})
+assert.equal(compareArmReports({ baseline: null, candidate: armIdentity('basic') }).valid, false, 'satu arm tidak bisa dibandingkan')
+assert.equal(compareArmReports({ baseline: armIdentity('vanilla'), candidate: armIdentity('basic') }).valid, true)
+assert.equal(compareArmReports({ baseline: armIdentity('vanilla'), candidate: armIdentity('vanilla') }).valid, false, 'arch sama bukan eksperimen')
 console.log('[ok] PR46 identitas model + integritas perbandingan baseline/kandidat')
 
 // Evidence + metrik: oracle independen, jawaban model hanya klaim.
@@ -467,6 +519,26 @@ assert.equal(aggregateMetrics([metrics]).verifiedSuccessRate, 0)
 const measurement = buildMeasurementReport({ runs: [metrics], config: { suite: 'pr46', runs: 3, comparison: { valid: true } } })
 assert.equal(measurement.kind, 'abelinkbench-measurement-report')
 assert.equal(measurement.repeatedRunsPerTask, 3, 'jumlah run berulang wajib eksplisit')
+
+// Tanpa arm baseline, perbandingan TIDAK valid meski identitas model lengkap.
+const singleArm = buildMeasurementReport({
+  runs: [metrics],
+  config: {
+    suite: 'pr46',
+    runs: 3,
+    provider: 'openai',
+    modelId: 'gpt-6-astra',
+    modelVersion: '2026-09-01',
+    commit: { sha: 'a'.repeat(40), short: 'a'.repeat(12), dirty: false },
+  },
+})
+assert.equal(singleArm.comparison.valid, false, 'identitas lengkap ≠ perbandingan valid')
+assert.equal(singleArm.comparison.reason, 'baseline-arm-missing')
+assert.equal(singleArm.identity.architectureCommit, 'a'.repeat(40), 'commit arsitektur wajib direkam')
+// Metric yang tidak terinstrumentasi tidak boleh difabrikasi.
+assert.equal(measurement.aggregate.unnecessaryActionRate, null)
+assert.ok(measurement.aggregate.unnecessaryActionRateReason, 'alasan ketidaktersediaan wajib eksplisit')
+assert.ok('repeatActionRate' in measurement.aggregate)
 console.log('[ok] PR46 evidence + metrik per-run + laporan pengukuran')
 
 // Fixture seeding + oracle dunia (tanpa LLM).

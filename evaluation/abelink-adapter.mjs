@@ -116,12 +116,21 @@ export function normalizeEffort(value, fallback = 'low') {
 
 
 // ---- Persistent sidecar child with id-multiplexed JSON-lines RPC ----
-function createSidecar(arch = 'basic') {
+// `representation` (PR46 browser ablation) is forwarded to the child so the
+// observation path really renders differently: sidecar/main/tools/browserTools
+// reads ABELINK_BROWSER_OBSERVATION via resolveObservationRepresentation().
+// null/undefined means "unset" -> semantic-first (unchanged app behavior).
+function createSidecar(arch = 'basic', representation = null) {
   const child = spawn(BUN, [SIDECAR], {
     stdio: ['pipe', 'pipe', 'pipe'],
     // ABELINK_BENCH_ARCH propagates the arch axis to the engine so executor-side
     // wiring (renderer Task 5 lineage/scoring, future engine gates) can read it.
-    env: { ...process.env, ABELINK_DEBUG_AI: '0', ABELINK_BENCH_ARCH: arch },
+    env: {
+      ...process.env,
+      ABELINK_DEBUG_AI: '0',
+      ABELINK_BENCH_ARCH: arch,
+      ...(representation ? { ABELINK_BROWSER_OBSERVATION: representation } : {}),
+    },
   })
 
   const pending = new Map() // id -> { resolve, reject, timer }
@@ -415,7 +424,7 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
   let toolCalls = 0
   let response = ''
 
-  const sidecar = createSidecar(arch)
+  const sidecar = createSidecar(arch, task?.representation || null)
   try {
     // Turn budget: task.maxTurns menimpa default MAX_ITER (ala turn-limit
     // eval — MCP Atlas memakai limit 100 turn). Tidak ada loop tak terbatas.
@@ -510,6 +519,9 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
       arch,
       model,
       provider: provider || 'gemini-web',
+      // PR46: observation representation actually used for this run (null =
+      // runtime default, i.e. semantic-first).
+      browserObservationRepresentation: task?.representation || null,
       architectureVersion: AGENT_ARCH_VERSION,
       benchmarkSchemaVersion: BENCH_SCHEMA_VERSION,
     },
@@ -519,6 +531,8 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
   return {
     effort,
     arch,
+    // Observation representation the sidecar was launched with (PR46 ablation).
+    representation: task?.representation || null,
     response: response.trim(),
     trajectory,
     // Additive top-level aliases so bench verifiers get evidence without

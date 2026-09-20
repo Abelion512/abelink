@@ -4,15 +4,18 @@ import {
   EXPERIMENT_KINDS,
   MODEL_IDENTITY_FORBIDDEN,
   FIXED_COMPARISON_FIELDS,
+  ARCHITECTURE_ARMS,
   makeModelIdentity,
   isNeverLatest,
   makeExperimentSpec,
   validateComparability,
+  compareArmReports,
   baselineVsCandidateSpec,
   representationAblationSpec,
   validateAblationPair,
   modelCompatibilitySpec,
 } from '../evaluation/pr46-experiments.mjs'
+import { ARCH_VALUES } from '../src/api/ai/benchArch.js'
 
 const exactIdentity = { provider: 'anthropic', modelId: 'claude-fable-5.1', modelVersion: '2026-09-01' }
 
@@ -53,15 +56,27 @@ describe('comparison integrity (baseline vs candidate)', () => {
   }
 
   it('valid when only the runtime architecture differs', () => {
-    const spec = baselineVsCandidateSpec({ baselineArch: 'basic', candidateArch: 'pr45', fixed, runs: 3 })
+    const spec = baselineVsCandidateSpec({ fixed, runs: 3 })
     expect(spec.kind).toBe(EXPERIMENT_KINDS.BASELINE_VS_CANDIDATE)
     expect(spec.comparability.valid).toBe(true)
     expect(spec.comparability.mismatches).toEqual([])
     expect(spec.comparability.variable).toBe('architecture')
   })
 
+  it('defaults to runnable arms: vanilla baseline vs basic candidate', () => {
+    const spec = baselineVsCandidateSpec({ fixed, runs: 3 })
+    expect(spec.arms.baseline.architecture).toBe('vanilla')
+    expect(spec.arms.candidate.architecture).toBe('basic')
+    expect(spec.runnable).toBe(true)
+    // Both arms must be values the executor actually accepts.
+    for (const arm of [spec.arms.baseline, spec.arms.candidate]) {
+      expect(ARCH_VALUES).toContain(arm.architecture)
+      expect(typeof arm.behavior).toBe('string')
+    }
+  })
+
   it('invalid when any fixed variable drifts', () => {
-    const candidate = { ...fixed, architecture: 'pr45', modelVersion: '2026-09-02' }
+    const candidate = { ...fixed, architecture: 'basic', modelVersion: '2026-09-02' }
     const result = validateComparability(
       { baseline: { ...fixed, architecture: 'basic' }, candidate },
       { variable: 'architecture', fixedFields: FIXED_COMPARISON_FIELDS }
@@ -72,11 +87,73 @@ describe('comparison integrity (baseline vs candidate)', () => {
 
   it('invalid when the model provider changes between arms', () => {
     const result = validateComparability(
-      { baseline: { ...fixed, provider: 'openai', architecture: 'basic' }, candidate: { ...fixed, architecture: 'pr45' } },
+      { baseline: { ...fixed, provider: 'openai', architecture: 'vanilla' }, candidate: { ...fixed, architecture: 'basic' } },
       { variable: 'architecture' }
     )
     expect(result.valid).toBe(false)
     expect(result.mismatches.some((m) => m.field === 'provider')).toBe(true)
+  })
+})
+
+describe('compareArmReports (measured arms only)', () => {
+  const arm = (over = {}) => {
+    const { identity: identityOver = {}, ...rest } = over
+    return {
+      repeatedRunsPerTask: 3,
+      ...rest,
+      identity: {
+        provider: 'openai',
+        modelId: 'gpt-6-astra',
+        modelVersion: '2026-09-01',
+        toolConfig: 'core+groups',
+        fixtureSet: 'pr46-matrix',
+        effort: 'high',
+        verifier: 'deterministic-world-state-predicate',
+        environment: 'local',
+        architecture: 'vanilla',
+        ...identityOver,
+      },
+    }
+  }
+
+  it('invalid when only one arm was measured', () => {
+    const result = compareArmReports({ baseline: null, candidate: arm() })
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('arms-incomplete')
+    expect(result.missing).toEqual(['baseline'])
+    expect(compareArmReports({}).valid).toBe(false)
+  })
+
+  it('valid only when both arms share every identity field and differ in architecture', () => {
+    const result = compareArmReports({
+      baseline: arm(),
+      candidate: arm({ identity: { architecture: 'basic' } }),
+    })
+    expect(result.valid).toBe(true)
+    expect(result.reason).toBe('both-arms-present')
+    expect(result.variableDiffers).toBe(true)
+  })
+
+  it('invalid when a fixed identity field drifts between arms', () => {
+    const result = compareArmReports({
+      baseline: arm(),
+      candidate: arm({ identity: { architecture: 'basic', modelVersion: '2026-09-02' } }),
+    })
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('identity-mismatch')
+    expect(result.mismatches.some((m) => m.field === 'modelVersion')).toBe(true)
+  })
+
+  it('invalid when repeated-run counts differ, and when both arms are the same arch', () => {
+    expect(
+      compareArmReports({
+        baseline: arm(),
+        candidate: arm({ identity: { architecture: 'basic' }, repeatedRunsPerTask: 1 }),
+      }).valid
+    ).toBe(false)
+    const same = compareArmReports({ baseline: arm(), candidate: arm() })
+    expect(same.valid).toBe(false)
+    expect(same.reason).toBe('same-architecture')
   })
 })
 
@@ -127,6 +204,29 @@ describe('browser representation ablation', () => {
     })
     expect(spec.kind).toBe(EXPERIMENT_KINDS.REPRESENTATION_ABLATION)
     expect(spec.valid).toBe(true)
+    expect(spec.runtimeSupported).toBe(true)
+    expect(spec.deferred).toBe(false)
+  })
+
+  it('rejects a representation the execution path cannot render (label-only difference)', () => {
+    const result = validateAblationPair(
+      fixture({ representation: 'rawish' }),
+      fixture({ representation: 'semantic-first' })
+    )
+    expect(result.runtimeSupported).toBe(false)
+    expect(result.valid).toBe(false)
+    expect(result.mismatches.some((m) => m.field === 'representationUnsupported')).toBe(true)
+    const spec = representationAblationSpec({
+      pairs: [
+        {
+          id: 'p',
+          raw: fixture({ representation: 'rawish' }),
+          semanticFirst: fixture({ representation: 'semantic-first' }),
+        },
+      ],
+    })
+    expect(spec.valid).toBe(false)
+    expect(spec.runtimeSupported).toBe(false)
   })
 })
 

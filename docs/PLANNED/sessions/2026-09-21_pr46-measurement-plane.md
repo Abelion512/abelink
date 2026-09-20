@@ -76,6 +76,52 @@ Diubah:
   butuh ekstensi terhubung (lihat `evaluation/README.md`).
 - Fixture seed bersifat lokal/offline; situs web live tidak dipakai di oracle.
 
+## Patch pasca-review (blokir & cacat pengukuran)
+
+Review eksternal menahan PR46: dua blocker (eksperimen A dan B tidak benar-benar
+bisa dijalankan) plus tiga cacat pengukuran. Patch ini memperbaikinya TANPA
+subsystem baru; seksi di atas tetap catatan asli, bagian ini yang berlaku.
+
+| Temuan | Root cause | Fix |
+|---|---|---|
+| **Blocker 1** - ablasi browser palsu | `representation` hanya label fixture; `browser-read` selalu memanggil `formatBrowserObservation()` | Switch nyata: `extension/browser-observation.mjs` mengekspor `OBSERVATION_REPRESENTATIONS`, `resolveObservationRepresentation()`, `renderBrowserObservation()`; `sidecar/main/tools/browserTools.mjs` membaca `ABELINK_BROWSER_OBSERVATION`; adapter mengekspornya per-run dari `task.representation`. Default tetap semantic-first. `validateAblationPair()` menolak representasi yang tidak bisa dirender (`runtimeSupported`). |
+| **Blocker 2** - eksperimen A tidak runnable | arm `baselineArch: 'basic'` vs `candidateArch: 'pr45'`; `pr45` bukan nilai `ARCH_VALUES`, dan `comparison.valid = Boolean(modelIdentity)` | Arm jadi `vanilla` (model-only/pre-PR45) vs `basic` (runtime PR45) + label `behavior`; `compareArmReports()` mewajibkan kedua arm terukur dengan identitas identik; `run.mjs` menerima `--baseline-report`. `comparison.valid` hanya `true` bila eksplisit, dengan `reason` (`baseline-arm-missing`/`identity-mismatch`/`same-architecture`). |
+| Cacat 3 - `architectureCommit` selalu null | `run.mjs` tidak mengirim `config.commit` | `resolveArchitectureCommit()` (`git rev-parse HEAD`) → `identity.architectureCommit` + `…Short` + `…Dirty`; gagal git = `null`, tidak dikarang. |
+| Cacat 4 - `runId` bukan per-run | satu `runId` dipakai semua task/iterasi | `benchmarkRunId` (sesi) + `executionId` (`<sesi>-<taskId>-r<n>@<effort>`) di evidence & metrik; agregat melaporkan `executionCount`. |
+| Cacat 5 - mislabel metrik | `repeatedActions/toolCalls` dilabeli `unnecessaryActionRate` | Dilaporkan sebagai `repeatActionRate`; `unnecessaryActionRate` = `null` + `unnecessaryActionRateReason` sampai ada instrumentasi yang benar-benar membedakannya. |
+| Oracle riset longgar | `research-03` tidak mewajibkan `read-file`; `research-06` hanya butuh satu pasangan klaim↔sumber | `research-03` mewajibkan `read-file`+`write-file`; `research-06` mewajibkan tiga pasangan klaim↔sumber berdekatan (`pairedWithin()`). |
+| Lane reuse mudah ditafsirkan berlebih | `pr46-reuse-*` membaca artefak sesi sebelumnya, bukan memory/skill persisten | Tiap fixture reuse mencatat `reuseKind: 'artifact-mediated'`, `measuredClaim`, dan `notMeasured` (`PR46_LANE_CLAIMS`). Lane & jumlah tetap 4 sesuai kontrak. |
+
+Files tambahan pada patch ini: `extension/browser-observation.mjs`,
+`sidecar/main/tools/browserTools.mjs`, `evaluation/abelink-adapter.mjs`,
+`evaluation/evidence.mjs`, `evaluation/metrics.mjs`, `evaluation/pr46-matrix.mjs`,
+`evaluation/pr46-experiments.mjs`, `evaluation/run.mjs`,
+`evaluation/terminal-bench.mjs`, `evaluation/smoke.mjs`, 4 test PR46,
+`tests/browser-observation.test.mjs`, `docs/ARCHITECTURE.md`,
+`evaluation/README.md`.
+
+Verifikasi patch: `bunx vitest run tests/pr46-*.test.mjs tests/browser-observation.test.mjs`
+→ 75 pass; `node evaluation/smoke.mjs` → LOLOS; suite penuh + lint + build di
+bagian verifikasi PR.
+
+Masih belum: hasil terukur apa pun (tidak ada provider nyata yang dijalankan di
+sesi ini), verdict `objectiveVerifier` runtime di adaptor, kanal intervensi
+manusia, dan memory/skill reuse lintas-sesi sungguhan.
+
+## Pembaruan dokumentasi (sesi yang sama, tanpa perubahan kode)
+
+Dokumentasi disinkronkan dengan kondisi repo sekarang:
+
+| Dokumen | Perubahan |
+|---|---|
+| `AGENTS.md` | Bullet Evaluation memuat measurement plane PR46 + perintahnya; tambah subsection invarian **«PR46 Measurement Plane (evaluation/) — aturan anti-fabrikasi»** (oracle otoritatif, perbandingan butuh dua arm, identitas model/eksekusi exact, commit arsitektur, switch representasi, larangan fabrikasi metrik, lane reuse artifact-mediated). |
+| `docs/README.md` | Entri baru (12) untuk kontrak `PLANNED/2026-09-21_agent-benchmark-matrix.md` + `…_runtime-standards-adaptation.md`; nomor ganda lama (`8.` dua kali) diperbaiki jadi 13. |
+| `docs/PLANNED/2026-09-21_agent-benchmark-matrix.md` | Seksi **Status implementasi (2026-09-20)**: tabel kontrak → implementasi + deviasi yang didokumentasikan (reuse artifact-mediated, verdict runtime belum diekspos, belum ada hasil terukur, token/human interventions `null`). |
+| `PROJECT-STATUS.md` | Diperbarui: milestone measurement plane, angka kesehatan terverifikasi (126 file / 1287 pass, lint 0 error, build OK, smoke LOLOS), keputusan terakhir (oracle otoritatif, satu agregat bukan klaim rilis, metrik tak difabrikasi), langkah berikut. Klaim lama yang salah (docs internal di-gitignore, suite 398 pass/24 fail) dikoreksi. |
+| `TASK.md` | Status sesi di-refresh (main @ `9f8ffdb`, PR #46 head `d43a235`, patch review belum di-push), 3 keputusan owner yang menunggu, topik berikutnya; heading «Topik berikutnya» yang terduplikasi dihapus. |
+
+`CHANGELOG.md` sengaja TIDAK disentuh: file itu dihasilkan `scripts/release-helper.mjs` saat release prepare.
+
 ## Langkah aman berikutnya
 
 1. Jalankan `run.mjs --suite pr46 --runs 3` pada baseline `main` dan kandidat

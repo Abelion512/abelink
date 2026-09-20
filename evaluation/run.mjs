@@ -30,7 +30,7 @@ import AdmZip from 'adm-zip'
 import { ALL_TASKS, runTask, akSentinel } from './terminal-bench.mjs'
 import { PR46_TASKS, seedPr46Fixture } from './pr46-matrix.mjs'
 import { buildMeasurementReport } from './metrics.mjs'
-import { makeModelIdentity } from './pr46-experiments.mjs'
+import { makeModelIdentity, compareArmReports, ARCHITECTURE_ARMS } from './pr46-experiments.mjs'
 import {
   resolveTaskEffort,
   normalizeEffort,
@@ -73,6 +73,26 @@ export function detectCheat(task, result, sentinel) {
 }
 
 const avg = (arr) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null)
+
+// ---- Architecture commit (reproducibility) ----
+// The measurement report must state which revision of the runtime was measured.
+// Resolved from git at run time; null when git is unavailable (never fabricated).
+export function resolveArchitectureCommit(cwd = process.cwd()) {
+  try {
+    const sha = spawnSync('git', ['-C', cwd, 'rev-parse', 'HEAD'], { encoding: 'utf8', timeout: 10000 })
+    if (sha.status !== 0) return null
+    const full = String(sha.stdout || '').trim()
+    if (!full) return null
+    const status = spawnSync('git', ['-C', cwd, 'status', '--porcelain'], { encoding: 'utf8', timeout: 10000 })
+    return {
+      sha: full,
+      short: full.slice(0, 12),
+      dirty: status.status === 0 ? String(status.stdout || '').trim().length > 0 : null,
+    }
+  } catch {
+    return null
+  }
+}
 
 // ---- Report shell v3 (diuji smoke CI tanpa LLM) ----
 // arch: vanilla|basic. worldState menunjuk base dir fixture per-run;
@@ -363,6 +383,7 @@ function parseArgs(argv) {
     suite: null, // legacy (default) | pr46
     modelVersion: null, // exact resolved version (PR46 identity, never 'latest')
     measurementOut: null, // optional separate path for the PR46 measurement report
+    baselineReport: null, // measured baseline arm (Experiment A); absent = no comparison
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -385,6 +406,7 @@ function parseArgs(argv) {
     else if (a === '--suite') args.suite = argv[++i]
     else if (a === '--model-version') args.modelVersion = argv[++i]
     else if (a === '--measurement-out') args.measurementOut = argv[++i]
+    else if (a === '--baseline-report') args.baselineReport = argv[++i]
   }
   return args
 }
@@ -501,6 +523,9 @@ async function main() {
         else seedFixtures(iterDir, iterSentinel)
         process.env.MARKBENCH_GIT_REPO = join(iterDir, 'git-repo')
         process.stdout.write(`  [${arch}] ${taskId.padEnd(22)} (r${i + 1}/${args.runs}, ${eff}) ... `)
+        // PR46 execution identity: runId is the benchmark session, executionId
+        // identifies this one execution (session + task + iteration + effort).
+        const executionId = `${runId}-${taskId}-r${i + 1}@${eff}`
         const r = await runTask(taskId, args.model, args.provider, {
           effort: eff,
           // Sweep = eksperimen eksplisit: effort per run menang atas pin task
@@ -510,9 +535,12 @@ async function main() {
           workdir: iterDir,
           // Bentuk relatif-workspace untuk {{WORKDIR}} di prompt.
           promptWorkdir: join(promptBase, `${taskId}-r${i + 1}`),
-          // PR46: suite registry + exact identity + run id for evidence records.
+          // PR46: suite registry + exact identity + execution identity.
           registry,
           runId,
+          benchmarkRunId: runId,
+          executionId,
+          iteration: i + 1,
           modelIdentity,
         })
         process.stdout.write(`${r.passed ? 'PASS' : 'FAIL'} (${r.durationMs}ms, steps=${r.steps}, tools=${r.toolCalls})\n`)
@@ -526,6 +554,9 @@ async function main() {
           output: r.output,
           sentinel: r.sentinel || null,
           workdir: r.workdir || null,
+          executionId: r.executionId || executionId,
+          benchmarkRunId: runId,
+          representation: r.representation || null,
           cheatSuspected: detectCheat(registry[taskId], r, r.sentinel),
           // PR46: per-run metrics + normalized evidence (additive).
           metrics: r.metrics || null,
@@ -550,11 +581,13 @@ async function main() {
   // PR46 measurement plane: wrap (never replace) the aggregate report. Per-run
   // metrics are collected whether or not the run is independent-verified, and
   // the aggregate always carries an explicit repeated-run count.
+  const commit = resolveArchitectureCommit()
   const measurement = buildMeasurementReport({
     runs: rawRuns.map((r) => r.metrics).filter(Boolean),
     config: {
       suite,
       arch,
+      commit,
       runs: args.runs,
       provider: args.provider,
       modelId: args.model,
@@ -564,19 +597,44 @@ async function main() {
       fixtureSet: suite === 'pr46' ? 'pr46-matrix' : 'legacy-registry',
       environment: process.env.ABELINK_BENCH_ENV || 'local',
       comparison: {
-        // A comparison is only valid when the exact identity is known.
-        valid: Boolean(modelIdentity),
-        baseline: 'main',
+        // Experiment A is a two-arm run: this invocation produced exactly one
+        // arm, so comparability is decided from the arms we actually have.
+        baseline: ARCHITECTURE_ARMS.BASELINE,
         candidate: arch,
+        baselineReport: args.baselineReport || null,
       },
     },
   })
+
+  // Comparability requires BOTH measured arms with identical identity. It is
+  // never inferred from a complete model identity alone.
+  let baselineReport = null
+  if (args.baselineReport) {
+    try {
+      baselineReport = JSON.parse(fs.readFileSync(args.baselineReport, 'utf8'))
+    } catch (e) {
+      console.error(`--baseline-report tidak bisa dibaca: ${e.message}`)
+      process.exit(2)
+    }
+  }
+  measurement.comparison = {
+    ...measurement.comparison,
+    ...compareArmReports({ baseline: baselineReport, candidate: measurement }),
+  }
   report.measurement = measurement
 
   printTable(report)
   console.log(
     `Measurement (suite=${suite}, runs/task=${args.runs}): pass=${measurement.aggregate.passRate} verified=${measurement.aggregate.verifiedSuccessRate} medianTurns=${measurement.aggregate.medianTurns} medianTools=${measurement.aggregate.medianToolCalls}`
   )
+  console.log(
+    `Musim arsitektur: arch=${arch} commit=${commit?.short || 'unknown'}${commit?.dirty ? ' (dirty)' : ''} | execution=${measurement.aggregate.executionCount}/${measurement.aggregate.runCount}`
+  )
+  if (!measurement.comparison.valid) {
+    console.log(
+      `Perbandingan: TIDAK VALID (${measurement.comparison.reason}) — satu arm tidak bisa dibandingkan; jalankan arm baseline (--arch ${ARCHITECTURE_ARMS.BASELINE}) lalu ulangi dengan --baseline-report.`
+    )
+  }
 
   if (args.out) {
     fs.writeFileSync(args.out, JSON.stringify(report, null, 2) + '\n')
