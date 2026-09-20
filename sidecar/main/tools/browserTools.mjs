@@ -4,6 +4,7 @@ import path from 'node:path'
 import { normalizeAbelinkId } from '../browser/bridge-core.mjs'
 import { getWorkspaceDir } from './_shared.mjs'
 import { assertContained } from '../utils/fsGuard.js'
+import { formatBrowserObservation } from '../../../extension/browser-observation.mjs'
 
 // Extension-first untuk tool browser: coba browser fisik bila ADA sesi yang
 // terhubung (preferensi 'default'), kembalikan null agar caller fallback ke
@@ -493,7 +494,7 @@ export const browserTools = {
         // Jika query kosong atau tidak ada URL, coba baca DOM tab aktif browser fisik via ekstensi
         const ext = await tryExtensionReadDom(targetSession)
         if (ext) {
-          return { success: true, data: ext.data, via: 'extension' }
+          return { success: true, data: formatBrowserObservation(ext.data), via: 'extension' }
         }
 
         // Jika bukan URL dan ada teks query, coba fetch
