@@ -201,12 +201,12 @@ const RelationalGrowth = () => {
 
       {/* Main Content */}
       <div className="relative z-10 w-full h-full overflow-y-auto custom-scrollbar">
-        <div className="px-4 py-8 pb-32 space-y-8">
+        <div className="pl-16 pr-28 py-8 pb-32 space-y-8">
 
-          {/* Page Header */}
+          {/* Page Header with Safe Area Gutter */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm btn-circle">
+              <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm btn-circle cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                 </svg>

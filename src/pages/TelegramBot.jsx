@@ -1,6 +1,12 @@
 import React, { useRef, useEffect, useState } from 'react'
 import { useTelegramBot } from '../hooks/telegram/useTelegramBot'
-import { FaTelegram, FaPlug, FaStop, FaCog, FaSave, FaTimes } from 'react-icons/fa'
+import {
+  Send,
+  Settings,
+  Power,
+  Square,
+  X
+} from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
@@ -79,73 +85,93 @@ const TelegramBot = () => {
   }
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-base-100/50">
-      {/* Header */}
-      <div className="navbar bg-base-300/50 backdrop-blur-md border-b border-white/5 sticky top-0 z-10">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 px-4">
-            <div className="avatar">
-              <div className="w-10 rounded-full bg-info/20 p-2 text-info flex items-center justify-center">
-                <FaTelegram size={24} />
-              </div>
-            </div>
-            <div>
-              <h1 className="font-bold text-lg text-base-content">Telegram Bot Monitor</h1>
-              <p className="flex items-center gap-2 text-xs opacity-70">
-                <span
-                  className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-info' : status === 'connecting' ? 'bg-warning animate-pulse' : 'bg-error'}`}
-                />
-                <span className="capitalize">{status}</span>
-              </p>
+    <div className="relative w-full h-full flex flex-col bg-[#161618] text-white select-none">
+      {/* Header with Safe Area Gutter */}
+      <div className="h-14 pl-16 pr-28 border-b border-white/10 flex items-center justify-between bg-[#1c1c1e]/80 backdrop-blur-xl shrink-0 z-10 select-none">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-[#0a84ff]/20 border border-[#0a84ff]/30 flex items-center justify-center text-[#0a84ff]">
+            <Send size={18} />
+          </div>
+          <div>
+            <h1 className="font-semibold text-sm text-white">Telegram Relay Monitor</h1>
+            <div className="flex items-center gap-2 text-[11px] text-white/50">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  status === 'connected'
+                    ? 'bg-[#30d158] shadow-[0_0_8px_rgba(48,209,88,0.6)]'
+                    : status === 'connecting'
+                      ? 'bg-[#ffbd2e] animate-pulse'
+                      : 'bg-[#ff453a]'
+                }`}
+              />
+              <span className="capitalize">{status}</span>
             </div>
           </div>
         </div>
-        <div className="flex-none gap-2 px-4 mr-32">
+
+        <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => {
               loadConfigData()
               setShowConfigModal(true)
             }}
-            className="btn btn-sm btn-ghost gap-2"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all text-xs font-medium"
             title="Buka Pengaturan Telegram Token & Admin"
           >
-            <FaCog /> Pengaturan
+            <Settings size={14} />
+            <span>Pengaturan</span>
           </button>
+
           {status === 'disconnected' && (
-            <button onClick={handleSaveConfigAndConnect} className="btn btn-sm btn-info text-white">
-              <FaPlug /> Connect
+            <button
+              type="button"
+              onClick={handleSaveConfigAndConnect}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#0a84ff] hover:bg-[#0a84ff]/90 text-white transition-all text-xs font-medium shadow-md shadow-[#0a84ff]/20"
+            >
+              <Power size={14} />
+              <span>Hubungkan</span>
             </button>
           )}
+
           {(status === 'connected' || status === 'connecting') && (
-            <button onClick={stopBot} className="btn btn-sm btn-outline btn-error">
-              <FaStop /> Disconnect
+            <button
+              type="button"
+              onClick={stopBot}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#ff453a] hover:bg-[#ff453a]/90 text-white transition-all text-xs font-medium shadow-md shadow-[#ff453a]/20"
+            >
+              <Square size={13} className="fill-current" />
+              <span>Putuskan</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 overflow-y-auto w-full p-4 flex flex-col gap-4">
+      {/* Content Area: Apple Messages Console */}
+      <div className="flex-1 overflow-y-auto w-full p-6 flex flex-col gap-4 custom-scrollbar">
         {status === 'disconnected' && (
-          <div className="card bg-base-200 shadow-xl border border-white/10 p-6 max-w-md mx-auto my-auto text-center space-y-4">
-            <FaTelegram className="text-6xl text-info mx-auto" />
-            <h2 className="text-xl font-bold">Sambungkan Telegram Bot</h2>
-            <p className="text-sm opacity-70">
-              Masukkan API Bot Token dari <b>@BotFather</b> di Telegram.
+          <div className="rounded-3xl bg-[#1c1c1e]/60 border border-white/10 p-8 max-w-md mx-auto my-auto text-center space-y-4 shadow-2xl backdrop-blur-xl">
+            <div className="w-14 h-14 rounded-2xl bg-[#0a84ff]/20 border border-[#0a84ff]/30 flex items-center justify-center text-[#0a84ff] mx-auto">
+              <Send size={26} />
+            </div>
+            <h2 className="text-base font-semibold text-white">Hubungkan Bot Telegram</h2>
+            <p className="text-xs text-white/50 leading-relaxed">
+              Masukkan API Bot Token dari <b>@BotFather</b> di Telegram untuk menghubungkan agen ini
+              dengan obrolan Telegram kamu.
             </p>
             <div className="space-y-3 text-left">
               <div>
-                <label className="text-xs font-semibold opacity-70 block mb-1">Bot Token</label>
+                <label className="text-[11px] font-medium text-white/60 block mb-1">Bot Token</label>
                 <input
                   type="password"
                   placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ..."
                   value={tokenInput}
                   onChange={(e) => setTokenInput(e.target.value)}
-                  className="input input-bordered w-full font-mono text-sm"
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-[#0a84ff]/60 text-xs text-white font-mono outline-none transition-all placeholder:text-white/30"
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold opacity-70 block mb-1">
+                <label className="text-[11px] font-medium text-white/60 block mb-1">
                   Telegram Admin Usernames
                 </label>
                 <input
@@ -153,74 +179,90 @@ const TelegramBot = () => {
                   placeholder="@username1, @username2"
                   value={adminIdsInput}
                   onChange={(e) => setAdminIdsInput(e.target.value)}
-                  className="input input-bordered w-full font-mono text-sm"
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-[#0a84ff]/60 text-xs text-white font-mono outline-none transition-all placeholder:text-white/30"
                 />
-                <span className="text-[10px] opacity-60 block mt-1">
-                  Masukkan username Telegram (@username). Pisahkan dengan koma jika lebih dari satu.
+                <span className="text-[10px] text-white/40 block mt-1">
+                  Pisahkan dengan koma jika ada lebih dari satu username.
                 </span>
               </div>
             </div>
-            <button onClick={handleSaveConfigAndConnect} className="btn btn-info text-white w-full">
-              <FaPlug /> Simpan & Hubungkan Bot
+            <button
+              type="button"
+              onClick={handleSaveConfigAndConnect}
+              className="w-full py-2.5 rounded-xl bg-[#0a84ff] text-white hover:bg-[#0a84ff]/90 text-xs font-semibold shadow-lg shadow-[#0a84ff]/20 transition-all flex items-center justify-center gap-2"
+            >
+              <Power size={14} />
+              <span>Simpan &amp; Hubungkan Bot</span>
             </button>
           </div>
         )}
 
         {status === 'connected' && messages.length === 0 && (
-          <div className="flex-1 flex flex-col items-center justify-center opacity-60 select-none">
-            <FaTelegram className="text-6xl mb-4 text-info" />
-            <p className="text-lg font-semibold">Menunggu Pesan Masuk</p>
-            <p className="text-sm">Bot terhubung. Pantau aktivitas Telegram di sini.</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-white/40 select-none space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[#0a84ff]">
+              <Send size={24} />
+            </div>
+            <p className="text-sm font-semibold text-white">Menunggu Pesan Masuk</p>
+            <p className="text-xs text-white/40">Bot aktif terhubung. Percakapan Telegram akan muncul di sini.</p>
           </div>
         )}
 
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`chat ${msg.type === 'outgoing' ? 'chat-end' : 'chat-start'} animate-fade-in`}
-          >
-            <div className="chat-header opacity-50 text-xs mb-1">
-              {msg.sender}
-              <time className="text-xs ml-2">{msg.time}</time>
-            </div>
+        {messages.map((msg, idx) => {
+          const isOutgoing = msg.type === 'outgoing'
+          return (
             <div
-              className={`chat-bubble flex flex-col gap-1 ${msg.type === 'outgoing' ? 'chat-bubble-info text-info-content' : 'bg-base-300 text-base-content'}`}
+              key={idx}
+              className={`flex flex-col max-w-xl ${isOutgoing ? 'ml-auto items-end' : 'mr-auto items-start'} animate-fade-in space-y-1`}
             >
-              <div className="text-sm custom-markdown overflow-x-hidden">
-                <Markdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[
-                    [rehypeExternalLinks, { target: '_blank', rel: ['noopener', 'noreferrer'] }]
-                  ]}
-                  components={{
-                    code: CodeBlock
-                  }}
-                >
-                  {msg.type === 'outgoing' ? msg.reply : msg.text}
-                </Markdown>
-                {msg.type === 'outgoing' && msg.toolsUsed && msg.toolsUsed.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {msg.toolsUsed.map((tool, i) => (
-                      <span
-                        key={i}
-                        className="badge badge-sm text-white badge-accent badge-outline text-[10px] font-mono ml-auto"
-                      >
-                        {tool}
-                      </span>
-                    ))}
-                  </div>
-                )}
+              <div className="text-[10px] text-white/40 px-2 flex items-center gap-2">
+                <span>{msg.sender}</span>
+                <span>•</span>
+                <time>{msg.time}</time>
+              </div>
+
+              <div
+                className={`p-3.5 rounded-2xl text-xs leading-relaxed ${
+                  isOutgoing
+                    ? 'bg-[#0a84ff] text-white rounded-tr-sm shadow-md'
+                    : 'bg-[#1c1c1e] text-white/90 border border-white/10 rounded-tl-sm'
+                }`}
+              >
+                <div className="custom-markdown overflow-x-hidden">
+                  <Markdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[
+                      [rehypeExternalLinks, { target: '_blank', rel: ['noopener', 'noreferrer'] }]
+                    ]}
+                    components={{
+                      code: CodeBlock
+                    }}
+                  >
+                    {isOutgoing ? msg.reply : msg.text}
+                  </Markdown>
+                  {isOutgoing && msg.toolsUsed && msg.toolsUsed.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {msg.toolsUsed.map((tool, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-mono"
+                        >
+                          {tool}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {isThinking && (
-          <div className="chat chat-end animate-fade-in">
-            <div className="chat-header opacity-50 text-xs mb-1">
+          <div className="flex flex-col ml-auto items-end animate-fade-in space-y-1">
+            <div className="text-[10px] text-white/40 px-2">
               Abelink sedang memproses pesan {currentSender}...
             </div>
-            <div className="chat-bubble chat-bubble-info bg-info/20 text-info border border-info/30">
+            <div className="p-3 rounded-2xl bg-[#0a84ff]/20 border border-[#0a84ff]/30 text-[#0a84ff]">
               <MobiusLoader size={16} />
             </div>
           </div>
@@ -231,60 +273,67 @@ const TelegramBot = () => {
 
       {/* Telegram Configuration Modal */}
       {showConfigModal && (
-        <div className="modal modal-open">
-          <div className="modal-box bg-base-200 border border-white/10 max-w-lg">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-lg flex items-center gap-2 text-info">
-                <FaTelegram /> Pengaturan Telegram Bot
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-[#1c1c1e] border border-white/15 rounded-3xl max-w-lg w-full p-6 text-white shadow-2xl space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-white/10">
+              <h3 className="font-semibold text-sm flex items-center gap-2 text-white">
+                <Settings className="text-[#0a84ff]" size={16} /> Pengaturan Telegram Bot
               </h3>
               <button
+                type="button"
                 onClick={() => setShowConfigModal(false)}
-                className="btn btn-sm btn-circle btn-ghost"
+                className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white flex items-center justify-center transition-all"
               >
-                <FaTimes />
+                <X size={14} />
               </button>
             </div>
 
             <div className="space-y-4 text-left">
-              <div className="form-control w-full">
-                <label className="label">
-                  <span className="label-text font-semibold">Bot Token</span>
-                </label>
+              <div>
+                <label className="text-[11px] font-medium text-white/60 block mb-1">Bot Token</label>
                 <input
                   type="password"
                   placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ..."
                   value={tokenInput}
                   onChange={(e) => setTokenInput(e.target.value)}
-                  className="input input-bordered w-full font-mono text-sm"
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-[#0a84ff]/60 text-xs text-white font-mono outline-none transition-all placeholder:text-white/30"
                 />
-                <span className="text-xs opacity-60 mt-1">
-                  Dapatkan token dari akun resmi <b>@BotFather</b> di Telegram.
+                <span className="text-[10px] text-white/40 block mt-1">
+                  Dapatkan token resmi dari <b>@BotFather</b> di Telegram.
                 </span>
               </div>
 
-              <div className="form-control w-full">
-                <label className="label">
-                  <span className="label-text font-semibold">Usernames</span>
+              <div>
+                <label className="text-[11px] font-medium text-white/60 block mb-1">
+                  Telegram Admin Usernames
                 </label>
                 <input
                   type="text"
                   placeholder="@username1, @username2"
                   value={adminIdsInput}
                   onChange={(e) => setAdminIdsInput(e.target.value)}
-                  className="input input-bordered w-full font-mono text-sm"
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-[#0a84ff]/60 text-xs text-white font-mono outline-none transition-all placeholder:text-white/30"
                 />
+                <span className="text-[10px] text-white/40 block mt-1">
+                  Hanya akun ini yang dapat memberikan perintah langsung ke bot.
+                </span>
               </div>
             </div>
 
-            <div className="modal-action mt-6">
-              <button onClick={() => setShowConfigModal(false)} className="btn btn-ghost">
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowConfigModal(false)}
+                className="px-3.5 py-1.5 text-xs text-white/60 hover:text-white transition-colors"
+              >
                 Batal
               </button>
               <button
+                type="button"
                 onClick={handleSaveConfigAndConnect}
-                className="btn btn-info text-white gap-2"
+                className="px-4 py-2 rounded-xl bg-[#0a84ff] text-white hover:bg-[#0a84ff]/90 text-xs font-semibold shadow-md shadow-[#0a84ff]/20 transition-all"
               >
-                <FaSave /> Simpan & Hubungkan
+                Simpan &amp; Hubungkan
               </button>
             </div>
           </div>

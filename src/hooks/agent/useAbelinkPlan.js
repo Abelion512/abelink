@@ -120,6 +120,7 @@ export const useAbelinkPlan = ({
   handleYoutubeSummary,
   handleMusic,
   getYoutubeData,
+  youtubeMusicTools,
   pushProcess,
   dismissProcess,
   activeTopic,
@@ -1539,6 +1540,27 @@ export const useAbelinkPlan = ({
             window.api.showNotification('Abelink', decision.answer)
           }
 
+          // Hitung balasan final sebelum dispatch state agar harness & trajectory logger
+          // membaca teks yang sama persis dengan yang dirender ke UI.
+          let finalOutput = decision.answer
+          if (isAutonomous && autonomousInitialMessage) {
+            finalOutput = `**${autonomousInitialMessage}**\n\n${decision.answer}`
+          }
+          // Self-terminate TANPA jawaban = tetap lapor "mengapa aku berhenti",
+          // jangan bubble kosong.
+          if (
+            sessionOutcome === 'self_terminated' &&
+            typeof finalOutput === 'string' &&
+            finalOutput.trim() === '' &&
+            (decision.thought || lastTerminalReason)
+          ) {
+            finalOutput = `Aku menghentikan diri sendiri (${lastTerminalReason || 'self-terminate'}). Alasan: ${decision.thought || lastDecision?.thought || 'di luar scope/berbahaya'}.`
+          }
+          // Guard konteks: model bisa mengembalikan answer null/kosong saat
+          // is_done. Menyimpan `content: undefined` meracuni seluruh consumer
+          // history (archiver turn-pair, awareness recentChat, prompt berikutnya).
+          if (typeof finalOutput !== 'string') finalOutput = ''
+
           // Tampilkan balasan final di chat UI (lewati jika benar-benar tidak ada jawaban)
           targetSetChatData((prev) => {
             const filtered = prev.filter((item) => {
@@ -1548,25 +1570,6 @@ export const useAbelinkPlan = ({
               return true
             })
 
-            let finalOutput = decision.answer
-            if (isAutonomous && autonomousInitialMessage) {
-              finalOutput = `**${autonomousInitialMessage}**\n\n${decision.answer}`
-            }
-            // Self-terminate TANPA jawaban = tetap lapor "mengapa aku berhenti",
-            // jangan bubble kosong.
-            if (
-              sessionOutcome === 'self_terminated' &&
-              typeof finalOutput === 'string' &&
-              finalOutput.trim() === '' &&
-              (decision.thought || lastTerminalReason)
-            ) {
-              finalOutput = `Aku menghentikan diri sendiri (${lastTerminalReason || 'self-terminate'}). Alasan: ${decision.thought || lastDecision?.thought || 'di luar scope/berbahaya'}.`
-            }
-            // Guard konteks: model bisa mengembalikan answer null/kosong saat
-            // is_done. Menyimpan `content: undefined` meracuni seluruh consumer
-            // history (archiver turn-pair, awareness recentChat, prompt berikutnya).
-            // Tanpa jawaban sama sekali -> tidak usah push bubble kosong.
-            if (typeof finalOutput !== 'string') finalOutput = ''
             if (finalOutput.trim() === '') {
               return filtered
             }
@@ -1844,6 +1847,7 @@ export const useAbelinkPlan = ({
               requestCameraCapture,
               handleMusic,
               getYoutubeData,
+              youtubeMusicTools,
               targetPushProcess,
               abortControllerRef
             })

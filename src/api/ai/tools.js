@@ -139,6 +139,8 @@ export function trustworthyTopHit(userInput, musicList) {
     if (list.length === 0) return null
     const qNorm = normMusic(userInput)
     if (!qNorm) return null
+    // Query bertema kompilasi/OST/Soundtrack/Album/BGM -> jangan pernah autoplay cepat sepihak!
+    if (/\b(ost|soundtrack|album|theme song|lagu tema|bgm)\b/i.test(userInput)) return null
     // Varian versi -> serahkan ke LLM (butuh penilaian).
     if (VERSION_KEYWORDS.some((k) => qNorm.includes(k))) return null
     const top = list[0] || {}

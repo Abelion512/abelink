@@ -4,9 +4,10 @@ import { fetchAI } from '../../../api/ai/core'
 
 const VISION_9ROUTER_ENDPOINT = 'http://127.0.0.1:20128/v1'
 const VISION_MODEL_CHAIN = [
-  'gc/gemini-3.1-flash-lite-preview',
-  'nara/mimo-v2.5-free',
-  'oc/mimo-v2.5-free'
+  'gemini/gemini-3.8-flash',
+  'bor/mimo-v2.5:free',
+  'bor/deepseek-v4.1-flash:free',
+  'gc/gemini-3.1-flash-lite-preview'
 ]
 
 export const fetchVisionAI = async (contentArray, signal) => {

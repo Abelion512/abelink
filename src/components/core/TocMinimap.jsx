@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AlignRight } from 'lucide-react'
 
 // Single anchor-id scheme shared by ChatStudio items and ChatList rows:
 // `msg-<stable id with unsafe chars dashed>`.
@@ -67,9 +68,9 @@ export const TocMinimap = ({ items = [], onJump, scrollRoot = null }) => {
           aria-label={open ? 'Tutup panel navigasi' : 'Buka panel navigasi'}
           title={open ? 'Tutup panel navigasi' : 'Buka panel navigasi'}
           onClick={() => setOpen((prev) => !prev)}
-          className="flex h-4 w-6 items-center justify-center rounded bg-white/10 text-[9px] leading-none text-white/60 outline-none transition-colors hover:bg-white/20 hover:text-white focus-visible:ring-1 focus-visible:ring-[#007AFF]"
+          className="flex h-5 w-6 items-center justify-center rounded-md bg-white/[0.08] text-white/70 outline-none transition-colors hover:bg-white/[0.15] hover:text-white focus-visible:ring-1 focus-visible:ring-[#0a84ff]"
         >
-          <span aria-hidden="true">≡</span>
+          <AlignRight className="w-3.5 h-3.5" />
         </button>
         {items.map((item) => {
           const isActive = item.id === activeId
@@ -83,15 +84,15 @@ export const TocMinimap = ({ items = [], onJump, scrollRoot = null }) => {
               aria-current={isActive ? 'true' : undefined}
               onClick={() => jump(item.id)}
               onFocus={() => setOpen(true)}
-              className={`rounded-full transition-all duration-150 outline-none focus-visible:ring-1 focus-visible:ring-[#007AFF] ${
+              className={`rounded-full transition-all duration-150 outline-none focus-visible:ring-1 focus-visible:ring-[#0a84ff] ${
                 isUser ? 'w-6' : 'ml-3 w-3'
-              } ${isActive ? 'h-1.5 bg-[#007AFF]' : 'h-1 bg-white/25 hover:bg-white/60'}`}
+              } ${isActive ? 'h-1.5 bg-[#0a84ff]' : 'h-1 bg-white/20 hover:bg-white/60'}`}
             />
           )
         })}
       </div>
       {open && (
-        <div className="pointer-events-auto absolute top-1/2 right-9 max-h-72 w-60 -translate-y-1/2 overflow-y-auto rounded-xl border border-white/10 bg-black/70 p-1.5 shadow-xl backdrop-blur-md custom-scrollbar">
+        <div className="pointer-events-auto absolute top-1/2 right-9 max-h-72 w-60 -translate-y-1/2 overflow-y-auto rounded-2xl border border-white/[0.1] bg-[#161618]/95 p-2 shadow-2xl backdrop-blur-2xl custom-scrollbar animate-fade-in">
           {items.map((item) => {
             const isActive = item.id === activeId
             return (
@@ -101,9 +102,9 @@ export const TocMinimap = ({ items = [], onJump, scrollRoot = null }) => {
                 title={item.title}
                 onClick={() => jump(item.id)}
                 aria-current={isActive ? 'true' : undefined}
-                className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${
+                className={`block w-full truncate rounded-xl px-2.5 py-1.5 text-left text-xs transition-colors ${
                   item.depth === 2 ? 'font-semibold text-white/90' : 'pl-4 font-normal text-white/60'
-                } ${isActive ? 'bg-[#007AFF]/15 text-[#007AFF]' : 'hover:bg-white/10'}`}
+                } ${isActive ? 'bg-[#0a84ff]/20 text-[#0a84ff] font-medium' : 'hover:bg-white/[0.08]'}`}
               >
                 {item.title}
               </button>

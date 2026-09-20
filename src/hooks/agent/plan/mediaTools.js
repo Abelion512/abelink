@@ -25,12 +25,16 @@ const musicLabel = (m) => {
 // Kembalikan item kandidat terpilih atau null (batal/abort).
 const offerMusicChoice = async (candidates, question, ctx) => {
   const { targetSetChatData, currentSignal } = ctx || {}
-  const opts = candidates.slice(0, 4)
+  const opts = Array.isArray(candidates) ? candidates.slice(0, 4) : []
+  const hasPlaylistOption = Array.isArray(candidates) && candidates.length > 1
+  const playlistOptionLabel = 'Putar Seluruh Playlist ke Antrean'
+  const displayOpts = hasPlaylistOption ? [...opts, { isPlaylistOption: true, title: playlistOptionLabel, label: playlistOptionLabel }] : opts
+
   const choicePayload = {
     question: question || 'Lagu mana yang dimaksud?',
     type: 'music_preview',
-    options: opts.map((m) => ({
-      label: musicLabel(m),
+    options: displayOpts.map((m) => ({
+      label: m.isPlaylistOption ? m.label : musicLabel(m),
       title: m.title || m.name,
       artist: m.artist || '',
       duration: m.duration || '',
@@ -77,7 +81,12 @@ const offerMusicChoice = async (candidates, question, ctx) => {
       .map((m) => (m.choice?.id === choiceId ? { ...m, choice: { ...m.choice, selected } } : m)),
     { role: 'user', content: selected, timestamp: choiceTimestamp, created_at: Date.now() }
   ])
-  return opts[idx >= 0 ? idx : 0] ?? null
+
+  const picked = displayOpts[idx >= 0 ? idx : 0]
+  if (picked?.isPlaylistOption) {
+    return { isPlaylist: true, allTracks: candidates }
+  }
+  return picked ?? null
 }
 
 /**
@@ -114,6 +123,12 @@ export const runMediaTool = async (tool, query, ctx) => {
     if (out && typeof out === 'object' && Array.isArray(out.candidates) && out.candidates.length > 0) {
       const picked = await offerMusicChoice(out.candidates, out.question, ctx)
       if (!picked) return '[DIBATALKAN] User tidak memilih lagu. Minta query lebih spesifik bila masih dibutuhkan.'
+      if (picked.isPlaylist && Array.isArray(picked.allTracks)) {
+        if (ctx.youtubeMusicTools?.enqueuePlaylist) {
+          ctx.youtubeMusicTools.enqueuePlaylist(picked.allTracks, true)
+          return `Berhasil memasukkan ${picked.allTracks.length} lagu playlist/OST ke dalam antrean dan memutar lagu pertama.`
+        }
+      }
       return await handleMusic('music-play', picked.id || picked.url || picked.title, targetSetChatData)
     }
     return out

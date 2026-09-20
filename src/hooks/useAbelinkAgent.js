@@ -62,6 +62,7 @@ export const useAbelinkAgent = () => {
     handleYoutubeSummary,
     handleMusic,
     getYoutubeData,
+    youtubeMusicTools,
     currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null
   }
 

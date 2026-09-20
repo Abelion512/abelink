@@ -404,6 +404,42 @@ describe('evaluateEvidence — VERIFICATION states from world-state proof', () =
     expect(r.state).not.toBe(VERIFICATION_STATE.VERIFIED)
   })
 
+  it('research: sub-agent report via send_message counts as valid substantive sources', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset standar agen otonom',
+      answer:
+        'Laporan analisis arsitektur agen otonom menunjukkan kepatuhan terhadap isolasi sandbox dan protokol pesan.',
+      tools: [
+        exec(
+          'send_message',
+          '[BALASAN EVALUASI DARI SUB-AGENT (sub_123)]: Hasil Audit Arsitektur Abelink: Struktur repositori lokal berpusat pada evaluasi sandbox dan log harness harian.'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'sources-found').state).toBe('pass')
+    expect(r.criteria.find((c) => c.id === 'facts-present').state).toBe('pass')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
+  it('research: local codebase research with read-file counts as valid source for repo objectives', () => {
+    const r = evaluateEvidence({
+      kind: 'research',
+      objectiveText: 'riset arsitektur di repo lokal abelink',
+      answer:
+        'Hasil riset arsitektur repo lokal abelink menunjukkan engine sidecar dan tauri shell terhubung via stdio bridge.',
+      tools: [
+        exec(
+          'read-file',
+          'export const engineBridge = { stdio: true, bufferSize: 1024, channels: ["ai", "browser", "os"] }'
+        )
+      ]
+    })
+    expect(r.criteria.find((c) => c.id === 'sources-found').state).toBe('pass')
+    expect(r.criteria.find((c) => c.id === 'facts-present').state).toBe('pass')
+    expect(r.state).toBe(VERIFICATION_STATE.VERIFIED)
+  })
+
   it('research: topik mengandung kata "laporan keuangan" tanpa intent simpan TIDAK menuntut artifact', () => {
     const r = evaluateEvidence({
       kind: 'research',

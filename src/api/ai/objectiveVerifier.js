@@ -531,15 +531,31 @@ export function evaluateEvidence({
       // sources-found unresolved regardless of other ops — a broken weapon
       // is not "info does not exist".
       const searchErrorOp = ops.find((op) => SEARCH_ERROR_RE.test(op.text || ''))
+      const isLocalResearch = /(repo|codebase|arsitektur|kode|workspace|lokal)/i.test(
+        String(objectiveText || '')
+      )
+      const isSubagentReport = (op) =>
+        op.tool === 'send_message' &&
+        /(\[BALASAN|evaluasi|hasil|temuan|analisis|audit|ringkasan)/i.test(op.text) &&
+        hasReadSubstance(op.text)
+
+      const isLocalCodebaseProof = (op) =>
+        isLocalResearch &&
+        READ_TOOLS_RE.test(op.tool || '') &&
+        hasReadSubstance(op.text)
+
+      const isDirectSearchProof = (op) =>
+        SEARCH_TOOLS_RE.test(op.tool || '') &&
+        !SUBAGENT_ORCH_RE.test(op.tool || '') &&
+        !NO_RESULT_RE.test(op.text || '') &&
+        hasReadSubstance(op.text)
+
       const sourcesOk =
         !searchErrorOp &&
         ops.some(
           (op) =>
-            SEARCH_TOOLS_RE.test(op.tool || '') &&
-            !SUBAGENT_ORCH_RE.test(op.tool || '') &&
             !opFailed(op) &&
-            !NO_RESULT_RE.test(op.text || '') &&
-            hasReadSubstance(op.text)
+            (isDirectSearchProof(op) || isSubagentReport(op) || isLocalCodebaseProof(op))
         )
       const factsOk =
         String(answer || '').trim().length >= 50 &&

@@ -174,6 +174,10 @@ export const executeSingleTool = async (tool, query, ctx) => {
     // Domain media / vision / knowledge: resultString final langsung.
     const media = await runMediaTool(tool, query, ctx)
     if (media !== undefined) {
+      const sid = ctx?.sessionId ?? 'system'
+      const turn = ctx?.turn ?? null
+      const ok = !String(media).startsWith('[ERROR]')
+      trajectoryLogTool({ tool, query, success: ok, result: media, sessionId: sid, turn })
       return { resultString: media, rejected: false, toolExecution: { action: tool, query, result: media } }
     }
     const vision = await runVisionTool(tool, query, ctx)

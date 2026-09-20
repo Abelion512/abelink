@@ -14,8 +14,11 @@ export default function BootScreen({ showRecovery, onClearCache }) {
             Proses pemuatan memakan waktu lebih lama dari biasanya. Jika terjebak, bersihkan cache
             model.
           </p>
-          <button onClick={onClearCache} className="btn btn-outline btn-error btn-sm">
-            Hapus Cache Model & Muat Ulang
+          <button
+            onClick={onClearCache}
+            className="px-4 py-2 rounded-full border border-[#ff453a]/40 text-[#ff453a] hover:bg-[#ff453a] hover:text-white transition-all text-xs font-medium"
+          >
+            Hapus Cache Model &amp; Muat Ulang
           </button>
         </div>
       )}

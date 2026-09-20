@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { Check, Play, Pause, Music } from 'lucide-react'
 import { resolveChoice } from '../../api/choiceBus'
+import { useYoutubeMusic } from '../../contexts/YoutubeMusicContext'
 
 // Tombol opsi ask-choice — satu-satunya sumber UI pilihan (dipakai
 // MessageBubble di chat DAN ResponseArea di home). Klik me-resolve janji
@@ -12,19 +13,29 @@ export const ChoiceButtons = React.memo(({ choice }) => {
   const isMusicChoice = choice.type === 'music_preview' || (Array.isArray(choice.rawOptions) && choice.rawOptions.some(o => o && typeof o === 'object' && (o.thumbnail || o.artist || o.duration)))
   const [playingAudio, setPlayingAudio] = useState(null)
   const audioRef = useRef(null)
+  const { previewSnippet, isPlaying, pauseTrack } = useYoutubeMusic?.() || {}
 
-  const togglePreview = (e, audioUrl) => {
+  const togglePreview = (e, audioUrl, videoId) => {
     e.stopPropagation()
-    if (!audioUrl) return
-    if (playingAudio === audioUrl) {
-      audioRef.current?.pause()
-      setPlayingAudio(null)
-    } else {
-      if (audioRef.current) {
-        audioRef.current.src = audioUrl
-        audioRef.current.play().catch(() => {})
+    if (audioUrl) {
+      if (playingAudio === audioUrl) {
+        audioRef.current?.pause()
+        setPlayingAudio(null)
+      } else {
+        if (audioRef.current) {
+          audioRef.current.src = audioUrl
+          audioRef.current.play().catch(() => {})
+        }
+        setPlayingAudio(audioUrl)
       }
-      setPlayingAudio(audioUrl)
+    } else if (videoId && typeof previewSnippet === 'function') {
+      if (playingAudio === videoId && isPlaying) {
+        pauseTrack?.()
+        setPlayingAudio(null)
+      } else {
+        previewSnippet(videoId, 15)
+        setPlayingAudio(videoId)
+      }
     }
   }
 
@@ -88,14 +99,14 @@ export const ChoiceButtons = React.memo(({ choice }) => {
                   </div>
                 </div>
 
-                {previewUrl && (
+                {(previewUrl || raw.id) && (
                   <button
                     type="button"
-                    onClick={(e) => togglePreview(e, previewUrl)}
-                    className="btn btn-ghost btn-xs btn-circle text-white/70 hover:text-white"
-                    title={playingAudio === previewUrl ? 'Pause preview' : 'Play preview'}
+                    onClick={(e) => togglePreview(e, previewUrl, raw.id)}
+                    className="btn btn-ghost btn-xs btn-circle text-white/70 hover:text-white bg-white/5 hover:bg-white/10"
+                    title={playingAudio === (previewUrl || raw.id) ? 'Pause preview' : 'Play preview (15s)'}
                   >
-                    {playingAudio === previewUrl ? (
+                    {playingAudio === (previewUrl || raw.id) ? (
                       <Pause className="w-3.5 h-3.5 text-primary" />
                     ) : (
                       <Play className="w-3.5 h-3.5" />
@@ -107,7 +118,7 @@ export const ChoiceButtons = React.memo(({ choice }) => {
           })}
         </div>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 pt-1">
           {choice.options.map((opt, i) => {
             const isSelected = choice.selected === opt
             const done = choice.selected != null
@@ -116,15 +127,15 @@ export const ChoiceButtons = React.memo(({ choice }) => {
                 key={i}
                 disabled={done}
                 onClick={() => resolveChoice(choice.id, opt)}
-                className={`btn btn-xs normal-case text-[11px] flex items-center gap-1.5 border transform transition hover:scale-105 ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 border backdrop-blur-md transition-all duration-200 hover:scale-105 active:scale-95 ${
                   isSelected
-                    ? 'btn-primary border-primary'
-                    : 'btn-neutral bg-base-300 border-primary/20 hover:border-primary/50'
-                } ${done && !isSelected ? 'opacity-40' : ''}`}
+                    ? 'bg-primary text-white border-primary shadow-md shadow-primary/25 ring-2 ring-primary/40'
+                    : 'bg-white/10 hover:bg-white/15 text-white/90 border-white/10 hover:border-white/20'
+                } ${done && !isSelected ? 'opacity-35 cursor-not-allowed hover:scale-100' : ''}`}
                 title={opt}
               >
-                {isSelected && <Check className="w-3 h-3" />}
-                <span className="truncate max-w-[220px]">{opt}</span>
+                {isSelected && <Check className="w-3.5 h-3.5" />}
+                <span className="truncate max-w-[280px]">{opt}</span>
               </button>
             )
           })}
