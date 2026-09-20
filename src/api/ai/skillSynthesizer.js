@@ -1,5 +1,6 @@
 import { fetchAI, cleanAndParse } from './core'
 import { saveLearnedSkill } from '../db'
+import { buildTrajectoryLearningPack, formatTrajectoryLearningPack } from './trajectoryLearning.js'
 
 /**
  * Dedicated Skill Synthesizer (Abelink Meta-Learning Engine)
@@ -10,7 +11,9 @@ export async function synthesizeSkillAndSave({
   userPrompt = '',
   executedTools = [],
   finalAnswer = '',
-  thought = ''
+  thought = '',
+  verificationState = 'not_run',
+  outcome = 'unknown'
 }) {
   try {
     if (!executedTools || executedTools.length === 0) {
@@ -18,31 +21,23 @@ export async function synthesizeSkillAndSave({
       return null
     }
 
-    // Susun ringkasan riwayat aksi & tool yang berhasil
-    const toolsTrajectory = executedTools
-      .slice(0, 12)
-      .map((t, idx) => {
-        const toolName = t.tool || t.task || 'unknown_tool'
-        const queryStr = t.query ? `\n   Query: ${JSON.stringify(t.query).slice(0, 200)}` : ''
-        return `${idx + 1}. [Tool: ${toolName}]${queryStr}`
-      })
-      .join('\n')
+    const learningPack = buildTrajectoryLearningPack({
+      objective: userPrompt,
+      executedTools,
+      finalAnswer,
+      verificationState,
+      outcome
+    })
+    const groundedTrajectory = formatTrajectoryLearningPack(learningPack)
 
-    const promptText = `Berikut adalah sesi kerja Abelink yang berhasil:
+    const promptText = `Berikut adalah jejak kerja Abelink yang harus dipelajari secara hati-hati.
 
-[PERMINTAAN USER]:
-${userPrompt ? userPrompt.slice(0, 500) : '(Tidak ada teks permintaan)'}
+${groundedTrajectory}
 
-[ANALISIS & LOGIKA (THOUGHT)]:
+[ANALISIS & LOGIKA TERPOTONG]:
 ${thought ? thought.slice(0, 500) : '(Tidak ada thought)'}
 
-[LANGKAH ALAT YANG SUKSES DIEKSEKUSI]:
-${toolsTrajectory}
-
-[HASIL / JAWABAN AKHIR]:
-${finalAnswer ? finalAnswer.slice(0, 600) : '(Tidak ada jawaban akhir)'}
-
-Tugasmu: Rumuskan alur kerja prosedural di atas menjadi berkas SKILL.md yang terstruktur dan dapat digunakan kembali.`
+Tugasmu: Rumuskan hanya prosedur yang didukung oleh bukti observasi di atas menjadi berkas SKILL.md yang terstruktur dan dapat digunakan kembali. Jangan mengubah kegagalan atau klaim akhir model menjadi fakta. Jika bukti prosedural tidak cukup, hasilkan prosedur yang sempit dan jujur daripada mengisi kekosongan dengan asumsi.`
 
     const systemPrompt = `Kamu adalah Abelink Meta-Learning Synthesizer Engine.
 Tugasmu adalah menyaring alur kerja teknis yang baru saja BERHASIL diselesaikan oleh Abelink menjadi sebuah PROSEDUR SKILL (.md) yang rapi, modular, dan dapat dieksekusi kembali secara otomatis oleh Abelink di masa depan via 'read-skill'.
