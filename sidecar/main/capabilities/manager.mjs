@@ -14,8 +14,9 @@
 
 import { listConnectors, getConnector, getActionGuide, registerConnector } from './catalog.mjs'
 import { appendAudit, readAudit, readConnections, writeConnections } from './connections.mjs'
+import { isProviderAuthorized, getValidToken } from './oauth-provider.mjs'
 
-export { listConnectors, getConnector, getActionGuide, readAudit, registerConnector }
+export { listConnectors, getConnector, getActionGuide, readAudit, registerConnector, isProviderAuthorized, getValidToken }
 
 // ------------------------------------------------------------- policy
 
@@ -76,10 +77,31 @@ export async function executeCapability({ connectorId, actionId, args, sessionId
       e.code = 'MCP_NOT_AUTHORIZED'
       throw e
     }
+
+    let authOpts = null
+    const isOAuth = conn.authType === 'oauth' || connector.authType === 'oauth' || !!conn.oauthProvider || !!connector.oauthProvider
+    if (isOAuth) {
+      const provider = conn.oauthProvider || connector.oauthProvider || 'google'
+      const token = await getValidToken(provider)
+      if (!token) {
+        const err = new Error(`Token OAuth '${provider}' tidak ditemukan atau kedaluwarsa. Silakan otorisasi ulang di Capabilities.`)
+        err.code = 'OAUTH_TOKEN_EXPIRED'
+        err.provider = provider
+        throw err
+      }
+      authOpts = {
+        headers: { Authorization: `Bearer ${token}` },
+        onAuthRetry: async () => {
+          const fresh = await getValidToken(provider, { forceRefresh: true })
+          return { Authorization: `Bearer ${fresh}` }
+        }
+      }
+    }
+
     const { callMcpTool } = await import('./mcp-client.mjs')
     appendAudit({ op: 'execute.request', connector: connectorId, action: String(actionId), session: sessionId || null, transport: 'mcp' })
     try {
-      const text = await callMcpTool(conn.url, conn.headers || {}, String(actionId), args || {})
+      const text = await callMcpTool(conn.url, authOpts || conn.headers || {}, String(actionId), args || {})
       appendAudit({ op: 'execute.result', connector: connectorId, action: String(actionId), status: 'ok', session: sessionId || null, transport: 'mcp' })
       return text
     } catch (err) {
@@ -167,29 +189,63 @@ export async function authorizeConnector(connectorId, grantedScopes = []) {
   const connector = getConnector(connectorId)
   if (!connector) throw new Error(`Connector tidak dikenal: ${connectorId}`)
   if (connector.transport === 'mcp') {
-    // Custom MCP: probe tools/list sebagai validasi endpoint SEKALIGUS
-    // discovery (gagal = pesan jelas, bukan sukses palsu). URL+header+tools
-    // tersimpan di connections.json 0600 untuk dipakai execute.
+    // MCP transport: probe tools/list sebagai validasi endpoint SEKALIGUS
+    // discovery (gagal = pesan jelas, bukan sukses palsu).
+    let headers = connector.headers || {}
+    let authOpts = null
+    const isOAuth = connector.authType === 'oauth' || !!connector.oauthProvider
+
+    if (isOAuth) {
+      const provider = connector.oauthProvider || 'google'
+      const authorized = await isProviderAuthorized(provider)
+      if (!authorized) {
+        const err = new Error(`Provider OAuth '${provider}' belum diotorisasi. Hubungkan akun ${provider} terlebih dahulu.`)
+        err.code = 'OAUTH_REQUIRED'
+        err.provider = provider
+        appendAudit({ op: 'authorize', connector: connectorId, status: 'error', error: err.message, transport: 'mcp' })
+        throw err
+      }
+      const token = await getValidToken(provider)
+      if (!token) {
+        const err = new Error(`Gagal mendapatkan token OAuth '${provider}'.`)
+        err.code = 'OAUTH_TOKEN_FAILED'
+        err.provider = provider
+        appendAudit({ op: 'authorize', connector: connectorId, status: 'error', error: err.message, transport: 'mcp' })
+        throw err
+      }
+      headers = { Authorization: `Bearer ${token}` }
+      authOpts = {
+        headers,
+        onAuthRetry: async () => {
+          const freshToken = await getValidToken(provider, { forceRefresh: true })
+          return { Authorization: `Bearer ${freshToken}` }
+        }
+      }
+    }
+
     const { listMcpTools } = await import('./mcp-client.mjs')
     let tools
     try {
-      tools = await listMcpTools(connector.url, connector.headers || {})
+      tools = await listMcpTools(connector.url, authOpts || headers)
     } catch (e) {
       const err = new Error(`MCP '${connectorId}' tidak terjangkau: ${e.message}`)
-      err.code = 'MCP_UNREACHABLE'
+      err.code = e.code === 'MCP_UNAUTHORIZED' ? 'MCP_UNAUTHORIZED' : 'MCP_UNREACHABLE'
       appendAudit({ op: 'authorize', connector: connectorId, status: 'error', error: String(e?.message || e).slice(0, 300) })
       throw err
     }
     const map = await readConnections()
     map[connectorId] = {
       url: connector.url,
-      headers: connector.headers || {},
+      transport: 'mcp',
+      authType: connector.authType || (isOAuth ? 'oauth' : null),
+      oauthProvider: connector.oauthProvider || (isOAuth ? 'google' : null),
+      headers: isOAuth ? {} : (connector.headers || {}),
       tools,
       authorizedAt: new Date().toISOString()
     }
     await writeConnections(map)
     appendAudit({ op: 'authorize', connector: connectorId, status: 'ok', transport: 'mcp', toolCount: tools.length })
-    return { connectionless: false, grantedScopes: [], transport: 'mcp', tools }
+    return { connectionless: false, grantedScopes: connector.scopes || [], transport: 'mcp', tools }
   }
   if (!connector.scopes?.length) {
     await appendAudit({ op: 'authorize', connector: connectorId, status: 'connectionless' })

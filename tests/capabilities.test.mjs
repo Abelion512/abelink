@@ -263,6 +263,71 @@ describe('MCP transport (Streamable HTTP, server tiruan lokal)', () => {
       executeCapability({ connectorId: 'belum', actionId: 'lookup', args: {} })
     ).rejects.toMatchObject({ code: 'MCP_NOT_AUTHORIZED' })
   })
+
+  it('google-calendar-mcp terdaftar di catalog dengan authType oauth dan oauthProvider google', () => {
+    const conn = getConnector('google-calendar-mcp')
+    expect(conn).toBeTruthy()
+    expect(conn.transport).toBe('mcp')
+    expect(conn.authType).toBe('oauth')
+    expect(conn.oauthProvider).toBe('google')
+    expect(conn.url).toBe('https://calendarmcp.googleapis.com/mcp/v1')
+  })
+
+  it('authorizeConnector pada connector OAuth tanpa token gagal dengan OAUTH_REQUIRED', async () => {
+    await expect(authorizeConnector('google-calendar-mcp')).rejects.toMatchObject({
+      code: 'OAUTH_REQUIRED',
+      provider: 'google'
+    })
+  })
+
+  it('mcp-client melakukan auto-retry jika menerima HTTP 401 dan onAuthRetry disediakan', async () => {
+    const { callMcpTool } = await import('../sidecar/main/capabilities/mcp-client.mjs')
+    let attempts = 0
+    const http = await import('node:http')
+    const authServer = http.createServer((req, res) => {
+      let body = ''
+      req.on('data', (c) => (body += c))
+      req.on('end', () => {
+        let msg = {}
+        try { msg = JSON.parse(body || '{}') } catch {}
+        if (msg.method === 'initialize') {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          return res.end(JSON.stringify({ jsonrpc: '2.0', id: msg.id ?? 1, result: { protocolVersion: '2024-11-05' } }))
+        }
+        if (msg.method === 'tools/call') {
+          attempts++
+          const auth = req.headers['authorization'] || ''
+          if (auth !== 'Bearer fresh-token') {
+            res.writeHead(401, { 'content-type': 'application/json' })
+            return res.end(JSON.stringify({ error: 'unauthorized' }))
+          }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          return res.end(JSON.stringify({ jsonrpc: '2.0', id: msg.id ?? 1, result: { content: [{ type: 'text', text: 'sukses-setelah-refresh' }] } }))
+        }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ jsonrpc: '2.0', id: msg.id ?? 1, result: {} }))
+      })
+    })
+    await new Promise((resolve) => authServer.listen(0, '127.0.0.1', resolve))
+    const authUrl = `http://127.0.0.1:${authServer.address().port}/mcp`
+
+    try {
+      let refreshed = false
+      const authOpts = {
+        headers: { Authorization: 'Bearer expired-token' },
+        onAuthRetry: async () => {
+          refreshed = true
+          return { Authorization: 'Bearer fresh-token' }
+        }
+      }
+      const res = await callMcpTool(authUrl, authOpts, 'test-tool', {})
+      expect(res).toBe('sukses-setelah-refresh')
+      expect(refreshed).toBe(true)
+      expect(attempts).toBe(2)
+    } finally {
+      authServer.close()
+    }
+  })
 })
 
 describe('audit', () => {

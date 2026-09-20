@@ -35,13 +35,12 @@ export async function getTokens() {
  * Validates and returns an authenticated OAuth2 client if tokens exist.
  */
 export async function getAuthClient(clientId, clientSecret) {
-  if (!clientId || !clientSecret) return null
-  
   const tokens = await getTokens()
   if (!tokens) return null
 
-  const cleanId = clientId.trim()
-  const cleanSecret = clientSecret.trim()
+  const cleanId = (clientId || tokens.clientId || '').trim()
+  const cleanSecret = (clientSecret || tokens.clientSecret || '').trim()
+  if (!cleanId || !cleanSecret) return null
 
   const oAuth2Client = new google.auth.OAuth2(
     cleanId,
@@ -53,29 +52,59 @@ export async function getAuthClient(clientId, clientSecret) {
 
   // Handle automatic token refresh
   oAuth2Client.on('tokens', async (newTokens) => {
-    const currentTokens = await getTokens() || {}
+    const currentTokens = (await getTokens()) || {}
     // Only update if we received new tokens (sometimes refresh_token is not sent back)
     if (newTokens.refresh_token) {
       currentTokens.refresh_token = newTokens.refresh_token
     }
     currentTokens.access_token = newTokens.access_token
     currentTokens.expiry_date = newTokens.expiry_date
+    if (!currentTokens.clientId) currentTokens.clientId = cleanId
+    if (!currentTokens.clientSecret) currentTokens.clientSecret = cleanSecret
     await saveTokens(currentTokens)
   })
 
   return oAuth2Client
 }
 
+/**
+ * Returns a valid, non-expired Google access token, automatically refreshing if needed.
+ */
+export async function getValidGoogleToken({ forceRefresh = false } = {}) {
+  const tokens = await getTokens()
+  if (!tokens || !tokens.access_token) return null
+
+  const isExpired = !tokens.expiry_date || tokens.expiry_date < (Date.now() + 60000)
+  if (!isExpired && !forceRefresh) {
+    return tokens.access_token
+  }
+
+  // Needs refresh: attempt refresh if refresh_token and client credentials exist
+  if (tokens.refresh_token && (tokens.clientId || tokens.clientSecret)) {
+    try {
+      const client = await getAuthClient()
+      if (client) {
+        const res = await client.getAccessToken()
+        return res?.token || tokens.access_token
+      }
+    } catch (e) {
+      console.warn('[Google] Gagal refresh access token:', e?.message || e)
+    }
+  }
+  return tokens.access_token
+}
+
 let currentAuthServer = null
 
 export async function connectGoogle(clientId, clientSecret) {
+  const savedTokens = await getTokens().catch(() => null)
+  const cleanId = (clientId || savedTokens?.clientId || process.env.GOOGLE_CLIENT_ID || '').trim()
+  const cleanSecret = (clientSecret || savedTokens?.clientSecret || process.env.GOOGLE_CLIENT_SECRET || '').trim()
+
   return new Promise((resolve, reject) => {
-    if (!clientId || !clientSecret) {
+    if (!cleanId || !cleanSecret) {
       return reject(new Error('Client ID and Client Secret are required.'))
     }
-
-    const cleanId = clientId.trim()
-    const cleanSecret = clientSecret.trim()
 
     if (currentAuthServer) {
       try { currentAuthServer.close() } catch (e) {}
@@ -121,7 +150,11 @@ export async function connectGoogle(clientId, clientSecret) {
           }
 
           const { tokens } = await oAuth2Client.getToken(code)
-          await saveTokens(tokens)
+          await saveTokens({
+            ...tokens,
+            clientId: cleanId,
+            clientSecret: cleanSecret
+          })
 
           res.end(`
             <!DOCTYPE html>

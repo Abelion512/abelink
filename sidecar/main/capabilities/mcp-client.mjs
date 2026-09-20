@@ -15,10 +15,30 @@ const redactHeaders = (headers = {}) => {
   return out
 }
 
-async function rpc(url, headers, method, params = {}) {
+async function resolveHeaders(headersOrOpts) {
+  if (!headersOrOpts) return {}
+  if (typeof headersOrOpts === 'function') {
+    return (await headersOrOpts()) || {}
+  }
+  if (typeof headersOrOpts === 'object') {
+    if (typeof headersOrOpts.getHeaders === 'function') {
+      return (await headersOrOpts.getHeaders()) || {}
+    }
+    if (headersOrOpts.headers) {
+      if (typeof headersOrOpts.headers === 'function') {
+        return (await headersOrOpts.headers()) || {}
+      }
+      return headersOrOpts.headers
+    }
+  }
+  return headersOrOpts
+}
+
+async function rpc(url, headersOrOpts, method, params = {}, retryCount = 0) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(new Error(`Timeout ${RPC_TIMEOUT_MS / 1000}s ke MCP ${url}`)), RPC_TIMEOUT_MS)
   let res
+  const headers = await resolveHeaders(headersOrOpts)
   try {
     res = await fetch(url, {
       method: 'POST',
@@ -36,8 +56,21 @@ async function rpc(url, headers, method, params = {}) {
     clearTimeout(timer)
   }
   if (!res.ok) {
+    if (res.status === 401 && retryCount === 0 && headersOrOpts?.onAuthRetry) {
+      try {
+        const freshHeaders = await headersOrOpts.onAuthRetry()
+        const nextOpts = {
+          ...headersOrOpts,
+          headers: freshHeaders || headersOrOpts.headers
+        }
+        return await rpc(url, nextOpts, method, params, retryCount + 1)
+      } catch (_) {}
+    }
     const body = await res.text().catch(() => '')
-    throw new Error(`MCP ${method} HTTP ${res.status}: ${body.slice(0, 200)}`)
+    const err = new Error(`MCP ${method} HTTP ${res.status}: ${body.slice(0, 200)}`)
+    err.status = res.status
+    if (res.status === 401) err.code = 'MCP_UNAUTHORIZED'
+    throw err
   }
   const ctype = res.headers.get('content-type') || ''
   let payload
@@ -68,8 +101,8 @@ async function rpc(url, headers, method, params = {}) {
   return payload?.result
 }
 
-async function initialize(url, headers) {
-  const result = await rpc(url, headers, 'initialize', {
+async function initialize(url, headersOrOpts) {
+  const result = await rpc(url, headersOrOpts, 'initialize', {
     protocolVersion: '2024-11-05',
     capabilities: {},
     clientInfo: { name: 'abelink', version: '1.0.0-alpha.3' }
@@ -77,6 +110,7 @@ async function initialize(url, headers) {
   // Notifikasi initialized: best-effort, kegagalan diabaikan.
   // Timeout ikut pola rpc() agar MCP lambat tidak menahan authorize.
   try {
+    const headers = await resolveHeaders(headersOrOpts)
     const nCtrl = new AbortController()
     const nTimer = setTimeout(() => nCtrl.abort(), RPC_TIMEOUT_MS)
     try {
@@ -129,4 +163,4 @@ export async function callMcpTool(url, headers = {}, toolName, args = {}) {
   return '(Tool MCP tidak mengembalikan konten.)'
 }
 
-export { redactHeaders }
+export { redactHeaders, resolveHeaders }

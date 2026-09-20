@@ -70,14 +70,14 @@ export const ThinkingBubble = ({
         )}
       </div>
 
-      {/* Live Process Execution Card (ProcessPanel style) */}
+      {/* Live Process Execution Card (Apple / Glassmorphic style) */}
       {(reasoning || (executedTools && executedTools.length > 0)) && (
-        <div className="flex flex-col gap-2 bg-black/30 backdrop-blur-md rounded-xl border border-white/10 p-3 shadow-inner">
+        <div className="flex flex-col gap-2.5 bg-white/[0.03] backdrop-blur-xl rounded-2xl border border-white/[0.06] p-3.5 shadow-sm">
           {/* Collapsible Reasoning Section */}
           {reasoning && (
             <details open className="group/details">
               <summary className="text-[10px] cursor-pointer select-none flex items-center justify-between opacity-70 hover:opacity-100 uppercase tracking-wider mb-1.5 transition-opacity list-none [&::-webkit-details-marker]:hidden">
-                <div className="flex items-center gap-1.5 text-primary font-bold">
+                <div className="flex items-center gap-1.5 text-primary font-semibold">
                   <Brain className="w-3.5 h-3.5" />
                   <span>Proses Pemikiran</span>
                 </div>
@@ -85,7 +85,7 @@ export const ThinkingBubble = ({
               </summary>
               <div
                 ref={reasoningRef}
-                className="text-[11px] opacity-80 border-l-2 border-primary/40 pl-2.5 my-1.5 font-mono whitespace-pre-wrap leading-relaxed text-base-content/90 max-h-48 overflow-y-auto custom-scrollbar"
+                className="text-[11px] font-mono bg-black/20 p-2.5 rounded-xl border border-white/[0.04] whitespace-pre-wrap leading-relaxed text-white/80 max-h-48 overflow-y-auto custom-scrollbar"
               >
                 {typeof reasoning === 'string' ? reasoning : JSON.stringify(reasoning, null, 2)}
               </div>
@@ -94,7 +94,7 @@ export const ThinkingBubble = ({
 
           {/* Executed Tools Step-by-Step List (ProcessPanel style) */}
           {executedTools && executedTools.length > 0 && (
-            <div className="space-y-1.5 pt-1.5 border-t border-white/5">
+            <div className="space-y-1.5 pt-1.5 border-t border-white/[0.05]">
               <div className="text-[10px] font-bold uppercase tracking-wider text-primary/80 flex items-center gap-1.5 mb-1 select-none">
                 <ListOrdered className="w-3.5 h-3.5" />
                 <span>

@@ -16,7 +16,8 @@ import {
   Loader2,
   ArrowLeft,
   Bot,
-  Folder
+  Folder,
+  PanelLeft
 } from 'lucide-react'
 import {
   getAllSessions,
@@ -60,6 +61,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
   const [editingTitle, setEditingTitle] = useState('')
   const [isFullScreen, setIsFullScreen] = useState(false)
   const [isLocalLoading, setIsLocalLoading] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   const messagesContainerRef = useRef(null)
   const messagesEndRef = useRef(null)
@@ -200,6 +202,32 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
     }
   }
 
+  const handleClearSessionChat = async (e, id) => {
+    if (e?.stopPropagation) e.stopPropagation()
+    const numId = Number(id)
+    const isMain = numId === 1
+    const target = sessions.find((s) => Number(s.id) === numId)
+    const titleName = isMain ? (target?.title || 'Main Thread') : (target?.title || 'Sesi ini')
+
+    const confirmed = await confirm({
+      title: `Bersihkan Percakapan ${titleName}`,
+      message: `Apakah kamu yakin ingin mengosongkan seluruh riwayat obrolan pada ${titleName}?`,
+      confirmText: 'Bersihkan',
+      confirmColor: 'btn-warning'
+    })
+
+    if (confirmed?.isConfirmed) {
+      if (isMain) {
+        setMainChatData?.([])
+        await deleteSession(1)
+      } else {
+        setActiveSessionData([])
+        await saveSession(numId, [])
+      }
+      await loadAllSessions()
+    }
+  }
+
   const handleStartRename = (e, session) => {
     e.stopPropagation()
     setEditingSessionId(session.id)
@@ -277,92 +305,152 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
       {/* Full-Screen Chat Studio Workspace (Below Window Controls Bar) */}
       <div className="fixed inset-0 pt-10 z-[80] w-screen h-screen bg-base-300 flex overflow-hidden animate-[response-fade-in_0.2s_ease-out_forwards]">
         {/* === LEFT SIDEBAR: SESSIONS LIST === */}
-        <div className="w-80 border-r border-white/10 bg-base-200/50 flex flex-col h-full shrink-0">
-          {/* Sidebar Header */}
-          <div
-            className="p-4 border-b border-white/10 space-y-3 z-30 relative select-none"
-            style={{ WebkitAppRegion: 'no-drag' }}
-          >
-            <div className="flex items-center justify-between pointer-events-auto">
-              <div className="flex items-center gap-2 font-bold text-sm tracking-wide text-white">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onClose()
-                  }}
-                  className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white mr-1 cursor-pointer shrink-0 pointer-events-auto"
-                  style={{ WebkitAppRegion: 'no-drag' }}
-                  title="Tutup Studio (Esc)"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <Bot className="w-5 h-5 text-primary shrink-0" />
-                <span className="truncate">Chat Studio</span>
-              </div>
-              <div className="flex items-center gap-1 pointer-events-auto">
-                <button
-                  type="button"
-                  onClick={handleCreateNewChat}
-                  className="btn btn-xs btn-primary rounded-lg gap-1 font-medium shadow-md shadow-primary/20 cursor-pointer pointer-events-auto"
-                  style={{ WebkitAppRegion: 'no-drag' }}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Sesi Baru
-                </button>
-              </div>
-            </div>
-
-            {/* Search Input */}
-            <div className="relative pointer-events-auto" style={{ WebkitAppRegion: 'no-drag' }}>
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-              <input
-                type="text"
-                placeholder="Cari obrolan..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input input-sm bg-base-300 border-white/10 pl-9 w-full rounded-xl text-xs text-white placeholder:text-white/30 focus:border-primary/50"
-              />
-            </div>
-          </div>
-
-          {/* Sessions Scroll List */}
-          <div className="flex-1 overflow-y-auto p-2.5 space-y-1 custom-scrollbar">
-            {/* PINNED MAIN THREAD */}
-            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/40 flex items-center gap-1">
-              <Pin className="w-3 h-3 text-primary" />
-              <span>Sesi Utama</span>
-            </div>
-
+        <div
+          className={`transition-all duration-300 ease-in-out border-r border-white/10 bg-base-200/50 backdrop-blur-xl flex flex-col h-full shrink-0 overflow-hidden ${
+            isSidebarOpen ? 'w-80 opacity-100' : 'w-0 opacity-0 border-r-0 pointer-events-none'
+          }`}
+        >
+          <div className="w-80 flex flex-col h-full">
+            {/* Sidebar Header */}
             <div
-              role="button"
-              tabIndex={0}
-              onClick={() => setActiveSessionId(1)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') setActiveSessionId(1)
-              }}
-              className={`w-full p-2.5 rounded-xl text-left transition-all flex items-center justify-between group/item cursor-pointer ${
-                activeSessionId === 1
-                  ? 'bg-primary/20 border border-primary/40 text-white shadow-sm'
-                  : 'hover:bg-white/5 text-white/70 hover:text-white border border-transparent'
-              }`}
+              className="p-4 border-b border-white/10 space-y-3 z-30 relative select-none"
+              style={{ WebkitAppRegion: 'no-drag' }}
             >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div
-                  className={`w-2 h-2 rounded-full shrink-0 ${
-                    runningSessionIds.map(Number).includes(1) ||
-                    (!runningSessionIds.length && (isMainLoading || isAgentBusy))
-                      ? 'bg-warning animate-ping'
-                      : 'bg-primary shadow-[0_0_8px_var(--color-primary)]'
-                  }`}
-                />
-                <div className="min-w-0">
-                  <h4 className="text-xs font-semibold truncate">Main Thread</h4>
+              <div className="flex items-center justify-between pointer-events-auto">
+                <div className="flex items-center gap-2 font-bold text-sm tracking-wide text-white">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onClose()
+                    }}
+                    className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white mr-1 cursor-pointer shrink-0 pointer-events-auto"
+                    style={{ WebkitAppRegion: 'no-drag' }}
+                    title="Tutup Studio (Esc)"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <Bot className="w-5 h-5 text-primary shrink-0" />
+                  <span className="truncate">Chat Studio</span>
+                </div>
+                <div className="flex items-center gap-1 pointer-events-auto">
+                  <button
+                    type="button"
+                    onClick={handleCreateNewChat}
+                    className="btn btn-xs btn-primary rounded-lg gap-1 font-medium shadow-md shadow-primary/20 cursor-pointer pointer-events-auto"
+                    style={{ WebkitAppRegion: 'no-drag' }}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Sesi Baru
+                  </button>
                 </div>
               </div>
+
+              {/* Search Input */}
+              <div className="relative pointer-events-auto" style={{ WebkitAppRegion: 'no-drag' }}>
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                <input
+                  type="text"
+                  placeholder="Cari obrolan..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="input input-sm bg-base-300 border-white/10 pl-9 w-full rounded-xl text-xs text-white placeholder:text-white/30 focus:border-primary/50"
+                />
+              </div>
             </div>
 
-            <div className="my-2 border-t border-white/5" />
+            {/* Sessions Scroll List */}
+            <div className="flex-1 overflow-y-auto p-2.5 space-y-1 custom-scrollbar">
+              {/* PINNED MAIN THREAD */}
+              {(() => {
+                const mainSession = sessions.find((s) => Number(s.id) === 1) || { id: 1, title: 'Main Thread' }
+                const isActive = Number(activeSessionId) === 1
+                const isEditing = Number(editingSessionId) === 1
+                const isMainRunning =
+                  runningSessionIds.map(Number).includes(1) ||
+                  (!runningSessionIds.length && (isMainLoading || isAgentBusy))
+
+                return (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setActiveSessionId(1)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') setActiveSessionId(1)
+                    }}
+                    className={`w-full p-2.5 rounded-2xl text-left transition-all flex items-center justify-between group/main cursor-pointer ${
+                      isActive
+                        ? 'bg-primary/20 border border-primary/40 text-white shadow-sm'
+                        : 'hover:bg-white/[0.04] text-white/70 hover:text-white border border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                      <div
+                        className={`w-2 h-2 rounded-full shrink-0 ${
+                          isMainRunning
+                            ? 'bg-warning animate-ping'
+                            : 'bg-primary shadow-[0_0_8px_var(--color-primary)]'
+                        }`}
+                      />
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveRename(1)
+                            if (e.key === 'Escape') setEditingSessionId(null)
+                          }}
+                          autoFocus
+                          className="input input-xs bg-base-300 border-primary/50 text-xs text-white p-1 h-6 w-full rounded-lg"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-semibold truncate">
+                            {mainSession.title || 'Main Thread'}
+                          </h4>
+                          <p className="text-[10px] opacity-40">Sesi Utama (Default)</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 opacity-0 group-hover/main:opacity-100 transition-opacity">
+                      {isEditing ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleSaveRename(1)
+                          }}
+                          className="btn btn-ghost btn-xs p-1 text-success hover:bg-success/20 rounded-lg"
+                          title="Simpan nama"
+                        >
+                          <Check className="w-3 h-3" />
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={(e) => handleStartRename(e, mainSession)}
+                            className="btn btn-ghost btn-xs p-1 text-white/40 hover:text-white rounded-lg"
+                            title="Ubah nama sesi utama"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => handleClearSessionChat(e, 1)}
+                            className="btn btn-ghost btn-xs p-1 text-white/40 hover:text-warning rounded-lg"
+                            title="Bersihkan riwayat sesi utama"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              <div className="my-2 border-t border-white/5" />
 
             {/* WORKSPACE SESSIONS */}
             <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/40">
@@ -469,8 +557,9 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
             )}
           </div>
         </div>
+      </div>
 
-        {/* === RIGHT MAIN: BUBBLE CHAT AREA === */}
+        {/* === RIGHT MAIN: CLEAN CANVAS CHAT AREA === */}
         <div className="flex-1 flex flex-col h-full bg-base-300/60 relative min-w-0 overflow-hidden">
           {/* Header */}
           <div
@@ -478,6 +567,17 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
             style={{ WebkitAppRegion: 'drag' }}
           >
             <div className="flex items-center gap-3 min-w-0" style={{ WebkitAppRegion: 'drag' }}>
+              {!isSidebarOpen && (
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="btn btn-ghost btn-xs btn-circle text-white/60 hover:text-white cursor-pointer mr-1"
+                  style={{ WebkitAppRegion: 'no-drag' }}
+                  title="Buka Panel Samping"
+                >
+                  <PanelLeft className="w-4 h-4" />
+                </button>
+              )}
               <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_10px_var(--color-primary)]" />
               <div>
                 <h3 className="text-sm font-bold text-white truncate max-w-md">
@@ -492,86 +592,102 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
             <div
               className="flex items-center gap-2 pointer-events-auto mr-28"
               style={{ WebkitAppRegion: 'no-drag' }}
-            ></div>
+            >
+              {currentDisplayMessages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => handleClearSessionChat(e, activeSessionId)}
+                  className="btn btn-ghost btn-xs text-white/40 hover:text-warning gap-1 px-2 rounded-lg cursor-pointer transition-all"
+                  title="Bersihkan riwayat percakapan sesi ini"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span className="text-[10px]">Bersihkan</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Messages Stream Container */}
+          {/* Messages Stream Container (Centered Canvas) */}
           <div
             ref={messagesContainerRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-6 custom-scrollbar space-y-2 min-h-0"
+            className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 custom-scrollbar min-h-0"
           >
-            {currentDisplayMessages.length > visibleMessageCount && (
-              <div className="flex justify-center py-2">
-                <button
-                  type="button"
-                  onClick={() => setVisibleMessageCount((prev) => prev + 30)}
-                  className="btn btn-xs btn-ghost text-[11px] text-white/50 hover:text-white border border-white/10 rounded-full px-4 normal-case cursor-pointer"
-                >
-                  Muat pesan sebelumnya ({currentDisplayMessages.length - visibleMessageCount} pesan
-                  lagi)
-                </button>
-              </div>
-            )}
+            <div className="max-w-4xl mx-auto w-full space-y-4">
+              {currentDisplayMessages.length > visibleMessageCount && (
+                <div className="flex justify-center py-2">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleMessageCount((prev) => prev + 30)}
+                    className="btn btn-xs btn-ghost text-[11px] text-white/50 hover:text-white border border-white/10 rounded-full px-4 normal-case cursor-pointer"
+                  >
+                    Muat pesan sebelumnya ({currentDisplayMessages.length - visibleMessageCount} pesan
+                    lagi)
+                  </button>
+                </div>
+              )}
 
-            {currentDisplayMessages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-white/40 space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-base-200/80 border border-white/10 flex items-center justify-center text-primary shadow-xl">
-                  <Sparkles className="w-7 h-7 animate-pulse" />
+              {currentDisplayMessages.length === 0 ? (
+                <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 text-white/40 space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-base-200/80 border border-white/10 flex items-center justify-center text-primary shadow-xl">
+                    <Sparkles className="w-7 h-7 animate-pulse" />
+                  </div>
+                  <div className="max-w-sm space-y-1">
+                    <h4 className="text-sm font-bold text-white">Sesi Obrolan Bersih</h4>
+                    <p className="text-xs text-white/50">
+                      Tanyakan apapun, analisis kode, atau diskusikan ide riset bersama Abelink.
+                    </p>
+                  </div>
                 </div>
-                <div className="max-w-sm space-y-1">
-                  <h4 className="text-sm font-bold text-white">Sesi Obrolan Bersih</h4>
-                  <p className="text-xs text-white/50">
-                    Tanyakan apapun, analisis kode, atau diskusikan ide riset bersama Abelink.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              currentDisplayMessages
-                .slice(-visibleMessageCount)
-                .map((msg, idx) => (
-                  <ChatList
-                    key={msg.id || msg.created_at || idx}
-                    role={msg.role}
-                    content={msg.content}
-                    reasoning={msg.reasoning}
-                    isThinking={msg.isThinking}
-                    isSearching={msg.isSearching}
-                    isSummarizing={msg.isSummarizing}
-                    isSearchingMusic={msg.isSearchingMusic}
-                    sources={msg.sources}
-                    executedTools={msg.executedTools}
-                    isMemorySaved={msg.isMemorySaved}
-                    choice={msg.choice}
-                    isMemoryUpdated={msg.isMemoryUpdated}
-                    isMemoryDeleted={msg.isMemoryDeleted}
-                    timestamp={msg.timestamp}
-                    mood={msg.mood}
-                    source={msg.source}
-                    sender={msg.sender}
-                  />
-                ))
-            )}
-            <div ref={messagesEndRef} className="h-2" />
+              ) : (
+                currentDisplayMessages
+                  .slice(-visibleMessageCount)
+                  .map((msg, idx) => (
+                    <ChatList
+                      key={`${msg.id || 'msg'}-${idx}`}
+                      role={msg.role}
+                      content={msg.content}
+                      reasoning={msg.reasoning}
+                      isThinking={msg.isThinking}
+                      isSearching={msg.isSearching}
+                      isSummarizing={msg.isSummarizing}
+                      isSearchingMusic={msg.isSearchingMusic}
+                      sources={msg.sources}
+                      executedTools={msg.executedTools}
+                      isMemorySaved={msg.isMemorySaved}
+                      choice={msg.choice}
+                      isMemoryUpdated={msg.isMemoryUpdated}
+                      isMemoryDeleted={msg.isMemoryDeleted}
+                      timestamp={msg.timestamp}
+                      mood={msg.mood}
+                      source={msg.source}
+                      sender={msg.sender}
+                    />
+                  ))
+              )}
+              <div ref={messagesEndRef} className="h-4" />
+            </div>
           </div>
 
           {/* Bottom Input Area */}
-          <div className="p-3 border-t border-white/10 bg-base-200/40 shrink-0">
-            <InputBar
-              inline={true}
-              onSubmit={handleSendMessage}
-              isLoading={isCurrentLoading}
-              isRecording={isRecording}
-              isProcessing={isProcessing}
-              audioIntensity={audioIntensity}
-              onStartRecord={startRecording}
-              onStopRecord={stopRecording}
-              onStop={handleStopSession}
-              source={inputSource || 'pc'}
-              workspaceRoot={activeSessionObj?.workspaceRoot}
-              onSelectWorkspace={handleSelectSessionWorkspace}
-              sessionId={activeSessionId}
-            />
+          <div className="p-3 md:p-4 border-t border-white/10 bg-base-200/40 shrink-0">
+            <div className="max-w-4xl mx-auto w-full">
+              <InputBar
+                inline={true}
+                onSubmit={handleSendMessage}
+                isLoading={isCurrentLoading}
+                isRecording={isRecording}
+                isProcessing={isProcessing}
+                audioIntensity={audioIntensity}
+                onStartRecord={startRecording}
+                onStopRecord={stopRecording}
+                onStop={handleStopSession}
+                source={inputSource || 'pc'}
+                workspaceRoot={activeSessionObj?.workspaceRoot}
+                onSelectWorkspace={handleSelectSessionWorkspace}
+                sessionId={activeSessionId}
+              />
+            </div>
           </div>
         </div>
       </div>

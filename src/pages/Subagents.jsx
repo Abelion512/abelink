@@ -120,7 +120,7 @@ export default function Subagents() {
 
       {/* Main Content Area */}
       <div className="relative z-10 w-full h-full overflow-hidden flex flex-col">
-        <div className="max-w-6xl mx-auto px-4 py-6 space-y-5 w-full flex-1 flex flex-col overflow-hidden">
+        <div className="w-full h-full px-4 lg:px-8 py-4 space-y-4 flex-1 flex flex-col overflow-hidden">
           {/* Page Header */}
           <div className="flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3.5">
@@ -202,8 +202,8 @@ export default function Subagents() {
             </div>
           </div>
 
-          {/* Main Workspace Area */}
-          <div className="flex-1 flex overflow-hidden rounded-3xl bg-black/40 border border-white/[0.08] p-3.5 gap-3.5 backdrop-blur-xl shadow-2xl">
+          {/* Main Workspace Area (Clean Full-Canvas Container) */}
+          <div className="flex-1 flex overflow-hidden rounded-2xl bg-black/30 border border-white/[0.08] backdrop-blur-2xl shadow-2xl">
             {viewMode === 'topology' ? (
               <SubagentTopologyMap
                 subagents={subagents}
@@ -218,7 +218,7 @@ export default function Subagents() {
             ) : (
               <>
                 {/* Left Panel: Clean Agent List */}
-                <div className="w-72 flex flex-col bg-white/[0.02] rounded-2xl border border-white/[0.06] overflow-hidden flex-none">
+                <div className="w-80 flex flex-col bg-white/[0.02] border-r border-white/[0.08] overflow-hidden flex-none">
                   {/* Filter Tabs */}
                   <div className="p-2 border-b border-white/[0.06]">
                     <div className="flex gap-1 p-0.5 bg-black/40 rounded-xl w-full border border-white/[0.05]">
@@ -338,7 +338,7 @@ export default function Subagents() {
                 </div>
 
                 {/* Right Panel: Intercom Conversation */}
-                <div className="flex-1 flex flex-col bg-white/[0.01] rounded-2xl border border-white/[0.06] overflow-hidden">
+                <div className="flex-1 flex flex-col bg-transparent min-w-0 overflow-hidden">
                   {selectedSubagentId ? (
                     <SubagentIntercom
                       subagentId={selectedSubagentId}

@@ -152,17 +152,11 @@ const APPROVAL_ACTIONS: &[&str] = &[
     "plugin:delete",
     "tg:start",
     "tg:stop",
-    "google:connect",
-    "google:disconnect",
     // Capability Manager (fase Kapabilitas): eksekusi connector yang BERISIKO
-    // (tulis/hapus/shell/authorize) dikonfirmasi native (rfd) di main thread —
+    // (tulis/hapus/shell) dikonfirmasi native (rfd) di main thread —
     // keputusan di luar renderer/model. Aksi read-only aman (weather/time,
     // fs list/read, status extension) lolos via is_readonly_capability.
     "capabilities:execute",
-    // Authorize/revoke = memberi/mencabut izin kredensial connector — setara
-    // keamanan dgn connect google / start tg. Wajib gate native (rfd).
-    "capabilities:authorize",
-    "capabilities:revoke",
     // OS automation namespace colon (Fase B6, engine/channels/os.mjs): aksi
     // MUTASI fisik (klik/ketik/shortcut/scroll/buka) wajib dialog native.
     // Baca/list/fokus/tanya = observasi, lolos (verifier butuh sunyi).
