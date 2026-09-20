@@ -357,6 +357,11 @@ const activeGroups = {}
 // Nama task terakhir per sesi (untuk grouping tab navigate tanpa label task).
 const sessionTask = {}
 
+// URL fokus tercatat per sesi: di-set tiap navigate sukses. Bila tab primer
+// URL-nya berubah tanpa navigate tercatat (user menavigasi manual), tab
+// ditolak agar caller recovery jujur (bukan membaca tab yang salah).
+const sessionFocusedUrl = {}
+
 // Tab primer per sesi: SATU tab primer per sessionId (single primary per
 // session), tetapi grup sesi boleh menampung N tab (multi-tab per grup,
 // budget MAX_TABS_PER_SESSION). SEMUA navigate dalam satu task memakai ulang
@@ -379,17 +384,19 @@ async function saveSessionState() {
     await chrome.storage.session.set({
       _primaryTabs: primaryTabs,
       _activeGroups: activeGroups,
-      _sessionTask: sessionTask
+      _sessionTask: sessionTask,
+      _sessionFocusedUrl: sessionFocusedUrl
     })
   } catch {}
 }
 
 async function loadSessionState() {
   try {
-    const data = await chrome.storage.session.get(['_primaryTabs', '_activeGroups', '_sessionTask'])
+    const data = await chrome.storage.session.get(['_primaryTabs', '_activeGroups', '_sessionTask', '_sessionFocusedUrl'])
     if (data._primaryTabs) Object.assign(primaryTabs, data._primaryTabs)
     if (data._activeGroups) Object.assign(activeGroups, data._activeGroups)
     if (data._sessionTask) Object.assign(sessionTask, data._sessionTask)
+    if (data._sessionFocusedUrl) Object.assign(sessionFocusedUrl, data._sessionFocusedUrl)
   } catch {}
 }
 
@@ -412,7 +419,8 @@ async function getPrimaryTab(sessionId) {
   if (id == null) return null
   try {
     const tab = await chrome.tabs.get(id)
-    if (!tab) {
+    // Primer non-http (chrome://, about:) tidak bisa di-inject: buang.
+    if (!tab || !tab.url?.startsWith('http')) {
       delete primaryTabs[sessionId]
       await saveSessionState()
       return null
@@ -428,7 +436,14 @@ async function getPrimaryTab(sessionId) {
 async function targetTabForSession(sessionId = 'default') {
   await loadSessionState()
   const primary = await getPrimaryTab(sessionId)
-  if (primary && primary.url?.startsWith('http')) return primary
+  // Tolak primer yang URL-nya berubah dari focusedUrl sesi (salinan inline
+  // resolveSessionTab dari extension/tab-identity.mjs; abaikan hash).
+  const focused = sessionFocusedUrl[sessionId] ?? null
+  const stripHash = (u) => String(u || '').split('#')[0]
+  if (primary && primary.url?.startsWith('http')) {
+    if (focused == null || stripHash(primary.url) === stripHash(focused)) return primary
+    console.warn(`[Abelink] tolak tab primer sesi "${sessionId}": URL berubah (${primary.url} != ${focused})`)
+  }
 
   // Cari tab yang berada di dalam grup Abelink untuk sesi ini (isolasi privasi)
   const group = activeGroups[sessionId]
@@ -438,6 +453,7 @@ async function targetTabForSession(sessionId = 'default') {
       const valid = groupTabs.find((t) => t.url?.startsWith('http'))
       if (valid) {
         primaryTabs[sessionId] = valid.id
+        if (valid.url?.startsWith('http')) sessionFocusedUrl[sessionId] = valid.url
         await saveSessionState()
         return valid
       }
@@ -744,9 +760,17 @@ async function navigate({ url, reuse = true }, sessionId = 'default') {  // Tab 
   }
   const dom = await readDomInTab(effectiveTabId)
   if (!dom.ok) return { ...dom, group }
+  // Catat URL fokus sesi HANYA bila navigate sukses (DOM terbaca).
+  sessionFocusedUrl[sessionId] = url
+  let liveTitle = ''
+  try {
+    liveTitle = (await chrome.tabs.get(effectiveTabId))?.title || ''
+  } catch {
+    /* abaikan */
+  }
   try {
     const parsed = JSON.parse(dom.data)
-    parsed._group = { tabId: effectiveTabId, reused, ...group }
+    parsed._group = { tabId: effectiveTabId, url, title: liveTitle, reused, ...group }
     return { ok: true, data: JSON.stringify(parsed) }
   } catch {
     return { ...dom, group }
