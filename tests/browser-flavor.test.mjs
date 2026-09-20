@@ -28,10 +28,11 @@ describe('anti-drift pairing terpin', () => {
   it('background.js resume terpagar pairing', () => {
     const bg = read('background.js')
     // tryAutoResume wajib menolak tanpa pairing (tanpa auto-switch sisa):
-    // antara guard !pairing dan lanjut-alur normal (getCfg) tidak ada
-    // handshake/loop (alarm re-arm boleh).
+    // Gabungan: lastError jujur + jadwalkan ulang, TANPA handshake/loop.
     const segMatch = bg.match(/if \(!pairing\)([\s\S]*?)let cfg = await getCfg\(\)/)
     expect(segMatch).not.toBeNull()
+    expect(segMatch[1]).toMatch(/lastError/)
+    expect(segMatch[1]).toMatch(/scheduleAutoResume/)
     expect(segMatch[1]).not.toMatch(/apiGet|running\s*=\s*true|[^a-zA-Z]loop\(\)/)
   })
 

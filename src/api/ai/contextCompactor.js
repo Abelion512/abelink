@@ -58,9 +58,23 @@ export const stripImageContent = (content, keepImages = false) => {
 }
 
 /**
+ * Potong observasi / hasil tool raksasa (> 4000 char) jadi head 2500 + tail 500.
+ * Dipakai saat merakit history lama, bukan saat eksekusi live.
+ */
+export const truncateGiantObservation = (text) => {
+  if (typeof text !== 'string') return text ?? ''
+  if (text.length <= 4000) return text
+  return (
+    text.slice(0, 2500) +
+    `\n... [observasi raksasa dipangkas: ${text.length} char -> 3000 char] ...\n` +
+    text.slice(-500)
+  )
+}
+
+/**
  * Mengompaksi daftar riwayat percakapan untuk prompt LLM
  */
-export const buildOptimizedChatSession = (sourceChatData, maxTurns = 10) => {
+export const buildOptimizedChatSession = (sourceChatData, maxTurns = 20) => {
   if (!Array.isArray(sourceChatData)) return []
 
   const validMessages = sourceChatData.filter(
@@ -103,13 +117,21 @@ export const buildOptimizedChatSession = (sourceChatData, maxTurns = 10) => {
           toolLog = item.executedTools
             .map(
               (t) =>
-                `  * [Tool: ${t.tool}] query: "${t.query || ''}" -> Hasil: ${t.resultSummary || 'OK'}`
+                `  * [Tool: ${t.tool}] query: "${t.query || ''}" -> Hasil: ${truncateGiantObservation(t.resultSummary || 'OK')}`
             )
             .join('\n')
         } else {
-          // Giliran lama: hanya catat nama tool & target query
+          // Giliran lama: 2 baris per tool (nama+query, lalu 200 char pertama hasil)
+          // agar keputusan survive lebih lama tanpa membengkakkan konteks.
           toolLog = item.executedTools
-            .map((t) => `  * [Tool: ${t.tool}] (query: "${(t.query || '').slice(0, 60)}")`)
+            .map((t) => {
+              const raw = t.fullResult ?? t.resultSummary ?? 'OK'
+              const res = typeof raw === 'string' ? raw : String(raw)
+              const snippet = res.slice(0, 200)
+              const cutMark =
+                res.length > 4000 ? `\n... [observasi raksasa dipangkas: ${res.length} char] ...` : ''
+              return `  * [Tool: ${t.tool}] (query: "${(t.query || '').slice(0, 60)}")\n    -> ${snippet}${cutMark}`
+            })
             .join('\n')
         }
       }

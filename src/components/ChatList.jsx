@@ -1,6 +1,6 @@
 import React, { memo, useState } from 'react'
-import { Copy, Check, Bot, User, Sparkles } from 'lucide-react'
-import { FaTelegramPlane } from 'react-icons/fa'
+import { toMinimapAnchorId } from './core/TocMinimap'
+import { Copy, Check, Sparkles, ThumbsUp, ThumbsDown, Send } from 'lucide-react'
 import {
   MessageBubble,
   ThinkingBubble,
@@ -12,6 +12,7 @@ import {
 } from './Chat'
 
 const ChatList = ({
+  msgId = null,
   role = 'user',
   content = '',
   reasoning = null,
@@ -42,12 +43,25 @@ const ChatList = ({
 }) => {
   const resolvedCurrentStep = currentStep !== undefined ? currentStep : (plan ? plan.length : 0)
   const [isCopied, setIsCopied] = useState(false)
+  const [feedback, setFeedback] = useState(null) // 'up' | 'down' | null
 
   const handleCopy = () => {
     if (!content) return
     navigator.clipboard.writeText(content)
     setIsCopied(true)
     setTimeout(() => setIsCopied(false), 2000)
+  }
+
+  const handleFeedback = (type) => {
+    setFeedback((prev) => (prev === type ? null : type))
+    try {
+      window.api?.harnessAppend?.('chat_eval_feedback', {
+        msgId,
+        role,
+        feedback: feedback === type ? 'cancelled' : type,
+        timestamp: Date.now()
+      })
+    } catch (_) {}
   }
 
   const isUser = role === 'user'
@@ -59,108 +73,128 @@ const ChatList = ({
         plan={plan}
         resolvedCurrentStep={resolvedCurrentStep}
         reasoning={reasoning}
+        executedTools={executedTools}
       />
     )
   }
 
   return (
     <div
-      className={`chat ${isUser ? 'chat-end' : 'chat-start'} mb-4 group animate-[response-fade-in_0.2s_ease-out_forwards]`}
+      id={msgId != null ? toMinimapAnchorId(msgId) : undefined}
+      className={`w-full mb-6 group animate-[response-fade-in_0.2s_ease-out_forwards] scroll-mt-14 ${
+        isUser ? 'flex flex-col items-end' : 'flex flex-col items-start'
+      }`}
     >
-      {/* Avatar */}
-      <div className="chat-image avatar">
-        <div
-          className={`w-8 h-8 rounded-full flex items-center justify-center border shadow-md ${
-            isTelegram && isUser
-              ? 'bg-[#229ED9]/20 border-[#229ED9]/50 text-[#229ED9]'
-              : isUser
-              ? 'bg-primary/20 border-primary/40 text-primary'
-              : 'bg-base-300 border-white/10 text-white'
-          }`}
-        >
-          {isTelegram && isUser ? (
-            <FaTelegramPlane className="w-4 h-4" />
-          ) : isUser ? (
-            <User className="w-4 h-4" />
-          ) : (
-            <Bot className="w-4 h-4 text-primary" />
-          )}
-        </div>
-      </div>
-
-      {/* Header (Sender Name & Time) */}
-      <div className="chat-header text-[11px] font-semibold opacity-75 mb-1 flex items-center gap-2 px-1">
+      {/* Header Info (Sender Name & Time) */}
+      <div
+        className={`text-[11px] font-medium text-white/40 mb-1.5 flex items-center gap-2 px-1 ${
+          isUser ? 'justify-end' : 'justify-start'
+        }`}
+      >
         <span>{isUser ? (isTelegram ? (sender || 'Telegram Admin') : 'You') : 'Abelink'}</span>
         {isTelegram && (
           <span className="badge badge-xs bg-[#229ED9]/15 text-[#229ED9] border-[#229ED9]/30 gap-1 font-mono text-[9px] py-0.5 px-1.5 flex items-center font-normal">
-            <FaTelegramPlane className="w-2.5 h-2.5" /> {isUser ? 'Telegram' : 'Telegram Reply'}
+            <Send className="w-2.5 h-2.5" /> {isUser ? 'Telegram' : 'Telegram Reply'}
           </span>
         )}
-        {timestamp && <span className="text-[10px] opacity-50 font-normal">{timestamp}</span>}
+        {timestamp && <span className="text-[10px] opacity-60 font-mono">{timestamp}</span>}
       </div>
 
-      {/* Bubble Container */}
-      <div
-        className={`chat-bubble max-w-[85%] md:max-w-[78%] shadow-lg transition-all duration-200 break-words overflow-hidden ${
-          isUser
-            ? isTelegram
-              ? 'bg-gradient-to-br from-[#229ED9] to-[#0088cc] text-white font-medium rounded-2xl rounded-tr-sm px-4 py-2.5 shadow-md shadow-[#229ED9]/20 border border-[#229ED9]/40'
-              : 'bg-primary text-primary-content font-medium rounded-2xl rounded-tr-sm px-4 py-2.5'
-            : isTelegram
-            ? 'bg-base-200/90 text-base-content border border-[#229ED9]/30 rounded-2xl rounded-tl-sm p-4 backdrop-blur-md border-l-4 border-l-[#229ED9]'
-            : 'bg-base-200/90 text-base-content border border-white/10 rounded-2xl rounded-tl-sm p-4 backdrop-blur-md'
-        }`}
-      >
-        {isThinking || isSummarizing || isSearchingMusic ? (
-          <ThinkingBubble
-            isThinking={isThinking}
-            isSummarizing={isSummarizing}
-            isSearchingMusic={isSearchingMusic}
-            content={content}
-            youtubeLink={youtubeLink}
-            reasoning={reasoning}
-            executedTools={executedTools}
-          />
-        ) : (
-          <div className="flex flex-col gap-2.5">
-            {isYoutubeSummary && <YoutubeSummaryBubble youtubeLink={youtubeLink} />}
-            {isYoutubeSearch && (
-              <YoutubeSearchBubble queryYoutube={queryYoutube} youtubeLink={youtubeLink} />
-            )}
-            {pluginExecution && <PluginExecutionBubble pluginExecution={pluginExecution} />}
-            <MessageBubble
-              isUser={isUser}
+      {/* Message Content Container */}
+      {isUser ? (
+        /* User Pill: Modern Apple iOS/macOS Bubble */
+        <div
+          className={`max-w-[85%] md:max-w-[75%] rounded-3xl rounded-tr-sm px-5 py-3 shadow-md text-white text-sm font-normal leading-relaxed break-words overflow-hidden ${
+            isTelegram
+              ? 'bg-gradient-to-br from-[#229ED9] to-[#0088cc] shadow-[#229ED9]/20 border border-[#229ED9]/40'
+              : 'bg-[#0a84ff] shadow-[0_4px_16px_rgba(10,132,255,0.25)]'
+          }`}
+        >
+          {content}
+        </div>
+      ) : (
+        /* Assistant Stream: Borderless Canvas Layout */
+        <div className="w-full max-w-full text-white/90 text-sm leading-relaxed overflow-hidden">
+          {isThinking || isSummarizing || isSearchingMusic ? (
+            <ThinkingBubble
+              isThinking={isThinking}
+              isSummarizing={isSummarizing}
+              isSearchingMusic={isSearchingMusic}
               content={content}
+              youtubeLink={youtubeLink}
               reasoning={reasoning}
-              sources={sources}
               executedTools={executedTools}
-              isPlanConclusion={isPlanConclusion}
-              choice={choice}
             />
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {isYoutubeSummary && <YoutubeSummaryBubble youtubeLink={youtubeLink} />}
+              {isYoutubeSearch && (
+                <YoutubeSearchBubble queryYoutube={queryYoutube} youtubeLink={youtubeLink} />
+              )}
+              {pluginExecution && <PluginExecutionBubble pluginExecution={pluginExecution} />}
+              <MessageBubble
+                isUser={isUser}
+                content={content}
+                reasoning={reasoning}
+                sources={sources}
+                executedTools={executedTools}
+                isPlanConclusion={isPlanConclusion}
+                choice={choice}
+              />
+            </div>
+          )}
 
-      {/* Footer / Copy Button */}
-      {content && !isUser && !isThinking && !isSummarizing && !isSearchingMusic && (
-        <div className="chat-footer opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 mt-1 px-1">
-          <button
-            onClick={handleCopy}
-            className="btn btn-ghost btn-xs text-white/50 hover:text-white p-1 h-auto min-h-0 flex items-center gap-1 rounded"
-            title="Salin teks pesan"
-          >
-            {isCopied ? (
-              <>
-                <Check className="w-3 h-3 text-success" />
-                <span className="text-[10px] text-success font-medium">Tersalin</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3 h-3" />
-                <span className="text-[10px]">Salin</span>
-              </>
-            )}
-          </button>
+          {/* Footer Actions: Thumbs Up, Thumbs Down, Copy */}
+          {content && !isThinking && !isSummarizing && !isSearchingMusic && (
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 mt-2 px-1 text-white/40">
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="h-7 px-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all text-[11px] font-medium flex items-center gap-1.5 cursor-pointer"
+                title="Salin teks pesan"
+              >
+                {isCopied ? (
+                  <>
+                    <Check className="w-3 h-3 text-[#30d158]" />
+                    <span className="text-[#30d158]">Tersalin</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    <span>Salin</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFeedback('up')}
+                className={`h-7 w-7 rounded-lg transition-all flex items-center justify-center cursor-pointer ${
+                  feedback === 'up'
+                    ? 'bg-[#30d158]/20 text-[#30d158] border border-[#30d158]/40'
+                    : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white'
+                }`}
+                title="Bagus / Akurat"
+                aria-label="Thumbs up"
+              >
+                <ThumbsUp className="w-3 h-3" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFeedback('down')}
+                className={`h-7 w-7 rounded-lg transition-all flex items-center justify-center cursor-pointer ${
+                  feedback === 'down'
+                    ? 'bg-[#ff453a]/20 text-[#ff453a] border border-[#ff453a]/40'
+                    : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white'
+                }`}
+                title="Kurang tepat / Perlu perbaikan"
+                aria-label="Thumbs down"
+              >
+                <ThumbsDown className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
       )}
 

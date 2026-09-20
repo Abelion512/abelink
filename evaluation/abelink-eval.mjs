@@ -26,6 +26,16 @@
 // ABELINK-Eval khusus mengukur yang tidak diukur benchmark publik: arsitektur.
 
 import { akSentinel } from './terminal-bench.mjs'
+import { scoreHitlDiscipline } from './hitl-discipline.mjs'
+
+// Dimensi N. HITL discipline (anti-menyerah): needs_user/blocked tanpa
+// artefak tool (browser-ask/ask-choice + evidence) = 0. Re-ekspor agar
+// runner/eval lain bisa memakai scorer yang sama.
+export { scoreHitlDiscipline }
+export function evalHitlDiscipline({ taskStatus, tools = [], evidence = '' } = {}) {
+  const score = scoreHitlDiscipline({ taskStatus, tools, evidence })
+  return { score, metrics: { taskStatus, toolCount: (Array.isArray(tools) ? tools : []).length } }
+}
 
 // ------------------------------------------------------------ helpers
 const countToolCalls = (trajectory = []) =>
@@ -455,7 +465,12 @@ export function runSmoke() {
     verification_discipline: evalVerificationDiscipline(
       okTraj,
       'Tugas selesai: laporan tersimpan di out/report.md'
-    ).score
+    ).score,
+    hitl_discipline: evalHitlDiscipline({
+      taskStatus: 'needs_user',
+      tools: [{ tool: 'browser-ask', query: 'login' }],
+      evidence: 'form login akun muncul'
+    }).score
   }
   const report = aggregateAbelinkEval(results)
   const expectedAllPass = Object.values(results).every((v) => v === 1 || v === null)

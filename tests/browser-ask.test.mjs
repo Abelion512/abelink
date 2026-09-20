@@ -22,6 +22,16 @@ describe('Human-in-the-Loop browser-ask tool', () => {
     expect(res.data).toContain('[BROWSER HUMAN-IN-THE-LOOP]')
   })
 
+  it('pause-state co-pilot: paused + awaitUser{reason, sessionId}, string lama dipertahankan', async () => {
+    const res = await tools['browser-ask'].handler('captcha', { sessionId: 's-1' })
+    expect(res.paused).toBe(true)
+    expect(res.waiting_for_user).toBe(true)
+    expect(res.awaitUser).toMatchObject({ reason: 'captcha', sessionId: 's-1' })
+    expect(res.data).toContain('[BROWSER HUMAN-IN-THE-LOOP]')
+    const def = await tools['browser-ask'].handler('x')
+    expect(def.awaitUser.sessionId).toBe('default')
+  })
+
   it('fallback pesan default jika query kosong', async () => {
     const res = await tools['browser-ask'].handler('')
     expect(res.success).toBe(true)

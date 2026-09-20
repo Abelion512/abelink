@@ -5,10 +5,10 @@
 // atau undefined bila tool bukan domain ini. Formatting resultString +
 // trajectory log dilakukan TERPUSAT di toolDispatcher (sama seperti sebelumnya).
 import { logSubAgentSpawn as trajectoryLogSub } from '../../../api/trajectory'
-import { loadGroupToolsText } from '../../../api/tools/group-tools.js'
-import { getLearnedSkill } from '../../../api/db.js'
+import { getLearnedSkill, bumpLearnedSkillUse } from '../../../api/db.js'
 import { NATIVE_SKILLS } from '../../../components/core/native-skills.js'
 import { isTruncatedOutput } from '../../../api/ai/agentDecision.js'
+import { waitWithTimeout } from './waitHelper.js'
 
 // Kelengkapan satu agen sub-agent untuk gerbang wait_subagents (RI-11/12/13):
 // laporan yang dibangun di atas output terpotong tidak boleh diam-diam
@@ -155,16 +155,8 @@ export const runAgentTool = async (tool, query, ctx) => {
         data: `Tidak ada sub-agent yang sedang berjalan.\nRiwayat sub-agent:\n${summary || 'Kosong'}`
       }
     }
-    const startTime = Date.now()
     let finalAgents = []
-
-    while (Date.now() - startTime < maxWaitSeconds * 1000) {
-      // Pakai signal sesi lokal (bukan abortControllerRef milik sesi 1) agar
-      // sesi lain tidak ikut terpengaruh; fallback aman bila signal tak tersedia.
-      if (currentSignal?.aborted ?? false) break
-      const agents = await Promise.all(targetIds.map((id) => subagentStore.getSubagent(id)))
-      finalAgents = agents.filter(Boolean)
-
+    const tick = () => {
       // Update status thinking secara live agar pengguna tahu sub-agent sedang bekerja
       targetSetChatData((prev) => {
         const filtered = prev.filter((item) => !item.isThinking)
@@ -177,21 +169,24 @@ export const runAgentTool = async (tool, query, ctx) => {
           }
         ]
       })
-
-      // Early-Fail Interrupt: Jika ada subagent yang gagal/error, langsung keluar dari loop tanpa menunggu yang lain
-      const hasFailed = finalAgents.some(
-        (a) => a.status === 'failed' || a.status === 'killed'
-      )
-      if (hasFailed) {
-        break
-      }
-
-      const stillRunning = finalAgents.some((a) => a.status === 'running')
-      if (!stillRunning) {
-        break
-      }
-      await new Promise((r) => setTimeout(r, 1500))
     }
+    const res = await waitWithTimeout({
+      timeoutMs: maxWaitSeconds * 1000,
+      intervalMs: 1500,
+      signal: currentSignal,
+      onTick: tick,
+      check: async () => {
+        const agents = await Promise.all(targetIds.map((id) => subagentStore.getSubagent(id)))
+        finalAgents = agents.filter(Boolean)
+        const hasFailed = finalAgents.some(
+          (a) => a.status === 'failed' || a.status === 'killed'
+        )
+        if (hasFailed) return { done: false, failed: true, value: finalAgents }
+        const stillRunning = finalAgents.some((a) => a.status === 'running')
+        return { done: !stillRunning, value: finalAgents }
+      }
+    })
+    finalAgents = res.value ?? finalAgents
 
     return buildWaitReport(finalAgents)
   }
@@ -242,66 +237,158 @@ export const runAgentTool = async (tool, query, ctx) => {
     return { success: true, data: `Sub-agent ${targetId} berhasil dihentikan paksa.` }
   }
   if (tool === 'read-tools') {
-    const groupName = query.trim()
-    if (!groupName) {
-      return {
-        success: false,
-        message: 'Harap sebutkan nama_grup yang ingin dimuat (misal: "advanced_browser").'
+    const rawQuery = (query || '').trim()
+    const { resolveReadToolsQuery, group_tools, browserExtensionStatusLine } = await import('../../../api/tools/group-tools.js')
+    const dynamicGroups = await group_tools().catch(() => ({}))
+    const resolved = await resolveReadToolsQuery(rawQuery, { customGroups: dynamicGroups })
+    if (resolved && resolved.success) {
+      let extLine = ''
+      if (resolved.groupName === 'advanced_browser' || rawQuery.toLowerCase().includes('browser')) {
+        extLine = (await browserExtensionStatusLine()) + '\n'
       }
-    }
-    const text = await loadGroupToolsText(groupName)
-    if (text) {
       return {
         success: true,
-        loaded_group: groupName,
-        message: `BERHASIL MEMUAT GRUP TOOL: ${groupName}.\nDokumentasi tool:\n${text}`
+        loaded_target: resolved.groupName || resolved.toolName || resolved.query || rawQuery,
+        message: `BERHASIL MEMUAT DOKUMENTASI TOOL:\n${extLine}${resolved.message}`
       }
     }
     return {
       success: false,
-      message: `Grup tool "${groupName}" tidak ditemukan.`
+      message: resolved?.message || `Grup atau tool "${rawQuery}" tidak ditemukan.`
     }
   }
   if (tool === 'read-skill') {
-    const skillName = (query || '').trim()
-    if (!skillName) {
-      return { success: false, message: 'Harap sebutkan nama_skill yang ingin dibaca.' }
+    const rawQuery = (query || '').trim()
+    if (!rawQuery) {
+      return { success: false, message: 'Harap sebutkan nama_skill yang ingin dibaca (misal: "goal", "plan", atau "nama_skill||references/file.md").' }
     }
-    // 1. Cek Dexie learnedSkills (Self-Improved / Dynamic Native Skills)
-    const learned = await getLearnedSkill(skillName)
-    if (learned && learned.content) {
+
+    const { parseSkillQuery, formatSkillFolderBundle, extractSkillSubfile } = await import(
+      '../../../api/skills/skillFolder.js'
+    )
+    const { skillName, subpath } = parseSkillQuery(rawQuery)
+
+    // A. KASUS 1: SUBPATH DIBERIKAN ("skillName||references/doc.md" atau "skillName||scripts/run.sh")
+    if (subpath) {
+      // 1. Cek Dexie learnedSkills
+      const learned = await getLearnedSkill(skillName)
+      if (learned) {
+        const subContent = extractSkillSubfile(learned, subpath)
+        if (subContent != null) {
+          return {
+            success: true,
+            data: `[BERKAS SUB-SKILL (DEXIE): ${skillName}/${subpath}]\n${subContent}`
+          }
+        }
+      }
+
+      // 2. Cek NATIVE_SKILLS bawaan
+      const native = NATIVE_SKILLS.find(
+        (s) => s.name.toLowerCase() === skillName.toLowerCase()
+      )
+      if (native) {
+        const subContent = extractSkillSubfile(native, subpath)
+        if (subContent != null) {
+          return {
+            success: true,
+            data: `[BERKAS SUB-SKILL (NATIVE): ${skillName}/${subpath}]\n${subContent}`
+          }
+        }
+      }
+
+      // 3. Cek disk via window.api
+      if (typeof window !== 'undefined' && window.api?.readSkillFile) {
+        try {
+          const fileContent = await window.api.readSkillFile(skillName, subpath)
+          if (fileContent != null) {
+            return {
+              success: true,
+              data: `[BERKAS SUB-SKILL (FILE): ${skillName}/${subpath}]\n${fileContent}`
+            }
+          }
+        } catch {}
+      }
+
       return {
-        success: true,
-        data: `[PEDOMAN PROSEDUR KEAHLIAN (LEARNED/DEXIE): ${skillName.toUpperCase()}]\n${learned.content}`
+        success: false,
+        message: `Berkas "${subpath}" tidak ditemukan pada skill "${skillName}".`
       }
     }
+
+    // B. KASUS 2: PEMBACAAN SKILL UTAMA / FOLDER BUNDLE
+    // 1. Cek Dexie learnedSkills (Self-Improved / Dynamic Native Skills)
+    const learned = await getLearnedSkill(skillName)
+    if (learned && (learned.content || learned.references || learned.scripts)) {
+      // RSI telemetry: tiap pemakaian sukses menaikkan use_count & auto-graduate trial.
+      try {
+        await bumpLearnedSkillUse(learned.id || skillName)
+        if (learned.state === 'trial') {
+          const { graduateTrialSkill } = await import('../../../api/db.js')
+          await graduateTrialSkill(learned.id || skillName)
+        }
+      } catch {}
+      const bundleText = formatSkillFolderBundle({
+        name: skillName,
+        content: learned.content || '',
+        references: learned.references || [],
+        scripts: learned.scripts || [],
+        sourceType: 'LEARNED/DEXIE'
+      })
+      return {
+        success: true,
+        data: bundleText
+      }
+    }
+
     // 2. Cek NATIVE_SKILLS bawaan
     const native = NATIVE_SKILLS.find(
       (s) => s.name.toLowerCase() === skillName.toLowerCase()
     )
-    if (native && native.content) {
+    if (native && (native.content || native.references || native.scripts)) {
+      const bundleText = formatSkillFolderBundle({
+        name: skillName,
+        content: native.content || '',
+        references: native.references || [],
+        scripts: native.scripts || [],
+        sourceType: 'NATIVE'
+      })
       return {
         success: true,
-        data: `[PEDOMAN SKILL BAWAAN: ${skillName.toUpperCase()}]\n${native.content}`
+        data: bundleText
       }
     }
-    if (window.api && window.api.readSkill) {
-      // 3. Cek berkas disk di Documents/Abelink Skills
-      const skillData = await window.api.readSkill(skillName)
-      if (skillData) {
-        const content = typeof skillData === 'string' ? skillData : skillData.content
-        const basePath =
-          typeof skillData === 'object' && skillData.basePath ? skillData.basePath : ''
-        return {
-          success: true,
-          data: `[PEDOMAN SKILL (FILE): ${skillName.toUpperCase()}]\n${basePath ? `[BASE PATH: ${basePath}]\n` : ''}${content}`
+
+    // 3. Cek berkas disk di store skills
+    if (typeof window !== 'undefined' && window.api?.readSkill) {
+      try {
+        const skillData = await window.api.readSkill(skillName)
+        if (skillData) {
+          const content = typeof skillData === 'string' ? skillData : skillData.content
+          const basePath = typeof skillData === 'object' && skillData.basePath ? skillData.basePath : ''
+          const references = typeof skillData === 'object' && Array.isArray(skillData.references) ? skillData.references : []
+          const scripts = typeof skillData === 'object' && Array.isArray(skillData.scripts) ? skillData.scripts : []
+
+          const bundleText = formatSkillFolderBundle({
+            name: skillName,
+            content: content || '',
+            references,
+            scripts,
+            basePath,
+            sourceType: 'FILE'
+          })
+
+          return {
+            success: true,
+            data: bundleText
+          }
         }
-      }
+      } catch {}
       return {
         success: false,
         message: `Skill "${skillName}" tidak ditemukan di keahlian internal maupun folder Abelink Skills.`
       }
     }
+
     return {
       success: false,
       message: `Skill "${skillName}" tidak ditemukan.`

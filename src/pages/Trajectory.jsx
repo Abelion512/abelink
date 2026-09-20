@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaChartLine, FaTrash, FaDownload, FaArrowLeft } from 'react-icons/fa'
+import { ChartLine, Trash2, Download, ArrowLeft } from 'lucide-react'
 import {
   onTrajectoryUpdate,
   getTrajectoryBuffer,
@@ -28,11 +28,11 @@ const getKindColor = (kind) => {
     case 'reasoning': return 'bg-info/20 text-info'
     case 'tool-call': return 'bg-primary/20 text-primary'
     case 'observation': return 'bg-warning/20 text-warning'
-    case 'answer': return 'bg-success/20 text-success'
+    case 'answer': return 'bg-info/20 text-info'
     case 'sub-agent': return 'bg-accent/20 text-accent'
     case 'turn-start': return 'bg-white/10 text-white/70'
     case 'turn-end': return 'bg-white/10 text-white/70'
-    case 'step': return 'bg-success/20 text-success'
+    case 'step': return 'bg-info/20 text-info'
     default: return 'bg-base-300 text-base-content'
   }
 }
@@ -86,17 +86,17 @@ export default function Trajectory() {
   }
 
   return (
-    <div className="h-screen text-white overflow-hidden relative font-['Poppins',sans-serif] bg-base-300 rounded-xl border border-white/5 shadow-2xl flex flex-col">
+    <div className="h-screen text-white overflow-hidden relative bg-base-300 rounded-xl border border-white/5 shadow-2xl flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-4 p-4 border-b border-white/5">
         <button
           onClick={() => navigate(-1)}
           className="btn btn-ghost btn-sm btn-circle"
         >
-          <FaArrowLeft />
+          <ArrowLeft />
         </button>
         <div className="flex items-center gap-2">
-          <FaChartLine className="text-primary" size={20} />
+          <ChartLine className="text-primary" size={20} />
           <h1 className="text-xl font-bold">Trajectory Logger</h1>
         </div>
         <div className="ml-auto flex items-center gap-2 mr-32">
@@ -105,7 +105,7 @@ export default function Trajectory() {
             className="btn btn-sm btn-outline gap-1"
             disabled={entries.length === 0}
           >
-            <FaDownload size={14} />
+            <Download size={14} />
             Export JSON
           </button>
           <button
@@ -113,7 +113,7 @@ export default function Trajectory() {
             className="btn btn-sm btn-error btn-outline gap-1"
             disabled={entries.length === 0}
           >
-            <FaTrash size={14} />
+            <Trash2 size={14} />
             Clear
           </button>
         </div>
@@ -124,8 +124,8 @@ export default function Trajectory() {
         {/* Entry List */}
         <div className="w-1/2 border-r border-white/5 overflow-y-auto">
           {entries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-white/50 p-8 text-center">
-              <FaChartLine size={48} className="opacity-20 mb-4" />
+            <div className="flex flex-col items-center justify-center h-full text-white/60 p-8 text-center">
+              <ChartLine size={48} className="opacity-20 mb-4" />
               <p className="text-lg font-medium mb-2">Belum ada data trajectory</p>
               <p className="text-sm opacity-60 max-w-sm">
                 Logging trajectory selalu aktif — lakukan interaksi dengan Abelink
@@ -146,7 +146,7 @@ export default function Trajectory() {
                     <span className={`text-xs px-2 py-0.5 rounded-full ${getKindColor(entry.kind)}`}>
                       {getKindLabel(entry.kind)}
                     </span>
-                    <span className="text-xs text-white/40">{formatTime(entry.ts)}</span>
+                    <span className="text-xs text-white/60">{formatTime(entry.ts)}</span>
                   </div>
                   <div className="text-sm text-white/80 truncate">
                     {entry.tool && <span className="font-mono">{entry.tool}</span>}
@@ -159,7 +159,7 @@ export default function Trajectory() {
                       <span className="font-mono">Turn {entry.turn}</span>
                     )}
                     {entry.duration && (
-                      <span className="text-xs text-white/40 ml-2">{formatDuration(entry.duration)}</span>
+                      <span className="text-xs text-white/60 ml-2">{formatDuration(entry.duration)}</span>
                     )}
                   </div>
                 </button>
@@ -176,7 +176,7 @@ export default function Trajectory() {
                 <span className={`text-sm px-3 py-1 rounded-full ${getKindColor(selectedEntry.kind)}`}>
                   {getKindLabel(selectedEntry.kind)}
                 </span>
-                <span className="text-sm text-white/50">{formatTime(selectedEntry.ts)}</span>
+                <span className="text-sm text-white/60">{formatTime(selectedEntry.ts)}</span>
               </div>
 
               <div className="bg-base-200 rounded-xl p-4 space-y-3">
@@ -300,7 +300,7 @@ export default function Trajectory() {
               </details>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-white/30">
+            <div className="flex flex-col items-center justify-center h-full text-white/60">
               <p className="text-sm">Pilih entri untuk melihat detail</p>
             </div>
           )}
@@ -309,7 +309,7 @@ export default function Trajectory() {
 
       {/* Footer Stats */}
       {entries.length > 0 && (
-        <div className="px-4 py-2 border-t border-white/5 text-xs text-white/40 flex justify-between">
+        <div className="px-4 py-2 border-t border-white/5 text-xs text-white/60 flex justify-between">
           <span>Total: {entries.length} entries</span>
           <span>{entries.length >= 500 ? '(mencapai batas 500 entri)' : ''}</span>
         </div>

@@ -1,40 +1,36 @@
-@import '@fontsource/poppins/400.css';
-@import '@fontsource/poppins/500.css';
-@import '@fontsource/poppins/600.css';
-@import '@fontsource/poppins/700.css';
 @import 'tailwindcss';
 @plugin "daisyui" {
-  themes: forest;
+  themes: abelink;
 }
 
 @plugin "daisyui/theme" {
-  name: "forest";
+  name: "abelink";
   default: false;
   prefersdark: false;
   color-scheme: "dark";
-  --color-base-100: oklch(20.84% 0.008 17.911);
-  --color-base-200: oklch(18.522% 0.007 17.911);
-  --color-base-300: oklch(16.203% 0.007 17.911);
-  --color-base-content: #cac9c9;
-  --color-primary: #00e5ff;
-  --color-primary-content: oklch(0% 0 0);
-  --color-secondary: oklch(72% 0.14 220);
-  --color-secondary-content: oklch(14% 0.03 220);
-  --color-accent: #38bdf8;
-  --color-accent-content: oklch(14% 0.02 220);
-  --color-neutral: #0b192c;
-  --color-neutral-content: oklch(86% 0.01 220);
-  --color-info: oklch(72.06% 0.191 231.6);
-  --color-info-content: oklch(0% 0 0);
-  --color-success: #00e5ff;
-  --color-success-content: oklch(0% 0 0);
-  --color-warning: oklch(84.71% 0.199 83.87);
-  --color-warning-content: oklch(0% 0 0);
-  --color-error: oklch(71.76% 0.221 22.18);
-  --color-error-content: oklch(0% 0 0);
-  --radius-selector: 0.25rem;
-  --radius-field: 0.25rem;
-  --radius-box: 0.25rem;
+  --color-base-100: #161618;
+  --color-base-200: #121214;
+  --color-base-300: #0a0a0c;
+  --color-base-content: #ffffff;
+  --color-primary: #0a84ff;
+  --color-primary-content: #ffffff;
+  --color-secondary: #0a84ff;
+  --color-secondary-content: #ffffff;
+  --color-accent: #0a84ff;
+  --color-accent-content: #ffffff;
+  --color-neutral: #1c1c1e;
+  --color-neutral-content: #ffffff;
+  --color-info: #0a84ff;
+  --color-info-content: #ffffff;
+  --color-success: #30d158;
+  --color-success-content: #000000;
+  --color-warning: #ff9f0a;
+  --color-warning-content: #000000;
+  --color-error: #ff453a;
+  --color-error-content: #ffffff;
+  --radius-selector: 8px;
+  --radius-field: 8px;
+  --radius-box: 14px;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 1px;
@@ -43,7 +39,7 @@
 }
 
 @theme {
-  --font-sans: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Helvetica Neue", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
@@ -52,8 +48,10 @@ html {
 }
 
 * {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Helvetica Neue", sans-serif;
 }
+
+.font-display { letter-spacing: -0.02em; }
 
 /* Linux Tauri/WebKitGTK: transparent window background allows the OS compositor
    to show windows behind ABELINK when windowOpacity < 1.0. */
@@ -249,7 +247,7 @@ html, body, #root {
 
 /* Ultra Modern Driver.js Theme matching DaisyUI Forest */
 .driver-popover {
-  @apply border border-white/10 rounded-2xl p-6;
+  @apply border border-white/10 rounded-xl p-6;
   background-color: #2a303c !important; /* Kontras dari hitam */
   color: #ffffff !important;
   max-width: 320px !important;
@@ -262,7 +260,7 @@ html, body, #root {
   font-weight: 700 !important;
   color: #ffffff !important;
   margin-bottom: 0.5rem !important;
-  font-family: 'Poppins', sans-serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Helvetica Neue", sans-serif !important;
 }
 
 .driver-popover-description {
@@ -270,7 +268,7 @@ html, body, #root {
   color: rgba(255, 255, 255, 0.7) !important;
   line-height: 1.5 !important;
   margin: 0 !important;
-  font-family: 'Poppins', sans-serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Helvetica Neue", sans-serif !important;
 }
 
 .driver-popover-footer {
@@ -292,7 +290,7 @@ html, body, #root {
   align-items: center !important;
   justify-content: center !important;
   cursor: pointer !important;
-  font-family: 'Poppins', sans-serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Helvetica Neue", sans-serif !important;
   text-shadow: none !important;
   border: none !important;
   transition: all 0.2s ease-in-out !important;
@@ -300,13 +298,13 @@ html, body, #root {
 
 .driver-popover-footer .driver-popover-next-btn,
 .driver-popover-footer .driver-popover-done-btn {
-  background-color: #1eb854 !important; /* DaisyUI Primary */
-  color: #000000 !important;
+  background-color: #0a84ff !important; /* DaisyUI Primary */
+  color: #ffffff !important;
 }
 
 .driver-popover-footer .driver-popover-next-btn:hover,
 .driver-popover-footer .driver-popover-done-btn:hover {
-  background-color: #1aa049 !important;
+  background-color: #0071e3 !important;
   transform: scale(1.05);
 }
 
@@ -353,12 +351,14 @@ html, body, #root {
   background-color: #000000 !important;
 }
 
-/* === TAMBAHAN UNTUK ORB & HOLOGRAM (HIJAU SEIRAMA) === */
+/* === APPLE HIG SURFACES & MATERIALS === */
 :root {
-  --color-holo-border: linear-gradient(90deg, oklch(var(--p)), oklch(var(--su)), oklch(var(--p)));
-  --glass-bg: rgba(13, 19, 15, 0.75);
-  --glass-border: rgba(255, 255, 255, 0.09);
-  --glass-blur: blur(12px);
+  --glass-bg: rgba(22, 22, 24, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: blur(20px);
+  --apple-blue: #0a84ff;
+  --apple-red: #ff453a;
+  --apple-spring: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .glass-panel {
@@ -366,16 +366,12 @@ html, body, #root {
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
-  transform: translateZ(0);
 }
 
 .glass-card {
-  background: linear-gradient(135deg, rgba(22, 32, 25, 0.8) 0%, rgba(11, 15, 12, 0.88) 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
-  transform: translateZ(0);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
 }
 
 /* === ORB ANIMATIONS === */
@@ -413,24 +409,27 @@ html, body, #root {
   }
 }
 
-/* === HOLOGRAM CARD ANIMATIONS === */
-@keyframes holo-border-flow {
-  0% {
-    background-position: 0% 50%;
+/* ponytail: hello boot draw (pengganti motion pathLength, tanpa dep). */
+@keyframes hello-draw {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0;
   }
-  100% {
-    background-position: 200% 50%;
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
   }
 }
 
-@keyframes holo-scanline {
-  0% {
-    transform: translateY(-100%);
-  }
-  100% {
-    transform: translateY(100%);
-  }
+.hello-draw {
+  stroke-dashoffset: 1;
+  opacity: 0;
+  animation-name: hello-draw;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: forwards;
 }
+
+/* === APPLE MODAL TRANSITIONS === */
 
 @keyframes holo-enter {
   0% {
@@ -545,11 +544,32 @@ html, body, #root {
 /* === HOLOGRAPHIC UI SETTINGS === */
 
 .holo-card {
-  @apply bg-black/50 backdrop-blur-md border border-primary/30 shadow-[0_0_20px_oklch(var(--p)/0.15)];
-  transform: translateZ(0);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background: rgba(22, 22, 24, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+  border-radius: 1rem;
+  transition: border-color 0.2s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.2s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .holo-card:hover {
-  @apply border-primary/70 shadow-[0_0_28px_oklch(var(--p)/0.3)];
+  border-color: rgba(10, 132, 255, 0.4);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15), 0 16px 40px -8px rgba(10, 132, 255, 0.15);
+}
+
+/* Apple HIG reference tokens (read-only reference, not wired to theme).
+   Project decision: zero green — success states use info blue. */
+:root {
+  --ref-bg-primary: #000000;
+  --ref-bg-secondary: #1C1C1E;
+  --ref-bg-elevated: #2C2C2E;
+  --ref-text-primary: #FFFFFF;
+  --ref-text-secondary: #EBEBF5;
+  --ref-accent-blue: #0A84FF;
+  --ref-accent-green: #0A84FF;
+  --ref-accent-red: #FF453A;
+  --ref-separator: rgba(255, 255, 255, 0.12);
+  --ref-radius-sm: 8px;
+  --ref-radius-md: 12px;
+  --ref-radius-lg: 18px;
+  --ref-radius-xl: 28px;
 }

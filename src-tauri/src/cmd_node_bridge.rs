@@ -150,6 +150,11 @@ const APPROVAL_ACTIONS: &[&str] = &[
     "skills:install",
     "plugin:create",
     "plugin:delete",
+    // Rute plugin legacy + network (Tahap 4): plugin:execute = alias lama yang
+    // tetap dipakai renderer lama; install-git = fetch+eksekusi kode asing
+    // dari jaringan. Keduanya WAJIB dialog native (plugin pairs = gated).
+    "plugin:execute",
+    "plugin:install-git",
     "tg:start",
     "tg:stop",
     "google:connect",
@@ -179,7 +184,7 @@ fn action_family(action: &str) -> &'static str {
     match action {
         "skills:save" | "skills:delete" | "skills:save-file" | "skills:create-item"
         | "skills:delete-item" | "skills:rename-item" | "skills:install" => "skills-write",
-        "plugin:create" | "plugin:delete" => "plugin-write",
+        "plugin:create" | "plugin:delete" | "plugin:execute" | "plugin:install-git" => "plugin-write",
         "tg:start" | "tg:stop" => "tg-control",
         "google:connect" | "google:disconnect" => "google-auth",
         "capabilities:execute" => "capabilities-execute",
@@ -192,6 +197,15 @@ fn action_family(action: &str) -> &'static str {
 /// Kebijakan berjenjang: family "always" -> tanpa dialog; "session" ->
 /// grant in-memory sekali tanya; "ask" -> dialog rfd tiap kali.
 fn approval_reason(action: &str, payload: &Option<serde_json::Value>) -> Option<String> {
+    if action == "native-tool:execute" {
+        if let Some(desc) = crate::hardline::shell_approval_reason(action, payload) {
+            let eff = crate::approval_policy::effective_policy("shell-exec");
+            if eff == crate::approval_policy::POLICY_ALWAYS || eff == crate::approval_policy::POLICY_SESSION {
+                return None;
+            }
+            return Some(desc);
+        }
+    }
     if APPROVAL_ACTIONS.contains(&action) {
         // Tiering capabilities: aksi read-only yang aman lolos tanpa dialog
         // (weather/time, status/faq extension, fs list/read). Tulis/hapus,
@@ -228,6 +242,10 @@ fn is_readonly_capability(payload: &Option<serde_json::Value>) -> bool {
             | ("browser-extension", "close-session")
             | ("fs", "list")
             | ("fs", "read")
+            // Skill exec = baca body teks SKILL.md lokal (read-only), tetap sunyi.
+            // Pasangan plugin ("plugin", _) SENGAJA tidak ada di sini: kode plugin
+            // pihak ketiga tetap lewat dialog (default false di bawah).
+            | ("skill", _)
     )
 }
 
@@ -431,6 +449,13 @@ pub async fn node_invoke(
     // 1.6) Mission scope Fase 3: penolakan deterministik tanpa dialog bila aksi
     //    di luar tool yang dideklarasikan misi. Nonaktif secara default.
     crate::mission_scope::check_tool(&action)?;
+
+    // 1.7) Hardline guardian (OPERATING-SECURITY §1, backlog #1): perintah
+    //    merusak tanpa jalan pulih ditolak di Rust TANPA dialog approval —
+    //    approval tidak berlaku untuk hardline. Cermin sidecar _shared.mjs.
+    if let Some(reason) = crate::hardline::hardline_reason(&action, &payload) {
+        return Err(reason);
+    }
 
     // 2) Persetujuan NATIVE untuk aksi/tool berbahaya (di luar kendali renderer).
     if let Some(desc) = approval_reason(&action, &payload) {

@@ -4,7 +4,8 @@ import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import { CodeBlock } from './CodeBlock'
 import { ChoiceButtons } from './ChoiceButtons'
-import { Brain, ChevronRight, ExternalLink, Sparkles, Activity, Check } from 'lucide-react'
+import { Brain, ChevronRight, ExternalLink, Sparkles, Activity } from 'lucide-react'
+import { ToolCallsSection } from '../core/ToolCallsSection'
 
 export const MessageBubble = React.memo(({
   isUser,
@@ -77,6 +78,14 @@ export const MessageBubble = React.memo(({
     setTimeout(() => setIsCopied(false), 2000)
   }
 
+  const toolCalls = (executedTools || []).map((step) => ({
+    tool_name: step.tool || step.task || 'tool',
+    tool_category: step.tool || step.task || '',
+    message: step.status === 'running' ? 'mengeksekusi...' : undefined,
+    inputs: step.query,
+    output: step.fullResult || step.resultSummary,
+  }))
+
   return (
     <div className="text-sm leading-relaxed custom-markdown flex flex-col gap-1 relative group">
       {/* Plan Conclusion Header */}
@@ -118,47 +127,10 @@ export const MessageBubble = React.memo(({
               </div>
             )}
 
-            {/* Executed Tools List */}
-            {executedTools && executedTools.length > 0 && (
-              <div className="space-y-1.5 pt-1 border-t border-white/5">
-                {executedTools.map((t, idx) => {
-                  const hasQuery = t.query !== undefined && t.query !== null && t.query !== ''
-                  const queryString =
-                    typeof t.query === 'string' ? t.query : JSON.stringify(t.query, null, 2)
-
-                  if (!hasQuery) {
-                    return (
-                      <div
-                        key={idx}
-                        className="text-[11px] font-mono bg-base-300/60 px-2 py-1 rounded border border-white/5 flex items-center gap-1.5"
-                      >
-                        <Check className="w-3 h-3 text-success font-bold shrink-0" />
-                        <span className="text-primary font-bold">[{t.tool || t.task || 'tool'}]</span>
-                      </div>
-                    )
-                  }
-
-                  return (
-                    <details
-                      key={idx}
-                      className="group/query bg-base-300/60 rounded border border-white/5 overflow-hidden"
-                    >
-                      <summary className="list-none flex items-center justify-between px-2 py-1 cursor-pointer text-[11px] font-mono hover:bg-white/5 transition-all select-none">
-                        <div className="flex items-center gap-1.5">
-                          <Check className="w-3 h-3 text-success font-bold shrink-0" />
-                          <span className="text-primary font-bold">[{t.tool || t.task || 'tool'}]</span>
-                        </div>
-                        <div className="flex items-center gap-1 opacity-60 group-hover/query:opacity-100">
-                          <span className="text-[10px] text-white/50 lowercase">query</span>
-                          <ChevronRight className="w-3 h-3 transition-transform duration-150 group-open/query:rotate-90" />
-                        </div>
-                      </summary>
-                      <div className="px-2.5 py-1.5 text-[10px] font-mono border-t border-white/5 bg-black/40 text-white/80 whitespace-pre-wrap break-all max-h-36 overflow-y-auto custom-scrollbar border-l-2 border-primary/30">
-                        {queryString}
-                      </div>
-                    </details>
-                  )
-                })}
+            {/* Executed Tools (shared ToolCallsSection) */}
+            {toolCalls.length > 0 && (
+              <div className="pt-1 border-t border-white/5">
+                <ToolCallsSection toolCalls={toolCalls} defaultExpanded={false} />
               </div>
             )}
           </div>

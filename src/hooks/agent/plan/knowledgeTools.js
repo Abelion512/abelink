@@ -2,14 +2,18 @@
 // memory vector search, Capability Manager connectors, trading wallet lokal.
 // Modul ini murni: hanya window.api + dynamic import, tanpa state hook.
 import { executeMemorySearch } from '../../../api/vectorMemory'
+import { executeMemoryTool } from '../../../api/ai/memoryTool.js'
 
 /**
  * @returns {string|undefined} resultString bila tool milik domain ini.
  */
-export const runKnowledgeTool = async (tool, query) => {
-  // 4. Memory Vector Search
+export const runKnowledgeTool = async (tool, query, ctx = {}) => {
+  // 4. Memory Vector Search & Mutation (Hermes pattern c)
   if (tool === 'memory-search') {
     return await executeMemorySearch(query)
+  }
+  if (tool === 'memory') {
+    return await executeMemoryTool(query, { turnId: ctx?.turnId || ctx?.sessionId || 'main_turn' })
   }
   // 4a. Capability Manager connectors — general-pluggable (ala Claude
   // connectors): list/inspect/guide/run/status. Eksekusi selalu lewat

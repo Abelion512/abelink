@@ -14,7 +14,7 @@ export const YoutubeSummaryBubble = ({ youtubeLink }) => {
     : null
 
   return (
-    <div className="p-3 bg-base-300 rounded-2xl my-2 space-y-3">
+    <div className="p-3 bg-base-300 rounded-xl my-2 space-y-3">
       {youtubeEmbedUrl ? (
         <iframe
           className="w-full aspect-video rounded-xl"

@@ -10,10 +10,46 @@ const pending = new Map()
 export const MAX_CHOICE_OPTIONS = 4
 export const MAX_OPTION_LENGTH = 120
 
-// Format query: "pertanyaan||opsi1;opsi2[;opsi3;opsi4]".
-// Kembalikan { question, options } atau null bila format tak valid.
+// Format query:
+// 1. String flat konvensional: "pertanyaan||opsi1;opsi2[;opsi3;opsi4]".
+// 2. JSON terstruktur / Multimodal cards:
+//    { "question": "...", "type": "music_preview" | "general", "options": [ "...", { "label": "...", "title": "...", "artist": "...", "thumbnail": "...", "duration": "...", "id": "..." } ] }
+// Kembalikan { question, options, rawOptions, type } atau null bila format tak valid.
 export function parseChoiceQuery(query = '') {
-  const [questionRaw, optionsRaw] = String(query || '').split('||')
+  if (!query) return null
+
+  // Dukung input objek langsung atau string JSON
+  if (typeof query === 'object' && query !== null) {
+    const q = (query.question || '').trim()
+    const opts = Array.isArray(query.options) ? query.options : []
+    if (!q || opts.length === 0) return null
+    const sliced = opts.slice(0, MAX_CHOICE_OPTIONS)
+    const options = sliced.map((opt) => {
+      if (typeof opt === 'string') return opt.trim().slice(0, MAX_OPTION_LENGTH)
+      return (opt.label || opt.title || opt.name || String(opt)).trim().slice(0, MAX_OPTION_LENGTH)
+    }).filter(Boolean)
+    if (options.length === 0) return null
+    return {
+      question: q,
+      options,
+      rawOptions: sliced,
+      type: query.type || 'text'
+    }
+  }
+
+  const str = String(query).trim()
+  if (str.startsWith('{') && str.endsWith('}')) {
+    try {
+      const parsedJson = JSON.parse(str)
+      if (parsedJson && (parsedJson.question || parsedJson.options)) {
+        return parseChoiceQuery(parsedJson)
+      }
+    } catch {
+      /* bukan JSON valid, lanjut parsing pipa */
+    }
+  }
+
+  const [questionRaw, optionsRaw] = str.split('||')
   const question = (questionRaw || '').trim()
   if (!question || optionsRaw === undefined) return null
   const options = optionsRaw
@@ -23,7 +59,7 @@ export function parseChoiceQuery(query = '') {
     .slice(0, MAX_CHOICE_OPTIONS)
     .map((s) => s.slice(0, MAX_OPTION_LENGTH))
   if (options.length === 0) return null
-  return { question, options }
+  return { question, options, rawOptions: options, type: 'text' }
 }
 
 // Daftarkan janji yang resolve saat tombol diklik. Resolve-once: klik

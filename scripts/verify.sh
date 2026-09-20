@@ -6,6 +6,10 @@ echo "[0/9] Bootstrap (bun install, port/cargo cleanup)"
 bash scripts/dev.sh --no-launch
 echo "[1/9] Unit tests (vitest)"
 bunx vitest run
+echo "[1b/9] Extension syntax (service worker klasik: tanpa import/export + manifest valid)"
+node --check extension/background.js
+node --check extension/popup.js
+node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json','utf8')); if(require('fs').readFileSync('extension/background.js','utf8').match(/^(import|export)\s/m)) { console.error('background.js: import/export ilegal untuk service worker klasik'); process.exit(1) }"
 echo "[2/9] ESLint (0 error; warning = tech-debt terdaftar)"
 bun run lint
 echo "[3/9] Crypto harness (watermark signing)"

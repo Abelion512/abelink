@@ -30,8 +30,8 @@ beforeEach(() => {
 const msg = (content, extra = {}) => ({ role: 'user', content, ...extra })
 
 describe('budget upstream', () => {
-  it('MAX_SESSION_CHARS sama persis upstream (525000)', () => {
-    expect(MAX_SESSION_CHARS).toBe(525000)
+  it('MAX_SESSION_CHARS dioptimasi untuk hybrid auto-compact (45000)', () => {
+    expect(MAX_SESSION_CHARS).toBe(45000)
   })
 
   it('4 giliran terbaru dipertahankan', () => {

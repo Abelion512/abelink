@@ -254,6 +254,10 @@ export const api = {
   revokeCapability: (connectorId) => call('capabilities:revoke', connectorId),
   readCapabilityAudit: (limit, offset) => call('capabilities:audit', limit, offset),
   registerCustomConnectors: (list) => call('capabilities:register-custom', list || []),
+  listCapabilityRegistry: () => call('capabilities:registry'),
+  installCapabilityBundle: (bundle) => call('capabilities:bundle-install', bundle || {}),
+  listCapabilityBundles: () => call('capabilities:bundle-list'),
+  removeCapabilityBundle: (id) => call('capabilities:bundle-remove', id),
   getSystemInfo: () => invoke('system_get_info'),
   ping: () => call('ping'),
 
@@ -520,7 +524,8 @@ export const api = {
 
   // ---------- Skills ----------
   getSkills: () => call('skills:get-all'),
-  readSkill: (name) => call('skills:read', name),
+  readSkill: (name, relativePath) => call('skills:read', name, relativePath),
+  getSkillManifest: (name) => call('skills:get-manifest', name),
   saveSkill: (name, content) => call('skills:save', name, content),
   deleteSkill: (name) => call('skills:delete', name),
   installSkill: (sourcePath) => call('skills:install', sourcePath),
@@ -659,7 +664,7 @@ export function installTauriBridge() {
     document.body.innerHTML = `
       <div style="position:fixed;inset:0;background:#0b0f0c;color:#e5e7eb;display:flex;align-items:center;justify-content:center;font-family:system-ui;padding:2rem;z-index:999999">
         <div style="max-width:560px;border:1px solid #2a3a2f;border-radius:16px;padding:2rem;background:#101713">
-          <h1 style="margin:0 0 .5rem;font-size:1.3rem;color:#4ade80">ABELINK berjalan di window terpisah</h1>
+          <h1 style="margin:0 0 .5rem;font-size:1.3rem;color:#0a84ff">ABELINK berjalan di window terpisah</h1>
           <p style="margin:0 0 1rem;line-height:1.6;opacity:.85">
             Tab browser ini hanya <b>preview frontend</b> — tanpa API native, tanpa engine.
           </p>

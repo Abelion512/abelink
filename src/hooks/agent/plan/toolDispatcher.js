@@ -23,7 +23,7 @@ export const LOGIN_WALL_RE = /login|log in|masuk|captcha|cloudflare|verify.*huma
 // sini (bukan di caller) agar definisi "native-backed" tidak drift dari
 // routing aktual saat tool baru ditambah.
 const NON_NATIVE_TOOL_RE =
-  /^(yt-search|yt-summary|speak|screenshot-to-tg|analyze-screen|camera-look|memory-search|browser-ask-user|os-ask-user|os-ask|ask-user|user-ask|ask-choice|user-choice|spawn_subagent|wait_subagents|send_message|list_subagents|kill_subagent|read-tools|read-skill|delegate_coding)$/
+  /^(yt-search|yt-summary|speak|screenshot-to-tg|analyze-screen|camera-look|memory-search|memory|browser-ask|browser-ask-user|os-ask-user|os-ask|ask-user|user-ask|ask-choice|user-choice|spawn_subagent|wait_subagents|send_message|list_subagents|kill_subagent|read-tools|read-skill|delegate_coding)$/
 const NON_NATIVE_TOOL_PREFIXES = ['music', 'connector-', 'trading-']
 export const isNativeBacked = (tool, query) => {
   if (!checkTools(tool)) return false
@@ -174,6 +174,10 @@ export const executeSingleTool = async (tool, query, ctx) => {
     // Domain media / vision / knowledge: resultString final langsung.
     const media = await runMediaTool(tool, query, ctx)
     if (media !== undefined) {
+      const sid = ctx?.sessionId ?? 'system'
+      const turn = ctx?.turn ?? null
+      const ok = !String(media).startsWith('[ERROR]')
+      trajectoryLogTool({ tool, query, success: ok, result: media, sessionId: sid, turn })
       return { resultString: media, rejected: false, toolExecution: { action: tool, query, result: media } }
     }
     const vision = await runVisionTool(tool, query, ctx)
@@ -190,12 +194,15 @@ export const executeSingleTool = async (tool, query, ctx) => {
         ...(vCapped.images.length > 0 ? { images: vCapped.images } : {})
       }
     }
-    const knowledge = await runKnowledgeTool(tool, query)
+    const knowledge = await runKnowledgeTool(tool, query, ctx)
     if (knowledge !== undefined) {
       return { resultString: knowledge, rejected: false, toolExecution: { action: tool, query, result: knowledge } }
     }
     // 3a. Interactive User Pause & Ask (Human-in-the-Loop)
+    // browser-ask + browser-ask-user = SATU jalur modal requestUserInput.
+    // confirm -> [LAPORAN USER]; cancel -> [DIBATALKAN].
     if (
+      tool === 'browser-ask' ||
       tool === 'browser-ask-user' ||
       tool === 'os-ask-user' ||
       tool === 'os-ask' ||
@@ -266,7 +273,13 @@ export const executeSingleTool = async (tool, query, ctx) => {
         {
           role: 'ai',
           content: parsed.question,
-          choice: { id: choiceId, options: parsed.options, selected: null },
+          choice: {
+            id: choiceId,
+            options: parsed.options,
+            rawOptions: parsed.rawOptions,
+            type: parsed.type,
+            selected: null
+          },
           isIntermediate: true,
           timestamp: choiceTimestamp,
           created_at: Date.now()
@@ -352,6 +365,7 @@ export const executeSingleTool = async (tool, query, ctx) => {
       // sesi yang benar (bukan "agentic-xxx"/system).
       const activeConfig = {
         ...(Array.isArray(config) ? config[0] : config),
+        sessionId: String(ctx?.sessionId ?? 'default'),
         workspaceRoot: ctx?.workspaceRoot,
         turnId: ctx?.turnId || ctx?.agenticProcessId,
         sessionId: ctx?.sessionId,
@@ -375,21 +389,24 @@ export const executeSingleTool = async (tool, query, ctx) => {
       data: { action: tool, query }
     })
 
-    const pluginPromise = window.api.executePlugin(tool, query)
+    // Tahap 4: fallback plugin lewat rute terpadu capabilities (policy +
+    // audit di manager). tool = `<plugin>:<aksi>` atau bare `<aksi>`; query
+    // string legacy = argumen {query}. Bentuk return SAMA seperti sebelumnya.
+    const argsObj =
+      query && typeof query === 'object' ? query : query != null && query !== '' ? { query } : {}
+    const pluginPromise = window.api.executeCapability('plugin', tool, argsObj)
     const { race: pluginRace, onAbort: onPluginAbort } = raceWithAbort(pluginPromise, currentSignal)
-    let pluginRes
     try {
-      pluginRes = await pluginRace
+      const pluginRes = await pluginRace
+      resultString = typeof pluginRes === 'string' ? pluginRes : JSON.stringify(pluginRes)
+    } catch (e) {
+      const msg = typeof e === 'string' ? e : e?.message || String(e)
+      if (e?.name === 'AbortError' || String(msg).includes('AbortError')) throw e
+      resultString = `[ERROR] Plugin ${tool} gagal: ${msg}`
     } finally {
       // Lepas listener abort agar tidak menumpuk di signal (memory leak)
       if (onPluginAbort) currentSignal?.removeEventListener('abort', onPluginAbort)
     }
-
-    resultString = pluginRes.success
-      ? typeof pluginRes.data === 'string'
-        ? pluginRes.data
-        : JSON.stringify(pluginRes.data)
-      : `[ERROR] Plugin ${tool} gagal: ${pluginRes.error}`
 
     targetPushProcess({
       id: pluginProcessId,

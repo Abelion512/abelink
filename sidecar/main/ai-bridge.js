@@ -254,10 +254,19 @@ export const fetchAI = async (
           // Fallback antar-provider (1×): sesi/limit Gemini Web mati ->
           // teruskan pesan yang sama ke custom endpoint (DeepSeek-free-api,
           // 9router, LM Studio) via pemanggilan ulang dengan provider
-          // dioverride. Tanpa custom terkonfigurasi: error jujur di bawah.
+          // dioverride. Tanpa custom terkonfigurasi: fallback lokal di bawah.
           onStatus?.('⚠️ Gemini Web bermasalah, oper ke provider custom...')
           logAi('[ai] gemini-web -> custom fallback')
           return fetchAI(workMessages, { ...conf, aiProvider: 'custom' }, isSmallTask, jsonSchema ?? null, onStatus, onToken)
+        }
+        if (sessionBroken) {
+          // Fallback rantai ke komposit lokal (9Router/LM Studio di
+          // 127.0.0.1:20128): tanpa custom terkonfigurasi pun user tetap
+          // dapat jawaban bila server lokal hidup; bila mati, error lokal
+          // yang provider-aware (bukan spam GEMINI_WEB_LIMITED).
+          onStatus?.('⚠️ Gemini Web dibatasi, oper ke server AI lokal...')
+          logAi('[ai] gemini-web -> local fallback')
+          return fetchAI(workMessages, { ...conf, aiProvider: 'local' }, isSmallTask, jsonSchema ?? null, onStatus)
         }
         if (err.message?.includes('Session') || err.message?.includes('BardErrorInfo')) {
           onStatus?.('⚠️ Session Gemini Web bermasalah, mencoba fallback ke gemini-flash-lite...')
@@ -568,14 +577,22 @@ export const fetchAI = async (
           return executeFetch(retryNoImage, true, trafficRetryCount)
         }
 
-        // Auto-retry fallback untuk High Traffic / Rate Limits (503, 429, 500)
+        // Auto-retry fallback untuk High Traffic / Rate Limits / Token Limits (503, 429, 500, quota/TPM)
+        const errMsgLower = finalErrorMessage.toLowerCase()
         let isHighTraffic =
           response.status === 429 ||
           response.status >= 500 ||
-          finalErrorMessage.toLowerCase().includes('high traffic') ||
-          finalErrorMessage.toLowerCase().includes('rate limit')
+          errMsgLower.includes('high traffic') ||
+          errMsgLower.includes('rate limit') ||
+          errMsgLower.includes('token limit') ||
+          errMsgLower.includes('tokens per min') ||
+          errMsgLower.includes('tpm') ||
+          errMsgLower.includes('quota exceeded') ||
+          errMsgLower.includes('insufficient_quota') ||
+          errMsgLower.includes('overloaded') ||
+          errMsgLower.includes('temporarily unavailable')
 
-        if (finalErrorMessage.toLowerCase().includes('request too large')) {
+        if (errMsgLower.includes('request too large') || errMsgLower.includes('context length exceeded')) {
           isHighTraffic = false
         }
 
@@ -583,8 +600,25 @@ export const fetchAI = async (
           let backoffDelay = Math.min(30000, (trafficRetryCount + 1) * 2000)
           let retryBody = { ...currentBody }
 
+          // Pilar II: Model Pool Resilience & Multi-Provider Rotation
+          if (trafficRetryCount >= 2) {
+            const nextModel = selectNextModelInPool(retryBody.model, {
+              fallbackModel: conf.fallbackModel || 'gemini-2.5-flash',
+              modelPool: conf.modelPool
+            })
+            if (nextModel && nextModel !== retryBody.model) {
+              console.log(
+                `[Model Pool Rotation] Rate limit/TPM pada ${retryBody.model}. Beralih ke ${nextModel}...`
+              )
+              if (onStatus) {
+                onStatus(`Rate limit pada ${retryBody.model}, beralih ke ${nextModel}...`)
+              }
+              retryBody.model = nextModel
+            }
+          }
+
           if (onStatus)
-            onStatus(`Server sibuk (${response.status}), mencoba ulang (${trafficRetryCount + 1}/10) dalam ${Math.round(backoffDelay / 1000)}s...`)
+            onStatus(`Server sibuk atau limit sementara (${response.status}), mencoba ulang (${trafficRetryCount + 1}/10) dalam ${Math.round(backoffDelay / 1000)}s...`)
 
           console.log(
             `[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/10)`
@@ -1004,3 +1038,18 @@ export const orderModelsPreferFree = (ids) => {
   for (const id of uniq) (isFreeModelId(id) ? free : paid).push(id)
   return [...free, ...paid]
 }
+
+export const selectNextModelInPool = (currentModel, { fallbackModel = 'gemini-2.5-flash', modelPool = [] } = {}) => {
+  if (Array.isArray(modelPool) && modelPool.length > 1) {
+    const idx = modelPool.indexOf(currentModel)
+    if (idx !== -1) {
+      return modelPool[(idx + 1) % modelPool.length]
+    }
+    return modelPool[0]
+  }
+  if (currentModel === 'claude-work') {
+    return fallbackModel
+  }
+  return fallbackModel || currentModel
+}
+

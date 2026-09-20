@@ -1,20 +1,20 @@
 import React, { useRef, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  FaMicrophone,
-  FaStop,
-  FaArrowUp,
-  FaTimes,
-  FaPaperclip,
-  FaFileAlt,
-  FaFilePdf,
-  FaFileCode,
-  FaFileImage,
-  FaLock,
-  FaFolder,
-  FaPlus
-} from 'react-icons/fa'
+  Mic,
+  Square,
+  ArrowUp,
+  X,
+  Paperclip,
+  FileText,
+  FileCode,
+  Image as FileImage,
+  Lock,
+  Folder,
+  Plus
+} from 'lucide-react'
 import ConfirmModal from './ConfirmModal'
+import { MobiusLoader } from './MobiusLoader'
 import { ContextGauge } from './ContextGauge'
 import { NATIVE_SKILLS } from './native-skills'
 import { getCachedSkills } from '../../api/skillsCache'
@@ -39,11 +39,11 @@ const formatFileSize = (bytes) => {
 const getFileIcon = (fileName = '') => {
   const ext = fileName.split('.').pop().toLowerCase()
   if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext))
-    return <FaFileImage className="text-accent" />
-  if (['pdf'].includes(ext)) return <FaFilePdf className="text-error" />
+    return <FileImage className="text-[#0a84ff] w-4 h-4" />
+  if (['pdf'].includes(ext)) return <FileText className="text-[#ff453a] w-4 h-4" />
   if (['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'py', 'cpp', 'cs'].includes(ext))
-    return <FaFileCode className="text-info" />
-  return <FaFileAlt className="text-primary" />
+    return <FileCode className="text-[#0a84ff] w-4 h-4" />
+  return <FileText className="text-white/60 w-4 h-4" />
 }
 
 const InputBar = ({
@@ -139,6 +139,19 @@ const InputBar = ({
     window.addEventListener('abelink:files-dropped', onGlobalDrop)
     return () => window.removeEventListener('abelink:files-dropped', onGlobalDrop)
   }, [])
+
+  // QuickLook ESC key listener
+  useEffect(() => {
+    if (previewIdx === -1) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setPreviewIdx(-1)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [previewIdx])
 
   useEffect(() => {
     if (!isLoading && inputRef.current) {
@@ -253,8 +266,14 @@ const InputBar = ({
 
   const handlePaste = async (e) => {
     const items = Array.from(e.clipboardData?.items || [])
+    const types = Array.from(e.clipboardData?.types || [])
     const hasFile = items.some((it) => it.kind === 'file')
-    if (hasFile) {
+    const hasUriList = types.includes('text/uri-list')
+    const rawText = e.clipboardData?.getData('text/plain') || ''
+    const hasFileUri = rawText.startsWith('file://')
+    const hasHtml = types.includes('text/html') && /<img[^>]+src=/i.test(e.clipboardData?.getData('text/html') || '')
+
+    if (hasFile || hasUriList || hasFileUri || hasHtml) {
       e.preventDefault()
       try {
         const droppedItems = await extractClipboardFiles(e.clipboardData)
@@ -528,7 +547,7 @@ const InputBar = ({
               )}
               <span className="max-w-[140px] truncate font-medium">{file.name}</span>
               {file.size > 0 && (
-                <span className="text-[10px] text-white/40">{formatFileSize(file.size)}</span>
+                <span className="text-[10px] text-white/60">{formatFileSize(file.size)}</span>
               )}
               <button
                 type="button"
@@ -536,16 +555,16 @@ const InputBar = ({
                   e.stopPropagation()
                   removeFile(idx)
                 }}
-                className="text-white/40 hover:text-error hover:bg-error/20 p-1 rounded-full transition-all"
+                className="text-white/60 hover:text-[#ff453a] hover:bg-[#ff453a]/20 p-1 rounded-full transition-all"
                 title="Hapus Lampiran"
               >
-                <FaTimes size={10} />
+                <X size={12} />
               </button>
             </div>
           ))}
           {hoverPreviewIdx >= 0 && attachedFiles[hoverPreviewIdx]?.previewUrl && (
             <div className="absolute bottom-full mb-2 left-0 z-50 pointer-events-none">
-              <img src={attachedFiles[hoverPreviewIdx].previewUrl} className="w-48 h-48 object-cover rounded-lg shadow-2xl border border-white/10" />
+              <img src={attachedFiles[hoverPreviewIdx].previewUrl} className="w-48 h-48 object-cover rounded-xl shadow-2xl border border-white/10" />
             </div>
           )}
         </div>
@@ -553,9 +572,9 @@ const InputBar = ({
 
       {/* Workspace Root Active Indicator Pill */}
       {workspaceRoot && (
-        <div className="mb-2 flex items-center gap-2 px-3 py-1 bg-base-200/80 border border-primary/30 rounded-lg text-xs text-white/80 w-fit backdrop-blur-md animate-fade-in shadow-md">
-          <FaFolder className="text-primary text-xs" />
-          <span className="text-[10px] text-primary uppercase font-bold tracking-wider">
+        <div className="mb-2 flex items-center gap-2 px-3 py-1 bg-white/5 border border-[#0a84ff]/30 rounded-lg text-xs text-white/80 w-fit backdrop-blur-md animate-fade-in shadow-md">
+          <Folder className="text-[#0a84ff] w-3.5 h-3.5" />
+          <span className="text-[10px] text-[#0a84ff] uppercase font-bold tracking-wider">
             Workspace:
           </span>
           <span className="font-mono text-[11px] truncate max-w-xs">{workspaceRoot}</span>
@@ -563,7 +582,7 @@ const InputBar = ({
             <button
               type="button"
               onClick={onSelectWorkspace}
-              className="ml-1 text-[10px] text-white/50 hover:text-primary transition-colors cursor-pointer underline"
+              className="ml-1 text-[10px] text-white/50 hover:text-[#0a84ff] transition-colors cursor-pointer underline"
               title="Ganti folder proyek"
             >
               Ganti
@@ -589,16 +608,16 @@ const InputBar = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`relative flex items-center bg-[var(--glass-bg)] backdrop-blur-md [transform:translateZ(0)] border rounded-lg p-2 pr-3 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-colors duration-300 focus-within:border-primary/50 focus-within:shadow-[0_0_20px_oklch(var(--p)/0.2)] ${
+        className={`relative flex items-center bg-[var(--glass-bg)] backdrop-blur-xl rounded-2xl p-2 pr-3 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all duration-300 focus-within:border-[#0a84ff]/60 focus-within:ring-2 focus-within:ring-[#0a84ff]/20 ${
           isDragging
-            ? 'border-primary bg-primary/10 shadow-[0_0_30px_oklch(var(--p)/0.3)] scale-[1.02]'
-            : 'border-[var(--glass-border)]'
+            ? 'border-[#0a84ff] bg-[#0a84ff]/10 shadow-[0_0_30px_rgba(10,132,255,0.3)] scale-[1.01]'
+            : 'border border-[var(--glass-border)]'
         }`}
       >
         {/* Drag & Drop Overlay Indicator */}
         {isDragging && (
-          <div className="absolute inset-0 rounded-lg bg-primary/20 backdrop-blur-md border-2 border-dashed border-primary flex items-center justify-center z-50 pointer-events-none text-white font-medium gap-2 animate-pulse">
-            <FaPaperclip className="animate-bounce" size={20} />
+          <div className="absolute inset-0 rounded-2xl bg-[#0a84ff]/20 backdrop-blur-md border-2 border-dashed border-[#0a84ff] flex items-center justify-center z-50 pointer-events-none text-white font-medium gap-2 animate-pulse">
+            <Paperclip className="animate-bounce text-[#0a84ff]" size={20} />
             <span>Lepaskan file di sini untuk melampirkan...</span>
           </div>
         )}
@@ -608,14 +627,14 @@ const InputBar = ({
           <button
             type="button"
             onClick={() => setShowAttachMenu((v) => !v)}
-            className="p-3 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-full transition-all"
+            className="p-2.5 text-white/60 hover:text-white hover:bg-white/10 rounded-xl transition-all"
             title="Lampirkan / Folder"
           >
-            <FaPlus size={18} />
+            <Plus size={18} />
           </button>
 
           {showAttachMenu && (
-            <div className="absolute bottom-full left-0 mb-2 bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-xl shadow-2xl overflow-hidden z-50 flex flex-col min-w-[180px]">
+            <div className="absolute bottom-full left-0 mb-2 bg-[#1c1c1e]/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden z-50 flex flex-col min-w-[190px] p-1 animate-fade-in">
               {onSelectWorkspace && (
                 <button
                   type="button"
@@ -623,12 +642,12 @@ const InputBar = ({
                     onSelectWorkspace()
                     setShowAttachMenu(false)
                   }}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-white/10 text-gray-300 transition-colors text-sm"
+                  className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/10 text-white/90 rounded-xl transition-colors text-sm"
                 >
-                  <FaFolder size={16} className="text-primary" />
+                  <Folder size={16} className="text-[#0a84ff]" />
                   <span>Folder Proyek</span>
                   {workspaceRoot && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#0a84ff]" />
                   )}
                 </button>
               )}
@@ -638,9 +657,9 @@ const InputBar = ({
                   handlePaperclipClick()
                   setShowAttachMenu(false)
                 }}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-white/10 text-gray-300 transition-colors text-sm border-t border-white/5"
+                className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/10 text-white/90 rounded-xl transition-colors text-sm"
               >
-                <FaPaperclip size={16} className="text-info" />
+                <Paperclip size={16} className="text-[#0a84ff]" />
                 <span>Lampirkan File</span>
               </button>
             </div>
@@ -662,7 +681,7 @@ const InputBar = ({
                 ? 'Tambah instruksi untuk file terlampir...'
                 : 'Tanya apapun ke Abelink...'
           }
-          className="flex-1 resize-none bg-transparent border-none outline-none text-white px-3 py-2.5 text-sm md:text-base leading-normal placeholder:text-white/30 disabled:opacity-50 no-scrollbar"
+          className="flex-1 resize-none bg-transparent border-none outline-none text-white px-3 py-2.5 text-sm md:text-base leading-normal placeholder:text-white/60 disabled:opacity-50 no-scrollbar"
         />
 
         {/* Action Buttons — right side */}
@@ -674,10 +693,10 @@ const InputBar = ({
             <button
               type="button"
               onClick={() => setShowAbortConfirm(true)}
-              className="p-3 rounded-full bg-error/20 text-error hover:bg-error hover:text-white transition-all"
+              className="p-2.5 rounded-full bg-[#ff453a] text-white hover:bg-[#ff453a]/80 active:scale-95 transition-all shadow-md"
               title="Stop Generation (Hard Abort)"
             >
-              <FaStop size={16} />
+              <Square size={16} className="fill-current" />
             </button>
           ) : (
             <>
@@ -687,21 +706,21 @@ const InputBar = ({
                   type="button"
                   onClick={isRecording ? onStopRecord : onStartRecord}
                   disabled={isProcessing || isLoading}
-                  className={`relative p-3 md:p-4 rounded-full flex-shrink-0 transition-all duration-300 transform outline-none z-10 ${
+                  className={`relative p-3 rounded-full flex-shrink-0 transition-all duration-300 transform outline-none z-10 ${
                     isProcessing
-                      ? 'text-primary bg-primary/20 cursor-wait'
+                      ? 'text-[#0a84ff] bg-[#0a84ff]/20 cursor-wait'
                       : isLoading
                         ? 'text-white/20 bg-white/5 cursor-not-allowed'
                         : isRecording
-                          ? 'text-error bg-error/20'
-                          : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+                          ? 'text-white bg-[#ff453a]'
+                          : 'text-white/60 hover:text-white hover:bg-white/10'
                   }`}
                   style={{
                     transform:
                       isRecording && !isProcessing ? `scale(${1 + audioIntensity * 0.3})` : '',
                     boxShadow:
                       isRecording && !isProcessing
-                        ? `0 0 ${10 + audioIntensity * 40}px rgba(255,0,0, ${0.3 + audioIntensity * 0.5})`
+                        ? `0 0 ${10 + audioIntensity * 40}px rgba(255, 69, 58, ${0.4 + audioIntensity * 0.4})`
                         : ''
                   }}
                   title={
@@ -714,26 +733,26 @@ const InputBar = ({
                 >
                   {isRecording && !isProcessing && (
                     <div
-                      className="absolute inset-0 rounded-full bg-error/30 -z-10 transition-transform duration-75"
+                      className="absolute inset-0 rounded-full bg-[#ff453a]/30 -z-10 transition-transform duration-75"
                       style={{ transform: `scale(${1 + audioIntensity * 0.8})` }}
                     />
                   )}
                   {isProcessing ? (
-                    <span className="loading loading-spinner w-[18px] h-[18px]"></span>
+                    <MobiusLoader size={18} />
                   ) : isLoading ? (
-                    <FaLock size={18} />
+                    <Lock size={18} />
                   ) : (
-                    <FaMicrophone size={18} />
+                    <Mic size={18} />
                   )}
                 </button>
               ) : (
                 <button
                   type="submit"
                   disabled={isSendDisabled}
-                  className="p-3 rounded-full bg-success text-success-content disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-success/80 hover:scale-105 active:scale-95 transition-all"
+                  className="p-3 rounded-full bg-[#0a84ff] text-white disabled:opacity-30 disabled:bg-white/10 disabled:text-white/60 hover:bg-[#0a84ff]/90 hover:scale-105 active:scale-95 transition-all shadow-md"
                   title="Send Message"
                 >
-                  <FaArrowUp size={16} />
+                  <ArrowUp size={16} strokeWidth={2.5} />
                 </button>
               )}
             </>
@@ -742,8 +761,8 @@ const InputBar = ({
 
         {/* Skill Autocomplete Dropdown */}
         {showSkillList && filteredSkills.length > 0 && (
-          <div className="absolute bottom-full left-12 mb-2 w-[400px] bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.5)] z-50 animate-fade-in">
-            <div className="p-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-white/5">
+          <div className="absolute bottom-full left-12 mb-2 w-[400px] bg-[#1c1c1e]/95 backdrop-blur-2xl border border-white/15 rounded-2xl overflow-hidden shadow-2xl z-50 animate-fade-in p-1">
+            <div className="px-3 py-2 text-[10px] font-bold text-white/40 uppercase tracking-wider">
               Available Skills
             </div>
             <div className="max-h-64 overflow-y-auto no-scrollbar">
@@ -751,15 +770,15 @@ const InputBar = ({
                 <div
                   key={skillObj.name}
                   onClick={() => selectSkill(skillObj)}
-                  className={`px-4 py-3 cursor-pointer transition-colors flex flex-col gap-1 border-b border-white/5 last:border-0 ${
+                  className={`px-3 py-2.5 rounded-xl cursor-pointer transition-colors flex flex-col gap-0.5 ${
                     idx === selectedSkillIndex
-                      ? 'bg-emerald-500/20 text-emerald-400'
-                      : 'hover:bg-white/10 text-gray-300'
+                      ? 'bg-[#0a84ff] text-white'
+                      : 'hover:bg-white/10 text-white/80'
                   }`}
                 >
                   <div className="font-semibold text-sm">/{skillObj.name}</div>
                   <div
-                    className={`text-xs ${idx === selectedSkillIndex ? 'text-emerald-400/80' : 'text-gray-400'} line-clamp-2`}
+                    className={`text-xs ${idx === selectedSkillIndex ? 'text-white/80' : 'text-white/50'} line-clamp-2`}
                   >
                     {skillObj.description}
                   </div>
@@ -787,54 +806,63 @@ const InputBar = ({
         onCancel={() => setShowAbortConfirm(false)}
       />
 
-      {/* Modal pratinjau lampiran (klik/hover chip): gambar besar + metadata.
-          Untuk file non-gambar tampilkan info file; tidak ada preview palsu. */}
+      {/* Modal pratinjau lampiran Apple QuickLook: centered window popup with backdrop */}
       {previewFile && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-6 animate-fade-in"
+          className="fixed inset-0 z-[10000] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 md:p-8 animate-fade-in"
           onClick={() => setPreviewIdx(-1)}
         >
           <div
-            className="max-w-3xl w-full max-h-[85vh] bg-[var(--glass-bg)] backdrop-blur-2xl border border-[var(--glass-border)] rounded-2xl shadow-[0_24px_80px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col"
+            className="max-w-4xl w-full max-h-[85vh] bg-[#1c1c1e]/95 backdrop-blur-2xl border border-white/15 rounded-3xl shadow-[0_30px_100px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col animate-[holo-project-in_0.2s_ease-out]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-lg flex-shrink-0">{getFileIcon(previewFile.name)}</span>
-                <span className="text-sm font-medium text-white truncate">{previewFile.name}</span>
-                {previewFile.size > 0 && (
-                  <span className="text-[10px] text-white/40 flex-shrink-0">
-                    {formatFileSize(previewFile.size)}
-                  </span>
-                )}
-                {previewFile.linkOnly && (
-                  <span className="text-[10px] text-warning flex-shrink-0">(tautan web)</span>
-                )}
+            {/* QuickLook Window Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 bg-white/5 flex-shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="p-1.5 rounded-lg bg-white/10 flex-shrink-0">{getFileIcon(previewFile.name)}</span>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-white truncate">{previewFile.name}</div>
+                  <div className="flex items-center gap-2 text-[11px] text-white/50">
+                    {previewFile.size > 0 && <span>{formatFileSize(previewFile.size)}</span>}
+                    {previewFile.linkOnly && (
+                      <span className="text-[#0a84ff] font-medium">(tautan web)</span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setPreviewIdx(-1)}
-                className="text-white/50 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-all flex-shrink-0"
-                title="Tutup pratinjau"
-              >
-                <FaTimes size={14} />
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPreviewIdx(-1)}
+                  className="text-white/60 hover:text-white hover:bg-white/10 p-2 rounded-full transition-all"
+                  title="Tutup pratinjau (Esc)"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
-            <div className="flex-1 overflow-auto p-4 flex items-center justify-center min-h-0">
+
+            {/* QuickLook Preview Body */}
+            <div className="flex-1 overflow-auto p-6 flex items-center justify-center min-h-[250px] bg-black/40">
               {previewFile.previewUrl ? (
                 <img
                   src={previewFile.previewUrl}
                   alt={previewFile.name}
-                  className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                  className="max-w-full max-h-[65vh] object-contain rounded-2xl shadow-2xl border border-white/10"
                   draggable={false}
                 />
               ) : (
-                <div className="text-center text-white/60 py-10">
-                  <div className="text-4xl mb-3 flex justify-center">
+                <div className="text-center text-white/60 py-12 px-6">
+                  <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center mx-auto mb-4 text-white">
                     {getFileIcon(previewFile.name)}
                   </div>
-                  <div className="text-sm">Tidak ada pratinjau visual untuk tipe file ini.</div>
-                  <div className="text-xs text-white/40 mt-1 font-mono break-all max-w-md mx-auto mt-2">
+                  <div className="text-base font-medium text-white mb-1">
+                    Dokumen Tanpa Pratinjau Visual
+                  </div>
+                  <div className="text-xs text-white/50 max-w-md mx-auto mb-4">
+                    File ini akan dikirimkan sebagai konteks dokumen saat pesan dikirim.
+                  </div>
+                  <div className="text-xs text-white/40 font-mono bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg break-all max-w-lg mx-auto">
                     {previewFile.path}
                   </div>
                 </div>

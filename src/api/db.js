@@ -250,6 +250,19 @@ db.version(28).upgrade(tx => {
   })
 })
 
+// v29: telemetri reuse learnedSkills (RSI terukur ala Hermes skill_usage):
+// use_count / last_used_at / state (active|trial|archived). Upgrade
+// non-destruktif: field baru default (0/null/'active') agar skill lama hidup.
+db.version(29).stores({
+  learnedSkills: 'id, name, createdAt, updatedAt, state'
+}).upgrade(tx => {
+  return tx.table('learnedSkills').toCollection().modify(skill => {
+    if (typeof skill.use_count !== 'number') skill.use_count = 0
+    if (!skill.last_used_at) skill.last_used_at = null
+    if (typeof skill.state !== 'string') skill.state = 'active'
+  })
+})
+
 // --- APP CONFIG (feature flags, hardware profile, etc.) ---
 export async function getAppConfig(key, fallback = null) {
   try {
@@ -903,7 +916,7 @@ export async function saveRelationship(data) {
 }
 
 // --- LEARNED SKILLS (METASYSTEM SELF-IMPROVEMENT) ---
-export async function saveLearnedSkill({ name, description, content }) {
+export async function saveLearnedSkill({ name, description, content, state }) {
   try {
     const cleanName = (name || '').toLowerCase().replace(/[^a-z0-9-_]/g, '-').replace(/^-+|-+$/g, '')
     if (!cleanName || !content) return null
@@ -918,7 +931,13 @@ export async function saveLearnedSkill({ name, description, content }) {
       description: description || 'Prosedur teknis teruji buatan Abelink',
       content: content.trim(),
       createdAt: existing?.createdAt || Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      // Telemetri reuse (RSI): counter pakai-ulang + status lifecycle.
+      use_count: existing?.use_count ?? 0,
+      last_used_at: existing?.last_used_at ?? null,
+      // R1b: skill baru lahir sebagai 'trial' bila diminta; update
+      // mempertahankan state lama kecuali dioverride eksplisit.
+      state: state ?? existing?.state ?? 'active'
     }
 
     await db.learnedSkills.put(skillData)
@@ -962,6 +981,76 @@ export async function deleteLearnedSkill(idOrName) {
   } catch (err) {
     console.error('[DB] Error deleteLearnedSkill:', err)
     return false
+  }
+}
+
+// --- RSI reuse telemetry (ala Hermes skill_usage.bump_use) ---
+// Dipanggil tiap read-skill Dexie sukses: use_count+1 + last_used_at.
+// Mengembalikan record terbaru, atau null bila skill tak ada / gagal.
+export async function bumpLearnedSkillUse(idOrName) {
+  try {
+    if (!idOrName) return null
+    const existing = (await db.learnedSkills.get(idOrName)) || (await db.learnedSkills.where('name').equalsIgnoreCase(idOrName).first())
+    if (!existing) return null
+    const updated = {
+      ...existing,
+      use_count: (typeof existing.use_count === 'number' ? existing.use_count : 0) + 1,
+      last_used_at: Date.now()
+    }
+    await db.learnedSkills.put(updated)
+    return updated
+  } catch (err) {
+    console.error('[DB] Error bumpLearnedSkillUse:', err)
+    return null
+  }
+}
+
+// R1b: gate empiris skill trial (ala DGM/AlphaEvolve).
+// Trial lulus -> 'active' bila reuse_count > 0 ATAU evalPassed true.
+// Trial kedaluwarsa (> trialDays hari tanpa reuse) -> 'archived'.
+// Mengembalikan state akhir ('active' | 'trial' | 'archived') atau null.
+export async function graduateTrialSkill(idOrName, { evalPassed = false, trialDays = 7, now = Date.now() } = {}) {
+  try {
+    if (!idOrName) return null
+    const existing = (await db.learnedSkills.get(idOrName)) || (await db.learnedSkills.where('name').equalsIgnoreCase(idOrName).first())
+    if (!existing || existing.state !== 'trial') return existing?.state ?? null
+    const uses = typeof existing.use_count === 'number' ? existing.use_count : 0
+    if (uses > 0 || evalPassed === true) {
+      await db.learnedSkills.put({ ...existing, state: 'active', updatedAt: now })
+      return 'active'
+    }
+    const age = now - (existing.createdAt || now)
+    if (age > Math.max(1, Number(trialDays) || 7) * 24 * 3600 * 1000) {
+      await db.learnedSkills.put({ ...existing, state: 'archived', updatedAt: now })
+      return 'archived'
+    }
+    return 'trial'
+  } catch (err) {
+    console.error('[DB] Error graduateTrialSkill:', err)
+    return null
+  }
+}
+
+// Arsip deterministik (ala Hermes curator prune): skill active/trial yang
+// tidak dipakai > `inactiveDays` hari (default 30) -> state 'archived'.
+// Tidak menghapus (recoverable). Mengembalikan jumlah yang diarsipkan.
+export async function archiveStaleLearnedSkills(inactiveDays = 30, now = Date.now()) {
+  try {
+    const cutoff = now - Math.max(1, Number(inactiveDays) || 30) * 24 * 3600 * 1000
+    const all = await db.learnedSkills.toArray()
+    let archived = 0
+    for (const s of all) {
+      if (s?.state === 'archived') continue
+      const lastActive = s?.last_used_at || s?.updatedAt || s?.createdAt || 0
+      if (lastActive < cutoff) {
+        await db.learnedSkills.put({ ...s, state: 'archived', updatedAt: now })
+        archived += 1
+      }
+    }
+    return archived
+  } catch (err) {
+    console.error('[DB] Error archiveStaleLearnedSkills:', err)
+    return 0
   }
 }
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getMainThread } from '../../api/db';
-import { FaTimes, FaCommentAlt } from 'react-icons/fa';
+import { X, MessageSquare } from 'lucide-react';
 import ResponseArea from './ResponseArea';
 
 const formatHistoryContent = (content) => {
@@ -89,25 +89,26 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
       {/* Backdrop */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] animate-[response-fade-in_0.2s_ease-out_forwards]"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 animate-[response-fade-in_0.2s_ease-out_forwards]"
           onClick={onClose}
         />
       )}
 
       {/* Drawer Panel */}
       <div 
-        className={`fixed top-0 right-0 h-screen w-full max-w-md bg-base-300 border-l border-[var(--glass-border)] shadow-2xl z-[70] transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}
+        className={`fixed top-0 right-0 h-screen w-full max-w-md bg-base-300 border-l border-[var(--glass-border)] shadow-2xl z-30 transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}
       >
+        <div aria-hidden="true" className="md:hidden mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/20" />
         <div className="flex items-center justify-between p-6 border-b border-[var(--glass-border)]">
           <h2 className="text-xl font-semibold flex items-center gap-2">
-            <FaCommentAlt className="text-success" />
+            <MessageSquare className="text-primary" />
             Riwayat Obrolan
           </h2>
           <button 
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full bg-base-200 hover:bg-error hover:text-white transition-colors"
           >
-            <FaTimes />
+            <X />
           </button>
         </div>
 
@@ -118,7 +119,7 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
               onClick={() => loadPreview(turn)}
               className={`p-4 rounded-xl text-left transition-all ${
                 selectedTurnId === turn.id 
-                  ? 'bg-success/20 border border-success/50'
+                  ? 'bg-primary/20 border border-primary/50'
                   : 'bg-base-200 hover:bg-base-200/80 border border-transparent'
               }`}
             >
@@ -128,14 +129,14 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
               <h3 className="font-medium text-white/90 whitespace-pre-wrap break-words line-clamp-4">
                 {turn.user || 'Instruksi Tanpa Teks'}
               </h3>
-              <p className="text-xs text-white/40 mt-1 line-clamp-2">
+              <p className="text-xs text-white/60 mt-1 line-clamp-2">
                 {formatHistoryContent(turn.ai?.content).substring(0, 100) || 'Belum ada balasan'}
               </p>
             </button>
           ))}
 
           {historyTurns.length === 0 && (
-            <div className="text-center text-white/50 mt-10">
+            <div className="text-center text-white/60 mt-10">
               Belum ada riwayat.
             </div>
           )}
@@ -144,11 +145,11 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
 
       {/* Preview Overlay */}
       {isOpen && previewData && (
-        <div className="fixed top-1/2 left-[calc(50%-12rem)] -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl z-[65] animate-[response-fade-in_0.3s_ease-out_forwards] pointer-events-none">
-          <div className="bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-3xl p-8 max-h-[80vh] overflow-y-auto custom-scrollbar shadow-[0_0_50px_rgba(0,0,0,0.5)] pointer-events-auto">
+        <div className="fixed top-1/2 left-[calc(50%-12rem)] -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl z-40 animate-[response-fade-in_0.3s_ease-out_forwards] pointer-events-none">
+          <div className="bg-base-300/95 backdrop-blur-xl border border-[var(--glass-border)] rounded-[18px] p-8 max-h-[80vh] overflow-y-auto custom-scrollbar shadow-[0_0_50px_rgba(0,0,0,0.5)] pointer-events-auto">
             <div className="flex justify-between items-center mb-6 sticky top-0 bg-base-300/95 backdrop-blur-md pb-4 border-b border-white/5 z-20">
-              <span className="text-sm font-semibold tracking-widest uppercase text-success">Preview Riwayat</span>
-              <button onClick={() => {setPreviewData(null); setSelectedTurnId(null)}} className="text-white/50 hover:text-error transition-colors"><FaTimes size={20}/></button>
+              <span className="text-sm font-semibold tracking-widest uppercase text-primary">Preview Riwayat</span>
+              <button onClick={() => {setPreviewData(null); setSelectedTurnId(null)}} className="text-white/60 hover:text-error transition-colors"><X size={20}/></button>
             </div>
             <div className="mt-4">
               <ResponseArea currentResponse={previewData} />

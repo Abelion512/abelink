@@ -15,9 +15,9 @@ export const DEFAULT_PLAN_STEPS = 25
  * 1. Explicit numeric override in options (maxSteps or maxPlanSteps)
  * 2. Canonical policy execution_step_budget resolved via effortSystem:
  *    - low: 8
- *    - medium: 16
- *    - high: 32
- *    - xhigh: 64 (target for complex tasks, ~50-64 steps)
+ *    - medium: 24
+ *    - high: 48
+ *    - xhigh: 64 (target for complex tasks)
  *    - max: 128
  *    - ultra: 256
  * 3. Fallback to DEFAULT_PLAN_STEPS (25)

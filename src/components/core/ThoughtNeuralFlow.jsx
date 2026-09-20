@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { FaCheck, FaSpinner, FaBrain } from 'react-icons/fa';
+import { Check } from 'lucide-react';
+import { MobiusLoader } from './MobiusLoader';
 
 const ThoughtNeuralFlow = ({ processes }) => {
   const [displayedPlan, setDisplayedPlan] = useState(null);
@@ -153,10 +154,10 @@ const ThoughtNeuralFlow = ({ processes }) => {
                       {face === 'front' && (
                         <div className="relative w-4 h-4 flex items-center justify-center">
                            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${isCompleted ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'}`}>
-                             <FaCheck size={10} />
+                             <Check size={10} />
                            </div>
                            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
-                             <FaSpinner className="animate-spin" size={10} />
+                             <MobiusLoader size={10} />
                            </div>
                            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${isPending ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
                              <span className="text-[10px]">{idx + 1}</span>

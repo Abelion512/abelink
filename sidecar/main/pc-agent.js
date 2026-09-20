@@ -731,6 +731,54 @@ export async function readDesktop(options = {}, query = '') {
 }
 
 /**
+ * Pure: cocokkan teks jangkar ke field teks elemen (substring, case-insensitive).
+ * Expected kosong = tidak ada jangkar -> selalu true.
+ */
+export function matchElementText(el, expected) {
+  if (!expected || !String(expected).trim()) return true
+  if (!el || typeof el !== 'object') return false
+  const needle = String(expected).toLowerCase()
+  return ['text', 'name', 'label', 'value'].some(
+    (k) => typeof el[k] === 'string' && el[k].toLowerCase().includes(needle)
+  )
+}
+
+/**
+ * Pure: parse query klik. Format:
+ *   "7" | "100||200" (lama, tanpa jangkar)
+ *   "7||teks" | "100||200||teks" (baru, dengan expected-text opsional)
+ */
+export function parseClickQuery(query) {
+  if (typeof query !== 'string') return null
+  const raw = query.trim()
+  if (!raw) return null
+  const parts = raw.split('||').map((p) => p.trim())
+  if (parts.length === 3) {
+    const x = parseInt(parts[0], 10)
+    const y = parseInt(parts[1], 10)
+    if (isNaN(x) || isNaN(y)) return null
+    return parts[2] ? { kind: 'coords', x, y, expected: parts[2] } : { kind: 'coords', x, y }
+  }
+  if (parts.length === 2) {
+    const a = parseInt(parts[0], 10)
+    const b = parseInt(parts[1], 10)
+    if (!isNaN(a) && !isNaN(b)) return { kind: 'coords', x: a, y: b }
+    if (!isNaN(a)) return parts[1] ? { kind: 'id', id: a, expected: parts[1] } : { kind: 'id', id: a }
+    return null
+  }
+  if (parts.length === 1) {
+    const id = parseInt(parts[0], 10)
+    return isNaN(id) ? null : { kind: 'id', id }
+  }
+  return null
+}
+
+function centerOf(el) {
+  if (!el || !el.rect || el.rect.length !== 4) return null
+  return { x: Math.round(el.rect[0] + el.rect[2] / 2), y: Math.round(el.rect[1] + el.rect[3] / 2) }
+}
+
+/**
  * Helper: Find coordinates from element ID or x||y string
  */
 function resolveCoordinates(query) {
@@ -769,12 +817,52 @@ export async function executeClick(query) {
     return `[PC-Agent] Stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`
   }
   showPCOverlay()
+  const parsed = parseClickQuery(query)
+  if (parsed?.expected) {
+    // Jangkar teks: paksa read fresh (lewati cache), validasi ulang teks target.
+    stateChanged = true
+    const fresh = await readDesktop({})
+    if (!fresh || fresh.window === 'error' || !Array.isArray(fresh.elements)) {
+      scheduleHidePCOverlay()
+      return `[PC-Agent] Error: target berubah/pindah (diharapkan "${parsed.expected}") — lakukan os-read ulang.`
+    }
+    if (parsed.kind === 'id') {
+      const el = fresh.elements.find((item) => item.id === parsed.id)
+      if (!el || !matchElementText(el, parsed.expected)) {
+        scheduleHidePCOverlay()
+        return `[PC-Agent] Error: target berubah/pindah (diharapkan "${parsed.expected}") — lakukan os-read ulang.`
+      }
+      const c = centerOf(el)
+      if (!c) {
+        scheduleHidePCOverlay()
+        return `[PC-Agent] Error: Element ID or coordinates '${query}' not found. Try os-read first.`
+      }
+      const result = await clickAt({ x: c.x, y: c.y, id: parsed.id })
+      scheduleHidePCOverlay()
+      return `[PC-Agent] Clicked at (${c.x}, ${c.y}). ${result}`
+    }
+    // kind coords: jangkar = ada elemen di fresh read yang teksnya cocok.
+    const anchor = fresh.elements.some((item) => matchElementText(item, parsed.expected))
+    if (!anchor) {
+      scheduleHidePCOverlay()
+      return `[PC-Agent] Error: target berubah/pindah (diharapkan "${parsed.expected}") — lakukan os-read ulang.`
+    }
+    const result = await clickAt({ x: parsed.x, y: parsed.y })
+    scheduleHidePCOverlay()
+    return `[PC-Agent] Clicked at (${parsed.x}, ${parsed.y}). ${result}`
+  }
   const coords = resolveCoordinates(query)
   if (!coords) {
     scheduleHidePCOverlay()
     return `[PC-Agent] Error: Element ID or coordinates '${query}' not found. Try os-read first.`
   }
-  
+
+  const clicked = await clickAt(coords)
+  scheduleHidePCOverlay()
+  return `[PC-Agent] Clicked at (${coords.x}, ${coords.y}). ${clicked}`
+}
+
+async function clickAt(coords) {
   let result = ''
   if (isDaemonAlive()) {
     if (coords.id !== undefined) {
@@ -793,8 +881,7 @@ export async function executeClick(query) {
     ])
   }
   stateChanged = true
-  scheduleHidePCOverlay()
-  return `[PC-Agent] Clicked at (${coords.x}, ${coords.y}). ${result}`
+  return result
 }
 
 /**

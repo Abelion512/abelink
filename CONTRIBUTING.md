@@ -98,7 +98,7 @@ belum selesai.
 - **Formatter:** Prettier: `bun run format`
   - singleQuote, noSemi, printWidth 100, trailingComma none
 - **Tauri boundary:** Jangan pakai Node API langsung di `src/`: semua akses OS lewat facade `src/api/tauri-bridge.js` (Tauri `invoke()` / channel `node_invoke` sidecar) saja
-- **CSS:** Tailwind 4 + DaisyUI 5 (`forest` theme). Jangan bikin file CSS ad-hoc
+- **CSS:** Tailwind 4 + DaisyUI 5 (`abelink` theme). Jangan bikin file CSS ad-hoc
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/)
   `type(scope): description`: contoh: `feat(ai-bridge): add 9Router provider`
 

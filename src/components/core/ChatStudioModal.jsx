@@ -275,7 +275,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
   return (
     <>
       {/* Full-Screen Chat Studio Workspace (Below Window Controls Bar) */}
-      <div className="fixed inset-0 pt-10 z-[80] w-screen h-screen bg-base-300 flex overflow-hidden animate-[response-fade-in_0.2s_ease-out_forwards]">
+      <div className="fixed inset-0 pt-10 z-30 w-screen h-screen bg-base-300 flex overflow-hidden animate-[response-fade-in_0.2s_ease-out_forwards]">
         {/* === LEFT SIDEBAR: SESSIONS LIST === */}
         <div className="w-80 border-r border-white/10 bg-base-200/50 flex flex-col h-full shrink-0">
           {/* Sidebar Header */}
@@ -315,13 +315,13 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
 
             {/* Search Input */}
             <div className="relative pointer-events-auto" style={{ WebkitAppRegion: 'no-drag' }}>
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/60" />
               <input
                 type="text"
                 placeholder="Cari obrolan..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="input input-sm bg-base-300 border-white/10 pl-9 w-full rounded-xl text-xs text-white placeholder:text-white/30 focus:border-primary/50"
+                className="input input-sm bg-base-300 border-white/10 pl-9 w-full rounded-xl text-xs text-white placeholder:text-white/60 focus:border-primary/50"
               />
             </div>
           </div>
@@ -329,7 +329,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
           {/* Sessions Scroll List */}
           <div className="flex-1 overflow-y-auto p-2.5 space-y-1 custom-scrollbar">
             {/* PINNED MAIN THREAD */}
-            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/40 flex items-center gap-1">
+            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/60 flex items-center gap-1">
               <Pin className="w-3 h-3 text-primary" />
               <span>Sesi Utama</span>
             </div>
@@ -365,7 +365,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
             <div className="my-2 border-t border-white/5" />
 
             {/* WORKSPACE SESSIONS */}
-            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/40">
+            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/60">
               Workspace Threads
             </div>
 
@@ -415,7 +415,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                           <h4 className="text-xs font-medium truncate">
                             {s.title || 'Percakapan'}
                           </h4>
-                          <p className="text-[10px] opacity-40">
+                          <p className="text-[10px] opacity-60">
                             {s.timestamp
                               ? new Date(s.timestamp).toLocaleDateString('id-ID', {
                                   month: 'short',
@@ -435,7 +435,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                             e.stopPropagation()
                             handleSaveRename(s.id)
                           }}
-                          className="btn btn-ghost btn-xs p-1 text-success hover:bg-success/20"
+                          className="btn btn-ghost btn-xs p-1 text-primary hover:bg-primary/20"
                         >
                           <Check className="w-3 h-3" />
                         </button>
@@ -443,14 +443,14 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                         <>
                           <button
                             onClick={(e) => handleStartRename(e, s)}
-                            className="btn btn-ghost btn-xs p-1 text-white/40 hover:text-white"
+                            className="btn btn-ghost btn-xs p-1 text-white/60 hover:text-white"
                             title="Ubah judul sesi"
                           >
                             <Edit2 className="w-3 h-3" />
                           </button>
                           <button
                             onClick={(e) => handleDeleteSessionClick(e, s.id)}
-                            className="btn btn-ghost btn-xs p-1 text-white/40 hover:text-error"
+                            className="btn btn-ghost btn-xs p-1 text-white/60 hover:text-error"
                             title="Hapus sesi"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -463,7 +463,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
               })}
 
             {filteredSessions.filter((s) => s.id !== 1).length === 0 && (
-              <div className="text-center py-6 text-xs text-white/30">
+              <div className="text-center py-6 text-xs text-white/60">
                 Belum ada sesi workspace lain.
               </div>
             )}
@@ -483,7 +483,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                 <h3 className="text-sm font-bold text-white truncate max-w-md">
                   {activeSessionObj.title || 'Percakapan'}
                 </h3>
-                <span className="text-[10px] text-white/40">
+                <span className="text-[10px] text-white/60">
                   {currentDisplayMessages.length} pesan terdaftar
                 </span>
               </div>
@@ -506,7 +506,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                 <button
                   type="button"
                   onClick={() => setVisibleMessageCount((prev) => prev + 30)}
-                  className="btn btn-xs btn-ghost text-[11px] text-white/50 hover:text-white border border-white/10 rounded-full px-4 normal-case cursor-pointer"
+                  className="btn btn-xs btn-ghost text-[11px] text-white/60 hover:text-white border border-white/10 rounded-full px-4 normal-case cursor-pointer"
                 >
                   Muat pesan sebelumnya ({currentDisplayMessages.length - visibleMessageCount} pesan
                   lagi)
@@ -515,13 +515,13 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
             )}
 
             {currentDisplayMessages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-white/40 space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-base-200/80 border border-white/10 flex items-center justify-center text-primary shadow-xl">
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-white/60 space-y-4">
+                <div className="w-14 h-14 rounded-xl bg-base-200/80 border border-white/10 flex items-center justify-center text-primary shadow-xl">
                   <Sparkles className="w-7 h-7 animate-pulse" />
                 </div>
                 <div className="max-w-sm space-y-1">
                   <h4 className="text-sm font-bold text-white">Sesi Obrolan Bersih</h4>
-                  <p className="text-xs text-white/50">
+                  <p className="text-xs text-white/60">
                     Tanyakan apapun, analisis kode, atau diskusikan ide riset bersama Abelink.
                   </p>
                 </div>
