@@ -409,6 +409,26 @@ html, body, #root {
   }
 }
 
+/* ponytail: hello boot draw (pengganti motion pathLength, tanpa dep). */
+@keyframes hello-draw {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.hello-draw {
+  stroke-dashoffset: 1;
+  opacity: 0;
+  animation-name: hello-draw;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: forwards;
+}
+
 /* === APPLE MODAL TRANSITIONS === */
 
 @keyframes holo-enter {

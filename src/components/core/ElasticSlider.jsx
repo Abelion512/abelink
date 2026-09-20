@@ -1,5 +1,4 @@
 import { useRef, useState, useCallback } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
 import { useControllableState } from '../../hooks/useControllableState'
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
@@ -28,7 +27,8 @@ export function ElasticSlider({
     onChange: onValueChange
   })
   const safeVal = val ?? min
-  const reduceMotion = useReducedMotion()
+  // ponytail: matchMedia sekali (tanpa motion dep); elastic knob jadi CSS transition.
+  const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   const trackRef = useRef(null)
   const [dragging, setDragging] = useState(false)
   const [stretch, setStretch] = useState(0)
@@ -119,7 +119,7 @@ export function ElasticSlider({
   const pct = clamp(t, -0.15, 1.15) * 100
   const fillPct = clamp(t, 0, 1) * 100
   const bubbleAnchor = t < 0.15 ? '0%' : t > 0.85 ? '-100%' : '-50%'
-  const spring = reduceMotion ? { type: 'tween', duration: 0 } : { type: 'spring', stiffness: 200, damping: 18 }
+  const knobScaleX = reduceMotion ? 1 : dragging ? 1 + stretch * 0.9 : 1
 
   return (
     <div className={className}>
@@ -153,14 +153,9 @@ export function ElasticSlider({
           />
         </div>
         <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${pct}%` }}>
-          <motion.div
-            animate={
-              reduceMotion
-                ? { scaleX: 1, scaleY: 1 }
-                : { scaleX: dragging ? 1 + stretch * 0.9 : 1, scaleY: dragging ? 1 : 1 }
-            }
-            transition={spring}
-            className="h-4 w-4 -translate-x-1/2 rounded-full bg-white shadow"
+          <div
+            className="h-4 w-4 -translate-x-1/2 rounded-full bg-white shadow transition-transform duration-150 ease-out motion-reduce:transition-none"
+            style={{ transform: `translateX(-50%) scaleX(${knobScaleX})` }}
           />
           {dragging && (
             <div
