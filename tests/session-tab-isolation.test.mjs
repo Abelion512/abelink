@@ -6,14 +6,20 @@ import { describe, it, expect } from 'vitest'
 
 const sessionKeyOf = (sid) => String(sid ?? 'default')
 
-const pickAdoptableTab = (tabs = [], url = '', excludeIds = []) => {
+const pickAdoptableTab = (tabs = [], url = '', excludeIds = [], opts = {}) => {
   const excluded = new Set(Array.isArray(excludeIds) ? excludeIds : [])
+  const adoptUserTab = opts.adoptUserTab === true
   // Chrome: TAB_GROUP_ID_NONE === -1. Hanya -1/undefined yang tak-bergrup.
   const ungrouped = (Array.isArray(tabs) ? tabs : []).filter(
     (t) => t && (t.groupId === -1 || t.groupId == null) && !excluded.has(t.id)
   )
+  // Tanpa adoptUserTab: exact-URL match kemungkinan tab user — jangan sentuh.
+  // Hanya blank yang boleh diadopsi (risiko rendah).
+  if (adoptUserTab) {
+    const exact = ungrouped.find((t) => t.url === url)
+    if (exact) return exact
+  }
   return (
-    ungrouped.find((t) => t.url === url) ||
     ungrouped.find((t) => t.url === 'about:blank' || t.url === 'chrome://newtab/') ||
     null
   )
@@ -41,11 +47,18 @@ describe('pickAdoptableTab (anti-curi)', () => {
     { id: 2, url: 'about:blank', groupId: -1 },
     { id: 3, url: 'https://x.test/', groupId: 5 }
   ]
-  it('adopsi URL cocok yang tak-bergrup', () => {
-    expect(pickAdoptableTab(tabs, 'https://x.test/', []).id).toBe(1)
+  it('tanpa flag: JANGAN adopsi tab user walau URL cocok (blank tetap boleh)', () => {
+    expect(pickAdoptableTab(tabs, 'https://x.test/', []).id).toBe(2)
   })
-  it('lewati primer sesi lain walau URL cocok', () => {
-    expect(pickAdoptableTab(tabs, 'https://x.test/', [1]).id).toBe(2)
+  it('dengan adoptUserTab: adopsi URL cocok yang tak-bergrup', () => {
+    expect(pickAdoptableTab(tabs, 'https://x.test/', [], { adoptUserTab: true }).id).toBe(1)
+  })
+  it('lewati primer sesi lain: cari blank berikutnya', () => {
+    const tabs2 = [
+      { id: 1, url: 'https://x.test/', groupId: -1 },
+      { id: 4, url: 'about:blank', groupId: -1 }
+    ]
+    expect(pickAdoptableTab(tabs2, 'https://x.test/', [1], { adoptUserTab: true }).id).toBe(4)
   })
   it('abaikan tab bergrup', () => {
     expect(pickAdoptableTab(tabs, 'https://lain.test/', []).id).toBe(2)
