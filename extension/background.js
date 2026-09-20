@@ -662,13 +662,15 @@ async function activeOrFindTab(urlFilter) {
 // Budget tab per sesi: penuh -> pakai-ulang, jangan create (anti OOM).
 const MAX_TABS_PER_SESSION = 6
 
-// Adopsi tab yatim MILIK KITA SAJA: tak-bergrup DAN (about:blank ATAU url
-// persis sama dengan target). Tidak pernah menyentuh tab user lain (privasi)
-// maupun tab PRIMER sesi lain (anti-curi antar-sesi): daftar id primer milik
-// sesi lain dikecualikan eksplisit.
-async function adoptOrphanTab(sessionId, url, excludeTabIds = []) {
+// Adopsi tab yatim MILIK KITA SAJA: tak-bergrup DAN blank (about:blank /
+// chrome://newtab). Exact-URL match kemungkinan tab USER — hanya boleh
+// diadopsi bila opts.adoptUserTab eksplisit (izin user). Tidak pernah
+// menyentuh tab PRIMER sesi lain (anti-curi antar-sesi): daftar id primer
+// milik sesi lain dikecualikan eksplisit.
+async function adoptOrphanTab(sessionId, url, excludeTabIds = [], opts = {}) {
   try {
     const sid = String(sessionId ?? 'default')
+    const adoptUserTab = opts.adoptUserTab === true
     const excluded = new Set([
       ...(Array.isArray(excludeTabIds) ? excludeTabIds : []),
       ...Object.entries(primaryTabs)
@@ -679,24 +681,31 @@ async function adoptOrphanTab(sessionId, url, excludeTabIds = []) {
     const ungrouped = tabs.filter(
       (t) => t.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE && !excluded.has(t.id)
     )
-    const exact = ungrouped.find((t) => t.url === url)
-    if (exact) return exact
+    if (adoptUserTab) {
+      const exact = ungrouped.find((t) => t.url === url)
+      if (exact) return exact
+    }
     const blank = ungrouped.find((t) => t.url === 'about:blank' || t.url === 'chrome://newtab/')
     return blank || null
   } catch {
     return null
   }
 }
+}
 
 // Pure helper (unit-testable via node eval harness — service worker klasik
 // bukan modul, jadi ditempel ke globalThis, bukan export).
-const pickAdoptableTab = (tabs = [], url = '', excludeIds = []) => {
+const pickAdoptableTab = (tabs = [], url = '', excludeIds = [], opts = {}) => {
   const excluded = new Set(Array.isArray(excludeIds) ? excludeIds : [])
+  const adoptUserTab = opts.adoptUserTab === true
   const ungrouped = (Array.isArray(tabs) ? tabs : []).filter(
     (t) => t && t.groupId !== 0 && t.groupId !== -1 && !excluded.has(t.id)
   )
+  if (adoptUserTab) {
+    const exact = ungrouped.find((t) => t.url === url)
+    if (exact) return exact
+  }
   return (
-    ungrouped.find((t) => t.url === url) ||
     ungrouped.find((t) => t.url === 'about:blank' || t.url === 'chrome://newtab/') ||
     null
   )
@@ -722,14 +731,16 @@ async function createBoundedTab(sessionId, url) {
   return { tab, reused: false }
 }
 
-async function navigate({ url, reuse = true }, sessionId = 'default') {  // Tab PRIMER per task dipakai ulang (anti ledakan tab). Tab baru hanya bila
+async function navigate({ url, reuse = true, adoptUserTab = false }, sessionId = 'default') {  // Tab PRIMER per task dipakai ulang (anti ledakan tab). Tab baru hanya bila
   // belum ada / sudah ditutup / reuse=false eksplisit. Tidak merebut fokus.
+  // adoptUserTab=true (izin eksplisit user): boleh adopsi tab tak-bergrup
+  // ber-URL-cocok; default false = hanya blank milik sendiri atau tab baru.
   let tab = null
   let reused = false
   let adopted = false
   if (reuse !== false) tab = await getPrimaryTab(sessionId)
   if (!tab && reuse !== false) {
-    tab = await adoptOrphanTab(sessionId, url)
+    tab = await adoptOrphanTab(sessionId, url, [], { adoptUserTab })
     if (tab) adopted = true
   }
   if (!tab) {
