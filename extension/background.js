@@ -691,7 +691,6 @@ async function adoptOrphanTab(sessionId, url, excludeTabIds = [], opts = {}) {
     return null
   }
 }
-}
 
 // Pure helper (unit-testable via node eval harness — service worker klasik
 // bukan modul, jadi ditempel ke globalThis, bukan export).
