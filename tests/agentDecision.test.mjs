@@ -14,7 +14,10 @@ import {
   classifySubagentAnswer,
   INTENT,
   isBlockedText,
-  isQuestionText
+  isQuestionText,
+  shouldChallengeBlocked,
+  BLOCKED_CHALLENGE_TEXT,
+  MAX_BLOCKED_CHALLENGES
 } from '../src/api/ai/agentDecision.js'
 
 const action = { tool: 'run-shell', arguments: { query: 'ls' } }
@@ -300,5 +303,31 @@ describe('classifySubagentAnswer: explicit done never beats truncation', () => {
     )
     expect(r.type).toBe('continue')
     expect(r.reason).toBe('action')
+  })
+})
+
+describe('shouldChallengeBlocked — tantang klaim blocked yang belum teruji', () => {
+  it('0 tool + belum challenge => tantang (kasus sid 10: blocked turn-1)', () => {
+    expect(shouldChallengeBlocked({ toolsExecuted: 0, challengesUsed: 0 })).toBe(true)
+  })
+
+  it('sudah ada eksekusi tool => terima blocked seperti biasa', () => {
+    expect(shouldChallengeBlocked({ toolsExecuted: 1, challengesUsed: 0 })).toBe(false)
+    expect(shouldChallengeBlocked({ toolsExecuted: 5, challengesUsed: 0 })).toBe(false)
+  })
+
+  it('challenge habis (bounded 1x) => terima ulangan, tanpa loop abadi', () => {
+    expect(MAX_BLOCKED_CHALLENGES).toBe(1)
+    expect(shouldChallengeBlocked({ toolsExecuted: 0, challengesUsed: 1 })).toBe(false)
+  })
+
+  it('conversational dikecualikan (bukan misi)', () => {
+    expect(shouldChallengeBlocked({ toolsExecuted: 0, challengesUsed: 0, conversational: true })).toBe(false)
+  })
+
+  it('teks challenge memuat instruksi alternatif + syarat bukti ulangan', () => {
+    expect(BLOCKED_CHALLENGE_TEXT).toMatch(/DITOLAK/)
+    expect(BLOCKED_CHALLENGE_TEXT).toMatch(/strategi alternatif/)
+    expect(BLOCKED_CHALLENGE_TEXT).toMatch(/bukti spesifik/)
   })
 })

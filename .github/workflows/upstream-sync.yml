@@ -10,8 +10,9 @@ name: Upstream Sync
 on:
   repository_dispatch:
     types: [upstream-pushed]
-  schedule:
-    - cron: '0 6 * * *'
+  # Cron harian DIMATIKAN (hemat menit): sync upstream jarang berubah;
+  # jalankan manual via workflow_dispatch bila dibutuhkan.
+  workflow_dispatch: {}
 
 permissions:
   contents: read

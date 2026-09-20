@@ -315,15 +315,17 @@ function writeWhatsNewFile(version, changes) {
     }
   }
 
+  const sectionData = {
+    features: changes.features || [],
+    fixes: changes.fixes || [],
+    security: changes.security || [],
+    docs: changes.docs || []
+  }
   const data = {
     version,
     date: formatDate(),
-    summary: generateSummary({
-      features: changes.features || [],
-      fixes: changes.fixes || [],
-      security: changes.security || [],
-      docs: changes.docs || []
-    }),
+    summary: generateSummary(sectionData),
+    founderReport: generateFounderReport(sectionData),
     linearUrl: 'https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326',
     changes: flatChanges
   }
@@ -348,6 +350,37 @@ function generateSummary(sections) {
   if (parts.length === 1) return `${parts[0]} dalam rilis ini.`
   const last = parts.pop()
   return `${parts.join(', ')} dan ${last}.`
+}
+
+// Ringkasan dampak bisnis untuk founder (WhatNew "Laporan Rilis"):
+// menerjemahkan kategori teknis ke bahasa hasil: apa yang berubah untuk
+// pengguna, bukan apa yang diubah di kode. Tanpa LLM — template deterministik.
+function generateFounderReport(sections) {
+  const lines = []
+  const pick = (arr, n = 3) => (arr || []).slice(0, n).map((i) => i.msg)
+  const feats = pick(sections.features)
+  const fixes = pick(sections.fixes)
+  const secs = pick(sections.security)
+  if (feats.length > 0) {
+    lines.push(`Yang baru untuk Anda: ${feats.join('; ')}.`)
+  }
+  if (fixes.length > 0) {
+    lines.push(`Lebih stabil: ${fixes.join('; ')}.`)
+  }
+  if (secs.length > 0) {
+    lines.push(`Lebih aman: ${secs.join('; ')}.`)
+  }
+  const total =
+    (sections.features || []).length +
+    (sections.fixes || []).length +
+    (sections.security || []).length +
+    (sections.docs || []).length
+  if (lines.length === 0) {
+    return total > 0
+      ? `Rilis pemeliharaan: ${total} pembaruan kecil di balik layar, tanpa perubahan cara pakai.`
+      : 'Tidak ada perubahan signifikan pada rilis ini.'
+  }
+  return lines.join(' ')
 }
 
 // ============================================================

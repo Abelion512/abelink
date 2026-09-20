@@ -33,10 +33,11 @@ export const useAbelinkYoutube = (setChatData) => {
     }
   }
 
-  const getYoutubeData = async (url) => {
+  const getYoutubeData = async (url, signal = null) => {
     try {
       const endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
-      const res = await fetch(endpoint)
+      // Timeout 15s: oembed gantung menahan alur ringkasan.
+      const res = await fetch(endpoint, { signal: signal ?? AbortSignal.timeout(15000) })
       if (!res.ok) throw new Error(`oembed ${res.status}`)
       const data = await res.json()
       return {

@@ -12,37 +12,45 @@ import { friendlyAiFetchError } from './ai/fetchError'
 
 // ---- FB#1: router file-ops -> Rust cmd_fs ----
 // Query format AI tools: "path||arg2||arg3"
-function routeFsTool(toolName, query) {
+// workspaceRoot (absolute project dir) travels in config — Rust confines
+// every path to it via resolve_contained (canonicalize + prefix check);
+// null falls back to the XDG workspace root.
+function routeFsTool(toolName, query, config) {
   const parts = String(query ?? '')
     .split('||')
     .map((x) => x.trim())
-  const ws = undefined // Rust pakai XDG workspace root sendiri
+  const ws = config?.workspaceRoot ?? null
   switch (toolName) {
     case 'read-file': {
       const [, sLine, eLine] = parts
       return invoke('fs_read_file', {
         path: parts[0],
         startLine: sLine ? Number(sLine) : null,
-        endLine: eLine ? Number(eLine) : null
+        endLine: eLine ? Number(eLine) : null,
+        workspaceRoot: ws
       })
     }
     case 'write-file': {
       if (parts.length < 2)
         return Promise.resolve({ success: false, message: 'Format: path||isi_file' })
-      return invoke('fs_write_file', { path: parts[0], content: parts.slice(1).join('||') })
+      return invoke('fs_write_file', {
+        path: parts[0],
+        content: parts.slice(1).join('||'),
+        workspaceRoot: ws
+      })
     }
     case 'delete-file':
-      return invoke('fs_delete_file', { path: parts[0] })
+      return invoke('fs_delete_file', { path: parts[0], workspaceRoot: ws })
     case 'list-dir':
-      return invoke('fs_list_dir', { path: parts[0] ?? '' })
+      return invoke('fs_list_dir', { path: parts[0] ?? '', workspaceRoot: ws })
     case 'grep-search': {
       if (parts.length < 2)
         return Promise.resolve({ success: false, message: 'Format: path_folder||keyword' })
-      return invoke('fs_grep_search', { dir: parts[0], keyword: parts[1] })
+      return invoke('fs_grep_search', { dir: parts[0], keyword: parts[1], workspaceRoot: ws })
     }
     case 'run-shell': {
       const [, cwd] = parts
-      return invoke('tools_run_shell', { query: parts[0], cwd: cwd || null })
+      return invoke('tools_run_shell', { query: parts[0], cwd: cwd || null, workspaceRoot: ws })
     }
     default:
       return null
@@ -254,10 +262,10 @@ export const api = {
   ping: () => call('ping'),
 
   // ---------- AI ----------
-  fetchAI: ({ messages, config, isSmallTask, jsonSchema }) =>
+  fetchAI: ({ messages, config, isSmallTask, jsonSchema, stream }) =>
     invoke('node_invoke', {
       action: 'ai:fetch',
-      payload: [{ messages, config, isSmallTask, jsonSchema }]
+      payload: [{ messages, config, isSmallTask, jsonSchema, stream: !!stream }]
     }).then((res) => {
       if (!res?.success) {
         // Pesan ramah + informatif (fetchError.js): menyebut sebab & aksi,
@@ -280,6 +288,8 @@ export const api = {
     tgAdminIdsCache = { targets: splitTgAdminIds(config?.tgAdminIds), at: Date.now() }
     return call('sync-config', config)
   },
+  // Hapus token + admin dari memori Rust (rotasi credential / disconnect penuh).
+  tgForget: () => invoke('telegram_forget'),
   // Deteksi daftar model dari endpoint custom (GET /models via sidecar).
   detectCustomModels: (endpoint, apiKey, protocol) =>
     call('ai:list-models', endpoint || '', apiKey || '', protocol || 'auto'),
@@ -287,6 +297,12 @@ export const api = {
 
   // ---------- AI status stream ----------
   onAiStatus: on('ai:status'),
+  // Browser bridge status (watchdog Fase C3): string progres launch/reconnect
+  // (pola ai:status). Objek status lengkap via runNodeFunction('browser:status').
+  onBrowserStatus: on('browser:status'),
+  // Token stream opt-in (WS-2): tanpa subscriber tidak ada yang berubah;
+  // core.js fetchAI memasang listener ini hanya bila onToken diberikan.
+  onAiToken: on('ai:token'),
 
   // ---------- Awareness ----------
   getActivityBuffer: () => invoke('awareness_get_buffer'),
@@ -410,7 +426,7 @@ export const api = {
     let result,
       error = null
     try {
-      const fsRoute = routeFsTool(toolName, query)
+      const fsRoute = routeFsTool(toolName, query, config)
       result = fsRoute ?? (await call('native-tool:execute', toolName, query, config))
     } catch (e) {
       error = e.message

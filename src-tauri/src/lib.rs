@@ -385,6 +385,7 @@ pub fn run() {
             // Fase B0 — cluster system info (parity sidecar systemInfo.js)
             commands_system_info::system_get_info,
             commands_telegram_bot::telegram_configure,
+            commands_telegram_bot::telegram_forget,
             commands_telegram_bot::telegram_send_message,
             commands_telegram_bot::telegram_broadcast_to_admins,
             commands_telegram_bot::telegram_register_admin_chat,

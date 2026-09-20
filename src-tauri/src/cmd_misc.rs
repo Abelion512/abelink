@@ -133,8 +133,12 @@ pub async fn misc_fetch_web_resource(url: String) -> Result<serde_json::Value, S
     if is_private_host(&host) {
         return Err("URL menuju host internal/privat ditolak.".into());
     }
+    // Redirect DIMATIKAN: reqwest default mengikuti hingga 10 redirect TANPA
+    // validasi ulang host — URL publik yang redirect ke 169.254.x/lokal akan
+    // lolos cek is_private_host di atas. Tolak 3xx secara eksplisit.
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|e| format!("Gagal menyiapkan client: {e}"))?;
     let resp = client
@@ -143,6 +147,9 @@ pub async fn misc_fetch_web_resource(url: String) -> Result<serde_json::Value, S
         .await
         .map_err(|e| format!("Fetch gagal: {e}"))?;
     let status = resp.status();
+    if status.is_redirection() {
+        return Err("Redirect ditolak (risiko SSRF ke host internal).".into());
+    }
     if !status.is_success() {
         return Err(format!("HTTP {}", status.as_u16()));
     }

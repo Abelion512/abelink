@@ -53,15 +53,69 @@ export async function resolveSkillPath(name) {
   return null
 }
 
+// Hermes-style: baca 1KB pertama (frontmatter) SAJA untuk index.
+// Full body HANYA via skills:read on-demand. Mencegah jebol konteks saat
+// puluhan skill terdaftar — get-all = ringan (nama + deskripsi + sumber).
 async function readDescription(folderPath) {
+  const MAX_HEAD = 1024
   try {
-    const raw = await fs.promises.readFile(path.join(folderPath, 'SKILL.md'), 'utf8')
-    const m = raw.match(/^---[\s\S]*?description:\s*(.+)$/m)
-    if (!m) return raw.split('\n').find(Boolean)?.slice(0, 120) || ''
-    return m[1].trim().replace(/^["']|["']$/g, '')
+    const fh = await fs.promises.open(path.join(folderPath, 'SKILL.md'), 'r')
+    try {
+      const buf = Buffer.alloc(MAX_HEAD)
+      const { bytesRead } = await fh.read(buf, 0, MAX_HEAD, 0)
+      const head = buf.subarray(0, bytesRead).toString('utf8')
+      const m = head.match(/^---[\s\S]*?description:\s*(.+)$/m)
+      if (m) return m[1].trim().replace(/^["']|["']$/g, '').slice(0, 200)
+      return head.split('\n').find(Boolean)?.slice(0, 120) || ''
+    } finally {
+      await fh.close()
+    }
   } catch {
     return ''
   }
+}
+
+// Direktori skill eksternal (Hermes/claude/opencode pola): tiap folder
+// berisi SKILL.md dengan frontmatter name/description. Read-only scan —
+// tanpa import kode, tanpa eksekusi. Sanitasi: hanya baca, tolak symlink
+// keluar (realpath prefix check).
+const EXTERNAL_SKILL_DIRS = (() => {
+  const home = process.env.HOME || ''
+  const cands = [
+    process.env.ABELINK_SKILLS_EXTRA,
+    home ? path.join(home, '.agents', 'skills') : null,
+    home ? path.join(home, '.claude', 'skills') : null,
+    path.join(process.cwd(), '.opencode', 'skills')
+  ].filter(Boolean)
+  return [...new Set(cands)]
+})()
+
+const isSafeSkillDir = (dir, base) => {
+  try {
+    const real = fs.realpathSync(dir)
+    const realBase = fs.realpathSync(base)
+    return real === realBase || real.startsWith(realBase + path.sep)
+  } catch {
+    return false
+  }
+}
+
+const scanExternalDir = async (base) => {
+  const out = []
+  let entries
+  try {
+    entries = await fs.promises.readdir(base, { withFileTypes: true })
+  } catch {
+    return out
+  }
+  for (const e of entries) {
+    if (!e.isDirectory() || e.name.startsWith('.')) continue
+    const full = path.join(base, e.name)
+    if (!isSafeSkillDir(full, base)) continue
+    const desc = await readDescription(full)
+    if (desc) out.push({ name: e.name, description: desc, type: 'external', path: full, source: base })
+  }
+  return out
 }
 
 // Nama skill wajib sederhana tanpa slash dan tanpa titik di depan agar tidak

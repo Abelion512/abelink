@@ -74,8 +74,14 @@ const WhatNew = ({ onClose }) => {
           </button>
         </div>
 
-        {/* Filter + search */}
-        <div className="px-6 py-3 border-b border-white/10 flex flex-wrap items-center gap-2 shrink-0">
+        {/* Laporan rilis + filter + search */}
+        <div className="px-6 py-4 border-b border-white/10 flex-shrink-0">
+          {whatsNewData.founderReport && (
+            <p className="text-sm text-white/90 leading-relaxed mb-3">
+              {whatsNewData.founderReport}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
           {[{ key: 'ALL', label: 'Semua' }, ...CATS].map(({ key, label }) => (
             <button
               key={key}
@@ -100,6 +106,7 @@ const WhatNew = ({ onClose }) => {
               className="h-9 pl-9 pr-3 rounded-full bg-white/5 border border-white/10 text-xs text-white placeholder:text-white/40 outline-none focus:border-primary/50 w-44"
             />
           </label>
+          </div>
         </div>
 
         {/* Timeline */}

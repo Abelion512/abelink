@@ -2,7 +2,7 @@ import { fetchAI, cleanAndParse } from '../ai/core'
 import { subagentStore } from './subagentStore'
 import { buildSubagentSystemPrompt } from './subagentPrompt'
 import { getBuiltinPluginsPrompt } from '../ai/builtinPlugins'
-import { classifySubagentAnswer, isTruncatedOutput } from '../ai/agentDecision'
+import { classifySubagentAnswer, isTruncatedOutput, shouldChallengeBlocked, BLOCKED_CHALLENGE_TEXT } from '../ai/agentDecision'
 import {
   evaluateEvidence,
   gateCompletion,
@@ -132,6 +132,9 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   // Verification gate: bounded replans demanded from completion claims that
   // lack world-state proof (objectiveVerifier.js).
   let verifyReplansUsed = 0
+  // Blocked-challenge: one corrective round for untested `blocked` claims
+  // (zero tools executed), symmetric to the verify-gate above.
+  let blockedChallengeUsed = 0
   // Internal terminal classification of the pause: final | blocked | needs_input
   let terminalType = 'final'
   // ---- Thin trajectory supervisor (trajectorySupervisor.js) ---------------
@@ -279,6 +282,25 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
           }
         }
 
+        // BLOCKED CHALLENGE (simetri verify-gate): klaim blocked tanpa satu
+        // pun eksekusi tool = belum terbukti buntu. Tantang 1x; ulangan
+        // kedua diterima seperti biasa.
+        if (
+          pause.type === 'blocked' &&
+          shouldChallengeBlocked({
+            toolsExecuted: toolsExecutedThisRun ? 1 : 0,
+            challengesUsed: blockedChallengeUsed
+          })
+        ) {
+          blockedChallengeUsed++
+          await subagentStore.addMessage(subagentId, {
+            sender: 'tool',
+            role: 'user',
+            content: `[OBSERVATION]: ${BLOCKED_CHALLENGE_TEXT}`
+          })
+          continue
+        }
+
         terminalType =
           pause.type === 'blocked'
             ? 'blocked'
@@ -362,9 +384,12 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               const isErr = out.startsWith('[MEMORY-ERROR]') || out.startsWith('[MEMORY-FAILURE-CAP]')
               res = { success: !isErr, data: out }
             } else if (window.api && window.api.executeNativeTool) {
+              // workspaceRoot warisan sesi induk (disimpan di record) — plumbing
+              // yang sama seperti loop utama, bukan root baru.
               res = await window.api.executeNativeTool(act.tool, act.query || '', {
                 sessionId: subagentId,
-                turnId: `${subagentId}-${Date.now()}`
+                turnId: `${subagentId}-${Date.now()}`,
+                workspaceRoot: subagent.workspaceRoot ?? null
               })
             } else {
               res = { success: false, error: 'IPC executeNativeTool tidak tersedia.' }
