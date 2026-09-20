@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import { DEFAULT_STT_MODEL } from '../../api/sttGuard'
 import {
-  FaBolt,
-  FaMicrophone,
-  FaArrowUp,
-  FaArrowDown,
-  FaTrash,
-  FaPlus,
-  FaChevronDown,
-  FaChevronUp,
-  FaCheckCircle,
-  FaExclamationTriangle
-} from 'react-icons/fa'
+  Zap,
+  Mic,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  AlertTriangle
+} from 'lucide-react'
 import { MobiusLoader } from '../core/MobiusLoader'
 
 export default function SttRouterConfig({
@@ -119,7 +119,7 @@ export default function SttRouterConfig({
                 : 'text-white/60 hover:text-white'
             }`}
           >
-            <FaBolt className="text-xs" />
+            <Zap className="text-xs" />
             <span>STT Router</span>
           </button>
           <button
@@ -131,7 +131,7 @@ export default function SttRouterConfig({
                 : 'text-white/60 hover:text-white'
             }`}
           >
-            <FaMicrophone className="text-xs" />
+            <Mic className="text-xs" />
             <span>Whisper Lokal</span>
           </button>
         </nav>
@@ -147,9 +147,9 @@ export default function SttRouterConfig({
           }`}
         >
           {hardwareSupport.isLowEnd ? (
-            <FaExclamationTriangle className="text-xs shrink-0" />
+            <AlertTriangle className="text-xs shrink-0" />
           ) : (
-            <FaCheckCircle className="text-xs shrink-0" />
+            <CheckCircle2 className="text-xs shrink-0" />
           )}
           <span className="font-medium">
             {hardwareSupport.cores} CPU cores terdeteksi. Disarankan STT Router remote agar sistem ringan.
@@ -189,12 +189,12 @@ export default function SttRouterConfig({
                   </>
                 ) : whisperLoaded ? (
                   <>
-                    <FaCheckCircle />
+                    <CheckCircle2 />
                     <span>Model Siap</span>
                   </>
                 ) : (
                   <>
-                    <FaMicrophone />
+                    <Mic />
                     <span>Unduh & Siapkan Model</span>
                   </>
                 )}
@@ -249,7 +249,7 @@ export default function SttRouterConfig({
               onClick={handleAdd}
               className="btn btn-sm btn-outline btn-primary rounded-xl gap-1.5 text-xs font-medium"
             >
-              <FaPlus size={11} />
+              <Plus size={11} />
               <span>Tambah Provider</span>
             </button>
           </div>
@@ -345,7 +345,7 @@ export default function SttRouterConfig({
                           {isTesting ? (
                             <MobiusLoader size={12} />
                           ) : (
-                            <FaBolt size={11} />
+                            <Zap size={11} />
                           )}
                         </button>
 
@@ -357,7 +357,7 @@ export default function SttRouterConfig({
                           className="btn btn-ghost btn-xs btn-square text-white/60 hover:text-white disabled:opacity-20"
                           title="Naikkan Prioritas"
                         >
-                          <FaArrowUp size={11} />
+                          <ArrowUp size={11} />
                         </button>
 
                         {/* Reorder Down */}
@@ -368,7 +368,7 @@ export default function SttRouterConfig({
                           className="btn btn-ghost btn-xs btn-square text-white/60 hover:text-white disabled:opacity-20"
                           title="Turunkan Prioritas"
                         >
-                          <FaArrowDown size={11} />
+                          <ArrowDown size={11} />
                         </button>
 
                         {/* Delete */}
@@ -379,7 +379,7 @@ export default function SttRouterConfig({
                             className="btn btn-ghost btn-xs btn-square text-error/70 hover:text-error hover:bg-error/10"
                             title="Hapus Provider"
                           >
-                            <FaTrash size={11} />
+                            <Trash2 size={11} />
                           </button>
                         )}
 
@@ -390,7 +390,7 @@ export default function SttRouterConfig({
                           className="btn btn-ghost btn-xs btn-square text-white/60 hover:text-white ml-0.5"
                           title={isExpanded ? 'Tutup Pengaturan' : 'Buka Pengaturan'}
                         >
-                          {isExpanded ? <FaChevronUp size={11} /> : <FaChevronDown size={11} />}
+                          {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                         </button>
                       </div>
                     </div>

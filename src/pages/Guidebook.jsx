@@ -461,7 +461,7 @@ const Guidebook = () => {
                       description="Membaca dan parsing halaman web menjadi teks."
                       needsPermission={false}
                       queryFormat="URL lengkap"
-                      howItWorks="Fetch HTML via axios, parse dengan htmlparser2, kembalikan teks bersih + raw HTML. Berguna untuk re-scan halaman setelah AJAX."
+                      howItWorks="Fetch HTML via fetch, parse dengan htmlparser2, kembalikan teks bersih + raw HTML. Berguna untuk re-scan halaman setelah AJAX."
                     />
                     <ToolCard
                       name="browser-click / browser-type"

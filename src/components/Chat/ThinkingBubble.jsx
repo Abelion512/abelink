@@ -1,6 +1,5 @@
 import React from 'react'
-import { Music, Brain, ChevronRight } from 'lucide-react'
-import { FaYoutube } from 'react-icons/fa'
+import { Music, Brain, ChevronRight, SquarePlay } from 'lucide-react'
 import { MobiusLoader } from '../core/MobiusLoader'
 import { ToolCallsSection } from '../core/ToolCallsSection'
 
@@ -27,7 +26,7 @@ export const ThinkingBubble = ({
       <div className="flex items-center gap-2.5">
         {isSummarizing ? (
           <div className="flex items-center gap-2 text-warning font-medium">
-            <FaYoutube className="w-4 h-4 animate-bounce text-error" />
+            <SquarePlay className="w-4 h-4 animate-bounce text-error" />
             <span className="text-xs">{content || 'Meringkas video YouTube...'}</span>
           </div>
         ) : isSearchingMusic ? (
