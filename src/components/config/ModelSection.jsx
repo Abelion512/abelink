@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FaRobot, FaTerminal, FaPlug } from 'react-icons/fa'
+import { Bot, Terminal, Plug } from 'lucide-react'
 import { detectProviderFromUrl } from '../../api/ai/providerDetect.js'
 import { MobiusLoader } from '../core/MobiusLoader'
 
@@ -161,9 +161,9 @@ export default function ModelSection({
         <label className="text-xs font-semibold uppercase tracking-wider text-white/60">Provider</label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { id: 'gemini-web', name: 'Gemini Web', icon: FaRobot },
-            { id: 'lm-studio', name: 'LM Studio', icon: FaTerminal },
-            { id: 'custom', name: 'Custom API', icon: FaPlug }
+            { id: 'gemini-web', name: 'Gemini Web', icon: Bot },
+            { id: 'lm-studio', name: 'LM Studio', icon: Terminal },
+            { id: 'custom', name: 'Custom API', icon: Plug }
           ].map((prov) => {
             const isSelected = (config.aiProvider || 'gemini-web') === prov.id
             const ProvIcon = prov.icon

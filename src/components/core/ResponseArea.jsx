@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { FaLightbulb } from 'react-icons/fa'
+import { Lightbulb } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
@@ -132,7 +132,7 @@ const ResponseArea = ({ currentResponse }) => {
                      <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="30 15" className="opacity-50" />
                      <circle cx="25" cy="25" r="15" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="20 10" className="opacity-80 animate-[spin_2s_linear_infinite_reverse]" style={{ transformOrigin: 'center' }} />
                    </svg>
-                   <FaLightbulb className="absolute animate-pulse" size={14} />
+                   <Lightbulb className="absolute animate-pulse" size={14} />
                 </div>
                 <div className="flex flex-col items-center">
                   <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-primary)] opacity-70 mb-2">{text !== 'Bentar, mikir dlu...' && text !== 'Memproses...' ? text : 'PROCESSING DATA...'}</div>

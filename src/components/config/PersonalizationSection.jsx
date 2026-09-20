@@ -1,4 +1,4 @@
-import { FaUser, FaHeartbeat, FaSlidersH, FaTerminal } from 'react-icons/fa'
+import { User, HeartPulse, SlidersHorizontal, Terminal } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 export default function PersonalizationSection({
@@ -23,7 +23,7 @@ export default function PersonalizationSection({
       {/* Profile & Context */}
       <article className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
         <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-          <FaUser className="text-primary" size={13} />
+          <User className="text-primary" size={13} />
           <span>Profile</span>
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -70,7 +70,7 @@ export default function PersonalizationSection({
       <article className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-            <FaHeartbeat className="text-primary" size={14} />
+            <HeartPulse className="text-primary" size={14} />
             <span>Dinamika Relasi &amp; Persona</span>
           </h3>
           <p className="text-xs text-white/60 leading-relaxed">
@@ -82,7 +82,7 @@ export default function PersonalizationSection({
           onClick={() => navigate('/relational')}
           className="btn btn-sm btn-primary rounded-xl shrink-0 gap-2 font-medium cursor-pointer"
         >
-          <FaSlidersH size={12} />
+          <SlidersHorizontal size={12} />
           <span>Buka Relational Growth</span>
         </button>
       </article>
@@ -91,7 +91,7 @@ export default function PersonalizationSection({
       <article className="rounded-2xl border border-white/10 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
         <header className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-            <FaTerminal className="text-primary" size={12} />
+            <Terminal className="text-primary" size={12} />
             <span>System Prompt</span>
           </h3>
         </header>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { FaEye, FaVolumeUp } from 'react-icons/fa'
+import { Eye, Volume2 } from 'lucide-react'
 import SttRouterConfig from './SttRouterConfig'
 import { ElasticSlider } from '../core/ElasticSlider'
 import { MobiusLoader } from '../core/MobiusLoader'
@@ -160,7 +160,7 @@ export default function VoiceVideoSection({
       >
         <header className="flex items-center justify-between pb-3 border-b border-white/5">
           <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-            <FaEye className="text-primary" />
+            <Eye className="text-primary" />
             <span>Kamera &amp; Vision</span>
           </h3>
           <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -223,7 +223,7 @@ export default function VoiceVideoSection({
         <article className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
           <header className="pb-3 border-b border-white/5">
             <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
-              <FaVolumeUp className="text-primary" />
+              <Volume2 className="text-primary" />
               <span>Audio &amp; Suara</span>
               <span className="text-[10px] font-normal text-white/60">(TTS Edge — butuh internet)</span>
             </h3>
@@ -295,7 +295,7 @@ export default function VoiceVideoSection({
               {playingTest ? (
                 <MobiusLoader size={14} />
               ) : (
-                <FaVolumeUp size={12} />
+                <Volume2 size={12} />
               )}
               <span>Uji Suara</span>
             </button>

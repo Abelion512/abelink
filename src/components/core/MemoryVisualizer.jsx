@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { getAllChatArchives, getAllMemory, getAllDocumentsMeta, getDocumentChunk, deleteMemory, deleteChatArchive } from '../../api/db'
-import { FiCheckCircle, FiClock, FiGitMerge, FiTrash2, FiRefreshCw, FiLoader } from 'react-icons/fi'
+import { CheckCircle2, Clock, GitMerge, Trash2, RefreshCw, Loader2 } from 'lucide-react'
 import { MobiusLoader } from './MobiusLoader'
 import { useMemoryGroomer } from '../../hooks/useMemoryGroomer'
 import ConfirmModal from './ConfirmModal'
@@ -80,7 +80,7 @@ function LiteGraphView({ graphData, setSelectedNode, totalCounts }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-base-content/50">{items.length} entri</span>
-                  <FiLoader
+                  <Loader2
                     className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-90' : ''}`}
                     style={{ transformOrigin: 'center' }}
                   />
@@ -311,7 +311,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
             <div className="flex items-center gap-1.5">
               {groomResult.lastChecked ? (
                 <>
-                  <FiCheckCircle className="w-4 h-4 text-info" />
+                  <CheckCircle2 className="w-4 h-4 text-info" />
                   <span>
                     Terakhir dikonsolidasi:{' '}
                     {new Date(groomResult.lastChecked).toLocaleTimeString([], {
@@ -322,7 +322,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
                 </>
               ) : (
                 <>
-                  <FiClock className="w-4 h-4 text-white/50" />
+                  <Clock className="w-4 h-4 text-white/50" />
                   <span>Belum ada riwayat konsolidasi</span>
                 </>
               )}
@@ -330,11 +330,11 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
             {(groomResult.mergedCount > 0 || groomResult.deletedCount > 0) && (
               <div className="flex items-center gap-3 pl-3 border-l border-white/10 text-white/70">
                 <span className="flex items-center gap-1">
-                  <FiGitMerge className="w-3.5 h-3.5 text-info" />
+                  <GitMerge className="w-3.5 h-3.5 text-info" />
                   {groomResult.mergedCount} digabung
                 </span>
                 <span className="flex items-center gap-1">
-                  <FiTrash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                   {groomResult.deletedCount} duplikat dibersihkan
                 </span>
               </div>
@@ -351,7 +351,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           className="btn btn-xs btn-primary rounded-full px-3 flex items-center gap-1 ml-2"
           title="Jalankan Hippocampus Engine untuk mengkonsolidasi dan merapikan ingatan"
         >
-          <FiRefreshCw className={`w-3 h-3 ${isGrooming ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3 h-3 ${isGrooming ? 'animate-spin' : ''}`} />
           <span>Konsolidasi Sekarang</span>
         </button>
       </div>

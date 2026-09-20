@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { FaStop } from 'react-icons/fa'
+import { Square } from 'lucide-react'
 import { MobiusLoader } from './MobiusLoader'
 import { useChat } from '../../contexts/useChat'
 
@@ -63,7 +63,7 @@ export default function AutomationHUD() {
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-600 hover:bg-red-500 active:bg-red-700 text-white text-xs font-bold tracking-wider uppercase shadow-[0_4px_15px_rgba(220,38,38,0.5)] border border-white/20 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
         title="Hentikan eksekusi agen secara paksa (Ctrl+Shift+S)"
       >
-        <FaStop size={10} />
+        <Square size={10} />
         <span>Paksa Berhenti</span>
       </button>
     </div>

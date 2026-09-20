@@ -1,5 +1,5 @@
 import React from 'react'
-import { FaCheck, FaChevronRight } from 'react-icons/fa'
+import { Check, ChevronRight } from 'lucide-react'
 
 export const PluginExecutionBubble = ({ pluginExecution }) => {
   if (!pluginExecution) return null
@@ -8,7 +8,7 @@ export const PluginExecutionBubble = ({ pluginExecution }) => {
     <div className="chat-bubble bg-transparent text-white p-0 shadow-none flex flex-col gap-1 mb-2">
       <details className="group">
         <summary className="text-xs cursor-pointer select-none flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
-          <FaChevronRight className="group-open:rotate-90 transition-transform text-[11px]" />
+          <ChevronRight className="group-open:rotate-90 transition-transform text-[11px]" />
           <span className="truncate max-w-[250px]">
             Tool dieksekusi: {pluginExecution.action}
           </span>
@@ -16,7 +16,7 @@ export const PluginExecutionBubble = ({ pluginExecution }) => {
         <div className="pl-4 pt-1 flex flex-col gap-1 border-l border-white/20 ml-1.5 mt-1.5 mb-2">
           <div className="flex items-start text-[11px] font-mono transition-opacity text-white">
             <span className="opacity-100 text-info mr-1 font-bold inline-block w-3 text-center flex items-center justify-center">
-              <FaCheck size={10} />
+              <Check size={10} />
             </span>
             <div className="flex-1 w-full overflow-hidden">
               <div>

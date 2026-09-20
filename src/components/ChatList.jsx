@@ -1,7 +1,6 @@
 import React, { memo, useState } from 'react'
 import { toMinimapAnchorId } from './core/TocMinimap'
-import { Copy, Check, Sparkles, ThumbsUp, ThumbsDown } from 'lucide-react'
-import { FaTelegramPlane } from 'react-icons/fa'
+import { Copy, Check, Sparkles, ThumbsUp, ThumbsDown, Send } from 'lucide-react'
 import {
   MessageBubble,
   ThinkingBubble,
@@ -95,7 +94,7 @@ const ChatList = ({
         <span>{isUser ? (isTelegram ? (sender || 'Telegram Admin') : 'You') : 'Abelink'}</span>
         {isTelegram && (
           <span className="badge badge-xs bg-[#229ED9]/15 text-[#229ED9] border-[#229ED9]/30 gap-1 font-mono text-[9px] py-0.5 px-1.5 flex items-center font-normal">
-            <FaTelegramPlane className="w-2.5 h-2.5" /> {isUser ? 'Telegram' : 'Telegram Reply'}
+            <Send className="w-2.5 h-2.5" /> {isUser ? 'Telegram' : 'Telegram Reply'}
           </span>
         )}
         {timestamp && <span className="text-[10px] opacity-60 font-mono">{timestamp}</span>}
