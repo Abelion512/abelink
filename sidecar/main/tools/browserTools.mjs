@@ -402,8 +402,9 @@ export const browserTools = {
     needsApproval: false,
     handler: async (query, config) => {
       try {
-        const { extractUrl, listSessions, dispatchCommand, getBrowserConfig } = await import('../browser/bridge-core.mjs')
-        const url = extractUrl(query)
+        const { listSessions, dispatchCommand, getBrowserConfig } = await import('../browser/bridge-core.mjs')
+        const { parseNavigateQuery } = await import('../browser/nav-query.mjs')
+        const { url, adoptUserTab } = parseNavigateQuery(query)
         if (!url) return { success: false, error: `URL tidak valid: '${String(query).slice(0, 120)}'. Sertakan alamat http(s).` }
         const targetSession = config?.sessionId || 'default'
         // Extension dulu bila terhubung (hasil DOM + tab ber-grup); bila tidak
@@ -427,11 +428,18 @@ export const browserTools = {
             extensionAttempted = true
             let res = null
             try {
-              res = await dispatchCommand(pick.id, 'navigate', { url, sessionId: targetSession })
+              // Tanpa flag adoptUserTab: jangan pernah curi tab user — teruskan
+              // flag ke extension; extension hanya boleh pakai tab primer sesi,
+              // tab yatim milik sendiri, atau tab baru. Extension menolak pakai
+              // tab user -> error jujur di bawah (bukan fallback diam-diam).
+              res = await dispatchCommand(pick.id, 'navigate', { url, sessionId: targetSession, adoptUserTab })
             } catch {
               res = null
             }
             if (res && res.ok) return { success: true, data: res.data, via: 'extension' }
+            if (res && !res.ok && /milik user|adoptUserTab/i.test(res.error || '')) {
+              return { success: false, error: `browser-navigate: ${res.error}` }
+            }
             failReason = failReason || 'no-handshake'
           }
         } catch {
