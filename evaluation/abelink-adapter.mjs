@@ -116,12 +116,21 @@ export function normalizeEffort(value, fallback = 'low') {
 
 
 // ---- Persistent sidecar child with id-multiplexed JSON-lines RPC ----
-function createSidecar(arch = 'basic') {
+// `representation` (PR46 browser ablation) is forwarded to the child so the
+// observation path really renders differently: sidecar/main/tools/browserTools
+// reads ABELINK_BROWSER_OBSERVATION via resolveObservationRepresentation().
+// null/undefined means "unset" -> semantic-first (unchanged app behavior).
+function createSidecar(arch = 'basic', representation = null) {
   const child = spawn(BUN, [SIDECAR], {
     stdio: ['pipe', 'pipe', 'pipe'],
     // ABELINK_BENCH_ARCH propagates the arch axis to the engine so executor-side
     // wiring (renderer Task 5 lineage/scoring, future engine gates) can read it.
-    env: { ...process.env, ABELINK_DEBUG_AI: '0', ABELINK_BENCH_ARCH: arch },
+    env: {
+      ...process.env,
+      ABELINK_DEBUG_AI: '0',
+      ABELINK_BENCH_ARCH: arch,
+      ...(representation ? { ABELINK_BROWSER_OBSERVATION: representation } : {}),
+    },
   })
 
   const pending = new Map() // id -> { resolve, reject, timer }
@@ -314,6 +323,29 @@ const TOOL_ARG_DOCS = {
   'list-dir': 'path="..."'
 }
 
+// Identity of the bench prompt construction (task prompt + tool preamble).
+// Recorded in the PR46 measurement report as `identity.promptTemplate` so the
+// architecture A/B can verify that the prompt protocol was held fixed; bump the
+// version whenever the preamble/format below changes its meaning.
+export const BENCH_PROMPT_TEMPLATE = 'bench-tool-preamble-v1'
+
+// Is the ABELINK_BENCH_ARCH axis actually EXECUTED by this harness?
+//
+// No. This adapter drives the sidecar directly (`ai:fetch` +
+// `native-tool:execute`) with its own minimal ReAct loop. The architecture an
+// A/B is supposed to compare - trajectory supervisor + verification gate -
+// lives in renderer code (`src/hooks/agent/useAbelinkPlan.js`,
+// `src/api/subagent/subagentExecutor.js`), and nothing under `sidecar/` reads
+// ABELINK_BENCH_ARCH. So `--arch vanilla` and `--arch basic` run IDENTICALLY
+// here: comparing them would compare two identical arms and call it an
+// experiment.
+//
+// The flag is recorded as `identity.architectureAxisWired`, and
+// `compareArmReports()` refuses to report a valid comparison while it is not
+// true. Wiring the axis into this execution path is deferred to its own change
+// (see the deferred section of docs/PLANNED/2026-09-21_agent-benchmark-matrix.md).
+export const ARCH_AXIS_IN_BENCH_PATH = false
+
 export function toolPreamble(requiredTools = [], hint = {}) {
   const tools = (requiredTools || []).filter((t) => TOOL_ARG_DOCS[t])
   if (tools.length === 0) return ''
@@ -415,7 +447,7 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
   let toolCalls = 0
   let response = ''
 
-  const sidecar = createSidecar(arch)
+  const sidecar = createSidecar(arch, task?.representation || null)
   try {
     // Turn budget: task.maxTurns menimpa default MAX_ITER (ala turn-limit
     // eval — MCP Atlas memakai limit 100 turn). Tidak ada loop tak terbatas.
@@ -510,6 +542,9 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
       arch,
       model,
       provider: provider || 'gemini-web',
+      // PR46: observation representation actually used for this run (null =
+      // runtime default, i.e. semantic-first).
+      browserObservationRepresentation: task?.representation || null,
       architectureVersion: AGENT_ARCH_VERSION,
       benchmarkSchemaVersion: BENCH_SCHEMA_VERSION,
     },
@@ -519,6 +554,8 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
   return {
     effort,
     arch,
+    // Observation representation the sidecar was launched with (PR46 ablation).
+    representation: task?.representation || null,
     response: response.trim(),
     trajectory,
     // Additive top-level aliases so bench verifiers get evidence without
