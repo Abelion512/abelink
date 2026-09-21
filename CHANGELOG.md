@@ -4,7 +4,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.2.0-alpha.6 — 21 September 2026
 
-**Ringkasan:** 64 fitur baru, 23 perbaikan dan 55 pembaruan dokumentasi.
+**Ringkasan:** 64 fitur baru, 23 perbaikan dan 56 pembaruan dokumentasi.
 
 ### Fitur Baru
 - Measurement plane + 30-fixture benchmark matrix
@@ -98,6 +98,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
+- Plan wiring the architecture axis into the benchmark execution path
 - Record benchmark and standards adaptation session
 - Define runtime standards adaptation strategy
 - Define Abelink benchmark inventory and PR46 contract

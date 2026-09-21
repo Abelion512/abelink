@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-21T00:54:27.799Z",
+  "generatedAt": "2026-09-21T01:11:43.920Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
       "date": "21 September 2026",
-      "summary": "64 fitur baru, 23 perbaikan dan 55 pembaruan dokumentasi.",
+      "summary": "64 fitur baru, 23 perbaikan dan 56 pembaruan dokumentasi.",
       "sections": {
         "features": [
           {
@@ -273,6 +273,9 @@
         ],
         "security": [],
         "docs": [
+          {
+            "msg": "Plan wiring the architecture axis into the benchmark execution path"
+          },
           {
             "msg": "Record benchmark and standards adaptation session"
           },
