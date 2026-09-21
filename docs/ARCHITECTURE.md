@@ -195,6 +195,52 @@ Secondary material is for discovery. Implementation decisions should be traceabl
   (otomatisasi penuh menunggu boundary ABELINK nyata, lihat
   `boundary-spec.mjs`). Fixtures deterministik effort:
   `evaluation/effort-fixtures.mjs` + `tests/effort-fixtures.test.mjs`.
+- **Measurement plane PR46 (bukan runtime baru):** `evaluation/evidence.mjs`
+  menormalkan observasi tool yang SUDAH ada (stepLog/trace adapter) menjadi
+  record bukti in-memory berprovenance (run/task, tool, status, payload, source)
+  tanpa store baru dan tanpa field berbentuk browser; `evaluation/metrics.mjs`
+  menghitung metrik per-run (task success vs verified success terpisah, turn,
+  tool call, retry, aksi berulang, stagnasi, recovery, latensi, biaya token
+  bila tersedia, intervensi manusia) dan membungkus `aggregateRuns` dengan
+  `abelinkbench-measurement-report` (jumlah run berulang eksplisit).
+  `evaluation/pr46-matrix.mjs` mendaftarkan matriks 30 fixture (research 6,
+  browser 5, os 5, study 5, recovery 5, reuse 4) dengan oracle world-state
+  deterministik; `evaluation/pr46-experiments.mjs` menegakkan identitas model
+  exact (provider/modelId/modelVersion, TIDAK pernah "latest"), integritas
+  perbandingan baseline-vs-kandidat, dan ablasi representasi browser.
+  `run.mjs --suite pr46` menjalankan matriks lewat runner yang sama.
+  Verdict task tetap milik oracle; jawaban akhir model hanya klaim
+  (`finalAnswerIsClaim: true`).
+  - **Identitas eksekusi:** `benchmarkRunId` (sesi) dipisah dari `executionId`
+    (`<sesi>-<taskId>-r<n>@<effort>`); report merekam
+    `identity.architectureCommit` (+`Short`/`Dirty`) dari git HEAD.
+  - **Eksperimen A wajib dua arm terukur + seluruh dimensi tetap kontrak:**
+    `compareArmReports()` menolak arm yang bukan measurement report atau belum
+    punya eksekusi (`arm-not-measured`), menolak dimensi yang tidak terekam di
+    salah satu arm (`dimension-unverifiable` — "tidak diperiksa" bukan
+    "cocok"), dan membandingkan seluruh 12 dimensi tetap kontrak (`provider`,
+    `modelId`, `modelVersion`, `systemPrompt`, `protocol`, `tools`,
+    `permissions`, `fixture`, `effort`, `budget`, `environment`, `verifier`)
+    plus jumlah run berulang, sebelum menyatakan `valid` bila `architecture`
+    berbeda. Tidak ada dimensi yang boleh diam-diam dilewati.
+    `vanilla` = kontrol arsitektur dimatikan pada runtime yang sama (bukan
+    snapshot historis pre-PR45); `basic` = runtime PR45. **Catatan penting:**
+    harness benchmark belum MENGEKSEKUSI sumbu itu — adapter menggerakkan
+    sidecar langsung, sementara supervisor + verification gate hanya ada di
+    renderer. `ARCH_AXIS_IN_BENCH_PATH = false` (adapter) direkam sebagai
+    `identity.architectureAxisWired`, dan perbandingan ditolak dengan
+    `architecture-not-executed-by-harness` sampai flag itu `true`. Eksperimen A
+    via `run.mjs` karena itu deferred, bukan dijalankan dengan angka palsu.
+  - **Ablasi representasi nyata:** `representation` fixture diteruskan ke
+    execution path (`ABELINK_BROWSER_OBSERVATION` → `renderBrowserObservation()`
+    di `extension/browser-observation.mjs`, dipakai
+    `sidecar/main/tools/browserTools.mjs`); default tetap semantic-first.
+  - **Lane reuse bersifat artifact-mediated:** fixture menyemai artefak sesi
+    sebelumnya; ini BUKAN bukti reuse memory/skill persisten (dicatat di
+    `reuseKind`/`notMeasured` tiap fixture).
+  - **Tanpa metrik palsu:** `repeatActionRate` dilaporkan sebagai apa adanya;
+    `unnecessaryActionRate` tetap `null` + alasan selama belum ada instrumentasi
+    yang membedakan aksi tidak perlu dari pengulangan yang sah.
 - **Knowledge:** dokumen → `ragPipeline.js` (chunk 500/50) → Dexie + Orama;
   workspace `.abelink/` → `workspace:*` channel → working memory disuntikkan ke
   system prompt.

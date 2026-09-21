@@ -20,6 +20,8 @@ import { runAbelinkAgent } from './abelink-adapter.mjs'
 import { spawnSync } from 'node:child_process'
 import { CORP_TASKS, hasGitCommitWithMessage } from './tasks-student-corporate.mjs'
 import { LIMIT_TASKS } from './tasks-limit.mjs'
+import { evidenceFromRun } from './evidence.mjs'
+import { computeRunMetrics } from './metrics.mjs'
 
 // Token acak per-run untuk anti-cheat (diekspor agar smoke test bisa menguji).
 export function akSentinel() {
@@ -165,7 +167,10 @@ export function listTasks() {
 export const ALL_TASKS = { ...TASKS, ...CORP_TASKS, ...LIMIT_TASKS }
 
 export async function runTask(taskId, model, provider, opts = {}) {
-  const task = ALL_TASKS[taskId]
+  // Registry is injectable so PR46's fixture set reuses this runner without
+  // touching the legacy task maps. Default stays ALL_TASKS (no regression).
+  const registry = opts.registry || ALL_TASKS
+  const task = registry[taskId]
   if (!task) throw new Error(`Unknown task: ${taskId}`)
   // Task legacy memakai verifier (output, sentinel, ctx); task dunia (CORP +
   // limit) memakai (output, ctx) yang memeriksa artefak + stepLog.
@@ -215,6 +220,10 @@ export async function runTask(taskId, model, provider, opts = {}) {
     // Contoh path nyata di preamble (model tinggal salin, tak perlu menebak).
     // Relatif-workspace agar lolos fsGuard sidecar.
     workdir: promptWorkdir || null,
+    // PR46 browser-representation ablation: diteruskan ke adapter, yang
+    // mengekspor ABELINK_BROWSER_OBSERVATION ke sidecar. Tanpa fixture
+    // representasi, nilainya null dan runtime memakai default (semantic-first).
+    representation: task.representation || null,
   }
   const result = await runAbelinkAgent(taskDef, model, provider, { effort: opts.effort })
 
@@ -229,6 +238,58 @@ export async function runTask(taskId, model, provider, opts = {}) {
     ? task.verifier(result.response, ctx)
     : task.verifier(result.response, verifierSentinel, ctx)
 
+  // PR46 measurement plane (additive): evidence + per-run metrics. ---
+  // The oracle verdict above stays authoritative; the model final answer is
+  // recorded as a claim for provenance, never as a success signal.
+  const trace = result.trace || result.trajectory?.trace || []
+  const modelIdentity = opts.modelIdentity || null
+  const oracleIndependent = task.oracleIndependent === true || isWorldTask
+  // Execution identity: benchmarkRunId is the session, executionId is one
+  // concrete execution (benchmarkRunId + taskId + iteration["@"effort]).
+  const benchmarkRunId = opts.benchmarkRunId || opts.runId || null
+  const iteration = Number.isInteger(opts.iteration) ? opts.iteration : null
+  const executionId =
+    opts.executionId ||
+    (benchmarkRunId && iteration !== null
+      ? `${benchmarkRunId}-${taskId}-r${iteration}${result.effort ? `@${result.effort}` : ''}`
+      : null)
+  const evidence = evidenceFromRun({
+    runId: executionId,
+    benchmarkRunId,
+    taskId,
+    lane: task.lane || null,
+    arch: result.arch || 'basic',
+    representation: task.representation || null,
+    model: modelIdentity,
+    trace,
+    stepLog,
+  })
+  const metrics = computeRunMetrics({
+    run: {
+      runId: executionId,
+      benchmarkRunId,
+      iteration,
+      taskId,
+      arch: result.arch || 'basic',
+      effort: result.effort,
+      representation: task.representation || null,
+      model: modelIdentity,
+      steps: result.trajectory.steps,
+      toolCalls: result.trajectory.toolCalls,
+      durationMs: result.trajectory.durationMs,
+      tokenUsage: result.tokenUsage,
+      status: 'completed',
+    },
+    task,
+    evidence,
+    oracle: {
+      passed,
+      kind: task.oracleKind || (isWorldTask ? 'world-state' : 'answer-or-trajectory'),
+      independent: oracleIndependent,
+      source: oracleIndependent ? 'deterministic-world-state-predicate' : 'deterministic-answer-predicate',
+    },
+  })
+
   return {
     taskId,
     prompt,
@@ -239,6 +300,10 @@ export async function runTask(taskId, model, provider, opts = {}) {
     trajectory: result.trajectory,
     stepLog,
     workdir,
+    // PR46 execution identity + representation actually used.
+    executionId,
+    benchmarkRunId,
+    representation: result.representation ?? task.representation ?? null,
     // Effort direkam di SETIAP task result (bukan hanya config laporan) —
     // syarat A/B per-effort & analisis effort-scaling.
     effort: result.effort,
@@ -246,6 +311,9 @@ export async function runTask(taskId, model, provider, opts = {}) {
     steps: result.trajectory.steps,
     toolCalls: result.trajectory.toolCalls,
     tokenUsage: result.tokenUsage,
+    // PR46: normalized evidence + per-run metrics (additive, optional).
+    evidence,
+    metrics,
   }
 }
 
