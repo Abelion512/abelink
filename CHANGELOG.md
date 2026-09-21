@@ -2,11 +2,12 @@
 
 Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.
 
-## v1.2.0-alpha.6 — 20 September 2026
+## v1.2.0-alpha.6 — 21 September 2026
 
-**Ringkasan:** 63 fitur baru, 23 perbaikan dan 55 pembaruan dokumentasi.
+**Ringkasan:** 64 fitur baru, 23 perbaikan dan 55 pembaruan dokumentasi.
 
 ### Fitur Baru
+- Measurement plane + 30-fixture benchmark matrix
 - General agentic runtime for long-horizon autonomy
 - Require grounded evidence for skill promotion
 - Include semantic page text in DOM observations
