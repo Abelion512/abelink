@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatBrowserObservation, parseBrowserObservation } from '../extension/browser-observation.mjs'
+import {
+  formatBrowserObservation,
+  parseBrowserObservation,
+  renderBrowserObservation,
+  resolveObservationRepresentation,
+  OBSERVATION_REPRESENTATIONS,
+} from '../extension/browser-observation.mjs'
 
 describe('browser observation formatter', () => {
   it('puts semantic page text before interactive controls', () => {
@@ -28,5 +34,35 @@ describe('browser observation formatter', () => {
     expect(parseBrowserObservation('{"title":"x"}')?.title).toBe('x')
     expect(parseBrowserObservation('{bad')).toBeNull()
     expect(formatBrowserObservation('{bad')).toBe('{bad')
+  })
+})
+
+// The PR46 browser-representation ablation is only meaningful if the two
+// representations actually render differently on the execution path.
+describe('observation representation switch', () => {
+  const payload = {
+    title: 'Beranda',
+    url: 'https://example.test/',
+    text: 'TEKS-UTAMA',
+    elements: [{ abelinkId: 'ak1', tag: 'a', text: 'TAUTAN-1', inViewport: true }],
+  }
+
+  it('defaults to semantic-first so app behavior is unchanged', () => {
+    expect(resolveObservationRepresentation()).toBe('semantic-first')
+    expect(resolveObservationRepresentation('')).toBe('semantic-first')
+    expect(renderBrowserObservation(payload)).toBe(formatBrowserObservation(payload))
+  })
+
+  it('raw returns the payload as received, not the semantic-first text', () => {
+    const raw = renderBrowserObservation(payload, { representation: 'raw' })
+    expect(raw).not.toBe(formatBrowserObservation(payload))
+    expect(raw).not.toContain('[MAIN SEMANTIC TEXT]')
+    expect(JSON.parse(raw).title).toBe('Beranda')
+  })
+
+  it('rejects an unknown representation instead of silently defaulting', () => {
+    expect(() => resolveObservationRepresentation('nope')).toThrow(/tidak dikenal/)
+    expect(() => renderBrowserObservation(payload, { representation: 'nope' })).toThrow()
+    expect([...OBSERVATION_REPRESENTATIONS]).toEqual(['semantic-first', 'raw'])
   })
 })
