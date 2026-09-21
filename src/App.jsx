@@ -131,14 +131,11 @@ const MainLayout = ({ isStandalone = false }) => {
 
       {!isSpotlight && (
         <>
-          {/* Universal Sub-page Drag Region & WindowControls */}
+          {/* WindowControls at Top Right for Sub-pages */}
           {!isStandalone && !isHome && (
-            <>
-              <div data-tauri-drag-region="" className="absolute top-0 left-0 right-28 h-12 z-20 pointer-events-auto" />
-              <div className="absolute top-2.5 right-4 z-30 pointer-events-auto">
-                <WindowControls />
-              </div>
-            </>
+            <div className="absolute top-2.5 right-4 z-50 pointer-events-auto">
+              <WindowControls />
+            </div>
           )}
           <DropAnywhere onFilesDropped={handleGlobalDrop} />
           <AutomationHUD />
