@@ -4,6 +4,8 @@ import {
   EXPERIMENT_KINDS,
   MODEL_IDENTITY_FORBIDDEN,
   FIXED_COMPARISON_FIELDS,
+  ARM_COMPARISON_DIMENSIONS,
+  MEASUREMENT_REPORT_KIND,
   ARCHITECTURE_ARMS,
   makeModelIdentity,
   isNeverLatest,
@@ -99,15 +101,21 @@ describe('compareArmReports (measured arms only)', () => {
   const arm = (over = {}) => {
     const { identity: identityOver = {}, ...rest } = over
     return {
+      kind: MEASUREMENT_REPORT_KIND,
       repeatedRunsPerTask: 3,
+      aggregate: { runCount: 3 },
       ...rest,
       identity: {
         provider: 'openai',
         modelId: 'gpt-6-astra',
         modelVersion: '2026-09-01',
+        promptTemplate: 'bench-tool-preamble-v1',
+        protocol: 'linux-1.0',
         toolConfig: 'core+groups',
+        permissions: 'bench-default',
         fixtureSet: 'pr46-matrix',
         effort: 'high',
+        budget: { source: 'fixture-maxTurns', effort: 'high', efforts: null, runsPerTask: 3 },
         verifier: 'deterministic-world-state-predicate',
         environment: 'local',
         architecture: 'vanilla',
@@ -154,6 +162,79 @@ describe('compareArmReports (measured arms only)', () => {
     const same = compareArmReports({ baseline: arm(), candidate: arm() })
     expect(same.valid).toBe(false)
     expect(same.reason).toBe('same-architecture')
+  })
+
+  it('every contract dimension is actually compared, not just the model identity', () => {
+    expect(ARM_COMPARISON_DIMENSIONS.map((d) => d.contract)).toEqual([
+      'provider',
+      'modelId',
+      'modelVersion',
+      'systemPrompt',
+      'protocol',
+      'tools',
+      'permissions',
+      'fixture',
+      'effort',
+      'budget',
+      'environment',
+      'verifier',
+    ])
+    const result = compareArmReports({ baseline: arm(), candidate: arm({ identity: { architecture: 'basic' } }) })
+    for (const dimension of ARM_COMPARISON_DIMENSIONS) expect(result.checked).toContain(dimension.contract)
+    expect(result.executions).toEqual({ baseline: 3, candidate: 3 })
+  })
+
+  it('invalid when a non-model dimension drifts (prompt, protocol, permissions, budget)', () => {
+    const drifts = [
+      ['promptTemplate', 'bench-tool-preamble-v2'],
+      ['protocol', 'linux-2.0'],
+      ['permissions', 'bench-write-all'],
+      ['budget', { source: 'fixture-maxTurns', effort: 'high', efforts: null, runsPerTask: 9 }],
+    ]
+    for (const [field, value] of drifts) {
+      const result = compareArmReports({
+        baseline: arm(),
+        candidate: arm({ identity: { architecture: 'basic', [field]: value } }),
+      })
+      expect(result.valid, `${field} drift must invalidate the comparison`).toBe(false)
+      expect(result.reason).toBe('identity-mismatch')
+      expect(result.mismatches.some((m) => m.field === field)).toBe(true)
+    }
+  })
+
+  it('invalid when a claimed dimension was never recorded (unverifiable != matching)', () => {
+    const result = compareArmReports({
+      baseline: arm({ identity: { permissions: null } }),
+      candidate: arm({ identity: { architecture: 'basic' } }),
+    })
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('dimension-unverifiable')
+    expect(result.unverifiable).toEqual([
+      { contract: 'permissions', key: 'permissions', baseline: null, candidate: 'bench-default' },
+    ])
+  })
+
+  it('invalid when an arm carries an identity but no executions', () => {
+    const hollow = {
+      kind: MEASUREMENT_REPORT_KIND,
+      repeatedRunsPerTask: 3,
+      identity: arm().identity,
+      aggregate: { runCount: 0 },
+    }
+    const result = compareArmReports({ baseline: hollow, candidate: arm({ identity: { architecture: 'basic' } }) })
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('arm-not-measured')
+    expect(result.notMeasured).toEqual([{ arm: 'baseline', problem: 'no-executions' }])
+  })
+
+  it('invalid when an arm is not a measurement report at all', () => {
+    const result = compareArmReports({
+      baseline: { identity: arm().identity },
+      candidate: arm({ identity: { architecture: 'basic' } }),
+    })
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('arm-not-measured')
+    expect(result.notMeasured[0]).toEqual({ arm: 'baseline', problem: 'not-measurement-report' })
   })
 })
 

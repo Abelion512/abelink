@@ -122,6 +122,25 @@ Dokumentasi disinkronkan dengan kondisi repo sekarang:
 
 `CHANGELOG.md` sengaja TIDAK disentuh: file itu dihasilkan `scripts/release-helper.mjs` saat release prepare.
 
+## Patch ronde review kedua (integritas pengukuran)
+
+Review kedua menyatakan kedua blocker beres, tetapi menemukan dua cacat
+validitas yang tersisa di eksperimen A. Keduanya diperbaiki di sesi yang sama.
+
+| Temuan | Root cause | Fix |
+|---|---|---|
+| `compareArmReports()` hanya mengecek 8 field identitas, padahal kontrak A menetapkan fixed set lebih luas (`systemPrompt`, `protocol`, `tools`, `permissions`, `fixture`, `budget`, ...) | daftar field diturunkan dari apa yang kebetulan ada di report, bukan dari kontrak | `ARM_COMPARISON_DIMENSIONS` memetakan 12 dimensi kontrak → key identitas report; dimensi yang tidak terekam di salah satu arm dilaporkan `unverifiable` dan perbandingan TIDAK valid (`dimension-unverifiable`). Field baru direkam saat run: `identity.promptTemplate` (`BENCH_PROMPT_TEMPLATE`), `identity.protocol` (`AGENT_ARCH_VERSION`), `identity.permissions` (`--permissions`, default `bench-default`), `identity.budget`. |
+| Baseline "beridentitas" bisa lolos walau tidak pernah dijalankan | `compareArmReports()` hanya memeriksa keberadaan `identity` | Arm wajib berupa `abelinkbench-measurement-report` DENGAN eksekusi (`aggregate.runCount > 0` / `runs[]`) → `arm-not-measured`; `checked`/`executions` dilaporkan supaya bisa diaudit. |
+| Nuansa arm `vanilla` | dokumentasi menyebutnya "perilaku pre-PR45" seolah snapshot historis | `ARM_BEHAVIOR` + docs menyatakan `vanilla` = kontrol arsitektur (trajectory supervisor, verification gate) dimatikan pada runtime YANG SAMA, bukan checkout commit sebelum PR45. |
+
+Verifikasi ronde ini: `tests/pr46-experiments.test.mjs` 24 pass (termasuk 4
+failure-mode baru: drift dimensi non-model, dimensi tidak terekam, arm tanpa
+eksekusi, arm bukan measurement report), `tests/pr46-metrics.test.mjs` 20 pass,
+`node evaluation/smoke.mjs` LOLOS (termasuk cek bahwa laporan dari konfigurasi
+`run.mjs` nyata benar-benar bisa dibandingkan — 12/12 dimensi terverifikasi).
+
+Tidak ada fitur baru yang ditambahkan: sesi ini hanya menutup celah validitas.
+
 ## Langkah aman berikutnya
 
 1. Jalankan `run.mjs --suite pr46 --runs 3` pada baseline `main` dan kandidat

@@ -30,22 +30,41 @@ export const ARCHITECTURE_ARMS = Object.freeze({
 })
 
 export const ARM_BEHAVIOR = Object.freeze({
-  [ARCHITECTURE_ARMS.BASELINE]: 'model-only baseline (pre-PR45 behavior)',
-  [ARCHITECTURE_ARMS.CANDIDATE]: 'PR45 general agentic runtime',
+  // Disclaimer matters: `vanilla` is the SAME runtime with the architectural
+  // controls switched off, not a byte-for-byte checkout of the pre-PR45 commit.
+  [ARCHITECTURE_ARMS.BASELINE]:
+    'model-only baseline: architectural controls (trajectory supervisor, verification gate) disabled on the same runtime - NOT a historical pre-PR45 snapshot',
+  [ARCHITECTURE_ARMS.CANDIDATE]:
+    'PR45 general agentic runtime: the same runtime with those controls enabled',
 })
 
-// Identity fields a pair of measured arms must share. Architecture is the only
-// allowed difference.
-export const ARM_IDENTITY_FIELDS = Object.freeze([
-  'provider',
-  'modelId',
-  'modelVersion',
-  'toolConfig',
-  'fixtureSet',
-  'effort',
-  'verifier',
-  'environment',
+// The report kind an arm must carry to count as measured.
+export const MEASUREMENT_REPORT_KIND = 'abelinkbench-measurement-report'
+
+// Every fixed dimension of experiment A (docs: § Required paired experiments A),
+// mapped to the identity key the measurement report actually records. Only
+// `architecture` may differ between arms.
+//
+// A dimension that is not recorded on an arm is NOT treated as "held fixed":
+// compareArmReports reports it as unverifiable instead of silently ignoring it,
+// because "we did not check it" is not "it matched".
+export const ARM_COMPARISON_DIMENSIONS = Object.freeze([
+  Object.freeze({ contract: 'provider', key: 'provider' }),
+  Object.freeze({ contract: 'modelId', key: 'modelId' }),
+  Object.freeze({ contract: 'modelVersion', key: 'modelVersion' }),
+  Object.freeze({ contract: 'systemPrompt', key: 'promptTemplate' }),
+  Object.freeze({ contract: 'protocol', key: 'protocol' }),
+  Object.freeze({ contract: 'tools', key: 'toolConfig' }),
+  Object.freeze({ contract: 'permissions', key: 'permissions' }),
+  Object.freeze({ contract: 'fixture', key: 'fixtureSet' }),
+  Object.freeze({ contract: 'effort', key: 'effort' }),
+  Object.freeze({ contract: 'budget', key: 'budget' }),
+  Object.freeze({ contract: 'environment', key: 'environment' }),
+  Object.freeze({ contract: 'verifier', key: 'verifier' }),
 ])
+
+// Derived key list, kept for callers that only need the report field names.
+export const ARM_IDENTITY_FIELDS = Object.freeze(ARM_COMPARISON_DIMENSIONS.map((d) => d.key))
 
 // Identity strings that must never appear in a benchmark identity. Model
 // aliases drift, so the resolved identifier is the only acceptable value.
@@ -179,42 +198,97 @@ export function baselineVsCandidateSpec({
   }
 }
 
+const reportExecutionCount = (arm) => {
+  const n = arm?.aggregate?.runCount
+  if (Number.isFinite(n)) return n
+  return Array.isArray(arm?.runs) ? arm.runs.length : null
+}
+
 /**
  * Compare two MEASURED arms (measurement reports). A comparison is valid only
- * when both arms exist, share every identity field, and differ in architecture.
+ * when:
+ *   1. both arms are real measurement reports WITH at least one execution
+ *      (identity alone proves nothing ran), and
+ *   2. every fixed dimension the contract claims is recorded on both arms and
+ *      identical (a dimension nobody recorded is reported as unverifiable, not
+ *      as matching), and
+ *   3. the architecture actually differs.
  * A single-arm run is never comparable, no matter how complete its identity is.
  */
-export function compareArmReports({ baseline = null, candidate = null } = {}) {
-  const missing = []
-  if (!baseline?.identity) missing.push('baseline')
-  if (!candidate?.identity) missing.push('candidate')
-  if (missing.length) {
-    return { valid: false, reason: 'arms-incomplete', missing, mismatches: [], variable: 'architecture', variableDiffers: false }
+export function compareArmReports({ baseline = null, candidate = null, dimensions = ARM_COMPARISON_DIMENSIONS } = {}) {
+  const base = {
+    valid: false,
+    variable: 'architecture',
+    variableDiffers: false,
+    missing: [],
+    notMeasured: [],
+    mismatches: [],
+    unverifiable: [],
+    checked: [],
+    executions: { baseline: null, candidate: null },
   }
 
+  const missing = []
+  if (!baseline) missing.push('baseline')
+  if (!candidate) missing.push('candidate')
+  if (missing.length) return { ...base, reason: 'arms-incomplete', missing }
+
+  // "Both measured arms" is checked, not assumed: a file carrying an identity
+  // block but zero executions is not evidence that an arm ran.
+  const notMeasured = []
+  const executions = { baseline: reportExecutionCount(baseline), candidate: reportExecutionCount(candidate) }
+  for (const [name, arm] of [
+    ['baseline', baseline],
+    ['candidate', candidate],
+  ]) {
+    if (arm.kind !== MEASUREMENT_REPORT_KIND) notMeasured.push({ arm: name, problem: 'not-measurement-report' })
+    else if (!Number.isFinite(executions[name]) || executions[name] < 1) notMeasured.push({ arm: name, problem: 'no-executions' })
+  }
+  if (notMeasured.length) return { ...base, reason: 'arm-not-measured', executions, notMeasured }
+
   const mismatches = []
-  for (const field of ARM_IDENTITY_FIELDS) {
-    const a = baseline.identity[field] ?? null
-    const b = candidate.identity[field] ?? null
-    if (stable(a) !== stable(b)) mismatches.push({ field, baseline: a, candidate: b })
+  const unverifiable = []
+  const checked = []
+  for (const { contract, key } of dimensions) {
+    const a = baseline.identity?.[key] ?? null
+    const b = candidate.identity?.[key] ?? null
+    if (a === null || b === null) {
+      unverifiable.push({ contract, key, baseline: a, candidate: b })
+      continue
+    }
+    if (stable(a) !== stable(b)) mismatches.push({ contract, field: key, baseline: a, candidate: b })
+    else checked.push(contract)
   }
   if (stable(baseline.repeatedRunsPerTask) !== stable(candidate.repeatedRunsPerTask)) {
     mismatches.push({
+      contract: 'repeatedRunsPerTask',
       field: 'repeatedRunsPerTask',
       baseline: baseline.repeatedRunsPerTask ?? null,
       candidate: candidate.repeatedRunsPerTask ?? null,
     })
+  } else if (baseline.repeatedRunsPerTask != null) {
+    checked.push('repeatedRunsPerTask')
   }
 
-  const variableDiffers = stable(baseline.identity.architecture) !== stable(candidate.identity.architecture)
-  const valid = mismatches.length === 0 && variableDiffers
+  const variableDiffers = stable(baseline.identity?.architecture) !== stable(candidate.identity?.architecture)
+  const valid = mismatches.length === 0 && unverifiable.length === 0 && variableDiffers
   return {
     valid,
-    reason: mismatches.length ? 'identity-mismatch' : variableDiffers ? 'both-arms-present' : 'same-architecture',
+    reason: mismatches.length
+      ? 'identity-mismatch'
+      : unverifiable.length
+        ? 'dimension-unverifiable'
+        : variableDiffers
+          ? 'both-arms-present'
+          : 'same-architecture',
     missing: [],
+    notMeasured: [],
     variable: 'architecture',
     variableDiffers,
     mismatches,
+    unverifiable,
+    checked,
+    executions,
   }
 }
 
@@ -321,6 +395,8 @@ export default {
   FIXED_COMPARISON_FIELDS,
   ABLATION_FIXED_FIELDS,
   ARM_IDENTITY_FIELDS,
+  ARM_COMPARISON_DIMENSIONS,
+  MEASUREMENT_REPORT_KIND,
   ARCHITECTURE_ARMS,
   ARM_BEHAVIOR,
   makeModelIdentity,

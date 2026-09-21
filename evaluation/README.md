@@ -18,7 +18,7 @@ dan **anti-cheat validator** — bukan angka simulasi.
 | `evidence.mjs` | **PR46** measurement plane: normalizer observasi tool yang sudah ada menjadi record bukti in-memory berprovenance. Reuse `progressEvaluator` (stagnasi) dan `objectiveVerifier` (kosakata verification state). Tanpa store baru. |
 | `metrics.mjs` | **PR46** metrik per-run + `abelinkbench-measurement-report`. Task success dan verified success dipisah; metrik yang tidak diekspos runtime bernilai `null`/`available:false`. Membungkus `aggregateRuns`, tidak menggantikannya. |
 | `pr46-matrix.mjs` | **PR46** matriks 30 fixture (research 6, browser 5, os 5, study 5, recovery 5, reuse 4) dengan oracle world-state deterministik + seeder per-lane. |
-| `pr46-experiments.mjs` | **PR46** spesifikasi eksperimen: identitas model exact (tanpa "latest"), integritas baseline-vs-kandidat (`vanilla` vs `basic`), `compareArmReports` (perbandingan valid hanya bila kedua arm terukur), dan ablasi representasi browser (raw vs semantic-first, wajib benar-benar bisa dirender runtime). |
+| `pr46-experiments.mjs` | **PR46** spesifikasi eksperimen: identitas model exact (tanpa "latest"), integritas baseline-vs-kandidat (`vanilla` vs `basic`), `compareArmReports` (wajib dua arm terukur + seluruh 12 dimensi tetap kontrak benar-benar dibandingkan), dan ablasi representasi browser (raw vs semantic-first, wajib benar-benar bisa dirender runtime). |
 
 ## Task suite
 
@@ -98,12 +98,27 @@ Eksperimen yang didukung kode:
     --measurement-out reports/arm-basic.json --baseline-report reports/arm-vanilla.json
   ```
 
-  `comparison.valid` hanya `true` bila kedua arm ada, identitasnya identik
-  (`provider`, `modelId`, `modelVersion`, `toolConfig`, `fixtureSet`, `effort`,
-  `verifier`, `environment`, jumlah run berulang), dan `architecture` berbeda.
-  Tanpa itu alasannya eksplisit (`baseline-arm-missing` / `identity-mismatch` /
-  `same-architecture`). `vanilla` = perilaku model-only (pre-PR45), `basic` =
-  runtime PR45. Label `pr45` bukan nilai arch yang bisa dijalankan dan tidak lagi
+  `comparison.valid` hanya `true` bila:
+  1. kedua arm adalah **measurement report nyata dengan minimal satu eksekusi**
+     (identitas saja bukan bukti ada yang berjalan) — kalau tidak:
+     `arm-not-measured`;
+  2. **seluruh dimensi tetap yang diklaim kontrak** terrekam di kedua arm dan
+     identik: `provider`, `modelId`, `modelVersion`, `systemPrompt`
+     (`identity.promptTemplate`), `protocol`, `tools` (`toolConfig`),
+     `permissions`, `fixture` (`fixtureSet`), `effort`, `budget`, `environment`,
+     `verifier`, plus jumlah run berulang. Dimensi yang tidak terekam di salah
+     satu arm dilaporkan sebagai `unverifiable` dan perbandingan tetap TIDAK
+     valid (`dimension-unverifiable`) — "tidak diperiksa" bukan "cocok";
+  3. `architecture` benar-benar berbeda.
+
+  Alasannya selalu eksplisit: `arms-incomplete` / `arm-not-measured` /
+  `dimension-unverifiable` / `identity-mismatch` / `same-architecture`.
+
+  Dimensi ditulis saat run (`--permissions` misalnya punya default
+  `bench-default`), bukan disimpulkan belakangan. `vanilla` = kontrol arsitektur
+  (trajectory supervisor, verification gate) DIMATIKAN pada runtime yang sama —
+  bukan snapshot historis commit sebelum PR45; `basic` = runtime PR45 dengan
+  kontrol itu aktif. Label `pr45` bukan nilai arch yang bisa dijalankan dan tidak
   dipakai sebagai arm.
 - **(B) ablasi representasi browser.** `raw` vs `semantic-first`
   (`pr46-browser-04` vs `pr46-browser-05`) benar-benar mengubah

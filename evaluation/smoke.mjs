@@ -402,6 +402,8 @@ import {
   validateAblationPair,
   representationAblationSpec,
   compareArmReports,
+  MEASUREMENT_REPORT_KIND,
+  ARM_COMPARISON_DIMENSIONS,
 } from './pr46-experiments.mjs'
 import {
   renderBrowserObservation,
@@ -477,24 +479,58 @@ assert.equal(spec.arms.baseline.architecture, 'vanilla', 'baseline = perilaku mo
 assert.equal(spec.arms.candidate.architecture, 'basic', 'kandidat = runtime PR45')
 assert.equal(spec.runnable, true)
 
-// Perbandingan valid hanya bila KEDUA arm benar-benar terukur.
-const armIdentity = (arch) => ({
+// Perbandingan valid hanya bila KEDUA arm benar-benar terukur, semua dimensi
+// tetap yang DIKLAIM benar-benar direkam, dan arsitekturnya berbeda.
+const armReport = (arch, identityOver = {}) => ({
+  kind: MEASUREMENT_REPORT_KIND,
   repeatedRunsPerTask: 3,
+  aggregate: { runCount: 3 },
   identity: {
     provider: 'openai',
     modelId: 'gpt-6-astra',
     modelVersion: '2026-09-01',
+    promptTemplate: 'bench-tool-preamble-v1',
+    protocol: 'linux-1.0',
     toolConfig: 'core+groups',
+    permissions: 'bench-default',
     fixtureSet: 'pr46-matrix',
     effort: 'high',
+    budget: { source: 'fixture-maxTurns', effort: 'high', efforts: null, runsPerTask: 3 },
     verifier: 'deterministic-world-state-predicate',
     environment: 'local',
     architecture: arch,
+    ...identityOver,
   },
 })
-assert.equal(compareArmReports({ baseline: null, candidate: armIdentity('basic') }).valid, false, 'satu arm tidak bisa dibandingkan')
-assert.equal(compareArmReports({ baseline: armIdentity('vanilla'), candidate: armIdentity('basic') }).valid, true)
-assert.equal(compareArmReports({ baseline: armIdentity('vanilla'), candidate: armIdentity('vanilla') }).valid, false, 'arch sama bukan eksperimen')
+const hollowArm = (arch) => ({
+  kind: MEASUREMENT_REPORT_KIND,
+  repeatedRunsPerTask: 3,
+  aggregate: { runCount: 0 },
+  identity: armReport(arch).identity,
+})
+assert.equal(compareArmReports({ baseline: null, candidate: armReport('basic') }).valid, false, 'satu arm tidak bisa dibandingkan')
+assert.equal(
+  compareArmReports({ baseline: armReport('vanilla'), candidate: armReport('basic') }).valid,
+  true,
+  'dua arm lengkap dengan identitas identik = valid'
+)
+assert.equal(compareArmReports({ baseline: armReport('vanilla'), candidate: armReport('vanilla') }).valid, false, 'arch sama bukan eksperimen')
+// Dimensi tetap non-model wajib benar-benar dicek, bukan diasumsikan sama.
+assert.equal(
+  compareArmReports({ baseline: armReport('vanilla'), candidate: armReport('basic', { permissions: 'bench-write-all' }) }).reason,
+  'identity-mismatch',
+  'drift permissions wajib menggagalkan perbandingan'
+)
+assert.equal(
+  compareArmReports({ baseline: armReport('vanilla', { budget: null }), candidate: armReport('basic') }).reason,
+  'dimension-unverifiable',
+  'dimensi yang tidak direkam bukan berarti cocok'
+)
+assert.equal(
+  compareArmReports({ baseline: hollowArm('vanilla'), candidate: armReport('basic') }).reason,
+  'arm-not-measured',
+  'identitas tanpa eksekusi bukan arm terukur'
+)
 console.log('[ok] PR46 identitas model + integritas perbandingan baseline/kandidat')
 
 // Evidence + metrik: oracle independen, jawaban model hanya klaim.
@@ -539,6 +575,40 @@ assert.equal(singleArm.identity.architectureCommit, 'a'.repeat(40), 'commit arsi
 assert.equal(measurement.aggregate.unnecessaryActionRate, null)
 assert.ok(measurement.aggregate.unnecessaryActionRateReason, 'alasan ketidaktersediaan wajib eksplisit')
 assert.ok('repeatActionRate' in measurement.aggregate)
+
+// Laporan yang dibangun dari konfigurasi run.mjs yang NYATA harus memuat semua
+// dimensi tetap kontrak, kalau tidak eksperimen A tidak akan pernah bisa valid.
+const realArm = (arch) =>
+  buildMeasurementReport({
+    runs: [metrics],
+    config: {
+      suite: 'pr46',
+      arch,
+      commit: { sha: 'a'.repeat(40), short: 'a'.repeat(12), dirty: false },
+      runs: 3,
+      provider: 'openai',
+      modelId: 'gpt-6-astra',
+      modelVersion: '2026-09-01',
+      effort: 'high',
+      toolConfig: 'core+groups',
+      fixtureSet: 'pr46-matrix',
+      verifier: 'deterministic-world-state-predicate',
+      environment: 'local',
+      promptTemplate: 'bench-tool-preamble-v1',
+      protocol: 'linux-1.0',
+      permissions: 'bench-default',
+      budget: { source: 'fixture-maxTurns', effort: 'high', efforts: null, runsPerTask: 3 },
+    },
+  })
+const realPair = compareArmReports({ baseline: realArm('vanilla'), candidate: realArm('basic') })
+assert.equal(realPair.valid, true, `laporan nyata harus bisa dibandingkan (reason=${realPair.reason})`)
+assert.deepEqual(realPair.unverifiable, [], 'tidak boleh ada dimensi kontrak yang tidak terekam')
+for (const dimension of ARM_COMPARISON_DIMENSIONS) {
+  assert.ok(
+    realPair.checked.includes(dimension.contract),
+    `dimensi kontrak ${dimension.contract} wajib benar-benar dibandingkan`
+  )
+}
 console.log('[ok] PR46 evidence + metrik per-run + laporan pengukuran')
 
 // Fixture seeding + oracle dunia (tanpa LLM).

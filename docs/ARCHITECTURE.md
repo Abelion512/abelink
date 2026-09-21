@@ -214,10 +214,17 @@ Secondary material is for discovery. Implementation decisions should be traceabl
   - **Identitas eksekusi:** `benchmarkRunId` (sesi) dipisah dari `executionId`
     (`<sesi>-<taskId>-r<n>@<effort>`); report merekam
     `identity.architectureCommit` (+`Short`/`Dirty`) dari git HEAD.
-  - **Eksperimen A wajib dua arm:** `comparison.valid` hanya `true` setelah
-    baseline (`--arch vanilla`) dan kandidat (`--arch basic`) sama-sama terukur
-    dengan identitas identik (`compareArmReports`). Satu arm = tidak valid,
-    seberapa pun lengkap identitas modelnya.
+  - **Eksperimen A wajib dua arm terukur + seluruh dimensi tetap kontrak:**
+    `compareArmReports()` menolak arm yang bukan measurement report atau belum
+    punya eksekusi (`arm-not-measured`), menolak dimensi yang tidak terekam di
+    salah satu arm (`dimension-unverifiable` — "tidak diperiksa" bukan
+    "cocok"), dan membandingkan seluruh 12 dimensi tetap kontrak (`provider`,
+    `modelId`, `modelVersion`, `systemPrompt`, `protocol`, `tools`,
+    `permissions`, `fixture`, `effort`, `budget`, `environment`, `verifier`)
+    plus jumlah run berulang, sebelum menyatakan `valid` bila `architecture`
+    berbeda. Tidak ada dimensi yang boleh diam-diam dilewati.
+    `vanilla` = kontrol arsitektur dimatikan pada runtime yang sama (bukan
+    snapshot historis pre-PR45); `basic` = runtime PR45.
   - **Ablasi representasi nyata:** `representation` fixture diteruskan ke
     execution path (`ABELINK_BROWSER_OBSERVATION` → `renderBrowserObservation()`
     di `extension/browser-observation.mjs`, dipakai

@@ -38,6 +38,7 @@ import {
   EFFORT_VALUES,
   AGENT_ARCH_VERSION,
   BENCH_SCHEMA_VERSION,
+  BENCH_PROMPT_TEMPLATE,
   ARCH_VALUES,
   resolveBenchArch,
 } from './abelink-adapter.mjs'
@@ -384,6 +385,7 @@ function parseArgs(argv) {
     modelVersion: null, // exact resolved version (PR46 identity, never 'latest')
     measurementOut: null, // optional separate path for the PR46 measurement report
     baselineReport: null, // measured baseline arm (Experiment A); absent = no comparison
+    permissions: null, // declared permission profile label for the A/B identity
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -407,6 +409,7 @@ function parseArgs(argv) {
     else if (a === '--model-version') args.modelVersion = argv[++i]
     else if (a === '--measurement-out') args.measurementOut = argv[++i]
     else if (a === '--baseline-report') args.baselineReport = argv[++i]
+    else if (a === '--permissions') args.permissions = argv[++i]
   }
   return args
 }
@@ -596,6 +599,17 @@ async function main() {
       toolConfig: args.toolConfig,
       fixtureSet: suite === 'pr46' ? 'pr46-matrix' : 'legacy-registry',
       environment: process.env.ABELINK_BENCH_ENV || 'local',
+      // Fixed dimensions of experiment A, recorded at run time. Without these the
+      // arm comparison cannot check what it claims to hold fixed.
+      promptTemplate: BENCH_PROMPT_TEMPLATE,
+      protocol: AGENT_ARCH_VERSION,
+      permissions: args.permissions || 'bench-default',
+      budget: {
+        source: 'fixture-maxTurns',
+        effort: sweepEfforts ? null : benchmarkEffort,
+        efforts: sweepEfforts || null,
+        runsPerTask: args.runs,
+      },
       comparison: {
         // Experiment A is a two-arm run: this invocation produced exactly one
         // arm, so comparability is decided from the arms we actually have.

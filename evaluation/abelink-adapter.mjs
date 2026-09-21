@@ -323,6 +323,12 @@ const TOOL_ARG_DOCS = {
   'list-dir': 'path="..."'
 }
 
+// Identity of the bench prompt construction (task prompt + tool preamble).
+// Recorded in the PR46 measurement report as `identity.promptTemplate` so the
+// architecture A/B can verify that the prompt protocol was held fixed; bump the
+// version whenever the preamble/format below changes its meaning.
+export const BENCH_PROMPT_TEMPLATE = 'bench-tool-preamble-v1'
+
 export function toolPreamble(requiredTools = [], hint = {}) {
   const tools = (requiredTools || []).filter((t) => TOOL_ARG_DOCS[t])
   if (tools.length === 0) return ''

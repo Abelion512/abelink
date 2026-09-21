@@ -254,8 +254,15 @@ export function buildMeasurementReport({ runs = [], config = {} } = {}) {
       modelId: config.modelId || null,
       modelVersion: config.modelVersion || null,
       effort: config.effort ?? null,
+      // Declared fixed dimensions of the architecture A/B. Recorded at run time
+      // (never inferred) so compareArmReports() can actually check the whole
+      // claimed fixed set instead of only the model identity.
+      promptTemplate: config.promptTemplate || null,
+      protocol: config.protocol || null,
       toolConfig: config.toolConfig || 'core+groups',
+      permissions: config.permissions || null,
       fixtureSet: config.fixtureSet || null,
+      budget: config.budget ?? null,
       verifier: config.verifier || 'deterministic-world-state-predicate',
       environment: config.environment || 'local',
     },
