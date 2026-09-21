@@ -20,9 +20,9 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import 'fake-indexeddb/auto'
 
-import { runAgentLoop } from '../src/api/ai/agentRunner.js'
-import { evaluateHeadlessSecurity } from '../src/api/ai/headlessSecurity.js'
-import { NATIVE_TOOLS } from '../sidecar/main/node-tools.js'
+const { runAgentLoop } = await import('../src/api/ai/agentRunner.js')
+const { evaluateHeadlessSecurity } = await import('../src/api/ai/headlessSecurity.js')
+const { NATIVE_TOOLS } = await import('../sidecar/main/node-tools.js')
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
