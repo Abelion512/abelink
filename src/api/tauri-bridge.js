@@ -688,8 +688,12 @@ export function installTauriBridge() {
   // SEMUA halaman dan rute otomatis bisa di-drag tanpa terputus lifecycle SPA.
   document.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return
+    // Elemen interaktif DILARANG memicu drag agar click, focus, dan selection selalu tembus
+    if (e.target.closest('button, input, textarea, a, select, [role="button"], .no-drag, [data-no-drag], [style*="no-drag"]')) {
+      return
+    }
     const dragEl = e.target.closest('[data-tauri-drag-region]')
-    if (dragEl && !e.target.closest('button, input, textarea, a, select, [role="button"], .no-drag')) {
+    if (dragEl) {
       window.__TAURI_INTERNALS__?.invoke('plugin:window|start_dragging')
     }
   })
