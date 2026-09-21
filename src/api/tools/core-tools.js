@@ -15,6 +15,8 @@ export const core_tools = {
   "read-skill": "WAJIB dipanggil jika permintaan user berkaitan dengan salah satu kemampuan di daftar ABELINK SKILLS. Membaca file pedoman skill untuk memuat instruksi dan workflow khusus sebelum mengeksekusi aksi. Query: nama_skill (misal: \"speedrunner\", \"git-commit\").",
   "browser-navigate": "Buka URL di browser companion (Chrome/Chromium). Mengembalikan judul halaman, URL aktif, dan daftar elemen interaktif bernomor ID (ak1, ak2...). Query: URL lengkap (misal: https://www.tradingview.com).",
   "browser-read": "Scan ulang isi DOM & daftar elemen interaktif halaman aktif saat ini. Query: kosongkan atau URL.",
+  "browser-click": "Klik elemen fisik DOM browser berdasarkan ID (ak1, ak2, ...). Query: ID (misal: 'ak7') atau ID||teks-yang-diharapkan (misal: 'ak7||Battle' — format jangkar disarankan agar klik batal jika teks bergeser).",
+  "browser-type": "Ketik teks ke elemen input fisik DOM browser berdasarkan ID. Query: ID||teks (misal: 'ak3||kata kunci').",
   "browser-ask": "Meminta bantuan pengguna untuk berinteraksi manual langsung di tab browser (misal: login akun Google/TradingView, memecahkan captcha/Cloudflare, verifikasi 2FA). Query: alasan bantuan.",
   "ask-choice": "Meminta user memilih SATU opsi via tombol inline di chat (loop lanjut otomatis setelah klik, tanpa ketik). WAJIB dipakai saat butuh keputusan user di antara opsi konkret yang bisa dienumerasi (maks 4, misal daftar history/debat) — JANGAN mengakhiri giliran dengan pertanyaan teks untuk hal yang bisa jadi tombol. Query: pertanyaan||opsi1;opsi2[;opsi3;opsi4] (contoh: \"Lanjut debat di history mana?||Percakapan A;Percakapan B\").",
   "browser-search": "Mencari informasi di internet secara langsung (web search). Query: kata kunci pencarian.",

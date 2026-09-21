@@ -1,8 +1,9 @@
 import { core_tools } from './core-tools'
+import { UNIFIED_TOOL_CATALOG } from './toolCatalog'
 
-// Native-backed = terdaftar di core_tools atau nama grup khusus. Catatan:
-// `!![toolName]` lama selalu true (array non-kosong) sehingga SEMUA tool
-// asing dianggap native dan lolos dari pencatatan choke point — dihapus.
+// Native-backed = terdaftar di core_tools, UNIFIED_TOOL_CATALOG, atau nama grup khusus.
+// Mencegah tool valid (mis. browser-click, browser-type) salah sasaran ke fallback Plugin Manager.
 export const checkTools = (toolName) => {
-  return !!core_tools[toolName] || toolName === 'read-tools'
+  if (!toolName || typeof toolName !== 'string') return false
+  return !!core_tools[toolName] || !!UNIFIED_TOOL_CATALOG[toolName] || toolName === 'read-tools'
 }
