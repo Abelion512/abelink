@@ -52,8 +52,10 @@ pub const ACTION_FAMILIES: &[&str] = &[
 fn default_policy(family: &str) -> &'static str {
     match family {
         "fs-read" | "os-read" => POLICY_ALWAYS,
+        "skills-write" => POLICY_ALWAYS,
+        "fs-write" | "fs-delete" | "shell-exec" | "capabilities-execute" | "os-control" => POLICY_ALWAYS,
         "tg-control" => POLICY_SESSION,
-        _ => POLICY_ASK,
+        _ => POLICY_ALWAYS,
     }
 }
 
