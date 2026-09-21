@@ -16,12 +16,14 @@
   (`evaluation/bench/`, masih berjalan di stub boundary), sekarang ada lapisan
   pengukuran AbelinkBench: record bukti berprovenance, metrik per-run, laporan
   machine-readable, dan matriks 30 fixture (research/browser/os/study/recovery/
-  reuse) dengan oracle world-state deterministik. Kontrak: 
+  reuse) dengan oracle world-state deterministik. Perbandingan runtime A/B
+  dijalankan sebagai dua arm terpisah dan hanya dinyatakan valid setelah seluruh
+  dimensi tetap kontrak benar-benar terverifikasi. Kontrak: 
   `docs/PLANNED/2026-09-21_agent-benchmark-matrix.md`.
 
 ## Kesehatan terakhir (terverifikasi 2026-09-20, sesi patch PR #46)
 
-- Full suite: 126 file test, 1287 test pass, 0 fail (`bunx vitest run`).
+- Full suite: 126 file test, 1292 test pass, 0 fail (`bunx vitest run`).
 - Lint: `bun run lint` exit 0 — 0 error, 1004 warning (tech debt terdaftar,
   bukan kegagalan gate).
 - Build renderer: `bun run build` (vite) sukses.
@@ -39,10 +41,13 @@
 - **Oracle otoritatif, jawaban model hanya klaim.** Verified-success hanya sah
   bila datang dari oracle world-state yang independen; final answer tidak pernah
   menjadi bukti.
-- **Satu angka agregat bukan klaim rilis.** Perbandingan hanya valid bila kedua
-  arm terukur dengan identitas identik (provider, model, versi model, prompt,
-  tools, permission, fixture, effort, budget, environment, verifier). Identitas
-  model wajib exact — alias seperti `latest` ditolak.
+- **Satu angka agregat bukan klaim rilis.** Perbandingan valid hanya bila
+  KEDUA arm benar-benar terukur (report pengukuran dengan minimal satu eksekusi —
+  identitas saja bukan bukti ada yang berjalan) dan seluruh dimensi tetap
+  kontrak identik: provider, model, versi model, prompt, protocol, tools,
+  permission, fixture, effort, budget, environment, verifier. Dimensi yang tidak
+  terekam membuat perbandingan tetap tidak valid, karena "tidak diperiksa" bukan
+  "cocok". Identitas model wajib exact — alias seperti `latest` ditolak.
 - **Metrik yang tidak terekspos runtime tidak difabrikasi**: token cost dan
   intervensi manusia dicatat `null`/`available:false`.
 - Lane cross-session reuse di matriks diukur sebagai artifact-mediated reuse

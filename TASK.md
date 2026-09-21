@@ -6,16 +6,13 @@
 
 - `main` @ `9f8ffdb` = PR #45 (general agentic runtime) SUDAH merged.
 - **PR #46** (`feat/typed-evidence-plane-agent-benchmark-matrix`, head
-  `d43a235`) = measurement plane AbelinkBench + matriks 30 fixture, dibuka dari
-  `main` (BUKAN dari head PR #45).
-- **Patch pasca-review ada di working tree, BELUM di-commit/push**: 2 blocker
-  (ablasi representasi browser kini switch nyata; eksperimen A jadi
-  `vanilla` vs `basic` + `--baseline-report`) + 3 cacat pengukuran
-  (`architectureCommit`, `benchmarkRunId`/`executionId`, `repeatActionRate` vs
-  `unnecessaryActionRate`) + oracle riset diperketat. Rincian:
-  `docs/PLANNED/sessions/2026-09-21_pr46-measurement-plane.md`.
-- Gate lokal sesi patch: vitest 126 file / 1287 pass, lint 0 error, build OK,
-  `node evaluation/smoke.mjs` LOLOS. Rust tidak disentuh.
+  `4c1ae05`) = measurement plane AbelinkBench + matriks 30 fixture, dibuka dari
+  `main` (BUKAN dari head PR #45). Dua ronde review sudah dipatch dan di-push;
+  status review terakhir: dua blocker + cacat pengukuran ronde 1 beres, cacat
+  validitas ronde 2 (dimensi perbandingan + arm wajib terukur) juga beres.
+- Rincian kedua ronde: `docs/PLANNED/sessions/2026-09-21_pr46-measurement-plane.md`.
+- Gate lokal sesi patch terakhir: vitest 126 file / 1292 pass, lint 0 error,
+  build OK, `node evaluation/smoke.mjs` LOLOS. Rust tidak disentuh.
 
 ## Menunggu keputusan owner (jangan dikerjakan tanpa jawaban)
 

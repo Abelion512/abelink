@@ -141,6 +141,12 @@ eksekusi, arm bukan measurement report), `tests/pr46-metrics.test.mjs` 20 pass,
 
 Tidak ada fitur baru yang ditambahkan: sesi ini hanya menutup celah validitas.
 
+Sinkronisasi dokumentasi setelah ronde 2 (tanpa perubahan kode): `PROJECT-STATUS.md`
+(angka suite 1292 pass + keputusan dua-arm diperjelas: arm wajib terukur,
+12 dimensi dicek, "tidak diperiksa" bukan "cocok"), `TASK.md` (head PR #46
+`4c1ae05`, kedua ronde patch sudah di-push), dan baris Eksperimen A di
+`docs/PLANNED/2026-09-21_agent-benchmark-matrix.md`.
+
 ## Langkah aman berikutnya
 
 1. Jalankan `run.mjs --suite pr46 --runs 3` pada baseline `main` dan kandidat
