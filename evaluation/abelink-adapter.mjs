@@ -329,6 +329,23 @@ const TOOL_ARG_DOCS = {
 // version whenever the preamble/format below changes its meaning.
 export const BENCH_PROMPT_TEMPLATE = 'bench-tool-preamble-v1'
 
+// Is the ABELINK_BENCH_ARCH axis actually EXECUTED by this harness?
+//
+// No. This adapter drives the sidecar directly (`ai:fetch` +
+// `native-tool:execute`) with its own minimal ReAct loop. The architecture an
+// A/B is supposed to compare - trajectory supervisor + verification gate -
+// lives in renderer code (`src/hooks/agent/useAbelinkPlan.js`,
+// `src/api/subagent/subagentExecutor.js`), and nothing under `sidecar/` reads
+// ABELINK_BENCH_ARCH. So `--arch vanilla` and `--arch basic` run IDENTICALLY
+// here: comparing them would compare two identical arms and call it an
+// experiment.
+//
+// The flag is recorded as `identity.architectureAxisWired`, and
+// `compareArmReports()` refuses to report a valid comparison while it is not
+// true. Wiring the axis into this execution path is deferred to its own change
+// (see the deferred section of docs/PLANNED/2026-09-21_agent-benchmark-matrix.md).
+export const ARCH_AXIS_IN_BENCH_PATH = false
+
 export function toolPreamble(requiredTools = [], hint = {}) {
   const tools = (requiredTools || []).filter((t) => TOOL_ARG_DOCS[t])
   if (tools.length === 0) return ''

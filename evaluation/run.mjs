@@ -39,6 +39,7 @@ import {
   AGENT_ARCH_VERSION,
   BENCH_SCHEMA_VERSION,
   BENCH_PROMPT_TEMPLATE,
+  ARCH_AXIS_IN_BENCH_PATH,
   ARCH_VALUES,
   resolveBenchArch,
 } from './abelink-adapter.mjs'
@@ -604,6 +605,9 @@ async function main() {
       promptTemplate: BENCH_PROMPT_TEMPLATE,
       protocol: AGENT_ARCH_VERSION,
       permissions: args.permissions || 'bench-default',
+      // Honest capability flag: this harness does not execute the arch axis yet,
+      // so an arch-only comparison is refused instead of reported as valid.
+      architectureAxisWired: ARCH_AXIS_IN_BENCH_PATH,
       budget: {
         source: 'fixture-maxTurns',
         effort: sweepEfforts ? null : benchmarkEffort,
@@ -646,7 +650,9 @@ async function main() {
   )
   if (!measurement.comparison.valid) {
     console.log(
-      `Perbandingan: TIDAK VALID (${measurement.comparison.reason}) — satu arm tidak bisa dibandingkan; jalankan arm baseline (--arch ${ARCHITECTURE_ARMS.BASELINE}) lalu ulangi dengan --baseline-report.`
+      measurement.comparison.reason === 'architecture-not-executed-by-harness'
+        ? 'Perbandingan: TIDAK VALID (architecture-not-executed-by-harness) — harness ini belum mengeksekusi sumbu arch, jadi --arch vanilla dan --arch basic akan berjalan identik. Wiring sumbu arch = perubahan terpisah (lihat kontrak benchmark, bagian deferred).'
+        : `Perbandingan: TIDAK VALID (${measurement.comparison.reason}) — satu arm tidak bisa dibandingkan; jalankan arm baseline (--arch ${ARCHITECTURE_ARMS.BASELINE}) lalu ulangi dengan --baseline-report.`
     )
   }
 

@@ -246,6 +246,13 @@ export function compareArmReports({ baseline = null, candidate = null, dimension
   }
   if (notMeasured.length) return { ...base, reason: 'arm-not-measured', executions, notMeasured }
 
+  // A comparison whose only variable is not executed by the harness is not an
+  // experiment: both arms would produce the same behaviour under different
+  // labels. Requires an explicit `true` on both arms (never inferred). The
+  // dimension audit still runs, so the report keeps showing what WAS verified.
+  const axisWired =
+    baseline.identity?.architectureAxisWired === true && candidate.identity?.architectureAxisWired === true
+
   const mismatches = []
   const unverifiable = []
   const checked = []
@@ -271,20 +278,25 @@ export function compareArmReports({ baseline = null, candidate = null, dimension
   }
 
   const variableDiffers = stable(baseline.identity?.architecture) !== stable(candidate.identity?.architecture)
-  const valid = mismatches.length === 0 && unverifiable.length === 0 && variableDiffers
+  const valid = mismatches.length === 0 && unverifiable.length === 0 && axisWired && variableDiffers
   return {
     valid,
+    // Precedence: concrete mismatches first, then unverified dimensions, then an
+    // axis the harness cannot execute, then the same-architecture case.
     reason: mismatches.length
       ? 'identity-mismatch'
       : unverifiable.length
         ? 'dimension-unverifiable'
-        : variableDiffers
-          ? 'both-arms-present'
-          : 'same-architecture',
+        : !axisWired
+          ? 'architecture-not-executed-by-harness'
+          : variableDiffers
+            ? 'both-arms-present'
+            : 'same-architecture',
     missing: [],
     notMeasured: [],
     variable: 'architecture',
     variableDiffers,
+    axisWired,
     mismatches,
     unverifiable,
     checked,

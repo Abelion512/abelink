@@ -409,6 +409,7 @@ import {
   renderBrowserObservation,
   resolveObservationRepresentation,
 } from '../extension/browser-observation.mjs'
+import { ARCH_AXIS_IN_BENCH_PATH } from './abelink-adapter.mjs'
 
 assert.equal(PR46_TOTAL_FIXTURES, 30, 'PR46 matrix = 30 fixture')
 assert.equal(Object.keys(PR46_TASKS).length, 30, 'PR46 registry memuat 30 fixture')
@@ -499,6 +500,7 @@ const armReport = (arch, identityOver = {}) => ({
     verifier: 'deterministic-world-state-predicate',
     environment: 'local',
     architecture: arch,
+    architectureAxisWired: true,
     ...identityOver,
   },
 })
@@ -530,6 +532,15 @@ assert.equal(
   compareArmReports({ baseline: hollowArm('vanilla'), candidate: armReport('basic') }).reason,
   'arm-not-measured',
   'identitas tanpa eksekusi bukan arm terukur'
+)
+// Sumbu arch yang tidak dieksekusi harness tidak boleh dilaporkan sebagai A/B.
+assert.equal(
+  compareArmReports({
+    baseline: armReport('vanilla', { architectureAxisWired: false }),
+    candidate: armReport('basic', { architectureAxisWired: false }),
+  }).reason,
+  'architecture-not-executed-by-harness',
+  'perbandingan yang hanya beda arsitektur wajib ditolak bila sumbunya tidak dijalankan'
 )
 console.log('[ok] PR46 identitas model + integritas perbandingan baseline/kandidat')
 
@@ -578,7 +589,7 @@ assert.ok('repeatActionRate' in measurement.aggregate)
 
 // Laporan yang dibangun dari konfigurasi run.mjs yang NYATA harus memuat semua
 // dimensi tetap kontrak, kalau tidak eksperimen A tidak akan pernah bisa valid.
-const realArm = (arch) =>
+const realArm = (arch, axisWired = ARCH_AXIS_IN_BENCH_PATH) =>
   buildMeasurementReport({
     runs: [metrics],
     config: {
@@ -598,10 +609,10 @@ const realArm = (arch) =>
       protocol: 'linux-1.0',
       permissions: 'bench-default',
       budget: { source: 'fixture-maxTurns', effort: 'high', efforts: null, runsPerTask: 3 },
+      architectureAxisWired: axisWired,
     },
   })
 const realPair = compareArmReports({ baseline: realArm('vanilla'), candidate: realArm('basic') })
-assert.equal(realPair.valid, true, `laporan nyata harus bisa dibandingkan (reason=${realPair.reason})`)
 assert.deepEqual(realPair.unverifiable, [], 'tidak boleh ada dimensi kontrak yang tidak terekam')
 for (const dimension of ARM_COMPARISON_DIMENSIONS) {
   assert.ok(
@@ -609,6 +620,14 @@ for (const dimension of ARM_COMPARISON_DIMENSIONS) {
     `dimensi kontrak ${dimension.contract} wajib benar-benar dibandingkan`
   )
 }
+// Hari ini perbandingan TETAP tidak valid: harness belum mengeksekusi sumbu arch
+// (ARCH_AXIS_IN_BENCH_PATH = false), jadi kedua arm akan berjalan identik.
+assert.equal(realPair.valid, false, 'sumbu arch yang belum tersambung tidak boleh jadi A/B valid')
+assert.equal(realPair.reason, 'architecture-not-executed-by-harness')
+// Tidak ada jalan buntu: begitu sumbu arch disambungkan, konfigurasi yang sama
+// menghasilkan perbandingan valid tanpa perubahan lain.
+const wiredPair = compareArmReports({ baseline: realArm('vanilla', true), candidate: realArm('basic', true) })
+assert.equal(wiredPair.valid, true, `setelah sumbu arch dijalankan laporan nyata harus valid (reason=${wiredPair.reason})`)
 console.log('[ok] PR46 evidence + metrik per-run + laporan pengukuran')
 
 // Fixture seeding + oracle dunia (tanpa LLM).

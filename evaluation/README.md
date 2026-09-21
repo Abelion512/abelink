@@ -109,10 +109,22 @@ Eksperimen yang didukung kode:
      `verifier`, plus jumlah run berulang. Dimensi yang tidak terekam di salah
      satu arm dilaporkan sebagai `unverifiable` dan perbandingan tetap TIDAK
      valid (`dimension-unverifiable`) — "tidak diperiksa" bukan "cocok";
-  3. `architecture` benar-benar berbeda.
+  3. `architecture` benar-benar berbeda; DAN
+  4. kedua arm merekam `identity.architectureAxisWired: true`.
 
   Alasannya selalu eksplisit: `arms-incomplete` / `arm-not-measured` /
-  `dimension-unverifiable` / `identity-mismatch` / `same-architecture`.
+  `dimension-unverifiable` / `architecture-not-executed-by-harness` /
+  `identity-mismatch` / `same-architecture`.
+
+  **Status hari ini: Eksperimen A deferred.** `evaluation/abelink-adapter.mjs`
+  menggerakkan sidecar langsung (loop ReAct minimal miliknya), sementara yang
+  seharusnya dibandingkan (trajectory supervisor + verification gate) hanya hidup
+  di kode renderer; tidak ada berkas di `sidecar/` yang membaca
+  `ABELINK_BENCH_ARCH`. Jadi `--arch vanilla` dan `--arch basic` akan berjalan
+  identik, dan harness menolaknya lewat `ARCH_AXIS_IN_BENCH_PATH = false` ->
+  `architecture-not-executed-by-harness` alih-alih melaporkan perbandingan
+  palsu. Menyambungkan sumbu arch = perubahan terpisah yang menyentuh runtime,
+  bukan lapisan pengukuran ini.
 
   Dimensi ditulis saat run (`--permissions` misalnya punya default
   `bench-default`), bukan disimpulkan belakangan. `vanilla` = kontrol arsitektur

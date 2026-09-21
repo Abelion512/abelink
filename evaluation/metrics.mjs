@@ -263,6 +263,9 @@ export function buildMeasurementReport({ runs = [], config = {} } = {}) {
       permissions: config.permissions || null,
       fixtureSet: config.fixtureSet || null,
       budget: config.budget ?? null,
+      // Whether the harness actually executes the architecture axis it compares.
+      // null = unknown (not claimed); compareArmReports() requires explicit true.
+      architectureAxisWired: config.architectureAxisWired ?? null,
       verifier: config.verifier || 'deterministic-world-state-predicate',
       environment: config.environment || 'local',
     },

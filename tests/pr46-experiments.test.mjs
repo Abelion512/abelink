@@ -119,6 +119,7 @@ describe('compareArmReports (measured arms only)', () => {
         verifier: 'deterministic-world-state-predicate',
         environment: 'local',
         architecture: 'vanilla',
+        architectureAxisWired: true,
         ...identityOver,
       },
     }
@@ -182,6 +183,27 @@ describe('compareArmReports (measured arms only)', () => {
     const result = compareArmReports({ baseline: arm(), candidate: arm({ identity: { architecture: 'basic' } }) })
     for (const dimension of ARM_COMPARISON_DIMENSIONS) expect(result.checked).toContain(dimension.contract)
     expect(result.executions).toEqual({ baseline: 3, candidate: 3 })
+    expect(result.axisWired).toBe(true)
+  })
+
+  it('invalid when the harness does not execute the axis it is comparing', () => {
+    const result = compareArmReports({
+      baseline: arm({ identity: { architectureAxisWired: false } }),
+      candidate: arm({ identity: { architecture: 'basic', architectureAxisWired: false } }),
+    })
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('architecture-not-executed-by-harness')
+    expect(result.axisWired).toBe(false)
+    expect(result.mismatches).toEqual([])
+  })
+
+  it('never infers the axis flag: an unrecorded value is refused too', () => {
+    const result = compareArmReports({
+      baseline: arm({ identity: { architectureAxisWired: null } }),
+      candidate: arm({ identity: { architecture: 'basic' } }),
+    })
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('architecture-not-executed-by-harness')
   })
 
   it('invalid when a non-model dimension drifts (prompt, protocol, permissions, budget)', () => {

@@ -147,6 +147,28 @@ Sinkronisasi dokumentasi setelah ronde 2 (tanpa perubahan kode): `PROJECT-STATUS
 `4c1ae05`, kedua ronde patch sudah di-push), dan baris Eksperimen A di
 `docs/PLANNED/2026-09-21_agent-benchmark-matrix.md`.
 
+## Ronde ketiga (guard sumbu arsitektur) + keputusan hybrid
+
+Verifikasi lintas-kode menemukan satu cacat lagi, satu lapis lebih dalam dari
+Blocker 1 ronde pertama.
+
+| Temuan | Bukti | Fix |
+|---|---|---|
+| Sumbu `--arch` (vanilla vs basic) belum nyata di jalur benchmark — masih label | `grep -rn ABELINK_BENCH_ARCH sidecar/` = 0 hit; `currentBenchArch()` hanya dipakai `src/hooks/agent/useAbelinkPlan.js` + `src/api/subagent/subagentExecutor.js` (renderer); adapter benchmark hanya mengekspor env + mencatatnya di `meta`, tanpa cabang logika di loop-nya (`ai:fetch` + `native-tool:execute`) | `evaluation/abelink-adapter.mjs` mendeklarasikan `ARCH_AXIS_IN_BENCH_PATH = false`; nilainya direkam sebagai `identity.architectureAxisWired`; `compareArmReports()` menolak menyatakan valid selama belum `true` eksplisit di kedua arm (`architecture-not-executed-by-harness`). Audit dimensi tetap dijalankan supaya `checked`/`unverifiable` tetap terbaca. |
+
+Konsekuensinya: **Eksperimen A deferred**, bukan dijalankan dengan angka palsu.
+`vanilla` vs `basic` di harness ini akan menghasilkan dua arm identik, jadi
+menjalankannya sekarang = melaporkan eksperimen yang tidak pernah terjadi.
+
+Keputusan owner (hybrid): pasang guard mini di PR #46 + dokumentasikan deferred,
+merge PR #46, lalu lanjut ke PR #47 untuk wiring sumbu arch yang nyata
+(menyentuh runtime/boundary, bukan lapisan pengukuran).
+
+Catatan proses: assertion smoke yang baru menangkap bug di guard itu sendiri —
+penolakan sumbu sempat ditempatkan SEBELUM perbandingan dimensi sehingga
+`checked` kosong; urutan diperbaiki (mismatch → unverifiable → axis → arch sama)
+dan `axisWired` dikembalikan sebagai nilai terhitung, bukan konstanta.
+
 ## Langkah aman berikutnya
 
 1. Jalankan `run.mjs --suite pr46 --runs 3` pada baseline `main` dan kandidat

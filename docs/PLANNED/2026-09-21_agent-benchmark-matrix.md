@@ -279,6 +279,25 @@ Deviasi yang didokumentasikan (bukan disembunyikan):
 - **Belum ada hasil terukur.** Dokumen ini dan PR #46 tidak mengklaim bahwa PR #45
   meningkatkan reliabilitas runtime; klaim semacam itu hanya sah setelah
   perbandingan dua arm pada provider nyata dijalankan dan dilaporkan.
+- **Sumbu arsitektur (`--arch`) BELUM dieksekusi harness benchmark.** Adapter
+  benchmark menggerakkan sidecar langsung (`ai:fetch` + `native-tool:execute`)
+  dengan loop ReAct minimalnya sendiri. Arsitektur yang seharusnya dibandingkan
+  (trajectory supervisor + verification gate) hidup di kode renderer
+  (`src/hooks/agent/useAbelinkPlan.js`, `src/api/subagent/subagentExecutor.js`),
+  dan tidak ada berkas di `sidecar/` yang membaca `ABELINK_BENCH_ARCH`. Artinya
+  `--arch vanilla` dan `--arch basic` berjalan IDENTIK di harness ini.
+
+  Karena itu `evaluation/abelink-adapter.mjs` mendeklarasikan
+  `ARCH_AXIS_IN_BENCH_PATH = false`; nilainya direkam sebagai
+  `identity.architectureAxisWired` dan `compareArmReports()` menolak menyatakan
+  perbandingan valid selama flag itu belum `true` (reason
+  `architecture-not-executed-by-harness`, memerlukan `true` eksplisit pada kedua
+  arm — tidak pernah disimpulkan). Eksperimen A via `run.mjs` karenanya
+  **deferred**, bukan dijalankan dengan angka palsu.
+
+  Menyambungkannya = perubahan terpisah (wiring batas ABELINK nyata
+  `startRun`/`sendPrompt`/`endRun`/`abortRun` ataupun jalur orkestrasi di sisi
+  engine) dan menyentuh runtime, bukan lapisan pengukuran.
 - **Token cost & intervensi manusia** `null`/`available:false` (tidak ada kanal).
   `repeatActionRate` dilaporkan apa adanya; `unnecessaryActionRate` tetap `null`
   sampai ada instrumentasi yang membedakannya dari pengulangan yang sah.

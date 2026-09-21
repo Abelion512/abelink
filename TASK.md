@@ -5,14 +5,17 @@
 ## Status terakhir (2026-09-20)
 
 - `main` @ `9f8ffdb` = PR #45 (general agentic runtime) SUDAH merged.
-- **PR #46** (`feat/typed-evidence-plane-agent-benchmark-matrix`, head
-  `4c1ae05`) = measurement plane AbelinkBench + matriks 30 fixture, dibuka dari
-  `main` (BUKAN dari head PR #45). Dua ronde review sudah dipatch dan di-push;
-  status review terakhir: dua blocker + cacat pengukuran ronde 1 beres, cacat
-  validitas ronde 2 (dimensi perbandingan + arm wajib terukur) juga beres.
-- Rincian kedua ronde: `docs/PLANNED/sessions/2026-09-21_pr46-measurement-plane.md`.
-- Gate lokal sesi patch terakhir: vitest 126 file / 1292 pass, lint 0 error,
+- **PR #46** (branch `feat/typed-evidence-plane-agent-benchmark-matrix`) sudah
+  **merged ke `main`**: measurement plane AbelinkBench + matriks 30 fixture, dan
+  tiga ronde patch review (ablasi representasi + eksperimen A, cacat validitas
+  pengukuran, lalu guard sumbu arsitektur).
+- Rincian ketiga ronde: `docs/PLANNED/sessions/2026-09-21_pr46-measurement-plane.md`.
+- Gate lokal sesi patch terakhir: vitest 126 file / 1294 pass, lint 0 error,
   build OK, `node evaluation/smoke.mjs` LOLOS. Rust tidak disentuh.
+- **Eksperimen A masih deferred:** sumbu `--arch` belum dieksekusi harness
+  benchmark (`ARCH_AXIS_IN_BENCH_PATH = false` di `evaluation/abelink-adapter.mjs`),
+  jadi `vanilla` vs `basic` akan berjalan identik. Jangan jalankan A/B arch dan
+  jangan laporkan angkanya sampai sumbu itu tersambung.
 
 ## Menunggu keputusan owner (jangan dikerjakan tanpa jawaban)
 
@@ -32,9 +35,12 @@
 
 ## Topik berikutnya (pilih SATU)
 
-1. Jalankan perbandingan dua arm PR #46 pada provider nyata: `--arch vanilla`
-   lalu `--arch basic` + `--baseline-report`, laporkan
-   `report.measurement` (pass rate, verified-success, recovery, latency).
+1. **PR #47 — wiring sumbu arsitektur untuk nyata.** Bench harus benar-benar
+   mengeksekusi arsitektur yang dibandingkan (jalur boundary ABELINK nyata:
+   `startRun`/`sendPrompt`/`endRun`/`abortRun` di `evaluation/bench/boundary-spec.mjs`,
+   atau jalur orkestrasi sisi engine dengan supervisor + verification gate).
+   Setelah itu `ARCH_AXIS_IN_BENCH_PATH` boleh jadi `true` dan eksperimen A baru
+   sah dijalankan. Menyentuh runtime — butuh desain + PR sendiri.
 2. Pass cleanup terpisah (branch sendiri, JANGAN campur PR #46) — kandidat
    terverifikasi unreferenced: `src/api/ai/chatSummarizer.js` (masih
    didokumentasikan di AGENTS.md), `src/api/updateChecker.js`,

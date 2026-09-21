@@ -23,7 +23,7 @@
 
 ## Kesehatan terakhir (terverifikasi 2026-09-20, sesi patch PR #46)
 
-- Full suite: 126 file test, 1292 test pass, 0 fail (`bunx vitest run`).
+- Full suite: 126 file test, 1294 test pass, 0 fail (`bunx vitest run`).
 - Lint: `bun run lint` exit 0 — 0 error, 1004 warning (tech debt terdaftar,
   bukan kegagalan gate).
 - Build renderer: `bun run build` (vite) sukses.
@@ -57,8 +57,14 @@
 
 ## Langkah berikut
 
-1. Jalankan perbandingan dua arm pada provider nyata (baseline `--arch vanilla`
-   vs kandidat `--arch basic`) pada matriks PR #46, lalu laporkan hasilnya.
+1. **Sambungkan sumbu arsitektur ke jalur eksekusi benchmark.** Harness saat ini
+   menggerakkan sidecar langsung, sementara supervisor + verification gate hanya
+   ada di renderer, jadi `--arch vanilla` dan `--arch basic` berjalan identik di
+   sana. Sampai itu tersambung, eksperimen arsitektur A/B tetap deferred dan
+   harness menolak melaporkannya sebagai valid (`ARCH_AXIS_IN_BENCH_PATH = false`
+   -> `architecture-not-executed-by-harness`).
+2. Jalankan perbandingan dua arm pada provider nyata (baseline `--arch vanilla`
+   vs kandidat `--arch basic`) setelah nomor 1 selesai, lalu laporkan hasilnya.
 2. Ekspos verdict `objectiveVerifier` runtime ke adapter benchmark agar
    verified-success juga bisa berasal dari runtime (perubahan kecil terpisah).
 3. Boundary ABELINK nyata (`startRun`/`sendPrompt`/`endRun`/`abortRun`) agar
