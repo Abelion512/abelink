@@ -25,9 +25,15 @@ mulai bekerja di repo ini:
     memori bertingkat, tool gateway); acuan perancangan, bukan keadaan jalan.
 11. `../evaluation/bench/README.md` — benchmark arsitektur: kontrak trajectory,
     katalog probe, boundary execution, cara run.
-8. `REFERENCE-LIBRARY.md` — peta referensi eksternal (ATM) dengan prinsip
-   load-when-needed: repo mana dibuka saat fase mana, kolom status pemakaian,
-   dan filter privacy-first untuk skill/agent referensi.
+12. `PLANNED/2026-09-21_agent-benchmark-matrix.md` — kontrak benchmark PR #45 →
+    PR #46: inventory benchmark yang sudah ada, matriks 30 fixture, eksperimen
+    berpasangan (baseline vs kandidat, ablasi representasi, kompatibilitas
+    model), field report, dan aturan anti-cheat. Pasangannya:
+    `PLANNED/2026-09-21_runtime-standards-adaptation.md` (standar runtime yang
+    diadopsi dari referensi primer + mode adopsi).
+13. `REFERENCE-LIBRARY.md` — peta referensi eksternal (ATM) dengan prinsip
+    load-when-needed: repo mana dibuka saat fase mana, kolom status pemakaian,
+    dan filter privacy-first untuk skill/agent referensi.
 
 ## Konvensi cepat
 

@@ -4,7 +4,7 @@ import path from 'node:path'
 import { normalizeAbelinkId } from '../browser/bridge-core.mjs'
 import { getWorkspaceDir } from './_shared.mjs'
 import { assertContained } from '../utils/fsGuard.js'
-import { formatBrowserObservation } from '../../../extension/browser-observation.mjs'
+import { renderBrowserObservation, resolveObservationRepresentation } from '../../../extension/browser-observation.mjs'
 
 // Extension-first untuk tool browser: coba browser fisik bila ADA sesi yang
 // terhubung (preferensi 'default'), kembalikan null agar caller fallback ke
@@ -494,7 +494,15 @@ export const browserTools = {
         // Jika query kosong atau tidak ada URL, coba baca DOM tab aktif browser fisik via ekstensi
         const ext = await tryExtensionReadDom(targetSession)
         if (ext) {
-          return { success: true, data: formatBrowserObservation(ext.data), via: 'extension' }
+          // PR46 representation switch: ABELINK_BROWSER_OBSERVATION = raw |
+          // semantic-first (default). Unset env keeps prior behavior.
+          const representation = resolveObservationRepresentation(process.env.ABELINK_BROWSER_OBSERVATION)
+          return {
+            success: true,
+            data: renderBrowserObservation(ext.data, { representation }),
+            via: 'extension',
+            representation
+          }
         }
 
         // Jika bukan URL dan ada teks query, coba fetch
