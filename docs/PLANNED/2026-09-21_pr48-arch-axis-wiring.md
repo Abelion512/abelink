@@ -1,4 +1,8 @@
-# PR #47 — Wiring the architecture axis into the benchmark execution path
+# PR #48 — Wiring the architecture axis into the benchmark execution path
+
+> Catatan penomoran: permintaan awal menyebut "PR #47", tetapi nomor itu sudah
+> dipakai pekerjaan lain milik owner (`fix/local-restore-20260920`). PR ini
+> terdaftar sebagai **#48**.
 
 Status: **design / plan**. No runtime change in this document's commit.
 Prasyarat: PR #46 sudah merged ke `main` (`b61d7e1`).
