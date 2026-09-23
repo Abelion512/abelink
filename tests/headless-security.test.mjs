@@ -182,8 +182,16 @@ describe('headlessSecurity - fail-closed security preflight', () => {
         const res = validateHeadlessPath(p, workspaceRoot)
         expect(res.allowed).toBe(false)
         expect(res.code).toBe('unavailable-in-headless-mode')
-        expect(['approval-required', 'containment']).toContain(res.category)
+        expect(['approval-required', 'containment', 'self-target']).toContain(res.category)
       }
+    })
+
+    it('self-target message jujur + saran workspace (bukan "sensitif" generik)', () => {
+      const res = validateHeadlessPath('index.html', '/media/abelion/Isaf/ican/project/abelink')
+      expect(res.allowed).toBe(false)
+      expect(res.category).toBe('self-target')
+      expect(res.message).toMatch(/direktori Abelink sendiri/)
+      expect(res.message).toMatch(/--workspace/)
     })
 
     it('blocks path traversal escaping workspaceRoot', () => {

@@ -238,7 +238,23 @@ export function validateHeadlessPath(filePath = '', workspaceRoot = null) {
   const lowerResolved = resolvedPath.toLowerCase()
   const lowerOriginal = p.toLowerCase()
 
-  // Markers that should match filenames or paths
+  // Markers that should match filenames or paths.
+  // Bedakan DUA sebab agar pesan jujur (bukan "sensitif" untuk semuanya):
+  //  - self-target: file di dalam direktori Abelink sendiri (repo, data home,
+  //    workspace, skills, .abelink) — agen melindungi dirinya sendiri.
+  //    SEGMENT-match (bukan substring) agar /tmp/abelink-test-workspace
+  //    TIDAK kena marker /abelink, /workspace, dst.
+  //  - sensitive: secrets/kredensial/system (ssh, env, rc, /etc) — tetap
+  //    substring agar pola seperti ~/.ssh dan config/.env.local tertangkap.
+  const segMatch = (hay, seg) => {
+    const s = String(seg).replace(/^\/+|\/+$/g, '')
+    if (!s) return false
+    return hay === s || hay.startsWith(s + '/') || hay.includes('/' + s + '/') || hay.endsWith('/' + s)
+  }
+  const SELF_SEGS = ['abelink', 'abelink-dev', '.abelink', 'skills', 'workspace', '.local/share']
+  const isSelfTarget = SELF_SEGS.some(
+    (m) => filename === m || filename.startsWith(m) || segMatch(lowerResolved, m) || segMatch(lowerOriginal, m)
+  )
   const isSensitive = SENSITIVE_TARGET_MARKERS.some((marker) => {
     const m = marker.toLowerCase()
     if (m === '/abelink') {
@@ -254,6 +270,17 @@ export function validateHeadlessPath(filePath = '', workspaceRoot = null) {
   })
 
   if (isSensitive) {
+    // Pesan jujur per sebab (bukan "sensitif" generik):
+    // self-target -> sarankan --workspace di luar repo/data Abelink;
+    // sensitif beneran -> butuh --deny-all? tidak — tetap butuh manusia.
+    if (isSelfTarget) {
+      return {
+        allowed: false,
+        code: 'unavailable-in-headless-mode',
+        category: 'self-target',
+        message: `Aksi menyentuh direktori Abelink sendiri (${p}) — agen melindungi dirinya sendiri. Jalankan dengan --workspace di luar repo/data Abelink (mis. /tmp/kerja).`
+      }
+    }
     return {
       allowed: false,
       code: 'unavailable-in-headless-mode',
