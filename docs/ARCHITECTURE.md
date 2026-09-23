@@ -224,13 +224,13 @@ Secondary material is for discovery. Implementation decisions should be traceabl
     plus jumlah run berulang, sebelum menyatakan `valid` bila `architecture`
     berbeda. Tidak ada dimensi yang boleh diam-diam dilewati.
     `vanilla` = kontrol arsitektur dimatikan pada runtime yang sama (bukan
-    snapshot historis pre-PR45); `basic` = runtime PR45. **Catatan penting:**
-    harness benchmark belum MENGEKSEKUSI sumbu itu — adapter menggerakkan
-    sidecar langsung, sementara supervisor + verification gate hanya ada di
-    renderer. `ARCH_AXIS_IN_BENCH_PATH = false` (adapter) direkam sebagai
-    `identity.architectureAxisWired`, dan perbandingan ditolak dengan
-    `architecture-not-executed-by-harness` sampai flag itu `true`. Eksperimen A
-    via `run.mjs` karena itu deferred, bukan dijalankan dengan angka palsu.
+    snapshot historis pre-PR45); `basic` = runtime PR45. **Status Task 6:**
+    harness benchmark MENGEKSEKUSI sumbu itu — loop bench menghormati
+    `getArchPolicy` dan menjalankan modul governance asli (supervisor +
+    verify gate). `ARCH_AXIS_IN_BENCH_PATH = true` direkam sebagai
+    `identity.architectureAxisWired`, dan `compareArmReports()` menerima dua
+    arm terukur sebagai valid (`both-arms-present`). Batas: loop bench bukan
+    loop renderer — hasil = "modul governance asli pada loop bench".
   - **Ablasi representasi nyata:** `representation` fixture diteruskan ke
     execution path (`ABELINK_BROWSER_OBSERVATION` → `renderBrowserObservation()`
     di `extension/browser-observation.mjs`, dipakai

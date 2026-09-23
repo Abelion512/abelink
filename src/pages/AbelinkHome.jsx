@@ -65,16 +65,16 @@ const AbelinkHome = () => {
   const safeContext = chatContext ?? {}
   const {
     chatData = [],
-    setChatData,
+    setChatData = () => {},
     message,
-    setMessage,
+    setMessage = () => {},
     isLoading,
     isAgentBusy,
     isSpeak,
-    setIsSpeak,
+    setIsSpeak = () => {},
     handlePlanningCommand,
-    orbStatus,
-    setOrbStatus,
+    orbStatus = 'idle',
+    setOrbStatus = () => {},
     notifications,
     activeProcesses,
     dismissProcess,
@@ -265,10 +265,12 @@ const AbelinkHome = () => {
   useEffect(() => {
     const handleTtsIntensity = (e) => {
       setTtsIntensity(e.detail || 0)
-      if (window.isAbelinkSpeaking) {
-        setOrbStatus('speaking')
-      } else {
-        setOrbStatus((prev) => (prev === 'speaking' ? 'idle' : prev))
+      if (typeof setOrbStatus === 'function') {
+        if (window.isAbelinkSpeaking) {
+          setOrbStatus('speaking')
+        } else {
+          setOrbStatus((prev) => (prev === 'speaking' ? 'idle' : prev))
+        }
       }
     }
     window.addEventListener('abelink-intensity', handleTtsIntensity)

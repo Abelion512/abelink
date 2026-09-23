@@ -28,6 +28,7 @@ import {
 import { searchMemoriesInOrama } from '../../api/oramaStore'
 import { buildOptimizedChatSession, stripImageContent, stripDataUrls } from '../../api/ai/contextCompactor'
 import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
+import { getArchPolicy, archTerminalReason } from '../../api/ai/archPolicy'
 import { classifyMainDecision, INTENT, isExplicitSelfTerminate, shouldChallengeBlocked, BLOCKED_CHALLENGE_TEXT } from '../../api/ai/agentDecision'
 import { createCircuitBreaker } from '../../api/ai/circuitBreaker'
 import { createTrajectorySupervisor } from '../../api/ai/trajectorySupervisor'
@@ -773,9 +774,9 @@ export const useAbelinkPlan = ({
       // Bench arch axis (ABELINK_BENCH_ARCH, default basic): vanilla = model-only
       // (no supervisor, no verify-gate replan); basic = thin supervisor
       // (trajectory log + stagnation ladder). Production default basic.
-      const benchArch = currentBenchArch()
+      const archPolicy = getArchPolicy(currentBenchArch())
       const supervisor =
-        benchArch === 'vanilla' || objectiveKind === 'conversational' || opts.disableTools
+        !archPolicy.supervisorEnabled || objectiveKind === 'conversational' || opts.disableTools
           ? null
           : createTrajectorySupervisor()
       let pendingSupervisorHint = null
@@ -1347,8 +1348,8 @@ export const useAbelinkPlan = ({
                 })
                 // vanilla skips the verify-gate: the model-only baseline trusts
                 // its own completion claim (A/B control arm, bench-only path).
-                if (gate.complete || benchArch === 'vanilla') {
-                  lastTerminalReason = `${classification.reason || 'explicit-done'}+verify:${benchArch === 'vanilla' ? 'skipped-vanilla' : gate.reason}`
+                if (gate.complete || !archPolicy.verifyGateEnabled) {
+                  lastTerminalReason = `${classification.reason || 'explicit-done'}+${archTerminalReason(archPolicy, gate.reason)}`
                   return true
                 }
                 if (gate.replan && verifyReplanCount < MAX_VERIFY_REPLANS) {

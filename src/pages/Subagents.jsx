@@ -116,13 +116,13 @@ export default function Subagents() {
       {/* Main Content Area */}
       <div className="relative z-10 w-full h-full overflow-hidden flex flex-col">
         {/* Page Header with Safe Area Gutter */}
-        <div className="h-14 pl-16 pr-28 border-b border-white/10 flex items-center justify-between bg-[#1c1c1e]/80 backdrop-blur-xl shrink-0 z-30 select-none">
+        <div data-tauri-drag-region="" className="h-14 pl-16 pr-28 flex items-center justify-between bg-[#1c1c1e]/60 backdrop-blur-xl shrink-0 z-30 select-none">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2.5">
               <h1 className="text-sm font-semibold text-white tracking-wide">Sub-Agents</h1>
               <span className="text-xs text-white/40 font-mono tracking-wide">/ Mission Control</span>
               {activeCount > 0 && (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-[#0a84ff]/15 text-[#0a84ff] border border-[#0a84ff]/30">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-[#0a84ff]/15 text-[#0a84ff]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#0a84ff] animate-pulse" />
                   {activeCount} aktif
                 </span>
@@ -130,9 +130,9 @@ export default function Subagents() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 pointer-events-auto" style={{ WebkitAppRegion: 'no-drag' }}>
+          <div className="flex items-center gap-2.5 pointer-events-auto" data-no-drag="">
             {/* View Mode Toggle: Topologi vs Intercom */}
-            <div className="flex items-center p-0.5 bg-white/5 rounded-full border border-white/10 text-xs">
+            <div className="flex items-center p-0.5 bg-white/5 rounded-full text-xs">
               <button
                 type="button"
                 onClick={() => setViewMode('topology')}
@@ -187,10 +187,10 @@ export default function Subagents() {
           ) : (
             <>
               {/* Left Panel: Clean Agent List */}
-              <div className="w-80 flex flex-col bg-[#1c1c1e]/40 border-r border-white/10 overflow-hidden flex-none">
+              <div className="w-80 flex flex-col bg-[#1c1c1e]/30 overflow-hidden flex-none">
                 {/* Filter Tabs */}
-                <div className="p-3 border-b border-white/10">
-                  <div className="flex gap-1 p-0.5 bg-black/40 rounded-xl w-full border border-white/5">
+                <div className="p-3">
+                  <div className="flex gap-1 p-0.5 bg-black/40 rounded-xl w-full">
                       <button
                         type="button"
                         onClick={() => setFilterStatus('all')}
