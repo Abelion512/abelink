@@ -75,7 +75,8 @@ export const fetchAI = async (
       try {
         releaseTokenEarly?.()
       } catch (_) {}
-      if (window.api && window.api.abortFetchAI) window.api.abortFetchAI()
+      const api = (typeof window !== 'undefined' && window.api) || globalThis.__ABELINK_API__ || null
+      if (api && api.abortFetchAI) api.abortFetchAI()
       const err = new Error('AbortError')
       err.name = 'AbortError'
       reject(err)
@@ -121,10 +122,11 @@ export const fetchAI = async (
 
     // Stream opt-in: pasang listener ai:token hanya bila onToken ada;
     // dilepas saat resolve/reject/abort agar tidak bocor antar giliran.
+    const api = (typeof window !== 'undefined' && window.api) || globalThis.__ABELINK_API__ || null
     let unlistenToken = null
-    if (onToken && window.api?.onAiToken) {
+    if (onToken && api?.onAiToken) {
       try {
-        unlistenToken = window.api.onAiToken((chunk) => {
+        unlistenToken = api.onAiToken((chunk) => {
           try {
             onToken(chunk)
           } catch (_) {}
@@ -141,14 +143,21 @@ export const fetchAI = async (
     }
     releaseTokenEarly = releaseToken
 
-    window.api
-      .fetchAI({
-        messages: safeMessages,
-        config: conf,
-        isSmallTask: smallTask,
-        jsonSchema: schema,
-        stream: !!onToken
-      })
+    const fetchTransport = api?.fetchAI || globalThis.__ABELINK_AI_FETCH__
+    if (!fetchTransport) {
+      hasResolved = true
+      releaseToken()
+      reject(new Error('AI transport tidak tersedia (window.api.fetchAI dan __ABELINK_AI_FETCH__ tidak terpasang).'))
+      return
+    }
+
+    fetchTransport({
+      messages: safeMessages,
+      config: conf,
+      isSmallTask: smallTask,
+      jsonSchema: schema,
+      stream: !!onToken
+    })
       .then((result) => {
         if (hasResolved) return
         hasResolved = true

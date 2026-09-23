@@ -38,6 +38,7 @@ export const EVIDENCE_SOURCES = Object.freeze({
   DECISION: 'model-decision',
   WORLD: 'world-artifact',
   ORACLE: 'task-oracle',
+  GOVERNANCE: 'governance', // verify-gate + trajectory-supervisor stages
 })
 
 export const MAX_OBSERVATION_CHARS = 800
@@ -225,6 +226,19 @@ export function evidenceFromRun({
           source: EVIDENCE_SOURCES.TOOL,
         })
       }
+    } else if (entry?.kind === 'verify' || entry?.kind === 'supervisor') {
+      // Governance stages (Task 5): the verify gate + supervisor hints the
+      // bench loop injects. Kept as records with GOVERNANCE provenance so
+      // they are auditable and countable, never silently dropped.
+      push({
+        step: entry.step,
+        tool: entry.kind === 'verify' ? 'objective-verifier' : 'trajectory-supervisor',
+        query: '',
+        action: entry.kind,
+        status: EVIDENCE_STATUS.NOT_EXECUTED,
+        observation: entry.observation || '',
+        source: EVIDENCE_SOURCES.GOVERNANCE,
+      })
     } else if (entry?.response) {
       push({
         step: entry.step,
@@ -278,6 +292,8 @@ export function summarizeEvidence(records = []) {
   const failures = list.filter((r) => r.status === EVIDENCE_STATUS.FAILED).length
   const negatives = list.filter((r) => r.status === EVIDENCE_STATUS.NEGATIVE).length
   const sources = [...new Set(list.map((r) => r.source))]
+  // Governance stages (Task 5): how often the verify gate + supervisor fired.
+  const governance = list.filter((r) => r.source === EVIDENCE_SOURCES.GOVERNANCE)
   return {
     count: list.length,
     toolCalls: toolRecords.length,
@@ -287,6 +303,8 @@ export function summarizeEvidence(records = []) {
     repeatedActions: list.filter((r) => r.repeated).length,
     stagnationEvents: list.filter((r) => r.stagnant).length,
     recoveryEvents: list.filter((r) => r.recovery).length,
+    verifyStages: governance.filter((r) => r.action === 'verify').length,
+    supervisorHints: governance.filter((r) => r.action === 'supervisor').length,
     sources,
     tools: [...new Set(toolRecords.map((r) => r.tool))],
   }

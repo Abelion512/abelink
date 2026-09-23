@@ -677,36 +677,43 @@ export function installTauriBridge() {
     return
   }
 
+  api.startResizeDragging = (direction) => {
+    return window.__TAURI_INTERNALS__?.invoke('plugin:window|start_resize_dragging', { direction })
+  }
+
   window.api = api
   window.electron = undefined
 
-  // Frameless drag: konversi style -webkit-app-region: drag -> data-tauri-drag-region
-  const upgrade = (root) =>
+  // Frameless drag & resize: Event delegation di tingkat document agar
+  // SEMUA halaman dan rute otomatis bisa di-drag tanpa terputus lifecycle SPA.
+  document.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return
+    // Elemen interaktif DILARANG memicu drag agar click, focus, dan selection selalu tembus
+    if (e.target.closest('button, input, textarea, a, select, [role="button"], .no-drag, [data-no-drag], [style*="no-drag"]')) {
+      return
+    }
+    const dragEl = e.target.closest('[data-tauri-drag-region]')
+    if (dragEl) {
+      window.__TAURI_INTERNALS__?.invoke('plugin:window|start_dragging')
+    }
+  })
+
+  const upgrade = (root) => {
+    if (!root?.querySelectorAll) return
     root
-      .querySelectorAll?.('[style*="-webkit-app-region: drag"], [style*="-webkit-app-region:drag"]')
+      .querySelectorAll('[style*="-webkit-app-region: drag"], [style*="-webkit-app-region:drag"]')
       .forEach((el) => {
         el.removeAttribute('style')
         el.setAttribute('data-tauri-drag-region', '')
         el.style.setProperty('-webkit-app-region', 'no-drag')
       })
-  const mo = new MutationObserver((mutations) => {
-    if (!mutations.some((m) => Array.from(m.addedNodes).some((n) => n.nodeType === 1))) return
-    document.querySelectorAll('[data-tauri-drag-region]').forEach((el) => {
-      if (!el.dataset.dragWired) {
-        el.dataset.dragWired = '1'
-        el.addEventListener('mousedown', (e) => {
-          if (e.button !== 0 || e.target.closest('button, input, textarea, a')) return
-          window.__TAURI_INTERNALS__.invoke('plugin:window|start_dragging')
-        })
-      }
-    })
+  }
+
+  if (document.body) {
     upgrade(document.body)
-    if (!document.querySelector('[data-tauri-drag-region]:not([data-drag-wired])')) mo.disconnect()
-  })
-  document.addEventListener('DOMContentLoaded', () => {
-    upgrade(document.body)
-    mo.observe(document.body, { childList: true, subtree: true })
-  })
+  } else {
+    document.addEventListener('DOMContentLoaded', () => upgrade(document.body))
+  }
 }
 
 installTauriBridge()

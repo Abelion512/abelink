@@ -57,12 +57,11 @@
 
 ## Langkah berikut
 
-1. **Sambungkan sumbu arsitektur ke jalur eksekusi benchmark.** Harness saat ini
-   menggerakkan sidecar langsung, sementara supervisor + verification gate hanya
-   ada di renderer, jadi `--arch vanilla` dan `--arch basic` berjalan identik di
-   sana. Sampai itu tersambung, eksperimen arsitektur A/B tetap deferred dan
-   harness menolak melaporkannya sebagai valid (`ARCH_AXIS_IN_BENCH_PATH = false`
-   -> `architecture-not-executed-by-harness`).
+1. **Sumbu arsitektur sudah dieksekusi harness (selesai di tree).** Loop bench
+   menghormati `getArchPolicy` dan menjalankan modul governance asli
+   (supervisor + verification gate); `ARCH_AXIS_IN_BENCH_PATH = true` direkam
+   sebagai `identity.architectureAxisWired`. Batas jujur: loop bench bukan loop
+   renderer — hasil berarti "modul governance asli pada loop bench".
 2. Jalankan perbandingan dua arm pada provider nyata (baseline `--arch vanilla`
    vs kandidat `--arch basic`) setelah nomor 1 selesai, lalu laporkan hasilnya.
 2. Ekspos verdict `objectiveVerifier` runtime ke adapter benchmark agar

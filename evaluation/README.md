@@ -116,15 +116,15 @@ Eksperimen yang didukung kode:
   `dimension-unverifiable` / `architecture-not-executed-by-harness` /
   `identity-mismatch` / `same-architecture`.
 
-  **Status hari ini: Eksperimen A deferred.** `evaluation/abelink-adapter.mjs`
-  menggerakkan sidecar langsung (loop ReAct minimal miliknya), sementara yang
-  seharusnya dibandingkan (trajectory supervisor + verification gate) hanya hidup
-  di kode renderer; tidak ada berkas di `sidecar/` yang membaca
-  `ABELINK_BENCH_ARCH`. Jadi `--arch vanilla` dan `--arch basic` akan berjalan
-  identik, dan harness menolaknya lewat `ARCH_AXIS_IN_BENCH_PATH = false` ->
-  `architecture-not-executed-by-harness` alih-alih melaporkan perbandingan
-  palsu. Menyambungkan sumbu arch = perubahan terpisah yang menyentuh runtime,
-  bukan lapisan pengukuran ini.
+  **Status hari ini: Eksperimen A WIRED (Task 6).** Loop bench menghormati
+  `getArchPolicy` dan menjalankan modul governance ASLI (`objectiveVerifier` +
+  `trajectorySupervisor`): `--arch vanilla` tanpa supervisor dan klaim
+  dipercaya, `--arch basic` dengan hint supervisor + verify replan bounded.
+  `ARCH_AXIS_IN_BENCH_PATH = true` direkam sebagai
+  `identity.architectureAxisWired`, dan `compareArmReports()` menerima
+  perbandingan dua arm terukur sebagai valid. Batas jujur: loop bench BUKAN
+  loop renderer (prompt assembly, memori, streaming, UI beda) — hasil berarti
+  "modul governance asli pada loop bench".
 
   Dimensi ditulis saat run (`--permissions` misalnya punya default
   `bench-default`), bukan disimpulkan belakangan. `vanilla` = kontrol arsitektur
