@@ -12,6 +12,15 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ARCH_VALUES, resolveBenchArch, currentBenchArch } from '../src/api/ai/benchArch.js'
+import { getArchPolicy } from '../src/api/ai/archPolicy.js'
+import {
+  classifyObjectiveKind,
+  evaluateEvidence,
+  gateCompletion,
+  buildReplanObservation,
+  MAX_VERIFY_REPLANS
+} from '../src/api/ai/objectiveVerifier.js'
+import { createTrajectorySupervisor } from '../src/api/ai/trajectorySupervisor.js'
 
 export { ARCH_VALUES, resolveBenchArch, currentBenchArch }
 
@@ -331,20 +340,22 @@ export const BENCH_PROMPT_TEMPLATE = 'bench-tool-preamble-v1'
 
 // Is the ABELINK_BENCH_ARCH axis actually EXECUTED by this harness?
 //
-// No. This adapter drives the sidecar directly (`ai:fetch` +
-// `native-tool:execute`) with its own minimal ReAct loop. The architecture an
-// A/B is supposed to compare - trajectory supervisor + verification gate -
-// lives in renderer code (`src/hooks/agent/useAbelinkPlan.js`,
-// `src/api/subagent/subagentExecutor.js`), and nothing under `sidecar/` reads
-// ABELINK_BENCH_ARCH. So `--arch vanilla` and `--arch basic` run IDENTICALLY
-// here: comparing them would compare two identical arms and call it an
-// experiment.
+// Yes (Task 6). This adapter drives the sidecar directly (`ai:fetch` +
+// `native-tool:execute`) with its own minimal ReAct loop, BUT the loop now
+// honors getArchPolicy and runs the REAL governance modules the renderer
+// uses (createTrajectorySupervisor, evaluateEvidence/gateCompletion/
+// buildReplanObservation). So `--arch vanilla` (no supervisor, claims
+// trusted) and `--arch basic` (supervisor hints + bounded verify replan)
+// run DIFFERENTLY here: the comparison is a real experiment.
+//
+// Honesty boundary (unchanged): the bench loop is NOT the renderer loop —
+// prompt assembly, memory, streaming, TTS, UI integration differ. Results
+// mean "the real governance modules mounted on the bench loop".
 //
 // The flag is recorded as `identity.architectureAxisWired`, and
-// `compareArmReports()` refuses to report a valid comparison while it is not
-// true. Wiring the axis into this execution path is deferred to its own change
-// (see the deferred section of docs/PLANNED/2026-09-21_agent-benchmark-matrix.md).
-export const ARCH_AXIS_IN_BENCH_PATH = false
+// `compareArmReports()` requires it true on both arms before reporting a
+// valid comparison.
+export const ARCH_AXIS_IN_BENCH_PATH = true
 
 export function toolPreamble(requiredTools = [], hint = {}) {
   const tools = (requiredTools || []).filter((t) => TOOL_ARG_DOCS[t])
@@ -422,7 +433,10 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
   })
   // Arch axis: vanilla = model-only, basic = thin supervisor. Default basic;
   // executor-side wiring reads the same env. `avo` dihapus 2026-09-12.
+  // The axis is EXECUTED here via getArchPolicy (Task 4): basic arms run the
+  // real trajectory supervisor + verification gate, vanilla trusts the claim.
   const arch = currentBenchArch()
+  const archPolicy = getArchPolicy(arch)
   const config = {
     aiProvider: provider || 'gemini-web',
     geminiWebModel: model || 'gemini-3.6-flash',
@@ -448,6 +462,18 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
   let response = ''
 
   const sidecar = createSidecar(arch, task?.representation || null)
+  // Governance modules (same ones the renderer uses): supervisor + verify
+  // gate, active only when the arch policy enables them (basic). Vanilla is
+  // the model-only control: no supervisor, claims trusted at first sight.
+  const objectiveKind = classifyObjectiveKind(task?.prompt || '')
+  const supervisor =
+    archPolicy.supervisorEnabled && objectiveKind !== 'conversational'
+      ? createTrajectorySupervisor()
+      : null
+  let verifyReplansUsed = 0
+  // Executed-tool evidence for the verify gate, in the shape evaluateEvidence
+  // consumes ({ tool, fullResult }).
+  const executedToolsEvidence = []
   try {
     // Turn budget: task.maxTurns menimpa default MAX_ITER (ala turn-limit
     // eval — MCP Atlas memakai limit 100 turn). Tidak ada loop tak terbatas.
@@ -475,7 +501,40 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
       stepLog.push({ step: steps, type: 'fetch', response: response.slice(0, 200) })
 
       const calls = parseToolCalls(response)
-      if (calls.length === 0) break
+      if (calls.length === 0) {
+        // Completion claim (no further tool calls): gate it against
+        // world-state evidence from the tools actually executed. Unproven
+        // claims get a bounded replan; vanilla trusts the claim (control).
+        const evidence = evaluateEvidence({
+          kind: objectiveKind,
+          objectiveText: task?.prompt || '',
+          answer: response,
+          tools: executedToolsEvidence,
+        })
+        const gate = gateCompletion({
+          modelClaimDone: true,
+          verification: evidence.state,
+          kind: evidence.kind,
+        })
+        pushTrace(trace, steps, 'verify', {
+          observation: `state=${evidence.state} kind=${evidence.kind} gate=${gate.reason}`,
+          response: '',
+        })
+        stepLog.push({
+          step: steps,
+          type: 'verify',
+          tool: 'objective-verifier',
+          result: `state=${evidence.state} gate=${gate.reason}`.slice(0, 200),
+          success: gate.complete,
+        })
+        if (archPolicy.verifyGateEnabled && !gate.complete && verifyReplansUsed < MAX_VERIFY_REPLANS) {
+          verifyReplansUsed++
+          const replan = buildReplanObservation(evidence)
+          messages.push({ role: 'tool', content: replan, toolName: 'objective-verifier' })
+          continue
+        }
+        break
+      }
 
       toolCalls += calls.length
 
@@ -511,6 +570,36 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
           result: toolText.slice(0, 200),
           success: toolOk,
         })
+        executedToolsEvidence.push({ tool: call.name, fullResult: toolText })
+        // Supervisor observes every tool execution; a fresh directive becomes
+        // the next observation so the model can adjust mid-loop. Recorded in
+        // the trace as kind 'supervisor' for audit (Task 5 shape, same loop).
+        if (supervisor) {
+          const verdict = supervisor.update({
+            tool: call.name,
+            query: toNativeQuery(call.name, call.arguments),
+            success: toolOk,
+            verificationState: null,
+            stepsLeft: null,
+            verifyGateActive: false,
+            observation: toolText,
+            result: toolText,
+          })
+          if (verdict?.hintText) {
+            messages.push({ role: 'tool', content: verdict.hintText, toolName: 'trajectory-supervisor' })
+            pushTrace(trace, steps, 'supervisor', {
+              observation: verdict.hintText,
+              response: '',
+            })
+            stepLog.push({
+              step: steps,
+              type: 'supervisor',
+              tool: 'trajectory-supervisor',
+              result: verdict.hintText.slice(0, 200),
+              success: true,
+            })
+          }
+        }
         // Normalized step: ABELINK-Eval reads toolCalls[].tool/query + observation
         // to score orchestration, recovery and termination correctness.
         pushTrace(trace, steps, 'tool', {

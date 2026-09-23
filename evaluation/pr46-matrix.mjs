@@ -839,6 +839,16 @@ export const PR46_ABLATION_PAIRS = Object.freeze([
   Object.freeze({ id: 'browser-representation', raw: 'pr46-browser-04', semanticFirst: 'pr46-browser-05' }),
 ])
 
+// Minimal offline acceptance subset (Task 7): three OS-lane fixtures that run
+// without a browser, without an LLM, and without network. Each has a seeded
+// world + deterministic world-state oracle + sentinel placeholder:
+//   pr46-os-01 (nested-create)  — write-file creates a seeded path;
+//   pr46-os-03 (append-preserve) — shell/file append preserves old content;
+//   pr46-os-05 (window-state-report) — read, filter, and write a report.
+// This is the "campuran minimal" real-task gate: file create + shell modify +
+// read-filter-write, all verified against the filesystem, never the answer.
+export const PR46_MINIMAL_OFFLINE = Object.freeze(['pr46-os-01', 'pr46-os-03', 'pr46-os-05'])
+
 export function listPr46Tasks() {
   return Object.values(PR46_TASKS).map((t) => ({
     taskId: t.taskId,
@@ -875,6 +885,7 @@ export default {
   PR46_LANE_CLAIMS,
   PR46_TOTAL_FIXTURES,
   PR46_TASKS,
+  PR46_MINIMAL_OFFLINE,
   PR46_ABLATION_PAIRS,
   listPr46Tasks,
   laneCounts,
