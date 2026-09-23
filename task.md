@@ -12,9 +12,9 @@ terjadi pada input tertentu (E2E pipe `printf | bun bin/abelink-tui.mjs` kadang 
 ## Urutan kerja (satu task satu sesi, gate manusia tiap akhir)
 
 ### T0 — Stabilkan tree (wajib pertama)
-- [ ] `git stash list` cek titipan sesi lain. JANGAN ganggu `stash@{0}` (ponytail-cleanup milik sesi lain).
-- [ ] Pisahkan dirt pre-existing `src/hooks/` (merge 43d971a dkk, BUKAN kerja sesi ini) dari diff sesi ini.
-- [ ] Verifikasi: `git status --short` terpetakan mana milik sesi ini vs titipan.
+- [x] `git stash list` cek titipan sesi lain (2026-09-23: `stash@{0}` aman tak tersentuh).
+- [x] Petakan 104 entri dirt: milik CLI vs sesi lain (music/connector/compaction/Jarvis/extension).
+- [x] Verifikasi: full 1571/1571 + smoke + eslint sebelum commit.
 
 ### T1 — TUI hang / exit-0 tanpa output (prioritas tertinggi, dari user)
 - Gejala: `printf '/init\n!echo SHELL-OK\n/exit\n' | bun bin/abelink-tui.mjs` → EXIT:0 kosong.
@@ -32,23 +32,25 @@ terjadi pada input tertentu (E2E pipe `printf | bun bin/abelink-tui.mjs` kadang 
 Sudah mendarat: slash `/models /details /init` + alias, `@file` + `!shell`,
 banner opencode-style, `/thinking` toggle, busy-guard scope prompt saja,
 lazy sidecar, komentar GAP-F1 bersih.
-- [ ] Verifikasi tiap fitur E2E pipe: `/init` tulis AGENTS.md, `!echo` cetak,
-      `@note.txt` attach, `/details` toggle, `/thinking` toggle.
-- [ ] Test sudah 62 di `tests/cli-tui.test.mjs`; tambah bila perilaku baru muncul.
+- [x] Verifikasi tiap fitur E2E pipe (2026-09-23): `/init`+`!echo` 3/3 exit 0,
+      `@note.txt` attach OK, `/details`+`/thinking`+`/models`+`/effort` OK exit 0.
+      LLM turn butuh kredensial 9Router (mesin tanpa key → retry, bukan bug TUI).
+      Fix: `rl.on('close')` sebelum replay (hang /exit bila sidecar spawn).
+- [x] Test 62 di `tests/cli-tui.test.mjs` tetap hijau; tanpa perilaku baru yang butuh test.
 
 ### T3 — Commit parsial per fase (jangan big-bang commit)
-- [ ] Commit 1: Fase 1 resume (headlessCli + agentRunner + bin/abelink.mjs + cli tests).
-- [ ] Commit 2: Fase 2 TUI (bin/abelink-tui.mjs + cli-tui.test.mjs).
-- [ ] Commit 3: Fase 3 telegram gateway (gateway.mjs + test).
-- [ ] Commit 4: Fase 4 cron (bin/abelink-cron.mjs + test + guard headlessCli).
-- [ ] Commit 5: docs (PLANNED + sessions).
-- [ ] Setiap commit: target tests hijau + eslint 0 errors SEBELUM commit.
+- [x] Commit 1 `e0168bb`: Fase 1 resume (headlessCli + agentRunner + bin/abelink.mjs + cli tests).
+- [x] Commit 2 `5355a61`: Fase 2 TUI (bin/abelink-tui.mjs + cli-tui.test.mjs).
+- [x] Commit 3 `424e924`: Fase 3 telegram gateway (gateway.mjs + test).
+- [x] Commit 4 `9629fc4`: Fase 4 cron (bin/abelink-cron.mjs + test + guard headlessCli).
+- [x] Commit 5 `3e98cc9`: docs (PLANNED + sessions + task.md).
+- [x] Setiap commit: target tests hijau + eslint 0 errors SEBELUM commit.
 
 ### T4 — Full verification akhir
-- [ ] `bunx vitest run` full hijau (baseline sesi ini: 1547 passed).
-- [ ] `bun evaluation/smoke.mjs` LOLOS.
-- [ ] `bunx eslint` file tersentuh 0 errors.
-- [ ] Cargo lib (bila sentuh Rust): 32 passed.
+- [x] `bunx vitest run` full hijau (2026-09-23: 1571/1571).
+- [x] `bun evaluation/smoke.mjs` LOLOS.
+- [x] `bunx eslint` file tersentuh 0 errors.
+- [ ] Cargo lib (bila sentuh Rust): Rust tak tersentuh sesi ini — skip.
 
 ## Batasan / jangan sentuh
 - `stash@{0}` ponytail-cleanup = milik sesi lain.
