@@ -28,6 +28,7 @@ import whatsNewData from './data/whats-new.json'
 import { initErrorGuard } from './utils/errorGuard'
 import DropAnywhere from './components/core/DropAnywhere'
 import WindowControls from './components/core/WindowControls'
+import { WindowResizeFrame } from './components/core/WindowResizeFrame'
 import SpotlightBar from './components/core/SpotlightBar'
 import AutomationHUD from './components/core/AutomationHUD'
 import AppSidebar from './components/core/AppSidebar'
@@ -103,6 +104,9 @@ const MainLayout = ({ isStandalone = false }) => {
 
   return (
     <div className={`relative h-screen w-screen overflow-hidden bg-transparent rounded-xl flex items-stretch justify-start ${isSpotlight ? 'p-1 items-center justify-center' : ''}`}>
+      {/* Edge & Corner Resize Frame for Frameless Window (Semua Halaman) */}
+      <WindowResizeFrame />
+
       {isSpotlight && (
         <SpotlightBar
           onExpandDashboard={() => {
@@ -127,9 +131,9 @@ const MainLayout = ({ isStandalone = false }) => {
 
       {!isSpotlight && (
         <>
-          {/* Tampilkan satu WindowControls konsisten di sub-page agar user tetap bisa minimize/maximize/close */}
+          {/* WindowControls at Top Right for Sub-pages */}
           {!isStandalone && !isHome && (
-            <div className="absolute top-2.5 right-4 z-30 pointer-events-auto">
+            <div className="absolute top-2.5 right-4 z-50 pointer-events-auto">
               <WindowControls />
             </div>
           )}

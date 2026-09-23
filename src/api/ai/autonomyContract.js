@@ -13,7 +13,7 @@ export const AUTONOMY_DOMAINS = Object.freeze([
   'general'
 ])
 
-export const AGENTIC_PROTOCOL_VERSION = '1.0'
+export const AGENTIC_PROTOCOL_VERSION = '1.1'
 
 const DOMAIN_RULES = {
   research:
@@ -41,6 +41,17 @@ const COMMON_RULES = [
   'Completion is a claim from the model plus independent runtime evidence when observable. Never manufacture evidence to make a completion claim fit.'
 ]
 
+// Failure-memory rules v1.1: distilled from real harness trajectories
+// (2026-09-21/22, non-extension failures). Each rule names a failure the
+// model actually produced, and the behavior that would have prevented it.
+const FAILURE_MEMORY_RULES = [
+  'MEMORY PROOF: Dexie/IndexedDB memory is verified with memory-search, never with read-file or list-dir. Read-back means a search that returns the stored item; an empty search is NOT proof of storage.',
+  'RESEARCH COMPLETION: a research task is done when sources are read and facts are cited from observation content — never demand a file write, OS action, or page confirmation for a question that asks for information.',
+  'BROWSER READ SUFFICIENCY: substantive returned page content (navigate/read/extract output) IS the proof for retrieval tasks. Do not demand a post-action confirmation page when no interaction (click/type/submit) was performed.',
+  'THINKING IS NOT ACTING: reasoning without a tool call produces no evidence and advances nothing. After at most 2 consecutive tool-less reasonings, either act with a tool or report blocked/needs-user — never a third empty reasoning.',
+  'BLOCKED NEEDS A NAME: reporting blocked without naming the exact failing tool, the exact error text, and what was already tried is not a diagnosis. A blocked report must carry all three.',
+]
+
 export function buildAutonomyContractSection({ domain = 'general', stepsLeft = null, protocolVersion = AGENTIC_PROTOCOL_VERSION } = {}) {
   const safeDomain = AUTONOMY_DOMAINS.includes(domain) ? domain : 'general'
   const budget = typeof stepsLeft === 'number'
@@ -50,6 +61,8 @@ export function buildAutonomyContractSection({ domain = 'general', stepsLeft = n
   return [
     '# GENERAL AGENTIC RUNTIME CONTRACT v' + protocolVersion,
     ...COMMON_RULES.map((rule, i) => (i + 1) + '. ' + rule),
+    '',
+    ...FAILURE_MEMORY_RULES.map((rule, i) => 'F' + (i + 1) + '. ' + rule),
     '',
     DOMAIN_RULES[safeDomain],
     budget,

@@ -79,3 +79,19 @@ describe('isolasi flavor strict: getTokenViaNativeHost', () => {
   })
 })
 
+describe('loop survivability (popup-close disconnect)', () => {
+  it('loop() punya reentrancy guard (keepalive vs resume tak bisa ganda)', () => {
+    const bg = read('background.js')
+    expect(bg).toContain('loopActive')
+    expect(bg).toMatch(/if \(loopActive\) return/)
+    // keepalive alarm tidak memanggil loop() buta saat pollAbort null
+    // (itu juga benar saat sleep sehat) — harus lewat guard.
+    expect(bg).not.toMatch(/if \(cfg\.token && !pollAbort\) \{\s*\n?\s*loop\(\)/)
+  })
+
+  it('jadwal resume menulis status jujur (bukan hijau palsu)', () => {
+    const bg = read('background.js')
+    expect(bg).toMatch(/Menyambung ulang otomatis/)
+  })
+})
+

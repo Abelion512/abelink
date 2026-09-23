@@ -83,7 +83,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
             <div className="pointer-events-auto" key={proc.id}>
               <DraggableHoloCard
                 id={proc.id}
-                title={isDone ? <><CheckCircle2 className="inline mr-1" /> Task Completed</> : isFailed ? <><Zap className="inline mr-1 text-error" /> Task Failed</> : isPaused ? <><Zap className="inline mr-1 text-warning" /> Task Paused</> : <><List className="inline mr-1" /> {executionTitle}</>}
+                title={isDone ? <><CheckCircle2 className="inline mr-1 w-3.5 h-3.5 text-success shrink-0" size={14} /> Task Completed</> : isFailed ? <><Zap className="inline mr-1 w-3.5 h-3.5 text-error shrink-0" size={14} /> Task Failed</> : isPaused ? <><Zap className="inline mr-1 w-3.5 h-3.5 text-warning shrink-0" size={14} /> Task Paused</> : <><List className="inline mr-1 w-3.5 h-3.5 shrink-0" size={14} /> {executionTitle}</>}
                 defaultPosition={{ x: 40 + cascadeX, y: 80 + cascadeY }}
                 onClose={() => onDismiss(proc.id)}
                 isVisible={!proc.isExiting}
@@ -126,7 +126,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
                           {typeof step === 'object' && step.query ? (
                             <details className="group/step outline-none">
                               <summary className="cursor-pointer select-none flex items-center hover:opacity-80 outline-none list-none [&::-webkit-details-marker]:hidden">
-                                <ChevronRight className="group-open/step:rotate-90 transition-transform text-[8px] mr-1 opacity-50" />
+                                <ChevronRight size={10} className="w-2.5 h-2.5 shrink-0 group-open/step:rotate-90 transition-transform mr-1 opacity-50" />
                                 {step.task} {suffix}
                               </summary>
                               <div className="mt-1 pl-3 opacity-70 text-[9px] border-l border-white/20 ml-[3px] mb-1 break-words font-sans bg-black/20 p-1.5 rounded">
@@ -154,7 +154,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
             <div className="pointer-events-auto" key={proc.id}>
               <DraggableHoloCard
                 id={proc.id}
-                title={<><Zap className="inline mr-1" /> Plugin: {proc.data.action}</>}
+                title={<><Zap className="inline mr-1 w-3.5 h-3.5 shrink-0 text-warning" size={14} /> Plugin: {proc.data.action}</>}
                 defaultPosition={{ x: 40 + cascadeX, y: 80 + cascadeY }}
                 onClose={() => onDismiss(proc.id)}
                 isVisible={!proc.isExiting}

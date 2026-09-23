@@ -391,6 +391,7 @@ import {
   PR46_LANE_COUNTS,
   PR46_TOTAL_FIXTURES,
   PR46_ABLATION_PAIRS,
+  PR46_MINIMAL_OFFLINE,
   laneCounts,
   seedPr46Fixture,
 } from './pr46-matrix.mjs'
@@ -418,6 +419,62 @@ for (const id of Object.keys(PR46_TASKS)) {
   assert.equal(ALL_TASKS[id], undefined, `fixture PR46 ${id} tidak boleh menimpa registry legacy`)
 }
 console.log('[ok] PR46 matrix: 30 fixture, lane 6/5/5/5/5/4, tanpa tabrakan registry')
+
+// Minimal offline acceptance (Task 7): 3 OS fixtures, seeded world +
+// deterministic world-state oracle, no browser/LLM/network. Each oracle is
+// checked both ways: empty world FAILs, seeded world + tool evidence PASSes.
+assert.deepEqual(PR46_MINIMAL_OFFLINE, ['pr46-os-01', 'pr46-os-03', 'pr46-os-05'])
+for (const id of PR46_MINIMAL_OFFLINE) {
+  const fx = PR46_TASKS[id]
+  assert.ok(fx, `subset minimal memuat ${id}`)
+  assert.equal(fx.oracleIndependent, true, `${id} oracle independen dari jawaban model`)
+  const dir = mkdtempSync(joinPath(tmpdir(), `abelinkbench-${id}-`))
+  seedPr46Fixture(fx, dir, 'S3N-minimal')
+  const emptyCtx = { sentinel: 'S3N-minimal', workdir: dir, stepLog: [] }
+  assert.equal(fx.verify('klaim tanpa artefak', emptyCtx), false, `${id} dunia kosong = FAIL`)
+}
+{
+  // os-01: write creates seeded path with sentinel
+  const fx = PR46_TASKS['pr46-os-01']
+  const dir = mkdtempSync(joinPath(tmpdir(), 'abelinkbench-os01-'))
+  seedPr46Fixture(fx, dir, 'S3N-minimal')
+  mkdirSync(joinPath(dir, 'arsip', '2026'), { recursive: true })
+  writeTmpFile(joinPath(dir, 'arsip', '2026', 'catatan.txt'), 'S3N-minimal')
+  assert.equal(
+    fx.verify('selesai', { sentinel: 'S3N-minimal', workdir: dir, stepLog: [{ tool: 'write-file', success: true }] }),
+    true,
+    'pr46-os-01 artefak + tool evidence = PASS'
+  )
+}
+{
+  // os-03: append preserves old content (BARIS-1 still present)
+  const fx = PR46_TASKS['pr46-os-03']
+  const dir = mkdtempSync(joinPath(tmpdir(), 'abelinkbench-os03-'))
+  seedPr46Fixture(fx, dir, 'S3N-minimal')
+  writeTmpFile(joinPath(dir, 'log.txt'), 'BARIS-1\nBARIS-2\nS3N-minimal\n')
+  assert.equal(
+    fx.verify('selesai', { sentinel: 'S3N-minimal', workdir: dir, stepLog: [{ tool: 'run-shell', success: true }] }),
+    true,
+    'pr46-os-03 append + old content = PASS'
+  )
+}
+{
+  // os-05: read-filter-write (active window only, others excluded)
+  const fx = PR46_TASKS['pr46-os-05']
+  const dir = mkdtempSync(joinPath(tmpdir(), 'abelinkbench-os05-'))
+  seedPr46Fixture(fx, dir, 'S3N-minimal')
+  writeTmpFile(joinPath(dir, 'fokus.md'), 'JENDELA-TERMINAL\nS3N-minimal\n')
+  assert.equal(
+    fx.verify('selesai', {
+      sentinel: 'S3N-minimal',
+      workdir: dir,
+      stepLog: [{ tool: 'read-file', success: true }, { tool: 'write-file', success: true }],
+    }),
+    true,
+    'pr46-os-05 filter aktif saja = PASS'
+  )
+}
+console.log('[ok] PR46 subset minimal offline: 3 fixture OS oracle dua-arah')
 
 // Ablation pair: identik kecuali representasi.
 const pair = PR46_ABLATION_PAIRS[0]
@@ -620,10 +677,10 @@ for (const dimension of ARM_COMPARISON_DIMENSIONS) {
     `dimensi kontrak ${dimension.contract} wajib benar-benar dibandingkan`
   )
 }
-// Hari ini perbandingan TETAP tidak valid: harness belum mengeksekusi sumbu arch
-// (ARCH_AXIS_IN_BENCH_PATH = false), jadi kedua arm akan berjalan identik.
-assert.equal(realPair.valid, false, 'sumbu arch yang belum tersambung tidak boleh jadi A/B valid')
-assert.equal(realPair.reason, 'architecture-not-executed-by-harness')
+// Sumbu arch DISEKUSI harness (ARCH_AXIS_IN_BENCH_PATH = true, Task 6):
+// loop bench menjalankan policy + modul governance asli, jadi kedua arm
+// berjalan BEDA nyata dan perbandingan menjadi valid.
+assert.equal(realPair.valid, true, `arm nyata dengan sumbu tersambung harus valid (reason=${realPair.reason})`)
 // Tidak ada jalan buntu: begitu sumbu arch disambungkan, konfigurasi yang sama
 // menghasilkan perbandingan valid tanpa perubahan lain.
 const wiredPair = compareArmReports({ baseline: realArm('vanilla', true), candidate: realArm('basic', true) })

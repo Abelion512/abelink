@@ -58,6 +58,10 @@ const SETTLE_MS = 2000
 
 let running = false
 let pollAbort = null
+// loopActive = guard reentrancy: keepalive alarm + tryAutoResume + start
+// bisa memanggil loop() bersamaan (pollAbort==null juga benar saat sleep
+// sehat) -> dua loop /poll berebut perintah yang sama. Satu loop saja.
+let loopActive = false
 
 // Log kunci agar console service worker jadi dasbor mini (bukan kuburan):
 // versi saat bangun, handshake, perintah masuk + hasil, error poll.
@@ -154,6 +158,9 @@ async function apiPost(cfg, path, body) {
 
 // ------------------------------------------------------------------ loop
 async function loop() {
+  if (loopActive) return // reentrancy guard (keepalive vs resume race)
+  loopActive = true
+  try {
   while (running) {
     let cfg
     try {
@@ -217,6 +224,9 @@ async function loop() {
     } finally {
       pollAbort = null
     }
+  }
+  } finally {
+    loopActive = false
   }
 }
 
@@ -1791,6 +1801,18 @@ function scheduleAutoResume(delayMs = 5000) {
   } catch {
     /* fallback setTimeout di bawah */
   }
+  // Status jujur selama jeda reconnect: popup tidak hijau palsu, tidak merah
+  // panik — user tahu loop akan kembali sendiri tanpa klik.
+  try {
+    chrome.storage.session
+      .get(['lastError', 'wantConnected'])
+      .then((kept) => {
+        if (kept?.wantConnected && !kept?.lastError) {
+          chrome.storage.session.set({ lastError: 'Menyambung ulang otomatis...' }).catch(() => {})
+        }
+      })
+      .catch(() => {})
+  } catch {}
   if (resumeTimeout) clearTimeout(resumeTimeout)
   resumeTimeout = setTimeout(() => {
     tryAutoResume()
@@ -1886,13 +1908,10 @@ if (typeof chrome !== 'undefined' && chrome.alarms) {
     } else if (alarm.name === 'abelink-bridge-keepalive') {
       if (!running) {
         tryAutoResume()
-      } else {
-        // Ping port aktif untuk memastikan background worker tetap terjaga
-        getCfg().then((cfg) => {
-          if (cfg.token && !pollAbort) {
-            loop()
-          }
-        }).catch(() => {})
+      } else if (!loopActive) {
+        // Worker hidup tapi loop mati (suspend di tengah sleep / crash):
+        // hidupkan ulang satu loop. Guard loopActive cegah ganda.
+        loop()
       }
     }
   })
