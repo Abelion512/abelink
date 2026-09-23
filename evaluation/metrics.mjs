@@ -128,6 +128,11 @@ export function computeRunMetrics({
     repeatedActions: stats.repeatedActions,
     stagnationEvents: stats.stagnationEvents,
     recoveryEvents: stats.recoveryEvents,
+    // Governance stages (Task 5): verify-gate evaluations + supervisor hints
+    // the bench loop injected. 0 is a real count here (stages either fired or
+    // did not), unlike human interventions which have no channel at all.
+    verifyStages: stats.verifyStages ?? 0,
+    supervisorHints: stats.supervisorHints ?? 0,
     elapsedMs,
     tokenCost: normalizeTokenCost(run.tokenUsage),
     // The adapter exposes no human-intervention channel; keep it explicit.
@@ -206,6 +211,11 @@ export function aggregateMetrics(runs = []) {
     unnecessaryActionRateReason: UNNECESSARY_ACTION_UNAVAILABLE_REASON,
     // Verification discipline: how often an oracle pass was independently supported.
     verificationDiscipline: passed > 0 ? rate(verified, passed) : null,
+    // Governance activity (Task 5): total verify-gate evaluations +
+    // supervisor hints across runs. Vanilla arms read 0, basic arms > 0 when
+    // the gate/supervisor actually fired — the divergence is measurable.
+    verifyStageCount: list.reduce((a, r) => a + (r.verifyStages || 0), 0),
+    supervisorHintCount: list.reduce((a, r) => a + (r.supervisorHints || 0), 0),
     evidenceFailureCount: failures,
     oracleFailureCount: oracleFailures,
     latency: {
