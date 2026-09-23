@@ -43,6 +43,8 @@ const BUDGET_EXTENSION_STEPS = 16
  * @param {Object} params
  * @param {string} params.prompt - The initial user prompt or task instruction.
  * @param {Object} [params.options] - Configuration options (maxTurns, effort, provider, model, workspaceRoot, signal, etc.)
+ * @param {Array} [params.options.initialHistory] - Fase 1 resume seed: [{role:'user'|'assistant',content:string}]
+ *   disaring ketat (role + string content saja) sebelum masuk loopMessages.
  * @param {Object} params.environment - The runtime adapter: { fetchAI, executeTool, onStep, onThought }
  * @returns {Promise<Object>} Execution result { success, outcome, terminalReason, reply, thought, stepCount, toolCallsCount, executedTools, trace }
  */
@@ -86,6 +88,13 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
   let budgetExtended = false
 
   const loopMessages = []
+  if (Array.isArray(options.initialHistory)) {
+    for (const m of options.initialHistory) {
+      if (m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string') {
+        loopMessages.push({ role: m.role, content: m.content })
+      }
+    }
+  }
   const executedToolsList = []
   const trace = []
   let stepCount = 0
@@ -166,12 +175,22 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
         pendingVerifyObservation = null
       }
 
-      // Get next action via authoritative planner (getNextAction)
+      // Get next action via authoritative planner (getNextAction).
+      // unifiedContext may be provided by the caller (e.g. headless CLI
+      // working-memory); default preserves existing empty-context behavior.
+      const unifiedContext = options.unifiedContext && typeof options.unifiedContext === 'object'
+        ? {
+          memories: Array.isArray(options.unifiedContext.memories) ? options.unifiedContext.memories : [],
+          archives: Array.isArray(options.unifiedContext.archives) ? options.unifiedContext.archives : [],
+          documents: Array.isArray(options.unifiedContext.documents) ? options.unifiedContext.documents : [],
+          turnPairs: Array.isArray(options.unifiedContext.turnPairs) ? options.unifiedContext.turnPairs : []
+        }
+        : { memories: [], archives: [], documents: [], turnPairs: [] }
       decision = await getNextAction(
         prompt,
         loopMessages,
         signal,
-        { memories: [], archives: [], documents: [], turnPairs: [] },
+        unifiedContext,
         '',
         options.activeTopic || '',
         {
@@ -379,7 +398,11 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
               step: stepCount,
               sessionId,
               workspaceRoot,
-              signal
+              signal,
+              // Subagent depth (CLI chain): environment boleh membawa depth
+              // (createEnvironment(d)); tanpa ini nested spawn selalu depth 0
+              // dan MAX_SUBAGENT_DEPTH tak pernah menyala.
+              depth: Number(environment?.depth) || 0
             })
           } catch (execErr) {
             toolResult = {
@@ -484,7 +507,8 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
     stepCount,
     toolCallsCount: executedToolsList.length,
     executedTools: executedToolsList,
-    trace
+    trace,
+    history: loopMessages
   }
 }
 
