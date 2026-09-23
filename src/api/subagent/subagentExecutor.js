@@ -11,6 +11,7 @@ import {
 } from '../ai/objectiveVerifier'
 import { createTrajectorySupervisor } from '../ai/trajectorySupervisor'
 import { currentBenchArch } from '../ai/benchArch'
+import { getArchPolicy } from '../ai/archPolicy'
 import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
 import { GROUP_TOOLS_DEFINITION, loadGroupToolsText } from '../tools/group-tools'
@@ -142,8 +143,8 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   // useAbelinkPlan.js: Fase 1 fields only. Bench arch axis (ABELINK_BENCH_ARCH,
   // default basic): vanilla = no supervisor, no verify-gate replan.
   // Additive: faults stay silent, the ReAct loop below is untouched.
-  const benchArch = currentBenchArch()
-  const subSupervisor = benchArch === 'vanilla' ? null : createTrajectorySupervisor()
+  const archPolicy = getArchPolicy(currentBenchArch())
+  const subSupervisor = archPolicy.supervisorEnabled ? createTrajectorySupervisor() : null
   let pendingSubHint = null
 
   try {
@@ -267,7 +268,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               verification: evidence.state,
               kind: evidence.kind
             })
-            if (benchArch !== 'vanilla' && !gate.complete && verifyReplansUsed < MAX_VERIFY_REPLANS) {
+            if (archPolicy.verifyGateEnabled && !gate.complete && verifyReplansUsed < MAX_VERIFY_REPLANS) {
               verifyReplansUsed++
               await subagentStore.addMessage(subagentId, {
                 sender: 'tool',

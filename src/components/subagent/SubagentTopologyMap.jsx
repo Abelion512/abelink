@@ -6,7 +6,7 @@ import {
   Terminal,
   ExternalLink,
   Layers,
-  Sparkles,
+  Activity,
   CheckCircle2,
   AlertTriangle
 } from 'lucide-react'
@@ -83,13 +83,13 @@ export default function SubagentTopologyMap({
   return (
     <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden gap-4">
       {/* Visual Canvas Area */}
-      <div className="flex-1 bg-base-200/50 rounded-2xl border border-base-content/10 relative overflow-hidden flex flex-col items-center justify-center p-4 backdrop-blur-md">
+      <div className="flex-1 bg-base-200/30 rounded-2xl relative overflow-hidden flex flex-col items-center justify-center p-4 backdrop-blur-md shadow-inner">
         {/* Subtle Ambient Radial Highlight */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#0a84ff0d_0%,transparent_70%)] pointer-events-none" />
 
         {/* Top Minimal Telemetry Bar */}
         <div className="absolute top-3 left-4 right-4 flex items-center justify-between pointer-events-none z-10">
-          <div className="flex items-center gap-2 bg-base-300/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-base-content/5 text-xs shadow-sm">
+          <div className="flex items-center gap-2 bg-base-300/60 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs shadow-sm">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             <span className="font-semibold text-[11px] tracking-wide text-base-content/80">
               Topology Network {activeCount > 0 ? '(Active Squad)' : '(Standby)'}
@@ -98,25 +98,25 @@ export default function SubagentTopologyMap({
 
           <div className="flex items-center gap-2 font-mono text-[11px]">
             {activeCount > 0 && (
-              <span className="px-2.5 py-1 bg-base-300/80 backdrop-blur-md rounded-lg border border-primary/30 flex items-center gap-1.5 text-primary shadow-sm font-semibold">
+              <span className="px-2.5 py-1 bg-base-300/60 backdrop-blur-md rounded-lg flex items-center gap-1.5 text-primary shadow-sm font-semibold">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
                 {activeCount} Aktif
               </span>
             )}
             {idleCount > 0 && (
-              <span className="px-2.5 py-1 bg-base-300/80 backdrop-blur-md rounded-lg border border-base-content/5 flex items-center gap-1.5 text-base-content/80 shadow-sm">
+              <span className="px-2.5 py-1 bg-base-300/60 backdrop-blur-md rounded-lg flex items-center gap-1.5 text-base-content/80 shadow-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
                 {idleCount} Standby
               </span>
             )}
             {completedCount > 0 && (
-              <span className="px-2.5 py-1 bg-base-300/80 backdrop-blur-md rounded-lg border border-base-content/5 flex items-center gap-1.5 text-base-content/80 shadow-sm">
+              <span className="px-2.5 py-1 bg-base-300/60 backdrop-blur-md rounded-lg flex items-center gap-1.5 text-base-content/80 shadow-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                 {completedCount} Selesai
               </span>
             )}
             {failedCount > 0 && (
-              <span className="px-2.5 py-1 bg-base-300/80 backdrop-blur-md rounded-lg border border-error/30 text-error flex items-center gap-1.5 shadow-sm">
+              <span className="px-2.5 py-1 bg-base-300/60 backdrop-blur-md rounded-lg text-error flex items-center gap-1.5 shadow-sm">
                 {failedCount} Gagal
               </span>
             )}
@@ -306,8 +306,8 @@ export default function SubagentTopologyMap({
       </div>
 
       {/* Right Telemetry / Inspector Drawer */}
-      <div className="w-full md:w-80 flex flex-col bg-base-200/50 rounded-2xl border border-base-content/10 overflow-hidden flex-none backdrop-blur-md">
-        <div className="p-3.5 border-b border-base-content/10 flex items-center justify-between bg-base-300/40">
+      <div className="w-full md:w-80 flex flex-col bg-base-200/30 rounded-2xl overflow-hidden flex-none backdrop-blur-md">
+        <div className="p-3.5 flex items-center justify-between bg-base-300/30">
           <div className="flex items-center gap-2">
             <Terminal className="w-4 h-4 text-primary" />
             <span className="font-semibold text-xs tracking-wide">Inspeksi Agen</span>
@@ -327,10 +327,10 @@ export default function SubagentTopologyMap({
         {selectedAgent ? (
           <div className="flex-1 flex flex-col overflow-y-auto p-3.5 space-y-3.5 custom-scrollbar">
             {/* Agent Header Card */}
-            <div className="p-3 bg-base-100/60 rounded-xl border border-base-content/10 space-y-2">
+            <div className="p-3.5 bg-base-100/40 rounded-xl space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-primary/15 border border-primary/30 text-primary flex items-center justify-center font-bold text-xs flex-none">
+                  <div className="w-7 h-7 rounded-lg bg-primary/15 text-primary flex items-center justify-center font-bold text-xs flex-none">
                     {selectedAgent.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0">
@@ -356,22 +356,22 @@ export default function SubagentTopologyMap({
                 </div>
               </div>
 
-              <div className="text-[10px] text-base-content/70 font-mono bg-base-200/60 p-2.5 rounded-lg border border-base-content/5">
+              <div className="text-[10px] text-base-content/70 font-mono bg-base-200/40 p-2.5 rounded-lg">
                 <span className="text-primary font-bold block text-[9px] mb-0.5 uppercase tracking-wider">Misi / Goal:</span>
                 <p className="line-clamp-2 leading-relaxed">{selectedAgent.goal}</p>
               </div>
             </div>
 
             {/* Live Progress / Output Preview */}
-            <div className="flex-1 bg-base-100/40 rounded-xl border border-base-content/10 p-3 space-y-2 flex flex-col">
+            <div className="flex-1 bg-base-100/30 rounded-xl p-3.5 space-y-2 flex flex-col">
               <div className="flex items-center justify-between text-[10px] font-semibold text-base-content/70">
                 <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-primary" /> Laporan Terkini:
+                  <Activity className="w-3.5 h-3.5 text-primary" /> Laporan Terkini:
                 </span>
                 <span className="font-mono text-[9px]">Turn #{selectedAgent.turnCount || 0}</span>
               </div>
 
-              <div className="flex-1 bg-base-200/50 rounded-lg p-2.5 text-[11px] font-mono leading-relaxed overflow-y-auto max-h-44 text-base-content/90 border border-base-content/5">
+              <div className="flex-1 bg-base-200/40 rounded-lg p-2.5 text-[11px] font-mono leading-relaxed overflow-y-auto max-h-44 text-base-content/90">
                 {selectedAgent.finalAnswer ? (
                   <p className="whitespace-pre-wrap">{selectedAgent.finalAnswer}</p>
                 ) : selectedAgent.status === 'running' ? (
@@ -396,7 +396,7 @@ export default function SubagentTopologyMap({
                   placeholder="Ketik instruksi koreksi..."
                   value={quickInput}
                   onChange={(e) => setQuickInput(e.target.value)}
-                  className="input input-xs input-bordered flex-1 rounded-lg text-[11px] bg-base-100/60 focus:border-primary"
+                  className="input input-xs border-0 flex-1 rounded-lg text-[11px] bg-base-100/60 focus:ring-1 focus:ring-primary"
                   disabled={isSending}
                 />
                 <button
