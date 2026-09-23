@@ -2,6 +2,174 @@
 
 Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.
 
+## v1.2.0-alpha.6 — 23 September 2026
+
+**Ringkasan:** 71 fitur baru, 28 perbaikan dan 59 pembaruan dokumentasi.
+
+### Fitur Baru
+- Jarvis slice 1-7 archPolicy tunggal + bench hormat policy
+- Fase 4 cron scheduler
+- Fase 3 telegram gateway
+- Fase 2 TUI interaktif
+- Fase 1 headless resume
+- Implement default Auto Mode and universal window drag/resize frame
+- Implement headless autonomous agent runner and browser click routing
+- Measurement plane + 30-fixture benchmark matrix
+- General agentic runtime for long-horizon autonomy
+- Require grounded evidence for skill promotion
+- Include semantic page text in DOM observations
+- Make read observations semantic-first
+- Add semantic-first observation formatter
+- Provide observations to trajectory supervisor
+- Ground skill synthesis in trajectory evidence
+- Inject general autonomy context contract
+- Feed evidence progress into trajectory supervisor
+- Ground trajectory learning inputs
+- Add general autonomy execution contract
+- Add deterministic progress evaluator
+- Apple-design + ponytail cleanup P1+P2
+- Browser-ask pause-state payload, legacy HITL string kept
+- Tab identity in observations, explicit adoptUserTab, no cross-session drain
+- Hitl_discipline dimension, batch halt, no-surrender prompts
+- Co-pilot HITL pause-resume, no veil steal, same-tab resume
+- Co-pilot passive pill, no veil when awaiting user
+- Tab identity via session focusedUrl, _group carries url+title
+- Main-first tagger, cap 200, text 120
+- Implement autonomous agent pillars
+- Add progressive disclosure multi-root discovery for laptop host skills and research whitepaper
+- Ad-free embedded player configuration with nocookie host and overlay suppression
+- Rich multimodal choice bus and OST ambiguity disambiguation with audio preview
+- Auto-detect drag drop and paste for Linux URI, screenshot, and web HTML img
+- Wire MEMORY_TOOL_SPEC with atomic engine and failure cap
+- Nudge and mini evaluation engine with auto-graduation
+- Handoff contract JSON with 7 mandatory fields for durable tasks
+- Full skill folder bundle with references/ and scripts/ support
+- Tool search deferred catalog with rich specs and examples
+- Explicit memoryRouter subsystem for per-turn context assembly and validation
+- Sensitive-write protection ala Hermes
+- Apply apple design system to pages and main app layout
+- Redesign chat bubbles, subagent HUD, config sections and widgets
+- Apple design system core components and loaders
+- Add boot timeout fallback and controllable state hook
+- Hardline guardian ditolak tanpa dialog
+- 3-tier hardline/dangerous/self ala Hermes
+- Isolasi tab antar-sesi + skill goal + floor budget
+- Snapshot konten + wait-for + stop-loop konten kosong
+- Telemetri reuse + trial gate + anti-hack + internet-first
+- Sebab 401 dibedakan + auto-retry token + launch reason
+- V3 search-error + ingatan sesi + compact gap + Hermes-1
+- Claim-quoted + rantai 9Router + auto-close grup
+- Jangkar teks opsional untuk os-click + browser-click
+- Tangga budget 24/48 + eskalasi satu-kali + gemini cooldown persisten
+- Tahap 3 registry+bundle + Tahap 4 validasi+gate + lazy node-tools
+- Tahap 2 pintu eksekusi terpadu + waitWithTimeout
+- Tahap 1 kartu identitas standar + adapter plugin/skill
+- Write-gate dedup di insertMemory
+- Extension alarms resume + trajectory sessionId + overlay tebal
+- Blocked-challenge 1x untuk klaim blocked tanpa eksekusi tool
+- Sweep timer, fail-fast dispatch, channel reconnect, pill UI
+- Autoload skill, browse transparan, ask-user , whatsnew rapi
+- WorkspaceRoot plumbing, thinking streaming, apple diagnostic
+- W1 token foundation
+- Effort pass-through per vendor, music ask-choice, image preview, agent scope
+- Effort pass-through per vendor, music ask-choice, image preview, agent scope
+- Extract taskRuntime boundary
+- Extract taskRuntime boundary
+- Riwayat model sukses, auto-latest pola, revert deepseek
+- Input bebas model gemini-web + saran
+- Gemini-latest alias, fallback Gemini->custom, warning model tak dikenal
+
+### Perbaikan
+- Selaraskan approval dengan Auto Mode f86b17b
+- Loop survivability popup-close disconnect
+- Unblock Intercom button, make topology borderless, ban sparkle icons, and enforce proactive 5W1H autonomy
+- Clean indexedDB setup with dynamic runner import
+- Explicit sizing for ProcessPanel icons and safe Fast Refresh context guards
+- Classify failed trajectory evidence safely
+- Mark skill evidence provenance
+- Reapply precise observation patch
+- Reapply precise observation patch
+- Restore full file after partial-fetch edit
+- Restore full file after partial-fetch edit
+- Remove stray brace from adoptOrphanTab edit
+- Honor adoptUserTab flag, never steal user tabs by default
+- Explicit empty-extract contract, prose validator bypass, gmail regression
+- Honest handshake status, loop-based pill
+- Honest handshake status, loop-based pill
+- Resolve trajectory search aliases, google tools import, and token limit resilience
+- Resolve react rules-of-hooks in ChoiceButtons, optimize JSON parsing and URL guard, and stabilize perf baseline
+- Trajectory answer logging, objective verification for subagents, and apple design ui integration
+- Unified queue draining and wake propagation for subagent browser execution
+- Native-host wrapper quoting, Lite ingest fallback, prose-recovery awal
+- Hapus export ilegal di service worker + gate verify
+- Reseed token sesi default dari file setelah drop
+- Timeouts, queue cap, cleanAndParse parity, log hygiene
+- SSRF redirect policy, Guidebook Markdown, telegram forget
+- Defer tasks:* channel, split headless proof
+- Defer tasks:* channel, split headless proof
+- EnsureGitIdentity di syncWithReleaseBase
+
+### Dokumentasi
+- Riset Claude frontier + session logs TUI/ext/CLI
+- Tracker T0-T4 selesai + session log commit parsial
+- Fase 5 kontrak 4fase + roadmap + session logs CLI
+- Plan wiring the architecture axis into the benchmark execution path
+- Record benchmark and standards adaptation session
+- Define runtime standards adaptation strategy
+- Define Abelink benchmark inventory and PR46 contract
+- Require grounded evidence for skill promotion
+- Add session log for general runtime work
+- Document general runtime and browser observation
+- Verify semantic-first observation formatting
+- Cover general autonomy contract
+- Cover progress and semantic stagnation
+- Establish primary research references and boundaries
+- Add general autonomy plan
+- Cover grounded trajectory learning
+- Resolve 16 konflik -> apple-design + cleanup intact
+- Ponytail cleanup P1+P2
+- Drop manualChunks mati
+- Ponytail cleanup P1+P2 log
+- React-icons->lucide, monaco->textarea
+- Motion+force-graph+highlighter+three -> native/CSS
+- Axios->fetch native, drop axios+date-fns
+- Hapus file mati
+- Session log + ARCHITECTURE browser autonomy
+- Ui-eval autonomy into apple-design
+- Sidecar autonomy into apple-design
+- Ext autonomy into apple-design
+- Browser autonomy restoration P0-P3 + co-pilot HITL
+- Update knowledge graph report
+- Bridge helper crash + RAG Lite fallback + retry burn
+- Add Section 11 documenting Operating Model subsystems adoption
+- Loosen waitWithTimeout interval for busy host runs
+- : explicit memoryRouter subsystem
+- : sensitive-write protection ala Hermes
+- Switch to abelink theme, add motion and date-fns dependencies
+- Session logs and design plan for apple blue redesign
+- Sync limit-ladder and smoke assertions to 24/48 step budget
+- Operating model Hermes x Anthropic x Abelink + + ADR
+- Master blueprint for auto-worktree engine and unified peer gateway
+- Update perf-baseline and ignore reports/*.json
+- Sync knowledge graph after merge & cleanup
+- Branch cleanup, merge, and max capability audit log
+- Trajectory + codebase audit log
+- Timeouts, queue cap, cleanAndParse parity, log hygiene
+- SSRF redirect, Guidebook markdown, telegram forget
+- Push merge cleanup log + TASK handoff
+- Stack #37-#41 merge lokal + TASK handoff
+- Memory write-dedup log + TASK handoff
+- Keepalive-trajectory log + TASK handoff
+- Agent-grit blocked-challenge log + TASK handoff
+- Watchdog reconnect log + TASK handoff
+- Trajectory + codebase audit log
+- PR merge + branch cleanup log
+- PR merge + branch cleanup log
+- Hemat menit runner tanpa kurangi gate kualitas
+- Branch cleanup + agent-first doc rules
+- Define first-class engine client direction
+- Hapus DeepSeek
+
 ## v1.1.0-alpha.5 — 15 September 2026
 
 **Ringkasan:** 4 fitur baru, 20 perbaikan dan 8 pembaruan dokumentasi.
