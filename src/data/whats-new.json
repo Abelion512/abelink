@@ -1,10 +1,38 @@
 {
   "version": "1.2.0-alpha.6",
-  "date": "21 September 2026",
-  "summary": "64 fitur baru, 23 perbaikan dan 56 pembaruan dokumentasi.",
-  "founderReport": "Yang baru untuk Anda: Measurement plane + 30-fixture benchmark matrix; General agentic runtime for long-horizon autonomy; Require grounded evidence for skill promotion. Lebih stabil: Classify failed trajectory evidence safely; Mark skill evidence provenance; Reapply precise observation patch.",
+  "date": "23 September 2026",
+  "summary": "71 fitur baru, 28 perbaikan dan 59 pembaruan dokumentasi.",
+  "founderReport": "Yang baru untuk Anda: Jarvis slice 1-7 archPolicy tunggal + bench hormat policy; Fase 4 cron scheduler; Fase 3 telegram gateway. Lebih stabil: Selaraskan approval dengan Auto Mode f86b17b; Loop survivability popup-close disconnect; Unblock Intercom button, make topology borderless, ban sparkle icons, and enforce proactive 5W1H autonomy.",
   "linearUrl": "https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326",
   "changes": [
+    {
+      "type": "AUTO",
+      "msg": "Jarvis slice 1-7 archPolicy tunggal + bench hormat policy"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Fase 4 cron scheduler"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Fase 3 telegram gateway"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Fase 2 TUI interaktif"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Fase 1 headless resume"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Implement default Auto Mode and universal window drag/resize frame"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Implement headless autonomous agent runner and browser click routing"
+    },
     {
       "type": "AUTO",
       "msg": "Measurement plane + 30-fixture benchmark matrix"
@@ -263,6 +291,26 @@
     },
     {
       "type": "ATM",
+      "msg": "Selaraskan approval dengan Auto Mode f86b17b"
+    },
+    {
+      "type": "ATM",
+      "msg": "Loop survivability popup-close disconnect"
+    },
+    {
+      "type": "ATM",
+      "msg": "Unblock Intercom button, make topology borderless, ban sparkle icons, and enforce proactive 5W1H autonomy"
+    },
+    {
+      "type": "ATM",
+      "msg": "Clean indexedDB setup with dynamic runner import"
+    },
+    {
+      "type": "ATM",
+      "msg": "Explicit sizing for ProcessPanel icons and safe Fast Refresh context guards"
+    },
+    {
+      "type": "ATM",
       "msg": "Classify failed trajectory evidence safely"
     },
     {
@@ -352,6 +400,18 @@
     {
       "type": "ATM",
       "msg": "EnsureGitIdentity di syncWithReleaseBase"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Riset Claude frontier + session logs TUI/ext/CLI"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Tracker T0-T4 selesai + session log commit parsial"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Fase 5 kontrak 4fase + roadmap + session logs CLI"
     },
     {
       "type": "DOCS",

@@ -2,11 +2,18 @@
 
 Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.
 
-## v1.2.0-alpha.6 — 21 September 2026
+## v1.2.0-alpha.6 — 23 September 2026
 
-**Ringkasan:** 64 fitur baru, 23 perbaikan dan 56 pembaruan dokumentasi.
+**Ringkasan:** 71 fitur baru, 28 perbaikan dan 59 pembaruan dokumentasi.
 
 ### Fitur Baru
+- Jarvis slice 1-7 archPolicy tunggal + bench hormat policy
+- Fase 4 cron scheduler
+- Fase 3 telegram gateway
+- Fase 2 TUI interaktif
+- Fase 1 headless resume
+- Implement default Auto Mode and universal window drag/resize frame
+- Implement headless autonomous agent runner and browser click routing
 - Measurement plane + 30-fixture benchmark matrix
 - General agentic runtime for long-horizon autonomy
 - Require grounded evidence for skill promotion
@@ -73,6 +80,11 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Gemini-latest alias, fallback Gemini->custom, warning model tak dikenal
 
 ### Perbaikan
+- Selaraskan approval dengan Auto Mode f86b17b
+- Loop survivability popup-close disconnect
+- Unblock Intercom button, make topology borderless, ban sparkle icons, and enforce proactive 5W1H autonomy
+- Clean indexedDB setup with dynamic runner import
+- Explicit sizing for ProcessPanel icons and safe Fast Refresh context guards
 - Classify failed trajectory evidence safely
 - Mark skill evidence provenance
 - Reapply precise observation patch
@@ -98,6 +110,9 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
+- Riset Claude frontier + session logs TUI/ext/CLI
+- Tracker T0-T4 selesai + session log commit parsial
+- Fase 5 kontrak 4fase + roadmap + session logs CLI
 - Plan wiring the architecture axis into the benchmark execution path
 - Record benchmark and standards adaptation session
 - Define runtime standards adaptation strategy
