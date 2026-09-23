@@ -1,12 +1,33 @@
 {
-  "generatedAt": "2026-09-21T01:11:43.920Z",
+  "generatedAt": "2026-09-23T08:22:18.983Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
-      "date": "21 September 2026",
-      "summary": "64 fitur baru, 23 perbaikan dan 56 pembaruan dokumentasi.",
+      "date": "23 September 2026",
+      "summary": "71 fitur baru, 28 perbaikan dan 59 pembaruan dokumentasi.",
       "sections": {
         "features": [
+          {
+            "msg": "Jarvis slice 1-7 archPolicy tunggal + bench hormat policy"
+          },
+          {
+            "msg": "Fase 4 cron scheduler"
+          },
+          {
+            "msg": "Fase 3 telegram gateway"
+          },
+          {
+            "msg": "Fase 2 TUI interaktif"
+          },
+          {
+            "msg": "Fase 1 headless resume"
+          },
+          {
+            "msg": "Implement default Auto Mode and universal window drag/resize frame"
+          },
+          {
+            "msg": "Implement headless autonomous agent runner and browser click routing"
+          },
           {
             "msg": "Measurement plane + 30-fixture benchmark matrix"
           },
@@ -202,6 +223,21 @@
         ],
         "fixes": [
           {
+            "msg": "Selaraskan approval dengan Auto Mode f86b17b"
+          },
+          {
+            "msg": "Loop survivability popup-close disconnect"
+          },
+          {
+            "msg": "Unblock Intercom button, make topology borderless, ban sparkle icons, and enforce proactive 5W1H autonomy"
+          },
+          {
+            "msg": "Clean indexedDB setup with dynamic runner import"
+          },
+          {
+            "msg": "Explicit sizing for ProcessPanel icons and safe Fast Refresh context guards"
+          },
+          {
             "msg": "Classify failed trajectory evidence safely"
           },
           {
@@ -273,6 +309,15 @@
         ],
         "security": [],
         "docs": [
+          {
+            "msg": "Riset Claude frontier + session logs TUI/ext/CLI"
+          },
+          {
+            "msg": "Tracker T0-T4 selesai + session log commit parsial"
+          },
+          {
+            "msg": "Fase 5 kontrak 4fase + roadmap + session logs CLI"
+          },
           {
             "msg": "Plan wiring the architecture axis into the benchmark execution path"
           },
