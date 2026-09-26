@@ -102,20 +102,27 @@ export async function executeToolWithHooks(core, hooks, tool, query, ctx = {}) {
  */
 export function createToolAuditLogger({ logger, sessionId, deps = {} } = {}) {
   let auditCount = 0
-  // Turn kontinu per SESI (bukan per run): tiap runAgentLoop me-restart
-  // stepCount dari 1, sedangkan hierarki AOS (sessionId -> turn) butuh monoton
-  // dalam satu sesi TUI/CLI yang menjalankan banyak turn. Offset akumulatif.
-  let turnOffset = 0
+  // Semantik turn headless: SATU RUN PROMPT = SATU TURN harness (start/end
+  // selalu berpasangan dengan nomor yang sama — bebas red-flag palsu di
+  // harness:diagnose). Step INTERNAL loop ReAct disimpan di field `step`
+  // record tool, bukan di nomor turn. runCount = akumulasi lintas run dalam
+  // satu sesi (offset turn), direset saat audit dibuat ulang (/new, /continue).
+  let runCount = 0
+  let pendingStart = null
   return {
+    // Kunci sesi: host membandingkan ini dengan sessionId aktif agar audit
+    // di-recreate saat /new atau /continue (runCount turn harus reset).
+    forSession: sessionId,
     auditCount: () => auditCount,
     // Panggil host tepat sebelum runAgentLoop: frame start turn berikutnya.
     // Meta (prompt efektif + provider/model/effort) = PLAN-T1 — inilah yang
     // dulu TIDAK pernah terekam sehingga bug "kadang input kosong" tak
     // bisa di-root-cause.
     beginTurn: ({ prompt = null, provider = null, model = null, effort = null } = {}) => {
+      pendingStart = runCount + 1
       try {
         logger?.logTurnStart?.({
-          turn: turnOffset + 1,
+          turn: pendingStart,
           prompt: typeof prompt === 'string' ? prompt.slice(0, 2000) : prompt,
           provider,
           model,
@@ -128,14 +135,18 @@ export function createToolAuditLogger({ logger, sessionId, deps = {} } = {}) {
       try {
         logger?.logToolCall?.({
           ...entry,
-          turn: entry?.turn != null ? entry.turn + turnOffset : null
+          // turn = nomor run (pasangan start/end); step = nomor iterasi loop
+          // dalam run ini (detail internal, tidak dipakai pairing).
+          turn: pendingStart ?? entry?.turn ?? null,
+          step: entry?.turn ?? null
         })
       } catch { /* tak pernah fatal */ }
     },
-    finalize: async ({ outcome = null, terminalReason = null, turn = null } = {}) => {
-      const absTurn = turn != null ? turn + turnOffset : null
-      try { logger?.logTurnEnd?.({ turn: absTurn, outcome, reason: terminalReason }) } catch { }
-      if (turn != null) turnOffset += turn
+    finalize: async ({ outcome = null, terminalReason = null } = {}) => {
+      const turn = pendingStart ?? (runCount + 1)
+      try { logger?.logTurnEnd?.({ turn, outcome, reason: terminalReason }) } catch { }
+      runCount += 1
+      pendingStart = null
       if (!sessionId) return
       try {
         const loadFn = deps.loadFn || null

@@ -14,6 +14,10 @@
 // aktif >50MB dilewati dengan counter skipped, bukan ditimpa. fs/path di-inject
 // untuk test hermetik (pola usageStats.mjs summarizeDir).
 import path from 'node:path'
+// Sumber TUNGGAL data-home (helper sidecar yang sudah ter-test oleh
+// dataHome.test.mjs / sttGuard.test.mjs): ABELINK_DATA_HOME (trim) > XDG >
+// ~/.local/share. harness-writer hanya menambah brand + subpath harness.
+import { resolveDataHome } from '../../sidecar/main/utils/dataHome.mjs'
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50MB — batas jujur, sejajar Rust
 const MAX_LINE_CHARS = 256 * 1024 // sejajar MAX_LINE_CHARS Rust
@@ -27,11 +31,7 @@ export function harnessDisabled(env = process.env) {
 }
 
 export function resolveHarnessRoot(env = process.env, pathMod = path) {
-  const base =
-    env?.ABELINK_DATA_HOME ||
-    env?.XDG_DATA_HOME ||
-    pathMod.join(env?.HOME || '', '.local', 'share')
-  return pathMod.join(base, 'abelink', 'harness')
+  return pathMod.join(resolveDataHome(env), 'abelink', 'harness')
 }
 
 function todayLabel(now = new Date()) {
@@ -110,7 +110,7 @@ export function createHeadlessHarnessLogger({ writer, sessionId = null } = {}) {
         model,
         effort
       }),
-    logToolCall: ({ tool, query, ok, rejected = false, resultSummary, turn = null, durationMs = null } = {}) =>
+    logToolCall: ({ tool, query, ok, rejected = false, resultSummary, turn = null, step = null, durationMs = null } = {}) =>
       writer?.append('tool-calls', {
         kind: 'tool-call',
         tool: String(tool || '?'),
@@ -124,6 +124,7 @@ export function createHeadlessHarnessLogger({ writer, sessionId = null } = {}) {
         resultSummary: typeof resultSummary === 'string' ? resultSummary.slice(0, 2000) : resultSummary,
         sessionId: sid,
         turn,
+        step,
         durationMs
       }),
     logTurnEnd: ({ turn = null, outcome = null, reason = null } = {}) =>
