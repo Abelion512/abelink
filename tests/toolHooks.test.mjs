@@ -99,7 +99,7 @@ describe('executeToolWithHooks (H5)', () => {
     expect(out.result).toBe('[REDACTED]')
   })
 
-  it('createToolAuditLogger: beginTurn/finalize + turn offset kontinu antar run', async () => {
+  it('createToolAuditLogger: satu run = satu turn; step internal di field step', async () => {
     const frames = []
     const logger = {
       logTurnStart: (e) => frames.push(['start', e]),
@@ -107,22 +107,29 @@ describe('executeToolWithHooks (H5)', () => {
       logTurnEnd: (e) => frames.push(['end', e]),
     }
     const audit = createToolAuditLogger({ logger, sessionId: 'session-x', deps: {} })
+    // Run 1: multi-step internal (step loop 1..3) -> turn harness 1.
     audit.beginTurn({ prompt: 'p1', provider: 'custom', model: 'm', effort: 'low' })
     audit.logToolCall({ tool: 't', ok: true, turn: 1 })
-    await audit.finalize({ outcome: 'completed', terminalReason: 'r1', turn: 3 })
-    // run kedua (turn restart dari 1 di runAgentLoop)
+    audit.logToolCall({ tool: 't', ok: true, turn: 2 })
+    audit.logToolCall({ tool: 't', ok: true, turn: 3 })
+    await audit.finalize({ outcome: 'completed', terminalReason: 'r1' })
+    // Run 2 di sesi yang sama -> turn harness 2 (tanpa bentrok nomor).
     audit.beginTurn({ prompt: 'p2' })
     audit.logToolCall({ tool: 't', ok: true, turn: 1 })
-    await audit.finalize({ outcome: 'failed', terminalReason: 'r2', turn: 2 })
+    await audit.finalize({ outcome: 'failed', terminalReason: 'r2' })
 
     const starts = frames.filter((f) => f[0] === 'start').map((f) => f[1].turn)
     const ends = frames.filter((f) => f[0] === 'end').map((f) => f[1].turn)
-    expect(starts).toEqual([1, 4])
-    expect(ends).toEqual([3, 5])
+    expect(starts).toEqual([1, 2])
+    expect(ends).toEqual([1, 2])
     const toolTurns = frames.filter((f) => f[0] === 'tool').map((f) => f[1].turn)
-    expect(toolTurns).toEqual([1, 4])
+    const toolSteps = frames.filter((f) => f[0] === 'tool').map((f) => f[1].step)
+    expect(toolTurns).toEqual([1, 1, 1, 2])
+    expect(toolSteps).toEqual([1, 2, 3, 1])
     expect(frames[0][1].prompt).toBe('p1')
     expect(frames[0][1].model).toBe('m')
+    // forSession: kunci sesi untuk recreate audit saat /new atau /continue.
+    expect(audit.forSession).toBe('session-x')
   })
 
   it('createHeadlessHarnessLogger: bentuk event paritas GUI + success skema', async () => {

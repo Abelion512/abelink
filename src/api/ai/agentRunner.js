@@ -326,7 +326,11 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
               kind: objectiveKind,
               objectiveText: prompt,
               answer: decision.answer,
-              tools: executedToolsList
+              // GUI menulis executedTools {tool, fullResult}; runner headless
+              // menyimpan {tool, result}. Petakan di sini agar bukti tool
+              // CLI/TUI TIDAK tak-terlihat oleh verifier (bug e2e M2c:
+              // gate selalu not_run di CLI/TUI meski tool sukses).
+              tools: executedToolsList.map((t) => ({ tool: t.tool, fullResult: t.result }))
             })
 
             const gate = gateCompletion({
