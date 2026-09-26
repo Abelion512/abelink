@@ -58,20 +58,22 @@ export function createHarnessWriter({ fsMod = null, env = process.env, root = nu
   const fs = fsMod
   const clock = now || (() => new Date())
   const stats = { written: 0, skippedSize: 0, disabled: harnessDisabled(env) || !trajectoryHeadlessEnabled(env) }
+  // Ts MONOTONIK KETAT per writer (kontrak skema: reader urut via ts; tanpa
+  // ini, event dalam milidetik yang sama dari FILE berbeda — urutan readdir
+  // arbitrer — berakhir salah urut di export/diagnose; flake terukur run6).
+  let lastTsMs = 0
 
   const append = (kind, envelope) => {
     if (stats.disabled) return false
     if (!fs || typeof fs.appendFileSync !== 'function') return false
     if (!validKind(kind)) return false
-    let line = null
     try {
-      line = JSON.stringify({ ...(envelope || {}), ts: rfc3339Localish(clock()) })
-    } catch {
-      return false // envelope tak serializable — jangan bunuh turn
-    }
-    if (line.length > MAX_LINE_CHARS) return false
-    try {
-      const dir = path.join(root || resolveHarnessRoot(env), todayLabel(clock()))
+      const tsMs = Math.max(clock().getTime(), lastTsMs + 1)
+      lastTsMs = tsMs
+      const ts = new Date(tsMs).toISOString()
+      const line = JSON.stringify({ ...(envelope || {}), ts })
+      if (line.length > MAX_LINE_CHARS) return false
+      const dir = path.join(root || resolveHarnessRoot(env), todayLabel(new Date(tsMs)))
       fs.mkdirSync(dir, { recursive: true })
       const file = path.join(dir, `${kind}.jsonl`)
       try {
@@ -81,7 +83,7 @@ export function createHarnessWriter({ fsMod = null, env = process.env, root = nu
           return false // fail-closed tanpa rotasi (beda jujur dengan Rust)
         }
       } catch { /* file belum ada -> lanjut */ }
-      const row = JSON.stringify({ ts: rfc3339Localish(clock()), kind, line })
+      const row = JSON.stringify({ ts, kind, line })
       fs.appendFileSync(file, row + '\n')
       stats.written += 1
       return true

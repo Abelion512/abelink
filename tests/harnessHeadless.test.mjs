@@ -91,6 +91,24 @@ describe('createHarnessWriter', () => {
     circular.self = circular
     expect(w.append('turn-start', circular)).toBe(false)
   })
+
+  it('ts MONOTONIK KETAT: urutan reader benar walau clock beku (regresi flake run6)', () => {
+    // Clock beku (Date(0)): tanpa guard monotonic, ketiga event dapat ts
+    // identik dari TIGA file berbeda — urutan readdir arbitrer membuat
+    // readSessionEvents salah urut (flake nyata run6). Guard baru: ts naik
+    // ketat 0,1,2 ms -> urutan selalu benar.
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-mono-'))
+    const root = path.join(tmp, 'harness')
+    const w = createHarnessWriter({ fsMod: fs, env: enabledEnv(), root, now: () => new Date(0) })
+    const log = createHeadlessHarnessLogger({ writer: w, sessionId: 'session-mono' })
+    log.logTurnStart({ turn: 1 })
+    log.logToolCall({ tool: 'read-file', ok: true, resultSummary: 'ok', turn: 1 })
+    log.logTurnEnd({ turn: 1, outcome: 'completed', reason: 'r' })
+    const events = readSessionEvents({ session: 'session-mono', date: '1970-01-01', dir: path.join(root, '1970-01-01') })
+    expect(events.map((e) => e.kind)).toEqual(['turn-start', 'tool-call', 'turn-end'])
+    expect(new Date(events[2].ts).getTime()).toBeGreaterThan(new Date(events[0].ts).getTime())
+    fs.rmSync(tmp, { recursive: true, force: true })
+  })
 })
 
 describe('bentuk event harnessCore', () => {

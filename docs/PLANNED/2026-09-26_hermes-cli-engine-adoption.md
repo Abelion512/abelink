@@ -32,18 +32,16 @@ Dokumen ini memperbaiki ketiganya.
 ### H1 — Satu inti, banyak host (platform-agnostic core)
 - Sumber: Hermes runs CLI + desktop + messaging + IDE dari satu core.
 - Target: `src/api/ai/agentRunner.js` `runAgentLoop`.
-- Status: **PARTIAL**. Bukti: pemakai `runAgentLoop` = `bin/abelink.mjs`,
-  `bin/abelink-tui.mjs`, `cli/tui/engine.mjs`. GUI (`useAbelinkPlan.js`) punya
-  loop sendiri.
-- Gap: dua loop = dua perilaku (verifikasi/supervisor/budget bisa berbeda).
-- Task H1: putuskan salah satu, jangan keduanya:
-  (a) GUI memanggil `runAgentLoop` dengan environment adapter yang sama seperti
-  TUI, atau (b) tulis ADR bahwa GUI tetap mandiri + kunci paritas lewat test
-  kontrak bersama (objectiveVerifier + trajectorySupervisor + planStepBudget).
-- Acceptance: `grep -rn "runAgentLoop" src/hooks` mengembalikan hasil,
-  ATAU ada `docs/ADR-*.md` + test paritas yang gagal bila salah satu loop
-  melewatkan gerbang verifikasi.
-- Blocked-by: tidak ada. Ini keputusan arsitektur paling menentukan.
+- Status: **DONE (via ADR, 2026-09-26 — M3)**. Keputusan D1: `docs/ADR-001-loop-divergence.md`
+  — GUI mempertahankan loop sendiri; paritas dikunci lewat modul governance
+  BERSAMA (objectiveVerifier + trajectorySupervisor + planStepBudget +
+  classifier) dan test `tests/loopParity.test.mjs` yang gagal bila salah satu
+  loop berhenti memanggil gerbang. Bukti pengukuran: kedua loop sudah
+  memanggil modul yang sama, jadi "satu core" diwujudkan di lapisan governance,
+  bukan di lapisan loop.
+- Acceptance (versi ADR): `docs/ADR-001-loop-divergence.md` ada + test paritas
+  gagal bila salah satu loop melewatkan gerbang verifikasi. ✅
+- Blocked-by: tidak ada.
 
 ### H2 — Provider runtime (precedence + key scoped per base URL + fallback)
 - Target: `src/api/ai/headlessCli.js` (`resolveCliAuth`) + `shared.json`.
