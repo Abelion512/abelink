@@ -88,6 +88,7 @@ Keputusan: **ABORT** (hentikan/hapus/kecualikan) · **FREEZE** (bekukan) ·
 | B-17 | Policy branch/PR: refactor besar wajib lewat branch+PR | AGENTS.md | MITIGATE | semua | semua wave | branch-guard CI hijau |
 | B-18 | `.mjs` runtime vs `.ts`: resolusi Bun vs tsc berbeda | 224 `.mjs` | MITIGATE | P1 | M1 | `moduleResolution: bundler` + smoke `bun run` entry `bin/` |
 | B-19 | `typescript` di-resolve ke **7.0.2** (compiler Go) → `typescript-eslint` 8.x **menolak jalan sama sekali** | `bun add -d typescript` memasang 7.0.2; runtime error "typescript-eslint does not support TS 7.0" | MITIGATE **selesai di M0** | P1 | M0 | `typescript` dipin `^5.9.3` (didukung ESLint+Vitest+Vite); naikkan hanya setelah typescript-eslint mendukung TS >= 7.1 |
+| B-20 | `tsconfig` dengan `include` yang tak punya satu pun input `.ts` = **error TS18003**, bukan "hijau kosong" | `tsconfig.renderer.json` di `src/**` (belum ada .ts) exit 2 saat diuji 2026-09-26 | MITIGATE (tunda config) | P1 | M2/M6 | `tsconfig.renderer.json` baru dibuat saat berkas `.ts`/`.tsx` pertama mendarat di `src/**` |
 | B-21 | 9Router `/v1/models` **memakan ~40 detik** (naik dari ~26s sehari sebelumnya) sementara `fetchLiveCatalog` timeout **45s** → katalog dinamis selalu mepet; ini akar flakiness B-8 | `curl -H 'Connection: close'` terukur `real 0m40.1s` (2026-09-26) | MITIGATE (jangan andalkan katalog live di gate) | P1+P2 | M5 | test live pakai probe 70s; gate default nol jaringan; kalau katalog dinamis mau dipakai serius perlu cache/refresh async, bukan timeout dinaikkan terus |
 
 ---
@@ -156,15 +157,20 @@ DoD: `bun run lint` exit 0 (0 error, 46 warning = tech-debt OpenTUI intrinsic);
 `bunx vitest run` 148 file / 1695 test hijau **dan** `tests/ts-probe.test.ts`
 benar-benar dieksekusi; `bun run typecheck` exit 0; `bun run build` sukses. ✅
 
-### M1 — Toolchain TS (P1/A0) · blocker: B-1,B-18
-- devDeps: `typescript` (`^5.9.3`, **jangan** 7.x — B-19), `typescript-eslint`,
-  `@types/{react,react-dom,node}` — **sudah dipasang di M0**.
-- `tsconfig.base.json` **sudah ada di M0**. Sisa M1: pecah `tsconfig.json`
-  menjadi `tsconfig.renderer.json` (src/**, `jsx: react-jsx`) +
-  `tsconfig.node.json` (sidecar/**, cli/**, bin/**) dengan `references`, dan
-  lebarkan `include` bertahap (mulai dari berkas yang sudah bersih).
-- CI: `tsc --noEmit` **soft-fail** (sampai M2 menjadi blok `cli/**`).
-DoD: `tsc` jalan exit 0 pada baseline; tidak ada rename.
+### M1 — Toolchain TS (P1/A0) · blocker: B-1,B-18,B-19,B-20 ✅ SELESAI
+- devDeps: `typescript` **5.9.3** (`^5.9.3`; versi stabil terbaru yang didukung
+  — 6.0 masih `beta`, 7.x ditolak typescript-eslint, lihat B-19),
+  `typescript-eslint@8`, `@types/{react,react-dom,node}` (semua latest).
+- `tsconfig.base.json` (M0) + `tsconfig.json` = gate payung ZONA BERSIH
+  (src, sidecar, scripts, evaluation, tests) + `tsconfig.node.json`
+  (sub-gate node, dari script `typecheck:node`).
+- **Pengukuran 2026-09-26**: `cli/**` + `bin/**.tsx` menghasilkan **114 error**
+  dari 3 berkas TUI → sengaja dikeluarkan dari gate; itu backlog M2.
+- `tsconfig.renderer.json` **tidak dibuat** di M1: `src/**` belum punya berkas
+  `.ts`, dan config tanpa input = error TS18003 (B-20). Dibuat saat berkas
+  pertama mendarat.
+- CI: langkah `Typecheck (tsc, soft-fail)` dengan `continue-on-error: true`.
+DoD: `bun run typecheck` + `bun run typecheck:node` exit 0; tidak ada rename. ✅
 
 ### M2 — CLI/TUI bertipe (P1/A1) + seam P2 · blocker: B-9,B-13,B-16
 - Ekstrak `cli/core/{parser,session-store,sidecar-client}.mjs` dari
