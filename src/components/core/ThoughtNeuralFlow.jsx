@@ -1,19 +1,17 @@
-import React, { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
 import { MobiusLoader } from './MobiusLoader';
 
 const ThoughtNeuralFlow = ({ processes }) => {
-  const [displayedPlan, setDisplayedPlan] = useState(null);
-  const [isVisible, setIsVisible] = useState(false);
+  // Plan aktif murni derivasi processes saat render — tanpa effect/state
+  // (menghapus set-state-in-effect; perilaku identik).
+  const findActivePlan = (list) => {
+    let activePlan = list.find(p => p.type === 'planning');
 
-  useEffect(() => {
-    let activePlan = processes.find(p => p.type === 'planning');
-    
-    if (!activePlan && processes.length > 0) {
-      const runningProc = processes.find(p => p.status !== 'done');
+    if (!activePlan && list.length > 0) {
+      const runningProc = list.find(p => p.status !== 'done');
       if (runningProc) {
-        let taskName = runningProc.type === 'web-search' ? 'Mencari Data...' : 
-                       runningProc.type === 'plugin-execution' ? 'Eksekusi Plugin...' : 
+        let taskName = runningProc.type === 'web-search' ? 'Mencari Data...' :
+                       runningProc.type === 'plugin-execution' ? 'Eksekusi Plugin...' :
                        'Memproses...';
         activePlan = {
           status: runningProc.status,
@@ -26,17 +24,14 @@ const ThoughtNeuralFlow = ({ processes }) => {
       }
     }
 
-    if (activePlan) {
-      setDisplayedPlan(activePlan);
-      setIsVisible(true);
-    } else {
-      setIsVisible(false);
-    }
-  }, [processes]);
+    return activePlan ?? null
+  }
+
+  const displayedPlan = findActivePlan(processes)
+  const isVisible = displayedPlan != null
 
   const plan = displayedPlan?.data?.plan || [];
   const currentStep = displayedPlan?.data?.currentStep || 0;
-  const reasoning = displayedPlan?.data?.reasoning || '';
   const isDone = displayedPlan?.status === 'done';
 
   return (
@@ -64,7 +59,6 @@ const ThoughtNeuralFlow = ({ processes }) => {
         const isCompleted = idx < currentStep;
         const isActive = idx === currentStep && !isDone;
         const isPending = idx > currentStep;
-        const stepText = typeof step === 'object' ? step.task : step;
 
         const totalNodes = plan.length;
         const span = totalNodes > 3 ? 180 : 140; // Expand span if there are many nodes

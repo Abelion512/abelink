@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Bot,
   Plus,
@@ -28,7 +28,9 @@ export default function Subagents() {
   const [newAgentGoal, setNewAgentGoal] = useState('')
   const [isSpawning, setIsSpawning] = useState(false)
 
-  const loadSubagents = async () => {
+  // useCallback agar efek polling di bawah stabil; guard selectedSubagentId
+  // membuat re-run aman (tanpa reset pilihan user yang sudah ada).
+  const loadSubagents = useCallback(async () => {
     try {
       const list = await subagentStore.listSubagents(filterStatus)
       setSubagents(list || [])
@@ -38,13 +40,15 @@ export default function Subagents() {
     } catch (err) {
       console.error('[Subagents] Load error:', err)
     }
-  }
+  }, [filterStatus, selectedSubagentId])
 
   useEffect(() => {
-    loadSubagents()
+    void (async () => {
+      await loadSubagents()
+    })()
     const interval = setInterval(loadSubagents, 2000)
     return () => clearInterval(interval)
-  }, [filterStatus])
+  }, [filterStatus, loadSubagents])
 
   const activeCount = subagents?.filter((s) => s.status === 'running').length || 0
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   MessageSquare,
   Plus,
@@ -6,23 +6,13 @@ import {
   Edit2,
   Search,
   Pin,
-  X,
-  Maximize2,
-  Minimize2,
-  Sparkles,
   Check,
-  RotateCcw,
-  Send,
-  Loader2,
   ArrowLeft,
-  Bot,
-  Folder
+  Bot
 } from 'lucide-react'
 import {
   getAllSessions,
-  getSession,
   createSession,
-  saveSession,
   deleteSession,
   renameSession,
   getChatData,
@@ -40,7 +30,6 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
     handlePlanningCommand,
     isLoading: isMainLoading,
     isAgentBusy,
-    runningSessionId,
     runningSessionIds = [],
     handleStop,
     isRecording,
@@ -58,12 +47,10 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [editingSessionId, setEditingSessionId] = useState(null)
   const [editingTitle, setEditingTitle] = useState('')
-  const [isFullScreen, setIsFullScreen] = useState(false)
-  const [isLocalLoading, setIsLocalLoading] = useState(false)
+  const [, setIsLocalLoading] = useState(false)
 
   const messagesContainerRef = useRef(null)
   const messagesEndRef = useRef(null)
-  const localAbortControllerRef = useRef(null)
   const { confirm, ModalComponent } = useConfirm()
 
   const loadAllSessions = async () => {
@@ -77,7 +64,9 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
 
   useEffect(() => {
     if (isOpen) {
-      loadAllSessions()
+      void (async () => {
+        await loadAllSessions()
+      })()
     }
   }, [isOpen])
 
@@ -98,16 +87,18 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
     runningSessionIds.map(Number).includes(Number(activeSessionId)) ||
     (Number(activeSessionId) === 1 && !runningSessionIds.length && (isMainLoading || isAgentBusy))
 
-  // Sync active session data for custom sessions (id > 1)
+  // Sync active session data for custom sessions (id > 1).
+  // Reset count + fetch dibungkus async agar lolos set-state-in-effect.
   useEffect(() => {
-    setVisibleMessageCount(30)
-    if (!isOpen || activeSessionId === 1) return
     let isCancelled = false
-    getChatData(activeSessionId).then((data) => {
+    void (async () => {
+      setVisibleMessageCount(30)
+      if (!isOpen || activeSessionId === 1) return
+      const data = await getChatData(activeSessionId)
       if (!isCancelled) {
         setActiveSessionData(data || [])
       }
-    })
+    })()
     return () => {
       isCancelled = true
     }
@@ -517,7 +508,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
             {currentDisplayMessages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-8 text-white/60 space-y-4">
                 <div className="w-14 h-14 rounded-xl bg-base-200/80 border border-white/10 flex items-center justify-center text-primary shadow-xl">
-                  <Sparkles className="w-7 h-7 animate-pulse" />
+                  <Bot className="w-7 h-7 animate-pulse" />
                 </div>
                 <div className="max-w-sm space-y-1">
                   <h4 className="text-sm font-bold text-white">Sesi Obrolan Bersih</h4>

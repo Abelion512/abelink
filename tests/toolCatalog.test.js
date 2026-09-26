@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { core_tools } from '../src/api/tools/core-tools'
 import { GROUP_TOOLS_DEFINITION, group_tools_flat } from '../src/api/tools/group-tools'
 
@@ -32,7 +32,7 @@ describe('GROUP_TOOLS_DEFINITION', () => {
     )
   })
   it('flat map sinkron dengan grup (lookup O(1) valid)', () => {
-    for (const [group, def] of Object.entries(GROUP_TOOLS_DEFINITION)) {
+    for (const [, def] of Object.entries(GROUP_TOOLS_DEFINITION)) {
       for (const toolName of Object.keys(def.tools)) {
         expect(group_tools_flat[toolName], `${toolName} hilang dari flat map`).toBeTruthy()
       }

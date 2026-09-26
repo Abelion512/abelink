@@ -1,6 +1,7 @@
 // Channel: AI bridge, sinkronisasi config, native tools, parsing dokumen.
 import { on, handlers, emit, lazy } from '../registry.mjs'
 import { setLatestConfig } from './telegram.mjs'
+import { writeSharedConfig } from '../../main/shared-config.js'
 
 const getAi = lazy(() => import('../../main/ai-bridge.js'))
 const getNt = lazy(() => import('../../main/node-tools.js'))
@@ -38,6 +39,10 @@ on('sync-config', async (config) => {
   const aiMod = await getAi()
   aiMod.setGlobalConfig(config)
   setLatestConfig(config)
+  // Jembatan GUI -> CLI/TUI (satu produk): snapshot config AI ke
+  // ~/.config/abelink/shared.json yang dibaca headlessCli.loadCliFileConfig.
+  // Best-effort: kegagalan tulis TIDAK boleh menggagalkan sync GUI.
+  try { writeSharedConfig(config) } catch { /* never break GUI sync */ }
   const { setBrowserConfig } = await import('../../main/browser/bridge-core.mjs')
   setBrowserConfig({ autoCloseTabs: !!config?.browserAutoCloseTabs, autoLaunch: config?.browserAutoLaunch !== false })
   const tgMod = await import('../../main/telegram/telegram-service.js')

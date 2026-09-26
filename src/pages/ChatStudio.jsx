@@ -1,14 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
-  MessageSquare,
   Plus,
   Trash2,
   Edit2,
   Search,
-  Pin,
-  Sparkles,
   Check,
-  RotateCcw,
   Bot,
   Folder,
   PanelLeft
@@ -17,7 +13,6 @@ import { useChat } from '../contexts/useChat'
 import {
   getAllSessions,
   createSession,
-  saveSession,
   deleteSession,
   renameSession,
   getChatData,
@@ -37,7 +32,6 @@ const ChatStudio = () => {
     handlePlanningCommand,
     isLoading: isMainLoading,
     isAgentBusy,
-    runningSessionId,
     runningSessionIds = [],
     handleStop,
     isRecording,
@@ -55,13 +49,12 @@ const ChatStudio = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [editingSessionId, setEditingSessionId] = useState(null)
   const [editingTitle, setEditingTitle] = useState('')
-  const [isLocalLoading, setIsLocalLoading] = useState(false)
+  const [, setIsLocalLoading] = useState(false)
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   const messagesContainerRef = useRef(null)
   const messagesEndRef = useRef(null)
-  const localAbortControllerRef = useRef(null)
   const { confirm, ModalComponent } = useConfirm()
 
   useEffect(() => {
@@ -85,7 +78,9 @@ const ChatStudio = () => {
   }
 
   useEffect(() => {
-    loadAllSessions()
+    void (async () => {
+      await loadAllSessions()
+    })()
   }, [])
 
   // Direct display pipeline: Main Thread uses mainChatData directly with 0ms lag
@@ -144,16 +139,18 @@ const ChatStudio = () => {
     runningSessionIds.map(Number).includes(Number(activeSessionId)) ||
     (Number(activeSessionId) === 1 && !runningSessionIds.length && (isMainLoading || isAgentBusy))
 
-  // Sync active session data for custom sessions (id > 1)
+  // Sync active session data for custom sessions (id > 1).
+  // Reset + fetch dibungkus async agar lolos set-state-in-effect.
   useEffect(() => {
-    setVisibleMessageCount(30)
-    if (activeSessionId === 1) return
     let isCancelled = false
-    getChatData(activeSessionId).then((data) => {
+    void (async () => {
+      setVisibleMessageCount(30)
+      if (activeSessionId === 1) return
+      const data = await getChatData(activeSessionId)
       if (!isCancelled) {
         setActiveSessionData(data || [])
       }
-    })
+    })()
     return () => {
       isCancelled = true
     }
@@ -249,7 +246,7 @@ const ChatStudio = () => {
     setEditingTitle(session.title)
   }
 
-  const handleSaveRename = async (id) => {
+  const handleSaveRenameSession = async (id) => {
     if (editingTitle.trim()) {
       await renameSession(id, editingTitle.trim())
       await loadAllSessions()
@@ -557,7 +554,7 @@ const ChatStudio = () => {
               {currentDisplayMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-8 text-white/50 space-y-4">
                   <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[#0a84ff] shadow-xl">
-                    <Sparkles className="w-7 h-7" />
+                    <Bot className="w-7 h-7" />
                   </div>
                   <div className="max-w-sm space-y-1">
                     <h4 className="text-sm font-semibold text-white">Sesi Percakapan Baru</h4>

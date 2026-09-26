@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 // Apple HIG Frosted Glass Surface: translucent dark acrylic + hairline border + subtle specular highlight.
 export const HoloChrome = ({ children, className = '', style }) => (

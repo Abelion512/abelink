@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Square } from 'lucide-react'
 import { MobiusLoader } from './MobiusLoader'
 import { useChat } from '../../contexts/useChat'

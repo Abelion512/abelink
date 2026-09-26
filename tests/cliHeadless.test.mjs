@@ -11,7 +11,9 @@ import {
   condenseSubagentResult,
   resolveApprovalDecision,
   loadCliFileConfig,
+  sharedConfigToCliConfig,
   resolveCliAuth,
+  isForbiddenModel,
   loadHeadlessMemories,
   runHeadlessSubagent,
   saveCliSession,
@@ -124,16 +126,24 @@ describe('headlessCli — resolveCliAuth fallback chain', () => {
     expect(resolveCliAuth({ flags: {}, env: {}, fileConfig: file }).provider).toBe('groq')
     // default = custom + frontier (headless; gemini-web butuh sesi browser GUI)
     expect(resolveCliAuth({ flags: {}, env: {}, fileConfig: {} }).provider).toBe('custom')
-    expect(resolveCliAuth({ flags: {}, env: {}, fileConfig: {} }).model).toBe('google/gemini-3.8-flash')
+    expect(resolveCliAuth({ flags: {}, env: {}, fileConfig: {} }).model).toBe('oc/muse-spark-1.3-contributor-free')
   })
 
-  it('resolves short aliases to full OpenRouter IDs', () => {
-    expect(resolveCliAuth({ flags: { model: 'gemini' }, env: {}, fileConfig: {} }).model).toBe('google/gemini-3.8-flash')
-    expect(resolveCliAuth({ flags: { model: 'fable' }, env: {}, fileConfig: {} }).model).toBe('anthropic/claude-fable-5.1')
-    expect(resolveCliAuth({ flags: { model: 'free' }, env: {}, fileConfig: {} }).model).toBe('qwen/qwen3.8-27b:free')
-    expect(resolveCliAuth({ flags: { model: 'kimi' }, env: {}, fileConfig: {} }).model).toBe('moonshotai/kimi-k3')
+  it('resolves short aliases to live 9Router IDs', () => {
+    expect(resolveCliAuth({ flags: { model: 'zen' }, env: {}, fileConfig: {} }).model).toBe('oc/muse-spark-1.3-contributor-free')
+    expect(resolveCliAuth({ flags: { model: 'qwen' }, env: {}, fileConfig: {} }).model).toBe('qwen')
+    expect(resolveCliAuth({ flags: { model: 'free' }, env: {}, fileConfig: {} }).model).toBe('bor/mimo-v2.5:free')
+    expect(resolveCliAuth({ flags: { model: 'free' }, env: {}, fileConfig: {} }).model).toBe('bor/mimo-v2.5:free')
     // unknown IDs pass through untouched (server aliases + future models)
     expect(resolveCliAuth({ flags: { model: 'claude-work' }, env: {}, fileConfig: {} }).model).toBe('claude-work')
+  })
+
+  it('menandai FORBIDDEN_MODELS (caller yang menolak, bukan resolveCliAuth)', () => {
+    expect(isForbiddenModel('claude-work')).toBe(true)
+    expect(isForbiddenModel('CLAUDE-WORK')).toBe(true)
+    expect(isForbiddenModel('zen')).toBe(false)
+    expect(resolveCliAuth({ flags: { model: 'claude-work' }, env: {}, fileConfig: {} }).forbidden).toBe(true)
+    expect(resolveCliAuth({ flags: { model: 'zen' }, env: {}, fileConfig: {} }).forbidden).toBe(false)
   })
 
   it('picks API key from flags > env > file', () => {
@@ -186,6 +196,74 @@ describe('headlessCli — loadCliFileConfig', () => {
     expect(loadCliFileConfig({ cwd: '/nonexistent-abelink-xyz', homeDir: '/nonexistent-home-xyz' })).toEqual({})
     fs.rmSync(home, { recursive: true, force: true })
     fs.rmSync(repo, { recursive: true, force: true })
+  })
+
+  it('mengadopsi snapshot config GUI (shared.json) sebagai lapis dasar', () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-home-'))
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-repo-'))
+    fs.mkdirSync(path.join(home, '.config', 'abelink'), { recursive: true })
+    fs.writeFileSync(
+      path.join(home, '.config', 'abelink', 'shared.json'),
+      JSON.stringify({ aiProvider: 'custom', customModel: 'gui-model', customApiKey: 'gui-key', customEndpoint: 'http://127.0.0.1:20128/v1', updatedAt: 'x' })
+    )
+    const cfg = loadCliFileConfig({ cwd: repo, homeDir: home })
+    // Satu produk: TUI/CLI mengadopsi provider/model/key/endpoint GUI.
+    expect(cfg.provider).toBe('custom')
+    expect(cfg.model).toBe('gui-model')
+    expect(cfg.apiKey).toBe('gui-key')
+    expect(cfg.customEndpoint).toBe('http://127.0.0.1:20128/v1')
+    expect(resolveCliAuth({ flags: {}, env: {}, fileConfig: cfg }).customEndpoint).toBe('http://127.0.0.1:20128/v1')
+    // cli.json CLI eksplisit menang atas snapshot GUI.
+    fs.writeFileSync(
+      path.join(home, '.config', 'abelink', 'cli.json'),
+      JSON.stringify({ model: 'cli-wins' })
+    )
+    expect(loadCliFileConfig({ cwd: repo, homeDir: home }).model).toBe('cli-wins')
+    fs.rmSync(home, { recursive: true, force: true })
+    fs.rmSync(repo, { recursive: true, force: true })
+  })
+
+  it('sharedConfigToCliConfig tidak memaksakan provider GUI-only (gemini-web)', () => {
+    const norm = sharedConfigToCliConfig({ aiProvider: 'gemini-web', geminiWebModel: 'gemini-3.8-flash' })
+    // gemini-web butuh sesi browser Google -> biarkan CLI jatuh ke default jujur.
+    expect(norm.provider).toBeNull()
+    expect(norm.model).toBeNull()
+    expect(sharedConfigToCliConfig({ aiProvider: 'groq', groqModel: 'llama-3.1-8b-instant', groqApiKey: 'gk' })).toMatchObject({
+      provider: 'groq', model: 'llama-3.1-8b-instant', apiKey: 'gk',
+    })
+    expect(sharedConfigToCliConfig({ aiProvider: 'lm-studio', customModel: 'local-1', customEndpoint: 'http://127.0.0.1:1234/v1' })).toMatchObject({
+      provider: 'custom', model: 'local-1', customEndpoint: 'http://127.0.0.1:1234/v1',
+    })
+  })
+
+  it('mengekspos customEndpoint dari flags > env > file', () => {
+    expect(resolveCliAuth({ flags: { endpoint: 'http://flag/v1' }, env: {}, fileConfig: {} }).customEndpoint).toBe('http://flag/v1')
+    expect(resolveCliAuth({ flags: {}, env: { CUSTOM_ENDPOINT: 'http://env/v1' }, fileConfig: {} }).customEndpoint).toBe('http://env/v1')
+    expect(resolveCliAuth({ flags: {}, env: {}, fileConfig: { customEndpoint: 'http://file/v1' } }).customEndpoint).toBe('http://file/v1')
+    expect(resolveCliAuth({ flags: {}, env: {}, fileConfig: {} }).customEndpoint).toBeNull()
+  })
+})
+
+describe('sidecar shared-config — snapshot GUI untuk CLI/TUI', () => {
+  it('menulis hanya field AI (0600) + merge, never-throw', async () => {
+    const { writeSharedConfig, readSharedConfig, pickSharedAiConfig } = await import('../sidecar/main/shared-config.js')
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-shared-'))
+    // Field non-AI (token telegram) TIDAK boleh ikut bocor ke file.
+    const picked = pickSharedAiConfig({ aiProvider: 'custom', customModel: 'm', tgBotToken: 'SECRET' })
+    expect(picked.tgBotToken).toBeUndefined()
+    const r = writeSharedConfig({ aiProvider: 'custom', customModel: 'm', tgBotToken: 'SECRET' }, { homeDir: home })
+    expect(r.ok).toBe(true)
+    const raw = fs.readFileSync(path.join(home, '.config', 'abelink', 'shared.json'), 'utf8')
+    expect(raw).not.toContain('SECRET')
+    expect((fs.statSync(path.join(home, '.config', 'abelink', 'shared.json')).mode & 0o777)).toBe(0o600)
+    // Merge: tulis kedua tanpa customModel tetap mempertahankan yang lama.
+    writeSharedConfig({ aiProvider: 'custom', customApiKey: 'k' }, { homeDir: home })
+    const merged = readSharedConfig({ homeDir: home })
+    expect(merged.customModel).toBe('m')
+    expect(merged.customApiKey).toBe('k')
+    // Tanpa field AI -> ok:false (tidak menulis sampah).
+    expect(writeSharedConfig({ windowOpacity: 90 }, { homeDir: home }).ok).toBe(false)
+    fs.rmSync(home, { recursive: true, force: true })
   })
 })
 
@@ -359,6 +437,27 @@ describe('agentRunner — initialHistory resume seed (Fase 1)', () => {
     expect(JSON.stringify(seenArgs)).toContain('hai, ada yang bisa dibantu?')
     expect(Array.isArray(res.history)).toBe(true)
     expect(res.history.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('prompt WAJIB terkirim sebagai pesan user (fresh session)', async () => {
+    // Regresi 2026-09-26: planning.js merakit [system, ...loopMessages] dan
+    // TIDAK pernah menambahkan userInput sebagai pesan, jadi tanpa seed ini
+    // model menjawab "input kosong" meski user mengetik pertanyaan.
+    let seenArgs = null
+    const res = await runAgentLoop({
+      prompt: 'jawab singkat: 1+1 berapa?',
+      options: { maxTurns: 3 },
+      environment: mkEnv(vi.fn().mockImplementation(async (args) => {
+        seenArgs = args
+        return doneReply('2')
+      }))
+    })
+    expect(res.success).toBe(true)
+    expect(JSON.stringify(seenArgs)).toContain('1+1 berapa')
+    expect(Array.isArray(res.history)).toBe(true)
+    expect(
+      res.history.some((m) => m.role === 'user' && String(m.content).includes('1+1 berapa'))
+    ).toBe(true)
   })
 
   it('filters non user/assistant roles and non-string content', async () => {

@@ -5,7 +5,7 @@
 //
 // Flags:
 //   --provider <provider>     AI provider (custom, groq, lm-studio, gemini-web). Default: custom
-//   --model <model>           Model identifier (default: claude-work, alias 9Router)
+//   --model <model>           Model identifier (default: oc/muse-spark-1.3-contributor-free, alias 9Router)
 //   --model-version <version> Model version / release tag
 //   --effort <effort>         Effort level: low | medium | high | xhigh | max | ultra (default: low)
 //   --max-turns <n>           Maximum ReAct loop turns (budget)
@@ -33,7 +33,16 @@ const ROOT = path.resolve(__dirname, '..')
 const SIDECAR_ENTRY = path.join(ROOT, 'sidecar', 'engine.mjs')
 const BUN_BIN = process.env.BUN_BIN || 'bun'
 
-const VERSION = '1.1.0-alpha.5'
+// Versi TIDAK hardcoded: dibaca dari package.json, yang di-sync dari
+// src-tauri/tauri.conf.json oleh scripts/sync-version.mjs. Bump alpha-6
+// otomatis ikut tanpa mengedit file ini (satu sumber kebenaran versi).
+const VERSION = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version || 'dev'
+  } catch {
+    return 'dev'
+  }
+})()
 
 function printHelp() {
   console.log(`
@@ -51,7 +60,7 @@ Usage:
 
 Flags:
   --provider <name>       AI provider (custom | groq | lm-studio | gemini-web) [default: custom]
-  --model <id>            Model: nama pendek (gemini, fable, kimi, deepseek, qwen, glm, grok, gpt, free, auto) atau ID penuh [default: google/gemini-3.8-flash]
+  --model <id>            Model: nama pendek (zen, qwen, mimo, nara, xkiro, free) atau ID penuh [default: oc/muse-spark-1.3-contributor-free]
   -m <id>                 Singkatan --model
   --api-key <key>         API key (default: ABELINK_API_KEY/CUSTOM_API_KEY env, cli.json, atau DB 9Router)
   --model-version <ver>   Model version string
@@ -161,7 +170,12 @@ export function parseCliArgs(argv) {
     // Headless default = custom (9Router/LM Studio di localhost:20128).
     // gemini-web butuh sesi browser Google (hanya GUI) -> gagal 100% headless.
     provider: 'custom',
-    model: 'google/gemini-3.8-flash',
+    model: 'oc/muse-spark-1.3-contributor-free',
+    // Ditandai true HANYA bila user menyetel flag eksplisit. Dipakai agar
+    // config GUI (shared.json) / cli.json bisa diadopsi saat flag tidak diberi
+    // (satu sumber setting), tapi flag eksplisit selalu menang.
+    providerExplicit: false,
+    modelExplicit: false,
     modelVersion: null,
     apiKey: null,
     effort: 'low',
@@ -182,8 +196,10 @@ export function parseCliArgs(argv) {
     const arg = args[i]
     if (arg === '--provider') {
       options.provider = args[++i]
+      options.providerExplicit = true
     } else if (arg === '--model' || arg === '-m') {
       options.model = args[++i]
+      options.modelExplicit = true
     } else if (arg === '--model-version') {
       options.modelVersion = args[++i]
     } else if (arg === '--api-key') {
@@ -332,13 +348,19 @@ async function main() {
     listCliSessions = null,
     newCliSessionId = null,
     MODEL_ALIASES = null,
-    DEFAULT_CLI_MODEL = null
+    DEFAULT_CLI_MODEL = null,
+    isForbiddenModel = null,
+    forbiddenModelError = null
   } = headless
 
   // Subcommand ringan: tanpa sidecar, tanpa LLM.
-  // `tui`: exec ke host interaktif (proses diganti; sinyal/TTY utuh).
+  // `tui`: exec ke host interaktif v2 OpenTUI (proses diganti; sinyal/TTY utuh).
+  // Fallback v1 readline bila v2 exit non-nol (mis. TTY tak didukung).
   if (cliOptions.command === 'tui') {
     const { spawnSync } = await import('node:child_process')
+    const v2 = spawnSync(BUN_BIN, [path.join(ROOT, 'bin', 'abelink-tui-v2.tsx'), ...process.argv.slice(2)], { stdio: 'inherit' })
+    if ((v2.status ?? 0) === 0) process.exit(0)
+    console.error(`[TUI] v2 keluar kode ${v2.status ?? '?'} — fallback ke v1 readline.`)
     const r = spawnSync(BUN_BIN, [path.join(ROOT, 'bin', 'abelink-tui.mjs'), ...process.argv.slice(2)], { stdio: 'inherit' })
     process.exit(r.status ?? 0)
   }
@@ -362,7 +384,7 @@ async function main() {
     const aliases = MODEL_ALIASES || {}
     const q = String(cliOptions.filter || '').toLowerCase()
     const rows = Object.entries(aliases).filter(([k]) => !q || k.includes(q))
-    console.log(`Model default: ${DEFAULT_CLI_MODEL || 'google/gemini-3.8-flash'}\n`)
+    console.log(`Model default: ${DEFAULT_CLI_MODEL || 'oc/muse-spark-1.3-contributor-free'}\n`)
     console.log('Alias                  -> ID penuh')
     for (const [k, v] of rows) console.log(`${k.padEnd(22)} -> ${v}`)
     console.log('\nPakai: abelink "prompt..." -m <alias|ID>')
@@ -422,7 +444,14 @@ async function main() {
   } catch { fileConfig = {} }
   const auth = typeof resolveCliAuth === 'function'
     ? resolveCliAuth({
-      flags: { provider: cliOptions.provider, model: cliOptions.model, modelVersion: cliOptions.modelVersion, apiKey: cliOptions.apiKey || null },
+      flags: {
+        // Hanya kirim provider/model bila user set flag eksplisit; selain itu
+        // biarkan GUI/cli.json/default menentukan (tanpa override palsu).
+        provider: cliOptions.providerExplicit ? cliOptions.provider : null,
+        model: cliOptions.modelExplicit ? cliOptions.model : null,
+        modelVersion: cliOptions.modelVersion,
+        apiKey: cliOptions.apiKey || null
+      },
       env: process.env,
       fileConfig
     })
@@ -433,6 +462,17 @@ async function main() {
     try {
       auth.apiKey = await loadNineRouterKey()
     } catch {}
+  }
+
+  // Keputusan owner: ID terlarang ditolak di entry, bukan diam-diam dipakai.
+  const banned = typeof isForbiddenModel === 'function'
+    ? isForbiddenModel(auth.model)
+    : /^claude-work$/i.test(String(auth.model || ''))
+  if (banned) {
+    console.error(typeof forbiddenModelError === 'function'
+      ? `[CLI] ${forbiddenModelError(auth.model)}`
+      : `[CLI] Model "${auth.model}" dilarang (training-data).`)
+    process.exit(2)
   }
 
   // Memory: file-backed working memory (best-effort, never fatal).
@@ -467,14 +507,15 @@ async function main() {
         }
         const combinedConfig = {
           // Headless default jujur: custom -> localhost:20128 (9Router),
-          // model frontier (default gemini-3.8-flash). auth (flags > env >
-          // file > default) menang atas hardcode. Bila kredensial provider
-          // model mati, fetchAI fallback sekali ke 'claude-work' di bawah.
+          // model zen-free 9Router. auth (flags > env >
+          // file > default) menang atas hardcode. Tanpa fallback model:
+          // gagal = pesan jujur (keputusan user).
           aiProvider: auth.provider || cliOptions.provider || config?.aiProvider || 'custom',
           geminiWebModel: cliOptions.model || config?.geminiWebModel || 'gemini-3.6-flash',
-          customModel: auth.model || cliOptions.model || config?.customModel || 'google/gemini-3.8-flash',
+          customModel: auth.model || cliOptions.model || config?.customModel || 'oc/muse-spark-1.3-contributor-free',
           groqModel: cliOptions.model || config?.groqModel || 'llama-3.1-8b-instant',
-          customEndpoint: process.env.CUSTOM_ENDPOINT || process.env.OPENAI_BASE_URL || 'http://localhost:20128/v1',
+          // Endpoint diadopsi dari auth (flag/env/GUI shared.json) dulu.
+          customEndpoint: auth.customEndpoint || process.env.CUSTOM_ENDPOINT || process.env.OPENAI_BASE_URL || 'http://localhost:20128/v1',
           // Key chain: auth (flag/env/file) > 9Router DB autodetect > env
           // legacy. Tanpa key, server jawab missing-key — pesan jujur di bawah.
           customApiKey: auth.apiKey || process.env.CUSTOM_API_KEY || process.env.OPENAI_API_KEY || '',
@@ -493,25 +534,7 @@ async function main() {
 
         if (!resp || !resp.success) {
           const msg = String(resp?.error?.message || resp?.error || 'AI fetch gagal di sidecar.')
-          // Fallback sekali (headless): kredensial provider untuk model
-          // frontier mati (mis. "No active credentials for provider: X") ->
-          // coba alias server 'claude-work' yang me-resolve ke kredensial
-          // hidup. Bukan loop: gagal kedua langsung dilempar jujur.
-          if (/no active credentials for provider/i.test(msg) && combinedConfig.customModel !== 'claude-work') {
-            if (!cliOptions.json) {
-              console.error('[CLI] Kredensial provider model mati, fallback sekali ke claude-work...')
-            }
-            const retry = await sidecar.rpc('ai:fetch', [{
-              messages,
-              config: { ...combinedConfig, customModel: 'claude-work' },
-              isSmallTask: Boolean(isSmallTask),
-              jsonSchema: jsonSchema || null
-            }])
-            if (!retry || !retry.success) {
-              throw new Error(retry?.error?.message || retry?.error || msg)
-            }
-            return retry.data
-          }
+          // Tanpa fallback model (keputusan user): gagal = pesan jujur.
           throw new Error(msg)
         }
 

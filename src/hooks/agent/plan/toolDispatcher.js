@@ -33,6 +33,19 @@ export const isNativeBacked = (tool, query) => {
   return true
 }
 
+// Connector yang boleh dipanggil sebagai `<connector>:<aksi>` langsung.
+// Minimal: browser-extension (status/guide-install/close-session — read-only,
+// di-whitelist Rust tanpa dialog). Bukan pintu umum: connector lain tetap
+// lewat connector-run agar schema/guide + audit terpusat. Tanpa rute ini,
+// 'browser-extension:status' jatuh ke fallback plugin -> error "tidak
+// dikenal" + dialog capabilities:execute yang membingungkan.
+const DIRECT_CONNECTOR_TOOLS = new Set(['browser-extension'])
+export const parseConnectorNamespacedTool = (tool = '') => {
+  const m = String(tool || '').match(/^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]+)$/)
+  if (!m || !DIRECT_CONNECTOR_TOOLS.has(m[1])) return null
+  return { connectorId: m[1], actionId: m[2] }
+}
+
 // True bila alasan query atau observasi terakhir mengandung bukti login wall.
 export const hasLoginWallEvidence = (query, loopMessages) => {
   if (LOGIN_WALL_RE.test(String(query || ''))) return true
@@ -289,7 +302,7 @@ export const executeSingleTool = async (tool, query, ctx) => {
       const { race, onAbort } = raceWithAbort(requestChoice(choiceId), currentSignal)
       try {
         selected = await race
-      } catch (e) {
+      } catch {
         // Abort (tombol stop): janji ditolak — anggap batal, bersihkan slot.
         selected = null
       } finally {
@@ -380,6 +393,35 @@ export const executeSingleTool = async (tool, query, ctx) => {
         if (onAbort) currentSignal?.removeEventListener('abort', onAbort)
       }
       return formatRes(tool, query, res, ctx)
+    }
+    // 9b. Connector namespaced langsung (<connector>:<aksi>): browser-extension
+    // status/guide-install/close-session. PENTING: di LUAR blok checkTools di
+    // atas — tool ini TIDAK terdaftar di core_tools/katalog, jadi menaruhnya
+    // di dalam blok = tidak pernah tercapai, jatuh ke fallback plugin.
+    // Tanpa rute ini: error "tidak dikenal" + dialog capabilities:execute
+    // yang membingungkan. executeCapability TANPA pre-confirm ganda: Rust
+    // sudah gate capabilities:execute (read-only lolos, sisanya dialog sekali).
+    const namespaced = parseConnectorNamespacedTool(tool)
+    if (namespaced && window.api?.executeCapability) {
+      try {
+        const out = await window.api.executeCapability(
+          namespaced.connectorId,
+          namespaced.actionId,
+          {},
+          { sessionId: String(ctx?.sessionId ?? 'default') }
+        )
+        resultString = typeof out === 'string' ? out : JSON.stringify(out)
+      } catch (e) {
+        const msg = typeof e === 'string' ? e : e?.message || String(e)
+        if (e?.name === 'AbortError' || String(msg).includes('AbortError')) throw e
+        resultString = `[ERROR] Connector ${tool} gagal: ${msg}`
+      }
+      trajectoryLogTool({ tool, query, success: !resultString.startsWith('[ERROR]'), result: resultString, sessionId: ctx?.sessionId ?? 'system', turn: ctx?.turn ?? null })
+      return {
+        resultString,
+        rejected: false,
+        toolExecution: { action: tool, query, result: resultString }
+      }
     }
     // 10. Plugin Execution
     targetPushProcess({

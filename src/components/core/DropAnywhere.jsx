@@ -3,7 +3,7 @@
 // Saat overlay aktif, pointer-events memblok interaksi di bawahnya agar drop
 // tidak jatuh ke elemen lain. Semua resolusi path via resolveDroppedFile
 // (native path via Tauri, fallback saveTempFile untuk drop web).
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { UploadCloud } from 'lucide-react'
 import { listen } from '@tauri-apps/api/event'
 import { extractDroppedItems, extractClipboardFiles } from '../../utils/attachments'

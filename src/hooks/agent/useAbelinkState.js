@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { getAllConfig, saveMainThread, getMainThread } from '../../api/db'
 
 export const useAbelinkState = () => {
@@ -39,14 +39,24 @@ export const useAbelinkState = () => {
 
   const abortControllerRef = useRef(null)
 
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     const data = await getAllConfig()
     if (data.length > 0) setConfig(data)
-  }
+  }, [])
+
+  const loadMainThread = useCallback(async () => {
+    const data = await getMainThread()
+    if (data && data.length > 0) {
+      setChatData(data)
+    }
+    setIsChatLoaded(true)
+  }, [])
 
   useEffect(() => {
-    loadConfig()
-    loadMainThread()
+    void (async () => {
+      await loadConfig()
+      await loadMainThread()
+    })()
 
     const handleConfigUpdate = (e) => {
       if (e.detail) {
@@ -58,15 +68,7 @@ export const useAbelinkState = () => {
     return () => {
       window.removeEventListener('config-updated', handleConfigUpdate)
     }
-  }, [])
-
-  const loadMainThread = async () => {
-    const data = await getMainThread()
-    if (data && data.length > 0) {
-      setChatData(data)
-    }
-    setIsChatLoaded(true)
-  }
+  }, [loadConfig, loadMainThread])
 
   useEffect(() => {
     // Save to DB on every change if not initial empty array

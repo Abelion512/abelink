@@ -12,7 +12,6 @@
 
 import {
   EffortLevel,
-  EffortPolicy,
   resolve_effort,
 } from './effortSystem'
 

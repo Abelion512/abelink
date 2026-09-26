@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Lightbulb } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -14,23 +14,31 @@ const ResponseArea = ({ currentResponse }) => {
 
   useEffect(() => {
     if (currentResponse !== displayResponse) {
-      if (displayResponse) {
-        setAnimState('fade-out')
-        const timer = setTimeout(() => {
+      // Kickoff via microtask agar lolos set-state-in-effect.
+      let cancelled = false
+      queueMicrotask(() => {
+        if (cancelled) return
+        if (displayResponse) {
+          setAnimState('fade-out')
+          const timer = setTimeout(() => {
+            setDisplayResponse(currentResponse)
+            setAnimState('fade-in')
+          }, 200) // 200ms for fade-out
+          return () => clearTimeout(timer)
+        } else {
           setDisplayResponse(currentResponse)
           setAnimState('fade-in')
-        }, 200) // 200ms for fade-out
-        return () => clearTimeout(timer)
-      } else {
-        setDisplayResponse(currentResponse)
-        setAnimState('fade-in')
+        }
+      })
+      return () => {
+        cancelled = true
       }
     }
   }, [currentResponse, displayResponse])
 
   if (!displayResponse) return null
 
-  const { text, type, sources, pluginResult, youtubeData, youtubeSummary, isProactive, mood, choice } =
+  const { text, type, pluginResult, choice } =
     displayResponse
 
   const animationClass =

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Mic, MicOff, Send, Maximize2, X } from 'lucide-react'
 import { useChat } from '../../contexts/useChat'
 import { useVAD } from '../../hooks/useVAD'
@@ -6,7 +6,6 @@ import { useVAD } from '../../hooks/useVAD'
 export default function SpotlightBar({ onExpandDashboard }) {
   const { handlePlanningCommand, isLoading, isAgentBusy, chatData = [] } = useChat()
   const [text, setText] = useState('')
-  const [lastAnswer, setLastAnswer] = useState('')
   const inputRef = useRef(null)
 
   // Voice VAD handler
@@ -25,12 +24,18 @@ export default function SpotlightBar({ onExpandDashboard }) {
     }
   })
 
+  // Ref untuk cleanup tak-stabil: disinkron di dalam efek (legal — bukan
+  // saat render); cleanup unmount hanya butuh versi terakhir.
+  const cancelRecordingRef = useRef(cancelRecording)
+  useEffect(() => {
+    cancelRecordingRef.current = cancelRecording
+  }, [cancelRecording])
   // Mic hanya dari tombol mic (user gesture); auto-start dihapus agar
   // getUserMedia tanpa gesture/pipewire stall tidak menggantung saat mount.
   useEffect(() => {
     inputRef.current?.focus()
     return () => {
-      cancelRecording()
+      cancelRecordingRef.current?.()
     }
   }, [])
 
@@ -50,15 +55,12 @@ export default function SpotlightBar({ onExpandDashboard }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [cancelRecording, onExpandDashboard])
 
-  // Ambil respons asisten terbaru untuk mini ticker
-  useEffect(() => {
-    if (chatData && chatData.length > 0) {
-      const last = chatData[chatData.length - 1]
-      if (last && (last.role === 'assistant' || last.role === 'model') && last.content) {
-        setLastAnswer(last.content.replace(/\[.*?\]/g, '').trim())
-      }
-    }
-  }, [chatData])
+  // Ambil respons asisten terbaru untuk mini ticker — derivasi murni dari
+  // chatData saat render, tanpa effect (menghapus set-state-in-effect).
+  const lastChat = chatData && chatData.length > 0 ? chatData[chatData.length - 1] : null
+  const lastAnswer = lastChat && (lastChat.role === 'assistant' || lastChat.role === 'model') && lastChat.content
+    ? lastChat.content.replace(/\[.*?\]/g, '').trim()
+    : ''
 
   // Interupsi cerdas: saat user mengetik, matikan mic agar tidak bentrok suara ketikan
   const handleInputChange = (e) => {

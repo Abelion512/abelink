@@ -12,7 +12,7 @@
 export const compactCodeBlocks = (text) => {
   if (!text || typeof text !== 'string') return ''
 
-  return text.replace(/```([a-zA-Z0-9_\-\.\/]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+  return text.replace(/```([a-zA-Z0-9_\-./]*)\n([\s\S]*?)```/g, (match, lang, code) => {
     const lines = code.split('\n')
     if (lines.length <= 10 && code.length <= 300) {
       return match

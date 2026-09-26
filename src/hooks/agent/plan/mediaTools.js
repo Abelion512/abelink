@@ -3,6 +3,7 @@
 import { getYoutubeSummary } from '../../../api/ai/tools'
 import { playVoice } from '../../../api/ai/utils'
 import { parseChoiceQuery, requestChoice, dropChoice } from '../../../api/choiceBus.js'
+import { buildDirectTrack } from '../musicQuery.js'
 
 // Race helper (cermin toolDispatcher agar media mandiri tanpa import silang).
 const raceWithAbort = (promise, currentSignal) => {
@@ -67,7 +68,7 @@ const offerMusicChoice = async (candidates, question, ctx) => {
   const { race, onAbort } = raceWithAbort(requestChoice(choiceId), currentSignal)
   try {
     selected = await race
-  } catch (e) {
+  } catch {
     selected = null
   } finally {
     if (onAbort) currentSignal?.removeEventListener('abort', onAbort)
@@ -129,7 +130,19 @@ export const runMediaTool = async (tool, query, ctx) => {
           return `Berhasil memasukkan ${picked.allTracks.length} lagu playlist/OST ke dalam antrean dan memutar lagu pertama.`
         }
       }
-      return await handleMusic('music-play', picked.id || picked.url || picked.title, targetSetChatData)
+      const pickedId = picked.id || picked.videoId || null
+      if (pickedId) {
+        // Direct-play: user sudah memilih — mainkan ID-nya TANPA search ulang.
+        const track = buildDirectTrack(pickedId, picked)
+        const tools = ctx.youtubeMusicTools || {}
+        const direct = typeof tools.playTrack === 'function' ? tools.playTrack(track) : false
+        const viaUrl = !direct && typeof tools.playUrl === 'function'
+          ? tools.playUrl(`https://music.youtube.com/watch?v=${pickedId}`, track)
+          : false
+        if (direct || viaUrl) return `[SYSTEM LOG] Berhasil memutar lagu: ${track.title} oleh ${track.artist}`
+        return '[SYSTEM LOG] GAGAL memutar lagu: engine pemutar musik belum siap. Laporkan ke user bahwa musik tidak bisa diputar saat ini.'
+      }
+      return await handleMusic('music-play', picked.url || picked.title, targetSetChatData)
     }
     return out
   }

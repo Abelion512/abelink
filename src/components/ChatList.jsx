@@ -1,6 +1,6 @@
-import React, { memo, useState } from 'react'
+import { memo, useState } from 'react'
 import { toMinimapAnchorId } from './core/TocMinimap'
-import { Copy, Check, Sparkles, ThumbsUp, ThumbsDown, Send } from 'lucide-react'
+import { Copy, Check, ThumbsUp, ThumbsDown, Send } from 'lucide-react'
 import {
   MessageBubble,
   ThinkingBubble,
@@ -17,8 +17,8 @@ const ChatList = ({
   content = '',
   reasoning = null,
   isThinking = false,
-  isSearching = false,
-  query = null,
+  isSearching: _isSearching = false,
+  query: _query = null,
   isMemorySaved = false,
   isMemoryUpdated = false,
   isMemoryDeleted = false,
@@ -36,7 +36,7 @@ const ChatList = ({
   isPlanConclusion = false,
   pluginExecution = null,
   choice = null,
-  mood = 'neutral',
+  mood: _mood = 'neutral',
   timestamp = '',
   source = null,
   sender = null

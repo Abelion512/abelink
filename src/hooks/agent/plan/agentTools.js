@@ -395,9 +395,9 @@ export const runAgentTool = async (tool, query, ctx) => {
     }
   }
   if (tool === 'delegate_coding') {
-    // STREAM D: hanya opencode/hermes yang didukung (cermin core-tools.js).
-    const PREFERRED_CODING_AGENTS = ['opencode', 'hermes']
-    const { detectInstalledAgents, buildCodingCommand } = await import(
+    // Satu sumber: daftar agen yang didukung bridge (keputusan owner dikunci
+    // ulang ke opencode/hermes, bukan konstanta lokal yang bisa basi).
+    const { detectInstalledAgents, buildCodingCommand, PREFERRED_CODING_AGENTS } = await import(
       '../../../api/ai/codingAgentBridge.js'
     )
     const parts = (query || '').split('||')
@@ -416,7 +416,7 @@ export const runAgentTool = async (tool, query, ctx) => {
     if (availableAgents.length === 0) {
       return {
         success: false,
-        error: `Tidak ditemukan CLI coding agent yang terpasang di sistem (${(PREFERRED_CODING_AGENTS || ['opencode', 'hermes']).join(', ')}). Mohon pasang minimal satu CLI agent terlebih dahulu.`
+        error: `Tidak ditemukan CLI coding agent yang terpasang di sistem (${PREFERRED_CODING_AGENTS.join(', ')}). Mohon pasang minimal satu CLI agent terlebih dahulu.`
       }
     }
 

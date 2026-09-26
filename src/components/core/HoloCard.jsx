@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { HoloChrome } from './HoloChrome';
 
 const HoloCard = ({ children, title, defaultExpanded = false }) => {

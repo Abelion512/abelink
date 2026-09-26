@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   FileCheck,
   Clock,
-  Sparkles,
+  Activity,
   Layers
 } from 'lucide-react'
 import { ingestDocument } from '../api/ragPipeline'
@@ -27,7 +27,7 @@ const Knowledge = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadStatusText, setUploadStatusText] = useState('')
+  const [uploadStatusText] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const { confirm, ModalComponent } = useConfirm()
 
@@ -65,14 +65,18 @@ const Knowledge = () => {
   }, [selectedDoc])
 
   useEffect(() => {
-    loadData()
+    void (async () => {
+      await loadData()
+    })()
   }, [loadData])
 
   // Load real chunks for selectedDoc from Dexie
   useEffect(() => {
     if (!selectedDoc) {
-      setSelectedDocChunks([])
-      setSimResults(null)
+      queueMicrotask(() => {
+        setSelectedDocChunks([])
+        setSimResults(null)
+      })
       return
     }
 
@@ -181,6 +185,30 @@ const Knowledge = () => {
         hideCancel: true,
         confirmText: 'Tutup'
       })
+    }
+  }
+
+  const handleRunSimulation = async (e) => {
+    e.preventDefault()
+    if (!simQuery.trim() || !selectedDoc || selectedDocChunks.length === 0) return
+    setIsSimulating(true)
+    try {
+      const queryVector = await generateVector(simQuery)
+      if (!queryVector) {
+        setSimResults([])
+        return
+      }
+      const scored = selectedDocChunks
+        .filter((c) => Array.isArray(c.vector))
+        .map((c) => ({ ...c, similarity: cosineSimilarity(queryVector, c.vector) }))
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 3)
+      setSimResults(scored)
+    } catch (err) {
+      console.error('Simulation failed:', err)
+      setSimResults([])
+    } finally {
+      setIsSimulating(false)
     }
   }
 
@@ -409,7 +437,7 @@ const Knowledge = () => {
               <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#0a84ff]" />
+                    <Activity className="w-3.5 h-3.5 text-[#0a84ff]" />
                     Simulator Query Semantik (Agentic RAG Test)
                   </span>
                   <span className="text-[10px] text-white/40 font-mono">Cosine Similarity</span>

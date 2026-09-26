@@ -14,7 +14,10 @@ const CATS = [
 const norm = (t) => String(t || '').toUpperCase()
 
 const WhatNew = ({ onClose }) => {
-  const changes = whatsNewData.changes || []
+  // Module-level static: identitas stabil agar useMemo di bawah tidak
+  // re-hitung tiap render (aturan exhaustive-deps: jangan baca `X || []`
+  // inline bila X statis).
+  const changes = useMemo(() => whatsNewData.changes || [], [])
   const [filter, setFilter] = useState('ALL')
   const [query, setQuery] = useState('')
   const closeRef = useRef(null)

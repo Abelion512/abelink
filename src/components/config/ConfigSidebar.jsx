@@ -8,6 +8,7 @@ import {
   UserCog,
   Volume2
 } from 'lucide-react'
+import { tx } from '../../api/locale'
 
 // IA: General → Personalization → Model → Voice & Video →
 // Capabilities → Shortcuts → Data Controls / Developer.
@@ -49,7 +50,8 @@ export default function ConfigSidebar({
   activeSection,
   onNavigate,
   occupation = '',
-  isDevMode = false
+  isDevMode = false,
+  language = 'en'
 }) {
   const showDev = isDevMode || isItDomain(occupation)
   const filteredLogged = showDev
@@ -78,10 +80,10 @@ export default function ConfigSidebar({
       tabIndex={0}
       className="flex flex-col w-[230px] min-w-[230px] h-full bg-base-300/60 backdrop-blur-2xl border-r border-white/5 overflow-y-auto custom-scrollbar focus:outline-none p-3"
       role="tablist"
-      aria-label="Pengaturan"
+      aria-label={tx(language, 'sidebar.settingsTitle')}
     >
-      <div className="px-3 py-3 mb-2">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">Pengaturan</p>
+      <div className="pl-14 py-3 mb-2">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">{tx(language, 'sidebar.settingsTitle')}</p>
       </div>
       <div className="flex-1 space-y-1">
         {allSections.map((sec) => {
