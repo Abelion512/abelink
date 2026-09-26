@@ -1,0 +1,39 @@
+# abelink-cron.service — USER systemd unit untuk daemon penjadwal cron Abelink.
+#
+# JANGAN `systemctl --user link` langsung dari file ini: ExecStart butuh path
+# absolut bun + root repo. Pakai installer yang mengisi placeholder:
+#
+#     bash scripts/install-cron-daemon.sh
+#
+# Yang dilakukannya: mengganti __ABELINK_ROOT__ dan __ABELINK_BUN__ dengan path
+# nyata, lalu memasang unit ke ~/.config/systemd/user/abelink-cron.service.
+#
+# Operasional:
+#     systemctl --user daemon-reload
+#     systemctl --user enable --now abelink-cron.service
+#     systemctl --user status abelink-cron.service
+#     journalctl --user -u abelink-cron.service -f
+#
+# Kelola job tanpa menyentuh daemon:
+#     bun bin/abelink-cron.mjs list
+#     bun bin/abelink-cron.mjs create --name pagi --prompt "ringkas berita" --cron "0 7 * * *"
+[Unit]
+Description=Abelink cron scheduler daemon (tick 60s, at-most-once)
+Documentation=file://__ABELINK_ROOT__/docs/PLANNED/2026-09-26_master-migration-program.md
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__ABELINK_ROOT__
+ExecStart=__ABELINK_BUN__ __ABELINK_ROOT__/bin/abelink-cron.mjs daemon
+# Job anak (`bun bin/abelink.mjs`) butuh PATH yang memuat bun + CLI agent lokal.
+Environment=PATH=__ABELINK_BUN_DIR__:/usr/local/bin:/usr/bin:/bin
+Restart=on-failure
+RestartSec=10
+# Log jujur ke journal; daemon sendiri juga menulis ledger JSONL di
+# $XDG_DATA_HOME/abelink/cron/runs.jsonl.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

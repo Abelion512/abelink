@@ -1,6 +1,7 @@
 import eslintPluginReact from 'eslint-plugin-react'
 import eslintPluginReactHooks from 'eslint-plugin-react-hooks'
 import eslintPluginReactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
 
 // Audit 2026-09: config lama mengimpor @electron-toolkit/eslint-config dan
 // @electron-toolkit/eslint-config-prettier, tetapi keduanya TIDAK ada di
@@ -22,7 +23,34 @@ export default [
       '**/out',
       '**/target',
       '**/coverage',
-      '**/graphify-out'
+      '**/graphify-out',
+      // Clone referensi sst/opencode untuk riset pola TUI: bukan bagian repo
+      // (lihat .gitignore `/opencode/`) dan punya node_modules sendiri. ESLint
+      // tidak membaca .gitignore, jadi wajib dikecualikan eksplisit di sini.
+      '**/opencode',
+      // Scratch lokal tool agen + state runtime. Semua ini sudah ada di
+      // .gitignore, tapi ESLint tak membacanya. Sebelum blok TS ada, isinya
+      // (.ts) kebetulan luput karena `files` hanya js/jsx; begitu .ts di-lint,
+      // file scratch seperti .remember/tmp/*.ts langsung jadi error gate.
+      '**/.worktrees',
+      '**/worktrees',
+      '**/.hermes',
+      '**/.zcode',
+      '**/.impeccable',
+      '**/.remember',
+      '**/.superpowers',
+      '**/.gemini',
+      '**/.antigravity',
+      '**/.cursor',
+      '**/.windsurf',
+      '**/.copilot',
+      '**/.agent',
+      '**/.subagents',
+      '**/brain',
+      '**/scratch',
+      '**/agent-transcripts',
+      '**/harness-logs',
+      '**/.abelink'
     ]
   },
   eslintPluginReact.configs.flat.recommended,
@@ -75,6 +103,39 @@ export default [
       // stay warn — "fixing" them adds indirection without behavior change.
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/immutability': 'warn'
+    }
+  },
+  // TypeScript: sebelum 2026-09-26 `.ts/.tsx` sama sekali tidak di-lint
+  // (`files` hanya js/jsx), jadi 3 file .tsx yang ada berjalan tanpa jaring.
+  // Config `typescript-eslint` discope ke keluarga .ts saja agar parser TS
+  // tidak menggantikan espree untuk .js/.mjs (baseline warning lama stabil).
+  // 2026-09-26: `typescript` dipin ke 5.9.x — typescript-eslint 8.x belum
+  // mendukung TS 7 (compiler Go) dan menolak jalan sama sekali.
+  ...tseslint.configs.recommended.map((cfg) =>
+    cfg.files ? cfg : { ...cfg, files: ['**/*.{ts,tsx,mts,cts}'] }
+  ),
+  {
+    files: ['**/*.{ts,tsx,mts,cts}'],
+    rules: {
+      // Samakan filosofi dengan blok JS di atas: temuan warisan diturunkan ke
+      // warn agar lint tetap exit 0 sambil migrasi, bukan disembunyikan.
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }
+      ],
+      '@typescript-eslint/ban-ts-comment': 'warn',
+      // Base rule mati untuk TS (digantikan versi bertipe di atas).
+      'no-unused-vars': 'off',
+      // eslint-plugin-react diasumsikan DOM. Komponen TUI (OpenTUI/Solid di
+      // cli/**, bin/**.tsx) memakai intrinsics terminal (fg, focused,
+      // placeholderColor, keyBindings, ...) dan tidak memakai runtime
+      // prop-types — sama seperti keputusan `react/prop-types: 'off'` di blok
+      // JS. Tanpa ini blok TS meledak 108 error palsu.
+      'react/prop-types': 'off',
+      'react/display-name': 'warn',
+      'react/no-unescaped-entities': 'warn',
+      'react/no-unknown-property': 'warn'
     }
   }
 ]
