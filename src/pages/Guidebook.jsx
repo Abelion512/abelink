@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate } from 'react-router-dom'
@@ -15,17 +15,14 @@ import {
   MessagesSquare,
   Settings,
   Lightbulb,
-  ArrowRight,
   AlertTriangle,
   CheckCircle2,
-  XCircle,
   ChevronDown,
   ChevronUp,
   Search,
   Network,
   HeartPulse,
   Camera,
-  Mic,
   Send,
   Globe2,
   Code,
@@ -196,8 +193,8 @@ const Guidebook = () => {
               <div className="max-w-none">
                 <blockquote className="border-l-4 border-primary pl-6 py-2 mb-8 bg-primary/5 rounded-r-xl">
                   <p className="text-xl md:text-2xl font-semibold text-white/90 leading-relaxed italic">
-                    "Abelink BUKAN sekadar asisten virtual biasa. Abelink adalah entitas AI yang dirancang
-                    untuk memiliki emosi dan bertindak selayaknya manusia."
+                    “Abelink BUKAN sekadar asisten virtual biasa. Abelink adalah entitas AI yang dirancang
+                    untuk memiliki emosi dan bertindak selayaknya manusia.”
                   </p>
                 </blockquote>
 
@@ -320,7 +317,7 @@ const Guidebook = () => {
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Bagaimana Abelink Bekerja</h2>
               <p className="text-white/70 mb-8 text-lg">
-                Berbeda dengan AI konvensional yang langsung "menebak" jawaban, Abelink menggunakan
+                Berbeda dengan AI konvensional yang langsung “menebak” jawaban, Abelink menggunakan
                 alur <strong className="text-white">ReAct (Reasoning and Acting)</strong>. Ia
                 berpikir layaknya manusia sebelum bertindak.
               </p>
@@ -393,7 +390,7 @@ const Guidebook = () => {
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Referensi Lengkap Tools Bawaan</h2>
               <p className="text-white/70 mb-8 text-lg">
-                Abelink dilengkapi "tangan virtual" yang memungkinkannya mengontrol komputer Anda. Klik
+                Abelink dilengkapi “tangan virtual” yang memungkinkannya mengontrol komputer Anda. Klik
                 pada tool di bawah ini untuk melihat detail penggunaannya.
               </p>
 
@@ -509,7 +506,7 @@ const Guidebook = () => {
                       <strong className="text-info">Approval berjenjang (Linux):</strong> aksi
                       read-only (os-read, lihat layar) selalu bebas. Aksi kontrol
                       (klik, ketik, shortcut berbahaya) default minta konfirmasi sekali
-                      per jenis aksi — kamu bisa atur ke "Always allow" atau "Session"
+                      per jenis aksi — kamu bisa atur ke “Always allow” atau “Session”
                       di Configuration → Capabilities, sesuai guidebook ini.
                     </p>
                   </div>
@@ -1004,7 +1001,7 @@ const Guidebook = () => {
                   <Eye className="text-3xl text-primary mb-4" />
                   <h4 className="text-white font-bold mb-2">Screen Reading (analyze-screen)</h4>
                   <p className="text-sm text-white/60">
-                    Abelink dapat "mengambil foto" layar komputer Anda secara real-time untuk melihat
+                    Abelink dapat “mengambil foto” layar komputer Anda secara real-time untuk melihat
                     teks error, posisi aplikasi, atau menganalisa gambar yang sedang Anda kerjakan.
                   </p>
                 </div>
@@ -1140,7 +1137,7 @@ const Guidebook = () => {
               <p className="text-white/70 mb-6 text-lg">
                 Abelink memungkinkan Anda memperluas kemampuannya dengan mudah melalui pembuatan{' '}
                 <strong>Plugin Kustom</strong> secara langsung dari antarmuka pengguna, tanpa perlu
-                mengubah kode inti aplikasi. Anda bisa menambahkan "skill" baru untuk Abelink secara
+                mengubah kode inti aplikasi. Anda bisa menambahkan “skill” baru untuk Abelink secara
                 instan!
               </p>
 
@@ -1213,7 +1210,7 @@ try {
                 Saat user mengirim pesan, sistem membandingkan <em>embedding vector</em> pesan
                 dengan deskripsi + <code>triggerHint</code> dari setiap plugin. Plugin yang relevan
                 (similarity &gt; 0.35) akan dimuat ke prompt AI sebagai tools tambahan secara
-                instan. Jika user bertanya "bisa ngapain aja?", maka semua plugin akan ditampilkan.
+                instan. Jika user bertanya “bisa ngapain aja?”, maka semua plugin akan ditampilkan.
               </p>
             </section>
 

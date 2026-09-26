@@ -76,7 +76,11 @@ export const GROUP_TOOLS_DEFINITION = {
       'music-toggle': 'Pause/lanjut memutar lagu.',
       'music-search': 'Mencari lagu spesifik di YT Music. Hasil ambigu OTOMATIS ditawarkan sebagai tombol pilihan — jangan autoplay buta atau tanya via teks.',
       'music-next': 'Mengganti lagu ke track selanjutnya.',
-      'music-prev': 'Mengganti lagu ke track sebelumnya.'
+      'music-prev': 'Mengganti lagu ke track sebelumnya.',
+      'music-loop': 'Atur repeat. Query: one | one <N>x (mis. one 3x) | all | off.',
+      'music-queue-add': 'Tambah lagu ke antrean tanpa autoplay (kecuali antrean kosong). Query: "judul"[ xN] (mis. Lagu A x2).',
+      'music-queue-remove': 'Hapus lagu dari antrean. Query: judul atau id.',
+      'music-queue-clear': 'Kosongkan seluruh antrean. Query: kosong.'
     }
   },
   google_drive: {
@@ -141,7 +145,7 @@ export const GROUP_TOOLS_DEFINITION = {
       'connector-guide':
         'Minta panduan input schema + contoh pemakaian satu aksi SEBELUM mengeksekusi. Query: connectorId||actionId (misal: "fs||read").',
       'connector-run':
-        'Eksekusi aksi connector (policy + audit otomatis; eksekusi berbahaya memicu approval NATIVE user). Query: connectorId||actionId||args_json (misal: "time||diff||{\"from\":\"09:00\",\"to\":\"17:00\"}").',
+        'Eksekusi aksi connector (policy + audit otomatis; eksekusi berbahaya memicu approval NATIVE user). Query: connectorId||actionId||args_json (misal: "time||diff||{"from":"09:00","to":"17:00"}").',
       'connector-status':
         'Lihat status koneksi & izin (scopes) semua connector + jejak audit terakhir. Query: KOSONG atau jumlah_baris_audit.'
     }

@@ -240,7 +240,7 @@ export const useVAD = ({
       let stream
       try {
         stream = await gumWithTimeout(constraints)
-      } catch (err) {
+      } catch {
         // Fallback WebKitGTK / Linux: beberapa backend audio menolak DSP constraints (echoCancellation/noiseSuppression)
         // dengan "Invalid constraint". Coba fallback ke stream dasar { audio: true } sebelum menyerah.
         try {

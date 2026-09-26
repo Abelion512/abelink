@@ -130,11 +130,18 @@ const main = () => {
     const m = hay.match(new RegExp(p.re.source, 'gi'))
     if (m) flags.push(`${p.name} ×${m.length}`)
   }
-  // Start-tanpa-end = interupsi/stuck (jawaban atas keluhan "stuck di jam X").
+  // Start-tanpa-end = interupsi/stuck. Turn-end hanya ditulis di jawaban
+  // terminal, jadi turn terbaru yang masih hidup WAJAR belum punya end.
+  // Flag hanya bila (a) turn itu BUKAN turn terbaru, atau (b) sesi sudah
+  // punya turn-end terminal (sesi selesai tapi ada turn menggantung).
   const starts = new Set(events.filter((e) => e.kind === 'turn-start').map((e) => String(e.turn)))
   const ends = new Set(events.filter((e) => e.kind === 'turn-end').map((e) => String(e.turn)))
+  const hasTerminal = ends.size > 0
+  const latestTurn = turnKeys.length ? String(turnKeys[turnKeys.length - 1]) : null
   for (const t of starts) {
-    if (!ends.has(t)) flags.push(`turn ${t} START tanpa END (interupsi/stuck)`)
+    if (!ends.has(t) && (hasTerminal || t !== latestTurn)) {
+      flags.push(`turn ${t} START tanpa END (interupsi/stuck)`)
+    }
   }
   // Observasi kosong.
   const emptyObs = events.filter((e) => e.kind === 'observation' && !(e.observation || '').trim()).length

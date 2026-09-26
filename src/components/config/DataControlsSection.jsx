@@ -1,8 +1,11 @@
+import { tx } from '../../api/locale'
+
 export default function DataControlsSection({
   activeSection,
   onClearAllChat,
   onExportChat,
-  onImportLegacy
+  onImportLegacy,
+  language = 'en'
 }) {
   return (
     <section
@@ -11,14 +14,14 @@ export default function DataControlsSection({
     >
       <div>
         <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-          Data Controls
+          {tx(language, 'data.title')}
         </h2>
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-semibold">Chat History &amp; Database</p>
+        <p className="text-sm font-semibold">{tx(language, 'data.subtitle')}</p>
         <p className="text-xs opacity-60">
-          Kelola riwayat percakapan lokal, ekspor arsip, atau impor cadangan data JSON lama.
+          {tx(language, 'data.desc')}
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
           <button
@@ -26,21 +29,21 @@ export default function DataControlsSection({
             className="btn btn-outline btn-sm btn-error rounded-xl"
             onClick={onClearAllChat}
           >
-            Hapus Semua Chat
+            {tx(language, 'data.clearAll')}
           </button>
           <button
             type="button"
             className="btn btn-outline btn-sm btn-info rounded-xl"
             onClick={onExportChat}
           >
-            Export Chat ke JSON
+            {tx(language, 'data.exportJson')}
           </button>
           <button
             type="button"
             className="btn btn-outline btn-sm rounded-xl"
             onClick={onImportLegacy}
           >
-            Impor Export JSON Lama
+            {tx(language, 'data.importLegacy')}
           </button>
         </div>
       </div>

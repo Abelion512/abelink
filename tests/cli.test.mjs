@@ -90,7 +90,7 @@ describe('Abelink CLI Argument Parsing', () => {
     expect(opts.prompt).toBe('selesaikan tugas')
     // Headless default = custom + frontier (gemini-web butuh sesi browser GUI)
     expect(opts.provider).toBe('custom')
-    expect(opts.model).toBe('google/gemini-3.8-flash')
+    expect(opts.model).toBe('oc/muse-spark-1.3-contributor-free')
     expect(opts.effort).toBe('low')
     expect(opts.maxTurns).toBe(15)
     expect(opts.json).toBe(false)

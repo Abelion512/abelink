@@ -33,8 +33,8 @@ export const core_tools = {
   "advanced_search": "Alias untuk browser-search. Mencari informasi di internet secara langsung. Query: kata kunci pencarian."
 }
 
-// STREAM D: hanya agen ini yang didukung delegate_coding (cermin di
-// codingAgentBridge.js + agentTools.js).
+// Agen coding yang didukung delegate_coding (keputusan owner dikunci ulang
+// ke opencode/hermes). Cermin codingAgentBridge.js (single source runtime).
 export const PREFERRED_CODING_AGENTS = ['opencode', 'hermes']
 
 export {

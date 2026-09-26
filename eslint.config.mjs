@@ -45,17 +45,34 @@ export default [
       ...eslintPluginReactRefresh.configs.vite.rules,
       // ponytail: tech-debt rules downgraded to warn (hundreds of pre-existing
       // hits repo-wide). Fix incrementally, then re-enable as error.
-      'no-unused-vars': 'warn',
-      'react/prop-types': 'warn',
+      // 2026-09-23: intent-level resolutions (verified by audit, not debt):
+      // - react/prop-types OFF: zero .propTypes adoption in src//extension/,
+      //   `prop-types` dep not installed, React 19 idiom is no runtime types.
+      // - only-export-components OFF: dev-only fast-refresh nicety; repo
+      //   convention co-locates helpers/hooks with components (contexts/).
+      // - no-unused-vars ignores ^_: `_` bindings are deliberate "unused".
+      'no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrors: 'all',
+          caughtErrorsIgnorePattern: '^_'
+        }
+      ],
+      'react/prop-types': 'off',
       'react/display-name': 'warn',
       'react/no-unescaped-entities': 'warn',
       'react-hooks/exhaustive-deps': 'warn',
-      'react-refresh/only-export-components': 'warn',
-      'no-empty': 'warn',
+      'react-refresh/only-export-components': 'off',
+      'no-empty': ['warn', { allowEmptyCatch: true }],
       'no-useless-escape': 'warn',
       // Electron <webview> attrs (useragent/allowpopups) unknown to react plugin
       'react/no-unknown-property': 'warn',
-      // legacy effect patterns; fixing = refactor, tracked as debt
+      // legacy effect patterns; fixing = refactor, tracked as debt.
+      // 2026-09-24: verified the rule also fires on React's own sanctioned
+      // patterns (useEffectEvent call sites, subscription cleanups), so these
+      // stay warn — "fixing" them adds indirection without behavior change.
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/immutability': 'warn'
     }

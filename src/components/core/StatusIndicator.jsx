@@ -1,18 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Info, TriangleAlert, XCircle } from 'lucide-react';
 
 const StatusIndicator = ({ notifications }) => {
   const [activeToasts, setActiveToasts] = useState([]);
+  // ID yang sudah dijadwalkan — ditulis di dalam efek (legal), dibaca untuk
+  // dedup, jadi efek tidak perlu dep activeToasts (dep = loop karena efek
+  // sendiri memanggil setActiveToasts).
+  const seenIdsRef = useRef(new Set());
 
   useEffect(() => {
     if (notifications && notifications.length > 0) {
-      const newNotifs = notifications.filter(n => !activeToasts.find(t => t.id === n.id));
+      const newNotifs = notifications.filter(n => !seenIdsRef.current.has(n.id));
       if (newNotifs.length > 0) {
         // Prepare toasts with types
         const enhancedNotifs = newNotifs.map(notif => {
           let alertType = 'alert-info';
           let Icon = Info;
-          
+
           if (notif.type.includes('memory') || notif.type === 'plugin-done' || notif.type === 'success') {
             alertType = 'alert-info';
             Icon = CheckCircle2;
@@ -27,10 +31,12 @@ const StatusIndicator = ({ notifications }) => {
           return { ...notif, alertType, Icon };
         });
 
-        setActiveToasts(prev => [...prev, ...enhancedNotifs]);
-        
+        for (const n of newNotifs) seenIdsRef.current.add(n.id)
+        setActiveToasts((prev) => [...prev, ...enhancedNotifs]);
+
         enhancedNotifs.forEach(notif => {
           setTimeout(() => {
+            seenIdsRef.current.delete(notif.id)
             setActiveToasts(prev => prev.filter(t => t.id !== notif.id));
           }, 3000);
         });

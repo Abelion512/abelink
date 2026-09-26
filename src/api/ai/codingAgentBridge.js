@@ -6,7 +6,12 @@
 // 3. Codex CLI (/home/abelion/.nvm/versions/node/v24.18.0/bin/codex)
 // 4. OpenCode (/home/abelion/.opencode/bin/opencode)
 
-// Sumber tunggal daftar agen coding yang didukung (STREAM D: hanya opencode/hermes).
+// Sumber tunggal daftar agen coding yang DIDUKUNG delegate_coding.
+// Keputusan owner (2026-09-26, dikunci ulang): hanya opencode + hermes.
+// codex/claude TETAP terdaftar di AGENT_CANDIDATES sebagai referensi kandidat
+// (makeArgs/inspeksi), tapi TIDAK PERNAH dipilih runtime — freebuff/claude/codex
+// hanya relevan bila user mengarahkan lewat VPN (mis. Proton US), di luar
+// cakupan default.
 export const PREFERRED_CODING_AGENTS = ['opencode', 'hermes']
 
 export const AGENT_CANDIDATES = [
@@ -90,6 +95,8 @@ export async function detectInstalledAgents(options = {}) {
 
   const available = []
   for (const candidate of AGENT_CANDIDATES) {
+    // Hanya agen yang di-whitelist yang boleh dideteksi/dipilih (keputusan
+    // owner: opencode + hermes). Kandidat lain tetap terdaftar sebagai referensi.
     if (!PREFERRED_CODING_AGENTS.includes(candidate.id)) continue
     for (const bin of candidate.binaries) {
       const exists = await checkExists(bin)

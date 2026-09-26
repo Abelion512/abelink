@@ -122,7 +122,7 @@ export function killBackgroundTask(taskId) {
 
   try {
     task.process.kill('SIGTERM')
-  } catch (e) {
+  } catch {
     try {
       task.process.kill()
     } catch (_) {}

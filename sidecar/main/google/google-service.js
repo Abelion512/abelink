@@ -26,7 +26,7 @@ export async function getTokens() {
   try {
     const data = await fs.readFile(TOKEN_PATH, 'utf-8')
     return JSON.parse(data)
-  } catch (error) {
+  } catch {
     return null
   }
 }
@@ -78,7 +78,7 @@ export async function connectGoogle(clientId, clientSecret) {
     const cleanSecret = clientSecret.trim()
 
     if (currentAuthServer) {
-      try { currentAuthServer.close() } catch (e) {}
+      try { currentAuthServer.close() } catch {}
       currentAuthServer = null
     }
 
@@ -231,7 +231,7 @@ export async function disconnectGoogle() {
   try {
     await fs.unlink(TOKEN_PATH)
     return true
-  } catch (error) {
+  } catch {
     // If file doesn't exist, it's already disconnected
     return true
   }

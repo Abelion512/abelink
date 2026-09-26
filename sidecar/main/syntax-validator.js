@@ -449,7 +449,7 @@ export async function validateFileSyntax(filePath, content) {
     if (!genericBracket.valid) return genericBracket
 
     return { valid: true }
-  } catch (err) {
+  } catch {
     return { valid: true } // Jangan halangi jika terjadi error internal pada validator
   }
 }

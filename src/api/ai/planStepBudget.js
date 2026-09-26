@@ -5,8 +5,53 @@
 
 import { resolveEffortLevel } from './effortEstimator.js'
 import { EffortLevel, resolve_effort } from './effortSystem.js'
+import { isFailure } from './progressEvaluator.js'
+import { DIRECTIVE } from './trajectorySupervisor.js'
 
 export const DEFAULT_PLAN_STEPS = 25
+
+// Safety net: jendela baru saat budget habis tapi kerja produktif.
+export const BUDGET_RENEW_STEPS = 48
+
+const RENEW_BLOCK_DIRECTIVES = new Set([DIRECTIVE.ABANDON, DIRECTIVE.ESCALATE])
+
+const toolResultText = (t) => {
+  if (!t || typeof t !== 'object') return ''
+  const r = t.fullResult ?? t.resultString ?? t.result ?? ''
+  return typeof r === 'string' ? r : JSON.stringify(r ?? '')
+}
+
+const toolSucceeded = (t) => {
+  if (t?.status === 'not-executed') return false
+  if (typeof t?.success === 'boolean') return t.success
+  const text = toolResultText(t)
+  if (!text) return false
+  return !isFailure(text)
+}
+
+// Pure: budget habis -> perbarui jendela bila produktif, stop jujur bila stagnan.
+// Produktif = ada tool sukses baru-baru ini ATAU verifikasi bergerak ke
+// terbukti. Stagnan = breaker buka/spiral ATAU supervisor ABANDON/ESCALATE
+// ATAU tak ada sinyal kemajuan sama sekali.
+export function shouldRenewBudget({
+  recentTools = [],
+  verificationMoved = false,
+  breakerOpen = false,
+  supervisorDirective = DIRECTIVE.CONTINUE
+} = {}) {
+  if (breakerOpen === true) return false
+  if (RENEW_BLOCK_DIRECTIVES.has(String(supervisorDirective || '').toLowerCase())) return false
+  if (verificationMoved === true) return true
+  const list = Array.isArray(recentTools) ? recentTools : []
+  return list.some(toolSucceeded)
+}
+
+// Pure: jendela baru = +48 langkah, dibatasi hard ceiling (default 512).
+export function renewBudgetWindow(currentSteps = 0, hardCeiling = 512) {
+  const base = Number.isFinite(currentSteps) && currentSteps > 0 ? Math.floor(currentSteps) : 0
+  const ceiling = Number.isFinite(hardCeiling) && hardCeiling > 0 ? Math.floor(hardCeiling) : 512
+  return Math.min(base + BUDGET_RENEW_STEPS, ceiling)
+}
 
 /**
  * Resolves the maximum plan steps for a ReAct execution loop.

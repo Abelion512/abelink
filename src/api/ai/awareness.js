@@ -28,7 +28,7 @@ export const getAwarenessResponse = async (
   config,
   recentChat,
   currentMusicTrack,
-  signal
+  _signal
 ) => {
   const conf = config[0] || {}
   const recentChatText = (recentChat || [])

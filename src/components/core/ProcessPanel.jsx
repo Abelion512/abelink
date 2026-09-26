@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import DraggableHoloCard from './DraggableHoloCard';
 import { ToolCallsSection } from './ToolCallsSection';
 
@@ -11,28 +11,34 @@ const ProcessPanel = ({ processes, onDismiss }) => {
     (process) => process.type === 'planning' && process.status === 'active'
   ).length;
 
-  // Sync rendered processes with delayed unmount
+  // Sync rendered processes with delayed unmount.
+  // Merge via microtask kickoff agar lolos set-state-in-effect.
   useEffect(() => {
-    setRenderedProcesses(prev => {
-      const currentIds = processes.map(p => p.id);
-      
-      // Update existing or abelink as exiting
-      let next = prev.map(rp => {
-        const updated = processes.find(p => p.id === rp.id);
-        if (updated) return { ...updated, isExiting: false };
-        if (!rp.isExiting) return { ...rp, isExiting: true };
-        return rp;
-      });
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      setRenderedProcesses(prev => {
+        // Update existing or abelink as exiting
+        let next = prev.map(rp => {
+          const updated = processes.find(p => p.id === rp.id);
+          if (updated) return { ...updated, isExiting: false };
+          if (!rp.isExiting) return { ...rp, isExiting: true };
+          return rp;
+        });
 
-      // Add new ones
-      processes.forEach(p => {
-        if (!prev.find(rp => rp.id === p.id)) {
-          next.push({ ...p, isExiting: false });
-        }
-      });
+        // Add new ones
+        processes.forEach(p => {
+          if (!prev.find(rp => rp.id === p.id)) {
+            next.push({ ...p, isExiting: false });
+          }
+        });
 
-      return next;
-    });
+        return next;
+      });
+    })
+    return () => {
+      cancelled = true
+    }
   }, [processes]);
 
   // Clean up exiting processes after animation

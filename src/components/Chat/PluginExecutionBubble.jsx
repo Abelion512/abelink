@@ -1,4 +1,4 @@
-import React from 'react'
+
 import { Check, ChevronRight } from 'lucide-react'
 
 export const PluginExecutionBubble = ({ pluginExecution }) => {

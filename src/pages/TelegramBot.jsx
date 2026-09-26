@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useTelegramBot } from '../hooks/telegram/useTelegramBot'
 import {
   Send,
@@ -41,16 +41,18 @@ const TelegramBot = () => {
   }
 
   useEffect(() => {
-    loadConfigData().then(async (config) => {
+    void (async () => {
+      const config = await loadConfigData()
       if (config.tgBotToken && !hasAutoConnectedRef.current) {
         hasAutoConnectedRef.current = true
         const res = await window.api?.tgGetStatus()
         if (!res || res.status === 'disconnected') {
-          startBot(config.tgBotToken)
+          await startBot(config.tgBotToken)
         }
       }
-    })
-  }, [])
+    })()
+    // hasAutoConnectedRef guard membuat re-run aman (one-shot auto-connect).
+  }, [startBot])
 
   useEffect(() => {
     const timeout = setTimeout(() => {

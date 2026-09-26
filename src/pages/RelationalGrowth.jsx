@@ -144,7 +144,6 @@ const TraitRing = ({ value, color, icon: Icon, label, desc, ring }) => {
 const RelationalGrowth = () => {
   const navigate = useNavigate()
   const [traits, setTraits] = useState(null)
-  const [stats, setStats] = useState({})
   const [loading, setLoading] = useState(true)
   const { confirm, ModalComponent } = useConfirm()
 
@@ -161,7 +160,9 @@ const RelationalGrowth = () => {
   }, [])
 
   useEffect(() => {
-    loadData()
+    void (async () => {
+      await loadData()
+    })()
   }, [loadData])
 
   const handleReset = async () => {

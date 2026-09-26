@@ -3,7 +3,7 @@ import { generateVector } from '../vectorLoader'
 import { insertChatArchive } from '../db'
 import { insertArchiveToOrama } from '../oramaStore'
 
-export async function summarizeAndArchive(recentMessages, activeTopic, config) {
+export async function summarizeAndArchive(recentMessages, activeTopic, _config) {
   if (!recentMessages || recentMessages.length === 0) return
 
   const systemPrompt = `Kamu adalah sistem internal Abelink. Tugasmu merangkum percakapan di bawah ini menjadi 2-3 kalimat ringkas namun informatif.
