@@ -32,3 +32,11 @@ export {
   sessionToInitialHistory
 } from './session-store.mjs'
 export { createSidecarClient } from './sidecar-client.mjs'
+export {
+  createHarnessWriter,
+  createHeadlessHarnessLogger,
+  harnessDisabled,
+  resolveHarnessRoot,
+  trajectoryHeadlessEnabled
+} from './harness-writer.mjs'
+export { createToolAuditLogger, executeToolWithHooks } from './tool-hooks.mjs'

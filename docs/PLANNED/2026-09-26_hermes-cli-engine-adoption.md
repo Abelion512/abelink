@@ -77,11 +77,18 @@ Dokumen ini memperbaiki ketiganya.
 
 ### H5 — Tool gateway + hooks (pre/post tool)
 - Target: `sidecar/main/node-tools.js` (`NATIVE_TOOLS`).
-- Status: **PARTIAL**. Registry ada; **tanpa** pre/post hook (bukti: grep
-  `preTool|postTool|onToolCall` di `node-tools.js` = kosong).
-- Task H5: tambah `onBeforeTool(context)` / `onAfterTool(result)` di satu choke
-  point dispatch; dipakai untuk audit (trajectory) + approval relay + redaksi.
-- Acceptance: test "hook after menerima {tool, ok, ms}" + audit JSONL bertambah.
+- Status: **DONE (jalur headless, M2c 2026-09-26)**. Choke point dipilih di
+  HOST (bukan di dalam `node-tools.js`): `cli/core/tool-hooks.mjs`
+  `executeToolWithHooks` membungkus `environment.executeTool` di ketiga host
+  (`bin/abelink.mjs`, `bin/abelink-tui.mjs`, `cli/tui/engine.mjs`) — mencakup
+  SEMUA dispatch headless (NATIVE_TOOLS lokal + fallback RPC sidecar),
+  dikawal `createToolAuditLogger` (audit JSONL via harness writer PLAN-T1 +
+  patch sesi). `onBeforeTool` = block, `onAfterTool` = redaksi (tak bisa
+  mengubah audit yang sudah ditulis), hook error tak pernah fatal.
+- Sisa jujur: dispatch INTERNAL sidecar (`engine/channels/*`) belum ber-hook —
+  disentuh saat M4 (registry bertipe), bukan sekarang.
+- Acceptance: ✅ test `tests/toolHooks.test.mjs` — "hook after menerima
+  {tool, ok, ms}" + audit JSONL bertambah (termasuk tool yang di-deny).
 
 ### H6 — Skills + self-improvement (learning loop)
 - Sumber: Hermes "creates skills from experience, improves them during use".

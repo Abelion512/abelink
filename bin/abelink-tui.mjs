@@ -22,8 +22,12 @@ import {
   buildAiFetchBody,
   buildAgentsMd,
   checkTurnAborted,
+  createHarnessWriter,
+  createHeadlessHarnessLogger,
   createSidecarClient,
+  createToolAuditLogger,
   createTuiTurn,
+  executeToolWithHooks,
   listTuiSessions,
   loadTuiSession,
   nextPromptAction,
@@ -37,6 +41,7 @@ import {
   resolveTuiModel,
   saveTuiSession,
   sessionToInitialHistory,
+  trajectoryHeadlessEnabled,
   TUI_HELP,
   TUI_VERSION
 } from '../cli/core/index.mjs'
@@ -141,6 +146,20 @@ async function main() {
     showDetails: false
   }
 
+  // PLAN-T1: audit harness headless (flag-gated). Patch sesi lewat store
+  // Fase-1 yang sama dipakai saveTuiSession — diagnose/usage menemukan sesi ini.
+  let harnessAudit = null
+  if (trajectoryHeadlessEnabled()) {
+    const harnessWriter = createHarnessWriter({ fsMod: fs })
+    const harnessLogger = createHeadlessHarnessLogger({ writer: harnessWriter, sessionId: state.sessionId })
+    harnessAudit = createToolAuditLogger({
+      logger: harnessLogger,
+      sessionId: state.sessionId,
+      deps: { loadFn: loadTuiSession, saveFn: saveTuiSession }
+    })
+  }
+  const hooks = { onBeforeTool: null, onAfterTool: null, audit: harnessAudit }
+
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: 'abelink> ' })
   let currentTurn = null
   rl.on('SIGINT', () => {
@@ -152,7 +171,8 @@ async function main() {
     }
   })
 
-  const buildEnvironment = (signal) => ({
+  const buildEnvironment = (signal) => {
+  const environment = {
     fetchAI: async (...callArgs) => {
       let messages, config, isSmallTask, jsonSchema
       if (callArgs.length === 1 && callArgs[0] && typeof callArgs[0] === 'object' && Array.isArray(callArgs[0].messages)) {
@@ -182,7 +202,8 @@ async function main() {
       return resp.data
     },
 
-    executeTool: async (toolName, query, ctx = {}) => {
+    // H5 (M2c): core exec dipisah; executeTool publik = wrapper hooks + audit.
+    coreExecuteTool: async (toolName, query, ctx = {}) => {
       const aborted = checkTurnAborted(signal, toolName)
       if (aborted) return aborted
       const secCheck = evaluateHeadlessSecurity(toolName, query, { workspaceRoot: state.workspace })
@@ -221,6 +242,11 @@ async function main() {
       }
     },
 
+    // H5: wrapper publik — coreExecuteTool diselesaikan saat call time
+    // (objek environment sudah utuh; referensi closure, bukan nama host fn).
+    executeTool: (toolName, query, ctx = {}) =>
+      executeToolWithHooks(environment.coreExecuteTool, hooks, toolName, query, ctx),
+
     onThought: (thought) => {
       if (state.showThinking === false) return
       const line = renderThoughtLine(thought)
@@ -232,12 +258,16 @@ async function main() {
       const line = renderStepLine(stepRecord)
       if (line) console.log(line)
     }
-  })
+  }
+  return environment
+  }
 
   async function runTurn(prompt) {
     const turn = createTuiTurn()
     currentTurn = turn
     try {
+      // PLAN-T1: frame turn-start (prompt efektif + provider/model/effort).
+      try { harnessAudit?.beginTurn({ prompt, provider: state.provider, model: state.model, effort: state.effort }) } catch { }
       const result = await runAgentLoop({
         prompt,
         options: {
@@ -259,6 +289,8 @@ async function main() {
       if (result.outcome === 'needs_user' && result.reply) {
         console.log('[TUI] Butuh input manusia — jawab langsung sebagai prompt berikutnya (sesi tetap jalan).')
       }
+      // PLAN-T1: turn-end + patch outcome ke sesi sebelum save (satu tulisan).
+      try { await harnessAudit?.finalize({ outcome: result.outcome, terminalReason: result.terminalReason, turn: result.stepCount }) } catch { }
       state.history.push({ role: 'user', content: prompt })
       if (result.reply) state.history.push({ role: 'assistant', content: result.reply })
       // Persist sesi via Fase-1 store (best-effort, never fatal).
@@ -281,6 +313,9 @@ async function main() {
       nextPromptAction(result) // always reprompt; never exits on turn end
     } catch (err) {
       console.error(`[TUI ERROR]: ${err?.message || err}`)
+      // PLAN-T1: crash path juga dapat turn-end (start tanpa end = red flag
+      // interupsi di harness:diagnose — catat jujur sebagai kegagalan turn).
+      try { await harnessAudit?.finalize({ outcome: 'failed', terminalReason: 'fatal-exception', turn: null }) } catch { }
     } finally {
       currentTurn = null
     }

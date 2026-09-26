@@ -311,9 +311,23 @@ auto-restart + `utils.js` stempel `abelinkTtsEndedAt`).
 
 ## 9. Kontrak Path Harness (reader = writer)
 
-Writer tunggal: Rust `cmd_harness.rs` (`data_home()/abelink/harness/<tgl>/`,
-rotasi 50MB x 3). Reader WAJIB rumus sama: `scripts/harness-common.mjs`
-(`parseArgs` + `harnessRoot` bersama untuk export + diagnose).
+SATU SKEMA, DUA PENULIS (M2c, PLAN-T1):
+- **GUI**: Rust `cmd_harness.rs` (`data_home()/abelink/harness/<tgl>/`,
+  rotasi 50MB x 3).
+- **Headless (CLI/TUI)**: `cli/core/harness-writer.mjs` — fs langsung ke root
+  SAMA, envelope row `{ts,kind,line}` identik. Flag observability
+  `ABELINK_TRAJECTORY_HEADLESS=1` (default OFF = perilaku lama);
+  `ABELINK_HARNESS_DISABLE=1` mematikan semua tulis. Tanpa rotasi generasi:
+  file aktif >50MB fail-closed (skip, bukan timpa). Bentuk event di
+  `src/api/harnessCore.js`; tool-call menulis `ok` (paritas GUI) + `success`
+  (kontrak skema) sekaligus. Turn headless kontinu per SESI (offset akumulatif
+  di `createToolAuditLogger`) karena tiap runAgentLoop me-restart stepCount.
+- Reader WAJIB rumus sama: `scripts/harness-common.mjs` (`parseArgs` +
+  `harnessRoot` bersama untuk export + diagnose).
+- Choke point H5: `cli/core/tool-hooks.mjs` `executeToolWithHooks` membungkus
+  `environment.executeTool` di ketiga host headless (`bin/abelink.mjs`,
+  `bin/abelink-tui.mjs`, `cli/tui/engine.mjs`) — pre/post hook + audit JSONL
+  otomatis (termasuk tool yang di-deny), audit tak pernah fatal.
 Evaluasi: `evaluation/run.mjs` `sidecarWorkspaceRoot()` = rumus sama +
 `workspace`. Kategori log baca langsung dari file (`bun run
 harness:diagnose`), bukan copas user.

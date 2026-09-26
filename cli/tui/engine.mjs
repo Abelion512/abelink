@@ -21,6 +21,11 @@ import {
   listTuiSessions,
   sessionToInitialHistory,
   SESSION_MESSAGE_CAP,
+  createToolAuditLogger,
+  createHarnessWriter,
+  createHeadlessHarnessLogger,
+  executeToolWithHooks,
+  trajectoryHeadlessEnabled,
 } from '../core/index.mjs'
 
 export { parseSlashCommand, parseShellLine, resolveFileRefs, buildAgentsMd }
@@ -497,6 +502,9 @@ async function defaultWriteFile(workspace, target, draft) {
 
 // defaultRunTurn: runAgentLoop + environment sidecar (pola v1 buildEnvironment).
 // Lazy import agar test stub (deps.runTurn) tak pernah sentuh sidecar.
+// M2c: environment.executeTool dibungkus executeToolWithHooks (H5 pre/post +
+// audit harness JSONL via ABELINK_TRAJECTORY_HEADLESS=1) — choke point tunggal,
+// host tetap bisa override via deps.executeTool (tetap dibungkus hooks juga).
 export async function defaultRunTurn(state, prompt, deps = {}) {
   const turn = createTuiTurn()
   state.currentTurn = turn
@@ -507,6 +515,24 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
     const { NATIVE_TOOLS } = await import('../../sidecar/main/node-tools.js')
     const sidecar = deps.sidecar || null
     const auth = deps.auth || {}
+
+    // PLAN-T1: audit harness headless (flag-gated; writer no-op tanpa flag).
+    let audit = null
+    if (trajectoryHeadlessEnabled()) {
+      const fsMod = deps.fsMod || await import('node:fs')
+      const writer = deps.harnessWriter || createHarnessWriter({ fsMod })
+      const logger = deps.harnessLogger || createHeadlessHarnessLogger({ writer, sessionId: state.sessionId })
+      audit = createToolAuditLogger({
+        logger,
+        sessionId: state.sessionId,
+        deps: {
+          loadFn: deps.loadTuiSession || loadTuiSession,
+          saveFn: deps.saveTuiSession || saveTuiSession,
+        },
+      })
+    }
+    const hooks = { onBeforeTool: deps.onBeforeTool || null, onAfterTool: deps.onAfterTool || null, audit }
+
     const environment = {
       fetchAI: deps.fetchAI || (async (...callArgs) => {
         let messages, config, isSmallTask, jsonSchema
@@ -557,7 +583,7 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
         }
         return resp.data
       }),
-      executeTool: deps.executeTool || (async (toolName, query, ctx = {}) => {
+      coreExecuteTool: deps.executeTool || (async (toolName, query, ctx = {}) => {
         const aborted = checkTurnAborted(turn.signal, toolName)
         if (aborted) return aborted
         const secCheck = evaluateHeadlessSecurity(toolName, query, { workspaceRoot: state.workspace })
@@ -589,6 +615,16 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
           return { ok: false, result: `[ERROR] ${err.message}`, error: { code: 'execution-exception', message: err.message } }
         }
       }),
+      // H5: choke point tunggal — pre/post hook + audit JSONL (M2c).
+      // coreExecuteTool diselesaikan saat call time (environment sudah utuh).
+      executeTool: (toolName, query, ctx = {}) =>
+        executeToolWithHooks(
+          environment.coreExecuteTool,
+          hooks,
+          toolName,
+          query,
+          ctx,
+        ),
       onThought: (thought) => {
         if (state.showThinking === false) return
         const line = renderThoughtLine(thought)
@@ -600,6 +636,8 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
         if (line && deps.onEvent) deps.onEvent({ type: 'step', line })
       },
     }
+    // PLAN-T1: frame turn-start (prompt efektif + provider/model/effort).
+    try { audit?.beginTurn({ prompt, provider: state.provider, model: state.model, effort: state.effort }) } catch { }
     const result = await runAgentLoop({
       prompt,
       options: {
@@ -617,6 +655,9 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
     })
     state.history.push({ role: 'user', content: prompt })
     if (result.reply) state.history.push({ role: 'assistant', content: result.reply })
+    // PLAN-T1: turn-end + patch outcome ke sesi (harus sebelum saveTuiSession
+    // agar save menulis versi yang SUDAH dipatch — tidak saling timpa).
+    try { await audit?.finalize({ outcome: result.outcome, terminalReason: result.terminalReason, turn: result.stepCount }) } catch { }
     await saveTuiSession({
       v: 1, id: state.sessionId, workspace: state.workspace,
       provider: state.provider, model: state.model, modelVersion: null,

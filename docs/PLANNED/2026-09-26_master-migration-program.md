@@ -193,7 +193,19 @@ kini mengimpor dari `cli/core` — **nol impor `../bin/` dari `cli/`** (diverifi
 grep). Satu detail yang gampang salah: `session-store.mjs` memakai path relatif
 baru `../../src/api/ai/headlessCli.js` (dulu `../src/...`).
 
-**M2c belum jalan** (H5 tool hooks + trajectory headless di `cli/core`).
+**M2c ✅ SELESAI (2026-09-26)** — PLAN-T1 trajectory headless + H5 tool hooks
+jalur headless. Writer fs di `cli/core/harness-writer.mjs` (root SAMA dengan
+GUI, flag `ABELINK_TRAJECTORY_HEADLESS=1`, default OFF; `ABELINK_HARNESS_DISABLE=1`
+kill-switch; tanpa rotasi generasi — file >50MB fail-closed, beda jujur dengan
+Rust 50MB×3). Kontrak envelope murni di `src/api/harnessCore.js` (tool-call
+menulis `ok` paritas GUI + `success` kontrak skema — gap reader lama diperbaiki).
+Choke point H5: `cli/core/tool-hooks.mjs` `executeToolWithHooks` +
+`createToolAuditLogger` (audit JSONL + patch sesi + turn kontinu per sesi)
+di-wire ke `bin/abelink.mjs`, `bin/abelink-tui.mjs`, `cli/tui/engine.mjs`.
+Gate terbukti runtime: sesi CLI nyata terbaca `harness:diagnose --session <id>`
+(2 events, turn jujur `failed:step-budget-exhausted`, red-flag bersih).
+21 test baru (toolHooks + harnessHeadless); 150 file / 1716 test hijau;
+lint 0 error; tsc 0; PTY v2 render normal; adapter benchmark exit 0.
 - Sisa P1 di M2: `theme.mjs` → `.ts` (murni, ekspor `Theme`) saat M4 menyentuh
   boundary, bukan sekarang (lihat D3: engine `.mjs` dulu, tipe di `types.ts`).
 DoD: `tsc` **blok** untuk `cli/**` + `bin/**/*.tsx`; test TUI hijau. ✅
