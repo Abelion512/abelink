@@ -1,7 +1,8 @@
 # Program Refactor Abelink — Rencana Induk (Fokus: JS->TS + CLI Engine Hermes)
 
 Tanggal: 2026-09-26
-Status: PLAN LENGKAP (belum ada eksekusi kode; dokumen ini yang mengikat)
+Status: **M0 SELESAI** (branch `refactor/m0-clearing`); M1..M6 belum dijalankan.
+Dokumen ini yang mengikat.
 Prinsip pengikat: **parity-first** — bahasa/struktur boleh berubah, PERILAKU
 runtime tidak. Setiap langkah reversible dan terukur.
 
@@ -75,7 +76,7 @@ Keputusan: **ABORT** (hentikan/hapus/kecualikan) · **FREEZE** (bekukan) ·
 | B-5 | GUI punya ReAct loop sendiri (`useAbelinkPlan.js` ~baris 670) vs `runAgentLoop` (CLI/TUI) | `grep -rln runAgentLoop src/hooks` = kosong | FREEZE + keputusan (D1) | P2 | M3 | `grep ... src/hooks` ada hasil ATAU ADR + test paritas kontrak |
 | B-6 | `telegram/gateway.mjs` kode-ada tapi unwired (+16 test) | tak ada importer | ABORT (wire atau hapus) | P2 | M0 | importer ada & e2e lulus ATAU file+test dihapus |
 | B-7 | `bin/abelink-cron.mjs` tanpa script/systemd | `package.json` tanpa script cron | MITIGATE | P2 | M0 | `cron:daemon` + unit + `abelink cron list` |
-| B-8 | Test live 9Router flaky (5–27s; pernah abort) | run hari ini | ABORT dari gate default | P1 | M0 | konvensi `*.live.test.mjs` + `test:live` terpisah |
+| B-8 | Test live 9Router flaky (5–27s; pernah abort). **Bukti konkret ditemukan**: `tests/cli-tui-v2.test.mjs` menuntut string `Katalog` dari router hidup → hijau lokal, **merah di CI** (run 36214333977 job frontend) | log CI: `Discovery gagal (Unable to connect...)` vs ekspektasi `Katalog` | ABORT dari gate default | P1 | M0 | konvensi `*.live.test.mjs` + `test:live` terpisah; varian hermetik memakai `ABELINK_MODELS_ENDPOINT` ke port mati (deterministik, 6s bukan 37s) |
 | B-9 | `bin/abelink-tui.mjs` dipakai sebagai library oleh `cli/tui` → siklus, sulit di-`ts` | impor `../bin/` di `cli/tui/engine.mjs` | FREEZE + ekstraksi | P1+P2 | M2 | tak ada impor `../bin/` dari `cli/tui` |
 | B-10 | Path absolut `/home/abelion/...` di `codingAgentBridge.js` | konstanta `binaries` | ABORT | P2 | M0 | deteksi via PATH tanpa path user |
 | B-11 | `planning.js` 907 baris + prompt ~25k token = risiko tinggi | ukuran/CP | FREEZE | P1+P2 | sampai M4 | PR yang menyentuh `planning.js` sebelum M4 ditolak |
@@ -86,6 +87,8 @@ Keputusan: **ABORT** (hentikan/hapus/kecualikan) · **FREEZE** (bekukan) ·
 | B-16 | `.tsx` ada tanpa lint/typecheck | gap terdokumentasi | MITIGATE | P1 | M2 (setelah B-1/B-2) | `tsc` block untuk `cli/**`+`bin/**/*.tsx` |
 | B-17 | Policy branch/PR: refactor besar wajib lewat branch+PR | AGENTS.md | MITIGATE | semua | semua wave | branch-guard CI hijau |
 | B-18 | `.mjs` runtime vs `.ts`: resolusi Bun vs tsc berbeda | 224 `.mjs` | MITIGATE | P1 | M1 | `moduleResolution: bundler` + smoke `bun run` entry `bin/` |
+| B-19 | `typescript` di-resolve ke **7.0.2** (compiler Go) → `typescript-eslint` 8.x **menolak jalan sama sekali** | `bun add -d typescript` memasang 7.0.2; runtime error "typescript-eslint does not support TS 7.0" | MITIGATE **selesai di M0** | P1 | M0 | `typescript` dipin `^5.9.3` (didukung ESLint+Vitest+Vite); naikkan hanya setelah typescript-eslint mendukung TS >= 7.1 |
+| B-21 | 9Router `/v1/models` **memakan ~40 detik** (naik dari ~26s sehari sebelumnya) sementara `fetchLiveCatalog` timeout **45s** → katalog dinamis selalu mepet; ini akar flakiness B-8 | `curl -H 'Connection: close'` terukur `real 0m40.1s` (2026-09-26) | MITIGATE (jangan andalkan katalog live di gate) | P1+P2 | M5 | test live pakai probe 70s; gate default nol jaringan; kalau katalog dinamis mau dipakai serius perlu cache/refresh async, bukan timeout dinaikkan terus |
 
 ---
 
@@ -123,23 +126,44 @@ Keputusan: **ABORT** (hentikan/hapus/kecualikan) · **FREEZE** (bekukan) ·
 
 ## 6. Wave (M0..M6) — urutan eksekusi tunggal
 
-### M0 — Clearing (tanpa ubah perilaku) · blocker: B-2,B-3,B-4,B-6,B-7,B-8,B-10,B-12
+### M0 — Clearing (tanpa ubah perilaku) · blocker: B-2,B-3,B-4,B-6,B-7,B-8,B-10,B-12,B-19 ✅ SELESAI
 1. `eslint.config.mjs`: + `**/opencode` ke `ignores`; + blok `typescript-eslint`
-   untuk `**/*.{ts,tsx}`.
-2. `vitest.config.mjs`: `include` → `tests/**/*.{test,spec}.{js,mjs,ts,tsx}`.
-3. `gateway.mjs`: **wire ke telegram service ATAU hapus** (+test) — pilih satu (D4).
-4. `cron`: script `cron:daemon` + unit systemd user + doc singkat.
-5. `codingAgentBridge.js`: resolusi PATH (absolut = fallback terakhir).
-6. Konvensi `*.live.test.mjs` + script `test:live`; exclude dari gate default.
-7. `tsconfig.base.json` + sub-tsconfig kosong + `typescript` devDep. (P1/A0 awal)
-DoD: lint 0 error; vitest hijau **dan** test `.ts` probe benar-benar jalan.
+   untuk `**/*.{ts,tsx}`; + daftar scratch lokal (`.remember`, `.hermes`, dst) —
+   ESLint tak membaca `.gitignore`, jadi file `.ts` scratch langsung jadi error
+   begitu `.ts` mulai di-lint.
+2. `vitest.config.mjs`: `include` → `tests/**/*.{test,spec}.{js,mjs,ts,tsx}`;
+   `exclude` `tests/**/*.live.test.*`.
+3. `gateway.mjs`: **diwire** sebagai jalur headless opt-in
+   (`ABELINK_TELEGRAM_HEADLESS=1`, default OFF) via
+   `telegram-service.setTelegramHeadlessRunner` — kode tak lagi zombie, perilaku
+   default tak berubah (D4 = wire).
+4. `cron`: script `cron`/`cron:daemon` + `scripts/systemd/abelink-cron.service`
+   + installer `scripts/install-cron-daemon.sh` (systemd unit butuh path absolut).
+5. `codingAgentBridge.js`: resolusi PATH-first (nama polos dulu, path absolut
+   `/home/abelion/...` jadi fallback terakhir).
+6. Konvensi `*.live.test.*` + config `vitest.live.config.mjs` + script
+   `test:live` (timeout 60s, `passWithNoTests`); exclude dari gate default.
+   Sekaligus **memindahkan** satu-satunya test live yang benar-benar ada
+   (`cli-tui-v2` `/models`) ke `tests/cli-tui-v2.live.test.mjs`, dan varian
+   gate-nya dibuat hermetik lewat `ABELINK_MODELS_ENDPOINT` ke port mati →
+   deterministik + 6s (dari 37s).
+7. `tsconfig.base.json` + `tsconfig.json` (include sempit: `tests/**/*.ts(x)`)
+   + `typescript@^5.9.3` devDep + script `typecheck`. Sub-config renderer/node
+   **digeser ke M1** (lihat catatan M1) agar M0 tetap hijau tanpa termasuk
+   `src/**`/`sidecar/**` yang belum bertipe.
+
+DoD: `bun run lint` exit 0 (0 error, 46 warning = tech-debt OpenTUI intrinsic);
+`bunx vitest run` 148 file / 1695 test hijau **dan** `tests/ts-probe.test.ts`
+benar-benar dieksekusi; `bun run typecheck` exit 0; `bun run build` sukses. ✅
 
 ### M1 — Toolchain TS (P1/A0) · blocker: B-1,B-18
-- devDeps: `typescript`, `typescript-eslint`, `@types/{react,react-dom,node}`.
-- `tsconfig.base.json` (`strict`, `noEmit`, `allowJs`, `checkJs:false`,
-  `moduleResolution: bundler`, `jsx: react-jsx`, `resolveJsonModule`) +
-  `tsconfig.renderer.json`, `tsconfig.node.json` (references).
-- CI: `tsc --noEmit` **soft-fail**.
+- devDeps: `typescript` (`^5.9.3`, **jangan** 7.x — B-19), `typescript-eslint`,
+  `@types/{react,react-dom,node}` — **sudah dipasang di M0**.
+- `tsconfig.base.json` **sudah ada di M0**. Sisa M1: pecah `tsconfig.json`
+  menjadi `tsconfig.renderer.json` (src/**, `jsx: react-jsx`) +
+  `tsconfig.node.json` (sidecar/**, cli/**, bin/**) dengan `references`, dan
+  lebarkan `include` bertahap (mulai dari berkas yang sudah bersih).
+- CI: `tsc --noEmit` **soft-fail** (sampai M2 menjadi blok `cli/**`).
 DoD: `tsc` jalan exit 0 pada baseline; tidak ada rename.
 
 ### M2 — CLI/TUI bertipe (P1/A1) + seam P2 · blocker: B-9,B-13,B-16
@@ -192,12 +216,15 @@ DoD: `tsc` **blok menyeluruh**.
 | # | Pertanyaan | Default bila tak dijawab | Dampak bila salah |
 | --- | --- | --- | --- |
 | D1 | GUI pindah ke `runAgentLoop`, atau ADR divergensi? | ADR + test paritas (risiko lebih kecil) | salah pilih = migrasi dua kali |
-| D2 | Level `strict` untuk file `.ts` baru | `strict: true` untuk `.ts`; `.js` belum dicek | terlalu ketat = lambat mulai |
+| D2 | Level `strict` untuk file `.ts` baru | `strict: true` untuk `.ts`; `.js` belum dicek (dipakai di `tsconfig.base.json`) | terlalu ketat = lambat mulai |
 | D3 | `.mjs` runtime → `.mts` atau tetap? | tetap `.mjs` | rename tanpa nilai |
-| D4 | `gateway.mjs` wire atau hapus? | wire (test sudah ada) | kode zombie menetap |
-| D5 | Cron delivery: `log` dulu atau Telegram langsung? | `log` dulu | risiko spam platform |
+| D4 | `gateway.mjs` wire atau hapus? | **diputuskan di M0: WIRE** (opt-in `ABELINK_TELEGRAM_HEADLESS`, default OFF) | kode zombie menetap |
+| D5 | Cron delivery: `log` dulu atau Telegram langsung? | `log` dulu (implementasi cron sudah default `log`) | risiko spam platform |
 | D6 | Trajectory headless: writer sendiri atau via Rust? | fs sendiri, root sama | duplikasi/inkonsistensi |
 | D7 | MCP (H12) sekarang atau tunda? | tunda ke M6 | eksperimen mengganggu P1/P2 |
+
+D1 (GUI ↔ `runAgentLoop`) tetap terbuka sampai M3; D2/D3/D5/D6/D7 mengikuti
+default di atas kecuali owner berkata lain.
 
 ---
 

@@ -1,0 +1,11 @@
+{
+  // tsconfig.json — gate `tsc --noEmit` (script `bun run typecheck`).
+  //
+  // Tahap M0 sengaja SEMPIT: hanya berkas .ts/.tsx di tests/ yang dicek, agar
+  // pipeline tsc terbukti jalan hijau tanpa membanjiri error dari renderer/
+  // sidecar yang belum bertipe. Sub-config nyata (tsconfig.renderer.json untuk
+  // src/**, tsconfig.node.json untuk sidecar/cli/bin) menyusul di M1 saat
+  // include dilebarkan bertahap (lihat docs/PLANNED/2026-09-26_master-migration-program.md).
+  "extends": "./tsconfig.base.json",
+  "include": ["tests/**/*.ts", "tests/**/*.tsx"]
+}
