@@ -48,6 +48,20 @@ export const OBJECTIVE_KINDS = [
 // Prevents an unverified-claim ping-pong against paid APIs.
 export const MAX_VERIFY_REPLANS = 2
 
+/**
+ * Determine whether evidence gathering / verification replan is allowed.
+ * Productive work with new tool evidence is permitted to continue across steps,
+ * whereas consecutive unproven claims without intervening actions are strictly bounded.
+ */
+export function canAttemptEvidenceRecovery({
+  consecutiveRejections = 0,
+  hasNewEvidence = false,
+  maxConsecutiveRejections = MAX_VERIFY_REPLANS
+} = {}) {
+  if (hasNewEvidence) return true
+  return consecutiveRejections <= maxConsecutiveRejections
+}
+
 // ---------------------------------------------------------------------------
 // Evidence text classifiers (tool-level failure markers only; observation
 // bodies such as web DOM may legitimately contain words like "timeout", so
@@ -783,5 +797,6 @@ export default {
   isIndependentlyVerified,
   buildReplanObservation,
   isMultiActionObjective,
-  escalateKindFromEvidence
+  escalateKindFromEvidence,
+  canAttemptEvidenceRecovery
 }
