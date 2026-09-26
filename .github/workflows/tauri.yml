@@ -54,6 +54,14 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Lint (eslint)
         run: bun run lint
+      # Soft-fail selama migrasi JS->TS (M1): gate ini memberi sinyal tanpa
+      # memblokir PR. Diubah jadi BLOK di M2 untuk cli/** dan M4 untuk
+      # sidecar/engine + src/api (lihat docs/PLANNED/2026-09-26_master-migration-program.md).
+      - name: Typecheck (tsc, soft-fail selama migrasi)
+        continue-on-error: true
+        run: |
+          bun run typecheck
+          bun run typecheck:node
       - name: Unit tests (vitest)
         run: bunx vitest run
       - name: Extension gate (ID pin, token path, flavor isolation)
