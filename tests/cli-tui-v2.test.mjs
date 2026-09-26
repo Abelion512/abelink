@@ -312,12 +312,12 @@ describe('bin/abelink-tui-v2.tsx (E2E pipe)', () => {
   // ponytail: execFile `input:` hang di env ini (bahkan `bun -e` trivial) —
   // pakai spawn + stdin.end() eksplisit.
   // ABELINK_HOME isolasi: persist/cache E2E tak sentuh HOME asli.
-  const run = (input) =>
+  const run = (input, extraEnv = {}) =>
     new Promise((resolve) => {
       const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-e2e-'))
       const c = spawn('bun', ['bin/abelink-tui-v2.tsx'], {
         timeout: 90000,
-        env: { ...process.env, ABELINK_HOME: home },
+        env: { ...process.env, ABELINK_HOME: home, ...extraEnv },
       })
       let stdout = ''
       let stderr = ''
@@ -342,10 +342,17 @@ describe('bin/abelink-tui-v2.tsx (E2E pipe)', () => {
     expect(r.code).toBe(0)
     expect(r.stdout).toContain('Effort: high')
   }, 45000)
-  it('pipe /models kimi (live 9Router) -> katalog + exit 0', async () => {
-    const r = await run('/models kimi\n')
+  // HERMETIK + DETERMINISTIK (dulu "live 9Router"): endpoint discovery diarahkan
+  // ke port mati, jadi hasilnya SELALU jalur gagal — bukan tergantung 9Router
+  // hidup di laptop pengembang. Versi lama menuntut string 'Katalog' sehingga
+  // hijau lokal tapi merah di CI (B-8). Kontrak yang diuji di sini adalah
+  // KEJUJURAN: sebut discovery gagal + pakai alias statis, jangan katalog palsu.
+  // Asersi katalog sungguhan ada di tests/cli-tui-v2.live.test.mjs (`bun run test:live`).
+  it('pipe /models kimi (discovery mati) -> jujur + exit 0', async () => {
+    const r = await run('/models kimi\n', { ABELINK_MODELS_ENDPOINT: 'http://127.0.0.1:1/v1' })
     expect(r.code).toBe(0)
-    expect(r.stdout).toContain('Katalog')
-    expect(r.stdout.toLowerCase()).toContain('kimi')
-  }, 90000)
+    expect(r.stdout).toContain('Model aktif')
+    expect(r.stdout).toMatch(/Discovery gagal|alias statis/i)
+    expect(r.stdout).not.toContain('Katalog')
+  }, 60000)
 })
