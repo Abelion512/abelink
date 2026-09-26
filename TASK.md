@@ -22,6 +22,14 @@
 1. **Aset gambar maskot** — perlu path file di repo (chat tidak bisa menyimpan
    biner). Target penggantian: `assets/banner-repo.png` (README baris 3),
    `resources/icon.png`, `src-tauri/icons/*`, `extension/icons/*`.
+   - **Keputusan 2026-09-26 (agen memilih atas instruksi owner): pakai karakter
+     maskot, BUKAN foto mobil** — foto itu memuat logo Maserati + watermark
+     fotografer di dalam piksel (tidak layak secara legal) dan tidak terbaca di
+     16×16. Sisanya menunggu: (a) berkas PNG sumber disimpan ke repo, (b) hak
+     pakai maskot (gantung, terkait item 2 lisensi).
+   - Alat sudah siap: `bash scripts/apply-brand-assets.sh assets/mark-source.png
+     [--banner <lebar.png>]` (`bun run brand:icons`) menulis ulang SEMUA target
+     dari satu sumber persegi, jadi tidak ada ikon yang tertinggal.
 2. **Lisensi** — `LICENSE` masih "MARK Agent Source Available License v1.0"
    (copyright Mada Putra) dan README baris 125 menunjuk lisensi upstream.
    Pilih teks pengganti dulu (proprietary / MIT / ketentuan sama atas nama
