@@ -11,7 +11,7 @@ import { render } from '@opentui/solid'
 import { createSignal } from 'solid-js'
 import { App } from '../cli/tui/App.tsx'
 import { createTuiState, submitLine } from '../cli/tui/engine.mjs'
-import { parseTuiArgs, parseSlashCommand, parseShellLine, TUI_HELP, TUI_VERSION } from '../bin/abelink-tui.mjs'
+import { parseTuiArgs, parseSlashCommand, parseShellLine, TUI_HELP, TUI_VERSION } from '../cli/core/index.mjs'
 import type {
   PickerRow,
   PickerState,
@@ -140,14 +140,14 @@ async function main() {
   // cliConfig (recent/fav) dibaca bootstrap dari HOME yang sama.
   const cliConfig = boot.fileConfig || {}
   const deps: TuiDeps = { auth, aliases, maxTurns, helpText: TUI_HELP, homeDir: e2eHome, cliConfig }
-  const { parseSlashCommand, parseShellLine } = await import('../bin/abelink-tui.mjs')
+  const { parseSlashCommand, parseShellLine } = await import('../cli/core/index.mjs')
 
   if (piped) {
     // Lazy sidecar: hanya bila ada prompt (bukan slash-info murni).
     let sidecar: SidecarClient | null = null
     const getSidecar = async (): Promise<SidecarClient> => {
       if (!sidecar) {
-        const { createSidecarClient } = await import('../bin/abelink-tui.mjs')
+        const { createSidecarClient } = await import('../cli/core/index.mjs')
         sidecar = createSidecarClient() as SidecarClient
       }
       return sidecar
@@ -201,7 +201,7 @@ async function main() {
   state.onPush = () => bump()
   const getSidecar = async (): Promise<SidecarClient> => {
     if (!sidecar) {
-      const { createSidecarClient } = await import('../bin/abelink-tui.mjs')
+      const { createSidecarClient } = await import('../cli/core/index.mjs')
       sidecar = createSidecarClient() as SidecarClient
     }
     return sidecar
@@ -248,7 +248,7 @@ async function main() {
   }
   // `/sessions`: dialog sesi tersimpan (Enter = lanjut sesi).
   const openSessions = async () => {
-    const { listTuiSessions } = await import('../bin/abelink-tui.mjs')
+    const { listTuiSessions } = await import('../cli/core/index.mjs')
     let sessions: Array<{ id: string; outcome?: string; updatedAt?: string; prompt?: string }> = []
     try {
       const r = await listTuiSessions((deps as { store?: unknown }).store || null)

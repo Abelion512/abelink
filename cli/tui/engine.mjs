@@ -1,7 +1,8 @@
 // cli/tui/engine.mjs — TUI-v2 engine: state + submit routing + runTurn.
 // Reuse (import, bukan copy): parseSlashCommand/parseShellLine/resolveFileRefs/
-// buildAgentsMd + session store dari bin/abelink-tui.mjs; auth + MODEL_ALIASES
-// dari src/api/ai/headlessCli.js; runAgentLoop dari src/api/ai/agentRunner.js.
+// buildAgentsMd + session store dari cli/core (M2b — dulu dari bin/abelink-tui.mjs);
+// auth + MODEL_ALIASES dari src/api/ai/headlessCli.js; runAgentLoop dari
+// src/api/ai/agentRunner.js.
 // UI (App.tsx) presentational: engine memiliku messages, App render via props.
 // Environment (fetchAI/executeTool) injectable agar test stub tanpa network.
 
@@ -20,7 +21,7 @@ import {
   listTuiSessions,
   sessionToInitialHistory,
   SESSION_MESSAGE_CAP,
-} from '../../bin/abelink-tui.mjs'
+} from '../core/index.mjs'
 
 export { parseSlashCommand, parseShellLine, resolveFileRefs, buildAgentsMd }
 export { SESSION_MESSAGE_CAP }
@@ -543,7 +544,7 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
           maxOut: state.modelCapabilities?.maxOut || null,
           ...(config || {}),
         }
-        const { buildAiFetchBody } = await import('../../bin/abelink-tui.mjs')
+        const { buildAiFetchBody } = await import('../core/parser.mjs')
         const { classifyAiError } = await import('./modelEffort.mjs')
         const fetchOnce = (cfg) => sidecar.rpc('ai:fetch', [buildAiFetchBody({ messages, config: cfg, isSmallTask, jsonSchema })])
         const resp = await fetchOnce(combinedConfig)
