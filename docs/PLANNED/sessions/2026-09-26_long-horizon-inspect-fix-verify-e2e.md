@@ -79,7 +79,9 @@ digabung ke PR dokumentasi berikutnya, bukan di PR hapus.
   branch cleanup; tidak terulang di 2 run penuh berikutnya + hijau sendirian;
   polanya bukan deterministik — diduga shared tmpdir antar worker pada run
   yang sangat panjang; belum ada bukti akar, jadi hanya dicatat, tidak di-fix
-  buta).
+  buta). **UPDATE ronde M3: akar DITEMUKAN dan DIPERBAIKI** — ts writer tidak
+  monotonik antar file (detail: `2026-09-26_m3-adr-parity-docs.md`); setelah
+  fix, 4 run penuh beruntun hijau + test regresi deterministik.
 - Verifier gate kini SAMA ketatnya di CLI/TUI dan GUI (bukti tool diterima);
   `runtimeVerificationState` adapter benchmark belum mengekspos verdict ini
   (item TASK.md nomor 3, belum dikerjakan).

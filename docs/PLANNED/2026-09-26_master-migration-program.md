@@ -210,11 +210,22 @@ lint 0 error; tsc 0; PTY v2 render normal; adapter benchmark exit 0.
   boundary, bukan sekarang (lihat D3: engine `.mjs` dulu, tipe di `types.ts`).
 DoD: `tsc` **blok** untuk `cli/**` + `bin/**/*.tsx`; test TUI hijau. ✅
 
-### M3 — Satu inti + bukti (P2/H1) · blocker: B-5, keputusan D1
-- Pilih: GUI pindah ke `runAgentLoop` **atau** ADR divergensi + test paritas
-  kontrak (`objectiveVerifier` + `trajectorySupervisor` + `planStepBudget`).
-- Golden output CLI vs TUI vs GUI (10 prompt) sebagai bukti.
-DoD: keputusan tertulis + golden test ada.
+### M3 ✅ SELESAI (2026-09-26) — Satu inti + bukti (P2/H1) · blocker: B-5, keputusan D1
+- D1 dijawab lewat **`docs/ADR-001-loop-divergence.md`**: GUI mempertahankan
+  loop sendiri; paritas dikunci test kontrak bersama
+  `tests/loopParity.test.mjs` (tabel gerbang wajib di KEDUA loop + skenario
+  governance: klaim tanpa bukti ditolak, dengan bukti lolos, hint supervisor
+  pada ambang sama, budget floor GUI-only dipin). Bukti pengukuran: kedua loop
+  memanggil supervisor/verifier/budget/classifier yang sama, sehingga opsi
+  "GUI pindah ke runAgentLoop" memberi nilai konsolidasi kecil dengan risiko
+  besar (loop GUI terikat UI: approval overlay, TTS, archiver, intercom).
+- Divergensi yang diakui ADR: `GOAL_MODE_FLOOR = 48` hanya GUI (dipin test);
+  `needs_user` terminal di kedua host (remediasi R1 menyentuh keduanya lewat
+  modul bersama).
+- ADR juga mencatat akar masalah long-horizon (jawaban owner: PRD tidak
+  kurang jelas; gerbang quality lebih ketat dari benchmark publik;
+  remediasi R1–R4 terjadwal M5/M6).
+DoD: keputusan tertulis + golden test ada. ✅
 
 ### M4 — Boundary bertipe (P1/A2) · blocker: B-11,B-14,B-15
 - `sidecar/engine/registry.mjs` (+ channels) bertipe (kontrak frame tetap).
@@ -252,7 +263,7 @@ DoD: `tsc` **blok menyeluruh**.
 
 | # | Pertanyaan | Default bila tak dijawab | Dampak bila salah |
 | --- | --- | --- | --- |
-| D1 | GUI pindah ke `runAgentLoop`, atau ADR divergensi? | ADR + test paritas (risiko lebih kecil) | salah pilih = migrasi dua kali |
+| D1 | GUI pindah ke `runAgentLoop`, atau ADR divergensi? | **DIJAWAB 2026-09-26 (ADR-001): ADR divergensi + test paritas kontrak** | salah pilih = migrasi dua kali |
 | D2 | Level `strict` untuk file `.ts` baru | `strict: true` untuk `.ts`; `.js` belum dicek (dipakai di `tsconfig.base.json`) | terlalu ketat = lambat mulai |
 | D3 | `.mjs` runtime → `.mts` atau tetap? | tetap `.mjs` | rename tanpa nilai |
 | D4 | `gateway.mjs` wire atau hapus? | **diputuskan di M0: WIRE** (opt-in `ABELINK_TELEGRAM_HEADLESS`, default OFF) | kode zombie menetap |
