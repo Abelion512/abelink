@@ -43,6 +43,7 @@ import { currentBenchArch } from './benchArch.js'
 export const MAX_NO_PROGRESS_STREAK = 3
 export const MAX_NO_ACTION_TERMINAL_STREAK = 8
 export const MAX_PROGRESSIVE_NO_ACTION_LIMIT = 12
+export const SYSTEM_ABSOLUTE_HARD_CEILING = 512
 
 /**
  * Execute the autonomous ReAct agent loop in a framework-agnostic environment.
@@ -68,9 +69,11 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
   const sessionId = options.sessionId || `session-${Date.now()}`
   const benchArch = options.arch || currentBenchArch()
 
-  const hardCeiling = Number.isFinite(options.hardCeiling) && options.hardCeiling > 0
+  const requestedCeiling = Number.isFinite(options.hardCeiling) && options.hardCeiling > 0
     ? Math.floor(options.hardCeiling)
-    : 512
+    : SYSTEM_ABSOLUTE_HARD_CEILING
+
+  const hardCeiling = Math.min(requestedCeiling, SYSTEM_ABSOLUTE_HARD_CEILING)
 
   // Budget steps
   let maxPlanSteps = Number.isFinite(options.maxTurns) && options.maxTurns > 0
@@ -627,6 +630,7 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
     stepCount,
     toolCallsCount: executedToolsList.length,
     executedTools: executedToolsList,
+    effectiveHardCeiling: hardCeiling,
     trace,
     history: loopMessages
   }

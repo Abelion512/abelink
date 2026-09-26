@@ -327,4 +327,90 @@ describe('Scenario E: Durable needs_user checkpoint & resume lifecycle', () => {
     expect(store).not.toBeNull()
     expect(typeof store.getAgentTask).toBe('function')
   })
+
+  it('Scenario E7: checkpoint persistence MUST fail closed when store write rejects', async () => {
+    // When store.updateAgentTask throws an error, EngineSession MUST NOT:
+    // 1. claim durable checkpoint exists
+    // 2. expose status = 'paused'
+    // 3. emit checkpoint.created
+    // Instead it must:
+    // 1. set status = 'failed'
+    // 2. set checkpoint = null
+    // 3. emit checkpoint.failed and session.failed
+    // 4. return outcome = 'failed' with terminalReason indicating persistence failure
+    const events = []
+    const mockFaultyStore = {
+      getAgentTask: async () => null,
+      createAgentTask: async () => ({ id: 'faulty-task' }),
+      updateAgentTask: async () => {
+        throw new Error('Simulated disk I/O rejection / storage full')
+      }
+    }
+
+    const session = createEngineSession({
+      store: mockFaultyStore,
+      baseEnvironment: {
+        fetchAI: async () => ({
+          content: JSON.stringify({
+            thought: 'Menanyakan pengguna pilihan parameter',
+            answer: 'Pilih mode A atau B?',
+            task_status: 'needs_user',
+            is_done: false
+          })
+        }),
+        executeTool: async () => ({ ok: true, result: 'ok' })
+      }
+    })
+
+    session.subscribe((ev) => events.push(ev))
+
+    const res = await session.runTask('Tanya pengguna mode')
+
+    // Invariant: Failed persistence fails closed
+    expect(res.outcome).toBe('failed')
+    expect(res.success).toBe(false)
+    expect(res.terminalReason).toContain('checkpoint-persistence-failed')
+    expect(session.status).toBe('failed')
+    expect(session.checkpoint).toBeNull()
+
+    // Events must reflect persistence failure
+    const failedCheckpointEv = events.find((e) => e.type === 'checkpoint.failed')
+    const failedSessionEv = events.find((e) => e.type === 'session.failed')
+    const createdCheckpointEv = events.find((e) => e.type === 'checkpoint.created')
+    const pausedSessionEv = events.find((e) => e.type === 'session.paused')
+
+    expect(failedCheckpointEv).toBeTruthy()
+    expect(failedCheckpointEv.reason).toBe('store_write_rejected')
+    expect(failedSessionEv).toBeTruthy()
+    expect(createdCheckpointEv).toBeUndefined()
+    expect(pausedSessionEv).toBeUndefined()
+
+    // Attempting to resume from failed persistence MUST throw
+    await expect(session.resumeSession('Coba resume')).rejects.toThrow(/Tidak ada checkpoint yang dapat di-resume/)
+  })
+
+  it('Scenario E8: pause() and sendInput() fail closed when store write rejects', async () => {
+    const mockFaultyStore = {
+      getAgentTask: async () => null,
+      updateAgentTask: async () => {
+        throw new Error('Database write error')
+      }
+    }
+
+    const session = createEngineSession({
+      store: mockFaultyStore
+    })
+
+    // 1. sendInput when not paused
+    const resUnpaused = await session.sendInput('input')
+    expect(resUnpaused.ok).toBe(false)
+
+    // 2. pause() on running session fails closed if store write fails
+    session.status = 'running'
+    session.activePrompt = 'Sedang berjalan'
+    const pauseOk = await session.pause('manual')
+    expect(pauseOk).toBe(false)
+    expect(session.status).toBe('running') // status not set to paused
+    expect(session.checkpoint).toBeNull() // checkpoint not set
+  })
 })
