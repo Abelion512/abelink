@@ -1,10 +1,15 @@
 // codingAgentBridge.js
 // Universal CLI Coding Agent Dispatcher untuk Abelink (Linux Mint)
 // Menjembatani tugas coding berat ke CLI agent lokal yang sudah terpasang:
-// 1. Claude Code (/home/abelion/.npm-global/bin/claude)
-// 2. Hermes Agent (/home/abelion/.local/bin/hermes)
-// 3. Codex CLI (/home/abelion/.nvm/versions/node/v24.18.0/bin/codex)
-// 4. OpenCode (/home/abelion/.opencode/bin/opencode)
+// 1. Claude Code   2. Hermes Agent   3. Codex CLI   4. OpenCode
+//
+// 2026-09-26 (M0/B-10): resolusi binary PATH-FIRST. Dulu tiap kandidat
+// menaruh path absolut milik mesin maintainer (/home/abelion/...) sebagai
+// prioritas PERTAMA, sehingga di laptop lain deteksi gagal walau binary-nya
+// ada di PATH, dan perintah yang dihasilkan menunjuk path yang tak ada.
+// Sekarang urutannya: nama polos (diselesaikan PATH) dulu, path absolut hanya
+// sebagai fallback terakhir. `binaries[0]` (dipakai buildCodingCommand) jadi
+// nama polos -> perintah portable.
 
 // Sumber tunggal daftar agen coding yang DIDUKUNG delegate_coding.
 // Keputusan owner (2026-09-26, dikunci ulang): hanya opencode + hermes.
@@ -19,8 +24,8 @@ export const AGENT_CANDIDATES = [
     id: 'claude',
     name: 'Claude Code',
     binaries: [
-      '/home/abelion/.npm-global/bin/claude',
-      'claude'
+      'claude',
+      '/home/abelion/.npm-global/bin/claude'
     ],
     makeArgs: ({ prompt }) => [
       '-p',
@@ -33,8 +38,8 @@ export const AGENT_CANDIDATES = [
     id: 'hermes',
     name: 'Hermes Agent',
     binaries: [
-      '/home/abelion/.local/bin/hermes',
-      'hermes'
+      'hermes',
+      '/home/abelion/.local/bin/hermes'
     ],
     makeArgs: ({ prompt }) => [
       'run',
@@ -46,8 +51,8 @@ export const AGENT_CANDIDATES = [
     id: 'codex',
     name: 'Codex CLI',
     binaries: [
-      '/home/abelion/.nvm/versions/node/v24.18.0/bin/codex',
-      'codex'
+      'codex',
+      '/home/abelion/.nvm/versions/node/v24.18.0/bin/codex'
     ],
     makeArgs: ({ prompt }) => [
       'exec',
@@ -59,8 +64,8 @@ export const AGENT_CANDIDATES = [
     id: 'opencode',
     name: 'OpenCode CLI',
     binaries: [
-      '/home/abelion/.opencode/bin/opencode',
-      'opencode'
+      'opencode',
+      '/home/abelion/.opencode/bin/opencode'
     ],
     makeArgs: ({ prompt }) => [
       'run',
