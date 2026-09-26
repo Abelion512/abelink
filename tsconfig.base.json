@@ -6,6 +6,11 @@
   // strangler berjalan. Typing dinyalakan per-subtree lewat sub-config.
   // moduleResolution "bundler": cocok dengan Vite/Vitest + resolusi bun (B-18).
   // Clone referensi sst/opencode dikecualikan total (B-3).
+  //
+  // CATATAN: `lib` (DOM) dan `types` (node) di bawah adalah nilai NETRAL untuk
+  // berkas .ts pertama yang mendarat. Sub-config WAJIB mempersempitnya sesuai
+  // permukaan: sisi Node buang DOM (lihat tsconfig.node.json), sisi renderer
+  // buang tipe Node. Tanpa itu guardrail boundary Tauri jadi kosong.
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",

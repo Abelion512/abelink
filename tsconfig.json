@@ -1,11 +1,26 @@
 {
-  // tsconfig.json — gate `tsc --noEmit` (script `bun run typecheck`).
+  // tsconfig.json — gate payung `bun run typecheck` (dan yang dibaca editor).
   //
-  // Tahap M0 sengaja SEMPIT: hanya berkas .ts/.tsx di tests/ yang dicek, agar
-  // pipeline tsc terbukti jalan hijau tanpa membanjiri error dari renderer/
-  // sidecar yang belum bertipe. Sub-config nyata (tsconfig.renderer.json untuk
-  // src/**, tsconfig.node.json untuk sidecar/cli/bin) menyusul di M1 saat
-  // include dilebarkan bertahap (lihat docs/PLANNED/2026-09-26_master-migration-program.md).
+  // Isi = ZONA BERSIH hasil pengukuran 2026-09-26: seluruh subtree yang sudah
+  // menghasilkan 0 error tsc. `allowJs: true` + `checkJs: false` (lihat
+  // tsconfig.base.json) membuat file .js/.jsx lama tetap boleh ada tanpa
+  // dicek, jadi gate ini TIDAK menghalangi strangler.
+  //
+  // BELUM masuk (sengaja): `cli/**` + `bin/**/*.tsx`. Diukur 2026-09-26 =
+  // 114 error dari 3 berkas TUI yang belum bertipe -> itu pekerjaan M2.
+  //
+  // Sub-gate: tsconfig.node.json (sidecar/scripts/evaluation/tests) lewat
+  // `bun run typecheck:node`. Sub-gate renderer BELUM dibuat: src/** belum
+  // punya berkas .ts, dan tsc menolak config tanpa input (TS18003) — dibuat saat
+  // berkas .ts pertama mendarat di M2/M6.
   "extends": "./tsconfig.base.json",
-  "include": ["tests/**/*.ts", "tests/**/*.tsx"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "sidecar/**/*.ts",
+    "scripts/**/*.ts",
+    "evaluation/**/*.ts",
+    "tests/**/*.ts",
+    "tests/**/*.tsx"
+  ]
 }
