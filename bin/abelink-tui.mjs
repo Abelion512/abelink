@@ -293,6 +293,11 @@ export async function saveTuiSession(session, store = null) {
   }
 }
 
+/**
+ * Daftar sesi CLI tersimpan untuk dialog /sessions.
+ * @param {unknown} [store] Store Fase-1 (biasanya null: dimuat sendiri).
+ * @returns {Promise<{ ok: boolean, sessions?: Array<{ id: string, outcome?: string, updatedAt?: string, prompt?: string }> }>}
+ */
 export async function listTuiSessions(store = null) {
   const s = store || await loadFase1Store()
   if (!s || typeof s.listCliSessions !== 'function') {

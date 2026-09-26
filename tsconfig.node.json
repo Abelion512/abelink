@@ -6,9 +6,8 @@
   // sedangkan renderer DILARANG (invariant Tauri boundary). `lib` sengaja TANPA
   // DOM supaya `window`/`document` di sisi Node langsung jadi error, bukan lolos.
   //
-  // cli/** dan bin/**/*.tsx BELUM masuk sini: 3 file .tsx TUI masih tanpa tipe
-  // dan menghasilkan 114 error saat diukur 2026-09-26. Itu backlog M2 — lihat
-  // docs/PLANNED/2026-09-26_master-migration-program.md (§ M2).
+  // cli/** dan bin/**/*.tsx SUDAH masuk (M2a, 2026-09-26): sebelumnya 114 error,
+  // sekarang 0. Lihat docs/PLANNED/2026-09-26_master-migration-program.md (§ M2).
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022"],
@@ -19,6 +18,10 @@
     "scripts/**/*.ts",
     "evaluation/**/*.ts",
     "tests/**/*.ts",
-    "tests/**/*.tsx"
+    "tests/**/*.tsx",
+    "cli/**/*.ts",
+    "cli/**/*.tsx",
+    "bin/**/*.ts",
+    "bin/**/*.tsx"
   ]
 }

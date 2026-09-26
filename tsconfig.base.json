@@ -21,6 +21,10 @@
     "noEmit": true,
     "allowJs": true,
     "checkJs": false,
+    // Entry TUI mengimpor komponen dengan ekstensi eksplisit
+    // ('../cli/tui/App.tsx') karena Bun menjalankan .tsx langsung tanpa build.
+    // Flag ini BUTUH noEmit (sudah true) — tidak ada emit sama sekali.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,

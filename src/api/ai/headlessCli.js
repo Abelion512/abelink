@@ -259,6 +259,11 @@ export async function writeCliSetup({ argv = [], homeDir = os.homedir?.() || pro
 // best-effort, never throws, [] on failure. (Dexie/IndexedDB shim is fragile
 // headless; the workspace file is the stable contract — same file the GUI
 // auto-save writes via saveWorkspaceWorkingMemory.)
+/**
+ * Memori kerja (working memory) workspace untuk seed prompt headless.
+ * @param {{ workspaceRoot?: string | null }} [opts]
+ * @returns {Promise<Array<unknown>>}
+ */
 export async function loadHeadlessMemories({ workspaceRoot = null } = {}) {
   try {
     if (!workspaceRoot) return []
