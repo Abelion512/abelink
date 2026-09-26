@@ -24,6 +24,16 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import 'fake-indexeddb/auto'
 
+// M2c (PLAN-T1 + H5): audit harness headless + tool hooks. Impor statis dari
+// cli/core (barrel) — tanpa dependensi baru, flag ABELINK_TRAJECTORY_HEADLESS=1.
+import {
+  createHarnessWriter,
+  createHeadlessHarnessLogger,
+  createToolAuditLogger,
+  executeToolWithHooks,
+  trajectoryHeadlessEnabled
+} from '../cli/core/index.mjs'
+
 const { runAgentLoop } = await import('../src/api/ai/agentRunner.js')
 const { evaluateHeadlessSecurity } = await import('../src/api/ai/headlessSecurity.js')
 const { NATIVE_TOOLS } = await import('../sidecar/main/node-tools.js')
@@ -435,6 +445,25 @@ async function main() {
 
   const sidecar = createSidecarClient()
 
+  // PLAN-T1 (M2c): audit harness headless (flag-gated ABELINK_TRAJECTORY_HEADLESS=1).
+  // Patch sesi lewat store Fase-1 yang sama — harness:diagnose --session <id>
+  // dan /usage menemukan jejak sesi CLI ini (akar masalah: sesi TUI/CLI lama
+  // tidak pernah menulis harness, /usage selalu kosong).
+  let harnessAudit = null
+  if (trajectoryHeadlessEnabled()) {
+    const harnessWriter = createHarnessWriter({ fsMod: fs })
+    const harnessLogger = createHeadlessHarnessLogger({ writer: harnessWriter, sessionId })
+    harnessAudit = createToolAuditLogger({
+      logger: harnessLogger,
+      sessionId,
+      deps: {
+        loadFn: async (id) => (typeof loadCliSession === 'function' ? loadCliSession(id) : null),
+        saveFn: async (s) => { if (typeof saveCliSession === 'function') saveCliSession(s) }
+      }
+    })
+  }
+  const hooks = { onBeforeTool: null, onAfterTool: null, audit: harnessAudit }
+
   // Auth fallback chain: flags > env > config file > default.
   let fileConfig = {}
   try {
@@ -541,7 +570,7 @@ async function main() {
         return resp.data
       },
 
-      executeTool: async (toolName, query, ctx = {}) => {
+      coreExecuteTool: async (toolName, query, ctx = {}) => {
         // 0. Subagent delegation (Stream 3): sequential, depth-capped, condensed.
         if (toolName === 'spawn_subagent' && typeof runHeadlessSubagent === 'function') {
           const sub = await runHeadlessSubagent({
@@ -669,10 +698,24 @@ async function main() {
       }
     }
 
+    // H5 (M2c): wrapper publik executeTool — pre/post hooks + audit JSONL.
+    // coreExecuteTool diselesaikan saat call time (environment sudah utuh).
+    environment.executeTool = (toolName, query, ctx = {}) =>
+      executeToolWithHooks(environment.coreExecuteTool, hooks, toolName, query, ctx)
+
     // Run the agent loop (Fase 1: seed initialHistory dari sesi resume;
     // prompt efektif = prompt baru bila ada, else prompt sesi lama).
     const effectivePrompt = cliOptions.prompt || resumeSession?.prompt || '(lanjutkan sesi)'
     const resumedHistory = Array.isArray(resumeSession?.messages) ? resumeSession.messages : []
+    // PLAN-T1: frame turn-start (prompt efektif + provider/model/effort).
+    try {
+      harnessAudit?.beginTurn({
+        prompt: effectivePrompt,
+        provider: resumeSession?.provider || auth.provider || cliOptions.provider,
+        model: resumeSession?.model || auth.model || cliOptions.model,
+        effort: cliOptions.effort || resumeSession?.effort
+      })
+    } catch { }
     const result = await runAgentLoop({
       prompt: effectivePrompt,
       options: {
@@ -693,6 +736,9 @@ async function main() {
       },
       environment
     })
+
+    // PLAN-T1: turn-end + patch outcome ke sesi sebelum persist (satu tulisan).
+    try { await harnessAudit?.finalize({ outcome: result.outcome, terminalReason: result.terminalReason, turn: result.stepCount }) } catch { }
 
     // Fase 1: persist sesi (newest-first via updatedAt). Never fatal.
     try {
@@ -761,6 +807,9 @@ async function main() {
       process.exit(1)
     }
   } catch (err) {
+    // PLAN-T1: crash path juga dapat turn-end (start tanpa end = red flag
+    // interupsi di harness:diagnose — catat jujur sebagai kegagalan run).
+    try { await harnessAudit?.finalize({ outcome: 'failed', terminalReason: 'fatal-exception', turn: null }) } catch { }
     const msg = String(err?.message || err)
     // Auth gagal tanpa key: beri jalan keluar konkret, bukan "nyalakan aplikasi"
     // (server 9Router hidup tapi menolak tanpa key — pesan lama menyesatkan).

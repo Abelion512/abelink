@@ -14,6 +14,10 @@ Fakta terverifikasi hari ini:
 | CLI (`bin/abelink.mjs`) | `~/.config/abelink/cli-sessions/*.json` | prompt, outcome, terminalReason, max 50 pesan user/assistant |
 | TUI v2 | idem (via `saveTuiSession`) | idem |
 
+UPDATE M2c (2026-09-26): kolom persistensi CLI/TUI kini TAMBAH harness JSONL
+saat `ABELINK_TRAJECTORY_HEADLESS=1` (lihat PLAN-T1 di bawah — selesai).
+Tabel di atas dipertahankan sebagai bukti kondisi pra-M2c.
+
 Bukti: `~/.local/share/abelink/harness/2026-09-26` dan
 `~/.local/share/abelink-dev/abelink/harness/2026-09-26` **tidak ada**, padahal TUI
 dipakai hari ini. `cli/tui/usageStats.mjs` hanya MEMBACA harness (untuk `/usage`),
@@ -24,18 +28,26 @@ di TUI selalu kosong untuk sesi yang dijalankan dari TUI.
 Konsekuensi nyata: bug "kadang input kosong" sulit di-root-cause karena tidak ada
 rekaman prompt efektif/step yang benar-benar dikirim ke provider.
 
-### Rencana (PLAN-T1) — trajectory headless
-- Ekstrak writer JSONL framework-agnostik dari `src/api/harness.js` menjadi
-  `src/api/harnessCore.js` (murni: `makeEnvelope(kind, payload, {sessionId, seq, ts})`),
-  lalu:
-  - GUI tetap lewat Rust (`harness_append`).
-  - CLI/TUI memakai writer fs langsung ke root yang SAMA
-    (`ABELINK_DATA_HOME|XDG_DATA_HOME` + `abelink/harness/<date>/<kind>.jsonl`),
-    pola append yang sudah dipakai `usageStats.mjs` saat membaca.
-- Catat minimal: `turn-start` (prompt efektif + provider/model/effort),
-  `tool` (nama + ok + durasi), `turn-end` (outcome/terminalReason/stepCount).
-- Gate: `harness:diagnose --session <tui-session-id>` harus menampilkan digest
-  hasil sesi TUI. Tanpa ini, klaim "tidak bisa direproduksi" tetap tidak teruji.
+### Rencana (PLAN-T1) — trajectory headless — ✅ SELESAI (M2c, 2026-09-26)
+Implementasi (penamaan menyimpang sedikit dari rencana, kontrak sama):
+- Kontrak murni: `src/api/harnessCore.js` (bentuk event, bukan envelope
+  `makeEnvelope` — envelope row `{ts,kind,line}` ditulis writer, sejajar
+  output Rust supaya reader GUI/headless identik tanpa cabang).
+- GUI tetap lewat Rust (`harness_append`).
+- Headless writer: `cli/core/harness-writer.mjs` — fs langsung ke root SAMA
+  (`ABELINK_DATA_HOME|XDG_DATA_HOME` + `abelink/harness/<date>/<kind>.jsonl`),
+  flag `ABELINK_TRAJECTORY_HEADLESS=1` (default OFF, plan §4.4) +
+  `ABELINK_HARNESS_DISABLE=1` kill-switch. Tanpa rotasi generasi: file >50MB
+  fail-closed (skip) — beda jujur dengan Rust 50MB×3.
+- Wire: `cli/core/tool-hooks.mjs` `createToolAuditLogger` (audit + patch sesi
+  via store Fase-1 + turn kontinu per SESI) dipanggil dari `bin/abelink.mjs`,
+  `bin/abelink-tui.mjs`, `cli/tui/engine.mjs` (TUI v2) di dalam choke point
+  H5 `executeToolWithHooks`.
+- Dicatat: `turn-start` (prompt efektif ≤2000 + provider/model/effort),
+  `tool-calls` (tool + ok/success + resultSummary ≤2000 + durationMs),
+  `turn-end` (outcome/terminalReason/turn; crash path = `fatal-exception`).
+- Gate TERBUKTI runtime: `harness:diagnose --session <id>` menampilkan digest
+  sesi CLI nyata (2 events, red-flag bersih) — bukan lagi klaim tanpa uji.
 
 ## B. Kenapa "kadang input kosong" (diagnosa, bukan tebakan)
 

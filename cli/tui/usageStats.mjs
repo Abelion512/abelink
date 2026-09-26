@@ -81,7 +81,10 @@ export function summarizeDir({ fsMod = null, dir = '', kinds = null } = {}) {
       if (!line.trim()) continue
       const env = parseHarnessRow(line)
       if (!env) continue
-      const sid = String(env.sessionId ?? '?')
+      // M2c: baris tanpa sessionId (mis. harness CLI warisan) TIDAK boleh
+      // menenggelamkan sesi nyata di bucket '?' — kini dilewati jujur.
+      if (env.sessionId === null || env.sessionId === undefined || env.sessionId === '') continue
+      const sid = String(env.sessionId)
       if (!out[sid]) out[sid] = []
       out[sid].push(env)
     }
