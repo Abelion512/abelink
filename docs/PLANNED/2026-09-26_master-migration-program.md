@@ -77,7 +77,7 @@ Keputusan: **ABORT** (hentikan/hapus/kecualikan) · **FREEZE** (bekukan) ·
 | B-6 | `telegram/gateway.mjs` kode-ada tapi unwired (+16 test) | tak ada importer | ABORT (wire atau hapus) | P2 | M0 | importer ada & e2e lulus ATAU file+test dihapus |
 | B-7 | `bin/abelink-cron.mjs` tanpa script/systemd | `package.json` tanpa script cron | MITIGATE | P2 | M0 | `cron:daemon` + unit + `abelink cron list` |
 | B-8 | Test live 9Router flaky (5–27s; pernah abort). **Bukti konkret ditemukan**: `tests/cli-tui-v2.test.mjs` menuntut string `Katalog` dari router hidup → hijau lokal, **merah di CI** (run 36214333977 job frontend) | log CI: `Discovery gagal (Unable to connect...)` vs ekspektasi `Katalog` | ABORT dari gate default | P1 | M0 | konvensi `*.live.test.mjs` + `test:live` terpisah; varian hermetik memakai `ABELINK_MODELS_ENDPOINT` ke port mati (deterministik, 6s bukan 37s) |
-| B-9 | `bin/abelink-tui.mjs` dipakai sebagai library oleh `cli/tui` → siklus, sulit di-`ts` | impor `../bin/` di `cli/tui/engine.mjs` | FREEZE + ekstraksi | P1+P2 | M2 | tak ada impor `../bin/` dari `cli/tui` |
+| B-9 ✅ | `bin/abelink-tui.mjs` dipakai sebagai library oleh `cli/tui` → siklus, sulit di-`ts` | impor `../bin/` di `cli/tui/engine.mjs` | SELESAI 2026-09-26 (M2b): `cli/core/*` + `bin/` jadi host + re-export | P1+P2 | M2 | `grep -rn "\.\./bin/" cli/` = kosong; 148 file/1695 test hijau; `tsc` 0; lint 0; smoke PTY v1+v2 render |
 | B-10 | Path absolut `/home/abelion/...` di `codingAgentBridge.js` | konstanta `binaries` | ABORT | P2 | M0 | deteksi via PATH tanpa path user |
 | B-11 | `planning.js` 907 baris + prompt ~25k token = risiko tinggi | ukuran/CP | FREEZE | P1+P2 | sampai M4 | PR yang menyentuh `planning.js` sebelum M4 ditolak |
 | B-12 | Rencana tersebar (roadmap 09-22 + 3 dokumen) | docs | ABORT (konsolidasi) | semua | M0 | roadmap lama sudah bertanda SUPERSEDED; indeks = dokumen ini |
@@ -183,12 +183,20 @@ tanpa mengubah runtime. Satu gap tipe pihak ketiga ditemukan dan dilokalisasi:
 walau runtime mendukungnya → wrapper `ColoredSpan` di `App.tsx` dengan satu
 `@ts-expect-error` berkomentar (bukan cast tersebar).
 
-**M2b/M2c belum jalan** (ekstraksi `cli/core`, H5 tool hooks + trajectory headless).
-- Ekstrak `cli/core/{parser,session-store,sidecar-client}.mjs` dari
-  `bin/abelink-tui.mjs`; `bin/abelink-tui.mjs` jadi shim.
-- `theme.ts` + `App.tsx` + `PromptRow.tsx` + `abelink-tui-v2.tsx` bertipe.
-- P2 di sini: H5 (tool hooks) + trajectory headless (T1) di `cli/core`.
-DoD: `tsc` **blok** untuk `cli/**` + `bin/**/*.tsx`; test TUI hijau.
+**M2b ✅ SELESAI (2026-09-26) — B-9 ditutup.** `bin/abelink-tui.mjs` **942 → 558
+baris**: seluruh logika non-host pindah ke `cli/core/*` (`paths`, `constants`,
+`parser`, `render`, `files`, `turn`, `session-store`, `sidecar-client`, +
+`index.mjs` sebagai pintu masuk tunggal). `bin/abelink-tui.mjs` tinggal readline
+loop + `main()` + `export * from '../cli/core/index.mjs'`, jadi test dan
+konsumen lama tidak berubah. `cli/tui/engine.mjs` dan `bin/abelink-tui-v2.tsx`
+kini mengimpor dari `cli/core` — **nol impor `../bin/` dari `cli/`** (diverifikasi
+grep). Satu detail yang gampang salah: `session-store.mjs` memakai path relatif
+baru `../../src/api/ai/headlessCli.js` (dulu `../src/...`).
+
+**M2c belum jalan** (H5 tool hooks + trajectory headless di `cli/core`).
+- Sisa P1 di M2: `theme.mjs` → `.ts` (murni, ekspor `Theme`) saat M4 menyentuh
+  boundary, bukan sekarang (lihat D3: engine `.mjs` dulu, tipe di `types.ts`).
+DoD: `tsc` **blok** untuk `cli/**` + `bin/**/*.tsx`; test TUI hijau. ✅
 
 ### M3 — Satu inti + bukti (P2/H1) · blocker: B-5, keputusan D1
 - Pilih: GUI pindah ke `runAgentLoop` **atau** ADR divergensi + test paritas

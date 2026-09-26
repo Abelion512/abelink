@@ -95,13 +95,13 @@ export interface TuiFileConfig {
   [key: string]: unknown
 }
 
-/** Client sidecar (dibuat oleh `createSidecarClient` di bin/abelink-tui.mjs). */
+/** Client sidecar (dibuat oleh `createSidecarClient` di cli/core/sidecar-client.mjs). */
 export interface SidecarClient {
   dispose?: () => void
   [key: string]: unknown
 }
 
-/** Opsi CLI hasil `parseTuiArgs` (bin/abelink-tui.mjs — tetap JS). */
+/** Opsi CLI hasil `parseTuiArgs` (cli/core/parser.mjs — tetap JS, M2b). */
 export interface TuiCliOptions {
   workspace: string
   provider?: string | null
