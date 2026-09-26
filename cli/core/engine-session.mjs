@@ -105,8 +105,7 @@ export class EngineSession {
   // Menghentikan sementara sesi yang sedang berjalan
   async pause(reason = 'manual_pause') {
     if (this.status !== 'running') return false
-    this.status = 'paused'
-    this.checkpoint = {
+    const candidateCheckpoint = {
       ...(this.checkpoint || {}),
       sessionId: this.sessionId,
       prompt: this.activePrompt,
@@ -118,13 +117,23 @@ export class EngineSession {
       try {
         await store.updateAgentTask(this.sessionId, {
           status: 'paused',
-          checkpoint: this.checkpoint
+          checkpoint: candidateCheckpoint
         })
-      } catch (_) {}
+      } catch (err) {
+        this.emit({
+          type: 'checkpoint.failed',
+          error: err?.message || 'persistence-failed',
+          reason: 'manual_pause_store_rejected'
+        })
+        return false
+      }
     }
+    this.status = 'paused'
+    this.checkpoint = candidateCheckpoint
     if (this.abortController) {
       this.abortController.abort(new Error(`Session paused: ${reason}`))
     }
+    this.emit({ type: 'checkpoint.created', checkpoint: this.checkpoint })
     this.emit({ type: 'session.paused', reason })
     return true
   }
@@ -149,16 +158,24 @@ export class EngineSession {
       await this.loadPersistedCheckpoint()
     }
     if (this.status === 'paused' || this.checkpoint) {
-      this.checkpoint = {
+      const updatedCheckpoint = {
         ...(this.checkpoint || {}),
         pendingUserInput: input
       }
       const store = await this.getStore()
       if (store && typeof store.updateAgentTask === 'function') {
         try {
-          await store.updateAgentTask(this.sessionId, { checkpoint: this.checkpoint })
-        } catch (_) {}
+          await store.updateAgentTask(this.sessionId, { checkpoint: updatedCheckpoint })
+        } catch (err) {
+          this.emit({
+            type: 'checkpoint.failed',
+            error: err?.message || 'persistence-failed',
+            reason: 'input_persistence_failed'
+          })
+          return { ok: false, error: `Gagal menyimpan input pengguna ke taskStore: ${err?.message || 'write-rejected'}` }
+        }
       }
+      this.checkpoint = updatedCheckpoint
       this.emit({ type: 'session.input_received', input })
       return { ok: true, status: this.status, queued: true }
     }
@@ -286,8 +303,7 @@ export class EngineSession {
       this.stepCount = result.stepCount || this.stepCount
 
       if (result.outcome === 'needs_user') {
-        this.status = 'paused'
-        this.checkpoint = {
+        const candidateCheckpoint = {
           sessionId: this.sessionId,
           prompt: this.activePrompt,
           originalPrompt: mergedOptions.originalPrompt || this.activePrompt,
@@ -299,14 +315,39 @@ export class EngineSession {
           pendingUserInput: this.checkpoint?.pendingUserInput || null,
           timestamp: Date.now()
         }
+
         if (store && typeof store.updateAgentTask === 'function') {
           try {
             await store.updateAgentTask(this.sessionId, {
               status: 'paused',
-              checkpoint: this.checkpoint
+              checkpoint: candidateCheckpoint
             })
-          } catch (_) {}
+          } catch (err) {
+            // Checkpoint persistence MUST fail closed: do NOT claim durable checkpoint
+            this.status = 'failed'
+            this.checkpoint = null
+            this.emit({
+              type: 'checkpoint.failed',
+              error: err?.message || 'persistence-failed',
+              reason: 'store_write_rejected'
+            })
+            this.emit({
+              type: 'session.failed',
+              error: `Checkpoint persistence failed: ${err?.message || 'store write rejected'}`,
+              terminalReason: 'checkpoint-persistence-failed'
+            })
+            return {
+              ...result,
+              success: false,
+              outcome: 'failed',
+              terminalReason: `checkpoint-persistence-failed:${err?.message || 'store-write-rejected'}`
+            }
+          }
         }
+
+        // Only after persistence succeeds do we expose paused/checkpoint state
+        this.status = 'paused'
+        this.checkpoint = candidateCheckpoint
         this.emit({ type: 'checkpoint.created', checkpoint: this.checkpoint })
         this.emit({ type: 'session.paused', reason: result.terminalReason || 'needs_user' })
         return result

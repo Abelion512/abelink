@@ -196,4 +196,41 @@ describe('Long-Horizon Budget & Renewal — Phase B1', () => {
     expect(res.outcome).toBe('completed')
     expect(res.toolCallsCount).toBe(TARGET_STEPS - 1)
   })
+
+  it('clamps caller requested hardCeiling above 512 to SYSTEM_ABSOLUTE_HARD_CEILING (512)', async () => {
+    // When hardCeiling = 1000, effective ceiling must be clamped to 512.
+    // When hardCeiling = 100, effective ceiling is honored at 100.
+    // When hardCeiling is not specified, effective ceiling defaults to 512.
+    const mockEnv = {
+      fetchAI: vi.fn().mockImplementation(async () => ({
+        content: JSON.stringify({
+          thought: 'Selesai pemeriksaan hard ceiling',
+          answer: 'Pemeriksaan tuntas',
+          is_done: true
+        })
+      })),
+      executeTool: vi.fn().mockImplementation(async () => ({ ok: true, result: 'ok' }))
+    }
+
+    const resOver = await runAgentLoop({
+      prompt: 'Pemeriksaan batas sistem 1000',
+      options: { hardCeiling: 1000 },
+      environment: mockEnv
+    })
+    expect(resOver.effectiveHardCeiling).toBe(512)
+
+    const resBounded = await runAgentLoop({
+      prompt: 'Pemeriksaan batas sistem 100',
+      options: { hardCeiling: 100 },
+      environment: mockEnv
+    })
+    expect(resBounded.effectiveHardCeiling).toBe(100)
+
+    const resDefault = await runAgentLoop({
+      prompt: 'Pemeriksaan batas default',
+      options: {},
+      environment: mockEnv
+    })
+    expect(resDefault.effectiveHardCeiling).toBe(512)
+  })
 })

@@ -49,6 +49,7 @@ export type EngineEventType =
   | 'progress.updated'
   | 'verification.updated'
   | 'checkpoint.created'
+  | 'checkpoint.failed'
   | 'session.paused'
   | 'session.completed'
   | 'session.failed'
@@ -104,6 +105,12 @@ export interface CheckpointCreatedEvent extends BaseEngineEvent {
   checkpoint: unknown
 }
 
+export interface CheckpointFailedEvent extends BaseEngineEvent {
+  type: 'checkpoint.failed'
+  error: string
+  reason?: string
+}
+
 export interface SessionPausedEvent extends BaseEngineEvent {
   type: 'session.paused'
   reason?: string
@@ -135,6 +142,7 @@ export type EngineEvent =
   | ProgressUpdatedEvent
   | VerificationUpdatedEvent
   | CheckpointCreatedEvent
+  | CheckpointFailedEvent
   | SessionPausedEvent
   | SessionCompletedEvent
   | SessionFailedEvent
