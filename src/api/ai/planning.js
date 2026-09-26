@@ -690,9 +690,13 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
       // mengalir ke ThinkingBubble selagi network berjalan; tanpa onToken =
       // jalur blocking lama. Supervisor tetap per-turn (tidak disentuh).
       const streamCb = typeof options.onToken === 'function' ? options.onToken : null
-      const response = streamCb
-        ? await fetchAI(messages, { signal, onToken: streamCb }, false, schema)
-        : await fetchAI(messages, signal, false, schema)
+      const fetchOpts = {
+        signal,
+        onToken: streamCb,
+        transport: options.fetchAI || options.transport || null,
+        configOverride: options.configOverride || null
+      }
+      const response = await fetchAI(messages, fetchOpts, false, schema)
 
       if (!response.content?.trim() && response.reasoning) {
         console.warn(

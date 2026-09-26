@@ -45,6 +45,7 @@ import {
   gateCompletion,
   buildReplanObservation,
   MAX_VERIFY_REPLANS,
+  canAttemptEvidenceRecovery,
   VERIFICATION_STATE
 } from '../../api/ai/objectiveVerifier'
 import { resolvePlanStepBudget } from '../../api/ai/planStepBudget'
@@ -739,7 +740,9 @@ export const useAbelinkPlan = ({
         conversational: !!(opts.conversational || isAutonomous || tgContext)
       })
       // Evidence source = executedToolsList (tool + fullResult per eksekusi).
-      let verifyReplanCount = 0
+      let _verifyReplanCount = 0
+      let consecutiveUnprovenClaims = 0
+      let lastToolsCountAtVerifyReplan = -1
       let blockedChallengeCount = 0
       // Observasi sintetis (repeat-cache / spiral / circuit) juga ditulis ke
       // file trajectory agar audit lengkap — best-effort, tanpa throw.
@@ -1412,8 +1415,22 @@ export const useAbelinkPlan = ({
                   lastTerminalReason = `${classification.reason || 'explicit-done'}+${archTerminalReason(archPolicy, gate.reason)}`
                   return true
                 }
-                if (gate.replan && verifyReplanCount < MAX_VERIFY_REPLANS) {
-                  verifyReplanCount++
+                const hasNewEvidenceSinceLastVerify = executedToolsList.length > lastToolsCountAtVerifyReplan
+                if (hasNewEvidenceSinceLastVerify) {
+                  consecutiveUnprovenClaims = 0
+                }
+                consecutiveUnprovenClaims++
+
+                if (
+                  gate.replan &&
+                  canAttemptEvidenceRecovery({
+                    consecutiveRejections: consecutiveUnprovenClaims,
+                    hasNewEvidence: false,
+                    maxConsecutiveRejections: MAX_VERIFY_REPLANS
+                  })
+                ) {
+                  _verifyReplanCount++
+                  lastToolsCountAtVerifyReplan = executedToolsList.length
                   pendingVerifyObservation = buildReplanObservation(evidence)
                   return false
                 }
@@ -1421,11 +1438,11 @@ export const useAbelinkPlan = ({
                 sessionOutcome = 'failed'
                 return false
               } catch (e) {
-                // The verifier is an additive layer: its own failure must not
-                // kill a legitimate completion claim.
+                // Phase B2: Fail-closed recovery — internal verifier error must never fake completion.
                 console.warn('[useAbelinkPlan] objectiveVerifier error:', e?.message)
-                lastTerminalReason = classification.reason || 'explicit-done'
-                return true
+                lastTerminalReason = `verification-error:${e?.message || 'internal'}`
+                sessionOutcome = 'failed'
+                return false
               }
             })()
             if (claimVerified) {

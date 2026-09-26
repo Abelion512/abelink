@@ -40,3 +40,5 @@ export {
   trajectoryHeadlessEnabled
 } from './harness-writer.mjs'
 export { createToolAuditLogger, executeToolWithHooks } from './tool-hooks.mjs'
+export { ProviderRuntime, createProviderRuntime } from './provider-runtime.mjs'
+export { EngineSession, createEngineSession, dispatchEngineCommand } from './engine-session.mjs'
