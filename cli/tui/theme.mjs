@@ -71,6 +71,13 @@ export function isWide(width = 80) {
 // Alasan Enter tak di sini: preventDefault di onKeyDown menekan action
 // binding, tapi action binding jalan SEBELUM onKeyDown konsumen sehingga
 // Enter-submit via binding tak bisa dibatalkan saat popup terbuka.
+/**
+ * Binding key untuk textarea prompt. Tipe dirujuk LANGSUNG dari OpenTUI supaya
+ * `action` tetap union sempit miliknya (`newline`, `submit`, ...) — bukan
+ * `string` yang bikin tidak assignable ke prop `KeyBinding[]`. JSDoc ini yang
+ * membuat konsumen .tsx dapat tipe nyata dari modul .mjs (M2a).
+ * @type {import('@opentui/core').KeyBinding[]}
+ */
 export const PROMPT_KEY_BINDINGS = Object.freeze([
   { name: 'return', shift: true, action: 'newline' },
   { name: 'linefeed', shift: true, action: 'newline' },
@@ -109,6 +116,11 @@ export function messagePrefix(role = '') {
 
 // Filter autocomplete murni + testable: prefix match case-insensitive atas
 // nama slash; baris tanpa leading `/` tidak memicu saran (return []).
+/**
+ * Item autocomplete dari baris yang diawali '/'.
+ * @param {string} [line]
+ * @returns {Array<{ name: string, desc?: string }>}
+ */
 export function filterCompletions(line = '') {
   const text = String(line ?? '')
   if (!text.startsWith('/')) return []
@@ -119,6 +131,11 @@ export function filterCompletions(line = '') {
 // Trigger autocomplete ala opencode prompt/display.ts mentionTriggerIndex:
 // `@` setelah awal/spasi tanpa spasi setelahnya -> mode file; baris mulai
 // `/` tanpa spasi -> mode slash. Return { mode:'slash'|'file', query } | null.
+/**
+ * Deteksi pemicu autocomplete ('/' slash atau '@' file) di baris terakhir.
+ * @param {string} [text]
+ * @returns {{ mode: string, query: string } | null}
+ */
 export function autocompleteTrigger(text = '') {
   const t = String(text ?? '')
   const slashMatch = /^\/(\S*)$/.exec(t.split('\n').pop() ?? '')
@@ -136,6 +153,13 @@ export function autocompleteTrigger(text = '') {
 
 // Terapkan pilihan autocomplete ke teks: ganti token trigger dengan value.
 // Return teks baru (atau teks asal bila trigger hilang).
+/**
+ * Terapkan item autocomplete ke teks.
+ * @param {string} [text]
+ * @param {{ mode: string, query: string } | null} [trigger]
+ * @param {string} [value]
+ * @returns {string}
+ */
 export function applyCompletion(text = '', trigger = null, value = '') {
   if (!trigger) return String(text ?? '')
   const t = String(text ?? '')
@@ -150,6 +174,13 @@ export function applyCompletion(text = '', trigger = null, value = '') {
 }
 
 // Navigasi index sirkular (Up/Down ala opencode prompt.autocomplete).
+/**
+ * Indeks terpilih setelah navigasi (melingkar).
+ * @param {number} [current]
+ * @param {number} [delta]
+ * @param {number} [count]
+ * @returns {number}
+ */
 export function moveCompletionIndex(current = 0, delta = 1, count = 0) {
   if (!Number.isFinite(count) || count <= 0) return 0
   return (((current + delta) % count) + count) % count

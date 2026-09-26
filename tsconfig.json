@@ -6,8 +6,8 @@
   // tsconfig.base.json) membuat file .js/.jsx lama tetap boleh ada tanpa
   // dicek, jadi gate ini TIDAK menghalangi strangler.
   //
-  // BELUM masuk (sengaja): `cli/**` + `bin/**/*.tsx`. Diukur 2026-09-26 =
-  // 114 error dari 3 berkas TUI yang belum bertipe -> itu pekerjaan M2.
+  // M2a (2026-09-26): `cli/**` + `bin/**/*.tsx` SUDAH masuk. Diukur 114 error
+  // sebelum pengetikan; sekarang 0, jadi gate ini berlaku penuh untuk TUI.
   //
   // Sub-gate: tsconfig.node.json (sidecar/scripts/evaluation/tests) lewat
   // `bun run typecheck:node`. Sub-gate renderer BELUM dibuat: src/** belum
@@ -21,6 +21,10 @@
     "scripts/**/*.ts",
     "evaluation/**/*.ts",
     "tests/**/*.ts",
-    "tests/**/*.tsx"
+    "tests/**/*.tsx",
+    "cli/**/*.ts",
+    "cli/**/*.tsx",
+    "bin/**/*.ts",
+    "bin/**/*.tsx"
   ]
 }

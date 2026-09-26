@@ -12,12 +12,52 @@ import { createSignal } from 'solid-js'
 import { App } from '../cli/tui/App.tsx'
 import { createTuiState, submitLine } from '../cli/tui/engine.mjs'
 import { parseTuiArgs, parseSlashCommand, parseShellLine, TUI_HELP, TUI_VERSION } from '../bin/abelink-tui.mjs'
+import type {
+  PickerRow,
+  PickerState,
+  SidecarClient,
+  TuiCliOptions,
+  TuiFileConfig,
+  TuiProgressEvent,
+  TuiState
+} from '../cli/tui/types.ts'
 
 export { TUI_VERSION }
 export const TUI_V2_VERSION = TUI_VERSION
 
-export async function bootstrapTuiState(cliOptions, deps = {}) {
-  const headless = deps.headless || await import('../src/api/ai/headlessCli.js').catch(() => ({}))
+// Modul headless (masih .js sampai M4). Dipakai lewat `Partial` karena beberapa
+// jalur memuatnya dengan `.catch(() => ({}))` saat modul tak tersedia.
+type HeadlessCliModule = typeof import('../src/api/ai/headlessCli.js')
+
+/** Hasil `resolveCliAuth` (src/api/ai/headlessCli.js — masih JS). */
+interface CliAuth {
+  provider?: string | null
+  model?: string | null
+  modelVersion?: string | null
+  apiKey?: string | null
+  customEndpoint?: string | null
+}
+
+interface BootstrapDeps {
+  headless?: Partial<HeadlessCliModule>
+}
+
+/** Deps yang dioper ke `submitLine` (engine.mjs). */
+interface TuiDeps {
+  auth: CliAuth
+  aliases: Record<string, string>
+  maxTurns?: number
+  helpText: string
+  homeDir: string | null
+  cliConfig: TuiFileConfig
+  sidecar?: SidecarClient | null
+  onEvent?: (e: TuiProgressEvent) => void
+  /** `/models --all` = opt-in muat katalog penuh (default: hanya yang dipakai). */
+  loadCatalog?: boolean
+}
+
+export async function bootstrapTuiState(cliOptions: TuiCliOptions, deps: BootstrapDeps = {}) {
+  const headless = deps.headless || await import('../src/api/ai/headlessCli.js').catch(() => ({} as Partial<HeadlessCliModule>))
   const {
     loadCliFileConfig = null,
     resolveCliAuth = null,
@@ -26,11 +66,11 @@ export async function bootstrapTuiState(cliOptions, deps = {}) {
     MODEL_ALIASES = null,
     DEFAULT_CLI_MODEL = null,
   } = headless
-  let fileConfig = {}
+  let fileConfig: TuiFileConfig = {}
   try {
-    if (typeof loadCliFileConfig === 'function') fileConfig = loadCliFileConfig({ cwd: cliOptions.workspace, homeDir: cliOptions.homeDir || undefined }) || {}
+    if (typeof loadCliFileConfig === 'function') fileConfig = (loadCliFileConfig({ cwd: cliOptions.workspace, homeDir: cliOptions.homeDir || undefined }) || {}) as TuiFileConfig
   } catch { fileConfig = {} }
-  const auth = typeof resolveCliAuth === 'function'
+  const auth: CliAuth = typeof resolveCliAuth === 'function'
     ? resolveCliAuth({
       // Hanya override bila user set flag eksplisit — sisanya biarkan GUI
       // (shared.json) / cli.json / default menentukan (adopsi satu produk).
@@ -47,13 +87,13 @@ export async function bootstrapTuiState(cliOptions, deps = {}) {
   if (!auth.apiKey && typeof loadNineRouterKey === 'function') {
     try { auth.apiKey = await loadNineRouterKey() } catch {}
   }
-  let headlessMemories = []
+  let headlessMemories: unknown[] = []
   try {
     if (typeof loadHeadlessMemories === 'function') {
       headlessMemories = await loadHeadlessMemories({ workspaceRoot: cliOptions.workspace })
     }
   } catch { headlessMemories = [] }
-  const state = createTuiState({
+  const state: TuiState = createTuiState({
     provider: auth.provider || cliOptions.provider,
     model: auth.model || cliOptions.model || DEFAULT_CLI_MODEL || 'oc/muse-spark-1.3-contributor-free',
     effort: (cliOptions.effortExplicit ? cliOptions.effort : null) || fileConfig.effort || cliOptions.effort,
@@ -71,7 +111,7 @@ export async function bootstrapTuiState(cliOptions, deps = {}) {
 }
 
 async function main() {
-  const cliOptions = parseTuiArgs(process.argv)
+  const cliOptions = parseTuiArgs(process.argv) as TuiCliOptions
   const { promises: fs } = await import('node:fs')
   try { await fs.mkdir(cliOptions.workspace, { recursive: true }) } catch {}
 
@@ -89,23 +129,26 @@ async function main() {
   const { state, auth, aliases, maxTurns } = boot
   // Keputusan owner: ID terlarang ditolak sebelum render (bukan saat prompt
   // pertama) supaya pesannya jelas dan tidak ada request yang terkirim.
-  const headlessMod = await import('../src/api/ai/headlessCli.js').catch(() => ({}))
+  const headlessMod = await import('../src/api/ai/headlessCli.js').catch(() => ({} as Partial<HeadlessCliModule>))
   if (typeof headlessMod.isForbiddenModel === 'function' && headlessMod.isForbiddenModel(state.model)) {
-    console.error(`[TUI] ${headlessMod.forbiddenModelError(state.model)}`)
+    // `!` disengaja: modul ini didefinisikan berpasangan (isForbiddenModel +
+    // forbiddenModelError). Perilaku lama = apa pun dari modul itu; `!` menjaga
+    // runtime tetap identik (bukan menghaluskan jalur error).
+    console.error(`[TUI] ${headlessMod.forbiddenModelError!(state.model)}`)
     process.exit(2)
   }
   // cliConfig (recent/fav) dibaca bootstrap dari HOME yang sama.
   const cliConfig = boot.fileConfig || {}
-  const deps = { auth, aliases, maxTurns, helpText: TUI_HELP, homeDir: e2eHome, cliConfig }
+  const deps: TuiDeps = { auth, aliases, maxTurns, helpText: TUI_HELP, homeDir: e2eHome, cliConfig }
   const { parseSlashCommand, parseShellLine } = await import('../bin/abelink-tui.mjs')
 
   if (piped) {
     // Lazy sidecar: hanya bila ada prompt (bukan slash-info murni).
-    let sidecar = null
-    const getSidecar = async () => {
+    let sidecar: SidecarClient | null = null
+    const getSidecar = async (): Promise<SidecarClient> => {
       if (!sidecar) {
         const { createSidecarClient } = await import('../bin/abelink-tui.mjs')
-        sidecar = createSidecarClient()
+        sidecar = createSidecarClient() as SidecarClient
       }
       return sidecar
     }
@@ -117,7 +160,7 @@ async function main() {
         const r = await submitLine(state, l, {
           ...deps,
           sidecar: needEngine ? await getSidecar() : null,
-          onEvent: (e) => { if (e?.line) console.log(e.line) },
+          onEvent: (e: TuiProgressEvent) => { if (e?.line) console.log(e.line) },
         })
         if (r?.kind === 'exit') break
       }
@@ -128,7 +171,9 @@ async function main() {
         else if (m.role !== 'meta') console.log(`[${m.role}] ${m.text}`)
       }
     } finally {
-      try { sidecar?.dispose() } catch {}
+      // Cast disengaja: assignment lewat closure getSidecar() tak terlihat oleh
+      // control-flow analysis TS, sehingga `sidecar` di sini dianggap tetap null.
+      try { (sidecar as SidecarClient | null)?.dispose?.() } catch {}
     }
     process.exit(0)
   }
@@ -136,7 +181,7 @@ async function main() {
   const renderer = await createCliRenderer()
   const keymap = createDefaultOpenTuiKeymap(renderer)
   let exited = false
-  let sidecar = null
+  let sidecar: SidecarClient | null = null
   const exit = () => {
     if (exited) return
     exited = true
@@ -149,15 +194,15 @@ async function main() {
 
   const [tick, setTick] = createSignal(0)
   const [busy, setBusy] = createSignal(false)
-  const [picker, setPicker] = createSignal(null)
+  const [picker, setPicker] = createSignal<PickerState | null>(null)
   const bump = () => setTick((t) => t + 1)
   // Repaint tiap engine push (prompt user, info, error) — bukan hanya saat
   // event agent tiba, supaya TUI tidak tampak beku selama turn panjang.
   state.onPush = () => bump()
-  const getSidecar = async () => {
+  const getSidecar = async (): Promise<SidecarClient> => {
     if (!sidecar) {
       const { createSidecarClient } = await import('../bin/abelink-tui.mjs')
-      sidecar = createSidecarClient()
+      sidecar = createSidecarClient() as SidecarClient
     }
     return sidecar
   }
@@ -165,8 +210,8 @@ async function main() {
   // Overlay generik (pola opencode dialog): satu mekanisme render di App untuk
   // (1) picker model, (2) command palette ctrl+p, (3) dialog sesi /sessions.
   // `kind` menentukan aksi Enter. baseRows = sumber filter lokal (commands/sesi).
-  let baseRows = []
-  const filterRows = (q) => {
+  let baseRows: PickerRow[] = []
+  const filterRows = (q: string): PickerRow[] => {
     const s = String(q || '').trim().toLowerCase()
     if (!s) return baseRows
     return baseRows.filter((r) =>
@@ -174,7 +219,7 @@ async function main() {
       String(r.id || '').toLowerCase().includes(s) ||
       String(r.section || '').toLowerCase().includes(s))
   }
-  const loadPickerRows = async (query = '') => {
+  const loadPickerRows = async (query = ''): Promise<{ rows?: PickerRow[] }> => {
     const { modelPickerRows } = await import('../cli/tui/engine.mjs')
     return modelPickerRows(state, deps, query)
   }
@@ -185,16 +230,16 @@ async function main() {
       const res = await loadPickerRows(query)
       baseRows = res.rows || []
       setPicker({ ...res, kind: 'model', title: 'pilih model', index: 0, query: String(query || ''), loading: false })
-    } catch (err) {
+    } catch (err: unknown) {
       setPicker(null)
-      state.messages.push({ role: 'error', text: `Picker model gagal: ${String(err?.message || err)}` })
+      state.messages.push({ role: 'error', text: `Picker model gagal: ${String((err as Error)?.message || err)}` })
     }
     bump()
   }
   // ctrl+p / `/commands`: daftar perintah TUI (fungsi nyata, bukan hiasan).
   const openCommands = async () => {
     const { TUI_COMMANDS } = await import('../cli/tui/theme.mjs')
-    baseRows = TUI_COMMANDS.map((c) => ({ id: c.name, label: c.name, section: c.desc }))
+    baseRows = TUI_COMMANDS.map((c: { name: string; desc: string }) => ({ id: c.name, label: c.name, section: c.desc }))
     setPicker({
       kind: 'commands', title: 'perintah', kindHint: '↑↓ pilih · Enter jalankan · Esc batal · ketik untuk filter',
       rows: baseRows, index: 0, query: '', loading: false,
@@ -204,9 +249,9 @@ async function main() {
   // `/sessions`: dialog sesi tersimpan (Enter = lanjut sesi).
   const openSessions = async () => {
     const { listTuiSessions } = await import('../bin/abelink-tui.mjs')
-    let sessions = []
+    let sessions: Array<{ id: string; outcome?: string; updatedAt?: string; prompt?: string }> = []
     try {
-      const r = await listTuiSessions(deps.store || null)
+      const r = await listTuiSessions((deps as { store?: unknown }).store || null)
       sessions = r?.sessions || []
     } catch { /* tanpa store -> daftar kosong */ }
     baseRows = sessions.map((s) => ({ id: s.id, label: s.id, section: `${s.outcome || '?'} · ${s.updatedAt || ''} · ${(s.prompt || '').slice(0, 48)}` }))
@@ -218,24 +263,25 @@ async function main() {
     bump()
   }
   const closePicker = () => { setPicker(null); bump() }
-  const movePicker = (delta) => {
+  const movePicker = (delta: number) => {
     const p = picker()
     if (!p || !p.rows?.length) return
     const n = p.rows.length
-    setPicker({ ...p, index: (((p.index + delta) % n) + n) % n })
+    setPicker({ ...p, index: ((((p.index ?? 0) + delta) % n) + n) % n })
     bump()
   }
   const selectPicker = async () => {
     const p = picker()
     if (!p || !p.rows?.length) return
-    const row = p.rows[Math.min(Math.max(0, p.index), p.rows.length - 1)]
+    const row = p.rows[Math.min(Math.max(0, p.index ?? 0), p.rows.length - 1)]
     const kind = p.kind || 'model'
     closePicker()
-    if (kind === 'commands') { await handleSubmit(row.id); return }
-    if (kind === 'sessions') { await handleSubmit(`/continue ${row.id}`); return }
-    await handleSubmit(`/model ${row.id}`)
+    const rowId = String(row.id ?? '')
+    if (kind === 'commands') { await handleSubmit(rowId); return }
+    if (kind === 'sessions') { await handleSubmit(`/continue ${rowId}`); return }
+    await handleSubmit(`/model ${rowId}`)
   }
-  const filterPicker = async (text) => {
+  const filterPicker = async (text: string) => {
     const p = picker()
     if (!p) return
     const q = String(text || '').trim()
@@ -254,7 +300,7 @@ async function main() {
     bump()
   }
 
-  const handleSubmit = async (text) => {
+  const handleSubmit = async (text: string) => {
     if (busy()) return
     const line = String(text ?? '')
     // `/models --all` = opt-in muat katalog penuh (default picker hanya model
@@ -287,7 +333,7 @@ async function main() {
       const r = await submitLine(state, line, {
         ...deps,
         sidecar: needEngine ? await getSidecar() : null,
-        onEvent: (e) => {
+        onEvent: (e: TuiProgressEvent) => {
           if (e?.line) {
             state.messages.push({ role: e.type === 'thought' ? 'assistant' : 'meta', text: e.line })
             bump()
@@ -295,8 +341,8 @@ async function main() {
         },
       })
       if (r?.kind === 'exit') exit()
-    } catch (err) {
-      state.messages.push({ role: 'error', text: String(err?.message || err) })
+    } catch (err: unknown) {
+      state.messages.push({ role: 'error', text: String((err as Error)?.message || err) })
     } finally {
       setBusy(false)
       bump()

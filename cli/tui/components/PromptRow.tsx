@@ -14,6 +14,7 @@ import {
   moveCompletionIndex,
   PROMPT_KEY_BINDINGS,
 } from '../theme.mjs'
+import type { PromptCompletion, PromptRowProps, TextareaHandle, TuiKeyEvent } from '../types.ts'
 
 export { PROMPT_KEY_BINDINGS }
 export { filterCompletions }
@@ -32,14 +33,14 @@ export const PROMPT_BORDER_CHARS = Object.freeze({
   cross: '',
 })
 
-export function PromptRow(props) {
+export function PromptRow(props: PromptRowProps) {
   // modelLabel boleh string atau accessor. Accessor diperlukan agar label
   // ikut refresh saat model/effort berubah: Solid tak tracking mutasi objek
   // state, jadi nilai harus dibaca di dalam effect yang memang reaktif.
   const meta = () => (typeof props.modelLabel === 'function' ? props.modelLabel() : (props.modelLabel ?? ''))
   const [selected, setSelected] = createSignal(0)
-  let ta = null
-  const readText = () => {
+  let ta: TextareaHandle | null = null
+  const readText = (): string => {
     try {
       if (ta && !ta.isDestroyed && typeof ta.plainText === 'string') return ta.plainText
     } catch {}
@@ -48,18 +49,20 @@ export function PromptRow(props) {
   const readTextSignal = () => props.value?.() ?? ''
   // Popup dihitung dari teks BUFFER (plainText), bukan signal — signal
   // tertinggal satu tick dari keypress (terukur PTY: SUBMIT fire sebelum IN).
-  const completionsFor = (text) => {
+  const completionsFor = (text: string): PromptCompletion[] => {
     const t = autocompleteTrigger(text)
     if (!t) return []
     if (t.mode === 'slash') return filterCompletions('/' + t.query)
     const files = props.fileCompletions?.() ?? []
     const q = t.query.toLowerCase()
-    return files.filter((f) => f.toLowerCase().includes(q)).map((f) => ({ name: '@' + f, desc: 'file' }))
+    return files
+      .filter((f) => f.toLowerCase().includes(q))
+      .map((f) => ({ name: '@' + f, desc: 'file' }))
   }
   const completions = createMemo(() => completionsFor(readTextSignal()))
   const popupOpen = createMemo(() => completions().length > 0)
 
-  const setTextareaText = (text) => {
+  const setTextareaText = (text: string) => {
     try {
       if (ta && !ta.isDestroyed && typeof ta.setText === 'function') {
         ta.setText(text)
@@ -69,7 +72,7 @@ export function PromptRow(props) {
     props.onInput?.(text)
   }
 
-  const acceptSelected = (text = null) => {
+  const acceptSelected = (text: string | null = null) => {
     const current = text ?? readText()
     const list = completionsFor(current)
     if (!list.length) return false
@@ -90,7 +93,7 @@ export function PromptRow(props) {
     } catch {}
   }
 
-  const submitNow = (text) => {
+  const submitNow = (text: string) => {
     const t = String(text ?? '')
     setSelected(0)
     clearTextarea()
@@ -102,7 +105,7 @@ export function PromptRow(props) {
   // "pilih" itu no-op (teks tak berubah) dan popup tetap buka -> Enter mati
   // selamanya. Terukur PTY 2026-09-26: `/model` + Enter tak pernah jalan.
   // Jadi exact-match = jalankan; selain itu = pilih completions.
-  const resolveEnter = (buf) => {
+  const resolveEnter = (buf: string) => {
     const list = completionsFor(buf)
     if (!list.length) {
       submitNow(buf)
@@ -128,7 +131,7 @@ export function PromptRow(props) {
     wasPickerOpen = open
   })
 
-  const onKeyDown = (e) => {
+  const onKeyDown = (e: TuiKeyEvent) => {
     // Mode-stack: picker model menang atas autocomplete (opencode
     // dialog-model): Up/Down/Enter/Esc diarahkan ke picker.
     if (pickerOpen()) {
@@ -229,7 +232,7 @@ export function PromptRow(props) {
             focusedBackgroundColor={ABELINK_THEME.backgroundElement}
             cursorColor={ABELINK_THEME.text}
             keyBindings={props.picker?.() ? [] : (props.keyBindings ?? PROMPT_KEY_BINDINGS)}
-            ref={(r) => { ta = r }}
+            ref={(r: TextareaHandle) => { ta = r }}
             onContentChange={() => {
               setSelected(0)
               const t = readText()

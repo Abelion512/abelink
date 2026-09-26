@@ -9,17 +9,28 @@ import { createSignal, For, Show } from 'solid-js'
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
 import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, visibleWindow } from './theme.mjs'
 import { PromptRow } from './components/PromptRow.tsx'
+import type { AppProps, PickerRow } from './types.ts'
 
 export { shortModel, SIDEBAR_WIDTH, isWide }
 
 // Bottom cap prompt (pola opencode prompt/index.tsx): garis tipis `▀`
 // di bawah kotak input. Didefinisikan lokal agar App tetap presentational.
+// OpenTUI: `SpanProps` dideklarasikan `ComponentProps<{}, TextNodeRenderable>`,
+// sehingga prop warna `fg` TIDAK ada di tipe walau runtime mendukungnya
+// (TextNodeRenderable memang punya opsi fg; di PTY bullet ini benar berwarna).
+// Wrapper ini memusatkan gap tipe itu di SATU tempat tanpa mengubah output:
+// elemen yang dikirim tetap `<span fg=...>` apa adanya.
+const ColoredSpan = (props: { fg?: string; children?: unknown }) => (
+  // @ts-expect-error fg didukung TextNodeRenderable saat runtime; hilang dari tipe SpanProps.
+  <span fg={props.fg}>{props.children as never}</span>
+)
+
 const PROMPT_CAP_BORDER = Object.freeze({
   topLeft: '', topRight: '', bottomLeft: '', bottomRight: '',
   horizontal: '▀', vertical: ' ', topT: '', bottomT: '', leftT: '', rightT: '', cross: '',
 })
 
-export function App(props = {}) {
+export function App(props: AppProps = {}) {
   // Presentational: engine (cli/tui/engine.mjs) memiliku messages.
   // `tick` = signal versi dari entry; dibaca agar For re-render saat
   // engine push (Solid tak tracking mutasi array luar).
@@ -35,7 +46,7 @@ export function App(props = {}) {
   // Picker model (opencode dialog-model): daftar + jendela baris agar
   // katalog 1200+ ID tetap muat dan pilihan selalu terlihat.
   const picker = () => props.picker?.() ?? null
-  const pickerWindow = () => {
+  const pickerWindow = (): { rows: PickerRow[] } => {
     const p = picker()
     if (!p || !Array.isArray(p.rows) || !p.rows.length) return { rows: [] }
     const { start, end } = visibleWindow(p.index ?? 0, p.rows.length, 12)
@@ -47,13 +58,13 @@ export function App(props = {}) {
     return Array.isArray(m) ? m : []
   }
 
-  useKeyboard((key) => {
+  useKeyboard((key: { ctrl?: boolean; name?: string; preventDefault?: () => void }) => {
     if (key.ctrl && key.name === 'c') props.onExit?.()
     // ctrl+p = command palette (pola opencode). Entry wajib mengoper onCommands.
     if (key.ctrl && key.name === 'p') { key.preventDefault?.(); props.onCommands?.() }
   })
 
-  const submit = (text) => {
+  const submit = (text: string) => {
     const t = String(text ?? '')
     if (!t.trim() || busy()) return
     setValue('')
@@ -86,7 +97,7 @@ export function App(props = {}) {
           <Show when={messages().length === 0}>
             <box style={{ flexDirection: 'column', paddingTop: 2, gap: 1 }}>
               <text fg={ABELINK_THEME.text}>
-                <span fg={ABELINK_THEME.success}>• </span><b>Abelink</b> <span fg={ABELINK_THEME.textMuted}>v{props.version ?? ''}</span>
+                <ColoredSpan fg={ABELINK_THEME.success}>• </ColoredSpan><b>Abelink</b> <ColoredSpan fg={ABELINK_THEME.textMuted}>v{props.version ?? ''}</ColoredSpan>
               </text>
               <text fg={ABELINK_THEME.textMuted}>{title()} · {props.workspace ?? ''}</text>
               <box style={{ flexDirection: 'column', paddingTop: 1, gap: 1 }}>
@@ -99,7 +110,7 @@ export function App(props = {}) {
           <For each={messages()}>
             {(l) => (
               <text>
-                <span fg={messageColor(l.role)}>{messagePrefix(l.role)}</span>
+                <ColoredSpan fg={messageColor(l.role)}>{messagePrefix(l.role)}</ColoredSpan>
                 {l.text}
               </text>
             )}
@@ -124,12 +135,12 @@ export function App(props = {}) {
             }}
           >
             <text fg={ABELINK_THEME.text}>
-              {picker()?.title ?? 'pilih model'}{picker()?.query ? ` — filter: ${picker().query}` : ''}
+              {picker()?.title ?? 'pilih model'}{picker()?.query ? ` — filter: ${picker()!.query}` : ''}
             </text>
             <For each={pickerWindow().rows}>
               {(row) => (
-                <text fg={row.index === picker().index ? ABELINK_THEME.primary : undefined}>
-                  {(row.index === picker().index ? '> ' : '  ') + row.label + ' — ' + row.section}
+                <text fg={row.index === picker()!.index ? ABELINK_THEME.primary : undefined}>
+                  {(row.index === picker()!.index ? '> ' : '  ') + row.label + ' — ' + row.section}
                 </text>
               )}
             </For>
@@ -137,8 +148,8 @@ export function App(props = {}) {
               {picker()?.loading
                 ? 'memuat katalog…'
                 : (picker()?.rows?.length
-                  ? `${picker()?.kindHint ?? '↑↓ pilih · Enter pakai · Esc batal · ketik untuk filter'} (${picker().rows.length} baris${picker()?.total ? ` dari ${picker().total} model` : ''}${picker()?.stale ? ', katalog stale' : ''})${picker()?.hint ? ` · ${picker().hint}` : ''}`
-                  : `Tidak ada model cocok. Esc untuk batal.${picker()?.error ? ` (${picker().error})` : ''}`)}
+                  ? `${picker()?.kindHint ?? '↑↓ pilih · Enter pakai · Esc batal · ketik untuk filter'} (${picker()!.rows!.length} baris${picker()?.total ? ` dari ${picker()!.total} model` : ''}${picker()?.stale ? ', katalog stale' : ''})${picker()?.hint ? ` · ${picker()!.hint}` : ''}`
+                  : `Tidak ada model cocok. Esc untuk batal.${picker()?.error ? ` (${picker()!.error})` : ''}`)}
             </text>
           </box>
         )}
@@ -208,7 +219,7 @@ export function App(props = {}) {
               <For each={connected()}>
                 {(c) => (
                   <text fg={ABELINK_THEME.text}>
-                    <span fg={ABELINK_THEME.success}>• </span>
+                    <ColoredSpan fg={ABELINK_THEME.success}>• </ColoredSpan>
                     {c}
                   </text>
                 )}
@@ -220,7 +231,7 @@ export function App(props = {}) {
           {/* Branding footer ala opencode: dot success + nama + versi. */}
           <box style={{ flexShrink: 0, paddingTop: 1 }}>
             <text fg={ABELINK_THEME.textMuted}>
-              <span fg={ABELINK_THEME.success}>• </span>
+              <ColoredSpan fg={ABELINK_THEME.success}>• </ColoredSpan>
               <b>Abelink</b> v{props.version ?? ''}
             </text>
           </box>

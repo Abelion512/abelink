@@ -54,11 +54,11 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Lint (eslint)
         run: bun run lint
-      # Soft-fail selama migrasi JS->TS (M1): gate ini memberi sinyal tanpa
-      # memblokir PR. Diubah jadi BLOK di M2 untuk cli/** dan M4 untuk
-      # sidecar/engine + src/api (lihat docs/PLANNED/2026-09-26_master-migration-program.md).
-      - name: Typecheck (tsc, soft-fail selama migrasi)
-        continue-on-error: true
+      # BLOK sejak M2a (2026-09-26): seluruh subtree yang tercakup tsconfig
+      # (src, sidecar, scripts, evaluation, tests, cli, bin) sudah 0 error,
+      # termasuk 3 berkas TUI yang sebelumnya 114 error. Jika langkah ini merah,
+      # ada berkas .ts/.tsx baru yang belum bertipe — jangan di-soft-fail-kan lagi.
+      - name: Typecheck (tsc)
         run: |
           bun run typecheck
           bun run typecheck:node

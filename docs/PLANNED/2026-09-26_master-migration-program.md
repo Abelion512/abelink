@@ -173,6 +173,17 @@ benar-benar dieksekusi; `bun run typecheck` exit 0; `bun run build` sukses. ✅
 DoD: `bun run typecheck` + `bun run typecheck:node` exit 0; tidak ada rename. ✅
 
 ### M2 — CLI/TUI bertipe (P1/A1) + seam P2 · blocker: B-9,B-13,B-16
+
+**M2a ✅ SELESAI (2026-09-26).** Ringkasan: 114 error → **0**; gate `tsc` jadi
+**BLOK** di CI (bukan lagi soft-fail). Pendekatan: satu berkas tipe bersama
+`cli/tui/types.ts` + JSDoc pada helper `.mjs` yang sudah ada (`theme.mjs`,
+`headlessCli.js`, `abelink-tui.mjs`) sehingga tipe nyata mengalir ke `.tsx`
+tanpa mengubah runtime. Satu gap tipe pihak ketiga ditemukan dan dilokalisasi:
+`SpanProps` OpenTUI (`ComponentProps<{}, TextNodeRenderable>`) tidak punya `fg`
+walau runtime mendukungnya → wrapper `ColoredSpan` di `App.tsx` dengan satu
+`@ts-expect-error` berkomentar (bukan cast tersebar).
+
+**M2b/M2c belum jalan** (ekstraksi `cli/core`, H5 tool hooks + trajectory headless).
 - Ekstrak `cli/core/{parser,session-store,sidecar-client}.mjs` dari
   `bin/abelink-tui.mjs`; `bin/abelink-tui.mjs` jadi shim.
 - `theme.ts` + `App.tsx` + `PromptRow.tsx` + `abelink-tui-v2.tsx` bertipe.
