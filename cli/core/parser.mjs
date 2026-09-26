@@ -78,20 +78,24 @@ export function parseTuiArgs(argv) {
     provider: 'custom',
     model: DEFAULT_TUI_MODEL,
     effort: 'low',
-    maxTurns: 15,
+    maxTurns: undefined,
     workspace: process.cwd(),
     // true hanya bila user set flag eksplisit: supaya config GUI (shared.json)
     // diadopsi saat flag absen, tapi flag eksplisit tetap menang.
     providerExplicit: false,
     modelExplicit: false,
-    effortExplicit: false
+    effortExplicit: false,
+    maxTurnsExplicit: false
   }
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
     if (arg === '--provider') { options.provider = args[++i]; options.providerExplicit = true }
     else if (arg === '--model' || arg === '-m') { options.model = args[++i]; options.modelExplicit = true }
     else if (arg === '--effort') { options.effort = args[++i]; options.effortExplicit = true }
-    else if (arg === '--max-turns') options.maxTurns = Math.max(1, parseInt(args[++i], 10) || 15)
+    else if (arg === '--max-turns') {
+      options.maxTurns = Math.max(1, parseInt(args[++i], 10) || 1)
+      options.maxTurnsExplicit = true
+    }
     else if (arg === '--workspace') options.workspace = path.resolve(args[++i])
     else if (arg === '-h' || arg === '--help') {
       console.log(`abelink-tui v${TUI_VERSION} — sesi interaktif.\n\nFlags: --provider --model/-m --effort --max-turns --workspace\n${TUI_HELP}`)

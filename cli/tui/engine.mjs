@@ -653,7 +653,7 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
           model: state.model,
           modelVersion: null,
           effort: state.effort,
-          maxTurns: deps.maxTurns || 15,
+          maxTurns: deps.maxTurns ?? undefined,
           workspace: state.workspace,
           sessionId: state.sessionId,
           signal: turn.signal,

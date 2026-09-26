@@ -20,10 +20,12 @@ import {
   gateCompletion,
   buildReplanObservation,
   MAX_VERIFY_REPLANS,
+  canAttemptEvidenceRecovery,
   VERIFICATION_STATE
 } from './objectiveVerifier.js'
 import { createTrajectorySupervisor } from './trajectorySupervisor.js'
-import { evaluateProgress } from './progressEvaluator.js'
+import { evaluateProgress, PROGRESS_OUTCOME } from './progressEvaluator.js'
+import { resolveStagnationRung } from './strategyLib.js'
 import {
   classifyMainDecision,
   INTENT,
@@ -31,11 +33,16 @@ import {
   shouldChallengeBlocked,
   BLOCKED_CHALLENGE_TEXT
 } from './agentDecision.js'
-import { resolvePlanStepBudget } from './planStepBudget.js'
+import {
+  resolvePlanStepBudget,
+  shouldRenewBudget,
+  renewBudgetWindow
+} from './planStepBudget.js'
 import { currentBenchArch } from './benchArch.js'
 
-const MAX_NO_PROGRESS_STREAK = 3
-const BUDGET_EXTENSION_STEPS = 16
+export const MAX_NO_PROGRESS_STREAK = 3
+export const MAX_NO_ACTION_TERMINAL_STREAK = 8
+export const MAX_PROGRESSIVE_NO_ACTION_LIMIT = 12
 
 /**
  * Execute the autonomous ReAct agent loop in a framework-agnostic environment.
@@ -61,8 +68,12 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
   const sessionId = options.sessionId || `session-${Date.now()}`
   const benchArch = options.arch || currentBenchArch()
 
+  const hardCeiling = Number.isFinite(options.hardCeiling) && options.hardCeiling > 0
+    ? Math.floor(options.hardCeiling)
+    : 512
+
   // Budget steps
-  let maxPlanSteps = Number.isFinite(options.maxTurns)
+  let maxPlanSteps = Number.isFinite(options.maxTurns) && options.maxTurns > 0
     ? Math.max(1, Math.floor(options.maxTurns))
     : resolvePlanStepBudget({
         config: {
@@ -74,7 +85,8 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
         options
       })
 
-  const objectiveKind = classifyObjectiveKind(prompt)
+  const effectiveObjectiveText = options.originalPrompt || prompt
+  const objectiveKind = classifyObjectiveKind(effectiveObjectiveText)
   const supervisor =
     benchArch === 'vanilla' || objectiveKind === 'conversational' || options.disableTools
       ? null
@@ -82,10 +94,16 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
 
   let pendingSupervisorHint = null
   let pendingVerifyObservation = null
-  let verifyReplanCount = 0
+  let _verifyReplanCount = 0
+  let consecutiveUnprovenClaims = 0
+  let lastToolsCountAtVerifyReplan = -1
+  let verifyErrorCount = 0
   let blockedChallengeCount = 0
   let noActionStreak = 0
-  let budgetExtended = false
+  let consecutiveIdenticalReasoning = 0
+  let lastReasoningFingerprint = null
+  let consecutiveStagnantEvaluations = 0
+  let _budgetRenewCount = 0
 
   const loopMessages = []
   if (Array.isArray(options.initialHistory)) {
@@ -102,24 +120,21 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
   // klarifikasi" meski user mengetik pertanyaan (bug terukur 2026-09-26).
   // initialHistory = konteks lama saja (bukan prompt berjalan), jadi aman.
   loopMessages.push({ role: 'user', content: String(prompt) })
-  const executedToolsList = []
+  const executedToolsList = Array.isArray(options.initialExecutedTools)
+    ? [...options.initialExecutedTools]
+    : []
   const trace = []
-  let stepCount = 0
+  let stepCount = Number.isFinite(options.initialStepCount) && options.initialStepCount > 0
+    ? options.initialStepCount
+    : 0
   let isDone = false
   let sessionOutcome = 'failed'
   let lastTerminalReason = null
   let lastDecision = null
   let previousProgressRecord = null
 
-  // Install custom AI fetch transport if provided by environment
-  let restoreTransport = null
-  if (typeof environment.fetchAI === 'function') {
-    const prevTransport = globalThis.__ABELINK_AI_FETCH__
-    globalThis.__ABELINK_AI_FETCH__ = environment.fetchAI
-    restoreTransport = () => {
-      globalThis.__ABELINK_AI_FETCH__ = prevTransport
-    }
-  }
+  // Phase A1: Explicit session transport, no global mutation
+  const sessionFetchTransport = options.transport || options.fetchAI || environment.fetchAI || null
 
   try {
     while (!isDone) {
@@ -145,24 +160,41 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
       // If budget reached, evaluate potential productivity extension or terminate
       if (stepCount >= maxPlanSteps) {
         const recentTools = executedToolsList.slice(-5)
-        const hasRecentProgress =
-          recentTools.length > 0 &&
-          recentTools.some(
-            (t) => typeof t?.result === 'string' && !t.result.startsWith('[ERROR]') && !t.result.startsWith('[BLOCKED]')
-          )
+        const isProductive = shouldRenewBudget({
+          recentTools,
+          verificationMoved: pendingVerifyObservation !== null,
+          breakerOpen: false,
+          supervisorDirective: supervisor?.lastDirective || 'continue'
+        })
 
-        if (!budgetExtended && hasRecentProgress) {
-          budgetExtended = true
-          maxPlanSteps += BUDGET_EXTENSION_STEPS
-          loopMessages.push({
-            role: 'user',
-            content: `[SYSTEM / BUDGET] Jatah langkah ditambah +${BUDGET_EXTENSION_STEPS} (total ${maxPlanSteps}) karena ada kemajuan tool baru-baru ini. Selesaikan tugas segera.`
-          })
+        if (isProductive && maxPlanSteps < hardCeiling) {
+          const newBudget = renewBudgetWindow(maxPlanSteps, hardCeiling)
+          if (newBudget > maxPlanSteps) {
+            const added = newBudget - maxPlanSteps
+            maxPlanSteps = newBudget
+            _budgetRenewCount++
+            loopMessages.push({
+              role: 'user',
+              content: `[SYSTEM / BUDGET] Jatah langkah diperbarui +${added} (total ${maxPlanSteps}, batas sistem ${hardCeiling}) karena misi masih aktif dan produktif.`
+            })
+          } else {
+            sessionOutcome = 'failed'
+            lastTerminalReason = 'step-budget-exhausted'
+            decision = {
+              thought: 'Batas langkah keamanan sistem tercapai.',
+              answer: 'Eksekusi dihentikan karena telah mencapai batas langkah keamanan sistem maksimum.',
+              is_done: true,
+              action: null
+            }
+            isDone = true
+            lastDecision = decision
+            break
+          }
         } else {
           sessionOutcome = 'failed'
           lastTerminalReason = 'step-budget-exhausted'
           decision = {
-            thought: 'Batas langkah keamanan tercapai.',
+            thought: 'Batas langkah tercapai tanpa bukti produktivitas lanjutan.',
             answer: 'Eksekusi dihentikan karena telah mencapai batas langkah yang ditentukan.',
             is_done: true,
             action: null
@@ -202,6 +234,8 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
         options.activeTopic || '',
         {
           ...options,
+          fetchAI: sessionFetchTransport,
+          transport: sessionFetchTransport,
           workspaceRoot,
           sessionId,
           turn: stepCount,
@@ -260,19 +294,45 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
 
         if (intent === INTENT.CONTINUE) {
           noActionStreak++
-          if (noActionStreak >= MAX_NO_PROGRESS_STREAK) {
+          const reasoningFingerprint = `${(decision.thought || '').trim().toLowerCase()}|${(decision.answer || '').trim().toLowerCase()}`.slice(0, 500)
+          if (reasoningFingerprint && reasoningFingerprint === lastReasoningFingerprint) {
+            consecutiveIdenticalReasoning++
+          } else {
+            consecutiveIdenticalReasoning = 1
+          }
+          lastReasoningFingerprint = reasoningFingerprint
+
+          // Semantic repetition (identical reasoning >= 8 turns) terminates fail-closed.
+          // Progressive reasoning survives turn 8, escalates via S7_ESCALATE, and is capped at MAX_PROGRESSIVE_NO_ACTION_LIMIT.
+          const isSemanticRepetitionExhausted = consecutiveIdenticalReasoning >= MAX_NO_ACTION_TERMINAL_STREAK
+          const isProgressiveWindowExhausted = noActionStreak >= MAX_PROGRESSIVE_NO_ACTION_LIMIT
+
+          if (isSemanticRepetitionExhausted || isProgressiveWindowExhausted) {
             sessionOutcome = 'failed'
             lastTerminalReason = 'no-progress-streak-exhausted'
             isDone = true
             break
           }
+
+          const rung = resolveStagnationRung({
+            repeat: consecutiveIdenticalReasoning > 1 ? consecutiveIdenticalReasoning : 0,
+            noActionStreak
+          })
+
+          const observationPrompt =
+            noActionStreak >= 7
+              ? `[STAGNATION LADDER: ${rung.stage}] Kamu telah ${noActionStreak} giliran bernalar tanpa aksi konkret. Segera ambil tindakan via tool ("action") sekarang.`
+              : noActionStreak >= MAX_NO_PROGRESS_STREAK
+                ? `[STAGNATION LADDER: ${rung.stage}] Kamu telah ${noActionStreak} giliran tanpa aksi konkret. Lanjutkan dengan mengeksekusi tool ("action") sekarang.`
+                : '[OBSERVATION]: Kamu menjawab tanpa aksi padahal misi belum selesai. Lanjutkan eksekusi via "action" atau buat klaim penyelesaian final yang terverifikasi.'
+
           loopMessages.push({
             role: 'assistant',
             content: JSON.stringify({ thought: decision.thought, answer: decision.answer })
           })
           loopMessages.push({
             role: 'user',
-            content: '[OBSERVATION]: Kamu menjawab tanpa aksi padahal misi belum selesai. Lanjutkan eksekusi via "action" atau buat klaim penyelesaian final yang terverifikasi.'
+            content: observationPrompt
           })
           continue
         }
@@ -324,7 +384,7 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
           try {
             const evidence = evaluateEvidence({
               kind: objectiveKind,
-              objectiveText: prompt,
+              objectiveText: effectiveObjectiveText,
               answer: decision.answer,
               // GUI menulis executedTools {tool, fullResult}; runner headless
               // menyimpan {tool, result}. Petakan di sini agar bukti tool
@@ -346,8 +406,25 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
               break
             }
 
-            if (gate.replan && verifyReplanCount < MAX_VERIFY_REPLANS) {
-              verifyReplanCount++
+            // Continuous evidence gathering & bounded replan
+            const hasNewEvidenceSinceLastVerify = executedToolsList.length > lastToolsCountAtVerifyReplan
+            if (hasNewEvidenceSinceLastVerify) {
+              consecutiveUnprovenClaims = 0
+            }
+            consecutiveUnprovenClaims++
+
+            const allowReplan =
+              gate.replan &&
+              canAttemptEvidenceRecovery({
+                consecutiveRejections: consecutiveUnprovenClaims,
+                hasNewEvidence: false,
+                maxConsecutiveRejections: MAX_VERIFY_REPLANS
+              }) &&
+              stepCount < maxPlanSteps
+
+            if (allowReplan) {
+              _verifyReplanCount++
+              lastToolsCountAtVerifyReplan = executedToolsList.length
               pendingVerifyObservation = buildReplanObservation(evidence)
               loopMessages.push({
                 role: 'assistant',
@@ -361,10 +438,19 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
             lastTerminalReason = `verify-${evidence.state}`
             isDone = true
             break
-          } catch {
-            // Verifier additive: errors never crash legitimate completion
-            sessionOutcome = 'completed'
-            lastTerminalReason = classification.reason || 'explicit-done'
+          } catch (err) {
+            // Verifier fail-closed recovery: internal verifier exceptions MUST NOT fake completion.
+            if (verifyErrorCount < MAX_VERIFY_REPLANS && stepCount < maxPlanSteps) {
+              verifyErrorCount++
+              pendingVerifyObservation = `[VERIFICATION ERROR] Pemeriksaan verifikasi sistem mengalami kegagalan internal: ${err?.message || 'internal error'}. Lakukan verifikasi eksplisit menggunakan tool sebelum menyelesaikan tugas.`
+              loopMessages.push({
+                role: 'assistant',
+                content: JSON.stringify({ thought: decision.thought, answer: decision.answer })
+              })
+              continue
+            }
+            sessionOutcome = 'failed'
+            lastTerminalReason = `verification-error:${err?.message || 'internal'}`
             isDone = true
             break
           }
@@ -376,6 +462,8 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
       // ----------------------------------------------------------------------
       if (hasAction) {
         noActionStreak = 0
+        consecutiveIdenticalReasoning = 0
+        lastReasoningFingerprint = null
 
         // Emergency brake: explicit self-terminate markers supersede actions
         if (isExplicitSelfTerminate(decision)) {
@@ -470,11 +558,32 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
               result: obsText,
               verificationState: toolOk ? VERIFICATION_STATE.NOT_RUN : VERIFICATION_STATE.FAILED
             }
-            const _progress = evaluateProgress({
+            const progress = evaluateProgress({
               previous: previousProgressRecord,
               current: currentRecord
             })
             previousProgressRecord = currentRecord
+
+            if (progress.outcome === PROGRESS_OUTCOME.PROGRESS) {
+              consecutiveStagnantEvaluations = 0
+              pendingSupervisorHint = null
+            } else if (progress.outcome === PROGRESS_OUTCOME.STAGNANT) {
+              consecutiveStagnantEvaluations++
+              if (consecutiveStagnantEvaluations >= 8) {
+                sessionOutcome = 'failed'
+                lastTerminalReason = 'stagnation-loop-exhausted'
+                isDone = true
+                break
+              }
+              if (consecutiveStagnantEvaluations >= 3 && !pendingSupervisorHint) {
+                const rung = resolveStagnationRung({
+                  repeat: consecutiveStagnantEvaluations,
+                  stagnantStreak: consecutiveStagnantEvaluations,
+                  hasPriorSuccess: executedToolsList.some((t) => t.ok)
+                })
+                pendingSupervisorHint = `[STAGNATION LADDER: ${rung.stage}] Terdeteksi ${consecutiveStagnantEvaluations}x eksekusi tanpa progres baru. Ubah strategi (${rung.strategy}): jangan ulangi tool dan argumen yang sama.`
+              }
+            }
           } catch (_) {}
 
           const toolTrace = {
@@ -506,9 +615,7 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
       }
     }
   } finally {
-    if (typeof restoreTransport === 'function') {
-      restoreTransport()
-    }
+    // Session transport is isolated per run and does not require global cleanup
   }
 
   return {
