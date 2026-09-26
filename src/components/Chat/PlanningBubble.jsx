@@ -1,4 +1,4 @@
-import React from 'react'
+
 import { Check, CheckCircle2, ListOrdered, Brain, ChevronRight } from 'lucide-react'
 import { MobiusLoader } from '../core/MobiusLoader'
 import { ToolCallsSection } from '../core/ToolCallsSection'
@@ -72,7 +72,6 @@ export const PlanningBubble = ({ plan = [], resolvedCurrentStep = 0, reasoning =
         {plan.map((step, idx) => {
           const isDone = idx < resolvedCurrentStep
           const isCurrent = idx === resolvedCurrentStep && !isAllDone
-          const isUpcoming = idx > resolvedCurrentStep
 
           const taskTitle = typeof step === 'string' ? step : step.title || step.task || JSON.stringify(step)
           const stepDetail = typeof step === 'object' ? step.objective || step.query || step.deliverable : null

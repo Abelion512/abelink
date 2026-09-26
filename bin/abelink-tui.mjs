@@ -22,9 +22,17 @@ const ROOT = path.resolve(__dirname, '..')
 const SIDECAR_ENTRY = path.join(ROOT, 'sidecar', 'engine.mjs')
 const BUN_BIN = process.env.BUN_BIN || 'bun'
 
-export const TUI_VERSION = '1.1.0-alpha.5'
+// Versi TIDAK hardcoded: dari package.json (di-sync sync-version.mjs dari
+// src-tauri/tauri.conf.json) agar bump alpha-6 otomatis ikut.
+export const TUI_VERSION = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version || 'dev'
+  } catch {
+    return 'dev'
+  }
+})()
 export const EFFORT_LEVELS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max', 'ultra', 'auto'])
-export const DEFAULT_TUI_MODEL = 'google/gemini-3.8-flash'
+export const DEFAULT_TUI_MODEL = 'oc/muse-spark-1.3-contributor-free'
 export const SESSION_MESSAGE_CAP = 50
 
 // GAP-STREAM: sidecar ai:fetch streaming frames are unconfirmed. Flip to true
@@ -39,10 +47,13 @@ export function buildAiFetchBody({ messages, config, isSmallTask = false, jsonSc
 }
 
 export const TUI_HELP = `Perintah slash (tak dikirim sebagai prompt):
-  /models [filter]   Daftar model + alias (ala opencode /models)
-  /model [alias|id]  Lihat/ganti model (alias: gemini, fable, kimi, deepseek, qwen, glm, grok, gpt, free, auto)
+  /models [filter]   Picker model interaktif (tanpa arg) — default HANYA model yang pernah kamu pakai + alias;
+                     /models --all = muat katalog penuh (1300+); /models <filter> = cari di katalog
+  /model [alias|id]  Ganti model; TANPA arg = picker interaktif (↑↓ pilih, Enter pakai, ketik untuk filter)
+                     Alias: zen, zen-free, spark, qwen, mimo, nara, xkiro, tokenrouter, free, free-mimo
   /effort [level]    Lihat/ganti effort: low | medium | high | xhigh | max | ultra | auto
-  /sessions          Daftar sesi tersimpan (alias: /resume, /continue tanpa arg)
+  /sessions          Dialog sesi tersimpan, Enter = lanjut (alias: /resume)
+  /commands          Command palette (alias ctrl+p)
   /continue <id>     Lanjut sesi tersimpan
   /new               Mulai sesi baru (alias: /clear)
   /compact           Ringkas histori sesi berjalan (alias: /summarize)
@@ -70,6 +81,7 @@ export function parseSlashCommand(line = '') {
     case 'effort': return { kind: 'effort', arg: arg || null }
     case 'sessions':
     case 'resume': return { kind: 'sessions', arg: arg || null }
+    case 'commands': return { kind: 'commands', arg: arg || null }
     case 'continue': return { kind: 'continue', arg: arg || null }
     case 'new':
     case 'clear': return { kind: 'new', arg: null }
@@ -364,6 +376,15 @@ export function createSidecarClient() {
     child.kill('SIGTERM')
   }
 
+  // Jaring pengaman anti-orphan: kalau pemanggil lupa dispose, proses exit
+  // normal tetap membunuh sidecar. Child ber-stdio pipe menahan event loop
+  // parent, jadi tanpa ini TUI bisa menggantung + meninggalkan proses hidup.
+  process.once('exit', () => {
+    try {
+      child.kill('SIGTERM')
+    } catch {}
+  })
+
   child.once('error', (err) => {
     for (const [, p] of pending) p.reject(err)
   })
@@ -378,13 +399,18 @@ export function parseTuiArgs(argv) {
     model: DEFAULT_TUI_MODEL,
     effort: 'low',
     maxTurns: 15,
-    workspace: process.cwd()
+    workspace: process.cwd(),
+    // true hanya bila user set flag eksplisit: supaya config GUI (shared.json)
+    // diadopsi saat flag absen, tapi flag eksplisit tetap menang.
+    providerExplicit: false,
+    modelExplicit: false,
+    effortExplicit: false
   }
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
-    if (arg === '--provider') options.provider = args[++i]
-    else if (arg === '--model' || arg === '-m') options.model = args[++i]
-    else if (arg === '--effort') options.effort = args[++i]
+    if (arg === '--provider') { options.provider = args[++i]; options.providerExplicit = true }
+    else if (arg === '--model' || arg === '-m') { options.model = args[++i]; options.modelExplicit = true }
+    else if (arg === '--effort') { options.effort = args[++i]; options.effortExplicit = true }
     else if (arg === '--max-turns') options.maxTurns = Math.max(1, parseInt(args[++i], 10) || 15)
     else if (arg === '--workspace') options.workspace = path.resolve(args[++i])
     else if (arg === '-h' || arg === '--help') {
@@ -432,7 +458,9 @@ async function main() {
     loadNineRouterKey = null,
     loadHeadlessMemories = null,
     MODEL_ALIASES = null,
-    DEFAULT_CLI_MODEL = null
+    DEFAULT_CLI_MODEL = null,
+    isForbiddenModel = null,
+    forbiddenModelError = null
   } = headless
   const aliases = MODEL_ALIASES || {}
 
@@ -462,6 +490,18 @@ async function main() {
     } catch {}
   }
 
+  // Keputusan owner: ID terlarang ditolak di entry, bukan diam-diam dipakai.
+  const initialModel = auth.model || cliOptions.model || DEFAULT_CLI_MODEL || DEFAULT_TUI_MODEL
+  const banned = typeof isForbiddenModel === 'function'
+    ? isForbiddenModel(initialModel)
+    : /^claude-work$/i.test(String(initialModel || ''))
+  if (banned) {
+    console.error(typeof forbiddenModelError === 'function'
+      ? `[TUI] ${forbiddenModelError(initialModel)}`
+      : `[TUI] Model "${initialModel}" dilarang (training-data).`)
+    process.exit(2)
+  }
+
   let headlessMemories = []
   try {
     if (typeof loadHeadlessMemories === 'function') {
@@ -471,7 +511,7 @@ async function main() {
 
   const state = {
     provider: auth.provider || cliOptions.provider,
-    model: auth.model || cliOptions.model || DEFAULT_CLI_MODEL || DEFAULT_TUI_MODEL,
+    model: initialModel,
     effort: cliOptions.effort,
     workspace: cliOptions.workspace,
     sessionId: `session-${Date.now()}`,
@@ -515,17 +555,7 @@ async function main() {
       const resp = await getSidecar().rpc('ai:fetch', [body])
       if (!resp || !resp.success) {
         const msg = String(resp?.error?.message || resp?.error || 'AI fetch gagal di sidecar.')
-        if (/no active credentials for provider/i.test(msg) && combinedConfig.customModel !== 'claude-work') {
-          console.error('[TUI] Kredensial provider model mati, fallback sekali ke claude-work...')
-          const retry = await getSidecar().rpc('ai:fetch', [buildAiFetchBody({
-            messages,
-            config: { ...combinedConfig, customModel: 'claude-work' },
-            isSmallTask,
-            jsonSchema
-          })])
-          if (!retry || !retry.success) throw new Error(retry?.error?.message || retry?.error || msg)
-          return retry.data
-        }
+        // Tanpa fallback model (keputusan user): gagal = pesan jujur.
         throw new Error(msg)
       }
       return resp.data

@@ -2,7 +2,7 @@
 
 ## 1. Project Overview
 
-**Project Name:** Abelink (formerly ABELINK Linux fork), independent version line 1.x (current: **1.0.0-alpha.3**, single source of truth: `src-tauri/tauri.conf.json`)
+**Project Name:** Abelink, independent version line 1.x (current: **1.0.0-alpha.3**, single source of truth: `src-tauri/tauri.conf.json`)
 
 **Branch Strategy:**
 - `main` (primary / default for private repo `origin` git@github.com:Abelion512/abelink.git): Standard default branch on Git/GitHub, menerima seluruh pengembangan aktif dan commit.

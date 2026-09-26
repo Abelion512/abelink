@@ -710,6 +710,38 @@ export const DEFERRED_GROUP_SPECS = {
         queryFormat: 'kosong',
         examples: [{ query: '', description: 'Kembali ke lagu sebelumnya' }],
         tags: ['music', 'prev']
+      },
+      'music-loop': {
+        summary: 'Mengatur mode repeat pemutar musik.',
+        queryFormat: 'one atau one <N>x atau all atau off',
+        examples: [
+          { query: 'one', description: 'Ulangi lagu saat ini' },
+          { query: 'one 3x', description: 'Ulangi lagu saat ini 3 kali' },
+          { query: 'all', description: 'Ulangi seluruh antrean' },
+          { query: 'off', description: 'Matikan repeat' }
+        ],
+        tags: ['music', 'loop', 'repeat']
+      },
+      'music-queue-add': {
+        summary: 'Menambahkan lagu ke antrean tanpa autoplay (kecuali antrean kosong).',
+        queryFormat: '"judul lagu"[ xN]',
+        examples: [
+          { query: 'Komang', description: 'Tambah satu lagu ke antrean' },
+          { query: 'Lagu A x2', description: 'Tambah lagu dengan repeat 2 ke antrean' }
+        ],
+        tags: ['music', 'queue', 'add', 'enqueue']
+      },
+      'music-queue-remove': {
+        summary: 'Menghapus lagu dari antrean berdasarkan judul atau id.',
+        queryFormat: 'judul_lagu atau id',
+        examples: [{ query: 'Komang', description: 'Hapus lagu dari antrean' }],
+        tags: ['music', 'queue', 'remove', 'delete']
+      },
+      'music-queue-clear': {
+        summary: 'Mengosongkan seluruh antrean lagu.',
+        queryFormat: 'kosong',
+        examples: [{ query: '', description: 'Hapus semua lagu di antrean' }],
+        tags: ['music', 'queue', 'clear']
       }
     }
   },

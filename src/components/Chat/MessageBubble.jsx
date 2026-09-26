@@ -1,23 +1,22 @@
-import React, { useState } from 'react'
+import React from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import { CodeBlock } from './CodeBlock'
 import { ChoiceButtons } from './ChoiceButtons'
-import { Brain, ChevronRight, ExternalLink, Sparkles, Activity } from 'lucide-react'
+import { Brain, ChevronRight, ExternalLink, FileText, Activity } from 'lucide-react'
 import { ToolCallsSection } from '../core/ToolCallsSection'
 
-export const MessageBubble = React.memo(({
+export const MessageBubble = React.memo(function MessageBubble({
   isUser,
   content,
   reasoning,
   sources = [],
   executedTools = [],
   isPlanConclusion = false,
-  isLearned = false,
+  _isLearned = false,
   choice = null
-}) => {
-  const [isCopied, setIsCopied] = useState(false)
+}) {
 
   const extractContent = (val) => {
     if (val == null) return { text: '', images: [] }
@@ -70,14 +69,6 @@ export const MessageBubble = React.memo(({
 
   const { text: stringContent, images: attachedImages } = extractContent(content)
 
-  const handleCopy = () => {
-    const textToCopy = stringContent || ''
-    if (!textToCopy) return
-    navigator.clipboard.writeText(textToCopy)
-    setIsCopied(true)
-    setTimeout(() => setIsCopied(false), 2000)
-  }
-
   const toolCalls = (executedTools || []).map((step) => ({
     tool_name: step.tool || step.task || 'tool',
     tool_category: step.tool || step.task || '',
@@ -91,7 +82,7 @@ export const MessageBubble = React.memo(({
       {/* Plan Conclusion Header */}
       {isPlanConclusion && (
         <div className="flex items-center gap-1.5 text-[11px] font-bold text-primary uppercase tracking-wider mb-2 border-b border-primary/20 pb-1.5 w-max">
-          <Sparkles className="w-3.5 h-3.5" />
+          <FileText className="w-3.5 h-3.5" />
           Kesimpulan Rencana
         </div>
       )}

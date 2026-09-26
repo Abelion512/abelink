@@ -2,7 +2,7 @@
  * Session Compactor — manajemen konteks per-sesi ala upstream
  * (Mazees/mark-agent `contextManager.js`: budget + pointer + pipa bertahap).
  *
- * - Budget 525.000 karakter (MAX_SESSION_CHARS, sama persis upstream) dihitung
+ * - Budget 45.000 karakter (MAX_SESSION_CHARS, hybrid auto-compact) dihitung
  *   dari INPUT yang diberikan caller + pointer lastCompactedMessageId (pesan
  *   yang sudah terangkum tidak dihitung dua kali). Jalur otomatis
  *   (useAbelinkPlan) mengirim riwayat sesi penuh agar budget benar-benar
@@ -51,6 +51,47 @@ export function compactZone(currentChars = 0) {
   if (ratio >= COMPACT_SUGGEST_AT) return 'suggest'
   if (ratio >= COMPACT_WARN_AT) return 'warn'
   return 'ok'
+}
+
+// Mid-loop auto-compaction (Anthropic pattern): trigger di 75% budget,
+// maks 1 kompaksi per cooldown giliran agar tidak compact-tiap-turn.
+export const MIDLOOP_COMPACT_COOLDOWN_TURNS = 5
+// Prune output tool lama mid-loop: interval giliran sendiri, tanpa AI.
+export const MIDLOOP_PRUNE_EVERY_TURNS = 5
+
+// Pure trigger decision untuk kompaksi mid-loop (unit-testable, tanpa I/O).
+// Default turnsSinceCompact = Infinity artinya "cooldown lewat, boleh".
+export function shouldCompactLoop({ chars = 0, turnsSinceCompact = Infinity } = {}) {
+  if ((Number(chars) || 0) < MAX_SESSION_CHARS * COMPACT_WARN_AT) return false
+  const since = turnsSinceCompact ?? Infinity
+  if (Number(since) < MIDLOOP_COMPACT_COOLDOWN_TURNS) return false
+  return true
+}
+
+// Mid-loop window builder (pure, unit-testable): ubah hasil
+// executeSessionCompaction jadi jendela loop baru, atau null bila tidak ada
+// yang boleh disuntik. success:false / tidak terkompaksi -> null (skip
+// diam-diam). Summary tanpa pointer terverifikasi -> null (JANGAN injeksi
+// cakupan palsu). pruned-only tanpa summary AI -> pesan terprune (aman).
+export function buildCompactedLoopWindow(loopMessages = [], comp = null) {
+  if (!comp || comp.success !== true || comp.isCompacted !== true) return null
+  const summary = comp.summaryBlock || comp.newSummaryBlock || ''
+  if (comp.prunedOnly && !summary && Array.isArray(comp.compactedMessages)) {
+    return [...comp.compactedMessages]
+  }
+  if (!summary || !comp.lastCompactedMessageId) return null
+  const base = Array.isArray(comp.compactedMessages) ? comp.compactedMessages : loopMessages
+  if (findMessageIndex(base, comp.lastCompactedMessageId) === -1) return null
+  if (!Array.isArray(comp.tailMessages)) return null
+  return [
+    { role: 'user', content: `[ COMPACTED MESSAGE SUMMARY ] ${summary}` },
+    ...comp.tailMessages,
+    {
+      role: 'user',
+      content:
+        '[SYSTEM / COMPACTION] Konteks lama diringkas otomatis. Lanjutkan misi dari ringkasan + tail di atas; jangan mengulang tool yang sudah selesai.'
+    }
+  ]
 }
 
 // Giliran terbaru yang selalu dipertahankan utuh (tanpa prune penuh).

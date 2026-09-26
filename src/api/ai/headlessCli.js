@@ -55,10 +55,63 @@ export function resolveApprovalDecision(secCheck = {}, { approveAll = false, den
   return { proceed: true, reason: 'auto default (logged, supervised)' }
 }
 
-// Config file chain: repo-local .abelink/cli.json overrides home
-// ~/.config/abelink/cli.json. Missing files -> {}. Never throws.
+// Snapshot config GUI (~/.config/abelink/shared.json, ditulis channel
+// sync-config) -> bentuk yang dimengerti CLI/TUI. Provider yang hanya hidup
+// di GUI (gemini-web, butuh sesi browser Google) TIDAK dipaksakan: kembalikan
+// null agar CLI jatuh ke default jujur, bukan gagal senyap.
+// lm-studio dipetakan ke `custom` + customEndpoint karena keduanya endpoint
+// OpenAI-compatible yang sama di sisi ai-bridge.
+export function sharedConfigToCliConfig(shared = {}) {
+  const provider = String(shared?.aiProvider || '').trim().toLowerCase()
+  const meta = { _source: 'gui-shared', _updatedAt: shared?.updatedAt || null }
+  if (provider === 'custom') {
+    return {
+      ...meta,
+      provider: 'custom',
+      model: shared.customModel || null,
+      customModel: shared.customModel || null,
+      apiKey: shared.customApiKey || null,
+      customEndpoint: shared.customEndpoint || null
+    }
+  }
+  if (provider === 'groq') {
+    return {
+      ...meta,
+      provider: 'groq',
+      model: shared.groqModel || null,
+      groqModel: shared.groqModel || null,
+      apiKey: shared.groqApiKey || null
+    }
+  }
+  if (provider === 'lm-studio') {
+    return {
+      ...meta,
+      provider: 'custom',
+      model: shared.customModel || null,
+      customModel: shared.customModel || null,
+      customEndpoint: shared.customEndpoint || null
+    }
+  }
+  return { ...meta, provider: null, model: null, apiKey: null }
+}
+
+// Config file chain (SATU sumber setting GUI + CLI):
+//   1. GUI shared.json (~/.config/abelink/shared.json) = lapis DASAR (adopsi GUI)
+//   2. home cli.json (~/.config/abelink/cli.json)      = override eksplisit CLI
+//   3. repo-local .abelink/cli.json                    = override paling spesifik
+// Missing files -> {}. Never throws.
 export function loadCliFileConfig({ cwd = process.cwd(), homeDir = os.homedir() } = {}) {
   const out = {}
+  // Lapis 1: snapshot GUI -> bentuk CLI.
+  try {
+    const parsed = JSON.parse(fs.readFileSync(path.join(homeDir, '.config', 'abelink', 'shared.json'), 'utf8'))
+    const norm = sharedConfigToCliConfig(parsed)
+    for (const [key, value] of Object.entries(norm)) {
+      if (key === '_source' || key === '_updatedAt') continue
+      if (value !== null && value !== undefined && value !== '') out[key] = value
+    }
+  } catch { /* belum ada snapshot GUI -> skip */ }
+  // Lapis 2 & 3: override eksplisit CLI.
   for (const file of [
     path.join(homeDir, '.config', 'abelink', 'cli.json'),
     path.join(cwd, '.abelink', 'cli.json')
@@ -72,47 +125,51 @@ export function loadCliFileConfig({ cwd = process.cwd(), homeDir = os.homedir() 
   return out
 }
 
-// Model alias frontier (Sep 2026, via OpenRouter live). Nama pendek -> ID
-// penuh OpenRouter. `free` = varian $0 bila ada, `auto` = router bawaan
-// OpenRouter. Jangan hardcode key di sini — key dari env/file/9Router DB.
+// Model alias 9Router — HANYA ID terverifikasi POST 200 (2026-09-26).
+// Aturan: tiap entri lolos live probe (tanpa itu = jangan daftar).
+// oc/ = namespace combo-member (combo `abelink`): TIDAK muncul di GET
+// /v1/models, tapi diterima POST. Jangan validasi via katalog untuk oc/*.
+// jev = decisions model (BUKAN chat): tak ada alias chat untuknya.
+// ID terlarang: claude-work (training-data) TIDAK BOLEH dipakai
+// (model/alias/default/fallback). Gagal = pesan jujur, bukan fallback.
 export const MODEL_ALIASES = Object.freeze({
-  // frontier default: Gemini 3.8 Flash (murah + cepat, $0.75/1M in)
-  'gemini': 'google/gemini-3.8-flash',
-  'gemini-3.8': 'google/gemini-3.8-flash',
-  'gemini-3.8-flash': 'google/gemini-3.8-flash',
-  // reasoning berat
-  'fable': 'anthropic/claude-fable-5.1',
-  'claude-fable': 'anthropic/claude-fable-5.1',
-  // koding + agen
-  'kimi-k3': 'moonshotai/kimi-k3',
-  'kimi': 'moonshotai/kimi-k3',
-  'deepseek': 'deepseek/deepseek-v4.1-flash',
-  'deepseek-v4': 'deepseek/deepseek-v4.1-flash',
-  'qwen': 'qwen/qwen3.8-flash',
-  'qwen-max': 'qwen/qwen3.8-max-0902',
-  'glm': 'z-ai/glm-5.3-flash',
-  'grok': 'x-ai/grok-4.6',
-  'gpt': 'openai/gpt-5.6-luna',
-  // free tier ($0)
-  'free': 'qwen/qwen3.8-27b:free',
-  'free-kimi': 'zenmux:kimi-k3-free',
-  'free-glm': 'z-ai/glm-5.2:free',
-  'free-gemma': 'google/gemma-4-31b-it:free',
-  // router bawaan (OpenRouter pilih)
-  'auto': 'openrouter/auto',
-  // alias server lokal (9Router, kompatibel mundur)
-  'claude-work': 'claude-work',
-  'abelink': 'abelink',
+  // Harian: zen-free (POST 200, combo 9Router, gratis).
+  'zen': 'oc/muse-spark-1.3-contributor-free',
+  'zen-free': 'oc/muse-spark-1.3-contributor-free',
+  'spark': 'oc/muse-spark-1.3-contributor-free',
+  // Combo pendek 9Router (router gratis; probe flaky-timeout = server lambat,
+  // bukan verdict mati — tetap terdaftar sebagai combo, bukan model bayar).
+  'qwen': 'qwen',
+  'mimo': 'mimo',
+  'nara': 'nara',
+  'xkiro': 'xkiro',
+  'tokenrouter': 'tokenrouter',
+  // Free terverifikasi POST 200 (2026-09-26).
+  'free': 'bor/mimo-v2.5:free',
+  'free-mimo': 'bor/mimo-v2.5:free',
 })
 
-export const DEFAULT_CLI_MODEL = 'google/gemini-3.8-flash'
+// Keputusan owner 2026-09-26: ID di sini TIDAK BOLEH dipakai sebagai model,
+// alias, default, maupun fallback (provider melatih pada datanya). Ini SATU
+// sumber kebenaran: dipakai resolveCliAuth + seluruh entry CLI/TUI.
+export const FORBIDDEN_MODELS = Object.freeze(['claude-work'])
+
+export function isForbiddenModel(model = '') {
+  const low = String(model ?? '').trim().toLowerCase()
+  return FORBIDDEN_MODELS.some((f) => low === String(f).toLowerCase())
+}
+
+export function forbiddenModelError(model = '') {
+  return `Model "${String(model ?? '')}" dilarang (training-data). Pakai /model atau -m ke ID gratis yang layak (mis. zen).`
+}
+
+export const DEFAULT_CLI_MODEL = 'oc/muse-spark-1.3-contributor-free'
 
 // Auth fallback: flags > env > config file > 9Router DB > default. Never throws.
 //
-// Headless default = 'custom' (9Router/LM Studio OpenAI-compatible di
-// localhost:20128), BUKAN 'gemini-web': gemini-web butuh sesi browser Google
-// yang hanya ada di GUI. Model default = frontier (gemini-3.8-flash), bukan
-// peninggalan 2.5.
+// Headless default = 'custom' (9Router OpenAI-compatible di localhost:20128),
+// BUKAN 'gemini-web': gemini-web butuh sesi browser Google yang hanya ada di
+// GUI. Model default = zen-free 9Router (live, reasoning, gratis).
 export function resolveCliAuth({ flags = {}, env = process.env, fileConfig = {} } = {}) {
   const provider = flags.provider || env.ABELINK_PROVIDER || fileConfig.provider || 'custom'
   const rawModel = flags.model || env.ABELINK_MODEL || fileConfig.model || DEFAULT_CLI_MODEL
@@ -121,7 +178,15 @@ export function resolveCliAuth({ flags = {}, env = process.env, fileConfig = {} 
   const apiKey =
     flags.apiKey || env.ABELINK_API_KEY || env.CUSTOM_API_KEY || env.OPENAI_API_KEY ||
     fileConfig.apiKey || fileConfig.customApiKey || null
-  return { provider, model, modelVersion, apiKey }
+  // Endpoint: ikut lapis yang sama (flag > env > file/GUI). Diadopsi dari GUI
+  // supaya TUI menembak endpoint yang sama (mis. 9Router di 20128), bukan
+  // hardcode terpisah.
+  const customEndpoint =
+    flags.endpoint || env.ABELINK_ENDPOINT || env.CUSTOM_ENDPOINT || env.OPENAI_BASE_URL ||
+    fileConfig.customEndpoint || null
+  // `forbidden` = sinyal untuk caller; resolveCliAuth tetap never-throws dan
+  // tidak diam-diam menukar model (tanpa fallback, keputusan owner).
+  return { provider, model, modelVersion, apiKey, customEndpoint, forbidden: isForbiddenModel(model) }
 }
 
 // 9Router local key autodetect (best-effort, never throws).
@@ -132,7 +197,9 @@ export function resolveCliAuth({ flags = {}, env = process.env, fileConfig = {} 
 // sqlite3; keduanya gagal -> null (caller beri pesan jujur).
 export async function loadNineRouterKey({ dbPath = null } = {}) {
   const home = os.homedir?.() || process.env.HOME || ''
-  const file = dbPath || path.join(home, '.9router', 'db', 'data.sqlite')
+  // ABELINK_HOME sengaja TIDAK menggeser path ini (data milik 9Router, bukan
+  // app); untuk test/E2E hermetic sediakan override eksplisit.
+  const file = dbPath || process.env.ABELINK_9ROUTER_DB || path.join(home, '.9router', 'db', 'data.sqlite')
   try {
     const { Database } = await import('bun:sqlite')
     const db = new Database(file, { readonly: true })
@@ -184,7 +251,7 @@ export async function writeCliSetup({ argv = [], homeDir = os.homedir?.() || pro
   if (process.env.ABELINK_PROVIDER || process.env.ABELINK_MODEL || process.env.ABELINK_API_KEY) src.push('env')
   if (current.provider || current.model || current.apiKey) src.push(`file:${file}`)
   src.push('9Router DB (autodetect)')
-  src.push('default: custom / google/gemini-3.8-flash')
+  src.push('default: custom / oc/muse-spark-1.3-contributor-free')
   return { ok: true, message: `Belum ada yang diubah. Sumber aktif: ${src.join(' > ')}\nTulis: abelink setup --provider custom --model gemini --api-key <key>` }
 }
 

@@ -652,22 +652,7 @@ async function groupTabIntoSession(sessionId, tabId, task, status = 'acting') {
   return { groupId, tabId, replaced: false }
 }
 
-async function updateGroupStatus(sessionId, task, status) {
-  const group = activeGroups[sessionId]
-  if (!group) return
-  await chrome.tabGroups.update(group.groupId, { title: groupTitle(status, task) })
-}
-
 // ------------------------------------------------------------------ tabs
-async function activeOrFindTab(urlFilter) {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  if (tab && tab.url?.startsWith('http')) return tab
-  if (urlFilter) {
-    const tabs = await chrome.tabs.query({ url: `${urlFilter}*` })
-    if (tabs.length) return tabs[0]
-  }
-  return null
-}
 
 // Budget tab per sesi: penuh -> pakai-ulang, jangan create (anti OOM).
 const MAX_TABS_PER_SESSION = 6
@@ -701,26 +686,6 @@ async function adoptOrphanTab(sessionId, url, excludeTabIds = [], opts = {}) {
     return null
   }
 }
-
-// Pure helper (unit-testable via node eval harness — service worker klasik
-// bukan modul, jadi ditempel ke globalThis, bukan export).
-const pickAdoptableTab = (tabs = [], url = '', excludeIds = [], opts = {}) => {
-  const excluded = new Set(Array.isArray(excludeIds) ? excludeIds : [])
-  const adoptUserTab = opts.adoptUserTab === true
-  const ungrouped = (Array.isArray(tabs) ? tabs : []).filter(
-    (t) => t && t.groupId !== 0 && t.groupId !== -1 && !excluded.has(t.id)
-  )
-  if (adoptUserTab) {
-    const exact = ungrouped.find((t) => t.url === url)
-    if (exact) return exact
-  }
-  return (
-    ungrouped.find((t) => t.url === 'about:blank' || t.url === 'chrome://newtab/') ||
-    null
-  )
-}
-
-const sessionKeyOf = (sid) => String(sid ?? 'default')
 
 // Buat tab dengan budget: grup sesi penuh -> pakai-ulang tab grup terlama.
 async function createBoundedTab(sessionId, url) {
@@ -891,7 +856,7 @@ function overlayFn({ mode, text, session }) {
       e.stopPropagation()
       try {
         chrome.runtime.sendMessage({ type: 'overlay-resume', session })
-      } catch (err) {}
+      } catch {}
     })
     pill.appendChild(go)
     shadow.appendChild(style)
@@ -933,7 +898,7 @@ function overlayFn({ mode, text, session }) {
     e.stopPropagation()
     try {
       chrome.runtime.sendMessage({ type: 'overlay-stop', session })
-    } catch (err) {}
+    } catch {}
   })
   pill.appendChild(label)
   if (text) {

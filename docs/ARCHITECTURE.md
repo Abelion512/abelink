@@ -39,7 +39,7 @@ stdin. Semua handler didaftarkan lewat `registry.mjs`.
 | Modul | Channel | Keterangan |
 | --- | --- | --- |
 | `registry.mjs` | — | `send`/`emit`/`ok`/`fail`, map `handlers`, `on()`, `lazy()` (helper `unsupported()` sudah dibuang; channel yang belum jalan mengembalikan `success: false` eksplisit atau `throw`) |
-| `channels/ai.mjs` | `ai:fetch`, `ai:abort-fetch`, `ai:list-models`, `sync-config`, `native-tool:*`, `parse-document` | `sync-config` juga menyalin config ke modul telegram (auto-start bot) |
+| `channels/ai.mjs` | `ai:fetch`, `ai:abort-fetch`, `ai:list-models`, `sync-config`, `native-tool:*`, `parse-document` | `sync-config` juga menyalin config ke modul telegram (auto-start bot) dan menulis snapshot AI ke `main/shared-config.js` |
 | `channels/media.mjs` | `tts-speak`, `get-youtube-transcript`, `youtube-search` | Edge-TTS + youtube-transcript-plus + yt-search (lazy) |
 | `channels/telegram.mjs` | `tg:*`, `benchmark:telegram`, `remote-music-command` | Dashboard benchmark + broadcast admin (config via `setLatestConfig`) |
 | `channels/services.mjs` | `plugin:*`, `plugins:list`, `google:*`, `workspace:*`, `awareness:*` | Plugin loader tanpa Electron; workspace RAG `.abelink/` |
@@ -48,6 +48,13 @@ stdin. Semua handler didaftarkan lewat `registry.mjs`.
 | `channels/browser.mjs` | `browser:navigate/read-dom/action/close/show/status` | Fase C3 Jalur A (ekstensi browser + bridge): perintah nyata via `main/browser/` — long-poll HTTP 127.0.0.1 token-auth ke ekstensi Abelink; tanpa ekstensi = error eksplisit + petunjuk pemasangan |
 | `channels/skills.mjs` | `skills:*` (15 channel) | Agent Skills store: SKILL.md + anti path-traversal; `skills:open-folder` (xdg-open ter-kontinemen) untuk workflow drop folder skill + auto-scan |
 | `channels/capabilities.mjs` | `capabilities:list/inspect/guide/execute/connections/authorize/revoke/audit` | Capability Manager (fase Kapabilitas, referensi OpenConnector): catalog connector → policy → eksekusi ter-audit. Connector built-in: `weather` (Open-Meteo), `time` (offline), `fs` (workspace via fsGuard), `shell-tool` (run-shell; dynamic dangerous-keyword check saat runtime). `capabilities:execute` WAJIB di `APPROVAL_ACTIONS` (rfd native). Kredensial koneksi di XDG mode 0600; audit JSONL append-only (trim 1MB). Implementasi: `main/capabilities/` (lazy import) |
+
+**Jembatan config GUI <-> CLI/TUI (satu produk):** `main/shared-config.js`
+menulis subset field AI dari config GUI ke `~/.config/abelink/shared.json`
+(0600) setiap `sync-config`; `headlessCli.loadCliFileConfig` membacanya sebagai
+lapis DASAR (di bawah `cli.json` yang eksplisit) lalu memetakannya ke bentuk
+CLI lewat `sharedConfigToCliConfig`. Provider GUI-only (`gemini-web`) tidak
+dipaksakan sehingga CLI jatuh ke default jujur, bukan gagal senyap.
 
 **Aturan menambah channel baru:** buat/ubah modul di `engine/channels/`,
 daftarkan dengan `on('nama:aksi', handler)`, lalu import modulnya di

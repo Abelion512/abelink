@@ -1,4 +1,4 @@
-import { Telegraf, Input } from 'telegraf'
+import { Telegraf } from 'telegraf'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
@@ -69,7 +69,7 @@ const resolveContainedSavePath = (saveDir, fileName) => {
   return contained ? resolvedPath : null
 }
 
-export const startTelegramBot = async (token, mainWindow) => {
+export const startTelegramBot = async (token) => {
   if (!token || !token.trim()) {
     console.error('[Telegram] Token kosong')
     updateStatus('disconnected')
@@ -575,7 +575,7 @@ export const sendTelegramMessage = async (chatId, text) => {
     const htmlText = formatMarkdownToTelegramHTML(text)
     await bot.telegram.sendMessage(chatId, htmlText, { parse_mode: 'HTML' })
     return { success: true }
-  } catch (err) {
+  } catch {
     try {
       await bot.telegram.sendMessage(chatId, text)
       return { success: true }
@@ -781,7 +781,7 @@ export const sendTelegramToAdmins = async (text) => {
     try {
       const htmlText = formatMarkdownToTelegramHTML(text)
       await bot.telegram.sendMessage(chatId, htmlText, { parse_mode: 'HTML' })
-    } catch (err) {
+    } catch {
       try {
         await bot.telegram.sendMessage(chatId, text)
       } catch (e) {
@@ -847,11 +847,11 @@ export const sendAgentExecutionDone = async (data) => {
     if (reqObj?.loadingMsgId) {
       try {
         await bot.telegram.deleteMessage(chatId, reqObj.loadingMsgId)
-      } catch (e) {}
+      } catch {}
     }
     try {
       await bot.telegram.sendMessage(chatId, replyText, { parse_mode: 'Markdown' })
-    } catch (e) {
+    } catch {
       await bot.telegram.sendMessage(chatId, replyText).catch(() => {})
     }
   }

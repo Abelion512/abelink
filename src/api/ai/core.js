@@ -308,7 +308,7 @@ export const cleanAndParse = (rawResponse) => {
       return JSON.parse(cleaned)
     } catch (_) {}
 
-    cleaned = cleaned.replace(/\\(?!(["\\\/bfnrt]|u[a-fA-F0-9]{4}))/g, '\\\\')
+    cleaned = cleaned.replace(/\\(?!(["\\/bfnrt]|u[a-fA-F0-9]{4}))/g, '\\\\')
 
     try {
       return JSON.parse(cleaned)
@@ -342,7 +342,7 @@ export const cleanAndParse = (rawResponse) => {
       const lastResort = rawResponse.trim().replace(/^\xEF\xBB\xBF/, '')
       const match = lastResort.match(/\{[\s\S]*\}/)
       return match ? JSON.parse(match[0]) : null
-    } catch (e) {
+    } catch {
       return null
     }
   }
