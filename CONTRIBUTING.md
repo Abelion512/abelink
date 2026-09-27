@@ -60,8 +60,6 @@ baris tanpa ubah perilaku).
 | Branch     | Kegunaan                                              |
 |------------|-------------------------------------------------------|
 | `main`     | Mainline: semua fitur yang lolos testing di-merge ke sini |
-| `linux`    | Cabang pelacak remote publik `public-upstream`: jangan pakai untuk kerja fitur |
-| `master`   | Mirror upstream Mazees/mark-agent, sync-only: jangan sentuh manual |
 | `feat/*`   | Fitur baru (dibuat dari `main`)                      |
 | `fix/*`    | Bug fix                                               |
 | `chore/*`  | Tooling, deps, CI, refactoring                        |
@@ -75,7 +73,7 @@ Alur:
 5. Jika semua beres → merge ke `main`
 6. Hapus branch lokal setelah merge: jangan biarkan branch merged menumpuk
 
-Jangan pernah push langsung ke `main`, `linux`, atau `master`.
+Jangan pernah push langsung ke `main`.
 
 ## PR Workflow
 

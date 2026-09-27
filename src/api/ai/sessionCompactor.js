@@ -1,8 +1,8 @@
 /**
- * Session Compactor — manajemen konteks per-sesi ala upstream
- * (Mazees/mark-agent `contextManager.js`: budget + pointer + pipa bertahap).
+ * Session Compactor — manajemen konteks per-sesi Abelink
+ * (budget + pointer + pipa bertahap).
  *
- * - Budget 525.000 karakter (MAX_SESSION_CHARS, sama persis upstream) dihitung
+ * - Budget MAX_SESSION_CHARS dihitung
  *   dari INPUT yang diberikan caller + pointer lastCompactedMessageId (pesan
  *   yang sudah terangkum tidak dihitung dua kali). Jalur otomatis
  *   (useAbelinkPlan) mengirim riwayat sesi penuh agar budget benar-benar
@@ -29,9 +29,9 @@
  * persist=true menulis prunedMessages ke store `sessions` (memotong riwayat
  * asli). Pemanggil yang hanya butuh ringkasan untuk prompt WAJIB persist=false.
  *
- * Adaptasi vs upstream: summarizer lewat fetchAI provider aktif (tanpa
- * Gemini-dulu); tahap orphan tool-pair TIDAK dibawa (protokol kita JSON-teks,
- * tak ada role `tool`); store `sessionCompacts` di Dexie (bukan tabel SQL).
+ * Summarizer lewat fetchAI provider aktif; tahap orphan tool-pair TIDAK
+ * dibawa (protokol JSON-teks, tak ada role `tool`); store `sessionCompacts`
+ * di Dexie.
  */
 import { fetchAI } from './core'
 import { compactCodeBlocks } from './contextCompactor'
@@ -56,7 +56,7 @@ export function compactZone(currentChars = 0) {
 // Giliran terbaru yang selalu dipertahankan utuh (tanpa prune penuh).
 export const PRESERVE_RECENT_TURNS = 4
 
-// Budget karakter untuk SATU panggilan summarizer (upstream: 90k).
+// Budget karakter untuk SATU panggilan summarizer.
 export const MAX_SUMMARY_INPUT_CHARS = 90000
 // Batas teks per pesan di dalam input summarizer (head+tail tetap dipertahankan).
 export const SUMMARY_PER_MESSAGE_CHARS = 2500

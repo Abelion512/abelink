@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Abelink — 5W1H &amp; Diagnosis Over-Engineering (Revisi 2)</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #11161d;
+    --panel-2: #151c25;
+    --border: #1f2937;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --accent: #22d3ee;
+    --accent-dim: rgba(34, 211, 238, 0.12);
+    --amber: #fbbf24;
+    --amber-dim: rgba(251, 191, 36, 0.1);
+    --red: #f87171;
+    --red-dim: rgba(248, 113, 113, 0.1);
+    --green: #4ade80;
+    --green-dim: rgba(74, 222, 128, 0.1);
+    --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, 'Cascadia Code', monospace;
+    --sans: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.65;
+    padding-bottom: 80px;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- header ---------- */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 48px 0 32px;
+    background: linear-gradient(180deg, rgba(34,211,238,0.05) 0%, transparent 100%);
+  }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+  .sub { color: var(--muted); margin-top: 10px; max-width: 760px; }
+  .meta-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .chip {
+    font-family: var(--mono); font-size: 11.5px;
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 4px 12px; color: var(--muted); background: var(--panel);
+  }
+  .chip b { color: var(--text); font-weight: 600; }
+
+  /* ---------- nav ---------- */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(11, 15, 20, 0.92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  nav .wrap { display: flex; gap: 4px; overflow-x: auto; padding: 10px 24px; }
+  nav a {
+    color: var(--muted); text-decoration: none; font-size: 13px;
+    padding: 6px 12px; border-radius: 8px; white-space: nowrap;
+    font-family: var(--mono);
+  }
+  nav a:hover { color: var(--text); background: var(--panel-2); }
+
+  /* ---------- sections ---------- */
+  section { padding: 56px 0 8px; }
+  h2 {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: 12px; margin-bottom: 6px;
+  }
+  h2 .idx {
+    font-family: var(--mono); font-size: 12px; color: var(--accent);
+    background: var(--accent-dim); border-radius: 6px; padding: 3px 8px;
+    letter-spacing: 0.1em;
+  }
+  .lead { color: var(--muted); max-width: 860px; margin-bottom: 28px; }
+
+  /* ---------- 5W1H grid ---------- */
+  .grid-5w1h { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 780px) { .grid-5w1h { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+  }
+  .card h3 {
+    font-size: 15px; font-weight: 600; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card h3 .tag {
+    font-family: var(--mono); font-size: 10.5px; color: var(--accent);
+    border: 1px solid rgba(34,211,238,0.35); border-radius: 5px;
+    padding: 1px 7px; letter-spacing: 0.12em;
+  }
+  .card p, .card li { color: var(--muted); font-size: 14px; }
+  .card ul { padding-left: 18px; display: grid; gap: 5px; }
+  .card b, .card strong { color: var(--text); font-weight: 600; }
+  code {
+    font-family: var(--mono); font-size: 12.5px;
+    background: var(--panel-2); border-radius: 5px; padding: 1.5px 6px;
+    color: var(--accent);
+  }
+
+  /* ---------- claim vs reality blocks ---------- */
+  .cvr { display: grid; gap: 8px; margin-top: 4px; }
+  .cvr-row {
+    display: grid; grid-template-columns: 64px 1fr; gap: 10px;
+    align-items: start;
+  }
+  .cvr-row .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; border-radius: 5px; padding: 2px 6px;
+    text-align: center; margin-top: 3px; white-space: nowrap;
+  }
+  .k-claim { color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(34,211,238,0.3); }
+  .k-real  { color: var(--amber); background: var(--amber-dim); border: 1px solid rgba(251,191,36,0.3); }
+  .k-dir   { color: var(--green); background: var(--green-dim); border: 1px solid rgba(74,222,128,0.3); }
+  .cvr-row p { font-size: 13.5px; }
+
+  /* ---------- architecture diagram ---------- */
+  .arch { display: grid; grid-template-columns: 1fr 46px 1fr 46px 1fr; align-items: stretch; gap: 0; margin: 10px 0 18px; }
+  @media (max-width: 860px) { .arch { grid-template-columns: 1fr; } .arch .arrow { transform: rotate(90deg); margin: 4px auto; } }
+  .arch-node {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px;
+  }
+  .arch-node h4 { font-size: 13.5px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+  .arch-node .path { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-bottom: 8px; }
+  .arch-node p { font-size: 12.5px; color: var(--muted); }
+  .arch .arrow { display: flex; align-items: center; justify-content: center; color: var(--accent); font-family: var(--mono); font-size: 18px; }
+
+  /* ---------- findings (diagnosis) ---------- */
+  .finding {
+    background: var(--panel); border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 14px;
+  }
+  .finding h4 { font-size: 15px; font-weight: 600; margin-bottom: 6px; display: flex; gap: 10px; align-items: baseline; }
+  .finding h4 .num { font-family: var(--mono); color: var(--red); font-size: 12px; }
+  .finding p { color: var(--muted); font-size: 14px; }
+  .evidence {
+    margin-top: 10px; font-family: var(--mono); font-size: 12px;
+    color: var(--amber); background: var(--amber-dim);
+    border-radius: 8px; padding: 8px 12px; line-height: 1.55;
+  }
+  .evidence::before { content: "bukti: "; color: var(--muted); }
+
+  /* ---------- priority list ---------- */
+  .prio { border-radius: 14px; border: 1px solid var(--border); background: var(--panel); overflow: hidden; margin-bottom: 14px; }
+  .prio-head {
+    padding: 12px 20px; font-family: var(--mono); font-size: 12px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .p0 .prio-head { background: var(--red-dim); color: var(--red); }
+  .p1 .prio-head { background: var(--amber-dim); color: var(--amber); }
+  .p2 .prio-head { background: var(--green-dim); color: var(--green); }
+  .prio-head .note { color: var(--muted); text-transform: none; letter-spacing: 0; font-family: var(--sans); font-size: 12.5px; margin-left: auto; }
+  .prio ol { padding: 14px 20px 16px 44px; display: grid; gap: 10px; }
+  .prio li { color: var(--muted); font-size: 14px; }
+  .prio li b { color: var(--text); }
+
+  /* ---------- principles ---------- */
+  .principles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 780px) { .principles { grid-template-columns: 1fr; } }
+  .principle {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .principle .t { font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--text); }
+  .principle .d { font-size: 13px; color: var(--muted); }
+  .principle .d code { font-size: 11.5px; }
+
+  /* ---------- verdict / bottom line ---------- */
+  .verdict {
+    margin-top: 26px;
+    background: var(--accent-dim);
+    border: 1px solid rgba(34,211,238,0.3);
+    border-radius: 14px; padding: 22px 24px;
+  }
+  .verdict .t { font-weight: 700; font-size: 16px; margin-bottom: 8px; color: var(--text); }
+  .verdict p { color: var(--text); font-size: 14.5px; }
+  .verdict p + p { margin-top: 8px; color: var(--muted); }
+
+  /* ---------- footer ---------- */
+  footer {
+    margin-top: 64px; border-top: 1px solid var(--border);
+    padding-top: 24px; color: var(--muted); font-size: 12.5px;
+  }
+  footer .src { font-family: var(--mono); font-size: 11.5px; line-height: 1.9; }
+  footer .src span { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="kicker">Project Brief — Internal · Revisi 2</div>
+    <h1>Abelink: 5W1H &amp; Diagnosis Over-Engineering</h1>
+    <p class="sub">Revisi setelah koreksi owner: setiap klaim kini dipasangkan dengan realitas yang bisa diverifikasi. Fokus diagnosis tetap satu — masalah apa yang harus di-solve agar proyek tidak over-engineering — tetapi sekarang dimulai dari gap antara <b>apa yang diklaim</b> dan <b>apa yang benar-benar jalan</b>.</p>
+    <div class="meta-chips">
+      <span class="chip">versi <b>1.1.0-alpha.5</b></span>
+      <span class="chip">branch <b>refactor/m2c-headless-observability</b></span>
+      <span class="chip">arah refactor <b>TS + Rust + Linux + CLI engine</b></span>
+      <span class="chip">status <b>fork sudah jauh dari mark-agent</b></span>
+      <span class="chip">dibuat <b>2026-09-26</b></span>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <div class="wrap">
+    <a href="#w5h1">5W1H</a>
+    <a href="#arch">Arsitektur</a>
+    <a href="#diag">Diagnosis</a>
+    <a href="#solve">Yang Harus Di-solve</a>
+    <a href="#prinsip">Prinsip</a>
+  </div>
+</nav>
+
+<!-- ================= 5W1H ================= -->
+<section id="w5h1">
+  <div class="wrap">
+    <h2><span class="idx">01</span> 5W1H: Klaim vs Realitas</h2>
+    <p class="lead">Format yang dipakai sengaja frontal: setiap kartu memisahkan <span class="k-claim" style="font-family:var(--mono);font-size:11px">KLAIM</span> (yang tertulis di dokumen/AGENTS.md), <span class="k-real" style="font-family:var(--mono);font-size:11px">REALITAS</span> (yang terjadi di lapangan menurut owner + verifikasi repo), dan bila relevan <span class="k-dir" style="font-family:var(--mono);font-size:11px">ARAH</span> (keputusan owner yang sudah ditetapkan).</p>
+
+    <div class="grid-5w1h">
+      <div class="card">
+        <h3><span class="tag">WHAT</span> Apa ini — dan apakah itu benar?</h3>
+        <div class="cvr">
+          <div class="cvr-row"><span class="k k-claim">klaim</span><p>Companion AI otonom lokal untuk Linux dengan ReAct loop, multi-agent delegation (Sub-Agents / Mission Control), otomasi browser + OS.</p></div>
+          <div class="cvr-row"><span class="k k-real">real</span><p>Di praktik, agent masih berkelakuan <b>chatbot</b>. Delegation multi-agent belum terbukti jalan end-to-end. Browser automation bergantung pada extension yang <b>sering gagal koneksi</b> — satu-satunya jalur yang terasa nyata adalah fitur browser-use (kursor visual + read-dom). Tool <code>os-*</code> + <code>pc-agent.js</code> ada di kode (grep terverifikasi: <code>osTools.mjs</code>, <code>node-tools.js</code>) tetapi <b>belum pernah dipakai secara real</b>.</p></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3><span class="tag">WHY</span> Kenapa dibangun — dan seberapa benar?</h3>
+        <div class="cvr">
+          <div class="cvr-row"><span class="k k-claim">klaim</span><p>Privacy-first, 100% bisa lokal/offline: LM Studio, embedding WASM lokal, DB lokal, tanpa cloud wajib.</p></div>
+          <div class="cvr-row"><span class="k k-real">real</span><p>Owner masih memakai <b>Gemini Web + model custom</b> — jalur lokal tidak pernah jadi jalur harian, dan belum ada pengukuran apakah hardware laptop yang ada sanggup menjalankan LLM lokal + embedding secara layak. "100% lokal" saat ini adalah <b>kapabilitas tersedia</b>, bukan <b>kondisi operasional</b>.</p></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3><span class="tag">WHO</span> Siapa &amp; dari mana asalnya?</h3>
+        <div class="cvr">
+          <div class="cvr-row"><span class="k k-real">real</span><p>Fork dari Mazees/mark-agent, tetapi <b>sudah menyimpang jauh</b> — hampir tidak ada sisa mark-agent yang relevan. Identitas proyek sebagai "fork" sudah kedaluwarsa dan perlu diperbaiki sepenuhnya di seluruh dokumen.</p></div>
+          <div class="cvr-row"><span class="k k-dir">arah</span><p>Kepemilikan penuh Abelion512; baseline pembanding resmi kini adalah <b>Abelink sendiri</b>, bukan upstream. Dokumen yang masih menyebut "fork of mark-agent" sebagai identitas aktif harus ditulis ulang.</p></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3><span class="tag">WHEN</span> Kapan &amp; arah refactor</h3>
+        <div class="cvr">
+          <div class="cvr-row"><span class="k k-real">real</span><p>Riwayat commit Feb 2026 → Sep 2026, versi <b>1.1.0-alpha.5</b>. Program migrasi wave M1–M6 jalan (M2c + M3 selesai 2026-09-26), tetapi wave yang ada melayani infrastruktur governance — bukan fitur yang dirasakan user.</p></div>
+          <div class="cvr-row"><span class="k k-dir">arah</span><p>Refactor target: <b>TypeScript + Rust + Linux + CLI engine</b>. Ini keputusan arah yang sudah ditetapkan owner — dokumen plan selanjutnya harus menurunkan dari sini, bukan membuka opsi lama lagi.</p></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3><span class="tag">WHERE</span> Di mana logikanya hidup?</h3>
+        <ul>
+          <li>Tiga dunia runtime: renderer React (<code>src/</code>), shell Rust (<code>src-tauri/</code>), sidecar Bun (<code>sidecar/</code>) — renderer tanpa akses OS langsung.</li>
+          <li>Data lokal di XDG dirs; dev ter-isolasi lewat <code>ABELINK_DATA_HOME</code>.</li>
+          <li><b>Realitas:</b> tiga dunia ini adalah kompleksitas tiga runtime yang harus dipertahankan sekaligus — dan justru jadi kandidat penyederhanaan dalam arah refactor (Rust makin banyak, sidecar makin tipis).</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="tag">HOW</span> Bagaimana bentuk produknya?</h3>
+        <div class="cvr">
+          <div class="cvr-row"><span class="k k-claim">klaim</span><p>"Dua wajah produk": GUI desktop + headless CLI/TUI yang berbagi governance.</p></div>
+          <div class="cvr-row"><span class="k k-real">real</span><p>Bukan kebetulan dua wajah — ini <b>adopsi arsitektur Hermes</b>: <code>cli/</code> adalah CLI engine (<code>agentRunner</code> murni + choke point hooks), dan GUI adalah <b>client</b> di atas engine yang sama secara kontrak (ADR-001: paritas lewat 4 modul bersama, bukan loop yang sama).</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ARSITEKTUR ================= -->
+<section id="arch">
+  <div class="wrap">
+    <h2><span class="idx">02</span> Snapshot Arsitektur</h2>
+    <p class="lead">Kompleksitas Abelink sebagian <b>disengaja dan dibenarkan</b> (sandboxing, approval native, isolasi), sebagian <b>kebetulan sejarah</b> (warisan Electron + mark-agent). Membedakan keduanya adalah inti diagnosis di bawah.</p>
+
+    <div class="arch">
+      <div class="arch-node">
+        <h4>CLI Engine — arah utama</h4>
+        <div class="path">cli/ + src/api/ai/agentRunner.js</div>
+        <p>Engine murni (<code>runAgentLoop</code>), tool hooks, harness headless, store Fase-1. Di sinilah masa depan proyek: TS + CLI engine ala Hermes.</p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="arch-node">
+        <h4>Shell Rust — Tauri v2</h4>
+        <div class="path">src-tauri/</div>
+        <p>Window, tray, fs ter-kontinemen (<code>resolve_contained</code>), approval <code>rfd</code> native, harness log. Bagian yang dipertahankan dan diperkuat dalam refactor.</p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="arch-node">
+        <h4>GUI Client + Sidecar</h4>
+        <div class="path">src/ + sidecar/engine.mjs</div>
+        <p>GUI = client di atas kontrak engine. Sidecar membawa modul warisan (telegram, music, google) — kandidat tipisnya dalam refactor TS.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Paritas GUI vs Headless (ADR-001, diterima 2026-09-26)</h3>
+      <ul>
+        <li>GUI mempertahankan loop-nya; headless memakai <code>runAgentLoop</code>. Yang identik: verifier, supervisor, budget, classifier — dikunci test paritas.</li>
+        <li>Batasan yang harus diakui: paritas kontrak ≠ paritas pengalaman. Fitur otonomi yang diiklankan (delegation, browser, OS) harus dibuktikan di <b>engine</b> — karena engine-lah yang jadi inti arah refactor.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DIAGNOSIS ================= -->
+<section id="diag">
+  <div class="wrap">
+    <h2><span class="idx">03</span> Diagnosis: Masalah Sebenarnya</h2>
+    <p class="lead">Diagnosis diperbaiki urutan keparahannya: dua temuan pertama adalah <b>gap klaim-kenyataan</b> yang baru ditambahkan setelah koreksi owner — lebih fundamental daripada semua temuan lama.</p>
+
+    <div class="finding">
+      <h4><span class="num">F1</span> Klaim WHAT tidak didukung bukti operasional</h4>
+      <p>Produk diiklankan sebagai "companion AI otonom dengan multi-agent delegation dan otomasi OS/browser", tetapi pengalaman aktual: berkelakuan chatbot, extension browser sering gagal, tool <code>os-*</code> tidak pernah dipakai real, dan delegation belum terbukti end-to-end. Ini bukan sekadar bug — ini <b>ketidaksesuaian identitas produk</b>. Semua keputusan investasi yang dibuat atas klaim ini (instrumentasi, evaluasi, dokumentasi) melayani fitur yang belum ada.</p>
+      <div class="evidence">Koreksi owner 2026-09-26 + verifikasi repo: osTools.mjs & pc-agent.js ada (kode hidup) tanpa jejak pemakaian real; group-tools.js sendiri mengasumsikan "Status extension browser: TIDAK DIKETAHUI (asumsikan belum aktif)". ARCHITECTURE.md §6: "smoke frame end-to-end dengan browser sungguhan belum dijalankan".</div>
+    </div>
+
+    <div class="finding">
+      <h4><span class="num">F2</span> Klaim WHY (privacy-first 100% lokal) tidak teruji di hardware nyata</h4>
+      <p>Jalur lokal (LM Studio + embedding WASM) tersedia di kode tetapi owner tetap memakai Gemini Web + model custom. Belum ada benchmark "apakah laptop ini sanggup". Konsekuensinya: seluruh arsitektur memori/vektor dioptimalkan untuk mode operasi yang tidak pernah jadi mode utama. Privacy-first tetap valid sebagai <b>prinsip</b>, tapi sebagai <b>klaim produk</b> ia butuh satu angka: RAM/latensi lokal vs cloud pada hardware owner.</p>
+      <div class="evidence">Koreksi owner 2026-09-26: masih pakai Gemini Web + model custom; tidak ada data ukur lokal pada hardware target. Kebijakan anti-fabrikasi PR46 sendiri melarang klaim tanpa pengukuran — klaim WHY tunduk pada aturan yang sama.</div>
+    </div>
+
+    <h2 style="margin: 8px 0 6px;"><span class="idx">04</span> Temuan Over-Engineering (urutan lama, tetap valid)</h2>
+    <p class="lead">Enam pola yang sudah teridentifikasi sebelum revisi. Polanya konsisten: kapabilitas atau infrastruktur dibangun lebih cepat daripada yang bisa dikonsumsi atau dibuktikan.</p>
+
+    <div class="finding">
+      <h4><span class="num">F3</span> Modul yang ada tapi tidak dikonsumsi siapa pun</h4>
+      <p><code>progressEvaluator.evaluateProgress</code> dibangun sebagai bagian runtime contract — GUI tidak memanggilnya, headless hanya menyimpan record lalu mengabaikan outcomenya. Definisi teknis over-engineering: kapabilitas tanpa konsumen, ditopang test, tanpa efek perilaku.</p>
+      <div class="evidence">ADR-001 §"Akar masalah": "GUI bahkan TIDAK memanggilnya". Remediasi R2 baru dijadwalkan M5.</div>
+    </div>
+
+    <div class="finding">
+      <h4><span class="num">F4</span> Gerbang lebih ketat daripada masalah yang dipecahkan</h4>
+      <p>Agent berhenti di tengah jalan bukan karena model tidak mampu, tapi karena siklus loop antisipatif: <code>needs_user</code> terminal mematikan loop saat model bertanya; <code>MAX_VERIFY_REPLANS=2</code> tanpa jalur work-resume. Ini juga salah satu alasan agent <b>terasa chatbot</b> — ia menyerah sebelum sempat beraksi otonom.</p>
+      <div class="evidence">ADR-001: "Gerbang quality Abelink lebih ketat daripada benchmark publik... needs_user menghentikan loop... tanpa jalur work-resume". R1/R3 = fix-nya.</div>
+    </div>
+
+    <div class="finding">
+      <h4><span class="num">F5</span> Sejarah berulang: dibangun, tak terbukti, dibuang</h4>
+      <p>Fase 2 cognitive runtime (<code>trajLineage.js</code>, <code>scoring.js</code>, taksonomi 6 strategi) dibangun lalu dihapus seluruhnya pada 2026-09-12, diganti ladder tipis <code>strategyLib.js</code>. Pola yang sama kini mengancam F1: otomasi OS dan delegation yang diiklankan tapi tak terbukti berisiko mengalami nasib yang sama.</p>
+      <div class="evidence">AGENTS.md §Removed Layers: "Fase 2 cognitive runtime (2026-09-12)... deleted".</div>
+    </div>
+
+    <div class="finding">
+      <h4><span class="num">F6</span> Metrik dibangun sebelum instrumennya ada</h4>
+      <p>Measurement plane PR46 punya 30 fixture dan 12 dimensi kontrak, tetapi <code>unnecessaryActionRate</code> tetap <code>null</code> karena belum ada instrumentasi. Infrastruktur pengukuran berjalan lebih cepat daripada yang bisa diukur.</p>
+      <div class="evidence">AGENTS.md PR46: "unnecessaryActionRate tetap null + unnecessaryActionRateReason". R4 baru M5/M6.</div>
+    </div>
+
+    <div class="finding">
+      <h4><span class="num">F7</span> Permukaan "ingatan" terpecah ke 10+ modul</h4>
+      <p>Satu konsep — "Abelink mengingat" — tersebar di <code>vectorMemory</code>, <code>oramaStore</code>, <code>ragPipeline</code>, <code>memoryRouter</code>, <code>memoryTool</code>, <code>memoryGroomer</code>, <code>turnPairMigrator</code>, <code>workspaceRag</code>, <code>sessionCompactor</code>, <code>contextCompactor</code>. Dalam arah refactor TS, ini daftar kandidat konsolidasi paling jelas.</p>
+      <div class="evidence">AGENTS.md tabel src/api/ + ARCHITECTURE.md §12: delineasi "compactor vs archiver" hanya diperlukan karena modulnya banyak.</div>
+    </div>
+
+    <div class="finding">
+      <h4><span class="num">F8</span> Beban dokumentasi meta yang tumbuh sendiri</h4>
+      <p>Program master + dokumen Hermes adoption + plan paritas TUI + ADR + session log per hari. Sebagian bernilai (ADR-001 mencegah refactor berisiko), tetapi pola "setiap sesi melahirkan dokumen plan baru" adalah over-engineering proses. Plus: dokumen identitas (AGENTS.md) masih memuat klaim kedaluwarsa — versi tertulis 1.0.0-alpha.3 padahal aktual 1.1.0-alpha.5, dan masih menyebut identitas fork aktif.</p>
+      <div class="evidence">src-tauri/tauri.conf.json = 1.1.0-alpha.5 vs AGENTS.md = 1.0.0-alpha.3; docs/PLANNED memuat 3+ dokumen plan berbeda bertanggal 2026-09-26.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SOLVE ================= -->
+<section id="solve">
+  <div class="wrap">
+    <h2><span class="idx">05</span> Masalah yang Harus Di-solve (Prioritas)</h2>
+    <p class="lead">Urutan baru: <b>tutup gap klaim-kenyataan lebih dulu</b>, karena semua investasi governance/metrika baru bernilai hanya bila fitur inti yang diukurnya benar-benar hidup. Setelah itu keputusan arah refactor diturunkan, bukan diperdebatkan lagi.</p>
+
+    <div class="prio p0">
+      <div class="prio-head">P0 — Tutup gap klaim-kenyataan <span class="note">fitur diiklankan harus lolos smoke nyata, atau klaimnya dicabut</span></div>
+      <ol>
+        <li><b>Buktikan atau turunkan klaim delegation.</b> Satu skenario end-to-end: lead agent spawn sub-agent yang benar-benar mengeksekusi tool di engine dan mengagregasi hasil. Gagal terbukti → label "multi-agent" dicabut dari WHAT sampai jalan. (Ini prasyarat masuk akal untuk refactor CLI engine.)</li>
+        <li><b>Stabilkan atau jujurkan jalur browser.</b> Diagnosis akar kenapa extension sering gagal (pairing port? token? cold start?), atau selesaikan Jalur B (spawn Chromium) sebagai fallback. Kriteria lulus: smoke e2e browser sungguhan yang selama ini belum pernah dijalankan (ARCHITECTURE.md §6 mengakuinya).</li>
+        <li><b>Putuskan nasib otomasi OS.</b> Dua opsi jujur: (a) instrumentasi satu workflow real di mesin owner + catat bukti di harness, atau (b) arsipkan klaim <code>os-*</code> dari WHAT sampai dipakai. Kode yang hidup tapi tak pernah dipakai adalah dead weight yang paling mahal dirawat.</li>
+        <li><b>Ukur lokal di hardware nyata.</b> Satu sesi LM Studio + embedding lokal pada laptop owner: RAM terpakai, latensi per token, kualitas hasil. Hasilnya menentukan apakah "100% lokal" tetap di WHY atau direposisi jadi "local-capable, cloud-assisted".</li>
+      </ol>
+    </div>
+
+    <div class="prio p1">
+      <div class="prio-head">P1 — Bikin agent berhenti berperilaku chatbot <span class="note">remediasi ADR-001 R1–R3 — inilah jembatan menuju engine otonom</span></div>
+      <ol>
+        <li><b>R1 — <code>needs_user</code> tidak lagi terminal.</b> Jendela ask_human + default "lanjut heuristik". Loop tidak mati hanya karena model bertanya. (M5)</li>
+        <li><b>R2 — Konsumsi <code>evaluateProgress</code> atau hapus.</b> Aturan tegas: "bukti progres nyata menolak penutupan dini". Bila setelah wiring masih tak mengubah keputusan apa pun, hapus modulnya. (M5)</li>
+        <li><b>R3 — Jalur work-resume bounded</b> saat bukti progres nyata ada, tanpa membakar budget replan verifikasi. (M5)</li>
+        <li><b>Perbaiki identitas dokumen</b> (ikut P1 karena murah): AGENTS.md disinkron ke 1.1.0-alpha.5, identitas "fork mark-agent" ditulis ulang sebagai sejarah, arah refactor TS+Rust+Linux+CLI engine dicatat sebagai keputusan.</li>
+      </ol>
+    </div>
+
+    <div class="prio p2">
+      <div class="prio-head">P2 — Konsolidasi &amp; jaga keputusan yang sudah benar <span class="note">jangan tambah layer baru sebelum P0 tuntas</span></div>
+      <ol>
+        <li><b>Satu pintu memory.</b> Akses memori hanya lewat <code>memoryRouter</code> + tool <code>memory</code>; modul lain jadi detail internal — terutama saat porting ke TS.</li>
+        <li><b>R4 — Instrumen sebelum metrik baru.</b> <code>unnecessaryActionRate</code> diinstrumentasi (M5/M6) sebelum laporan/ekspor apa pun ditambah.</li>
+        <li><b>Freeze dokumen plan.</b> Satu program induk aktif yang menurunkan arah refactor; ADR/plan baru hanya bila keputusan mengubah arah.</li>
+        <li><b>Keputusan yang sudah selesai tidak dibuka ulang tanpa data:</b> ADR-001, anti-fabrikasi PR46, penolakan web murni (Opsi C). Merevisi yang sudah selesai juga bentuk over-engineering.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PRINSIP ================= -->
+<section id="prinsip">
+  <div class="wrap">
+    <h2><span class="idx">06</span> Prinsip Anti Over-Engineering</h2>
+    <p class="lead">Tujuh aturan operasional. Dua yang pertama baru, lahir langsung dari gap klaim-kenyataan.</p>
+
+    <div class="principles">
+      <div class="principle">
+        <div class="t">1. Klaim mengikuti bukti, bukan sebaliknya</div>
+        <div class="d">Fitur masuk daftar klaim WHAT hanya kalau lolos smoke end-to-end nyata di hardware owner. Sebelum itu, ia ditulis sebagai "dalam pengembangan" — bukan kapabilitas.</div>
+      </div>
+      <div class="principle">
+        <div class="t">2. Tidak ada abstraksi tanpa konsumen</div>
+        <div class="d">Setiap modul baru wajib punya satu pemanggil nyata di kode produksi pada PR yang sama. Modul yang konsumennya "nanti" = jangan ditulis dulu.</div>
+      </div>
+      <div class="principle">
+        <div class="t">3. Selesaikan, jangan tumpuk</div>
+        <div class="d">Sebelum menambah layer, cek daftar remediasi terbuka. Menambah governance di atas governance yang belum dikonsumsi adalah kerugian ganda.</div>
+      </div>
+      <div class="principle">
+        <div class="t">4. Instrumen sebelum metrik</div>
+        <div class="d"><code>null</code> yang jujur lebih baik daripada angka fabrikasi (aturan PR46). Tapi <code>null</code> yang bertahan berbulan-bulan berarti instrumennya harus dikerjakan — atau metriknya dihapus.</div>
+      </div>
+      <div class="principle">
+        <div class="t">5. Ukur dulu sebelum membangun ulang</div>
+        <div class="d">ADR-001 memutuskan berdasarkan grep, bukan intuisi — itu standarnya. Berlaku juga untuk arah refactor TS: urutan migrasinya diturunkan dari peta konsumen, bukan selera.</div>
+      </div>
+      <div class="principle">
+        <div class="t">6. Satu konsep, satu pintu</div>
+        <div class="d">Memori, approval, observability boleh punya banyak detail internal, tapi hanya satu pintu publik. Detail di belakang pintu tidak menambah beban kognitif — dan memudahkan porting TS.</div>
+      </div>
+      <div class="principle">
+        <div class="t">7. Hapus adalah fitur</div>
+        <div class="d">Riwayat "Removed Layers" adalah aset. Tiap kuartal, modul yang tak terpanggil dari jalur produksi dihapus — tidak dirawat, tidak dikecualikan.</div>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="t">Kesimpulan (direvisi)</div>
+      <p>Masalah terbesar Abelink saat ini bukan di kode governance-nya — itu justru bagian paling disiplin. Masalahnya: <b>produk menjual klaim yang belum terbukti</b> (otonom, multi-agent, otomasi OS, 100% lokal) sementara energi pengerjaan mengalir ke infrastruktur yang mengukur dan menggerbangi fitur-fitur itu sebelum fiturnya ada.</p>
+      <p>Oleh karena itu urutan solve-nya tegas: <b>P0 tutup gap klaim-kenyataan</b> (buktikan delegation, stabilkan browser, putuskan nasib OS automation, ukur lokal di hardware nyata) → <b>P1 bikin loop berhenti berperilaku chatbot</b> (R1–R3) → <b>P2 konsolidasi dan diamkan keputusan yang selesai</b> → lalu refactor TS + Rust + Linux + CLI engine berjalan di atas fondasi yang klaimnya jujur.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>Sumber (file repo, dibaca langsung) + koreksi owner:</div>
+    <div class="src">
+      <span>src-tauri/tauri.conf.json</span> — versi aktual 1.1.0-alpha.5 (AGENTS.md masih 1.0.0-alpha.3, gap F8)<br>
+      <span>docs/ADR-001-loop-divergence.md</span> — akar masalah long-horizon, remediasi R1–R4<br>
+      <span>docs/ARCHITECTURE.md</span> — tiga dunia runtime, §6 smoke browser belum jalan, §12 runtime contract<br>
+      <span>docs/ARCHITECTURAL_DIRECTION.md</span> — RFC Opsi A/B/C<br>
+      <span>docs/PLANNED/2026-09-26_hermes-cli-engine-adoption.md</span> — adopsi arsitektur CLI engine (basis kartu HOW)<br>
+      <span>grep repo</span> — osTools.mjs + pc-agent.js hidup di kode; group-tools.js mengasumsikan extension belum aktif<br>
+      <span>koreksi owner 2026-09-26</span> — chatbot-like behavior, extension sering gagal, os-automation tak pernah real, masih pakai Gemini Web + model custom, arah refactor TS+Rust+Linux+CLI engine, identitas fork kedaluwarsa
+    </div>
+    <div style="margin-top: 16px; opacity: 0.7;">Revisi 2 — 2026-09-26 · Mandiri, tanpa dependensi eksternal, aman dibuka offline.</div>
+  </div>
+</footer>
+
+</body>
+</html>

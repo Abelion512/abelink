@@ -321,12 +321,12 @@ Tauri GUI, sidecar, dan CLI/API mendatang — tanpa GUI memiliki state eksekusi.
                          taskRuntime.js
                (src/api/engine/taskRuntime.js)
                               │
-             ┌────────────────┼────────────────┐
-             ▼                ▼                ▼
-        React GUI     sidecar tasks:*       future CLI
-  (useAbelinkPlan,    (DITUNDA — kembali     (belum ada)
-   App startup)        bersama headless
-                       store permanen)
+              ┌────────────────┼────────────────┐
+              ▼                ▼                ▼
+         React GUI     sidecar tasks:*       CLI headless
+   (useAbelinkPlan,    (DITUNDA — kembali     (`bin/` +
+    App startup)        bersama headless       `agentRunner.js`)
+                        store permanen)
              │                │
              └────────────────┼────────────────┘
                               ▼
@@ -381,7 +381,7 @@ Deferral sadar ditandai `ponytail: <ceiling>, <upgrade>` (ledger:
 
 ## 12. Operating Model & Autonomy Subsystems (Hermes × Anthropic Adoption)
 
-Adopsi pola operasi mandiri dan batasan keamanan (merujuk `docs/OPERATING-MODEL.md` & `docs/OPERATING-ADOPTION.md`):
+Adopsi pola operasi mandiri dan batasan keamanan (arsip latar: `docs/archive/OPERATING-MODEL.md` & `docs/archive/OPERATING-ADOPTION.md`):
 
 1. **Sensitive-Write Hardline (Hermes 3-tier):**
    - Boundary penjaga di Rust shell (`src-tauri/src/hardline.rs`) dan Node sidecar (`sidecar/main/tools/_shared.mjs`).

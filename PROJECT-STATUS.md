@@ -1,12 +1,14 @@
-# PROJECT-STATUS — Abelink Agent Linux
+# PROJECT-STATUS — Abelink
 
 > Dokumen publik untuk dibaca manager AI via GitHub. Sanitized: tanpa isi
 > percakapan, tanpa detail internal. Diperbarui tiap sesi besar oleh agen lokal.
-> Terakhir diperbarui: 2026-09-20.
+> Terakhir diperbarui: 2026-09-27.
 
 ## Milestone saat ini
 
-- Stabilisasi `v1.0.0-alpha.x` di branch `main` (versioning: `docs/RELEASE-VERSIONING.md`).
+- Stabilisasi `v1.1.0-alpha.5` di branch `main` (versioning: `docs/RELEASE-VERSIONING.md`).
+- Visi: proactive agentic AI — satu engine (`cli/`), banyak client
+  (GUI, extension, TUI, gateway). Data utama: `docs/abelink-5w1h.html`.
 - Migrasi Tauri fase A/B selesai; sisa B6/C3/C4 di `docs/MIGRATION-PLAN.md`.
   Browser bridge Jalur A (ekstensi MV3) sudah LIVE dan fail-fast bila ekstensi
   belum terpasang; Jalur B (spawn Chromium per profil) masih rencana.
@@ -21,17 +23,17 @@
   dimensi tetap kontrak benar-benar terverifikasi. Kontrak: 
   `docs/PLANNED/2026-09-21_agent-benchmark-matrix.md`.
 
-## Kesehatan terakhir (terverifikasi 2026-09-20, sesi patch PR #46)
+## Kesehatan terakhir (terverifikasi 2026-09-27, sesi docs-completion)
 
-- Full suite: 126 file test, 1294 test pass, 0 fail (`bunx vitest run`).
-- Lint: `bun run lint` exit 0 — 0 error, 1004 warning (tech debt terdaftar,
+- Full suite: 136 file test, 1512 test pass, 0 fail (`bunx vitest run`).
+- Lint: `bun run lint` exit 0 — 0 error, 1012 warning (tech debt terdaftar,
   bukan kegagalan gate).
 - Build renderer: `bun run build` (vite) sukses.
-- Smoke benchmark tanpa network: `node evaluation/smoke.mjs` → LOLOS, termasuk
+- Smoke benchmark tanpa network: `bun evaluation/smoke.mjs` → LOLOS, termasuk
   assertion PR #46 (matriks 30 fixture, switch representasi, integritas
   perbandingan dua arm, identitas model exact).
-- Rust tidak disentuh pada patch ini, jadi `cargo check`/`clippy` tidak dijalankan
-  ulang di sesi tersebut. Gate rilis penuh tetap `bash scripts/verify.sh`.
+- Rust tidak disentuh pada sesi ini, jadi `cargo check`/`clippy` tidak dijalankan
+  ulang. Gate rilis penuh tetap `bash scripts/verify.sh`.
 
 ## Keputusan terakhir
 

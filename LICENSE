@@ -1,28 +1,18 @@
-MARK Agent Source Available License v1.0
+Abelink Proprietary License v1.0
 
-Copyright (c) 2026 Mada Putra.
+Copyright (c) 2026 Abelion Group (Abelion512).
 All rights reserved.
 
-Permission is granted, free of charge, to any person obtaining a copy
-of this software to:
+Abelink adalah produk eksklusif Abelion Group. Tidak ada pihak mana pun
+yang berhak memakai, menyalin, mengubah, mendistribusikan, atau
+memasukkan perangkat lunak ini — seluruhnya maupun sebagian — ke dalam
+produk atau layanan apa pun tanpa izin tertulis sebelumnya dari
+Abelion Group.
 
-- Use the software for personal, educational, and research purposes.
-- Study and modify the source code.
-- Create forks and submit contributions.
-- Distribute unmodified or modified copies under this same license.
-
-The following activities are strictly prohibited without prior written
-permission from the copyright holder:
-
-- Selling this software.
-- Offering this software as a paid service (SaaS).
-- Using this software, in whole or in part, in any commercial product
-  or commercial service.
-- Removing or altering this license or copyright notice.
-- Relicensing this software under another license.
-
-Any derivative work must include this license and clearly state the
-changes that were made.
+Klarifikasi hybrid (ATM): mempelajari ide dan pola dari sumber terbuka
+lainnya (lihat REFERENCES.md) untuk inspirasi arsitektur tetap
+diperbolehkan bagi tim Abelion; penyalinan kode dari sumber luar tunduk
+pada lisensi masing-masing sumber tersebut.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 EXPRESS OR IMPLIED. THE AUTHORS SHALL NOT BE LIABLE FOR ANY CLAIM,
