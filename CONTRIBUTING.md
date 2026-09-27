@@ -75,7 +75,7 @@ Alur:
 5. Jika semua beres → merge ke `main`
 6. Hapus branch lokal setelah merge: jangan biarkan branch merged menumpuk
 
-Jangan pernah push langsung ke `main`, `linux`, atau `master`.
+Jangan pernah push langsung ke `main`.
 
 ## PR Workflow
 

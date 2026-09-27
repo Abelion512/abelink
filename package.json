@@ -4,6 +4,8 @@
   "description": "Abelink (ABELINK - Metacognitive Artificial Relational Knowledge): Privacy-first Autonomous AI OS Companion for Linux",
   "author": "Abelion512",
   "homepage": "https://github.com/Abelion512/abelink/",
+  "license": "UNLICENSED",
+  "private": true,
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
