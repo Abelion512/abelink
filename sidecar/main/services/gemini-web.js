@@ -163,7 +163,7 @@ export function extractGeminiText(rawText = '') {
             best = text
           }
         }
-      } catch (e) {}
+      } catch {}
     }
   }
   return best

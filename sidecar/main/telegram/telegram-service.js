@@ -4,6 +4,17 @@ import os from 'os'
 import { fileURLToPath } from 'url'
 import { getGlobalConfig, abortAllFetches, activeAbortControllers } from '../ai-bridge.js'
 import { isDev } from '../utils/dataHome.mjs'
+import { createTelegramGateway, resolveHeadlessTelegramEnabled } from './gateway.mjs'
+
+// Jalur headless (adopsi Hermes H9, M0/B-6). Runner di-inject agar M5 bisa
+// memasang loop agen sidecar tanpa mengubah berkas ini lagi. Selama belum ada
+// runner, gateway memakai default jujurnya ([SKIP]) — tidak pernah memalsukan
+// balasan "selesai".
+let headlessRunner = null
+/** Pasang runner headless: async (evt) => ({ answer }). */
+export const setTelegramHeadlessRunner = (fn) => {
+  headlessRunner = typeof fn === 'function' ? fn : null
+}
 
 let _Telegraf = null
 async function getTelegraf() {
@@ -77,7 +88,7 @@ const resolveContainedSavePath = (saveDir, fileName) => {
   return contained ? resolvedPath : null
 }
 
-export const startTelegramBot = async (token, mainWindow) => {
+export const startTelegramBot = async (token) => {
   if (!token || !token.trim()) {
     console.error('[Telegram] Token kosong')
     updateStatus('disconnected')
@@ -103,6 +114,16 @@ export const startTelegramBot = async (token, mainWindow) => {
     const Telegraf = await getTelegraf()
     const myBot = new Telegraf(token.trim(), { telegram: telegramOpts })
     bot = myBot
+
+    // Ingres headless opt-in (ABELINK_TELEGRAM_HEADLESS=1). Default OFF: tak
+    // ada perubahan perilaku sama sekali pada jalur renderer.
+    const headlessGateway = resolveHeadlessTelegramEnabled()
+      ? createTelegramGateway({
+          tgAdminIds: config.tgAdminIds || '',
+          runAgent: async (evt) =>
+            headlessRunner ? headlessRunner(evt) : { answer: '[SKIP]: agent loop belum terhubung ke gateway.' }
+        })
+      : null
     // Hidup hanya bila generasi ini masih pemilik DAN instance global masih
     // milik start ini. Dicek ulang setiap melewati await.
     const alive = () => myGeneration === launchGeneration && bot === myBot
@@ -211,6 +232,13 @@ export const startTelegramBot = async (token, mainWindow) => {
       if (!isAdmin) {
         console.log(`[Telegram] Access denied for user ${senderId} (@${senderUsername})`)
         await ctx.reply('Maaf, kamu belum punya akses ke ABELINK.')
+        return
+      }
+
+      // Jalur headless: gateway menangani allowlist/dedupe/antre sesi + balas
+      // sendiri. Tanpa flag, baris ini tak pernah dijalankan.
+      if (headlessGateway) {
+        await headlessGateway.handleUpdate(ctx.update)
         return
       }
 
@@ -584,7 +612,7 @@ export const sendTelegramMessage = async (chatId, text) => {
     const htmlText = formatMarkdownToTelegramHTML(text)
     await bot.telegram.sendMessage(chatId, htmlText, { parse_mode: 'HTML' })
     return { success: true }
-  } catch (err) {
+  } catch {
     try {
       await bot.telegram.sendMessage(chatId, text)
       return { success: true }
@@ -790,7 +818,7 @@ export const sendTelegramToAdmins = async (text) => {
     try {
       const htmlText = formatMarkdownToTelegramHTML(text)
       await bot.telegram.sendMessage(chatId, htmlText, { parse_mode: 'HTML' })
-    } catch (err) {
+    } catch {
       try {
         await bot.telegram.sendMessage(chatId, text)
       } catch (e) {
@@ -856,11 +884,11 @@ export const sendAgentExecutionDone = async (data) => {
     if (reqObj?.loadingMsgId) {
       try {
         await bot.telegram.deleteMessage(chatId, reqObj.loadingMsgId)
-      } catch (e) {}
+      } catch {}
     }
     try {
       await bot.telegram.sendMessage(chatId, replyText, { parse_mode: 'Markdown' })
-    } catch (e) {
+    } catch {
       await bot.telegram.sendMessage(chatId, replyText).catch(() => {})
     }
   }

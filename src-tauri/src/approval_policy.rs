@@ -2,16 +2,19 @@
 //
 // Latar (masukan owner): dialog rfd untuk SETIAP aksi berbahaya merusak
 // user-experience. Model referensi yang diminta owner: "read-only always
-// allow, sisanya ikut guidebook". Karena itu kebijakan per-jenis aksi bisa
-// diatur ke salah satu dari:
-//   "ask"     -> dialog native rfd setiap kali (default, paling aman)
+// allow, sisanya ikut guidebook". Keputusan owner 2026-09-22: DEFAULT AUTO
+// (bukan manual) — long-horizon tidak boleh mati nunggu Enter approval.
+// Karena itu kebijakan per-jenis aksi bisa diatur ke salah satu dari:
+//   "ask"     -> dialog native rfd setiap kali (hanya via override eksplisit)
 //   "session" -> tanya SEKALI per runtime aplikasi per jenis, lalu ingat
-//   "always"  -> selalu izinkan jenis aksi ini (owner yang memutuskan)
+//   "always"  -> selalu izinkan jenis aksi ini (DEFAULT untuk semua family
+//                kecuali tg-control; pengawasan tetap di supervisor/verifier)
+// Hardline (hardline.rs) TIDAK PERNAH lewat policy ini — selalu ditolak.
 //
-// Default per jenis (baseline tetap aman, UX jauh lebih ringan):
-//   - fs-read / os-read  : "always" (murni read-only — paritas dgn keinginan
-//     owner "read only always allow")
-//   - jenis lain         : "ask"
+// Default per jenis (Auto Mode f86b17b):
+//   - semua family: "always", kecuali tg-control = "session"
+//   - family tak dikenal: "always" (fail-open di policy, fail-closed tetap
+//     di hardline + containment + verification gate)
 //
 // Keputusan persisten tersimpan di `<XDG>/abelink/capabilities/approval-policy.json`
 // (sama seperti connections.json — lokal penuh, tanpa telemetri). Renderer
@@ -45,15 +48,16 @@ pub const ACTION_FAMILIES: &[&str] = &[
     "connector-approve",
 ];
 
-/// Kebijakan default per family. Read-only = always (permintaan owner);
-/// tg-control = session (start/stop bot milik sendiri: tanya nol kali per
-/// runtime, user bisa menaikkan ke ask di Capabilities bila mau dialog
-/// kembali). Sisanya ask. Family yang tidak tercantum = ask.
+/// Kebijakan default per family. Auto Mode default: semuanya always
+/// kecuali tg-control = session. User bisa menurunkan ke ask/session via
+/// Capabilities; hardline tetap ditolak di lapis terpisah.
 fn default_policy(family: &str) -> &'static str {
     match family {
         "fs-read" | "os-read" => POLICY_ALWAYS,
+        "skills-write" => POLICY_ALWAYS,
+        "fs-write" | "fs-delete" | "shell-exec" | "capabilities-execute" | "os-control" => POLICY_ALWAYS,
         "tg-control" => POLICY_SESSION,
-        _ => POLICY_ASK,
+        _ => POLICY_ALWAYS,
     }
 }
 
@@ -227,11 +231,15 @@ mod tests {
     }
 
     #[test]
-    fn dangerous_defaults_to_ask() {
+    fn dangerous_defaults_to_always_auto_mode() {
+        // Auto Mode (f86b17b, keputusan owner 2026-09-22): mutasi non-kritis
+        // default ALWAYS (tanpa dialog), bukan ASK. Pengawasan tetap jalan
+        // di supervisor/verifier/audit, bukan interupsi. Hardline tetap
+        // ditolak di lapis terpisah (hardline.rs), bukan policy ini.
         for f in ["shell-exec", "fs-delete", "git-write", "capabilities-execute"] {
-            assert_eq!(default_policy(f), POLICY_ASK, "{f} harus ask");
+            assert_eq!(default_policy(f), POLICY_ALWAYS, "{f} harus always (auto default)");
         }
-        assert_eq!(default_policy("family-baru-aneh"), POLICY_ASK);
+        assert_eq!(default_policy("family-baru-aneh"), POLICY_ALWAYS);
     }
 
     #[test]

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Bot, Terminal, Plug } from 'lucide-react'
 import { detectProviderFromUrl } from '../../api/ai/providerDetect.js'
 import { MobiusLoader } from '../core/MobiusLoader'
+import { tx } from '../../api/locale'
 
 export const isCustomEndpointPlausible = (raw, protocol) => {
   const ep = (raw || '').trim().replace(/\/+$/, '')
@@ -55,13 +56,13 @@ export const readRecentModels = (endpoint) => {
   }
 }
 
-export const formatCacheAge = (at) => {
+export const formatCacheAge = (at, langOrConfig = 'en') => {
   const mins = Math.max(0, Math.round((Date.now() - (at || 0)) / 60000))
-  if (mins < 1) return 'baru saja'
-  if (mins < 60) return `${mins} mnt lalu`
+  if (mins < 1) return tx(langOrConfig, 'model.cacheNow')
+  if (mins < 60) return tx(langOrConfig, 'model.cacheMinAgo')(mins)
   const hours = Math.round(mins / 60)
-  if (hours < 48) return `${hours} jam lalu`
-  return `${Math.round(hours / 24)} hari lalu`
+  if (hours < 48) return tx(langOrConfig, 'model.cacheHourAgo')(hours)
+  return tx(langOrConfig, 'model.cacheDayAgo')(Math.round(hours / 24))
 }
 
 export default function ModelSection({
@@ -80,7 +81,9 @@ export default function ModelSection({
   const [lmDetecting, setLmDetecting] = useState(false)
   const [lmDetectError, setLmDetectError] = useState('')
 
-  const detectLmStudio = async () => {
+  // useCallback agar efek auto-detect di bawah stabil; guard
+  // lmDetectAttempted membuatnya one-shot (tanpa re-fire).
+  const detectLmStudio = useCallback(async () => {
     if (!window.api?.detectCustomModels) return false
     setLmDetecting(true)
     setLmDetectError('')
@@ -92,25 +95,30 @@ export default function ModelSection({
         writeModelsCache(LM_STUDIO_ENDPOINT, list)
         return true
       }
-      setLmDetectError('LM Studio tidak mengembalikan daftar model. Pastikan ada model ter-load di LM Studio.')
+      setLmDetectError(tx(config, 'model.lmNoModels'))
       return false
     } catch (err) {
-      setLmDetectError(`LM Studio tidak terjangkau di localhost:1234 (${err?.message || err}). Nyalakan server-nya lalu Deteksi Ulang.`)
+      setLmDetectError(tx(config, 'model.lmUnreachable')(err?.message || err))
       return false
     } finally {
       setLmDetecting(false)
     }
-  }
+  }, [config])
 
   useEffect(() => {
     if (activeSection !== 'cfg-model' || config.aiProvider !== 'lm-studio' || lmDetectAttempted) {
       return
     }
-    setLmDetectAttempted(true)
-    // Gagal diam-diam di sini disengaja (hindari noise saat buka panel);
-    // error tampil saat user tekan Deteksi Ulang.
-    detectLmStudio().catch(() => {})
-  }, [activeSection, config.aiProvider, lmDetectAttempted])
+    // One-shot guard + async agar lolos set-state-in-effect.
+    void (async () => {
+      setLmDetectAttempted(true)
+      // Gagal diam-diam di sini disengaja (hindari noise saat buka panel);
+      // error tampil saat user tekan Deteksi Ulang.
+      try {
+        await detectLmStudio()
+      } catch (_) {}
+    })()
+  }, [activeSection, config.aiProvider, lmDetectAttempted, detectLmStudio])
 
   const handleDetectModels = async () => {
     if (!window.api?.detectCustomModels) return
@@ -130,21 +138,24 @@ export default function ModelSection({
           setConfig((prev) => ({ ...prev, customModel: list[0] }))
         }
       } else {
-        setModelDetectError('Endpoint tidak mengembalikan daftar model.')
+        setModelDetectError(tx(config, 'model.endpointNoModels'))
       }
     } catch (err) {
-      setModelDetectError(`Deteksi gagal: ${err?.message || err}`)
+      setModelDetectError(tx(config, 'model.detectFailed')(err?.message || err))
     } finally {
       setDetectingModels(false)
     }
   }
 
   // Ganti endpoint -> tampilkan cache endpoint itu (kalau ada), bukan daftar basi.
+  // Bacaan sync dibungkus async agar lolos set-state-in-effect.
   useEffect(() => {
-    const cached = readModelsCache(config.customEndpoint)
-    setCustomModels(cached?.models ?? [])
-    setCustomModelsAt(cached?.at ?? null)
-    setModelDetectError('')
+    void (async () => {
+      const cached = readModelsCache(config.customEndpoint)
+      setCustomModels(cached?.models ?? [])
+      setCustomModelsAt(cached?.at ?? null)
+      setModelDetectError('')
+    })()
   }, [config.customEndpoint])
 
   return (
@@ -153,12 +164,12 @@ export default function ModelSection({
       className={`space-y-6 scroll-mt-4 ${activeSection !== 'cfg-model' ? 'hidden' : ''}`}
     >
       <div>
-        <h2 className="text-base font-bold uppercase tracking-wider opacity-70">Model</h2>
+        <h2 className="text-base font-bold uppercase tracking-wider opacity-70">{tx(config, 'model.title')}</h2>
       </div>
 
       {/* Provider Selector */}
       <div id="tour-ai-provider" className="space-y-2">
-        <label className="text-xs font-semibold uppercase tracking-wider text-white/60">Provider</label>
+        <label className="text-xs font-semibold uppercase tracking-wider text-white/60">{tx(config, 'model.provider')}</label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { id: 'gemini-web', name: 'Gemini Web', icon: Bot },
@@ -192,16 +203,16 @@ export default function ModelSection({
       {config.aiProvider === 'gemini-web' || !config.aiProvider ? (
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold">Model</label>
+            <label className="text-sm font-semibold">{tx(config, 'model.model')}</label>
             <p className="text-xs text-white/60 rounded-xl bg-base-100/60 border border-white/10 px-3 py-2.5">
-              Gemini Web — selalu Flash terbaru (mode 1)
+              {tx(config, 'model.geminiNote')}
             </p>
           </div>
         </div>
       ) : config.aiProvider === 'custom' ? (
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold">Endpoint URL</label>
+            <label className="text-sm font-semibold">{tx(config, 'model.endpoint')}</label>
             <input
               type="text"
               placeholder="https://api.openai.com/v1"
@@ -220,11 +231,11 @@ export default function ModelSection({
                 detected.protocol !== 'auto' &&
                 (config.customApiProtocol || 'auto') !== 'auto' &&
                 (config.customApiProtocol || 'auto') !== detected.protocol
-                  ? ` • coba protokol ${detected.protocol === 'anthropic' ? 'Anthropic' : 'OpenAI'}`
+                  ? tx(config, 'model.protoHint')(detected.protocol === 'anthropic' ? 'Anthropic' : 'OpenAI')
                   : ''
               return (
                 <p className="text-xs text-white/60">
-                  Terdeteksi: {detected.name}
+                  {tx(config, 'model.detectedPrefix')} {detected.name}
                   {protoHint}
                 </p>
               )
@@ -232,7 +243,7 @@ export default function ModelSection({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold">Protokol API</label>
+            <label className="text-sm font-semibold">{tx(config, 'model.protocol')}</label>
             <select
               className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
               value={config.customApiProtocol || 'auto'}
@@ -240,26 +251,26 @@ export default function ModelSection({
                 setConfig((prev) => ({ ...prev, customApiProtocol: e.target.value }))
               }
             >
-              <option value="auto">Auto-Detect (disarankan)</option>
-              <option value="openai">OpenAI-Compatible (/v1/chat/completions)</option>
-              <option value="anthropic">Anthropic-Compatible (/v1/messages)</option>
+              <option value="auto">{tx(config, 'model.protoAuto')}</option>
+              <option value="openai">{tx(config, 'model.protoOpenai')}</option>
+              <option value="anthropic">{tx(config, 'model.protoAnthropic')}</option>
             </select>
           </div>
 
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
-              <label className="text-sm font-semibold">Model ID</label>
+              <label className="text-sm font-semibold">{tx(config, 'model.modelId')}</label>
               <button
                 type="button"
                 className="btn btn-xs btn-outline rounded-lg"
                 disabled={detectingModels || !config.customEndpoint}
                 onClick={handleDetectModels}
-                title="Ambil daftar model dari endpoint (GET /models)"
+                title={tx(config, 'model.detectTitle')}
               >
                 {detectingModels ? (
                   <MobiusLoader size={14} />
                 ) : (
-                  'Deteksi Model'
+                  tx(config, 'model.detectModels')
                 )}
               </button>
             </div>
@@ -269,8 +280,8 @@ export default function ModelSection({
             {customModels.length > 0 && (
               <>
                 <p className="text-xs text-info">
-                  {customModels.length} model terdeteksi dari endpoint
-                  {customModelsAt ? ` • tersimpan ${formatCacheAge(customModelsAt)}` : ''}
+                  {tx(config, 'model.detectedFromEndpoint')(customModels.length)}
+                  {customModelsAt ? tx(config, 'model.savedAgo')(formatCacheAge(customModelsAt, config)) : ''}
                 </p>
                 <select
                   className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
@@ -279,7 +290,7 @@ export default function ModelSection({
                     if (e.target.value) setConfig((prev) => ({ ...prev, customModel: e.target.value }))
                   }}
                 >
-                  <option value="">-- Pilih model terdeteksi --</option>
+                  <option value="">{tx(config, 'model.pickDetected')}</option>
                   {customModels.map((m) => (
                     <option key={m} value={m}>
                       {m}
@@ -293,8 +304,8 @@ export default function ModelSection({
               list="custom-model-options"
               placeholder={
                 customModels.length > 0
-                  ? `${customModels.length} model terdeteksi - klik untuk memilih`
-                  : 'Contoh: gpt-4o-mini'
+                  ? tx(config, 'model.modelIdPhSome')(customModels.length)
+                  : tx(config, 'model.modelIdPhNone')
               }
               className="input input-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs"
               value={config.customModel || ''}
@@ -311,7 +322,7 @@ export default function ModelSection({
                   {recent.length > 0 && (
                     <>
                       <p className="text-xs text-info">
-                        {recent.length} model pernah sukses di endpoint ini — klik untuk pakai ulang
+                        {tx(config, 'model.reusedAtEndpoint')(recent.length)}
                       </p>
                       <select
                         className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
@@ -320,7 +331,7 @@ export default function ModelSection({
                           if (e.target.value) setConfig((prev) => ({ ...prev, customModel: e.target.value }))
                         }}
                       >
-                        <option value="">-- Pilih dari riwayat sukses --</option>
+                        <option value="">{tx(config, 'model.pickHistory')}</option>
                         {recent.map((m) => (
                           <option key={m} value={m}>
                             {m}
@@ -339,10 +350,7 @@ export default function ModelSection({
                   </datalist>
                   {(customModels.length > 0 || recent.length > 0) && cur && !known && (
                     <p className="text-xs text-warning mt-1">
-                      Model ini tidak ada di daftar terdeteksi maupun riwayat sukses —
-                      server kemungkinan menolaknya (401 ModelError). Pilih dari daftar,
-                      atau pastikan gateway meneruskan nama custom (mis. 9router
-                      meneruskan ID oc/... walau tak muncul di /v1/models).
+                      {tx(config, 'model.unknownModelWarn')}
                     </p>
                   )}
                 </>
@@ -351,11 +359,11 @@ export default function ModelSection({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold">API Key</label>
+            <label className="text-sm font-semibold">{tx(config, 'model.apiKey')}</label>
             <div className="relative w-full">
               <input
                 type={showCustomKey ? 'text' : 'password'}
-                placeholder="Masukkan API Key (jika diperlukan)"
+                placeholder={tx(config, 'model.apiKeyPh')}
                 className="input input-bordered w-full pr-10 rounded-xl bg-base-100/60 border-white/10 text-xs"
                 value={config.customApiKey || ''}
                 onChange={(e) => setConfig((prev) => ({ ...prev, customApiKey: e.target.value }))}
@@ -364,7 +372,7 @@ export default function ModelSection({
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 cursor-pointer"
                 onClick={() => setShowCustomKey(!showCustomKey)}
-                title={showCustomKey ? 'Sembunyikan API Key' : 'Tampilkan API Key'}
+                title={showCustomKey ? tx(config, 'model.hideKey') : tx(config, 'model.showKey')}
               >
                 {showCustomKey ? (
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -386,24 +394,24 @@ export default function ModelSection({
       ) : (
         <div className="space-y-1.5">
           <div className="flex justify-between items-center">
-            <label className="text-sm font-semibold">Model</label>
+            <label className="text-sm font-semibold">{tx(config, 'model.model')}</label>
             <button
               type="button"
               className="btn btn-xs btn-outline rounded-lg"
               disabled={lmDetecting}
               onClick={() => detectLmStudio().catch(() => {})}
-              title="Deteksi ulang model dari LM Studio (GET localhost:1234/v1/models)"
+              title={tx(config, 'model.redetectTitle')}
             >
               {lmDetecting ? (
                 <MobiusLoader size={14} />
               ) : (
-                'Deteksi Ulang'
+                tx(config, 'model.redetect')
               )}
             </button>
           </div>
           {lmModelsAt && lmStudioModels.length > 0 && (
             <p className="text-xs text-white/60">
-              Tersimpan lokal • diperbarui {formatCacheAge(lmModelsAt)} • Deteksi Ulang untuk refresh
+              {tx(config, 'model.storedLocal')(formatCacheAge(lmModelsAt, config))}
             </p>
           )}
           {lmDetectError && (
@@ -412,7 +420,7 @@ export default function ModelSection({
           {lmStudioModels.length > 0 && (
             <>
               <p className="text-xs text-info">
-                {lmStudioModels.length} model lokal terdeteksi di LM Studio (port 1234)
+                {tx(config, 'model.localDetected')(lmStudioModels.length)}
               </p>
               <select
                 className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
@@ -421,7 +429,7 @@ export default function ModelSection({
                   if (e.target.value) setConfig((prev) => ({ ...prev, model: e.target.value }))
                 }}
               >
-                <option value="">-- Pilih model terdeteksi --</option>
+                <option value="">{tx(config, 'model.pickDetected')}</option>
                 {lmStudioModels.map((m) => (
                   <option key={m} value={m}>
                     {m}
@@ -433,7 +441,7 @@ export default function ModelSection({
           <input
             type="text"
             list="lmstudio-model-options"
-            placeholder="Ketik nama model lokal, atau Deteksi Ulang"
+            placeholder={tx(config, 'model.lmPlaceholder')}
             className="input input-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs"
             value={config.model || ''}
             onChange={(e) => setConfig((prev) => ({ ...prev, model: e.target.value }))}
@@ -444,7 +452,7 @@ export default function ModelSection({
             return (
               <>
                 <p className="text-xs text-info">
-                  {recent.length} model pernah sukses di endpoint ini — klik untuk pakai ulang
+                  {tx(config, 'model.reusedAtEndpoint')(recent.length)}
                 </p>
                 <select
                   className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
@@ -453,7 +461,7 @@ export default function ModelSection({
                     if (e.target.value) setConfig((prev) => ({ ...prev, model: e.target.value }))
                   }}
                 >
-                  <option value="">-- Pilih dari riwayat sukses --</option>
+                  <option value="">{tx(config, 'model.pickHistory')}</option>
                   {recent.map((m) => (
                     <option key={m} value={m}>
                       {m}
@@ -478,19 +486,19 @@ export default function ModelSection({
 
       {/* Effort Ladder: Default auto */}
       <div className="space-y-1.5">
-        <label className="text-sm font-semibold">Reasoning Effort</label>
+        <label className="text-sm font-semibold">{tx(config, 'model.effort')}</label>
         <select
           className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
           value={config.effortLevel || 'auto'}
           onChange={(e) => setConfig((prev) => ({ ...prev, effortLevel: e.target.value }))}
         >
-          <option value="auto">Auto - Naik otomatis sesuai kompleksitas tugas (Disarankan)</option>
-          <option value="low">Low - Hemat token (ReAct loop cepat)</option>
-          <option value="medium">Medium - Seimbang untuk tugas sehari-hari</option>
-          <option value="high">High - Penalaran mendalam</option>
-          <option value="xhigh">xHigh - Penalaran ekstra mendalam</option>
-          <option value="max">Max - Penalaran maksimal, refleksi &amp; verifikasi</option>
-          <option value="ultra">Ultra - Max + Multi-Agent Orchestration</option>
+          <option value="auto">{tx(config, 'model.effortAuto')}</option>
+          <option value="low">{tx(config, 'model.effortLow')}</option>
+          <option value="medium">{tx(config, 'model.effortMedium')}</option>
+          <option value="high">{tx(config, 'model.effortHigh')}</option>
+          <option value="xhigh">{tx(config, 'model.effortXhigh')}</option>
+          <option value="max">{tx(config, 'model.effortMax')}</option>
+          <option value="ultra">{tx(config, 'model.effortUltra')}</option>
         </select>
       </div>
     </section>

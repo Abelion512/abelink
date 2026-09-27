@@ -90,7 +90,7 @@ self.onmessage = async (e) => {
               await caches.delete('transformers-cache');
               await caches.delete('experimental_transformers-hash-cache');
             }
-          } catch (e) {}
+          } catch {}
         }
         self.postMessage({ type: 'error', error: err.message || String(err) });
       }

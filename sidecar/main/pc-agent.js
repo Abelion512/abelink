@@ -5,7 +5,7 @@
 
 import { spawn } from 'child_process'
 import { join } from 'path'
-import { app, BrowserWindow, globalShortcut, screen } from 'electron'
+import { BrowserWindow, globalShortcut, screen } from 'electron'
 import fs from 'fs'
 
 
@@ -20,7 +20,6 @@ let daemonBuffer = ''
 let overlayWindow = null
 let activeChildProcess = null
 let isStoppedByUser = false
-let lastStopTime = 0
 let lastStopReason = null
 let overlayHideTimeout = null
 let pendingAskResolve = null
@@ -50,7 +49,6 @@ function isStopActive() {
 export function resetEmergencyStop() {
   if (!isStoppedByUser) return
   isStoppedByUser = false
-  lastStopTime = 0
   lastStopReason = null
   console.log('[PC-Agent] Emergency stop direset secara eksplisit.')
 }
@@ -224,7 +222,7 @@ function showPCOverlay() {
       }
       try {
         overlayWindow.webContents?.executeJavaScript?.('if (typeof resetBanner === "function") resetBanner();')
-      } catch (err) {}
+      } catch {}
       return
     }
   } catch (err) {
@@ -305,7 +303,7 @@ function hidePCOverlay() {
         `)
         overlayWindow.setSize(340, 72)
         overlayWindow.setFocusable(false)
-      } catch (err) {}
+      } catch {}
     }
     return
   }
@@ -313,12 +311,12 @@ function hidePCOverlay() {
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     try {
       overlayWindow.close()
-    } catch (err) {}
+    } catch {}
   }
   overlayWindow = null
   try {
     globalShortcut.unregister('CommandOrControl+Shift+S')
-  } catch (err) {}
+  } catch {}
 }
 
 function scheduleHidePCOverlay() {
@@ -337,16 +335,15 @@ function triggerEmergencyStop() {
   if (activeChildProcess) {
     try {
       activeChildProcess.kill()
-    } catch (err) {}
+    } catch {}
     activeChildProcess = null
   }
   if (daemonProcess) {
-    try { daemonProcess.kill() } catch(e){}
+    try { daemonProcess.kill() } catch{}
     daemonProcess = null
     daemonReady = false
   }
   isStoppedByUser = true
-  lastStopTime = Date.now()
   lastStopReason = 'User menekan tombol eksekusi Stop (Ctrl+Shift+S).'
 
   // AI akan menerima status "stopped_by_user", lalu AI yang akan
@@ -356,7 +353,7 @@ function triggerEmergencyStop() {
       overlayWindow.webContents.executeJavaScript(`
         document.getElementById('banner-subtitle').innerHTML = '<strong style="color: #ef4444;">STOPPED! Menunggu AI...</strong>';
       `)
-    } catch (err) {}
+    } catch {}
   }
 }
 
@@ -404,7 +401,7 @@ export async function closePCSession() {
 /**
  * Ask user via PC automation overlay modal
  */
-export async function askUserPC(query = '') {
+export async function askUserPC(_query = '') {
   if (!isSessionOpen) {
     return JSON.stringify({
       status: 'error',
@@ -526,10 +523,10 @@ function stopDaemon() {
   if (daemonProcess && !daemonProcess.killed) {
     try {
       daemonProcess.stdin.write(JSON.stringify({ cmd: 'exit' }) + '\n')
-    } catch (e) {}
+    } catch {}
     setTimeout(() => {
       if (daemonProcess && !daemonProcess.killed) {
-        try { daemonProcess.kill() } catch (e) {}
+        try { daemonProcess.kill() } catch {}
       }
       daemonProcess = null
       daemonReady = false
@@ -543,7 +540,7 @@ function stopDaemon() {
 let commandChain = Promise.resolve()
 
 function dispatchDaemonCommand(cmd) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     if (!daemonProcess || daemonProcess.killed || !daemonReady) {
       resolve(JSON.stringify({ status: 'error', message: 'Daemon not running' }))
       return
@@ -690,7 +687,7 @@ export async function readDesktop(options = {}, query = '') {
     if (uiText) {
       try {
         parsed = JSON.parse(uiText)
-      } catch (e) {
+      } catch {
         console.warn('[PC-Agent] Failed to parse UIAutomation JSON, falling back to OCR')
       }
     }

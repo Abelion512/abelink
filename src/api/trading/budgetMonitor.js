@@ -1,4 +1,4 @@
-import { tradingDb, addLedgerEntry, getBalance, listAllocations } from './wallet.js'
+import { tradingDb, getBalance } from './wallet.js'
 
 // Token-Budget Monitor — otak self-funding wallet (fase 1: monitor + guard).
 //
