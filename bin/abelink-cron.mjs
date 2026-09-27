@@ -225,7 +225,7 @@ export function createJob(input = {}, nowMs = Date.now()) {
     enabled: input.enabled !== false,
     delivery: { platform: delivery.platform, target: delivery.target || null },
     effort: input.effort || 'low',
-    maxTurns: Number(input.maxTurns) > 0 ? Number(input.maxTurns) : 15,
+    maxTurns: Number(input.maxTurns) > 0 ? Number(input.maxTurns) : null,
     workspace: input.workspace || process.cwd(),
     createdAt: new Date(now).toISOString(),
     lastRunAt: null,
@@ -526,7 +526,7 @@ async function main() {
         timezone: takeFlag(args, '--timezone'),
         delivery: { platform, target: tgt.join(':') || null },
         effort: takeFlag(args, '--effort') || 'low',
-        maxTurns: takeFlag(args, '--max-turns') ? Number(takeFlag(args, '--max-turns')) : 15,
+        maxTurns: takeFlag(args, '--max-turns') ? Number(takeFlag(args, '--max-turns')) : undefined,
         workspace: takeFlag(args, '--workspace') || process.cwd(),
         enabled: !hasFlag(args, '--disabled')
       })
