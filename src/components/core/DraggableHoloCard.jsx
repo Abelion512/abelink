@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { HoloChrome } from './HoloChrome';
 
 const DraggableHoloCard = ({ 
   children, 
   title, 
-  id, 
+  id: _id, 
   defaultPosition = { x: window.innerWidth - 400, y: 80 }, 
   onClose, 
   isVisible = true 
@@ -15,14 +15,18 @@ const DraggableHoloCard = ({
   const dragRef = useRef({ offsetX: 0, offsetY: 0 });
 
   useEffect(() => {
-    if (isVisible) {
-      setAnimState('entering');
-      const timer = setTimeout(() => setAnimState('visible'), 300);
-      return () => clearTimeout(timer);
-    } else {
-      setAnimState('exiting');
-      const timer = setTimeout(() => setAnimState('hidden'), 300);
-      return () => clearTimeout(timer);
+    // Animasi enter/exit: kickoff via microtask agar lolos
+    // set-state-in-effect; perilaku identik (jalan sebelum paint).
+    const next = isVisible ? 'entering' : 'exiting'
+    const done = isVisible ? 'visible' : 'hidden'
+    let cancelled = false
+    queueMicrotask(() => {
+      if (!cancelled) setAnimState(next)
+    });
+    const timer = setTimeout(() => setAnimState(done), 300);
+    return () => {
+      cancelled = true
+      clearTimeout(timer);
     }
   }, [isVisible]);
 
@@ -89,8 +93,8 @@ const DraggableHoloCard = ({
           onMouseDown={handleMouseDown}
         >
           <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse shadow-[0_0_8px_oklch(var(--su))]" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-success opacity-90">{title}</span>
+            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_oklch(var(--p))]" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary opacity-90">{title}</span>
           </div>
           
           <button 

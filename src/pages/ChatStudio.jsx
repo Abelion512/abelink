@@ -1,16 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
-  MessageSquare,
   Plus,
   Trash2,
   Edit2,
   Search,
-  Pin,
-  ArrowLeft,
-  Sparkles,
   Check,
-  RotateCcw,
   Bot,
   Folder,
   PanelLeft
@@ -19,7 +13,6 @@ import { useChat } from '../contexts/useChat'
 import {
   getAllSessions,
   createSession,
-  saveSession,
   deleteSession,
   renameSession,
   getChatData,
@@ -27,11 +20,11 @@ import {
 } from '../api/db'
 import ChatList from '../components/ChatList'
 import InputBar from '../components/core/InputBar'
+import { TocMinimap, toMinimapAnchorId } from '../components/core/TocMinimap'
 import { useConfirm } from '../hooks/useConfirm'
 import { useManualCompaction } from '../hooks/useManualCompaction'
 
 const ChatStudio = () => {
-  const navigate = useNavigate()
   const chatContext = useChat()
   const {
     chatData: mainChatData,
@@ -39,7 +32,6 @@ const ChatStudio = () => {
     handlePlanningCommand,
     isLoading: isMainLoading,
     isAgentBusy,
-    runningSessionId,
     runningSessionIds = [],
     handleStop,
     isRecording,
@@ -57,25 +49,13 @@ const ChatStudio = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [editingSessionId, setEditingSessionId] = useState(null)
   const [editingTitle, setEditingTitle] = useState('')
-  const [isLocalLoading, setIsLocalLoading] = useState(false)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024)
+  const [, setIsLocalLoading] = useState(false)
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   const messagesContainerRef = useRef(null)
   const messagesEndRef = useRef(null)
-  const localAbortControllerRef = useRef(null)
   const { confirm, ModalComponent } = useConfirm()
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        setIsSidebarOpen(false)
-      } else {
-        setIsSidebarOpen(true)
-      }
-    }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -98,11 +78,52 @@ const ChatStudio = () => {
   }
 
   useEffect(() => {
-    loadAllSessions()
+    void (async () => {
+      await loadAllSessions()
+    })()
   }, [])
 
   // Direct display pipeline: Main Thread uses mainChatData directly with 0ms lag
-  const currentDisplayMessages = activeSessionId === 1 ? mainChatData || [] : activeSessionData
+  // (memoized on raw sources so downstream memos keep stable deps).
+  const currentDisplayMessages = useMemo(
+    () => (activeSessionId === 1 ? mainChatData || [] : activeSessionData),
+    [activeSessionId, mainChatData, activeSessionData]
+  )
+
+  const visibleMessages = useMemo(
+    () => currentDisplayMessages.slice(-visibleMessageCount),
+    [currentDisplayMessages, visibleMessageCount]
+  )
+
+  // Minimap items mirror the visible slice: user = depth 2, assistant = depth 3.
+  const minimapItems = useMemo(
+    () =>
+      visibleMessages
+        .map((msg, idx) => {
+          const rawId = msg.id || msg.created_at || idx
+          const raw = msg.content
+          let text = ''
+          if (typeof raw === 'string') text = raw.startsWith('data:image/') ? '' : raw
+          else if (Array.isArray(raw)) {
+            text = raw
+              .map((item) => {
+                if (!item) return ''
+                if (typeof item === 'string') return item.startsWith('data:image/') ? '' : item
+                return item.type === 'text' ? item.text || '' : ''
+              })
+              .join('\n')
+          } else if (raw != null && typeof raw !== 'object') text = String(raw)
+          text = text.replace(/\s+/g, ' ').trim()
+          if (!text) return null
+          return {
+            id: toMinimapAnchorId(rawId),
+            title: text.slice(0, 60),
+            depth: msg.role === 'user' ? 2 : 3
+          }
+        })
+        .filter(Boolean),
+    [visibleMessages]
+  )
 
   // Kompaksi manual + tracker gauge (session compaction).
   useManualCompaction({
@@ -118,16 +139,18 @@ const ChatStudio = () => {
     runningSessionIds.map(Number).includes(Number(activeSessionId)) ||
     (Number(activeSessionId) === 1 && !runningSessionIds.length && (isMainLoading || isAgentBusy))
 
-  // Sync active session data for custom sessions (id > 1)
+  // Sync active session data for custom sessions (id > 1).
+  // Reset + fetch dibungkus async agar lolos set-state-in-effect.
   useEffect(() => {
-    setVisibleMessageCount(30)
-    if (activeSessionId === 1) return
     let isCancelled = false
-    getChatData(activeSessionId).then((data) => {
+    void (async () => {
+      setVisibleMessageCount(30)
+      if (activeSessionId === 1) return
+      const data = await getChatData(activeSessionId)
       if (!isCancelled) {
         setActiveSessionData(data || [])
       }
-    })
+    })()
     return () => {
       isCancelled = true
     }
@@ -217,39 +240,13 @@ const ChatStudio = () => {
     }
   }
 
-  const handleClearSessionChat = async (e, id) => {
-    if (e?.stopPropagation) e.stopPropagation()
-    const numId = Number(id)
-    const isMain = numId === 1
-    const target = sessions.find((s) => Number(s.id) === numId)
-    const titleName = isMain ? (target?.title || 'Main Thread') : (target?.title || 'Sesi ini')
-
-    const confirmed = await confirm({
-      title: `Bersihkan Percakapan ${titleName}`,
-      message: `Apakah kamu yakin ingin mengosongkan seluruh riwayat obrolan pada ${titleName}?`,
-      confirmText: 'Bersihkan',
-      confirmColor: 'btn-warning'
-    })
-
-    if (confirmed?.isConfirmed) {
-      if (isMain) {
-        setMainChatData?.([])
-        await deleteSession(1)
-      } else {
-        setActiveSessionData([])
-        await saveSession(numId, [])
-      }
-      await loadAllSessions()
-    }
-  }
-
   const handleStartRename = (e, session) => {
     e.stopPropagation()
     setEditingSessionId(session.id)
     setEditingTitle(session.title)
   }
 
-  const handleSaveRename = async (id) => {
+  const handleSaveRenameSession = async (id) => {
     if (editingTitle.trim()) {
       await renameSession(id, editingTitle.trim())
       await loadAllSessions()
@@ -312,10 +309,10 @@ const ChatStudio = () => {
   }
 
   return (
-    <div className="h-screen w-screen pt-10 bg-base-300 flex flex-col overflow-hidden text-base-content select-none">
-      {/* Top Navigation Bar */}
+    <div className="h-screen w-screen pt-10 bg-[#161618] flex flex-col overflow-hidden text-white select-none">
+      {/* Top Navigation Bar with Safe Area Gutter */}
       <div
-        className="h-14 px-5 border-b border-white/[0.08] flex items-center justify-between bg-base-200/60 backdrop-blur-2xl shrink-0 z-30 relative select-none"
+        className="h-14 pl-16 pr-28 border-b border-white/10 flex items-center justify-between bg-[#1c1c1e]/80 backdrop-blur-xl shrink-0 z-30 relative select-none"
         style={{ WebkitAppRegion: 'drag' }}
       >
         <div
@@ -324,46 +321,34 @@ const ChatStudio = () => {
         >
           <button
             type="button"
-            onClick={() => navigate('/')}
-            className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white cursor-pointer"
-            style={{ WebkitAppRegion: 'no-drag' }}
-            title="Kembali ke Dashboard Utama"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsSidebarOpen((prev) => !prev)}
-            className={`btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white cursor-pointer ${
-              isSidebarOpen ? 'bg-white/[0.08] text-white' : ''
+            onClick={() => setIsSidebarOpen((v) => !v)}
+            className={`p-2 rounded-xl border transition-all ${
+              isSidebarOpen
+                ? 'bg-[#0a84ff]/20 border-[#0a84ff]/40 text-[#0a84ff]'
+                : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10'
             }`}
-            style={{ WebkitAppRegion: 'no-drag' }}
-            title={isSidebarOpen ? 'Tutup Panel Samping (Ctrl+B)' : 'Buka Panel Samping (Ctrl+B)'}
+            title={`${isSidebarOpen ? 'Sembunyikan' : 'Tampilkan'} Daftar Sesi (Ctrl+B)`}
           >
-            <PanelLeft className="w-4 h-4" />
+            <PanelLeft size={16} />
           </button>
-          <div className="flex items-center gap-2.5 ml-1">
-            <div className="w-7 h-7 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary shadow-sm">
-              <Bot className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-white tracking-wide">Studio Percakapan</h2>
-            </div>
+          <div className="flex items-center gap-2">
+            <Bot className="w-5 h-5 text-[#0a84ff]" />
+            <h2 className="text-sm font-semibold text-white tracking-wide">Studio Percakapan</h2>
           </div>
         </div>
 
         {/* Right Action Buttons */}
         <div
-          className="flex items-center gap-2 pointer-events-auto mr-32"
+          className="flex items-center gap-2 pointer-events-auto"
           style={{ WebkitAppRegion: 'no-drag' }}
         >
           <button
             type="button"
             onClick={handleCreateNewChat}
-            className="btn btn-sm btn-primary rounded-xl gap-2 font-medium shadow-md shadow-primary/20 cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0a84ff] text-white hover:bg-[#0a84ff]/90 text-xs font-medium shadow-md shadow-[#0a84ff]/20 cursor-pointer transition-all active:scale-95"
             style={{ WebkitAppRegion: 'no-drag' }}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             Sesi Baru
           </button>
         </div>
@@ -371,327 +356,244 @@ const ChatStudio = () => {
 
       {/* Workspace Area: Left List + Right Chat */}
       <div className="flex-1 flex overflow-hidden">
-        {/* === LEFT SIDEBAR: SESSIONS LIST (Apple-style collapsible) === */}
+        {/* === LEFT SIDEBAR: SESSIONS LIST === */}
         <div
-          className={`transition-all duration-300 ease-in-out border-r border-white/[0.08] bg-base-200/40 backdrop-blur-2xl flex flex-col h-full shrink-0 overflow-hidden ${
+          className={`border-r border-white/10 bg-[#1c1c1e]/50 backdrop-blur-xl flex flex-col h-full shrink-0 transition-all duration-300 overflow-hidden ${
             isSidebarOpen ? 'w-80 opacity-100' : 'w-0 opacity-0 border-r-0 pointer-events-none'
           }`}
         >
-          <div className="w-80 flex flex-col h-full">
-            {/* Search bar */}
-            <div className="p-3.5 border-b border-white/[0.06]">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/35" />
-                <input
-                  type="text"
-                  placeholder="Cari obrolan..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="input input-sm bg-white/[0.04] border-white/[0.08] pl-9 w-full rounded-xl text-xs text-white placeholder:text-white/30 focus:border-primary/40 focus:bg-white/[0.06] transition-all"
+          {/* Search bar */}
+          <div className="p-3 border-b border-white/10">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+              <input
+                type="text"
+                placeholder="Cari obrolan..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-white/5 border border-white/10 pl-8 pr-3 py-1.5 w-full rounded-xl text-xs text-white placeholder:text-white/30 focus:border-[#0a84ff]/60 focus:outline-none transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Sessions List */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+            {/* MAIN THREAD (STATIC) */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setActiveSessionId(1)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') setActiveSessionId(1)
+              }}
+              className={`w-full p-2.5 rounded-xl text-left transition-all flex items-center justify-between group/item cursor-pointer ${
+                activeSessionId === 1
+                  ? 'bg-[#0a84ff] text-white shadow-md'
+                  : 'hover:bg-white/5 text-white/70 hover:text-white border border-transparent'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    runningSessionIds.map(Number).includes(1) ||
+                    (!runningSessionIds.length && (isMainLoading || isAgentBusy))
+                      ? 'bg-[#ffbd2e] animate-ping'
+                      : activeSessionId === 1
+                        ? 'bg-white'
+                        : 'bg-[#0a84ff]'
+                  }`}
                 />
+                <div className="min-w-0">
+                  <h4 className="text-xs font-semibold truncate">Main Thread</h4>
+                </div>
               </div>
             </div>
 
-            {/* Sessions List */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-              {/* MAIN THREAD (CUSTOMIZABLE) */}
-              {(() => {
-                const mainSession = sessions.find((s) => Number(s.id) === 1) || { id: 1, title: 'Main Thread' }
-                const isActive = Number(activeSessionId) === 1
-                const isEditing = Number(editingSessionId) === 1
-                const isMainRunning =
-                  runningSessionIds.map(Number).includes(1) ||
-                  (!runningSessionIds.length && (isMainLoading || isAgentBusy))
+            <div className="my-2 border-t border-white/5" />
+
+            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/40">
+              Workspace Threads
+            </div>
+
+            {filteredSessions
+              .filter((s) => s.id !== 1)
+              .map((s) => {
+                const isActive = activeSessionId === s.id
+                const isEditing = editingSessionId === s.id
+                const isThisSessionRunning = runningSessionIds.map(Number).includes(Number(s.id))
 
                 return (
                   <div
+                    key={s.id}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setActiveSessionId(1)}
+                    onClick={() => setActiveSessionId(s.id)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') setActiveSessionId(1)
+                      if (e.key === 'Enter' || e.key === ' ') setActiveSessionId(s.id)
                     }}
-                    className={`w-full p-2.5 rounded-2xl text-left transition-all flex items-center justify-between group/main cursor-pointer ${
+                    className={`w-full p-2.5 rounded-xl text-left transition-all flex items-center justify-between group/item cursor-pointer ${
                       isActive
-                        ? 'bg-primary/20 border border-primary/40 text-white shadow-sm'
-                        : 'hover:bg-white/[0.04] text-white/70 hover:text-white border border-transparent'
+                        ? 'bg-[#0a84ff] text-white shadow-md'
+                        : 'hover:bg-white/5 text-white/70 hover:text-white border border-transparent'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div
                         className={`w-2 h-2 rounded-full shrink-0 ${
-                          isMainRunning
-                            ? 'bg-warning animate-ping'
-                            : 'bg-primary shadow-[0_0_8px_var(--color-primary)]'
+                          isThisSessionRunning
+                            ? 'bg-[#ffbd2e] animate-ping'
+                            : isActive
+                              ? 'bg-white'
+                              : 'bg-white/30'
                         }`}
                       />
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          value={editingTitle}
-                          onChange={(e) => setEditingTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveRename(1)
-                            if (e.key === 'Escape') setEditingSessionId(null)
-                          }}
-                          autoFocus
-                          className="input input-xs bg-base-300 border-primary/50 text-xs text-white p-1 h-6 w-full rounded-lg"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      ) : (
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-xs font-semibold truncate">
-                            {mainSession.title || 'Main Thread'}
-                          </h4>
-                          <p className="text-[10px] opacity-40">Sesi Utama (Default)</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-1 opacity-0 group-hover/main:opacity-100 transition-opacity">
-                      {isEditing ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleSaveRename(1)
-                          }}
-                          className="btn btn-ghost btn-xs p-1 text-success hover:bg-success/20 rounded-lg"
-                          title="Simpan nama"
-                        >
-                          <Check className="w-3 h-3" />
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            onClick={(e) => handleStartRename(e, mainSession)}
-                            className="btn btn-ghost btn-xs p-1 text-white/40 hover:text-white rounded-lg"
-                            title="Ubah nama sesi utama"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e) => handleClearSessionChat(e, 1)}
-                            className="btn btn-ghost btn-xs p-1 text-white/40 hover:text-warning rounded-lg"
-                            title="Bersihkan riwayat sesi utama"
-                          >
-                            <RotateCcw className="w-3 h-3" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )
-              })()}
-
-              <div className="my-2 border-t border-white/[0.06]" />
-
-              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/35">
-                Workspace Threads
-              </div>
-
-              {filteredSessions
-                .filter((s) => Number(s.id) !== 1)
-                .map((s) => {
-                  const isActive = activeSessionId === s.id
-                  const isEditing = editingSessionId === s.id
-                  const isThisSessionRunning = runningSessionIds.map(Number).includes(Number(s.id))
-
-                  return (
-                    <div
-                      key={s.id}
-                      onClick={() => setActiveSessionId(s.id)}
-                      className={`w-full p-2.5 rounded-2xl text-left transition-all flex items-center justify-between group/session cursor-pointer ${
-                        isActive
-                          ? 'bg-white/[0.08] border border-white/[0.12] text-white shadow-sm'
-                          : 'hover:bg-white/[0.04] text-white/70 hover:text-white border border-transparent'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
-                        <div
-                          className={`w-2 h-2 rounded-full shrink-0 ${
-                            isThisSessionRunning
-                              ? 'bg-warning animate-ping'
-                              : isActive
-                              ? 'bg-primary shadow-[0_0_6px_var(--color-primary)]'
-                              : 'bg-white/20'
-                          }`}
-                        />
-                        <MessageSquare className="w-3.5 h-3.5 opacity-40 shrink-0" />
+                      <div className="min-w-0 flex-1 pr-2">
                         {isEditing ? (
                           <input
                             type="text"
                             value={editingTitle}
                             onChange={(e) => setEditingTitle(e.target.value)}
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveRename(s.id)
+                              if (e.key === 'Enter') handleSaveRenameSession(s.id)
                               if (e.key === 'Escape') setEditingSessionId(null)
                             }}
                             autoFocus
-                            className="input input-xs bg-base-300 border-primary/50 text-xs text-white p-1 h-6 w-full rounded-lg"
-                            onClick={(e) => e.stopPropagation()}
+                            className="bg-black/40 border border-white/20 rounded px-1.5 py-0.5 text-xs text-white w-full focus:outline-none focus:border-[#0a84ff]"
                           />
                         ) : (
-                          <div className="min-w-0 flex-1">
-                            <h4 className="text-xs font-medium truncate">
-                              {s.title || 'Percakapan'}
-                            </h4>
-                            <p className="text-[10px] opacity-40">
-                              {s.timestamp
-                                ? new Date(s.timestamp).toLocaleDateString('id-ID', {
-                                    month: 'short',
-                                    day: 'numeric'
-                                  })
-                                : ''}
-                            </p>
+                          <h4 className="text-xs font-medium truncate">{s.title || 'Tanpa Judul'}</h4>
+                        )}
+                        {s.workspaceRoot && (
+                          <div className="flex items-center gap-1 text-[10px] opacity-50 truncate mt-0.5">
+                            <Folder size={10} />
+                            <span className="truncate">{s.workspaceRoot.split('/').pop()}</span>
                           </div>
                         )}
                       </div>
-
-                      <div className="flex items-center gap-1 opacity-0 group-hover/session:opacity-100 transition-opacity">
-                        {isEditing ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleSaveRename(s.id)
-                            }}
-                            className="btn btn-ghost btn-xs p-1 text-success hover:bg-success/20 rounded-lg"
-                          >
-                            <Check className="w-3 h-3" />
-                          </button>
-                        ) : (
-                          <>
-                            <button
-                              onClick={(e) => handleStartRename(e, s)}
-                              className="btn btn-ghost btn-xs p-1 text-white/40 hover:text-white rounded-lg"
-                              title="Ubah judul sesi"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={(e) => handleDeleteSessionClick(e, s.id)}
-                              className="btn btn-ghost btn-xs p-1 text-white/40 hover:text-error rounded-lg"
-                              title="Hapus sesi"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </>
-                        )}
-                      </div>
                     </div>
-                  )
-                })}
 
-              {filteredSessions.filter((s) => Number(s.id) !== 1).length === 0 && (
-                <div className="text-center py-6 text-xs text-white/30">
-                  Belum ada sesi workspace lain.
-                </div>
-              )}
-            </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                      {isEditing ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleSaveRenameSession(s.id)
+                          }}
+                          className="p-1 rounded-lg hover:bg-white/20 text-white"
+                          title="Simpan nama"
+                          aria-label="Simpan nama"
+                        >
+                          <Check className="w-3 h-3" />
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={(e) => handleStartRename(e, s)}
+                            className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                            title="Ubah nama"
+                            aria-label="Ubah nama"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => handleDeleteSessionClick(e, s.id)}
+                            className="p-1 rounded-lg text-white/60 hover:text-[#ff453a] hover:bg-[#ff453a]/20 transition-colors"
+                            title="Hapus sesi"
+                            aria-label="Hapus sesi"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+
+            {filteredSessions.filter((s) => s.id !== 1).length === 0 && (
+              <div className="text-center py-6 text-xs text-white/40">
+                Belum ada sesi workspace lain.
+              </div>
+            )}
           </div>
         </div>
 
-        {/* === RIGHT MAIN: CLEAN CANVAS CHAT AREA === */}
-        <div className="flex-1 flex flex-col h-full bg-base-300 relative min-w-0 overflow-hidden">
-          {/* Canvas Sub-header */}
-          <div className="h-12 px-6 border-b border-white/[0.08] flex items-center justify-between bg-base-200/30 backdrop-blur-xl shrink-0">
+        {/* === RIGHT MAIN: BUBBLE CHAT AREA === */}
+        <div className="flex-1 flex flex-col h-full bg-[#161618] relative min-w-0 overflow-hidden">
+          <div className="h-12 px-6 border-b border-white/10 flex items-center justify-between bg-[#1c1c1e]/40 backdrop-blur-md shrink-0">
             <div className="flex items-center gap-3 min-w-0">
-              {!isSidebarOpen && (
-                <button
-                  type="button"
-                  onClick={() => setIsSidebarOpen(true)}
-                  className="btn btn-ghost btn-xs btn-circle text-white/60 hover:text-white cursor-pointer"
-                  title="Buka Panel Samping (Ctrl+B)"
-                >
-                  <PanelLeft className="w-4 h-4" />
-                </button>
-              )}
-              <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_var(--color-primary)]" />
+              <div className="w-2.5 h-2.5 rounded-full bg-[#0a84ff] shadow-[0_0_10px_rgba(10,132,255,0.6)]" />
               <div>
-                <h3 className="text-xs font-semibold text-white truncate max-w-md tracking-wide">
+                <h3 className="text-xs font-semibold text-white truncate max-w-md">
                   {activeSessionObj.title || 'Percakapan'}
                 </h3>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[11px] text-white/35 font-mono">{currentDisplayMessages.length} pesan</span>
-              {currentDisplayMessages.length > 0 && (
-                <button
-                  type="button"
-                  onClick={(e) => handleClearSessionChat(e, activeSessionId)}
-                  className="btn btn-ghost btn-xs text-white/40 hover:text-warning gap-1 px-2 rounded-lg cursor-pointer transition-all"
-                  title="Bersihkan riwayat percakapan sesi ini"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span className="text-[10px]">Bersihkan</span>
-                </button>
-              )}
-            </div>
+            <span className="text-[11px] text-white/40">{currentDisplayMessages.length} pesan</span>
           </div>
 
-          {/* Chat Stream Viewport (Centered Canvas) */}
-          <div
-            ref={messagesContainerRef}
-            onScroll={handleScroll}
-            className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 custom-scrollbar min-h-0"
-          >
-            <div className="max-w-4xl mx-auto w-full">
+          <div className="relative flex-1 min-h-0 flex">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto overflow-x-hidden px-8 py-6 pb-28 custom-scrollbar space-y-2 min-h-0"
+            >
               {currentDisplayMessages.length > visibleMessageCount && (
-                <div className="flex justify-center py-2 mb-4">
+                <div className="flex justify-center py-2">
                   <button
                     type="button"
                     onClick={() => setVisibleMessageCount((prev) => prev + 30)}
-                    className="btn btn-xs btn-ghost text-[11px] text-white/50 hover:text-white border border-white/10 rounded-full px-4 normal-case cursor-pointer"
+                    className="px-4 py-1 text-xs text-white/70 hover:text-white border border-white/15 rounded-full hover:bg-white/10 transition-all cursor-pointer"
                   >
-                    Muat pesan sebelumnya ({currentDisplayMessages.length - visibleMessageCount} pesan lagi)
+                    Muat pesan sebelumnya ({currentDisplayMessages.length - visibleMessageCount}{' '}
+                    pesan lagi)
                   </button>
                 </div>
               )}
 
               {currentDisplayMessages.length === 0 ? (
-                <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 text-white/40 space-y-4">
-                  <div className="w-14 h-14 rounded-3xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-primary shadow-xl">
-                    <Sparkles className="w-7 h-7 animate-pulse" />
+                <div className="h-full flex flex-col items-center justify-center text-center p-8 text-white/50 space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[#0a84ff] shadow-xl">
+                    <Bot className="w-7 h-7" />
                   </div>
                   <div className="max-w-sm space-y-1">
-                    <h4 className="text-sm font-bold text-white tracking-wide">Mulai Percakapan</h4>
-                    <p className="text-xs text-white/45 leading-relaxed">
-                      Tulis instruksi atau diskusikan kebutuhan tugas dengan Abelink.
+                    <h4 className="text-sm font-semibold text-white">Sesi Percakapan Baru</h4>
+                    <p className="text-xs text-white/50">
+                      Tulis instruksi atau diskusikan kebutuhanmu dengan Abelink.
                     </p>
                   </div>
                 </div>
               ) : (
-                currentDisplayMessages
-                  .slice(-visibleMessageCount)
-                  .map((msg, idx) => (
-                    <ChatList
-                      key={`${msg.id || 'msg'}-${idx}`}
-                      role={msg.role}
-                      content={msg.content}
-                      reasoning={msg.reasoning}
-                      isThinking={msg.isThinking}
-                      isSearching={msg.isSearching}
-                      isSummarizing={msg.isSummarizing}
-                      isSearchingMusic={msg.isSearchingMusic}
-                      sources={msg.sources}
-                      executedTools={msg.executedTools}
-                      isMemorySaved={msg.isMemorySaved}
-                      choice={msg.choice}
-                      isMemoryUpdated={msg.isMemoryUpdated}
-                      isMemoryDeleted={msg.isMemoryDeleted}
-                      timestamp={msg.timestamp}
-                      mood={msg.mood}
-                      source={msg.source}
-                      sender={msg.sender}
-                    />
-                  ))
+                visibleMessages.map((msg, idx) => (
+                  <ChatList
+                    key={msg.id || msg.created_at || idx}
+                    msgId={msg.id || msg.created_at || idx}
+                    role={msg.role}
+                    content={msg.content}
+                    reasoning={msg.reasoning}
+                    isThinking={msg.isThinking}
+                    isSearching={msg.isSearching}
+                    isSummarizing={msg.isSummarizing}
+                    isSearchingMusic={msg.isSearchingMusic}
+                    sources={msg.sources}
+                    executedTools={msg.executedTools}
+                    isMemorySaved={msg.isMemorySaved}
+                    choice={msg.choice}
+                    isMemoryUpdated={msg.isMemoryUpdated}
+                    isMemoryDeleted={msg.isMemoryDeleted}
+                    timestamp={msg.timestamp}
+                    mood={msg.mood}
+                    source={msg.source}
+                    sender={msg.sender}
+                  />
+                ))
               )}
-              <div ref={messagesEndRef} className="h-4" />
+              <div ref={messagesEndRef} className="h-2" />
             </div>
-          </div>
+            <TocMinimap items={minimapItems} scrollRoot={messagesContainerRef} />
 
-          {/* Bottom Floating/Centered Input Area */}
-          <div className="p-3 md:p-4 border-t border-white/[0.08] bg-base-200/40 backdrop-blur-2xl shrink-0">
-            <div className="max-w-4xl mx-auto w-full">
+            {/* Floating InputBar pill above messages */}
+            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-20 pointer-events-auto">
               <InputBar
                 inline={true}
                 onSubmit={handleSendMessage}

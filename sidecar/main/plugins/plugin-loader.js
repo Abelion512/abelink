@@ -36,7 +36,7 @@ const resolveContainedPluginPath = (name) => {
 // plus blok karakter shell berbahaya sebagai lapisan kedua.
 const isValidNpmDependency = (d) =>
   /^(@[a-zA-Z0-9][a-zA-Z0-9._-]*\/)?[a-zA-Z0-9][a-zA-Z0-9._-]*(@[a-zA-Z0-9^~><=*,.\s|-]+)?$/.test(d) &&
-  !/[;&|`$()<>\"'\\]/.test(d)
+  !/[;&|`$()<>"'\\]/.test(d)
 
 // Buka path di file manager: execFile TANPA shell, path sudah ter-kontinemen.
 const openInFileManager = (targetPath) => {
@@ -132,6 +132,43 @@ export const loadPlugins = async () => {
 
 export const getLoadedPlugins = () => loadedPlugins
 export const getPluginHandlers = () => pluginHandlers
+
+// Proyeksi manifes plugin ke CapabilityDescriptor (satu per action).
+// Pure + additive: tidak menyentuh loadPlugins/pluginExecute. Invalid -> [].
+const KNOWN_SCHEMA_TYPES = new Set(['string', 'number', 'integer', 'boolean', 'array', 'object', 'null'])
+const sanitizeDescriptorPart = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '-') || 'unnamed'
+
+export const pluginToDescriptors = (manifest) => {
+  try {
+    if (!manifest || typeof manifest !== 'object' || !manifest.name || !Array.isArray(manifest.actions)) return []
+    const plugin = sanitizeDescriptorPart(manifest.name)
+    const enabled = manifest.isEnabled !== false
+    return manifest.actions
+      .filter((act) => act && typeof act === 'object')
+      .map((act) => {
+        const params = act.parameters && typeof act.parameters === 'object' ? Object.keys(act.parameters) : []
+        const properties = params.length
+          ? Object.fromEntries(params.map((k) => {
+              const t = String(act.parameters[k] ?? '').toLowerCase()
+              return [k, { type: KNOWN_SCHEMA_TYPES.has(t) ? t : 'string' }]
+            }))
+          : { query: { type: 'string' } }
+        return {
+          id: `plugin:${plugin}:${sanitizeDescriptorPart(act.name)}`,
+          kind: 'plugin',
+          version: manifest.version ?? '1.0.0',
+          description: act.description ?? manifest.description ?? '',
+          inputSchema: { type: 'object', properties },
+          scopes: [],
+          guide: { steps: act.description ? [act.description] : [], examples: [] },
+          enabled,
+          source: { type: 'plugin', dir: manifest.folderPath || null }
+        }
+      })
+  } catch {
+    return []
+  }
+}
 
 // ---- Fungsi channel (didaftarkan engine.mjs; tanpa Electron IPC) ----
 
@@ -239,6 +276,7 @@ export const pluginCreate = async (payload) => {
 }
 
 export const pluginInstallFromGit = async (rawUrlOrShorthand) => {
+  let targetDir = null
   try {
     const input = String(rawUrlOrShorthand || '').trim()
     if (!input) return { success: false, error: 'URL atau repository GitHub tidak boleh kosong' }
@@ -256,10 +294,16 @@ export const pluginInstallFromGit = async (rawUrlOrShorthand) => {
     }
 
     const sanitizedName = repoName.replace(/[^a-zA-Z0-9_.-]/g, '-').toLowerCase()
-    const pDir = getPluginsDir()
-    const targetDir = path.join(pDir, sanitizedName)
+    const contained = resolveContainedPluginPath(sanitizedName)
+    if (!contained) return { success: false, error: 'Invalid plugin name.' }
+    targetDir = contained
 
     if (fs.existsSync(targetDir)) {
+      const hasManifest = fs.existsSync(path.join(targetDir, 'plugin.json'))
+      const hasIndex = fs.existsSync(path.join(targetDir, 'index.js'))
+      if (!hasManifest || !hasIndex) {
+        return { success: false, error: `"${sanitizedName}" is not an Abelink plugin (missing plugin.json/index.js).` }
+      }
       return { success: false, error: `Plugin "${sanitizedName}" sudah terpasang.` }
     }
 
@@ -267,6 +311,13 @@ export const pluginInstallFromGit = async (rawUrlOrShorthand) => {
     await execFilePromise('git', ['clone', '--depth', '1', cloneUrl, targetDir], {
       timeout: 120000
     })
+
+    // Format check: cloned repo must be an Abelink plugin.
+    if (!fs.existsSync(path.join(targetDir, 'plugin.json')) || !fs.existsSync(path.join(targetDir, 'index.js'))) {
+      fs.rmSync(targetDir, { recursive: true, force: true })
+      targetDir = null
+      return { success: false, error: `"${sanitizedName}" is not an Abelink plugin (missing plugin.json/index.js).` }
+    }
 
     // Auto install dependencies if package.json exists
     const pkgPath = path.join(targetDir, 'package.json')
@@ -282,9 +333,16 @@ export const pluginInstallFromGit = async (rawUrlOrShorthand) => {
     }
 
     await loadPlugins()
+    // Jejak audit install plugin (fire-and-forget; audit tak boleh menggagalkan install).
+    import('../capabilities/connections.mjs')
+      .then(({ appendAudit }) =>
+        appendAudit({ op: 'plugin.install-git', plugin: sanitizedName, url: cloneUrl, status: 'ok' })
+      )
+      .catch(() => {})
     return { success: true, name: sanitizedName }
   } catch (err) {
     console.error('[plugins] pluginInstallFromGit gagal:', err)
+    if (targetDir) fs.rmSync(targetDir, { recursive: true, force: true })
     return { success: false, error: err.message }
   }
 }

@@ -10,7 +10,7 @@ import {
 
 describe('choiceBus parseChoiceQuery', () => {
   it('mem-parse pertanyaan + opsi dipisah || dan ;', () => {
-    expect(parseChoiceQuery('Lanjut di mana?||A;B')).toEqual({
+    expect(parseChoiceQuery('Lanjut di mana?||A;B')).toMatchObject({
       question: 'Lanjut di mana?',
       options: ['A', 'B']
     })
@@ -28,6 +28,23 @@ describe('choiceBus parseChoiceQuery', () => {
     expect(parsed.options).toEqual(['a', 'b', 'c', 'd'])
     const long = parseChoiceQuery(`pilih?||${'x'.repeat(200)}`)
     expect(long.options[0].length).toBeLessThanOrEqual(120)
+  })
+
+  it('mem-parse payload JSON terstruktur / multimodal cards', () => {
+    const jsonPayload = JSON.stringify({
+      question: 'Pilih lagu OST:',
+      type: 'music_preview',
+      options: [
+        { title: 'Dark Aria', artist: 'SawanoHiroyuki', duration: '3:45', thumbnail: 'https://img.jpg' },
+        { title: 'Level', artist: 'Tomorrow X Together', duration: '3:15' }
+      ]
+    })
+    const parsed = parseChoiceQuery(jsonPayload)
+    expect(parsed).not.toBeNull()
+    expect(parsed.question).toBe('Pilih lagu OST:')
+    expect(parsed.type).toBe('music_preview')
+    expect(parsed.options).toEqual(['Dark Aria', 'Level'])
+    expect(parsed.rawOptions[0].artist).toBe('SawanoHiroyuki')
   })
 })
 

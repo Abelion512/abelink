@@ -23,8 +23,8 @@ export const CHAIN_DIR = 'chain'
 export const DONE_FILE = 'DONE.txt'
 export const RUNG_PREFIX = 'limit-chain-'
 
-// Tangga default. 8/16/32/64 sejajar dengan budget langkah medium/high/xhigh/max,
-// lalu 96/128 untuk mencari plafon di effort max/ultra.
+// Tangga default. 8/16 sejajar budget medium/high lama; sejak budget 24/48,
+// rung 32 pun muat di high — lalu 64/96/128 mencari plafon di xhigh/max/ultra.
 export const LADDER = Object.freeze([8, 16, 32, 64, 96, 128])
 
 // Langkah minimum: N tulis berkas + 1 berkas penutup + 1 langkah jawaban akhir.

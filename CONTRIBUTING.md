@@ -60,11 +60,11 @@ baris tanpa ubah perilaku).
 | Branch     | Kegunaan                                              |
 |------------|-------------------------------------------------------|
 | `main`     | Mainline: semua fitur yang lolos testing di-merge ke sini |
-| `linux`    | Cabang pelacak remote publik `public-upstream`: jangan pakai untuk kerja fitur |
-| `master`   | Mirror upstream Mazees/mark-agent, sync-only: jangan sentuh manual |
 | `feat/*`   | Fitur baru (dibuat dari `main`)                      |
 | `fix/*`    | Bug fix                                               |
 | `chore/*`  | Tooling, deps, CI, refactoring                        |
+
+> Tidak ada branch upstream pelacak (`master`/`linux`) — sinkronisasi upstream dihentikan 2026-09-27; semua PR menargetkan `main`.
 
 Alur:
 
@@ -75,7 +75,7 @@ Alur:
 5. Jika semua beres → merge ke `main`
 6. Hapus branch lokal setelah merge: jangan biarkan branch merged menumpuk
 
-Jangan pernah push langsung ke `main`, `linux`, atau `master`.
+Jangan pernah push langsung ke `main`.
 
 ## PR Workflow
 
@@ -98,7 +98,7 @@ belum selesai.
 - **Formatter:** Prettier: `bun run format`
   - singleQuote, noSemi, printWidth 100, trailingComma none
 - **Tauri boundary:** Jangan pakai Node API langsung di `src/`: semua akses OS lewat facade `src/api/tauri-bridge.js` (Tauri `invoke()` / channel `node_invoke` sidecar) saja
-- **CSS:** Tailwind 4 + DaisyUI 5 (`forest` theme). Jangan bikin file CSS ad-hoc
+- **CSS:** Tailwind 4 + DaisyUI 5 (`abelink` theme). Jangan bikin file CSS ad-hoc
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/)
   `type(scope): description`: contoh: `feat(ai-bridge): add 9Router provider`
 

@@ -1,8 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useApproval } from '../contexts/ApprovalContext'
-import { fetchAI } from '../api/ai/core'
-import { db, getCoreMemory } from '../api/db'
 import { useAbelinkState, useAbelinkYoutube, useAbelinkMusic, useAbelinkPlan } from './agent'
 import { useAwareness } from './useAwareness'
 import { useRelationalGrowth } from './agent/useRelationalGrowth'
@@ -18,13 +16,10 @@ export const useAbelinkAgent = () => {
     setChatData,
     clearChat,
     config,
-    setConfig,
     message,
     setMessage,
     isLoading,
-    setIsLoading,
     isAgentBusy,
-    setIsAgentBusy,
     runningSessionId,
     setRunningSessionId,
     runningSessionIds,
@@ -48,7 +43,6 @@ export const useAbelinkAgent = () => {
     inputSource,
     setInputSource,
     activeTopic,
-    setActiveTopic,
     isChatLoaded,
     isBooting,
     setIsBooting
@@ -62,6 +56,7 @@ export const useAbelinkAgent = () => {
     handleYoutubeSummary,
     handleMusic,
     getYoutubeData,
+    youtubeMusicTools,
     currentMusicTrack: youtubeMusicTools.isPlaying ? youtubeMusicTools.currentTrack : null
   }
 
@@ -106,10 +101,23 @@ export const useAbelinkAgent = () => {
   const hasGreetedRef = useRef(false)
 
   // Welcome Greeting on Startup
+  // Fallback di luar guard: overlay boot HARUS turun walau greeting gagal
+  // atau effect di-remount StrictMode (flag ref sudah true di pass kedua).
+  // setIsBooting stabil (useState setter dari useAbelinkState).
+  useEffect(() => {
+    if (!isBooting) return undefined
+    const t = setTimeout(() => setIsBooting(false), 6000)
+    return () => clearTimeout(t)
+  }, [isBooting, setIsBooting])
+
+  // Greeting one-shot dijaga hasGreetedRef, jadi penambahan dep tak-stabil
+  // di bawah aman (pass ulang keluar via guard, tanpa re-fire).
   useEffect(() => {
     if (isChatLoaded && !hasGreetedRef.current) {
       hasGreetedRef.current = true
       console.log('[useAbelinkAgent] Memicu pesan sambutan (Boot sequence)...')
+
+      const bootFallback = setTimeout(() => setIsBooting(false), 6000)
 
       const bootSequence = async () => {
         let timeContext = ''
@@ -167,6 +175,7 @@ export const useAbelinkAgent = () => {
         } catch (err) {
           console.error('[useAbelinkAgent] Gagal greeting via handlePlanningCommand:', err)
         } finally {
+          clearTimeout(bootFallback)
           setTimeout(() => {
             setIsBooting(false)
           }, 800)
@@ -174,8 +183,9 @@ export const useAbelinkAgent = () => {
       }
 
       bootSequence()
+      return () => clearTimeout(bootFallback)
     }
-  }, [isChatLoaded, chatData])
+  }, [isChatLoaded, chatData, handlePlanningCommand, setIsBooting])
 
   const processedTgMsgIdsRef = useRef(new Set())
 

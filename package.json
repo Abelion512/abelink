@@ -4,6 +4,8 @@
   "description": "Abelink (ABELINK - Metacognitive Artificial Relational Knowledge): Privacy-first Autonomous AI OS Companion for Linux",
   "author": "Abelion512",
   "homepage": "https://github.com/Abelion512/abelink/",
+  "license": "UNLICENSED",
+  "private": true,
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -12,6 +14,12 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
+    "test:live": "vitest run --config vitest.live.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "cron": "bun bin/abelink-cron.mjs",
+    "cron:daemon": "bun bin/abelink-cron.mjs daemon",
+    "test:known-issues": "vitest run tests/trading.*.test.js",
     "test:harness": "node tests/harness/stress-watermark.harness.mjs && node tests/harness/stress-watermark-v2.harness.mjs",
     "perf": "bun evaluation/perf-gate.mjs",
     "perf:save": "bun evaluation/perf-gate.mjs --save",
@@ -21,9 +29,11 @@
     "bench:local-stub": "bun evaluation/bench/run-local.mjs --stub",
     "verify": "bash scripts/verify.sh",
     "sync-version": "node scripts/sync-version.mjs",
+    "brand:icons": "bash scripts/apply-brand-assets.sh",
     "harness": "bun sidecar/engine.mjs",
     "harness:export": "node scripts/harness-export.mjs",
     "harness:diagnose": "node scripts/harness-diagnose.mjs",
+    "live:tui": "bun scripts/live-tui-smoke.mjs",
     "build:sidecar": "bun build sidecar/engine.mjs --compile --minify --outfile=dist-sidecar/abelink-engine && chmod +x dist-sidecar/abelink-engine",
     "build:deb": "bun run build:sidecar && tauri build --bundles deb",
     "build:dist": "bun run build:sidecar && tauri build",
@@ -32,7 +42,11 @@
     "benchmark:echo": "node evaluation/terminal-bench.mjs",
     "benchmark:run": "node evaluation/run.mjs",
     "benchmark:deepeval": "node evaluation/deepeval-runner.mjs",
-    "benchmark:adapter": "node evaluation/abelink-adapter.mjs"
+    "benchmark:adapter": "node evaluation/abelink-adapter.mjs",
+    "cli:agent": "bun bin/abelink.mjs agent run"
+  },
+  "bin": {
+    "abelink": "bin/abelink.mjs"
   },
   "type": "module",
   "overrides": {
@@ -41,12 +55,12 @@
     "adm-zip": "^0.6.0"
   },
   "dependencies": {
-    "@fontsource/poppins": "^5.2.7",
-    "@huggingface/transformers": "^4.2.0",
-    "@monaco-editor/react": "^4.7.0",
+    "@huggingface/transformers": "^4.3.0",
+    "@opentui/core": "^0.5.12",
+    "@opentui/keymap": "^0.5.12",
+    "@opentui/solid": "^0.5.12",
     "@orama/orama": "^3.1.18",
     "@tauri-apps/api": "^2",
-    "axios": "^1.13.4",
     "dexie": "^4.3.0",
     "dexie-export-import": "^4.1.4",
     "duck-duck-scrape": "^2.2.7",
@@ -58,15 +72,12 @@
     "msedge-tts": "^2.0.4",
     "openai": "^6.17.0",
     "pdf-parse": "^2.4.5",
-    "react-force-graph-2d": "^1.29.1",
-    "react-icons": "^5.6.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.0",
-    "react-syntax-highlighter": "^16.1.0",
     "rehype-external-links": "^3.0.0",
     "remark-gfm": "^4.0.1",
+    "solid-js": "^1.9.15",
     "telegraf": "^4.16.3",
-    "three": "^0.185.1",
     "youtube-transcript-plus": "^1.1.2",
     "yt-search": "^2.13.1",
     "ytmusic-api": "5.3.1"
@@ -74,6 +85,9 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",
     "@tauri-apps/cli": "^2",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.1.1",
     "daisyui": "^5.5.14",
     "eslint": "^9.39.1",
@@ -85,6 +99,8 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.1",
     "vite": "^7.2.6",
     "vitest": "^4.1.10"
   }

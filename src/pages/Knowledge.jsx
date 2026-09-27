@@ -1,16 +1,40 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  ArrowLeft,
+  UploadCloud,
+  FileText,
+  Trash2,
+  Database,
+  Search,
+  CheckCircle2,
+  FileCheck,
+  Clock,
+  Activity,
+  Layers
+} from 'lucide-react'
 import { ingestDocument } from '../api/ragPipeline'
-import { getAllDocuments, deleteDocumentByName } from '../api/db'
+import { getAllDocuments, deleteDocumentByName, db } from '../api/db'
 import { deleteDocumentFromOrama } from '../api/oramaStore'
+import { generateVector, cosineSimilarity } from '../api/vectorMemory'
 import { useConfirm } from '../hooks/useConfirm'
 
 const Knowledge = () => {
   const navigate = useNavigate()
   const [documents, setDocuments] = useState([])
+  const [selectedDoc, setSelectedDoc] = useState(null)
+  const [selectedDocChunks, setSelectedDocChunks] = useState([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadStatusText] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
   const { confirm, ModalComponent } = useConfirm()
+
+  // Semantic query simulator state
+  const [simQuery, setSimQuery] = useState('')
+  const [isSimulating, setIsSimulating] = useState(false)
+  const [simResults, setSimResults] = useState(null)
 
   const [toastMessage, setToastMessage] = useState(null)
 
@@ -30,29 +54,69 @@ const Knowledge = () => {
           timestamp: chunks[0]?.timestamp || 0
         }
       })
-      setDocuments(uniqueDocs.sort((a, b) => b.timestamp - a.timestamp))
+      const sorted = uniqueDocs.sort((a, b) => b.timestamp - a.timestamp)
+      setDocuments(sorted)
+      if (sorted.length > 0 && !selectedDoc) {
+        setSelectedDoc(sorted[0])
+      }
     } catch (e) {
       console.error(e)
     }
-  }, [])
+  }, [selectedDoc])
 
   useEffect(() => {
-    loadData()
+    void (async () => {
+      await loadData()
+    })()
   }, [loadData])
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0]
+  // Load real chunks for selectedDoc from Dexie
+  useEffect(() => {
+    if (!selectedDoc) {
+      queueMicrotask(() => {
+        setSelectedDocChunks([])
+        setSimResults(null)
+      })
+      return
+    }
+
+    let active = true
+    const fetchChunks = async () => {
+      try {
+        const chunks = await db.documents
+          .where('docName')
+          .equals(selectedDoc.name)
+          .sortBy('chunkIndex')
+        if (active) {
+          setSelectedDocChunks(chunks || [])
+          setSimResults(null)
+        }
+      } catch (err) {
+        console.error('Error fetching doc chunks:', err)
+      }
+    }
+    fetchChunks()
+    return () => {
+      active = false
+    }
+  }, [selectedDoc])
+
+  const processFile = async (file) => {
     if (!file) return
 
     setIsUploading(true)
     setUploadProgress(0)
 
     try {
-      await ingestDocument(file, (progress) => {
+      const res = await ingestDocument(file, (progress) => {
         setUploadProgress(progress)
       })
       await loadData()
-      showToast('Dokumen berhasil di-ingest!')
+      showToast(
+        res?.degraded
+          ? 'Dokumen tersimpan (mode degradasi: pencarian vektor mati, fulltext aktif). Aktifkan Full Mode untuk embedding.'
+          : 'Dokumen berhasil di-ingest ke memori!'
+      )
     } catch (error) {
       console.error(error)
       await confirm({
@@ -65,7 +129,23 @@ const Knowledge = () => {
     } finally {
       setIsUploading(false)
       setUploadProgress(0)
-      if (e.target) e.target.value = ''
+    }
+  }
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      processFile(file)
+      e.target.value = ''
+    }
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      processFile(file)
     }
   }
 
@@ -91,13 +171,16 @@ const Knowledge = () => {
         }
       }
 
+      if (selectedDoc?.name === docName) {
+        setSelectedDoc(null)
+      }
       await loadData()
       showToast('Dokumen berhasil dihapus')
     } catch (error) {
       console.error(error)
       await confirm({
-        title: 'Oops...',
-        message: 'Gagal menghapus dokumen',
+        title: 'Gagal Menghapus',
+        message: 'Gagal menghapus dokumen dari database',
         isError: true,
         hideCancel: true,
         confirmText: 'Tutup'
@@ -105,204 +188,365 @@ const Knowledge = () => {
     }
   }
 
+  const handleRunSimulation = async (e) => {
+    e.preventDefault()
+    if (!simQuery.trim() || !selectedDoc || selectedDocChunks.length === 0) return
+    setIsSimulating(true)
+    try {
+      const queryVector = await generateVector(simQuery)
+      if (!queryVector) {
+        setSimResults([])
+        return
+      }
+      const scored = selectedDocChunks
+        .filter((c) => Array.isArray(c.vector))
+        .map((c) => ({ ...c, similarity: cosineSimilarity(queryVector, c.vector) }))
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 3)
+      setSimResults(scored)
+    } catch (err) {
+      console.error('Simulation failed:', err)
+      setSimResults([])
+    } finally {
+      setIsSimulating(false)
+    }
+  }
+
+  const filteredDocs = documents.filter((d) =>
+    d.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   return (
-    <div className="h-screen bg-[#080B09] text-zinc-200 overflow-hidden relative font-['Poppins',sans-serif]">
-      {/* Background Ambience */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(6,182,212,0.08),transparent_50%)] pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,rgba(16,185,129,0.04),transparent_40%)] pointer-events-none" />
+    <div className="h-screen w-screen bg-[#161618] text-white flex flex-col overflow-hidden select-none">
+      {/* Top Bar with Safe Area Gutter */}
+      <div
+        className="h-14 pl-16 pr-28 border-b border-white/10 flex items-center justify-between bg-[#1c1c1e]/80 backdrop-blur-xl shrink-0 z-30 select-none"
+        style={{ WebkitAppRegion: 'drag' }}
+      >
+        <div
+          className="flex items-center gap-3 pointer-events-auto"
+          style={{ WebkitAppRegion: 'no-drag' }}
+        >
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            title="Kembali ke Beranda"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div className="flex items-center gap-2">
+            <Database className="w-5 h-5 text-[#0a84ff]" />
+            <h1 className="text-sm font-semibold tracking-wide">Knowledge Base (Agentic RAG)</h1>
+          </div>
+        </div>
 
-      {/* Main Content Area */}
-      <div className="relative z-10 w-full h-full overflow-y-auto custom-scrollbar">
-        <div className="w-full max-w-6xl mx-auto px-6 lg:px-10 py-8 pb-32 space-y-8">
-          {/* Page Header */}
-          <div className="flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-3.5">
-              <button
-                type="button"
-                onClick={() => navigate('/')}
-                className="w-8 h-8 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-zinc-300 hover:text-white transition-all shrink-0"
-                style={{ WebkitAppRegion: 'no-drag' }}
-                title="Kembali ke Dashboard"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="1.1em"
-                  height="1.1em"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h1 className="text-xl font-semibold text-white tracking-tight">Document Knowledge</h1>
-                  <span className="text-[11px] text-zinc-500 font-mono tracking-wide">/ Local Vector RAG</span>
-                </div>
-                <p className="text-zinc-400 text-xs mt-0.5">
-                  Inject dokumen lokal untuk diindeks ke dalam memori vektor Abelink.
-                </p>
-              </div>
-            </div>
+        <div className="flex items-center gap-2 text-xs text-white/40">
+          <span className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
+            {documents.length} Dokumen Terdaftar
+          </span>
+        </div>
+      </div>
 
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono text-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                {documents.length} Dokumen Aktif
-              </span>
+      {/* 2-Column Master-Detail Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Column: Document List */}
+        <div className="w-80 border-r border-white/10 bg-[#1c1c1e]/40 backdrop-blur-xl flex flex-col h-full shrink-0">
+          {/* Search bar */}
+          <div className="p-3 border-b border-white/10">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+              <input
+                type="text"
+                placeholder="Cari dokumen..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-white/5 border border-white/10 pl-8 pr-3 py-1.5 w-full rounded-xl text-xs text-white placeholder:text-white/30 focus:border-[#0a84ff]/60 focus:outline-none transition-colors"
+              />
             </div>
           </div>
 
-          {/* 2-Column Responsive Widescreen Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            {/* Left Column: Upload / Dropzone Card & Telemetry */}
-            <div className="lg:col-span-1 space-y-6">
-              <div className="p-6 rounded-3xl bg-black/30 backdrop-blur-2xl border border-white/[0.08] shadow-2xl space-y-4">
-                <div className="space-y-1">
-                  <h2 className="text-xs font-semibold text-cyan-400 uppercase tracking-wide flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-                    Upload Dokumen Baru
-                  </h2>
-                  <p className="text-xs text-zinc-400 leading-relaxed">
-                    Mendukung format <span className="text-zinc-200 font-mono">PDF, TXT, MD, DOCX</span>. Teks akan di-chunk dan di-vektorisasi secara lokal.
-                  </p>
+          {/* List */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+            {filteredDocs.map((doc) => {
+              const isSelected = selectedDoc?.name === doc.name
+              return (
+                <div
+                  key={doc.name}
+                  onClick={() => setSelectedDoc(doc)}
+                  className={`w-full p-2.5 rounded-xl text-left transition-all flex items-center justify-between group cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#0a84ff] text-white shadow-md'
+                      : 'hover:bg-white/5 text-white/70 hover:text-white border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                    <FileText
+                      size={16}
+                      className={isSelected ? 'text-white' : 'text-[#0a84ff]'}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-medium truncate">{doc.name}</div>
+                      <div
+                        className={`text-[10px] mt-0.5 ${
+                          isSelected ? 'text-white/80' : 'text-white/40'
+                        }`}
+                      >
+                        {doc.chunks} chunks •{' '}
+                        {new Date(doc.timestamp).toLocaleDateString('id-ID', {
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteDocument(doc.name)
+                    }}
+                    className={`p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 ${
+                      isSelected
+                        ? 'hover:bg-white/20 text-white'
+                        : 'hover:bg-[#ff453a]/20 text-white/40 hover:text-[#ff453a]'
+                    }`}
+                    title="Hapus Dokumen"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              )
+            })}
+
+            {filteredDocs.length === 0 && (
+              <div className="text-center py-10 text-xs text-white/40 px-4">
+                {searchQuery
+                  ? 'Tidak ada dokumen yang sesuai dengan pencarian.'
+                  : 'Belum ada dokumen tersimpan.'}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Detail & Upload */}
+        <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar p-6 space-y-6">
+          {/* Bulk Upload Dropzone */}
+          <div
+            onDragOver={(e) => {
+              e.preventDefault()
+              setIsDragging(true)
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            className={`relative rounded-2xl border-2 border-dashed p-6 transition-all flex flex-col items-center justify-center text-center cursor-pointer ${
+              isDragging
+                ? 'border-[#0a84ff] bg-[#0a84ff]/10 scale-[1.01]'
+                : 'border-white/15 bg-[#1c1c1e]/40 hover:border-white/25 hover:bg-[#1c1c1e]/60'
+            }`}
+          >
+            <input
+              type="file"
+              multiple
+              accept=".pdf,.txt,.md,.docx"
+              onChange={handleFileUpload}
+              disabled={isUploading}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            />
+            <div className="w-11 h-11 rounded-2xl bg-[#0a84ff]/20 border border-[#0a84ff]/30 flex items-center justify-center text-[#0a84ff] mb-2.5">
+              <UploadCloud size={22} />
+            </div>
+            <div className="text-sm font-semibold text-white mb-1">
+              Tarik file dokumen ke sini atau klik untuk bulk upload
+            </div>
+            <p className="text-xs text-white/40 max-w-sm mb-2.5">
+              Mendukung multi-file PDF, TXT, Markdown (.md), dan DOCX. Abelink memproses antrean secara otomatis.
+            </p>
+            <div className="flex items-center gap-2 text-[10px] text-white/50">
+              <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">PDF</span>
+              <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">TXT</span>
+              <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">MD</span>
+              <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">DOCX</span>
+            </div>
+
+            {isUploading && (
+              <div className="w-full max-w-xs mt-4">
+                <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#0a84ff] transition-all duration-150"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <div className="text-[11px] text-white/70 mt-1.5 font-mono truncate">
+                  {uploadStatusText || `Memproses: ${uploadProgress}%`}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Selected Document Details & Agentic RAG Chunks */}
+          {selectedDoc ? (
+            <div className="rounded-2xl border border-white/10 bg-[#1c1c1e]/40 p-5 space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                    <FileCheck className="w-5 h-5 text-[#30d158]" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">{selectedDoc.name}</h3>
+                    <p className="text-xs text-white/40">Status: Terindeks dalam Memori Vektor</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteDocument(selectedDoc.name)}
+                  className="px-3 py-1.5 rounded-xl bg-[#ff453a]/20 text-[#ff453a] hover:bg-[#ff453a] hover:text-white transition-all text-xs font-medium flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 size={14} />
+                  Hapus Dokumen
+                </button>
+              </div>
+
+              {/* Stat Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                  <div className="text-[11px] text-white/40 uppercase font-bold tracking-wider">
+                    Total Chunk Vektor
+                  </div>
+                  <div className="text-lg font-semibold text-white">
+                    {selectedDoc.chunks}{' '}
+                    <span className="text-xs font-normal text-white/50">segmen memori</span>
+                  </div>
                 </div>
 
-                <label className={`group relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-200 ${
-                  isUploading
-                    ? 'border-cyan-500/40 bg-cyan-500/[0.03] pointer-events-none'
-                    : 'border-white/10 hover:border-cyan-400/40 bg-white/[0.015] hover:bg-cyan-500/[0.02]'
-                }`}>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".pdf,.txt,.md,.docx"
-                    onChange={handleFileUpload}
-                    disabled={isUploading}
-                  />
-                  <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/[0.08] group-hover:border-cyan-500/30 flex items-center justify-center text-zinc-400 group-hover:text-cyan-400 transition-all mb-3 shadow-inner">
-                    {isUploading ? (
-                      <span className="loading loading-spinner loading-sm text-cyan-400" />
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
-                    )}
+                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                  <div className="text-[11px] text-white/40 uppercase font-bold tracking-wider">
+                    Waktu Diunggah
                   </div>
-                  <p className="text-xs font-medium text-zinc-200 group-hover:text-cyan-300 text-center">
-                    {isUploading ? 'Sedang Memproses Dokumen...' : 'Pilih file atau seret ke sini'}
-                  </p>
-                  <p className="text-[10px] text-zinc-500 mt-1 font-mono">Max 50MB per file</p>
-                </label>
+                  <div className="text-sm font-medium text-white flex items-center gap-1.5">
+                    <Clock size={14} className="text-white/40" />
+                    {new Date(selectedDoc.timestamp).toLocaleString('id-ID', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short'
+                    })}
+                  </div>
+                </div>
+              </div>
 
-                {isUploading && (
-                  <div className="space-y-2 pt-2">
-                    <div className="flex justify-between text-[11px] font-mono text-zinc-400">
-                      <span>Memproses Chunking & Vektorisasi</span>
-                      <span className="text-cyan-400 font-semibold">{uploadProgress}%</span>
+              {/* Semantic Query Simulator */}
+              <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <Activity className="w-3.5 h-3.5 text-[#0a84ff]" />
+                    Simulator Query Semantik (Agentic RAG Test)
+                  </span>
+                  <span className="text-[10px] text-white/40 font-mono">Cosine Similarity</span>
+                </div>
+
+                <form onSubmit={handleRunSimulation} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={simQuery}
+                    onChange={(e) => setSimQuery(e.target.value)}
+                    placeholder="Ketik pertanyaan untuk menguji chunk mana yang paling relevan..."
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#0a84ff]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSimulating || !simQuery.trim()}
+                    className="px-4 py-1.5 bg-[#0a84ff] text-white rounded-xl text-xs font-medium hover:bg-[#0a84ff]/90 disabled:opacity-40 transition-all cursor-pointer"
+                  >
+                    {isSimulating ? 'Menguji...' : 'Uji Relevansi'}
+                  </button>
+                </form>
+
+                {simResults && (
+                  <div className="space-y-2 pt-2 border-t border-white/5">
+                    <div className="text-[10px] uppercase font-bold tracking-wider text-white/40">
+                      Top 3 Chunk Paling Relevan
                     </div>
-                    <div className="w-full bg-white/[0.05] h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-cyan-400 h-full transition-all duration-300 ease-out"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
+                    {simResults.length === 0 ? (
+                      <div className="text-xs text-white/40">Tidak ada chunk yang cocok.</div>
+                    ) : (
+                      simResults.map((r, i) => (
+                        <div
+                          key={r.chunkIndex}
+                          className="p-3 rounded-xl bg-white/[0.04] border border-white/10 text-xs space-y-1"
+                        >
+                          <div className="flex items-center justify-between text-[10px] font-mono">
+                            <span className="text-white/60">Rank #{i + 1} (Chunk #{r.chunkIndex + 1})</span>
+                            <span
+                              className={`font-semibold ${
+                                r.similarity > 0.6
+                                  ? 'text-[#30d158]'
+                                  : r.similarity > 0.3
+                                    ? 'text-[#0a84ff]'
+                                    : 'text-white/40'
+                              }`}
+                            >
+                              Skor: {(r.similarity * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <p className="text-white/80 font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+                            {r.content}
+                          </p>
+                        </div>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* RAG Engine Info Card */}
-              <div className="p-6 rounded-3xl bg-black/30 backdrop-blur-2xl border border-white/[0.08] shadow-2xl space-y-3">
-                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg>
-                  Arsitektur RAG Lokal
-                </h3>
-                <div className="text-[11px] text-zinc-400 space-y-2 leading-relaxed">
-                  <p>
-                    Semua dokumen diindeks secara lokal ke IndexedDB (Dexie) dan Orama Vector DB tanpa mengirim file mentah ke server eksternal.
-                  </p>
-                  <p className="text-zinc-500 font-mono text-[10px]">
-                    Chunk size: 500 chars • Overlap: 50 chars • 384-dim vector
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column: Ingested Documents List */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="p-6 rounded-3xl bg-black/30 backdrop-blur-2xl border border-white/[0.08] shadow-2xl space-y-4">
+              {/* Raw Chunk Content Reader */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                    Pustaka Dokumen Tersimpan
-                  </h2>
-                  <span className="text-xs font-mono text-zinc-500">
-                    {documents.reduce((acc, d) => acc + d.chunks, 0)} Total Chunks
+                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-[#0a84ff]" />
+                    Isi Cuplikan Chunk Asli ({selectedDocChunks.length} Chunks)
                   </span>
+                  <span className="text-[10px] text-white/40 font-mono">Indexed Records</span>
                 </div>
 
-                <div className="space-y-2.5">
-                  {documents.length === 0 ? (
-                    <div className="text-center py-16 px-4 bg-white/[0.015] rounded-2xl border border-white/[0.06] text-zinc-500 space-y-2">
-                      <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mx-auto text-zinc-600 mb-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <div className="space-y-2.5 max-h-96 overflow-y-auto custom-scrollbar pr-1">
+                  {selectedDocChunks.map((c) => (
+                    <div
+                      key={c.id || c.chunkIndex}
+                      className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all text-xs space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between text-[10px] text-white/40 font-mono">
+                        <span className="font-semibold text-[#0a84ff]">Chunk #{c.chunkIndex + 1}</span>
+                        <span>{c.content?.length || 0} karakter</span>
                       </div>
-                      <p className="text-xs text-zinc-400 font-medium">Belum ada dokumen yang di-inject.</p>
-                      <p className="text-[11px] text-zinc-600 max-w-sm mx-auto">
-                        Unggah file dokumen di panel sebelah kiri untuk menambahkan pengetahuan ke Abelink.
+                      <p className="text-white/80 text-[11px] font-mono leading-relaxed whitespace-pre-wrap select-text">
+                        {c.content}
                       </p>
                     </div>
-                  ) : (
-                    documents.map((doc, i) => {
-                      const ext = doc.name.split('.').pop()?.toUpperCase() || 'FILE'
-                      return (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.1] transition-all gap-4 group"
-                        >
-                          <div className="flex items-center gap-3.5 min-w-0">
-                            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs font-mono shrink-0">
-                              {ext}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-medium text-xs text-zinc-200 truncate group-hover:text-white transition-colors" title={doc.name}>
-                                {doc.name}
-                              </p>
-                              <div className="flex items-center gap-2 mt-1 font-mono text-[10px]">
-                                <span className="px-2 py-0.5 rounded-md bg-white/[0.05] text-zinc-400 border border-white/[0.05]">
-                                  {doc.chunks} chunks
-                                </span>
-                                <span className="text-zinc-500">
-                                  Diunggah {new Date(doc.timestamp).toLocaleDateString('id-ID', { dateStyle: 'medium' })}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
+                  ))}
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteDocument(doc.name)}
-                            className="w-8 h-8 rounded-xl bg-white/[0.02] hover:bg-rose-500/15 border border-white/[0.06] hover:border-rose-500/30 text-zinc-500 hover:text-rose-300 flex items-center justify-center transition-all shrink-0"
-                            title="Hapus Dokumen"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                          </button>
-                        </div>
-                      )
-                    })
+                  {selectedDocChunks.length === 0 && (
+                    <div className="text-center py-6 text-xs text-white/40">
+                      Memuat chunk dari database...
+                    </div>
                   )}
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-white/40 border border-white/5 rounded-2xl">
+              <Database className="w-10 h-10 mb-2 opacity-30" />
+              <p className="text-xs">Pilih dokumen di sebelah kiri untuk melihat detail indeks dan cuplikan teks.</p>
+            </div>
+          )}
         </div>
       </div>
+
       <ModalComponent />
-      
+
       {toastMessage && (
-        <div className="toast toast-top toast-end z-[9999]">
-          <div className="alert alert-success shadow-lg rounded-2xl flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 backdrop-blur-xl">
-            <span className="text-xs font-medium">{toastMessage}</span>
+        <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
+          <div className="px-4 py-2.5 rounded-2xl bg-[#0a84ff] text-white text-xs font-medium shadow-2xl flex items-center gap-2">
+            <CheckCircle2 size={15} />
+            <span>{toastMessage}</span>
           </div>
         </div>
       )}

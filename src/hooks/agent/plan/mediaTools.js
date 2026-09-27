@@ -3,6 +3,7 @@
 import { getYoutubeSummary } from '../../../api/ai/tools'
 import { playVoice } from '../../../api/ai/utils'
 import { parseChoiceQuery, requestChoice, dropChoice } from '../../../api/choiceBus.js'
+import { buildDirectTrack } from '../musicQuery.js'
 
 // Race helper (cermin toolDispatcher agar media mandiri tanpa import silang).
 const raceWithAbort = (promise, currentSignal) => {
@@ -25,8 +26,24 @@ const musicLabel = (m) => {
 // Kembalikan item kandidat terpilih atau null (batal/abort).
 const offerMusicChoice = async (candidates, question, ctx) => {
   const { targetSetChatData, currentSignal } = ctx || {}
-  const opts = candidates.slice(0, 4)
-  const parsed = parseChoiceQuery(`${question || 'Lagu mana yang dimaksud?'}||${opts.map(musicLabel).join(';')}`)
+  const opts = Array.isArray(candidates) ? candidates.slice(0, 4) : []
+  const hasPlaylistOption = Array.isArray(candidates) && candidates.length > 1
+  const playlistOptionLabel = 'Putar Seluruh Playlist ke Antrean'
+  const displayOpts = hasPlaylistOption ? [...opts, { isPlaylistOption: true, title: playlistOptionLabel, label: playlistOptionLabel }] : opts
+
+  const choicePayload = {
+    question: question || 'Lagu mana yang dimaksud?',
+    type: 'music_preview',
+    options: displayOpts.map((m) => ({
+      label: m.isPlaylistOption ? m.label : musicLabel(m),
+      title: m.title || m.name,
+      artist: m.artist || '',
+      duration: m.duration || '',
+      thumbnail: m.thumbnail || '',
+      id: m.id || m.videoId
+    }))
+  }
+  const parsed = parseChoiceQuery(choicePayload)
   if (!parsed || typeof targetSetChatData !== 'function') return null
   const choiceId = `choice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const choiceTimestamp = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
@@ -35,7 +52,13 @@ const offerMusicChoice = async (candidates, question, ctx) => {
     {
       role: 'ai',
       content: parsed.question,
-      choice: { id: choiceId, options: parsed.options, selected: null },
+      choice: {
+        id: choiceId,
+        options: parsed.options,
+        rawOptions: parsed.rawOptions,
+        type: 'music_preview',
+        selected: null
+      },
       isIntermediate: true,
       timestamp: choiceTimestamp,
       created_at: Date.now()
@@ -45,7 +68,7 @@ const offerMusicChoice = async (candidates, question, ctx) => {
   const { race, onAbort } = raceWithAbort(requestChoice(choiceId), currentSignal)
   try {
     selected = await race
-  } catch (e) {
+  } catch {
     selected = null
   } finally {
     if (onAbort) currentSignal?.removeEventListener('abort', onAbort)
@@ -59,7 +82,12 @@ const offerMusicChoice = async (candidates, question, ctx) => {
       .map((m) => (m.choice?.id === choiceId ? { ...m, choice: { ...m.choice, selected } } : m)),
     { role: 'user', content: selected, timestamp: choiceTimestamp, created_at: Date.now() }
   ])
-  return opts[idx >= 0 ? idx : 0] ?? null
+
+  const picked = displayOpts[idx >= 0 ? idx : 0]
+  if (picked?.isPlaylistOption) {
+    return { isPlaylist: true, allTracks: candidates }
+  }
+  return picked ?? null
 }
 
 /**
@@ -96,7 +124,25 @@ export const runMediaTool = async (tool, query, ctx) => {
     if (out && typeof out === 'object' && Array.isArray(out.candidates) && out.candidates.length > 0) {
       const picked = await offerMusicChoice(out.candidates, out.question, ctx)
       if (!picked) return '[DIBATALKAN] User tidak memilih lagu. Minta query lebih spesifik bila masih dibutuhkan.'
-      return await handleMusic('music-play', picked.id || picked.url || picked.title, targetSetChatData)
+      if (picked.isPlaylist && Array.isArray(picked.allTracks)) {
+        if (ctx.youtubeMusicTools?.enqueuePlaylist) {
+          ctx.youtubeMusicTools.enqueuePlaylist(picked.allTracks, true)
+          return `Berhasil memasukkan ${picked.allTracks.length} lagu playlist/OST ke dalam antrean dan memutar lagu pertama.`
+        }
+      }
+      const pickedId = picked.id || picked.videoId || null
+      if (pickedId) {
+        // Direct-play: user sudah memilih — mainkan ID-nya TANPA search ulang.
+        const track = buildDirectTrack(pickedId, picked)
+        const tools = ctx.youtubeMusicTools || {}
+        const direct = typeof tools.playTrack === 'function' ? tools.playTrack(track) : false
+        const viaUrl = !direct && typeof tools.playUrl === 'function'
+          ? tools.playUrl(`https://music.youtube.com/watch?v=${pickedId}`, track)
+          : false
+        if (direct || viaUrl) return `[SYSTEM LOG] Berhasil memutar lagu: ${track.title} oleh ${track.artist}`
+        return '[SYSTEM LOG] GAGAL memutar lagu: engine pemutar musik belum siap. Laporkan ke user bahwa musik tidak bisa diputar saat ini.'
+      }
+      return await handleMusic('music-play', picked.url || picked.title, targetSetChatData)
     }
     return out
   }

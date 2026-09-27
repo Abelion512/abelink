@@ -11,10 +11,12 @@ import {
 } from '../ai/objectiveVerifier'
 import { createTrajectorySupervisor } from '../ai/trajectorySupervisor'
 import { currentBenchArch } from '../ai/benchArch'
+import { getArchPolicy } from '../ai/archPolicy'
 import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
 import { GROUP_TOOLS_DEFINITION, loadGroupToolsText } from '../tools/group-tools'
 import { executeMemorySearch } from '../vectorMemory.js'
+import { executeMemoryTool } from '../ai/memoryTool.js'
 import { LEAD_AGENT_TAG, CREATOR_TAG } from '../../utils/messageTags'
 
 // Registry AbortController aktif per sub-agent
@@ -102,6 +104,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
 
   const groupToolsText = GROUP_TOOLS_DEFINITION
     ? Object.entries(GROUP_TOOLS_DEFINITION)
+        .filter(([, v]) => !v.dormant)
         .map(([k, v]) => `- ${k}: ${v.description}`)
         .join('\n')
     : ''
@@ -141,8 +144,8 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   // useAbelinkPlan.js: Fase 1 fields only. Bench arch axis (ABELINK_BENCH_ARCH,
   // default basic): vanilla = no supervisor, no verify-gate replan.
   // Additive: faults stay silent, the ReAct loop below is untouched.
-  const benchArch = currentBenchArch()
-  const subSupervisor = benchArch === 'vanilla' ? null : createTrajectorySupervisor()
+  const archPolicy = getArchPolicy(currentBenchArch())
+  const subSupervisor = archPolicy.supervisorEnabled ? createTrajectorySupervisor() : null
   let pendingSubHint = null
 
   try {
@@ -266,7 +269,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               verification: evidence.state,
               kind: evidence.kind
             })
-            if (benchArch !== 'vanilla' && !gate.complete && verifyReplansUsed < MAX_VERIFY_REPLANS) {
+            if (archPolicy.verifyGateEnabled && !gate.complete && verifyReplansUsed < MAX_VERIFY_REPLANS) {
               verifyReplansUsed++
               await subagentStore.addMessage(subagentId, {
                 sender: 'tool',
@@ -375,6 +378,13 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
             } else if (act.tool === 'memory-search') {
               const formatted = await executeMemorySearch(act.query || '')
               res = { success: true, data: formatted }
+            } else if (act.tool === 'memory') {
+              const out = await executeMemoryTool(act.query || '', {
+                turnId: subagentId,
+                sessionId: subagentId
+              })
+              const isErr = out.startsWith('[MEMORY-ERROR]') || out.startsWith('[MEMORY-FAILURE-CAP]')
+              res = { success: !isErr, data: out }
             } else if (window.api && window.api.executeNativeTool) {
               // workspaceRoot warisan sesi induk (disimpan di record) — plumbing
               // yang sama seperti loop utama, bukan root baru.
@@ -393,7 +403,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
                 : JSON.stringify(res.data)
               : `[ERROR] ${res.error}`
 
-            if (act.tool === 'read-tools' || act.tool === 'memory-search' || !window.api?.executeNativeTool) {
+            if (act.tool === 'read-tools' || act.tool === 'memory-search' || act.tool === 'memory' || !window.api?.executeNativeTool) {
               try {
                 import('../harness')
                   .then(({ logToolCall }) =>

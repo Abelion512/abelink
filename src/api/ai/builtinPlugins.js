@@ -17,7 +17,8 @@
 
 export const BUILTIN_PLUGIN_DEFAULTS = Object.freeze({
   ponytail: true,
-  caveman: true
+  caveman: true,
+  internetFirst: true
 })
 
 // Ambil toggle dari config apapun yang punya key `builtinPlugins`
@@ -27,7 +28,8 @@ export const resolvePluginToggles = (conf) => {
   if (!raw || typeof raw !== 'object') return { ...BUILTIN_PLUGIN_DEFAULTS }
   return {
     ponytail: raw.ponytail !== false,
-    caveman: raw.caveman !== false
+    caveman: raw.caveman !== false,
+    internetFirst: raw.internetFirst !== false
   }
 }
 
@@ -62,10 +64,21 @@ const CAVEMAN_RULES = `# CAVEMAN — OUTPUT RINGKAS (SELALU)
 - ANTI-SLOP HTML (preferensi user, tersimpan permanen): DILARANG mengeluarkan tag HTML/JSX apa pun di jawaban (<span>, <p>, <div>, <br>, <b>, <i>, dll.) — tulis Markdown murni. Tag mentah tampil sebagai teks sampah di layar.
 - SINGKAT DEFAULT (preferensi user, tersimpan permanen): obrolan ringan = maksimal ~3 kalimat padat yang hangat. Esai/bab panjang hanya bila user meminta eksplisit.`
 
+// ------------------------------------------------- internet-first
+// Direktif persisten: untuk klaim faktual (versi, harga, API, rilis),
+// DAHULUKAN referensi internet/browser-search sebelum menjawab dari ingatan.
+// Selaras: rantai search (9Router -> browser google -> DDG), claim-quoted
+// (klaim bernama wajib kutipan extract), NO_RESULT vs SEARCH-ERROR.
+const INTERNET_FIRST_RULES = `# INTERNET-FIRST — REFERENSI SEBELUM KLAIM (SELALU)
+- Untuk FAKTA DUNIA LUAR (versi software, harga, API, dokumentasi, berita, rilis): cari referensi via 'browser-search' DULU sebelum menjawab. Jangan mengarang dari ingatan untuk info yang bisa berubah.
+- Urutan: rantai search bawaan (9Router -> browser google.com -> DDG). Bila search rusak ([SEARCH-ERROR]), laporkan senjatanya — JANGAN simpulkan "tidak ada".
+- Klaim nama model/produk/versi WAJIB dikutip dari ISI browser-extract. URL/judul tab saja BUKAN bukti.
+- Pengecualian: coding/teori umum, obrolan ringan, dan memori user — jawab langsung tanpa search.`
+
 /**
  * Rangkai blok aturan plugin untuk system prompt (planner atau sub-agent).
  * @param {object} [conf] config Dexie (membaca key `builtinPlugins`)
- * @param {{ponytail?: boolean, caveman?: boolean}} [overrides] paksa on/off
+ * @param {{ponytail?: boolean, caveman?: boolean, internetFirst?: boolean}} [overrides] paksa on/off
  *        (mis. sub-agent bisa menonaktifkan caveman untuk laporan teknis)
  * @returns {string} blok teks (bisa string kosong bila semua off)
  */
@@ -73,9 +86,11 @@ export const getBuiltinPluginsPrompt = (conf, overrides = {}) => {
   const t = resolvePluginToggles(conf)
   const usePonytail = overrides.ponytail ?? t.ponytail
   const useCaveman = overrides.caveman ?? t.caveman
+  const useInternetFirst = overrides.internetFirst ?? t.internetFirst
   const blocks = []
   if (usePonytail) blocks.push(PONYTAIL_LADDER)
   if (useCaveman) blocks.push(CAVEMAN_RULES)
+  if (useInternetFirst) blocks.push(INTERNET_FIRST_RULES)
   return blocks.join('\n\n')
 }
 

@@ -28,10 +28,11 @@ describe('anti-drift pairing terpin', () => {
   it('background.js resume terpagar pairing', () => {
     const bg = read('background.js')
     // tryAutoResume wajib menolak tanpa pairing (tanpa auto-switch sisa):
-    // antara guard !pairing dan lanjut-alur normal (getCfg) tidak ada
-    // handshake/loop (alarm re-arm boleh).
+    // Gabungan: lastError jujur + jadwalkan ulang, TANPA handshake/loop.
     const segMatch = bg.match(/if \(!pairing\)([\s\S]*?)let cfg = await getCfg\(\)/)
     expect(segMatch).not.toBeNull()
+    expect(segMatch[1]).toMatch(/lastError/)
+    expect(segMatch[1]).toMatch(/scheduleAutoResume/)
     expect(segMatch[1]).not.toMatch(/apiGet|running\s*=\s*true|[^a-zA-Z]loop\(\)/)
   })
 
@@ -75,6 +76,22 @@ describe('isolasi flavor strict: getTokenViaNativeHost', () => {
     const fnBody = fnMatch[0]
     // id.abelink.bridge (tanpa .dev) tidak boleh muncul sebagai string literal fallback.
     expect(fnBody).not.toMatch(/'id\.abelink\.bridge'(?!\s*\+|\.dev)/)
+  })
+})
+
+describe('loop survivability (popup-close disconnect)', () => {
+  it('loop() punya reentrancy guard (keepalive vs resume tak bisa ganda)', () => {
+    const bg = read('background.js')
+    expect(bg).toContain('loopActive')
+    expect(bg).toMatch(/if \(loopActive\) return/)
+    // keepalive alarm tidak memanggil loop() buta saat pollAbort null
+    // (itu juga benar saat sleep sehat) — harus lewat guard.
+    expect(bg).not.toMatch(/if \(cfg\.token && !pollAbort\) \{\s*\n?\s*loop\(\)/)
+  })
+
+  it('jadwal resume menulis status jujur (bukan hijau palsu)', () => {
+    const bg = read('background.js')
+    expect(bg).toMatch(/Menyambung ulang otomatis/)
   })
 })
 

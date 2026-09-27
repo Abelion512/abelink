@@ -106,15 +106,6 @@ const call = async (action, ...args) => {
     }
   }
 }
-const callSafe = async (action, ...args) => {
-  try {
-    return await call(action, ...args)
-  } catch (err) {
-    console.warn(`[tauri-bridge] ${action}:`, err.message)
-    return null
-  }
-}
-
 // channel yang butuh akses file/OS → dikirim sebagai path string, bukan ArrayBuffer
 const toPayload = (v) => {
   if (v instanceof ArrayBuffer) return Array.from(new Uint8Array(v))
@@ -254,6 +245,10 @@ export const api = {
   revokeCapability: (connectorId) => call('capabilities:revoke', connectorId),
   readCapabilityAudit: (limit, offset) => call('capabilities:audit', limit, offset),
   registerCustomConnectors: (list) => call('capabilities:register-custom', list || []),
+  listCapabilityRegistry: () => call('capabilities:registry'),
+  installCapabilityBundle: (bundle) => call('capabilities:bundle-install', bundle || {}),
+  listCapabilityBundles: () => call('capabilities:bundle-list'),
+  removeCapabilityBundle: (id) => call('capabilities:bundle-remove', id),
   getSystemInfo: () => invoke('system_get_info'),
   ping: () => call('ping'),
 
@@ -520,7 +515,8 @@ export const api = {
 
   // ---------- Skills ----------
   getSkills: () => call('skills:get-all'),
-  readSkill: (name) => call('skills:read', name),
+  readSkill: (name, relativePath) => call('skills:read', name, relativePath),
+  getSkillManifest: (name) => call('skills:get-manifest', name),
   saveSkill: (name, content) => call('skills:save', name, content),
   deleteSkill: (name) => call('skills:delete', name),
   installSkill: (sourcePath) => call('skills:install', sourcePath),
@@ -644,7 +640,7 @@ export function installTauriBridge() {
       {
         get: (_t, key) => {
           if (typeof key === 'string' && key.startsWith('on')) {
-            return (cb) => {
+            return (_cb) => {
               warnOnce()
               return () => {}
             }
@@ -659,7 +655,7 @@ export function installTauriBridge() {
     document.body.innerHTML = `
       <div style="position:fixed;inset:0;background:#0b0f0c;color:#e5e7eb;display:flex;align-items:center;justify-content:center;font-family:system-ui;padding:2rem;z-index:999999">
         <div style="max-width:560px;border:1px solid #2a3a2f;border-radius:16px;padding:2rem;background:#101713">
-          <h1 style="margin:0 0 .5rem;font-size:1.3rem;color:#4ade80">ABELINK berjalan di window terpisah</h1>
+          <h1 style="margin:0 0 .5rem;font-size:1.3rem;color:#0a84ff">ABELINK berjalan di window terpisah</h1>
           <p style="margin:0 0 1rem;line-height:1.6;opacity:.85">
             Tab browser ini hanya <b>preview frontend</b> — tanpa API native, tanpa engine.
           </p>
@@ -672,36 +668,43 @@ export function installTauriBridge() {
     return
   }
 
+  api.startResizeDragging = (direction) => {
+    return window.__TAURI_INTERNALS__?.invoke('plugin:window|start_resize_dragging', { direction })
+  }
+
   window.api = api
   window.electron = undefined
 
-  // Frameless drag: konversi style -webkit-app-region: drag -> data-tauri-drag-region
-  const upgrade = (root) =>
+  // Frameless drag & resize: Event delegation di tingkat document agar
+  // SEMUA halaman dan rute otomatis bisa di-drag tanpa terputus lifecycle SPA.
+  document.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return
+    // Elemen interaktif DILARANG memicu drag agar click, focus, dan selection selalu tembus
+    if (e.target.closest('button, input, textarea, a, select, [role="button"], .no-drag, [data-no-drag], [style*="no-drag"]')) {
+      return
+    }
+    const dragEl = e.target.closest('[data-tauri-drag-region]')
+    if (dragEl) {
+      window.__TAURI_INTERNALS__?.invoke('plugin:window|start_dragging')
+    }
+  })
+
+  const upgrade = (root) => {
+    if (!root?.querySelectorAll) return
     root
-      .querySelectorAll?.('[style*="-webkit-app-region: drag"], [style*="-webkit-app-region:drag"]')
+      .querySelectorAll('[style*="-webkit-app-region: drag"], [style*="-webkit-app-region:drag"]')
       .forEach((el) => {
         el.removeAttribute('style')
         el.setAttribute('data-tauri-drag-region', '')
         el.style.setProperty('-webkit-app-region', 'no-drag')
       })
-  const mo = new MutationObserver((mutations) => {
-    if (!mutations.some((m) => Array.from(m.addedNodes).some((n) => n.nodeType === 1))) return
-    document.querySelectorAll('[data-tauri-drag-region]').forEach((el) => {
-      if (!el.dataset.dragWired) {
-        el.dataset.dragWired = '1'
-        el.addEventListener('mousedown', (e) => {
-          if (e.button !== 0 || e.target.closest('button, input, textarea, a')) return
-          window.__TAURI_INTERNALS__.invoke('plugin:window|start_dragging')
-        })
-      }
-    })
+  }
+
+  if (document.body) {
     upgrade(document.body)
-    if (!document.querySelector('[data-tauri-drag-region]:not([data-drag-wired])')) mo.disconnect()
-  })
-  document.addEventListener('DOMContentLoaded', () => {
-    upgrade(document.body)
-    mo.observe(document.body, { childList: true, subtree: true })
-  })
+  } else {
+    document.addEventListener('DOMContentLoaded', () => upgrade(document.body))
+  }
 }
 
 installTauriBridge()

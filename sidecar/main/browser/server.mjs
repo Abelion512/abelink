@@ -21,6 +21,8 @@ import {
   getSessionGroups,
   getSession,
   tokenOk,
+  tokenRejectReason,
+  TOKEN_REJECT_STALE,
   sweepSessions,
   flavorFromPort
 } from './bridge-core.mjs'
@@ -121,7 +123,10 @@ async function route(req, res) {
 
   if (endpoint === 'handshake' && req.method === 'GET') {
     const r = handshake(sessionId, token)
-    return r.ok ? json(res, 200, r) : json(res, 401, r)
+    if (r.ok) return json(res, 200, r)
+    // E2: bedakan sebab 401 agar popup/poll tahu aksi yang tepat
+    // (ambil via helper vs tempel manual) — bukan "sambungkan ulang" generik.
+    return json(res, 401, { ...r, reason: tokenRejectReason(sessionId, token) })
   }
 
   if (endpoint === 'poll' && req.method === 'GET') {
@@ -129,13 +134,14 @@ async function route(req, res) {
       const cmd = await takeNext(sessionId, token) // null = idle timeout
       return json(res, 200, { command: cmd })
     } catch (e) {
-      return json(res, 401, { error: e.message })
+      return json(res, 401, { error: e.message, reason: tokenRejectReason(sessionId, token) })
     }
   }
 
   if (endpoint === 'group' && req.method === 'POST') {
     const s = getSession(sessionId)
-    if (!tokenOk(s, token)) return json(res, 401, { error: 'Token tidak cocok.' })
+    if (!tokenOk(s, token))
+      return json(res, 401, { error: 'Token tidak cocok.', reason: tokenRejectReason(sessionId, token) })
     let parsed
     try {
       parsed = JSON.parse(await readBody(req))
@@ -148,7 +154,8 @@ async function route(req, res) {
 
   if (endpoint === 'groups' && req.method === 'GET') {
     const s = getSession(sessionId)
-    if (!tokenOk(s, token)) return json(res, 401, { error: 'Token tidak cocok.' })
+    if (!tokenOk(s, token))
+      return json(res, 401, { error: 'Token tidak cocok.', reason: tokenRejectReason(sessionId, token) })
     const r = getSessionGroups(sessionId)
     return r.ok ? json(res, 200, r) : json(res, 404, r)
   }
@@ -173,12 +180,30 @@ async function route(req, res) {
 
 // ------------------------------------------------------------- lifecycle
 // Load-when-needed: server baru hidup saat channel browser:* pertama dipakai.
+//
+// RC3 fix (2026-09-27): dulu `startError` di-latch PERMANEN — satu EADDRINUSE
+// transien (instansi lain keluar, port TIME_WAIT) membuat bridge mati selamanya
+// hingga restart proses. Kini:
+//   - `startError` hanya deskripsi kegagalan TERAKHIR; attempt berikutnya
+//     selalu mencoba ulang (dipanggil ulang = dicoba ulang).
+//   - `startPromise` menduplikasi attempt in-flight agar N pemanggil konkuren
+//     menunggu hasil attempt yang sama (tanpa dua listen berebut port).
+//   - Error handler mengabaikan error bila attempt lain sudah sukses listening
+//     (attempt kembar tak boleh meng-clobber state sukses).
+//   - `stopBrowserBridge()` me-reset startError + server sehingga start
+//     berikutnya murni mencoba lagi.
+//   - Selalu mengembalikan Promise: pemanggil `.startBrowserBridge().catch()"
+//     di engine/channels/browser.mjs valid di SEMUA jalur (dulu jalur sync
+//     listening/latch mengembalikan object polos -> TypeError laten).
+let startPromise = null
+let startResolve = null // resolver attempt in-flight (dipakai stop() batal-kan)
 export function startBrowserBridge() {
-  if (listening) return { ok: true, port: BROWSER_BRIDGE.PORT }
-  if (startError) return { ok: false, error: startError }
+  if (listening) return Promise.resolve({ ok: true, port: BROWSER_BRIDGE.PORT })
+  if (startPromise) return startPromise
 
-  return new Promise((resolve) => {
-    server = http.createServer((req, res) => {
+  const attempt = new Promise((resolve) => {
+    startResolve = resolve
+    const thisServer = http.createServer((req, res) => {
       route(req, res).catch((e) => {
         try {
           json(res, 500, { error: e.message })
@@ -187,19 +212,36 @@ export function startBrowserBridge() {
         }
       })
     })
+    server = thisServer
     // Long-poll butuh timeout header longgar; request utuh dibatasi core.
-    server.headersTimeout = BROWSER_BRIDGE.POLL_TIMEOUT_MS + 10000
-    server.requestTimeout = 0 // dikelola per-endpoint (poll 25s, command 90s)
-    server.once('error', (e) => {
+    thisServer.headersTimeout = BROWSER_BRIDGE.POLL_TIMEOUT_MS + 10000
+    thisServer.requestTimeout = 0 // dikelola per-endpoint (poll 25s, command 90s)
+    thisServer.once('error', (e) => {
+      // Guard race: (a) attempt kembar bisa kena EADDRINUSE padahal attempt
+      // lain sudah sukses; (b) stop() bisa menyela — attempt lama tak boleh
+      // meng-clobber state attempt baru.
+      if (listening || server !== thisServer) return
       startError =
         e.code === 'EADDRINUSE'
           ? `Port bridge ${BROWSER_BRIDGE.PORT} sudah dipakai (instansi Abelink lain berjalan?).`
           : `Bridge gagal start: ${e.message}`
       listening = false
+      server = null
+      startResolve = null
       resolve({ ok: false, error: startError })
     })
-    server.listen(BROWSER_BRIDGE.PORT, BROWSER_BRIDGE.HOST, () => {
+    thisServer.listen(BROWSER_BRIDGE.PORT, BROWSER_BRIDGE.HOST, () => {
+      if (server !== thisServer) {
+        // Stop menyela sebelum listen selesai — matikan server yatim ini.
+        try {
+          thisServer.close()
+        } catch {
+          /* sudah tertutup */
+        }
+        return
+      }
       listening = true
+      startError = null
       armSweepTimer()
       const flavor = flavorFromPort(BROWSER_BRIDGE.PORT)
       try {
@@ -218,8 +260,17 @@ export function startBrowserBridge() {
           if (r?.ok) console.log('[BrowserBridge] native host siap:', JSON.stringify(r.installed))
         })
         .catch((e) => console.warn('[BrowserBridge] native host dilewati:', e.message))
+      startResolve = null
       resolve({ ok: true, port: BROWSER_BRIDGE.PORT })
     })
+  })
+  startPromise = attempt
+  // Bersihkan guard in-flight setelah attempt selesai (sukses ATAU gagal)
+  // agar panggilan berikutnya benar-benar mencoba ulang — inilah anti-latch.
+  // Identity check: stop()+start() yang menyela tidak boleh menghapus guard
+  // milik attempt yang LEBIH BARU.
+  return attempt.finally(() => {
+    if (startPromise === attempt) startPromise = null
   })
 }
 
@@ -227,13 +278,26 @@ export function bridgeReady() {
   return listening
 }
 export function stopBrowserBridge() {
-  if (!server) return
-  try {
-    server.close()
-  } catch {
-    /* server sudah tertutup */
+  if (server) {
+    try {
+      server.close()
+    } catch {
+      /* server sudah tertutup */
+    }
   }
+  server = null
   listening = false
+  // RC3 fix: stop eksplisit = reset latch agar start berikutnya mencoba lagi
+  // dari nol (dulu startError permanen bahkan setelah stop).
+  startError = null
+  // Resolve attempt in-flight agar awaiter tidak menggantung selamanya
+  // (dulu: stop di tengah attempt = promise tak pernah settle).
+  if (startResolve) {
+    const r = startResolve
+    startResolve = null
+    r({ ok: false, error: 'Bridge dihentikan sebelum selesai start.' })
+  }
+  startPromise = null
   disarmSweepTimer()
 }
 

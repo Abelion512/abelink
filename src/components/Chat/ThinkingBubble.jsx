@@ -1,13 +1,12 @@
-import React, { useEffect, useRef } from 'react'
-import { Check, Music, Brain, ChevronRight, ListOrdered } from 'lucide-react'
-import { FaYoutube } from 'react-icons/fa'
+import { useEffect, useRef } from 'react'
+import { Check, Music, Brain, ChevronRight, ListOrdered, SquarePlay } from 'lucide-react'
 
 export const ThinkingBubble = ({
-  isThinking = false,
+  _isThinking = false,
   isSummarizing = false,
   isSearchingMusic = false,
   content = '',
-  youtubeLink = '',
+  _youtubeLink = '',
   reasoning = null,
   executedTools = []
 }) => {
@@ -27,7 +26,7 @@ export const ThinkingBubble = ({
       <div className="flex items-center gap-2.5">
         {isSummarizing ? (
           <div className="flex items-center gap-2 text-warning font-medium">
-            <FaYoutube className="w-4 h-4 animate-bounce text-error" />
+            <SquarePlay className="w-4 h-4 animate-bounce text-error" />
             <span className="text-xs">{content || 'Meringkas video YouTube...'}</span>
           </div>
         ) : isSearchingMusic ? (

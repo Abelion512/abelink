@@ -1,3 +1,5 @@
+import { resolveReadToolsQuery } from './toolCatalog'
+
 export const GROUP_TOOLS_DEFINITION = {
   advanced_browser: {
     description:
@@ -7,15 +9,19 @@ export const GROUP_TOOLS_DEFINITION = {
         'Buka URL di browser fisik. Query: URL lengkap. Mengembalikan daftar elemen interaktif bernomor (ID).',
       'browser-read': 'Scan ulang elemen halaman saat ini. Gunakan setelah menunggu loading.',
       'browser-click':
-        'Klik elemen. Query: ID (ak1, ak2, ...). WAJIB read-dom/browser-navigate di SESI YANG SAMA dulu; ID dari turn/sesi lain = basi, JANGAN diklik. Mengembalikan DOM terbaru setelah klik.',
+        'Klik elemen. Query: ID (ak1, ak2, ...) atau ID||teks-yang-diharapkan (mis. ak5||Chat) — format jangkar WAJIB bila halaman bisa bergeser (klik dibatalkan bila teks tidak cocok, bukan klik buta). WAJIB read-dom/browser-navigate di SESI YANG SAMA dulu; ID dari turn/sesi lain = basi, JANGAN diklik. Mengembalikan DOM terbaru setelah klik.',
       'browser-type':
         'Ketik teks di kolom input. Query: ID||teks. WAJIB read-dom di SESI YANG SAMA dulu; ID basi JANGAN dipakai.',
       'browser-scroll': 'Scroll halaman. Query: "up" atau "down".',
       'browser-extract':
-        'Ekstrak teks/data via CSS Selector. Kembalikan JSON. Query: selector CSS (misal: ".product-price").',
+        'Ekstrak teks/data via CSS Selector (misal: ".product-price"). TANPA selector = kembalikan TEKS UTAMA halaman (termasuk sumber TeX MathJax). Pakai ini bila browser-read tidak memuat konten artikel/soal.',
       'browser-script':
         'Eksekusi custom Javascript di browser (Bisa untuk manipulasi DOM / bypass). Query: script JS murni.',
       'browser-screenshot': 'Ambil screenshot web utuh dan simpan ke OS. Query: namafile.png.',
+      'browser-snapshot':
+        'Baca SELURUH teks halaman (ala take_snapshot): teks utama + sumber TeX MathJax + daftar gambar soal. Pakai bila browser-read/extract kosong tapi halaman terlihat ada konten. Query: kosong.',
+      'browser-wait-for':
+        'Tunggu teks tertentu muncul di halaman (konten JS lambat), maks ~15 detik. Query: teks yang ditunggu (mis. "Soal No").',
       'browser-download': 'Download URL secara fisik ke OS. Query: URL||namafile.ext.',
       'browser-back':
         'Navigasi mundur (history back) di tab browser fisik tanpa terhalang CSP. Query: kosong.',
@@ -27,7 +33,18 @@ export const GROUP_TOOLS_DEFINITION = {
       'browser-close': 'Menutup browser fisik.'
     }
   },
+  // DORMAN (keputusan owner 2026-09-27, anti over-engineering): group
+  // pc_automation TIDAK direkrut ke prompt planner/sub-agent. Data harness
+  // (prod+dev, 1380 tool call): surface visual os-read/click/type = 0 call;
+  // os-* yang hidup (os-control plumbing, os-open core) tidak tergantung
+  // group ini. Mesin tetap LIVE dan dapat diaktifkan lagi dengan
+  // mengembalikan flag di bawah — tanpa hapus kode, tanpa risiko
+  // emergency-stop. Debt adaptasi Linux yang nyata: Wayland (semua visual
+  // path X11-only) — backlog, dikerjakan hanya bila group diaktifkan.
   pc_automation: {
+    dormant: true,
+    dormantReason:
+      'Otomasi PC visual (os-read/click/type) belum pernah dipakai agen secara nyata (0 call di harness prod+dev); diaktifkan kembali via Capability bila ada kebutuhan nyata. Jalur X11-only; Wayland = backlog adaptasi.',
     description:
       'Tool untuk <inter></inter>aksi fisik dengan desktop OS Linux (X11). [SPEEDRUNNER BATCH MODE]: Kamu BISA mengeksekusi BATCH ACTIONS (mengirim ARRAY aksi) dalam 1 giliran untuk menghindari loading lama. Contoh: [{"tool":"os-click","query":"5"}, {"tool":"os-delay","query":"1000"}, {"tool":"os-type","query":"Teks"}]. Gunakan os-click secara bebas, tetapi KELOMPOKKAN aksimu ke dalam array jika urutannya sudah jelas, jangan satu per satu!',
     tools: {
@@ -38,7 +55,7 @@ export const GROUP_TOOLS_DEFINITION = {
       'os-read':
         'Membaca elemen GUI desktop. Query: Kosongkan untuk scan seluruh layar (LAMBAT, 1-3 detik), atau isi dengan kata "focus" untuk HANYA membaca 1 elemen yang saat ini sedang aktif/tersorot (INSTAN, 1 ms). Gunakan query "focus" setelah kamu menekan tombol TAB/Panah untuk memverifikasi posisimu dengan cepat!',
       'os-click':
-        'Klik mouse pada elemen GUI desktop. Query: ID elemen dari os-read atau x||y koordinat absolut.',
+        'Klik mouse pada elemen GUI desktop. Query: ID elemen dari os-read atau x||y koordinat absolut, plus jangkar opsional: ID||teks-yang-diharapkan (mis. 7||Login) atau x||y||teks. Format jangkar WAJIB bila layar bisa bergeser (posisi dibaca ulang + teks dicocokkan; klik dibatalkan bila tidak cocok, bukan klik buta).',
       'os-type':
         'Ketik teks ke elemen input di aplikasi desktop. Query: ID||teks atau teks langsung. PENTING: DILARANG KERAS MENGETIKKAN EMOJI! DILARANG KERAS menggunakan format markdown link seperti [teks](url) saat mengetik URL! Ketik raw teks saja.',
       'os-key':
@@ -70,7 +87,11 @@ export const GROUP_TOOLS_DEFINITION = {
       'music-toggle': 'Pause/lanjut memutar lagu.',
       'music-search': 'Mencari lagu spesifik di YT Music. Hasil ambigu OTOMATIS ditawarkan sebagai tombol pilihan — jangan autoplay buta atau tanya via teks.',
       'music-next': 'Mengganti lagu ke track selanjutnya.',
-      'music-prev': 'Mengganti lagu ke track sebelumnya.'
+      'music-prev': 'Mengganti lagu ke track sebelumnya.',
+      'music-loop': 'Atur repeat. Query: one | one <N>x (mis. one 3x) | all | off.',
+      'music-queue-add': 'Tambah lagu ke antrean tanpa autoplay (kecuali antrean kosong). Query: "judul"[ xN] (mis. Lagu A x2).',
+      'music-queue-remove': 'Hapus lagu dari antrean. Query: judul atau id.',
+      'music-queue-clear': 'Kosongkan seluruh antrean. Query: kosong.'
     }
   },
   google_drive: {
@@ -135,7 +156,7 @@ export const GROUP_TOOLS_DEFINITION = {
       'connector-guide':
         'Minta panduan input schema + contoh pemakaian satu aksi SEBELUM mengeksekusi. Query: connectorId||actionId (misal: "fs||read").',
       'connector-run':
-        'Eksekusi aksi connector (policy + audit otomatis; eksekusi berbahaya memicu approval NATIVE user). Query: connectorId||actionId||args_json (misal: "time||diff||{\"from\":\"09:00\",\"to\":\"17:00\"}").',
+        'Eksekusi aksi connector (policy + audit otomatis; eksekusi berbahaya memicu approval NATIVE user). Query: connectorId||actionId||args_json (misal: "time||diff||{"from":"09:00","to":"17:00"}").',
       'connector-status':
         'Lihat status koneksi & izin (scopes) semua connector + jejak audit terakhir. Query: KOSONG atau jumlah_baris_audit.'
     }
@@ -216,27 +237,29 @@ export const group_tools = async () => {
   const dynamicGroups = { ...GROUP_TOOLS_DEFINITION }
 
   try {
-    const plugins = await window.api.getPlugins()
-    if (plugins && plugins.length > 0) {
-      plugins.forEach((plugin) => {
-        if (plugin.isEnabled !== false && plugin.actions) {
-          const toolMap = {}
-          plugin.actions.forEach((act) => {
-            let paramDocs = ''
-            if (act.parameters) {
-              paramDocs = ` (Params: ${Object.entries(act.parameters)
-                .map(([k, v]) => `${k}: ${v}`)
-                .join(', ')})`
-            }
-            toolMap[act.name] = `${act.description}${paramDocs}`
-          })
+    if (typeof window !== 'undefined' && window.api?.getPlugins) {
+      const plugins = await window.api.getPlugins()
+      if (plugins && plugins.length > 0) {
+        plugins.forEach((plugin) => {
+          if (plugin.isEnabled !== false && plugin.actions) {
+            const toolMap = {}
+            plugin.actions.forEach((act) => {
+              let paramDocs = ''
+              if (act.parameters) {
+                paramDocs = ` (Params: ${Object.entries(act.parameters)
+                  .map(([k, v]) => `${k}: ${v}`)
+                  .join(', ')})`
+              }
+              toolMap[act.name] = `${act.description}${paramDocs}`
+            })
 
-          dynamicGroups[plugin.name] = {
-            description: plugin.description || 'Plugin Eksternal Tambahan',
-            tools: toolMap
+            dynamicGroups[plugin.name] = {
+              description: plugin.description || 'Plugin Eksternal Tambahan',
+              tools: toolMap
+            }
           }
-        }
-      })
+        })
+      }
     }
   } catch (err) {
     console.error('Gagal meload external plugin', err)
@@ -245,25 +268,34 @@ export const group_tools = async () => {
   return dynamicGroups
 }
 
-// Shared read-tools body: formatted group text + extension status line.
-// Returns null when the group does not exist; never throws.
-export async function loadGroupToolsText(groupName) {
-  const name = (groupName || '').trim()
+// Shared read-tools body: enriched tool/group text + examples + extension status line.
+// Returns null when the group/tool/query does not match; never throws.
+export async function loadGroupToolsText(query) {
+  const name = (query || '').trim()
   if (!name) return null
   const groups = await group_tools()
-  if (!groups[name]) return null
-  const formatted = Object.entries(groups[name].tools)
-    .map(([k, v]) => `- ${k}: ${v}`)
-    .join('\n')
+  const resolved = await resolveReadToolsQuery(name, { customGroups: groups })
+  if (resolved?.isDormant) {
+    // Grup dorman (mis. pc_automation): jawab JUJUR, bukan miss senyap —
+    // agen tahu grupnya ada, kenapa dorman, dan bagaimana keadaannya.
+    return resolved.message
+  }
+  if (!resolved || !resolved.success) {
+    return null
+  }
   let extLine = ''
-  if (name === 'advanced_browser') {
+  if (resolved.groupName === 'advanced_browser' || name.toLowerCase().includes('browser')) {
     extLine = (await browserExtensionStatusLine()) + '\n'
   }
-  return `${extLine}${formatted}`
+  return `${extLine}${resolved.message}`
 }
+
 
 // Generate flat map sekali aja buat fast O(1) lookup
 export const group_tools_flat = {}
 for (const group of Object.values(GROUP_TOOLS_DEFINITION)) {
   Object.assign(group_tools_flat, group.tools)
 }
+
+export { resolveReadToolsQuery }
+

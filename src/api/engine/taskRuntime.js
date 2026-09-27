@@ -185,7 +185,27 @@ export async function getResult(taskId) {
     status: task.status,
     error: task.error || null,
     completedAt: task.completedAt || null,
+    handoffContract: task.handoffContract || null,
     steps,
     text
   }
 }
+
+export async function getTaskHandoffContract(taskId, options = {}) {
+  const s = await store()
+  if (typeof s.generateTaskHandoff === 'function') {
+    return s.generateTaskHandoff(taskId, options)
+  }
+  const task = await s.getAgentTaskWithSteps(taskId)
+  if (!task) throw new Error('Task tidak ditemukan: ' + taskId)
+  const { buildHandoffContract } = await import('../ai/handoffContract.js')
+  return buildHandoffContract(task, options)
+}
+
+export {
+  buildHandoffContract,
+  validateHandoffContract,
+  formatHandoffContractPrompt,
+  MANDATORY_HANDOFF_FIELDS
+} from '../ai/handoffContract.js'
+
