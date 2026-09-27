@@ -217,10 +217,47 @@ const browserExtensionConnector = {
   }
 }
 
+// ------------------------------------------------- google-calendar-mcp (Official MCP)
+
+export const googleCalendarMcpConnector = {
+  id: 'google-calendar-mcp',
+  name: 'Google Calendar (Official MCP)',
+  description:
+    'Server Model Context Protocol resmi Google Calendar (https://calendarmcp.googleapis.com/mcp/v1) via JSON-RPC Streamable HTTP + OAuth 2.0 Bearer.',
+  url: 'https://calendarmcp.googleapis.com/mcp/v1',
+  transport: 'mcp',
+  authType: 'oauth',
+  oauthProvider: 'google',
+  scopes: ['https://www.googleapis.com/auth/calendar'],
+  actions: {}
+}
+
+// ------------------------------------------------- context7 (MCP)
+
+export const context7McpConnector = {
+  id: 'context7',
+  name: 'Context7 MCP',
+  description:
+    'Dokumentasi pustaka, snippet kode real-time, dan referensi API resmi (https://mcp.context7.com/mcp).',
+  url: 'https://mcp.context7.com/mcp',
+  transport: 'mcp',
+  authType: 'api_key',
+  scopes: [],
+  actions: {}
+}
+
 // ------------------------------------------------------------------- registry
 
 export const CONNECTORS = new Map()
-for (const c of [weatherConnector, timeConnector, fsConnector, shellToolConnector, browserExtensionConnector]) {
+for (const c of [
+  weatherConnector,
+  timeConnector,
+  fsConnector,
+  shellToolConnector,
+  browserExtensionConnector,
+  googleCalendarMcpConnector,
+  context7McpConnector
+]) {
   CONNECTORS.set(c.id, c)
 }
 
@@ -229,10 +266,14 @@ export const listConnectors = () =>
     id: c.id,
     name: c.name,
     description: c.description,
+    url: c.url || null,
+    transport: c.transport || 'builtin',
+    authType: c.authType || null,
+    oauthProvider: c.oauthProvider || null,
     scopes: c.scopes,
-    actions: Object.entries(c.actions).map(([id, a]) => ({
+    actions: Object.entries(c.actions || {}).map(([id, a]) => ({
       id,
-      summary: a.summary,
+      summary: a.summary || '',
       scopes: a.scopes || []
     }))
   }))
@@ -262,6 +303,8 @@ export function registerConnector(def = {}) {
       if (typeof k === 'string' && typeof v === 'string' && k && v) headers[k] = v
     }
   }
+  const authType = def.authType || (def.oauthProvider ? 'oauth' : null)
+  const oauthProvider = def.oauthProvider || null
   const connector = {
     id,
     name: String(def.name || id),
@@ -269,11 +312,13 @@ export function registerConnector(def = {}) {
     url,
     headers,
     transport: 'mcp',
-    scopes: [],
+    authType,
+    oauthProvider,
+    scopes: Array.isArray(def.scopes) ? def.scopes : [],
     actions: {}
   }
   CONNECTORS.set(id, connector)
-  return { id, name: connector.name, transport: 'mcp' }
+  return { id, name: connector.name, transport: 'mcp', authType, oauthProvider }
 }
 
 // Action guide ala OpenConnector: schema + scopes + connection identity + contoh.

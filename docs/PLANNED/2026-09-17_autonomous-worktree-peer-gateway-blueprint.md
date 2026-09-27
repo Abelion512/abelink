@@ -17,6 +17,13 @@ Setiap kali ada agen yang menyentuh kode proyek:
 3. **Workspace Re-pointing:** Tool filesystem agen (`fs_read_file`, `fs_write_file`, `fs_list_dir`, `fs_grep_search`, command runner) diarahkan ke direktori worktree tersebut, bukan root proyek.
 4. **Zero Main Pollution:** Branch `main` dan proses dev server utama tidak pernah tersentuh sampai seluruh verifikasi lulus.
 
+### Kebijakan Pembersihan Berkala & Proteksi Disk (Periodic Cleansing Policy)
+Untuk mencegah disk bloat dan penumpukan worktree yatim (orphaned worktrees):
+1. **TTL & Inactivity Pruning:** Worktree yang idle lebih dari 24 jam tanpa commit baru akan dijadwalkan untuk dipangkas otomatis.
+2. **Safe Pruning Gate:** Sebelum penghapusan direktori worktree dilakukan, runner memeriksa status `git status --porcelain`. Jika terdeteksi dirty state (uncommitted changes), pembersihan dibatalkan dan sistem mencatat peringatan ke harness log.
+3. **Orphan & Branch Cleanup:** Menjalankan `git worktree prune` secara periodik dan menghapus branch sementara (`abelink/auto-*`) yang sudah berstatus merged ke branch target.
+4. **Disk Space Guard:** Memeriksa ketersediaan ruang disk lokal sebelum membuat worktree baru (threshold aman: minimal 2GB free space). Jika kapasitas di bawah batas aman, pembuatan worktree ditolak dengan error eksplisit untuk mencegah OS crash.
+
 ---
 
 ## 2. Autonomous Worktree Quality Gate
@@ -42,13 +49,31 @@ Abelink bertindak sebagai koordinator utama (Mission Control) yang dapat memimpi
 - **Antarmuka Pengguna:** Panel terminal `xterm.js` tersemat di UI untuk pemantauan real-time atau intervensi langsung oleh user.
 - **Intercom Discussion Bus:** Percakapan teknis antara Abelink dan OpenCode/Hermes diparsing dan dirangkum ke dalam kartu diskusi Intercom, sehingga instruksi dan kesepakatan arsitektur tercatat transparan.
 
-### B. Web Frontier Brainstorm Peers (ChatGPT, Claude.ai, DeepSeek)
-- **Konektor:** Autonomous Browser Tab Bridge memanfaatkan browser extension Abelink yang sudah terpasang.
-- **Alur Kerja:**
-  1. Abelink membuka tab pinned atau menggunakan tab aktif untuk `chatgpt.com`, `claude.ai`, atau `chat.deepseek.com`.
-  2. Menyuntikkan prompt diskusi atau pertanyaan arsitektur ke textarea chat web frontier.
-  3. Mengamati streaming respons DOM hingga tanda selesai (done signal) terdeteksi.
-  4. Menyaring hasil pemikiran model frontier dan memasukkannya langsung ke dalam sesi diskusi Abelink.
+### B. Universal Web Frontier Brainstorm Peers (Open Registry)
+Tidak terbatas pada satu atau dua provider komersial. Menggunakan arsitektur adapter DOM polimorfik (`WebPeerRegistry`) yang memanfaatkan Browser Extension Abelink:
+- **Interface WebPeerAdapter:**
+  * `matchUrl(url)`: regex pola URL host web AI.
+  * `selectors`: mapping CSS selector untuk elemen krusial:
+    - `promptInput`: textarea input prompt pengguna.
+    - `sendBtn`: tombol submit / generate.
+    - `streamingIndicator`: penanda proses inferensi sedang berlangsung.
+    - `responseContainer`: elemen pembungkus pesan balasan model.
+    - `stopBtn`: tombol batal / interrupt.
+  * `extractContent(element)`: parser markdown / plain text hasil inferensi.
+- **Dukungan Provider Bawaan (Out-of-the-Box):**
+  * OpenAI ChatGPT (`chatgpt.com`, GPT-5.6 / 4o / o3)
+  * Anthropic Claude (`claude.ai`, Sonnet 5 / Claude 3.7 Sonnet)
+  * DeepSeek Chat (`chat.deepseek.com`, DeepSeek-R1 / V3)
+  * Alibaba Qwen (`chat.qwenlm.ai`, Qwen-2.5-Max / QwQ)
+  * Perplexity (`perplexity.ai`, Sonar / Deep Research)
+  * xAI Grok (`x.com/i/grok`, Grok-3)
+  * Moonshot Kimi (`kimi.moonshot.cn`, Kimi k1.5)
+- **Extensible User Registry:** Pengguna dapat mendefinisikan provider web baru via file konfigurasi `~/.config/abelink/web-peers.json` tanpa perlu mengubah kode sumber sidecar.
+- **Alur Kerja Brainstorm:**
+  1. Abelink memilih peer dari registry (misalnya Claude Sonnet 5 untuk review arsitektur atau Qwen untuk verifikasi matematika/algoritma).
+  2. Membuka atau menggunakan tab yang sudah terpasang via browser bridge.
+  3. Menyuntikkan prompt diskusi teknis langsung ke DOM input web peer.
+  4. Memantau streaming hingga sinyal done terdeteksi, lalu mengekstrak hasil balasan dan merangkumnya ke Intercom Mission Control.
 
 ---
 

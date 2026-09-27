@@ -5,7 +5,15 @@
 import { invoke } from '@tauri-apps/api/core'
 
 async function append(kind, obj) {
-  const line = JSON.stringify({ ts: new Date().toISOString(), ...obj })
+  const normalizedKind =
+    kind === 'tool-calls'
+      ? 'tool-call'
+      : kind === 'observations'
+        ? 'observation'
+        : kind === 'answers'
+          ? 'answer'
+          : kind
+  const line = JSON.stringify({ ts: new Date().toISOString(), kind: obj?.kind || normalizedKind, ...obj })
   try {
     await invoke('harness_append', { kind, line })
   } catch (e) {
