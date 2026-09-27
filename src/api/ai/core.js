@@ -18,6 +18,7 @@ export const fetchAI = async (
   let override = configOverride
 
   let onToken = null
+  let transport = null
   if (
     signalOrOptions &&
     typeof signalOrOptions === 'object' &&
@@ -29,6 +30,7 @@ export const fetchAI = async (
     schema = signalOrOptions.jsonSchema ?? jsonSchema
     override = signalOrOptions.configOverride ?? configOverride
     onToken = typeof signalOrOptions.onToken === 'function' ? signalOrOptions.onToken : null
+    transport = signalOrOptions.transport || signalOrOptions.fetchAI || null
   }
   if (!onToken && typeof onTokenPositional === 'function') onToken = onTokenPositional
 
@@ -75,7 +77,8 @@ export const fetchAI = async (
       try {
         releaseTokenEarly?.()
       } catch (_) {}
-      if (window.api && window.api.abortFetchAI) window.api.abortFetchAI()
+      const api = (typeof window !== 'undefined' && window.api) || globalThis.__ABELINK_API__ || null
+      if (api && api.abortFetchAI) api.abortFetchAI()
       const err = new Error('AbortError')
       err.name = 'AbortError'
       reject(err)
@@ -121,10 +124,11 @@ export const fetchAI = async (
 
     // Stream opt-in: pasang listener ai:token hanya bila onToken ada;
     // dilepas saat resolve/reject/abort agar tidak bocor antar giliran.
+    const api = (typeof window !== 'undefined' && window.api) || globalThis.__ABELINK_API__ || null
     let unlistenToken = null
-    if (onToken && window.api?.onAiToken) {
+    if (onToken && api?.onAiToken) {
       try {
-        unlistenToken = window.api.onAiToken((chunk) => {
+        unlistenToken = api.onAiToken((chunk) => {
           try {
             onToken(chunk)
           } catch (_) {}
@@ -141,14 +145,21 @@ export const fetchAI = async (
     }
     releaseTokenEarly = releaseToken
 
-    window.api
-      .fetchAI({
-        messages: safeMessages,
-        config: conf,
-        isSmallTask: smallTask,
-        jsonSchema: schema,
-        stream: !!onToken
-      })
+    const fetchTransport = transport || api?.fetchAI || globalThis.__ABELINK_AI_FETCH__
+    if (!fetchTransport) {
+      hasResolved = true
+      releaseToken()
+      reject(new Error('AI transport tidak tersedia (window.api.fetchAI, transport session, dan __ABELINK_AI_FETCH__ tidak terpasang).'))
+      return
+    }
+
+    fetchTransport({
+      messages: safeMessages,
+      config: conf,
+      isSmallTask: smallTask,
+      jsonSchema: schema,
+      stream: !!onToken
+    })
       .then((result) => {
         if (hasResolved) return
         hasResolved = true
@@ -299,7 +310,7 @@ export const cleanAndParse = (rawResponse) => {
       return JSON.parse(cleaned)
     } catch (_) {}
 
-    cleaned = cleaned.replace(/\\(?!(["\\\/bfnrt]|u[a-fA-F0-9]{4}))/g, '\\\\')
+    cleaned = cleaned.replace(/\\(?!(["\\/bfnrt]|u[a-fA-F0-9]{4}))/g, '\\\\')
 
     try {
       return JSON.parse(cleaned)
@@ -333,7 +344,7 @@ export const cleanAndParse = (rawResponse) => {
       const lastResort = rawResponse.trim().replace(/^\xEF\xBB\xBF/, '')
       const match = lastResort.match(/\{[\s\S]*\}/)
       return match ? JSON.parse(match[0]) : null
-    } catch (e) {
+    } catch {
       return null
     }
   }

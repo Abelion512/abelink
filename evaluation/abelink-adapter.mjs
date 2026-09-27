@@ -12,6 +12,15 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ARCH_VALUES, resolveBenchArch, currentBenchArch } from '../src/api/ai/benchArch.js'
+import { getArchPolicy } from '../src/api/ai/archPolicy.js'
+import {
+  classifyObjectiveKind,
+  evaluateEvidence,
+  gateCompletion,
+  buildReplanObservation,
+  MAX_VERIFY_REPLANS
+} from '../src/api/ai/objectiveVerifier.js'
+import { createTrajectorySupervisor } from '../src/api/ai/trajectorySupervisor.js'
 
 export { ARCH_VALUES, resolveBenchArch, currentBenchArch }
 
@@ -116,12 +125,21 @@ export function normalizeEffort(value, fallback = 'low') {
 
 
 // ---- Persistent sidecar child with id-multiplexed JSON-lines RPC ----
-function createSidecar(arch = 'basic') {
+// `representation` (PR46 browser ablation) is forwarded to the child so the
+// observation path really renders differently: sidecar/main/tools/browserTools
+// reads ABELINK_BROWSER_OBSERVATION via resolveObservationRepresentation().
+// null/undefined means "unset" -> semantic-first (unchanged app behavior).
+function createSidecar(arch = 'basic', representation = null) {
   const child = spawn(BUN, [SIDECAR], {
     stdio: ['pipe', 'pipe', 'pipe'],
     // ABELINK_BENCH_ARCH propagates the arch axis to the engine so executor-side
     // wiring (renderer Task 5 lineage/scoring, future engine gates) can read it.
-    env: { ...process.env, ABELINK_DEBUG_AI: '0', ABELINK_BENCH_ARCH: arch },
+    env: {
+      ...process.env,
+      ABELINK_DEBUG_AI: '0',
+      ABELINK_BENCH_ARCH: arch,
+      ...(representation ? { ABELINK_BROWSER_OBSERVATION: representation } : {}),
+    },
   })
 
   const pending = new Map() // id -> { resolve, reject, timer }
@@ -314,6 +332,31 @@ const TOOL_ARG_DOCS = {
   'list-dir': 'path="..."'
 }
 
+// Identity of the bench prompt construction (task prompt + tool preamble).
+// Recorded in the PR46 measurement report as `identity.promptTemplate` so the
+// architecture A/B can verify that the prompt protocol was held fixed; bump the
+// version whenever the preamble/format below changes its meaning.
+export const BENCH_PROMPT_TEMPLATE = 'bench-tool-preamble-v1'
+
+// Is the ABELINK_BENCH_ARCH axis actually EXECUTED by this harness?
+//
+// Yes (Task 6). This adapter drives the sidecar directly (`ai:fetch` +
+// `native-tool:execute`) with its own minimal ReAct loop, BUT the loop now
+// honors getArchPolicy and runs the REAL governance modules the renderer
+// uses (createTrajectorySupervisor, evaluateEvidence/gateCompletion/
+// buildReplanObservation). So `--arch vanilla` (no supervisor, claims
+// trusted) and `--arch basic` (supervisor hints + bounded verify replan)
+// run DIFFERENTLY here: the comparison is a real experiment.
+//
+// Honesty boundary (unchanged): the bench loop is NOT the renderer loop —
+// prompt assembly, memory, streaming, TTS, UI integration differ. Results
+// mean "the real governance modules mounted on the bench loop".
+//
+// The flag is recorded as `identity.architectureAxisWired`, and
+// `compareArmReports()` requires it true on both arms before reporting a
+// valid comparison.
+export const ARCH_AXIS_IN_BENCH_PATH = true
+
 export function toolPreamble(requiredTools = [], hint = {}) {
   const tools = (requiredTools || []).filter((t) => TOOL_ARG_DOCS[t])
   if (tools.length === 0) return ''
@@ -390,7 +433,10 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
   })
   // Arch axis: vanilla = model-only, basic = thin supervisor. Default basic;
   // executor-side wiring reads the same env. `avo` dihapus 2026-09-12.
+  // The axis is EXECUTED here via getArchPolicy (Task 4): basic arms run the
+  // real trajectory supervisor + verification gate, vanilla trusts the claim.
   const arch = currentBenchArch()
+  const archPolicy = getArchPolicy(arch)
   const config = {
     aiProvider: provider || 'gemini-web',
     geminiWebModel: model || 'gemini-3.6-flash',
@@ -415,7 +461,19 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
   let toolCalls = 0
   let response = ''
 
-  const sidecar = createSidecar(arch)
+  const sidecar = createSidecar(arch, task?.representation || null)
+  // Governance modules (same ones the renderer uses): supervisor + verify
+  // gate, active only when the arch policy enables them (basic). Vanilla is
+  // the model-only control: no supervisor, claims trusted at first sight.
+  const objectiveKind = classifyObjectiveKind(task?.prompt || '')
+  const supervisor =
+    archPolicy.supervisorEnabled && objectiveKind !== 'conversational'
+      ? createTrajectorySupervisor()
+      : null
+  let verifyReplansUsed = 0
+  // Executed-tool evidence for the verify gate, in the shape evaluateEvidence
+  // consumes ({ tool, fullResult }).
+  const executedToolsEvidence = []
   try {
     // Turn budget: task.maxTurns menimpa default MAX_ITER (ala turn-limit
     // eval — MCP Atlas memakai limit 100 turn). Tidak ada loop tak terbatas.
@@ -443,7 +501,40 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
       stepLog.push({ step: steps, type: 'fetch', response: response.slice(0, 200) })
 
       const calls = parseToolCalls(response)
-      if (calls.length === 0) break
+      if (calls.length === 0) {
+        // Completion claim (no further tool calls): gate it against
+        // world-state evidence from the tools actually executed. Unproven
+        // claims get a bounded replan; vanilla trusts the claim (control).
+        const evidence = evaluateEvidence({
+          kind: objectiveKind,
+          objectiveText: task?.prompt || '',
+          answer: response,
+          tools: executedToolsEvidence,
+        })
+        const gate = gateCompletion({
+          modelClaimDone: true,
+          verification: evidence.state,
+          kind: evidence.kind,
+        })
+        pushTrace(trace, steps, 'verify', {
+          observation: `state=${evidence.state} kind=${evidence.kind} gate=${gate.reason}`,
+          response: '',
+        })
+        stepLog.push({
+          step: steps,
+          type: 'verify',
+          tool: 'objective-verifier',
+          result: `state=${evidence.state} gate=${gate.reason}`.slice(0, 200),
+          success: gate.complete,
+        })
+        if (archPolicy.verifyGateEnabled && !gate.complete && verifyReplansUsed < MAX_VERIFY_REPLANS) {
+          verifyReplansUsed++
+          const replan = buildReplanObservation(evidence)
+          messages.push({ role: 'tool', content: replan, toolName: 'objective-verifier' })
+          continue
+        }
+        break
+      }
 
       toolCalls += calls.length
 
@@ -479,6 +570,36 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
           result: toolText.slice(0, 200),
           success: toolOk,
         })
+        executedToolsEvidence.push({ tool: call.name, fullResult: toolText })
+        // Supervisor observes every tool execution; a fresh directive becomes
+        // the next observation so the model can adjust mid-loop. Recorded in
+        // the trace as kind 'supervisor' for audit (Task 5 shape, same loop).
+        if (supervisor) {
+          const verdict = supervisor.update({
+            tool: call.name,
+            query: toNativeQuery(call.name, call.arguments),
+            success: toolOk,
+            verificationState: null,
+            stepsLeft: null,
+            verifyGateActive: false,
+            observation: toolText,
+            result: toolText,
+          })
+          if (verdict?.hintText) {
+            messages.push({ role: 'tool', content: verdict.hintText, toolName: 'trajectory-supervisor' })
+            pushTrace(trace, steps, 'supervisor', {
+              observation: verdict.hintText,
+              response: '',
+            })
+            stepLog.push({
+              step: steps,
+              type: 'supervisor',
+              tool: 'trajectory-supervisor',
+              result: verdict.hintText.slice(0, 200),
+              success: true,
+            })
+          }
+        }
         // Normalized step: ABELINK-Eval reads toolCalls[].tool/query + observation
         // to score orchestration, recovery and termination correctness.
         pushTrace(trace, steps, 'tool', {
@@ -510,6 +631,9 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
       arch,
       model,
       provider: provider || 'gemini-web',
+      // PR46: observation representation actually used for this run (null =
+      // runtime default, i.e. semantic-first).
+      browserObservationRepresentation: task?.representation || null,
       architectureVersion: AGENT_ARCH_VERSION,
       benchmarkSchemaVersion: BENCH_SCHEMA_VERSION,
     },
@@ -519,6 +643,8 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
   return {
     effort,
     arch,
+    // Observation representation the sidecar was launched with (PR46 ablation).
+    representation: task?.representation || null,
     response: response.trim(),
     trajectory,
     // Additive top-level aliases so bench verifiers get evidence without

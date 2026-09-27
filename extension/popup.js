@@ -177,4 +177,7 @@ $('closeTabs').addEventListener('click', async () => {
   await refreshTask()
 })
 
-autoConnect()
+// Auto-connect saat popup dibuka user. Dilewati bila dibuka instrumentation
+// (query ?noprobe=1) agar alat ukur membaca status tanpa memicu side effect
+// attempt start (kontaminasi lastError/running pada pengukuran MV3).
+if (!location.search.includes('noprobe')) autoConnect()

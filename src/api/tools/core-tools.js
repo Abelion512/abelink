@@ -1,5 +1,5 @@
 export const core_tools = {
-  "read-tools": "WAJIB dipanggil SEBELUM menggunakan tool yang tidak kamu ketahui query-nya! Mendukung nama_grup (misal: \"advanced_browser\", \"pc_automation\", \"git_vcs\", \"task_terminal\"), nama_tool spesifik (misal: \"browser-click\", \"replace-content\"), atau pencarian bebas (misal: \"search: terminal background\" atau \"?snapshot\"). Query: nama_grup ATAU nama_tool ATAU search: kata_kunci.",
+  "read-tools": "WAJIB dipanggil SEBELUM menggunakan tool yang tidak kamu ketahui query-nya! Mendukung nama_grup (misal: \"advanced_browser\", \"git_vcs\", \"task_terminal\"), nama_tool spesifik (misal: \"browser-click\", \"replace-content\"), atau pencarian bebas (misal: \"search: terminal background\" atau \"?snapshot\"). Query: nama_grup ATAU nama_tool ATAU search: kata_kunci.",
   "memory-search": "ALAT PENCARIAN INGATAN (WAJIB DIGUNAKAN). Mencari ingatan masa lalu, preferensi/catatan user, solusi historis, dan riwayat chat percakapan asli (Turn Pairs). ATURAN MUTLAK: Selalu coba cari di tool ini sebelum bertanya balik ke user. ATURAN ANTI-HALUSINASI (GROUNDEDNESS): Jika setelah dicari hasilnya KOSONG atau hanya sedikit, KAMU WAJIB JUJUR dan DILARANG KERAS MENGARANG/MENAMBAH-NAMBAHKAN DAFTAR/FAKTA FIKTIF yang tidak ada di memori! Query: kata_kunci atau kata_kunci||threshold||limit (contoh: 'solusi error CORS' atau 'password wifi||0.6||3' atau 'konfigurasi vite||0.5||10'). Threshold (0.1 - 0.9, default 0.5): atur lebih tinggi untuk pencarian sangat ketat atau lebih rendah untuk pencarian luas. Limit (default 5): jumlah maksimal memori/chat yang ingin diambil.",
   "memory": "Operasi memori profil/preferensi (add, replace, remove, batch). Operasi bersifat atomic. Query berupa JSON string atau format pipa: action||target||new_text (atau old_text||new_text untuk replace). Target yang didukung: 'user' (preferensi pengguna) atau 'memory' (fakta/catatan umum). Contoh: '{\"action\":\"add\",\"target\":\"user\",\"new_text\":\"User suka Tailwind CSS\"}' atau 'add||user||User suka Tailwind CSS' atau 'remove||memory||catatan meeting'.",
   "read-file": "Membaca isi file teks biasa. Query: path_absolut atau path_relatif. Baca spesifik baris: path||startLine||endLine.",
@@ -15,6 +15,8 @@ export const core_tools = {
   "read-skill": "WAJIB dipanggil jika permintaan user berkaitan dengan salah satu kemampuan di daftar ABELINK SKILLS. Membaca file pedoman skill untuk memuat instruksi dan workflow khusus sebelum mengeksekusi aksi. Query: nama_skill (misal: \"speedrunner\", \"git-commit\").",
   "browser-navigate": "Buka URL di browser companion (Chrome/Chromium). Mengembalikan judul halaman, URL aktif, dan daftar elemen interaktif bernomor ID (ak1, ak2...). Query: URL lengkap (misal: https://www.tradingview.com).",
   "browser-read": "Scan ulang isi DOM & daftar elemen interaktif halaman aktif saat ini. Query: kosongkan atau URL.",
+  "browser-click": "Klik elemen fisik DOM browser berdasarkan ID (ak1, ak2, ...). Query: ID (misal: 'ak7') atau ID||teks-yang-diharapkan (misal: 'ak7||Battle' — format jangkar disarankan agar klik batal jika teks bergeser).",
+  "browser-type": "Ketik teks ke elemen input fisik DOM browser berdasarkan ID. Query: ID||teks (misal: 'ak3||kata kunci').",
   "browser-ask": "Meminta bantuan pengguna untuk berinteraksi manual langsung di tab browser (misal: login akun Google/TradingView, memecahkan captcha/Cloudflare, verifikasi 2FA). Query: alasan bantuan.",
   "ask-choice": "Meminta user memilih SATU opsi via tombol inline di chat (loop lanjut otomatis setelah klik, tanpa ketik). WAJIB dipakai saat butuh keputusan user di antara opsi konkret yang bisa dienumerasi (maks 4, misal daftar history/debat) — JANGAN mengakhiri giliran dengan pertanyaan teks untuk hal yang bisa jadi tombol. Query: pertanyaan||opsi1;opsi2[;opsi3;opsi4] (contoh: \"Lanjut debat di history mana?||Percakapan A;Percakapan B\").",
   "browser-search": "Mencari informasi di internet secara langsung (web search). Query: kata kunci pencarian.",
@@ -31,8 +33,8 @@ export const core_tools = {
   "advanced_search": "Alias untuk browser-search. Mencari informasi di internet secara langsung. Query: kata kunci pencarian."
 }
 
-// STREAM D: hanya agen ini yang didukung delegate_coding (cermin di
-// codingAgentBridge.js + agentTools.js).
+// Agen coding yang didukung delegate_coding (keputusan owner dikunci ulang
+// ke opencode/hermes). Cermin codingAgentBridge.js (single source runtime).
 export const PREFERRED_CODING_AGENTS = ['opencode', 'hermes']
 
 export {

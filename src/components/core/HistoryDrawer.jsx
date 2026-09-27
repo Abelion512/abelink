@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getMainThread } from '../../api/db';
 import { X, MessageSquare } from 'lucide-react';
 import ResponseArea from './ResponseArea';
@@ -27,16 +27,7 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
   const [selectedTurnId, setSelectedTurnId] = useState(null);
   const [previewData, setPreviewData] = useState(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadHistory();
-    } else {
-      setPreviewData(null);
-      setSelectedTurnId(null);
-    }
-  }, [isOpen]);
-
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     const data = await getMainThread();
     if (!data || data.length === 0) {
       setHistoryTurns([]);
@@ -65,7 +56,20 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
     if (currentTurn) turns.push(currentTurn);
     // Reverse to show newest on top
     setHistoryTurns(turns.reverse());
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      void (async () => {
+        await loadHistory();
+      })()
+    } else {
+      queueMicrotask(() => {
+        setPreviewData(null);
+        setSelectedTurnId(null);
+      })
+    }
+  }, [isOpen, loadHistory]);
 
   const loadPreview = (turn) => {
     setSelectedTurnId(turn.id);
@@ -113,7 +117,7 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col gap-2">
-          {historyTurns.map((turn, idx) => (
+          {historyTurns.map((turn) => (
             <button
               key={turn.id}
               onClick={() => loadPreview(turn)}

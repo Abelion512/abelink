@@ -48,8 +48,8 @@ tidak pernah turun ke renderer.
 
 | Channel | Fase | Keterangan |
 | --- | --- | --- |
-| ~~`browser:*`~~ → **LIVE sejak 2026-09-03** | Fase C3 | Pindah dari daftar ini: `engine/channels/browser.mjs` mengeksekusi perintah nyata via ekstensi browser + bridge lokal (`main/browser/`, `extension/`). Yang tersisa dari C3: smoke frame dengan browser sungguhan + Jalur B (spawn Chromium fallback) |
-| `os:read` / `os:click` / `os:type` / `os:key` / `os:scroll` / `os:open` / `os:list-windows` / `os:focus-window` / `os:ask-user` | Fase B6 | Renderer kini memakai Rust native `os_*` commands (`invoke('os_read')`, dst.) — channel sidecar ini hanya fallback lama |
+| ~~`browser:*`~~ → **LIVE sejak 2026-09-03** | Fase C3 | Pindah dari daftar ini: `engine/channels/browser.mjs` mengeksekusi perintah nyata via ekstensi browser + bridge lokal (`main/browser/`, `extension/`). Tersisa dari C3: Jalur B (spawn Chromium fallback). Pengukuran e2e Chrome sungguhan sudah dijalankan (2026-09-27 — self-heal keepalive MV3 terbukti; lihat `ARCHITECTURE.md` §6), smoke interaktif navigate penuh masih runbook `extension/README.md` |
+| `os:read` / `os:click` / `os:type` / `os:key` / `os:scroll` / `os:open` / `os:list-windows` / `os:focus-window` / `os:ask-user` | Fase B6 | Renderer kini memakai Rust native `os_*` commands (`invoke('os_read')`, dst.) — channel sidecar ini hanya fallback lama. **DORMAN default (2026-09-27):** group `pc_automation` tidak direkrut ke prompt (0 call visual di harness); `os-open` core + plumbing `os-control` + emergency-stop tetap hidup. Lihat `ARCHITECTURE.md` §6 |
 
 ## Dead code era Electron — SUDAH DIBUANG (2026-09-03)
 

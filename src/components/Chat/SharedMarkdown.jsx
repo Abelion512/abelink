@@ -1,4 +1,4 @@
-import React from 'react'
+
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
@@ -7,7 +7,7 @@ import { CodeBlock } from './CodeBlock'
 // Single shared react-markdown component map: code (block + styled inline),
 // external-link hardening via window.api, responsive tables, lazy images.
 export const sharedMarkdownComponents = {
-  code({ node, inline, className, children, ...props }) {
+  code({ _node, inline, className, children, ...props }) {
     const match = /language-(\w+)/.exec(className || '')
     return !inline ? (
       <CodeBlock match={match}>{children}</CodeBlock>
@@ -20,7 +20,7 @@ export const sharedMarkdownComponents = {
       </code>
     )
   },
-  a: ({ node, ...props }) => {
+  a: ({ _node, ...props }) => {
     let url = props.href || '#'
     if (url !== '#' && !url.startsWith('http://') && !url.startsWith('https://')) {
       url = 'https://' + url
@@ -42,7 +42,7 @@ export const sharedMarkdownComponents = {
       <table {...props}>{children}</table>
     </div>
   ),
-  img: ({ node, ...props }) => (
+  img: ({ _node, ...props }) => (
     <span className="block my-3 text-center">
       <img
         {...props}

@@ -1,0 +1,49 @@
+{
+  // tsconfig.base.json — dasar toolchain migrasi JS->TS (program P1).
+  //
+  // allowJs + checkJs:false: file .js/.mjs/.jsx lama tetap ZONA MIGRASI —
+  // dibaca tsc tapi tidak dicek, sehingga baseline tetap hijau selama
+  // strangler berjalan. Typing dinyalakan per-subtree lewat sub-config.
+  // moduleResolution "bundler": cocok dengan Vite/Vitest + resolusi bun (B-18).
+  // Clone referensi sst/opencode dikecualikan total (B-3).
+  //
+  // CATATAN: `lib` (DOM) dan `types` (node) di bawah adalah nilai NETRAL untuk
+  // berkas .ts pertama yang mendarat. Sub-config WAJIB mempersempitnya sesuai
+  // permukaan: sisi Node buang DOM (lihat tsconfig.node.json), sisi renderer
+  // buang tipe Node. Tanpa itu guardrail boundary Tauri jadi kosong.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+    // Entry TUI mengimpor komponen dengan ekstensi eksplisit
+    // ('../cli/tui/App.tsx') karena Bun menjalankan .tsx langsung tanpa build.
+    // Flag ini BUTUH noEmit (sudah true) — tidak ada emit sama sekali.
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "types": ["node"]
+  },
+  "exclude": [
+    "node_modules",
+    "opencode",
+    "dist",
+    "dist-sidecar",
+    "out",
+    "target",
+    "src-tauri/target",
+    "coverage",
+    "graphify-out"
+  ]
+}
