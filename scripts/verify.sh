@@ -22,7 +22,7 @@ echo "[6/9] Frontend build (vite + tailwind)"
 bun run build
 echo "[6b/9] Sidecar smoke (binary compile + ping stdio, cwd netral)"
 bun run build:sidecar
-printf '%s\n' '{"id":1,"action":"ping","payload":[]}' | ( cd dist-sidecar && timeout 20 ./abelink-engine ) | grep -q engine:ready
+printf '%s\n' '{"id":1,"action":"ping","payload":[]}' | ( cd dist-sidecar && timeout 20 ./abelink-engine ) | grep engine:ready > /dev/null
 echo "[7/9] Rust check (src-tauri)"
 (cd src-tauri && cargo check)
 echo "[8/9] Rust clippy (warning diperlakukan sebagai error)"
