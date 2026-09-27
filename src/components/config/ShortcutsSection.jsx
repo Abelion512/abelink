@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { tx } from '../../api/locale'
 
 export const normalizeShortcut = (val) => {
   if (!val) return 'CommandOrControl+Alt+M'
@@ -15,6 +16,7 @@ export default function ShortcutsSection({
   activeSection
 }) {
   const [isRecordingShortcut, setIsRecordingShortcut] = useState(false)
+  const t = (k) => tx(config, k)
 
   const handleShortcutRecorderKeyDown = (e) => {
     e.preventDefault()
@@ -47,14 +49,14 @@ export default function ShortcutsSection({
     >
       <div>
         <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-          Global Shortcut Key
+          {t('shortcut.title')}
         </h2>
       </div>
 
       <div className="space-y-1.5">
         <div className="flex justify-between items-end">
-          <label className="text-sm font-semibold">Tombol Panggilan Cepat</label>
-          <span className="text-[10px] font-mono opacity-50">Aktif Lintas Aplikasi</span>
+          <label className="text-sm font-semibold">{t('shortcut.quickKey')}</label>
+          <span className="text-[10px] font-mono opacity-50">{t('shortcut.crossApp')}</span>
         </div>
 
         <div className="relative w-full">
@@ -66,7 +68,7 @@ export default function ShortcutsSection({
             onKeyDown={handleShortcutRecorderKeyDown}
             value={
               isRecordingShortcut
-                ? 'Tekan kombinasi tombol di keyboard...'
+                ? t('shortcut.pressCombo')
                 : (config.shortcutKey || 'CommandOrControl+Alt+M').replace(
                     /CommandOrControl|Control/g,
                     'Ctrl'
@@ -81,7 +83,7 @@ export default function ShortcutsSection({
         </div>
 
         <div className="flex flex-wrap gap-1.5 mt-2">
-          <span className="text-xs opacity-60 w-full mb-1">Preset Cepat:</span>
+          <span className="text-xs opacity-60 w-full mb-1">{t('shortcut.presets')}</span>
           {[
             'CommandOrControl+Alt+M',
             'CommandOrControl+Shift+Space',
@@ -108,7 +110,7 @@ export default function ShortcutsSection({
           ))}
         </div>
         <span className="text-[11px] opacity-60 block mt-1">
-          Klik kotak input di atas lalu tekan kombinasi tombol di keyboard (misal: <code>Ctrl+Alt+A</code>, <code>Alt+Space</code>, <code>F9</code>). Shortcut langsung aktif di OS.
+          {t('shortcut.help')}
         </span>
       </div>
     </section>

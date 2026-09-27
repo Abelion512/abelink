@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { MAX_SESSION_CHARS } from '../../api/ai/sessionCompactor.js'
 
-const MAX_CHARS = 525000
+const MAX_CHARS = MAX_SESSION_CHARS
 
 // Gauge ring konteks sesi + popover (ATM upstream, adaptasi).
 // Mendengar `context-tracker-updated`; tombol Compact dispatch
 // `request-manual-compaction` yang ditangani useManualCompaction.
-export const ContextGauge = React.memo(({ sessionId = 1, allowCompact = true }) => {
+export const ContextGauge = React.memo(function ContextGauge({ sessionId = 1, allowCompact = true }) {
   const [tracker, setTracker] = useState({ currentChars: 0, percentage: 0, lastCompactedAt: null })
   const [open, setOpen] = useState(false)
   const popRef = useRef(null)
@@ -87,7 +88,7 @@ export const ContextGauge = React.memo(({ sessionId = 1, allowCompact = true }) 
           <div className="text-[11px] font-medium text-white/60 mb-0.5">Session Info</div>
           <div className="text-xs font-bold text-white mb-2.5">Context Window</div>
           <div className="flex items-center justify-between text-xs font-semibold mb-1.5 font-mono">
-            <span className="text-white">{label} / 525K chars</span>
+            <span className="text-white">{label} / {(MAX_CHARS / 1000).toFixed(0)}K chars</span>
             <span className="text-white/60">{Math.round(pct)}%</span>
           </div>
           <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">

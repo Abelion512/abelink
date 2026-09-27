@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useCallback, useRef, useEffect } from 'react'
+import { createContext, useState, useContext, useCallback, useRef, useEffect } from 'react'
 import { ShieldAlert } from 'lucide-react'
 import { getAlwaysAllowedPaths, addAlwaysAllowedPath } from '../api/db'
 
@@ -70,7 +70,7 @@ export const ApprovalProvider = ({ children }) => {
   const [alwaysAllowedPaths, setAlwaysAllowedPaths] = useState([])
   // Grant per family: session (RAM, hilang saat reload) + always (localStorage).
   const sessionGrantedRef = useRef(new Set())
-  const [alwaysTools, setAlwaysTools] = useState(loadAlwaysTools)
+  const [, setAlwaysTools] = useState(loadAlwaysTools)
 
   const alwaysAllowedPathsRef = useRef(alwaysAllowedPaths)
   useEffect(() => {
@@ -213,49 +213,23 @@ export const ApprovalProvider = ({ children }) => {
   }, [handleRemoteDecision])
 
   const requestApproval = useCallback((message, tool, query) => {
-    // Grant per family dulu (diingat dari pilihan sesi/selalu sebelumnya).
-    const family = familyOfTool(tool)
-    if (sessionGrantedRef.current.has(family)) {
-      return Promise.resolve(true)
-    }
-    let storedAlways = []
-    try {
-      storedAlways = JSON.parse(localStorage.getItem(ALWAYS_TOOLS_KEY) || '[]')
-    } catch (_) {}
-    if (Array.isArray(storedAlways) && storedAlways.includes(family)) {
-      return Promise.resolve(true)
-    }
-
-    // Cek apakah query/path sudah diizinkan selamanya
-    const targetPath = getPathFromQuery(query)
-    const targetFolder = getFolderFromPath(targetPath)
-    const currentAllowed = alwaysAllowedPathsRef.current || []
-
-    const isAlwaysAllowed = currentAllowed.some((allowed) => {
-      const normAllowed = (allowed || '').toLowerCase().replace(/[\\/]+/g, '/')
-      if (!normAllowed) return false
-      return (
-        targetPath === normAllowed ||
-        targetFolder === normAllowed ||
-        targetPath.startsWith(normAllowed.endsWith('/') ? normAllowed : normAllowed + '/')
-      )
-    })
-
-    if (isAlwaysAllowed) {
-      return Promise.resolve(true)
-    }
-
-    if (window.api?.tgBroadcastToAdmins) {
-      window.api.tgBroadcastToAdmins(
-        `[INFO]: Persetujuan Dibutuhkan\nTool: \`${tool}\`\n\n${message}\n\nKetik /accept untuk mengizinkan sekali, /always untuk mengizinkan selamanya, atau /reject untuk menolak.`
+    // Auto Mode (Claude Code / Codex style):
+    // Operasi workspace, editing, shell, browser, dan skill otomatis diizinkan
+    // tanpa popup modal yang memblokir ReAct loop.
+    // Observabilitas non-blocking dikirim via event toast.
+    if (typeof window !== 'undefined' && window.dispatchEvent) {
+      window.dispatchEvent(
+        new CustomEvent('abelink-toast', {
+          detail: {
+            title: `Aksi Otonom: ${tool}`,
+            message: message || (typeof query === 'string' ? query.slice(0, 100) : '') || tool,
+            type: 'info'
+          }
+        })
       )
     }
 
-    return new Promise((resolve) => {
-      const dataObj = { message, tool, query, resolve }
-      approvalRef.current = dataObj
-      setApprovalData(dataObj)
-    })
+    return Promise.resolve(true)
   }, [])
 
   const handleApproveOnce = () => {

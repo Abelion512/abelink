@@ -58,6 +58,10 @@ const SETTLE_MS = 2000
 
 let running = false
 let pollAbort = null
+// loopActive = guard reentrancy: keepalive alarm + tryAutoResume + start
+// bisa memanggil loop() bersamaan (pollAbort==null juga benar saat sleep
+// sehat) -> dua loop /poll berebut perintah yang sama. Satu loop saja.
+let loopActive = false
 
 // Log kunci agar console service worker jadi dasbor mini (bukan kuburan):
 // versi saat bangun, handshake, perintah masuk + hasil, error poll.
@@ -154,6 +158,9 @@ async function apiPost(cfg, path, body) {
 
 // ------------------------------------------------------------------ loop
 async function loop() {
+  if (loopActive) return // reentrancy guard (keepalive vs resume race)
+  loopActive = true
+  try {
   while (running) {
     let cfg
     try {
@@ -217,6 +224,9 @@ async function loop() {
     } finally {
       pollAbort = null
     }
+  }
+  } finally {
+    loopActive = false
   }
 }
 
@@ -642,22 +652,7 @@ async function groupTabIntoSession(sessionId, tabId, task, status = 'acting') {
   return { groupId, tabId, replaced: false }
 }
 
-async function updateGroupStatus(sessionId, task, status) {
-  const group = activeGroups[sessionId]
-  if (!group) return
-  await chrome.tabGroups.update(group.groupId, { title: groupTitle(status, task) })
-}
-
 // ------------------------------------------------------------------ tabs
-async function activeOrFindTab(urlFilter) {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  if (tab && tab.url?.startsWith('http')) return tab
-  if (urlFilter) {
-    const tabs = await chrome.tabs.query({ url: `${urlFilter}*` })
-    if (tabs.length) return tabs[0]
-  }
-  return null
-}
 
 // Budget tab per sesi: penuh -> pakai-ulang, jangan create (anti OOM).
 const MAX_TABS_PER_SESSION = 6
@@ -691,26 +686,6 @@ async function adoptOrphanTab(sessionId, url, excludeTabIds = [], opts = {}) {
     return null
   }
 }
-
-// Pure helper (unit-testable via node eval harness — service worker klasik
-// bukan modul, jadi ditempel ke globalThis, bukan export).
-const pickAdoptableTab = (tabs = [], url = '', excludeIds = [], opts = {}) => {
-  const excluded = new Set(Array.isArray(excludeIds) ? excludeIds : [])
-  const adoptUserTab = opts.adoptUserTab === true
-  const ungrouped = (Array.isArray(tabs) ? tabs : []).filter(
-    (t) => t && t.groupId !== 0 && t.groupId !== -1 && !excluded.has(t.id)
-  )
-  if (adoptUserTab) {
-    const exact = ungrouped.find((t) => t.url === url)
-    if (exact) return exact
-  }
-  return (
-    ungrouped.find((t) => t.url === 'about:blank' || t.url === 'chrome://newtab/') ||
-    null
-  )
-}
-
-const sessionKeyOf = (sid) => String(sid ?? 'default')
 
 // Buat tab dengan budget: grup sesi penuh -> pakai-ulang tab grup terlama.
 async function createBoundedTab(sessionId, url) {
@@ -881,7 +856,7 @@ function overlayFn({ mode, text, session }) {
       e.stopPropagation()
       try {
         chrome.runtime.sendMessage({ type: 'overlay-resume', session })
-      } catch (err) {}
+      } catch {}
     })
     pill.appendChild(go)
     shadow.appendChild(style)
@@ -923,7 +898,7 @@ function overlayFn({ mode, text, session }) {
     e.stopPropagation()
     try {
       chrome.runtime.sendMessage({ type: 'overlay-stop', session })
-    } catch (err) {}
+    } catch {}
   })
   pill.appendChild(label)
   if (text) {
@@ -1064,7 +1039,13 @@ function taggerFn() {
       y: Math.round(rect.y + window.scrollY)
     })
   }
-  return { title: document.title, url: location.href, elements: out }
+  const mainRoot = document.querySelector(MAIN_SCOPE) || document.body
+  const pageText = String(mainRoot?.innerText || '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, 5000)
+
+  return { title: document.title, url: location.href, text: pageText, elements: out }
 }
 
 async function readDomInTab(tabId) {
@@ -1785,6 +1766,18 @@ function scheduleAutoResume(delayMs = 5000) {
   } catch {
     /* fallback setTimeout di bawah */
   }
+  // Status jujur selama jeda reconnect: popup tidak hijau palsu, tidak merah
+  // panik — user tahu loop akan kembali sendiri tanpa klik.
+  try {
+    chrome.storage.session
+      .get(['lastError', 'wantConnected'])
+      .then((kept) => {
+        if (kept?.wantConnected && !kept?.lastError) {
+          chrome.storage.session.set({ lastError: 'Menyambung ulang otomatis...' }).catch(() => {})
+        }
+      })
+      .catch(() => {})
+  } catch {}
   if (resumeTimeout) clearTimeout(resumeTimeout)
   resumeTimeout = setTimeout(() => {
     tryAutoResume()
@@ -1864,6 +1857,40 @@ async function tryAutoResume() {
         loop()
         return
       }
+      if (hs.status === 401) {
+        // G1 fix (2026-09-27): token basi-terisi dulu terjebak di sini —
+        // resume handshake 401 berulang tanpa pernah bertanya helper
+        // (helper hanya dikonsultasi bila token session-storage KOSONG).
+        // Konsultasi native host SEKALI per attempt; bila helper memberi
+        // token yang benar-benar berbeda, handshake ulang SEKALI. Helper
+        // gagal / token sama = menyerah pada attempt ini (scheduleAutoResume
+        // di bawah tetap menjadwalkan percobaan berikutnya).
+        const via = await getTokenViaNativeHost(cfg.port)
+        if (via?.token && via.token !== cfg.token) {
+          cfg.token = via.token
+          await chrome.storage.session.set({ token: cfg.token })
+          await setPortToken(cfg.port, cfg.token)
+          try {
+            const hs2 = await apiGet(cfg, 'handshake')
+            if (hs2.status === 200) {
+              if (hs2.body?.newToken) {
+                cfg.token = hs2.body.newToken
+                await chrome.storage.session.set({ token: cfg.token })
+                await setPortToken(cfg.port, cfg.token)
+              }
+              running = true
+              await chrome.storage.session.set({ lastError: null })
+              console.log(
+                `[Abelink] auto-resume pulih via helper (token basi ditukar, session: ${cfg.session}, port: ${cfg.port}).`
+              )
+              loop()
+              return
+            }
+          } catch {
+            /* sidecar belum aktif / unreachable */
+          }
+        }
+      }
     } catch {
       /* sidecar belum aktif / unreachable */
     }
@@ -1880,13 +1907,10 @@ if (typeof chrome !== 'undefined' && chrome.alarms) {
     } else if (alarm.name === 'abelink-bridge-keepalive') {
       if (!running) {
         tryAutoResume()
-      } else {
-        // Ping port aktif untuk memastikan background worker tetap terjaga
-        getCfg().then((cfg) => {
-          if (cfg.token && !pollAbort) {
-            loop()
-          }
-        }).catch(() => {})
+      } else if (!loopActive) {
+        // Worker hidup tapi loop mati (suspend di tengah sleep / crash):
+        // hidupkan ulang satu loop. Guard loopActive cegah ganda.
+        loop()
       }
     }
   })

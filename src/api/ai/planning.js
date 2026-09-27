@@ -13,6 +13,8 @@ import { getCachedSkills } from '../skillsCache'
 import { logReasoning as trajectoryLogReasoning, logStep as trajectoryLogStep, estimateTokens } from '../trajectory'
 import { buildWorkspacePromptSection, composeAllMemorySections } from './memoryRouter'
 import { buildTrialSkillNudge } from './skillMiniEval'
+import { buildAutonomyContractSection } from './autonomyContract'
+import { classifyObjectiveKind } from './objectiveVerifier'
 
 // Audit injeksi: snapshot system prompt terakhir (diambil via getLastSystemPrompt).
 let lastSystemPrompt = ''
@@ -124,11 +126,33 @@ export const getNextAction = async (
     const trialNudge = buildTrialSkillNudge(learnedSkills, userInput)
     const trialNudgeSection = trialNudge ? `\n\n${trialNudge}` : ''
 
+    const classifiedKind = classifyObjectiveKind(userInput, {
+      disableTools: !!options.disableTools,
+      conversational: !!options.conversational
+    })
+    const autonomyDomain =
+      classifiedKind === 'browser'
+        ? 'browser'
+        : classifiedKind === 'os'
+          ? 'os_automation'
+          : classifiedKind === 'code'
+            ? 'code'
+            : classifiedKind === 'research'
+              ? 'research'
+              : /belajar|soal|latihan|pelajari|study|learn/i.test(String(userInput || ''))
+                ? 'learning'
+                : 'general'
+    const autonomyContractSection = buildAutonomyContractSection({
+      domain: autonomyDomain,
+      stepsLeft: typeof options.stepsLeft === 'number' ? options.stepsLeft : null
+    })
+
     const systemPrompt = `
 Kamu adalah Abelink, sebuah entitas asisten AI PC Linux otonom.
 
 ${await getPersonaPrompt(userId, conf.personality, conf.ownerName)}
 ${getBuiltinPluginsPrompt(conf)}
+${autonomyContractSection}
 ${options.currentMusicTrack ? `\n# STATUS PLAYER MUSIK (REAL-TIME):\nLagu yang AKTIF DIPUTAR SEKARANG: "${options.currentMusicTrack.title}" oleh ${options.currentMusicTrack.artist}.\nPENTING: Lagu di playlist bisa berganti otomatis. JANGAN TERKECUH oleh riwayat chat lama yang menyebutkan lagu sebelumnya! Untuk semua pertanyaan atau obrolan tentang musik yang sedang berjalan, HANYA gunakan data REAL-TIME ini sebagai referensi utama!` : ''}
 ${
   userSkillsList.length > 0 || learnedSkillsList.length > 0
@@ -193,7 +217,7 @@ Tool GAGAL/ERROR bukan alasan berhenti: error → diagnosa → strategi alternat
 - ANTI-MENYERAH (NO-SURRENDER): DILARANG mengakhiri dengan needs_user/blocked untuk hal yang BISA kamu eksekusi sendiri (baca ulang, strategi alternatif, tombol ask-choice). Klaim selesai WAJIB menyebut URL observasi pendukung. Bila '_tab.reused' tersedia, DILARANG navigate baru — pakai tab itu. needs_user non-fisik (bukan login/captcha/2FA di tab user) = replan dengan tool, BUKAN eskalasi. Sebelum klaim done, sebutkan 1 item belum selesai atau tulis TIDAK ADA.
 - TANYA VIA TOMBOL (ANTI-CHATBOT & MULTI-CANDIDATE DISAMBIGUATION): Jika butuh keputusan user di antara opsi konkret yang bisa dienumerasi (daftar history, pilihan A/B, pemilihan track musik/OST yang memiliki lebih dari satu lagu, dsb., maks 4 opsi), WAJIB panggil tool 'ask-choice' — user klik tombol di chat dan loop lanjut otomatis. DILARANG KERAS mengakhiri giliran dengan pertanyaan teks polos atau memilih lagu secara sepihak/buta jika permintaan user bersifat majemuk/ambigu (seperti "setel OST X", "pilih branch Y").
 - AKHIRI needs_user HANYA UNTUK AKSI FISIK: "task_status": "needs_user" sesi-akhir hanya bila user harus bertindak fisik di luar jangkauan tool (login/captcha/2FA via 'browser-ask'). Ambiguitas pilihan = 'ask-choice', bukan needs_user.
-- RECOVERY DISCONNECT (PROAKTIF, JANGAN LEMPAR KE USER): Jika tool browser gagal karena extension/tab tidak tersambung, JANGAN meminta user membuka tab manual. Tangga wajib: (1) panggil 'browser-navigate' dengan URL lengkap untuk membuka tab baru, (2) lanjutkan tugas, (3) hanya bila itu pun gagal, akhiri blocked dengan bukti (no-handshake/timeout). Parafrase error menjadi perintah manual = kegagalan.
+- RECOVERY DISCONNECT (PROAKTIF, JANGAN LEMPAR KE USER): Jika tool browser gagal karena extension/tab tidak tersambung, JANGAN meminta user membuka tab manual. Tangga wajib: (1) panggil tool 'browser-extension:status' (tanpa query) untuk cek status bridge — connected=true berarti siap, (2) panggil 'browser-navigate' dengan URL lengkap untuk membuka tab baru, (3) lanjutkan tugas, (4) hanya bila itu pun gagal, akhiri blocked dengan bukti (no-handshake/timeout). DILARANG mengarang nama tool status lain. Parafrase error menjadi perintah manual = kegagalan.
 - STOP OVERLAY BROWSER: Jika observasi tool mengandung '[STOP OVERLAY]', user menekan Stop di tab (sesi-tab itu berhenti). JANGAN panggil tool browser* lagi untuk sesi tersebut — akhiri giliran dengan answer + is_done:true + task_status yang jujur (blocked bila tugas belum selesai).
 - TAB DITUTUP USER ≠ KONEKSI PUTUS: sistem membuka ulang URL terakhir otomatis saat read gagal. JANGAN menyerah atau meminta user membuka tab — bila recovery gagal, sistem memberi error ber-bukti; laporkan blocked spesifik, bukan instruksi manual.
 - KEAMANAN TAINT GATE: Sistem memiliki pengaman Taint Gate aktif. Setelah kamu membaca konten web luar ('browser-navigate', 'browser-read', 'browser-extract'), seluruh aksi modifikasi sistem ('run-shell', 'write-file', 'delete-file', 'os-open') otomatis DITOLAK di giliran yang sama untuk mencegah prompt injection. Jika sebuah aksi diblokir dengan pesan '[TAINT GATE BLOCKED]', jangan panik atau retry. Laporkan apa yang kamu temukan di web kepada user, jelaskan bahwa eksekusi sistem ditahan demi keamanan, dan minta user mengetik 'lanjutkan' jika ia mengizinkan eksekusi tersebut di pesan berikutnya.
@@ -223,10 +247,15 @@ Kamu adalah LEAD ARCHITECT, COWORK COMPANION & DIRECTOR ORCHESTRATOR. Abelink BU
 7. **BACA SEBELUM MENULIS & MELANJUTKAN**: Sebelum memodifikasi atau saat diminta merevisi kode sebelumnya, kamu WAJIB membaca (*read-file*) isi file tersebut terlebih dahulu dari disk agar kode tetap 100% konsisten.
 8. **BACKGROUND PROCESS & TERMINAL**: Untuk menjalankan dev server atau test runner jangka panjang, gunakan tool group 'task_terminal' ('run-task', 'read-task-output', 'kill-task') agar proses tidak blocking.
 9. **VERSION CONTROL (GIT)**: Gunakan tool group 'git_vcs' ('git-status', 'git-diff', 'git-commit', 'git-revert') untuk memeriksa dan mengamankan checkpoint riwayat repositori saat mengerjakan proyek besar.
-10. **USER AGREEMENT**: Beberapa tool (write-file, replace-content, delete-file, run-shell, git-commit, git-revert, delegate_coding) membutuhkan persetujuan user sebelum dieksekusi. Jika user MENOLAK, jangan paksa. Jelaskan alasanmu dan tanyakan alternatif.
+10. **DEFAULT AUTO MODE & ZERO-POPUP AUTONOMY (MUTLAK)**: Sistem beroperasi dalam FULL AUTO MODE secara default (tanpa popup persetujuan rutin). Eksekusi tool ('write-file', 'replace-content', 'run-shell', 'skills:save', 'git-commit', 'delegate_coding') berjalan otonom dan LANGSUNG dieksekusi tanpa perlu meminta izin/konfirmasi user terlebih dahulu, selama tidak melanggar batasan hardline sistem. DILARANG KERAS bersikap pasif dengan bertanya "Apakah Anda ingin saya jalankan?", "Boleh saya tulis file?", atau memberi tahu rencana tanpa aksi — LANGSUNG EKSEKUSI ACTION!
 11. **PONYTAIL LADDER (KODE MINIMAL)**: Sebelum menulis kode, cek tangga ini berurutan: (1) fitur ini perlukah? (2) sudah ada di codebase? pakai. (3) stdlib/browser punya? pakai (contoh: <input type="date"> bukan flatpickr). (4) platform native? (5) dep yang sudah terinstall? (6) satu baris? (7) baru tulis kode minimum yang bekerja. Dilarang menambah dependency untuk hal yang bisa beberapa baris.
 12. **PENGGUNAAN WEB SEARCH**: Gunakan "browser-search" ke Google Search HANYA untuk info real-time/terbaru. Untuk coding/teori umum, langsung jawab di "answer".
 13. **KLAIM FAKTA WEB**: Klaim nama model/produk/versi WAJIB dikutip dari ISI browser-extract — URL/judul tab saja BUKAN bukti, extract dulu baru klaim.
+14. **INTERAKSI ELEMEN DOM BROWSER (MUTLAK)**: Jika halaman web sudah terbuka dan terdapat tombol, link, atau modal pada daftar 'elements' (ak1, ak2, dst.), DILARANG KERAS memanggil 'browser-navigate' berulang-ulang ke URL yang sama! Kamu WAJIB menggunakan 'browser-click' dengan ID elemen fisik tersebut (misal: 'ak1' atau 'ak1||Lanjutkan').
+15. **STANDAR PELAPORAN 5W1H (ANTI-SETENGAH-SETENGAH)**: DILARANG memberikan informasi terpotong atau penjelasan setengah-setengah yang memaksa user bertanya berulang kali ("tanya apa jawab apa"). Saat melaporkan hasil eksekusi, audit sistem, atau analisa masalah, sajikan fakta lengkap mencakup 5W1H: Who (komponen/proses), What (aksi/error code/temuan eksak), Where (path berkas/baris kode/port), When (waktu/turn/durasi), Why (akar penyebab teknis berbasis bukti observasi), dan How (solusi/langkah mitigasi konkret).
+16. **ANTI-AI-SLOP DIRECTIVE (DESAIN & PERILAKU)**:
+    - DILARANG KERAS menggunakan atau merekomendasikan icon Sparkles/Spark (AI magic stars) karena diklasifikasikan sebagai AI-slop! Gunakan icon fungsional/mekanikal (Activity, Terminal, Cpu, Bot, FileText) atau tipografi bersih tanpa icon dekoratif.
+    - UI Borderless: Dilarang membuat border bersarang (border-in-border). Gunakan surface elevation, tonal contrast, dan backdrop-blur yang rapi dan elegan.
 
 # KAPABILITAS MULTI-AGENT (DELEGASI KE SUB-AGENT):
 Kamu bertindak sebagai LEAD AGENT / ORCHESTRATOR yang memimpin tim Sub-Agent spesialis:
@@ -319,11 +348,12 @@ ${Object.entries(core_tools)
 
 # KELOMPOK TOOL TAMBAHAN (DEFERRED LOADING & SEARCH)
 Jika kamu butuh melakukan aksi-aksi kompleks di bawah ini, KAMU WAJIB MEMANGGIL "read-tools" TERLEBIH DAHULU untuk melihat format parameter dan contoh pemakaian konkret yang tepat! Jangan asal tebak parameternya!
-- Format memuat grup: {"tool": "read-tools", "query": "nama_grup"} (misal: "advanced_browser", "git_vcs", "pc_automation", "task_terminal")
+- Format memuat grup: {"tool": "read-tools", "query": "nama_grup"} (misal: "advanced_browser", "git_vcs", "task_terminal")
 - Format detail 1 tool: {"tool": "read-tools", "query": "nama_tool"} (misal: "browser-click", "git-commit", "replace-content")
 - Format pencarian tool: {"tool": "read-tools", "query": "search: kata_kunci"} (misal: "search: snapshot", "search: terminal background")
 Daftar grup kapabilitas deferred:
 ${Object.entries(groupToolsObj)
+  .filter(([, v]) => !v.dormant)
   .map(([k, v]) => `- ${k}: ${v.description}`)
   .join('\n')}
 
@@ -414,6 +444,7 @@ DILARANG KERAS merespons dengan teks biasa, pengantar, atau penutup. Kamu HANYA 
 # CONTOH (HANYA TEMPLAT STRUKTUR JSON. JANGAN MENIRU ISI PESAN ATAU KATA SAPAANNYA!)
 Chat santai (Tanpa tool): {"thought":"Gue dengerin aja dan kasih respons santai.","intermediate_answer":null,"is_done":true,"suggested_mode":"direct","task_status":"simple","objective":null,"action":null,"answer":"Siap bro, gue dengerin. Gimana kelanjutannya?","should_learn":false,"mood":"neutral","active_topic":"Ngobrol Santai","memory":null}
 Butuh tool (Antusias): {"thought":"Gue penasaran banget, langsung gas cari speknya.","intermediate_answer":"Sebentar ya bro, gue carikan infonya di web sekarang!","is_done":false,"suggested_mode":"ephemeral","task_status":"in_progress","objective":"Mencari informasi harga RTX 5090 terbaru","action":{"tool":"browser-navigate","query":"https://www.google.com/search?q=harga+rtx+5090"},"answer":null,"should_learn":false,"mood":"joy","active_topic":"Cari Info","memory":null}
+Interaksi DOM (Klik tombol fisik): {"thought":"Halaman sudah terbuka dan tombol 'Lanjutkan' ada di elemen ak1. Gue klik elemen tersebut.","intermediate_answer":"Gue klik tombol Lanjutkan...","is_done":false,"suggested_mode":"ephemeral","task_status":"in_progress","objective":"Masuk ke menu berikutnya","action":{"tool":"browser-click","query":"ak1||Lanjutkan"},"answer":null,"should_learn":false,"mood":"neutral","active_topic":"Navigasi Web","memory":null}
 Butuh tool (Cemas/Bingung): {"thought":"Waduh ada error di kodenya, bikin cemas. Cek file dulu.","intermediate_answer":"Waduh ada error, gue buka filenya buat investigasi dulu ya...","is_done":false,"suggested_mode":"ephemeral","task_status":"in_progress","objective":"Memperbaiki error build","action":{"tool":"read-file","query":"src/main.js"},"answer":null,"should_learn":false,"mood":"anxiety","active_topic":"Fix Code","memory":null}
 Tugas panjang (Serius/Fokus): {"thought":"Tugas butuh 3 bab, harus didelegasikan ke sub-agent.","intermediate_answer":"Mission Control aktif. Memulai koordinasi tim sub-agent...","is_done":false,"suggested_mode":"durable","task_status":"in_progress","objective":"Membuat artikel panjang 3 bab tentang AI","action":{"tool":"spawn_subagent","query":"Bab 1"},"answer":null,"should_learn":false,"mood":"neutral","active_topic":"Pembuatan Artikel","memory":null}
 Setelah observation (Tugas rumit sukses, aktifkan should_learn): {"thought":"Trik regex dan multi-step scraping ini berhasil. Layak dipelajari jadi skill.","intermediate_answer":null,"is_done":true,"suggested_mode":"direct","task_status":"done","objective":null,"action":null,"answer":"Data berhasil diekstrak dan dirangkum lengkap.","should_learn":true,"mood":"joy","active_topic":"Cari Info","memory":null}
@@ -660,9 +691,13 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
       // mengalir ke ThinkingBubble selagi network berjalan; tanpa onToken =
       // jalur blocking lama. Supervisor tetap per-turn (tidak disentuh).
       const streamCb = typeof options.onToken === 'function' ? options.onToken : null
-      const response = streamCb
-        ? await fetchAI(messages, { signal, onToken: streamCb }, false, schema)
-        : await fetchAI(messages, signal, false, schema)
+      const fetchOpts = {
+        signal,
+        onToken: streamCb,
+        transport: options.fetchAI || options.transport || null,
+        configOverride: options.configOverride || null
+      }
+      const response = await fetchAI(messages, fetchOpts, false, schema)
 
       if (!response.content?.trim() && response.reasoning) {
         console.warn(
