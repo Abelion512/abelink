@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 
 /**
  * Sentient Cybernetic Digital Face (Abelink Core Avatar)
@@ -9,7 +9,7 @@ const SentientCyberEyes = ({
   mood = 'neutral',
   status = 'idle',
   intensity = 0,
-  colorHex = '#00e5ff'
+  colorHex = '#0a84ff'
 }) => {
   const [isBlinking, setIsBlinking] = useState(false)
 
@@ -355,58 +355,22 @@ const SentientCyberEyes = ({
 }
 
 const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral', size = 'normal' }) => {
-  const [glowClass, setGlowClass] = useState('bg-cyan-500/40')
-  const [colorHex, setColorHex] = useState('#00e5ff')
-
-  useEffect(() => {
-    if (status === 'error') {
-      setGlowClass('bg-red-500/40')
-      setColorHex('#ef4444')
-    } else {
-      switch (mood) {
-        case 'joy':
-          setGlowClass('bg-yellow-400/40')
-          setColorHex('#facc15')
-          break
-        case 'sadness':
-          setGlowClass('bg-blue-500/40')
-          setColorHex('#3b82f6')
-          break
-        case 'fear':
-          setGlowClass('bg-purple-500/40')
-          setColorHex('#a855f7')
-          break
-        case 'anger':
-          setGlowClass('bg-red-500/40')
-          setColorHex('#ef4444')
-          break
-        case 'disgust':
-          setGlowClass('bg-lime-400/40')
-          setColorHex('#84cc16') // Acid Lime Green
-          break
-        case 'anxiety':
-          setGlowClass('bg-orange-500/40')
-          setColorHex('#f97316')
-          break
-        case 'envy':
-          setGlowClass('bg-teal-500/40')
-          setColorHex('#14b8a6')
-          break
-        case 'embarrassment':
-          setGlowClass('bg-pink-500/40')
-          setColorHex('#ec4899')
-          break
-        case 'ennui':
-          setGlowClass('bg-gray-500/40')
-          setColorHex('#9ca3af')
-          break
-        default: // neutral
-          setGlowClass('bg-cyan-500/40')
-          setColorHex('#00e5ff') // Cyan signature blue
-          break
-      }
-    }
-  }, [mood, status])
+  // Warna murni derivasi status/mood — hitung saat render, tanpa effect
+  // (menghapus set-state-in-effect; perilaku identik).
+  const moodPalette = {
+    joy: ['bg-yellow-400/40', '#facc15'],
+    sadness: ['bg-blue-500/40', '#3b82f6'],
+    fear: ['bg-purple-500/40', '#a855f7'],
+    anger: ['bg-red-500/40', '#ef4444'],
+    disgust: ['bg-info/40', '#0a84ff'],
+    anxiety: ['bg-orange-500/40', '#f97316'],
+    envy: ['bg-info/40', '#0a84ff'],
+    embarrassment: ['bg-pink-500/40', '#ec4899'],
+    ennui: ['bg-gray-500/40', '#9ca3af']
+  }
+  const colorHex = (status === 'error'
+    ? ['bg-red-500/40', '#ef4444']
+    : (moodPalette[mood] ?? ['bg-primary/40', '#0a84ff']))[1] // Apple blue signature
 
   // Scale dinamis berdasarkan status eksekusi
   let targetScale = 1

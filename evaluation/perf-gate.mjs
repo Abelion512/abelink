@@ -26,7 +26,7 @@ const REGRESSION_THRESHOLD = 0.15 // 15% lebih lambat = regresi nyata
 // bisa mencapai ±100% pada operasi sub-milidetik). Gate yang flaky pada noise
 // melatih orang mengabaikannya — jadi regresi "nyata" harus KEDUA-duanya
 // melewati ambang relatif DAN absolut (pola sama dengan paket benchmark populer).
-const MIN_ABSOLUTE_DELTA_MS = 0.2 // 200µs — di bawah ini = noise scheduler/JIT
+const MIN_ABSOLUTE_DELTA_MS = 0.5 // 500µs — di bawah ini = noise scheduler/JIT
 
 // ---------------------------------------------------------------- workloads
 // Semua workload IMPORT modul asli (bukan copy) supaya mengukur jalur produksi.

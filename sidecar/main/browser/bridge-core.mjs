@@ -158,43 +158,25 @@ export function getLastUrl(sessionId = 'default') {
   return sessions.get(sessionId)?.lastUrl || null
 }
 
-// Cache metadata token default agar tidak teracak ulang saat sesi kedaluwarsa/idle.
-let defaultTokenCache = null
+// Tab fokus per sesi — identitas tab milik sesi ini (tabId + url), dicatat
+// tiap navigate sukses. Dipakai recovery jujur + observasi _tab.
+export function setFocusedTab(sessionId = 'default', tab) {
+  if (!tab || tab.tabId == null) return
+  ensureSession(sessionId).focusedTab = {
+    tabId: tab.tabId,
+    url: tab.url ? String(tab.url) : null
+  }
+}
+
+export function getFocusedTab(sessionId = 'default') {
+  return sessions.get(sessionId)?.focusedTab || null
+}
 
 export function ensureSession(sessionId = 'default') {
   let s = sessions.get(sessionId)
   if (!s) {
-    let initialToken = null
-    let initialCreatedAt = now()
-    let initialPrevToken = null
-    let initialPrevExpiresAt = 0
-
-    if (sessionId === 'default') {
-      if (defaultTokenCache?.token) {
-        initialToken = defaultTokenCache.token
-        initialCreatedAt = defaultTokenCache.createdAt || now()
-        initialPrevToken = defaultTokenCache.prevToken || null
-        initialPrevExpiresAt = defaultTokenCache.prevExpiresAt || 0
-      } else {
-        const diskRec = readTokenRecord(
-          process.env.ABELINK_DATA_HOME || process.env.XDG_DATA_HOME,
-          flavorFromPort(BROWSER_BRIDGE.PORT)
-        )
-        if (diskRec?.token) {
-          initialToken = diskRec.token
-          initialCreatedAt = diskRec.createdAt || now()
-          initialPrevToken = diskRec.prevToken || null
-          initialPrevExpiresAt = diskRec.prevExpiresAt || 0
-          defaultTokenCache = diskRec
-        }
-      }
-    }
-
     s = {
-      token: initialToken || prng(),
-      tokenCreatedAt: initialCreatedAt,
-      prevToken: initialPrevToken,
-      prevExpiresAt: initialPrevExpiresAt,
+      token: prng(),
       createdAt: now(),
       lastSeenAt: 0,
       pending: [],
@@ -202,6 +184,22 @@ export function ensureSession(sessionId = 'default') {
       groups: {} // browser-use: { [task]: { status, color, lastUpdate } }
     }
     sessions.set(sessionId, s)
+    // Reseed dari file token: sesi 'default' WAJIB memakai token file lagi.
+    // Token acak baru membuat extension yang pegang token file benar ditolak 401 selamanya.
+    if (sessionId === 'default') {
+      try {
+        const flavor = flavorFromPort(BROWSER_BRIDGE.PORT)
+        const rec = readTokenRecord(undefined, flavor)
+        if (rec?.token) {
+          s.token = rec.token
+          s.tokenCreatedAt = rec.createdAt
+          s.prevToken = rec.prevToken
+          s.prevExpiresAt = rec.prevExpiresAt
+        }
+      } catch {
+        /* file belum ada — token acak tetap dipakai */
+      }
+    }
   }
   return s
 }
@@ -222,14 +220,6 @@ export function dropSession(sessionId) {
       inflight.delete(p.id)
       w.reject(new Error('Sesi browser ditutup sebelum perintah dieksekusi.'))
     }
-  }
-  // Sesi 'default' adalah anchor bridge; jangan pernah hapus dari peta memori.
-  // Cukup bersihkan antrean dan reset status koneksi.
-  if (sessionId === 'default') {
-    s.pending = []
-    s.waiting = []
-    s.lastSeenAt = 0
-    return true
   }
   sessions.delete(sessionId)
   return true
@@ -277,23 +267,6 @@ export function getSessionGroups(sessionId) {
 // Dipanggil server.mjs saat ekstensi GET /handshake dengan token valid.
 export function handshake(sessionId, token) {
   const s = ensureSession(sessionId)
-  if (!tokenOk(s, token)) {
-    // Sesi default: coba refresh token dari disk bila token memori belum sinkron
-    if (sessionId === 'default') {
-      const diskRec = readTokenRecord(
-        s.tokenXdg || process.env.ABELINK_DATA_HOME || process.env.XDG_DATA_HOME,
-        s.tokenFlavor || flavorFromPort(BROWSER_BRIDGE.PORT),
-        s.tokenEnv || process.env
-      )
-      if (diskRec?.token) {
-        s.token = diskRec.token
-        s.tokenCreatedAt = diskRec.createdAt
-        s.prevToken = diskRec.prevToken
-        s.prevExpiresAt = diskRec.prevExpiresAt
-        defaultTokenCache = diskRec
-      }
-    }
-  }
   if (!tokenOk(s, token)) return { ok: false, error: 'Token tidak cocok.' }
   s.lastSeenAt = now()
   const out = { ok: true, pollTimeoutMs: BROWSER_BRIDGE.POLL_TIMEOUT_MS }
@@ -331,15 +304,20 @@ export function takeNext(sessionId, token) {
   if (!s || !tokenOk(s, token))
     return Promise.reject(new Error('Sesi tidak dikenal atau token salah.'))
   s.lastSeenAt = now()
+
+  // 1. Cek antrean pending sesi sendiri. TIDAK ada drain lintas-sesi:
+  // tiap sesi dilayani antreannya sendiri (anti-curi antar-sesi).
   const existing = s.pending[0]
   if (existing) return Promise.resolve(serializeCommand(existing, s))
+
   return new Promise((resolve) => {
     const w = { resolve: null, timer: null }
     w.resolve = (cmd) => {
       const i = s.waiting.indexOf(w)
       if (i >= 0) s.waiting.splice(i, 1)
       const next = s.pending[0]
-      resolve(next ? serializeCommand(next, s) : cmd)
+      if (next) return resolve(serializeCommand(next, s))
+      resolve(cmd)
     }
     w.timer = setTimeout(() => w.resolve(null), BROWSER_BRIDGE.POLL_TIMEOUT_MS)
     s.waiting.push(w)
@@ -370,7 +348,18 @@ export function resolveCommand(sessionId, token, commandId, result) {
   inflight.delete(commandId)
   clearTimeout(waiter.timer)
   const text = typeof result?.data === 'string' ? result.data : JSON.stringify(result?.data ?? null)
-  const trimmed =
+  // Navigate sukses -> rekam identitas tab sesi ini (fokus-tab + lastUrl).
+  // Terpusat di sini agar jalur channel maupun tool sama-sama tercatat.
+  if (waiter.type === 'navigate' && result?.ok) {
+    try {
+      const parsed = typeof result.data === 'string' ? JSON.parse(result.data) : result.data
+      const g = parsed?._group
+      if (parsed?.url) setLastUrl(sessionId, parsed.url)
+      if (g?.tabId != null) setFocusedTab(sessionId, { tabId: g.tabId, url: parsed?.url })
+    } catch {
+      /* data non-JSON: identitas tak tercatat, bukan error */
+    }
+  }  const trimmed =
     text && text.length > BROWSER_BRIDGE.MAX_RESULT_CHARS
       ? text.slice(0, BROWSER_BRIDGE.MAX_RESULT_CHARS) + '…[dipotong]'
       : text
@@ -418,7 +407,7 @@ export function dispatchCommand(sessionId, type, payload) {
         )
       )
     }, BROWSER_BRIDGE.COMMAND_TIMEOUT_MS)
-    inflight.set(commandId, { resolve, reject, timer })
+    inflight.set(commandId, { resolve, reject, timer, type })
     s.pending.push({ id: commandId, type, payload })
     wake(s)
   })
@@ -518,15 +507,6 @@ export function writeTokenFile(xdgDataDir, flavor = 'prod', env = process.env) {
   s.tokenXdg = xdgDataDir
   s.tokenFlavor = flavor
   s.tokenEnv = env
-  defaultTokenCache = {
-    token: rec.token,
-    createdAt: rec.createdAt,
-    prevToken: rec.prevToken,
-    prevExpiresAt: rec.prevExpiresAt,
-    tokenXdg: xdgDataDir,
-    tokenFlavor: flavor,
-    tokenEnv: env
-  }
   return { file: tokenFilePath(xdgDataDir, flavor, env), token: s.token }
 }
 
@@ -543,6 +523,23 @@ export function tokenOk(s, token) {
   if (!s || !token) return false
   if (safeTokenCompare(s.token, token)) return true
   return !!(s.prevToken && safeTokenCompare(s.prevToken, token) && Date.now() < (s.prevExpiresAt || 0))
+}
+
+// Kode sebab 401 (machine-readable, untuk popup/poll extension):
+// - token-stale: sesi dikenal, token salah, TAPI token lama dalam grace ATAU
+//   file token masih ada (sidecar restart / rotasi — ambil baru via helper).
+// - token-unknown: sesi dikenal, token salah total (tempel manual / sesi asing).
+// - session-unknown: sesi tidak dikenal sama sekali.
+export const TOKEN_REJECT_STALE = 'token-stale'
+export const TOKEN_REJECT_UNKNOWN = 'token-unknown'
+export const TOKEN_REJECT_NO_SESSION = 'session-unknown'
+
+export function tokenRejectReason(sessionId, token) {
+  const s = sessions.get(sessionId)
+  if (!s) return TOKEN_REJECT_NO_SESSION
+  if (safeTokenCompare(s.token, token)) return null
+  if (s.prevToken && safeTokenCompare(s.prevToken, token)) return TOKEN_REJECT_STALE
+  return TOKEN_REJECT_UNKNOWN
 }
 
 // Rotasi bila kedaluwarsa. Dipanggil HANYA dari handshake valid (jalur

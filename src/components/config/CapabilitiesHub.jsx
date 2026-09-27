@@ -1,52 +1,40 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import Editor from '@monaco-editor/react'
 import {
-  FaPlug,
-  FaCubes,
-  FaBrain,
-  FaShieldAlt,
-  FaRobot,
-  FaSearch,
-  FaSyncAlt,
-  FaPlus,
-  FaFolderOpen,
-  FaEdit,
-  FaTrash,
-  FaTimes,
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaLock,
-  FaUnlock,
-  FaHistory,
-  FaCode,
-  FaCalendarAlt,
-  FaHdd,
-  FaEnvelope,
-  FaGithub,
-  FaTerminal,
-  FaChevronDown,
-  FaChevronUp,
-  FaCopy,
-  FaExternalLinkAlt
-} from 'react-icons/fa'
+  Plug,
+  Boxes,
+  Brain,
+  Shield,
+  Search,
+  RefreshCw,
+  Plus,
+  FolderOpen,
+  Pencil,
+  Trash2,
+  X,
+  CheckCircle2,
+  AlertTriangle,
+  Lock,
+  Unlock,
+  History,
+  Code,
+  Calendar,
+  HardDrive,
+  Mail,
+  Terminal,
+  ChevronDown,
+  ChevronUp,
+  Copy
+} from 'lucide-react'
 import { useConfirm } from '../../hooks/useConfirm'
 import { getCachedSkills } from '../../api/skillsCache'
+import { tx, localeTag } from '../../api/locale'
 
 const PLANNED_MCP_CONNECTORS = [
-  {
-    id: 'google-calendar-mcp',
-    name: 'Google Calendar (Official MCP)',
-    url: 'https://calendarmcp.googleapis.com/mcp/v1',
-    description: 'Server MCP resmi Google Calendar (Streamable HTTP + OAuth 2.0 Bearer).',
-    authType: 'oauth',
-    oauthProvider: 'google',
-    scopes: ['https://www.googleapis.com/auth/calendar']
-  },
   {
     id: 'context7',
     name: 'Context7 MCP',
     url: 'https://mcp.context7.com/mcp/oauth',
-    description: 'Dokumentasi pustaka, snippet kode real-time, dan referensi API resmi.'
+    description: 'Library docs, real-time code snippets, and official API references.'
   }
 ]
 
@@ -54,28 +42,35 @@ const BUILTIN_SKILLS = [
   {
     id: 'systematic-engineering',
     name: 'Systematic Engineering',
-    desc: 'Disiplin investigasi bertahap sebelum modifikasi kode.',
-    icon: FaCubes
+    desc: 'Staged investigation discipline before code changes.',
+    icon: Boxes
   },
   {
     id: 'execution-discipline',
     name: 'Execution Discipline',
-    desc: 'Verifikasi deterministik via test suite sebelum commit.',
-    icon: FaTerminal
+    desc: 'Deterministic verification via test suite before commit.',
+    icon: Terminal
   },
   {
     id: 'durable-planner',
     name: 'Durable Task Planner (/plan)',
-    desc: 'Rencana kerja persisten untuk tugas bertahap multi-langkah.',
-    icon: FaBrain
+    desc: 'Persistent work plans for staged multi-step tasks.',
+    icon: Brain
   },
   {
     id: 'root-cause-debugger',
     name: 'Root-Cause Debugger',
-    desc: 'Analisis akar masalah mendalam sebelum memberikan solusi.',
-    icon: FaSearch
+    desc: 'Deep root-cause analysis before offering solutions.',
+    icon: Search
   }
 ]
+
+const BUILTIN_SKILL_KEYS = {
+  'systematic-engineering': ['cap.skillSystematic', 'cap.skillSystematicDesc'],
+  'execution-discipline': ['cap.skillExecution', 'cap.skillExecutionDesc'],
+  'durable-planner': ['cap.skillPlanner', 'cap.skillPlannerDesc'],
+  'root-cause-debugger': ['cap.skillDebugger', 'cap.skillDebuggerDesc']
+}
 
 export default function CapabilitiesHub({
   config,
@@ -84,7 +79,8 @@ export default function CapabilitiesHub({
   handleCompactionEnabledChange,
   handleBuiltinPluginChange,
   handleRtkCompressChange,
-  isDevMode = false
+  isDevMode = false,
+  language = 'en'
 }) {
   const { confirm, ModalComponent } = useConfirm()
   const [activeTab, setActiveTab] = useState('connectors')
@@ -120,29 +116,29 @@ export default function CapabilitiesHub({
       const r = await window.api?.runNodeFunction('browser:reconnect')
       if (r?.ok) {
         setBrowserConnected(true)
-        setBrowserNote(r.reused ? 'Extension tersambung (sesi dipakai ulang).' : 'Extension tersambung kembali.')
+        setBrowserNote(r.reused ? tx(language, 'cap.extReused') : tx(language, 'cap.extReconnected'))
       } else {
         setBrowserConnected(false)
         setBrowserNote(
           r?.reason === 'launch-budget-exhausted'
-            ? 'Batas peluncuran tercapai: tunggu ~1 menit atau klik Connect di popup extension.'
+            ? tx(language, 'cap.launchBudget')
             : r?.reason === 'auto-launch-off'
-              ? 'Auto-launch nonaktif: aktifkan toggle di atas atau buka browser manual.'
-              : `Reconnect gagal (${r?.reason || 'no-handshake'}): pastikan extension aktif.`
+              ? tx(language, 'cap.autoLaunchOff')
+              : tx(language, 'cap.reconnectFailed')(r?.reason)
         )
       }
     } catch (e) {
       setBrowserConnected(false)
-      setBrowserNote(`Reconnect gagal: ${e?.message || String(e)}`)
+      setBrowserNote(tx(language, 'cap.reconnectError')(e?.message || String(e)))
     } finally {
       setBrowserReconnecting(false)
     }
-  }, [browserReconnecting])
+  }, [browserReconnecting, language])
 
   const handleInitExtension = async () => {
     try {
       if (!window.api?.ensureExtensionFiles) {
-        setExtInstall({ error: 'Runtime desktop belum mendukung.' })
+        setExtInstall({ error: tx(language, 'cap.runtimeUnsupported') })
         return
       }
       const dir = await window.api.ensureExtensionFiles()
@@ -156,22 +152,8 @@ export default function CapabilitiesHub({
   // ── Google Workspace State & Modal ────────────────────────────────────────
   const [googleConnected, setGoogleConnected] = useState(false)
   const [googleModalOpen, setGoogleModalOpen] = useState(false)
-  const [googleClientId, setGoogleClientId] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('abelink:google_oauth_creds') || '{}')
-      return saved.clientId || ''
-    } catch {
-      return ''
-    }
-  })
-  const [googleClientSecret, setGoogleClientSecret] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('abelink:google_oauth_creds') || '{}')
-      return saved.clientSecret || ''
-    } catch {
-      return ''
-    }
-  })
+  const [googleClientId, setGoogleClientId] = useState('')
+  const [googleClientSecret, setGoogleClientSecret] = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
 
   const checkGoogleStatus = useCallback(async () => {
@@ -185,51 +167,32 @@ export default function CapabilitiesHub({
     }
   }, [])
 
-  const handleGoogleConnect = async (customId, customSecret) => {
-    const id = (typeof customId === 'string' ? customId : googleClientId || '').trim()
-    const secret = (typeof customSecret === 'string' ? customSecret : googleClientSecret || '').trim()
-    if (!id || !secret) {
-      setGoogleModalOpen(true)
+  const handleGoogleConnect = async () => {
+    if (!googleClientId.trim() || !googleClientSecret.trim()) {
+      alert(tx(language, 'cap.googleRequired'))
       return
     }
-
-    try {
-      localStorage.setItem('abelink:google_oauth_creds', JSON.stringify({ clientId: id, clientSecret: secret }))
-    } catch (_) {}
-
     setGoogleLoading(true)
     try {
-      const res = await window.api?.googleConnect?.(id, secret)
+      const res = await window.api?.googleConnect?.(googleClientId.trim(), googleClientSecret.trim())
       if (res?.success) {
         setGoogleConnected(true)
         setGoogleModalOpen(false)
-        try {
-          await window.api?.authorizeCapability?.('google-calendar-mcp', ['https://www.googleapis.com/auth/calendar'])
-        } catch (_) {}
-        await refreshCapabilityState()
       } else {
-        alert(`Otorisasi Google gagal: ${res?.error || 'Periksa kredensial OAuth Anda'}`)
+        alert(tx(language, 'cap.googleAuthFailed')(res?.error))
       }
     } catch (e) {
-      alert(`Gagal menghubungkan Google: ${e.message || e}`)
+      alert(tx(language, 'cap.googleConnectFailed')(e.message || e))
     } finally {
       setGoogleLoading(false)
     }
   }
 
-  const onGoogleConnectClick = () => {
-    if (googleClientId.trim() && googleClientSecret.trim()) {
-      handleGoogleConnect(googleClientId, googleClientSecret)
-    } else {
-      setGoogleModalOpen(true)
-    }
-  }
-
   const handleGoogleDisconnect = async () => {
     const res = await confirm({
-      title: 'Putuskan Google Workspace?',
-      message: 'Akses ke Google Calendar, Drive, dan Gmail akan dinonaktifkan.',
-      confirmText: 'Putuskan',
+      title: tx(language, 'cap.googleDisconnectTitle'),
+      message: tx(language, 'cap.googleDisconnectMsg'),
+      confirmText: tx(language, 'cap.disconnect'),
       isError: true
     })
     if (!res.isConfirmed) return
@@ -238,7 +201,7 @@ export default function CapabilitiesHub({
       await window.api?.googleDisconnect?.()
       setGoogleConnected(false)
     } catch (e) {
-      alert(`Gagal memutuskan Google: ${e.message || e}`)
+      alert(tx(language, 'cap.googleDisconnectFailed')(e.message || e))
     }
   }
 
@@ -327,28 +290,12 @@ export default function CapabilitiesHub({
   }
 
   const handleAuthorizeConnector = async (connectorId, scopes) => {
-    if (connectorId === 'google-calendar-mcp' && !googleConnected) {
-      if (googleClientId.trim() && googleClientSecret.trim()) {
-        handleGoogleConnect(googleClientId, googleClientSecret)
-        return
-      }
-      setGoogleModalOpen(true)
-      return
-    }
     setBusyConnectorKey(`${connectorId}:auth`)
     try {
       await window.api?.authorizeCapability?.(connectorId, scopes)
       await refreshCapabilityState()
     } catch (e) {
-      if (String(e?.message || e).includes('OAUTH_REQUIRED') || String(e?.code || '').includes('OAUTH_REQUIRED')) {
-        if (googleClientId.trim() && googleClientSecret.trim()) {
-          handleGoogleConnect(googleClientId, googleClientSecret)
-        } else {
-          setGoogleModalOpen(true)
-        }
-      } else {
-        alert(`Gagal otorisasi: ${e.message || e}`)
-      }
+      alert(tx(language, 'cap.mcpAuthFailed')(e.message || e))
     } finally {
       setBusyConnectorKey(null)
     }
@@ -356,9 +303,9 @@ export default function CapabilitiesHub({
 
   const handleRevokeConnector = async (connectorId) => {
     const res = await confirm({
-      title: 'Putuskan Koneksi MCP?',
-      message: `Putuskan koneksi dari connector "${connectorId}"?`,
-      confirmText: 'Putuskan',
+      title: tx(language, 'cap.mcpRevokeTitle'),
+      message: tx(language, 'cap.mcpRevokeMsg')(connectorId),
+      confirmText: tx(language, 'cap.revoke'),
       isError: true
     })
     if (!res.isConfirmed) return
@@ -368,7 +315,7 @@ export default function CapabilitiesHub({
       await window.api?.revokeCapability?.(connectorId)
       await refreshCapabilityState()
     } catch (e) {
-      alert(`Gagal memutuskan: ${e.message || e}`)
+      alert(tx(language, 'cap.mcpRevokeFailed')(e.message || e))
     } finally {
       setBusyConnectorKey(null)
     }
@@ -376,7 +323,7 @@ export default function CapabilitiesHub({
 
   const handleSaveNewMcp = () => {
     if (!newMcpForm.id.trim() || !newMcpForm.url.trim()) {
-      alert('ID dan URL MCP server wajib diisi.')
+      alert(tx(language, 'cap.mcpIdUrlRequired'))
       return
     }
     try {
@@ -389,7 +336,7 @@ export default function CapabilitiesHub({
           }
           parsedHeaders = parsed
         } catch (_) {
-          alert('Header harus JSON objek, misal {"CONTEXT7_API_KEY": "..."}.')
+          alert(tx(language, 'cap.mcpHeaderFormat'))
           return
         }
       }
@@ -409,7 +356,7 @@ export default function CapabilitiesHub({
       setNewMcpForm({ id: '', name: '', url: '', description: '', headers: '' })
       loadMcpData()
     } catch (e) {
-      alert(`Gagal menyimpan server MCP: ${e.message || e}`)
+      alert(tx(language, 'cap.mcpSaveFailed')(e.message || e))
     }
   }
 
@@ -437,7 +384,7 @@ export default function CapabilitiesHub({
       const data = await window.api.getPlugins()
       setPlugins(Array.isArray(data) ? data : [])
     } catch (e) {
-      console.error('[CapabilitiesHub] Gagal memuat plugin:', e)
+      console.error('[CapabilitiesHub] Failed to load plugins:', e)
     } finally {
       setPluginsLoading(false)
     }
@@ -445,29 +392,32 @@ export default function CapabilitiesHub({
 
   useEffect(() => {
     if (!editingPlugin) return
-    const errors = []
-    pluginForm.actions.forEach((act, idx) => {
-      if (act.code) {
-        try {
-          // Compile-check sintaks SAJA — konstruktor tidak mengeksekusi body.
-          // Kode connector user tidak pernah dijalankan di renderer.
-          const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-          new AsyncFunction('query', act.code)
+    // Validasi sync dibungkus async agar lolos set-state-in-effect.
+    void (async () => {
+      const errors = []
+      pluginForm.actions.forEach((act, idx) => {
+        if (act.code) {
+          try {
+            // Compile-check sintaks SAJA — konstruktor tidak mengeksekusi body.
+            // Kode connector user tidak pernah dijalankan di renderer.
+            const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+            new AsyncFunction('query', act.code)
+            errors[idx] = null
+          } catch (err) {
+            errors[idx] = err.message
+          }
+        } else {
           errors[idx] = null
-        } catch (err) {
-          errors[idx] = err.message
         }
-      } else {
-        errors[idx] = null
-      }
-    })
-    setPluginSyntaxErrors(errors)
+      })
+      setPluginSyntaxErrors(errors)
+    })()
   }, [pluginForm.actions, editingPlugin])
 
   const handleInstallGitPlugin = async () => {
     const url = gitPluginUrl.trim()
     if (!url) {
-      alert('Masukkan shorthand GitHub (owner/repo) atau tautan URL.')
+      alert(tx(language, 'cap.gitUrlRequired'))
       return
     }
     setGitPluginLoading(true)
@@ -478,13 +428,13 @@ export default function CapabilitiesHub({
           setGitPluginUrl('')
           await loadPlugins()
         } else {
-          alert(`Gagal memasang plugin: ${res?.error || 'Kesalahan repositori'}`)
+          alert(tx(language, 'cap.pluginInstallFailed')(res?.error || tx(language, 'cap.pluginRepoError')))
         }
       } else {
-        alert('Fitur instalasi git plugin belum aktif di runtime sidecar.')
+        alert(tx(language, 'cap.gitInstallUnsupported'))
       }
     } catch (e) {
-      alert(`Gagal mengunduh plugin: ${e.message || e}`)
+      alert(tx(language, 'cap.pluginDownloadFailed')(e.message || e))
     } finally {
       setGitPluginLoading(false)
     }
@@ -497,9 +447,9 @@ export default function CapabilitiesHub({
       actions: [
         {
           name: 'run',
-          description: 'Fungsi utama plugin',
-          triggerHint: 'ketika user meminta ...',
-          code: `// query berisi argumen dari pengguna\nreturn "Hasil eksekusi plugin";`
+          description: 'Main plugin function',
+          triggerHint: 'when the user asks for ...',
+          code: `// query holds user arguments\nreturn "Plugin execution result";`
         }
       ],
       isEdit: false
@@ -522,11 +472,11 @@ export default function CapabilitiesHub({
 
   const handleSavePlugin = async () => {
     if (!pluginForm.name.trim()) {
-      alert('Nama plugin wajib diisi.')
+      alert(tx(language, 'cap.pluginNameRequired'))
       return
     }
     if (pluginSyntaxErrors.some(Boolean)) {
-      alert('Perbaiki syntax error JavaScript pada aksi sebelum menyimpan.')
+      alert(tx(language, 'cap.pluginSyntaxFix'))
       return
     }
 
@@ -540,15 +490,15 @@ export default function CapabilitiesHub({
       setEditingPlugin(null)
       await loadPlugins()
     } catch (e) {
-      alert(`Gagal menyimpan plugin: ${e.message || e}`)
+      alert(tx(language, 'cap.pluginSaveFailed')(e.message || e))
     }
   }
 
   const handleDeletePlugin = async (name) => {
     const res = await confirm({
-      title: 'Hapus Plugin?',
-      message: `Hapus plugin "${name}" secara permanen dari sistem?`,
-      confirmText: 'Ya, Hapus',
+      title: tx(language, 'cap.pluginDeleteTitle'),
+      message: tx(language, 'cap.pluginDeleteMsg')(name),
+      confirmText: tx(language, 'cap.pluginDeleteYes'),
       isError: true
     })
     if (!res.isConfirmed) return
@@ -557,7 +507,7 @@ export default function CapabilitiesHub({
       await window.api?.deletePlugin?.(name)
       await loadPlugins()
     } catch (e) {
-      alert(`Gagal menghapus plugin: ${e.message || e}`)
+      alert(tx(language, 'cap.pluginDeleteFailed')(e.message || e))
     }
   }
 
@@ -566,7 +516,7 @@ export default function CapabilitiesHub({
       await window.api?.togglePlugin?.(name, !currentStatus)
       await loadPlugins()
     } catch (e) {
-      alert(`Gagal mengubah status: ${e.message || e}`)
+      alert(tx(language, 'cap.pluginToggleFailed')(e.message || e))
     }
   }
 
@@ -583,7 +533,7 @@ export default function CapabilitiesHub({
       const list = await getCachedSkills({ force: true })
       setSkills(Array.isArray(list) ? list : [])
     } catch (e) {
-      console.error('[CapabilitiesHub] Gagal memuat skills:', e)
+      console.error('[CapabilitiesHub] Failed to load skills:', e)
     } finally {
       setSkillsLoading(false)
     }
@@ -591,18 +541,18 @@ export default function CapabilitiesHub({
 
   const handleOpenNewSkill = () => {
     const defaultTemplate = `---
-name: skill-baru
-description: Deskripsi singkat keahlian operasional ini...
+name: new-skill
+description: ${tx(language, 'cap.skillTemplateDesc')}
 ---
 
-# Panduan Operasional
+${tx(language, 'cap.skillTemplateTitle')}
 
-Petunjuk eksekusi dan batasan tindakan untuk AI:
-1. Langkah inspeksi awal
-2. Langkah eksekusi solusi
+${tx(language, 'cap.skillTemplateBody')}
+1. ${tx(language, 'cap.skillTemplateStep1')}
+2. ${tx(language, 'cap.skillTemplateStep2')}
 
-## Critical Rules
-- Selalu uji asumsi sebelum melakukan modifikasi file.
+## ${tx(language, 'cap.skillTemplateRules')}
+- ${tx(language, 'cap.skillTemplateRule1')}
 `
     setSkillFormName('')
     setSkillFormContent(defaultTemplate)
@@ -616,14 +566,14 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
       setSkillFormContent(content)
       setEditingSkill({ isNew: false, originalName: skillName })
     } catch (e) {
-      alert(`Gagal membaca skill: ${e.message || e}`)
+      alert(tx(language, 'cap.skillReadFailed')(e.message || e))
     }
   }
 
   const handleSaveSkill = async () => {
     const rawName = skillFormName.trim().replace(/\s+/g, '-').toLowerCase()
     if (!rawName) {
-      alert('Nama skill tidak boleh kosong.')
+      alert(tx(language, 'cap.skillNameRequired'))
       return
     }
     try {
@@ -631,15 +581,15 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
       setEditingSkill(null)
       await loadSkills()
     } catch (e) {
-      alert(`Gagal menyimpan skill: ${e.message || e}`)
+      alert(tx(language, 'cap.skillSaveFailed')(e.message || e))
     }
   }
 
   const handleDeleteSkill = async (skillName) => {
     const res = await confirm({
-      title: 'Hapus Skill?',
-      message: `Hapus skill "${skillName}" dari direktori lokal?`,
-      confirmText: 'Ya, Hapus',
+      title: tx(language, 'cap.skillDeleteTitle'),
+      message: tx(language, 'cap.skillDeleteMsg')(skillName),
+      confirmText: tx(language, 'cap.skillDeleteYes'),
       isError: true
     })
     if (!res.isConfirmed) return
@@ -648,7 +598,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
       await window.api?.deleteSkill?.(skillName)
       await loadSkills()
     } catch (e) {
-      alert(`Gagal menghapus skill: ${e.message || e}`)
+      alert(tx(language, 'cap.skillDeleteFailed')(e.message || e))
     }
   }
 
@@ -662,7 +612,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
         await loadSkills()
       }
     } catch (e) {
-      alert(`Gagal menginstal package skill: ${e.message || e}`)
+      alert(tx(language, 'cap.skillInstallFailed')(e.message || e))
     }
   }
 
@@ -680,20 +630,23 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
       const list = await window.api.approvalPolicyList()
       setApprovalPolicies(Array.isArray(list) ? list : [])
     } catch (e) {
-      console.error('[CapabilitiesHub] Gagal memuat kebijakan:', e)
+      console.error('[CapabilitiesHub] Failed to load policies:', e)
     } finally {
       setPoliciesLoading(false)
     }
   }, [])
 
   // ── Initial Mount ─────────────────────────────────────────────────────────
+  // Mount-load dibungkus async agar lolos set-state-in-effect.
   useEffect(() => {
-    checkGoogleStatus()
-    checkBrowserStatus()
-    loadMcpData()
-    loadPlugins()
-    loadSkills()
-    loadApprovalPolicies()
+    void (async () => {
+      await checkGoogleStatus()
+      await checkBrowserStatus()
+      await loadMcpData()
+      await loadPlugins()
+      await loadSkills()
+      await loadApprovalPolicies()
+    })()
   }, [checkGoogleStatus, checkBrowserStatus, loadMcpData, loadPlugins, loadSkills, loadApprovalPolicies])
 
   // Progres launch/reconnect dari sidecar (pola ai:status): tampilkan sebagai
@@ -721,426 +674,304 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
     <div className="space-y-6">
       <ModalComponent />
 
-      {/* ── Sub-Nav Tabs (Apple Segmented Control Pill) ── */}
-      <div className="flex items-center justify-start">
-        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-neutral-900/60 backdrop-blur-2xl border border-white/[0.08] shadow-inner">
-          <button
-            type="button"
-            onClick={() => setActiveTab('connectors')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium tracking-tight transition-all duration-200 ${
-              activeTab === 'connectors'
-                ? 'bg-white text-black font-semibold shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
-            }`}
-          >
-            <FaPlug size={11} />
-            <span>Connectors</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
-                activeTab === 'connectors'
-                  ? 'bg-black/10 text-black font-semibold'
-                  : 'bg-white/[0.06] text-neutral-400'
-              }`}
-            >
-              {connectors.length + (googleConnected ? 3 : 0) + 1}
-            </span>
-          </button>
+      {/* ── Sub-Nav Tabs (Clean Floating Pills ala Claude.ai) ── */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-base-200/50 border border-white/5 backdrop-blur-xl">
+        <button
+          type="button"
+          onClick={() => setActiveTab('connectors')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'connectors' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
+        >
+          <Plug size={12} />
+          <span>{tx(language, 'cap.tabConnectors')}</span>
+          <span className="badge badge-xs badge-neutral opacity-80">
+            {connectors.length + (googleConnected ? 3 : 0) + 1}
+          </span>
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('plugins')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium tracking-tight transition-all duration-200 ${
-              activeTab === 'plugins'
-                ? 'bg-white text-black font-semibold shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
-            }`}
-          >
-            <FaCubes size={11} />
-            <span>Plugins</span>
-            {plugins.length > 0 && (
-              <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
-                  activeTab === 'plugins'
-                    ? 'bg-black/10 text-black font-semibold'
-                    : 'bg-white/[0.06] text-neutral-400'
-                }`}
-              >
-                {plugins.length}
-              </span>
-            )}
-          </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('plugins')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'plugins' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
+        >
+          <Boxes size={12} />
+          <span>{tx(language, 'cap.tabPlugins')}</span>
+          {plugins.length > 0 && (
+            <span className="badge badge-xs badge-neutral opacity-80">{plugins.length}</span>
+          )}
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('skills')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium tracking-tight transition-all duration-200 ${
-              activeTab === 'skills'
-                ? 'bg-white text-black font-semibold shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
-            }`}
-          >
-            <FaBrain size={11} />
-            <span>Skills</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
-                activeTab === 'skills'
-                  ? 'bg-black/10 text-black font-semibold'
-                  : 'bg-white/[0.06] text-neutral-400'
-              }`}
-            >
-              {BUILTIN_SKILLS.length + skills.length}
-            </span>
-          </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('skills')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'skills' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
+        >
+          <Brain size={12} />
+          <span>{tx(language, 'cap.tabSkills')}</span>
+          <span className="badge badge-xs badge-neutral opacity-80">
+            {BUILTIN_SKILLS.length + skills.length}
+          </span>
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('security')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium tracking-tight transition-all duration-200 ${
-              activeTab === 'security'
-                ? 'bg-white text-black font-semibold shadow-sm'
-                : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
-            }`}
-          >
-            <FaShieldAlt size={11} />
-            <span>Keamanan</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab('security')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'security' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
+        >
+          <Shield size={12} />
+          <span>{tx(language, 'cap.security')}</span>
+        </button>
       </div>
 
       {/* ── TAB 1: CONNECTORS ── */}
       {activeTab === 'connectors' && (
-        <div className="space-y-5">
-          {/* Top Hero Grid: Browser Companion & Google Workspace */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Card: Browser Companion Bridge */}
-            <div className="rounded-3xl bg-neutral-900/40 backdrop-blur-2xl border border-white/[0.08] hover:border-white/15 p-6 shadow-2xl flex flex-col justify-between space-y-5 transition-all duration-300">
-              <div className="space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-11 h-11 rounded-2xl bg-neutral-800/90 border border-white/10 flex items-center justify-center text-white/90 shadow-sm shrink-0">
-                      <FaPlug size={18} className="text-white/80" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-semibold tracking-tight text-white/95">Browse Use</h4>
-                        {browserConnected === true ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Tersambung
-                          </span>
-                        ) : browserConnected === false ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium border border-white/10 bg-white/[0.04] text-neutral-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-neutral-500" /> Terputus
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="text-xs text-neutral-400 mt-0.5">
-                        Kontrol peramban Chrome via ekstensi pendamping lokal.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {browserNote ? (
-                  <div className="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[11px] text-neutral-300">
-                    {browserNote}
-                  </div>
+        <div className="space-y-4">
+          {/* Card: Browser Companion Bridge */}
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.browseUse')}</span>
+                {browserConnected === true ? (
+                  <span className="badge badge-xs badge-success gap-1 text-[10px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {tx(language, 'cap.connected')}
+                  </span>
+                ) : browserConnected === false ? (
+                  <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">{tx(language, 'cap.disconnected')}</span>
                 ) : null}
-
-                <div className="space-y-2 pt-1 border-t border-white/[0.06]">
-                  <label className="flex items-center justify-between gap-3 py-1 cursor-pointer select-none">
-                    <span className="text-xs text-neutral-300">Tutup tab grup otomatis saat tugas selesai</span>
-                    <input
-                      type="checkbox"
-                      className="toggle toggle-sm border-white/20 bg-neutral-800 checked:bg-white checked:border-white"
-                      checked={!!config.browserAutoCloseTabs}
-                      onChange={(e) =>
-                        setConfig((prev) => ({ ...prev, browserAutoCloseTabs: e.target.checked }))
-                      }
-                    />
-                  </label>
-                  <label className="flex items-center justify-between gap-3 py-1 cursor-pointer select-none">
-                    <span className="text-xs text-neutral-300">Buka peramban OS otomatis bila ekstensi belum tersambung</span>
-                    <input
-                      type="checkbox"
-                      className="toggle toggle-sm border-white/20 bg-neutral-800 checked:bg-white checked:border-white"
-                      checked={config.browserAutoLaunch !== false}
-                      onChange={(e) =>
-                        setConfig((prev) => ({ ...prev, browserAutoLaunch: e.target.checked }))
-                      }
-                    />
-                  </label>
-                </div>
               </div>
-
-              <div className="flex items-center gap-2 pt-2 border-t border-white/[0.06] flex-wrap">
-                <button
-                  type="button"
-                  onClick={handleBrowserReconnect}
-                  disabled={browserReconnecting}
-                  className="rounded-full px-4 py-1.5 text-xs font-semibold bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
-                  title="Sapu sesi mati lalu sambungkan ulang extension"
-                >
-                  <FaSyncAlt size={10} className={browserReconnecting ? 'animate-spin' : ''} />
-                  <span>{browserReconnecting ? 'Menghubungkan...' : 'Hubungkan Ulang'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleInitExtension}
-                  className="rounded-full px-3.5 py-1.5 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white hover:bg-white/[0.08] active:scale-95 transition-all"
-                >
-                  Panduan Pemasangan
-                </button>
-                {extInstall?.dir && (
-                  <button
-                    type="button"
-                    onClick={() => window.api?.openFolder?.(extInstall.dir)}
-                    className="rounded-full px-3 py-1.5 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-400 hover:text-white transition-all flex items-center gap-1.5"
-                    title="Buka folder berkas ekstensi di file manager"
-                  >
-                    <FaFolderOpen size={11} />
-                    <span>Folder</span>
-                  </button>
-                )}
+              <p className="text-xs text-white/50">
+                {tx(language, 'cap.controlChrome')}
+              </p>
+              {browserNote ? (
+                <p className="text-[11px] text-white/50">{browserNote}</p>
+              ) : null}
+              <div className="flex items-center gap-2 pt-1">
+                <label className="text-[11px] text-white/60 flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="toggle toggle-primary toggle-xs"
+                    checked={!!config.browserAutoCloseTabs}
+                    onChange={(e) =>
+                      setConfig((prev) => {
+                        const updated = { ...prev, browserAutoCloseTabs: e.target.checked }
+                        if (window.api?.syncConfig) window.api.syncConfig(updated)
+                        return updated
+                      })
+                    }
+                  />
+                  <span>{tx(language, 'cap.autoCloseTabs')}</span>
+                </label>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <label className="text-[11px] text-white/60 flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="toggle toggle-primary toggle-xs"
+                    checked={config.browserAutoLaunch !== false}
+                    onChange={(e) =>
+                      setConfig((prev) => ({ ...prev, browserAutoLaunch: e.target.checked }))
+                    }
+                  />
+                  <span>{tx(language, 'cap.autoLaunchBrowser')}</span>
+                </label>
               </div>
             </div>
 
-            {/* Card: Google Workspace */}
-            <div className="rounded-3xl bg-neutral-900/40 backdrop-blur-2xl border border-white/[0.08] hover:border-white/15 p-6 shadow-2xl flex flex-col justify-between space-y-5 transition-all duration-300">
-              <div className="space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-11 h-11 rounded-2xl bg-neutral-800/90 border border-white/10 flex items-center justify-center text-blue-400 shadow-sm shrink-0">
-                      <FaCalendarAlt size={18} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-semibold tracking-tight text-white/95">Google Workspace</h4>
-                        {googleConnected ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Terhubung
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium border border-white/10 bg-white/[0.04] text-neutral-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-neutral-500" /> Offline
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-neutral-400 mt-0.5">
-                        Sinkronisasi Calendar, Drive, dan Gmail via OAuth 2.0 resmi.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+            <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+              <button
+                type="button"
+                onClick={handleBrowserReconnect}
+                disabled={browserReconnecting}
+                className="btn btn-xs btn-primary rounded-xl gap-1"
+                title={tx(language, 'cap.reconnectTitle')}
+              >
+                <RefreshCw size={10} className={browserReconnecting ? 'animate-spin' : ''} />
+                <span>{browserReconnecting ? tx(language, 'cap.reconnecting') : tx(language, 'cap.reconnect')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleInitExtension}
+                className="btn btn-xs btn-outline border-white/10 hover:border-primary/50 text-white/80 rounded-xl"
+              >
+                {tx(language, 'cap.installGuide')}
+              </button>
+              {extInstall?.dir && (
+                <button
+                  type="button"
+                  onClick={() => window.api?.openFolder?.(extInstall.dir)}
+                  className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
+                  title={tx(language, 'cap.openExtFolderTitle')}
+                >
+                  <FolderOpen size={11} />
+                  <span>{tx(language, 'cap.openFolder')}</span>
+                </button>
+              )}
+            </div>
+          </div>
 
-                {/* 3-Service status row */}
-                <div className="grid grid-cols-3 gap-2.5 pt-1">
-                  {[
-                    { name: 'Calendar', icon: FaCalendarAlt, color: 'text-blue-400' },
-                    { name: 'Drive', icon: FaHdd, color: 'text-amber-400' },
-                    { name: 'Gmail', icon: FaEnvelope, color: 'text-rose-400' }
-                  ].map((svc) => {
-                    const SvcIcon = svc.icon
-                    return (
-                      <div
-                        key={svc.name}
-                        className="px-3 py-2.5 rounded-2xl bg-neutral-800/40 border border-white/[0.06] flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-2">
-                          <SvcIcon className={svc.color} size={12} />
-                          <span className="text-xs font-medium text-neutral-300">{svc.name}</span>
-                        </div>
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            googleConnected ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]' : 'bg-neutral-600'
-                          }`}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
+          {/* Card: Google Workspace */}
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.googleWorkspace')}</span>
+                  {googleConnected ? (
+                    <span className="badge badge-xs badge-info gap-1 text-[10px]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {tx(language, 'cap.connected')}
+                    </span>
+                  ) : (
+                    <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">{tx(language, 'cap.offline')}</span>
+                    )}
+                  </div>
+                <p className="text-xs text-white/50">
+                  {tx(language, 'cap.googleSyncDesc')}
+                </p>
               </div>
 
-              <div className="flex items-center gap-2 pt-2 border-t border-white/[0.06]">
+              <div>
                 {googleConnected ? (
                   <button
                     type="button"
                     onClick={handleGoogleDisconnect}
-                    className="rounded-full px-4 py-1.5 text-xs font-medium border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all flex items-center gap-1.5"
+                    className="btn btn-xs btn-outline border-error/40 text-error hover:bg-error/10 rounded-xl gap-1"
                   >
-                    <FaUnlock size={10} />
-                    <span>Putuskan Sesi</span>
+                    <Unlock size={10} />
+                    <span>{tx(language, 'cap.disconnect')}</span>
                   </button>
                 ) : (
-                  <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
-                    <button
-                      type="button"
-                      disabled={googleLoading}
-                      onClick={onGoogleConnectClick}
-                      className="rounded-full px-5 py-1.5 text-xs font-semibold bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
-                      title={googleClientId.trim() ? '1-Click: Buka langsung login page Google di browser' : 'Hubungkan Google Workspace'}
-                    >
-                      <FaLock size={10} />
-                      <span>{googleLoading ? 'Membuka Browser...' : 'Hubungkan'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setGoogleModalOpen(true)}
-                      className="rounded-full p-2 border border-white/10 hover:border-white/20 bg-white/[0.04] hover:bg-white/[0.08] text-neutral-400 hover:text-white transition-all"
-                      title="Atur Kredensial OAuth (Client ID & Secret)"
-                    >
-                      <FaEdit size={11} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setGoogleModalOpen(true)}
+                    className="btn btn-xs btn-primary rounded-xl gap-1"
+                  >
+                    <Lock size={10} />
+                    <span>{tx(language, 'cap.connect')}</span>
+                  </button>
                 )}
               </div>
+            </div>
+
+            {/* Clean service status row */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {[
+                { name: 'Calendar', icon: Calendar, color: 'text-blue-400' },
+                { name: 'Drive', icon: HardDrive, color: 'text-amber-400' },
+                { name: 'Gmail', icon: Mail, color: 'text-red-400' }
+              ].map((svc) => {
+                const SvcIcon = svc.icon
+                return (
+                  <div
+                    key={svc.name}
+                    className="px-3 py-2 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      <SvcIcon className={svc.color} size={12} />
+                      <span className="text-xs font-medium text-white/80">{svc.name}</span>
+                    </div>
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${googleConnected ? 'bg-info animate-pulse' : 'bg-white/20'}`}
+                    />
+                  </div>
+                )
+              })}
             </div>
           </div>
 
           {/* Section: MCP Protocol Gateway */}
-          <div className="rounded-3xl bg-neutral-900/40 backdrop-blur-2xl border border-white/[0.08] p-6 shadow-2xl space-y-5">
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-semibold tracking-tight text-white/95">MCP Connectors</h4>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-white/[0.06] text-neutral-400">
-                    {filteredConnectors.length}
-                  </span>
+                  <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.mcpConnectors')}</span>
+                  <span className="badge badge-xs badge-neutral opacity-80">{filteredConnectors.length}</span>
                 </div>
-                <p className="text-xs text-neutral-400">
-                  Standar Model Context Protocol untuk koneksi alat eksternal dan API secara terisolasi.
-                </p>
               </div>
 
               <div className="flex items-center gap-2">
-                <div className="relative flex items-center">
-                  <FaSearch className="absolute left-3.5 text-neutral-400 pointer-events-none" size={11} />
+                <div className="relative">
                   <input
                     type="text"
-                    placeholder="Cari connector..."
+                    placeholder={tx(language, 'cap.searchConnectors')}
                     value={mcpSearch}
                     onChange={(e) => setMcpSearch(e.target.value)}
-                    className="rounded-full pl-9 pr-3.5 py-1.5 bg-white/[0.05] border border-white/[0.08] text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white/25 focus:bg-white/[0.08] w-40 sm:w-48 transition-all"
+                    className="input input-xs input-bordered rounded-xl pl-7 pr-3 bg-base-100/60 border-white/10 text-xs w-40 focus:w-48 transition-all"
                   />
+                  <Search className="absolute left-2.5 top-2 text-white/30" size={10} />
                 </div>
                 <button
                   type="button"
                   onClick={() => setAddMcpModalOpen(true)}
-                  className="rounded-full px-4 py-1.5 text-xs font-semibold bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-sm flex items-center gap-1.5"
+                  className="btn btn-xs btn-primary rounded-xl gap-1"
                 >
-                  <FaPlus size={9} />
-                  <span>Tambah MCP</span>
+                  <Plus size={9} />
+                  <span>{tx(language, 'cap.addMcp')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={loadMcpData}
                   disabled={mcpLoading}
-                  className="rounded-full p-2 border border-white/10 hover:border-white/20 bg-white/[0.04] text-neutral-400 hover:text-white transition-all disabled:opacity-50"
-                  title="Segarkan daftar"
+                  className="btn btn-xs btn-ghost border border-white/10 hover:bg-white/5 rounded-xl"
+                  title={tx(language, 'cap.refreshTitle')}
                 >
-                  <FaSyncAlt size={11} className={mcpLoading ? 'animate-spin text-white' : ''} />
+                  <RefreshCw size={10} className={mcpLoading ? 'animate-spin text-primary' : ''} />
                 </button>
               </div>
             </div>
 
             {mcpLoading ? (
-              <div className="p-8 text-center text-neutral-400 text-xs flex flex-col items-center gap-2.5">
-                <span className="loading loading-spinner loading-sm text-white"></span>
-                Memuat katalog MCP...
+              <div className="p-6 text-center text-white/40 text-xs flex flex-col items-center gap-2">
+                <span className="loading loading-spinner loading-sm text-primary"></span>
+                {tx(language, 'cap.loadingMcp')}
               </div>
             ) : filteredConnectors.length === 0 ? (
-              <div className="p-8 text-center rounded-2xl bg-neutral-800/20 border border-dashed border-white/10 text-xs text-neutral-400">
-                Tidak ada connector MCP yang cocok dengan pencarian.
+              <div className="p-6 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10 text-xs text-white/50">
+                {tx(language, 'cap.noMcpMatch')}
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+              <div className="grid gap-2">
                 {filteredConnectors.map((c) => {
                   const isConnected = !!connections[c.id]
                   const isBusy = busyConnectorKey?.startsWith(`${c.id}:`)
-                  const isGoogle = c.id?.toLowerCase().includes('google')
-                  const isContext7 = c.id?.toLowerCase().includes('context7')
-
                   return (
                     <div
                       key={c.id}
-                      className="rounded-2xl bg-neutral-800/30 backdrop-blur-md border border-white/[0.06] hover:border-white/15 p-4 flex flex-col justify-between gap-3.5 transition-all duration-200"
+                      className="rounded-xl border border-white/5 bg-base-100/40 p-3.5 flex items-center justify-between gap-3 hover:border-white/15 transition-all"
                     >
-                      <div className="space-y-2.5">
-                        <div className="flex items-start justify-between gap-2.5">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-xl bg-neutral-800 border border-white/10 flex items-center justify-center text-white/90 shrink-0">
-                              {isGoogle ? (
-                                <FaCalendarAlt className="text-blue-400" size={15} />
-                              ) : isContext7 ? (
-                                <FaBrain className="text-purple-400" size={15} />
-                              ) : (
-                                <FaPlug className="text-neutral-300" size={15} />
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <h5 className="text-xs font-semibold text-white/95 truncate">
-                                {c.name || c.id}
-                              </h5>
-                              <p className="font-mono text-[10px] text-neutral-400 truncate">
-                                {c.id}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {isConnected ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Terhubung
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium border border-white/10 bg-white/[0.03] text-neutral-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-neutral-500" /> Offline
-                              </span>
-                            )}
-                          </div>
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-white/90">{c.name || c.id}</span>
+                          <span className="font-mono text-[10px] text-white/40">{c.id}</span>
+                          {c.custom && (
+                            <span className="badge badge-xs badge-info text-[9px]" title={tx(language, 'cap.mcpCustomNote')}>MCP</span>
+                          )}
+                          {isConnected ? (
+                            <span className="badge badge-xs badge-info text-[9px]">{tx(language, 'cap.connected')}</span>
+                          ) : (
+                            <span className="badge badge-xs badge-ghost border-white/10 text-[9px] opacity-60">{tx(language, 'cap.offline')}</span>
+                          )}
                         </div>
-
-                        <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed">
-                          {c.description || 'Tidak ada deskripsi.'}
+                        <p className="text-[11px] text-white/50 truncate max-w-xl">
+                          {(c.id === 'context7' ? tx(language, 'cap.context7Desc') : c.description) || c.url || tx(language, 'cap.noDesc')}
                         </p>
-
-                        <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                          {(c.transport === 'mcp' || c.custom) && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                              {c.id.includes('google') ? 'Official MCP' : 'MCP'}
-                            </span>
-                          )}
-                          {c.authType === 'oauth' && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                              OAuth 2.0
-                            </span>
-                          )}
-                        </div>
-
-                        {c.url && (
-                          <div className="text-[10px] font-mono text-neutral-400 truncate bg-white/[0.02] px-2.5 py-1 rounded-lg border border-white/[0.04]">
-                            {c.url}
-                          </div>
-                        )}
                       </div>
 
-                      <div className="pt-2 border-t border-white/[0.04] flex items-center justify-end">
+                      <div className="shrink-0">
                         {isConnected ? (
                           <button
                             type="button"
                             disabled={isBusy}
                             onClick={() => handleRevokeConnector(c.id)}
-                            className="rounded-full px-3.5 py-1 text-xs font-medium border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all disabled:opacity-50"
+                            className="btn btn-xs btn-outline border-error/40 text-error hover:bg-error/10 rounded-xl"
                           >
-                            Putus
+                            {tx(language, 'cap.revoke')}
                           </button>
                         ) : (
                           <button
                             type="button"
                             disabled={isBusy}
                             onClick={() => handleAuthorizeConnector(c.id, c.scopes || [])}
-                            className="rounded-full px-4 py-1 text-xs font-semibold bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-sm disabled:opacity-50"
+                            className="btn btn-xs btn-ghost border border-white/10 hover:border-primary/40 text-white/80 rounded-xl"
                           >
-                            {isBusy ? 'Memproses...' : 'Otorisasi'}
+                            {tx(language, 'cap.authorize')}
                           </button>
                         )}
                       </div>
@@ -1151,58 +982,50 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             )}
 
             {/* Collapsible MCP Audit Log Drawer */}
-            <div className="pt-2 border-t border-white/[0.06]">
+            <div className="pt-2 border-t border-white/5">
               <button
                 type="button"
                 onClick={() => setShowAuditDrawer(!showAuditDrawer)}
-                className="w-full flex items-center justify-between py-1.5 text-xs text-neutral-400 hover:text-white transition-colors"
+                className="w-full flex items-center justify-between py-1 text-xs text-white/50 hover:text-white/80 transition-colors"
               >
                 <span className="flex items-center gap-2">
-                  <FaHistory size={11} className="text-sky-400" />
-                  <span className="font-medium">Riwayat Audit Eksekusi MCP</span>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-mono bg-white/[0.06] text-neutral-400">
-                    {auditLogs.length}
-                  </span>
+                  <History size={11} className="text-info" />
+                  <span>{tx(language, 'cap.auditHistory')}</span>
+                  <span className="badge badge-xs badge-neutral text-[9px]">{auditLogs.length}</span>
                 </span>
-                {showAuditDrawer ? <FaChevronUp size={10} /> : <FaChevronDown size={10} />}
+                {showAuditDrawer ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
               </button>
 
               {showAuditDrawer && (
-                <div className="mt-3 space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                <div className="mt-3 space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar pr-1">
                   {auditLogs.length === 0 ? (
-                    <p className="text-[11px] text-neutral-500 italic py-1">Belum ada jejak eksekusi.</p>
+                    <p className="text-[11px] text-white/40 italic py-1">{tx(language, 'cap.noAudit')}</p>
                   ) : (
                     <>
                       {auditLogs.map((log, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-between px-3 py-2 rounded-xl bg-neutral-800/40 border border-white/[0.05] text-[11px]"
+                          className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-base-100/50 border border-white/5 text-[11px]"
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             <span
-                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                log.status === 'ok' ? 'bg-emerald-400' : 'bg-rose-400'
-                              }`}
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${log.status === 'ok' ? 'bg-info' : 'bg-error'}`}
                             />
-                            <span className="font-mono text-neutral-200 truncate">
+                            <span className="font-mono text-white/80 truncate">
                               {log.connectorId || log.connector || 'system'}:{log.op || 'call'}
                             </span>
                           </div>
-                          <span className="text-neutral-400 text-[10px] shrink-0 font-mono">
-                            {log.ts
-                              ? new Date(log.ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-                              : log.timestamp
-                                ? new Date(log.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-                                : '-'}
+                          <span className="text-white/40 text-[10px]">
+                            {log.ts ? new Date(log.ts).toLocaleTimeString(localeTag(language), { hour: '2-digit', minute: '2-digit' }) : (log.timestamp ? new Date(log.timestamp).toLocaleTimeString(localeTag(language), { hour: '2-digit', minute: '2-digit' }) : '-')}
                           </span>
                         </div>
                       ))}
                       <button
                         type="button"
                         onClick={handleLoadMoreAudit}
-                        className="w-full py-1.5 text-xs text-neutral-400 hover:text-white transition-colors text-center"
+                        className="w-full py-1 text-[11px] text-white/50 hover:text-white/80 transition-colors"
                       >
-                        Muat lebih banyak riwayat
+                        {tx(language, 'cap.loadMore')}
                       </button>
                     </>
                   )}
@@ -1215,97 +1038,94 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
 
       {/* ── TAB 2: PLUGINS ── */}
       {activeTab === 'plugins' && (
-        <div className="space-y-5">
-          {/* Built-in Automations (Cupertino Settings Grid) */}
-          <div className="rounded-3xl bg-neutral-900/40 backdrop-blur-2xl border border-white/[0.08] p-6 shadow-2xl space-y-4">
+        <div className="space-y-4">
+          {/* Built-in Automations (Compact Grid) */}
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <h4 className="text-sm font-semibold tracking-tight text-white/95">Built-in Automations</h4>
-                <p className="text-xs text-neutral-400">
-                  Modul optimasi performa dan perilaku otonom agen bawaan sistem.
-                </p>
-              </div>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-white/[0.06] text-neutral-400">
-                5 Terpasang
-              </span>
+              <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.builtinAutomations')}</span>
+              <span className="badge badge-xs badge-neutral opacity-80">{tx(language, 'cap.activeCount')(4)}</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
               {/* Awareness */}
-              <div className="p-4 rounded-2xl bg-neutral-800/30 backdrop-blur-md border border-white/[0.06] hover:border-white/15 flex items-center justify-between gap-4 transition-all">
-                <div className="min-w-0 space-y-1">
-                  <div className="text-xs font-semibold text-white/95">Awareness Engine</div>
-                  <p className="text-[11px] text-neutral-400 leading-relaxed">
-                    Pantau jendela aktif OS untuk mengambil inisiatif proaktif otomatis.
-                  </p>
+              <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.awareness')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.awarenessDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
-                  className="toggle toggle-sm border-white/20 bg-neutral-800 checked:bg-white checked:border-white shrink-0"
+                  className="toggle toggle-primary toggle-xs shrink-0"
                   checked={config.awarenessEnabled !== false}
                   onChange={handleAwarenessEnabledChange}
                 />
               </div>
 
               {/* Session Compaction */}
-              <div className="p-4 rounded-2xl bg-neutral-800/30 backdrop-blur-md border border-white/[0.06] hover:border-white/15 flex items-center justify-between gap-4 transition-all">
-                <div className="min-w-0 space-y-1">
-                  <div className="text-xs font-semibold text-white/95">Session Compaction</div>
-                  <p className="text-[11px] text-neutral-400 leading-relaxed">
-                    Ringkas konteks kerja sesi (budget 525K) agar percakapan masif tetap muat.
-                  </p>
+              <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.compaction')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.compactionDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
-                  className="toggle toggle-sm border-white/20 bg-neutral-800 checked:bg-white checked:border-white shrink-0"
+                  className="toggle toggle-primary toggle-xs shrink-0"
                   checked={config.sessionCompactionEnabled !== false}
                   onChange={handleCompactionEnabledChange}
                 />
               </div>
 
               {/* Caveman */}
-              <div className="p-4 rounded-2xl bg-neutral-800/30 backdrop-blur-md border border-white/[0.06] hover:border-white/15 flex items-center justify-between gap-4 transition-all">
-                <div className="min-w-0 space-y-1">
-                  <div className="text-xs font-semibold text-white/95">Caveman Mode</div>
-                  <p className="text-[11px] text-neutral-400 leading-relaxed">
-                    Instruksikan respons padat terarah tanpa basa-basi kalimat pengantar.
-                  </p>
+              <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.caveman')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.cavemanDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
-                  className="toggle toggle-sm border-white/20 bg-neutral-800 checked:bg-white checked:border-white shrink-0"
+                  className="toggle toggle-primary toggle-xs shrink-0"
                   checked={config.builtinPlugins?.caveman !== false}
                   onChange={handleBuiltinPluginChange('caveman')}
                 />
               </div>
 
               {/* Ponytail */}
-              <div className="p-4 rounded-2xl bg-neutral-800/30 backdrop-blur-md border border-white/[0.06] hover:border-white/15 flex items-center justify-between gap-4 transition-all">
-                <div className="min-w-0 space-y-1">
-                  <div className="text-xs font-semibold text-white/95">Ponytail (YAGNI)</div>
-                  <p className="text-[11px] text-neutral-400 leading-relaxed">
-                    Prioritaskan pemanfaatan modul yang sudah tersedia di arsitektur sistem.
-                  </p>
+              <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.ponytail')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.ponytailDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
-                  className="toggle toggle-sm border-white/20 bg-neutral-800 checked:bg-white checked:border-white shrink-0"
+                  className="toggle toggle-primary toggle-xs shrink-0"
                   checked={config.builtinPlugins?.ponytail !== false}
                   onChange={handleBuiltinPluginChange('ponytail')}
                 />
               </div>
 
-              {/* Rtk */}
-              <div className="p-4 rounded-2xl bg-neutral-800/30 backdrop-blur-md border border-white/[0.06] hover:border-white/15 flex items-center justify-between gap-4 transition-all md:col-span-2">
-                <div className="min-w-0 space-y-1">
-                  <div className="text-xs font-semibold text-white/95">Rtk Output Compression</div>
-                  <p className="text-[11px] text-neutral-400 leading-relaxed">
-                    Kompresi cerdas pada luaran terminal berukuran masif sebelum masuk context model.
-                  </p>
+              {/* Internet-First (D1) */}
+              <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.internetFirst')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.internetFirstDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
-                  className="toggle toggle-sm border-white/20 bg-neutral-800 checked:bg-white checked:border-white shrink-0"
+                  className="toggle toggle-primary toggle-xs shrink-0"
+                  checked={config.builtinPlugins?.internetFirst !== false}
+                  onChange={handleBuiltinPluginChange('internetFirst')}
+                />
+              </div>
+
+              {/* Rtk */}
+              <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.rtk')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.rtkDesc')}</p>
+                </div>
+                <input
+                  type="checkbox"
+                  className="toggle toggle-primary toggle-xs shrink-0"
                   checked={config.rtkCompress !== false}
                   onChange={handleRtkCompressChange}
                 />
@@ -1314,17 +1134,15 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           </div>
 
           {/* Custom Plugins */}
-          <div className="rounded-3xl bg-neutral-900/40 backdrop-blur-2xl border border-white/[0.08] p-6 shadow-2xl space-y-5">
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-semibold tracking-tight text-white/95">Custom Plugins</h4>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-white/[0.06] text-neutral-400">
-                    {plugins.length}
-                  </span>
+                  <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.customPlugins')}</span>
+                  <span className="badge badge-xs badge-neutral opacity-80">{plugins.length}</span>
                 </div>
-                <p className="text-xs text-neutral-400">
-                  Ekstensi JavaScript mandiri untuk memperluas toolset agen.
+                <p className="text-xs text-white/50">
+                  {tx(language, 'cap.customPluginsDesc')}
                 </p>
               </div>
 
@@ -1332,122 +1150,99 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 <button
                   type="button"
                   onClick={() => window.api?.openPluginFolder?.()}
-                  className="rounded-full px-3.5 py-1.5 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white hover:bg-white/[0.08] transition-all flex items-center gap-1.5"
+                  className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
                 >
-                  <FaFolderOpen size={11} />
-                  <span>Buka Folder</span>
+                  <FolderOpen size={11} />
+                  <span>{tx(language, 'cap.openFolder')}</span>
                 </button>
                 {isDevMode && (
                   <button
                     type="button"
                     onClick={handleOpenNewPluginModal}
-                    className="rounded-full px-4 py-1.5 text-xs font-semibold bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-sm flex items-center gap-1.5"
+                    className="btn btn-xs btn-primary rounded-xl gap-1"
                   >
-                    <FaCode size={11} />
-                    <span>Tulis Plugin</span>
+                    <Code size={10} />
+                    <span>{tx(language, 'cap.writeCode')}</span>
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Spotlight GitHub Installer */}
-            <div className="flex items-center gap-2 p-1 rounded-full bg-white/[0.04] border border-white/[0.08] focus-within:border-white/25 focus-within:bg-white/[0.06] transition-all">
-              <div className="pl-3.5 pr-1 text-neutral-400">
-                <FaGithub size={13} />
-              </div>
+            {/* Compact GitHub Installer */}
+            <div className="flex items-center gap-2">
               <input
                 type="text"
-                placeholder="Pasang repositori GitHub (contoh: user/abelink-plugin-custom)..."
+                placeholder={tx(language, 'cap.gitPlaceholder')}
                 value={gitPluginUrl}
                 onChange={(e) => setGitPluginUrl(e.target.value)}
-                className="bg-transparent border-none outline-none font-mono text-xs text-white placeholder-neutral-500 flex-1 px-1"
+                className="input input-xs input-bordered rounded-xl bg-base-100/60 border-white/10 font-mono text-xs flex-1"
               />
               <button
                 type="button"
                 onClick={handleInstallGitPlugin}
                 disabled={gitPluginLoading || !gitPluginUrl.trim()}
-                className="rounded-full px-4 py-1 text-xs font-semibold bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-sm shrink-0 disabled:opacity-50"
+                className="btn btn-xs btn-primary rounded-xl shrink-0"
               >
-                {gitPluginLoading ? 'Mengunduh...' : 'Pasang'}
+                {gitPluginLoading ? tx(language, 'cap.downloading') : tx(language, 'cap.installBtn')}
               </button>
             </div>
 
             {pluginsLoading ? (
-              <div className="p-8 text-center text-neutral-400 text-xs flex flex-col items-center gap-2.5">
-                <span className="loading loading-spinner loading-sm text-white"></span>
-                Memuat plugin kustom...
+              <div className="p-6 text-center text-white/40 text-xs flex flex-col items-center gap-2">
+                <span className="loading loading-spinner loading-sm text-primary"></span>
+                {tx(language, 'cap.loadingPlugins')}
               </div>
             ) : plugins.length === 0 ? (
-              <div className="p-8 text-center rounded-2xl bg-neutral-800/20 border border-dashed border-white/10 text-xs text-neutral-400">
-                Belum ada plugin kustom yang terpasang di direktori aplikasi.
+              <div className="p-6 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10 text-xs text-white/50">
+                {tx(language, 'cap.noPlugins')}
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+              <div className="grid gap-2">
                 {plugins.map((p) => {
                   const isEnabled = p.isEnabled !== false
                   return (
                     <div
                       key={p.name}
-                      className="rounded-2xl bg-neutral-800/30 backdrop-blur-md border border-white/[0.06] hover:border-white/15 p-4 flex flex-col justify-between gap-3.5 transition-all duration-200"
+                      className="rounded-xl border border-white/5 bg-base-100/40 p-3.5 flex items-center justify-between gap-3 hover:border-white/15 transition-all"
                     >
-                      <div className="space-y-2">
-                        <div className="flex items-start justify-between gap-2.5">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-xl bg-neutral-800 border border-white/10 flex items-center justify-center text-neutral-300 shrink-0">
-                              <FaCubes size={15} />
-                            </div>
-                            <div className="min-w-0">
-                              <h5 className="text-xs font-semibold text-white/95 truncate">{p.name}</h5>
-                              <p className="font-mono text-[10px] text-neutral-400">
-                                {p.actions?.length || 0} aksi terdefinisi
-                              </p>
-                            </div>
-                          </div>
-
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium ${
-                              isEnabled
-                                ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
-                                : 'border border-white/10 bg-white/[0.03] text-neutral-400'
-                            }`}
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-emerald-400' : 'bg-neutral-500'}`}
-                            />
-                            {isEnabled ? 'Aktif' : 'Nonaktif'}
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-white/90">{p.name}</span>
+                          <span className="badge badge-xs badge-neutral text-[9px]">{tx(language, 'cap.actionsCount')(p.actions?.length || 0)}</span>
+                          <span className={`badge badge-xs text-[9px] ${isEnabled ? 'badge-info' : 'badge-ghost opacity-50'}`}>
+                            {isEnabled ? tx(language, 'cap.enabled') : tx(language, 'cap.disabled')}
                           </span>
                         </div>
-
-                        <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed">
-                          {p.description || 'Tidak ada deskripsi.'}
+                        <p className="text-[11px] text-white/50 truncate">
+                          {p.description || tx(language, 'cap.noDesc')}
                         </p>
                       </div>
 
-                      <div className="pt-2 border-t border-white/[0.04] flex items-center justify-end gap-1.5">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           type="button"
                           onClick={() => handleTogglePlugin(p.name, isEnabled)}
-                          className="rounded-full px-3 py-1 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white hover:bg-white/[0.08] transition-all"
+                          className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl text-[11px]"
                         >
-                          {isEnabled ? 'Matikan' : 'Nyalakan'}
+                          {isEnabled ? tx(language, 'cap.disable') : tx(language, 'cap.enable')}
                         </button>
                         {isDevMode && (
                           <button
                             type="button"
                             onClick={() => handleOpenEditPluginModal(p)}
-                            className="rounded-full p-1.5 border border-white/10 bg-white/[0.04] text-neutral-400 hover:text-white transition-all"
-                            title="Edit kode plugin"
+                            className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
+                            title={tx(language, 'cap.editPluginTitle')}
                           >
-                            <FaEdit size={11} />
+                            <Pencil size={11} />
                           </button>
                         )}
                         <button
                           type="button"
                           onClick={() => handleDeletePlugin(p.name)}
-                          className="rounded-full p-1.5 border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all"
-                          title="Hapus plugin"
+                          className="btn btn-xs btn-ghost border border-white/10 text-error hover:bg-error/10 rounded-xl"
+                          title={tx(language, 'cap.deletePluginTitle')}
                         >
-                          <FaTrash size={11} />
+                          <Trash2 size={11} />
                         </button>
                       </div>
                     </div>
@@ -1461,43 +1256,37 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
 
       {/* ── TAB 3: SKILLS ── */}
       {activeTab === 'skills' && (
-        <div className="space-y-5">
+        <div className="space-y-4">
           {/* Built-in Skills */}
-          <div className="rounded-3xl bg-neutral-900/40 backdrop-blur-2xl border border-white/[0.08] p-6 shadow-2xl space-y-4">
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <h4 className="text-sm font-semibold tracking-tight text-white/95">Built-in Superpowers</h4>
-                <p className="text-xs text-neutral-400">
-                  Pola kerja dan disiplin nalar inti yang disuntikkan ke prompt perencana.
-                </p>
-              </div>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-white/[0.06] text-neutral-400">
-                4 Pola
-              </span>
+              <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.builtinSuperpowers')}</span>
+              <span className="badge badge-xs badge-neutral opacity-80">{tx(language, 'cap.patternsCount')(4)}</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
               {BUILTIN_SKILLS.map((skill) => {
                 const SkillIcon = skill.icon
                 const isSkillActive = config?.builtinSkills?.[skill.id] !== false
+                const skillKeys = BUILTIN_SKILL_KEYS[skill.id] || []
+                const skillName = skillKeys[0] ? tx(language, skillKeys[0]) : skill.name
+                const skillDesc = skillKeys[1] ? tx(language, skillKeys[1]) : skill.desc
                 return (
                   <div
                     key={skill.id}
-                    className="p-4 rounded-2xl bg-neutral-800/30 backdrop-blur-md border border-white/[0.06] hover:border-white/15 flex items-center justify-between gap-4 transition-all"
+                    className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3"
                   >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-neutral-800 border border-white/10 flex items-center justify-center text-white/90 shrink-0">
-                        <SkillIcon size={16} />
-                      </div>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <SkillIcon className="text-primary shrink-0" size={13} />
                       <div className="min-w-0 space-y-0.5">
-                        <div className="text-xs font-semibold text-white/95 truncate">{skill.name}</div>
-                        <p className="text-[11px] text-neutral-400 leading-relaxed line-clamp-1">{skill.desc}</p>
+                        <div className="text-xs font-semibold text-white/90 truncate">{skillName}</div>
+                        <p className="text-[11px] text-white/50 truncate">{skillDesc}</p>
                       </div>
                     </div>
 
                     <input
                       type="checkbox"
-                      className="toggle toggle-sm border-white/20 bg-neutral-800 checked:bg-white checked:border-white shrink-0"
+                      className="toggle toggle-primary toggle-xs shrink-0"
                       checked={isSkillActive}
                       onChange={(e) =>
                         setConfig((prev) => ({
@@ -1516,17 +1305,15 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           </div>
 
           {/* Custom Skills (SKILL.md) */}
-          <div className="rounded-3xl bg-neutral-900/40 backdrop-blur-2xl border border-white/[0.08] p-6 shadow-2xl space-y-5">
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-semibold tracking-tight text-white/95">Custom Skills (SKILL.md)</h4>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-white/[0.06] text-neutral-400">
-                    {skills.length}
-                  </span>
+                  <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.customSkills')}</span>
+                  <span className="badge badge-xs badge-neutral opacity-80">{skills.length}</span>
                 </div>
-                <p className="text-xs text-neutral-400">
-                  Keahlian operasional terstruktur yang didefinisikan lewat format Markdown standar.
+                <p className="text-xs text-white/50">
+                  {tx(language, 'cap.customSkillsDesc')}
                 </p>
               </div>
 
@@ -1534,81 +1321,72 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 <button
                   type="button"
                   onClick={() => window.api?.openSkillsFolder?.()}
-                  className="rounded-full px-3.5 py-1.5 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white hover:bg-white/[0.08] transition-all flex items-center gap-1.5"
+                  className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
                 >
-                  <FaFolderOpen size={11} />
-                  <span>Folder</span>
+                  <FolderOpen size={11} />
+                  <span>{tx(language, 'cap.openFolder')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleInstallSkillPackage}
-                  className="rounded-full px-3.5 py-1.5 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white hover:bg-white/[0.08] transition-all"
-                  title="Impor arsip skill .zip atau .tar.gz"
+                  className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
+                  title={tx(language, 'cap.importArchiveTitle')}
                 >
-                  <span>Impor Arsip</span>
+                  <span>{tx(language, 'cap.importArchive')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleOpenNewSkill}
-                  className="rounded-full px-4 py-1.5 text-xs font-semibold bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-sm flex items-center gap-1.5"
+                  className="btn btn-xs btn-primary rounded-xl gap-1"
                 >
-                  <FaPlus size={9} />
-                  <span>Skill Baru</span>
+                  <Plus size={9} />
+                  <span>{tx(language, 'cap.newSkill')}</span>
                 </button>
               </div>
             </div>
 
             {skillsLoading ? (
-              <div className="p-8 text-center text-neutral-400 text-xs flex flex-col items-center gap-2.5">
-                <span className="loading loading-spinner loading-sm text-white"></span>
-                Memuat skills...
+              <div className="p-6 text-center text-white/40 text-xs flex flex-col items-center gap-2">
+                <span className="loading loading-spinner loading-sm text-primary"></span>
+                {tx(language, 'cap.loadingSkills')}
               </div>
             ) : skills.length === 0 ? (
-              <div className="p-8 text-center rounded-2xl bg-neutral-800/20 border border-dashed border-white/10 text-xs text-neutral-400">
-                Belum ada skill kustom tersimpan. Klik "Skill Baru" untuk menulis instruksi.
+              <div className="p-6 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10 text-xs text-white/50">
+                {tx(language, 'cap.noSkills')}
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+              <div className="grid gap-2">
                 {skills.map((s) => (
                   <div
                     key={s.name}
-                    className="rounded-2xl bg-neutral-800/30 backdrop-blur-md border border-white/[0.06] hover:border-white/15 p-4 flex flex-col justify-between gap-3.5 transition-all duration-200"
+                    className="rounded-xl border border-white/5 bg-base-100/40 p-3.5 flex items-center justify-between gap-3 hover:border-white/15 transition-all"
                   >
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between gap-2.5">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-xl bg-neutral-800 border border-white/10 flex items-center justify-center text-white/90 shrink-0">
-                            <FaBrain size={15} className="text-purple-400" />
-                          </div>
-                          <div className="min-w-0">
-                            <h5 className="text-xs font-semibold text-white/95 truncate">{s.name}</h5>
-                            <span className="font-mono text-[9px] text-neutral-400">XDG Store</span>
-                          </div>
-                        </div>
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-white/90">{s.name}</span>
+                        <span className="badge badge-xs badge-ghost border-white/10 font-mono text-[9px]">XDG</span>
                       </div>
-
-                      <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed">
-                        {s.description || 'Tidak ada deskripsi.'}
+                      <p className="text-[11px] text-white/50 truncate">
+                        {s.description || tx(language, 'cap.noDesc')}
                       </p>
                     </div>
 
-                    <div className="pt-2 border-t border-white/[0.04] flex items-center justify-end gap-1.5">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleOpenEditSkill(s.name)}
-                        className="rounded-full px-3 py-1 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white hover:bg-white/[0.08] transition-all flex items-center gap-1.5"
-                        title="Edit instruksi skill"
+                        className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
+                        title={tx(language, 'cap.editSkillTitle')}
                       >
-                        <FaEdit size={11} />
-                        <span>Edit</span>
+                        <Pencil size={11} />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDeleteSkill(s.name)}
-                        className="rounded-full p-1.5 border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all"
-                        title="Hapus skill"
+                        className="btn btn-xs btn-ghost border border-white/10 text-error hover:bg-error/10 rounded-xl"
+                        title={tx(language, 'cap.deleteSkillTitle')}
                       >
-                        <FaTrash size={11} />
+                        <Trash2 size={11} />
                       </button>
                     </div>
                   </div>
@@ -1621,59 +1399,53 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
 
       {/* ── TAB 4: SECURITY ── */}
       {activeTab === 'security' && (
-        <div className="space-y-5">
-          {/* 3-Tier Overview (Spacious Cupertino frosted cards) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-            <div className="p-5 rounded-3xl bg-neutral-900/40 backdrop-blur-2xl border border-emerald-500/20 space-y-2">
+        <div className="space-y-4">
+          {/* 3-Tier Overview (Spacious horizontal cards) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold tracking-tight text-emerald-400">Tier 1: Read-Only</span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Otomatis
-                </span>
+                <span className="text-xs font-semibold text-info">{tx(language, 'cap.tier1')}</span>
+                <span className="badge badge-xs badge-info text-[9px]">{tx(language, 'cap.auto')}</span>
               </div>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Membaca berkas, status sistem, dan inspeksi jendela aktif tanpa memutus alur kerja.
+              <p className="text-[11px] text-white/50 leading-relaxed">
+                {tx(language, 'cap.tier1Desc')}
               </p>
             </div>
 
-            <div className="p-5 rounded-3xl bg-neutral-900/40 backdrop-blur-2xl border border-sky-500/20 space-y-2">
+            <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold tracking-tight text-sky-400">Tier 2: Netral</span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                  Per Sesi
-                </span>
+                <span className="text-xs font-semibold text-info">{tx(language, 'cap.tier2')}</span>
+                <span className="badge badge-xs badge-info text-[9px]">{tx(language, 'cap.perSession')}</span>
               </div>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Perintah shell non-destruktif dan perambanan web. Persetujuan cukup diberikan sekali per sesi.
+              <p className="text-[11px] text-white/50 leading-relaxed">
+                {tx(language, 'cap.tier2Desc')}
               </p>
             </div>
 
-            <div className="p-5 rounded-3xl bg-neutral-900/40 backdrop-blur-2xl border border-rose-500/20 space-y-2">
+            <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold tracking-tight text-rose-400">Tier 3: Destruktif</span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                  Native RFD
-                </span>
+                <span className="text-xs font-semibold text-error">{tx(language, 'cap.tier3')}</span>
+                <span className="badge badge-xs badge-error text-[9px]">{tx(language, 'cap.nativeRfd')}</span>
               </div>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Modifikasi berkas OS, git commit, dan instalasi plugin. Wajib dialog verifikasi native.
+              <p className="text-[11px] text-white/50 leading-relaxed">
+                {tx(language, 'cap.tier3Desc')}
               </p>
             </div>
           </div>
 
           {/* Granular Policies */}
-          <div className="rounded-3xl bg-neutral-900/40 backdrop-blur-2xl border border-white/[0.08] p-6 shadow-2xl space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
+            <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <h4 className="text-sm font-semibold tracking-tight text-white/95">Kebijakan Persetujuan Granular</h4>
-                <p className="text-xs text-neutral-400">
-                  Atur perilaku konfirmasi untuk setiap rumpun aksi sidecar secara terisolasi.
+                <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.granularPolicies')}</span>
+                <p className="text-xs text-white/50">
+                  {tx(language, 'cap.granularDesc')}
                 </p>
               </div>
 
               <button
                 type="button"
-                className="rounded-full px-3.5 py-1.5 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white hover:bg-white/[0.08] transition-all"
+                className="btn btn-xs btn-outline border-white/10 hover:border-warning/50 text-white/70 rounded-xl"
                 onClick={async () => {
                   try {
                     await window.api?.approvalPolicyResetSession?.()
@@ -1681,22 +1453,22 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   } catch {}
                 }}
               >
-                Reset Izin Sesi
+                {tx(language, 'cap.resetSession')}
               </button>
             </div>
 
             {policiesLoading ? (
-              <div className="p-8 text-center text-neutral-400 text-xs">Memuat kebijakan...</div>
+              <div className="p-6 text-center text-white/40 text-xs">{tx(language, 'cap.loadingPolicies')}</div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              <div className="grid gap-2 pt-1">
                 {approvalPolicies.map((p) => (
                   <div
                     key={p.family}
-                    className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-neutral-800/30 backdrop-blur-md border border-white/[0.06] hover:border-white/15 transition-all"
+                    className="flex items-center justify-between gap-3 p-3 rounded-xl bg-base-100/40 border border-white/5 hover:border-white/10 transition-colors"
                   >
-                    <span className="text-xs font-mono text-neutral-300">{p.family}</span>
+                    <span className="text-xs font-mono text-white/80">{p.family}</span>
                     <select
-                      className="rounded-full bg-neutral-800 px-3 py-1 border border-white/10 text-xs text-white focus:outline-none focus:border-white/30"
+                      className="select select-bordered select-xs bg-base-300/80 rounded-lg text-xs"
                       value={p.policy}
                       onChange={async (e) => {
                         const next = e.target.value
@@ -1708,9 +1480,9 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         } catch {}
                       }}
                     >
-                      <option value="ask">Tanya tiap kali</option>
-                      <option value="session">Sekali per sesi</option>
-                      <option value="always">Selalu izinkan</option>
+                      <option value="ask">{tx(language, 'cap.askEach')}</option>
+                      <option value="session">{tx(language, 'cap.oncePerSession')}</option>
+                      <option value="always">{tx(language, 'cap.alwaysAllow')}</option>
                     </select>
                   </div>
                 ))}
@@ -1722,33 +1494,28 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
 
       {/* ── MODAL 1: PANDUAN EKSTENSI BROWSER ── */}
       {extGuideOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-neutral-900/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-3.5">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-neutral-800 border border-white/10 flex items-center justify-center text-white/90">
-                  <FaPlug size={14} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold tracking-tight text-white/95">Pemasangan Ekstensi Peramban</h3>
-                  <p className="text-[11px] text-neutral-400">Hubungkan browser Chromium ke engine Abelink.</p>
-                </div>
-              </div>
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
+                <Plug className="text-primary" size={13} />
+                {tx(language, 'cap.extGuideTitle')}
+              </h3>
               <button
                 type="button"
                 onClick={() => setExtGuideOpen(false)}
-                className="rounded-full p-1.5 text-neutral-400 hover:text-white hover:bg-white/10 transition-all"
+                className="btn btn-xs btn-circle btn-ghost text-white/60 hover:text-white"
               >
-                <FaTimes size={13} />
+                <X size={13} />
               </button>
             </div>
 
-            <div className="space-y-3.5 text-xs text-neutral-300">
-              <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-2">
-                <span className="text-[11px] text-neutral-400 block font-medium">Folder Berkas Ekstensi:</span>
+            <div className="space-y-3 text-xs text-white/70">
+              <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1.5">
+                <span className="text-[11px] text-white/40 block">{tx(language, 'cap.extFolderLabel')}</span>
                 <div className="flex items-center justify-between gap-2">
-                  <code className="font-mono text-[10px] text-neutral-200 truncate select-all">
-                    {extInstall?.dir || 'Memeriksa folder...'}
+                  <code className="font-mono text-[10px] text-primary truncate">
+                    {extInstall?.dir || tx(language, 'cap.extFolderChecking')}
                   </code>
                   {extInstall?.dir && (
                     <button
@@ -1758,48 +1525,40 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         setCopiedPath(true)
                         setTimeout(() => setCopiedPath(false), 2000)
                       }}
-                      className="rounded-full p-1.5 border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 hover:text-white transition-all shrink-0"
-                      title="Salin path folder"
+                      className="btn btn-xs btn-ghost border border-white/10 rounded-lg shrink-0"
+                      title={tx(language, 'cap.copyPathTitle')}
                     >
-                      {copiedPath ? <FaCheckCircle size={11} className="text-emerald-400" /> : <FaCopy size={11} />}
+                      {copiedPath ? <CheckCircle2 size={10} className="text-info" /> : <Copy size={10} />}
                     </button>
                   )}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <p className="font-semibold text-white/90">3 Langkah di Chrome / Brave / Edge:</p>
-                <ol className="list-decimal list-inside space-y-1.5 text-neutral-300 text-xs pl-1">
-                  <li>
-                    Buka <code className="font-mono text-neutral-200 px-1.5 py-0.5 rounded-md bg-white/[0.06]">chrome://extensions</code> di browser.
-                  </li>
-                  <li>
-                    Aktifkan tombol <b>Developer mode</b> di pojok kanan atas.
-                  </li>
-                  <li>
-                    Klik <b>Load unpacked</b> lalu pilih folder berkas di atas.
-                  </li>
-                </ol>
-              </div>
+              <p className="font-medium text-white/90">{tx(language, 'cap.extStepsTitle')}</p>
+              <ol className="list-decimal list-inside space-y-1 pl-1 text-white/70">
+                <li>{tx(language, 'cap.extStep1a')} <code className="font-mono text-primary px-1 py-0.5 rounded bg-black/40">chrome://extensions</code> {tx(language, 'cap.extStep1b')}</li>
+                <li>{tx(language, 'cap.extStep2a')} <b>Developer mode</b> {tx(language, 'cap.extStep2b')}</li>
+                <li>{tx(language, 'cap.extStep3a')} <b>Load unpacked</b> {tx(language, 'cap.extStep3b')}</li>
+              </ol>
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-white/[0.06] pt-3.5">
+            <div className="flex items-center justify-end gap-2 border-t border-white/5 pt-3">
               {extInstall?.dir && (
                 <button
                   type="button"
                   onClick={() => window.api?.openFolder?.(extInstall.dir)}
-                  className="rounded-full px-4 py-1.5 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white hover:bg-white/[0.08] transition-all flex items-center gap-1.5"
+                  className="btn btn-sm btn-ghost rounded-xl gap-1.5"
                 >
-                  <FaFolderOpen size={11} />
-                  <span>Buka Folder</span>
+                  <FolderOpen size={11} />
+                  <span>{tx(language, 'cap.openInFileManager')}</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => setExtGuideOpen(false)}
-                className="rounded-full px-5 py-1.5 text-xs font-semibold bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-sm"
+                className="btn btn-sm btn-primary rounded-xl"
               >
-                Selesai
+                {tx(language, 'cap.done')}
               </button>
             </div>
           </div>
@@ -1808,99 +1567,94 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
 
       {/* ── MODAL 2: TAMBAH MCP CUSTOM ── */}
       {addMcpModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-neutral-900/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-3.5">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-neutral-800 border border-white/10 flex items-center justify-center text-white/90">
-                  <FaPlug size={14} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold tracking-tight text-white/95">Tambah Server MCP</h3>
-                  <p className="text-[11px] text-neutral-400">Daftarkan endpoint gateway Model Context Protocol.</p>
-                </div>
-              </div>
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
+                <Plug className="text-primary" size={13} />
+                {tx(language, 'cap.addCustomMcp')}
+              </h3>
               <button
                 type="button"
                 onClick={() => setAddMcpModalOpen(false)}
-                className="rounded-full p-1.5 text-neutral-400 hover:text-white hover:bg-white/10 transition-all"
+                className="btn btn-xs btn-circle btn-ghost text-white/60 hover:text-white"
               >
-                <FaTimes size={13} />
+                <X size={13} />
               </button>
             </div>
 
-            <div className="space-y-3.5 text-xs">
+            <div className="space-y-3 text-xs">
               <div className="space-y-1">
-                <label className="font-medium text-neutral-300">ID Server (kebab-case)</label>
+                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpIdLabel')}</label>
                 <input
                   type="text"
-                  placeholder="contoh: sqlite-mcp"
+                  placeholder={tx(language, 'cap.mcpIdPh')}
                   value={newMcpForm.id}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, id: e.target.value })}
-                  className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-white placeholder-neutral-500 font-mono focus:outline-none focus:border-white/25 focus:bg-white/[0.07] transition-all"
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-medium text-neutral-300">Nama Tampilan</label>
+                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpNameLabel')}</label>
                 <input
                   type="text"
-                  placeholder="contoh: SQLite Database Connector"
+                  placeholder={tx(language, 'cap.mcpNamePh')}
                   value={newMcpForm.name}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, name: e.target.value })}
-                  className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white/25 focus:bg-white/[0.07] transition-all"
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-medium text-neutral-300">URL Endpoint Gateway</label>
+                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpUrlLabel')}</label>
                 <input
                   type="text"
-                  placeholder="https://... atau http://localhost:..."
+                  placeholder={tx(language, 'cap.mcpUrlPh')}
                   value={newMcpForm.url}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, url: e.target.value })}
-                  className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-white placeholder-neutral-500 font-mono focus:outline-none focus:border-white/25 focus:bg-white/[0.07] transition-all"
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-medium text-neutral-300">Deskripsi Singkat</label>
+                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpDescLabel')}</label>
                 <input
                   type="text"
-                  placeholder="Deskripsi fungsi alat atau cakupan akses..."
+                  placeholder={tx(language, 'cap.mcpDescPh')}
                   value={newMcpForm.description}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, description: e.target.value })}
-                  className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white/25 focus:bg-white/[0.07] transition-all"
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-medium text-neutral-300">Header Auth (opsional, JSON)</label>
+                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpHeadersLabel')}</label>
                 <input
                   type="text"
-                  placeholder='misal {"CONTEXT7_API_KEY": "..."}'
+                  placeholder={tx(language, 'cap.mcpHeadersPh')}
                   value={newMcpForm.headers}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, headers: e.target.value })}
-                  className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-white placeholder-neutral-500 font-mono focus:outline-none focus:border-white/25 focus:bg-white/[0.07] transition-all"
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
                 />
-                <p className="text-[10px] text-neutral-400">Disimpan terisolasi di sidecar lokal, tidak dikirim ke context model.</p>
+                <p className="text-[10px] text-white/40">{tx(language, 'cap.mcpHeadersNote')}</p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-white/[0.06] pt-3.5">
+            <div className="flex items-center justify-end gap-2 border-t border-white/5 pt-3">
               <button
                 type="button"
                 onClick={() => setAddMcpModalOpen(false)}
-                className="rounded-full px-4 py-1.5 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white transition-all"
+                className="btn btn-sm btn-ghost rounded-xl"
               >
-                Batal
+                {tx(language, 'cap.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleSaveNewMcp}
-                className="rounded-full px-5 py-1.5 text-xs font-semibold bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-sm"
+                className="btn btn-sm btn-primary rounded-xl"
               >
-                Simpan Connector
+                {tx(language, 'cap.saveConnector')}
               </button>
             </div>
           </div>
@@ -1909,81 +1663,63 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
 
       {/* ── MODAL 3: GOOGLE OAUTH ── */}
       {googleModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-neutral-900/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 custom-scrollbar">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-3.5">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-neutral-800 border border-white/10 flex items-center justify-center text-blue-400">
-                  <FaLock size={14} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold tracking-tight text-white/95">Kredensial OAuth Google Cloud</h3>
-                  <p className="text-[11px] text-neutral-400">Simpan sekali untuk otentikasi 1-klik langsung di browser.</p>
-                </div>
-              </div>
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
+                <Lock className="text-primary" size={13} />
+                {tx(language, 'cap.connectGoogleTitle')}
+              </h3>
               <button
                 type="button"
                 onClick={() => setGoogleModalOpen(false)}
-                className="rounded-full p-1.5 text-neutral-400 hover:text-white hover:bg-white/10 transition-all"
+                className="btn btn-xs btn-circle btn-ghost text-white/60 hover:text-white"
               >
-                <FaTimes size={13} />
+                <X size={13} />
               </button>
             </div>
 
-            {/* Quick Setup Guide Accordion */}
-            <details className="group rounded-2xl bg-white/[0.03] border border-white/[0.06] p-3.5 text-xs">
-              <summary className="cursor-pointer font-medium text-white/90 flex items-center justify-between">
-                <span>Panduan Penyiapan Google Cloud Console</span>
-                <span className="text-[10px] text-neutral-400 group-open:rotate-180 transition-transform">▼</span>
-              </summary>
-              <div className="mt-2.5 space-y-1.5 text-[11px] text-neutral-300 leading-relaxed border-t border-white/[0.06] pt-2">
-                <p>1. Buka <strong>Google Cloud Console</strong> &gt; buat Proyek baru &gt; aktifkan <strong>Google Calendar API</strong>.</p>
-                <p>2. Menu <strong>OAuth consent screen</strong> &gt; pilih tipe <strong>External</strong> &gt; lengkapi data dasar.</p>
-                <p>3. Menu <strong>Credentials</strong> &gt; <strong>Create Credentials</strong> &gt; <strong>OAuth client ID</strong> &gt; tipe <strong>Desktop App</strong>.</p>
-                <p>4. Salin <strong>Client ID</strong> dan <strong>Client Secret</strong> ke form berikut.</p>
-              </div>
-            </details>
-
-            {/* Form Inputs */}
             <div className="space-y-3 text-xs">
+              <p className="text-white/60 leading-relaxed">
+                {tx(language, 'cap.googleOAuthDesc')}
+              </p>
               <div className="space-y-1">
-                <label className="font-medium text-neutral-300">Client ID OAuth</label>
+                <label className="font-semibold text-white/70">Client ID</label>
                 <input
                   type="text"
                   placeholder="xxxxxx.apps.googleusercontent.com"
                   value={googleClientId}
                   onChange={(e) => setGoogleClientId(e.target.value)}
-                  className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-white placeholder-neutral-500 font-mono focus:outline-none focus:border-white/25 focus:bg-white/[0.07] transition-all"
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
                 />
               </div>
               <div className="space-y-1">
-                <label className="font-medium text-neutral-300">Client Secret OAuth</label>
+                <label className="font-semibold text-white/70">Client Secret</label>
                 <input
                   type="password"
                   placeholder="GOCSPX-xxxxxx"
                   value={googleClientSecret}
                   onChange={(e) => setGoogleClientSecret(e.target.value)}
-                  className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-white placeholder-neutral-500 font-mono focus:outline-none focus:border-white/25 focus:bg-white/[0.07] transition-all"
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-white/[0.06] pt-3.5">
+            <div className="flex items-center justify-end gap-2 border-t border-white/5 pt-3">
               <button
                 type="button"
                 onClick={() => setGoogleModalOpen(false)}
-                className="rounded-full px-4 py-1.5 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white transition-all"
+                className="btn btn-sm btn-ghost rounded-xl"
               >
-                Batal
+                {tx(language, 'cap.cancel')}
               </button>
               <button
                 type="button"
-                disabled={googleLoading || !googleClientId.trim() || !googleClientSecret.trim()}
-                onClick={() => handleGoogleConnect(googleClientId, googleClientSecret)}
-                className="rounded-full px-5 py-1.5 text-xs font-semibold bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                disabled={googleLoading}
+                onClick={handleGoogleConnect}
+                className="btn btn-sm btn-primary rounded-xl"
               >
-                <FaExternalLinkAlt size={11} />
-                <span>{googleLoading ? 'Membuka Browser...' : 'Simpan & Buka Login Browser'}</span>
+                {googleLoading ? tx(language, 'cap.connecting') : tx(language, 'cap.authorizeAccount')}
               </button>
             </div>
           </div>
@@ -1992,57 +1728,52 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
 
       {/* ── MODAL 4: EDIT/CREATE PLUGIN (MONACO) ── */}
       {editingPlugin && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-3xl max-h-[90vh] bg-neutral-900/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col space-y-4">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-3.5">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-neutral-800 border border-white/10 flex items-center justify-center text-white/90">
-                  <FaCubes size={15} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold tracking-tight text-white/95">
-                    {editingPlugin.mode === 'new' ? 'Buat Plugin Baru' : `Edit Plugin: ${pluginForm.name}`}
-                  </h3>
-                  <p className="text-[11px] text-neutral-400">Modul ekstensi runtime JavaScript terisolasi.</p>
-                </div>
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-3xl max-h-[90vh] bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <div className="flex items-center gap-2">
+                <Boxes className="text-primary" size={16} />
+                <h3 className="text-base font-bold text-white/90">
+                  {editingPlugin.mode === 'new' ? tx(language, 'cap.newPlugin') : tx(language, 'cap.editPlugin')(pluginForm.name)}
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingPlugin(null)}
-                className="rounded-full p-1.5 text-neutral-400 hover:text-white hover:bg-white/10 transition-all"
+                className="btn btn-xs btn-circle btn-ghost text-white/60 hover:text-white"
               >
-                <FaTimes size={13} />
+                <X size={14} />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-neutral-300">Nama Plugin</label>
+                  <label className="text-xs font-semibold text-white/70">{tx(language, 'cap.pluginName')}</label>
                   <input
                     type="text"
                     disabled={editingPlugin.mode === 'edit'}
-                    placeholder="misal: stock-checker"
+                    placeholder={tx(language, 'cap.pluginNamePh')}
                     value={pluginForm.name}
                     onChange={(e) => setPluginForm({ ...pluginForm, name: e.target.value })}
-                    className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white/25 focus:bg-white/[0.07] transition-all"
+                    className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-neutral-300">Deskripsi Singkat</label>
+                  <label className="text-xs font-semibold text-white/70">{tx(language, 'cap.pluginDesc')}</label>
                   <input
                     type="text"
-                    placeholder="Fungsi utama plugin..."
+                    placeholder={tx(language, 'cap.pluginDescPh')}
                     value={pluginForm.description}
                     onChange={(e) => setPluginForm({ ...pluginForm, description: e.target.value })}
-                    className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white/25 focus:bg-white/[0.07] transition-all"
+                    className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
                   />
                 </div>
               </div>
 
               <div className="space-y-3 pt-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold tracking-tight text-white/90 uppercase">Aksi &amp; Kode JS</span>
+                  <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">{tx(language, 'cap.actionsAndCode')}</span>
                   <button
                     type="button"
                     onClick={() =>
@@ -2054,36 +1785,36 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         ]
                       })
                     }
-                    className="rounded-full px-3 py-1 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white transition-all flex items-center gap-1.5"
+                    className="btn btn-xs btn-ghost border border-white/10 rounded-xl gap-1"
                   >
-                    <FaPlus size={9} /> Tambah Aksi
+                    <Plus size={9} /> {tx(language, 'cap.addAction')}
                   </button>
                 </div>
 
                 {pluginForm.actions.map((act, index) => (
-                  <div key={index} className="p-4 rounded-2xl bg-neutral-800/40 border border-white/[0.06] space-y-3">
+                  <div key={index} className="p-3 rounded-2xl bg-base-200/60 border border-white/5 space-y-2.5">
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
-                        placeholder="Nama aksi (misal: query)"
+                        placeholder={tx(language, 'cap.actionNamePh')}
                         value={act.name}
                         onChange={(e) => {
                           const updated = [...pluginForm.actions]
                           updated[index].name = e.target.value
                           setPluginForm({ ...pluginForm, actions: updated })
                         }}
-                        className="rounded-xl bg-white/[0.04] border border-white/10 px-3 py-1.5 font-mono text-xs text-white flex-1 focus:outline-none focus:border-white/25"
+                        className="input input-xs input-bordered rounded-lg bg-base-100 font-mono flex-1 text-xs"
                       />
                       <input
                         type="text"
-                        placeholder="Trigger hint..."
+                        placeholder={tx(language, 'cap.triggerHintPh')}
                         value={act.triggerHint}
                         onChange={(e) => {
                           const updated = [...pluginForm.actions]
                           updated[index].triggerHint = e.target.value
                           setPluginForm({ ...pluginForm, actions: updated })
                         }}
-                        className="rounded-xl bg-white/[0.04] border border-white/10 px-3 py-1.5 text-xs text-white flex-1 focus:outline-none focus:border-white/25"
+                        className="input input-xs input-bordered rounded-lg bg-base-100 flex-1 text-xs"
                       />
                       {pluginForm.actions.length > 1 && (
                         <button
@@ -2092,37 +1823,32 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                             const updated = pluginForm.actions.filter((_, i) => i !== index)
                             setPluginForm({ ...pluginForm, actions: updated })
                           }}
-                          className="rounded-full p-1.5 border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all"
+                          className="btn btn-xs btn-ghost text-error rounded-lg"
                         >
-                          <FaTrash size={10} />
+                          <Trash2 size={10} />
                         </button>
                       )}
                     </div>
 
                     <div className="rounded-xl overflow-hidden border border-white/10">
-                      <Editor
-                        height="140px"
-                        language="javascript"
-                        theme="vs-dark"
+                      <textarea
+                        rows={6}
+                        spellCheck={false}
+                        placeholder={tx(language, 'cap.actionCodePh')}
                         value={act.code}
-                        onChange={(val) => {
+                        onChange={(e) => {
                           const updated = [...pluginForm.actions]
-                          updated[index].code = val || ''
+                          updated[index].code = e.target.value
                           setPluginForm({ ...pluginForm, actions: updated })
                         }}
-                        options={{
-                          minimap: { enabled: false },
-                          fontSize: 12,
-                          lineNumbers: 'on',
-                          scrollBeyondLastLine: false
-                        }}
+                        className="textarea textarea-bordered w-full font-mono text-xs bg-base-200 border-white/10 min-h-[140px]"
                       />
                     </div>
 
                     {pluginSyntaxErrors[index] && (
-                      <p className="text-xs text-rose-400 font-mono flex items-center gap-1.5">
-                        <FaExclamationTriangle size={11} />
-                        Syntax Error: {pluginSyntaxErrors[index]}
+                      <p className="text-xs text-error font-mono flex items-center gap-1.5">
+                        <AlertTriangle size={11} />
+                        {tx(language, 'cap.syntaxError')(pluginSyntaxErrors[index])}
                       </p>
                     )}
                   </div>
@@ -2130,99 +1856,88 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-white/[0.06] pt-3.5">
+            <div className="flex items-center justify-end gap-2 border-t border-white/5 pt-3">
               <button
                 type="button"
                 onClick={() => setEditingPlugin(null)}
-                className="rounded-full px-4 py-1.5 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white transition-all"
+                className="btn btn-sm btn-ghost rounded-xl"
               >
-                Batal
+                {tx(language, 'cap.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleSavePlugin}
-                className="rounded-full px-5 py-1.5 text-xs font-semibold bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-sm"
+                className="btn btn-sm btn-primary rounded-xl"
               >
-                Simpan Plugin
+                {tx(language, 'cap.savePlugin')}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── MODAL 5: EDIT/CREATE SKILL (MONACO) ── */}
+      {/* ── MODAL 5: EDIT/CREATE SKILL ── */}
       {editingSkill && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-3xl max-h-[90vh] bg-neutral-900/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col space-y-4">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-3.5">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-neutral-800 border border-white/10 flex items-center justify-center text-purple-400">
-                  <FaBrain size={15} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold tracking-tight text-white/95">
-                    {editingSkill.isNew ? 'Buat Skill Baru' : `Edit Skill: ${skillFormName}`}
-                  </h3>
-                  <p className="text-[11px] text-neutral-400">Berkas instruksi operasional format SKILL.md.</p>
-                </div>
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-3xl max-h-[90vh] bg-base-300 border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <div className="flex items-center gap-2">
+                <Brain className="text-primary" size={16} />
+                <h3 className="text-base font-bold text-white/90">
+                  {editingSkill.isNew ? tx(language, 'cap.newSkillTitle') : tx(language, 'cap.editSkill')(skillFormName)}
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingSkill(null)}
-                className="rounded-full p-1.5 text-neutral-400 hover:text-white hover:bg-white/10 transition-all"
+                className="btn btn-xs btn-circle btn-ghost text-white/60 hover:text-white"
               >
-                <FaTimes size={13} />
+                <X size={14} />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-neutral-300">Nama Skill (kebab-case)</label>
+                <label className="text-xs font-semibold text-white/70">{tx(language, 'cap.skillNameLabel')}</label>
                 <input
                   type="text"
                   disabled={!editingSkill.isNew}
-                  placeholder="misal: git-commit-helper"
+                  placeholder={tx(language, 'cap.skillNamePh')}
                   value={skillFormName}
                   onChange={(e) => setSkillFormName(e.target.value)}
-                  className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-white placeholder-neutral-500 font-mono focus:outline-none focus:border-white/25 focus:bg-white/[0.07] transition-all"
+                  className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-medium text-neutral-300">Isi Berkas SKILL.md</label>
-                <div className="rounded-2xl overflow-hidden border border-white/10">
-                  <Editor
-                    height="320px"
-                    language="markdown"
-                    theme="vs-dark"
+                <label className="text-xs font-semibold text-white/70">{tx(language, 'cap.skillFileLabel')}</label>
+                <div className="rounded-xl overflow-hidden border border-white/10">
+                  <textarea
+                    rows={14}
+                    spellCheck={false}
+                    placeholder="# SKILL.md"
                     value={skillFormContent}
-                    onChange={(val) => setSkillFormContent(val || '')}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 12,
-                      lineNumbers: 'on',
-                      scrollBeyondLastLine: false,
-                      wordWrap: 'on'
-                    }}
+                    onChange={(e) => setSkillFormContent(e.target.value)}
+                    className="textarea textarea-bordered w-full font-mono text-xs bg-base-200 border-white/10 min-h-[320px]"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-white/[0.06] pt-3.5">
+            <div className="flex items-center justify-end gap-2 border-t border-white/5 pt-3">
               <button
                 type="button"
                 onClick={() => setEditingSkill(null)}
-                className="rounded-full px-4 py-1.5 text-xs font-medium border border-white/10 bg-white/[0.04] text-neutral-300 hover:text-white transition-all"
+                className="btn btn-sm btn-ghost rounded-xl"
               >
-                Batal
+                {tx(language, 'cap.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleSaveSkill}
-                className="rounded-full px-5 py-1.5 text-xs font-semibold bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-sm"
+                className="btn btn-sm btn-primary rounded-xl"
               >
-                Simpan Skill
+                {tx(language, 'cap.saveSkill')}
               </button>
             </div>
           </div>

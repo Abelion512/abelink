@@ -1,17 +1,18 @@
 import { useState } from 'react'
 import { DEFAULT_STT_MODEL } from '../../api/sttGuard'
+import { tx } from '../../api/locale'
 import {
-  FaBolt,
-  FaMicrophone,
-  FaArrowUp,
-  FaArrowDown,
-  FaTrash,
-  FaPlus,
-  FaChevronDown,
-  FaChevronUp,
-  FaCheckCircle,
-  FaExclamationTriangle
-} from 'react-icons/fa'
+  Zap,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  AlertTriangle
+} from 'lucide-react'
+import { MobiusLoader } from '../core/MobiusLoader'
 
 export default function SttRouterConfig({
   config,
@@ -47,7 +48,7 @@ export default function SttRouterConfig({
     const newId = `conn-${Date.now()}`
     const newConn = {
       id: newId,
-      name: `Provider ${(config.sttConnections || []).length + 1}`,
+      name: tx(config, 'stt.newProvider')((config.sttConnections || []).length + 1),
       endpoint: 'http://127.0.0.1:20128/v1/audio/transcriptions',
       apiKey: '',
       model: DEFAULT_STT_MODEL,
@@ -96,6 +97,7 @@ export default function SttRouterConfig({
 
   const isWhisperMode = config.sttProvider === 'whisper'
   const connections = config.sttConnections || []
+  const t = (k) => tx(config, k)
 
   return (
     <section
@@ -105,7 +107,7 @@ export default function SttRouterConfig({
       {/* Header & Mode Switcher */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-white/5">
         <div>
-          <h3 className="text-sm font-semibold text-white/90">Speech-to-Text (STT)</h3>
+          <h3 className="text-sm font-semibold text-white/90">{t('stt.title')}</h3>
         </div>
 
         <nav className="inline-flex p-1 bg-base-300/60 rounded-xl border border-white/5 self-start sm:self-auto">
@@ -118,8 +120,7 @@ export default function SttRouterConfig({
                 : 'text-white/60 hover:text-white'
             }`}
           >
-            <FaBolt className="text-xs" />
-            <span>STT Router</span>
+            <span>Custom</span>
           </button>
           <button
             type="button"
@@ -130,8 +131,7 @@ export default function SttRouterConfig({
                 : 'text-white/60 hover:text-white'
             }`}
           >
-            <FaMicrophone className="text-xs" />
-            <span>Whisper Lokal</span>
+            <span>Local</span>
           </button>
         </nav>
       </header>
@@ -146,12 +146,12 @@ export default function SttRouterConfig({
           }`}
         >
           {hardwareSupport.isLowEnd ? (
-            <FaExclamationTriangle className="text-xs shrink-0" />
+            <AlertTriangle className="text-xs shrink-0" />
           ) : (
-            <FaCheckCircle className="text-xs shrink-0" />
+            <CheckCircle2 className="text-xs shrink-0" />
           )}
           <span className="font-medium">
-            {hardwareSupport.cores} CPU cores terdeteksi. Disarankan STT Router remote agar sistem ringan.
+            {t('stt.hwHint')(hardwareSupport.cores)}
           </span>
         </aside>
       )}
@@ -161,7 +161,7 @@ export default function SttRouterConfig({
         <fieldset className="space-y-3 pt-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-white/70">Model</label>
+              <label className="text-xs font-semibold text-white/70">{t('stt.model')}</label>
               <select
                 className="select select-bordered select-sm w-full font-mono text-xs rounded-xl bg-base-100/60 border-white/10"
                 value={config.localWhisperModel || 'whisper-small'}
@@ -169,8 +169,8 @@ export default function SttRouterConfig({
                   setConfig((prev) => ({ ...prev, localWhisperModel: e.target.value }))
                 }
               >
-                <option value="whisper-tiny">whisper-tiny (~75 MB, Cepat)</option>
-                <option value="whisper-small">whisper-small (~150 MB, Standar)</option>
+                <option value="whisper-tiny">{t('stt.modelTiny')}</option>
+                <option value="whisper-small">{t('stt.modelSmall')}</option>
               </select>
             </div>
 
@@ -183,18 +183,17 @@ export default function SttRouterConfig({
               >
                 {whisperLoading ? (
                   <>
-                    <span className="loading loading-spinner loading-xs" />
-                    <span>Memuat Model...</span>
+                    <MobiusLoader size={14} />
+                    <span>{t('stt.loadingModel')}</span>
                   </>
                 ) : whisperLoaded ? (
                   <>
-                    <FaCheckCircle />
-                    <span>Model Siap</span>
+                    <CheckCircle2 />
+                    <span>{t('stt.modelReady')}</span>
                   </>
                 ) : (
                   <>
-                    <FaMicrophone />
-                    <span>Unduh & Siapkan Model</span>
+                    <span>{t('stt.install')}</span>
                   </>
                 )}
               </button>
@@ -202,7 +201,7 @@ export default function SttRouterConfig({
           </div>
 
           {whisperProgress && (
-            <p className="p-2.5 rounded-xl bg-base-100/60 border border-white/10 text-xs font-mono text-cyan-300">
+            <p className="p-2.5 rounded-xl bg-base-100/60 border border-white/10 text-xs font-mono text-info">
               {whisperProgress}
             </p>
           )}
@@ -214,7 +213,7 @@ export default function SttRouterConfig({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-white/60">Router:</span>
+                <span className="text-xs font-semibold text-white/60">{t('stt.router')}</span>
                 <select
                   className="select select-bordered select-sm text-xs font-medium rounded-xl bg-base-100/60 border-white/10"
                   value={config.sttStrategy || 'fallback'}
@@ -228,7 +227,7 @@ export default function SttRouterConfig({
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-white/60">Bahasa:</span>
+                <span className="text-xs font-semibold text-white/60">{t('stt.language')}</span>
                 <select
                   className="select select-bordered select-sm text-xs font-medium rounded-xl bg-base-100/60 border-white/10"
                   value={config.sttLanguage || 'id'}
@@ -248,16 +247,16 @@ export default function SttRouterConfig({
               onClick={handleAdd}
               className="btn btn-sm btn-outline btn-primary rounded-xl gap-1.5 text-xs font-medium"
             >
-              <FaPlus size={11} />
-              <span>Tambah Provider</span>
+              <Plus size={11} />
+              <span>{t('stt.addProvider')}</span>
             </button>
           </div>
 
           {/* Scalable Provider List (Scrollable container to prevent endless page scroll) */}
           <div className="space-y-2 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
             {connections.length === 0 ? (
-              <div className="p-6 text-center border border-dashed border-white/10 rounded-xl text-xs text-white/40">
-                Belum ada provider STT. Klik "+ Tambah Provider" untuk menambahkan.
+              <div className="p-6 text-center border border-dashed border-white/10 rounded-xl text-xs text-white/60">
+                {t('stt.emptyHint')}
               </div>
             ) : (
               connections.map((conn, idx) => {
@@ -281,7 +280,7 @@ export default function SttRouterConfig({
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         {/* Priority Badge */}
-                        <span className="font-mono text-[11px] font-bold text-white/40 shrink-0">
+                        <span className="font-mono text-[11px] font-bold text-white/60 shrink-0">
                           #{idx + 1}
                         </span>
 
@@ -294,7 +293,7 @@ export default function SttRouterConfig({
                             onChange={(e) =>
                               handleUpdate(conn.id, 'enabled', e.target.checked)
                             }
-                            title={conn.enabled ? 'Aktif' : 'Nonaktif'}
+                            title={conn.enabled ? t('stt.active') : t('stt.inactive')}
                           />
                         </div>
 
@@ -304,16 +303,16 @@ export default function SttRouterConfig({
                           value={conn.name || ''}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => handleUpdate(conn.id, 'name', e.target.value)}
-                          placeholder="Nama Provider"
+                          placeholder={t('stt.providerNamePh')}
                           className="input input-xs input-ghost text-xs font-semibold text-white/90 p-0 focus:px-1.5 focus:bg-base-300/80 rounded max-w-[150px] shrink-0"
                         />
 
                         {/* Endpoint & Model Snippet */}
                         <span
-                          className="hidden md:inline font-mono text-[11px] text-white/40 truncate max-w-[220px]"
+                          className="hidden md:inline font-mono text-[11px] text-white/60 truncate max-w-[220px]"
                           title={conn.endpoint}
                         >
-                          {conn.endpoint?.replace(/^https?:\/\//, '') || 'no-endpoint'}
+                          {conn.endpoint?.replace(/^https?:\/\//, '') || t('stt.noEndpoint')}
                         </span>
 
                         {/* Latency / Test Status Pill */}
@@ -321,12 +320,12 @@ export default function SttRouterConfig({
                           <span
                             className={`badge badge-xs font-mono text-[11px] shrink-0 px-2 py-0.5 ${
                               testResult.ok
-                                ? 'badge-success badge-outline'
+                                ? 'badge-info badge-outline'
                                 : 'badge-error badge-outline'
                             }`}
                             title={testResult.msg}
                           >
-                            {testResult.ok ? `${testResult.latency}ms` : 'Gagal'}
+                            {testResult.ok ? `${testResult.latency}ms` : t('stt.failed')}
                           </span>
                         )}
                       </div>
@@ -339,12 +338,12 @@ export default function SttRouterConfig({
                           disabled={isTesting}
                           onClick={() => onTestConnection(conn)}
                           className="btn btn-ghost btn-xs btn-circle text-info hover:bg-info/10"
-                          title="Test Koneksi"
+                          title={t('stt.testConn')}
                         >
                           {isTesting ? (
-                            <span className="loading loading-spinner loading-xs text-info" />
+                            <MobiusLoader size={12} />
                           ) : (
-                            <FaBolt size={11} />
+                            <Zap size={11} />
                           )}
                         </button>
 
@@ -353,10 +352,10 @@ export default function SttRouterConfig({
                           type="button"
                           disabled={idx === 0}
                           onClick={() => handleMove(idx, -1)}
-                          className="btn btn-ghost btn-xs btn-square text-white/50 hover:text-white disabled:opacity-20"
-                          title="Naikkan Prioritas"
+                          className="btn btn-ghost btn-xs btn-square text-white/60 hover:text-white disabled:opacity-20"
+                          title={t('stt.priUp')}
                         >
-                          <FaArrowUp size={11} />
+                          <ArrowUp size={11} />
                         </button>
 
                         {/* Reorder Down */}
@@ -364,10 +363,10 @@ export default function SttRouterConfig({
                           type="button"
                           disabled={idx === connections.length - 1}
                           onClick={() => handleMove(idx, 1)}
-                          className="btn btn-ghost btn-xs btn-square text-white/50 hover:text-white disabled:opacity-20"
-                          title="Turunkan Prioritas"
+                          className="btn btn-ghost btn-xs btn-square text-white/60 hover:text-white disabled:opacity-20"
+                          title={t('stt.priDown')}
                         >
-                          <FaArrowDown size={11} />
+                          <ArrowDown size={11} />
                         </button>
 
                         {/* Delete */}
@@ -376,9 +375,9 @@ export default function SttRouterConfig({
                             type="button"
                             onClick={() => handleRemove(conn.id)}
                             className="btn btn-ghost btn-xs btn-square text-error/70 hover:text-error hover:bg-error/10"
-                            title="Hapus Provider"
+                            title={t('stt.delProv')}
                           >
-                            <FaTrash size={11} />
+                            <Trash2 size={11} />
                           </button>
                         )}
 
@@ -387,9 +386,9 @@ export default function SttRouterConfig({
                           type="button"
                           onClick={() => toggleExpand(conn.id)}
                           className="btn btn-ghost btn-xs btn-square text-white/60 hover:text-white ml-0.5"
-                          title={isExpanded ? 'Tutup Pengaturan' : 'Buka Pengaturan'}
+                          title={isExpanded ? t('stt.collapse') : t('stt.expand')}
                         >
-                          {isExpanded ? <FaChevronUp size={11} /> : <FaChevronDown size={11} />}
+                          {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                         </button>
                       </div>
                     </div>
@@ -399,7 +398,7 @@ export default function SttRouterConfig({
                       <div className="p-4 pt-2 border-t border-white/5 bg-base-200/30 space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div className="sm:col-span-2 space-y-1">
-                            <label className="text-xs font-semibold text-white/70">Endpoint URL</label>
+                            <label className="text-xs font-semibold text-white/70">{t('stt.endpointUrl')}</label>
                             <input
                               type="text"
                               value={conn.endpoint || ''}
@@ -410,7 +409,7 @@ export default function SttRouterConfig({
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-xs font-semibold text-white/70">Model</label>
+                            <label className="text-xs font-semibold text-white/70">{t('stt.modelLabel')}</label>
                             <input
                               type="text"
                               value={conn.model || ''}
@@ -422,12 +421,12 @@ export default function SttRouterConfig({
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-xs font-semibold text-white/70">API Key</label>
+                          <label className="text-xs font-semibold text-white/70">{t('stt.apiKey')}</label>
                           <input
                             type="password"
                             value={conn.apiKey || ''}
                             onChange={(e) => handleUpdate(conn.id, 'apiKey', e.target.value)}
-                            placeholder="sk-... (opsional bila lokal)"
+                            placeholder={t('stt.apiKeyPh')}
                             className="input input-sm input-bordered w-full font-mono text-xs rounded-xl bg-base-100/60 border-white/10"
                           />
                         </div>
@@ -436,7 +435,7 @@ export default function SttRouterConfig({
                           <div
                             className={`text-xs font-mono p-2 rounded-lg border ${
                               testResult.ok
-                                ? 'bg-success/10 border-success/20 text-success'
+                                ? 'bg-info/10 border-info/20 text-info'
                                 : 'bg-error/10 border-error/20 text-error'
                             }`}
                           >

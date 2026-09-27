@@ -1,6 +1,6 @@
-import React, { memo, useState } from 'react'
-import { Copy, Check, Bot, User, Sparkles } from 'lucide-react'
-import { FaTelegramPlane } from 'react-icons/fa'
+import { memo, useState } from 'react'
+import { toMinimapAnchorId } from './core/TocMinimap'
+import { Copy, Check, ThumbsUp, ThumbsDown, Send } from 'lucide-react'
 import {
   MessageBubble,
   ThinkingBubble,
@@ -12,12 +12,13 @@ import {
 } from './Chat'
 
 const ChatList = ({
+  msgId = null,
   role = 'user',
   content = '',
   reasoning = null,
   isThinking = false,
-  isSearching = false,
-  query = null,
+  isSearching: _isSearching = false,
+  query: _query = null,
   isMemorySaved = false,
   isMemoryUpdated = false,
   isMemoryDeleted = false,
@@ -35,13 +36,14 @@ const ChatList = ({
   isPlanConclusion = false,
   pluginExecution = null,
   choice = null,
-  mood = 'neutral',
+  mood: _mood = 'neutral',
   timestamp = '',
   source = null,
   sender = null
 }) => {
   const resolvedCurrentStep = currentStep !== undefined ? currentStep : (plan ? plan.length : 0)
   const [isCopied, setIsCopied] = useState(false)
+  const [feedback, setFeedback] = useState(null) // 'up' | 'down' | null
 
   const handleCopy = () => {
     if (!content) return
@@ -50,124 +52,151 @@ const ChatList = ({
     setTimeout(() => setIsCopied(false), 2000)
   }
 
+  const handleFeedback = (type) => {
+    setFeedback((prev) => (prev === type ? null : type))
+    try {
+      window.api?.harnessAppend?.('chat_eval_feedback', {
+        msgId,
+        role,
+        feedback: feedback === type ? 'cancelled' : type,
+        timestamp: Date.now()
+      })
+    } catch (_) {}
+  }
+
   const isUser = role === 'user'
   const isTelegram = source === 'telegram'
 
   if (isPlanSteps && plan && plan.length > 0) {
     return (
-      <div className="w-full mb-6 animate-[response-fade-in_0.2s_ease-out_forwards]">
-        <PlanningBubble
-          plan={plan}
-          resolvedCurrentStep={resolvedCurrentStep}
-          reasoning={reasoning}
-        />
-      </div>
+      <PlanningBubble
+        plan={plan}
+        resolvedCurrentStep={resolvedCurrentStep}
+        reasoning={reasoning}
+        executedTools={executedTools}
+      />
     )
   }
 
-  if (isUser) {
-    return (
-      <div className="w-full flex flex-col items-end mb-5 group animate-[response-fade-in_0.2s_ease-out_forwards]">
-        {/* User Header */}
-        <div className="flex items-center gap-2 mb-1.5 px-1 text-[11px] font-medium text-white/40 select-none">
-          <span>{isTelegram ? (sender || 'Telegram Admin') : 'You'}</span>
-          {isTelegram && (
-            <span className="badge badge-xs bg-[#229ED9]/15 text-[#229ED9] border-[#229ED9]/30 gap-1 font-mono text-[9px] py-0.5 px-1.5 flex items-center font-normal">
-              <FaTelegramPlane className="w-2.5 h-2.5" /> Telegram
-            </span>
-          )}
-          {timestamp && <span className="text-[10px] text-white/30 font-normal">{timestamp}</span>}
-        </div>
+  return (
+    <div
+      id={msgId != null ? toMinimapAnchorId(msgId) : undefined}
+      className={`w-full mb-6 group animate-[response-fade-in_0.2s_ease-out_forwards] scroll-mt-14 ${
+        isUser ? 'flex flex-col items-end' : 'flex flex-col items-start'
+      }`}
+    >
+      {/* Header Info (Sender Name & Time) */}
+      <div
+        className={`text-[11px] font-medium text-white/40 mb-1.5 flex items-center gap-2 px-1 ${
+          isUser ? 'justify-end' : 'justify-start'
+        }`}
+      >
+        <span>{isUser ? (isTelegram ? (sender || 'Telegram Admin') : 'You') : 'Abelink'}</span>
+        {isTelegram && (
+          <span className="badge badge-xs bg-[#229ED9]/15 text-[#229ED9] border-[#229ED9]/30 gap-1 font-mono text-[9px] py-0.5 px-1.5 flex items-center font-normal">
+            <Send className="w-2.5 h-2.5" /> {isUser ? 'Telegram' : 'Telegram Reply'}
+          </span>
+        )}
+        {timestamp && <span className="text-[10px] opacity-60 font-mono">{timestamp}</span>}
+      </div>
 
-        {/* User Bubble (Apple Pill / Card) */}
+      {/* Message Content Container */}
+      {isUser ? (
+        /* User Pill: Modern Apple iOS/macOS Bubble */
         <div
-          className={`max-w-[85%] md:max-w-[75%] rounded-3xl rounded-tr-md px-5 py-3 shadow-md break-words transition-all duration-200 ${
+          className={`max-w-[85%] md:max-w-[75%] rounded-3xl rounded-tr-sm px-5 py-3 shadow-md text-white text-sm font-normal leading-relaxed break-words overflow-hidden ${
             isTelegram
-              ? 'bg-gradient-to-br from-[#229ED9] to-[#0088cc] text-white border border-[#229ED9]/40'
-              : 'bg-primary text-primary-content font-medium border border-primary/20 shadow-primary/10'
+              ? 'bg-gradient-to-br from-[#229ED9] to-[#0088cc] shadow-[#229ED9]/20 border border-[#229ED9]/40'
+              : 'bg-[#0a84ff] shadow-[0_4px_16px_rgba(10,132,255,0.25)]'
           }`}
         >
-          <MessageBubble
-            isUser={true}
-            content={content}
-            sources={sources}
-          />
+          {content}
         </div>
-      </div>
-    )
-  }
-
-  // AI Response: Clean Canvas Stream (Full width, borderless, unconstrained)
-  return (
-    <div className="w-full flex flex-col items-start mb-8 group animate-[response-fade-in_0.2s_ease-out_forwards]">
-      {/* AI Header & Actions Bar */}
-      <div className="flex items-center justify-between w-full mb-2 px-0.5 text-[11px] font-medium text-white/40 select-none">
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_6px_var(--color-primary)]" />
-          <span className="text-white/80 font-semibold tracking-wide">Abelink</span>
-          {isTelegram && (
-            <span className="badge badge-xs bg-[#229ED9]/15 text-[#229ED9] border-[#229ED9]/30 gap-1 font-mono text-[9px] py-0.5 px-1.5 flex items-center font-normal">
-              <FaTelegramPlane className="w-2.5 h-2.5" /> Telegram Reply
-            </span>
-          )}
-          {timestamp && <span className="text-[10px] text-white/30 font-normal">{timestamp}</span>}
-        </div>
-
-        {/* Copy Button (Apple Ghost pill on hover) */}
-        {content && !isThinking && !isSummarizing && !isSearchingMusic && (
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center">
-            <button
-              onClick={handleCopy}
-              className="px-2 py-0.5 text-[11px] text-white/40 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.1] rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Salin teks pesan"
-            >
-              {isCopied ? (
-                <>
-                  <Check className="w-3 h-3 text-success" />
-                  <span className="text-[10px] text-success font-medium">Tersalin</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  <span className="text-[10px]">Salin</span>
-                </>
-              )}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* AI Body Stream (No outer card border, fluid document flow) */}
-      <div className={`w-full text-base-content leading-relaxed ${isTelegram ? 'border-l-2 border-[#229ED9]/40 pl-3.5' : ''}`}>
-        {isThinking || isSummarizing || isSearchingMusic ? (
-          <ThinkingBubble
-            isThinking={isThinking}
-            isSummarizing={isSummarizing}
-            isSearchingMusic={isSearchingMusic}
-            content={content}
-            youtubeLink={youtubeLink}
-            reasoning={reasoning}
-            executedTools={executedTools}
-          />
-        ) : (
-          <div className="flex flex-col gap-3 w-full">
-            {isYoutubeSummary && <YoutubeSummaryBubble youtubeLink={youtubeLink} />}
-            {isYoutubeSearch && (
-              <YoutubeSearchBubble queryYoutube={queryYoutube} youtubeLink={youtubeLink} />
-            )}
-            {pluginExecution && <PluginExecutionBubble pluginExecution={pluginExecution} />}
-            <MessageBubble
-              isUser={false}
+      ) : (
+        /* Assistant Stream: Borderless Canvas Layout */
+        <div className="w-full max-w-full text-white/90 text-sm leading-relaxed overflow-hidden">
+          {isThinking || isSummarizing || isSearchingMusic ? (
+            <ThinkingBubble
+              isThinking={isThinking}
+              isSummarizing={isSummarizing}
+              isSearchingMusic={isSearchingMusic}
               content={content}
+              youtubeLink={youtubeLink}
               reasoning={reasoning}
-              sources={sources}
               executedTools={executedTools}
-              isPlanConclusion={isPlanConclusion}
-              choice={choice}
             />
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {isYoutubeSummary && <YoutubeSummaryBubble youtubeLink={youtubeLink} />}
+              {isYoutubeSearch && (
+                <YoutubeSearchBubble queryYoutube={queryYoutube} youtubeLink={youtubeLink} />
+              )}
+              {pluginExecution && <PluginExecutionBubble pluginExecution={pluginExecution} />}
+              <MessageBubble
+                isUser={isUser}
+                content={content}
+                reasoning={reasoning}
+                sources={sources}
+                executedTools={executedTools}
+                isPlanConclusion={isPlanConclusion}
+                choice={choice}
+              />
+            </div>
+          )}
+
+          {/* Footer Actions: Thumbs Up, Thumbs Down, Copy */}
+          {content && !isThinking && !isSummarizing && !isSearchingMusic && (
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 mt-2 px-1 text-white/40">
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="h-7 px-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all text-[11px] font-medium flex items-center gap-1.5 cursor-pointer"
+                title="Salin teks pesan"
+              >
+                {isCopied ? (
+                  <>
+                    <Check className="w-3 h-3 text-[#30d158]" />
+                    <span className="text-[#30d158]">Tersalin</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    <span>Salin</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFeedback('up')}
+                className={`h-7 w-7 rounded-lg transition-all flex items-center justify-center cursor-pointer ${
+                  feedback === 'up'
+                    ? 'bg-[#30d158]/20 text-[#30d158] border border-[#30d158]/40'
+                    : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white'
+                }`}
+                title="Bagus / Akurat"
+                aria-label="Thumbs up"
+              >
+                <ThumbsUp className="w-3 h-3" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFeedback('down')}
+                className={`h-7 w-7 rounded-lg transition-all flex items-center justify-center cursor-pointer ${
+                  feedback === 'down'
+                    ? 'bg-[#ff453a]/20 text-[#ff453a] border border-[#ff453a]/40'
+                    : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white'
+                }`}
+                title="Kurang tepat / Perlu perbaikan"
+                aria-label="Thumbs down"
+              >
+                <ThumbsDown className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <MemoryFooterBubble
         isMemorySaved={isMemorySaved}

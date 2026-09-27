@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { FaMicrophone, FaMicrophoneSlash, FaPaperPlane, FaExpand, FaTimes } from 'react-icons/fa'
+import { useState, useEffect, useRef } from 'react'
+import { Mic, MicOff, Send, Maximize2, X } from 'lucide-react'
 import { useChat } from '../../contexts/useChat'
 import { useVAD } from '../../hooks/useVAD'
 
 export default function SpotlightBar({ onExpandDashboard }) {
   const { handlePlanningCommand, isLoading, isAgentBusy, chatData = [] } = useChat()
   const [text, setText] = useState('')
-  const [lastAnswer, setLastAnswer] = useState('')
   const inputRef = useRef(null)
 
   // Voice VAD handler
@@ -25,12 +24,18 @@ export default function SpotlightBar({ onExpandDashboard }) {
     }
   })
 
+  // Ref untuk cleanup tak-stabil: disinkron di dalam efek (legal — bukan
+  // saat render); cleanup unmount hanya butuh versi terakhir.
+  const cancelRecordingRef = useRef(cancelRecording)
+  useEffect(() => {
+    cancelRecordingRef.current = cancelRecording
+  }, [cancelRecording])
   // Mic hanya dari tombol mic (user gesture); auto-start dihapus agar
   // getUserMedia tanpa gesture/pipewire stall tidak menggantung saat mount.
   useEffect(() => {
     inputRef.current?.focus()
     return () => {
-      cancelRecording()
+      cancelRecordingRef.current?.()
     }
   }, [])
 
@@ -50,15 +55,12 @@ export default function SpotlightBar({ onExpandDashboard }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [cancelRecording, onExpandDashboard])
 
-  // Ambil respons asisten terbaru untuk mini ticker
-  useEffect(() => {
-    if (chatData && chatData.length > 0) {
-      const last = chatData[chatData.length - 1]
-      if (last && (last.role === 'assistant' || last.role === 'model') && last.content) {
-        setLastAnswer(last.content.replace(/\[.*?\]/g, '').trim())
-      }
-    }
-  }, [chatData])
+  // Ambil respons asisten terbaru untuk mini ticker — derivasi murni dari
+  // chatData saat render, tanpa effect (menghapus set-state-in-effect).
+  const lastChat = chatData && chatData.length > 0 ? chatData[chatData.length - 1] : null
+  const lastAnswer = lastChat && (lastChat.role === 'assistant' || lastChat.role === 'model') && lastChat.content
+    ? lastChat.content.replace(/\[.*?\]/g, '').trim()
+    : ''
 
   // Interupsi cerdas: saat user mengetik, matikan mic agar tidak bentrok suara ketikan
   const handleInputChange = (e) => {
@@ -92,7 +94,7 @@ export default function SpotlightBar({ onExpandDashboard }) {
 
   return (
     <div
-      className="w-[660px] h-[76px] rounded-2xl bg-neutral-900/85 backdrop-blur-2xl border border-cyan-500/30 shadow-[0_16px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(6,182,212,0.15)] flex items-center px-4 gap-3 select-none transition-all duration-300 pointer-events-auto"
+      className="w-[660px] h-[76px] rounded-xl bg-neutral-900/85 backdrop-blur-2xl border border-primary/30 shadow-[0_16px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(10,132,255,0.15)] flex items-center px-4 gap-3 select-none transition-all duration-300 pointer-events-auto"
       data-tauri-drag-region
     >
       {/* Tombol Mic / Visualizer */}
@@ -102,21 +104,22 @@ export default function SpotlightBar({ onExpandDashboard }) {
         disabled={isBusy}
         className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 shrink-0 ${
           isRecording
-            ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.6)]'
+            ? 'bg-primary text-white shadow-[0_0_15px_rgba(10,132,255,0.6)]'
             : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10'
         }`}
         title={isRecording ? 'Sedang mendengarkan (klik untuk jeda)' : 'Nyalakan mic'}
+        aria-label={isRecording ? 'Sedang mendengarkan (klik untuk jeda)' : 'Nyalakan mic'}
       >
         {isRecording ? (
           <>
             <span
-              className="absolute inset-0 rounded-xl bg-cyan-400 animate-ping opacity-30"
+              className="absolute inset-0 rounded-xl bg-info animate-ping opacity-30"
               style={{ transform: `scale(${1 + Math.min(audioIntensity * 2, 0.4)})` }}
             />
-            <FaMicrophone size={16} className="relative z-10 animate-pulse" />
+            <Mic size={16} className="relative z-10 animate-pulse" />
           </>
         ) : (
-          <FaMicrophoneSlash size={16} />
+          <MicOff size={16} />
         )}
       </button>
 
@@ -145,16 +148,16 @@ export default function SpotlightBar({ onExpandDashboard }) {
           {toastMessage ? (
             <span className="text-amber-400 font-medium">{toastMessage}</span>
           ) : isProcessing ? (
-            <span className="text-cyan-400 animate-pulse font-medium">Mentranskrip suara...</span>
+            <span className="text-info animate-pulse font-medium">Mentranskrip suara...</span>
           ) : isBusy ? (
-            <span className="text-cyan-400 animate-pulse font-medium">Abelink sedang merespons...</span>
+            <span className="text-info animate-pulse font-medium">Abelink sedang merespons...</span>
           ) : lastAnswer ? (
             <span className="text-white/60 truncate">
-              <strong className="text-cyan-300 font-semibold mr-1">Abelink:</strong>
+              <strong className="text-info font-semibold mr-1">Abelink:</strong>
               {lastAnswer}
             </span>
           ) : (
-            <span className="text-white/30">Tekan Enter untuk kirim, Esc untuk keluar</span>
+            <span className="text-white/60">Tekan Enter untuk kirim, Esc untuk keluar</span>
           )}
         </div>
       </div>
@@ -167,10 +170,11 @@ export default function SpotlightBar({ onExpandDashboard }) {
             type="button"
             onClick={() => handleSend()}
             disabled={isBusy}
-            className="w-8 h-8 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-lg bg-primary hover:bg-primary/80 text-white flex items-center justify-center transition-colors"
             title="Kirim (Enter)"
+          aria-label="Kirim (Enter)"
           >
-            <FaPaperPlane size={12} />
+            <Send size={12} />
           </button>
         )}
 
@@ -186,8 +190,9 @@ export default function SpotlightBar({ onExpandDashboard }) {
           }}
           className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white flex items-center justify-center transition-colors"
           title="Buka Dashboard Penuh"
+          aria-label="Buka Dashboard Penuh"
         >
-          <FaExpand size={13} />
+          <Maximize2 size={13} />
         </button>
 
         {/* Tombol Tutup / Sembunyi */}
@@ -200,10 +205,11 @@ export default function SpotlightBar({ onExpandDashboard }) {
             }
             onExpandDashboard?.()
           }}
-          className="w-8 h-8 rounded-lg bg-white/5 hover:bg-red-500/20 text-white/50 hover:text-red-400 flex items-center justify-center transition-colors"
+          className="w-8 h-8 rounded-lg bg-white/5 hover:bg-red-500/20 text-white/60 hover:text-red-400 flex items-center justify-center transition-colors"
           title="Tutup (Esc)"
+          aria-label="Tutup (Esc)"
         >
-          <FaTimes size={13} />
+          <X size={13} />
         </button>
       </div>
     </div>

@@ -39,7 +39,7 @@ stdin. Semua handler didaftarkan lewat `registry.mjs`.
 | Modul | Channel | Keterangan |
 | --- | --- | --- |
 | `registry.mjs` | — | `send`/`emit`/`ok`/`fail`, map `handlers`, `on()`, `lazy()` (helper `unsupported()` sudah dibuang; channel yang belum jalan mengembalikan `success: false` eksplisit atau `throw`) |
-| `channels/ai.mjs` | `ai:fetch`, `ai:abort-fetch`, `ai:list-models`, `sync-config`, `native-tool:*`, `parse-document` | `sync-config` juga menyalin config ke modul telegram (auto-start bot) |
+| `channels/ai.mjs` | `ai:fetch`, `ai:abort-fetch`, `ai:list-models`, `sync-config`, `native-tool:*`, `parse-document` | `sync-config` juga menyalin config ke modul telegram (auto-start bot) dan menulis snapshot AI ke `main/shared-config.js` |
 | `channels/media.mjs` | `tts-speak`, `get-youtube-transcript`, `youtube-search` | Edge-TTS + youtube-transcript-plus + yt-search (lazy) |
 | `channels/telegram.mjs` | `tg:*`, `benchmark:telegram`, `remote-music-command` | Dashboard benchmark + broadcast admin (config via `setLatestConfig`) |
 | `channels/services.mjs` | `plugin:*`, `plugins:list`, `google:*`, `workspace:*`, `awareness:*` | Plugin loader tanpa Electron; workspace RAG `.abelink/` |
@@ -48,6 +48,13 @@ stdin. Semua handler didaftarkan lewat `registry.mjs`.
 | `channels/browser.mjs` | `browser:navigate/read-dom/action/close/show/status` | Fase C3 Jalur A (ekstensi browser + bridge): perintah nyata via `main/browser/` — long-poll HTTP 127.0.0.1 token-auth ke ekstensi Abelink; tanpa ekstensi = error eksplisit + petunjuk pemasangan |
 | `channels/skills.mjs` | `skills:*` (15 channel) | Agent Skills store: SKILL.md + anti path-traversal; `skills:open-folder` (xdg-open ter-kontinemen) untuk workflow drop folder skill + auto-scan |
 | `channels/capabilities.mjs` | `capabilities:list/inspect/guide/execute/connections/authorize/revoke/audit` | Capability Manager (fase Kapabilitas, referensi OpenConnector): catalog connector → policy → eksekusi ter-audit. Connector built-in: `weather` (Open-Meteo), `time` (offline), `fs` (workspace via fsGuard), `shell-tool` (run-shell; dynamic dangerous-keyword check saat runtime). `capabilities:execute` WAJIB di `APPROVAL_ACTIONS` (rfd native). Kredensial koneksi di XDG mode 0600; audit JSONL append-only (trim 1MB). Implementasi: `main/capabilities/` (lazy import) |
+
+**Jembatan config GUI <-> CLI/TUI (satu produk):** `main/shared-config.js`
+menulis subset field AI dari config GUI ke `~/.config/abelink/shared.json`
+(0600) setiap `sync-config`; `headlessCli.loadCliFileConfig` membacanya sebagai
+lapis DASAR (di bawah `cli.json` yang eksplisit) lalu memetakannya ke bentuk
+CLI lewat `sharedConfigToCliConfig`. Provider GUI-only (`gemini-web`) tidak
+dipaksakan sehingga CLI jatuh ke default jujur, bukan gagal senyap.
 
 **Aturan menambah channel baru:** buat/ubah modul di `engine/channels/`,
 daftarkan dengan `on('nama:aksi', handler)`, lalu import modulnya di
@@ -85,7 +92,84 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
    `message`/`error` eksplisit (atau melempar) agar konsumen tahu batas
    kemampuan, bukan diam-diam percaya fitur jalan.
 
-## 4. Alur Data Kritis
+## 4. General Agentic Runtime Contract
+
+The agent runtime is domain-general rather than coding-specific. Opencode and Hermes remain the preferred external coding/delegation systems; Abelink focuses on orchestration, browser/OS automation, research, learning, memory, and long-horizon recovery.
+
+New runtime primitives:
+
+- `src/api/ai/autonomyContract.js` — compact model-facing protocol for research, browser, OS automation, code, learning, and general tasks. This is context/protocol engineering, not a replacement for model reasoning.
+- `src/api/ai/progressEvaluator.js` — deterministic comparison of consecutive observations. It distinguishes verification improvement, new evidence, semantic stagnation, regression, and neutral exploration.
+- `src/api/ai/trajectoryLearning.js` — bounds and separates successful trajectory evidence from failure diagnostics before model-based skill synthesis.
+
+Runtime flow:
+
+```
+objective
+  -> micro-plan / next hypothesis
+  -> policy + budget
+  -> tool execution
+  -> observation
+  -> objective verifier + progress evaluator
+  -> trajectory supervisor
+  -> continue / modify / explore / retrieve / stop
+  -> grounded trajectory learning
+```
+
+The objective verifier remains authoritative for completion. Progress evaluation must never bypass approval, watchdog, or budget guards.
+
+### Browser Observation Contract
+
+Browser observations are a reasoning interface, not a raw UI dump.
+
+The preferred payload order is:
+
+1. page identity (title, URL, session/tab identity)
+2. main semantic text
+3. relevant structured state
+4. task-relevant interactive elements
+5. visual/screenshot evidence only when text/DOM is insufficient
+
+`extension/background.js` now includes main-page text in the DOM observation. `extension/browser-observation.mjs` formats that payload with semantic text first and bounds the interactive control list before it reaches the model. This is intended to reduce context distraction on UI-heavy pages while preserving enough controls for the next action.
+
+### Evidence-Grounded Skill Promotion
+
+Structural mini-eval is not evidence. `runSkillMiniEval` (`src/api/ai/skillMiniEval.js`) only checks SOP shape, actionability, and safety, so a passing eval proves the *form* of a skill, never its factual correctness.
+
+`graduateTrialSkill` (`src/api/db.js`) therefore promotes a `trial` skill to `active` only when:
+
+- the skill was actually reused (`use_count > 0`), or
+- a structural eval passed **and** the originating trajectory carried independent completion verification (`evidenceVerified === true`).
+
+`evidenceVerified` is derived at exactly one place — the skill synthesizer (`src/api/ai/skillSynthesizer.js`) — through `isIndependentlyVerified({ verification, kind })` (`src/api/ai/objectiveVerifier.js`). The verifier module owns what counts as proof, including the exemption rule: `evaluateEvidence` reports a **conversational** objective as `verified` with zero criteria and zero ops purely as an *exemption* from verification, so that state must never be read as evidence. The flag is monotonic in storage (once true it is never cleared by a later save) and can never be granted from the model's final answer. Newly synthesized skills are always written as `trial`; they must not inherit `active` merely because their SOP reads well.
+
+Provenance chain:
+
+```text
+tool observations (executedToolsList)
+  -> evaluateEvidence (objectiveVerifier: world-state criteria, never the model's claim)
+  -> hook verdict `lastVerification` + `objectiveKind` (forwarded by the FINAL branch of useAbelinkPlan)
+  -> synthesizeSkillAndSave({ verificationState, objectiveKind })
+  -> isIndependentlyVerified() -> saveLearnedSkill({ evidenceVerified })
+  -> graduateTrialSkill({ evalPassed }) -> active | trial | archived
+```
+
+Consequence for callers and tests: asserting graduation requires declaring the evidence basis. A `trial` skill created without `evidenceVerified` stays `trial` (or is archived once older than `trialDays`), so `evalPassed` alone must never be asserted as a promotion trigger. Coverage: `tests/learnedSkillsTelemetry.test.mjs`, `tests/skillMiniEval.test.mjs`, `tests/skillSynthesizerEvidence.test.mjs`, `tests/objectiveVerifier.test.mjs`.
+
+**Wiring status (2026-09-21):** the main ReAct loop's synthesizer call (`src/hooks/agent/useAbelinkPlan.js`, FINAL branch) forwards the two values the runtime already owns — `verificationState: lastVerification` and `objectiveKind` — so the evidence branch of `graduateTrialSkill` is live in production. The caller only *forwards*: it must not re-derive the verdict (no `evaluateEvidence` / `isIndependentlyVerified` call at that site), because the derivation belongs to the synthesizer and the exemption rule belongs to the verifier. Both forwarded properties, and the absence of re-derivation, are pinned by `tests/skillSynthesizerEvidence.test.mjs` (`production caller forwards verifier evidence`). A trajectory that was not independently verified still yields a `trial` skill, reachable to `active` only through reuse (`use_count > 0`) — never by adding a hidden verdict side-channel, which would create a second source of truth for runtime state.
+
+### Research Reference Hierarchy
+
+Primary references for agent-runtime changes:
+
+- Anthropic context engineering and agent engineering: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+- OpenAI platform / agents / observability: https://platform.openai.com/docs
+- OpenAI Cookbook: https://cookbook.openai.com/
+- Hermes Agent docs and source: https://hermes-agent.nousresearch.com/docs/ and https://github.com/NousResearch/hermes-agent
+
+Secondary material is for discovery. Implementation decisions should be traceable to primary documentation, repository code, benchmarks, or reproducible tests.
+
+## 5. Alur Data Kritis
 
 - **Chat/plan:** renderer `useAbelinkAgent` → `planning.js` → `node_invoke('ai:fetch')`
   → bridge → `channels/ai.mjs` → `main/ai-bridge.js` (multi-provider) →
@@ -118,14 +202,63 @@ harness benchmark frontier. Bukan salinan kode — prinsipnya yang diadopsi:
   (otomatisasi penuh menunggu boundary ABELINK nyata, lihat
   `boundary-spec.mjs`). Fixtures deterministik effort:
   `evaluation/effort-fixtures.mjs` + `tests/effort-fixtures.test.mjs`.
+- **Measurement plane PR46 (bukan runtime baru):** `evaluation/evidence.mjs`
+  menormalkan observasi tool yang SUDAH ada (stepLog/trace adapter) menjadi
+  record bukti in-memory berprovenance (run/task, tool, status, payload, source)
+  tanpa store baru dan tanpa field berbentuk browser; `evaluation/metrics.mjs`
+  menghitung metrik per-run (task success vs verified success terpisah, turn,
+  tool call, retry, aksi berulang, stagnasi, recovery, latensi, biaya token
+  bila tersedia, intervensi manusia) dan membungkus `aggregateRuns` dengan
+  `abelinkbench-measurement-report` (jumlah run berulang eksplisit).
+  `evaluation/pr46-matrix.mjs` mendaftarkan matriks 30 fixture (research 6,
+  browser 5, os 5, study 5, recovery 5, reuse 4) dengan oracle world-state
+  deterministik; `evaluation/pr46-experiments.mjs` menegakkan identitas model
+  exact (provider/modelId/modelVersion, TIDAK pernah "latest"), integritas
+  perbandingan baseline-vs-kandidat, dan ablasi representasi browser.
+  `run.mjs --suite pr46` menjalankan matriks lewat runner yang sama.
+  Verdict task tetap milik oracle; jawaban akhir model hanya klaim
+  (`finalAnswerIsClaim: true`).
+  - **Identitas eksekusi:** `benchmarkRunId` (sesi) dipisah dari `executionId`
+    (`<sesi>-<taskId>-r<n>@<effort>`); report merekam
+    `identity.architectureCommit` (+`Short`/`Dirty`) dari git HEAD.
+  - **Eksperimen A wajib dua arm terukur + seluruh dimensi tetap kontrak:**
+    `compareArmReports()` menolak arm yang bukan measurement report atau belum
+    punya eksekusi (`arm-not-measured`), menolak dimensi yang tidak terekam di
+    salah satu arm (`dimension-unverifiable` — "tidak diperiksa" bukan
+    "cocok"), dan membandingkan seluruh 12 dimensi tetap kontrak (`provider`,
+    `modelId`, `modelVersion`, `systemPrompt`, `protocol`, `tools`,
+    `permissions`, `fixture`, `effort`, `budget`, `environment`, `verifier`)
+    plus jumlah run berulang, sebelum menyatakan `valid` bila `architecture`
+    berbeda. Tidak ada dimensi yang boleh diam-diam dilewati.
+    `vanilla` = kontrol arsitektur dimatikan pada runtime yang sama (bukan
+    snapshot historis pre-PR45); `basic` = runtime PR45. **Status Task 6:**
+    harness benchmark MENGEKSEKUSI sumbu itu — loop bench menghormati
+    `getArchPolicy` dan menjalankan modul governance asli (supervisor +
+    verify gate). `ARCH_AXIS_IN_BENCH_PATH = true` direkam sebagai
+    `identity.architectureAxisWired`, dan `compareArmReports()` menerima dua
+    arm terukur sebagai valid (`both-arms-present`). Batas: loop bench bukan
+    loop renderer — hasil = "modul governance asli pada loop bench".
+  - **Ablasi representasi nyata:** `representation` fixture diteruskan ke
+    execution path (`ABELINK_BROWSER_OBSERVATION` → `renderBrowserObservation()`
+    di `extension/browser-observation.mjs`, dipakai
+    `sidecar/main/tools/browserTools.mjs`); default tetap semantic-first.
+  - **Lane reuse bersifat artifact-mediated:** fixture menyemai artefak sesi
+    sebelumnya; ini BUKAN bukti reuse memory/skill persisten (dicatat di
+    `reuseKind`/`notMeasured` tiap fixture).
+  - **Tanpa metrik palsu:** `repeatActionRate` dilaporkan sebagai apa adanya;
+    `unnecessaryActionRate` tetap `null` + alasan selama belum ada instrumentasi
+    yang membedakan aksi tidak perlu dari pengulangan yang sah.
 - **Knowledge:** dokumen → `ragPipeline.js` (chunk 500/50) → Dexie + Orama;
   workspace `.abelink/` → `workspace:*` channel → working memory disuntikkan ke
   system prompt.
 
-## 5. Batasan yang Masih Sengaja Dibiarkan (jangan "perbaiki" diam-diam)
+## 6. Batasan yang Masih Sengaja Dibiarkan (jangan "perbaiki" diam-diam)
 
-- `browser:*` → LIVE (Fase C3 Jalur A): `engine/channels/browser.mjs` + `main/browser/{bridge-core,server}.mjs` + ekstensi MV3 di `extension/`. Jalur B (spawn Chromium per profil) menyusul sebagai fallback; smoke frame end-to-end dengan browser sungguhan belum dijalankan — lihat `extension/README.md`.
-- `os:*` di sidecar sudah LIVE (Fase B6, `engine/channels/os.mjs`): alias tipis ke `NATIVE_TOOLS` dash; renderer tetap memakai Rust native `os_*` commands untuk jalur utamanya.
+- `browser:*` → LIVE (Fase C3 Jalur A): `engine/channels/browser.mjs` + `main/browser/{bridge-core,server}.mjs` + ekstensi MV3 di `extension/`. Jalur B (spawn Chromium per profil) menyusul sebagai fallback. Pengukuran e2e Chrome sungguhan SUDAH dijalankan (2026-09-27, Chrome 153, CDP `loadUnpacked`, tanpa attach debugger ke SW): self-heal session-drop + token basi terbukti pulih otomatis (perintah tersaji 21ms–1.8s), alarm keepalive terukur 60.0s, suspensi SW ~30s saat idle — lapisan `chrome.*` tidak lagi murni runbook manual. Batas jujur: harness mengukur penyajian perintah (`read-dom` tanpa tab aktif dijawab jujur), bukan smoke interaktif navigate penuh di halaman nyata — itu tetap runbook `extension/README.md`. Detail + harness reusable: `scripts/mv3-keepalive-measure.mjs`, `scripts/mv3-native-host-probe.mjs`, session log `docs/PLANNED/sessions/2026-09-27_mv3-keepalive-measurement.md`.
+- **Bridge lifecycle anti-latch (RC3 fix, 2026-09-27):** `startError` di `main/browser/server.mjs` BUKAN latch permanen — attempt berikutnya selalu mencoba ulang (dulu: satu EADDRINUSE transien mematikan bridge hingga restart proses). `startPromise`/`startResolve` mendedupe attempt in-flight; `stopBrowserBridge()` me-reset state + me-resolve awaiter; `startBrowserBridge()` selalu Promise (jalur sync lama memicu TypeError laten di `engine/channels/browser.mjs`). Kontrak: `tests/browserAuditVerify.test.mjs` RC3-A/B.
+- **Resume self-heal G1 (2026-09-27):** `tryAutoResume()` (`extension/background.js`) kini punya pemulihan 401 token basi-terisi: konsultasi `getTokenViaNativeHost` sekali per attempt (guard `via.token !== cfg.token` anti-loop), tukar token, handshake ulang sekali, `loop()` hanya bila 200. Dulu: helper hanya dikonsultasi bila token kosong → 401 berulang selamanya. Pagar pairing tanpa auto-switch tidak berubah (`tests/browser-flavor.test.mjs`). Popup menerima query `?noprobe=1` untuk membaca status tanpa memicu auto-connect (kontrak internal alat ukur; perilaku user tidak berubah).
+- **Browser autonomy (2026-09-20, `apple-design`):** observasi tab beridentitas (`_tab={tabId,url,title,reused}`, `sessionFocusedUrl`, tolak primer yang URL-nya drift); tagger main-first cap 200/teks 120; `adoptUserTab` eksplisit (default: hanya blank/tab baru, tidak pernah curi tab user); `takeNext` tanpa drain lintas-sesi; HITL co-pilot = pause-state + pill pasif tanpa veil + resume `browser-read` tab sama (tanpa deadline); popup hijau hanya bila loop jalan; eval `hitl_discipline` (needs_user tanpa artefak = 0); validator lewati prosa `.md/.txt`. Detail: `docs/superpowers/plans/2026-09-20-browser-autonomy-restoration.md`, sesi: `docs/PLANNED/sessions/2026-09-20_browser-autonomy.md`.
+- **os-automation DORMAN default (keputusan owner 2026-09-27, anti over-engineering):** mesin tetap LIVE (dua jalur: sidecar `osTools.mjs` -> `pc-agent.js` + Rust native `commands/tools/os.rs`), tetapi group `pc_automation` TIDAK direkrut ke prompt planner/sub-agent (`dormant: true` di `group-tools.js`, difilter di `planning.js` + `subagentExecutor.js`). Dasar: harness prod+dev (1380 tool call) menunjukkan surface visual os-read/click/type/key/scroll = **0 call**; os-* yang hidup = plumbing `os-control-close/open` + `os-open` (core tool, tetap direkrut). `read-tools pc_automation` menjawab JUJUR (dorman + cara mengaktifkan), bukan miss senyap. Emergency-stop (Ctrl+Shift+S via `pc-agent.js`) TIDAK tersentuh. Audit de-Windows: mesin sudah Linux-native (tanpa PowerShell/cmd); debt adaptasi nyata = **Wayland** (semua visual path X11-only) — backlog, dikerjakan hanya bila group diaktifkan. Kontrak: `tests/dormantPcAutomation.test.mjs`.
 - Dead code era Electron (skill-manager.js + 3 handler `ipcMain.on`
   telegram) sudah dibuang 2026-09-03 — lihat `docs/MIGRATION-GAPS.md` §
   Dead code.
@@ -135,7 +268,7 @@ Rencana fase: `docs/MIGRATION-PLAN.md` (status per fase + verifikasi).
 Audit gap lengkap: `docs/MIGRATION-GAPS.md`. Triage risiko dependency:
 `docs/SECURITY-TRIAGE.md`.
 
-## 6. Namespace Dev/Prod (pemisahan total)
+## 7. Namespace Dev/Prod (pemisahan total)
 
 Satu prinsip: **`ABELINK_DATA_HOME` menang atas `XDG_DATA_HOME`**
 (`scripts/dev.sh` men-set-nya ke `~/.local/share/abelink-dev`; prod tidak
@@ -160,7 +293,7 @@ PENGECUALIAN by OS design (sengaja bersama, jangan "diperbaiki"):
 root `~/Documents`, cache WebKit di luar identifier, file `/tmp` tanpa
 prefix abelink.
 
-## 7. Pipeline VAD/STT Anti-Halusinasi
+## 8. Pipeline VAD/STT Anti-Halusinasi
 
 `useVAD.js` → `sttGuard.js` → `sttRouter.js` (endpoint 9router
 `127.0.0.1:20128`, model default `groq/whisper-large-v3-turbo`,
@@ -178,16 +311,30 @@ heuristik cps>30). Anti-loopback TTS: `echoCancellation`/`noiseSuppression`
 aktif + cooldown 800ms pasca `isAbelinkSpeaking` (`AbelinkHome.jsx` voice
 auto-restart + `utils.js` stempel `abelinkTtsEndedAt`).
 
-## 8. Kontrak Path Harness (reader = writer)
+## 9. Kontrak Path Harness (reader = writer)
 
-Writer tunggal: Rust `cmd_harness.rs` (`data_home()/abelink/harness/<tgl>/`,
-rotasi 50MB x 3). Reader WAJIB rumus sama: `scripts/harness-common.mjs`
-(`parseArgs` + `harnessRoot` bersama untuk export + diagnose).
+SATU SKEMA, DUA PENULIS (M2c, PLAN-T1):
+- **GUI**: Rust `cmd_harness.rs` (`data_home()/abelink/harness/<tgl>/`,
+  rotasi 50MB x 3).
+- **Headless (CLI/TUI)**: `cli/core/harness-writer.mjs` — fs langsung ke root
+  SAMA, envelope row `{ts,kind,line}` identik. Flag observability
+  `ABELINK_TRAJECTORY_HEADLESS=1` (default OFF = perilaku lama);
+  `ABELINK_HARNESS_DISABLE=1` mematikan semua tulis. Tanpa rotasi generasi:
+  file aktif >50MB fail-closed (skip, bukan timpa). Bentuk event di
+  `src/api/harnessCore.js`; tool-call menulis `ok` (paritas GUI) + `success`
+  (kontrak skema) sekaligus. Turn headless kontinu per SESI (offset akumulatif
+  di `createToolAuditLogger`) karena tiap runAgentLoop me-restart stepCount.
+- Reader WAJIB rumus sama: `scripts/harness-common.mjs` (`parseArgs` +
+  `harnessRoot` bersama untuk export + diagnose).
+- Choke point H5: `cli/core/tool-hooks.mjs` `executeToolWithHooks` membungkus
+  `environment.executeTool` di ketiga host headless (`bin/abelink.mjs`,
+  `bin/abelink-tui.mjs`, `cli/tui/engine.mjs`) — pre/post hook + audit JSONL
+  otomatis (termasuk tool yang di-deny), audit tak pernah fatal.
 Evaluasi: `evaluation/run.mjs` `sidecarWorkspaceRoot()` = rumus sama +
 `workspace`. Kategori log baca langsung dari file (`bun run
 harness:diagnose`), bukan copas user.
 
-## 9. Engine Task Runtime Boundary (taskRuntime.js)
+## 10. Engine Task Runtime Boundary (taskRuntime.js)
 
 Durable task/session execution punya batas engine-owned yang bisa dikonsumsi
 Tauri GUI, sidecar, dan CLI/API mendatang — tanpa GUI memiliki state eksekusi.
@@ -197,12 +344,12 @@ Tauri GUI, sidecar, dan CLI/API mendatang — tanpa GUI memiliki state eksekusi.
                          taskRuntime.js
                (src/api/engine/taskRuntime.js)
                               │
-             ┌────────────────┼────────────────┐
-             ▼                ▼                ▼
-        React GUI     sidecar tasks:*       future CLI
-  (useAbelinkPlan,    (DITUNDA — kembali     (belum ada)
-   App startup)        bersama headless
-                       store permanen)
+              ┌────────────────┼────────────────┐
+              ▼                ▼                ▼
+         React GUI     sidecar tasks:*       CLI headless
+   (useAbelinkPlan,    (DITUNDA — kembali     (`bin/` +
+    App startup)        bersama headless       `agentRunner.js`)
+                        store permanen)
              │                │
              └────────────────┼────────────────┘
                               ▼
@@ -245,7 +392,7 @@ toolDispatcher → node_invoke → Rust APPROVAL_ACTIONS (rfd) → native tool
   native in-flight TIDAK di-kill (tanpa abort propagation; timeout bridge 300s).
   Penelepon tetap abort loop/signal sendiri.
 
-## 10. Kebijakan Toolchain Linux-Only
+## 11. Kebijakan Toolchain Linux-Only
 
 Stdlib/platform dulu sebelum kode baru (`AbortSignal.timeout` ditunda
 sampai WebKitGTK target terverifikasi - lihat `ponytail:` di
@@ -254,3 +401,29 @@ deteksi perintah (alias `run-powershell` tetap sebagai alias).
 Deferral sadar ditandai `ponytail: <ceiling>, <upgrade>` (ledger:
 `eslint.config.mjs:46`, `effort-fixtures.mjs:153`,
 `window_tracker.rs:61`, `sttRouter.js` AbortSignal).
+
+## 12. Operating Model & Autonomy Subsystems (Hermes × Anthropic Adoption)
+
+Adopsi pola operasi mandiri dan batasan keamanan (arsip latar: `docs/archive/OPERATING-MODEL.md` & `docs/archive/OPERATING-ADOPTION.md`):
+
+1. **Sensitive-Write Hardline (Hermes 3-tier):**
+   - Boundary penjaga di Rust shell (`src-tauri/src/hardline.rs`) dan Node sidecar (`sidecar/main/tools/_shared.mjs`).
+   - Melindungi path sensitif user (`~/.ssh`, `.env`, `.bashrc`, `.zshrc`, credentials) dengan penolakan langsung atau wajib rfd approval.
+2. **Explicit Memory Router Subsystem:**
+   - Pemilihan dan perakitan konteks terpusat (`src/api/ai/memoryRouter.js`) memisahkan budget prompt dari long-term memory.
+   - Groundedness guard mutlak: jika pencarian kosong atau parsial, LLM dilarang keras mengarang fakta historis fiktif.
+3. **Unified Memory Tool & Atomic Engine:**
+   - Single tool `memory` (`src/api/ai/memoryTool.js`) untuk mutasi ingatan (`add`, `replace`, `remove`, `batch`).
+   - Sifat transaksi atomic (all-or-nothing pada batch) dan penegakan `perTurnFailureCap: 3` untuk memutus loop spinning model.
+4. **Deferred Tool Search Catalog:**
+   - `src/api/tools/toolCatalog.js`: registry kaya metadata dengan deskripsi, query format, tags, dan contoh pemakaian.
+   - Mengurangi overhead prompt dengan pemuatan definisi on-demand via `read-tools`.
+5. **Skill Folder Bundle & Manifest Traversal:**
+   - `src/api/skills/skillFolder.js` + `sidecar/engine/channels/skills.mjs`: mendukung struktur folder skill penuh (`SKILL.md`, `references/`, `scripts/`).
+   - Query format `nama_skill||subpath` dengan proteksi fail-closed path traversal (`sanitizeSkillRelPath`).
+6. **Durable Handoff Contract JSON:**
+   - `src/api/ai/handoffContract.js`: kontrak terstruktur 7 field kanonis (`objective`, `done`, `remaining`, `blocked`, `artifacts`, `verified`, `next_action`) yang ter-persist di checkpoint step dan `taskRuntime`.
+7. **RSI Telemetry, Nudge, & Mini Evaluation Engine:**
+   - `src/api/ai/skillMiniEval.js`: evaluasi kualitas skill (substansi, struktur, tindakan, sanitasi pola berbahaya).
+   - Auto-graduation empiris: promosi status skill dari `trial` ke `active` saat digunakan kembali (`read-skill` use count > 0) atau saat evaluasi mini lolos, menutup siklus Recursive Self-Improvement.
+

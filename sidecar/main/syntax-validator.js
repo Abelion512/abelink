@@ -290,6 +290,8 @@ function checkXmlTagBalance(content) {
 export async function validateFileSyntax(filePath, content) {
   if (!filePath || !content) return { valid: true }
   const ext = path.extname(filePath).toLowerCase()
+  // Prosa bukan kode: jangan parse sintaks (apostrof/bracket teks bebas).
+  if (['.md', '.markdown', '.txt', '.rst', '.log'].includes(ext)) return { valid: true }
 
   try {
     // 1. JSON & JSONC
@@ -447,7 +449,7 @@ export async function validateFileSyntax(filePath, content) {
     if (!genericBracket.valid) return genericBracket
 
     return { valid: true }
-  } catch (err) {
+  } catch {
     return { valid: true } // Jangan halangi jika terjadi error internal pada validator
   }
 }

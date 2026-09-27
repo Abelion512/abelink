@@ -315,8 +315,8 @@ verification_score = 0.20
 reflection_score = 0.00
 workflow_score = 0.00
 
-execution_step_budget = 16
-tool_call_budget = 8
+execution_step_budget = 24
+tool_call_budget = 12
 retry_budget = 1
 reflection_budget = 0
 verification_budget = 1
@@ -352,8 +352,8 @@ verification_score = 0.50
 reflection_score = 0.25
 workflow_score = 0.00
 
-execution_step_budget = 32
-tool_call_budget = 16
+execution_step_budget = 48
+tool_call_budget = 24
 retry_budget = 2
 reflection_budget = 1
 verification_budget = 2
@@ -715,8 +715,8 @@ Canonical defaults:
 
 ```text
 LOW     = 8
-MEDIUM  = 16
-HIGH    = 32
+MEDIUM  = 24
+HIGH    = 48
 xHIGH   = 64
 MAX     = 128
 ULTRA   = 256
@@ -743,8 +743,8 @@ Canonical defaults:
 
 ```text
 LOW     = 4
-MEDIUM  = 8
-HIGH    = 16
+MEDIUM  = 12
+HIGH    = 24
 xHIGH   = 32
 MAX     = 64
 ULTRA   = 128

@@ -6,7 +6,7 @@
 > **Abelink** (berbasis arsitektur **ABELINK: Metacognitive Artificial Relational Knowledge**) adalah asisten otonom berbasis Linux dengan fokus pada privasi, otomatisasi sistem operasi, dan eksekusi tugas multi-langkah. Berjalan langsung di workstation lokal menggunakan arsitektur hybrid Tauri v2 (Rust) dan Bun runtime sidecar.
 
 > [!NOTE]
-> Proyek ini merupakan Linux-only fork independen dari basis fondasi [Mazees/mark-agent](https://github.com/Mazees/mark-agent).
+> Abelink adalah produk eksklusif Abelion Group. Fondasi awal dari mark-agent kini murni sejarah, bukan identitas aktif.
 
 ---
 
@@ -29,7 +29,7 @@ abelink/
 ```
 
 | Lapisan | Teknologi | Peran |
-| --- | --- | --- |
+|---|---|---|
 | **Desktop Shell** | Tauri v2 (Rust) | Pengelolaan window transparan, global shortcut, tray Linux, dialog konfirmasi native (`rfd`), dan sandboxing path (`resolve_contained`). |
 | **Frontend UI** | React 19, Vite 7, Tailwind 4 | Antarmuka interaktif, Floating HUD, Visualisasi status, dan interaksi suara real-time. |
 | **Background Sidecar** | Bun (JSON-RPC stdio) | Runtime eksekusi tool, integrasi Telegram bot, MCP client, web scraping, dan desktop automation daemon. |
@@ -38,12 +38,14 @@ abelink/
 
 ---
 
-## Fitur Inti
+## Fitur Inti (v1.1.0-alpha.5)
 
-### 1. Multi-Provider Hybrid AI Routing
-- Mendukung koneksi lokal (LM Studio, Ollama di `localhost:1234`) dan cloud provider (Groq, Cerebras, custom OpenAI-compatible endpoints).
-- Integrasi native Gemini Web RPC bridge tanpa biaya API token eksternal.
-- Mekanisme fallback otomatis jika model cloud terkena rate limit.
+### 1. Multi-Provider Hybrid AI Routing (Prioritas Lokal)
+- **Lokal pertama**: LM Studio atau Ollama (`localhost:1234`) - 100% inference lokal tanpa data keluar ke cloud.
+- **Gemini Web RPC**: Bridge native tanpa biaya API token eksternal - opsional sebagai fallback.
+- **Custom OpenAI-compatible endpoint**: Untuk integrasi enterprise jika perlu, konfigurasi manual.
+- Mekanisme fallback otomatis jika provider primary unavailable.
+- **Groq dan Cerebras DIHAPUS** dari daftar provider default.
 
 ### 2. Autonomous Multi-Agent (Mission Control)
 - Lead agent mendelegasikan tugas khusus ke sub-agents yang berjalan secara paralel dan terisolasi.
@@ -65,12 +67,12 @@ abelink/
 
 ### 6. Voice & Audio Pipeline
 - Voice Activity Detection (VAD) via Web Audio API.
-- Transkripsi suara real-time via Groq Whisper API atau Transformers.js Whisper lokal.
+- Transkripsi suara: **Transformers.js Whisper lokal** (primary) atau Groq API (opsional).
 - Speech synthesis menggunakan Edge-TTS (`id-ID-ArdiNeural`).
 
 ---
 
-## Prasyarat & Instalasi
+## Prasyarat & Instalasi (Linux Only)
 
 ### Kebutuhan Sistem (Linux Mint / Ubuntu / Debian / Arch)
 - **Rust Toolchain**: `rustup` stable.
@@ -83,7 +85,6 @@ abelink/
 - **Python 3**: untuk desktop automation scripts.
 
 ### Setup Cepat
-
 1. **Clone repository:**
    ```bash
    git clone https://github.com/Abelion512/abelink.git
@@ -94,25 +95,19 @@ abelink/
    ```bash
    bun run app
    ```
-   Satu perintah ini mengurus semuanya: cek environment, pasang dependensi,
-   rapikan port yang nyangkut, lalu nyalakan Abelink dalam mode dev yang
-   terisolasi (aman jalan bareng versi install-an). Butuh `tauri dev`
-   polos tanpa isolasi? `bun run app:raw` — tapi jangan bareng versi prod.
+   Satu perintah ini mengurus semuanya: cek environment, pasang dependensi, rapikan port yang nyangkut, lalu nyalakan Abelink dalam mode dev yang terisolasi (aman jalan bareng versi install-an). Butuh `tauri dev` polos tanpa isolasi? `bun run app:raw` (jangan bareng versi prod).
 
----
+### Script Lainnya
 
-## Perintah Pengembangan
-
-| Perintah | Buat apa |
-| --- | --- |
-| `bun run app` | Nyalakan Abelink mode dev (pintu utama, sudah terisolasi). |
-| `bun run app:raw` | `tauri dev` polos tanpa isolasi — jangan dipakai bareng versi prod. |
+| Perintah | Fungsi |
+|---|---|
+| `bun run dev` | Wrapper pintar (preflight + isolasi instance) - **direkomendasikan** |
+| `bun run app:raw` | `tauri dev` polos tanpa isolasi (jangan dipakai bareng versi prod). |
 | `bun test` | Jalankan seluruh unit test. |
 | `bun evaluation/smoke.mjs` | Smoke test AbelinkBench (gerbang cepat). |
 | `bun run sync-version` | Samakan versi dari `tauri.conf.json` ke semua manifest. |
 | `bun run build:sidecar` | Kompilasi sidecar jadi binary mandiri. |
 | `bun run build:deb` | Bungkus rilis `.deb` (Debian/Ubuntu/Mint). |
-| `bun run build:dist` | Bungkus rilis lengkap (`.deb` + `.AppImage`). |
 
 ---
 
@@ -120,10 +115,11 @@ abelink/
 
 Untuk pedoman kontribusi agen dan pengembang, baca dokumen referensi berikut:
 - [Agent Contribution Guidelines](docs/AGENT_CONTRIBUTION_GUIDELINES.md): Protokol kerja agen, arsitektur boundary, dan aturan anti-regresi.
-- [Architectural Direction RFC](docs/ARCHITECTURAL_DIRECTION.md): Analisis teknis jangka panjang antara Rust rewrite, Pure Web, dan Hybrid runtime.
+- [Referensi ATM](REFERENCES.md): Peta sinkron multi-sumber (DO NOT DELETE, wajib baca sebelum edit).
 - [Contributing](CONTRIBUTING.md): Alur branching dan commit conventions.
 
 ---
 
 ## Lisensi & Atribusi
-Lisensi mengacu pada lisensi proyek upstream [Mazees/mark-agent](https://github.com/Mazees/mark-agent). Port Linux dan pemeliharaan arsitektur Abelink dikelola oleh Abelion512.
+
+Lisensi proprietary Abelion Group — lihat [LICENSE](LICENSE). Produk eksklusif Abelion Group; tidak ada hak pakai pihak lain tanpa izin tertulis.

@@ -71,7 +71,7 @@ export const abortAllFetches = () => {
   activeAbortControllers.forEach((controller) => {
     try {
       controller.abort(new Error('User Aborted'))
-    } catch (e) {}
+    } catch {}
   })
 }
 
@@ -100,7 +100,7 @@ export const assembleStreamChunks = (lines, onToken = null) => {
           fullReasoning += delta.reasoning_content
           onToken?.({ text: delta.reasoning_content, done: false })
         }
-      } catch (e) {}
+      } catch {}
     }
   }
   return { fullContent, fullReasoning }
@@ -254,10 +254,19 @@ export const fetchAI = async (
           // Fallback antar-provider (1×): sesi/limit Gemini Web mati ->
           // teruskan pesan yang sama ke custom endpoint (DeepSeek-free-api,
           // 9router, LM Studio) via pemanggilan ulang dengan provider
-          // dioverride. Tanpa custom terkonfigurasi: error jujur di bawah.
+          // dioverride. Tanpa custom terkonfigurasi: fallback lokal di bawah.
           onStatus?.('⚠️ Gemini Web bermasalah, oper ke provider custom...')
           logAi('[ai] gemini-web -> custom fallback')
           return fetchAI(workMessages, { ...conf, aiProvider: 'custom' }, isSmallTask, jsonSchema ?? null, onStatus, onToken)
+        }
+        if (sessionBroken) {
+          // Fallback rantai ke komposit lokal (9Router/LM Studio di
+          // 127.0.0.1:20128): tanpa custom terkonfigurasi pun user tetap
+          // dapat jawaban bila server lokal hidup; bila mati, error lokal
+          // yang provider-aware (bukan spam GEMINI_WEB_LIMITED).
+          onStatus?.('⚠️ Gemini Web dibatasi, oper ke server AI lokal...')
+          logAi('[ai] gemini-web -> local fallback')
+          return fetchAI(workMessages, { ...conf, aiProvider: 'local' }, isSmallTask, jsonSchema ?? null, onStatus)
         }
         if (err.message?.includes('Session') || err.message?.includes('BardErrorInfo')) {
           onStatus?.('⚠️ Session Gemini Web bermasalah, mencoba fallback ke gemini-flash-lite...')
@@ -347,23 +356,45 @@ export const fetchAI = async (
     // Parameter provider disuntik lewat ModelProviderAdapter.applyEffort; policy
     // nya tidak berubah. 'auto' sudah di-resolve di renderer core.js estimator;
     // di sini hanya fallback deterministik untuk jalur yang tidak lewat core.js.
-    let effortConf = conf.effortLevel
+    // V2-3 (keputusan #4): TUI boleh kirim effortResolved (auto sudah
+    // di-resolve per turn) — hormati bila ada. ultra = flag orkestrasi
+    // lokal: wire xhigh + budget max (BUKAN max).
+    let effortConf = conf.effortResolved || conf.effortLevel
     if (effortConf === 'auto') {
       const joined = JSON.stringify(body.messages || []).slice(-4000).toLowerCase()
       const heavy = /spawn_subagent|migrasi|refactor|audit|implementasi|riset|research|benchmark|analisis/.test(joined)
       effortConf = heavy ? 'high' : 'medium'
     }
-    const effort = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(effortConf)
-      ? effortConf
-      : 'medium'
+    // S2 (qwen-pattern): thinking per-model dari capabilities. Caller (TUI)
+    // boleh kirim conf.thinkFmt (thinkingFormat live 9Router) + conf.maxOut.
+    // - claude-adaptive: thinking adaptive + output_config.effort, TANPA
+    //   budget_tokens (manual 400-error di 4.7+, deprecated 4.6).
+    // - claude-budget: budget_tokens (model lama) — di blok konversi bawah.
+    // - format lain / tanpa reasoning: reasoning_effort saja atau strip.
+    const thinkFmt = conf.thinkFmt || null
+    const thinkReasoning = conf.thinkReasoning !== false
+    const supportedByProfile = { 'claude-adaptive': ['low', 'medium', 'high', 'xhigh', 'max'], 'claude-budget': ['low', 'medium', 'high', 'max'] }
+    const profileEfforts = (thinkFmt && supportedByProfile[thinkFmt]) || ['low', 'medium', 'high']
+    const clampToProfile = (e) => {
+      const order = ['low', 'medium', 'high', 'xhigh', 'max']
+      const i = order.indexOf(e)
+      if (i >= 0) {
+        for (let j = i; j >= 0; j--) if (profileEfforts.includes(order[j])) return order[j]
+        return profileEfforts[0]
+      }
+      return profileEfforts.includes('medium') ? 'medium' : profileEfforts[0]
+    }
+    const effort = clampToProfile(['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(effortConf) ? (effortConf === 'ultra' ? 'xhigh' : effortConf) : 'medium')
     // Pass-through per vendor (riset terverifikasi): OpenAI kenal
     // low/medium/high/xhigh/max; Anthropic low/medium/high/xhigh/max;
-    // DeepSeek low/high/max (+ultra alias ke max); Kimi k3 low/high/max.
-    // Hanya 'ultra' yang dialias ke 'max' (ultra = max + orkestrator lokal).
+    // DeepSeek low/high/max; Kimi k3 low/high/max.
+    // ultra -> xhigh di wire (flag lokal ultraLocal dibawa terpisah);
+    // budget_tokens tetap max untuk ultra (model lama saja).
     // Gemini RPC / LM-Studio / generik: tanpa effort fields samasekali
     // (di-strip di bawah); budget_tokens hanya endpoint Anthropic tulen.
     const effortAnthropicBudget = { low: 1024, medium: 4096, high: 16384, xhigh: 32768, max: 65536, ultra: 65536 }
-    const effortForWire = effort === 'ultra' ? 'max' : effort
+    const effortForWire = effort
+    const noThinking = thinkFmt === null || thinkReasoning === false
     // Provider tanpa dukungan effort terdokumentasi: 9Router composite
     // (teruskan apa adanya — composite yang menerjemahkan), LM-Studio,
     // endpoint OpenAI-compatible generik. Hanya kirim reasoning_effort bila
@@ -372,8 +403,23 @@ export const fetchAI = async (
     const isAnthropicNative = customProtocol === 'anthropic'
     const isGenericPassthrough =
       conf.aiProvider !== 'custom' && conf.aiProvider !== 'groq' && !isAnthropicNative
-    if (!isGenericPassthrough) {
+    if (!isGenericPassthrough && !noThinking) {
       body.reasoning_effort = effortForWire
+    }
+    // claude-adaptive: output_config.effort (tanpa thinking block manual).
+    if (thinkFmt === 'claude-adaptive') {
+      body.output_config = { effort: effortForWire }
+    }
+    // V2-3 (keputusan #4): max_tokens besar di high+. customMaxTokens dari
+    // caller (TUI) menang; fallback peta effort. OpenAI-compatible generik
+    // menghormati max_tokens; batas server tetap otoritatif bila lebih kecil.
+    if (body.max_tokens == null) {
+      const effortMaxTokens = { low: 4096, medium: 8192, high: 16384, xhigh: 32768, max: 65536, ultra: 65536 }
+      body.max_tokens = Number(conf.customMaxTokens) || effortMaxTokens[effort] || 4096
+    }
+    // S2: clamp ke maxOutput live bila dikenal (free tier dsb).
+    if (Number(conf.maxOut) > 0 && Number(body.max_tokens) > Number(conf.maxOut)) {
+      body.max_tokens = Number(conf.maxOut)
     }
 
     const parentAbortController = new AbortController()
@@ -467,7 +513,7 @@ export const fetchAI = async (
         let errorData = null
         try {
           errorData = JSON.parse(textData)
-        } catch (e) {}
+        } catch {}
 
         const errorMsg =
           errorData?.error?.message || errorData?.message || response.statusText || textData
@@ -568,14 +614,22 @@ export const fetchAI = async (
           return executeFetch(retryNoImage, true, trafficRetryCount)
         }
 
-        // Auto-retry fallback untuk High Traffic / Rate Limits (503, 429, 500)
+        // Auto-retry fallback untuk High Traffic / Rate Limits / Token Limits (503, 429, 500, quota/TPM)
+        const errMsgLower = finalErrorMessage.toLowerCase()
         let isHighTraffic =
           response.status === 429 ||
           response.status >= 500 ||
-          finalErrorMessage.toLowerCase().includes('high traffic') ||
-          finalErrorMessage.toLowerCase().includes('rate limit')
+          errMsgLower.includes('high traffic') ||
+          errMsgLower.includes('rate limit') ||
+          errMsgLower.includes('token limit') ||
+          errMsgLower.includes('tokens per min') ||
+          errMsgLower.includes('tpm') ||
+          errMsgLower.includes('quota exceeded') ||
+          errMsgLower.includes('insufficient_quota') ||
+          errMsgLower.includes('overloaded') ||
+          errMsgLower.includes('temporarily unavailable')
 
-        if (finalErrorMessage.toLowerCase().includes('request too large')) {
+        if (errMsgLower.includes('request too large') || errMsgLower.includes('context length exceeded')) {
           isHighTraffic = false
         }
 
@@ -583,8 +637,25 @@ export const fetchAI = async (
           let backoffDelay = Math.min(30000, (trafficRetryCount + 1) * 2000)
           let retryBody = { ...currentBody }
 
+          // Pilar II: Model Pool Resilience & Multi-Provider Rotation
+          if (trafficRetryCount >= 2) {
+            const nextModel = selectNextModelInPool(retryBody.model, {
+              fallbackModel: conf.fallbackModel || 'gemini-2.5-flash',
+              modelPool: conf.modelPool
+            })
+            if (nextModel && nextModel !== retryBody.model) {
+              console.log(
+                `[Model Pool Rotation] Rate limit/TPM pada ${retryBody.model}. Beralih ke ${nextModel}...`
+              )
+              if (onStatus) {
+                onStatus(`Rate limit pada ${retryBody.model}, beralih ke ${nextModel}...`)
+              }
+              retryBody.model = nextModel
+            }
+          }
+
           if (onStatus)
-            onStatus(`Server sibuk (${response.status}), mencoba ulang (${trafficRetryCount + 1}/10) dalam ${Math.round(backoffDelay / 1000)}s...`)
+            onStatus(`Server sibuk atau limit sementara (${response.status}), mencoba ulang (${trafficRetryCount + 1}/10) dalam ${Math.round(backoffDelay / 1000)}s...`)
 
           console.log(
             `[High Traffic Auto-Retry] Server sibuk (${response.status}). Menunggu ${backoffDelay}ms... (Percobaan ${trafficRetryCount + 1}/10)`
@@ -738,9 +809,13 @@ export const fetchAI = async (
         model: body.model,
         max_tokens: Number(conf.customMaxTokens) || 4096,
         temperature: body.temperature,
-        thinking: {
-          type: 'enabled',          budget_tokens: effortAnthropicBudget[effort]
-        },
+        // S2: claude-adaptive -> thinking adaptive (tanpa budget_tokens);
+        // model lama (claude-budget / tanpa thinkFmt) -> budget manual.
+        thinking: thinkFmt === 'claude-adaptive'
+          ? { type: 'adaptive' }
+          : {
+            type: 'enabled',          budget_tokens: effortAnthropicBudget[effort]
+          },
         // Prompt caching (Anthropic): system prompt = prefix STABIL antar giliran
         // ReAct — menandai cache_control di sini membuat seluruh persona/skills/
         // tools ter-cache. Cache read ~10% biaya input; loop agentic memukul
@@ -779,7 +854,26 @@ export const fetchAI = async (
         .join('')
       message = { content: text, reasoning: thinking || null }
     } else {
-      message = data.choices[0].message
+      // Guard bentuk respons: sebagian provider (mis. combo 9Router async)
+      // membalas 200 tanpa `choices`, atau dengan `finish_reason: in_progress`
+      // dan content kosong. Tanpa ini, TypeError/kosong lolos dan tampak
+      // seperti "turn sukses tapi tidak ada jawaban".
+      const choice = Array.isArray(data?.choices) ? data.choices[0] : null
+      if (!choice) {
+        throw new Error(
+          'Provider mengembalikan respons tanpa choices (bukan format chat/completions). ' +
+          'Aksi: cek ID model & endpoint di /models.'
+        )
+      }
+      message = choice.message || {}
+      const finish = String(choice.finish_reason || '')
+      const hasText = Boolean(message.content || message.reasoning || message.reasoning_content)
+      if (!hasText && finish && finish !== 'stop') {
+        throw new Error(
+          `Provider mengembalikan respons kosong (finish_reason=${finish}). ` +
+          'Model async/belum selesai atau budget token habis — coba lagi, atau pakai ID model lain.'
+        )
+      }
     }
 
     let content = message.content || ''
@@ -1004,3 +1098,18 @@ export const orderModelsPreferFree = (ids) => {
   for (const id of uniq) (isFreeModelId(id) ? free : paid).push(id)
   return [...free, ...paid]
 }
+
+export const selectNextModelInPool = (currentModel, { fallbackModel = 'gemini-2.5-flash', modelPool = [] } = {}) => {
+  if (Array.isArray(modelPool) && modelPool.length > 1) {
+    const idx = modelPool.indexOf(currentModel)
+    if (idx !== -1) {
+      return modelPool[(idx + 1) % modelPool.length]
+    }
+    return modelPool[0]
+  }
+  if (currentModel === 'claude-work') {
+    return fallbackModel
+  }
+  return fallbackModel || currentModel
+}
+

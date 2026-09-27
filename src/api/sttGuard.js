@@ -21,9 +21,9 @@ export const COMPRESSION_RATIO_DROP = 2.4
 // Gate pra-STT: energi puncak minimum + rasio frame vokal + durasi vokal.
 // RMS_THRESHOLD VAD (0.003) sengaja sensitif agar suku kata awal tak terpotong;
 // SPEECH_RATIO_MIN 0.15 mengantisipasi window trailing silence (8 frame ~2 detik).
-export const PEAK_RMS_MIN = 0.02
+export const PEAK_RMS_MIN = 0.008
 export const SPEECH_RATIO_MIN = 0.15
-export const VOCAL_SEC_MIN = 0.5
+export const VOCAL_SEC_MIN = 0.35
 
 // Kecepatan wicara manusia wajar <40 char/detik; di atas itu = halusinasi
 // Whisper pada noise/sunyi (kasus nyata: 4.096s -> 400+ char intro asisten).

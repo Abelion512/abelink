@@ -13,9 +13,7 @@ import {
 import { createDurableTaskPlan } from '../../api/ai/taskPlanner'
 import {
   getUnifiedContext,
-  searchExtendedMemory,
-  generateVector,
-  executeMemorySearch
+  generateVector
 } from '../../api/vectorMemory'
 import {
   createTask,
@@ -31,36 +29,53 @@ import { saveWorkspaceWorkingMemory } from '../../api/workspaceRag'
 import { classifyMainDecision, INTENT, isExplicitSelfTerminate, shouldChallengeBlocked, BLOCKED_CHALLENGE_TEXT } from '../../api/ai/agentDecision'
 import { createCircuitBreaker } from '../../api/ai/circuitBreaker'
 import { createTrajectorySupervisor } from '../../api/ai/trajectorySupervisor'
+import { isFailure, isMalfunction } from '../../api/ai/progressEvaluator'
 import { currentBenchArch } from '../../api/ai/benchArch'
+import { getArchPolicy, archTerminalReason } from '../../api/ai/archPolicy'
 import { logStep as trajectoryLogStep, estimateTokens as trajectoryEstimateTokens } from '../../api/trajectory'
 import { logObservation as trajectoryLogObservation } from '../../api/trajectory'
 import { logAnswer as trajectoryLogAnswer } from '../../api/trajectory'
 import { logTurnStart as trajectoryLogTurnStart } from '../../api/trajectory'
 import { logTurnEnd as trajectoryLogTurnEnd } from '../../api/trajectory'
 import { executeSingleTool, isNativeBacked } from './plan/toolDispatcher'
+import { buildBrowserResume, isBrowserResumeRequest } from './plan/browserResume'
 import {
   classifyObjectiveKind,
   evaluateEvidence,
   gateCompletion,
   buildReplanObservation,
   MAX_VERIFY_REPLANS,
+  canAttemptEvidenceRecovery,
   VERIFICATION_STATE
 } from '../../api/ai/objectiveVerifier'
-import { resolvePlanStepBudget, DEFAULT_PLAN_STEPS } from '../../api/ai/planStepBudget'
+import { resolvePlanStepBudget } from '../../api/ai/planStepBudget'
 import {
   getErrorSignature,
-  isRepairAllowed,
-  createSelfRepairMission
+  isRepairAllowed
 } from '../../api/ai/selfHealingEngine'
 
 // ============================================================================
 // HELPER UTILITIES
 // ============================================================================
 
+// Pure: hanya outcome 'completed' yang boleh menutup sesi browser otomatis.
+// failed/blocked/needs_user/self_terminated menyimpan tab untuk inspeksi
+// (sejajar semantik extension: sesi error tidak pernah auto-close).
+export const shouldAutoCloseBrowser = (sessionOutcome) => sessionOutcome === 'completed'
+
+// Pure: bangun pause-state co-pilot dari jejak tool terakhir.
+// Tab identity (tabId) milik extension (Task 2, worker lain) — null = baca
+// tab sesi via browser-read query kosong. Testable.
+export const capturePausedBrowser = (executedToolsList = [], sessionId = 'default', goal = '') => {
+  const list = Array.isArray(executedToolsList) ? executedToolsList : []
+  const lastBrowser = [...list].reverse().find((t) => String(t?.tool || '').startsWith('browser'))
+  const q = String(lastBrowser?.query || '')
+  const url = /^https?:\/\//i.test(q) ? q : ''
+  return { sessionId: String(sessionId ?? 'default'), tabId: null, url, goal: String(goal || '') }
+}
+
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp']
 
-// Batas keamanan loop ReAct fallback: nilai dasar sebelum disesuaikan via effortSystem
-const MAX_PLAN_STEPS = DEFAULT_PLAN_STEPS
 // Batas giliran tanpa kemajuan (bicara intermediate tanpa action) sebelum dipaksa selesai
 const MAX_NO_PROGRESS_STREAK = 3
 
@@ -103,18 +118,15 @@ export const useAbelinkPlan = ({
   abortControllerRef,
   setIsLoading,
   setIsAgentBusy,
-  runningSessionId,
   setRunningSessionId,
   runningSessionIds,
   setRunningSessionIds,
   addRunningSessionId,
   removeRunningSessionId,
   setMessage,
-  handleYoutubeSearch,
-  handleSearchCommand,
-  handleYoutubeSummary,
   handleMusic,
   getYoutubeData,
+  youtubeMusicTools,
   pushProcess,
   dismissProcess,
   activeTopic,
@@ -140,7 +152,7 @@ export const useAbelinkPlan = ({
                 const filtered = prev.filter((item) => !item.isThinking)
                 return [...filtered, { role: 'ai', content: msg, isThinking: true }]
               })
-            } catch (e) {}
+            } catch {}
           }
         } else {
           setChatData((prev) => {
@@ -153,6 +165,10 @@ export const useAbelinkPlan = ({
   }, [setChatData])
 
   const activeTaskObjectiveRef = useRef(null)
+  // Co-pilot HITL pause-state (bukan terminal): browser-ask menyimpan konteks
+  // {sessionId, tabId, url, goal}; giliran 'lanjutkan' resume via browser-read
+  // tab SAMA (tidak pernah re-navigate). Persisten antar giliran via ref.
+  const pausedBrowserRef = useRef(null)
   // Buffer intervensi user, dipisah per sesi agar arahan tidak bocor antar sesi
   // ({ [sessionId]: string[] }, kunci 'main' untuk sesi utama)
   const interventionBufferRef = useRef({})
@@ -418,7 +434,7 @@ export const useAbelinkPlan = ({
           if (existing && Array.isArray(existing)) {
             inMemorySessionData = [...existing]
           }
-        } catch (e) {}
+        } catch {}
       }
     }
 
@@ -429,7 +445,7 @@ export const useAbelinkPlan = ({
         if (sessionRecord?.workspaceRoot) {
           opts.workspaceRoot = sessionRecord.workspaceRoot
         }
-      } catch (e) {}
+      } catch {}
     }
 
     const targetSetChatData = (updater) => {
@@ -477,7 +493,9 @@ export const useAbelinkPlan = ({
     // biasa, JANGAN menyuntik summary tanpa pointer yang bisa diverifikasi.
     try {
       if ((config?.[0] || {}).sessionCompactionEnabled !== false) {
-        const { executeSessionCompaction } = await import('../../api/ai/sessionCompactor.js')
+        const { executeSessionCompaction, findMessageIndex } = await import(
+          '../../api/ai/sessionCompactor.js'
+        )
         const comp = await executeSessionCompaction({
           sessionId: String(activeSessionNum),
           messages: Array.isArray(sourceChatData) ? sourceChatData : [],
@@ -651,6 +669,16 @@ export const useAbelinkPlan = ({
       // FASE 4: AGENTIC REACT LOOP
       // ------------------------------------------------------------------------
       const loopMessages = [...chatSession]
+      // Co-pilot resume: user 'lanjutkan' + pause-state tersimpan -> injeksikan
+      // [RESUME] + instruksikan browser-read tab SAMA (jangan navigate ulang).
+      if (isBrowserResumeRequest(finalContent) && pausedBrowserRef.current) {
+        try {
+          const resume = buildBrowserResume(pausedBrowserRef.current)
+          pausedBrowserRef.current = null
+          loopMessages.push({ role: 'user', content: resume.observation })
+          contextMsgStr += `[RESUME BROWSER] User melanjutkan. WAJIB baca ulang tab yang SAMA via browser-read (query "${resume.resumeAction.query || '(tab sesi)'}"). DILARANG browser-navigate ulang.\n`
+        } catch (_) {}
+      }
       let isDone = false
       let stepCount = 0
       let noActionStreak = 0
@@ -712,7 +740,9 @@ export const useAbelinkPlan = ({
         conversational: !!(opts.conversational || isAutonomous || tgContext)
       })
       // Evidence source = executedToolsList (tool + fullResult per eksekusi).
-      let verifyReplanCount = 0
+      let _verifyReplanCount = 0
+      let consecutiveUnprovenClaims = 0
+      let lastToolsCountAtVerifyReplan = -1
       let blockedChallengeCount = 0
       // Observasi sintetis (repeat-cache / spiral / circuit) juga ditulis ke
       // file trajectory agar audit lengkap — best-effort, tanpa throw.
@@ -739,20 +769,40 @@ export const useAbelinkPlan = ({
       // Bench arch axis (ABELINK_BENCH_ARCH, default basic): vanilla = model-only
       // (no supervisor, no verify-gate replan); basic = thin supervisor
       // (trajectory log + stagnation ladder). Production default basic.
-      const benchArch = currentBenchArch()
+      const archPolicy = getArchPolicy(currentBenchArch())
       const supervisor =
-        benchArch === 'vanilla' || objectiveKind === 'conversational' || opts.disableTools
+        !archPolicy.supervisorEnabled || objectiveKind === 'conversational' || opts.disableTools
           ? null
           : createTrajectorySupervisor()
       let pendingSupervisorHint = null
       // ---- Budget skala-effort (effortSystem) -----------------------------
-      // Budget langkah dinamis mengikuti level effort (low: 8, medium: 16,
-      // high: 32, xhigh: 64 untuk task kompleks ~50 langkah, max: 128, ultra: 256).
-      const maxPlanSteps = resolvePlanStepBudget({
+      // Budget langkah dinamis mengikuti level effort (low: 8, medium: 24,
+      // high: 48, xhigh: 64 untuk task kompleks, max: 128, ultra: 256).
+      // Eskalasi satu-kali: saat budget habis tapi kerja produktif (tool
+      // sukses baru-baru ini), tambah +16 langkah sekali per sesi agar tugas
+      // besar tidak mati di tengah jalan. Dicatat di trajectory.
+      let maxPlanSteps = resolvePlanStepBudget({
         config,
         userInput,
         options: opts
       })
+      // L1 (/goal sebagai misi long-horizon): floor 48 langkah kecuali user
+      // override eksplisit via options. Misi goal tidak boleh mati di 8/16.
+      const GOAL_MODE_FLOOR = 48
+      const isGoalMode =
+        opts?.goalMode === true || /^\/goal(\s|$)/i.test(String(userInput || ''))
+      if (isGoalMode && !Number.isFinite(opts?.maxSteps) && !Number.isFinite(opts?.maxPlanSteps)) {
+        if (maxPlanSteps < GOAL_MODE_FLOOR) maxPlanSteps = GOAL_MODE_FLOOR
+      }
+      const BUDGET_EXTENSION_STEPS = 16
+      let budgetExtended = false
+      // ---- Mid-loop auto-compaction (Stream 1, Anthropic pattern) ---------
+      // loopMessages tumbuh monoton tiap giliran; tanpa pemicu mid-loop,
+      // misi long-horizon menabrak limit konteks sebelum budget langkah habis.
+      // shouldCompactLoop (75% MAX_SESSION_CHARS + cooldown 5 giliran) murni;
+      // eksekusi di bawah memakai executeSessionCompaction yang sudah ada.
+      let turnsSinceCompact = Infinity
+      let midloopCompactionCount = 0
       let execSteps =
         durableTask?.steps?.length > 0
           ? durableTask.steps.map((s) => ({ task: s.title }))
@@ -834,6 +884,11 @@ export const useAbelinkPlan = ({
 
         try {
           trajectoryLogTurnStart({ turn: stepCount, sessionId: activeSessionNum })
+          import('../../api/harness').then(({ logTurnStart }) => {
+            if (typeof logTurnStart === 'function') {
+              logTurnStart({ turn: stepCount, sessionId: activeSessionNum })
+            }
+          }).catch(() => {})
         } catch (_) {}
 
         // Stopping policy eksplisit (bukan cuma guard keras): model diberi tahu
@@ -850,30 +905,114 @@ export const useAbelinkPlan = ({
         // paksa-selesai di sini sehingga pemanggilan AI dilewati dan finish-path
         // normal (arsip, TTS, notifikasi) tetap berjalan.
         let decision = null
+        let budgetGrewThisTurn = false
         if (stepCount >= maxPlanSteps) {
-          console.warn(
-            `[useAbelinkPlan] Batas ${maxPlanSteps} langkah tercapai. Eksekusi dipaksa berhenti.`
-          )
-          decision = {
-            thought: 'Batas langkah tercapai...',
-            answer:
-              'Eksekusi aku hentikan karena sudah mencapai batas langkah keamanan. Lanjutkan sisanya secara manual, atau minta aku meneruskan lewat perintah baru.',
-            is_done: true,
-            action: null
+          // Safety net (Stream 2): budget habis tapi kerja produktif ->
+          // PERBARUI jendela (+48, dibatasi hard ceiling), bukan forced-failed.
+          // Mati jujur hanya bila stagnan (breaker buka / supervisor
+          // ABANDON-ESCALATE / tak ada sinyal kemajuan). shouldRenewBudget murni
+          // di planStepBudget.js (unit-testable); di sini hanya orkestrasi.
+          const { shouldRenewBudget, renewBudgetWindow } = await import('../../api/ai/planStepBudget').catch(() => ({}))
+          let renew = false
+          if (typeof shouldRenewBudget === 'function') {
+            try {
+              const lastSup = supervisor?.snapshot?.() || null
+              renew = shouldRenewBudget({
+                recentTools: executedToolsList.slice(-5),
+                verificationMoved: lastVerification === 'verified' || lastVerification === 'partially_verified',
+                breakerOpen: breaker.shouldSpiralStop(),
+                supervisorDirective: lastSup?.directive || 'continue'
+              })
+            } catch (_) { renew = false }
           }
-          activeTaskObjectiveRef.current = null
-          sessionOutcome = 'failed'
-          lastTerminalReason = 'step-budget-exhausted'
-          if (durableTask) {
-            await transitionTask(
-              durableTask.id,
-              'failed',
-              'Batas langkah keamanan tercapai.'
-            ).catch(() => {})
-            durableTask = null
-            durableActiveStep = null
+          if (renew && typeof renewBudgetWindow === 'function') {
+            const before = maxPlanSteps
+            const renewed = renewBudgetWindow(maxPlanSteps)
+            if (renewed > before) {
+              maxPlanSteps = renewed
+              budgetGrewThisTurn = true
+              console.warn(
+                `[useAbelinkPlan] Budget diperbarui ${before} -> ${maxPlanSteps}: kerja produktif, jendela baru.`
+              )
+              try {
+                trajectoryLogStep({
+                  step: stepCount,
+                  total: maxPlanSteps,
+                  description: `Budget diperbarui: ${before} -> ${maxPlanSteps} (kerja produktif, safety-net renewal).`,
+                  status: 'budget-renewed'
+                })
+              } catch (_) {}
+              loopMessages.push({
+                role: 'user',
+                content: `[SYSTEM / BUDGET] Jendela langkah diperbarui (${before} -> ${maxPlanSteps}) karena ada kemajuan terverifikasi. Selesaikan dengan konvergen: jawaban final ("answer", "is_done": true) atau aksi penutup.`
+              })
+            }
+            // renewed <= before (ceiling): tidak ada ruang tumbuh -> jatuh ke
+            // jalur stagnan di bawah (mati jujur, tanpa stall loop).
           }
-        }
+          if (stepCount >= maxPlanSteps && !decision && !budgetGrewThisTurn) {
+            if (!budgetExtended) {
+            // Fallback lama satu-kali (+16) bila helper tak tersedia / tak produktif
+            // tapi masih ada progres tool sukses baru-baru ini.
+            const recentTools = executedToolsList.slice(-5)
+            const hasRecentProgress =
+              recentTools.length > 0 &&
+              recentTools.some(
+                (t) => {
+                  const r = typeof t?.fullResult === 'string' ? t.fullResult : t?.resultString
+                  return typeof r === 'string' && !isFailure(r)
+                }
+              )
+            if (hasRecentProgress) {
+              budgetExtended = true
+              // Hard ceiling: fallback +16 pun tak boleh lolos 512.
+              const { SYSTEM_HARD_LIMITS } = await import('../../api/ai/effortSystem').catch(() => ({}))
+              const ceiling = Number(SYSTEM_HARD_LIMITS?.execution_step_budget) || 512
+              maxPlanSteps = Math.min(maxPlanSteps + BUDGET_EXTENSION_STEPS, ceiling)
+              console.warn(
+                `[useAbelinkPlan] Budget +${BUDGET_EXTENSION_STEPS} langkah (total ${maxPlanSteps}): progres terdeteksi, eskalasi satu-kali.`
+              )
+              try {
+                trajectoryLogStep({
+                  step: stepCount,
+                  total: maxPlanSteps,
+                  description: `Eskalasi budget satu-kali: +${BUDGET_EXTENSION_STEPS} langkah (total ${maxPlanSteps}) — progres tool terdeteksi.`,
+                  status: 'budget-extended'
+                })
+              } catch (_) {}
+              loopMessages.push({
+                role: 'user',
+                content: `[SYSTEM / BUDGET] Jatah langkah ditambah ${BUDGET_EXTENSION_STEPS} (total ${maxPlanSteps}) karena progres terdeteksi. Selesaikan dengan konvergen: jawaban final ("answer", "is_done": true) atau aksi penutup. DILARANG memulai eksplorasi baru.`
+              })
+            } else {
+              // Stagnan: mati jujur (satu-satunya jalur forced-stop tersisa).
+              budgetExtended = true // jangan evaluasi ulang tiap giliran sia-sia
+              console.warn(
+                `[useAbelinkPlan] Batas ${maxPlanSteps} langkah tercapai. Eksekusi dipaksa berhenti (stagnan).`
+              )
+              decision = {
+                thought: 'Batas langkah tercapai...',
+                answer:
+                  'Eksekusi aku hentikan karena sudah mencapai batas langkah keamanan tanpa kemajuan. Lanjutkan sisanya secara manual, atau minta aku meneruskan lewat perintah baru.',
+                is_done: true,
+                action: null
+              }
+              activeTaskObjectiveRef.current = null
+              sessionOutcome = 'failed'
+              lastTerminalReason = 'step-budget-exhausted'
+              if (durableTask) {
+                await transitionTask(
+                  durableTask.id,
+                  'failed',
+                  'Batas langkah keamanan tercapai tanpa kemajuan.'
+                ).catch(() => {})
+                durableTask = null
+                durableActiveStep = null
+              }
+            }
+          }
+        } // tutup: if (stepCount >= maxPlanSteps) — renewal di atas, stagnan di tengah
+        } // tutup: if (stepCount >= maxPlanSteps) luar
 
         // Loading thinking indicator
         targetSetChatData((prev) => {
@@ -908,7 +1047,7 @@ export const useAbelinkPlan = ({
               )
               .join('\n')
           }
-        } catch (e) {}
+        } catch {}
 
         // Request keputusan giliran ke AI (getNextAction) — dilewati bila sudah
         // dipaksa selesai oleh guard batas langkah di atas.
@@ -1091,7 +1230,7 @@ export const useAbelinkPlan = ({
           const memoryData = { ...decision.memory }
           memoryData.memory = memoryData.memory
             .trim()
-            .replace(/^[\\\"]+|[\\\"]+$/g, '')
+            .replace(/^[\\"]+|[\\"]+$/g, '')
             .replace(/\\n/g, '\n')
             .replace(/^\[.*?\]\s*/, '')
           memoryData.memory = `[${getCurrentTimeInfo()}] ${memoryData.memory}`
@@ -1228,7 +1367,15 @@ export const useAbelinkPlan = ({
           } else if (intent === INTENT.NEEDS_USER) {
             noActionStreak = 0
             sessionOutcome = 'needs_user'
-            activeTaskObjectiveRef.current = null
+            // Pause-state co-pilot (BUKAN terminal): simpan konteks browser agar
+            // giliran 'lanjutkan' resume via browser-read tab SAMA.
+            try {
+              pausedBrowserRef.current = capturePausedBrowser(
+                executedToolsList,
+                activeSessionNum,
+                decision?.objective || activeTaskObjectiveRef.current || userInput
+              )
+            } catch (_) {}
             lastTerminalReason = classification.reason || 'question-asked'
           } else if (intent === INTENT.SELF_TERMINATE) {
             // Agen menghentikan dirinya sendiri (di luar scope/bahaya).
@@ -1264,12 +1411,26 @@ export const useAbelinkPlan = ({
                 })
                 // vanilla skips the verify-gate: the model-only baseline trusts
                 // its own completion claim (A/B control arm, bench-only path).
-                if (gate.complete || benchArch === 'vanilla') {
-                  lastTerminalReason = `${classification.reason || 'explicit-done'}+verify:${benchArch === 'vanilla' ? 'skipped-vanilla' : gate.reason}`
+                if (gate.complete || !archPolicy.verifyGateEnabled) {
+                  lastTerminalReason = `${classification.reason || 'explicit-done'}+${archTerminalReason(archPolicy, gate.reason)}`
                   return true
                 }
-                if (gate.replan && verifyReplanCount < MAX_VERIFY_REPLANS) {
-                  verifyReplanCount++
+                const hasNewEvidenceSinceLastVerify = executedToolsList.length > lastToolsCountAtVerifyReplan
+                if (hasNewEvidenceSinceLastVerify) {
+                  consecutiveUnprovenClaims = 0
+                }
+                consecutiveUnprovenClaims++
+
+                if (
+                  gate.replan &&
+                  canAttemptEvidenceRecovery({
+                    consecutiveRejections: consecutiveUnprovenClaims,
+                    hasNewEvidence: false,
+                    maxConsecutiveRejections: MAX_VERIFY_REPLANS
+                  })
+                ) {
+                  _verifyReplanCount++
+                  lastToolsCountAtVerifyReplan = executedToolsList.length
                   pendingVerifyObservation = buildReplanObservation(evidence)
                   return false
                 }
@@ -1277,11 +1438,11 @@ export const useAbelinkPlan = ({
                 sessionOutcome = 'failed'
                 return false
               } catch (e) {
-                // The verifier is an additive layer: its own failure must not
-                // kill a legitimate completion claim.
+                // Phase B2: Fail-closed recovery — internal verifier error must never fake completion.
                 console.warn('[useAbelinkPlan] objectiveVerifier error:', e?.message)
-                lastTerminalReason = classification.reason || 'explicit-done'
-                return true
+                lastTerminalReason = `verification-error:${e?.message || 'internal'}`
+                sessionOutcome = 'failed'
+                return false
               }
             })()
             if (claimVerified) {
@@ -1552,6 +1713,27 @@ export const useAbelinkPlan = ({
             window.api.showNotification('Abelink', decision.answer)
           }
 
+          // Hitung balasan final sebelum dispatch state agar harness & trajectory logger
+          // membaca teks yang sama persis dengan yang dirender ke UI.
+          let finalOutput = decision.answer
+          if (isAutonomous && autonomousInitialMessage) {
+            finalOutput = `**${autonomousInitialMessage}**\n\n${decision.answer}`
+          }
+          // Self-terminate TANPA jawaban = tetap lapor "mengapa aku berhenti",
+          // jangan bubble kosong.
+          if (
+            sessionOutcome === 'self_terminated' &&
+            typeof finalOutput === 'string' &&
+            finalOutput.trim() === '' &&
+            (decision.thought || lastTerminalReason)
+          ) {
+            finalOutput = `Aku menghentikan diri sendiri (${lastTerminalReason || 'self-terminate'}). Alasan: ${decision.thought || lastDecision?.thought || 'di luar scope/berbahaya'}.`
+          }
+          // Guard konteks: model bisa mengembalikan answer null/kosong saat
+          // is_done. Menyimpan `content: undefined` meracuni seluruh consumer
+          // history (archiver turn-pair, awareness recentChat, prompt berikutnya).
+          if (typeof finalOutput !== 'string') finalOutput = ''
+
           // Tampilkan balasan final di chat UI (lewati jika benar-benar tidak ada jawaban)
           targetSetChatData((prev) => {
             const filtered = prev.filter((item) => {
@@ -1561,25 +1743,6 @@ export const useAbelinkPlan = ({
               return true
             })
 
-            let finalOutput = decision.answer
-            if (isAutonomous && autonomousInitialMessage) {
-              finalOutput = `**${autonomousInitialMessage}**\n\n${decision.answer}`
-            }
-            // Self-terminate TANPA jawaban = tetap lapor "mengapa aku berhenti",
-            // jangan bubble kosong.
-            if (
-              sessionOutcome === 'self_terminated' &&
-              typeof finalOutput === 'string' &&
-              finalOutput.trim() === '' &&
-              (decision.thought || lastTerminalReason)
-            ) {
-              finalOutput = `Aku menghentikan diri sendiri (${lastTerminalReason || 'self-terminate'}). Alasan: ${decision.thought || lastDecision?.thought || 'di luar scope/berbahaya'}.`
-            }
-            // Guard konteks: model bisa mengembalikan answer null/kosong saat
-            // is_done. Menyimpan `content: undefined` meracuni seluruh consumer
-            // history (archiver turn-pair, awareness recentChat, prompt berikutnya).
-            // Tanpa jawaban sama sekali -> tidak usah push bubble kosong.
-            if (typeof finalOutput !== 'string') finalOutput = ''
             if (finalOutput.trim() === '') {
               return filtered
             }
@@ -1682,7 +1845,11 @@ export const useAbelinkPlan = ({
                   userPrompt: userInput || lastUserPromptRef.current || '',
                   executedTools: executedToolsList,
                   finalAnswer: decision.answer || '',
-                  thought: decision.thought || ''
+                  thought: decision.thought || '',
+                  // Grounding: verdict verifier + kind objective, keduanya sudah
+                  // ada di scope ini. Caller hanya meneruskan, bukan menurunkan.
+                  verificationState: lastVerification,
+                  objectiveKind
                 })
                   .then((saved) => {
                     if (saved) {
@@ -1708,6 +1875,9 @@ export const useAbelinkPlan = ({
           const actionList = Array.isArray(decision.action) ? decision.action : [decision.action]
           const isBatch = actionList.length > 1
           const batchResults = []
+          // Batch halt (pola Anthropic/OpenAI halt-text): kegagalan pertama ->
+          // sisa batch TIDAK dieksekusi ({is_error:true, halt:true}).
+          let batchFailed = false
 
           for (let actionIdx = 0; actionIdx < actionList.length; actionIdx++) {
             const tool = actionList[actionIdx].tool
@@ -1715,6 +1885,20 @@ export const useAbelinkPlan = ({
 
             if (!tool) continue
             if (sessionAbortController.signal.aborted) break
+            if (isBatch && batchFailed) {
+              const haltMsg = `[${tool}] Not executed: an earlier action failed.`
+              batchResults.push(haltMsg)
+              executedToolsList.push({
+                tool,
+                query,
+                status: 'not-executed',
+                fullResult: haltMsg,
+                resultSummary: haltMsg,
+                is_error: true,
+                halt: true
+              })
+              continue
+            }
 
             // Anti-pengulangan: query IDENTIK 3x beruntun tidak dieksekusi lagi.
             // Kembalikan hasil terakhir (cache) + hitung sebagai kegagalan loop
@@ -1790,6 +1974,34 @@ export const useAbelinkPlan = ({
             // Circuit breaker sesi: sirkuit OPEN -> tool destruktif diblokir
             // (observasi jujur ke model, tanpa eksekusi). Reset tiap sesi baru.
             if (breaker.shouldBlock(tool)) {
+              // Supervisor tetap diberi tahu (gagal) agar upaya yang diblokir
+              // tercatat sebagai stagnasi, bukan lubang buta.
+              if (supervisor) {
+                try {
+                  const blockedObs = `[CIRCUIT-OPEN] Tool "${tool}" diblokir: ${breaker.failures()} gagal beruntun.`
+                  const supResult = supervisor.update({
+                    tool,
+                    query,
+                    success: false,
+                    verificationState: lastVerification,
+                    observation: blockedObs,
+                    result: blockedObs,
+                    stepsLeft: maxPlanSteps - stepCount,
+                    verifyGateActive: pendingVerifyObservation != null
+                  })
+                  if (supResult.hintText && !pendingSupervisorHint) {
+                    pendingSupervisorHint = supResult.hintText
+                    try {
+                      trajectoryLogStep({
+                        step: stepCount,
+                        total: maxPlanSteps,
+                        description: `supervisor:${supResult.directive}`,
+                        status: 'supervisor-directive'
+                      })
+                    } catch (_) {}
+                  }
+                } catch (_) {}
+              }
               loopMessages.push(
                 {
                   role: 'assistant',
@@ -1866,13 +2078,14 @@ export const useAbelinkPlan = ({
               requestCameraCapture,
               handleMusic,
               getYoutubeData,
+              youtubeMusicTools,
               targetPushProcess,
               abortControllerRef
             })
 
             if (!isNativeBacked(tool, query)) {
               try {
-                const ok = !String(execResult.resultString || '').startsWith('[ERROR]')
+                const ok = !isFailure(execResult.resultString || '')
                 import('../../api/harness')
                   .then(({ logToolCall }) =>
                     logToolCall({
@@ -1890,6 +2103,41 @@ export const useAbelinkPlan = ({
             }
 
             if (execResult.rejected) {
+              // Supervisor tetap diberi tahu (gagal): penolakan approval bukan
+              // malfungsi (breaker sengaja mengabaikannya di bawah) tapi tetap
+              // nol-kemajuan yang harus terlihat governance.
+              if (supervisor) {
+                try {
+                  const supResult = supervisor.update({
+                    tool,
+                    query,
+                    success: false,
+                    verificationState: lastVerification,
+                    observation: execResult.resultString || '',
+                    result: execResult.resultString || '',
+                    stepsLeft: maxPlanSteps - stepCount,
+                    verifyGateActive: pendingVerifyObservation != null
+                  })
+                  if (supResult.hintText && !pendingSupervisorHint) {
+                    pendingSupervisorHint = supResult.hintText
+                    try {
+                      trajectoryLogStep({
+                        step: stepCount,
+                        total: maxPlanSteps,
+                        description: `supervisor:${supResult.directive}`,
+                        status: 'supervisor-directive'
+                      })
+                    } catch (_) {}
+                  }
+                } catch (_) {}
+              }
+              if (isBatch) {
+                // Batch: hasil masuk combined observation di bawah (tanpa
+                // observasi tunggal agar tidak ganda).
+                batchFailed = true
+                batchResults.push(`[${tool}] ${execResult.resultString}`)
+                continue
+              }
               loopMessages.push(
                 {
                   role: 'assistant',
@@ -1903,10 +2151,17 @@ export const useAbelinkPlan = ({
               continue
             }
 
-            // Umpan sirkuit: gagal eksekusi ([ERROR]) menaikkan streak, sukses
-            // mereset. Penolakan approval BUKAN malfungsi -> diabaikan breaker
-            // (sudah di-continue di atas).
-            breaker.record(!String(execResult.resultString || '').startsWith('[ERROR]'))
+            // Umpan sirkuit: MALFUNGSI menaikkan streak, sukses mereset.
+            // Penolakan manusia ([DITOLAK-*], [DIBATALKAN], [BLOCKED]) dan
+            // hasil kosong ([NO-RESULTS]) = nol-kemajuan tapi BUKAN malfungsi
+            // (kontrak circuitBreaker: refusal is a decision). Mereka tetap
+            // tercatat gagal di supervisor/harness via isFailure — hanya
+            // breaker yang menyempit via isMalfunction.
+            breaker.record(!isMalfunction(execResult.resultString || ''))
+            // Batch halt: hasil gagal menghentikan sisa batch.
+            if (isBatch && isFailure(execResult.resultString || '')) {
+              batchFailed = true
+            }
 
             // Spiral stop: streak mencapai batas -> hentikan loop, beri model
             // satu giliran terakhir untuk jawaban final yang jujur.
@@ -1954,12 +2209,14 @@ export const useAbelinkPlan = ({
                 // Thin supervisor: Fase 1 fields only. hintText still flows
                 // only through the existing pendingSupervisorHint
                 // staged-observation path.
-                const toolSuccess = !String(execResult.resultString || '').startsWith('[ERROR]')
+                const toolSuccess = !isFailure(execResult.resultString || '')
                 const supResult = supervisor.update({
                   tool,
                   query,
                   success: toolSuccess,
                   verificationState: lastVerification,
+                  observation: execResult.resultString || '',
+                  result: execResult.resultString || '',
                   stepsLeft: maxPlanSteps - stepCount,
                   verifyGateActive: pendingVerifyObservation != null
                 })
@@ -2046,6 +2303,73 @@ export const useAbelinkPlan = ({
             pendingSupervisorHint = null
           }
 
+          // Mid-loop auto-compaction (Stream 1): konteks tumbuh tiap giliran;
+          // ringkas otomatis di 75% budget + cooldown, transparan ke model.
+          turnsSinceCompact++
+          try {
+            const { shouldCompactLoop, buildCompactedLoopWindow, MAX_SESSION_CHARS, MIDLOOP_PRUNE_EVERY_TURNS } =
+              await import('../../api/ai/sessionCompactor').catch(() => ({}))
+            if (typeof shouldCompactLoop === 'function') {
+              const chars = JSON.stringify(loopMessages).length
+              if (shouldCompactLoop({ chars, turnsSinceCompact })) {
+                // Backoff: hitung percobaan walau gagal, agar summarizer yang
+                // error tak dipanggil tiap giliran (retry setelah cooldown).
+                turnsSinceCompact = 0
+                try {
+                  const { executeSessionCompaction } = await import('../../api/ai/sessionCompactor').catch(() => ({}))
+                  if (typeof executeSessionCompaction === 'function') {
+                    const comp = await executeSessionCompaction({
+                      sessionId: String(activeSessionNum ?? 1),
+                      messages: loopMessages,
+                      activeConfig: config?.[0] || config || {},
+                      persist: false
+                    }).catch(() => null)
+                    const win = typeof buildCompactedLoopWindow === 'function'
+                      ? buildCompactedLoopWindow(loopMessages, comp)
+                      : null
+                    if (Array.isArray(win) && win.length > 0) {
+                      loopMessages.length = 0
+                      loopMessages.push(...win)
+                      midloopCompactionCount++
+                      try {
+                        trajectoryLogStep({
+                          step: stepCount,
+                          total: maxPlanSteps,
+                          description: `Mid-loop auto-compaction #${midloopCompactionCount} (${chars} chars).`,
+                          status: 'context-compacted'
+                        })
+                      } catch (_) {}
+                    }
+                  }
+                } catch (_) {
+                  // Summarizer gagal -> skip diam-diam, coba lagi setelah cooldown.
+                }
+              } else if (
+                typeof MAX_SESSION_CHARS === 'number' &&
+                typeof MIDLOOP_PRUNE_EVERY_TURNS === 'number' &&
+                stepCount % MIDLOOP_PRUNE_EVERY_TURNS === 0
+              ) {
+                // Prune ringan berkala (tanpa AI): hasil tool lama -> pointer.
+                // prune memetakan 1:1 (panjang sama) — sinyalnya susut CHAR,
+                // bukan susut jumlah. Hanya swap bila benar-benar menyusut.
+                try {
+                  const { pruneOldToolResultsInMemory } = await import('../../api/ai/sessionCompactor').catch(() => ({}))
+                  if (typeof pruneOldToolResultsInMemory === 'function') {
+                    const pruned = pruneOldToolResultsInMemory(loopMessages)
+                    if (Array.isArray(pruned)) {
+                      const before = JSON.stringify(loopMessages).length
+                      const after = JSON.stringify(pruned).length
+                      if (after < before) {
+                        loopMessages.length = 0
+                        loopMessages.push(...pruned)
+                      }
+                    }
+                  }
+                } catch (_) {}
+              }
+            }
+          } catch (_) {}
+
           continue
         }
 
@@ -2114,6 +2438,17 @@ export const useAbelinkPlan = ({
         lastUserPromptRef.current = ''
       }
 
+      // Auto-close sesi browser hanya saat loop selesai dengan 'completed'.
+      // Sidecar (browser:close -> finishSessionTask) menghormati flag
+      // autoCloseTabs dari sync-config; outcome lain menyimpan tab.
+      if (shouldAutoCloseBrowser(sessionOutcome) && window.api?.browserClose) {
+        try {
+          await window.api.browserClose(activeSessionNum === 1 ? 'default' : String(activeSessionNum))
+        } catch (e) {
+          console.warn('browserClose otomatis gagal:', e?.message)
+        }
+      }
+
       try {
         // Teardown sesi kontrol PC hanya bila model sempat membukanya di run
         // ini (flag renderer). Tutup-buta tiap run pernah memblokir 20s+.
@@ -2128,7 +2463,7 @@ export const useAbelinkPlan = ({
           if (markOsControlSession) markOsControlSession(activeSessionNum, false)
           window.api.executeNativeTool('os-control-close').catch(() => {})
         }
-      } catch (e) {}
+      } catch {}
     } catch (error) {
       // ------------------------------------------------------------------------
       // ERROR & ABORT RECOVERY
@@ -2158,7 +2493,7 @@ export const useAbelinkPlan = ({
         if (window.api && window.api.executeNativeTool) {
           window.api.executeNativeTool('os-control-close').catch(() => {})
         }
-      } catch (e) {}
+      } catch {}
 
       if (
         durableTaskForRecovery &&

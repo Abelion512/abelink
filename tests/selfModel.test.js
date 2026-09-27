@@ -12,7 +12,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 // Cari basename file secara rekursif di pohon source (abaikan node_modules/dist).
 const findFile = (dir, name) => {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name === 'node_modules' || e.name === 'dist-sidecar' || e.name === '.git') continue
+    if (e.name === 'node_modules' || e.name === 'dist-sidecar' || e.name === '.git' || e.name === 'target') continue
     const p = path.join(dir, e.name)
     if (e.isFile() && e.name === name) return true
     if (e.isDirectory() && findFile(p, name)) return true
@@ -28,7 +28,10 @@ describe('selfModel sources exist', () => {
     ...SELF_MODEL_SOURCES.LIMITS
   ]
   for (const { claim, source } of all) {
-    it(`sumber ada: ${source} (${claim.slice(0, 40)}…)`, () => {
+    // Timeout zamanikan: findFile memindai pohon source secara rekursif;
+    // di bawah beban suite paralel penuh bisa >5s (default) padahal logisnya
+    // deterministik. 20s memberi margin tanpa menyembunyikan regression.
+    it(`sumber ada: ${source} (${claim.slice(0, 40)}…)`, { timeout: 20000 }, () => {
       // Entri path ("a/b.js", "dir/") dicek langsung; basename dicari rekursif.
       const parts = source.split(',').map((s) => s.trim().split(/\s+/)[0])
       const hit = parts.some((s) => {

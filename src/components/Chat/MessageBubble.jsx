@@ -1,22 +1,22 @@
-import React, { useState } from 'react'
+import React from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeExternalLinks from 'rehype-external-links'
 import { CodeBlock } from './CodeBlock'
 import { ChoiceButtons } from './ChoiceButtons'
-import { Brain, ChevronRight, ExternalLink, Sparkles, Activity, Check } from 'lucide-react'
+import { Brain, ChevronRight, ExternalLink, FileText, Activity } from 'lucide-react'
+import { ToolCallsSection } from '../core/ToolCallsSection'
 
-export const MessageBubble = React.memo(({
+export const MessageBubble = React.memo(function MessageBubble({
   isUser,
   content,
   reasoning,
   sources = [],
   executedTools = [],
   isPlanConclusion = false,
-  isLearned = false,
+  _isLearned = false,
   choice = null
-}) => {
-  const [isCopied, setIsCopied] = useState(false)
+}) {
 
   const extractContent = (val) => {
     if (val == null) return { text: '', images: [] }
@@ -69,20 +69,20 @@ export const MessageBubble = React.memo(({
 
   const { text: stringContent, images: attachedImages } = extractContent(content)
 
-  const handleCopy = () => {
-    const textToCopy = stringContent || ''
-    if (!textToCopy) return
-    navigator.clipboard.writeText(textToCopy)
-    setIsCopied(true)
-    setTimeout(() => setIsCopied(false), 2000)
-  }
+  const toolCalls = (executedTools || []).map((step) => ({
+    tool_name: step.tool || step.task || 'tool',
+    tool_category: step.tool || step.task || '',
+    message: step.status === 'running' ? 'mengeksekusi...' : undefined,
+    inputs: step.query,
+    output: step.fullResult || step.resultSummary,
+  }))
 
   return (
     <div className="text-sm leading-relaxed custom-markdown flex flex-col gap-1 relative group">
       {/* Plan Conclusion Header */}
       {isPlanConclusion && (
         <div className="flex items-center gap-1.5 text-[11px] font-bold text-primary uppercase tracking-wider mb-2 border-b border-primary/20 pb-1.5 w-max">
-          <Sparkles className="w-3.5 h-3.5" />
+          <FileText className="w-3.5 h-3.5" />
           Kesimpulan Rencana
         </div>
       )}
@@ -119,47 +119,10 @@ export const MessageBubble = React.memo(({
               </div>
             )}
 
-            {/* Executed Tools List */}
-            {executedTools && executedTools.length > 0 && (
-              <div className="space-y-1.5 pt-1">
-                {executedTools.map((t, idx) => {
-                  const hasQuery = t.query !== undefined && t.query !== null && t.query !== ''
-                  const queryString =
-                    typeof t.query === 'string' ? t.query : JSON.stringify(t.query, null, 2)
-
-                  if (!hasQuery) {
-                    return (
-                      <div
-                        key={idx}
-                        className="text-[11px] font-mono bg-black/20 px-2.5 py-1.5 rounded-xl border border-white/[0.04] flex items-center gap-2 text-white/75"
-                      >
-                        <Check className="w-3 h-3 text-emerald-400 font-bold shrink-0" />
-                        <span className="text-primary font-medium">[{t.tool || t.task || 'tool'}]</span>
-                      </div>
-                    )
-                  }
-
-                  return (
-                    <details
-                      key={idx}
-                      className="group/query bg-black/20 rounded-xl border border-white/[0.04] overflow-hidden"
-                    >
-                      <summary className="list-none flex items-center justify-between px-2.5 py-1.5 cursor-pointer text-[11px] font-mono hover:bg-white/[0.03] transition-all select-none text-white/80">
-                        <div className="flex items-center gap-2">
-                          <Check className="w-3 h-3 text-emerald-400 font-bold shrink-0" />
-                          <span className="text-primary font-medium">[{t.tool || t.task || 'tool'}]</span>
-                        </div>
-                        <div className="flex items-center gap-1 opacity-50 group-hover/query:opacity-100">
-                          <span className="text-[10px] text-white/50 lowercase">query</span>
-                          <ChevronRight className="w-3 h-3 transition-transform duration-150 group-open/query:rotate-90" />
-                        </div>
-                      </summary>
-                      <div className="px-3 py-2 text-[10px] font-mono border-t border-white/[0.04] bg-black/30 text-white/75 whitespace-pre-wrap break-all max-h-36 overflow-y-auto custom-scrollbar">
-                        {queryString}
-                      </div>
-                    </details>
-                  )
-                })}
+            {/* Executed Tools (shared ToolCallsSection) */}
+            {toolCalls.length > 0 && (
+              <div className="pt-1 border-t border-white/5">
+                <ToolCallsSection toolCalls={toolCalls} defaultExpanded={false} />
               </div>
             )}
           </div>

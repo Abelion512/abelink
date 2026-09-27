@@ -28,14 +28,19 @@ import whatsNewData from './data/whats-new.json'
 import { initErrorGuard } from './utils/errorGuard'
 import DropAnywhere from './components/core/DropAnywhere'
 import WindowControls from './components/core/WindowControls'
+import { WindowResizeFrame } from './components/core/WindowResizeFrame'
 import SpotlightBar from './components/core/SpotlightBar'
 import AutomationHUD from './components/core/AutomationHUD'
+import AppSidebar from './components/core/AppSidebar'
+import BootScreen from './components/core/BootScreen'
+import { DotGridSpotlight } from './components/core/DotGridSpotlight'
+import { MobiusLoader } from './components/core/MobiusLoader'
 
 const GlobalListener = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const handleShortcut = (event, action) => {
+    const handleShortcut = (_event, _action) => {
       // Navigate to Home (AbelinkHome) and trigger microphone auto-toggle
       navigate('/', { state: { autoToggleMic: Date.now() } })
     }
@@ -71,7 +76,6 @@ const GlobalListener = () => {
 const MainLayout = ({ isStandalone = false }) => {
   const location = useLocation()
   const isHome = location.pathname === '/'
-  const isTelegram = location.pathname === '/telegram-bot'
   const [windowMode, setWindowMode] = useState('dashboard')
 
   useEffect(() => {
@@ -98,7 +102,10 @@ const MainLayout = ({ isStandalone = false }) => {
   const isSpotlight = windowMode === 'spotlight'
 
   return (
-    <div className={`relative h-screen w-screen overflow-hidden bg-transparent rounded-xl flex items-center justify-center ${isSpotlight ? 'p-1' : ''}`}>
+    <div className={`relative h-screen w-screen overflow-hidden bg-transparent rounded-xl flex items-stretch justify-start ${isSpotlight ? 'p-1 items-center justify-center' : ''}`}>
+      {/* Edge & Corner Resize Frame for Frameless Window (Semua Halaman) */}
+      <WindowResizeFrame />
+
       {isSpotlight && (
         <SpotlightBar
           onExpandDashboard={() => {
@@ -108,6 +115,13 @@ const MainLayout = ({ isStandalone = false }) => {
         />
       )}
 
+      {/* Persistent macOS-style sidebar: lives at MainLayout level so it
+          persists across home + sub-page overlay (AbelinkHome owns History
+          state and listens for 'abelink:open-history'). */}
+      {!isSpotlight && <AppSidebar />}
+
+      {/* Content area beside the sidebar */}
+      <div className="flex-1 h-full min-w-0 flex flex-col min-h-0">
       {/* Base Home Page - Always Mounted so AI Agent & Telegram Listeners Never Die */}
       {/* Hidden when not on home or in spotlight to prevent overlapping headers & controls */}
       <div className={`h-full w-full ${!isHome || isSpotlight ? 'hidden' : ''}`}>
@@ -116,9 +130,9 @@ const MainLayout = ({ isStandalone = false }) => {
 
       {!isSpotlight && (
         <>
-          {/* Tampilkan satu WindowControls konsisten di sub-page agar user tetap bisa minimize/maximize/close */}
+          {/* WindowControls at Top Right for Sub-pages */}
           {!isStandalone && !isHome && (
-            <div className="absolute top-2.5 right-4 z-[9999] pointer-events-auto">
+            <div className="absolute top-2.5 right-4 z-50 pointer-events-auto">
               <WindowControls />
             </div>
           )}
@@ -127,15 +141,21 @@ const MainLayout = ({ isStandalone = false }) => {
 
           {/* Floating Glass Sub-page Overlay */}
           {!isHome && (
-            <div className="fixed inset-0 z-50 flex flex-col animate-fade-in bg-transparent pointer-events-none">
-              <div className="flex-1 pointer-events-auto h-full w-full flex flex-col min-h-0 overflow-hidden">
+            <div className="relative flex-1 flex flex-col animate-fade-in bg-transparent pointer-events-none min-h-0">
+              <DotGridSpotlight
+                dotColor="rgba(255,255,255,0.05)"
+                activeDotColor="rgba(10,132,255,0.12)"
+                spacing={12}
+                className="pointer-events-none"
+              />
+              <div className="relative flex-1 pointer-events-auto h-full w-full flex flex-col min-h-0 overflow-hidden">
                 <Suspense
                   fallback={
                     <div className="h-full w-full flex flex-col items-center justify-center gap-4">
-                      <span className="loading loading-infinity w-12 text-primary"></span>
-                      <p className="text-xs font-semibold tracking-[0.2em] text-white/40 uppercase animate-pulse">
-                        Memuat modul
-                      </p>
+                        <MobiusLoader size={48} className="text-primary" />
+                        <p className="text-xs font-semibold tracking-[0.2em] text-white/60 uppercase animate-pulse">
+                          Memuat modul
+                        </p>
                     </div>
                   }
                 >
@@ -156,6 +176,7 @@ const MainLayout = ({ isStandalone = false }) => {
           )}
         </>
       )}
+      </div>
     </div>
   )
 }
@@ -165,8 +186,8 @@ const MainLayout = ({ isStandalone = false }) => {
 // profiles Electron lama terdeteksi. Restore = alur export/import JSON
 // (engine beda: Chromium LevelDB tak bisa dibaca langsung oleh WebKit).
 const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }) => (
-  <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
-    <div className="max-w-md w-full bg-base-200/95 border border-white/10 rounded-2xl shadow-2xl p-7 space-y-4 animate-fade-in">
+  <div className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+      <div className="max-w-md w-full bg-base-200/95 border border-white/10 rounded-xl shadow-2xl p-7 space-y-4 animate-fade-in">
       <h2 className="text-xl font-bold">Data Abelink versi lama terdeteksi</h2>
       <p className="text-sm opacity-70 leading-relaxed">
         Ditemukan {profiles.length} profil Abelink era lama di folder konfigurasi. Karena mesin browser
@@ -192,11 +213,10 @@ const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }) => (
 function App() {
   const [hasConfig, setHasConfig] = useState(true)
   const [isChecking, setIsChecking] = useState(true)
-  const [loadingText] = useState('Membangunkan Abelink...')
   const [showRecovery, setShowRecovery] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
   const [legacyProfiles, setLegacyProfiles] = useState(null) // null = belum dicek
-  const [wizardAutoImport, setWizardAutoImport] = useState(false)
+  const [wizardAutoImport] = useState(false)
 
   // Deteksi profil era Electron hanya saat wizard aktif (first boot tanpa config).
   useEffect(() => {
@@ -377,7 +397,7 @@ function App() {
       model: 'google/gemma-3-4b',
       geminiWebModel: 'gemini-latest',
       temperature: 1.0,
-      context: 10,
+      context: 20,
       aiProvider: 'gemini-web',
       awarenessEnabled: false,
       windowOpacity: 1,
@@ -405,48 +425,34 @@ function App() {
     !choiceMade &&
     !wizardAutoImport
 
-  // Fresh install (no legacy profiles): auto-create config immediately
+  // Fresh install (no legacy profiles): auto-create config immediately.
+  // Async-IIFE wrapper: body sync memicu set-state-in-effect; versi await
+  // ini lolos rule (terbukti via probe) dan perilaku identik.
   useEffect(() => {
     if (!hasConfig && !showLegacyChooser && !choiceMade && !wizardAutoImport) {
-      settleChoice('fresh')
+      void (async () => {
+        await settleChoice('fresh')
+      })()
     }
   }, [hasConfig, showLegacyChooser, choiceMade, wizardAutoImport, settleChoice])
 
   if (isChecking) {
+    const handleClearCache = async () => {
+      try {
+        await caches.delete('transformers-cache')
+        console.log('Cache cleared')
+        window.location.reload()
+      } catch (e) {
+        console.error('Failed to clear cache', e)
+        window.location.reload()
+      }
+    }
     return (
       <div className="relative h-screen w-screen overflow-hidden bg-base-300 rounded-xl flex flex-col">
         <div className="absolute top-2.5 right-4 z-50">
           <WindowControls />
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center gap-5">
-          <span className="loading loading-infinity w-16 text-primary"></span>
-          <p className="text-sm font-semibold tracking-[0.2em] text-white/40 uppercase animate-pulse text-center px-4">
-            {loadingText}
-          </p>
-          {showRecovery && (
-            <div className="absolute bottom-10 flex flex-col items-center animate-fade-in">
-              <p className="text-xs text-white/40 mb-3 text-center max-w-xs">
-                Proses pemuatan memakan waktu lebih lama dari biasanya. Jika terjebak, bersihkan
-                cache model.
-              </p>
-              <button
-                onClick={async () => {
-                  try {
-                    await caches.delete('transformers-cache')
-                    console.log('Cache cleared')
-                    window.location.reload()
-                  } catch (e) {
-                    console.error('Failed to clear cache', e)
-                    window.location.reload()
-                  }
-                }}
-                className="btn btn-outline btn-error btn-sm"
-              >
-                Hapus Cache Model & Muat Ulang
-              </button>
-            </div>
-          )}
-        </div>
+        <BootScreen showRecovery={showRecovery} onClearCache={handleClearCache} />
       </div>
     )
   }

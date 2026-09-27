@@ -180,8 +180,8 @@ describe('dua host prod/dev', () => {
     // Manifest menunjuk wrapper masing-masing + nama benar
     expect(JSON.parse(fs.readFileSync(prodManifest, 'utf8')).name).toBe(NATIVE_HOST_NAME)
     expect(JSON.parse(fs.readFileSync(devManifest, 'utf8')).name).toBe(NATIVE_HOST_NAME_DEV)
-    // Wrapper strict: prod menolak namespace dev, dev menolak prod
-    expect(prodBytes).toContain('flavor mismatch')
+    // Wrapper flavor-pinned: token path flavor sendiri di dalam skrip
+    expect(prodBytes).toContain('ABELINK_BRIDGE_FLAVOR=prod')
     expect(fs.readFileSync(rDev.host, 'utf8')).toContain('ABELINK_BRIDGE_FLAVOR=dev')
     expect(prodBytes).toContain('ABELINK_BRIDGE_FLAVOR=prod')
     // Idempoten kedua kali per flavor
@@ -190,7 +190,7 @@ describe('dua host prod/dev', () => {
     fs.rmSync(tmp, { recursive: true, force: true })
   })
 
-  it('strict cross-flavor: wrapper prod + request dev = ok:false', async () => {
+  it('flavor-pinned: wrapper prod melayani prod apa pun namespace-nya', async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-host-strict-'))
     const xdg = path.join(tmp, 'xdg')
     const prodBrand = path.join(xdg, 'abelink')
@@ -199,16 +199,11 @@ describe('dua host prod/dev', () => {
     const configHome = path.join(tmp, 'config')
     fs.mkdirSync(path.join(configHome, 'google-chrome'), { recursive: true })
     const r = await ensureNativeHost({ configHome, dataHome: prodBrand, sourceFile: { pathname: HOST } })
-    // Ekstrak blok python wrapper, jalankan langsung dengan XDG terisolasi
-    const src = fs.readFileSync(r.host, 'utf8')
-    const pyStart = src.indexOf("exec /usr/bin/python3 -c '")
-    const pyEnd = src.indexOf("\n'", pyStart)
-    const py = src.slice(pyStart + "exec /usr/bin/python3 -c '".length, pyEnd)
-    const pyFile = path.join(tmp, 'wrap.py')
-    fs.writeFileSync(pyFile, py)
+    // Regression: exec wrapper .sh persis seperti Chrome (bukan ekstrak blok py
+    // ke file — ekstraksi menyembunyikan bug shell-quoting single-quote).
     const run = (msg) =>
       new Promise((resolve, reject) => {
-        const child = spawn('/usr/bin/python3', [pyFile], {
+        const child = spawn(r.host, [], {
           env: { ...process.env, XDG_DATA_HOME: xdg, ABELINK_DATA_HOME: '' },
           stdio: ['pipe', 'pipe', 'ignore']
         })
@@ -226,7 +221,10 @@ describe('dua host prod/dev', () => {
         head.writeUInt32LE(body.length, 0)
         child.stdin.write(Buffer.concat([head, body]))
       })
-    expect(await run({ namespace: 'dev' })).toMatchObject({ ok: false })
+    // Flavor-pinned: wrapper hanya melayani flavornya; namespace diabaikan
+    // (background.js baru tak mengirimnya). Request dev-namespace ke host prod
+    // tetap dilayani dari file token prod.
+    expect(await run({ namespace: 'dev' })).toMatchObject({ ok: true, token: 'tok-prod-only' })
     expect(await run({})).toMatchObject({ ok: true, token: 'tok-prod-only' })
     fs.rmSync(tmp, { recursive: true, force: true })
   })

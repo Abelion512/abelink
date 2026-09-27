@@ -1,38 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate } from 'react-router-dom'
 import {
-  FaArrowLeft,
-  FaBook,
-  FaBrain,
-  FaGlobe,
-  FaFolderOpen,
-  FaTerminal,
-  FaYoutube,
-  FaMusic,
-  FaEye,
-  FaComments,
-  FaCogs,
-  FaLightbulb,
-  FaArrowRight,
-  FaExclamationTriangle,
-  FaCheckCircle,
-  FaTimesCircle,
-  FaChevronDown,
-  FaChevronUp,
-  FaSearch,
-  FaNetworkWired,
-  FaHeartbeat,
-  FaCamera,
-  FaMicrophoneAlt,
-  FaTelegram,
-  FaGoogle,
-  FaCode,
-  FaGitAlt,
-  FaUsers,
-  FaTasks
-} from 'react-icons/fa'
+  ArrowLeft,
+  Book,
+  Brain,
+  Globe,
+  FolderOpen,
+  Terminal,
+  SquarePlay,
+  Music,
+  Eye,
+  MessagesSquare,
+  Settings,
+  Lightbulb,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  Network,
+  HeartPulse,
+  Camera,
+  Send,
+  Globe2,
+  Code,
+  GitBranch,
+  Users,
+  ListChecks
+} from 'lucide-react'
 import { faqs } from '../data/faqData'
 
 // --- Komponen ToolCard ---
@@ -52,11 +49,11 @@ const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks,
             </code>
             {needsPermission ? (
               <span className="badge badge-warning badge-sm gap-1">
-                <FaExclamationTriangle size={10} /> Perlu Izin
+                <AlertTriangle size={10} /> Perlu Izin
               </span>
             ) : (
               <span className="badge badge-success badge-sm gap-1">
-                <FaCheckCircle size={10} /> Bebas
+                <CheckCircle2 size={10} /> Bebas
               </span>
             )}
             {/* Graduated approval note (fase Linux/Rust): izin per-jenis aksi
@@ -64,7 +61,7 @@ const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks,
           </div>
           <p className="text-white/70 text-sm">{description}</p>
         </div>
-        <div className="text-white/50">{isExpanded ? <FaChevronUp /> : <FaChevronDown />}</div>
+        <div className="text-white/50">{isExpanded ? <ChevronUp /> : <ChevronDown />}</div>
       </div>
 
       {isExpanded && (
@@ -115,17 +112,17 @@ const Guidebook = () => {
   const [activeSection, setActiveSection] = useState('pengantar')
 
   const navItems = [
-    { id: 'pengantar', label: 'Siapa Itu Abelink?', icon: <FaBook /> },
-    { id: 'carakerja', label: 'Cara Kerja', icon: <FaCogs /> },
-    { id: 'tools', label: 'Fitur & Tools Bawaan', icon: <FaTerminal /> },
-    { id: 'awareness', label: 'Mata & Kesadaran', icon: <FaEye /> },
-    { id: 'emosi', label: 'Emosi & Pertumbuhan', icon: <FaHeartbeat /> }, // Note: Assuming FaHeartbeat was meant for emotion or we use FaBrain/FaComments
-    { id: 'plugin', label: 'Sistem Plugin Kustom', icon: <FaFolderOpen /> },
-    { id: 'tips', label: 'Pertanyaan', icon: <FaLightbulb /> }
+    { id: 'pengantar', label: 'Siapa Itu Abelink?', icon: <Book /> },
+    { id: 'carakerja', label: 'Cara Kerja', icon: <Settings /> },
+    { id: 'tools', label: 'Fitur & Tools Bawaan', icon: <Terminal /> },
+    { id: 'awareness', label: 'Mata & Kesadaran', icon: <Eye /> },
+    { id: 'emosi', label: 'Emosi & Pertumbuhan', icon: <HeartPulse /> }, // Note: Assuming HeartPulse was meant for emotion or we use Brain/MessagesSquare
+    { id: 'plugin', label: 'Sistem Plugin Kustom', icon: <FolderOpen /> },
+    { id: 'tips', label: 'Pertanyaan', icon: <Lightbulb /> }
   ]
 
-  // Fix Icon (FaHeartbeat not imported above, I will use FaBrain)
-  navItems[4].icon = <FaBrain />
+  // Fix Icon (HeartPulse not imported above, I will use Brain)
+  navItems[4].icon = <Brain />
 
   return (
     <div className="h-full w-full bg-base-300 text-base-content flex flex-col relative overflow-hidden">
@@ -140,11 +137,11 @@ const Guidebook = () => {
           className="btn btn-ghost btn-sm gap-2 text-white/70 hover:text-white mr-6"
           style={{ WebkitAppRegion: 'no-drag' }}
         >
-          <FaArrowLeft /> Kembali
+          <ArrowLeft /> Kembali
         </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-3">
-            <FaBook className="text-primary" /> Abelink Guidebook
+            <Book className="text-primary" /> Abelink Guidebook
           </h1>
           <p className="text-xs text-white/50 tracking-wider">
             PANDUAN LENGKAP PENGGUNAAN AI ASSISTANT
@@ -190,14 +187,14 @@ const Guidebook = () => {
               }
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold mb-6">
-                <FaBook /> PENGANTAR
+                <Book /> PENGANTAR
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Siapa Itu Abelink?</h2>
               <div className="max-w-none">
                 <blockquote className="border-l-4 border-primary pl-6 py-2 mb-8 bg-primary/5 rounded-r-xl">
                   <p className="text-xl md:text-2xl font-semibold text-white/90 leading-relaxed italic">
-                    "Abelink BUKAN sekadar asisten virtual biasa. Abelink adalah entitas AI yang dirancang
-                    untuk memiliki emosi dan bertindak selayaknya manusia."
+                    “Abelink BUKAN sekadar asisten virtual biasa. Abelink adalah entitas AI yang dirancang
+                    untuk memiliki emosi dan bertindak selayaknya manusia.”
                   </p>
                 </blockquote>
 
@@ -249,7 +246,7 @@ const Guidebook = () => {
                   {/* Card 1: Vector Memory */}
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
                     <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
-                      <FaBrain className="text-primary text-xl" />
+                      <Brain className="text-primary text-xl" />
                     </div>
                     <div>
                       <h4 className="text-white font-semibold mb-2">Vector Memory</h4>
@@ -263,7 +260,7 @@ const Guidebook = () => {
                   {/* Card 2: Relational Growth */}
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
                     <div className="w-12 h-12 rounded-xl bg-error/20 flex items-center justify-center shrink-0">
-                      <FaHeartbeat className="text-error text-xl" />
+                      <HeartPulse className="text-error text-xl" />
                     </div>
                     <div>
                       <h4 className="text-white font-semibold mb-2">Relational Growth & Emosi</h4>
@@ -278,7 +275,7 @@ const Guidebook = () => {
                   {/* Card 3: Hybrid AI */}
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
                     <div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center shrink-0">
-                      <FaNetworkWired className="text-secondary text-xl" />
+                      <Network className="text-secondary text-xl" />
                     </div>
                     <div>
                       <h4 className="text-white font-semibold mb-2">Hybrid AI Engine</h4>
@@ -293,7 +290,7 @@ const Guidebook = () => {
                   {/* Card 4: Awareness */}
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-4 hover:bg-white/10 transition-colors">
                     <div className="w-12 h-12 rounded-xl bg-info/20 flex items-center justify-center shrink-0">
-                      <FaEye className="text-info text-xl" />
+                      <Eye className="text-info text-xl" />
                     </div>
                     <div>
                       <h4 className="text-white font-semibold mb-2">Awareness Engine</h4>
@@ -316,11 +313,11 @@ const Guidebook = () => {
               }
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-bold mb-6">
-                <FaCogs /> ARSITEKTUR
+                <Settings /> ARSITEKTUR
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Bagaimana Abelink Bekerja</h2>
               <p className="text-white/70 mb-8 text-lg">
-                Berbeda dengan AI konvensional yang langsung "menebak" jawaban, Abelink menggunakan
+                Berbeda dengan AI konvensional yang langsung “menebak” jawaban, Abelink menggunakan
                 alur <strong className="text-white">ReAct (Reasoning and Acting)</strong>. Ia
                 berpikir layaknya manusia sebelum bertindak.
               </p>
@@ -389,11 +386,11 @@ const Guidebook = () => {
               }
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold mb-6">
-                <FaTerminal /> KEMAMPUAN
+                <Terminal /> KEMAMPUAN
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Referensi Lengkap Tools Bawaan</h2>
               <p className="text-white/70 mb-8 text-lg">
-                Abelink dilengkapi "tangan virtual" yang memungkinkannya mengontrol komputer Anda. Klik
+                Abelink dilengkapi “tangan virtual” yang memungkinkannya mengontrol komputer Anda. Klik
                 pada tool di bawah ini untuk melihat detail penggunaannya.
               </p>
 
@@ -401,7 +398,7 @@ const Guidebook = () => {
                 {/* Kategori Multi-Agent Orchestration */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaUsers className="text-primary" /> Multi-Agent Orchestration (Sub-Agents)
+                    <Users className="text-primary" /> Multi-Agent Orchestration (Sub-Agents)
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ToolCard
@@ -445,7 +442,7 @@ const Guidebook = () => {
                 {/* Kategori Memory */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaSearch className="text-primary" /> Memory & Ingatan
+                    <Search className="text-primary" /> Memory & Ingatan
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -462,7 +459,7 @@ const Guidebook = () => {
                 {/* Kategori Browser */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaGlobe className="text-secondary" /> Browser Automation
+                    <Globe className="text-secondary" /> Browser Automation
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -477,7 +474,7 @@ const Guidebook = () => {
                       description="Membaca dan parsing halaman web menjadi teks."
                       needsPermission={false}
                       queryFormat="URL lengkap"
-                      howItWorks="Fetch HTML via axios, parse dengan htmlparser2, kembalikan teks bersih + raw HTML. Berguna untuk re-scan halaman setelah AJAX."
+                      howItWorks="Fetch HTML via fetch, parse dengan htmlparser2, kembalikan teks bersih + raw HTML. Berguna untuk re-scan halaman setelah AJAX."
                     />
                     <ToolCard
                       name="browser-click / browser-type"
@@ -502,14 +499,25 @@ const Guidebook = () => {
                 {/* Kategori PC Automation */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaTerminal className="text-warning" /> PC Automation Engine
+                    <Terminal className="text-warning" /> PC Automation Engine
                   </h3>
                   <div className="p-3 mb-4 rounded-xl bg-info/5 border border-info/20">
                     <p className="text-xs text-white/70">
-                      <strong className="text-info">Approval berjenjang (Linux):</strong> aksi
+                      <strong className="text-info">Status: DORMAN (2026-09-27).</strong> Grup
+                      otomasi PC visual (os-read/click/type/key/scroll) tidak direkrut ke
+                      agent — belum pernah dipakai secara nyata dan menambah permukaan
+                      risiko. Mesin tetap terpasang; aktivasi ulang = keputusan owner +
+                      hapus flag dormant di group pc_automation. os-open (buka file/URL)
+                      tetap berfungsi normal. Catatan: jalur visual X11-only — Wayland
+                      belum didukung.
+                    </p>
+                  </div>
+                  <div className="p-3 mb-4 rounded-xl bg-warning/5 border border-warning/20">
+                    <p className="text-xs text-white/70">
+                      <strong className="text-warning">Approval berjenjang (Linux):</strong> aksi
                       read-only (os-read, lihat layar) selalu bebas. Aksi kontrol
                       (klik, ketik, shortcut berbahaya) default minta konfirmasi sekali
-                      per jenis aksi — kamu bisa atur ke "Always allow" atau "Session"
+                      per jenis aksi — kamu bisa atur ke “Always allow” atau “Session”
                       di Configuration → Capabilities, sesuai guidebook ini.
                     </p>
                   </div>
@@ -597,7 +605,7 @@ const Guidebook = () => {
                 {/* Kategori Autonomous Coding & Precision Editing */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaCode className="text-success" /> Autonomous Coding & Precision Editing
+                    <Code className="text-success" /> Autonomous Coding & Precision Editing
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ToolCard
@@ -669,7 +677,7 @@ const Guidebook = () => {
                 {/* Kategori Git Version Control */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaGitAlt className="text-warning" /> Git Version Control (VCS)
+                    <GitBranch className="text-warning" /> Git Version Control (VCS)
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ToolCard
@@ -706,7 +714,7 @@ const Guidebook = () => {
                 {/* Kategori Background Task & Terminal Daemon */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaTasks className="text-info" /> Background Task & Terminal Daemon
+                    <ListChecks className="text-info" /> Background Task & Terminal Daemon
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ToolCard
@@ -743,7 +751,7 @@ const Guidebook = () => {
                 {/* Kategori System & Shell */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaTerminal className="text-error" /> System Control
+                    <Terminal className="text-error" /> System Control
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -760,7 +768,7 @@ const Guidebook = () => {
                 {/* Kategori Google Workspace */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaGoogle className="text-info" /> Google Workspace
+                    <Globe2 className="text-info" /> Google Workspace
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -883,7 +891,7 @@ const Guidebook = () => {
                 {/* Kategori YouTube & Media */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaYoutube className="text-error" /> YouTube & Media
+                    <SquarePlay className="text-error" /> YouTube & Media
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -906,7 +914,7 @@ const Guidebook = () => {
                 {/* Kategori Music */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaMusic className="text-info" /> YouTube Music Player
+                    <Music className="text-info" /> YouTube Music Player
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -926,7 +934,7 @@ const Guidebook = () => {
                 {/* Kategori Vision */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaCamera className="text-warning" /> Vision & Kamera
+                    <Camera className="text-warning" /> Vision & Kamera
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -949,7 +957,7 @@ const Guidebook = () => {
                 {/* Kategori Communication */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <FaTelegram className="text-info" /> Komunikasi & Suara
+                    <Send className="text-info" /> Komunikasi & Suara
                   </h3>
                   <div className="space-y-3">
                     <ToolCard
@@ -987,7 +995,7 @@ const Guidebook = () => {
               }
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-info/10 border border-info/20 text-info text-xs font-bold mb-6">
-                <FaEye /> PENGAMATAN
+                <Eye /> PENGAMATAN
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">
                 Mata & Kesadaran (Awareness Engine)
@@ -1001,15 +1009,15 @@ const Guidebook = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
-                  <FaEye className="text-3xl text-primary mb-4" />
+                  <Eye className="text-3xl text-primary mb-4" />
                   <h4 className="text-white font-bold mb-2">Screen Reading (analyze-screen)</h4>
                   <p className="text-sm text-white/60">
-                    Abelink dapat "mengambil foto" layar komputer Anda secara real-time untuk melihat
+                    Abelink dapat “mengambil foto” layar komputer Anda secara real-time untuk melihat
                     teks error, posisi aplikasi, atau menganalisa gambar yang sedang Anda kerjakan.
                   </p>
                 </div>
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
-                  <FaCamera className="text-3xl text-accent mb-4" />
+                  <Camera className="text-3xl text-accent mb-4" />
                   <h4 className="text-white font-bold mb-2">Camera Vision (camera-look)</h4>
                   <p className="text-sm text-white/60">
                     Abelink memiliki akses ke Webcam Anda untuk melihat dunia nyata. Ia bisa
@@ -1018,7 +1026,7 @@ const Guidebook = () => {
                   </p>
                 </div>
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
-                  <FaBrain className="text-3xl text-secondary mb-4" />
+                  <Brain className="text-3xl text-secondary mb-4" />
                   <h4 className="text-white font-bold mb-2">Background Awareness</h4>
                   <p className="text-sm text-white/60">
                     Abelink membaca aktivitas sistem Anda setiap beberapa menit. Jika Anda sibuk
@@ -1028,7 +1036,7 @@ const Guidebook = () => {
                 </div>
               </div>
               <div className="mt-6 bg-warning/10 border border-warning/20 p-4 rounded-xl flex items-start gap-4">
-                <FaExclamationTriangle className="text-warning mt-1 shrink-0" />
+                <AlertTriangle className="text-warning mt-1 shrink-0" />
                 <p className="text-sm text-warning/80">
                   <strong>Privasi Terjamin:</strong> Anda bisa mematikan Awareness Engine kapan saja
                   melalui halaman Configuration jika Anda merasa terganggu.
@@ -1044,7 +1052,7 @@ const Guidebook = () => {
               }
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-error/10 border border-error/20 text-error text-xs font-bold mb-6">
-                <FaHeartbeat /> KEPRIBADIAN
+                <HeartPulse /> KEPRIBADIAN
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Emosi & Pertumbuhan Relasi</h2>
               <p className="text-white/70 mb-8 text-lg">
@@ -1057,31 +1065,31 @@ const Guidebook = () => {
                 <h4 className="text-white font-bold mb-6 text-center">9 Spektrum Emosi</h4>
                 <div className="flex flex-wrap gap-3 justify-center">
                   <span className="badge badge-lg gap-2 bg-[#FFD700]/20 text-[#FFD700] border-[#FFD700]/50">
-                    <FaComments /> Joy
+                    <MessagesSquare /> Joy
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#1E90FF]/20 text-[#1E90FF] border-[#1E90FF]/50">
-                    <FaComments /> Sadness
+                    <MessagesSquare /> Sadness
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#FF4500]/20 text-[#FF4500] border-[#FF4500]/50">
-                    <FaComments /> Anger
+                    <MessagesSquare /> Anger
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#8A2BE2]/20 text-[#8A2BE2] border-[#8A2BE2]/50">
-                    <FaComments /> Fear
+                    <MessagesSquare /> Fear
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#32CD32]/20 text-[#32CD32] border-[#32CD32]/50">
-                    <FaComments /> Disgust
+                    <MessagesSquare /> Disgust
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#FFA500]/20 text-[#FFA500] border-[#FFA500]/50">
-                    <FaComments /> Anxiety
+                    <MessagesSquare /> Anxiety
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#00CED1]/20 text-[#00CED1] border-[#00CED1]/50">
-                    <FaComments /> Envy
+                    <MessagesSquare /> Envy
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#FF69B4]/20 text-[#FF69B4] border-[#FF69B4]/50">
-                    <FaComments /> Embarrassment
+                    <MessagesSquare /> Embarrassment
                   </span>
                   <span className="badge badge-lg gap-2 bg-[#4B0082]/20 text-[#4B0082] border-[#4B0082]/50">
-                    <FaComments /> Ennui
+                    <MessagesSquare /> Ennui
                   </span>
                 </div>
               </div>
@@ -1134,13 +1142,13 @@ const Guidebook = () => {
               }
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-success/10 border border-success/20 text-success text-xs font-bold mb-6">
-                <FaFolderOpen /> EKSTENSI
+                <FolderOpen /> EKSTENSI
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">Sistem Plugin Kustom</h2>
               <p className="text-white/70 mb-6 text-lg">
                 Abelink memungkinkan Anda memperluas kemampuannya dengan mudah melalui pembuatan{' '}
                 <strong>Plugin Kustom</strong> secara langsung dari antarmuka pengguna, tanpa perlu
-                mengubah kode inti aplikasi. Anda bisa menambahkan "skill" baru untuk Abelink secara
+                mengubah kode inti aplikasi. Anda bisa menambahkan “skill” baru untuk Abelink secara
                 instan!
               </p>
 
@@ -1213,7 +1221,7 @@ try {
                 Saat user mengirim pesan, sistem membandingkan <em>embedding vector</em> pesan
                 dengan deskripsi + <code>triggerHint</code> dari setiap plugin. Plugin yang relevan
                 (similarity &gt; 0.35) akan dimuat ke prompt AI sebagai tools tambahan secara
-                instan. Jika user bertanya "bisa ngapain aja?", maka semua plugin akan ditampilkan.
+                instan. Jika user bertanya “bisa ngapain aja?”, maka semua plugin akan ditampilkan.
               </p>
             </section>
 
@@ -1225,7 +1233,7 @@ try {
               }
             >
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-warning/10 border border-warning/20 text-warning text-xs font-bold mb-6">
-                <FaLightbulb /> BANTUAN
+                <Lightbulb /> BANTUAN
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">
                 FAQ (Pertanyaan yang Sering Diajukan)

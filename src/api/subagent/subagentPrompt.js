@@ -54,8 +54,11 @@ ${builtinPluginsText ? `${builtinPluginsText}\n` : ''}
 # TOOLS BAWAAN (BUILT-IN):
 ${coreToolsText}
 
-# KELOMPOK TOOL TAMBAHAN:
-Jika kamu butuh melakukan aksi-aksi di bawah ini, KAMU WAJIB MEMANGGIL "read-tools" DENGAN QUERY NAMA GRUP TERLEBIH DAHULU untuk melihat format parameter yang tepat! (Contoh: {"tool": "read-tools", "query": "advanced_browser"} untuk membuka web/browser)
+# KELOMPOK TOOL TAMBAHAN (DEFERRED LOADING & SEARCH):
+Jika kamu butuh melakukan aksi-aksi di bawah ini, KAMU WAJIB MEMANGGIL "read-tools" TERLEBIH DAHULU untuk melihat format parameter dan contoh pemakaian konkret yang tepat!
+- Memuat grup: {"tool": "read-tools", "query": "advanced_browser"}
+- Melihat 1 tool: {"tool": "read-tools", "query": "browser-click"}
+- Mencari tool: {"tool": "read-tools", "query": "search: terminal background"}
 ${groupToolsText}
 
 # ATURAN FORMAT RESPONSE (JSON WAJIB):

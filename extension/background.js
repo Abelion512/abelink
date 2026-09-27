@@ -76,6 +76,10 @@ const SETTLE_MS = 2000
 
 let running = false
 let pollAbort = null
+// loopActive = guard reentrancy: keepalive alarm + tryAutoResume + start
+// bisa memanggil loop() bersamaan (pollAbort==null juga benar saat sleep
+// sehat) -> dua loop /poll berebut perintah yang sama. Satu loop saja.
+let loopActive = false
 
 // Log kunci agar console service worker jadi dasbor mini (bukan kuburan):
 // versi saat bangun, handshake, perintah masuk + hasil, error poll.
@@ -177,6 +181,9 @@ async function apiPost(cfg, path, body) {
 
 // ------------------------------------------------------------------ loop
 async function loop() {
+  if (loopActive) return // reentrancy guard (keepalive vs resume race)
+  loopActive = true
+  try {
   while (running) {
     let cfg
     try {
@@ -193,6 +200,13 @@ async function loop() {
         }
       )
       if (res.status === 401) {
+        // E2: baca sebab server bila ada (token-stale = helper bisa pulihkan).
+        let serverReason = ''
+        try {
+          serverReason = (await res.clone().json())?.reason || ''
+        } catch {
+          /* body bukan JSON */
+        }
         // Token berubah (restart sidecar). Coba refresh senyap via helper lokal
         // dengan namespace port aktif (tanpa ini token prod dipakai ke dev).
         let fresh = await getTokenViaNativeHost(cfg.port)
@@ -211,9 +225,11 @@ async function loop() {
           continue
         }
         running = false
-        await chrome.storage.session.set({
-          lastError: `Token ditolak (401). Helper: ${fresh.detail || 'tidak ada'}. Mencoba auto-reconnect berkala...`
-        })
+        const hint =
+          serverReason === 'token-stale'
+            ? 'Token basi — helper tak memberi token baru. Restart Abelink / picu browser:* sekali, lalu Connect.'
+            : `Helper: ${fresh.detail || 'tidak ada'}. Mencoba auto-reconnect berkala...`
+        await chrome.storage.session.set({ lastError: `Token ditolak (401). ${hint}` })
         scheduleAutoResume(5000)
         break
       }
@@ -231,6 +247,9 @@ async function loop() {
     } finally {
       pollAbort = null
     }
+  }
+  } finally {
+    loopActive = false
   }
 }
 
@@ -334,9 +353,16 @@ async function runCommand(cfg, command) {
   delete inflight[sessionKey]
   // Navigasi menghapus DOM injeksi: veil dipasang ulang otomatis (best-effort,
   // tidak boleh menggagalkan tool). Perintah overlay sendiri dikecualikan.
+  // Co-pilot: sesi yang menunggu user TIDAK dipasangi veil (user butuh
+  // tabnya) — hanya pill pasif non-blocking. Salinan inline shouldOverlay
+  // dari extension/overlay-policy.mjs.
   if (result?.ok && ['navigate', 'act', 'read-dom', 'show'].includes(command.type)) {
     if (!(command.type === 'act' && String(command.payload?.action || '').startsWith('overlay-'))) {
-      await ensureOverlay(sessionKey)
+      if (!overlayStopped[sessionKey] && !awaitingUser[sessionKey]) {
+        await ensureOverlay(sessionKey)
+      } else if (awaitingUser[sessionKey]) {
+        await ensurePassivePill(sessionKey)
+      }
     }
   }
   console.log(`[Abelink] hasil ${command.type}: ${result.ok ? 'ok' : `gagal (${result.error || 'tanpa pesan'})`}`)
@@ -372,8 +398,16 @@ const activeGroups = {}
 // Nama task terakhir per sesi (untuk grouping tab navigate tanpa label task).
 const sessionTask = {}
 
-// Tab primer per sesi: SEMUA navigate dalam satu task memakai ulang tab ini
-// (anti ledakan tab). Tab baru hanya untuk task baru / perintah eksplisit.
+// URL fokus tercatat per sesi: di-set tiap navigate sukses. Bila tab primer
+// URL-nya berubah tanpa navigate tercatat (user menavigasi manual), tab
+// ditolak agar caller recovery jujur (bukan membaca tab yang salah).
+const sessionFocusedUrl = {}
+
+// Tab primer per sesi: SATU tab primer per sessionId (single primary per
+// session), tetapi grup sesi boleh menampung N tab (multi-tab per grup,
+// budget MAX_TABS_PER_SESSION). SEMUA navigate dalam satu task memakai ulang
+// tab primer ini (anti ledakan tab). Tab baru hanya untuk task baru / perintah
+// eksplisit / guard anti-curi (tab yatim yang ternyata milik sesi lain).
 const primaryTabs = {}
 
 // ------------------------------------------------- overlay lock (Fase A)
@@ -385,23 +419,28 @@ const OVERLAY_STOP_MSG = (s) =>
 // Flag stop per sesi + perintah inflight per sesi (di-resolve saat Stop diklik).
 const overlayStopped = {}
 const inflight = {}
+// Co-pilot HITL: sesi yang menunggu user — veil TIDAK dipasang (user butuh
+// tabnya), hanya pill pasif non-blocking. Bentuk: {reason, tabId, url, goal, since}.
+const awaitingUser = {}
 
 async function saveSessionState() {
   try {
     await chrome.storage.session.set({
       _primaryTabs: primaryTabs,
       _activeGroups: activeGroups,
-      _sessionTask: sessionTask
+      _sessionTask: sessionTask,
+      _sessionFocusedUrl: sessionFocusedUrl
     })
   } catch {}
 }
 
 async function loadSessionState() {
   try {
-    const data = await chrome.storage.session.get(['_primaryTabs', '_activeGroups', '_sessionTask'])
+    const data = await chrome.storage.session.get(['_primaryTabs', '_activeGroups', '_sessionTask', '_sessionFocusedUrl'])
     if (data._primaryTabs) Object.assign(primaryTabs, data._primaryTabs)
     if (data._activeGroups) Object.assign(activeGroups, data._activeGroups)
     if (data._sessionTask) Object.assign(sessionTask, data._sessionTask)
+    if (data._sessionFocusedUrl) Object.assign(sessionFocusedUrl, data._sessionFocusedUrl)
   } catch {}
 }
 
@@ -424,7 +463,8 @@ async function getPrimaryTab(sessionId) {
   if (id == null) return null
   try {
     const tab = await chrome.tabs.get(id)
-    if (!tab) {
+    // Primer non-http (chrome://, about:) tidak bisa di-inject: buang.
+    if (!tab || !tab.url?.startsWith('http')) {
       delete primaryTabs[sessionId]
       await saveSessionState()
       return null
@@ -440,7 +480,14 @@ async function getPrimaryTab(sessionId) {
 async function targetTabForSession(sessionId = 'default') {
   await loadSessionState()
   const primary = await getPrimaryTab(sessionId)
-  if (primary && primary.url?.startsWith('http')) return primary
+  // Tolak primer yang URL-nya berubah dari focusedUrl sesi (salinan inline
+  // resolveSessionTab dari extension/tab-identity.mjs; abaikan hash).
+  const focused = sessionFocusedUrl[sessionId] ?? null
+  const stripHash = (u) => String(u || '').split('#')[0]
+  if (primary && primary.url?.startsWith('http')) {
+    if (focused == null || stripHash(primary.url) === stripHash(focused)) return primary
+    console.warn(`[Abelink] tolak tab primer sesi "${sessionId}": URL berubah (${primary.url} != ${focused})`)
+  }
 
   // Cari tab yang berada di dalam grup Abelink untuk sesi ini (isolasi privasi)
   const group = activeGroups[sessionId]
@@ -450,6 +497,7 @@ async function targetTabForSession(sessionId = 'default') {
       const valid = groupTabs.find((t) => t.url?.startsWith('http'))
       if (valid) {
         primaryTabs[sessionId] = valid.id
+        if (valid.url?.startsWith('http')) sessionFocusedUrl[sessionId] = valid.url
         await saveSessionState()
         return valid
       }
@@ -596,41 +644,66 @@ async function closeActiveGroupTabs(sessionId) {
 // agar setiap tab yang dibuka Abelink langsung ber-grup. Error DILEMPAR ke
 // caller (dilaporkan di hasil, bukan ditelan) - pelajaran 7 tab yatim.
 async function groupTabIntoSession(sessionId, tabId, task, status = 'acting') {
+  const sid = String(sessionId ?? 'default')
+  // Anti-curi: tab yang sudah bergrup milik sesi LAIN jangan ditarik paksa
+  // (chrome.tabs.group akan mencabutnya dari grup pemilik). Buat tab sendiri
+  // (pola createBoundedTab) sebagai gantinya; caller memakai tabId efektif.
+  let cur = null
+  try {
+    cur = await chrome.tabs.get(tabId)
+  } catch {
+    cur = null
+  }
+  const gid = cur?.groupId
+  if (gid != null && gid !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+    const owner = Object.entries(activeGroups).find(([, g]) => g && g.groupId === gid)
+    if (owner && String(owner[0]) !== sid) {
+      const fallbackUrl = cur?.url?.startsWith('http') ? cur.url : 'about:blank'
+      const created = await createBoundedTab(sid, fallbackUrl)
+      const ownLabel = task || sessionTask[sid] || 'browser'
+      const ownGroupId = await ensureGroup(sid, ownLabel, status, false, created.tab.id)
+      if (ownGroupId == null) throw new Error('grup sesi tidak bisa dibuat (tidak ada tab anchor)')
+      await chrome.tabs.group({ tabIds: [created.tab.id], groupId: ownGroupId })
+      primaryTabs[sid] = created.tab.id
+      await saveSessionState()
+      return { groupId: ownGroupId, tabId: created.tab.id, replaced: true }
+    }
+  }
   const label = task || sessionTask[sessionId] || 'browser'
   const groupId = await ensureGroup(sessionId, label, status, false, tabId)
   if (groupId == null) throw new Error('grup sesi tidak bisa dibuat (tidak ada tab anchor)')
   await chrome.tabs.group({ tabIds: [tabId], groupId })
-  return groupId
-}
-
-async function updateGroupStatus(sessionId, task, status) {
-  const group = activeGroups[sessionId]
-  if (!group) return
-  await chrome.tabGroups.update(group.groupId, { title: groupTitle(status, task) })
+  return { groupId, tabId, replaced: false }
 }
 
 // ------------------------------------------------------------------ tabs
-async function activeOrFindTab(urlFilter) {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  if (tab && tab.url?.startsWith('http')) return tab
-  if (urlFilter) {
-    const tabs = await chrome.tabs.query({ url: `${urlFilter}*` })
-    if (tabs.length) return tabs[0]
-  }
-  return null
-}
 
 // Budget tab per sesi: penuh -> pakai-ulang, jangan create (anti OOM).
 const MAX_TABS_PER_SESSION = 6
 
-// Adopsi tab yatim MILIK KITA SAJA: tak-bergrup DAN (about:blank ATAU url
-// persis sama dengan target). Tidak pernah menyentuh tab user lain (privasi).
-async function adoptOrphanTab(sessionId, url) {
+// Adopsi tab yatim MILIK KITA SAJA: tak-bergrup DAN blank (about:blank /
+// chrome://newtab). Exact-URL match kemungkinan tab USER — hanya boleh
+// diadopsi bila opts.adoptUserTab eksplisit (izin user). Tidak pernah
+// menyentuh tab PRIMER sesi lain (anti-curi antar-sesi): daftar id primer
+// milik sesi lain dikecualikan eksplisit.
+async function adoptOrphanTab(sessionId, url, excludeTabIds = [], opts = {}) {
   try {
+    const sid = String(sessionId ?? 'default')
+    const adoptUserTab = opts.adoptUserTab === true
+    const excluded = new Set([
+      ...(Array.isArray(excludeTabIds) ? excludeTabIds : []),
+      ...Object.entries(primaryTabs)
+        .filter(([k]) => String(k) !== sid)
+        .map(([, id]) => id)
+    ])
     const tabs = await chrome.tabs.query({})
-    const ungrouped = tabs.filter((t) => t.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE)
-    const exact = ungrouped.find((t) => t.url === url)
-    if (exact) return exact
+    const ungrouped = tabs.filter(
+      (t) => t.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE && !excluded.has(t.id)
+    )
+    if (adoptUserTab) {
+      const exact = ungrouped.find((t) => t.url === url)
+      if (exact) return exact
+    }
     const blank = ungrouped.find((t) => t.url === 'about:blank' || t.url === 'chrome://newtab/')
     return blank || null
   } catch {
@@ -656,14 +729,16 @@ async function createBoundedTab(sessionId, url) {
   return { tab, reused: false }
 }
 
-async function navigate({ url, reuse = true }, sessionId = 'default') {  // Tab PRIMER per task dipakai ulang (anti ledakan tab). Tab baru hanya bila
+async function navigate({ url, reuse = true, adoptUserTab = false }, sessionId = 'default') {  // Tab PRIMER per task dipakai ulang (anti ledakan tab). Tab baru hanya bila
   // belum ada / sudah ditutup / reuse=false eksplisit. Tidak merebut fokus.
+  // adoptUserTab=true (izin eksplisit user): boleh adopsi tab tak-bergrup
+  // ber-URL-cocok; default false = hanya blank milik sendiri atau tab baru.
   let tab = null
   let reused = false
   let adopted = false
   if (reuse !== false) tab = await getPrimaryTab(sessionId)
   if (!tab && reuse !== false) {
-    tab = await adoptOrphanTab(sessionId, url)
+    tab = await adoptOrphanTab(sessionId, url, [], { adoptUserTab })
     if (tab) adopted = true
   }
   if (!tab) {
@@ -693,17 +768,28 @@ async function navigate({ url, reuse = true }, sessionId = 'default') {  // Tab 
     }
   }
   let group = null
+  let effectiveTabId = tab.id
   try {
-    const groupId = await groupTabIntoSession(sessionId, tab.id, label, 'acting')
-    group = { grouped: true, groupId }
+    const res = await groupTabIntoSession(sessionId, tab.id, label, 'acting')
+    // Anti-curi: bila tab ternyata milik sesi lain, pakai tab pengganti.
+    effectiveTabId = res?.tabId ?? tab.id
+    group = { grouped: true, groupId: res?.groupId ?? null, replaced: !!res?.replaced }
   } catch (e) {
     group = { grouped: false, error: String(e?.message || e) }
   }
-  const dom = await readDomInTab(tab.id)
+  const dom = await readDomInTab(effectiveTabId)
   if (!dom.ok) return { ...dom, group }
+  // Catat URL fokus sesi HANYA bila navigate sukses (DOM terbaca).
+  sessionFocusedUrl[sessionId] = url
+  let liveTitle = ''
+  try {
+    liveTitle = (await chrome.tabs.get(effectiveTabId))?.title || ''
+  } catch {
+    /* abaikan */
+  }
   try {
     const parsed = JSON.parse(dom.data)
-    parsed._group = { tabId: tab.id, reused, ...group }
+    parsed._group = { tabId: effectiveTabId, url, title: liveTitle, reused, ...group }
     return { ok: true, data: JSON.stringify(parsed) }
   } catch {
     return { ...dom, group }
@@ -760,6 +846,48 @@ function overlayFn({ mode, text, session }) {
     if (gone) gone.remove()
     return { ok: true, shown: false }
   }
+  if (mode === 'passive') {
+    // Pill pasif co-pilot: tanpa veil, tanpa keydown-guard, non-blocking.
+    // User tetap bisa memakai tab; pill hanya memberi tahu + tombol Lanjutkan.
+    const stale = document.getElementById(HOST_ID)
+    if (stale) stale.remove()
+    const host = document.createElement('div')
+    host.id = HOST_ID
+    const shadow = host.attachShadow({ mode: 'open' })
+    const style = document.createElement('style')
+    style.textContent = [
+      '#abelink-pill{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483641;',
+      'display:flex;align-items:center;gap:12px;background:#0b1510;color:#e8f5ec;border:1px solid #1fb854;',
+      'border-radius:999px;padding:10px 12px 10px 16px;font:500 13px/1.4 system-ui,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,0.5);}',
+      '#abelink-pill small{opacity:0.65;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+      '#abelink-go{background:#1fb854;color:#06130b;border:0;border-radius:999px;padding:8px 16px;font:700 13px system-ui,sans-serif;cursor:pointer;}'
+    ].join('')
+    const pill = document.createElement('div')
+    pill.id = 'abelink-pill'
+    const label = document.createElement('span')
+    label.textContent = 'Abelink menunggu'
+    pill.appendChild(label)
+    if (text) {
+      const sub = document.createElement('small')
+      sub.textContent = String(text).slice(0, 80)
+      pill.appendChild(sub)
+    }
+    const go = document.createElement('button')
+    go.id = 'abelink-go'
+    go.textContent = 'Lanjutkan'
+    go.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      try {
+        chrome.runtime.sendMessage({ type: 'overlay-resume', session })
+      } catch {}
+    })
+    pill.appendChild(go)
+    shadow.appendChild(style)
+    shadow.appendChild(pill)
+    ;(document.documentElement || document.body).appendChild(host)
+    return { ok: true, shown: true, passive: true }
+  }
   const stale = document.getElementById(HOST_ID)
   if (stale) stale.remove()
   const host = document.createElement('div')
@@ -794,7 +922,7 @@ function overlayFn({ mode, text, session }) {
     e.stopPropagation()
     try {
       chrome.runtime.sendMessage({ type: 'overlay-stop', session })
-    } catch (err) {}
+    } catch {}
   })
   pill.appendChild(label)
   if (text) {
@@ -836,11 +964,25 @@ async function setOverlay(tabId, mode, text = '', session = 'default') {
 async function ensureOverlay(sessionId) {
   try {
     if (overlayStopped[sessionId]) return
+    if (awaitingUser[sessionId]) return // co-pilot: veil mati saat await-user
     const tab = await targetTabForSession(sessionId)
     if (!tab) return
     await setOverlay(tab.id, 'show', sessionTask[sessionId] || 'browser', sessionId)
   } catch {
     /* overlay tidak boleh menggagalkan tool */
+  }
+}
+
+// Pill pasif co-pilot: tanpa veil, tanpa keydown-guard, tidak memblokir.
+// Dipasang saat sesi menunggu user agar tab tetap bisa dipakai.
+async function ensurePassivePill(sessionId) {
+  try {
+    const tab = await targetTabForSession(sessionId)
+    if (!tab) return
+    const reason = awaitingUser[sessionId]?.reason || 'menunggu user'
+    await setOverlay(tab.id, 'passive', `Abelink menunggu — ${reason}`, sessionId)
+  } catch {
+    /* pill tidak boleh menggagalkan tool */
   }
 }
 
@@ -855,10 +997,9 @@ async function hideOverlayDom(sessionId) {
 }
 
 // --------------------------------------------------------------- tagging
-// Sama dengan pola browser-agent.js era Electron: maks 80 elemen interaktif,
-// data-abelink-id, teks dipendekkan.
-// PENTING: fungsi ini DI-SERIALISASI lalu dijalankan di konteks halaman -
-// WAJIB self-contained, tidak boleh menutup variabel dari service worker.
+// Kontrak: elemen dalam main/article/[role=main] diutamakan, maks 200
+// elemen, teks maks 120 char (lihat extension/tagger-rank.mjs — salinan
+// inline di bawah karena fungsi ini DI-SERIALISASI, wajib self-contained).
 function taggerFn() {
   document.querySelectorAll('[data-abelink-id]').forEach((el) => el.removeAttribute('data-abelink-id'))
   const SELECTORS = [
@@ -878,10 +1019,19 @@ function taggerFn() {
     '[tabindex]:not([tabindex="-1"])'
   ].join(', ')
 
-  const els = document.querySelectorAll(SELECTORS)
+  // Ranking inline (salinan rankTaggerElements dari tagger-rank.mjs):
+  // scan scope konten utama dulu, lalu fallback seluruh dokumen.
+  const MAIN_SCOPE = 'main, [role="main"], article'
+  const scopeRoots = [...document.querySelectorAll(MAIN_SCOPE)]
+  const inMain = new Set()
+  for (const root of scopeRoots) {
+    for (const el of root.querySelectorAll(SELECTORS)) inMain.add(el)
+  }
+  const docEls = [...document.querySelectorAll(SELECTORS)]
+  const els = [...docEls.filter((el) => inMain.has(el)), ...docEls.filter((el) => !inMain.has(el))]
   const out = []
-  const MAX = 80
-  const MAX_TEXT = 80
+  const MAX = 200
+  const MAX_TEXT = 120
   let n = 1
   const vh = window.innerHeight || document.documentElement.clientHeight || 800
   const vw = window.innerWidth || document.documentElement.clientWidth || 1200
@@ -913,7 +1063,13 @@ function taggerFn() {
       y: Math.round(rect.y + window.scrollY)
     })
   }
-  return { title: document.title, url: location.href, elements: out }
+  const mainRoot = document.querySelector(MAIN_SCOPE) || document.body
+  const pageText = String(mainRoot?.innerText || '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, 5000)
+
+  return { title: document.title, url: location.href, text: pageText, elements: out }
 }
 
 async function readDomInTab(tabId) {
@@ -927,7 +1083,55 @@ async function readDomInTab(tabId) {
 // state dikirim lewat `args`. Aksi yang butuh API ekstensi (chrome.scripting,
 // chrome.tabs, chrome.downloads) TIDAK BOLEH ditaruh di sini - tangani di
 // fungsi act() pada konteks service worker (lihat bawah).
-async function actionFn({ abelinkId, action, value }) {
+// ---------------------------------------------------------------- snapshot
+// Snapshot konten halaman (ala take_snapshot CDP, tanpa permission debugger):
+// teks utama yang terlihat + sumber TeX MathJax + daftar elemen interaktif.
+// Self-contained (di-serialisasi ke konteks halaman bersama actionFn).
+function snapshotPageText() {
+  try {
+    // 1. Teks terlihat utama (paragraf, heading, list, tabel — bukan nav/footer).
+    const parts = []
+    const main = document.querySelector('main, [role="main"], article') || document.body
+    const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT)
+    let node
+    while ((node = walker.nextNode())) {
+      const t = (node.nodeValue || '').trim()
+      if (!t) continue
+      const el = node.parentElement
+      if (!el) continue
+      const tag = el.tagName.toLowerCase()
+      if (['script', 'style', 'noscript', 'svg', 'nav', 'footer', 'header'].includes(tag)) continue
+      parts.push(t)
+      if (parts.join('\n').length > 6000) break
+    }
+    // 2. Sumber TeX MathJax (render visual, tapi sumber ada di DOM).
+    try {
+      document.querySelectorAll('script[type^="math/tex"], [data-tex], annotation[encoding="application/x-tex"]').forEach((m) => {
+        const tex = (m.textContent || m.getAttribute('data-tex') || '').trim()
+        if (tex) parts.push(`[TEX] ${tex.slice(0, 300)}`)
+      })
+    } catch {}
+    // 3. Alt/gambar soal (soal berupa gambar): kumpulkan alt + src.
+    try {
+      document.querySelectorAll('img').forEach((img) => {
+        const alt = (img.alt || '').trim()
+        if (alt) parts.push(`[GAMBAR alt="${alt.slice(0, 200)}"]`)
+        else if (img.src) parts.push(`[GAMBAR src="${String(img.src).slice(0, 120)}"]`)
+      })
+    } catch {}
+    return parts.join('\n').slice(0, 8000)
+  } catch {
+    return ''
+  }
+}
+
+function snapshotPage(full = false) {
+  const text = snapshotPageText()
+  if (!full) return { title: document.title, url: location.href, text }
+  return { title: document.title, url: location.href, text, at: Date.now() }
+}
+
+async function actionFn({ abelinkId, action, value, expectedText }) {
   const el = abelinkId ? document.querySelector(`[data-abelink-id="${abelinkId}"]`) : null
   if (abelinkId && !el)
     return {
@@ -1014,6 +1218,24 @@ async function actionFn({ abelinkId, action, value }) {
   try {
     switch (action) {
       case 'click': {
+        // Verifikasi anti-stale-ID: akN = urutan dokumen, DOM bisa bergeser
+        // antara browser-read dan browser-click. Bila caller menyertakan
+        // expectedText, pastikan elemen yang ditunjuk masih teks yang sama
+        // SEBELUM klik. Absen -> jalur lama byte-identik (tanpa biaya).
+        const want = String(expectedText ?? '').trim()
+        if (want) {
+          const hay = [
+            typeof el.innerText === 'string' ? el.innerText.slice(0, 120) : '',
+            typeof el.getAttribute === 'function' ? (el.getAttribute('aria-label') || '') : '',
+            typeof el.value === 'string' ? el.value : ''
+          ].join(' ')
+          if (!hay.toLowerCase().includes(want.toLowerCase())) {
+            return {
+              ok: false,
+              error: `Elemen ${abelinkId} berubah (diharapkan "${want}") — lakukan browser-read ulang.`
+            }
+          }
+        }
         el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
         await sleep(150)
         const rect = el.getBoundingClientRect()
@@ -1131,8 +1353,32 @@ async function actionFn({ abelinkId, action, value }) {
         await sleep(250)
         break
       }
-      case 'extract':
-        return { ok: true, data: document.querySelector(String(value || ''))?.textContent || '' }
+      case 'extract': {
+        // Tanpa selector: kembalikan TEKS UTAMA halaman (snapshot konten ala
+        // take_snapshot CDP — judul + teks body yang terlihat, termasuk sumber
+        // TeX MathJax dari atribut/semantik DOM). Dengan selector: seperti dulu.
+        const sel = String(value || '').trim()
+        if (sel) return { ok: true, data: document.querySelector(sel)?.textContent || '' }
+        return { ok: true, data: snapshotPageText() }
+      }
+      case 'snapshot': {
+        // Snapshot konten penuh: teks utama + daftar elemen interaktif ringkas.
+        // Penerima: read tambahan saat tagger 80-elemen tidak memuat konten.
+        return { ok: true, data: JSON.stringify(snapshotPage(true)) }
+      }
+      case 'wait-for': {
+        // Tunggu teks muncul (ala wait_for CDP): poll ringan, maks ~15 detik.
+        // value: { text: "Soal No" } atau string langsung.
+        const needle = String((value && value.text) || value || '').trim().toLowerCase()
+        if (!needle) return { ok: false, error: 'wait-for butuh teks pada field value.' }
+        const t0 = Date.now()
+        for (;;) {
+          const hay = snapshotPageText().toLowerCase()
+          if (hay.includes(needle)) return { ok: true, data: `Teks ditemukan: "${needle}"` }
+          if (Date.now() - t0 > 15000) return { ok: false, error: `Timeout 15 dtk menunggu teks: "${needle}"` }
+          await sleep(750)
+        }
+      }
       default:
         return { ok: false, error: `Aksi tidak dikenal: ${action}` }
     }
@@ -1142,7 +1388,7 @@ async function actionFn({ abelinkId, action, value }) {
   }
 }
 
-async function act({ abelinkId, action, value }, sessionId = 'default') {
+async function act({ abelinkId, action, value, expectedText }, sessionId = 'default') {
   if (action === 'close') {
     const closed = await closeActiveGroupTabs(sessionId)
     return { ok: true, data: JSON.stringify({ closed }) }
@@ -1281,15 +1527,35 @@ async function act({ abelinkId, action, value }, sessionId = 'default') {
   if (action === 'ask') {
     return { ok: false, error: 'browser-ask-user belum didukung versi ekstensi ini.' }
   }
-  // --- Overlay lock (Fase A): show = resume eksplisit (bersihkan flag stop).
+  // --- Overlay lock (Fase A): show = resume eksplisit (bersihkan flag stop + await).
   if (action === 'overlay-show') {
     delete overlayStopped[sessionId]
+    delete awaitingUser[sessionId]
     try {
       const label = value && typeof value === 'object' ? value.text : value
       const r = await setOverlay(tab.id, 'show', String(label || ''), sessionId)
       return { ok: true, data: JSON.stringify(r) }
     } catch (e) {
       return { ok: false, error: `overlay-show gagal: ${String(e?.message || e)}` }
+    }
+  }
+  // --- Co-pilot HITL: catat sesi menunggu user + tampilkan pill pasif
+  // (tanpa veil, tanpa keydown-guard, non-blocking). Dipanggil sidecar
+  // saat browser-ask masuk pause-state.
+  if (action === 'overlay-passive') {
+    const v = value && typeof value === 'object' ? value : {}
+    awaitingUser[sessionId] = {
+      reason: String(v.reason || v.text || 'menunggu user'),
+      tabId: tab.id,
+      url: tab.url || '',
+      goal: String(v.goal || ''),
+      since: Date.now()
+    }
+    try {
+      const r = await setOverlay(tab.id, 'passive', `Abelink menunggu — ${awaitingUser[sessionId].reason}`, sessionId)
+      return { ok: true, data: JSON.stringify({ ...r, awaitUser: awaitingUser[sessionId] }) }
+    } catch (e) {
+      return { ok: false, error: `overlay-passive gagal: ${String(e?.message || e)}` }
     }
   }
   if (action === 'overlay-hide') {
@@ -1304,14 +1570,14 @@ async function act({ abelinkId, action, value }, sessionId = 'default') {
   // --- Aksi DOM via injeksi halaman (click/type/select/press/scroll/extract) ---
   const [injection] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    args: [{ abelinkId: abelinkId || null, action, value: value ?? null }],
+    args: [{ abelinkId: abelinkId || null, action, value: value ?? null, expectedText: expectedText ?? null }],
     func: actionFn
   })
   const step = injection?.result
   if (!step?.ok) return step || { ok: false, error: 'Injection aksi gagal.' }
   // Aksi baca murni mengembalikan datanya langsung; aksi mutasi diikuti
   // read-dom ulang agar caller menerima DOM ter-tag terbaru.
-  if (action === 'extract') return step
+  if (action === 'extract' || action === 'snapshot' || action === 'wait-for') return step
   await sleep(300)
   return readDomInTab(tab.id)
 }
@@ -1357,13 +1623,33 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       // Verifikasi token sebelum masuk loop: error langsung terlihat di popup
       // (token salah vs sidecar mati dibedakan).
       try {
-        const hs = await apiGet(cfg, 'handshake')
+        let hs = await apiGet(cfg, 'handshake')
         if (hs.status === 401) {
-          await chrome.storage.session.set({
-            lastError: 'Token ditolak sidecar (401). Sambungkan ulang sekali.'
-          })
-          sendResponse({ ok: false, error: 'token' })
-          return
+          // E2: sebab 401 dibedakan — token basi (helper bisa pulihkan) vs
+          // token asing (tempel manual) vs sesi tak dikenal.
+          const reason = hs.body?.reason || ''
+          if (reason === 'token-stale') {
+            // E1: token basi = sidecar restart/rotasi. Ambil baru via helper
+            // lalu handshake ulang OTOMATIS sekali — user tidak perlu klik.
+            const via = await getTokenViaNativeHost(targetPort)
+            if (via.token) {
+              cfg.token = via.token
+              await setPortToken(cfg.port, via.token)
+              hs = await apiGet(cfg, 'handshake')
+            }
+          }
+          if (hs.status === 401) {
+            const reason2 = hs.body?.reason || reason
+            const msg2 =
+              reason2 === 'token-stale'
+                ? 'Token basi dan helper tak memberi token baru. Restart Abelink / picu browser:* sekali, lalu Connect.'
+                : reason2 === 'session-unknown'
+                  ? 'Sesi tidak dikenal sidecar. Mulai ulang pairing dari popup.'
+                  : 'Token ditolak sidecar (401). Tempel token manual sekali, atau sambungkan ulang.'
+            await chrome.storage.session.set({ lastError: msg2 })
+            sendResponse({ ok: false, error: 'token', reason: reason2 })
+            return
+          }
         }
         // Rotasi refresh-on-use: server menitipkan token baru di handshake.
         // Tukar diam-diam + simpan persisten - tanpa tempel ulang selamanya.
@@ -1434,6 +1720,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         delete inflight[session]
       }
       sendResponse({ ok: true, stopped: !!cur?.id })
+    } else if (msg?.type === 'overlay-resume') {
+      // Lanjutkan dari pill pasif co-pilot: bersihkan await, veil tetap
+      // mati sampai perintah tab berikutnya (runCommand memasang ulang).
+      const session = msg.session || (await getCfg()).session
+      delete awaitingUser[session]
+      await hideOverlayDom(session)
+      sendResponse({ ok: true, resumed: true })
     } else if (msg?.type === 'get-active-task') {
       const cfg = await getCfg()
       const session = msg.session || cfg.session
@@ -1497,6 +1790,18 @@ function scheduleAutoResume(delayMs = 5000) {
   } catch {
     /* fallback setTimeout di bawah */
   }
+  // Status jujur selama jeda reconnect: popup tidak hijau palsu, tidak merah
+  // panik — user tahu loop akan kembali sendiri tanpa klik.
+  try {
+    chrome.storage.session
+      .get(['lastError', 'wantConnected'])
+      .then((kept) => {
+        if (kept?.wantConnected && !kept?.lastError) {
+          chrome.storage.session.set({ lastError: 'Menyambung ulang otomatis...' }).catch(() => {})
+        }
+      })
+      .catch(() => {})
+  } catch {}
   if (resumeTimeout) clearTimeout(resumeTimeout)
   resumeTimeout = setTimeout(() => {
     tryAutoResume()
@@ -1522,9 +1827,13 @@ async function tryAutoResume() {
   if (!want) return
   // Resume TANPA pairing = dilarang: user belum memilih flavor sekali pun.
   // Ini mematikan auto-switch lama (resume port sesi basi diam-diam).
+  // Tetap jadwalkan ulang + set lastError jujur agar popup tidak hijau palsu.
   const pairing = await getPairing()
   if (!pairing) {
-    // Tetap arm alarm berikutnya agar tidak diam selamanya.
+    // Tetap jadwalkan ulang + set lastError jujur agar popup tidak hijau palsu.
+    try {
+      await chrome.storage.session.set({ lastError: 'Pilih flavor sekali di popup (Prod/Dev)' })
+    } catch {}
     scheduleAutoResume(30000)
     return
   }
@@ -1576,6 +1885,40 @@ async function tryAutoResume() {
         loop()
         return
       }
+      if (hs.status === 401) {
+        // G1 fix (2026-09-27): token basi-terisi dulu terjebak di sini —
+        // resume handshake 401 berulang tanpa pernah bertanya helper
+        // (helper hanya dikonsultasi bila token session-storage KOSONG).
+        // Konsultasi native host SEKALI per attempt; bila helper memberi
+        // token yang benar-benar berbeda, handshake ulang SEKALI. Helper
+        // gagal / token sama = menyerah pada attempt ini (scheduleAutoResume
+        // di bawah tetap menjadwalkan percobaan berikutnya).
+        const via = await getTokenViaNativeHost(cfg.port)
+        if (via?.token && via.token !== cfg.token) {
+          cfg.token = via.token
+          await chrome.storage.session.set({ token: cfg.token })
+          await setPortToken(cfg.port, cfg.token)
+          try {
+            const hs2 = await apiGet(cfg, 'handshake')
+            if (hs2.status === 200) {
+              if (hs2.body?.newToken) {
+                cfg.token = hs2.body.newToken
+                await chrome.storage.session.set({ token: cfg.token })
+                await setPortToken(cfg.port, cfg.token)
+              }
+              running = true
+              await chrome.storage.session.set({ lastError: null })
+              console.log(
+                `[Abelink] auto-resume pulih via helper (token basi ditukar, session: ${cfg.session}, port: ${cfg.port}).`
+              )
+              loop()
+              return
+            }
+          } catch {
+            /* sidecar belum aktif / unreachable */
+          }
+        }
+      }
     } catch {
       /* sidecar belum aktif / unreachable */
     }
@@ -1590,7 +1933,13 @@ if (typeof chrome !== 'undefined' && chrome.alarms) {
     if (alarm.name === 'abelink-bridge-resume') {
       tryAutoResume()
     } else if (alarm.name === 'abelink-bridge-keepalive') {
-      tryAutoResume()
+      if (!running) {
+        tryAutoResume()
+      } else if (!loopActive) {
+        // Worker hidup tapi loop mati (suspend di tengah sleep / crash):
+        // hidupkan ulang satu loop. Guard loopActive cegah ganda.
+        loop()
+      }
     }
   })
   chrome.alarms.create('abelink-bridge-keepalive', { periodInMinutes: 1 })

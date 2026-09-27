@@ -282,7 +282,7 @@ export const getRelevantMemory = async (userInput, memoryList) => {
   if (!Array.isArray(list)) {
     try {
       list = await getAllMemory()
-    } catch (e) {
+    } catch {
       list = []
     }
   }
@@ -292,7 +292,7 @@ export const getRelevantMemory = async (userInput, memoryList) => {
   // Hanya Core memory (profile & preference) dipanggil langsung tanpa filter
   const coreMemories = list
     .filter((m) => m && typeof m === 'object' && (m.type === 'profile' || m.type === 'preference'))
-    .map(({ vector, ...rest }) => rest)
+    .map(({ vector: _vector, ...rest }) => rest)
 
   return coreMemories
 }

@@ -44,9 +44,9 @@ Loop AI tidak memanggil perintah Rust itu langsung — ia memanggil tool
 `os-control-close`. Tanpa sesi (belum `os-control-open`) semua handler
 fail-fast — tidak ada sukses palsu.
 
-Channel sidecar `os:*` (`sidecar/engine/channels/music.mjs`, daftar
-`unsupported`) tetap fallback era lama — jalur tool AI adalah
-`native-tool:execute`, bukan channel `os:*`.
+Channel sidecar `os:*` (`sidecar/engine/channels/os.mjs`) kini LIVE sebagai
+alias ke `NATIVE_TOOLS` — jalur tool AI adalah `native-tool:execute`,
+bukan channel `os:*` langsung (koreksi path 2026-09-27).
 
 **Emergency stop `Ctrl+Shift+S` kini end-to-end:** Rust
 (`pc-emergency-stop` event) → renderer (`useAbelinkState` listener +
@@ -56,7 +56,11 @@ pc-agent; reset eksplisit via `os-control-open`/`os-ask`).
 
 ## Fase C3 — Browser automation multi-session (browser:*)
 
-**Status: BELUM DIMULAI (stub eksplisit). Rencana tahapan final (2026-09-03).**
+**Status: LIVE Jalur A sejak 2026-09-03; sisa: smoke frame end-to-end dengan
+browser sungguhan + Jalur B (spawn Chromium fallback). Diverifikasi ulang
+2026-09-27.** Rencana tahapan final (2026-09-03) di bawah tetap acuan —
+yang sudah selesai: `engine/channels/browser.mjs` mengeksekusi perintah
+nyata via ekstensi + bridge lokal (`sidecar/main/browser/`, `extension/`).
 
 Keputusan arsitektur (dua jalur, A primer):
 
@@ -74,10 +78,11 @@ Keputusan arsitektur (dua jalur, A primer):
 
 Titik masuk implementasi (urutan kerja):
 
-1. `sidecar/engine/channels/music.mjs` — ganti stub loop `browser:*`
-   (`browser:navigate`, `browser:read-dom`, `browser:action`, `browser:close`,
-   `browser:show`) dengan dispatcher ke transport baru; kontrak response
-   TIDAK berubah (renderer & `subagentExecutor` tidak perlu sentuh).
+1. `sidecar/engine/channels/browser.mjs` — SELESAI: dispatcher ke transport
+   baru (`browser:navigate`, `browser:read-dom`, `browser:action`,
+   `browser:close`, `browser:show`); kontrak response TIDAK berubah
+   (renderer & `subagentExecutor` tidak perlu sentuh). Sisa: smoke frame
+   e2e + Jalur B.
 2. Baru: `sidecar/main/browser/transport.mjs` — koneksi WS/native-messaging
    ke ekstensi (Jalur A) DAN launcher Chromium CDP (Jalur B); pilih Jalur A
    bila ekstensi handshake OK, jatuh ke Jalur B otomatis.
