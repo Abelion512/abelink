@@ -2,17 +2,17 @@
 
 ## 1. Project Overview
 
-**Project Name:** Abelink, independent version line 1.x (current: **1.0.0-alpha.3**, single source of truth: `src-tauri/tauri.conf.json`)
+**Project Name:** Abelink, independent version line 1.x (current: **1.1.0-alpha.5**, single source of truth: `src-tauri/tauri.conf.json`)
 
 **Branch Strategy:**
-- `main`: Branch pengembangan aktif dan satu-satunya branch default (private repo `origin` git@github.com:Abelion512/abelink.git). Tidak ada branch pelacak upstream — sinkronisasi upstream dihentikan (2026-09-27).
+- `main` (primary / default for private repo `origin` git@github.com:Abelion512/abelink.git): Standard default branch on Git/GitHub, menerima seluruh pengembangan aktif dan commit.
 - Version bumping: jalankan `bun run sync-version` setelah bump di `tauri.conf.json` (propagasi: package.json + Cargo.toml + extension/manifest.json). Skema penomoran: [docs/RELEASE-VERSIONING.md](docs/RELEASE-VERSIONING.md) (SemVer penuh, basis ikut commit, counter alpha monoton, extension ikut app).
 - Aturan PR: SEMUA perubahan selain patch kecil wajib lewat branch + open PR ke `main` (jangan commit langsung ke `main`). Patch kecil = typo/komentar/format satu-dua baris tanpa ubah perilaku.
-- Pedoman Kontribusi Agent: baca [docs/AGENT_CONTRIBUTION_GUIDELINES.md](docs/AGENT_CONTRIBUTION_GUIDELINES.md)
-- RFC Arsitektur Masa Depan: baca [docs/ARCHITECTURAL_DIRECTION.md](docs/ARCHITECTURAL_DIRECTION.md)
-**Description:** A privacy-first, local-based autonomous AI OS companion designed to assist user productivity, automate tasks, and provide lifelike companionship. It uses a hybrid AI engine (Local LLM via LM Studio or Cloud API, plus a native Gemini Web RPC Engine) and features agentic planning with ReAct loop execution, **Autonomous Multi-Agent Sub-Agent Engine** (UI: **Sub-Agents**, branding: **Mission Control**) with concurrent isolated browser sessions, **Durable Agent Tasks** (UI: **Agent Workflows**) for persistent multi-step work, autonomous physical browser automation with multi-session support, a persistent OS-level desktop automation daemon, a hybrid Full-Text & Vector Memory Management System (MMS) with Orama & Dexie, document RAG pipeline, OS-level Awareness Engine, dynamic 4D Relational Growth, a native Plugin System with Monaco Editor, Telegram Bot integration via Telegraf, Voice Activity Detection with Groq Whisper STT plus local Whisper, Edge-TTS, and webcam vision capabilities.
-**Environment:** Linux-only Tauri v2 desktop application, hasil restorasi besar dari basis kode warisan (era pre-Abelink) (fork tidak lagi disinkronkan dengan upstream sejak 2026-09-27; infrastruktur sync dihapus).
-**Maintainer:** Abelion512 | **Homepage:** https://github.com/Abelion512/abelink | **Lisensi:** turunan MARK Agent Source Available License v1.0 (lihat LICENSE — notice lisensi upstream dipertahankan sesuai ketentuannya)
+- Bacaan wajib sebelum edit: [REFERENCES.md](REFERENCES.md) (ATM multi-sumber, DO NOT DELETE) + [docs/AGENT_CONTRIBUTION_GUIDELINES.md](docs/AGENT_CONTRIBUTION_GUIDELINES.md) + `package.json`.
+- Data utama anti over-engineering: [docs/abelink-5w1h.html](docs/abelink-5w1h.html) (FROZEN, ubah butuh owner).
+**Description:** Proactive agentic AI that lives everywhere: OS, browser (Brave/Chrome via extension), TUI/CLI, gateway. One engine (`cli/` + `agentRunner.js`), many clients (GUI, extension, TUI, gateway). Privacy-first, local-based autonomous AI OS companion designed to assist user productivity, automate tasks, and provide lifelike companionship. It uses a hybrid AI engine (Local LLM via LM Studio or Cloud API, plus a native Gemini Web RPC Engine) and features agentic planning with ReAct loop execution, **Autonomous Multi-Agent Sub-Agent Engine** (UI: **Sub-Agents**, branding: **Mission Control**) with concurrent isolated browser sessions, **Durable Agent Tasks** (UI: **Agent Workflows**) for persistent multi-step work, autonomous physical browser automation with multi-session support, a persistent OS-level desktop automation daemon, a hybrid Full-Text & Vector Memory Management System (MMS) with Orama & Dexie, document RAG pipeline, OS-level Awareness Engine, dynamic 4D Relational Growth, a native Plugin System with Monaco Editor, Telegram Bot integration via Telegraf, Voice Activity Detection with Groq Whisper STT plus local Whisper, Edge-TTS, and webcam vision capabilities.
+**Environment:** Linux-only Tauri v2 desktop application ("Abelink"): produk eksklusif Abelion Group (lisensi proprietary, lihat `LICENSE`); fondasi awal dari mark-agent kini murni sejarah, bukan identitas aktif. Layout: Tauri shell + Node sidecar.
+**Maintainer:** Abelion512 | **Homepage:** https://github.com/Abelion512/abelink
 
 ## 2. Technology Stack & Core Dependencies
 
