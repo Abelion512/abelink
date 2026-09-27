@@ -238,7 +238,7 @@ async function main() {
   }
   // ctrl+p / `/commands`: daftar perintah TUI (fungsi nyata, bukan hiasan).
   const openCommands = async () => {
-    const { TUI_COMMANDS } = await import('../cli/tui/theme.mjs')
+    const { TUI_COMMANDS } = await import('../cli/tui/theme.ts')
     baseRows = TUI_COMMANDS.map((c: { name: string; desc: string }) => ({ id: c.name, label: c.name, section: c.desc }))
     setPicker({
       kind: 'commands', title: 'perintah', kindHint: '↑↓ pilih · Enter jalankan · Esc batal · ketik untuk filter',

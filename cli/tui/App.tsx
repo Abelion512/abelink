@@ -7,7 +7,7 @@
 // V2-1: echo lokal; engine wiring = slice berikut.
 import { createSignal, For, Show } from 'solid-js'
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
-import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, visibleWindow } from './theme.mjs'
+import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, visibleWindow } from './theme.ts'
 import { PromptRow } from './components/PromptRow.tsx'
 import type { AppProps, PickerRow } from './types.ts'
 
