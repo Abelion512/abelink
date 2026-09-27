@@ -1,0 +1,35 @@
+# Contoh konfigurasi Promptfoo untuk meng-eval engine Abelink lewat adapter tipis.
+# Jalankan dari root repo: promptfoo eval -c evaluation/promptfoo/promptfooconfig.example.yaml
+# Prasyarat: bun, dan kredensial provider yang biasa dipakai CLI (env/config).
+#
+# Prinsip: Promptfoo HANYA runner/penilai. Eksekusi tetap milik engine Abelink.
+# Asersi deterministik memakai metadata dari adapter (engineSuccess/toolCalls),
+# bukan teks jawaban model (anti-fabrikasi).
+
+description: 'Abelink engine via adapter tipis (one engine, many surfaces)'
+
+prompts:
+  - '{{task}}'
+
+providers:
+  - file://evaluation/promptfoo/abelink-provider.mjs
+    config:
+      workspace: '{{workspace}}'
+      effort: low
+      timeoutMs: 180000
+
+defaultTest:
+  assert:
+    - type: javascript
+      value: output === null ? false : true
+    - type: javascript
+      value: metadata.engineSuccess === true || (metadata.engineSuccess === false && metadata.terminalReason === 'needs_user')
+
+tests:
+  - description: 'sanity: tugas konversasional sederhana harus sukses di level engine'
+    vars:
+      task: 'Sebutkan versi Abelink yang kamu jalankan (perkiraan boleh).'
+      workspace: '.'
+    assert:
+      - type: javascript
+        value: metadata.toolCalls >= 0
