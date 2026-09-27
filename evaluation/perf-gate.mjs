@@ -104,8 +104,12 @@ const workloadUrlGuard = async () => {
 
 const workloadPromptBudget = async () => {
   // Jalur persona/prompt: gabungan string system prompt besar per giliran.
-  const fs = await import('node:fs')
-  const src = fs.readFileSync(path.join(ROOT, 'src/api/ai/planning.js'), 'utf8')
+  // ponytail (P-22): sumber = teks deterministik ukuran TETAP (48KB), bukan isi
+  // file repo — dulu membaca planning.js sehingga 'regresi' naik tiap file
+  // tumbuh (baseline stale -> false-positive; lihat sesi 2026-09-27). Naikkan
+  // bila prompt sistem nyata jauh lebih besar dari 48KB.
+  const unit = '## SEKSI PERSONA\nKonteks persona per giliran dengan id [X0]..[X9] dan tautan (https://contoh.id/x).\n'
+  const src = unit.repeat(Math.ceil(49152 / unit.length)).slice(0, 49152)
   let sink = 0
   return () => {
     for (let i = 0; i < 20; i++) {
