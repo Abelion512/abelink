@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-27T07:55:13.546Z",
+  "generatedAt": "2026-09-27T08:02:01.172Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
       "date": "27 September 2026",
-      "summary": "74 fitur baru, 31 perbaikan dan 70 pembaruan dokumentasi.",
+      "summary": "74 fitur baru, 31 perbaikan dan 72 pembaruan dokumentasi.",
       "sections": {
         "features": [
           {
@@ -328,6 +328,9 @@
         "security": [],
         "docs": [
           {
+            "msg": "Hapus 4 berkas unreferenced"
+          },
+          {
             "msg": "Pemicu ulang setelah retarget base ke main"
           },
           {
@@ -335,6 +338,9 @@
           },
           {
             "msg": "Session log long-horizon inspect--verify-e2e"
+          },
+          {
+            "msg": "Hapus 4 berkas unreferenced"
           },
           {
             "msg": "Trajectory headless + tool hooks H5 di cli/core"

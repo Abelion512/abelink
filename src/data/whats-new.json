@@ -1,7 +1,7 @@
 {
   "version": "1.2.0-alpha.6",
   "date": "27 September 2026",
-  "summary": "74 fitur baru, 31 perbaikan dan 70 pembaruan dokumentasi.",
+  "summary": "74 fitur baru, 31 perbaikan dan 72 pembaruan dokumentasi.",
   "founderReport": "Yang baru untuk Anda: Dorman default untuk surface otomasi PC visual; Dorman default untuk surface otomasi PC visual; ADR-001 divergensi loop + paritas kontrak; flake ts monotonik; sweep. Lebih stabil: Anti-latch bridge lifecycle + resume self-heal 401; Anti-latch bridge lifecycle + resume self-heal 401; Bukti verifier terlihat di headless + semantik turn per run + e2e hermetik.",
   "linearUrl": "https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326",
   "changes": [
@@ -427,6 +427,10 @@
     },
     {
       "type": "DOCS",
+      "msg": "Hapus 4 berkas unreferenced"
+    },
+    {
+      "type": "DOCS",
       "msg": "Pemicu ulang setelah retarget base ke main"
     },
     {
@@ -436,6 +440,10 @@
     {
       "type": "DOCS",
       "msg": "Session log long-horizon inspect--verify-e2e"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Hapus 4 berkas unreferenced"
     },
     {
       "type": "DOCS",
