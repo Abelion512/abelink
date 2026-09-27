@@ -1,8 +1,28 @@
 # Rencana Migrasi JS -> TS (bertahap, tanpa freeze fitur)
 
 Tanggal: 2026-09-26
-Status: PLANNING (belum ada perubahan kode yang mengikat; ini peta jalan)
+Status: **EKSEKUSI BERJALAN** (lihat Status Eksekusi di bawah; bagian di bawah garis adalah peta jalan asli 2026-09-26, sebagian klaimnya sudah basi)
 Pemilik: Abelion512
+
+## Status Eksekusi (pengukuran 2026-09-27, rev 32f2816+)
+
+| Fase | Status | Bukti |
+| --- | --- | --- |
+| 0 — toolchain | **SELESAI** | `typescript` + `typescript-eslint` devDeps; `tsconfig.base.json` + `tsconfig.json` + `tsconfig.node.json`; `bun run typecheck` + `typecheck:node` exit 0 |
+| 1 — cli/** + bin/*.tsx | **SEBAGIAN** (M2a) | `cli/**` + `bin/**/*.tsx` masuk gate payung; 114 error pengetikan awal -> 0; `cli/core/protocol.ts` + `cli/tui/types.ts` ada |
+| 2 — boundary & kontrak | BELUM | `sidecar/engine/registry.mjs`, `src/api/tauri-bridge.js`, `src/api/db.js`, `agentRunner.js` masih `.js` |
+| 3 — renderer & sisanya | BELUM | `src/**` belum punya `.ts` produktif |
+
+Pola yang terbukti bekerja (lanjutkan): strangler via zona bersih (`allowJs: true`,
+`checkJs: false`, include progresif), ukur error dulu -> nol-kan -> masukkan gate.
+
+<!-- OPENCODE AMBIL ALIH -->
+**HANDOFF: OPENCODE AMBIL ALIH dari titik ini.** Sisa pekerjaan migrasi TS
+(Fase 1 sisanya: ekstraksi `cli/core/` penuh + `theme.ts`; Fase 2: registry /
+tauri-bridge / db / agentRunner; Fase 3: renderer) diserahkan ke agent OpenCode
+mengikuti peta jalan asli di bawah. Aturan yang tetap mengikat: satu PR satu
+fase, ratchet no-regresi, session log, dan gate `bun run typecheck` + vitest
++ lint wajib hijau. Jangan mengubah perilaku runtime saat rename/annotate.
 
 ## 1. Masalah yang mau diselesaikan
 
