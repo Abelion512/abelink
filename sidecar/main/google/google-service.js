@@ -1,10 +1,18 @@
-import { google } from 'googleapis'
 import http from 'http'
 import url from 'url'
 import path from 'path'
 import fs from 'fs/promises'
 import { spawn } from 'child_process'
 import { brandDir } from '../utils/dataHome.mjs'
+
+let _google = null
+export async function getGoogle() {
+  if (!_google) {
+    const mod = await import('googleapis')
+    _google = mod.google || mod.default?.google || mod.default
+  }
+  return _google
+}
 
 // File to store the OAuth tokens safely (pengganti app.getPath('userData') era
 // Electron: XDG data dir Linux, konsisten dengan skills/telegram).
@@ -26,7 +34,7 @@ export async function getTokens() {
   try {
     const data = await fs.readFile(TOKEN_PATH, 'utf-8')
     return JSON.parse(data)
-  } catch (error) {
+  } catch {
     return null
   }
 }
@@ -43,6 +51,7 @@ export async function getAuthClient(clientId, clientSecret) {
   const cleanId = clientId.trim()
   const cleanSecret = clientSecret.trim()
 
+  const google = await getGoogle()
   const oAuth2Client = new google.auth.OAuth2(
     cleanId,
     cleanSecret,
@@ -69,6 +78,7 @@ export async function getAuthClient(clientId, clientSecret) {
 let currentAuthServer = null
 
 export async function connectGoogle(clientId, clientSecret) {
+  const google = await getGoogle()
   return new Promise((resolve, reject) => {
     if (!clientId || !clientSecret) {
       return reject(new Error('Client ID and Client Secret are required.'))
@@ -78,7 +88,7 @@ export async function connectGoogle(clientId, clientSecret) {
     const cleanSecret = clientSecret.trim()
 
     if (currentAuthServer) {
-      try { currentAuthServer.close() } catch (e) {}
+      try { currentAuthServer.close() } catch {}
       currentAuthServer = null
     }
 
@@ -231,7 +241,7 @@ export async function disconnectGoogle() {
   try {
     await fs.unlink(TOKEN_PATH)
     return true
-  } catch (error) {
+  } catch {
     // If file doesn't exist, it's already disconnected
     return true
   }

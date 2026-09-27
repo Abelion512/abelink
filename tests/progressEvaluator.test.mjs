@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PROGRESS_OUTCOME, evaluateProgress, normalizeProgressKey } from '../src/api/ai/progressEvaluator.js'
+import { PROGRESS_OUTCOME, evaluateProgress, isFailure, isMalfunction, normalizeProgressKey } from '../src/api/ai/progressEvaluator.js'
 
 describe('progressEvaluator', () => {
   it('treats improved verification as progress', () => {
@@ -31,5 +31,21 @@ describe('progressEvaluator', () => {
 
   it('normalizes trivial strategy variants', () => {
     expect(normalizeProgressKey('Grep-Search', '  Auth  ')).toBe(normalizeProgressKey('grep-search', 'auth'))
+  })
+})
+
+describe('isFailure vs isMalfunction split', () => {
+  it('human decisions are failures for governance but not breaker malfunctions', () => {
+    for (const s of ['[DITOLAK] no', '[DITOLAK-HUMAN-LOOP] no', '[DIBATALKAN] x', '[BLOCKED] y', '[NO-RESULTS] kosong']) {
+      expect(isFailure(s)).toBe(true)
+      expect(isMalfunction(s)).toBe(false)
+    }
+  })
+
+  it('true malfunctions trip both', () => {
+    for (const s of ['[ERROR] boom', '[FORMAT SALAH] x', '[SEARCH-ERROR] y']) {
+      expect(isFailure(s)).toBe(true)
+      expect(isMalfunction(s)).toBe(true)
+    }
   })
 })

@@ -118,10 +118,10 @@ function launchChrome() {
   const nmhDir = path.join(userDataDir, 'NativeMessagingHosts')
   fs.mkdirSync(nmhDir, { recursive: true })
   for (const [cfgDir, file] of [
-    [path.join(os.homedir(), '.config/google-chrome'), 'id.abelink.bridge.json'],
-    [path.join(os.homedir(), '.config/google-chrome'), 'id.abelink.bridge.dev.json'],
-    [path.join(os.homedir(), '.config/chromium'), 'id.abelink.bridge.json'],
-    [path.join(os.homedir(), '.config/chromium'), 'id.abelink.bridge.dev.json']
+    [path.join(os.homedir(), '.config/google-chrome/NativeMessagingHosts'), 'id.abelink.bridge.json'],
+    [path.join(os.homedir(), '.config/google-chrome/NativeMessagingHosts'), 'id.abelink.bridge.dev.json'],
+    [path.join(os.homedir(), '.config/chromium/NativeMessagingHosts'), 'id.abelink.bridge.json'],
+    [path.join(os.homedir(), '.config/chromium/NativeMessagingHosts'), 'id.abelink.bridge.dev.json']
   ]) {
     try {
       const src = path.join(cfgDir, file)
@@ -250,7 +250,11 @@ async function startLoopViaPopup(token) {
 }
 
 // Post-mortem: baca status extension (running/lastError) via popup asli.
-// Jalur messaging biasa — TIDAK attach debugger ke service worker.
+// popup.html?noprobe=1: popup TIDAK auto-connect (guard instrumentation) —
+// tanpa ini, probe sendiri memicu attempt start dan mengontaminasi status.
+// Sekalian probe helper native host DARI konteks extension (sendNativeMessage)
+// agar kegagalan helper teramati langsung, bukan ditebak dari gejala.
+// TIDAK attach debugger ke service worker.
 async function probeStatus() {
   const list = (await getJson(`http://127.0.0.1:${DEBUG_PORT}/json/list`)) || []
   const page = list.find((t) => t.type === 'page')
@@ -259,9 +263,19 @@ async function probeStatus() {
   await rpc.ready
   try {
     await rpc.call('Page.enable')
-    await rpc.call('Page.navigate', { url: `chrome-extension://${EXT_ID}/popup.html` })
+    await rpc.call('Page.navigate', { url: `chrome-extension://${EXT_ID}/popup.html?noprobe=1` })
     await sleep(1200)
-    const expr = `chrome.runtime.sendMessage({ type: 'status' }).then(r => JSON.stringify(r)).catch(e => 'ERR:' + e.message)`
+    const expr = `(async () => {
+      const status = await chrome.runtime.sendMessage({ type: 'status' }).catch(e => ({ err: String(e && e.message || e) }))
+      let helper = null
+      try {
+        const h = await chrome.runtime.sendNativeMessage('id.abelink.bridge.dev', { type: 'get-token' })
+        helper = { ok: !!h?.ok, hasToken: !!h?.token, error: h?.error || null }
+      } catch (e) {
+        helper = { threw: true, message: String(e && e.message || e) }
+      }
+      return JSON.stringify({ status, helper })
+    })()`
     const r = await rpc.call('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }, 15000)
     const val = r && r.result && r.result.value
     try {
@@ -534,11 +548,25 @@ async function main() {
     ev('S3C', 'regen token file + drop + dispatch (token extension BASI)')
     await admin('POST', '/drop-session', { id: 'default', regenToken: true })
     const tC = now()
+    // Transisi status extension dipoll tiap 5 detik selama dispatch berjalan:
+    // menjawab KAPAN loop berhenti polling dan APA status helper saat itu.
+    const statusTrail = []
+    const statusPoller = (async () => {
+      while (now() - tC < 130000) {
+        try {
+          const s = await probeStatus()
+          statusTrail.push({ t: +((now() - tC) / 1000).toFixed(1), running: s?.status?.running, lastError: s?.status?.lastError || null, helper: s?.helper })
+          if (statusTrail.length <= 6 || statusTrail.length % 6 === 0)
+            ev('S3C_TRAIL', `+${((now() - tC) / 1000).toFixed(0)}s running=${s?.status?.running} helper=${JSON.stringify(s?.helper)} err=${(s?.status?.lastError || 'null').slice(0, 60)}`)
+        } catch {}
+        await sleep(5000)
+      }
+    })()
     const dispC = await admin('POST', '/dispatch', { session: 'default', type: 'read-dom', payload: { probe: 's3c-stale' } }, 120000)
     const latC = now() - tC
     const servedC = !!(dispC && dispC.ok === true && dispC.result)
     ev(servedC ? 'S3C_SERVED' : 'S3C_TIMEOUT', `latensi ${latC}ms — ${JSON.stringify(dispC).slice(0, 160)}`)
-    await sleep(20000) // beri waktu loop/resume mencoba pulih
+    await sleep(15000) // beri waktu loop/resume mencoba pulih
     // Post-mortem status extension (jalur popup asli, bukan SW attach).
     let statusMsg = null
     try {
@@ -547,6 +575,7 @@ async function main() {
     } catch (e) {
       ev('S3C_STATUS_FAIL', e.message)
     }
+    void statusPoller
     // Cek pemulihan pasca S3c (inbound sukses baru).
     let recC = 0
     for (let i = 0; i < 24; i++) {
@@ -564,7 +593,8 @@ async function main() {
     mC.latency_ms = latC
     mC.recovered_after_ms = recC || null
     mC.extension_status = statusMsg
-    console.log('S3c:', JSON.stringify(mC))
+    mC.status_trail = statusTrail
+    console.log('S3c:', JSON.stringify({ ...mC, status_trail: statusTrail.slice(0, 6) }))
     writeReport({ self_heal_suspended_wake: mS, self_heal_token_stale: mC }, [m0, mS, mC])
     running.v = false
     return

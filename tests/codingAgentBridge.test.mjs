@@ -14,8 +14,10 @@ describe('codingAgentBridge', () => {
     expect(ids).toContain('opencode')
   })
 
-  it('PREFERRED_CODING_AGENTS hanya opencode+hermes', async () => {
+  it('PREFERRED_CODING_AGENTS dikunci ke opencode+hermes', async () => {
     const { PREFERRED_CODING_AGENTS } = await import('../src/api/ai/codingAgentBridge.js')
+    // Keputusan owner (dikunci ulang 2026-09-26): hanya dua agen ini yang boleh
+    // dipilih runtime; codex/claude tetap terdaftar sebagai referensi saja.
     expect(PREFERRED_CODING_AGENTS).toEqual(['opencode', 'hermes'])
   })
 
@@ -30,6 +32,29 @@ describe('codingAgentBridge', () => {
     expect(ids).toContain('hermes')
     expect(ids).not.toContain('codex')
     expect(ids).not.toContain('claude')
+  })
+
+  it('codex/claude TIDAK terdeteksi walau binary-nya ada (locked)', async () => {
+    const mockChecker = async (bin) => /codex|claude/.test(bin)
+    const detected = await detectInstalledAgents({ fileChecker: mockChecker })
+    expect(detected.map((d) => d.id)).toEqual([])
+  })
+
+  it('resolusi binary PATH-first: nama polos sebelum path absolut (B-10)', () => {
+    // Path absolut milik mesin maintainer TIDAK boleh jadi prioritas pertama,
+    // kalau tidak deteksi gagal di laptop lain yang binary-nya ada di PATH.
+    for (const candidate of AGENT_CANDIDATES) {
+      // entri pertama = nama polos (=== id), fallback absolut ada di list.
+      expect(candidate.binaries[0]).toBe(candidate.id)
+      expect(candidate.binaries[0].startsWith('/')).toBe(false)
+      expect(candidate.binaries.some((b) => b.startsWith('/'))).toBe(true)
+    }
+  })
+
+  it('buildCodingCommand memakai nama polos (portable), bukan path absolut', () => {
+    const result = buildCodingCommand({ agentId: 'opencode', prompt: 'x', workdir: '/tmp/repo' })
+    expect(result.command).toContain('nice -n 10 opencode')
+    expect(result.command).not.toContain('/home/abelion')
   })
 
   it('buildCodingCommand menyusun perintah non-interactive dengan nice dan sandbox branch', () => {

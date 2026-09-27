@@ -98,10 +98,10 @@ async function main() {
   const nmhDir = path.join(userDataDir, 'NativeMessagingHosts')
   fs.mkdirSync(nmhDir, { recursive: true })
   for (const [cfgDir, file] of [
-    [path.join(os.homedir(), '.config/google-chrome'), 'id.abelink.bridge.json'],
-    [path.join(os.homedir(), '.config/google-chrome'), 'id.abelink.bridge.dev.json'],
-    [path.join(os.homedir(), '.config/chromium'), 'id.abelink.bridge.json'],
-    [path.join(os.homedir(), '.config/chromium'), 'id.abelink.bridge.dev.json']
+    [path.join(os.homedir(), '.config/google-chrome/NativeMessagingHosts'), 'id.abelink.bridge.json'],
+    [path.join(os.homedir(), '.config/google-chrome/NativeMessagingHosts'), 'id.abelink.bridge.dev.json'],
+    [path.join(os.homedir(), '.config/chromium/NativeMessagingHosts'), 'id.abelink.bridge.json'],
+    [path.join(os.homedir(), '.config/chromium/NativeMessagingHosts'), 'id.abelink.bridge.dev.json']
   ]) {
     try {
       const src = path.join(cfgDir, file)

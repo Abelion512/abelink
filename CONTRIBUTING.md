@@ -64,6 +64,8 @@ baris tanpa ubah perilaku).
 | `fix/*`    | Bug fix                                               |
 | `chore/*`  | Tooling, deps, CI, refactoring                        |
 
+> Tidak ada branch upstream pelacak (`master`/`linux`) — sinkronisasi upstream dihentikan 2026-09-27; semua PR menargetkan `main`.
+
 Alur:
 
 1. Buat branch fitur dari mainline: `git checkout -b feat/xyz main`

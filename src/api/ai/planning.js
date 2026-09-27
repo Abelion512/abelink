@@ -217,7 +217,7 @@ Tool GAGAL/ERROR bukan alasan berhenti: error → diagnosa → strategi alternat
 - ANTI-MENYERAH (NO-SURRENDER): DILARANG mengakhiri dengan needs_user/blocked untuk hal yang BISA kamu eksekusi sendiri (baca ulang, strategi alternatif, tombol ask-choice). Klaim selesai WAJIB menyebut URL observasi pendukung. Bila '_tab.reused' tersedia, DILARANG navigate baru — pakai tab itu. needs_user non-fisik (bukan login/captcha/2FA di tab user) = replan dengan tool, BUKAN eskalasi. Sebelum klaim done, sebutkan 1 item belum selesai atau tulis TIDAK ADA.
 - TANYA VIA TOMBOL (ANTI-CHATBOT & MULTI-CANDIDATE DISAMBIGUATION): Jika butuh keputusan user di antara opsi konkret yang bisa dienumerasi (daftar history, pilihan A/B, pemilihan track musik/OST yang memiliki lebih dari satu lagu, dsb., maks 4 opsi), WAJIB panggil tool 'ask-choice' — user klik tombol di chat dan loop lanjut otomatis. DILARANG KERAS mengakhiri giliran dengan pertanyaan teks polos atau memilih lagu secara sepihak/buta jika permintaan user bersifat majemuk/ambigu (seperti "setel OST X", "pilih branch Y").
 - AKHIRI needs_user HANYA UNTUK AKSI FISIK: "task_status": "needs_user" sesi-akhir hanya bila user harus bertindak fisik di luar jangkauan tool (login/captcha/2FA via 'browser-ask'). Ambiguitas pilihan = 'ask-choice', bukan needs_user.
-- RECOVERY DISCONNECT (PROAKTIF, JANGAN LEMPAR KE USER): Jika tool browser gagal karena extension/tab tidak tersambung, JANGAN meminta user membuka tab manual. Tangga wajib: (1) panggil 'browser-navigate' dengan URL lengkap untuk membuka tab baru, (2) lanjutkan tugas, (3) hanya bila itu pun gagal, akhiri blocked dengan bukti (no-handshake/timeout). Parafrase error menjadi perintah manual = kegagalan.
+- RECOVERY DISCONNECT (PROAKTIF, JANGAN LEMPAR KE USER): Jika tool browser gagal karena extension/tab tidak tersambung, JANGAN meminta user membuka tab manual. Tangga wajib: (1) panggil tool 'browser-extension:status' (tanpa query) untuk cek status bridge — connected=true berarti siap, (2) panggil 'browser-navigate' dengan URL lengkap untuk membuka tab baru, (3) lanjutkan tugas, (4) hanya bila itu pun gagal, akhiri blocked dengan bukti (no-handshake/timeout). DILARANG mengarang nama tool status lain. Parafrase error menjadi perintah manual = kegagalan.
 - STOP OVERLAY BROWSER: Jika observasi tool mengandung '[STOP OVERLAY]', user menekan Stop di tab (sesi-tab itu berhenti). JANGAN panggil tool browser* lagi untuk sesi tersebut — akhiri giliran dengan answer + is_done:true + task_status yang jujur (blocked bila tugas belum selesai).
 - TAB DITUTUP USER ≠ KONEKSI PUTUS: sistem membuka ulang URL terakhir otomatis saat read gagal. JANGAN menyerah atau meminta user membuka tab — bila recovery gagal, sistem memberi error ber-bukti; laporkan blocked spesifik, bukan instruksi manual.
 - KEAMANAN TAINT GATE: Sistem memiliki pengaman Taint Gate aktif. Setelah kamu membaca konten web luar ('browser-navigate', 'browser-read', 'browser-extract'), seluruh aksi modifikasi sistem ('run-shell', 'write-file', 'delete-file', 'os-open') otomatis DITOLAK di giliran yang sama untuk mencegah prompt injection. Jika sebuah aksi diblokir dengan pesan '[TAINT GATE BLOCKED]', jangan panik atau retry. Laporkan apa yang kamu temukan di web kepada user, jelaskan bahwa eksekusi sistem ditahan demi keamanan, dan minta user mengetik 'lanjutkan' jika ia mengizinkan eksekusi tersebut di pesan berikutnya.
@@ -348,11 +348,12 @@ ${Object.entries(core_tools)
 
 # KELOMPOK TOOL TAMBAHAN (DEFERRED LOADING & SEARCH)
 Jika kamu butuh melakukan aksi-aksi kompleks di bawah ini, KAMU WAJIB MEMANGGIL "read-tools" TERLEBIH DAHULU untuk melihat format parameter dan contoh pemakaian konkret yang tepat! Jangan asal tebak parameternya!
-- Format memuat grup: {"tool": "read-tools", "query": "nama_grup"} (misal: "advanced_browser", "git_vcs", "pc_automation", "task_terminal")
+- Format memuat grup: {"tool": "read-tools", "query": "nama_grup"} (misal: "advanced_browser", "git_vcs", "task_terminal")
 - Format detail 1 tool: {"tool": "read-tools", "query": "nama_tool"} (misal: "browser-click", "git-commit", "replace-content")
 - Format pencarian tool: {"tool": "read-tools", "query": "search: kata_kunci"} (misal: "search: snapshot", "search: terminal background")
 Daftar grup kapabilitas deferred:
 ${Object.entries(groupToolsObj)
+  .filter(([, v]) => !v.dormant)
   .map(([k, v]) => `- ${k}: ${v.description}`)
   .join('\n')}
 
@@ -690,9 +691,13 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
       // mengalir ke ThinkingBubble selagi network berjalan; tanpa onToken =
       // jalur blocking lama. Supervisor tetap per-turn (tidak disentuh).
       const streamCb = typeof options.onToken === 'function' ? options.onToken : null
-      const response = streamCb
-        ? await fetchAI(messages, { signal, onToken: streamCb }, false, schema)
-        : await fetchAI(messages, signal, false, schema)
+      const fetchOpts = {
+        signal,
+        onToken: streamCb,
+        transport: options.fetchAI || options.transport || null,
+        configOverride: options.configOverride || null
+      }
+      const response = await fetchAI(messages, fetchOpts, false, schema)
 
       if (!response.content?.trim() && response.reasoning) {
         console.warn(

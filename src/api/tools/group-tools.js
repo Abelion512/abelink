@@ -33,7 +33,18 @@ export const GROUP_TOOLS_DEFINITION = {
       'browser-close': 'Menutup browser fisik.'
     }
   },
+  // DORMAN (keputusan owner 2026-09-27, anti over-engineering): group
+  // pc_automation TIDAK direkrut ke prompt planner/sub-agent. Data harness
+  // (prod+dev, 1380 tool call): surface visual os-read/click/type = 0 call;
+  // os-* yang hidup (os-control plumbing, os-open core) tidak tergantung
+  // group ini. Mesin tetap LIVE dan dapat diaktifkan lagi dengan
+  // mengembalikan flag di bawah — tanpa hapus kode, tanpa risiko
+  // emergency-stop. Debt adaptasi Linux yang nyata: Wayland (semua visual
+  // path X11-only) — backlog, dikerjakan hanya bila group diaktifkan.
   pc_automation: {
+    dormant: true,
+    dormantReason:
+      'Otomasi PC visual (os-read/click/type) belum pernah dipakai agen secara nyata (0 call di harness prod+dev); diaktifkan kembali via Capability bila ada kebutuhan nyata. Jalur X11-only; Wayland = backlog adaptasi.',
     description:
       'Tool untuk <inter></inter>aksi fisik dengan desktop OS Linux (X11). [SPEEDRUNNER BATCH MODE]: Kamu BISA mengeksekusi BATCH ACTIONS (mengirim ARRAY aksi) dalam 1 giliran untuk menghindari loading lama. Contoh: [{"tool":"os-click","query":"5"}, {"tool":"os-delay","query":"1000"}, {"tool":"os-type","query":"Teks"}]. Gunakan os-click secara bebas, tetapi KELOMPOKKAN aksimu ke dalam array jika urutannya sudah jelas, jangan satu per satu!',
     tools: {
@@ -76,7 +87,11 @@ export const GROUP_TOOLS_DEFINITION = {
       'music-toggle': 'Pause/lanjut memutar lagu.',
       'music-search': 'Mencari lagu spesifik di YT Music. Hasil ambigu OTOMATIS ditawarkan sebagai tombol pilihan — jangan autoplay buta atau tanya via teks.',
       'music-next': 'Mengganti lagu ke track selanjutnya.',
-      'music-prev': 'Mengganti lagu ke track sebelumnya.'
+      'music-prev': 'Mengganti lagu ke track sebelumnya.',
+      'music-loop': 'Atur repeat. Query: one | one <N>x (mis. one 3x) | all | off.',
+      'music-queue-add': 'Tambah lagu ke antrean tanpa autoplay (kecuali antrean kosong). Query: "judul"[ xN] (mis. Lagu A x2).',
+      'music-queue-remove': 'Hapus lagu dari antrean. Query: judul atau id.',
+      'music-queue-clear': 'Kosongkan seluruh antrean. Query: kosong.'
     }
   },
   google_drive: {
@@ -141,7 +156,7 @@ export const GROUP_TOOLS_DEFINITION = {
       'connector-guide':
         'Minta panduan input schema + contoh pemakaian satu aksi SEBELUM mengeksekusi. Query: connectorId||actionId (misal: "fs||read").',
       'connector-run':
-        'Eksekusi aksi connector (policy + audit otomatis; eksekusi berbahaya memicu approval NATIVE user). Query: connectorId||actionId||args_json (misal: "time||diff||{\"from\":\"09:00\",\"to\":\"17:00\"}").',
+        'Eksekusi aksi connector (policy + audit otomatis; eksekusi berbahaya memicu approval NATIVE user). Query: connectorId||actionId||args_json (misal: "time||diff||{"from":"09:00","to":"17:00"}").',
       'connector-status':
         'Lihat status koneksi & izin (scopes) semua connector + jejak audit terakhir. Query: KOSONG atau jumlah_baris_audit.'
     }
@@ -260,6 +275,11 @@ export async function loadGroupToolsText(query) {
   if (!name) return null
   const groups = await group_tools()
   const resolved = await resolveReadToolsQuery(name, { customGroups: groups })
+  if (resolved?.isDormant) {
+    // Grup dorman (mis. pc_automation): jawab JUJUR, bukan miss senyap —
+    // agen tahu grupnya ada, kenapa dorman, dan bagaimana keadaannya.
+    return resolved.message
+  }
   if (!resolved || !resolved.success) {
     return null
   }

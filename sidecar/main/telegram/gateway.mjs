@@ -85,6 +85,15 @@ const envAllowAll = () => {
   return v === '1' || v === 'true'
 }
 
+// Gerbang adopsi Hermes (H9): jalur headless dipakai telegram-service HANYA
+// bila diminta eksplisit. Default OFF -> jalur renderer lama tetap satu-satunya
+// pemroses pesan, jadi perilaku tak berubah (parity-first, lihat M0/B-6).
+// Nilai tak dikenal = OFF (jangan gagal karena env kotor).
+export const resolveHeadlessTelegramEnabled = (env = process.env) => {
+  const v = String(env?.ABELINK_TELEGRAM_HEADLESS ?? '').toLowerCase()
+  return v === '1' || v === 'true'
+}
+
 export const createTelegramGateway = (opts = {}) => {
   const {
     tgAdminIds = '',

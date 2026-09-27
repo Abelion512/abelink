@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
+import { MAX_SESSION_CHARS } from '../api/ai/sessionCompactor'
 
-const MAX_CHARS = 525000
+const MAX_CHARS = MAX_SESSION_CHARS
 
 const dispatchTracker = (sessionId, currentChars, lastCompactedAt = null) => {
   window.dispatchEvent(

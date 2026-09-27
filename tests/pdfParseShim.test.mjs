@@ -33,4 +33,10 @@ describe('pdf-parse-shim (regresi: default v2 bukan fungsi)', () => {
     const text = await extractPdfText(tinyPdf('Halo Abelink'))
     expect(text).toContain('Halo Abelink')
   }, 15000)
+
+  it('PDF rusak melempar pesan ramah, bukan "Invalid PDF structure"', async () => {
+    await expect(extractPdfText(Buffer.from('not a pdf at all'))).rejects.toThrow(
+      /rusak atau bukan PDF yang valid/
+    )
+  }, 15000)
 })

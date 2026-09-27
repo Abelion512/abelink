@@ -17,6 +17,11 @@ import Dexie from 'dexie'
 
 export const TRADING_DB_NAME = 'abelink-trading'
 
+if (typeof indexedDB !== 'undefined' && (!Dexie.dependencies?.indexedDB || !Dexie.dependencies?.IDBKeyRange)) {
+  Dexie.dependencies.indexedDB = indexedDB
+  if (typeof IDBKeyRange !== 'undefined') Dexie.dependencies.IDBKeyRange = IDBKeyRange
+}
+
 export const tradingDb = new Dexie(TRADING_DB_NAME)
 
 tradingDb.version(1).stores({

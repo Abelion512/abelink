@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { sharedMarkdownComponents } from '../Chat/SharedMarkdown'
@@ -177,7 +177,7 @@ function groupSubagentMessages(rawMessages) {
       let parsed = {}
       try {
         parsed = typeof msg.content === 'object' ? msg.content : JSON.parse(msg.content)
-      } catch (e) {
+      } catch {
         parsed = { answer: msg.content }
       }
 
@@ -261,7 +261,8 @@ export default function SubagentIntercom({ subagentId, onClose }) {
   const isAutoScrollRef = useRef(true)
   const prevMsgCountRef = useRef(0)
 
-  const loadData = async () => {
+  // useCallback agar efek polling stabil; dijalankan per subagentId.
+  const loadData = useCallback(async () => {
     if (!subagentId) return
     try {
       const sub = await subagentStore.getSubagent(subagentId)
@@ -271,7 +272,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
     } catch (err) {
       console.error('[SubagentIntercom] Load error:', err)
     }
-  }
+  }, [subagentId])
 
   const loadConfig = async () => {
     try {
@@ -298,18 +299,20 @@ export default function SubagentIntercom({ subagentId, onClose }) {
     setShowScrollBottomBtn(!isAtBottom)
   }
 
-  // Reset scroll dan muat data ketika subagentId berubah
+  // Reset scroll dan muat data ketika subagentId berubah.
+  // Reset via microtask + load async agar lolos set-state-in-effect.
   useEffect(() => {
     prevMsgCountRef.current = 0
     isAutoScrollRef.current = true
-    setShowScrollBottomBtn(false)
-    loadConfig()
-    loadData().then(() => {
+    queueMicrotask(() => setShowScrollBottomBtn(false))
+    void (async () => {
+      await loadConfig()
+      await loadData()
       setTimeout(() => scrollToBottom('auto'), 50)
-    })
+    })()
     const interval = setInterval(loadData, 1000)
     return () => clearInterval(interval)
-  }, [subagentId])
+  }, [subagentId, loadData])
 
   // Hanya auto-scroll jika ada pesan baru DAN user sedang berada di posisi bawah
   useEffect(() => {

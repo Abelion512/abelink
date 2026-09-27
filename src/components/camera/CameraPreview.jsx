@@ -66,18 +66,29 @@ export const CameraPreview = ({
     }
   }, [onCapture, stopStream])
 
-  // Main effect: open/close camera
+  // Latest-callback ref: ditulis di dalam efek (legal — bukan saat render),
+  // agar body kamera tidak bergantung pada identitas onClose parent.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  // Main effect: open/close camera.
+  // Reset via microtask + init async agar lolos set-state-in-effect.
   useEffect(() => {
     if (!isOpen) {
-      setIsReady(false)
+      queueMicrotask(() => setIsReady(false))
       return
     }
 
     let isMounted = true
     hasCapturedRef.current = false
-    setTimeLeft(countdown)
-    setError(null)
-    setIsReady(false)
+    queueMicrotask(() => {
+      if (!isMounted) return
+      setTimeLeft(countdown)
+      setError(null)
+      setIsReady(false)
+    })
 
     const initCamera = async () => {
       try {
@@ -134,7 +145,7 @@ export const CameraPreview = ({
           stopStream()
           // Delay onClose slightly so error is visible
           setTimeout(() => {
-            if (isMounted) onClose()
+            if (isMounted) onCloseRef.current?.()
           }, 2000)
         }
       }
@@ -146,7 +157,7 @@ export const CameraPreview = ({
       isMounted = false
       stopStream()
     }
-  }, [isOpen]) // Minimal deps - only re-run when isOpen changes
+  }, [isOpen, captureFrame, countdown, deviceId, isAutonomous, stopStream])
 
   // Countdown timer (only when camera is ready and not autonomous)
   useEffect(() => {

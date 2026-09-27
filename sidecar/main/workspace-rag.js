@@ -290,7 +290,7 @@ export function queryCodebase(workspaceRoot, queryText, topK = 4) {
     // Tokenize query words
     const queryTokens = queryText
       .toLowerCase()
-      .replace(/[^a-zA-Z0-9_\-\.\/]/g, ' ')
+      .replace(/[^a-zA-Z0-9_\-./]/g, ' ')
       .split(/\s+/)
       .filter((w) => w.length > 2)
 

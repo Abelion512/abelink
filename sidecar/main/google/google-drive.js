@@ -1,5 +1,4 @@
-import { google } from 'googleapis'
-import { getAuthClient } from './google-service.js'
+import { getAuthClient, getGoogle } from './google-service.js'
 
 /**
  * Helper to initialize the Drive API.
@@ -7,6 +6,7 @@ import { getAuthClient } from './google-service.js'
 export async function getDriveApi(clientId, clientSecret) {
   const auth = await getAuthClient(clientId, clientSecret)
   if (!auth) throw new Error('Not connected to Google Workspace.')
+  const google = await getGoogle()
   return google.drive({ version: 'v3', auth })
 }
 

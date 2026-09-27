@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { getAllChatArchives, getAllMemory, getAllDocumentsMeta, getDocumentChunk, deleteMemory, deleteChatArchive } from '../../api/db'
 import { CheckCircle2, Clock, GitMerge, Trash2, RefreshCw, Loader2 } from 'lucide-react'
 import { MobiusLoader } from './MobiusLoader'
@@ -52,7 +52,7 @@ function useGraphChildren(graphData) {
   }, [graphData])
 }
 
-function LiteGraphView({ graphData, setSelectedNode, totalCounts }) {
+function LiteGraphView({ graphData, setSelectedNode: _setSelectedNode, totalCounts }) {
   const childrenByRoot = useGraphChildren(graphData)
   const totalItems = graphData?.nodes?.length || 0
   const grandTotal = (totalCounts?.archives || 0) + (totalCounts?.memories || 0) + (totalCounts?.documents || 0)
@@ -218,7 +218,9 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
-      loadMemories();
+      void (async () => {
+        await loadMemories();
+      })()
     }
   }, [isOpen]);
 
@@ -377,7 +379,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
             <span className="text-xs opacity-50">{selectedNode.date}</span>
           </div>
           <p className="text-sm opacity-90 leading-relaxed font-mono mb-4">
-            "{selectedNode.fullText}"
+            &ldquo;{selectedNode.fullText}&rdquo;
           </p>
 
           {(selectedNode.typeLabel === 'Explicit Memory' || selectedNode.typeLabel === 'Chat Archive') && (
