@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-27T09:32:26.841Z",
+  "generatedAt": "2026-09-27T11:28:40.130Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
       "date": "27 September 2026",
-      "summary": "76 fitur baru, 32 perbaikan dan 76 pembaruan dokumentasi.",
+      "summary": "76 fitur baru, 34 perbaikan dan 79 pembaruan dokumentasi.",
       "sections": {
         "features": [
           {
@@ -238,6 +238,9 @@
         ],
         "fixes": [
           {
+            "msg": "Samakan bun ke 1.4.2"
+          },
+          {
             "msg": "Anti-latch bridge lifecycle + resume self-heal 401"
           },
           {
@@ -281,6 +284,9 @@
           },
           {
             "msg": "Restore full file after partial-fetch edit"
+          },
+          {
+            "msg": "Upgrade @huggingface/transformers to 4.3.0 to pin sharp 0.35.4"
           },
           {
             "msg": "Remove stray brace from adoptOrphanTab edit"
@@ -336,6 +342,9 @@
         ],
         "security": [],
         "docs": [
+          {
+            "msg": "Lazy-load googleapis dan telegraf untuk pangkas startup"
+          },
           {
             "msg": "Detach identitas mazees/mark-agent"
           },
@@ -434,6 +443,12 @@
           },
           {
             "msg": "Cover grounded trajectory learning"
+          },
+          {
+            "msg": "Lazy-load googleapis and telegraf to reduce startup overhead"
+          },
+          {
+            "msg": "Separate pre-existing budget/wallet failures into known-issues suite"
           },
           {
             "msg": "Resolve 16 konflik -> apple-design + cleanup intact"
