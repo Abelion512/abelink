@@ -223,3 +223,7 @@ extension/tmp-*
 /tasks/
 /tests/stability/
 
+
+# Local secrets & external checkouts (never commit)
+mcp.json
+/opencode/
