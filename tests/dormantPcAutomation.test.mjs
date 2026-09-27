@@ -58,7 +58,8 @@ describe('pc_automation dorman (keputusan owner 2026-09-27)', () => {
     expect(UNIFIED_TOOL_CATALOG.get('os-open').group).toBe('core')
   })
 
-  it('plumbing os-control tetap terdaftar (teardown/overlay tidak pecah)', async () => {
+  // Timeout zamanikan: baca file + import chain di worker sibuk bisa >5s.
+  it('plumbing os-control tetap terdaftar (teardown/overlay tidak pecah)', { timeout: 15000 }, async () => {
     for (const t of ['os-control-open', 'os-control-close']) {
       expect(UNIFIED_TOOL_CATALOG.get(t)).toBeTruthy()
     }
