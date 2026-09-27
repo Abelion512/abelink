@@ -33,7 +33,18 @@ export const GROUP_TOOLS_DEFINITION = {
       'browser-close': 'Menutup browser fisik.'
     }
   },
+  // DORMAN (keputusan owner 2026-09-27, anti over-engineering): group
+  // pc_automation TIDAK direkrut ke prompt planner/sub-agent. Data harness
+  // (prod+dev, 1380 tool call): surface visual os-read/click/type = 0 call;
+  // os-* yang hidup (os-control plumbing, os-open core) tidak tergantung
+  // group ini. Mesin tetap LIVE dan dapat diaktifkan lagi dengan
+  // mengembalikan flag di bawah — tanpa hapus kode, tanpa risiko
+  // emergency-stop. Debt adaptasi Linux yang nyata: Wayland (semua visual
+  // path X11-only) — backlog, dikerjakan hanya bila group diaktifkan.
   pc_automation: {
+    dormant: true,
+    dormantReason:
+      'Otomasi PC visual (os-read/click/type) belum pernah dipakai agen secara nyata (0 call di harness prod+dev); diaktifkan kembali via Capability bila ada kebutuhan nyata. Jalur X11-only; Wayland = backlog adaptasi.',
     description:
       'Tool untuk <inter></inter>aksi fisik dengan desktop OS Linux (X11). [SPEEDRUNNER BATCH MODE]: Kamu BISA mengeksekusi BATCH ACTIONS (mengirim ARRAY aksi) dalam 1 giliran untuk menghindari loading lama. Contoh: [{"tool":"os-click","query":"5"}, {"tool":"os-delay","query":"1000"}, {"tool":"os-type","query":"Teks"}]. Gunakan os-click secara bebas, tetapi KELOMPOKKAN aksimu ke dalam array jika urutannya sudah jelas, jangan satu per satu!',
     tools: {
@@ -264,6 +275,11 @@ export async function loadGroupToolsText(query) {
   if (!name) return null
   const groups = await group_tools()
   const resolved = await resolveReadToolsQuery(name, { customGroups: groups })
+  if (resolved?.isDormant) {
+    // Grup dorman (mis. pc_automation): jawab JUJUR, bukan miss senyap —
+    // agen tahu grupnya ada, kenapa dorman, dan bagaimana keadaannya.
+    return resolved.message
+  }
   if (!resolved || !resolved.success) {
     return null
   }
