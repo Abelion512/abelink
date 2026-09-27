@@ -1,12 +1,15 @@
 {
-  "generatedAt": "2026-09-23T08:22:18.983Z",
+  "generatedAt": "2026-09-27T07:41:35.041Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
-      "date": "23 September 2026",
-      "summary": "71 fitur baru, 28 perbaikan dan 59 pembaruan dokumentasi.",
+      "date": "27 September 2026",
+      "summary": "72 fitur baru, 31 perbaikan dan 69 pembaruan dokumentasi.",
       "sections": {
         "features": [
+          {
+            "msg": "ADR-001 divergensi loop + paritas kontrak; flake ts monotonik; sweep"
+          },
           {
             "msg": "Jarvis slice 1-7 archPolicy tunggal + bench hormat policy"
           },
@@ -223,6 +226,15 @@
         ],
         "fixes": [
           {
+            "msg": "Anti-latch bridge lifecycle + resume self-heal 401"
+          },
+          {
+            "msg": "Anti-latch bridge lifecycle + resume self-heal 401"
+          },
+          {
+            "msg": "Bukti verifier terlihat di headless + semantik turn per run + e2e hermetik"
+          },
+          {
             "msg": "Selaraskan approval dengan Auto Mode f86b17b"
           },
           {
@@ -309,6 +321,36 @@
         ],
         "security": [],
         "docs": [
+          {
+            "msg": "Bukti e2e spawn -> tool nyata -> wait COMPLETE"
+          },
+          {
+            "msg": "Session log long-horizon inspect--verify-e2e"
+          },
+          {
+            "msg": "Trajectory headless + tool hooks H5 di cli/core"
+          },
+          {
+            "msg": "Skrip pengganti aset ikon dari satu sumber"
+          },
+          {
+            "msg": "Ekstrak cli/core supaya cli/tui tidak mengimpor bin/"
+          },
+          {
+            "msg": "Beri tipe cli/tui sampai nol error tsc"
+          },
+          {
+            "msg": "Toolchain TypeScript dengan gate zona bersih"
+          },
+          {
+            "msg": "Bersihkan blocker migrasi JS->TS + adopsi Hermes"
+          },
+          {
+            "msg": "Buat uji /models deterministik, bukan bergantung 9Router hidup"
+          },
+          {
+            "msg": "Snapshot WIP TUI v2 + CLI engine + rencana migrasi JS->TS/Hermes"
+          },
           {
             "msg": "Riset Claude frontier + session logs TUI/ext/CLI"
           },
