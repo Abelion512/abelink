@@ -142,8 +142,12 @@ jobs:
       - name: Build sidecar (single-file)
         run: bun run build:sidecar
       - name: Smoke test sidecar binary
+        # Dijalankan DARI dist-sidecar (cwd netral): binary hasil `bun build
+        # --compile` masih membaca bunfig.toml dari cwd, dan preload TUI
+        # (@opentui/solid/preload) di root tidak tersedia untuk binary compile.
+        # Layout produksi juga cwd netral — smoke ini setia pada kondisi runtime.
         run: |
-          printf '%s\n' '{"id":1,"action":"ping","payload":[]}' | timeout 20 ./dist-sidecar/abelink-engine | grep -q engine:ready
+          printf '%s\n' '{"id":1,"action":"ping","payload":[]}' | ( cd dist-sidecar && timeout 20 ./abelink-engine ) | grep -q engine:ready
       - run: bun tauri build
       - uses: actions/upload-artifact@v4
         with:

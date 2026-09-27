@@ -346,7 +346,7 @@ async function runSlash(state, cmd, deps) {
     }
     case 'commands': {
       // Mode pipe/teks (tanpa overlay): tampilkan daftar perintah sebagai teks.
-      const { TUI_COMMANDS } = await import('./theme.mjs')
+      const { TUI_COMMANDS } = await import('./theme.ts')
       pushMessage(state, 'info', TUI_COMMANDS.map((c) => `${c.name}  —  ${c.desc}`).join('\n'))
       return { kind: 'message', role: 'info' }
     }

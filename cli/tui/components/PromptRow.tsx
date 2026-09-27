@@ -13,7 +13,7 @@ import {
   applyCompletion,
   moveCompletionIndex,
   PROMPT_KEY_BINDINGS,
-} from '../theme.mjs'
+} from '../theme.ts'
 import type { PromptCompletion, PromptRowProps, TextareaHandle, TuiKeyEvent } from '../types.ts'
 
 export { PROMPT_KEY_BINDINGS }
