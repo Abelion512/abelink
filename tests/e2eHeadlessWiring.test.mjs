@@ -88,7 +88,10 @@ describe('e2e wiring defaultRunTurn -> hooks -> harness writer', () => {
   // Timeout eksplisit: latensi integrasi (planning + Dexie fake-indexeddb)
   // ~4.5-6s per turn; timeout default 5s memotong di tengah dan loop zombie
   // mengembalikan __ABELINK_AI_FETCH__ saat test berikutnya jalan (interferensi).
-  const E2E_TIMEOUT = 30000
+  // 60s: di bawah beban suite paralel penuh, durasi per test pernah >30s
+  // (flake timeout saat verify merge PR #62) — zamanikan agar margin
+  // realistis; bukan menyembunyikan regression (fail tetap fail).
+  const E2E_TIMEOUT = 60000
 
   it('turn dengan tool: audit JSONL 3 kinds + sesi dipatch outcome', { timeout: E2E_TIMEOUT }, async () => {
     const h = mkHarnessDeps()
